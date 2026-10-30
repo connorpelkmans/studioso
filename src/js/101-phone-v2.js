@@ -231,13 +231,14 @@
     root.classList.toggle("ph-lock", on);
     if (!on) { if (view && view.style.height) view.style.height = ""; return; }
     if (scrollY) scrollTo(0, 0);
-    const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
+    const vv = window.visualViewport, vh = typeof window.sbVisibleH === "function" ? window.sbVisibleH() : vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
     const nr = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect() : null, navTop = nr && nr.height ? nr.top : innerHeight;
     const bottom = Math.min(navTop - 12, vh - 8), top = view.getBoundingClientRect().top;
     const log = document.getElementById("cptLog"), pin = !!log && root.classList.contains("cpt-typing") && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     view.style.height = Math.max(200, Math.floor(bottom - top)) + "px";
     if (pin) log.scrollTop = log.scrollHeight;
   }
+  addEventListener("sb-kb-cover", fitChat);
   if (window.visualViewport) { visualViewport.addEventListener("resize", fitChat); visualViewport.addEventListener("scroll", () => { if (root().classList.contains("ph-lock") && scrollY) scrollTo(0, 0); }); }
   const root = () => document.documentElement;
   // Typing in the companion chat: the profile card folds away (CSS, html.cpt-typing) and comes back when you're done.

@@ -63,6 +63,12 @@ async function open(b, view){
       ok(s.tH >= 100 && s.top >= 150, "it's a compact sheet resting on the keyboard, the board still showing above it (top " + s.top + "px, text " + s.tH + "px)");
       await page.evaluate(() => document.getElementById("noteText").blur()); await kb(false); await page.waitForTimeout(300);
       ok(await page.evaluate(() => { const c = document.querySelector(".note.editing .note-colors"); return !!c && getComputedStyle(c).display !== "none"; }), "keyboard down: the colours and other options are back");
+      // Done: the editor slides back down instead of vanishing, and nothing is left behind
+      await page.evaluate(() => { window.__g = []; const t0 = performance.now(), look = () => { const g = document.querySelector(".n-ghost .note"); window.__g.push(g ? Math.round(g.getBoundingClientRect().top) : null); if (performance.now() - t0 < 600) requestAnimationFrame(look); }; requestAnimationFrame(look); });
+      await page.tap('.note.editing [data-act="note-done"]'); await page.waitForTimeout(700);
+      const g = await page.evaluate(() => window.__g.filter(x => x !== null));
+      ok(g.length >= 4 && g[g.length - 1] > g[0] + 150, "closing a note: the editor slides back down: " + g.join(" "));
+      ok(await page.evaluate(() => !document.querySelector(".n-ghost, .note.editing")), "then it's gone, and the note is closed");
       ok(!errs.length, "notes: no page errors " + errs.join(" | "));
       await ctx.close(); }
     // No keyboard plugin (Safari, or an app build without it): iOS keeps the page's size, shows the keyboard over it and

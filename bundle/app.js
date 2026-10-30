@@ -14271,7 +14271,7 @@ function noteSheetUp(){
   let bg = $(".n-sheet-bg");
   if (sheet && !bg) { bg = document.createElement("div"); bg.className = "n-sheet-bg"; bg.setAttribute("aria-hidden", "true"); if (bg.showPopover) bg.setAttribute("popover", "manual"); document.body.appendChild(bg); }
   if (bg) { bg.classList.toggle("on", sheet); if (bg.showPopover) try { if (sheet && !bg.matches(":popover-open")) bg.showPopover(); else if (!sheet && bg.matches(":popover-open")) bg.hidePopover(); } catch (e) {} }
-  if (!sheet) { noteSheetId = null; return; }
+  if (!sheet) { noteSheetId = null; noteSheetAway(); return; }
   el.classList.add("n-sheet");
   // slides up once when a note opens, not again on every redraw while it's being edited
   if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); }, 500); }
@@ -14282,7 +14282,28 @@ function noteSheetUp(){
     if (had && document.activeElement !== t) try { t.focus({preventScroll: true}); } catch (e) {}
     noteToastUp(true);
   }
-  noteKbFit();
+  noteKbFit(); noteSheetKeep(el);
+}
+// Closing a note on a phone: the editor slides back down like the other sheets, instead of vanishing (a still copy does the
+// sliding; the note itself is already saved and closed)
+let noteSheetLast = null;
+function noteSheetKeep(el){ try { const r = el.getBoundingClientRect(); if (r.height > 40) noteSheetLast = {el, r}; } catch (e) {} }
+function noteSheetAway(){
+  const L = noteSheetLast; noteSheetLast = null;
+  if (!L || L.el.isConnected || !document.body.showPopover) return;
+  const still = document.documentElement.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if (still || L.r.top >= innerHeight) return;
+  const host = document.createElement("div"); host.className = "n-ghost sm-skip"; host.setAttribute("aria-hidden", "true"); host.inert = true; host.setAttribute("popover", "manual");
+  host.innerHTML = `<div class="n-ghost-dim"></div>`;
+  const c = L.el.cloneNode(true); c.removeAttribute("popover"); c.querySelectorAll("[id]").forEach(e => e.removeAttribute("id")); c.classList.remove("n-enter");
+  const t = L.el.querySelector(".note-text"), t2 = c.querySelector(".note-text"); if (t && t2) t2.value = t.value;
+  [["inset", `${L.r.top}px auto auto ${L.r.left}px`], ["width", L.r.width + "px"], ["height", L.r.height + "px"], ["max-height", "none"], ["animation", "none"]].forEach(([k, v]) => c.style.setProperty(k, v, "important"));
+  host.appendChild(c); document.body.appendChild(host);
+  try { host.showPopover(); } catch (e) {}
+  const opts = {duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+  const a = c.animate([{translate: "0 0"}, {translate: `0 ${Math.max(L.r.height, innerHeight - L.r.top) + 20}px`}], opts);
+  host.firstChild.animate([{opacity: 1}, {opacity: 0}], opts);
+  const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 700);
 }
 // A toast shows above the sheet
 function noteToastUp(again){
@@ -14297,10 +14318,15 @@ function noteToastUp(again){
 { const t = document.getElementById("toast"); if (t) new MutationObserver(() => noteToastUp(false)).observe(t, {attributes: true, attributeFilter: ["class"]}); }
 function noteKbFit(){
   const el = $(".note.n-sheet"), vv = window.visualViewport; if (!el || !vv) return;
-  el.style.setProperty("--kb", Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) + "px");
-  el.style.setProperty("--vvh", Math.round(vv.height) + "px");   // what's visible: the sheet is never taller, so it never runs off the top
+  // the iPhone app: the bridge says how much of the app the keyboard covers while the app's frame catches up
+  const nat = document.documentElement.classList.contains("kb-native") && typeof window.sbVisibleH === "function";
+  const vis = nat ? window.sbVisibleH() : vv.height, kb = nat ? innerHeight - vis : Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+  el.style.setProperty("--kb", Math.max(0, Math.round(kb)) + "px");
+  el.style.setProperty("--vvh", Math.round(vis) + "px");   // what's visible: the sheet is never taller, so it never runs off the top
+  requestAnimationFrame(() => { if (el.isConnected) noteSheetKeep(el); });
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", noteKbFit); visualViewport.addEventListener("scroll", noteKbFit); }
+addEventListener("sb-kb-cover", noteKbFit);
 function noteScrollIn(){
   const el = $(".note.editing"), sc = $("#nbScroll");
   if (!el || !sc) { noteShown = null; return; }
@@ -77966,7 +77992,7 @@ var SBWB = null;
     const vv = window.visualViewport, f = frame.getBoundingClientRect(), r = ED.ta.getBoundingClientRect();
     // where the box would be with no lift (the lift may be mid-glide, so read its current value)
     const now = -(parseFloat((getComputedStyle(front).translate || "").split(" ")[1]) || 0), top0 = r.top + now, bot0 = r.bottom + now;
-    const visBottom = vv ? vv.offsetTop + vv.height : innerHeight;
+    const visBottom = typeof window.sbVisibleH === "function" ? window.sbVisibleH() : vv ? vv.offsetTop + vv.height : innerHeight;
     const coming = predict && !kbUp() ? (kbGuess || Math.round((scrH || innerHeight) * 0.42)) : 0;
     const bottom = Math.min(f.bottom, visBottom - coming) - 14;
     const want = Math.max(0, Math.min(bot0 - bottom, top0 - f.top - 10));
@@ -77979,7 +78005,7 @@ var SBWB = null;
     if (!ED && !kbUp()) { clearTimeout(settleT); settleT = setTimeout(() => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE) && !ED && !kbUp()) { sizeHost(h); resize(); } }, 350); }
   }
   if (window.visualViewport) { visualViewport.addEventListener("resize", liftCheck); visualViewport.addEventListener("scroll", liftCheck); }
-  addEventListener("resize", liftCheck);
+  addEventListener("resize", liftCheck); addEventListener("sb-kb-cover", liftCheck);
   addEventListener("scroll", () => { if (ED && TOUCH() && ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy); }, {passive: true});
   new MutationObserver(liftCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]});
   function editText(it, isNew, selectAll){
@@ -82844,18 +82870,29 @@ const AUTOPILOT = (() => {
   const rawSet = Storage.prototype.setItem, rawRm = Storage.prototype.removeItem, rawGet = Storage.prototype.getItem;
 
   /* Swipe between days on the Schedule (phone layout): the day follows your finger with the next one sliding in beside it,
-     like a calendar app's day view; let go past a third of the way (or flick) and it settles on that day, else springs back */
+     like a calendar app's day view. While swiping, a clipped window over the day's cell holds still copies of the two days
+     side by side and only that strip moves; the real schedule underneath isn't touched until the swipe settles, so nothing
+     in it can jump. Past a third of the way (or a flick) it settles on that day, else it springs back. */
   (() => {
     const phoneSch = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
     const still = () => document.documentElement.dataset.motion === "static" || !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
     const EASE = "cubic-bezier(.2,.8,.2,1)";
     let S = null, eatClick = 0;
+    const strip = el => { const c = el.cloneNode(true); c.removeAttribute("id"); c.querySelectorAll("[id]").forEach(e => e.removeAttribute("id")); c.classList.remove("sel"); return c; };
+    // one day as a page: its header over its column, as drawn
+    function page(head, col, shift){
+      const p = document.createElement("div"); p.className = "sch-page";
+      const h = strip(head), c = strip(col);
+      h.style.height = S.hh + "px"; c.style.height = S.ch + "px";
+      if (shift) c.querySelectorAll(".sch-b, .sch-now").forEach(e => { e.style.top = (parseFloat(e.style.top) || 0) + shift + "px"; });
+      p.append(h, c); return p;
+    }
     // The day `dir` away: in this week it's already drawn (hidden); across the week it's drawn off to the side
     function side(dir){
       const grid = S.grid, pills = [...document.querySelectorAll(".sch-pills button")];
       const cur = Math.max(0, pills.findIndex(b => b.getAttribute("aria-pressed") === "true")), n = cur + dir;
       const heads = [...grid.querySelectorAll(":scope > .sch-head")], cols = [...grid.querySelectorAll(":scope > .sch-col")];
-      if (n >= 0 && n < pills.length && heads[n] && cols[n]) return {head: heads[n], col: cols[n], own: false, commit: () => { ui.schDay = n; }};
+      if (n >= 0 && n < pills.length && heads[n] && cols[n]) return {pg: page(heads[n], cols[n], 0), commit: () => { ui.schDay = n; }};
       const wk = addDays(ui.schWeek || mondayOf(todayISO()), dir * 7), keep = [ui.schWeek, ui.schDay, schNoticeHtml];
       ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1;
       let html = ""; try { html = viewSchedule(); } catch (e) {}
@@ -82865,34 +82902,37 @@ const AUTOPILOT = (() => {
       if (!h || !c) return null;
       // that week may start its hours elsewhere: line its events up with the hours shown here
       const pph = Number(grid.dataset.pph) || 56, shift = ((Number(g2 && g2.dataset.h0) || 0) - (Number(grid.dataset.h0) || 0)) * pph;
-      if (shift) c.querySelectorAll(".sch-b, .sch-now").forEach(e => { e.style.top = (parseFloat(e.style.top) || 0) + shift + "px"; });
-      c.style.height = S.col.style.height;
-      grid.append(h, c);
-      return {head: h, col: c, own: true, commit: () => { ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1; }};
+      return {pg: page(h, c, shift), commit: () => { ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1; }};
     }
     function peek(dir){
       if (S.dir === dir && S.nb) return S.nb;
-      unpeek();
+      if (S.nb) S.nb.pg.remove();
       S.dir = dir; S.nb = side(dir);
-      if (S.nb) { S.nb.head.classList.add("sch-peek"); S.nb.col.classList.add("sch-peek"); }
+      if (S.nb) { S.nb.pg.style.left = dir * S.w + "px"; S.win.appendChild(S.nb.pg); }
       return S.nb;
     }
-    function unpeek(){
-      const nb = S && S.nb; if (!nb) return;
-      [nb.head, nb.col].forEach(el => { el.classList.remove("sch-peek"); el.style.transform = el.style.transition = el.style.clipPath = ""; if (nb.own) el.remove(); });
-      S.nb = null; S.dir = 0;
+    function open(){
+      // the window over the day's cell, with the current day copied into it; the real day hides underneath
+      const wrap = S.grid.closest(".sch-wrap"), wr = wrap.getBoundingClientRect(), hr = S.head.getBoundingClientRect(), cr = S.col.getBoundingClientRect();
+      S.hh = hr.height; S.ch = cr.height;
+      const win = document.createElement("div"); win.className = "sch-swipe sm-skip"; win.setAttribute("aria-hidden", "true");
+      Object.assign(win.style, {left: (hr.left - wr.left - wrap.clientLeft) + "px", top: (hr.top - wr.top - wrap.clientTop + wrap.scrollTop) + "px", width: S.w + "px", height: (cr.bottom - hr.top) + "px"});
+      S.track = win; S.win = win;
+      S.cur = page(S.head, S.col, 0); S.cur.style.left = "0px"; win.appendChild(S.cur);
+      if (getComputedStyle(wrap).position === "static") wrap.style.position = "relative";
+      wrap.appendChild(win);
+      S.grid.classList.add("sch-swiping");
     }
-    // each slides by t, trimmed to the day's cell, so nothing passes under the hours
     function place(dx, ms){
-      const tr = ms ? `transform ${ms}ms ${EASE}, clip-path ${ms}ms ${EASE}` : "";
-      const put = (el, t) => { el.style.transition = tr; el.style.transform = `translateX(${t}px)`; el.style.clipPath = `inset(0 ${Math.max(0, t)}px 0 ${Math.max(0, -t)}px)`; };
-      [S.head, S.col].forEach(el => put(el, dx));
-      if (S.nb) [S.nb.head, S.nb.col].forEach(el => put(el, dx + S.dir * S.w));
+      const tr = ms ? `transform ${ms}ms ${EASE}` : "";
+      [S.cur, S.nb && S.nb.pg].forEach(p => { if (p) { p.style.transition = tr; p.style.transform = `translate3d(${dx}px,0,0)`; } });
     }
     function cleanup(){
       if (!S) return;
-      unpeek(); [S.head, S.col].forEach(el => { el.style.transform = el.style.transition = el.style.clipPath = ""; });
-      S.grid.classList.remove("sch-swiping"); if (S.lock === "x") renderBlocked = false; S = null;
+      if (S.win) S.win.remove();
+      if (S.grid) S.grid.classList.remove("sch-swiping");
+      if (S.lock === "x") renderBlocked = false;
+      S = null;
     }
     document.addEventListener("touchstart", e => {
       if (S && S.settling) return;
@@ -82902,7 +82942,7 @@ const AUTOPILOT = (() => {
       const grid = document.querySelector(".sch-wrap .sch-grid"), head = grid && grid.querySelector(":scope > .sch-head.sel"), col = grid && grid.querySelector(":scope > .sch-col.sel");
       if (!head || !col) return;
       const t = e.touches[0];
-      S = {x: t.clientX, y: t.clientY, at: performance.now(), grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null};
+      S = {x: t.clientX, y: t.clientY, grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null};
     }, {passive: true});
     document.addEventListener("touchmove", e => {
       if (!S || S.settling || e.touches.length !== 1) return;
@@ -82912,12 +82952,12 @@ const AUTOPILOT = (() => {
         if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
         S.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
         if (S.lock === "y") return;
-        S.grid.classList.add("sch-swiping");
-        renderBlocked = true;   // no redraw may swap the day out from under the finger; one runs once it settles
+        renderBlocked = true;   // no redraw while the finger is down; one runs once it settles
+        open();
       }
       if (S.lock !== "x") return;
       e.preventDefault();
-      const now = performance.now(); if (now > S.lt) { S.v = (t.clientX - S.lx) / (now - S.lt); } S.lt = now; S.lx = t.clientX;
+      const now = performance.now(); if (now > S.lt) S.v = (t.clientX - S.lx) / (now - S.lt); S.lt = now; S.lx = t.clientX;
       S.dx = dx;
       if (dx) peek(dx < 0 ? 1 : -1);
       place(S.nb ? dx : dx * 0.3, 0);
@@ -82928,17 +82968,19 @@ const AUTOPILOT = (() => {
       eatClick = Date.now();
       if (performance.now() - S.lt > 90) S.v = 0;   // the finger stopped before lifting: not a flick
       const dir = S.dir, go = S.nb && (Math.abs(S.dx) > S.w * 0.33 || (Math.abs(S.v) > 0.45 && Math.sign(S.v) === -dir));
-      const ms = still() ? 0 : Math.round(Math.max(160, Math.min(320, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.6, Math.abs(S.v)))));
+      const ms = still() ? 0 : Math.round(Math.max(170, Math.min(320, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.6, Math.abs(S.v)))));
       S.settling = true;
       const finish = () => {
         if (!S) return;
         if (go) {
-          const commit = S.nb.commit, h0 = S.head.offsetHeight; cleanup(); commit(); render();
+          // the new day is drawn underneath first, then the window lifts off: no frame without a day in it
+          const commit = S.nb.commit, win = S.win, h0 = S.hh;
+          S.win = null; cleanup(); commit(); render();
+          if (win) { requestAnimationFrame(() => win.remove()); }
           // the new day's header can be taller or shorter (more due items): the hours below ease into place instead of jumping
-          const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? nh.offsetHeight - h0 : 0;
+          const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? Math.round(nh.getBoundingClientRect().height - h0) : 0;
           if (d && !still() && g.animate) g.querySelectorAll(":scope > .sch-gutter, :scope > .sch-col.sel").forEach(el => el.animate([{transform: `translateY(${-d}px)`}, {transform: "none"}], {duration: 220, easing: EASE}));
-        }
-        else cleanup();
+        } else cleanup();
       };
       if (!ms) { finish(); return; }
       place(go ? -dir * S.w : 0, ms);
@@ -83362,13 +83404,14 @@ const AUTOPILOT = (() => {
     root.classList.toggle("ph-lock", on);
     if (!on) { if (view && view.style.height) view.style.height = ""; return; }
     if (scrollY) scrollTo(0, 0);
-    const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
+    const vv = window.visualViewport, vh = typeof window.sbVisibleH === "function" ? window.sbVisibleH() : vv ? vv.height : innerHeight, nav = document.querySelector("nav.tabs");
     const nr = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect() : null, navTop = nr && nr.height ? nr.top : innerHeight;
     const bottom = Math.min(navTop - 12, vh - 8), top = view.getBoundingClientRect().top;
     const log = document.getElementById("cptLog"), pin = !!log && root.classList.contains("cpt-typing") && log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     view.style.height = Math.max(200, Math.floor(bottom - top)) + "px";
     if (pin) log.scrollTop = log.scrollHeight;
   }
+  addEventListener("sb-kb-cover", fitChat);
   if (window.visualViewport) { visualViewport.addEventListener("resize", fitChat); visualViewport.addEventListener("scroll", () => { if (root().classList.contains("ph-lock") && scrollY) scrollTo(0, 0); }); }
   const root = () => document.documentElement;
   // Typing in the companion chat: the profile card folds away (CSS, html.cpt-typing) and comes back when you're done.

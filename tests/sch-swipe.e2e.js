@@ -26,7 +26,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const g = document.querySelector(".sch-gutter"), top0 = Math.round(col.getBoundingClientRect().top), gb0 = getComputedStyle(g).backgroundColor;
       fire("touchstart", from); let mid = null;
       for (let i = 1; i <= steps; i++) { await new Promise(r => setTimeout(r, 16)); fire("touchmove", from + (to - from) * i / steps);
-        if (i === Math.round(steps * 0.7)) { const p = document.querySelector(".sch-col.sch-peek"), s = document.querySelector(".sch-col.sel"); mid = {peek: p ? Math.round(p.getBoundingClientRect().left) : null, cur: Math.round(s.getBoundingClientRect().left), date: p ? p.dataset.date : null, topMoved: Math.round(s.getBoundingClientRect().top) - top0, gutterSame: getComputedStyle(g).backgroundColor === gb0, clipped: getComputedStyle(s).clipPath !== "none"}; } }
+        if (i === Math.round(steps * 0.7)) { const win = document.querySelector(".sch-swipe"), pages = win ? [...win.querySelectorAll(".sch-page")] : [], cur = pages[0], nb = pages[1], real = document.querySelector(".sch-grid > .sch-col.sel");
+          mid = {peek: nb ? Math.round(nb.getBoundingClientRect().left) : null, cur: cur ? Math.round(cur.getBoundingClientRect().left) : null, date: nb ? nb.querySelector(".sch-col").dataset.date : null, topMoved: Math.round(real.getBoundingClientRect().top) - top0, gutterSame: getComputedStyle(g).backgroundColor === gb0, clipped: !!win && getComputedStyle(win).overflow === "hidden", realStill: Math.round(real.getBoundingClientRect().left) === Math.round(r.left)}; } }
       if (opts.hold) await new Promise(r => setTimeout(r, 200));
       fire("touchend", to); return mid;
     }, [from, to, steps, opts]);
@@ -35,11 +36,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const mid = await swipe(320, 120, 12, {hold: true});
     ok(mid && mid.peek !== null && mid.cur < 40 && mid.peek > mid.cur && mid.peek < 402, "mid-swipe: the day moves with the finger and the next day is sliding in beside it: " + JSON.stringify(mid));
     ok(mid.topMoved === 0, "the day being swiped away doesn't jump, even though the next day has more due items in its header (" + mid.topMoved + "px)");
-    ok(mid.gutterSame && mid.clipped, "the hours keep their look; the sliding days are trimmed at the edge instead of passing under them");
+    ok(mid.gutterSame && mid.clipped && mid.realStill, "only a clipped strip of the two days slides; the hours and the real schedule underneath don't move");
     await page.waitForTimeout(500);
     const d1 = await day();
     ok(d1.date === mid.date && d1.date > d0.date, "let go past a third: it settles on the next day (" + d0.date + " -> " + d1.date + ")");
-    ok(await page.evaluate(() => !document.querySelector(".sch-peek, .sch-swiping")), "and nothing is left mid-slide");
+    ok(await page.evaluate(() => !document.querySelector(".sch-swipe, .sch-swiping")), "and nothing is left mid-slide");
     await swipe(300, 250, 6, {hold: true}); await page.waitForTimeout(500);
     ok((await day()).date === d1.date, "a short, slow swipe springs back to the same day");
     await swipe(120, 320, 12, {hold: true}); await page.waitForTimeout(500);

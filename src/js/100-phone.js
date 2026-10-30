@@ -5,18 +5,29 @@
   const rawSet = Storage.prototype.setItem, rawRm = Storage.prototype.removeItem, rawGet = Storage.prototype.getItem;
 
   /* Swipe between days on the Schedule (phone layout): the day follows your finger with the next one sliding in beside it,
-     like a calendar app's day view; let go past a third of the way (or flick) and it settles on that day, else springs back */
+     like a calendar app's day view. While swiping, a clipped window over the day's cell holds still copies of the two days
+     side by side and only that strip moves; the real schedule underneath isn't touched until the swipe settles, so nothing
+     in it can jump. Past a third of the way (or a flick) it settles on that day, else it springs back. */
   (() => {
     const phoneSch = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
     const still = () => document.documentElement.dataset.motion === "static" || !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
     const EASE = "cubic-bezier(.2,.8,.2,1)";
     let S = null, eatClick = 0;
+    const strip = el => { const c = el.cloneNode(true); c.removeAttribute("id"); c.querySelectorAll("[id]").forEach(e => e.removeAttribute("id")); c.classList.remove("sel"); return c; };
+    // one day as a page: its header over its column, as drawn
+    function page(head, col, shift){
+      const p = document.createElement("div"); p.className = "sch-page";
+      const h = strip(head), c = strip(col);
+      h.style.height = S.hh + "px"; c.style.height = S.ch + "px";
+      if (shift) c.querySelectorAll(".sch-b, .sch-now").forEach(e => { e.style.top = (parseFloat(e.style.top) || 0) + shift + "px"; });
+      p.append(h, c); return p;
+    }
     // The day `dir` away: in this week it's already drawn (hidden); across the week it's drawn off to the side
     function side(dir){
       const grid = S.grid, pills = [...document.querySelectorAll(".sch-pills button")];
       const cur = Math.max(0, pills.findIndex(b => b.getAttribute("aria-pressed") === "true")), n = cur + dir;
       const heads = [...grid.querySelectorAll(":scope > .sch-head")], cols = [...grid.querySelectorAll(":scope > .sch-col")];
-      if (n >= 0 && n < pills.length && heads[n] && cols[n]) return {head: heads[n], col: cols[n], own: false, commit: () => { ui.schDay = n; }};
+      if (n >= 0 && n < pills.length && heads[n] && cols[n]) return {pg: page(heads[n], cols[n], 0), commit: () => { ui.schDay = n; }};
       const wk = addDays(ui.schWeek || mondayOf(todayISO()), dir * 7), keep = [ui.schWeek, ui.schDay, schNoticeHtml];
       ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1;
       let html = ""; try { html = viewSchedule(); } catch (e) {}
@@ -26,34 +37,37 @@
       if (!h || !c) return null;
       // that week may start its hours elsewhere: line its events up with the hours shown here
       const pph = Number(grid.dataset.pph) || 56, shift = ((Number(g2 && g2.dataset.h0) || 0) - (Number(grid.dataset.h0) || 0)) * pph;
-      if (shift) c.querySelectorAll(".sch-b, .sch-now").forEach(e => { e.style.top = (parseFloat(e.style.top) || 0) + shift + "px"; });
-      c.style.height = S.col.style.height;
-      grid.append(h, c);
-      return {head: h, col: c, own: true, commit: () => { ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1; }};
+      return {pg: page(h, c, shift), commit: () => { ui.schWeek = wk; ui.schDay = dir > 0 ? 0 : -1; }};
     }
     function peek(dir){
       if (S.dir === dir && S.nb) return S.nb;
-      unpeek();
+      if (S.nb) S.nb.pg.remove();
       S.dir = dir; S.nb = side(dir);
-      if (S.nb) { S.nb.head.classList.add("sch-peek"); S.nb.col.classList.add("sch-peek"); }
+      if (S.nb) { S.nb.pg.style.left = dir * S.w + "px"; S.win.appendChild(S.nb.pg); }
       return S.nb;
     }
-    function unpeek(){
-      const nb = S && S.nb; if (!nb) return;
-      [nb.head, nb.col].forEach(el => { el.classList.remove("sch-peek"); el.style.transform = el.style.transition = el.style.clipPath = ""; if (nb.own) el.remove(); });
-      S.nb = null; S.dir = 0;
+    function open(){
+      // the window over the day's cell, with the current day copied into it; the real day hides underneath
+      const wrap = S.grid.closest(".sch-wrap"), wr = wrap.getBoundingClientRect(), hr = S.head.getBoundingClientRect(), cr = S.col.getBoundingClientRect();
+      S.hh = hr.height; S.ch = cr.height;
+      const win = document.createElement("div"); win.className = "sch-swipe sm-skip"; win.setAttribute("aria-hidden", "true");
+      Object.assign(win.style, {left: (hr.left - wr.left - wrap.clientLeft) + "px", top: (hr.top - wr.top - wrap.clientTop + wrap.scrollTop) + "px", width: S.w + "px", height: (cr.bottom - hr.top) + "px"});
+      S.track = win; S.win = win;
+      S.cur = page(S.head, S.col, 0); S.cur.style.left = "0px"; win.appendChild(S.cur);
+      if (getComputedStyle(wrap).position === "static") wrap.style.position = "relative";
+      wrap.appendChild(win);
+      S.grid.classList.add("sch-swiping");
     }
-    // each slides by t, trimmed to the day's cell, so nothing passes under the hours
     function place(dx, ms){
-      const tr = ms ? `transform ${ms}ms ${EASE}, clip-path ${ms}ms ${EASE}` : "";
-      const put = (el, t) => { el.style.transition = tr; el.style.transform = `translateX(${t}px)`; el.style.clipPath = `inset(0 ${Math.max(0, t)}px 0 ${Math.max(0, -t)}px)`; };
-      [S.head, S.col].forEach(el => put(el, dx));
-      if (S.nb) [S.nb.head, S.nb.col].forEach(el => put(el, dx + S.dir * S.w));
+      const tr = ms ? `transform ${ms}ms ${EASE}` : "";
+      [S.cur, S.nb && S.nb.pg].forEach(p => { if (p) { p.style.transition = tr; p.style.transform = `translate3d(${dx}px,0,0)`; } });
     }
     function cleanup(){
       if (!S) return;
-      unpeek(); [S.head, S.col].forEach(el => { el.style.transform = el.style.transition = el.style.clipPath = ""; });
-      S.grid.classList.remove("sch-swiping"); if (S.lock === "x") renderBlocked = false; S = null;
+      if (S.win) S.win.remove();
+      if (S.grid) S.grid.classList.remove("sch-swiping");
+      if (S.lock === "x") renderBlocked = false;
+      S = null;
     }
     document.addEventListener("touchstart", e => {
       if (S && S.settling) return;
@@ -63,7 +77,7 @@
       const grid = document.querySelector(".sch-wrap .sch-grid"), head = grid && grid.querySelector(":scope > .sch-head.sel"), col = grid && grid.querySelector(":scope > .sch-col.sel");
       if (!head || !col) return;
       const t = e.touches[0];
-      S = {x: t.clientX, y: t.clientY, at: performance.now(), grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null};
+      S = {x: t.clientX, y: t.clientY, grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null};
     }, {passive: true});
     document.addEventListener("touchmove", e => {
       if (!S || S.settling || e.touches.length !== 1) return;
@@ -73,12 +87,12 @@
         if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
         S.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
         if (S.lock === "y") return;
-        S.grid.classList.add("sch-swiping");
-        renderBlocked = true;   // no redraw may swap the day out from under the finger; one runs once it settles
+        renderBlocked = true;   // no redraw while the finger is down; one runs once it settles
+        open();
       }
       if (S.lock !== "x") return;
       e.preventDefault();
-      const now = performance.now(); if (now > S.lt) { S.v = (t.clientX - S.lx) / (now - S.lt); } S.lt = now; S.lx = t.clientX;
+      const now = performance.now(); if (now > S.lt) S.v = (t.clientX - S.lx) / (now - S.lt); S.lt = now; S.lx = t.clientX;
       S.dx = dx;
       if (dx) peek(dx < 0 ? 1 : -1);
       place(S.nb ? dx : dx * 0.3, 0);
@@ -89,17 +103,19 @@
       eatClick = Date.now();
       if (performance.now() - S.lt > 90) S.v = 0;   // the finger stopped before lifting: not a flick
       const dir = S.dir, go = S.nb && (Math.abs(S.dx) > S.w * 0.33 || (Math.abs(S.v) > 0.45 && Math.sign(S.v) === -dir));
-      const ms = still() ? 0 : Math.round(Math.max(160, Math.min(320, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.6, Math.abs(S.v)))));
+      const ms = still() ? 0 : Math.round(Math.max(170, Math.min(320, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.6, Math.abs(S.v)))));
       S.settling = true;
       const finish = () => {
         if (!S) return;
         if (go) {
-          const commit = S.nb.commit, h0 = S.head.offsetHeight; cleanup(); commit(); render();
+          // the new day is drawn underneath first, then the window lifts off: no frame without a day in it
+          const commit = S.nb.commit, win = S.win, h0 = S.hh;
+          S.win = null; cleanup(); commit(); render();
+          if (win) { requestAnimationFrame(() => win.remove()); }
           // the new day's header can be taller or shorter (more due items): the hours below ease into place instead of jumping
-          const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? nh.offsetHeight - h0 : 0;
+          const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? Math.round(nh.getBoundingClientRect().height - h0) : 0;
           if (d && !still() && g.animate) g.querySelectorAll(":scope > .sch-gutter, :scope > .sch-col.sel").forEach(el => el.animate([{transform: `translateY(${-d}px)`}, {transform: "none"}], {duration: 220, easing: EASE}));
-        }
-        else cleanup();
+        } else cleanup();
       };
       if (!ms) { finish(); return; }
       place(go ? -dir * S.w : 0, ms);

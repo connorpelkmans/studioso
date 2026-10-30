@@ -636,7 +636,7 @@ var SBWB = null;
     const vv = window.visualViewport, f = frame.getBoundingClientRect(), r = ED.ta.getBoundingClientRect();
     // where the box would be with no lift (the lift may be mid-glide, so read its current value)
     const now = -(parseFloat((getComputedStyle(front).translate || "").split(" ")[1]) || 0), top0 = r.top + now, bot0 = r.bottom + now;
-    const visBottom = vv ? vv.offsetTop + vv.height : innerHeight;
+    const visBottom = typeof window.sbVisibleH === "function" ? window.sbVisibleH() : vv ? vv.offsetTop + vv.height : innerHeight;
     const coming = predict && !kbUp() ? (kbGuess || Math.round((scrH || innerHeight) * 0.42)) : 0;
     const bottom = Math.min(f.bottom, visBottom - coming) - 14;
     const want = Math.max(0, Math.min(bot0 - bottom, top0 - f.top - 10));
@@ -649,7 +649,7 @@ var SBWB = null;
     if (!ED && !kbUp()) { clearTimeout(settleT); settleT = setTimeout(() => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE) && !ED && !kbUp()) { sizeHost(h); resize(); } }, 350); }
   }
   if (window.visualViewport) { visualViewport.addEventListener("resize", liftCheck); visualViewport.addEventListener("scroll", liftCheck); }
-  addEventListener("resize", liftCheck);
+  addEventListener("resize", liftCheck); addEventListener("sb-kb-cover", liftCheck);
   addEventListener("scroll", () => { if (ED && TOUCH() && ED.sy != null && Math.abs(scrollY - ED.sy) > 1) window.scrollTo(0, ED.sy); }, {passive: true});
   new MutationObserver(liftCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]});
   function editText(it, isNew, selectAll){

@@ -352,8 +352,34 @@
     var kbMark = function () { var r = root(); if (r) r.classList.add("kb-native"); };
     kbMark(); document.addEventListener("DOMContentLoaded", kbMark);
     try { KB.setAccessoryBarVisible({ isVisible: false }); } catch (e) {}
-    var kbOn = function (on) { var r = root(); if (!r) return; r.classList.toggle("kb-open", on); r.style.setProperty("--kb-h", "0px"); r.style.removeProperty("--vv-h"); };
-    try { KB.addListener("keyboardWillShow", function () { kbOn(true); }); KB.addListener("keyboardWillHide", function () { kbOn(false); }); } catch (e) {}
+    // The app hears about the keyboard before its frame has shrunk. Until it has, whatever the keyboard covers is passed on as
+    // --kb-h (and the visible height as --vv-h, window.sbVisibleH), so sheets and the chat sit above the keyboard from the
+    // first frame instead of slipping behind it for a moment
+    var kbH = 0, fullH = 0, isOpen = false, closeT = 0;
+    var cover = function () { return isOpen && kbH ? Math.max(0, Math.round(innerHeight - (fullH - kbH))) : 0; };
+    var apply = function () {
+      var r = root(); if (!r) return;
+      if (!isOpen) fullH = Math.max(fullH, innerHeight);
+      var c = cover();
+      r.style.setProperty("--kb-h", c + "px"); r.style.setProperty("--vv-h", (innerHeight - c) + "px");
+      try { window.dispatchEvent(new Event("sb-kb-cover")); } catch (e) {}
+    };
+    window.sbVisibleH = function () { return innerHeight - cover(); };
+    var kbOn = function (on, h) {
+      var r = root(); if (!r) return;
+      isOpen = on; if (on) { kbH = h || kbH; clearTimeout(closeT); r.classList.remove("kb-closing"); }
+      r.classList.toggle("kb-open", on);
+      // closing: the bars come back once the app has grown back into place, rather than at the old bottom edge first
+      if (!on) { r.classList.add("kb-closing"); clearTimeout(closeT); closeT = setTimeout(function () { r.classList.remove("kb-closing"); }, 420); }
+      apply();
+    };
+    addEventListener("resize", apply);
+    var w0 = innerWidth; addEventListener("resize", function () { if (innerWidth !== w0) { w0 = innerWidth; fullH = 0; } });
+    apply();
+    try {
+      KB.addListener("keyboardWillShow", function (info) { kbOn(true, info && info.keyboardHeight); });
+      KB.addListener("keyboardWillHide", function () { kbOn(false); });
+    } catch (e) {}
   }
 
   /* 10. The app's frame behind the page takes the page's background colour (MainViewController, "sbBg"), so nothing of

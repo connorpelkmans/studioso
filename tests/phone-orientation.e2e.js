@@ -44,8 +44,21 @@ async function open(b, idiom){
       ok(await page.evaluate(() => document.documentElement.classList.contains("kb-native") && window.__kbBar === false), "keyboard: the app fits itself above the keyboard and hides the arrows-and-Done bar");
       await page.evaluate(() => { window.__sbSync.ui.tab = "tasks"; window.__sbSync.render(); window.__kbL.keyboardWillShow({keyboardHeight: 336}); visualViewport.dispatchEvent(new Event("resize")); }); await page.waitForTimeout(150);
       ok(await page.evaluate(() => document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility === "hidden"), "keyboard up: the tab bar steps aside (and a viewport resize doesn't undo it)");
-      await page.evaluate(() => window.__kbL.keyboardWillHide()); await page.waitForTimeout(150);
+      await page.evaluate(() => window.__kbL.keyboardWillHide()); await page.waitForTimeout(80);
+      ok(await page.evaluate(() => getComputedStyle(document.querySelector("nav.tabs")).visibility === "hidden"), "keyboard closing: the tab bar waits for the app to grow back instead of showing at the old bottom edge");
+      await page.waitForTimeout(500);
       ok(await page.evaluate(() => !document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility !== "hidden"), "keyboard down: the tab bar is back");
+      // the moment between the keyboard being announced and the app's frame shrinking: a note being typed in already sits above it
+      await page.evaluate(() => { window.__sbSync.ui.tab = "notes"; window.__sbSync.render(); }); await page.waitForTimeout(300);
+      await page.evaluate(() => { const n = document.querySelector('.note[data-note="n1"]'); n.dispatchEvent(new MouseEvent("click", {bubbles: true})); }); await page.waitForSelector("#noteText"); await page.waitForTimeout(600);
+      await page.focus("#noteText"); await page.evaluate(() => window.__kbL.keyboardWillShow({keyboardHeight: 336})); await page.waitForTimeout(120);
+      const gap = await page.evaluate(() => { const r = document.querySelector(".note.editing").getBoundingClientRect(); return {bottom: Math.round(r.bottom), top: Math.round(r.top), ih: innerHeight}; });
+      ok(gap.bottom <= gap.ih - 336 + 1 && gap.top >= 0, "keyboard announced, app not shrunk yet: the note editor is already above the keyboard, not behind it: " + JSON.stringify(gap));
+      await page.setViewportSize({width: 402, height: 538}); await page.waitForTimeout(200);
+      const after = await page.evaluate(() => { const r = document.querySelector(".note.editing").getBoundingClientRect(); return {bottom: Math.round(r.bottom), ih: innerHeight}; });
+      ok(Math.abs(after.bottom - gap.bottom) <= 2, "and when the app shrinks it stays exactly where it was: " + JSON.stringify(after));
+      await page.evaluate(() => { document.getElementById("noteText").blur(); window.__kbL.keyboardWillHide(); }); await page.setViewportSize({width: 402, height: 874});
+      await page.waitForTimeout(700);
       // the Focus sheet says why the timer isn't in the Dynamic Island (this build has no island plugin)
       await page.evaluate(() => document.querySelector('[data-act="pomo-open"]').click()); await page.waitForTimeout(300);
       const note = await page.evaluate(() => { const p = document.querySelector("#pomoDlg .pomo-island"); return p && !p.hidden ? p.textContent : ""; });
