@@ -868,6 +868,8 @@
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
+    // on its way it flies above everything; it settles under the page's bars (cp-under) only once seated in its circle
+    if (front) front.classList.remove("cp-under");
     const me = travelAnim = box.animate(frames, {duration: dur, easing});
     box.dataset.travel = style;
     motionWatch(dur);
@@ -876,6 +878,7 @@
     me.onfinish = me.oncancel = () => {
       if (travelAnim !== me) return;
       travelAnim = null; delete box.dataset.travel; clamp("anim-end");
+      if (front) front.classList.toggle("cp-under", spotKind === "slot");
       const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
     };
@@ -912,7 +915,7 @@
     if (box.parentNode !== front) front.appendChild(box);
     box.classList.toggle("cp-h-fab", s.kind === "home");
     const sig = [s.left, s.top, s.px].join(",");
-    front.classList.toggle("cp-under", s.kind === "slot");
+    front.classList.toggle("cp-under", s.kind === "slot" && !travelAnim);
     anchorFront(s.kind === "slot");
     if (still1) {
       box.style.cssText = `left:${s.left}px;top:${s.top}px;width:${s.px}px;height:${s.px}px`;

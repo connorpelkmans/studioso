@@ -10,14 +10,31 @@ function toggleTask(id, el){
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
 }
-// Switching tabs cross-fades the old page into the new one (the browser's view transition), instead of the old page
-// vanishing and the new one fading in from blank. 99-smooth.js skips its own page fade while this runs.
+// Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
+// page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
+// 99-smooth.js skips its own page fade while this runs.
+const TAB_MS = 240;
 function tabSwap(changed, go){
   const r = document.documentElement, still = r.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  if (!changed || still || typeof document.startViewTransition !== "function" || dlg.open) { go(); return; }
+  const v = document.getElementById("view");
+  if (!changed || still || !v || dlg.open || !v.animate) { go(); return; }
+  let ghost = null;
+  try {
+    const b = v.getBoundingClientRect(), cs = getComputedStyle(v);
+    ghost = v.cloneNode(true);
+    ghost.removeAttribute("id"); ghost.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
+    ghost.querySelectorAll("input, textarea, select, button, a").forEach(e => e.setAttribute("tabindex", "-1"));
+    ghost.className = (v.className || "") + " tab-ghost sm-skip"; ghost.setAttribute("aria-hidden", "true"); ghost.inert = true;
+    Object.assign(ghost.style, {position: "fixed", left: b.left + "px", top: b.top + "px", width: b.width + "px", height: Math.min(b.height, innerHeight - b.top + 40) + "px", margin: "0", padding: cs.padding, overflow: "hidden", pointerEvents: "none", zIndex: "1"});
+    v.parentNode.insertBefore(ghost, v.nextSibling);
+  } catch (e) { ghost = null; }
   r.classList.add("vt-tab");
-  try { const t = document.startViewTransition(go); t.finished.finally(() => r.classList.remove("vt-tab")); }
-  catch (e) { r.classList.remove("vt-tab"); go(); }
+  go();
+  const ease = "cubic-bezier(.2,.8,.2,1)";
+  v.animate([{opacity: 0}, {opacity: 1}], {duration: TAB_MS, easing: ease});
+  const end = () => { if (ghost) ghost.remove(); r.classList.remove("vt-tab"); };
+  if (ghost) ghost.animate([{opacity: 1}, {opacity: 0}], {duration: TAB_MS * 0.8, easing: ease, fill: "forwards"}).finished.then(end, end);
+  else setTimeout(end, TAB_MS);
 }
 document.addEventListener("click", e => {
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }

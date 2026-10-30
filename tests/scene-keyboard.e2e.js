@@ -33,10 +33,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.waitForTimeout(400);
     await page.tap('nav.tabs [data-tab="notes"]');
     const vt = await page.evaluate(() => new Promise(res => requestAnimationFrame(() => {
-      const an = document.getAnimations().map(a => a.effect && a.effect.pseudoElement).filter(Boolean);
-      res({running: document.documentElement.classList.contains("vt-tab"), name: getComputedStyle(document.getElementById("view")).viewTransitionName, pseudos: an});
+      const g = document.querySelector(".tab-ghost"), nav = document.querySelector("nav.tabs"), fr = document.querySelector(".cp-front");
+      const z = el => el ? (+getComputedStyle(el).zIndex || 0) : -99;
+      res({ghost: !!g, ghostZ: z(g), navZ: z(nav), compZ: z(fr), pseudo: document.getAnimations().some(a => a.effect && a.effect.pseudoElement)});
     })));
-    ok(vt.running && vt.name === "sb-view" && vt.pseudos.some(p => /sb-view/.test(p)) && !vt.pseudos.some(p => /\(root\)/.test(p)), "switching tabs fades only the page content; the scene behind stays live: " + JSON.stringify(vt));
+    ok(vt.ghost && !vt.pseudo, "switching tabs cross-fades the page content only (a still copy of the old page fades out); nothing else is captured or frozen: " + JSON.stringify(vt));
+    ok(vt.navZ > vt.ghostZ && vt.compZ > vt.navZ, "the tab bar stays above the fading page, and the companion above the tab bar");
     await page.waitForTimeout(600);
     ok(await page.evaluate(() => !!document.querySelector("#sceneArt svg")), "and the scene is the same one after");
     // turning the phone sideways is a real change, and the scene follows it
