@@ -63,6 +63,14 @@ if (fs.existsSync(plistFile)) {
         if (fs.readFileSync(dst, "utf8") !== text) { fs.writeFileSync(dst, text); done.push(path.relative(wrap, dst)); }
       }
     }
+    // and any of them the Xcode project lists but that's missing from disk is put back where Xcode looks for it
+    const pbx = path.join(proj, "App.xcodeproj", "project.pbxproj"), txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    for (const src of srcs) {
+      const name = path.basename(src), esc = name.replace(/[.]/g, "\\.");
+      if (!new RegExp("path = \"?" + esc + "\"?;").test(txt) || inProj.some(p => path.basename(p) === name)) continue;
+      const dst = path.join(proj, name === "StudyboardWidgets.swift" ? "StudyboardWidgets" : "App", name);
+      fs.mkdirSync(path.dirname(dst), {recursive: true}); fs.copyFileSync(src, dst); done.push(path.relative(wrap, dst) + " (was missing)");
+    }
     if (done.length) console.log("ios-stage: updated in the Xcode project: " + done.join(", "));
   }
 }
