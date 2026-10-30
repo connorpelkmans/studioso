@@ -136,6 +136,19 @@ if (fs.existsSync(plistFile)) {
   } catch (e) {}
 }
 
+// The app's ID is com.studyboardapp.studyboard; extensions (the widget, the share extension) must start with it, so any still
+// named after the old com.studioso.app are renamed in the Xcode project
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    if (fs.existsSync(pbx)) {
+      const t = fs.readFileSync(pbx, "utf8");
+      const u = t.replace(/(PRODUCT_BUNDLE_IDENTIFIER = "?)com\.studioso\.app(\.[A-Za-z0-9.-]+)?("?;)/g, (m, a, rest, b) => a + "com.studyboardapp.studyboard" + (rest || "") + b);
+      if (u !== t) { fs.writeFileSync(pbx, u); console.log("ios-stage: bundle IDs now start with com.studyboardapp.studyboard (were com.studioso.app)"); }
+    }
+  } catch (e) {}
+}
+
 // The app's name as people see it (Home Screen, permission and sign-in prompts): Studyboard, not Capacitor's starting "App"
 {
   const plist = path.join(wrap, "ios", "App", "App", "Info.plist");
