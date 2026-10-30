@@ -7264,6 +7264,12 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   html.ph-lock #view .cpt3-mini{display:flex;position:absolute;left:0;right:0;top:0;height:54px;align-items:center;gap:10px;padding:0 16px;color:#fff;pointer-events:none;z-index:2}
   html.ph-lock #view .cpt3-mini > :first-child{width:34px;height:34px;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 14%,#fff);box-shadow:0 0 0 2px rgba(255,255,255,.85);display:grid;place-items:center;overflow:hidden;opacity:0;transition:none;will-change:transform}
   html.ph-lock #view .cpt3-mini .cp-ai-face svg{width:30px;height:30px}
+  html.ph-lock #view .cpt3-ring .cpt-face-slot{position:relative}
+  html.ph-lock #view .cpt3-fly{position:absolute;inset:9%;display:grid;place-items:center;pointer-events:none}
+  html.ph-lock #view .cpt3-fly svg{width:100%;height:100%}
+  html.ph-lock #view .cpt3-fly svg.ai-ic-orig{display:none}
+  /* the chat below the card resizes on the same curve as the card and the keyboard, so it all moves as one */
+  html.ph-lock #view{transition:height .44s cubic-bezier(.32,.72,0,1)}
   html.ph-lock #view .cpt3-mini b{font:800 1.12rem var(--display);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.18);opacity:0;transform:translateY(6px);transition:opacity .12s ease,transform .12s ease}
   /* coming back: the card's words fade in once it has mostly opened */
   html.ph-lock #view :is(.cpt3-acts,.cpt3 .cpt-id,.cpt3-tabs){transition:opacity .26s ease .07s,transform .42s cubic-bezier(.32,.72,0,1) .02s}

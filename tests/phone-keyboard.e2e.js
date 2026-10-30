@@ -53,6 +53,15 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const after = await card();
     ok(!(await page.evaluate(() => document.documentElement.classList.contains("cpt-typing"))) && Math.abs(after.h - before.h) <= 2, "done typing, the card unfolds again (" + after.h + "px)");
     ok(after.off !== null && after.off <= 8 && after.sprite === "1" && after.mini === "0", "with the companion back in its circle (" + after.off + "px off)");
+    // a page redraw right as the keyboard closes still opens the card smoothly, with the circle growing back down into place
+    await page.focus("#cptIn"); await page.evaluate(() => window.__kb(true)); await page.waitForTimeout(700);
+    const mid = await page.evaluate(() => new Promise(res => { document.getElementById("cptIn").blur(); window.__kb(false); window.__sbSync.render();
+      setTimeout(() => { const h = document.querySelector(".cpt-head.cpt3"), ring = document.querySelector(".cpt3-ring"); res({h: Math.round(h.getBoundingClientRect().height), ringMoving: ring.getAnimations().length > 0, fly: !!document.querySelector(".cpt3-fly")}); }, 150); }));
+    ok(mid.h > 70 && mid.h < before.h - 20, "after a redraw the card is still opening, not popped open (" + mid.h + "px of " + before.h + ")");
+    ok(mid.ringMoving && mid.fly, "and the circle, carrying the face, is on its way back down from the title bar");
+    await page.waitForTimeout(700);
+    ok(await page.evaluate(() => !document.querySelector(".cpt3-fly")), "the face copy is gone once it lands");
+    ok(await page.evaluate(() => getComputedStyle(document.getElementById("view")).transitionProperty.includes("height")), "the chat area resizes on the same curve as the card");
     ok(!errs.length, "no page errors " + errs.join(" | "));
     await ctx.close();
     console.log("\nphone-keyboard.e2e: " + n + " checks passed");
