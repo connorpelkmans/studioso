@@ -88,7 +88,9 @@ public struct StudyboardFocusPlayPause: SetValueIntent, LiveActivityIntent {
     @Parameter(title: "Running") public var value: Bool
     public init() { value = false }
     public func perform() async throws -> some IntentResult {
-        await StudyboardFocusControl.apply(value ? "play" : "pause")
+        // decided from the card's own state (paused: play; running: pause), whatever value the switch passes
+        let paused = (Activity<StudyboardFocusAttributes>.activities.first?.content.state.pausedLeft ?? 0) > 0
+        await StudyboardFocusControl.apply(paused ? "play" : "pause")
         return .result()
     }
 }
