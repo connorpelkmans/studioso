@@ -29,6 +29,10 @@
   <key>NSSpeechRecognitionUsageDescription</key>
   <string>Studyboard writes live captions while you record a lecture.</string>
 
+  <!-- AlarmKit (iOS 26+): the end of a focus session rings as a real alarm, through silent mode, like the Clock app's timer -->
+  <key>NSAlarmKitUsageDescription</key>
+  <string>Studyboard rings an alarm when a focus session or break ends, even with your phone on silent.</string>
+
   <!-- Deliberately NOT present (the app does not use them) -->
 
   <!-- Custom URL scheme for deep links such as studyboard://open?task=ID -->

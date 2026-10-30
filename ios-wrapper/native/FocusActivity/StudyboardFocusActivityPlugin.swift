@@ -3,6 +3,10 @@ import Foundation
 import Capacitor
 import ActivityKit
 import UserNotifications
+import SwiftUI
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
 
 @objc(StudyboardFocusActivityPlugin)
 public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, NotificationHandlerProtocol {
@@ -53,7 +57,10 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, Notific
             }
             if FileManager.default.fileExists(atPath: f.path) { UserDefaults.standard.set(n, forKey: StudyboardFocusAlarm.soundKey) }
         }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { ok, _ in call.resolve(["allowed": ok]) }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { ok, _ in
+            // and, on iOS 26+, to set real alarms (asked once)
+            StudyboardAlarmKit.ask { alarms in call.resolve(["allowed": ok || alarms]) }
+        }
     }
 
     // The Lock Screen button presses not yet applied in the app (oldest first), cleared as they're handed over
@@ -130,3 +137,65 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, Notific
         }
     }
 }
+
+// The end of a session as a real alarm (iOS 26+, AlarmKit): it rings through silent mode and Focus, with the system's full-screen
+// alert and Stop button, like the Clock app's timer. One alarm at a time, replaced whenever the session changes.
+@objc(StudyboardAlarmKit) public class StudyboardAlarmKit: NSObject {
+    // whether this phone takes real alarms and Studyboard may set them
+    @objc public static func ready() -> NSNumber {
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) { return NSNumber(value: AlarmManager.shared.authorizationState == .authorized) }
+        #endif
+        return NSNumber(value: false)
+    }
+
+    public static func ask(_ done: @escaping (Bool) -> Void) {
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            let m = AlarmManager.shared
+            if m.authorizationState != .notDetermined { return done(m.authorizationState == .authorized) }
+            Task { let st = try? await m.requestAuthorization(); done(st == .authorized) }
+            return
+        }
+        #endif
+        done(false)
+    }
+
+    // ring at endsAt for a session in this mode, or none (nil); changes are applied one after another
+    @MainActor private static var last: Task<Void, Never>?
+    @objc(syncMode:endsAt:) public static func sync(mode: NSString, endsAt: NSDate?) {
+        #if canImport(AlarmKit)
+        guard #available(iOS 26.0, *) else { return }
+        let m = String(mode), at = endsAt as Date?
+        Task { @MainActor in
+            let prev = last
+            last = Task { await prev?.value; await StudyboardAlarms.sync(m, at) }
+        }
+        #endif
+    }
+}
+
+#if canImport(AlarmKit)
+@available(iOS 26.0, *)
+struct StudyboardAlarmData: AlarmMetadata {}
+
+@available(iOS 26.0, *)
+enum StudyboardAlarms {
+    static let key = "sbAlarmKitId"
+    static func sync(_ mode: String, _ endsAt: Date?) async {
+        let m = AlarmManager.shared, d = UserDefaults.standard
+        if let s = d.string(forKey: key), let old = UUID(uuidString: s) { try? m.cancel(id: old); d.removeObject(forKey: key) }
+        guard let endsAt = endsAt, endsAt.timeIntervalSinceNow > 1, m.authorizationState == .authorized else { return }
+        let alert = AlarmPresentation.Alert(title: mode == "focus" ? "Focus Session Complete" : "Break's Over", secondaryButton: nil, secondaryButtonBehavior: nil)
+        let attributes = AlarmAttributes<StudyboardAlarmData>(presentation: AlarmPresentation(alert: alert), metadata: StudyboardAlarmData(),
+                                                              tintColor: Color(red: 0.89, green: 0.32, blue: 0.23))
+        // the alarm sound you picked (saved by the app in Library/Sounds), else the system's
+        let name = d.string(forKey: StudyboardFocusAlarm.soundKey) ?? ""
+        let sound: AlertConfiguration.AlertSound = name.isEmpty ? .default : .named(name)
+        let config = AlarmManager.AlarmConfiguration<StudyboardAlarmData>.alarm(schedule: .fixed(endsAt), attributes: attributes,
+                                                                               stopIntent: nil, secondaryIntent: nil, sound: sound)
+        let id = UUID()
+        do { _ = try await m.schedule(id: id, configuration: config); d.set(id.uuidString, forKey: key) } catch {}
+    }
+}
+#endif

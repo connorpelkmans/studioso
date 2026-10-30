@@ -103,6 +103,12 @@ public enum StudyboardFocusAlarm {
     public static func sync(mode: String, endsAt: Date?) {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: [id])
+        // iOS 26+, when allowed: a real alarm (StudyboardAlarmKit, in the app's plugin file) that rings through silent mode,
+        // instead of the notification. Looked up by name, since this file is also built into the widget, which hasn't it.
+        if let cls: AnyClass = NSClassFromString("StudyboardAlarmKit"), let ak = (cls as AnyObject) as? NSObjectProtocol {
+            _ = ak.perform(NSSelectorFromString("syncMode:endsAt:"), with: mode as NSString, with: endsAt as NSDate?)
+            if let ready = ak.perform(NSSelectorFromString("ready"))?.takeUnretainedValue() as? NSNumber, ready.boolValue { return }
+        }
         guard let endsAt = endsAt, endsAt.timeIntervalSinceNow > 1 else { return }
         let c = UNMutableNotificationContent()
         c.title = mode == "focus" ? "Focus session complete" : "Break's over"
