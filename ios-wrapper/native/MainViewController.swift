@@ -10,7 +10,9 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     override func capacitorDidLoad() {
         // Studyboard's own plugins, each only if its file is in the project (so this file builds whatever you've added)
         for name in ["StudyboardFocusActivityPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardLmsPlugin"] {
-            if let type = NSClassFromString(name) as? CAPPlugin.Type, let plugin = (type as NSObject.Type).init() as? CAPPlugin {
+            // (ios:stage also lists them for Capacitor, which then connects them itself; never twice)
+            if let type = NSClassFromString(name) as? CAPPlugin.Type, let plugin = (type as NSObject.Type).init() as? CAPPlugin,
+               bridge?.plugin(withName: (plugin as? CAPBridgedPlugin)?.jsName ?? "") == nil {
                 bridge?.registerPluginInstance(plugin)
             }
         }

@@ -107,6 +107,19 @@ if (fs.existsSync(plistFile)) {
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");
 if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["cap", "sync", "ios"], {cwd: wrap, stdio: "inherit"});
+  // Studyboard's own plugins are connected the same way Capacitor connects its plugins (its plugin list), for each one whose
+  // file is in the Xcode project, so they work without depending on the storyboard's class setting
+  try {
+    const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json"), pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+    const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"]]
+      .filter(([f]) => txt.includes(f)).map(([, c]) => c);
+    if (ours.length && fs.existsSync(cfg)) {
+      const j = JSON.parse(fs.readFileSync(cfg, "utf8")); const list = Array.isArray(j.packageClassList) ? j.packageClassList : [];
+      const add = ours.filter(c => !list.includes(c));
+      if (add.length) { j.packageClassList = list.concat(add); fs.writeFileSync(cfg, JSON.stringify(j, null, "\t") + "\n"); console.log("ios-stage: connected " + add.join(", ")); }
+    }
+  } catch (e) { console.log("ios-stage: couldn't add Studyboard's plugins to the plugin list: " + e.message); }
   console.log("ios-stage: synced into the Xcode project. Open it with: cd ios-wrapper && npx cap open ios");
 } else console.log("ios-stage: no Xcode project yet (ios-wrapper/ios/) or Capacitor not installed there: see TESTING-MAC-IPHONE.md, iPhone step 2.");
 

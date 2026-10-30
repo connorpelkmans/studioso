@@ -1,6 +1,7 @@
 {
   "appId": "com.studioso.app",
   "appName": "Studyboard",
+  "loggingBehavior": "none",
   "webDir": "ios-www",
   "server": {
     "iosScheme": "capacitor",
