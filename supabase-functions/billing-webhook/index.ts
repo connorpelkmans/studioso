@@ -118,6 +118,39 @@ function subscriptionState(sub: any, d: Deps): Pick<Apply, "state" | "pro_until"
   return null;
 }
 
+// EU website sales reached from the iPhone app's website option are reported to Apple (supabase-apple-external.sql decides
+// whether this invoice is one of them; supabase-functions/apple-external sends the reports). Never stops the payment from counting.
+const ZERO_DECIMAL = new Set(["bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf"]);
+const EU3: Record<string, string> = { AT: "AUT", BE: "BEL", BG: "BGR", HR: "HRV", CY: "CYP", CZ: "CZE", DK: "DNK", EE: "EST", FI: "FIN", FR: "FRA", DE: "DEU", GR: "GRC", HU: "HUN", IE: "IRL", IT: "ITA", LV: "LVA", LT: "LTU", LU: "LUX", MT: "MLT", NL: "NLD", PL: "POL", PT: "PRT", RO: "ROU", SK: "SVK", SI: "SVN", ES: "ESP", SE: "SWE" };
+// Stripe's smallest units to Apple's milli-units
+export const milli = (minor: number, currency: string) => Math.round(Number(minor) || 0) * (ZERO_DECIMAL.has(String(currency).toLowerCase()) ? 1000 : 10);
+export function appleInvoice(o: any, customer: string, subId: string, startS: number, endMs: number): Record<string, unknown> | null {
+  const cur = String(o?.currency || "").toLowerCase();
+  if (!/^[a-z]{3}$/.test(cur) || !startS || !endMs) return null;
+  const paidAt = Number(o?.status_transitions?.paid_at || o?.created || 0) * 1000;
+  const inc = Number(o?.amount_paid) || 0, ex = Number(o?.total_excluding_tax ?? (inc - (Number(o?.tax) || 0)));
+  const plan = String(o?.parent?.subscription_details?.metadata?.plan || o?.subscription_details?.metadata?.plan || o?.lines?.data?.[0]?.metadata?.plan || "");
+  return {
+    customer, subscription: subId, invoice: String(o?.id || ""), reason: String(o?.billing_reason || ""), paid_at: paidAt,
+    period_start: startS * 1000, period_end: endMs, currency: cur,
+    amount_in: milli(inc, cur), amount_ex: milli(ex, cur), tax: milli(Math.max(0, inc - ex), cur),
+    tax_country: EU3[String(o?.customer_address?.country || o?.customer_shipping?.address?.country || "").toUpperCase()] || "",
+    plan: ["monthly", "semester", "yearly"].includes(plan) ? plan : "",
+  };
+}
+async function appleQueue(d: Deps, o: any, customer: string, subId: string, startS: number, endMs: number) {
+  try {
+    const p = appleInvoice(o, customer, subId, startS, endMs);
+    if (!p || !p.invoice) return;
+    const key = serviceKey(d);
+    const r = await d.fetch(d.env("SUPABASE_URL").replace(/\/+$/, "") + "/rest/v1/rpc/studyboard_apple_queue_invoice", {
+      method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ p }),
+    });
+    // 404: supabase-apple-external.sql isn't installed (the EU website option isn't in use)
+    if (!r.ok && r.status !== 404) d.log("billing-webhook: queuing the Apple report failed", r.status);
+  } catch (e) { d.log("billing-webhook: queuing the Apple report failed", e instanceof Error ? e.message : "error"); }
+}
+
 async function handleStripe(req: Request, d: Deps, raw: string): Promise<Response> {
   const ok = await verifyStripe(raw, req.headers.get("stripe-signature") || "", d.env("STRIPE_WEBHOOK_SECRET"), Math.floor(d.now() / 1000));
   if (!ok) return json({ error: "bad request" }, 400);
@@ -167,6 +200,7 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
       const lines = (o.lines?.data || []) as any[];
       const start = Math.min(...lines.map(l => Number(l?.period?.start || 0)).filter(Boolean)) || 0;
       const paid = Number(o.amount_paid) > 0;
+      if (paid) await appleQueue(d, o, customer, subId, start, end);
       return done({ ...base, state: "extend", customer, external_id: customer, pro_until: iso(end + GRACE_MS),
         ...(paid ? { paid: true, term: termOf(d, linePrices(o), start && end / 1000 > start ? (end / 1000 - start) / DAY_S : 0) } : {}) });
     }

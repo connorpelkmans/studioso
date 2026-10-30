@@ -291,6 +291,17 @@
     };
     askStorefront();
     if (P.App) P.App.addListener("appStateChange", function (st) { if (st && st.isActive) askStorefront(); });
+    // EU: the website as a second way to buy, under Apple's External Purchases or Offers entitlement (10-plan.js decides
+    // when to offer it). eligible(): Apple says yes for this device, account and country; tokens(): Apple's reporting tokens;
+    // notice(): Apple's disclosure sheet, "continued" / "cancelled" / "unavailable"; open(url): the person's own browser.
+    if (SP && typeof SP.linkEligible === "function") {
+      native.linkOut = {
+        eligible: function () { return Promise.resolve().then(function () { return SP.linkEligible(); }).then(function (r) { return !!(r && r.value); }, function () { return false; }); },
+        tokens: function () { return Promise.resolve().then(function () { return SP.linkTokens(); }).then(function (r) { return (r && Array.isArray(r.tokens) ? r.tokens : []).filter(function (t) { return typeof t === "string" && /^[A-Za-z0-9_=-]{20,4000}$/.test(t); }).slice(0, 4); }, function () { return []; }); },
+        notice: function () { return Promise.resolve().then(function () { return SP.linkNotice(); }).then(function (r) { return r && /^(continued|cancelled|unavailable)$/.test(r.result) ? r.result : "unavailable"; }, function () { return "unavailable"; }); },
+        open: function (url) { if (!/^https:\/\//.test(String(url || ""))) return Promise.resolve(false); return Promise.resolve().then(function () { return SP.openBrowser({ url: String(url) }); }).then(function (r) { return !!(r && r.value); }, function () { return false; }); }
+      };
+    }
   }
   var MANAGE_URL = isAndroid ? "https://play.google.com/store/account/subscriptions?package=com.studioso.app" : "https://apps.apple.com/account/subscriptions";
   function result(action, status, message) {

@@ -36,3 +36,7 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-apple{background:#fff;color:#000}:root:not([data-theme="light"]) .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}}
 .sb-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.85rem}
 .sb-or::before,.sb-or::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* EU: the website as the second way to buy, quieter than the in-app prices above it (Apple asks that it not look preferred) */
+.plan-alt{display:grid;justify-items:center;gap:4px;margin-top:10px;text-align:center}
+.plan-alt .link-btn{font-size:.92rem}

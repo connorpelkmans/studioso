@@ -159,6 +159,35 @@ update public.studyboard_config set value = to_jsonb('https://studyboardapp.com/
   - Keep the in-app products available in every country in App Store Connect, including the United States. That way someone who moves their Apple account keeps a working purchase path.
   - **App Review notes:** "In-app purchase is offered on every App Store storefront except the United States. On the United States storefront the app links to our website checkout, as allowed by Guidelines 3.1.1(a) and 3.1.3. To review the in-app purchase, use a Sandbox account set to a storefront outside the United States." In App Store Connect → Users and Access → Sandbox, give the Sandbox tester a non-US region.
   - Check the current wording of Guidelines 3.1.1(a) and 3.1.3 before each submission. The United States rule comes from the Epic v. Apple court order, and Apple may change the terms, for example by adding a fee on linked purchases.
+- **European Union: the website as a second way to buy (optional).** Under Apple's EU terms in force from October 1, 2026 (DPLA Attachment 14), the iPhone app can offer the website next to in-app purchase. Apple charges a 15% store services commission on website sales made within 7 days of the tap (10% in the Small Business Program, and on subscriptions after their first year). The app shows it only when all of these hold:
+  - the App Store account is in an EU country;
+  - Apple says the app is eligible: the entitlement is granted, the iPhone runs iOS 26.2 or later, and purchases aren't restricted;
+  - the person is signed in, with a birthday on their account showing they're 18 or older.
+
+  Apple bars these offers for under-13s and needs a parental gate for ages 13 to 17, so the app offers them to known adults only. In-app purchase stays first and more prominent. Tapping **Or subscribe on the Studyboard website** shows Apple's disclosure sheet, then opens the website in the person's browser. Until every step below is done, nobody sees it.
+  1. **Apply to Apple** for the **StoreKit External Purchases or Offers Entitlement** for the EU, from Apple's page "Payment options on the App Store in the EU". Accept the updated DPLA when Apple asks.
+  2. When Apple grants it, add it to the App ID in **Certificates, Identifiers & Profiles**. Then in Xcode, add it to `ios/App/App/App.entitlements`: key `com.apple.developer.storekit.custom-purchase-link.allowed-regions`, an array of the lowercase EU codes `at be bg hr cy cz dk ee fi fr de gr hu ie it lv lt lu mt nl pl pt ro sk si es se`. Don't add the key before Apple grants it; the build won't sign.
+  3. **Database:** run `supabase-apple-external.sql` in the SQL Editor, then run `supabase-lean.sql` again. That makes account deletion keep these reports without the account.
+  4. **Function:** deploy `supabase-functions/apple-external` with **Verify JWT OFF**. It checks the sign-in itself, and the report job uses its own secret. Then deploy `billing-webhook` again; it now queues EU website sales.
+  5. **Secrets:**
+     - `APPLE_IAP_KEY_ID`, `APPLE_IAP_ISSUER_ID` and `APPLE_IAP_PRIVATE_KEY` (the whole text of the In-App Purchase key's `.p8` file, from App Store Connect → Users and Access → Integrations → In-App Purchase)
+     - `APPLE_BUNDLE_ID` = `com.studioso.app`
+     - `APPLE_REPORT_SECRET`: a long random string
+     - `APPLE_REPORT_SANDBOX=1` while testing, removed for launch
+  6. **Daily report job.** Apple wants each month's reports within 15 days of the month's end; this sends them daily. In the SQL Editor, with the `pg_cron` and `pg_net` extensions on, run the following, filling in your report secret:
+     ```sql
+     select cron.schedule('studyboard-apple-reports', '17 5 * * *', $$select net.http_post(
+       url := 'https://pivcmrqcjseycjkbocmc.supabase.co/functions/v1/apple-external/report',
+       headers := jsonb_build_object('x-report-secret', 'YOUR APPLE_REPORT_SECRET', 'content-type', 'application/json'),
+       body := '{}'::jsonb)$$);
+     ```
+  7. **Test** with a Sandbox tester in an EU country (sandbox tokens last an hour).
+     - Subscribe through the website option.
+     - Check that `studyboard_apple_line_items` gets a row, and that the job marks it `sent_at` the next day (or call the report URL yourself with the secret).
+     - Check that unused tokens get `report_status = NO_LINE_ITEM` after they expire.
+  8. **App Review notes:** add "In the EU, alongside In-App Purchase, the app offers our website under the StoreKit External Purchases or Offers entitlement, shown only to signed-in adults. Payments on the website are processed by Stripe (PCI DSS Level 1), which provides customer support for payments."
+  - **Refunds:** a website refund isn't reported to Apple as a refund line yet. Apple's API has one (`RefundLineItem`), and reporting refunds lowers the commission owed; add it if refunds become common.
+- **Japan:** the same option is allowed in Japan under DPLA Attachment 12 (15% commission, or 10% in the Small Business Program, on sales within 7 days of the tap). On iOS before 27.2, though, Apple requires a disclosure screen the app draws itself from Apple's design files; Apple's own sheet for Japan comes with iOS 27.2. It's held back until iOS 27.2 is released. Then it's the same entitlement with region `jp`, Apple's own sheet, and the `LINK_OUT` token type.
 
 ### Launch Day
 

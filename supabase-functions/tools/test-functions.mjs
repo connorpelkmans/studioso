@@ -928,4 +928,61 @@ await test("send-reminders: phone kinds are skipped (rows kept) when their secre
   assert.deepEqual((await sr.supabaseStore(db).subsFor([UID])).map(x => x.id), ["w"]); assert.equal(asked.length, 2);
 });
 
+// -- apple-external (EU website-purchase link: Apple's tokens and sales reports)
+const ax = await load("supabase-functions/apple-external/index.ts");
+const tok = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+const T_ACQ = tok({ appAppleId: 1, bundleId: "com.studioso.app", tokenCreationDate: NOW - 3600_000, tokenExpirationDate: NOW + 86400_000, externalPurchaseId: "EPID-ACQ-0001", tokenType: "ACQUISITION" });
+await test("apple-external: Apple's tokens are decoded and checked (this app's bundle, a known type, sane dates)", async () => {
+  assert.deepEqual(ax.decodeToken(T_ACQ, "com.studioso.app"), { id: "EPID-ACQ-0001", type: "ACQUISITION", created: NOW - 3600_000, expires: NOW + 86400_000 });
+  assert.equal(ax.decodeToken(T_ACQ, "com.other.app"), null);
+  assert.equal(ax.decodeToken(tok({ bundleId: "com.studioso.app", tokenCreationDate: NOW, externalPurchaseId: "EPID-X-0001", tokenType: "WHATEVER" }), "com.studioso.app"), null);
+  assert.equal(ax.decodeToken("not a token!", "com.studioso.app"), null);
+});
+const axEnv = { SUPABASE_URL: "https://db", SUPABASE_SERVICE_ROLE_KEY: "svc", APPLE_BUNDLE_ID: "com.studioso.app", APPLE_REPORT_SECRET: "rep-secret-rep-secret", APPLE_IAP_KEY_ID: "KEY123", APPLE_IAP_ISSUER_ID: "iss-uuid" };
+const { privateKey: AK, publicKey: APUB } = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+axEnv.APPLE_IAP_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\n" + Buffer.from(await crypto.subtle.exportKey("pkcs8", AK)).toString("base64") + "\n-----END PRIVATE KEY-----";
+const axDeps = (fetchFn) => ({ env: k => axEnv[k] ?? "", fetch: fetchFn, now: () => NOW, log, uuid: () => "00000000-0000-4000-8000-000000000001" });
+await test("apple-external: tokens from a signed-in account are saved to it, with the tap", async () => {
+  const calls = [];
+  const f = async (url, init = {}) => { calls.push([String(url), init]); if (/auth\/v1\/user/.test(url)) return new Response(JSON.stringify({ id: UID })); return new Response("1"); };
+  const r = await ax.handle(new Request("https://x/functions/v1/apple-external/tokens", { method: "POST", headers: { authorization: "Bearer userjwt" }, body: JSON.stringify({ tokens: [T_ACQ, "junk"], tap: true, storefront: "DEU" }) }), axDeps(f));
+  assert.equal(r.status, 200);
+  const rpc = calls.find(c => /studyboard_apple_add_tokens/.test(c[0])); const b = JSON.parse(rpc[1].body);
+  assert.equal(b.p_uid, UID); assert.equal(b.p_tap, true); assert.equal(b.p_storefront, "DEU"); assert.deepEqual(b.p_tokens.map(t => t.id), ["EPID-ACQ-0001"]);
+  const r2 = await ax.handle(new Request("https://x/functions/v1/apple-external/tokens", { method: "POST", body: "{}" }), axDeps(f));
+  assert.equal(r2.status, 401);
+});
+await test("apple-external: the report job needs its secret, signs an ES256 JWT for Apple, and sends sales then quiet tokens", async () => {
+  const sent = [], patched = [];
+  const f = async (url, init = {}) => {
+    url = String(url);
+    if (url.startsWith("https://api.storekit")) { sent.push({ url, auth: init.headers.Authorization, body: JSON.parse(init.body) }); return new Response("{}", { status: 200 }); }
+    if (/studyboard_apple_line_items\?sent_at=is\.null/.test(url)) return new Response(JSON.stringify([{ line_item_id: "in_1", external_purchase_id: "EPID-ACQ-0001", payload: { lineItemId: "in_1" }, request_id: "rid-1" }]));
+    if (/studyboard_apple_tokens\?report_status=is\.null/.test(url)) return new Response(JSON.stringify([{ external_purchase_id: "EPID-SRV-0002", user_id: UID, token_type: "SERVICES", created_at: "2026-01-01T00:00:00Z", report_request_id: null }]));
+    if (/external_purchase_id=neq/.test(url)) return new Response("[]");
+    if (init.method === "PATCH") { patched.push([url, JSON.parse(init.body)]); return new Response(null, { status: 204 }); }
+    return new Response("[]");
+  };
+  const bad = await ax.handle(new Request("https://x/functions/v1/apple-external/report", { method: "POST", headers: { "x-report-secret": "nope" } }), axDeps(f));
+  assert.equal(bad.status, 403);
+  const r = await ax.handle(new Request("https://x/functions/v1/apple-external/report", { method: "POST", headers: { "x-report-secret": axEnv.APPLE_REPORT_SECRET } }), axDeps(f));
+  const out = await r.json();
+  assert.equal(out.sales, 1, JSON.stringify(out)); assert.equal(out.quiet, 1);
+  assert.equal(sent[0].url, "https://api.storekit.apple.com/externalPurchase/v1/reports");
+  assert.deepEqual(sent[0].body, { requestIdentifier: "rid-1", externalPurchaseId: "EPID-ACQ-0001", status: "LINE_ITEM", lineItems: [{ lineItemId: "in_1" }] });
+  assert.deepEqual(sent[1].body, { requestIdentifier: "00000000-0000-4000-8000-000000000001", externalPurchaseId: "EPID-SRV-0002", status: "NO_LINE_ITEM" });
+  const [h, c, sig] = sent[0].auth.replace("Bearer ", "").split(".");
+  const head = JSON.parse(Buffer.from(h, "base64url")), claims = JSON.parse(Buffer.from(c, "base64url"));
+  assert.deepEqual(head, { alg: "ES256", kid: "KEY123", typ: "JWT" });
+  assert.equal(claims.aud, "appstoreconnect-v1"); assert.equal(claims.bid, "com.studioso.app"); assert.equal(claims.iss, "iss-uuid"); assert.ok(claims.exp - claims.iat <= 3600);
+  assert.ok(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, APUB, Buffer.from(sig, "base64url"), new TextEncoder().encode(h + "." + c)));
+  assert.ok(patched.some(p => /line_item_id=in\.\(in_1\)/.test(p[0]) && p[1].sent_at) && patched.some(p => p[1].report_status === "NO_LINE_ITEM"));
+});
+await test("billing-webhook: a paid invoice becomes Apple's line item in milli-units, with the EU tax country", async () => {
+  const inv = { id: "in_9", currency: "eur", amount_paid: 399, total_excluding_tax: 335, billing_reason: "subscription_create", status_transitions: { paid_at: S }, customer_address: { country: "de" }, parent: { subscription_details: { metadata: { plan: "monthly" } } } };
+  const p = wh.appleInvoice(inv, "cus_1", "sub_1", S, NOW + 30 * 86400_000);
+  assert.deepEqual(p, { customer: "cus_1", subscription: "sub_1", invoice: "in_9", reason: "subscription_create", paid_at: NOW, period_start: NOW, period_end: NOW + 30 * 86400_000, currency: "eur", amount_in: 3990, amount_ex: 3350, tax: 640, tax_country: "DEU", plan: "monthly" });
+  assert.equal(wh.milli(500, "jpy"), 500000);
+});
+
 console.log(`\n${passed} checks passed`);

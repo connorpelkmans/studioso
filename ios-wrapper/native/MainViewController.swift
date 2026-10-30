@@ -133,7 +133,13 @@ public class StudyboardSignInPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizatio
 public class StudyboardStorePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "StudyboardStorePlugin"
     public let jsName = "StudyboardStore"
-    public let pluginMethods: [CAPPluginMethod] = [CAPPluginMethod(name: "storefront", returnType: CAPPluginReturnPromise)]
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "storefront", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "linkEligible", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "linkTokens", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "linkNotice", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openBrowser", returnType: CAPPluginReturnPromise)
+    ]
 
     // {country: "USA"}, or {} when the App Store can't say (no account signed in, offline at first launch)
     @objc func storefront(_ call: CAPPluginCall) {
@@ -146,4 +152,50 @@ public class StudyboardStorePlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(SKPaymentQueue.default().storefront.map { ["country": $0.countryCode] } ?? [:])
         }
     }
+
+    // EU: the website as a second way to buy Pro, next to in-app purchase, under Apple's "External Purchases or Offers"
+    // entitlement (com.apple.developer.storekit.custom-purchase-link.allowed-regions). Apple's order: the person can make
+    // payments, the app is eligible here, Apple's own disclosure sheet when they tap, and only then the website. Needs
+    // iOS 26.2 (Apple's minimum for the EU); everything here answers "no" without the entitlement.
+
+    // {value: true} when the website may be offered on this device and App Store country
+    @objc func linkEligible(_ call: CAPPluginCall) {
+        guard #available(iOS 26.2, *), SKPaymentQueue.canMakePayments() else { return call.resolve(["value": false]) }
+        Task { call.resolve(["value": await ExternalPurchaseCustomLink.isEligible]) }
+    }
+
+    // Apple's tokens for reporting website sales: {tokens: ["<base64url JSON>", ...]} (the acquisition and services ones
+    // that are active; Apple asks for them at launch and before every possible purchase)
+    @objc func linkTokens(_ call: CAPPluginCall) {
+        guard #available(iOS 26.2, *) else { return call.resolve(["tokens": []]) }
+        Task {
+            guard await ExternalPurchaseCustomLink.isEligible else { return call.resolve(["tokens": []]) }
+            var out: [String] = []
+            for type in ["ACQUISITION", "SERVICES"] {
+                if let t = try? await ExternalPurchaseCustomLink.token(for: type) { out.append(t.value) }
+            }
+            call.resolve(["tokens": out])
+        }
+    }
+
+    // Apple's disclosure sheet, shown when the person taps the website option: {result: "continued" | "cancelled" | "unavailable"}
+    @objc func linkNotice(_ call: CAPPluginCall) {
+        guard #available(iOS 26.2, *), SKPaymentQueue.canMakePayments() else { return call.resolve(["result": "unavailable"]) }
+        Task { @MainActor in
+            guard await ExternalPurchaseCustomLink.isEligible else { return call.resolve(["result": "unavailable"]) }
+            do {
+                let r = try await ExternalPurchaseCustomLink.showNotice(type: .browser)
+                call.resolve(["result": r == .continued ? "continued" : "cancelled"])
+            } catch {
+                call.resolve(["result": "unavailable"])
+            }
+        }
+    }
+
+    // The website in the person's own browser (the disclosure sheet said they're leaving the app)
+    @objc func openBrowser(_ call: CAPPluginCall) {
+        guard let s = call.getString("url"), let url = URL(string: s), url.scheme == "https" else { return call.reject("invalid") }
+        DispatchQueue.main.async { UIApplication.shared.open(url) { ok in call.resolve(["value": ok]) } }
+    }
 }
+

@@ -269,6 +269,14 @@ begin
     update public.studyboard_billing_events set user_id = null where user_id = p_uid;
     get diagnostics n = row_count; res := res || jsonb_build_object('studyboard_billing_events_anonymized', n);
   end if;
+  -- Apple's EU reporting (supabase-apple-external.sql): the sales and tokens stay, without the account, because Apple must still
+  -- receive their reports; the record of their taps goes
+  if to_regclass('public.studyboard_apple_tokens') is not null then
+    update public.studyboard_apple_tokens set user_id = null where user_id = p_uid;
+    update public.studyboard_apple_subscriptions set user_id = null where user_id = p_uid;
+    delete from public.studyboard_apple_taps where user_id = p_uid;
+    get diagnostics n = row_count; res := res || jsonb_build_object('studyboard_apple_taps', n);
+  end if;
   if to_regclass('public.studyboard_pro_grants') is not null then
     update public.studyboard_pro_grants set user_id = null, email = null, reason = null
       where user_id = p_uid or (email is not null and lower(email) = (select lower(u.email) from auth.users u where u.id = p_uid));

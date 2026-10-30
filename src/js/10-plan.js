@@ -487,6 +487,61 @@ window.__sbPlanObj = () => PLAN;
     } else if (r.status === "cancelled") toast("Purchase canceled. You weren't charged.");
     else if (r.status === "error") toast(r.message || "The purchase didn't go through. You weren't charged. Please try again.");
   }
+  /* EU: the website as a second way to buy, next to in-app purchase (Apple's External Purchases or Offers terms, in force
+     from October 1, 2026). Offered only when all of these hold: the iPhone app, an EU App Store account, Apple says this
+     device and account are eligible (the entitlement, iOS 26.2+, purchases allowed), and a signed-in adult (Apple: no
+     out-of-app offers for under-13s, and a parental gate for 13 to 17; we offer it to known adults only). In-app purchase
+     stays first and at least as prominent; Apple's disclosure sheet comes before leaving; the website opens in the person's
+     browser; Apple's reporting tokens go to the server, which reports the sales to Apple (supabase-functions/apple-external).
+     Japan follows once iOS 27.2 brings Apple's own disclosure sheet there. */
+  const EU_STORES = new Set(["AUT", "BEL", "BGR", "HRV", "CYP", "CZE", "DNK", "EST", "FIN", "FRA", "DEU", "GRC", "HUN", "IRL", "ITA", "LVA", "LTU", "LUX", "MLT", "NLD", "POL", "PRT", "ROU", "SVK", "SVN", "ESP", "SWE"]);
+  const LINK = {ok: false, asked: "", sent: ""};
+  const linkApi = () => { try { const N = window.StudyboardNative; return N && N.linkOut && EU_STORES.has(String(N.storefront || "")) ? N.linkOut : null; } catch (e) { return null; } };
+  const adultKnown = () => {
+    try {
+      const b = String((sbUser && sbUser.user_metadata && sbUser.user_metadata.birth_date) || ""), m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(b);
+      if (!m) return false;
+      const t = new Date(), age = t.getFullYear() - +m[1] - ((t.getMonth() + 1 < +m[2] || (t.getMonth() + 1 === +m[2] && t.getDate() < +m[3])) ? 1 : 0);
+      return age >= 18 && age < 120;
+    } catch (e) { return false; }
+  };
+  const webAltOk = () => route() === "store" && !!linkApi() && LINK.ok && !!sbUser && !sbUser.is_anonymous && adultKnown() && siteReady() && !nativeBuyOff();
+  const webAltHtml = () => webAltOk() ? `<div class="plan-alt"><button type="button" class="link-btn" data-act="plan-buy-web">Or subscribe on the Studyboard website</button><p class="plan-fine mini">You'll leave the app to buy there. Prices and terms on the website may differ.</p></div>` : "";
+  // Apple's tokens to the server, tied to this account (Apple asks for this when the app opens and before each possible purchase)
+  async function sendLinkTokens(tap){
+    const L = linkApi(); if (!L || !sb || !sbUser || sbUser.is_anonymous) return false;
+    const tokens = await L.tokens();
+    if (!tokens.length) return false;
+    try {
+      const N = window.StudyboardNative, {error} = await sb.functions.invoke("apple-external/tokens", {body: {tokens, tap: !!tap, storefront: String(N.storefront || "")}});
+      if (!error) LINK.sent = sbUser.id;
+      return !error;
+    } catch (e) { return false; }
+  }
+  // Learn whether it may be offered, once per App Store country and account; send the tokens when it may
+  async function linkCheck(){
+    const L = linkApi(), key = L ? String(window.StudyboardNative.storefront) + "|" + (sbUser ? sbUser.id : "") : "";
+    if (!L) { LINK.ok = false; return; }
+    if (key === LINK.asked) return;
+    LINK.asked = key;
+    LINK.ok = await L.eligible();
+    if (LINK.ok && sbUser && LINK.sent !== sbUser.id) sendLinkTokens(false);
+    if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
+  }
+  window.addEventListener("studyboard:storefront", () => { linkCheck(); });
+  setTimeout(linkCheck, 2500);
+  async function buyWebEU(){
+    const L = linkApi(); if (!L || !webAltOk() || P.buying) return;
+    P.buying = true;
+    try {
+      const r = await L.notice();
+      if (r !== "continued") { if (r === "unavailable") toast("Buying on the website isn't available right now. You can subscribe in the app."); return; }
+      if (!(await sendLinkTokens(true))) { toast("Couldn't connect to Studyboard. Check your connection and try again."); return; }
+      if (!(await L.open(siteUrl("/account", {})))) { toast("Couldn't open your browser. Try again."); return; }
+      toast("Finish on the Studyboard website, then come back here. Pro turns on by itself.");
+      watchPurchase();
+    } finally { P.buying = false; }
+  }
   async function directCheckout(period){
     if (!sb || !sbUser || sbUser.is_anonymous) return null;
     try {
@@ -674,6 +729,7 @@ window.__sbPlanObj = () => PLAN;
       ${renewalText(pr, trial)}`;
   }
   function proSheet(reason){
+    linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
     if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
@@ -690,7 +746,7 @@ window.__sbPlanObj = () => PLAN;
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get a Week of Pro</b><span class="mini">Every Pro theme and feature for 7 days. No card needed, and everything you make stays when the week ends.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
-        ${paywall() && !pro ? priceButtons() : ""}
+        ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
@@ -767,6 +823,7 @@ window.__sbPlanObj = () => PLAN;
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
       case "plan-buy": buy(id); return true;
+      case "plan-buy-web": buyWebEU(); return true;
       case "plan-refresh": refreshNow(); return true;
       case "plan-restore": restore(); return true;
       case "plan-code": if (dlg.open) dlg.close(); setTimeout(redeemSheet, 60); return true;
