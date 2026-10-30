@@ -113,6 +113,24 @@ if (fs.existsSync(plistFile)) {
   } catch (e) {}
 }
 
+// The App target's entitlements file (Sign in with Apple, push): if Xcode is set to use one that isn't on disk (it can go missing
+// when files Xcode made are cleaned up), it's recreated with what the app uses. Xcode's automatic signing adds the matching
+// capabilities to the App ID.
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    const want = [...new Set([...txt.matchAll(/CODE_SIGN_ENTITLEMENTS = "?([^";]*App[^";]*\.entitlements)"?;/g)].map(m => m[1]))].filter(r => !/Widget|Share/i.test(r));
+    for (const rel of want) {
+      const f = path.join(wrap, "ios", "App", rel);
+      if (fs.existsSync(f)) continue;
+      fs.mkdirSync(path.dirname(f), {recursive: true});
+      fs.writeFileSync(f, `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>aps-environment</key>\n\t<string>development</string>\n\t<key>com.apple.developer.applesignin</key>\n\t<array>\n\t\t<string>Default</string>\n\t</array>\n</dict>\n</plist>\n`);
+      console.log("ios-stage: recreated " + path.join("ios", "App", rel) + " (Sign in with Apple and push)");
+    }
+  } catch (e) {}
+}
+
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");
 if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["cap", "sync", "ios"], {cwd: wrap, stdio: "inherit"});
