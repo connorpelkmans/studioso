@@ -6,10 +6,10 @@
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 86400000; } catch (e) { return false; } };
   const isDone = () => { try { const a = acctKey(); if (a && localStorage.getItem(a)) return true; if (a && newAccount()) return false; return !!localStorage.getItem(KEY); } catch (e) { return true; } };
   // The time is kept too, so the Board's semester card waits a few days after the welcome setup
-  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (mode !== "more") localStorage.setItem(KEY + ":at", String(Date.now())); } catch (e) {} };
+  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (!extra()) localStorage.setItem(KEY + ":at", String(Date.now())); } catch (e) {} };
   const isEmpty = () => !Object.keys(state.courses || {}).length && !Object.keys(state.tasks || {}).length;
   // The tour is open, or still to come for this account
-  window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}};
+  window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}, setupAt: () => 0};
 
   // The Backups step shows only where a web page can save to a folder
   const cbk = () => window.SBCLOUD && SBCLOUD.backup;
@@ -18,7 +18,7 @@
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
   // Mochi's welcome comes before it, so the first run has no welcome step of its own
-  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "backups", "pro", "done"];
+  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "pro", "done"], BACKUP = ["backups", "done"];
   const ALL_STEPS = [
     {id: "welcome", title: "Welcome"},
     {id: "area", title: "Your Studies"},
@@ -33,11 +33,17 @@
     {id: "done", title: "Done"}
   ];
   let STEPS = ALL_STEPS, mode = "first";
+  // "more" (the day-2 extras) and "backup" (asked on its own a few days in) are optional add-ons to the first run
+  const extra = () => mode === "more" || mode === "backup";
   // The later "A Few More Things" card
   const MKEY = "sb:onboarded:more";
   const moreGet = () => { try { return JSON.parse(localStorage.getItem(MKEY) || "{}") || {}; } catch (e) { return {}; } };
   const moreSet = patch => { try { localStorage.setItem(MKEY, JSON.stringify(Object.assign(moreGet(), patch))); } catch (e) {} };
-  const noteEnd = () => { if (mode === "more") moreSet({done: Date.now()}); else if (!moreGet().at) moreSet({at: Date.now()}); };
+  const BKEY = "sb:onboarded:backup";
+  const bkGet = () => { try { return JSON.parse(localStorage.getItem(BKEY) || "{}") || {}; } catch (e) { return {}; } };
+  const bkSet = patch => { try { localStorage.setItem(BKEY, JSON.stringify(Object.assign(bkGet(), patch))); } catch (e) {} };
+  window.SBOB.setupAt = () => Number(moreGet().at) || 0;
+  const noteEnd = () => { if (mode === "backup") bkSet({done: Date.now()}); else if (mode === "more") moreSet({done: Date.now()}); else if (!moreGet().at) moreSet({at: Date.now()}); };
   const THEME_PICKS = ["classic", "lavender", "japan", "italy", "ocean", "sakura", "galaxy", "cafe"];
 
   // Tour state (lives only while the tour is open)
@@ -291,6 +297,10 @@
     const gift = P && P.welcomeWeek ? P.welcomeWeek() : null;
     if (gift) P.welcomeSaid();
     const has = id => STEPS.some(x => x.id === id);
+    if (mode === "backup") return `${hero(IC.party, "done")}
+      <h2 class="ob-h" id="obH" tabindex="-1">${bkOnText() ? "Your Work Is Backed Up" : "Maybe Later"}</h2>
+      <p class="ob-lead">${bkOnText() ? "Studyboard saves a copy every hour while it's open." : "Automatic backups are in Settings whenever you want them."}</p>
+      <ul class="ob-sum">${row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings")}</ul>`;
     if (mode === "more") return `${hero(IC.party, "done")}
       <h2 class="ob-h" id="obH" tabindex="-1">You're All Set!</h2>
       <p class="ob-lead">You can change any of these in Settings.</p>
@@ -330,7 +340,7 @@
 
   /* Sheet */
   function sheetHtml(){
-    const s = STEPS[step], last = step === STEPS.length - 1, more = mode === "more";
+    const s = STEPS[step], last = step === STEPS.length - 1, more = extra();
     // The done page isn't counted as a step
     const real = STEPS.filter(x => x.id !== "done"), n = real.length;
     const bar = real.map((x, i) => `<button type="button" class="ob-seg ${last && !skipped || !last && i < step ? "past" : i === step ? "cur" : ""}" data-ob="goto" data-id="${i}" aria-label="Step ${i + 1}: ${esc(x.title)}${i === step ? " (current)" : ""}"></button>`).join("");
@@ -339,11 +349,11 @@
     const goAct = last ? (more ? "finish" : hasTasks ? "plan" : "first-task") : "next";
     return `<form class="sheet ob" data-step="${s.id}" aria-labelledby="obH">
       <div class="ob-top">
-        <span class="ob-count mini">${last ? (skipped ? "Setup skipped" : "All done") : `Step ${step + 1} of ${n}`}</span>
+        <span class="ob-count mini">${last ? (skipped ? "Setup skipped" : "All done") : n === 1 ? "" : `Step ${step + 1} of ${n}`}</span>
         <span class="spacer"></span>
         ${last ? "" : `<button type="button" class="link-btn ob-skip" data-ob="skip">${more ? "Not Now" : "Skip Setup"}</button>`}
       </div>
-      <div class="ob-bar" role="group" aria-label="Progress">${bar}</div>
+      ${n === 1 ? "" : `<div class="ob-bar" role="group" aria-label="Progress">${bar}</div>`}
       <div class="sheet-body ob-body"><div class="ob-step-in${dir < 0 ? " ob-rev" : ""}">${VIEW[s.id]()}</div></div>
       <div class="sheet-foot ob-foot">
         <button type="button" class="btn ob-back" data-ob="back" ${step === 0 || last ? "hidden" : ""}>Back</button>
@@ -404,7 +414,7 @@
       case "back": if (step > 0) go(step - 1); break;
       case "goto": go(Number(id)); break;
       // Skip Setup ends on the done page, with what was skipped marked Later
-      case "skip": if (mode === "more") finish(false); else { flushCourse(); markDone(); noteEnd(); skipped = true; queue = []; dir = 1; show(STEPS.length - 1, true); } break;
+      case "skip": if (extra()) finish(false); else { flushCourse(); markDone(); noteEnd(); skipped = true; queue = []; dir = 1; show(STEPS.length - 1, true); } break;
       case "finish": finish(true); break;
       case "plan": finish(true); break;
       case "first-task": finish(true, true); break;
@@ -524,21 +534,21 @@
     if (finishing) { finishing = false; return; }
     if (dlg.querySelector(".sheet.ob")) {
       markDone(); noteEnd();
-      setTimeout(() => toast(mode === "more" ? "No problem. These are all in Settings too." : "Welcome setup closed. Replay it any time from Settings."), 60);
+      setTimeout(() => toast(mode === "backup" ? "No problem. Backups are in Settings whenever you want them." : mode === "more" ? "No problem. These are all in Settings too." : "Welcome setup closed. Replay it any time from Settings."), 60);
       scheduleRender();
     }
   });
 
   function finish(completed, firstTask){
     if (completed) flushCourse();
-    if (completed && mode !== "more") { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
+    if (completed && !extra()) { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
     noteEnd();
     finishing = true; markDone(); clearTimeout(hoursTimer); saveSettings();
     if (dlg.open) dlg.close(); else finishing = false;
     added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; queue = []; cMsg = "";
     moveCanvasesBack();
-    if (!completed) { toast(mode === "more" ? "No problem. These are all in Settings too." : "No problem. Replay the welcome setup any time from Settings."); render(); return; }
-    if (mode === "more") { render(); return; }
+    if (!completed) { toast(mode === "backup" ? "No problem. Backups are in Settings whenever you want them." : mode === "more" ? "No problem. These are all in Settings too." : "No problem. Replay the welcome setup any time from Settings."); render(); return; }
+    if (extra()) { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
     if (firstTask) setTimeout(() => {
       const i = $("#qaIn"); if (!i) return;
@@ -585,8 +595,8 @@
   function stop(){ clearInterval(poll); poll = 0; }
   // kind: "first" (the essentials), "more" (the optional extras) or "all" (a replay from Settings)
   function start(kind){
-    mode = kind === "more" || kind === "all" ? kind : "first";
-    const ids = mode === "first" ? FIRST : mode === "more" ? MORE : null;
+    mode = kind === "more" || kind === "all" || kind === "backup" ? kind : "first";
+    const ids = mode === "first" ? FIRST : mode === "more" ? MORE : mode === "backup" ? BACKUP : null;
     STEPS = ALL_STEPS.filter(x => (!ids || ids.includes(x.id)) && (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; since = Date.now(); skipped = false; queue = []; cMsg = ""; show(0); }
 
   hook("boot", () => {
@@ -606,18 +616,32 @@
   hook("menu", () => `<button data-act="ob-replay"><span>Replay Welcome Setup<span class="sub">Courses, study hours, theme, reminders, backups and more</span></span></button>`);
   hook("act", act => {
     if (act === "ob-more-hide") { moreSet({hide: Date.now()}); render(); toast("Okay. You'll find all of these in Settings."); return true; }
-    if (act !== "ob-replay" && act !== "ob-more") return false;
+    if (act === "ob-backup-hide") { bkSet({hide: Date.now()}); render(); toast("Okay. Automatic backups are in Settings whenever you want them."); return true; }
+    if (act !== "ob-replay" && act !== "ob-more" && act !== "ob-backup") return false;
     if (dlg.open) dlg.close();
-    setTimeout(() => start(act === "ob-more" ? "more" : "all"), 40);
+    setTimeout(() => start(act === "ob-more" ? "more" : act === "ob-backup" ? "backup" : "all"), 40);
     return true;
   });
 
-  /* A gentle nudge for the optional setup, from the day after the welcome setup */
-  const moreDue = () => { const m = moreGet(); return !!m.at && !m.hide && !m.done && Date.now() - m.at > 20 * 3600e3 && isDone(); };
+  /* A gentle nudge for the optional setup, from the day after the welcome setup.
+     It waits while the Getting Started checklist is still on the Board, so only one card shows at a time. */
+  const moreDue = () => { const m = moreGet(); return !!m.at && !m.hide && !m.done && Date.now() - m.at > 20 * 3600e3 && isDone() && !(window.SBGS && SBGS.showing()); };
+
+  /* Backups are asked about on their own, 3 days after the welcome setup, once there's work worth keeping */
+  const bkDue = () => { const m = moreGet(), b = bkGet(); return !!m.at && !b.hide && !b.done && Date.now() - m.at > 3 * 864e5 && isDone() && backupsHere() && !bkOnText()
+    && allTasks().length + coursesArr().length >= 3 && !(window.SBSEM && SBSEM.cardDue && SBSEM.cardDue()); };
+  window.SBOB.backupDue = bkDue;
+  hook("render", tab => {
+    if (tab !== "board" || inPreview() || window.SBOB.pending() || !bkDue()) return;
+    const v = $("#view"); if (!v || v.querySelector(".sem-card-b")) return;
+    const nT = allTasks().length, nC = coursesArr().length;
+    v.insertAdjacentHTML("afterbegin", `<section class="sem-card-b ob-bk-b" aria-labelledby="obBkT"><div class="sem-cb-t"><b id="obBkT">Keep Your Work Safe</b><span>You've added ${nC ? `${nC} course${nC === 1 ? "" : "s"} and ` : ""}${nT} task${nT === 1 ? "" : "s"}. Turn on automatic backups to Google Drive or OneDrive so they're safe if this device is lost. It takes about a minute.</span></div>
+      <div class="sem-cb-b"><button type="button" class="btn primary" data-act="ob-backup">Set Up Backups</button><button type="button" class="link-btn" data-act="ob-backup-hide">Not Now</button></div></section>`);
+  });
   hook("render", tab => {
     if (tab !== "board" || inPreview() || !moreDue() || window.SBOB.pending()) return;
     const v = $("#view"); if (!v || v.querySelector(".sem-card-b") || (window.SBSEM && SBSEM.cardDue())) return;
-    v.insertAdjacentHTML("afterbegin", `<section class="sem-card-b ob-more-b" aria-labelledby="obMoreT"><div class="sem-cb-t"><b id="obMoreT">A Few More Things</b><span>Reminders, backups, the app and a theme. Each takes about a minute, and all are optional.</span></div>
+    v.insertAdjacentHTML("afterbegin", `<section class="sem-card-b ob-more-b" aria-labelledby="obMoreT"><div class="sem-cb-t"><b id="obMoreT">A Few More Things</b><span>Reminders, the app and a theme. Each takes about a minute, and all are optional.</span></div>
       <div class="sem-cb-b"><button type="button" class="btn primary" data-act="ob-more">Take a Look</button><button type="button" class="link-btn" data-act="ob-more-hide">Not Now</button></div></section>`);
   });
 })();

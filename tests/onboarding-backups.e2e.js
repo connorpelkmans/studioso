@@ -35,16 +35,29 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(first.join() === "area,courses,hours,done", "the first-run setup asks only the essentials: " + first.join(", "));
     ok(await page.evaluate(() => Object.values(SBLMS.st().courses).some(c => c.code === "BIOL 101")), "a course typed but not added yet comes along on Next");
     await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(300);
-    ok(await page.locator(".ob-more-b").count() === 0 && await page.locator(".sem-card-b").count() === 0, "nothing more is pushed on the same day: no A Few More Things card and no second setup card");
-    const later = async pg => { await pg.waitForTimeout(1600); if (await pg.evaluate(() => window.SBTOUR && SBTOUR.active())) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
-      await pg.evaluate(() => { const k = "sb:onboarded:more", m = JSON.parse(localStorage.getItem(k) || "{}"); m.at = Date.now() - 2 * 864e5; localStorage.setItem(k, JSON.stringify(m)); });
-      await pg.click('nav.tabs [data-tab="courses"]'); await pg.waitForTimeout(150); await pg.click('nav.tabs [data-tab="board"]'); await pg.waitForTimeout(250);
-      if (await pg.locator('.sem-card-b [data-act="sem-hide"]').count()) { await pg.click('.sem-card-b [data-act="sem-hide"]'); await pg.waitForTimeout(250); } };
-    await later(page);
-    ok(await page.locator('.ob-more-b [data-act="ob-more"]').count() === 1 && /Reminders, backups, the app and a theme/.test(await page.textContent(".ob-more-b")), "a day later a small card on the Board offers the rest");
+    ok(await page.locator(".ob-more-b").count() === 0 && await page.locator(".sem-card-b").count() === 0 && await page.locator(".ob-bk-b").count() === 0, "nothing more is pushed on the same day: no A Few More Things card, no backups card and no second setup card");
+    ok(await page.locator(".gs-card").count() === 1 && /1 of 5 done|2 of 5 done/.test(await page.textContent(".gs-card")), "the Getting Started checklist is on the Board, with the course already ticked");
+    const setAt = (pg, days) => pg.evaluate(d => { const k = "sb:onboarded:more", m = JSON.parse(localStorage.getItem(k) || "{}"); m.at = Date.now() - d * 864e5; localStorage.setItem(k, JSON.stringify(m)); }, days);
+    const board = async pg => { await pg.click('nav.tabs [data-tab="courses"]'); await pg.waitForTimeout(150); await pg.click('nav.tabs [data-tab="board"]'); await pg.waitForTimeout(250); };
+    const later = async (pg, keepList) => { await pg.waitForTimeout(1600); if (await pg.evaluate(() => window.SBTOUR && SBTOUR.active())) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
+      await setAt(pg, 2); await board(pg);
+      if (await pg.locator('.sem-card-b [data-act="sem-hide"]').count()) { await pg.click('.sem-card-b [data-act="sem-hide"]'); await pg.waitForTimeout(250); }
+      if (!keepList && await pg.locator('.gs-card [data-act="gs-hide"]').count()) { await pg.click('.gs-card [data-act="gs-hide"]'); await pg.waitForTimeout(250); } };
+    await later(page, true);
+    ok(await page.locator(".gs-card").count() === 1 && await page.locator(".ob-more-b").count() === 0, "a day later the checklist is still there, and A Few More Things waits for it (one card at a time)");
+    await page.click('.gs-card [data-act="gs-hide"]'); await page.waitForTimeout(250);
+    ok(await page.locator('.ob-more-b [data-act="ob-more"]').count() === 1 && /Reminders, the app and a theme/.test(await page.textContent(".ob-more-b")), "once it's hidden, a small card offers the rest, without backups");
     await page.click('.ob-more-b [data-act="ob-more"]'); await page.waitForSelector(".sheet.ob");
-    for (let i = 0; i < 12 && (await page.getAttribute(".sheet.ob", "data-step")) !== "backups"; i++) { await page.click('[data-ob="next"]'); await page.waitForTimeout(120); }
-    ok(await page.getAttribute(".sheet.ob", "data-step") === "backups", "it has a Backups step in Chrome and Edge");
+    const extras = [];
+    for (let i = 0; i < 12; i++) { const s = await page.getAttribute(".sheet.ob", "data-step"); extras.push(s); if (s === "done") break; await page.click('[data-ob="next"]'); await page.waitForTimeout(120); }
+    ok(!extras.includes("backups"), "the day-2 extras don't ask about backups: " + extras.join(", "));
+    await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(300);
+    ok(await page.locator(".ob-bk-b").count() === 0, "two days in, backups still aren't asked about");
+    for (const t of ["Essay draft due friday", "Bio quiz monday"]) { await page.fill("#qaIn", t); await page.press("#qaIn", "Enter"); await page.waitForTimeout(400); if (await page.evaluate(() => document.querySelector("#dlg").open)) { await page.keyboard.press("Escape"); await page.waitForTimeout(200); } }
+    await setAt(page, 4); await board(page);
+    ok(await page.locator('.ob-bk-b [data-act="ob-backup"]').count() === 1 && /Keep Your Work Safe/.test(await page.textContent(".ob-bk-b")), "a few days in, with work worth keeping, a card asks about backups on its own");
+    await page.click('.ob-bk-b [data-act="ob-backup"]'); await page.waitForSelector(".sheet.ob");
+    ok(await page.getAttribute(".sheet.ob", "data-step") === "backups" && !/Step 1 of 1/.test(await page.textContent(".sheet.ob")), "it opens straight on the Backups step in Chrome and Edge");
     ok(/Allow on every visit/.test(await page.textContent(".sheet.ob")) && await page.locator('[data-ob="backup-folder"]').count() === 3, "it offers Google Drive, OneDrive or another folder, and says which permission to choose");
     await page.click('[data-ob="backup-folder"][data-id="gdrive"]');
     await page.waitForFunction(() => /Automatic Backups Are On/.test((document.querySelector(".sheet.ob") || {}).textContent || ""), null, {timeout: 8000});
@@ -52,9 +65,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const files = await page.evaluate(async () => { const r = await navigator.storage.getDirectory(), d = await (await r.getDirectoryHandle("My Drive")).getDirectoryHandle("Studyboard Backups"); const out = []; for await (const [name] of d.entries()) out.push(name); return out; });
     ok(files.length > 0, "a backup is written to the folder right away: " + JSON.stringify(files));
     for (let i = 0; i < 4 && (await page.getAttribute(".sheet.ob", "data-step")) !== "done"; i++) { await page.click('[data-ob="next"]'); await page.waitForTimeout(120); }
-    ok(/Backing up to Google Drive/.test(await page.textContent(".sheet.ob")), "the last page lists automatic backups as set up");
+    ok(/Backing up to Google Drive/.test(await page.textContent(".sheet.ob")), "the last page says backups are set up");
     await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(300);
-    ok(!(await page.evaluate(() => document.querySelector("#dlg").open)) && await page.locator(".ob-more-b").count() === 0, "Done closes it, and the card is gone");
+    ok(!(await page.evaluate(() => document.querySelector("#dlg").open)) && await page.locator(".ob-bk-b").count() === 0, "Done closes it, and the card is gone");
     await ctx.close();
     const b = await open(true);
     for (let i = 0; i < 8 && (await b.page.getAttribute(".sheet.ob", "data-step")) !== "done"; i++) { await b.page.click('[data-ob="next"]'); await b.page.waitForTimeout(120); }

@@ -5390,6 +5390,40 @@ details.pp-group[open]>summary::before{content:"▾"}
   .exm-off{top:50%;right:4px;transform:translateY(-50%);width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:12px}
   .exm-x{display:block}
 }
+/* Getting Started checklist on the Board */
+.gs-card{margin:0 0 14px;padding:14px 14px 10px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:18px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.gs-card.shut{padding-bottom:12px}
+.gs-head{display:flex;align-items:center;gap:10px}
+.gs-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.gs-ht{display:flex;flex-direction:column;min-width:0}
+.gs-ht b{font:800 1.05rem/1.25 var(--display);color:var(--ink)}
+.gs-ht .mini{color:var(--muted)}
+.gs-ring{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p)*1%),color-mix(in srgb,var(--ink) 12%,var(--surface)) 0)}
+.gs-ring span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--surface);font:800 .78rem/1 var(--display);color:var(--ink)}
+.gs-x{flex:none;color:var(--muted)}
+.gs-bar{display:none}
+.gs-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.gs-btn{width:100%;display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 8px;border:0;border-radius:12px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.gs-btn:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.gs-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.gs-row.ok .gs-btn{cursor:default;background:none}
+.gs-ck{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:2px solid color-mix(in srgb,var(--ink) 25%,var(--surface));color:#fff}
+.gs-row.ok .gs-ck{border-color:var(--leaf);background:var(--leaf)}
+.gs-row.next .gs-ck{border-color:var(--accent)}
+.gs-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gs-tx b{font-weight:700;color:var(--ink)}
+.gs-tx .mini{color:var(--muted);line-height:1.35}
+.gs-row.ok .gs-tx b{color:var(--muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 60%,transparent);font-weight:600}
+.gs-chev{flex:none;color:var(--muted)}
+.gs-row.next .gs-chev{color:var(--accent)}
+.gs-all .gs-head{gap:12px}
+.gs-all .gs-ht{flex:1}
+.gs-party{font-size:1.6rem;line-height:1}
+.gs-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:no-preference){.gs-ring{transition:background .3s}}
+.gs-row.ok .gs-btn{min-height:36px;padding-block:4px}
+.gs-row.ok .gs-ck{width:20px;height:20px;margin-inline:2px}
+#view .gs-list li{border:0}
 /* ===== module: 99-motion-a11y-tz.css ===== */
 /* Text size: everything in rem scales with the root */
 html{font-size:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%}

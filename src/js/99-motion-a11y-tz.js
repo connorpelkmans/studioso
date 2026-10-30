@@ -405,7 +405,7 @@
 /* Board notices */
 (() => {
   let more = false;
-  const KEEP = ["bn-more", "fgs-strip", "sem-card-b"];
+  const KEEP = ["bn-more", "fgs-strip", "sem-card-b", "gs-card"];
   const PRI = ["wkr-card", "rw-banner", "crunch-card", "sem-card-b", "nudge", "fgs-intro"];
   const CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   function mergeWeek(v){

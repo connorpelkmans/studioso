@@ -580,6 +580,17 @@ There's nothing to set up for it. A few things to know:
 
 New people get a short guided tour (a spotlight and a card for each of the 8 main features: quick add, Today's Plan, Calendar, Flashcards, Courses, Grades, the Focus timer and Search, with Back, Next, Skip and progress dots; arrow keys and Esc work too). It shows once per device, right after the welcome setup above is finished or closed, and never on its own for anyone who already has courses or tasks. Open **Settings** and choose **Take the App Tour** to see it again (it's also in Search Everywhere). If a tab or control isn't on screen (for example Groups on a phone), that step is skipped.
 
+## Getting Started Checklist and Later Questions
+
+After the welcome setup, the Board shows a small **Getting Started** card with 5 things to try: add your courses, add a deadline, finish a focus session, make a flashcard deck, and take the 1-minute tour. Each one ticks itself off when the student really does it, and tapping an item takes them straight there. The card can be folded up or hidden with its X, it shows a short "You're All Set Up" note when everything is done, and it goes away on its own 30 days after the welcome setup. It's remembered per device.
+
+Only one of these cards shows on the Board at a time:
+
+1. **Set Up Your Semester** (only for an empty planner)
+2. **Keep Your Work Safe:** automatic backups are asked about on their own, 3 days after the welcome setup, once there are at least 3 courses and tasks between them, and only where backups work and aren't on yet. Not Now hides it for good; backups stay in Settings.
+3. **Getting Started**
+4. **A Few More Things:** reminders, the app, AI and a theme, from the day after the welcome setup, once the checklist is finished or hidden.
+
 ## Bug Reports and Feedback
 
 Settings has **Report a Bug or Send Feedback** (also in Search Everywhere). People pick a category, describe what happened, can add steps and a screenshot, and can tick a box to let you email them. Studyboard attaches only technical details: app version, browser and screen size, current page, plan and recent error messages, never their tasks, notes or files. It works signed in or signed out. If the person is offline, the report is kept on their device and sent when they're back online.
