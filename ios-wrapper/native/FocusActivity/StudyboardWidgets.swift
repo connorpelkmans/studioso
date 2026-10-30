@@ -190,15 +190,10 @@ private struct PlayHit: Shape {
 private struct FaceStyle: ToggleStyle {
     let s: StudyboardFocusAttributes.ContentState
     let look: Look
-    // The time for the switch's state. Just tapped (the switch differs from the card): with the App Group the time stops or
-    // starts at the tap, which the app then uses too; without it the time stays as the card says until the app has acted,
-    // so it never jumps.
-    private func clock(_ on: Bool) -> Clock {
-        let cardRunning = s.pausedLeft == 0
-        if on == cardRunning { return Clock(s, running: on) }
-        if StudyboardTap.available { return Clock(s, running: on, at: StudyboardTap.note(s, running: on)) }
-        return Clock(s, running: cardRunning)
-    }
+    // The time always follows the card's state, never the switch: iOS draws the switch's flipped state ahead of time (when the
+    // card last changed, not at the tap), so a time worked out for it would be from back then. The button flips at the tap;
+    // the time stops or starts when the app has acted, from exactly where it was.
+    private func clock(_ on: Bool) -> Clock { Clock(s, running: s.pausedLeft == 0) }
     func makeBody(configuration: Configuration) -> some View {
         Face(s: s, c: clock(configuration.isOn), look: look, done: false, showPlay: true, playing: configuration.isOn)
             .contentShape(PlayHit())
