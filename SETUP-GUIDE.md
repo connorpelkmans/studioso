@@ -578,7 +578,7 @@ There's nothing to set up for it. A few things to know:
 
 ## App Tour
 
-New people get a short guided tour (a spotlight and a card for each main tab and control, with Back, Next, Skip and progress dots; arrow keys and Esc work too). It shows once per device, right after the welcome setup above is finished or closed, and never on its own for anyone who already has courses or tasks. Open **Settings** and choose **Take the App Tour** to see it again (it's also in Search Everywhere). If a tab or control isn't on screen (for example Groups on a phone), that step is skipped.
+New people get a short guided tour (a spotlight and a card for each of the 8 main features: quick add, Today's Plan, Calendar, Flashcards, Courses, Grades, the Focus timer and Search, with Back, Next, Skip and progress dots; arrow keys and Esc work too). It shows once per device, right after the welcome setup above is finished or closed, and never on its own for anyone who already has courses or tasks. Open **Settings** and choose **Take the App Tour** to see it again (it's also in Search Everywhere). If a tab or control isn't on screen (for example Groups on a phone), that step is skipped.
 
 ## Bug Reports and Feedback
 
