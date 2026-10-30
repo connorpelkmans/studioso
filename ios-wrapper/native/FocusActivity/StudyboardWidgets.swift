@@ -178,7 +178,7 @@ struct StudyboardFocusLiveActivity: Widget {
             let s = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label { Text(s.label).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.6) } icon: { Tomato(s: s) }
+                    Label { Text(s.mode == "focus" ? s.label : "Break").foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.6) } icon: { Tomato(s: s) }
                         .font(.headline).padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
