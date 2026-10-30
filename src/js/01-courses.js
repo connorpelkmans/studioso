@@ -130,7 +130,7 @@ function viewCourses(){
   }
   const cs = coursesArr();
   const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button>`;
-  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt()}<strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
+  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
     const ts = courseTasks(c);
