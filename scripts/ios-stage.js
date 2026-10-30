@@ -120,13 +120,18 @@ if (fs.existsSync(plistFile)) {
   const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
   try {
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const want = [...new Set([...txt.matchAll(/CODE_SIGN_ENTITLEMENTS = "?([^";]*App[^";]*\.entitlements)"?;/g)].map(m => m[1]))].filter(r => !/Widget|Share/i.test(r));
+    const want = [...new Set([...txt.matchAll(/CODE_SIGN_ENTITLEMENTS = "?([^";]+\.entitlements)"?;/g)].map(m => m[1]))];
+    const head = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n`;
+    const group = `\t<key>com.apple.security.application-groups</key>\n\t<array>\n\t\t<string>group.com.studyboardapp.studyboard</string>\n\t</array>\n`;
     for (const rel of want) {
       const f = path.join(wrap, "ios", "App", rel);
       if (fs.existsSync(f)) continue;
+      // the widget (and the share extension) only share the App Group; the app also has Sign in with Apple and push
+      const ext = /Widget|Share/i.test(rel);
+      const body = ext ? group : `\t<key>aps-environment</key>\n\t<string>development</string>\n\t<key>com.apple.developer.applesignin</key>\n\t<array>\n\t\t<string>Default</string>\n\t</array>\n` + group;
       fs.mkdirSync(path.dirname(f), {recursive: true});
-      fs.writeFileSync(f, `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>aps-environment</key>\n\t<string>development</string>\n\t<key>com.apple.developer.applesignin</key>\n\t<array>\n\t\t<string>Default</string>\n\t</array>\n</dict>\n</plist>\n`);
-      console.log("ios-stage: recreated " + path.join("ios", "App", rel) + " (Sign in with Apple and push)");
+      fs.writeFileSync(f, head + body + "</dict>\n</plist>\n");
+      console.log("ios-stage: recreated " + path.join("ios", "App", rel) + (ext ? " (App Group)" : " (Sign in with Apple, push and the App Group)"));
     }
   } catch (e) {}
 }
