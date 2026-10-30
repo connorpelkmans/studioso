@@ -11,9 +11,9 @@
   // The tour is open, or still to come for this account
   window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}, setupAt: () => 0};
 
-  // The Backups step shows only where a web page can save to a folder
+  // The Backups step: Google Drive or OneDrive on the website, or a folder where the browser allows it
   const cbk = () => window.SBCLOUD && SBCLOUD.backup;
-  const cloudBkHere = () => { const B = cbk(); return !!B && (B.possible("google") || B.possible("microsoft")); };
+  const cloudBkHere = () => !!cbk();
   const backupsHere = () => { try { return !DESK && !inPreview() && ((typeof FSB !== "undefined" && FSB.supported()) || cloudBkHere()); } catch (e) { return false; } };
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
@@ -44,7 +44,6 @@
   const bkSet = patch => { try { localStorage.setItem(BKEY, JSON.stringify(Object.assign(bkGet(), patch))); } catch (e) {} };
   window.SBOB.setupAt = () => Number(moreGet().at) || 0;
   const noteEnd = () => { if (mode === "backup") bkSet({done: Date.now()}); else if (mode === "more") moreSet({done: Date.now()}); else if (!moreGet().at) moreSet({at: Date.now()}); };
-  const THEME_PICKS = ["classic", "lavender", "japan", "italy", "ocean", "sakura", "galaxy", "cafe"];
 
   // Tour state (lives only while the tour is open)
   let step = 0, cheered = false, dir = 1, away = null, finishing = false, added = [], newColor = null, remindersOk = false, remindersMsg = "", deviceTab = null, hoursTimer = 0;
@@ -153,22 +152,18 @@
         <input type="file" id="obIcs" class="sr" tabindex="-1" accept=".ics,.ical,.icalendar,text/calendar" aria-label="Choose a calendar file"></p>`;
   }
 
+  // Themes are picked in the Style Shop, which has all of them
   function themeStep(){
-    const cur = styleCfg().skin, dark = isDark();
-    const spare = SKINS.filter(s => s.group === "plain" && !THEME_PICKS.includes(s.id) && owns("skin", s.id));
-    const picks = THEME_PICKS.map(id => SKINS.find(s => s.id === id) || spare.shift()).filter(Boolean).map(s => owns("skin", s.id) ? s : spare.shift() || s);
-    const cur0 = SKINS.find(s => s.id === cur && owns("skin", s.id));
-    if (cur0 && !picks.includes(cur0)) picks[picks.length - 1] = cur0;
-    { const ad = SBAREA.def(), fs = ad && ad.skin && SKINS.find(s => s.id === ad.skin); if (fs && owns("skin", fs.id) && !picks.includes(fs)) picks.splice(0, 1, fs); }
+    const cur = SKINS.find(s => s.id === styleCfg().skin);
     const mode = (() => { try { const t = localStorage.getItem("studioso:theme"); return t === "dark" || t === "light" ? t : "system"; } catch (e) { return "system"; } })();
     return `${hero(IC.theme)}
       <h2 class="ob-h" id="obH" tabindex="-1">Pick a Theme</h2>
-      <p class="ob-lead">Make it yours. Tap a theme to try it on; you can change it any time.</p>
+      <p class="ob-lead">Make it yours. The Style Shop has all ${SKINS.length} themes${STORE.paywall ? "" : ", free while Studyboard is in early access"}. You can change it any time.</p>
       <div class="ob-mode"><span class="mini">Appearance</span><div class="segb" role="group" aria-label="Appearance">${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([k, l]) => `<button type="button" data-ob="mode" data-id="${k}" aria-pressed="${mode === k}">${l}</button>`).join("")}</div></div>
-      <div class="ob-themes" role="group" aria-label="Themes">${picks.map(s => `<button type="button" class="ob-theme ${s.id === cur ? "on" : ""}" aria-pressed="${s.id === cur}" data-ob="skin" data-id="${esc(s.id)}">
-          ${skinPreview(s, dark)}<span class="ob-tb">${s.tier === "pro" ? PRO_BADGE : FREE_BADGE}</span><span class="ob-tname">${esc(s.name)}</span>${s.id === cur ? `<span class="ob-tick" aria-hidden="true">${IC.check}</span>` : ""}</button>`).join("")}</div>
-      <p class="ob-note mini">${STORE.paywall ? "" : "Everything is free while Studyboard is in early access. "}The Style Shop has all ${SKINS.length} themes, plus flashcard styles, note shapes and stickers. <button type="button" class="link-btn" data-ob="shop">Open the Style Shop</button></p>`;
+      <button type="button" class="btn primary ob-big" data-ob="shop">Browse Themes</button>
+      ${cur ? `<p class="ob-note mini">Your theme now: <b>${esc(cur.name)}</b></p>` : ""}`;
   }
+
 
   function hoursStep(){
     const h = dailyHours();
@@ -251,17 +246,19 @@
   function backupsStep(){
     const B = cbk(), cloudOn = !!(B && B.on()), pend = B && B.pending(), on = cloudOn || FSB.status === "on", paused = !cloudOn && FSB.status === "paused", folders = FSB.supported();
     const opt = (kind, title, sub) => `<button type="button" class="ob-alt ob-bk" data-ob="backup-folder" data-id="${kind}"><span class="ob-alt-ic bk-ico bk-${kind}" aria-hidden="true">${BK_LOGO[kind] || ""}</span><span class="ob-alt-t"><b>${title}</b><span class="mini">${sub}</span></span></button>`;
-    const viaCloud = p => !!(B && B.possible(p));
+    // On the website, backups go straight to Google Drive or OneDrive (they need a free account), never a folder on the computer
+    const cloudy = !!B, signed = !!(B && B.ready()), viaCloud = p => !!(B && B.possible(p));
+    if (B && !on && signed && !B.loaded()) B.refresh();
     if (B && !on) ["google", "microsoft"].forEach(p => { if (viaCloud(p) && !B.connected(p)) B.connectUrl(p); });
-    const gSub = viaCloud("google") ? "Connect your Google Drive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose the Google Drive folder (on Windows, the G: drive), then My Drive. Needs Google Drive for desktop.";
-    const oSub = viaCloud("microsoft") ? "Connect your OneDrive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose your OneDrive folder or its Documents folder.";
-    const body = on ? `<div class="ob-okbox">${IC.check}<span><b>Automatic Backups Are On</b><span class="mini">Saving to ${esc(bkOnText())} every hour while Studyboard is open.</span></span><button type="button" class="btn small" data-ob="backup-change">Change</button></div>`
+    const sub = name => signed ? `Connect your ${name}. Backups go to Studyboard › Backups in it, with nothing to install.` : `Make a free account, then connect your ${name}. Nothing to install.`;
+    const gSub = cloudy ? sub("Google Drive") : "Choose the Google Drive folder (on Windows, the G: drive), then My Drive. Needs Google Drive for desktop.";
+    const oSub = cloudy ? sub("OneDrive") : "Choose your OneDrive folder or its Documents folder.";
+    const body = on ? `<div class="ob-okbox">${IC.check}<span><b>Automatic Backups Are On</b><span class="mini">Saving to ${esc(bkOnText())} every hour while Studyboard is open.</span></span>${cloudOn ? "" : `<button type="button" class="btn small" data-ob="backup-change">Change</button>`}</div>`
       : pend ? `<div class="ob-info"><span class="mini"><span class="ai-spin" aria-hidden="true"></span> Waiting for ${esc(B.name(pend))} to connect. Allow Studyboard in the page that opened, then come back here.</span></div>`
       : paused ? `<button type="button" class="btn primary ob-big" data-ob="backup-resume">Allow Backups to ${esc(FSB.where)}</button>`
-      : `${viaCloud("google") || folders ? opt("gdrive", "Google Drive", gSub) : ""}
-        ${viaCloud("microsoft") || folders ? opt("onedrive", "OneDrive", oSub) : ""}
-        ${folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
-    const cloudy = viaCloud("google") || viaCloud("microsoft");
+      : `${cloudy || folders ? opt("gdrive", "Google Drive", gSub) : ""}
+        ${cloudy || folders ? opt("onedrive", "OneDrive", oSub) : ""}
+        ${!cloudy && folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
     return `${hero(IC.folder)}
       <h2 class="ob-h" id="obH" tabindex="-1">Automatic Backups <span class="ob-opt">Recommended</span></h2>
       <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Studyboard can save a backup of everything to a folder on this computer every hour. Pick one that Google Drive or OneDrive syncs and your backups are in the cloud too."}</p>
@@ -431,7 +428,8 @@
       case "lms": leaveTo(() => fire("lms-connect")); break;
       case "backup-folder": {
         const here = () => STEPS[step] && STEPS[step].id === "backups" && dlg.querySelector(".sheet.ob");
-        chooseBackupFolder(id).then(() => { if (here()) show(step); });
+        { const B0 = cbk(); if (B0 && !B0.ready()) { toast("Make a free account to back up to Google Drive or OneDrive. Everything you've set up comes with you."); finish(true); setTimeout(() => SBGUEST.signUp("signup"), 350); break; } }
+        cloudBackupGo(id).then(() => { if (here()) show(step); });
         const B = cbk(); if (B && B.pending()) { const t0 = Date.now(), iv = setInterval(() => { if (!here() || Date.now() - t0 > 5 * 60000) { clearInterval(iv); return; } if (B.on() || !B.pending()) { clearInterval(iv); show(step); } }, 2000); }
         break;
       }
@@ -447,12 +445,6 @@
       case "shop": leaveTo(() => styleShop("themes")); break;
       case "ai": leaveTo(() => aiSetupSheet(false)); break;
       case "mode": setTheme(id); show(step); break;
-      case "skin": {
-        if (!owns("skin", id)) { leaveTo(() => shopUnlock("skin", id)); break; }
-        saveStyle({skin: id}); applySkin(); render(); show(step);
-        const t = dlg.querySelector(`.ob-theme[data-id="${id}"]`); if (t) t.focus({preventScroll: true});
-        break;
-      }
       case "hours-dec": setHours(dailyHours() - 0.5); break;
       case "hours-inc": setHours(dailyHours() + 0.5); break;
       case "hours-set": setHours(Number(id)); break;

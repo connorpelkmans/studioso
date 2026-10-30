@@ -57,17 +57,13 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await setAt(page, 4); await board(page);
     ok(await page.locator('.ob-bk-b [data-act="ob-backup"]').count() === 1 && /Keep Your Work Safe/.test(await page.textContent(".ob-bk-b")), "a few days in, with work worth keeping, a card asks about backups on its own");
     await page.click('.ob-bk-b [data-act="ob-backup"]'); await page.waitForSelector(".sheet.ob");
-    ok(await page.getAttribute(".sheet.ob", "data-step") === "backups" && !/Step 1 of 1/.test(await page.textContent(".sheet.ob")), "it opens straight on the Backups step in Chrome and Edge");
-    ok(/Allow on every visit/.test(await page.textContent(".sheet.ob")) && await page.locator('[data-ob="backup-folder"]').count() === 3, "it offers Google Drive, OneDrive or another folder, and says which permission to choose");
+    ok(await page.getAttribute(".sheet.ob", "data-step") === "backups" && !/Step 1 of 1/.test(await page.textContent(".sheet.ob")), "it opens straight on the Backups step");
+    const bk = await page.textContent(".sheet.ob");
+    ok(await page.locator('[data-ob="backup-folder"]').count() === 2 && await page.locator('[data-ob="backup-folder"][data-id="other"]').count() === 0 && /straight to your Google Drive or OneDrive/.test(bk) && !/Allow on every visit|folder on this computer/.test(bk), "it offers only Google Drive and OneDrive, with no computer folder");
+    ok(/Make a free account, then connect your Google Drive/.test(bk), "without an account, it says a free account comes first");
     await page.click('[data-ob="backup-folder"][data-id="gdrive"]');
-    await page.waitForFunction(() => /Automatic Backups Are On/.test((document.querySelector(".sheet.ob") || {}).textContent || ""), null, {timeout: 8000});
-    ok(/Google Drive › My Drive › Studyboard Backups/.test(await page.textContent(".sheet.ob")), "after picking, the step says where backups are saved");
-    const files = await page.evaluate(async () => { const r = await navigator.storage.getDirectory(), d = await (await r.getDirectoryHandle("My Drive")).getDirectoryHandle("Studyboard Backups"); const out = []; for await (const [name] of d.entries()) out.push(name); return out; });
-    ok(files.length > 0, "a backup is written to the folder right away: " + JSON.stringify(files));
-    for (let i = 0; i < 4 && (await page.getAttribute(".sheet.ob", "data-step")) !== "done"; i++) { await page.click('[data-ob="next"]'); await page.waitForTimeout(120); }
-    ok(/Backing up to Google Drive/.test(await page.textContent(".sheet.ob")), "the last page says backups are set up");
-    await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(300);
-    ok(!(await page.evaluate(() => document.querySelector("#dlg").open)) && await page.locator(".ob-bk-b").count() === 0, "Done closes it, and the card is gone");
+    await page.waitForFunction(() => /Create Your Studyboard Account/.test((document.querySelector("dialog[open]") || {}).textContent || ""), null, {timeout: 15000});
+    ok(await page.evaluate(() => !window.__picked), "choosing Google Drive without an account opens the sign-up form, not a folder picker");
     await ctx.close();
     const b = await open(true);
     for (let i = 0; i < 8 && (await b.page.getAttribute(".sheet.ob", "data-step")) !== "done"; i++) { await b.page.click('[data-ob="next"]'); await b.page.waitForTimeout(120); }
@@ -86,7 +82,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await b.page.click('.ob-more-b [data-act="ob-more"]'); await b.page.waitForSelector(".sheet.ob");
     const more = [];
     for (let i = 0; i < 12; i++) { const s = await b.page.getAttribute(".sheet.ob", "data-step"); more.push(s); if (s === "done") break; await b.page.click('[data-ob="next"]'); await b.page.waitForTimeout(120); }
-    ok(!more.includes("backups") && more[0] === "theme" && more.includes("reminders") && more.includes("app"), "without folder access (Safari, Firefox) the Backups step isn't shown: " + more.join(", "));
+    ok(!more.includes("backups") && more[0] === "theme" && more.includes("reminders") && more.includes("app"), "the day-2 extras don't ask about backups here either: " + more.join(", "));
     ok(!(await b.page.textContent(".sheet.ob")).includes("Backing up to"), "and the last page doesn't mention it");
     if (more.includes("pro")) {
       await b.page.evaluate(() => { SBOB.T.plan = {welcomeWeek: () => ({until: "2026-10-27T12:00:00Z", date: "Oct 27, 2026"}), welcomeSaid: () => {}};

@@ -121,13 +121,16 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
       /* 15 first-run welcome */
       {
         const {ctx, p} = await open(browser, {dark, fresh: true});
-        await p.waitForSelector("dialog[open] #sbStart", {timeout: 20000});
-        const w = await p.evaluate(() => { const d = document.querySelector("dialog[open] .sb-welc"); return {h: d.querySelector("h3").textContent, li: d.querySelectorAll("li").length, mochi: !!d.querySelector(".sb-welc-m svg"), alt: (d.querySelector('[data-sbm="signin"]') || {}).textContent, go: d.querySelector("#sbStart").getBoundingClientRect().height, email: !!document.querySelector("dialog[open] input[name=email]")}; });
-        ok(/Hi! I'm Mochi\.\s*Let's plan your semester\./.test(w.h) && w.li === 3 && w.mochi && w.alt === "I Already Have an Account" && w.go >= 48 && !w.email, `15 (${tag}): a first-time student sees Mochi, three points, Get Started and I Already Have an Account: ` + JSON.stringify(w));
+        await p.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
+        const w = await p.evaluate(() => { const d = document.querySelector("dialog[open] .sb-welc"); return {h: d.querySelector("h3").textContent, li: d.querySelectorAll("li").length, mochi: !!d.querySelector(".sb-welc-m svg"), alt: (d.querySelector('[data-sbm="signin"]') || {}).textContent, go: d.querySelector("#sbSignUp").getBoundingClientRect().height, email: !!document.querySelector("dialog[open] input[name=email]")}; });
+        ok(/Hi! I'm Mochi\.\s*Let's plan your semester\./.test(w.h) && w.li === 3 && w.mochi && w.alt === "I Already Have an Account" && w.go >= 48 && !w.email, `15 (${tag}): a first-time student sees Mochi, three points, Sign Up and I Already Have an Account: ` + JSON.stringify(w));
         await noOverflow(p, `15 (${tag})`);
-        await p.click("dialog[open] #sbStart");
+        await p.click("dialog[open] #sbSignUp");
+        await p.waitForSelector("dialog[open] form.sb-acct[data-mode=signup] input[name=email]", {timeout: 8000});
+        ok(!(await p.locator("dialog[open] #sbLater").count()), `15 (${tag}): Sign Up opens the sign-up form, with no Use Without an Account link`);
+        await p.click('dialog[open] .sheet-head [data-act="close"]');
         await p.waitForSelector(".sheet.ob", {timeout: 8000});
-        ok(await p.evaluate(() => localStorage.getItem("studioso:sb") === '"local"' && !!localStorage.getItem("studioso:welcomed") && SBGUEST.is()), `15 (${tag}): Get Started works on this device and starts the welcome setup`);
+        ok(await p.evaluate(() => localStorage.getItem("studioso:sb") === '"local"' && !!localStorage.getItem("studioso:welcomed") && SBGUEST.is()), `15 (${tag}): closing it works on this device and starts the welcome setup`);
         ok(!p.errs.length, `15 (${tag}): no page errors: ` + p.errs.join(" | "));
         await ctx.close();
       }
@@ -142,13 +145,13 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
     /* 15 on a computer, and I Already Have an Account */
     {
       const {ctx, p} = await open(browser, {w: 1280, fresh: true});
-      await p.waitForSelector("dialog[open] #sbStart", {timeout: 20000});
+      await p.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
       const d = await box(p, "dialog[open] .sb-acct");
       const mid = await p.evaluate(() => document.documentElement.clientWidth / 2);
       ok(d && Math.abs(d.x + d.w / 2 - mid) <= 10 && d.w < 700, "15 (1280): the welcome is a centred card: " + JSON.stringify(d));
       await p.click('dialog[open] .sb-welc [data-sbm="signin"]');
       await p.waitForSelector("dialog[open] form.sb-acct[data-mode=signin] input[name=email]");
-      ok(await p.locator("dialog[open] #sbLater").count() === 1 && await p.locator('dialog[open] [data-sbm="signup"]').count() === 1, "15 (1280): I Already Have an Account opens the sign-in sheet");
+      ok(await p.locator("dialog[open] #sbLater").count() === 0 && await p.locator('dialog[open] [data-sbm="signup"]').count() === 1, "15 (1280): I Already Have an Account opens the sign-in sheet");
       ok(!p.errs.length, "15 (1280): no page errors: " + p.errs.join(" | "));
       await ctx.close();
     }
