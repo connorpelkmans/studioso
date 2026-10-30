@@ -245,7 +245,7 @@ Codes you hand out, made in the **SQL Editor** (run `supabase-plans.sql` again f
 * **forever**: Pro's themes and features for good.
 * **month**: Pro's themes and features for one calendar month from the moment it's redeemed. It really ends: the database, the entitlement token and the app all compare the end date with the current time, so nothing has to run for it to switch off. A second month code adds another month to what's left.
 
-Both keep the **free plan's amounts**: file storage, synced data, devices, group size, online backups and Pro groups stay as on Free (`studyboard_limits_pro` ignores codes), so a code never costs you Supabase room.
+Both keep the **free plan's storage**: file storage, synced data and online backups stay as on Free (`studyboard_limits_pro` ignores codes), so a code never costs you Supabase room. A **month** code also gives the lite extras while it lasts (the same as a lite grant): unlimited devices and Pro groups. A **forever** code gives Pro's features only.
 
 ```sql
 -- one single-use one-month code           select * from public.studyboard_make_codes('month');

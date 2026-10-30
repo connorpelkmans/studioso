@@ -115,13 +115,14 @@ language sql stable security definer set search_path = public, pg_temp as $$
 $$;
 revoke all on function public.studyboard_limits_pro(uuid) from public, anon, authenticated;
 
--- A lite grant: counts as Pro for features, devices and Pro groups, never for storage (see studyboard_limit)
+-- Lite: a lite grant or a one-month promo code. Counts as Pro for features, devices and Pro groups, never for storage (see studyboard_limit)
 create or replace function public.studyboard_limits_lite(uid uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
   select exists (
     select 1 from public.studyboard_entitlements e
-    where e.user_id = uid and e.grant_lite
-      and (e.grant_lifetime or e.grant_until > now()))
+    where e.user_id = uid
+      and ((e.grant_lite and (e.grant_lifetime or e.grant_until > now()))
+           or e.promo_until > now()))
 $$;
 revoke all on function public.studyboard_limits_lite(uuid) from public, anon, authenticated;
 
