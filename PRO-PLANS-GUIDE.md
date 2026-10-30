@@ -225,6 +225,19 @@ Only you can do this: in the **SQL Editor** (or with the service role). The func
 ```
 A new grant replaces the old one for that person (the days count from now). The account must already exist (they sign up first). Grants live in their own columns, separate from payments: a cancelled or refunded subscription never removes your gift, and revoking a gift never cancels a subscription. The app shows a gift as **Pro (granted)** and the token tier is `pro` (with an end date) or `lifetime` (no end date). Older gifts made with the previous version of this function are moved into grants automatically when you run the SQL again.
 
+### Lite Grants (Pro Without the Extra Storage)
+
+A **lite grant** gives Pro's themes and features, **unlimited devices** and **Pro groups** (up to 100 members, unlimited message history, in up to 5 groups), but keeps the **free plan's storage**: file storage, synced data and online backups stay as on Free. Run it in the **SQL Editor** (run `supabase-plans.sql` again first):
+
+```sql
+-- by email, 30 days   select public.studyboard_grant_lite('friend@example.com', 30, 'beta tester');
+-- by email, for good  select public.studyboard_grant_lite('friend@example.com', null, 'helper');
+-- by account id       select public.studyboard_grant_lite_uid('PASTE-USER-ID', 90, 'club');
+-- take it away        select public.studyboard_revoke_pro('friend@example.com', 'ended');
+```
+
+It uses the grant columns with `grant_lite = true`, so the app shows it as **Pro (granted)**, it is logged in `studyboard_pro_grants` (reason starts with `lite:`), and it ends on its own. A new grant, lite or full, replaces the old one. The amounts come from the `lite` row of `studyboard_config.limits` (defaults: 20 MB files, 20 MB data, no online backups); `studyboard_limits_lite(uid)` is the check. A paid plan still gets Pro's full amounts.
+
 ### Promo Codes (Pro's Features Without Extra Storage)
 
 Codes you hand out, made in the **SQL Editor** (run `supabase-plans.sql` again first so the code tables exist). Two kinds:
