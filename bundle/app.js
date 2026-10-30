@@ -22733,7 +22733,7 @@ document.head.appendChild(AREA_CSS);
         ${li("Two-Way Calendar Sync", "with Google Calendar or Outlook")}
         ${li("PDF Reader with Highlights", "and decks read aloud with Listen")}
         ${li("Picture Cards", "and cards made from the diagrams in your PDFs and pictures")}
-        ${li("Insights, Term Recap and Your Own Focus Routines")}
+        ${li("Insights, Term Recap and More Focus Routines")}
       </ul>
       <p class="ob-note mini">${gift ? "" : account ? "It starts as soon as you confirm your email address. " : "It starts when you make your free account. You can do that at the end of setup. "}Storage and backups stay at the Free amounts during the week.</p>`;
   }
@@ -72483,10 +72483,14 @@ var SBPRO = null;
   const custom = () => (Array.isArray(S().routines) ? S().routines : []).filter(r => r && r.id && r.name).slice(0, 6)
     .map(r => ({id: String(r.id).slice(0, 24), name: String(r.name).slice(0, 24), focus: int(r.focus, 1, 120, 25), short: int(r.short, 1, 60, 5), long: int(r.long, 1, 90, 15), every: int(r.every, 2, 8, 4), custom: true}));
   const all = () => ROUT.concat(custom());
+  // One routine of your own is free; Pro saves up to 6
+  const FREE_OWN = 1;
+  const usable = r => r.free || !P.locked() || custom().findIndex(x => x.id === r.id) < FREE_OWN;
+  const canAdd = () => !P.locked() || custom().length < FREE_OWN;
   const same = (r, c) => +c.focus === r.focus && +c.short === r.short && +c.long === r.long && +c.every === r.every;
   function current(){ const c = pomoCfg(); return all().find(r => r.id === S().routine && same(r, c)) || all().find(r => same(r, c)) || null; }
   function apply(r){
-    if (!r.free && P.locked()) { proWhy("Your own focus routines are part of Studyboard Pro. Classic, Deep Work and Exam Cram are free."); return; }
+    if (!usable(r)) { proWhy("Studyboard Pro saves up to 6 routines of your own. Your first one is free."); return; }
     if (pomo.running) { toast("Choose a routine between sessions."); return; }
     const c = Object.assign({}, pomoCfg(), {focus: r.focus, short: r.short, long: r.long, every: r.every});
     setS({pomo: c, routine: r.id});
@@ -72543,27 +72547,27 @@ var SBPRO = null;
   /* In the Focus timer */
   function pomoHtml(){
     const cur = current(), lk = P.locked();
-    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${!r.free && lk ? " " + PRO_BADGE : ""}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
+    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
     let blk = "";
     if (BK.available) {
       const cfg = blockCfg(), active = BK.until > Date.now();
       blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
         <button type="button" class="pro-sw" role="switch" aria-checked="${cfg.on && !lk}" data-act="pro-blk-on" aria-label="Block distracting sites during focus sessions"><i></i></button></div>`;
     }
-    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${lk ? " " + PRO_BADGE : ""}</b><span>Your own</span></button></div>${blk}</div>`;
+    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
   function routineSheet(){
-    if (P.locked()) { proWhy("Your own focus routines are part of Studyboard Pro."); return; }
-    const mine = custom();
+    const mine = custom(), more = !canAdd();
     openSheet(`<form class="sheet">${head("Your Routines")}<div class="sheet-body">
       ${mine.length ? `<ul class="pro-feats">${mine.map(r => `<li><span class="pf-t"><b>${esc(r.name)}</b><span class="mini">${r.focus} min focus, ${r.short} min breaks, a ${r.long} min break after ${r.every}</span></span><button type="button" class="btn small" data-act="pro-rt-del" data-id="${esc(r.id)}">Remove</button></li>`).join("")}</ul>` : ""}
-      ${mine.length >= 6 ? `<p class="mini" style="margin:0">You have 6 routines. Remove one to add another.</p>` : `<h3 class="fsec">New Routine</h3>
+      ${mine.length >= 6 ? `<p class="mini" style="margin:0">You have 6 routines. Remove one to add another.</p>` : more ? `<p class="mini" style="margin:0">Your free routine is saved. Studyboard Pro saves up to 6, or remove this one to make a different one.</p>` : `<h3 class="fsec">New Routine</h3>
       <label class="f"><span class="lh">Name</span><input type="text" name="name" maxlength="24" required placeholder="e.g. Morning Reading"></label>
       <div class="two"><label class="f"><span class="lh">Focus <span class="hint">min</span></span><input type="number" name="focus" min="1" max="120" value="40"></label>
       <label class="f"><span class="lh">Short Break <span class="hint">min</span></span><input type="number" name="short" min="1" max="60" value="8"></label></div>
       <div class="two"><label class="f"><span class="lh">Long Break <span class="hint">min</span></span><input type="number" name="long" min="1" max="90" value="20"></label>
       <label class="f"><span class="lh">Long Break After <span class="hint">sessions</span></span><input type="number" name="every" min="2" max="8" value="3"></label></div>`}</div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button>${mine.length >= 6 ? "" : `<button type="button" class="btn primary" data-submit>Add Routine</button>`}</div></form>`, fd => {
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button>${mine.length >= 6 ? "" : more ? `<button type="button" class="btn primary" data-act="pro-rt-more">Get More With Pro</button>` : `<button type="button" class="btn primary" data-submit>Add Routine</button>`}</div></form>`, fd => {
+      if (!canAdd()) { proWhy("Studyboard Pro saves up to 6 routines of your own. Your first one is free."); return true; }
       const name = String(fd.get("name") || "").trim().slice(0, 24); if (!name) return false;
       const r = {id: "r" + uid(), name, focus: int(fd.get("focus"), 1, 120, 40), short: int(fd.get("short"), 1, 60, 8), long: int(fd.get("long"), 1, 90, 20), every: int(fd.get("every"), 2, 8, 3)};
       setS({routines: custom().map(({custom: c, ...x}) => x).concat([r]).slice(0, 6)});
@@ -72611,6 +72615,7 @@ var SBPRO = null;
     switch (act) {
       case "pro-rt": { const r = all().find(x => x.id === id); if (r) apply(r); return true; }
       case "pro-rt-new": routineSheet(); return true;
+      case "pro-rt-more": if (dlg.open) dlg.close(); proWhy("Studyboard Pro saves up to 6 routines of your own. Your first one is free."); return true;
       case "pro-rt-del": { const left = custom().filter(r => r.id !== id).map(({custom: c, ...x}) => x); setS({routines: left}); if (dlg.open) dlg.close(); routineSheet(); return true; }
       case "pro-fh-open": openHistory(); return true;
       case "pro-fh-kind": FH.kind = ["week", "month", "term"].includes(id) ? id : "week"; openHistory(); return true;
