@@ -525,6 +525,7 @@ var SBPRO = null;
 .pr-chips .pr-chip.on{background:var(--sel,var(--navy));border-color:var(--sel,var(--navy));color:var(--sel-ink,#fff)}
 .pr-chips .pr-chip.on span{color:inherit;opacity:.8}
 .pr-chips .pr-chip.pr-new{border-style:dashed}
+.pr-chips .pr-chip .pro-badge{color:#fff;font-size:.62rem;opacity:1}
 .pr-chips .pr-chip::before{display:none}
 .pr-block{display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 12px}
 .pr-bt{display:grid;gap:2px;flex:1;min-width:0}

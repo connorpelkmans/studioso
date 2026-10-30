@@ -62,7 +62,7 @@ function viewBars(){
 
   const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
   const head = `<div class="tl-controls tl-tools">${coursePickHtml()}${tlModeSeg()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
-  if (!ts.length) return head + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
+  if (!ts.length) return head + searchNote() + `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}${firstStepBtns()}</div>`;
   return head + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
         <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div><div class="tl-bg tl-bg-top" style="left:${LW}px;width:${W}px"><i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i></div>
@@ -116,7 +116,10 @@ function viewCalendar(){
     </div>
     <div class="cal">${dows.join("")}${cells}</div>
     <h2 class="sec ${ui.calDay === today ? "hl" : ""}"><span class="t">Due ${esc(dayLabel)}</span><span class="n">${dayTasks.length || ""}</span></h2>
-    ${dayTasks.length ? taskList(dayTasks) : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}`;
+    ${dayTasks.length ? taskList(dayTasks) : !allTasks().some(t => t.due)
+      // No due dates anywhere yet: the same welcome as the timeline view
+      ? `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${firstStepBtns()}</div>`
+      : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}`;
 }
 
 /* Courses */
@@ -130,7 +133,7 @@ function viewCourses(){
   }
   const cs = coursesArr();
   const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button>`;
-  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
+  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Sync your school site to bring in every class at once, or add them another way.<br><div class="row-actions"><button class="btn primary" data-act="lms-open">Sync School Site</button> ${imp} <button class="btn small" data-act="new-course">Add a Course</button></div></div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
     const ts = courseTasks(c);

@@ -8418,7 +8418,12 @@ $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toast
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
 // Empty pages: two notebook cards and Mochi's sprout, drawn in the theme's colours
 // Empty-screen art: Mochi in front of a drawing that fits the screen.
-// kind: "board", "courses", "quizzes", "files", "notes" or "groups"; anything else gets the stack of pages (Flashcards).
+// kind: "board", "today", "duedates", "courses", "quizzes", "files", "notes" or "groups"; anything else gets the stack of pages (Flashcards).
+// Buttons under an empty Today's Plan or Due Dates: with no courses yet, syncing the school site comes first
+function firstStepBtns(){
+  const sync = `<button class="btn primary" data-act="lms-open">Sync School Site</button>`;
+  return `<div class="row-actions">${inPreview() ? `<button class="btn primary" data-act="new-task">Add a Task</button>` : coursesArr().length ? `<button class="btn primary" data-act="new-task">Add a Task</button>` : `${sync}<button class="btn small" data-act="new-task">Add a Task</button>`}</div>`;
+}
 function emptyArt(kind){
   const star = (x, y, r, c) => { const a = +(r * .18).toFixed(2), b = +(r * .82).toFixed(2); return `<path class="${c}" d="M${x} ${y - r}q${a} ${b} ${r} ${r}q-${b} ${a}-${r} ${r}q-${a}-${b}-${r}-${r}q${b}-${a} ${r}-${r}z"/>`; };
   const stars = () => star(172, 32, 7, "es-star") + star(26, 30, 5, "es-star2");
@@ -8445,6 +8450,14 @@ function emptyArt(kind){
     groups: () => `<rect class="es-card" x="22" y="18" width="92" height="50" rx="16"/><path class="es-card" d="M40 66l-6 14l18-12"/><rect class="es-cardfill" x="36" y="62" width="20" height="5"/>${[50, 68, 86].map(x => `<circle class="es-dot" cx="${x}" cy="43" r="5"/>`).join("")}
       <rect class="es-hl" x="96" y="44" width="84" height="44" rx="15"/><path class="es-hl" d="M160 86l6 12l-18-12z"/><rect class="es-band" x="108" y="58" width="52" height="5" rx="2.5"/><rect class="es-band" x="108" y="70" width="36" height="5" rx="2.5"/>
       ${star(170, 28, 7, "es-star")}${star(26, 100, 5, "es-star2")}`,
+    today: () => `<rect class="es-card" x="44" y="14" width="112" height="100" rx="12"/>
+      ${[30, 52, 74, 96].map(y => `<rect class="es-line" x="54" y="${y}" width="14" height="4" rx="2"/><path class="es-grid" d="M74 ${y + 2}h72"/>`).join("")}
+      <rect class="es-hl" x="78" y="26" width="58" height="16" rx="5"/><rect class="es-okf" x="78" y="48" width="44" height="14" rx="5"/><rect class="es-goldsoft" x="78" y="68" width="62" height="16" rx="5"/>
+      <circle class="es-clockface" cx="158" cy="28" r="14"/><path class="es-hand" d="M158 20v8l6 4"/>${star(26, 28, 5, "es-star2")}`,
+    duedates: () => `<rect class="es-card" x="42" y="20" width="116" height="96" rx="12"/><path class="es-hl2" d="M42 32q0-12 12-12h92q12 0 12 12v10H42z"/>
+      ${[66, 88, 112, 134].map(x => `<rect class="es-ring" x="${x - 3}" y="12" width="6" height="16" rx="3"/>`).join("")}
+      ${[0, 1, 2].map(r => [0, 1, 2, 3, 4, 5].map(c => { const k = r * 6 + c; return `<rect class="${k === 4 ? "es-acc" : k === 9 ? "es-gold" : k === 13 ? "es-ok" : "es-cell"}" x="${52 + c * 17}" y="${52 + r * 16}" width="12" height="10" rx="3"/>`; }).join("")).join("")}
+      <circle class="es-circle" cx="58" cy="57" r="10"/>${star(176, 34, 7, "es-star")}${star(24, 30, 5, "es-star2")}`,
     pages: () => `<g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
     <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>${stars()}`
   };
@@ -8629,7 +8642,7 @@ ui.colOpen = {};
 document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("col-more")) ui.colOpen[d.dataset.col] = d.open; if (d && d.id === "planExtra") ui.planExtraOpen = d.open; if (d && d.classList && d.classList.contains("deck-archived")) ui.decksArchOpen = d.open; }, true);
 function viewBoard(){
   const hasAny = tasksArr().length || coursesArr().length;
-  const banner = coursesArr().length ? "" : `<div class="empty tb-setup${hasAny ? "" : " sb-es"}">${hasAny ? "" : emptyArt("board")}<span class="tb-setup-t"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Add your courses so each card gets its class color, or import one straight from a syllabus PDF.</span><button class="btn primary small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div>`;
+  const banner = coursesArr().length ? "" : `<div class="empty tb-setup${hasAny ? "" : " sb-es"}">${hasAny ? "" : emptyArt("board")}<span class="tb-setup-t"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Sync your school site to bring in your courses and deadlines, or import a syllabus PDF, or add a course yourself.</span><div class="row-actions"><button class="btn primary small" data-act="lms-open">Sync School Site</button><button class="btn small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div></div>`;
   const ts = visibleTasks();
   const weekAgo = Date.now() - 7 * 864e5;
   const colsFor = (tsx, laneId) => STATUSES.map(([k, label, col]) => {
@@ -8660,7 +8673,7 @@ function viewBoard(){
   } else boardHtml = `<div class="board" id="board">${colsFor(ts, null)}</div>`;
   const bv = ui.bview || (() => { try { return localStorage.getItem("studyboard:bview") || "plan"; } catch(e) { return "plan"; } })();
   PLAN_HOURS = "";
-  const planPane = hasAny && tasksArr().length ? (window.SBEXAM ? SBEXAM.todayHtml() : "") + focusHtml() : `<div class="empty bview-empty"><strong>Nothing Planned Yet</strong>Add tasks with due dates and Today's Plan will line up what to work on.</div>`;
+  const planPane = hasAny && tasksArr().length ? (window.SBEXAM ? SBEXAM.todayHtml() : "") + focusHtml() : `<div class="empty bview-empty sb-es">${emptyArt("today")}<strong>Nothing Planned Yet</strong>Add tasks with due dates and Today's Plan will line up what to work on.${firstStepBtns()}</div>`;
   const tabs = `<div class="bview-tabs" role="tablist" aria-label="Board view"><button role="tab" data-act="bview" data-id="plan" aria-selected="${bv === "plan"}">Today's Plan</button><button role="tab" data-act="bview" data-id="board" aria-selected="${bv === "board"}">Task Board</button></div>`, wideBoard = boardWide(),
     tabRow = `<div class="bview-row">${tabs}${bv === "board" ? (wideBoard ? groupCtl.replace('<div class="board-ctl">', `<div class="board-ctl">${coursePickHtml()}`) : groupCtl) : PLAN_HOURS ? `<div class="bv-hours">${PLAN_HOURS}</div>` : ""}</div>`;
   return backupNudge() + (window.SBCRUNCH ? SBCRUNCH.cardHtml() : "") + `<div class="qa-wrap">${qaBarHtml()}</div>` + tabRow + `<div class="bview" data-bview="${bv}"><div class="bpane-plan">${planPane}</div><div class="bpane-board">` + banner + `<section class="board-sec" aria-label="Task Board">
@@ -9537,7 +9550,7 @@ function viewBars(){
 
   const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
   const head = `<div class="tl-controls tl-tools">${coursePickHtml()}${tlModeSeg()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
-  if (!ts.length) return head + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
+  if (!ts.length) return head + searchNote() + `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}${firstStepBtns()}</div>`;
   return head + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
         <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div><div class="tl-bg tl-bg-top" style="left:${LW}px;width:${W}px"><i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i></div>
@@ -9591,7 +9604,10 @@ function viewCalendar(){
     </div>
     <div class="cal">${dows.join("")}${cells}</div>
     <h2 class="sec ${ui.calDay === today ? "hl" : ""}"><span class="t">Due ${esc(dayLabel)}</span><span class="n">${dayTasks.length || ""}</span></h2>
-    ${dayTasks.length ? taskList(dayTasks) : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}`;
+    ${dayTasks.length ? taskList(dayTasks) : !allTasks().some(t => t.due)
+      // No due dates anywhere yet: the same welcome as the timeline view
+      ? `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${firstStepBtns()}</div>`
+      : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}`;
 }
 
 /* Courses */
@@ -9605,7 +9621,7 @@ function viewCourses(){
   }
   const cs = coursesArr();
   const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button>`;
-  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
+  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Sync your school site to bring in every class at once, or add them another way.<br><div class="row-actions"><button class="btn primary" data-act="lms-open">Sync School Site</button> ${imp} <button class="btn small" data-act="new-course">Add a Course</button></div></div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
     const ts = courseTasks(c);
@@ -17177,7 +17193,7 @@ document.addEventListener("click", e => {
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
-    case "fab-course": fabMenu("Add Course", [["new-course", "Add Course", "Name, code, color and class times", "course"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["lms-open", "Connect Canvas, Brightspace or Blackboard", "Bring in your courses, due dates and grades", "school"]]); break;
+    case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet or Notion decks, read on this device", "upload"]]); break;
@@ -36109,7 +36125,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     if (ui.courseId) return html;
     const on = ALL().filter(L => L.connected());
     const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button></div>`;
-    if (!coursesArr().length) return html.replace(imp, m => m.replace("</div>", ` <button class="btn small" data-act="lms-open">Connect a School Site</button></div>`));
+    if (!coursesArr().length) return html.includes('data-act="lms-open"') ? html : html.replace(imp, m => m.replace("</div>", ` <button class="btn small" data-act="lms-open">Connect a School Site</button></div>`));
     // after Insights, so Insights sits first on the left like on Grades, and the school site button joins the group on the right
     if (on.length) return html.replace(html.includes("<!--sites-->") ? "<!--sites-->" : "<h2>Your Courses</h2>", m => m + `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(on.length === 1 ? on[0].P.name : "School Sites")}</button>`);
     return html.replace(`<!--term-->`, m => `<div class="term-bar lms-bar"><span title="Brings in your courses, due dates and grades"><b>Connect Canvas, Brightspace or Blackboard</b></span><button class="btn small" data-act="lms-open">Connect</button></div>` + m);
@@ -72003,9 +72019,9 @@ window.SBSEM = {
 
   const ITEMS = [
     // Three ways in, quickest first: the school site brings in every course at once
-    {id: "courses", t: "Add your courses", s: "Connect your school site, import a syllabus or type them in.",
+    {id: "courses", t: "Add your courses", s: "Sync your school site, import a syllabus or type them in.",
       done: () => coursesArr().length > 0, go: () => { fabMenu("Add Your Courses", [
-        ["lms-open", "Connect Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"],
+        ["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"],
         ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"],
         ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]);
         // Remember which way they chose; the app then opens it as usual
@@ -72619,6 +72635,7 @@ var SBPRO = null;
 .pr-chips .pr-chip.on{background:var(--sel,var(--navy));border-color:var(--sel,var(--navy));color:var(--sel-ink,#fff)}
 .pr-chips .pr-chip.on span{color:inherit;opacity:.8}
 .pr-chips .pr-chip.pr-new{border-style:dashed}
+.pr-chips .pr-chip .pro-badge{color:#fff;font-size:.62rem;opacity:1}
 .pr-chips .pr-chip::before{display:none}
 .pr-block{display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 12px}
 .pr-bt{display:grid;gap:2px;flex:1;min-width:0}

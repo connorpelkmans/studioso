@@ -23,9 +23,9 @@
 
   const ITEMS = [
     // Three ways in, quickest first: the school site brings in every course at once
-    {id: "courses", t: "Add your courses", s: "Connect your school site, import a syllabus or type them in.",
+    {id: "courses", t: "Add your courses", s: "Sync your school site, import a syllabus or type them in.",
       done: () => coursesArr().length > 0, go: () => { fabMenu("Add Your Courses", [
-        ["lms-open", "Connect Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"],
+        ["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"],
         ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"],
         ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]);
         // Remember which way they chose; the app then opens it as usual
