@@ -445,14 +445,41 @@ $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toast
   t.addEventListener("pointerleave", () => { if (!t.contains(document.activeElement)) go(); });
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
 // Empty pages: two notebook cards and Mochi's sprout, drawn in the theme's colours
-function emptyArt(){
+// Empty-screen art: Mochi in front of a drawing that fits the screen.
+// kind: "board", "courses", "quizzes", "files", "notes" or "groups"; anything else gets the stack of pages (Flashcards).
+function emptyArt(kind){
   const star = (x, y, r, c) => { const a = +(r * .18).toFixed(2), b = +(r * .82).toFixed(2); return `<path class="${c}" d="M${x} ${y - r}q${a} ${b} ${r} ${r}q-${b} ${a}-${r} ${r}q-${a}-${b}-${r}-${r}q${b}-${a} ${r}-${r}z"/>`; };
-  return `<svg class="es-art" viewBox="0 0 200 140" aria-hidden="true" focusable="false">
-    <g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
-    <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>
+  const stars = () => star(172, 32, 7, "es-star") + star(26, 30, 5, "es-star2");
+  const tick = (x, y, s) => `<path class="es-tick" d="M${x - s} ${y}l${s * .7} ${s * .7}l${s * 1.3}-${s * 1.4}"/>`;
+  const ART = {
+    board: () => {
+      const col = (x, head, chips, done) => `<rect class="es-card" x="${x}" y="16" width="48" height="96" rx="9"/><rect class="${head}" x="${x + 8}" y="25" width="22" height="6" rx="3"/>` +
+        chips.map((y, k) => `<rect class="es-chip" x="${x + 7}" y="${y}" width="34" height="15" rx="4"/>${done ? `<circle class="es-ok" cx="${x + 33}" cy="${y + 7.5}" r="4.6"/>${tick(x + 33, y + 7.8, 2.2)}` : `<rect class="es-line" x="${x + 12}" y="${y + 5.5}" width="${k ? 16 : 20}" height="4" rx="2"/>`}`).join("");
+      return col(24, "es-hl2", [38, 58, 78]) + col(76, "es-gold", [38, 58]) + col(128, "es-okf", [38, 58, 78], true);
+    },
+    courses: () => `<path class="es-hl" d="M42 46l58-28l58 28z"/><circle class="es-dot0" cx="100" cy="35" r="5.5"/><rect class="es-card" x="46" y="46" width="108" height="8" rx="2"/>
+      ${[56, 80, 112, 136].map(x => `<rect class="es-card" x="${x}" y="56" width="10" height="50" rx="2"/>`).join("")}<rect class="es-card" x="40" y="104" width="120" height="8" rx="2"/><rect class="es-card" x="34" y="112" width="132" height="8" rx="2"/>
+      <path class="es-pole" d="M100 18v-12"/><path class="es-hl2" d="M100 6l14 4l-14 4z"/>${stars()}`,
+    quizzes: () => `<rect class="es-card" x="24" y="16" width="78" height="52" rx="14"/><path class="es-card" d="M44 66l-6 14l18-12"/><rect class="es-cardfill" x="40" y="62" width="20" height="5"/><text class="es-txt" x="63" y="56" text-anchor="middle">?</text>
+      <rect class="es-hl" x="102" y="40" width="74" height="48" rx="14"/><path class="es-hl" d="M156 86l6 12l-18-12z"/><circle class="es-ok" cx="139" cy="64" r="12"/>${tick(139, 64.5, 5)}${star(172, 22, 6, "es-star")}${star(26, 100, 5, "es-star2")}`,
+    files: () => `<path class="es-folder-b" d="M36 40q0-6 6-6h28l8 8h80q6 0 6 6v64q0 6-6 6H42q-6 0-6-6z"/>
+      <g transform="rotate(-6 84 50)"><rect class="es-card" x="56" y="22" width="60" height="70" rx="6"/><rect class="es-line" x="64" y="32" width="40" height="4" rx="2"/><rect class="es-line" x="64" y="42" width="32" height="4" rx="2"/></g>
+      <g transform="rotate(5 120 50)"><rect class="es-card" x="92" y="20" width="60" height="72" rx="6"/><rect class="es-hl" x="100" y="30" width="30" height="5" rx="2.5"/><rect class="es-line" x="100" y="41" width="42" height="4" rx="2"/></g>
+      <path class="es-folder" d="M30 62q0-6 6-6h128q6 0 5 6l-6 50q-1 6-7 6H42q-6 0-7-6z"/>${stars()}`,
+    notes: () => `<g transform="rotate(-9 58 52)"><rect class="es-sy" x="30" y="24" width="56" height="56" rx="4"/><rect class="es-sline" x="38" y="40" width="36" height="4" rx="2"/><rect class="es-sline" x="38" y="50" width="28" height="4" rx="2"/></g>
+      <g transform="rotate(6 140 50)"><rect class="es-sb" x="112" y="22" width="56" height="56" rx="4"/><rect class="es-sline" x="120" y="38" width="38" height="4" rx="2"/><rect class="es-sline" x="120" y="48" width="26" height="4" rx="2"/></g>
+      <g transform="rotate(-2 100 40)"><rect class="es-sp" x="74" y="12" width="52" height="52" rx="4"/><rect class="es-sline" x="82" y="28" width="34" height="4" rx="2"/><rect class="es-sline" x="82" y="38" width="24" height="4" rx="2"/></g>
+      <circle class="es-pin" cx="100" cy="16" r="5"/><circle class="es-pinhi" cx="98.5" cy="14.5" r="1.6"/><g transform="rotate(-30 58 26)"><rect class="es-tape" x="46" y="21" width="24" height="9" rx="1.5"/></g>${star(178, 100, 6, "es-star")}`,
+    groups: () => `<rect class="es-card" x="22" y="18" width="92" height="50" rx="16"/><path class="es-card" d="M40 66l-6 14l18-12"/><rect class="es-cardfill" x="36" y="62" width="20" height="5"/>${[50, 68, 86].map(x => `<circle class="es-dot" cx="${x}" cy="43" r="5"/>`).join("")}
+      <rect class="es-hl" x="96" y="44" width="84" height="44" rx="15"/><path class="es-hl" d="M160 86l6 12l-18-12z"/><rect class="es-band" x="108" y="58" width="52" height="5" rx="2.5"/><rect class="es-band" x="108" y="70" width="36" height="5" rx="2.5"/>
+      ${star(170, 28, 7, "es-star")}${star(26, 100, 5, "es-star2")}`,
+    pages: () => `<g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
+    <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>${stars()}`
+  };
+  return `<svg class="es-art es-${ART[kind] ? kind : "pages"}" viewBox="0 0 200 140" aria-hidden="true" focusable="false">
+    ${(ART[kind] || ART.pages)()}
     <path class="es-stem" d="M100 91v-10"/><path class="es-leaf" d="M100 83q-9-7-14-1q7 5 14 1zM100 83q9-7 14-1q-7 5-14 1z"/>
     <circle class="es-face" cx="100" cy="112" r="22"/><circle class="es-eye" cx="93" cy="111" r="2.2"/><circle class="es-eye" cx="107" cy="111" r="2.2"/><path class="es-smile" d="M96 117q4 3 8 0"/><circle class="es-cheek" cx="88" cy="116" r="3"/><circle class="es-cheek" cx="112" cy="116" r="3"/>
-    ${star(172, 32, 7, "es-star")}${star(26, 30, 5, "es-star2")}
   </svg>`;
 }
 function safeUrl(u){

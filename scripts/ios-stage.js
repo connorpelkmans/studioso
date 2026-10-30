@@ -120,13 +120,44 @@ if (fs.existsSync(plistFile)) {
   const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
   try {
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const want = [...new Set([...txt.matchAll(/CODE_SIGN_ENTITLEMENTS = "?([^";]*App[^";]*\.entitlements)"?;/g)].map(m => m[1]))].filter(r => !/Widget|Share/i.test(r));
+    const want = [...new Set([...txt.matchAll(/CODE_SIGN_ENTITLEMENTS = "?([^";]+\.entitlements)"?;/g)].map(m => m[1]))];
+    const head = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n`;
+    const group = `\t<key>com.apple.security.application-groups</key>\n\t<array>\n\t\t<string>group.com.studyboardapp.studyboard</string>\n\t</array>\n`;
     for (const rel of want) {
       const f = path.join(wrap, "ios", "App", rel);
       if (fs.existsSync(f)) continue;
+      // the widget (and the share extension) only share the App Group; the app also has Sign in with Apple and push
+      const ext = /Widget|Share/i.test(rel);
+      const body = ext ? group : `\t<key>aps-environment</key>\n\t<string>development</string>\n\t<key>com.apple.developer.applesignin</key>\n\t<array>\n\t\t<string>Default</string>\n\t</array>\n` + group;
       fs.mkdirSync(path.dirname(f), {recursive: true});
-      fs.writeFileSync(f, `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>aps-environment</key>\n\t<string>development</string>\n\t<key>com.apple.developer.applesignin</key>\n\t<array>\n\t\t<string>Default</string>\n\t</array>\n</dict>\n</plist>\n`);
-      console.log("ios-stage: recreated " + path.join("ios", "App", rel) + " (Sign in with Apple and push)");
+      fs.writeFileSync(f, head + body + "</dict>\n</plist>\n");
+      console.log("ios-stage: recreated " + path.join("ios", "App", rel) + (ext ? " (App Group)" : " (Sign in with Apple, push and the App Group)"));
+    }
+  } catch (e) {}
+}
+
+// The app's ID is com.studyboardapp.studyboard; extensions (the widget, the share extension) must start with it, so any still
+// named after the old com.studioso.app are renamed in the Xcode project
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    if (fs.existsSync(pbx)) {
+      const t = fs.readFileSync(pbx, "utf8");
+      const u = t.replace(/(PRODUCT_BUNDLE_IDENTIFIER = "?)com\.studioso\.app(\.[A-Za-z0-9.-]+)?("?;)/g, (m, a, rest, b) => a + "com.studyboardapp.studyboard" + (rest || "") + b);
+      if (u !== t) { fs.writeFileSync(pbx, u); console.log("ios-stage: bundle IDs now start with com.studyboardapp.studyboard (were com.studioso.app)"); }
+    }
+  } catch (e) {}
+}
+
+// The app's name as people see it (Home Screen, permission and sign-in prompts): Studyboard, not Capacitor's starting "App"
+{
+  const plist = path.join(wrap, "ios", "App", "App", "Info.plist");
+  try {
+    if (fs.existsSync(plist)) {
+      const t = fs.readFileSync(plist, "utf8");
+      const u = t.replace(/(<key>CFBundleDisplayName<\/key>\s*<string>)(?:App|\$\(PRODUCT_NAME\))(<\/string>)/, "$1Studyboard$2");
+      const v = /<key>CFBundleDisplayName<\/key>/.test(u) ? u : u.replace(/<dict>/, "<dict>\n\t<key>CFBundleDisplayName</key>\n\t<string>Studyboard</string>");
+      if (v !== t) { fs.writeFileSync(plist, v); console.log("ios-stage: the app is named Studyboard (was App)"); }
     }
   } catch (e) {}
 }

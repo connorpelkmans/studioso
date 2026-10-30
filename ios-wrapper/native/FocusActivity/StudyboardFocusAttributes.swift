@@ -45,13 +45,15 @@ public struct StudyboardFocusControl: LiveActivityIntent {
     }
 
     static func apply(_ action: String) async {
-        let now = Date()
         guard let act = Activity<StudyboardFocusAttributes>.activities.first else { return }
         var s = act.content.state
+        // the card keeps showing the time as it was until this lands, so it freezes or starts from now
+        let now = Date()
         switch action {
         case "pause":
             guard s.pausedLeft == 0, s.endsAt > now else { return }
-            s.pausedLeft = max(1, Int(s.endsAt.timeIntervalSince(now).rounded(.up)))
+            // rounded down, as iOS's running timer shows it, so the frozen time is the same number that was on screen
+            s.pausedLeft = max(1, Int(s.endsAt.timeIntervalSince(now).rounded(.down)))
             s.endsAt = now.addingTimeInterval(Double(s.pausedLeft))
         case "play":
             guard s.pausedLeft > 0 else { return }
@@ -73,7 +75,8 @@ public struct StudyboardFocusControl: LiveActivityIntent {
         StudyboardFocusAlarm.sync(mode: s.mode, endsAt: action == "reset" || s.pausedLeft > 0 ? nil : s.endsAt)
         let d = UserDefaults.standard
         var q = d.array(forKey: Self.queueKey) as? [[String: Any]] ?? []
-        q.append(["a": action, "t": now.timeIntervalSince1970 * 1000])
+        // with the exact result, so the app's own timer matches the card to the millisecond
+        q.append(["a": action, "t": now.timeIntervalSince1970 * 1000, "left": s.pausedLeft, "end": s.endsAt.timeIntervalSince1970 * 1000])
         d.set(Array(q.suffix(20)), forKey: Self.queueKey)
         await MainActor.run { NotificationCenter.default.post(name: Self.changed, object: nil) }
     }

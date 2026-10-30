@@ -8417,14 +8417,41 @@ $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toast
   t.addEventListener("pointerleave", () => { if (!t.contains(document.activeElement)) go(); });
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
 // Empty pages: two notebook cards and Mochi's sprout, drawn in the theme's colours
-function emptyArt(){
+// Empty-screen art: Mochi in front of a drawing that fits the screen.
+// kind: "board", "courses", "quizzes", "files", "notes" or "groups"; anything else gets the stack of pages (Flashcards).
+function emptyArt(kind){
   const star = (x, y, r, c) => { const a = +(r * .18).toFixed(2), b = +(r * .82).toFixed(2); return `<path class="${c}" d="M${x} ${y - r}q${a} ${b} ${r} ${r}q-${b} ${a}-${r} ${r}q-${a}-${b}-${r}-${r}q${b}-${a} ${r}-${r}z"/>`; };
-  return `<svg class="es-art" viewBox="0 0 200 140" aria-hidden="true" focusable="false">
-    <g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
-    <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>
+  const stars = () => star(172, 32, 7, "es-star") + star(26, 30, 5, "es-star2");
+  const tick = (x, y, s) => `<path class="es-tick" d="M${x - s} ${y}l${s * .7} ${s * .7}l${s * 1.3}-${s * 1.4}"/>`;
+  const ART = {
+    board: () => {
+      const col = (x, head, chips, done) => `<rect class="es-card" x="${x}" y="16" width="48" height="96" rx="9"/><rect class="${head}" x="${x + 8}" y="25" width="22" height="6" rx="3"/>` +
+        chips.map((y, k) => `<rect class="es-chip" x="${x + 7}" y="${y}" width="34" height="15" rx="4"/>${done ? `<circle class="es-ok" cx="${x + 33}" cy="${y + 7.5}" r="4.6"/>${tick(x + 33, y + 7.8, 2.2)}` : `<rect class="es-line" x="${x + 12}" y="${y + 5.5}" width="${k ? 16 : 20}" height="4" rx="2"/>`}`).join("");
+      return col(24, "es-hl2", [38, 58, 78]) + col(76, "es-gold", [38, 58]) + col(128, "es-okf", [38, 58, 78], true);
+    },
+    courses: () => `<path class="es-hl" d="M42 46l58-28l58 28z"/><circle class="es-dot0" cx="100" cy="35" r="5.5"/><rect class="es-card" x="46" y="46" width="108" height="8" rx="2"/>
+      ${[56, 80, 112, 136].map(x => `<rect class="es-card" x="${x}" y="56" width="10" height="50" rx="2"/>`).join("")}<rect class="es-card" x="40" y="104" width="120" height="8" rx="2"/><rect class="es-card" x="34" y="112" width="132" height="8" rx="2"/>
+      <path class="es-pole" d="M100 18v-12"/><path class="es-hl2" d="M100 6l14 4l-14 4z"/>${stars()}`,
+    quizzes: () => `<rect class="es-card" x="24" y="16" width="78" height="52" rx="14"/><path class="es-card" d="M44 66l-6 14l18-12"/><rect class="es-cardfill" x="40" y="62" width="20" height="5"/><text class="es-txt" x="63" y="56" text-anchor="middle">?</text>
+      <rect class="es-hl" x="102" y="40" width="74" height="48" rx="14"/><path class="es-hl" d="M156 86l6 12l-18-12z"/><circle class="es-ok" cx="139" cy="64" r="12"/>${tick(139, 64.5, 5)}${star(172, 22, 6, "es-star")}${star(26, 100, 5, "es-star2")}`,
+    files: () => `<path class="es-folder-b" d="M36 40q0-6 6-6h28l8 8h80q6 0 6 6v64q0 6-6 6H42q-6 0-6-6z"/>
+      <g transform="rotate(-6 84 50)"><rect class="es-card" x="56" y="22" width="60" height="70" rx="6"/><rect class="es-line" x="64" y="32" width="40" height="4" rx="2"/><rect class="es-line" x="64" y="42" width="32" height="4" rx="2"/></g>
+      <g transform="rotate(5 120 50)"><rect class="es-card" x="92" y="20" width="60" height="72" rx="6"/><rect class="es-hl" x="100" y="30" width="30" height="5" rx="2.5"/><rect class="es-line" x="100" y="41" width="42" height="4" rx="2"/></g>
+      <path class="es-folder" d="M30 62q0-6 6-6h128q6 0 5 6l-6 50q-1 6-7 6H42q-6 0-7-6z"/>${stars()}`,
+    notes: () => `<g transform="rotate(-9 58 52)"><rect class="es-sy" x="30" y="24" width="56" height="56" rx="4"/><rect class="es-sline" x="38" y="40" width="36" height="4" rx="2"/><rect class="es-sline" x="38" y="50" width="28" height="4" rx="2"/></g>
+      <g transform="rotate(6 140 50)"><rect class="es-sb" x="112" y="22" width="56" height="56" rx="4"/><rect class="es-sline" x="120" y="38" width="38" height="4" rx="2"/><rect class="es-sline" x="120" y="48" width="26" height="4" rx="2"/></g>
+      <g transform="rotate(-2 100 40)"><rect class="es-sp" x="74" y="12" width="52" height="52" rx="4"/><rect class="es-sline" x="82" y="28" width="34" height="4" rx="2"/><rect class="es-sline" x="82" y="38" width="24" height="4" rx="2"/></g>
+      <circle class="es-pin" cx="100" cy="16" r="5"/><circle class="es-pinhi" cx="98.5" cy="14.5" r="1.6"/><g transform="rotate(-30 58 26)"><rect class="es-tape" x="46" y="21" width="24" height="9" rx="1.5"/></g>${star(178, 100, 6, "es-star")}`,
+    groups: () => `<rect class="es-card" x="22" y="18" width="92" height="50" rx="16"/><path class="es-card" d="M40 66l-6 14l18-12"/><rect class="es-cardfill" x="36" y="62" width="20" height="5"/>${[50, 68, 86].map(x => `<circle class="es-dot" cx="${x}" cy="43" r="5"/>`).join("")}
+      <rect class="es-hl" x="96" y="44" width="84" height="44" rx="15"/><path class="es-hl" d="M160 86l6 12l-18-12z"/><rect class="es-band" x="108" y="58" width="52" height="5" rx="2.5"/><rect class="es-band" x="108" y="70" width="36" height="5" rx="2.5"/>
+      ${star(170, 28, 7, "es-star")}${star(26, 100, 5, "es-star2")}`,
+    pages: () => `<g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
+    <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>${stars()}`
+  };
+  return `<svg class="es-art es-${ART[kind] ? kind : "pages"}" viewBox="0 0 200 140" aria-hidden="true" focusable="false">
+    ${(ART[kind] || ART.pages)()}
     <path class="es-stem" d="M100 91v-10"/><path class="es-leaf" d="M100 83q-9-7-14-1q7 5 14 1zM100 83q9-7 14-1q-7 5-14 1z"/>
     <circle class="es-face" cx="100" cy="112" r="22"/><circle class="es-eye" cx="93" cy="111" r="2.2"/><circle class="es-eye" cx="107" cy="111" r="2.2"/><path class="es-smile" d="M96 117q4 3 8 0"/><circle class="es-cheek" cx="88" cy="116" r="3"/><circle class="es-cheek" cx="112" cy="116" r="3"/>
-    ${star(172, 32, 7, "es-star")}${star(26, 30, 5, "es-star2")}
   </svg>`;
 }
 function safeUrl(u){
@@ -8602,7 +8629,7 @@ ui.colOpen = {};
 document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("col-more")) ui.colOpen[d.dataset.col] = d.open; if (d && d.id === "planExtra") ui.planExtraOpen = d.open; if (d && d.classList && d.classList.contains("deck-archived")) ui.decksArchOpen = d.open; }, true);
 function viewBoard(){
   const hasAny = tasksArr().length || coursesArr().length;
-  const banner = coursesArr().length ? "" : `<div class="empty tb-setup${hasAny ? "" : " sb-es"}">${hasAny ? "" : emptyArt()}<span class="tb-setup-t"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Add your courses so each card gets its class color, or import one straight from a syllabus PDF.</span><button class="btn primary small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div>`;
+  const banner = coursesArr().length ? "" : `<div class="empty tb-setup${hasAny ? "" : " sb-es"}">${hasAny ? "" : emptyArt("board")}<span class="tb-setup-t"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Add your courses so each card gets its class color, or import one straight from a syllabus PDF.</span><button class="btn primary small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div>`;
   const ts = visibleTasks();
   const weekAgo = Date.now() - 7 * 864e5;
   const colsFor = (tsx, laneId) => STATUSES.map(([k, label, col]) => {
@@ -9578,7 +9605,7 @@ function viewCourses(){
   }
   const cs = coursesArr();
   const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button>`;
-  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt()}<strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
+  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
     const ts = courseTasks(c);
@@ -14030,7 +14057,7 @@ function viewFiles(){
   let list;
   if (!fs.length) {
     const none = !ui.q.trim();
-    list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt() : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, images or text files${caps.assets ? ", or drop them here" : ""}. For Word, PowerPoint or Excel files, save a PDF copy or add a link to the file online.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
+    list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt("files") : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, images or text files${caps.assets ? ", or drop them here" : ""}. For Word, PowerPoint or Excel files, save a PDF copy or add a link to the file online.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
   } else if (ui.fCourse !== "all" && !ui.fFolder) {
     list = foldersOf(ui.fCourse).map(fo => { const g = fs.filter(f => f.folderId === fo.id); return g.length ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; }).join("")
       + (() => { const known = new Set(foldersOf(ui.fCourse).map(fo => fo.id)); const g = fs.filter(f => !known.has(f.folderId)); return g.length ? `<h3 class="fsec">${FOLDER}Unsorted<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; })();
@@ -14561,7 +14588,7 @@ function viewNoteBoard(){
       <div class="nb-scroll" id="nbScroll">
         <div class="nb-sizer" id="nbSizer"><div class="nb-board" id="nbBoard" style="width:${W}px;height:${H}px">
           ${onBoard.sort((a, b) => a.z - b.z).map(noteHtml).join("")}
-          ${!onBoard.length ? `<div class="nb-empty sb-es">${emptyArt()}<strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
+          ${!onBoard.length ? `<div class="nb-empty sb-es">${emptyArt("notes")}<strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
         </div></div>
       </div>
       ${boardMaxBtn("nb-max")}${nbZoomCtl()}
@@ -15155,7 +15182,7 @@ function viewQuizzes(){
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button>${rvGrip(qz.title || "Practice Quiz")}</div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt()}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
+    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt("quizzes")}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
       <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>`;
 }
@@ -16233,7 +16260,7 @@ function islandSync(){
   const t = pomo.taskId && state.tasks[pomo.taskId];
   let accent = ""; try { accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(); } catch (e) {}
   const st = {mode: pomo.mode, label: MODE_LABEL[pomo.mode], task: t ? t.title : "", running: pomo.running, endsAt: pomo.running ? pomo.endAt : 0,
-    left: pomo.running ? 0 : Math.round(pomoLeft() / 1000), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : "",
+    left: pomo.running ? 0 : Math.max(1, Math.floor(pomoLeft() / 1000)), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : "",
     plan: pomoPlan(6)};
   const sig = JSON.stringify(st);
   if (sig === ISLAND.sig) return;
@@ -16261,10 +16288,11 @@ function pomoTakeLock(){
     if (!list.length) return;
     ISLAND.hold = true;
     try {
-      list.forEach(({a, t}) => {
+      // the card's exact result when it says it (left in seconds when paused, end in ms when running), so both show the same
+      list.forEach(({a, t, left, end}) => {
         if (pomo.running && pomo.endAt <= t) return; // the timer had already run out by then
-        if (a === "pause" && pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
-        else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        if (a === "pause" && pomo.running) { pomo.left = left > 0 ? left * 1000 : Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
+        else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = end > t ? end : t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
         else if (a === "reset" && (pomo.running || pomo.left > 0)) { if (pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.running = false; } pomoReset(); }
         else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.endAt = t + modeMs(pomo.mode); pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
       });
@@ -16865,7 +16893,9 @@ async function storageProtect(ask){
 window.addEventListener("appinstalled", () => { storageProtect(true).then(scheduleRender).catch(() => {}); });
 function storageRow(){
   const st = PST.state;
-  if (st === "app" || inPreview()) return "";
+  // the iPhone, iPad, Android and desktop apps keep their data themselves: nothing to ask (checked here too, since the
+  // first ask happens a few seconds after start-up)
+  if (st === "app" || DESK || nativeShell() || inPreview()) return "";
   if (st === "granted") return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser has agreed never to clear Studyboard's data on its own. Only you can remove it (Clear All Data, or clearing this site's data).</span></span></div>`;
   const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent || ""), standalone = !!(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   const how = st === "unsupported" ? "This browser can't promise to keep website data." : safari && !standalone ? "Safari can clear a website's data after 7 days without a visit. Add Studyboard to your Home Screen (Share, then Add to Home Screen) to stop that." : "Your browser hasn't agreed yet. Installing Studyboard as an app or bookmarking it usually lets it say yes.";
@@ -17058,7 +17088,7 @@ document.addEventListener("click", e => {
     case "theme-toggle": setTheme(isDark() ? "light" : "dark"); break;
     case "theme-set": setTheme(id); $$('[data-act="theme-set"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); break;
     case "desk-choose": dlg.close(); deskChooseFolder(); break;
-    case "storage-protect": storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser will keep your Studyboard data until you remove it." : r === "unsupported" ? "This browser can't promise to keep website data. Sign in or export a backup so you always have a copy." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again. Meanwhile, sign in or export a backup."); scheduleRender(); }); break;
+    case "storage-protect": storageProtect(true).then(r => { if (r === "app") { toast("Studyboard keeps your data on this device as an app. Nothing else to do."); scheduleRender(); return; } toast(r === "granted" ? "Done. This browser will keep your Studyboard data until you remove it." : r === "unsupported" ? "This browser can't promise to keep website data. Sign in or export a backup so you always have a copy." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again. Meanwhile, sign in or export a backup."); scheduleRender(); }); break;
     case "pwa-install": if (installEvt) { dlg.close(); installEvt.prompt(); installEvt.userChoice.then(() => { installEvt = null; }); } break;
     case "fsb-resume": dlg.close(); resumeFolderBackup(); break;
     case "fsb-stop": dlg.close(); stopFolderBackup(); break;
@@ -22408,10 +22438,10 @@ document.head.appendChild(AREA_CSS);
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 86400000; } catch (e) { return false; } };
   const isDone = () => { try { const a = acctKey(); if (a && localStorage.getItem(a)) return true; if (a && newAccount()) return false; return !!localStorage.getItem(KEY); } catch (e) { return true; } };
   // The time is kept too, so the Board's semester card waits a few days after the welcome setup
-  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (mode !== "more") localStorage.setItem(KEY + ":at", String(Date.now())); } catch (e) {} };
+  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (!extra()) localStorage.setItem(KEY + ":at", String(Date.now())); } catch (e) {} };
   const isEmpty = () => !Object.keys(state.courses || {}).length && !Object.keys(state.tasks || {}).length;
   // The tour is open, or still to come for this account
-  window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}};
+  window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}, setupAt: () => 0};
 
   // The Backups step shows only where a web page can save to a folder
   const cbk = () => window.SBCLOUD && SBCLOUD.backup;
@@ -22420,7 +22450,7 @@ document.head.appendChild(AREA_CSS);
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
   // Mochi's welcome comes before it, so the first run has no welcome step of its own
-  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "backups", "pro", "done"];
+  const FIRST = ["area", "courses", "hours", "done"], MORE = ["theme", "reminders", "ai", "app", "pro", "done"], BACKUP = ["backups", "done"], THEME = ["theme", "done"];
   const ALL_STEPS = [
     {id: "welcome", title: "Welcome"},
     {id: "area", title: "Your Studies"},
@@ -22435,11 +22465,17 @@ document.head.appendChild(AREA_CSS);
     {id: "done", title: "Done"}
   ];
   let STEPS = ALL_STEPS, mode = "first";
+  // "more" (the day-2 extras) and "backup" (asked on its own a few days in) are optional add-ons to the first run
+  const extra = () => mode === "more" || mode === "backup" || mode === "theme";
   // The later "A Few More Things" card
   const MKEY = "sb:onboarded:more";
   const moreGet = () => { try { return JSON.parse(localStorage.getItem(MKEY) || "{}") || {}; } catch (e) { return {}; } };
   const moreSet = patch => { try { localStorage.setItem(MKEY, JSON.stringify(Object.assign(moreGet(), patch))); } catch (e) {} };
-  const noteEnd = () => { if (mode === "more") moreSet({done: Date.now()}); else if (!moreGet().at) moreSet({at: Date.now()}); };
+  const BKEY = "sb:onboarded:backup";
+  const bkGet = () => { try { return JSON.parse(localStorage.getItem(BKEY) || "{}") || {}; } catch (e) { return {}; } };
+  const bkSet = patch => { try { localStorage.setItem(BKEY, JSON.stringify(Object.assign(bkGet(), patch))); } catch (e) {} };
+  window.SBOB.setupAt = () => Number(moreGet().at) || 0;
+  const noteEnd = () => { if (mode === "backup") bkSet({done: Date.now()}); else if (mode === "more") moreSet({done: Date.now()}); else if (!moreGet().at) moreSet({at: Date.now()}); };
   const THEME_PICKS = ["classic", "lavender", "japan", "italy", "ocean", "sakura", "galaxy", "cafe"];
 
   // Tour state (lives only while the tour is open)
@@ -22693,6 +22729,14 @@ document.head.appendChild(AREA_CSS);
     const gift = P && P.welcomeWeek ? P.welcomeWeek() : null;
     if (gift) P.welcomeSaid();
     const has = id => STEPS.some(x => x.id === id);
+    if (mode === "theme") return `${hero(IC.party, "done")}
+      <h2 class="ob-h" id="obH" tabindex="-1">Looking Good</h2>
+      <p class="ob-lead">You can change it any time in Settings, or find more in the Style Shop.</p>
+      <ul class="ob-sum">${row(true, `Theme: ${esc(skin.name)}`)}</ul>`;
+    if (mode === "backup") return `${hero(IC.party, "done")}
+      <h2 class="ob-h" id="obH" tabindex="-1">${bkOnText() ? "Your Work Is Backed Up" : "Maybe Later"}</h2>
+      <p class="ob-lead">${bkOnText() ? "Studyboard saves a copy every hour while it's open." : "Automatic backups are in Settings whenever you want them."}</p>
+      <ul class="ob-sum">${row(!!bkOnText(), bkOnText() ? `Backing up to ${esc(bkOnText())}` : "Automatic backups can be turned on in Settings")}</ul>`;
     if (mode === "more") return `${hero(IC.party, "done")}
       <h2 class="ob-h" id="obH" tabindex="-1">You're All Set!</h2>
       <p class="ob-lead">You can change any of these in Settings.</p>
@@ -22732,7 +22776,7 @@ document.head.appendChild(AREA_CSS);
 
   /* Sheet */
   function sheetHtml(){
-    const s = STEPS[step], last = step === STEPS.length - 1, more = mode === "more";
+    const s = STEPS[step], last = step === STEPS.length - 1, more = extra();
     // The done page isn't counted as a step
     const real = STEPS.filter(x => x.id !== "done"), n = real.length;
     const bar = real.map((x, i) => `<button type="button" class="ob-seg ${last && !skipped || !last && i < step ? "past" : i === step ? "cur" : ""}" data-ob="goto" data-id="${i}" aria-label="Step ${i + 1}: ${esc(x.title)}${i === step ? " (current)" : ""}"></button>`).join("");
@@ -22741,11 +22785,11 @@ document.head.appendChild(AREA_CSS);
     const goAct = last ? (more ? "finish" : hasTasks ? "plan" : "first-task") : "next";
     return `<form class="sheet ob" data-step="${s.id}" aria-labelledby="obH">
       <div class="ob-top">
-        <span class="ob-count mini">${last ? (skipped ? "Setup skipped" : "All done") : `Step ${step + 1} of ${n}`}</span>
+        <span class="ob-count mini">${last ? (skipped ? "Setup skipped" : "All done") : n === 1 ? "" : `Step ${step + 1} of ${n}`}</span>
         <span class="spacer"></span>
         ${last ? "" : `<button type="button" class="link-btn ob-skip" data-ob="skip">${more ? "Not Now" : "Skip Setup"}</button>`}
       </div>
-      <div class="ob-bar" role="group" aria-label="Progress">${bar}</div>
+      ${n === 1 ? "" : `<div class="ob-bar" role="group" aria-label="Progress">${bar}</div>`}
       <div class="sheet-body ob-body"><div class="ob-step-in${dir < 0 ? " ob-rev" : ""}">${VIEW[s.id]()}</div></div>
       <div class="sheet-foot ob-foot">
         <button type="button" class="btn ob-back" data-ob="back" ${step === 0 || last ? "hidden" : ""}>Back</button>
@@ -22806,7 +22850,7 @@ document.head.appendChild(AREA_CSS);
       case "back": if (step > 0) go(step - 1); break;
       case "goto": go(Number(id)); break;
       // Skip Setup ends on the done page, with what was skipped marked Later
-      case "skip": if (mode === "more") finish(false); else { flushCourse(); markDone(); noteEnd(); skipped = true; queue = []; dir = 1; show(STEPS.length - 1, true); } break;
+      case "skip": if (extra()) finish(false); else { flushCourse(); markDone(); noteEnd(); skipped = true; queue = []; dir = 1; show(STEPS.length - 1, true); } break;
       case "finish": finish(true); break;
       case "plan": finish(true); break;
       case "first-task": finish(true, true); break;
@@ -22926,21 +22970,22 @@ document.head.appendChild(AREA_CSS);
     if (finishing) { finishing = false; return; }
     if (dlg.querySelector(".sheet.ob")) {
       markDone(); noteEnd();
-      setTimeout(() => toast(mode === "more" ? "No problem. These are all in Settings too." : "Welcome setup closed. Replay it any time from Settings."), 60);
+      setTimeout(() => toast(mode === "backup" ? "No problem. Backups are in Settings whenever you want them." : mode === "more" ? "No problem. These are all in Settings too." : "Welcome setup closed. Replay it any time from Settings."), 60);
       scheduleRender();
     }
   });
 
   function finish(completed, firstTask){
     if (completed) flushCourse();
-    if (completed && mode !== "more") { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
+    if (completed && !extra()) { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
     noteEnd();
     finishing = true; markDone(); clearTimeout(hoursTimer); saveSettings();
     if (dlg.open) dlg.close(); else finishing = false;
     added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; queue = []; cMsg = "";
     moveCanvasesBack();
-    if (!completed) { toast(mode === "more" ? "No problem. These are all in Settings too." : "No problem. Replay the welcome setup any time from Settings."); render(); return; }
-    if (mode === "more") { render(); return; }
+    if (!completed) { toast(mode === "backup" ? "No problem. Backups are in Settings whenever you want them." : mode === "more" ? "No problem. These are all in Settings too." : "No problem. Replay the welcome setup any time from Settings."); render(); return; }
+    if (mode === "theme" && window.SBGS) SBGS.mark("theme");
+    if (extra()) { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
     if (firstTask) setTimeout(() => {
       const i = $("#qaIn"); if (!i) return;
@@ -22987,8 +23032,8 @@ document.head.appendChild(AREA_CSS);
   function stop(){ clearInterval(poll); poll = 0; }
   // kind: "first" (the essentials), "more" (the optional extras) or "all" (a replay from Settings)
   function start(kind){
-    mode = kind === "more" || kind === "all" ? kind : "first";
-    const ids = mode === "first" ? FIRST : mode === "more" ? MORE : null;
+    mode = ["more", "all", "backup", "theme"].includes(kind) ? kind : "first";
+    const ids = {first: FIRST, more: MORE, backup: BACKUP, theme: THEME}[mode] || null;
     STEPS = ALL_STEPS.filter(x => (!ids || ids.includes(x.id)) && (x.id !== "backups" || backupsHere()) && (x.id !== "pro" || proHere())); cheered = false; finishing = false; step = 0; dir = 1; added = []; remindersOk = false; remindersMsg = ""; deviceTab = null; newColor = null; away = null; since = Date.now(); skipped = false; queue = []; cMsg = ""; show(0); }
 
   hook("boot", () => {
@@ -23008,18 +23053,35 @@ document.head.appendChild(AREA_CSS);
   hook("menu", () => `<button data-act="ob-replay"><span>Replay Welcome Setup<span class="sub">Courses, study hours, theme, reminders, backups and more</span></span></button>`);
   hook("act", act => {
     if (act === "ob-more-hide") { moreSet({hide: Date.now()}); render(); toast("Okay. You'll find all of these in Settings."); return true; }
-    if (act !== "ob-replay" && act !== "ob-more") return false;
+    if (act === "ob-backup-hide") { bkSet({hide: Date.now()}); render(); toast("Okay. Automatic backups are in Settings whenever you want them."); return true; }
+    const kind = {"ob-replay": "all", "ob-more": "more", "ob-backup": "backup", "ob-theme": "theme"}[act];
+    if (!kind) return false;
     if (dlg.open) dlg.close();
-    setTimeout(() => start(act === "ob-more" ? "more" : "all"), 40);
+    setTimeout(() => start(kind), 40);
     return true;
   });
 
-  /* A gentle nudge for the optional setup, from the day after the welcome setup */
-  const moreDue = () => { const m = moreGet(); return !!m.at && !m.hide && !m.done && Date.now() - m.at > 20 * 3600e3 && isDone(); };
+  /* A gentle nudge for the optional setup, from the day after the welcome setup.
+     It waits while the Getting Started checklist is still on the Board, so only one card shows at a time. */
+  const moreDue = () => { const m = moreGet(); return !!m.at && !m.hide && !m.done && Date.now() - m.at > 20 * 3600e3 && isDone() && !(window.SBGS && SBGS.showing()); };
+
+  /* Backups are asked about on their own, 3 days after the welcome setup, once there's work worth keeping */
+  const bkDue = () => { const m = moreGet(), b = bkGet(); return !!m.at && !b.hide && !b.done && Date.now() - m.at > 3 * 864e5 && isDone() && backupsHere() && !bkOnText()
+    && allTasks().length + coursesArr().length >= 3 && !(window.SBSEM && SBSEM.cardDue && SBSEM.cardDue()) && !(window.SBGS && SBGS.showing()); };
+  window.SBOB.backupDue = bkDue;
+  window.SBOB.backupsHere = backupsHere;
+  window.SBOB.backupOn = () => !!bkOnText();
+  hook("render", tab => {
+    if (tab !== "board" || inPreview() || window.SBOB.pending() || !bkDue()) return;
+    const v = $("#view"); if (!v || v.querySelector(".sem-card-b")) return;
+    const nT = allTasks().length, nC = coursesArr().length;
+    v.insertAdjacentHTML("afterbegin", `<section class="sem-card-b ob-bk-b" aria-labelledby="obBkT"><div class="sem-cb-t"><b id="obBkT">Keep Your Work Safe</b><span>You've added ${nC ? `${nC} course${nC === 1 ? "" : "s"} and ` : ""}${nT} task${nT === 1 ? "" : "s"}. Turn on automatic backups to Google Drive or OneDrive so they're safe if this device is lost. It takes about a minute.</span></div>
+      <div class="sem-cb-b"><button type="button" class="btn primary" data-act="ob-backup">Set Up Backups</button><button type="button" class="link-btn" data-act="ob-backup-hide">Not Now</button></div></section>`);
+  });
   hook("render", tab => {
     if (tab !== "board" || inPreview() || !moreDue() || window.SBOB.pending()) return;
     const v = $("#view"); if (!v || v.querySelector(".sem-card-b") || (window.SBSEM && SBSEM.cardDue())) return;
-    v.insertAdjacentHTML("afterbegin", `<section class="sem-card-b ob-more-b" aria-labelledby="obMoreT"><div class="sem-cb-t"><b id="obMoreT">A Few More Things</b><span>Reminders, backups, the app and a theme. Each takes about a minute, and all are optional.</span></div>
+    v.insertAdjacentHTML("afterbegin", `<section class="sem-card-b ob-more-b" aria-labelledby="obMoreT"><div class="sem-cb-t"><b id="obMoreT">A Few More Things</b><span>Reminders, the app and a theme. Each takes about a minute, and all are optional.</span></div>
       <div class="sem-cb-b"><button type="button" class="btn primary" data-act="ob-more">Take a Look</button><button type="button" class="link-btn" data-act="ob-more-hide">Not Now</button></div></section>`);
   });
 })();
@@ -23522,55 +23584,31 @@ const ERRCORE = (() => {
   const phone = () => !!(window.matchMedia && matchMedia("(max-width:719px)").matches);
   const NAV = t => `nav.tabs [data-tab="${t}"]`;
 
-  // Each step opens the real screen it talks about, then points at part of it
-  const SETTINGS = ['nav.tabs .nav-tool[data-act="menu"]', 'header.top [data-act="menu"]'];
-  const BELL = ['header.top .ann-btn', 'nav.tabs .ann-btn'], POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
+  // Each step opens the real screen it talks about, then points at part of it.
+  // Kept to the 8 features that matter most on day one; the rest show up as students need them.
+  const POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
     {id: "welcome", title: "Welcome to Studyboard", tab: "board",
-      text: () => "A quick tour, about a minute. We'll open each screen as we go, filled with example courses and tasks, not your own. Use the arrow keys or the buttons, and skip any time."},
+      text: () => "A quick tour, under a minute. We'll open each screen as we go, filled with example courses and tasks, not your own. Use the arrow keys or the buttons, and skip any time."},
     {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
       text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
     {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
       text: () => "Today's Plan lines up what to work on next and for how long, with time set aside for each task around your classes and free time."},
-    {id: "taskboard", title: "Task Board", tab: "board", go: () => { ui.bview = "board"; }, sel: [".bview-tabs", ".board-sec-head", NAV("board")],
-      text: () => "Every task by status: To Do, In Progress and Complete. Drag a card to move it along, filter by course, or group the board by course."},
-    {id: "timeline", title: "Calendar: Due Dates", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
-      text: () => "Every deadline across your courses, on a timeline or a month calendar. Calendar has three views: Due Dates, Schedule and Crunch."},
-    {id: "schedule", title: "Calendar: Schedule", tab: "schedule", sel: [".pview-tabs", NAV("plan")],
-      text: () => "Your week of classes, labs, shifts and appointments. Study time is planned around it."},
-    {id: "crunch", title: "Calendar: Crunch", tab: "crunch", sel: [".pview-tabs", NAV("plan")],
-      text: () => "A heatmap of your term. A week with several exams and a paper glows red weeks ahead, and tapping it shows what to start early."},
+    {id: "timeline", title: "Calendar", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
+      text: () => "Every deadline across your courses, on a timeline or a month calendar. Switch to Schedule for your week of classes and shifts, or to Crunch to see heavy weeks coming before they hit."},
     {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".pview-tabs", NAV("flashcards")],
       text: () => "Make decks by hand, or let AI build cards and practice quizzes from your notes and readings. Spaced repetition brings reviews back at the right time."},
-    {id: "notes", title: "Notes and Stickers", tab: "notes", sel: [NAV("notes")],
-      text: () => "Sticky notes for quick thoughts, on boards of your own. Give them a course, pick a color and a pin, and decorate them with stickers."},
-    {id: "files", title: "Files", tab: "files", sel: [".cf-tabs", NAV("courses")],
-      text: () => "Keep readings, slides and handouts with their course, and attach them to tasks. Search can read inside them."},
     {id: "courses", title: "Courses and School Sites", tab: "courses", go: () => { ui.courseTab = ""; }, sel: [".cf-tabs", NAV("courses")],
       text: () => "Each course keeps its class times, tasks, files and instructors. Connect Brightspace, Canvas or Blackboard in Settings to bring in deadlines and grades; with Canvas, your inbox shows under Emails."},
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".cf-tabs", ".gp-hero", NAV("courses")],
       text: () => "Your marks and average in each course as they come in. Set the weights to see what you need on the remaining work to reach your target grade."},
-    {id: "ann", title: "Announcements", panel: "ann", has: BELL, sel: ["#dlg .ann-sheet .sheet-head", "#dlg .ann-sheet"],
-      text: () => "Announcements from your school site collect here, with a dot for the ones you haven't read."},
-    {id: "companion", title: "Your Study Companion", tab: "companion", has: [NAV("companion")], sel: [".cpt-head", NAV("companion")],
-      text: () => "Your companion cheers you on as you work. Chat with it about your deadlines and courses (with AI set up), look back at your chats under History, and dress it up in the Wardrobe."},
     {id: "focus", title: "Focus Timer", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
       text: () => "The timer follows the Pomodoro method: short bursts of focused work with breaks in between. Start a session on any task; the time counts toward the task and your streak, and your companion keeps you company.",
       more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
     {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
       text: () => "Find tasks, cards, notes and text inside your files from anywhere (Ctrl or Cmd K). Switch to Ask With AI to ask questions about your own material."},
-    {id: "groups", title: "Study Groups", tab: "groups", has: [NAV("groups")], sel: [NAV("groups")],
-      text: () => "Study with classmates: share decks and quizzes, plan sessions, run a weekly challenge and chat. A group project keeps its tasks, files and meetings together."},
-    {id: "settings", title: "Settings", panel: "settings", fresh: true, has: SETTINGS, sel: ["#dlg .us-cats", '#dlg [data-act="plan-open"]', "#dlg .menu-list", "#dlg .sheet"],
-      text: () => "Themes and dark mode, study hours, reminders, calendar sync, AI, backups, sign in and Studyboard Pro all live here."},
-    {id: "help", title: "Found a Bug? Tell Us", panel: "settings", has: SETTINGS, prep: () => { const c = $('#dlg [data-us="app"]'); if (c) c.click();
-        const help = () => [...document.querySelectorAll("#dlg .us-sub-tab")].find(t => /^\s*Help\s*$/.test(t.textContent));
-        const go = (n) => { const h = help(); if (h) { if (h.getAttribute("aria-selected") !== "true") h.click(); } else if (n > 0) setTimeout(() => go(n - 1), 50); };
-        go(10); },
-      sel: ['#dlg [data-act="bug-open"]', "#dlg .us-cats", "#dlg .sheet"],
-      text: () => "Choose Report a Bug or Send Feedback. It goes straight to the person who makes Studyboard, with an optional screenshot. You can replay this tour from here too."},
     {id: "done", title: "You're Ready", tab: "board",
-      text: () => "That's the tour. Add your first task and Today's Plan takes it from there."}
+      text: () => "That's the tour. Add your first task and Today's Plan takes it from there. Themes, reminders, sync and Report a Bug are in Settings, where you can replay this tour too."}
   ];
 
   let steps = [], i = 0, root = null, spot = null, card = null, tgt = null, opened = null, saved = null, onKey = null, raf = 0, active = false, seq = 0, panel = "";
@@ -23621,8 +23659,6 @@ const ERRCORE = (() => {
   // Sheets the tour opens on top of the page
   const press = list => { const b = findIn(list); if (b) b.click(); };
   const PANELS = {
-    settings: {dlg: () => dlg, open: () => menuSheet()},
-    ann: {dlg: () => dlg, open: () => press(BELL)},
     pomo: {dlg: () => $("#pomoDlg"), open: () => press(POMO)},
     search: {dlg: () => $("#sxDlg"), open: () => press(SEARCH)}
   };
@@ -27416,7 +27452,7 @@ hook("boot", boot);
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
     return `<div class="view-head"><h2>Groups</h2></div>
-      <div class="empty grp-offline sb-es">${emptyArt()}<strong>${preview ? "Sharing Isn't Available Here" : "Study Better Together"}</strong>
+      <div class="empty grp-offline sb-es">${emptyArt("groups")}<strong>${preview ? "Sharing Isn't Available Here" : "Study Better Together"}</strong>
         ${preview ? "Study groups and share links work on the Studyboard website and in the desktop app, where you sign in to your Studyboard account." : "Sharing needs a free Studyboard account. Sign in to make or join study groups and share decks."}
         ${preview ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button></div>`}</div>
       <section class="grp-file"><h3 class="fsec">Share Without an Account</h3>
@@ -27448,7 +27484,7 @@ hook("boot", boot);
       ${S.err ? errBox(S.err, S.setup) : ""}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
         : gs.length ? `<div class="grp-grid" data-sortable="groups">${cards}</div>`
-        : `<div class="empty sb-es">${emptyArt()}<strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new">New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
+        : `<div class="empty sb-es">${emptyArt("groups")}<strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new">New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
       ${(S.binned || []).length ? `<section class="grp-shares grp-binned"><h3 class="fsec">Recently Deleted Groups<span class="n">${S.binned.length}</span></h3>
         <p class="hint-line">Kept for 30 days with everything in them. Restoring brings a group back for all its members.</p>
         <ul class="grp-list">${S.binned.map(b => `<li class="grp-item"><div class="grp-item-main"><b>${esc(b.name)}</b><span class="mini">Deleted ${esc(fmtShort(String(b.deleted_at).slice(0, 10)))} · gone for good after ${esc(fmtShort(String(b.purge_at).slice(0, 10)))}</span></div>
@@ -71942,6 +71978,120 @@ window.SBSEM = {
   hook("menu", () => `<button data-act="school-open" data-group="school"><span>School Days<span class="sub">Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)</span></span></button>`);
   window.SBSCHOOLUI = {open};
 })();
+/* ===== module: 97-getting-started.js ===== */
+/* Getting Started: a short checklist (the app tour is offered at the end of the welcome setup, so it isn't on here) on the Board for a student's first weeks.
+   Each item ticks itself off from what the student has really done, so there is nothing to mark by hand. */
+(() => {
+  const KEY = "sb:gs";
+  const get = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; } };
+  const set = patch => { try { localStorage.setItem(KEY, JSON.stringify(Object.assign(get(), patch))); } catch (e) {} };
+  const DAYS = 30;
+
+  const press = list => { for (const q of list) { const b = document.querySelector(q); if (b && b.offsetParent) { b.click(); return true; } } return false; };
+  const goTab = t => { if (dlg.open) dlg.close(); ui.tab = t; if (t === "flashcards") { ui.fc = null; ui.deckId = null; } if (t === "courses") ui.courseId = null; render(); window.scrollTo(0, 0); };
+  const quickAdd = () => {
+    const i = $("#qaIn");
+    if (!i || !i.offsetParent) { if (!press(["#fab"])) goTab("board"); return; }
+    const bar = i.closest(".qa-bar");
+    try { i.focus({preventScroll: true}); } catch (e) { i.focus(); }
+    if (bar) { bar.scrollIntoView({block: "center"}); bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); }
+  };
+
+  const SITES = Object.values(LMS_NAMES);
+  const fromSchool = () => get().route === "lms" || allTasks().some(t => lmsSite(t)) || coursesArr().some(c => (c.links || []).some(l => l && SITES.includes(l.label)));
+  const ROUTE = {"lms-open": "lms", "import-syllabus": "syllabus", "new-course": "manual"};
+
+  const ITEMS = [
+    // Three ways in, quickest first: the school site brings in every course at once
+    {id: "courses", t: "Add your courses", s: "Connect your school site, import a syllabus or type them in.",
+      done: () => coursesArr().length > 0, go: () => { fabMenu("Add Your Courses", [
+        ["lms-open", "Connect Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"],
+        ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"],
+        ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]);
+        // Remember which way they chose; the app then opens it as usual
+        const fl = dlg.querySelector(".fm-list");
+        if (fl) fl.addEventListener("click", e => { const b = e.target.closest("[data-act]"); if (b && ROUTE[b.dataset.act]) set({route: ROUTE[b.dataset.act]}); }, true); }},
+    {id: "deadline", t: "Add a deadline", s: "Type it like a sentence: \"bio quiz fri 2pm\".",
+      // A school site brings deadlines in by itself, so this is only for courses from a syllabus or typed in
+      here: () => !fromSchool() && (["syllabus", "manual"].includes(get().route) || coursesArr().length > 0),
+      done: () => allTasks().some(t => t.due), go: quickAdd},
+    {id: "focus", t: "Start a focus session", s: "Start the timer on any task. Even 10 minutes helps.",
+      done: () => { if (get().focus) return true; try { return SBSTATS.totalFocusMinutes() > 0; } catch (e) { return false; } }, go: () => { if (dlg.open) dlg.close(); openPomo(); }},
+    {id: "note", t: "Make a note", s: "Pin a quick thought to your board, or press and hold anywhere on it.",
+      done: () => notesArr().length > 0, go: () => goTab("notes")},
+    // Only where automatic backups work (not every browser can save to a folder)
+    {id: "backups", t: "Set up backups", s: "Save a copy to Google Drive or OneDrive every hour.", here: () => !!(window.SBOB && SBOB.backupsHere && SBOB.backupsHere()),
+      done: () => !!(window.SBOB && SBOB.backupOn && SBOB.backupOn()), go: () => fire("act", "ob-backup", document.body, "")},
+    {id: "theme", t: "Select a theme", s: "Make Studyboard yours, light or dark.",
+      done: () => !!get().theme, go: () => fire("act", "ob-theme", document.body, "")}
+  ];
+  const list = () => ITEMS.filter(it => { try { return !it.here || it.here(); } catch (e) { return false; } });
+  const doneOf = it => { try { return !!it.done(); } catch (e) { return false; } };
+
+  // Shown for the first 30 days after the welcome setup, until it's finished or hidden.
+  // It gives way to the semester card; the backups and A Few More Things cards wait for it, so only one card sits on the Board at a time.
+  function showing(){
+    if (inPreview() || (window.SBOB && SBOB.pending())) return false;
+    const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0;
+    if (!at || Date.now() - at > DAYS * 864e5) return false;
+    const m = get(); if (m.hide || m.fin) return false;
+    if (window.SBSEM && SBSEM.cardDue && SBSEM.cardDue()) return false;
+    return true;
+  }
+
+  const CHECK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  const CHEV = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  const CLOSE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+  function cardHtml(){
+    const L = list(), st = L.map(doneOf), n = st.filter(Boolean).length, all = n === L.length, open = get().open !== false;
+    const pct = Math.round(n / L.length * 100);
+    if (all) return `<section class="gs-card gs-all" aria-labelledby="gsT"><div class="gs-head"><span class="gs-party" aria-hidden="true">🎉</span><div class="gs-ht"><b id="gsT">You're All Set Up</b><span class="mini">You've tried the main parts of Studyboard. Nice work.</span></div>
+      <button type="button" class="btn small primary" data-act="gs-fin">Done</button></div></section>`;
+    const next = st.indexOf(false);
+    const rows = L.map((it, k) => `<li class="gs-row${st[k] ? " ok" : ""}${k === next ? " next" : ""}">
+      <button type="button" class="gs-btn" data-act="gs-go" data-id="${it.id}"${st[k] ? ' aria-disabled="true"' : ""}>
+        <span class="gs-ck" aria-hidden="true">${st[k] ? CHECK : ""}</span>
+        <span class="gs-tx"><b>${esc(it.t)}</b>${k === next ? `<span class="mini">${esc(it.s)}</span>` : ""}</span>
+        <span class="gs-sr">${st[k] ? "(done)" : ""}</span>${st[k] ? "" : `<span class="gs-chev" aria-hidden="true">${CHEV}</span>`}
+      </button></li>`).join("");
+    return `<section class="gs-card${open ? "" : " shut"}" aria-labelledby="gsT">
+      <div class="gs-head">
+        <button type="button" class="gs-toggle" data-act="gs-toggle" aria-expanded="${open}" aria-controls="gsList">
+          <span class="gs-ring" style="--p:${pct}" aria-hidden="true"><span>${n}/${L.length}</span></span>
+          <span class="gs-ht"><b id="gsT">Getting Started</b><span class="mini">${n} of ${L.length} done${open ? "" : ` · Next: ${esc(L[next].t.toLowerCase())}`}</span></span>
+        </button>
+        <button type="button" class="icon-btn gs-x" data-act="gs-hide" aria-label="Hide Getting Started">${CLOSE}</button>
+      </div>
+      <div class="gs-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
+      <ul class="gs-list" id="gsList"${open ? "" : " hidden"}>${rows}</ul>
+    </section>`;
+  }
+
+  hook("render", tab => {
+    if (tab !== "board" || !showing()) return;
+    const v = $("#view"); if (!v || v.querySelector(".gs-card")) return;
+    v.insertAdjacentHTML("afterbegin", cardHtml());
+  });
+
+  hook("act", (act, el) => {
+    if (!/^gs-/.test(act)) return false;
+    if (act === "gs-hide") { set({hide: Date.now()}); render(); toast("Getting Started hidden. Everything on it is still in the app."); return true; }
+    if (act === "gs-fin") { set({fin: Date.now()}); render(); return true; }
+    if (act === "gs-toggle") { set({open: get().open === false}); render(); return true; }
+    if (act === "gs-go") {
+      const id = el && el.dataset ? el.dataset.id : "", it = list().find(x => x.id === id);
+      if (it && !doneOf(it)) it.go();
+      return true;
+    }
+    return false;
+  });
+
+  // Starting the timer counts, even if the session isn't finished
+  hook("focus", e => { if (e && e.type === "start" && e.mode === "focus" && !get().focus) set({focus: Date.now()}); });
+
+  window.SBGS = {showing, mark: id => set({[id]: Date.now()}), items: () => list().map(it => ({id: it.id, done: doneOf(it)}))};
+})();
 /* ===== module: 99-pro.js ===== */
 /* Studyboard Pro extras (1.14) */
 var SBPRO = null;
@@ -84440,7 +84590,7 @@ const AUTOPILOT = (() => {
 /* Board notices */
 (() => {
   let more = false;
-  const KEEP = ["bn-more", "fgs-strip", "sem-card-b"];
+  const KEEP = ["bn-more", "fgs-strip", "sem-card-b", "gs-card"];
   const PRI = ["wkr-card", "rw-banner", "crunch-card", "sem-card-b", "nudge", "fgs-intro"];
   const CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   function mergeWeek(v){
