@@ -1,6 +1,7 @@
 (function(){
 "use strict";
 /* Every on-device database this page opens closes itself when another tab */
+try { if (window.SBLaunch) SBLaunch.to(32); } catch (e) {}   // the launch screen (index.html): the app's code is running
 try {
   const idbOpen = IDBFactory.prototype.open;
   IDBFactory.prototype.open = function(){
@@ -84290,13 +84291,17 @@ let hereT = 0;
 hook("render", () => { if (!hereT) hereT = setTimeout(() => { hereT = 0; hereSave(); }, 1000); });
 addEventListener("pagehide", hereSave);
 document.addEventListener("visibilitychange", () => { if (document.hidden) hereSave(); });
+try { if (window.SBLaunch) SBLaunch.to(64); } catch (e) {}
 render();
+try { if (window.SBLaunch) SBLaunch.to(88); } catch (e) {}
 if (hereScroll) setTimeout(() => { try { window.scrollTo(0, hereScroll); } catch(e) {} }, 350);
 initCloud();
 setTimeout(() => dailyQuote(false), 1600);
 fire("boot");
 bootDone = true;
-} catch (e) { bootNote(e); console.error("start", e); bootStuck(); }
+// the launch screen finishes once the first page has painted and the app's fonts are in (never more than a moment)
+try { if (window.SBLaunch) { SBLaunch.to(94); let fin = false; const go = () => { if (!fin) { fin = true; SBLaunch.done(); } }; requestAnimationFrame(() => requestAnimationFrame(() => { if (document.fonts && document.fonts.ready) document.fonts.ready.then(go, go); setTimeout(go, 700); })); } } catch (e) {}
+} catch (e) { bootNote(e); console.error("start", e); try { if (window.SBLaunch) SBLaunch.hide(); } catch (e2) {} bootStuck(); }
 })();
 setInterval(() => { try { trashEnforce(); } catch(e) {} }, 36e5);
 setInterval(() => { const d = todayISO(); if (d !== ui._day) { ui._day = d; scheduleRender(); setTimeout(() => dailyQuote(false), 1000); } }, 60000);

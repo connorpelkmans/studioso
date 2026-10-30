@@ -1,4 +1,5 @@
 /* Every on-device database this page opens closes itself when another tab */
+try { if (window.SBLaunch) SBLaunch.to(32); } catch (e) {}   // the launch screen (index.html): the app's code is running
 try {
   const idbOpen = IDBFactory.prototype.open;
   IDBFactory.prototype.open = function(){
