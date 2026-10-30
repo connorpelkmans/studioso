@@ -1,6 +1,7 @@
 // UNTESTED: written without compiler access
 import UIKit
 import WebKit
+import AVFoundation
 import Capacitor
 
 class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
@@ -16,6 +17,9 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
                 bridge?.registerPluginInstance(plugin)
             }
         }
+        // The page's sounds (the focus alarm, its test) play like a timer app's: heard with the ring switch on silent, mixed
+        // with any music rather than stopping it
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
         guard let webView = bridge?.webView else { return }
         let scroll = webView.scrollView
         // The page can't be pulled past its top or bottom (it handles the notch and home bar itself, contentInset "never")
