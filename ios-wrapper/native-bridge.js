@@ -376,6 +376,9 @@
         // a close that is followed straight away by an open never touches the page, so the bars don't blink
         isOpen = true; kbH = h || kbH; clearTimeout(closeT); clearTimeout(backT); r.classList.remove("kb-closing", "kb-back"); r.classList.add("kb-open"); apply(); return;
       }
+      // iOS also reports the keyboard closing when the app comes back to the front, with no keyboard having been open:
+      // that's ignored, so the tab bar is never hidden for it
+      if (!isOpen && !r.classList.contains("kb-open")) return;
       hideT = setTimeout(function () {
         isOpen = false; r.classList.remove("kb-open");
         // closing: the bars come back once the app has grown back into place, then fade in there (kb-back)
@@ -385,6 +388,13 @@
       }, 60);
     };
     addEventListener("resize", apply);
+    // coming back to the app: no keyboard is up any more, and the bars are simply there (no waiting, no fade)
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) return;
+      var r = root(); if (!r) return;
+      clearTimeout(hideT); clearTimeout(closeT); clearTimeout(backT);
+      if (!document.activeElement || !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { isOpen = false; r.classList.remove("kb-open", "kb-closing", "kb-back"); apply(); }
+    });
     var w0 = innerWidth; addEventListener("resize", function () { if (innerWidth !== w0) { w0 = innerWidth; fullH = 0; } });
     apply();
     // iOS scrolls the page to reveal the focused box when the keyboard comes up; the page has already moved it into view, so

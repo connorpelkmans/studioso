@@ -55,6 +55,9 @@ async function open(b, idiom){
       ok(await page.evaluate(() => !document.documentElement.classList.contains("kb-open") && getComputedStyle(document.querySelector("nav.tabs")).visibility !== "hidden"), "keyboard down: the tab bar is back");
       await page.waitForTimeout(400);
       ok(await page.evaluate(() => { document.documentElement.classList.toggle("x-any"); return document.querySelector("nav.tabs").getAnimations().length === 0; }), "and other page changes never replay its fade-in");
+      // coming back to the app, iOS reports the keyboard closing although none was open: the tab bar stays put
+      await page.evaluate(() => window.__kbL.keyboardWillHide()); await page.waitForTimeout(60);
+      ok(await page.evaluate(() => { const r = document.documentElement; return !r.classList.contains("kb-closing") && getComputedStyle(document.querySelector("nav.tabs")).visibility !== "hidden"; }), "a 'keyboard closing' with no keyboard open (as on coming back to the app) leaves the tab bar alone");
       // the moment between the keyboard being announced and the app's frame shrinking: a note being typed in already sits above it
       await page.evaluate(() => { window.__sbSync.ui.tab = "notes"; window.__sbSync.render(); }); await page.waitForTimeout(300);
       await page.evaluate(() => { const n = document.querySelector('.note[data-note="n1"]'); n.dispatchEvent(new MouseEvent("click", {bubbles: true})); }); await page.waitForSelector("#noteText"); await page.waitForTimeout(600);
