@@ -440,7 +440,7 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}
   /* the keyboard closing (iPhone app): the bars stay away until the app has grown back into place, then fade in there */
   html.kb-closing:not(.kb-open) :is(nav.tabs,.fab){visibility:hidden!important}
-  html:not(.kb-open):not(.kb-closing) :is(nav.tabs,.fab){animation:sm-back .22s ease-out}
+  html.kb-back:not(.kb-open):not(.kb-closing) :is(nav.tabs,.fab){animation:sm-back .22s ease-out}
 }
 }
 

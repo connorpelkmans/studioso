@@ -365,13 +365,22 @@
       try { window.dispatchEvent(new Event("sb-kb-cover")); } catch (e) {}
     };
     window.sbVisibleH = function () { return innerHeight - cover(); };
+    var hideT = 0, backT = 0;
     var kbOn = function (on, h) {
       var r = root(); if (!r) return;
-      isOpen = on; if (on) { kbH = h || kbH; clearTimeout(closeT); r.classList.remove("kb-closing"); }
-      r.classList.toggle("kb-open", on);
-      // closing: the bars come back once the app has grown back into place, rather than at the old bottom edge first
-      if (!on) { r.classList.add("kb-closing"); clearTimeout(closeT); closeT = setTimeout(function () { r.classList.remove("kb-closing"); }, 420); }
-      apply();
+      clearTimeout(hideT);
+      if (on) {
+        // iOS often reports the keyboard closing and opening again at once (focus moving between boxes, a sheet closing):
+        // a close that is followed straight away by an open never touches the page, so the bars don't blink
+        isOpen = true; kbH = h || kbH; clearTimeout(closeT); clearTimeout(backT); r.classList.remove("kb-closing", "kb-back"); r.classList.add("kb-open"); apply(); return;
+      }
+      hideT = setTimeout(function () {
+        isOpen = false; r.classList.remove("kb-open");
+        // closing: the bars come back once the app has grown back into place, then fade in there (kb-back)
+        r.classList.add("kb-closing"); clearTimeout(closeT);
+        closeT = setTimeout(function () { r.classList.remove("kb-closing"); r.classList.add("kb-back"); clearTimeout(backT); backT = setTimeout(function () { r.classList.remove("kb-back"); }, 300); }, 380);
+        apply();
+      }, 60);
     };
     addEventListener("resize", apply);
     var w0 = innerWidth; addEventListener("resize", function () { if (innerWidth !== w0) { w0 = innerWidth; fullH = 0; } });

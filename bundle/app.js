@@ -14859,7 +14859,10 @@ function dlgKbFit(){
   // and hid the fact the keyboard was up
   const d = document.documentElement, kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
   d.style.setProperty("--kb-h", kb + "px"); d.style.setProperty("--vv-h", Math.round(vv.height) + "px");
-  d.classList.toggle("kb-open", innerHeight - vv.height > 120);
+  // (a short dip, such as Safari's toolbars sliding, isn't the keyboard: it has to be clearly taller than them)
+  const up = innerHeight - vv.height > 150;
+  clearTimeout(dlgKbFit.t);
+  if (up) d.classList.add("kb-open"); else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }
 /* ===== module: 01-flashcards.js: the app's core, flashcards: decks, spaced repetition, quizzes ===== */
