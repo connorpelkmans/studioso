@@ -1275,7 +1275,7 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
   .sch-head:not(.sel),.sch-col:not(.sel){display:none}
   /* swiping between days (100-phone.js): a clipped window over the day's cell holds still copies of the two days, and only
      they slide; the real day underneath is hidden until the swipe settles */
-  .sch-swipe{position:absolute;z-index:4;overflow:hidden;pointer-events:none;background:var(--surface)}
+  .sch-swipe{position:absolute;z-index:4;overflow:hidden;pointer-events:none;background:transparent}
   .sch-page{position:absolute;top:0;width:100%;will-change:transform;backface-visibility:hidden}
   .sch-page > .sch-head{display:grid!important;box-sizing:border-box}
   .sch-page > .sch-col{display:block!important}
