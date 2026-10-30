@@ -44,8 +44,26 @@ public struct StudyboardFocusControl: LiveActivityIntent {
         return .result()
     }
 
-    static func apply(_ action: String) async {
+    // When the button was really tapped. iOS freezes the card at the tap, but runs this only once it has started Studyboard in
+    // the background, which can take a few seconds; timing the pause from then made the time jump back and forth. If
+    // Studyboard was started for this tap (a moment ago), the start is the tap; otherwise it was already running and now is.
+    static func tapTime() -> Date {
         let now = Date()
+        var info = kinfo_proc(), size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0 else { return now }
+        let tv = info.kp_proc.p_un.__p_starttime
+        let started = Date(timeIntervalSince1970: Double(tv.tv_sec) + Double(tv.tv_usec) / 1_000_000)
+        let ago = now.timeIntervalSince(started)
+        // only for the first tap after a start: a later tap finds the app already running
+        guard ago >= 0 && ago < 12 && !startUsed else { return now }
+        startUsed = true
+        return started
+    }
+    nonisolated(unsafe) private static var startUsed = false
+
+    static func apply(_ action: String) async {
+        let now = tapTime()
         guard let act = Activity<StudyboardFocusAttributes>.activities.first else { return }
         var s = act.content.state
         switch action {
