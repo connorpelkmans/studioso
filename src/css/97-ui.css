@@ -83,3 +83,4 @@
 @media (prefers-reduced-motion:reduce){.us-cat,.us-search,.us-pane .menu-list > button{transition:none}}
 
 
+.us-pane .menu-list.us-top{margin-bottom:12px}

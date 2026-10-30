@@ -12977,6 +12977,7 @@ function menuSheet(){
       ${aiRow()}
       ${fire("menu").filter(Boolean).join("")}
       ${accountRows()}
+      ${typeof PLAN !== "undefined" && PLAN && PLAN.storageRow ? PLAN.storageRow() : ""}
       ${folderBackupRow()}
       ${installRow()}
       ${storageRow()}
@@ -18416,6 +18417,15 @@ window.__sbPlanObj = () => PLAN;
     const hot = max !== Infinity && used / max >= 0.9;
     return `<div class="plan-meter${hot ? " hot" : ""}"><div class="pm-top"><span>${esc(label)}</span><span class="mini">${esc(fmtMB(used))} of ${esc(fmtMB(max))}</span></div><div class="pm-bar" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${pct.toFixed(1)}%"></i></div></div>`;
   }
+  // Settings, Data and Backups: how much of the account's space on the server is used, against the Free or Pro limits
+  function storageRow(){
+    if (typeof sbUser === "undefined" || !sbUser || inPreview()) return "";
+    const u = usage(), L = lim(), proLims = !paywall() || limitsPro();
+    const tier = !paywall() ? "Early access: you have the Pro amounts" : limitsPro() ? "Pro plan" : "Free plan";
+    const full = Math.max(u.fileMB / L.fileMB, u.dataMB / L.dataMB) >= 0.9;
+    const more = proLims ? "" : `<button type="button" class="btn small${full ? " primary" : ""}" data-act="plan-open" data-reason="Pro gives you more space on the server">Get More Space</button>`;
+    return `<div class="cap-row us-storage" data-group="data" data-us-top="1" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Server Storage<span class="sub">${esc(tier)}. Space your account uses on Studyboard's server.</span></span>${more}<div class="plan-usage" style="flex-basis:100%">${meter("Uploaded Files", u.fileMB, L.fileMB)}${meter("Synced Data", u.dataMB, L.dataMB)}</div></div>`;
+  }
   function statusLine(){
     const e = ent();
     if (!paywall()) return {title: "Everything Is Unlocked Right Now", sub: "Studyboard is in early access, so every theme and feature is yours to use. Pro will add the extras below later."};
@@ -18584,7 +18594,7 @@ window.__sbPlanObj = () => PLAN;
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
-    isPro, paywall, settled,
+    isPro, paywall, settled, storageRow,
     limits: () => Object.assign({}, lim()),
     freeLimits: () => Object.assign({}, lims("free")),
     proLimits: () => Object.assign({}, lims("pro")),
@@ -23097,7 +23107,7 @@ document.head.appendChild(AREA_CSS);
 /* ===== module: 49-feedback.js ===== */
 /* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.2";
+  const APP_VERSION = "1.15.3";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
   const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
@@ -23280,7 +23290,7 @@ document.head.appendChild(AREA_CSS);
 
 /* ===== module: 49-errreport.js ===== */
 /* Anonymous crash and error reports */
-const APP_VERSION = "1.15.2";
+const APP_VERSION = "1.15.3";
 const BUILD_ID = "dev";
 const ERROR_REPORTING = {
   dsn: "",
@@ -44217,7 +44227,7 @@ var TP_DATA = [];
     capture: ["cap-try"],
     school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
     app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
-    data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
+    data: ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
   };
   // Sub-tabs inside a category with many rows
   const SUBS = {
@@ -44225,7 +44235,7 @@ var TP_DATA = [];
     study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
     school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
     app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
-    data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
+    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
   };
   const SUB_MIN = 5;
   // Extra words people might search for, per row
@@ -44305,7 +44315,11 @@ var TP_DATA = [];
       sec.className = "us-pane"; sec.dataset.us = c.k; sec.id = "usPane-" + c.k;
       sec.setAttribute("role", "tabpanel"); sec.setAttribute("aria-labelledby", "usTab-" + c.k);
       sec.innerHTML = `<div class="us-title"><span class="us-ic">${ICONS[c.k]}</span><div><h3>${esc(c.t)}</h3><p class="mini">${esc(c.lead)}</p></div></div>`;
-      const sorted = buckets[c.k].sort((a, b) => a.n - b.n || a.i - b.i);
+      const all = buckets[c.k].sort((a, b) => a.n - b.n || a.i - b.i);
+      // Rows marked data-us-top (the storage meter) sit above the section's tabs, so they're always in view
+      const top = all.filter(({r}) => r.dataset.usTop);
+      if (top.length) { const ml = document.createElement("div"); ml.className = "menu-list us-top"; top.forEach(({r}) => ml.appendChild(r)); sec.appendChild(ml); }
+      const sorted = all.filter(({r}) => !r.dataset.usTop);
       sorted.forEach(({r}) => { if (r.dataset.act === "clear-all" || r.querySelector('[data-act="clear-all"]')) r.classList.add("us-danger"); });
       const spec = SUBS[c.k];
       if (spec && sorted.length >= SUB_MIN) {
@@ -70845,7 +70859,7 @@ window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow
 /* ===== module: 99-release.js ===== */
 /* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.2";
+  const VERSION = "1.15.3";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "October 27, 2026", TERMS_UPDATED = "October 27, 2026";

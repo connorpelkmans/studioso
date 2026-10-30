@@ -1001,6 +1001,7 @@ function menuSheet(){
       ${aiRow()}
       ${fire("menu").filter(Boolean).join("")}
       ${accountRows()}
+      ${typeof PLAN !== "undefined" && PLAN && PLAN.storageRow ? PLAN.storageRow() : ""}
       ${folderBackupRow()}
       ${installRow()}
       ${storageRow()}
