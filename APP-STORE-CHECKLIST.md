@@ -145,7 +145,7 @@ Also provide: screenshots for each device size you claim (6.9" and 6.5" iPhone, 
 
 Sources are UNTESTED (written without Xcode): do the device tests in `ios-wrapper/native/capture.md` section 5 first. Then:
 
-- [ ] Capabilities on **both** the App and the Share Extension targets: **App Groups** (`group.com.studioso.app`) and **Keychain Sharing** (`com.studioso.app.shared`); both registered in the Developer portal (Identifiers) and in the provisioning profiles (regenerate them after adding).
+- [ ] Capabilities on **both** the App and the Share Extension targets: **App Groups** (`group.com.studyboardapp.studyboard`) and **Keychain Sharing** (`com.studyboardapp.studyboard.shared`); both registered in the Developer portal (Identifiers) and in the provisioning profiles (regenerate them after adding).
 - [ ] No `NSSiriUsageDescription` (App Intents need none; the key is for the old SiriKit extensions). Voice capture needs no microphone string (Siri does the listening); `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription` are there for **Record a Lecture** (Pro) only, and the app asks only when the person presses Start Recording.
 - [ ] Share Extension `NSExtensionActivationRule` is the **dictionary** form (text, 1 web URL, 1 image), not `TRUEPREDICATE`; the extension has its own `PrivacyInfo.xcprivacy`.
 - [ ] Privacy manifest: no new required-reason API from the native code (Keychain, URLSession, App Group files). If you add App Group `UserDefaults`, add reason `1C8F.1` (verify on Apple's current list). Run Generate Privacy Report on the archive.

@@ -2,9 +2,9 @@
 // Runs only on your computer; the key is never sent anywhere. The secret lasts 6 months (Apple's limit): run this again then
 // and paste the new one into Supabase (Authentication > Sign In / Providers > Apple).
 //
-//   node scripts/apple-secret.js <path to AuthKey_XXXX.p8> <Team ID> <Key ID> [Services ID, default com.studioso.app.signin]
+//   node scripts/apple-secret.js <path to AuthKey_XXXX.p8> <Team ID> <Key ID> [Services ID, default com.studyboardapp.studyboard.signin]
 const fs = require("fs"), crypto = require("crypto");
-const [file, team, kid, sub = "com.studioso.app.signin"] = process.argv.slice(2);
+const [file, team, kid, sub = "com.studyboardapp.studyboard.signin"] = process.argv.slice(2);
 if (!file || !/^[A-Z0-9]{10}$/.test(team || "") || !/^[A-Z0-9]{10}$/.test(kid || "")) {
   console.error("Usage: node scripts/apple-secret.js <AuthKey_XXXX.p8> <Team ID (10 characters)> <Key ID (10 characters)> [Services ID]");
   process.exit(1);

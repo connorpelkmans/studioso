@@ -14,9 +14,9 @@ What you need: a Mac with **Xcode** (Mac App Store), **Node.js 22**, the **Trans
    D-U-N-S number). When it's active, open developer.apple.com > Account > **Membership details** and copy your **Team ID**
    (10 letters and digits).
 2. **App ID**: developer.apple.com > Certificates, IDs & Profiles > **Identifiers** > + > App IDs > App. Bundle ID
-   `com.studioso.app` (Explicit). Tick **Push Notifications**, **In-App Purchase**, **Associated Domains**, **App Groups**.
+   `com.studyboardapp.studyboard` (Explicit). Tick **Push Notifications**, **In-App Purchase**, **Associated Domains**, **App Groups**.
    Platforms: iOS and macOS (one App ID, so one purchase covers both).
-3. **App Group**: Identifiers > + > App Groups > `group.com.studioso.app`. Then open the App ID again, App Groups > Configure,
+3. **App Group**: Identifiers > + > App Groups > `group.com.studyboardapp.studyboard`. Then open the App ID again, App Groups > Configure,
    and tick it.
 4. **Certificates** (easiest: Xcode > Settings > Accounts > your team > Manage Certificates > +):
    * **Apple Distribution** (iPhone and Mac App Store).
@@ -94,9 +94,9 @@ cd ios-wrapper && npx cap open ios
 
 In Xcode, once (target **App**):
 
-1. **Signing & Capabilities**: Team = yours, Bundle Identifier `com.studioso.app`, "Automatically manage signing" on. Add with
+1. **Signing & Capabilities**: Team = yours, Bundle Identifier `com.studyboardapp.studyboard`, "Automatically manage signing" on. Add with
    **+ Capability**: Push Notifications, In-App Purchase, Associated Domains (`applinks:studyboardapp.com`), App Groups
-   (`group.com.studioso.app`), Background Modes > Remote notifications. Compare with
+   (`group.com.studyboardapp.studyboard`), Background Modes > Remote notifications. Compare with
    `ios-wrapper/App.entitlements.template.plist`.
 2. **Info.plist**: nothing to do. `npm run ios:stage` adds every key from `ios-wrapper/Info.plist.additions.plist`
    (camera, photos and microphone reasons, URL scheme, encryption flag) and keeps any already there. Without the camera

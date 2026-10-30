@@ -176,7 +176,7 @@ update public.studyboard_config set value = to_jsonb('https://studyboardapp.com/
   4. **Function:** deploy `supabase-functions/apple-external` with **Verify JWT OFF**. It checks the sign-in itself, and the report job uses its own secret. Then deploy `billing-webhook` again; it now queues EU website sales.
   5. **Secrets:**
      - `APPLE_IAP_KEY_ID`, `APPLE_IAP_ISSUER_ID` and `APPLE_IAP_PRIVATE_KEY` (the whole text of the In-App Purchase key's `.p8` file, from App Store Connect → Users and Access → Integrations → In-App Purchase)
-     - `APPLE_BUNDLE_ID` = `com.studioso.app`
+     - `APPLE_BUNDLE_ID` = `com.studyboardapp.studyboard`
      - `APPLE_REPORT_SECRET`: a long random string
      - `APPLE_REPORT_SANDBOX=1` while testing, removed for launch
   6. **Daily report job.** Apple wants each month's reports within 15 days of the month's end; this sends them daily. In the SQL Editor, with the `pg_cron` and `pg_net` extensions on, run the following, filling in your report secret:

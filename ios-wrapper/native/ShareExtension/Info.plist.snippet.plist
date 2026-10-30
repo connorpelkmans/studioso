@@ -9,7 +9,7 @@
   <false/>
   <!-- REQUIRED -->
   <key>SBKeychainAccessGroup</key>
-  <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
+  <string>$(AppIdentifierPrefix)com.studyboardapp.studyboard.shared</string>
   <key>NSExtension</key>
   <dict>
     <key>NSExtensionPointIdentifier</key>

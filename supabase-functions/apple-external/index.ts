@@ -6,7 +6,7 @@
 //                               (studyboard_apple_line_items) and reports each expired token that never led to a sale
 //
 // Secrets: APPLE_IAP_KEY_ID, APPLE_IAP_ISSUER_ID, APPLE_IAP_PRIVATE_KEY (the .p8 In-App Purchase key's text), APPLE_BUNDLE_ID
-// (com.studioso.app), APPLE_REPORT_SECRET, and APPLE_REPORT_SANDBOX=1 while testing. supabase-apple-external.sql makes the tables.
+// (com.studyboardapp.studyboard), APPLE_REPORT_SECRET, and APPLE_REPORT_SANDBOX=1 while testing. supabase-apple-external.sql makes the tables.
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void; uuid: () => string };

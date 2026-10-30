@@ -75,7 +75,7 @@ Then copy in the app's settings, as described in README-IOS.md section 3: the pr
 2. Plug in your iPhone and unlock it. On the phone, turn on **Settings > Privacy & Security > Developer Mode**; it restarts.
 3. In Xcode, select the **App** target, then **Signing & Capabilities**, then **Team**:
    - With a **free Apple ID**, choose your "Personal Team". Change the bundle identifier to something unique, such as `com.yourname.studyboard.test`. Remove the Push Notifications, App Groups and Associated Domains capabilities if they're listed, because free teams can't use them.
-   - With the **paid Developer Program**, choose your team and keep `com.studioso.app`.
+   - With the **paid Developer Program**, choose your team and keep `com.studyboardapp.studyboard`.
 4. Choose your iPhone at the top of Xcode and press **Run** (▶).
 5. If you used a free account, the first launch says "Untrusted Developer". On the phone, go to **Settings > General > VPN & Device Management**, tap your Apple ID, then **Trust**.
 

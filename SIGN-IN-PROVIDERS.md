@@ -46,8 +46,8 @@ Nothing else is needed for the iPhone, Android or desktop apps. They all use thi
 
 You need an Apple Developer account.
 
-1. In **Certificates, Identifiers & Profiles → Identifiers**, open the App ID **com.studioso.app** and tick **Sign in with Apple**.
-2. Create a **Services ID** for the web sign-in, for example `com.studioso.app.signin`.
+1. In **Certificates, Identifiers & Profiles → Identifiers**, open the App ID **com.studyboardapp.studyboard** and tick **Sign in with Apple**.
+2. Create a **Services ID** for the web sign-in, for example `com.studyboardapp.studyboard.signin`.
    - Tick **Sign in with Apple** and click **Configure**.
    - **Domains:** `pivcmrqcjseycjkbocmc.supabase.co`, plus your web app's domain.
    - **Return URLs:** the Supabase callback address shown above.
@@ -55,7 +55,7 @@ You need an Apple Developer account.
    - Download the `.p8` file. Apple only lets you download it once.
    - Note the **Key ID** and your **Team ID**.
 4. In Supabase, open **Authentication → Sign In / Providers → Apple** and turn it on.
-   - **Client IDs:** `com.studioso.app.signin,com.studioso.app`. That is the Services ID for the web and the bundle ID for the iPhone app, comma-separated.
+   - **Client IDs:** `com.studyboardapp.studyboard.signin,com.studyboardapp.studyboard`. That is the Services ID for the web and the bundle ID for the iPhone app, comma-separated.
    - **Secret Key:** generate it from the `.p8` file, Team ID, Key ID and Services ID. The Supabase provider page links a generator.
    - **The secret expires after 6 months.** Set a reminder to generate a new one, or Apple sign-in on the web, Android and desktop stops working. The iPhone app's own sheet keeps working.
 5. In Xcode, select the **App** target, open **Signing & Capabilities**, click **+ Capability** and add **Sign in with Apple**.

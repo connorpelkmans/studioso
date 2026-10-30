@@ -210,7 +210,7 @@ export function nativeSender(d: NativeDeps) {
       const payload = JSON.stringify({ aps: { alert: { title: m.title, body: m.body }, sound: "default" }, taskId: m.taskId, rid: m.rid, url: m.url, tok: m.tok, api: m.api, k: m.k });
       for (let i = 0; i < hosts.length; i++) {
         const r = await d.fetch(`https://${hosts[i]}/3/device/${dev}`, { method: "POST", body: payload, headers: {
-          authorization: "bearer " + jwt, "apns-topic": d.env("APNS_TOPIC") || "com.studioso.app", "apns-push-type": "alert", "apns-priority": "10",
+          authorization: "bearer " + jwt, "apns-topic": d.env("APNS_TOPIC") || "com.studyboardapp.studyboard", "apns-push-type": "alert", "apns-priority": "10",
           "apns-expiration": String(Math.floor(d.now() / 1000) + 6 * 3600), "content-type": "application/json" } });
         if (r.ok) return "ok";
         const t = await r.text().catch(() => "");

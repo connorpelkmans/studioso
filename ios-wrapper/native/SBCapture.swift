@@ -3,9 +3,9 @@ import Foundation
 import Security
 
 enum SBCaptureConfig {
-    static let appGroupID = "group.com.studioso.app"
-    static let keychainService = "com.studioso.app.capture"
-    // Keychain access group = "<TeamID>.com.studioso.app.shared"
+    static let appGroupID = "group.com.studyboardapp.studyboard"
+    static let keychainService = "com.studyboardapp.studyboard.capture"
+    // Keychain access group = "<TeamID>.com.studyboardapp.studyboard.shared"
     static let keychainAccessGroupInfoKey = "SBKeychainAccessGroup"
     static let path = "/functions/v1/capture-task"
     static let hostSuffix = ".supabase.co"
