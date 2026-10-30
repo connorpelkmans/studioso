@@ -74,6 +74,13 @@ private struct Tomato: View {
     }
 }
 
+// A thicker progress bar with round ends (the system bar, so it still moves on its own)
+private struct Pill: ViewModifier {
+    func body(content: Content) -> some View {
+        content.progressViewStyle(.linear).scaleEffect(x: 1, y: 2.2, anchor: .center).frame(height: 9).clipShape(Capsule())
+    }
+}
+
 // Pause or Play, and Skip
 private struct Controls: View {
     let s: StudyboardFocusAttributes.ContentState
@@ -140,24 +147,27 @@ struct StudyboardFocusLiveActivity: Widget {
                     Label { Text(s.label).foregroundStyle(.white) } icon: { Tomato(s: s) }.font(.headline)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
+                    // a counting-down time takes all the room it's given, so it's pushed to the right edge itself
                     TimeLeft(s: s).font(.system(.title2, design: .rounded).weight(.bold)).foregroundStyle(modeColor(s))
+                        .multilineTextAlignment(.trailing).frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(.white.opacity(0.85)).lineLimit(1) }
                         if s.pausedLeft > 0 {
-                            ProgressView(value: Double(s.total - s.pausedLeft), total: Double(s.total)).tint(modeColor(s))
+                            ProgressView(value: Double(s.total - s.pausedLeft), total: Double(s.total)).tint(modeColor(s)).modifier(Pill())
                             Text("Paused").font(.caption).foregroundStyle(.secondary)
                         } else {
-                            ProgressView(timerInterval: s.startedAt...s.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }.tint(modeColor(s))
+                            ProgressView(timerInterval: s.startedAt...s.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }.tint(modeColor(s)).modifier(Pill())
                         }
                         Controls(s: s, fill: modeColor(s), second: Color.white.opacity(0.22))
                     }
+                    .padding(.horizontal, 8).padding(.top, 2)
                 }
             } compactLeading: {
                 Tomato(s: s)
             } compactTrailing: {
-                TimeLeft(s: s).frame(maxWidth: 52).foregroundStyle(modeColor(s))
+                TimeLeft(s: s).multilineTextAlignment(.trailing).frame(maxWidth: 52, alignment: .trailing).foregroundStyle(modeColor(s))
             } minimal: {
                 Tomato(s: s)
             }
