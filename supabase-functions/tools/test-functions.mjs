@@ -289,6 +289,10 @@ await test("revenuecat: a paid purchase counts with its length; a store trial or
   await wh.handle(rcReq({ ...base, id: "rcp2", type: "RENEWAL", period_type: "NORMAL", price: 3.99, expiration_at_ms: NOW + 30 * 86400e3 }), deps);
   assert.equal(applied[0].term, "monthly");
   ({ deps, applied } = whDeps());
+  // the store's semester plan is 3 months, as short as 89 days (Feb 28 to May 28)
+  await wh.handle(rcReq({ ...base, id: "rcp5", type: "INITIAL_PURCHASE", period_type: "NORMAL", price: 9.99, expiration_at_ms: NOW + 89 * 86400e3 }), deps);
+  assert.equal(applied[0].term, "semester");
+  ({ deps, applied } = whDeps());
   await wh.handle(rcReq({ ...base, id: "rcp3", type: "INITIAL_PURCHASE", period_type: "TRIAL", price: 0, expiration_at_ms: NOW + 7 * 86400e3 }), deps);
   assert.equal(applied[0].paid, undefined);
   ({ deps, applied } = whDeps());

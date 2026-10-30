@@ -64,6 +64,47 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(opened.length === 1 && /^https:\/\/studyboardapp\.com\/website\/account\?plan=monthly&src=app$/.test(opened[0]), "Monthly opens the website's checkout: " + opened.join());
     await ctx.close();
 
+    // 3. the store's semester plan (3 months; the App Store has no 4-month length), once its price is set
+    const ctx3 = await browser.newContext({viewport: {width: 430, height: 900}});
+    await ctx3.route(/supabase\.co/, r => r.abort());
+    await ctx3.addInitScript(() => {
+      try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studyboard:paywall-test", "1");
+        localStorage.setItem("studyboard:plancfg", JSON.stringify({rows: {prices: {storeSemester: "$9.99"}}, at: Date.now()})); } catch (e) {}
+      window.StudyboardNative = {platform: "ios", purchasesAvailable: true, externalPurchase: false, storefront: "CAN"};
+    });
+    const p3 = await ctx3.newPage(); p3.on("pageerror", e => errs.push(e.message));
+    await p3.goto(base); await p3.waitForFunction(() => window.StudyboardPlan && window.__sbPlanObj && window.__sbPlanObj(), null, {timeout: 15000}); await p3.waitForTimeout(800);
+    await p3.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
+    await p3.evaluate(() => window.__sbPlanObj().openSheet()); await p3.waitForSelector("dialog[open] .plan-sheet", {timeout: 5000});
+    const sem = await p3.evaluate(() => { const b = document.querySelector('dialog[open] [data-act="plan-buy"][data-id="semester"]'); return {btn: b ? b.textContent : "", legal: (document.getElementById("planLegal") || {}).textContent || ""}; });
+    ok(/\$9\.99\s*\/ 3 months/.test(sem.btn) && /\$9\.99 every 3 months/.test(sem.legal) && /Apple ID/.test(sem.legal), "with storeSemester set, the App Store sheet sells a 3-month semester plan: " + sem.btn);
+    await ctx3.close();
+
+    // 4. the bridge buys the store's 3-month package for the semester plan
+    const ctx4 = await browser.newContext(); const p4 = await ctx4.newPage(); p4.on("pageerror", e => errs.push("bridge4: " + e.message));
+    await ctx4.route(base + "bridge-test", r => r.fulfill({status: 200, contentType: "text/html", body: "<!doctype html><title>b</title>"}));
+    await p4.goto(base + "bridge-test");
+    await p4.evaluate(() => {
+      window.__bought = [];
+      const pk = id => ({identifier: id});
+      window.Capacitor = {isNativePlatform: () => true, getPlatform: () => "ios", isPluginAvailable: () => false, Plugins: {
+        StudyboardStore: {storefront: () => Promise.resolve({country: "CAN"})},
+        Purchases: {configure: () => Promise.resolve(), logIn: () => Promise.resolve(),
+          getOfferings: () => Promise.resolve({current: {monthly: pk("$rc_monthly"), threeMonth: pk("$rc_three_month"), annual: pk("$rc_annual")}}),
+          purchasePackage: o => { window.__bought.push(o.aPackage.identifier); return Promise.resolve({}); }}}};
+    });
+    await p4.addScriptTag({content: fs.readFileSync(path.join(root, "ios-wrapper/native-bridge.js"), "utf8").replace(/appl_REPLACE_WITH_REVENUECAT_PUBLIC_KEY/, "appl_TESTKEY12345")});
+    const bought = await p4.evaluate(async () => {
+      for (const period of ["semester", "yearly", "monthly"]) {
+        const done = new Promise(r => window.addEventListener("studyboard:purchase-result", r, {once: true}));
+        window.dispatchEvent(new CustomEvent("studyboard:plan-checkout", {cancelable: true, detail: {period, userId: "11111111-1111-1111-1111-111111111111"}}));
+        await done;
+      }
+      return window.__bought;
+    });
+    ok(bought.join() === "$rc_three_month,$rc_annual,$rc_monthly", "bridge: semester buys the 3-month package, yearly the annual one: " + bought.join());
+    await ctx4.close();
+
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log(`us-web-checkout.e2e: ${n} checks passed`);
   } finally { await browser.close(); server.close(); }

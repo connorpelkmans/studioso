@@ -37,7 +37,7 @@ What you need: a Mac with **Xcode** (Mac App Store), **Node.js 22**, the **Trans
    * **Subscriptions** (Pro): create a subscription group "Studyboard Pro" with a monthly and a yearly subscription.
 8. **RevenueCat** (sells Pro through Apple): app.revenuecat.com > new project > add the App Store app (bundle id
    `com.studioso.app`, App Store Connect API key). Add the two products, an entitlement named **`pro`**, and an offering with
-   **monthly** and **annual** packages. Copy the **public Apple SDK key** (starts with `appl_`). Set its webhook to your
+   **monthly** and **annual** packages (and optionally a **three month** one for the semester plan, see `PRO-PLANS-GUIDE.md` step 10). Copy the **public Apple SDK key** (starts with `appl_`). Set its webhook to your
    Supabase function (see `PRO-PLANS-GUIDE.md`) so Pro turns on in the account.
 
 ## Part 2. Put your details into the project (one command)

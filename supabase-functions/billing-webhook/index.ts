@@ -81,7 +81,7 @@ export function priceAllowed(d: Deps, ids: string[]): boolean {
   return ids.some(id => allow.has(id));
 }
 // How long a plan is: its price id first (STRIPE_PRICE_*), then the length of the period paid for
-export const termFromDays = (days: number): Term | undefined => !(days > 0) ? undefined : days >= 300 ? "yearly" : days >= 90 ? "semester" : "monthly";
+export const termFromDays = (days: number): Term | undefined => !(days > 0) ? undefined : days >= 300 ? "yearly" : days >= 75 ? "semester" : "monthly";
 export function termOf(d: Deps, priceIds: string[], days: number): Term | undefined {
   const named: [string, Term][] = [["STRIPE_PRICE_YEARLY", "yearly"], ["STRIPE_PRICE_SEMESTER", "semester"], ["STRIPE_PRICE_MONTHLY", "monthly"]];
   for (const [k, t] of named) { const v = d.env(k).trim(); if (v && priceIds.includes(v)) return t; }

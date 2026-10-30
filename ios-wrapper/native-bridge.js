@@ -319,7 +319,8 @@
     ev.preventDefault();
     var d = ev.detail || {};
     rcSetup(d.userId).then(function () { return RC.getOfferings(); }).then(function (o) {
-      var cur = o && o.current, pkg = cur && (d.period === "yearly" ? cur.annual : cur.monthly);
+      // semester: the store's 3-month package (or 6-month); the App Store and Google Play have no 4-month length
+      var cur = o && o.current, pkg = cur && (d.period === "yearly" ? cur.annual : d.period === "semester" ? cur.threeMonth || cur.sixMonth : cur.monthly);
       if (!pkg) throw new Error("That plan isn't available right now.");
       return RC.purchasePackage({ aPackage: pkg });
     }).then(function () { result("checkout", "success"); },
