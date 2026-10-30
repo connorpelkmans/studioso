@@ -67,7 +67,13 @@ if (fs.existsSync(plistFile)) {
     const pbx = path.join(proj, "App.xcodeproj", "project.pbxproj"), txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
     for (const src of srcs) {
       const name = path.basename(src), esc = name.replace(/[.]/g, "\\.");
-      if (!new RegExp("path = \"?" + esc + "\"?;").test(txt) || inProj.some(p => path.basename(p) === name)) continue;
+      if (!new RegExp("path = \"?" + esc + "\"?;").test(txt)) continue;
+      // the widget file belongs in the widget's own folder even when a copy sits elsewhere (Xcode shows it red otherwise)
+      const wdir = path.join(proj, "StudyboardWidgets");
+      if (name === "StudyboardWidgets.swift" && fs.existsSync(wdir) && !fs.existsSync(path.join(wdir, name))) {
+        fs.copyFileSync(src, path.join(wdir, name)); done.push(path.relative(wrap, path.join(wdir, name)) + " (was missing)"); continue;
+      }
+      if (inProj.some(p => path.basename(p) === name)) continue;
       // put back where Xcode may look for it: the App folder, and the widget's own folder for the widget file
       for (const dir of name === "StudyboardWidgets.swift" ? ["App", "StudyboardWidgets"] : ["App"]) {
         const dst = path.join(proj, dir, name);
