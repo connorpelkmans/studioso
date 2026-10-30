@@ -1549,7 +1549,7 @@ function sbConfig(){
   if (sbLocalOnly()) return null;
   return SB_HOSTED ? SB_DEFAULT : null;
 }
-// Studyboard can be used without an account ("Use Without an Account" when it first opens)
+// Studyboard can be used without an account (closing the first welcome or sign-in sheet)
 function sbLocalOnly(){ try { return localStorage.getItem(SB_CFG) === "\"local\""; } catch(e) { return false; } }
 // A server someone typed in themselves
 function sbCustom(){ try { const c = JSON.parse(localStorage.getItem(SB_CFG) || "null"); return !!(c && c.url && c.key && c.url !== SB_DEFAULT.url); } catch(e) { return false; } }
@@ -2406,8 +2406,8 @@ function sbSignInSheet(mode, email, note){
   }[mode];
   const links = {
     hello: "",
-    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
-    signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
+    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
+    signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
     confirm: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     forgot: `<button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     reset: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`
@@ -2506,8 +2506,6 @@ function sbSignInSheet(mode, email, note){
   }
   const later = $("#sbLater");
   if (later) later.addEventListener("click", () => { dlg.close(); sbUseLater(first); });
-  const start = $("#sbStart");
-  if (start) start.addEventListener("click", () => { dlg.close(); sbUseLater(true); });
   const rs = $("#sbResend");
   if (rs) {
     const ckey = mode + ":" + String(email).toLowerCase(), label = rs.textContent;
@@ -2527,7 +2525,7 @@ function sbSignInSheet(mode, email, note){
   }
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
-// The first thing a new student sees: Mochi says hi, then Get Started (on this device) or sign in
+// The first thing a new student sees: Mochi says hi, then Sign Up or sign in. Closing it uses Studyboard on this device
 function sbWelcomeHtml(){
   let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch(e) {}
   const ic = d => `<i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></i>`;
@@ -2540,12 +2538,12 @@ function sbWelcomeHtml(){
       <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next, today</li>
       <li>${ic('<path d="M12 20v-7"/><path d="M12 13c0-3.5-2.5-6-6.5-6 0 3.6 2.6 6 6.5 6zM12 11c0-3 2.2-5.5 6.5-5.5 0 3.2-2.4 5.5-6.5 5.5z"/>')}Works offline, no account needed</li>
     </ul>
-    <button type="button" class="btn primary sb-welc-go" id="sbStart">Get Started</button>
+    <button type="button" class="btn primary sb-welc-go" id="sbSignUp" data-sbm="signup">Sign Up</button>
     <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
     <p class="mini sb-welc-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
   </div>`;
 }
-// "Use Without an Account", "Not Now", or closing the first sign-in sheet
+// "Not Now", or closing the first welcome or sign-in sheet
 function sbUseLater(first){
   try { localStorage.setItem("studioso:welcomed", "1"); if (first) { localStorage.setItem(SB_CFG, JSON.stringify("local")); SBGUEST.chose(); } } catch(e) {}
   syncLabel();
@@ -12995,6 +12993,7 @@ function menuSheet(){
       ${aiRow()}
       ${fire("menu").filter(Boolean).join("")}
       ${accountRows()}
+      ${typeof PLAN !== "undefined" && PLAN && PLAN.storageRow ? PLAN.storageRow() : ""}
       ${folderBackupRow()}
       ${installRow()}
       ${storageRow()}
@@ -13959,7 +13958,7 @@ async function uploadFiles(list, opts){
   if (opts && opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);
   const assets = await getAssets();
   if (!assets) { toast("File storage isn't available here. You can still add links to files."); return []; }
-  const made = [], skipped = [], invs = [];
+  const made = [], skipped = [], invs = [], full = [];
   let next = 0;
   const worker = async () => {
     while (next < list.length) {
@@ -13981,11 +13980,13 @@ async function uploadFiles(list, opts){
         invs.push(applyChanges([{kind: "file", id: file.id, after: file}], ""));
       } catch(e) {
         const code = e && e.code;
+        if (code === "quota_or_state" && window.SBCLOUD && SBCLOUD.storageFull) { full.push(f); continue; }
         toast(code === "too_large" ? `${f.name} is too large to store` : code === "unsupported_type" ? `${f.name}: this file type can't be stored` : code === "quota_or_state" ? "File storage is full. Delete some files first." : code === "invalid_request" && type.startsWith("text/") ? `${f.name} isn't saved as UTF-8 text` : code === "rate_limited" ? "Too many uploads at once. Wait a moment and try again." : `Couldn't upload ${f.name}. Try again.`);
       }
     }
   };
   await Promise.all(Array.from({length: Math.min(3, list.length)}, worker));
+  if (full.length) setTimeout(() => SBCLOUD.storageFull(full, opts), 300);
   const skipMsg = skipped.length ? `${skipped.length === 1 ? skipped[0] + " wasn't" : skipped.length + " files weren't"} uploaded: Word, PowerPoint and Excel files can't be stored here. Save a PDF copy, or use Add Link for the file in OneDrive, Google Drive or Canvas.` : "";
   if (made.length) {
     toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`) + (skipMsg ? " " + skipMsg : ""), () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
@@ -16674,6 +16675,20 @@ async function chooseBackupFolder(kind){
   } catch(e) { if (e && e.name !== "AbortError") toast("Couldn't use that folder. Try another one."); }
   scheduleRender();
 }
+// Google Drive or OneDrive backups on the website. They're linked to an account, so without one this asks for a free account first
+async function cloudBackupGo(kind){
+  const B = cloudBk(), p = BK_PROV[kind];
+  if (DESK || !B || !p) return chooseBackupFolder(kind);
+  if (!B.ready()) {
+    if (dlg.open) dlg.close();
+    toast(`Make a free account to back up to ${B.name(p)}. Everything you've made comes with you.`);
+    setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp("signup"); else if (typeof sbAsk === "function") sbAsk(); }, 150);
+    return;
+  }
+  if (!B.possible(p)) { try { await B.refresh(); } catch(e) {} }
+  if (!cloudBackupTo(kind)) toast(`Backups to ${B.name(p)} aren't available right now. Try again in a little while.`);
+  scheduleRender();
+}
 function backupWhereSheet(){
   const B = cloudBk(), via = k => !!(B && B.possible(BK_PROV[k]));
   if (B) ["gdrive", "onedrive"].forEach(k => { if (via(k) && !B.connected(BK_PROV[k])) B.connectUrl(BK_PROV[k]); });
@@ -16758,8 +16773,11 @@ function cloudBackupRow(){
 function folderBackupRow(){
   if (inPreview()) return "";
   { const c = !DESK && cloudBackupRow(); if (c) return c; }
-  if (!DESK && !FSB.supported() && cloudBk() && (cloudBk().possible("google") || cloudBk().possible("microsoft")))
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">Back up everything to your Google Drive or OneDrive every hour.</span></span>${cloudBk().possible("google") ? `<button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button>` : ""}${cloudBk().possible("microsoft") ? `<button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button>` : ""}</div>`;
+  // On the website, backups go to Google Drive or OneDrive. A folder backup someone already set up keeps its own row below
+  if (!DESK && cloudBk() && FSB.status !== "on" && FSB.status !== "paused") {
+    const B = cloudBk(); if (B.ready() && !B.loaded()) B.refresh();
+    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${B.ready() ? "Back up everything to your Google Drive or OneDrive every hour." : "Make a free account to back up everything to your Google Drive or OneDrive every hour."}</span></span><button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button><button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button></div>`;
+  }
   if (DESK) {
     const ago = FSB.last ? (() => { const m = Math.round((Date.now() - FSB.last) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; })() : "not yet";
     return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:220px;font-weight:600">Studyboard Folder on This Computer<span class="sub">Your data, daily backups and every uploaded file are kept in ${esc(FSB.where)} (last saved ${ago}). Pick a folder inside OneDrive or Google Drive for an extra cloud copy.</span></span><button class="btn small primary" data-act="desk-open">Open Folder</button><button class="btn small" data-act="desk-choose">Change</button></div>
@@ -17097,7 +17115,7 @@ document.addEventListener("click", e => {
     case "search-close": toggleSearch(false); break;
     case "search-clear": ui.q = ""; $("#searchInput").value = ""; render(); break;
     case "fsb-choose": backupWhereSheet(); break;
-    case "cbk-go": dlg.close(); chooseBackupFolder(el.dataset.id); break;
+    case "cbk-go": dlg.close(); cloudBackupGo(el.dataset.id); break;
     case "cbk-now": if (cloudBk()) cloudBk().run(); break;
     case "cbk-stop": dlg.close(); if (cloudBk()) cloudBk().stop(); break;
     case "desk-open": DESK && DESK.openDir(""); break;
@@ -17752,7 +17770,7 @@ window.__sbPlanObj = () => PLAN;
   /* Config: one place for limits and prices */
   const PLAN_CONFIG = {
     limits: {
-      free: {devices: 2, fileMB: 25, dataMB: 25, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
+      free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
     prices: {monthly: "$3.99", semester: "$12.99", yearly: "$29.99", trialDays: 7, checkoutTrialDays: 0},
@@ -18417,6 +18435,15 @@ window.__sbPlanObj = () => PLAN;
     const hot = max !== Infinity && used / max >= 0.9;
     return `<div class="plan-meter${hot ? " hot" : ""}"><div class="pm-top"><span>${esc(label)}</span><span class="mini">${esc(fmtMB(used))} of ${esc(fmtMB(max))}</span></div><div class="pm-bar" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${pct.toFixed(1)}%"></i></div></div>`;
   }
+  // Settings, Data and Backups: how much of the account's space on the server is used, against the Free or Pro limits
+  function storageRow(){
+    if (typeof sbUser === "undefined" || !sbUser || inPreview()) return "";
+    const u = usage(), L = lim(), proLims = !paywall() || limitsPro();
+    const tier = !paywall() ? "Early access: you have the Pro amounts" : limitsPro() ? "Pro plan" : "Free plan";
+    const full = Math.max(u.fileMB / L.fileMB, u.dataMB / L.dataMB) >= 0.9;
+    const more = proLims ? "" : `<button type="button" class="btn small${full ? " primary" : ""}" data-act="plan-open" data-reason="Pro gives you more space on the server">Get More Space</button>`;
+    return `<div class="cap-row us-storage" data-group="data" data-us-top="1" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Server Storage<span class="sub">${esc(tier)}. Space your account uses on Studyboard's server.</span></span>${more}<div class="plan-usage" style="flex-basis:100%">${meter("Uploaded Files", u.fileMB, L.fileMB)}${meter("Synced Data", u.dataMB, L.dataMB)}</div></div>`;
+  }
   function statusLine(){
     const e = ent();
     if (!paywall()) return {title: "Everything Is Unlocked Right Now", sub: "Studyboard is in early access, so every theme and feature is yours to use. Pro will add the extras below later."};
@@ -18530,7 +18557,6 @@ window.__sbPlanObj = () => PLAN;
     if (!limitsPro()) {
       const max = fileCapMB(), used = usage().fileMB, add = ((file && file.size) || 0) / MB;
       if (max != null && used + add > max) {
-        if (!DESK && paywall()) setTimeout(() => limitNote("storage", `That's past your ${fmtMB(max)} of ${freeTrialOnly() ? "file storage (the free week keeps the free amount)" : "free file storage"}. Pro has ${fmtMB(lims("pro").fileMB)} of storage.`, {reason: `You've used your ${fmtMB(max)} of free file storage. Pro has ${fmtMB(lims("pro").fileMB)}.`}), 250);
         throw Object.assign(new Error("Over the free storage limit"), {code: "quota_or_state"});
       }
     }
@@ -18585,7 +18611,7 @@ window.__sbPlanObj = () => PLAN;
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
-    isPro, paywall, settled,
+    isPro, paywall, settled, storageRow,
     limits: () => Object.assign({}, lim()),
     freeLimits: () => Object.assign({}, lims("free")),
     proLimits: () => Object.assign({}, lims("pro")),
@@ -22459,9 +22485,9 @@ document.head.appendChild(AREA_CSS);
   // The tour is open, or still to come for this account
   window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}, setupAt: () => 0};
 
-  // The Backups step shows only where a web page can save to a folder
+  // The Backups step: Google Drive or OneDrive on the website, or a folder where the browser allows it
   const cbk = () => window.SBCLOUD && SBCLOUD.backup;
-  const cloudBkHere = () => { const B = cbk(); return !!B && (B.possible("google") || B.possible("microsoft")); };
+  const cloudBkHere = () => !!cbk();
   const backupsHere = () => { try { return !DESK && !inPreview() && ((typeof FSB !== "undefined" && FSB.supported()) || cloudBkHere()); } catch (e) { return false; } };
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
@@ -22492,7 +22518,6 @@ document.head.appendChild(AREA_CSS);
   const bkSet = patch => { try { localStorage.setItem(BKEY, JSON.stringify(Object.assign(bkGet(), patch))); } catch (e) {} };
   window.SBOB.setupAt = () => Number(moreGet().at) || 0;
   const noteEnd = () => { if (mode === "backup") bkSet({done: Date.now()}); else if (mode === "more") moreSet({done: Date.now()}); else if (!moreGet().at) moreSet({at: Date.now()}); };
-  const THEME_PICKS = ["classic", "lavender", "japan", "italy", "ocean", "sakura", "galaxy", "cafe"];
 
   // Tour state (lives only while the tour is open)
   let step = 0, cheered = false, dir = 1, away = null, finishing = false, added = [], newColor = null, remindersOk = false, remindersMsg = "", deviceTab = null, hoursTimer = 0;
@@ -22601,22 +22626,18 @@ document.head.appendChild(AREA_CSS);
         <input type="file" id="obIcs" class="sr" tabindex="-1" accept=".ics,.ical,.icalendar,text/calendar" aria-label="Choose a calendar file"></p>`;
   }
 
+  // Themes are picked in the Style Shop, which has all of them
   function themeStep(){
-    const cur = styleCfg().skin, dark = isDark();
-    const spare = SKINS.filter(s => s.group === "plain" && !THEME_PICKS.includes(s.id) && owns("skin", s.id));
-    const picks = THEME_PICKS.map(id => SKINS.find(s => s.id === id) || spare.shift()).filter(Boolean).map(s => owns("skin", s.id) ? s : spare.shift() || s);
-    const cur0 = SKINS.find(s => s.id === cur && owns("skin", s.id));
-    if (cur0 && !picks.includes(cur0)) picks[picks.length - 1] = cur0;
-    { const ad = SBAREA.def(), fs = ad && ad.skin && SKINS.find(s => s.id === ad.skin); if (fs && owns("skin", fs.id) && !picks.includes(fs)) picks.splice(0, 1, fs); }
+    const cur = SKINS.find(s => s.id === styleCfg().skin);
     const mode = (() => { try { const t = localStorage.getItem("studioso:theme"); return t === "dark" || t === "light" ? t : "system"; } catch (e) { return "system"; } })();
     return `${hero(IC.theme)}
       <h2 class="ob-h" id="obH" tabindex="-1">Pick a Theme</h2>
-      <p class="ob-lead">Make it yours. Tap a theme to try it on; you can change it any time.</p>
+      <p class="ob-lead">Make it yours. The Style Shop has all ${SKINS.length} themes${STORE.paywall ? "" : ", free while Studyboard is in early access"}. You can change it any time.</p>
       <div class="ob-mode"><span class="mini">Appearance</span><div class="segb" role="group" aria-label="Appearance">${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([k, l]) => `<button type="button" data-ob="mode" data-id="${k}" aria-pressed="${mode === k}">${l}</button>`).join("")}</div></div>
-      <div class="ob-themes" role="group" aria-label="Themes">${picks.map(s => `<button type="button" class="ob-theme ${s.id === cur ? "on" : ""}" aria-pressed="${s.id === cur}" data-ob="skin" data-id="${esc(s.id)}">
-          ${skinPreview(s, dark)}<span class="ob-tb">${s.tier === "pro" ? PRO_BADGE : FREE_BADGE}</span><span class="ob-tname">${esc(s.name)}</span>${s.id === cur ? `<span class="ob-tick" aria-hidden="true">${IC.check}</span>` : ""}</button>`).join("")}</div>
-      <p class="ob-note mini">${STORE.paywall ? "" : "Everything is free while Studyboard is in early access. "}The Style Shop has all ${SKINS.length} themes, plus flashcard styles, note shapes and stickers. <button type="button" class="link-btn" data-ob="shop">Open the Style Shop</button></p>`;
+      <button type="button" class="btn primary ob-big" data-ob="shop">Browse Themes</button>
+      ${cur ? `<p class="ob-note mini">Your theme now: <b>${esc(cur.name)}</b></p>` : ""}`;
   }
+
 
   function hoursStep(){
     const h = dailyHours();
@@ -22699,17 +22720,19 @@ document.head.appendChild(AREA_CSS);
   function backupsStep(){
     const B = cbk(), cloudOn = !!(B && B.on()), pend = B && B.pending(), on = cloudOn || FSB.status === "on", paused = !cloudOn && FSB.status === "paused", folders = FSB.supported();
     const opt = (kind, title, sub) => `<button type="button" class="ob-alt ob-bk" data-ob="backup-folder" data-id="${kind}"><span class="ob-alt-ic bk-ico bk-${kind}" aria-hidden="true">${BK_LOGO[kind] || ""}</span><span class="ob-alt-t"><b>${title}</b><span class="mini">${sub}</span></span></button>`;
-    const viaCloud = p => !!(B && B.possible(p));
+    // On the website, backups go straight to Google Drive or OneDrive (they need a free account), never a folder on the computer
+    const cloudy = !!B, signed = !!(B && B.ready()), viaCloud = p => !!(B && B.possible(p));
+    if (B && !on && signed && !B.loaded()) B.refresh();
     if (B && !on) ["google", "microsoft"].forEach(p => { if (viaCloud(p) && !B.connected(p)) B.connectUrl(p); });
-    const gSub = viaCloud("google") ? "Connect your Google Drive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose the Google Drive folder (on Windows, the G: drive), then My Drive. Needs Google Drive for desktop.";
-    const oSub = viaCloud("microsoft") ? "Connect your OneDrive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose your OneDrive folder or its Documents folder.";
-    const body = on ? `<div class="ob-okbox">${IC.check}<span><b>Automatic Backups Are On</b><span class="mini">Saving to ${esc(bkOnText())} every hour while Studyboard is open.</span></span><button type="button" class="btn small" data-ob="backup-change">Change</button></div>`
+    const sub = name => signed ? `Connect your ${name}. Backups go to Studyboard › Backups in it, with nothing to install.` : `Make a free account, then connect your ${name}. Nothing to install.`;
+    const gSub = cloudy ? sub("Google Drive") : "Choose the Google Drive folder (on Windows, the G: drive), then My Drive. Needs Google Drive for desktop.";
+    const oSub = cloudy ? sub("OneDrive") : "Choose your OneDrive folder or its Documents folder.";
+    const body = on ? `<div class="ob-okbox">${IC.check}<span><b>Automatic Backups Are On</b><span class="mini">Saving to ${esc(bkOnText())} every hour while Studyboard is open.</span></span>${cloudOn ? "" : `<button type="button" class="btn small" data-ob="backup-change">Change</button>`}</div>`
       : pend ? `<div class="ob-info"><span class="mini"><span class="ai-spin" aria-hidden="true"></span> Waiting for ${esc(B.name(pend))} to connect. Allow Studyboard in the page that opened, then come back here.</span></div>`
       : paused ? `<button type="button" class="btn primary ob-big" data-ob="backup-resume">Allow Backups to ${esc(FSB.where)}</button>`
-      : `${viaCloud("google") || folders ? opt("gdrive", "Google Drive", gSub) : ""}
-        ${viaCloud("microsoft") || folders ? opt("onedrive", "OneDrive", oSub) : ""}
-        ${folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
-    const cloudy = viaCloud("google") || viaCloud("microsoft");
+      : `${cloudy || folders ? opt("gdrive", "Google Drive", gSub) : ""}
+        ${cloudy || folders ? opt("onedrive", "OneDrive", oSub) : ""}
+        ${!cloudy && folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
     return `${hero(IC.folder)}
       <h2 class="ob-h" id="obH" tabindex="-1">Automatic Backups <span class="ob-opt">Recommended</span></h2>
       <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Studyboard can save a backup of everything to a folder on this computer every hour. Pick one that Google Drive or OneDrive syncs and your backups are in the cloud too."}</p>
@@ -22879,7 +22902,8 @@ document.head.appendChild(AREA_CSS);
       case "lms": leaveTo(() => fire("lms-connect")); break;
       case "backup-folder": {
         const here = () => STEPS[step] && STEPS[step].id === "backups" && dlg.querySelector(".sheet.ob");
-        chooseBackupFolder(id).then(() => { if (here()) show(step); });
+        { const B0 = cbk(); if (B0 && !B0.ready()) { toast("Make a free account to back up to Google Drive or OneDrive. Everything you've set up comes with you."); finish(true); setTimeout(() => SBGUEST.signUp("signup"), 350); break; } }
+        cloudBackupGo(id).then(() => { if (here()) show(step); });
         const B = cbk(); if (B && B.pending()) { const t0 = Date.now(), iv = setInterval(() => { if (!here() || Date.now() - t0 > 5 * 60000) { clearInterval(iv); return; } if (B.on() || !B.pending()) { clearInterval(iv); show(step); } }, 2000); }
         break;
       }
@@ -22895,12 +22919,6 @@ document.head.appendChild(AREA_CSS);
       case "shop": leaveTo(() => styleShop("themes")); break;
       case "ai": leaveTo(() => aiSetupSheet(false)); break;
       case "mode": setTheme(id); show(step); break;
-      case "skin": {
-        if (!owns("skin", id)) { leaveTo(() => shopUnlock("skin", id)); break; }
-        saveStyle({skin: id}); applySkin(); render(); show(step);
-        const t = dlg.querySelector(`.ob-theme[data-id="${id}"]`); if (t) t.focus({preventScroll: true});
-        break;
-      }
       case "hours-dec": setHours(dailyHours() - 0.5); break;
       case "hours-inc": setHours(dailyHours() + 0.5); break;
       case "hours-set": setHours(Number(id)); break;
@@ -23106,7 +23124,7 @@ document.head.appendChild(AREA_CSS);
 /* ===== module: 49-feedback.js ===== */
 /* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.2";
+  const APP_VERSION = "1.15.3";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
   const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
@@ -23289,7 +23307,7 @@ document.head.appendChild(AREA_CSS);
 
 /* ===== module: 49-errreport.js ===== */
 /* Anonymous crash and error reports */
-const APP_VERSION = "1.15.2";
+const APP_VERSION = "1.15.3";
 const BUILD_ID = "dev";
 const ERROR_REPORTING = {
   dsn: "",
@@ -44226,7 +44244,7 @@ var TP_DATA = [];
     capture: ["cap-try"],
     school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
     app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
-    data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
+    data: ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
   };
   // Sub-tabs inside a category with many rows
   const SUBS = {
@@ -44234,7 +44252,7 @@ var TP_DATA = [];
     study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
     school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
     app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
-    data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
+    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
   };
   const SUB_MIN = 5;
   // Extra words people might search for, per row
@@ -44314,7 +44332,11 @@ var TP_DATA = [];
       sec.className = "us-pane"; sec.dataset.us = c.k; sec.id = "usPane-" + c.k;
       sec.setAttribute("role", "tabpanel"); sec.setAttribute("aria-labelledby", "usTab-" + c.k);
       sec.innerHTML = `<div class="us-title"><span class="us-ic">${ICONS[c.k]}</span><div><h3>${esc(c.t)}</h3><p class="mini">${esc(c.lead)}</p></div></div>`;
-      const sorted = buckets[c.k].sort((a, b) => a.n - b.n || a.i - b.i);
+      const all = buckets[c.k].sort((a, b) => a.n - b.n || a.i - b.i);
+      // Rows marked data-us-top (the storage meter) sit above the section's tabs, so they're always in view
+      const top = all.filter(({r}) => r.dataset.usTop);
+      if (top.length) { const ml = document.createElement("div"); ml.className = "menu-list us-top"; top.forEach(({r}) => ml.appendChild(r)); sec.appendChild(ml); }
+      const sorted = all.filter(({r}) => !r.dataset.usTop);
       sorted.forEach(({r}) => { if (r.dataset.act === "clear-all" || r.querySelector('[data-act="clear-all"]')) r.classList.add("us-danger"); });
       const spec = SUBS[c.k];
       if (spec && sorted.length >= SUB_MIN) {
@@ -44521,7 +44543,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 37.5, rx: 82.5, y: 83, w: 5.6, h: 3.4},
         anchors: {top: [60, 46, 1.05], neck: [60, 97, 1.15], chest: [80, 99, 0.8], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
         lines: {
-          tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "My sprout grows every time you show up!", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
+          tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
           pet: ["Hehe, extra squishy happy!", "More pats? Yes please, yes please!"],
           hello: ["Yay, you're back! I saved you a spot!", "Hello hello! Ready to grow together?"],
           morning: ["Good morning! My sprout is reaching for the sun!", "Rise and shine, sunshine! Today's going to be great!"],
@@ -70854,7 +70876,7 @@ window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow
 /* ===== module: 99-release.js ===== */
 /* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.2";
+  const VERSION = "1.15.3";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "October 27, 2026", TERMS_UPDATED = "October 27, 2026";
@@ -72039,7 +72061,7 @@ window.SBSEM = {
     {id: "backups", t: "Set up backups", s: "Save a copy to Google Drive or OneDrive every hour.", here: () => !!(window.SBOB && SBOB.backupsHere && SBOB.backupsHere()),
       done: () => !!(window.SBOB && SBOB.backupOn && SBOB.backupOn()), go: () => fire("act", "ob-backup", document.body, "")},
     {id: "theme", t: "Select a theme", s: "Make Studyboard yours, light or dark.",
-      done: () => !!get().theme, go: () => fire("act", "ob-theme", document.body, "")}
+      done: () => !!get().theme, go: () => { set({theme: Date.now()}); render(); if (dlg.open) dlg.close(); styleShop("themes"); }}
   ];
   const list = () => ITEMS.filter(it => { try { return !it.here || it.here(); } catch (e) { return false; } });
   const doneOf = it => { try { return !!it.done(); } catch (e) { return false; } };
@@ -76454,8 +76476,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     return p === "google" ? gUpload(blob, name, type, segsFor(o || {})) : msUpload(blob, name, type, segsFor(o || {}));
   }
   const MAX_UP = 250 * 1048576;
-  async function uploadFiles(list, opts){
-    const p = target(), made = [], back = [], invs = [];
+  async function uploadFiles(list, opts, forced){
+    const p = forced || target(), made = [], back = [], invs = [];
     let next = 0;
     const one = async f => {
       if (f.size > MAX_UP) { toast(`${f.name} is over 250 MB. Upload it to ${NM[p]} yourself, then add it with Watch a Folder or a link.`); return; }
@@ -76473,12 +76495,28 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const worker = async () => { while (next < list.length) await one(list[next++]); };
     await Promise.all(Array.from({length: Math.min(2, list.length)}, worker));
     if (made.length) toast(made.length === 1 ? `Saved ${made[0].name} to ${NM[p]}.` : `Saved ${made.length} files to ${NM[p]}.`, () => invs.slice().reverse().forEach(inv => applyChanges(inv, null)));
-    if (back.length) {
+    if (back.length && forced) toast(`${back[0].e && back[0].e.message || "Couldn't reach " + NM[p] + "."} ${back.length === 1 ? back[0].f.name + " wasn't" : back.length + " files weren't"} saved.`);
+    else if (back.length) {
       toast(`${back[0].e && back[0].e.message || "Couldn't reach " + NM[p] + "."} ${back.length === 1 ? "It's" : "They're"} saved in Studyboard instead.`);
       const fallback = await uploadFiles(back.map(x => x.f), Object.assign({}, opts, {cloud: false}));
       return made.concat(fallback || []);
     }
     return made;
+  }
+  /* Studyboard storage is full: offer Pro, or keep the files in Google Drive / OneDrive instead */
+  const FULL = {files: [], opts: {}};
+  function storageFull(files, opts){
+    FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
+    const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
+    const offerPro = !!(PL && PL.paywall() && !PL.limitsPro());
+    const n = FULL.files.length, what = n === 1 ? esc(FULL.files[0].name) : `these ${n} files`;
+    const ch = connected();
+    const btn = p => `<button type="button" class="btn${ch.includes(p) ? " primary" : ""} cl-full-btn" data-act="cl-full-save" data-id="${p}">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<span>${ch.includes(p) ? `Save ${n > 1 ? "Them" : "It"} to ${esc(NM[p])}` : `Connect ${esc(NM[p])}`}</span></button>`;
+    openSheet(`<div class="sheet cl-sheet">${head("Your Storage Is Full")}<div class="sheet-body">
+      <p style="margin:0">${offerPro && cap ? `Your free ${esc(fmtSize(cap * 1048576))} of Studyboard file storage is used up, so ${what} couldn't be added.` : `Your Studyboard file storage is full, so ${what} couldn't be added.`}</p>
+      <p class="mini" style="margin:0">${offerPro ? "Go Pro for much more room, or keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive. Files there don't use Studyboard storage." : "Keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive instead. Files there don't use Studyboard storage."}</p>
+      <div class="cs-row" style="flex-wrap:wrap">${offerPro ? `<button type="button" class="btn primary" data-act="cl-full-pro">Go Pro</button>` : ""}${btn("google")}${btn("microsoft")}</div>
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
   }
   async function bytes(f){
     const c = f && f.cloud; if (!c) throw new CloudErr("Not a cloud file.");
@@ -76696,6 +76734,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   hook("act", (act, el, id) => {
     switch (act) {
       case "cl-open": openSheetCl(); return true;
+      case "cl-full-pro": { if (dlg.open) dlg.close(); const PL = window.StudyboardPlan; setTimeout(() => PL && PL.openSheet(`Your free file storage is full. Pro has ${PLAN.proLimits().fileMB >= 1024 ? PLAN.proLimits().fileMB / 1024 + " GB" : PLAN.proLimits().fileMB + " MB"}.`), 60); return true; }
+      case "cl-full-save": {
+        const list = FULL.files, opts = FULL.opts; FULL.files = [];
+        if (dlg.open) dlg.close();
+        if (!connected().includes(id)) { setTimeout(openSheetCl, 60); toast(`Connect ${NM[id]}, then add the file again.`); return true; }
+        if (list.length) uploadFiles(list, opts, id);
+        return true;
+      }
       case "cl-dir": { const B = U.browse; if (B) browse(B.mode, id, el.dataset.name, B.trail.concat({id, name: el.dataset.name})); return true; }
       case "cl-reload": U.err = ""; loadStatus(); return true;
       case "cl-ask-off": U.confirm = id; paint(); return true;
@@ -76820,7 +76866,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     return out;
   }
   const backup = {
-    possible: bkPossible, on: bkOn, pending: () => { const b = bk(); return b && b.pending ? b.p : ""; },
+    possible: bkPossible, ready, loaded: () => !!cache().at, refresh: () => loadStatus(), on: bkOn, pending: () => { const b = bk(); return b && b.pending ? b.p : ""; },
     provider: () => { const b = bk(); return b && PROVS.includes(b.p) ? b.p : ""; }, name: p => NM[p], state: () => Object.assign({}, BKS),
     connected: p => connected().includes(p), connectUrl: p => { prefetch(); return (U.start[p] || {}).url || ""; },
     want(p){
@@ -76838,7 +76884,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     toast(b.checked ? `AI can read your ${NM[p]} files` : `AI won't read your ${NM[p]} files. They still save and open as usual.`);
   });
   const aiOk = p => !!prefs().ai[p];
-  window.SBCLOUD = {aiOk, backup, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  window.SBCLOUD = {aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
@@ -77371,7 +77417,7 @@ var SBINK = null;
     const path = (s, w) => { const pts = ptsOf(s); return pts.length ? `<path d="${dOf(pts)}" stroke="${esc(colorOf(s))}" stroke-width="${f(w)}"/>` : ""; };
     const hl = list.filter(s => s.t === "hl").map(s => path(s, s.w / 10)).join("");
     const pen = list.filter(s => s.t !== "hl").map(s => { const pts = ptsOf(s), avg = pts.reduce((a, p) => a + p[2], 0) / (pts.length || 1); return path(s, Math.max(0.8, s.w / 10 * wf(avg))); }).join("");
-    const svg = `<svg class="ink-svg" viewBox="${f(x0 * VW)} ${f(y0 * VH)} ${f((x1 - x0) * VW)} ${f((y1 - y0) * VH)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Drawing" focusable="false"><g fill="none" stroke-linecap="round" stroke-linejoin="round">${hl ? `<g class="ink-svg-hl">${hl}</g>` : ""}${pen}</g></svg>`;
+    const svg = `<svg class="ink-svg" viewBox="${f(x0 * VW)} ${f(y0 * VH)} ${f((x1 - x0) * VW)} ${f((y1 - y0) * VH)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Drawing" focusable="false"><g fill="none" stroke-linecap="round" stroke-linejoin="round">${pen}${hl ? `<g class="ink-svg-hl">${hl}</g>` : ""}</g></svg>`;
     if (SVGC.size > 200) SVGC.clear();
     SVGC.set(key, svg);
     return svg;
@@ -77434,11 +77480,11 @@ var SBINK = null;
     return CUR;
   }
 
-  /* A surface: three canvases over one page (highlighter, ink, the live stroke) */
+  /* A surface: three canvases over one page (ink, the highlighter over it, the live stroke) */
   function surface(host, p){
-    if (!host.firstChild) host.innerHTML = `<canvas class="ink-cv ink-hlc"></canvas><canvas class="ink-cv ink-pen"></canvas><canvas class="ink-cv ink-live"></canvas>`;
+    if (!host.firstChild) host.innerHTML = `<canvas class="ink-cv ink-pen"></canvas><canvas class="ink-cv ink-hlc"></canvas><canvas class="ink-cv ink-live"></canvas>`;
     let S = host.__ink;
-    if (!S) { const cv = [...host.querySelectorAll("canvas")]; S = host.__ink = {host, p, cv, ctx: cv.map(c => c.getContext("2d")), W: 0, H: 0, dpr: 1, sig: ""}; bind(S); }
+    if (!S) { const cv = [".ink-hlc", ".ink-pen", ".ink-live"].map(q => host.querySelector(q)); S = host.__ink = {host, p, cv, ctx: cv.map(c => c.getContext("2d")), W: 0, H: 0, dpr: 1, sig: ""}; bind(S); }
     S.p = p;
     return S;
   }
@@ -77690,8 +77736,8 @@ var SBINK = null;
     const W = 1200, H = Math.round(W * AR), cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
     const S = {W, H, ctx: [g, g]};
-    g.save(); g.globalAlpha = 0.45; g.globalCompositeOperation = "multiply"; list.filter(s => s.t === "hl").forEach(s => paintStroke(S, s)); g.restore();
     list.filter(s => s.t !== "hl").forEach(s => paintStroke(S, s));
+    g.save(); g.globalAlpha = 0.45; g.globalCompositeOperation = "multiply"; list.filter(s => s.t === "hl").forEach(s => paintStroke(S, s)); g.restore();
     return new Promise(res => cv.toBlob(b => res(b), "image/png"));
   }
   async function typed(){
@@ -78253,7 +78299,7 @@ var SBWB = null;
     STAGE = document.createElement("div"); STAGE.className = "wb-stage sm-skip";
     STAGE.innerHTML = `<div class="wb-frame" tabindex="0" role="application" aria-roledescription="whiteboard" aria-label="Whiteboard. Draw with the mouse, a finger or a pen. Tools are next to the board.">
         <div class="wb-world wb-back"><div class="wb-tplbox"></div><div class="wb-imgs"></div></div>
-        <canvas class="wb-cv wb-hl"></canvas><canvas class="wb-cv wb-ink"></canvas>
+        <canvas class="wb-cv wb-ink"></canvas><canvas class="wb-cv wb-hl"></canvas>
         <div class="wb-world wb-front"><div class="wb-texts"></div></div>
         <canvas class="wb-cv wb-live"></canvas>
         <div class="wb-selbar" hidden></div>
@@ -79105,7 +79151,7 @@ var SBWB = null;
     const s = Math.min(o.max ? o.max / side : 2, 4096 / side, o.scale || 99);
     const W = Math.max(1, Math.round(w * s)), H = Math.max(1, Math.round(h * s));
     const mk = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d"); x.setTransform(s, 0, 0, s, -bb[0] * s, -bb[1] * s); x.lineCap = "round"; x.lineJoin = "round"; return [c, x]; };
-    const [main, cm] = mk(), [hl, chh] = mk(), [pen, cp] = mk();
+    const [main, cm] = mk(), [hl, chh] = mk(), [pen, cp] = mk(), [txt, ct] = mk();
     const dk = !!o.dark;
     cm.fillStyle = dk ? "#1C232C" : "#FDFEFE"; cm.fillRect(bb[0], bb[1], w, h);
     tplPaint(cm, tpl, bb, n.wb && n.wb.pa, dk);
@@ -79113,11 +79159,13 @@ var SBWB = null;
     const DK0 = DK; DK = dk;
     try {
     ink.forEach(st => strokePaint(st.t === "hl" ? chh : cp, st, colOf(st, !dk)));
-    its.forEach(it => { if (it.k !== "t") return; cp.fillStyle = penHex(it.c, !dk); cp.font = `${it.f}px ${famOf(it.ff)}`; cp.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => cp.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
+    its.forEach(it => { if (it.k !== "t") return; ct.fillStyle = penHex(it.c, !dk); ct.font = `${it.f}px ${famOf(it.ff)}`; ct.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => ct.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
     } finally { DK = DK0; }
     cm.setTransform(1, 0, 0, 1, 0, 0);
-    cm.save(); cm.globalAlpha = dk ? 0.42 : 0.5; cm.globalCompositeOperation = dk ? "screen" : "multiply"; cm.drawImage(hl, 0, 0); cm.restore();
+    // Highlighter goes over the ink, as on screen; typed text stays on top of both
     cm.drawImage(pen, 0, 0);
+    cm.save(); cm.globalAlpha = dk ? 0.42 : 0.5; cm.globalCompositeOperation = dk ? "screen" : "multiply"; cm.drawImage(hl, 0, 0); cm.restore();
+    cm.drawImage(txt, 0, 0);
     return main;
   }
   const fileName = n => boardName(n).replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Whiteboard";

@@ -5,7 +5,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), AF = require("../scripts/app-files"), app = AF.source();
 ok(AF.refs(html).includes("app.js") && AF.refs(html).includes("app.css") && !AF.problems(html).length, "index.html loads bundle/app.js and bundle/app.css, built from src/ and current, with current ?v= hashes");
-ok(!/<script>(?![\s\S]{0,4000}?<\/script>)/.test(html) && [...html.matchAll(/<script>/g)].length === 2, "only the two small start-up scripts are inline; the app's code is bundle/app.js (allowed by script-src 'self')");
+ok(!/<script>(?![\s\S]{0,4000}?<\/script>)/.test(html) && [...html.matchAll(/<script>/g)].length === 3, "only the three small start-up scripts (policy, text size and theme, launch screen) are inline; the app's code is bundle/app.js (allowed by script-src 'self')");
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 const first = scripts[0];
 ok(/cm\.httpEquiv="Content-Security-Policy"/.test(first), "the first inline script installs the policy");

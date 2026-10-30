@@ -43,7 +43,7 @@
     {id: "backups", t: "Set up backups", s: "Save a copy to Google Drive or OneDrive every hour.", here: () => !!(window.SBOB && SBOB.backupsHere && SBOB.backupsHere()),
       done: () => !!(window.SBOB && SBOB.backupOn && SBOB.backupOn()), go: () => fire("act", "ob-backup", document.body, "")},
     {id: "theme", t: "Select a theme", s: "Make Studyboard yours, light or dark.",
-      done: () => !!get().theme, go: () => fire("act", "ob-theme", document.body, "")}
+      done: () => !!get().theme, go: () => { set({theme: Date.now()}); render(); if (dlg.open) dlg.close(); styleShop("themes"); }}
   ];
   const list = () => ITEMS.filter(it => { try { return !it.here || it.here(); } catch (e) { return false; } });
   const doneOf = it => { try { return !!it.done(); } catch (e) { return false; } };

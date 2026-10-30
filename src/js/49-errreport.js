@@ -1,6 +1,6 @@
 /* ===== module: 49-errreport.js ===== */
 /* Anonymous crash and error reports */
-const APP_VERSION = "1.15.2";
+const APP_VERSION = "1.15.3";
 const BUILD_ID = "dev";
 const ERROR_REPORTING = {
   dsn: "",

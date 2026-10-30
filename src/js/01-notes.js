@@ -79,7 +79,7 @@ async function uploadFiles(list, opts){
   if (opts && opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);
   const assets = await getAssets();
   if (!assets) { toast("File storage isn't available here. You can still add links to files."); return []; }
-  const made = [], skipped = [], invs = [];
+  const made = [], skipped = [], invs = [], full = [];
   let next = 0;
   const worker = async () => {
     while (next < list.length) {
@@ -101,11 +101,13 @@ async function uploadFiles(list, opts){
         invs.push(applyChanges([{kind: "file", id: file.id, after: file}], ""));
       } catch(e) {
         const code = e && e.code;
+        if (code === "quota_or_state" && window.SBCLOUD && SBCLOUD.storageFull) { full.push(f); continue; }
         toast(code === "too_large" ? `${f.name} is too large to store` : code === "unsupported_type" ? `${f.name}: this file type can't be stored` : code === "quota_or_state" ? "File storage is full. Delete some files first." : code === "invalid_request" && type.startsWith("text/") ? `${f.name} isn't saved as UTF-8 text` : code === "rate_limited" ? "Too many uploads at once. Wait a moment and try again." : `Couldn't upload ${f.name}. Try again.`);
       }
     }
   };
   await Promise.all(Array.from({length: Math.min(3, list.length)}, worker));
+  if (full.length) setTimeout(() => SBCLOUD.storageFull(full, opts), 300);
   const skipMsg = skipped.length ? `${skipped.length === 1 ? skipped[0] + " wasn't" : skipped.length + " files weren't"} uploaded: Word, PowerPoint and Excel files can't be stored here. Save a PDF copy, or use Add Link for the file in OneDrive, Google Drive or Canvas.` : "";
   if (made.length) {
     toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`) + (skipMsg ? " " + skipMsg : ""), () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });

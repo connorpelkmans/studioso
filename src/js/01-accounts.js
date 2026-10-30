@@ -15,7 +15,7 @@ function sbConfig(){
   if (sbLocalOnly()) return null;
   return SB_HOSTED ? SB_DEFAULT : null;
 }
-// Studyboard can be used without an account ("Use Without an Account" when it first opens)
+// Studyboard can be used without an account (closing the first welcome or sign-in sheet)
 function sbLocalOnly(){ try { return localStorage.getItem(SB_CFG) === "\"local\""; } catch(e) { return false; } }
 // A server someone typed in themselves
 function sbCustom(){ try { const c = JSON.parse(localStorage.getItem(SB_CFG) || "null"); return !!(c && c.url && c.key && c.url !== SB_DEFAULT.url); } catch(e) { return false; } }
@@ -872,8 +872,8 @@ function sbSignInSheet(mode, email, note){
   }[mode];
   const links = {
     hello: "",
-    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
-    signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
+    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
+    signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
     confirm: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     forgot: `<button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     reset: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`
@@ -972,8 +972,6 @@ function sbSignInSheet(mode, email, note){
   }
   const later = $("#sbLater");
   if (later) later.addEventListener("click", () => { dlg.close(); sbUseLater(first); });
-  const start = $("#sbStart");
-  if (start) start.addEventListener("click", () => { dlg.close(); sbUseLater(true); });
   const rs = $("#sbResend");
   if (rs) {
     const ckey = mode + ":" + String(email).toLowerCase(), label = rs.textContent;
@@ -993,7 +991,7 @@ function sbSignInSheet(mode, email, note){
   }
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
-// The first thing a new student sees: Mochi says hi, then Get Started (on this device) or sign in
+// The first thing a new student sees: Mochi says hi, then Sign Up or sign in. Closing it uses Studyboard on this device
 function sbWelcomeHtml(){
   let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch(e) {}
   const ic = d => `<i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></i>`;
@@ -1006,12 +1004,12 @@ function sbWelcomeHtml(){
       <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next, today</li>
       <li>${ic('<path d="M12 20v-7"/><path d="M12 13c0-3.5-2.5-6-6.5-6 0 3.6 2.6 6 6.5 6zM12 11c0-3 2.2-5.5 6.5-5.5 0 3.2-2.4 5.5-6.5 5.5z"/>')}Works offline, no account needed</li>
     </ul>
-    <button type="button" class="btn primary sb-welc-go" id="sbStart">Get Started</button>
+    <button type="button" class="btn primary sb-welc-go" id="sbSignUp" data-sbm="signup">Sign Up</button>
     <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
     <p class="mini sb-welc-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
   </div>`;
 }
-// "Use Without an Account", "Not Now", or closing the first sign-in sheet
+// "Not Now", or closing the first welcome or sign-in sheet
 function sbUseLater(first){
   try { localStorage.setItem("studioso:welcomed", "1"); if (first) { localStorage.setItem(SB_CFG, JSON.stringify("local")); SBGUEST.chose(); } } catch(e) {}
   syncLabel();

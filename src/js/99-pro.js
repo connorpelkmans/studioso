@@ -4344,8 +4344,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     return p === "google" ? gUpload(blob, name, type, segsFor(o || {})) : msUpload(blob, name, type, segsFor(o || {}));
   }
   const MAX_UP = 250 * 1048576;
-  async function uploadFiles(list, opts){
-    const p = target(), made = [], back = [], invs = [];
+  async function uploadFiles(list, opts, forced){
+    const p = forced || target(), made = [], back = [], invs = [];
     let next = 0;
     const one = async f => {
       if (f.size > MAX_UP) { toast(`${f.name} is over 250 MB. Upload it to ${NM[p]} yourself, then add it with Watch a Folder or a link.`); return; }
@@ -4363,12 +4363,28 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const worker = async () => { while (next < list.length) await one(list[next++]); };
     await Promise.all(Array.from({length: Math.min(2, list.length)}, worker));
     if (made.length) toast(made.length === 1 ? `Saved ${made[0].name} to ${NM[p]}.` : `Saved ${made.length} files to ${NM[p]}.`, () => invs.slice().reverse().forEach(inv => applyChanges(inv, null)));
-    if (back.length) {
+    if (back.length && forced) toast(`${back[0].e && back[0].e.message || "Couldn't reach " + NM[p] + "."} ${back.length === 1 ? back[0].f.name + " wasn't" : back.length + " files weren't"} saved.`);
+    else if (back.length) {
       toast(`${back[0].e && back[0].e.message || "Couldn't reach " + NM[p] + "."} ${back.length === 1 ? "It's" : "They're"} saved in Studyboard instead.`);
       const fallback = await uploadFiles(back.map(x => x.f), Object.assign({}, opts, {cloud: false}));
       return made.concat(fallback || []);
     }
     return made;
+  }
+  /* Studyboard storage is full: offer Pro, or keep the files in Google Drive / OneDrive instead */
+  const FULL = {files: [], opts: {}};
+  function storageFull(files, opts){
+    FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
+    const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
+    const offerPro = !!(PL && PL.paywall() && !PL.limitsPro());
+    const n = FULL.files.length, what = n === 1 ? esc(FULL.files[0].name) : `these ${n} files`;
+    const ch = connected();
+    const btn = p => `<button type="button" class="btn${ch.includes(p) ? " primary" : ""} cl-full-btn" data-act="cl-full-save" data-id="${p}">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<span>${ch.includes(p) ? `Save ${n > 1 ? "Them" : "It"} to ${esc(NM[p])}` : `Connect ${esc(NM[p])}`}</span></button>`;
+    openSheet(`<div class="sheet cl-sheet">${head("Your Storage Is Full")}<div class="sheet-body">
+      <p style="margin:0">${offerPro && cap ? `Your free ${esc(fmtSize(cap * 1048576))} of Studyboard file storage is used up, so ${what} couldn't be added.` : `Your Studyboard file storage is full, so ${what} couldn't be added.`}</p>
+      <p class="mini" style="margin:0">${offerPro ? "Go Pro for much more room, or keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive. Files there don't use Studyboard storage." : "Keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive instead. Files there don't use Studyboard storage."}</p>
+      <div class="cs-row" style="flex-wrap:wrap">${offerPro ? `<button type="button" class="btn primary" data-act="cl-full-pro">Go Pro</button>` : ""}${btn("google")}${btn("microsoft")}</div>
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
   }
   async function bytes(f){
     const c = f && f.cloud; if (!c) throw new CloudErr("Not a cloud file.");
@@ -4586,6 +4602,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   hook("act", (act, el, id) => {
     switch (act) {
       case "cl-open": openSheetCl(); return true;
+      case "cl-full-pro": { if (dlg.open) dlg.close(); const PL = window.StudyboardPlan; setTimeout(() => PL && PL.openSheet(`Your free file storage is full. Pro has ${PLAN.proLimits().fileMB >= 1024 ? PLAN.proLimits().fileMB / 1024 + " GB" : PLAN.proLimits().fileMB + " MB"}.`), 60); return true; }
+      case "cl-full-save": {
+        const list = FULL.files, opts = FULL.opts; FULL.files = [];
+        if (dlg.open) dlg.close();
+        if (!connected().includes(id)) { setTimeout(openSheetCl, 60); toast(`Connect ${NM[id]}, then add the file again.`); return true; }
+        if (list.length) uploadFiles(list, opts, id);
+        return true;
+      }
       case "cl-dir": { const B = U.browse; if (B) browse(B.mode, id, el.dataset.name, B.trail.concat({id, name: el.dataset.name})); return true; }
       case "cl-reload": U.err = ""; loadStatus(); return true;
       case "cl-ask-off": U.confirm = id; paint(); return true;
@@ -4710,7 +4734,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     return out;
   }
   const backup = {
-    possible: bkPossible, on: bkOn, pending: () => { const b = bk(); return b && b.pending ? b.p : ""; },
+    possible: bkPossible, ready, loaded: () => !!cache().at, refresh: () => loadStatus(), on: bkOn, pending: () => { const b = bk(); return b && b.pending ? b.p : ""; },
     provider: () => { const b = bk(); return b && PROVS.includes(b.p) ? b.p : ""; }, name: p => NM[p], state: () => Object.assign({}, BKS),
     connected: p => connected().includes(p), connectUrl: p => { prefetch(); return (U.start[p] || {}).url || ""; },
     want(p){
@@ -4728,7 +4752,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     toast(b.checked ? `AI can read your ${NM[p]} files` : `AI won't read your ${NM[p]} files. They still save and open as usual.`);
   });
   const aiOk = p => !!prefs().ai[p];
-  window.SBCLOUD = {aiOk, backup, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  window.SBCLOUD = {aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
