@@ -582,7 +582,7 @@ New people get a short guided tour (a spotlight and a card for each of the 8 mai
 
 ## Getting Started Checklist and Later Questions
 
-After the welcome setup, the Board shows a small **Getting Started** card with 5 things to try: add your courses, add a deadline, finish a focus session, make a flashcard deck, and take the 1-minute tour. Each one ticks itself off when the student really does it, and tapping an item takes them straight there. The card can be folded up or hidden with its X, it shows a short "You're All Set Up" note when everything is done, and it goes away on its own 30 days after the welcome setup. It's remembered per device.
+After the welcome setup, the Board shows a small **Getting Started** card with 5 things to try: add your courses, add a deadline, finish a focus session, make a flashcard deck, and take the 1-minute tour. Each one ticks itself off when the student really does it, and tapping an item takes them straight there. Add Your Courses offers three ways in, in this order: Connect Your School Site, Import a Syllabus, and Add It Myself. The card can be folded up or hidden with its X, it shows a short "You're All Set Up" note when everything is done, and it goes away on its own 30 days after the welcome setup. It's remembered per device.
 
 Only one of these cards shows on the Board at a time:
 
