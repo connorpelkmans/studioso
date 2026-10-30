@@ -763,7 +763,6 @@ header.top{background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-ba
 .pomo-btn.m-short,.pomo-btn.m-long{color:var(--leaf)}
 .pomo-btn.run{background:color-mix(in srgb,currentColor 12%,var(--surface));border-color:color-mix(in srgb,currentColor 45%,var(--line))}
 .pomo-btn svg{width:20px;height:20px;flex:none}
-html.sb-island #pomoBtnTime{display:none!important}html.sb-island .head-actions > .pomo-btn{width:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}
 /* Navigation: floating dock on phones */
 nav.tabs{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:6px;border:0;border-radius:20px;background:var(--spine);box-shadow:0 10px 30px rgba(8,20,50,.35)}
 nav.tabs .in{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:1fr;max-width:760px;gap:1px}

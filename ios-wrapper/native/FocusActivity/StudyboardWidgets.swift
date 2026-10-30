@@ -35,10 +35,41 @@ private struct TimeLeft: View {
     }
 }
 
+// Studyboard's tomato (the same drawing as the app's focus button, on a 24 by 24 grid)
+private struct TomatoBody: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 12, y: 7.2))
+        p.addCurve(to: CGPoint(x: 4, y: 13.9), control1: CGPoint(x: 7.4, y: 7.2), control2: CGPoint(x: 4, y: 10.1))
+        p.addCurve(to: CGPoint(x: 12, y: 21), control1: CGPoint(x: 4, y: 17.8), control2: CGPoint(x: 7.6, y: 21))
+        p.addCurve(to: CGPoint(x: 20, y: 13.9), control1: CGPoint(x: 16.4, y: 21), control2: CGPoint(x: 20, y: 17.8))
+        p.addCurve(to: CGPoint(x: 12, y: 7.2), control1: CGPoint(x: 20, y: 10.1), control2: CGPoint(x: 16.6, y: 7.2))
+        p.closeSubpath()
+        return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
+    }
+}
+private struct TomatoLeaves: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 12, y: 7.5)); p.addLine(to: CGPoint(x: 12, y: 4.2))
+        p.move(to: CGPoint(x: 12, y: 6.6))
+        p.addCurve(to: CGPoint(x: 7.2, y: 5.3), control1: CGPoint(x: 10.6, y: 5.0), control2: CGPoint(x: 8.6, y: 4.7))
+        p.addCurve(to: CGPoint(x: 10.2, y: 7.9), control1: CGPoint(x: 8.4, y: 5.7), control2: CGPoint(x: 9.6, y: 6.6))
+        p.move(to: CGPoint(x: 12, y: 6.6))
+        p.addCurve(to: CGPoint(x: 16.8, y: 5.3), control1: CGPoint(x: 13.4, y: 5.0), control2: CGPoint(x: 15.4, y: 4.7))
+        p.addCurve(to: CGPoint(x: 13.8, y: 7.9), control1: CGPoint(x: 15.6, y: 5.7), control2: CGPoint(x: 14.4, y: 6.6))
+        return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
+    }
+}
 private struct Tomato: View {
     let s: StudyboardFocusAttributes.ContentState
+    var size: CGFloat = 22
     var body: some View {
-        Image(systemName: s.mode == "focus" ? "timer" : "cup.and.saucer.fill").foregroundStyle(modeColor(s))
+        ZStack {
+            TomatoBody().fill(Color(red: 1.0, green: 0.42, blue: 0.33))
+            TomatoLeaves().stroke(Color(red: 0.24, green: 0.78, blue: 0.58), style: StrokeStyle(lineWidth: 1.8 * size / 24, lineCap: .round))
+        }
+        .frame(width: size, height: size)
     }
 }
 
@@ -47,7 +78,7 @@ struct StudyboardFocusLiveActivity: Widget {
         ActivityConfiguration(for: StudyboardFocusAttributes.self) { context in
             let s = context.state
             HStack(spacing: 14) {
-                Tomato(s: s).font(.title2)
+                Tomato(s: s, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(s.pausedLeft > 0 ? "\(s.label), paused" : s.label).font(.headline)
                     if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
