@@ -534,11 +534,11 @@ var SBWB = null;
   /* Painting */
   let raf = 0, all = true;
   function dirty(onlyLive){ if (!onlyLive) all = true; if (!raf) raf = requestAnimationFrame(paint); }
-  const viewBB = () => [-cam.x / cam.z, -cam.y / cam.z, (fw - cam.x) / cam.z, (fh - cam.y) / cam.z];
-  const worldTf = c => c.setTransform(cam.z * dpr, 0, 0, cam.z * dpr, cam.x * dpr, cam.y * dpr);
+  const viewBB = () => [-cam.x / cam.z, -(cam.y - LV) / cam.z, (fw - cam.x) / cam.z, (fh - cam.y + LV) / cam.z];
+  const worldTf = c => c.setTransform(cam.z * dpr, 0, 0, cam.z * dpr, cam.x * dpr, (cam.y - LV) * dpr);
   function paint(){
     raf = 0; if (!STAGE || !STAGE.isConnected || !B) return;
-    const tf = `translate(${cam.x}px,${cam.y}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
+    const tf = `translate(${cam.x}px,${cam.y - LV}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
     if (all) { all = false; paintInk(); }
     paintLive(); selbarPlace();
     if (zoomEl) { zoomEl.textContent = Math.round(cam.z * 100) + "%"; const t = PHONE() ? "Fit to screen" : "Zoom to 100%"; if (zoomEl.getAttribute("aria-label") !== t) { zoomEl.setAttribute("aria-label", t); zoomEl.title = PHONE() ? "Fit to Screen" : ""; } }
@@ -616,9 +616,23 @@ var SBWB = null;
   // Typing low on a touch screen: the keyboard would cover the text box, and iOS would slide the whole page up to reach it.
   // Instead the board's layers rise just enough to show the box above the keyboard (the page and toolbars stay put) and
   // settle back when the keyboard goes. Taps are mapped through the lift (see local()).
-  let LIFT = 0;
+  // The lift is drawn by moving the board's view (LV glides to LIFT), not by sliding its layers with a CSS animation: the
+  // world layer is 4800 by 3200 (more when zoomed), and iOS draws the whole of an animated layer into memory, enough to
+  // make it restart the app
+  let LIFT = 0, LV = 0, liftRaf = 0;
   const TOUCH = () => !!(window.matchMedia && matchMedia("(pointer:coarse)").matches);
-  function setLift(px){ px = Math.max(0, Math.round(px)); if (px === LIFT) return; LIFT = px; if (frame) frame.style.setProperty("--lift", px + "px"); }
+  function setLift(px){
+    px = Math.max(0, Math.round(px)); if (px === LIFT) return; LIFT = px; if (frame) frame.style.setProperty("--lift", px + "px");   // (where it is headed, for tests)
+    cancelAnimationFrame(liftRaf); liftRaf = 0;
+    const from = LV, t0 = performance.now(), D = 340;
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { LV = px; dirty(); return; }
+    const step = now => {
+      const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3);
+      LV = Math.round(from + (LIFT - from) * e); dirty();
+      liftRaf = k < 1 ? requestAnimationFrame(step) : 0;
+    };
+    liftRaf = requestAnimationFrame(step);
+  }
   const kbUp = () => document.documentElement.classList.contains("kb-open");
   // The keyboard's height, learned each time it opens (a fair guess before the first time), so the board can rise to meet it
   // as it comes up rather than after
@@ -635,7 +649,7 @@ var SBWB = null;
     kbLearn();
     const vv = window.visualViewport, f = frame.getBoundingClientRect(), r = ED.ta.getBoundingClientRect();
     // where the box would be with no lift (the lift may be mid-glide, so read its current value)
-    const now = -(parseFloat((getComputedStyle(front).translate || "").split(" ")[1]) || 0), top0 = r.top + now, bot0 = r.bottom + now;
+    const now = LV, top0 = r.top + now, bot0 = r.bottom + now;
     const visBottom = typeof window.sbVisibleH === "function" ? window.sbVisibleH() : vv ? vv.offsetTop + vv.height : innerHeight;
     const coming = predict && !kbUp() ? (kbGuess || Math.round((scrH || innerHeight) * 0.42)) : 0;
     const bottom = Math.min(f.bottom, visBottom - coming) - 14;
@@ -654,7 +668,8 @@ var SBWB = null;
   new MutationObserver(liftCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]});
   function editText(it, isNew, selectAll){
     endText();
-    const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.id = "wbTa";   // an id lets a page redraw (the keyboard resizing the app) put the cursor back here ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
+    const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.id = "wbTa";   // an id lets a page redraw (the keyboard resizing the app) put the cursor back here
+    ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
     ta.value = it.s || ""; Object.assign(ta.style, {left: it.x + "px", top: it.y + "px", fontSize: it.f + "px", color: penHex(it.c), fontFamily: famOf(it.ff)});
     front.appendChild(ta); ED = {it, ta, isNew, sy: scrollY}; itemsDraw(); fitTa(); trayDraw();
     keepTaVisible(true);   // rise now, together with the keyboard, so iOS has nothing to scroll into view
@@ -746,7 +761,7 @@ var SBWB = null;
   function selbarPlace(){
     if (!selbar || selbar.hidden || !SEL) return;
     const b = selBox(); if (!b) { selbar.hidden = true; return; }
-    const w = selbar.offsetWidth, h = selbar.offsetHeight, sx = (b[0] + b[2]) / 2 * cam.z + cam.x, top = b[1] * cam.z + cam.y - h - 12, bot = b[3] * cam.z + cam.y + 14;
+    const w = selbar.offsetWidth, h = selbar.offsetHeight, sx = (b[0] + b[2]) / 2 * cam.z + cam.x, top = b[1] * cam.z + cam.y - LV - h - 12, bot = b[3] * cam.z + cam.y - LV + 14;
     selbar.style.left = clamp(sx - w / 2, 6, Math.max(6, fw - w - 6)) + "px";
     selbar.style.top = (top > 6 ? top : Math.min(bot, fh - h - 6)) + "px";
     selbar.classList.toggle("dragging", !!SEL.drag);
@@ -755,7 +770,7 @@ var SBWB = null;
   /* Pointer: draw, erase, shapes, text, select; two fingers */
   let D = null, GEST = null, HOV = null, penSeen = false, spaceDown = false;
   const PTR = new Map();
-  const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top + LIFT]; };
+  const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top + LV]; };
   const toW = s => [(s[0] - cam.x) / cam.z, (s[1] - cam.y) / cam.z];
   function cancelDraw(){ if (!D) return; clearTimeout(D.snapT); clearTimeout(D.grabT); if (D.kind === "erase") opEnd(); if (D.kind === "move" || D.kind === "scale") { SEL.k = 1; SEL.dx = SEL.dy = 0; SEL.drag = false; itemsDraw(); } D = null; dirty(); }
   function touchPts(){ return [...PTR.values()].filter(p => p.type === "touch"); }
@@ -1413,8 +1428,6 @@ var SBWB = null;
 .wb-tplbox,.wb-tpl{position:absolute;inset:0;width:100%;height:100%}
 .wb-imgs{position:absolute;inset:0}
 .wb-cv{position:absolute;left:0;top:0;pointer-events:none}
-.wb-frame :is(.wb-world,.wb-cv){translate:0 calc(-1 * var(--lift,0px));transition:translate .34s cubic-bezier(.32,.72,0,1)}
-@media (prefers-reduced-motion:reduce){.wb-frame :is(.wb-world,.wb-cv){transition:none}}
 .wb-hl{opacity:.5;mix-blend-mode:multiply}
 .wb-t{position:absolute;white-space:pre;line-height:1.3;font-family:${MARKER};margin:0;padding:0;}
 .wb-ta{position:absolute;pointer-events:auto;font-family:${MARKER};line-height:1.3;white-space:pre;overflow:hidden;resize:none;border:0;margin:0;padding:0;background:rgba(47,111,219,.05);outline:2px dashed rgba(47,111,219,.6);outline-offset:6px;border-radius:2px;caret-color:#2F6FDB;min-width:20px}

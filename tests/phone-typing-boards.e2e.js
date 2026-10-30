@@ -44,6 +44,8 @@ async function open(b, view){
       ok(up.ta <= up.fb - 8 && up.taTop >= up.fTop, "whiteboard: the text box tapped in low rises into view above the keyboard: " + JSON.stringify(up));
       ok(up.y === before.y && up.tray === before.tray, "the page and the toolbar stay where they were (no sliding)");
       ok(parseInt(up.lift, 10) > 0, "the board itself lifted (" + up.lift + ")");
+      ok(await page.evaluate(() => [...document.querySelectorAll(".wb-world,.wb-cv")].every(e => { const c = getComputedStyle(e); return (c.translate === "none" || c.translate === "0px") && !/translate|transform|all/.test(c.transitionProperty === "all" && c.transitionDuration === "0s" ? "" : c.transitionProperty) && !e.getAnimations().length; })),
+        "the lift moves the board's view, never a CSS animation of its huge layers (iOS would draw all of it into memory and restart the app)");
       ok(await page.evaluate(() => JSON.stringify(window.SBWB.cam())) === cam0, "the app shrinking for the keyboard doesn't refit or move the board's view");
       const word = await page.evaluate(() => document.querySelector(".wb-ta").value);
       ok(word === "Hello", "and typing goes into it: " + word);
