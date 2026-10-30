@@ -63,6 +63,8 @@ alter table public.studyboard_entitlements add column if not exists will_renew b
 -- Manual grants live in their own columns
 alter table public.studyboard_entitlements add column if not exists grant_until timestamptz;
 alter table public.studyboard_entitlements add column if not exists grant_lifetime boolean not null default false;
+-- A "lite" grant (studyboard_grant_lite): Pro's features, devices and groups, but the free plan's storage
+alter table public.studyboard_entitlements add column if not exists grant_lite boolean not null default false;
 -- Promo codes (see "Promo codes" below) live in their own columns too
 alter table public.studyboard_entitlements add column if not exists promo_until timestamptz;
 alter table public.studyboard_entitlements add column if not exists promo_lifetime boolean not null default false;
@@ -108,17 +110,29 @@ language sql stable security definer set search_path = public, pg_temp as $$
     where e.user_id = uid
       and (e.plan = 'lifetime'
            or (e.plan = 'pro' and (e.pro_until is null or e.pro_until > now()))
-           or e.grant_lifetime
-           or e.grant_until > now()))
+           or (e.grant_lifetime and not e.grant_lite)
+           or (e.grant_until > now() and not e.grant_lite)))
 $$;
 revoke all on function public.studyboard_limits_pro(uuid) from public, anon, authenticated;
+
+-- Lite: a lite grant or a one-month promo code. Counts as Pro for features, devices and Pro groups, never for storage (see studyboard_limit)
+create or replace function public.studyboard_limits_lite(uid uuid) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (
+    select 1 from public.studyboard_entitlements e
+    where e.user_id = uid
+      and ((e.grant_lite and (e.grant_lifetime or e.grant_until > now()))
+           or e.promo_until > now()))
+$$;
+revoke all on function public.studyboard_limits_lite(uuid) from public, anon, authenticated;
 
 create or replace function public.studyboard_limit(uid uuid, name text) returns bigint
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
-  tier text := case when public.studyboard_limits_pro(uid) then 'pro' else 'free' end;
+  tier text := case when public.studyboard_limits_pro(uid) then 'pro' when public.studyboard_limits_lite(uid) then 'lite' else 'free' end;
   defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
-                               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}';
+                               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30},
+                               "lite": {"devices": null, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
 begin
@@ -793,9 +807,9 @@ begin
   select u.email into em from auth.users u where u.id = p_uid;
   if not found then return 'No account has that id'; end if;
   until := case when p_days is null then null else now() + make_interval(days => p_days) end;
-  insert into public.studyboard_entitlements as e (user_id, plan, source, will_renew, grant_until, grant_lifetime, updated_at)
-  values (p_uid, 'free', 'grant', false, until, p_days is null, now())
-  on conflict (user_id) do update set grant_until = excluded.grant_until, grant_lifetime = excluded.grant_lifetime, updated_at = now();
+  insert into public.studyboard_entitlements as e (user_id, plan, source, will_renew, grant_until, grant_lifetime, grant_lite, updated_at)
+  values (p_uid, 'free', 'grant', false, until, p_days is null, false, now())
+  on conflict (user_id) do update set grant_until = excluded.grant_until, grant_lifetime = excluded.grant_lifetime, grant_lite = false, updated_at = now();
   insert into public.studyboard_pro_grants (user_id, email, action, days, forever, until, reason)
   values (p_uid, em, 'grant', p_days, p_days is null, until, left(p_reason, 500));
   return 'Pro is on for ' || coalesce(em, p_uid::text) || case when p_days is null then ' for good' else ' until ' || until::text end;
@@ -811,6 +825,35 @@ begin
   return public.studyboard_grant_pro_uid(uid, p_days, p_reason);
 end $$;
 
+-- Lite grant: Pro's features, unlimited devices and Pro groups, but the FREE plan's storage amounts
+-- (file storage, synced data, online backups). Uses the grant columns, so the app, the token and the website show it as a gift.
+create or replace function public.studyboard_grant_lite_uid(p_uid uuid, p_days int, p_reason text default null) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare em text; until timestamptz;
+begin
+  perform public.plans_deny_clients();
+  if p_days is not null and (p_days < 1 or p_days > 36500) then raise exception 'days must be between 1 and 36500, or null for good'; end if;
+  select u.email into em from auth.users u where u.id = p_uid;
+  if not found then return 'No account has that id'; end if;
+  until := case when p_days is null then null else now() + make_interval(days => p_days) end;
+  insert into public.studyboard_entitlements as e (user_id, plan, source, will_renew, grant_until, grant_lifetime, grant_lite, updated_at)
+  values (p_uid, 'free', 'grant', false, until, p_days is null, true, now())
+  on conflict (user_id) do update set grant_until = excluded.grant_until, grant_lifetime = excluded.grant_lifetime, grant_lite = true, updated_at = now();
+  insert into public.studyboard_pro_grants (user_id, email, action, days, forever, until, reason)
+  values (p_uid, em, 'grant', p_days, p_days is null, until, left('lite: ' || coalesce(p_reason, ''), 500));
+  return 'Lite Pro is on for ' || coalesce(em, p_uid::text) || case when p_days is null then ' for good' else ' until ' || until::text end || ' (free-plan storage)';
+end $$;
+
+create or replace function public.studyboard_grant_lite(p_email text, p_days int, p_reason text default null) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid;
+begin
+  perform public.plans_deny_clients();
+  select id into uid from auth.users where lower(email) = lower(btrim(p_email));
+  if uid is null then return 'No account uses ' || coalesce(p_email, '(nothing)'); end if;
+  return public.studyboard_grant_lite_uid(uid, p_days, p_reason);
+end $$;
+
 create or replace function public.studyboard_revoke_pro_uid(p_uid uuid, p_reason text default null) returns text
 language plpgsql volatile security definer set search_path = '' as $$
 declare em text;
@@ -818,7 +861,7 @@ begin
   perform public.plans_deny_clients();
   select u.email into em from auth.users u where u.id = p_uid;
   if not found then return 'No account has that id'; end if;
-  update public.studyboard_entitlements set grant_until = null, grant_lifetime = false, updated_at = now() where user_id = p_uid;
+  update public.studyboard_entitlements set grant_until = null, grant_lifetime = false, grant_lite = false, updated_at = now() where user_id = p_uid;
   insert into public.studyboard_pro_grants (user_id, email, action, reason) values (p_uid, em, 'revoke', left(p_reason, 500));
   return 'The grant is removed for ' || coalesce(em, p_uid::text) || ' (a paid subscription, if there is one, is not touched)';
 end $$;
@@ -864,7 +907,7 @@ create or replace function public.plans_group_is_pro(gid uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
   select not public.studyboard_paywall()
       or exists (select 1 from public.group_pro p join public.group_members m on m.group_id = p.group_id and m.user_id = p.user_id
-                 where p.group_id = gid and public.studyboard_limits_pro(p.user_id))
+                 where p.group_id = gid and (public.studyboard_limits_pro(p.user_id) or public.studyboard_limits_lite(p.user_id)))
 $$;
 -- The app asks which of your groups are Pro, and who unlocked them
 create or replace function public.group_pro_status(p_groups uuid[]) returns table (group_id uuid, active boolean, by_user uuid, by_owner boolean)
@@ -891,7 +934,7 @@ begin
     delete from public.group_pro where group_id = p_group and user_id = me;
     return 'off';
   end if;
-  if public.studyboard_paywall() and not public.studyboard_limits_pro(me) then
+  if public.studyboard_paywall() and not (public.studyboard_limits_pro(me) or public.studyboard_limits_lite(me)) then
     if public.studyboard_is_pro(me) then
       raise exception 'SB_PRO_NEEDED: Pro groups come with a Pro plan. The free week doesn''t include them, so your groups don''t change when it ends.' using errcode = 'P0001';
     end if;
@@ -899,7 +942,7 @@ begin
   end if;
   select user_id into cur from public.group_pro where group_id = p_group;
   if cur = me then return 'on'; end if;
-  if cur is not null and exists (select 1 from public.group_members m where m.group_id = p_group and m.user_id = cur) and public.studyboard_limits_pro(cur) then
+  if cur is not null and exists (select 1 from public.group_members m where m.group_id = p_group and m.user_id = cur) and (public.studyboard_limits_pro(cur) or public.studyboard_limits_lite(cur)) then
     raise exception 'SB_ALREADY_PRO: Someone else already made this a Pro group.' using errcode = 'P0001';
   end if;
   if (select count(*) from public.group_pro p join public.group_members m on m.group_id = p.group_id and m.user_id = p.user_id where p.user_id = me) >= 5 then
@@ -1538,7 +1581,7 @@ begin
     select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and (p.proname like 'plans\_%' or p.proname in ('studyboard_is_pro', 'studyboard_limit', 'studyboard_prune_group_messages', 'studyboard_prune_billing', 'studyboard_prune_backups',
-           'studyboard_apply_billing', 'studyboard_plan_rate_hit', 'studyboard_grant_pro', 'studyboard_grant_pro_uid', 'studyboard_revoke_pro', 'studyboard_revoke_pro_uid',
+           'studyboard_apply_billing', 'studyboard_plan_rate_hit', 'studyboard_grant_pro', 'studyboard_grant_pro_uid', 'studyboard_grant_lite', 'studyboard_grant_lite_uid', 'studyboard_revoke_pro', 'studyboard_revoke_pro_uid',
            'studyboard_make_code', 'studyboard_make_codes', 'studyboard_list_codes', 'studyboard_disable_code', 'studyboard_revoke_promo', 'studyboard_redeem_code',
            'studyboard_early_status', 'studyboard_my_early', 'founder_theme_save', 'studyboard_early_program', 'studyboard_early_list', 'studyboard_early_add',
            'studyboard_early_remove', 'studyboard_founder_themes', 'studyboard_founder_theme_pick', 'studyboard_founder_theme_unpick'))
