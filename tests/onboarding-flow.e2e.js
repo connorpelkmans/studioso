@@ -22,7 +22,7 @@ const day = k => { const d = new Date(); d.setDate(d.getDate() + k); return d.to
   const fresh = async () => {
     const ctx = await browser.newContext({viewport: {width: 390, height: 844}}); const page = await ctx.newPage(); page.errs = [];
     page.on("pageerror", e => page.errs.push(e.message));
-    await page.goto(base); await page.waitForSelector("#sbStart", {timeout: 20000});
+    await page.goto(base); await page.waitForSelector("#sbSignUp", {timeout: 20000});
     return {ctx, page};
   };
   try {
@@ -30,7 +30,7 @@ const day = k => { const d = new Date(); d.setDate(d.getDate() + k); return d.to
     {
       const {ctx, page} = await fresh();
       ok(/about a minute/.test(await page.textContent(".sb-welc")) && /crash reports/.test(await page.textContent(".sb-welc")), "Mochi's welcome says how long setup takes and mentions crash reports");
-      await page.click("#sbStart"); await page.waitForSelector(".sheet.ob", {timeout: 10000});
+      await page.click('dialog[open] .sheet-head [data-act="close"]'); await page.waitForSelector(".sheet.ob", {timeout: 10000});
       ok(await page.getAttribute(".sheet.ob", "data-step") === "area" && /Step 1 of 3/.test(await page.textContent(".ob-count")), "setup starts at step 1 of 3, What Do You Study");
       await page.click('[data-ob="skip"]'); await page.waitForTimeout(300);
       ok(await page.getAttribute(".sheet.ob", "data-step") === "done" && /No Problem/.test(await page.textContent(".sheet.ob")), "Skip Setup ends on the done page");
@@ -45,7 +45,7 @@ const day = k => { const d = new Date(); d.setDate(d.getDate() + k); return d.to
     /* Two syllabi, Check Them, Finish */
     {
       const {ctx, page} = await fresh();
-      await page.click("#sbStart"); await page.waitForSelector(".sheet.ob", {timeout: 10000});
+      await page.click('dialog[open] .sheet-head [data-act="close"]'); await page.waitForSelector(".sheet.ob", {timeout: 10000});
       await page.click(".ob-go"); await page.waitForTimeout(300);
       ok(await page.getAttribute(".sheet.ob", "data-step") === "courses" && /Your Courses and Deadlines/.test(await page.textContent(".sheet.ob")), "step 2 is Your Courses and Deadlines");
       await page.setInputFiles("#obPdf", [bio, psy]);

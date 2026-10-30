@@ -2682,18 +2682,6 @@ dialog:has(.sheet.ob){width:min(640px,calc(100% - 24px))}
 /* Theme */
 .ob-mode{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
 .ob-mode .segb button{min-height:36px}
-.ob-themes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.ob-theme{position:relative;display:grid;gap:7px;padding:6px 6px 8px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .2s}
-.ob-theme:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
-.ob-theme.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
-.ob-theme:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.ob-theme .skin-prev{height:74px}
-.ob-theme .sp-mode{display:none}
-.ob-tname{padding:0 4px;font-weight:700;font-size:.86rem;line-height:1.25;min-width:0;overflow-wrap:anywhere}
-.ob-tb{position:absolute;top:58px;right:11px;z-index:2;display:flex}
-.ob-tb .free-badge{background:var(--surface)}
-.ob-tick{position:absolute;top:10px;right:10px;z-index:2;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);box-shadow:0 2px 6px rgba(0,0,0,.25)}
-.ob-tick svg{width:14px;height:14px}
 /* Hours */
 .ob-hours{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:6px}
 .ob-step.icon-btn{width:56px;height:56px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center}
@@ -2758,7 +2746,6 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
   .ob-h{font-size:1.35rem}
   .ob-hero{width:56px;height:56px;border-radius:18px}
   .ob-hero svg{width:28px;height:28px}
-  .ob-themes{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ob-cfields{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)}
   .ob-cfields>.btn{grid-column:1/-1}
   .ob-src{flex-wrap:wrap}
@@ -2771,8 +2758,6 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
 }
 @media (prefers-reduced-motion:reduce){
   .ob-step-in,.ob-hero.done,.ob-clist li{animation:none}
-  .ob-theme,.ob-seg::before{transition:none}
-  .ob-theme:hover{transform:none}
   .qa-bar.ob-glow{animation:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
 }
 @media (max-width:600px){

@@ -38,7 +38,6 @@
   const moreGet = () => { try { return JSON.parse(localStorage.getItem(MKEY) || "{}") || {}; } catch (e) { return {}; } };
   const moreSet = patch => { try { localStorage.setItem(MKEY, JSON.stringify(Object.assign(moreGet(), patch))); } catch (e) {} };
   const noteEnd = () => { if (mode === "more") moreSet({done: Date.now()}); else if (!moreGet().at) moreSet({at: Date.now()}); };
-  const THEME_PICKS = ["classic", "lavender", "japan", "italy", "ocean", "sakura", "galaxy", "cafe"];
 
   // Tour state (lives only while the tour is open)
   let step = 0, cheered = false, dir = 1, away = null, finishing = false, added = [], newColor = null, remindersOk = false, remindersMsg = "", deviceTab = null, hoursTimer = 0;
@@ -147,22 +146,18 @@
         <input type="file" id="obIcs" class="sr" tabindex="-1" accept=".ics,.ical,.icalendar,text/calendar" aria-label="Choose a calendar file"></p>`;
   }
 
+  // Themes are picked in the Style Shop, which has all of them
   function themeStep(){
-    const cur = styleCfg().skin, dark = isDark();
-    const spare = SKINS.filter(s => s.group === "plain" && !THEME_PICKS.includes(s.id) && owns("skin", s.id));
-    const picks = THEME_PICKS.map(id => SKINS.find(s => s.id === id) || spare.shift()).filter(Boolean).map(s => owns("skin", s.id) ? s : spare.shift() || s);
-    const cur0 = SKINS.find(s => s.id === cur && owns("skin", s.id));
-    if (cur0 && !picks.includes(cur0)) picks[picks.length - 1] = cur0;
-    { const ad = SBAREA.def(), fs = ad && ad.skin && SKINS.find(s => s.id === ad.skin); if (fs && owns("skin", fs.id) && !picks.includes(fs)) picks.splice(0, 1, fs); }
+    const cur = SKINS.find(s => s.id === styleCfg().skin);
     const mode = (() => { try { const t = localStorage.getItem("studioso:theme"); return t === "dark" || t === "light" ? t : "system"; } catch (e) { return "system"; } })();
     return `${hero(IC.theme)}
       <h2 class="ob-h" id="obH" tabindex="-1">Pick a Theme</h2>
-      <p class="ob-lead">Make it yours. Tap a theme to try it on; you can change it any time.</p>
+      <p class="ob-lead">Make it yours. The Style Shop has all ${SKINS.length} themes${STORE.paywall ? "" : ", free while Studyboard is in early access"}. You can change it any time.</p>
       <div class="ob-mode"><span class="mini">Appearance</span><div class="segb" role="group" aria-label="Appearance">${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([k, l]) => `<button type="button" data-ob="mode" data-id="${k}" aria-pressed="${mode === k}">${l}</button>`).join("")}</div></div>
-      <div class="ob-themes" role="group" aria-label="Themes">${picks.map(s => `<button type="button" class="ob-theme ${s.id === cur ? "on" : ""}" aria-pressed="${s.id === cur}" data-ob="skin" data-id="${esc(s.id)}">
-          ${skinPreview(s, dark)}<span class="ob-tb">${s.tier === "pro" ? PRO_BADGE : FREE_BADGE}</span><span class="ob-tname">${esc(s.name)}</span>${s.id === cur ? `<span class="ob-tick" aria-hidden="true">${IC.check}</span>` : ""}</button>`).join("")}</div>
-      <p class="ob-note mini">${STORE.paywall ? "" : "Everything is free while Studyboard is in early access. "}The Style Shop has all ${SKINS.length} themes, plus flashcard styles, note shapes and stickers. <button type="button" class="link-btn" data-ob="shop">Open the Style Shop</button></p>`;
+      <button type="button" class="btn primary ob-big" data-ob="shop">Browse Themes</button>
+      ${cur ? `<p class="ob-note mini">Your theme now: <b>${esc(cur.name)}</b></p>` : ""}`;
   }
+
 
   function hoursStep(){
     const h = dailyHours();
@@ -436,12 +431,6 @@
       case "shop": leaveTo(() => styleShop("themes")); break;
       case "ai": leaveTo(() => aiSetupSheet(false)); break;
       case "mode": setTheme(id); show(step); break;
-      case "skin": {
-        if (!owns("skin", id)) { leaveTo(() => shopUnlock("skin", id)); break; }
-        saveStyle({skin: id}); applySkin(); render(); show(step);
-        const t = dlg.querySelector(`.ob-theme[data-id="${id}"]`); if (t) t.focus({preventScroll: true});
-        break;
-      }
       case "hours-dec": setHours(dailyHours() - 0.5); break;
       case "hours-inc": setHours(dailyHours() + 0.5); break;
       case "hours-set": setHours(Number(id)); break;
