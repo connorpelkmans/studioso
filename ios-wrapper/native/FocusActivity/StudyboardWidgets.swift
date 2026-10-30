@@ -19,7 +19,8 @@ private extension Color {
 private let tomatoRed = Color(red: 0.90, green: 0.33, blue: 0.24)
 private let leafGreen = Color(red: 0.24, green: 0.66, blue: 0.40)
 
-private func tint(_ s: StudyboardFocusAttributes.ContentState) -> Color { s.mode == "focus" ? tomatoRed : leafGreen }
+// the mode's colour (not called tint: inside a view that name is SwiftUI's own .tint modifier)
+private func modeColor(_ s: StudyboardFocusAttributes.ContentState) -> Color { s.mode == "focus" ? tomatoRed : leafGreen }
 private func clock(_ secs: Int) -> String { String(format: "%d:%02d", secs / 60, secs % 60) }
 
 // The time left
@@ -37,7 +38,7 @@ private struct TimeLeft: View {
 private struct Tomato: View {
     let s: StudyboardFocusAttributes.ContentState
     var body: some View {
-        Image(systemName: s.mode == "focus" ? "timer" : "cup.and.saucer.fill").foregroundStyle(tint(s))
+        Image(systemName: s.mode == "focus" ? "timer" : "cup.and.saucer.fill").foregroundStyle(modeColor(s))
     }
 }
 
@@ -52,7 +53,7 @@ struct StudyboardFocusLiveActivity: Widget {
                     if !s.task.isEmpty { Text(s.task).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
                 }
                 Spacer(minLength: 8)
-                TimeLeft(s: s).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(tint(s))
+                TimeLeft(s: s).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(modeColor(s))
             }
             .padding(16)
             .activityBackgroundTint(Color(.systemBackground).opacity(0.9))
@@ -64,27 +65,27 @@ struct StudyboardFocusLiveActivity: Widget {
                     Label { Text(s.label) } icon: { Tomato(s: s) }.font(.headline)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    TimeLeft(s: s).font(.system(.title2, design: .rounded).weight(.bold)).foregroundStyle(tint(s))
+                    TimeLeft(s: s).font(.system(.title2, design: .rounded).weight(.bold)).foregroundStyle(modeColor(s))
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
                         if !s.task.isEmpty { Text(s.task).font(.subheadline).lineLimit(1) }
                         if s.pausedLeft > 0 {
-                            ProgressView(value: Double(s.total - s.pausedLeft), total: Double(s.total)).tint(tint(s))
+                            ProgressView(value: Double(s.total - s.pausedLeft), total: Double(s.total)).tint(modeColor(s))
                             Text("Paused").font(.caption).foregroundStyle(.secondary)
                         } else {
-                            ProgressView(timerInterval: s.startedAt...s.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }.tint(tint(s))
+                            ProgressView(timerInterval: s.startedAt...s.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }.tint(modeColor(s))
                         }
                     }
                 }
             } compactLeading: {
                 Tomato(s: s)
             } compactTrailing: {
-                TimeLeft(s: s).frame(maxWidth: 52).foregroundStyle(tint(s))
+                TimeLeft(s: s).frame(maxWidth: 52).foregroundStyle(modeColor(s))
             } minimal: {
                 Tomato(s: s)
             }
-            .keylineTint(tint(s))
+            .keylineTint(modeColor(s))
         }
     }
 }
