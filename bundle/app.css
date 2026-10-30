@@ -2317,17 +2317,17 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 
 
 
-/* Continue with Apple / Google, to each one's guidelines: the same height and width (Apple asks for no less prominence than any
+/* Continue with Apple / Google, to each one's guidelines: the same height, width and text size (Apple asks for no less prominence than any
    other sign-in), pill shaped. Apple: its logo, the system font, black, or white on a dark background. Google: its "G",
-   Roboto Medium 14px, white with a #747775 border, or #131314 with #8E918F in dark mode. */
+   Roboto Medium, white with a #747775 border, or #131314 with #8E918F in dark mode. */
 @font-face{font-family:"SB Roboto";font-weight:500;font-display:swap;src:url(../vendor/fonts/roboto-latin-500-normal.woff2) format("woff2")}
 .sb-oauth{display:grid;gap:12px}
 .sb-oa{display:flex;align-items:center;justify-content:center;gap:10px;height:44px;padding:0 12px;border-radius:22px;cursor:pointer;border:1px solid transparent;width:100%;box-sizing:border-box;-webkit-font-smoothing:antialiased}
 .sb-oa svg{flex:none;display:block}
 .sb-oa:disabled{opacity:.6;cursor:default}
-.sb-oa-apple{background:#000;color:#fff;font:500 18px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;letter-spacing:-.022em}
-.sb-oa-apple .sb-oa-a{width:15px;height:19px;margin-top:-2px}
-.sb-oa-google{background:#fff;color:#1F1F1F;border-color:#747775;font:500 14px/20px "SB Roboto",Roboto,Arial,sans-serif;letter-spacing:.25px}
+.sb-oa-apple{background:#000;color:#fff;font:500 16px/20px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;letter-spacing:-.022em}
+.sb-oa-apple .sb-oa-a{width:16px;height:20px;margin-top:-3px}
+.sb-oa-google{background:#fff;color:#1F1F1F;border-color:#747775;font:500 16px/20px "SB Roboto",Roboto,Arial,sans-serif;letter-spacing:.25px}
 .sb-oa-google .sb-oa-g{width:20px;height:20px}
 :root[data-theme="dark"] .sb-oa-apple{background:#fff;color:#000}
 :root[data-theme="dark"] .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}
