@@ -17,7 +17,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const ctx = await browser.newContext({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true});
     await ctx.addInitScript(withIsland => {
       try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); } catch (e) {}
-      if (withIsland) { window.__fa = []; window.StudyboardNative = {focusActivity: {show: st => { window.__fa.push(["show", st]); return Promise.resolve(true); }, end: () => { window.__fa.push(["end"]); return Promise.resolve(); }}}; }
+      if (withIsland) { window.__fa = []; window.StudyboardNative = {focusActivity: {show: st => { window.__fa.push(["show", st]); return Promise.resolve(true); }, end: () => { window.__fa.push(["end"]); return Promise.resolve(); },
+        take: () => { const q = window.__lockQ || []; window.__lockQ = []; return Promise.resolve(q); }, onAction: fn => { window.__lockFire = fn; }}}; }
     }, withIsland);
     const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForSelector("#pomoBtn", {state: "attached"}); await page.waitForTimeout(1500);
@@ -39,6 +40,19 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await act(page, "pomo-pause"); await page.waitForTimeout(300);
     fa = await page.evaluate(() => window.__fa);
     ok(fa.length === 2 && fa[1][1].running === false && fa[1][1].left > 1490 && fa[1][1].left <= 1500, "pausing sends the time left, paused");
+    // Lock Screen buttons: play there 60 s ago, then skip 30 s ago; the app catches up to the moment each was pressed
+    const plan = (await page.evaluate(() => window.__fa))[1][1].plan;
+    ok(Array.isArray(plan) && plan[0].mode === "short" && plan[0].total === 300 && plan[1].mode === "focus" && plan[1].total === 1500, "the card is told what Skip moves to: " + JSON.stringify(plan && plan.slice(0, 2)));
+    await page.evaluate(() => { const now = Date.now(); window.__lockQ = [{a: "play", t: now - 60000}]; window.__lockFire(); });
+    await page.waitForTimeout(300);
+    let p = await page.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo")));
+    ok(p.running && Math.abs(p.endAt - Date.now() - 1440000) < 15000, "Play on the Lock Screen resumes the app's timer from when it was pressed");
+    await page.evaluate(() => { window.__lockQ = [{a: "pause", t: Date.now() - 20000}, {a: "skip", t: Date.now() - 10000}]; document.dispatchEvent(new Event("visibilitychange")); });
+    await page.waitForTimeout(300);
+    p = await page.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo")));
+    fa = await page.evaluate(() => window.__fa);
+    ok(p.running && p.mode === "short" && Math.abs(p.endAt - Date.now() - 290000) < 5000 && fa[fa.length - 1][1].mode === "short", "Pause then Skip there: the app is on a running short break, started when Skip was pressed");
+    ok(fa.slice(2).every(x => x[0] === "show"), "catching up never ends the card on the way");
     await act(page, "pomo-reset"); await page.waitForTimeout(300);
     fa = await page.evaluate(() => window.__fa);
     ok(fa[fa.length - 1][0] === "end" && !(await page.evaluate(() => document.documentElement.classList.contains("sb-island"))), "resetting ends it and the header is back to normal");

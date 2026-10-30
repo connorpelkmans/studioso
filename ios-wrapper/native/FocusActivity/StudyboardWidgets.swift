@@ -1,5 +1,6 @@
 // UNTESTED: written without compiler access
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -73,6 +74,30 @@ private struct Tomato: View {
     }
 }
 
+// Pause or Play, and Skip
+private struct Controls: View {
+    let s: StudyboardFocusAttributes.ContentState
+    let fill: Color
+    let second: Color
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(intent: StudyboardFocusControl(action: s.pausedLeft > 0 ? "play" : "pause")) {
+                Label(s.pausedLeft > 0 ? "Resume" : "Pause", systemImage: s.pausedLeft > 0 ? "play.fill" : "pause.fill")
+                    .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
+            }
+            .tint(fill)
+            Button(intent: StudyboardFocusControl(action: "skip")) {
+                Label("Skip", systemImage: "forward.end.fill").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity)
+            }
+            .tint(second)
+            .disabled((s.plan ?? []).isEmpty)
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.capsule)
+        .foregroundStyle(.white)
+    }
+}
+
 // The Lock Screen card, in Studyboard's own light and dark colours (set here, so text never lands on a matching background)
 private struct LockCard: View {
     let s: StudyboardFocusAttributes.ContentState
@@ -84,6 +109,7 @@ private struct LockCard: View {
         let muted = dark ? Color(hex: "#93A3C2") : Color(hex: "#56657F")
         let bg = dark ? Color(hex: "#111E38") : Color(hex: "#F7F9FC")
         let time = s.mode == "focus" ? Color(hex: dark ? "#FF6B55" : "#D9432C") : Color(hex: dark ? "#3CC794" : "#17865F")
+        VStack(spacing: 12) {
         HStack(spacing: 14) {
             Tomato(s: s, size: 34)
             VStack(alignment: .leading, spacing: 2) {
@@ -94,6 +120,8 @@ private struct LockCard: View {
             Spacer(minLength: 8)
             TimeLeft(s: s).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(time)
                 .multilineTextAlignment(.trailing).frame(minWidth: 96, alignment: .trailing)
+        }
+        Controls(s: s, fill: time, second: dark ? Color(hex: "#2A3B5E") : Color(hex: "#56657F"))
         }
         .padding(16)
         .activityBackgroundTint(bg)
@@ -123,6 +151,7 @@ struct StudyboardFocusLiveActivity: Widget {
                         } else {
                             ProgressView(timerInterval: s.startedAt...s.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }.tint(modeColor(s))
                         }
+                        Controls(s: s, fill: modeColor(s), second: Color.white.opacity(0.22))
                     }
                 }
             } compactLeading: {

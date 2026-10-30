@@ -321,10 +321,21 @@
           return Promise.resolve().then(function () {
             return FA.show({mode: mode, label: str(st.label, 24), task: str(st.task, 80), running: !!st.running,
               endsAt: Number(st.endsAt) || 0, left: Math.round(Number(st.left) || 0), total: Math.round(Number(st.total) || 1500),
-              accent: /^#[0-9a-f]{6}$/i.test(String(st.accent || "")) ? st.accent : ""});
+              accent: /^#[0-9a-f]{6}$/i.test(String(st.accent || "")) ? st.accent : "",
+              plan: (Array.isArray(st.plan) ? st.plan : []).slice(0, 8).map(function (x) { return {mode: ["focus", "short", "long"].indexOf(x && x.mode) >= 0 ? x.mode : "focus", label: str(x && x.label, 24), total: Math.round(Number(x && x.total) || 1500)}; })});
           }).then(function (r) { return !!(r && r.shown); }, function () { return false; });
         },
-        end: function () { return Promise.resolve().then(function () { return FA.end(); }).then(function () {}, function () {}); }
+        end: function () { return Promise.resolve().then(function () { return FA.end(); }).then(function () {}, function () {}); },
+        // Pause, Play and Skip pressed on the Lock Screen: [{a: "pause"|"play"|"skip", t: ms}], oldest first, each handed over once
+        take: function () {
+          if (typeof FA.take !== "function") return Promise.resolve([]);
+          return Promise.resolve().then(function () { return FA.take(); }).then(function (r) {
+            return (r && Array.isArray(r.actions) ? r.actions : []).filter(function (x) { return x && ["pause", "play", "skip"].indexOf(x.a) >= 0 && Number(x.t) > 0; })
+              .map(function (x) { return {a: x.a, t: Number(x.t)}; });
+          }, function () { return []; });
+        },
+        // fn() runs when one is pressed while the app is open in the background (and the page calls take())
+        onAction: function (fn) { try { if (FA.addListener) FA.addListener("action", function () { fn(); }); } catch (e) {} }
       }
     });
   }

@@ -16002,7 +16002,7 @@ function stopAlarm(){
 /* Timer */
 function pomoSchedule(){
   clearTimeout(pomoTimer);
-  if (pomo.running) pomoTimer = setTimeout(pomoFinish, Math.max(0, pomo.endAt - Date.now()) + 30);
+  if (pomo.running) pomoTimer = setTimeout(() => pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }), Math.max(0, pomo.endAt - Date.now()) + 30);
 }
 function pomoStart(){
   audio();
@@ -16130,6 +16130,7 @@ function renderPomoBits(){
 // iPhone app: while the timer runs, it shows in the Dynamic Island and on the Lock Screen
 const ISLAND = {sig: "", on: false};
 function islandSync(){
+  if (ISLAND.hold) return;
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (!FA) return;
   const active = pomo.running || pomo.left > 0;
@@ -16137,11 +16138,44 @@ function islandSync(){
   const t = pomo.taskId && state.tasks[pomo.taskId];
   let accent = ""; try { accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(); } catch (e) {}
   const st = {mode: pomo.mode, label: MODE_LABEL[pomo.mode], task: t ? t.title : "", running: pomo.running, endsAt: pomo.running ? pomo.endAt : 0,
-    left: pomo.running ? 0 : Math.round(pomoLeft() / 1000), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : ""};
+    left: pomo.running ? 0 : Math.round(pomoLeft() / 1000), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : "",
+    plan: pomoPlan(6)};
   const sig = JSON.stringify(st);
   if (sig === ISLAND.sig) return;
   ISLAND.sig = sig;
   FA.show(st).then(ok => { if (ISLAND.sig === sig) islandOn(!!ok); }, () => islandOn(false));
+}
+// What Skip moves through next, the same steps as the Skip button in the app (a skipped session doesn't count toward a long break)
+function pomoPlan(n){
+  const cfg = pomoCfg(), every = Number(cfg.every) || 4, out = [];
+  let m = pomo.mode, c = pomo.cycle;
+  for (let i = 0; i < n; i++) {
+    const next = m === "focus" ? ((c + 1) % every === 0 ? "long" : "short") : "focus";
+    if (m === "long") c = 0;
+    out.push({mode: next, label: MODE_LABEL[next], total: Math.max(1, Number(cfg[next]) || POMO_DEF[next]) * 60});
+    m = next;
+  }
+  return out;
+}
+// The Lock Screen's Pause, Play and Skip, applied at the moment each was pressed (the card has already changed; this
+// brings the app's own timer to the same place). Skip there starts the next step straight away.
+function pomoTakeLock(){
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (!FA || typeof FA.take !== "function") return Promise.resolve();
+  return FA.take().then(list => {
+    if (!list.length) return;
+    ISLAND.hold = true;
+    try {
+      list.forEach(({a, t}) => {
+        if (pomo.running && pomo.endAt <= t) return; // the timer had already run out by then
+        if (a === "pause" && pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
+        else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.endAt = t + modeMs(pomo.mode); pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+      });
+      pomoSave(); pomoSchedule();
+    } finally { ISLAND.hold = false; }
+    pomoUI(true);
+  }, () => {});
 }
 function islandOn(on){ ISLAND.on = on; document.documentElement.classList.toggle("sb-island", on); }
 function openPomo(taskId){
@@ -16227,11 +16261,23 @@ function renderPomo(){
   $$("#pomoSetD input, #pomoSetD select", d).forEach(el => el.addEventListener("change", saveCfg));
   if (keep) { const k = d.querySelector(keep); if (k) k.focus(); }
 }
-setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoFinish(); else pomoUI(false); } }, 500);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); } });
+// The timer's end is only acted on after any Lock Screen presses are in (a pause there may mean it hasn't ended)
+let pomoTaking = null;
+function pomoDue(then){
+  if (pomoTaking) return;
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (!FA || typeof FA.take !== "function") { then(); return; }
+  pomoTaking = pomoTakeLock().then(() => { pomoTaking = null; then(); }, () => { pomoTaking = null; then(); });
+}
+setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); else pomoUI(false); } }, 500);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); } });
 function pomoBoot(){
-  if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoFinish(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
-  pomoSchedule(); pomoUI(true);
+  const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+  if (FA && typeof FA.onAction === "function") FA.onAction(() => pomoDue(() => {}));
+  pomoDue(() => {
+    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoFinish(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
+    pomoSchedule(); pomoUI(true);
+  });
 }
 function pomoAction(act, el){
   switch (act) {

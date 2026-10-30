@@ -10,11 +10,36 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "available", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "show", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "end", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "end", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "take", returnType: CAPPluginReturnPromise)
     ]
+    private var watch: NSObjectProtocol?
+
+    override public func load() {
+        // a button on the Lock Screen was pressed while the app is running: tell the page
+        watch = NotificationCenter.default.addObserver(forName: Notification.Name("sbFocusAction"), object: nil, queue: .main) { [weak self] _ in
+            self?.notifyListeners("action", data: [:])
+        }
+    }
+
+    // The Lock Screen button presses not yet applied in the app (oldest first), cleared as they're handed over
+    @objc func take(_ call: CAPPluginCall) {
+        let d = UserDefaults.standard, q = d.array(forKey: "sbFocusActions") as? [[String: Any]] ?? []
+        d.removeObject(forKey: "sbFocusActions")
+        call.resolve(["actions": q])
+    }
 
     private static let modes: Set<String> = ["focus", "short", "long"]
     private static func clip(_ s: String?, _ n: Int) -> String { String((s ?? "").prefix(n)) }
+
+    @available(iOS 16.1, *)
+    private static func plan(_ raw: JSArray?) -> [StudyboardFocusAttributes.Step] {
+        (raw ?? []).prefix(8).compactMap { v in
+            guard let o = v as? JSObject, let m = o["mode"] as? String, modes.contains(m) else { return nil }
+            let t = (o["total"] as? Int) ?? Int((o["total"] as? Double) ?? 1500)
+            return StudyboardFocusAttributes.Step(mode: m, label: clip(o["label"] as? String, 24), total: max(60, min(6 * 3600, t)))
+        }
+    }
 
     @objc func available(_ call: CAPPluginCall) {
         if #available(iOS 16.2, *) { call.resolve(["value": ActivityAuthorizationInfo().areActivitiesEnabled]) }
@@ -41,7 +66,8 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let accentIn = call.getString("accent") ?? ""
         let accent = accentIn.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) != nil ? accentIn : "#E5533D"
         let state = StudyboardFocusAttributes.ContentState(mode: mode, label: Self.clip(call.getString("label"), 24), task: Self.clip(call.getString("task"), 80),
-                                                           startedAt: startedAt, endsAt: endsAt, pausedLeft: pausedLeft, total: total)
+                                                           startedAt: startedAt, endsAt: endsAt, pausedLeft: pausedLeft, total: total,
+                                                           plan: Self.plan(call.getArray("plan")))
         let content = ActivityContent(state: state, staleDate: running ? endsAt.addingTimeInterval(60) : nil)
         Task {
             if let current = Activity<StudyboardFocusAttributes>.activities.first {
