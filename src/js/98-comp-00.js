@@ -50,7 +50,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 37.5, rx: 82.5, y: 83, w: 5.6, h: 3.4},
         anchors: {top: [60, 46, 1.05], neck: [60, 97, 1.15], chest: [80, 99, 0.8], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
         lines: {
-          tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "My sprout grows every time you show up!", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
+          tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
           pet: ["Hehe, extra squishy happy!", "More pats? Yes please, yes please!"],
           hello: ["Yay, you're back! I saved you a spot!", "Hello hello! Ready to grow together?"],
           morning: ["Good morning! My sprout is reaching for the sun!", "Rise and shine, sunshine! Today's going to be great!"],

@@ -72,7 +72,7 @@ document.addEventListener("click", e => {
     case "search-close": toggleSearch(false); break;
     case "search-clear": ui.q = ""; $("#searchInput").value = ""; render(); break;
     case "fsb-choose": backupWhereSheet(); break;
-    case "cbk-go": dlg.close(); chooseBackupFolder(el.dataset.id); break;
+    case "cbk-go": dlg.close(); cloudBackupGo(el.dataset.id); break;
     case "cbk-now": if (cloudBk()) cloudBk().run(); break;
     case "cbk-stop": dlg.close(); if (cloudBk()) cloudBk().stop(); break;
     case "desk-open": DESK && DESK.openDir(""); break;

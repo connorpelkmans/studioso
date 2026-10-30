@@ -64,14 +64,14 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
   const txt = (page, sel) => page.evaluate(s => (document.querySelector(s) || {}).textContent || "", sel);
   const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
   try {
-    /* First run on the hosted app: closing the welcome works like Get Started (Use Without an Account) */
+    /* First run on the hosted app: closing the welcome is how to use Studyboard without an account */
     {
       const {ctx, page} = await mk({first: true, local: false});
-      await page.waitForSelector("dialog[open] #sbStart", {timeout: 20000});
+      await page.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
       ok(await page.locator(".sem-card-b").count() === 0, "the semester card doesn't show behind the first sign-in");
       await page.click('dialog[open] .sheet-head [data-act="close"]');
       await page.waitForSelector(".sheet.ob", {timeout: 8000});
-      ok(await page.evaluate(() => localStorage.getItem("studioso:sb") === '"local"' && !!localStorage.getItem("studioso:welcomed") && SBGUEST.is()), "closing it with × is remembered like Use Without an Account, and the setup starts");
+      ok(await page.evaluate(() => localStorage.getItem("studioso:sb") === '"local"' && !!localStorage.getItem("studioso:welcomed") && SBGUEST.is()), "closing it with × uses Studyboard without an account, and the setup starts");
       ok(await page.locator(".sem-card-b").count() === 0, "the semester card waits while the welcome setup is open");
       await page.click('.sheet.ob [data-ob="skip"]'); await page.waitForTimeout(400);
       await page.reload(); await page.waitForTimeout(2500);

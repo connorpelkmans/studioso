@@ -204,6 +204,20 @@ async function chooseBackupFolder(kind){
   } catch(e) { if (e && e.name !== "AbortError") toast("Couldn't use that folder. Try another one."); }
   scheduleRender();
 }
+// Google Drive or OneDrive backups on the website. They're linked to an account, so without one this asks for a free account first
+async function cloudBackupGo(kind){
+  const B = cloudBk(), p = BK_PROV[kind];
+  if (DESK || !B || !p) return chooseBackupFolder(kind);
+  if (!B.ready()) {
+    if (dlg.open) dlg.close();
+    toast(`Make a free account to back up to ${B.name(p)}. Everything you've made comes with you.`);
+    setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp("signup"); else if (typeof sbAsk === "function") sbAsk(); }, 150);
+    return;
+  }
+  if (!B.possible(p)) { try { await B.refresh(); } catch(e) {} }
+  if (!cloudBackupTo(kind)) toast(`Backups to ${B.name(p)} aren't available right now. Try again in a little while.`);
+  scheduleRender();
+}
 function backupWhereSheet(){
   const B = cloudBk(), via = k => !!(B && B.possible(BK_PROV[k]));
   if (B) ["gdrive", "onedrive"].forEach(k => { if (via(k) && !B.connected(BK_PROV[k])) B.connectUrl(BK_PROV[k]); });
@@ -288,8 +302,11 @@ function cloudBackupRow(){
 function folderBackupRow(){
   if (inPreview()) return "";
   { const c = !DESK && cloudBackupRow(); if (c) return c; }
-  if (!DESK && !FSB.supported() && cloudBk() && (cloudBk().possible("google") || cloudBk().possible("microsoft")))
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">Back up everything to your Google Drive or OneDrive every hour.</span></span>${cloudBk().possible("google") ? `<button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button>` : ""}${cloudBk().possible("microsoft") ? `<button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button>` : ""}</div>`;
+  // On the website, backups go to Google Drive or OneDrive. A folder backup someone already set up keeps its own row below
+  if (!DESK && cloudBk() && FSB.status !== "on" && FSB.status !== "paused") {
+    const B = cloudBk(); if (B.ready() && !B.loaded()) B.refresh();
+    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${B.ready() ? "Back up everything to your Google Drive or OneDrive every hour." : "Make a free account to back up everything to your Google Drive or OneDrive every hour."}</span></span><button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button><button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button></div>`;
+  }
   if (DESK) {
     const ago = FSB.last ? (() => { const m = Math.round((Date.now() - FSB.last) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; })() : "not yet";
     return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:220px;font-weight:600">Studyboard Folder on This Computer<span class="sub">Your data, daily backups and every uploaded file are kept in ${esc(FSB.where)} (last saved ${ago}). Pick a folder inside OneDrive or Google Drive for an extra cloud copy.</span></span><button class="btn small primary" data-act="desk-open">Open Folder</button><button class="btn small" data-act="desk-choose">Change</button></div>

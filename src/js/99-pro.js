@@ -4704,7 +4704,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     return out;
   }
   const backup = {
-    possible: bkPossible, on: bkOn, pending: () => { const b = bk(); return b && b.pending ? b.p : ""; },
+    possible: bkPossible, ready, loaded: () => !!cache().at, refresh: () => loadStatus(), on: bkOn, pending: () => { const b = bk(); return b && b.pending ? b.p : ""; },
     provider: () => { const b = bk(); return b && PROVS.includes(b.p) ? b.p : ""; }, name: p => NM[p], state: () => Object.assign({}, BKS),
     connected: p => connected().includes(p), connectUrl: p => { prefetch(); return (U.start[p] || {}).url || ""; },
     want(p){

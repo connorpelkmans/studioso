@@ -1549,7 +1549,7 @@ function sbConfig(){
   if (sbLocalOnly()) return null;
   return SB_HOSTED ? SB_DEFAULT : null;
 }
-// Studyboard can be used without an account ("Use Without an Account" when it first opens)
+// Studyboard can be used without an account (closing the first welcome or sign-in sheet)
 function sbLocalOnly(){ try { return localStorage.getItem(SB_CFG) === "\"local\""; } catch(e) { return false; } }
 // A server someone typed in themselves
 function sbCustom(){ try { const c = JSON.parse(localStorage.getItem(SB_CFG) || "null"); return !!(c && c.url && c.key && c.url !== SB_DEFAULT.url); } catch(e) { return false; } }
@@ -2406,8 +2406,8 @@ function sbSignInSheet(mode, email, note){
   }[mode];
   const links = {
     hello: "",
-    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
-    signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
+    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
+    signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
     confirm: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     forgot: `<button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     reset: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`
@@ -2506,8 +2506,6 @@ function sbSignInSheet(mode, email, note){
   }
   const later = $("#sbLater");
   if (later) later.addEventListener("click", () => { dlg.close(); sbUseLater(first); });
-  const start = $("#sbStart");
-  if (start) start.addEventListener("click", () => { dlg.close(); sbUseLater(true); });
   const rs = $("#sbResend");
   if (rs) {
     const ckey = mode + ":" + String(email).toLowerCase(), label = rs.textContent;
@@ -2527,7 +2525,7 @@ function sbSignInSheet(mode, email, note){
   }
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
-// The first thing a new student sees: Mochi says hi, then Get Started (on this device) or sign in
+// The first thing a new student sees: Mochi says hi, then Sign Up or sign in. Closing it uses Studyboard on this device
 function sbWelcomeHtml(){
   let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch(e) {}
   const ic = d => `<i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></i>`;
@@ -2540,12 +2538,12 @@ function sbWelcomeHtml(){
       <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next, today</li>
       <li>${ic('<path d="M12 20v-7"/><path d="M12 13c0-3.5-2.5-6-6.5-6 0 3.6 2.6 6 6.5 6zM12 11c0-3 2.2-5.5 6.5-5.5 0 3.2-2.4 5.5-6.5 5.5z"/>')}Works offline, no account needed</li>
     </ul>
-    <button type="button" class="btn primary sb-welc-go" id="sbStart">Get Started</button>
+    <button type="button" class="btn primary sb-welc-go" id="sbSignUp" data-sbm="signup">Sign Up</button>
     <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
     <p class="mini sb-welc-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
   </div>`;
 }
-// "Use Without an Account", "Not Now", or closing the first sign-in sheet
+// "Not Now", or closing the first welcome or sign-in sheet
 function sbUseLater(first){
   try { localStorage.setItem("studioso:welcomed", "1"); if (first) { localStorage.setItem(SB_CFG, JSON.stringify("local")); SBGUEST.chose(); } } catch(e) {}
   syncLabel();
@@ -16631,6 +16629,20 @@ async function chooseBackupFolder(kind){
   } catch(e) { if (e && e.name !== "AbortError") toast("Couldn't use that folder. Try another one."); }
   scheduleRender();
 }
+// Google Drive or OneDrive backups on the website. They're linked to an account, so without one this asks for a free account first
+async function cloudBackupGo(kind){
+  const B = cloudBk(), p = BK_PROV[kind];
+  if (DESK || !B || !p) return chooseBackupFolder(kind);
+  if (!B.ready()) {
+    if (dlg.open) dlg.close();
+    toast(`Make a free account to back up to ${B.name(p)}. Everything you've made comes with you.`);
+    setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp("signup"); else if (typeof sbAsk === "function") sbAsk(); }, 150);
+    return;
+  }
+  if (!B.possible(p)) { try { await B.refresh(); } catch(e) {} }
+  if (!cloudBackupTo(kind)) toast(`Backups to ${B.name(p)} aren't available right now. Try again in a little while.`);
+  scheduleRender();
+}
 function backupWhereSheet(){
   const B = cloudBk(), via = k => !!(B && B.possible(BK_PROV[k]));
   if (B) ["gdrive", "onedrive"].forEach(k => { if (via(k) && !B.connected(BK_PROV[k])) B.connectUrl(BK_PROV[k]); });
@@ -16715,8 +16727,11 @@ function cloudBackupRow(){
 function folderBackupRow(){
   if (inPreview()) return "";
   { const c = !DESK && cloudBackupRow(); if (c) return c; }
-  if (!DESK && !FSB.supported() && cloudBk() && (cloudBk().possible("google") || cloudBk().possible("microsoft")))
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">Back up everything to your Google Drive or OneDrive every hour.</span></span>${cloudBk().possible("google") ? `<button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button>` : ""}${cloudBk().possible("microsoft") ? `<button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button>` : ""}</div>`;
+  // On the website, backups go to Google Drive or OneDrive. A folder backup someone already set up keeps its own row below
+  if (!DESK && cloudBk() && FSB.status !== "on" && FSB.status !== "paused") {
+    const B = cloudBk(); if (B.ready() && !B.loaded()) B.refresh();
+    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${B.ready() ? "Back up everything to your Google Drive or OneDrive every hour." : "Make a free account to back up everything to your Google Drive or OneDrive every hour."}</span></span><button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button><button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button></div>`;
+  }
   if (DESK) {
     const ago = FSB.last ? (() => { const m = Math.round((Date.now() - FSB.last) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; })() : "not yet";
     return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:220px;font-weight:600">Studyboard Folder on This Computer<span class="sub">Your data, daily backups and every uploaded file are kept in ${esc(FSB.where)} (last saved ${ago}). Pick a folder inside OneDrive or Google Drive for an extra cloud copy.</span></span><button class="btn small primary" data-act="desk-open">Open Folder</button><button class="btn small" data-act="desk-choose">Change</button></div>
@@ -17054,7 +17069,7 @@ document.addEventListener("click", e => {
     case "search-close": toggleSearch(false); break;
     case "search-clear": ui.q = ""; $("#searchInput").value = ""; render(); break;
     case "fsb-choose": backupWhereSheet(); break;
-    case "cbk-go": dlg.close(); chooseBackupFolder(el.dataset.id); break;
+    case "cbk-go": dlg.close(); cloudBackupGo(el.dataset.id); break;
     case "cbk-now": if (cloudBk()) cloudBk().run(); break;
     case "cbk-stop": dlg.close(); if (cloudBk()) cloudBk().stop(); break;
     case "desk-open": DESK && DESK.openDir(""); break;
@@ -22418,7 +22433,7 @@ document.head.appendChild(AREA_CSS);
 
   // The Backups step shows only where a web page can save to a folder
   const cbk = () => window.SBCLOUD && SBCLOUD.backup;
-  const cloudBkHere = () => { const B = cbk(); return !!B && (B.possible("google") || B.possible("microsoft")); };
+  const cloudBkHere = () => !!cbk();
   const backupsHere = () => { try { return !DESK && !inPreview() && ((typeof FSB !== "undefined" && FSB.supported()) || cloudBkHere()); } catch (e) { return false; } };
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
@@ -22650,17 +22665,19 @@ document.head.appendChild(AREA_CSS);
   function backupsStep(){
     const B = cbk(), cloudOn = !!(B && B.on()), pend = B && B.pending(), on = cloudOn || FSB.status === "on", paused = !cloudOn && FSB.status === "paused", folders = FSB.supported();
     const opt = (kind, title, sub) => `<button type="button" class="ob-alt ob-bk" data-ob="backup-folder" data-id="${kind}"><span class="ob-alt-ic bk-ico bk-${kind}" aria-hidden="true">${BK_LOGO[kind] || ""}</span><span class="ob-alt-t"><b>${title}</b><span class="mini">${sub}</span></span></button>`;
-    const viaCloud = p => !!(B && B.possible(p));
+    // On the website, backups go straight to Google Drive or OneDrive (they need a free account), never a folder on the computer
+    const cloudy = !!B, signed = !!(B && B.ready()), viaCloud = p => !!(B && B.possible(p));
+    if (B && !on && signed && !B.loaded()) B.refresh();
     if (B && !on) ["google", "microsoft"].forEach(p => { if (viaCloud(p) && !B.connected(p)) B.connectUrl(p); });
-    const gSub = viaCloud("google") ? "Connect your Google Drive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose the Google Drive folder (on Windows, the G: drive), then My Drive. Needs Google Drive for desktop.";
-    const oSub = viaCloud("microsoft") ? "Connect your OneDrive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose your OneDrive folder or its Documents folder.";
-    const body = on ? `<div class="ob-okbox">${IC.check}<span><b>Automatic Backups Are On</b><span class="mini">Saving to ${esc(bkOnText())} every hour while Studyboard is open.</span></span><button type="button" class="btn small" data-ob="backup-change">Change</button></div>`
+    const sub = name => signed ? `Connect your ${name}. Backups go to Studyboard › Backups in it, with nothing to install.` : `Make a free account, then connect your ${name}. Nothing to install.`;
+    const gSub = cloudy ? sub("Google Drive") : "Choose the Google Drive folder (on Windows, the G: drive), then My Drive. Needs Google Drive for desktop.";
+    const oSub = cloudy ? sub("OneDrive") : "Choose your OneDrive folder or its Documents folder.";
+    const body = on ? `<div class="ob-okbox">${IC.check}<span><b>Automatic Backups Are On</b><span class="mini">Saving to ${esc(bkOnText())} every hour while Studyboard is open.</span></span>${cloudOn ? "" : `<button type="button" class="btn small" data-ob="backup-change">Change</button>`}</div>`
       : pend ? `<div class="ob-info"><span class="mini"><span class="ai-spin" aria-hidden="true"></span> Waiting for ${esc(B.name(pend))} to connect. Allow Studyboard in the page that opened, then come back here.</span></div>`
       : paused ? `<button type="button" class="btn primary ob-big" data-ob="backup-resume">Allow Backups to ${esc(FSB.where)}</button>`
-      : `${viaCloud("google") || folders ? opt("gdrive", "Google Drive", gSub) : ""}
-        ${viaCloud("microsoft") || folders ? opt("onedrive", "OneDrive", oSub) : ""}
-        ${folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
-    const cloudy = viaCloud("google") || viaCloud("microsoft");
+      : `${cloudy || folders ? opt("gdrive", "Google Drive", gSub) : ""}
+        ${cloudy || folders ? opt("onedrive", "OneDrive", oSub) : ""}
+        ${!cloudy && folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
     return `${hero(IC.folder)}
       <h2 class="ob-h" id="obH" tabindex="-1">Automatic Backups <span class="ob-opt">Recommended</span></h2>
       <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Studyboard can save a backup of everything to a folder on this computer every hour. Pick one that Google Drive or OneDrive syncs and your backups are in the cloud too."}</p>
@@ -22822,7 +22839,8 @@ document.head.appendChild(AREA_CSS);
       case "lms": leaveTo(() => fire("lms-connect")); break;
       case "backup-folder": {
         const here = () => STEPS[step] && STEPS[step].id === "backups" && dlg.querySelector(".sheet.ob");
-        chooseBackupFolder(id).then(() => { if (here()) show(step); });
+        { const B0 = cbk(); if (B0 && !B0.ready()) { toast("Make a free account to back up to Google Drive or OneDrive. Everything you've set up comes with you."); finish(true); setTimeout(() => SBGUEST.signUp("signup"), 350); break; } }
+        cloudBackupGo(id).then(() => { if (here()) show(step); });
         const B = cbk(); if (B && B.pending()) { const t0 = Date.now(), iv = setInterval(() => { if (!here() || Date.now() - t0 > 5 * 60000) { clearInterval(iv); return; } if (B.on() || !B.pending()) { clearInterval(iv); show(step); } }, 2000); }
         break;
       }
@@ -44472,7 +44490,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 37.5, rx: 82.5, y: 83, w: 5.6, h: 3.4},
         anchors: {top: [60, 46, 1.05], neck: [60, 97, 1.15], chest: [80, 99, 0.8], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
         lines: {
-          tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "My sprout grows every time you show up!", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
+          tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
           pet: ["Hehe, extra squishy happy!", "More pats? Yes please, yes please!"],
           hello: ["Yay, you're back! I saved you a spot!", "Hello hello! Ready to grow together?"],
           morning: ["Good morning! My sprout is reaching for the sun!", "Rise and shine, sunshine! Today's going to be great!"],
@@ -76651,7 +76669,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     return out;
   }
   const backup = {
-    possible: bkPossible, on: bkOn, pending: () => { const b = bk(); return b && b.pending ? b.p : ""; },
+    possible: bkPossible, ready, loaded: () => !!cache().at, refresh: () => loadStatus(), on: bkOn, pending: () => { const b = bk(); return b && b.pending ? b.p : ""; },
     provider: () => { const b = bk(); return b && PROVS.includes(b.p) ? b.p : ""; }, name: p => NM[p], state: () => Object.assign({}, BKS),
     connected: p => connected().includes(p), connectUrl: p => { prefetch(); return (U.start[p] || {}).url || ""; },
     want(p){

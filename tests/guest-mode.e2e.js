@@ -19,13 +19,13 @@ const DAY = 864e5;
   try {
     const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
     await page.goto(base);
-    await page.waitForSelector("#sbStart", {timeout: 15000});
-    ok(/Get Started/.test(await page.textContent("#sbStart")) && await page.locator('dialog[open] .sb-welc [data-sbm="signin"]').count() === 1, "the first screen is Mochi's welcome with Get Started and I Already Have an Account");
+    await page.waitForSelector("#sbSignUp", {timeout: 15000});
+    ok(/Sign Up/.test(await page.textContent("#sbSignUp")) && await page.locator('dialog[open] .sb-welc [data-sbm="signin"]').count() === 1 && !/Get Started|Without an Account/.test(await page.textContent("dialog[open]")), "the first screen is Mochi's welcome with Sign Up and I Already Have an Account, and no button to skip an account");
     ok(!(await page.locator("#sbGate").count()), "there's no sign-in wall");
     await page.click('dialog[open] .sb-welc [data-sbm="signin"]');
-    await page.waitForSelector("dialog[open] #sbLater", {timeout: 5000});
-    ok(/Use Without an Account/.test(await page.textContent("#sbLater")) && await page.locator("dialog[open] input[name=email]").count() === 1, "I Already Have an Account opens the sign-in form, which still offers Use Without an Account");
-    await page.click("#sbLater");
+    await page.waitForSelector("dialog[open] form.sb-acct[data-mode=signin] input[name=email]", {timeout: 5000});
+    ok(!(await page.locator("dialog[open] #sbLater").count()), "I Already Have an Account opens the sign-in form, with no Use Without an Account link");
+    await page.click('dialog[open] .sheet-head [data-act="close"]');
     await page.waitForFunction(() => window.SBGUEST && SBGUEST.is(), null, {timeout: 5000});
     ok(!(await page.isVisible("#guestBadge")) && !(await page.isVisible("#guestBadgeSide")), "after choosing it, no Save button is put in the header or side bar (saving is automatic)");
     ok(await page.evaluate(() => SBGUEST.is() && localStorage.getItem("studioso:sb") === '"local"'), "Studyboard is in guest mode");

@@ -13,7 +13,7 @@
 
   // The Backups step shows only where a web page can save to a folder
   const cbk = () => window.SBCLOUD && SBCLOUD.backup;
-  const cloudBkHere = () => { const B = cbk(); return !!B && (B.possible("google") || B.possible("microsoft")); };
+  const cloudBkHere = () => !!cbk();
   const backupsHere = () => { try { return !DESK && !inPreview() && ((typeof FSB !== "undefined" && FSB.supported()) || cloudBkHere()); } catch (e) { return false; } };
   const bkOnText = () => { const B = cbk(); return B && B.on() ? `${B.name(B.provider())} › Studyboard › Backups` : FSB.status === "on" ? FSB.where : ""; };
   // First run asks only the essentials; the rest is offered later from a card on the Board
@@ -245,17 +245,19 @@
   function backupsStep(){
     const B = cbk(), cloudOn = !!(B && B.on()), pend = B && B.pending(), on = cloudOn || FSB.status === "on", paused = !cloudOn && FSB.status === "paused", folders = FSB.supported();
     const opt = (kind, title, sub) => `<button type="button" class="ob-alt ob-bk" data-ob="backup-folder" data-id="${kind}"><span class="ob-alt-ic bk-ico bk-${kind}" aria-hidden="true">${BK_LOGO[kind] || ""}</span><span class="ob-alt-t"><b>${title}</b><span class="mini">${sub}</span></span></button>`;
-    const viaCloud = p => !!(B && B.possible(p));
+    // On the website, backups go straight to Google Drive or OneDrive (they need a free account), never a folder on the computer
+    const cloudy = !!B, signed = !!(B && B.ready()), viaCloud = p => !!(B && B.possible(p));
+    if (B && !on && signed && !B.loaded()) B.refresh();
     if (B && !on) ["google", "microsoft"].forEach(p => { if (viaCloud(p) && !B.connected(p)) B.connectUrl(p); });
-    const gSub = viaCloud("google") ? "Connect your Google Drive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose the Google Drive folder (on Windows, the G: drive), then My Drive. Needs Google Drive for desktop.";
-    const oSub = viaCloud("microsoft") ? "Connect your OneDrive. Backups go to Studyboard › Backups in it, with nothing to install." : "Choose your OneDrive folder or its Documents folder.";
-    const body = on ? `<div class="ob-okbox">${IC.check}<span><b>Automatic Backups Are On</b><span class="mini">Saving to ${esc(bkOnText())} every hour while Studyboard is open.</span></span><button type="button" class="btn small" data-ob="backup-change">Change</button></div>`
+    const sub = name => signed ? `Connect your ${name}. Backups go to Studyboard › Backups in it, with nothing to install.` : `Make a free account, then connect your ${name}. Nothing to install.`;
+    const gSub = cloudy ? sub("Google Drive") : "Choose the Google Drive folder (on Windows, the G: drive), then My Drive. Needs Google Drive for desktop.";
+    const oSub = cloudy ? sub("OneDrive") : "Choose your OneDrive folder or its Documents folder.";
+    const body = on ? `<div class="ob-okbox">${IC.check}<span><b>Automatic Backups Are On</b><span class="mini">Saving to ${esc(bkOnText())} every hour while Studyboard is open.</span></span>${cloudOn ? "" : `<button type="button" class="btn small" data-ob="backup-change">Change</button>`}</div>`
       : pend ? `<div class="ob-info"><span class="mini"><span class="ai-spin" aria-hidden="true"></span> Waiting for ${esc(B.name(pend))} to connect. Allow Studyboard in the page that opened, then come back here.</span></div>`
       : paused ? `<button type="button" class="btn primary ob-big" data-ob="backup-resume">Allow Backups to ${esc(FSB.where)}</button>`
-      : `${viaCloud("google") || folders ? opt("gdrive", "Google Drive", gSub) : ""}
-        ${viaCloud("microsoft") || folders ? opt("onedrive", "OneDrive", oSub) : ""}
-        ${folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
-    const cloudy = viaCloud("google") || viaCloud("microsoft");
+      : `${cloudy || folders ? opt("gdrive", "Google Drive", gSub) : ""}
+        ${cloudy || folders ? opt("onedrive", "OneDrive", oSub) : ""}
+        ${!cloudy && folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
     return `${hero(IC.folder)}
       <h2 class="ob-h" id="obH" tabindex="-1">Automatic Backups <span class="ob-opt">Recommended</span></h2>
       <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Studyboard can save a backup of everything to a folder on this computer every hour. Pick one that Google Drive or OneDrive syncs and your backups are in the cloud too."}</p>
@@ -417,7 +419,8 @@
       case "lms": leaveTo(() => fire("lms-connect")); break;
       case "backup-folder": {
         const here = () => STEPS[step] && STEPS[step].id === "backups" && dlg.querySelector(".sheet.ob");
-        chooseBackupFolder(id).then(() => { if (here()) show(step); });
+        { const B0 = cbk(); if (B0 && !B0.ready()) { toast("Make a free account to back up to Google Drive or OneDrive. Everything you've set up comes with you."); finish(true); setTimeout(() => SBGUEST.signUp("signup"), 350); break; } }
+        cloudBackupGo(id).then(() => { if (here()) show(step); });
         const B = cbk(); if (B && B.pending()) { const t0 = Date.now(), iv = setInterval(() => { if (!here() || Date.now() - t0 > 5 * 60000) { clearInterval(iv); return; } if (B.on() || !B.pending()) { clearInterval(iv); show(step); } }, 2000); }
         break;
       }
