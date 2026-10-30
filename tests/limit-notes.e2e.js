@@ -23,7 +23,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.goto(base); await page.waitForFunction(() => window.StudyboardPlan && StudyboardPlan.limitNote, null, {timeout: 40000}); await page.waitForTimeout(500);
     const toastTxt = () => page.evaluate(() => { const t = document.querySelector("#toast"); return t && t.classList.contains("show") ? t.textContent.replace(/\s+/g, " ").trim() : ""; });
     ok(await page.evaluate(() => StudyboardPlan.paywall() && !StudyboardPlan.isPro()), "a free account with Pro switched on");
-    ok(await page.evaluate(() => StudyboardPlan.limitNote("storage", "That's past your 25 MB of free file storage. Pro has 10 GB of storage.", {reason: "You've used your free file storage."})), "the first time a limit is reached, the message shows");
+    ok(await page.evaluate(() => StudyboardPlan.limitNote("storage", "That's past your 20 MB of free file storage. Pro has 10 GB of storage.", {reason: "You've used your free file storage."})), "the first time a limit is reached, the message shows");
     const t = await toastTxt(); ok(/Pro has 10 GB of storage/.test(t) && /See Pro/.test(t), "it says what Pro gives and offers See Pro: " + t);
     ok(!(await page.evaluate(() => document.querySelector("dialog[open]"))), "no sheet pops up on its own");
     await page.click("#toastExtra"); await page.waitForSelector("dialog[open] .plan-sheet");

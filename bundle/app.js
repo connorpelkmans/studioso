@@ -13942,7 +13942,7 @@ async function uploadFiles(list, opts){
   if (opts && opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);
   const assets = await getAssets();
   if (!assets) { toast("File storage isn't available here. You can still add links to files."); return []; }
-  const made = [], skipped = [], invs = [];
+  const made = [], skipped = [], invs = [], full = [];
   let next = 0;
   const worker = async () => {
     while (next < list.length) {
@@ -13964,11 +13964,13 @@ async function uploadFiles(list, opts){
         invs.push(applyChanges([{kind: "file", id: file.id, after: file}], ""));
       } catch(e) {
         const code = e && e.code;
+        if (code === "quota_or_state" && window.SBCLOUD && SBCLOUD.storageFull) { full.push(f); continue; }
         toast(code === "too_large" ? `${f.name} is too large to store` : code === "unsupported_type" ? `${f.name}: this file type can't be stored` : code === "quota_or_state" ? "File storage is full. Delete some files first." : code === "invalid_request" && type.startsWith("text/") ? `${f.name} isn't saved as UTF-8 text` : code === "rate_limited" ? "Too many uploads at once. Wait a moment and try again." : `Couldn't upload ${f.name}. Try again.`);
       }
     }
   };
   await Promise.all(Array.from({length: Math.min(3, list.length)}, worker));
+  if (full.length) setTimeout(() => SBCLOUD.storageFull(full, opts), 300);
   const skipMsg = skipped.length ? `${skipped.length === 1 ? skipped[0] + " wasn't" : skipped.length + " files weren't"} uploaded: Word, PowerPoint and Excel files can't be stored here. Save a PDF copy, or use Add Link for the file in OneDrive, Google Drive or Canvas.` : "";
   if (made.length) {
     toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`) + (skipMsg ? " " + skipMsg : ""), () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
@@ -17752,7 +17754,7 @@ window.__sbPlanObj = () => PLAN;
   /* Config: one place for limits and prices */
   const PLAN_CONFIG = {
     limits: {
-      free: {devices: 2, fileMB: 25, dataMB: 25, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
+      free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
     prices: {monthly: "$3.99", semester: "$12.99", yearly: "$29.99", trialDays: 7, checkoutTrialDays: 0},
@@ -18539,7 +18541,6 @@ window.__sbPlanObj = () => PLAN;
     if (!limitsPro()) {
       const max = fileCapMB(), used = usage().fileMB, add = ((file && file.size) || 0) / MB;
       if (max != null && used + add > max) {
-        if (!DESK && paywall()) setTimeout(() => limitNote("storage", `That's past your ${fmtMB(max)} of ${freeTrialOnly() ? "file storage (the free week keeps the free amount)" : "free file storage"}. Pro has ${fmtMB(lims("pro").fileMB)} of storage.`, {reason: `You've used your ${fmtMB(max)} of free file storage. Pro has ${fmtMB(lims("pro").fileMB)}.`}), 250);
         throw Object.assign(new Error("Over the free storage limit"), {code: "quota_or_state"});
       }
     }
@@ -76453,8 +76454,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     return p === "google" ? gUpload(blob, name, type, segsFor(o || {})) : msUpload(blob, name, type, segsFor(o || {}));
   }
   const MAX_UP = 250 * 1048576;
-  async function uploadFiles(list, opts){
-    const p = target(), made = [], back = [], invs = [];
+  async function uploadFiles(list, opts, forced){
+    const p = forced || target(), made = [], back = [], invs = [];
     let next = 0;
     const one = async f => {
       if (f.size > MAX_UP) { toast(`${f.name} is over 250 MB. Upload it to ${NM[p]} yourself, then add it with Watch a Folder or a link.`); return; }
@@ -76472,12 +76473,28 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const worker = async () => { while (next < list.length) await one(list[next++]); };
     await Promise.all(Array.from({length: Math.min(2, list.length)}, worker));
     if (made.length) toast(made.length === 1 ? `Saved ${made[0].name} to ${NM[p]}.` : `Saved ${made.length} files to ${NM[p]}.`, () => invs.slice().reverse().forEach(inv => applyChanges(inv, null)));
-    if (back.length) {
+    if (back.length && forced) toast(`${back[0].e && back[0].e.message || "Couldn't reach " + NM[p] + "."} ${back.length === 1 ? back[0].f.name + " wasn't" : back.length + " files weren't"} saved.`);
+    else if (back.length) {
       toast(`${back[0].e && back[0].e.message || "Couldn't reach " + NM[p] + "."} ${back.length === 1 ? "It's" : "They're"} saved in Studyboard instead.`);
       const fallback = await uploadFiles(back.map(x => x.f), Object.assign({}, opts, {cloud: false}));
       return made.concat(fallback || []);
     }
     return made;
+  }
+  /* Studyboard storage is full: offer Pro, or keep the files in Google Drive / OneDrive instead */
+  const FULL = {files: [], opts: {}};
+  function storageFull(files, opts){
+    FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
+    const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
+    const offerPro = !!(PL && PL.paywall() && !PL.limitsPro());
+    const n = FULL.files.length, what = n === 1 ? esc(FULL.files[0].name) : `these ${n} files`;
+    const ch = connected();
+    const btn = p => `<button type="button" class="btn${ch.includes(p) ? " primary" : ""} cl-full-btn" data-act="cl-full-save" data-id="${p}">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<span>${ch.includes(p) ? `Save ${n > 1 ? "Them" : "It"} to ${esc(NM[p])}` : `Connect ${esc(NM[p])}`}</span></button>`;
+    openSheet(`<div class="sheet cl-sheet">${head("Your Storage Is Full")}<div class="sheet-body">
+      <p style="margin:0">${offerPro && cap ? `Your free ${esc(fmtSize(cap * 1048576))} of Studyboard file storage is used up, so ${what} couldn't be added.` : `Your Studyboard file storage is full, so ${what} couldn't be added.`}</p>
+      <p class="mini" style="margin:0">${offerPro ? "Go Pro for much more room, or keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive. Files there don't use Studyboard storage." : "Keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive instead. Files there don't use Studyboard storage."}</p>
+      <div class="cs-row" style="flex-wrap:wrap">${offerPro ? `<button type="button" class="btn primary" data-act="cl-full-pro">Go Pro</button>` : ""}${btn("google")}${btn("microsoft")}</div>
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
   }
   async function bytes(f){
     const c = f && f.cloud; if (!c) throw new CloudErr("Not a cloud file.");
@@ -76695,6 +76712,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   hook("act", (act, el, id) => {
     switch (act) {
       case "cl-open": openSheetCl(); return true;
+      case "cl-full-pro": { if (dlg.open) dlg.close(); const PL = window.StudyboardPlan; setTimeout(() => PL && PL.openSheet(`Your free file storage is full. Pro has ${PLAN.proLimits().fileMB >= 1024 ? PLAN.proLimits().fileMB / 1024 + " GB" : PLAN.proLimits().fileMB + " MB"}.`), 60); return true; }
+      case "cl-full-save": {
+        const list = FULL.files, opts = FULL.opts; FULL.files = [];
+        if (dlg.open) dlg.close();
+        if (!connected().includes(id)) { setTimeout(openSheetCl, 60); toast(`Connect ${NM[id]}, then add the file again.`); return true; }
+        if (list.length) uploadFiles(list, opts, id);
+        return true;
+      }
       case "cl-dir": { const B = U.browse; if (B) browse(B.mode, id, el.dataset.name, B.trail.concat({id, name: el.dataset.name})); return true; }
       case "cl-reload": U.err = ""; loadStatus(); return true;
       case "cl-ask-off": U.confirm = id; paint(); return true;
@@ -76837,7 +76862,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     toast(b.checked ? `AI can read your ${NM[p]} files` : `AI won't read your ${NM[p]} files. They still save and open as usual.`);
   });
   const aiOk = p => !!prefs().ai[p];
-  window.SBCLOUD = {aiOk, backup, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  window.SBCLOUD = {aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");

@@ -21,7 +21,7 @@ window.__sbPlanObj = () => PLAN;
   /* Config: one place for limits and prices */
   const PLAN_CONFIG = {
     limits: {
-      free: {devices: 2, fileMB: 25, dataMB: 25, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
+      free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
     prices: {monthly: "$3.99", semester: "$12.99", yearly: "$29.99", trialDays: 7, checkoutTrialDays: 0},
@@ -808,7 +808,6 @@ window.__sbPlanObj = () => PLAN;
     if (!limitsPro()) {
       const max = fileCapMB(), used = usage().fileMB, add = ((file && file.size) || 0) / MB;
       if (max != null && used + add > max) {
-        if (!DESK && paywall()) setTimeout(() => limitNote("storage", `That's past your ${fmtMB(max)} of ${freeTrialOnly() ? "file storage (the free week keeps the free amount)" : "free file storage"}. Pro has ${fmtMB(lims("pro").fileMB)} of storage.`, {reason: `You've used your ${fmtMB(max)} of free file storage. Pro has ${fmtMB(lims("pro").fileMB)}.`}), 250);
         throw Object.assign(new Error("Over the free storage limit"), {code: "quota_or_state"});
       }
     }

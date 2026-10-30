@@ -16,7 +16,7 @@ You can do the setup below any time before launch (in any order). While the payw
 - **Ask Your Course** with any AI key: course scoping, cited answers from the student's own material, Answer From General Knowledge, follow-ups, Make Flashcards and Save as Note (like Create with AI, which is free too).
 - The 14 plain color themes, and the free card styles, note shapes, pins and sticker packs.
 - **Collection previews:** a free account can try **3 different** Pro Theme Collections for **5 minutes each** (a **Preview 5 Min** button on each collection in the Style Shop). The collection's theme, stickers, pins and flashcard style work during the preview, then the earlier theme comes back by itself; after 3 previews there are no more, and a collection can't be previewed twice. The count lives in the account's settings (`settings.collPreview`) so it follows the person to other devices. It is cosmetic only, like the rest of the shop.
-- **25 MB** of cloud file storage (plus unlimited files kept on the device, or links to Google Drive or OneDrive), and **25 MB** of synced data.
+- **20 MB** of cloud file storage (plus unlimited files kept on the device, or links to Google Drive or OneDrive), and **20 MB** of synced data.
 - **Google Drive and OneDrive:** save uploads and lecture recordings there, watch OneDrive folders, and back up everything there every hour. Free because it uses the student's own storage (`cloud_allowed` in `supabase-cloud.sql` only asks for a signed-in account, not a guest).
 - Backups on the device: the desktop folder, plus the last 14 days in the browser.
 
