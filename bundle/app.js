@@ -77821,6 +77821,10 @@ var SBWB = null;
     if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(frame);
     if (document.fonts && document.fonts.load) Promise.all(FONTS.map(f => document.fonts.load(`40px ${f[2]}`))).then(() => { MEAS.clear(); itemsDraw(true); dirty(); }).catch(() => {});
   }
+  // The drawing surfaces only ever grow: a smaller board draws into the top-left of them (the frame clips the rest), so a
+  // size change never throws away and rebuilds three screen-sized canvases (rebuilding them over and over could run a phone
+  // out of memory and make iOS restart the app)
+  let cvW = 0, cvHt = 0, cvR = 0;
   function resize(){
     if (!frame || !frame.isConnected) return;
     // typing on a touch screen: the keyboard shrinks the app, but the board keeps its size and view (no refit, no jump);
@@ -77829,16 +77833,32 @@ var SBWB = null;
     const w = frame.clientWidth, h = frame.clientHeight, r = Math.min(2, window.devicePixelRatio || 1);
     if (w === fw && h === fh && r === dpr) return;
     fw = w; fh = h; dpr = r;
-    [cvH, cvI, cvL].forEach(c => { c.width = Math.max(1, Math.round(w * r)); c.height = Math.max(1, Math.round(h * r)); c.style.width = w + "px"; c.style.height = h + "px"; });
+    const grow = cvH.width === 0 || r !== cvR || w > cvW || h > cvHt || w < cvW * 0.6;
+    if (grow) {
+      cvW = w < cvW * 0.6 || r !== cvR ? w : Math.max(cvW, w); cvHt = r !== cvR ? h : Math.max(cvHt, h); cvR = r;
+      [cvH, cvI, cvL].forEach(c => { c.width = Math.max(1, Math.round(cvW * r)); c.height = Math.max(1, Math.round(cvHt * r)); c.style.width = cvW + "px"; c.style.height = cvHt + "px"; });
+    }
     clampCam();
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
     all = true; paint();
   }
+  // The board's height comes from the screen's full height for this width (not whatever the height is this instant, which
+  // twitches with the keyboard and toolbars), and only changes when that, the board's top or the tab bar really change
+  let scrFull = 0, scrW = 0;
   function sizeHost(host){
     if (boardMaxOn()) { host.style.height = ""; return; }
-    const top = host.getBoundingClientRect().top + window.scrollY, nav = document.querySelector("nav.tabs");
-    const navH = phone() && nav ? nav.getBoundingClientRect().height : 0;
-    host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 16))) + "px";
+    if (innerWidth !== scrW) { scrW = innerWidth; scrFull = 0; }
+    if (!document.documentElement.classList.contains("kb-open")) scrFull = Math.max(scrFull, innerHeight);
+    const IH = scrFull || innerHeight;
+    // where the board starts is measured once per board and screen width: the header shrinking as the page scrolls would
+    // otherwise move it, resize it, change the scroll, and so on, back and forth
+    const key = innerWidth + "|" + (ui.wbCur || "");
+    if (host._topKey !== key) { host._topKey = key; host._top = host.getBoundingClientRect().top + window.scrollY; }
+    const top = host._top, nav = document.querySelector("nav.tabs");
+    const navH = phone() && nav ? Math.round(nav.getBoundingClientRect().height) : 0;
+    const want = Math.max(phone() ? 420 : 460, Math.round(IH - Math.min(top, IH * 0.45) - navH - (phone() ? 18 : 16)));
+    const now = parseFloat(host.style.height) || 0;
+    if (Math.abs(want - now) > 2) host.style.height = want + "px";
   }
 
   /* Painting */
