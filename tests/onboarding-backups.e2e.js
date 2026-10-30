@@ -35,16 +35,29 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(first.join() === "area,courses,hours,done", "the first-run setup asks only the essentials: " + first.join(", "));
     ok(await page.evaluate(() => Object.values(SBLMS.st().courses).some(c => c.code === "BIOL 101")), "a course typed but not added yet comes along on Next");
     await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(300);
-    ok(await page.locator(".ob-more-b").count() === 0 && await page.locator(".sem-card-b").count() === 0, "nothing more is pushed on the same day: no A Few More Things card and no second setup card");
-    const later = async pg => { await pg.waitForTimeout(1600); if (await pg.evaluate(() => window.SBTOUR && SBTOUR.active())) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
-      await pg.evaluate(() => { const k = "sb:onboarded:more", m = JSON.parse(localStorage.getItem(k) || "{}"); m.at = Date.now() - 2 * 864e5; localStorage.setItem(k, JSON.stringify(m)); });
-      await pg.click('nav.tabs [data-tab="courses"]'); await pg.waitForTimeout(150); await pg.click('nav.tabs [data-tab="board"]'); await pg.waitForTimeout(250);
-      if (await pg.locator('.sem-card-b [data-act="sem-hide"]').count()) { await pg.click('.sem-card-b [data-act="sem-hide"]'); await pg.waitForTimeout(250); } };
-    await later(page);
-    ok(await page.locator('.ob-more-b [data-act="ob-more"]').count() === 1 && /Reminders, backups, the app and a theme/.test(await page.textContent(".ob-more-b")), "a day later a small card on the Board offers the rest");
+    ok(await page.locator(".ob-more-b").count() === 0 && await page.locator(".sem-card-b").count() === 0 && await page.locator(".ob-bk-b").count() === 0, "nothing more is pushed on the same day: no A Few More Things card, no backups card and no second setup card");
+    ok(await page.locator(".gs-card").count() === 1 && /1 of [56] done/.test(await page.textContent(".gs-card")) && (await page.evaluate(() => SBGS.items().find(i => i.id === "courses").done)), "the Getting Started checklist is on the Board, with the course already ticked");
+    const setAt = (pg, days) => pg.evaluate(d => { const k = "sb:onboarded:more", m = JSON.parse(localStorage.getItem(k) || "{}"); m.at = Date.now() - d * 864e5; localStorage.setItem(k, JSON.stringify(m)); }, days);
+    const board = async pg => { await pg.click('nav.tabs [data-tab="courses"]'); await pg.waitForTimeout(150); await pg.click('nav.tabs [data-tab="board"]'); await pg.waitForTimeout(250); };
+    const later = async (pg, keepList) => { await pg.waitForTimeout(1600); if (await pg.evaluate(() => window.SBTOUR && SBTOUR.active())) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
+      await setAt(pg, 2); await board(pg);
+      if (await pg.locator('.sem-card-b [data-act="sem-hide"]').count()) { await pg.click('.sem-card-b [data-act="sem-hide"]'); await pg.waitForTimeout(250); }
+      if (!keepList && await pg.locator('.gs-card [data-act="gs-hide"]').count()) { await pg.click('.gs-card [data-act="gs-hide"]'); await pg.waitForTimeout(250); } };
+    await later(page, true);
+    ok(await page.locator(".gs-card").count() === 1 && await page.locator(".ob-more-b").count() === 0, "a day later the checklist is still there, and A Few More Things waits for it (one card at a time)");
+    await page.click('.gs-card [data-act="gs-hide"]'); await page.waitForTimeout(250);
+    ok(await page.locator('.ob-more-b [data-act="ob-more"]').count() === 1 && /Reminders, the app and a theme/.test(await page.textContent(".ob-more-b")), "once it's hidden, a small card offers the rest, without backups");
     await page.click('.ob-more-b [data-act="ob-more"]'); await page.waitForSelector(".sheet.ob");
-    for (let i = 0; i < 12 && (await page.getAttribute(".sheet.ob", "data-step")) !== "backups"; i++) { await page.click('[data-ob="next"]'); await page.waitForTimeout(120); }
-    ok(await page.getAttribute(".sheet.ob", "data-step") === "backups", "it has a Backups step");
+    const extras = [];
+    for (let i = 0; i < 12; i++) { const s = await page.getAttribute(".sheet.ob", "data-step"); extras.push(s); if (s === "done") break; await page.click('[data-ob="next"]'); await page.waitForTimeout(120); }
+    ok(!extras.includes("backups"), "the day-2 extras don't ask about backups: " + extras.join(", "));
+    await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(300);
+    ok(await page.locator(".ob-bk-b").count() === 0, "two days in, backups still aren't asked about");
+    for (const t of ["Essay draft due friday", "Bio quiz monday"]) { await page.fill("#qaIn", t); await page.press("#qaIn", "Enter"); await page.waitForTimeout(400); if (await page.evaluate(() => document.querySelector("#dlg").open)) { await page.keyboard.press("Escape"); await page.waitForTimeout(200); } }
+    await setAt(page, 4); await board(page);
+    ok(await page.locator('.ob-bk-b [data-act="ob-backup"]').count() === 1 && /Keep Your Work Safe/.test(await page.textContent(".ob-bk-b")), "a few days in, with work worth keeping, a card asks about backups on its own");
+    await page.click('.ob-bk-b [data-act="ob-backup"]'); await page.waitForSelector(".sheet.ob");
+    ok(await page.getAttribute(".sheet.ob", "data-step") === "backups" && !/Step 1 of 1/.test(await page.textContent(".sheet.ob")), "it opens straight on the Backups step");
     const bk = await page.textContent(".sheet.ob");
     ok(await page.locator('[data-ob="backup-folder"]').count() === 2 && await page.locator('[data-ob="backup-folder"][data-id="other"]').count() === 0 && /straight to your Google Drive or OneDrive/.test(bk) && !/Allow on every visit|folder on this computer/.test(bk), "it offers only Google Drive and OneDrive, with no computer folder");
     ok(/Make a free account, then connect your Google Drive/.test(bk), "without an account, it says a free account comes first");
@@ -69,7 +82,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await b.page.click('.ob-more-b [data-act="ob-more"]'); await b.page.waitForSelector(".sheet.ob");
     const more = [];
     for (let i = 0; i < 12; i++) { const s = await b.page.getAttribute(".sheet.ob", "data-step"); more.push(s); if (s === "done") break; await b.page.click('[data-ob="next"]'); await b.page.waitForTimeout(120); }
-    ok(more.includes("backups") && more[0] === "theme" && more.includes("reminders") && more.includes("app"), "without folder access (Safari, Firefox) the Backups step is still shown, since it uses Google Drive and OneDrive: " + more.join(", "));
+    ok(!more.includes("backups") && more[0] === "theme" && more.includes("reminders") && more.includes("app"), "the day-2 extras don't ask about backups here either: " + more.join(", "));
     ok(!(await b.page.textContent(".sheet.ob")).includes("Backing up to"), "and the last page doesn't mention it");
     if (more.includes("pro")) {
       await b.page.evaluate(() => { SBOB.T.plan = {welcomeWeek: () => ({until: "2026-10-27T12:00:00Z", date: "Oct 27, 2026"}), welcomeSaid: () => {}};

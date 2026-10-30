@@ -10,55 +10,31 @@
   const phone = () => !!(window.matchMedia && matchMedia("(max-width:719px)").matches);
   const NAV = t => `nav.tabs [data-tab="${t}"]`;
 
-  // Each step opens the real screen it talks about, then points at part of it
-  const SETTINGS = ['nav.tabs .nav-tool[data-act="menu"]', 'header.top [data-act="menu"]'];
-  const BELL = ['header.top .ann-btn', 'nav.tabs .ann-btn'], POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
+  // Each step opens the real screen it talks about, then points at part of it.
+  // Kept to the 8 features that matter most on day one; the rest show up as students need them.
+  const POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
     {id: "welcome", title: "Welcome to Studyboard", tab: "board",
-      text: () => "A quick tour, about a minute. We'll open each screen as we go, filled with example courses and tasks, not your own. Use the arrow keys or the buttons, and skip any time."},
+      text: () => "A quick tour, under a minute. We'll open each screen as we go, filled with example courses and tasks, not your own. Use the arrow keys or the buttons, and skip any time."},
     {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
       text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
     {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
       text: () => "Today's Plan lines up what to work on next and for how long, with time set aside for each task around your classes and free time."},
-    {id: "taskboard", title: "Task Board", tab: "board", go: () => { ui.bview = "board"; }, sel: [".bview-tabs", ".board-sec-head", NAV("board")],
-      text: () => "Every task by status: To Do, In Progress and Complete. Drag a card to move it along, filter by course, or group the board by course."},
-    {id: "timeline", title: "Calendar: Due Dates", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
-      text: () => "Every deadline across your courses, on a timeline or a month calendar. Calendar has three views: Due Dates, Schedule and Crunch."},
-    {id: "schedule", title: "Calendar: Schedule", tab: "schedule", sel: [".pview-tabs", NAV("plan")],
-      text: () => "Your week of classes, labs, shifts and appointments. Study time is planned around it."},
-    {id: "crunch", title: "Calendar: Crunch", tab: "crunch", sel: [".pview-tabs", NAV("plan")],
-      text: () => "A heatmap of your term. A week with several exams and a paper glows red weeks ahead, and tapping it shows what to start early."},
+    {id: "timeline", title: "Calendar", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
+      text: () => "Every deadline across your courses, on a timeline or a month calendar. Switch to Schedule for your week of classes and shifts, or to Crunch to see heavy weeks coming before they hit."},
     {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".pview-tabs", NAV("flashcards")],
       text: () => "Make decks by hand, or let AI build cards and practice quizzes from your notes and readings. Spaced repetition brings reviews back at the right time."},
-    {id: "notes", title: "Notes and Stickers", tab: "notes", sel: [NAV("notes")],
-      text: () => "Sticky notes for quick thoughts, on boards of your own. Give them a course, pick a color and a pin, and decorate them with stickers."},
-    {id: "files", title: "Files", tab: "files", sel: [".cf-tabs", NAV("courses")],
-      text: () => "Keep readings, slides and handouts with their course, and attach them to tasks. Search can read inside them."},
     {id: "courses", title: "Courses and School Sites", tab: "courses", go: () => { ui.courseTab = ""; }, sel: [".cf-tabs", NAV("courses")],
       text: () => "Each course keeps its class times, tasks, files and instructors. Connect Brightspace, Canvas or Blackboard in Settings to bring in deadlines and grades; with Canvas, your inbox shows under Emails."},
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".cf-tabs", ".gp-hero", NAV("courses")],
       text: () => "Your marks and average in each course as they come in. Set the weights to see what you need on the remaining work to reach your target grade."},
-    {id: "ann", title: "Announcements", panel: "ann", has: BELL, sel: ["#dlg .ann-sheet .sheet-head", "#dlg .ann-sheet"],
-      text: () => "Announcements from your school site collect here, with a dot for the ones you haven't read."},
-    {id: "companion", title: "Your Study Companion", tab: "companion", has: [NAV("companion")], sel: [".cpt-head", NAV("companion")],
-      text: () => "Your companion cheers you on as you work. Chat with it about your deadlines and courses (with AI set up), look back at your chats under History, and dress it up in the Wardrobe."},
     {id: "focus", title: "Focus Timer", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
       text: () => "The timer follows the Pomodoro method: short bursts of focused work with breaks in between. Start a session on any task; the time counts toward the task and your streak, and your companion keeps you company.",
       more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
     {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
       text: () => "Find tasks, cards, notes and text inside your files from anywhere (Ctrl or Cmd K). Switch to Ask With AI to ask questions about your own material."},
-    {id: "groups", title: "Study Groups", tab: "groups", has: [NAV("groups")], sel: [NAV("groups")],
-      text: () => "Study with classmates: share decks and quizzes, plan sessions, run a weekly challenge and chat. A group project keeps its tasks, files and meetings together."},
-    {id: "settings", title: "Settings", panel: "settings", fresh: true, has: SETTINGS, sel: ["#dlg .us-cats", '#dlg [data-act="plan-open"]', "#dlg .menu-list", "#dlg .sheet"],
-      text: () => "Themes and dark mode, study hours, reminders, calendar sync, AI, backups, sign in and Studyboard Pro all live here."},
-    {id: "help", title: "Found a Bug? Tell Us", panel: "settings", has: SETTINGS, prep: () => { const c = $('#dlg [data-us="app"]'); if (c) c.click();
-        const help = () => [...document.querySelectorAll("#dlg .us-sub-tab")].find(t => /^\s*Help\s*$/.test(t.textContent));
-        const go = (n) => { const h = help(); if (h) { if (h.getAttribute("aria-selected") !== "true") h.click(); } else if (n > 0) setTimeout(() => go(n - 1), 50); };
-        go(10); },
-      sel: ['#dlg [data-act="bug-open"]', "#dlg .us-cats", "#dlg .sheet"],
-      text: () => "Choose Report a Bug or Send Feedback. It goes straight to the person who makes Studyboard, with an optional screenshot. You can replay this tour from here too."},
     {id: "done", title: "You're Ready", tab: "board",
-      text: () => "That's the tour. Add your first task and Today's Plan takes it from there."}
+      text: () => "That's the tour. Add your first task and Today's Plan takes it from there. Themes, reminders, sync and Report a Bug are in Settings, where you can replay this tour too."}
   ];
 
   let steps = [], i = 0, root = null, spot = null, card = null, tgt = null, opened = null, saved = null, onKey = null, raf = 0, active = false, seq = 0, panel = "";
@@ -109,8 +85,6 @@
   // Sheets the tour opens on top of the page
   const press = list => { const b = findIn(list); if (b) b.click(); };
   const PANELS = {
-    settings: {dlg: () => dlg, open: () => menuSheet()},
-    ann: {dlg: () => dlg, open: () => press(BELL)},
     pomo: {dlg: () => $("#pomoDlg"), open: () => press(POMO)},
     search: {dlg: () => $("#sxDlg"), open: () => press(SEARCH)}
   };

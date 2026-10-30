@@ -104,7 +104,7 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
       /* 10 drawn empty states */
       {
         const {ctx, p} = await open(browser, {dark, empty: true});
-        const art = () => p.evaluate(() => { const a = document.querySelector("#view .sb-es .es-art"); if (!a) return null; const r = a.getBoundingClientRect(), es = a.closest(".sb-es"), prim = es.querySelectorAll(".btn.primary"); return {w: Math.round(r.width), h: Math.round(r.height), title: (es.querySelector("strong") || {}).textContent, primary: prim.length, fill: getComputedStyle(a.querySelector(".es-card")).fill}; });
+        const art = () => p.evaluate(() => { const a = document.querySelector("#view .sb-es .es-art"); if (!a) return null; const r = a.getBoundingClientRect(), es = a.closest(".sb-es"), prim = es.querySelectorAll(".btn.primary"); return {w: Math.round(r.width), h: Math.round(r.height), title: (es.querySelector("strong") || {}).textContent, primary: prim.length, fill: getComputedStyle(a.querySelector(".es-face")).fill}; });
         const pages = [["groups", null, "Study Better Together"], ["notes", null, "Your Board Is Empty"], ["flashcards", null, "No Decks Yet"], ["courses", null, "No Courses Yet"], ["courses", "Files", "No Files Here Yet"], ["board", "Task Board", "Let's Set Up Your Term"]];
         for (const [t, sub, title] of pages) {
           await tab(p, t);
@@ -169,7 +169,7 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
     {
       const {ctx, p} = await open(browser, {w: 1280, empty: true});
       await tab(p, "courses");
-      ok(await p.evaluate(() => { const a = document.querySelector("#view .es-art"); return !!a && a.getBoundingClientRect().height === 0; }), "10 (1280): empty pages look as before on a computer");
+      ok(await p.evaluate(() => { const a = document.querySelector("#view .es-art"); return !!a && a.getBoundingClientRect().height === 140; }), "10 (1280): empty pages show the same drawing on a computer as on a phone");
       await ctx.close();
     }
   } catch (e) { console.error(e); process.exitCode = 1; }

@@ -79,7 +79,7 @@ ui.colOpen = {};
 document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("col-more")) ui.colOpen[d.dataset.col] = d.open; if (d && d.id === "planExtra") ui.planExtraOpen = d.open; if (d && d.classList && d.classList.contains("deck-archived")) ui.decksArchOpen = d.open; }, true);
 function viewBoard(){
   const hasAny = tasksArr().length || coursesArr().length;
-  const banner = coursesArr().length ? "" : `<div class="empty tb-setup${hasAny ? "" : " sb-es"}">${hasAny ? "" : emptyArt()}<span class="tb-setup-t"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Add your courses so each card gets its class color, or import one straight from a syllabus PDF.</span><button class="btn primary small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div>`;
+  const banner = coursesArr().length ? "" : `<div class="empty tb-setup${hasAny ? "" : " sb-es"}">${hasAny ? "" : emptyArt("board")}<span class="tb-setup-t"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Add your courses so each card gets its class color, or import one straight from a syllabus PDF.</span><button class="btn primary small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div>`;
   const ts = visibleTasks();
   const weekAgo = Date.now() - 7 * 864e5;
   const colsFor = (tsx, laneId) => STATUSES.map(([k, label, col]) => {

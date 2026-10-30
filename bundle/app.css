@@ -5375,6 +5375,40 @@ details.pp-group[open]>summary::before{content:"▾"}
   .exm-off{top:50%;right:4px;transform:translateY(-50%);width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:12px}
   .exm-x{display:block}
 }
+/* Getting Started checklist on the Board */
+.gs-card{margin:0 0 14px;padding:14px 14px 10px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:18px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.gs-card.shut{padding-bottom:12px}
+.gs-head{display:flex;align-items:center;gap:10px}
+.gs-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.gs-ht{display:flex;flex-direction:column;min-width:0}
+.gs-ht b{font:800 1.05rem/1.25 var(--display);color:var(--ink)}
+.gs-ht .mini{color:var(--muted)}
+.gs-ring{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p)*1%),color-mix(in srgb,var(--ink) 12%,var(--surface)) 0)}
+.gs-ring span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--surface);font:800 .78rem/1 var(--display);color:var(--ink)}
+.gs-x{flex:none;color:var(--muted)}
+.gs-bar{display:none}
+.gs-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.gs-btn{width:100%;display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 8px;border:0;border-radius:12px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.gs-btn:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.gs-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.gs-row.ok .gs-btn{cursor:default;background:none}
+.gs-ck{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:2px solid color-mix(in srgb,var(--ink) 25%,var(--surface));color:#fff}
+.gs-row.ok .gs-ck{border-color:var(--leaf);background:var(--leaf)}
+.gs-row.next .gs-ck{border-color:var(--accent)}
+.gs-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gs-tx b{font-weight:700;color:var(--ink)}
+.gs-tx .mini{color:var(--muted);line-height:1.35}
+.gs-row.ok .gs-tx b{color:var(--muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 60%,transparent);font-weight:600}
+.gs-chev{flex:none;color:var(--muted)}
+.gs-row.next .gs-chev{color:var(--accent)}
+.gs-all .gs-head{gap:12px}
+.gs-all .gs-ht{flex:1}
+.gs-party{font-size:1.6rem;line-height:1}
+.gs-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:no-preference){.gs-ring{transition:background .3s}}
+.gs-row.ok .gs-btn{min-height:36px;padding-block:4px}
+.gs-row.ok .gs-ck{width:20px;height:20px;margin-inline:2px}
+#view .gs-list li{border:0}
 /* ===== module: 99-motion-a11y-tz.css ===== */
 /* Text size: everything in rem scales with the root */
 html{font-size:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -7616,7 +7650,17 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .es-leaf{fill:color-mix(in srgb,var(--leaf) 72%,#fff)}
 .es-star{fill:var(--accent)}
 .es-star2{fill:#E7A23B}
-@media (max-width:639px){
+.es-chip{fill:color-mix(in srgb,var(--accent) 14%,var(--surface));stroke:color-mix(in srgb,var(--ink) 10%,var(--surface));stroke-width:1}
+.es-gold{fill:#E7A23B}.es-okf{fill:color-mix(in srgb,var(--leaf) 55%,var(--surface))}.es-ok{fill:var(--leaf)}
+.es-tick{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.es-dot0{fill:var(--surface)}.es-dot{fill:color-mix(in srgb,var(--ink) 30%,var(--surface))}.es-band{fill:#fff;opacity:.45}.es-cardfill{fill:var(--surface)}
+.es-pole{stroke:color-mix(in srgb,var(--ink) 40%,var(--surface));stroke-width:2;stroke-linecap:round}
+.es-txt{fill:var(--accent);font:800 34px/1 var(--display,system-ui),system-ui,sans-serif}
+.es-folder{fill:#F7DE8E}.es-folder-b{fill:#FBEBB8}
+.es-sy{fill:#FBE38B}.es-sp{fill:#F9C1CF}.es-sb{fill:#BFDDF8}.es-sline{fill:#000;opacity:.12}
+.es-pin{fill:var(--late)}.es-pinhi{fill:#fff;opacity:.7}.es-tape{fill:#fff;opacity:.55}
+/* Empty screens: Mochi and a friendly title, on phones and computers alike */
+@media all{
   #view .sb-es:not(.nb-empty){display:block;margin-top:8px;padding:4px 8px 0;border:0;background:none;box-shadow:none;text-align:center;color:var(--muted)}
   #view .sb-es .es-art{display:block;width:200px;height:140px;margin:4px auto 10px}
   #view .sb-es:not(.nb-empty) > strong,#view .sb-es .tb-setup-t > strong{display:block;margin:0 0 6px;font:800 1.35rem/1.2 var(--display);color:var(--ink)}

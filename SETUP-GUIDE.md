@@ -578,7 +578,18 @@ There's nothing to set up for it. A few things to know:
 
 ## App Tour
 
-New people get a short guided tour (a spotlight and a card for each main tab and control, with Back, Next, Skip and progress dots; arrow keys and Esc work too). It shows once per device, right after the welcome setup above is finished or closed, and never on its own for anyone who already has courses or tasks. Open **Settings** and choose **Take the App Tour** to see it again (it's also in Search Everywhere). If a tab or control isn't on screen (for example Groups on a phone), that step is skipped.
+New people get a short guided tour (a spotlight and a card for each of the 8 main features: quick add, Today's Plan, Calendar, Flashcards, Courses, Grades, the Focus timer and Search, with Back, Next, Skip and progress dots; arrow keys and Esc work too). It shows once per device, right after the welcome setup above is finished or closed, and never on its own for anyone who already has courses or tasks. Open **Settings** and choose **Take the App Tour** to see it again (it's also in Search Everywhere). If a tab or control isn't on screen (for example Groups on a phone), that step is skipped.
+
+## Getting Started Checklist and Later Questions
+
+After the welcome setup, the Board shows a small **Getting Started** card with these things to try: add your courses, add a deadline, start a focus session, make a note, set up backups and select a theme. The 1-minute app tour isn't on it, because the last page of the welcome setup already offers it. Each one ticks itself off when the student really does it, and tapping an item takes them straight there. Add Your Courses offers three ways in, in this order: Connect Your School Site, Import a Syllabus, and Add It Myself. **Add a deadline** only appears for courses from a syllabus or typed in, since a school site brings deadlines in by itself. **Set up backups** only appears where automatic backups work (not every browser can save to a folder). Select a theme opens the theme picker on its own. The card can be folded up or hidden with its X, it shows a short "You're All Set Up" note when everything is done, and it goes away on its own 30 days after the welcome setup. It's remembered per device.
+
+Only one of these cards shows on the Board at a time:
+
+1. **Set Up Your Semester** (only for an empty planner)
+2. **Getting Started**
+3. **Keep Your Work Safe:** if backups still aren't on once the checklist is finished or hidden, they're asked about on their own, from 3 days after the welcome setup, once there are at least 3 courses and tasks between them. Not Now hides it for good; backups stay in Settings.
+4. **A Few More Things:** reminders, the app, AI and a theme, from the day after the welcome setup, once the checklist is finished or hidden.
 
 ## Bug Reports and Feedback
 
