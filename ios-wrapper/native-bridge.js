@@ -404,6 +404,12 @@
       KB.addListener("keyboardWillShow", function (info) { holdScroll(); kbOn(true, info && info.keyboardHeight); try { KB.setScroll({ isDisabled: true }); } catch (e) {} });
       KB.addListener("keyboardWillHide", function () { kbOn(false); try { KB.setScroll({ isDisabled: false }); } catch (e) {} });
       document.addEventListener("visibilitychange", function () { if (!document.hidden) try { KB.setScroll({ isDisabled: false }); } catch (e) {} });
+      // the lock goes on the moment a text box is tapped, before the keyboard starts to rise (iOS begins its slide as the
+      // keyboard appears, which can be before the app hears about it); tapping away with no box focused switches it off
+      var isBox = function (t) { return !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) && !/^(checkbox|radio|button|submit|range|color|file)$/i.test(t.type || ""); };
+      var unlockT = 0;
+      document.addEventListener("focusin", function (e) { if (isBox(e.target)) { clearTimeout(unlockT); try { KB.setScroll({ isDisabled: true }); } catch (x) {} } }, true);
+      document.addEventListener("focusout", function () { clearTimeout(unlockT); unlockT = setTimeout(function () { if (!isBox(document.activeElement) && !isOpen) try { KB.setScroll({ isDisabled: false }); } catch (x) {} }, 120); }, true);
     } catch (e) {}
   }
 
