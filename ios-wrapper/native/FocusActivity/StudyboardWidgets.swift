@@ -103,11 +103,22 @@ private struct Controls: View {
         let paused = s.pausedLeft > 0
         HStack(spacing: 18) {
             Round(action: "reset", icon: "arrow.counterclockwise", size: 36, bg: second, label: "Reset")
-            Round(action: paused ? "play" : "pause", icon: paused ? "play.fill" : "pause.fill", size: 44, bg: fill, label: paused ? "Resume" : "Pause")
+            Toggle(isOn: !paused, intent: StudyboardFocusPlayPause()) { Text(paused ? "Resume" : "Pause") }
+                .toggleStyle(PlayPauseStyle(bg: fill))
             Round(action: "skip", icon: "forward.end.fill", size: 36, bg: second, label: "Skip").opacity((s.plan ?? []).isEmpty ? 0.4 : 1)
                 .disabled((s.plan ?? []).isEmpty)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+// draws the switch as the round Play / Pause button, from the switch's own state (which iOS flips at once)
+private struct PlayPauseStyle: ToggleStyle {
+    let bg: Color
+    func makeBody(configuration: Configuration) -> some View {
+        Image(systemName: configuration.isOn ? "pause.fill" : "play.fill").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
+            .frame(width: 44, height: 44).background(Circle().fill(bg))
+            .contentShape(Circle())
+            .accessibilityLabel(configuration.isOn ? "Pause" : "Resume")
     }
 }
 private struct Round: View {
@@ -161,7 +172,7 @@ struct StudyboardFocusLiveActivity: Widget {
             let s = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label { Text(s.pausedLeft > 0 ? "\(s.label) (Paused)" : s.label).foregroundStyle(.white).lineLimit(1) } icon: { Tomato(s: s) }
+                    Label { Text(s.label).foregroundStyle(.white).lineLimit(1).fixedSize() } icon: { Tomato(s: s) }
                         .font(.headline).padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
