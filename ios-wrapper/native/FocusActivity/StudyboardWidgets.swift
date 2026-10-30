@@ -74,12 +74,6 @@ private struct Tomato: View {
     }
 }
 
-// A thicker progress bar with round ends (the system bar, so it still moves on its own)
-private struct Pill: ViewModifier {
-    func body(content: Content) -> some View {
-        content.progressViewStyle(.linear).scaleEffect(x: 1, y: 2.2, anchor: .center).frame(height: 9).clipShape(Capsule())
-    }
-}
 
 // What to show for the time: worked out from whether it's running as far as the Play/Pause switch knows. iOS flips the switch
 // the instant it's tapped and draws the card again, so the time and the bar stop (or start) at that moment; the app makes it
@@ -162,7 +156,7 @@ private struct Face: View {
                 .layoutPriority(1)
                 Spacer(minLength: 8)
                 ClockTime(c: c)
-                    .font(look.island ? .system(.title2, design: .rounded).weight(.bold) : .system(size: 34, weight: .bold, design: .rounded))
+                    .font(look.island ? Font.system(.title2, design: .rounded).weight(.bold) : Font.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundStyle(look.time)
                     .multilineTextAlignment(.trailing).frame(minWidth: look.island ? 70 : 96, alignment: .trailing)
             }
