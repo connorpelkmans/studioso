@@ -15995,11 +15995,23 @@ function playAlarm(name, vol, repeats){
   alarmGain = ac.createGain(); alarmGain.gain.value = 1; alarmGain.connect(ac.destination);
   let t = ac.currentTime + 0.05; const s = SOUNDS[name] || SOUNDS.chime;
   for (let r = 0; r < repeats; r++) t += s.play(ac, alarmGain, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
+  audioIdle((t - ac.currentTime) * 1000 + 300);
   return true;
+}
+// The sound system is switched off once a sound has played: left running, iOS counts the app as playing audio (a speaker
+// in the Dynamic Island, squeezing the timer out of it). Switching it back on later needs no tap.
+let audioIdleT = 0;
+function audioIdle(ms){
+  clearTimeout(audioIdleT);
+  audioIdleT = setTimeout(() => {
+    try { if (AC && AC.state === "running") AC.suspend().catch(() => {}); } catch(e) {}
+    try { if (navigator.audioSession) navigator.audioSession.type = "auto"; } catch(e) {}
+  }, Math.max(0, ms));
 }
 function stopAlarm(){
   alarmOsc.forEach(o => { try { o.stop(); } catch(e) {} }); alarmOsc = [];
   if (alarmGain) { try { alarmGain.disconnect(); } catch(e) {} alarmGain = null; }
+  audioIdle(150);
   clearInterval(flashT); flashT = null; setTitle();
 }
 
@@ -16009,7 +16021,7 @@ function pomoSchedule(){
   if (pomo.running) pomoTimer = setTimeout(() => pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }), Math.max(0, pomo.endAt - Date.now()) + 30);
 }
 function pomoStart(){
-  audio();
+  audio(); audioIdle(400);   // switched on with the tap, so the alarm can play later, then off again
   const cfg = pomoCfg();
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();

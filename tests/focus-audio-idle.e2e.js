@@ -1,0 +1,12 @@
+// node tests/focus-audio-idle.e2e.js: the alarm's sound system is switched off once a sound has played and after a timer
+// starts (left running, iOS shows the app as playing audio, with a speaker in the Dynamic Island squeezing out the timer)
+const http=require("http"),fs=require("fs"),path=require("path");const {chromium,executablePath}=require("./pw");const root=path.join(__dirname,"..");const assert=require("assert");let n=0;const ok=(c,m)=>{n++;assert(c,m);console.log("ok -",m);};
+const server=http.createServer((q,r)=>{let p=decodeURIComponent(new URL(q.url,"http://x").pathname);if(p==="/")p="/index.html";const f=path.join(root,p);if(!fs.existsSync(f)||fs.statSync(f).isDirectory()){r.writeHead(404);r.end();return;}r.writeHead(200,{"content-type":{".html":"text/html",".js":"text/javascript",".css":"text/css"}[path.extname(f)]||"application/octet-stream"});fs.createReadStream(f).pipe(r);});
+(async()=>{try{await new Promise(r=>server.listen(0,r));const b=await chromium.launch({executablePath,args:["--autoplay-policy=no-user-gesture-required"]});const ctx=await b.newContext();
+await ctx.addInitScript(()=>{localStorage.setItem("studioso:welcomed","1");localStorage.setItem("studioso:sb",JSON.stringify("local"));localStorage.setItem("sb:onboarded","1");localStorage.setItem("studyboard:tour","1");const A=window.AudioContext;window.AudioContext=class extends A{constructor(...a){super(...a);window.__ac=this;}};});
+const page=await ctx.newPage();page.on("pageerror",e=>console.log("ERR",e.message));await page.goto("http://localhost:"+server.address().port+"/");await page.waitForTimeout(1500);
+await page.evaluate(()=>document.querySelectorAll("dialog[open]").forEach(d=>d.close()));
+const act=a=>page.evaluate(a=>{const x=document.createElement("button");x.dataset.act=a;document.body.appendChild(x);x.click();x.remove();},a);
+await act("pomo-start");await page.waitForTimeout(100);await page.waitForTimeout(800);ok(await page.evaluate(()=>window.__ac&&window.__ac.state)==="suspended","starting a timer switches the sound on with the tap, then off again");
+await act("pomo-open");await page.waitForTimeout(400);await act("pomo-test");await page.waitForTimeout(300);ok(await page.evaluate(()=>window.__ac.state)==="running","the test sound plays");await page.waitForTimeout(3500);ok(await page.evaluate(()=>window.__ac.state)==="suspended","and the sound system is off again once it has played");console.log("focus-audio-idle.e2e: "+n+" checks passed");
+}finally{}await b.close();server.close();})().catch(e=>{console.error(e);process.exit(1);});
