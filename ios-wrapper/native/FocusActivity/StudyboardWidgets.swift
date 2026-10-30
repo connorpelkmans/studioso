@@ -122,17 +122,16 @@ private struct Round: View {
     }
 }
 
-// The Lock Screen card, in Studyboard's own light and dark colours (set here, so text never lands on a matching background)
+// The Lock Screen card: Studyboard's dark blue in light and dark mode alike, painted solid (the Lock Screen would
+// otherwise tint and blur it with the wallpaper)
 private struct LockCard: View {
     let s: StudyboardFocusAttributes.ContentState
     let accent: String
-    @Environment(\.colorScheme) private var scheme
     var body: some View {
-        let dark = scheme == .dark
-        let ink = dark ? Color(hex: "#E7EEFA") : Color(hex: "#0F1F3D")
-        let muted = dark ? Color(hex: "#93A3C2") : Color(hex: "#56657F")
-        let bg = dark ? Color(hex: "#111E38") : Color(hex: "#F7F9FC")
-        let time = s.mode == "focus" ? Color(hex: dark ? "#FF6B55" : "#D9432C") : Color(hex: dark ? "#3CC794" : "#17865F")
+        let navy = Color(hex: "#0E2A56")
+        let ink = Color(hex: "#E7EEFA")
+        let muted = Color(hex: "#A9BADC")
+        let time = s.mode == "focus" ? Color(hex: "#FF6B55") : Color(hex: "#3CC794")
         VStack(spacing: 12) {
         HStack(spacing: 14) {
             Tomato(s: s, size: 34)
@@ -145,10 +144,11 @@ private struct LockCard: View {
             TimeLeft(s: s).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(time)
                 .multilineTextAlignment(.trailing).frame(minWidth: 96, alignment: .trailing)
         }
-        Controls(s: s, fill: time, second: dark ? Color(hex: "#2A3B5E") : Color(hex: "#56657F"))
+        Controls(s: s, fill: time, second: Color.white.opacity(0.16))
         }
         .padding(16)
-        .activityBackgroundTint(bg)
+        .background(navy)
+        .activityBackgroundTint(navy)
         .activitySystemActionForegroundColor(ink)
     }
 }
