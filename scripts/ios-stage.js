@@ -131,6 +131,19 @@ if (fs.existsSync(plistFile)) {
   } catch (e) {}
 }
 
+// The app's name as people see it (Home Screen, permission and sign-in prompts): Studyboard, not Capacitor's starting "App"
+{
+  const plist = path.join(wrap, "ios", "App", "App", "Info.plist");
+  try {
+    if (fs.existsSync(plist)) {
+      const t = fs.readFileSync(plist, "utf8");
+      const u = t.replace(/(<key>CFBundleDisplayName<\/key>\s*<string>)(?:App|\$\(PRODUCT_NAME\))(<\/string>)/, "$1Studyboard$2");
+      const v = /<key>CFBundleDisplayName<\/key>/.test(u) ? u : u.replace(/<dict>/, "<dict>\n\t<key>CFBundleDisplayName</key>\n\t<string>Studyboard</string>");
+      if (v !== t) { fs.writeFileSync(plist, v); console.log("ios-stage: the app is named Studyboard (was App)"); }
+    }
+  } catch (e) {}
+}
+
 const cli = path.join(wrap, "node_modules", "@capacitor", "cli");
 if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["cap", "sync", "ios"], {cwd: wrap, stdio: "inherit"});
