@@ -133,13 +133,13 @@ private struct Round: View {
     }
 }
 
-// The Lock Screen card: Studyboard's dark blue in light and dark mode alike, painted solid (the Lock Screen would
-// otherwise tint and blur it with the wallpaper)
+// The Lock Screen card: Studyboard's deep blue in light and dark mode alike, as a see-through tint on the Lock Screen's
+// glass (the wallpaper shows through, blurred)
 private struct LockCard: View {
     let s: StudyboardFocusAttributes.ContentState
     let accent: String
     var body: some View {
-        let navy = Color(hex: "#0E2A56")
+        let navy = Color(hex: "#071433")
         let ink = Color(hex: "#E7EEFA")
         let muted = Color(hex: "#A9BADC")
         let time = s.mode == "focus" ? Color(hex: "#FF6B55") : Color(hex: "#3CC794")
@@ -158,8 +158,7 @@ private struct LockCard: View {
         Controls(s: s, fill: time, second: Color.white.opacity(0.16))
         }
         .padding(16)
-        .background(navy)
-        .activityBackgroundTint(navy)
+        .activityBackgroundTint(navy.opacity(0.62))
         .activitySystemActionForegroundColor(ink)
     }
 }
