@@ -2816,6 +2816,8 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
 @media (max-width:440px){.cs-dates{grid-template-columns:1fr}}
 
 
+.cl-full-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px}
+.cl-full-btn svg{width:20px;height:20px;flex:none}
 /* ===== module: 60-reminders.css ===== */
 /* Reminders and Notifications */
 .rm-sheet fieldset{gap:8px}

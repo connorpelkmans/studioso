@@ -20,7 +20,7 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$3.99", "yearly": "$29.99", "trialDays": 7, "currency": "USD"}'),
-  ('limits', '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
+  ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
   ('checkout_url_yearly', '""'),
@@ -33,6 +33,10 @@ on conflict (key) do nothing;
 -- Free cloud file storage went from 100 MB to 25 MB
 update public.studyboard_config set value = jsonb_set(value, '{free,fileMB}', '25')
   where key = 'limits' and value #> '{free,fileMB}' = '100'::jsonb;
+
+-- Free cloud file storage and synced data went from 25 MB to 20 MB
+update public.studyboard_config set value = jsonb_set(jsonb_set(value, '{free,fileMB}', '20'), '{free,dataMB}', '20'), updated_at = now()
+  where key = 'limits' and value #> '{free,fileMB}' = '25'::jsonb and value #> '{free,dataMB}' = '25'::jsonb;
 
 -- The free limits were lowered
 update public.studyboard_config set
@@ -113,7 +117,7 @@ create or replace function public.studyboard_limit(uid uuid, name text) returns 
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   tier text := case when public.studyboard_limits_pro(uid) then 'pro' else 'free' end;
-  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
+  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
                                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
