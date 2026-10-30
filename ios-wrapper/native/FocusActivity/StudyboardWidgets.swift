@@ -178,7 +178,7 @@ struct StudyboardFocusLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     // a counting-down time takes all the room it's given, so it's pushed to the right edge itself
                     TimeLeft(s: s).font(.system(.title2, design: .rounded).weight(.bold)).foregroundStyle(modeColor(s))
-                        .multilineTextAlignment(.trailing).frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 4)
+                        .multilineTextAlignment(.trailing).frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 10)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(spacing: 10) {
