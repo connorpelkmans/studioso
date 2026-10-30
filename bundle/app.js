@@ -15989,6 +15989,7 @@ const SOUNDS = {
 };
 function playAlarm(name, vol, repeats){
   stopAlarm();
+  if (name === "none") return true;   // "No Sound": the on-screen alert and notification only
   const ac = audio(); if (!ac) return false;
   alarmGain = ac.createGain(); alarmGain.gain.value = 1; alarmGain.connect(ac.destination);
   let t = ac.currentTime + 0.05; const s = SOUNDS[name] || SOUNDS.chime;
@@ -16214,7 +16215,10 @@ function wavB64(name, vol){
 function nativeAlarm(){
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (!FA || typeof FA.alarm !== "function") return;
-  const cfg = pomoCfg(), snd = SOUNDS[cfg.sound] ? cfg.sound : "chime", name = `sb-${snd}-${Math.round(Math.max(0.05, Math.min(1, Number(cfg.volume) || 0.8)) * 100)}.wav`;
+  const cfg0 = pomoCfg();
+  // No Sound: iOS shows the notification quietly and sets no alarm
+  if (cfg0.sound === "none") { FA.alarm({name: "none"}).then(ok => { ISLAND.ring = !!ok; }, () => {}); return; }
+  const cfg = cfg0, snd = SOUNDS[cfg.sound] ? cfg.sound : "chime", name = `sb-${snd}-${Math.round(Math.max(0.05, Math.min(1, Number(cfg.volume) || 0.8)) * 100)}.wav`;
   FA.hasSound(name).then(has => has ? FA.alarm({name}) : wavB64(snd, Number(cfg.volume) || 0.8).then(wav => FA.alarm({name, wav}), () => FA.alarm({name})))
     .then(ok => { ISLAND.ring = !!ok; }, () => {});
 }
@@ -16278,7 +16282,7 @@ function renderPomo(){
           <label class="mi-check"><input type="checkbox" id="psAutoBreak" ${cfg.autoBreak ? "checked" : ""}> Start breaks automatically</label>
           <label class="mi-check"><input type="checkbox" id="psAutoFocus" ${cfg.autoFocus ? "checked" : ""}> Start the next focus session automatically</label>
           <div class="two">
-            <label class="f">Alarm Sound<select id="psSound">${Object.entries(SOUNDS).map(([k, v]) => `<option value="${k}" ${k === cfg.sound ? "selected" : ""}>${v.label}</option>`).join("")}</select></label>
+            <label class="f">Alarm Sound<select id="psSound">${Object.entries(SOUNDS).map(([k, v]) => `<option value="${k}" ${k === cfg.sound ? "selected" : ""}>${v.label}</option>`).join("")}<option value="none" ${cfg.sound === "none" ? "selected" : ""}>No Sound</option></select></label>
             <label class="f">Volume<input type="range" id="psVol" min="0.1" max="1" step="0.1" value="${esc(cfg.volume)}"></label>
           </div>
           <button type="button" class="btn small" data-act="pomo-test">Play Test Sound</button>
@@ -16329,7 +16333,7 @@ function pomoAction(act, el){
     case "pomo-reset": pomoReset(); return true;
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoPickMode(el.dataset.id); return true;
-    case "pomo-test": { const cfg = pomoCfg(); if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
+    case "pomo-test": { const cfg = pomoCfg(); if (($("#psSound") ? $("#psSound").value : cfg.sound) === "none") { toast("The alarm is set to No Sound"); return true; } if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
     case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
       { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }

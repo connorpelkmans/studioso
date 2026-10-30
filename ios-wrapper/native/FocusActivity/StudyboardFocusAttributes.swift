@@ -121,8 +121,12 @@ public enum StudyboardFocusAlarm {
         center.add(UNNotificationRequest(identifier: id, content: c, trigger: trigger))
     }
 
+    // "No Sound" picked: no alarm, and the notification arrives quietly
+    public static var silent: Bool { UserDefaults.standard.string(forKey: soundKey) == "none" }
+
     // the picked sound, saved by the app in Library/Sounds (where iOS looks for notification sounds)
-    static func sound() -> UNNotificationSound {
+    static func sound() -> UNNotificationSound? {
+        if silent { return nil }
         let name = UserDefaults.standard.string(forKey: soundKey) ?? ""
         if !name.isEmpty, let dir = soundsDir(), FileManager.default.fileExists(atPath: dir.appendingPathComponent(name).path) {
             return UNNotificationSound(named: UNNotificationSoundName(rawValue: name))

@@ -47,7 +47,8 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, Notific
     }
     // Ask once to ring at the end of a session, and save the alarm sound (a short .wav the page makes) for it to use
     @objc func alarm(_ call: CAPPluginCall) {
-        if let n = Self.soundName(call.getString("name")), let dir = StudyboardFocusAlarm.soundsDir() {
+        if call.getString("name") == "none" { UserDefaults.standard.set("none", forKey: StudyboardFocusAlarm.soundKey) }
+        else if let n = Self.soundName(call.getString("name")), let dir = StudyboardFocusAlarm.soundsDir() {
             let f = dir.appendingPathComponent(n)
             if let b64 = call.getString("wav"), let data = Data(base64Encoded: b64), data.count < 3_000_000, !FileManager.default.fileExists(atPath: f.path) {
                 try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -144,7 +145,7 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, Notific
     // whether this phone takes real alarms and Studyboard may set them
     @objc public static func ready() -> NSNumber {
         #if canImport(AlarmKit)
-        if #available(iOS 26.0, *) { return NSNumber(value: AlarmManager.shared.authorizationState == .authorized) }
+        if #available(iOS 26.0, *) { return NSNumber(value: AlarmManager.shared.authorizationState == .authorized && !StudyboardFocusAlarm.silent) }
         #endif
         return NSNumber(value: false)
     }
@@ -185,7 +186,7 @@ enum StudyboardAlarms {
     static func sync(_ mode: String, _ endsAt: Date?) async {
         let m = AlarmManager.shared, d = UserDefaults.standard
         if let s = d.string(forKey: key), let old = UUID(uuidString: s) { try? m.cancel(id: old); d.removeObject(forKey: key) }
-        guard let endsAt = endsAt, endsAt.timeIntervalSinceNow > 1, m.authorizationState == .authorized else { return }
+        guard let endsAt = endsAt, endsAt.timeIntervalSinceNow > 1, m.authorizationState == .authorized, !StudyboardFocusAlarm.silent else { return }
         let title: LocalizedStringResource = mode == "focus" ? "Focus Session Complete" : "Break's Over"
         // iOS 26.1 brought the system's own Stop button; 26.0 needs it spelled out
         let alert: AlarmPresentation.Alert
