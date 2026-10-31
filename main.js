@@ -656,6 +656,62 @@ ipcMain.on("shot:done", (e, r) => {
   } catch (err) { shotNote("Couldn't use that part of the screen."); }
 });
 // The Try it button on the settings page
+// ---------- Mac App Store: Studyboard Pro through Apple's in-app purchase ----------
+// The page asks (preload iap.*); Apple's own sheet takes the payment; the page then hands Apple's receipt to RevenueCat, whose
+// webhook switches Pro on (supabase-functions/billing-webhook), the same as on iPhone. Only in the Mac App Store build.
+if (IS_MAS) {
+  const { inAppPurchase } = require("electron");
+  const waiting = new Map();   // product id -> resolve, for the purchase in progress
+  const PID = /^[A-Za-z0-9._-]{1,100}$/;
+  inAppPurchase.on("transactions-updated", (event, txs) => {
+    for (const t of txs || []) {
+      const pid = t && t.payment && t.payment.productIdentifier, w = waiting.get(pid), st = t && t.transactionState;
+      if (st === "purchased" || st === "restored") {
+        try { inAppPurchase.finishTransactionByDate(t.transactionDate); } catch (e) {}
+        if (w) { waiting.delete(pid); w({ status: "success" }); }
+      } else if (st === "failed") {
+        try { inAppPurchase.finishTransactionByDate(t.transactionDate); } catch (e) {}
+        // Apple's code 2 is "the person cancelled"
+        if (w) { waiting.delete(pid); w(t.errorCode === 2 ? { status: "cancelled" } : { status: "error", message: "The purchase didn't go through. You weren't charged." }); }
+      } else if (st === "deferred" && w) {
+        waiting.delete(pid); w({ status: "error", message: "The purchase is waiting for approval (Ask to Buy). Pro turns on when it's approved." });
+      }
+    }
+  });
+  // [{id, title, price}] for the ids Apple sells in this person's App Store country (none: not sold there)
+  ipcMain.handle("iap:products", async (e, ids) => {
+    if (!fromMain(e) || !Array.isArray(ids)) return [];
+    try {
+      const list = await inAppPurchase.getProducts(ids.filter(x => typeof x === "string" && PID.test(x)).slice(0, 10));
+      return (list || []).map(p => ({ id: p.productIdentifier, title: p.localizedTitle, price: p.formattedPrice }));
+    } catch (err) { return []; }
+  });
+  // {status: "success" | "cancelled" | "error" | "timeout", message?}
+  ipcMain.handle("iap:buy", (e, id, user) => new Promise(resolve => {
+    if (!fromMain(e) || typeof id !== "string" || !PID.test(id)) return resolve({ status: "error", message: "That plan isn't available right now." });
+    if (!inAppPurchase.canMakePayments()) return resolve({ status: "error", message: "Purchases are turned off on this Mac (Screen Time > Content & Privacy)." });
+    const prev = waiting.get(id); if (prev) prev({ status: "error", message: "Another purchase was started." });
+    waiting.set(id, resolve);
+    const opts = { quantity: 1 };
+    if (typeof user === "string" && /^[0-9a-f-]{36}$/i.test(user)) opts.username = user;
+    inAppPurchase.purchaseProduct(id, opts).then(added => { if (!added && waiting.get(id) === resolve) { waiting.delete(id); resolve({ status: "error", message: "That plan isn't available right now." }); } },
+      () => { if (waiting.get(id) === resolve) { waiting.delete(id); resolve({ status: "error", message: "The purchase didn't start. Try again." }); } });
+    setTimeout(() => { if (waiting.get(id) === resolve) { waiting.delete(id); resolve({ status: "timeout" }); } }, 15 * 60000);
+  }));
+  // Asks Apple to send back earlier purchases (they arrive as "restored" above and update the receipt)
+  ipcMain.handle("iap:restore", async e => {
+    if (!fromMain(e)) return false;
+    try { inAppPurchase.restoreCompletedTransactions(); } catch (err) { return false; }
+    await new Promise(r => setTimeout(r, 6000));
+    return true;
+  });
+  // Apple's receipt for this Mac's purchases, base64 ("" when there isn't one yet)
+  ipcMain.handle("iap:receipt", async e => {
+    if (!fromMain(e)) return "";
+    try { const f = inAppPurchase.getReceiptURL(); return f && fs.existsSync(f) ? fs.readFileSync(f).toString("base64") : ""; } catch (err) { return ""; }
+  });
+}
+
 // ---------- Sign in with Google or Apple ----------
 // The provider's page opens in the computer's own browser (Google refuses sign-in inside apps' own windows) and returns to a
 // one-time page served here on 127.0.0.1, which hands the result back to the app. Only one at a time; it closes after

@@ -40,6 +40,8 @@ for (const rel of ["build-resources/entitlements.mas.plist", "build-resources/en
 edit("ios-wrapper/App.entitlements.template.plist", s => s.replace(/applinks:[^<]+/g, "applinks:" + domain));
 // 4. RevenueCat public key for in-app purchases
 if (rc) edit("ios-wrapper/native-bridge.js", s => s.replace(/ios: "appl_[^"]*"/, `ios: "${rc}"`));
+// the same key for the Mac App Store build (src/js/10-plan-mac.js)
+if (rc) edit("src/js/10-plan-mac.js", s => s.replace(/const MAC_RC_KEY = "appl_[^"]*"/, `const MAC_RC_KEY = "${rc}"`));
 // 5. Universal links file, served by the website at /.well-known/apple-app-site-association
 {
   const tpl = JSON.parse(fs.readFileSync(path.join(root, "ios-wrapper/apple-app-site-association.template.json"), "utf8"));

@@ -70,6 +70,15 @@ Check inside it: sign in and sync, Choose Folder for the data folder, export a b
 npm run dist:mas           # makes dist/mas-universal/Studyboard-<version>-mas.pkg
 ```
 
+**Buying Pro in the Mac app.** The Mac App Store build sells Pro with Apple's in-app purchase. The Mac app has no website link, because the US storefront rule can't be checked from the Mac build, so it uses in-app purchase everywhere.
+* Apple's sheet takes the payment (`main.js`, Electron's `inAppPurchase`). The page then sends Apple's receipt to RevenueCat for the signed-in account (`src/js/10-plan-mac.js`), and RevenueCat's webhook switches Pro on, as it does for iPhone.
+* It uses the same RevenueCat key as iPhone. `npm run apple:setup -- --revenuecat appl_...` fills in both. Until the key is set, the Mac app says buying isn't available in this build.
+* The Mac and iPhone apps share one bundle ID, so in RevenueCat the same App Store app covers both. Nothing extra is needed there.
+* In App Store Connect, open your app's page and add **macOS** with **+ Add Platform** in the sidebar, if the app was created for iOS only. The subscriptions are shared by both platforms (Universal Purchase): someone who subscribes on iPhone has Pro on the Mac, and the reverse.
+* Countries where the subscriptions aren't available (the EU, if you leave them unticked) get "Studyboard Pro isn't available in your country yet" when they try to buy.
+* To test: `npm run dist:mas-dev`, open the app, sign in, and buy with a **Sandbox** account (System Settings > App Store > Sandbox Account on macOS 14 and later). Check that Pro turns on, then try **Restore Purchases**.
+* Sign in with Apple in the Mac app opens your web browser (the web sign-in with the Services ID), so the Mac App ID needs no extra capability for it.
+
 3. Open **Transporter**, sign in, drag the `.pkg` in, **Deliver**. After 10 to 30 minutes the build appears in App Store
    Connect > your app > **macOS** > Build.
 
