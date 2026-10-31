@@ -781,7 +781,7 @@ These are the same two values you pasted into Studyboard when you first connecte
 This adds a list of your devices and a list of upcoming reminders (only your account can see them), and a schedule that checks for due reminders every 5 minutes. Your two values are kept encrypted in Supabase Vault.
 
 **2. Make your keys** (in Studyboard)
-Open **Settings > Reminders and Notifications > Set Up Phone Notifications** and click **Make Keys**. Studyboard shows three values. Leave that screen open.
+Open **Settings > Reminders and Notifications > Set Up Notifications** (it says **Set Up Phone Notifications** on a phone) and click **Make Keys**. Studyboard shows three values. Leave that screen open.
 
 **3. Add the keys to Supabase**
 In Supabase open **Edge Functions**, then **Secrets**. Add three secrets, copying each value from Studyboard with its **Copy** button:
@@ -804,7 +804,7 @@ The phone apps get reminders through Google's and Apple's own push services inst
 Devices whose token Google or Apple reports as no longer valid are removed automatically. Run `supabase-reminders.sql` again after updating, so the device list accepts phone app tokens (the `kind` column).
 
 **5. Turn it on for each device**
-On each phone or computer you want reminders on, open Studyboard, go to **Set Up Phone Notifications**, click **Turn On for This Device**, and allow notifications. Then click **Send a Test Now**. A test notification should arrive within a few seconds.
+On each phone or computer you want reminders on, open Studyboard, go to **Set Up Notifications** (**Set Up Phone Notifications** on a phone), click **Turn On for This Device**, and allow notifications. Then click **Send a Test Now**. A test notification should arrive within a few seconds.
 
 **iPhone and iPad:** notifications only work in the Home Screen app (iOS 16.4 or newer). In Safari tap **Share**, then **Add to Home Screen**, open Studyboard from the new icon, and do step 5 there.
 
@@ -817,7 +817,7 @@ On each phone or computer you want reminders on, open Studyboard, go to **Set Up
 - If your Supabase project is paused, phone reminders stop until it's running again. The keep-awake ping from Part 2 of the setup prevents this.
 - Each account can have up to 10 devices; turning notifications on for an 11th replaces the one that hasn't checked in for the longest time.
 - **Not arriving?** Check that the three secrets are spelled exactly as above, that **Verify JWT** is off, that you ran `supabase-reminders.sql` after your last update of the function (Logs show "Not allowed" otherwise), and that notifications are allowed for Studyboard in your phone's settings. In Supabase, **Edge Functions > send-reminders > Logs** shows each run, and **Integrations > Cron** shows the 5-minute schedule.
-- **Turn it off on a device:** Set Up Phone Notifications, then **Turn Off Here**.
+- **Turn it off on a device:** Set Up Notifications (Phone Notifications on a phone), then **Turn Off Here**.
 
 ## Widgets and Shortcuts
 

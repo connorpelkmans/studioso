@@ -143,6 +143,9 @@ const RM_CORE = (() => {
   const canNotify = () => "Notification" in window && (() => { try { return window.self === window.top; } catch (e) { return false; } })();
   const perm = () => canNotify() ? Notification.permission : "unsupported";
   const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  // Phones and tablets say "Phone Notifications"; computers just say "Notifications"
+  const mobileDev = () => isIOS() || /Android|Mobi/i.test(navigator.userAgent);
+  const notifName = () => mobileDev() ? "Phone Notifications" : "Notifications";
   const standalone = () => !!((window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone);
   // The App Store / Google Play apps get notifications through APNs / FCM (native-bridge.js)
   const NB = () => window.StudyboardNative || null;
@@ -363,7 +366,7 @@ const RM_CORE = (() => {
       if (!t || !t.token) throw new Error("Notifications weren't allowed. Allow them for Studyboard in your phone's Settings, then try again.");
       const old = lsGet(LS_PUSH, null);
       try { await saveNativeSub(t); }
-      catch (e) { if (missingErr(e)) throw new Error(hostedPush() ? "Phone notifications aren't available yet. Please check back soon." : "The reminders tables aren't on your server yet. Run reminders.sql (step 1), then try again."); throw e; }
+      catch (e) { if (missingErr(e)) throw new Error(hostedPush() ? (mobileDev() ? "Phone notifications" : "Notifications") + " aren't available yet. Please check back soon." : "The reminders tables aren't on your server yet. Run reminders.sql (step 1), then try again."); throw e; }
       if (old && old.endpoint && old.endpoint !== t.kind + ":" + t.token) { try { await sb.from("push_subscriptions").delete().eq("user_id", sbUser.id).eq("endpoint", old.endpoint); } catch (e) {} }
       if (!rmCfg().push) rmSave({push: true}, true);
       Q.missing = false; Q.sig = ""; queueSoon();
@@ -374,7 +377,7 @@ const RM_CORE = (() => {
     if (!pushCapable()) throw new Error("This browser can't get notifications while Studyboard is closed.");
     if (needsHomeScreen()) throw new Error("On iPhone and iPad, add Studyboard to your Home Screen first, then open it from there and try again.");
     if (!cloudOk()) throw new Error("Sign in to your Studyboard account first.");
-    if (!key) throw new Error(hostedPush() ? "Phone notifications aren't available yet. Please check back soon." : "Make your keys first (step 2).");
+    if (!key) throw new Error(hostedPush() ? (mobileDev() ? "Phone notifications" : "Notifications") + " aren't available yet. Please check back soon." : "Make your keys first (step 2).");
     const p = perm() === "granted" ? "granted" : await Notification.requestPermission();
     if (p !== "granted") throw new Error(p === "denied" ? "Notifications are blocked for Studyboard. Allow them in your browser or phone settings, then try again." : "Notifications weren't allowed.");
     const {reg} = await pushSub();
@@ -383,7 +386,7 @@ const RM_CORE = (() => {
     if (sub && !sameKey(sub, key)) { try { await sub.unsubscribe(); } catch (e) {} sub = null; }
     if (!sub) sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: unb64u(key)});
     try { await saveSub(sub); }
-    catch (e) { if (missingErr(e)) throw new Error(hostedPush() ? "Phone notifications aren't available yet. Please check back soon." : "The reminders tables aren't on your server yet. Run reminders.sql (step 1), then try again."); throw e; }
+    catch (e) { if (missingErr(e)) throw new Error(hostedPush() ? (mobileDev() ? "Phone notifications" : "Notifications") + " aren't available yet. Please check back soon." : "The reminders tables aren't on your server yet. Run reminders.sql (step 1), then try again."); throw e; }
     if (!rmCfg().push) rmSave({push: true}, true);
     Q.missing = false; Q.sig = ""; queueSoon();
     return true;
@@ -457,7 +460,7 @@ const RM_CORE = (() => {
     const set = !!lsGet(LS_PUSH, null);
     const sub = !sbConfig() || sbLocalOnly() || !sbUser ? "Needs a Studyboard account. Without it, reminders come only while Studyboard is open, or from the desktop app."
       : set ? "On for this device. Reminders arrive even when Studyboard is closed." : "Get reminders on your phone or computer even when Studyboard is closed.";
-    return `<div class="menu-list rm-list"><button type="button" data-act="rm-phone"><span>Set Up Phone Notifications<span class="sub">${esc(sub)}</span></span></button></div>`;
+    return `<div class="menu-list rm-list"><button type="button" data-act="rm-phone"><span>Set Up ${notifName()}<span class="sub">${esc(sub)}</span></span></button></div>`;
   }
   function comingHtml(){
     const now = Date.now(), up = LIST.filter(r => r.at > now).slice(0, 5);
@@ -555,7 +558,7 @@ const RM_CORE = (() => {
           <li><b>Check it works.</b> <button type="button" class="btn small" data-act="rm-ptest" ${set ? "" : "disabled"}>Send a Test Now</button></li>
         </ol>
         <p class="status-msg" id="rmPMsg" aria-live="polite">${Q.missing ? "Your server doesn't have the reminder tables yet. Run reminders.sql (step 1)." : ""}</p>`;
-    openSheet(`<div class="sheet rm-sheet">${head("Set Up Phone Notifications")}<div class="sheet-body">${body}</div>
+    openSheet(`<div class="sheet rm-sheet">${head("Set Up " + notifName())}<div class="sheet-body">${body}</div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="rm-open">Back</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
   }
   const pmsg = t => { const m = $("#rmPMsg"); if (m) m.textContent = t; };
