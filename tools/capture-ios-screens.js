@@ -1,9 +1,14 @@
-// node tools/capture-ios-screens.js [outDir] [only...]
+// node tools/capture-ios-screens.js [outDir] [only...]          iPhone 6.9" (1320 x 2868)
+// IPAD=1 node tools/capture-ios-screens.js [outDir] [only...]   iPad 13" (2064 x 2752)
 // App Store screenshots for iPhone (6.9", 1320x2868): app screens captured at iPhone size with the app tour's sample semester
 // (the same one tools/capture-store-screens.js uses), then framed with a headline on Studyboard's navy (tools/ios-frame.html).
 const http = require("http"), fs = require("fs"), path = require("path");
 const {chromium, executablePath} = require("../tests/pw");
 const root = path.join(__dirname, ".."), OUT = process.argv[2] || path.join(root, "build-resources/ios-listing/screenshots");
+const IPAD = process.env.IPAD === "1";
+// the screen size in points, the status bar's height, the scale, and the frame page
+const DEV = IPAD ? {w: 1032, h: 1376, bar: 24, scale: 2, frame: "/tools/ios-frame.html?ipad", ua: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"}
+  : {w: 440, h: 956, bar: 54, scale: 3, frame: "/tools/ios-frame.html", ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"};
 fs.mkdirSync(path.join(OUT, "raw"), {recursive: true});
 // the sample semester, taken from the Microsoft Store script so both stay the same
 const src = fs.readFileSync(path.join(__dirname, "capture-store-screens.js"), "utf8");
@@ -45,8 +50,7 @@ const press = async (page, label) => {
 
 async function shoot(browser, [name, , skin, scheme, tab, steps]) {
   // iPhone 6.9" (440 x 956 points at 3x = 1320 x 2868)
-  const ctx = await browser.newContext({viewport: {width: 440, height: 902}, deviceScaleFactor: 3, isMobile: true, hasTouch: true, colorScheme: scheme, serviceWorkers: "block",
-    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"});
+  const ctx = await browser.newContext({viewport: {width: DEV.w, height: DEV.h - DEV.bar}, deviceScaleFactor: DEV.scale, isMobile: true, hasTouch: true, colorScheme: scheme, serviceWorkers: "block", userAgent: DEV.ua});
   await ctx.clock.setFixedTime(NOW);
   const seed = JSON.parse(JSON.stringify(SEED)); seed.settings.style = {skin}; seed.settings.owned = ["skin:" + skin];
   await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) {
@@ -66,8 +70,8 @@ async function shoot(browser, [name, , skin, scheme, tab, steps]) {
 }
 // The frame: headline over the screen, on Studyboard navy, at exactly 1320 x 2868
 async function frame(browser, [name, headline]) {
-  const ctx = await browser.newContext({viewport: {width: 440, height: 956}, deviceScaleFactor: 3});
-  const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/tools/ios-frame.html");
+  const ctx = await browser.newContext({viewport: {width: DEV.w, height: DEV.h}, deviceScaleFactor: DEV.scale});
+  const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + DEV.frame);
   const shot = "data:image/png;base64," + fs.readFileSync(path.join(OUT, "raw", name + ".png")).toString("base64");
   await page.evaluate(([shot, headline]) => window.setShot(shot, headline), [shot, headline]);
   await page.evaluate(() => Promise.all([document.fonts.ready, document.getElementById("shot").decode()])); await page.waitForTimeout(300);
@@ -77,8 +81,7 @@ async function frame(browser, [name, headline]) {
 
 // For App Store Connect's subscription Review Information: the Pro sheet as the store app shows it, plain (no frame)
 async function review(browser) {
-  const ctx = await browser.newContext({viewport: {width: 440, height: 956}, deviceScaleFactor: 3, isMobile: true, hasTouch: true, colorScheme: "light", serviceWorkers: "block",
-    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"});
+  const ctx = await browser.newContext({viewport: {width: DEV.w, height: DEV.h}, deviceScaleFactor: DEV.scale, isMobile: true, hasTouch: true, colorScheme: "light", serviceWorkers: "block", userAgent: DEV.ua});
   await ctx.clock.setFixedTime(NOW);
   const seed = JSON.parse(JSON.stringify(SEED)); seed.settings.style = {skin: "classic"};
   await ctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) {
