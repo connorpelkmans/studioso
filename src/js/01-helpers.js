@@ -446,7 +446,12 @@ $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toast
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
 // Empty pages: two notebook cards and Mochi's sprout, drawn in the theme's colours
 // Empty-screen art: Mochi in front of a drawing that fits the screen.
-// kind: "board", "courses", "quizzes", "files", "notes" or "groups"; anything else gets the stack of pages (Flashcards).
+// kind: "board", "today", "duedates", "courses", "quizzes", "files", "notes" or "groups"; anything else gets the stack of pages (Flashcards).
+// Buttons under an empty Today's Plan or Due Dates: with no courses yet, syncing the school site comes first
+function firstStepBtns(){
+  const sync = `<button class="btn primary" data-act="lms-open">Sync School Site</button>`;
+  return `<div class="row-actions">${inPreview() ? `<button class="btn primary" data-act="new-task">Add a Task</button>` : coursesArr().length ? `<button class="btn primary" data-act="new-task">Add a Task</button>` : `${sync}<button class="btn small" data-act="new-task">Add a Task</button>`}</div>`;
+}
 function emptyArt(kind){
   const star = (x, y, r, c) => { const a = +(r * .18).toFixed(2), b = +(r * .82).toFixed(2); return `<path class="${c}" d="M${x} ${y - r}q${a} ${b} ${r} ${r}q-${b} ${a}-${r} ${r}q-${a}-${b}-${r}-${r}q${b}-${a} ${r}-${r}z"/>`; };
   const stars = () => star(172, 32, 7, "es-star") + star(26, 30, 5, "es-star2");
@@ -473,6 +478,14 @@ function emptyArt(kind){
     groups: () => `<rect class="es-card" x="22" y="18" width="92" height="50" rx="16"/><path class="es-card" d="M40 66l-6 14l18-12"/><rect class="es-cardfill" x="36" y="62" width="20" height="5"/>${[50, 68, 86].map(x => `<circle class="es-dot" cx="${x}" cy="43" r="5"/>`).join("")}
       <rect class="es-hl" x="96" y="44" width="84" height="44" rx="15"/><path class="es-hl" d="M160 86l6 12l-18-12z"/><rect class="es-band" x="108" y="58" width="52" height="5" rx="2.5"/><rect class="es-band" x="108" y="70" width="36" height="5" rx="2.5"/>
       ${star(170, 28, 7, "es-star")}${star(26, 100, 5, "es-star2")}`,
+    today: () => `<rect class="es-card" x="44" y="14" width="112" height="100" rx="12"/>
+      ${[30, 52, 74, 96].map(y => `<rect class="es-line" x="54" y="${y}" width="14" height="4" rx="2"/><path class="es-grid" d="M74 ${y + 2}h72"/>`).join("")}
+      <rect class="es-hl" x="78" y="26" width="58" height="16" rx="5"/><rect class="es-okf" x="78" y="48" width="44" height="14" rx="5"/><rect class="es-goldsoft" x="78" y="68" width="62" height="16" rx="5"/>
+      <circle class="es-clockface" cx="158" cy="28" r="14"/><path class="es-hand" d="M158 20v8l6 4"/>${star(26, 28, 5, "es-star2")}`,
+    duedates: () => `<rect class="es-card" x="42" y="20" width="116" height="96" rx="12"/><path class="es-hl2" d="M42 32q0-12 12-12h92q12 0 12 12v10H42z"/>
+      ${[66, 88, 112, 134].map(x => `<rect class="es-ring" x="${x - 3}" y="12" width="6" height="16" rx="3"/>`).join("")}
+      ${[0, 1, 2].map(r => [0, 1, 2, 3, 4, 5].map(c => { const k = r * 6 + c; return `<rect class="${k === 4 ? "es-acc" : k === 9 ? "es-gold" : k === 13 ? "es-ok" : "es-cell"}" x="${52 + c * 17}" y="${52 + r * 16}" width="12" height="10" rx="3"/>`; }).join("")).join("")}
+      <circle class="es-circle" cx="58" cy="57" r="10"/>${star(176, 34, 7, "es-star")}${star(24, 30, 5, "es-star2")}`,
     pages: () => `<g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
     <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>${stars()}`
   };
