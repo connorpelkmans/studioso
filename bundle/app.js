@@ -35918,15 +35918,8 @@ function cleanFile(r) {
 
   /* The three platforms */
   const LINK = (u, t) => `<a href="${esc(safeUrl(u) || "#")}" target="_blank" rel="noopener noreferrer">${t}</a>`;
-  // The example Canvas address, as schools usually name it: canvas.yourschool.ca in Canada, canvas.yourschool.com elsewhere
-  const CANVAS_EX = (() => {
-    try {
-      const langs = [].concat(navigator.languages || [], navigator.language || []).map(String);
-      const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || "");
-      const caZone = /^America\/(Toronto|Vancouver|Edmonton|Winnipeg|Halifax|St_Johns|Regina|Moncton|Glace_Bay|Goose_Bay|Whitehorse|Dawson|Dawson_Creek|Yellowknife|Iqaluit|Rankin_Inlet|Swift_Current|Atikokan|Creston|Fort_Nelson|Cambridge_Bay|Inuvik|Resolute|Thunder_Bay|Nipigon|Rainy_River|Pangnirtung|Blanc-Sablon)$/.test(tz);
-      return langs.some(l => /-CA$/i.test(l)) || caZone ? "canvas.yourschool.ca" : "canvas.yourschool.com";
-    } catch (e) { return "canvas.yourschool.com"; }
-  })();
+  // The example Canvas address: the one every school has, as Instructure hosts it
+  const CANVAS_EX = "yourschool.instructure.com";
   const PROVIDERS = [
     {id: "brightspace", k: "bs", name: "Brightspace", tag: "D2L", host: "", hostPh: "yourschool.brightspace.com", siteHome: "/d2l/home",
       blurb: "Brightspace by D2L",
