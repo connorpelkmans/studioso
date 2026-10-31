@@ -959,7 +959,8 @@ The desktop app uses the website address for share links. If a share sheet in th
 
 **Find your school.** When someone connects a school site by signing in (the iPhone, iPad, Android and desktop apps), they can type their school's name, pick it from the suggestions, and its Brightspace, Canvas or Blackboard address is filled in. The suggestions come from the schools list (`supabase-schools.sql`). The address comes from the `lms-find` function: it tries the addresses schools usually use, starting with the school's own (like `learn.bcit.ca`) and then the provider's (like `bcit.brightspace.com`), checks which one really is that kind of site, and remembers the answer for 30 days. To turn it on:
 1. Run `supabase-lms-find.sql` in the SQL Editor.
-2. Deploy `lms-find` with JWT verification **off**: `supabase functions deploy lms-find --no-verify-jwt`.
+2. For high schools, run `supabase-lms-districts.sql` too. High school sites are run by the school board or district, so it lists each high school's board or district (Ontario, BC and US public schools) with the district's web domains, plus the checked addresses of the boards on Ontario's and BC's shared Brightspace (like `tdsb.elearningontario.ca` and `sd43.onlinelearningbc.com`). The answer is remembered for the whole district, so a district is looked up once a month. `tools/build-lms-districts.py` rebuilds the file from the government lists (its top says where to get them).
+3. Deploy `lms-find` with JWT verification **off**: `supabase functions deploy lms-find --no-verify-jwt`.
 
 If it finds the wrong address for a school, or none, set it by hand (the comment at the top of `supabase-lms-find.sql` shows how). Students can always type the address themselves.
 

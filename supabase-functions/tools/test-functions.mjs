@@ -1083,4 +1083,46 @@ await test("lms-find: looks a school up once, then answers from what it remember
   assert.equal(r.host, "learn.bcit.ca"); assert.ok(!calls.some(u => u.startsWith("https://learn.")), "answered from what it remembered, without looking again");
 });
 
+await test("lms-find: a district's domain from a school website (elite.guhsd.net -> guhsd.net, not a web host)", async () => {
+  assert.equal(lfind.siteDomain("http://elite.guhsd.net"), "guhsd.net");
+  assert.equal(lfind.siteDomain("https://www.isd535.k12.mn.us/schools"), "isd535.k12.mn.us");
+  assert.equal(lfind.siteDomain("http://www.tvdsb.on.ca"), "tvdsb.on.ca");
+  assert.equal(lfind.siteDomain("https://sites.google.com/x/y"), "");
+  assert.equal(lfind.siteDomain("hs:us:061623010628"), "");
+});
+await test("lms-find: high schools use their district (US: the NCES id; Ontario/BC: school_districts) and remember it for the whole district", async () => {
+  const calls = [], saved = [];
+  let kept = { }, dist = { "on:B66052": { domains: ["tdsb.on.ca"], brightspace: "tdsb.elearningontario.ca", shared: false }, "us:0616230": { domains: ["guhsd.net"], brightspace: "", shared: false }, "us:0699999": { domains: ["lcps.org"], brightspace: "", shared: true } };
+  const schools = { "hs:on:890227": { domains: [], web: "", kind: "high_school" }, "hs:us:061623010628": { domains: [], web: "http://elite.guhsd.net", kind: "high_school" }, "hs:us:069999900001": { domains: [], web: "", kind: "high_school" } };
+  const page = { "https://tdsb.elearningontario.ca/d2l/login": "<html>Brightspace d2l</html>", "https://guhsd.instructure.com/login/canvas": "<html>Canvas instructure</html>", "https://lcps.instructure.com/login/canvas": "<html>Canvas instructure, Las Cruces</html>" };
+  const f = async (url, init = {}) => {
+    url = decodeURIComponent(String(url)); calls.push(url);
+    let m;
+    if ((m = /school_lms\?school_key=eq\.([^&]+)/.exec(url))) return new Response(JSON.stringify(kept[m[1]] ? [kept[m[1]]] : []));
+    if (/studyboard_plan_rate_hit/.test(url)) return new Response("true");
+    if ((m = /schools\?key=eq\.([^&]+)/.exec(url))) return new Response(JSON.stringify(schools[m[1]] ? [schools[m[1]]] : []));
+    if ((m = /school_districts\?school_key=eq\.([^&]+)/.exec(url))) return new Response(JSON.stringify(m[1] === "hs:on:890227" ? [{ district: "on:B66052" }] : []));
+    if ((m = /lms_districts\?district=eq\.([^&]+)/.exec(url))) return new Response(JSON.stringify(dist[m[1]] ? [dist[m[1]]] : []));
+    if (/school_lms\?on_conflict/.test(url)) { saved.push(JSON.parse(init.body)); return new Response(null, { status: 201 }); }
+    if (page[url]) return new Response(page[url], { status: 200 });
+    return new Response("", { status: 404 });
+  };
+  const env = { SUPABASE_URL: "https://db", SUPABASE_SERVICE_ROLE_KEY: "svc" };
+  const dd = { env: k => env[k] ?? "", fetch: f, now: () => NOW, log };
+  const ask = (key, lms) => lfind.handle(new Request("https://x/functions/v1/lms-find", { method: "POST", body: JSON.stringify({ key, lms }) }), dd).then(r => r.json());
+  // Ontario: the board's address on the province's Brightspace
+  assert.equal((await ask("hs:on:890227", "brightspace")).host, "tdsb.elearningontario.ca");
+  assert.deepEqual(saved.map(x => x.school_key).sort(), ["d:on:B66052", "hs:on:890227"]);
+  // US: the district from the NCES id, its domain from lms_districts; guhsd.instructure.com is named after the district
+  assert.equal((await ask("hs:us:061623010628", "canvas")).host, "guhsd.instructure.com");
+  assert.ok(saved.some(x => x.school_key === "d:us:0616230" && x.host === "guhsd.instructure.com"));
+  // a shared name (lcps: Loudoun and Las Cruces): the provider address doesn't point back to lcps.org, so it isn't taken
+  assert.equal((await ask("hs:us:069999900001", "canvas")).host, "");
+  // another school in a district already looked up: answered from the district, without looking again
+  kept["d:us:0616230"] = { host: "guhsd.instructure.com", checked_at: new Date(NOW - 3600_000).toISOString() };
+  schools["hs:us:061623099999"] = { domains: [], web: "", kind: "high_school" }; calls.length = 0;
+  assert.equal((await ask("hs:us:061623099999", "canvas")).host, "guhsd.instructure.com");
+  assert.ok(!calls.some(u => u.startsWith("https://guhsd.")), "answered from the district");
+});
+
 console.log(`\n${passed} checks passed`);

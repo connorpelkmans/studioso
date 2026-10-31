@@ -35493,7 +35493,8 @@ function cleanFile(r) {
         const r = await findCall("/functions/v1/lms-find", {key: x.key, lms: P.id});
         if (my !== seq) return;
         if (r && r.host) { host.value = r.host; msg.textContent = `Found it: ${r.host}. Tap Sign In.`; }
-        else msg.textContent = `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.`;
+        else msg.textContent = `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.`
+          + (x.kind === "high_school" ? ` High schools usually share their district's or school board's ${P.name}, so ask a teacher if you're not sure.` : "");
       } catch (e) { if (my === seq) msg.textContent = `Couldn't look it up right now. Type your school's ${P.name} address below.`; }
     };
     inp.addEventListener("input", () => {
