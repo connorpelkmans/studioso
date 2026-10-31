@@ -35451,7 +35451,7 @@ function cleanFile(r) {
         <p style="margin:0">Bring your ${P.name} work into your to-do list and timeline. Studyboard only reads from ${P.name}. It never submits or changes anything there.</p>
         ${desk ? `<div class="bs-way rec"><div class="bs-way-h"><b>Sign In to ${P.name}</b><span class="bs-pill">Recommended</span></div>
           <p class="mini">Everything: ${esc(P.everything)}. You sign in on ${P.name}'s own page, so Studyboard never sees your password.</p>
-          <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"></label>
+          <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"><span class="mini bs-host-note">Your school's address may look different. Use the one in your browser when you're signed in to ${esc(P.name)}.</span></label>
           <button class="btn primary" data-act="${A}-login">Sign In</button></div>` : ""}
         ${extWay}
         ${feedWay}

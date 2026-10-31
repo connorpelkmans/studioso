@@ -372,6 +372,7 @@ dialog:has(> .sheet){overflow:hidden}
 .sheet-foot .spacer{flex:1}
 label.f{display:grid;gap:5px;font-size:.88rem;font-weight:600}
 label.f .hint{font-weight:400;color:var(--muted)}
+label.f .bs-host-note{font-weight:400;color:var(--muted);line-height:1.35}
 label.f .lh{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px}
 label.f .lh .req{margin-left:0}
 input[type=text],input[type=search],input[type=date],input[type=time],input[type=number],input[type=url],select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:max(16px,1rem);font-weight:400}
