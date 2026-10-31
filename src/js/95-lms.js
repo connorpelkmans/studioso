@@ -67,7 +67,7 @@ function cleanFile(r) {
 })();
 /* LMS-GRAB-END */
 (() => {
-  const FIELDS = ["bs", "cv", "bb", "sg", "gc"];
+  const FIELDS = ["bs", "cv", "bb", "md", "sg", "gc"];
   const LMS = {};
   /* What a school site says about one item */
   const LT = (x, n) => htmlText(String(x == null ? "" : x), {max: n, line: true}), MT = (x, n) => htmlText(String(x == null ? "" : x), {max: n});
@@ -140,7 +140,7 @@ function cleanFile(r) {
       <ol class="lms-cr">${rub.cr.map(x => { const g = got[x.t]; return `<li><div class="lms-cr-top"><b>${esc(x.t)}</b><span class="mini">${g && g.pts != null ? `${esc(g.pts)} / ` : ""}${esc(x.pts)} pts</span></div>${x.d ? `<p class="mini">${esc(x.d)}</p>` : ""}
         ${x.lv.length ? `<ul class="lms-lv">${x.lv.map(v => `<li class="${g && g.lv && g.lv === v.t ? "got" : ""}"><span class="lms-lv-t">${esc(v.t || "Level")}${v.pts != null ? ` <span class="mini">${esc(v.pts)}</span>` : ""}</span>${v.d ? `<span class="mini">${esc(v.d)}</span>` : ""}</li>`).join("")}</ul>` : ""}</li>`; }).join("")}</ol></details>`;
   }
-  const FNAME = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard", sg: "Schoology", gc: "Google Classroom"};
+  const FNAME = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard", md: "Moodle", sg: "Schoology", gc: "Google Classroom"};
   /* Where marks come from. "grades" is the platform's Grades page; the rest are places a mark can be when Grades doesn't show it (yet).
      A read (lms.js) returns these as c.marks rows {kind, id, num, den, from, how}; addMarks() turns them into grades.
      Order is priority: a mark from a higher source replaces one from a lower source. Each has a remote switch in app_flags (supabase-app-flags.sql).
@@ -159,7 +159,7 @@ function cleanFile(r) {
   const markSwitches = () => Object.fromEntries(MARK_SOURCES.filter(x => x.flag).map(x => [x.id, appFlag(x.flag)]));
   function subLine(t, f, L){
     if (t.status === "done") return "";
-    const nm = FNAME[f], lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", sg: "schoology", gc: "classroom"}[f]] || {lastRead: () => null}).lastRead();
+    const nm = FNAME[f], lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]] || {lastRead: () => null}).lastRead();
     if (lr && lr.subs && Object.prototype.hasOwnProperty.call(lr.subs, L.key)) L = Object.assign({}, L, {sub: lr.subs[L.key], seen: Object.assign({}, L.seen, {api: lr.at})});
     else if (lr && (lr.ous || []).includes(L.ou) && L.seen && L.seen.api && L.seen.api < lr.at) return `<p class="mini lms-sub">This task wasn't in the last read from ${esc(nm)} (${esc(fmtWhen(lr.at))}). It may have been renamed or removed there, or be in another course.</p>`;
     const api = L.seen && L.seen.api;
@@ -171,13 +171,13 @@ function cleanFile(r) {
   }
   // A calendar entry the last read of its course didn't have anymore (moved, deleted, or never this course's): offer to remove it, done or not
   function staleLine(t, f, L){
-    const lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", sg: "schoology", gc: "classroom"}[f]] || {lastRead: () => null}).lastRead();
+    const lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]] || {lastRead: () => null}).lastRead();
     if (!lr || L.item !== false || !L.key || !(lr.ous || []).includes(L.ou) || !Array.isArray(lr.keys) || lr.keys.includes(L.key) || !(L.seen && L.seen.api && L.seen.api < lr.at) || t.mark) return "";
     return `<p class="mini lms-sub lms-stale">This came from a ${esc(FNAME[f])} calendar entry that isn't there anymore (read ${esc(fmtWhen(lr.at))}). If it isn't real, remove it.</p><p style="margin:4px 0 0"><button type="button" class="btn small" data-act="lms-stale-del" data-id="${esc(t.id)}">Remove</button></p>`;
   }
   function linkSheet(id){
     const t = state.tasks[id], f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return;
-    const pid = {bs: "brightspace", cv: "canvas", bb: "blackboard", sg: "schoology", gc: "classroom"}[f], Lm = LMS[pid], lr = Lm && Lm.lastRead(); if (!lr) return;
+    const pid = {bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f], Lm = LMS[pid], lr = Lm && Lm.lastRead(); if (!lr) return;
     const all = lr.items || [], mine = all.filter(x => x.ou === t[f].ou), list = (mine.length ? mine : all).slice()
       .sort((a, b) => Math.abs(dayDiff(a.d || "2100-01-01", t.due || a.d || "2100-01-01")) - Math.abs(dayDiff(b.d || "2100-01-01", t.due || b.d || "2100-01-01"))).slice(0, 40);
     const said = s => s === "yes" ? `<span class="pill lms-ok">Submitted</span>` : s === "no" ? `<span class="pill">Not submitted</span>` : `<span class="pill">Unknown</span>`;
@@ -195,7 +195,7 @@ function cleanFile(r) {
     return `<details class="lms-src"><summary class="mini">Where this came from</summary><p class="mini">From ${esc(nm)}. ${made}${reads.length ? ` Seen since by ${reads.map(esc).join(" and ")}.` : ""}${L.key ? ` <span class="lms-key">Key: ${esc(L.key)}</span>` : ""}</p>${diagHtml(f, L)}</details>`;
   }
   function diagHtml(f, L){
-    const Lm = LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", sg: "schoology", gc: "classroom"}[f]], lr = Lm && Lm.lastRead(), t = Object.values(state.tasks || {}).find(x => x[f] === L || (x[f] && x[f].key === L.key)) || {};
+    const Lm = LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]], lr = Lm && Lm.lastRead(), t = Object.values(state.tasks || {}).find(x => x[f] === L || (x[f] && x[f].key === L.key)) || {};
     const said = lr && lr.subs && Object.prototype.hasOwnProperty.call(lr.subs, L.key) ? (lr.subs[L.key] || "didn't say") : "not in the last read";
     const same = lr && t.due ? (lr.items || []).filter(x => x.ou === L.ou && x.d && Math.abs(dayDiff(x.d, t.due)) <= 2).map(x => `${x.t} (${x.d}${x.s ? ", " + (x.s === "yes" ? "submitted" : x.s === "no" ? "not submitted" : x.s) : ""})`) : [];
     const rows = [
@@ -243,7 +243,7 @@ function cleanFile(r) {
   const lmsKeyOf = t => FIELDS.map(f => t[f] && t[f].key ? f : "").find(Boolean) || "";
   function examDupes(){
     const said = (state.settings && state.settings.sameItem) || {};
-    const PID = {bs: "brightspace", cv: "canvas", bb: "blackboard", sg: "schoology", gc: "classroom"};
+    const PID = {bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"};
     const real = {}; FIELDS.forEach(f => { const lr = LMS[PID[f]] && LMS[PID[f]].lastRead(); real[f] = new Set(((lr && lr.items) || []).map(x => x.k)); });
     const isReal = t => { const f = lmsKeyOf(t); return !!(f && (t[f].item === true || real[f].has(t[f].key))); };
     const ex = Object.values(state.tasks || {}).filter(t => t && MILESTONE(t.type) && t.due && !t.breakdownOf && !t.prepFor);
@@ -318,7 +318,7 @@ function cleanFile(r) {
     if (other.remoteSrc === "user" && keep.remoteSrc !== "user") { keep.remote = other.remote; keep.remoteSrc = "user"; keep.remoteWhy = "You set this"; keep.remoteAt = Date.now(); keep.remoteSig = ""; }
     if (keep.weight == null && other.weight != null) keep.weight = other.weight;
     if (!keep.prep && other.prep) keep.prep = other.prep;
-    FIELDS.forEach(f => { if (other[f] && other[f].key && LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", sg: "schoology", gc: "classroom"}[f]]) LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", sg: "schoology", gc: "classroom"}[f]].drop(other[f].key, "merge"); });
+    FIELDS.forEach(f => { if (other[f] && other[f].key && LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]]) LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]].drop(other[f].key, "merge"); });
     const kf = lmsKeyOf(keep);
     if (kf) { const took = FIELDS.filter(f => other[f] && other[f].key && f === kf).map(f => other[f].key); if (took.length) keep[kf] = Object.assign({}, keep[kf], {merged: [...new Set((keep[kf].merged || []).concat(took))].slice(-8)}); }
     applyChanges([{kind: "task", id: keep.id, after: normTask(keep)}, {kind: "task", id: other.id, after: null}], `Merged ${other.title} into ${keep.title}`);
@@ -1651,7 +1651,7 @@ function cleanFile(r) {
         ${extWay}
         ${feedWay}
         ${local ? "" : `<p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>`}
-        <p class="mini" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
+        <p class="mini" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
         ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">How to Bring It In</button></p>` : ""}
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
@@ -2369,6 +2369,26 @@ function cleanFile(r) {
         const taskish = /\bdue\b/i.test(x.sum) || /\b(assignment|quiz|test|exam|midterm|journal|reflection|discussion|paper|essay|report|project|submission|care plan|case study)\b/i.test(sum);
         return {ou: "x" + H.fnv((code || cname || "blackboard").toLowerCase()), cname, code, sum: sum.replace(/\s*\bis due\b\s*$/i, "").replace(/\s*[-–:]?\s*\bdue\b\s*$/i, ""), kind: taskish ? "task" : "", notes: x.desc.trim().slice(0, 2000), link: x.url};
       }},
+    // Moodle: through its calendar link (Moodle sign-in differs from school to school)
+    {id: "moodle", k: "md", name: "Moodle", tag: "Moodle", host: "", hostPh: "moodle.yourschool.edu", siteHome: "/my/", feedOnly: true,
+      blurb: "Moodle LMS, through its calendar",
+      everything: "assignment due dates, quizzes and events from your Moodle calendar",
+      feedRx: /^https:\/\/[^/]+(?:\/[^?#]*)?\/calendar\/export_execute\.php\?[^#]*authtoken=/i, feedPh: "https://moodle.yourschool.edu/calendar/export_execute.php?userid=…&authtoken=…", feedWhere: "Calendar, then Export Calendar",
+      steps: ["Open <b>Moodle</b> in a browser and sign in.",
+        "Open <b>Calendar</b> (from the menu, your Dashboard, or yourschool's Moodle address followed by /calendar/view.php).",
+        "Click <b>Export calendar</b> (or <b>Import or export calendars</b>, then <b>Export calendar</b>).",
+        "Under <b>Events to export</b> choose <b>All</b>, and under <b>for</b> choose <b>Recent and next 60 days</b>.",
+        "Click <b>Get calendar URL</b> and copy the link it shows.",
+        "Paste it into Studyboard."],
+      courseHome: () => "",
+      feedInfo: (x, H) => {
+        // Moodle puts the course's short name in CATEGORIES; titles end in "is due", "due", "opens" or "closes"
+        const cname = (x.cat || "").trim().slice(0, 120), code = H.codeOf(cname) || H.codeOf(x.sum);
+        const due = /\s+(?:is\s+)?due\s*$/i.test(x.sum) || /\/mod\/assign\//i.test(x.url + " " + x.desc);
+        const sum = x.sum.replace(/\s+(?:is\s+)?due\s*$/i, "").replace(/\s+(?:should be completed|is expected to be completed)\s*$/i, "");
+        return {ou: "x" + H.fnv((cname || "moodle").toLowerCase()), cname, code, sum, kind: due ? "task" : "",
+          notes: x.desc.trim().slice(0, 2000), link: /^https:\/\//.test(x.url) ? x.url : ""};
+      }},
     // High school sites: Schoology through its calendar link; Google Classroom through Google's Classroom API
     {id: "schoology", k: "sg", name: "Schoology", tag: "Schoology", host: "", hostPh: "yourschool.schoology.com", siteHome: "/home", feedOnly: true, hs: true,
       blurb: "Schoology by PowerSchool",
@@ -2599,10 +2619,10 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   };
 
   /* Choosing a platform */
-  const LMS_MONO = {cv: "Canvas", bs: "D2L", bb: "Bb", sg: "S", gc: "GC"};
+  const LMS_MONO = {cv: "Canvas", bs: "D2L", bb: "Bb", md: "M", sg: "S", gc: "GC"};
   const pcard = L => { const on = L.connected(); return `<button class="bs-pcard${on ? " on" : ""}" data-act="${L.P.k}-open"><span class="bs-plogo bs-l-${L.P.k}${(LMS_MONO[L.P.k] || L.P.tag).length > 3 ? " long" : ""}" aria-hidden="true">${esc(LMS_MONO[L.P.k] || L.P.tag)}</span><span class="bs-pmain"><b>${esc(L.P.name)}</b><span class="mini">${esc(on ? L.statusLine() : L.P.blurb)}</span></span><span class="bs-pgo">${on ? "Open" : "Connect"}</span></button>`; };
   function pickerSheet(){
-    openSheet(`<div class="sheet bs-sheet">${head("Brightspace, Canvas and Blackboard")}
+    openSheet(`<div class="sheet bs-sheet">${head("Brightspace, Canvas, Blackboard and Moodle")}
       <div class="sheet-body">
         <p style="margin:0">Connect your school's learning platform to bring in due dates, grades and announcements automatically. Studyboard only reads from it.</p>
         <div class="bs-plist">${ALL().filter(L => !L.P.hs).sort((a, b) => (b.P.k === "cv") - (a.P.k === "cv")).map(pcard).join("")}</div>
@@ -2610,7 +2630,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
           <div class="bs-plist">${ALL().filter(L => L.P.hs).map(pcard).join("")}</div></details>
         ${ALL().some(L => L.connected()) ? `<div><button type="button" class="btn" data-act="lms-sync-all">Sync Now</button> <span class="mini">Checks every connected school site now, without waiting for the automatic check.</span></div>` : ""}
         <p class="mini" style="margin:0">Using more than one? Connect each. Every platform's courses and tasks stay separate, and nothing is added twice.</p>
-        <p class="mini" style="margin:0;opacity:.8">Canvas and Instructure are trademarks of Instructure, Inc. All D2L marks, including Brightspace, are trademarks of D2L Corporation. Blackboard is a trademark of its owner. Schoology is a trademark of PowerSchool. Google Classroom is a trademark of Google LLC. Studyboard isn't affiliated with or endorsed by any of them.</p>
+        <p class="mini" style="margin:0;opacity:.8">Canvas and Instructure are trademarks of Instructure, Inc. All D2L marks, including Brightspace, are trademarks of D2L Corporation. Blackboard is a trademark of its owner. Moodle is a trademark of Moodle Pty Ltd. Schoology is a trademark of PowerSchool. Google Classroom is a trademark of Google LLC. Studyboard isn't affiliated with or endorsed by any of them.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
   }
@@ -2635,7 +2655,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   });
   hook("menu", () => {
     const on = ALL().filter(L => L.connected());
-    return `<button data-act="lms-open"><span>Brightspace, Canvas and Blackboard<span class="sub">${esc(on.length ? on.map(L => `${L.P.name}: ${L.shortStatus ? L.shortStatus() : L.statusLine()}`).join(" · ") : "Bring in due dates, grades and announcements from your school's site automatically")}</span></span></button>`;
+    return `<button data-act="lms-open"><span>Brightspace, Canvas, Blackboard and Moodle<span class="sub">${esc(on.length ? on.map(L => `${L.P.name}: ${L.shortStatus ? L.shortStatus() : L.statusLine()}`).join(" · ") : "Bring in due dates, grades and announcements from your school's site automatically")}</span></span></button>`;
   });
   hook("brightspace-connect", () => { pickerSheet(); return true; });
   hook("lms-connect", () => { pickerSheet(); return true; });

@@ -2,7 +2,7 @@
 /* Class announcements in one place */
 (() => {
   const KEY = "studyboard:annRead", TAB_KEY = "studyboard:annTab", FRESH_DAYS = 21, HOME = "home";
-  const plats = () => ["brightspace", "canvas", "blackboard", "schoology", "classroom"].map(k => window.SBLMS && window.SBLMS[k]).filter(L => L && L.cfg && L.connected(L.cfg()));
+  const plats = () => ["brightspace", "canvas", "blackboard", "moodle", "schoology", "classroom"].map(k => window.SBLMS && window.SBLMS[k]).filter(L => L && L.cfg && L.connected(L.cfg()));
   let readMem = null;
   const readSet = () => { if (!readMem) { try { readMem = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch(e) { readMem = new Set(); } } return readMem; };
   const saveRead = () => { try { localStorage.setItem(KEY, JSON.stringify([...readSet()].slice(-600))); } catch(e) {} };

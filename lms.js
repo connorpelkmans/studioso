@@ -1019,7 +1019,7 @@ const P = {
   blackboard: { part: "persist:blackboard", home: "/ultra/stream", ctx: "/robots.txt", harvest: bbHarvest, feed: /(\/calendarfeed\/|\.ics$)/i }
 };
 // School sites read only through their calendar link (no sign-in)
-const FEED_ONLY = { schoology: /(\/calendar\/feed\/ical\/|\.ics$)/i };
+const FEED_ONLY = { moodle: /\/calendar\/export_execute\.php$/i, schoology: /(\/calendar\/feed\/ical\/|\.ics$)/i };
 const prov = id => (Object.prototype.hasOwnProperty.call(P, id) ? P[id] : null);
 // The exact script run in the school's page for a sync
 const harvestScript = (Pv, safe) => `(() => {\n${HARVEST_PRELUDE}\nreturn (${Pv.harvest.toString()})(${JSON.stringify(safe)});\n})()`;

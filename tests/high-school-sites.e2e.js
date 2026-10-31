@@ -32,7 +32,7 @@ const act = (page, a) => page.evaluate(a => { const b = document.createElement("
     await act(page, "lms-open"); await page.waitForSelector(".bs-hs");
     const pick = await page.evaluate(() => ({main: [...document.querySelectorAll(".bs-sheet > .sheet-body > .bs-plist .bs-pcard b")].map(b => b.textContent),
       hs: [...document.querySelectorAll(".bs-hs .bs-pcard b")].map(b => b.textContent), sum: document.querySelector(".bs-hs > summary b").textContent, open: document.querySelector(".bs-hs").open}));
-    ok(JSON.stringify(pick.main.slice().sort()) === JSON.stringify(["Blackboard", "Brightspace", "Canvas"]), "School Sites shows Canvas, Brightspace and Blackboard: " + pick.main.join(", "));
+    ok(JSON.stringify(pick.main) === JSON.stringify(["Canvas", "Brightspace", "Blackboard", "Moodle"]), "School Sites shows Canvas, Brightspace, Blackboard, then Moodle fourth: " + pick.main.join(", "));
     ok(pick.sum === "High School Sites" && !pick.open && JSON.stringify(pick.hs) === JSON.stringify(["Schoology", "Google Classroom"]), "Schoology and Google Classroom sit in a closed High School Sites dropdown");
     ok(!(await page.isVisible(".bs-hs .bs-pcard")), "hidden until it's opened");
     await page.tap(".bs-hs > summary"); await page.waitForTimeout(200);
@@ -53,6 +53,23 @@ const act = (page, a) => page.evaluate(a => { const b = document.createElement("
     });
     ok(sg.ok && !sg.bad, "Schoology's calendar export link is accepted, other pages aren't");
     ok(sg.recs.includes("Essay draft") && sg.evs.includes("Pep rally") && sg.course === "English 10", "a Schoology calendar brings in its assignment as a task and its event as an event: " + JSON.stringify(sg));
+
+    // Moodle: calendar link only, and its calendar's course short names become courses
+    await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
+    await act(page, "md-open"); await page.waitForSelector("#bsFeedIn");
+    ok(!(await page.$("#bsHostIn")) && /Moodle/.test(await page.textContent(".bs-sheet")), "Moodle connects with its calendar link");
+    const md = await page.evaluate(() => {
+      const L = window.SBLMS.moodle, d = new Date(Date.now() + 4 * 864e5), z = x => String(x).padStart(2, "0"), day = `${d.getUTCFullYear()}${z(d.getUTCMonth() + 1)}${z(d.getUTCDate())}`;
+      const ev = (uid, sum, cat, when) => ["BEGIN:VEVENT", "UID:" + uid, "SUMMARY:" + sum, "DESCRIPTION:", "CLASS:PUBLIC", "CATEGORIES:" + cat, "DTSTART:" + when, "DTEND:" + when, "END:VEVENT"];
+      const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Moodle Pty Ltd//NONSGML Moodle Version 2024100700//EN",
+        ...ev("1@moodle.school.edu", "Lab report 2 is due", "CHEM 1010", day + "T235900Z"), ...ev("2@moodle.school.edu", "Unit 3 quiz closes", "MATH 1100", day + "T170000Z"),
+        ...ev("3@moodle.school.edu", "Study group", "CHEM 1010", day + "T150000Z"), "END:VCALENDAR"].join("\r\n");
+      const out = L.fromFeed(ics, "feed");
+      return {ok: L.P.feedRx.test("https://moodle.school.edu/calendar/export_execute.php?userid=12&authtoken=abc&preset_what=all&preset_time=recentupcoming"), bad: L.P.feedRx.test("https://moodle.school.edu/calendar/view.php"),
+        recs: out.recs.map(r => r.title), evs: out.evs.map(e => e.title), courses: out.courses.map(c => c.code || c.name).sort()};
+    });
+    ok(md.ok && !md.bad, "Moodle's Get calendar URL link is accepted, other pages aren't");
+    ok(md.recs.includes("Lab report 2") && md.recs.includes("Unit 3 quiz") && md.evs.includes("Study group") && JSON.stringify(md.courses) === JSON.stringify(["CHEM 1010", "MATH 1100"]), "a Moodle calendar brings in due work as tasks, its courses from the course short names: " + JSON.stringify(md));
 
     // Google Classroom
     await page.evaluate(() => {

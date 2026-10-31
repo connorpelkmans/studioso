@@ -13,6 +13,7 @@ const PATHS: Record<string, RegExp> = {
   brightspace: /\/d2l\/le\/calendar\/feed\//i,
   canvas: /^\/feeds\/calendars\/[^/]+\.ics$/i,
   blackboard: /(\/calendarfeed\/|\.ics$)/i,
+  moodle: /\/calendar\/export_execute\.php$/i,
   schoology: /(\/calendar\/feed\/ical\/|\.ics$)/i,
 };
 

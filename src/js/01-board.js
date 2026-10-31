@@ -142,7 +142,7 @@ const hasWeight = t => isNum(t.weight) && Number(t.weight) > 0;
 const weightOf = t => hasWeight(t) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
 
 /* What the planner knows beyond the task itself (1.11) - School sync */
-const lmsOf = t => (t && (t.bs || t.cv || t.bb || t.sg || t.gc)) || null;
+const lmsOf = t => (t && (t.bs || t.cv || t.bb || t.md || t.sg || t.gc)) || null;
 // Difficulty: yours when you've set Easy or Hard
 const diffOf = t => t.difficulty && t.difficulty !== "med" ? t.difficulty : autoPlanOn() && t.aiDiff && autoFresh(t.aiDiff, 14) ? t.aiDiff.level : (t.difficulty || "med");
 // Late policy: yours if you set one, otherwise what the platform's submission window says

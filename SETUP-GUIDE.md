@@ -960,6 +960,8 @@ The desktop app uses the website address for share links. If a share sheet in th
 
 ## Brightspace, Canvas and Blackboard
 
+**Moodle.** Moodle is fourth on School Sites. It connects with its calendar link (Calendar, Export calendar, Get calendar URL), read by `lms-feed` (deploy it again so it accepts Moodle links) or by the desktop app. That brings in due dates, quizzes and events, with each course named by its short name; Moodle's calendar doesn't include grades or what's been submitted.
+
 **High School Sites.** School Sites also has a **High School Sites** dropdown with Schoology and Google Classroom. Schoology connects with its calendar link (Calendar, then Export), read by `lms-feed` (deploy it again so it accepts Schoology links) or by the desktop app. Google Classroom connects through `cloud-files` (see "Google Drive and OneDrive": run `supabase-cloud.sql` again, deploy `cloud-files` again, and add the Classroom API and scopes) and brings in classwork, what's turned in, grades and announcements.
 
 **Find your school.** When someone connects a school site by signing in (the iPhone, iPad, Android and desktop apps), they can type their school's name, pick it from the suggestions, and its Brightspace, Canvas or Blackboard address is filled in. The suggestions come from the schools list (`supabase-schools.sql`). The address comes from the `lms-find` function: it tries the addresses schools usually use, starting with the school's own (like `learn.bcit.ca`) and then the provider's (like `bcit.brightspace.com`), checks which one really is that kind of site, and remembers the answer for 30 days. To turn it on:
