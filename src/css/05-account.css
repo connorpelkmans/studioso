@@ -50,3 +50,12 @@
 .bs-find .bs-sugg li[aria-selected="true"],.bs-find .bs-sugg li:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .bs-find .bs-find-msg{font-weight:400;color:var(--muted)}
 .bs-find .bs-find-msg:empty{display:none}
+
+/* School sites: Connect under Your School, the address box revealed when it's needed */
+.bs-go{width:100%;margin-top:2px}
+.bs-find-msg:empty{display:none}
+.bs-find-msg{display:block;margin:2px 0}
+.bs-didnt{width:100%}
+.bs-manual{display:grid;gap:8px;margin-top:4px;padding-top:10px;border-top:1px solid var(--line)}
+.bs-manual[hidden]{display:none}
+.bs-manual .f{margin:0}

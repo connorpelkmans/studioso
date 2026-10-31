@@ -35462,10 +35462,13 @@ function cleanFile(r) {
           <p class="mini">Everything: ${esc(P.everything)}. You sign in on ${P.name}'s own page, so Studyboard never sees your password.</p>
           ${findOk() ? `<div class="f bs-find"><label class="lh" for="bsSchoolIn">Your School</label>
             <input type="text" id="bsSchoolIn" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bsSchoolList" placeholder="Start typing your school's name" autocomplete="off" spellcheck="false">
-            <ul id="bsSchoolList" class="bs-sugg" role="listbox" aria-label="Schools" hidden></ul>
-            <span class="mini bs-find-msg" id="bsFindMsg" aria-live="polite"></span></div>` : ""}
-          <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"><span class="mini bs-host-note">Your school's address may look different. Use the one in your browser when you're signed in to ${esc(P.name)}.</span></label>
-          <button class="btn primary" data-act="${A}-login">Sign In</button></div>` : ""}
+            <ul id="bsSchoolList" class="bs-sugg" role="listbox" aria-label="Schools" hidden></ul></div>
+          <button type="button" class="btn primary bs-go" id="bsGo">Connect</button>
+          <span class="mini bs-find-msg" id="bsFindMsg" aria-live="polite"></span>
+          <button type="button" class="btn bs-didnt" id="bsDidnt" hidden>Didn't Work?</button>` : ""}
+          <div class="bs-manual" id="bsManual"${findOk() && !cfg().host ? " hidden" : ""}>
+            <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"><span class="mini bs-host-note">Your school's address may look different. Use the one in your browser when you're signed in to ${esc(P.name)}.</span></label>
+            <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
         ${local ? "" : `<p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>`}
@@ -35532,28 +35535,46 @@ function cleanFile(r) {
     return r.json();
   }
   function wireFind(){
-    const inp = $("#bsSchoolIn"), list = $("#bsSchoolList"), msg = $("#bsFindMsg"), host = $("#bsHostIn");
-    if (!inp || !list || !host) return;
-    let seq = 0, t = 0, found = [], active = -1;
+    const inp = $("#bsSchoolIn"), list = $("#bsSchoolList"), msg = $("#bsFindMsg"), host = $("#bsHostIn"), go = $("#bsGo"), didnt = $("#bsDidnt"), manual = $("#bsManual");
+    if (!inp || !list || !host || !go) return;
+    let seq = 0, t = 0, found = [], active = -1, chosen = null, lookup = null;
     const show = rows => {
       found = rows; active = -1;
       list.innerHTML = rows.map((x, i) => `<li role="option" id="bsSch${i}" data-i="${i}" aria-selected="false"><b>${esc(x.name)}</b><span>${esc([x.city, x.region, x.country].filter(Boolean).join(", "))}</span></li>`).join("");
       list.hidden = !rows.length; inp.setAttribute("aria-expanded", String(!!rows.length));
     };
     const mark = i => { active = i; [...list.children].forEach((li, k) => li.setAttribute("aria-selected", String(k === i))); inp.setAttribute("aria-activedescendant", i >= 0 ? "bsSch" + i : ""); };
-    const pick = async x => {
-      show([]); inp.value = x.name; msg.textContent = `Finding ${x.name}'s ${P.name} address…`;
-      const my = ++seq;
-      try {
-        const r = await findCall("/functions/v1/lms-find", {key: x.key, lms: P.id});
-        if (my !== seq) return;
-        if (r && r.host) { host.value = r.host; msg.textContent = `Found it: ${r.host}. Tap Sign In.`; }
-        else msg.textContent = `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.`
-          + (x.kind === "high_school" ? ` High schools usually share their district's or school board's ${P.name}, so ask a teacher if you're not sure.` : "");
-      } catch (e) { if (my === seq) msg.textContent = `Couldn't look it up right now. Type your school's ${P.name} address below.`; }
+    // the address box, for typing it in yourself
+    const openManual = (note, focus) => { manual.hidden = false; if (note != null) msg.textContent = note; if (focus) setTimeout(() => { try { host.focus(); host.select(); } catch (e) {} }, 60); };
+    // picking a school starts looking up its address, so Connect is quick
+    const pick = x => {
+      show([]); inp.value = x.name; chosen = x; msg.textContent = "";
+      lookup = findCall("/functions/v1/lms-find", {key: x.key, lms: P.id}).catch(() => ({error: true}));
     };
+    const tip = x => x && x.kind === "high_school" ? ` High schools usually share their district's or school board's ${P.name}, so ask a teacher if you're not sure.` : "";
+    go.addEventListener("click", async () => {
+      if (!chosen) {
+        if (found.length) { msg.textContent = "Pick your school from the list."; inp.focus(); return; }
+        if (!inp.value.trim()) { msg.textContent = "Start typing your school's name, then pick it from the list."; inp.focus(); return; }
+        openManual(`Couldn't find that school. Type its ${P.name} address below: it's the address in your browser when you're signed in to ${P.name}.`, true); return;
+      }
+      const x = chosen, my = ++seq;
+      go.disabled = true; go.textContent = "Finding Your School…";
+      let r; try { r = await (lookup || findCall("/functions/v1/lms-find", {key: x.key, lms: P.id})); } catch (e) { r = {error: true}; }
+      go.disabled = false; go.textContent = "Connect";
+      if (my !== seq) return;
+      if (r && r.host) {
+        host.value = r.host; msg.textContent = `Opening ${r.host}. Sign in there.`;
+        didnt.hidden = false;
+        doLogin().catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); });
+        return;
+      }
+      openManual(r && r.error ? `Couldn't look it up right now. Type your school's ${P.name} address below.`
+        : `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.${tip(x)}`, true);
+    });
+    didnt.addEventListener("click", () => { didnt.hidden = true; openManual(`Type the address you use to sign in to ${P.name}. It's in your browser's address bar when you're signed in.${tip(chosen)}`, true); });
     inp.addEventListener("input", () => {
-      clearTimeout(t); msg.textContent = "";
+      clearTimeout(t); msg.textContent = ""; chosen = null; lookup = null;
       const q = inp.value.trim(); if (q.length < 2) { show([]); return; }
       t = setTimeout(async () => {
         const my = ++seq;
@@ -35562,15 +35583,18 @@ function cleanFile(r) {
       }, 220);
     });
     inp.addEventListener("keydown", e => {
+      if (e.key === "Enter" && list.hidden) { e.preventDefault(); go.click(); return; }
       if (list.hidden) return;
       if (e.key === "ArrowDown") { e.preventDefault(); mark(Math.min(found.length - 1, active + 1)); }
       else if (e.key === "ArrowUp") { e.preventDefault(); mark(Math.max(0, active - 1)); }
       else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(found[active]); }
       else if (e.key === "Escape") { e.stopPropagation(); show([]); }
     });
-    // pointerdown, so picking happens before the box loses focus
-    list.addEventListener("pointerdown", e => { const li = e.target.closest("li[data-i]"); if (!li) return; e.preventDefault(); pick(found[+li.dataset.i]); });
-    inp.addEventListener("blur", () => setTimeout(() => show([]), 150));
+    // the box keeps focus (pointerdown), and the pick happens on the whole tap, so the list doesn't close under the finger and
+    // let the tap land on Connect
+    list.addEventListener("pointerdown", e => { if (e.target.closest("li[data-i]")) e.preventDefault(); });
+    list.addEventListener("click", e => { const li = e.target.closest("li[data-i]"); if (!li) return; e.preventDefault(); pick(found[+li.dataset.i]); });
+    inp.addEventListener("blur", () => setTimeout(() => show([]), 250));
   }
   function feedHelp(){
     openSheet(`<div class="sheet">${head("Find Your Calendar Link")}
