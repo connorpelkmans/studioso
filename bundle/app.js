@@ -17872,6 +17872,9 @@ window.__sbPlanObj = () => PLAN;
   }
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
+  // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
+  const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
+  const groupsPro = () => limitsPro() || liteNow();
   const fileCapMB = () => cfg.limits[limitsPro() ? "pro" : "free"].fileMB;
   const mode = () => !paywall() ? "off" : !paid() ? "free" : P.mode === "signed" ? "signed" : P.mode === "unsigned-fallback" ? "unsigned-fallback" : "signed";
 
@@ -17971,16 +17974,21 @@ window.__sbPlanObj = () => PLAN;
     if (!sb || !sbUser) return null;
     const uid = sbUser.id;
     try {
-      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
+      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
+      if (res.error && /grant_lite/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /promo_|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /grant_(until|lifetime)|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", uid).maybeSingle();
       let {data, error} = res;
       if (data) {
         const e = Object.assign({}, data);
-        if (e.grant_lifetime) { e.plan = "lifetime"; e.source = "lifetime"; }
-        else if (e.grant_until && ts(e.grant_until) > now() && !entActive(e)) { e.plan = "pro"; e.pro_until = e.grant_until; e.source = "promo"; }
+        if (e.grant_lifetime && !e.grant_lite) { e.plan = "lifetime"; e.source = "lifetime"; }
+        else if (!e.grant_lite && e.grant_until && ts(e.grant_until) > now() && !entActive(e)) { e.plan = "pro"; e.pro_until = e.grant_until; e.source = "promo"; }
         const paidNow = e.plan === "lifetime" || (e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()));
-        const promoEnd = e.promo_lifetime ? "9999-12-31T00:00:00Z" : e.promo_until && ts(e.promo_until) > now() ? e.promo_until : "";
+        const far = "9999-12-31T00:00:00Z";
+        const liteEnd = e.grant_lite ? (e.grant_lifetime ? far : e.grant_until && ts(e.grant_until) > now() ? e.grant_until : "") : "";
+        const monthEnd = e.promo_until && ts(e.promo_until) > now() ? e.promo_until : "";
+        const promoEnd = [liteEnd, monthEnd, e.promo_lifetime ? far : ""].filter(Boolean).sort((a, b) => ts(b) - ts(a))[0] || "";
+        if (!paidNow) e.lite = !!(liteEnd || monthEnd);
         if (!paidNow && promoEnd && !(ts(e.trial_until) > ts(promoEnd))) { e.trial_until = promoEnd; e.source = "code"; e.codeForever = !!e.promo_lifetime; }
         data = e;
       }
@@ -18030,7 +18038,7 @@ window.__sbPlanObj = () => PLAN;
     openSheet(`<form class="sheet" id="promoForm">${head("Redeem a Code")}<div class="sheet-body">
       <p style="margin:0">Got a Studyboard code? Type it here and Pro's themes and features turn on for your account.</p>
       <label class="f">Code<input type="text" id="promoCode" maxlength="60" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SB-XXXX-XXXX-XXXX" required></label>
-      <p class="mini" id="promoMsg" aria-live="polite" style="margin:0">Storage, devices and group size stay at the free amounts.</p>
+      <p class="mini" id="promoMsg" aria-live="polite" style="margin:0">Storage stays at the free amount. One-month codes also unlock unlimited devices and Pro groups.</p>
     </div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="submit" class="btn primary" id="promoGo">Redeem</button></div></form>`);
     const f = $("#promoForm"), inp = $("#promoCode"), msg = $("#promoMsg"), go = $("#promoGo");
     setTimeout(() => inp.focus(), 50);
@@ -18452,7 +18460,7 @@ window.__sbPlanObj = () => PLAN;
     if (!e) return {title: THANKS, sub: ""};
     if (e.plan === "lifetime") return {title: THANKS, sub: e.source === "lifetime" ? "Pro was granted to your account for good." : "Pro is yours for good."};
     if (trialing(e) && e.source === "welcome") return {title: "Your Free Week of Pro", sub: `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. No card needed: after that you're on Free unless you choose a plan.`};
-    if (trialing(e) && e.source === "code") return {title: "Pro From a Code", sub: e.codeForever ? "Every Pro theme and feature, for good. Storage, devices and group size stay at the free amounts." : `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. After that you're on Free unless you choose a plan.`};
+    if (trialing(e) && e.source === "code") return {title: "Pro From a Code", sub: e.codeForever ? "Every Pro theme and feature, for good. Storage, devices and group size stay at the free amounts." : `Every Pro theme and feature until ${dateStr(e.trial_until)}. ${e.lite ? "You also get unlimited devices and Pro groups. Storage stays at the free amount." : "Storage, devices and group size stay at the free amounts."} After that you're on Free unless you choose a plan.`};
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
     if (e.source === "promo") return {title: THANKS, sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
@@ -18620,13 +18628,13 @@ window.__sbPlanObj = () => PLAN;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
     fmtMB
   };
-  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
+  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
 })();
 
 
@@ -29128,7 +29136,7 @@ hook("boot", boot);
         ${ext ? `<div class="grp-msg-acts">${chips}${picker || `<button class="grp-react add" data-act="grp-react-open" data-id="${esc(m.id)}" aria-label="Add a reaction">+</button>`}${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">${m.pinned ? "Unpin" : "Pin"}</button>` : ""}</div>` : ""}</div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
   }
   function boardHtml(g){
-    const free = isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()), days = free ? PLAN.limits().groupMsgDays : 0;
+    const free = isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()), days = free ? PLAN.limits().groupMsgDays : 0;
     return `<section class="grp-sec" id="grpBoard"><h3 class="fsec"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Message Board</h3>
       ${pinsHtml(g)}
       <form class="grp-post" id="grpPost" data-gid="${esc(g.id)}"><textarea id="grpMsgIn" rows="2" maxlength="2000" aria-label="Write a message to the group" aria-describedby="grpPostHint" placeholder="Write to the group…">${esc(S.drafts[g.id] || "")}</textarea><button type="submit" class="btn primary small">Post</button><span class="mini grp-post-hint" id="grpPostHint">Press ${/Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl"}+Enter to post</span></form>
@@ -29188,7 +29196,7 @@ hook("boot", boot);
         const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
         if (!me2 && S.blocked.has(m.user_id)) return `<li class="blocked">${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")} <span class="pill">Blocked</span></span><button class="btn small" data-act="grp-unblock" data-id="${esc(m.user_id)}">Unblock</button>${owner ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`;
         return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge ? gxBadgeIcon(m) : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") || gxBadgeLabel(m) ? `<span class="grp-badges">${gxBadgeLabel(m)}${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
-      ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
+      ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
   }
   // Update parts of the open group page in place, so a message you're typing isn't lost
   function patch(gid){
@@ -29589,11 +29597,11 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (!g) return;
     rememberWebUrl();
     const link = linkFor("group", g.invite_code);
-    if (isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) && PLAN.limitNote && (S.members[g.id] || []).length >= PLAN.limits().groupMembers)
+    if (isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) && PLAN.limitNote && (S.members[g.id] || []).length >= PLAN.limits().groupMembers)
       setTimeout(() => PLAN.limitNote("group", `${g.name} has ${PLAN.limits().groupMembers} members, the most a free group holds. Upgrade to Pro for groups of up to ${PLAN.proLimits().groupMembers}.`, {reason: `Pro groups hold up to ${PLAN.proLimits().groupMembers} members.`}), 300);
     openSheet(`<div class="sheet">${head("Invite to " + g.name)}<div class="sheet-body">
       <p style="margin:0">Send this link or code to ${isProj(g) ? "your teammates" : "classmates"}. After they sign in to Studyboard, they can join. ${isOwner(g) ? "You can make a new code in Edit Group." : ""}</p>
-      ${(() => { if (!isOwner(g) || typeof PLAN === "undefined" || !PLAN || !PLAN.paywall() || (PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro())) return ""; const n = (S.members[g.id] || []).length, lim = PLAN.limits().groupMembers; return `<div class="grp-note">Free groups hold up to ${lim} members${n >= lim ? " and yours is full" : ` (${n} now)`}. <button type="button" class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</div>`; })()}
+      ${(() => { if (!isOwner(g) || typeof PLAN === "undefined" || !PLAN || !PLAN.paywall() || (PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro())) return ""; const n = (S.members[g.id] || []).length, lim = PLAN.limits().groupMembers; return `<div class="grp-note">Free groups hold up to ${lim} members${n >= lim ? " and yours is full" : ` (${n} now)`}. <button type="button" class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</div>`; })()}
       <div class="grp-code-big" aria-label="Invite code">${esc(g.invite_code)}</div>
       ${link ? `<div class="grp-link"><input type="text" readonly value="${esc(link)}" aria-label="Invite link" id="grpInvLink"><button type="button" class="btn small" id="grpInvCopy">Copy Link</button></div>` : `<p class="mini" style="margin:0">They can type the code in Studyboard: Groups, then Enter a Code.</p>`}</div>
       <div class="sheet-foot"><button type="button" class="btn" id="grpInvCode">Copy Code</button><span class="spacer"></span><button type="button" class="btn primary" id="grpInvSend">Send Invite</button></div></div>`);
@@ -30076,6 +30084,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
   S.gpro = S.gpro || {};
   const PAYWALL = () => typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall();
   const meIsPro = () => typeof PLAN === "undefined" || !PLAN || (PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro());
+  // Pro groups also open to lite accounts (a lite grant or a one-month code)
+  const meGroupPro = () => typeof PLAN === "undefined" || !PLAN || (PLAN.groupsPro ? PLAN.groupsPro() : meIsPro());
   // Is this a Pro group
   const gxOn = g => !!g && (!PAYWALL() || !!(S.gpro[g.id] && S.gpro[g.id].active));
   // How many of your groups you've assigned Pro to
@@ -30142,7 +30152,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   const headBase = headHtml;
   // Assign Pro / Unassign Pro (with a PRO badge) goes in the header's More menu (raMore)
   function gxAssignBtn(g){
-    if (!PAYWALL() || !meIsPro() || S.gproErr) return "";
+    if (!PAYWALL() || !meGroupPro() || S.gproErr) return "";
     const st = S.gpro[g.id]; if (!st) return "";
     if (st.by && st.by === myId()) return `<button class="btn gx-assign" data-act="gx-pro-off" data-id="${esc(g.id)}">Unassign Pro ${PRO_BADGE}</button>`;
     if (st.active || gxMine() >= GX_MAX) return "";
@@ -30155,7 +30165,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const st = S.gpro[g.id] || {}, by = st.by, me = myId();
     if (S.gproErr === "setup") return isOwner(g) ? `<div class="grp-note">Pro groups need the latest <b>supabase-plans.sql</b>. ${esc(srvSetup("This", "supabase-plans.sql"))}</div>` : "";
     if (gxOn(g)) return `<div class="gx-box on"><span class="pro-badge">PRO GROUP</span><span class="gx-bt">${esc(by === me ? "You assigned Pro to this group." : st.byOwner ? "Pro thanks to the group owner." : by ? `Pro thanks to ${mName(g.id, by)}.` : "A Pro group.")} Everyone here gets the group extras.</span></div>`;
-    if (meIsPro()) return gxMine() >= GX_MAX ? `<div class="gx-box"><span class="gx-bt"><b>All 5 Pro Groups Used</b><span class="mini">You've assigned Pro to ${GX_MAX} groups. Unassign one of them to assign Pro here.</span></span></div>`
+    if (meGroupPro()) return gxMine() >= GX_MAX ? `<div class="gx-box"><span class="gx-bt"><b>All 5 Pro Groups Used</b><span class="mini">You've assigned Pro to ${GX_MAX} groups. Unassign one of them to assign Pro here.</span></span></div>`
       : `<div class="gx-box"><span class="gx-bt"><b>Assign Pro to This Group</b><span class="mini">Everyone here gets Split the Work, Team Deadline, Live Quiz and more, and room for up to 100 members. You've used ${gxMine()} of your ${GX_MAX}.</span></span><button type="button" class="btn small gx-assign" data-act="gx-pro-sheet">Assign Pro</button></div>`;
     return `<div class="gx-box"><span class="gx-bt"><span class="mini">A member with Studyboard Pro can make this a Pro group, with extras for everyone in it.</span></span><button type="button" class="btn small" data-act="grp-upgrade" data-r="${esc(gxWhy)}">About Pro</button></div>`;
   }

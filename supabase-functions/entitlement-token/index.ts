@@ -2,7 +2,7 @@
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
-type Row = { plan?: string; pro_until?: string | null; trial_until?: string | null; grant_until?: string | null; grant_lifetime?: boolean; promo_until?: string | null; promo_lifetime?: boolean };
+type Row = { plan?: string; pro_until?: string | null; trial_until?: string | null; grant_until?: string | null; grant_lifetime?: boolean; grant_lite?: boolean; promo_until?: string | null; promo_lifetime?: boolean };
 
 const DAY = 86400;
 const PRO_TTL = 7 * DAY, TRIAL_TTL = 2 * DAY, FREE_TTL = 1 * DAY;
@@ -39,9 +39,11 @@ export function computeTier(row: Row | null, nowS: number): { tier: Tier; exp: n
   const ms = (v?: string | null) => (v ? Math.floor(Date.parse(v) / 1000) : NaN);
   if (!row) return { tier: "free", exp: nowS + FREE_TTL };
   const until = ms(row.pro_until), trial = ms(row.trial_until), grant = ms(row.grant_until), promo = ms(row.promo_until);
-  const lifetime = row.plan === "lifetime" || !!row.grant_lifetime;
+  // A lite grant (Pro's features, devices and groups, free-plan storage) is signed as the "trial" tier, like a promo code
+  const lite = !!row.grant_lite;
+  const lifetime = row.plan === "lifetime" || (!!row.grant_lifetime && !lite);
   const paid = row.plan === "pro" && (row.pro_until == null || until > nowS);
-  const granted = grant > nowS;
+  const granted = grant > nowS && !lite;
   const trialing = trial > nowS;
   const ends: number[] = [];
   if (lifetime) ends.push(nowS + PRO_TTL);
@@ -51,6 +53,7 @@ export function computeTier(row: Row | null, nowS: number): { tier: Tier; exp: n
   // A promo code: Pro's features (the "trial" tier: the free plan's amounts)
   if (row.promo_lifetime) ends.push(nowS + TRIAL_TTL);
   if (promo > nowS) ends.push(Math.min(nowS + TRIAL_TTL, promo));
+  if (lite && (row.grant_lifetime || grant > nowS)) ends.push(row.grant_lifetime ? nowS + TRIAL_TTL : Math.min(nowS + TRIAL_TTL, grant));
   if (!ends.length) return { tier: "free", exp: nowS + FREE_TTL };
   const tier: Tier = lifetime ? "lifetime" : granted || (paid && !trialing) ? "pro" : "trial";
   return { tier, exp: Math.max(...ends) };
@@ -87,8 +90,8 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (!rl.ok) throw new Error(`rate check failed ${rl.status}`);
     if ((await rl.json()) !== true) return reply({ error: "too many requests, try again later" }, 429, nowS, { "Retry-After": "600" });
 
-    let r = await d.fetch(`${base(d)}/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until,trial_until,grant_until,grant_lifetime,promo_until,promo_lifetime`, { headers: h });
-    // a database without the promo columns yet (supabase-plans.sql not re-run)
+    let r = await d.fetch(`${base(d)}/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until,trial_until,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime`, { headers: h });
+    // a database without the promo or lite columns yet (supabase-plans.sql not re-run)
     if (!r.ok && r.status === 400) r = await d.fetch(`${base(d)}/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until,trial_until,grant_until,grant_lifetime`, { headers: h });
     if (!r.ok) throw new Error(`read failed ${r.status}`);
     const row = ((await r.json()) as Row[])[0] || null;

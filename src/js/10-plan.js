@@ -123,6 +123,9 @@ window.__sbPlanObj = () => PLAN;
   }
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
+  // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
+  const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
+  const groupsPro = () => limitsPro() || liteNow();
   const fileCapMB = () => cfg.limits[limitsPro() ? "pro" : "free"].fileMB;
   const mode = () => !paywall() ? "off" : !paid() ? "free" : P.mode === "signed" ? "signed" : P.mode === "unsigned-fallback" ? "unsigned-fallback" : "signed";
 
@@ -222,16 +225,21 @@ window.__sbPlanObj = () => PLAN;
     if (!sb || !sbUser) return null;
     const uid = sbUser.id;
     try {
-      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
+      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
+      if (res.error && /grant_lite/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /promo_|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /grant_(until|lifetime)|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", uid).maybeSingle();
       let {data, error} = res;
       if (data) {
         const e = Object.assign({}, data);
-        if (e.grant_lifetime) { e.plan = "lifetime"; e.source = "lifetime"; }
-        else if (e.grant_until && ts(e.grant_until) > now() && !entActive(e)) { e.plan = "pro"; e.pro_until = e.grant_until; e.source = "promo"; }
+        if (e.grant_lifetime && !e.grant_lite) { e.plan = "lifetime"; e.source = "lifetime"; }
+        else if (!e.grant_lite && e.grant_until && ts(e.grant_until) > now() && !entActive(e)) { e.plan = "pro"; e.pro_until = e.grant_until; e.source = "promo"; }
         const paidNow = e.plan === "lifetime" || (e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()));
-        const promoEnd = e.promo_lifetime ? "9999-12-31T00:00:00Z" : e.promo_until && ts(e.promo_until) > now() ? e.promo_until : "";
+        const far = "9999-12-31T00:00:00Z";
+        const liteEnd = e.grant_lite ? (e.grant_lifetime ? far : e.grant_until && ts(e.grant_until) > now() ? e.grant_until : "") : "";
+        const monthEnd = e.promo_until && ts(e.promo_until) > now() ? e.promo_until : "";
+        const promoEnd = [liteEnd, monthEnd, e.promo_lifetime ? far : ""].filter(Boolean).sort((a, b) => ts(b) - ts(a))[0] || "";
+        if (!paidNow) e.lite = !!(liteEnd || monthEnd);
         if (!paidNow && promoEnd && !(ts(e.trial_until) > ts(promoEnd))) { e.trial_until = promoEnd; e.source = "code"; e.codeForever = !!e.promo_lifetime; }
         data = e;
       }
@@ -281,7 +289,7 @@ window.__sbPlanObj = () => PLAN;
     openSheet(`<form class="sheet" id="promoForm">${head("Redeem a Code")}<div class="sheet-body">
       <p style="margin:0">Got a Studyboard code? Type it here and Pro's themes and features turn on for your account.</p>
       <label class="f">Code<input type="text" id="promoCode" maxlength="60" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SB-XXXX-XXXX-XXXX" required></label>
-      <p class="mini" id="promoMsg" aria-live="polite" style="margin:0">Storage, devices and group size stay at the free amounts.</p>
+      <p class="mini" id="promoMsg" aria-live="polite" style="margin:0">Storage stays at the free amount. One-month codes also unlock unlimited devices and Pro groups.</p>
     </div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="submit" class="btn primary" id="promoGo">Redeem</button></div></form>`);
     const f = $("#promoForm"), inp = $("#promoCode"), msg = $("#promoMsg"), go = $("#promoGo");
     setTimeout(() => inp.focus(), 50);
@@ -703,7 +711,7 @@ window.__sbPlanObj = () => PLAN;
     if (!e) return {title: THANKS, sub: ""};
     if (e.plan === "lifetime") return {title: THANKS, sub: e.source === "lifetime" ? "Pro was granted to your account for good." : "Pro is yours for good."};
     if (trialing(e) && e.source === "welcome") return {title: "Your Free Week of Pro", sub: `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. No card needed: after that you're on Free unless you choose a plan.`};
-    if (trialing(e) && e.source === "code") return {title: "Pro From a Code", sub: e.codeForever ? "Every Pro theme and feature, for good. Storage, devices and group size stay at the free amounts." : `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. After that you're on Free unless you choose a plan.`};
+    if (trialing(e) && e.source === "code") return {title: "Pro From a Code", sub: e.codeForever ? "Every Pro theme and feature, for good. Storage, devices and group size stay at the free amounts." : `Every Pro theme and feature until ${dateStr(e.trial_until)}. ${e.lite ? "You also get unlimited devices and Pro groups. Storage stays at the free amount." : "Storage, devices and group size stay at the free amounts."} After that you're on Free unless you choose a plan.`};
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
     if (e.source === "promo") return {title: THANKS, sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
@@ -871,13 +879,13 @@ window.__sbPlanObj = () => PLAN;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
     fmtMB
   };
-  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
+  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
 })();
 
 
