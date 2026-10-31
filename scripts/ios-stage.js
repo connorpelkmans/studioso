@@ -181,6 +181,22 @@ if (fs.existsSync(plistFile)) {
   } catch (e) {}
 }
 
+// Native parts that only work once their files are in the Xcode project (Xcode doesn't pick files up by itself): say which
+// are missing, so a feature isn't silently off (school site sign-in, the Lock Screen timer)
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    const need = [["StudyboardLms.swift", "school site sign-in"], ["StudyboardLmsScripts.swift", "school site sign-in"], ["StudyboardPlugins.swift", "quick capture and the share sheet"]]
+      .filter(([f]) => txt && !txt.includes(f));
+    if (need.length) {
+      console.log("ios-stage: NOT IN THE XCODE PROJECT YET (so these are off in the app):");
+      for (const [f, what] of need) console.log("  - ios-wrapper/native/" + f + " (" + what + ")");
+      console.log("  Add them in Xcode: File > Add Files to \"App\", choose them in ios-wrapper/native, untick \"Copy items if needed\" (reference them in place), tick the App target, Add. Then run npm run ios:stage again.");
+    }
+  } catch (e) {}
+}
+
 // The app's name as people see it (Home Screen, permission and sign-in prompts): Studyboard, not Capacitor's starting "App"
 {
   const plist = path.join(wrap, "ios", "App", "App", "Info.plist");

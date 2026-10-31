@@ -1,7 +1,15 @@
 /* Studyboard iPhone and Android */
 (function () {
   "use strict";
-  var C = window.Capacitor, plug = function () { return C && C.Plugins && C.Plugins.StudyboardLms; };
+  // the school-site plugin (ios-wrapper/native/StudyboardLms.swift): Capacitor's list, or found by name when it was connected
+  // after the list was handed to the page (MainViewController registers it itself)
+  var C = window.Capacitor, found = null, plug = function () {
+    if (found) return found;
+    try {
+      found = (C && C.Plugins && C.Plugins.StudyboardLms) || (C && C.isPluginAvailable && C.isPluginAvailable("StudyboardLms") && C.registerPlugin ? C.registerPlugin("StudyboardLms") : null);
+    } catch (e) { found = null; }
+    return found;
+  };
   if (!plug() || window.studiosoDesktop || window.studiosoLms) return;
 
 /*@@FROM_LMS_JS@@*/
