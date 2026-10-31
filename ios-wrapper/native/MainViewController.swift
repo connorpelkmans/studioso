@@ -91,7 +91,9 @@ public class StudyboardSignInPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizatio
               let token = String(data: data, encoding: .utf8) else { return call.resolve(["error": "Apple didn't send a sign-in token."]) }
         // the name only comes the first time someone signs in to the app
         let name = [cred.fullName?.givenName, cred.fullName?.familyName].compactMap { $0 }.joined(separator: " ")
-        call.resolve(["idToken": token, "nonce": rawNonce, "name": name])
+        // Apple's one-time code: the server swaps it for a token it can revoke if the account is ever deleted
+        let code = cred.authorizationCode.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        call.resolve(["idToken": token, "nonce": rawNonce, "name": name, "code": code])
     }
     public func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
         guard let call = appleCall else { return }

@@ -1007,4 +1007,35 @@ await test("billing-webhook: a paid invoice becomes Apple's line item in milli-u
   assert.equal(wh.milli(500, "jpy"), 500000);
 });
 
+// -- delete-account: Sign in with Apple is revoked with Apple
+await test("delete-account: Apple's code is swapped for a token at sign-in, and the token is revoked with Apple (signed ES256 client secret)", async () => {
+  const { privateKey: SK, publicKey: SP } = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const env = { SUPABASE_URL: "https://db", SUPABASE_SERVICE_ROLE_KEY: "svc", APPLE_TEAM_ID: "TEAM123456", APPLE_SIGNIN_KEY_ID: "KEYSIWA123", APPLE_BUNDLE_ID: "com.studyboardapp.studyboard",
+    APPLE_SIGNIN_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\n" + Buffer.from(await crypto.subtle.exportKey("pkcs8", SK)).toString("base64") + "\n-----END PRIVATE KEY-----" };
+  const calls = []; let stored = null;
+  const f = async (url, init = {}) => {
+    url = String(url); calls.push([url, init]);
+    if (/auth\/v1\/user/.test(url)) return new Response(JSON.stringify({ id: UID }));
+    if (url === "https://appleid.apple.com/auth/token") return new Response(JSON.stringify({ refresh_token: "rt-apple-1" }));
+    if (url === "https://appleid.apple.com/auth/revoke") return new Response("", { status: 200 });
+    if (/studyboard_apple_signin\?on_conflict/.test(url)) { stored = JSON.parse(init.body); return new Response(null, { status: 201 }); }
+    return new Response("[]");
+  };
+  const dd = { env: k => env[k] ?? "", fetch: f, now: () => NOW, log };
+  const r = await da.handle(new Request("https://x/functions/v1/delete-account/apple-token", { method: "POST", headers: { authorization: "Bearer u" }, body: JSON.stringify({ code: "c.apple-code-123" }) }), dd);
+  assert.equal(r.status, 200); assert.deepEqual((await r.json()).ok, true);
+  assert.equal(stored.user_id, UID); assert.equal(stored.refresh_token, "rt-apple-1"); assert.equal(stored.client_id, "com.studyboardapp.studyboard");
+  const ex = new URLSearchParams(calls.find(c => c[0] === "https://appleid.apple.com/auth/token")[1].body);
+  assert.equal(ex.get("grant_type"), "authorization_code"); assert.equal(ex.get("code"), "c.apple-code-123"); assert.equal(ex.get("client_id"), "com.studyboardapp.studyboard");
+  const [h, c, sig] = ex.get("client_secret").split(".");
+  const head = JSON.parse(Buffer.from(h, "base64url")), cl = JSON.parse(Buffer.from(c, "base64url"));
+  assert.deepEqual(head, { alg: "ES256", kid: "KEYSIWA123" }); assert.equal(cl.iss, "TEAM123456"); assert.equal(cl.aud, "https://appleid.apple.com"); assert.equal(cl.sub, "com.studyboardapp.studyboard");
+  assert.ok(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, SP, Buffer.from(sig, "base64url"), new TextEncoder().encode(h + "." + c)));
+  // revoking (the helper the deletion uses)
+  calls.length = 0;
+  assert.equal(await da.appleRevoke(dd, "rt-apple-1", "com.studyboardapp.studyboard"), true);
+  const rv = new URLSearchParams(calls[0][1].body);
+  assert.equal(calls[0][0], "https://appleid.apple.com/auth/revoke"); assert.equal(rv.get("token"), "rt-apple-1"); assert.equal(rv.get("token_type_hint"), "refresh_token");
+});
+
 console.log(`\n${passed} checks passed`);

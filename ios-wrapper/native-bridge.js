@@ -408,7 +408,7 @@
       apple: isIOS && SI && typeof SI.apple === "function" ? function () {
         return Promise.resolve().then(function () { return SI.apple(); }).then(function (r) {
           if (r && r.error) return {error: String(r.error)};
-          return r && r.idToken ? {idToken: String(r.idToken), nonce: String(r.nonce || ""), name: String(r.name || "").slice(0, 80)} : null;
+          return r && r.idToken ? {idToken: String(r.idToken), nonce: String(r.nonce || ""), name: String(r.name || "").slice(0, 80), code: /^[A-Za-z0-9._-]{10,1000}$/.test(String(r.code || "")) ? String(r.code) : ""} : null;
         }, function (e) { return {error: (e && e.message) || "Sign in with Apple isn't available."}; });
       } : null,
       open: function (url) {

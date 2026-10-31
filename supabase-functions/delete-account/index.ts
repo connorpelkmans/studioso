@@ -19,6 +19,40 @@ const base = (d: Deps) => d.env("SUPABASE_URL").replace(/\/+$/, "");
 function originOf(u: string): string | null {
   try { const x = new URL(u); return x.protocol === "https:" && !x.username && !x.password ? x.origin : null; } catch (_e) { return null; }
 }
+// Sign in with Apple: when an account that used it is deleted, Apple requires the app to revoke it
+// (https://developer.apple.com/documentation/sign_in_with_apple/revoke_tokens). Apple's refresh token is kept from the
+// iPhone app's sign-in (POST /delete-account/apple-token, from Apple's one-time code) and revoked here before anything is
+// deleted; the iPhone app can also send a fresh code with the deletion. Secrets: APPLE_TEAM_ID, APPLE_SIGNIN_KEY_ID,
+// APPLE_SIGNIN_PRIVATE_KEY (the Sign in with Apple .p8 key's text), APPLE_BUNDLE_ID, and APPLE_SERVICES_ID for web sign-ins.
+const b64url = (b: Uint8Array | string) => btoa(typeof b === "string" ? b : String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+export async function appleClientSecret(d: Deps, clientId: string): Promise<string> {
+  const pem = d.env("APPLE_SIGNIN_PRIVATE_KEY").replace(/\\n/g, "\n");
+  const der = Uint8Array.from(atob(pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "")), c => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const iat = Math.floor(d.now() / 1000);
+  const head = b64url(JSON.stringify({ alg: "ES256", kid: d.env("APPLE_SIGNIN_KEY_ID") }));
+  const body = b64url(JSON.stringify({ iss: d.env("APPLE_TEAM_ID"), iat, exp: iat + 600, aud: "https://appleid.apple.com", sub: clientId }));
+  const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(`${head}.${body}`)));
+  return `${head}.${body}.${b64url(sig)}`;
+}
+const appleReady = (d: Deps) => !!(d.env("APPLE_SIGNIN_PRIVATE_KEY") && d.env("APPLE_SIGNIN_KEY_ID") && d.env("APPLE_TEAM_ID") && d.env("APPLE_BUNDLE_ID"));
+const form = (o: Record<string, string>) => Object.entries(o).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+// Apple's one-time code (from the iPhone app's sign-in) for a refresh token
+export async function appleExchange(d: Deps, code: string, clientId: string): Promise<string | null> {
+  const r = await d.fetch("https://appleid.apple.com/auth/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form({ client_id: clientId, client_secret: await appleClientSecret(d, clientId), code, grant_type: "authorization_code" }) });
+  if (!r.ok) { d.log("apple token exchange", r.status); return null; }
+  const j = await r.json().catch(() => null) as { refresh_token?: string } | null;
+  return typeof j?.refresh_token === "string" ? j.refresh_token : null;
+}
+export async function appleRevoke(d: Deps, token: string, clientId: string): Promise<boolean> {
+  const r = await d.fetch("https://appleid.apple.com/auth/revoke", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form({ client_id: clientId, client_secret: await appleClientSecret(d, clientId), token, token_type_hint: "refresh_token" }) });
+  if (!r.ok) d.log("apple revoke", r.status);
+  return r.ok;
+}
+const appleCode = (v: unknown) => typeof v === "string" && /^[A-Za-z0-9._-]{10,1000}$/.test(v) ? v : "";
+
 // The app's own origins
 const NATIVE_ORIGINS = ["app://studioso", "capacitor://localhost", "ionic://localhost", "https://localhost"];
 
@@ -43,7 +77,21 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const uid = user.id.toLowerCase();
 
     const text = await req.text();
-    const body = (() => { try { return JSON.parse(text.length <= 4096 ? text || "{}" : "{}"); } catch (_e) { return {}; } })() as { confirm?: unknown; password?: unknown; ack_store_subscription?: unknown };
+    const body = (() => { try { return JSON.parse(text.length <= 4096 ? text || "{}" : "{}"); } catch (_e) { return {}; } })() as { confirm?: unknown; password?: unknown; ack_store_subscription?: unknown; apple_code?: unknown; code?: unknown };
+
+    // After Sign in with Apple in the iPhone app: keep Apple's refresh token, for revoking it if the account is deleted
+    if (new URL(req.url).pathname.replace(/\/+$/, "").endsWith("/apple-token")) {
+      const code = appleCode(body.code);
+      if (!code) return json({ error: "bad request" }, 400, cors);
+      if (!appleReady(d)) return json({ ok: false, skipped: "apple keys not set" }, 200, cors);
+      const k2 = serviceKey(d), clientId = d.env("APPLE_BUNDLE_ID");
+      const refresh = await appleExchange(d, code, clientId);
+      if (!refresh) return json({ ok: false }, 200, cors);
+      const sr = await d.fetch(`${base(d)}/rest/v1/studyboard_apple_signin?on_conflict=user_id`, { method: "POST",
+        headers: { apikey: k2, Authorization: `Bearer ${k2}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({ user_id: uid, refresh_token: refresh, client_id: clientId, updated_at: new Date(d.now()).toISOString() }) });
+      return json({ ok: sr.ok }, 200, cors);
+    }
     if (String(body.confirm ?? "").trim().toUpperCase() !== "DELETE") {
       return json({ error: "confirm_required", message: "Type DELETE to confirm." }, 400, cors);
     }
@@ -108,6 +156,16 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       done.stripe_subscriptions_cancelled = "skipped: STRIPE_SECRET_KEY not set";
     } else done.stripe_subscriptions_cancelled = 0;
     done.store_subscription_notice = storeSub;
+
+    // 3b. Sign in with Apple, revoked with Apple (a fresh code from the iPhone app, else the token kept at sign-in)
+    if (appleReady(d)) {
+      let revoked = false;
+      const fresh = appleCode(body.apple_code);
+      if (fresh) { const t = await appleExchange(d, fresh, d.env("APPLE_BUNDLE_ID")); if (t) revoked = await appleRevoke(d, t, d.env("APPLE_BUNDLE_ID")); }
+      const kept = ((await (await rest(`studyboard_apple_signin?user_id=eq.${uid}&select=refresh_token,client_id`)).json()) as any[])[0];
+      if (kept?.refresh_token) revoked = (await appleRevoke(d, kept.refresh_token, kept.client_id || d.env("APPLE_BUNDLE_ID"))) || revoked;
+      done.apple_signin_revoked = revoked || (fresh || kept ? false : "not used");
+    }
 
     // 4. Files: the bytes in storage, not only the rows
     const sh2 = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };

@@ -819,6 +819,8 @@ async function sbOAuth(provider, say, back){
     const {error} = await sb.auth.signInWithIdToken({provider: "apple", token: r.idToken, nonce: r.nonce});
     if (error) throw error;
     if (r.name) sb.auth.updateUser({data: {full_name: r.name, first_name: r.name.split(" ")[0]}}).catch(() => {});
+    // kept on the server so that deleting the account can revoke Sign in with Apple, as Apple requires
+    if (r.code) sb.functions.invoke("delete-account/apple-token", {body: {code: r.code}}).catch(() => {});
     return true;
   }
   // the app (iPhone, Android): the provider's page outside the app, back through studyboard://auth-callback

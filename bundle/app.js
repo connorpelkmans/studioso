@@ -2353,6 +2353,8 @@ async function sbOAuth(provider, say, back){
     const {error} = await sb.auth.signInWithIdToken({provider: "apple", token: r.idToken, nonce: r.nonce});
     if (error) throw error;
     if (r.name) sb.auth.updateUser({data: {full_name: r.name, first_name: r.name.split(" ")[0]}}).catch(() => {});
+    // kept on the server so that deleting the account can revoke Sign in with Apple, as Apple requires
+    if (r.code) sb.functions.invoke("delete-account/apple-token", {body: {code: r.code}}).catch(() => {});
     return true;
   }
   // the app (iPhone, Android): the provider's page outside the app, back through studyboard://auth-callback
@@ -71162,6 +71164,16 @@ window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow
   async function callDelete(payload){
     let res;
     const unreachable = async error => { try { const {error: pe} = await sb.rpc("studyboard_delete_my_account_check"); if (!pe) return {kind: "missing"}; } catch (e) {} return {kind: "network", error}; };
+    // An account that used Sign in with Apple: on iPhone, Apple's sheet confirms once more, so the deletion can revoke it with
+    // Apple (Apple requires this). Without it, the token kept at sign-in is used.
+    try {
+      const N = window.StudyboardNative && window.StudyboardNative.signIn, u = typeof sbUser !== "undefined" ? sbUser : null;
+      const apple = u && ((u.app_metadata && (u.app_metadata.provider === "apple" || (u.app_metadata.providers || []).includes("apple"))) || (u.identities || []).some(i => i && i.provider === "apple"));
+      if (apple && N && N.apple && payload && payload.confirm && !payload.apple_code) {
+        const r = await N.apple();
+        if (r && r.code) payload = Object.assign({}, payload, {apple_code: r.code});
+      }
+    } catch (e) {}
     try { res = await sb.functions.invoke("delete-account", {body: payload}); }
     catch (e) { return unreachable(e); }
     if (!res || !res.error) return {kind: "ok", data: res && res.data};
