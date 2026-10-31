@@ -74,7 +74,7 @@ function applyChanges(changes, label, extra, opts){
   return inverse;
 }
 // AI keys stay on this device
-const LMS_FEED_IDS = ["brightspace", "canvas", "blackboard"];
+const LMS_FEED_IDS = ["brightspace", "canvas", "blackboard", "schoology"];
 function dropFeeds(o){ LMS_FEED_IDS.forEach(id => { if (o[id] && typeof o[id] === "object" && "feed" in o[id]) { o[id] = Object.assign({}, o[id]); delete o[id].feed; } }); return o; }
 function syncSettings(st){
   const o = Object.assign({}, st || {});

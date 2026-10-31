@@ -13,6 +13,7 @@ const PATHS: Record<string, RegExp> = {
   brightspace: /\/d2l\/le\/calendar\/feed\//i,
   canvas: /^\/feeds\/calendars\/[^/]+\.ics$/i,
   blackboard: /(\/calendarfeed\/|\.ics$)/i,
+  schoology: /(\/calendar\/feed\/ical\/|\.ics$)/i,
 };
 
 type Resolver = (host: string, type: "A" | "AAAA") => Promise<string[]>;

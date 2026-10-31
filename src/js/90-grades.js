@@ -269,7 +269,7 @@
   // Pasted grades are checked in a preview first: weights are only kept where the page shows them
   function pasteGradesSheet(cid){
     const c = courseOf(cid); if (!c) return;
-    const on = schoolHosts(), site = on.length === 1 ? ({brightspace: "Brightspace", canvas: "Canvas", blackboard: "Blackboard"})[on[0].id] : "";
+    const on = schoolHosts(), site = on.length === 1 ? ({brightspace: "Brightspace", canvas: "Canvas", blackboard: "Blackboard", schoology: "Schoology", classroom: "Google Classroom"})[on[0].id] : "";
     const key = x => String(x).toLowerCase().replace(/[^a-z0-9]/g, "");
     const mine = () => allTasks().filter(t => t.courseId === cid && !t.archivedTerm && !t.prepFor && !t.breakdownOf);
     let items = [];
@@ -484,7 +484,7 @@
   }
   // A mark next to the class average, when the school site shares one (off unless turned on in Grade Options)
   function vsClass(t){
-    const L = ["bs", "cv", "bb"].map(f => t && t[f]).find(Boolean), fb = L && L.fb, k = fb && fb.cls, p = markPct(t);
+    const L = ["bs", "cv", "bb", "sg", "gc"].map(f => t && t[f]).find(Boolean), fb = L && L.fb, k = fb && fb.cls, p = markPct(t);
     if (!k || !isNum(k.mean) || !(Number(fb.of) > 0) || p == null) return null;
     const cls = Number(k.mean) / Number(fb.of) * 100;
     return isFinite(cls) ? {mine: p, cls, d: r1(p - cls)} : null;
@@ -593,7 +593,7 @@
       </div>
       <div class="gr-legend"><span><i class="k sec"></i>Secured So Far</span><span><i class="k pos"></i>Still Up for Grabs</span></div>`;
   }
-  const FIELDS_OF = t => { const L = ["bs", "cv", "bb"].map(f => t[f]).find(Boolean) || {}; const fb = L.fb || null;
+  const FIELDS_OF = t => { const L = ["bs", "cv", "bb", "sg", "gc"].map(f => t[f]).find(Boolean) || {}; const fb = L.fb || null;
     return {feedback: !!(fb && ((fb.c || []).some(m => !m.mine) || (fb.ra || []).length)), rubric: !!L.rub}; };
   function gradeRows(list, swingId, dropped){
     return list.slice().sort(sortTasks).map(t => {
@@ -1249,7 +1249,7 @@
   const hostOf = u => { try { return new URL(u).hostname.toLowerCase().replace(/^www\./, ""); } catch (e) { return ""; } };
   function schoolHosts(){
     const out = [], L = window.SBLMS; if (!L) return out;
-    ["brightspace", "canvas", "blackboard"].forEach(id => {
+    ["brightspace", "canvas", "blackboard", "schoology"].forEach(id => {
       try {
         const x = L[id]; if (!x || !x.connected()) return;
         const c = x.cfg(); let host = String(c.host || "").trim().toLowerCase();

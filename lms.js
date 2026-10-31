@@ -1018,6 +1018,8 @@ const P = {
   canvas: { part: "persist:canvas", home: "/", ctx: "/robots.txt", harvest: cvHarvest, feed: /^\/feeds\/calendars\/[^/]+\.ics$/i },
   blackboard: { part: "persist:blackboard", home: "/ultra/stream", ctx: "/robots.txt", harvest: bbHarvest, feed: /(\/calendarfeed\/|\.ics$)/i }
 };
+// School sites read only through their calendar link (no sign-in)
+const FEED_ONLY = { schoology: /(\/calendar\/feed\/ical\/|\.ics$)/i };
 const prov = id => (Object.prototype.hasOwnProperty.call(P, id) ? P[id] : null);
 // The exact script run in the school's page for a sync
 const harvestScript = (Pv, safe) => `(() => {\n${HARVEST_PRELUDE}\nreturn (${Pv.harvest.toString()})(${JSON.stringify(safe)});\n})()`;
@@ -1249,7 +1251,7 @@ async function mail(id, host, spec, parent) {
 
 // The calendar subscription link (it has its own private key in it, so no sign-in is needed)
 function feedOk(id, url) {
-  const Pv = prov(id); if (!Pv) return null;
+  const Pv = prov(id) || (Object.prototype.hasOwnProperty.call(FEED_ONLY, id) ? { feed: FEED_ONLY[id] } : null); if (!Pv) return null;
   try {
     const u = new URL(String(url || "").trim().replace(/^webcals?:\/\//i, "https://"));
     const okProto = u.protocol === "https:" || (TEST_MODE && u.origin.startsWith("http://127.0.0.1:"));
