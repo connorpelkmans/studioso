@@ -50,24 +50,13 @@ const MAC_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.
     return {ctx, page, posted};
   };
   try {
-    let {ctx, page, posted} = await run({storefront: "DEU", birth: "1995-04-02", eligible: true});
-    const lay = await page.evaluate(() => {
-      const web = document.querySelector('dialog[open] [data-act="plan-buy-web"]'), iap = [...document.querySelectorAll('dialog[open] [data-act="plan-buy"]')];
-      if (!web) return null;
-      const w = web.getBoundingClientRect(), i = iap[0].getBoundingClientRect();
-      return {iap: iap.length, below: w.top > i.bottom, smaller: w.height * w.width < i.height * i.width, text: web.textContent.trim(), note: web.parentElement.textContent};
-    });
-    ok(lay && lay.iap >= 2 && lay.below && lay.smaller && /Studyboard website/.test(lay.text) && /leave the app/.test(lay.note), "EU adult: in-app purchase first, and the website below it, smaller, saying they'll leave the app: " + JSON.stringify(lay));
-    ok(posted.length === 1 && posted[0].tap === false && posted[0].storefront === "DEU" && posted[0].tokens.length === 1, "Apple's tokens were sent for the account as soon as it was eligible (Apple asks for that at launch)");
-    await page.click('dialog[open] [data-act="plan-buy-web"]'); await page.waitForTimeout(600);
-    const calls = await page.evaluate(() => window.__calls);
-    const iNotice = calls.indexOf("notice"), iOpen = calls.findIndex(c => c.startsWith("open "));
-    ok(iNotice >= 0 && iOpen > iNotice && posted.length === 2 && posted[1].tap === true && /^open https:\/\/studyboardapp\.com\/website\/account\?src=app$/.test(calls[iOpen]),
-      "tapping it: Apple's disclosure sheet, then the tokens (marked as a tap), then the website in the browser: " + calls.join(" | "));
-    // cancelled on Apple's sheet: nothing opens
-    await page.evaluate(() => { window.__calls = []; window.__notice = "cancelled"; });
-    await page.click('dialog[open] [data-act="plan-buy-web"]'); await page.waitForTimeout(400);
-    ok(!(await page.evaluate(() => window.__calls.some(c => c.startsWith("open ")))), "cancelling Apple's sheet keeps them in the app");
+    // Pro isn't sold to EU App Store accounts (NO_PRO_IN_EU in 10-plan.js): a note in place of the prices, no website option,
+    // and Restore Purchases still there
+    let {ctx, page} = await run({storefront: "DEU", birth: "1995-04-02", eligible: true});
+    const eu = await page.evaluate(() => ({buy: document.querySelectorAll('dialog[open] [data-act="plan-buy"]').length, web: !!document.querySelector('dialog[open] [data-act="plan-buy-web"]'),
+      note: (document.querySelector("dialog[open] .plan-sheet") || {}).textContent || "", restore: !!document.querySelector('dialog[open] [data-act="plan-restore"]')}));
+    ok(eu.buy === 0 && !eu.web && /isn't available in your country yet/.test(eu.note) && eu.restore, "an EU App Store account: no prices, a note that Pro isn't available there yet, Restore Purchases kept: " + JSON.stringify({buy: eu.buy, web: eu.web, restore: eu.restore}));
+    ok(!/Apple ID account at confirmation/.test(eu.note), "and no subscription terms for something they can't buy");
     await ctx.close();
 
     ({ctx, page} = await run({storefront: "DEU", birth: "", eligible: true}));
