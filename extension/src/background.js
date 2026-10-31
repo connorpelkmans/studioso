@@ -2,7 +2,7 @@
 "use strict";
 
 const SBX = globalThis.__studyboardExt;
-const NAMES = { canvas: "Canvas", brightspace: "Brightspace", blackboard: "Blackboard" };
+const NAMES = { canvas: "Canvas", brightspace: "Brightspace", blackboard: "Blackboard", moodle: "Moodle" };
 const DEF = { every: 60, on: true };
 const EVERY = [15, 30, 60, 180, 360, 720];
 // Kind to the school site
@@ -41,12 +41,16 @@ chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.
 const OPTS = id => ({ pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [], mail: id === "canvas", internal: FLAGS.bbInternal !== false, marks: FLAGS.marks && typeof FLAGS.marks === "object" ? FLAGS.marks : {}, budget: 120000 });
 
 // fetch for the background read
+// Reads only (GET); the one exception is Moodle's AJAX service, which takes its read requests as POST
 function schoolFetch(origin) {
   return (u, o) => {
     let url;
     try { url = new URL(String(u), origin); } catch (e) { return Promise.reject(new Error("bad-url")); }
     if (url.origin !== origin) return Promise.reject(new Error("off-site"));
-    return fetch(url.href, Object.assign({}, o || {}, { credentials: "include", method: "GET" }));
+    const post = !!o && String(o.method || "").toUpperCase() === "POST" && /\/lib\/ajax\/service\.php$/.test(url.pathname);
+    const opts = Object.assign({}, o || {}, { credentials: "include", method: post ? "POST" : "GET" });
+    if (!post) delete opts.body;
+    return fetch(url.href, opts);
   };
 }
 
@@ -136,6 +140,8 @@ async function detect(origin) {
   for (const [id, p] of probes) {
     try { const r = await within(f(p, { headers: { Accept: "application/json" } }), 15000); if ((r.ok || r.status === 401 || r.status === 403) && json(r)) return id; } catch (e) {}
   }
+  // Moodle: its sign-in page loads Moodle's own scripts
+  try { const r = await within(f("/login/index.php", { headers: { Accept: "text/html" } }), 15000); if (r.ok && /M\.cfg\s*=|\/lib\/javascript\.php|\/theme\/yui_combo\.php/.test(await r.text())) return "moodle"; } catch (e) {}
   return null;
 }
 
@@ -213,7 +219,7 @@ const APP_ORIGINS = ["https://studyboardapp.com", "https://www.studyboardapp.com
 async function results() {
   const all = await chrome.storage.local.get(null), status = all.status || {}, schools = all.schools || {};
   return { v: 1, version: chrome.runtime.getManifest().version,
-    list: Object.keys(all).filter(k => /^result:(canvas|brightspace|blackboard)$/.test(k)).map(k => all[k]).filter(Boolean),
+    list: Object.keys(all).filter(k => /^result:(canvas|brightspace|blackboard|moodle)$/.test(k)).map(k => all[k]).filter(Boolean),
     schools: Object.keys(schools).map(id => ({ id, origin: schools[id].origin, state: (status[id] || {}).state || "", at: (status[id] || {}).lastOk || 0 })) };
 }
 if (chrome.runtime.onMessageExternal) chrome.runtime.onMessageExternal.addListener((m, sender, reply) => {

@@ -1,6 +1,6 @@
 # Studyboard School Sync (browser extension)
 
-Keeps the Studyboard website (studyboardapp.com) up to date with a student's Canvas, Brightspace (D2L) or Blackboard Learn, automatically. It reads the same things as the desktop app and the phone apps: courses, due dates, submissions (late, missing, extensions), grades, feedback and rubrics, announcements, the teaching team, the syllabus and, for Canvas, the Inbox.
+Keeps the Studyboard website (studyboardapp.com) up to date with a student's Canvas, Brightspace (D2L), Blackboard Learn or Moodle, automatically. It reads the same things as the desktop app and the phone apps: courses, due dates, submissions (late, missing, extensions), grades, feedback and rubrics, announcements, the teaching team, the syllabus and, for Canvas, the Inbox.
 
 One source, four stores: Chrome Web Store, Microsoft Edge Add-ons (same package as Chrome), Firefox Add-ons (AMO) and, for Safari, Apple's App Store (see [Safari](#safari)). Store steps and listing text are in [STORE-LISTING.md](STORE-LISTING.md).
 

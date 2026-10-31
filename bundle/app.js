@@ -36188,7 +36188,7 @@ function cleanFile(r) {
         return {ou: "x" + H.fnv((code || cname || "blackboard").toLowerCase()), cname, code, sum: sum.replace(/\s*\bis due\b\s*$/i, "").replace(/\s*[-–:]?\s*\bdue\b\s*$/i, ""), kind: taskish ? "task" : "", notes: x.desc.trim().slice(0, 2000), link: x.url};
       }},
     // Moodle: sign in (read through Moodle's own pages), or its calendar link
-    {id: "moodle", k: "md", name: "Moodle", tag: "Moodle", host: "", hostPh: "moodle.yourschool.edu", siteHome: "/my/", noExt: true,
+    {id: "moodle", k: "md", name: "Moodle", tag: "Moodle", host: "", hostPh: "moodle.yourschool.edu", siteHome: "/my/",
       blurb: "Moodle LMS",
       everything: "assignments and quizzes with their due dates, what you've submitted, your grades and announcements",
       feedRx: /^https:\/\/[^/]+(?:\/[^?#]*)?\/calendar\/export_execute\.php\?[^#]*authtoken=/i, feedPh: "https://moodle.yourschool.edu/calendar/export_execute.php?userid=…&authtoken=…", feedWhere: "Calendar, then Export Calendar",

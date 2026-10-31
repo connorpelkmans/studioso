@@ -1000,9 +1000,10 @@ async function bbHarvest(o) {
 }
 
 // The three platforms
-// Moodle: read everything (runs inside a hidden Moodle page). Moodle has no API a student can use without the school setting
-// one up, so this uses what Moodle's own pages use: its AJAX service (with the page's session key) for courses and the
-// calendar, and the assignment, quiz and grade report pages for what's been submitted and the marks.
+// Moodle: read everything (runs inside a hidden Moodle page, or the extension's background). Moodle has no API a student can
+// use without the school setting one up, so this uses what Moodle's own pages use: its AJAX service (with the session key from
+// the dashboard) for courses and the calendar, and the assignment, quiz and grade report pages for what's been submitted and
+// the marks. It reads their HTML as text, so it needs no page parser.
 async function mdHarvest(o) {
   const q = o || {}, now = Date.now(), T0 = now, root = location.origin, enc = encodeURIComponent;
   const errors = [];
@@ -1016,9 +1017,15 @@ async function mdHarvest(o) {
       return await r.text();
     } finally { clearTimeout(tm); }
   };
-  const doc = html => new DOMParser().parseFromString(html, "text/html");
-  const quiet = async (path, what) => { try { return doc(await page(path)); } catch (e) { if (e.login) throw e; errors.push(what + " " + (e.status || e.message)); return null; } };
+  const quiet = async (path, what) => { try { return await page(path); } catch (e) { if (e.login) throw e; errors.push(what + " " + (e.status || e.message)); return null; } };
   const txt = (h, n) => htmlText(h || "", { max: n || 4000 });
+  // reading the pages' HTML (no page parser, so it also runs in a browser extension's background)
+  const attr = (a, k) => ((new RegExp("\\b" + k + "=\"([^\"]*)\"", "i")).exec(a) || [])[1] || "";
+  const tables = h => String(h || "").match(/<table\b[\s\S]*?<\/table>/gi) || [];
+  const rowsOf = t => (t.match(/<tr\b[\s\S]*?<\/tr>/gi) || []).map(tr => ({ html: tr, cls: attr((/<tr\b([^>]*)>/i.exec(tr) || [])[1] || "", "class"),
+    cells: [...tr.matchAll(/<(t[hd])\b([^>]*)>([\s\S]*?)<\/t[hd]>/gi)].map(m => ({ th: /th/i.test(m[1]), cls: attr(m[2], "class"), html: m[3], text: txt(m[3], 400) })) }));
+  const links = (h, re) => [...String(h || "").matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)].map(m => ({ href: attr(m[1], "href").replace(/&amp;/g, "&"), text: txt(m[2], 300) })).filter(a => a.href && (!re || re.test(a.href)));
+  const cell = (r, k) => r.cells.find(c => (" " + c.cls + " ").includes(" " + k + " ")) || null;
   const num = s => { const m = String(s || "").replace(/\s/g, "").match(/-?\d+(?:[.,]\d+)?/); return m ? Number(m[0].replace(",", ".")) : null; };
   const nums = s => (String(s || "").replace(/\s/g, "").match(/-?\d+(?:[.,]\d+)?/g) || []).map(x => Number(x.replace(",", ".")));
   const cmOf = href => { const m = /\/mod\/([a-z0-9_]+)\/view\.php\?(?:[^#]*&)?id=(\d+)/.exec(String(href || "")); return m ? { mod: m[1], cm: m[2] } : null; };
@@ -1043,7 +1050,7 @@ async function mdHarvest(o) {
 
   // who
   let name = "", uid = (/data-userid="(\d+)"/.exec(home) || /"userid"\s*:\s*(\d+)/.exec(home) || [])[1] || "";
-  try { const p = await quiet("/user/profile.php", "profile"); const h = p && (p.querySelector(".page-header-headings h1, .page-header-headings h2") || p.querySelector("h1, h2")); name = h ? txt(h.textContent, 120) : ""; } catch (e) { return { needLogin: true }; }
+  try { const p = await quiet("/user/profile.php", "profile") || ""; const h = /class="[^"]*page-header-headings[^"]*"[^>]*>\s*<h[12][^>]*>([\s\S]*?)<\/h[12]>/i.exec(p) || /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(p); name = h ? txt(h[1], 120) : ""; } catch (e) { return { needLogin: true }; }
 
   // courses
   let list = [];
@@ -1071,8 +1078,8 @@ async function mdHarvest(o) {
   const pick = all.filter(c => (only ? only.has(c.ou) : !c.hidden || busyC.has(c.ou)) && !skip.has(c.ou)).slice(0, 20);
   const courses = pick.map(c => ({ ou: c.ou, code: c.code, name: c.name, home: c.home }));
 
-  // a table's columns, by their heading
-  const cols = t => [...t.querySelectorAll("thead th, tr:first-child th")].map(th => txt(th.textContent, 80).toLowerCase());
+  // a table's columns, by their heading row
+  const heads = rows => { const h = rows.find(r => r.cells.some(c => c.th)); return { names: h ? h.cells.map(c => c.text.toLowerCase()) : [], body: rows.filter(r => r !== h) }; };
   const colIx = (names, rx) => names.findIndex(n => rx.test(n));
   const detail = async c => {
     const id = c.ou, mine = [...evs.values()].filter(e => String((e.course && e.course.id) || e.courseid || "") === id);
@@ -1081,26 +1088,26 @@ async function mdHarvest(o) {
     const sub = {}, mark = {};
     const [ai, qi, gr] = await Promise.all([quiet(`/mod/assign/index.php?id=${id}`, "assignments"), quiet(`/mod/quiz/index.php?id=${id}`, "quizzes"),
       q.grades === false ? null : quiet(`/grade/report/user/index.php?id=${id}`, "grades")]);
-    if (ai) ai.querySelectorAll("table").forEach(t => { const h = cols(t), si = colIx(h, /submission/), gi = colIx(h, /^grade/);
-      t.querySelectorAll("tbody tr").forEach(tr => { const a = tr.querySelector('a[href*="/mod/assign/view.php"]'), cm = a && cmOf(a.href); if (!cm) return; const td = tr.querySelectorAll("td, th");
-        const s = si >= 0 && td[si] ? txt(td[si].textContent, 120) : "";
+    tables(ai).forEach(t => { const { names: h, body } = heads(rowsOf(t)), si = colIx(h, /submission/), gi = colIx(h, /^grade/);
+      body.forEach(r => { const a = links(r.html, /\/mod\/assign\/view\.php/)[0], cm = a && cmOf(a.href); if (!cm) return; const td = r.cells;
+        const s = si >= 0 && td[si] ? td[si].text : "";
         if (s) sub[cm.cm] = /not submitted|no submission|no attempt|draft/i.test(s) ? false : /submitted|turned in/i.test(s) ? true : null;
-        const g = gi >= 0 && td[gi] ? nums(td[gi].textContent) : []; if (g.length >= 2 && g[1] > 0) mark[cm.cm] = { num: g[0], den: g[1] }; }); });
-    if (qi) qi.querySelectorAll("table").forEach(t => { const h = cols(t), gi = colIx(h, /^grade/), out = num((h[gi] || "").split("/")[1]);
-      t.querySelectorAll("tbody tr").forEach(tr => { const a = tr.querySelector('a[href*="/mod/quiz/view.php"]'), cm = a && cmOf(a.href); if (!cm) return; const td = tr.querySelectorAll("td, th");
-        const g = gi >= 0 && td[gi] ? nums(td[gi].textContent) : [];
+        const g = gi >= 0 && td[gi] ? nums(td[gi].text) : []; if (g.length >= 2 && g[1] > 0) mark[cm.cm] = { num: g[0], den: g[1] }; }); });
+    tables(qi).forEach(t => { const { names: h, body } = heads(rowsOf(t)), gi = colIx(h, /^grade/), out = num((h[gi] || "").split("/")[1]);
+      body.forEach(r => { const a = links(r.html, /\/mod\/quiz\/view\.php/)[0], cm = a && cmOf(a.href); if (!cm) return; const td = r.cells;
+        const g = gi >= 0 && td[gi] ? nums(td[gi].text) : [];
         if (g.length) { sub[cm.cm] = true; const den = g.length >= 2 ? g[1] : out; if (den > 0) mark[cm.cm] = { num: g[0], den }; } }); });
     // the grade report: every graded item, its weight, and the course total
-    if (gr) gr.querySelectorAll("table.user-grade tr, table.generaltable tr").forEach(tr => {
-      const th = tr.querySelector(".column-itemname"), gd = tr.querySelector(".column-grade"); if (!th || !gd) return;
-      const nm = txt(th.textContent, 300), a = th.querySelector("a[href]"), cm = a && cmOf(a.href);
-      const got = nums(gd.textContent), range = nums((tr.querySelector(".column-range") || {}).textContent), w = num((tr.querySelector(".column-weight") || {}).textContent);
-      const pct = num((tr.querySelector(".column-percentage") || {}).textContent), den = range.length >= 2 ? range[1] : null;
-      if (/course total/i.test(nm) || tr.classList.contains("coursetotal")) { if (got.length || pct != null) c.final = { shown: txt(gd.textContent, 20), pct: pct != null ? pct : got.length && den ? Math.round(got[0] / den * 1000) / 10 : null }; return; }
+    tables(gr).forEach(t => rowsOf(t).forEach(tr => {
+      const th = cell(tr, "column-itemname"), gd = cell(tr, "column-grade"); if (!th || !gd) return;
+      const nm = th.text.slice(0, 300), a = links(th.html)[0], cm = a && cmOf(a.href);
+      const got = nums(gd.text), rg = cell(tr, "column-range"), wc = cell(tr, "column-weight"), pc = cell(tr, "column-percentage");
+      const range = nums(rg && rg.text), w = num(wc && wc.text), pct = num(pc && pc.text), den = range.length >= 2 ? range[1] : null;
+      if (/course total/i.test(nm) || /\bcoursetotal\b/.test(tr.cls)) { if (got.length || pct != null) c.final = { shown: gd.text.slice(0, 20), pct: pct != null ? pct : got.length && den ? Math.round(got[0] / den * 1000) / 10 : null }; return; }
       if (!nm || !den) return;
-      c.grades.push({ gid: cm ? cm.cm : "g" + nm.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30), name: nm, num: got.length ? got[0] : null, den, weight: w != null && w > 0 ? w : null, shown: got.length ? txt(gd.textContent, 20) : "", at: null });
+      c.grades.push({ gid: cm ? cm.cm : "g" + nm.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30), name: nm, num: got.length ? got[0] : null, den, weight: w != null && w > 0 ? w : null, shown: got.length ? gd.text.slice(0, 20) : "", at: null });
       if (cm && got.length && !mark[cm.cm]) mark[cm.cm] = { num: got[0], den };
-    });
+    }));
     // the work, from the calendar: assignment due dates, quiz open and close times, and other activities' deadlines
     const work = {};
     mine.forEach(e => {
@@ -1124,13 +1131,14 @@ async function mdHarvest(o) {
     // announcements: the newest discussions in the course's announcements forum
     if (q.news !== false) try {
       const fi = await quiet(`/mod/forum/index.php?id=${id}`, "forums");
-      const fa = fi && fi.querySelector('a[href*="/mod/forum/view.php?f="]');
+      const fa = links(fi, /\/mod\/forum\/view\.php\?f=\d+/)[0];
       const fv = fa && await quiet(`/mod/forum/view.php?f=${(/f=(\d+)/.exec(fa.href) || [])[1]}`, "announcements");
-      const ds = fv ? [...new Map([...fv.querySelectorAll('a[href*="/mod/forum/discuss.php?d="]')].map(x => [(/d=(\d+)/.exec(x.href) || [])[1], x])).entries()].filter(([d]) => d).slice(0, 4) : [];
+      const ds = fv ? [...new Map(links(fv, /\/mod\/forum\/discuss\.php\?d=\d+/).filter(x => x.text).map(x => [(/d=(\d+)/.exec(x.href) || [])[1], x])).entries()].filter(([d]) => d).slice(0, 4) : [];
       for (const [d, a] of ds) {
-        const p = await quiet(`/mod/forum/discuss.php?d=${d}`, "announcement");
-        const t = p && p.querySelector("time[datetime]"), body = p && p.querySelector(".post-content-container, .posting, .content");
-        c.news.push({ id: d, title: txt(a.textContent, 200), text: body ? txt(body.innerHTML, 3000) : "", date: t ? t.getAttribute("datetime") : null, url: `${root}/mod/forum/discuss.php?d=${d}` });
+        const p = await quiet(`/mod/forum/discuss.php?d=${d}`, "announcement") || "";
+        const t = /<time\b[^>]*datetime="([^"]+)"/i.exec(p), b = /class="[^"]*\b(?:post-content-container|posting)\b[^"]*"[^>]*>([\s\S]{0,12000})/i.exec(p);
+        const body = b ? b[1].split(/<div[^>]+class="[^"]*\b(?:attachments|post-actions|commands|footer|link)\b/i)[0] : "";
+        c.news.push({ id: d, title: a.text.slice(0, 200), text: txt(body, 3000), date: t ? t[1] : null, url: `${root}/mod/forum/discuss.php?d=${d}` });
       }
     } catch (e) { if (e.login) throw e; }
   };
