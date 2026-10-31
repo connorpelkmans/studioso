@@ -23,20 +23,20 @@ What you need: a Mac with **Xcode** (Mac App Store), **Node.js 22**, the **Trans
    * **Mac Installer Distribution** (shown as "3rd Party Mac Developer Installer"; signs the Mac App Store .pkg).
    * **Apple Development** (test builds).
 5. **Mac provisioning profiles** (Profiles > +):
-   * **Mac App Store Connect** (distribution) for `com.studioso.app` > download > save as
+   * **Mac App Store Connect** (distribution) for `com.studyboardapp.studyboard` > download > save as
      `build-resources/Studyboard_MAS.provisionprofile`.
-   * **macOS App Development** for `com.studioso.app`, with your Mac registered under Devices > download > save as
+   * **macOS App Development** for `com.studyboardapp.studyboard`, with your Mac registered under Devices > download > save as
      `build-resources/Studyboard_MASDev.provisionprofile`.
    Don't commit these two files. iPhone profiles are made by Xcode automatically.
 6. **Push key** (for iPhone reminders): Keys > + > **Apple Push Notifications service (APNs)** > download the `.p8` once.
    Keep the file, its Key ID and your Team ID; they go to the server that sends reminders, never into the app.
 7. **App Store Connect** (appstoreconnect.apple.com):
    * **Business**: accept the **Paid Apps Agreement**, add tax and bank details (needed before Pro can be sold or tested).
-   * **Apps > + > New App**: platforms **iOS** and **macOS**, name **Studyboard**, language, bundle ID `com.studioso.app`,
+   * **Apps > + > New App**: platforms **iOS** and **macOS**, name **Studyboard**, language, bundle ID `com.studyboardapp.studyboard`,
      SKU (any, e.g. `studyboard`).
    * **Subscriptions** (Pro): create a subscription group "Studyboard Pro" with a monthly and a yearly subscription.
 8. **RevenueCat** (sells Pro through Apple): app.revenuecat.com > new project > add the App Store app (bundle id
-   `com.studioso.app`, App Store Connect API key). Add the two products, an entitlement named **`pro`**, and an offering with
+   `com.studyboardapp.studyboard`, App Store Connect API key). Add the two products, an entitlement named **`pro`**, and an offering with
    **monthly** and **annual** packages (and optionally a custom **semester** package for the one-time 4-month plan, see `PRO-PLANS-GUIDE.md` step 10). Copy the **public Apple SDK key** (starts with `appl_`). Set its webhook to your
    Supabase function (see `PRO-PLANS-GUIDE.md`) so Pro turns on in the account.
 

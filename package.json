@@ -159,7 +159,8 @@
           "from": "build-resources/mac/PrivacyInfo.xcprivacy",
           "to": "PrivacyInfo.xcprivacy"
         }
-      ]
+      ],
+      "appId": "com.studyboardapp.studyboard"
     },
     "mas": {
       "type": "distribution",
@@ -174,7 +175,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
         "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
-      }
+      },
+      "appId": "com.studyboardapp.studyboard"
     },
     "masDev": {
       "type": "development",
@@ -189,7 +191,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
         "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
-      }
+      },
+      "appId": "com.studyboardapp.studyboard"
     },
     "linux": {
       "target": [

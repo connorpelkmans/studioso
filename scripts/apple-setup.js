@@ -35,7 +35,7 @@ edit("package.json", s => {
 });
 // 2. Mac App Store entitlements: the App Group is prefixed with the Team ID
 for (const rel of ["build-resources/entitlements.mas.plist", "build-resources/entitlements.mas-dev.plist"])
-  edit(rel, s => s.replace(/<string>(?:TEAM_ID|[A-Z0-9]{10})\.com\.studioso\.app<\/string>/g, `<string>${team}.com.studioso.app</string>`));
+  edit(rel, s => s.replace(/<string>(?:TEAM_ID|[A-Z0-9]{10})\.com\.(?:studioso\.app|studyboardapp\.studyboard)<\/string>/g, `<string>${team}.com.studyboardapp.studyboard</string>`));
 // 3. iPhone entitlements template: universal links for the domain
 edit("ios-wrapper/App.entitlements.template.plist", s => s.replace(/applinks:[^<]+/g, "applinks:" + domain));
 // 4. RevenueCat public key for in-app purchases
