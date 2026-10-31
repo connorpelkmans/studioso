@@ -2100,6 +2100,15 @@ function cleanFile(r) {
 
   /* The three platforms */
   const LINK = (u, t) => `<a href="${esc(safeUrl(u) || "#")}" target="_blank" rel="noopener noreferrer">${t}</a>`;
+  // The example Canvas address, as schools usually name it: canvas.school.ca in Canada, canvas.school.com elsewhere
+  const CANVAS_EX = (() => {
+    try {
+      const langs = [].concat(navigator.languages || [], navigator.language || []).map(String);
+      const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || "");
+      const caZone = /^America\/(Toronto|Vancouver|Edmonton|Winnipeg|Halifax|St_Johns|Regina|Moncton|Glace_Bay|Goose_Bay|Whitehorse|Dawson|Dawson_Creek|Yellowknife|Iqaluit|Rankin_Inlet|Swift_Current|Atikokan|Creston|Fort_Nelson|Cambridge_Bay|Inuvik|Resolute|Thunder_Bay|Nipigon|Rainy_River|Pangnirtung|Blanc-Sablon)$/.test(tz);
+      return langs.some(l => /-CA$/i.test(l)) || caZone ? "canvas.school.ca" : "canvas.school.com";
+    } catch (e) { return "canvas.school.com"; }
+  })();
   const PROVIDERS = [
     {id: "brightspace", k: "bs", name: "Brightspace", tag: "D2L", host: "", hostPh: "yourschool.brightspace.com", siteHome: "/d2l/home",
       blurb: "Brightspace by D2L",
@@ -2124,10 +2133,10 @@ function cleanFile(r) {
         return {ou: m ? m[1] : "x" + H.fnv((code || x.loc || "unknown").toLowerCase()), cname: x.loc || "", code, sum: x.sum, kind: "",
           notes: x.desc.replace(/View event in Brightspace:?\s*\S+/gi, "").replace(/\n{3,}/g, "\n\n").trim(), link: x.url};
       }},
-    {id: "canvas", k: "cv", name: "Canvas", tag: "Canvas", host: "", hostPh: "yourschool.instructure.com", siteHome: "/",
+    {id: "canvas", k: "cv", name: "Canvas", tag: "Canvas", host: "", hostPh: CANVAS_EX, siteHome: "/",
       blurb: "Canvas by Instructure",
       everything: "assignments, quizzes, discussions and calendar, whether you've submitted, your grades and weights, announcements and files linked in assignments",
-      feedRx: /^https:\/\/[^/]+\/feeds\/calendars\/[^/?#]+\.ics/i, feedPh: "https://yourschool.instructure.com/feeds/calendars/user_….ics", feedWhere: "Calendar, then Calendar Feed",
+      feedRx: /^https:\/\/[^/]+\/feeds\/calendars\/[^/?#]+\.ics/i, feedPh: `https://${CANVAS_EX}/feeds/calendars/user_….ics`, feedWhere: "Calendar, then Calendar Feed",
       steps: ["Open <b>Canvas</b> in a browser and sign in.",
         "Click <b>Calendar</b> in the left menu.",
         "At the bottom of the right-hand column, click <b>Calendar Feed</b>.",
