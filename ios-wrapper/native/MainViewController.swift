@@ -107,8 +107,9 @@ public class StudyboardSignInPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorizatio
         guard let s = call.getString("url"), let url = URL(string: s), url.scheme == "https" else { return call.reject("invalid") }
         DispatchQueue.main.async {
             self.webSession?.cancel()
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "studyboard") { [weak self] back, _ in
-                self?.webSession = nil
+            // (the plugin lives as long as the app, so holding it here is fine)
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "studyboard") { back, _ in
+                self.webSession = nil
                 call.resolve(back.map { ["url": $0.absoluteString] } ?? [:])
             }
             session.presentationContextProvider = self
