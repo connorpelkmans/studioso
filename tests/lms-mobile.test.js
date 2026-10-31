@@ -64,7 +64,7 @@ const SAFE = { pastDays: 60, aheadDays: 240, grades: true, news: true, internal:
       eq(await b.connect("canvas", h), { ok: false, error: "bad-host" }, "connect " + h);
     }
     assert.strictEqual(m.calls.length, 0, "the native side was never asked");
-    eq(await b.sync("moodle", "x.edu"), { error: "bad-provider" });
+    eq(await b.sync("schoology", "x.edu"), { error: "bad-provider" });
   });
   await t("connect: signed in, cancelled, failed", async () => {
     const m = load({ connect: a => ({ ok: true, name: "Sam" }) }), r = await m.win.studiosoLms.connect("canvas", "https://learn.example.edu/d2l/home");

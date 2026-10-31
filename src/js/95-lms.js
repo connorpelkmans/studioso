@@ -1555,8 +1555,8 @@ function cleanFile(r) {
         <div class="bs-status${needLogin || gone0 ? " warn" : ""}"><span class="bs-ico">${ICON}</span><div><b>${needLogin ? "Sign In Again" : gone0 ? "Not Syncing" : "Connected"}${c.name ? `<span class="mini"> as ${esc(c.name)}</span>` : ""}</b><span class="mini">${esc(statusLine())}</span>${diagHtmlBox()}</div></div>
         <div class="bs-acts">
           ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from Chrome's toolbar and connect ${P.name} again to keep syncing.` : chromeDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
-          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
-          ${!P.feedOnly && !P.direct && grabOk() && chromeDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
+          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
+          ${!P.feedOnly && !P.direct && !P.noExt && grabOk() && chromeDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
           ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
           <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
           ${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}
@@ -1613,8 +1613,8 @@ function cleanFile(r) {
     </ul>`;
   function connectSheet(){
     if (P.direct) return gcSheet();
-    const desk = bsDesk() && !P.feedOnly, cloud = sbActive(), grab = grabOk() && !P.feedOnly;
-    const extOn = !P.feedOnly && !!(window.SBEXT && SBEXT.on()), extHas = extOn && SBEXT.has(P.id), extOffer = !desk && !extOn && grab && chromeDesktop();
+    const desk = bsDesk() && !P.feedOnly, cloud = sbActive(), grab = grabOk() && !P.feedOnly && !P.noExt;
+    const extOn = !P.feedOnly && !P.noExt && !!(window.SBEXT && SBEXT.on()), extHas = extOn && SBEXT.has(P.id), extOffer = !desk && !extOn && grab && chromeDesktop();
     const extWay = extOn ? `<div class="bs-way rec"><div class="bs-way-h"><b>Studyboard School Sync</b><span class="bs-pill">${extHas ? "Connected" : "Installed"}</span></div>
           <p class="mini">${extHas ? `The extension keeps ${P.name} up to date by itself: due dates, what you've submitted, grades and announcements.` : `The extension is installed. Click its toolbar button and connect ${P.name}: it then brings in due dates, submissions, grades and announcements by itself.`}</p>
           ${extFacts()}</div>`
@@ -2369,10 +2369,10 @@ function cleanFile(r) {
         const taskish = /\bdue\b/i.test(x.sum) || /\b(assignment|quiz|test|exam|midterm|journal|reflection|discussion|paper|essay|report|project|submission|care plan|case study)\b/i.test(sum);
         return {ou: "x" + H.fnv((code || cname || "blackboard").toLowerCase()), cname, code, sum: sum.replace(/\s*\bis due\b\s*$/i, "").replace(/\s*[-–:]?\s*\bdue\b\s*$/i, ""), kind: taskish ? "task" : "", notes: x.desc.trim().slice(0, 2000), link: x.url};
       }},
-    // Moodle: through its calendar link (Moodle sign-in differs from school to school)
-    {id: "moodle", k: "md", name: "Moodle", tag: "Moodle", host: "", hostPh: "moodle.yourschool.edu", siteHome: "/my/", feedOnly: true,
-      blurb: "Moodle LMS, through its calendar",
-      everything: "assignment due dates, quizzes and events from your Moodle calendar",
+    // Moodle: sign in (read through Moodle's own pages), or its calendar link
+    {id: "moodle", k: "md", name: "Moodle", tag: "Moodle", host: "", hostPh: "moodle.yourschool.edu", siteHome: "/my/", noExt: true,
+      blurb: "Moodle LMS",
+      everything: "assignments and quizzes with their due dates, what you've submitted, your grades and announcements",
       feedRx: /^https:\/\/[^/]+(?:\/[^?#]*)?\/calendar\/export_execute\.php\?[^#]*authtoken=/i, feedPh: "https://moodle.yourschool.edu/calendar/export_execute.php?userid=…&authtoken=…", feedWhere: "Calendar, then Export Calendar",
       steps: ["Open <b>Moodle</b> in a browser and sign in.",
         "Open <b>Calendar</b> (from the menu, your Dashboard, or yourschool's Moodle address followed by /calendar/view.php).",
@@ -2380,7 +2380,7 @@ function cleanFile(r) {
         "Under <b>Events to export</b> choose <b>All</b>, and under <b>for</b> choose <b>Recent and next 60 days</b>.",
         "Click <b>Get calendar URL</b> and copy the link it shows.",
         "Paste it into Studyboard."],
-      courseHome: () => "",
+      courseHome: (o, ou) => /^\d+$/.test(ou) ? `${o}/course/view.php?id=${ou}` : "",
       feedInfo: (x, H) => {
         // Moodle puts the course's short name in CATEGORIES; titles end in "is due", "due", "opens" or "closes"
         const cname = (x.cat || "").trim().slice(0, 120), code = H.codeOf(cname) || H.codeOf(x.sum);

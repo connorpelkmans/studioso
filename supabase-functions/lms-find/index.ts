@@ -15,7 +15,7 @@
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
-type Lms = "brightspace" | "canvas" | "blackboard";
+type Lms = "brightspace" | "canvas" | "blackboard" | "moodle";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...CORS } });
@@ -47,13 +47,14 @@ export function candidates(lms: Lms, domains: string[]): string[] {
   const own = (subs: string[]) => doms.flatMap(dm => subs.map(s => `${s}.${dm}`));
   const out = lms === "brightspace" ? [...own(["learn", "d2l", "brightspace", "elearning", "mycourses", "courses", "lms", "online"]), ...slugs.flatMap(s => [`${s}.brightspace.com`, `${s}.desire2learn.com`])]
     : lms === "canvas" ? [...own(["canvas", "learn", "courses", "lms"]), ...slugs.map(s => `${s}.instructure.com`)]
+    : lms === "moodle" ? [...own(["moodle", "learn", "elearning", "lms", "courses", "online", "classes", "ilearn", "mycourses", "e-learning"]), ...slugs.map(s => `${s}.moodlecloud.com`)]
     : [...own(["blackboard", "bb", "learn", "mycourses", "courses", "elearning"]), ...slugs.map(s => `${s}.blackboard.com`)];
   return [...new Set(out)].filter(h => HOST.test(h));
 }
 
 // Is this host really that kind of site? Returns the host to use (the one a provider address forwards to), or "".
-const PATH: Record<Lms, string> = { brightspace: "/d2l/login", canvas: "/login/canvas", blackboard: "/webapps/login/" };
-const MARK: Record<Lms, RegExp> = { brightspace: /d2l|brightspace|desire2learn/i, canvas: /instructure|canvas/i, blackboard: /blackboard|bb-|\/webapps\/|learn\.ultra|anthology/i };
+const PATH: Record<Lms, string> = { brightspace: "/d2l/login", canvas: "/login/canvas", blackboard: "/webapps/login/", moodle: "/login/index.php" };
+const MARK: Record<Lms, RegExp> = { brightspace: /d2l|brightspace|desire2learn/i, canvas: /instructure|canvas/i, blackboard: /blackboard|bb-|\/webapps\/|learn\.ultra|anthology/i, moodle: /moodle|M\.cfg|\/lib\/javascript\.php|\/theme\/(image|styles|yui_combo)\.php/i };
 const SSO = /(^|\.)(microsoftonline\.com|login\.microsoft\.com|accounts\.google\.com|okta\.com|onelogin\.com|duosecurity\.com|shibboleth|cas\.|sso\.|idp\.|auth\.|login\.)/i;
 // need: for a provider address, the school's own domains, one of which the redirects or the page must mention
 export async function probe(d: Deps, lms: Lms, host: string, need: string[] = []): Promise<string> {
@@ -90,7 +91,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const text = await req.text();
     if (text.length > 1000) return json({ error: "bad request" }, 400);
     const body = (() => { try { return JSON.parse(text || "{}"); } catch (_e) { return {}; } })() as { key?: unknown; lms?: unknown };
-    const lms = (["brightspace", "canvas", "blackboard"] as const).find(x => x === body.lms);
+    const lms = (["brightspace", "canvas", "blackboard", "moodle"] as const).find(x => x === body.lms);
     const key = typeof body.key === "string" && /^[a-z0-9._:-]{3,120}$/i.test(body.key) ? body.key : "";
     if (!lms || !key) return json({ error: "bad request" }, 400);
     const sk = serviceKey(d), h = { apikey: sk, Authorization: `Bearer ${sk}`, "Content-Type": "application/json" };

@@ -1045,6 +1045,8 @@ await test("lms-find: tries the school's own address first, then the provider's"
   assert.equal(c[0], "learn.bcit.ca"); assert.ok(c.indexOf("learn.bcit.ca") < c.indexOf("bcit.brightspace.com"));
   assert.ok(lfind.candidates("canvas", ["ubc.ca"]).includes("ubc.instructure.com"));
   assert.ok(lfind.candidates("blackboard", ["example.edu"]).includes("example.blackboard.com"));
+  const md = lfind.candidates("moodle", ["school.edu"]);
+  assert.equal(md[0], "moodle.school.edu"); assert.ok(md.includes("school.moodlecloud.com"));
 });
 await test("lms-find: BCIT -> learn.bcit.ca (its site sends sign-in to Microsoft); a provider address that forwards is followed; a plain site isn't a school site", async () => {
   const site = {

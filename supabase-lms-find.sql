@@ -6,10 +6,13 @@
 --   school_key = 'd:us:0616230' or 'd:on:B66052': fix that row to fix every school in the district.
 create table if not exists public.school_lms (
   school_key text not null,
-  lms text not null check (lms in ('brightspace', 'canvas', 'blackboard')),
+  lms text not null,
   host text not null default '',
   checked_at timestamptz not null default now(),
   primary key (school_key, lms)
 );
+-- (Moodle added later: widen the check on an existing table)
+alter table public.school_lms drop constraint if exists school_lms_lms_check;
+alter table public.school_lms add constraint school_lms_lms_check check (lms in ('brightspace', 'canvas', 'blackboard', 'moodle'));
 alter table public.school_lms enable row level security;
 revoke all on public.school_lms from anon, authenticated;

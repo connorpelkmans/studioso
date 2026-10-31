@@ -32,7 +32,7 @@ import org.json.JSONTokener
 import java.security.MessageDigest
 import java.security.SecureRandom
 
-private val IDS = setOf("brightspace", "canvas", "blackboard")
+private val IDS = setOf("brightspace", "canvas", "blackboard", "moodle")
 
 private fun originOf(url: String?): String {
     val u = try { Uri.parse(url ?: "") } catch (e: Exception) { return "" }

@@ -54,10 +54,10 @@ const act = (page, a) => page.evaluate(a => { const b = document.createElement("
     ok(sg.ok && !sg.bad, "Schoology's calendar export link is accepted, other pages aren't");
     ok(sg.recs.includes("Essay draft") && sg.evs.includes("Pep rally") && sg.course === "English 10", "a Schoology calendar brings in its assignment as a task and its event as an event: " + JSON.stringify(sg));
 
-    // Moodle: calendar link only, and its calendar's course short names become courses
+    // Moodle: signing in or its calendar link, and its calendar's course short names become courses
     await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await act(page, "md-open"); await page.waitForSelector("#bsFeedIn");
-    ok(!(await page.$("#bsHostIn")) && /Moodle/.test(await page.textContent(".bs-sheet")), "Moodle connects with its calendar link");
+    ok(!!(await page.$("#bsHostIn")) && /Sign In to Moodle/.test(await page.textContent(".bs-sheet")) && !!(await page.$("#bsSchoolIn")), "Moodle offers signing in (with Find your school), and its calendar link");
     const md = await page.evaluate(() => {
       const L = window.SBLMS.moodle, d = new Date(Date.now() + 4 * 864e5), z = x => String(x).padStart(2, "0"), day = `${d.getUTCFullYear()}${z(d.getUTCMonth() + 1)}${z(d.getUTCDate())}`;
       const ev = (uid, sum, cat, when) => ["BEGIN:VEVENT", "UID:" + uid, "SUMMARY:" + sum, "DESCRIPTION:", "CLASS:PUBLIC", "CATEGORIES:" + cat, "DTSTART:" + when, "DTEND:" + when, "END:VEVENT"];
