@@ -67,7 +67,7 @@ function cleanFile(r) {
 })();
 /* LMS-GRAB-END */
 (() => {
-  const FIELDS = ["bs", "cv", "bb"];
+  const FIELDS = ["bs", "cv", "bb", "md", "sg", "gc"];
   const LMS = {};
   /* What a school site says about one item */
   const LT = (x, n) => htmlText(String(x == null ? "" : x), {max: n, line: true}), MT = (x, n) => htmlText(String(x == null ? "" : x), {max: n});
@@ -140,7 +140,7 @@ function cleanFile(r) {
       <ol class="lms-cr">${rub.cr.map(x => { const g = got[x.t]; return `<li><div class="lms-cr-top"><b>${esc(x.t)}</b><span class="mini">${g && g.pts != null ? `${esc(g.pts)} / ` : ""}${esc(x.pts)} pts</span></div>${x.d ? `<p class="mini">${esc(x.d)}</p>` : ""}
         ${x.lv.length ? `<ul class="lms-lv">${x.lv.map(v => `<li class="${g && g.lv && g.lv === v.t ? "got" : ""}"><span class="lms-lv-t">${esc(v.t || "Level")}${v.pts != null ? ` <span class="mini">${esc(v.pts)}</span>` : ""}</span>${v.d ? `<span class="mini">${esc(v.d)}</span>` : ""}</li>`).join("")}</ul>` : ""}</li>`; }).join("")}</ol></details>`;
   }
-  const FNAME = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard"};
+  const FNAME = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard", md: "Moodle", sg: "Schoology", gc: "Google Classroom"};
   /* Where marks come from. "grades" is the platform's Grades page; the rest are places a mark can be when Grades doesn't show it (yet).
      A read (lms.js) returns these as c.marks rows {kind, id, num, den, from, how}; addMarks() turns them into grades.
      Order is priority: a mark from a higher source replaces one from a lower source. Each has a remote switch in app_flags (supabase-app-flags.sql).
@@ -159,7 +159,7 @@ function cleanFile(r) {
   const markSwitches = () => Object.fromEntries(MARK_SOURCES.filter(x => x.flag).map(x => [x.id, appFlag(x.flag)]));
   function subLine(t, f, L){
     if (t.status === "done") return "";
-    const nm = FNAME[f], lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]] || {lastRead: () => null}).lastRead();
+    const nm = FNAME[f], lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]] || {lastRead: () => null}).lastRead();
     if (lr && lr.subs && Object.prototype.hasOwnProperty.call(lr.subs, L.key)) L = Object.assign({}, L, {sub: lr.subs[L.key], seen: Object.assign({}, L.seen, {api: lr.at})});
     else if (lr && (lr.ous || []).includes(L.ou) && L.seen && L.seen.api && L.seen.api < lr.at) return `<p class="mini lms-sub">This task wasn't in the last read from ${esc(nm)} (${esc(fmtWhen(lr.at))}). It may have been renamed or removed there, or be in another course.</p>`;
     const api = L.seen && L.seen.api;
@@ -171,13 +171,13 @@ function cleanFile(r) {
   }
   // A calendar entry the last read of its course didn't have anymore (moved, deleted, or never this course's): offer to remove it, done or not
   function staleLine(t, f, L){
-    const lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]] || {lastRead: () => null}).lastRead();
+    const lr = (LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]] || {lastRead: () => null}).lastRead();
     if (!lr || L.item !== false || !L.key || !(lr.ous || []).includes(L.ou) || !Array.isArray(lr.keys) || lr.keys.includes(L.key) || !(L.seen && L.seen.api && L.seen.api < lr.at) || t.mark) return "";
     return `<p class="mini lms-sub lms-stale">This came from a ${esc(FNAME[f])} calendar entry that isn't there anymore (read ${esc(fmtWhen(lr.at))}). If it isn't real, remove it.</p><p style="margin:4px 0 0"><button type="button" class="btn small" data-act="lms-stale-del" data-id="${esc(t.id)}">Remove</button></p>`;
   }
   function linkSheet(id){
     const t = state.tasks[id], f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return;
-    const pid = {bs: "brightspace", cv: "canvas", bb: "blackboard"}[f], Lm = LMS[pid], lr = Lm && Lm.lastRead(); if (!lr) return;
+    const pid = {bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f], Lm = LMS[pid], lr = Lm && Lm.lastRead(); if (!lr) return;
     const all = lr.items || [], mine = all.filter(x => x.ou === t[f].ou), list = (mine.length ? mine : all).slice()
       .sort((a, b) => Math.abs(dayDiff(a.d || "2100-01-01", t.due || a.d || "2100-01-01")) - Math.abs(dayDiff(b.d || "2100-01-01", t.due || b.d || "2100-01-01"))).slice(0, 40);
     const said = s => s === "yes" ? `<span class="pill lms-ok">Submitted</span>` : s === "no" ? `<span class="pill">Not submitted</span>` : `<span class="pill">Unknown</span>`;
@@ -195,7 +195,7 @@ function cleanFile(r) {
     return `<details class="lms-src"><summary class="mini">Where this came from</summary><p class="mini">From ${esc(nm)}. ${made}${reads.length ? ` Seen since by ${reads.map(esc).join(" and ")}.` : ""}${L.key ? ` <span class="lms-key">Key: ${esc(L.key)}</span>` : ""}</p>${diagHtml(f, L)}</details>`;
   }
   function diagHtml(f, L){
-    const Lm = LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]], lr = Lm && Lm.lastRead(), t = Object.values(state.tasks || {}).find(x => x[f] === L || (x[f] && x[f].key === L.key)) || {};
+    const Lm = LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]], lr = Lm && Lm.lastRead(), t = Object.values(state.tasks || {}).find(x => x[f] === L || (x[f] && x[f].key === L.key)) || {};
     const said = lr && lr.subs && Object.prototype.hasOwnProperty.call(lr.subs, L.key) ? (lr.subs[L.key] || "didn't say") : "not in the last read";
     const same = lr && t.due ? (lr.items || []).filter(x => x.ou === L.ou && x.d && Math.abs(dayDiff(x.d, t.due)) <= 2).map(x => `${x.t} (${x.d}${x.s ? ", " + (x.s === "yes" ? "submitted" : x.s === "no" ? "not submitted" : x.s) : ""})`) : [];
     const rows = [
@@ -243,7 +243,7 @@ function cleanFile(r) {
   const lmsKeyOf = t => FIELDS.map(f => t[f] && t[f].key ? f : "").find(Boolean) || "";
   function examDupes(){
     const said = (state.settings && state.settings.sameItem) || {};
-    const PID = {bs: "brightspace", cv: "canvas", bb: "blackboard"};
+    const PID = {bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"};
     const real = {}; FIELDS.forEach(f => { const lr = LMS[PID[f]] && LMS[PID[f]].lastRead(); real[f] = new Set(((lr && lr.items) || []).map(x => x.k)); });
     const isReal = t => { const f = lmsKeyOf(t); return !!(f && (t[f].item === true || real[f].has(t[f].key))); };
     const ex = Object.values(state.tasks || {}).filter(t => t && MILESTONE(t.type) && t.due && !t.breakdownOf && !t.prepFor);
@@ -307,7 +307,7 @@ function cleanFile(r) {
     });
     return out.slice(0, 6);
   }
-  const statusMineAny = t => { const f = t && ["bs", "cv", "bb"].find(k => t[k] && t[k].key); if (!f) return t && t.status !== "todo"; const L = t[f]; return !!L.sm || (L.ss != null ? t.status !== L.ss : t.status !== "todo" && !(t.status === "done" && L.doneSeen)); };
+  const statusMineAny = t => { const f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return t && t.status !== "todo"; const L = t[f]; return !!L.sm || (L.ss != null ? t.status !== L.ss : t.status !== "todo" && !(t.status === "done" && L.doneSeen)); };
   function mergeTasks(keep0, other, useDate){
     const keep = clone(keep0);
     if (useDate && other.due) { keep.due = other.due; keep.time = other.time || keep.time || ""; }
@@ -318,7 +318,7 @@ function cleanFile(r) {
     if (other.remoteSrc === "user" && keep.remoteSrc !== "user") { keep.remote = other.remote; keep.remoteSrc = "user"; keep.remoteWhy = "You set this"; keep.remoteAt = Date.now(); keep.remoteSig = ""; }
     if (keep.weight == null && other.weight != null) keep.weight = other.weight;
     if (!keep.prep && other.prep) keep.prep = other.prep;
-    FIELDS.forEach(f => { if (other[f] && other[f].key && LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]]) LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard"}[f]].drop(other[f].key, "merge"); });
+    FIELDS.forEach(f => { if (other[f] && other[f].key && LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]]) LMS[{bs: "brightspace", cv: "canvas", bb: "blackboard", md: "moodle", sg: "schoology", gc: "classroom"}[f]].drop(other[f].key, "merge"); });
     const kf = lmsKeyOf(keep);
     if (kf) { const took = FIELDS.filter(f => other[f] && other[f].key && f === kf).map(f => other[f].key); if (took.length) keep[kf] = Object.assign({}, keep[kf], {merged: [...new Set((keep[kf].merged || []).concat(took))].slice(-8)}); }
     applyChanges([{kind: "task", id: keep.id, after: normTask(keep)}, {kind: "task", id: other.id, after: null}], `Merged ${other.title} into ${keep.title}`);
@@ -431,7 +431,7 @@ function cleanFile(r) {
     return out;
   };
   const save = patch => { state.settings = Object.assign({}, state.settings, {[P.id]: slimSynced(Object.assign(cfg(), patch))}); saveSettings(); };
-  const connected = c => !!((c = c || cfg()).mode && (c.mode === "api" ? c.host : c.feed));
+  const connected = c => !!((c = c || cfg()).mode && (c.mode === "direct" ? c.acct : c.mode === "api" ? c.host : c.feed));
   const local = () => { try { return JSON.parse(localStorage.getItem(LS) || "{}") || {}; } catch(e) { return {}; } };
   const setLocal = p => { try { localStorage.setItem(LS, JSON.stringify(Object.assign(local(), p))); } catch(e) {} };
   const plural = (n, w, pl) => `${n} ${n === 1 ? w : (pl || w + "s")}`;
@@ -1235,6 +1235,12 @@ function cleanFile(r) {
   async function getData(how){
     const c = cfg();
     try {
+      if (how === "direct") {
+        const skip = Object.entries(c.map).filter(([, v]) => v === "skip").map(([k]) => k);
+        const h = await P.direct({pastDays: Math.max(60, Number(c.pastDays) || 0), grades: c.grades, news: c.news, skip});
+        if (!h || !h.ok) return {error: (h && h.error) || "none", text: (h && h.text) || `Couldn't reach ${P.name}. Check your connection and try again.`, reauth: !!(h && h.reauth)};
+        return {data: P.fromApi(h)};
+      }
       if (how === "api") {
         const skip = Object.entries(c.map).filter(([, v]) => v === "skip").map(([k]) => k);
         if (P.id === "blackboard") await loadFlags();
@@ -1254,6 +1260,7 @@ function cleanFile(r) {
   }
   function howNow(){
     const c = cfg();
+    if (P.direct) return c.mode === "direct" && c.acct ? "direct" : "";
     if (c.mode === "api" && bsDesk() && c.host) return "api";
     if (c.feed) return "feed";
     return "";
@@ -1277,8 +1284,8 @@ function cleanFile(r) {
     const at = Date.now();
     const log = lines.map(l => Object.assign({at}, l)).concat(c.log).slice(0, 60);
     const goneIds = p.rep.gone.map(t => t.id);
-    if ((how === "api" || how === "grab") && (c.apiOnly || []).length) { const seenK = new Set(data.recs.map(r => recKey(r))); const left = c.apiOnly.filter(k => !seenK.has(k)); if (left.length !== c.apiOnly.length) save({apiOnly: left}); }
-    if ((how === "api" || how === "grab") && p.readSub) {
+    if ((how === "api" || how === "grab" || how === "direct") && (c.apiOnly || []).length) { const seenK = new Set(data.recs.map(r => recKey(r))); const left = c.apiOnly.filter(k => !seenK.has(k)); if (left.length !== c.apiOnly.length) save({apiOnly: left}); }
+    if ((how === "api" || how === "grab" || how === "direct") && p.readSub) {
       const b = bulk();
       b.lastRead = {at, subs: p.readSub, ous: (data.synced || []).slice(0, 60),
         items: data.recs.filter(r => r.pid || r.asRead).slice(0, 500).map(r => ({k: recKey(r), ou: r.ou, t: String(r.title).slice(0, 160), d: r.due || "", s: r.done ? "yes" : r.sub || "", a: r.asRead || ""})), und: (data.und || []).slice(0, 80), notes: data.notes || {}, topics: data.topics || {},
@@ -1307,7 +1314,7 @@ function cleanFile(r) {
     if (!t || !t[F] || !t[F].key || !it) return;
     save({merges: Object.assign({}, cfg().merges || {}, {[t[F].key + ">" + itemKey]: "yes"})});
     if (dlg.open) dlg.close();
-    if (lastRead) { const d = P.fromApi(lastRead); applyPlan(d, plan(d), cfg().lastSrc === "grab" ? "grab" : "api", false); return; }
+    if (lastRead) { const d = P.fromApi(lastRead); applyPlan(d, plan(d), (cfg().lastSrc === "grab" || cfg().lastSrc === "direct" ? cfg().lastSrc : "api"), false); return; }
     if (it.s === "yes" && t.status !== "done") { const n = clone(t); n.status = "done"; n.doneAt = Date.now(); n.pct = 100; n.order = nextOrder("done"); n[F] = Object.assign({}, n[F], {doneSeen: true, sub: "yes"}); applyChanges([{kind: "task", id: n.id, after: normTask(n)}], `Linked to ${it.t}: it's submitted, so it's done`); }
     else toast(`Linked to ${it.t}. It follows it from the next read.`);
   }
@@ -1331,7 +1338,7 @@ function cleanFile(r) {
       save({merges: m});
       dlg.close();
       const n = pick.filter(v => v === "yes").length;
-      if (n && lastRead) { const d = P.fromApi(lastRead); applyPlan(d, plan(d), cfg().lastSrc === "grab" ? "grab" : "api", false); }
+      if (n && lastRead) { const d = P.fromApi(lastRead); applyPlan(d, plan(d), (cfg().lastSrc === "grab" || cfg().lastSrc === "direct" ? cfg().lastSrc : "api"), false); }
       else toast(n ? "Merged" : "Kept apart");
       return false;
     });
@@ -1377,7 +1384,7 @@ function cleanFile(r) {
       dlg.close();
       if (ch.length) applyChanges(ch, ch.length === 1 ? `Moved ${state.tasks[ch[0].id].title} to ${cname(ch[0].after.courseId)}` : `Moved ${ch.length} tasks to their courses`);
       twins.forEach(([keepId, otherId]) => { if (state.tasks[keepId] && state.tasks[otherId]) mergeTasks(state.tasks[keepId], state.tasks[otherId]); });
-      if (lastRead) { const d = P.fromApi(lastRead); applyPlan(d, plan(d), cfg().lastSrc === "grab" ? "grab" : "api", true); }
+      if (lastRead) { const d = P.fromApi(lastRead); applyPlan(d, plan(d), (cfg().lastSrc === "grab" || cfg().lastSrc === "direct" ? cfg().lastSrc : "api"), true); }
       else if (!ch.length) toast(back.length ? "It comes back with the next sync" : "Kept where they are");
       return false;
     });
@@ -1481,7 +1488,7 @@ function cleanFile(r) {
     const c = cfg(), L = local();
     if (!connected(c)) return "Not connected";
     if (extGone(c)) return `${SBEXT.on() ? `The Studyboard School Sync extension isn't connected to ${P.name} anymore` : "The Studyboard School Sync extension isn't in this browser anymore"}, so nothing new comes in. ${c.last ? `Last synced ${ago(c.last)}.` : ""}`;
-    const how = c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
+    const how = c.mode === "direct" ? `Connected${c.acct ? " as " + c.acct : ""}` : c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
     const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 11]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
@@ -1548,8 +1555,8 @@ function cleanFile(r) {
         <div class="bs-status${needLogin || gone0 ? " warn" : ""}"><span class="bs-ico">${ICON}</span><div><b>${needLogin ? "Sign In Again" : gone0 ? "Not Syncing" : "Connected"}${c.name ? `<span class="mini"> as ${esc(c.name)}</span>` : ""}</b><span class="mini">${esc(statusLine())}</span>${diagHtmlBox()}</div></div>
         <div class="bs-acts">
           ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from Chrome's toolbar and connect ${P.name} again to keep syncing.` : chromeDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
-          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
-          ${grabOk() && chromeDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
+          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
+          ${!P.feedOnly && !P.direct && !P.noExt && grabOk() && chromeDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
           ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
           <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
           ${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}
@@ -1570,15 +1577,16 @@ function cleanFile(r) {
              ["grades", "Bring In Grades", "Marks and weights go to Grades. Marks you typed yourself are never replaced."],
              ["addGraded", "Add Graded Items I Don't Have as Tasks", "Like participation marks, so your course grade adds up"],
              ["news", "Bring In Announcements", "Shown on each course page"],
-             ["aiNews", "Find Dates in Announcements with AI", aiReady() ? "Uses your free AI. You review every change before it's added." : "Set up AI in Settings to use this"]].map(([k, t, s]) => `<label class="mi-check gs-opt"><input type="checkbox" data-bs-opt="${k}" ${c[k] ? "checked" : ""}><span>${t}<span class="sub">${s}</span></span></label>`).join("")}
+             ["aiNews", "Find Dates in Announcements with AI", aiReady() ? "Uses your free AI. You review every change before it's added." : "Set up AI in Settings to use this"]].filter(([k]) => !P.feedOnly || k === "auto").map(([k, t, s]) => `<label class="mi-check gs-opt"><input type="checkbox" data-bs-opt="${k}" ${c[k] ? "checked" : ""}><span>${t}<span class="sub">${s}</span></span></label>`).join("")}
           <div class="cap-row"><label for="bsPast" style="flex:1;font-weight:600">Include Past Due Dates<span class="sub">How far back to bring in work you haven't finished</span></label><select id="bsPast">${[[0, "None"], [7, "1 Week"], [14, "2 Weeks"], [30, "1 Month"], [120, "Whole Term"]].map(([v, l]) => `<option value="${v}" ${Number(c.pastDays) === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         </div>
         <h3 class="fsec">Connection</h3>
-        <div class="bs-conn">
+        ${P.direct ? `<div class="bs-conn"><p class="mini" style="margin:0 0 6px">Google account: <b>${esc(c.acct || "")}</b>. Studyboard reads your classes, classwork, what you've turned in, your grades and announcements. It can't change or turn in anything.</p>
+          <div class="bs-acts"><button class="btn small" data-act="${A}-gc-connect">Connect Again</button></div></div>` : `<div class="bs-conn">
           ${c.mode === "api" ? `<p class="mini" style="margin:0 0 6px">${P.name} site: <b>${esc(c.host)}</b></p>` : ""}
           <label class="f"><span class="lh">Calendar Link <span class="hint">${c.mode === "api" ? `optional, keeps due dates syncing in ${DESK ? "this app" : window.Capacitor ? "this phone app" : "this browser"} too. Kept on this device only` : `from ${P.name}, ${P.feedWhere}`}</span></span><input type="url" id="bsFeedIn" value="${esc(c.feed)}" placeholder="${esc(P.feedPh)}" autocomplete="off" spellcheck="false"></label>
-          <div class="bs-acts"><button class="btn small" data-act="${A}-feed-save">Save Link</button><button class="btn small" data-act="${A}-feed-help">How to Find It</button>${bsDesk() && c.mode !== "api" ? `<button class="btn small" data-act="${A}-login">Sign In for Grades and More</button>` : ""}</div>
-        </div>
+          <div class="bs-acts"><button class="btn small" data-act="${A}-feed-save">Save Link</button><button class="btn small" data-act="${A}-feed-help">How to Find It</button>${bsDesk() && c.mode !== "api" && !P.feedOnly ? `<button class="btn small" data-act="${A}-login">Sign In for Grades and More</button>` : ""}</div>
+        </div>`}
         ${(c.dropped || []).length ? `<p class="mini" style="margin:8px 0 0">${(c.dropped || []).length === 1 ? "1 item you deleted is" : (c.dropped || []).length + " items you deleted are"} kept off, so syncing doesn't bring ${(c.dropped || []).length === 1 ? "it" : "them"} back. <button type="button" class="link-btn" data-act="${A}-undrop">Bring Them Back</button></p>` : ""}
       </div>
       <div class="sheet-foot"><button type="button" class="btn danger" data-act="${A}-disconnect">Disconnect</button><button type="button" class="btn" data-act="${A}-fresh">Start Fresh</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
@@ -1604,8 +1612,9 @@ function cleanFile(r) {
       <li><b>Staying up to date:</b> it checks by itself about every hour. Remove the extension to stop.</li>
     </ul>`;
   function connectSheet(){
-    const desk = bsDesk(), cloud = sbActive(), grab = grabOk();
-    const extOn = !!(window.SBEXT && SBEXT.on()), extHas = extOn && SBEXT.has(P.id), extOffer = !desk && !extOn && grab && chromeDesktop();
+    if (P.direct) return gcSheet();
+    const desk = bsDesk() && !P.feedOnly, cloud = sbActive(), grab = grabOk() && !P.feedOnly && !P.noExt;
+    const extOn = !P.feedOnly && !P.noExt && !!(window.SBEXT && SBEXT.on()), extHas = extOn && SBEXT.has(P.id), extOffer = !desk && !extOn && grab && chromeDesktop();
     const extWay = extOn ? `<div class="bs-way rec"><div class="bs-way-h"><b>Studyboard School Sync</b><span class="bs-pill">${extHas ? "Connected" : "Installed"}</span></div>
           <p class="mini">${extHas ? `The extension keeps ${P.name} up to date by itself: due dates, what you've submitted, grades and announcements.` : `The extension is installed. Click its toolbar button and connect ${P.name}: it then brings in due dates, submissions, grades and announcements by itself.`}</p>
           ${extFacts()}</div>`
@@ -1616,16 +1625,16 @@ function cleanFile(r) {
           ${extFacts()}</div>` : "";
     const ext = !!extWay;
     // A calendar link is read through the Studyboard account, so without one lead with the file
-    const local = !desk && !cloud, dl = `<a href="${DESK_DL}" target="_blank" rel="noopener noreferrer">desktop app</a>`;
+    const local = !(P.feedOnly ? bsDesk() && !!lmsBridge().feed : desk) && !cloud, dl = `<a href="${DESK_DL}" target="_blank" rel="noopener noreferrer">desktop app</a>`;
     const feedWay = local ? `<div class="bs-way${ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Use a Calendar File" : "Import Your Calendar File"}</b><span class="bs-pill">Works Here</span></div>
           <p class="mini">Download the calendar file from ${P.name} and import it. It brings in due dates, quizzes and calendar events once, and you can import a new file any time.</p>
           <div class="bs-acts"><button class="btn ${ext ? "" : "primary"}" data-act="${A}-file">Import a Calendar File</button></div></div>
         <div class="bs-way"><div class="bs-way-h"><b>Keep It Up to Date With Your Calendar Link</b><span class="bs-pill">Needs a Free Account</span></div>
-          <p class="mini">A calendar link is checked automatically through your Studyboard account, so it needs a free account. Sign in or create one, then paste the link here. For grades and submissions too, get the Studyboard ${dl} and sign in to ${P.name} there.</p>
+          <p class="mini">A calendar link is checked automatically through your Studyboard account, so it needs a free account. Sign in or create one, then paste the link here.${P.feedOnly ? "" : ` For grades and submissions too, get the Studyboard ${dl} and sign in to ${P.name} there.`}</p>
           <div class="bs-acts"><button class="btn" data-act="sb-signin">Sign In or Create Account</button></div></div>`
-      : `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
-          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${ext ? `It can't see grades, announcements or submissions, so tick off finished work yourself. It works alongside the extension and keeps due dates current on your phone.` : desk ? `Submitted work, grades and announcements need the sign-in above.` : `Submitted work, grades and announcements need the desktop app.`}</p>
-          ${!desk && !ext ? `<p class="mini bs-note"><b>Heads up:</b> a calendar link only brings in due dates, not submissions or grades. For everything, get the Studyboard ${dl} and sign in to ${P.name} there.</p>` : ""}
+      : `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${P.feedOnly ? "Recommended" : ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
+          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${P.feedOnly ? `It can't see grades or what you've turned in, so tick off finished work yourself.` : ext ? `It can't see grades, announcements or submissions, so tick off finished work yourself. It works alongside the extension and keeps due dates current on your phone.` : desk ? `Submitted work, grades and announcements need the sign-in above.` : `Submitted work, grades and announcements need the desktop app.`}</p>
+          ${!desk && !ext && !P.feedOnly ? `<p class="mini bs-note"><b>Heads up:</b> a calendar link only brings in due dates, not submissions or grades. For everything, get the Studyboard ${dl} and sign in to ${P.name} there.</p>` : ""}
           <label class="f"><span class="lh">Calendar Link <span class="hint">${P.name}, ${esc(P.feedWhere)}</span></span><input type="url" id="bsFeedIn" placeholder="${esc(P.feedPh)}" autocomplete="off" spellcheck="false"></label>
           <div class="bs-acts"><button class="btn ${desk || ext ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button><button class="btn" data-act="${A}-feed-help">How to Find It</button></div></div>`;
     openSheet(`<div class="sheet bs-sheet">${head(`Connect ${P.name}`)}
@@ -1633,15 +1642,117 @@ function cleanFile(r) {
         <p style="margin:0">Bring your ${P.name} work into your to-do list and timeline. Studyboard only reads from ${P.name}. It never submits or changes anything there.</p>
         ${desk ? `<div class="bs-way rec"><div class="bs-way-h"><b>Sign In to ${P.name}</b><span class="bs-pill">Recommended</span></div>
           <p class="mini">Everything: ${esc(P.everything)}. You sign in on ${P.name}'s own page, so Studyboard never sees your password.</p>
-          <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"></label>
+          ${findOk() ? `<div class="f bs-find"><label class="lh" for="bsSchoolIn">Your School</label>
+            <input type="text" id="bsSchoolIn" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bsSchoolList" placeholder="Start typing your school's name" autocomplete="off" spellcheck="false">
+            <ul id="bsSchoolList" class="bs-sugg" role="listbox" aria-label="Schools" hidden></ul>
+            <span class="mini bs-find-msg" id="bsFindMsg" aria-live="polite"></span></div>` : ""}
+          <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"><span class="mini bs-host-note">Your school's address may look different. Use the one in your browser when you're signed in to ${esc(P.name)}.</span></label>
           <button class="btn primary" data-act="${A}-login">Sign In</button></div>` : ""}
         ${extWay}
         ${feedWay}
         ${local ? "" : `<p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>`}
-        <p class="mini" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
+        <p class="mini" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
         ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">How to Bring It In</button></p>` : ""}
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
+    if (desk) wireFind();
+  }
+  /* Google Classroom: connected through the Studyboard account (Google's own sign-in page, read-only permissions);
+     the cloud-files function keeps the connection and hands out short-lived access */
+  let gcWait = 0, gcPoll = 0;
+  async function gcSheet(){
+    if (!gcSigned()) {
+      openSheet(`<div class="sheet bs-sheet">${head("Connect Google Classroom")}<div class="sheet-body"><p style="margin:0">Google Classroom connects through your Studyboard account, so it keeps syncing on every device. Sign in or create a free account first.</p></div>
+        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button><button type="button" class="btn primary" data-act="sb-signin">Sign In or Create Account</button></div></div>`);
+      return;
+    }
+    const body = (link, note) => `<div class="sheet bs-sheet">${head("Connect Google Classroom")}
+      <div class="sheet-body">
+        <p style="margin:0">Bring your Google Classroom classwork into your to-do list and timeline: due dates, what you've turned in, your grades and announcements.</p>
+        <ul class="help-list bs-facts">
+          <li><b>Read only:</b> Studyboard can't change, post or turn in anything.</li>
+          <li><b>Your own work only:</b> it sees your classes and your own classwork, not your classmates'.</li>
+          <li><b>Sign in on Google's page:</b> Studyboard never sees your password. Use the Google account you use for Classroom.</li>
+        </ul>
+        <p class="mini" style="margin:0">Using a school Google account? Some schools only let students use apps they've approved. If Google says Studyboard is blocked, ask your school's IT team to allow it.</p>
+        ${note ? `<p class="mini bs-note" style="margin:0">${note}</p>` : ""}
+        <p class="mini" style="margin:0;opacity:.8">Google Classroom is a trademark of Google LLC. Studyboard isn't affiliated with or endorsed by Google.</p>
+      </div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button>${link}</div></div>`;
+    openSheet(body(`<button type="button" class="btn primary" disabled>One Moment…</button>`, ""));
+    let r; try { r = await gcCall({action: "start", provider: "classroom"}); } catch (e) { r = {status: 0}; }
+    if (!dlg.open || !dlg.querySelector(".bs-sheet")) return;
+    if (r && r.data && /^https:\/\//.test(r.data.url || "")) {
+      openSheet(body(`<a class="btn primary" href="${esc(r.data.url)}" target="_blank" rel="noopener noreferrer" data-gc-go>Connect With Google</a>`, ""));
+      const go = dlg.querySelector("[data-gc-go]");
+      if (go) go.addEventListener("click", () => { gcWait = Date.now(); clearInterval(gcPoll); gcPoll = setInterval(() => { if (Date.now() - gcWait > 5 * 60000) { clearInterval(gcPoll); gcWait = 0; return; } if (!document.hidden) gcArrived(); }, 5000); });
+    } else openSheet(body(`<button type="button" class="btn primary" disabled>Not Available</button>`, r && r.status === 501 ? "Google Classroom isn't set up on this Studyboard server yet." : "Couldn't reach Studyboard. Check your connection and try again."));
+  }
+  async function gcArrived(){
+    if (!gcWait) return;
+    let r; try { r = await gcCall({action: "status"}); } catch (e) { return; }
+    const a = ((r && r.data && r.data.accounts) || []).find(x => x.provider === "classroom" && x.status === "ok");
+    if (!a || !gcWait) return;
+    gcWait = 0; clearInterval(gcPoll); GC_TOK.at = "";
+    toast("Google Classroom is connected. Reading your classes…");
+    save({acct: a.account || "Google account"});
+    reading = true; refreshSheet();
+    let d; try { d = await withMode("direct", () => getData("direct")); } finally { reading = false; }
+    if (d.error) { save({acct: ""}); toast(d.text); return; }
+    save({mode: "direct", name: cfg().name || ""});
+    reviewSheet(d.data, "direct");
+  }
+  if (P.direct) window.addEventListener("focus", () => { if (gcWait && Date.now() - gcWait < 5 * 60000) setTimeout(gcArrived, 800); });
+  /* Find your school: type its name, pick it from the list, and its school site address is filled in (the schools list on the
+     server, search_schools; the address from the lms-find function, which tries the usual addresses and remembers the answer) */
+  function findCfg(){ try { return sbConfig() || (SB_HOSTED ? SB_DEFAULT : null); } catch (e) { return null; } }
+  function findOk(){ return !!findCfg() && !inPreview(); }
+  async function findCall(path, body){
+    const c = findCfg(); if (!c) throw new Error("offline");
+    const r = await fetch(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+  function wireFind(){
+    const inp = $("#bsSchoolIn"), list = $("#bsSchoolList"), msg = $("#bsFindMsg"), host = $("#bsHostIn");
+    if (!inp || !list || !host) return;
+    let seq = 0, t = 0, found = [], active = -1;
+    const show = rows => {
+      found = rows; active = -1;
+      list.innerHTML = rows.map((x, i) => `<li role="option" id="bsSch${i}" data-i="${i}" aria-selected="false"><b>${esc(x.name)}</b><span>${esc([x.city, x.region, x.country].filter(Boolean).join(", "))}</span></li>`).join("");
+      list.hidden = !rows.length; inp.setAttribute("aria-expanded", String(!!rows.length));
+    };
+    const mark = i => { active = i; [...list.children].forEach((li, k) => li.setAttribute("aria-selected", String(k === i))); inp.setAttribute("aria-activedescendant", i >= 0 ? "bsSch" + i : ""); };
+    const pick = async x => {
+      show([]); inp.value = x.name; msg.textContent = `Finding ${x.name}'s ${P.name} address…`;
+      const my = ++seq;
+      try {
+        const r = await findCall("/functions/v1/lms-find", {key: x.key, lms: P.id});
+        if (my !== seq) return;
+        if (r && r.host) { host.value = r.host; msg.textContent = `Found it: ${r.host}. Tap Sign In.`; }
+        else msg.textContent = `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.`
+          + (x.kind === "high_school" ? ` High schools usually share their district's or school board's ${P.name}, so ask a teacher if you're not sure.` : "");
+      } catch (e) { if (my === seq) msg.textContent = `Couldn't look it up right now. Type your school's ${P.name} address below.`; }
+    };
+    inp.addEventListener("input", () => {
+      clearTimeout(t); msg.textContent = "";
+      const q = inp.value.trim(); if (q.length < 2) { show([]); return; }
+      t = setTimeout(async () => {
+        const my = ++seq;
+        try { const r = await findCall("/rest/v1/rpc/search_schools", {p_q: q, p_limit: 8, p_kind: ""}); if (my === seq) show(Array.isArray(r) ? r : []); }
+        catch (e) { if (my === seq) show([]); }
+      }, 220);
+    });
+    inp.addEventListener("keydown", e => {
+      if (list.hidden) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); mark(Math.min(found.length - 1, active + 1)); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); mark(Math.max(0, active - 1)); }
+      else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(found[active]); }
+      else if (e.key === "Escape") { e.stopPropagation(); show([]); }
+    });
+    // pointerdown, so picking happens before the box loses focus
+    list.addEventListener("pointerdown", e => { const li = e.target.closest("li[data-i]"); if (!li) return; e.preventDefault(); pick(found[+li.dataset.i]); });
+    inp.addEventListener("blur", () => setTimeout(() => show([]), 150));
   }
   function feedHelp(){
     openSheet(`<div class="sheet">${head("Find Your Calendar Link")}
@@ -1860,9 +1971,10 @@ function cleanFile(r) {
   async function disconnect(){
     const ok = await confirmSheet(`Disconnect ${P.name}?`, "Studyboard stops syncing. Everything already imported stays, and you can reconnect any time.", "Disconnect");
     if (!ok) return;
-    if (bsDesk()) { try { await lmsBridge().signOut(P.id); } catch(e) {} }
+    if (P.direct) { try { await gcCall({action: "disconnect", provider: "classroom"}); } catch(e) {} GC_TOK.at = ""; }
+    else if (bsDesk()) { try { await lmsBridge().signOut(P.id); } catch(e) {} }
     const c = cfg();
-    save({mode: "", feed: "", host: c.host, name: "", suggest: [], gone: []});
+    save({mode: "", feed: "", host: c.host, name: "", acct: "", suggest: [], gone: []});
     setLocal({needLogin: false, err: "", lastTry: 0});
     toast(`${P.name} disconnected`);
   }
@@ -2062,6 +2174,7 @@ function cleanFile(r) {
       case "feed-connect": { const v = $("#bsFeedIn") && $("#bsFeedIn").value; feedConnect(v).catch(e => { console.error(e); toast(errText(e)); }); return true; }
       case "feed-save": { const v = ($("#bsFeedIn") && $("#bsFeedIn").value.trim()) || ""; if (!v) { save({feed: ""}); toast(cfg().mode === "feed" ? "Add a calendar link, or disconnect instead" : "Calendar link removed"); if (cfg().mode !== "feed") bsSheet(); return true; } feedConnect(v, true); return true; }
       case "feed-help": feedHelp(); return true;
+      case "gc-connect": gcSheet(); return true;
       case "back": bsSheet(); return true;
       case "file": dlg.close(); pickFile(); return true;
       case "disconnect": disconnect(); return true;
@@ -2100,6 +2213,100 @@ function cleanFile(r) {
 
   /* The three platforms */
   const LINK = (u, t) => `<a href="${esc(safeUrl(u) || "#")}" target="_blank" rel="noopener noreferrer">${t}</a>`;
+  // The example Canvas address: the one every school has, as Instructure hosts it
+  const CANVAS_EX = "yourschool.instructure.com";
+  /* Google Classroom: read through Google's Classroom API with a short-lived token from the cloud-files function
+     (read-only: your classes, your own classwork and submissions, announcements) */
+  const GC_TOK = {at: "", exp: 0}, GCA = "https://classroom.googleapis.com/v1", GC_HOME = {};
+  const GC_T = window.__sbGc = {call: null, fetch: null, signedIn: null};   // tests swap in fakes
+  const gcSigned = () => GC_T.signedIn ? GC_T.signedIn() : sbActive();
+  async function gcCall(body){
+    if (GC_T.call) return GC_T.call(body);
+    const {data, error} = await sb.functions.invoke("cloud-files", {body});
+    if (!error) return {ok: true, status: 200, data};
+    let status = 0, j = {}; try { status = error.context.status; j = await error.context.json(); } catch (e) {}
+    return {ok: false, status, data: j || {}};
+  }
+  async function gcToken(fresh){
+    if (GC_TOK.at && !fresh && GC_TOK.exp - Date.now() > 60000) return {at: GC_TOK.at};
+    if (!gcSigned()) return {error: "nocloud", text: "Google Classroom syncs through your Studyboard account. Sign in to keep it syncing."};
+    const r = await gcCall({action: "token", provider: "classroom"});
+    if (r.ok && r.data && r.data.access) { GC_TOK.at = r.data.access; GC_TOK.exp = Date.now() + Math.max(120, Number(r.data.expires_in) || 3000) * 1000; return {at: GC_TOK.at}; }
+    GC_TOK.at = "";
+    if (r.status === 409 || r.status === 404) return {error: "reauth", reauth: true, text: "Google Classroom needs you to connect it again: open it in School Sites and choose Connect Again."};
+    if (r.status === 429) return {error: "rate-limited", text: "Google Classroom was checked a lot just now. Try again in a few minutes."};
+    return {error: "net", text: "Couldn't reach Google Classroom. Check your connection and try again."};
+  }
+  window.addEventListener("sb:secrets-wiped", () => { GC_TOK.at = ""; });
+  // Classroom gives a due date, and a due time in UTC (left out when there's no time)
+  const gcDue = w => {
+    const d = w && w.dueDate; if (!d || !d.year || !d.month || !d.day) return "";
+    const t = w.dueTime;
+    if (!t) return `${d.year}-${pad(d.month)}-${pad(d.day)}`;
+    return new Date(Date.UTC(d.year, d.month - 1, d.day, t.hours || 0, t.minutes || 0)).toISOString();
+  };
+  async function gcRead(o){
+    let tk = await gcToken(); if (tk.error) return Object.assign({ok: false}, tk);
+    const get = async (path, q) => {
+      for (let i = 0; i < 2; i++) {
+        const r = await (GC_T.fetch || fetch)(GCA + path + "?" + new URLSearchParams(q || {}), {headers: {Authorization: "Bearer " + tk.at}});
+        if (r.status === 401 && i === 0) { tk = await gcToken(true); if (tk.error) throw Object.assign(new Error(tk.error), {gc: tk}); continue; }
+        if (r.status === 403 || r.status === 404) return {denied: r.status};
+        if (!r.ok) throw new Error("classroom " + r.status);
+        return r.json();
+      }
+      return {denied: 401};
+    };
+    const all = async (path, q, key, pages, stop) => {
+      const out = []; let page = "";
+      for (let n = 0; n < pages; n++) {
+        const j = await get(path, Object.assign({pageSize: "100"}, q, page ? {pageToken: page} : {}));
+        if (!j || j.denied) { if (!n && j && j.denied && path === "/courses") return j; break; }
+        const got = j[key] || []; out.push(...got);
+        page = j.nextPageToken; if (!page || (stop && got.length && stop(got[got.length - 1]))) break;
+      }
+      return out;
+    };
+    try {
+      const cs = await all("/courses", {studentId: "me", courseStates: "ACTIVE"}, "courses", 3);
+      if (cs.denied) return {ok: false, error: "denied", text: "Your Google account doesn't let Studyboard read Google Classroom. If it's a school account, ask your school's IT team to allow Studyboard."};
+      const since = addDays(todayISO(), -Math.max(14, Number(o.pastDays) || 0)), skip = new Set((o.skip || []).map(String));
+      const old = w => { const due = gcDue(w); return !!due && due.slice(0, 10) < addDays(since, -2); };
+      const courses = [];
+      const one = async c => {
+        const out = {ou: String(c.id), name: String(c.name || "Class").slice(0, 160), code: "", items: [], events: [], grades: [], news: []};
+        courses.push(out);
+        if (/^https:\/\/classroom\.google\.com\//.test(c.alternateLink || "")) GC_HOME[out.ou] = c.alternateLink;
+        if (skip.has(out.ou)) return;
+        const [work, subs, news] = await Promise.all([
+          all(`/courses/${encodeURIComponent(c.id)}/courseWork`, {courseWorkStates: "PUBLISHED", orderBy: "dueDate desc"}, "courseWork", 3, old),
+          all(`/courses/${encodeURIComponent(c.id)}/courseWork/-/studentSubmissions`, {userId: "me"}, "studentSubmissions", 3),
+          o.news ? get(`/courses/${encodeURIComponent(c.id)}/announcements`, {pageSize: "10", orderBy: "updateTime desc", announcementStates: "PUBLISHED"}) : null]);
+        const sub = {}; (Array.isArray(subs) ? subs : []).forEach(x => { if (x && x.courseWorkId) sub[x.courseWorkId] = x; });
+        (Array.isArray(work) ? work : []).forEach(w => {
+          if (!w || !w.id || !w.title || old(w)) return;
+          const x = sub[w.id], st = x && x.state, done = st === "TURNED_IN" || st === "RETURNED" ? true : x ? false : undefined;
+          const outOf = Number(w.maxPoints) > 0 ? Number(w.maxPoints) : undefined;
+          out.items.push({id: String(w.id), kind: "", name: String(w.title).slice(0, 300), due: gcDue(w), url: w.alternateLink || "", text: String(w.description || "").slice(0, 2000),
+            done, outOf, gid: String(w.id), at: done && x.updateTime ? x.updateTime : ""});
+          if (o.grades && x && x.assignedGrade != null && isNum(x.assignedGrade) && outOf)
+            out.grades.push({gid: String(w.id), name: String(w.title).slice(0, 300), num: Number(x.assignedGrade), den: outOf, shown: `${x.assignedGrade} / ${outOf}`, at: x.updateTime || null});
+        });
+        ((news && news.announcements) || []).forEach(n => {
+          const text = String(n.text || "").trim(); if (!text) return;
+          out.news.push({id: String(n.id), title: text.split("\n")[0].slice(0, 90), text: text.slice(0, 4000), date: n.creationTime || n.updateTime || "", url: n.alternateLink || ""});
+        });
+      };
+      const list = (Array.isArray(cs) ? cs : []).filter(c => c && c.id).slice(0, 40);
+      for (let i = 0; i < list.length; i += 4) await Promise.all(list.slice(i, i + 4).map(one));
+      return {ok: true, origin: "https://classroom.google.com", me: {name: ""}, courses};
+    } catch (e) {
+      if (e && e.gc) return Object.assign({ok: false}, e.gc);
+      console.warn("classroom", e);
+      return {ok: false, error: "net", text: "Couldn't reach Google Classroom. Check your connection and try again."};
+    }
+  }
+
   const PROVIDERS = [
     {id: "brightspace", k: "bs", name: "Brightspace", tag: "D2L", host: "", hostPh: "yourschool.brightspace.com", siteHome: "/d2l/home",
       blurb: "Brightspace by D2L",
@@ -2124,10 +2331,10 @@ function cleanFile(r) {
         return {ou: m ? m[1] : "x" + H.fnv((code || x.loc || "unknown").toLowerCase()), cname: x.loc || "", code, sum: x.sum, kind: "",
           notes: x.desc.replace(/View event in Brightspace:?\s*\S+/gi, "").replace(/\n{3,}/g, "\n\n").trim(), link: x.url};
       }},
-    {id: "canvas", k: "cv", name: "Canvas", tag: "Canvas", host: "", hostPh: "yourschool.instructure.com", siteHome: "/",
+    {id: "canvas", k: "cv", name: "Canvas", tag: "Canvas", host: "", hostPh: CANVAS_EX, siteHome: "/",
       blurb: "Canvas by Instructure",
       everything: "assignments, quizzes, discussions and calendar, whether you've submitted, your grades and weights, announcements and files linked in assignments",
-      feedRx: /^https:\/\/[^/]+\/feeds\/calendars\/[^/?#]+\.ics/i, feedPh: "https://yourschool.instructure.com/feeds/calendars/user_….ics", feedWhere: "Calendar, then Calendar Feed",
+      feedRx: /^https:\/\/[^/]+\/feeds\/calendars\/[^/?#]+\.ics/i, feedPh: `https://${CANVAS_EX}/feeds/calendars/user_….ics`, feedWhere: "Calendar, then Calendar Feed",
       steps: ["Open <b>Canvas</b> in a browser and sign in.",
         "Click <b>Calendar</b> in the left menu.",
         "At the bottom of the right-hand column, click <b>Calendar Feed</b>.",
@@ -2161,7 +2368,55 @@ function cleanFile(r) {
         const sum = preIsCourse ? pre[2] : x.sum;
         const taskish = /\bdue\b/i.test(x.sum) || /\b(assignment|quiz|test|exam|midterm|journal|reflection|discussion|paper|essay|report|project|submission|care plan|case study)\b/i.test(sum);
         return {ou: "x" + H.fnv((code || cname || "blackboard").toLowerCase()), cname, code, sum: sum.replace(/\s*\bis due\b\s*$/i, "").replace(/\s*[-–:]?\s*\bdue\b\s*$/i, ""), kind: taskish ? "task" : "", notes: x.desc.trim().slice(0, 2000), link: x.url};
-      }}
+      }},
+    // Moodle: sign in (read through Moodle's own pages), or its calendar link
+    {id: "moodle", k: "md", name: "Moodle", tag: "Moodle", host: "", hostPh: "moodle.yourschool.edu", siteHome: "/my/",
+      blurb: "Moodle LMS",
+      everything: "assignments and quizzes with their due dates, what you've submitted, your grades and announcements",
+      feedRx: /^https:\/\/[^/]+(?:\/[^?#]*)?\/calendar\/export_execute\.php\?[^#]*authtoken=/i, feedPh: "https://moodle.yourschool.edu/calendar/export_execute.php?userid=…&authtoken=…", feedWhere: "Calendar, then Export Calendar",
+      steps: ["Open <b>Moodle</b> in a browser and sign in.",
+        "Open <b>Calendar</b> (from the menu, your Dashboard, or yourschool's Moodle address followed by /calendar/view.php).",
+        "Click <b>Export calendar</b> (or <b>Import or export calendars</b>, then <b>Export calendar</b>).",
+        "Under <b>Events to export</b> choose <b>All</b>, and under <b>for</b> choose <b>Recent and next 60 days</b>.",
+        "Click <b>Get calendar URL</b> and copy the link it shows.",
+        "Paste it into Studyboard."],
+      courseHome: (o, ou) => /^\d+$/.test(ou) ? `${o}/course/view.php?id=${ou}` : "",
+      feedInfo: (x, H) => {
+        // Moodle puts the course's short name in CATEGORIES; titles end in "is due", "due", "opens" or "closes"
+        const cname = (x.cat || "").trim().slice(0, 120), code = H.codeOf(cname) || H.codeOf(x.sum);
+        const due = /\s+(?:is\s+)?due\s*$/i.test(x.sum) || /\/mod\/assign\//i.test(x.url + " " + x.desc);
+        const sum = x.sum.replace(/\s+(?:is\s+)?due\s*$/i, "").replace(/\s+(?:should be completed|is expected to be completed)\s*$/i, "");
+        return {ou: "x" + H.fnv((cname || "moodle").toLowerCase()), cname, code, sum, kind: due ? "task" : "",
+          notes: x.desc.trim().slice(0, 2000), link: /^https:\/\//.test(x.url) ? x.url : ""};
+      }},
+    // High school sites: Schoology through its calendar link; Google Classroom through Google's Classroom API
+    {id: "schoology", k: "sg", name: "Schoology", tag: "Schoology", host: "", hostPh: "yourschool.schoology.com", siteHome: "/home", feedOnly: true, hs: true,
+      blurb: "Schoology by PowerSchool",
+      everything: "assignments, tests and events from your Schoology calendar",
+      feedRx: /^https:\/\/[^/]+\/(?:calendar\/feed\/ical\/|.*\.ics(?:$|\?))/i, feedPh: "webcal://yourschool.schoology.com/calendar/feed/ical/…/ical.ics", feedWhere: "Calendar, then Export",
+      steps: ["Open <b>Schoology</b> in a browser and sign in.",
+        "Click the <b>Calendar</b> icon at the top of the page.",
+        "Click <b>Export</b> (near the top right of the calendar).",
+        "Copy the link it shows. It starts with webcal or https.",
+        "Paste it into Studyboard."],
+      courseHome: (o, ou) => /^\d+$/.test(ou) ? `${o}/course/${ou}` : "",
+      feedInfo: (x, H) => {
+        const all = x.url + " " + x.desc, m = all.match(/\/course\/(\d+)/) || all.match(/\/section\/(\d+)/);
+        // the class: from the event's category or location, or a "Course: …" line in its notes
+        const line = (x.desc.match(/^(?:course|class|section)s?:\s*(.{2,100})$/im) || [])[1] || "";
+        const cname = (x.cat || x.loc || line).trim().slice(0, 120);
+        const code = H.codeOf(cname) || H.codeOf(x.sum);
+        const ou = m ? m[1] : "x" + H.fnv((code || cname || "schoology").toLowerCase());
+        const kind = /\/(assignment|assessment|test|discussion)\//i.test(x.url) ? "task" : /\/event\//i.test(x.url) ? "event" : "";
+        return {ou, cname, code, sum: x.sum, kind, notes: x.desc.replace(/^(?:course|class|section)s?:.*$/gim, "").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2000), link: x.url};
+      }},
+    {id: "classroom", k: "gc", name: "Google Classroom", tag: "Classroom", host: "classroom.google.com", hostPh: "", siteHome: "/", hs: true,
+      blurb: "Google Classroom",
+      everything: "classwork with its due dates, what you've turned in, your grades and announcements",
+      feedRx: /^$/, feedPh: "", feedWhere: "", steps: [],
+      direct: o => gcRead(o),
+      courseHome: (o, ou) => GC_HOME[ou] || "",
+      feedInfo: x => ({ou: "x", cname: "", code: "", sum: x.sum, kind: "", notes: "", link: x.url})}
   ];
   PROVIDERS.forEach(P => { LMS[P.id] = makeLms(P); });
   const ALL = () => PROVIDERS.map(P => LMS[P.id]);
@@ -2364,15 +2619,18 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   };
 
   /* Choosing a platform */
-  const LMS_MONO = {cv: "Canvas", bs: "D2L", bb: "Bb"};
+  const LMS_MONO = {cv: "Canvas", bs: "D2L", bb: "Bb", md: "M", sg: "S", gc: "GC"};
+  const pcard = L => { const on = L.connected(); return `<button class="bs-pcard${on ? " on" : ""}" data-act="${L.P.k}-open"><span class="bs-plogo bs-l-${L.P.k}${(LMS_MONO[L.P.k] || L.P.tag).length > 3 ? " long" : ""}" aria-hidden="true">${esc(LMS_MONO[L.P.k] || L.P.tag)}</span><span class="bs-pmain"><b>${esc(L.P.name)}</b><span class="mini">${esc(on ? L.statusLine() : L.P.blurb)}</span></span><span class="bs-pgo">${on ? "Open" : "Connect"}</span></button>`; };
   function pickerSheet(){
-    openSheet(`<div class="sheet bs-sheet">${head("Brightspace, Canvas and Blackboard")}
+    openSheet(`<div class="sheet bs-sheet">${head("Brightspace, Canvas, Blackboard and Moodle")}
       <div class="sheet-body">
         <p style="margin:0">Connect your school's learning platform to bring in due dates, grades and announcements automatically. Studyboard only reads from it.</p>
-        <div class="bs-plist">${ALL().slice().sort((a, b) => (b.P.k === "cv") - (a.P.k === "cv")).map(L => { const on = L.connected(); return `<button class="bs-pcard${on ? " on" : ""}" data-act="${L.P.k}-open"><span class="bs-plogo bs-l-${L.P.k}${(LMS_MONO[L.P.k] || L.P.tag).length > 3 ? " long" : ""}" aria-hidden="true">${esc(LMS_MONO[L.P.k] || L.P.tag)}</span><span class="bs-pmain"><b>${esc(L.P.name)}</b><span class="mini">${esc(on ? L.statusLine() : L.P.blurb)}</span></span><span class="bs-pgo">${on ? "Open" : "Connect"}</span></button>`; }).join("")}</div>
+        <div class="bs-plist">${ALL().filter(L => !L.P.hs).sort((a, b) => (b.P.k === "cv") - (a.P.k === "cv")).map(pcard).join("")}</div>
+        <details class="bs-hs"${ALL().some(L => L.P.hs && L.connected()) ? " open" : ""}><summary><b>High School Sites</b><span class="mini">Schoology and Google Classroom</span></summary>
+          <div class="bs-plist">${ALL().filter(L => L.P.hs).map(pcard).join("")}</div></details>
         ${ALL().some(L => L.connected()) ? `<div><button type="button" class="btn" data-act="lms-sync-all">Sync Now</button> <span class="mini">Checks every connected school site now, without waiting for the automatic check.</span></div>` : ""}
         <p class="mini" style="margin:0">Using more than one? Connect each. Every platform's courses and tasks stay separate, and nothing is added twice.</p>
-        <p class="mini" style="margin:0;opacity:.8">Canvas and Instructure are trademarks of Instructure, Inc. All D2L marks, including Brightspace, are trademarks of D2L Corporation. Blackboard is a trademark of its owner. Studyboard isn't affiliated with or endorsed by any of them.</p>
+        <p class="mini" style="margin:0;opacity:.8">Canvas and Instructure are trademarks of Instructure, Inc. All D2L marks, including Brightspace, are trademarks of D2L Corporation. Blackboard is a trademark of its owner. Moodle is a trademark of Moodle Pty Ltd. Schoology is a trademark of PowerSchool. Google Classroom is a trademark of Google LLC. Studyboard isn't affiliated with or endorsed by any of them.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
   }
@@ -2397,7 +2655,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   });
   hook("menu", () => {
     const on = ALL().filter(L => L.connected());
-    return `<button data-act="lms-open"><span>Brightspace, Canvas and Blackboard<span class="sub">${esc(on.length ? on.map(L => `${L.P.name}: ${L.shortStatus ? L.shortStatus() : L.statusLine()}`).join(" · ") : "Bring in due dates, grades and announcements from your school's site automatically")}</span></span></button>`;
+    return `<button data-act="lms-open"><span>Brightspace, Canvas, Blackboard and Moodle<span class="sub">${esc(on.length ? on.map(L => `${L.P.name}: ${L.shortStatus ? L.shortStatus() : L.statusLine()}`).join(" · ") : "Bring in due dates, grades and announcements from your school's site automatically")}</span></span></button>`;
   });
   hook("brightspace-connect", () => { pickerSheet(); return true; });
   hook("lms-connect", () => { pickerSheet(); return true; });

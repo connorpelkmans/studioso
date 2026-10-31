@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><title>frame</title>
+<style>
+html,body{margin:0;width:440px;height:956px;overflow:hidden;background:#0B1F44}
+.f{position:relative;width:440px;height:956px;background:radial-gradient(90% 60% at 50% 0%,#24508F 0%,#163A72 45%,#0D2550 100%);font-family:-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif}
+h1{position:absolute;left:30px;right:30px;top:52px;margin:0;color:#fff;font-size:36px;line-height:1.12;font-weight:800;letter-spacing:-.02em;text-align:center;text-wrap:balance}
+.phone{position:absolute;left:50%;top:196px;width:364px;height:792px;margin-left:-182px;border-radius:54px;background:#05101F;padding:9px;box-sizing:border-box;box-shadow:0 30px 60px rgba(0,0,0,.45),0 0 0 2px rgba(255,255,255,.12)}
+.screen{position:relative;width:100%;height:100%;border-radius:46px;overflow:hidden}
+/* the status bar sits over the screen's own top edge, extended up (see setShot), so there's no seam */
+.bar{position:absolute;left:0;right:0;top:0;z-index:1;height:calc(100% * 54 / 956);display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 34px;font-weight:600;font-size:15px}
+.bar svg{display:block}
+.screen img{display:block;width:100%;height:100%;object-fit:cover;object-position:top}
+.island{position:absolute;left:50%;top:10px;width:100px;height:29px;margin-left:-50px;border-radius:16px;background:#000}
+/* iPad 13" (1032 x 1376 points): a wider headline and an iPad, status bar 24 points */
+html.ipad,html.ipad body,html.ipad .f{width:1032px;height:1376px}
+html.ipad h1{top:70px;left:80px;right:80px;font-size:58px}
+html.ipad .phone{top:236px;width:872px;height:1140px;margin-left:-436px;border-radius:44px;padding:16px}
+html.ipad .screen{border-radius:30px}
+html.ipad .bar{height:calc(100% * 24 / 1376);padding:0 26px;font-size:13px}
+html.ipad .island{display:none}
+</style><script>if (location.search.indexOf("ipad") >= 0) document.documentElement.className = "ipad";</script></head><body><div class="f"><h1 id="head"></h1>
+<div class="phone"><div class="screen"><div class="bar" id="bar"><span>9:41</span><span style="display:flex;gap:5px;align-items:center">
+<svg width="18" height="11" viewBox="0 0 18 11"><rect x="0" y="7" width="3" height="4" rx="1" fill="currentColor"/><rect x="5" y="5" width="3" height="6" rx="1" fill="currentColor"/><rect x="10" y="2.5" width="3" height="8.5" rx="1" fill="currentColor"/><rect x="15" y="0" width="3" height="11" rx="1" fill="currentColor"/></svg>
+<svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.2-1.3A10.3 10.3 0 0 0 8 .5C5.2.5 2.6 1.6.8 3.3L2 4.6c1.6-1.5 3.7-2.4 6-2.4zm0 3.4c1.4 0 2.6.5 3.6 1.4l1.2-1.3A7 7 0 0 0 8 3.9a7 7 0 0 0-4.8 1.8L4.4 7A5.2 5.2 0 0 1 8 5.6zm0 3.3c.6 0 1.1.2 1.5.6L8 11 6.5 9.5c.4-.4.9-.6 1.5-.6z" fill="currentColor"/></svg>
+<svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".45"/><rect x="2" y="2" width="20" height="9" rx="2" fill="currentColor"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="currentColor" opacity=".5"/></svg>
+</span></div><img id="shot" alt=""></div><div class="island"></div></div></div>
+<script>
+// the status bar takes the colour of the top of the app screen, with dark or light text to suit
+window.setShot = (src, head) => new Promise(done => {
+  document.getElementById("head").textContent = head;
+  const raw = new Image(), img = document.getElementById("shot"), ipad = document.documentElement.className === "ipad";
+  raw.onload = () => {
+    // the whole screen: the app's top edge stretched up into the status bar's room, then the app below it (no join to see)
+    const barPts = ipad ? 24 : 54, appPts = ipad ? 1376 - 24 : 956 - 54, k = raw.naturalHeight / appPts, barPx = Math.round(barPts * k);
+    const c = document.createElement("canvas"); c.width = raw.naturalWidth; c.height = raw.naturalHeight + barPx;
+    const x = c.getContext("2d");
+    x.drawImage(raw, 0, 1, raw.naturalWidth, 1, 0, 0, raw.naturalWidth, barPx + 1);
+    x.drawImage(raw, 0, barPx);
+    // dark or light status bar text, to suit the app's top edge
+    const d = x.getImageData(0, 0, c.width, 2).data; let l = 0, n = 0;
+    for (let i = 0; i < d.length; i += 16) { l += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; n++; }
+    document.getElementById("bar").style.color = l / n > 150 ? "#000" : "#fff";
+    img.onload = () => done(); img.src = c.toDataURL("image/png");
+  };
+  raw.src = src;
+});
+</script></body></html>

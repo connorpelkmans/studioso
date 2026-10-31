@@ -11,7 +11,8 @@ private let sbSafariUA = "Version/17.0 Mobile/15E148 Safari/604.1"
 private let sbStoreIds: [String: UUID] = [
     "brightspace": UUID(uuidString: "5B7C2A10-8E0B-4C44-9D63-0A1D4F6E7B01")!,
     "canvas": UUID(uuidString: "5B7C2A10-8E0B-4C44-9D63-0A1D4F6E7B02")!,
-    "blackboard": UUID(uuidString: "5B7C2A10-8E0B-4C44-9D63-0A1D4F6E7B03")!
+    "blackboard": UUID(uuidString: "5B7C2A10-8E0B-4C44-9D63-0A1D4F6E7B03")!,
+    "moodle": UUID(uuidString: "5B7C2A10-8E0B-4C44-9D63-0A1D4F6E7B04")!
 ]
 
 private func sbOrigin(_ url: URL?) -> String {

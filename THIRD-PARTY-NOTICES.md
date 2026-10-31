@@ -106,3 +106,8 @@ The MIT License (MIT). Copyright (c) 2014-2025 Hipo. Permission is hereby grante
 - United States private schools: NCES Private School Universe Survey 2021-22. Public domain.
 - Ontario: Ontario Ministry of Education, "School information and student demographics" 2022-23. Contains information licensed under the Open Government Licence – Ontario.
 - British Columbia: "BC Schools - K-12 with Francophone Indicators", 2025-26. Contains information licensed under the Open Government Licence – British Columbia.
+
+`supabase-lms-districts.sql` (each high school's school board or district, and the district's web domains) comes from:
+- Ontario: Ontario Ministry of Education, "School information and student demographics" 2022-23 (school boards and board websites). Contains information licensed under the Open Government Licence – Ontario.
+- British Columbia: BC School and District Contact Information, school contacts (school districts and their email domains). Contains information licensed under the Open Government Licence – British Columbia.
+- United States public schools: the NCES school directory above (each school's district and website).

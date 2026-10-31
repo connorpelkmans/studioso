@@ -89,7 +89,7 @@ function privateIp(ip) {
 // Some sign-in pages turn away browsers they don't recognise
 function chromeUA() { return String(app.userAgentFallback || "").replace(/\s(Electron|studyboard|Studyboard|studioso)\/\S+/g, ""); }
 // What the platforms' data APIs see instead
-const API_URLS = ["https://*/api/v1/*", "https://*/d2l/api/*", "https://*/learn/api/*"];
+const API_URLS = ["https://*/api/v1/*", "https://*/d2l/api/*", "https://*/learn/api/*", "https://*/lib/ajax/service.php*"];
 function apiUA() { return chromeUA() + " Studyboard/" + (app.getVersion ? app.getVersion() : "") + " (+https://studyboardapp.com)"; }
 // Security: the school windows are sandboxed and isolated like the app's own
 const prefs = P => ({ partition: P.part, contextIsolation: true, nodeIntegration: false, nodeIntegrationInWorker: false, nodeIntegrationInSubFrames: false, sandbox: true,
@@ -145,6 +145,16 @@ const WHO = {
 })()`,
   canvas: `(async () => {
   try { const r = await fetch('/api/v1/users/self', {credentials: 'include', headers: {Accept: 'application/json'}}); if (!r.ok) return null; const me = await r.json(); return me && me.id ? {name: me.name || me.short_name || ''} : null; } catch (e) { return null; }
+})()`,
+  moodle: `(async () => {
+  try {
+    const r = await fetch('/user/profile.php', {credentials: 'include', headers: {Accept: 'text/html'}});
+    if (!r.ok || new URL(r.url).origin !== location.origin || /\\/login\\//.test(new URL(r.url).pathname)) return null;
+    const d = new DOMParser().parseFromString(await r.text(), 'text/html');
+    if (!d.querySelector('[data-userid], .usermenu .usertext, #user-menu-toggle, .userbutton')) return null;
+    const h = d.querySelector('.page-header-headings h1, .page-header-headings h2') || d.querySelector('h1, h2');
+    return {name: h ? h.textContent.trim().slice(0, 120) : ''};
+  } catch (e) { return null; }
 })()`,
   blackboard: `(async () => {
   for (const p of ['/learn/api/public/v1/users/me', '/learn/api/v1/users/me']) {
@@ -990,6 +1000,153 @@ async function bbHarvest(o) {
 }
 
 // The three platforms
+// Moodle: read everything (runs inside a hidden Moodle page, or the extension's background). Moodle has no API a student can
+// use without the school setting one up, so this uses what Moodle's own pages use: its AJAX service (with the session key from
+// the dashboard) for courses and the calendar, and the assignment, quiz and grade report pages for what's been submitted and
+// the marks. It reads their HTML as text, so it needs no page parser.
+async function mdHarvest(o) {
+  const q = o || {}, now = Date.now(), T0 = now, root = location.origin, enc = encodeURIComponent;
+  const errors = [];
+  const LOGIN = /\/login\/(index|change_password)\.php|\/auth\/|\/saml|\/sso\b|\/oauth2?\//i;
+  const page = async path => {
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
+    try {
+      const r = await fetch(root + path, { credentials: "include", headers: { Accept: "text/html" }, signal: ctl.signal });
+      if (r.url && (new URL(r.url).origin !== root || LOGIN.test(new URL(r.url).pathname))) { const e = new Error("login"); e.login = true; throw e; }
+      if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
+      return await r.text();
+    } finally { clearTimeout(tm); }
+  };
+  const quiet = async (path, what) => { try { return await page(path); } catch (e) { if (e.login) throw e; errors.push(what + " " + (e.status || e.message)); return null; } };
+  const txt = (h, n) => htmlText(h || "", { max: n || 4000 });
+  // reading the pages' HTML (no page parser, so it also runs in a browser extension's background)
+  const attr = (a, k) => ((new RegExp("\\b" + k + "=\"([^\"]*)\"", "i")).exec(a) || [])[1] || "";
+  const tables = h => String(h || "").match(/<table\b[\s\S]*?<\/table>/gi) || [];
+  const rowsOf = t => (t.match(/<tr\b[\s\S]*?<\/tr>/gi) || []).map(tr => ({ html: tr, cls: attr((/<tr\b([^>]*)>/i.exec(tr) || [])[1] || "", "class"),
+    cells: [...tr.matchAll(/<(t[hd])\b([^>]*)>([\s\S]*?)<\/t[hd]>/gi)].map(m => ({ th: /th/i.test(m[1]), cls: attr(m[2], "class"), html: m[3], text: txt(m[3], 400) })) }));
+  const links = (h, re) => [...String(h || "").matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)].map(m => ({ href: attr(m[1], "href").replace(/&amp;/g, "&"), text: txt(m[2], 300) })).filter(a => a.href && (!re || re.test(a.href)));
+  const cell = (r, k) => r.cells.find(c => (" " + c.cls + " ").includes(" " + k + " ")) || null;
+  const num = s => { const m = String(s || "").replace(/\s/g, "").match(/-?\d+(?:[.,]\d+)?/); return m ? Number(m[0].replace(",", ".")) : null; };
+  const nums = s => (String(s || "").replace(/\s/g, "").match(/-?\d+(?:[.,]\d+)?/g) || []).map(x => Number(x.replace(",", ".")));
+  const cmOf = href => { const m = /\/mod\/([a-z0-9_]+)\/view\.php\?(?:[^#]*&)?id=(\d+)/.exec(String(href || "")); return m ? { mod: m[1], cm: m[2] } : null; };
+  const iso = s => s ? new Date(Number(s) * 1000).toISOString() : null;
+
+  // signed in? (the dashboard sends you to the sign-in page when you aren't)
+  let home;
+  try { home = await page("/my/"); } catch (e) { return e.login || e.status === 401 || e.status === 403 ? { needLogin: true } : { error: "home " + (e.status || e.message) }; }
+  const sk = (/"sesskey":"([^"]+)"/.exec(home) || [])[1] || (typeof M !== "undefined" && M.cfg && M.cfg.sesskey) || "";
+  if (!sk || /\/login\/index\.php/.test((/<form[^>]+action="([^"]+)"/.exec(home) || [])[1] || "") && !/"userid"\s*:\s*[1-9]/.test(home) && !/data-userid="[1-9]/.test(home)) return { needLogin: true };
+  const call = async (methodname, args) => {
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
+    try {
+      const r = await fetch(`${root}/lib/ajax/service.php?sesskey=${enc(sk)}&info=${enc(methodname)}`, { method: "POST", credentials: "include", signal: ctl.signal,
+        headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify([{ index: 0, methodname, args }]) });
+      if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
+      const j = await r.json(), x = Array.isArray(j) ? j[0] : j;
+      if (!x || x.error) { const code = String((x && x.exception && x.exception.errorcode) || (x && x.errorcode) || "ajax"); const e = new Error(code); e.login = /requirelogin|servicerequireslogin|invalidsesskey|sessionerroruser/i.test(code); throw e; }
+      return x.data;
+    } finally { clearTimeout(tm); }
+  };
+
+  // who
+  let name = "", uid = (/data-userid="(\d+)"/.exec(home) || /"userid"\s*:\s*(\d+)/.exec(home) || [])[1] || "";
+  try { const p = await quiet("/user/profile.php", "profile") || ""; const h = /class="[^"]*page-header-headings[^"]*"[^>]*>\s*<h[12][^>]*>([\s\S]*?)<\/h[12]>/i.exec(p) || /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(p); name = h ? txt(h[1], 120) : ""; } catch (e) { return { needLogin: true }; }
+
+  // courses
+  let list = [];
+  try {
+    for (const classification of ["inprogress", "all"]) {
+      const d = await call("core_course_get_enrolled_courses_by_timeline_classification", { offset: 0, limit: 0, classification, sort: "fullname" });
+      list = (d && d.courses) || []; if (list.length) break;
+    }
+  } catch (e) { if (e.login) return { needLogin: true }; errors.push("courses " + e.message); }
+  const all = list.filter(c => c && c.id).map(c => ({ ou: String(c.id), code: txt(c.shortname, 100), name: txt(c.fullname, 200), home: `${root}/course/view.php?id=${c.id}`, hidden: !!c.hidden }));
+  const only = Array.isArray(q.only) && q.only.length ? new Set(q.only.map(String)) : null;
+  const skip = new Set((q.skip || []).map(String));
+
+  // the calendar, a month at a time, from pastDays back to aheadDays ahead (6 months at most)
+  const evs = new Map();
+  const from = new Date(now - Math.min(120, q.pastDays || 60) * 864e5), to = new Date(now + Math.min(150, q.aheadDays || 120) * 864e5);
+  for (let y = from.getFullYear(), m = from.getMonth() + 1, k = 0; (y < to.getFullYear() || (y === to.getFullYear() && m <= to.getMonth() + 1)) && k < 7; k++) {
+    try {
+      const d = await call("core_calendar_get_calendar_monthly_view", { year: y, month: m, courseid: 1, categoryid: 0, includenavigation: false, mini: true, day: 1 });
+      ((d && d.weeks) || []).forEach(w => (w.days || []).forEach(dd => (dd.events || []).forEach(e => { if (e && e.id != null) evs.set(String(e.id), e); })));
+    } catch (e) { if (e.login) return { needLogin: true }; errors.push("calendar " + y + "-" + m + " " + e.message); if (k === 0) break; }
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  const busyC = new Set([...evs.values()].map(e => String((e.course && e.course.id) || e.courseid || "")));
+  const pick = all.filter(c => (only ? only.has(c.ou) : !c.hidden || busyC.has(c.ou)) && !skip.has(c.ou)).slice(0, 20);
+  const courses = pick.map(c => ({ ou: c.ou, code: c.code, name: c.name, home: c.home }));
+
+  // a table's columns, by their heading row
+  const heads = rows => { const h = rows.find(r => r.cells.some(c => c.th)); return { names: h ? h.cells.map(c => c.text.toLowerCase()) : [], body: rows.filter(r => r !== h) }; };
+  const colIx = (names, rx) => names.findIndex(n => rx.test(n));
+  const detail = async c => {
+    const id = c.ou, mine = [...evs.values()].filter(e => String((e.course && e.course.id) || e.courseid || "") === id);
+    c.items = []; c.grades = []; c.final = null; c.news = []; c.events = []; c.staff = []; c.syl = []; c.sylUrl = ""; c.marks = [];
+    // what's been submitted, and marks, from the assignment and quiz lists
+    const sub = {}, mark = {};
+    const [ai, qi, gr] = await Promise.all([quiet(`/mod/assign/index.php?id=${id}`, "assignments"), quiet(`/mod/quiz/index.php?id=${id}`, "quizzes"),
+      q.grades === false ? null : quiet(`/grade/report/user/index.php?id=${id}`, "grades")]);
+    tables(ai).forEach(t => { const { names: h, body } = heads(rowsOf(t)), si = colIx(h, /submission/), gi = colIx(h, /^grade/);
+      body.forEach(r => { const a = links(r.html, /\/mod\/assign\/view\.php/)[0], cm = a && cmOf(a.href); if (!cm) return; const td = r.cells;
+        const s = si >= 0 && td[si] ? td[si].text : "";
+        if (s) sub[cm.cm] = /not submitted|no submission|no attempt|draft/i.test(s) ? false : /submitted|turned in/i.test(s) ? true : null;
+        const g = gi >= 0 && td[gi] ? nums(td[gi].text) : []; if (g.length >= 2 && g[1] > 0) mark[cm.cm] = { num: g[0], den: g[1] }; }); });
+    tables(qi).forEach(t => { const { names: h, body } = heads(rowsOf(t)), gi = colIx(h, /^grade/), out = num((h[gi] || "").split("/")[1]);
+      body.forEach(r => { const a = links(r.html, /\/mod\/quiz\/view\.php/)[0], cm = a && cmOf(a.href); if (!cm) return; const td = r.cells;
+        const g = gi >= 0 && td[gi] ? nums(td[gi].text) : [];
+        if (g.length) { sub[cm.cm] = true; const den = g.length >= 2 ? g[1] : out; if (den > 0) mark[cm.cm] = { num: g[0], den }; } }); });
+    // the grade report: every graded item, its weight, and the course total
+    tables(gr).forEach(t => rowsOf(t).forEach(tr => {
+      const th = cell(tr, "column-itemname"), gd = cell(tr, "column-grade"); if (!th || !gd) return;
+      const nm = th.text.slice(0, 300), a = links(th.html)[0], cm = a && cmOf(a.href);
+      const got = nums(gd.text), rg = cell(tr, "column-range"), wc = cell(tr, "column-weight"), pc = cell(tr, "column-percentage");
+      const range = nums(rg && rg.text), w = num(wc && wc.text), pct = num(pc && pc.text), den = range.length >= 2 ? range[1] : null;
+      if (/course total/i.test(nm) || /\bcoursetotal\b/.test(tr.cls)) { if (got.length || pct != null) c.final = { shown: gd.text.slice(0, 20), pct: pct != null ? pct : got.length && den ? Math.round(got[0] / den * 1000) / 10 : null }; return; }
+      if (!nm || !den) return;
+      c.grades.push({ gid: cm ? cm.cm : "g" + nm.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30), name: nm, num: got.length ? got[0] : null, den, weight: w != null && w > 0 ? w : null, shown: got.length ? gd.text.slice(0, 20) : "", at: null });
+      if (cm && got.length && !mark[cm.cm]) mark[cm.cm] = { num: got[0], den };
+    }));
+    // the work, from the calendar: assignment due dates, quiz open and close times, and other activities' deadlines
+    const work = {};
+    mine.forEach(e => {
+      const cm = cmOf(e.url || e.viewurl), mod = String(e.modulename || (cm && cm.mod) || ""), type = String(e.eventtype || "");
+      if (!mod || !cm) {
+        if (/^(course|user|site|group|category)$/.test(type)) c.events.push({ id: String(e.id), title: txt(e.name, 300), text: txt(e.description, 1500), start: iso(e.timestart), end: e.timeduration ? iso(Number(e.timestart) + Number(e.timeduration)) : null, allDay: false, where: txt(e.location, 200), assoc: false, url: `${root}/calendar/view.php?view=day&time=${e.timestart}` });
+        return;
+      }
+      if (/expectcompletionon|gradingdue/.test(type)) return;
+      const w = work[cm.cm] || (work[cm.cm] = { mod, cm: cm.cm, name: txt(String(e.activityname || e.name || "").replace(/\s+(is due|opens|closes|due|should be completed)\s*$/i, ""), 300), url: e.url, text: txt(e.description, 1500) });
+      const at = iso(e.timesort || e.timestart);
+      if (/^open/.test(type)) w.open = at; else if (/^close/.test(type)) w.close = at; else w.due = w.due || at;
+    });
+    Object.values(work).forEach(w => {
+      const quiz = w.mod === "quiz", due = quiz ? w.close || w.due : w.due || w.close, m = mark[w.cm];
+      const done = sub[w.cm] === true || !!m ? true : sub[w.cm] === false ? false : null;
+      c.items.push({ kind: quiz ? "quiz" : "assignment", id: w.cm, name: w.name, due, start: w.open || null, end: w.close || null, text: w.text, url: w.url || `${root}/mod/${w.mod}/view.php?id=${w.cm}`, gid: w.cm, outOf: m ? m.den : null, done, files: [],
+        st: done == null ? null : { subAt: null, late: false, missing: done === false && !!due && Date.parse(due) < now, excused: false, ext: false } });
+      if (m && !c.grades.some(g => g.gid === w.cm) && q.grades !== false) c.marks.push({ kind: quiz ? "quiz" : "assignment", id: w.cm, num: m.num, den: m.den, from: quiz ? "quizPage" : "assignmentsPage", how: "" });
+    });
+    // announcements: the newest discussions in the course's announcements forum
+    if (q.news !== false) try {
+      const fi = await quiet(`/mod/forum/index.php?id=${id}`, "forums");
+      const fa = links(fi, /\/mod\/forum\/view\.php\?f=\d+/)[0];
+      const fv = fa && await quiet(`/mod/forum/view.php?f=${(/f=(\d+)/.exec(fa.href) || [])[1]}`, "announcements");
+      const ds = fv ? [...new Map(links(fv, /\/mod\/forum\/discuss\.php\?d=\d+/).filter(x => x.text).map(x => [(/d=(\d+)/.exec(x.href) || [])[1], x])).entries()].filter(([d]) => d).slice(0, 4) : [];
+      for (const [d, a] of ds) {
+        const p = await quiet(`/mod/forum/discuss.php?d=${d}`, "announcement") || "";
+        const t = /<time\b[^>]*datetime="([^"]+)"/i.exec(p), b = /class="[^"]*\b(?:post-content-container|posting)\b[^"]*"[^>]*>([\s\S]{0,12000})/i.exec(p);
+        const body = b ? b[1].split(/<div[^>]+class="[^"]*\b(?:attachments|post-actions|commands|footer|link)\b/i)[0] : "";
+        c.news.push({ id: d, title: a.text.slice(0, 200), text: txt(body, 3000), date: t ? t[1] : null, url: `${root}/mod/forum/discuss.php?d=${d}` });
+      }
+    } catch (e) { if (e.login) throw e; }
+  };
+  try { for (let i = 0; i < courses.length; i += 4) await Promise.all(courses.slice(i, i + 4).map(detail)); }
+  catch (e) { if (e.login) return { needLogin: true }; throw e; }
+  return { ok: true, origin: root, me: { name, id: uid }, all: all.map(c => ({ ou: c.ou, code: c.code, name: c.name })), courses, errors: errors.slice(0, 30), ms: Date.now() - T0 };
+}
+
 const CV_FILE = id => `(async () => {
   const r = await fetch('/api/v1/files/${id}', {credentials: 'include', headers: {Accept: 'application/json'}});
   if (r.status === 401 || r.status === 403) return {needLogin: true};
@@ -1016,8 +1173,11 @@ const BS_FILE = (ou, folderId, fileId) => `(async () => {
 const P = {
   brightspace: { part: "persist:brightspace", home: "/d2l/home", ctx: "/d2l/api/versions/", harvest: bsHarvest, feed: /\/d2l\/le\/calendar\/feed\//i },
   canvas: { part: "persist:canvas", home: "/", ctx: "/robots.txt", harvest: cvHarvest, feed: /^\/feeds\/calendars\/[^/]+\.ics$/i },
-  blackboard: { part: "persist:blackboard", home: "/ultra/stream", ctx: "/robots.txt", harvest: bbHarvest, feed: /(\/calendarfeed\/|\.ics$)/i }
+  blackboard: { part: "persist:blackboard", home: "/ultra/stream", ctx: "/robots.txt", harvest: bbHarvest, feed: /(\/calendarfeed\/|\.ics$)/i },
+  moodle: { part: "persist:moodle", home: "/my/", ctx: "/my/", harvest: mdHarvest, feed: /\/calendar\/export_execute\.php$/i }
 };
+// School sites read only through their calendar link (no sign-in)
+const FEED_ONLY = { schoology: /(\/calendar\/feed\/ical\/|\.ics$)/i };
 const prov = id => (Object.prototype.hasOwnProperty.call(P, id) ? P[id] : null);
 // The exact script run in the school's page for a sync
 const harvestScript = (Pv, safe) => `(() => {\n${HARVEST_PRELUDE}\nreturn (${Pv.harvest.toString()})(${JSON.stringify(safe)});\n})()`;
@@ -1249,7 +1409,7 @@ async function mail(id, host, spec, parent) {
 
 // The calendar subscription link (it has its own private key in it, so no sign-in is needed)
 function feedOk(id, url) {
-  const Pv = prov(id); if (!Pv) return null;
+  const Pv = prov(id) || (Object.prototype.hasOwnProperty.call(FEED_ONLY, id) ? { feed: FEED_ONLY[id] } : null); if (!Pv) return null;
   try {
     const u = new URL(String(url || "").trim().replace(/^webcals?:\/\//i, "https://"));
     const okProto = u.protocol === "https:" || (TEST_MODE && u.origin.startsWith("http://127.0.0.1:"));
@@ -1343,4 +1503,4 @@ function register(getMain, trusted) {
 }
 
 // harvestScript, cleanHarvest
-module.exports = { MARK_KEYS, markSwitches, WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
+module.exports = { MARK_KEYS, markSwitches, WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, mdHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };

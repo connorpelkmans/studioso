@@ -66,7 +66,15 @@ The Mac App Store build needs the `com.apple.security.network.server` entitlemen
 
 ## 5. Before App Review
 
-- **Revoking Apple sign-in on account deletion:** when someone who signed in with Apple deletes their account, Apple requires the app to revoke their Apple token through Apple's REST API. That isn't built yet; ask for it before you submit.
+- **Revoking Apple sign-in on account deletion (built in, needs setup).** Apple requires that deleting an account made with Sign in with Apple also revokes it with Apple. After an Apple sign-in in the iPhone app, the app sends Apple's one-time code to the server. The `delete-account` function swaps the code for a token and keeps it, then revokes the token with Apple before deleting the account. When an Apple account is deleted in the iPhone app, Apple's sheet appears once more to confirm, which also covers accounts made before this was set up. To turn it on:
+  1. Run `supabase-apple-signin.sql` in the SQL Editor, then run `supabase-lean.sql` again.
+  2. Deploy `delete-account` again.
+  3. Add these Supabase function secrets:
+     - `APPLE_TEAM_ID`: your 10-character Team ID
+     - `APPLE_SIGNIN_KEY_ID`: the Key ID of the Sign in with Apple key from Part 3C
+     - `APPLE_SIGNIN_PRIVATE_KEY`: the whole text of that `.p8` file
+     - `APPLE_BUNDLE_ID` = `com.studyboardapp.studyboard`
+  4. Test it: sign in with Apple on your iPhone, then delete the account. Settings → [your name] → Sign-In & Security → Sign in with Apple should no longer list Studyboard.
 - **Birthday check:** accounts made with Apple or Google skip the birthday question and the under-13 parent check on the email sign-up form. If that check matters for your launch, ask for it to be added after a first sign-in with Apple or Google.
 - **Test each combination once:**
   - Apple and Google on the web

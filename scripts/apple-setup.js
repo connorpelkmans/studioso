@@ -35,11 +35,13 @@ edit("package.json", s => {
 });
 // 2. Mac App Store entitlements: the App Group is prefixed with the Team ID
 for (const rel of ["build-resources/entitlements.mas.plist", "build-resources/entitlements.mas-dev.plist"])
-  edit(rel, s => s.replace(/<string>(?:TEAM_ID|[A-Z0-9]{10})\.com\.studioso\.app<\/string>/g, `<string>${team}.com.studioso.app</string>`));
+  edit(rel, s => s.replace(/<string>(?:TEAM_ID|[A-Z0-9]{10})\.com\.(?:studioso\.app|studyboardapp\.studyboard)<\/string>/g, `<string>${team}.com.studyboardapp.studyboard</string>`));
 // 3. iPhone entitlements template: universal links for the domain
 edit("ios-wrapper/App.entitlements.template.plist", s => s.replace(/applinks:[^<]+/g, "applinks:" + domain));
 // 4. RevenueCat public key for in-app purchases
 if (rc) edit("ios-wrapper/native-bridge.js", s => s.replace(/ios: "appl_[^"]*"/, `ios: "${rc}"`));
+// the same key for the Mac App Store build (src/js/10-plan-mac.js)
+if (rc) edit("src/js/10-plan-mac.js", s => s.replace(/const MAC_RC_KEY = "appl_[^"]*"/, `const MAC_RC_KEY = "${rc}"`));
 // 5. Universal links file, served by the website at /.well-known/apple-app-site-association
 {
   const tpl = JSON.parse(fs.readFileSync(path.join(root, "ios-wrapper/apple-app-site-association.template.json"), "utf8"));

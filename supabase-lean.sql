@@ -221,7 +221,7 @@ declare
     ['studyboard_deletions','user_id'], ['studyboard_archive','user_id'], ['studyboard_devices','user_id'],
     ['studyboard_device_removals','user_id'], ['studyboard_usage','user_id'], ['studyboard_billing_customers','user_id'],
     ['group_suspended','user_id'], ['studyboard_founder_themes','user_id'], ['studyboard_early_codes','user_id'], ['studyboard_early_supporters','user_id'],
-    ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['bug_reports','user_id'], ['items','user_id']];
+    ['studyboard_apple_signin','user_id'], ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['bug_reports','user_id'], ['items','user_id']];
 begin
   if p_uid is null then raise exception 'SB_NO_USER' using errcode = '22023'; end if;
   if to_regclass('public.study_groups') is not null and to_regclass('public.group_members') is not null then

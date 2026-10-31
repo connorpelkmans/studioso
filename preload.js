@@ -15,6 +15,14 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   platform: process.platform,
   // Sign in with Google or Apple in the computer's browser: oauthPort() starts the one-time return page (its port, or 0);
   // oauthOpen(url) opens the provider and resolves with the address it returned to, or null
+  // Mac App Store build only: Apple's in-app purchase (main.js). products(ids) -> [{id, title, price}]; buy(id, userId) ->
+  // {status, message}; restore() -> true; receipt() -> base64
+  iap: store === "mas" ? {
+    products: ids => ipcRenderer.invoke("iap:products", Array.isArray(ids) ? ids.slice(0, 10).map(String) : []),
+    buy: (id, user) => ipcRenderer.invoke("iap:buy", String(id || ""), String(user || "")),
+    restore: () => ipcRenderer.invoke("iap:restore"),
+    receipt: () => ipcRenderer.invoke("iap:receipt")
+  } : null,
   oauthPort: () => ipcRenderer.invoke("auth:port"),
   oauthOpen: url => ipcRenderer.invoke("auth:open", typeof url === "string" ? url.slice(0, 4096) : ""),
   dataDir: () => ipcRenderer.invoke("dir:get"),

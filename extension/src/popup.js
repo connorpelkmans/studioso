@@ -2,8 +2,8 @@
 "use strict";
 
 const APP = "https://studyboardapp.com/";
-const NAMES = { canvas: "Canvas", brightspace: "Brightspace", blackboard: "Blackboard" };
-const TAGS = { canvas: "Canvas", brightspace: "D2L", blackboard: "Bb" };
+const NAMES = { canvas: "Canvas", brightspace: "Brightspace", blackboard: "Blackboard", moodle: "Moodle" };
+const TAGS = { canvas: "Canvas", brightspace: "D2L", blackboard: "Bb", moodle: "M" };
 const EVERY = [[15, "Every 15 minutes"], [30, "Every 30 minutes"], [60, "Every hour"], [180, "Every 3 hours"], [360, "Every 6 hours"], [720, "Every 12 hours"]];
 const originOf = s => globalThis.__studyboardExt.originOf(s);
 const $ = id => document.getElementById(id);
@@ -36,6 +36,7 @@ function guess(url) {
     if (/\.instructure\.com$/i.test(u.hostname) || /^\/courses(\/|$)/.test(u.pathname)) return "canvas";
     if (/^\/d2l\//i.test(u.pathname) || /brightspace|d2l/i.test(u.hostname)) return "brightspace";
     if (/^\/(ultra|webapps)\//i.test(u.pathname) || /blackboard/i.test(u.hostname)) return "blackboard";
+    if (/moodle/i.test(u.hostname) || /^\/(my\/|course\/view\.php|mod\/[a-z]+\/view\.php)/i.test(u.pathname)) return "moodle";
   } catch (e) {}
   return "";
 }
@@ -103,7 +104,7 @@ function connectForm(have) {
       if (r && r.ok) { render(); return; }
       go.disabled = false; msg.className = "status warn";
       if (r && r.error === "unknown-platform") more.open = true;
-      msg.textContent = r && r.error === "unknown-platform" ? "That site doesn't look like Canvas, Brightspace or Blackboard. Check the address, or pick the platform above." : "Couldn't connect that site. Check the address and try again.";
+      msg.textContent = r && r.error === "unknown-platform" ? "That site doesn't look like Canvas, Brightspace, Blackboard or Moodle. Check the address, or pick the platform above." : "Couldn't connect that site. Check the address and try again.";
     }, () => { msg.className = "status warn"; msg.textContent = "Couldn't ask for permission here. Try again."; });
   } },
     h("h2", {}, have.length ? "Connect Another School Site" : "Connect Your School Site"),

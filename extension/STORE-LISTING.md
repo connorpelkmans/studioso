@@ -17,7 +17,7 @@ The Chrome listing's address is `EXT_CHROME_URL` in `index.html`: the website of
 **Name:** Studyboard School Sync
 
 **Summary / short description** (132 characters at most; this is the manifest description):
-> Keeps Studyboard up to date with your Canvas, Brightspace or Blackboard: due dates, submissions, grades and feedback.
+> Keeps Studyboard up to date with your Canvas, Brightspace, Blackboard or Moodle: due dates, submissions, grades and feedback.
 
 **Description:**
 > Studyboard School Sync keeps your Studyboard planner in step with your school's learning platform, automatically.
@@ -35,7 +35,7 @@ The Chrome listing's address is `EXT_CHROME_URL` in `index.html`: the website of
 > • The extension itself sends your data nowhere: it keeps it in your browser until Studyboard picks it up, and Studyboard keeps it like the rest of your planner (on your device, and in your Studyboard account if you have one).
 > • No ads, no analytics, no tracking.
 >
-> Works with Canvas, Brightspace (D2L) and Blackboard Learn (Ultra and Original). You need a Studyboard planner at studyboardapp.com (free).
+> Works with Canvas, Brightspace (D2L), Blackboard Learn (Ultra and Original) and Moodle. You need a Studyboard planner at studyboardapp.com (free).
 >
 > Canvas is a trademark of Instructure, Inc. Brightspace and D2L are trademarks of D2L Corporation. Blackboard is a trademark of its owner. Studyboard isn't affiliated with or endorsed by any of them.
 
@@ -60,19 +60,19 @@ The Chrome listing's address is `EXT_CHROME_URL` in `index.html`: the website of
 2. **Items → New item** and upload `studyboard-school-sync-<version>-chrome.zip`.
 3. **Store listing:** paste the text above, choose Education, add the pictures.
 4. **Privacy practices:**
-   - **Single purpose:** "Keep the user's Studyboard planner up to date with the school learning platform (Canvas, Brightspace or Blackboard) they connect: read their courses, due dates, submissions, grades and feedback there and hand them to Studyboard in the same browser."
+   - **Single purpose:** "Keep the user's Studyboard planner up to date with the school learning platform (Canvas, Brightspace, Blackboard or Moodle) they connect: read their courses, due dates, submissions, grades and feedback there and hand them to Studyboard in the same browser."
    - **Permission justifications:**
      - `storage`: "Keeps the connected school site, the sync settings and the last read (until Studyboard picks it up) in the browser."
      - `alarms`: "Syncs on a schedule the user picks (every 15 minutes to 12 hours) without a page being open."
      - `scripting`: "If a background read isn't signed in (some school single sign-on setups), runs the extension's own packaged read script in the user's open tab of the school site they connected, which has their sign-in. It never runs on any other site."
      - `activeTab`: "When the user opens the popup on their school site, its address is filled in for them."
-     - **Host permissions** (`optional_host_permissions: https://*/*`): "Schools host Canvas, Brightspace and Blackboard on their own domains, so the extension can't list them in advance. Nothing is granted at install: when the user connects their school, the extension asks for that one site (for example https://school.instructure.com/*) with the browser's permission prompt. The user can remove it at any time."
+     - **Host permissions** (`optional_host_permissions: https://*/*`): "Schools host Canvas, Brightspace, Blackboard and Moodle on their own domains, so the extension can't list them in advance. Nothing is granted at install: when the user connects their school, the extension asks for that one site (for example https://school.instructure.com/*) with the browser's permission prompt. The user can remove it at any time."
      - **Content script on studyboardapp.com:** "Hands what the extension read to the Studyboard web app, which is the extension's purpose. It runs on no other site."
    - **Remote code:** No. All code is in the package.
    - **Data usage:** tick **Personally identifiable information** (the student's name and the names and school emails of their instructors, as the school site shows them), **Personal communications** (Canvas Inbox messages) and **Website content** (courses, due dates, grades, feedback, announcements, syllabus). Don't tick authentication information: the extension never sees passwords or tokens. Tick all three certifications (not sold to third parties; not used for unrelated purposes; not used for creditworthiness or lending).
    - **Privacy policy URL:** as above. Its extension paragraph has the affirmative statement the Limited Use policy asks for ("…complies with the Chrome Web Store User Data Policy, including the Limited Use requirements"), and the popup shows what is read and where it goes, right above **Agree, Allow and Connect**, before anything is read (prominent disclosure and consent).
 5. **Test instructions** (Developer Dashboard, the item's **Test instructions** section): put the school site's test student in the username and password fields, and paste the text below in the instructions box, with the placeholders filled in. A Studyboard test account is optional (Studyboard works without one); if you give one, make it in Supabase with Auto Confirm and keep its password only in the dashboard.
-   > Studyboard School Sync reads the student's own Canvas, Brightspace (D2L) or Blackboard Learn site, with the sign-in the browser already has, and hands what it read to the Studyboard web app (https://studyboardapp.com) in the same browser.
+   > Studyboard School Sync reads the student's own Canvas, Brightspace (D2L), Blackboard Learn or Moodle site, with the sign-in the browser already has, and hands what it read to the Studyboard web app (https://studyboardapp.com) in the same browser.
    >
    > Test accounts
    > - Canvas test student: the username and password above, at https://<canvas test site>/

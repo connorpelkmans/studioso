@@ -116,6 +116,7 @@ If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `sup
 | `supabase-functions/calendar-feed/index.ts` | `calendar-feed` | Off | `supabase functions deploy calendar-feed --no-verify-jwt` |
 | `supabase-functions/billing-webhook/index.ts` | `billing-webhook` | Off | `supabase functions deploy billing-webhook --no-verify-jwt` |
 | `supabase-functions/lms-feed/index.ts` | `lms-feed` | On | `supabase functions deploy lms-feed` |
+| `supabase-functions/lms-find/index.ts` | `lms-find` | **Off** (no sign-in needed; rate limited) | `supabase functions deploy lms-find --no-verify-jwt` |
 | `supabase-functions/send-reminders/index.ts` | `send-reminders` | Off | `supabase functions deploy send-reminders --no-verify-jwt` |
 | `supabase-functions/delete-account/index.ts` | `delete-account` | **On** | `supabase functions deploy delete-account` |
 | `supabase-functions/create-checkout/index.ts` | `create-checkout` | On | `supabase functions deploy create-checkout` |
@@ -738,6 +739,7 @@ Google only lets Studyboard see the files it saved (`drive.file`), so watching f
 2. **The function:** deploy `supabase-functions/cloud-files/index.ts` as `cloud-files` with **Verify JWT off** (`supabase functions deploy cloud-files --no-verify-jwt`).
    **Use your own domain for the return address.** Supabase serves function answers as plain text (it won't show web pages on `supabase.co`), so the "Connect?" confirm page only displays properly through your website, and Google and Microsoft then show your domain instead of `…supabase.co`. The website's worker (`cloudflare/site/worker.js`, set up in `wrangler.jsonc`) passes `https://<your-site>/functions/v1/cloud-files` and `/functions/v1/calendar-sync` through to Supabase. Set the secrets `CLOUD_REDIRECT=https://<your-site>/functions/v1/cloud-files` and `CALSYNC_REDIRECT=https://<your-site>/functions/v1/calendar-sync`, and use those two addresses as the redirect URIs at Google and Microsoft.
 3. **Google:** in the same Google Cloud project as calendar sync (or a new one), turn on the **Google Drive API**, add the scope `.../auth/drive.file` to the OAuth consent screen, and add the redirect address above to the OAuth client's **Authorized redirect URIs**. `drive.file` is a non-sensitive scope, so it needs no extra security review.
+   **Google Classroom** (School Sites, High School Sites) uses the same function, client and redirect address, as its own connection. Turn on the **Google Classroom API** in the same project and add three scopes to the consent screen: `.../auth/classroom.courses.readonly`, `.../auth/classroom.coursework.me.readonly` and `.../auth/classroom.announcements.readonly`. These are sensitive scopes, so Google reviews the app before people outside your test users can connect (send the privacy policy and a short video of connecting Classroom in Studyboard). Until then, add your own Google account as a test user. Students with a school Google account may also need their school's admin to allow Studyboard (Google Admin console, Security, API controls, App access control), especially if they're under 18.
 4. **Microsoft:** in the same app registration, add the redirect address above (Web) and the delegated Microsoft Graph permission `Files.ReadWrite`.
 5. **Secrets:** `CLOUD_KEY` (32+ random characters; if it's missing, `CALSYNC_KEY` is used). The function uses `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and `MS_CLIENT_ID` / `MS_CLIENT_SECRET`, or `CLOUD_GOOGLE_CLIENT_ID`, `CLOUD_GOOGLE_CLIENT_SECRET`, `CLOUD_MS_CLIENT_ID`, `CLOUD_MS_CLIENT_SECRET` if you want separate clients.
 6. **Try it:** signed in, open **Files > Cloud**, choose **Connect OneDrive**, finish in the page that opens, come back, and upload a file.
@@ -747,6 +749,8 @@ Checks without any network: `node --experimental-strip-types supabase-functions/
 | What you see | What to do |
 |---|---|
 | "Google Drive and OneDrive aren't set up on this Studyboard server yet" | Step 2: deploy `cloud-files` (exact name). |
+| Google Classroom: "This app is blocked" or "access_denied" for a school account | The school's Google admin hasn't allowed Studyboard. They can allow it in the Admin console (Security, API controls, App access control). |
+| Google Classroom: "Google hasn't verified this app" | Step 3: the Classroom scopes need Google's review. Until then, only test users can connect. |
 | "aren't fully set up" | Step 5: `CLOUD_KEY` (or `CALSYNC_KEY`) is missing or too short. |
 | Google: `redirect_uri_mismatch` | Step 3: add the `cloud-files` address as a redirect URI. |
 | "needs you to connect it again" | Access was revoked or expired. **Connect Again** in Files > Cloud. |
@@ -955,6 +959,18 @@ In local-only mode (or before you connect), you can still share a deck as a file
 The desktop app uses the website address for share links. If a share sheet in the desktop app shows only a code, share a deck or send an invite once from the Studyboard website, and links appear in the app after that. The code always works on its own.
 
 ## Brightspace, Canvas and Blackboard
+
+**Moodle.** Moodle is fourth on School Sites. In the desktop, iPhone, iPad and Android apps students sign in on their school's Moodle page (single sign-on works), and Studyboard reads what Moodle's own pages use: its AJAX service for courses and the calendar, and the assignment, quiz and grade report pages for what's been submitted, marks, weights and the course total, plus the announcements forum. Each school runs its own Moodle, so a theme or setting can hide something (like grades); the sync report shows what didn't come through. Moodle sites installed in a folder (like `school.edu/moodle`) aren't supported for signing in yet; those students can use the calendar link (Calendar, Export calendar, Get calendar URL), read by `lms-feed` or the desktop app. The Studyboard School Sync browser extension (1.0.12 and later) reads Moodle too, so it works on the website. For Find your school, run `supabase-lms-find.sql` again and deploy `lms-find` again.
+
+**High School Sites.** School Sites also has a **High School Sites** dropdown with Schoology and Google Classroom. Schoology connects with its calendar link (Calendar, then Export), read by `lms-feed` (deploy it again so it accepts Schoology links) or by the desktop app. Google Classroom connects through `cloud-files` (see "Google Drive and OneDrive": run `supabase-cloud.sql` again, deploy `cloud-files` again, and add the Classroom API and scopes) and brings in classwork, what's turned in, grades and announcements.
+
+**Find your school.** When someone connects a school site by signing in (the iPhone, iPad, Android and desktop apps), they can type their school's name, pick it from the suggestions, and its Brightspace, Canvas or Blackboard address is filled in. The suggestions come from the schools list (`supabase-schools.sql`). The address comes from the `lms-find` function: it tries the addresses schools usually use, starting with the school's own (like `learn.bcit.ca`) and then the provider's (like `bcit.brightspace.com`), checks which one really is that kind of site, and remembers the answer for 30 days. To turn it on:
+1. Run `supabase-lms-find.sql` in the SQL Editor.
+2. For high schools, run `supabase-lms-districts.sql` too. High school sites are run by the school board or district, so it lists each high school's board or district (Ontario, BC and US public schools) with the district's web domains, plus the checked addresses of the boards on Ontario's and BC's shared Brightspace (like `tdsb.elearningontario.ca` and `sd43.onlinelearningbc.com`). The answer is remembered for the whole district, so a district is looked up once a month. `tools/build-lms-districts.py` rebuilds the file from the government lists (its top says where to get them).
+3. Deploy `lms-find` with JWT verification **off**: `supabase functions deploy lms-find --no-verify-jwt`.
+
+If it finds the wrong address for a school, or none, set it by hand (the comment at the top of `supabase-lms-find.sql` shows how). Students can always type the address themselves.
+
 
 **Remote switch for Blackboard's internal endpoints.** Studyboard reads Blackboard through its public API, and also uses Blackboard's internal endpoints for rubrics and as a fallback when the public API doesn't answer. To turn the internal ones off for everyone without an app update, run `supabase-app-flags.sql` once in the Supabase SQL editor, then when needed:
 

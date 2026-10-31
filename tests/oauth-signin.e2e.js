@@ -87,13 +87,15 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     // iPhone: Apple's own sheet, its token exchanged with Supabase
     seen = [];
     ({ctx, page} = await open(() => {
-      window.StudyboardNative = {signIn: {redirect: "studyboard://auth-callback", open: () => Promise.resolve(null), apple: () => Promise.resolve({idToken: "apple.id.token", nonce: "raw-nonce", name: "Sam Lee"})}};
+      window.StudyboardNative = {signIn: {redirect: "studyboard://auth-callback", open: () => Promise.resolve(null), apple: () => Promise.resolve({idToken: "apple.id.token", nonce: "raw-nonce", name: "Sam Lee", code: "c.native-code-123"})}};
     }, seen));
     const posted = [];
-    page.on("request", r => { if (/\/auth\/v1\/token/.test(r.url())) posted.push(r.postData()); });
+    page.on("request", r => { if (/\/auth\/v1\/token|apple-token/.test(r.url())) posted.push(r.url() + " " + r.postData()); });
     await page.click("dialog[open] [data-oauth=apple]");
     ok(await signedIn(page), "iPhone: Continue with Apple uses Apple's own sheet and signs in");
     ok(posted.some(p => /"provider":"apple"/.test(p) && /"id_token":"apple.id.token"/.test(p) && /"nonce":"raw-nonce"/.test(p)), "with Apple's token and the unhashed nonce sent to Supabase");
+    await page.waitForTimeout(500);
+    ok(posted.some(p => /\/functions\/v1\/delete-account\/apple-token/.test(p) && /"code":"c.native-code-123"/.test(p)), "and Apple's one-time code is handed to the server, so deleting the account can revoke Sign in with Apple");
     await ctx.close();
 
     // not an Apple device: Google only

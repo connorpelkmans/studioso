@@ -68,6 +68,11 @@ if (fs.existsSync(plistFile)) {
     for (const src of srcs) {
       const name = path.basename(src), esc = name.replace(/[.]/g, "\\.");
       if (!new RegExp("path = \"?" + esc + "\"?;").test(txt)) continue;
+      // Xcode lists it with no folder (added to the project's top level): it looks right in ios/App, so a copy goes there too
+      const top = path.join(proj, name);
+      if (!fs.existsSync(top) && new RegExp("path = \"?" + esc + "\"?; sourceTree = \"<group>\"").test(txt)) {
+        fs.copyFileSync(src, top); done.push(path.relative(wrap, top) + " (was missing)");
+      }
       // the widget file belongs in the widget's own folder even when a copy sits elsewhere (Xcode shows it red otherwise)
       const wdir = path.join(proj, "StudyboardWidgets");
       if (name === "StudyboardWidgets.swift" && fs.existsSync(wdir) && !fs.existsSync(path.join(wdir, name))) {
@@ -145,6 +150,54 @@ if (fs.existsSync(plistFile)) {
       const t = fs.readFileSync(pbx, "utf8");
       const u = t.replace(/(PRODUCT_BUNDLE_IDENTIFIER = "?)com\.studioso\.app(\.[A-Za-z0-9.-]+)?("?;)/g, (m, a, rest, b) => a + "com.studyboardapp.studyboard" + (rest || "") + b);
       if (u !== t) { fs.writeFileSync(pbx, u); console.log("ios-stage: bundle IDs now start with com.studyboardapp.studyboard (were com.studioso.app)"); }
+    }
+  } catch (e) {}
+}
+
+// The app icon: ios-wrapper/AppIcon-1024.png (square, no transparency, as the App Store needs; iOS rounds the corners) as
+// Xcode's single-size AppIcon. Without this the build carries Capacitor's placeholder and App Store Connect shows no icon.
+{
+  const set = path.join(wrap, "ios", "App", "App", "Assets.xcassets", "AppIcon.appiconset"), src = path.join(wrap, "AppIcon-1024.png");
+  try {
+    if (fs.existsSync(path.dirname(set)) && fs.existsSync(src)) {
+      fs.mkdirSync(set, {recursive: true});
+      const dst = path.join(set, "AppIcon-1024.png"), buf = fs.readFileSync(src);
+      const contents = JSON.stringify({images: [{filename: "AppIcon-1024.png", idiom: "universal", platform: "ios", size: "1024x1024"}], info: {author: "xcode", version: 1}}, null, 2) + "\n";
+      const cj = path.join(set, "Contents.json");
+      if (!fs.existsSync(dst) || !fs.readFileSync(dst).equals(buf) || !fs.existsSync(cj) || fs.readFileSync(cj, "utf8") !== contents) {
+        for (const f of fs.readdirSync(set)) if (/\.png$/i.test(f) && f !== "AppIcon-1024.png") fs.rmSync(path.join(set, f));
+        fs.writeFileSync(dst, buf); fs.writeFileSync(cj, contents);
+        console.log("ios-stage: app icon installed (AppIcon, 1024 x 1024)");
+      }
+    }
+  } catch (e) { console.log("ios-stage: couldn't install the app icon: " + e.message); }
+}
+// The privacy manifest Apple requires (build-resources/ios/PrivacyInfo.xcprivacy), next to the app's Info.plist. Xcode
+// builds it in once it's in the App target (once: File > Add Files, tick App).
+{
+  const src = path.join(root, "build-resources", "ios", "PrivacyInfo.xcprivacy"), dst = path.join(wrap, "ios", "App", "App", "PrivacyInfo.xcprivacy");
+  try {
+    if (fs.existsSync(src) && fs.existsSync(path.dirname(dst)) && (!fs.existsSync(dst) || fs.readFileSync(dst, "utf8") !== fs.readFileSync(src, "utf8"))) {
+      fs.copyFileSync(src, dst); console.log("ios-stage: privacy manifest copied to ios/App/App/PrivacyInfo.xcprivacy");
+    }
+    const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+    if (fs.existsSync(pbx) && !/PrivacyInfo\.xcprivacy/.test(fs.readFileSync(pbx, "utf8")))
+      console.log("ios-stage: in Xcode, add ios/App/App/PrivacyInfo.xcprivacy to the App target once (File > Add Files to \"App\", tick App)");
+  } catch (e) {}
+}
+
+// Native parts that only work once their files are in the Xcode project (Xcode doesn't pick files up by itself): say which
+// are missing, so a feature isn't silently off (school site sign-in, the Lock Screen timer)
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
+    const need = [["StudyboardLms.swift", "school site sign-in"], ["StudyboardLmsScripts.swift", "school site sign-in"], ["StudyboardPlugins.swift", "quick capture and the share sheet"]]
+      .filter(([f]) => txt && !txt.includes(f));
+    if (need.length) {
+      console.log("ios-stage: NOT IN THE XCODE PROJECT YET (so these are off in the app):");
+      for (const [f, what] of need) console.log("  - ios-wrapper/native/" + f + " (" + what + ")");
+      console.log("  Add them in Xcode: File > Add Files to \"App\", choose them in ios-wrapper/native, untick \"Copy items if needed\" (reference them in place), tick the App target, Add. Then run npm run ios:stage again.");
     }
   } catch (e) {}
 }

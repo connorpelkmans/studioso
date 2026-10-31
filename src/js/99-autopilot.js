@@ -24,7 +24,7 @@ const AUTOPILOT = (() => {
   const open = t => !!t && t.status !== "done";
   const isMs = t => t.type === "Exam" || t.type === "Quiz";
   // From school sync, a calendar feed or a group: its dates belong to someone else
-  const synced = t => !!(t.bs || t.cv || t.bb || t.synced || t.icsUid || t.src || t.gt);
+  const synced = t => !!(t.bs || t.cv || t.bb || t.md || t.sg || t.gc || t.synced || t.icsUid || t.src || t.gt);
   const hrs = t => Number(t.hours) > 0 ? Math.min(12, Number(t.hours)) : 1;
   // What may move: prep sessions (by re-planning that exam's prep), steps of a broken-down assignment, your own Study tasks
   const kindOf = t => !open(t) || !isDate(t.due) || synced(t) ? "" : t.prepFor ? (t.type === "Study" ? "prep" : "") : t.breakdownOf ? "step" : t.type === "Study" ? "study" : "";

@@ -372,6 +372,7 @@ dialog:has(> .sheet){overflow:hidden}
 .sheet-foot .spacer{flex:1}
 label.f{display:grid;gap:5px;font-size:.88rem;font-weight:600}
 label.f .hint{font-weight:400;color:var(--muted)}
+label.f .bs-host-note{font-weight:400;color:var(--muted);line-height:1.35}
 label.f .lh{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px}
 label.f .lh .req{margin-left:0}
 input[type=text],input[type=search],input[type=date],input[type=time],input[type=number],input[type=url],select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:max(16px,1rem);font-weight:400}
@@ -2339,6 +2340,16 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 /* EU: the website as the second way to buy, quieter than the in-app prices above it (Apple asks that it not look preferred) */
 .plan-alt{display:grid;justify-items:center;gap:4px;margin-top:10px;text-align:center}
 .plan-alt .link-btn{font-size:.92rem}
+
+/* Find your school (the school site sheet): suggestions under the box */
+.bs-find{position:relative;display:grid;gap:5px;font-size:.88rem;font-weight:600}
+.bs-find .bs-sugg{position:absolute;left:0;right:0;top:calc(100% - 4px);z-index:20;margin:0;padding:4px;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(8,20,50,.18);max-height:260px;overflow:auto}
+.bs-find .bs-sugg li{display:grid;gap:1px;padding:9px 10px;border-radius:9px;cursor:pointer;font-weight:400}
+.bs-find .bs-sugg li b{font-weight:600}
+.bs-find .bs-sugg li span{font-size:.8rem;color:var(--muted)}
+.bs-find .bs-sugg li[aria-selected="true"],.bs-find .bs-sugg li:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.bs-find .bs-find-msg{font-weight:400;color:var(--muted)}
+.bs-find .bs-find-msg:empty{display:none}
 /* ===== module: 10-plan.css ===== */
 /* Studyboard Pro sheet, Your Devices, and the Settings row */
 dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
@@ -3841,7 +3852,13 @@ nav.tabs [data-tab="courses"]{position:relative}
 .bs-pcard.on{border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
 .bs-plogo{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;overflow:hidden;font:800 .78rem var(--display);letter-spacing:.04em;color:var(--ink);background:var(--soft);box-shadow:inset 0 0 0 1px var(--line)}
 .bs-plogo.long{font-size:.56rem;letter-spacing:0}
-.bs-plogo.bs-l-cv{background:#D9302B;color:#fff;box-shadow:none}.bs-plogo.bs-l-bs{background:#E8761A;color:#fff;box-shadow:none}.bs-plogo.bs-l-bb{background:#111;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.bs-plogo.bs-l-cv{background:#D9302B;color:#fff;box-shadow:none}.bs-plogo.bs-l-bs{background:#E8761A;color:#fff;box-shadow:none}.bs-plogo.bs-l-bb{background:#111;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}.bs-plogo.bs-l-md{background:#F98012;color:#fff;box-shadow:none}.bs-plogo.bs-l-sg{background:#0677BA;color:#fff;box-shadow:none}.bs-plogo.bs-l-gc{background:#188038;color:#fff;box-shadow:none}
+.bs-hs{border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--surface)}
+.bs-hs>summary{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:12px 2px;cursor:pointer;list-style:none;min-height:44px;box-sizing:border-box}
+.bs-hs>summary::-webkit-details-marker{display:none}
+.bs-hs>summary::after{content:"";margin-left:auto;align-self:center;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .15s;opacity:.6}
+.bs-hs[open]>summary::after{transform:rotate(225deg)}
+.bs-hs>.bs-plist{padding:0 0 12px}
 .bs-pmain{flex:1;min-width:0}
 .bs-pmain b{display:block}
 .bs-pmain .mini{display:block;overflow-wrap:anywhere}

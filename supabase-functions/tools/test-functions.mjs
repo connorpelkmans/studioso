@@ -25,6 +25,7 @@ const da = await load("supabase-functions/delete-account/index.ts");
 const cf = await load("supabase-functions/calendar-feed/index.ts");
 const lf = await load("supabase-functions/lms-feed/index.ts");
 const sr = await load("supabase-functions/send-reminders/index.ts");
+const lfind = await load("supabase-functions/lms-find/index.ts");
 
 const UID = "11111111-2222-4333-8444-555555555555";
 const OTHER = "99999999-2222-4333-8444-555555555555";
@@ -1005,6 +1006,125 @@ await test("billing-webhook: a paid invoice becomes Apple's line item in milli-u
   const p = wh.appleInvoice(inv, "cus_1", "sub_1", S, NOW + 30 * 86400_000);
   assert.deepEqual(p, { customer: "cus_1", subscription: "sub_1", invoice: "in_9", reason: "subscription_create", paid_at: NOW, period_start: NOW, period_end: NOW + 30 * 86400_000, currency: "eur", amount_in: 3990, amount_ex: 3350, tax: 640, tax_country: "DEU", plan: "monthly" });
   assert.equal(wh.milli(500, "jpy"), 500000);
+});
+
+// -- delete-account: Sign in with Apple is revoked with Apple
+await test("delete-account: Apple's code is swapped for a token at sign-in, and the token is revoked with Apple (signed ES256 client secret)", async () => {
+  const { privateKey: SK, publicKey: SP } = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const env = { SUPABASE_URL: "https://db", SUPABASE_SERVICE_ROLE_KEY: "svc", APPLE_TEAM_ID: "TEAM123456", APPLE_SIGNIN_KEY_ID: "KEYSIWA123", APPLE_BUNDLE_ID: "com.studyboardapp.studyboard",
+    APPLE_SIGNIN_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\n" + Buffer.from(await crypto.subtle.exportKey("pkcs8", SK)).toString("base64") + "\n-----END PRIVATE KEY-----" };
+  const calls = []; let stored = null;
+  const f = async (url, init = {}) => {
+    url = String(url); calls.push([url, init]);
+    if (/auth\/v1\/user/.test(url)) return new Response(JSON.stringify({ id: UID }));
+    if (url === "https://appleid.apple.com/auth/token") return new Response(JSON.stringify({ refresh_token: "rt-apple-1" }));
+    if (url === "https://appleid.apple.com/auth/revoke") return new Response("", { status: 200 });
+    if (/studyboard_apple_signin\?on_conflict/.test(url)) { stored = JSON.parse(init.body); return new Response(null, { status: 201 }); }
+    return new Response("[]");
+  };
+  const dd = { env: k => env[k] ?? "", fetch: f, now: () => NOW, log };
+  const r = await da.handle(new Request("https://x/functions/v1/delete-account/apple-token", { method: "POST", headers: { authorization: "Bearer u" }, body: JSON.stringify({ code: "c.apple-code-123" }) }), dd);
+  assert.equal(r.status, 200); assert.deepEqual((await r.json()).ok, true);
+  assert.equal(stored.user_id, UID); assert.equal(stored.refresh_token, "rt-apple-1"); assert.equal(stored.client_id, "com.studyboardapp.studyboard");
+  const ex = new URLSearchParams(calls.find(c => c[0] === "https://appleid.apple.com/auth/token")[1].body);
+  assert.equal(ex.get("grant_type"), "authorization_code"); assert.equal(ex.get("code"), "c.apple-code-123"); assert.equal(ex.get("client_id"), "com.studyboardapp.studyboard");
+  const [h, c, sig] = ex.get("client_secret").split(".");
+  const head = JSON.parse(Buffer.from(h, "base64url")), cl = JSON.parse(Buffer.from(c, "base64url"));
+  assert.deepEqual(head, { alg: "ES256", kid: "KEYSIWA123" }); assert.equal(cl.iss, "TEAM123456"); assert.equal(cl.aud, "https://appleid.apple.com"); assert.equal(cl.sub, "com.studyboardapp.studyboard");
+  assert.ok(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, SP, Buffer.from(sig, "base64url"), new TextEncoder().encode(h + "." + c)));
+  // revoking (the helper the deletion uses)
+  calls.length = 0;
+  assert.equal(await da.appleRevoke(dd, "rt-apple-1", "com.studyboardapp.studyboard"), true);
+  const rv = new URLSearchParams(calls[0][1].body);
+  assert.equal(calls[0][0], "https://appleid.apple.com/auth/revoke"); assert.equal(rv.get("token"), "rt-apple-1"); assert.equal(rv.get("token_type_hint"), "refresh_token");
+});
+
+// -- lms-find (Find your school: the school site's address)
+await test("lms-find: tries the school's own address first, then the provider's", async () => {
+  const c = lfind.candidates("brightspace", ["bcit.ca"]);
+  assert.equal(c[0], "learn.bcit.ca"); assert.ok(c.indexOf("learn.bcit.ca") < c.indexOf("bcit.brightspace.com"));
+  assert.ok(lfind.candidates("canvas", ["ubc.ca"]).includes("ubc.instructure.com"));
+  assert.ok(lfind.candidates("blackboard", ["example.edu"]).includes("example.blackboard.com"));
+  const md = lfind.candidates("moodle", ["school.edu"]);
+  assert.equal(md[0], "moodle.school.edu"); assert.ok(md.includes("school.moodlecloud.com"));
+});
+await test("lms-find: BCIT -> learn.bcit.ca (its site sends sign-in to Microsoft); a provider address that forwards is followed; a plain site isn't a school site", async () => {
+  const site = {
+    "https://learn.bcit.ca/d2l/login": () => new Response(null, { status: 302, headers: { location: "/d2l/lp/auth/login/samlLogin.d2l" } }),
+    "https://learn.bcit.ca/d2l/lp/auth/login/samlLogin.d2l": () => new Response(null, { status: 302, headers: { location: "https://login.microsoftonline.com/x/saml2?SAMLRequest=abc" } }),
+    "https://ubc.instructure.com/login/canvas": () => new Response(null, { status: 301, headers: { location: "https://canvas.ubc.ca/login/canvas" } }),
+    "https://canvas.ubc.ca/login/canvas": () => new Response("<html><title>Log In to Canvas</title>instructure</html>", { status: 200 }),
+    "https://learn.plain.ca/d2l/login": () => new Response("<html>Our learning centre</html>", { status: 200 }),
+  };
+  const f = async (url) => (site[String(url)] || (() => new Response("nope", { status: 404 })))();
+  const dd = { env: () => "", fetch: f, now: () => NOW, log };
+  assert.equal(await lfind.probe(dd, "brightspace", "learn.bcit.ca"), "learn.bcit.ca");
+  assert.equal(await lfind.probe(dd, "canvas", "ubc.instructure.com"), "canvas.ubc.ca");
+  assert.equal(await lfind.probe(dd, "brightspace", "learn.plain.ca"), "");
+  assert.equal(await lfind.probe(dd, "brightspace", "d2l.nothing.ca"), "");
+});
+await test("lms-find: looks a school up once, then answers from what it remembered", async () => {
+  const calls = []; let saved = null, kept = [];
+  const f = async (url, init = {}) => {
+    url = String(url); calls.push(url);
+    if (/school_lms\?school_key=eq/.test(url)) return new Response(JSON.stringify(kept));
+    if (/studyboard_plan_rate_hit/.test(url)) return new Response("true");
+    if (/schools\?key=eq/.test(url)) return new Response(JSON.stringify([{ domains: ["bcit.ca"], web: "http://www.bcit.ca/" }]));
+    if (/school_lms\?on_conflict/.test(url)) { saved = JSON.parse(init.body); return new Response(null, { status: 201 }); }
+    if (url === "https://learn.bcit.ca/d2l/login") return new Response(null, { status: 302, headers: { location: "https://login.microsoftonline.com/x" } });
+    return new Response("", { status: 404 });
+  };
+  const env = { SUPABASE_URL: "https://db", SUPABASE_SERVICE_ROLE_KEY: "svc" };
+  const dd = { env: k => env[k] ?? "", fetch: f, now: () => NOW, log };
+  const ask = () => lfind.handle(new Request("https://x/functions/v1/lms-find", { method: "POST", body: JSON.stringify({ key: "bcit.ca", lms: "brightspace" }) }), dd);
+  // learn.bcit.ca's /d2l/login goes straight to Microsoft: counted only with a D2L page on the way, so here it's not found...
+  let r = await (await ask()).json();
+  assert.equal(r.host, ""); assert.equal(saved.host, "");
+  kept = [{ host: "learn.bcit.ca", checked_at: new Date(NOW - 86400_000).toISOString() }]; calls.length = 0;
+  r = await (await ask()).json();
+  assert.equal(r.host, "learn.bcit.ca"); assert.ok(!calls.some(u => u.startsWith("https://learn.")), "answered from what it remembered, without looking again");
+});
+
+await test("lms-find: a district's domain from a school website (elite.guhsd.net -> guhsd.net, not a web host)", async () => {
+  assert.equal(lfind.siteDomain("http://elite.guhsd.net"), "guhsd.net");
+  assert.equal(lfind.siteDomain("https://www.isd535.k12.mn.us/schools"), "isd535.k12.mn.us");
+  assert.equal(lfind.siteDomain("http://www.tvdsb.on.ca"), "tvdsb.on.ca");
+  assert.equal(lfind.siteDomain("https://sites.google.com/x/y"), "");
+  assert.equal(lfind.siteDomain("hs:us:061623010628"), "");
+});
+await test("lms-find: high schools use their district (US: the NCES id; Ontario/BC: school_districts) and remember it for the whole district", async () => {
+  const calls = [], saved = [];
+  let kept = { }, dist = { "on:B66052": { domains: ["tdsb.on.ca"], brightspace: "tdsb.elearningontario.ca", shared: false }, "us:0616230": { domains: ["guhsd.net"], brightspace: "", shared: false }, "us:0699999": { domains: ["lcps.org"], brightspace: "", shared: true } };
+  const schools = { "hs:on:890227": { domains: [], web: "", kind: "high_school" }, "hs:us:061623010628": { domains: [], web: "http://elite.guhsd.net", kind: "high_school" }, "hs:us:069999900001": { domains: [], web: "", kind: "high_school" } };
+  const page = { "https://tdsb.elearningontario.ca/d2l/login": "<html>Brightspace d2l</html>", "https://guhsd.instructure.com/login/canvas": "<html>Canvas instructure</html>", "https://lcps.instructure.com/login/canvas": "<html>Canvas instructure, Las Cruces</html>" };
+  const f = async (url, init = {}) => {
+    url = decodeURIComponent(String(url)); calls.push(url);
+    let m;
+    if ((m = /school_lms\?school_key=eq\.([^&]+)/.exec(url))) return new Response(JSON.stringify(kept[m[1]] ? [kept[m[1]]] : []));
+    if (/studyboard_plan_rate_hit/.test(url)) return new Response("true");
+    if ((m = /schools\?key=eq\.([^&]+)/.exec(url))) return new Response(JSON.stringify(schools[m[1]] ? [schools[m[1]]] : []));
+    if ((m = /school_districts\?school_key=eq\.([^&]+)/.exec(url))) return new Response(JSON.stringify(m[1] === "hs:on:890227" ? [{ district: "on:B66052" }] : []));
+    if ((m = /lms_districts\?district=eq\.([^&]+)/.exec(url))) return new Response(JSON.stringify(dist[m[1]] ? [dist[m[1]]] : []));
+    if (/school_lms\?on_conflict/.test(url)) { saved.push(JSON.parse(init.body)); return new Response(null, { status: 201 }); }
+    if (page[url]) return new Response(page[url], { status: 200 });
+    return new Response("", { status: 404 });
+  };
+  const env = { SUPABASE_URL: "https://db", SUPABASE_SERVICE_ROLE_KEY: "svc" };
+  const dd = { env: k => env[k] ?? "", fetch: f, now: () => NOW, log };
+  const ask = (key, lms) => lfind.handle(new Request("https://x/functions/v1/lms-find", { method: "POST", body: JSON.stringify({ key, lms }) }), dd).then(r => r.json());
+  // Ontario: the board's address on the province's Brightspace
+  assert.equal((await ask("hs:on:890227", "brightspace")).host, "tdsb.elearningontario.ca");
+  assert.deepEqual(saved.map(x => x.school_key).sort(), ["d:on:B66052", "hs:on:890227"]);
+  // US: the district from the NCES id, its domain from lms_districts; guhsd.instructure.com is named after the district
+  assert.equal((await ask("hs:us:061623010628", "canvas")).host, "guhsd.instructure.com");
+  assert.ok(saved.some(x => x.school_key === "d:us:0616230" && x.host === "guhsd.instructure.com"));
+  // a shared name (lcps: Loudoun and Las Cruces): the provider address doesn't point back to lcps.org, so it isn't taken
+  assert.equal((await ask("hs:us:069999900001", "canvas")).host, "");
+  // another school in a district already looked up: answered from the district, without looking again
+  kept["d:us:0616230"] = { host: "guhsd.instructure.com", checked_at: new Date(NOW - 3600_000).toISOString() };
+  schools["hs:us:061623099999"] = { domains: [], web: "", kind: "high_school" }; calls.length = 0;
+  assert.equal((await ask("hs:us:061623099999", "canvas")).host, "guhsd.instructure.com");
+  assert.ok(!calls.some(u => u.startsWith("https://guhsd.")), "answered from the district");
 });
 
 console.log(`\n${passed} checks passed`);

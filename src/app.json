@@ -34,7 +34,8 @@
   "97-pinpicker.css",
   "97-exammode.css",
   "97-getting-started.css",
-  "99-motion-a11y-tz.css", "99-smooth.css",
+  "99-motion-a11y-tz.css",
+  "99-smooth.css",
   "99-autopilot.css",
   "100-phone.css",
   "101-phone-v2.css",
@@ -68,6 +69,7 @@
   "01-pwa.js",
   "01-events.js",
   "10-plan.js",
+  "10-plan-mac.js",
   "15-tips.js",
   "20-scenes-load.js",
   "20-scenes.js",
@@ -207,7 +209,8 @@
   "99-review-streaks.js",
   "99-release.js",
   "96-semester.js",
-  "96-school.js", "97-getting-started.js",
+  "96-school.js",
+  "97-getting-started.js",
   "99-pro.js",
   "99-early.js",
   "99-linked.js",
@@ -228,7 +231,8 @@
   "100-phone.js",
   "101-phone-v2.js",
   "102-qol.js",
-  "99-motion-a11y-tz.js", "99-smooth.js"
+  "99-motion-a11y-tz.js",
+  "99-smooth.js"
  ],
  "lazy": {
   "scenes.js": [

@@ -513,7 +513,12 @@ window.__sbPlanObj = () => PLAN;
       return age >= 18 && age < 120;
     } catch (e) { return false; }
   };
-  const webAltOk = () => route() === "store" && !!linkApi() && LINK.ok && !!sbUser && !sbUser.is_anonymous && adultKnown() && siteReady() && !nativeBuyOff();
+  // Pro isn't sold to EU App Store accounts (an owner choice: the app is available there, Pro isn't). They see a note in place
+  // of the prices; Restore Purchases still works for anyone who bought Pro elsewhere. Set false to sell Pro in the EU again.
+  const NO_PRO_IN_EU = true;
+  const regionOff = () => { try { const N = window.StudyboardNative; return NO_PRO_IN_EU && route() === "store" && !!N && EU_STORES.has(String(N.storefront || "")); } catch (e) { return false; } };
+  const REGION_OFF_MSG = "Studyboard Pro isn't available in your country yet. Everything else in Studyboard works as usual.";
+  const webAltOk = () => !regionOff() && route() === "store" && !!linkApi() && LINK.ok && !!sbUser && !sbUser.is_anonymous && adultKnown() && siteReady() && !nativeBuyOff();
   const webAltHtml = () => webAltOk() ? `<div class="plan-alt"><button type="button" class="link-btn" data-act="plan-buy-web">Or subscribe on the Studyboard website</button><p class="plan-fine mini">You'll leave the app to buy there. Prices and terms on the website may differ.</p></div>` : "";
   // Apple's tokens to the server, tied to this account (Apple asks for this when the app opens and before each possible purchase)
   async function sendLinkTokens(tap){
@@ -567,6 +572,7 @@ window.__sbPlanObj = () => PLAN;
     if (period === "semester" && !semesterOn()) period = "monthly";
     const userId = sbUser ? sbUser.id : null;
     if (route() === "store") {
+      if (regionOff()) { toast(REGION_OFF_MSG); return false; }
       if (nativeBuyOff()) { toast("Buying Pro in the app isn't available in this build yet."); return false; }
       if (!userId) { toast("Sign in first so Pro is linked to your account."); if (window.SBGUEST) SBGUEST.signUp(); else if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); return false; }
       if (nativeFire("plan-checkout", period, userId)) { watchPurchase(); afterNativeCheckout(); return true; }
@@ -737,6 +743,7 @@ window.__sbPlanObj = () => PLAN;
     return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
   }
   function priceButtons(){
+    if (regionOff()) return `<p class="plan-fine mini">${esc(REGION_OFF_MSG)}</p>`;
     if (nativeBuyOff()) return `<p class="plan-fine mini">Buying Pro in the app isn't available in this build yet.</p>`;
     const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), sm = semesterOn() ? price(semPrice()) : null;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;

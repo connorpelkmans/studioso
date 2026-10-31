@@ -55,3 +55,11 @@ entrypoint = "../supabase-functions/capture-email/index.ts"
 [functions.error-ingest]         # anonymous crash reports, rate limited
 verify_jwt = false
 entrypoint = "../supabase-functions/error-ingest/index.ts"
+
+[functions.lms-find]             # Find your school: no sign-in needed; rate limited
+verify_jwt = false
+entrypoint = "../supabase-functions/lms-find/index.ts"
+
+[functions.apple-external]       # EU reporting to Apple: checks the sign-in itself; the report job uses its own secret
+verify_jwt = false
+entrypoint = "../supabase-functions/apple-external/index.ts"

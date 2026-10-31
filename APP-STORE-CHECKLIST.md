@@ -11,16 +11,16 @@ Contents: 1 Accounts and identifiers · 2 Build and submit (DMG, MAS, iOS) · 3 
 ## 1. Accounts, certificates and identifiers (Owner)
 
 1. **Apple Developer Program** membership (US$99/year, as an individual or an organization). An organization needs a D-U-N-S number. Note your **Team ID** (developer.apple.com > Membership), 10 characters.
-2. **App IDs** (Certificates, Identifiers & Profiles > Identifiers): `com.studioso.app` for iOS and for macOS (same bundle id is fine: one purchase record, "Universal Purchase"). Capabilities to switch on: Push Notifications, In-App Purchase, Associated Domains (iOS). Nothing else.
+2. **App IDs** (Certificates, Identifiers & Profiles > Identifiers): `com.studyboardapp.studyboard` for iOS and for macOS (same bundle id is fine: one purchase record, "Universal Purchase"). Capabilities to switch on: Push Notifications, In-App Purchase, Associated Domains (iOS). Nothing else.
 3. **Certificates** (create in Xcode > Settings > Accounts > Manage Certificates, or on the website):
    * *Developer ID Application* (signs the direct-download DMG) and *Developer ID Installer* if you ever ship a pkg outside the store.
    * *Apple Distribution* (or *3rd Party Mac Developer Application*) and *3rd Party Mac Developer Installer* (sign the Mac App Store package).
    * *Apple Development* (test builds).
    Export each as `.p12` with a password for CI (`CSC_LINK`, `CSC_KEY_PASSWORD`; the installer one is `CSC_INSTALLER_LINK`).
-4. **Provisioning profiles**: *Mac App Store distribution* for `com.studioso.app` and *Mac development* (registered test Macs). Download and save as `build-resources/Studyboard_MAS.provisionprofile` and `build-resources/Studyboard_MASDev.provisionprofile` (paths set in `package.json`; **do not commit them**). iOS profiles are handled by Xcode automatic signing.
+4. **Provisioning profiles**: *Mac App Store distribution* for `com.studyboardapp.studyboard` and *Mac development* (registered test Macs). Download and save as `build-resources/Studyboard_MAS.provisionprofile` and `build-resources/Studyboard_MASDev.provisionprofile` (paths set in `package.json`; **do not commit them**). iOS profiles are handled by Xcode automatic signing.
 5. **Replace the placeholders** (the build refuses to continue until you do; `npm run check:store` lists them):
    * `package.json` > `build.mas.extendInfo.ElectronTeamID` and `build.masDev.extendInfo.ElectronTeamID`, and `build.mac.extendInfo.ElectronTeamID` > your Team ID.
-   * `build-resources/entitlements.mas.plist` and `entitlements.mas-dev.plist`: `TEAM_ID.com.studioso.app` > `YOURTEAMID.com.studioso.app`.
+   * `build-resources/entitlements.mas.plist` and `entitlements.mas-dev.plist`: `TEAM_ID.com.studyboardapp.studyboard` > `YOURTEAMID.com.studyboardapp.studyboard`.
    * `package.json` > `homepage` (currently `https://github.com`) > your support or marketing website.
 6. **App Store Connect > My Apps > +**: create the app record once, with the platforms iOS and macOS under one record. Name, subtitle, primary category **Education** (secondary: Productivity), age rating, price, availability.
 7. **APNs key** (Keys > + > Apple Push Notifications service): upload to your push provider or Supabase function that sends reminders.

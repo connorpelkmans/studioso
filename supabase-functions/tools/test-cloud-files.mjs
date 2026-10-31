@@ -78,7 +78,7 @@ await test("not signed in, not Pro, not set up, unknown provider", async () => {
   assert.equal((await world({ allowed: false }).call({ action: "token", provider: "google" })).status, 402, "no token without Pro");
   assert.equal((await world({ key: "short" }).call({ action: "status" })).status, 501);
   const w = world({ noMs: true });
-  assert.deepEqual((await w.call({ action: "status" })).body.providers, { google: true, microsoft: false });
+  assert.deepEqual((await w.call({ action: "status" })).body.providers, { google: true, microsoft: false, classroom: true });
   assert.equal((await w.call({ action: "start", provider: "microsoft" })).status, 501);
   assert.equal((await w.call({ action: "start", provider: "dropbox" })).status, 400);
 });
@@ -102,6 +102,21 @@ await test("Google: unticking the Drive box doesn't connect", async () => {
   const w = world({ gScope: "openid email" });
   const page = await w.connect("google");
   assert.equal(page.status, 400); assert.ok(/leave that box ticked/.test(page.text)); assert.equal(w.db.accounts.size, 0);
+});
+await test("Google Classroom: its own connection, read-only Classroom permissions, separate from Drive", async () => {
+  const w = world({ gScope: "openid email https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.coursework.me.readonly https://www.googleapis.com/auth/classroom.announcements.readonly" });
+  const page = await w.connect("classroom");
+  const sc = new URL(page.begin.location).searchParams.get("scope");
+  assert.ok(/classroom\.coursework\.me\.readonly/.test(sc) && /classroom\.courses\.readonly/.test(sc) && !/drive/.test(sc) && !/\.students|rosters(?!\.readonly)|coursework\.students(?!\.readonly)/.test(sc), "read-only, only your own work");
+  assert.ok(/can't change or turn in anything/.test(page.confirmPage.text));
+  assert.equal(page.status, 200); assert.ok(/Connected to Google Classroom/.test(page.text));
+  assert.ok(w.db.accounts.get(UID + "|classroom") && !w.db.accounts.get(UID + "|google"));
+  const t = await w.call({ action: "token", provider: "classroom" });
+  assert.equal(t.status, 200); assert.ok(t.body.access);
+  // unticking the classwork box doesn't connect
+  const w2 = world({ gScope: "openid email https://www.googleapis.com/auth/classroom.courses.readonly" });
+  const p2 = await w2.connect("classroom");
+  assert.equal(p2.status, 400); assert.ok(/see your classwork/.test(p2.text)); assert.equal(w2.db.accounts.size, 0);
 });
 await test("someone else's link does nothing: no cookie, wrong cookie, forged state", async () => {
   const w = world();

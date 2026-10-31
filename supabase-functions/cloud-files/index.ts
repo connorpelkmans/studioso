@@ -1,10 +1,10 @@
-// Studyboard: cloud-files (Supabase Edge Function) · Google Drive and OneDrive
+// Studyboard: cloud-files (Supabase Edge Function) · Google Drive, OneDrive and Google Classroom (read-only, for school sync)
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
-export type Provider = "google" | "microsoft";
+export type Provider = "google" | "microsoft" | "classroom";
 
-const PROVIDERS: Provider[] = ["google", "microsoft"];
+const PROVIDERS: Provider[] = ["google", "microsoft", "classroom"];
 const FN = "cloud-files";
 const enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -66,16 +66,18 @@ const secs = (n: unknown) => { const x = Number(n); return isFinite(x) && x > 60
 const envOr = (d: Deps, a: string, b: string) => d.env(a) || d.env(b);
 
 export const GOOGLE_SCOPE = "openid email https://www.googleapis.com/auth/drive.file";
+// Google Classroom, read-only: your classes, your own classwork and submissions (with grades), and announcements
+export const CLASSROOM_SCOPE = "openid email https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.coursework.me.readonly https://www.googleapis.com/auth/classroom.announcements.readonly";
 export const MS_SCOPE = "offline_access openid email User.Read Files.ReadWrite";
-export function google(d: Deps): Adapter {
+export function google(d: Deps, scope = GOOGLE_SCOPE, needs = "drive.file"): Adapter {
   const id = envOr(d, "CLOUD_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_ID"), secret = envOr(d, "CLOUD_GOOGLE_CLIENT_SECRET", "GOOGLE_CLIENT_SECRET");
   return {
     configured: () => !!id && !!secret,
-    authUrl: (state, redirect) => "https://accounts.google.com/o/oauth2/v2/auth?" + new URLSearchParams({ client_id: id, redirect_uri: redirect, response_type: "code", access_type: "offline", prompt: "consent", state, scope: GOOGLE_SCOPE }).toString(),
+    authUrl: (state, redirect) => "https://accounts.google.com/o/oauth2/v2/auth?" + new URLSearchParams({ client_id: id, redirect_uri: redirect, response_type: "code", access_type: "offline", prompt: "consent", state, scope }).toString(),
     async exchange(code, redirect) {
       const j = await tokenCall(d, "https://oauth2.googleapis.com/token", { code, client_id: id, client_secret: secret, redirect_uri: redirect, grant_type: "authorization_code" });
       if (!j.refresh_token || !j.access_token) throw new ProviderError(400, false, "no refresh token");
-      if (typeof j.scope === "string" && !j.scope.includes("drive.file")) throw new ProviderError(403, false, "drive not allowed");
+      if (typeof j.scope === "string" && !j.scope.includes(needs)) throw new ProviderError(403, false, "scope not allowed");
       return { refresh: j.refresh_token, access: j.access_token, expires: secs(j.expires_in), account: jwtEmail(j.id_token || "") };
     },
     async refresh(rt) { const j = await tokenCall(d, "https://oauth2.googleapis.com/token", { refresh_token: rt, client_id: id, client_secret: secret, grant_type: "refresh_token" }); return { access: j.access_token, expires: secs(j.expires_in) }; },
@@ -101,7 +103,7 @@ export function microsoft(d: Deps): Adapter {
     async revoke() { },
   };
 }
-export const adapters = (d: Deps): Record<Provider, Adapter> => ({ google: google(d), microsoft: microsoft(d) });
+export const adapters = (d: Deps): Record<Provider, Adapter> => ({ google: google(d), microsoft: microsoft(d), classroom: google(d, CLASSROOM_SCOPE, "classroom.coursework.me") });
 
 /* ================= Plumbing ================= */
 const CORS: Record<string, string> = {
@@ -152,7 +154,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
   for (const c of chunks) { all.set(c, o); o += c.byteLength; }
   return dec.decode(all);
 }
-const NAME: Record<Provider, string> = { google: "Google Drive", microsoft: "OneDrive" };
+const NAME: Record<Provider, string> = { google: "Google Drive", microsoft: "OneDrive", classroom: "Google Classroom" };
 const HTML_HEAD = (title: string) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0E2A56;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#0E2A56}main{background:#fff;border-radius:18px;padding:28px 26px;max-width:440px;margin:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}h1,b.t{display:block;font-size:1.25rem;margin:8px 0}i{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:50%;color:#fff;font-style:normal;font-size:1.6rem}p{margin:6px 0 18px;color:#40506B}button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 22px;background:#2563EB;color:#fff;cursor:pointer}</style></head>`;
 const SAFE_HEADERS = (formOk: boolean) => ({ "Content-Type": "text/html; charset=utf-8", "X-Studyboard-Page": "html", "Cache-Control": "no-store", "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'; ${formOk ? "form-action 'self'; " : ""}frame-ancestors 'none'`, "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" });
@@ -188,11 +190,13 @@ async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Ada
     const box = await seal(secret, JSON.stringify({ u: st.u, p: st.p, n: st.n, rt: t.refresh, a: t.account.slice(0, 200), e: Math.floor(d.now() / 1000) + 600 }), "confirm", FN);
     const sb = await studyboardEmail(d, st.u);
     log("cb_confirm", { provider: st.p });
-    const what = st.p === "google" ? "Studyboard can only see the files it saves there, in a folder called “Studyboard”." : "Studyboard saves into a folder called “Studyboard” (or one you choose) and reads only the folders you ask it to watch. It never deletes anything.";
+    const what = st.p === "google" ? "Studyboard can only see the files it saves there, in a folder called “Studyboard”."
+      : st.p === "classroom" ? "Studyboard reads your classes, your classwork with its due dates, whether you've turned it in and your grades, and announcements. It can't change or turn in anything."
+      : "Studyboard saves into a folder called “Studyboard” (or one you choose) and reads only the folders you ask it to watch. It never deletes anything.";
     return confirmPage(`Connect ${NAME[st.p]}?`, `Connect <b>${htmlEsc(t.account || NAME[st.p])}</b> to the Studyboard account <b>${htmlEsc(sb || "(no email address)")}</b>? ${what}<br><br><b>Only continue if this is your Studyboard account.</b> If someone sent you this link, close this page.`, box);
   } catch (e) {
     log("cb_error", { provider: st.p, status: e instanceof ProviderError ? e.status : 0 });
-    return page("Not connected", e instanceof ProviderError && e.status === 403 ? `Studyboard needs permission to save files in ${NAME[st.p]}. Try again from Studyboard and leave that box ticked.` : `${NAME[st.p]} didn't finish connecting. Try again from Studyboard.`, false);
+    return page("Not connected", e instanceof ProviderError && e.status === 403 ? (st.p === "classroom" ? "Studyboard needs permission to see your classwork. Try again from Studyboard and leave those boxes ticked." : `Studyboard needs permission to save files in ${NAME[st.p]}. Try again from Studyboard and leave that box ticked.`) : `${NAME[st.p]} didn't finish connecting. Try again from Studyboard.`, false);
   }
 }
 async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log: Log): Promise<Response> {
@@ -255,7 +259,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (text === null) return reply({ error: "bad request" }, 400);
     let b: any; try { b = JSON.parse(text || "{}"); } catch (_e) { b = null; }
     if (!b || typeof b !== "object") return reply({ error: "bad request" }, 400);
-    const providers = { google: A.google.configured(), microsoft: A.microsoft.configured() };
+    const providers = { google: A.google.configured(), microsoft: A.microsoft.configured(), classroom: A.classroom.configured() };
     if (b.action === "status") return reply({ accounts: await rpc(d, "cloud_status", { p_uid: uid }) || [], providers }, 200);
     if (!PROVIDERS.includes(b.provider)) return reply({ error: "bad request" }, 400);
     const prov: Provider = b.provider;

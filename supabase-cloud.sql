@@ -1,4 +1,4 @@
--- Studyboard: Google Drive and OneDrive
+-- Studyboard: Google Drive and OneDrive, and Google Classroom (read-only, for school sync)
 
 create table if not exists public.cloud_accounts (
   user_id     uuid not null references auth.users(id) on delete cascade,
@@ -13,6 +13,9 @@ create table if not exists public.cloud_accounts (
   created_at  timestamptz not null default now(),
   primary key (user_id, provider)
 );
+-- (Google Classroom added later: widen the check on an existing table)
+alter table public.cloud_accounts drop constraint if exists cloud_accounts_provider_check;
+alter table public.cloud_accounts add constraint cloud_accounts_provider_check check (provider in ('google', 'microsoft', 'classroom'));
 alter table public.cloud_accounts enable row level security;
 revoke all on public.cloud_accounts from public, anon, authenticated;
 

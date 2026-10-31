@@ -23,20 +23,20 @@ What you need: a Mac with **Xcode** (Mac App Store), **Node.js 22**, the **Trans
    * **Mac Installer Distribution** (shown as "3rd Party Mac Developer Installer"; signs the Mac App Store .pkg).
    * **Apple Development** (test builds).
 5. **Mac provisioning profiles** (Profiles > +):
-   * **Mac App Store Connect** (distribution) for `com.studioso.app` > download > save as
+   * **Mac App Store Connect** (distribution) for `com.studyboardapp.studyboard` > download > save as
      `build-resources/Studyboard_MAS.provisionprofile`.
-   * **macOS App Development** for `com.studioso.app`, with your Mac registered under Devices > download > save as
+   * **macOS App Development** for `com.studyboardapp.studyboard`, with your Mac registered under Devices > download > save as
      `build-resources/Studyboard_MASDev.provisionprofile`.
    Don't commit these two files. iPhone profiles are made by Xcode automatically.
 6. **Push key** (for iPhone reminders): Keys > + > **Apple Push Notifications service (APNs)** > download the `.p8` once.
    Keep the file, its Key ID and your Team ID; they go to the server that sends reminders, never into the app.
 7. **App Store Connect** (appstoreconnect.apple.com):
    * **Business**: accept the **Paid Apps Agreement**, add tax and bank details (needed before Pro can be sold or tested).
-   * **Apps > + > New App**: platforms **iOS** and **macOS**, name **Studyboard**, language, bundle ID `com.studioso.app`,
+   * **Apps > + > New App**: platforms **iOS** and **macOS**, name **Studyboard**, language, bundle ID `com.studyboardapp.studyboard`,
      SKU (any, e.g. `studyboard`).
    * **Subscriptions** (Pro): create a subscription group "Studyboard Pro" with a monthly and a yearly subscription.
 8. **RevenueCat** (sells Pro through Apple): app.revenuecat.com > new project > add the App Store app (bundle id
-   `com.studioso.app`, App Store Connect API key). Add the two products, an entitlement named **`pro`**, and an offering with
+   `com.studyboardapp.studyboard`, App Store Connect API key). Add the two products, an entitlement named **`pro`**, and an offering with
    **monthly** and **annual** packages (and optionally a custom **semester** package for the one-time 4-month plan, see `PRO-PLANS-GUIDE.md` step 10). Copy the **public Apple SDK key** (starts with `appl_`). Set its webhook to your
    Supabase function (see `PRO-PLANS-GUIDE.md`) so Pro turns on in the account.
 
@@ -69,6 +69,15 @@ Check inside it: sign in and sync, Choose Folder for the data folder, export a b
 # 2. The App Store build (uses the Apple Distribution and Mac Installer certificates in your keychain)
 npm run dist:mas           # makes dist/mas-universal/Studyboard-<version>-mas.pkg
 ```
+
+**Buying Pro in the Mac app.** The Mac App Store build sells Pro with Apple's in-app purchase. The Mac app has no website link, because the US storefront rule can't be checked from the Mac build, so it uses in-app purchase everywhere.
+* Apple's sheet takes the payment (`main.js`, Electron's `inAppPurchase`). The page then sends Apple's receipt to RevenueCat for the signed-in account (`src/js/10-plan-mac.js`), and RevenueCat's webhook switches Pro on, as it does for iPhone.
+* It uses the same RevenueCat key as iPhone. `npm run apple:setup -- --revenuecat appl_...` fills in both. Until the key is set, the Mac app says buying isn't available in this build.
+* The Mac and iPhone apps share one bundle ID, so in RevenueCat the same App Store app covers both. Nothing extra is needed there.
+* In App Store Connect, open your app's page and add **macOS** with **+ Add Platform** in the sidebar, if the app was created for iOS only. The subscriptions are shared by both platforms (Universal Purchase): someone who subscribes on iPhone has Pro on the Mac, and the reverse.
+* Countries where the subscriptions aren't available (the EU, if you leave them unticked) get "Studyboard Pro isn't available in your country yet" when they try to buy.
+* To test: `npm run dist:mas-dev`, open the app, sign in, and buy with a **Sandbox** account (System Settings > App Store > Sandbox Account on macOS 14 and later). Check that Pro turns on, then try **Restore Purchases**.
+* Sign in with Apple in the Mac app opens your web browser (the web sign-in with the Services ID), so the Mac App ID needs no extra capability for it.
 
 3. Open **Transporter**, sign in, drag the `.pkg` in, **Deliver**. After 10 to 30 minutes the build appears in App Store
    Connect > your app > **macOS** > Build.
