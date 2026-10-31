@@ -68,6 +68,11 @@ if (fs.existsSync(plistFile)) {
     for (const src of srcs) {
       const name = path.basename(src), esc = name.replace(/[.]/g, "\\.");
       if (!new RegExp("path = \"?" + esc + "\"?;").test(txt)) continue;
+      // Xcode lists it with no folder (added to the project's top level): it looks right in ios/App, so a copy goes there too
+      const top = path.join(proj, name);
+      if (!fs.existsSync(top) && new RegExp("path = \"?" + esc + "\"?; sourceTree = \"<group>\"").test(txt)) {
+        fs.copyFileSync(src, top); done.push(path.relative(wrap, top) + " (was missing)");
+      }
       // the widget file belongs in the widget's own folder even when a copy sits elsewhere (Xcode shows it red otherwise)
       const wdir = path.join(proj, "StudyboardWidgets");
       if (name === "StudyboardWidgets.swift" && fs.existsSync(wdir) && !fs.existsSync(path.join(wdir, name))) {
