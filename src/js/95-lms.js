@@ -2152,10 +2152,10 @@ function cleanFile(r) {
         try { if (a && m) link = new URL(x.url).origin + `/courses/${ou}/assignments/${a[1]}`; } catch(e) {}
         return {ou, cname: label, code: H.codeOf(label) || label.slice(0, 24), sum, kind: a ? "task" : /^event-calendar-event/.test(x.uid || "") ? "event" : "", notes: x.desc.trim().slice(0, 2000), link, where: x.loc || ""};
       }},
-    {id: "blackboard", k: "bb", name: "Blackboard", tag: "Bb", host: "", hostPh: "yourschool.blackboard.com", siteHome: "/ultra/stream",
+    {id: "blackboard", k: "bb", name: "Blackboard", tag: "Bb", host: "", hostPh: "school.blackboard.com", siteHome: "/ultra/stream",
       blurb: "Blackboard Learn",
       everything: "due dates from your courses' gradebooks and calendar, whether you've submitted, your grades and announcements",
-      feedRx: /^https:\/\/[^/]+\/.*(calendarfeed\/|\.ics($|\?))/i, feedPh: "https://yourschool.blackboard.com/webapps/calendar/calendarFeed/…/learn.ics", feedWhere: "Calendar, then Settings, then Share Calendar",
+      feedRx: /^https:\/\/[^/]+\/.*(calendarfeed\/|\.ics($|\?))/i, feedPh: "https://school.blackboard.com/webapps/calendar/calendarFeed/…/learn.ics", feedWhere: "Calendar, then Settings, then Share Calendar",
       steps: ["Open <b>Blackboard</b> in a browser and sign in.",
         "Open <b>Calendar</b> from the main menu on the left (not inside a course).",
         "Click the <b>Calendar Settings</b> gear, open the menu next to the heading, and choose <b>Share Calendar</b>.",
