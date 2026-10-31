@@ -35451,6 +35451,10 @@ function cleanFile(r) {
         <p style="margin:0">Bring your ${P.name} work into your to-do list and timeline. Studyboard only reads from ${P.name}. It never submits or changes anything there.</p>
         ${desk ? `<div class="bs-way rec"><div class="bs-way-h"><b>Sign In to ${P.name}</b><span class="bs-pill">Recommended</span></div>
           <p class="mini">Everything: ${esc(P.everything)}. You sign in on ${P.name}'s own page, so Studyboard never sees your password.</p>
+          ${findOk() ? `<div class="f bs-find"><label class="lh" for="bsSchoolIn">Your School</label>
+            <input type="text" id="bsSchoolIn" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bsSchoolList" placeholder="Start typing your school's name" autocomplete="off" spellcheck="false">
+            <ul id="bsSchoolList" class="bs-sugg" role="listbox" aria-label="Schools" hidden></ul>
+            <span class="mini bs-find-msg" id="bsFindMsg" aria-live="polite"></span></div>` : ""}
           <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"><span class="mini bs-host-note">Your school's address may look different. Use the one in your browser when you're signed in to ${esc(P.name)}.</span></label>
           <button class="btn primary" data-act="${A}-login">Sign In</button></div>` : ""}
         ${extWay}
@@ -35460,6 +35464,57 @@ function cleanFile(r) {
         ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">How to Bring It In</button></p>` : ""}
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
+    if (desk) wireFind();
+  }
+  /* Find your school: type its name, pick it from the list, and its school site address is filled in (the schools list on the
+     server, search_schools; the address from the lms-find function, which tries the usual addresses and remembers the answer) */
+  function findCfg(){ try { return sbConfig() || (SB_HOSTED ? SB_DEFAULT : null); } catch (e) { return null; } }
+  function findOk(){ return !!findCfg() && !inPreview(); }
+  async function findCall(path, body){
+    const c = findCfg(); if (!c) throw new Error("offline");
+    const r = await fetch(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+  function wireFind(){
+    const inp = $("#bsSchoolIn"), list = $("#bsSchoolList"), msg = $("#bsFindMsg"), host = $("#bsHostIn");
+    if (!inp || !list || !host) return;
+    let seq = 0, t = 0, found = [], active = -1;
+    const show = rows => {
+      found = rows; active = -1;
+      list.innerHTML = rows.map((x, i) => `<li role="option" id="bsSch${i}" data-i="${i}" aria-selected="false"><b>${esc(x.name)}</b><span>${esc([x.city, x.region, x.country].filter(Boolean).join(", "))}</span></li>`).join("");
+      list.hidden = !rows.length; inp.setAttribute("aria-expanded", String(!!rows.length));
+    };
+    const mark = i => { active = i; [...list.children].forEach((li, k) => li.setAttribute("aria-selected", String(k === i))); inp.setAttribute("aria-activedescendant", i >= 0 ? "bsSch" + i : ""); };
+    const pick = async x => {
+      show([]); inp.value = x.name; msg.textContent = `Finding ${x.name}'s ${P.name} address…`;
+      const my = ++seq;
+      try {
+        const r = await findCall("/functions/v1/lms-find", {key: x.key, lms: P.id});
+        if (my !== seq) return;
+        if (r && r.host) { host.value = r.host; msg.textContent = `Found it: ${r.host}. Tap Sign In.`; }
+        else msg.textContent = `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.`;
+      } catch (e) { if (my === seq) msg.textContent = `Couldn't look it up right now. Type your school's ${P.name} address below.`; }
+    };
+    inp.addEventListener("input", () => {
+      clearTimeout(t); msg.textContent = "";
+      const q = inp.value.trim(); if (q.length < 2) { show([]); return; }
+      t = setTimeout(async () => {
+        const my = ++seq;
+        try { const r = await findCall("/rest/v1/rpc/search_schools", {p_q: q, p_limit: 8, p_kind: ""}); if (my === seq) show(Array.isArray(r) ? r : []); }
+        catch (e) { if (my === seq) show([]); }
+      }, 220);
+    });
+    inp.addEventListener("keydown", e => {
+      if (list.hidden) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); mark(Math.min(found.length - 1, active + 1)); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); mark(Math.max(0, active - 1)); }
+      else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(found[active]); }
+      else if (e.key === "Escape") { e.stopPropagation(); show([]); }
+    });
+    // pointerdown, so picking happens before the box loses focus
+    list.addEventListener("pointerdown", e => { const li = e.target.closest("li[data-i]"); if (!li) return; e.preventDefault(); pick(found[+li.dataset.i]); });
+    inp.addEventListener("blur", () => setTimeout(() => show([]), 150));
   }
   function feedHelp(){
     openSheet(`<div class="sheet">${head("Find Your Calendar Link")}

@@ -25,6 +25,7 @@ const da = await load("supabase-functions/delete-account/index.ts");
 const cf = await load("supabase-functions/calendar-feed/index.ts");
 const lf = await load("supabase-functions/lms-feed/index.ts");
 const sr = await load("supabase-functions/send-reminders/index.ts");
+const lfind = await load("supabase-functions/lms-find/index.ts");
 
 const UID = "11111111-2222-4333-8444-555555555555";
 const OTHER = "99999999-2222-4333-8444-555555555555";
@@ -1036,6 +1037,50 @@ await test("delete-account: Apple's code is swapped for a token at sign-in, and 
   assert.equal(await da.appleRevoke(dd, "rt-apple-1", "com.studyboardapp.studyboard"), true);
   const rv = new URLSearchParams(calls[0][1].body);
   assert.equal(calls[0][0], "https://appleid.apple.com/auth/revoke"); assert.equal(rv.get("token"), "rt-apple-1"); assert.equal(rv.get("token_type_hint"), "refresh_token");
+});
+
+// -- lms-find (Find your school: the school site's address)
+await test("lms-find: tries the school's own address first, then the provider's", async () => {
+  const c = lfind.candidates("brightspace", ["bcit.ca"]);
+  assert.equal(c[0], "learn.bcit.ca"); assert.ok(c.indexOf("learn.bcit.ca") < c.indexOf("bcit.brightspace.com"));
+  assert.ok(lfind.candidates("canvas", ["ubc.ca"]).includes("ubc.instructure.com"));
+  assert.ok(lfind.candidates("blackboard", ["example.edu"]).includes("example.blackboard.com"));
+});
+await test("lms-find: BCIT -> learn.bcit.ca (its site sends sign-in to Microsoft); a provider address that forwards is followed; a plain site isn't a school site", async () => {
+  const site = {
+    "https://learn.bcit.ca/d2l/login": () => new Response(null, { status: 302, headers: { location: "/d2l/lp/auth/login/samlLogin.d2l" } }),
+    "https://learn.bcit.ca/d2l/lp/auth/login/samlLogin.d2l": () => new Response(null, { status: 302, headers: { location: "https://login.microsoftonline.com/x/saml2?SAMLRequest=abc" } }),
+    "https://ubc.instructure.com/login/canvas": () => new Response(null, { status: 301, headers: { location: "https://canvas.ubc.ca/login/canvas" } }),
+    "https://canvas.ubc.ca/login/canvas": () => new Response("<html><title>Log In to Canvas</title>instructure</html>", { status: 200 }),
+    "https://learn.plain.ca/d2l/login": () => new Response("<html>Our learning centre</html>", { status: 200 }),
+  };
+  const f = async (url) => (site[String(url)] || (() => new Response("nope", { status: 404 })))();
+  const dd = { env: () => "", fetch: f, now: () => NOW, log };
+  assert.equal(await lfind.probe(dd, "brightspace", "learn.bcit.ca"), "learn.bcit.ca");
+  assert.equal(await lfind.probe(dd, "canvas", "ubc.instructure.com"), "canvas.ubc.ca");
+  assert.equal(await lfind.probe(dd, "brightspace", "learn.plain.ca"), "");
+  assert.equal(await lfind.probe(dd, "brightspace", "d2l.nothing.ca"), "");
+});
+await test("lms-find: looks a school up once, then answers from what it remembered", async () => {
+  const calls = []; let saved = null, kept = [];
+  const f = async (url, init = {}) => {
+    url = String(url); calls.push(url);
+    if (/school_lms\?school_key=eq/.test(url)) return new Response(JSON.stringify(kept));
+    if (/studyboard_plan_rate_hit/.test(url)) return new Response("true");
+    if (/schools\?key=eq/.test(url)) return new Response(JSON.stringify([{ domains: ["bcit.ca"], web: "http://www.bcit.ca/" }]));
+    if (/school_lms\?on_conflict/.test(url)) { saved = JSON.parse(init.body); return new Response(null, { status: 201 }); }
+    if (url === "https://learn.bcit.ca/d2l/login") return new Response(null, { status: 302, headers: { location: "https://login.microsoftonline.com/x" } });
+    return new Response("", { status: 404 });
+  };
+  const env = { SUPABASE_URL: "https://db", SUPABASE_SERVICE_ROLE_KEY: "svc" };
+  const dd = { env: k => env[k] ?? "", fetch: f, now: () => NOW, log };
+  const ask = () => lfind.handle(new Request("https://x/functions/v1/lms-find", { method: "POST", body: JSON.stringify({ key: "bcit.ca", lms: "brightspace" }) }), dd);
+  // learn.bcit.ca's /d2l/login goes straight to Microsoft: counted only with a D2L page on the way, so here it's not found...
+  let r = await (await ask()).json();
+  assert.equal(r.host, ""); assert.equal(saved.host, "");
+  kept = [{ host: "learn.bcit.ca", checked_at: new Date(NOW - 86400_000).toISOString() }]; calls.length = 0;
+  r = await (await ask()).json();
+  assert.equal(r.host, "learn.bcit.ca"); assert.ok(!calls.some(u => u.startsWith("https://learn.")), "answered from what it remembered, without looking again");
 });
 
 console.log(`\n${passed} checks passed`);

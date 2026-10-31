@@ -1,0 +1,13 @@
+-- Studyboard: the school site addresses "Find your school" has found (supabase-functions/lms-find), remembered so each
+-- school is looked up once a month. Run once in the Supabase SQL Editor after supabase-schools.sql; safe to run again.
+-- Only the service role reaches it (row-level security on, no policies). Fix a wrong one by hand with:
+--   update public.school_lms set host = 'learn.example.ca', checked_at = now() + interval '10 years' where school_key = '...' and lms = 'brightspace';
+create table if not exists public.school_lms (
+  school_key text not null,
+  lms text not null check (lms in ('brightspace', 'canvas', 'blackboard')),
+  host text not null default '',
+  checked_at timestamptz not null default now(),
+  primary key (school_key, lms)
+);
+alter table public.school_lms enable row level security;
+revoke all on public.school_lms from anon, authenticated;

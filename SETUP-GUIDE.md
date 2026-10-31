@@ -116,6 +116,7 @@ If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `sup
 | `supabase-functions/calendar-feed/index.ts` | `calendar-feed` | Off | `supabase functions deploy calendar-feed --no-verify-jwt` |
 | `supabase-functions/billing-webhook/index.ts` | `billing-webhook` | Off | `supabase functions deploy billing-webhook --no-verify-jwt` |
 | `supabase-functions/lms-feed/index.ts` | `lms-feed` | On | `supabase functions deploy lms-feed` |
+| `supabase-functions/lms-find/index.ts` | `lms-find` | **Off** (no sign-in needed; rate limited) | `supabase functions deploy lms-find --no-verify-jwt` |
 | `supabase-functions/send-reminders/index.ts` | `send-reminders` | Off | `supabase functions deploy send-reminders --no-verify-jwt` |
 | `supabase-functions/delete-account/index.ts` | `delete-account` | **On** | `supabase functions deploy delete-account` |
 | `supabase-functions/create-checkout/index.ts` | `create-checkout` | On | `supabase functions deploy create-checkout` |
@@ -955,6 +956,13 @@ In local-only mode (or before you connect), you can still share a deck as a file
 The desktop app uses the website address for share links. If a share sheet in the desktop app shows only a code, share a deck or send an invite once from the Studyboard website, and links appear in the app after that. The code always works on its own.
 
 ## Brightspace, Canvas and Blackboard
+
+**Find your school.** When someone connects a school site by signing in (the iPhone, iPad, Android and desktop apps), they can type their school's name, pick it from the suggestions, and its Brightspace, Canvas or Blackboard address is filled in. The suggestions come from the schools list (`supabase-schools.sql`). The address comes from the `lms-find` function: it tries the addresses schools usually use, starting with the school's own (like `learn.bcit.ca`) and then the provider's (like `bcit.brightspace.com`), checks which one really is that kind of site, and remembers the answer for 30 days. To turn it on:
+1. Run `supabase-lms-find.sql` in the SQL Editor.
+2. Deploy `lms-find` with JWT verification **off**: `supabase functions deploy lms-find --no-verify-jwt`.
+
+If it finds the wrong address for a school, or none, set it by hand (the comment at the top of `supabase-lms-find.sql` shows how). Students can always type the address themselves.
+
 
 **Remote switch for Blackboard's internal endpoints.** Studyboard reads Blackboard through its public API, and also uses Blackboard's internal endpoints for rubrics and as a fallback when the public API doesn't answer. To turn the internal ones off for everyone without an app update, run `supabase-app-flags.sql` once in the Supabase SQL editor, then when needed:
 
