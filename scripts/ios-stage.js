@@ -149,6 +149,38 @@ if (fs.existsSync(plistFile)) {
   } catch (e) {}
 }
 
+// The app icon: ios-wrapper/AppIcon-1024.png (square, no transparency, as the App Store needs; iOS rounds the corners) as
+// Xcode's single-size AppIcon. Without this the build carries Capacitor's placeholder and App Store Connect shows no icon.
+{
+  const set = path.join(wrap, "ios", "App", "App", "Assets.xcassets", "AppIcon.appiconset"), src = path.join(wrap, "AppIcon-1024.png");
+  try {
+    if (fs.existsSync(path.dirname(set)) && fs.existsSync(src)) {
+      fs.mkdirSync(set, {recursive: true});
+      const dst = path.join(set, "AppIcon-1024.png"), buf = fs.readFileSync(src);
+      const contents = JSON.stringify({images: [{filename: "AppIcon-1024.png", idiom: "universal", platform: "ios", size: "1024x1024"}], info: {author: "xcode", version: 1}}, null, 2) + "\n";
+      const cj = path.join(set, "Contents.json");
+      if (!fs.existsSync(dst) || !fs.readFileSync(dst).equals(buf) || !fs.existsSync(cj) || fs.readFileSync(cj, "utf8") !== contents) {
+        for (const f of fs.readdirSync(set)) if (/\.png$/i.test(f) && f !== "AppIcon-1024.png") fs.rmSync(path.join(set, f));
+        fs.writeFileSync(dst, buf); fs.writeFileSync(cj, contents);
+        console.log("ios-stage: app icon installed (AppIcon, 1024 x 1024)");
+      }
+    }
+  } catch (e) { console.log("ios-stage: couldn't install the app icon: " + e.message); }
+}
+// The privacy manifest Apple requires (build-resources/ios/PrivacyInfo.xcprivacy), next to the app's Info.plist. Xcode
+// builds it in once it's in the App target (once: File > Add Files, tick App).
+{
+  const src = path.join(root, "build-resources", "ios", "PrivacyInfo.xcprivacy"), dst = path.join(wrap, "ios", "App", "App", "PrivacyInfo.xcprivacy");
+  try {
+    if (fs.existsSync(src) && fs.existsSync(path.dirname(dst)) && (!fs.existsSync(dst) || fs.readFileSync(dst, "utf8") !== fs.readFileSync(src, "utf8"))) {
+      fs.copyFileSync(src, dst); console.log("ios-stage: privacy manifest copied to ios/App/App/PrivacyInfo.xcprivacy");
+    }
+    const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+    if (fs.existsSync(pbx) && !/PrivacyInfo\.xcprivacy/.test(fs.readFileSync(pbx, "utf8")))
+      console.log("ios-stage: in Xcode, add ios/App/App/PrivacyInfo.xcprivacy to the App target once (File > Add Files to \"App\", tick App)");
+  } catch (e) {}
+}
+
 // The app's name as people see it (Home Screen, permission and sign-in prompts): Studyboard, not Capacitor's starting "App"
 {
   const plist = path.join(wrap, "ios", "App", "App", "Info.plist");
