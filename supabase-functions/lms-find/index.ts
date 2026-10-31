@@ -10,7 +10,8 @@
 // High schools: the school board or district runs the site, so this uses the district's domains (supabase-lms-districts.sql:
 // Ontario boards, BC districts, US public school districts) and the address boards share in Ontario and BC, and remembers
 // the answer for the whole district. District initials repeat (lcps.org, lcps.k12.nm.us), so a provider address named after
-// a short or shared name (lcps.instructure.com) counts only when its sign-in points back to the district's own domain.
+// a short or shared name (lcps.instructure.com) counts only when its sign-in points back to the district's own domain, or
+// names the school's town (sno.instructure.com says "Snohomish School District 201").
 // No sign-in needed; a few lookups a minute per visitor. supabase-schools.sql, supabase-lms-find.sql, supabase-lms-districts.sql.
 
 type Env = (k: string) => string;
@@ -19,6 +20,8 @@ type Lms = "brightspace" | "canvas" | "blackboard" | "moodle";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...CORS } });
+// a miss remembered before the lookup last improved is looked up again
+const MISS_BEFORE = Date.parse("2026-10-31T21:00:00Z");
 const HIT_DAYS = 30, MISS_DAYS = 1, PROBE_MS = 4500, AT_ONCE = 6;
 const HOST = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 
@@ -52,9 +55,10 @@ export function candidates(lms: Lms, domains: string[]): string[] {
   return [...new Set(out)].filter(h => HOST.test(h));
 }
 
+export const PROVIDER_HOST = /\.(instructure\.com|brightspace\.com|desire2learn\.com|blackboard\.com|moodlecloud\.com|elearningontario\.ca|onlinelearningbc\.com)$/i;
 // Is this host really that kind of site? Returns the host to use (the one a provider address forwards to), or "".
 const PATH: Record<Lms, string> = { brightspace: "/d2l/login", canvas: "/login/canvas", blackboard: "/webapps/login/", moodle: "/login/index.php" };
-const MARK: Record<Lms, RegExp> = { brightspace: /d2l|brightspace|desire2learn/i, canvas: /instructure|canvas/i, blackboard: /blackboard|bb-|\/webapps\/|learn\.ultra|anthology/i, moodle: /moodle|M\.cfg|\/lib\/javascript\.php|\/theme\/(image|styles|yui_combo)\.php/i };
+const MARK: Record<Lms, RegExp> = { brightspace: /d2l|brightspace|desire2learn/i, canvas: /instructure/i, blackboard: /blackboard|bb-|\/webapps\/|learn\.ultra|anthology/i, moodle: /moodle|M\.cfg|\/lib\/javascript\.php|\/theme\/(image|styles|yui_combo)\.php/i };
 const SSO = /(^|\.)(microsoftonline\.com|login\.microsoft\.com|accounts\.google\.com|okta\.com|onelogin\.com|duosecurity\.com|shibboleth|cas\.|sso\.|idp\.|auth\.|login\.)/i;
 // need: for a provider address, the school's own domains, one of which the redirects or the page must mention
 export async function probe(d: Deps, lms: Lms, host: string, need: string[] = []): Promise<string> {
@@ -103,12 +107,12 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     // remembered?
     const k = encodeURIComponent(key);
     const kept = ((await (await rest(`school_lms?school_key=eq.${k}&lms=eq.${lms}&select=host,checked_at`)).json()) as any[])[0];
-    if (kept && d.now() - Date.parse(kept.checked_at) < (kept.host ? HIT_DAYS : MISS_DAYS) * 86400_000) return json({ host: kept.host || "" });
+    if (kept && (kept.host || Date.parse(kept.checked_at) >= MISS_BEFORE) && d.now() - Date.parse(kept.checked_at) < (kept.host ? HIT_DAYS : MISS_DAYS) * 86400_000) return json({ host: kept.host || "" });
     // a few lookups a minute from one visitor
     const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
     const rl = await (await rest("rpc/studyboard_plan_rate_hit", { method: "POST", body: JSON.stringify({ p_key: `lmsfind:${ip}`, p_max: 20, p_window: 600 }) })).json().catch(() => true);
     if (rl === false) return json({ error: "rate_limited" }, 429);
-    const school = ((await (await rest(`schools?key=eq.${k}&select=domains,web,kind`)).json()) as any[])[0];
+    const school = ((await (await rest(`schools?key=eq.${k}&select=domains,web,kind,city`)).json()) as any[])[0];
     if (!school) return json({ host: "" });
     const save = (sk: string, host: string) => rest("school_lms?on_conflict=school_key,lms", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({ school_key: sk, lms, host, checked_at: new Date(d.now()).toISOString() }) }).catch(() => {});
@@ -123,7 +127,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (dist) {
       const dk = encodeURIComponent(`d:${dist}`);
       const dkept = (await rows(`school_lms?school_key=eq.${dk}&lms=eq.${lms}&select=host,checked_at`))[0];
-      if (dkept && d.now() - Date.parse(dkept.checked_at) < (dkept.host ? HIT_DAYS : MISS_DAYS) * 86400_000) {
+      if (dkept && (dkept.host || Date.parse(dkept.checked_at) >= MISS_BEFORE) && d.now() - Date.parse(dkept.checked_at) < (dkept.host ? HIT_DAYS : MISS_DAYS) * 86400_000) {
         await save(key, dkept.host || "");
         return json({ host: dkept.host || "" });
       }
@@ -136,11 +140,16 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const known = lms === "brightspace" && row?.brightspace ? [String(row.brightspace)] : [];
     const list = [...known, ...candidates(lms, doms).filter(c => !known.includes(c))];
     const mine = (c: string) => known.includes(c) || doms.some(x => c === x || c.endsWith("." + x));
+    // where a found site may end up: the school's own domain, or the provider's (not some other host it forwarded to)
+    const landed = (h: string) => !!h && (mine(h) || PROVIDER_HOST.test(h));
     const strict = (c: string) => hs && !mine(c) && (row?.shared === true || c.split(".")[0].length < 4);
+    // what a provider address's page may mention to count as this district's: its domains, or the school's town
+    const town = String(school.city || "").toLowerCase().trim();
+    const hints = [...doms, ...(town.length >= 5 ? [town] : [])];
     let host = "";
     for (let i = 0; i < list.length && !host; i += AT_ONCE) {
-      const got = await Promise.all(list.slice(i, i + AT_ONCE).map(c => probe(d, lms, c, strict(c) ? doms : [])));
-      host = got.find(Boolean) || "";
+      const got = await Promise.all(list.slice(i, i + AT_ONCE).map(c => probe(d, lms, c, strict(c) ? hints : [])));
+      host = got.find(landed) || "";
     }
     await save(key, host);
     if (dist) await save(`d:${dist}`, host);

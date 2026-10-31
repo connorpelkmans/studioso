@@ -1062,6 +1062,7 @@ await test("lms-find: BCIT -> learn.bcit.ca (its site sends sign-in to Microsoft
   assert.equal(await lfind.probe(dd, "canvas", "ubc.instructure.com"), "canvas.ubc.ca");
   assert.equal(await lfind.probe(dd, "brightspace", "learn.plain.ca"), "");
   assert.equal(await lfind.probe(dd, "brightspace", "d2l.nothing.ca"), "");
+  assert.ok(lfind.PROVIDER_HOST.test("sno.instructure.com") && !lfind.PROVIDER_HOST.test("lausdschoology.azurewebsites.net"), "a site found only by forwarding to some other host doesn't count");
 });
 await test("lms-find: looks a school up once, then answers from what it remembered", async () => {
   const calls = []; let saved = null, kept = [];
@@ -1118,6 +1119,11 @@ await test("lms-find: high schools use their district (US: the NCES id; Ontario/
   // US: the district from the NCES id, its domain from lms_districts; guhsd.instructure.com is named after the district
   assert.equal((await ask("hs:us:061623010628", "canvas")).host, "guhsd.instructure.com");
   assert.ok(saved.some(x => x.school_key === "d:us:0616230" && x.host === "guhsd.instructure.com"));
+  // a short name (sno, from sno.wednet.edu): its Canvas counts when its page names the school's town ("Snohomish School District 201")
+  dist["us:5308020"] = { domains: ["sno.wednet.edu"], brightspace: "", shared: false };
+  schools["hs:us:530802003217"] = { domains: [], web: "", kind: "high_school", city: "Snohomish" };
+  page["https://sno.instructure.com/login/canvas"] = "<html>Canvas Login | Instructure. Snohomish School District 201</html>";
+  assert.equal((await ask("hs:us:530802003217", "canvas")).host, "sno.instructure.com");
   // a shared name (lcps: Loudoun and Las Cruces): the provider address doesn't point back to lcps.org, so it isn't taken
   assert.equal((await ask("hs:us:069999900001", "canvas")).host, "");
   // another school in a district already looked up: answered from the district, without looking again
