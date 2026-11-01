@@ -2359,6 +2359,10 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .bs-manual{display:grid;gap:8px;margin-top:4px;padding-top:10px;border-top:1px solid var(--line)}
 .bs-manual[hidden]{display:none}
 .bs-manual .f{margin:0}
+.bs-school{display:grid;gap:8px}
+.bs-plats{display:grid;gap:8px}
+.bs-plats[hidden]{display:none}
+.bs-manual-only{border-top:0;padding-top:0}
 /* ===== module: 10-plan.css ===== */
 /* Studyboard Pro sheet, Your Devices, and the Settings row */
 dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}

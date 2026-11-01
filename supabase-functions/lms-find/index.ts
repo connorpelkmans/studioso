@@ -1,7 +1,8 @@
 // Studyboard: the address of a school's Brightspace, Canvas or Blackboard site, for "Find your school" in the app.
 //
-// POST /lms-find {key: "<school key from search_schools>", lms: "brightspace" | "canvas" | "blackboard"}
+// POST /lms-find {key: "<school key from search_schools>", lms: "brightspace" | "canvas" | "blackboard" | "moodle"}
 //   -> {host: "learn.bcit.ca"} or {host: ""} when none was found
+// POST /lms-find {key, lms: "auto"} -> {host, lms}: which of the four the school uses (all four looked up at once)
 //
 // The schools list has each school's own web domain, not its school site, so this tries the addresses schools usually use
 // (the school's own first, e.g. learn.bcit.ca, then the provider's, e.g. bcit.brightspace.com), checks which is really that
@@ -88,6 +89,7 @@ export async function probe(d: Deps, lms: Lms, host: string, need: string[] = []
   return "";
 }
 
+const LMS_ALL: Lms[] = ["canvas", "brightspace", "blackboard", "moodle"];
 export async function handle(req: Request, d: Deps): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -95,65 +97,74 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const text = await req.text();
     if (text.length > 1000) return json({ error: "bad request" }, 400);
     const body = (() => { try { return JSON.parse(text || "{}"); } catch (_e) { return {}; } })() as { key?: unknown; lms?: unknown };
-    const lms = (["brightspace", "canvas", "blackboard", "moodle"] as const).find(x => x === body.lms);
+    // lms "auto": which of the four the school uses (the first that answers, Canvas, Brightspace, Blackboard, then Moodle)
+    const auto = body.lms === "auto", one = LMS_ALL.find(x => x === body.lms);
     const key = typeof body.key === "string" && /^[a-z0-9._:-]{3,120}$/i.test(body.key) ? body.key : "";
-    if (!lms || !key) return json({ error: "bad request" }, 400);
+    if ((!auto && !one) || !key) return json({ error: "bad request" }, 400);
+    const want: Lms[] = auto ? LMS_ALL : [one as Lms];
+    const answer = (got: Partial<Record<Lms, string>>) => {
+      if (!auto) return json({ host: got[want[0]] || "" });
+      const l = LMS_ALL.find(x => got[x]); return json({ host: l ? got[l] : "", lms: l || "" });
+    };
     const sk = serviceKey(d), h = { apikey: sk, Authorization: `Bearer ${sk}`, "Content-Type": "application/json" };
     const rest = async (path: string, init: RequestInit = {}) => {
       const r = await d.fetch(`${base(d)}/rest/v1/${path}`, { ...init, headers: { ...h, ...(init.headers || {}) } });
       if (!r.ok) throw new Error(`db ${path.split("?")[0]} ${r.status}`);
       return r;
     };
+    const rows = async (path: string): Promise<any[]> => { try { const r = await (await rest(path)).json(); return Array.isArray(r) ? r : []; } catch (_e) { return []; } };
+    const fresh = (x: any) => !!x && (!!x.host || Date.parse(x.checked_at) >= MISS_BEFORE) && d.now() - Date.parse(x.checked_at) < (x.host ? HIT_DAYS : MISS_DAYS) * 86400_000;
+    const save = (sk2: string, lms: Lms, host: string) => rest("school_lms?on_conflict=school_key,lms", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ school_key: sk2, lms, host, checked_at: new Date(d.now()).toISOString() }) }).catch(() => {});
     // remembered?
-    const k = encodeURIComponent(key);
-    const kept = ((await (await rest(`school_lms?school_key=eq.${k}&lms=eq.${lms}&select=host,checked_at`)).json()) as any[])[0];
-    if (kept && (kept.host || Date.parse(kept.checked_at) >= MISS_BEFORE) && d.now() - Date.parse(kept.checked_at) < (kept.host ? HIT_DAYS : MISS_DAYS) * 86400_000) return json({ host: kept.host || "" });
+    const k = encodeURIComponent(key), got: Partial<Record<Lms, string>> = {};
+    const kept = await rows(`school_lms?school_key=eq.${k}&select=lms,host,checked_at`);
+    want.forEach(l => { const r = kept.find(x => x && x.lms === l); if (fresh(r)) got[l] = r.host || ""; });
+    if (want.every(l => l in got)) return answer(got);
     // a few lookups a minute from one visitor
     const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
     const rl = await (await rest("rpc/studyboard_plan_rate_hit", { method: "POST", body: JSON.stringify({ p_key: `lmsfind:${ip}`, p_max: 20, p_window: 600 }) })).json().catch(() => true);
     if (rl === false) return json({ error: "rate_limited" }, 429);
     const school = ((await (await rest(`schools?key=eq.${k}&select=domains,web,kind,city`)).json()) as any[])[0];
-    if (!school) return json({ host: "" });
-    const save = (sk: string, host: string) => rest("school_lms?on_conflict=school_key,lms", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify({ school_key: sk, lms, host, checked_at: new Date(d.now()).toISOString() }) }).catch(() => {});
+    if (!school) return answer(got);
     // a high school's district: in its key (US public schools' NCES id), or in school_districts
-    const hs = school.kind === "high_school";
     // (these tables come from supabase-lms-districts.sql; without it, high schools are looked up like any school)
-    const rows = async (path: string): Promise<any[]> => { try { const r = await (await rest(path)).json(); return Array.isArray(r) ? r : []; } catch (_e) { return []; } };
+    const hs = school.kind === "high_school";
     const nces = /^hs:us:(\d{7})\d{5}$/.exec(key);
     let dist = hs && nces ? `us:${nces[1]}` : "";
     if (hs && !dist) dist = String((await rows(`school_districts?school_key=eq.${k}&select=district`))[0]?.district || "");
     let row: any = null;
     if (dist) {
-      const dk = encodeURIComponent(`d:${dist}`);
-      const dkept = (await rows(`school_lms?school_key=eq.${dk}&lms=eq.${lms}&select=host,checked_at`))[0];
-      if (dkept && (dkept.host || Date.parse(dkept.checked_at) >= MISS_BEFORE) && d.now() - Date.parse(dkept.checked_at) < (dkept.host ? HIT_DAYS : MISS_DAYS) * 86400_000) {
-        await save(key, dkept.host || "");
-        return json({ host: dkept.host || "" });
-      }
+      const dkept = await rows(`school_lms?school_key=eq.${encodeURIComponent(`d:${dist}`)}&select=lms,host,checked_at`);
+      for (const l of want) { if (l in got) continue; const r = dkept.find(x => x && x.lms === l); if (fresh(r)) { got[l] = r.host || ""; await save(key, l, r.host || ""); } }
+      if (want.every(l => l in got)) return answer(got);
       row = (await rows(`lms_districts?district=eq.${encodeURIComponent(dist)}&select=domains,brightspace,shared`))[0] || null;
     }
     const own = siteDomain(String(school.web || ""));
     const doms = [...new Set([...(row?.domains || []), own, ...(school.domains || []), ...(hs ? [] : [key])].map(siteDomain).filter(Boolean))];
-    // a known address first (Ontario boards on the province's Brightspace), then the usual addresses, best first, a few at a time;
-    // for a high school, a provider address named after a short or shared name must point back to the district's own domain
-    const known = lms === "brightspace" && row?.brightspace ? [String(row.brightspace)] : [];
-    const list = [...known, ...candidates(lms, doms).filter(c => !known.includes(c))];
-    const mine = (c: string) => known.includes(c) || doms.some(x => c === x || c.endsWith("." + x));
-    // where a found site may end up: the school's own domain, or the provider's (not some other host it forwarded to)
-    const landed = (h: string) => !!h && (mine(h) || PROVIDER_HOST.test(h));
-    const strict = (c: string) => hs && !mine(c) && (row?.shared === true || c.split(".")[0].length < 4);
     // what a provider address's page may mention to count as this district's: its domains, or the school's town
     const town = String(school.city || "").toLowerCase().trim();
     const hints = [...doms, ...(town.length >= 5 ? [town] : [])];
-    let host = "";
-    for (let i = 0; i < list.length && !host; i += AT_ONCE) {
-      const got = await Promise.all(list.slice(i, i + AT_ONCE).map(c => probe(d, lms, c, strict(c) ? hints : [])));
-      host = got.find(landed) || "";
-    }
-    await save(key, host);
-    if (dist) await save(`d:${dist}`, host);
-    return json({ host });
+    const findOne = async (lms: Lms): Promise<string> => {
+      // a known address first (Ontario and BC boards on the province's Brightspace), then the usual addresses, best first, a few
+      // at a time; for a high school, a provider address named after a short or shared name must point back to the district
+      const known = lms === "brightspace" && row?.brightspace ? [String(row.brightspace)] : [];
+      const list = [...known, ...candidates(lms, doms).filter(c => !known.includes(c))];
+      const mine = (c: string) => known.includes(c) || doms.some(x => c === x || c.endsWith("." + x));
+      // where a found site may end up: the school's own domain, or the provider's (not some other host it forwarded to)
+      const landed = (h2: string) => !!h2 && (mine(h2) || PROVIDER_HOST.test(h2));
+      const strict = (c: string) => hs && !mine(c) && (row?.shared === true || c.split(".")[0].length < 4);
+      let host = "";
+      for (let i = 0; i < list.length && !host; i += AT_ONCE) {
+        const res = await Promise.all(list.slice(i, i + AT_ONCE).map(c => probe(d, lms, c, strict(c) ? hints : [])));
+        host = res.find(landed) || "";
+      }
+      await save(key, lms, host);
+      if (dist) await save(`d:${dist}`, lms, host);
+      return host;
+    };
+    await Promise.all(want.filter(l => !(l in got)).map(async l => { got[l] = await findOne(l); }));
+    return answer(got);
   } catch (err) {
     d.log("lms-find failed", err instanceof Error ? err.message : "error");
     return json({ error: "server error" }, 500);

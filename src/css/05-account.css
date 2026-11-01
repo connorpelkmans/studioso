@@ -59,3 +59,7 @@
 .bs-manual{display:grid;gap:8px;margin-top:4px;padding-top:10px;border-top:1px solid var(--line)}
 .bs-manual[hidden]{display:none}
 .bs-manual .f{margin:0}
+.bs-school{display:grid;gap:8px}
+.bs-plats{display:grid;gap:8px}
+.bs-plats[hidden]{display:none}
+.bs-manual-only{border-top:0;padding-top:0}
