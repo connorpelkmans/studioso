@@ -3,7 +3,7 @@
 Name: Studyboard: Student Planner
 Subtitle: Planner, flashcards & focus
 Promotional Text: Plan your day around real deadlines, study with flashcards and stay focused. No ads, no tracking, and your data stays on your device.
-Keywords: student,planner,homework,flashcards,study,exam,deadlines,timer,courses,grades,syllabus,pomodoro,school,quiz
+Keywords: homework,flashcards,study,exam,deadlines,timer,courses,grades,syllabus,pomodoro,school,quiz,college,assignments
 Support URL: https://studyboardapp.com/website/
 Marketing URL: https://studyboardapp.com/
 Privacy Policy URL: https://studyboardapp.com/website/privacy
