@@ -60,7 +60,7 @@
   "build": {
     "appId": "com.studioso.app",
     "productName": "Studyboard",
-    "copyright": "Copyright \u00a9 2026 Connor Pelkmans (Studyboard)",
+    "copyright": "Copyright © 2026 Connor Pelkmans (Studyboard)",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -147,7 +147,7 @@
         "NSMicrophoneUsageDescription": "Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
-        "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ElectronTeamID": "FYWQLN8Y8P"
       },
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -174,7 +174,7 @@
         "NSMicrophoneUsageDescription": "Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
-        "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ElectronTeamID": "FYWQLN8Y8P"
       },
       "appId": "com.studyboardapp.studyboard"
     },
@@ -190,7 +190,7 @@
         "NSMicrophoneUsageDescription": "Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
-        "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ElectronTeamID": "FYWQLN8Y8P"
       },
       "appId": "com.studyboardapp.studyboard"
     },

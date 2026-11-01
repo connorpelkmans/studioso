@@ -1,0 +1,34 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "FYWQLN8Y8P.com.studyboardapp.studyboard"
+        ],
+        "components": [
+          {
+            "/": "/",
+            "?": {
+              "deck": "*"
+            },
+            "comment": "shared deck links"
+          },
+          {
+            "/": "/",
+            "?": {
+              "group": "*"
+            },
+            "comment": "study group invites"
+          },
+          {
+            "/": "/",
+            "?": {
+              "task": "*"
+            },
+            "comment": "open a task"
+          }
+        ]
+      }
+    ]
+  }
+}

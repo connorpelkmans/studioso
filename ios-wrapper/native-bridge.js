@@ -259,7 +259,7 @@
   if (P.App) P.App.addListener("appStateChange", function (st) { if (st && st.isActive) drainSharedQueue(0); });
 
   /* 6. Purchases through RevenueCat */
-  var RC_KEYS = { ios: "appl_REPLACE_WITH_REVENUECAT_PUBLIC_KEY", android: "goog_REPLACE_WITH_REVENUECAT_PUBLIC_KEY" };
+  var RC_KEYS = { ios: "appl_PZmLibrECQUPlNRKbafuYaoDNLj", android: "goog_REPLACE_WITH_REVENUECAT_PUBLIC_KEY" };
   var RC_KEY_RE = { ios: /^appl_[A-Za-z0-9]{10,64}$/, android: /^goog_[A-Za-z0-9]{10,64}$/ };
   var RC_KEY = RC_KEYS[platform], RC_ENTITLEMENT = "pro";
   var RC = P.Purchases, rcReady = null;

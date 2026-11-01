@@ -24,3 +24,8 @@
 /today.webmanifest
   Cache-Control: no-cache
   Content-Type: application/manifest+json
+
+# Universal links for the iPhone app (scripts/apple-setup.js)
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+  Cache-Control: max-age=3600
