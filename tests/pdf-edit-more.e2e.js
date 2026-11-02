@@ -64,7 +64,7 @@ function restricted(ttf){
     await page.evaluate(() => { const T = window.__sbProStudy; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); });
     await page.waitForTimeout(500);
     // the tools under More open from its menu
-    const tool = async id => { if (["fill", "header", "find", "pages", "ocr"].includes(id)) { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } else await page.click(`.pde-tool[data-id="${id}"]`); await page.waitForTimeout(150); };
+    const tool = async id => { if (["fill", "header", "find", "pages", "ocr", "fields", "stamp", "watermark", "link", "history"].includes(id)) { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } else await page.click(`.pde-tool[data-id="${id}"]`); await page.waitForTimeout(150); };
     const shot = async name => { if (SHOTS) { fs.mkdirSync(SHOTS, {recursive: true}); await page.screenshot({path: path.join(SHOTS, name + ".png")}); } };
     await page.evaluate(async ([a, b]) => { await window.__sbProStudy.idbSet("pdf:a-syl", new Blob([new Uint8Array(a)])); await window.__sbProStudy.idbSet("pdf:a-form", new Blob([new Uint8Array(b)])); }, [[...pdf], [...form]]);
     const open = async fid => { await page.evaluate(fid => { const b = document.createElement("button"); b.dataset.act = "pdr-open"; b.dataset.id = fid; document.body.appendChild(b); b.click(); b.remove(); }, fid); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(400); };
@@ -89,7 +89,7 @@ function restricted(ttf){
     await open("f1");
     await page.click("#pdeBtn"); await page.waitForFunction(() => !!window.PDFLib); await page.waitForTimeout(400);
     ok(await page.locator(".pde-tools .pde-tool").count() === 7, "six tools and More");
-    await page.click('[data-act="pde-more"]'); ok(await page.locator(".pde-menu .pde-mi").count() === 5, "More: Quick Fill, Header, Find, Pages, Recognize Text"); await page.keyboard.press("Escape");
+    await page.click('[data-act="pde-more"]'); ok(await page.locator(".pde-menu .pde-mi").count() === 10, "More: Quick Fill, Header, Find, Pages, Recognize Text, Make Fillable, Stamp, Watermark, Link, History"); await page.keyboard.press("Escape");
     await shot("1-tools");
 
     /* Paragraphs */

@@ -23,6 +23,15 @@ fontkit.umd.min.js: @pdf-lib/fontkit 1.1.1 (a fork of fontkit by Devon Govett), 
   - base64-arraybuffer. Copyright (c) 2012 Niklas von Hertzen. MIT License.
   - clone and deep-equal. Copyright (c) Paul Vorbach and James Halliday. MIT License.
 
+pdf-lib-crypt.min.js: @cantoo/pdf-lib 2.11.1 (a fork of pdf-lib that can encrypt), copied unmodified from the npm package (dist/pdf-lib.min.js). Loaded only to put a
+  password on a PDF someone downloads. Copyright (c) 2019 Andrew Dillon and the @cantoo/pdf-lib contributors. MIT License (see LICENSE-pdf-lib-crypt.md).
+  It bundles, besides what pdf-lib bundles (above):
+  - Encryption (RC4, AES, MD5, SHA-2, the PDF security handler) ported from Mozilla's pdf.js. Copyright 2012 Mozilla Foundation. Apache License 2.0.
+  - fflate (compression). Copyright (c) 2026 Arjun Barrett (as its licence file states). MIT License.
+  - culori (colours), including OKLab code Copyright (c) 2021 Björn Ottosson. MIT License.
+  - node-html-better-parser. MIT License.
+  - tslib. Copyright (c) Microsoft Corporation. 0BSD License.
+
 Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0 (full text also in vendor/pdfjs/LICENSE).
 zlib License: This software is provided 'as-is', without any express or implied warranty. In no event will the authors be held liable for any damages arising from the use of
 this software. Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to

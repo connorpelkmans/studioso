@@ -192,6 +192,7 @@
       <li><b>Patrick Hand</b>, <b>Caveat</b>, <b>Kalam</b> and <b>Gochi Hand</b> typefaces (the Whiteboard's writing styles), by Patrick Wagesreiter, the Caveat Project Authors, Indian Type Foundry and HT Fonts. SIL Open Font License 1.1.</li>
       <li><b>PDF.js</b> (pdfjs-dist 6.4.299), by Mozilla, reads the PDFs you import. Apache License 2.0.</li>
       <li><b>pdf-lib</b> 1.17.1, by Andrew Dillon, writes the PDFs you edit in the reader. MIT License.</li>
+      <li><b>@cantoo/pdf-lib</b> 2.11.1 puts a password on PDFs you download. MIT License; its encryption code comes from Mozilla's PDF.js (Apache License 2.0).</li>
       <li><b>fontkit</b> (@pdf-lib/fontkit 1.1.1), by Devon Govett and Andrew Dillon, reads the fonts you add to the PDF editor. MIT License. pdf-lib and fontkit include pako (MIT and zlib License), tslib and a Brotli decoder by Google (Apache License 2.0), ieee754 (BSD 3-Clause License) and other MIT-licensed parts; the full list is in THIRD-PARTY-NOTICES.</li>
       <li><b>fzstd</b> 0.1.1, by Arjun Barrett, unpacks newer Anki files when you import them. MIT License.</li>
       <li><b>Supabase JS</b>, by Supabase, connects to your account. MIT License.</li>

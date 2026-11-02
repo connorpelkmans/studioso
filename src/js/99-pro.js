@@ -2483,9 +2483,19 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     try {
       const bytes = await bytesOf(rev.assetId);
       await loadPdfJs();
-      const doc = await window.pdfjsLib.getDocument({data: bytes, ...PDF_OPTS}).promise;
+      let doc = null, pw = "";
+      // a PDF with a password asks for it (up to three tries); the password isn't kept
+      for (let tries = 0; !doc; tries++) {
+        try { doc = await window.pdfjsLib.getDocument(Object.assign({data: bytes.slice()}, PDF_OPTS, pw ? {password: pw} : {})).promise; }
+        catch (err) {
+          if (!(err && err.name === "PasswordException") || tries >= 3 || R !== my) throw err;
+          const v = await askBox({title: tries ? "That Password Didn't Work" : "This PDF Has a Password", text: "Type its password to open it.", input: {label: "Password", max: 128}, yes: "Open", no: "Cancel"});
+          if (v == null) { if (R === my) { const box = $("#pdrPages"); if (box) box.innerHTML = `<p class="pdr-wait">This PDF needs its password to open.</p>`; } return; }
+          pw = v;
+        }
+      }
       if (R !== my) { try { doc.destroy(); } catch (e) {} return; }
-      R.doc = doc; layout(); counts();
+      R.doc = doc; R.pw = !!pw; layout(); counts();
     } catch (e) {
       if (R !== my) return;
       const box = $("#pdrPages"); if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(String(e && e.message)) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : "Couldn't open this PDF.")}</p>`;

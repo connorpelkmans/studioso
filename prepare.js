@@ -24,7 +24,7 @@ copy("pdfjs-dist/legacy/build/pdf.worker.min.mjs", "pdfjs/pdf.worker.min.mjs");
 copy("pdfjs-dist/LICENSE", "pdfjs/LICENSE");
 // pdf-lib writes edited PDFs (the reader's Edit mode), loaded from vendor/pdflib/ the first time someone edits
 fs.mkdirSync(path.join(vendor, "pdflib"), { recursive: true });
-for (const f of ["pdf-lib.min.js", "fontkit.umd.min.js", "LICENSE.md", "NOTICE.txt"]) fs.copyFileSync(path.join(root, "vendor", "pdflib", f), path.join(vendor, "pdflib", f));
+for (const f of ["pdf-lib.min.js", "fontkit.umd.min.js", "pdf-lib-crypt.min.js", "LICENSE.md", "LICENSE-pdf-lib-crypt.md", "NOTICE.txt"]) fs.copyFileSync(path.join(root, "vendor", "pdflib", f), path.join(vendor, "pdflib", f));
 
 const faces = [["Lexend", "lexend", [400, 500, 600, 700, 800]], ["Atkinson Hyperlegible Next", "atkinson-hyperlegible-next", [400, 500, 700]], ["Atkinson Hyperlegible", "atkinson-hyperlegible", [400, 700]], ["Permanent Marker", "permanent-marker", [400]], ["Patrick Hand", "patrick-hand", [400]], ["Caveat", "caveat", [400]], ["Kalam", "kalam", [400]], ["Gochi Hand", "gochi-hand", [400]]];
 let css = "";

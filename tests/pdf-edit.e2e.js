@@ -45,7 +45,7 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     await page.evaluate(() => { const T = window.__sbProStudy; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); Object.defineProperty(window, "dlg", {get: () => T.dlg(), configurable: true}); });
     await page.waitForTimeout(600);
     // the tools under More open from its menu
-    const tool = async id => { if (["fill", "header", "find", "pages", "ocr"].includes(id)) { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } else await page.click(`.pde-tool[data-id="${id}"]`); await page.waitForTimeout(150); };
+    const tool = async id => { if (["fill", "header", "find", "pages", "ocr", "fields", "stamp", "watermark", "link", "history"].includes(id)) { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } else await page.click(`.pde-tool[data-id="${id}"]`); await page.waitForTimeout(150); };
     const shot = async name => { if (SHOTS) { fs.mkdirSync(SHOTS, {recursive: true}); await page.screenshot({path: path.join(SHOTS, name + ".png")}); } };
     await page.evaluate(async bytes => { await window.__sbProStudy.idbSet("pdf:a-syl", new Blob([new Uint8Array(bytes)], {type: "application/pdf"})); }, [...pdf]);
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "pdr-open"; b.dataset.id = "f1"; document.body.appendChild(b); b.click(); b.remove(); });

@@ -325,7 +325,7 @@ function normPdfEdits(list, max){
   const seen = new Set(), seenField = new Set(), out = [];
   for (const e of list) {
     if (out.length >= max) break;
-    if (!e || typeof e !== "object" || typeof e.id !== "string" || !/^[\w-]{1,40}$/.test(e.id) || seen.has(e.id) || !["t", "n", "w", "p", "s", "i", "f", "h"].includes(e.k)) continue;
+    if (!e || typeof e !== "object" || typeof e.id !== "string" || !/^[\w-]{1,40}$/.test(e.id) || seen.has(e.id) || !["t", "n", "w", "p", "s", "i", "f", "h", "x", "k", "l", "q", "m", "o"].includes(e.k)) continue;
     const p = fin(e.p, 1, 99999); if (!p) continue;
     const x = {id: e.id, a: String(e.a == null ? "" : e.a).slice(0, 120), p: Math.round(p), k: e.k, at: Number(e.at) > 0 ? Math.round(Number(e.at)) : 0};
     // a form field's answer: its name and value
@@ -344,8 +344,42 @@ function normPdfEdits(list, max){
       if (!x.text && x.num === "none") continue;
       seen.add(e.id); out.push(x); continue;
     }
+    // a watermark (one per version)
+    if (e.k === "m") {
+      x.text = typeof e.text === "string" ? e.text.slice(0, 60) : ""; if (!x.text.trim()) continue;
+      x.fs = fin(e.fs, 12, 200) || 60; x.c = hex(e.c) || "#c0262d"; x.op = fin(e.op, 0.03, 0.6) || 0.18; if (e.diag === false) x.diag = false;
+      seen.add(e.id); out.push(x); continue;
+    }
+    // the PDF's bookmarks, written fresh: [{t, p, kids}], two levels
+    if (e.k === "o") {
+      const it = (l, deep) => (Array.isArray(l) ? l : []).slice(0, 300).map(v => v && typeof v.t === "string" && v.t.trim() ? Object.assign({t: v.t.slice(0, 200), p: Math.round(fin(v.p, 1, 99999) || 1)}, deep ? {} : {kids: it(v.kids, true)}) : null).filter(Boolean);
+      x.items = it(e.items, false); seen.add(e.id); out.push(x); continue;
+    }
+    // a link taken out: where it was
+    if (e.k === "l" && e.del) {
+      const r = Array.isArray(e.rect) && e.rect.length === 4 ? e.rect.map(v => fin(v, -1e5, 1e5)) : null; if (!r || r.some(v => v == null)) continue;
+      x.del = true; x.rect = r; seen.add(e.id); out.push(x); continue;
+    }
     const o = pt(e.o); if (!ok2(o)) continue;
     Object.assign(x, {o, r: fin(e.r, -360, 360) || 0});
+    // one of the PDF's own pictures: which one (by its number on the page), where it was, and where it goes, swapped or taken out
+    if (e.k === "x") {
+      const m6 = v => Array.isArray(v) && v.length === 6 ? v.map(n => fin(n, -1e6, 1e6)) : null, m0 = m6(e.m0);
+      if (!m0 || m0.some(v => v == null) || !(Number.isInteger(e.i) && e.i >= 0 && e.i < 10000)) continue;
+      x.i = e.i; x.m0 = m0; x.bg = hex(e.bg) || "#ffffff";
+      if (e.del) x.del = true;
+      else { const m = m6(e.m); if (m && m.every(v => v != null)) x.m = m; if (typeof e.img === "string" && /^[a-f0-9]{16}$/.test(e.img)) x.img = e.img; }
+    }
+    if (e.k === "k") { x.t = typeof e.t === "string" ? e.t.slice(0, 60) : ""; x.c = hex(e.c) || "#c0262d"; }
+    if (e.k === "q") { x.ft = ["text", "multi", "check"].includes(e.ft) ? e.ft : "text"; x.name = typeof e.name === "string" && e.name.trim() ? e.name.slice(0, 60) : "Field"; }
+    if (e.k === "l") {
+      if (typeof e.url === "string" && /^(https?:\/\/|mailto:)\S+$/i.test(e.url)) x.url = e.url.slice(0, 500); else if (fin(e.page, 1, 99999)) x.page = Math.round(e.page); else continue;
+    }
+    if (e.k === "x" || e.k === "k" || e.k === "q" || e.k === "l") {
+      x.w = Number(e.w) > 0 ? fin(e.w, 0.1, 1e5) : null; x.h = Number(e.h) > 0 ? fin(e.h, 0.1, 1e5) : null;
+      if (!x.w || !x.h) continue;
+      seen.add(e.id); out.push(x); continue;
+    }
     if (e.k === "w" || e.k === "i" || (e.k === "s" && e.sh !== "line" && e.sh !== "arrow")) {
       x.w = Number(e.w) > 0 ? fin(e.w, 0.1, 1e5) : null; x.h = Number(e.h) > 0 ? fin(e.h, 0.1, 1e5) : null;
       if (!x.w || !x.h) continue;
