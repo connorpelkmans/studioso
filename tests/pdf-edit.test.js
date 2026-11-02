@@ -4,7 +4,7 @@ const assert = require("assert"), path = require("path");
 const L = require("pdf-lib");
 const src = require("../scripts/app-files").source();
 const block = (a, b, names) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, "markers " + a); return new Function(src.slice(i + a.length, j) + `; return {${names}};`)(); };
-const E = block("/*PDFEDIT-ENGINE-START*/", "/*PDFEDIT-ENGINE-END*/", "pdeLex, pdeStrip, pdeBake, pdeProbe, pdeBadChars, pdeTidy, pdeInside, pdeCmap");
+const E = block("/*PDFEDIT-ENGINE-START*/", "/*PDFEDIT-ENGINE-END*/", "pdeLex, pdeStrip, pdeBake, pdeProbe, pdeBadChars, pdeTidy, pdeInside, pdeCmap, pdeWrap, pdeFontRights, pdeShapeOps, pdeReorg, pdeSigned");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const enc = s => Buffer.from(s, "latin1");
 const dec = u8 => Buffer.from(u8).toString("latin1");
@@ -126,6 +126,38 @@ const region = (it, extra) => Object.assign({k: "t", p: 1, o: [it.x, it.y], r: 0
   ok(kept[0].c === "#ff0000" && kept[0].bg === "#ffffff" && kept[0].cf === "\"Georgia\",serif", "colors must be #rrggbb, font names plain");
   ok(kept[1].fs === 500 && kept[1].t.length === 2000 && kept[1].c === "#000000" && kept[1].f === "h", "sizes, lengths, colors and fonts are clamped");
   ok(!("cf" in kept[2]), "a font name that could carry CSS is dropped");
+
+  /* Paragraphs, font licences, marks, forms, markup and pages */
+  ok(JSON.stringify(E.pdeWrap("one two three\nfour", 9, t => t.length)) === JSON.stringify([{t: "one two", end: false}, {t: "three", end: true}, {t: "four", end: true}]), "paragraphs wrap to their width, and keep their line breaks");
+  ok(E.pdeWrap("abcdefghijkl", 5, t => t.length).map(l => l.t).join("|") === "abcde|fghij|kl", "a word wider than the paragraph is split");
+  const fs = t => ({"OS/2": {fsType: Object.assign({noEmbedding: false, viewOnly: false, editable: false, noSubsetting: false, bitmapOnly: false}, t)}});
+  ok(E.pdeFontRights(fs({})).ok && E.pdeFontRights(fs({})).subset, "an installable font can be embedded, as a subset");
+  ok(!E.pdeFontRights(fs({noEmbedding: true})).ok && /Restricted/.test(E.pdeFontRights(fs({noEmbedding: true})).why), "a font marked Restricted License can't be put in a PDF, and says why");
+  ok(!E.pdeFontRights(fs({bitmapOnly: true})).ok, "nor one that only allows its bitmaps");
+  ok(E.pdeFontRights(fs({viewOnly: true})).ok && /viewing and printing only/.test(E.pdeFontRights(fs({viewOnly: true})).why), "a Preview & Print font can be used, and says it's for viewing and printing");
+  ok(E.pdeFontRights(fs({noSubsetting: true})).subset === false, "a font that forbids subsetting is embedded whole");
+  ok(/re S/.test(E.pdeShapeOps({sh: "rect", o: [10, 10], w: 20, h: 10})) && / c /.test(E.pdeShapeOps({sh: "ellipse", o: [0, 0], w: 20, h: 10})) && /h f/.test(E.pdeShapeOps({sh: "arrow", pts: [0, 0, 50, 50]})), "marks become drawing instructions (box, circle, arrow with its head)");
+  const fdoc = await L.PDFDocument.create(), fpg = fdoc.addPage([612, 792]), form = fdoc.getForm();
+  form.createTextField("name").addToPage(fpg, {x: 50, y: 700, width: 200, height: 20}); form.createCheckBox("ok").addToPage(fpg, {x: 50, y: 650, width: 14, height: 14});
+  const fbytes = await fdoc.save();
+  const rf = await E.pdeBake(L, fbytes, [{k: "f", name: "name", v: "Ana López"}, {k: "f", name: "ok", v: true}, {k: "f", name: "missing", v: "x"}]);
+  const ff = (await L.PDFDocument.load(rf.bytes)).getForm();
+  ok(ff.getTextField("name").getText() === "Ana López" && ff.getCheckBox("ok").isChecked() && rf.report.fields === 2 && rf.report.fieldsSkipped === 1, "form answers are written into the fields; a field that isn't there is counted, not fatal");
+  const ra = await E.pdeBake(L, b1, [], {annots: [{p: 1, k: "hl", quads: [[72, 715, 200, 715, 72, 700, 200, 700]], c: "#ffd84d", t: "Mitochondria"}, {p: 1, k: "ink", paths: [[[80, 600], [120, 640]]], w: 2, c: "#2457c5"}]});
+  const annots = (await L.PDFDocument.load(ra.bytes)).getPages()[0].node.Annots();
+  ok(annots && annots.size() === 2 && ra.report.annots === 2, "highlights and handwriting become standard PDF annotations");
+  ok(/Studyboard/.test((await L.PDFDocument.load(ra.bytes, {updateMetadata: false})).getProducer() || ""), "a saved file says it was edited with Studyboard");
+  const two = await (async () => { const d = await L.PDFDocument.create(); for (let i = 0; i < 3; i++) d.addPage([612, 792]); return d.save(); })();
+  const re3 = await L.PDFDocument.load(await E.pdeReorg(L, two, [{s: 0, p: 3, rot: 90}, {blank: [300, 300]}, {s: 1, p: 1}, {s: 0, p: 1}], [b1]));
+  ok(re3.getPageCount() === 4 && re3.getPages()[0].getRotation().angle === 90 && re3.getPages()[1].getWidth() === 300, "pages: a new order, turned, a blank page, and a page from another PDF");
+  let none = null; try { await E.pdeReorg(L, two, []); } catch (e) { none = e; } ok(none, "a PDF can't be left with no pages");
+  ok(E.pdeSigned(L, await L.PDFDocument.load(fbytes)) === 0, "a PDF without a filled signature field isn't treated as signed");
+  const kept2 = norm([{id: "p1", k: "p", p: 1, o: [1, 2], fs: 10, W: 300, lh: 14, al: "j", lines: [{o: [1, 2], w: 300, y0: -2, y1: 9, old: "a"}, {o: [1, -12], w: 5, y0: 4, y1: 2}], t: "x"},
+    {id: "s1", k: "s", p: 1, sh: "arrow", o: [0, 0], pts: [0, 0, 5, 5], c: "#c0262d", lw: 2}, {id: "s2", k: "s", p: 1, sh: "star", o: [0, 0], w: 5, h: 5},
+    {id: "i1", k: "i", p: 1, o: [0, 0], w: 50, h: 20, img: "0123456789abcdef", sig: 1}, {id: "i2", k: "i", p: 1, o: [0, 0], w: 50, h: 20, img: "../evil"},
+    {id: "f1", k: "f", p: 1, name: "name", v: "Ana"}, {id: "f2", k: "f", p: 1, name: "name", v: "dup"}, {id: "t1", k: "n", p: 1, o: [0, 0], fs: 9, ff: "abc", fn: "x"}], 200);
+  ok(kept2.map(e => e.id).join() === "p1,s1,i1,f1,t1", "paragraphs, marks, pictures and form answers are checked; unknown marks, odd picture ids and repeated fields are dropped: " + kept2.map(e => e.id).join());
+  ok(kept2[0].lines.length === 1 && kept2[2].sig === 1 && !("ff" in kept2[4]), "an upside-down paragraph line and a font id that isn't one are dropped");
 
   console.log(`\n${n} checks passed`);
 })().catch(e => { console.error("FAIL:", e && e.stack || e); process.exit(1); });

@@ -2539,7 +2539,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       const dpr = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(16e6 / Math.max(1, vp.width * vp.height)));
       const cv = document.createElement("canvas"); cv.width = Math.floor(vp.width * dpr); cv.height = Math.floor(vp.height * dpr); cv.className = "pdr-cv";
       cv.style.width = Math.round(vp.width) + "px"; cv.style.height = Math.round(vp.height) + "px";
-      await page.render({canvasContext: cv.getContext("2d"), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null}).promise;
+      // a page with fillable fields leaves them out of the picture: Edit draws them as fields to type in
+      const ro = window.SBPDE && SBPDE.renderOpts ? await SBPDE.renderOpts(page).catch(() => ({})) : {};
+      if (R !== my || pg.done !== scale) return;
+      await page.render(Object.assign({canvasContext: cv.getContext("2d"), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null}, ro)).promise;
       if (R !== my || pg.done !== scale) return;
       el.querySelectorAll(".pdr-cv,.textLayer").forEach(x => x.remove());
       el.prepend(cv);
@@ -2548,7 +2551,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       paint(n);
       if (window.SBINK) SBINK.readerPage(n, el);
       if (window.SBPDE) SBPDE.readerPage(n, el, page, vp);
-      R.pages.forEach(o => { if (o.done && Math.abs(o.n - n) > 10) { o.done = 0; o.el.querySelectorAll(".pdr-cv,.textLayer,.ink-layer,.pde-layer").forEach(x => x.remove()); } });
+      R.pages.forEach(o => { if (o.done && Math.abs(o.n - n) > 10) { o.done = 0; o.el.querySelectorAll(".pdr-cv,.textLayer,.ink-layer,.pde-layer,.pde-form").forEach(x => x.remove()); } });
     } catch (e) { pg.done = 0; }
   }
   function paint(n){
@@ -2795,8 +2798,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   P.canRead = f => !P.locked() && isPdf(f);
   P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
   P.addFeature({id: "reader", name: "PDF Reader, Highlights and Editing", where: "Open a PDF in Files, then Read: highlight, make notes and cards, or Edit its text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
-  Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed"))});
-  Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet});
+  Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
+  Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
 
   const css = document.createElement("style");
   css.textContent = `

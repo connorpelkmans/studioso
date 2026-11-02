@@ -1,0 +1,40 @@
+Third-party notices for the files in this folder (vendor/pdflib/)
+
+pdf-lib.min.js: pdf-lib 1.17.1, copied unmodified from the npm package (dist/pdf-lib.min.js).
+  Copyright (c) 2019 Andrew Dillon. MIT License (see LICENSE.md in this folder).
+  It bundles:
+  - tslib (helpers). Copyright (c) Microsoft Corporation. Apache License 2.0 (in this version).
+  - pako (zlib compression). Copyright (C) 2014-2017 Vitaly Puzrin and Andrei Tuputcyn. MIT License; parts are a port of zlib, Copyright (C) 1995-2013 Jean-loup Gailly and Mark Adler, zlib License.
+  - @pdf-lib/standard-fonts (font metrics of the 14 standard PDF fonts). MIT License; based on the afm package, Copyright 2015-2018 Christopher Brown, MIT License.
+    The metrics come from Adobe's Core 14 AFM files, which Adobe allows to be copied and distributed.
+  - @pdf-lib/upng (PNG decoding), from UPNG.js. Copyright (c) 2017 Photopea. MIT License.
+  - base64-arraybuffer. Copyright (c) 2012 Niklas von Hertzen. MIT License.
+  - Stream decoders (Stream, DecodeStream, Ascii85Stream, AsciiHexStream, LZWStream, RunLengthStream) ported from Mozilla's pdf.js, Copyright 2012 Mozilla Foundation, Apache License 2.0;
+    and the flate stream, a port of XPDF's implementation, Copyright 1996-2003 Glyph & Cog, LLC, made available under the Apache License 2.0 through pdf.js.
+
+fontkit.umd.min.js: @pdf-lib/fontkit 1.1.1 (a fork of fontkit by Devon Govett), copied unmodified from the npm package (dist/fontkit.umd.min.js).
+  Copyright (c) 2014 Devon Govett and Andrew Dillon. MIT License (the same text as LICENSE.md, with these names).
+  It bundles:
+  - restructure, unicode-properties, unicode-trie, tiny-inflate and dfa. Copyright (c) Devon Govett. MIT License.
+  - pako (as above). MIT License and zlib License.
+  - A WOFF2 (Brotli) decoder, Copyright 2013 Google Inc. Apache License 2.0.
+  - base64-js and ieee754 (from the buffer package). Copyright (c) Jameson Little and Feross Aboukhadijeh. MIT License (base64-js) and BSD 3-Clause License (ieee754, Copyright 2008 Fair Oaks Labs, Inc.).
+  - events and string_decoder (from Node.js). Copyright Joyent, Inc. and other Node contributors. MIT License.
+  - base64-arraybuffer. Copyright (c) 2012 Niklas von Hertzen. MIT License.
+  - clone and deep-equal. Copyright (c) Paul Vorbach and James Halliday. MIT License.
+
+Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0 (full text also in vendor/pdfjs/LICENSE).
+zlib License: This software is provided 'as-is', without any express or implied warranty. In no event will the authors be held liable for any damages arising from the use of
+this software. Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to
+the following restrictions: 1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a
+product, an acknowledgment in the product documentation would be appreciated but is not required. 2. Altered source versions must be plainly marked as such, and must not be
+misrepresented as being the original software. 3. This notice may not be removed or altered from any source distribution.
+BSD 3-Clause License (ieee754): Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer. 2. Redistributions in binary form must reproduce
+the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution. 3. Neither the name
+of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
