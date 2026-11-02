@@ -7,7 +7,7 @@ const fs = require("fs"), path = require("path");
 
 const ROOT = path.join(__dirname, "..");
 // Loaded at run time by <script src> or a lazy loader, not declared in the inline scripts
-const RUNTIME_GLOBALS = ["supabase", "pdfjsLib", "Tesseract", "JSZip", "mammoth", "marked", "DOMPurify", "katex", "Sentry", "webkit", "chrome", "Capacitor", "AndroidBridge"];
+const RUNTIME_GLOBALS = ["supabase", "pdfjsLib", "PDFLib", "Tesseract", "JSZip", "mammoth", "marked", "DOMPurify", "katex", "Sentry", "webkit", "chrome", "Capacitor", "AndroidBridge"];
 
 // <script> blocks without src (or with an inline type), with the line each starts on
 function inlineScripts(html) {

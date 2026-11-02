@@ -29,8 +29,10 @@ const act = (page, a) => page.evaluate(a => { const b = document.createElement("
     await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
 
     // School Sites: three cards, then the High School Sites dropdown, closed
-    await act(page, "lms-open"); await page.waitForSelector(".bs-hs");
-    const pick = await page.evaluate(() => ({main: [...document.querySelectorAll(".bs-sheet > .sheet-body > .bs-plist .bs-pcard b")].map(b => b.textContent),
+    // (in the apps, School Sites asks for your school first: a school it can't find shows the platforms)
+    await act(page, "lms-open"); await page.waitForSelector("#bsSchoolIn");
+    await page.fill("#bsSchoolIn", "zzz school"); await page.waitForTimeout(500); await page.tap("#bsGo"); await page.waitForSelector("#bsPlats:not([hidden]) .bs-hs");
+    const pick = await page.evaluate(() => ({main: [...document.querySelectorAll("#bsPlats > .bs-plist .bs-pcard b")].map(b => b.textContent),
       hs: [...document.querySelectorAll(".bs-hs .bs-pcard b")].map(b => b.textContent), sum: document.querySelector(".bs-hs > summary b").textContent, open: document.querySelector(".bs-hs").open}));
     ok(JSON.stringify(pick.main) === JSON.stringify(["Canvas", "Brightspace", "Blackboard", "Moodle"]), "School Sites shows Canvas, Brightspace, Blackboard, then Moodle fourth: " + pick.main.join(", "));
     ok(pick.sum === "High School Sites" && !pick.open && JSON.stringify(pick.hs) === JSON.stringify(["Schoology", "Google Classroom"]), "Schoology and Google Classroom sit in a closed High School Sites dropdown");
@@ -40,7 +42,7 @@ const act = (page, a) => page.evaluate(a => { const b = document.createElement("
     if (process.env.SHOT) await page.screenshot({path: process.env.SHOT});
 
     // Schoology: calendar link only
-    await page.tap('.bs-hs [data-act="sg-open"]'); await page.waitForSelector("#bsFeedIn");
+    await page.tap('#bsPlats .bs-hs [data-act="sg-open"]'); await page.waitForSelector("#bsFeedIn");
     ok(!(await page.$("#bsHostIn")) && !/Sign In to Schoology/.test(await page.textContent(".bs-sheet")), "Schoology connects with its calendar link, with no sign-in offered");
     await act(page, "sg-feed-help"); await page.waitForTimeout(200);
     ok(/Export/.test(await page.textContent(".bs-steps")), "How to Find It says where Schoology's link is (Calendar, then Export)");

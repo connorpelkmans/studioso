@@ -1611,8 +1611,11 @@ function cleanFile(r) {
       <li><b>Where it goes:</b> straight to Studyboard in this browser. Once it's in, it's part of your planner and syncs like everything else if you use an account.</li>
       <li><b>Staying up to date:</b> it checks by itself about every hour. Remove the extension to stop.</li>
     </ul>`;
-  function connectSheet(){
+  // o.manual: straight to typing the address (from School Sites' Didn't Work?), with o.host filled in and o.note above it
+  function connectSheet(o){
     if (P.direct) return gcSheet();
+    o = o && typeof o === "object" && !(o instanceof Event) ? o : {};
+    const finder = findOk() && !o.manual;
     const desk = bsDesk() && !P.feedOnly, cloud = sbActive(), grab = grabOk() && !P.feedOnly && !P.noExt;
     const extOn = !P.feedOnly && !P.noExt && !!(window.SBEXT && SBEXT.on()), extHas = extOn && SBEXT.has(P.id), extOffer = !desk && !extOn && grab && chromeDesktop();
     const extWay = extOn ? `<div class="bs-way rec"><div class="bs-way-h"><b>Studyboard School Sync</b><span class="bs-pill">${extHas ? "Connected" : "Installed"}</span></div>
@@ -1642,12 +1645,16 @@ function cleanFile(r) {
         <p style="margin:0">Bring your ${P.name} work into your to-do list and timeline. Studyboard only reads from ${P.name}. It never submits or changes anything there.</p>
         ${desk ? `<div class="bs-way rec"><div class="bs-way-h"><b>Sign In to ${P.name}</b><span class="bs-pill">Recommended</span></div>
           <p class="mini">Everything: ${esc(P.everything)}. You sign in on ${P.name}'s own page, so Studyboard never sees your password.</p>
-          ${findOk() ? `<div class="f bs-find"><label class="lh" for="bsSchoolIn">Your School</label>
+          ${o.note ? `<p class="mini bs-note" style="margin:0">${esc(o.note)}</p>` : ""}
+          ${finder ? `<div class="f bs-find"><label class="lh" for="bsSchoolIn">Your School</label>
             <input type="text" id="bsSchoolIn" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bsSchoolList" placeholder="Start typing your school's name" autocomplete="off" spellcheck="false">
-            <ul id="bsSchoolList" class="bs-sugg" role="listbox" aria-label="Schools" hidden></ul>
-            <span class="mini bs-find-msg" id="bsFindMsg" aria-live="polite"></span></div>` : ""}
-          <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"><span class="mini bs-host-note">Your school's address may look different. Use the one in your browser when you're signed in to ${esc(P.name)}.</span></label>
-          <button class="btn primary" data-act="${A}-login">Sign In</button></div>` : ""}
+            <ul id="bsSchoolList" class="bs-sugg" role="listbox" aria-label="Schools" hidden></ul></div>
+          <button type="button" class="btn primary bs-go" id="bsGo">Connect</button>
+          <span class="mini bs-find-msg" id="bsFindMsg" aria-live="polite"></span>
+          <button type="button" class="btn bs-didnt" id="bsDidnt" hidden>Didn't Work?</button>` : ""}
+          <div class="bs-manual${finder ? "" : " bs-manual-only"}" id="bsManual"${finder && !cfg().host ? " hidden" : ""}>
+            <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(o.host || cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"><span class="mini bs-host-note">Your school's address may look different. Use the one in your browser when you're signed in to ${esc(P.name)}.</span></label>
+            <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
         ${local ? "" : `<p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>`}
@@ -1655,7 +1662,8 @@ function cleanFile(r) {
         ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">How to Bring It In</button></p>` : ""}
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
-    if (desk) wireFind();
+    if (desk && finder) wireFind();
+    if (desk && o.manual) setTimeout(() => { const i = $("#bsHostIn"); if (i) { try { i.focus(); i.select(); } catch (e) {} } }, 80);
   }
   /* Google Classroom: connected through the Studyboard account (Google's own sign-in page, read-only permissions);
      the cloud-files function keeps the connection and hands out short-lived access */
@@ -1714,28 +1722,46 @@ function cleanFile(r) {
     return r.json();
   }
   function wireFind(){
-    const inp = $("#bsSchoolIn"), list = $("#bsSchoolList"), msg = $("#bsFindMsg"), host = $("#bsHostIn");
-    if (!inp || !list || !host) return;
-    let seq = 0, t = 0, found = [], active = -1;
+    const inp = $("#bsSchoolIn"), list = $("#bsSchoolList"), msg = $("#bsFindMsg"), host = $("#bsHostIn"), go = $("#bsGo"), didnt = $("#bsDidnt"), manual = $("#bsManual");
+    if (!inp || !list || !host || !go) return;
+    let seq = 0, t = 0, found = [], active = -1, chosen = null, lookup = null;
     const show = rows => {
       found = rows; active = -1;
       list.innerHTML = rows.map((x, i) => `<li role="option" id="bsSch${i}" data-i="${i}" aria-selected="false"><b>${esc(x.name)}</b><span>${esc([x.city, x.region, x.country].filter(Boolean).join(", "))}</span></li>`).join("");
       list.hidden = !rows.length; inp.setAttribute("aria-expanded", String(!!rows.length));
     };
     const mark = i => { active = i; [...list.children].forEach((li, k) => li.setAttribute("aria-selected", String(k === i))); inp.setAttribute("aria-activedescendant", i >= 0 ? "bsSch" + i : ""); };
-    const pick = async x => {
-      show([]); inp.value = x.name; msg.textContent = `Finding ${x.name}'s ${P.name} address…`;
-      const my = ++seq;
-      try {
-        const r = await findCall("/functions/v1/lms-find", {key: x.key, lms: P.id});
-        if (my !== seq) return;
-        if (r && r.host) { host.value = r.host; msg.textContent = `Found it: ${r.host}. Tap Sign In.`; }
-        else msg.textContent = `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.`
-          + (x.kind === "high_school" ? ` High schools usually share their district's or school board's ${P.name}, so ask a teacher if you're not sure.` : "");
-      } catch (e) { if (my === seq) msg.textContent = `Couldn't look it up right now. Type your school's ${P.name} address below.`; }
+    // the address box, for typing it in yourself
+    const openManual = (note, focus) => { manual.hidden = false; if (note != null) msg.textContent = note; if (focus) setTimeout(() => { try { host.focus(); host.select(); } catch (e) {} }, 60); };
+    // picking a school starts looking up its address, so Connect is quick
+    const pick = x => {
+      show([]); inp.value = x.name; chosen = x; msg.textContent = "";
+      lookup = findCall("/functions/v1/lms-find", {key: x.key, lms: P.id}).catch(() => ({error: true}));
     };
+    const tip = x => x && x.kind === "high_school" ? ` High schools usually share their district's or school board's ${P.name}, so ask a teacher if you're not sure.` : "";
+    go.addEventListener("click", async () => {
+      if (!chosen) {
+        if (found.length) { msg.textContent = "Pick your school from the list."; inp.focus(); return; }
+        if (!inp.value.trim()) { msg.textContent = "Start typing your school's name, then pick it from the list."; inp.focus(); return; }
+        openManual(`Couldn't find that school. Type its ${P.name} address below: it's the address in your browser when you're signed in to ${P.name}.`, true); return;
+      }
+      const x = chosen, my = ++seq;
+      go.disabled = true; go.textContent = "Finding Your School…";
+      let r; try { r = await (lookup || findCall("/functions/v1/lms-find", {key: x.key, lms: P.id})); } catch (e) { r = {error: true}; }
+      go.disabled = false; go.textContent = "Connect";
+      if (my !== seq) return;
+      if (r && r.host) {
+        host.value = r.host; msg.textContent = `Opening ${r.host}. Sign in there.`;
+        didnt.hidden = false;
+        doLogin().catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); });
+        return;
+      }
+      openManual(r && r.error ? `Couldn't look it up right now. Type your school's ${P.name} address below.`
+        : `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.${tip(x)}`, true);
+    });
+    didnt.addEventListener("click", () => { didnt.hidden = true; openManual(`Type the address you use to sign in to ${P.name}. It's in your browser's address bar when you're signed in.${tip(chosen)}`, true); });
     inp.addEventListener("input", () => {
-      clearTimeout(t); msg.textContent = "";
+      clearTimeout(t); msg.textContent = ""; chosen = null; lookup = null;
       const q = inp.value.trim(); if (q.length < 2) { show([]); return; }
       t = setTimeout(async () => {
         const my = ++seq;
@@ -1744,15 +1770,18 @@ function cleanFile(r) {
       }, 220);
     });
     inp.addEventListener("keydown", e => {
+      if (e.key === "Enter" && list.hidden) { e.preventDefault(); go.click(); return; }
       if (list.hidden) return;
       if (e.key === "ArrowDown") { e.preventDefault(); mark(Math.min(found.length - 1, active + 1)); }
       else if (e.key === "ArrowUp") { e.preventDefault(); mark(Math.max(0, active - 1)); }
       else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(found[active]); }
       else if (e.key === "Escape") { e.stopPropagation(); show([]); }
     });
-    // pointerdown, so picking happens before the box loses focus
-    list.addEventListener("pointerdown", e => { const li = e.target.closest("li[data-i]"); if (!li) return; e.preventDefault(); pick(found[+li.dataset.i]); });
-    inp.addEventListener("blur", () => setTimeout(() => show([]), 150));
+    // the box keeps focus (pointerdown), and the pick happens on the whole tap, so the list doesn't close under the finger and
+    // let the tap land on Connect
+    list.addEventListener("pointerdown", e => { if (e.target.closest("li[data-i]")) e.preventDefault(); });
+    list.addEventListener("click", e => { const li = e.target.closest("li[data-i]"); if (!li) return; e.preventDefault(); pick(found[+li.dataset.i]); });
+    inp.addEventListener("blur", () => setTimeout(() => show([]), 250));
   }
   function feedHelp(){
     openSheet(`<div class="sheet">${head("Find Your Calendar Link")}
@@ -1836,8 +1865,8 @@ function cleanFile(r) {
   }
 
   /* Connecting */
-  async function doLogin(){
-    const inp = $("#bsHostIn"), host = (inp && inp.value.trim()) || cfg().host || P.host;
+  async function doLogin(h0){
+    const inp = $("#bsHostIn"), host = (typeof h0 === "string" && h0) || (inp && inp.value.trim()) || cfg().host || P.host;
     if (!bsDesk()) { toast(`Signing in to ${P.name} works in the Studyboard desktop, iPhone and Android apps`); return; }
     if (!(await askConsent())) return;
     if (!host) { toast(`Type your ${P.name} address first, like ${P.hostPh}`); const i = $("#bsHostIn"); if (i) i.focus(); return; }
@@ -2175,6 +2204,7 @@ function cleanFile(r) {
       case "feed-save": { const v = ($("#bsFeedIn") && $("#bsFeedIn").value.trim()) || ""; if (!v) { save({feed: ""}); toast(cfg().mode === "feed" ? "Add a calendar link, or disconnect instead" : "Calendar link removed"); if (cfg().mode !== "feed") bsSheet(); return true; } feedConnect(v, true); return true; }
       case "feed-help": feedHelp(); return true;
       case "gc-connect": gcSheet(); return true;
+      case "manual": { const pk = window.SBLMS_PICKED || {}; connectSheet({manual: true, host: pk.lms === P.id ? pk.host : "", note: pk.school ? `Type ${pk.school.name}'s ${P.name} address. It's the one in your browser's address bar when you're signed in to ${P.name}.` : ""}); return true; }
       case "back": bsSheet(); return true;
       case "file": dlg.close(); pickFile(); return true;
       case "disconnect": disconnect(); return true;
@@ -2621,7 +2651,104 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   /* Choosing a platform */
   const LMS_MONO = {cv: "Canvas", bs: "D2L", bb: "Bb", md: "M", sg: "S", gc: "GC"};
   const pcard = L => { const on = L.connected(); return `<button class="bs-pcard${on ? " on" : ""}" data-act="${L.P.k}-open"><span class="bs-plogo bs-l-${L.P.k}${(LMS_MONO[L.P.k] || L.P.tag).length > 3 ? " long" : ""}" aria-hidden="true">${esc(LMS_MONO[L.P.k] || L.P.tag)}</span><span class="bs-pmain"><b>${esc(L.P.name)}</b><span class="mini">${esc(on ? L.statusLine() : L.P.blurb)}</span></span><span class="bs-pgo">${on ? "Open" : "Connect"}</span></button>`; };
+  /* School Sites in the apps: your school first. Connect works out which platform it uses (Canvas, Brightspace, Blackboard or
+     Moodle, from the lms-find function) and opens its sign-in; when that doesn't work, the platforms show, to pick one and type
+     its address */
+  const PICKED = window.SBLMS_PICKED = {school: null, host: "", lms: ""};
+  function schoolCfg(){ try { return sbConfig() || (SB_HOSTED ? SB_DEFAULT : null); } catch (e) { return null; } }
+  async function schoolCall(path, body){
+    const c = schoolCfg(); if (!c) throw new Error("offline");
+    const r = await fetch(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+  const pcardM = L => L.P.hs || L.connected() ? pcard(L) : pcard(L).replace(`data-act="${L.P.k}-open"`, `data-act="${L.P.k}-manual"`);
+  function appPickerSheet(){
+    const on = ALL().filter(L => L.connected()), finder = !!schoolCfg() && !inPreview();
+    const plats = `<div class="bs-plist">${ALL().filter(L => !L.P.hs && !L.connected()).sort((a, b) => (b.P.k === "cv") - (a.P.k === "cv")).map(pcardM).join("")}</div>
+        ${ALL().some(L => L.P.hs && !L.connected()) ? `<details class="bs-hs"><summary><b>High School Sites</b><span class="mini">Schoology and Google Classroom</span></summary>
+          <div class="bs-plist">${ALL().filter(L => L.P.hs && !L.connected()).map(pcardM).join("")}</div></details>` : ""}`;
+    openSheet(`<div class="sheet bs-sheet">${head(on.length ? "School Sites" : "Connect Your School")}
+      <div class="sheet-body">
+        <p style="margin:0">Bring in due dates, grades and announcements from your school's site automatically. Studyboard only reads from it.</p>
+        ${on.length ? `<div class="bs-plist">${on.map(pcard).join("")}</div>
+          <div><button type="button" class="btn" data-act="lms-sync-all">Sync Now</button> <span class="mini">Checks every connected school site now.</span></div>` : ""}
+        ${finder ? `<div class="bs-way rec bs-school">${on.length ? `<div class="bs-way-h"><b>Connect Another School Site</b></div>` : ""}
+          <div class="f bs-find"><label class="lh" for="bsSchoolIn">Your School</label>
+            <input type="text" id="bsSchoolIn" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bsSchoolList" placeholder="Start typing your school's name" autocomplete="off" spellcheck="false">
+            <ul id="bsSchoolList" class="bs-sugg" role="listbox" aria-label="Schools" hidden></ul></div>
+          <button type="button" class="btn primary bs-go" id="bsGo">Connect</button>
+          <span class="mini bs-find-msg" id="bsFindMsg" aria-live="polite"></span>
+          <button type="button" class="btn bs-didnt" id="bsDidnt" hidden>Didn't Work?</button></div>` : ""}
+        <div class="bs-plats" id="bsPlats"${finder ? " hidden" : ""}>${finder ? `<p class="mini" style="margin:0" id="bsPlatsNote">Choose your school's platform, then type its address.</p>` : ""}${plats}</div>
+        <p class="mini" style="margin:0;opacity:.8">Canvas and Instructure are trademarks of Instructure, Inc. All D2L marks, including Brightspace, are trademarks of D2L Corporation. Blackboard is a trademark of its owner. Moodle is a trademark of Moodle Pty Ltd. Schoology is a trademark of PowerSchool. Google Classroom is a trademark of Google LLC. Studyboard isn't affiliated with or endorsed by any of them.</p>
+      </div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+    if (finder) wireSchool();
+  }
+  function wireSchool(){
+    const inp = $("#bsSchoolIn"), list = $("#bsSchoolList"), msg = $("#bsFindMsg"), go = $("#bsGo"), didnt = $("#bsDidnt"), plats = $("#bsPlats"), note = $("#bsPlatsNote");
+    if (!inp || !list || !go || !plats) return;
+    let seq = 0, t = 0, found = [], active = -1, chosen = null, lookup = null;
+    PICKED.school = null; PICKED.host = ""; PICKED.lms = "";
+    const show = rows => {
+      found = rows; active = -1;
+      list.innerHTML = rows.map((x, i) => `<li role="option" id="bsSch${i}" data-i="${i}" aria-selected="false"><b>${esc(x.name)}</b><span>${esc([x.city, x.region, x.country].filter(Boolean).join(", "))}</span></li>`).join("");
+      list.hidden = !rows.length; inp.setAttribute("aria-expanded", String(!!rows.length));
+    };
+    const mark = i => { active = i; [...list.children].forEach((li, k) => li.setAttribute("aria-selected", String(k === i))); inp.setAttribute("aria-activedescendant", i >= 0 ? "bsSch" + i : ""); };
+    const tip = x => x && x.kind === "high_school" ? " High schools often use Schoology or Google Classroom (under High School Sites), or share their district's or school board's site, so ask a teacher if you're not sure." : "";
+    const openPlats = text => { plats.hidden = false; if (note) note.textContent = text; didnt.hidden = true; setTimeout(() => { try { plats.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }, 60); };
+    // picking a school starts finding its platform, so Connect is quick
+    const pick = x => { show([]); inp.value = x.name; chosen = x; msg.textContent = ""; PICKED.school = x; PICKED.host = ""; PICKED.lms = "";
+      lookup = schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"}).catch(() => ({error: true})); };
+    go.addEventListener("click", async () => {
+      if (!chosen) {
+        if (found.length) { msg.textContent = "Pick your school from the list."; inp.focus(); return; }
+        if (!inp.value.trim()) { msg.textContent = "Start typing your school's name, then pick it from the list."; inp.focus(); return; }
+        msg.textContent = ""; openPlats("Couldn't find that school. Choose its platform, then type its address."); return;
+      }
+      const x = chosen, my = ++seq;
+      go.disabled = true; go.textContent = "Finding Your School…";
+      let r; try { r = await (lookup || schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"})); } catch (e) { r = {error: true}; }
+      go.disabled = false; go.textContent = "Connect";
+      if (my !== seq) return;
+      const L = r && r.host && LMS[r.lms];
+      if (L) {
+        PICKED.host = r.host; PICKED.lms = r.lms;
+        msg.textContent = `${x.name} uses ${L.P.name} (${r.host}). Sign in there.`;
+        didnt.hidden = false;
+        L.doLogin(r.host).catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); });
+        return;
+      }
+      msg.textContent = "";
+      openPlats(r && r.error ? `Couldn't look up ${x.name} right now. Choose its platform, then type its address.`
+        : `Couldn't tell which platform ${x.name} uses. Choose it, then type its address.${tip(x)}`);
+    });
+    didnt.addEventListener("click", () => openPlats(`Choose your school's platform, then type its address.${tip(chosen)}`));
+    inp.addEventListener("input", () => {
+      clearTimeout(t); msg.textContent = ""; chosen = null; lookup = null; PICKED.school = null;
+      const q = inp.value.trim(); if (q.length < 2) { show([]); return; }
+      t = setTimeout(async () => {
+        const my = ++seq;
+        try { const r = await schoolCall("/rest/v1/rpc/search_schools", {p_q: q, p_limit: 8, p_kind: ""}); if (my === seq) show(Array.isArray(r) ? r : []); }
+        catch (e) { if (my === seq) show([]); }
+      }, 220);
+    });
+    inp.addEventListener("keydown", e => {
+      if (e.key === "Enter" && list.hidden) { e.preventDefault(); go.click(); return; }
+      if (list.hidden) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); mark(Math.min(found.length - 1, active + 1)); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); mark(Math.max(0, active - 1)); }
+      else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(found[active]); }
+      else if (e.key === "Escape") { e.stopPropagation(); show([]); }
+    });
+    list.addEventListener("pointerdown", e => { if (e.target.closest("li[data-i]")) e.preventDefault(); });
+    list.addEventListener("click", e => { const li = e.target.closest("li[data-i]"); if (!li) return; e.preventDefault(); pick(found[+li.dataset.i]); });
+    inp.addEventListener("blur", () => setTimeout(() => show([]), 250));
+  }
   function pickerSheet(){
+    if (lmsBridge()) return appPickerSheet();
     openSheet(`<div class="sheet bs-sheet">${head("Brightspace, Canvas, Blackboard and Moodle")}
       <div class="sheet-body">
         <p style="margin:0">Connect your school's learning platform to bring in due dates, grades and announcements automatically. Studyboard only reads from it.</p>

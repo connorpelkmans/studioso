@@ -1,0 +1,131 @@
+// node tests/pdf-edit.test.js
+// The PDF editor's engine (module 99-pdf-edit): reading page content, taking letters out, and writing the edited file
+const assert = require("assert"), path = require("path");
+const L = require("pdf-lib");
+const src = require("../scripts/app-files").source();
+const block = (a, b, names) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, "markers " + a); return new Function(src.slice(i + a.length, j) + `; return {${names}};`)(); };
+const E = block("/*PDFEDIT-ENGINE-START*/", "/*PDFEDIT-ENGINE-END*/", "pdeLex, pdeStrip, pdeBake, pdeProbe, pdeBadChars, pdeTidy, pdeInside, pdeCmap");
+let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
+const enc = s => Buffer.from(s, "latin1");
+const dec = u8 => Buffer.from(u8).toString("latin1");
+
+// A one-page PDF from a content stream, with Helvetica as /F1 (no widths in the file, like many generators)
+function pdf(content, extra){
+  const objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 6 0 R >> >> /Contents 5 0 R${(extra && extra.page) || ""} >>`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>"];
+  if (extra && extra.objs) objs.push(...extra.objs);
+  let out = "%PDF-1.4\n"; const offs = [];
+  objs.forEach((o, i) => { offs.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const x = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offs.map(o => String(o).padStart(10, "0") + " 00000 n \n").join("") + `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R${(extra && extra.trailer) || ""} >>\nstartxref\n${x}\n%%EOF`;
+  return new Uint8Array(enc(out));
+}
+let pdfjs = null;
+async function textOf(bytes){
+  if (!pdfjs) pdfjs = await import(path.join(__dirname, "..", "node_modules", "pdfjs-dist", "legacy", "build", "pdf.mjs"));
+  const doc = await pdfjs.getDocument({data: bytes.slice(), disableFontFace: true, isEvalSupported: false, verbosity: 0}).promise;
+  const tc = await (await doc.getPage(1)).getTextContent();
+  return tc.items.filter(i => i.str.trim()).map(i => ({s: i.str, x: i.transform[4], y: i.transform[5], w: i.width, fs: Math.hypot(i.transform[2], i.transform[3])}));
+}
+const region = (it, extra) => Object.assign({k: "t", p: 1, o: [it.x, it.y], r: 0, w: it.w, y0: -0.22 * it.fs, y1: 0.9 * it.fs, fs: it.fs, f: "h", b: 0, i: 0, c: "#000000", bg: "#ffffff", old: it.s}, extra);
+
+(async () => {
+  /* Reading content */
+  const ops = E.pdeLex(enc("q % a comment (not a string)\n/P <</MCID 3 /Alt (a\\)b)>> BDC BT /F1 12 Tf (a\\(b\\)c \\101\\\\ (nest) x) Tj <48 65 6c 6C 6f> Tj [(A) -120 (B)] TJ ET EMC\nBI /W 2 /H 1 /BPC 8 /CS /G ID \x00EI\xffx EI Q"));
+  const names = ops.map(o => o.op);
+  ok(names.join(" ") === "q BDC BT Tf Tj Tj TJ ET EMC BI Q", "operators in order, with comments, dictionaries and an inline image skipped: " + names.join(" "));
+  ok(dec(ops[4].args[0].v) === "a(b)c A\\ (nest) x", "literal strings: escapes, octal and nested brackets");
+  ok(dec(ops[5].args[0].v) === "Hello", "hex strings");
+  ok(ops[6].args[0].v.length === 3 && ops[6].args[0].v[1].v === -120, "TJ arrays keep their spacing numbers");
+  ok(names[9] === "BI" && names[10] === "Q", "image data that happens to hold “EI” doesn't end the image early");
+
+  /* Taking letters out without moving the others */
+  const c1 = "BT /F1 14 Tf 72 700 Td (Mitochondria produce most of the cell's ATP.) Tj ET\nBT /F1 14 Tf 72 676 Td (Ribosomes build proteins.) Tj ET";
+  const b1 = pdf(c1), t1 = await textOf(b1);
+  const line = t1.find(i => /Mitochondria/.test(i.s));
+  const hv = L.StandardFontEmbedder.for(L.StandardFonts.Helvetica), wd = s => hv.widthOfTextAtSize(s, 14);
+  const x0 = 72 + wd("Mitochondria produce "), x1 = x0 + wd("most");
+  const r1 = await E.pdeBake(L, b1, [{k: "w", p: 1, o: [x0 + 1, 696], r: 0, w: x1 - x0 - 2, h: 14, bg: "#ffffff"}]);
+  const t1b = await textOf(r1.bytes), rest = t1b.filter(i => /Mitochondria|of the cell/.test(i.s));
+  ok(!t1b.some(i => /most/.test(i.s)) && rest.length >= 1, "a white-out takes out just the word under it: " + t1b.map(i => i.s).join(" | "));
+  const of = t1b.find(i => /of the cell/.test(i.s));
+  ok(of && Math.abs(of.x - (x1 + wd(" "))) < 0.6 || (rest.length === 1 && /Mitochondria produce\s+of the cell/.test(rest[0].s)), "the words after it stay exactly where they were");
+  ok(t1b.some(i => i.s === "Ribosomes build proteins."), "other lines aren't touched");
+
+  /* Replacing a line keeps the PDF's font when it has the letters */
+  const r2 = await E.pdeBake(L, b1, [region(line, {t: "Chloroplasts produce most of the cell's sugar."})]);
+  const t2 = await textOf(r2.bytes);
+  ok(t2.some(i => /Chloroplasts produce most of the cell.s sugar\./.test(i.s)) && !t2.some(i => /Mitochondria|ATP/.test(i.s)), "the line's text is replaced in the file");
+  ok(r2.report.kept === 1 && r2.report.swapped === 0 && r2.report.covered === 0, "in the PDF's own font, with nothing left to cover: " + JSON.stringify(r2.report));
+  const nl = t2.find(i => /Chloroplasts/.test(i.s));
+  ok(Math.abs(nl.x - 72) < 0.01 && Math.abs(nl.y - 700) < 0.01 && Math.abs(nl.fs - 14) < 0.01, "on the same baseline, at the same size");
+  const r2b = await E.pdeBake(L, b1, [region(line, {t: "Mitochondria café"})]);
+  ok(r2b.report.swapped === 1 && (await textOf(r2b.bytes)).some(i => /Mitochondria/.test(i.s)), "a letter the font can't draw (é) falls back to a standard font rather than failing");
+  const r2c = await E.pdeBake(L, b1, [region(line, {t: ""})]);
+  ok(!(await textOf(r2c.bytes)).some(i => /Mitochondria/.test(i.s)), "an empty line removes the text");
+
+  /* Kerning arrays, ' and ", Tz and Tc, and a WinAnsi font */
+  const c3 = "BT /F2 12 Tf 14 TL 80 600 Td [(Mid) 40 (term) -250 (on) -250 (Friday)] TJ (Second line) ' 2 0.5 (Third line) \" 110 Tz 1 Tc 0 -40 Td (Wide caf\xe9 text) Tj ET";
+  const b3 = pdf(c3), t3 = await textOf(b3);
+  for (const want of ["Second line", "Third line", "Wide café text"]) {
+    const it = t3.find(i => i.s.includes(want.split(" ")[0])); assert(it, want);
+    const r = await E.pdeBake(L, b3, [region(it, {f: "t", t: "Changed: " + want})]);
+    const tx = (await textOf(r.bytes)).map(i => i.s).join(" | ");
+    ok(tx.includes("Changed: " + want) && tx.split(want).length === 2 && r.report.covered === 0, `replaced a line shown with ${want === "Second line" ? "'" : want === "Third line" ? '"' : "Tz and Tc"}: ${tx}`);
+  }
+  const mid = t3.find(i => /Mid/.test(i.s)), r3 = await E.pdeBake(L, b3, [region(mid, {f: "t", t: "Final on Monday"})]);
+  ok((await textOf(r3.bytes)).some(i => i.s === "Final on Monday") && r3.report.kept === 1, "a TJ line with kerning is replaced in the PDF's own font");
+
+  /* Unbalanced q/Q and a moved, rotated coordinate system */
+  const c4 = "Q 1 0 0 1 100 100 cm q 0 1 -1 0 300 200 cm BT /F1 12 Tf 0 0 Td (Turned text here) Tj ET";
+  const b4 = pdf(c4), t4 = await textOf(b4), turned = t4.find(i => /Turned/.test(i.s));
+  const tr = turned && (await (async () => { const pj = await import(path.join(__dirname, "..", "node_modules", "pdfjs-dist", "legacy", "build", "pdf.mjs")); const d = await pj.getDocument({data: b4.slice(), verbosity: 0}).promise; const it = (await (await d.getPage(1)).getTextContent()).items.find(i => /Turned/.test(i.str)); return it.transform; })());
+  const rot = Math.atan2(tr[1], tr[0]) * 180 / Math.PI;
+  const r4 = await E.pdeBake(L, b4, [region(turned, {r: rot, t: "Upright now"})]);
+  const t4b = await textOf(r4.bytes);
+  ok(!t4b.some(i => /Turned/.test(i.s)) && t4b.some(i => i.s === "Upright now"), "rotated text inside a moved coordinate system is found and replaced (rotation " + Math.round(rot) + "°)");
+  const nu = t4b.find(i => i.s === "Upright now");
+  ok(Math.abs(nu.x - turned.x) < 0.01 && Math.abs(nu.y - turned.y) < 0.01, "and lands where the old text started, even after an extra Q in the page");
+
+  /* Two-byte fonts (Identity-H) with a ToUnicode map, as Word and Chrome write them */
+  const cmap = "/CIDInit /ProcSet findresource begin 12 dict begin begincmap 1 begincodespacerange <0000> <FFFF> endcodespacerange 3 beginbfchar <0003> <0020> <0010> <0041> <0011> <0042> endbfchar 1 beginbfrange <0020> <0022> <0063> endbfrange endcmap end end";
+  const cm = E.pdeCmap(enc(cmap));
+  ok(cm.map.get(0x10) === "A" && cm.map.get(0x21) === "d" && cm.map.get(3) === " ", "ToUnicode maps: single codes and ranges");
+  const c5 = "BT /F3 12 Tf 72 500 Td <0010001100030020> Tj ET";
+  const b5 = pdf(c5, {page: "", objs: [`<< /Type /Font /Subtype /Type0 /BaseFont /ABCDEF+Calibri /Encoding /Identity-H /DescendantFonts [8 0 R] /ToUnicode 9 0 R >>`, `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /ABCDEF+Calibri /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /DW 500 /W [3 [250] 16 [600 550]] /FontDescriptor 10 0 R >>`, `<< /Length ${cmap.length} >>\nstream\n${cmap}\nendstream`, "<< /Type /FontDescriptor /FontName /ABCDEF+Calibri /Flags 32 /FontBBox [0 0 1000 1000] /ItalicAngle 0 /Ascent 750 /Descent -250 /CapHeight 700 /StemV 80 >>"]});
+  const b5f = new Uint8Array(enc(dec(b5).replace("/Font << /F1 4 0 R /F2 6 0 R >>", "/Font << /F1 4 0 R /F2 6 0 R /F3 7 0 R >>")));
+  const doc5 = await L.PDFDocument.load(b5f);
+  const e5 = {k: "t", p: 1, o: [72, 500], r: 0, w: 600 * 0.012 + 550 * 0.012 + 3 + 6, y0: -3, y1: 11, fs: 12, f: "h", old: "AB c", t: "BA d"};
+  const pr = E.pdeProbe(L, doc5, 1, [e5])[0];
+  ok(pr && pr.hits === 3 && pr.keep === true && pr.base === "Calibri" && !pr.serif, "a two-byte font: its letters are found, it can draw “BA d”, and its name is read: " + JSON.stringify(pr));
+  ok(E.pdeProbe(L, doc5, 1, [Object.assign({}, e5, {t: "Zebra"})])[0].keep === false, "but not letters it doesn't have (cut-down fonts)");
+  const r5 = await E.pdeBake(L, b5f, [e5]), body = await (async () => { const d = await L.PDFDocument.load(r5.bytes); const pg = d.getPages()[0].node, cs = d.context.lookup(pg.get(L.PDFName.of("Contents"))); return [0, 1].map(k => dec(L.decodePDFRawStream(d.context.lookup(cs.get(k))).decode())).join("\n"); })();
+  ok(/\/F3 12 Tf/.test(body) && /<0011001000030021>/.test(body), "it's written with the same font and two-byte codes");
+  ok(/\[\s*(-?[\d.]+\s*)*\]\s*TJ/.test(body) && !/<0010001100030020>/.test(body), "and the old letters are gone from the page");
+
+  /* Locked files */
+  const b6 = pdf("BT /F1 12 Tf 72 700 Td (Secret) Tj ET", {objs: ["<< /Filter /Standard /V 1 /R 2 /O (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) /U (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) /P -4 >>"], trailer: " /Encrypt 7 0 R /ID [<00> <00>]"});
+  let locked = null; try { await E.pdeBake(L, b6, [{k: "w", p: 1, o: [70, 690], r: 0, w: 60, h: 20}]); } catch (e) { locked = e; }
+  ok(locked && locked.code === "locked", "an encrypted PDF is refused, not written broken");
+
+  /* Text the PDF's fonts can draw */
+  const r2d = await E.pdeBake(L, b1, [region(line, {t: "Arrow → here"})]);
+  ok((await textOf(r2d.bytes)).some(i => /Arrow \? here/.test(i.s)), "a letter no font here can draw becomes ? instead of stopping the save");
+  ok(E.pdeBadChars("Café – “quotes” €5").length === 0 && E.pdeBadChars("日本 ok ж").join("") === "日本ж", "letters outside Windows-1252 are caught before saving");
+  ok(E.pdeTidy("a‑b c​d−e") === "a-b cd-e", "pasted text is tidied (non-breaking hyphens, spaces, invisible characters, minus signs)");
+
+  /* What's kept on the file (and synced) is checked */
+  const fn = src.slice(src.indexOf("function normPdfEdits("), src.indexOf("\n}\n", src.indexOf("function normPdfEdits(")) + 2);
+  const norm = new Function(fn + "; return normPdfEdits;")();
+  const kept = norm([{id: "a", a: "r1", p: 2, k: "t", o: [1, 2], r: 0, w: 50, y0: -2, y1: 9, fs: 10, t: "x", old: "y", c: "#FF0000", bg: "#fff", cf: "\"Georgia\",serif"},
+    {id: "b", k: "w", p: 1, o: [0, 0], w: 0, h: 5}, {id: "c", k: "n", p: 1, o: [5, 5], fs: 9999, t: "z".repeat(5000), c: "red", f: "comic"}, {id: "a", k: "n", p: 1, o: [0, 0], fs: 9}, {id: "<x>", k: "n", p: 1, o: [0, 0], fs: 9},
+    {id: "d", k: "t", p: 1, o: [0, 0], w: 5, y0: 4, y1: 2, fs: 9}, {id: "e", k: "t", p: 1, o: [0, 0], w: 5, y0: 0, y1: 2, fs: 9, cf: "x;background:url(evil)"}], 200);
+  ok(kept.map(e => e.id).join() === "a,c,e", "bad edits are dropped (no size, duplicate or odd ids, upside-down areas)");
+  ok(kept[0].c === "#ff0000" && kept[0].bg === "#ffffff" && kept[0].cf === "\"Georgia\",serif", "colors must be #rrggbb, font names plain");
+  ok(kept[1].fs === 500 && kept[1].t.length === 2000 && kept[1].c === "#000000" && kept[1].f === "h", "sizes, lengths, colors and fonts are clamped");
+  ok(!("cf" in kept[2]), "a font name that could carry CSS is dropped");
+
+  console.log(`\n${n} checks passed`);
+})().catch(e => { console.error("FAIL:", e && e.stack || e); process.exit(1); });

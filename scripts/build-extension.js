@@ -43,6 +43,8 @@ function manifests() {
   delete safari.externally_connectable;
   safari.background = { scripts: ["background.js"], persistent: false };
   safari.browser_specific_settings = { safari: { strict_min_version: "17.0" } };
+  // The App Store rejects a Safari extension whose manifest description is longer than 112 characters (Chrome allows 132)
+  safari.description = "Keeps Studyboard up to date with your Canvas, Brightspace, Blackboard or Moodle: due dates and grades.";
   return { chrome, firefox, safari };
 }
 

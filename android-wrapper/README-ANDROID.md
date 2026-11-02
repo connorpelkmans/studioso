@@ -1,8 +1,39 @@
-# Studyboard for Android: Capacitor wrapper, quick capture, push, purchases (source templates)
+# Studyboard for Android: Capacitor wrapper, quick capture, push, purchases
 
-> **Verification status: UNTESTED on a device.** No Android Studio, Gradle, emulator or device was available. The Kotlin sources were type-checked with `kotlinc` 2.1 against the Robolectric `android-all` API 34 jar, the Capacitor 7 core jar and a stub `ExifInterface` (so API names and nullability are checked, a real build is not). The XML was parsed for well-formedness. Run section 7 on real devices before release.
+> **Status:** `npm run android:build` makes the Android project, merges everything in this folder into it and builds with Gradle. A debug `.apk` was built from the Studyboard sources on 2 November 2026 (package `com.studyboardapp.studyboard`, versionCode 11504, target API 36), so the Kotlin sources compile. **Not yet run on a phone or emulator**: do the checks in section 7 before you upload.
 
-There is no Android project in the repo. This folder is a **merge set** for the project `npx cap add android` creates (Capacitor 8; appId `com.studioso.app`, see `../ios-wrapper/capacitor.config.json`; reuse that file, change `webDir` if you stage web files differently).
+## 0. Quick start (this is all you need to build)
+
+Needs: Node 22, **JDK 21** (Android Studio's own JDK works) and the **Android SDK** with platform 36 and build-tools 36 (Android Studio installs both; or set `ANDROID_HOME`).
+
+```bash
+npm ci
+npm run android:debug        # a debug .apk: android-wrapper/android/app/build/outputs/apk/debug/app-debug.apk
+npm run android:build        # the debug .apk and the release .aab
+```
+
+The generated project is `android-wrapper/android` (not committed; the script makes it again any time). Open it in Android Studio with `npx cap open android` from `android-wrapper/`, or install the APK with `adb install -r android-wrapper/android/app/build/outputs/apk/debug/app-debug.apk`.
+
+**Upload key (once).** Google Play needs the `.aab` signed with your own upload key:
+
+```bash
+keytool -genkeypair -v -keystore ~/studyboard-upload.jks -alias studyboard -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Keep the `.jks` file and its passwords somewhere safe (a password manager): if you lose them you can't update the app without Google's key-reset process. Then create `android-wrapper/keystore.properties` (it's git-ignored):
+
+```
+storeFile=/Users/you/studyboard-upload.jks
+storePassword=YOUR-STORE-PASSWORD
+keyAlias=studyboard
+keyPassword=YOUR-KEY-PASSWORD
+```
+
+and run `npm run android:build`. The signed bundle is `android-wrapper/android/app/build/outputs/bundle/release/app-release.aab`. **The versionCode must rise on every upload**: it comes from `package.json` (1.15.4 gives 11504). For a second upload of the same version, run `ANDROID_VERSION_CODE=11505 npm run android:build`.
+
+**Push reminders** need `android-wrapper/google-services.json` from your Firebase project (section 4); without it the app builds and push stays off.
+
+The rest of this file explains what each part does.
 
 ## 1. Files
 
@@ -43,11 +74,11 @@ Then merge the files from section 1 into `android/` (copy the Kotlin files liste
 
 ```kotlin
 // android/app/src/main/java/com/studioso/app/MainActivity.kt (Capacitor generates MainActivity.java: replace it with this Kotlin file)
-package com.studioso.app
+package com.studyboardapp.studyboard
 import android.os.Bundle
 import com.getcapacitor.BridgeActivity
-import com.studioso.app.capture.StudyboardCaptureTokenPlugin
-import com.studioso.app.capture.StudyboardSharedQueuePlugin
+import com.studyboardapp.studyboard.capture.StudyboardCaptureTokenPlugin
+import com.studyboardapp.studyboard.capture.StudyboardSharedQueuePlugin
 class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(StudyboardCaptureTokenPlugin::class.java)
@@ -81,14 +112,14 @@ The web layer calls the same functions as on iOS (cap-server's Settings UI): `wi
 
 **Push.** Web Push never works inside the Android WebView; the app uses `@capacitor/push-notifications` (Firebase Cloud Messaging).
 
-1. Firebase console: create a project (or use one), add an Android app with package `com.studioso.app`, download **`google-services.json`** into `android/app/`. Capacitor 8's template already has the `com.google.gms:google-services` classpath and applies the plugin only when that file exists.
+1. Firebase console: create a project (or use one), add an Android app with package `com.studyboardapp.studyboard`, download **`google-services.json`** into `android/app/`. Capacitor 8's template already has the `com.google.gms:google-services` classpath and applies the plugin only when that file exists.
 2. In `native-bridge.js` set `PUSH_READY.android = true` (it is `false` so a build without `google-services.json` never tries to register).
 3. Android 13+ shows the notification permission prompt when the page calls `StudyboardNative.enablePush()` (`POST_NOTIFICATIONS` is in the manifest additions). It resolves `{platform: "android", kind: "fcm", token}` or `null`; `StudyboardNative.pushAvailable` says whether to offer push at all. Call `enablePush({prompt: false})` on every start to save a changed token.
 4. Server: send-reminders must send through the **FCM HTTP v1 API** (`https://fcm.googleapis.com/v1/projects/<project-id>/messages:send`) with a Google service account (Firebase console > Project settings > Service accounts > generate key; store it as a server secret, never in the app). Put `taskId` and `rid` in the message `data` so a tap opens the task.
 5. Optional: `com.google.firebase.messaging.default_notification_icon` / `default_notification_channel_id` meta-data (see the plugin README) for a monochrome status-bar icon and a named channel.
 6. Play "Data safety": declare **Device or other IDs** (the FCM token, linked, app functionality) in addition to the items in section 6.
 
-**Purchases.** Pro is sold with **Google Play Billing** through RevenueCat (`@revenuecat/purchases-capacitor`, installed in section 2). In RevenueCat add a Play Store app for `com.studioso.app` (service-account credentials for Play), attach the Play subscription products to the same `pro` entitlement and the same offering (monthly + annual packages) as iOS, and put the **public** `goog_...` SDK key in `native-bridge.js` (`RC_KEYS.android`). Until that key is set, `StudyboardNative.purchasesAvailable` is `false`, the bridge does not claim `studyboard:plan-checkout` / `plan-restore`, and the page must hide Buy. Manage opens RevenueCat's `managementURL` or `https://play.google.com/store/account/subscriptions?package=com.studioso.app`. Play's payments policy forbids linking to an outside payment page for digital goods, so the bridge's payment-host block applies here too.
+**Purchases.** Pro is sold with **Google Play Billing** through RevenueCat (`@revenuecat/purchases-capacitor`, installed in section 2). In RevenueCat add a Play Store app for `com.studyboardapp.studyboard` (service-account credentials for Play), attach the Play subscription products to the same `pro` entitlement and the same offering (monthly + annual packages) as iOS, and put the **public** `goog_...` SDK key in `native-bridge.js` (`RC_KEYS.android`). Until that key is set, `StudyboardNative.purchasesAvailable` is `false`, the bridge does not claim `studyboard:plan-checkout` / `plan-restore`, and the page must hide Buy. Manage opens RevenueCat's `managementURL` or `https://play.google.com/store/account/subscriptions?package=com.studyboardapp.studyboard`. Play's payments policy forbids linking to an outside payment page for digital goods, so the bridge's payment-host block applies here too.
 
 ## 5. Voice assistants: the honest state of things
 
@@ -100,7 +131,7 @@ The web layer calls the same functions as on iOS (cap-server's Settings UI): `wi
 ## 6. Other config
 
 * **Network:** `network_security_config.xml` forbids cleartext everywhere, trusts only system CAs, no pinning. `usesCleartextTraffic="false"` too.
-* **App Links:** use the **same domain** as the iOS `applinks:` entry (`YOUR-DOMAIN.example` in both places until you fill it in). Replace it in the manifest's `android:host`, fill in `assetlinks.template.json` (package `com.studioso.app`; the SHA-256 fingerprint of the **Play App Signing** key from Play Console > Test and release > App integrity, plus your upload/debug key if you test sideloaded builds) and host it at `https://YOUR-DOMAIN.example/.well-known/assetlinks.json` (exact path, HTTPS, `Content-Type: application/json`, no redirect). Check with `adb shell pm get-app-links com.studioso.app` (state `verified`).
+* **App Links:** use the **same domain** as the iOS `applinks:` entry (`YOUR-DOMAIN.example` in both places until you fill it in). Replace it in the manifest's `android:host`, fill in `assetlinks.template.json` (package `com.studyboardapp.studyboard`; the SHA-256 fingerprint of the **Play App Signing** key from Play Console > Test and release > App integrity, plus your upload/debug key if you test sideloaded builds) and host it at `https://YOUR-DOMAIN.example/.well-known/assetlinks.json` (exact path, HTTPS, `Content-Type: application/json`, no redirect). Check with `adb shell pm get-app-links com.studyboardapp.studyboard` (state `verified`).
 * **Backup:** nothing is backed up or moved to a new phone. `allowBackup` is false, and because Android 12+ ignores that flag once `dataExtractionRules` is set, `data_extraction_rules.xml` (and `backup_rules.xml` for older versions) excludes every domain too: the WebView data (Supabase session, Canvas token, school sign-in cookies), the capture token (its Keystore key cannot move anyway) and the queues. Everything is re-synced from the account after sign-in.
 * **Play 'Data safety':** capture sends the user's task text to the app's own Supabase project ("App activity / user content, collected, linked, for app functionality"). Push adds Device or other IDs (section 4); purchases add Purchase history (RevenueCat/Google Play). Keep the form consistent.
 * **ProGuard:** `proguard-rules.additions.pro` keeps plugin and entry-point classes. Test a **release** (minified) build: Capacitor plugins found by reflection are the usual failure.
@@ -112,19 +143,19 @@ Install a debug build, sign in, and create the capture token in Settings. Then:
 
 ```bash
 # Share text: a dialog must appear; nothing is sent until "Add to Studyboard" (Cancel / back = nothing sent)
-adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "bio lab report friday" -n com.studioso.app/.capture.ShareReceiverActivity
+adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "bio lab report friday" -n com.studyboardapp.studyboard/.capture.ShareReceiverActivity
 
 # file:// streams are refused ("Couldn't read that image."); test images from the Photos/Gallery share sheet instead
-adb shell am start -a android.intent.action.SEND -t image/jpeg --eu android.intent.extra.STREAM file:///sdcard/Download/test.jpg -n com.studioso.app/.capture.ShareReceiverActivity
+adb shell am start -a android.intent.action.SEND -t image/jpeg --eu android.intent.extra.STREAM file:///sdcard/Download/test.jpg -n com.studyboardapp.studyboard/.capture.ShareReceiverActivity
 
 # Deep links
-adb shell am start -a android.intent.action.VIEW -d "studyboard://add?text=bio%20lab%20report&due=friday&course=Biology&source=shortcut" com.studioso.app
-adb shell am start -a android.intent.action.VIEW -d "studyboard://capture?photo=1" com.studioso.app
-adb shell am start -a android.intent.action.VIEW -d "studyboard://action/quickadd" com.studioso.app
+adb shell am start -a android.intent.action.VIEW -d "studyboard://add?text=bio%20lab%20report&due=friday&course=Biology&source=shortcut" com.studyboardapp.studyboard
+adb shell am start -a android.intent.action.VIEW -d "studyboard://capture?photo=1" com.studyboardapp.studyboard
+adb shell am start -a android.intent.action.VIEW -d "studyboard://action/quickadd" com.studyboardapp.studyboard
 
 # Shortcuts / links resolved
 adb shell dumpsys shortcut | grep -A3 -i studyboard
-adb shell pm get-app-links com.studioso.app
+adb shell pm get-app-links com.studyboardapp.studyboard
 
 # Logs: confirm NO token, push token or task text is printed
 adb logcat | grep -i -E "studyboard|capture"

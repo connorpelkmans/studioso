@@ -1,7 +1,7 @@
 /* ===== module: 99-release.js ===== */
 /* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.3";
+  const VERSION = "1.15.4";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "October 27, 2026", TERMS_UPDATED = "October 27, 2026";
@@ -191,6 +191,7 @@
       <li><b>Permanent Marker</b> typeface (the Whiteboard's marker writing), by Font Diner, Inc. Apache License 2.0.</li>
       <li><b>Patrick Hand</b>, <b>Caveat</b>, <b>Kalam</b> and <b>Gochi Hand</b> typefaces (the Whiteboard's writing styles), by Patrick Wagesreiter, the Caveat Project Authors, Indian Type Foundry and HT Fonts. SIL Open Font License 1.1.</li>
       <li><b>PDF.js</b> (pdfjs-dist 6.4.299), by Mozilla, reads the PDFs you import. Apache License 2.0.</li>
+      <li><b>pdf-lib</b> 1.17.1, by Andrew Dillon, writes the PDFs you edit in the reader. MIT License.</li>
       <li><b>fzstd</b> 0.1.1, by Arjun Barrett, unpacks newer Anki files when you import them. MIT License.</li>
       <li><b>Supabase JS</b>, by Supabase, connects to your account. MIT License.</li>
       <li><b>Electron</b>, by the OpenJS Foundation, runs the desktop app. MIT License.</li>

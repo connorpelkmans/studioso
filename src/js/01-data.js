@@ -312,7 +312,39 @@ function normFile(f){
   if (f.cloud != null && (typeof f.cloud !== "object" || !["google", "microsoft"].includes(f.cloud.p) || !f.cloud.id)) delete f.cloud;
   if (f.kind === "cloud" && !f.cloud) f.kind = "link";
   if (f.ink != null) { const k = normInk(f.ink, 4000); if (k) f.ink = k; else delete f.ink; }
+  if (f.pe != null) { const k = normPdfEdits(f.pe, 200); if (k) f.pe = k; else delete f.pe; }
   return f;
+}
+// Text edits on a PDF that aren't saved into the file yet (module 99-pdf-edit): page units, kept per version (a)
+function normPdfEdits(list, max){
+  if (!Array.isArray(list)) return undefined;
+  const fin = (v, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v * 1000) / 1000)) : null; };
+  const hex = v => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : null;
+  const seen = new Set(), out = [];
+  for (const e of list) {
+    if (out.length >= max) break;
+    if (!e || typeof e !== "object" || typeof e.id !== "string" || !/^[\w-]{1,40}$/.test(e.id) || seen.has(e.id) || !["t", "n", "w"].includes(e.k)) continue;
+    const o = Array.isArray(e.o) && e.o.length === 2 ? [fin(e.o[0], -1e5, 1e5), fin(e.o[1], -1e5, 1e5)] : null, p = fin(e.p, 1, 99999);
+    if (!o || o[0] == null || o[1] == null || !p) continue;
+    const x = {id: e.id, a: String(e.a == null ? "" : e.a).slice(0, 120), p: Math.round(p), k: e.k, o, r: fin(e.r, -360, 360) || 0, at: Number(e.at) > 0 ? Math.round(Number(e.at)) : 0};
+    if (e.k === "w") {
+      x.w = Number(e.w) > 0 ? fin(e.w, 0.1, 1e5) : null; x.h = Number(e.h) > 0 ? fin(e.h, 0.1, 1e5) : null; x.bg = hex(e.bg) || "#ffffff";
+      if (!x.w || !x.h) continue;
+    } else {
+      x.fs = fin(e.fs, 1, 500); x.f = ["h", "t", "c"].includes(e.f) ? e.f : "h"; x.b = e.b ? 1 : 0; x.i = e.i ? 1 : 0; x.c = hex(e.c) || "#000000";
+      x.t = typeof e.t === "string" ? e.t.slice(0, 2000) : "";
+      if (!x.fs) continue;
+      if (e.k === "t") {
+        x.w = fin(e.w, 0, 1e5); x.y0 = fin(e.y0, -1e4, 1e4); x.y1 = fin(e.y1, -1e4, 1e4); x.bg = hex(e.bg) || "#ffffff";
+        x.old = typeof e.old === "string" ? e.old.slice(0, 2000) : ""; x.s0 = fin(e.s0, 1, 500) || x.fs;
+        if (e.keep === false) x.keep = false;
+        if (typeof e.cf === "string" && /^[\w ",'-]{1,200}$/.test(e.cf)) x.cf = e.cf;
+        if (x.w == null || x.y0 == null || x.y1 == null || x.y1 <= x.y0) continue;
+      }
+    }
+    seen.add(e.id); out.push(x);
+  }
+  return out.length ? out : undefined;
 }
 // Pen ink (the iPad app's handwriting, module 99-ink), on a PDF (f.ink) or a note (n.ink)
 function normInk(list, max){

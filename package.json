@@ -1,7 +1,7 @@
 {
   "name": "studyboard",
   "productName": "Studyboard",
-  "version": "1.15.3",
+  "version": "1.15.4",
   "description": "Studyboard: a student planner for courses, deadlines, study sessions and flashcards",
   "author": {
     "name": "Studyboard",
@@ -37,7 +37,9 @@
     "build:site": "node scripts/build-site.js",
     "build:extension": "node scripts/build-extension.js",
     "check:release": "node scripts/check-release.js",
-    "ios:upload": "node scripts/ios-upload.js"
+    "ios:upload": "node scripts/ios-upload.js",
+    "android:build": "node scripts/android-build.js",
+    "android:debug": "node scripts/android-build.js debug"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
@@ -54,13 +56,14 @@
     "electron-builder": "^26.15.3",
     "eslint": "^9.39.5",
     "globals": "^16.5.0",
+    "pdf-lib": "1.17.1",
     "pdfjs-dist": "6.4.299",
     "playwright": "1.56.1"
   },
   "build": {
     "appId": "com.studioso.app",
     "productName": "Studyboard",
-    "copyright": "Copyright \u00a9 2026 Connor Pelkmans (Studyboard)",
+    "copyright": "Copyright © 2026 Connor Pelkmans (Studyboard)",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -147,7 +150,7 @@
         "NSMicrophoneUsageDescription": "Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
-        "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ElectronTeamID": "FYWQLN8Y8P"
       },
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -174,7 +177,7 @@
         "NSMicrophoneUsageDescription": "Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
-        "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ElectronTeamID": "FYWQLN8Y8P"
       },
       "appId": "com.studyboardapp.studyboard"
     },
@@ -190,7 +193,7 @@
         "NSMicrophoneUsageDescription": "Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
-        "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ElectronTeamID": "FYWQLN8Y8P"
       },
       "appId": "com.studyboardapp.studyboard"
     },

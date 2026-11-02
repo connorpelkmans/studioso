@@ -1,5 +1,6 @@
-// node tests/lms-find-school.e2e.js: connecting a school site by signing in, "Your School" suggests schools as you type, and
-// picking one fills in its school site address (search_schools and the lms-find function, faked here).
+// node tests/lms-find-school.e2e.js: connecting a school site by signing in: "Your School" suggests schools as you type, Connect
+// finds the school's site address and opens its sign-in; the address box shows only when it's needed (not found, or Didn't
+// Work?). search_schools, the lms-find function and the app's sign-in window are faked here.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -21,30 +22,47 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const cors = {"access-control-allow-origin": "*", "access-control-allow-headers": "*"};
       if (r.request().method() === "OPTIONS") return r.fulfill({status: 204, headers: cors});
       if (u.pathname === "/rest/v1/rpc/search_schools") { asked.push("search " + body);
-        return r.fulfill({status: 200, contentType: "application/json", headers: cors, body: JSON.stringify(/bcit|british/i.test(body) ? [{key: "bcit.ca", name: "British Columbia Institute of Technology", country: "Canada", region: "BC", city: "Burnaby", kind: "university"}] : [])}); }
-      if (u.pathname === "/functions/v1/lms-find") { asked.push("find " + body); return r.fulfill({status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({host: "learn.bcit.ca"})}); }
+        return r.fulfill({status: 200, contentType: "application/json", headers: cors, body: JSON.stringify(/bcit|british/i.test(body) ? [{key: "bcit.ca", name: "British Columbia Institute of Technology", country: "Canada", region: "BC", city: "Burnaby", kind: "university"}]
+          : /nowhere/i.test(body) ? [{key: "hs:us:069999900001", name: "Nowhere High School", country: "United States", region: "California", city: "Nowhere", kind: "high_school"}] : [])}); }
+      if (u.pathname === "/functions/v1/lms-find") { asked.push("find " + body); return r.fulfill({status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({host: /bcit/.test(body) ? "learn.bcit.ca" : ""})}); }
       return r.fulfill({status: 200, contentType: "application/json", headers: cors, body: "[]"});
     });
     await ctx.addInitScript(() => {
       localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1");
       // the phone app's school-site layer (signing in to the school's site)
-      window.studiosoLms = {connect: () => Promise.resolve({ok: false}), sync: () => Promise.resolve({}), signOut: () => Promise.resolve(), feed: () => Promise.resolve({})};
+      window.studiosoLms = {connect: (id, host) => { (window.__signins = window.__signins || []).push(id + " " + host); return Promise.resolve({ok: false, cancelled: true}); }, sync: () => Promise.resolve({}), signOut: () => Promise.resolve(), feed: () => Promise.resolve({})};
     });
     const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForTimeout(2500);
     await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "bs-open"; document.body.appendChild(b); b.click(); b.remove(); });
     await page.waitForSelector("#bsSchoolIn", {timeout: 5000});
-    ok(await page.evaluate(() => { const s = document.getElementById("bsSchoolIn"), h = document.getElementById("bsHostIn"); return !!s && !!h && !!(s.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING); }), "signing in to Brightspace starts with Your School, above the address");
+    ok(await page.isVisible("#bsSchoolIn") && await page.isVisible("#bsGo") && /Connect/.test(await page.textContent("#bsGo")) && !(await page.isVisible("#bsHostIn")) && !(await page.isVisible("#bsDidnt")),
+      "signing in to Brightspace starts with Your School and a Connect button; the address box is hidden");
     await page.fill("#bsSchoolIn", "bcit"); await page.waitForTimeout(600);
     const sugg = await page.evaluate(() => [...document.querySelectorAll("#bsSchoolList li")].map(li => li.textContent));
     ok(sugg.length === 1 && /British Columbia Institute of Technology/.test(sugg[0]) && /Burnaby/.test(sugg[0]) && await page.isVisible("#bsSchoolList"), "typing suggests schools in a list under the box: " + JSON.stringify(sugg));
     if (process.env.SHOT) { const b = await (await page.$(".bs-find")).boundingBox(); await page.screenshot({path: process.env.SHOT, clip: {x: 0, y: Math.max(0, b.y - 40), width: 430, height: 330}}); }
-    await page.tap("#bsSchoolList li"); await page.waitForTimeout(500);
-    if (process.env.SHOT) { const b = await (await page.$(".bs-find")).boundingBox(); await page.screenshot({path: process.env.SHOT.replace(".png", "-2.png"), clip: {x: 0, y: Math.max(0, b.y - 40), width: 430, height: 330}}); }
-    ok(await page.inputValue("#bsHostIn") === "learn.bcit.ca" && await page.inputValue("#bsSchoolIn") === "British Columbia Institute of Technology", "picking BCIT fills in its address, learn.bcit.ca");
-    ok(asked.some(a => /^find /.test(a) && /"key":"bcit.ca"/.test(a) && /"lms":"brightspace"/.test(a)), "asking for BCIT's Brightspace address");
-    ok(/Found it: learn\.bcit\.ca/.test(await page.textContent("#bsFindMsg")) && !(await page.isVisible("#bsSchoolList")), "it says so, and the list closes");
+    await page.tap("#bsSchoolList li"); await page.waitForTimeout(300);
+    ok(await page.inputValue("#bsSchoolIn") === "British Columbia Institute of Technology" && !(await page.isVisible("#bsHostIn")), "picking BCIT fills in the box; the address stays hidden");
+    await page.tap("#bsGo");
+    await page.waitForSelector("#lmsConsentYes", {timeout: 5000}); await page.click("#lmsConsentYes");
+    await page.waitForFunction(() => (window.__signins || []).length > 0, null, {timeout: 5000});
+    ok(JSON.stringify(await page.evaluate(() => window.__signins)) === JSON.stringify(["brightspace learn.bcit.ca"]) && asked.some(a => /^find /.test(a) && /"key":"bcit.ca"/.test(a) && /"lms":"brightspace"/.test(a)),
+      "Connect finds BCIT's address and opens its sign-in page, learn.bcit.ca");
+    await page.waitForTimeout(300);
+    ok(await page.isVisible("#bsDidnt") && /Didn't Work\?/.test(await page.textContent("#bsDidnt")) && !(await page.isVisible("#bsHostIn")), "a Didn't Work? button appears under Connect");
+    if (process.env.SHOT) { const b = await (await page.$(".bs-find")).boundingBox(); await page.screenshot({path: process.env.SHOT.replace(".png", "-2.png"), clip: {x: 0, y: Math.max(0, b.y - 40), width: 430, height: 400}}); }
+    await page.tap("#bsDidnt"); await page.waitForTimeout(200);
+    ok(await page.isVisible("#bsHostIn") && await page.inputValue("#bsHostIn") === "learn.bcit.ca" && await page.isVisible('#bsManual [data-act="bs-login"]') && !(await page.isVisible("#bsDidnt")), "Didn't Work? shows the address box, to type it in yourself");
+    if (process.env.SHOT) { const b = await (await page.$(".bs-find")).boundingBox(); await page.screenshot({path: process.env.SHOT.replace(".png", "-3.png"), clip: {x: 0, y: Math.max(0, b.y - 40), width: 430, height: 520}}); }
+    // a school whose address isn't found: the address box shows by itself
+    await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
+    await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "bs-open"; document.body.appendChild(b); b.click(); b.remove(); });
+    await page.waitForSelector("#bsSchoolIn");
+    await page.fill("#bsSchoolIn", "nowhere"); await page.waitForTimeout(600); await page.tap("#bsSchoolList li"); await page.tap("#bsGo"); await page.waitForTimeout(500);
+    ok(await page.isVisible("#bsHostIn") && /Couldn't find Nowhere High School's Brightspace address/.test(await page.textContent("#bsFindMsg")) && /High schools usually share/.test(await page.textContent("#bsFindMsg")) && (await page.evaluate(() => window.__signins.length)) === 1,
+      "not found: it says so and shows the address box, without opening a sign-in");
     await ctx.close();
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log(`lms-find-school.e2e: ${n} checks passed`);

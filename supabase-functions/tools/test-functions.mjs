@@ -1052,16 +1052,28 @@ await test("lms-find: BCIT -> learn.bcit.ca (its site sends sign-in to Microsoft
   const site = {
     "https://learn.bcit.ca/d2l/login": () => new Response(null, { status: 302, headers: { location: "/d2l/lp/auth/login/samlLogin.d2l" } }),
     "https://learn.bcit.ca/d2l/lp/auth/login/samlLogin.d2l": () => new Response(null, { status: 302, headers: { location: "https://login.microsoftonline.com/x/saml2?SAMLRequest=abc" } }),
-    "https://ubc.instructure.com/login/canvas": () => new Response(null, { status: 301, headers: { location: "https://canvas.ubc.ca/login/canvas" } }),
-    "https://canvas.ubc.ca/login/canvas": () => new Response("<html><title>Log In to Canvas</title>instructure</html>", { status: 200 }),
+    "https://ubc.instructure.com/login": () => new Response(null, { status: 301, headers: { location: "https://canvas.ubc.ca/login" } }),
+    "https://canvas.ubc.ca/login": () => new Response("<html><title>Log In to Canvas</title>instructure</html>", { status: 200, headers: { "x-canvas-meta": "q=1" } }),
+    // a university page that only mentions Canvas isn't Canvas; SDSU's Canvas answers its own sign-in page with a 404
+    "https://canvas.mention.edu/login": () => new Response(null, { status: 302, headers: { location: "https://www.mention.edu/help" } }),
+    "https://www.mention.edu/help": () => new Response("<html>How to use Canvas by Instructure</html>", { status: 200 }),
+    "https://canvas.sdsu.edu/login": () => new Response(null, { status: 301, headers: { location: "https://sdsu.instructure.com/login" } }),
+    "https://sdsu.instructure.com/login": () => new Response(null, { status: 302, headers: { "x-canvas-meta": "q=1", location: "https://sdsu.instructure.com/login/saml" } }),
+    "https://sdsu.instructure.com/login/saml": () => new Response("Not available", { status: 503 }),
+    // a Canvas address no school uses: Canvas answers its sign-in address with "not found"
+    "https://dal.instructure.com/login": () => new Response("Not found", { status: 404, headers: { "x-canvas-meta": "q=1" } }),
     "https://learn.plain.ca/d2l/login": () => new Response("<html>Our learning centre</html>", { status: 200 }),
   };
   const f = async (url) => (site[String(url)] || (() => new Response("nope", { status: 404 })))();
   const dd = { env: () => "", fetch: f, now: () => NOW, log };
   assert.equal(await lfind.probe(dd, "brightspace", "learn.bcit.ca"), "learn.bcit.ca");
   assert.equal(await lfind.probe(dd, "canvas", "ubc.instructure.com"), "canvas.ubc.ca");
+  assert.equal(await lfind.probe(dd, "canvas", "canvas.mention.edu"), "", "a page that only mentions Canvas");
+  assert.equal(await lfind.probe(dd, "canvas", "canvas.sdsu.edu"), "sdsu.instructure.com", "Canvas answered (its header), though a later sign-in step failed");
+  assert.equal(await lfind.probe(dd, "canvas", "dal.instructure.com"), "", "an unused Canvas address");
   assert.equal(await lfind.probe(dd, "brightspace", "learn.plain.ca"), "");
   assert.equal(await lfind.probe(dd, "brightspace", "d2l.nothing.ca"), "");
+  assert.ok(lfind.PROVIDER_HOST.test("sno.instructure.com") && !lfind.PROVIDER_HOST.test("lausdschoology.azurewebsites.net"), "a site found only by forwarding to some other host doesn't count");
 });
 await test("lms-find: looks a school up once, then answers from what it remembered", async () => {
   const calls = []; let saved = null, kept = [];
@@ -1080,11 +1092,45 @@ await test("lms-find: looks a school up once, then answers from what it remember
   // learn.bcit.ca's /d2l/login goes straight to Microsoft: counted only with a D2L page on the way, so here it's not found...
   let r = await (await ask()).json();
   assert.equal(r.host, ""); assert.equal(saved.host, "");
-  kept = [{ host: "learn.bcit.ca", checked_at: new Date(NOW - 86400_000).toISOString() }]; calls.length = 0;
+  kept = [{ lms: "brightspace", host: "learn.bcit.ca", checked_at: new Date(NOW - 86400_000).toISOString() }]; calls.length = 0;
   r = await (await ask()).json();
   assert.equal(r.host, "learn.bcit.ca"); assert.ok(!calls.some(u => u.startsWith("https://learn.")), "answered from what it remembered, without looking again");
 });
 
+await test("lms-find: auto finds which platform a school uses (all four at once), and remembers each", async () => {
+  const saved = [];
+  const f = async (url, init = {}) => {
+    url = String(url);
+    if (/school_lms\?school_key=eq/.test(url)) return new Response("[]");
+    if (/studyboard_plan_rate_hit/.test(url)) return new Response("true");
+    if (/schools\?key=eq/.test(url)) return new Response(JSON.stringify([{ domains: ["ubc.ca"], web: "", kind: "university" }]));
+    if (/school_lms\?on_conflict/.test(url)) { saved.push(JSON.parse(init.body)); return new Response(null, { status: 201 }); }
+    if (url === "https://canvas.ubc.ca/login") return new Response("<html>Log In to Canvas, instructure</html>", { status: 200, headers: { "x-canvas-meta": "q=1" } });
+    return new Response("", { status: 404 });
+  };
+  const env = { SUPABASE_URL: "https://db", SUPABASE_SERVICE_ROLE_KEY: "svc" };
+  const dd = { env: k => env[k] ?? "", fetch: f, now: () => NOW, log };
+  const r = await (await lfind.handle(new Request("https://x/functions/v1/lms-find", { method: "POST", body: JSON.stringify({ key: "ubc.ca", lms: "auto" }) }), dd)).json();
+  assert.deepEqual(r, { host: "canvas.ubc.ca", lms: "canvas" });
+  assert.deepEqual(saved.map(x => x.lms + ":" + x.host).sort(), ["blackboard:", "brightspace:", "canvas:canvas.ubc.ca", "moodle:"], "each platform's answer is remembered");
+  const bad = await lfind.handle(new Request("https://x/functions/v1/lms-find", { method: "POST", body: JSON.stringify({ key: "ubc.ca", lms: "schoology" }) }), dd);
+  assert.equal(bad.status, 400);
+});
+await test("lms-find: Canvas's school directory: the school's own domain, its exact name, its place; never a school district for a college", async () => {
+  const DIR = [
+    { name: "Concordia University Irvine", domain: "cui.instructure.com" }, { name: "UC Irvine", domain: "canvas.eee.uci.edu" },
+    { name: "Irvine USD Students and Teachers", domain: "iusd.instructure.com" },
+    { name: "The University of North Carolina at Chapel Hill", domain: "uncch.instructure.com" }, { name: "UNC Wilmington", domain: "uncw.instructure.com" },
+    { name: "UMass Amherst ", domain: "umamherst.instructure.com" }, { name: "University of Massachusetts Amherst Canvas Catalog - Other Users", domain: "umamherst-catalog.instructure.com" },
+    { name: "Amherst County Public Schools - VA - Parents", domain: "amherst.instructure.com" }];
+  const f = async url => { const t = new URL(String(url)).searchParams.get("search_term").toLowerCase().split(" ");
+    return new Response(JSON.stringify(DIR.filter(x => t.every(w => x.name.toLowerCase().includes(w) || ["university", "of", "at", "the", "college", "california,"].includes(w))))); };
+  const dd = { env: () => "", fetch: f, now: () => NOW, log };
+  assert.equal(await lfind.canvasDirectory(dd, "University of California, Irvine", ["uci.edu"], "", false), "canvas.eee.uci.edu");
+  assert.equal(await lfind.canvasDirectory(dd, "University of North Carolina at Chapel Hill", ["unc.edu"], "", false), "uncch.instructure.com");
+  assert.equal(await lfind.canvasDirectory(dd, "University of Massachusetts at Amherst", ["umass.edu"], "", false), "umamherst.instructure.com");
+  assert.equal(await lfind.canvasDirectory(dd, "Amherst College", ["amherst.edu"], "", false), "", "not Amherst County Public Schools");
+});
 await test("lms-find: a district's domain from a school website (elite.guhsd.net -> guhsd.net, not a web host)", async () => {
   assert.equal(lfind.siteDomain("http://elite.guhsd.net"), "guhsd.net");
   assert.equal(lfind.siteDomain("https://www.isd535.k12.mn.us/schools"), "isd535.k12.mn.us");
@@ -1096,7 +1142,7 @@ await test("lms-find: high schools use their district (US: the NCES id; Ontario/
   const calls = [], saved = [];
   let kept = { }, dist = { "on:B66052": { domains: ["tdsb.on.ca"], brightspace: "tdsb.elearningontario.ca", shared: false }, "us:0616230": { domains: ["guhsd.net"], brightspace: "", shared: false }, "us:0699999": { domains: ["lcps.org"], brightspace: "", shared: true } };
   const schools = { "hs:on:890227": { domains: [], web: "", kind: "high_school" }, "hs:us:061623010628": { domains: [], web: "http://elite.guhsd.net", kind: "high_school" }, "hs:us:069999900001": { domains: [], web: "", kind: "high_school" } };
-  const page = { "https://tdsb.elearningontario.ca/d2l/login": "<html>Brightspace d2l</html>", "https://guhsd.instructure.com/login/canvas": "<html>Canvas instructure</html>", "https://lcps.instructure.com/login/canvas": "<html>Canvas instructure, Las Cruces</html>" };
+  const page = { "https://tdsb.elearningontario.ca/d2l/login": "<html>Brightspace d2l</html>", "https://guhsd.instructure.com/login": "<html>Canvas instructure</html>", "https://lcps.instructure.com/login": "<html>Canvas instructure, Las Cruces</html>" };
   const f = async (url, init = {}) => {
     url = decodeURIComponent(String(url)); calls.push(url);
     let m;
@@ -1118,10 +1164,15 @@ await test("lms-find: high schools use their district (US: the NCES id; Ontario/
   // US: the district from the NCES id, its domain from lms_districts; guhsd.instructure.com is named after the district
   assert.equal((await ask("hs:us:061623010628", "canvas")).host, "guhsd.instructure.com");
   assert.ok(saved.some(x => x.school_key === "d:us:0616230" && x.host === "guhsd.instructure.com"));
+  // a short name (sno, from sno.wednet.edu): its Canvas counts when its page names the school's town ("Snohomish School District 201")
+  dist["us:5308020"] = { domains: ["sno.wednet.edu"], brightspace: "", shared: false };
+  schools["hs:us:530802003217"] = { domains: [], web: "", kind: "high_school", city: "Snohomish" };
+  page["https://sno.instructure.com/login"] = "<html>Canvas Login | Instructure. Snohomish School District 201</html>";
+  assert.equal((await ask("hs:us:530802003217", "canvas")).host, "sno.instructure.com");
   // a shared name (lcps: Loudoun and Las Cruces): the provider address doesn't point back to lcps.org, so it isn't taken
   assert.equal((await ask("hs:us:069999900001", "canvas")).host, "");
   // another school in a district already looked up: answered from the district, without looking again
-  kept["d:us:0616230"] = { host: "guhsd.instructure.com", checked_at: new Date(NOW - 3600_000).toISOString() };
+  kept["d:us:0616230"] = { lms: "canvas", host: "guhsd.instructure.com", checked_at: new Date(NOW - 3600_000).toISOString() };
   schools["hs:us:061623099999"] = { domains: [], web: "", kind: "high_school" }; calls.length = 0;
   assert.equal((await ask("hs:us:061623099999", "canvas")).host, "guhsd.instructure.com");
   assert.ok(!calls.some(u => u.startsWith("https://guhsd.")), "answered from the district");

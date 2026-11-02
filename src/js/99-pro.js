@@ -2469,7 +2469,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit Page</button></span>
         <span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
-        ${window.SBINK ? SBINK.readerBtn() : ""}<span class="spacer"></span>
+        ${window.SBPDE ? SBPDE.readerBtn() : ""}${window.SBINK ? SBINK.readerBtn() : ""}<span class="spacer"></span>
         <button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>
       </div>
       <div class="pdr-main"><div class="pdr-pages" id="pdrPages" tabindex="0" aria-label="Pages"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(f.name)}…</p></div><aside class="pdr-side" id="pdrSide" hidden></aside></div>
@@ -2503,6 +2503,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   function close(){
     if (!R) return;
     if (window.SBINK) SBINK.readerClose();
+    if (window.SBPDE) SBPDE.readerClose();
     try { if (R.io) R.io.disconnect(); } catch (e) {}
     try { if (R.doc) R.doc.destroy(); } catch (e) {}
     R = null;
@@ -2546,7 +2547,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       try { await new window.pdfjsLib.TextLayer({textContentSource: page.streamTextContent({includeMarkedContent: true, disableNormalization: true}), container: tl, viewport: vp}).render(); } catch (e) {}
       paint(n);
       if (window.SBINK) SBINK.readerPage(n, el);
-      R.pages.forEach(o => { if (o.done && Math.abs(o.n - n) > 10) { o.done = 0; o.el.querySelectorAll(".pdr-cv,.textLayer,.ink-layer").forEach(x => x.remove()); } });
+      if (window.SBPDE) SBPDE.readerPage(n, el, page, vp);
+      R.pages.forEach(o => { if (o.done && Math.abs(o.n - n) > 10) { o.done = 0; o.el.querySelectorAll(".pdr-cv,.textLayer,.ink-layer,.pde-layer").forEach(x => x.remove()); } });
     } catch (e) { pg.done = 0; }
   }
   function paint(n){
@@ -2600,7 +2602,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const colorBtns = (act, cur) => COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="${act}" data-id="${k}" style="--h:${hex}" aria-label="${name}"${cur ? ` aria-pressed="${cur === k}"` : ""}></button>`).join("");
   let PEND = null;
   function onSelectEnd(){
-    if (!R || !R.doc) return;
+    if (!R || !R.doc || (window.SBPDE && SBPDE.active())) return;
     const s = selection();
     if (!s) return;
     PEND = s;
@@ -2616,7 +2618,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return h;
   }
   function onTap(e){
-    if (!R || !R.doc) return;
+    if (!R || !R.doc || (window.SBPDE && SBPDE.active())) return;
     const sel = window.getSelection(); if (sel && !sel.isCollapsed) return;
     const pgEl = e.target.closest && e.target.closest(".pdr-page"); if (!pgEl) { hidePop(); return; }
     const b = pgEl.getBoundingClientRect(), h = hitAt(mine(), Number(pgEl.dataset.p), (e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height);
@@ -2792,8 +2794,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 
   P.canRead = f => !P.locked() && isPdf(f);
   P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
-  P.addFeature({id: "reader", name: "PDF Reader and Highlights", where: "Open a PDF in Files, then Read: highlight, and make notes and cards", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
-  Object.assign(P, {openReader: open, reader: () => R});
+  P.addFeature({id: "reader", name: "PDF Reader, Highlights and Editing", where: "Open a PDF in Files, then Read: highlight, make notes and cards, or Edit its text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
+  Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed"))});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet});
 
   const css = document.createElement("style");
