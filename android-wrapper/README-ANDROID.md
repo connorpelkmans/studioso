@@ -1,8 +1,39 @@
-# Studyboard for Android: Capacitor wrapper, quick capture, push, purchases (source templates)
+# Studyboard for Android: Capacitor wrapper, quick capture, push, purchases
 
-> **Verification status: UNTESTED on a device.** No Android Studio, Gradle, emulator or device was available. The Kotlin sources were type-checked with `kotlinc` 2.1 against the Robolectric `android-all` API 34 jar, the Capacitor 7 core jar and a stub `ExifInterface` (so API names and nullability are checked, a real build is not). The XML was parsed for well-formedness. Run section 7 on real devices before release.
+> **Status:** `npm run android:build` makes the Android project, merges everything in this folder into it and builds with Gradle. A debug `.apk` was built from the Studyboard sources on 2 November 2026 (package `com.studyboardapp.studyboard`, versionCode 11504, target API 36), so the Kotlin sources compile. **Not yet run on a phone or emulator**: do the checks in section 7 before you upload.
 
-There is no Android project in the repo. This folder is a **merge set** for the project `npx cap add android` creates (Capacitor 8; appId `com.studyboardapp.studyboard`, see `../ios-wrapper/capacitor.config.json`; reuse that file, change `webDir` if you stage web files differently).
+## 0. Quick start (this is all you need to build)
+
+Needs: Node 22, **JDK 21** (Android Studio's own JDK works) and the **Android SDK** with platform 36 and build-tools 36 (Android Studio installs both; or set `ANDROID_HOME`).
+
+```bash
+npm ci
+npm run android:debug        # a debug .apk: android-wrapper/android/app/build/outputs/apk/debug/app-debug.apk
+npm run android:build        # the debug .apk and the release .aab
+```
+
+The generated project is `android-wrapper/android` (not committed; the script makes it again any time). Open it in Android Studio with `npx cap open android` from `android-wrapper/`, or install the APK with `adb install -r android-wrapper/android/app/build/outputs/apk/debug/app-debug.apk`.
+
+**Upload key (once).** Google Play needs the `.aab` signed with your own upload key:
+
+```bash
+keytool -genkeypair -v -keystore ~/studyboard-upload.jks -alias studyboard -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Keep the `.jks` file and its passwords somewhere safe (a password manager): if you lose them you can't update the app without Google's key-reset process. Then create `android-wrapper/keystore.properties` (it's git-ignored):
+
+```
+storeFile=/Users/you/studyboard-upload.jks
+storePassword=YOUR-STORE-PASSWORD
+keyAlias=studyboard
+keyPassword=YOUR-KEY-PASSWORD
+```
+
+and run `npm run android:build`. The signed bundle is `android-wrapper/android/app/build/outputs/bundle/release/app-release.aab`. **The versionCode must rise on every upload**: it comes from `package.json` (1.15.4 gives 11504). For a second upload of the same version, run `ANDROID_VERSION_CODE=11505 npm run android:build`.
+
+**Push reminders** need `android-wrapper/google-services.json` from your Firebase project (section 4); without it the app builds and push stays off.
+
+The rest of this file explains what each part does.
 
 ## 1. Files
 
