@@ -90,7 +90,7 @@ async function shoot(browser, [name, skin, scheme, path_]) {
     localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); localStorage.setItem("studyboard:tips", "off"); } } catch (e) {} }, [seed, scheme]);
   const page = await ctx.newPage();
   await page.goto("http://localhost:" + server.address().port + "/?pro=off"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);
-  await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
+  await page.addStyleTag({content: ".toast,#toast{display:none!important} html{scrollbar-gutter:auto!important;scrollbar-width:none!important} ::-webkit-scrollbar{display:none!important}"});
   await dismiss(page);
   await go(page, path_);
   await dismiss(page);
@@ -100,7 +100,7 @@ async function shoot(browser, [name, skin, scheme, path_]) {
   await ctx.close();
 }
 (async () => {
-  await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath});
+  await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath, args: ["--hide-scrollbars"]});
   const only = process.argv.slice(3);
   try { for (const s of SHOTS) if (!only.length || only.includes(s[0])) await shoot(browser, s); }
   finally { await browser.close(); server.close(); }
