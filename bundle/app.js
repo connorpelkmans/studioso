@@ -18654,7 +18654,7 @@ window.__sbPlanObj = () => PLAN;
    app as iPhone: one bundle id, Universal Purchase), whose webhook switches Pro on for the account. */
 (() => {
   // RevenueCat's PUBLIC Apple key (appl_...), the same as RC_KEYS.ios in ios-wrapper/native-bridge.js
-  const MAC_RC_KEY = "appl_REPLACE_WITH_REVENUECAT_PUBLIC_KEY";
+  const MAC_RC_KEY = "appl_PZmLibrECQUPlNRKbafuYaoDNLj";
   const D = window.studiosoDesktop;
   if (!D || !D.mas || !D.iap) return;
   const RC = "https://api.revenuecat.com/v1", keyOk = /^appl_[A-Za-z0-9]{10,64}$/.test(MAC_RC_KEY);
