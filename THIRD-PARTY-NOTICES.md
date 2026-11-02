@@ -11,13 +11,14 @@ Studyboard itself is released under the MIT License (see `LICENSE`). It includes
 | Patrick Hand, Caveat, Kalam, Gochi Hand (typefaces) | Writing styles on the Whiteboard in Notes | Copyright (c) 2010-2012 Patrick Wagesreiter; Copyright 2014 The Caveat Project Authors; Copyright (c) 2014 Indian Type Foundry; Copyright (c) 2011 HT Fonts, with Reserved Font Names "Gochi" and "Gochi Hand" | SIL Open Font License 1.1 |
 | @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-next, @fontsource/lexend, @fontsource/permanent-marker, @fontsource/patrick-hand, @fontsource/caveat, @fontsource/kalam, @fontsource/gochi-hand | Packaged font files for the desktop app (offline use) | Fontsource contributors | MIT (the fonts inside keep their own OFL or Apache license) |
 | pdfjs-dist (PDF.js) 6.4.299 | Reading PDFs you import (syllabi, study material); the unmodified legacy build is served from `vendor/pdfjs/` | Copyright 2012 Mozilla Foundation | Apache License 2.0 |
+| pdf-lib 1.17.1 | Writing edited PDFs (the PDF reader's Edit mode); the unmodified `dist/pdf-lib.min.js` is served from `vendor/pdflib/` | Copyright (c) 2019 Andrew Dillon | MIT |
 | @supabase/supabase-js | Optional account sign-in and sync | Copyright (c) 2020 Supabase | MIT |
 | fzstd 0.1.1 | Unpacking newer Anki files (collection.anki21b) in Import From Another App; the unmodified UMD build is served from `vendor/fzstd-0.1.1.umd.js` and loaded only for those files | Copyright (c) 2020 Arjun Barrett | MIT |
 | Electron | The desktop app (includes Chromium and Node.js, whose own notices ship inside the installer as `LICENSES.chromium.html`) | Copyright (c) Electron contributors; Copyright (c) 2013-2020 GitHub Inc. | MIT |
 | Lucide icons (lucide-static 1.49.0) | Course icons you make with Create: an icon's shapes are copied from Lucide and coloured; the library is loaded from the jsDelivr CDN only when you make one | Copyright (c) 2026 Lucide Icons and Contributors; icons derived from Feather Copyright (c) 2013-present Cole Bemis | ISC (Lucide); MIT (the Feather-derived icons) |
 | electron-builder | Building the desktop installers (build tool, not shipped) | electron-userland contributors | MIT |
 
-On the website the fonts (Latin subsets from `@fontsource`, SIL OFL 1.1 or Apache 2.0, licenses in `vendor/fonts/`) supabase-js and fzstd (`vendor/`, MIT, licenses beside them) are served from the site itself; pdf.js (`vendor/pdfjs/`) is served from the site itself too. The desktop app ships local copies of all of them (`npm run prep` copies them from `node_modules` and `vendor/`).
+On the website the fonts (Latin subsets from `@fontsource`, SIL OFL 1.1 or Apache 2.0, licenses in `vendor/fonts/`) supabase-js and fzstd (`vendor/`, MIT, licenses beside them) are served from the site itself; pdf.js (`vendor/pdfjs/`) and pdf-lib (`vendor/pdflib/`, MIT, license beside it) are served from the site itself too. The desktop app ships local copies of all of them (`npm run prep` copies them from `node_modules` and `vendor/`).
 
 ## MIT License (applies to the MIT-licensed components above)
 
