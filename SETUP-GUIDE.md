@@ -102,7 +102,7 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 11 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
 | 12 | `supabase-calsync.sql` | Two-way sync with Google Calendar and Outlook (Pro). Run it after step 9 so account deletion also clears it, then deploy `calendar-sync` (see "Two-Way Calendar Sync" below) | Optional |
 | 13 | `supabase-theme-access.sql` | Hidden themes: some themes are hidden from everyone (the list is `HIDDEN_THEMES` in `src/js/20-scenes-visible.js`). An account you mark here sees them all again: `select public.studyboard_grant_all_themes('you@example.com', 'owner');` in the SQL Editor (`studyboard_revoke_all_themes` takes it back). Sign in again or reopen the app to see the change | Optional |
-| 14 | `supabase-cloud.sql` | Google Drive and OneDrive (free for signed-in accounts). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
+| 14 | `supabase-cloud.sql` | Google Drive, OneDrive and OneNote (free for signed-in accounts). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
 | 15b | `supabase-usernames.sql` | Usernames and age: every account gives its birthday once (students under 13 are signed up by a parent or guardian and can't publish or share publicly, like on Quizlet) and picks a unique @username (on the sign-up form, or once after signing in). The server checks the rules and a foul-word list (with look-alike spellings) and refuses anything else; published flashcards and quizzes show the username. Run it after step 2 and before `supabase-sharing.sql` | Required for publishing |
 | 15a | `supabase-schools.sql`, then `supabase-schools-2.sql`, then `supabase-schools-hs-1.sql` to `-hs-4.sql` (one file per query; each is under the editor's 1 MB limit) | The list of real schools: about 10,000 universities and colleges, plus about 36,000 high schools (every US public and private school with a grade 12, and Ontario and British Columbia secondary schools; each part is about 1.3 MB, so run them one at a time) that publishing checks and the school picker searches. Run it before `supabase-sharing.sql`; requests for missing schools land in `school_requests` (the file's header shows how to add one) | Required for publishing |
 | 15 | `supabase-sharing.sql` | Public share links (a deck, note, quiz or whiteboard opens in any browser, no account needed), published flashcards and quizzes at studyboardapp.com/flashcards and /quizzes (see PUBLIC-PAGES.md for the search-engine steps) and the Course Library (decks listed for a course code at a school). Run it after steps 2 and 3, then run `supabase-lean.sql` again so account deletion also clears it. Reports land in `share_reports`; the file's header has the review queries. Three reports from different people hide an item until you look | Recommended |
@@ -763,6 +763,36 @@ Checks without any network: `node --experimental-strip-types supabase-functions/
 | "aren't fully set up" | Step 5: `CLOUD_KEY` (or `CALSYNC_KEY`) is missing or too short. |
 | Google: `redirect_uri_mismatch` | Step 3: add the `cloud-files` address as a redirect URI. |
 | "needs you to connect it again" | Access was revoked or expired. **Connect Again** in Files > Cloud. |
+
+---
+
+## OneNote
+
+**Import From Another App > OneNote** (or Search Everywhere, "OneNote") connects a Microsoft account's OneNote, as its own connection beside OneDrive (it asks only for notes, `Notes.ReadWrite`). Then:
+
+- **Link a Section** to a course. Its pages come in as notes on a note board named after the section and tied to the course (purple notes, one per page: headings, bulleted and numbered lists, to-dos and tables as text; pictures and attachments are left out). From then on **Ask Your Course** answers from them, **Make Cards** works on them like any note, and **Exam Prep** suggests topics from them.
+- **Kept up to date:** linked sections are checked 20 seconds after Studyboard opens and every half hour while it's open (each at most every 3 hours), or with **Update Now**. A page changed in OneNote updates its note; a note you edited in Studyboard keeps your edits (it isn't overwritten); a note you deleted isn't brought back; a page deleted in OneNote leaves its note in place. Up to 40 pages per update (a big section comes in over a few updates), up to 12 linked sections.
+- **Save to OneNote** adds a note as a new page (title from its first line; bullets, numbered lists and ☐/☑ lines become OneNote lists and to-dos). It's on the note editor's toolbar (a purple **N**), under an Ask Your Course answer once it's saved as a note, and on a lecture's Study Notes step. The first save asks which section; **Change Section** in the OneNote sheet changes it. A note from OneNote, or one already saved, shows **Open in OneNote** instead (and **Save Again**).
+- **A OneNote page on a task:** paste the page's link (OneNote: right-click the page, Copy Link to Page) into the task's Documents section (see Document Links on a Task).
+- **Unlink** keeps the notes; **Disconnect OneNote** removes the connection and keeps everything brought in.
+
+Pages go straight between the device and Microsoft Graph; `cloud-files` only keeps the sign-in (encrypted) and hands out short-lived access tokens. Studyboard reads only the sections you link and never changes or deletes OneNote pages.
+
+### One-time setup (about 5 minutes once Google Drive and OneDrive are set up)
+
+1. **Database:** run `supabase-cloud.sql` again (it allows the `onenote` connection; nothing else changes).
+2. **The function:** deploy the new `supabase-functions/cloud-files/index.ts` (`supabase functions deploy cloud-files --no-verify-jwt`).
+3. **Microsoft:** in the same app registration (Azure portal, App registrations, Studyboard, API permissions), add the delegated Microsoft Graph permission **`Notes.ReadWrite`**. It doesn't need admin consent for personal accounts; a school's Microsoft 365 admin may need to allow it (or set "Users can consent to apps") for school accounts. The redirect address and secrets are the same as OneDrive's.
+4. **Try it:** signed in, open **Import From Another App > OneNote**, choose **Connect OneNote**, finish in the page that opens, come back, and **Link a Section**.
+
+- **For developers:** `src/js/99-onenote.js` (the pure part between `/*ONENOTE-START*/` and `/*ONENOTE-END*/`: reading a page's HTML into note text, the page Save to OneNote sends, and which pages an update brings in; the sheet and Graph calls are `SBONENOTE`). Notes from OneNote carry `on: {p, s, u, m, h}` (page, section, web link, modified time, a fingerprint of the text as it came in); saved notes carry `onSaved: {p, u, s, at}`; linked sections live in `settings.onenote`. Tests: `node tests/onenote.test.js`, `node tests/onenote.e2e.js` and `node --experimental-strip-types supabase-functions/tools/test-cloud-files.mjs`.
+
+| What you see | What to do |
+|---|---|
+| "OneNote isn't set up on this Studyboard server yet" | Step 2 (or Microsoft's client ID and secret are missing). |
+| Microsoft: "Need admin approval" for a school account | The school's Microsoft 365 admin hasn't allowed `Notes.ReadWrite` for Studyboard. They can grant it in Entra ID, Enterprise applications. |
+| "OneNote didn't allow that" when saving | The section is read only (a class notebook's Content Library, for example). Change Section. |
+| "OneNote needs you to connect it again" | Access was revoked or expired. **Connect Again** in the OneNote sheet. |
 
 ---
 

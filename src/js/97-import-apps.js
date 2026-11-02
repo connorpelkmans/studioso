@@ -474,6 +474,7 @@ const IA = (() => {
     ["quizlet", "Quizlet", tr("ia.how.quizlet", "In Quizlet, open the set, choose the three dots, then Export. Copy the text, then use Paste Cards here.")],
     ["knowt", "Knowt", tr("ia.how.knowt", "In Knowt, open the set, choose the three dots, then Export. Copy the text, then use Paste Cards here. A CSV file with term and definition columns can be chosen here too.")],
     ["todoist", "Todoist", tr("ia.how.todoist", "In Todoist, open a project, choose the three dots, then Export as CSV. Or download a backup ZIP from Settings, then Backups.")],
+    ...(window.SBONENOTE ? [["onenote", "OneNote", tr("ia.how.onenote", "Connect OneNote and link a section to a course. Its pages come in as notes and stay up to date.")]] : []),
     ["notion", "Notion", tr("ia.how.notion", "In Notion, open the page, choose the three dots, then Export. Pick Markdown & CSV, include subpages, then choose the ZIP file here.")],
   ];
   // A file being read, or read and waiting in the preview, is set aside when you tap away and comes back here; Cancel or Import clears it
@@ -485,7 +486,7 @@ const IA = (() => {
     openSheet(`<div class="sheet ia-sheet">${head(tr("ia.title", "Import From Another App"))}
       <div class="sheet-body">
         <p class="mini" style="margin:0 0 6px">${esc(tr("ia.intro", "Bring in your flashcards, tasks and notes. Files are read on this device and nothing is uploaded."))}</p>
-        <div class="menu-list ia-apps">${APPS().map(([id, name, how]) => `<button type="button" data-act="${PASTE[id] ? "ia-paste" : "ia-pick"}" data-id="${id}"><span>${esc(name)}<span class="sub">${esc(how)}</span></span></button>`).join("")}</div>
+        <div class="menu-list ia-apps">${APPS().map(([id, name, how]) => `<button type="button" data-act="${PASTE[id] ? "ia-paste" : id === "onenote" ? "on-open" : "ia-pick"}" data-id="${id}"><span>${esc(name)}<span class="sub">${esc(how)}</span></span></button>`).join("")}</div>
         <div class="ia-drop" id="iaDrop"><span>${esc(tr("ia.drop", "Drop an .apkg, .colpkg, .csv or .zip file here, or"))}</span> <button type="button" class="btn small" data-act="ia-pick">${esc(tr("ia.choose", "Choose a File"))}</button></div>
         <input type="file" id="iaFile" hidden>
         <p class="status-msg" id="iaMsg" aria-live="polite" style="margin:8px 0 0"></p>

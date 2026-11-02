@@ -473,7 +473,7 @@ function lectureHtml(fid){
     const step = (i, done, title, sub, btns) => `<li class="lc-step${done ? " done" : ""}"><span class="lc-n" aria-hidden="true">${done ? CHECK_IC : i}</span><span class="lc-tx"><b>${title}</b>${sub ? `<span class="mini">${sub}</span>` : ""}</span>${btns ? `<span class="lc-bt">${btns}</span>` : ""}</li>`;
     const B = (act, id, label, cls) => `<button type="button" class="btn small${cls ? " " + cls : ""}" data-act="${act}" data-id="${esc(id)}">${label}</button>`;
     let s1;
-    if (note) s1 = step(1, true, "Study Notes", "In Notes, linked to this lecture", B("lc-open-note", note.id, "Open Note"));
+    if (note) s1 = step(1, true, "Study Notes", "In Notes, linked to this lecture", B("lc-open-note", note.id, "Open Note") + (window.SBONENOTE ? SBONENOTE.saveBtn(note.id) : ""));
     else if (BUSY["n" + fid]) s1 = step(1, false, "Study Notes", `<span class="ai-spin" aria-hidden="true"></span> Writing them…`, "");
     else if (raw.length < 80) s1 = step(1, false, "Study Notes", raw ? "The transcript is too short for notes." : "Transcribe the lecture first.", "");
     else if (aiOn() && !locked()) s1 = step(1, false, "Study Notes", "From the transcript and any slides attached below", B("lc-notes", fid, `${AI_ICON} Make Study Notes`, "ai-btn primary"));
