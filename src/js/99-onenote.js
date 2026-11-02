@@ -2,7 +2,10 @@
 /* OneNote: link a notebook section to a course and its pages come in as notes (kept up to date), so Ask Your Course,
    Make Flashcards and Exam Prep's topic suggestions use them like any note. Save to OneNote adds a note as a new page.
    The connection lives in the cloud-files function (provider "onenote", Notes.ReadWrite); the app gets short-lived
-   access tokens from it and talks to Microsoft Graph directly. A page's link on a task is a Document link (01-doclinks). */
+   access tokens from it and talks to Microsoft Graph directly. A page's link on a task is a Document link (01-doclinks).
+   Class Notebooks (a teacher's notebook in a class team) are an optional second connection, "onenote_class" (Notes.Read.All and
+   Team.ReadBasic.All, read only), so a school that blocks it still leaves the student's own notebooks working.
+   The OneNote icon is Microsoft's own (01-ms-icons), used only on buttons that open or work with OneNote. */
 /*ONENOTE-START*/
 const ONENOTE = (() => {
   const TEXT_MAX = 8000, PER_RUN = 40, SEEN_MAX = 600;
@@ -120,13 +123,21 @@ const SBONENOTE = (() => {
   const account = () => cache().account || null;     // {account, status}
   const offered = () => !!cache().offered || !!account();
   const connected = () => { const a = account(); return !!a && a.status === "ok"; };
+  // Class Notebooks: the second, optional connection
+  const CLS = "onenote_class";
+  const clsAccount = () => cache().cls || null;
+  const clsOffered = () => !!cache().clsOffered || !!clsAccount();
+  const clsConnected = () => { const a = clsAccount(); return !!a && a.status === "ok"; };
+  const provOf = L => L && L.g ? CLS : "onenote";
+  // Microsoft's OneNote icon (unchanged), for buttons that open or work with OneNote
+  const icon = (px, cls) => typeof MS_ICON !== "undefined" ? `<img class="ms-ic${cls ? " " + cls : ""}" src="${MS_ICON.onenote[px > 20 ? "s32" : "s20"]}" alt="" width="${px}" height="${px}" draggable="false">` : "";
 
   /* Settings: the linked sections and where Save to OneNote goes (synced with the account) */
   const str = (v, n) => typeof v === "string" ? v.replace(/[<>\u0000-\u001f]/g, " ").slice(0, n) : "";
   function prefs(){
     const o = (state.settings && state.settings.onenote) || {};
     const links = (Array.isArray(o.links) ? o.links : []).filter(l => l && typeof l.sid === "string" && l.sid && l.sid.length <= 200).slice(0, 12).map(l => ({
-      sid: l.sid, name: str(l.name, 80) || "Section", nb: str(l.nb, 80), courseId: str(l.courseId, 80), board: str(l.board, 80), at: Number(l.at) || 0,
+      sid: l.sid, g: typeof l.g === "string" && /^[\w-]{1,80}$/.test(l.g) ? l.g : "", name: str(l.name, 80) || "Section", nb: str(l.nb, 120), courseId: str(l.courseId, 80), board: str(l.board, 80), at: Number(l.at) || 0,
       seen: Array.isArray(l.seen) ? l.seen.filter(x => typeof x === "string" && x.length <= 200).slice(0, 600) : [], n: Number(l.n) || 0, more: Number(l.more) || 0}));
     const st = o.saveTo && typeof o.saveTo.sid === "string" && o.saveTo.sid ? {sid: o.saveTo.sid.slice(0, 200), name: str(o.saveTo.name, 80), nb: str(o.saveTo.nb, 80)} : null;
     return {links, saveTo: st};
@@ -135,49 +146,80 @@ const SBONENOTE = (() => {
 
   /* Microsoft Graph with a short-lived token */
   class OnErr extends Error { constructor(msg, code){ super(msg); this.code = code || ""; } }
-  let TOK = null;
-  async function token(fresh){
-    if (TOK && !fresh && TOK.exp - Date.now() > 60000) return TOK.access;
+  const TOK = {};
+  async function token(fresh, prov){
+    prov = prov || "onenote";
+    const t = TOK[prov]; if (t && !fresh && t.exp - Date.now() > 60000) return t.access;
     if (!ready()) throw new OnErr("Sign in to your Studyboard account first.", "signin");
-    const r = await call({action: "token", provider: "onenote"});
-    if (r.ok && r.data && r.data.access) { TOK = {access: r.data.access, exp: Date.now() + Math.max(120, Number(r.data.expires_in) || 3000) * 1000}; return TOK.access; }
-    TOK = null;
-    if (r.status === 404) { setCache({account: null}); throw new OnErr("Connect OneNote first.", "connect"); }
-    if (r.status === 409) { setCache({account: Object.assign({}, account(), {status: "reauth"})}); throw new OnErr("OneNote needs you to connect it again.", "reauth"); }
+    const r = await call({action: "token", provider: prov});
+    if (r.ok && r.data && r.data.access) { TOK[prov] = {access: r.data.access, exp: Date.now() + Math.max(120, Number(r.data.expires_in) || 3000) * 1000}; return r.data.access; }
+    delete TOK[prov];
+    const key = prov === CLS ? "cls" : "account", what = prov === CLS ? "Class Notebooks" : "OneNote";
+    if (r.status === 404) { setCache({[key]: null}); throw new OnErr(prov === CLS ? "Turn on Class Notebooks first (in the OneNote sheet)." : "Connect OneNote first.", "connect"); }
+    if (r.status === 409) { setCache({[key]: Object.assign({}, cache()[key], {status: "reauth"})}); throw new OnErr(`${what} needs you to connect it again.`, "reauth"); }
     if (r.status === 429) throw new OnErr("OneNote is busy. Try again in a few minutes.", "busy");
     throw new OnErr("Couldn't reach OneNote. Check your connection.", "net");
   }
-  async function graph(path, init, as){
+  async function graph(path, init, as, prov){
     init = init || {};
     for (let i = 0; i < 2; i++) {
-      const at = await token(i > 0);
+      const at = await token(i > 0, prov);
       let r;
       try { r = await xfetch(/^https:/.test(path) ? path : ONENOTE.GRAPH + path, Object.assign({}, init, {headers: Object.assign({Authorization: "Bearer " + at}, init.headers || {})})); }
       catch (x) { throw new OnErr("Couldn't reach OneNote. Check your connection.", "net"); }
       if (r.status === 401 && i === 0) continue;
       if (r.status === 429) throw new OnErr("OneNote asked Studyboard to slow down. The rest comes in next time.", "busy");
       if (r.status === 404) throw new OnErr("That isn't in your OneNote any more.", "gone");
-      if (r.status === 403) throw new OnErr("OneNote didn't allow that. A school account's notebooks may be read only.", "denied");
+      if (r.status === 403) throw new OnErr(prov === CLS ? "Your school didn't allow Studyboard to read that class notebook." : "OneNote didn't allow that. A school account's notebooks may be read only.", "denied");
       if (!r.ok) throw new OnErr(`OneNote didn't accept that (${r.status}).`, "http");
       return as === "text" ? r.text() : r.json().catch(() => ({}));
     }
   }
   // Every section, with its notebook (sections inside section groups too)
-  async function sections(){
+  const V1 = "https://graph.microsoft.com/v1.0";
+  const next = j => typeof j["@odata.nextLink"] === "string" && j["@odata.nextLink"].startsWith(V1 + "/") ? j["@odata.nextLink"] : "";
+  // Where a section's pages live: your own OneNote, or a class team's
+  const rootOf = g => g ? `${V1}/groups/${encodeURIComponent(g)}/onenote` : ONENOTE.GRAPH;
+  const sortSecs = list => list.sort((a, b) => (a.nb + "\u0000" + a.name).localeCompare(b.nb + "\u0000" + b.name));
+  // Your own notebooks' sections (sections inside section groups too)
+  async function ownSections(){
     const out = []; let url = "/sections?$select=id,displayName&$expand=parentNotebook($select=id,displayName)&$top=100";
     for (let i = 0; url && i < 5; i++) {
       const j = await graph(url);
-      (j.value || []).forEach(s => { if (s && s.id) out.push({sid: s.id, name: str(s.displayName, 80) || "Section", nb: str(s.parentNotebook && s.parentNotebook.displayName, 80)}); });
-      url = typeof j["@odata.nextLink"] === "string" && j["@odata.nextLink"].startsWith("https://graph.microsoft.com/") ? j["@odata.nextLink"] : "";
+      (j.value || []).forEach(s => { if (s && s.id) out.push({sid: s.id, g: "", name: str(s.displayName, 80) || "Section", nb: str(s.parentNotebook && s.parentNotebook.displayName, 80)}); });
+      url = next(j);
     }
-    return out.sort((a, b) => (a.nb + "\u0000" + a.name).localeCompare(b.nb + "\u0000" + b.name));
+    return sortSecs(out);
   }
-  async function pagesOf(sid){
-    const out = []; let url = `/sections/${encodeURIComponent(sid)}/pages?$select=id,title,lastModifiedDateTime,createdDateTime,links&$top=100&$orderby=lastModifiedDateTime desc`;
+  // Class Notebooks: the notebooks in each class team you're in (read only)
+  async function classSections(){
+    const teams = [], out = []; let url = `${V1}/me/joinedTeams?$select=id,displayName`;
+    for (let i = 0; url && i < 3; i++) { const j = await graph(url, null, "", CLS); (j.value || []).forEach(t => { if (t && typeof t.id === "string" && /^[\w-]{1,80}$/.test(t.id)) teams.push({id: t.id, name: str(t.displayName, 60) || "Class"}); }); url = next(j); }
+    for (const t of teams.slice(0, 30)) {
+      let u2 = `${rootOf(t.id)}/sections?$select=id,displayName&$expand=parentNotebook($select=id,displayName)&$top=100`;
+      try {
+        for (let i = 0; u2 && i < 3; i++) {
+          const j = await graph(u2, null, "", CLS);
+          (j.value || []).forEach(s => { if (s && s.id) out.push({sid: s.id, g: t.id, name: str(s.displayName, 80) || "Section", nb: t.name + " › " + (str(s.parentNotebook && s.parentNotebook.displayName, 60) || "Class Notebook"), cls: true}); });
+          u2 = next(j);
+        }
+      } catch (x) { if (x.code === "busy" || x.code === "net" || x.code === "reauth" || x.code === "signin") throw x; }   // a team with no notebook, or one you can't open: skipped
+    }
+    return sortSecs(out);
+  }
+  // What Link a Section offers: yours, then your classes' (when Class Notebooks are on)
+  async function sections(){
+    const own = await ownSections();
+    if (!clsConnected()) return own;
+    try { return own.concat(await classSections()); }
+    catch (x) { U.clsErr = x instanceof OnErr ? x.message : "Couldn't load your Class Notebooks."; return own; }
+  }
+  async function pagesOf(sid, g){
+    const out = []; let url = `${rootOf(g)}/sections/${encodeURIComponent(sid)}/pages?$select=id,title,lastModifiedDateTime,createdDateTime,links&$top=100&$orderby=lastModifiedDateTime desc`;
     for (let i = 0; url && i < 4; i++) {
-      const j = await graph(url);
+      const j = await graph(url, null, "", g ? CLS : "onenote");
       (j.value || []).forEach(p => { if (p && p.id) out.push(p); });
-      url = typeof j["@odata.nextLink"] === "string" && j["@odata.nextLink"].startsWith("https://graph.microsoft.com/") ? j["@odata.nextLink"] : "";
+      url = next(j);
     }
     return out;
   }
@@ -201,13 +243,13 @@ const SBONENOTE = (() => {
     running.add(sid); paint();
     try {
       const board = boardFor(L0);
-      const pages = await pagesOf(sid);
+      const pages = await pagesOf(sid, L0.g);
       const mine = fromSection(sid), P = ONENOTE.plan(pages, mine, L0.seen);
       const changes = [], live = notesArr().filter(n => !n.archived && (n.board || "") === board);
       let z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0), top = live.reduce((m, n) => Math.max(m, (n.y || 0) + 280), 40), k = 0, failed = 0, stop = "";
       for (const {page, note} of P.fetch) {
         let html;
-        try { html = await graph(`/pages/${encodeURIComponent(page.id)}/content`, null, "text"); }
+        try { html = await graph(`${rootOf(L0.g)}/pages/${encodeURIComponent(page.id)}/content`, null, "text", provOf(L0)); }
         catch (x) { if (x.code === "busy" || x.code === "net" || x.code === "reauth" || x.code === "signin") { stop = x.message; break; } failed++; continue; }
         const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
         const text = ONENOTE.pageText(doc, page.title, {pics: 0, files: 0});
@@ -233,8 +275,7 @@ const SBONENOTE = (() => {
     } finally { running.delete(sid); paint(); }
   }
   async function syncAll(opts){
-    if (!connected()) return;
-    for (const L of prefs().links) if (opts && opts.force || Date.now() - L.at > 3 * 3600e3) await syncLink(L.sid, opts);
+    for (const L of prefs().links) if ((L.g ? clsConnected() : connected()) && (opts && opts.force || Date.now() - L.at > 3 * 3600e3)) await syncLink(L.sid, opts);
   }
 
   /* Save to OneNote */
@@ -261,23 +302,23 @@ const SBONENOTE = (() => {
   function saveBtn(id, cls){
     const n = state.notes[id]; if (!n || !offered()) return "";
     const on = ONENOTE.normOn(n.on);
-    if (on && on.u) return `<button type="button" class="btn ${cls || "small"}" data-act="dl-url" data-url="${esc(on.u)}">Open in OneNote</button>`;
+    if (on && on.u) return `<button type="button" class="btn on-btn ${cls || "small"}" data-act="dl-url" data-url="${esc(on.u)}">${icon(16)}Open in OneNote</button>`;
     if (on) return "";
     const sv = n.onSaved && typeof n.onSaved.u === "string" && /^https:\/\//.test(n.onSaved.u) ? n.onSaved.u : "";
-    return sv ? `<button type="button" class="btn ${cls || "small"}" data-act="dl-url" data-url="${esc(sv)}">Open in OneNote</button><button type="button" class="link-btn" data-act="on-save" data-id="${esc(id)}">Save Again</button>`
-      : `<button type="button" class="btn ${cls || "small"}" data-act="on-save" data-id="${esc(id)}">Save to OneNote</button>`;
+    return sv ? `<button type="button" class="btn on-btn ${cls || "small"}" data-act="dl-url" data-url="${esc(sv)}">${icon(16)}Open in OneNote</button><button type="button" class="link-btn" data-act="on-save" data-id="${esc(id)}">Save Again</button>`
+      : `<button type="button" class="btn on-btn ${cls || "small"}" data-act="on-save" data-id="${esc(id)}">${icon(16)}Save to OneNote</button>`;
   }
   // The small button in the note editor's toolbar
   function noteBtn(n){
     if (!n || !offered()) return "";
     const on = ONENOTE.normOn(n.on);
-    if (on) return on.u ? `<button type="button" class="nb on-nb" data-act="dl-url" data-url="${esc(on.u)}" title="Open in OneNote" aria-label="Open in OneNote">${window.SBDOCS ? SBDOCS.badge("onenote") : "N"}</button>` : "";
-    return `<button type="button" class="nb on-nb" data-act="on-save" data-id="${esc(n.id)}" title="Save to OneNote" aria-label="Save to OneNote">${window.SBDOCS ? SBDOCS.badge("onenote") : "N"}</button>`;
+    if (on) return on.u ? `<button type="button" class="nb on-nb" data-act="dl-url" data-url="${esc(on.u)}" title="Open in OneNote" aria-label="Open in OneNote">${icon(18) || "N"}</button>` : "";
+    return `<button type="button" class="nb on-nb" data-act="on-save" data-id="${esc(n.id)}" title="Save to OneNote" aria-label="Save to OneNote">${icon(18) || "N"}</button>`;
   }
   const paintNote = () => { if (typeof scheduleRender === "function") scheduleRender(); };
 
   /* The OneNote sheet */
-  const U = {loading: false, err: "", url: "", urlAt: 0, secs: null, secErr: "", pickFor: "", why: "", adding: false, confirm: false, wait: 0};
+  const U = {loading: false, err: "", url: "", urlAt: 0, clsUrl: "", clsUrlAt: 0, clsErr: "", clsConfirm: false, secs: null, secErr: "", pickFor: "", why: "", adding: false, confirm: false, wait: 0};
   const ago = t => { if (!t) return "not yet"; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
   const courseOpts = sel => `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}"${c.id === sel ? " selected" : ""}>${esc(courseLabel(c))}</option>`).join("");
   const guessCourse = s => { const w = String(s.name + " " + s.nb).toLowerCase(); const c = coursesArr().find(c => [c.code, c.name].some(x => x && String(x).length >= 3 && w.includes(String(x).toLowerCase()))); return c ? c.id : ""; };
@@ -286,7 +327,7 @@ const SBONENOTE = (() => {
     if (U.loading && !cache().at) return `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Checking OneNote…</p>`;
     if (U.err) return `<p class="cl-warn">${esc(U.err)}</p>`;
     const a = account(), pr = prefs();
-    const link = label => U.url ? `<a class="btn small primary" href="${esc(U.url)}" target="_blank" rel="noopener noreferrer" data-on-go="1">${esc(label)}</a>` : `<button type="button" class="btn small" disabled>Getting OneNote ready…</button>`;
+    const link = label => U.url ? `<a class="btn small primary on-btn" href="${esc(U.url)}" target="_blank" rel="noopener noreferrer" data-on-go="1">${icon(16)}${esc(label)}</a>` : `<button type="button" class="btn small" disabled>Getting OneNote ready…</button>`;
     if (!a || a.status !== "ok") {
       return `${U.why ? `<p class="on-why"><b>${esc(U.why)}</b></p>` : ""}
         <p>Link a OneNote section to a course and its pages come into Studyboard as notes, kept up to date. Ask Your Course, Make Flashcards and Exam Prep use them like your other notes. Save to OneNote adds a note, a lecture's study notes or an Ask Your Course answer as a new page.</p>
@@ -297,24 +338,42 @@ const SBONENOTE = (() => {
     }
     const rows = pr.links.map(l => {
       const c = l.courseId && courseOf(l.courseId), busy = running.has(l.sid);
-      return `<li class="on-link"><span class="on-l-main">${window.SBDOCS ? SBDOCS.badge("onenote") : ""}<span><b>${esc(l.name)}</b><span class="mini">${esc([l.nb, c ? courseLabel(c) : "No course"].filter(Boolean).join(" · "))}</span>
+      return `<li class="on-link"><span class="on-l-main">${icon(20)}<span><b>${esc(l.name)}</b><span class="mini">${esc([l.nb, c ? courseLabel(c) : "No course"].filter(Boolean).join(" · "))}</span>
         <span class="mini">${busy ? `<span class="ai-spin" aria-hidden="true"></span> Updating…` : `${l.n} page${l.n === 1 ? "" : "s"} · updated ${esc(ago(l.at))}${l.more ? " · more to come" : ""}`}</span></span></span>
         <span class="on-l-acts"><button type="button" class="btn small" data-act="on-sync" data-id="${esc(l.sid)}"${busy ? " disabled" : ""}>Update Now</button><button type="button" class="link-btn" data-act="on-open-board" data-id="${esc(l.sid)}">Open Notes</button><button type="button" class="link-btn" data-act="on-unlink" data-id="${esc(l.sid)}">Unlink</button></span></li>`;
     }).join("");
-    const pick = U.secs ? (U.secs.length ? `<label class="f">Section<select id="onSec">${U.secs.map((s, i) => `<option value="${i}">${esc((s.nb ? s.nb + " › " : "") + s.name)}${pr.links.some(l => l.sid === s.sid) ? " (linked)" : ""}</option>`).join("")}</select></label>` : `<p class="mini">No sections found in your OneNote yet.</p>`)
+    const opt = (s, i) => `<option value="${i}">${esc((s.nb ? s.nb + " › " : "") + s.name)}${pr.links.some(l => l.sid === s.sid) ? " (linked)" : ""}</option>`;
+    const forSaveOnly = !!U.pickFor, list = (U.secs || []).map((s, i) => [s, i]).filter(([s]) => !forSaveOnly || !s.g);
+    const own = list.filter(([s]) => !s.g), cls = list.filter(([s]) => s.g);
+    const pick = U.secs ? (list.length ? `<label class="f">Section<select id="onSec">${cls.length ? `<optgroup label="My Notebooks">${own.map(([s, i]) => opt(s, i)).join("")}</optgroup><optgroup label="Class Notebooks (read only)">${cls.map(([s, i]) => opt(s, i)).join("")}</optgroup>` : own.map(([s, i]) => opt(s, i)).join("")}</select></label>
+      ${U.clsErr && !forSaveOnly ? `<p class="cl-warn">${esc(U.clsErr)}</p>` : ""}` : `<p class="mini">No sections found in your OneNote yet.</p>`)
       : U.secErr ? `<p class="cl-warn">${esc(U.secErr)}</p>` : `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading your notebooks…</p>`;
-    const adding = U.adding ? `<div class="on-add">${pick}${U.secs && U.secs.length ? `<label class="f">Course<select id="onCourse">${courseOpts(guessCourse(U.secs[0]))}</select></label>
+    const firstSec = list.length ? list[0][0] : null;
+    const adding = U.adding ? `<div class="on-add">${pick}${list.length ? `<label class="f">Course<select id="onCourse">${courseOpts(guessCourse(firstSec))}</select></label>
       <div class="row-actions"><button type="button" class="btn small" data-act="on-add-cancel">Cancel</button><button type="button" class="btn small primary" data-act="on-link">Link and Bring In</button></div>` : ""}</div>` : "";
-    const forSave = U.pickFor ? `<div class="on-add"><p><b>Where should Save to OneNote put pages?</b></p>${pick}${U.secs && U.secs.length ? `<div class="row-actions"><button type="button" class="btn small" data-act="on-add-cancel">Cancel</button><button type="button" class="btn small primary" data-act="on-save-here">Save Here</button></div>` : ""}</div>` : "";
+    const forSave = U.pickFor ? `<div class="on-add"><p><b>Where should Save to OneNote put pages?</b></p>${pick}${list.length ? `<div class="row-actions"><button type="button" class="btn small" data-act="on-add-cancel">Cancel</button><button type="button" class="btn small primary" data-act="on-save-here">Save Here</button></div>` : ""}</div>` : "";
     return `<p class="mini">Connected as <b>${esc(a.account || "your Microsoft account")}</b></p>
       ${forSave}
       <h3 class="on-h">Linked Sections</h3>
       ${rows ? `<ul class="on-links">${rows}</ul>` : `<p class="mini">Link a section and its pages come in as notes on their own board, tied to the course. Ask Your Course, Make Flashcards and Exam Prep use them from then on.</p>`}
       ${adding || (pr.links.length < 12 ? `<div class="row-actions"><button type="button" class="btn small primary" data-act="on-add">Link a Section</button></div>` : "")}
+      ${clsHtml()}
       <h3 class="on-h">Save to OneNote</h3>
       <p class="mini">${pr.saveTo ? `New pages go to <b>${esc((pr.saveTo.nb ? pr.saveTo.nb + " › " : "") + pr.saveTo.name)}</b>.` : "Pick a section the first time you save."} Use Save to OneNote on a note, a lecture's study notes or an Ask Your Course answer.</p>
       ${pr.saveTo ? `<div class="row-actions"><button type="button" class="link-btn" data-act="on-save-change">Change Section</button></div>` : ""}
       <div class="on-off">${U.confirm ? `<span class="mini">Disconnect? Notes already brought in stay in Studyboard.</span><button type="button" class="btn small danger" data-act="on-off">Disconnect</button><button type="button" class="btn small" data-act="on-off-no">Keep</button>` : `<button type="button" class="link-btn" data-act="on-off-ask">Disconnect OneNote</button>`}</div>`;
+  }
+  // Class Notebooks: off, waiting, on, or needing a new connection
+  function clsHtml(){
+    if (!clsOffered()) return "";
+    const a = clsAccount(), on = clsConnected();
+    const go = label => U.clsUrl ? `<a class="btn small on-btn" href="${esc(U.clsUrl)}" target="_blank" rel="noopener noreferrer" data-on-go="cls">${icon(16)}${esc(label)}</a>` : `<button type="button" class="btn small" disabled>Getting Class Notebooks ready…</button>`;
+    if (!on) return `<h3 class="on-h">Class Notebooks</h3>
+      <p class="mini">See your teachers' OneNote Class Notebooks from Microsoft Teams too, and link their sections like your own (read only). This asks Microsoft for one more permission, and some schools need IT to allow it. Your own notebooks keep working either way.</p>
+      ${a && a.status === "reauth" ? `<p class="cl-warn">Class Notebooks stopped working. Connect again to keep them.</p>` : ""}
+      <div class="row-actions">${go(a ? "Connect Class Notebooks Again" : "Add Class Notebooks")}</div>`;
+    return `<h3 class="on-h">Class Notebooks</h3><p class="mini">On. Sections from your class teams show under Class Notebooks in Link a Section.</p>
+      <div class="on-off">${U.clsConfirm ? `<span class="mini">Turn off? Class sections already linked stop updating; their notes stay.</span><button type="button" class="btn small danger" data-act="on-cls-off">Turn Off</button><button type="button" class="btn small" data-act="on-cls-no">Keep</button>` : `<button type="button" class="link-btn" data-act="on-cls-ask">Turn Off Class Notebooks</button>`}</div>`;
   }
   function paint(){ const el = document.getElementById("onBody"); if (el && dlg.open) el.innerHTML = bodyHtml(); }
   async function loadStatus(){
@@ -323,40 +382,52 @@ const SBONENOTE = (() => {
     const r = await call({action: "status"});
     U.loading = false;
     if (r.ok) {
-      const a = ((r.data && r.data.accounts) || []).find(x => x.provider === "onenote") || null, p = !!(r.data && r.data.providers && r.data.providers.onenote);
-      setCache({account: a ? {account: a.account || "", status: a.status || "ok"} : null, offered: p});
+      const accts = (r.data && r.data.accounts) || [], provs = (r.data && r.data.providers) || {};
+      const a = accts.find(x => x.provider === "onenote") || null, p = !!provs.onenote, ca = accts.find(x => x.provider === CLS) || null;
+      setCache({account: a ? {account: a.account || "", status: a.status || "ok"} : null, offered: p, cls: ca ? {account: ca.account || "", status: ca.status || "ok"} : null, clsOffered: !!provs[CLS]});
       U.err = p || a ? "" : "OneNote isn't set up on this Studyboard server yet.";
       if (p && (!a || a.status !== "ok") && (!U.url || Date.now() - U.urlAt > 10 * 60000)) {
         const s = await call({action: "start", provider: "onenote"});
         U.url = s.ok && s.data && /^https:\/\//.test(s.data.url) ? s.data.url : ""; U.urlAt = Date.now();
         if (!s.ok) U.err = s.status === 501 ? "OneNote isn't set up on this Studyboard server yet." : "Couldn't reach Studyboard's server. Try again in a moment.";
       }
+      if (connected() && clsOffered() && !clsConnected() && (!U.clsUrl || Date.now() - U.clsUrlAt > 10 * 60000)) {
+        const s = await call({action: "start", provider: CLS});
+        U.clsUrl = s.ok && s.data && /^https:\/\//.test(s.data.url) ? s.data.url : ""; U.clsUrlAt = Date.now();
+      }
     } else U.err = r.status === 404 || r.status === 0 ? "OneNote isn't set up on this Studyboard server yet." : "Couldn't check OneNote. Try again in a moment.";
     paint();
     if (connected() && (U.adding || U.pickFor) && !U.secs) loadSections();
   }
   async function loadSections(){
-    U.secs = null; U.secErr = ""; paint();
+    U.secs = null; U.secErr = ""; U.clsErr = ""; paint();
     try { U.secs = await sections(); } catch (x) { U.secErr = x instanceof OnErr ? x.message : "Couldn't load your notebooks."; }
     paint();
   }
   function open(opts){
     opts = opts || {};
-    U.pickFor = opts.pickFor || ""; U.why = opts.why || ""; U.adding = false; U.confirm = false; U.err = "";
+    U.pickFor = opts.pickFor || ""; U.why = opts.why || ""; U.adding = false; U.confirm = false; U.clsConfirm = false; U.err = ""; U.secs = null;
     openSheet(`<div class="sheet on-sheet">${head(NAME)}<div class="sheet-body" id="onBody">${bodyHtml()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
     loadStatus();
   }
   // After Connect, the new tab finishes; the sheet notices when you come back
   let poll = 0;
-  const arrived = () => loadStatus().then(() => { if (!connected()) return; U.wait = 0; clearInterval(poll); TOK = null; toast("OneNote is connected"); paint(); });
+  let waitFor = "onenote";
+  const arrived = () => loadStatus().then(() => {
+    if (!(waitFor === CLS ? clsConnected() : connected())) return;
+    U.wait = 0; clearInterval(poll); delete TOK[waitFor];
+    if (waitFor === CLS) { U.secs = null; toast("Class Notebooks are on. Link a Section lists them now."); } else toast("OneNote is connected");
+    paint();
+  });
   document.addEventListener("click", e => {
     const a = e.target.closest && e.target.closest("[data-on-go]"); if (!a) return;
+    waitFor = a.dataset.onGo === "cls" ? CLS : "onenote";
     U.wait = Date.now(); setTimeout(paint, 50);
     clearInterval(poll); poll = setInterval(() => { if (!U.wait || Date.now() - U.wait > 4 * 60000) { clearInterval(poll); U.wait = 0; paint(); return; } if (!document.hidden) arrived(); }, 6000);
   });
   window.addEventListener("focus", () => { if (U.wait && Date.now() - U.wait < 5 * 60000) arrived(); });
-  window.addEventListener("sb:secrets-wiped", () => { try { localStorage.removeItem(LS); } catch (x) {} TOK = null; });
+  window.addEventListener("sb:secrets-wiped", () => { try { localStorage.removeItem(LS); } catch (x) {} Object.keys(TOK).forEach(k => delete TOK[k]); });
 
   hook("act", (act, el, id) => {
     switch (act) {
@@ -366,7 +437,7 @@ const SBONENOTE = (() => {
       case "on-link": {
         const s = U.secs && U.secs[Number(($("#onSec") || {}).value)]; if (!s) return true;
         const courseId = ($("#onCourse") || {}).value || "", pr = prefs();
-        const links = pr.links.filter(l => l.sid !== s.sid).concat({sid: s.sid, name: s.name, nb: s.nb, courseId, board: "", at: 0, seen: [], n: 0, more: 0});
+        const links = pr.links.filter(l => l.sid !== s.sid).concat({sid: s.sid, g: s.g || "", name: s.name, nb: s.nb, courseId, board: "", at: 0, seen: [], n: 0, more: 0});
         setPrefs({links}); U.adding = false; paint();
         syncLink(s.sid, {say: true});
         return true;
@@ -377,7 +448,7 @@ const SBONENOTE = (() => {
       case "on-save": save(id); return true;
       case "on-save-change": U.pickFor = "*"; if (U.secs) paint(); else loadSections(); return true;
       case "on-save-here": {
-        const s = U.secs && U.secs[Number(($("#onSec") || {}).value)]; if (!s) return true;
+        const s = U.secs && U.secs[Number(($("#onSec") || {}).value)]; if (!s || s.g) return true;
         setPrefs({saveTo: {sid: s.sid, name: s.name, nb: s.nb}});
         const nid = U.pickFor; U.pickFor = ""; paint();
         if (nid && nid !== "*") { if (dlg.open) dlg.close(); save(nid, s); }
@@ -385,7 +456,10 @@ const SBONENOTE = (() => {
       }
       case "on-off-ask": U.confirm = true; paint(); return true;
       case "on-off-no": U.confirm = false; paint(); return true;
-      case "on-off": (async () => { await call({action: "disconnect", provider: "onenote"}); TOK = null; setCache({account: null}); U.confirm = false; U.url = ""; toast("OneNote is disconnected. Notes already brought in stay."); loadStatus(); })(); return true;
+      case "on-off": (async () => { await call({action: "disconnect", provider: "onenote"}); await call({action: "disconnect", provider: CLS}); Object.keys(TOK).forEach(k => delete TOK[k]); setCache({account: null, cls: null}); U.confirm = false; U.url = ""; U.clsUrl = ""; U.secs = null; toast("OneNote is disconnected. Notes already brought in stay."); loadStatus(); })(); return true;
+      case "on-cls-ask": U.clsConfirm = true; paint(); return true;
+      case "on-cls-no": U.clsConfirm = false; paint(); return true;
+      case "on-cls-off": (async () => { await call({action: "disconnect", provider: CLS}); delete TOK[CLS]; setCache({cls: null}); U.clsConfirm = false; U.clsUrl = ""; U.secs = null; toast("Class Notebooks are off. Notes already brought in stay."); loadStatus(); })(); return true;
     }
     return false;
   });
@@ -406,9 +480,12 @@ const SBONENOTE = (() => {
 .on-add{margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:12px}
 .on-add select{max-width:100%}
 .on-off{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.on-nb .dl-badge{width:18px;height:18px;font-size:.66rem}
+.ms-ic{flex:none;display:inline-block;vertical-align:middle}
+.on-btn{display:inline-flex;align-items:center;gap:6px}
+.on-nb .ms-ic{display:block}
+.on-l-main>.ms-ic{margin-top:2px}
 `;
   document.head.appendChild(css);
-  return {open, save, saveBtn, noteBtn, syncLink, syncAll, prefs, connected, offered, sections, T, setCache, cache};
+  return {open, save, saveBtn, noteBtn, syncLink, syncAll, prefs, connected, offered, clsConnected, sections, icon, T, setCache, cache};
 })();
 window.SBONENOTE = SBONENOTE;

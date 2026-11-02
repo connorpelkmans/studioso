@@ -114,3 +114,7 @@ The MIT License (MIT). Copyright (c) 2014-2025 Hipo. Permission is hereby grante
 - Ontario: Ontario Ministry of Education, "School information and student demographics" 2022-23 (school boards and board websites). Contains information licensed under the Open Government Licence – Ontario.
 - British Columbia: BC School and District Contact Information, school contacts (school districts and their email domains). Contains information licensed under the Open Government Licence – British Columbia.
 - United States public schools: the NCES school directory above (each school's district and website).
+
+## Microsoft Office app icons
+
+`vendor/microsoft-office-icons/` holds Microsoft's own icons for OneNote, Word, Excel and PowerPoint, downloaded unchanged from Microsoft's Fluent UI CDN and embedded byte for byte in `src/js/01-ms-icons.js` (`node scripts/gen-ms-icons.js`). They show on buttons and links that open or work with those apps (Open in OneNote, Save to OneNote, a Word file's link on a task). © Microsoft Corporation. Used under the Microsoft Fabric Assets License Agreement (`vendor/microsoft-office-icons/microsoft_fabric_assets_license_agreement_nov_2019.pdf`, https://aka.ms/fluentui-assets-license), which allows them in an application that uses a Microsoft API to work with a Microsoft service. Microsoft, OneNote, Word, Excel and PowerPoint are trademarks of the Microsoft group of companies; Studyboard isn't affiliated with or endorsed by Microsoft.

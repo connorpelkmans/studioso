@@ -44,15 +44,31 @@ const EXPECT1 = "Cell division\n\nMitosis\nMakes two identical cells\n• Propha
         S1: [{id: "p1", title: "Cell division", lastModifiedDateTime: "2026-11-01T10:00:00Z", createdDateTime: "2026-10-30T10:00:00Z", links: {oneNoteWebUrl: {href: "https://onedrive.live.com/view.aspx?p1"}}},
              {id: "p2", title: "Genetics", lastModifiedDateTime: "2026-11-01T11:00:00Z", createdDateTime: "2026-10-31T10:00:00Z", links: {oneNoteWebUrl: {href: "https://onedrive.live.com/view.aspx?p2"}}}]},
         content: {p1: page1, p2: "<html><head><title>Genetics</title></head><body><div><p>Genetics</p><p>Alleles come in pairs</p></div></body></html>"}};
+      G.cls = false; G.clsTokens = 0;
       SBONENOTE.T.transport = async body => {
-        if (body.action === "status") return {ok: true, status: 200, data: {accounts: [{provider: "onenote", account: "sam@school.edu", status: "ok"}], providers: {onenote: true}}};
+        if (body.action === "status") return {ok: true, status: 200, data: {accounts: [{provider: "onenote", account: "sam@school.edu", status: "ok"}].concat(G.cls ? [{provider: "onenote_class", account: "sam@school.edu", status: "ok"}] : []), providers: {onenote: true, onenote_class: true}}};
         if (body.action === "token" && body.provider === "onenote") { G.tokens++; return {ok: true, status: 200, data: {access: "tok", expires_in: 3600}}; }
+        if (body.action === "token" && body.provider === "onenote_class") { if (!G.cls) return {ok: false, status: 404, data: {}}; G.clsTokens++; return {ok: true, status: 200, data: {access: "ctok", expires_in: 3600}}; }
+        if (body.action === "start" && body.provider === "onenote_class") return {ok: true, status: 200, data: {url: "https://example.test/cloud-files?begin=cls"}};
+        if (body.action === "disconnect") { if (body.provider === "onenote_class") G.cls = false; return {ok: true, status: 200, data: {ok: true}}; }
         return {ok: false, status: 400, data: {}};
       };
       const J = (o, st) => new Response(JSON.stringify(o), {status: st || 200, headers: {"content-type": "application/json"}});
       SBONENOTE.T.fetch = async (url, init) => {
-        const u = new URL(url), p = decodeURIComponent(u.pathname).replace("/v1.0/me/onenote", ""), m = (init && init.method) || "GET";
-        G.calls.push(m + " " + p);
+        const u = new URL(url), m = (init && init.method) || "GET", full = decodeURIComponent(u.pathname);
+        G.calls.push(m + " " + full);
+        // Class Notebooks: the class teams and their notebooks, with the class token only
+        if (/^\/v1\.0\/(me\/joinedTeams|groups\/)/.test(full)) {
+          if (init.headers.Authorization !== "Bearer ctok") return J({}, 401);
+          if (m !== "GET") return J({}, 403);
+          if (full === "/v1.0/me/joinedTeams") return J({value: [{id: "T1", displayName: "BIO 101 Period 3"}, {id: "T2", displayName: "Soccer Team"}]});
+          if (full === "/v1.0/groups/T1/onenote/sections") return J({value: [{id: "CS1", displayName: "Handouts", parentNotebook: {displayName: "BIO 101 Notebook"}}]});
+          if (full === "/v1.0/groups/T2/onenote/sections") return J({}, 404);
+          if (full === "/v1.0/groups/T1/onenote/sections/CS1/pages") return J({value: [{id: "c1", title: "Photosynthesis", lastModifiedDateTime: "2026-11-01T10:00:00Z", links: {oneNoteWebUrl: {href: "https://school.sharepoint.com/c1"}}}]});
+          if (full === "/v1.0/groups/T1/onenote/pages/c1/content") return new Response("<html><body><p>Light reactions make ATP</p></body></html>", {headers: {"content-type": "text/html"}});
+          return J({}, 404);
+        }
+        const p = full.replace("/v1.0/me/onenote", "");
         if (init.headers.Authorization !== "Bearer tok") return J({}, 401);
         if (m === "GET" && p === "/sections") return J({value: [{id: "S2", displayName: "Lab Notes", parentNotebook: {displayName: "Chem"}}, {id: "S1", displayName: "BIO 101 Lectures", parentNotebook: {displayName: "School"}}]});
         let x;
@@ -118,12 +134,36 @@ const EXPECT1 = "Cell division\n\nMitosis\nMakes two identical cells\n• Propha
     await page.click('#onBody [data-act="on-open-board"]'); await page.waitForTimeout(300);
     ok(await page.locator("dialog[open]").count() === 0, "Open Notes goes to the board");
 
+    // Microsoft's own OneNote icon on the buttons, unchanged
+    const want = "data:image/svg+xml;base64," + fs.readFileSync(path.join(root, "vendor", "microsoft-office-icons", "onenote_20x1.svg")).toString("base64");
+    const iconOk = await page.evaluate(w => { const d = document.createElement("div"); d.innerHTML = SBONENOTE.saveBtn(Object.values(SBIMPORT.state().notes).find(n => n.on).id); const i = d.querySelector("img.ms-ic"); return !!i && i.getAttribute("src") === w && i.getAttribute("alt") === ""; }, want);
+    ok(iconOk, "Open in OneNote shows Microsoft's OneNote icon (the official file, decorative to screen readers)");
+
+    // Class Notebooks: off until added, then their sections are offered, read only
+    await act("on-open"); await page.waitForFunction(() => /Add Class Notebooks/.test((document.querySelector("#onBody") || {}).textContent || ""));
+    ok(await page.getAttribute('#onBody a[data-on-go="cls"]', "href") === "https://example.test/cloud-files?begin=cls", "Add Class Notebooks opens Microsoft's sign-in for the extra permission");
+    ok(await page.locator('#onBody a[data-on-go="cls"] img.ms-ic').count() === 1, "with the OneNote icon");
+    await page.evaluate(() => { __G.cls = true; });
+    await act("on-open"); await page.waitForFunction(() => /Turn Off Class Notebooks/.test((document.querySelector("#onBody") || {}).textContent || ""));
+    await page.click('#onBody [data-act="on-add"]'); await page.waitForSelector("#onSec optgroup", {state: "attached"});
+    const groups = await page.$$eval("#onSec optgroup", g => g.map(x => x.label + ": " + [...x.querySelectorAll("option")].map(o => o.textContent).join(", ")));
+    ok(groups[1] === "Class Notebooks (read only): BIO 101 Period 3 › BIO 101 Notebook › Handouts", "class sections listed by team and notebook; a team without one is skipped: " + groups);
+    const csIdx = await page.$eval("#onSec", s => [...s.options].find(o => /Handouts/.test(o.textContent)).value);
+    await page.selectOption("#onSec", csIdx); await page.selectOption("#onCourse", "bio");
+    await page.click('#onBody [data-act="on-link"]');
+    await page.waitForFunction(() => Object.values(SBIMPORT.state().notes).some(n => n.on && n.on.p === "c1"), null, {timeout: 15000});
+    const cn = (await fromOn()).find(x => x.on.p === "c1");
+    ok(cn.text === "Photosynthesis\n\nLight reactions make ATP" && cn.courseId === "bio" && cn.on.s === "CS1", "a class notebook page comes in as a note for the course");
+    ok((await S()).on.links.find(l => l.sid === "CS1").g === "T1", "the link remembers its class team");
+    ok(await page.evaluate(() => __G.calls.filter(c => /groups|joinedTeams/.test(c)).every(c => c.startsWith("GET "))), "class notebooks are only ever read");
+
     // Save to OneNote: the first time asks where, then saves there
     await page.evaluate(() => { const s = SBIMPORT.state(); s.notes.mine1 = {id: "mine1", text: "Exam tips\n\n• Sleep well\n☐ Pack a calculator", color: "yellow", x: 40, y: 40, z: 1, rot: 0, courseId: "bio", archived: false, shape: "", pin: "", stickers: []}; });
     ok(/Save to OneNote/.test(await page.evaluate(() => SBONENOTE.saveBtn("mine1"))), "a Studyboard note offers Save to OneNote");
     await act("on-save", "mine1"); await page.waitForSelector("#onSec");
     ok(/Where should Save to OneNote put pages/.test(await page.textContent("#onBody")), "the first save asks for a section");
-    await page.selectOption("#onSec", "0"); await page.click('#onBody [data-act="on-save-here"]');
+    ok(!/Handouts/.test(await page.textContent("#onSec")), "and only offers your own notebooks, not class ones");
+    await page.selectOption("#onSec", await page.$eval("#onSec", s => [...s.options].find(o => /Lab Notes/.test(o.textContent)).value)); await page.click('#onBody [data-act="on-save-here"]');
     await page.waitForFunction(() => __G.posts.length === 1 && SBIMPORT.state().notes.mine1.onSaved, null, {timeout: 10000});
     const post = await page.evaluate(() => __G.posts[0]);
     ok(post.sid === "S2" && post.type === "text/html", "posted to the chosen section as HTML");
@@ -134,7 +174,10 @@ const EXPECT1 = "Cell division\n\nMitosis\nMakes two identical cells\n• Propha
     ok(true, "the next save goes straight there");
 
     // tokens are reused, not asked for each call
-    ok(await page.evaluate(() => __G.tokens) === 1, "one access token for all of it");
+    ok(await page.evaluate(() => __G.tokens === 1 && __G.clsTokens === 1), "one access token per connection for all of it");
+    // the Import From Another App row shows the icon beside the full name
+    await act("ia-open"); await page.waitForSelector('dialog[open] [data-act="on-open"] img.ms-ic');
+    ok(true, "Import From Another App shows the OneNote icon beside its name");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nonenote.e2e: ${n} checks passed`);

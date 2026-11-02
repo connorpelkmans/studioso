@@ -486,7 +486,7 @@ const IA = (() => {
     openSheet(`<div class="sheet ia-sheet">${head(tr("ia.title", "Import From Another App"))}
       <div class="sheet-body">
         <p class="mini" style="margin:0 0 6px">${esc(tr("ia.intro", "Bring in your flashcards, tasks and notes. Files are read on this device and nothing is uploaded."))}</p>
-        <div class="menu-list ia-apps">${APPS().map(([id, name, how]) => `<button type="button" data-act="${PASTE[id] ? "ia-paste" : id === "onenote" ? "on-open" : "ia-pick"}" data-id="${id}"><span>${esc(name)}<span class="sub">${esc(how)}</span></span></button>`).join("")}</div>
+        <div class="menu-list ia-apps">${APPS().map(([id, name, how]) => `<button type="button" data-act="${PASTE[id] ? "ia-paste" : id === "onenote" ? "on-open" : "ia-pick"}" data-id="${id}">${id === "onenote" && window.SBONENOTE ? SBONENOTE.icon(24, "ia-ms") : ""}<span>${esc(name)}<span class="sub">${esc(how)}</span></span></button>`).join("")}</div>
         <div class="ia-drop" id="iaDrop"><span>${esc(tr("ia.drop", "Drop an .apkg, .colpkg, .csv or .zip file here, or"))}</span> <button type="button" class="btn small" data-act="ia-pick">${esc(tr("ia.choose", "Choose a File"))}</button></div>
         <input type="file" id="iaFile" hidden>
         <p class="status-msg" id="iaMsg" aria-live="polite" style="margin:8px 0 0"></p>
@@ -634,6 +634,7 @@ const IA = (() => {
 
   const css = document.createElement("style");
   css.textContent = `.ia-apps button .sub{white-space:normal}
+.ia-apps .ia-ms{margin-right:10px;align-self:center}
 .ia-drop{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:16px 12px;border:2px dashed var(--line);border-radius:14px;color:var(--muted);text-align:center;font-size:.9rem}
 .ia-list{display:flex;flex-direction:column;margin-top:10px;border-top:1px solid var(--line)}
 .ia-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 2px;border-bottom:1px solid var(--line)}

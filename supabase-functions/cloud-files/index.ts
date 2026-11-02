@@ -1,10 +1,10 @@
-// Studyboard: cloud-files (Supabase Edge Function) · Google Drive, OneDrive, Google Classroom (read-only, for school sync) and OneNote
+// Studyboard: cloud-files (Supabase Edge Function) · Google Drive, OneDrive, Google Classroom (read-only, for school sync), OneNote and OneNote Class Notebooks
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
-export type Provider = "google" | "microsoft" | "classroom" | "onenote";
+export type Provider = "google" | "microsoft" | "classroom" | "onenote" | "onenote_class";
 
-const PROVIDERS: Provider[] = ["google", "microsoft", "classroom", "onenote"];
+const PROVIDERS: Provider[] = ["google", "microsoft", "classroom", "onenote", "onenote_class"];
 const FN = "cloud-files";
 const enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -71,6 +71,9 @@ export const CLASSROOM_SCOPE = "openid email https://www.googleapis.com/auth/cla
 export const MS_SCOPE = "offline_access openid email User.Read Files.ReadWrite";
 // OneNote: read your notebooks (to bring pages in as notes) and add pages (Save to OneNote). Its own connection, so OneDrive never asks for notes
 export const ONENOTE_SCOPE = "offline_access openid email User.Read Notes.ReadWrite";
+// OneNote Class Notebooks, read only and optional: the student's class teams (Team.ReadBasic.All) and the notebooks shared with them (Notes.Read.All).
+// A separate connection, so a school that blocks these still leaves the student's own notebooks working
+export const ONENOTE_CLASS_SCOPE = "offline_access openid email User.Read Notes.Read.All Team.ReadBasic.All";
 export function google(d: Deps, scope = GOOGLE_SCOPE, needs = "drive.file"): Adapter {
   const id = envOr(d, "CLOUD_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_ID"), secret = envOr(d, "CLOUD_GOOGLE_CLIENT_SECRET", "GOOGLE_CLIENT_SECRET");
   return {
@@ -105,7 +108,7 @@ export function microsoft(d: Deps, scope = MS_SCOPE): Adapter {
     async revoke() { },
   };
 }
-export const adapters = (d: Deps): Record<Provider, Adapter> => ({ google: google(d), microsoft: microsoft(d), classroom: google(d, CLASSROOM_SCOPE, "classroom.coursework.me"), onenote: microsoft(d, ONENOTE_SCOPE) });
+export const adapters = (d: Deps): Record<Provider, Adapter> => ({ google: google(d), microsoft: microsoft(d), classroom: google(d, CLASSROOM_SCOPE, "classroom.coursework.me"), onenote: microsoft(d, ONENOTE_SCOPE), onenote_class: microsoft(d, ONENOTE_CLASS_SCOPE) });
 
 /* ================= Plumbing ================= */
 const CORS: Record<string, string> = {
@@ -156,7 +159,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
   for (const c of chunks) { all.set(c, o); o += c.byteLength; }
   return dec.decode(all);
 }
-const NAME: Record<Provider, string> = { google: "Google Drive", microsoft: "OneDrive", classroom: "Google Classroom", onenote: "OneNote" };
+const NAME: Record<Provider, string> = { google: "Google Drive", microsoft: "OneDrive", classroom: "Google Classroom", onenote: "OneNote", onenote_class: "OneNote Class Notebooks" };
 const HTML_HEAD = (title: string) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0E2A56;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#0E2A56}main{background:#fff;border-radius:18px;padding:28px 26px;max-width:440px;margin:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}h1,b.t{display:block;font-size:1.25rem;margin:8px 0}i{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:50%;color:#fff;font-style:normal;font-size:1.6rem}p{margin:6px 0 18px;color:#40506B}button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 22px;background:#2563EB;color:#fff;cursor:pointer}</style></head>`;
 const SAFE_HEADERS = (formOk: boolean) => ({ "Content-Type": "text/html; charset=utf-8", "X-Studyboard-Page": "html", "Cache-Control": "no-store", "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'; ${formOk ? "form-action 'self'; " : ""}frame-ancestors 'none'`, "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" });
@@ -195,11 +198,12 @@ async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Ada
     const what = st.p === "google" ? "Studyboard can only see the files it saves there, in a folder called “Studyboard”."
       : st.p === "classroom" ? "Studyboard reads your classes, your classwork with its due dates, whether you've turned it in and your grades, and announcements. It can't change or turn in anything."
       : st.p === "onenote" ? "Studyboard reads the notebook sections you choose, to bring their pages in as notes, and adds a page when you choose Save to OneNote. It never changes or deletes your pages."
+      : st.p === "onenote_class" ? "Studyboard reads the names of your class teams and the OneNote Class Notebooks shared with you, to bring the sections you choose in as notes. It can't change anything in them."
       : "Studyboard saves into a folder called “Studyboard” (or one you choose) and reads only the folders you ask it to watch. It never deletes anything.";
     return confirmPage(`Connect ${NAME[st.p]}?`, `Connect <b>${htmlEsc(t.account || NAME[st.p])}</b> to the Studyboard account <b>${htmlEsc(sb || "(no email address)")}</b>? ${what}<br><br><b>Only continue if this is your Studyboard account.</b> If someone sent you this link, close this page.`, box);
   } catch (e) {
     log("cb_error", { provider: st.p, status: e instanceof ProviderError ? e.status : 0 });
-    return page("Not connected", e instanceof ProviderError && e.status === 403 ? (st.p === "classroom" ? "Studyboard needs permission to see your classwork. Try again from Studyboard and leave those boxes ticked." : st.p === "onenote" ? "Studyboard needs permission to read and add OneNote pages. Try again from Studyboard and leave that box ticked." : `Studyboard needs permission to save files in ${NAME[st.p]}. Try again from Studyboard and leave that box ticked.`) : `${NAME[st.p]} didn't finish connecting. Try again from Studyboard.`, false);
+    return page("Not connected", e instanceof ProviderError && e.status === 403 ? (st.p === "classroom" ? "Studyboard needs permission to see your classwork. Try again from Studyboard and leave those boxes ticked." : st.p === "onenote" ? "Studyboard needs permission to read and add OneNote pages. Try again from Studyboard and leave that box ticked." : st.p === "onenote_class" ? "Studyboard needs permission to see your class teams and their notebooks. Try again from Studyboard and leave those boxes ticked." : `Studyboard needs permission to save files in ${NAME[st.p]}. Try again from Studyboard and leave that box ticked.`) : `${NAME[st.p]} didn't finish connecting. Try again from Studyboard.`, false);
   }
 }
 async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log: Log): Promise<Response> {
@@ -262,7 +266,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (text === null) return reply({ error: "bad request" }, 400);
     let b: any; try { b = JSON.parse(text || "{}"); } catch (_e) { b = null; }
     if (!b || typeof b !== "object") return reply({ error: "bad request" }, 400);
-    const providers = { google: A.google.configured(), microsoft: A.microsoft.configured(), classroom: A.classroom.configured(), onenote: A.onenote.configured() };
+    const providers = { google: A.google.configured(), microsoft: A.microsoft.configured(), classroom: A.classroom.configured(), onenote: A.onenote.configured(), onenote_class: A.onenote_class.configured() };
     if (b.action === "status") return reply({ accounts: await rpc(d, "cloud_status", { p_uid: uid }) || [], providers }, 200);
     if (!PROVIDERS.includes(b.provider)) return reply({ error: "bad request" }, 400);
     const prov: Provider = b.provider;

@@ -99,7 +99,8 @@ const DOCLINK = (() => {
 
 /* The task sheet's Documents section, the row button and the chips */
 const SBDOCS = (() => {
-  const badge = app => { const a = DOCLINK.APPS[app] || DOCLINK.APPS.web; return `<span class="dl-badge dl-${esc(app)}" aria-hidden="true">${a[1] ? esc(a[1]) : '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>'}</span>`; };
+  // Word, Excel, PowerPoint and OneNote links show Microsoft's own icon for the app (01-ms-icons, unchanged); the rest a plain badge
+  const badge = app => { const a = DOCLINK.APPS[app] || DOCLINK.APPS.web; if (typeof MS_ICON !== "undefined" && MS_ICON[app]) return `<span class="dl-badge dl-ms" aria-hidden="true"><img src="${MS_ICON[app].s20}" alt="" width="20" height="20" draggable="false"></span>`; return `<span class="dl-badge dl-${esc(app)}" aria-hidden="true">${a[1] ? esc(a[1]) : '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>'}</span>`; };
   const list = t => DOCLINK.norm(t && t.docs);
   // The editing part of the task sheet (shown under Notes)
   function formHtml(t){
@@ -167,6 +168,8 @@ const SBDOCS = (() => {
 .dl-gdoc{background:#1a65d6}.dl-gsheet{background:#137333}.dl-gslides{background:#a35200}.dl-gform{background:#6a3fb0}.dl-gdrive{background:#5f6368}
 .dl-word{background:#185abd}.dl-excel{background:#107c41}.dl-ppt{background:#b7361a}.dl-onenote{background:#7719aa}.dl-m365{background:#3b4a5c}
 .dl-canva{background:#087983}.dl-web{background:#5f6368}
+.dl-badge.dl-ms{background:none;border-radius:0}
+.dl-ms img{display:block;width:100%;height:100%}
 .dl-go{display:inline-flex;align-items:center;gap:3px;min-width:32px;min-height:32px;justify-content:center;padding:0 4px;border:0;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;font:inherit}
 .dl-go:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .dl-go:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
