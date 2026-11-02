@@ -1,6 +1,10 @@
 /* ===== module: 01-doclinks.js ===== */
 /* Document links on a task: a Google Doc, a Word file, a OneNote page or a Canva design, one tap from the deadline.
    Links only: nothing is fetched or signed in to, and the page opens in the browser (or the computer's own browser). */
+// Studyboard isn't a verified Microsoft publisher yet, so Microsoft makes school and work accounts ask their admin first.
+// Shown wherever a Microsoft account connects (OneDrive, Outlook calendar, OneNote); the servers say the same when Microsoft refuses
+const MS_SCHOOL_SOON = "School and work Microsoft accounts can't connect yet. That's coming in the future. For now, use a personal Microsoft account (Outlook.com, Hotmail or Live).";
+const msPersonal = email => /@(outlook|hotmail|live|msn|passport)\.[a-z.]+$/i.test(String(email || ""));
 /*DOCLINKS-START*/
 const DOCLINK = (() => {
   const MAX = 12, NAME_MAX = 120, URL_MAX = 2000;

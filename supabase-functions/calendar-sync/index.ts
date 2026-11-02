@@ -321,6 +321,12 @@ async function whoIs(d: Deps, token: string): Promise<string | null> {
   return u?.id && /^[0-9a-f-]{36}$/i.test(u.id) ? u.id.toLowerCase() : null;
 }
 export const adapters = (d: Deps): Record<Provider, Adapter> => ({ google: google(d), microsoft: microsoft(d) });
+// A school or work Microsoft account whose organization needs an admin to approve Studyboard before people can connect it
+// (Studyboard isn't a verified Microsoft publisher yet). Microsoft sends these back with an "admin approval" error
+export const SCHOOL_BLOCKED_TITLE = "School accounts can't connect yet";
+export const SCHOOL_BLOCKED_TEXT = "Studyboard can't connect school or work Microsoft accounts yet. That's coming in the future. For now you can connect a personal Microsoft account (Outlook.com, Hotmail or Live) instead.";
+export const schoolBlocked = (u: URL) => u.searchParams.get("error") === "consent_required"
+  || /AADSTS(90094|90095|900941|65001)\b|admin(istrator)?(\s+\w+)?\s+(approval|consent)|permission to access resources in your organi[sz]ation/i.test(u.searchParams.get("error_description") || "");
 const page = (title: string, text: string, ok: boolean) => new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0E2A56;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#0E2A56}main{background:#fff;border-radius:18px;padding:28px 26px;max-width:420px;margin:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}b{display:block;font-size:1.25rem;margin:8px 0}i{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:50%;background:${ok ? "#2E9E6B" : "#C93439"};color:#fff;font-style:normal;font-size:1.6rem}p{margin:6px 0 0;color:#40506B}</style></head>
 <body><main><i>${ok ? "✓" : "!"}</i><b>${title}</b><p>${text}</p></main></body></html>`, { status: ok ? 200 : 400, headers: { "Content-Type": "text/html; charset=utf-8", "X-Studyboard-Page": "html", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'", "Referrer-Policy": "no-referrer" } });
@@ -350,7 +356,10 @@ async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Ada
   const st = secret.length >= 32 ? await readState(secret, url.searchParams.get("state") || "", d.now()) : null;
   if (!st) { log("cb_bad_state"); return page("That link has expired", "Go back to Studyboard and choose Connect again.", false); }
   if (cookieOf(req) !== st.n) { log("cb_other_browser"); return page("Start again in Studyboard", "This connection wasn't started in this browser, so nothing was connected. Choose Connect in your own Studyboard.", false); }
-  if (url.searchParams.get("error")) { log("cb_denied"); return page("Not connected", `Access wasn't allowed, so nothing changed. You can try again from Studyboard.`, false); }
+  if (url.searchParams.get("error")) {
+    if (st.p === "microsoft" && schoolBlocked(url)) { log("cb_school_blocked", { provider: st.p }); return page(SCHOOL_BLOCKED_TITLE, SCHOOL_BLOCKED_TEXT, false); }
+    log("cb_denied"); return page("Not connected", `Access wasn't allowed, so nothing changed. You can try again from Studyboard.`, false);
+  }
   const code = url.searchParams.get("code") || ""; if (!code || code.length > 2000) return page("Not connected", "Something was missing. Try again from Studyboard.", false);
   const P = A[st.p];
   try {

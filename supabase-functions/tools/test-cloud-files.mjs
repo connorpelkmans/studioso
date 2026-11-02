@@ -235,4 +235,22 @@ await test("logs never carry tokens or addresses", async () => {
   const all = w.logs.join("\n");
   assert.ok(!/g-refresh|g-access|student@|hannah@/.test(all), all);
 });
+await test("a school Microsoft account that needs admin approval gets the not-yet message", async () => {
+  const w = world();
+  const back = async (provider, qs) => {
+    const s = await w.call(Object.assign({ action: "start", provider }, {}));
+    const b = await w.get(new URL(s.body.url).search.slice(1));
+    const st = new URL(b.location).searchParams.get("state");
+    return w.get(new URLSearchParams(Object.assign({ state: st }, qs)).toString(), b.cookie);
+  };
+  const blocked = { error: "access_denied", error_description: "AADSTS90094: The grant requires admin permission." };
+  for (const p of ["microsoft", "onenote", "onenote_class"]) {
+    const r = await back(p, blocked);
+    assert.ok(/School accounts can.t connect yet/.test(r.text) && /coming in the future/.test(r.text) && /personal Microsoft account/.test(r.text), p + ": " + r.text.slice(0, 300));
+  }
+  assert.ok(/School accounts/.test((await back("microsoft", { error: "consent_required" })).text), "consent_required too");
+  assert.ok(/Not connected/.test((await back("microsoft", { error: "access_denied", error_description: "AADSTS65004: User declined to consent to access the app." })).text), "someone who just said no gets the usual page");
+  assert.ok(/Not connected/.test((await back("google", blocked)).text), "Google isn't affected");
+  assert.ok(w.logs.some(l => /cb_school_blocked/.test(l)), "logged, so you can see how often it happens");
+});
 console.log(`\ncloud-files: ${passed} checks passed`);

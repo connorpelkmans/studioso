@@ -793,7 +793,7 @@ Pages go straight between the device and Microsoft Graph; `cloud-files` only kee
 | What you see | What to do |
 |---|---|
 | "OneNote isn't set up on this Studyboard server yet" | Step 2 (or Microsoft's client ID and secret are missing). |
-| A school account: "unverified" or "Need admin approval" right away | Step 3: verify the publisher. After that, only schools that block all apps need their admin. |
+| A school account: "unverified" or "Need admin approval" right away | Step 3: verify the publisher. After that, only schools that block all apps need their admin. Until then, OneDrive, Outlook calendar and OneNote tell students that school and work Microsoft accounts can't connect yet and to use a personal one (the wording is `MS_SCHOOL_SOON` in `src/js/01-doclinks.js`, and `SCHOOL_BLOCKED_TEXT` in `cloud-files` and `calendar-sync` for the page Microsoft sends them back to; those log `cb_school_blocked`). Take both out once you're verified. |
 | Add Class Notebooks: no class sections listed | The student's classes don't use Teams Class Notebooks, or their school blocks `Notes.Read.All` / `Team.ReadBasic.All`. |
 | Microsoft: "Need admin approval" for a school account | The school's Microsoft 365 admin hasn't allowed `Notes.ReadWrite` for Studyboard. They can grant it in Entra ID, Enterprise applications. |
 | "OneNote didn't allow that" when saving | The section is read only (a class notebook's Content Library, for example). Change Section. |
