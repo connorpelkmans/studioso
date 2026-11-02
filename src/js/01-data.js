@@ -273,6 +273,7 @@ function normTask(t){
   if (!isDate(t.start)) t.start = "";
   delete t.earned; delete t.possible;
   if (t.prep != null) t.prep = normPrep(t.prep);
+  if (t.docs != null) { t.docs = DOCLINK.norm(t.docs); if (!t.docs.length) delete t.docs; }
   ["breakdownOf", "step", "bdKind"].forEach(k => { if (typeof t[k] !== "string" || !t[k]) delete t[k]; });
   if (!isDate(t.bdDue)) delete t.bdDue;
   if (t.breakdownParent) t.breakdownParent = true; else delete t.breakdownParent;

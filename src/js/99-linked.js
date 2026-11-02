@@ -51,7 +51,7 @@
     if (t.matKind) mat(t.matKind, t.matId, t.matDeck, "prep");
     (Array.isArray(t.studyDecks) ? t.studyDecks : []).forEach(id => mat("deck", id, "", "prep"));
     (I.filesBy.get(t.id) || []).forEach(id => mat("file", id, "", "attached"));
-    return collect(notes.concat(decks, files));
+    return collect(notes.concat(decks, files, window.SBDOCS ? SBDOCS.chips(t) : []));
   }
   function originsOf(d){
     const list = [];
@@ -85,6 +85,7 @@
   const WORD = {note: "Note", deck: "Deck", quiz: "Quiz", file: "File", lecture: "Lecture"};
   const lead = x => x.why === "from" ? `Made from ${x.k === "file" && x.pdf ? "PDF" : WORD[x.k].toLowerCase()}: ` : x.why === "mentions" ? "Note that links here: " : `${x.k === "file" && x.pdf ? "PDF" : WORD[x.k]}: `;
   function chip(x, hide){
+    if (x.k === "doc") return `<li${hide ? " hidden" : ""}><button type="button" class="lk-chip k-doc" data-act="dl-url" data-url="${esc(x.url)}">${x.badge}<span class="sr">${esc(DOCLINK.label(x.app))}: </span><span class="lk-n">${esc(x.name)}</span></button></li>`;
     const attrs = x.k === "lecture" ? `data-act="lec-view" data-id="${esc(x.id)}"` : `data-act="lk-open" data-k="${x.k}" data-id="${esc(x.id)}"${x.deck ? ` data-deck="${esc(x.deck)}"` : ""}`;
     return `<li${hide ? " hidden" : ""}><button type="button" class="lk-chip k-${x.k}" ${attrs}>${IC[x.k === "file" && x.pdf ? "pdf" : x.k]}<span class="sr">${esc(lead(x))}</span><span class="lk-n">${esc(x.name)}</span></button></li>`;
   }

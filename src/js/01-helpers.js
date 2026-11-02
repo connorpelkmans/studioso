@@ -506,10 +506,12 @@ function safeUrl(u){
 const LMS_NAMES = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard", md: "Moodle", sg: "Schoology", gc: "Google Classroom"};
 const LMS_GO = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>';
 const lmsSite = t => { const k = t && Object.keys(LMS_NAMES).find(f => t[f] && t[f].key); return k ? LMS_NAMES[k] : ""; };
+// (with the task's document links button after it, when it has any)
 function lmsGoBtn(t, cls){
-  const u = t && t.link ? safeUrl(t.link) : null; if (!u) return "";
+  const docs = t && t.docs && window.SBDOCS ? SBDOCS.rowBtn(t) : "";
+  const u = t && t.link ? safeUrl(t.link) : null; if (!u) return docs;
   const where = lmsSite(t) || "the school site";
-  return `<button type="button" class="lms-go ${cls || ""}" data-act="lms-go" data-url="${esc(u)}" title="Open in ${esc(where)}" aria-label="Open ${esc(t.title)} in ${esc(where)}">${LMS_GO}</button>`;
+  return docs + `<button type="button" class="lms-go ${cls || ""}" data-act="lms-go" data-url="${esc(u)}" title="Open in ${esc(where)}" aria-label="Open ${esc(t.title)} in ${esc(where)}">${LMS_GO}</button>`;
 }
 // A course's home page on the school's site
 function lmsCourseLink(c){

@@ -398,6 +398,14 @@ Things to know:
 
 Open a paper, project, lab report or presentation and tap **Break It Down** (also on the task row, under Courses, or from the menu to paste a prompt or rubric or add a PDF). You get 3 to 8 milestones, scheduled backward from the due date, with the last one a day before it by default. You can edit titles, dates and hours, move a milestone off a heavy day, and create them all at once; one Undo reverses everything. It needs no setup and works offline; if AI Features are on, the steps are worded for your assignment (the dates and hours always come from your calendar). When a syllabus is imported, big assignments have a "Break down into milestones" checkbox. The parent task keeps the real due date and shows "3 of 6 milestones done". If its due date changes later, Studyboard offers to re-plan the open milestones, and an overdue milestone offers a catch-up plan. Nothing to run on the server: milestones are ordinary tasks and sync with everything else.
 
+## Document Links on a Task
+
+Every task has a **Documents** section under Notes (in Edit Task). Paste the link from a document's Share button (or Copy Link) and press Add, or just paste: Studyboard recognises Google Docs, Sheets, Slides, Forms and Drive files, Word, Excel, PowerPoint and OneNote (SharePoint, OneDrive and 1drv.ms links, and OneNote's desktop `onenote:` links, which keep their web address), and Canva designs. Any other web address is kept as a Web Page. A name comes from the link when it carries one (a SharePoint `file=` or a `.docx` path); otherwise type one. Up to 12 links per task.
+
+The links show in the task's view (tap a task), as a small button on its Board card and Today's Plan row (a list when there are several; hidden on phones, where the view has them), and in the Linked row. They open in a new tab, or the computer's browser in the desktop app. Nothing is fetched, signed in to or uploaded, and there is nothing to set up. Links sync with the task and are checked when a task loads (https and http only, no `javascript:` or addresses with passwords).
+
+- **For developers:** `src/js/01-doclinks.js` (the pure part between `/*DOCLINKS-START*/` and `/*DOCLINKS-END*/`: `DOCLINK.clean`, `appOf`, `nameOf`, `norm`; the UI is `SBDOCS`). A task keeps them in `task.docs` as `[{id, url, app, name}]`, checked by `normTask`. Tests: `node tests/doclinks.test.js` and `node tests/doclinks.e2e.js`.
+
 ## Import From Another App
 
 Settings > Data and Backups > Export > **Import From Another App** (also in Add Deck on the Flashcards page, and in Search Everywhere) brings in what lives in another app. There is nothing to set up: files are read on the device and nothing is uploaded. Pick a file or drop it on the sheet; a preview shows what was found (and what was left out, such as pictures), lets you untick parts and choose a course for each deck or project, and the import is one change with one Undo. Free.

@@ -424,6 +424,7 @@ function taskView(t0){
     if (cfg.team && t.team) rows.push([I.person, esc(t.team), esc(cfg.team)]);
     const url = cfg.link && t.link ? safeUrl(t.link) : "";
     if (url) rows.push([I.link, `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(url)}">Open in ${esc(lmsSite(t) || "browser")}</button>`, esc(cfg.link)]);
+    if (window.SBDOCS) DOCLINK.norm(t.docs).forEach(d => rows.push([SBDOCS.badge(d.app), `<button type="button" class="link-btn" data-act="dl-url" data-url="${esc(d.url)}">${esc(DOCLINK.shown(d))}</button>`, esc(DOCLINK.label(d.app))]));
     const bl = blockers(t); if (bl.length && !done) rows.push([I.lock, esc(bl.map(x => x.title).join(", ")), "Finish first"]);
     if (t.seriesId) rows.push([I.rep, "Repeats", "Part of a repeating series"]);
     if (t.notes && t.notes.trim()) rows.push([I.note, `<span class="occv-notes">${esc(t.notes.trim())}</span>`, esc(cfg.notes)]);
@@ -506,7 +507,7 @@ function taskForm(t, preset = {}){
   let deps = (t.dependsOn || []).filter(id => state.tasks[id]);
   let attached = new Set(filesOfTask(t.id).map(f => f.id));
   let noteSet = new Set(notesOfTask(t.id).map(n => n.id)), newNotes = [];
-  let planAfter = false;
+  let planAfter = false, docsF = null;
   const canRepeat = isNew || !(t.seriesId || lmsOf(t) || t.prepFor || t.breakdownOf || t.breakdownParent || t.gt);
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
@@ -534,6 +535,7 @@ function taskForm(t, preset = {}){
       <p class="mini" id="pctFromCl" hidden style="margin:0"></p>
       ${!isNew && window.SBPREP ? SBPREP.formHtml(t) : ""}
       <label class="f"><span class="lbl" id="notesLbl">Notes</span><textarea name="notes" maxlength="5000">${esc(t.notes)}</textarea></label>
+      ${window.SBDOCS ? SBDOCS.formHtml(t) : ""}
       ${!isNew && window.SBLMS_TASK ? SBLMS_TASK(t) : ""}
       ${!isNew && accOf() ? accOf().logHtml(t) : ""}
       <details class="adv" id="tfAdv" ${ui.advOpen ? "open" : ""}>
@@ -594,7 +596,8 @@ function taskForm(t, preset = {}){
       weight: isNum(fd.get("weight")) && Number(fd.get("weight")) > 0 ? Math.min(100, Number(fd.get("weight"))) : null,
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
       latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
-      location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link
+      location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link,
+      docs: docsF ? docsF.value() : DOCLINK.norm(t.docs)
     };
     if (MILESTONE(type)) {
       const rv = String(fd.get("remote") || "");
@@ -633,6 +636,7 @@ function taskForm(t, preset = {}){
       applyChanges([{kind:"task", id: t.id, after: next}].concat(copies, fileChanges), copies.length ? `Task saved, repeating ${copies.length} more time${copies.length === 1 ? "" : "s"}` : "Task saved", () => moved ? shiftOffer(t.id) : null);
     }
   });
+  if (window.SBDOCS) docsF = SBDOCS.wire(dlg, t);
   const list = $("#clList");
   let drawRepeat = () => {};
   const curType = () => $("#tfType").value;

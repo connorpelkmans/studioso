@@ -298,6 +298,190 @@ const FAVICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqa
 const CLIP = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:2px"><path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg>';
 const REPEAT = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Repeats"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg>';
 
+/* ===== module: 01-doclinks.js ===== */
+/* Document links on a task: a Google Doc, a Word file, a OneNote page or a Canva design, one tap from the deadline.
+   Links only: nothing is fetched or signed in to, and the page opens in the browser (or the computer's own browser). */
+/*DOCLINKS-START*/
+const DOCLINK = (() => {
+  const MAX = 12, NAME_MAX = 120, URL_MAX = 2000;
+  // app -> [label, short badge letter, family]
+  const APPS = {
+    gdoc: ["Google Doc", "D", "google"], gsheet: ["Google Sheet", "S", "google"], gslides: ["Google Slides", "P", "google"],
+    gform: ["Google Form", "F", "google"], gdrive: ["Google Drive File", "G", "google"],
+    word: ["Word Document", "W", "microsoft"], excel: ["Excel Workbook", "X", "microsoft"], ppt: ["PowerPoint", "P", "microsoft"],
+    onenote: ["OneNote Page", "N", "microsoft"], m365: ["Microsoft 365 File", "M", "microsoft"],
+    canva: ["Canva Design", "C", "canva"], web: ["Web Page", "", "web"]
+  };
+  const EXT = {doc: "word", docx: "word", dotx: "word", rtf: "word", xls: "excel", xlsx: "excel", xlsm: "excel", csv: "excel", ppt: "ppt", pptx: "ppt", potx: "ppt", one: "onenote", onetoc2: "onenote"};
+  const MS_LETTER = {w: "word", x: "excel", p: "ppt", o: "onenote"};
+  const MS_HOST = /(^|\.)(sharepoint\.com|onedrive\.live\.com|1drv\.ms|office\.com|office\.live\.com|officeapps\.live\.com|onenote\.com|onenote\.officeapps\.live\.com|microsoft365\.com|cloud\.microsoft)$/i;
+
+  // A pasted link -> a clean https address, or "" (OneNote's desktop "onenote:https://..." form and a pasted pair of links work too)
+  function clean(raw){
+    let s = String(raw || "").trim();
+    const all = s.match(/https?:\/\/[^\s<>"']+/gi);
+    if (all) s = all[0]; else if (/^onenote:/i.test(s)) return "";
+    s = s.replace(/^onenote:/i, "");
+    if (!/^https?:\/\//i.test(s)) { if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(s)) s = "https://" + s; else return ""; }
+    try {
+      const u = new URL(s);
+      if (u.protocol !== "https:" && u.protocol !== "http:") return "";
+      if (!u.hostname || u.username || u.password) return "";
+      const out = u.href;
+      return out.length <= URL_MAX ? out : "";
+    } catch (e) { return ""; }
+  }
+  const extOf = s => { const m = /\.([a-z0-9]{1,8})$/i.exec(String(s || "")); return m ? m[1].toLowerCase() : ""; };
+  const dec = s => { try { return decodeURIComponent(String(s || "").replace(/\+/g, " ")); } catch (e) { return String(s || ""); } };
+  // Which app a link belongs to
+  function appOf(url){
+    let u; try { u = new URL(url); } catch (e) { return "web"; }
+    const h = u.hostname.toLowerCase(), p = u.pathname;
+    if (h === "docs.google.com") {
+      if (/^\/document\//.test(p)) return "gdoc";
+      if (/^\/spreadsheets\//.test(p)) return "gsheet";
+      if (/^\/presentation\//.test(p)) return "gslides";
+      if (/^\/forms\//.test(p)) return "gform";
+      return "gdrive";
+    }
+    if (h === "forms.gle") return "gform";
+    if (h === "drive.google.com") return "gdrive";
+    if (h === "canva.com" || h.endsWith(".canva.com") || h === "canva.link") return "canva";
+    if (MS_HOST.test(h)) {
+      if (/onenote/i.test(h) || /\/onenote\b|onenote\.aspx/i.test(p)) return "onenote";
+      const letter = /^\/:([wxpo]):\//i.exec(p) || (h === "1drv.ms" ? /^\/([wxpo])\//i.exec(p) : null);
+      if (letter) return MS_LETTER[letter[1].toLowerCase()];
+      const app = (u.searchParams.get("app") || "").toLowerCase();
+      if (/^word$/.test(app)) return "word"; if (/^excel$/.test(app)) return "excel"; if (/^powerpoint$/.test(app)) return "ppt"; if (/^onenote$/.test(app)) return "onenote";
+      const e = extOf(nameIn(u)) || extOf(dec(p));
+      if (EXT[e]) return EXT[e];
+      if (/^\/(word|excel|powerpoint)\b/i.test(p)) return {word: "word", excel: "excel", powerpoint: "ppt"}[p.split("/")[1].toLowerCase()];
+      return "m365";
+    }
+    return "web";
+  }
+  // A file name the link carries (SharePoint's file= or a path ending in .docx), without its extension
+  function nameIn(u){
+    for (const k of ["file", "filename", "title"]) { const v = u.searchParams.get(k); if (v && extOf(v)) return dec(v); }
+    const last = dec(u.pathname.split("/").filter(Boolean).pop() || "");
+    return EXT[extOf(last)] ? last : "";
+  }
+  function nameOf(url){
+    let u; try { u = new URL(url); } catch (e) { return ""; }
+    const n = nameIn(u).replace(/\.[a-z0-9]{1,8}$/i, "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+    return n.slice(0, NAME_MAX);
+  }
+  const label = app => (APPS[app] || APPS.web)[0];
+  const host = url => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch (e) { return ""; } };
+  const shown = d => d.name || (d.app === "web" ? host(d.url) || label("web") : label(d.app));
+  // A link typed or pasted -> {id, url, app, name}, or null
+  function make(raw, name, id){
+    const url = clean(raw); if (!url) return null;
+    const app = appOf(url);
+    const nm = String(name == null ? "" : name).replace(/[<>\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().slice(0, NAME_MAX) || nameOf(url);
+    return {id: String(id || "").replace(/[^\w-]/g, "").slice(0, 40) || "dl" + Math.random().toString(36).slice(2, 10), url, app, name: nm};
+  }
+  // A task's saved list, checked (sync and backups bring in anything)
+  function norm(list){
+    if (!Array.isArray(list)) return [];
+    const seen = new Set(), out = [];
+    for (const x of list) {
+      if (!x || typeof x !== "object") continue;
+      const d = make(x.url, x.name, x.id); if (!d || seen.has(d.url)) continue;
+      seen.add(d.url); out.push(d);
+      if (out.length >= MAX) break;
+    }
+    return out;
+  }
+  return {MAX, APPS, clean, appOf, nameOf, label, shown, host, make, norm};
+})();
+/*DOCLINKS-END*/
+
+/* The task sheet's Documents section, the row button and the chips */
+const SBDOCS = (() => {
+  const badge = app => { const a = DOCLINK.APPS[app] || DOCLINK.APPS.web; return `<span class="dl-badge dl-${esc(app)}" aria-hidden="true">${a[1] ? esc(a[1]) : '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>'}</span>`; };
+  const list = t => DOCLINK.norm(t && t.docs);
+  // The editing part of the task sheet (shown under Notes)
+  function formHtml(t){
+    return `<fieldset class="dl-fs" id="dlFs"><legend>Documents <span class="hint">Google Docs, Microsoft 365, OneNote, Canva</span></legend>
+      <ul class="dl-edit" id="dlList"></ul>
+      <div class="cl-new"><input type="url" id="dlNew" placeholder="Paste a link to the document" maxlength="2000" data-noenter aria-label="Link to a document" autocomplete="off"><button type="button" class="btn small" id="dlAdd">Add</button></div>
+      <p class="mini dl-msg" id="dlMsg" aria-live="polite"></p></fieldset>`;
+  }
+  // Wires the section in the open sheet; value() is what Save keeps
+  function wire(root, t){
+    let docs = list(t);
+    const ul = root.querySelector("#dlList"), inp = root.querySelector("#dlNew"), msg = root.querySelector("#dlMsg");
+    if (!ul || !inp) return {value: () => list(t)};
+    const draw = () => {
+      ul.innerHTML = docs.map((d, i) => `<li>${badge(d.app)}<input type="text" data-i="${i}" value="${esc(d.name)}" placeholder="${esc(DOCLINK.shown(Object.assign({}, d, {name: ""})))}" maxlength="120" data-noenter aria-label="Name for ${esc(DOCLINK.label(d.app))} link ${i + 1}"><button type="button" class="link-btn" data-dl-open="${i}">Open</button><button type="button" class="icon-btn" data-dl-rm="${i}" aria-label="Remove ${esc(DOCLINK.shown(d))}">×</button></li>`).join("");
+      ul.hidden = !docs.length;
+    };
+    const add = () => {
+      const raw = inp.value.trim(); if (!raw) return;
+      const d = DOCLINK.make(raw);
+      if (!d) { msg.textContent = "That doesn't look like a web address. Copy the link from the document's Share button."; return; }
+      if (docs.some(x => x.url === d.url)) { msg.textContent = "That link is already here."; inp.value = ""; return; }
+      if (docs.length >= DOCLINK.MAX) { msg.textContent = `A task can keep ${DOCLINK.MAX} links.`; return; }
+      docs.push(d); inp.value = ""; msg.textContent = `Added ${DOCLINK.label(d.app)}.`; draw(); inp.focus();
+    };
+    root.querySelector("#dlAdd").addEventListener("click", add);
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+    inp.addEventListener("paste", () => setTimeout(() => { if (DOCLINK.clean(inp.value)) add(); }, 0));
+    ul.addEventListener("input", e => { const i = e.target.dataset.i; if (i != null && docs[i]) docs[i].name = e.target.value; });
+    ul.addEventListener("click", e => {
+      const o = e.target.closest("[data-dl-open]"), r = e.target.closest("[data-dl-rm]");
+      if (o && docs[o.dataset.dlOpen]) openOutside(docs[o.dataset.dlOpen].url);
+      if (r) { const gone = docs.splice(Number(r.dataset.dlRm), 1)[0]; msg.textContent = gone ? `Removed ${DOCLINK.shown(gone)}. Save to keep the change.` : ""; draw(); }
+    });
+    draw();
+    // a link still in the box when Save is pressed is kept too
+    return {value: () => { const raw = inp.value.trim(), d = raw && DOCLINK.make(raw); return DOCLINK.norm(d && !docs.some(x => x.url === d.url) ? docs.concat(d) : docs); }};
+  }
+  // On a task row: one link opens it, several open a short list
+  function rowBtn(t){
+    const ds = list(t); if (!ds.length) return "";
+    const one = ds.length === 1, what = one ? DOCLINK.shown(ds[0]) : `${ds.length} documents`;
+    return `<button type="button" class="dl-go" data-act="dl-go" data-id="${esc(t.id)}" title="Open ${esc(what)}" aria-label="Open ${esc(what)} for ${esc(t.title)}">${badge(one ? ds[0].app : "web")}${one ? "" : `<span class="dl-n">${ds.length}</span>`}</button>`;
+  }
+  // For the Linked row at the top of the task sheet
+  const chips = t => list(t).map(d => ({k: "doc", id: d.id, url: d.url, app: d.app, name: DOCLINK.shown(d), badge: badge(d.app), why: "attached"}));
+  function pick(t){
+    const ds = list(t); if (!ds.length) return;
+    if (ds.length === 1) { openOutside(ds[0].url); return; }
+    openSheet(`<div class="sheet dl-pick">${head("Documents")}<div class="sheet-body"><div class="menu-list">${ds.map(d => `<button type="button" data-act="dl-url" data-url="${esc(d.url)}">${badge(d.app)}<span>${esc(DOCLINK.shown(d))}<span class="sub">${esc(DOCLINK.label(d.app))}</span></span></button>`).join("")}</div></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
+  }
+  hook("act", (act, el, id) => {
+    if (act === "dl-go") { const t = state.tasks[id]; if (t) pick(t); return true; }
+    if (act === "dl-url") { openOutside(el.dataset.url); if (dlg.open && el.closest(".dl-pick")) dlg.close(); return true; }
+    return false;
+  });
+  const css = document.createElement("style");
+  css.textContent = `
+.dl-edit{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:6px}
+.dl-edit li{display:flex;align-items:center;gap:8px;min-width:0}
+.dl-edit li input{flex:1 1 auto;min-width:0}
+.dl-msg:empty{display:none}
+.dl-badge{flex:none;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-size:.72rem;font-weight:800;line-height:1;color:#fff;background:#5f6368}
+.dl-gdoc{background:#1a65d6}.dl-gsheet{background:#137333}.dl-gslides{background:#a35200}.dl-gform{background:#6a3fb0}.dl-gdrive{background:#5f6368}
+.dl-word{background:#185abd}.dl-excel{background:#107c41}.dl-ppt{background:#b7361a}.dl-onenote{background:#7719aa}.dl-m365{background:#3b4a5c}
+.dl-canva{background:#087983}.dl-web{background:#5f6368}
+.dl-go{display:inline-flex;align-items:center;gap:3px;min-width:32px;min-height:32px;justify-content:center;padding:0 4px;border:0;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;font:inherit}
+.dl-go:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.dl-go:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dl-n{font-size:.75rem;font-weight:700}
+.menu-list .dl-badge{margin-right:10px}
+.lk-chip .dl-badge{width:16px;height:16px;font-size:.62rem;border-radius:4px}
+.card-foot .dl-go{margin-left:auto;min-width:24px;min-height:24px}
+.card-foot .dl-go+.lms-go{margin-left:0}
+@media (pointer:coarse){.dl-go{min-width:44px;min-height:44px}}
+@media (max-width:639px){.card-foot .dl-go,.plan-side .dl-go{display:none}}
+`;
+  document.head.appendChild(css);
+  return {formHtml, wire, rowBtn, chips, pick, badge};
+})();
+window.SBDOCS = SBDOCS;
 /* ===== module: 01-data.js: the app's core, dates, the app's state, Recently Deleted and Export My Data ===== */
 /* ---------- Dates ---------- */
 const pad = n => String(n).padStart(2, "0");
@@ -573,6 +757,7 @@ function normTask(t){
   if (!isDate(t.start)) t.start = "";
   delete t.earned; delete t.possible;
   if (t.prep != null) t.prep = normPrep(t.prep);
+  if (t.docs != null) { t.docs = DOCLINK.norm(t.docs); if (!t.docs.length) delete t.docs; }
   ["breakdownOf", "step", "bdKind"].forEach(k => { if (typeof t[k] !== "string" || !t[k]) delete t[k]; });
   if (!isDate(t.bdDue)) delete t.bdDue;
   if (t.breakdownParent) t.breakdownParent = true; else delete t.breakdownParent;
@@ -8586,10 +8771,12 @@ function safeUrl(u){
 const LMS_NAMES = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard", md: "Moodle", sg: "Schoology", gc: "Google Classroom"};
 const LMS_GO = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>';
 const lmsSite = t => { const k = t && Object.keys(LMS_NAMES).find(f => t[f] && t[f].key); return k ? LMS_NAMES[k] : ""; };
+// (with the task's document links button after it, when it has any)
 function lmsGoBtn(t, cls){
-  const u = t && t.link ? safeUrl(t.link) : null; if (!u) return "";
+  const docs = t && t.docs && window.SBDOCS ? SBDOCS.rowBtn(t) : "";
+  const u = t && t.link ? safeUrl(t.link) : null; if (!u) return docs;
   const where = lmsSite(t) || "the school site";
-  return `<button type="button" class="lms-go ${cls || ""}" data-act="lms-go" data-url="${esc(u)}" title="Open in ${esc(where)}" aria-label="Open ${esc(t.title)} in ${esc(where)}">${LMS_GO}</button>`;
+  return docs + `<button type="button" class="lms-go ${cls || ""}" data-act="lms-go" data-url="${esc(u)}" title="Open in ${esc(where)}" aria-label="Open ${esc(t.title)} in ${esc(where)}">${LMS_GO}</button>`;
 }
 // A course's home page on the school's site
 function lmsCourseLink(c){
@@ -12526,6 +12713,7 @@ function taskView(t0){
     if (cfg.team && t.team) rows.push([I.person, esc(t.team), esc(cfg.team)]);
     const url = cfg.link && t.link ? safeUrl(t.link) : "";
     if (url) rows.push([I.link, `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(url)}">Open in ${esc(lmsSite(t) || "browser")}</button>`, esc(cfg.link)]);
+    if (window.SBDOCS) DOCLINK.norm(t.docs).forEach(d => rows.push([SBDOCS.badge(d.app), `<button type="button" class="link-btn" data-act="dl-url" data-url="${esc(d.url)}">${esc(DOCLINK.shown(d))}</button>`, esc(DOCLINK.label(d.app))]));
     const bl = blockers(t); if (bl.length && !done) rows.push([I.lock, esc(bl.map(x => x.title).join(", ")), "Finish first"]);
     if (t.seriesId) rows.push([I.rep, "Repeats", "Part of a repeating series"]);
     if (t.notes && t.notes.trim()) rows.push([I.note, `<span class="occv-notes">${esc(t.notes.trim())}</span>`, esc(cfg.notes)]);
@@ -12608,7 +12796,7 @@ function taskForm(t, preset = {}){
   let deps = (t.dependsOn || []).filter(id => state.tasks[id]);
   let attached = new Set(filesOfTask(t.id).map(f => f.id));
   let noteSet = new Set(notesOfTask(t.id).map(n => n.id)), newNotes = [];
-  let planAfter = false;
+  let planAfter = false, docsF = null;
   const canRepeat = isNew || !(t.seriesId || lmsOf(t) || t.prepFor || t.breakdownOf || t.breakdownParent || t.gt);
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
@@ -12636,6 +12824,7 @@ function taskForm(t, preset = {}){
       <p class="mini" id="pctFromCl" hidden style="margin:0"></p>
       ${!isNew && window.SBPREP ? SBPREP.formHtml(t) : ""}
       <label class="f"><span class="lbl" id="notesLbl">Notes</span><textarea name="notes" maxlength="5000">${esc(t.notes)}</textarea></label>
+      ${window.SBDOCS ? SBDOCS.formHtml(t) : ""}
       ${!isNew && window.SBLMS_TASK ? SBLMS_TASK(t) : ""}
       ${!isNew && accOf() ? accOf().logHtml(t) : ""}
       <details class="adv" id="tfAdv" ${ui.advOpen ? "open" : ""}>
@@ -12696,7 +12885,8 @@ function taskForm(t, preset = {}){
       weight: isNum(fd.get("weight")) && Number(fd.get("weight")) > 0 ? Math.min(100, Number(fd.get("weight"))) : null,
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
       latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
-      location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link
+      location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link,
+      docs: docsF ? docsF.value() : DOCLINK.norm(t.docs)
     };
     if (MILESTONE(type)) {
       const rv = String(fd.get("remote") || "");
@@ -12735,6 +12925,7 @@ function taskForm(t, preset = {}){
       applyChanges([{kind:"task", id: t.id, after: next}].concat(copies, fileChanges), copies.length ? `Task saved, repeating ${copies.length} more time${copies.length === 1 ? "" : "s"}` : "Task saved", () => moved ? shiftOffer(t.id) : null);
     }
   });
+  if (window.SBDOCS) docsF = SBDOCS.wire(dlg, t);
   const list = $("#clList");
   let drawRepeat = () => {};
   const curType = () => $("#tfType").value;
@@ -77859,7 +78050,7 @@ var SBEARLY = null;
     if (t.matKind) mat(t.matKind, t.matId, t.matDeck, "prep");
     (Array.isArray(t.studyDecks) ? t.studyDecks : []).forEach(id => mat("deck", id, "", "prep"));
     (I.filesBy.get(t.id) || []).forEach(id => mat("file", id, "", "attached"));
-    return collect(notes.concat(decks, files));
+    return collect(notes.concat(decks, files, window.SBDOCS ? SBDOCS.chips(t) : []));
   }
   function originsOf(d){
     const list = [];
@@ -77893,6 +78084,7 @@ var SBEARLY = null;
   const WORD = {note: "Note", deck: "Deck", quiz: "Quiz", file: "File", lecture: "Lecture"};
   const lead = x => x.why === "from" ? `Made from ${x.k === "file" && x.pdf ? "PDF" : WORD[x.k].toLowerCase()}: ` : x.why === "mentions" ? "Note that links here: " : `${x.k === "file" && x.pdf ? "PDF" : WORD[x.k]}: `;
   function chip(x, hide){
+    if (x.k === "doc") return `<li${hide ? " hidden" : ""}><button type="button" class="lk-chip k-doc" data-act="dl-url" data-url="${esc(x.url)}">${x.badge}<span class="sr">${esc(DOCLINK.label(x.app))}: </span><span class="lk-n">${esc(x.name)}</span></button></li>`;
     const attrs = x.k === "lecture" ? `data-act="lec-view" data-id="${esc(x.id)}"` : `data-act="lk-open" data-k="${x.k}" data-id="${esc(x.id)}"${x.deck ? ` data-deck="${esc(x.deck)}"` : ""}`;
     return `<li${hide ? " hidden" : ""}><button type="button" class="lk-chip k-${x.k}" ${attrs}>${IC[x.k === "file" && x.pdf ? "pdf" : x.k]}<span class="sr">${esc(lead(x))}</span><span class="lk-n">${esc(x.name)}</span></button></li>`;
   }

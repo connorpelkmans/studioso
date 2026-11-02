@@ -45,6 +45,7 @@
  "js": [
   "00-core.js",
   "01-i18n.js",
+  "01-doclinks.js",
   "01-data.js",
   "01-sync.js",
   "01-accounts.js",
