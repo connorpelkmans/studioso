@@ -303,7 +303,7 @@
       };
     }
   }
-  var MANAGE_URL = isAndroid ? "https://play.google.com/store/account/subscriptions?package=com.studioso.app" : "https://apps.apple.com/account/subscriptions";
+  var MANAGE_URL = isAndroid ? "https://play.google.com/store/account/subscriptions?package=com.studyboardapp.studyboard" : "https://apps.apple.com/account/subscriptions";
   function result(action, status, message) {
     try { window.dispatchEvent(new CustomEvent("studyboard:purchase-result", { detail: { action: action, status: status, message: message || "" } })); } catch (e) {}
   }

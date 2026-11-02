@@ -1,5 +1,5 @@
 // UNTESTED: written without compiler access
-package com.studioso.app.capture
+package com.studyboardapp.studyboard.capture
 
 import android.app.PendingIntent
 import android.content.Intent

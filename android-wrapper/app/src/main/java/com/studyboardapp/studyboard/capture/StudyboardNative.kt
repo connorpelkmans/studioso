@@ -1,5 +1,5 @@
 // UNTESTED on a device (kotlinc type-check against Capacitor 7 core only)
-package com.studioso.app.capture
+package com.studyboardapp.studyboard.capture
 
 import android.util.Base64
 import com.getcapacitor.JSArray

@@ -1,5 +1,5 @@
 // UNTESTED on a device (kotlinc type-check against android-all API 34 stubs only)
-package com.studioso.app.capture
+package com.studyboardapp.studyboard.capture
 
 import android.app.Activity
 import android.app.AlertDialog

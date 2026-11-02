@@ -1,5 +1,5 @@
 // UNTESTED: written without compiler access (no kotlinc / Android Studio / device here)
-package com.studioso.app.capture
+package com.studyboardapp.studyboard.capture
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec

@@ -10,8 +10,8 @@
         <intent
             android:action="android.intent.action.VIEW"
             android:data="studyboard://action/quickadd"
-            android:targetPackage="com.studioso.app"
-            android:targetClass="com.studioso.app.MainActivity" />
+            android:targetPackage="com.studyboardapp.studyboard"
+            android:targetClass="com.studyboardapp.studyboard.MainActivity" />
     </shortcut>
     <shortcut
         android:shortcutId="capture_photo"
@@ -22,7 +22,7 @@
         <intent
             android:action="android.intent.action.VIEW"
             android:data="studyboard://capture?photo=1"
-            android:targetPackage="com.studioso.app"
-            android:targetClass="com.studioso.app.MainActivity" />
+            android:targetPackage="com.studyboardapp.studyboard"
+            android:targetClass="com.studyboardapp.studyboard.MainActivity" />
     </shortcut>
 </shortcuts>

@@ -30,3 +30,11 @@ ios-www/
 /extension/build/
 /extension/dist/
 msstore-upload/
+# Android: the generated project and your signing material (scripts/android-build.js makes the project again any time)
+android-www/
+android-wrapper/android/
+android-wrapper/android-www/
+android-wrapper/keystore.properties
+android-wrapper/google-services.json
+*.jks
+*.keystore

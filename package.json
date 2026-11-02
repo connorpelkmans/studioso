@@ -37,7 +37,9 @@
     "build:site": "node scripts/build-site.js",
     "build:extension": "node scripts/build-extension.js",
     "check:release": "node scripts/check-release.js",
-    "ios:upload": "node scripts/ios-upload.js"
+    "ios:upload": "node scripts/ios-upload.js",
+    "android:build": "node scripts/android-build.js",
+    "android:debug": "node scripts/android-build.js debug"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",

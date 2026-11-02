@@ -1,5 +1,5 @@
 // UNTESTED: written without a compiler, emulator or device
-package com.studioso.app.capture
+package com.studyboardapp.studyboard.capture
 
 import android.annotation.SuppressLint
 import android.app.Dialog

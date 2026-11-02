@@ -1,5 +1,5 @@
 // UNTESTED on a device
-package com.studioso.app.capture
+package com.studyboardapp.studyboard.capture
 
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
