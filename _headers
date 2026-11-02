@@ -30,7 +30,11 @@
   Content-Type: application/json
   Cache-Control: max-age=3600
 
-# Microsoft publisher verification for the Studyboard app registration (Azure, Branding & properties)
+# Microsoft publisher verification for the Studyboard app registration (Azure, Branding & properties). Azure asks for it
+# with and without .json, so both are served
 /.well-known/microsoft-identity-association.json
+  Content-Type: application/json
+  Cache-Control: max-age=3600
+/.well-known/microsoft-identity-association
   Content-Type: application/json
   Cache-Control: max-age=3600
