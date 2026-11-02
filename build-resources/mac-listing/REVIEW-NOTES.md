@@ -15,7 +15,7 @@ User-generated content (1.2): Study Groups are private (invite code only). Every
 
 AI (5.1.2): optional. It uses the person's own Google, Anthropic or OpenAI key. Before first use a consent window names the company and what is sent. Test key for review: REVIEW-GEMINI-KEY (enter it in Settings > AI Features).
 
-Purchases: Studyboard Pro is an auto-renewing subscription sold only with In-App Purchase (monthly and yearly). Restore Purchases is on the Pro screen. This build has no website purchase link, and payment websites are blocked inside the app. The demo account already has Pro. To see the purchase sheet, open Settings > Plan > Studyboard Pro.
+Purchases: Studyboard Pro is an auto-renewing subscription sold only with In-App Purchase (monthly and yearly). Restore Purchases is on the Pro screen. This build has no website purchase link, and payment websites are blocked inside the app. To test buying: sign in with the demo account DEMO-EMAIL (it does not have Pro), open Settings > Plan > Studyboard Pro, and buy with the sandbox Apple account the review system provides. Pro turns on within a few seconds. Then try Restore Purchases. A second account, DEMO-PRO-EMAIL (password DEMO-PRO-PASSWORD), already has Pro, to see the Pro features without buying.
 
 School sites: the optional School Sites feature signs in to the person's own school website (Canvas, Brightspace, Blackboard, Moodle, Schoology or Google Classroom) in a window inside the app, read only. It is not needed to review the app.
 
