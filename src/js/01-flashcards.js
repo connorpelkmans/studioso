@@ -478,9 +478,15 @@ function cardSheet(d, cardId){
 }
 // Paste a list of cards
 const SEPS = {auto: null, tab: "\t", dash: " - ", colon: ":", equals: "=", semicolon: ";", comma: ","};
-function parseCards(text, sep){
+// Between cards: one per line, or ";" or "####" (what Quizlet and Knowt export uses when a card has more than one line).
+// "auto" splits at "####" when the text has it, otherwise at line ends
+const ROWS = {line: "\n", semicolon: ";", hashes: "####"};
+function parseCards(text, sep, rows){
   const out = [], bad = [];
-  String(text || "").replace(/\r/g, "").split("\n").forEach(line => {
+  text = String(text || "").replace(/\r/g, "");
+  const by = rows && ROWS[rows] ? ROWS[rows] : text.includes("####") ? "####" : "\n";
+  text.split(by).forEach(line => {
+    line = by === "\n" ? line : line.replace(/^\n+|\n+$/g, "");
     if (!line.trim()) return;
     let i = -1, s = "";
     if (sep && sep !== "auto") { s = SEPS[sep]; i = line.indexOf(s); }
@@ -515,21 +521,22 @@ function addCardSheet(d){
 function bulkSheet(d){
   openSheet(`<form class="sheet">${head("Paste Cards")}
     <div class="sheet-body">
-      <p class="mini" style="margin:0">One card per line, with the front and back separated by a tab, a dash, a colon or an equals sign. A list exported from Quizlet pastes in as is.</p>
+      <p class="mini" style="margin:0">One card per line, with the front and back separated by a tab, a dash, a colon or an equals sign. A list exported from Quizlet or Knowt pastes in as is.</p>
       <label class="f">Cards<textarea id="bkText" rows="9" data-noenter placeholder="Carrying capacity - the largest population an environment can support&#10;r-selected species - many offspring, little parental care"></textarea></label>
-      <label class="f">Split Front and Back At<select id="bkSep"><option value="auto">Detect automatically</option><option value="tab">Tab (Quizlet)</option><option value="dash">Dash ( - )</option><option value="colon">Colon ( : )</option><option value="equals">Equals sign ( = )</option><option value="semicolon">Semicolon ( ; )</option><option value="comma">Comma ( , )</option></select></label>
+      <label class="f">Split Front and Back At<select id="bkSep"><option value="auto">Detect automatically</option><option value="tab">Tab (Quizlet, Knowt)</option><option value="dash">Dash ( - )</option><option value="colon">Colon ( : )</option><option value="equals">Equals sign ( = )</option><option value="semicolon">Semicolon ( ; )</option><option value="comma">Comma ( , )</option></select></label>
+      <label class="f">Split Cards At<select id="bkRows"><option value="auto">Detect automatically</option><option value="line">New line</option><option value="semicolon">Semicolon ( ; )</option><option value="hashes">Four hashes ( #### )</option></select></label>
       <p class="status-msg" id="bkMsg" style="margin:0" aria-live="polite">Paste your list above.</p>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="bkAdd" disabled>Add Cards</button></div>
   </form>`);
   const upd = () => {
-    const r = parseCards($("#bkText").value, $("#bkSep").value);
+    const r = parseCards($("#bkText").value, $("#bkSep").value, $("#bkRows").value);
     $("#bkMsg").textContent = r.cards.length ? `${r.cards.length} card${r.cards.length === 1 ? "" : "s"} ready${r.bad.length ? `. ${r.bad.length} line${r.bad.length === 1 ? "" : "s"} had no separator and will be skipped` : ""}.` : ($("#bkText").value.trim() ? "No cards found. Check the separator." : "Paste your list above.");
     $("#bkAdd").disabled = !r.cards.length; $("#bkAdd").textContent = r.cards.length ? `Add ${r.cards.length} Card${r.cards.length === 1 ? "" : "s"}` : "Add Cards";
   };
-  $("#bkText").addEventListener("input", upd); $("#bkSep").addEventListener("change", upd);
+  $("#bkText").addEventListener("input", upd); $("#bkSep").addEventListener("change", upd); $("#bkRows").addEventListener("change", upd);
   $("#bkAdd").addEventListener("click", () => {
-    const r = parseCards($("#bkText").value, $("#bkSep").value); if (!r.cards.length) return;
+    const r = parseCards($("#bkText").value, $("#bkSep").value, $("#bkRows").value); if (!r.cards.length) return;
     const nd = clone(state.decks[d.id]); r.cards.forEach(x => nd.cards.push({id: uid(), front: x.front, back: x.back, box: 0, due: "", seen: 0, right: 0, wrong: 0}));
     nd.updated = Date.now(); dlg.close(); saveDeck(nd, `Added ${r.cards.length} card${r.cards.length === 1 ? "" : "s"}`);
   });

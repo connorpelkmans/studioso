@@ -167,8 +167,16 @@ function zip(entries){
     ok(true, "a broken file says it couldn't be read");
 
     // Quizlet: Paste Cards
-    await page.click('dialog[open] [data-act="ia-quizlet"]'); await page.waitForTimeout(200);
+    await page.click('dialog[open] [data-act="ia-paste"][data-id="quizlet"]'); await page.waitForTimeout(200);
     ok(/Paste Cards/.test(await page.textContent("dialog[open] .sheet-head")), "Quizlet opens Paste Cards");
+    await page.evaluate(() => document.querySelector("dialog[open]").close());
+
+    // Knowt: Paste Cards, with "####" between cards that have more than one line
+    await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
+    await page.click('dialog[open] [data-act="ia-paste"][data-id="knowt"]'); await page.waitForTimeout(200);
+    ok(/Paste Cards/.test(await page.textContent("dialog[open] .sheet-head")), "Knowt opens Paste Cards");
+    await page.fill("#bkText", "Mitosis\tCell division\nmaking two cells####Meiosis\tMakes gametes####");
+    ok(/2 cards ready/.test(await page.textContent("#bkMsg")), "multi-line Knowt cards split at ####: " + await page.textContent("#bkMsg"));
     await page.evaluate(() => document.querySelector("dialog[open]").close());
 
     // a 390px phone

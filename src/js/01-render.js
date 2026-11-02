@@ -1022,7 +1022,7 @@ function menuSheet(){
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
       <button data-act="restore"><span>Restore a Backup</span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
-      <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
+      <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Knowt, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
     </div>
     <p class="summary-sub" style="font-size:.85rem">${inPreview() ? (cloud.on ? "Your data is saved to your account and stays in sync across your devices." : "Your data is saved in this browser only. Export a backup now and then so you don't lose it.") : sbUser ? "Your data and files sync to your Studyboard account, with a copy on this device so the app works offline. Download a backup now and then for extra peace of mind." : "Your data is saved in this browser only. Sign in to a Studyboard account, or export a backup file now and then so you don't lose it."}</p>

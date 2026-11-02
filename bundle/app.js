@@ -13124,7 +13124,7 @@ function menuSheet(){
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
       <button data-act="restore"><span>Restore a Backup</span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
-      <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
+      <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Knowt, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
     </div>
     <p class="summary-sub" style="font-size:.85rem">${inPreview() ? (cloud.on ? "Your data is saved to your account and stays in sync across your devices." : "Your data is saved in this browser only. Export a backup now and then so you don't lose it.") : sbUser ? "Your data and files sync to your Studyboard account, with a copy on this device so the app works offline. Download a backup now and then for extra peace of mind." : "Your data is saved in this browser only. Sign in to a Studyboard account, or export a backup file now and then so you don't lose it."}</p>
@@ -15582,9 +15582,15 @@ function cardSheet(d, cardId){
 }
 // Paste a list of cards
 const SEPS = {auto: null, tab: "\t", dash: " - ", colon: ":", equals: "=", semicolon: ";", comma: ","};
-function parseCards(text, sep){
+// Between cards: one per line, or ";" or "####" (what Quizlet and Knowt export uses when a card has more than one line).
+// "auto" splits at "####" when the text has it, otherwise at line ends
+const ROWS = {line: "\n", semicolon: ";", hashes: "####"};
+function parseCards(text, sep, rows){
   const out = [], bad = [];
-  String(text || "").replace(/\r/g, "").split("\n").forEach(line => {
+  text = String(text || "").replace(/\r/g, "");
+  const by = rows && ROWS[rows] ? ROWS[rows] : text.includes("####") ? "####" : "\n";
+  text.split(by).forEach(line => {
+    line = by === "\n" ? line : line.replace(/^\n+|\n+$/g, "");
     if (!line.trim()) return;
     let i = -1, s = "";
     if (sep && sep !== "auto") { s = SEPS[sep]; i = line.indexOf(s); }
@@ -15619,21 +15625,22 @@ function addCardSheet(d){
 function bulkSheet(d){
   openSheet(`<form class="sheet">${head("Paste Cards")}
     <div class="sheet-body">
-      <p class="mini" style="margin:0">One card per line, with the front and back separated by a tab, a dash, a colon or an equals sign. A list exported from Quizlet pastes in as is.</p>
+      <p class="mini" style="margin:0">One card per line, with the front and back separated by a tab, a dash, a colon or an equals sign. A list exported from Quizlet or Knowt pastes in as is.</p>
       <label class="f">Cards<textarea id="bkText" rows="9" data-noenter placeholder="Carrying capacity - the largest population an environment can support&#10;r-selected species - many offspring, little parental care"></textarea></label>
-      <label class="f">Split Front and Back At<select id="bkSep"><option value="auto">Detect automatically</option><option value="tab">Tab (Quizlet)</option><option value="dash">Dash ( - )</option><option value="colon">Colon ( : )</option><option value="equals">Equals sign ( = )</option><option value="semicolon">Semicolon ( ; )</option><option value="comma">Comma ( , )</option></select></label>
+      <label class="f">Split Front and Back At<select id="bkSep"><option value="auto">Detect automatically</option><option value="tab">Tab (Quizlet, Knowt)</option><option value="dash">Dash ( - )</option><option value="colon">Colon ( : )</option><option value="equals">Equals sign ( = )</option><option value="semicolon">Semicolon ( ; )</option><option value="comma">Comma ( , )</option></select></label>
+      <label class="f">Split Cards At<select id="bkRows"><option value="auto">Detect automatically</option><option value="line">New line</option><option value="semicolon">Semicolon ( ; )</option><option value="hashes">Four hashes ( #### )</option></select></label>
       <p class="status-msg" id="bkMsg" style="margin:0" aria-live="polite">Paste your list above.</p>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="bkAdd" disabled>Add Cards</button></div>
   </form>`);
   const upd = () => {
-    const r = parseCards($("#bkText").value, $("#bkSep").value);
+    const r = parseCards($("#bkText").value, $("#bkSep").value, $("#bkRows").value);
     $("#bkMsg").textContent = r.cards.length ? `${r.cards.length} card${r.cards.length === 1 ? "" : "s"} ready${r.bad.length ? `. ${r.bad.length} line${r.bad.length === 1 ? "" : "s"} had no separator and will be skipped` : ""}.` : ($("#bkText").value.trim() ? "No cards found. Check the separator." : "Paste your list above.");
     $("#bkAdd").disabled = !r.cards.length; $("#bkAdd").textContent = r.cards.length ? `Add ${r.cards.length} Card${r.cards.length === 1 ? "" : "s"}` : "Add Cards";
   };
-  $("#bkText").addEventListener("input", upd); $("#bkSep").addEventListener("change", upd);
+  $("#bkText").addEventListener("input", upd); $("#bkSep").addEventListener("change", upd); $("#bkRows").addEventListener("change", upd);
   $("#bkAdd").addEventListener("click", () => {
-    const r = parseCards($("#bkText").value, $("#bkSep").value); if (!r.cards.length) return;
+    const r = parseCards($("#bkText").value, $("#bkSep").value, $("#bkRows").value); if (!r.cards.length) return;
     const nd = clone(state.decks[d.id]); r.cards.forEach(x => nd.cards.push({id: uid(), front: x.front, back: x.back, box: 0, due: "", seen: 0, right: 0, wrong: 0}));
     nd.updated = Date.now(); dlg.close(); saveDeck(nd, `Added ${r.cards.length} card${r.cards.length === 1 ? "" : "s"}`);
   });
@@ -17324,7 +17331,7 @@ document.addEventListener("click", e => {
     case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
-    case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet or Notion decks, read on this device", "upload"]]); break;
+    case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet, Knowt or Notion decks, read on this device", "upload"]]); break;
     case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"], ["qz-write", "Write Your Own", "Type your own questions and answers", "write"]]); break;
     case "qz-write": quizMaker(); break;
     case "qz-edit": quizMaker(id); break;
@@ -21057,7 +21064,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
     add("Export a Backup File", hasStoredFiles() ? "Your data and uploaded files in one ZIP" : "Download your data as a file", act("export"), "download zip");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
-    add("Import From Another App", "Bring in Anki decks, Quizlet sets, Todoist tasks or Notion pages", act("ia-open"), "anki apkg colpkg quizlet todoist notion csv import");
+    add("Import From Another App", "Bring in Anki decks, Quizlet or Knowt sets, Todoist tasks or Notion pages", act("ia-open"), "anki apkg colpkg quizlet knowt todoist notion csv import");
     if (hasStoredFiles()) add("Export Data Only", "Your data without your uploaded files", act("export-json"), "download json small");
     if (!inPreview()) add(sbConfig() || SB_HOSTED ? (sbUser ? "Studyboard Account" : "Sign In or Create Account") : "Sync Across Devices", "Sync your data and files across devices", act(sbConfig() && !sbUser ? "sb-signin" : sbUser ? "menu" : "sb-connect"), "sync account cloud login sign in");
     [["board", "Board"], ["timeline", "Due Dates"], ["schedule", "Schedule"], ["crunch", "Crunch Forecast"], ["flashcards", "Review"], ["notes", "Notes"], ["files", "Files"], ["courses", "Courses"]]
@@ -44858,7 +44865,7 @@ var TP_DATA = [];
     "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", "ap-mode": "autopilot catch up missed sessions reschedule overnight day off", "ap-pro": "autopilot catch up missed sessions reschedule overnight day off", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
-    "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet todoist notion csv another app switch", "export-full": "files zip",
+    "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet knowt todoist notion csv another app switch", "export-full": "files zip",
     "new-term": "semester archive", "trash-open": "recently deleted trash bin restore undo recover deleted", "export-data": "export csv json zip spreadsheet excel portability download my data gdpr", "clear-all": "delete reset erase"};
   const KEY_CAT = {};
   Object.entries(ORDER).forEach(([c, ks]) => ks.forEach(k => { KEY_CAT[k] = c; }));
@@ -64893,6 +64900,7 @@ const IA = (() => {
   const APPS = () => [
     ["anki", "Anki", tr("ia.how.anki", "In Anki, choose File, then Export. Pick Anki Deck Package (.apkg) or Collection Package (.colpkg), keep Include Scheduling Information on, then choose the file here.")],
     ["quizlet", "Quizlet", tr("ia.how.quizlet", "In Quizlet, open the set, choose the three dots, then Export. Copy the text, then use Paste Cards here.")],
+    ["knowt", "Knowt", tr("ia.how.knowt", "In Knowt, open the set, choose the three dots, then Export. Copy the text, then use Paste Cards here. A CSV file with term and definition columns can be chosen here too.")],
     ["todoist", "Todoist", tr("ia.how.todoist", "In Todoist, open a project, choose the three dots, then Export as CSV. Or download a backup ZIP from Settings, then Backups.")],
     ["notion", "Notion", tr("ia.how.notion", "In Notion, open the page, choose the three dots, then Export. Pick Markdown & CSV, include subpages, then choose the ZIP file here.")],
   ];
@@ -64905,7 +64913,7 @@ const IA = (() => {
     openSheet(`<div class="sheet ia-sheet">${head(tr("ia.title", "Import From Another App"))}
       <div class="sheet-body">
         <p class="mini" style="margin:0 0 6px">${esc(tr("ia.intro", "Bring in your flashcards, tasks and notes. Files are read on this device and nothing is uploaded."))}</p>
-        <div class="menu-list ia-apps">${APPS().map(([id, name, how]) => `<button type="button" data-act="${id === "quizlet" ? "ia-quizlet" : "ia-pick"}" data-id="${id}"><span>${esc(name)}<span class="sub">${esc(how)}</span></span></button>`).join("")}</div>
+        <div class="menu-list ia-apps">${APPS().map(([id, name, how]) => `<button type="button" data-act="${PASTE[id] ? "ia-paste" : "ia-pick"}" data-id="${id}"><span>${esc(name)}<span class="sub">${esc(how)}</span></span></button>`).join("")}</div>
         <div class="ia-drop" id="iaDrop"><span>${esc(tr("ia.drop", "Drop an .apkg, .colpkg, .csv or .zip file here, or"))}</span> <button type="button" class="btn small" data-act="ia-pick">${esc(tr("ia.choose", "Choose a File"))}</button></div>
         <input type="file" id="iaFile" hidden>
         <p class="status-msg" id="iaMsg" aria-live="polite" style="margin:8px 0 0"></p>
@@ -65036,13 +65044,18 @@ const IA = (() => {
   }
   const clipNotes = s => { s = String(s || ""); return s.length > 5000 ? s.slice(0, 4999) + "…" : s; };
 
-  // Quizlet has no file
-  function quizlet(){
+  // Quizlet and Knowt sets come in as copied text, through Paste Cards
+  const PASTE = {
+    quizlet: () => [tr("ia.qz.name", "Quizlet Set"), tr("ia.qz.made", "Made a new deck for your Quizlet set. Rename it with Edit Deck.")],
+    knowt: () => [tr("ia.kn.name", "Knowt Set"), tr("ia.kn.made", "Made a new deck for your Knowt set. Rename it with Edit Deck.")],
+  };
+  function pasteSet(app){
     const cur = ui.deckId && state.decks[ui.deckId];
     if (cur) { bulkSheet(cur); return; }
-    const d = normDeck({id: uid(), created: Date.now(), name: tr("ia.qz.name", "Quizlet Set"), courseId: ui.filter && ui.filter !== "all" ? ui.filter : ""});
+    const [name, made] = (PASTE[app] || PASTE.quizlet)();
+    const d = normDeck({id: uid(), created: Date.now(), name, courseId: ui.filter && ui.filter !== "all" ? ui.filter : ""});
     ui.tab = "flashcards"; ui.fc = null; ui.deckId = d.id;
-    saveDeck(d, tr("ia.qz.made", "Made a new deck for your Quizlet set. Rename it with Edit Deck."));
+    saveDeck(d, made);
     bulkSheet(state.decks[d.id]);
   }
 
@@ -65059,10 +65072,10 @@ const IA = (() => {
 @media (max-width:480px){.ia-row select{flex:1 1 100%}}`;
   document.head.appendChild(css);
 
-  hook("act", a => {
+  hook("act", (a, el) => {
     if (a === "ia-open") { open(); return true; }
     if (a === "ia-pick") { const i = $("#iaFile"); if (i) i.click(); else open(); return true; }
-    if (a === "ia-quizlet") { quizlet(); return true; }
+    if (a === "ia-paste" || a === "ia-quizlet") { pasteSet(a === "ia-quizlet" ? "quizlet" : el && el.dataset.id); return true; }
     if (a === "ia-go") { commit(); return true; }
     return false;
   });

@@ -472,6 +472,7 @@ const IA = (() => {
   const APPS = () => [
     ["anki", "Anki", tr("ia.how.anki", "In Anki, choose File, then Export. Pick Anki Deck Package (.apkg) or Collection Package (.colpkg), keep Include Scheduling Information on, then choose the file here.")],
     ["quizlet", "Quizlet", tr("ia.how.quizlet", "In Quizlet, open the set, choose the three dots, then Export. Copy the text, then use Paste Cards here.")],
+    ["knowt", "Knowt", tr("ia.how.knowt", "In Knowt, open the set, choose the three dots, then Export. Copy the text, then use Paste Cards here. A CSV file with term and definition columns can be chosen here too.")],
     ["todoist", "Todoist", tr("ia.how.todoist", "In Todoist, open a project, choose the three dots, then Export as CSV. Or download a backup ZIP from Settings, then Backups.")],
     ["notion", "Notion", tr("ia.how.notion", "In Notion, open the page, choose the three dots, then Export. Pick Markdown & CSV, include subpages, then choose the ZIP file here.")],
   ];
@@ -484,7 +485,7 @@ const IA = (() => {
     openSheet(`<div class="sheet ia-sheet">${head(tr("ia.title", "Import From Another App"))}
       <div class="sheet-body">
         <p class="mini" style="margin:0 0 6px">${esc(tr("ia.intro", "Bring in your flashcards, tasks and notes. Files are read on this device and nothing is uploaded."))}</p>
-        <div class="menu-list ia-apps">${APPS().map(([id, name, how]) => `<button type="button" data-act="${id === "quizlet" ? "ia-quizlet" : "ia-pick"}" data-id="${id}"><span>${esc(name)}<span class="sub">${esc(how)}</span></span></button>`).join("")}</div>
+        <div class="menu-list ia-apps">${APPS().map(([id, name, how]) => `<button type="button" data-act="${PASTE[id] ? "ia-paste" : "ia-pick"}" data-id="${id}"><span>${esc(name)}<span class="sub">${esc(how)}</span></span></button>`).join("")}</div>
         <div class="ia-drop" id="iaDrop"><span>${esc(tr("ia.drop", "Drop an .apkg, .colpkg, .csv or .zip file here, or"))}</span> <button type="button" class="btn small" data-act="ia-pick">${esc(tr("ia.choose", "Choose a File"))}</button></div>
         <input type="file" id="iaFile" hidden>
         <p class="status-msg" id="iaMsg" aria-live="polite" style="margin:8px 0 0"></p>
@@ -615,13 +616,18 @@ const IA = (() => {
   }
   const clipNotes = s => { s = String(s || ""); return s.length > 5000 ? s.slice(0, 4999) + "…" : s; };
 
-  // Quizlet has no file
-  function quizlet(){
+  // Quizlet and Knowt sets come in as copied text, through Paste Cards
+  const PASTE = {
+    quizlet: () => [tr("ia.qz.name", "Quizlet Set"), tr("ia.qz.made", "Made a new deck for your Quizlet set. Rename it with Edit Deck.")],
+    knowt: () => [tr("ia.kn.name", "Knowt Set"), tr("ia.kn.made", "Made a new deck for your Knowt set. Rename it with Edit Deck.")],
+  };
+  function pasteSet(app){
     const cur = ui.deckId && state.decks[ui.deckId];
     if (cur) { bulkSheet(cur); return; }
-    const d = normDeck({id: uid(), created: Date.now(), name: tr("ia.qz.name", "Quizlet Set"), courseId: ui.filter && ui.filter !== "all" ? ui.filter : ""});
+    const [name, made] = (PASTE[app] || PASTE.quizlet)();
+    const d = normDeck({id: uid(), created: Date.now(), name, courseId: ui.filter && ui.filter !== "all" ? ui.filter : ""});
     ui.tab = "flashcards"; ui.fc = null; ui.deckId = d.id;
-    saveDeck(d, tr("ia.qz.made", "Made a new deck for your Quizlet set. Rename it with Edit Deck."));
+    saveDeck(d, made);
     bulkSheet(state.decks[d.id]);
   }
 
@@ -638,10 +644,10 @@ const IA = (() => {
 @media (max-width:480px){.ia-row select{flex:1 1 100%}}`;
   document.head.appendChild(css);
 
-  hook("act", a => {
+  hook("act", (a, el) => {
     if (a === "ia-open") { open(); return true; }
     if (a === "ia-pick") { const i = $("#iaFile"); if (i) i.click(); else open(); return true; }
-    if (a === "ia-quizlet") { quizlet(); return true; }
+    if (a === "ia-paste" || a === "ia-quizlet") { pasteSet(a === "ia-quizlet" ? "quizlet" : el && el.dataset.id); return true; }
     if (a === "ia-go") { commit(); return true; }
     return false;
   });

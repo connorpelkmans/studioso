@@ -236,7 +236,7 @@
     add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
     add("Export a Backup File", hasStoredFiles() ? "Your data and uploaded files in one ZIP" : "Download your data as a file", act("export"), "download zip");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
-    add("Import From Another App", "Bring in Anki decks, Quizlet sets, Todoist tasks or Notion pages", act("ia-open"), "anki apkg colpkg quizlet todoist notion csv import");
+    add("Import From Another App", "Bring in Anki decks, Quizlet or Knowt sets, Todoist tasks or Notion pages", act("ia-open"), "anki apkg colpkg quizlet knowt todoist notion csv import");
     if (hasStoredFiles()) add("Export Data Only", "Your data without your uploaded files", act("export-json"), "download json small");
     if (!inPreview()) add(sbConfig() || SB_HOSTED ? (sbUser ? "Studyboard Account" : "Sign In or Create Account") : "Sync Across Devices", "Sync your data and files across devices", act(sbConfig() && !sbUser ? "sb-signin" : sbUser ? "menu" : "sb-connect"), "sync account cloud login sign in");
     [["board", "Board"], ["timeline", "Due Dates"], ["schedule", "Schedule"], ["crunch", "Crunch Forecast"], ["flashcards", "Review"], ["notes", "Notes"], ["files", "Files"], ["courses", "Courses"]]
