@@ -502,7 +502,13 @@ var SBINK = null;
   let rz = 0; window.addEventListener("resize", () => { if (!CUR || CUR.kind !== "note") return; clearTimeout(rz); rz = setTimeout(padLayout, 120); });
 
   P.addFeature({id: "ink", name: "Pen and Handwriting", where: "In the iPad app: write on PDFs in the reader (Pen), and draw on a note (Draw)", icon: '<path d="M15.5 4.5l4 4L8 20H4v-4z"/><path d="M13 7l4 4"/>'});
-  SBINK = window.SBINK = {available, readerBtn, readerPage, readerClose, noteThumb: n => noteThumb(n, false)};
+  // a PDF's handwriting for a saved copy (the PDF editor's Download): points as page shares, colour, width as a share of the page width
+  function exportStrokes(f, rev){
+    const pending = CUR && CUR.kind === "pdf" && CUR.fid === (f && f.id) ? CUR.store.list() : inkOf(f);
+    return pending.filter(s => s && s.a === rev && s.p).map(s => { const pts = ptsOf(s), avg = pts.reduce((a, p) => a + p[2], 0) / (pts.length || 1);
+      return {id: s.id, p: s.p, pts: pts.map(p => [p[0], p[1]]), c: colorOf(s), hl: s.t === "hl", wf: s.t === "hl" ? s.w / 10000 : s.w / 10000 * wf(avg)}; }).filter(s => s.pts.length);
+  }
+  SBINK = window.SBINK = {available, readerBtn, readerPage, readerClose, exportStrokes, noteThumb: n => noteThumb(n, false)};
   window.__sbInk = {T, encode, decode, simplify, svgOf, session: () => CUR, flush: flushNow, available, normInk, LIM};
 
   const css = document.createElement("style");

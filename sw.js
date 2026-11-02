@@ -12,7 +12,7 @@ const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon
   "./vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2",
   "./vendor/fonts/permanent-marker-latin-400-normal.woff2", "./vendor/fonts/patrick-hand-latin-400-normal.woff2", "./vendor/fonts/caveat-latin-400-normal.woff2", "./vendor/fonts/kalam-latin-400-normal.woff2", "./vendor/fonts/gochi-hand-latin-400-normal.woff2"];
 // PDF.js (same-origin, ES modules) is saved too so a PDF can be imported offline
-OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs", "./vendor/pdflib/pdf-lib.min.js", "./locales/es.json");
+OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs", "./vendor/pdflib/pdf-lib.min.js", "./vendor/pdflib/fontkit.umd.min.js", "./vendor/pdflib/pdf-lib-crypt.min.js", "./locales/es.json");
 // fzstd unpacks newer Anki files (Import From Another App)
 OPTIONAL.push("./vendor/fzstd-0.1.1.umd.js");
 // Same-origin vendored libraries and fonts are precached

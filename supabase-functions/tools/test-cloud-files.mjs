@@ -48,7 +48,8 @@ function world(opts = {}) {
     }
     if (u.host === "login.microsoftonline.com") {
       const f = new URLSearchParams(init.body);
-      assert.ok(/Files\.ReadWrite/.test(f.get("scope")) && /offline_access/.test(f.get("scope")));
+      assert.ok((/Files\.ReadWrite/.test(f.get("scope")) || /Notes\.(ReadWrite|Read\.All)/.test(f.get("scope"))) && /offline_access/.test(f.get("scope")));
+      ms.scopes = (ms.scopes || []).concat(f.get("scope"));
       if (f.get("grant_type") === "refresh_token") { ms.refreshes++; ms.n++; }
       return json({ access_token: "m-access-" + ms.refreshes, refresh_token: "m-refresh-" + ms.n, expires_in: 3600, id_token: "h." + Buffer.from(JSON.stringify({ email: "student@outlook.com" })).toString("base64url") + ".s" });
     }
@@ -78,7 +79,7 @@ await test("not signed in, not Pro, not set up, unknown provider", async () => {
   assert.equal((await world({ allowed: false }).call({ action: "token", provider: "google" })).status, 402, "no token without Pro");
   assert.equal((await world({ key: "short" }).call({ action: "status" })).status, 501);
   const w = world({ noMs: true });
-  assert.deepEqual((await w.call({ action: "status" })).body.providers, { google: true, microsoft: false, classroom: true });
+  assert.deepEqual((await w.call({ action: "status" })).body.providers, { google: true, microsoft: false, classroom: true, onenote: false, onenote_class: false });
   assert.equal((await w.call({ action: "start", provider: "microsoft" })).status, 501);
   assert.equal((await w.call({ action: "start", provider: "dropbox" })).status, 400);
 });
@@ -155,6 +156,41 @@ await test("OneDrive: Files.ReadWrite, and Microsoft's new refresh token replace
   assert.equal(t.status, 200);
   const r2 = await F.unseal(SECRET, w.db.accounts.get(UID + "|microsoft").refresh_enc, UID, "microsoft");
   assert.notEqual(r1, r2, "rotated");
+});
+await test("OneNote: its own connection with Notes.ReadWrite only, beside OneDrive", async () => {
+  const w = world();
+  const st = await w.call({ action: "status" });
+  assert.equal(st.body.providers.onenote, true, "offered when Microsoft sign-in is set up");
+  const page = await w.connect("onenote");
+  const scope = new URL(page.begin.location).searchParams.get("scope");
+  assert.ok(/Notes\.ReadWrite/.test(scope) && !/Files\./.test(scope), "asks for notes, not files: " + scope);
+  assert.equal(page.status, 200); assert.ok(/Connected to OneNote/.test(page.text));
+  assert.ok(w.ms.scopes.every(x => /Notes\.ReadWrite/.test(x) && !/Files\./.test(x)), "every token call asks for the same notes scope");
+  const t = await w.call({ action: "token", provider: "onenote" });
+  assert.equal(t.status, 200); assert.ok(t.body.access);
+  assert.equal((await w.call({ action: "token", provider: "microsoft" })).status, 404, "OneDrive isn't connected by connecting OneNote");
+  await assert.rejects(F.unseal(SECRET, w.db.accounts.get(UID + "|onenote").refresh_enc, UID, "microsoft"), "sealed to OneNote, not OneDrive");
+});
+await test("OneNote Class Notebooks: a separate, read-only connection", async () => {
+  const w = world();
+  await w.connect("onenote");
+  w.ms.scopes = [];
+  const page = await w.connect("onenote_class");
+  const scope = new URL(page.begin.location).searchParams.get("scope");
+  assert.ok(/Notes\.Read\.All/.test(scope) && /Team\.ReadBasic\.All/.test(scope), "class teams and shared notebooks: " + scope);
+  assert.ok(!/ReadWrite/.test(scope) && !/Files\./.test(scope), "read only, no files: " + scope);
+  assert.ok(/Connected to OneNote Class Notebooks/.test(page.text));
+  assert.ok(w.ms.scopes.every(x => x === scope), "token calls ask for the same scope");
+  assert.equal((await w.call({ action: "token", provider: "onenote_class" })).status, 200);
+  assert.equal((await w.call({ action: "token", provider: "onenote" })).status, 200, "the student's own OneNote connection is untouched");
+  await w.call({ action: "disconnect", provider: "onenote_class" });
+  assert.equal((await w.call({ action: "token", provider: "onenote_class" })).status, 404, "turning it off leaves...");
+  assert.equal((await w.call({ action: "token", provider: "onenote" })).status, 200, "...OneNote connected");
+});
+await test("OneNote: not offered without Microsoft sign-in", async () => {
+  const w = world({ noMs: true });
+  assert.equal((await w.call({ action: "status" })).body.providers.onenote, false);
+  assert.equal((await w.call({ action: "start", provider: "onenote" })).status, 501);
 });
 await test("revoked access: reauth, and no token until they connect again", async () => {
   const w = world();
