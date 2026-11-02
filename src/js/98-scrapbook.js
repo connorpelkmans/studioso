@@ -823,7 +823,7 @@
     const r = origPop.apply(this, arguments);
     try {
       const f = document.querySelector("#qod .qod-foot");
-      if (f && !f.querySelector("[data-act=sbk-open]")) {
+      if (f && !f.closest(".qod-plain") && !f.querySelector("[data-act=sbk-open]")) {   // qod-plain: a notice, not a streak or quote card
         const b = document.createElement("button"); b.type = "button"; b.className = "btn sbk-qod"; b.dataset.act = "sbk-open"; b.setAttribute("data-qod-close", "");
         const n = stickerCount();
         b.innerHTML = `${BOOK} Scrapbook${n ? ` <span class="sbk-n">${n}</span>` : ""}`;
