@@ -325,7 +325,7 @@ function normPdfEdits(list, max){
   const seen = new Set(), seenField = new Set(), out = [];
   for (const e of list) {
     if (out.length >= max) break;
-    if (!e || typeof e !== "object" || typeof e.id !== "string" || !/^[\w-]{1,40}$/.test(e.id) || seen.has(e.id) || !["t", "n", "w", "p", "s", "i", "f"].includes(e.k)) continue;
+    if (!e || typeof e !== "object" || typeof e.id !== "string" || !/^[\w-]{1,40}$/.test(e.id) || seen.has(e.id) || !["t", "n", "w", "p", "s", "i", "f", "h"].includes(e.k)) continue;
     const p = fin(e.p, 1, 99999); if (!p) continue;
     const x = {id: e.id, a: String(e.a == null ? "" : e.a).slice(0, 120), p: Math.round(p), k: e.k, at: Number(e.at) > 0 ? Math.round(Number(e.at)) : 0};
     // a form field's answer: its name and value
@@ -334,6 +334,14 @@ function normPdfEdits(list, max){
       const key = x.a + "|" + e.name; if (seenField.has(key)) continue; seenField.add(key);
       x.name = e.name; x.v = typeof e.v === "boolean" ? e.v : String(e.v == null ? "" : e.v).slice(0, 4000);
       const fz = fin(e.fsz, 0, 200); if (fz) x.fsz = fz;
+      seen.add(e.id); out.push(x); continue;
+    }
+    // the header and page numbers (one per version)
+    if (e.k === "h") {
+      x.text = typeof e.text === "string" ? e.text.slice(0, 300) : ""; x.pos = ["tl", "tc", "tr"].includes(e.pos) ? e.pos : "tr";
+      x.num = ["none", "bl", "bc", "br", "tr"].includes(e.num) ? e.num : "none"; x.fmt = ["n", "pn", "pnn"].includes(e.fmt) ? e.fmt : "n";
+      x.fs = fin(e.fs, 6, 24) || 10; if (e.skip1) x.skip1 = true; if (hex(e.c)) x.c = hex(e.c);
+      if (!x.text && x.num === "none") continue;
       seen.add(e.id); out.push(x); continue;
     }
     const o = pt(e.o); if (!ok2(o)) continue;

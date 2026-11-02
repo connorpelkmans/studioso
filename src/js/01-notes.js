@@ -208,7 +208,7 @@ function viewFiles(){
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : ui.fCourse === "all" ? FOLDER : GENERAL_ICON}</span>
         <div class="g2-txt"><h2 class="fcrumb">${crumbs}</h2><div class="g2-meta"><span>${nHere} ${nHere === 1 ? "item" : "items"}${ui.q.trim() ? " matching your search" : ""}</span></div></div></div>
     </div>`;
-  const actions = `${window.SBCLOUD ? SBCLOUD.filesBtn() : ""}${trashBtn("file")}<div class="segb" role="group" aria-label="Sort"><button data-act="f-sort" data-id="date" aria-pressed="${ui.fSort !== "name"}">Newest</button><button data-act="f-sort" data-id="name" aria-pressed="${ui.fSort === "name"}">Name</button></div>`;
+  const actions = `${window.SBPDE && SBPDE.scanBtn ? SBPDE.scanBtn() : ""}${window.SBCLOUD ? SBCLOUD.filesBtn() : ""}${trashBtn("file")}<div class="segb" role="group" aria-label="Sort"><button data-act="f-sort" data-id="date" aria-pressed="${ui.fSort !== "name"}">Newest</button><button data-act="f-sort" data-id="name" aria-pressed="${ui.fSort === "name"}">Name</button></div>`;
   return `<div class="tl-controls f-title"><h2>Files</h2>${actions}</div>${searchNote()}
     <div class="fwrap">${tree}
       <section class="fpane" id="fpane" aria-label="Files in ${esc(ui.fCourse === "all" ? "all folders" : (c ? c.name : "General"))}">

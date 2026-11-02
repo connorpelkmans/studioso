@@ -63,6 +63,8 @@ function restricted(ttf){
     await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForFunction(() => window.__sbProStudy);
     await page.evaluate(() => { const T = window.__sbProStudy; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); });
     await page.waitForTimeout(500);
+    // the tools under More open from its menu
+    const tool = async id => { if (["fill", "header", "find", "pages", "ocr"].includes(id)) { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } else await page.click(`.pde-tool[data-id="${id}"]`); await page.waitForTimeout(150); };
     const shot = async name => { if (SHOTS) { fs.mkdirSync(SHOTS, {recursive: true}); await page.screenshot({path: path.join(SHOTS, name + ".png")}); } };
     await page.evaluate(async ([a, b]) => { await window.__sbProStudy.idbSet("pdf:a-syl", new Blob([new Uint8Array(a)])); await window.__sbProStudy.idbSet("pdf:a-form", new Blob([new Uint8Array(b)])); }, [[...pdf], [...form]]);
     const open = async fid => { await page.evaluate(fid => { const b = document.createElement("button"); b.dataset.act = "pdr-open"; b.dataset.id = fid; document.body.appendChild(b); b.click(); b.remove(); }, fid); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(400); };
@@ -78,13 +80,16 @@ function restricted(ttf){
       return out;
     }, [...bytes]);
     const download = async (marks) => {
-      const [dl] = await Promise.all([page.waitForEvent("download", {timeout: 30000}), (async () => { await page.click('[data-act="pde-dl"]'); if (marks != null) { await page.waitForSelector("#askDlg[open]"); await page.click(marks ? "#askYes" : "#askNo"); } })()]);
+      await page.click('[data-act="pde-dl"]'); await page.waitForSelector('[data-act="pde-dl-go"]');
+      if (marks != null && await page.locator("#pdeDlMarks").count()) await page.setChecked("#pdeDlMarks", !!marks);
+      const [dl] = await Promise.all([page.waitForEvent("download", {timeout: 30000}), page.click('[data-act="pde-dl-go"]')]);
       return fs.readFileSync(await dl.path());
     };
 
     await open("f1");
     await page.click("#pdeBtn"); await page.waitForFunction(() => !!window.PDFLib); await page.waitForTimeout(400);
-    ok(await page.locator(".pde-tools .pde-tool").count() === 8, "eight tools: Edit Text, Add Text, White-Out, Marks, Picture, Sign, Find, Pages");
+    ok(await page.locator(".pde-tools .pde-tool").count() === 7, "six tools and More");
+    await page.click('[data-act="pde-more"]'); ok(await page.locator(".pde-menu .pde-mi").count() === 5, "More: Quick Fill, Header, Find, Pages, Recognize Text"); await page.keyboard.press("Escape");
     await shot("1-tools");
 
     /* Paragraphs */
@@ -172,7 +177,7 @@ function restricted(ttf){
     } else console.log("skip - DejaVu Sans isn't installed here (font tests)");
 
     /* Find and replace */
-    await page.click('.pde-tool[data-id="find"]'); await page.waitForTimeout(200);
+    await tool('find'); await page.waitForTimeout(200);
     await page.fill("#pdeFindQ", "Hall B"); await page.waitForTimeout(600);
     ok(/2 matches on 1 page/.test(await page.locator("#pdeFindN").textContent()), "Find counts matches (the paragraph's own Hall B is already changed): " + await page.locator("#pdeFindN").textContent());
     await page.fill("#pdeFindR", "Room 210");
@@ -180,7 +185,7 @@ function restricted(ttf){
     await page.click('[data-act="pde-find-all"]'); await page.waitForTimeout(600);
     es = await edits();
     ok(es.filter(e => e.k === "t" && /Room 210/.test(e.t)).length === 2, "Replace All changes each line that has it");
-    await page.click('.pde-tool[data-id="find"]');
+    await tool('find');
     await page.mouse.move(5, 5); await page.waitForTimeout(300);
     await shot("4-edited");
 
@@ -199,7 +204,7 @@ function restricted(ttf){
     ok(/\/Subtype \/Image/.test(raw), "the signature is in the file as a picture");
 
     /* Pages */
-    await page.click('.pde-tool[data-id="pages"]'); await page.waitForSelector(".pde-panel.pages .pde-card");
+    await tool('pages'); await page.waitForSelector(".pde-panel.pages .pde-card");
     ok(await page.locator(".pde-card").count() === 1, "Pages shows the PDF's page");
     await page.click('[data-act="pde-pg"][data-id="b:0"]'); await page.click('[data-act="pde-pg"][data-id="r:0"]');
     await page.evaluate(() => { const s = document.getElementById("pdePagesFrom"); s.value = "f2"; s.dispatchEvent(new Event("change", {bubbles: true})); });

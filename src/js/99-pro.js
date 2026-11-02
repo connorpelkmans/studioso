@@ -2364,7 +2364,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   });
 
   P.addFeature({id: "listen", name: "Listen", where: "In each deck, and on Today's Plan before a commute: your cards read aloud", icon: LISTEN_ICON});
-  Object.assign(P, {openListen: open});
+  Object.assign(P, {openListen: open, ttsVoice: voiceFor, ttsRate: () => prefs().rate});
 
   const css = document.createElement("style");
   css.textContent = `
@@ -2404,6 +2404,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const proWhy = why => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(why); };
   const COLORS = [["yellow", "Yellow", "#FFD84D"], ["green", "Green", "#7DDB8A"], ["blue", "Blue", "#7CC4FF"], ["pink", "Pink", "#FF9EC4"]];
   const colorHex = c => (COLORS.find(x => x[0] === c) || COLORS[0])[2];
+  // underlines and strike-throughs have their own colours; sticky notes are yellow
+  const MARKS = {u: ["Underline", "#2457C5"], s: ["Strike-Through", "#C0262D"], n: ["Comment", "#E8B92E"]};
+  const markHex = h => h.m && MARKS[h.m] ? MARKS[h.m][1] : colorHex(h.c);
+  const NOTE_ICO = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="#FFD84D" stroke="#9A7A10" stroke-width="1.4"/><path d="M7 9h10M7 13h10M7 17h6" stroke="#7A5F00" stroke-width="1.6" stroke-linecap="round"/></svg>';
   const MAX_HL = 400;
   const isPdf = f => !!f && f.kind === "file" && f.revs.length && /\.pdf$/i.test(curRev(f).name || f.name);
   /*READER-START*/
@@ -2469,7 +2473,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit Page</button></span>
         <span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
-        ${window.SBPDE ? SBPDE.readerBtn() : ""}${window.SBINK ? SBINK.readerBtn() : ""}<span class="spacer"></span>
+        <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>
+        ${window.SBPDE ? SBPDE.readerBtn() : ""}${window.SBINK ? SBINK.readerBtn() : ""}${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}<span class="spacer"></span>
         <button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>
       </div>
       <div class="pdr-main"><div class="pdr-pages" id="pdrPages" tabindex="0" aria-label="Pages"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(f.name)}…</p></div><aside class="pdr-side" id="pdrSide" hidden></aside></div>
@@ -2558,7 +2563,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!R) return;
     const list = mine(), pages = n ? [R.pages[n - 1]] : R.pages;
     pages.forEach(pg => { if (!pg) return; const L = pg.el.querySelector(".pdr-hl"); if (!L) return;
-      L.innerHTML = list.filter(h => h.p === pg.n).map(h => h.r.map(r => `<i data-h="${esc(h.id)}" style="left:${(r[0] * 100).toFixed(3)}%;top:${(r[1] * 100).toFixed(3)}%;width:${(r[2] * 100).toFixed(3)}%;height:${(r[3] * 100).toFixed(3)}%;--h:${colorHex(h.c)}"></i>`).join("")).join(""); });
+      L.innerHTML = list.filter(h => h.p === pg.n).map(h => h.m === "n"
+        ? `<b class="pdr-note" data-h="${esc(h.id)}" style="left:${(h.r[0][0] * 100).toFixed(3)}%;top:${(h.r[0][1] * 100).toFixed(3)}%" title="${esc(h.cm || "Comment")}">${NOTE_ICO}</b>`
+        : h.r.map((r, k) => `<i data-h="${esc(h.id)}" class="${h.m ? "m-" + h.m : ""}" style="left:${(r[0] * 100).toFixed(3)}%;top:${(r[1] * 100).toFixed(3)}%;width:${(r[2] * 100).toFixed(3)}%;height:${(r[3] * 100).toFixed(3)}%;--h:${markHex(h)}">${h.cm && k === h.r.length - 1 ? `<b class="pdr-cm" aria-hidden="true"></b>` : ""}</i>`).join("")).join(""); });
   }
   function counts(){
     const f = fileOf(), all = hlOf(f), n = all.filter(h => h.a === R.rev).length, old = all.length - n;
@@ -2609,7 +2616,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const s = selection();
     if (!s) return;
     PEND = s;
-    showPop(`${colorBtns("pdr-hl-add")}<span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-sel-note">Note</button><button type="button" class="btn small" data-act="pdr-sel-card">Card</button>`, s.end);
+    showPop(`${colorBtns("pdr-hl-add")}<button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="u" aria-label="Underline" title="Underline"><span style="text-decoration:underline;text-decoration-color:${MARKS.u[1]};text-decoration-thickness:2px">U</span></button><button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="s" aria-label="Strike-through" title="Strike-Through"><span style="text-decoration:line-through;text-decoration-color:${MARKS.s[1]};text-decoration-thickness:2px">S</span></button><span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-sel-cm">Comment</button><button type="button" class="btn small" data-act="pdr-sel-note">Note</button><button type="button" class="btn small" data-act="pdr-sel-card">Card</button>`, s.end);
   }
   function addFromSel(color, extra){
     const s = PEND; if (!s || !R) return null;
@@ -2624,11 +2631,40 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!R || !R.doc || (window.SBPDE && SBPDE.active())) return;
     const sel = window.getSelection(); if (sel && !sel.isCollapsed) return;
     const pgEl = e.target.closest && e.target.closest(".pdr-page"); if (!pgEl) { hidePop(); return; }
-    const b = pgEl.getBoundingClientRect(), h = hitAt(mine(), Number(pgEl.dataset.p), (e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height);
+    const b = pgEl.getBoundingClientRect(), x = (e.clientX - b.left) / b.width, y = (e.clientY - b.top) / b.height;
+    if (R.noting) {
+      // a sticky note where you tap, its comment typed straight away
+      if (mine().length >= MAX_HL) { toast(`A file can hold ${MAX_HL} highlights and comments.`); return; }
+      const h = {id: uid(), a: R.rev, p: Number(pgEl.dataset.p), m: "n", r: [[Math.max(0, Math.min(0.97, x - 0.011)), Math.max(0, Math.min(0.97, y - 0.011)), 0.022, 0.022]], t: "", cm: "", c: "yellow", at: Date.now()};
+      saveHl(mine().concat([h])); paint(h.p); counts(); setNoting(false);
+      setTimeout(() => cmEdit(h.id), 0); return;
+    }
+    const h = hitAt(mine(), Number(pgEl.dataset.p), x, y);
     if (!h) { hidePop(); return; }
+    if (h.m === "n") { cmEdit(h.id); return; }
     const r = h.r[h.r.length - 1], at = {left: b.left + r[0] * b.width, width: r[2] * b.width, top: b.top + r[1] * b.height, bottom: b.top + (r[1] + r[3]) * b.height};
-    showPop(`${colorBtns("pdr-hl-color", h.c).replace(/data-id=/g, `data-h="${esc(h.id)}" data-id=`)}<span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-hl-note" data-id="${esc(h.id)}">${h.n && state.notes[h.n] ? "Open Note" : "Note"}</button><button type="button" class="btn small" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button><button type="button" class="icon-btn pdr-del" data-act="pdr-hl-del" data-id="${esc(h.id)}" aria-label="Remove highlight">${ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`, at);
+    showPop(`${h.m ? `<span class="mini">${MARKS[h.m][0]}</span>` : colorBtns("pdr-hl-color", h.c).replace(/data-id=/g, `data-h="${esc(h.id)}" data-id=`)}<span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-cm" data-id="${esc(h.id)}">${h.cm ? "Edit Comment" : "Comment"}</button><button type="button" class="btn small" data-act="pdr-hl-note" data-id="${esc(h.id)}">${h.n && state.notes[h.n] ? "Open Note" : "Note"}</button><button type="button" class="btn small" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button><button type="button" class="icon-btn pdr-del" data-act="pdr-hl-del" data-id="${esc(h.id)}" aria-label="Remove highlight">${ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`, at);
   }
+
+  /* Comments: on a highlight, underline or strike-through, or a sticky note on its own */
+  function cmEdit(id){
+    const h = mine().find(x => x.id === id); if (!h) return;
+    const pg = R.pages[h.p - 1]; if (!pg) return;
+    const b = pg.el.getBoundingClientRect(), r = h.r[h.r.length - 1], at = {left: b.left + r[0] * b.width, width: r[2] * b.width, top: b.top + r[1] * b.height, bottom: b.top + (r[1] + r[3]) * b.height};
+    showPop(`<form class="pdr-cmf" data-cm="${esc(id)}"><label class="sr" for="pdrCm">Comment</label><textarea id="pdrCm" rows="3" maxlength="2000" placeholder="${h.m === "n" ? "Write a comment" : "Add a comment about this"}">${esc(h.cm || "")}</textarea>
+      <div class="row-actions"><button type="button" class="icon-btn pdr-del" data-act="pdr-hl-del" data-id="${esc(id)}" aria-label="${h.m === "n" ? "Remove comment" : "Remove"}">${ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button><span class="spacer"></span><button type="submit" class="btn small primary">Save</button></div></form>`, at);
+    setTimeout(() => { const t = $("#pdrCm"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 20);
+  }
+  function cmSave(id, text){
+    const h = mine().find(x => x.id === id); if (!h) return;
+    text = String(text || "").trim().slice(0, 2000);
+    // an empty sticky note is no note at all
+    if (h.m === "n" && !text) { saveHl(mine().filter(x => x.id !== id)); paint(h.p); counts(); hidePop(); if (R.side) side(); return; }
+    saveHl(mine().map(x => x.id === id ? Object.assign({}, x, {cm: text}) : x), text ? "Comment saved" : null); paint(h.p); hidePop(); if (R.side) side();
+  }
+  function setNoting(on){ if (!R) return; R.noting = !!on; const b = $("#pdrCmBtn"); if (b) b.setAttribute("aria-pressed", String(!!on)); const box = $("#pdrPages"); if (box) box.classList.toggle("pdr-noting", !!on); if (on) toast("Tap where the comment goes"); }
+  document.addEventListener("submit", e => { const f = e.target.closest && e.target.closest(".pdr-cmf"); if (!f || !R) return; e.preventDefault(); cmSave(f.dataset.cm, f.querySelector("textarea").value); });
+  document.addEventListener("keydown", e => { if (R && e.target && e.target.id === "pdrCm" && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.target.closest("form").requestSubmit(); } });
 
   /* Notes and cards from highlights */
   const boardFor = cid => { const b = cid && noteBoards().find(x => x.courseId === cid); return b ? b.id : ""; };
@@ -2709,11 +2745,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const h0 = R.card && mine().find(x => x.id === R.card);
     if (h0) { el.innerHTML = cardHtml(h0); return; }
     const list = mine().slice().sort((a, b) => a.p - b.p || a.at - b.at);
-    el.innerHTML = `<div class="pdr-sh"><h3>Highlights</h3><button type="button" class="icon-btn" data-act="pdr-side" aria-label="Close highlights">${CLOSE}</button></div>
+    el.innerHTML = `<div class="pdr-sh"><h3>Highlights and Comments</h3><button type="button" class="icon-btn" data-act="pdr-side" aria-label="Close highlights">${CLOSE}</button></div>
       ${list.length ? `<div class="row-actions"><button type="button" class="btn small" data-act="pdr-all-note">All to One Note</button><button type="button" class="btn small" data-act="pdr-copy">Copy</button></div>
-        <ol class="pdr-list">${list.map(h => `<li style="--h:${colorHex(h.c)}"><button type="button" class="pdr-li" data-act="pdr-go-h" data-id="${esc(h.id)}"><span class="mini">Page ${h.p}</span><span class="pdr-lt">${esc(h.t)}</span></button>
+        <ol class="pdr-list">${list.map(h => `<li style="--h:${markHex(h)}"><button type="button" class="pdr-li" data-act="pdr-go-h" data-id="${esc(h.id)}"><span class="mini">Page ${h.p}${h.m ? " · " + MARKS[h.m][0] : ""}</span>${h.t ? `<span class="pdr-lt${h.m === "s" ? " struck" : ""}">${esc(h.t)}</span>` : ""}${h.cm ? `<span class="pdr-lc">${esc(h.cm)}</span>` : ""}</button>
           <span class="pdr-la">${h.n && state.notes[h.n] ? `<span class="mini">Note made</span>` : `<button type="button" class="link-btn" data-act="pdr-hl-note" data-id="${esc(h.id)}">Note</button>`}${h.k ? `<span class="mini">Card made</span>` : `<button type="button" class="link-btn" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button>`}<button type="button" class="link-btn" data-act="pdr-hl-del" data-id="${esc(h.id)}">Remove</button></span></li>`).join("")}</ol>`
-        : `<p class="mini">Select text on a page to highlight it, or to make a note or a flashcard from it.</p>`}
+        : `<p class="mini">Select text on a page to highlight, underline or strike it through, or to comment on it, make a note or a flashcard from it. The comment button in the toolbar puts a sticky note anywhere.</p>`}
       ${R.old ? `<p class="mini">${R.old} highlight${R.old === 1 ? " is" : "s are"} on an earlier version of this file.</p>` : ""}`;
   }
 
@@ -2778,6 +2814,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-fit": { R.fitMode = R.fitMode === "page" ? "width" : "page"; R.zoom = 1; try { localStorage.setItem(FIT_KEY, R.fitMode); } catch (e) {} el.setAttribute("aria-pressed", String(R.fitMode === "page")); layout(R.cur); break; }
       case "pdr-color": R.color = id; state.settings = Object.assign({}, state.settings, {hlColor: id}); saveSettings(); dlg.querySelectorAll('.pdr-bar .pdr-col').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); break;
       case "pdr-hl-add": addFromSel(id); break;
+      case "pdr-mk-add": addFromSel(R.color, {m: id}); break;
+      case "pdr-sel-cm": { const h = addFromSel(R.color); if (h) cmEdit(h.id); break; }
+      case "pdr-cm": cmEdit(id); break;
+      case "pdr-cm-mode": hidePop(); setNoting(!R.noting); break;
       case "pdr-sel-note": { const h = addFromSel(R.color); if (h) hlNote(h); break; }
       case "pdr-sel-card": { const h = addFromSel(R.color); if (h) { hidePop(); cardForm(h); } break; }
       case "pdr-hl-color": { const hid = el.dataset.h; saveHl(mine().map(x => x.id === hid ? Object.assign({}, x, {c: id}) : x)); hidePop(); paint(); break; }
@@ -2787,7 +2827,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-side": R.side = !R.side; R.card = null; side(); break;
       case "pdr-go-h": { const h = byId(id); if (h) goTo(h.p); break; }
       case "pdr-all-note": allToNote(); break;
-      case "pdr-copy": { const f = fileOf(), t = mine().slice().sort((a, b) => a.p - b.p || a.at - b.at).map(h => `“${h.t}” (p. ${h.p})`).join("\n\n"); navigator.clipboard.writeText(`${f.name}\n\n${t}`).then(() => toast("Copied"), () => toast("Couldn't copy")); break; }
+      case "pdr-copy": { const f = fileOf(), t = mine().slice().sort((a, b) => a.p - b.p || a.at - b.at).map(h => (h.t ? `“${h.t}” (p. ${h.p})` : `Comment (p. ${h.p})`) + (h.cm ? `\n${h.cm}` : "")).join("\n\n"); navigator.clipboard.writeText(`${f.name}\n\n${t}`).then(() => toast("Copied"), () => toast("Couldn't copy")); break; }
       case "pdr-card-back": R.card = null; side(); break;
       case "pdr-card-ai": { const h = byId(id); if (h) cardAi(h); break; }
       case "pdr-card-save": { const h = byId(id); if (h) cardSave(h, el.dataset.new || "Readings"); break; }
@@ -2821,6 +2861,19 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-cv{position:absolute;inset:0;display:block}
 .pdr-hl{position:absolute;inset:0;z-index:1;pointer-events:none}
 .pdr-hl i{position:absolute;background:var(--h);mix-blend-mode:multiply;opacity:.55;border-radius:2px}
+.pdr-hl i.m-u,.pdr-hl i.m-s{background:none;opacity:1;mix-blend-mode:normal;border-radius:0}
+.pdr-hl i.m-u{border-bottom:2px solid var(--h)}
+.pdr-hl i.m-s::after{content:"";position:absolute;left:0;right:0;top:52%;border-top:2px solid var(--h)}
+.pdr-cm{position:absolute;right:-7px;top:-7px;width:10px;height:10px;border-radius:50%;background:#E8B92E;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.pdr-note{position:absolute;display:block;width:22px;height:22px;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+.pdr-cmbtn[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,var(--surface));border-color:var(--accent)}
+.pdr-noting .pdr-page{cursor:copy}
+.pdr-noting .pdr-page .textLayer{pointer-events:none}
+.pdr-mk{font:700 1rem var(--body);width:32px;height:32px}
+.pdr-cmf{display:grid;gap:6px;width:min(300px,70vw)}
+.pdr-cmf textarea{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;resize:vertical}
+.pdr-lc{font-size:.85rem;color:var(--ink);background:color-mix(in srgb,#FFD84D 22%,var(--surface));border-radius:6px;padding:3px 6px;white-space:pre-wrap}
+.pdr-lt.struck{text-decoration:line-through}
 .pdr-page .textLayer{position:absolute;text-align:initial;inset:0;overflow:clip;opacity:1;line-height:1;-webkit-text-size-adjust:none;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;caret-color:CanvasText;z-index:2;--min-font-size:1;--text-scale-factor:calc(var(--total-scale-factor) * var(--min-font-size));--min-font-size-inv:calc(1 / var(--min-font-size))}
 .pdr-page .textLayer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}
 .pdr-page .textLayer > :not(.markedContent),.pdr-page .textLayer .markedContent span:not(.markedContent){z-index:1;--font-height:0;font-size:calc(var(--text-scale-factor) * var(--font-height));--scale-x:1;--rotate:0deg;transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv))}

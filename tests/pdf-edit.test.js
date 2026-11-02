@@ -4,7 +4,7 @@ const assert = require("assert"), path = require("path");
 const L = require("pdf-lib");
 const src = require("../scripts/app-files").source();
 const block = (a, b, names) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, "markers " + a); return new Function(src.slice(i + a.length, j) + `; return {${names}};`)(); };
-const E = block("/*PDFEDIT-ENGINE-START*/", "/*PDFEDIT-ENGINE-END*/", "pdeLex, pdeStrip, pdeBake, pdeProbe, pdeBadChars, pdeTidy, pdeInside, pdeCmap, pdeWrap, pdeFontRights, pdeShapeOps, pdeReorg, pdeSigned");
+const E = block("/*PDFEDIT-ENGINE-START*/", "/*PDFEDIT-ENGINE-END*/", "pdeLex, pdeStrip, pdeBake, pdeProbe, pdeBadChars, pdeTidy, pdeInside, pdeCmap, pdeWrap, pdeFontRights, pdeShapeOps, pdeReorg, pdeSigned, pdeOcrLayer, pdeCompress, pdeShown, pdeNumText");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const enc = s => Buffer.from(s, "latin1");
 const dec = u8 => Buffer.from(u8).toString("latin1");
@@ -158,6 +158,36 @@ const region = (it, extra) => Object.assign({k: "t", p: 1, o: [it.x, it.y], r: 0
     {id: "f1", k: "f", p: 1, name: "name", v: "Ana"}, {id: "f2", k: "f", p: 1, name: "name", v: "dup"}, {id: "t1", k: "n", p: 1, o: [0, 0], fs: 9, ff: "abc", fn: "x"}], 200);
   ok(kept2.map(e => e.id).join() === "p1,s1,i1,f1,t1", "paragraphs, marks, pictures and form answers are checked; unknown marks, odd picture ids and repeated fields are dropped: " + kept2.map(e => e.id).join());
   ok(kept2[0].lines.length === 1 && kept2[2].sig === 1 && !("ff" in kept2[4]), "an upside-down paragraph line and a font id that isn't one are dropped");
+
+  /* Comments, locking, header and page numbers, recognized text, smaller files */
+  const rc = await E.pdeBake(L, b1, [], {annots: [{p: 1, k: "ul", quads: [[72, 715, 200, 715, 72, 700, 200, 700]], c: "#2457c5", t: "why?"}, {p: 1, k: "so", quads: [[72, 691, 200, 691, 72, 676, 200, 676]], c: "#c0262d"}, {p: 1, k: "note", at: [400, 600], t: "Ask in class"}]});
+  const ca = (await L.PDFDocument.load(rc.bytes)).getPages()[0].node.Annots(), subs = [];
+  for (let k = 0; k < ca.size(); k++) subs.push(rc.bytes && (await L.PDFDocument.load(rc.bytes)).context.lookup(ca.get(k)).get(L.PDFName.of("Subtype")).decodeText());
+  ok(subs.join() === "Underline,StrikeOut,Text", "underlines, strike-throughs and sticky notes are standard PDF comments: " + subs.join());
+  const rl = await E.pdeBake(L, b1, [], {annots: [{p: 1, k: "note", at: [400, 600], t: "x"}], flatten: true});
+  const la = (await L.PDFDocument.load(rl.bytes)).getPages()[0].node.Annots();
+  ok((!la || la.size() === 0) && rl.report.annots === 1, "locked: the markup is drawn into the page instead");
+  const rh = await E.pdeBake(L, b1, [{id: "h", k: "h", p: 1, text: "Ana · BIO 101", pos: "tr", num: "bc", fmt: "pnn", fs: 10}]);
+  const th = await textOf(rh.bytes);
+  ok(th.some(i => i.s === "Ana · BIO 101" && i.x > 400 && i.y > 740) && th.some(i => i.s === "Page 1 of 1" && i.y < 40), "a header at the top right and page numbers at the bottom");
+  const rotDoc = await L.PDFDocument.create(); rotDoc.addPage([612, 792]).setRotation(L.degrees(90));
+  const s0 = E.pdeShown(rotDoc.getPages()[0], 30, 30);
+  ok(s0.r === 90 && s0.w === 792 && s0.h === 612 && s0.x === 30 && s0.y === 30, "on a turned page, the header is placed and turned to read upright");
+  ok(E.pdeNumText("pnn", 2, 9) === "Page 2 of 9" && E.pdeNumText("n", 2, 9) === "2", "page number styles");
+  const od = await L.PDFDocument.load(b1), ofont = await od.embedFont(L.StandardFonts.Helvetica);
+  ok(await E.pdeOcrLayer(L, od, 1, [{t: "Recognized words here", o: [72, 400], r: 0, w: 200, h: 14}, {t: "", o: [0, 0], w: 5, h: 5}], ofont) === 1, "recognized lines become invisible text (empty ones are skipped)");
+  const ob = await od.save(), ot = await textOf(ob);
+  ok(ot.some(i => i.s === "Recognized words here" && Math.abs(i.x - 72) < 0.5 && Math.abs(i.w - 200) < 2), "where the words are, as wide as they are");
+  const oi = ot.find(i => i.s === "Recognized words here"), ore = await E.pdeBake(L, ob, [region(oi, {t: "Changed words"})]);
+  ok(ore.report.covered === 1, "editing recognized text still covers the picture of the old words");
+  const big = await L.PDFDocument.create(); big.addPage([612, 792]);
+  const raw = new Uint8Array(400 * 300 * 3).fill(128), st = big.context.flateStream(raw, {Type: "XObject", Subtype: "Image", Width: 400, Height: 300, ColorSpace: "DeviceRGB", BitsPerComponent: 8});
+  const imgRef = big.context.register(st);
+  let asked = null;
+  const cr = await E.pdeCompress(L, big, 100, async x => { asked = x; return {bytes: new Uint8Array(50), w: 200, h: 150}; });
+  ok(cr.done === 1 && asked.kind === "raw" && asked.comps === 3 && asked.maxPx === 1100 && big.context.lookup(imgRef).dict.get(L.PDFName.of("Filter")).decodeText() === "DCTDecode", "smaller: a picture is re-saved as JPEG no sharper than the dpi asked for");
+  const masks = await L.PDFDocument.create(); masks.context.register(masks.context.flateStream(new Uint8Array(100 * 100), {Type: "XObject", Subtype: "Image", Width: 100, Height: 100, ImageMask: true, BitsPerComponent: 1}));
+  ok((await E.pdeCompress(L, masks, 100, async () => { throw new Error("no"); })).done === 0, "masks and odd pictures are left alone");
 
   console.log(`\n${n} checks passed`);
 })().catch(e => { console.error("FAIL:", e && e.stack || e); process.exit(1); });
