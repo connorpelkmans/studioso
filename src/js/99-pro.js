@@ -2610,13 +2610,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!R || !R.doc) return;
     n = Math.max(1, Math.min(R.doc.numPages, Math.round(Number(n) || 1)));
     const pg = R.pages[n - 1], box = $("#pdrPages"); if (!pg || !box) return;
-    box.scrollTo({top: pg.el.offsetTop - 12, behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+    const top = pg.el.offsetTop - 12; box.scrollTo({top, behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+    R.going = {top, until: Date.now() + 1200};   // while the scroll travels there, the page number stays on where it's going
     R.cur = n; const inp = $("#pdrPg"); if (inp) inp.value = String(n);
     keepPage(R.rev, n);
     draw(n);
   }
   function trackPage(){
     const box = $("#pdrPages"); if (!box || !R || !R.pages.length) return;
+    if (R.going) { if (Math.abs(box.scrollTop - R.going.top) > 3 && Date.now() < R.going.until && box.scrollTop < box.scrollHeight - box.clientHeight - 2) return; R.going = null; }
     const top = box.scrollTop + box.clientHeight * 0.3;
     let cur = 1; for (const p of R.pages) { if (p.el.offsetTop <= top) cur = p.n; else break; }
     if (cur !== R.cur) { R.cur = cur; const inp = $("#pdrPg"); if (inp && document.activeElement !== inp) inp.value = String(cur); }

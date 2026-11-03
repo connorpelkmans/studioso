@@ -176,8 +176,10 @@ function SEED(){
     await page.click('.frow[data-fid="f1"] .f-read'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000});
     const P = () => page.evaluate(() => window.__sbProStudy.P.reader().cur);
     const onPage = k => page.waitForFunction(k => { const R = window.__sbProStudy.P.reader(), b = document.getElementById("pdrPages"); return R.cur === k && Math.abs(b.scrollTop - Math.min(b.scrollHeight - b.clientHeight, R.pages[k - 1].el.offsetTop - 12)) < 4; }, k, {timeout: 5000}).then(() => true, () => false);
+    await page.evaluate(() => { window.__pg = []; const tick = () => { const v = document.getElementById("pdrPg"); if (v && window.__pg[window.__pg.length - 1] !== v.value) window.__pg.push(v.value); if (window.__pg.length < 50 && !window.__pgStop) requestAnimationFrame(tick); }; tick(); });
     await page.focus("#pdrPages"); await page.keyboard.press("PageDown");
     ok(await onPage(2), "Page Down goes to the next page");
+    { const seq = await page.evaluate(() => { window.__pgStop = true; return window.__pg; }); ok(seq.join(",") === "1,2", "the page number goes straight to the new page without flickering back: " + seq.join(",")); }
     await page.keyboard.press("ArrowLeft");
     ok(await onPage(1), "the left arrow goes back");
     await page.keyboard.press("End");
