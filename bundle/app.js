@@ -11292,7 +11292,7 @@ function occView(type, id, key){
   if (c && type === "event") rows.push([I.book, esc(c.name || courseLabel(c)), esc(c.code && c.name ? c.code : "")]);
   if (ev && ev.notes) rows.push([I.note, `<span class="occv-notes">${esc(ev.notes)}</span>`, ""]);
   // a class: its own page with its notes, files and recording (99-class-sessions.js)
-  if (type === "meet" && window.SBCLS) { try { rows.push(...SBCLS.occRows(o)); } catch (e) { console.warn("class page rows", e); } }
+  if ((type === "meet" || (type === "event" && ev && ev.courseId)) && window.SBCLS) { try { rows.push(...SBCLS.occRows(o)); } catch (e) { console.warn("class page rows", e); } }
   const url = ev && ev.url && /^https:\/\//i.test(ev.url) ? ev.url : "";
   if (url) rows.push([I.link, `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open link</a>`, ""]);
   const band = c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : `<span class="occv-ic" aria-hidden="true">${I.cal}</span><b>Event</b>`;
@@ -89912,6 +89912,13 @@ var SBCLS = null;
   const keyParts = k => { const [date, start, ...kind] = String(k || "").split("|"); return {date, start, kind: kind.join("|") || "Class"}; };
   const day = (d, o) => parse(d).toLocaleDateString(undefined, o || {weekday: "short", month: "short", day: "numeric"});
   const NUMBERED = k => k !== "Office Hours";
+  /* Classes also come from calendar events linked to the course (a school calendar's "NK1 Module 8, Class 3 · Lecture"):
+     a timed event whose label is a kind of class, or that has no label */
+  const CLASS_KIND = /lecture|lab|discussion|tutorial|seminar|recitation|class|studio|clinical|practicum|workshop|office hours|section|lesson/i;
+  const isClassEvent = ev => !!ev && !!ev.courseId && !ev.allDay && !!ev.start && (!ev.label || CLASS_KIND.test(ev.label));
+  // A class's key: "date|start|kind" (the usual date and time, so a class moved for one week keeps it)
+  const classKey = o => o.type === "meet" ? o.key : `${o.orig}|${(o.ev && o.ev.start) || o.start}|${o.label || "Class"}`;
+  const courseIdOf = o => o.type === "meet" ? o.id : o.ev && o.ev.courseId;
 
   /* The term */
   function termOf(c){
@@ -89922,6 +89929,7 @@ var SBCLS = null;
       allTasks().forEach(t => { if (t.courseId === c.id) { if (isDate(t.due)) seen.push(t.due); if (isDate(t.start)) seen.push(t.start); } });
       Object.values(state.files || {}).forEach(f => { if (f.courseId === c.id && isLec(f)) seen.push(dOf(f.created)); });
       Object.values(state.notes || {}).forEach(n => { if (n.courseId === c.id && n.cls) seen.push(keyParts(n.cls).date); });
+      eventsArr().forEach(e => { if (e.courseId === c.id && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
       const early = seen.filter(isDate).sort()[0], late = seen.filter(isDate).sort().pop();
       if (!from) { from = [c.created ? dOf(c.created) : today, early || today].sort()[0]; if (from < addDays(today, -150)) from = addDays(today, -150); }
       if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180); }
@@ -89937,14 +89945,17 @@ var SBCLS = null;
     if (!CACHE || CACHE.at !== state.updated || CACHE.st !== state) CACHE = {at: state.updated, st: state, by: new Map()};
     if (CACHE.by.has(c.id)) return CACHE.by.get(c.id);
     const T = termOf(c);
-    let occ = []; try { occ = schOccurrences(T.from, T.until).filter(o => o.type === "meet" && o.id === c.id); } catch (e) { occ = []; }
+    let occ = []; try { occ = schOccurrences(T.from, T.until).filter(o => (o.type === "meet" && o.id === c.id) || (o.type === "event" && o.ev && o.ev.courseId === c.id && isClassEvent(o.ev))); } catch (e) { occ = []; }
+    // an imported event at the same time as one of the course's own class times is the same class
+    const meetAt = new Set(occ.filter(o => o.type === "meet").map(o => o.date + "|" + o.start));
+    occ = occ.filter(o => o.type === "meet" || !meetAt.has(o.date + "|" + o.start));
     occ.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
     const num = {}, total = {};
     occ.forEach(o => { const k = o.label || "Class"; if (!o.skipped) total[k] = (total[k] || 0) + 1; });
     const list = occ.map(o => {
       const kind = o.label || "Class", n = o.skipped ? 0 : (num[kind] = (num[kind] || 0) + 1);
-      return {key: o.key, cid: c.id, date: o.date, orig: o.orig, start: o.start, end: o.end, where: o.where || "", kind, n, of: total[kind] || 0, skipped: !!o.skipped, moved: !!o.moved,
-        title: NUMBERED(kind) && n ? `${kind} ${n}` : kind};
+      return {key: classKey(o), cid: c.id, date: o.date, orig: o.orig, start: o.start, end: o.end, where: o.where || "", kind, n, of: total[kind] || 0, skipped: !!o.skipped, moved: !!o.moved,
+        title: NUMBERED(kind) && n ? `${kind} ${n}` : kind, name: o.type === "event" && o.title && o.title !== kind ? o.title : ""};
     });
     CACHE.by.set(c.id, list);
     return list;
@@ -89998,7 +90009,7 @@ var SBCLS = null;
       const I = itemsOf(c.id, x.key), past = x.date < today, isToday = x.date === today, isNext = nextUp === x;
       return `<li><button type="button" class="cls-row${isToday ? " is-today" : ""}${past ? " is-past" : ""}${x.skipped ? " is-skip" : ""}${I.n ? " has" : ""}" data-act="cls-open" data-cid="${esc(c.id)}" data-key="${esc(x.key)}">
         <span class="cls-date"><b>${parse(x.date).getDate()}</b><span>${esc(day(x.date, {weekday: "short"}))}</span></span>
-        <span class="cls-main"><b>${esc(x.title)}${isToday ? ` <span class="cls-pill">Today</span>` : isNext ? ` <span class="cls-pill k-next">Next</span>` : ""}</b><span class="mini">${x.skipped ? "No class this week" : esc([`${fmtTime(x.start)}–${fmtTime(x.end)}`, x.where, x.moved ? "Moved" : ""].filter(Boolean).join(" · "))}</span></span>
+        <span class="cls-main"><b>${esc(x.title)}${isToday ? ` <span class="cls-pill">Today</span>` : isNext ? ` <span class="cls-pill k-next">Next</span>` : ""}</b><span class="mini">${x.skipped ? "No class this week" : esc([x.name, `${fmtTime(x.start)}–${fmtTime(x.end)}`, x.where, x.moved ? "Moved" : ""].filter(Boolean).join(" · "))}</span></span>
         <span class="cls-has">${badges(I)}</span></button></li>`;
     };
     const body = [...weeks.entries()].map(([w, xs]) => {
@@ -90044,6 +90055,7 @@ var SBCLS = null;
       <div class="sheet-body occv-body">
         <p class="cls-kick">${esc(x.title)}${x.n && x.of ? ` <span class="mini">of ${x.of}</span>` : ""}</p>
         <h2 class="occv-title">${esc(day(x.date, {weekday: "long", month: "long", day: "numeric"}))}</h2>
+        ${x.name ? `<p class="cls-name">${esc(x.name)}</p>` : ""}
         <p class="mini cls-when">${esc([x.start ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
         <div class="cls-navs">${nav(prev, "p")}${nav(next, "n")}</div>
 
@@ -90180,10 +90192,10 @@ var SBCLS = null;
 
   /* The Schedule: a class's sheet links its page */
   function occRows(o){
-    if (!o || o.type !== "meet") return [];
-    const x = classOf(o.id, o.key); if (!x) return [];
-    const I = itemsOf(o.id, o.key), rows = [];
-    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(o.id)}" data-key="${esc(o.key)}">${I.n ? "Open Class Notes" : "Start Notes for This Class"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
+    if (!o || !(o.type === "meet" || (o.type === "event" && isClassEvent(o.ev)))) return [];
+    const cid = courseIdOf(o), key = classKey(o), x = findClass(cid, key); if (!x) return [];
+    const I = itemsOf(cid, key), rows = [];
+    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(key)}">${I.n ? "Open Class Notes" : "Start Notes for This Class"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
     return rows;
   }
 

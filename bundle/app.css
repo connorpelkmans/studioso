@@ -7991,6 +7991,7 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .cls-kick .mini{text-transform:none;letter-spacing:0;font-weight:500}
 .cls-sheet .occv-title{margin-bottom:2px}
 .cls-when{margin:0}
+.cls-name{margin:0 0 2px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
 .cls-navs{display:flex;justify-content:space-between;gap:8px;margin:12px 0 4px}
 .cls-nav{display:inline-flex;align-items:center;gap:2px}
 .cls-sec{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}

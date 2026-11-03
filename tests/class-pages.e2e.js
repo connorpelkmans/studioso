@@ -9,7 +9,8 @@ const NOW = new Date(2026, 9, 5, 10, 30, 0); // Monday, during the 10:00 lecture
 const at = (d, h, m) => new Date(d + "T" + String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":00").getTime();
 const WED = "2026-09-30", WEDKEY = WED + "|10:00|Lecture", TODAYKEY = "2026-10-05|10:00|Lecture";
 const SEED = {v: 2,
-  courses: [{id: "c1", name: "Biology", code: "BIO 101", color: "#3B6FE0", instructor: "Dr. Alvarez", created: at("2026-09-01", 9, 0), classDates: {from: "2026-09-07", until: "2026-12-11"},
+  courses: [{id: "c2", name: "Nursing Knowledge 1", code: "BSNC 1000", color: "#1E9E74", created: at("2026-09-01", 9, 0), classDates: {from: "2026-09-07", until: "2026-12-11"}},
+    {id: "c1", name: "Biology", code: "BIO 101", color: "#3B6FE0", instructor: "Dr. Alvarez", created: at("2026-09-01", 9, 0), classDates: {from: "2026-09-07", until: "2026-12-11"},
     meetings: [{id: "m1", kind: "Lecture", days: [1, 3], start: "10:00", end: "11:20", where: "Hall B 120"}, {id: "m2", kind: "Lab", days: [4], start: "14:00", end: "16:50", where: "Sci 204"}, {id: "m3", kind: "Office Hours", days: [2], start: "13:00", end: "14:00", where: "Sci 310"}]}],
   tasks: [{id: "hw", title: "Lab report: enzymes", courseId: "c1", type: "Assignment", due: "2026-10-07", status: "todo"}, {id: "ex1", title: "Midterm", courseId: "c1", type: "Exam", due: "2026-10-16", status: "todo"}],
   decks: [],
@@ -20,7 +21,15 @@ const SEED = {v: 2,
     {id: "f2", name: "Syllabus.pdf", courseId: "c1", folderId: "notes", kind: "link", url: "https://example.com/syl.pdf", revs: [], taskIds: [], created: at("2026-09-07", 9, 0)},
     // a recording saved at the end of Wednesday's lecture, with no class of its own: matched by its time
     {id: "r1", name: "Cell respiration lecture", courseId: "c1", folderId: "lectures", kind: "file", revs: [], taskIds: [], created: at(WED, 11, 24), dur: 4700, tr: {text: "Today we cover cell respiration..."}, lec: {sum: "## Main ideas\n- Glycolysis\n- Krebs cycle"}}],
-  events: [], settings: {capacity: 15, dailyHours: 3}, updated: 1};
+  events: [
+    // BSNC 1000 has no class times of its own: its classes come from the school calendar, as events linked to the course
+    {id: "e1", title: "NK1 Module 8, Class 3", courseId: "c2", label: "Lecture", date: "2026-10-06", start: "08:30", end: "10:30", where: "SE12 403"},
+    {id: "e2", title: "NK1 Module 8, Class 3", courseId: "c2", label: "Lecture", date: "2026-10-06", start: "12:00", end: "14:00", where: "SE12 403"},
+    {id: "e3", title: "NK 1 Module 9, Class 1", courseId: "c2", label: "Lecture", date: "2026-10-09", start: "12:00", end: "14:00", where: "SW3 4675/95"},
+    {id: "e4", title: "Clinical orientation", courseId: "c2", label: "", date: "2026-10-08", start: "09:00", end: "11:00"},
+    {id: "e5", title: "Pizza night", courseId: "c2", label: "Social", date: "2026-10-08", start: "18:00", end: "20:00"},
+    {id: "e6", title: "Reading week", courseId: "c2", label: "", date: "2026-10-12", allDay: true}],
+  settings: {capacity: 15, dailyHours: 3}, updated: 1};
 
 const act = (page, a, id, extra) => page.evaluate(([a, i, x]) => { const b = document.createElement("button"); b.dataset.act = a; if (i) b.dataset.id = i; x && Object.entries(x).forEach(([k, v]) => { b.dataset[k] = v; }); b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, id, extra]);
 const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
@@ -104,6 +113,21 @@ const shot = async (page, name, sel) => { if (!SHOTS) return; await page.waitFor
   await page.click('#fpane .cls-fh [data-key="' + WEDKEY + '"]'); await page.waitForSelector("#dlg .cls-sheet");
   ok(/Wednesday, September 30/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "a class heading in Files opens its class page");
 
+  // 5. A course whose classes come only from calendar events (a school calendar's lectures)
+  await page.evaluate(() => document.querySelector("#dlg").open && document.querySelector("#dlg").close());
+  await page.evaluate(() => { const u = window.__sbProStudy.ui; u.tab = "courses"; u.courseId = null; window.__sbProStudy.render(); }); await page.waitForTimeout(200);
+  await act(page, "open-course", "c2"); await page.waitForTimeout(300);
+  await act(page, "course-tab", "lectures");
+  await page.waitForSelector(".cls-tab");
+  const nk = await page.$eval(".cls-tab", el => el.textContent);
+  ok(!/No Class Times Yet/.test(nk) && await page.locator(".cls-row").count() === 4, `the course's calendar lectures are its classes (${await page.locator(".cls-row").count()})`);
+  ok(/NK1 Module 8, Class 3/.test(nk) && /NK 1 Module 9, Class 1/.test(nk) && /Clinical orientation/.test(nk) && /Lecture 3/.test(nk), "each shows its own title and is numbered");
+  ok(!/Pizza night|Reading week/.test(nk), "a social event and an all-day event aren't classes");
+  await act(page, "sch-occ", "e3", {type: "event", key: "2026-10-09"}); await page.waitForSelector("#dlg .occv-rows");
+  ok(/Start Notes for This Class/.test(await page.$eval("#dlg .occv-rows", el => el.textContent)), "the Schedule's sheet for a calendar lecture links its class page");
+  await page.click('#dlg [data-act="cls-open"]'); await page.waitForSelector("#dlg .cls-sheet");
+  ok(/NK 1 Module 9, Class 1/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "and opens it, with the lecture's title");
+  await shot(page, "5-calendar-lectures", "#dlg .sheet");
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await browser.close();
   console.log(`class-pages.e2e.js: ${n} checks passed`);
