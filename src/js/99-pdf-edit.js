@@ -1667,7 +1667,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     for (let n = 1; n <= r.doc.numPages; n++) {
       if (my !== findT) return out;
       if (n % 15 === 0) { const el = $("#pdeFindN"); if (el) el.textContent = `Searching page ${n} of ${r.doc.numPages}…`; }
-      const items = await pageInfo(n);
+      // only text you can see (on pages drawn so far; pages not drawn yet are searched as they are)
+      const pgv = E.pages.get(n), items = (await pageInfo(n)).filter(it => !pgv || inked(pgv, it));
       for (const it of items) {
         const t = list.find(e => e.k === "t" && e.p === n && Math.abs(e.o[0] - it.o[0]) < 0.5 && Math.abs(e.o[1] - it.o[1]) < 0.5);
         const p = list.find(e => e.k === "p" && e.p === n && e.lines.some(l => Math.abs(l.o[1] - it.o[1]) < it.fs * 0.3 && it.o[0] >= l.o[0] - 1 && it.o[0] <= l.o[0] + l.w + 1));
