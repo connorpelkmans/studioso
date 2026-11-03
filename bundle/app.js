@@ -83079,6 +83079,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 /* Studyboard Pro: PDF tools in Files: Convert (PDF to Word or pictures; Word, PowerPoint or pictures to PDF) and PDF Batch
    (the same change to many PDFs at once). Also the groundwork for group review (off: see GROUP-REVIEW.md). */
 var SBPDFT = null;
+// PDF Batch is hidden for now (its code stays; set to true to show the button in Files again)
+const PDT_BATCH = false;
 /*PDFTOOLS-START*/
 // Word: paragraphs (with headings and simple styles) to a .docx's document.xml body
 const pdtX = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
@@ -83540,7 +83542,7 @@ function reviewMemoryStore(){
     return true;
   });
   SBPDFT = window.SBPDFT = {
-    filesBtns: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small" data-act="pdt-convert">Convert</button><button type="button" class="btn small" data-act="pdt-batch">PDF Batch</button>`,
+    filesBtns: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small" data-act="pdt-convert">Convert</button>${PDT_BATCH ? `<button type="button" class="btn small" data-act="pdt-batch">PDF Batch</button>` : ""}`,
     review: {on: REVIEW_ON, norm: reviewNorm, merge: reviewMerge, can: reviewCan, key: reviewKey, memoryStore: reviewMemoryStore}
   };
   const css = document.createElement("style");
