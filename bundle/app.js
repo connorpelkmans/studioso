@@ -12694,6 +12694,7 @@ const FAB_IC = {
   group: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.8M18 20a5.5 5.5 0 0 0-3-5"/>',
   project: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3M8 14h3"/>',
   code: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/>',
+  sync: '<path d="M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4"/>',
   school: '<path d="M3 9.5 12 5l9 4.5-9 4.5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5M21 9.5V15"/>'
 };
 // A pop-up of big, friendly choices
@@ -17567,7 +17568,7 @@ document.addEventListener("click", e => {
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
-    case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
+    case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ...(inPreview() ? [] : [["f-sync", "Sync Drive", "Choose Google Drive or OneDrive folders Studyboard can show and save into. AI only reads what you share", "sync"]]), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet, Knowt or Notion decks, read on this device", "upload"]]); break;
     case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"], ["qz-write", "Write Your Own", "Type your own questions and answers", "write"]]); break;
@@ -78027,7 +78028,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const card = p => {
       const a = acct(p), s = U.start[p] || {}, conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
-      const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
+      const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any you choose to share with it." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
       const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
       if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
@@ -78047,7 +78048,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <select data-cl-wc="${esc(w.id)}" aria-label="Course for ${esc(w.name)}">${courseOpts(w.courseId)}</select><button type="button" class="link-btn" data-act="cl-unwatch" data-id="${esc(w.id)}">Stop Watching</button></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">Pick a folder, like your school folder. What's in it (three folders deep) shows up in Files, sorted into courses by folder name, and stays up to date.</p>`}
       <div class="cs-row">${pr.watch.length < 5 ? `<button type="button" class="btn small" data-act="cl-browse" data-mode="watch">Watch a Folder</button>` : ""}${pr.watch.length ? `<button type="button" class="btn small" data-act="cl-scan"${U.scanning ? " disabled" : ""}>${U.scanning ? "Checking…" : "Check Now"}</button><span class="mini">Checked ${esc(ago(U.scanAt))}</span>` : ""}</div>
       ${U.scanErr ? `<p class="cl-warn">${esc(U.scanErr)}</p>` : ""}</fieldset>` : "";
-    return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, attach to tasks and notes, and, if you allow it, AI can read them.</p>
+    return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, and attach to tasks and notes.</p>
+      <p class="mini cl-scope" style="margin:0"><b>AI can only read what you give Studyboard access to:</b> the Studyboard folder, the folders you add below, and only when “Allow AI to read my files” is on for that account. Nothing else in your Drive is visible to Studyboard or AI.</p>
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="cl-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : `<div class="cl-cards">${provs.map(card).join("")}</div>`}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
@@ -78091,6 +78093,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   hook("act", (act, el, id) => {
     switch (act) {
       case "cl-open": openSheetCl(); return true;
+      case "f-sync": setTimeout(openSheetCl, 60); return true;
       case "cl-full-pro": { if (dlg.open) dlg.close(); const PL = window.StudyboardPlan; setTimeout(() => PL && PL.openSheet(`Your free file storage is full. Pro has ${PLAN.proLimits().fileMB >= 1024 ? PLAN.proLimits().fileMB / 1024 + " GB" : PLAN.proLimits().fileMB + " MB"}.`), 60); return true; }
       case "cl-full-save": {
         const list = FULL.files, opts = FULL.opts; FULL.files = [];

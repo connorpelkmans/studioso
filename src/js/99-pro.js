@@ -4715,7 +4715,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const card = p => {
       const a = acct(p), s = U.start[p] || {}, conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
-      const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
+      const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any you choose to share with it." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
       const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
       if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
@@ -4735,7 +4735,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <select data-cl-wc="${esc(w.id)}" aria-label="Course for ${esc(w.name)}">${courseOpts(w.courseId)}</select><button type="button" class="link-btn" data-act="cl-unwatch" data-id="${esc(w.id)}">Stop Watching</button></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">Pick a folder, like your school folder. What's in it (three folders deep) shows up in Files, sorted into courses by folder name, and stays up to date.</p>`}
       <div class="cs-row">${pr.watch.length < 5 ? `<button type="button" class="btn small" data-act="cl-browse" data-mode="watch">Watch a Folder</button>` : ""}${pr.watch.length ? `<button type="button" class="btn small" data-act="cl-scan"${U.scanning ? " disabled" : ""}>${U.scanning ? "Checking…" : "Check Now"}</button><span class="mini">Checked ${esc(ago(U.scanAt))}</span>` : ""}</div>
       ${U.scanErr ? `<p class="cl-warn">${esc(U.scanErr)}</p>` : ""}</fieldset>` : "";
-    return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, attach to tasks and notes, and, if you allow it, AI can read them.</p>
+    return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, and attach to tasks and notes.</p>
+      <p class="mini cl-scope" style="margin:0"><b>AI can only read what you give Studyboard access to:</b> the Studyboard folder, the folders you add below, and only when “Allow AI to read my files” is on for that account. Nothing else in your Drive is visible to Studyboard or AI.</p>
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="cl-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : `<div class="cl-cards">${provs.map(card).join("")}</div>`}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
@@ -4779,6 +4780,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   hook("act", (act, el, id) => {
     switch (act) {
       case "cl-open": openSheetCl(); return true;
+      case "f-sync": setTimeout(openSheetCl, 60); return true;
       case "cl-full-pro": { if (dlg.open) dlg.close(); const PL = window.StudyboardPlan; setTimeout(() => PL && PL.openSheet(`Your free file storage is full. Pro has ${PLAN.proLimits().fileMB >= 1024 ? PLAN.proLimits().fileMB / 1024 + " GB" : PLAN.proLimits().fileMB + " MB"}.`), 60); return true; }
       case "cl-full-save": {
         const list = FULL.files, opts = FULL.opts; FULL.files = [];
