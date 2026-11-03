@@ -3,9 +3,9 @@ import AppIntents
 import Foundation
 
 struct OpenCaptureIntent: AppIntent {
-    static var title: LocalizedStringResource = "Capture a Photo"
-    static var description = IntentDescription("Opens Studyboard ready to take a photo of notes or a board and turn it into tasks.")
-    static var openAppWhenRun: Bool = true
+    static let title: LocalizedStringResource = "Capture a Photo"
+    static let description = IntentDescription("Opens Studyboard ready to take a photo of notes or a board and turn it into tasks.")
+    static let openAppWhenRun: Bool = true
 
     init() {}
 

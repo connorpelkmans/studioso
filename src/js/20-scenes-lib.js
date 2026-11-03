@@ -13940,8 +13940,9 @@ ENGINES.summer = function (A, v, dk) {
     c.fillStyle = '#2A1A18'; c.beginPath(); c.arc(-2, -4.6, 1, 0, 7); c.arc(2, -4.6, 1, 0, 7); c.fill(); c.restore(); }
   var shadows = dk ? [] : [{x: W * 0.3, y: H * 0.7, rx: W * 0.28, ry: H * 0.16, v: 7}, {x: W * 0.95, y: H * 0.25, rx: W * 0.22, ry: H * 0.13, v: 5}];
   var spr = null, sd = 0;
-  function buildSurf(d) { sd = d; spr = {}; var Wd = Math.ceil(W * d), Hd = Math.ceil(H * d), hasF;
-    function layer(fn) { var cv = b1_scratch(Wd, Hd), c = cv.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); c.lineCap = 'round'; c.lineJoin = 'round'; hasF = typeof c.filter === 'string'; fn(c); return b1_tiles(cv, 64); }
+  // the foam lines are drawn with a margin past the screen's edges: they drift a few pixels, so a line clipped at the edge would show its cut end
+  function buildSurf(d) { sd = d; spr = {}; var PAD = 48, Wd = Math.ceil((W + 2 * PAD) * d), Hd = Math.ceil((H + 2 * PAD) * d), hasF;
+    function layer(fn) { var cv = b1_scratch(Wd, Hd), c = cv.getContext('2d'); c.setTransform(d, 0, 0, d, PAD * d, PAD * d); c.lineCap = 'round'; c.lineJoin = 'round'; hasF = typeof c.filter === 'string'; fn(c); return b1_tiles(cv, 64).map(function (t) { t.x -= PAD * d; t.y -= PAD * d; return t; }); }
     spr.l2 = layer(function (c) { if (dk) { if (hasF) c.filter = 'blur(' + 9 * d + 'px)'; c.strokeStyle = 'rgba(90,230,250,0.4)'; c.lineWidth = 12; linePath(c, 46, 7, 2.1); c.stroke(); }
       if (hasF) c.filter = 'blur(' + 1.2 * d + 'px)'; c.strokeStyle = cF2; c.lineWidth = 3; linePath(c, 46, 7, 2.1); c.stroke(); });
     spr.l1 = layer(function (c) { if (hasF) c.filter = 'blur(' + 3 * d + 'px)'; linePath(c, -12, 3, 0.3); for (var j = NB - 1; j >= 0; j--) c.lineTo(bx[j] + N[0] * 2, by[j] + N[1] * 2); c.closePath(); c.fillStyle = cWet + '0.1)'; c.fill(); c.filter = 'none';

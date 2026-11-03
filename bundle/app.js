@@ -12695,6 +12695,7 @@ const FAB_IC = {
   group: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.8M18 20a5.5 5.5 0 0 0-3-5"/>',
   project: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3M8 14h3"/>',
   code: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/>',
+  sync: '<path d="M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4"/>',
   school: '<path d="M3 9.5 12 5l9 4.5-9 4.5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5M21 9.5V15"/>'
 };
 // A pop-up of big, friendly choices
@@ -15713,18 +15714,18 @@ function noteExportSheet(preId){
   const keys = [...byCourse.keys()].sort((a, b) => (a === "") - (b === "") || String(a && courseLabel(courseOf(a))).localeCompare(String(b && courseLabel(courseOf(b)))));
   const cName = k => k ? courseLabel(courseOf(k)) : "No course";
   openSheet(`<div class="sheet">${head("Notes to Word or Google Docs")}<div class="sheet-body">
-    ${live.length ? `<div class="nx-step"><h3 class="nx-sec">Choose Notes</h3><span class="nx-quick" role="group" aria-label="Select"><button type="button" class="link-btn" data-nx="all">All (${live.length})</button>${board || noteBoards().length ? `<button type="button" class="link-btn" data-nx="board">This board</button>` : ""}<button type="button" class="link-btn" data-nx="none">None</button></span></div>
-    <div class="nx-list" id="nxList">${keys.map(k => `<div class="nx-h"><span>${esc(cName(k))} <span class="mini">${byCourse.get(k).length}</span></span><button type="button" class="link-btn" data-nx="course" data-k="${esc(k)}">Select all</button></div>${byCourse.get(k).map(n => `<label><input type="checkbox" data-nxc="${esc(n.id)}" ${sel.has(n.id) ? "checked" : ""}><span><span>${esc(first(n))}</span></span></label>`).join("")}`).join("")}</div>
+    ${live.length ? `<div class="nx-step"><h3 class="nx-sec">Choose Notes</h3><span class="nx-quick" role="group" aria-label="Select"><button type="button" class="btn small" data-nx="all">All (${live.length})</button>${board || noteBoards().length ? `<button type="button" class="btn small" data-nx="board">This Board</button>` : ""}<button type="button" class="btn small" data-nx="none">None</button></span></div>
+    <div class="nx-list" id="nxList">${keys.map(k => `<label class="nx-h"><input type="checkbox" data-nxg="${esc(k)}" aria-label="All notes in ${esc(cName(k))}"><span>${esc(cName(k))}</span><span class="mini">${byCourse.get(k).length}</span></label>${byCourse.get(k).map(n => `<label><input type="checkbox" data-nxc="${esc(n.id)}" ${sel.has(n.id) ? "checked" : ""}><span><span>${esc(first(n))}</span></span></label>`).join("")}`).join("")}</div>
     <p class="mini" id="nxCount" style="margin:0"></p>
     <h3 class="nx-sec">Export As</h3>
     <div class="nx-out"><button type="button" class="nx-opt" data-nx="word"><b>Word</b><span>Downloads a .docx file</span></button><button type="button" class="nx-opt" data-nx="gdoc"><b>Google Docs</b><span>Copies the notes and opens a new doc: paste with Ctrl+V (⌘V on a Mac)</span></button><button type="button" class="nx-opt" data-nx="gdrive"><b>Google Drive</b><span>Downloads a Word file to upload, then Open with Google Docs</span></button></div>` : `<p class="status-msg">You have no notes to export yet.</p>`}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
   if (!live.length) return;
   const root = dlg.querySelector(".sheet"), boxes = () => [...root.querySelectorAll("[data-nxc]")];
-  const draw = () => { boxes().forEach(b => { b.checked = sel.has(b.dataset.nxc); }); const c = sel.size; root.querySelector("#nxCount").textContent = c ? `${c} note${c === 1 ? "" : "s"} selected` : "Choose at least one note."; root.querySelectorAll('[data-nx="word"],[data-nx="gdoc"],[data-nx="gdrive"]').forEach(b => { b.disabled = !c; }); };
+  const draw = () => { boxes().forEach(b => { b.checked = sel.has(b.dataset.nxc); }); root.querySelectorAll("[data-nxg]").forEach(g => { const ids = (byCourse.get(g.dataset.nxg) || []).map(n => n.id), on = ids.filter(i => sel.has(i)).length; g.checked = !!ids.length && on === ids.length; g.indeterminate = on > 0 && on < ids.length; }); const c = sel.size; root.querySelector("#nxCount").textContent = c ? `${c} note${c === 1 ? "" : "s"} selected` : "Choose at least one note."; root.querySelectorAll('[data-nx="word"],[data-nx="gdoc"],[data-nx="gdrive"]').forEach(b => { b.disabled = !c; }); };
   draw();
   const pick = ids => { sel.clear(); ids.forEach(i => sel.add(i)); draw(); };
-  root.addEventListener("change", e => { const b = e.target.closest && e.target.closest("[data-nxc]"); if (b) { if (b.checked) sel.add(b.dataset.nxc); else sel.delete(b.dataset.nxc); draw(); } });
+  root.addEventListener("change", e => { const g = e.target.closest && e.target.closest("[data-nxg]"); if (g) { (byCourse.get(g.dataset.nxg) || []).forEach(n => { if (g.checked) sel.add(n.id); else sel.delete(n.id); }); draw(); return; } const b = e.target.closest && e.target.closest("[data-nxc]"); if (b) { if (b.checked) sel.add(b.dataset.nxc); else sel.delete(b.dataset.nxc); draw(); } });
   root.addEventListener("click", async e => {
     const b = e.target.closest && e.target.closest("[data-nx]"); if (!b) return;
     const k = b.dataset.nx;
@@ -19748,7 +19749,7 @@ document.addEventListener("click", e => {
     case "f-preview": officePreview(id); break;
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
-    case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
+    case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ...(inPreview() ? [] : [["f-sync", "Sync Drive", "Choose Google Drive or OneDrive folders Studyboard can show and save into. AI only reads what you share", "sync"]]), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet, Knowt or Notion decks, read on this device", "upload"]]); break;
     case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"], ["qz-write", "Write Your Own", "Type your own questions and answers", "write"]]); break;
@@ -68798,13 +68799,33 @@ async function capProcess(rows, d){
     try { const nb = nativeBridge(); if (nb && typeof nb.saveCaptureToken === "function" && t && t.token) { const c = sbConfig(); nb.saveCaptureToken(t.token, c && c.url ? c.url.replace(/\/+$/, "") : ""); ls(NATIVE_KEY, t.id); } } catch (e) {}
   }
   function nativeClear(){ try { const nb = nativeBridge(); if (nb && typeof nb.clearCaptureToken === "function") nb.clearCaptureToken(); ls(NATIVE_KEY, ""); } catch (e) {} }
+  // In the iPhone and iPad app, Siri can add tasks with no setup: a capture token for this device is made on its own once signed in and kept
+  // in the Keychain. Revoking it (here or on another device) turns that off on this device until it's turned back on in Settings.
+  const AUTO_OFF = "studyboard:siriAddOff", AUTO_LABEL = "Siri on this iPhone";
+  const autoApp = () => !!(window.SBSIRI && SBSIRI.available());
+  let autoBusy = false;
+  async function nativeAuto(){
+    const nb = nativeBridge();
+    if (autoBusy || !autoApp() || !nb || typeof nb.saveCaptureToken !== "function" || ls(NATIVE_KEY) || ls(AUTO_OFF) === "1" || !ready()) return;
+    autoBusy = true;
+    try { const {data, error} = await sb.rpc("capture_create_token", {p_label: AUTO_LABEL, p_allow_get: false}); if (!error && data && data.token) nativeSave(data); }
+    catch (e) {} finally { autoBusy = false; }
+  }
   async function nativeCheck(){
-    const id = ls(NATIVE_KEY); if (!id || !nativeBridge()) return;
+    if (!nativeBridge()) return;
+    const id = ls(NATIVE_KEY);
+    if (!id) { nativeAuto(); return; }
     if (!sbUser && !(sb && sbStarting)) { if (typeof sb !== "undefined" && sb) nativeClear(); return; }
     if (!ready()) return;
-    try { const {data, error} = await sb.rpc("capture_list_tokens"); if (!error && Array.isArray(data) && !data.some(x => x.id === id && !x.revoked_at)) nativeClear(); } catch (e) {}
+    try { const {data, error} = await sb.rpc("capture_list_tokens"); if (!error && Array.isArray(data) && !data.some(x => x.id === id && !x.revoked_at)) { nativeClear(); ls(AUTO_OFF, "1"); } } catch (e) {}
   }
-  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'); if (b) nativeClear(); }, true);
+  // Signing out: the device's own token is revoked too (the session is still good at this moment), so signing in again doesn't pile up tokens
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'); if (!b) return;
+    const id = ls(NATIVE_KEY);
+    if (id && autoApp() && ready()) { try { sb.rpc("capture_revoke_token", {p_id: id}).then(() => {}, () => {}); } catch (x) {} }
+    nativeClear();
+  }, true);
   const endpoint = () => { const c = sbConfig(); return c && c.url ? c.url.replace(/\/+$/, "") + "/functions/v1/capture-task" : ""; };
   const ready = () => !inPreview() && typeof sbActive === "function" && sbActive() && !sbStarting;
 
@@ -68853,6 +68874,7 @@ async function capProcess(rows, d){
   const tick = () => pull(false);
   setTimeout(tick, 2500); setTimeout(tick, 9000); setTimeout(tick, 25000);
   setTimeout(nativeCheck, 6000); setTimeout(nativeCheck, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(nativeCheck, 1500); });
   window.addEventListener("focus", tick);
   window.addEventListener("online", () => pull(true));
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
@@ -68902,7 +68924,7 @@ async function capProcess(rows, d){
    Body (JSON): text = Provided Input, source = siri
 3. Get Dictionary Value: speech from Contents of URL
 4. Speak Text: Dictionary Value</div>
-      <p class="mini"><b>Later, with the installed Studyboard app (iOS wrapper):</b> the app's App Intents are meant to let you say "Hey Siri, add &lt;task&gt; to Studyboard" with no setup. That needs the wrapper app from the App Store and is not available in the website version.</p>
+      <p class="mini"><b>With the Studyboard app from the App Store:</b> you don't need this shortcut. Open this screen in the app and use <b>Siri on this iPhone</b> at the top: Siri can then add tasks and answer what's due, your grades and your class times.</p>
     </details>
     <details><summary>Pixel and other Android phones with Gemini</summary>
       <p class="mini"><b>Needs:</b> a capture token and the free, open-source <b>HTTP Shortcuts</b> app from Google Play. Gemini cannot call a web address by itself, so the HTTP Shortcuts app does the sending.</p>
@@ -68925,12 +68947,27 @@ async function capProcess(rows, d){
       </ol>
     </details>`;
   }
+  // The installed iPhone and iPad app: Siri works with no Shortcut to build (ios-wrapper/native/StudyboardAskIntents.swift, src/js/96-siri.js)
+  const siriApp = () => !!(window.SBSIRI && SBSIRI.available());
+  function siriBox(signed){
+    if (!siriApp()) return "";
+    const toks = (S.tokens || []).filter(t => !t.revoked_at), mine = ls(NATIVE_KEY), on = !!mine && (S.tokens === null || toks.some(t => t.id === mine));
+    const say = [["What's due this week in Studyboard?", ""], ["When is my lab report due in Studyboard?", ""], ["What's my grade in Biology in Studyboard?", "grades"], ["What did I get on the midterm in Studyboard?", "grades"], ["When is Chem in Studyboard?", ""], ["What's my next class in Studyboard?", ""], ["Add a task to Studyboard", "add"]];
+    return `<div class="capv-box"><b>Siri on this iPhone</b>
+      <p class="mini" style="margin:0">Ask Siri about your work without opening the app. It already works: there's nothing to set up. Answers come from a private copy on this phone that updates whenever Studyboard is open, so they work offline.</p>
+      <ul class="mini" style="margin:0">${say.map(([q, k]) => `<li>"Hey Siri, ${esc(q)}"${k === "grades" ? " (asks you to unlock first)" : k === "add" ? " (then say the task)" : ""}</li>`).join("")}</ul>
+      <label class="mi-check"><input type="checkbox" data-capx="siri-grades" ${SBSIRI.gradesOn() ? "checked" : ""}> Siri can tell me my grades and marks (on unless you turn it off)</label>
+      ${!signed ? `<p class="mini" style="margin:0">Adding tasks by voice needs an account, because tasks travel through your account's inbox.</p>`
+        : on || (ls(AUTO_OFF) !== "1" && autoBusy) ? `<p class="mini" style="margin:0"><b>Adding tasks by voice is on.</b> To turn it off, revoke "Siri on this iPhone" below.</p>`
+        : `<div class="capv-tok"><button type="button" class="btn primary small" data-capx="siri-on" ${S.busy || toks.length >= 5 ? "disabled" : ""}>${S.busy ? "Turning On…" : "Turn On Adding Tasks by Voice"}</button><span class="mini">${ls(AUTO_OFF) === "1" ? "It was turned off on this phone." : toks.length >= 5 ? "You have 5 tokens. Revoke one first." : ""}</span></div>`}
+      <p class="mini" style="margin:0">If Siri says it can't find Studyboard, open Studyboard once, then try again. Phrases also show in the Shortcuts app under Studyboard.</p></div>`;
+  }
   function html(){
     const signed = ready() || (typeof sbActive === "function" && sbActive());
-    if (!signed) return `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign in</button>`;
+    if (!signed) return siriBox(false) + `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign in</button>`;
     if (S.missing) return `<p class="capv-warn mini" style="margin:0">${esc(srvSetup("Voice capture", "supabase-capture.sql"))}</p>`;
     const toks = (S.tokens || []).filter(t => !t.revoked_at), url = endpoint();
-    return `
+    return siriBox(true) + `
       <p class="mini" style="margin:0">Say "add <i>read chapter 4 due Friday</i> to my Studyboard" to your phone's assistant and the task shows up here. A <b>capture token</b> lets one shortcut add tasks to your inbox, and nothing else: it can't read your tasks. Free for everyone.</p>
       ${S.err ? `<p class="capv-warn mini" role="alert" style="margin:0">${esc(S.err)}</p>` : ""}
       <div class="capv-box">
@@ -68985,10 +69022,19 @@ async function capProcess(rows, d){
     await loadTokens();
     const el = dlg.querySelector(".capv-body"); if (el) el.scrollTop = 0;
   }
+  async function siriOn(){
+    ls(AUTO_OFF, "");
+    S.busy = true; S.err = ""; paint();
+    const {data, error} = await sb.rpc("capture_create_token", {p_label: "Siri on this iPhone", p_allow_get: false});
+    S.busy = false;
+    if (error) { if (missing(error)) S.missing = true; else S.err = /SB_CAPTURE_LIMIT/.test(error.message || "") ? "You already have 5 active tokens. Revoke one first." : "Couldn't turn it on. Check your connection and try again."; paint(); return; }
+    nativeSave(data); toast("Siri can add tasks now. Try \"Hey Siri, add a task to Studyboard\".");
+    await loadTokens();
+  }
   async function revoke(id){
     if (!(await askBox({title: "Revoke This Token?", text: "Any shortcut using it stops working right away.", yes: "Revoke", danger: true}))) return;
     const {error} = await sb.rpc("capture_revoke_token", {p_id: id});
-    if (error) S.err = "Couldn't revoke it. Try again."; else { S.err = ""; toast("Token revoked"); if (ls(NATIVE_KEY) === id) nativeClear(); }
+    if (error) S.err = "Couldn't revoke it. Try again."; else { S.err = ""; toast("Token revoked"); if (ls(NATIVE_KEY) === id) { nativeClear(); ls(AUTO_OFF, "1"); } }
     await loadTokens();
   }
   async function test(){
@@ -69018,8 +69064,10 @@ async function capProcess(rows, d){
     else if (k === "revoke") revoke(b.dataset.id);
     else if (k === "hide") { S.tok = null; paint(); }
     else if (k === "test") test();
+    else if (k === "siri-on") siriOn();
     else if (k === "signin") { if (dlg.open) dlg.close(); setTimeout(() => { try { sbAsk(); } catch (err) {} }, 60); }
   });
+  dlg.addEventListener("change", e => { const b = e.target.closest && e.target.closest('[data-capx="siri-grades"]'); if (b && dlg.querySelector(".capv-sheet") && window.SBSIRI) { SBSIRI.setGrades(b.checked); toast(b.checked ? "Siri can tell you your grades" : "Siri won't say your grades"); } });
   dlg.addEventListener("submit", e => { const f = e.target.closest && e.target.closest("[data-capx-form]"); if (f) { e.preventDefault(); create(f); } });
   const rowHtml = group => `<button data-act="cap-voice-open" data-group="${group}"><span>Voice Assistants &amp; Shortcuts<span class="sub">Add tasks by asking Siri, Gemini or Bixby, or from the share sheet</span></span></button>`;
   hook("act", act => { if (act !== "cap-voice-open") return false; if (dlg.open) dlg.close(); setTimeout(open, 40); return true; });
@@ -69032,6 +69080,139 @@ async function capProcess(rows, d){
 })();
 /* CAPTURE-INBOX-END */
 
+/* ===== module: 96-siri.js ===== */
+/* SIRI-START
+   Ask Siri about your work (iPhone and iPad app only). Siri runs Studyboard's App Intents (ios-wrapper/native/StudyboardAskIntents.swift)
+   without opening the app, so they can't run this page. Instead this module keeps a small copy of what Siri may answer about on the device:
+   tasks with their due dates and marks, courses with their current grade and class times, and the class meetings of the next two weeks
+   (worked out here, so rotating Day 1-6 / A-B schedules, days off and moved classes come out exactly as the Schedule shows them). It is
+   written through StudyboardNative.siriData.save() into the app's own container, never to a server, and is deleted on sign-out.
+   Grades are left out when the person turns "Siri can tell me my grades" off (per device). The native side reads it, answers, and indexes
+   assignments and courses so Siri and Spotlight can find them by name. Shape: SIRI_V below; the Swift Codable types in SBSiriData.swift
+   must match it (tests/siri.test.js checks both).
+   On iOS 27 Siri can also change a task while the app is closed ("mark my lab report done", "move the essay to Monday", the Reminders
+   App Schema in StudyboardReminders27.swift). Siri can't reach the account, so the change waits on the device; siriApplyUpdates() below
+   makes it here, as a normal undoable change, when the app opens. */
+const SIRI_V = 1, SIRI_MAX_TASKS = 600, SIRI_DAYS = 14;
+const siriStr = (s, n) => { const t = String(s == null ? "" : s).replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
+const siriDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+const siriTime = s => typeof s === "string" && /^\d{2}:\d{2}$/.test(s) ? s : "";
+const siriNum = v => typeof v === "number" && isFinite(v) ? Math.round(v * 10) / 10 : null;
+/* in: {now, today, grades, tasks:[task], courses:[course], courseLabel(c), gradeItems:[{id, pct, mark, letter}], courseGrade(c) -> {pct, letter, marked} | null,
+        timesText(c) -> "Mon, Wed · 10–10:50 AM", classes:[{courseId, kind, date, start, end, where}]} */
+function siriSnapshot(i){
+  const grades = !!i.grades, today = i.today, marks = new Map();
+  if (grades) (i.gradeItems || []).forEach(g => { if (g && g.id && siriNum(g.pct) != null) marks.set(g.id, {pct: siriNum(g.pct), text: siriStr(g.mark, 24), letter: siriStr(g.letter, 4)}); });
+  const courses = (i.courses || []).filter(c => c && c.id && !c.archived).map(c => {
+    const o = {id: String(c.id), name: siriStr(c.name || c.code, 80) || "Course", code: siriStr(c.code, 24), room: siriStr(c.room, 60), times: ""};
+    try { o.times = siriStr(i.timesText ? i.timesText(c) : "", 120); } catch (e) { o.times = ""; }
+    if (grades) { let g = null; try { g = i.courseGrade ? i.courseGrade(c) : null; } catch (e) { g = null; } if (g && siriNum(g.pct) != null) o.grade = {pct: siriNum(g.pct), letter: siriStr(g.letter, 4), marked: siriNum(g.marked)}; }
+    return o;
+  });
+  const known = new Set(courses.map(c => c.id));
+  // What Siri is asked about: real work (not Exam Prep sessions or the steps of a broken-down task), open work first, then recent and marked work
+  const real = (i.tasks || []).filter(t => t && t.id && !t.prepFor && !t.breakdownOf && siriStr(t.title, 2));
+  const open = real.filter(t => t.status !== "done" && !t.archivedTerm), done = real.filter(t => !open.includes(t));
+  const byDue = (a, b) => ((a.due || "9999") + (a.time || "")).localeCompare((b.due || "9999") + (b.time || ""));
+  const recent = (a, b) => (Number(b.doneAt) || 0) - (Number(a.doneAt) || 0) || String(b.due).localeCompare(String(a.due));
+  const pick = open.sort(byDue).concat(done.filter(t => marks.has(t.id) || (t.due && t.due >= addDaysPure(today, -30))).sort(recent)).slice(0, SIRI_MAX_TASKS);
+  const tasks = pick.map(t => {
+    const o = {id: String(t.id), title: siriStr(t.title, 140), course: known.has(t.courseId) ? String(t.courseId) : "", type: siriStr(t.type, 24), due: siriDate(t.due), time: siriDate(t.due) ? siriTime(t.time) : "", done: t.status === "done",
+      created: Number(t.created) > 0 ? Number(t.created) : 0, doneAt: t.status === "done" && Number(t.doneAt) > 0 ? Number(t.doneAt) : 0, flag: t.priority === "high" || t.priority === "urgent"};
+    if (marks.has(t.id)) o.mark = marks.get(t.id);
+    return o;
+  });
+  const classes = (i.classes || []).filter(m => m && known.has(m.courseId) && siriDate(m.date) && siriTime(m.start) && siriTime(m.end))
+    .map(m => ({course: String(m.courseId), kind: siriStr(m.kind, 24), date: m.date, start: m.start, end: m.end, where: siriStr(m.where, 60)}))
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 400);
+  return {v: SIRI_V, at: Number(i.now) || 0, grades, tasks, courses, classes};
+}
+// The app's addDays, without depending on it (this part is tested on its own)
+function addDaysPure(s, n){ const [y, m, d] = String(s).split("-").map(Number); const x = new Date(y, m - 1, d + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; }
+/* One change Siri asked for, as the task it makes ({id, task, title?, done?, due?, time?, clearDue?, flagged?, course?}); null when nothing changes.
+   courseOk(id) says whether a course id exists. Time is kept when only the day moves. */
+function siriUpdated(t, u, now, courseOk){
+  if (!t || !u) return null;
+  const n = JSON.parse(JSON.stringify(t)), was = JSON.stringify(t);
+  const title = siriStr(u.title, 200); if (title) n.title = title;
+  if (u.clearDue === true) { n.due = ""; n.time = ""; }
+  else if (siriDate(u.due)) { n.due = u.due; n.time = siriTime(u.time) || (siriDate(t.due) ? siriTime(t.time) : ""); if (n.start && n.start > n.due) n.start = n.due; }
+  if (u.done === true && n.status !== "done") Object.assign(n, {status: "done", doneAt: now, pct: 100});
+  if (u.done === false && n.status === "done") { n.status = "todo"; delete n.doneAt; }
+  if (u.flagged === true && n.priority !== "urgent") n.priority = "high";
+  if (u.flagged === false && (n.priority === "high" || n.priority === "urgent")) n.priority = "med";
+  if (typeof u.course === "string") { if (u.course === "inbox") n.courseId = ""; else if (courseOk(u.course)) n.courseId = u.course; }
+  return JSON.stringify(n) === was ? null : n;
+}
+/* SIRI-PURE-END */
+(() => {
+  const nb = () => { const n = window.StudyboardNative; return n && n.siriData && typeof n.siriData.save === "function" ? n.siriData : null; };
+  const GRADES_KEY = "studyboard:siriGrades";
+  const gradesOn = () => { try { return localStorage.getItem(GRADES_KEY) !== "0"; } catch (e) { return true; } };
+  function input(){
+    const today = todayISO(), G = window.SBGRADES;
+    let classes = [];
+    try {
+      classes = schOccurrences(today, addDays(today, SIRI_DAYS - 1)).filter(o => o.type === "meet" && !o.skipped && o.c)
+        .map(o => ({courseId: o.c.id, kind: o.label, date: o.date, start: o.start, end: o.end, where: o.where || (o.m && o.m.where) || o.c.room || ""}));
+    } catch (e) { classes = []; }
+    return {now: Date.now(), today, grades: gradesOn(), tasks: allTasks(), courses: coursesArr(),
+      gradeItems: G && typeof G.items === "function" ? (() => { try { return G.items(); } catch (e) { return []; } })() : [],
+      courseGrade: c => { const g = G && typeof G.now === "function" ? G.now(c) : null; return g && g.pct != null ? {pct: g.pct, letter: g.letter, marked: g.marked} : null; },
+      timesText: c => courseTimesText(c), classes};
+  }
+  let last = "", t = null;
+  function push(){
+    clearTimeout(t); t = null;
+    const S = nb(); if (!S) return;
+    let snap; try { snap = siriSnapshot(input()); } catch (e) { console.warn("siri snapshot", e); return; }
+    const sig = JSON.stringify(Object.assign({}, snap, {at: 0}));
+    if (sig === last) return;
+    last = sig;
+    S.save(snap).catch(() => { last = ""; });
+  }
+  const soon = () => { if (nb() && !t) t = setTimeout(push, 2000); };
+  hook("boot", () => { if (!nb()) return; setTimeout(push, 3000); setInterval(push, 15 * 60000); });
+  hook("changed", soon);
+  hook("render", soon);
+  // leaving the app: write it now, it's what Siri sees until the app is opened again
+  document.addEventListener("visibilitychange", () => { if (document.hidden && nb()) push(); });
+  // signing out deletes it (and its Spotlight entries)
+  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'); if (b && nb()) { last = ""; nb().clear(); } }, true);
+  // Changes Siri made while the app was closed: applied once the tasks have loaded, acknowledged only after they're saved
+  let applying = false;
+  async function applyUpdates(){
+    const S = nb(); if (!S || applying || typeof S.drainUpdates !== "function") return;
+    applying = true;
+    try {
+      const items = await S.drainUpdates(); if (!items.length) return;
+      const changes = [], acked = [];
+      items.slice(0, 50).forEach(u => {
+        if (!u || typeof u.id !== "string") return;
+        acked.push(u.id);  // a task that's gone is acknowledged too, so it isn't tried forever
+        const t = typeof u.task === "string" ? state.tasks[u.task] : null; if (!t) return;
+        const prev = changes.find(c => c.id === t.id), n = siriUpdated(prev ? prev.after : t, u, Date.now(), id => !!state.courses[id]);
+        if (!n) return;
+        if (n.status !== t.status) n.order = nextOrder(n.status);
+        if (prev) prev.after = n; else changes.push({kind: "task", id: t.id, after: n});
+      });
+      if (changes.length) applyChanges(changes, changes.length === 1 ? `Siri updated ${siriStr(changes[0].after.title, 40)}` : `Siri updated ${changes.length} tasks`);
+      if (acked.length) await S.ackUpdates(acked);
+      last = ""; push();
+    } catch (e) { console.warn("siri updates", e); }
+    finally { applying = false; }
+  }
+  hook("boot", () => { if (nb()) setTimeout(applyUpdates, 4000); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && nb()) setTimeout(applyUpdates, 800); });
+  window.SBSIRI = {
+    available: () => !!nb(),
+    gradesOn,
+    setGrades: on => { try { localStorage.setItem(GRADES_KEY, on ? "1" : "0"); } catch (e) {} last = ""; push(); },
+    refresh: () => { last = ""; push(); },
+    snapshot: () => siriSnapshot(input())
+  };
+})();
+/* SIRI-END */
 /* ===== module: 92-accuracy.js ===== */
 /* Planning accuracy */
 var SBACC = (() => {
@@ -80053,6 +80234,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const prefs = () => {
     const c = (state.settings && state.settings.cloud) || {};
     return {ai: {google: !!(c.ai && c.ai.google), microsoft: !!(c.ai && c.ai.microsoft)}, save: ["google", "microsoft"].includes(c.save) ? c.save : "studyboard", msFolder: c.msFolder && c.msFolder.id ? c.msFolder : null,
+      msCourse: Object.fromEntries(Object.entries(c.msCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
       watch: Array.isArray(c.watch) ? c.watch.filter(w => w && w.id).slice(0, 5) : [], hide: Array.isArray(c.hide) ? c.hide.slice(-500) : []};
   };
   const setPrefs = patch => { state.settings = Object.assign({}, state.settings, {cloud: Object.assign(prefs(), patch)}); saveSettings(); };
@@ -80128,8 +80310,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* OneDrive (Microsoft Graph) */
   const MG = "https://graph.microsoft.com/v1.0/me/drive";
   const msItem = (j, blob, type) => ({p: "microsoft", id: String(j.id), name: String(j.name || ""), size: Number(j.size) || (blob ? blob.size : 0), type: String((j.file && j.file.mimeType) || type || ""), mod: String(j.lastModifiedDateTime || new Date().toISOString()), url: String(j.webUrl || "")});
-  async function msUpload(blob, name, type, segs){
-    const f = prefs().msFolder, rel = segs.concat([seg(name)]).map(encodeURIComponent).join("/");
+  async function msUpload(blob, name, type, segs, cf){
+    /* a folder chosen for this course replaces the course's own subfolder (Lectures still nests inside it) */
+    const f = cf || prefs().msFolder, rel = (cf ? segs.slice(1) : segs).concat([seg(name)]).map(encodeURIComponent).join("/");
     const at = f ? `${MG}/items/${encodeURIComponent(f.id)}:/${rel}:` : `${MG}/root:/Studyboard/${rel}:`;
     if (blob.size <= 4 * 1048576) return msItem(await api("microsoft", `${at}/content?@microsoft.graph.conflictBehavior=rename`, {method: "PUT", headers: {"Content-Type": type || "application/octet-stream"}, body: blob}), blob, type);
     const s = await api("microsoft", `${at}/createUploadSession`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({item: {"@microsoft.graph.conflictBehavior": "rename"}})});
@@ -80159,7 +80342,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* Saving */
   async function saveBlob(p, blob, name, o){
     const type = (o && o.type) || blob.type || "application/octet-stream";
-    return p === "google" ? gUpload(blob, name, type, segsFor(o || {})) : msUpload(blob, name, type, segsFor(o || {}));
+    if (p === "google") return gUpload(blob, name, type, segsFor(o || {}));
+    const cf = o && o.courseId && prefs().msCourse[o.courseId];
+    if (!cf) return msUpload(blob, name, type, segsFor(o || {}));
+    try { return await msUpload(blob, name, type, segsFor(o || {}), cf); }
+    catch (e) { if (e && e.code === "net") throw e; toast(`Couldn't use the OneDrive folder “${cf.name}” for this course, so it went to Studyboard's folder instead.`); return msUpload(blob, name, type, segsFor(o || {})); }
   }
   const MAX_UP = 250 * 1048576;
   async function uploadFiles(list, opts, forced){
@@ -80368,7 +80555,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const card = p => {
       const a = acct(p), s = U.start[p] || {}, conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
-      const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
+      const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any you choose to share with it." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
       const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
       if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
@@ -80388,11 +80575,16 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <select data-cl-wc="${esc(w.id)}" aria-label="Course for ${esc(w.name)}">${courseOpts(w.courseId)}</select><button type="button" class="link-btn" data-act="cl-unwatch" data-id="${esc(w.id)}">Stop Watching</button></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">Pick a folder, like your school folder. What's in it (three folders deep) shows up in Files, sorted into courses by folder name, and stays up to date.</p>`}
       <div class="cs-row">${pr.watch.length < 5 ? `<button type="button" class="btn small" data-act="cl-browse" data-mode="watch">Watch a Folder</button>` : ""}${pr.watch.length ? `<button type="button" class="btn small" data-act="cl-scan"${U.scanning ? " disabled" : ""}>${U.scanning ? "Checking…" : "Check Now"}</button><span class="mini">Checked ${esc(ago(U.scanAt))}</span>` : ""}</div>
       ${U.scanErr ? `<p class="cl-warn">${esc(U.scanErr)}</p>` : ""}</fieldset>` : "";
-    return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, attach to tasks and notes, and, if you allow it, AI can read them.</p>
+    const cm = prefs().msCourse, cs = coursesArr();
+    const perCourse = ms && cs.length ? `<fieldset class="cl-set"><legend>OneDrive Folder for Each Course</legend>
+      <p class="mini">Choose where a course's uploads are kept in OneDrive. Files you upload in Studyboard go there on their own, with no prompt each time. Courses without a folder use <b>${esc(pr.msFolder ? pr.msFolder.name : "Studyboard")} › course name</b>. Files you linked from OneDrive are never moved.</p>
+      <ul class="cl-watch">${cs.map(c => { const f = cm[c.id]; return `<li><span class="cl-wn">${FOLDER}<b>${esc(courseLabel(c))}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="cl-browse" data-mode="course" data-course="${esc(c.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="cl-course-reset" data-id="${esc(c.id)}">Use Automatic</button>` : ""}</li>`; }).join("")}</ul></fieldset>` : "";
+    return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, and attach to tasks and notes.</p>
+      <p class="mini cl-scope" style="margin:0"><b>AI can only read what you give Studyboard access to:</b> the Studyboard folder, the folders you add below, and only when “Allow AI to read my files” is on for that account. Nothing else in your Drive is visible to Studyboard or AI.</p>
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="cl-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : `<div class="cl-cards">${provs.map(card).join("")}</div>`}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
-      ${saveSet}${watch}
+      ${saveSet}${perCourse}${watch}
       <p class="mini">Removing a cloud file in Studyboard never deletes it from Google Drive or OneDrive.</p>`;
   }
   function paint(){ const b = document.getElementById("clBody"); if (b && !U.browse) { const y = b.scrollTop; b.innerHTML = sheetHtml(); b.scrollTop = y; } }
@@ -80401,15 +80593,15 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     openSheet(`<div class="sheet cl-sheet">${head("Cloud Storage")}<div class="sheet-body" id="clBody">${sheetHtml()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     setTimeout(() => { if (!U.loading && (Date.now() - cache().at > 30000 || !cache().at)) loadStatus(); else prefetch(); }, 0);
   }
-  async function browse(mode, id, name, trail){
-    U.browse = {mode, id: id || "root", name: name || "OneDrive", trail: trail || []};
+  async function browse(mode, id, name, trail, courseId){
+    U.browse = {mode, id: id || "root", name: name || "OneDrive", trail: trail || [], courseId: courseId || (U.browse && U.browse.courseId) || ""};
     const b = document.getElementById("clBody"); if (!b) return;
     b.innerHTML = `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(U.browse.name)}…</p>`;
     let list; try { list = await msChildren(U.browse.id, true); } catch (e) { list = null; b.innerHTML = `<p class="cl-warn">${esc((e && e.message) || "Couldn't open OneDrive.")}</p><button type="button" class="btn small" data-act="cl-back">Back</button>`; return; }
     if (!U.browse || U.browse.id !== (id || "root")) return;
     const B = U.browse, here = B.id !== "root";
     b.innerHTML = `<div class="cl-crumbs"><button type="button" class="link-btn" data-act="cl-back">‹ Cloud Storage</button><span class="mini">${esc(["OneDrive"].concat(B.trail.map(t => t.name)).join(" › "))}</span></div>
-      <p style="margin:0"><b>${mode === "watch" ? "Choose a folder to watch" : "Choose where uploads go"}</b></p>
+      <p style="margin:0"><b>${mode === "watch" ? "Choose a folder to watch" : mode === "course" ? `Choose where ${esc((courseOf(B.courseId) ? courseLabel(courseOf(B.courseId)) : "this course"))} uploads go` : "Choose where uploads go"}</b></p>
       ${list && list.length ? `<ul class="cl-folders">${list.slice(0, 200).map(f => `<li><button type="button" class="cl-fold" data-act="cl-dir" data-id="${esc(f.id)}" data-name="${esc(f.name)}">${FOLDER}<span>${esc(f.name)}</span><span class="mini">${f.folder && f.folder.childCount != null ? f.folder.childCount + " items" : ""}</span></button></li>`).join("")}</ul>` : `<p class="mini">No folders in here.</p>`}
       <div class="cs-row">${B.trail.length ? `<button type="button" class="btn small" data-act="cl-up">Up a Level</button>` : ""}<span class="spacer"></span>${here ? `<button type="button" class="btn small primary" data-act="cl-pick">${mode === "watch" ? `Watch “${esc(B.name)}”` : `Save to “${esc(B.name)}”`}</button>` : `<span class="mini">Open a folder to choose it</span>`}</div>`;
   }
@@ -80432,6 +80624,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   hook("act", (act, el, id) => {
     switch (act) {
       case "cl-open": openSheetCl(); return true;
+      case "f-sync": setTimeout(openSheetCl, 60); return true;
       case "cl-full-pro": { if (dlg.open) dlg.close(); const PL = window.StudyboardPlan; setTimeout(() => PL && PL.openSheet(`Your free file storage is full. Pro has ${PLAN.proLimits().fileMB >= 1024 ? PLAN.proLimits().fileMB / 1024 + " GB" : PLAN.proLimits().fileMB + " MB"}.`), 60); return true; }
       case "cl-full-save": {
         const list = FULL.files, opts = FULL.opts; FULL.files = [];
@@ -80454,12 +80647,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         else toast("Couldn't disconnect. Check your connection and try again.");
         paint();
       })(); return true;
-      case "cl-browse": browse(el.dataset.mode === "save" ? "save" : "watch"); return true;
+      case "cl-browse": { const m = el.dataset.mode === "save" ? "save" : el.dataset.mode === "course" ? "course" : "watch"; U.browse = null; browse(m, "root", "OneDrive", [], el.dataset.course || ""); return true; }
+      case "cl-course-reset": { const m = Object.assign({}, prefs().msCourse); delete m[id]; setPrefs({msCourse: m}); toast("This course's uploads use the automatic folder again"); paint(); return true; }
       case "cl-back": U.browse = null; paint(); return true;
       case "cl-up": { const B = U.browse; if (!B) return true; const t = B.trail.slice(0, -1), last = t[t.length - 1]; browse(B.mode, last ? last.id : "root", last ? last.name : "OneDrive", t); return true; }
       case "cl-pick": {
         const B = U.browse; if (!B || B.id === "root") return true;
-        if (B.mode === "save") { setPrefs({msFolder: {id: B.id, name: B.name}}); toast(`OneDrive uploads go to “${B.name}”`); }
+        if (B.mode === "course") { const c = courseOf(B.courseId); if (c) { setPrefs({msCourse: Object.assign({}, prefs().msCourse, {[c.id]: {id: B.id, name: B.name}})}); toast(`${courseLabel(c)} uploads go to “${B.name}”`); } }
+        else if (B.mode === "save") { setPrefs({msFolder: {id: B.id, name: B.name}}); toast(`OneDrive uploads go to “${B.name}”`); }
         else {
           const W = prefs().watch;
           if (W.some(w => w.id === B.id)) toast("You're already watching that folder");

@@ -3,9 +3,9 @@ import AppIntents
 import Foundation
 
 struct AddTaskIntent: AppIntent {
-    static var title: LocalizedStringResource = "Add Task"
-    static var description = IntentDescription("Adds a task to your Studyboard board without opening the app.")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "Add Task"
+    static let description = IntentDescription("Adds a task to your Studyboard board without opening the app.")
+    static let openAppWhenRun: Bool = false
 
     @Parameter(title: "Task", requestValueDialog: IntentDialog("What's the task?"))
     var task: String
@@ -40,7 +40,7 @@ struct AddTaskIntent: AppIntent {
             return .result(dialog: IntentDialog("Added to Studyboard: \(shown)"))
         } catch CaptureError.notConfigured {
             SBCapture.enqueue(clean)
-            return .result(dialog: IntentDialog("I saved \(shown) on your phone. Open Studyboard once and turn on Quick Capture in Settings to send it."))
+            return .result(dialog: IntentDialog("Got it. I saved \(shown), and it will be on your board the next time you open Studyboard."))
         } catch {
             SBCapture.enqueue(clean)
             return .result(dialog: IntentDialog("I couldn't reach Studyboard, so I saved \(shown) on your phone. It will be added when you next open the app."))

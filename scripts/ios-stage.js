@@ -192,7 +192,7 @@ if (fs.existsSync(plistFile)) {
   const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
   try {
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const need = [["StudyboardLms.swift", "school site sign-in"], ["StudyboardLmsScripts.swift", "school site sign-in"], ["StudyboardPlugins.swift", "quick capture and the share sheet"]]
+    const need = [["StudyboardLms.swift", "school site sign-in"], ["StudyboardLmsScripts.swift", "school site sign-in"], ["StudyboardPlugins.swift", "quick capture and the share sheet"], ["SBSiriData.swift", "asking Siri about your work"], ["StudyboardEntities.swift", "asking Siri about your work"], ["StudyboardAskIntents.swift", "asking Siri about your work"], ["StudyboardReminders27.swift", "the new Siri on iOS 27 (tasks as reminders)"]]
       .filter(([f]) => txt && !txt.includes(f));
     if (need.length) {
       console.log("ios-stage: NOT IN THE XCODE PROJECT YET (so these are off in the app):");
@@ -223,7 +223,7 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   try {
     const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json"), pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"]]
+    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["StudyboardPlugins.swift", "StudyboardSiriDataPlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"]]
       .filter(([f]) => txt.includes(f)).map(([, c]) => c);
     if (ours.length && fs.existsSync(cfg)) {
       const j = JSON.parse(fs.readFileSync(cfg, "utf8")); const list = Array.isArray(j.packageClassList) ? j.packageClassList : [];
