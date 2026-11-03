@@ -7,8 +7,8 @@ import CoreSpotlight
 import Foundation
 
 struct AssignmentEntity: AppEntity {
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Assignment"
-    static var defaultQuery = AssignmentQuery()
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Assignment"
+    static let defaultQuery = AssignmentQuery()
 
     var id: String
 
@@ -72,8 +72,8 @@ struct AssignmentQuery: EntityStringQuery {
 }
 
 struct CourseEntity: AppEntity {
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Course"
-    static var defaultQuery = CourseQuery()
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Course"
+    static let defaultQuery = CourseQuery()
 
     var id: String
 

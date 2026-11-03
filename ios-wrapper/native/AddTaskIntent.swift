@@ -3,9 +3,9 @@ import AppIntents
 import Foundation
 
 struct AddTaskIntent: AppIntent {
-    static var title: LocalizedStringResource = "Add Task"
-    static var description = IntentDescription("Adds a task to your Studyboard board without opening the app.")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "Add Task"
+    static let description = IntentDescription("Adds a task to your Studyboard board without opening the app.")
+    static let openAppWhenRun: Bool = false
 
     @Parameter(title: "Task", requestValueDialog: IntentDialog("What's the task?"))
     var task: String

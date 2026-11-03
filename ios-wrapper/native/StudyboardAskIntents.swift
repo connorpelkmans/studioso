@@ -21,9 +21,9 @@ enum SBAsk {
 
 // "When is my bio lab report due?"
 struct AssignmentDueIntent: AppIntent {
-    static var title: LocalizedStringResource = "When Is It Due"
-    static var description = IntentDescription("Tells you when an assignment, exam or task in Studyboard is due.")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "When Is It Due"
+    static let description = IntentDescription("Tells you when an assignment, exam or task in Studyboard is due.")
+    static let openAppWhenRun: Bool = false
 
     @Parameter(title: "Assignment", requestValueDialog: IntentDialog("Which assignment?"))
     var assignment: AssignmentEntity
@@ -58,8 +58,8 @@ struct AssignmentDueIntent: AppIntent {
 enum DueRange: String, AppEnum {
     case today, tomorrow, week, overdue
 
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "When"
-    static var caseDisplayRepresentations: [DueRange: DisplayRepresentation] = [
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "When"
+    static let caseDisplayRepresentations: [DueRange: DisplayRepresentation] = [
         .today: "today",
         .tomorrow: "tomorrow",
         .week: "this week",
@@ -69,9 +69,9 @@ enum DueRange: String, AppEnum {
 
 // "What's due this week?"
 struct WhatsDueIntent: AppIntent {
-    static var title: LocalizedStringResource = "What's Due"
-    static var description = IntentDescription("Lists what's due today, tomorrow, in the next 7 days, or overdue.")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "What's Due"
+    static let description = IntentDescription("Lists what's due today, tomorrow, in the next 7 days, or overdue.")
+    static let openAppWhenRun: Bool = false
 
     @Parameter(title: "When", default: .week)
     var range: DueRange
@@ -124,11 +124,11 @@ struct WhatsDueIntent: AppIntent {
 
 // "What did I get on my chem midterm?"
 struct AssignmentGradeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Assignment Grade"
-    static var description = IntentDescription("Tells you the mark you got on an assignment, quiz or exam.")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "Assignment Grade"
+    static let description = IntentDescription("Tells you the mark you got on an assignment, quiz or exam.")
+    static let openAppWhenRun: Bool = false
     // marks are private: Siri asks for Face ID or the passcode first on a locked phone. verify: available on your deployment target
-    static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
     @Parameter(title: "Assignment", requestValueDialog: IntentDialog("Which assignment?"))
     var assignment: AssignmentEntity
@@ -158,10 +158,10 @@ struct AssignmentGradeIntent: AppIntent {
 
 // "What's my grade in biology?"
 struct CourseGradeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Course Grade"
-    static var description = IntentDescription("Tells you your current grade in a course, from the marks in Studyboard's Grade Tracker.")
-    static var openAppWhenRun: Bool = false
-    static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+    static let title: LocalizedStringResource = "Course Grade"
+    static let description = IntentDescription("Tells you your current grade in a course, from the marks in Studyboard's Grade Tracker.")
+    static let openAppWhenRun: Bool = false
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
     @Parameter(title: "Course", requestValueDialog: IntentDialog("Which course?"))
     var course: CourseEntity
@@ -191,9 +191,9 @@ struct CourseGradeIntent: AppIntent {
 
 // "When is chem?"
 struct ClassTimeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Class Times"
-    static var description = IntentDescription("Tells you when and where a course meets, and when its next class is.")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "Class Times"
+    static let description = IntentDescription("Tells you when and where a course meets, and when its next class is.")
+    static let openAppWhenRun: Bool = false
 
     @Parameter(title: "Course", requestValueDialog: IntentDialog("Which class?"))
     var course: CourseEntity
@@ -231,9 +231,9 @@ struct ClassTimeIntent: AppIntent {
 
 // "What's my next class?"
 struct NextClassIntent: AppIntent {
-    static var title: LocalizedStringResource = "Next Class"
-    static var description = IntentDescription("Tells you your next class, when it starts and where.")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "Next Class"
+    static let description = IntentDescription("Tells you your next class, when it starts and where.")
+    static let openAppWhenRun: Bool = false
 
     init() {}
 
