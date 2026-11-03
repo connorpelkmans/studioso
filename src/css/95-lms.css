@@ -14,6 +14,7 @@
    Both are 48px tall (Microsoft: at least as large as other badges, over 32px, with a quarter of its height clear around it: the margin plus the 8px row gap) */
 .ext-badge{display:inline-flex;align-items:center;line-height:0;text-decoration:none;margin:4px}
 .ext-badge img{display:block;height:48px;width:auto}
+.ext-badge .on-light{height:75.0px;margin:-13.5px -18.0px -13.5px -11.5px}
 .ext-badge:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
 .ext-badge .on-dark{display:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ext-badge .on-light{display:none}:root:not([data-theme="light"]) .ext-badge .on-dark{display:block}}
