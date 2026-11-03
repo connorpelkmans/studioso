@@ -98,7 +98,8 @@ function mathEl(tex, d, raw){
   return el;
 }
 // The same placeholder as HTML, for code that builds HTML strings
-const mathHtml = (tex, d) => `<span class="mth${d ? " mth-d" : ""}" data-tex="${esc(tex)}"${d ? ' data-d="1"' : ""}>${esc(d ? "$$" + tex + "$$" : "$" + tex + "$")}</span>`;
+// fallback: HTML to show until (or if) KaTeX can't load, instead of the typed text
+const mathHtml = (tex, d, fallback) => `<span class="mth${d ? " mth-d" : ""}${fallback ? " mth-fb" : ""}" data-tex="${esc(tex)}"${d ? ' data-d="1"' : ""}>${fallback || esc(d ? "$$" + tex + "$$" : "$" + tex + "$")}</span>`;
 const KX_CACHE = new Map();
 function drawMath(el){
   if (!katexOk) { loadKatex().then(() => mathPending(document)).catch(() => {}); return; }
@@ -136,7 +137,7 @@ function richNode(el){
 // Where text is shown with its math and formatting: notes, card faces and lists, quizzes, whiteboard text, the reader's
 // comments, picture card answers, Match tiles, and anything marked class="rt"
 const RT_SCOPES = [".note-body", ".face-text", ".fc-front", ".fc-back", ".q-prompt", ".q-card .mc", ".q-card .tf-pair", ".q-card .written", ".miss-list",
-  "button.opt", ".opt-note", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".pdr-cmv", ".ar-cards", ".rt", "[data-rt]"];
+  "button.opt", ".opt-note", ".q-card .rationale", ".q-card .ans", ".q-card .ai-fb", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".ar-cards", ".rt", "[data-rt]"];
 let rtQueued = false;
 function rtRun(){
   rtQueued = false;
@@ -162,6 +163,32 @@ function mathSpeech(s){
     t = t.replace(/\\([A-Za-z]+)/g, (m, w) => SPEAK[w] != null ? " " + SPEAK[w] + " " : " " + w + " ").replace(/[{}\\&]/g, " ").replace(/=/g, " equals ").replace(/\+/g, " plus ").replace(/(\s)-(\s)/g, " minus ");
     return t.replace(/\s+/g, " ").trim();
   }).join("").replace(/\s+/g, " ");
+}
+
+// Math as plain characters, for places that can only draw text (a whiteboard saved as a picture): "$x^2 \cdot \frac{a}{b}$" is "x² · (a)/(b)"
+const SUPS = {"0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "+": "⁺", "-": "⁻", "n": "ⁿ", "i": "ⁱ", "(": "⁽", ")": "⁾"};
+const SUBS = {"0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉", "+": "₊", "-": "₋", "(": "₍", ")": "₎"};
+const PLAIN = {alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", zeta: "ζ", eta: "η", theta: "θ", iota: "ι", kappa: "κ", lambda: "λ", mu: "μ", nu: "ν", xi: "ξ", pi: "π", rho: "ρ", sigma: "σ", tau: "τ", phi: "φ", chi: "χ", psi: "ψ", omega: "ω",
+  Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ", Pi: "Π", Sigma: "Σ", Phi: "Φ", Psi: "Ψ", Omega: "Ω", cdot: "·", times: "×", div: "÷", pm: "±", mp: "∓", le: "≤", leq: "≤", ge: "≥", geq: "≥", ne: "≠", neq: "≠", approx: "≈", equiv: "≡", sim: "∼", propto: "∝",
+  infty: "∞", partial: "∂", nabla: "∇", int: "∫", oint: "∮", sum: "Σ", prod: "Π", to: "→", rightarrow: "→", Rightarrow: "⇒", Leftrightarrow: "⇔", leftrightarrow: "↔", in: "∈", notin: "∉", subseteq: "⊆", cup: "∪", cap: "∩", emptyset: "∅", forall: "∀", exists: "∃",
+  neg: "¬", land: "∧", lor: "∨", therefore: "∴", angle: "∠", perp: "⊥", parallel: "∥", triangle: "△", circ: "°", degree: "°", ldots: "…", cdots: "⋯", sin: "sin", cos: "cos", tan: "tan", log: "log", ln: "ln", lim: "lim", exp: "exp", left: "", right: "", quad: " ", qquad: "  "};
+const raise = (s, map) => [...s].every(c => map[c]) ? [...s].map(c => map[c]).join("") : null;
+function mathPlain(s){
+  return mathSplit(s).map(p => {
+    if (!p.m) return p.s.replace(/\*\*|~~|==|`/g, "");
+    let t = p.s;
+    // Chemistry: \ce{SO4^{2-}} is SO₄²⁻ (the braces inside are matched, so nested ones work)
+    for (let i = t.indexOf("\\ce{"), guard = 0; i >= 0 && guard < 50; i = t.indexOf("\\ce{"), guard++) {
+      const j = braceEnd(t, i + 3); if (j < 0) break;
+      const c = t.slice(i + 4, j).replace(/\^\{?([0-9]*[+-])\}?/g, (q, x) => raise(x, SUPS) || q).replace(/([A-Za-z)\]])(\d+)/g, (q, a, d) => a + raise(d, SUBS)).replace(/<=>/g, "⇌").replace(/->/g, "→");
+      t = t.slice(0, i) + c + t.slice(j + 1);
+    }
+    for (let k = 0; k < 3; k++) t = t.replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => `${a.length > 1 ? "(" + a + ")" : a}/${b.length > 1 ? "(" + b + ")" : b}`).replace(/\\sqrt\{([^{}]*)\}/g, (m, a) => "√" + (a.length > 1 ? "(" + a + ")" : a));
+    t = t.replace(/\\(?:text|mathrm|mathbf|mathit|operatorname)\{([^{}]*)\}/g, "$1").replace(/\\[,;!: ]/g, " ");
+    t = t.replace(/\^\{([^{}]*)\}|\^(\S)/g, (m, a, b) => raise(a != null ? a : b, SUPS) || "^" + (a != null ? "(" + a + ")" : b));
+    t = t.replace(/_\{([^{}]*)\}|_(\S)/g, (m, a, b) => raise(a != null ? a : b, SUBS) || "_" + (a != null ? "(" + a + ")" : b));
+    return t.replace(/\\([A-Za-z]+)/g, (m, w) => PLAIN[w] != null ? PLAIN[w] : w).replace(/[{}]/g, "").replace(/\s+/g, " ").trim();
+  }).join("");
 }
 
 /* Writing: a toolbar on fields that take formatted text, and an equation editor */
@@ -345,4 +372,4 @@ function eqDone(ok){
 }
 if (typeof dlg !== "undefined" && dlg) dlg.addEventListener("cancel", e => { if (RB.eq) { e.preventDefault(); eqDone(false); } });
 document.addEventListener("pointerdown", e => { if (RB.eq && !e.target.closest(".rb-eq,.rb-bar") && e.target !== RB.field) eqDone(false); }, true);
-window.__sbMath = {mathSplit, richFrag, mathSpeech, loadKatex, hasMath, ready: () => katexOk, state: () => state, ui, render, applyChanges, clone};
+window.__sbMath = {mathSplit, richFrag, mathSpeech, mathPlain, loadKatex, hasMath, ready: () => katexOk, state: () => state, ui, render, applyChanges, clone, quiz: (d, q) => startAiQuiz(d, q)};

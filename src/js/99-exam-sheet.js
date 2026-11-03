@@ -162,8 +162,8 @@ const EXAMSHEET = (() => {
 /*EXAMSHEET-END*/
 // A formula written in LaTeX is drawn as math (module 01-math.js); others keep the readable form
 const xsMath = e => { const parts = typeof mathSplit === "function" ? mathSplit(e) : [], m = parts.filter(p => p.m);
-  if (m.length === 1 && parts.every(p => p.m || !p.s.trim())) return mathHtml(m[0].s, false);
-  if (typeof mathHtml === "function" && !m.length && /\\[A-Za-z]+|\^\{|_\{/.test(e)) return mathHtml(String(e).trim(), false);
+  if (m.length === 1 && parts.every(p => p.m || !p.s.trim())) return mathHtml(m[0].s, false, EXAMSHEET.pretty(e));
+  if (typeof mathHtml === "function" && !m.length && /\\[A-Za-z]+|\^\{|_\{/.test(e)) return mathHtml(String(e).trim(), false, EXAMSHEET.pretty(e));
   return EXAMSHEET.pretty(e); };
 
 /* the app side */

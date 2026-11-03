@@ -7852,7 +7852,7 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 }
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
-.mth:not(.mth-ok){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
+.mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
 .mth.mth-bad{color:var(--late)}
 .mth .katex{font-size:1.08em;line-height:1.2;white-space:nowrap}
 .mth-d{display:block;margin:.35em 0;text-align:center;white-space:normal}

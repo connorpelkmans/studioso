@@ -1336,7 +1336,7 @@ var SBWB = null;
     const DK0 = DK; DK = dk;
     try {
     ink.forEach(st => strokePaint(st.t === "hl" ? chh : cp, st, colOf(st, !dk)));
-    its.forEach(it => { if (it.k !== "t") return; ct.fillStyle = penHex(it.c, !dk); ct.font = `${it.f}px ${famOf(it.ff)}`; ct.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => ct.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
+    its.forEach(it => { if (it.k !== "t") return; ct.fillStyle = penHex(it.c, !dk); ct.font = `${it.f}px ${famOf(it.ff)}`; ct.textBaseline = "top"; String(typeof mathPlain === "function" ? mathPlain(it.s) : it.s).split("\n").forEach((l, i) => ct.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
     } finally { DK = DK0; }
     cm.setTransform(1, 0, 0, 1, 0, 0);
     // Highlighter goes over the ink, as on screen; typed text stays on top of both
