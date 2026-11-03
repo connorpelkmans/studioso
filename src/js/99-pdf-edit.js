@@ -1899,7 +1899,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
     return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${MORE.some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((MORE.find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${MORE.map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span></span>
       <span class="spacer"></span>
-      <span class="pde-save"><button type="button" class="btn small" data-act="pde-dl" title="Download PDF">${ico(IC.down)}<span class="pde-lbl">Download PDF</span></button><button type="button" class="btn small primary" data-act="pde-save"${n ? "" : " disabled"}>${ico(IC.save)}Save${n ? ` ${n} Edit${n === 1 ? "" : "s"}` : ""}</button></span>
+
       <div class="pde-sub">
       <span class="pde-fmt" role="group" aria-label="Text style"${txt ? "" : " hidden"}>
         <select id="pdeFam" aria-label="Font">${e && (e.k === "t" || e.k === "p") ? `<option value="o"${fam === "o" ? " selected" : ""}>Original Font</option>` : ""}<option value="h"${fam === "h" ? " selected" : ""}>Sans</option><option value="t"${fam === "t" ? " selected" : ""}>Serif</option><option value="c"${fam === "c" ? " selected" : ""}>Mono</option>
@@ -1919,6 +1919,11 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     let b = sheet.querySelector(".pde-bar");
     const btn = $("#pdeBtn"); if (btn) { btn.setAttribute("aria-pressed", String(E.on)); const c = btn.querySelector("b"); const n = mine().length; if (c) { c.textContent = n ? String(n) : ""; c.hidden = !n; } }
     const pages = $("#pdrPages"); if (pages) { pages.classList.toggle("pde-on", E.on); pages.dataset.pdeTool = E.place ? "place" : E.tool; }
+    // Save sits in the top row, beside Download, while editing
+    const slot = sheet.querySelector("#pdrSaveSlot"), nE = mine().length;
+    if (slot) slot.innerHTML = E.on ? `<button type="button" class="btn small primary" data-act="pde-save"${nE ? "" : " disabled"}>${ico(IC.save)}Save${nE ? ` ${nE} Edit${nE === 1 ? "" : "s"}` : ""}</button>` : "";
+    sheet.dataset.mode = E.on ? "edit" : ((R() && R().mode) || "read");
+    dlg.querySelectorAll('[data-act="pdr-mode"]').forEach(x => x.setAttribute("aria-pressed", String(!E.on && x.dataset.id === sheet.dataset.mode)));
     if (!E.on) { if (b) b.remove(); return; }
     const ae = document.activeElement, focusId = ae && b && b.contains(ae) ? ae.id || ae.dataset.act + (ae.dataset.id || "") : "", caret = ae && ae.id && /^pdeFind/.test(ae.id) ? ae.selectionStart : null;
     if (!b) { b = document.createElement("div"); b.className = "pde-bar sm-skip"; b.setAttribute("role", "toolbar"); b.setAttribute("aria-label", "Edit PDF"); sheet.querySelector(".pdr-bar").after(b); }
@@ -1967,6 +1972,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   async function useFont(id){ const e = selected(); if (!e || !(e.k === "t" || e.k === "n" || e.k === "p")) { toast("Pick some text first, then its font"); return; } await fontReady(id); restyle({ff: id, fn: fontName(id)}); }
   // the More menu closes on a click elsewhere or Escape
   document.addEventListener("click", ev => { if (E && E.more && !(ev.target.closest && ev.target.closest(".pde-more-wrap"))) { E.more = false; bar(); } }, true);
+  // the Download menu closes on a click anywhere else, and after a choice
+  document.addEventListener("click", ev => { const m = document.querySelector(".pdr-dlmenu"); if (!m) return; const inSplit = ev.target.closest && ev.target.closest(".pdr-split"); if (inSplit && !ev.target.closest(".pde-mi")) return; setTimeout(() => { m.remove(); const b = document.querySelector('[data-act="pde-dlmenu"]'); if (b) b.setAttribute("aria-expanded", "false"); }, 0); }, true);
   document.addEventListener("keydown", ev => { if (E && E.more && ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); E.more = false; bar(); const b = dlg.querySelector('[data-act="pde-more"]'); if (b) b.focus(); } }, true);
   // keeps a click on the bar from ending the text being typed
   document.addEventListener("pointerdown", ev => { if (E && E.ed && ev.target.closest && ev.target.closest(".pde-bar") && !ev.target.closest("select,input,label")) ev.preventDefault(); }, true);
@@ -2093,6 +2100,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const S = session(); if (!S) return true;
     switch (act) {
       case "pde-mode": setOn(!S.on); break;
+      case "pde-dlmenu": {
+        const wrap = el.closest(".pdr-split"), open = wrap.querySelector(".pdr-dlmenu");
+        if (open) { open.remove(); el.setAttribute("aria-expanded", "false"); break; }
+        wrap.insertAdjacentHTML("beforeend", `<div class="pde-menu pdr-dlmenu" role="menu"><button type="button" role="menuitem" class="pde-mi" data-act="pde-dl">${ico(IC.down)}<span><b>Download PDF</b><span class="mini">This PDF with your edits</span></span></button><button type="button" role="menuitem" class="pde-mi" data-act="pde-ti">${ico('<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 14l2 2 4-4"/>')}<span><b>Turn In…</b><span class="mini">A copy to hand in: your name and the date at the top, page numbers, locked, under a size</span></span></button></div>`);
+        el.setAttribute("aria-expanded", "true"); setTimeout(() => { const m = wrap.querySelector(".pdr-dlmenu .pde-mi"); if (m) m.focus(); }, 20); break;
+      }
       case "pde-more": S.more = !S.more; bar(); if (S.more) setTimeout(() => { const m = dlg.querySelector(".pde-mi"); if (m) m.focus(); }, 20); break;
       case "pde-tool":
         if (S.ed) commit(); S.place = null; if (S.more) { S.more = false; bar(); }
@@ -3239,8 +3252,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // the reader's own tools: read aloud, the PDF's contents, and comparing versions
     readerTools(){
       const r = R(), f = r && state.files[r.fid];
-      return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF">${AI_ICON}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF">${AI_ICON}<span class="pde-lbl">Study</span></button><button type="button" class="btn small pde-rt" data-act="pde-ti" title="Turn In">${ico('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>')}<span class="pde-lbl">Turn In</span></button>`;
+      return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}`;
     },
+    readerAi: () => `<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF">${AI_ICON}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF">${AI_ICON}<span class="pde-lbl">Study</span></button>`,
+    // Download, and its menu: Turn In (a copy ready to hand in)
+    dlBtns: () => `<span class="pdr-split"><button type="button" class="btn small" data-act="pde-dl" title="Download this PDF with your edits">${ico(IC.down)}<span class="pde-lbl">Download</span></button><button type="button" class="btn small pdr-dl-more" data-act="pde-dlmenu" aria-haspopup="menu" aria-expanded="false" aria-label="More ways to download" title="More ways to download">${ico('<path d="M7 10l5 5 5-5"/>')}</button></span>`,
+    setOn: on => setOn(on),
     scanBtn: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small pde-scan-btn" data-act="pde-scan">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Scan to PDF</button>`,
     scan: () => scanOpen(null),
     lib: {loadLib, loadFontkit, recode, protect, deliver, editedName, pdfBytesOf, ocrRead, ocrApply, aiWhoGets, me, todayText, imgData, keepImage, panelHead, ico, IC},
@@ -3342,8 +3359,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-pb{flex:1;min-height:0;overflow:auto;padding:14px 18px;display:grid;gap:12px;align-content:start}
 .pde-pf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 18px;border-top:1px solid var(--line)}
 /* every button with an icon in the editor: the icon centred beside its label */
-.pde-bar .btn,.pde-panel .btn,.pde-pf .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
-.pde-bar .btn > svg,.pde-panel .btn > svg,.pde-pf .btn > svg{flex:none;width:16px;height:16px}
+.pde-bar .btn,.pde-panel .btn,.pde-pf .btn,.pdr-bar .btn,.pdr-bar2 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.pde-bar .btn > svg,.pde-panel .btn > svg,.pde-pf .btn > svg,.pdr-bar .btn > svg,.pdr-bar2 .btn > svg{flex:none;width:16px;height:16px}
+.pde-mi > svg{flex:none;width:18px;height:18px}
+.pdr-bar2 .spacer,.pdr-bar .spacer{flex:1}
 .pde-pf .spacer{flex:1}
 .pde-panel.sign,.pde-panel.fonts{inset:auto 0 auto 0;top:0;max-height:100%;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .pde-fonts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
@@ -3417,6 +3436,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .mini.bad{color:var(--late,#c0262d)}
 .pde-on[data-pde-tool="stamp"] .pde-layer,.pde-on[data-pde-tool="link"] .pde-layer,.pde-on[data-pde-tool="field"] .pde-layer{cursor:crosshair;touch-action:none}
 .pde-more-wrap{position:relative;display:inline-flex}
+.pdr-split{position:relative;display:inline-flex}
+.pdr-split > .btn:first-child{border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0}
+.pdr-split > .pdr-dl-more{border-top-left-radius:0;border-bottom-left-radius:0;padding-left:8px;padding-right:8px;min-width:0}
+.pdr-dlmenu{left:auto;right:0;min-width:290px}
 .pde-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:70;display:grid;min-width:250px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.2);padding:6px}
 .pde-mi{display:flex;align-items:center;gap:10px;border:0;background:none;padding:8px 10px;border-radius:8px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
 .pde-mi > span{display:grid;gap:1px}

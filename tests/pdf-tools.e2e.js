@@ -191,7 +191,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
 
     /* Turn In */
     if (await page.locator('[data-act="pde-dl"]').count()) { await page.click("#pdeBtn"); await page.waitForTimeout(300); }
-    await page.click('[data-act="pde-ti"]'); await page.waitForSelector("#pdeTiTask");
+    await page.click('[data-act="pde-dlmenu"]'); await page.click('.pdr-dlmenu [data-act="pde-ti"]'); await page.waitForSelector("#pdeTiTask");
     ok(await page.locator("#pdeTiTask").inputValue() === "t1", "Turn In picks the attached task");
     await page.fill("#pdeTiName", "Worksheet_turnin.pdf");
     const ti = await downloadOf(() => page.click('[data-act="pde-ti-go"]'));

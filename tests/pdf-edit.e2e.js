@@ -92,7 +92,7 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     ok(pe.length === 1 && pe[0].k === "t" && /December 22 in Hall B/.test(pe[0].t) && /October 20/.test(pe[0].old) && pe[0].a === "a-syl", "Enter keeps the change as an edit on this version of the file");
     await page.waitForFunction(() => /Same font as the PDF|similar font/i.test((document.getElementById("pdeMsg") || {}).textContent || ""), null, {timeout: 8000}).catch(() => {});
     ok(/Same font as the PDF/.test(await page.locator("#pdeMsg").textContent()), "the new words can use the PDF's own font (every letter is in it)");
-    ok(await page.locator(".pde-save [data-act=pde-save]").textContent().then(t => /Save 1 Edit/.test(t)), "Save counts the edits");
+    ok(await page.locator("#pdrSaveSlot [data-act=pde-save]").textContent().then(t => /Save 1 Edit/.test(t)), "Save counts the edits");
 
     // 2. a name the PDF's font can't fully draw (it has no capital Z) gets a similar font, and says so
     const riv = await wordAt("Rivera");
