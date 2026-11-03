@@ -21719,7 +21719,8 @@ const SCN20 = (() => {
     });
     return {defs, rects};
   }
-  function thumbSvg(id, dark){
+  function thumbSvg(id, dark, W, H){
+    const TH_W = W || 640, TH_H = H || 400;
     L.setAnim(null);
     const v = L.buildSceneAt(sceneOf(id), dark, TH_W, TH_H, true);
     const sky = cssToSvg(v.sky, 0, 0, TH_W, TH_H, "g"), band = v.band.h ? cssToSvg(v.band.bg, 0, v.band.top, TH_W, v.band.h, "b") : {defs: "", rects: ""};
@@ -21750,6 +21751,8 @@ const SCN20 = (() => {
       try { im.src = thumbUrl(id, dk === "1"); } catch (e) { console.warn("scene thumb " + id, e); }
     });
   }
+  // A theme's scene as a picture of any size (the calculator's faceplate, 99-calculator.js); null when it has none
+  window.SBSCENE = {has: isScene, load: () => L.ready() ? Promise.resolve(true) : L.load(), svg: (id, dark, w, h) => isScene(id) && L.ready() ? thumbSvg(id, !!dark, w, h) : null};
   hook("thumb", (id, dark) => {
     if (!isScene(id)) return;
     if (!L.ready()) { L.load().then(ok => { if (ok) fillThumbs(); }); return `<span class="sp-art sc-thumb"><img alt="" decoding="async" data-scn-thumb="${esc(id)}|${dark ? 1 : 0}"></span>`; }
