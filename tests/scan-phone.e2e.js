@@ -17,7 +17,7 @@ const PHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWe
   const objs = new Map(), scans = new Map();
   const env = {APP_URL: APP, HANDOFF: {getByName: id => { if (!objs.has(id)) objs.set(id, new R.Slot(mem())); return objs.get(id); }},
     SCAN: {getByName: id => { if (!scans.has(id)) scans.set(id, new S.ScanSession(mem())); return scans.get(id); }}};
-  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const KEY_RELAY = "";', `const KEY_RELAY = "${RELAY}";`).replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"));
+  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace(/const KEY_RELAY = "[^"]*";/, `const KEY_RELAY = "${RELAY}";`).replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"));
   ok(html.includes(`const KEY_RELAY = "${RELAY}";`), "test copy of the app points at the test relay");
   const calls = [], sentBodies = [];
   const relayRoute = async route => {

@@ -11,7 +11,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   const mem = () => { const m = new Map(); return {get: async k => m.get(k), put: async (k, v) => { if (typeof k === "object") Object.entries(k).forEach(([x, y]) => m.set(x, y)); else m.set(k, v); },
     delete: async k => m.delete(k), deleteAll: async () => m.clear(), setAlarm: async () => {}, deleteAlarm: async () => {}}; };
   const objs = new Map(), env = {APP_URL: APP, HANDOFF: {getByName: id => { if (!objs.has(id)) objs.set(id, new R.Slot(mem())); return objs.get(id); }}};
-  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const KEY_RELAY = "";', `const KEY_RELAY = "${RELAY}";`));
+  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace(/const KEY_RELAY = "[^"]*";/, `const KEY_RELAY = "${RELAY}";`));
   ok(html.includes(`const KEY_RELAY = "${RELAY}";`), "test copy of the app points at the test relay");
 
   const browser = await chromium.launch({executablePath});
