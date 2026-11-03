@@ -61403,7 +61403,9 @@ You can also DO things in Studyboard, but only when the student asks or what the
     return {side, W: Math.max(1, innerWidth - side), H: Math.max(1, innerHeight)};
   }
   // Glass cards: how much of the card color stays
-  const glassVars = gl => ({"--ph-gl": `${Math.round(100 - gl * 0.62)}%`, "--ph-glb": `${(gl * 0.16).toFixed(1)}px`, "--ph-gls": `${Math.round(94 - gl * 0.1)}%`, "--ph-glo": (0.94 - gl * 0.001).toFixed(3)});
+  // on a computer, glass is 3% more solid (easier to read over a busy picture on a big screen)
+  const deskGlass = () => !matchMedia("(pointer:coarse)").matches && innerWidth >= 900 ? 3 : 0;
+  const glassVars = gl => { const up = deskGlass(); return {"--ph-gl": `${Math.min(100, Math.round(100 - gl * 0.62) + up)}%`, "--ph-glb": `${(gl * 0.16).toFixed(1)}px`, "--ph-gls": `${Math.min(100, Math.round(94 - gl * 0.1) + up)}%`, "--ph-glo": Math.min(1, 0.94 - gl * 0.001 + up / 100).toFixed(3)}; };
   function teardown(){
     const el = document.getElementById("photoArt"); if (el) el.remove();
     root.classList.remove("ph-on", "ph-glass"); ["--ph-gl", "--ph-glb", "--ph-gls", "--ph-glo"].forEach(k => root.style.removeProperty(k));
