@@ -7,10 +7,10 @@
    The arithmetic is done by math.js (Apache 2.0, vendor/mathjs-15.1.1), loaded the first time the calculator opens; this file
    only turns the keys into a math.js expression and shows the answer the way a calculator would (10 significant digits,
    ×10ⁿ for very large and small numbers, Math ERROR and Syntax ERROR). Ans, memory and the last 30 calculations stay on this
-   device (localStorage); the window's place too. */
+   device (localStorage). The window opens in the middle of the screen. */
 (() => {
   const MATHJS = "vendor/mathjs-15.1.1/math.js", MATHJS_SRI = "sha384-t7oR8uLVricQrZFFrsUy4VYOTXTDUfbsOgeMFFidEt/LU0woW6jhK4HtagwmEPrM";
-  const LS = "studyboard:calc", LS_POS = "studyboard:calcPos";
+  const LS = "studyboard:calc";
   const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
@@ -197,9 +197,9 @@
   function place(){
     if (!W) return;
     if (innerWidth < 640) { W.style.left = W.style.top = ""; return; }
-    const p = lsGet(LS_POS, null), w = W.offsetWidth || 340, h = W.offsetHeight || 600;
-    let x = p && Number.isFinite(p.x) ? p.x : innerWidth - w - 28, y = p && Number.isFinite(p.y) ? p.y : Math.max(16, innerHeight - h - 28);
-    x = Math.max(8, Math.min(innerWidth - w - 8, x)); y = Math.max(8, Math.min(innerHeight - Math.min(h, 120), y));
+    // opens in the middle of the screen; it can be dragged anywhere while it's open
+    const w = W.offsetWidth || 344, h = W.offsetHeight || 600;
+    const x = Math.max(8, Math.round((innerWidth - w) / 2)), y = Math.max(8, Math.round((innerHeight - h) / 2));
     W.style.left = x + "px"; W.style.top = y + "px";
   }
   async function act(a, alt){
@@ -209,7 +209,7 @@
     paint();
   }
   function open(){
-    if (W) { W.hidden = false; W.querySelector('[data-cx="eq"]').focus({preventScroll: true}); return; }
+    if (W) { W.hidden = false; place(); W.querySelector('[data-cx="eq"]').focus({preventScroll: true}); return; }
     W = document.createElement("div"); W.className = "cx"; W.id = "calc"; W.setAttribute("role", "dialog"); W.setAttribute("aria-label", "Calculator");
     W.innerHTML = frame(); document.body.appendChild(W);
     W.addEventListener("click", e => { const b = e.target.closest("[data-cx]"); if (!b) return; e.preventDefault(); act(b.dataset.cx, b.dataset.cxs); });
@@ -220,10 +220,10 @@
       if (innerWidth < 640 || e.target.closest("button")) return;
       const r = W.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top; top.setPointerCapture(e.pointerId);
       const mv = ev => { W.style.left = Math.max(0, Math.min(innerWidth - r.width, ev.clientX - dx)) + "px"; W.style.top = Math.max(0, Math.min(innerHeight - 60, ev.clientY - dy)) + "px"; };
-      const up = () => { top.removeEventListener("pointermove", mv); top.removeEventListener("pointerup", up); lsSet(LS_POS, {x: parseFloat(W.style.left), y: parseFloat(W.style.top)}); };
+      const up = () => { top.removeEventListener("pointermove", mv); top.removeEventListener("pointerup", up); };
       top.addEventListener("pointermove", mv); top.addEventListener("pointerup", up);
     });
-    addEventListener("resize", () => { if (W && !W.hidden) place(); });
+    let rz = 0; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (W && !W.hidden && innerWidth < 640) place(); else if (W && !W.hidden) { const r = W.getBoundingClientRect(); if (r.right > innerWidth || r.bottom > innerHeight) place(); } }, 100); });
     place(); paint();
     loadMath().catch(() => {});
     W.querySelector('[data-cx="eq"]').focus({preventScroll: true});

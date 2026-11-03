@@ -21,6 +21,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await page.goto(FILE); await page.waitForTimeout(1200);
   ok(await page.locator('.nav-tool.theme-btn').count() === 0 && await page.locator('.nav-tool.calc-btn:visible').count() === 1, "the sidebar has a Calculator button instead of Light/Dark");
   await page.click(".nav-tool.calc-btn"); await page.waitForSelector("#calc:not([hidden])");
+  { const b = await page.locator("#calc").boundingBox(), cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+    ok(Math.abs(cx - 640) < 10 && Math.abs(cy - 430) < 12, `it opens in the middle of the screen (${Math.round(cx)}, ${Math.round(cy)})`); }
   await page.waitForFunction(() => !!window.math);
   const keys = async (...ks) => { for (const k of ks) await page.click(`#calc [data-cx="${k}"]`); };
   const res = () => page.$eval("#calc .cx-res", el => el.textContent);
@@ -67,12 +69,10 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   ok(await res() === "13", "↑ brings back earlier calculations");
   await keys("ac", "7", "mul", "8", "eq");
   if (SHOTS) {
-    await page.evaluate(() => { const c = document.getElementById("calc"); c.style.left = "120px"; c.style.top = "90px"; });
     await page.screenshot({path: path.join(SHOTS, "calc-desktop.png")});
     await keys("ac", "shift", "sin", "0", "dot", "5", "rp", "add", "shift");
     await page.locator("#calc").screenshot({path: path.join(SHOTS, "calc-shift.png")});
     await keys("shift");
-    await page.evaluate(() => { const c = document.getElementById("calc"); c.style.left = ""; c.style.top = ""; });
   }
   await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
   ok(await page.locator("#calc[hidden]").count() === 1, "Escape clears, then closes");
