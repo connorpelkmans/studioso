@@ -389,3 +389,18 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 .edgeb:focus-visible{outline:2px solid var(--accent,#2F6FDB);outline-offset:3px}
 .ms-go{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:auto}
 .ms-go .exe{font-size:.85rem;color:var(--muted,#5b6475)}
+
+/* Account: Continue with Apple / Google (Apple: black or white with its logo; Google: its logo on light or dark, pill shape) */
+.oauth{display:grid;gap:10px;margin:4px 0 14px}
+.oauth[hidden]{display:none}
+.oa{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:44px;padding:10px 16px;border-radius:999px;font:500 15px/1.2 Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;border:1px solid #747775;background:#fff;color:#1f1f1f}
+.oa[hidden]{display:none}
+.oa:disabled{opacity:.6;cursor:default}
+.oa:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.oa-ic{flex:none;display:block}
+.oa-apple{background:#000;border-color:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}
+.oa-or{display:flex;align-items:center;gap:10px;margin:4px 0 0;color:var(--muted);font-size:.85rem}
+.oa-or::before,.oa-or::after{content:"";flex:1;height:1px;background:var(--line)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .oa-google{background:#131314;border-color:#8e918f;color:#e3e3e3}:root:not([data-theme="light"]) .oa-apple{background:#fff;border-color:#fff;color:#000}}
+:root[data-theme="dark"] .oa-google{background:#131314;border-color:#8e918f;color:#e3e3e3}
+:root[data-theme="dark"] .oa-apple{background:#fff;border-color:#fff;color:#000}

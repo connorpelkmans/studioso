@@ -17,6 +17,7 @@
       var on = tabs[f] === t; $(t).setAttribute("aria-selected", String(on)); $(t).tabIndex = on ? 0 : -1;
     });
     $("auth-msg").hidden = true; $("link-expired").hidden = true;
+    if ($("oauth")) $("oauth").hidden = !(f === "form-signin" || f === "form-signup");
   }
   function msg(el, text, kind) {
     el.textContent = text || ""; el.hidden = !text;
@@ -229,6 +230,17 @@
     $("buy-yearly").addEventListener("click", function () { startCheckout("yearly"); });
     if ($("buy-semester")) $("buy-semester").addEventListener("click", function () { startCheckout("semester"); });
     $("btn-manage").addEventListener("click", openPortal);
+
+    // Sign in with Google (every browser) or Apple (on a Mac, iPhone or iPad), like the app: the provider's page, then back here signed in
+    if (/iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "") && $("oa-apple")) $("oa-apple").hidden = false;
+    document.querySelectorAll("[data-oauth]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var provider = b.getAttribute("data-oauth"); b.disabled = true;
+        state.sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: redirectBack() } }).then(function (r) {
+          if (r && r.error) { b.disabled = false; msg($("auth-msg"), /not enabled|unsupported provider/i.test(r.error.message || "") ? "Signing in with " + (provider === "apple" ? "Apple" : "Google") + " isn't turned on yet. Use your email for now." : words(r.error), "error"); }
+        }, function (e) { b.disabled = false; msg($("auth-msg"), words(e), "error"); });
+      });
+    });
 
     $("form-signin").addEventListener("submit", function (ev) {
       ev.preventDefault(); var f = ev.target, email = field(f, "email").trim(), pw = field(f, "password");
