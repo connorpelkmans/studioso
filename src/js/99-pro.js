@@ -1815,7 +1815,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return out;
   }
   const noteTitle = text => (String(text || "").split("\n").map(l => l.replace(/\[\[|\]\]/g, "").trim()).find(l => /[\p{L}\p{N}]/u.test(l)) || "").slice(0, 120);
-  const KINDS = ["note", "task", "deck", "file"];
+  const KINDS = ["note", "task", "deck", "file", "board"];
   function buildIndex(items){
     const idx = new Map();
     KINDS.forEach(kind => (items[kind] || []).forEach(x => { const k = keyOf(x.name); if (k && !idx.has(k)) idx.set(k, {kind, id: x.id, name: x.name}); }));
@@ -1839,14 +1839,16 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     note: notesArr().map(n => ({id: n.id, name: noteTitle(n.text)})).filter(x => x.name),
     task: allTasks().filter(t => t.title).sort((a, b) => (a.status === "done") - (b.status === "done")).map(t => ({id: t.id, name: t.title})),
     deck: Object.values(state.decks || {}).filter(d => d && d.name).map(d => ({id: d.id, name: d.name})),
-    file: Object.values(state.files || {}).filter(f => f && f.name).map(f => ({id: f.id, name: f.name}))
+    file: Object.values(state.files || {}).filter(f => f && f.name).map(f => ({id: f.id, name: f.name})),
+    // whiteboards live in state.notes too, but are named by their title, not their first line of text
+    board: Object.values(state.notes || {}).filter(n => isWhiteboard(n) && !n.archived).map(n => ({id: n.id, name: String(n.text || "").split("\n")[0].trim()})).filter(x => x.name)
   });
   function index(){ if (IDX_AT !== state.updated || !IDX) { IDX = buildIndex(named()); IDX_AT = state.updated; } return IDX; }
   const on = () => true;
   const isPdf = f => !!f && f.kind === "file" && f.revs.length && /\.pdf$/i.test(curRev(f).name || f.name);
 
   /* In a note */
-  const KIND_WORD = {note: "note", task: "task", deck: "deck", file: "file"};
+  const KIND_WORD = {note: "note", task: "task", deck: "deck", file: "file", board: "whiteboard"};
   function noteText(n){
     const text = String(n.text || "");
     if (!on() || text.indexOf("[[") < 0) return esc(text);
@@ -1888,6 +1890,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   function openTarget(hit, page){
     if (dlg.open && hit.kind !== "file") dlg.close();
     if (hit.kind === "note") return openNote(hit.id);
+    if (hit.kind === "board") { if (noteEditing) saveNoteText(); if (window.SBWB && state.notes[hit.id]) { SBWB.open(hit.id); window.scrollTo(0, 0); } return; }
     if (hit.kind === "task") { const t = state.tasks[hit.id]; if (t) taskForm(t); return; }
     if (hit.kind === "deck") { if (noteEditing) saveNoteText(); ui.tab = "flashcards"; ui.fc = null; ui.deckId = hit.id; render(); window.scrollTo(0, 0); return; }
     if (hit.kind === "file") {
@@ -1927,7 +1930,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!POP || POP.ta !== ta) { closePop(); const el = document.createElement("div"); el.className = "nl-pop"; el.setAttribute("role", "listbox"); el.setAttribute("aria-label", "Link to"); wrap.appendChild(el); POP = {el, ta, i: 0}; }
     POP.list = list; POP.from = t.from; POP.i = Math.min(POP.i, list.length - 1);
     POP.el.style.top = (ta.offsetTop + ta.offsetHeight + 2) + "px";
-    POP.el.innerHTML = list.map((x, i) => `<button type="button" role="option" class="nl-opt${i === POP.i ? " on" : ""}" aria-selected="${i === POP.i}" data-nl-i="${i}"><span class="nl-k">${x.kind === "new" ? "New note" : x.kind[0].toUpperCase() + x.kind.slice(1)}</span><span class="nl-n">${esc(x.name)}</span></button>`).join("");
+    POP.el.innerHTML = list.map((x, i) => `<button type="button" role="option" class="nl-opt${i === POP.i ? " on" : ""}" aria-selected="${i === POP.i}" data-nl-i="${i}"><span class="nl-k">${x.kind === "new" ? "New note" : x.kind === "board" ? "Whiteboard" : x.kind[0].toUpperCase() + x.kind.slice(1)}</span><span class="nl-n">${esc(x.name)}</span></button>`).join("");
   }
   function pick(i){
     if (!POP) return;

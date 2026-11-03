@@ -27,7 +27,8 @@
 
   /* Items: {k: note | deck | quiz | file | lecture, id, deck (a quiz's deck), why} */
   function item(k, id, extra){
-    if (k === "note") { const n = state.notes[id]; return n ? {k, id, name: noteName(n)} : null; }
+    if (k === "note") { const n = state.notes[id]; return n ? (n.wb ? {k: "board", id, name: String(n.text || "").split("\n")[0].trim() || "Untitled Whiteboard"} : {k, id, name: noteName(n)}) : null; }
+    if (k === "board") return item("note", id);
     if (k === "deck") { const d = state.decks[id]; return d ? {k, id, name: d.name || "Untitled Deck"} : null; }
     if (k === "quiz") { const d = state.decks[extra]; const q = d && (d.aiQuizzes || []).find(x => x.id === id); return q ? {k, id, deck: d.id, name: q.title || "Practice Quiz"} : null; }
     if (k === "file" || k === "lecture") { const f = state.files[id]; return f ? {k: isLec(f) ? "lecture" : "file", id, name: f.name || "Untitled file", pdf: isPdf(f)} : null; }
@@ -45,8 +46,8 @@
     const own = I.byTask.get(t.id) || [];
     own.forEach(id => notes.push(as(item("note", id), "attached")));
     (I.into.get("task:" + t.id) || []).forEach(id => notes.push(as(item("note", id), "mentions")));
-    const mat = (k, id, deck, why) => { const x = as(item(k, id, deck), why); if (!x) return; (x.k === "note" ? notes : x.k === "deck" || x.k === "quiz" ? decks : files).push(x); };
-    own.forEach(nid => (I.out.get(nid) || []).forEach(s => { const [k, id] = split(s); if (k === "deck" || k === "file") mat(k, id, "", "note"); }));
+    const mat = (k, id, deck, why) => { const x = as(item(k, id, deck), why); if (!x) return; (x.k === "note" || x.k === "board" ? notes : x.k === "deck" || x.k === "quiz" ? decks : files).push(x); };
+    own.forEach(nid => (I.out.get(nid) || []).forEach(s => { const [k, id] = split(s); if (k === "deck" || k === "file" || k === "board") mat(k, id, "", "note"); }));
     ((t.prep && t.prep.topics) || []).forEach(tp => (tp.links || []).forEach(l => mat(l.k, l.id, l.deckId, "prep")));
     if (t.matKind) mat(t.matKind, t.matId, t.matDeck, "prep");
     (Array.isArray(t.studyDecks) ? t.studyDecks : []).forEach(id => mat("deck", id, "", "prep"));
@@ -80,9 +81,10 @@
     quiz: SV('<path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/>'),
     file: SV('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>'),
     pdf: SV('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/>'),
-    lecture: SV('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')
+    lecture: SV('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'),
+    board: SV('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 13l3-3 3 2 4-4M8 21l4-4 4 4"/>')
   };
-  const WORD = {note: "Note", deck: "Deck", quiz: "Quiz", file: "File", lecture: "Lecture"};
+  const WORD = {note: "Note", deck: "Deck", quiz: "Quiz", file: "File", lecture: "Lecture", board: "Whiteboard"};
   const lead = x => x.why === "from" ? `Made from ${x.k === "file" && x.pdf ? "PDF" : WORD[x.k].toLowerCase()}: ` : x.why === "mentions" ? "Note that links here: " : `${x.k === "file" && x.pdf ? "PDF" : WORD[x.k]}: `;
   function chip(x, hide){
     if (x.k === "doc") return `<li${hide ? " hidden" : ""}><button type="button" class="lk-chip k-doc" data-act="dl-url" data-url="${esc(x.url)}">${x.badge}<span class="sr">${esc(DOCLINK.label(x.app))}: </span><span class="lk-n">${esc(x.name)}</span></button></li>`;
@@ -101,11 +103,12 @@
   function openItem(k, id, deck){
     const p = window.SBPRO;
     if (k === "quiz") { if (dlg.open) dlg.close(); if (state.decks[deck]) startAiQuiz(deck, id); return; }
-    if (k === "deck" && !state.decks[id] || k === "note" && !state.notes[id] || k === "file" && !state.files[id]) { toast("That isn't in Studyboard any more"); return; }
+    if (k === "deck" && !state.decks[id] || (k === "note" || k === "board") && !state.notes[id] || k === "file" && !state.files[id]) { toast("That isn't in Studyboard any more"); return; }
     if (p && p.openLink) { p.openLink({kind: k, id}, 0); return; }
     if (dlg.open) dlg.close();
     if (k === "deck") { ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }
     else if (k === "file") fileSheet(state.files[id]);
+    else if (k === "board" && window.SBWB) SBWB.open(id);
     else if (k === "note") { ui.tab = "notes"; render(); }
   }
   hook("act", (act, el, id) => {
