@@ -190,6 +190,8 @@ function fileRow(f){
     ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
   </li>`;
 }
+// A course's Lecture Notes folder, grouped by class, with each class's typed notes and recording too (99-class-sessions.js)
+const clsFolder = g => { if (!window.SBCLS || !ui.fCourse || ui.fCourse === "all") return null; try { return SBCLS.folderHtml(ui.fCourse, g, fileRow); } catch (e) { console.warn("class folder", e); return null; } };
 function viewFiles(){
   const cs = coursesArr();
   const all = Object.values(state.files);
@@ -214,9 +216,9 @@ function viewFiles(){
     const none = !ui.q.trim();
     list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt("files") : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, Word, PowerPoint and Excel files, images or text files${caps.assets ? ", or drop them here" : ""}. Anything too big can go to your Google Drive or OneDrive.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
   } else if (ui.fCourse !== "all" && !ui.fFolder) {
-    list = foldersOf(ui.fCourse).map(fo => { const g = fs.filter(f => f.folderId === fo.id); return g.length ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; }).join("")
+    list = foldersOf(ui.fCourse).map(fo => { const g = fs.filter(f => f.folderId === fo.id), byCls = fo.id === "notes" ? clsFolder(g) : null; return byCls ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}</h3>${byCls}` : g.length ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; }).join("")
       + (() => { const known = new Set(foldersOf(ui.fCourse).map(fo => fo.id)); const g = fs.filter(f => !known.has(f.folderId)); return g.length ? `<h3 class="fsec">${FOLDER}Unsorted<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; })();
-  } else list = `<ul class="flist">${fs.map(fileRow).join("")}</ul>`;
+  } else list = (ui.fFolder === "notes" && clsFolder(fs)) || `<ul class="flist">${fs.map(fileRow).join("")}</ul>`;
   const canUpload = !!caps.assets;
   const hcol = c ? c.color : ui.fCourse === "all" ? "var(--accent-band,var(--accent))" : "#8A94A6";
   const nHere = fs.length, bandActs = [ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");

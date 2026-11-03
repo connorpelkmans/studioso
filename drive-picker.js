@@ -3,6 +3,7 @@
    policy is set in _headers) and talks to it with postMessage:
      app -> picker  {sbPicker: "go", token, key, appId}      (the short-lived Drive token, never put in the address)
      picker -> app  {sbPicker: "ready"} then {sbPicker: "done", id, name} or {sbPicker: "cancel"} or {sbPicker: "error", message}
+   With mode "files" (a class's notes and slides) it picks up to 20 files instead: {sbPicker: "done", docs: [{id, name, mimeType, url, size}]}
    Only the page that opened this one, on the same site, is listened to or answered. */
 (function(){
   "use strict";
@@ -14,13 +15,17 @@
   function load(src){ return new Promise(function(ok, no){ var s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = function(){ no(new Error("Couldn't load Google's picker. Check your connection.")); }; document.head.appendChild(s); }); }
   function show(a){
     var g = window.google;
-    var view = new g.picker.DocsView(g.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes("application/vnd.google-apps.folder");
-    var b = new g.picker.PickerBuilder().setAppId(a.appId).setDeveloperKey(a.key).setOAuthToken(a.token).setOrigin(location.origin).setTitle("Choose a folder for Studyboard")
+    var files = a.mode === "files";
+    var view = files ? new g.picker.DocsView(g.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false)
+      : new g.picker.DocsView(g.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes("application/vnd.google-apps.folder");
+    var b = new g.picker.PickerBuilder().setAppId(a.appId).setDeveloperKey(a.key).setOAuthToken(a.token).setOrigin(location.origin).setTitle(files ? "Choose files for this class" : "Choose a folder for Studyboard")
       .addView(view).setCallback(function(r){
         var A = g.picker.Action;
-        if (r[g.picker.Response.ACTION] === A.PICKED) { var d = r[g.picker.Response.DOCUMENTS][0]; finish({sbPicker: "done", id: String(d[g.picker.Document.ID] || ""), name: String(d[g.picker.Document.NAME] || "Folder")}); }
+        if (r[g.picker.Response.ACTION] === A.PICKED && files) { var D = g.picker.Document; finish({sbPicker: "done", docs: r[g.picker.Response.DOCUMENTS].slice(0, 20).map(function(x){ return {id: String(x[D.ID] || ""), name: String(x[D.NAME] || "File"), mimeType: String(x[D.MIME_TYPE] || ""), url: String(x[D.URL] || ""), size: Number(x.sizeBytes) || 0}; })}); }
+        else if (r[g.picker.Response.ACTION] === A.PICKED) { var d = r[g.picker.Response.DOCUMENTS][0]; finish({sbPicker: "done", id: String(d[g.picker.Document.ID] || ""), name: String(d[g.picker.Document.NAME] || "Folder")}); }
         else if (r[g.picker.Response.ACTION] === A.CANCEL) finish({sbPicker: "cancel"});
       });
+    if (files) b.enableFeature(g.picker.Feature.MULTISELECT_ENABLED);
     b.build().setVisible(true); say("");
   }
   window.addEventListener("message", function(e){

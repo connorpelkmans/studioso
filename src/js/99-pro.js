@@ -3566,13 +3566,16 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const DOC_SVG = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6M9 9h2"/></svg>';
   const SUM_SVG = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 12l2 2 4-4M9 17h6"/></svg>';
   const courseBtn = c => canRecord() && !inPreview() ? `<button class="btn small lec-btn" data-act="lec-open" data-course="${esc(c.id)}">${MIC_SVG}<span>Record Lecture</span></button>` : "";
-  function listHtml(c){
-    const ls = lecturesOf(c.id);
+  // o.skip: recordings shown under their class instead (99-class-sessions.js); o.quiet: nothing when there's nothing left
+  function listHtml(c, o){
+    o = o || {};
+    const ls = lecturesOf(c.id).filter(f => !(o.skip && o.skip.has(f.id)));
     const row = f => { const d = new Date(f.created || Date.now()).toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"});
       return `<li><button type="button" class="lec-row" data-act="lec-view" data-id="${esc(f.id)}"><span class="lec-ic" aria-hidden="true">${MIC_SVG}</span><span class="lec-rt"><b>${esc(f.name)}</b><span class="mini">${[d, f.dur ? clock(f.dur * 1000) : "", f.lec && f.lec.sum ? "Transcript and summary" : "Transcript"].filter(Boolean).join(" · ")}</span></span></button></li>`; };
     const ds = DRAFTS.filter(d => d.cid === c.id || !courseOf(d.cid));
     const drow = d => `<li class="lec-draft"><span class="lec-ic" aria-hidden="true">${MIC_SVG}</span><span class="lec-rt"><b>${esc(d.title || "Lecture recording")}</b><span class="mini">${esc(["Draft, not saved yet", new Date(d.at).toLocaleDateString(undefined, {month: "short", day: "numeric"}), d.dur ? clock(d.dur) : ""].filter(Boolean).join(" · "))}</span></span><span class="lec-dbtns"><button type="button" class="btn small primary" data-act="lec-draft-open" data-id="${esc(d.id)}">Finish</button><button type="button" class="btn small" data-act="lec-draft-del" data-id="${esc(d.id)}">Delete</button></span></li>`;
-    return `<section class="lec-tab" style="--c:${esc(c.color)}"><h2 class="sec"><span class="t">Lectures</span><span class="n">${ls.length || ""}</span></h2>
+    if (o.quiet && !ls.length && !ds.length) return "";
+    return `<section class="lec-tab" style="--c:${esc(c.color)}"><h2 class="sec"><span class="t">${esc(o.title || "Lectures")}</span><span class="n">${ls.length || ""}</span></h2>
       ${ds.length ? `<ul class="lec-list lec-drafts">${ds.map(drow).join("")}</ul>` : ""}
       ${ls.length ? `<ul class="lec-list">${ls.map(row).join("")}</ul>` : `<div class="empty"><strong>No Lectures Yet</strong>Record a class with Record Lecture at the top of this page. Name it when you're done, and it's kept here with its transcript and summary.</div>`}</section>`;
   }
@@ -4512,7 +4515,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   }
   const seg = s => String(s || "").replace(/[\\/:*?"<>|#%\u0000-\u001f]+/g, "-").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 80) || "Files";
   const courseSeg = cid => { const c = cid && courseOf(cid); return seg(c ? courseLabel(c) : "General"); };
-  const segsFor = o => [courseSeg(o.courseId)].concat(o.folderId === "lectures" ? ["Lectures"] : []);
+  // o.sub: subfolders under the course (a class's own folder: Lectures/2026-10-05 Lecture 7, from 99-class-sessions.js)
+  const segsFor = o => [courseSeg(o.courseId)].concat(Array.isArray(o.sub) && o.sub.length ? o.sub.slice(0, 3).map(seg) : o.folderId === "lectures" ? ["Lectures"] : []);
 
   /* Google Drive */
   const GD = "https://www.googleapis.com/drive/v3", GU = "https://www.googleapis.com/upload/drive/v3", GFIELDS = "id,name,mimeType,size,webViewLink,modifiedTime";
@@ -4602,7 +4606,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       ({file: f, type} = await shrinkForUpload(f, type));
       toast(list.length > 1 ? `Saving ${list.length} files to ${NM[p]}…` : `Saving ${f.name} to ${NM[p]}…`);
       try {
-        const rec = await saveBlob(p, f, f.name, {courseId: opts.courseId || "", folderId: opts.folderId || "other", type});
+        const rec = await saveBlob(p, f, f.name, {courseId: opts.courseId || "", folderId: opts.folderId || "other", sub: opts.sub, type});
         const file = normFile({id: uid(), name: f.name, courseId: opts.courseId || "", folderId: opts.folderId || "other", kind: "cloud", url: rec.url, cloud: rec,
           taskIds: opts.taskId ? [opts.taskId] : [], created: Date.now()});
         made.push(file);
@@ -4752,7 +4756,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   hook("render", () => { if (ui.tab === "files" && Date.now() - U.scanAt > 3 * 60000) scanSoon(400, {quiet: true}); });
 
   /* Choosing a Google Drive folder for a course (Google's Picker, in its own popup page: drive-picker.html) */
-  function pickGoogleFolder(){
+  function pickGoogleFolder(files){
     return new Promise((resolve, reject) => {
       const pk = cache().picker; if (!pk) return reject(new CloudErr("Google folder choosing isn't set up on this Studyboard server yet.", "nopicker"));
       const w = window.open("drive-picker.html", "sbDrivePicker", "popup,width=900,height=640");
@@ -4762,7 +4766,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const on = async e => {
         if (e.origin !== location.origin || e.source !== w) return;
         const m = e.data; if (!m) return;
-        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
+        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
+        else if (m.sbPicker === "done" && files && Array.isArray(m.docs)) end(resolve, m.docs.slice(0, 20).filter(d => d && d.id).map(d => ({id: String(d.id), name: String(d.name || "File").slice(0, 200), type: String(d.mimeType || ""), url: /^https:\/\//.test(String(d.url || "")) ? String(d.url) : "", size: Number(d.size) || 0})));
         else if (m.sbPicker === "done" && m.id) end(resolve, {id: String(m.id), name: String(m.name || "Folder").slice(0, 120)});
         else if (m.sbPicker === "cancel") end(resolve, null);
         else if (m.sbPicker === "error") end(reject, new CloudErr(String(m.message || "Couldn't open Google Drive.").slice(0, 200), "picker"));
@@ -5051,7 +5056,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     toast(b.checked ? `AI can read your ${NM[p]} files` : `AI won't read your ${NM[p]} files. They still save and open as usual.`);
   });
   const aiOk = p => !!prefs().ai[p];
-  window.SBCLOUD = {aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  // Google Drive files picked for Studyboard (drive.file access covers the files the student picks)
+  const canPickFiles = () => { try { return connected().includes("google") && !!cache().picker; } catch (e) { return false; } };
+  const pickFiles = () => pickGoogleFolder(true);
+  window.SBCLOUD = {canPickFiles, pickFiles, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
