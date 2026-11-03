@@ -914,8 +914,10 @@ function dailyQuote(force){
 }
 
 /* Weekly class schedule */
-const COURSE_COLORS = ["#3B6FE0", "#1E9E74", "#E0673B", "#9A4FD1", "#D6386F", "#1D9BB8", "#C79A12", "#5E6B7E", "#DC2626", "#16A34A", "#65A30D", "#0D9488", "#4F46E5", "#C026D3", "#EA580C", "#92400E", "#334155"];
-const COURSE_COLOR_NAMES = ["Blue", "Emerald", "Coral", "Purple", "Raspberry", "Ocean", "Gold", "Slate Gray", "Red", "Green", "Lime", "Teal", "Indigo", "Magenta", "Orange", "Brown", "Charcoal"];
+// Course colors, around the color wheel: each one clearly apart from the rest (at least 13 apart by CIEDE2000; near-twins were dropped
+// in Nov 2026: Tangerine, Magenta, Green, Teal, Indigo, Charcoal, Brown). Courses already using a dropped color keep it, as a custom color.
+const COURSE_COLORS = ["#DC2626", "#9F1239", "#D6386F", "#7A1F6E", "#9A4FD1", "#1E3A8A", "#3B6FE0", "#1D9BB8", "#0F766E", "#1E9E74", "#65A30D", "#CDB022", "#B7860B", "#E0673B", "#5E6B7E"];
+const COURSE_COLOR_NAMES = ["Red", "Wine", "Raspberry", "Plum", "Purple", "Navy", "Blue", "Ocean", "Deep Teal", "Emerald", "Lime", "Mustard", "Gold", "Coral", "Slate Gray"];
 const MEET_KINDS = ["Lecture", "Lab", "Discussion", "Tutorial", "Office Hours", "Other"];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const DAY_SHORT = {1: "M", 2: "T", 3: "W", 4: "Th", 5: "F", 6: "Sa", 0: "Su"};
