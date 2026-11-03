@@ -2509,7 +2509,63 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     d.oncancel = e => { e.preventDefault(); scanClose(); };
     scanDraw(); try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
   }
-  function scanClose(){ const d = document.getElementById("pdeScanDlg"); if (d) { try { d.close(); } catch (e) {} } SCAN = null; }
+  function scanClose(){ phoneStop(); const d = document.getElementById("pdeScanDlg"); if (d) { try { d.close(); } catch (e) {} } SCAN = null; }
+
+  /* Take Photos on a computer: a QR code for your phone, and the photos it takes come in here
+     (through the relay in cloudflare/key-relay, locked with a key that only the QR code carries) */
+  const RELAY = () => (typeof KEY_RELAY === "string" && /^https:\/\//.test(KEY_RELAY) ? KEY_RELAY.replace(/\/+$/, "") : "");
+  function phoneCam(){
+    if (!RELAY() || !window.crypto || !crypto.subtle || typeof QR === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    return !(/Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (navigator.userAgentData && navigator.userAgentData.mobile));
+  }
+  const b64u = b => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const hexOf = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
+  async function phoneStart(){
+    if (!SCAN || SCAN.phone) return;
+    const code = b64u(crypto.getRandomValues(new Uint8Array(16))), te = new TextEncoder();
+    const [idH, kH] = await Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-scan-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-scan-key:" + code))]);
+    const ph = {id: hexOf(idH), key: await crypto.subtle.importKey("raw", kH, "AES-GCM", false, ["decrypt"]), url: RELAY() + "/s#" + code, got: 0, err: "", busy: false};
+    SCAN.phone = ph; scanDraw();
+    try {
+      const r = await fetch(`${RELAY()}/v1/s/${ph.id}`, {method: "POST"});
+      if (r.status !== 201) throw new Error(r.status === 429 ? "busy" : "relay");
+    } catch (e) { if (SCAN && SCAN.phone === ph) { ph.err = e.message === "busy" ? "Too many tries just now. Wait a minute and try again." : "Couldn't connect to your phone. Check your connection and try again."; scanDraw(); } return; }
+    ph.live = true; scanDraw(); phonePoll(ph);
+  }
+  async function phonePoll(ph){
+    if (!SCAN || SCAN.phone !== ph || !ph.live) return;
+    if (!ph.busy) {
+      ph.busy = true;
+      try {
+        const r = await fetch(`${RELAY()}/v1/s/${ph.id}/p`, {cache: "no-store"});
+        if (r.status === 404) { ph.live = false; ph.err = "The code ran out. Click Take Photos to get a new one."; scanDraw(); return; }
+        const {ks} = await r.json();
+        for (const k of ks || []) {
+          if (!SCAN || SCAN.phone !== ph) return;
+          const g = await fetch(`${RELAY()}/v1/s/${ph.id}/p/${k}`, {cache: "no-store"}); if (!g.ok) continue;
+          const box = new Uint8Array(await g.arrayBuffer());
+          let raw; try { raw = await crypto.subtle.decrypt({name: "AES-GCM", iv: box.slice(0, 12)}, ph.key, box.slice(12)); } catch (e) { continue; }
+          ph.got++;
+          await scanAdd([new File([raw], `Phone photo ${ph.got}.jpg`, {type: "image/jpeg"})]);
+        }
+      } catch (e) {} finally { ph.busy = false; }
+    }
+    setTimeout(() => phonePoll(ph), 1500);
+  }
+  function phoneStop(){
+    const ph = SCAN && SCAN.phone; if (!ph) return;
+    SCAN.phone = null; ph.live = false;
+    fetch(`${RELAY()}/v1/s/${ph.id}`, {method: "DELETE", keepalive: true}).catch(() => {});
+  }
+  function phonePanel(){
+    const ph = SCAN && SCAN.phone; if (!ph) return "";
+    return `<div class="pde-phone"${ph.err ? "" : ` data-link="${esc(ph.url)}"`}>${ph.err ? "" : QR.svg(ph.url, "QR code to open the camera page on your phone")}<div class="pde-phone-t">
+      <b>${ph.err ? "Phone Not Connected" : "Scan This With Your Phone's Camera"}</b>
+      <p class="mini">${ph.err ? esc(ph.err) : "It opens a page on your phone. Take a photo of each page there and it shows up here. Photos are locked (encrypted) on your phone, and deleted from the relay as soon as this computer has them."}</p>
+      ${ph.err ? "" : `<p class="mini pde-phone-n" aria-live="polite">${!ph.live ? "Connecting…" : ph.got ? `${ph.got} photo${ph.got === 1 ? "" : "s"} from your phone` : "Waiting for photos…"}</p>`}
+      <div class="row-actions">${ph.err ? `<button type="button" class="btn small" data-scan="phone-again">Try Again</button>` : ""}<button type="button" class="btn small" data-scan="phone-stop">${ph.err ? "Close" : "Done With Phone"}</button></div></div></div>`;
+  }
   const FILTERS = [["doc", "Document"], ["color", "Color"], ["gray", "Gray"], ["bw", "Black & White"]];
   function scanDraw(){
     const d = document.getElementById("pdeScanDlg"); if (!d || !SCAN) return;
@@ -2517,10 +2573,11 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const n = SCAN.pages.length;
     d.innerHTML = `<div class="sheet pde-scan-sheet"><div class="sheet-head"><h2 id="pdeScanT">Scan to PDF</h2><button type="button" class="icon-btn" data-scan="close" aria-label="Close">${ico(IC.x)}</button></div>
       <div class="sheet-body">
-        <p class="mini" style="margin:0">Take a photo of each page (or pick photos). Each page is found, straightened and cleaned up; drag its corners if it needs fixing. Photos stay on this device until you save the PDF.</p>
-        <div class="row-actions"><label class="btn primary">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Take Photos<input type="file" accept="image/*" capture="environment" multiple class="sr" data-scan-in></label>
+        <p class="mini" style="margin:0">Take a photo of each page (or pick photos). Each page is found, straightened and cleaned up; drag its corners if it needs fixing. Photos stay on this device until you save the PDF${phoneCam() ? " (photos from your phone come here locked, through Studyboard's relay)" : ""}.</p>
+        <div class="row-actions">${phoneCam() ? `<button type="button" class="btn primary" data-scan="phone"${SCAN.phone ? ' aria-pressed="true"' : ""}>${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Take Photos</button>` : `<label class="btn primary">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Take Photos<input type="file" accept="image/*" capture="environment" multiple class="sr" data-scan-in></label>`}
           <label class="btn">${ico(IC.image)}Choose Photos<input type="file" accept="image/png,image/jpeg,image/webp,image/heic" multiple class="sr" data-scan-in></label>
           <label class="f pde-inline"><span class="lh">Look</span><select data-scan="filter">${FILTERS.map(([k, nm]) => `<option value="${k}"${SCAN.filter === k ? " selected" : ""}>${nm}</option>`).join("")}</select></label></div>
+        ${phonePanel()}
         ${n ? `<ol class="pde-scanlist">${SCAN.pages.map((p, i) => `<li><img alt="Page ${i + 1}" src="${p.thumb || ""}"><span class="mini">Page ${i + 1}</span><span class="pde-cardbar">
           <button type="button" class="icon-btn" data-scan="up" data-i="${i}" aria-label="Move page ${i + 1} earlier"${i ? "" : " disabled"}>${ico(IC.left)}</button><button type="button" class="icon-btn" data-scan="rot" data-i="${i}" aria-label="Turn page ${i + 1}">${ico(IC.rotR)}</button>
           <button type="button" class="btn small" data-scan="crop" data-i="${i}">Corners</button><button type="button" class="icon-btn" data-scan="del" data-i="${i}" aria-label="Remove page ${i + 1}">${ico(IC.trash)}</button>
@@ -2654,6 +2711,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const b = ev.target.closest && ev.target.closest("#pdeScanDlg [data-scan]"); if (!b || !SCAN || b.tagName === "SELECT" || b.tagName === "INPUT") return;
     const k = b.dataset.scan, i = Number(b.dataset.i), pl = SCAN.pages;
     if (k === "close") scanClose();
+    else if (k === "phone") { if (!SCAN.phone) phoneStart(); }
+    else if (k === "phone-stop") { phoneStop(); scanDraw(); }
+    else if (k === "phone-again") { phoneStop(); phoneStart(); }
     else if (k === "up" && i > 0) { [pl[i - 1], pl[i]] = [pl[i], pl[i - 1]]; scanDraw(); }
     else if (k === "down" && i < pl.length - 1) { [pl[i + 1], pl[i]] = [pl[i], pl[i + 1]]; scanDraw(); }
     else if (k === "del") { pl.splice(i, 1); scanDraw(); }
@@ -3300,6 +3360,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-scan-btn{display:inline-flex;align-items:center;gap:7px}
 .pde-scan-btn svg{flex:none;width:16px;height:16px}
 .pde-scan-sheet .sheet-body{display:grid;gap:12px}
+.pde-phone{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.pde-phone .qr{width:168px;height:168px;flex:none;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
+.pde-phone-t{flex:1 1 220px;display:grid;gap:6px}.pde-phone-t p{margin:0}
+.pde-phone-n{font-weight:700;color:var(--ink)}
+.pde-phone .row-actions{margin:2px 0 0}
+.pde-scan .row-actions{align-items:flex-end}
 .pde-scan .row-actions .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;min-height:40px;height:auto;line-height:1.2}
 .pde-inline{display:inline-grid;margin-left:auto}
 .pde-inline select{width:auto}

@@ -1,4 +1,5 @@
 // Studyboard key relay
+import { handleScan } from "./scan.js";
 
 export const TTL_MS = 10 * 60 * 1000;
 export const MAX_BOX = 4096;
@@ -40,7 +41,8 @@ export async function handle(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (path === "/k" && request.method === "GET") return pageResponse(env);
   if (path === "/k.js" && request.method === "GET") return new Response(PAGE_JS, { headers: { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
-  if (path === "/" && request.method === "GET") return new Response("Studyboard key relay\n", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  if (path === "/" && request.method === "GET") return new Response("Studyboard relay (keys and phone photos)\n", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  if (path === "/s" || path === "/s.js" || path.startsWith("/v1/s/")) { const r = await handleScan(request, env, path); if (r) return r; }
   const m = path.match(/^\/v1\/h\/([^/]+)(\/status)?$/);
   if (!m) return json({ error: "not_found" }, 404);
   const id = m[1];

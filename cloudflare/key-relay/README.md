@@ -22,6 +22,28 @@ The relay never sees the code or a key. Each box is deleted when it is collected
 | `DELETE /v1/h/<id>` | The first device cancels. |
 | `GET /k#XXXX-XXXX-XXXX` | The page a scanned QR code opens. It shows the code with **Copy Code**, and an **Open Studyboard** button if `APP_URL` is set. |
 
+## Phone photos for Scan to PDF
+
+The same Worker also powers **Take Photos** in Scan to PDF on a computer. Clicking it shows a QR code; the phone opens the relay's camera page (`/s`), and each photo taken there turns up as a page on the computer. No app or sign-in is needed on the phone.
+
+1. The computer makes a random code and works out a session id and an AES-GCM key from it (SHA-256 of `sb-scan-id:` or `sb-scan-key:` plus the code). It opens the session here with only the id.
+2. The QR code links to `/s#<code>`. The `#fragment` is never sent to a server.
+3. The phone shrinks each photo to a JPEG under 1.8 MB, locks it with the key and posts it. The computer polls, collects each photo once (which deletes it) and unlocks it.
+
+A session ends when the computer closes Scan to PDF, or after 30 minutes, and holds at most 60 photos. The relay only ever sees the session id and locked photos (`src/scan.js`).
+
+| Route | What it does |
+|---|---|
+| `POST /v1/s/<id>` | The computer opens a session (201; 409 if it exists). Rate limited like the key routes. |
+| `POST /v1/s/<id>/p` | The phone adds a locked photo (raw bytes, up to 1.9 MB). 404 once the session has ended. |
+| `GET /v1/s/<id>/p` | The photos waiting, as `{"ks": [1, 2]}`. |
+| `GET /v1/s/<id>/p/<k>` | Hands out a photo once, then deletes it. |
+| `GET /v1/s/<id>/status` | `open` or `none`, and how many were sent. |
+| `DELETE /v1/s/<id>` | The computer ends the session. |
+| `GET /s#<code>` | The phone's camera page. |
+
+While `KEY_RELAY` is empty, Take Photos on a computer opens the file picker as before.
+
 ## Deploy (about 5 minutes)
 
 You need a free Cloudflare account and Node.js 20 or newer.
@@ -34,7 +56,7 @@ npx wrangler deploy
 
 1. **Run the deploy.** It prints the Worker's address, for example `https://studyboard-key-relay.<your-subdomain>.workers.dev`.
 2. **Set the app's web address.** In `wrangler.jsonc`, set `vars.APP_URL` to your Studyboard web app address (https, no trailing slash), for example `https://app.studyboard.example`. Then run `npx wrangler deploy` again. This makes **Open Studyboard** on the QR page open your app with the code filled in. If you leave it empty, the page only offers **Copy Code**.
-3. **Point the app at the Worker.** In `index.html`, set `const KEY_RELAY = "https://studyboard-key-relay.<your-subdomain>.workers.dev";`. Then run `node scripts/csp.js`, because the inline script's hash changes, and rebuild the website and apps as usual.
+3. **Point the app at the Worker.** In `src/js/01-ai.js`, set `const KEY_RELAY = "https://studyboard-key-relay.<your-subdomain>.workers.dev";`. Then run `node scripts/app-files.js` to rebuild `bundle/`, and rebuild the website and apps as usual.
 
 While `KEY_RELAY` is empty, the app hides **Add AI to Another Device** and the code box, and everything else works as before. **Paste My Key** doesn't need the relay at all.
 

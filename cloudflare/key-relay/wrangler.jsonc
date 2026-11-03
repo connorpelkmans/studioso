@@ -1,4 +1,4 @@
-// The Studyboard key relay
+// The Studyboard relay: AI keys between devices, and phone photos for Scan to PDF
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "studyboard-key-relay",
@@ -6,9 +6,9 @@
   "compatibility_date": "2026-09-15",
   "observability": { "enabled": false },
   "durable_objects": {
-    "bindings": [{ "name": "HANDOFF", "class_name": "Handoff" }]
+    "bindings": [{ "name": "HANDOFF", "class_name": "Handoff" }, { "name": "SCAN", "class_name": "ScanDrop" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Handoff"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Handoff"] }, { "tag": "v2", "new_sqlite_classes": ["ScanDrop"] }],
   "ratelimits": [{ "name": "POST_LIMIT", "namespace_id": "4721", "simple": { "limit": 20, "period": 60 } }],
   "vars": {
     "APP_URL": ""
