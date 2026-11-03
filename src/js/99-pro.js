@@ -4664,7 +4664,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   }
   function filesBtn(){
     if (inPreview()) return "";
-    const t = target();
+    // The service's name when it's the only one connected; "Cloud" when both are
+    const t = connected().length === 1 ? target() : "";
     return `<button type="button" class="btn small cl-btn" data-act="cl-open" aria-label="Cloud storage: Google Drive and OneDrive">${CLOUD_SVG}${t ? esc(NM[t]) : "Cloud"}</button>`;
   }
   hook("act", (act, el, id) => {

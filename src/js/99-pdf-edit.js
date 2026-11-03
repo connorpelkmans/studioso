@@ -3085,7 +3085,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const r = R(), f = r && state.files[r.fid];
       return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}<button type="button" class="btn small pde-rt" data-act="pde-ask" title="Ask This PDF">${ico('<path d="M4 5h16v11H9l-5 4z"/><path d="M10 9.5a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2M12 14.5h.01"/>')}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt" data-act="pde-st" title="Study From This PDF">${ico('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')}<span class="pde-lbl">Study</span></button><button type="button" class="btn small pde-rt" data-act="pde-ti" title="Turn In">${ico('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>')}<span class="pde-lbl">Turn In</span></button>`;
     },
-    scanBtn: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small" data-act="pde-scan">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Scan to PDF</button>`,
+    scanBtn: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small pde-scan-btn" data-act="pde-scan">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Scan to PDF</button>`,
     scan: () => scanOpen(null),
     lib: {loadLib, loadFontkit, recode, protect, deliver, editedName, pdfBytesOf, ocrRead, ocrApply, aiWhoGets, me, todayText, imgData, keepImage, panelHead, ico, IC},
     active: () => !!(E && E.on),
@@ -3281,6 +3281,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-diff del{background:#fde2e2;color:#8a1c1c;text-decoration:line-through}
 .pde-diff ins{background:#dcf5e3;color:#14532d;text-decoration:none}
 .pde-scan{width:min(820px,calc(100% - 24px))}
+.pde-scan-btn{display:inline-flex;align-items:center;gap:7px}
+.pde-scan-btn svg{flex:none;width:16px;height:16px}
 .pde-scan-sheet .sheet-body{display:grid;gap:12px}
 .pde-scan .row-actions .btn{display:inline-flex;align-items:center;gap:6px}
 .pde-inline{display:inline-grid;margin-left:auto}

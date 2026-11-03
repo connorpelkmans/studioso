@@ -92,8 +92,8 @@ function stubs(){
   await page.check('#clBody input[name=clSave][value=google]');
   ok(await page.evaluate(() => SBCLOUD.target()) === "google", "choosing Google Drive makes it the upload target");
   await page.click('#dlg [data-act="close"]');
-  await page.waitForFunction(() => /Google Drive/.test(document.querySelector('#view [data-act="cl-open"]').textContent));
-  ok(true, "the Cloud button names where uploads go");
+  await page.waitForFunction(() => /Cloud/.test(document.querySelector('#view [data-act="cl-open"]').textContent));
+  ok(!/Google Drive/.test(await page.textContent('#view [data-act="cl-open"]')), "with both connected, the button stays Cloud (it names the service only when it's the only one connected)");
 
   await page.evaluate(() => { ui.fCourse = "c1"; ui.fFolder = "notes"; render(); });
   await page.setInputFiles("#fUploadIn", [{name: "Lab notes.txt", mimeType: "text/plain", buffer: Buffer.from("Mitochondria make ATP.")}]);
