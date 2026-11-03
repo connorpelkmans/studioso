@@ -138,7 +138,18 @@ extension CourseEntity: IndexedEntity {}
 enum SBSiriIndex {
     // After every new copy: refresh Spotlight and the names Siri listens for in the App Shortcuts phrases
     static func refresh() async {
-        if #available(iOS 18.0, *) {
+        // iOS 27: the Reminders schema types (StudyboardReminders27.swift) go into the semantic index instead of the older ones
+        if #available(iOS 27.0, *) {
+            let index = CSSearchableIndex.default()
+            try? await index.deleteAppEntities(ofType: AssignmentEntity.self)
+            try? await index.deleteAppEntities(ofType: CourseEntity.self)
+            try? await index.deleteAppEntities(ofType: SBTaskReminder.self)
+            try? await index.deleteAppEntities(ofType: SBCourseList.self)
+            if let snap = SBSiriStore.load() {
+                try? await index.indexAppEntities(SBTaskReminder.all(snap))
+                try? await index.indexAppEntities(SBCourseList.all(snap))
+            }
+        } else if #available(iOS 18.0, *) {
             let index = CSSearchableIndex.default()
             if let snap = SBSiriStore.load() {
                 try? await index.deleteAppEntities(ofType: AssignmentEntity.self)

@@ -36,7 +36,23 @@
 
 **How the newer Siri finds things:** assignments and courses are App Entities (`StudyboardEntities.swift`) with string queries, so "bio" finds "BIO 101 Biology" and "lab report" finds "Bio lab report". On iOS 18+ they are also `IndexedEntity` and go into Spotlight's semantic index, which is where Apple Intelligence Siri looks for an app's content. Marks and grades are never indexed. The App Shortcuts phrases (`StudyboardShortcuts.swift`) name the suggested assignments and courses (`updateAppShortcutParameters()` after every copy). The newer Siri also runs these intents when asked in other words.
 
-**iOS 27 App Schemas (do on a Mac):** WWDC26 ("Build intelligent Siri experiences with App Schemas") ties Siri's deepest understanding (natural phrasing without the app's exact words, onscreen awareness) to entities and intents that conform to an App Schema domain (`@AppEntity(schema: ...)`). Apple's examples are mail, photos and messages. I could not confirm a domain for tasks, to-dos or reminders. In Xcode 27, type `@AppEntity(schema: .` on `AssignmentEntity` and `@AppIntent(schema: .` on `AddTaskIntent` and see what autocomplete offers. If a to-do or reminders domain exists, adopt it there (Xcode adds stubs for the related schemas it requires) and keep everything else as is. If none fits, the intents above still work with the new Siri through App Shortcuts and the semantic index.
+**iOS 27: the Reminders App Schema (`StudyboardReminders27.swift`).** Checked in Xcode 27.2. The domains it lists are audio, books, browser, calendar, clock, files, journal, mail, maps, messages, notes, phone, photos, presentation, reader, reminders, spreadsheet, whiteboard and wordProcessor; there is none for grades. Studyboard adopts **reminders**:
+
+- Tasks are `.reminders.reminder` and courses are `.reminders.list`. Tasks with no course go in an "Inbox" list.
+- "Add read chapter 4 to Studyboard for Friday" uses `.reminders.createReminder`, through the capture token.
+- "Mark my lab report done" and "move the essay to Monday" use `.reminders.updateReminder`. The capture token can only add, so a change waits on the phone (`SBSiriUpdates`). Siri's next answer already reflects it, and the app applies it as a normal, undoable change when it opens (`siriApplyUpdates` in `96-siri.js`).
+- Questions ("is my bio lab due soon?") have no schema action. Siri answers them from the indexed reminder entities.
+
+What Xcode 27.2 required (from its errors, in a scratch project):
+
+- **Reminder:** `dueDate: DateComponents?`, `isFlagged: Bool?`, a non-optional `list`, and `tags: Set<String>`.
+- **List:** `type` is `@AppEnum(schema: .reminders.listType)` with `case standard`.
+- **Location trigger:** `event` (`.reminders.locationTriggerEvent`: `arrive`, `depart`) and `place: GeoToolbox.PlaceDescriptor`.
+- **Section:** `name` and `list`.
+- **Create reminder:** `tags`, `urls` and `images` must be non-optional, and `images` must be limited to `public.image`.
+- **Lookups:** every entity the intents take needs an `EntityStringQuery` (or to be indexed).
+
+Studyboard doesn't use sections, place reminders, repeats or images, but they have to exist. Everything is iOS 27 only, in separate types, because `PlaceDescriptor` isn't on older iOS; older versions keep the intents above. **Calendar** (`.calendar.event` for classes) was left out for now. It requires attendee entities, organizers, alarms and locations as union types, travel time and a status enum. Class times stay on `ClassTimeIntent` and `NextClassIntent`.
 
 | Question | Intent | Phrase examples (Siri also accepts these in the Shortcuts app) |
 | --- | --- | --- |

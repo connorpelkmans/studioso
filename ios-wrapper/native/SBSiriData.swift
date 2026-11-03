@@ -27,6 +27,9 @@ struct SBSnapTask: Codable {
     var due: String?
     var time: String?
     var done: Bool?
+    var created: Double?
+    var doneAt: Double?
+    var flag: Bool?
     var mark: SBSnapMark?
 }
 
@@ -98,7 +101,73 @@ enum SBSiriStore {
     static func clear() {
         guard let url = fileURL else { return }
         try? FileManager.default.removeItem(at: url)
+        SBSiriUpdates.removeAll()
     }
+
+    // A change Siri made shows in Siri's next answer straight away (the app makes the real change when it opens)
+    static func apply(_ u: SBSiriUpdate) {
+        guard var snap = load(), let i = snap.tasks.firstIndex(where: { $0.id == u.task }) else { return }
+        var t = snap.tasks[i]
+        if let v = u.title, !v.isEmpty { t.title = v }
+        if u.clearDue == true { t.due = ""; t.time = "" }
+        else if let d = u.due { t.due = d; if let tm = u.time { t.time = tm } }
+        if let d = u.done { t.done = d; t.doneAt = d ? Date().timeIntervalSince1970 * 1000 : 0 }
+        if let f = u.flagged { t.flag = f }
+        if let c = u.course { t.course = c == "inbox" ? "" : c }
+        snap.tasks[i] = t
+        if let data = try? JSONEncoder().encode(snap) { save(data) }
+    }
+}
+
+// Changes Siri made to tasks while the app was closed (iOS 27, StudyboardReminders27.swift). The app applies them when it opens
+// (src/js/96-siri.js) and then removes them. Same protection as the copy above.
+struct SBSiriUpdate: Codable {
+    var id: String = UUID().uuidString
+    var task: String
+    var title: String? = nil
+    var done: Bool? = nil
+    var due: String? = nil
+    var time: String? = nil
+    var clearDue: Bool? = nil
+    var flagged: Bool? = nil
+    var course: String? = nil
+    var at: Double = Date().timeIntervalSince1970 * 1000
+}
+
+enum SBSiriUpdates {
+    static let fileName = "studyboard-siri-updates.json"
+    static let maxItems = 200
+
+    static var fileURL: URL? { SBSiriStore.fileURL?.deletingLastPathComponent().appendingPathComponent(fileName) }
+
+    static func all() -> [SBSiriUpdate] {
+        guard let url = fileURL, let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([SBSiriUpdate].self, from: data)) ?? []
+    }
+
+    private static func write(_ items: [SBSiriUpdate]) {
+        guard let url = fileURL else { return }
+        if items.isEmpty { try? FileManager.default.removeItem(at: url); return }
+        guard let data = try? JSONEncoder().encode(items) else { return }
+        var u = url
+        try? data.write(to: u, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        var rv = URLResourceValues()
+        rv.isExcludedFromBackup = true
+        try? u.setResourceValues(rv)
+    }
+
+    static func add(_ u: SBSiriUpdate) {
+        var items = all()
+        items.append(u)
+        write(Array(items.suffix(maxItems)))
+    }
+
+    static func remove(ids: [String]) {
+        let drop = Set(ids)
+        write(all().filter { !drop.contains($0.id) })
+    }
+
+    static func removeAll() { write([]) }
 }
 
 // Dates and times in the person's own calendar and words

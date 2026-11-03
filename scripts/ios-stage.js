@@ -192,7 +192,7 @@ if (fs.existsSync(plistFile)) {
   const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
   try {
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const need = [["StudyboardLms.swift", "school site sign-in"], ["StudyboardLmsScripts.swift", "school site sign-in"], ["StudyboardPlugins.swift", "quick capture and the share sheet"], ["SBSiriData.swift", "asking Siri about your work"], ["StudyboardEntities.swift", "asking Siri about your work"], ["StudyboardAskIntents.swift", "asking Siri about your work"]]
+    const need = [["StudyboardLms.swift", "school site sign-in"], ["StudyboardLmsScripts.swift", "school site sign-in"], ["StudyboardPlugins.swift", "quick capture and the share sheet"], ["SBSiriData.swift", "asking Siri about your work"], ["StudyboardEntities.swift", "asking Siri about your work"], ["StudyboardAskIntents.swift", "asking Siri about your work"], ["StudyboardReminders27.swift", "the new Siri on iOS 27 (tasks as reminders)"]]
       .filter(([f]) => txt && !txt.includes(f));
     if (need.length) {
       console.log("ios-stage: NOT IN THE XCODE PROJECT YET (so these are off in the app):");

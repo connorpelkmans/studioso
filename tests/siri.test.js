@@ -4,7 +4,7 @@ const fs = require("fs"), path = require("path"), assert = require("assert");
 const src = require("../scripts/app-files").source();
 const a = src.indexOf("/* SIRI-START"), b = src.indexOf("/* SIRI-PURE-END */");
 assert.ok(a > 0 && b > a && src.indexOf("/* SIRI-END */") > b, "markers present");
-const {siriSnapshot} = new Function(src.slice(a, b) + "; return {siriSnapshot};")();
+const {siriSnapshot, siriUpdated} = new Function(src.slice(a, b) + "; return {siriSnapshot, siriUpdated};")();
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok -", name); };
 
 const courses = [{id: "c1", name: "Biology", code: "BIO 101", room: "Room 204"}, {id: "c2", name: "Chemistry", code: "", room: ""}, {id: "c3", name: "Old", archived: true}];
@@ -61,6 +61,42 @@ t("size stays bounded with thousands of tasks", () => {
   assert.strictEqual(s.tasks.length, 600); assert.ok(s.tasks[0].title.length <= 140); assert.ok(JSON.stringify(s).length < 1500000);
 });
 
+t("the copy says when a task was made and finished, and whether it's high priority", () => {
+  const s = siriSnapshot(base({tasks: [{id: "a", title: "A", courseId: "c1", status: "done", doneAt: 77, created: 5, priority: "urgent", due: "2026-11-01"}, {id: "b", title: "B", status: "todo", doneAt: 9, priority: "low"}]}));
+  const A = s.tasks.find(x => x.id === "a"), B = s.tasks.find(x => x.id === "b");
+  assert.deepStrictEqual([A.created, A.doneAt, A.flag], [5, 77, true]);
+  assert.deepStrictEqual([B.created, B.doneAt, B.flag], [0, 0, false], "an open task has no done time even if an old one lingers");
+});
+
+// Changes Siri makes on iOS 27 ("mark it done", "move it to Monday"), applied when the app opens
+const task = {id: "t1", title: "Essay", courseId: "c1", due: "2026-11-06", time: "17:00", start: "2026-11-01", status: "todo", priority: "med"};
+const ok = id => id === "c2";
+t("Siri changes: done, not done, and no change at all", () => {
+  const d = siriUpdated(task, {done: true}, 123, ok);
+  assert.deepStrictEqual([d.status, d.doneAt, d.pct], ["done", 123, 100]);
+  const back = siriUpdated(d, {done: false}, 200, ok);
+  assert.strictEqual(back.status, "todo"); assert.ok(!("doneAt" in back));
+  assert.strictEqual(siriUpdated(task, {done: false}, 1, ok), null, "nothing to do");
+  assert.strictEqual(siriUpdated(task, {}, 1, ok), null);
+  assert.strictEqual(task.status, "todo", "the original is never changed");
+});
+t("Siri changes: a new day keeps the time; a new time replaces it; start never after due; clearing the date", () => {
+  assert.deepStrictEqual((x => [x.due, x.time])(siriUpdated(task, {due: "2026-11-09"}, 1, ok)), ["2026-11-09", "17:00"]);
+  assert.deepStrictEqual((x => [x.due, x.time])(siriUpdated(task, {due: "2026-11-09", time: "09:30"}, 1, ok)), ["2026-11-09", "09:30"]);
+  assert.strictEqual(siriUpdated(task, {due: "2026-10-30"}, 1, ok).start, "2026-10-30");
+  assert.deepStrictEqual((x => [x.due, x.time])(siriUpdated(task, {clearDue: true}, 1, ok)), ["", ""]);
+  assert.strictEqual(siriUpdated(task, {due: "friday"}, 1, ok), null, "only real dates");
+});
+t("Siri changes: title, priority and course (only courses that exist; inbox means no course)", () => {
+  assert.strictEqual(siriUpdated(task, {title: "  Essay <b>draft</b>  "}, 1, ok).title, "Essay b draft /b");
+  assert.strictEqual(siriUpdated(task, {flagged: true}, 1, ok).priority, "high");
+  assert.strictEqual(siriUpdated(Object.assign({}, task, {priority: "urgent"}), {flagged: true}, 1, ok), null, "urgent stays urgent");
+  assert.strictEqual(siriUpdated(Object.assign({}, task, {priority: "high"}), {flagged: false}, 1, ok).priority, "med");
+  assert.strictEqual(siriUpdated(task, {course: "c2"}, 1, ok).courseId, "c2");
+  assert.strictEqual(siriUpdated(task, {course: "nope"}, 1, ok), null);
+  assert.strictEqual(siriUpdated(task, {course: "inbox"}, 1, ok).courseId, "");
+});
+
 // The Swift Codable types read every key the page writes (and "where" through its CodingKey)
 t("SBSiriData.swift decodes the same keys", () => {
   const sw = fs.readFileSync(path.join(__dirname, "..", "ios-wrapper", "native", "SBSiriData.swift"), "utf8");
@@ -86,6 +122,14 @@ t("the bridge, plugin and intents are wired up", () => {
     assert.ok(p.includes("\\(.applicationName)"), "phrase names the app: " + p.trim());
     assert.ok((p.match(/\\\(\\\.\$/g) || []).length <= 1, "one parameter: " + p.trim());
   }
+  for (const m of ["drainUpdates", "ackUpdates"]) { assert.ok(rd("ios-wrapper/native/StudyboardPlugins.swift").includes(`CAPPluginMethod(name: "${m}"`), m); assert.ok(rd("ios-wrapper/native-bridge.js").includes(m + ": function"), m); }
+  // iOS 27: the Reminders App Schema, with what Xcode 27.2 said it requires
+  const r = rd("ios-wrapper/native/StudyboardReminders27.swift");
+  for (const x of ["@AppEntity(schema: .reminders.reminder)", "@AppEntity(schema: .reminders.list)", "@AppEntity(schema: .reminders.section)", "@AppEntity(schema: .reminders.locationTrigger)",
+    "@AppEnum(schema: .reminders.listType)", "@AppEnum(schema: .reminders.locationTriggerEvent)", "@AppIntent(schema: .reminders.createReminder)", "@AppIntent(schema: .reminders.updateReminder)",
+    "var dueDate: DateComponents?", "var isFlagged: Bool?", "var list: SBCourseList\n", "var tags: Set<String>\n", "case standard", "case arrive", "case depart", "var place: PlaceDescriptor"])
+    assert.ok(r.includes(x.replace(/\\n/g, "\n")), "Reminders27 has " + x);
+  assert.strictEqual((r.match(/@available\(iOS 27\.0, \*\)/g) || []).length, (r.match(/^(struct|enum|extension) SB(?!Remind\b)/gm) || []).length, "every iOS 27 type is marked iOS 27");
   const ask = rd("ios-wrapper/native/StudyboardAskIntents.swift");
   assert.strictEqual((ask.match(/authenticationPolicy: IntentAuthenticationPolicy = \.requiresAuthentication/g) || []).length, 2, "both grade intents ask for unlock");
 });

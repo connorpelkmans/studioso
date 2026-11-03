@@ -240,6 +240,17 @@
       var D = plugin("StudyboardSiriData");
       if (!D) return Promise.resolve(false);
       return D.clear().then(function () { return true; }, function () { return false; });
+    },
+    // changes Siri made to tasks while the app was closed (iOS 27), applied by src/js/96-siri.js
+    drainUpdates: function () {
+      var D = plugin("StudyboardSiriData");
+      if (!D || typeof D.drainUpdates !== "function") return Promise.resolve([]);
+      return D.drainUpdates().then(function (r) { return r && Array.isArray(r.items) ? r.items.slice(0, 50) : []; }, function () { return []; });
+    },
+    ackUpdates: function (ids) {
+      var D = plugin("StudyboardSiriData");
+      if (!D || !Array.isArray(ids) || !ids.length) return Promise.resolve(false);
+      return D.ackUpdates({ ids: ids.filter(function (x) { return typeof x === "string" && /^[\w-]{1,64}$/.test(x); }) }).then(function () { return true; }, function () { return false; });
     }
   };
 

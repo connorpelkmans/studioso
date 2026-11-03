@@ -7,7 +7,10 @@
    written through StudyboardNative.siriData.save() into the app's own container, never to a server, and is deleted on sign-out.
    Grades are left out when the person turns "Siri can tell me my grades" off (per device). The native side reads it, answers, and indexes
    assignments and courses so Siri and Spotlight can find them by name. Shape: SIRI_V below; the Swift Codable types in SBSiriData.swift
-   must match it (tests/siri.test.js checks both). */
+   must match it (tests/siri.test.js checks both).
+   On iOS 27 Siri can also change a task while the app is closed ("mark my lab report done", "move the essay to Monday", the Reminders
+   App Schema in StudyboardReminders27.swift). Siri can't reach the account, so the change waits on the device; siriApplyUpdates() below
+   makes it here, as a normal undoable change, when the app opens. */
 const SIRI_V = 1, SIRI_MAX_TASKS = 600, SIRI_DAYS = 14;
 const siriStr = (s, n) => { const t = String(s == null ? "" : s).replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
 const siriDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
@@ -32,7 +35,8 @@ function siriSnapshot(i){
   const recent = (a, b) => (Number(b.doneAt) || 0) - (Number(a.doneAt) || 0) || String(b.due).localeCompare(String(a.due));
   const pick = open.sort(byDue).concat(done.filter(t => marks.has(t.id) || (t.due && t.due >= addDaysPure(today, -30))).sort(recent)).slice(0, SIRI_MAX_TASKS);
   const tasks = pick.map(t => {
-    const o = {id: String(t.id), title: siriStr(t.title, 140), course: known.has(t.courseId) ? String(t.courseId) : "", type: siriStr(t.type, 24), due: siriDate(t.due), time: siriDate(t.due) ? siriTime(t.time) : "", done: t.status === "done"};
+    const o = {id: String(t.id), title: siriStr(t.title, 140), course: known.has(t.courseId) ? String(t.courseId) : "", type: siriStr(t.type, 24), due: siriDate(t.due), time: siriDate(t.due) ? siriTime(t.time) : "", done: t.status === "done",
+      created: Number(t.created) > 0 ? Number(t.created) : 0, doneAt: t.status === "done" && Number(t.doneAt) > 0 ? Number(t.doneAt) : 0, flag: t.priority === "high" || t.priority === "urgent"};
     if (marks.has(t.id)) o.mark = marks.get(t.id);
     return o;
   });
@@ -43,6 +47,21 @@ function siriSnapshot(i){
 }
 // The app's addDays, without depending on it (this part is tested on its own)
 function addDaysPure(s, n){ const [y, m, d] = String(s).split("-").map(Number); const x = new Date(y, m - 1, d + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; }
+/* One change Siri asked for, as the task it makes ({id, task, title?, done?, due?, time?, clearDue?, flagged?, course?}); null when nothing changes.
+   courseOk(id) says whether a course id exists. Time is kept when only the day moves. */
+function siriUpdated(t, u, now, courseOk){
+  if (!t || !u) return null;
+  const n = JSON.parse(JSON.stringify(t)), was = JSON.stringify(t);
+  const title = siriStr(u.title, 200); if (title) n.title = title;
+  if (u.clearDue === true) { n.due = ""; n.time = ""; }
+  else if (siriDate(u.due)) { n.due = u.due; n.time = siriTime(u.time) || (siriDate(t.due) ? siriTime(t.time) : ""); if (n.start && n.start > n.due) n.start = n.due; }
+  if (u.done === true && n.status !== "done") Object.assign(n, {status: "done", doneAt: now, pct: 100});
+  if (u.done === false && n.status === "done") { n.status = "todo"; delete n.doneAt; }
+  if (u.flagged === true && n.priority !== "urgent") n.priority = "high";
+  if (u.flagged === false && (n.priority === "high" || n.priority === "urgent")) n.priority = "med";
+  if (typeof u.course === "string") { if (u.course === "inbox") n.courseId = ""; else if (courseOk(u.course)) n.courseId = u.course; }
+  return JSON.stringify(n) === was ? null : n;
+}
 /* SIRI-PURE-END */
 (() => {
   const nb = () => { const n = window.StudyboardNative; return n && n.siriData && typeof n.siriData.save === "function" ? n.siriData : null; };
@@ -78,6 +97,31 @@ function addDaysPure(s, n){ const [y, m, d] = String(s).split("-").map(Number); 
   document.addEventListener("visibilitychange", () => { if (document.hidden && nb()) push(); });
   // signing out deletes it (and its Spotlight entries)
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'); if (b && nb()) { last = ""; nb().clear(); } }, true);
+  // Changes Siri made while the app was closed: applied once the tasks have loaded, acknowledged only after they're saved
+  let applying = false;
+  async function applyUpdates(){
+    const S = nb(); if (!S || applying || typeof S.drainUpdates !== "function") return;
+    applying = true;
+    try {
+      const items = await S.drainUpdates(); if (!items.length) return;
+      const changes = [], acked = [];
+      items.slice(0, 50).forEach(u => {
+        if (!u || typeof u.id !== "string") return;
+        acked.push(u.id);  // a task that's gone is acknowledged too, so it isn't tried forever
+        const t = typeof u.task === "string" ? state.tasks[u.task] : null; if (!t) return;
+        const prev = changes.find(c => c.id === t.id), n = siriUpdated(prev ? prev.after : t, u, Date.now(), id => !!state.courses[id]);
+        if (!n) return;
+        if (n.status !== t.status) n.order = nextOrder(n.status);
+        if (prev) prev.after = n; else changes.push({kind: "task", id: t.id, after: n});
+      });
+      if (changes.length) applyChanges(changes, changes.length === 1 ? `Siri updated ${siriStr(changes[0].after.title, 40)}` : `Siri updated ${changes.length} tasks`);
+      if (acked.length) await S.ackUpdates(acked);
+      last = ""; push();
+    } catch (e) { console.warn("siri updates", e); }
+    finally { applying = false; }
+  }
+  hook("boot", () => { if (nb()) setTimeout(applyUpdates, 4000); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && nb()) setTimeout(applyUpdates, 800); });
   window.SBSIRI = {
     available: () => !!nb(),
     gradesOn,

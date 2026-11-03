@@ -31,9 +31,32 @@ public class StudyboardSiriDataPlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "StudyboardSiriData"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "save", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "drainUpdates", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "ackUpdates", returnType: CAPPluginReturnPromise)
     ]
     private var reindex: DispatchWorkItem?
+
+    // Changes Siri made while the app was closed (iOS 27): the page applies them, then acknowledges them
+    @objc func drainUpdates(_ call: CAPPluginCall) {
+        let items = SBSiriUpdates.all().prefix(50).map { u -> [String: Any] in
+            var d: [String: Any] = ["id": u.id, "task": u.task, "at": u.at]
+            if let v = u.title { d["title"] = v }
+            if let v = u.done { d["done"] = v }
+            if let v = u.due { d["due"] = v }
+            if let v = u.time { d["time"] = v }
+            if let v = u.clearDue { d["clearDue"] = v }
+            if let v = u.flagged { d["flagged"] = v }
+            if let v = u.course { d["course"] = v }
+            return d
+        }
+        call.resolve(["items": Array(items)])
+    }
+
+    @objc func ackUpdates(_ call: CAPPluginCall) {
+        SBSiriUpdates.remove(ids: call.getArray("ids", String.self) ?? [])
+        call.resolve()
+    }
 
     @objc func save(_ call: CAPPluginCall) {
         guard let json = call.getString("json"), let data = json.data(using: .utf8), SBSiriStore.save(data) else { return call.reject("invalid") }

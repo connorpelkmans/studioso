@@ -14,6 +14,7 @@
 | `MainViewController.swift` | App | Registers the two plugins (Capacitor 6/7 style, verify for your version). |
 | `SBSiriData.swift` | App | Ask Siri: the on-device copy of tasks, marks, grades and class times (written by `src/js/96-siri.js`), plus matching and spoken wording. |
 | `StudyboardEntities.swift` | App | Ask Siri: `AssignmentEntity`, `CourseEntity` with string queries, `IndexedEntity` (iOS 18+) and the Spotlight refresh. |
+| `StudyboardReminders27.swift` | App | iOS 27 only: tasks and courses as the Reminders App Schema; add, and change a task (done, due date, priority, course) from Siri. |
 | `StudyboardAskIntents.swift` | App | Ask Siri: What's Due, When Is It Due, Assignment Grade, Course Grade, Class Times, Next Class. |
 | `ShareExtension/ShareViewController.swift` | ShareExtension | The share sheet entry. |
 | `ShareExtension/Info.plist.snippet.plist`, `ShareExtension.entitlements`, `PrivacyInfo.xcprivacy` | ShareExtension | Extension configuration (the Info.plist needs `SBKeychainAccessGroup`, not only `NSExtension`). |
@@ -87,6 +88,9 @@ Preconditions: signed-in build with capture enabled in Settings (token saved; ch
 | 23 | Airplane mode, repeat 17 to 21. | Same answers (all on device). | |
 | 24 | Sign out, repeat 17. | "Open Studyboard once so I can see your assignments and classes." Spotlight no longer shows them. | |
 | 25 | Signed in, never opened Voice settings: "Hey Siri, add a task to Studyboard". | Added through the token the app made by itself ("Siri on this iPhone" listed in Voice settings). | |
+| 27 | iOS 27: "Add read chapter 4 to Studyboard for Friday at 5". | Added in one sentence, due Friday 5 PM. | |
+| 28 | iOS 27: "Mark my lab report done in Studyboard", then "What's due this week in Studyboard?" | Confirms; the next answer leaves it out; opening the app shows "Siri updated Lab report" with Undo. | |
+| 29 | iOS 27: "Move the essay to Monday in Studyboard". | Due Monday, same time as before. | |
 | 26 | iOS 27 with the new Siri: ask the same things in your own words without the app's exact phrase ("is my bio lab report due soon?"). | Record what happens. See VOICE-CAPTURE-NATIVE.md, "Ask Siri", for the App Schema step. | |
 
 If test 2 does not list the app: delete the app, reinstall, wait a minute (App Intents metadata is extracted at install), and check the build log for the `appintentsmetadataprocessor` step; the intents must be in the **App** target (not a Swift package unless you follow Apple's package-based metadata rules).
