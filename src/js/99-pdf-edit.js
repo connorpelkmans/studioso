@@ -2162,7 +2162,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   hook("act", (act, el, id) => {
     if (!act.startsWith("pde-")) return false;
     if (act === "pde-edit") { if (dlg.open) dlg.close(); setTimeout(() => openEdit(id), 0); return true; }
-    if (act === "pde-scan") { if (P.locked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Scan to PDF is part of Studyboard Pro: photos of your pages, straightened and cleaned up into one PDF."); } else scanOpen(null); return true; }
+    if (act === "pde-scan") { if (P.locked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Scan to PDF is part of Studyboard Pro: photos of your pages, straightened into one PDF."); } else scanOpen(null); return true; }
     const S = session(); if (!S) return true;
     switch (act) {
       case "pde-mode": setOn(!S.on); break;
@@ -2619,12 +2619,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     } catch (err) { out.innerHTML = `<p class="mini">Couldn't open one of the versions here${navigator.onLine === false ? " (you're offline)" : ""}.</p>`; }
   }
 
-  /* Scan to PDF: photos of pages, found, straightened and cleaned up, then one PDF */
+  /* Scan to PDF: photos of pages, found and straightened (in their own colours), then one PDF */
   let SCAN = null;
   function scanOpen(done){
     let d = document.getElementById("pdeScanDlg");
     if (!d) { d = document.createElement("dialog"); d.id = "pdeScanDlg"; d.className = "pde-scan"; d.setAttribute("aria-labelledby", "pdeScanT"); document.body.appendChild(d); }
-    SCAN = {pages: [], done, filter: (lsGet("studyboard:pdeScan") || {}).filter || "doc", edit: -1};
+    SCAN = {pages: [], done, filter: "none", edit: -1};   // pages keep their own colours (no Document / Black & White look)
     d.oncancel = e => { e.preventDefault(); scanClose(); };
     scanDraw(); try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
   }
@@ -2692,10 +2692,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const n = SCAN.pages.length;
     d.innerHTML = `<div class="sheet pde-scan-sheet"><div class="sheet-head"><h2 id="pdeScanT">Scan to PDF</h2><button type="button" class="icon-btn" data-scan="close" aria-label="Close">${ico(IC.x)}</button></div>
       <div class="sheet-body">
-        <p class="mini" style="margin:0">Take a photo of each page (or pick photos). Each page is found, straightened and cleaned up; drag its corners if it needs fixing. Photos stay on this device until you save the PDF${phoneCam() ? " (photos from your phone come here locked, through Studyboard's relay)" : ""}.</p>
+        <p class="mini" style="margin:0">Take a photo of each page (or pick photos). Each page is found and straightened, in its own colours; drag its corners if it needs fixing. Photos stay on this device until you save the PDF${phoneCam() ? " (photos from your phone come here locked, through Studyboard's relay)" : ""}.</p>
         <div class="row-actions">${phoneCam() ? `<button type="button" class="btn primary" data-scan="phone"${SCAN.phone ? ' aria-pressed="true"' : ""}>${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Take Photos</button>` : `<label class="btn primary">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Take Photos<input type="file" accept="image/*" capture="environment" multiple class="sr" data-scan-in></label>`}
-          <label class="btn">${ico(IC.image)}Choose Photos<input type="file" accept="image/png,image/jpeg,image/webp,image/heic" multiple class="sr" data-scan-in></label>
-          <label class="f pde-inline"><span class="lh">Look</span><select data-scan="filter">${FILTERS.map(([k, nm]) => `<option value="${k}"${SCAN.filter === k ? " selected" : ""}>${nm}</option>`).join("")}</select></label></div>
+          <label class="btn">${ico(IC.image)}Choose Photos<input type="file" accept="image/png,image/jpeg,image/webp,image/heic" multiple class="sr" data-scan-in></label></div>
         ${phonePanel()}
         ${n ? `<ol class="pde-scanlist">${SCAN.pages.map((p, i) => `<li><img alt="Page ${i + 1}" src="${p.thumb || ""}"><span class="mini">Page ${i + 1}</span><span class="pde-cardbar">
           <button type="button" class="icon-btn" data-scan="up" data-i="${i}" aria-label="Move page ${i + 1} earlier"${i ? "" : " disabled"}>${ico(IC.left)}</button><button type="button" class="icon-btn" data-scan="rot" data-i="${i}" aria-label="Turn page ${i + 1}">${ico(IC.rotR)}</button>
@@ -2748,6 +2747,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   // the look: Document (gray, paper white, ink dark), Color (levels stretched), Gray, or Black & White (by the light around each spot)
   function look(img, filter){
+    if (!filter || filter === "none") return;
     const d = img.data, n = img.width * img.height;
     if (filter === "color") { for (let ch = 0; ch < 3; ch++) { const hs = new Array(256).fill(0); for (let i = 0; i < n; i++) hs[d[i * 4 + ch]]++; let lo = 0, hi = 255, acc = 0; while (lo < 255 && (acc += hs[lo]) < n * 0.01) lo++; acc = 0; while (hi > 0 && (acc += hs[hi]) < n * 0.01) hi--; const sp = Math.max(1, hi - lo); for (let i = 0; i < n; i++) d[i * 4 + ch] = Math.max(0, Math.min(255, (d[i * 4 + ch] - lo) * 255 / sp)); } return; }
     const L = new Float32Array(n); for (let i = 0; i < n; i++) L[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
@@ -2803,7 +2803,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     try {
       const L = await loadLib(), doc = await L.PDFDocument.create();
       for (const p of SCAN.pages) {
-        const blob = await new Promise(res => p.out.toBlob(res, "image/jpeg", SCAN.filter === "bw" ? 0.7 : 0.8)), img = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+        const blob = await new Promise(res => p.out.toBlob(res, "image/jpeg", 0.85)), img = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
         // a page as wide as US Letter (8.5 in), as tall as the photo's shape needs
         const w = 612, h = Math.round(612 * p.out.height / p.out.width), pg = doc.addPage([w, h]); pg.drawImage(img, {x: 0, y: 0, width: w, height: h});
       }
