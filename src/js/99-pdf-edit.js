@@ -2291,14 +2291,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   async function ocrPanel(){
     const r = R(); if (!r || !r.doc) return;
     if (!aiReady()) { panel(`${panelHead("Recognize Text", "Turns a scanned page's words into real text you can search, select, highlight and edit.")}<div class="pde-pb"><p style="margin:0">This uses the AI Features you set up in Settings, and they aren't set up on this device yet.</p></div><div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Close</button></div>`, "fonts"); return; }
-    const cfg = aiCfg(), W = AI_WHO[cfg.provider] || {company: "your AI provider", product: "AI"}, none = await pagesWithoutText(), cur = r.cur || 1;
+    const cfg = aiCfg(), W = AI_WHO[cfg.provider] || {company: "your AI provider", product: "AI"}, none = await pagesWithoutText(), cur = r.cur || 1, curHas = !none.includes(cur);
     panel(`${panelHead("Recognize Text", "Turns a scanned page's words into real text you can search, select, highlight and edit. The page looks the same.")}
       <div class="pde-pb">
         <div class="pde-ai-note" role="note"><b>Before you start: pictures of your pages are sent to ${esc(W.company)}.</b> To read the words, Studyboard sends a picture of each page you pick to <b>${esc(W.company)} ${esc(W.product)}</b>, using your AI settings, straight from this device. Nothing else from this file is sent. ${esc(W.company)} handles it under its own terms${W.policy ? ` and <a href="${esc(W.policy)}" target="_blank" rel="noopener noreferrer">privacy policy</a>` : ""}. Don't send pages with information you wouldn't share with ${esc(W.company)}.</div>
         <fieldset class="pde-radios"><legend class="lh">Pages to send</legend>
-          <label class="pde-chk"><input type="radio" name="pdeOcrWhich" value="cur" checked> This page (page ${cur})</label>
-          ${none.length ? `<label class="pde-chk"><input type="radio" name="pdeOcrWhich" value="none"> Pages that have no text yet (${none.length})</label>` : ""}
+          <label class="pde-chk"><input type="radio" name="pdeOcrWhich" value="cur"${curHas && none.length ? "" : " checked"}> This page (page ${cur})${curHas ? ` <span class="mini">already has real text</span>` : ""}</label>
+          ${none.length ? `<label class="pde-chk"><input type="radio" name="pdeOcrWhich" value="none"${curHas ? " checked" : ""}> Pages that have no text yet (${none.length})</label>` : ""}
           <label class="pde-chk"><input type="radio" name="pdeOcrWhich" value="all"> All ${r.doc.numPages} page${r.doc.numPages === 1 ? "" : "s"}</label></fieldset>
+        ${!none.length ? `<p class="mini" style="margin:0"><b>Every page here already has real text</b> you can search, select and edit, so there's nothing to recognize unless a page also has a picture of text on it.</p>` : ""}
         <p class="mini" style="margin:0">The result is saved as a new version of this file. Letters outside Western European languages become “?” for now.</p>
         <p class="mini" id="pdeOcrMsg" aria-live="polite"></p>
       </div>
@@ -2312,7 +2313,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const msg = $("#pdeOcrMsg"), go = dlg.querySelector('[data-act="pde-ocr-go"]'); if (go) go.disabled = true;
     const S = E;
     try {
-      const read = await ocrRead(r.doc, pages, (n, k) => { if (msg) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading page ${n} (${k + 1} of ${pages.length})…`; });
+      if (msg) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading ${pages.length === 1 ? `page ${pages[0]}` : `${pages.length} pages`}…`;
+      const read = await ocrRead(r.doc, pages, (d, t) => { if (msg && d < t) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading pages (${d} of ${t} done)…`; });
       if (E !== S) return;
       if (msg) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Saving…`;
       const done = await ocrApply(await baseBytes(false), read);
@@ -2918,11 +2920,16 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 
 
   /* Recognize Text, for any open PDF (the reader's, or one Batch opens): each page drawn, sent to the AI, its lines back in page units */
+  // pages are read three at a time; the results come back in page order
   async function ocrRead(doc, pages, onStatus, signal){
-    const out = [];
-    for (let k = 0; k < pages.length; k++) {
+    const out = new Array(pages.length); let next = 0, done = 0;
+    const worker = async () => { while (next < pages.length) { const k = next++; out[k] = await ocrPage(doc, pages[k], signal); done++; if (onStatus) onStatus(done, pages.length); } };
+    await Promise.all(Array.from({length: Math.min(3, pages.length)}, worker));
+    return out;
+  }
+  async function ocrPage(doc, n, signal){
+    {
       if (signal && signal.aborted) throw aiErr("cancelled", "Stopped");
-      const n = pages[k]; if (onStatus) onStatus(n, k);
       const page = await doc.getPage(n), vp1 = page.getViewport({scale: 1}), sc = Math.min(2.5, 1800 / Math.max(vp1.width, vp1.height)), vp = page.getViewport({scale: sc});
       const cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
       const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
@@ -2933,14 +2940,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         parts: [{text: `Page ${n} of a student's PDF. Read its text.`}, {inline_data: {mime_type: "image/jpeg", data: bytesToB64(new Uint8Array(await blob.arrayBuffer()))}}],
         schema: {type: "OBJECT", properties: {lines: {type: "ARRAY", items: {type: "OBJECT", properties: {text: {type: "STRING"}, box: {type: "ARRAY", items: {type: "NUMBER"}}}, required: ["text", "box"]}}}, required: ["lines"]}});
       const lines = ((res && res.data && res.data.lines) || []).slice(0, 400).filter(l => l && typeof l.text === "string" && Array.isArray(l.box) && l.box.length === 4 && l.box.every(Number.isFinite));
-      out.push({p: n, lines: lines.map(l => {
+      return {p: n, lines: lines.map(l => {
         const [x0, y0, x1, y1] = l.box.map(v => Math.max(0, Math.min(1000, v)) / 1000);
         const pt = (x, y) => vp1.convertToPdfPoint(x * vp1.width, y * vp1.height), bl = pt(x0, y1), br = pt(x1, y1), tl = pt(x0, y0);
         const w = Math.hypot(br[0] - bl[0], br[1] - bl[1]), h = Math.hypot(tl[0] - bl[0], tl[1] - bl[1]), ux = [(tl[0] - bl[0]) / (h || 1), (tl[1] - bl[1]) / (h || 1)];
         return {t: l.text, o: [bl[0] + ux[0] * h * 0.2, bl[1] + ux[1] * h * 0.2], r: Math.atan2(br[1] - bl[1], br[0] - bl[0]) * 180 / Math.PI, w, h: h * 0.8};
-      })});
+      })};
     }
-    return out;
   }
   async function ocrApply(bytes, read){
     const L = await loadLib(), doc = await L.PDFDocument.load(bytes, {updateMetadata: false, ignoreEncryption: true});

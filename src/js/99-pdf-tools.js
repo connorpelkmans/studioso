@@ -395,7 +395,7 @@ function reviewMemoryStore(){
           await loadPdfJs(); const pd = await window.pdfjsLib.getDocument({data: bytes.slice(), ...PDF_OPTS}).promise, need = [];
           for (let n = 1; n <= pd.numPages; n++) { const tc = await (await pd.getPage(n)).getTextContent(); if (tc.items.filter(i => String(i.str || "").trim()).length < 3) need.push(n); }
           if (!need.length) { set("Already has text"); try { pd.destroy(); } catch (e) {} continue; }
-          const read = await lib().ocrRead(pd, need, (n, k) => set(`Reading page ${n} (${k + 1} of ${need.length})…`)); try { pd.destroy(); } catch (e) {}
+          const read = await lib().ocrRead(pd, need, (d, t) => set(`Reading pages (${d} of ${t} done)…`)); try { pd.destroy(); } catch (e) {}
           const base = pending.length ? (await pdeBake(L, bytes, pending.map(e => Object.assign({}, e)), {})).bytes : bytes;
           out = (await lib().ocrApply(base, read)).bytes; label = `text recognized on ${need.length} page${need.length === 1 ? "" : "s"}`;
         } else {
