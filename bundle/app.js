@@ -14845,7 +14845,7 @@ function viewFiles(){
   let list;
   if (!fs.length) {
     const none = !ui.q.trim();
-    list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt("files") : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, images or text files${caps.assets ? ", or drop them here" : ""}. For Word, PowerPoint or Excel files, save a PDF copy or add a link to the file online.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
+    list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt("files") : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, Word, PowerPoint and Excel files, images or text files${caps.assets ? ", or drop them here" : ""}. Anything too big can go to your Google Drive or OneDrive.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
   } else if (ui.fCourse !== "all" && !ui.fFolder) {
     list = foldersOf(ui.fCourse).map(fo => { const g = fs.filter(f => f.folderId === fo.id); return g.length ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; }).join("")
       + (() => { const known = new Set(foldersOf(ui.fCourse).map(fo => fo.id)); const g = fs.filter(f => !known.has(f.folderId)); return g.length ? `<h3 class="fsec">${FOLDER}Unsorted<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; })();
@@ -14863,7 +14863,7 @@ function viewFiles(){
     <div class="fwrap">${tree}
       <section class="fpane" id="fpane" aria-label="Files in ${esc(ui.fCourse === "all" ? "all folders" : (c ? c.name : "General"))}">
         ${fhead}${list}
-        <p class="hint-line" id="fmeter">${canUpload ? `<span class="tip-everyday">Drop files here to upload. On a computer, drag a file onto a folder to move it, or open it and pick a new folder.</span>` : (!inPreview() && (sbConfig() || SBGUEST.is()) ? "Sign in or create a free account to upload files. You can still add links." : "File uploads aren't available in this view. You can still add links.")} ${sbActive() ? "Any file type can be uploaded, up to 50 MB each." : "PDFs, images, videos and text files can be uploaded, up to 20 MB each."}</p>
+        <p class="hint-line" id="fmeter">${canUpload ? `<span class="tip-everyday">Drop files here to upload. On a computer, drag a file onto a folder to move it, or open it and pick a new folder.</span>` : (!inPreview() && (sbConfig() || SBGUEST.is()) ? "Sign in or create a free account to upload files. You can still add links." : "File uploads aren't available in this view. You can still add links.")} ${sbActive() || DESK ? "Any file type can be uploaded, up to 50 MB each." : "PDFs, Word, PowerPoint and Excel files, images, videos and text files can be uploaded, up to 20 MB each."} Bigger files can go to your Google Drive or OneDrive.</p>
       </section></div>
     <input type="file" id="fUploadIn" multiple class="sr" tabindex="-1" aria-label="Choose files to upload">`;
 }
