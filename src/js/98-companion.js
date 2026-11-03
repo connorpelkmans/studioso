@@ -1907,7 +1907,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const r = box.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * (cur.eyes.y / VB);
     const dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy);
     if (mood === "idle" || mood === "break") {
-      if (d < 520 || dragging) { looking = true; act.look(Math.max(-1, Math.min(1, dx / 140)), Math.max(-1, Math.min(1, dy / 140))); clearTimeout(lookT); lookT = setTimeout(() => { looking = false; if (act && (mood === "idle" || mood === "break")) act.look(0, 0); }, 2600); }
+      if (d < 347 || dragging) { looking = true; act.look(Math.max(-1, Math.min(1, dx / 140)), Math.max(-1, Math.min(1, dy / 140))); clearTimeout(lookT); lookT = setTimeout(() => { looking = false; if (act && (mood === "idle" || mood === "break")) act.look(0, 0); }, 2600); }
       else if (looking) { looking = false; act.look(0, 0); }
     }
     if (dragging) return;
