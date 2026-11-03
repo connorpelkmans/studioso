@@ -8020,3 +8020,62 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .cls-frow>svg{flex:none;margin:0 2px 0 4px;color:var(--muted)}
 .cls-frow.k-rec>svg{color:var(--accent)}
 @media (max-width:600px){.cls-acts .btn{flex:1 1 calc(50% - 6px);justify-content:center}}
+/* The calculator (99-calculator.js): a handheld scientific calculator, the same in light and dark mode */
+@media (max-width:639px){header.top .calc-btn{display:none}}
+.cx{position:fixed;z-index:60;width:344px;max-width:calc(100vw - 16px);filter:drop-shadow(0 18px 40px rgba(0,0,0,.35)) drop-shadow(0 3px 8px rgba(0,0,0,.25));font-family:var(--display),system-ui,sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.cx[hidden]{display:none}
+.cx-body{padding:10px 14px 16px;border-radius:22px 22px 30px 30px;background:linear-gradient(170deg,#3c424c 0%,#2a2e35 38%,#202329 100%);border:1px solid #14161a;box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -2px 0 rgba(0,0,0,.4)}
+.cx-top{display:flex;align-items:center;gap:10px;height:34px;margin:0 -2px 6px;cursor:grab}
+.cx-top:active{cursor:grabbing}
+.cx-brand{font:800 .72rem/1 var(--display);letter-spacing:.14em;color:#c8ccd4}
+.cx-brand b{font-style:italic;letter-spacing:0;color:#f0a33a}
+.cx-solar{display:flex;margin-left:auto;padding:3px;border-radius:5px;background:#16181c;box-shadow:inset 0 1px 2px rgba(0,0,0,.7)}
+.cx-solar i{width:15px;height:13px;margin:0 1px;border-radius:2px;background:linear-gradient(160deg,#5a3d2c,#2c1d16)}
+.cx-x{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#d9dce2;cursor:pointer}
+.cx-x svg{width:15px;height:15px}
+.cx-x:hover,.cx-x:focus-visible{background:rgba(255,255,255,.2)}
+.cx-lcd{position:relative;margin:0 0 14px;padding:6px 12px 8px;border-radius:10px;background:linear-gradient(180deg,#c6d0b4,#b7c2a3);border:5px solid #15171b;box-shadow:inset 0 2px 6px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.08);color:#1c2216;min-height:104px;display:flex;flex-direction:column}
+.cx-ind{display:flex;gap:8px;height:13px;font:800 .6rem/13px var(--display);letter-spacing:.05em}
+.cx-ind span{opacity:.12}
+.cx-ind span.on,.cx-ind [data-i="ang"]{opacity:.85}
+.cx-ind .cx-sp{flex:1}
+.cx-expr{height:30px;margin-top:4px;white-space:nowrap;overflow:hidden;font:500 1.12rem/30px ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.02em}
+.cx-expr span{white-space:pre}
+.cx-caret{display:inline-block;width:2px;height:1.15em;margin:0 -1px;vertical-align:-3px;background:#1c2216;animation:cx-blink 1.05s steps(1) infinite}
+@keyframes cx-blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.cx-caret{animation:none}}
+.cx-res{margin-top:auto;align-self:stretch;border:0;padding:0;background:none;text-align:right;font:600 2.15rem/1.15 ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;color:#1c2216;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:copy}
+.cx-res.is-long{font-size:1.6rem}
+.cx-res.is-dim{opacity:0}
+.cx-res.is-err{font-size:1.5rem;cursor:default}
+.cx-res:focus-visible{outline:2px dashed #1c2216;outline-offset:2px}
+.cx-keys{display:grid;gap:6px 7px}
+.cx-f{grid-template-columns:repeat(6,1fr);margin-bottom:12px}
+.cx-n{grid-template-columns:repeat(5,1fr);gap:10px 9px}
+.cx-k{display:flex;flex-direction:column;align-items:center;min-width:0}
+.cx-s{height:12px;font:700 .58rem/12px var(--display);color:#f0a33a;white-space:nowrap}
+.cx-k button{width:100%;min-width:0;border:0;cursor:pointer;font:700 .78rem/1 var(--display);color:#f2f3f5;height:30px;border-radius:9px 9px 12px 12px;padding:0 2px;background:linear-gradient(180deg,#4a505a,#383d45);box-shadow:0 2px 0 #121418,0 3px 4px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.14);transition:transform 60ms,box-shadow 60ms;white-space:nowrap;overflow:hidden}
+.cx-k button:active,.cx-k button.is-down{transform:translateY(2px);box-shadow:0 0 0 #121418,0 1px 2px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.1)}
+.cx-k button:focus-visible{outline:2px solid #f0a33a;outline-offset:2px}
+.cx-k.k-shift button{background:linear-gradient(180deg,#f3b14d,#d98f22);color:#2a1a05}
+.cx-k.k-mode button,.cx-k.k-nav button{background:linear-gradient(180deg,#5b626d,#474d57);font-size:.7rem}
+.cx-n .cx-k .cx-s{height:4px}
+.cx-n .cx-k button{height:44px;font-size:1.25rem;font-weight:600}
+.cx-n .k-num button{background:linear-gradient(180deg,#f4f5f7,#d9dce1);color:#1d2026;box-shadow:0 2px 0 #8d929b,0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 #fff}
+.cx-n .k-num button:active,.cx-n .k-num button.is-down{box-shadow:0 0 0 #8d929b,0 1px 2px rgba(0,0,0,.3),inset 0 1px 0 #fff}
+.cx-n .k-op button{background:linear-gradient(180deg,#e6e8ec,#c9cdd4);color:#1d2026;box-shadow:0 2px 0 #7f848d,0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 #fff}
+.cx-n .k-op button[data-cx="exp"],.cx-n .k-op button[data-cx="ans"]{font-size:.92rem}
+.cx-n .k-del button,.cx-n .k-ac button{background:linear-gradient(180deg,#f08a4b,#d4652a);color:#fff;font-size:1rem;box-shadow:0 2px 0 #7b3611,0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.cx-n .k-eq button{background:linear-gradient(180deg,#5d8ff0,#3a6ad1);color:#fff;box-shadow:0 2px 0 #1f3b7a,0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+/* SHIFT on: the keys with a second function light up */
+.cx.is-shift .cx-k button[data-cxs]{box-shadow:0 2px 0 #121418,0 0 0 2px #f0a33a,inset 0 1px 0 rgba(255,255,255,.14)}
+.cx.is-shift .cx-n .k-num button[data-cxs],.cx.is-shift .cx-n .k-op button[data-cxs]{box-shadow:0 2px 0 #7f848d,0 0 0 2px #f0a33a}
+.cx.is-shift .cx-k.k-shift button{background:linear-gradient(180deg,#ffd27a,#f0a33a)}
+.cx.is-hyp .cx-k button[data-cx="hyp"]{box-shadow:0 2px 0 #121418,0 0 0 2px #8fb0ff}
+/* phones: a sheet along the bottom */
+@media (max-width:639px){
+  .cx{left:8px!important;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));top:auto!important;width:auto;max-width:none;max-height:calc(100dvh - 16px);overflow:auto}
+  .cx-top{cursor:default}
+  .cx-n .cx-k button{height:48px}
+  .cx-k button{height:32px}
+}

@@ -225,6 +225,7 @@
     if (caps.assets) add("Quick Add Files", "Drop files and let Studyboard sort them into courses", tabAct("files", "f-quick"), "add");
     add("Add a Link to a File", "For files kept in OneDrive, Google Drive or Canvas", tabAct("files", "f-link"), "url");
     add(isDark() ? "Switch to Light Mode" : "Switch to Dark Mode", "Change how Studyboard looks", act("theme-toggle"), "theme night day");
+    add("Calculator", "A scientific calculator in its own window", act("calc-open"), "calculator calc math sum add percent sin cos");
     add("Style Shop", "Themes, card styles, note shapes and stickers", act("shop"), "theme look colors");
     add("Settings", "Backups, study hours, AI and more", act("menu"), "preferences options");
     add("Search Settings", "Search inside files and search by meaning", () => settingsSheet(), "index");
