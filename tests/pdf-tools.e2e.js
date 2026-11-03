@@ -212,9 +212,18 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
 
     /* Study */
     await page.click('[data-act="pde-st"]'); await page.waitForSelector('[data-act="pde-st-go"]');
+    const decks0 = await page.evaluate(() => Object.keys(state.decks).length);
     await page.click('[data-act="pde-st-go"]');
+    await page.waitForSelector(".pde-cardprev li", {timeout: 10000});
+    await shot("5-cards-preview");
+    ok(await page.locator(".pde-cardprev li").count() === 2 && await page.evaluate(() => Object.keys(state.decks).length) === decks0, "the flashcards are shown to check first, before anything is added");
+    await page.fill('[data-cp-front="0"]', "Edited front"); await page.uncheck('[data-cp-keep="1"]');
+    ok(/Add 1 Card$/.test((await page.textContent("#pdeCpAdd")).trim()), "unticking one updates the Add button");
+    await page.check('[data-cp-keep="1"]');
+    await page.click('[data-act="pde-st-add"]');
     await page.waitForFunction(() => Object.values(state.decks).some(d => d.cards.length === 2), null, {timeout: 10000});
     const deck = await page.evaluate(() => Object.values(state.decks).find(d => d.cards.length === 2));
+    ok(deck.cards[0].front === "Edited front", "a card's wording can be fixed in the preview");
     ok(deck.courseId === "c1" && deck.cards.every(c => c.src && c.src.f === "f1" && c.src.p === 1), "Study makes flashcards in a new deck for the course, each linked to its page");
     await page.click('[data-act="pde-st"]'); await page.waitForSelector('[data-act="pde-st-go"]');
     await page.check('input[name="pdeStMake"][value="outline"]'); await page.click('[data-act="pde-st-go"]');

@@ -81408,6 +81408,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-cite": citeGo(Number(id), el.dataset.q || ""); break;
       case "pde-st": studyPanel(); break;
       case "pde-st-go": studyGo(); break;
+      case "pde-st-add": cardsAdd(); break;
       case "pde-hist-step": histStep(Number(id) || -1); break;
       // back to just after change k: the later ones move to redo, newest last, so Redo brings them back in order
       case "pde-hist-go": { const H = S.hist, k = Number(id), target = H && H.undo[k]; if (!target) break; while (H.undo.length - 1 > k) H.redo.push(H.undo.pop()); S.histMute = true; try { save(clone(target.after), null); } finally { S.histMute = false; } historyPanel(); break; }
@@ -82409,6 +82410,27 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       </div>
       <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-st-go">Make It</button></div>`, "fonts");
   }
+  // the cards, to look over before they're added: untick any you don't want, fix any wording
+  function cardsPreview(d, cards){
+    E.stPrev = {d, cards};
+    panel(`${panelHead("Check Your Flashcards", `${cards.length} card${cards.length === 1 ? "" : "s"} for ${esc(d.name)}. Untick any you don't want, and fix any wording, then add them.`)}
+      <div class="pde-pb"><ol class="pde-cardprev">${cards.map((c, i) => `<li><label class="pde-cp-keep"><input type="checkbox" data-cp-keep="${i}" checked aria-label="Keep card ${i + 1}"></label>
+        <div class="pde-cp-txt"><textarea data-cp-front="${i}" rows="2" maxlength="300" aria-label="Card ${i + 1} front">${esc(c.front)}</textarea><textarea data-cp-back="${i}" rows="2" maxlength="1200" aria-label="Card ${i + 1} back">${esc(c.back)}</textarea>${c.src && c.src.p ? `<span class="mini">Page ${c.src.p}</span>` : ""}</div></li>`).join("")}</ol></div>
+      <div class="pde-pf"><button type="button" class="btn" data-act="pde-st">Start Over</button><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-st-add" id="pdeCpAdd">Add ${cards.length} Card${cards.length === 1 ? "" : "s"}</button></div>`, "fonts");
+  }
+  function cardsAdd(){
+    const pv = E.stPrev; if (!pv) return;
+    const keep = pv.cards.map((c, i) => {
+      if (!(dlg.querySelector(`[data-cp-keep="${i}"]`) || {}).checked) return null;
+      const fr = String((dlg.querySelector(`[data-cp-front="${i}"]`) || {}).value || "").trim(), bk = String((dlg.querySelector(`[data-cp-back="${i}"]`) || {}).value || "").trim();
+      if (!fr || !bk) return null;
+      return fr === c.front && bk === c.back ? c : Object.assign({}, c, {front: fr.slice(0, 300), back: bk.slice(0, 1200)});
+    }).filter(Boolean);
+    if (!keep.length) { toast("Tick at least one card to add"); return; }
+    const d = pv.d; E.stPrev = null;
+    d.cards = d.cards.concat(keep); d.updated = Date.now(); saveDeck(d, `${keep.length} flashcard${keep.length === 1 ? "" : "s"} added to ${d.name}`); closePanel();
+  }
+  document.addEventListener("change", ev => { const t = ev.target; if (!E || !E.stPrev || !t.dataset || t.dataset.cpKeep === undefined) return; const n = dlg.querySelectorAll("[data-cp-keep]:checked").length, b = $("#pdeCpAdd"); if (b) { b.textContent = `Add ${n} Card${n === 1 ? "" : "s"}`; b.disabled = !n; } const li = t.closest("li"); if (li) li.classList.toggle("off", !t.checked); });
   const deckNameFor = f => { const c = courseOf(f.courseId); return `${c ? courseLabel(c) : "Readings"}: ${f.name.replace(/\.pdf$/i, "")}`.slice(0, 80); };
   async function studyGo(){
     const f = fileOf(), msg = $("#pdeStMsg"), go = dlg.querySelector('[data-act="pde-st-go"]'), val = nm => (dlg.querySelector(`input[name="${nm}"]:checked`) || {}).value;
@@ -82423,7 +82445,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         const hls = (f.hl || []).filter(h => h && h.a === E.rev && h.cm && h.t);
         if (!hls.length) { say("Comment on some highlights first: each comment becomes a card's front."); return; }
         const cards = hls.map(h => ({id: uid(), front: h.cm.slice(0, 300), back: h.t.slice(0, 1200), box: 0, due: "", seen: 0, right: 0, wrong: 0, src: {f: f.id, p: h.p}, copied: true}));
-        d.cards = d.cards.concat(cards); d.updated = Date.now(); saveDeck(d, `${cards.length} card${cards.length === 1 ? "" : "s"} added to ${d.name}`); closePanel(); return;
+        cardsPreview(d, cards); return;
       }
       // the material, with its pages
       let material = "", src = [];
@@ -82446,7 +82468,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
           if (aiCopied(card.front + "\n" + card.back, idx)) card.copied = true;
           return card; });
         if (!cards.length) throw new Error("The AI didn't write any cards. Try again.");
-        d.cards = d.cards.concat(cards); d.updated = Date.now(); saveDeck(d, `${cards.length} flashcards added to ${d.name}`); closePanel(); return;
+        cardsPreview(d, cards); return;
       }
       if (make === "quiz") {
         const res = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, parts: [{text: `Reading:\n${material.slice(0, 60000)}\n\nWrite ${n} questions.`}],
@@ -82589,7 +82611,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pdr-page .pde-form select.pde-field{padding:0 2px;-webkit-appearance:menulist;appearance:menulist}
 .pdr-page .pde-form .pde-field[type=checkbox],.pdr-page .pde-form .pde-field[type=radio]{-webkit-appearance:auto;appearance:auto;accent-color:#1f3a93;padding:0;cursor:pointer;background:none}
 .pdr-page .pde-form .pde-field:focus{outline:2px solid var(--accent,#2563eb);background:rgba(204,215,255,.7)}
-.pde-panel{position:absolute;inset:0;z-index:50;background:color-mix(in srgb,var(--surface) 97%,transparent);display:flex;flex-direction:column;min-height:0}
+.pde-panel{position:absolute;inset:0;z-index:50;background:linear-gradient(var(--surface),var(--surface)),linear-gradient(var(--bg,#fff),var(--bg,#fff)),Canvas;display:flex;flex-direction:column;min-height:0}
 .pde-ph{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 18px 8px;border-bottom:1px solid var(--line)}
 .pde-ph h3{margin:0;font:600 1.05rem var(--display)}
 .pde-ph p{margin:4px 0 0;max-width:46em}
@@ -82709,6 +82731,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-phone-t{flex:1 1 220px;display:grid;gap:6px}.pde-phone-t p{margin:0}
 .pde-phone-n{font-weight:700;color:var(--ink)}
 .pde-phone .row-actions{margin:2px 0 0}
+.pde-cardprev{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.pde-cardprev li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);position:relative;isolation:isolate}
+.pde-cardprev li.off{opacity:.5}
+.pde-cp-keep{padding-top:6px}
+.pde-cp-txt{display:grid;gap:6px}
+.pde-cp-txt textarea{width:100%;box-sizing:border-box;resize:vertical;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.pde-cp-txt textarea[data-cp-front]{font-weight:600}
 .pde-scan .row-actions{align-items:flex-end}
 .pde-scan .row-actions .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;min-height:40px;height:auto;line-height:1.2}
 .pde-inline{display:inline-grid;margin-left:auto}
