@@ -18,6 +18,8 @@ const METHODS = [
   ["rewatch", "Rewatching lectures", 0],
   ["cram", "A long session the night before", 0]];
 const STARTS = [["week", "More than a week before"], ["days", "3 to 7 days before"], ["short", "1 or 2 days before"], ["night", "The night before"]];
+// the methods shown in three groups of three
+const METHOD_GROUPS = [["Testing yourself", ["practice", "cards", "explain"]], ["Going over it", ["summary", "reread", "rewatch"]], ["How you spread it out", ["spaced", "cram", "group"]]];
 const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v && typeof v === "object" ? v : d; } catch (e) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const isExam = t => !!t && MILESTONE(t.type) && !t.prepFor;
@@ -77,10 +79,10 @@ function open(id, back){
       ${compareHtml(s.felt, s.measured, mark)}
       <p class="ewr-read">${esc(readOf(s.felt, s.measured, mark))}</p>
       <fieldset class="ewr-fs"><legend>How did you study? <span class="hint">pick all that apply</span></legend>
-        <div class="ewr-chips">${METHODS.map(([k, l]) => `<label class="ewr-chip"><input type="checkbox" name="m" value="${k}"${picked.has(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div>
+        <div class="ewr-groups">${METHOD_GROUPS.map(([g, ks]) => `<div class="ewr-g" role="group" aria-label="${esc(g)}"><span class="ewr-gl">${esc(g)}</span><div class="ewr-chips ewr-grid3">${ks.map(k => METHODS.find(x => x[0] === k)).filter(Boolean).map(([k, l]) => `<label class="ewr-chip"><input type="checkbox" name="m" value="${k}"${picked.has(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></div>`).join("")}</div>
         <p class="ewr-tip" id="ewrTip" aria-live="polite"></p></fieldset>
       <fieldset class="ewr-fs"><legend>When did you start studying for it?</legend>
-        <div class="ewr-chips">${STARTS.map(([k, l]) => `<label class="ewr-chip"><input type="radio" name="st" value="${k}"${w.start === k ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></fieldset>
+        <div class="ewr-chips ewr-grid4">${STARTS.map(([k, l]) => `<label class="ewr-chip"><input type="radio" name="st" value="${k}"${w.start === k ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></fieldset>
       <label class="f"><span class="lh">Next Time I'll… <span class="hint">optional, shown before your next exam</span></span><input type="text" name="next" maxlength="200" value="${esc(w.next || "")}" placeholder="e.g. start practice questions a week earlier" data-noenter></label>
       <label class="mi-check"><input type="checkbox" id="ewrAsk"${askOn() ? " checked" : ""}> Ask me after each exam or quiz</label>
     </div>
