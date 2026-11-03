@@ -2570,11 +2570,28 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       el.prepend(cv);
       const tl = document.createElement("div"); tl.className = "textLayer"; el.appendChild(tl);
       try { await new window.pdfjsLib.TextLayer({textContentSource: page.streamTextContent({includeMarkedContent: true, disableNormalization: true}), container: tl, viewport: vp}).render(); } catch (e) {}
+      ghostText(el, cv, tl);
       paint(n);
       if (window.SBINK) SBINK.readerPage(n, el);
       if (window.SBPDE) SBPDE.readerPage(n, el, page, vp);
       R.pages.forEach(o => { if (o.done && Math.abs(o.n - n) > 10) { o.done = 0; o.el.querySelectorAll(".pdr-cv,.textLayer,.ink-layer,.pde-layer,.pde-form").forEach(x => x.remove()); } });
     } catch (e) { pg.done = 0; }
+  }
+  // Text you can't see on the page (hidden under a cover, drawn invisibly, or the colour of what's behind it) can't be selected,
+  // so a selection or highlight follows the visible words instead of a hidden block of text
+  function ghostText(el, cv, tl){
+    try {
+      const ctx = cv.getContext("2d", {willReadFrequently: true}), pb = el.getBoundingClientRect(), k = cv.width / (pb.width || cv.width);
+      tl.querySelectorAll("span:not(.markedContent)").forEach(sp => {
+        if (!sp.textContent.trim()) return;
+        const r = sp.getBoundingClientRect(), x0 = Math.max(0, Math.floor((r.left - pb.left) * k)), y0 = Math.max(0, Math.floor((r.top - pb.top) * k));
+        const w = Math.min(cv.width - x0, Math.ceil(r.width * k)), h = Math.min(cv.height - y0, Math.ceil(r.height * k)); if (w < 2 || h < 2) return;
+        const d = ctx.getImageData(x0, y0, w, h).data, step = Math.max(1, Math.floor(Math.sqrt(w * h / 3000))), hist = new Uint32Array(52), L = [];
+        for (let yy = 0; yy < h; yy += step) for (let xx = 0; xx < w; xx += step) { const i = (yy * w + xx) * 4, l = 255 - (255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])) * d[i + 3] / 255; L.push(l); hist[Math.min(51, Math.floor(l / 5))]++; }
+        let mode = 0; for (let i = 1; i < 52; i++) if (hist[i] > hist[mode]) mode = i;
+        const bg = mode * 5 + 2.5; if (L.filter(l => Math.abs(l - bg) > 45).length < Math.max(3, L.length * 0.006)) sp.classList.add("pdr-ghost");
+      });
+    } catch (e) {}
   }
   function paint(n){
     if (!R) return;
@@ -2963,6 +2980,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-page .textLayer > :not(.markedContent),.pdr-page .textLayer .markedContent span:not(.markedContent){z-index:1;--font-height:0;font-size:calc(var(--text-scale-factor) * var(--font-height));--scale-x:1;--rotate:0deg;transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv))}
 .pdr-page .textLayer .markedContent{display:contents}
 .pdr-page .textLayer span[role="img"]{user-select:none;cursor:default}
+.pdr-page .textLayer .pdr-ghost{user-select:none;-webkit-user-select:none;pointer-events:none}
 .pdr-page .textLayer ::selection{background:rgba(0,90,255,.28)}
 .pdr-page .textLayer br::selection{background:transparent}
 .pdr-page .textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:0;cursor:default;user-select:none}
