@@ -8091,3 +8091,67 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   .cx-n .cx-k button{height:48px}
   .cx-k button{height:32px}
 }
+/* Signature touches: one clean, fun detail per theme, kept off the lettering (a screen effect, a trim, a key, an edge band).
+   Overlays on a screen stay faint so the digits keep their contrast; keys that change finish keep their dark lettering. */
+.cx[data-cxskin] .cx-body{position:relative}
+/* a band along the bottom edge of the body, under the last row of keys */
+.cx[data-cxskin] .cx-body::after{content:"";position:absolute;left:18px;right:18px;bottom:5px;height:6px;border-radius:3px;background:var(--band,none);pointer-events:none}
+/* metallic finish on a key with dark lettering: a soft highlight across the top */
+.cx .k-eq.is-metal button,.cx[data-cxskin=newyear] .k-eq button,.cx[data-cxskin=stpatricks] .k-eq button,.cx[data-cxskin=hanukkah] .k-eq button,.cx[data-cxskin=lunarnewyear] .k-eq button,.cx[data-cxskin=ramadan] .k-eq button,.cx[data-cxskin=diwali] .k-eq button{background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 48%),linear-gradient(180deg,var(--eq1),var(--eq2))}
+/* Galaxy: a few stars in the screen */
+.cx[data-cxskin=galaxy] .cx-lcd{background:radial-gradient(1px 1px at 12% 28%,rgba(255,255,255,.55),transparent),radial-gradient(1.2px 1.2px at 34% 72%,rgba(255,255,255,.4),transparent),radial-gradient(1px 1px at 58% 22%,rgba(255,229,122,.55),transparent),radial-gradient(1px 1px at 82% 40%,rgba(255,255,255,.45),transparent),radial-gradient(1px 1px at 22% 86%,rgba(197,188,245,.5),transparent),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Winter: frost in the screen's corners */
+.cx[data-cxskin=winter] .cx-lcd{background:radial-gradient(60px 40px at 0 0,rgba(255,255,255,.9),transparent 70%),radial-gradient(70px 44px at 100% 100%,rgba(255,255,255,.85),transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Ocean: a foam-white rim inside the screen */
+.cx[data-cxskin=ocean] .cx-lcd{box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),inset 0 2px 6px rgba(0,0,0,.25)}
+/* Cozy Cafe: a warm glow in the screen, like light through a cup */
+.cx[data-cxskin=cafe] .cx-lcd{box-shadow:inset 0 0 18px rgba(255,214,140,.65),inset 0 2px 6px rgba(0,0,0,.3)}
+/* Lemonade: the stand's striped awning along the top edge */
+.cx[data-cxskin=lemonade] .cx-body{background:repeating-linear-gradient(90deg,#fff8dc 0 14px,#f2b705 14px 28px) 0 0/100% 7px no-repeat,var(--deco),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%)}
+/* Halloween: glowing jack-o'-lantern digits on a dark screen, a pumpkin glow round the frame */
+.cx[data-cxskin=halloween] .cx-lcd{box-shadow:inset 0 0 22px rgba(255,120,30,.28),0 0 12px rgba(255,120,30,.25)}
+/* New Year's Eve: a gold screen frame and a gold = */
+.cx[data-cxskin=newyear] .cx-lcd{border-color:#c9a23a;box-shadow:inset 0 2px 6px rgba(0,0,0,.35),0 0 0 1px #f0d98a}
+/* Lunar New Year: a gold rim round the lacquer body and the screen */
+.cx[data-cxskin=lunarnewyear] .cx-body{box-shadow:inset 0 0 0 3px #e9b949,inset 0 0 0 5px rgba(90,13,10,.6)}
+.cx[data-cxskin=lunarnewyear] .cx-lcd{border-color:#c9952a}
+/* St. Patrick's Day: a little rainbow over the screen and a pot-of-gold = */
+.cx[data-cxskin=stpatricks] .cx-lcd{border-top-width:0;box-shadow:inset 0 2px 6px rgba(0,0,0,.25),0 -5px 0 -1px #0f3d20,0 -4px 0 0 transparent}
+.cx[data-cxskin=stpatricks] .cx-lcd::before{content:"";position:absolute;left:-5px;right:-5px;top:-5px;height:5px;border-radius:6px 6px 0 0;background:linear-gradient(90deg,#e8463a,#f08a2c,#f2c230,#4caf50,#2f86d6,#7b4fc9)}
+/* Easter: every number key a different pastel egg */
+.cx[data-cxskin=easter] [data-cx="1"],.cx[data-cxskin=easter] [data-cx="6"]{background:linear-gradient(180deg,#ffe3ee,#fbd3e2)!important}
+.cx[data-cxskin=easter] [data-cx="2"],.cx[data-cxskin=easter] [data-cx="7"]{background:linear-gradient(180deg,#fff6cc,#fbecb0)!important}
+.cx[data-cxskin=easter] [data-cx="3"],.cx[data-cxskin=easter] [data-cx="8"]{background:linear-gradient(180deg,#dcf5e6,#c9eed8)!important}
+.cx[data-cxskin=easter] [data-cx="4"],.cx[data-cxskin=easter] [data-cx="9"]{background:linear-gradient(180deg,#dcecff,#cce1fb)!important}
+.cx[data-cxskin=easter] [data-cx="5"],.cx[data-cxskin=easter] [data-cx="0"]{background:linear-gradient(180deg,#ece3ff,#ddd0fb)!important}
+/* Fourth of July: red and white stripes along the bottom edge */
+.cx[data-cxskin=july4]{--band:repeating-linear-gradient(90deg,#c8283a 0 10px,#ffffff 10px 20px)}
+/* Hanukkah: a silver screen frame and a silver = */
+.cx[data-cxskin=hanukkah] .cx-lcd{border-color:#b9c3d6;box-shadow:inset 0 2px 6px rgba(0,0,0,.25),0 0 0 1px #e9eef7}
+/* Christmas Lights: a string of lights along the top edge */
+.cx[data-cxskin=xmas] .cx-body{background:radial-gradient(circle,#ff5a5a 0 3px,transparent 3.5px) 6px 3px/48px 10px repeat-x,radial-gradient(circle,#ffd25a 0 3px,transparent 3.5px) 18px 3px/48px 10px repeat-x,radial-gradient(circle,#6fd86f 0 3px,transparent 3.5px) 30px 3px/48px 10px repeat-x,radial-gradient(circle,#6fb4ff 0 3px,transparent 3.5px) 42px 3px/48px 10px repeat-x,var(--deco),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%)}
+.cx[data-cxskin=xmas] .cx-top{margin-top:4px}
+/* Diwali: a warm diya glow round the screen */
+.cx[data-cxskin=diwali] .cx-lcd{border-color:#d99a2b;box-shadow:inset 0 2px 6px rgba(0,0,0,.2),0 0 14px rgba(255,170,60,.55)}
+/* Ramadan: a gold frame and lantern light in the screen */
+.cx[data-cxskin=ramadan] .cx-lcd{border-color:#c9a23a;background:radial-gradient(120px 70px at 85% 0,rgba(255,214,140,.45),transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Holi: a rainbow of powder colours round the screen */
+.cx[data-cxskin=holi] .cx-lcd{border-color:transparent;background:linear-gradient(180deg,var(--lcd1),var(--lcd2)) padding-box,linear-gradient(90deg,#ff4fa3,#ffd23f,#3fd17a,#3fa9ff,#8e44f0) border-box}
+/* Mid-Autumn: a full moon's glow in the screen */
+.cx[data-cxskin=midautumn] .cx-lcd{background:radial-gradient(48px 48px at 18% 50%,rgba(255,224,150,.6),transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Dia de los Muertos: papel picado colours along the bottom edge */
+.cx[data-cxskin=diadelosmuertos]{--band:linear-gradient(90deg,#e8327a 0 20%,#ff9d2e 20% 40%,#20a39e 40% 60%,#8e44f0 60% 80%,#f2c230 80%)}
+/* Summer: sun glare in the screen */
+.cx[data-cxskin=summer] .cx-lcd{background:radial-gradient(90px 60px at 100% 0,rgba(255,230,140,.6),transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Japan: a red hanko seal by the brand */
+.cx[data-cxskin=japan] .cx-brand::after{content:"";display:inline-block;width:13px;height:13px;margin-left:8px;vertical-align:-2px;border-radius:3px;background:#c8321f;box-shadow:inset 0 0 0 2px #e05a44,inset 0 0 0 3.5px #c8321f,inset 0 0 0 4.5px rgba(255,255,255,.55)}
+/* Greece: a Greek key along the bottom edge */
+.cx[data-cxskin=greece] .cx-body::after{height:9px;bottom:4px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='9'%3E%3Cpath d='M0 8.25H13.5V.75H4.5V5.25H9V3' fill='none' stroke='%230d4f9e' stroke-width='1.5'/%3E%3C/svg%3E") 0 0/18px 9px repeat-x}
+/* Morocco: a zellige-teal inlay round the body */
+.cx[data-cxskin=morocco] .cx-body{box-shadow:inset 0 0 0 3px #3fa39b,inset 0 0 0 5px rgba(90,36,16,.55)}
+/* Egypt: a gold cartouche round the screen */
+.cx[data-cxskin=egypt] .cx-lcd{border-color:#b8862a;border-radius:18px;box-shadow:inset 0 2px 6px rgba(0,0,0,.2),0 0 0 2px #e8c66a}
+/* Mexico: serape stripes along the bottom edge */
+.cx[data-cxskin=mexico]{--band:linear-gradient(90deg,#c4206a 0 16%,#2b5fb8 16% 33%,#1f9e8f 33% 50%,#fff4e0 50% 58%,#e8402c 58% 75%,#c4206a 75% 90%,#2b5fb8 90%)}
+/* Brazil: a round blue = with a yellow ring */
+.cx[data-cxskin=brazil] .k-eq button{border-radius:999px;box-shadow:0 2px 0 var(--eqsh),0 0 0 3px #ffdf3a,0 3px 5px rgba(0,0,0,.3)}
