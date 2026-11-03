@@ -31,6 +31,8 @@
 @keyframes cx-blink{50%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.cx-caret{animation:none}}
 .cx-res{margin-top:auto;align-self:stretch;border:0;padding:0;background:none;text-align:right;font:600 2.15rem/1.15 ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;color:var(--lcdink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:copy}
+/* the answer line keeps one height (empty while typing, a long answer, an error), so the screen never changes size */
+.cx-res{flex:none;height:2.5rem;line-height:2.5rem}
 .cx-res.is-long{font-size:1.6rem}
 .cx-res.is-dim{opacity:0}
 .cx-res.is-err{font-size:1.5rem;cursor:default}

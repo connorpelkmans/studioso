@@ -28,6 +28,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const res = () => page.$eval("#calc .cx-res", el => el.textContent);
   const expr = () => page.$eval("#calc .cx-expr", el => el.textContent);
   const calc = async (ks, want, m) => { await keys("ac", ...ks, "eq"); await page.waitForTimeout(30); const r = await res(); ok(r === want, `${m || await expr()} = ${want} (got ${r})`); };
+  // the screen keeps one size, like a real calculator: open, typing, an answer, a long answer, an error
+  { const lcdH = () => page.$eval("#calc .cx-lcd", el => Math.round(el.getBoundingClientRect().height));
+    const h0 = await lcdH(); await keys("ac", "7", "mul"); const h1 = await lcdH(); await keys("8", "eq"); const h2 = await lcdH();
+    await keys("ac", "1", "div", "3", "eq"); const h3 = await lcdH(); await keys("ac", "1", "div", "0", "eq"); const h4 = await lcdH();
+    ok([h1, h2, h3, h4].every(h => h === h0), `the screen never changes size (${[h0, h1, h2, h3, h4].join(", ")})`); }
   await calc(["1", "2", "add", "7", "mul", "3"], "33", "12 + 7 × 3 follows the order of operations");
   await calc(["0", "dot", "1", "add", "0", "dot", "2"], "0.3", "0.1 + 0.2 shows 0.3");
   await calc(["lp", "2", "add", "3", "rp", "sq"], "25");
