@@ -80579,7 +80579,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     E.ed = null;
     const list = mine(), exists = list.some(x => x.id === e.id);
     if (e.k === "n" && !t.trim()) { if (exists) save(list.filter(x => x.id !== e.id), "Text box removed"); else paint(e.p); bar(); return; }
-    if (e.k === "t" && !exists && t === e.old) { E.sel = null; paint(e.p); bar(); return; }
+    // clicking into a line or paragraph and leaving it as it was isn't a change (spacing aside)
+    const same = (x, y) => pdeTidy(String(x || "")).replace(/\s+/g, " ").trim() === pdeTidy(String(y || "")).replace(/\s+/g, " ").trim();
+    if ((e.k === "t" || e.k === "p") && !exists && same(t, e.old)) { E.sel = null; paint(e.p); bar(); return; }
     if (exists && t === ed.was && !ed.dirty) { paint(e.p); bar(); return; }
     const next = Object.assign({}, e, {t, at: Date.now()});
     if (!exists && list.length >= MAX_EDITS) { toast(`A file can hold ${MAX_EDITS} edits. Save a new version to keep going.`); paint(e.p); return; }
@@ -81763,7 +81765,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const cur = f.revs.findIndex(r => r.assetId === E.rev), b0 = cur >= 0 ? cur : f.revs.length - 1, a0 = Math.max(0, b0 - 1) === b0 ? (b0 + 1) % f.revs.length : Math.max(0, b0 - 1);
     panel(`${panelHead("Compare Versions", "What changed in the text between two versions of this file.")}
       <div class="pde-pb"><div class="pde-row2"><label class="f"><span class="lh">Earlier</span><select id="pdeCmpA">${opts(a0)}</select></label><label class="f"><span class="lh">Later</span><select id="pdeCmpB">${opts(b0)}</select></label>
-        <button type="button" class="btn primary" data-act="pde-cmp-go" style="align-self:end">Compare</button></div><div id="pdeCmpOut" aria-live="polite"></div></div>`, "pages");
+        <button type="button" class="btn primary pde-cmp-go" data-act="pde-cmp-go">Compare</button></div><div id="pdeCmpOut" aria-live="polite"></div></div>`, "pages");
   }
   async function compareGo(){
     const f = fileOf(), out = $("#pdeCmpOut"), a = f.revs[Number($("#pdeCmpA").value)], b = f.revs[Number($("#pdeCmpB").value)]; if (!a || !b || !out) return;
@@ -81771,15 +81773,28 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     out.innerHTML = `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Comparing…</p>`;
     try {
       const [A, B] = await Promise.all([versionText(a.assetId), versionText(b.assetId)]);
-      const d = lcsDiff(A, B, (x, y) => x.t === y.t) || [];
-      // runs of changed lines, with the later version's page
-      const hunks = []; let h = null;
-      d.forEach(([k, x, y]) => { if (k === "=") { h = null; return; } if (!h) { h = {old: [], nw: [], n: (y || x).n}; hunks.push(h); } if (k === "-") h.old.push(x); else { h.nw.push(y); h.n = y.n; } });
+      // word by word within each page, so text that only moved between lines (a page saved again after edits) isn't a change
+      const words = (L, n) => L.filter(l => l.n === n).map(l => l.t).join(" ").split(" ").filter(Boolean);
+      const hunks = [], last = Math.max(0, ...A.map(l => l.n), ...B.map(l => l.n)), CTX = 5;
+      for (let n = 1; n <= last; n++) {
+        const wa = words(A, n), wb = words(B, n); if (wa.join(" ") === wb.join(" ")) continue;
+        const d = lcsDiff(wa, wb, (x, y) => x === y) || [["-", wa.join(" ")], ["+", null, wb.join(" ")]];
+        let h = null, eqRun = [];
+        const close = () => { if (h) { h.post = eqRun.slice(0, CTX); hunks.push(h); h = null; } };
+        d.forEach(([k, x, y]) => {
+          if (k === "=") { eqRun.push(x); if (h && eqRun.length > 3) close(); return; }
+          if (h && eqRun.length) { h.old.push(...eqRun); h.nw.push(...eqRun); }   // two changes a word or two apart read as one
+          else if (!h) h = {n, pre: eqRun.slice(-CTX), old: [], nw: [], post: []};
+          eqRun = [];
+          if (k === "-") h.old.push(x); else h.nw.push(y);
+        });
+        if (h) { h.post = eqRun.slice(0, CTX); hunks.push(h); }
+      }
       if (!hunks.length) { out.innerHTML = `<p>No text changed between these versions.${A.length + B.length === 0 ? " (Neither has text: for scans, use Recognize Text first.)" : ""}</p>`; return; }
       const nb = Number($("#pdeCmpB").value), openB = f.revs[nb].assetId === E.rev;
       out.innerHTML = `<p><b>${hunks.length} change${hunks.length === 1 ? "" : "s"}</b> on ${new Set(hunks.map(x => x.n)).size} page${new Set(hunks.map(x => x.n)).size === 1 ? "" : "s"}.</p>
-        <ol class="pde-diff">${hunks.slice(0, 300).map(x => { const o = x.old.map(l => l.t).join(" "), w = x.nw.map(l => l.t).join(" ");
-          return `<li><div class="mini">Page ${x.n}${openB ? ` <button type="button" class="link-btn" data-act="pde-cmp-page" data-id="${x.n}">Go to page</button>` : ""}</div><div class="pde-diffline">${o && w ? wordsHtml(o, w) : o ? `<del>${esc(o)}</del>` : `<ins>${esc(w)}</ins>`}</div></li>`; }).join("")}</ol>`;
+        <ol class="pde-diff">${hunks.slice(0, 300).map(x => { const o = x.old.join(" "), w = x.nw.join(" "), pre = x.pre.length ? "…" + esc(x.pre.join(" ")) + " " : "", post = x.post.length ? " " + esc(x.post.join(" ")) + "…" : "";
+          return `<li><div class="mini">Page ${x.n}${openB ? ` <button type="button" class="link-btn" data-act="pde-cmp-page" data-id="${x.n}">Go to page</button>` : ""}</div><div class="pde-diffline">${pre}${o && w ? wordsHtml(o, w) : o ? `<del>${esc(o)}</del>` : `<ins>${esc(w)}</ins>`}${post}</div></li>`; }).join("")}</ol>`;
     } catch (err) { out.innerHTML = `<p class="mini">Couldn't open one of the versions here${navigator.onLine === false ? " (you're offline)" : ""}.</p>`; }
   }
 
@@ -82572,8 +82587,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-thumb{display:grid;place-items:center;width:150px;height:150px;cursor:pointer}
 .pde-thumb img{max-width:130px;max-height:130px;box-shadow:0 1px 4px rgba(0,0,0,.25);background:#fff;transition:transform .15s}
 .pde-blank{display:block;width:100px;height:130px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.pde-cmp-go{align-self:end;padding:8px 20px;min-height:40px;height:auto;margin-bottom:2px}
 .pde-cardbar{display:flex;flex-wrap:wrap;justify-content:center;gap:2px}
-.pde-cardbar .icon-btn{width:30px;height:30px}
+.pde-cardbar .icon-btn{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:inline-grid;place-items:center}
+.pde-cardbar .icon-btn svg{width:18px;height:18px;display:block}
 .pde-pf select{max-width:16em}
 @media (max-width:760px){ .pde-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))} .pde-thumb{width:120px;height:130px} .pde-find input[type=search],.pde-find input[type=text]{width:9em} }
 .pde-chat{display:grid;gap:8px;align-content:start}
