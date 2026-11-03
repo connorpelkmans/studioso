@@ -18,6 +18,8 @@ import GeoToolbox
 @AppEnum(schema: .reminders.listType)
 enum SBListType: String {
     case standard
+
+    static let caseDisplayRepresentations: [SBListType: DisplayRepresentation] = [.standard: "List"]
 }
 
 @available(iOS 27.0, *)
@@ -25,6 +27,8 @@ enum SBListType: String {
 enum SBPlaceEvent: String {
     case arrive
     case depart
+
+    static let caseDisplayRepresentations: [SBPlaceEvent: DisplayRepresentation] = [.arrive: "Arriving", .depart: "Leaving"]
 }
 
 // MARK: Course = list
@@ -271,8 +275,8 @@ struct SBCreateReminderIntent {
     @Parameter var recurrence: Calendar.RecurrenceRule?
     @Parameter var tags: Set<String>
     @Parameter var urls: [URL]
-    // verify: the exact label Xcode wants here (its error named 'supportedTypeIdentifiers' with a 'public.image' subtype)
-    @Parameter(supportedTypeIdentifiers: ["public.image"]) var images: [IntentFile]
+    // Studyboard doesn't take images from Siri; the schema requires the parameter (image files only)
+    @Parameter(title: "Images", supportedTypeIdentifiers: ["public.image"]) var images: [IntentFile]
 
     func perform() async throws -> some IntentResult & ReturnsValue<SBTaskReminder> & ProvidesDialog {
         let dt = SBRemind.dayAndTime(dueDate)
