@@ -19,6 +19,7 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
   const browser = await chromium.launch({executablePath});
   const errs = [];
   const fakeSupabase = async (ctx, seen) => {
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, async r => {
       const u = new URL(r.request().url());
       seen.push(r.request().method() + " " + u.pathname + (u.searchParams.get("grant_type") ? "?" + u.searchParams.get("grant_type") : "") + (u.searchParams.get("provider") ? " " + u.searchParams.get("provider") : ""));

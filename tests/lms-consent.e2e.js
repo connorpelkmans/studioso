@@ -13,7 +13,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   try {
-    const ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.route(/supabase\.co/, r => r.abort());
+    const ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.routeWebSocket(/supabase\.co/, ws => ws.close()); await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(() => { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [], tasks: [], settings: {}})); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:tour", "done"); } });
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => window.SBLMS && SBLMS.canvas);

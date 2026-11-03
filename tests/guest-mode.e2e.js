@@ -15,6 +15,7 @@ const DAY = 864e5;
   const browser = await chromium.launch({executablePath});
   const errs = [];
   const ctx = await browser.newContext({viewport: {width: 1280, height: 900}});
+  await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
   await ctx.route(/supabase\.co/, r => r.abort());
   try {
     const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
@@ -69,6 +70,7 @@ const DAY = 864e5;
     ok(!(await page.locator('dialog[open] #sbLater').count()), "no sign-in window is put up on opening");
     await page.screenshot({path: path.join(require("os").tmpdir(), "guest-desktop.png")});
     const ph = await browser.newPage({viewport: {width: 390, height: 844}});
+    await ph.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ph.route(/supabase\.co/, r => r.abort());
     await ph.goto(base); await ph.evaluate(() => { localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("sb:onboarded", "1"); });
     await ph.reload(); await ph.waitForTimeout(1500);

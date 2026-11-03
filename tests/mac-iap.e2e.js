@@ -23,6 +23,7 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
   const run = async sold => {
     const ctx = await browser.newContext({viewport: {width: 1280, height: 860}, userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"});
     const rc = [];
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, async r => {
       const u = new URL(r.request().url());
       if (u.pathname === "/auth/v1/user") return r.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(USER)});

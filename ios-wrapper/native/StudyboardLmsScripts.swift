@@ -2,11 +2,11 @@
 // The only scripts the StudyboardLms plugin will run in a school site: fixed pieces (UTF-8 byte length + SHA-256) with holes between them.
 let sbLmsScripts: [SBLmsScript] = [
     SBLmsScript(id: "brightspace", use: "who", lens: [580], hashes: ["696d419a0c8ae94e9108c13e1c8dfd6ebf2a082f7081401b0ec1ff134e9b296b"], holes: []),
-    SBLmsScript(id: "brightspace", use: "run", lens: [52276, 7], hashes: ["83e7dfb1a2cc0d02e6db8a39ff96a96c560a8c79742cd3b50eb0d44aaae3e432", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
+    SBLmsScript(id: "brightspace", use: "run", lens: [53104, 7], hashes: ["aedb6c4c1818b361728b33a5554417ae9b42099d84bbc5cdd137f1e7b7bb9642", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
     SBLmsScript(id: "canvas", use: "who", lens: [285], hashes: ["dcceed04f724416604630fa0318da165c3aa00082d5e7470b10cda616b86d6f1"], holes: []),
-    SBLmsScript(id: "canvas", use: "run", lens: [22689, 7], hashes: ["485a06ec51278bf04ceee66e416c245204a532dad3d6c6ca42e6602759b1caae", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
+    SBLmsScript(id: "canvas", use: "run", lens: [22689, 7], hashes: ["16b2aeca9f5cad6dbb58dadce0690c9cf2c0d024dca6ceec3eafe44a9af3fc17", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
     SBLmsScript(id: "blackboard", use: "who", lens: [448], hashes: ["0ee7783018c9c6998698f83c32a0bab586f6c9c8012cbb6322356e73a6423a3c"], holes: []),
-    SBLmsScript(id: "blackboard", use: "run", lens: [19521, 7], hashes: ["571c5f5464644e089727b767d93ebe003dcae3ef501859721e306bc52a74fb32", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
+    SBLmsScript(id: "blackboard", use: "run", lens: [19521, 7], hashes: ["a85675c3053c436efa94592c47aafffb82d0fc5678abedade097831d15aac662", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
     SBLmsScript(id: "moodle", use: "who", lens: [645], hashes: ["dbe1e199aa1cda8de99ff12389bef1d728b1e33803b265a0cacc20e80f11bf0a"], holes: []),
     SBLmsScript(id: "moodle", use: "run", lens: [17495, 7], hashes: ["0eff71ee42889821f8e88e800b87491a5bb70b24d4cdd6683a9826f31968f958", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
     SBLmsScript(id: "brightspace", use: "run", lens: [263, 17, 13, 818], hashes: ["b3d77bd943b2c40bab26ebfda3e9ecdbb70af6ae86b44e3f6fb01b9e799fa6b0", "98a77c2163e7ece5557ff1aa13d9885488539574d0cdd0f758274ddd4059e7ec", "7aec78918ff5ceed82c74c4c2087df50996c8eb8016b0a1d532ecd7ee23f33a7", "d0a6180283288de3087d03238f0864ca7dd43dc941640b0747ec70db2c6ee19a"], holes: ["digits", "digits", "digits"]),

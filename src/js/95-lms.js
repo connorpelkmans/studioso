@@ -165,7 +165,7 @@ function cleanFile(r) {
     const api = L.seen && L.seen.api;
     if (!api) return `<p class="mini lms-sub">Only from ${esc(nm)}'s calendar so far. Studyboard checks whether it's submitted when it reads ${esc(nm)} with your sign-in (the extension or the app).</p>`;
     const when = fmtWhen(api);
-    if (L.sub === "yes") return `<p class="mini lms-sub">${esc(nm)} says it's submitted (read ${esc(when)}).</p>`;
+    if (L.sub === "yes") return `<p class="mini lms-sub">${esc(nm)} says it's submitted${L.viaN ? ` (as ${esc(L.viaN)})` : ""} (read ${esc(when)}).</p>`;
     if (L.sub === "no") return `<p class="mini lms-sub">${esc(nm)} said nothing was handed in yet when it was read ${esc(when)}.</p>`;
     return `<p class="mini lms-sub">${esc(nm)} didn't say whether it's submitted when it was read ${esc(when)}${L.sub === undefined ? " (read with an older Studyboard)" : ""}. It may be tied to a calendar entry rather than the assignment itself.</p>${lr && (lr.items || []).length ? `<p style="margin:4px 0 0"><button type="button" class="btn small" data-act="lms-link" data-id="${esc(t.id)}">Link to a ${esc(nm)} Item</button></p>` : ""}`;
   }
@@ -502,6 +502,69 @@ function cleanFile(r) {
     return add;
   };
   const recKey = r => r.key || r.ou + "|" + titleKey(r.title);
+  /* The same piece of work under another name: "Sim (CH1) Reflection" on the calendar or in Content is the assignment "Sim Reflection 1".
+     Matched by the item's own id first (an assignment's db=, a quiz's qi=, a discussion topic's id in a link, in the same course);
+     by name only as a careful fallback: words folded ("simulation" = "sim", "#1" = "CH1" = "one" = "first" = "1"), its numbers must agree
+     ("Reflection 1" is never "Reflection 2"), qualifiers too (draft, part b...), quiz-like with quiz-like, due within two days, and nothing
+     else in the course may fit as well (then it's left alone) */
+  const workIdsIn = u => {
+    const s = String(u || ""); if (!s) return null;
+    const ou = (s.match(/[?&](?:ou|orgUnitId)=(\d+)/i) || s.match(/\/d2l\/(?:le\/(?:content\/|news\/)?|home\/)(\d+)\//i) || [])[1] || "";
+    let m;
+    if ((m = s.match(/[?&]db=(\d+)/i) || s.match(/\/dropbox\/(?:[a-z]+\/)*folders?\/(\d+)/i))) return {k: "f", id: m[1], ou};
+    if ((m = s.match(/[?&]qi=(\d+)/i) || s.match(/\/quizzes\/(\d+)/i))) return {k: "q", id: m[1], ou};
+    if ((m = s.match(/\/discussions\/(?:[a-z]+\/)*topics\/(\d+)/i) || s.match(/[?&]topicId=(\d+)/i))) return {k: "d", id: m[1], ou};
+    return null;
+  };
+  const WORK_SYN = {simulation: "sim", simulations: "sim", sims: "sim", simlab: "sim", reflective: "reflection", reflect: "reflection", assignmt: "assignment", asgmt: "assignment",
+    labratory: "lab", laboratory: "lab", pres: "presentation", careplan: "care plan", casestudy: "case study", hw: "homework"};
+  const WORK_NUM = {one: 1, first: 1, two: 2, second: 2, three: 3, third: 3, four: 4, fourth: 4, five: 5, fifth: 5, six: 6, sixth: 6, seven: 7, seventh: 7, eight: 8, eighth: 8,
+    nine: 9, ninth: 9, ten: 10, tenth: 10, ii: 2, iii: 3, iv: 4, vi: 6, vii: 7, viii: 8, ix: 9};
+  const WORK_GEN = new Set(["the", "an", "of", "and", "for", "to", "in", "on", "at", "by", "with", "your", "my", "ch", "chap", "chapter", "no", "num", "number", "assignment", "assignments",
+    "submission", "submissions", "submit", "dropbox", "folder", "upload", "turnitin", "due", "deadline", "module", "mod", "week", "wk", "unit", "lesson", "topic"]);
+  const workBits = s => {
+    let t = String(s || "").toLowerCase().replace(/\b[a-z]{2,5}[\s_-]?\d{4}[a-z]?\b/g, " ").replace(/\b\d{1,2}:\d{2}\s*(am|pm)?\b/g, " ")
+      .replace(/(\d)(st|nd|rd|th)\b/g, "$1").replace(/([a-z])(\d)/g, "$1 $2").replace(/(\d)([a-z])/g, "$1 $2").replace(/[^a-z0-9]+/g, " ").trim();
+    const toks = t ? t.split(" ") : [], words = new Set(), nums = new Set();
+    toks.forEach((w, i) => {
+      if (/^\d{1,3}$/.test(w)) { nums.add(String(Number(w))); return; }
+      if (/^\d+$/.test(w)) return;
+      if (WORK_NUM[w]) { nums.add(String(WORK_NUM[w])); return; }
+      if ((w === "i" || w === "v") && i === toks.length - 1 && i > 0) { nums.add(w === "i" ? "1" : "5"); return; }
+      (WORK_SYN[w] || w).split(" ").forEach(x => { if (x.length > 3 && x.endsWith("s") && !x.endsWith("ss")) x = x.slice(0, -1); if (x.length > 1 && !WORK_GEN.has(x)) words.add(x); });
+    });
+    return {words, nums: [...nums].sort().join(",")};
+  };
+  const WORK_KIND = new Set(["discussion", "forum", "post", "posting", "reply", "response", "journal", "presentation", "video", "peer", "group", "individual", "team", "lab", "quiz", "exam", "test", "draft", "outline", "proposal"]);
+  const EXY = s => /\b(quiz|quizzes|test|exam|midterm|final)\b/i.test(String(s || ""));
+  // how well two names fit as one piece of work: 0 = never; more is better (an exact name above all)
+  const workFit = (a, b) => {
+    if (!a || !b || !window.SB_SAMEOK(a, b) || EXY(a) !== EXY(b)) return 0;
+    if (titleKey(a) && titleKey(a) === titleKey(b)) return 3;
+    const A = workBits(a), B = workBits(b);
+    if (A.nums && B.nums && A.nums !== B.nums) return 0;
+    let shared = 0; A.words.forEach(w => { if (B.words.has(w)) shared++; });
+    const union = new Set([...A.words, ...B.words]).size, jac = union ? shared / union : 0;
+    // the same words, or one extra word on one side when two or more are shared
+    const extra = union - shared;
+    if (!shared || extra > 1 || (extra && shared < 2) || jac < 0.6) return 0;
+    // a word naming another kind of work on one side only ("Sim Reflection" and "Sim Reflection Discussion") is another item
+    if ([...WORK_KIND].some(w => A.words.has(w) !== B.words.has(w))) return 0;
+    return jac + (A.nums && A.nums === B.nums ? 0.3 : !A.nums && !B.nums ? 0.1 : 0);
+  };
+  // The one piece of work (out of `pool`: {ou, k, id, n, d}) a task or entry stands for, by its link's id, else by its name; null when unsure
+  const workFor = (x, pool, ous) => {
+    const sid = workIdsIn(x.url);
+    // its link names the item: that item in the same course, or nothing (a link to another item is never second-guessed by name)
+    if (sid) { const w = pool.find(p => p.k === sid.k && String(p.id) === sid.id && ous.has(String(p.ou)) && (!sid.ou || String(p.ou) === sid.ou)); return w ? {w, how: "link"} : null; }
+    const sc = pool.filter(p => ous.has(String(p.ou))).map(p => {
+      const f = workFit(x.title, p.n); if (!f) return null;
+      if (x.due && p.d && Math.abs(dayDiff(x.due, p.d)) > 2) return null;
+      return {p, s: f + (x.due && p.d ? (x.due === p.d ? 0.2 : 0.1) : 0)};
+    }).filter(Boolean).sort((a, b) => b.s - a.s);
+    if (!sc.length || (sc[1] && sc[1].s >= sc[0].s - 0.1)) return null;
+    return {w: sc[0].p, how: "name", s: sc[0].s};
+  };
   /* How well a course entry ("Module 6 Discussion post") fits a discussion topic ("Professionalism" in the forum "Module 6"):
      the module/week numbers must agree (a different number never fits), then shared words other than "discussion", "post", "group"... */
   const TOPIC_GEN = new Set(["discussion", "discussions", "post", "posts", "posting", "group", "groups", "module", "modules", "week", "weeks", "unit", "chapter", "lesson", "topic", "topics", "forum", "activity", "part", "and", "the", "for", "with", "initial", "reply", "replies", "response", "responses", "due", "board", "assignment", "your", "from", "about"]);
@@ -633,7 +696,9 @@ function cleanFile(r) {
       (c.news || []).forEach(n => out.news.push({ou: c.ou, id: n.id, title: n.title, text: String(n.text || "").slice(0, 900), long: String(n.text || "").length > 900, date: n.date, url: absUrl(origin, `/d2l/le/news/${c.ou}/${n.id}/view`)}));
     });
     const actType = a => a === 4 ? "quiz" : "";
-    const folderOf = {}; (h.courses || []).forEach(c => (c.folders || []).forEach(f => { folderOf[c.ou + "|" + f.id] = f; }));
+    const folderOf = {}, tocDb = {}; (h.courses || []).forEach(c => { (c.folders || []).forEach(f => { folderOf[c.ou + "|" + f.id] = f; }); (Array.isArray(c.tocDb) ? c.tocDb : []).forEach(x => { if (x && x.t && x.f) tocDb[c.ou + "|" + x.t] = String(x.f); }); });
+    // a Content entry's assignment: the db= in its link, else the folder its Content topic is (its topic id, in the entry or its link), else its own id
+    const dbOf = x => { const u = String(x.url || ""), tid = (u.match(/\/viewContent\/(\d+)\//i) || [])[1]; return (u.match(/[?&]db=(\d+)/) || [])[1] || (tid && tocDb[x.ou + "|" + tid]) || tocDb[x.ou + "|" + x.id] || x.id; };
     (h.items || []).forEach(x => {
       if (x.exempt || !out.synced.includes(x.ou)) return;
       const due = localDT(x.due || x.end); if (!due) return;
@@ -641,9 +706,9 @@ function cleanFile(r) {
       if (![3, 4, 5, 6].includes(x.act) && !WORKISH.test(ct.title)) return;
       const own = x.act === 3 && add.find(x.ou, ct.title, null);
       if (own && own.pid && own.pid[0] === "f" && own.due && due.date > own.due) { own.st = Object.assign({}, own.st || {}, {ext: true, was: own.due}); own.due = due.date; own.time = due.time; if (x.done) { own.done = true; own.sub = "yes"; } return; }
-      const fo = x.act === 3 ? folderOf[x.ou + "|" + ((String(x.url || "").match(/[?&]db=(\d+)/) || [])[1] || x.id)] : null;
+      const fo = x.act === 3 ? folderOf[x.ou + "|" + dbOf(x)] : null;
       const subd = !!x.done || !!(fo && fo.sub === true);
-      add({ou: x.ou, title: ct.title, type: typeFor(ct.title, actType(x.act)), due: due.date, time: due.time, start: "", notes: "", url: absUrl(origin, x.url), done: subd, tid: x.act === 6 ? String(x.id) : "",
+      add({ou: x.ou, title: ct.title, type: typeFor(ct.title, actType(x.act)), due: due.date, time: due.time, start: "", notes: "", url: absUrl(origin, x.url), fid: fo ? String(fo.id) : "", done: subd, tid: x.act === 6 ? String(x.id) : "",
         sub: subd ? "yes" : fo && fo.sub === false ? "no" : "", st: fo && fo.st || null, fb: fo && fo.fb || null, rub: fo && fo.rub || null, rx: x.act === 4 ? {k: "quiz"} : x.act === 3 ? {k: "dropbox"} : undefined});
     });
     (h.completions || []).forEach(x => { const d = localDT(x.due || x.end), r = add.find(x.ou, cleanTitle(x.name).title, d && d.date); if (r && x.done) { r.done = true; r.sub = "yes"; if (!r.doneAt && typeof x.done === "string") r.doneAt = x.done; } });
@@ -704,6 +769,24 @@ function cleanFile(r) {
     const clsOf = {}; (h.courses || []).forEach(c => (c.grades || []).forEach(g => { if (g && g.gid && g.cls) clsOf[c.ou + "|" + g.gid] = g; }));
     out.recs.forEach(r => { const g = r.gid && clsOf[r.ou + "|" + r.gid]; if (!g) return;
       r.fb = Object.assign({c: [], ra: [], sc: g.num != null ? Number(g.num) : null, of: g.den != null ? Number(g.den) : null, g: g.shown || ""}, r.fb || {}, g.cls ? {cls: g.cls} : {}); });
+    // Each assignment, quiz and discussion as read (dated by its own entry when it has one), to tie entries and tasks under other names to
+    out.work = [];
+    (h.courses || []).forEach(c => {
+      const day = (pid, ...ds) => { const r = out.recs.find(x => x.pid === pid && x.ou === c.ou); if (r && r.due) return r.due; const d = ds.map(localDT).find(Boolean); return d ? d.date : ""; };
+      const said = v => v === true ? true : v === false ? false : null;
+      (c.folders || []).forEach(f => { if (f) out.work.push({ou: c.ou, k: "f", id: String(f.id), n: f.name, d: day("f" + f.id, f.due, f.end), s: said(f.sub), at: (f.st && f.st.subAt) || ""}); });
+      (c.quizzes || []).forEach(q => { if (q) out.work.push({ou: c.ou, k: "q", id: String(q.id), n: q.name, d: day("q" + q.id, q.due, q.end), s: said(q.done), at: q.at || ""}); });
+      (c.discussions || []).forEach(d => { if (d) out.work.push({ou: c.ou, k: "d", id: String(d.id), n: d.name, d: day("d" + d.id, d.due), s: postedOf(d) ? true : said(d.posted), at: d.at || ""}); });
+    });
+    // An entry under another name (a Content or calendar entry "Sim (CH1) Reflection" for the assignment "Sim Reflection 1") takes that
+    // item's submitted status: by the item's id in its link, else by a close name that fits no other item (and no other entry) in the course
+    const fits = out.recs.filter(r => !r.pid && !r.done).map(r => ({r, m: workFor({title: r.title, due: r.due, url: r.fid ? "?db=" + r.fid + "&ou=" + r.ou : r.url}, out.work, new Set([String(r.ou)]))})).filter(x => x.m);
+    fits.forEach(({r, m}) => {
+      if (m.how === "name" && (r.sub || fits.some(o => o.r !== r && o.m.w === m.w && titleKey(o.r.title) !== titleKey(r.title)))) return;
+      const w = m.w;
+      if (w.s === true) { r.done = true; r.sub = "yes"; if (w.at && !r.doneAt) r.doneAt = w.at; } else if (w.s === false && !r.sub) r.sub = "no";
+      r.asRead = [r.asRead, `${{f: "the assignment", q: "the quiz", d: "the discussion topic"}[w.k]} ${w.n} (by ${m.how === "link" ? "its link" : "a close name"}): ${w.s === true ? "submitted" : w.s === false ? "not submitted" : "submitted: unknown"}`].filter(Boolean).join("; ");
+    });
     foldCopies(out);
     openOnly.forEach(({ou, q}) => {
       const cid = (cfg().map || {})[ou], own = ou + "|" + titleKey(cleanTitle(q.name).title), opens = localDT(q.start);
@@ -901,7 +984,7 @@ function cleanFile(r) {
     // its done time was set by a read, not by you: the read's own time, the day it was made or ticked off
     const autoDone = t => { const L = t[F] || {}, d = Number(t.doneAt) || 0; return !!d && (L.doneWhen ? Math.abs(d - L.doneWhen) < 6e4 : Math.abs(d - (Number(L.madeAt) || Number(t.created) || 0)) < 15 * 6e4 || (L.seen && Object.values(L.seen).some(v => Math.abs(d - Number(v)) < 15 * 6e4))); };
     const baseKey = t => titleKey(cleanTitle(t).title);
-    const claimedT = new Set(), kTitle = k => String(k).split("|")[1] || "", twinKey = k => String(k).split("|").length > 2;
+    const claimedT = new Set(), claimedBy = {}, kTitle = k => String(k).split("|")[1] || "", twinKey = k => String(k).split("|").length > 2;
     const findTask = (r, cid, id, key) => {
       if (cur("task", id)) return cur("task", id);
       const free = t => !FIELDS.some(f => t[f] && t[f].key) && !t.prepFor && !t.breakdownOf;
@@ -981,7 +1064,7 @@ function cleanFile(r) {
       if (r.due < from && !r.done && !state.tasks[id] && !tasks.some(t => t[F] && t[F].key === key)) return;
       const cid = courseFor(r.ou); if (cid === null) return;
       const prev = findTask(r, cid, id, key);
-      if (prev) claimedT.add(prev.id);
+      if (prev) { claimedT.add(prev.id); claimedBy[prev.id] = r; }
       if (data.src === "api") { readSub[key] = r.done ? "yes" : r.sub || ""; (r.aka || []).forEach(k => { readSub[k] = readSub[key]; }); if (prev && prev[F] && prev[F].key) readSub[prev[F].key] = readSub[key]; }
       const keep = prev && prev[F] && prev[F].key && prev[F].key !== key && data.src !== "api";
       if (keep) seen.add(prev[F].key);
@@ -994,7 +1077,7 @@ function cleanFile(r) {
           [F]: Object.assign({key, ou: r.ou, gid: r.gid || "", last: val, seen: {[data.src]: Date.now()}, doneSeen: !!r.done, ss: done ? "done" : "todo", files: r.files || [], made: data.via || data.src || "", madeAt: Date.now()}, data.src === "api" ? {item: !!r.pid} : {}, r.lateUntil ? {lateUntil: r.lateUntil} : {}, r.rx ? {rx: r.rx} : {},
             r.st ? {st: r.st} : {}, r.fb ? {fb: r.fb} : {}, r.rub ? {rub: r.rub} : {}, data.src === "api" ? {sub: r.sub || ""} : {})});
         if (r.outOf && !t[F].outOf) t[F].outOf = r.outOf;
-        put("task", t); rep.added.push(t); return;
+        put("task", t); rep.added.push(t); claimedBy[t.id] = r; return;
       }
       const t = clone(prev);
       let last = (prev[F] && prev[F].last) || null;
@@ -1022,7 +1105,7 @@ function cleanFile(r) {
       if (r.outOf) t[F].outOf = r.outOf;
       if (r.lateUntil) t[F].lateUntil = r.lateUntil;
       if (r.rx) t[F].rx = r.rx;
-      if (data.src === "api") { ["st", "fb", "rub"].forEach(k => { if (r[k]) t[F][k] = k === "fb" && !r.fb.cls && t[F].fb && t[F].fb.cls ? Object.assign({}, r.fb, {cls: t[F].fb.cls}) : r[k]; else if (k === "st") delete t[F][k]; }); t[F].sub = r.sub || ""; t[F].item = !!r.pid; }
+      if (data.src === "api") { ["st", "fb", "rub"].forEach(k => { if (r[k]) t[F][k] = k === "fb" && !r.fb.cls && t[F].fb && t[F].fb.cls ? Object.assign({}, r.fb, {cls: t[F].fb.cls}) : r[k]; else if (k === "st") delete t[F][k]; }); t[F].sub = r.sub || (prev[F] && prev[F].via ? prev[F].sub || "" : ""); t[F].item = !!r.pid; }
       const norm = normTask(t);
       if (JSON.stringify(stripSeen(norm)) !== JSON.stringify(stripSeen(prev))) { put("task", norm); if (!rep.moved.some(x => x.t.id === prev.id) && !rep.done.some(x => x.id === prev.id)) rep.updated.push(norm); }
       else if (!prev[F] || !prev[F].seen || !prev[F].seen[data.src] || Date.now() - prev[F].seen[data.src] > 7 * 864e5) put("task", norm);
@@ -1053,6 +1136,36 @@ function cleanFile(r) {
         put("task", normTask(n)); rep.done.push(n);
       } else if (!t[F].gone && !rep.gone.some(x => x.id === t.id)) rep.gone.push(t);
     });
+    /* A task that stands for an assignment (or quiz, discussion) under another name, made from the calendar link, a Content entry or
+       an earlier read: it ticks off when that item is submitted. Tied by the item's id in the task's link, else by a close name in the
+       same course that fits only that item (see workFor). Never a task that is itself an item read this time, one you ticked back,
+       or one you moved yourself */
+    if (data.src === "api" && Array.isArray(data.work) && data.work.length) {
+      const ousOf = t => { const s = new Set(); if (t[F].ou) s.add(String(t[F].ou)); data.courses.forEach(bc => { if (cidOf(bc.ou) === t.courseId) s.add(String(bc.ou)); });
+        const lo = (workIdsIn(t.link) || {}).ou || (String(t.link || "").match(/[?&]ou=(\d+)/) || [])[1]; return lo ? (s.has(lo) ? new Set([lo]) : new Set()) : s; };
+      const cands = [];
+      tasks.concat(rep.added).forEach(t0 => {
+        const t = cur("task", t0.id); if (!t || !t[F] || !t[F].key || !t.courseId || t.breakdownOf || t.prepFor) return;
+        const own = claimedBy[t.id]; if (own && (own.pid || own.done)) return;
+        if (cands.some(x => x.t.id === t.id)) return;
+        const m = workFor({title: t.title, due: t.due, url: own && own.fid ? "?db=" + own.fid + "&ou=" + own.ou : t.link}, data.work, ousOf(t)) || (t[F].last && t[F].last.title && t[F].last.title !== t.title ? workFor({title: t[F].last.title, due: t.due, url: ""}, data.work, ousOf(t)) : null);
+        if (m && !(m.how === "name" && own && own.sub)) cands.push({t, m}); // what it was read as says otherwise: that wins over a name
+      });
+      cands.forEach(({t, m}) => {
+        const w = m.w;
+        if (m.how === "name" && cands.some(x => x.t.id !== t.id && x.m.w === w && titleKey(x.t.title) !== titleKey(t.title))) return;
+        seen.add(t[F].key); // it stands for an item that's there: not gone
+        if (w.s !== true) return;
+        const L = t[F], fresh = rep.added.some(x => x.id === t.id), via = {via: w.k + w.id, viaN: String(w.n || "").slice(0, 120)};
+        readSub[L.key] = "yes";
+        if (t.status === "done") { if (L.sub !== "yes" || L.via !== via.via) { const n = clone(t); n[F] = Object.assign({}, L, {sub: "yes"}, via); put("task", normTask(n)); } return; }
+        if (!o.markDone || (L.doneSeen && !fresh) || statusMine(t) || rep.done.some(x => x.id === t.id)) return;
+        const n = clone(t); n.status = "done"; n.doneAt = whenDone(w.at, w.d || t.due, ""); n.pct = 100; n.order = nextOrder("done");
+        n[F] = Object.assign({}, L, {doneSeen: true, ss: "done", sub: "yes"}, via);
+        put("task", normTask(n));
+        if (fresh) { const i = rep.added.findIndex(x => x.id === t.id); rep.added[i] = n; } else { rep.done.push(n); rep.updated = rep.updated.filter(x => x.id !== t.id); }
+      });
+    }
     const synced = new Set(data.synced || []);
     tasks.forEach(t => { if (t[F] && t[F].key && synced.has(t[F].ou) && t[F].seen && t[F].seen[data.src] && !seen.has(t[F].key) && t.status !== "done" && t.due >= today && !cur("task", t.id)[F].gone) rep.gone.push(t); });
     if (data.src === "api") tasks.forEach(t => { const now = cur("task", t.id); if (now && t[F] && t[F].key && synced.has(t[F].ou) && seen.has(t[F].key) && !claimedT.has(t.id) && t.status !== "done" && t.due >= today && !now[F].gone && !t.prepFor && !t.breakdownOf && !rep.gone.some(x => x.id === t.id) && tasks.some(o => o.id !== t.id && claimedT.has(o.id) && o[F] && o[F].key === t[F].key)) rep.gone.push(t); });
@@ -1186,7 +1299,7 @@ function cleanFile(r) {
     rep.courses.forEach(n => L.push({k: "course", text: `Added course ${n}`}));
     rep.added.slice(0, 40).forEach(t => L.push({k: "new", id: t.id, text: `Added ${t.title}${cname(t.courseId) ? ` (${cname(t.courseId)})` : ""}${t.due ? `, due ${fmtShort(t.due)}` : ""}`}));
     rep.moved.forEach(m => L.push({k: "moved", id: m.t.id, text: `${m.t.title} is now due ${fmtDate(m.to)} (was ${fmtShort(m.from)})`}));
-    rep.done.forEach(t => L.push({k: "done", id: t.id, text: `Marked ${t.title} done: it's submitted in ${P.name}`}));
+    rep.done.forEach(t => L.push({k: "done", id: t.id, text: `Marked ${t.title} done: it's submitted in ${P.name}${t[F] && t[F].viaN && titleKey(t[F].viaN) !== titleKey(t.title) ? ` (as ${t[F].viaN})` : ""}`}));
     rep.graded.forEach(x => L.push({k: "grade", id: x.t.id, text: `Grade posted: ${x.t.title}, ${x.g.got}/${x.g.outOf}`}));
     if (rep.meet) L.push({k: "course", text: `Added class times from the syllabus to ${plural(rep.meet, "course")}`});
     if (rep.merged) L.push({k: "course", text: rep.merged === 1 ? "Merged a calendar copy into the real item" : `Merged ${rep.merged} calendar copies into the real items`});
@@ -2107,6 +2220,23 @@ function cleanFile(r) {
       r.asRead = [x.end && "closes " + x.end, said(x), "no due date of its own; dated by this calendar entry"].filter(Boolean).join("; ");
     });
     undated.forEach(u => { if (!u.used && localDT(u.x.end)) addItem(u.ou, u.x, localDT(u.x.end), "no due date; dated by when it closes"); });
+    // Each assignment, quiz and discussion as read (dated by its own entry when it has one), to tie entries and tasks under other names to
+    out.work = [];
+    (h.courses || []).forEach(c => (c.items || []).forEach(x => {
+      if (!x || !x.id) return;
+      const r = out.recs.find(y => y.pid === String(x.kind || "") + x.id && y.ou === c.ou), d = localDT(x.due || x.end);
+      out.work.push({ou: c.ou, k: x.kind === "quiz" ? "q" : x.kind === "discussion" ? "d" : "f", id: String(x.id), n: x.name, d: r && r.due ? r.due : d ? d.date : "",
+        s: x.done === true ? true : x.done === false ? false : null, at: (x.st && x.st.subAt) || x.at || ""});
+    }));
+    // An entry under another name (a Content or calendar entry "Sim (CH1) Reflection" for the assignment "Sim Reflection 1") takes that
+    // item's submitted status: by the item's id in its link, else by a close name that fits no other item (and no other entry) in the course
+    const fits = out.recs.filter(r => !r.pid && !r.done).map(r => ({r, m: workFor({title: r.title, due: r.due, url: r.fid ? "?db=" + r.fid + "&ou=" + r.ou : r.url}, out.work, new Set([String(r.ou)]))})).filter(x => x.m);
+    fits.forEach(({r, m}) => {
+      if (m.how === "name" && (r.sub || fits.some(o => o.r !== r && o.m.w === m.w && titleKey(o.r.title) !== titleKey(r.title)))) return;
+      const w = m.w;
+      if (w.s === true) { r.done = true; r.sub = "yes"; if (w.at && !r.doneAt) r.doneAt = w.at; } else if (w.s === false && !r.sub) r.sub = "no";
+      r.asRead = [r.asRead, `${{f: "the assignment", q: "the quiz", d: "the discussion topic"}[w.k]} ${w.n} (by ${m.how === "link" ? "its link" : "a close name"}): ${w.s === true ? "submitted" : w.s === false ? "not submitted" : "submitted: unknown"}`].filter(Boolean).join("; ");
+    });
     foldCopies(out);
     openOnly.forEach(({ou, x}) => {
       const cid = (cfg().map || {})[ou], own = ou + "|" + titleKey(cleanTitle(x.name).title), opens = localDT(x.start);
@@ -2151,6 +2281,8 @@ function cleanFile(r) {
       if (Array.isArray(r.aka)) r.aka = r.aka.filter(x => typeof x === "string" && x.length < 300).slice(0, 5); else delete r.aka; });
     (d.recs || []).forEach(r => { if (r.asRead != null) r.asRead = L(String(r.asRead).slice(0, 200)); });
     const nt = {}; Object.keys(d.notes && typeof d.notes === "object" ? d.notes : {}).slice(0, 60).forEach(k => { nt[String(k).slice(0, 40)] = L(String(d.notes[k]).slice(0, 300)); }); d.notes = nt;
+    if (Array.isArray(d.work)) d.work = d.work.slice(0, 2000).filter(w => w && /^[fqd]$/.test(w.k)).map(w => ({ou: String(w.ou), k: w.k, id: String(w.id).slice(0, 40), n: L(String(w.n || "").slice(0, 200)),
+      d: isDate(String(w.d || "")) ? String(w.d) : "", s: w.s === true ? true : w.s === false ? false : null, at: typeof w.at === "string" ? w.at.slice(0, 40) : ""})); else delete d.work;
     d.und = (Array.isArray(d.und) ? d.und : []).slice(0, 80).map(u => ({ou: String(u.ou), t: L(u.t), s: u.s === "yes" || u.s === "no" ? u.s : "", m: L(u.m || "")}));
     d.ask = (Array.isArray(d.ask) ? d.ask : []).slice(0, 20).map(a => ({pair: String(a.pair).slice(0, 600), ou: String(a.ou), copy: L(a.copy), real: L(a.real), due: isDate(String(a.due || "").slice(0, 10)) ? String(a.due).slice(0, 10) : "", done: !!a.done}));
     (d.evs || []).forEach(e => { e.title = L(e.title); e.notes = T(e.notes); e.where = L(e.where); });

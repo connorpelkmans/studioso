@@ -192,7 +192,7 @@ function SEED(){
     await page.click('.frow[data-fid="f1"] .f-read'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(400);
     ok(await P() === 2 && await page.inputValue("#pdrPg") === "2", "the reader opens where you left off");
     // a sticky note can be dragged to a new place; tapping it still opens its comment
-    await page.click("#pdrCmBtn");
+    await page.click('[data-act="pdr-mode"][data-id="mark"]'); await page.click("#pdrCmBtn");
     const pg2 = await page.locator('.pdr-page[data-p="2"]').boundingBox();
     await page.mouse.click(pg2.x + pg2.width * 0.3, pg2.y + pg2.height * 0.2); await page.waitForSelector("#pdrCm");
     await page.fill("#pdrCm", "Move me"); await page.keyboard.press("Control+Enter"); await page.waitForTimeout(250);

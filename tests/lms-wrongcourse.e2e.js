@@ -34,6 +34,7 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
   const browser = await chromium.launch({executablePath});
   const fresh = async tasks => {
     const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"});
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(s => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(s)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", '"local"'); } } catch (e) {} }, seed(tasks));
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));

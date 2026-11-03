@@ -2466,15 +2466,22 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     close();
     const rev = curRev(f);
     R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
-    openSheet(`<div class="sheet pdr-sheet">${head(f.name)}
+    openSheet(`<div class="sheet pdr-sheet" data-mode="read">${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit Page</button></span>
-        <span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
-        <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>
-        ${window.SBPDE ? SBPDE.readerBtn() : ""}${window.SBINK ? SBINK.readerBtn() : ""}${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}<span class="spacer"></span>
+        <span class="spacer"></span>
+        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${window.SBPDE ? SBPDE.readerBtn() : ""}</span>
+        <span class="spacer"></span>
+        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span>
+      </div>
+      <div class="pdr-bar2" role="toolbar" aria-label="Tools">
+        <span class="pdr-g-read">${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}</span>
+        <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
+        <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text to highlight it, or pick a color first</span></span>
+        <span class="spacer"></span>
         <button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>
       </div>
       <div class="pdr-main"><div class="pdr-pages" id="pdrPages" tabindex="0" aria-label="Pages"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(f.name)}…</p></div><aside class="pdr-side" id="pdrSide" hidden></aside></div>
@@ -2853,6 +2860,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-sel-cm": { const h = addFromSel(R.color); if (h) cmEdit(h.id); break; }
       case "pdr-cm": cmEdit(id); break;
       case "pdr-cm-mode": hidePop(); setNoting(!R.noting); break;
+      case "pdr-mode": {
+        // Read, Mark Up or Edit: the second row shows that mode's tools
+        const m = el.dataset.id === "mark" ? "mark" : "read"; R.mode = m;
+        if (window.SBPDE && SBPDE.active()) SBPDE.setOn(false);
+        if (m !== "mark") { if (R.noting) setNoting(false); const ink = $("#inkModeBtn"); if (ink && ink.getAttribute("aria-pressed") === "true") ink.click(); }
+        const sh = dlg.querySelector(".pdr-sheet"); if (sh) sh.dataset.mode = m;
+        dlg.querySelectorAll('[data-act="pdr-mode"]').forEach(x => x.setAttribute("aria-pressed", String(x.dataset.id === m)));
+        break;
+      }
       case "pdr-sel-note": { const h = addFromSel(R.color); if (h) hlNote(h); break; }
       case "pdr-sel-card": { const h = addFromSel(R.color); if (h) { hidePop(); cardForm(h); } break; }
       case "pdr-hl-color": { const hid = el.dataset.h; saveHl(mine().map(x => x.id === hid ? Object.assign({}, x, {c: id}) : x)); hidePop(); paint(); break; }
@@ -2881,6 +2897,18 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400px)}
 .pdr-sheet{height:100%}
 .pdr-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 16px 10px;border-bottom:1px solid var(--line)}
+.pdr-bar2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--ink) 3%,var(--surface));min-height:46px}
+.pdr-g-read,.pdr-g-mark{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
+.pdr-sheet[data-mode="edit"] .pdr-bar2{display:none}
+.pdr-markhint{color:var(--muted)}
+.pdr-modes{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.pdr-modes .pdr-mode,.pdr-modes .pde-mode{display:inline-flex;align-items:center;gap:6px;min-height:34px;height:34px;padding:0 14px;border:0;border-radius:999px;background:none;color:var(--muted);font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;box-shadow:none}
+.pdr-modes .pdr-mode svg,.pdr-modes .pde-mode svg{width:16px;height:16px;flex:none}
+.pdr-modes .pdr-mode[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.pdr-modes .pde-mode[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink,#fff)}
+.pdr-modes .pdr-mode:focus-visible,.pdr-modes .pde-mode:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pdr-saveslot:empty{display:none}
 .pdr-nav,.pdr-zoom,.pdr-cols{display:inline-flex;align-items:center;gap:4px}
 .pdr-pg input{width:3.4em;text-align:center;padding:6px 4px}
 .pdr-col{width:26px;height:26px;border-radius:50%;border:2px solid rgba(0,0,0,.18);background:var(--h);padding:0;cursor:pointer;box-shadow:inset 0 0 0 2px var(--surface)}
@@ -2938,6 +2966,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-main.with-side{grid-template-columns:minmax(0,1fr)}
   .pdr-side{position:absolute;inset:auto 0 0 0;max-height:62%;border-left:0;border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.18);border-radius:16px 16px 0 0;z-index:40}
   .pdr-bar{gap:6px;padding:6px 10px 8px}
+  .pdr-bar2{gap:6px;padding:6px 10px}
   .pdr-bar .icon-btn{width:40px;height:40px}
   .pdr-fit{min-height:40px}
 }

@@ -19,6 +19,7 @@ const SHOT = process.env.SHOT;
   try {
     const mk = async app => {
       const ctx = await browser.newContext({viewport: {width: 430, height: 900}, isMobile: true, hasTouch: true, serviceWorkers: "block"});
+      await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
       await ctx.route(/supabase\.co/, async r => {
         const u = new URL(r.request().url()), body = r.request().postData() || "", cors = {"access-control-allow-origin": "*", "access-control-allow-headers": "*"};
         if (r.request().method() === "OPTIONS") return r.fulfill({status: 204, headers: cors});

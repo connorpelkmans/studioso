@@ -24,7 +24,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   try {
-    const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1280, height: 800}}); await ctx.addInitScript(require("./consent-ok")); await ctx.route(/supabase\.co/, r => r.abort());
+    const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1280, height: 800}}); await ctx.addInitScript(require("./consent-ok")); await ctx.routeWebSocket(/supabase\.co/, ws => ws.close()); await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(() => {
       localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIOL 1200", color: "#1E9E74"}], tasks: [], settings: {}}));
       localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studyboard:tour", "done");

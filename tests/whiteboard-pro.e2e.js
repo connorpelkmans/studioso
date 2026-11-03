@@ -16,6 +16,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
   const browser = await chromium.launch({executablePath});
   const mk = async (free, seed) => {
     const ctx = await browser.newContext({viewport: {width: 1280, height: 900}});
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co|googleapis\.com/, r => r.abort());
     await ctx.addInitScript(([seed, free]) => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studyboard:notesView", "wb"); localStorage.setItem("studioso:sb", JSON.stringify("local")); }
       if (free) localStorage.setItem("studyboard:paywall-test", "1"); } catch (e) {} }, [seed || SEED, free]);

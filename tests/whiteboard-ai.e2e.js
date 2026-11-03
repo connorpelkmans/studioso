@@ -25,6 +25,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       const reply = /You read handwriting drawn on a whiteboard/.test(body) ? {found: true, text: "Mitosis"} : /picture of a student's whiteboard/.test(body) ? {title: "Cell Division", notes: NOTES} : /lecture study notes into flashcards/.test(body) ? {cards: CARDS} : {};
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(reply)}]}, finishReason: "STOP"}]})});
     });
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(([seed, ai]) => {
       window.__SB_TEST = true;

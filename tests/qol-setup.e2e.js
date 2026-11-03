@@ -44,6 +44,7 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
   // seed: a planner to start from; first: the very first run (nothing set up yet)
   const mk = async ({w = 1280, seed = null, first = false, local = true, pay = false} = {}) => {
     const ctx = await browser.newContext({viewport: {width: w, height: w < 500 ? 844 : 900}});
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(([seed, first, local, pay]) => {
       try {

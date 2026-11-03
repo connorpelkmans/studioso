@@ -61,7 +61,7 @@ function build(outFile) {
   return out;
 }
 // The native plugins' allowlist
-const NATIVE_KT = path.join(root, "android-wrapper", "app", "src", "main", "java", "com", "studioso", "app", "capture", "StudyboardLmsScripts.kt");
+const NATIVE_KT = path.join(root, "android-wrapper", "app", "src", "main", "java", "com", "studyboardapp", "studyboard", "capture", "StudyboardLmsScripts.kt");
 const NATIVE_SWIFT = path.join(root, "ios-wrapper", "native", "StudyboardLmsScripts.swift");
 // Split `text` at the markers ([marker, kind] pairs) into fixed pieces and holes
 function holes(text, marks) {

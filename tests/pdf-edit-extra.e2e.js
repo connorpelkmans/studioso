@@ -113,7 +113,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await select("swell"); await page.waitForTimeout(200);
     await page.click('.pdr-pop [data-act="pdr-sel-cm"]'); await page.waitForSelector("#pdrCm");
     await page.fill("#pdrCm", "Is this true for plant cells too?"); await page.click('.pdr-cmf button[type="submit"]'); await page.waitForTimeout(200);
-    await page.click("#pdrCmBtn");
+    await page.click('[data-act="pdr-mode"][data-id="mark"]'); await page.click("#pdrCmBtn");
     const nm = await wordAt("Student name");
     await page.mouse.click(nm.r + 260, nm.y); await page.waitForSelector("#pdrCm");
     await page.fill("#pdrCm", "Write it neatly"); await page.keyboard.press("Control+Enter"); await page.waitForTimeout(250);
@@ -130,7 +130,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     ok(await page.locator('.pde-links a.pde-link[href="https://example.edu/lab4"][target="_blank"][rel~="noopener"]').count() === 1, "a web link opens in a new tab, safely");
     await page.locator('.pde-links button.pde-link').first().click(); await page.waitForTimeout(800);
     ok(await page.evaluate(() => window.__sbProStudy.reader().cur) === 2, "a link to a place in the PDF goes there");
-    await page.waitForSelector("#pdeTocBtn:not([hidden])", {timeout: 5000});
+    await page.click('[data-act="pdr-mode"][data-id="read"]'); await page.waitForSelector("#pdeTocBtn:not([hidden])", {timeout: 5000});
     await page.click("#pdeTocBtn"); await page.waitForSelector(".pde-toc-item");
     ok(/Results/.test(await page.locator(".pde-toc").first().textContent()) && /Method/.test(await page.locator(".pde-toc").first().textContent()), "Contents lists the PDF's own headings");
     await page.locator(".pde-toc-item", {hasText: "Results"}).click(); await page.waitForTimeout(700);

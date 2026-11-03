@@ -13208,9 +13208,9 @@ function courseForm(c){
       </div>
       <fieldset><legend>Color</legend><div class="swatches cc-sw">${COURSE_COLORS.map((x, i) => `<label title="${esc(COURSE_COLOR_NAMES[i] || "")}"><input type="radio" name="color" value="${x}" ${x.toLowerCase() === String(c.color || "").toLowerCase() ? "checked" : ""} aria-label="${esc(COURSE_COLOR_NAMES[i] || "Color " + (i + 1))}"><span style="--c:${x}"></span></label>`).join("")}${(cv => `<label class="cc-custom" title="Any color"><input type="radio" name="color" id="ccRadio" value="${esc(cv)}" ${COURSE_COLORS.some(x => x.toLowerCase() === String(c.color || "").toLowerCase()) ? "" : "checked"} aria-label="Custom color"><span style="--c:${esc(cv)}"></span><input type="color" id="ccPick" value="${esc(cv)}" aria-label="Pick any color" tabindex="-1"></label>`)(/^#[0-9a-f]{6}$/i.test(c.color || "") ? c.color : "#7C3AED")}</div></fieldset>
       <fieldset class="ci-fs"><legend>Icon <span class="hint">shown in the course's circle</span></legend><div class="ci-grid" id="ciGrid" style="--c:${esc(c.color)}" data-picked="${COURSE_ICONS[c.icon] || customIcon(c.icon) ? "1" : ""}">
-        ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and AI draws it in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro() ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
+        ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and get one that matches your description, in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro() ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
         <div class="ci-ai" id="ciAi" hidden><label class="f"><span class="lh">Describe the Icon<span class="beta-sym" title="Beta: still being improved" role="img" aria-label="Beta">β</span> <span class="hint">e.g. "a stethoscope with a heart" or "a hockey stick and puck"</span></span><input type="text" id="ciAiQ" maxlength="120" autocomplete="off"></label>
-          <div class="ci-ai-row"><button type="button" class="btn primary small ai-btn" data-act="ci-ai-go">${AI_ICON} Draw It</button><span class="ci-ai-prev" id="ciAiPrev" aria-live="polite"></span><button type="button" class="btn small" data-act="ci-ai-use" id="ciAiUse" hidden>Use This Icon</button></div></div></fieldset>
+          <div class="ci-ai-row"><button type="button" class="btn primary small ai-btn" data-act="ci-ai-go">${AI_ICON} Find Icons</button><span class="ci-ai-prev" id="ciAiPrev" aria-live="polite"></span><button type="button" class="btn small" data-act="ci-ai-use" id="ciAiUse" hidden>Use This Icon</button></div></div></fieldset>
       <label class="f"><span class="lh">Links <span class="hint">one per line, optionally "Label | url"</span></span><textarea name="links" placeholder="Syllabus | https://…&#10;Canvas | https://…">${esc(linksText)}</textarea></label>
       <label class="f">Notes<textarea name="notes" maxlength="10000" placeholder="Grading breakdown, exam dates, TA contact…">${esc(c.notes)}</textarea></label>
     </div>
@@ -34356,7 +34356,7 @@ function cleanFile(r) {
     const api = L.seen && L.seen.api;
     if (!api) return `<p class="mini lms-sub">Only from ${esc(nm)}'s calendar so far. Studyboard checks whether it's submitted when it reads ${esc(nm)} with your sign-in (the extension or the app).</p>`;
     const when = fmtWhen(api);
-    if (L.sub === "yes") return `<p class="mini lms-sub">${esc(nm)} says it's submitted (read ${esc(when)}).</p>`;
+    if (L.sub === "yes") return `<p class="mini lms-sub">${esc(nm)} says it's submitted${L.viaN ? ` (as ${esc(L.viaN)})` : ""} (read ${esc(when)}).</p>`;
     if (L.sub === "no") return `<p class="mini lms-sub">${esc(nm)} said nothing was handed in yet when it was read ${esc(when)}.</p>`;
     return `<p class="mini lms-sub">${esc(nm)} didn't say whether it's submitted when it was read ${esc(when)}${L.sub === undefined ? " (read with an older Studyboard)" : ""}. It may be tied to a calendar entry rather than the assignment itself.</p>${lr && (lr.items || []).length ? `<p style="margin:4px 0 0"><button type="button" class="btn small" data-act="lms-link" data-id="${esc(t.id)}">Link to a ${esc(nm)} Item</button></p>` : ""}`;
   }
@@ -34693,6 +34693,69 @@ function cleanFile(r) {
     return add;
   };
   const recKey = r => r.key || r.ou + "|" + titleKey(r.title);
+  /* The same piece of work under another name: "Sim (CH1) Reflection" on the calendar or in Content is the assignment "Sim Reflection 1".
+     Matched by the item's own id first (an assignment's db=, a quiz's qi=, a discussion topic's id in a link, in the same course);
+     by name only as a careful fallback: words folded ("simulation" = "sim", "#1" = "CH1" = "one" = "first" = "1"), its numbers must agree
+     ("Reflection 1" is never "Reflection 2"), qualifiers too (draft, part b...), quiz-like with quiz-like, due within two days, and nothing
+     else in the course may fit as well (then it's left alone) */
+  const workIdsIn = u => {
+    const s = String(u || ""); if (!s) return null;
+    const ou = (s.match(/[?&](?:ou|orgUnitId)=(\d+)/i) || s.match(/\/d2l\/(?:le\/(?:content\/|news\/)?|home\/)(\d+)\//i) || [])[1] || "";
+    let m;
+    if ((m = s.match(/[?&]db=(\d+)/i) || s.match(/\/dropbox\/(?:[a-z]+\/)*folders?\/(\d+)/i))) return {k: "f", id: m[1], ou};
+    if ((m = s.match(/[?&]qi=(\d+)/i) || s.match(/\/quizzes\/(\d+)/i))) return {k: "q", id: m[1], ou};
+    if ((m = s.match(/\/discussions\/(?:[a-z]+\/)*topics\/(\d+)/i) || s.match(/[?&]topicId=(\d+)/i))) return {k: "d", id: m[1], ou};
+    return null;
+  };
+  const WORK_SYN = {simulation: "sim", simulations: "sim", sims: "sim", simlab: "sim", reflective: "reflection", reflect: "reflection", assignmt: "assignment", asgmt: "assignment",
+    labratory: "lab", laboratory: "lab", pres: "presentation", careplan: "care plan", casestudy: "case study", hw: "homework"};
+  const WORK_NUM = {one: 1, first: 1, two: 2, second: 2, three: 3, third: 3, four: 4, fourth: 4, five: 5, fifth: 5, six: 6, sixth: 6, seven: 7, seventh: 7, eight: 8, eighth: 8,
+    nine: 9, ninth: 9, ten: 10, tenth: 10, ii: 2, iii: 3, iv: 4, vi: 6, vii: 7, viii: 8, ix: 9};
+  const WORK_GEN = new Set(["the", "an", "of", "and", "for", "to", "in", "on", "at", "by", "with", "your", "my", "ch", "chap", "chapter", "no", "num", "number", "assignment", "assignments",
+    "submission", "submissions", "submit", "dropbox", "folder", "upload", "turnitin", "due", "deadline", "module", "mod", "week", "wk", "unit", "lesson", "topic"]);
+  const workBits = s => {
+    let t = String(s || "").toLowerCase().replace(/\b[a-z]{2,5}[\s_-]?\d{4}[a-z]?\b/g, " ").replace(/\b\d{1,2}:\d{2}\s*(am|pm)?\b/g, " ")
+      .replace(/(\d)(st|nd|rd|th)\b/g, "$1").replace(/([a-z])(\d)/g, "$1 $2").replace(/(\d)([a-z])/g, "$1 $2").replace(/[^a-z0-9]+/g, " ").trim();
+    const toks = t ? t.split(" ") : [], words = new Set(), nums = new Set();
+    toks.forEach((w, i) => {
+      if (/^\d{1,3}$/.test(w)) { nums.add(String(Number(w))); return; }
+      if (/^\d+$/.test(w)) return;
+      if (WORK_NUM[w]) { nums.add(String(WORK_NUM[w])); return; }
+      if ((w === "i" || w === "v") && i === toks.length - 1 && i > 0) { nums.add(w === "i" ? "1" : "5"); return; }
+      (WORK_SYN[w] || w).split(" ").forEach(x => { if (x.length > 3 && x.endsWith("s") && !x.endsWith("ss")) x = x.slice(0, -1); if (x.length > 1 && !WORK_GEN.has(x)) words.add(x); });
+    });
+    return {words, nums: [...nums].sort().join(",")};
+  };
+  const WORK_KIND = new Set(["discussion", "forum", "post", "posting", "reply", "response", "journal", "presentation", "video", "peer", "group", "individual", "team", "lab", "quiz", "exam", "test", "draft", "outline", "proposal"]);
+  const EXY = s => /\b(quiz|quizzes|test|exam|midterm|final)\b/i.test(String(s || ""));
+  // how well two names fit as one piece of work: 0 = never; more is better (an exact name above all)
+  const workFit = (a, b) => {
+    if (!a || !b || !window.SB_SAMEOK(a, b) || EXY(a) !== EXY(b)) return 0;
+    if (titleKey(a) && titleKey(a) === titleKey(b)) return 3;
+    const A = workBits(a), B = workBits(b);
+    if (A.nums && B.nums && A.nums !== B.nums) return 0;
+    let shared = 0; A.words.forEach(w => { if (B.words.has(w)) shared++; });
+    const union = new Set([...A.words, ...B.words]).size, jac = union ? shared / union : 0;
+    // the same words, or one extra word on one side when two or more are shared
+    const extra = union - shared;
+    if (!shared || extra > 1 || (extra && shared < 2) || jac < 0.6) return 0;
+    // a word naming another kind of work on one side only ("Sim Reflection" and "Sim Reflection Discussion") is another item
+    if ([...WORK_KIND].some(w => A.words.has(w) !== B.words.has(w))) return 0;
+    return jac + (A.nums && A.nums === B.nums ? 0.3 : !A.nums && !B.nums ? 0.1 : 0);
+  };
+  // The one piece of work (out of `pool`: {ou, k, id, n, d}) a task or entry stands for, by its link's id, else by its name; null when unsure
+  const workFor = (x, pool, ous) => {
+    const sid = workIdsIn(x.url);
+    // its link names the item: that item in the same course, or nothing (a link to another item is never second-guessed by name)
+    if (sid) { const w = pool.find(p => p.k === sid.k && String(p.id) === sid.id && ous.has(String(p.ou)) && (!sid.ou || String(p.ou) === sid.ou)); return w ? {w, how: "link"} : null; }
+    const sc = pool.filter(p => ous.has(String(p.ou))).map(p => {
+      const f = workFit(x.title, p.n); if (!f) return null;
+      if (x.due && p.d && Math.abs(dayDiff(x.due, p.d)) > 2) return null;
+      return {p, s: f + (x.due && p.d ? (x.due === p.d ? 0.2 : 0.1) : 0)};
+    }).filter(Boolean).sort((a, b) => b.s - a.s);
+    if (!sc.length || (sc[1] && sc[1].s >= sc[0].s - 0.1)) return null;
+    return {w: sc[0].p, how: "name", s: sc[0].s};
+  };
   /* How well a course entry ("Module 6 Discussion post") fits a discussion topic ("Professionalism" in the forum "Module 6"):
      the module/week numbers must agree (a different number never fits), then shared words other than "discussion", "post", "group"... */
   const TOPIC_GEN = new Set(["discussion", "discussions", "post", "posts", "posting", "group", "groups", "module", "modules", "week", "weeks", "unit", "chapter", "lesson", "topic", "topics", "forum", "activity", "part", "and", "the", "for", "with", "initial", "reply", "replies", "response", "responses", "due", "board", "assignment", "your", "from", "about"]);
@@ -34824,7 +34887,9 @@ function cleanFile(r) {
       (c.news || []).forEach(n => out.news.push({ou: c.ou, id: n.id, title: n.title, text: String(n.text || "").slice(0, 900), long: String(n.text || "").length > 900, date: n.date, url: absUrl(origin, `/d2l/le/news/${c.ou}/${n.id}/view`)}));
     });
     const actType = a => a === 4 ? "quiz" : "";
-    const folderOf = {}; (h.courses || []).forEach(c => (c.folders || []).forEach(f => { folderOf[c.ou + "|" + f.id] = f; }));
+    const folderOf = {}, tocDb = {}; (h.courses || []).forEach(c => { (c.folders || []).forEach(f => { folderOf[c.ou + "|" + f.id] = f; }); (Array.isArray(c.tocDb) ? c.tocDb : []).forEach(x => { if (x && x.t && x.f) tocDb[c.ou + "|" + x.t] = String(x.f); }); });
+    // a Content entry's assignment: the db= in its link, else the folder its Content topic is (its topic id, in the entry or its link), else its own id
+    const dbOf = x => { const u = String(x.url || ""), tid = (u.match(/\/viewContent\/(\d+)\//i) || [])[1]; return (u.match(/[?&]db=(\d+)/) || [])[1] || (tid && tocDb[x.ou + "|" + tid]) || tocDb[x.ou + "|" + x.id] || x.id; };
     (h.items || []).forEach(x => {
       if (x.exempt || !out.synced.includes(x.ou)) return;
       const due = localDT(x.due || x.end); if (!due) return;
@@ -34832,9 +34897,9 @@ function cleanFile(r) {
       if (![3, 4, 5, 6].includes(x.act) && !WORKISH.test(ct.title)) return;
       const own = x.act === 3 && add.find(x.ou, ct.title, null);
       if (own && own.pid && own.pid[0] === "f" && own.due && due.date > own.due) { own.st = Object.assign({}, own.st || {}, {ext: true, was: own.due}); own.due = due.date; own.time = due.time; if (x.done) { own.done = true; own.sub = "yes"; } return; }
-      const fo = x.act === 3 ? folderOf[x.ou + "|" + ((String(x.url || "").match(/[?&]db=(\d+)/) || [])[1] || x.id)] : null;
+      const fo = x.act === 3 ? folderOf[x.ou + "|" + dbOf(x)] : null;
       const subd = !!x.done || !!(fo && fo.sub === true);
-      add({ou: x.ou, title: ct.title, type: typeFor(ct.title, actType(x.act)), due: due.date, time: due.time, start: "", notes: "", url: absUrl(origin, x.url), done: subd, tid: x.act === 6 ? String(x.id) : "",
+      add({ou: x.ou, title: ct.title, type: typeFor(ct.title, actType(x.act)), due: due.date, time: due.time, start: "", notes: "", url: absUrl(origin, x.url), fid: fo ? String(fo.id) : "", done: subd, tid: x.act === 6 ? String(x.id) : "",
         sub: subd ? "yes" : fo && fo.sub === false ? "no" : "", st: fo && fo.st || null, fb: fo && fo.fb || null, rub: fo && fo.rub || null, rx: x.act === 4 ? {k: "quiz"} : x.act === 3 ? {k: "dropbox"} : undefined});
     });
     (h.completions || []).forEach(x => { const d = localDT(x.due || x.end), r = add.find(x.ou, cleanTitle(x.name).title, d && d.date); if (r && x.done) { r.done = true; r.sub = "yes"; if (!r.doneAt && typeof x.done === "string") r.doneAt = x.done; } });
@@ -34895,6 +34960,24 @@ function cleanFile(r) {
     const clsOf = {}; (h.courses || []).forEach(c => (c.grades || []).forEach(g => { if (g && g.gid && g.cls) clsOf[c.ou + "|" + g.gid] = g; }));
     out.recs.forEach(r => { const g = r.gid && clsOf[r.ou + "|" + r.gid]; if (!g) return;
       r.fb = Object.assign({c: [], ra: [], sc: g.num != null ? Number(g.num) : null, of: g.den != null ? Number(g.den) : null, g: g.shown || ""}, r.fb || {}, g.cls ? {cls: g.cls} : {}); });
+    // Each assignment, quiz and discussion as read (dated by its own entry when it has one), to tie entries and tasks under other names to
+    out.work = [];
+    (h.courses || []).forEach(c => {
+      const day = (pid, ...ds) => { const r = out.recs.find(x => x.pid === pid && x.ou === c.ou); if (r && r.due) return r.due; const d = ds.map(localDT).find(Boolean); return d ? d.date : ""; };
+      const said = v => v === true ? true : v === false ? false : null;
+      (c.folders || []).forEach(f => { if (f) out.work.push({ou: c.ou, k: "f", id: String(f.id), n: f.name, d: day("f" + f.id, f.due, f.end), s: said(f.sub), at: (f.st && f.st.subAt) || ""}); });
+      (c.quizzes || []).forEach(q => { if (q) out.work.push({ou: c.ou, k: "q", id: String(q.id), n: q.name, d: day("q" + q.id, q.due, q.end), s: said(q.done), at: q.at || ""}); });
+      (c.discussions || []).forEach(d => { if (d) out.work.push({ou: c.ou, k: "d", id: String(d.id), n: d.name, d: day("d" + d.id, d.due), s: postedOf(d) ? true : said(d.posted), at: d.at || ""}); });
+    });
+    // An entry under another name (a Content or calendar entry "Sim (CH1) Reflection" for the assignment "Sim Reflection 1") takes that
+    // item's submitted status: by the item's id in its link, else by a close name that fits no other item (and no other entry) in the course
+    const fits = out.recs.filter(r => !r.pid && !r.done).map(r => ({r, m: workFor({title: r.title, due: r.due, url: r.fid ? "?db=" + r.fid + "&ou=" + r.ou : r.url}, out.work, new Set([String(r.ou)]))})).filter(x => x.m);
+    fits.forEach(({r, m}) => {
+      if (m.how === "name" && (r.sub || fits.some(o => o.r !== r && o.m.w === m.w && titleKey(o.r.title) !== titleKey(r.title)))) return;
+      const w = m.w;
+      if (w.s === true) { r.done = true; r.sub = "yes"; if (w.at && !r.doneAt) r.doneAt = w.at; } else if (w.s === false && !r.sub) r.sub = "no";
+      r.asRead = [r.asRead, `${{f: "the assignment", q: "the quiz", d: "the discussion topic"}[w.k]} ${w.n} (by ${m.how === "link" ? "its link" : "a close name"}): ${w.s === true ? "submitted" : w.s === false ? "not submitted" : "submitted: unknown"}`].filter(Boolean).join("; ");
+    });
     foldCopies(out);
     openOnly.forEach(({ou, q}) => {
       const cid = (cfg().map || {})[ou], own = ou + "|" + titleKey(cleanTitle(q.name).title), opens = localDT(q.start);
@@ -35092,7 +35175,7 @@ function cleanFile(r) {
     // its done time was set by a read, not by you: the read's own time, the day it was made or ticked off
     const autoDone = t => { const L = t[F] || {}, d = Number(t.doneAt) || 0; return !!d && (L.doneWhen ? Math.abs(d - L.doneWhen) < 6e4 : Math.abs(d - (Number(L.madeAt) || Number(t.created) || 0)) < 15 * 6e4 || (L.seen && Object.values(L.seen).some(v => Math.abs(d - Number(v)) < 15 * 6e4))); };
     const baseKey = t => titleKey(cleanTitle(t).title);
-    const claimedT = new Set(), kTitle = k => String(k).split("|")[1] || "", twinKey = k => String(k).split("|").length > 2;
+    const claimedT = new Set(), claimedBy = {}, kTitle = k => String(k).split("|")[1] || "", twinKey = k => String(k).split("|").length > 2;
     const findTask = (r, cid, id, key) => {
       if (cur("task", id)) return cur("task", id);
       const free = t => !FIELDS.some(f => t[f] && t[f].key) && !t.prepFor && !t.breakdownOf;
@@ -35172,7 +35255,7 @@ function cleanFile(r) {
       if (r.due < from && !r.done && !state.tasks[id] && !tasks.some(t => t[F] && t[F].key === key)) return;
       const cid = courseFor(r.ou); if (cid === null) return;
       const prev = findTask(r, cid, id, key);
-      if (prev) claimedT.add(prev.id);
+      if (prev) { claimedT.add(prev.id); claimedBy[prev.id] = r; }
       if (data.src === "api") { readSub[key] = r.done ? "yes" : r.sub || ""; (r.aka || []).forEach(k => { readSub[k] = readSub[key]; }); if (prev && prev[F] && prev[F].key) readSub[prev[F].key] = readSub[key]; }
       const keep = prev && prev[F] && prev[F].key && prev[F].key !== key && data.src !== "api";
       if (keep) seen.add(prev[F].key);
@@ -35185,7 +35268,7 @@ function cleanFile(r) {
           [F]: Object.assign({key, ou: r.ou, gid: r.gid || "", last: val, seen: {[data.src]: Date.now()}, doneSeen: !!r.done, ss: done ? "done" : "todo", files: r.files || [], made: data.via || data.src || "", madeAt: Date.now()}, data.src === "api" ? {item: !!r.pid} : {}, r.lateUntil ? {lateUntil: r.lateUntil} : {}, r.rx ? {rx: r.rx} : {},
             r.st ? {st: r.st} : {}, r.fb ? {fb: r.fb} : {}, r.rub ? {rub: r.rub} : {}, data.src === "api" ? {sub: r.sub || ""} : {})});
         if (r.outOf && !t[F].outOf) t[F].outOf = r.outOf;
-        put("task", t); rep.added.push(t); return;
+        put("task", t); rep.added.push(t); claimedBy[t.id] = r; return;
       }
       const t = clone(prev);
       let last = (prev[F] && prev[F].last) || null;
@@ -35213,7 +35296,7 @@ function cleanFile(r) {
       if (r.outOf) t[F].outOf = r.outOf;
       if (r.lateUntil) t[F].lateUntil = r.lateUntil;
       if (r.rx) t[F].rx = r.rx;
-      if (data.src === "api") { ["st", "fb", "rub"].forEach(k => { if (r[k]) t[F][k] = k === "fb" && !r.fb.cls && t[F].fb && t[F].fb.cls ? Object.assign({}, r.fb, {cls: t[F].fb.cls}) : r[k]; else if (k === "st") delete t[F][k]; }); t[F].sub = r.sub || ""; t[F].item = !!r.pid; }
+      if (data.src === "api") { ["st", "fb", "rub"].forEach(k => { if (r[k]) t[F][k] = k === "fb" && !r.fb.cls && t[F].fb && t[F].fb.cls ? Object.assign({}, r.fb, {cls: t[F].fb.cls}) : r[k]; else if (k === "st") delete t[F][k]; }); t[F].sub = r.sub || (prev[F] && prev[F].via ? prev[F].sub || "" : ""); t[F].item = !!r.pid; }
       const norm = normTask(t);
       if (JSON.stringify(stripSeen(norm)) !== JSON.stringify(stripSeen(prev))) { put("task", norm); if (!rep.moved.some(x => x.t.id === prev.id) && !rep.done.some(x => x.id === prev.id)) rep.updated.push(norm); }
       else if (!prev[F] || !prev[F].seen || !prev[F].seen[data.src] || Date.now() - prev[F].seen[data.src] > 7 * 864e5) put("task", norm);
@@ -35244,6 +35327,36 @@ function cleanFile(r) {
         put("task", normTask(n)); rep.done.push(n);
       } else if (!t[F].gone && !rep.gone.some(x => x.id === t.id)) rep.gone.push(t);
     });
+    /* A task that stands for an assignment (or quiz, discussion) under another name, made from the calendar link, a Content entry or
+       an earlier read: it ticks off when that item is submitted. Tied by the item's id in the task's link, else by a close name in the
+       same course that fits only that item (see workFor). Never a task that is itself an item read this time, one you ticked back,
+       or one you moved yourself */
+    if (data.src === "api" && Array.isArray(data.work) && data.work.length) {
+      const ousOf = t => { const s = new Set(); if (t[F].ou) s.add(String(t[F].ou)); data.courses.forEach(bc => { if (cidOf(bc.ou) === t.courseId) s.add(String(bc.ou)); });
+        const lo = (workIdsIn(t.link) || {}).ou || (String(t.link || "").match(/[?&]ou=(\d+)/) || [])[1]; return lo ? (s.has(lo) ? new Set([lo]) : new Set()) : s; };
+      const cands = [];
+      tasks.concat(rep.added).forEach(t0 => {
+        const t = cur("task", t0.id); if (!t || !t[F] || !t[F].key || !t.courseId || t.breakdownOf || t.prepFor) return;
+        const own = claimedBy[t.id]; if (own && (own.pid || own.done)) return;
+        if (cands.some(x => x.t.id === t.id)) return;
+        const m = workFor({title: t.title, due: t.due, url: own && own.fid ? "?db=" + own.fid + "&ou=" + own.ou : t.link}, data.work, ousOf(t)) || (t[F].last && t[F].last.title && t[F].last.title !== t.title ? workFor({title: t[F].last.title, due: t.due, url: ""}, data.work, ousOf(t)) : null);
+        if (m && !(m.how === "name" && own && own.sub)) cands.push({t, m}); // what it was read as says otherwise: that wins over a name
+      });
+      cands.forEach(({t, m}) => {
+        const w = m.w;
+        if (m.how === "name" && cands.some(x => x.t.id !== t.id && x.m.w === w && titleKey(x.t.title) !== titleKey(t.title))) return;
+        seen.add(t[F].key); // it stands for an item that's there: not gone
+        if (w.s !== true) return;
+        const L = t[F], fresh = rep.added.some(x => x.id === t.id), via = {via: w.k + w.id, viaN: String(w.n || "").slice(0, 120)};
+        readSub[L.key] = "yes";
+        if (t.status === "done") { if (L.sub !== "yes" || L.via !== via.via) { const n = clone(t); n[F] = Object.assign({}, L, {sub: "yes"}, via); put("task", normTask(n)); } return; }
+        if (!o.markDone || (L.doneSeen && !fresh) || statusMine(t) || rep.done.some(x => x.id === t.id)) return;
+        const n = clone(t); n.status = "done"; n.doneAt = whenDone(w.at, w.d || t.due, ""); n.pct = 100; n.order = nextOrder("done");
+        n[F] = Object.assign({}, L, {doneSeen: true, ss: "done", sub: "yes"}, via);
+        put("task", normTask(n));
+        if (fresh) { const i = rep.added.findIndex(x => x.id === t.id); rep.added[i] = n; } else { rep.done.push(n); rep.updated = rep.updated.filter(x => x.id !== t.id); }
+      });
+    }
     const synced = new Set(data.synced || []);
     tasks.forEach(t => { if (t[F] && t[F].key && synced.has(t[F].ou) && t[F].seen && t[F].seen[data.src] && !seen.has(t[F].key) && t.status !== "done" && t.due >= today && !cur("task", t.id)[F].gone) rep.gone.push(t); });
     if (data.src === "api") tasks.forEach(t => { const now = cur("task", t.id); if (now && t[F] && t[F].key && synced.has(t[F].ou) && seen.has(t[F].key) && !claimedT.has(t.id) && t.status !== "done" && t.due >= today && !now[F].gone && !t.prepFor && !t.breakdownOf && !rep.gone.some(x => x.id === t.id) && tasks.some(o => o.id !== t.id && claimedT.has(o.id) && o[F] && o[F].key === t[F].key)) rep.gone.push(t); });
@@ -35377,7 +35490,7 @@ function cleanFile(r) {
     rep.courses.forEach(n => L.push({k: "course", text: `Added course ${n}`}));
     rep.added.slice(0, 40).forEach(t => L.push({k: "new", id: t.id, text: `Added ${t.title}${cname(t.courseId) ? ` (${cname(t.courseId)})` : ""}${t.due ? `, due ${fmtShort(t.due)}` : ""}`}));
     rep.moved.forEach(m => L.push({k: "moved", id: m.t.id, text: `${m.t.title} is now due ${fmtDate(m.to)} (was ${fmtShort(m.from)})`}));
-    rep.done.forEach(t => L.push({k: "done", id: t.id, text: `Marked ${t.title} done: it's submitted in ${P.name}`}));
+    rep.done.forEach(t => L.push({k: "done", id: t.id, text: `Marked ${t.title} done: it's submitted in ${P.name}${t[F] && t[F].viaN && titleKey(t[F].viaN) !== titleKey(t.title) ? ` (as ${t[F].viaN})` : ""}`}));
     rep.graded.forEach(x => L.push({k: "grade", id: x.t.id, text: `Grade posted: ${x.t.title}, ${x.g.got}/${x.g.outOf}`}));
     if (rep.meet) L.push({k: "course", text: `Added class times from the syllabus to ${plural(rep.meet, "course")}`});
     if (rep.merged) L.push({k: "course", text: rep.merged === 1 ? "Merged a calendar copy into the real item" : `Merged ${rep.merged} calendar copies into the real items`});
@@ -36298,6 +36411,23 @@ function cleanFile(r) {
       r.asRead = [x.end && "closes " + x.end, said(x), "no due date of its own; dated by this calendar entry"].filter(Boolean).join("; ");
     });
     undated.forEach(u => { if (!u.used && localDT(u.x.end)) addItem(u.ou, u.x, localDT(u.x.end), "no due date; dated by when it closes"); });
+    // Each assignment, quiz and discussion as read (dated by its own entry when it has one), to tie entries and tasks under other names to
+    out.work = [];
+    (h.courses || []).forEach(c => (c.items || []).forEach(x => {
+      if (!x || !x.id) return;
+      const r = out.recs.find(y => y.pid === String(x.kind || "") + x.id && y.ou === c.ou), d = localDT(x.due || x.end);
+      out.work.push({ou: c.ou, k: x.kind === "quiz" ? "q" : x.kind === "discussion" ? "d" : "f", id: String(x.id), n: x.name, d: r && r.due ? r.due : d ? d.date : "",
+        s: x.done === true ? true : x.done === false ? false : null, at: (x.st && x.st.subAt) || x.at || ""});
+    }));
+    // An entry under another name (a Content or calendar entry "Sim (CH1) Reflection" for the assignment "Sim Reflection 1") takes that
+    // item's submitted status: by the item's id in its link, else by a close name that fits no other item (and no other entry) in the course
+    const fits = out.recs.filter(r => !r.pid && !r.done).map(r => ({r, m: workFor({title: r.title, due: r.due, url: r.fid ? "?db=" + r.fid + "&ou=" + r.ou : r.url}, out.work, new Set([String(r.ou)]))})).filter(x => x.m);
+    fits.forEach(({r, m}) => {
+      if (m.how === "name" && (r.sub || fits.some(o => o.r !== r && o.m.w === m.w && titleKey(o.r.title) !== titleKey(r.title)))) return;
+      const w = m.w;
+      if (w.s === true) { r.done = true; r.sub = "yes"; if (w.at && !r.doneAt) r.doneAt = w.at; } else if (w.s === false && !r.sub) r.sub = "no";
+      r.asRead = [r.asRead, `${{f: "the assignment", q: "the quiz", d: "the discussion topic"}[w.k]} ${w.n} (by ${m.how === "link" ? "its link" : "a close name"}): ${w.s === true ? "submitted" : w.s === false ? "not submitted" : "submitted: unknown"}`].filter(Boolean).join("; ");
+    });
     foldCopies(out);
     openOnly.forEach(({ou, x}) => {
       const cid = (cfg().map || {})[ou], own = ou + "|" + titleKey(cleanTitle(x.name).title), opens = localDT(x.start);
@@ -36342,6 +36472,8 @@ function cleanFile(r) {
       if (Array.isArray(r.aka)) r.aka = r.aka.filter(x => typeof x === "string" && x.length < 300).slice(0, 5); else delete r.aka; });
     (d.recs || []).forEach(r => { if (r.asRead != null) r.asRead = L(String(r.asRead).slice(0, 200)); });
     const nt = {}; Object.keys(d.notes && typeof d.notes === "object" ? d.notes : {}).slice(0, 60).forEach(k => { nt[String(k).slice(0, 40)] = L(String(d.notes[k]).slice(0, 300)); }); d.notes = nt;
+    if (Array.isArray(d.work)) d.work = d.work.slice(0, 2000).filter(w => w && /^[fqd]$/.test(w.k)).map(w => ({ou: String(w.ou), k: w.k, id: String(w.id).slice(0, 40), n: L(String(w.n || "").slice(0, 200)),
+      d: isDate(String(w.d || "")) ? String(w.d) : "", s: w.s === true ? true : w.s === false ? false : null, at: typeof w.at === "string" ? w.at.slice(0, 40) : ""})); else delete d.work;
     d.und = (Array.isArray(d.und) ? d.und : []).slice(0, 80).map(u => ({ou: String(u.ou), t: L(u.t), s: u.s === "yes" || u.s === "no" ? u.s : "", m: L(u.m || "")}));
     d.ask = (Array.isArray(d.ask) ? d.ask : []).slice(0, 20).map(a => ({pair: String(a.pair).slice(0, 600), ou: String(a.ou), copy: L(a.copy), real: L(a.real), due: isDate(String(a.due || "").slice(0, 10)) ? String(a.due).slice(0, 10) : "", done: !!a.done}));
     (d.evs || []).forEach(e => { e.title = L(e.title); e.notes = T(e.notes); e.where = L(e.where); });
@@ -75461,15 +75593,22 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     close();
     const rev = curRev(f);
     R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
-    openSheet(`<div class="sheet pdr-sheet">${head(f.name)}
+    openSheet(`<div class="sheet pdr-sheet" data-mode="read">${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit Page</button></span>
-        <span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
-        <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>
-        ${window.SBPDE ? SBPDE.readerBtn() : ""}${window.SBINK ? SBINK.readerBtn() : ""}${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}<span class="spacer"></span>
+        <span class="spacer"></span>
+        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${window.SBPDE ? SBPDE.readerBtn() : ""}</span>
+        <span class="spacer"></span>
+        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span>
+      </div>
+      <div class="pdr-bar2" role="toolbar" aria-label="Tools">
+        <span class="pdr-g-read">${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}</span>
+        <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
+        <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text to highlight it, or pick a color first</span></span>
+        <span class="spacer"></span>
         <button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>
       </div>
       <div class="pdr-main"><div class="pdr-pages" id="pdrPages" tabindex="0" aria-label="Pages"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(f.name)}…</p></div><aside class="pdr-side" id="pdrSide" hidden></aside></div>
@@ -75848,6 +75987,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-sel-cm": { const h = addFromSel(R.color); if (h) cmEdit(h.id); break; }
       case "pdr-cm": cmEdit(id); break;
       case "pdr-cm-mode": hidePop(); setNoting(!R.noting); break;
+      case "pdr-mode": {
+        // Read, Mark Up or Edit: the second row shows that mode's tools
+        const m = el.dataset.id === "mark" ? "mark" : "read"; R.mode = m;
+        if (window.SBPDE && SBPDE.active()) SBPDE.setOn(false);
+        if (m !== "mark") { if (R.noting) setNoting(false); const ink = $("#inkModeBtn"); if (ink && ink.getAttribute("aria-pressed") === "true") ink.click(); }
+        const sh = dlg.querySelector(".pdr-sheet"); if (sh) sh.dataset.mode = m;
+        dlg.querySelectorAll('[data-act="pdr-mode"]').forEach(x => x.setAttribute("aria-pressed", String(x.dataset.id === m)));
+        break;
+      }
       case "pdr-sel-note": { const h = addFromSel(R.color); if (h) hlNote(h); break; }
       case "pdr-sel-card": { const h = addFromSel(R.color); if (h) { hidePop(); cardForm(h); } break; }
       case "pdr-hl-color": { const hid = el.dataset.h; saveHl(mine().map(x => x.id === hid ? Object.assign({}, x, {c: id}) : x)); hidePop(); paint(); break; }
@@ -75876,6 +76024,18 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400px)}
 .pdr-sheet{height:100%}
 .pdr-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 16px 10px;border-bottom:1px solid var(--line)}
+.pdr-bar2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--ink) 3%,var(--surface));min-height:46px}
+.pdr-g-read,.pdr-g-mark{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
+.pdr-sheet[data-mode="edit"] .pdr-bar2{display:none}
+.pdr-markhint{color:var(--muted)}
+.pdr-modes{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.pdr-modes .pdr-mode,.pdr-modes .pde-mode{display:inline-flex;align-items:center;gap:6px;min-height:34px;height:34px;padding:0 14px;border:0;border-radius:999px;background:none;color:var(--muted);font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;box-shadow:none}
+.pdr-modes .pdr-mode svg,.pdr-modes .pde-mode svg{width:16px;height:16px;flex:none}
+.pdr-modes .pdr-mode[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.pdr-modes .pde-mode[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink,#fff)}
+.pdr-modes .pdr-mode:focus-visible,.pdr-modes .pde-mode:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pdr-saveslot:empty{display:none}
 .pdr-nav,.pdr-zoom,.pdr-cols{display:inline-flex;align-items:center;gap:4px}
 .pdr-pg input{width:3.4em;text-align:center;padding:6px 4px}
 .pdr-col{width:26px;height:26px;border-radius:50%;border:2px solid rgba(0,0,0,.18);background:var(--h);padding:0;cursor:pointer;box-shadow:inset 0 0 0 2px var(--surface)}
@@ -75933,6 +76093,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-main.with-side{grid-template-columns:minmax(0,1fr)}
   .pdr-side{position:absolute;inset:auto 0 0 0;max-height:62%;border-left:0;border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.18);border-radius:16px 16px 0 0;z-index:40}
   .pdr-bar{gap:6px;padding:6px 10px 8px}
+  .pdr-bar2{gap:6px;padding:6px 10px}
   .pdr-bar .icon-btn{width:40px;height:40px}
   .pdr-fit{min-height:40px}
 }
@@ -80418,7 +80579,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   function layerOf(n){
     const pg = E && E.pages.get(n); if (!pg || !pg.el.isConnected) return null;
     let L = pg.el.querySelector(".pde-layer");
-    if (!L) { L = document.createElement("div"); L.className = "pde-layer"; L.dataset.p = n; pg.el.appendChild(L); }
+    if (!L) { L = document.createElement("div"); L.className = "pde-layer sm-skip"; L.dataset.p = n; pg.el.appendChild(L); }
     return L;
   }
   const px = v => v.toFixed(2) + "px";
@@ -80510,7 +80671,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const anns = await annsOf(pg.page); if (!E || !pg.el.isConnected) return;
     let F = pg.el.querySelector(".pde-form");
     if (!anns.length) { if (F) F.remove(); return; }
-    if (!F) { F = document.createElement("div"); F.className = "pde-form"; pg.el.appendChild(F); }
+    if (!F) { F = document.createElement("div"); F.className = "pde-form sm-skip"; pg.el.appendChild(F); }
     if (F.contains(document.activeElement)) return;   // not while someone is typing in it
     F.innerHTML = anns.map(a => {
       const [x0, y0] = toVp(pg, a.rect[0], a.rect[1]), [x1, y1] = toVp(pg, a.rect[2], a.rect[3]), x = Math.min(x0, x1), y = Math.min(y0, y1), w = Math.abs(x1 - x0), h = Math.abs(y1 - y0);
@@ -80699,7 +80860,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (!E || !E.on || ev.button > 0) return;
     const pg = pageOfEv(ev); if (!pg || ev.target.closest(".pde-e.editing,.pde-field,.pde-oldlink")) return;
     const hitEl = ev.target.closest(".pde-e"), at = local(pg, ev);
-    if (ev.target.closest(".pde-picsel") && E.picSel) { ev.preventDefault(); E.drag = {kind: "picnew", pg, start: at, el: ev.target.closest(".pde-picsel"), moved: false}; return; }
+    if (ev.target.closest(".pde-picsel") && E.picSel) {
+      ev.preventDefault(); const el = ev.target.closest(".pde-picsel");
+      // the picture itself follows the pointer, and its old place shows blank, as it will once it's moved
+      let cover = null; try { const src = cropOf(pg, picBox(E.picSel.m)); if (src) { el.style.background = `url("${src}") center / 100% 100% no-repeat`; cover = document.createElement("i"); cover.className = "pde-cover pde-cover-live"; cover.style.cssText = `left:${el.style.left};top:${el.style.top};width:${el.style.width};height:${el.style.height};background:#fff`; el.before(cover); } } catch (err) {}
+      E.drag = {kind: "picnew", pg, start: at, el, cover, moved: false}; return;
+    }
     if (hitEl && E.multi && E.multi.size > 1 && E.multi.has(hitEl.dataset.e) && !ev.shiftKey) {
       const list = picked().filter(e => e.p === pg.n && movable(e)); if (list.length) { ev.preventDefault(); E.drag = {kind: "multi", pg, list, start: at, moved: false}; return; }
     }
@@ -80725,8 +80891,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     }
     const dx = at.x - d.start.x, dy = at.y - d.start.y; if (Math.hypot(dx, dy) > 3) d.moved = true;
     if (d.kind === "picnew") { d.el.style.translate = `${dx}px ${dy}px`; return; }
-    if (d.kind === "multi") { d.list.forEach(e => { const el = L.querySelector(`[data-e="${CSS.escape(e.id)}"]`); if (el) el.style.translate = `${dx}px ${dy}px`; }); return; }
-    if (d.kind === "move") { const el = L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`); if (el) el.style.translate = `${dx}px ${dy}px`; return; }
+    if (d.kind === "multi") { d.list.forEach(e => shift(L.querySelector(`[data-e="${CSS.escape(e.id)}"]`), `${dx}px ${dy}px`)); return; }
+    if (d.kind === "move") { shift(L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`), `${dx}px ${dy}px`); return; }
     // resizing or moving a line's end: shown live by drawing the changed copy
     const next = resized(d, at); if (!next) return;
     const el = L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`);
@@ -80739,6 +80905,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     }
     d.next = next;
   });
+  // something being dragged follows the pointer; a moved picture's white cover stays where the picture was (it hides the original there)
+  function shift(el, t){ if (!el) return; if (el.classList.contains("k-x")) el.querySelectorAll(":scope > :not(.pde-cover)").forEach(c => { c.style.translate = t; }); else el.style.translate = t; }
   function resized(d, at){
     const e = d.e, [x, y] = toPdf(d.pg, at.x, at.y);
     if (d.kind === "end") { const pts = e.pts.slice(); pts[(d.end - 1) * 2] = x; pts[(d.end - 1) * 2 + 1] = y; return Object.assign({}, e, {pts}); }
@@ -80781,20 +80949,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       return;
     }
     if (d.kind === "picnew") {
-      d.el.style.translate = ""; if (!d.moved) return;
+      d.el.style.translate = ""; if (!d.moved) { if (d.cover) d.cover.remove(); d.el.style.background = ""; return; }
       const ps = E.picSel, b = picBox(ps.m), [ox, oy] = toVp(d.pg, b.o[0], b.o[1]), [nx, ny] = toPdf(d.pg, ox + at.x - d.start.x, oy + at.y - d.start.y);
       const e = {id: uid(), a: E.rev, p: ps.p, k: "x", i: ps.i, m0: ps.m, o: [nx, ny], w: b.w, h: b.h, bg: ps.bg || "#ffffff", at: Date.now()};
       E.picSel = null; E.sel = e.id; save(mine().filter(x => !(x.k === "x" && x.p === e.p && x.i === e.i)).concat([e]), "Picture moved"); E.justMade = Date.now(); return;
     }
     if (d.kind === "multi") {
-      d.list.forEach(e => { const el = L && L.querySelector(`[data-e="${CSS.escape(e.id)}"]`); if (el) el.style.translate = ""; });
+      d.list.forEach(e => shift(L && L.querySelector(`[data-e="${CSS.escape(e.id)}"]`), ""));
       if (!d.moved) return;
       const [ox, oy] = toPdf(d.pg, d.start.x, d.start.y), [nx, ny] = toPdf(d.pg, at.x, at.y), mx = nx - ox, my = ny - oy;
       const moved = new Map(d.list.map(e => { const x = Object.assign({}, e, {o: [e.o[0] + mx, e.o[1] + my]}); if (e.pts) x.pts = [e.pts[0] + mx, e.pts[1] + my, e.pts[2] + mx, e.pts[3] + my]; return [e.id, x]; }));
       save(mine().map(x => moved.get(x.id) || x), `Moved ${moved.size} items`); E.justMade = Date.now(); return;
     }
     if (d.kind === "move") {
-      const el = L && L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`); if (el) el.style.translate = "";
+      shift(L && L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`), "");
       if (!d.moved) return;
       const [ox, oy] = toVp(d.pg, d.e.o[0], d.e.o[1]), [nx, ny] = toPdf(d.pg, ox + at.x - d.start.x, oy + at.y - d.start.y), dx = nx - d.e.o[0], dy = ny - d.e.o[1];
       const moved = Object.assign({}, d.e, {o: [nx, ny]}); if (d.e.pts) moved.pts = [d.e.pts[0] + dx, d.e.pts[1] + dy, d.e.pts[2] + dx, d.e.pts[3] + dy];
@@ -81175,7 +81343,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
     return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${MORE.some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((MORE.find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${MORE.map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span></span>
       <span class="spacer"></span>
-      <span class="pde-save"><button type="button" class="btn small" data-act="pde-dl" title="Download PDF">${ico(IC.down)}<span class="pde-lbl">Download PDF</span></button><button type="button" class="btn small primary" data-act="pde-save"${n ? "" : " disabled"}>${ico(IC.save)}Save${n ? ` ${n} Edit${n === 1 ? "" : "s"}` : ""}</button></span>
+
       <div class="pde-sub">
       <span class="pde-fmt" role="group" aria-label="Text style"${txt ? "" : " hidden"}>
         <select id="pdeFam" aria-label="Font">${e && (e.k === "t" || e.k === "p") ? `<option value="o"${fam === "o" ? " selected" : ""}>Original Font</option>` : ""}<option value="h"${fam === "h" ? " selected" : ""}>Sans</option><option value="t"${fam === "t" ? " selected" : ""}>Serif</option><option value="c"${fam === "c" ? " selected" : ""}>Mono</option>
@@ -81195,6 +81363,11 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     let b = sheet.querySelector(".pde-bar");
     const btn = $("#pdeBtn"); if (btn) { btn.setAttribute("aria-pressed", String(E.on)); const c = btn.querySelector("b"); const n = mine().length; if (c) { c.textContent = n ? String(n) : ""; c.hidden = !n; } }
     const pages = $("#pdrPages"); if (pages) { pages.classList.toggle("pde-on", E.on); pages.dataset.pdeTool = E.place ? "place" : E.tool; }
+    // Save sits in the top row, beside Download, while editing
+    const slot = sheet.querySelector("#pdrSaveSlot"), nE = mine().length;
+    if (slot) slot.innerHTML = E.on ? `<button type="button" class="btn small primary" data-act="pde-save"${nE ? "" : " disabled"}>${ico(IC.save)}Save${nE ? ` ${nE} Edit${nE === 1 ? "" : "s"}` : ""}</button>` : "";
+    sheet.dataset.mode = E.on ? "edit" : ((R() && R().mode) || "read");
+    dlg.querySelectorAll('[data-act="pdr-mode"]').forEach(x => x.setAttribute("aria-pressed", String(!E.on && x.dataset.id === sheet.dataset.mode)));
     if (!E.on) { if (b) b.remove(); return; }
     const ae = document.activeElement, focusId = ae && b && b.contains(ae) ? ae.id || ae.dataset.act + (ae.dataset.id || "") : "", caret = ae && ae.id && /^pdeFind/.test(ae.id) ? ae.selectionStart : null;
     if (!b) { b = document.createElement("div"); b.className = "pde-bar sm-skip"; b.setAttribute("role", "toolbar"); b.setAttribute("aria-label", "Edit PDF"); sheet.querySelector(".pdr-bar").after(b); }
@@ -81243,6 +81416,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   async function useFont(id){ const e = selected(); if (!e || !(e.k === "t" || e.k === "n" || e.k === "p")) { toast("Pick some text first, then its font"); return; } await fontReady(id); restyle({ff: id, fn: fontName(id)}); }
   // the More menu closes on a click elsewhere or Escape
   document.addEventListener("click", ev => { if (E && E.more && !(ev.target.closest && ev.target.closest(".pde-more-wrap"))) { E.more = false; bar(); } }, true);
+  // the Download menu closes on a click anywhere else, and after a choice
+  document.addEventListener("click", ev => { const m = document.querySelector(".pdr-dlmenu"); if (!m) return; const inSplit = ev.target.closest && ev.target.closest(".pdr-split"); if (inSplit && !ev.target.closest(".pde-mi")) return; setTimeout(() => { m.remove(); const b = document.querySelector('[data-act="pde-dlmenu"]'); if (b) b.setAttribute("aria-expanded", "false"); }, 0); }, true);
   document.addEventListener("keydown", ev => { if (E && E.more && ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); E.more = false; bar(); const b = dlg.querySelector('[data-act="pde-more"]'); if (b) b.focus(); } }, true);
   // keeps a click on the bar from ending the text being typed
   document.addEventListener("pointerdown", ev => { if (E && E.ed && ev.target.closest && ev.target.closest(".pde-bar") && !ev.target.closest("select,input,label")) ev.preventDefault(); }, true);
@@ -81369,6 +81544,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const S = session(); if (!S) return true;
     switch (act) {
       case "pde-mode": setOn(!S.on); break;
+      case "pde-dlmenu": {
+        const wrap = el.closest(".pdr-split"), open = wrap.querySelector(".pdr-dlmenu");
+        if (open) { open.remove(); el.setAttribute("aria-expanded", "false"); break; }
+        wrap.insertAdjacentHTML("beforeend", `<div class="pde-menu pdr-dlmenu" role="menu"><button type="button" role="menuitem" class="pde-mi" data-act="pde-dl">${ico(IC.down)}<span><b>Download PDF</b><span class="mini">This PDF with your edits</span></span></button><button type="button" role="menuitem" class="pde-mi" data-act="pde-ti">${ico('<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 14l2 2 4-4"/>')}<span><b>Turn In…</b><span class="mini">A copy to hand in: your name and the date at the top, page numbers, locked, under a size</span></span></button></div>`);
+        el.setAttribute("aria-expanded", "true"); setTimeout(() => { const m = wrap.querySelector(".pdr-dlmenu .pde-mi"); if (m) m.focus(); }, 20); break;
+      }
       case "pde-more": S.more = !S.more; bar(); if (S.more) setTimeout(() => { const m = dlg.querySelector(".pde-mi"); if (m) m.focus(); }, 20); break;
       case "pde-tool":
         if (S.ed) commit(); S.place = null; if (S.more) { S.more = false; bar(); }
@@ -81698,7 +81879,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const pg = E && E.pages.get(n); if (!pg) return;
     const links = (await allAnns(pg.page)).filter(a => a.subtype === "Link" && (a.url || a.dest || a.action)); if (!E || !pg.el.isConnected) return;
     let Lk = pg.el.querySelector(".pde-links"); if (!links.length) { if (Lk) Lk.remove(); return; }
-    if (!Lk) { Lk = document.createElement("div"); Lk.className = "pde-links"; pg.el.appendChild(Lk); }
+    if (!Lk) { Lk = document.createElement("div"); Lk.className = "pde-links sm-skip"; pg.el.appendChild(Lk); }
     Lk.innerHTML = links.map((a, k) => {
       const [x0, y0] = toVp(pg, a.rect[0], a.rect[1]), [x1, y1] = toVp(pg, a.rect[2], a.rect[3]), st = `left:${px(Math.min(x0, x1))};top:${px(Math.min(y0, y1))};width:${px(Math.abs(x1 - x0))};height:${px(Math.abs(y1 - y0))}`;
       // only web and email links open; anything else (scripts, files) is left alone
@@ -82515,8 +82696,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // the reader's own tools: read aloud, the PDF's contents, and comparing versions
     readerTools(){
       const r = R(), f = r && state.files[r.fid];
-      return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF">${AI_ICON}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF">${AI_ICON}<span class="pde-lbl">Study</span></button><button type="button" class="btn small pde-rt" data-act="pde-ti" title="Turn In">${ico('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>')}<span class="pde-lbl">Turn In</span></button>`;
+      return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}`;
     },
+    readerAi: () => `<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF">${AI_ICON}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF">${AI_ICON}<span class="pde-lbl">Study</span></button>`,
+    // Download, and its menu: Turn In (a copy ready to hand in)
+    dlBtns: () => `<span class="pdr-split"><button type="button" class="btn small" data-act="pde-dl" title="Download this PDF with your edits">${ico(IC.down)}<span class="pde-lbl">Download</span></button><button type="button" class="btn small pdr-dl-more" data-act="pde-dlmenu" aria-haspopup="menu" aria-expanded="false" aria-label="More ways to download" title="More ways to download">${ico('<path d="M7 10l5 5 5-5"/>')}</button></span>`,
+    setOn: on => setOn(on),
     scanBtn: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small pde-scan-btn" data-act="pde-scan">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Scan to PDF</button>`,
     scan: () => scanOpen(null),
     lib: {loadLib, loadFontkit, recode, protect, deliver, editedName, pdfBytesOf, ocrRead, ocrApply, aiWhoGets, me, todayText, imgData, keepImage, panelHead, ico, IC},
@@ -82618,8 +82803,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-pb{flex:1;min-height:0;overflow:auto;padding:14px 18px;display:grid;gap:12px;align-content:start}
 .pde-pf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 18px;border-top:1px solid var(--line)}
 /* every button with an icon in the editor: the icon centred beside its label */
-.pde-bar .btn,.pde-panel .btn,.pde-pf .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
-.pde-bar .btn > svg,.pde-panel .btn > svg,.pde-pf .btn > svg{flex:none;width:16px;height:16px}
+.pde-bar .btn,.pde-panel .btn,.pde-pf .btn,.pdr-bar .btn,.pdr-bar2 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.pde-bar .btn > svg,.pde-panel .btn > svg,.pde-pf .btn > svg,.pdr-bar .btn > svg,.pdr-bar2 .btn > svg{flex:none;width:16px;height:16px}
+.pde-mi > svg{flex:none;width:18px;height:18px}
+.pdr-bar2 .spacer,.pdr-bar .spacer{flex:1}
 .pde-pf .spacer{flex:1}
 .pde-panel.sign,.pde-panel.fonts{inset:auto 0 auto 0;top:0;max-height:100%;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .pde-fonts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
@@ -82693,6 +82880,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .mini.bad{color:var(--late,#c0262d)}
 .pde-on[data-pde-tool="stamp"] .pde-layer,.pde-on[data-pde-tool="link"] .pde-layer,.pde-on[data-pde-tool="field"] .pde-layer{cursor:crosshair;touch-action:none}
 .pde-more-wrap{position:relative;display:inline-flex}
+.pdr-split{position:relative;display:inline-flex}
+.pdr-split > .btn:first-child{border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0}
+.pdr-split > .pdr-dl-more{border-top-left-radius:0;border-bottom-left-radius:0;padding-left:8px;padding-right:8px;min-width:0}
+.pdr-dlmenu{left:auto;right:0;min-width:290px}
 .pde-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:70;display:grid;min-width:250px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.2);padding:6px}
 .pde-mi{display:flex;align-items:center;gap:10px;border:0;background:none;padding:8px 10px;border-radius:8px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
 .pde-mi > span{display:grid;gap:1px}
@@ -90447,7 +90638,10 @@ ui._day = todayISO();
         }
       } else if (m.type === "childList" && t !== view() && t.id !== "view") {
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
-        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.tagName === "DIALOG") continue; play(a, "sm-in"); n++; }   // a sheet redrawn whole (a button pressed in it) stays still
+        // A piece redrawn in place (swapped for a fresh copy of itself: same id, or same tag and kind) is already on screen, so it stays still:
+        // fading it in again would blank it out and back each time fresh data arrives (opening a group used to flicker twice)
+        const was = new Set(); for (const r of m.removedNodes) if (r.nodeType === 1) was.add(r.id ? "#" + r.id : r.tagName + "." + (r.classList[0] || ""));
+        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && !(was.size && was.has(a.id ? "#" + a.id : a.tagName + "." + (a.classList[0] || ""))) && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.tagName === "DIALOG") continue; play(a, "sm-in"); n++; }   // a sheet redrawn whole (a button pressed in it) stays still
       }
     }
   });

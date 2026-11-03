@@ -57,7 +57,7 @@ function zip(entries){
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   try {
-    const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1200, height: 900}}); await ctx.route(/supabase\.co/, r => r.abort());
+    const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1200, height: 900}}); await ctx.routeWebSocket(/supabase\.co/, ws => ws.close()); await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(() => {
       if (sessionStorage.getItem("seeded")) return; sessionStorage.setItem("seeded", "1");
       localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [{id: "bio", name: "Biology", code: "BIO 101", color: "#3B6FE0"}], tasks: [], settings: {}}));

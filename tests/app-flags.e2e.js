@@ -17,6 +17,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   try {
     let flags = [{key: "bb_internal", value: false}], asked = 0;
     const plain = await browser.newContext({serviceWorkers: "block"});
+    await plain.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await plain.route(/supabase\.co/, r => { if (/app_flags/.test(r.request().url())) asked++; r.abort(); });
     await plain.addInitScript(() => { localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:tour", "done"); });
     const p0 = await plain.newPage(); await p0.goto(base); await p0.waitForFunction(() => window.SBFLAGS); await p0.waitForTimeout(2500);
@@ -24,7 +25,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(await p0.evaluate(() => SBFLAGS.get("bb_internal")), "a switch that hasn't been read yet counts as on");
     await plain.close();
     const ctx = await browser.newContext({serviceWorkers: "block"});
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, r => r.abort());   // (routes added later are matched first)
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co\/rest\/v1\/app_flags/, r => { asked++; r.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(flags)}); });
     await ctx.addInitScript(() => {
       localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:tour", "done");
