@@ -482,7 +482,7 @@ function lectureHtml(fid){
     let s2;
     if (cs.length) { const d = cs[0].d; s2 = step(2, !drafts.length, "Cards", esc(`${plural(cs.length, "card")} in ${d.name}${drafts.length ? `, ${drafts.length} to check` : ""}`), drafts.length ? B("lc-check", d.id, `Check ${plural(drafts.length, "Draft")}`, "primary") : B("lc-deck", d.id, "Open Deck")); }
     else if (BUSY["c" + (note && note.id)]) s2 = step(2, false, "Cards", `<span class="ai-spin" aria-hidden="true"></span> Making them…`, "");
-    else if (note) s2 = step(2, false, "Cards", esc(aiOn() ? "Draft cards from the notes, for you to check" : "Made on this device from the notes"), B("lc-cards", note.id, esc(`Make Cards for ${codeOf(cid) || "the"} Deck`), "primary"));
+    else if (note) s2 = step(2, false, "Cards", esc(aiOn() ? "Draft cards from the notes, for you to check" : "Made on this device from the notes"), B("lc-cards", note.id, (aiOn() && !locked() ? AI_ICON + " " : "") + esc(`Make Cards for ${codeOf(cid) || "the"} Deck`), aiOn() && !locked() ? "primary ai-btn" : "primary"));
     else s2 = step(2, false, "Cards", "After the notes", "");
     let s3;
     if (!cs.length) s3 = step(3, false, "Exam Prep", "After the cards", "");
@@ -502,7 +502,7 @@ function decorateNotes(){
     if (!f) { if (old) old.remove(); return; }
     const cs = cardsFrom(f.id), drafts = cs.filter(x => isText(x.c)), cid = n.courseId || f.courseId || "";
     const btn = cs.length ? (drafts.length ? `<button type="button" class="btn small" data-act="lc-check" data-id="${esc(cs[0].d.id)}">Check ${plural(drafts.length, "Draft")}</button>` : `<button type="button" class="btn small" data-act="lc-deck" data-id="${esc(cs[0].d.id)}">${plural(cs.length, "Card")}</button>`)
-      : BUSY["c" + n.id] ? `<span class="mini"><span class="ai-spin" aria-hidden="true"></span> Making cards…</span>` : `<button type="button" class="btn small lc-mk" data-act="lc-cards" data-id="${esc(n.id)}">${esc(`Make Cards for ${deckLabel(cid).replace(/ Lectures$/, "") || codeOf(cid)} Deck`)}</button>`;
+      : BUSY["c" + n.id] ? `<span class="mini"><span class="ai-spin" aria-hidden="true"></span> Making cards…</span>` : `<button type="button" class="btn small lc-mk${aiOn() && !locked() ? " ai-btn" : ""}" data-act="lc-cards" data-id="${esc(n.id)}">${aiOn() && !locked() ? AI_ICON + " " : ""}${esc(`Make Cards for ${deckLabel(cid).replace(/ Lectures$/, "") || codeOf(cid)} Deck`)}</button>`;
     const html = `<div class="lc-nrow"><span class="lc-nfrom">From <button type="button" class="link-btn" data-act="lec-view" data-id="${esc(f.id)}">${esc(f.name)}</button>, ${esc(fmtShort(n.lecAt || lecDate(f)))}</span>${btn}</div>`;
     if (old) { if (old.outerHTML !== html) old.outerHTML = html; return; }
     const at = el.querySelector(".note-tools"); if (at) at.insertAdjacentHTML("beforebegin", html);

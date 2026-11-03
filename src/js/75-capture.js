@@ -547,7 +547,7 @@ function draw(focus){
     foot = `<button type="button" class="btn cap-photo" data-cap="photo">${PHOTO_SVG}<span>Photo</span></button><span class="spacer"></span><button type="button" class="btn primary" data-cap="add" id="capAdd">Add</button>`;
   } else if (v === "photo") {
     body = `<p class="cap-lbl">Take a photo of a whiteboard, a slide or a handout with a due date.</p>
-      <button type="button" class="btn primary cap-big" data-cap="cam" id="capBig">${PHOTO_SVG}<span>Take Photo</span></button>
+      <button type="button" class="btn primary cap-big${ai ? " ai-btn" : ""}" data-cap="cam" id="capBig">${ai ? AI_ICON : PHOTO_SVG}<span>Take Photo</span></button>
       <button type="button" class="btn" data-cap="lib">Choose from Photos or Files</button>
       <p class="mini">${ai ? esc(`The photo is sent to ${aiWho() || "your AI provider"} to read it.`) : "AI reading is off, so you will type in what is on the photo."}</p>`;
   } else if (v === "busy") {
@@ -571,7 +571,7 @@ function draw(focus){
     foot = `<button type="button" class="btn" data-cap="savenote">Save Photo as a Note</button><span class="spacer"></span><button type="button" class="btn primary" data-cap="add" id="capAdd">Add</button>`;
   } else if (v === "error") {
     body = `${thumbsHtml()}<p class="status-msg" role="alert">${esc0(CS.msg)}</p>`;
-    foot = `<button type="button" class="btn" data-cap="typeit">Type It In</button><span class="spacer"></span>${CS.photos.length && CS.retry ? `<button type="button" class="btn primary" data-cap="retry">Try Again</button>` : `<button type="button" class="btn primary" data-cap="close">Close</button>`}`;
+    foot = `<button type="button" class="btn" data-cap="typeit">Type It In</button><span class="spacer"></span>${CS.photos.length && CS.retry ? `<button type="button" class="btn primary ai-btn" data-cap="retry">${AI_ICON} Try Again</button>` : `<button type="button" class="btn primary" data-cap="close">Close</button>`}`;
   }
   el.innerHTML = `<div class="sheet cap" ><div class="sheet-head"><h2 id="capTitle">${title}</h2><button type="button" class="icon-btn" data-cap="close" aria-label="Close">${CLOSE}</button></div>
     <div class="sheet-body cap-body">${body}<p class="cap-live status-msg" id="capLive" role="status" aria-live="polite">${CS.inline ? esc(CS.inline) + (last ? ` <button type="button" class="btn small" data-cap="undo">Undo</button>` : "") : ""}</p></div>

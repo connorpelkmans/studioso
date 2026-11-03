@@ -1213,7 +1213,7 @@
     if (!isOn() || !cur || !askAvailable()) return;
     const notes = form.querySelector('[name="notes"]'), lab = notes.closest("label") || notes.parentElement;
     lab.insertAdjacentHTML("afterend", `<div class="cp-tq"><button type="button" class="link-btn cp-tq-open">${AI_ICON} Ask ${esc(nameOf(cur))} About This Task</button>
-      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn small primary">Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
+      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn small primary ai-btn">${AI_ICON} Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
     const box = form.querySelector(".cp-tq-box"), inp = box.querySelector("input"), out = box.querySelector(".cp-tq-a"), go = box.querySelector("button");
     form.querySelector(".cp-tq-open").addEventListener("click", () => { box.hidden = !box.hidden; if (!box.hidden) inp.focus(); });
     const ask = async () => {

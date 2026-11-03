@@ -1385,7 +1385,7 @@ Return JSON only.`;
   function genBox(T, ti){
     const g = T.general; if (!g) return "";
     if (g.state === "loading") return `<div class="sx-ans sx-gen busy">${AI_ICON}${dots}Answering from general knowledge…</div>`;
-    if (g.state === "error") return `<div class="sx-ans sx-gen miss"><p>${esc(g.text)}</p><button type="button" class="btn small" data-sx="general" data-turn="${ti}">Try Again</button></div>`;
+    if (g.state === "error") return `<div class="sx-ans sx-gen miss"><p>${esc(g.text)}</p><button type="button" class="btn small ai-btn" data-sx="general" data-turn="${ti}">${AI_ICON} Try Again</button></div>`;
     return `<div class="sx-ans sx-gen"><div class="sx-ans-h">${AI_ICON}<b>From General Knowledge</b></div><p class="mini sx-gen-l">Not from your course material. Check it against your notes or textbook.</p><p class="sx-ans-t">${esc(g.text)}</p><p class="mini">Answered by ${esc(g.model)}. AI can make mistakes. <button type="button" class="link-btn" data-ai-report="search-ask" data-ai-text="${esc(String(g.text || "").slice(0, 1400))}">Report Response</button></p></div>`;
   }
   function turnHtml(T, ti){
@@ -1403,7 +1403,7 @@ Return JSON only.`;
     const c = scopeC(); if (!c) return "";
     const L = courseLabel(c), list = [`Summarize the main ideas in ${L}`, `What are the key terms in ${L}?`, `What should I review for the next ${L} exam?`];
     return `<div class="sx-fu" role="group" aria-label="Try asking"><span class="mini">Try</span>${list.map(x => `<button type="button" class="chip" data-sx="fu" data-q="${esc(x)}">${esc(x)}</button>`).join("")}</div>`
-      + (aiReady() ? `<p class="sx-hint">Want answers that read whole files instead? <button type="button" class="link-btn" data-sx="deep">Chat With Whole Files</button></p>` : "");
+      + (aiReady() ? `<p class="sx-hint">Want answers that read whole files instead? <button type="button" class="link-btn" data-sx="deep">${AI_ICON} Chat With Whole Files</button></p>` : "");
   }
   function fuRow(T){
     const an = T.answer; if (!an || an.state !== "done" || an.det || !an.found) return "";
@@ -1415,7 +1415,7 @@ Return JSON only.`;
     const ok = an.found && T.rows.length > 0, gen = T.general && T.general.state === "done";
     if (!ok && !gen) return "";
     const saved = T.saved && state.notes[T.saved];
-    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small" data-sx="mk-cards" data-turn="${ti}">Make Flashcards</button><button type="button" class="btn small" data-sx="quiz" data-turn="${ti}">Quiz Me${proLocked() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
+    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
     if (T.study && T.study.busy) h += `<p class="sx-hint">${dots} ${esc(T.study.msg)}</p>`;
     else if (T.study && T.study.err) h += `<p class="sx-hint sx-err">${esc(T.study.err)}</p>`;
     if (saved) h += `<p class="sx-hint" role="status">Saved to your Notes, with a link to each source.</p>`;
@@ -1426,15 +1426,15 @@ Return JSON only.`;
     const tu = S.tutor, T = tu && S.thread[tu.ti]; if (!T) return "";
     const top = sub => `<div class="sx-ans-h">${AI_ICON}<b>Quiz Me</b>${sub ? `<span class="mini sx-tsub">${sub}</span>` : ""}<span class="spacer"></span><button type="button" class="link-btn" data-sx="tutor-end">End Quiz</button></div>`;
     if (tu.state === "loading") return `<div class="sx-ans sx-tutor busy">${AI_ICON}${dots}Writing questions from your material…</div>`;
-    if (tu.state === "error") return `<div class="sx-ans sx-tutor miss">${top("")}<p>${esc(tu.err)}</p><div class="sx-ans-btns"><button type="button" class="btn small" data-sx="quiz" data-turn="${tu.ti}">Try Again</button></div></div>`;
+    if (tu.state === "error") return `<div class="sx-ans sx-tutor miss">${top("")}<p>${esc(tu.err)}</p><div class="sx-ans-btns"><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Try Again</button></div></div>`;
     const n = tu.qs.length;
     if (tu.i >= n) {
       const right = tu.ans.filter(a => a && a.correct).length;
-      return `<div class="sx-ans sx-tutor">${top("Finished")}<p class="sx-tscore"><b>You got ${right} of ${n} right.</b> ${right === n ? "Nicely done." : "Quiz Me Again for new questions, or save these to practice later."}</p><div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="tq-save">Save as Practice Quiz</button><button type="button" class="btn small" data-sx="quiz" data-turn="${tu.ti}">Quiz Me Again</button><button type="button" class="btn small" data-sx="tutor-end">Back to the Answer</button></div></div>`;
+      return `<div class="sx-ans sx-tutor">${top("Finished")}<p class="sx-tscore"><b>You got ${right} of ${n} right.</b> ${right === n ? "Nicely done." : "Quiz Me Again for new questions, or save these to practice later."}</p><div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="tq-save">Save as Practice Quiz</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Quiz Me Again</button><button type="button" class="btn small" data-sx="tutor-end">Back to the Answer</button></div></div>`;
     }
     const q = tu.qs[tu.i], a = tu.ans[tu.i], done = a && !a.checking;
     const opts = q.type === "short" ? "" : `<div class="sx-topts" role="group" aria-label="Answers">${q.options.map((o, k) => `<button type="button" class="sx-topt${done ? (q.correct[0] === k ? " ok" : a.given === k ? " no" : "") : ""}" data-sx="tq-opt" data-id="${k}"${a ? " disabled" : ""}>${esc(o)}</button>`).join("")}</div>`;
-    const inp = q.type !== "short" ? "" : a ? `<p class="sx-tgiven">Your answer: ${esc(a.given)}</p>` : `<div class="sx-tin"><input type="text" id="sxTutorIn" maxlength="300" placeholder="Type your answer" aria-label="Your answer" autocomplete="off" data-noenter><button type="button" class="btn small primary" data-sx="tq-check">Check</button></div>`;
+    const inp = q.type !== "short" ? "" : a ? `<p class="sx-tgiven">Your answer: ${esc(a.given)}</p>` : `<div class="sx-tin"><input type="text" id="sxTutorIn" maxlength="300" placeholder="Type your answer" aria-label="Your answer" autocomplete="off" data-noenter><button type="button" class="btn small primary ai-btn" data-sx="tq-check">${AI_ICON} Check</button></div>`;
     let res = "";
     if (a && a.checking) res = `<p class="sx-tres">${dots} Checking your answer…</p>`;
     else if (a) {
@@ -1471,10 +1471,10 @@ Return JSON only.`;
           if (S.tutor && S.tutor.ti === ti) h += tutorHtml();
           else { h += studyRow(A, ti); if (planOk(plan)) h += fuRow(A); }
         }
-        else if (an && an.state === "error") h += `<div class="sx-ans miss"><p>${esc(an.text)}</p><button type="button" class="btn small" data-sx="answer">Try Again</button></div>`;
+        else if (an && an.state === "error") h += `<div class="sx-ans miss"><p>${esc(an.text)}</p><button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} Try Again</button></div>`;
         else if (plan && plan.kind === "paid" && !plan.ok) h += `<div class="sx-ans"><p style="margin:0"><b>A short answer costs money.</b> It would use <b>${esc(plan.name)}</b>, billed per use to your ${esc(plan.P.label.split(" ")[0])} account. Each answer is one small request.</p>
           <label class="mi-check"><input type="checkbox" id="sxPaidOk"> I understand answers will use my paid ${esc(plan.P.short)} account and may cost money.</label>
-          <div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="paid-yes" disabled id="sxPaidYes">Confirm and Get an Answer</button></div></div>`;
+          <div class="sx-ans-btns"><button type="button" class="btn small primary ai-btn" data-sx="paid-yes" disabled id="sxPaidYes">${AI_ICON} Confirm and Get an Answer</button></div></div>`;
         else if (plan) h += `<div class="sx-ans-row"><button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} ${aiWho() ? `Ask ${esc(aiWho())} for a Short Answer` : "Get a Short Answer"}</button></div>`;
         if (planOk(plan) && an && an.state === "done") h += `<p class="sx-hint">${fresh ? "Type a follow-up above, like “explain that more simply”." : "Press Enter to ask this as a follow-up."} <button type="button" class="link-btn" data-sx="restart">Start Over</button></p>`;
         if (A.rows.length) h += `<div class="sx-gh"><span>${A.byMeaning ? "Best Matches by Meaning" : "Best Matches"}</span><span class="n">${A.rows.length}</span></div>`;

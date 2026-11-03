@@ -110,7 +110,7 @@ const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test
 const RUB_NAME = /rubric|criteria|marking|grading|scoring|assessment guide/i;
 function taskBtn(t){
   if (!t || inPreview() || !RBC.eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn" data-act="rb-check" data-id="${esc(t.id)}">Check Against Rubric${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON} Check Against Rubric${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
 // The rubric a task already has: from the school site, an attached rubric file, or notes that read like one
 async function autoRubric(t){

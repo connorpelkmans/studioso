@@ -243,7 +243,7 @@ async function summarizeFile(fid, again){
   const show = () => {
     const cur = state.files[fid];
     openSheet(`<form class="sheet ai-sheet">${head("Summary: " + cur.name)}<div class="sheet-body">${summaryHtml(cur)}</div>
-      <div class="sheet-foot">${readableFile(cur) ? `<button type="button" class="btn" id="smAgain">Summarize Again</button>` : ""}<span class="spacer"></span>${cur.summary.keyTerms && cur.summary.keyTerms.length ? `<button type="button" class="btn" id="smCards">Make ${cur.summary.keyTerms.length} Flashcards</button>` : ""}<button type="button" class="btn primary" id="smNote">Pin as Sticky Note</button></div></form>`);
+      <div class="sheet-foot">${readableFile(cur) ? `<button type="button" class="btn ai-btn" id="smAgain">${AI_ICON} Summarize Again</button>` : ""}<span class="spacer"></span>${cur.summary.keyTerms && cur.summary.keyTerms.length ? `<button type="button" class="btn" id="smCards">Make ${cur.summary.keyTerms.length} Flashcards</button>` : ""}<button type="button" class="btn primary" id="smNote">Pin as Sticky Note</button></div></form>`);
     { const a = $("#smAgain"); if (a) a.addEventListener("click", () => summarizeFile(fid, true)); }
     const sc = $("#smCards"); if (sc) sc.addEventListener("click", () => {
       const s = state.files[fid].summary, cId = cur.courseId || "";
@@ -419,7 +419,7 @@ function askSheet(courseId){
       <div class="ask-log" id="askLog" aria-live="polite"></div>
       ${aiModelBar()}
     </div>
-    <div class="sheet-foot ask-foot"><textarea id="askIn" rows="1" placeholder="Ask anything about this course, e.g. What's the difference between systolic and diastolic heart failure?" maxlength="2000" aria-label="Your question"></textarea><button type="button" class="btn primary" id="askGo">Ask</button></div>
+    <div class="sheet-foot ask-foot"><textarea id="askIn" rows="1" placeholder="Ask anything about this course, e.g. What's the difference between systolic and diastolic heart failure?" maxlength="2000" aria-label="Your question"></textarea><button type="button" class="btn primary ai-btn" id="askGo">${AI_ICON} Ask</button></div>
   </form>`);
   const log = $("#askLog");
   const selSize = () => A.sel.reduce((s, id) => s + ((state.files[id] && sizeOf(state.files[id])) || 0), 0);
