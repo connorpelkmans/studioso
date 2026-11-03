@@ -3502,6 +3502,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .mini.bad{color:var(--late,#c0262d)}
 .pde-on[data-pde-tool="stamp"] .pde-layer,.pde-on[data-pde-tool="link"] .pde-layer,.pde-on[data-pde-tool="field"] .pde-layer{cursor:crosshair;touch-action:none}
 .pde-more-wrap{position:relative;display:inline-flex}
+.pde-more-wrap .pde-menu{left:auto;right:0}   /* More sits at the end of a full row: its menu opens leftward, inside the window */
 .pdr-split{position:relative;display:inline-flex}
 .pdr-split > .btn:first-child{border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0}
 .pdr-split > .pdr-dl-more{border-top-left-radius:0;border-bottom-left-radius:0;padding-left:8px;padding-right:8px;min-width:0}
