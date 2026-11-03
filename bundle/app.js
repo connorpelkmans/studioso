@@ -35914,12 +35914,12 @@ function cleanFile(r) {
   const newsRow = n => { const c = cfg(), bc = c.courses[n.ou] || {}; return `<li><div class="bs-main"><b>${esc(n.title)}</b><span class="mini">${esc(cleanCourseCode(bc.code, bc.name) || bc.name || "")}${n.date ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}</span><p class="bs-news-text">${esc(n.text)}${n.long ? "…" : ""}</p></div>
     <span class="bs-btns">${n.url ? `<a class="btn small" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}${aiReady() ? `<button class="btn small ai-btn" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">${AI_ICON} Check for Dates</button>` : ""}</span></li>`; };
 
-  const extFacts = () => `<ul class="help-list bs-facts">
-      <li><b>What it reads:</b> only the school site you connect in it, using the sign-in your browser already has (Studyboard never sees your password): your courses, due dates, whether you've submitted, grades, announcements and calendar events.</li>
+  const extFacts = () => `<details class="bs-facts-d"><summary>What the extension does</summary><ul class="help-list bs-facts">
+      <li><b>Reads only</b> the school site you connect in it, with the sign-in your browser already has. Studyboard never sees your password.</li>
       <li><b>Read only:</b> it can't submit, post or change anything on ${P.name}.</li>
-      <li><b>Where it goes:</b> straight to Studyboard in this browser. Once it's in, it's part of your planner and syncs like everything else if you use an account.</li>
-      <li><b>Staying up to date:</b> it checks by itself about every hour. Remove the extension to stop.</li>
-    </ul>`;
+      <li><b>Goes straight into Studyboard,</b> and syncs with your account if you have one.</li>
+      <li><b>Checks about every hour.</b> Remove the extension to stop.</li>
+    </ul></details>`;
   // o.manual: straight to typing the address (from School Sites' Didn't Work?), with o.host filled in and o.note above it
   function connectSheet(o){
     if (P.direct) return gcSheet();
@@ -35928,12 +35928,11 @@ function cleanFile(r) {
     const desk = bsDesk() && !P.feedOnly, cloud = sbActive(), grab = grabOk() && !P.feedOnly && !P.noExt;
     const extOn = !P.feedOnly && !P.noExt && !!(window.SBEXT && SBEXT.on()), extHas = extOn && SBEXT.has(P.id), extOffer = !desk && !extOn && grab && extDesktop();
     const extWay = extOn ? `<div class="bs-way rec"><div class="bs-way-h"><b>Studyboard School Sync</b><span class="bs-pill">${extHas ? "Connected" : "Installed"}</span></div>
-          <p class="mini">${extHas ? `The extension keeps ${P.name} up to date by itself: due dates, what you've submitted, grades and announcements.` : `The extension is installed. Click its toolbar button and connect ${P.name}: it then brings in due dates, submissions, grades and announcements by itself.`}</p>
+          <p class="mini">${extHas ? `The extension keeps ${P.name} up to date by itself: due dates, what you've submitted, grades and announcements.` : `Click its toolbar button and connect ${P.name}. It then brings in due dates, submissions, grades and announcements by itself.`}</p>
           ${extFacts()}</div>`
       : extOffer ? `<div class="bs-way rec"><div class="bs-way-h"><b>Get the Studyboard School Sync Extension</b><span class="bs-pill">Recommended</span></div>
-          <p class="mini">Brings in due dates plus what the calendar link can't: grades, announcements and what you've submitted. Add it to ${extBrowser()}, click its toolbar button and connect ${P.name}. It then syncs by itself.</p>
+          <p class="mini">Due dates plus grades, announcements and what you've submitted. Read only, and Studyboard never sees your password. Add it to ${extBrowser()}, then connect ${P.name} from its toolbar button.</p>
           <div class="bs-acts">${extBadge()}</div>
-          <p class="mini" style="margin-top:4px"><b>Here's exactly what it does:</b></p>
           ${extFacts()}</div>` : "";
     const ext = !!extWay;
     // A calendar link is read through the Studyboard account, so without one lead with the file
@@ -35945,7 +35944,7 @@ function cleanFile(r) {
           <p class="mini">A calendar link is checked automatically through your Studyboard account, so it needs a free account. Sign in or create one, then paste the link here.${P.feedOnly ? "" : ` For grades and submissions too, get the Studyboard ${dl} and sign in to ${P.name} there.`}</p>
           <div class="bs-acts"><button class="btn" data-act="sb-signin">Sign In or Create Account</button></div></div>`
       : `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${P.feedOnly ? "Recommended" : ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
-          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${P.feedOnly ? `It can't see grades or what you've turned in, so tick off finished work yourself.` : ext ? `It can't see grades, announcements or submissions, so tick off finished work yourself. It works alongside the extension and keeps due dates current on your phone.` : desk ? `Submitted work, grades and announcements need the sign-in above.` : `Submitted work, grades and announcements need the desktop app.`}</p>
+          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${P.feedOnly ? `It can't see grades or what you've turned in, so tick off finished work yourself.` : ext ? `No grades or submissions, so tick off finished work yourself. Handy on your phone, alongside the extension.` : desk ? `Submitted work, grades and announcements need the sign-in above.` : `Submitted work, grades and announcements need the desktop app.`}</p>
           ${!desk && !ext && !P.feedOnly ? `<p class="mini bs-note"><b>Heads up:</b> a calendar link only brings in due dates, not submissions or grades. For everything, get the Studyboard ${dl} and sign in to ${P.name} there.</p>` : ""}
           <label class="f"><span class="lh">Calendar Link <span class="hint">${P.name}, ${esc(P.feedWhere)}</span></span><input type="url" id="bsFeedIn" placeholder="${esc(P.feedPh)}" autocomplete="off" spellcheck="false"></label>
           <div class="bs-acts"><button class="btn ${desk || ext ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button><button class="btn" data-act="${A}-feed-help">How to Find It</button></div></div>`;
@@ -35966,9 +35965,8 @@ function cleanFile(r) {
             <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
-        ${local ? "" : `<p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>`}
-        <p class="mini" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
-        ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">How to Bring It In</button></p>` : ""}
+        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring in your Canvas inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
+        <p class="mini bs-legal" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
     if (desk && finder) wireFind();
