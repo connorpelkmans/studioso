@@ -261,6 +261,24 @@ const BB = [
     assert(/refused \(403\)/.test(x("31").fbApi) && x("31").scoreCell === "8 / 10 - 80 %" && /ok, score 17/.test(x("32").fbApi) && /Reflection/.test(x("33").row), "the report has each step per assignment: " + JSON.stringify(c.dx.folders));
   });
 
+  await t("Brightspace: the Assignments page's '1 Submission, 1 File' wins over an API answer of none; Content topics name their assignment", async () => {
+    const F = (Id, Name) => ({ Id, Name, DueDate: iso(-1), IsHidden: false, Attachments: [] });
+    const list = `<table><tr><th>Assignment</th><th>Completion Status</th><th>Score</th></tr>
+      <tr><td><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=9144&amp;grpid=0&amp;isprv=0&amp;bp=0&amp;ou=101">Sim Reflection 1</a> <img alt="Turnitin enabled"></td><td>1 Submission, 1 File</td><td>- / 1</td></tr>
+      <tr><td><a href="/d2l/lms/dropbox/user/folder_submit_files.d2l?db=9145&amp;ou=101">Sim Reflection 2</a></td><td>Not Submitted</td><td>- / 1</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/dropbox\\\/folders\\\/\$|content\\\/toc/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/dropbox\/folders\/$/, [F(9144, "Sim Reflection 1"), F(9145, "Sim Reflection 2")]],
+      [/\/dropbox\/folders\/914[45]\/submissions\/mysubmissions\/$/, [{ Submissions: [], Status: 0 }]],
+      [/folders_list\.d2l\?ou=101/, list, { "content-type": "text/html" }],
+      [/\/content\/toc$/, { Modules: [{ Title: "Simulation", Topics: [{ TopicId: 777, Title: "Sim (CH1) Reflection", Url: "/d2l/common/dialogs/quickLink/quickLink.d2l?ou=101&type=dropbox&rcode=X", ActivityType: 3, ToolItemId: 9144 },
+        { TopicId: 778, Title: "Sim (CH2) Reflection", Url: "/d2l/lms/dropbox/user/folder_submit_files.d2l?db=9145&ou=101", ActivityType: 3 }, { TopicId: 779, Title: "Reading", Url: "/content/101/ch1.pdf", ActivityType: 1 }], Modules: [] }] }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const c = out.courses[0], f = id => c.folders.find(x => x.id === id) || {};
+    assert.strictEqual(f("9144").sub, true, "Sim Reflection 1: 1 Submission on the Assignments page: " + JSON.stringify(c.folders) + " " + c.subNote);
+    assert.strictEqual(f("9145").sub, false, "Sim Reflection 2: not submitted");
+    assert.strictEqual(JSON.stringify(c.tocDb), JSON.stringify([{ t: "777", f: "9144" }, { t: "778", f: "9145" }]), "the Content topics that are assignments: " + JSON.stringify(c.tocDb));
+  });
+
   await t("Brightspace: assignment and discussion marks that aren't in Grades: feedback, the Assignments page, the topic's page", async () => {
     const F = (Id, Name, GradeItemId, den) => ({ Id, Name, DueDate: iso(-4), IsHidden: false, GradeItemId, Assessment: { ScoreDenominator: den }, Attachments: [] });
     const list = `<table><tr><th>Assignment</th><th>Completion Status</th><th>Score</th><th>Evaluation Status</th><th>Due Date</th></tr>
