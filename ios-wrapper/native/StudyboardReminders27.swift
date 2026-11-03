@@ -165,7 +165,10 @@ struct SBTaskReminder {
     }
 
     init(task t: SBSnapTask, lists: [String: SBCourseList]) {
-        let ms: (Double?) -> Date? = { v in v.flatMap { $0 > 0 ? Date(timeIntervalSince1970: $0 / 1000) : nil } }
+        let ms: (Double?) -> Date? = { v in
+            guard let x = v, x > 0 else { return nil }
+            return Date(timeIntervalSince1970: x / 1000)
+        }
         self.init(id: t.id, title: t.title, due: SBRemind.components(t.due, t.time), done: t.done ?? false, doneAt: ms(t.doneAt),
                   created: ms(t.created), flagged: t.flag ?? false, list: lists[t.course ?? ""] ?? .inbox, kind: t.type)
     }
