@@ -34285,7 +34285,7 @@ function cleanFile(r) {
   function normRub(o){
     if (!o || typeof o !== "object" || !Array.isArray(o.cr)) return null;
     const cr = o.cr.slice(0, 15).map(x => x && ({t: LT(x.t, 200), d: MT(x.d, 300), pts: NUM(x.pts) || 0,
-      lv: (Array.isArray(x.lv) ? x.lv : []).slice(0, 6).map(v => v && ({t: LT(v.t, 80), d: MT(v.d, 160), pts: NUM(v.pts)})).filter(v => v && (v.t || v.d))})).filter(x => x && x.t);
+      lv: (Array.isArray(x.lv) ? x.lv : []).slice(0, 6).map(v => v && ({t: LT(v.t, 80), d: MT(v.d, 700), pts: NUM(v.pts)})).filter(v => v && (v.t || v.d))})).filter(x => x && x.t);
     return cr.length ? {name: LT(o.name, 120) || "Rubric", pts: NUM(o.pts) || cr.reduce((a, x) => a + x.pts, 0), cr} : null;
   }
   const EMAIL = /^[^\s@<>"]{1,64}@[A-Za-z0-9.-]{1,120}\.[A-Za-z]{2,}$/;

@@ -28,7 +28,7 @@ const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strict
     "/d2l/api/lp/1.30/users/whoami": { Identifier: "42", FirstName: "A" },
     "/d2l/api/lp/1.30/enrollments/myenrollments/": { Items: [{ OrgUnit: { Id: 7, Name: "Bio", Code: "BIO101" } }], PagingInfo: {} },
     [b + "/dropbox/folders/1/submissions"]: [{ Status: 3, Submissions: [{ SubmissionDate: ago2 }], Feedback: { Score: 9, Feedback: { Text: "Great job" }, RubricAssessments: [{ CriteriaOutcome: [{ CriterionId: 100, LevelId: 1, Score: 4, Feedback: "solid" }] }] } }],
-    [b + "/dropbox/folders/"]: [{ Id: 1, Name: "Essay", DueDate: ago, GradeItemId: 50, Assessment: { ScoreDenominator: 10, Rubrics: [{ Name: "R", CriteriaGroups: [{ Levels: [{ Id: 1, Name: "Good", Points: 4 }, { Id: 2, Name: "Poor", Points: 1 }], Criteria: [{ Id: 100, Name: "Argument", Cells: [{ Description: { Text: "strong" }, Points: 4 }, { Description: { Text: "weak" }, Points: 1 }] }] }] }] } }],
+    [b + "/dropbox/folders/"]: [{ Id: 1, Name: "Essay", DueDate: ago, GradeItemId: 50, Assessment: { ScoreDenominator: 10, Rubrics: [{ Name: "R", CriteriaGroups: [{ Levels: [{ Id: 1, Name: "Good", Points: 4 }, { Id: 2, Name: "Poor", Points: 1 }], Criteria: [{ Id: 100, Name: "Argument", Cells: [{ Description: { Text: "Clearly andsuccinctly argued", Html: "<p>Clearly and<br>succinctly argued</p>" }, Points: 4 }, { Description: { Text: "weak" }, Points: 1 }] }] }] }] } }],
     [b + "/quizzes/"]: { Objects: [] },
     [b + "/grades/values/myGradeValues/"]: [{ GradeObjectIdentifier: "50", GradeObjectName: "Essay", PointsNumerator: 9, PointsDenominator: 10, GradeObjectType: 1, Comments: { Text: "See rubric" } }],
     [b + "/discussions/forums/3/topics/4/posts/"]: [{ PostingUserId: 42 }],
@@ -64,7 +64,7 @@ const clean = h => { const c = L.cleanHarvest(h, "https://x.edu"); assert.strict
   assert(cv.grades[0].fb, "Canvas: feedback travels with the grade too");
   const bf = bs.folders[0];
   assert.deepStrictEqual([bf.sub, bf.st.late, bf.fb.c[0].t, bf.fb.ra[0].lv], [true, true, "Great job", "Good"], "Brightspace: submitted late, feedback, rubric level");
-  assert.deepStrictEqual(bf.rub.cr[0].lv.map(v => v.t + ":" + v.d), ["Good:strong", "Poor:weak"], "Brightspace: rubric levels with descriptions");
+  assert.deepStrictEqual(bf.rub.cr[0].lv.map(v => v.t + ":" + v.d), ["Good:Clearly and\nsuccinctly argued", "Poor:weak"], "Brightspace: rubric levels with descriptions, from the HTML so a line break stays a break (the plain-text copy glues words: 'andsuccinctly')");
   assert.strictEqual(bs.grades[0].fb.c[0].t, "See rubric", "Brightspace: grade comments");
   assert.deepStrictEqual(bs.discussions.map(d => [d.name, d.posted]), [["Week 1 post", true]], "Brightspace: discussion topics and whether you posted");
   assert.deepStrictEqual(bs.staff.map(u => u.name), ["Dr. D"], "Brightspace: only instructors from the class list");
