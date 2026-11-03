@@ -35,7 +35,8 @@
   var EDGE = httpsUrl((D.edge && D.edge.store) || "");
   var onEdge = /Edg\//.test(navigator.userAgent || "");
   function edgeBadge() {
-    return '<a class="edgeb" href="' + esc(EDGE) + '" target="_blank" rel="noopener" aria-label="Get the Studyboard School Sync extension from Microsoft Edge Add-ons">Get It for Microsoft Edge</a>';
+    return '<a class="edgeb" href="' + esc(EDGE) + '" target="_blank" rel="noopener" aria-label="Get the Studyboard School Sync extension from Microsoft Edge Add-ons">' +
+      '<img src="assets/edge-addons-badge.png" alt="Get it from Microsoft Edge" decoding="async" width="423" height="112"></a>';
   }
   function extBadges() {
     if (!EDGE) return cwsBadge();

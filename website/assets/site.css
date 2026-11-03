@@ -383,9 +383,9 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cwsb .on-light{display:none}:root:not([data-theme="light"]) .cwsb .on-dark{display:block}}
 :root[data-theme="dark"] .cwsb .on-light{display:none}
 :root[data-theme="dark"] .cwsb .on-dark{display:block}
-.ext-badges{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-.edgeb{display:inline-flex;align-items:center;height:56px;padding:0 18px;border-radius:8px;background:#0C59A4;color:#fff;font-weight:600;text-decoration:none}
-.edgeb:hover{background:#0A4A88}
+.ext-badges{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.edgeb{display:inline-flex;align-items:center;text-decoration:none;line-height:0}
+.edgeb img{display:block;height:56px;width:auto}
 .edgeb:focus-visible{outline:2px solid var(--accent,#2F6FDB);outline-offset:3px}
 .ms-go{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:auto}
 .ms-go .exe{font-size:.85rem;color:var(--muted,#5b6475)}
