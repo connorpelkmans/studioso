@@ -4759,7 +4759,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   function pickGoogleFolder(files){
     return new Promise((resolve, reject) => {
       const pk = cache().picker; if (!pk) return reject(new CloudErr("Google folder choosing isn't set up on this Studyboard server yet.", "nopicker"));
-      const w = window.open("drive-picker.html", "sbDrivePicker", "popup,width=900,height=640");
+      const w = window.open("drive-picker", "sbDrivePicker", "popup,width=900,height=640");
       if (!w) return reject(new CloudErr("Your browser blocked the Google Drive window. Allow pop-ups for Studyboard and try again.", "popup"));
       let done = false;
       const end = (fn, v) => { if (done) return; done = true; clearInterval(iv); clearTimeout(to); window.removeEventListener("message", on); fn(v); };
