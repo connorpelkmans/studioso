@@ -73,7 +73,7 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
   const openReader = async page => {
     await page.evaluate(async bytes => { await window.__sbProStudy.idbSet("pdf:a-read4", new Blob([new Uint8Array(bytes)], {type: "application/pdf"})); }, textPdf());
     await act(page, "f-open", "f1"); await page.waitForTimeout(250);
-    await page.click('.sheet-foot [data-act="pdr-open"]');
+    await page.click('.fs-acts [data-act="pdr-open"]');
     await page.waitForSelector('.pdr-page[data-p="1"] .pdr-cv', {timeout: 15000}); await page.waitForTimeout(300);
   };
   const P1 = '.pdr-page[data-p="1"] .ink-layer';

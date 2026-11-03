@@ -32,6 +32,17 @@
       '<img class="on-dark" src="assets/cws-badge-border.png" alt="Available in the Chrome Web Store" decoding="async" width="496" height="150"></a>';
   }
 
+  var EDGE = httpsUrl((D.edge && D.edge.store) || "");
+  var onEdge = /Edg\//.test(navigator.userAgent || "");
+  function edgeBadge() {
+    return '<a class="edgeb" href="' + esc(EDGE) + '" target="_blank" rel="noopener" aria-label="Get the Studyboard School Sync extension from Microsoft Edge Add-ons">' +
+      '<img src="assets/edge-addons-badge.png" alt="Get it from Microsoft Edge" decoding="async" width="423" height="112"></a>';
+  }
+  function extBadges() {
+    if (!EDGE) return cwsBadge();
+    return '<div class="ext-badges">' + (onEdge ? edgeBadge() + cwsBadge() : cwsBadge() + edgeBadge()) + "</div>";
+  }
+
   // -- Which device is this
   function detectMacChip(uaData) {
     return Promise.resolve().then(function () {
@@ -132,7 +143,7 @@
     }
     var webCard = WEB ? '<div class="group"><h3>In your browser</h3><div class="plats"><div class="plat web"><div class="ico">' + ICONS.web + '</div><h4>Studyboard on the Web<span class="live">Available Now</span></h4><div><p>Works in Chrome, Edge, Safari and Firefox on any computer or phone. Use the browser\'s install option (or Add to Home Screen) to open it like an app.</p></div><a class="go" href="' + esc(WEB) + '">' + ICONS.web + "Open Studyboard</a></div></div></div>" : "";
     var extCard = CWS ? '<div class="group"><h3>Browser extension</h3><div class="plats"><div class="plat ext"><div class="ext-hd"><div class="ico"><img src="assets/school-sync-icon.png" alt="" width="38" height="38" decoding="async"></div><h4>Studyboard School Sync</h4></div><div><p>Keeps Studyboard up to date with your Canvas, Brightspace or Blackboard: due dates, submissions, grades and feedback. ' + esc(D.chrome.needs || "") + ".</p></div>" +
-      '<div class="ms-go">' + cwsBadge() + "</div></div></div></div>" : "";
+      '<div class="ms-go">' + extBadges() + "</div></div></div></div>" : "";
     el.innerHTML = webCard + extCard +
       '<div class="group"><h3>Computer</h3><div class="plats">' + card("windows", ICONS.windows, "Windows", "Download .exe") + card("macArm", ICONS.mac, "Mac · Apple M-series", "Download .dmg") + card("macIntel", ICONS.mac, "Mac · Intel", "Download .dmg") + card("linux", ICONS.linux, "Linux", "Download AppImage") + "</div>" + macHelp.replace('class="which"', 'class="which mt12"') + "</div>" +
       '<div class="group"><h3>Phone &amp; tablet</h3><div class="plats">' + card("ios", ICONS.phone, "iPhone &amp; iPad", "App Store") + card("android", ICONS.phone, "Android", "Google Play") + "</div></div>";

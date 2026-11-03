@@ -165,11 +165,15 @@ function SEED(){
     /* PDF reader */
     await page.evaluate(async bytes => { await window.__sbProStudy.idbSet("pdf:a-read4", new Blob([new Uint8Array(bytes)], {type: "application/pdf"})); }, textPdf());
     await page.evaluate(() => { ui.tab = "files"; ui.fCourse = "all"; ui.fFolder = ""; render(); }); await page.waitForTimeout(250);
-    ok(await page.locator('.frow[data-fid="f1"] .fmain[data-act="pdr-open"]').count() === 1 && await page.locator('.frow[data-fid="f1"] [data-act="f-open"]').count() === 1, "tapping a PDF reads it; Edit is the second choice");
-    await act(page, "f-open", "f1"); await page.waitForTimeout(250);
-    ok(/Open in Browser/.test(await page.locator("dialog[open] .sheet-foot").textContent()), "the file sheet says where Open goes");
+    ok(await page.locator('.frow[data-fid="f1"] .fmain[data-act="f-open"]').count() === 1 && await page.locator('.frow[data-fid="f1"] .f-read[data-act="pdr-open"]').count() === 1 && await page.locator('.frow[data-fid="f1"] .f-edit[data-act="pde-edit"]').count() === 1, "a PDF's row has Read and Edit; tapping the rest of the row opens its details");
+    await page.click('.frow[data-fid="f1"] .fmain'); await page.waitForSelector("dialog[open] .fs-acts");
+    ok(/Open in Browser/.test(await page.locator("dialog[open] .fs-acts").textContent()), "the file sheet says where Open goes");
+    ok(await page.locator("dialog[open] .sheet-foot .btn").count() === 2, "the file sheet's footer is just Delete and Save");
     await page.evaluate(() => document.querySelector("dialog[open]").close());
-    await page.click('.frow[data-fid="f1"] .fmain'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000});
+    await page.click('.frow[data-fid="f1"] .f-edit'); await page.waitForFunction(() => { const b = document.getElementById("pdeBtn"); return b && b.getAttribute("aria-pressed") === "true"; }, null, {timeout: 20000});
+    ok(true, "Edit opens the PDF straight into the editor");
+    await page.evaluate(() => document.querySelector("dialog[open]").close());
+    await page.click('.frow[data-fid="f1"] .f-read'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000});
     const P = () => page.evaluate(() => window.__sbProStudy.P.reader().cur);
     const onPage = k => page.waitForFunction(k => { const R = window.__sbProStudy.P.reader(), b = document.getElementById("pdrPages"); return R.cur === k && Math.abs(b.scrollTop - Math.min(b.scrollHeight - b.clientHeight, R.pages[k - 1].el.offsetTop - 12)) < 4; }, k, {timeout: 5000}).then(() => true, () => false);
     await page.focus("#pdrPages"); await page.keyboard.press("PageDown");
@@ -185,8 +189,23 @@ function SEED(){
     await page.click("#pdrFit"); await page.waitForTimeout(400);
     await page.focus("#pdrPages"); await page.keyboard.press("ArrowLeft"); await onPage(2);
     await page.evaluate(() => document.querySelector("dialog[open]").close()); await page.waitForTimeout(200);
-    await page.click('.frow[data-fid="f1"] .fmain'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(400);
+    await page.click('.frow[data-fid="f1"] .f-read'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(400);
     ok(await P() === 2 && await page.inputValue("#pdrPg") === "2", "the reader opens where you left off");
+    // a sticky note can be dragged to a new place; tapping it still opens its comment
+    await page.click("#pdrCmBtn");
+    const pg2 = await page.locator('.pdr-page[data-p="2"]').boundingBox();
+    await page.mouse.click(pg2.x + pg2.width * 0.3, pg2.y + pg2.height * 0.2); await page.waitForSelector("#pdrCm");
+    await page.fill("#pdrCm", "Move me"); await page.keyboard.press("Control+Enter"); await page.waitForTimeout(250);
+    const nb = await page.locator('.pdr-page[data-p="2"] .pdr-note').boundingBox();
+    const notes = () => page.evaluate(() => (state.files.f1.hl || []).filter(h => h.m === "n"));
+    const nBefore = (await notes())[0].r[0];
+    await page.mouse.move(nb.x + 11, nb.y + 11); await page.mouse.down(); await page.mouse.move(nb.x + 80, nb.y + 70, {steps: 6}); await page.mouse.up(); await page.waitForTimeout(250);
+    const nAfter = (await notes())[0];
+    ok(nAfter.r[0][0] > nBefore[0] + 0.03 && nAfter.r[0][1] > nBefore[1] + 0.02 && nAfter.cm === "Move me" && await page.locator("#pdrCm").count() === 0, "dragging a sticky note moves it and keeps its comment (no comment box pops up)");
+    const nb2 = await page.locator('.pdr-page[data-p="2"] .pdr-note').boundingBox();
+    ok(Math.abs(nb2.x - (nb.x + 69)) < 4 && Math.abs(nb2.y - (nb.y + 59)) < 4, "it's drawn where it was dropped");
+    await page.mouse.click(nb2.x + 11, nb2.y + 11); await page.waitForSelector("#pdrCm");
+    ok(await page.inputValue("#pdrCm") === "Move me", "tapping it without moving opens its comment");
     await page.evaluate(() => document.querySelector("dialog[open]").close());
     ok(page.errs.length === 0, "no page errors on desktop: " + page.errs.join(" | "));
     await ctx.close();

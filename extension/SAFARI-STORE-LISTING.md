@@ -56,8 +56,9 @@ Keep this consistent with the Studyboard app's own App Privacy answers (APP-STOR
 
 ## Screenshots
 - Mac (accepted sizes: 1280x800, 1440x900, 2560x1600, 2880x1800): use `extension/store/screenshot-1.png`, `screenshot-2.png`, `screenshot-3.png` (1280x800: connect, synced, feedback in Studyboard).
-- iPhone (required for the iOS app): 6.9-inch (1320x2868 or 1290x2796). Take them in the iOS Simulator with Cmd+S, showing Safari with the extension popup and Studyboard with the synced courses. These are not made yet.
-- Only upload iPad sizes if the iOS app supports iPad.
+- iPhone 6.9-inch (1320x2868): `build-resources/safari-ios-listing/iphone-1.png`, `iphone-2.png`, `iphone-3.png` (connect, synced, in Studyboard). They are marketing-style pictures built from the extension's own popup and the Studyboard app, not Simulator captures. Make them again with `tools/make-safari-ios-assets.js` (steps in its header). Replace them with Simulator captures (Cmd+S) if you prefer.
+- iPad 13-inch (2064x2752): `ipad-1.png`, `ipad-2.png`, `ipad-3.png`. Needed only if the iOS app supports iPad (the converter's iOS target usually does; untick iPad in Xcode if you want iPhone only).
+- Add iOS as a platform to the existing Studyboard School Sync app record (the + next to the app name in App Store Connect). Same bundle ID, not a separate app.
 
 ## App Review Information
 Sign-in required: No (the extension needs a school site, not a Studyboard login). Give the Canvas test student in the notes.

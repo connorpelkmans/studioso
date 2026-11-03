@@ -542,7 +542,7 @@
   "sem.work.lms": "Your school's site",
   "sem.work.lms.b": "Connect School Site",
   "sem.work.lms.s": "Brightspace, Canvas or Blackboard. Studyboard only reads from it.",
-  "sem.work.lms.web": "Brightspace, Canvas or Blackboard: due dates, grades, announcements and what you've already submitted. On the website in desktop Chrome, the Studyboard School Sync extension brings it all in. It only reads and never sees your password. Your school's calendar link brings in due dates in any browser.",
+  "sem.work.lms.web": "Brightspace, Canvas or Blackboard: due dates, grades, announcements and what you've already submitted. On the website in desktop Chrome or Edge, the Studyboard School Sync extension brings it all in. It only reads and never sees your password. Your school's calendar link brings in due dates in any browser.",
   "sem.work.paste": "Paste Text",
   "sem.work.pdf": "Syllabus PDFs",
   "sem.work.pdf.b": "Choose PDFs",

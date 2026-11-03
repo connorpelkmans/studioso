@@ -17,6 +17,8 @@ const lmsBridge = () => (DESK && DESK.lms) || window.studiosoLms || null;
 const lmsOnPhone = () => !(DESK && DESK.lms) && !!window.studiosoLms;
 // The Studyboard School Sync extension on the Chrome Web Store
 const EXT_CHROME_URL = "https://chromewebstore.google.com/detail/studyboard-school-sync/ibibaefpedmlgaamopopcoelnnaaollf";
+// ...and on Microsoft Edge Add-ons
+const EXT_EDGE_URL = "https://microsoftedge.microsoft.com/addons/detail/studyboard-school-sync/naphniaaapegibhbnnhmgimeegbodikh";
 // Where the desktop apps are downloaded
 const DESK_DL = "https://studyboardapp.com/website/#download";
 function chromeDesktop(){
@@ -28,6 +30,25 @@ function chromeDesktop(){
     if (d && Array.isArray(d.brands)) return d.brands.some(b => /^Google Chrome$/i.test(b.brand));
     return /Chrome\/\d/.test(ua) && /Google Inc/.test(navigator.vendor || "");
   } catch (e) { return false; }
+}
+function edgeDesktop(){
+  try {
+    if (DESK || window.Capacitor || !/^https?:$/.test(location.protocol)) return false;
+    const ua = navigator.userAgent || "", d = navigator.userAgentData;
+    if (/Android|iPhone|iPad|iPod|Mobile|EdgA|EdgiOS/i.test(ua) || (d && d.mobile)) return false;
+    if (d && Array.isArray(d.brands) && d.brands.some(b => /^Microsoft Edge$/i.test(b.brand))) return true;
+    return /Edg\/\d/.test(ua);
+  } catch (e) { return false; }
+}
+// The desktop browser the extension can be added to here ("Chrome" or "Edge"), or ""
+const extBrowser = () => chromeDesktop() ? "Chrome" : edgeDesktop() ? "Edge" : "";
+const extDesktop = () => !!extBrowser();
+const extStoreUrl = () => edgeDesktop() ? EXT_EDGE_URL : EXT_CHROME_URL;
+// The store's official badge, linking to the extension's listing (Microsoft's and Google's artwork, unaltered: shipped with the website)
+function extBadge(){
+  const edge = edgeDesktop(), a = `<a class="ext-badge${edge ? " edge" : ""}" href="${extStoreUrl()}" target="_blank" rel="noopener noreferrer" aria-label="Get the Studyboard School Sync extension from ${edge ? "Microsoft Edge Add-ons" : "the Chrome Web Store"}">`;
+  return edge ? a + `<img src="website/assets/edge-addons-badge.png" alt="Get it from Microsoft Edge" width="423" height="112"></a>`
+    : a + `<img class="on-light" src="website/assets/cws-badge.png" alt="Available in the Chrome Web Store" width="496" height="150"><img class="on-dark" src="website/assets/cws-badge-border.png" alt="Available in the Chrome Web Store" width="496" height="150"></a>`;
 }
 const $$ = (s, el=document) => [...el.querySelectorAll(s)];
 /* Spelling by where you are */

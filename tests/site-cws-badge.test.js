@@ -18,4 +18,10 @@ ok(/class="cwsb" href="' \+ esc\(CWS\) \+ '" target="_blank" rel="noopener"/.tes
 ok(/var extCard = CWS \?/.test(home), "no badge is shown without a listing address");
 ok(/\.cwsb img\{display:block;height:\d+px;width:auto\}/.test(css), "the badge is only resized, keeping its proportions");
 ok(/<img src="assets\/school-sync-icon.png"/.test(home) && fs.existsSync(path.join(W, "assets/school-sync-icon.png")), "the extension card shows the School Sync icon");
+// Microsoft Edge Add-ons badge
+const eid = (s) => (s.match(/microsoftedge\.microsoft\.com\/addons\/detail\/[^"]*?([a-p]{32})/) || [])[1];
+ok(eid(cfg) && eid(cfg) === eid(app), "the website and the app point to the same Edge Add-ons listing");
+ok(/alt="Get it from Microsoft Edge"/.test(home) && fs.existsSync(path.join(W, "assets/edge-addons-badge.png")), "the Edge badge is Microsoft's artwork with its wording as alt text");
+ok(/class="edgeb" href="' \+ esc\(EDGE\) \+ '" target="_blank"/.test(home), "the Edge badge links to the listing in a new tab (Microsoft requires it to be clickable)");
+ok(/\.edgeb img\{display:block;height:(\d+)px;width:auto\}/.exec(css)[1] >= /\.cwsb img\{display:block;height:(\d+)px/.exec(css)[1], "the Edge badge is at least as tall as the Chrome badge, as Microsoft asks");
 console.log(`site-cws-badge: ${n} checks passed`);

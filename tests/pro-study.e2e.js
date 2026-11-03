@@ -162,8 +162,8 @@ function SEED(){
     /* PDF reader and highlights */
     await page.evaluate(async bytes => { await window.__sbProStudy.idbSet("pdf:a-read4", new Blob([new Uint8Array(bytes)], {type: "application/pdf"})); }, textPdf());
     await act(page, "f-open", "f1"); await page.waitForTimeout(250);
-    ok(await page.locator('.sheet-foot [data-act="pdr-open"]').count() === 1, "a PDF's file sheet has Read");
-    await page.click('.sheet-foot [data-act="pdr-open"]');
+    ok(await page.locator('.fs-acts [data-act="pdr-open"]').count() === 1, "a PDF's file sheet has Read");
+    await page.click('.fs-acts [data-act="pdr-open"]');
     await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000});
     ok(/of 2/.test(await page.locator("#pdrOf").textContent()), "the reader knows the page count");
     ok(await page.locator(".pdr-page .pdr-cv").count() >= 1, "pages are drawn");
@@ -378,8 +378,8 @@ function SEED(){
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     await tab(page, "files");
     await act(page, "f-open", "f2"); await page.waitForTimeout(250);
-    ok(await page.locator('.sheet-foot [data-act="lec-file"]').count() === 1, "a recording's file sheet has Transcript");
-    await page.click('.sheet-foot [data-act="lec-file"]'); await page.waitForTimeout(500);
+    ok(await page.locator('.fs-acts [data-act="lec-file"]').count() === 1, "a recording's file sheet has Transcript");
+    await page.click('.fs-acts [data-act="lec-file"]'); await page.waitForTimeout(500);
     ok(/Cells are the unit of life/.test(await page.locator(".lec-tr").textContent()), "it shows the saved transcript");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     await page.evaluate(() => { window.__srKeep = window.SpeechRecognition; window.SpeechRecognition = window.webkitSpeechRecognition = undefined; window.__sbProStudy.lecCapMs(1500); });

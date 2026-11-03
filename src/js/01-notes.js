@@ -168,9 +168,9 @@ function fileRow(f){
   const read = f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
   return `<li class="frow" draggable="true" data-fid="${esc(f.id)}">
     ${fileIcon(f)}
-    <button class="fmain" data-act="${read ? "pdr-open" : "f-open"}" data-id="${esc(f.id)}"${read ? ` aria-label="Read ${esc(f.name)}"` : ""}><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
+    <button class="fmain" data-act="f-open" data-id="${esc(f.id)}" aria-label="Details of ${esc(f.name)}" title="Name, course, folder, tasks and versions"><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
       ${tasks.length ? `<span class="ftasks">${tasks.slice(0, 3).map(t => `<span class="dep-chip" style="--c:${esc(colorOf(t.courseId))}">${CLIP}${esc(t.title)}</span>`).join("")}${tasks.length > 3 ? `<span class="mini">+${tasks.length - 3}</span>` : ""}</span>` : ""}</button>
-    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-edit" data-act="f-open" data-id="${esc(f.id)}" aria-label="Edit details of ${esc(f.name)}" title="Name, course, folder and versions">Edit</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
+    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button><button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
   </li>`;
 }
 function viewFiles(){
@@ -228,9 +228,13 @@ function fileSheet(f){
   f = clone(f);
   let taskIds = f.taskIds.filter(id => state.tasks[id]);
   const isLink = f.kind === "link" || f.kind === "cloud", isCloud = f.kind === "cloud";
+  // What you can do with the file, in one row under its name (Read and Edit for PDFs, Summarize, Open)
+  const pdf = !isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
+  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : "Open"}</a></div>`;
   openSheet(`<form class="sheet">${head(isCloud ? CLOUD_NAMES[f.cloud.p] + " File" : isLink ? "Link" : "File")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="200" value="${esc(f.name)}"></label>
+      ${fileActs}
       ${isCloud ? (window.SBCLOUD ? SBCLOUD.infoHtml(f) : "") : isLink ? `<label class="f">Web Address<input type="url" name="url" value="${esc(f.url)}" placeholder="https://…"></label>` : ""}
       <div class="two">
         <label class="f">Course<select name="courseId" id="fsCourse">${courseSelectHtml(f.courseId)}</select></label>
@@ -241,7 +245,7 @@ function fileSheet(f){
       ${isLink ? "" : `<fieldset><legend>Revisions</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Rev ${revLetter(i)}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
         ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Revision</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}${window.SBCLOUD ? SBCLOUD.moveHtml(f) : ""}</fieldset>`}
     </div>
-    <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span>${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${!isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f) ? (DESK ? "Open in Another App" : "Open in Browser") : "Open"}</a><button type="button" class="btn primary" data-submit>Save</button></div>
+    <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save</button></div>
   </form>`, fd => {
     const name = String(fd.get("name") || "").trim(); if (!name) return false;
     const cur = state.files[f.id]; if (!cur) return;
