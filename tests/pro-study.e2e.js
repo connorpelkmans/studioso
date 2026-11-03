@@ -186,6 +186,15 @@ function SEED(){
     const made = await page.evaluate(() => Object.values(state.notes).find(n => /Ribosomes build proteins/.test(n.text)));
     ok(made && /\[\[Reading 4\.pdf#p1\]\]/.test(made.text) && made.courseId === "c1", "Note makes a note with a link back to the page");
     ok(await page.evaluate(() => (state.files.f1.hl || []).length === 2 && !!state.files.f1.hl[1].n), "and remembers it");
+    // with note boards, Note asks which board (the course's own board first)
+    await page.evaluate(() => { state.settings.noteBoards = [{id: "nb1", name: "Lab Notes"}, {id: "nb2", name: "Bio Board", courseId: "c1"}]; });
+    await selectText("Mitochondria produce most"); await page.waitForTimeout(200);
+    await page.click('.pdr-pop [data-act="pdr-sel-note"]'); await page.waitForSelector('.pdr-pop [data-act="pdr-note-to"]');
+    const opts = await page.$$eval('.pdr-pop [data-act="pdr-note-to"]', l => l.map(b => b.textContent.trim()));
+    ok(/Add the note to/.test(await page.textContent(".pdr-pop")) && opts[0] === "Bio Board" && opts.includes("My Notes") && opts.includes("Lab Notes"), "with note boards, Note asks which one, the course's board first: " + opts.join(", "));
+    await page.click('.pdr-pop [data-act="pdr-note-to"][data-id="nb1"]'); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => { const n = Object.values(state.notes).find(x => /Mitochondria produce most/.test(x.text)); return !!n && n.board === "nb1"; }), "and the note goes on the board you pick");
+    await page.evaluate(() => { state.settings.noteBoards = []; state.files.f1.hl = state.files.f1.hl.slice(0, 2); });
     await page.click("#pdrSideBtn"); await page.waitForTimeout(200);
     ok(await page.locator(".pdr-list li").count() === 2, "the Highlights panel lists both");
     await page.click('.pdr-list [data-act="pdr-hl-card"]'); await page.waitForTimeout(200);

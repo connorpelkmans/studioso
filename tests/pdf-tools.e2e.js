@@ -255,7 +255,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await page.evaluate(() => { const d = window.__sbProStudy.dlg(); if (d.open) d.close(); });
 
     /* Convert */
-    ok(/Convert/.test(await page.evaluate(() => window.SBPDFT.filesBtns())) && /PDF Batch/.test(await page.evaluate(() => window.SBPDFT.filesBtns())), "Files has Convert and PDF Batch");
+    ok(/Convert/.test(await page.evaluate(() => window.SBPDFT.filesBtns())) && !/PDF Batch/.test(await page.evaluate(() => window.SBPDFT.filesBtns())), "Files has Convert; PDF Batch is hidden for now (it still works when opened)");
     await act("pdt-convert"); await page.waitForSelector("#pdtConv[open]");
     await page.selectOption('#pdtConv [data-pdt="pick"]', "f3"); await page.waitForSelector('#pdtConv input[name="pdtTo"]');
     const docx = await downloadOf(() => page.click('#pdtConv [data-pdt="go"]'));

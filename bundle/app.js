@@ -15243,11 +15243,11 @@ function noteExportSheet(preId){
   const keys = [...byCourse.keys()].sort((a, b) => (a === "") - (b === "") || String(a && courseLabel(courseOf(a))).localeCompare(String(b && courseLabel(courseOf(b)))));
   const cName = k => k ? courseLabel(courseOf(k)) : "No course";
   openSheet(`<div class="sheet">${head("Notes to Word or Google Docs")}<div class="sheet-body">
-    ${live.length ? `<div class="nx-btns" role="group" aria-label="Choose notes"><button type="button" class="btn small" data-nx="all">All notes (${live.length})</button>${board || noteBoards().length ? `<button type="button" class="btn small" data-nx="board">This board</button>` : ""}${keys.map(k => `<button type="button" class="btn small" data-nx="course" data-k="${esc(k)}">${esc(cName(k))} (${byCourse.get(k).length})</button>`).join("")}<button type="button" class="btn small" data-nx="none">None</button></div>
-    <div class="nx-list" id="nxList">${keys.map(k => `<div class="nx-h">${esc(cName(k))}</div>${byCourse.get(k).map(n => `<label><input type="checkbox" data-nxc="${esc(n.id)}" ${sel.has(n.id) ? "checked" : ""}><span><span>${esc(first(n))}</span></span></label>`).join("")}`).join("")}</div>
+    ${live.length ? `<div class="nx-step"><h3 class="nx-sec">Choose Notes</h3><span class="nx-quick" role="group" aria-label="Select"><button type="button" class="link-btn" data-nx="all">All (${live.length})</button>${board || noteBoards().length ? `<button type="button" class="link-btn" data-nx="board">This board</button>` : ""}<button type="button" class="link-btn" data-nx="none">None</button></span></div>
+    <div class="nx-list" id="nxList">${keys.map(k => `<div class="nx-h"><span>${esc(cName(k))} <span class="mini">${byCourse.get(k).length}</span></span><button type="button" class="link-btn" data-nx="course" data-k="${esc(k)}">Select all</button></div>${byCourse.get(k).map(n => `<label><input type="checkbox" data-nxc="${esc(n.id)}" ${sel.has(n.id) ? "checked" : ""}><span><span>${esc(first(n))}</span></span></label>`).join("")}`).join("")}</div>
     <p class="mini" id="nxCount" style="margin:0"></p>
-    <div class="nx-btns"><button type="button" class="btn primary" data-nx="word">Download Word (.docx)</button><button type="button" class="btn" data-nx="gdoc">Copy and Open Google Docs</button><button type="button" class="btn" data-nx="gdrive">Download for Google Drive</button></div>
-    <p class="mini" style="margin:0"><strong>Google Docs:</strong> Copy and Open copies your notes as formatted text and opens a blank Google Doc: paste with Ctrl+V (Cmd+V on a Mac). Or upload the Word file to Google Drive, open it with Google Docs, then choose File, Save as Google Docs.</p>` : `<p class="status-msg">You have no notes to export yet.</p>`}
+    <h3 class="nx-sec">Export As</h3>
+    <div class="nx-out"><button type="button" class="nx-opt" data-nx="word"><b>Word</b><span>Downloads a .docx file</span></button><button type="button" class="nx-opt" data-nx="gdoc"><b>Google Docs</b><span>Copies the notes and opens a new doc: paste with Ctrl+V (⌘V on a Mac)</span></button><button type="button" class="nx-opt" data-nx="gdrive"><b>Google Drive</b><span>Downloads a Word file to upload, then Open with Google Docs</span></button></div>` : `<p class="status-msg">You have no notes to export yet.</p>`}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
   if (!live.length) return;
   const root = dlg.querySelector(".sheet"), boxes = () => [...root.querySelectorAll("[data-nxc]")];
@@ -35914,12 +35914,12 @@ function cleanFile(r) {
   const newsRow = n => { const c = cfg(), bc = c.courses[n.ou] || {}; return `<li><div class="bs-main"><b>${esc(n.title)}</b><span class="mini">${esc(cleanCourseCode(bc.code, bc.name) || bc.name || "")}${n.date ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}</span><p class="bs-news-text">${esc(n.text)}${n.long ? "…" : ""}</p></div>
     <span class="bs-btns">${n.url ? `<a class="btn small" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}${aiReady() ? `<button class="btn small ai-btn" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">${AI_ICON} Check for Dates</button>` : ""}</span></li>`; };
 
-  const extFacts = () => `<ul class="help-list bs-facts">
-      <li><b>What it reads:</b> only the school site you connect in it, using the sign-in your browser already has (Studyboard never sees your password): your courses, due dates, whether you've submitted, grades, announcements and calendar events.</li>
+  const extFacts = () => `<details class="bs-facts-d"><summary>What the extension does</summary><ul class="help-list bs-facts">
+      <li><b>Reads only</b> the school site you connect in it, with the sign-in your browser already has. Studyboard never sees your password.</li>
       <li><b>Read only:</b> it can't submit, post or change anything on ${P.name}.</li>
-      <li><b>Where it goes:</b> straight to Studyboard in this browser. Once it's in, it's part of your planner and syncs like everything else if you use an account.</li>
-      <li><b>Staying up to date:</b> it checks by itself about every hour. Remove the extension to stop.</li>
-    </ul>`;
+      <li><b>Goes straight into Studyboard,</b> and syncs with your account if you have one.</li>
+      <li><b>Checks about every hour.</b> Remove the extension to stop.</li>
+    </ul></details>`;
   // o.manual: straight to typing the address (from School Sites' Didn't Work?), with o.host filled in and o.note above it
   function connectSheet(o){
     if (P.direct) return gcSheet();
@@ -35928,12 +35928,11 @@ function cleanFile(r) {
     const desk = bsDesk() && !P.feedOnly, cloud = sbActive(), grab = grabOk() && !P.feedOnly && !P.noExt;
     const extOn = !P.feedOnly && !P.noExt && !!(window.SBEXT && SBEXT.on()), extHas = extOn && SBEXT.has(P.id), extOffer = !desk && !extOn && grab && extDesktop();
     const extWay = extOn ? `<div class="bs-way rec"><div class="bs-way-h"><b>Studyboard School Sync</b><span class="bs-pill">${extHas ? "Connected" : "Installed"}</span></div>
-          <p class="mini">${extHas ? `The extension keeps ${P.name} up to date by itself: due dates, what you've submitted, grades and announcements.` : `The extension is installed. Click its toolbar button and connect ${P.name}: it then brings in due dates, submissions, grades and announcements by itself.`}</p>
+          <p class="mini">${extHas ? `The extension keeps ${P.name} up to date by itself: due dates, what you've submitted, grades and announcements.` : `Click its toolbar button and connect ${P.name}. It then brings in due dates, submissions, grades and announcements by itself.`}</p>
           ${extFacts()}</div>`
       : extOffer ? `<div class="bs-way rec"><div class="bs-way-h"><b>Get the Studyboard School Sync Extension</b><span class="bs-pill">Recommended</span></div>
-          <p class="mini">Brings in due dates plus what the calendar link can't: grades, announcements and what you've submitted. Add it to ${extBrowser()}, click its toolbar button and connect ${P.name}. It then syncs by itself.</p>
+          <p class="mini">Due dates plus grades, announcements and what you've submitted. Read only, and Studyboard never sees your password. Add it to ${extBrowser()}, then connect ${P.name} from its toolbar button.</p>
           <div class="bs-acts">${extBadge()}</div>
-          <p class="mini" style="margin-top:4px"><b>Here's exactly what it does:</b></p>
           ${extFacts()}</div>` : "";
     const ext = !!extWay;
     // A calendar link is read through the Studyboard account, so without one lead with the file
@@ -35945,7 +35944,7 @@ function cleanFile(r) {
           <p class="mini">A calendar link is checked automatically through your Studyboard account, so it needs a free account. Sign in or create one, then paste the link here.${P.feedOnly ? "" : ` For grades and submissions too, get the Studyboard ${dl} and sign in to ${P.name} there.`}</p>
           <div class="bs-acts"><button class="btn" data-act="sb-signin">Sign In or Create Account</button></div></div>`
       : `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${P.feedOnly ? "Recommended" : ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
-          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${P.feedOnly ? `It can't see grades or what you've turned in, so tick off finished work yourself.` : ext ? `It can't see grades, announcements or submissions, so tick off finished work yourself. It works alongside the extension and keeps due dates current on your phone.` : desk ? `Submitted work, grades and announcements need the sign-in above.` : `Submitted work, grades and announcements need the desktop app.`}</p>
+          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${P.feedOnly ? `It can't see grades or what you've turned in, so tick off finished work yourself.` : ext ? `No grades or submissions, so tick off finished work yourself. Handy on your phone, alongside the extension.` : desk ? `Submitted work, grades and announcements need the sign-in above.` : `Submitted work, grades and announcements need the desktop app.`}</p>
           ${!desk && !ext && !P.feedOnly ? `<p class="mini bs-note"><b>Heads up:</b> a calendar link only brings in due dates, not submissions or grades. For everything, get the Studyboard ${dl} and sign in to ${P.name} there.</p>` : ""}
           <label class="f"><span class="lh">Calendar Link <span class="hint">${P.name}, ${esc(P.feedWhere)}</span></span><input type="url" id="bsFeedIn" placeholder="${esc(P.feedPh)}" autocomplete="off" spellcheck="false"></label>
           <div class="bs-acts"><button class="btn ${desk || ext ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button><button class="btn" data-act="${A}-feed-help">How to Find It</button></div></div>`;
@@ -35966,9 +35965,8 @@ function cleanFile(r) {
             <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
-        ${local ? "" : `<p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>`}
-        <p class="mini" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
-        ${P.id === "canvas" && !desk ? `<p class="mini" style="margin:0">Want your Canvas inbox here? <button class="linklike" data-act="cf-view" data-id="emails">How to Bring It In</button></p>` : ""}
+        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring in your Canvas inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
+        <p class="mini bs-legal" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
     if (desk && finder) wireFind();
@@ -67099,7 +67097,7 @@ function logTimeSheet(id){
       <p class="lt-task"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</p>
       <fieldset class="lt-f"><legend>${esc(tr("tw.howLong", "How long did you work on it?"))}</legend>
         <div class="lt-chips" role="group">${chips.map(([m, l]) => `<button type="button" class="btn small lt-chip" data-lt="${m}" aria-pressed="false">${l}</button>`).join("")}</div>
-        <label class="f"><span class="lh">${esc(tr("tw.orType", "Or type it"))}</span><input type="text" name="ltMin" id="ltMin" maxlength="12" autocomplete="off" placeholder="${esc(tr("acc.exactPh", "e.g. 1h 30m"))}" autofocus></label></fieldset>
+        <label class="lt-type"><span>${esc(tr("tw.orType", "Or type it"))}</span><input type="text" name="ltMin" id="ltMin" maxlength="12" autocomplete="off" placeholder="${esc(tr("acc.exactPh", "e.g. 1h 30m"))}" autofocus></label></fieldset>
       <fieldset class="lt-f"><legend>${esc(tr("tw.when", "When?"))}</legend>
         ${seg("ltDay", [["today", esc(tr("tw.today", "Today"))], ["yest", esc(tr("tw.yesterday", "Yesterday"))], ["other", esc(tr("tw.earlier", "Earlier"))]], "today")}
         <label class="f lt-date" hidden><span class="lh">${esc(tr("tw.day", "Day"))}</span><input type="date" name="ltDate" id="ltDate" max="${today}" value="${addDays(today, -2)}"></label></fieldset>
@@ -68457,6 +68455,8 @@ const METHODS = [
   ["rewatch", "Rewatching lectures", 0],
   ["cram", "A long session the night before", 0]];
 const STARTS = [["week", "More than a week before"], ["days", "3 to 7 days before"], ["short", "1 or 2 days before"], ["night", "The night before"]];
+// the methods shown in three groups of three
+const METHOD_GROUPS = [["Testing yourself", ["practice", "cards", "explain"]], ["Going over it", ["summary", "reread", "rewatch"]], ["How you spread it out", ["spaced", "cram", "group"]]];
 const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v && typeof v === "object" ? v : d; } catch (e) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const isExam = t => !!t && MILESTONE(t.type) && !t.prepFor;
@@ -68516,10 +68516,10 @@ function open(id, back){
       ${compareHtml(s.felt, s.measured, mark)}
       <p class="ewr-read">${esc(readOf(s.felt, s.measured, mark))}</p>
       <fieldset class="ewr-fs"><legend>How did you study? <span class="hint">pick all that apply</span></legend>
-        <div class="ewr-chips">${METHODS.map(([k, l]) => `<label class="ewr-chip"><input type="checkbox" name="m" value="${k}"${picked.has(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div>
+        <div class="ewr-groups">${METHOD_GROUPS.map(([g, ks]) => `<div class="ewr-g" role="group" aria-label="${esc(g)}"><span class="ewr-gl">${esc(g)}</span><div class="ewr-chips ewr-grid3">${ks.map(k => METHODS.find(x => x[0] === k)).filter(Boolean).map(([k, l]) => `<label class="ewr-chip"><input type="checkbox" name="m" value="${k}"${picked.has(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></div>`).join("")}</div>
         <p class="ewr-tip" id="ewrTip" aria-live="polite"></p></fieldset>
       <fieldset class="ewr-fs"><legend>When did you start studying for it?</legend>
-        <div class="ewr-chips">${STARTS.map(([k, l]) => `<label class="ewr-chip"><input type="radio" name="st" value="${k}"${w.start === k ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></fieldset>
+        <div class="ewr-chips ewr-grid4">${STARTS.map(([k, l]) => `<label class="ewr-chip"><input type="radio" name="st" value="${k}"${w.start === k ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></fieldset>
       <label class="f"><span class="lh">Next Time I'll… <span class="hint">optional, shown before your next exam</span></span><input type="text" name="next" maxlength="200" value="${esc(w.next || "")}" placeholder="e.g. start practice questions a week earlier" data-noenter></label>
       <label class="mi-check"><input type="checkbox" id="ewrAsk"${askOn() ? " checked" : ""}> Ask me after each exam or quiz</label>
     </div>
@@ -75767,7 +75767,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return {p: Number(pgEl.dataset.p), r, t: text, end: range.getBoundingClientRect()};
   }
   function showPop(html, at){
-    hidePop();
+    hidePop(); if (R) R.popAt = at;
     const main = dlg.querySelector(".pdr-main"); if (!main) return;
     const el = document.createElement("div"); el.className = "pdr-pop"; el.setAttribute("role", "toolbar"); el.innerHTML = html; main.appendChild(el);
     const mb = main.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
@@ -75838,24 +75838,33 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* Notes and cards from highlights */
   const boardFor = cid => { const b = cid && noteBoards().find(x => x.courseId === cid); return b ? b.id : ""; };
   const linkTo = (f, p) => `[[${P.linkName ? P.linkName(f.name) : f.name}#p${p}]]`;
-  function noteFrom(text, f, label){
-    const board = boardFor(f.courseId), on = notesArr().filter(n => !n.archived && noteBoardOf(n) === board);
+  function noteFrom(text, f, label, to){
+    const board = to !== undefined ? to : boardFor(f.courseId), on = notesArr().filter(n => !n.archived && noteBoardOf(n) === board);
     const z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
     const n = normNote({id: uid(), text: text.slice(0, 8000), color: "yellow", x: 40 + Math.round(Math.random() * 360), y: 40 + Math.round(Math.random() * 120) + (on.length ? 20 : 0), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10, courseId: f.courseId || "", board, created: Date.now()});
     applyChanges([{kind: "note", id: n.id, after: n}], label || `Note added to ${nbName(board)}`);
     return n;
   }
-  function hlNote(h){
+  // Which board a note goes to: asked when you have boards besides My Notes (the course's own board is suggested first)
+  function askBoard(at, go){
+    const f = fileOf(), bs = noteBoards(); if (!bs.length || !at) { go(f ? boardFor(f.courseId) : ""); return; }
+    const sug = f ? boardFor(f.courseId) : "", ids = [sug].concat(["", ...bs.map(b => b.id)].filter(x => x !== sug));
+    R.boardGo = go;
+    showPop(`<span class="mini pdr-pop-lbl">Add the note to</span>${ids.map(id => { const b = bs.find(x => x.id === id); return `<button type="button" class="btn small pdr-nb" data-act="pdr-note-to" data-id="${esc(id)}"${id === sug ? ' aria-describedby="pdrNbSug"' : ""}><span class="dot" style="--c:${esc(b ? nbColor(b) : "var(--muted)")}" aria-hidden="true"></span>${esc(nbName(id))}</button>`; }).join("")}<span class="sr" id="pdrNbSug">Suggested: this course's board</span>`, at);
+  }
+  function hlNote(h, to){
     const f = fileOf(); if (!f || !h) return;
     if (h.n && state.notes[h.n]) { const id = h.n; if (dlg.open) dlg.close(); if (P.openLink) P.openLink({kind: "note", id}); return; }
-    const n = noteFrom(`“${h.t}”\n${linkTo(f, h.p)}`, f);
+    if (to === undefined && noteBoards().length) { askBoard(R.popAt, b => hlNote(h, b)); return; }
+    const n = noteFrom(`“${h.t}”\n${linkTo(f, h.p)}`, f, undefined, to);
     saveHl(mine().map(x => x.id === h.id ? Object.assign({}, x, {n: n.id}) : x)); hidePop(); if (R && R.side) side();
   }
-  function allToNote(){
+  function allToNote(to){
+    if (to === undefined && noteBoards().length) { const b = dlg.querySelector('[data-act="pdr-all-note"]'); askBoard(b && b.getBoundingClientRect(), x => allToNote(x)); return; }
     const f = fileOf(), list = mine().slice().sort((a, b) => a.p - b.p || a.at - b.at); if (!f || !list.length) return;
     let text = `Highlights: ${f.name}\n`;
     for (const h of list) { const add = `\n“${h.t}” ${linkTo(f, h.p)}\n`; if (text.length + add.length > 7900) { text += "\n…"; break; } text += add; }
-    noteFrom(text, f, `Note made from ${list.length} highlight${list.length === 1 ? "" : "s"}`);
+    noteFrom(text, f, `Note made from ${list.length} highlight${list.length === 1 ? "" : "s"}`, to);
   }
   function cardForm(h){
     const f = fileOf(); if (!f || !h) return;
@@ -76032,7 +76041,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-sel-note": { const h = addFromSel(R.color); if (h) hlNote(h); break; }
       case "pdr-sel-card": { const h = addFromSel(R.color); if (h) { hidePop(); cardForm(h); } break; }
       case "pdr-hl-color": { const hid = el.dataset.h; saveHl(mine().map(x => x.id === hid ? Object.assign({}, x, {c: id}) : x)); hidePop(); paint(); break; }
-      case "pdr-hl-note": hlNote(byId(id)); break;
+      case "pdr-hl-note": R.popAt = el.getBoundingClientRect(); hlNote(byId(id)); break;
+      case "pdr-note-to": { const go = R.boardGo; R.boardGo = null; hidePop(); if (go) go(id || ""); break; }
       case "pdr-hl-card": hidePop(); cardForm(byId(id)); break;
       case "pdr-hl-del": { const h = byId(id); if (!h) break; const before = mine(); saveHl(before.filter(x => x.id !== id)); hidePop(); paint(h.p); counts(); if (R.side) side(); toast("Highlight removed", () => { if (R) { saveHl(before); paint(h.p); counts(); if (R.side) side(); } }); break; }
       case "pdr-side": R.side = !R.side; R.card = null; side(); break;
@@ -76062,6 +76072,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
 .pdr-sheet[data-mode="edit"] .pdr-bar2{display:none}
 .pdr-markhint{color:var(--muted)}
+.pdr-pop .pdr-pop-lbl{padding:0 6px;white-space:nowrap}
+.pdr-pop .pdr-nb{display:inline-flex;align-items:center;gap:6px}
+.pdr-pop .pdr-nb .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .pdr-modes{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
 .pdr-modes .pdr-mode,.pdr-modes .pde-mode{display:inline-flex;align-items:center;gap:6px;min-height:34px;height:34px;padding:0 14px;border:0;border-radius:999px;background:none;color:var(--muted);font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;box-shadow:none}
 .pdr-modes .pdr-mode svg,.pdr-modes .pde-mode svg{width:16px;height:16px;flex:none}
@@ -81651,7 +81664,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   hook("act", (act, el, id) => {
     if (!act.startsWith("pde-")) return false;
     if (act === "pde-edit") { if (dlg.open) dlg.close(); setTimeout(() => openEdit(id), 0); return true; }
-    if (act === "pde-scan") { if (P.locked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Scan to PDF is part of Studyboard Pro: photos of your pages, straightened and cleaned up into one PDF."); } else scanOpen(null); return true; }
+    if (act === "pde-scan") { if (P.locked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Scan to PDF is part of Studyboard Pro: photos of your pages, straightened into one PDF."); } else scanOpen(null); return true; }
     const S = session(); if (!S) return true;
     switch (act) {
       case "pde-mode": setOn(!S.on); break;
@@ -82108,12 +82121,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     } catch (err) { out.innerHTML = `<p class="mini">Couldn't open one of the versions here${navigator.onLine === false ? " (you're offline)" : ""}.</p>`; }
   }
 
-  /* Scan to PDF: photos of pages, found, straightened and cleaned up, then one PDF */
+  /* Scan to PDF: photos of pages, found and straightened (in their own colours), then one PDF */
   let SCAN = null;
   function scanOpen(done){
     let d = document.getElementById("pdeScanDlg");
     if (!d) { d = document.createElement("dialog"); d.id = "pdeScanDlg"; d.className = "pde-scan"; d.setAttribute("aria-labelledby", "pdeScanT"); document.body.appendChild(d); }
-    SCAN = {pages: [], done, filter: (lsGet("studyboard:pdeScan") || {}).filter || "doc", edit: -1};
+    SCAN = {pages: [], done, filter: "none", edit: -1};   // pages keep their own colours (no Document / Black & White look)
     d.oncancel = e => { e.preventDefault(); scanClose(); };
     scanDraw(); try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
   }
@@ -82181,10 +82194,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const n = SCAN.pages.length;
     d.innerHTML = `<div class="sheet pde-scan-sheet"><div class="sheet-head"><h2 id="pdeScanT">Scan to PDF</h2><button type="button" class="icon-btn" data-scan="close" aria-label="Close">${ico(IC.x)}</button></div>
       <div class="sheet-body">
-        <p class="mini" style="margin:0">Take a photo of each page (or pick photos). Each page is found, straightened and cleaned up; drag its corners if it needs fixing. Photos stay on this device until you save the PDF${phoneCam() ? " (photos from your phone come here locked, through Studyboard's relay)" : ""}.</p>
+        <p class="mini" style="margin:0">Take a photo of each page (or pick photos). Each page is found and straightened, in its own colours; drag its corners if it needs fixing. Photos stay on this device until you save the PDF${phoneCam() ? " (photos from your phone come here locked, through Studyboard's relay)" : ""}.</p>
         <div class="row-actions">${phoneCam() ? `<button type="button" class="btn primary" data-scan="phone"${SCAN.phone ? ' aria-pressed="true"' : ""}>${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Take Photos</button>` : `<label class="btn primary">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Take Photos<input type="file" accept="image/*" capture="environment" multiple class="sr" data-scan-in></label>`}
-          <label class="btn">${ico(IC.image)}Choose Photos<input type="file" accept="image/png,image/jpeg,image/webp,image/heic" multiple class="sr" data-scan-in></label>
-          <label class="f pde-inline"><span class="lh">Look</span><select data-scan="filter">${FILTERS.map(([k, nm]) => `<option value="${k}"${SCAN.filter === k ? " selected" : ""}>${nm}</option>`).join("")}</select></label></div>
+          <label class="btn">${ico(IC.image)}Choose Photos<input type="file" accept="image/png,image/jpeg,image/webp,image/heic" multiple class="sr" data-scan-in></label></div>
         ${phonePanel()}
         ${n ? `<ol class="pde-scanlist">${SCAN.pages.map((p, i) => `<li><img alt="Page ${i + 1}" src="${p.thumb || ""}"><span class="mini">Page ${i + 1}</span><span class="pde-cardbar">
           <button type="button" class="icon-btn" data-scan="up" data-i="${i}" aria-label="Move page ${i + 1} earlier"${i ? "" : " disabled"}>${ico(IC.left)}</button><button type="button" class="icon-btn" data-scan="rot" data-i="${i}" aria-label="Turn page ${i + 1}">${ico(IC.rotR)}</button>
@@ -82237,6 +82249,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   // the look: Document (gray, paper white, ink dark), Color (levels stretched), Gray, or Black & White (by the light around each spot)
   function look(img, filter){
+    if (!filter || filter === "none") return;
     const d = img.data, n = img.width * img.height;
     if (filter === "color") { for (let ch = 0; ch < 3; ch++) { const hs = new Array(256).fill(0); for (let i = 0; i < n; i++) hs[d[i * 4 + ch]]++; let lo = 0, hi = 255, acc = 0; while (lo < 255 && (acc += hs[lo]) < n * 0.01) lo++; acc = 0; while (hi > 0 && (acc += hs[hi]) < n * 0.01) hi--; const sp = Math.max(1, hi - lo); for (let i = 0; i < n; i++) d[i * 4 + ch] = Math.max(0, Math.min(255, (d[i * 4 + ch] - lo) * 255 / sp)); } return; }
     const L = new Float32Array(n); for (let i = 0; i < n; i++) L[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
@@ -82292,7 +82305,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     try {
       const L = await loadLib(), doc = await L.PDFDocument.create();
       for (const p of SCAN.pages) {
-        const blob = await new Promise(res => p.out.toBlob(res, "image/jpeg", SCAN.filter === "bw" ? 0.7 : 0.8)), img = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+        const blob = await new Promise(res => p.out.toBlob(res, "image/jpeg", 0.85)), img = await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
         // a page as wide as US Letter (8.5 in), as tall as the photo's shape needs
         const w = 612, h = Math.round(612 * p.out.height / p.out.width), pg = doc.addPage([w, h]); pg.drawImage(img, {x: 0, y: 0, width: w, height: h});
       }
@@ -82991,6 +83004,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .mini.bad{color:var(--late,#c0262d)}
 .pde-on[data-pde-tool="stamp"] .pde-layer,.pde-on[data-pde-tool="link"] .pde-layer,.pde-on[data-pde-tool="field"] .pde-layer{cursor:crosshair;touch-action:none}
 .pde-more-wrap{position:relative;display:inline-flex}
+.pde-more-wrap .pde-menu{left:auto;right:0}   /* More sits at the end of a full row: its menu opens leftward, inside the window */
 .pdr-split{position:relative;display:inline-flex}
 .pdr-split > .btn:first-child{border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0}
 .pdr-split > .pdr-dl-more{border-top-left-radius:0;border-bottom-left-radius:0;padding-left:8px;padding-right:8px;min-width:0}
@@ -83079,6 +83093,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 /* Studyboard Pro: PDF tools in Files: Convert (PDF to Word or pictures; Word, PowerPoint or pictures to PDF) and PDF Batch
    (the same change to many PDFs at once). Also the groundwork for group review (off: see GROUP-REVIEW.md). */
 var SBPDFT = null;
+// PDF Batch is hidden for now (its code stays; set to true to show the button in Files again)
+const PDT_BATCH = false;
 /*PDFTOOLS-START*/
 // Word: paragraphs (with headings and simple styles) to a .docx's document.xml body
 const pdtX = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
@@ -83540,7 +83556,7 @@ function reviewMemoryStore(){
     return true;
   });
   SBPDFT = window.SBPDFT = {
-    filesBtns: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small" data-act="pdt-convert">Convert</button><button type="button" class="btn small" data-act="pdt-batch">PDF Batch</button>`,
+    filesBtns: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small" data-act="pdt-convert">Convert</button>${PDT_BATCH ? `<button type="button" class="btn small" data-act="pdt-batch">PDF Batch</button>` : ""}`,
     review: {on: REVIEW_ON, norm: reviewNorm, merge: reviewMerge, can: reviewCan, key: reviewKey, memoryStore: reviewMemoryStore}
   };
   const css = document.createElement("style");

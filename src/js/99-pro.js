@@ -2635,7 +2635,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return {p: Number(pgEl.dataset.p), r, t: text, end: range.getBoundingClientRect()};
   }
   function showPop(html, at){
-    hidePop();
+    hidePop(); if (R) R.popAt = at;
     const main = dlg.querySelector(".pdr-main"); if (!main) return;
     const el = document.createElement("div"); el.className = "pdr-pop"; el.setAttribute("role", "toolbar"); el.innerHTML = html; main.appendChild(el);
     const mb = main.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
@@ -2706,24 +2706,33 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* Notes and cards from highlights */
   const boardFor = cid => { const b = cid && noteBoards().find(x => x.courseId === cid); return b ? b.id : ""; };
   const linkTo = (f, p) => `[[${P.linkName ? P.linkName(f.name) : f.name}#p${p}]]`;
-  function noteFrom(text, f, label){
-    const board = boardFor(f.courseId), on = notesArr().filter(n => !n.archived && noteBoardOf(n) === board);
+  function noteFrom(text, f, label, to){
+    const board = to !== undefined ? to : boardFor(f.courseId), on = notesArr().filter(n => !n.archived && noteBoardOf(n) === board);
     const z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
     const n = normNote({id: uid(), text: text.slice(0, 8000), color: "yellow", x: 40 + Math.round(Math.random() * 360), y: 40 + Math.round(Math.random() * 120) + (on.length ? 20 : 0), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10, courseId: f.courseId || "", board, created: Date.now()});
     applyChanges([{kind: "note", id: n.id, after: n}], label || `Note added to ${nbName(board)}`);
     return n;
   }
-  function hlNote(h){
+  // Which board a note goes to: asked when you have boards besides My Notes (the course's own board is suggested first)
+  function askBoard(at, go){
+    const f = fileOf(), bs = noteBoards(); if (!bs.length || !at) { go(f ? boardFor(f.courseId) : ""); return; }
+    const sug = f ? boardFor(f.courseId) : "", ids = [sug].concat(["", ...bs.map(b => b.id)].filter(x => x !== sug));
+    R.boardGo = go;
+    showPop(`<span class="mini pdr-pop-lbl">Add the note to</span>${ids.map(id => { const b = bs.find(x => x.id === id); return `<button type="button" class="btn small pdr-nb" data-act="pdr-note-to" data-id="${esc(id)}"${id === sug ? ' aria-describedby="pdrNbSug"' : ""}><span class="dot" style="--c:${esc(b ? nbColor(b) : "var(--muted)")}" aria-hidden="true"></span>${esc(nbName(id))}</button>`; }).join("")}<span class="sr" id="pdrNbSug">Suggested: this course's board</span>`, at);
+  }
+  function hlNote(h, to){
     const f = fileOf(); if (!f || !h) return;
     if (h.n && state.notes[h.n]) { const id = h.n; if (dlg.open) dlg.close(); if (P.openLink) P.openLink({kind: "note", id}); return; }
-    const n = noteFrom(`“${h.t}”\n${linkTo(f, h.p)}`, f);
+    if (to === undefined && noteBoards().length) { askBoard(R.popAt, b => hlNote(h, b)); return; }
+    const n = noteFrom(`“${h.t}”\n${linkTo(f, h.p)}`, f, undefined, to);
     saveHl(mine().map(x => x.id === h.id ? Object.assign({}, x, {n: n.id}) : x)); hidePop(); if (R && R.side) side();
   }
-  function allToNote(){
+  function allToNote(to){
+    if (to === undefined && noteBoards().length) { const b = dlg.querySelector('[data-act="pdr-all-note"]'); askBoard(b && b.getBoundingClientRect(), x => allToNote(x)); return; }
     const f = fileOf(), list = mine().slice().sort((a, b) => a.p - b.p || a.at - b.at); if (!f || !list.length) return;
     let text = `Highlights: ${f.name}\n`;
     for (const h of list) { const add = `\n“${h.t}” ${linkTo(f, h.p)}\n`; if (text.length + add.length > 7900) { text += "\n…"; break; } text += add; }
-    noteFrom(text, f, `Note made from ${list.length} highlight${list.length === 1 ? "" : "s"}`);
+    noteFrom(text, f, `Note made from ${list.length} highlight${list.length === 1 ? "" : "s"}`, to);
   }
   function cardForm(h){
     const f = fileOf(); if (!f || !h) return;
@@ -2900,7 +2909,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-sel-note": { const h = addFromSel(R.color); if (h) hlNote(h); break; }
       case "pdr-sel-card": { const h = addFromSel(R.color); if (h) { hidePop(); cardForm(h); } break; }
       case "pdr-hl-color": { const hid = el.dataset.h; saveHl(mine().map(x => x.id === hid ? Object.assign({}, x, {c: id}) : x)); hidePop(); paint(); break; }
-      case "pdr-hl-note": hlNote(byId(id)); break;
+      case "pdr-hl-note": R.popAt = el.getBoundingClientRect(); hlNote(byId(id)); break;
+      case "pdr-note-to": { const go = R.boardGo; R.boardGo = null; hidePop(); if (go) go(id || ""); break; }
       case "pdr-hl-card": hidePop(); cardForm(byId(id)); break;
       case "pdr-hl-del": { const h = byId(id); if (!h) break; const before = mine(); saveHl(before.filter(x => x.id !== id)); hidePop(); paint(h.p); counts(); if (R.side) side(); toast("Highlight removed", () => { if (R) { saveHl(before); paint(h.p); counts(); if (R.side) side(); } }); break; }
       case "pdr-side": R.side = !R.side; R.card = null; side(); break;
@@ -2930,6 +2940,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
 .pdr-sheet[data-mode="edit"] .pdr-bar2{display:none}
 .pdr-markhint{color:var(--muted)}
+.pdr-pop .pdr-pop-lbl{padding:0 6px;white-space:nowrap}
+.pdr-pop .pdr-nb{display:inline-flex;align-items:center;gap:6px}
+.pdr-pop .pdr-nb .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .pdr-modes{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
 .pdr-modes .pdr-mode,.pdr-modes .pde-mode{display:inline-flex;align-items:center;gap:6px;min-height:34px;height:34px;padding:0 14px;border:0;border-radius:999px;background:none;color:var(--muted);font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;box-shadow:none}
 .pdr-modes .pdr-mode svg,.pdr-modes .pde-mode svg{width:16px;height:16px;flex:none}
