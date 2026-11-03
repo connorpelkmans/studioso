@@ -1135,7 +1135,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   function layerOf(n){
     const pg = E && E.pages.get(n); if (!pg || !pg.el.isConnected) return null;
     let L = pg.el.querySelector(".pde-layer");
-    if (!L) { L = document.createElement("div"); L.className = "pde-layer"; L.dataset.p = n; pg.el.appendChild(L); }
+    if (!L) { L = document.createElement("div"); L.className = "pde-layer sm-skip"; L.dataset.p = n; pg.el.appendChild(L); }
     return L;
   }
   const px = v => v.toFixed(2) + "px";
@@ -1227,7 +1227,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const anns = await annsOf(pg.page); if (!E || !pg.el.isConnected) return;
     let F = pg.el.querySelector(".pde-form");
     if (!anns.length) { if (F) F.remove(); return; }
-    if (!F) { F = document.createElement("div"); F.className = "pde-form"; pg.el.appendChild(F); }
+    if (!F) { F = document.createElement("div"); F.className = "pde-form sm-skip"; pg.el.appendChild(F); }
     if (F.contains(document.activeElement)) return;   // not while someone is typing in it
     F.innerHTML = anns.map(a => {
       const [x0, y0] = toVp(pg, a.rect[0], a.rect[1]), [x1, y1] = toVp(pg, a.rect[2], a.rect[3]), x = Math.min(x0, x1), y = Math.min(y0, y1), w = Math.abs(x1 - x0), h = Math.abs(y1 - y0);
@@ -1416,7 +1416,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (!E || !E.on || ev.button > 0) return;
     const pg = pageOfEv(ev); if (!pg || ev.target.closest(".pde-e.editing,.pde-field,.pde-oldlink")) return;
     const hitEl = ev.target.closest(".pde-e"), at = local(pg, ev);
-    if (ev.target.closest(".pde-picsel") && E.picSel) { ev.preventDefault(); E.drag = {kind: "picnew", pg, start: at, el: ev.target.closest(".pde-picsel"), moved: false}; return; }
+    if (ev.target.closest(".pde-picsel") && E.picSel) {
+      ev.preventDefault(); const el = ev.target.closest(".pde-picsel");
+      // the picture itself follows the pointer, and its old place shows blank, as it will once it's moved
+      let cover = null; try { const src = cropOf(pg, picBox(E.picSel.m)); if (src) { el.style.background = `url("${src}") center / 100% 100% no-repeat`; cover = document.createElement("i"); cover.className = "pde-cover pde-cover-live"; cover.style.cssText = `left:${el.style.left};top:${el.style.top};width:${el.style.width};height:${el.style.height};background:#fff`; el.before(cover); } } catch (err) {}
+      E.drag = {kind: "picnew", pg, start: at, el, cover, moved: false}; return;
+    }
     if (hitEl && E.multi && E.multi.size > 1 && E.multi.has(hitEl.dataset.e) && !ev.shiftKey) {
       const list = picked().filter(e => e.p === pg.n && movable(e)); if (list.length) { ev.preventDefault(); E.drag = {kind: "multi", pg, list, start: at, moved: false}; return; }
     }
@@ -1442,8 +1447,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     }
     const dx = at.x - d.start.x, dy = at.y - d.start.y; if (Math.hypot(dx, dy) > 3) d.moved = true;
     if (d.kind === "picnew") { d.el.style.translate = `${dx}px ${dy}px`; return; }
-    if (d.kind === "multi") { d.list.forEach(e => { const el = L.querySelector(`[data-e="${CSS.escape(e.id)}"]`); if (el) el.style.translate = `${dx}px ${dy}px`; }); return; }
-    if (d.kind === "move") { const el = L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`); if (el) el.style.translate = `${dx}px ${dy}px`; return; }
+    if (d.kind === "multi") { d.list.forEach(e => shift(L.querySelector(`[data-e="${CSS.escape(e.id)}"]`), `${dx}px ${dy}px`)); return; }
+    if (d.kind === "move") { shift(L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`), `${dx}px ${dy}px`); return; }
     // resizing or moving a line's end: shown live by drawing the changed copy
     const next = resized(d, at); if (!next) return;
     const el = L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`);
@@ -1456,6 +1461,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     }
     d.next = next;
   });
+  // something being dragged follows the pointer; a moved picture's white cover stays where the picture was (it hides the original there)
+  function shift(el, t){ if (!el) return; if (el.classList.contains("k-x")) el.querySelectorAll(":scope > :not(.pde-cover)").forEach(c => { c.style.translate = t; }); else el.style.translate = t; }
   function resized(d, at){
     const e = d.e, [x, y] = toPdf(d.pg, at.x, at.y);
     if (d.kind === "end") { const pts = e.pts.slice(); pts[(d.end - 1) * 2] = x; pts[(d.end - 1) * 2 + 1] = y; return Object.assign({}, e, {pts}); }
@@ -1498,20 +1505,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       return;
     }
     if (d.kind === "picnew") {
-      d.el.style.translate = ""; if (!d.moved) return;
+      d.el.style.translate = ""; if (!d.moved) { if (d.cover) d.cover.remove(); d.el.style.background = ""; return; }
       const ps = E.picSel, b = picBox(ps.m), [ox, oy] = toVp(d.pg, b.o[0], b.o[1]), [nx, ny] = toPdf(d.pg, ox + at.x - d.start.x, oy + at.y - d.start.y);
       const e = {id: uid(), a: E.rev, p: ps.p, k: "x", i: ps.i, m0: ps.m, o: [nx, ny], w: b.w, h: b.h, bg: ps.bg || "#ffffff", at: Date.now()};
       E.picSel = null; E.sel = e.id; save(mine().filter(x => !(x.k === "x" && x.p === e.p && x.i === e.i)).concat([e]), "Picture moved"); E.justMade = Date.now(); return;
     }
     if (d.kind === "multi") {
-      d.list.forEach(e => { const el = L && L.querySelector(`[data-e="${CSS.escape(e.id)}"]`); if (el) el.style.translate = ""; });
+      d.list.forEach(e => shift(L && L.querySelector(`[data-e="${CSS.escape(e.id)}"]`), ""));
       if (!d.moved) return;
       const [ox, oy] = toPdf(d.pg, d.start.x, d.start.y), [nx, ny] = toPdf(d.pg, at.x, at.y), mx = nx - ox, my = ny - oy;
       const moved = new Map(d.list.map(e => { const x = Object.assign({}, e, {o: [e.o[0] + mx, e.o[1] + my]}); if (e.pts) x.pts = [e.pts[0] + mx, e.pts[1] + my, e.pts[2] + mx, e.pts[3] + my]; return [e.id, x]; }));
       save(mine().map(x => moved.get(x.id) || x), `Moved ${moved.size} items`); E.justMade = Date.now(); return;
     }
     if (d.kind === "move") {
-      const el = L && L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`); if (el) el.style.translate = "";
+      shift(L && L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`), "");
       if (!d.moved) return;
       const [ox, oy] = toVp(d.pg, d.e.o[0], d.e.o[1]), [nx, ny] = toPdf(d.pg, ox + at.x - d.start.x, oy + at.y - d.start.y), dx = nx - d.e.o[0], dy = ny - d.e.o[1];
       const moved = Object.assign({}, d.e, {o: [nx, ny]}); if (d.e.pts) moved.pts = [d.e.pts[0] + dx, d.e.pts[1] + dy, d.e.pts[2] + dx, d.e.pts[3] + dy];
@@ -2415,7 +2422,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const pg = E && E.pages.get(n); if (!pg) return;
     const links = (await allAnns(pg.page)).filter(a => a.subtype === "Link" && (a.url || a.dest || a.action)); if (!E || !pg.el.isConnected) return;
     let Lk = pg.el.querySelector(".pde-links"); if (!links.length) { if (Lk) Lk.remove(); return; }
-    if (!Lk) { Lk = document.createElement("div"); Lk.className = "pde-links"; pg.el.appendChild(Lk); }
+    if (!Lk) { Lk = document.createElement("div"); Lk.className = "pde-links sm-skip"; pg.el.appendChild(Lk); }
     Lk.innerHTML = links.map((a, k) => {
       const [x0, y0] = toVp(pg, a.rect[0], a.rect[1]), [x1, y1] = toVp(pg, a.rect[2], a.rect[3]), st = `left:${px(Math.min(x0, x1))};top:${px(Math.min(y0, y1))};width:${px(Math.abs(x1 - x0))};height:${px(Math.abs(y1 - y0))}`;
       // only web and email links open; anything else (scripts, files) is left alone
