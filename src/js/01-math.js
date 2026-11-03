@@ -310,13 +310,16 @@ function eqLabel(t){
   const chem = /\\ce\{/.test(t), x = t.replace(/#/g, chem ? "A" : SQ).replace(/\{\}/g, chem ? "{B}" : `{${SQ}}`);
   try { return window.katex.renderToString(x, {throwOnError: false, strict: "ignore", output: "html"}); } catch (e) { return esc(t); }
 }
-function eqOpen(f){
-  const v = f.value, s = f.selectionStart, e = f.selectionEnd;
+// opts.done(tex): the formula goes to that function instead of into a text field (f is then only where the editor opens)
+function eqOpen(f, opts){
+  opts = opts || {};
+  const cb = typeof opts.done === "function" ? opts.done : null;
+  const v = cb ? "" : f.value, s = cb ? 0 : f.selectionStart, e = cb ? 0 : f.selectionEnd;
   // The caret in a formula already written edits that formula
-  const tok = mathSplit(v).find(p => p.m && s >= p.a && e <= p.b && !(s === p.b && e === p.b));
-  RB.field = f; RB.sel = [s, e]; RB.tok = tok || null;
-  const one = f.tagName === "INPUT";
-  const sel = tok ? tok.s : v.slice(s, e);
+  const tok = cb ? null : mathSplit(v).find(p => p.m && s >= p.a && e <= p.b && !(s === p.b && e === p.b));
+  RB.field = f; RB.sel = [s, e]; RB.tok = tok || null; RB.cb = cb;
+  const one = cb || f.tagName === "INPUT";
+  const sel = cb ? String(opts.init || "") : tok ? tok.s : v.slice(s, e);
   if (RB.eq) RB.eq.remove();
   const el = document.createElement("div");
   el.className = "rb-eq"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Equation");
@@ -324,7 +327,7 @@ function eqOpen(f){
     <div class="rb-eq-pal" role="group" aria-label="${esc(EQ_SETS[eqTab][0])}">${eqPal()}</div>
     <label class="rb-eq-l"><span class="mini">Type it in LaTeX, or tap the buttons above. <code>\\ce{...}</code> is for chemistry.</span><textarea class="rb-eq-in" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="e.g. \\frac{a}{b} or \\ce{2H2 + O2 -> 2H2O}">${esc(sel)}</textarea></label>
     <div class="rb-eq-prev" aria-live="polite"></div>
-    <div class="rb-eq-foot">${one ? "" : `<label class="mi-check"><input type="checkbox" class="rb-eq-d"${tok && tok.d ? " checked" : ""}> On its own line</label>`}<span class="spacer"></span><button type="button" class="btn small" data-eqa="cancel">Cancel</button><button type="button" class="btn small primary" data-eqa="ok">${tok ? "Update" : "Insert"}</button></div>`;
+    <div class="rb-eq-foot">${one ? "" : `<label class="mi-check"><input type="checkbox" class="rb-eq-d"${tok && tok.d ? " checked" : ""}> On its own line</label>`}<span class="spacer"></span><button type="button" class="btn small" data-eqa="cancel">Cancel</button><button type="button" class="btn small primary" data-eqa="ok">${cb ? esc(opts.label || "Done") : tok ? "Update" : "Insert"}</button></div>`;
   RB.eq = el; rbHide();
   rbPlace(el, f, true);
   const inp = el.querySelector(".rb-eq-in");
@@ -357,6 +360,7 @@ function eqDone(ok){
   const el = RB.eq; if (!el) return;
   const t = el.querySelector(".rb-eq-in").value.trim(), d = !!(el.querySelector(".rb-eq-d") || {}).checked;
   RB.eq = null; el.remove();
+  if (RB.cb) { const cb = RB.cb; RB.cb = null; if (ok && t) cb(t); return; }
   const f = rbFieldOf(); if (!f) return;
   f.focus({preventScroll: true});
   if (ok && t) {
@@ -370,6 +374,38 @@ function eqDone(ok){
   RB.tok = null;
   rbShow(f);
 }
+// The equation editor on its own, opened next to el; done(tex) gets the formula
+const mathAsk = (el, init, done, label) => eqOpen(el, {init, done, label});
+/* A formula as a picture (for the PDF editor, which can only write the PDF's own fonts): KaTeX's drawing inside an SVG, with
+   its fonts embedded, painted onto a canvas. Some browsers refuse to paint an SVG like that; then this throws. */
+let kxFontCss = null;
+async function katexFontCss(){
+  if (kxFontCss) return kxFontCss;
+  const css = await (await fetch(KATEX_DIR + "katex.min.css")).text(), map = {};
+  const urls = [...new Set([...css.matchAll(/url\((fonts\/[^)]+\.woff2)\)/g)].map(m => m[1]))];
+  await Promise.all(urls.map(async u => { try { const r = await fetch(KATEX_DIR + u); if (r.ok) map[u] = "data:font/woff2;base64," + bytesToB64(new Uint8Array(await r.arrayBuffer())); } catch (e) {} }));
+  kxFontCss = css.replace(/url\((fonts\/[^)]+\.woff2)\)/g, (m, u) => map[u] ? `url(${map[u]})` : m);
+  return kxFontCss;
+}
+async function mathImage(tex, color){
+  await loadKatex();
+  const css = await katexFontCss(), PX = 32, K = 3;
+  const host = document.createElement("div");
+  host.style.cssText = `position:fixed;left:-10000px;top:0;display:inline-block;white-space:nowrap;padding:4px;font-size:${PX}px;line-height:1.25;color:${/^#[0-9a-f]{6}$/i.test(color || "") ? color : "#000000"};background:transparent`;
+  host.innerHTML = window.katex.renderToString("\\displaystyle " + tex, {throwOnError: true, trust: false, strict: "ignore", output: "html", maxSize: 40, maxExpand: 400});
+  document.body.appendChild(host);
+  try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+  const r = host.getBoundingClientRect(), w = Math.max(1, Math.ceil(r.width)), h = Math.max(1, Math.ceil(r.height));
+  host.style.position = "static"; host.style.left = "";
+  const xhtml = new XMLSerializer().serializeToString(host); host.remove();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><foreignObject x="0" y="0" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml"><style>${css}</style>${xhtml}</div></foreignObject></svg>`;
+  const img = new Image(); img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  await img.decode();
+  const cv = document.createElement("canvas"); cv.width = w * K; cv.height = h * K;
+  const ctx = cv.getContext("2d"); ctx.scale(K, K); ctx.drawImage(img, 0, 0, w, h);
+  ctx.getImageData(0, 0, 1, 1);
+  return {canvas: cv, w, h, px: PX};
+}
 if (typeof dlg !== "undefined" && dlg) dlg.addEventListener("cancel", e => { if (RB.eq) { e.preventDefault(); eqDone(false); } });
 document.addEventListener("pointerdown", e => { if (RB.eq && !e.target.closest(".rb-eq,.rb-bar") && e.target !== RB.field) eqDone(false); }, true);
-window.__sbMath = {mathSplit, richFrag, mathSpeech, mathPlain, loadKatex, hasMath, ready: () => katexOk, state: () => state, ui, render, applyChanges, clone, quiz: (d, q) => startAiQuiz(d, q)};
+window.__sbMath = {mathSplit, richFrag, mathSpeech, mathPlain, mathImage, mathAsk, loadKatex, hasMath, ready: () => katexOk, state: () => state, ui, render, applyChanges, clone, quiz: (d, q) => startAiQuiz(d, q)};
