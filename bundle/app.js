@@ -80730,7 +80730,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // resizing or moving a line's end: shown live by drawing the changed copy
     const next = resized(d, at); if (!next) return;
     const el = L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`);
-    if (el) { const w = document.createElement("div"); w.innerHTML = editHtml(d.pg, next, false); el.replaceWith(w.firstChild); }
+    if (el) {
+      const w = document.createElement("div"); w.innerHTML = next.k === "x" ? picHtml(d.pg, next) : next.k === "l" ? linkHtml(d.pg, next) : next.k === "q" ? fieldHtml(d.pg, next) : editHtml(d.pg, next, false);
+      // the picture already shown is kept (a new <img> would have to load again, so it blinks while you drag)
+      const nu = w.firstChild, oldImg = el.querySelector("img"), newImg = nu && nu.querySelector("img");
+      if (oldImg && newImg && oldImg.getAttribute("src") === newImg.getAttribute("src")) newImg.replaceWith(oldImg);
+      if (nu) el.replaceWith(nu);
+    }
     d.next = next;
   });
   function resized(d, at){
