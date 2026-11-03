@@ -167,7 +167,7 @@ function vWork(){
       <input type="file" id="semPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOn() ? ",image/*" : ""}" aria-label="${esc(tr("sem.work.pdf.b", "Choose PDFs"))}">
       ${qPanel()}</div>
     <div class="sem-card"><div><b>${esc(tr("sem.work.lms", "Your school's site"))}</b><span class="mini">${esc((() => { try { return window.SBLMS && SBLMS.grabOk && SBLMS.grabOk(); } catch (e) { return false; } })()
-        ? tr("sem.work.lms.web", "Brightspace, Canvas or Blackboard: due dates, grades, announcements and what you've already submitted. On the website in desktop Chrome, the Studyboard School Sync extension brings it all in. It only reads and never sees your password. Your school's calendar link brings in due dates in any browser.")
+        ? tr("sem.work.lms.web", "Brightspace, Canvas or Blackboard: due dates, grades, announcements and what you've already submitted. On the website in desktop Chrome or Edge, the Studyboard School Sync extension brings it all in. It only reads and never sees your password. Your school's calendar link brings in due dates in any browser.")
         : tr("sem.work.lms.s", "Brightspace, Canvas or Blackboard. Studyboard only reads from it."))}</span></div>
       <div class="sem-row-btns"><button type="button" class="btn" data-sem="lms">${esc(tr("sem.work.lms.b", "Connect School Site"))}</button></div></div>
     <div class="sem-card"><div><b>${esc(tr("sem.work.ics", "A calendar file"))}</b><span class="mini">${esc(tr("sem.work.ics.s", "A .ics file from Google, Apple or Outlook, or your school's calendar export."))}</span></div>

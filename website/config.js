@@ -29,6 +29,8 @@ window.STUDYBOARD_SITE = {
     ios:      { label: "App Store",            url: "", needs: "iPhone and iPad" },
     android:  { label: "Google Play",          url: "", needs: "Android phones and tablets" },
     // store: the extension's Chrome Web Store page
-    chrome:   { label: "Chrome Web Store",     store: "https://chromewebstore.google.com/detail/studyboard-school-sync/ibibaefpedmlgaamopopcoelnnaaollf", needs: "Chrome, Edge and Brave on a computer" }
+    chrome:   { label: "Chrome Web Store",     store: "https://chromewebstore.google.com/detail/studyboard-school-sync/ibibaefpedmlgaamopopcoelnnaaollf", needs: "Chrome, Edge and Brave on a computer" },
+    // store: the extension's Microsoft Edge Add-ons page
+    edge:     { label: "Edge Add-ons",         store: "https://microsoftedge.microsoft.com/addons/detail/studyboard-school-sync/naphniaaapegibhbnnhmgimeegbodikh" }
   }
 };

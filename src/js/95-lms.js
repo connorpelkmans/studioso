@@ -1554,9 +1554,9 @@ function cleanFile(r) {
       <div class="sheet-body">
         <div class="bs-status${needLogin || gone0 ? " warn" : ""}"><span class="bs-ico">${ICON}</span><div><b>${needLogin ? "Sign In Again" : gone0 ? "Not Syncing" : "Connected"}${c.name ? `<span class="mini"> as ${esc(c.name)}</span>` : ""}</b><span class="mini">${esc(statusLine())}</span>${diagHtmlBox()}</div></div>
         <div class="bs-acts">
-          ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from Chrome's toolbar and connect ${P.name} again to keep syncing.` : chromeDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
-          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${chromeDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to Chrome.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
-          ${!P.feedOnly && !P.direct && !P.noExt && grabOk() && chromeDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
+          ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from ${extBrowser() || "your browser"}'s toolbar and connect ${P.name} again to keep syncing.` : extDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome or Edge with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
+          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${extDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to ${extBrowser()}.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
+          ${!P.feedOnly && !P.direct && !P.noExt && grabOk() && extDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(extStoreUrl())}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
           ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
           <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
           ${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}
@@ -1617,13 +1617,13 @@ function cleanFile(r) {
     o = o && typeof o === "object" && !(o instanceof Event) ? o : {};
     const finder = findOk() && !o.manual;
     const desk = bsDesk() && !P.feedOnly, cloud = sbActive(), grab = grabOk() && !P.feedOnly && !P.noExt;
-    const extOn = !P.feedOnly && !P.noExt && !!(window.SBEXT && SBEXT.on()), extHas = extOn && SBEXT.has(P.id), extOffer = !desk && !extOn && grab && chromeDesktop();
+    const extOn = !P.feedOnly && !P.noExt && !!(window.SBEXT && SBEXT.on()), extHas = extOn && SBEXT.has(P.id), extOffer = !desk && !extOn && grab && extDesktop();
     const extWay = extOn ? `<div class="bs-way rec"><div class="bs-way-h"><b>Studyboard School Sync</b><span class="bs-pill">${extHas ? "Connected" : "Installed"}</span></div>
           <p class="mini">${extHas ? `The extension keeps ${P.name} up to date by itself: due dates, what you've submitted, grades and announcements.` : `The extension is installed. Click its toolbar button and connect ${P.name}: it then brings in due dates, submissions, grades and announcements by itself.`}</p>
           ${extFacts()}</div>`
       : extOffer ? `<div class="bs-way rec"><div class="bs-way-h"><b>Get the Studyboard School Sync Extension</b><span class="bs-pill">Recommended</span></div>
-          <p class="mini">Brings in due dates plus what the calendar link can't: grades, announcements and what you've submitted. Add it to Chrome, click its toolbar button and connect ${P.name}. It then syncs by itself.</p>
-          <div class="bs-acts"><a class="btn primary" href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">Add to Chrome</a></div>
+          <p class="mini">Brings in due dates plus what the calendar link can't: grades, announcements and what you've submitted. Add it to ${extBrowser()}, click its toolbar button and connect ${P.name}. It then syncs by itself.</p>
+          <div class="bs-acts"><a class="btn primary" href="${esc(extStoreUrl())}" target="_blank" rel="noopener noreferrer">Add to ${extBrowser()}</a></div>
           <p class="mini" style="margin-top:4px"><b>Here's exactly what it does:</b></p>
           ${extFacts()}</div>` : "";
     const ext = !!extWay;
@@ -1937,7 +1937,7 @@ function cleanFile(r) {
   async function startFresh(){
     const p = freshPlan(), c = cfg();
     const keepList = p.keep.slice(0, 8).map(k => `<li><b>${esc(k.t.title)}</b> <span class="mini">${esc(k.why)}</span></li>`).join("") + (p.keep.length > 8 ? `<li class="mini">and ${p.keep.length - 8} more</li>` : "");
-    const how = bsDesk() && c.mode === "api" ? "signing in again on this device" : EXT.on && EXT.schools.some(x => x.id === P.id) ? "the Studyboard School Sync extension" : c.feed ? "your calendar link" : chromeDesktop() ? "the Studyboard School Sync extension (add it to Chrome and connect " + P.name + " afterwards)" : "your next sync";
+    const how = bsDesk() && c.mode === "api" ? "signing in again on this device" : EXT.on && EXT.schools.some(x => x.id === P.id) ? "the Studyboard School Sync extension" : c.feed ? "your calendar link" : extDesktop() ? "the Studyboard School Sync extension (add it to " + extBrowser() + " and connect " + P.name + " afterwards)" : "your next sync";
     const ok = await new Promise(res => {
       let done = false; const fin = v => { if (!done) { done = true; res(v); } };
       openSheet(`<form class="sheet">${head("Start Fresh with " + P.name + "?")}
@@ -1968,8 +1968,8 @@ function cleanFile(r) {
     toast(`Removed ${n} item${n === 1 ? "" : "s"} from ${P.name}. Bringing it back fresh…`, undo);
     readAgain();
   }
-  const extNudge = why => chromeDesktop() ? `Add the Studyboard School Sync extension to Chrome and connect ${P.name} ${why}.` : `Connect ${P.name} in the Studyboard desktop app, or add its calendar link, ${why}.`;
-  const extBtn = () => chromeDesktop() ? {label: "Get the Extension", fn: () => openOutside(EXT_CHROME_URL)} : null;
+  const extNudge = why => extDesktop() ? `Add the Studyboard School Sync extension to ${extBrowser()} and connect ${P.name} ${why}.` : `Connect ${P.name} in the Studyboard desktop app, or add its calendar link, ${why}.`;
+  const extBtn = () => extDesktop() ? {label: "Get the Extension", fn: () => openOutside(extStoreUrl())} : null;
   function readAgain(wait){
     const c = cfg();
     if (bsDesk() && c.mode === "api") { syncNow({force: true}); return; }
@@ -1983,7 +1983,7 @@ function cleanFile(r) {
     const signed = desk ? "your sign-in in this app" : "the Studyboard School Sync extension";
     openSheet(`<form class="sheet">${head("Bring Back " + (n === 1 ? "1 Deleted Item" : n + " Deleted Items") + "?")}
       <div class="sheet-body"><p style="margin:0">These are ${esc(P.name)} items you deleted in Studyboard. Choose what brings them back:</p>
-        <label class="mi-check"><input type="radio" name="ubWay" value="api" checked> <span><b>${esc(signed[0].toUpperCase() + signed.slice(1))}</b><span class="mini" style="display:block">They come back exactly as ${esc(P.name)} has them, with whether they're submitted, grades and feedback.${desk || ext ? "" : chromeDesktop() ? " Add it to Chrome and connect " + esc(P.name) + " afterwards." : " Connect " + esc(P.name) + " in the Studyboard desktop app afterwards."}</span></span></label>
+        <label class="mi-check"><input type="radio" name="ubWay" value="api" checked> <span><b>${esc(signed[0].toUpperCase() + signed.slice(1))}</b><span class="mini" style="display:block">They come back exactly as ${esc(P.name)} has them, with whether they're submitted, grades and feedback.${desk || ext ? "" : extDesktop() ? " Add it to " + extBrowser() + " and connect " + esc(P.name) + " afterwards." : " Connect " + esc(P.name) + " in the Studyboard desktop app afterwards."}</span></span></label>
         ${c.feed ? `<label class="mi-check"><input type="radio" name="ubWay" value="any"> <span><b>Any sync, including the calendar link</b><span class="mini" style="display:block">Sooner, but the calendar link only knows due dates and can bring back its own copies (like "…Due" or "…- Available").</span></span></label>` : ""}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Bring Them Back</button></div></form>`, () => {
       const way = (dlg.querySelector("input[name=ubWay]:checked") || {}).value || "api";
@@ -2569,7 +2569,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   window.SBFLAGS = {get: appFlag, load: () => { FLAGS.at = 0; return loadFlags(); }};
 
   /* The Studyboard School Sync browser extension (the website only) */
-  const EXT_STORE = {chrome: EXT_CHROME_URL, edge: "", firefox: "", safari: ""};
+  const EXT_STORE = {chrome: EXT_CHROME_URL, edge: EXT_EDGE_URL, firefox: "", safari: ""};
   const EXT = {on: false, version: "", schools: [], checked: false};
   const extPost = m => window.postMessage(Object.assign({source: "studyboard-app"}, m), location.origin);
   const EXT_REV = "2026-10-17f";
@@ -2643,7 +2643,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     has: id => EXT.schools.some(x => x.id === id),
     html: name => {
       if (EXT.on) return `<p class="bs-ext on" style="margin:0"><b>The Studyboard School Sync extension is installed.</b> ${EXT.schools.length ? `It keeps ${esc(EXT.schools.map(x => (ALL().find(L => L.P.id === x.id) || {P: {name: x.id}}).P.name).join(", "))} up to date by itself.` : `Click its button in the toolbar and connect ${esc(name)}: it then syncs by itself.`}</p>`;
-      const links = chromeDesktop() ? [["chrome", "Chrome"]] : [];
+      const links = chromeDesktop() ? [["chrome", "Chrome"]] : edgeDesktop() ? [["edge", "Edge"]] : [];
       return links.length ? `<p class="bs-ext" style="margin:0"><b>Want it automatic?</b> The Studyboard School Sync browser extension reads ${esc(name)} for you every hour, with nothing to click. ${links.map(([k, l]) => `<a class="btn small" href="${esc(EXT_STORE[k])}" target="_blank" rel="noopener noreferrer">Get It for ${l}</a>`).join(" ")}</p>` : "";
     }
   };

@@ -66,7 +66,7 @@
     const head = `<div class="view-head"><h2>Emails</h2></div>`;
     return `${head}<div class="empty em-empty" style="text-align:left;margin-top:12px"><strong>Connect Canvas to See Your Emails</strong>
       ${hasDesk() ? `Sign in to Canvas under Settings, School Sites and your inbox appears here. <button class="btn small" data-act="lms-open">Connect a School Site</button>`
-        : chromeDesktop() ? `Add the <a href="${esc(EXT_CHROME_URL)}" target="_blank" rel="noopener noreferrer">Studyboard School Sync extension</a> to Chrome and connect Canvas in it. Your latest messages then come in with your courses (to reply, open them in Canvas). In the Studyboard desktop app you can also read and answer them here.`
+        : extDesktop() ? `Add the <a href="${esc(extStoreUrl())}" target="_blank" rel="noopener noreferrer">Studyboard School Sync extension</a> to ${extBrowser()} and connect Canvas in it. Your latest messages then come in with your courses (to reply, open them in Canvas). In the Studyboard desktop app you can also read and answer them here.`
         : `Your Canvas inbox can be read in the Studyboard desktop app, which also lets you answer here, or on a computer with the Studyboard School Sync browser extension.`}
       ${E.err ? `<p class="mini em-err">${esc(E.err)}</p>` : ""}${note()}</div>`;
   }
