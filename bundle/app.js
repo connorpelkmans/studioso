@@ -81250,11 +81250,24 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const cols = `<span class="pde-cols">${[["#14204a", "Dark blue"], ["#000000", "Black"]].map(([c, n]) => `<button type="button" class="pde-col" data-act="pde-sig-color" data-id="${c}" style="--c:${c}" aria-label="${n}" aria-pressed="${SIG.color === c}"></button>`).join("")}</span>`;
     if (t === "Draw") {
       box.innerHTML = `<canvas class="pde-pad" id="pdeSigPad" width="1200" height="400" aria-label="Draw your signature here"></canvas><div class="row-actions">${cols}<span class="spacer"></span><button type="button" class="btn small" data-act="pde-sig-clear">Clear</button></div>`;
-      const cv = $("#pdeSigPad"), ctx = cv.getContext("2d"); let last = null; SIG.drawn = false;
+      // strokes are kept as points and redrawn smoothed (like the whiteboard), so a signature looks drawn with a pen, not a mouse
+      const cv = $("#pdeSigPad"), ctx = cv.getContext("2d"), strokes = []; let cur = null; SIG.drawn = false; SIG.strokes = strokes;
       const pt = ev => { const b = cv.getBoundingClientRect(); return [(ev.clientX - b.left) * cv.width / b.width, (ev.clientY - b.top) * cv.height / b.height]; };
-      cv.addEventListener("pointerdown", ev => { cv.setPointerCapture(ev.pointerId); last = pt(ev); ctx.beginPath(); ctx.arc(last[0], last[1], 2.5, 0, 7); ctx.fillStyle = SIG.color; ctx.fill(); SIG.drawn = true; });
-      cv.addEventListener("pointermove", ev => { if (!last) return; const p = pt(ev); ctx.strokeStyle = SIG.color; ctx.lineWidth = 5 * (ev.pressure && ev.pointerType === "pen" ? 0.6 + ev.pressure : 1); ctx.lineCap = ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(last[0], last[1]); ctx.quadraticCurveTo(last[0], last[1], (last[0] + p[0]) / 2, (last[1] + p[1]) / 2); ctx.lineTo(p[0], p[1]); ctx.stroke(); last = p; });
-      const end = () => { last = null; }; cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+      const simplify = (p, eps) => { if (p.length < 3) return p; const keep = new Uint8Array(p.length); keep[0] = keep[p.length - 1] = 1; const st = [[0, p.length - 1]];
+        while (st.length) { const [a, b] = st.pop(); let md = 0, mi = -1; const [x1, y1] = p[a], [x2, y2] = p[b], L = Math.hypot(x2 - x1, y2 - y1) || 1;
+          for (let k = a + 1; k < b; k++) { const d = Math.abs((y2 - y1) * p[k][0] - (x2 - x1) * p[k][1] + x2 * y1 - y2 * x1) / L; if (d > md) { md = d; mi = k; } }
+          if (md > eps && mi > 0) { keep[mi] = 1; st.push([a, mi], [mi, b]); } }
+        return p.filter((q, k) => keep[k]); };
+      const chaikin = (p, n) => { for (let r = 0; r < n && p.length > 2; r++) { const o = [p[0]]; for (let k = 0; k < p.length - 1; k++) { const [a, b] = [p[k], p[k + 1]]; o.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]); } o.push(p[p.length - 1]); p = o; } return p; };
+      const smooth = p => chaikin(simplify(p, 1.6), 3);
+      const drawOne = (p, w) => { ctx.strokeStyle = ctx.fillStyle = SIG.color; ctx.lineWidth = w; ctx.lineCap = ctx.lineJoin = "round";
+        if (p.length < 2) { ctx.beginPath(); ctx.arc(p[0][0], p[0][1], w / 2, 0, 7); ctx.fill(); return; }
+        ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]); for (let k = 1; k < p.length - 1; k++) ctx.quadraticCurveTo(p[k][0], p[k][1], (p[k][0] + p[k + 1][0]) / 2, (p[k][1] + p[k + 1][1]) / 2); ctx.lineTo(p[p.length - 1][0], p[p.length - 1][1]); ctx.stroke(); };
+      const redraw = () => { ctx.clearRect(0, 0, cv.width, cv.height); strokes.forEach(s0 => drawOne(s0.pts, s0.w)); if (cur) drawOne(cur.raw, cur.w); };
+      SIG.redraw = redraw;
+      cv.addEventListener("pointerdown", ev => { cv.setPointerCapture(ev.pointerId); cur = {raw: [pt(ev)], w: 7 * (ev.pointerType === "pen" && ev.pressure ? 0.7 + ev.pressure * 0.6 : 1)}; SIG.drawn = true; redraw(); });
+      cv.addEventListener("pointermove", ev => { if (!cur) return; const evs = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [ev]; (evs.length ? evs : [ev]).forEach(e => cur.raw.push(pt(e))); redraw(); });
+      const end = () => { if (!cur) return; strokes.push({pts: smooth(cur.raw), w: cur.w}); cur = null; redraw(); }; cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
     } else if (t === "Type") {
       const styles = [["Caveat", "Caveat"], ["Kalam", "Kalam"], ["Patrick Hand", "Patrick Hand"], ["Gochi Hand", "Gochi Hand"]];
       SIG.font = SIG.font || "Caveat";
@@ -81714,9 +81727,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-font-use": useFont(id).then(closePanel); break;
       case "pde-font-rm": removeFont(id).then(fontsPanel); break;
       case "pde-sig-tab": sigTab(id); break;
-      case "pde-sig-color": SIG.color = id; dlg.querySelectorAll('[data-act="pde-sig-color"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); break;
+      case "pde-sig-color": SIG.color = id; dlg.querySelectorAll('[data-act="pde-sig-color"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); if (SIG.redraw) SIG.redraw(); break;
       case "pde-sig-font": SIG.font = id; dlg.querySelectorAll(".pde-sigstyle").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); break;
-      case "pde-sig-clear": { const cv = $("#pdeSigPad"); if (cv) { cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; } break; }
+      case "pde-sig-clear": { const cv = $("#pdeSigPad"); if (cv) { if (SIG.strokes) SIG.strokes.length = 0; cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; } break; }
       case "pde-sig-use": sigUse(); break;
       case "pde-sig-pick": { const s = mySigs().find(x => x.id === id); if (s) placeNext(Object.assign({sig: true}, s)); break; }
       case "pde-sig-rm": lsSet(K_SIGS, mySigs().filter(x => x.id !== id)); idbDel("pdeimg:" + id).catch(() => {}); sigTab(mySigs().length ? "Saved" : "Draw"); break;
