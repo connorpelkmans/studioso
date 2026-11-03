@@ -41,7 +41,7 @@ const PAIRS = [["fnink", ["fn1", "fn2"], "function keys"], ["fnink", ["md1", "md
       const cs = getComputedStyle(el), v = {};
       ["b1", "b2", "b3", "fn1", "fn2", "fnink", "md1", "md2", "nm1", "nm2", "nmink", "op1", "op2", "opink", "dl1", "dl2", "dlink", "eq1", "eq2", "eqink", "sh1", "sh2", "shink", "lcd1", "lcd2", "lcdink", "alt", "brand", "brand2", "xink"].forEach(k => { v[k] = cs.getPropertyValue("--" + k).trim(); });
       const t = window.SBCALCSKIN.varsFor(id), deco = cs.getPropertyValue("--deco").trim();
-      return {v, tone: (t && t.tone) || "#ffffff", a: t ? window.SBCALCSKIN.strength(t) : 0, skin: el.dataset.cxskin || "", hasPattern: deco !== "none" && deco !== ""};
+      return {v, keys: t && t.keys, tone: (t && t.tone) || "#ffffff", a: t ? window.SBCALCSKIN.strength(t) : 0, skin: el.dataset.cxskin || "", hasPattern: deco !== "none" && deco !== ""};
     }, id);
     ok(id === "classic" ? !r.skin : r.skin === id, `${id}: the calculator takes the theme`);
     for (const [fg, bgs, what, onPattern] of PAIRS) {
@@ -50,7 +50,9 @@ const PAIRS = [["fnink", ["fn1", "fn2"], "function keys"], ["fnink", ["md1", "md
       if (onPattern && r.hasPattern) w = Math.min(w, ...bgs.map(b => cr(f, blend(hex(r.v[b]), hex(r.tone), r.a))));
       if (w < 4.5) failures.push(`${id}: ${what} ${w.toFixed(2)}:1`);
     }
-    const x = hex(r.v.xink); if (x && cr(x, hex(r.v.b1)) < 3) failures.push(`${id}: close button ${cr(x, hex(r.v.b1)).toFixed(2)}:1`);
+    // single keys in their own colour
+    for (const [k, [c1, c2, ink]] of Object.entries(r.keys || {})) { const w = Math.min(cr(hex(ink), hex(c1)), cr(hex(ink), hex(c2))); if (w < 4.5) failures.push(`${id}: the ${k} key ${w.toFixed(2)}:1`); }
+        const x = hex(r.v.xink); if (x && cr(x, hex(r.v.b1)) < 3) failures.push(`${id}: close button ${cr(x, hex(r.v.b1)).toFixed(2)}:1`);
     await page.waitForTimeout(120);
     ok(await page.evaluate(id => (document.getElementById("calc").dataset.cxskin || "classic") === id, id), `${id}: still on after the app settles`);
     if (SHOTS) { await page.locator("#calc").screenshot({path: path.join(SHOTS, `calc-${id}.png`)}); }

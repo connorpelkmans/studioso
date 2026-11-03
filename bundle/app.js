@@ -90244,6 +90244,40 @@ var SBCALCSKIN = null;
     winter: {b1: "#ffffff", b2: "#eaf0f7", b3: "#d4dfec", edge: "#9fb2c9", brand: "#223e6f", brand2: "#3b6fd1", solarbg: "#223e6f", solar1: "#5a74a0", solar2: "#2a3f66", lcd1: "#eef3fa", lcd2: "#d3deec", lcdink: "#14233a", lcdframe: "#3e5f8a", fn1: "#ffffff", fn2: "#e5edf7", fnink: "#223e6f", fnsh: "#9fb2c9", md1: "#f2f6fb", md2: "#dce6f2", nm1: "#ffffff", nm2: "#f2f6fb", nmink: "#14233a", nmsh: "#a9b9cd", op1: "#d9e3ee", op2: "#c3d1e2", opink: "#14233a", opsh: "#8c9fb8", dl1: "#5073b8", dl2: "#4066b2", dlsh: "#223e6f", eq1: "#3b6fd1", eq2: "#2c5ab5", eqsh: "#223e6f", sh1: "#a4c6ff", sh2: "#7fa8ef", shink: "#14233a", alt: "#2a55a8", xbg: "rgba(34,62,111,.08)", xink: "#223e6f", tone: "#3b6fd1"},
     lemonade: {b1: "#ffe680", b2: "#ffd23f", b3: "#f2b705", edge: "#9a6b00", brand: "#5c4500", brand2: "#2f6b4f", solarbg: "#5c4500", solar1: "#8a6a10", solar2: "#4a3700", lcd1: "#fffdf3", lcd2: "#f6edc4", lcdink: "#2e2a12", lcdframe: "#5c4500", fn1: "#fff6cf", fn2: "#ffe99a", fnink: "#5c4500", fnsh: "#b8860b", md1: "#fff9e0", md2: "#ffefb0", nm1: "#ffffff", nm2: "#fffbe8", nmink: "#2e2a12", nmsh: "#c9a227", op1: "#d9f2c7", op2: "#bfe6a8", opink: "#1f4a34", opsh: "#6aa35a", dl1: "#ff9f5a", dl2: "#f07a2e", dlink: "#3d1a00", dlsh: "#9a4a10", eq1: "#2f6b4f", eq2: "#235a40", eqsh: "#1a3f2d", sh1: "#2f6b4f", sh2: "#245a41", shink: "#fff", alt: "#1f4a34", xbg: "rgba(92,69,0,.12)", xink: "#5c4500"}
   };
+  /* Designed themes: each one's colours picked from what the theme looks like (body, function keys, mode keys, number keys,
+     operator keys, DEL and AC, =, SHIFT, the screen and its frame, the small labels, the brand), built into the full set by
+     build(), which also makes every key's lettering read. keys: single keys in their own colour (Holi's powder colours). */
+  const DESIGN = {
+    // Holidays and seasons
+    halloween: {body: "#1c1420", fn: "#3a2448", md: "#4a2e5c", nm: "#f3e9dc", op: "#ffb35c", dl: "#e8641c", eq: "#7b3fa8", sh: "#ff8a2a", lcd: "#f7d9a8", frame: "#0d080f", alt: "#ff9f45", brand: "#f3e9dc", brand2: "#ff8a2a"},
+    newyear: {body: "#141a3a", fn: "#222b5c", md: "#2c3670", nm: "#f4f2ea", op: "#f0d98a", dl: "#c43d6a", eq: "#d4a62a", sh: "#f0d98a", lcd: "#e9ecf8", frame: "#090c1f", alt: "#f0d98a", brand: "#f4f2ea", brand2: "#f0c14b"},
+    lunarnewyear: {body: "#b3221e", fn: "#8c1814", md: "#9e1d18", nm: "#fff4e0", op: "#f6c85f", dl: "#2a1714", eq: "#f2b632", sh: "#f6c85f", lcd: "#fff1d6", frame: "#5a0d0a", alt: "#ffd77a", brand: "#ffe6a8", brand2: "#ffd77a"},
+    valentines: {body: "#ffd6e0", fn: "#ffffff", md: "#ffe8ee", nm: "#ffffff", op: "#ffb3c6", dl: "#d81b4a", eq: "#9c1036", sh: "#ff7aa2", lcd: "#fff0f4", frame: "#9c1036", alt: "#9c1036", brand: "#9c1036", brand2: "#d81b4a"},
+    stpatricks: {body: "#1f7a3f", fn: "#17602f", md: "#1d6e38", nm: "#f4fbef", op: "#c9ecb4", dl: "#f08a2c", eq: "#f2c230", sh: "#c9ecb4", lcd: "#e9f7e1", frame: "#0f3d20", alt: "#f2d470", brand: "#f4fbef", brand2: "#f2c230"},
+    easter: {body: "#e9e0f7", fn: "#fff9d6", md: "#dff3e6", nm: "#ffffff", op: "#cfe9ff", dl: "#f5a3c0", eq: "#8f6fd6", sh: "#ffe27a", lcd: "#fffdf2", frame: "#6b55a8", alt: "#5b45a0", brand: "#5b45a0", brand2: "#c2457a"},
+    july4: {body: "#1f2f63", fn: "#2a3d7a", md: "#34488a", nm: "#ffffff", op: "#dfe6f5", dl: "#f4f6fb", dlink: "#b81f30", eq: "#c8283a", sh: "#e9eef8", lcd: "#f3f5fb", frame: "#0f1838", alt: "#ffffff", brand: "#ffffff", brand2: "#ff6b78"},
+    thanksgiving: {body: "#8a4a1f", fn: "#6e3a16", md: "#7a4219", nm: "#fbf0dc", op: "#f2c98a", dl: "#c9561c", eq: "#5a6b2a", sh: "#f2b04a", lcd: "#fbe8c4", frame: "#3e1f0b", alt: "#f7d08a", brand: "#fbf0dc", brand2: "#f2b04a"},
+    hanukkah: {body: "#1e3f8f", fn: "#284c9e", md: "#3157ab", nm: "#f5f7fc", op: "#c9d6f2", dl: "#e8c45a", eq: "#c8cfdd", sh: "#e8c45a", lcd: "#eef3fc", frame: "#0f2257", alt: "#e8d590", brand: "#f5f7fc", brand2: "#e8c45a"},
+    xmas: {body: "#1e5a35", fn: "#174a2b", md: "#1b5331", nm: "#fff8ec", op: "#e9dcc0", dl: "#c8283a", eq: "#e2b33c", sh: "#c8283a", lcd: "#fff4e0", frame: "#0d2c19", alt: "#f4d27a", brand: "#fff8ec", brand2: "#f4d27a"},
+    diwali: {body: "#7a1f52", fn: "#5e1640", md: "#6a1a48", nm: "#fff6e6", op: "#ffcf70", dl: "#ff8a1e", eq: "#f2b632", sh: "#ffcf70", lcd: "#fff1d8", frame: "#3d0b28", alt: "#ffd27a", brand: "#fff1d8", brand2: "#ffb347"},
+    ramadan: {body: "#14244a", fn: "#1f3263", md: "#263c74", nm: "#f7f1e3", op: "#e8d9a8", dl: "#2f8f86", eq: "#d4a62a", sh: "#e8d9a8", lcd: "#f6efdc", frame: "#0a1530", alt: "#e9cf86", brand: "#f7f1e3", brand2: "#e9cf86"},
+    holi: {body: "#fbf7ff", fn: "#ffffff", md: "#f3ecff", nm: "#ffffff", op: "#ffffff", dl: "#8e44f0", eq: "#ff7a1a", sh: "#ff4fa3", lcd: "#fffaf0", frame: "#5b2a86", alt: "#5b2a86", brand: "#5b2a86", brand2: "#d6267a", tone: "#8e44f0",
+      keys: {mul: "#ff4fa3", div: "#ffd23f", add: "#3fd17a", sub: "#3fa9ff"}},
+    midautumn: {body: "#2a2350", fn: "#352d63", md: "#3f3672", nm: "#fff6e0", op: "#f6d58a", dl: "#d9452f", eq: "#f2c14b", sh: "#f6d58a", lcd: "#fff3d6", frame: "#15112b", alt: "#f6d58a", brand: "#fff6e0", brand2: "#f2c14b"},
+    diadelosmuertos: {body: "#2b1a3d", fn: "#3a2452", md: "#44295f", nm: "#fff3e6", op: "#ff9d2e", dl: "#e8327a", eq: "#20a39e", sh: "#ff9d2e", lcd: "#fff1e0", frame: "#120b1d", alt: "#ffb347", brand: "#fff3e6", brand2: "#ff6fb0"},
+    spring: {body: "#e6f4da", fn: "#ffffff", md: "#f4fbee", nm: "#ffffff", op: "#ffd6e3", dl: "#e85d8a", eq: "#4e9a3e", sh: "#ffe27a", lcd: "#fbfff6", frame: "#2f5128", alt: "#2f5128", brand: "#2f5128", brand2: "#c23d6c"},
+    summer: {body: "#19a7c9", fn: "#148aa8", md: "#179abb", nm: "#fffaf0", op: "#ffe1a6", dl: "#ff7f50", eq: "#ffcc33", sh: "#ffcc33", lcd: "#fffdf5", frame: "#0b5a6e", alt: "#06303d", brand: "#06303d", brand2: "#7a2e10"},
+    autumn: {body: "#a84a1c", fn: "#8a3a14", md: "#94401a", nm: "#fff4e6", op: "#f6c27a", dl: "#e8b13a", eq: "#6b2e14", sh: "#f6c27a", lcd: "#fbecd6", frame: "#4a1e08", alt: "#ffd8a0", brand: "#fff4e6", brand2: "#ffcf6b"},
+    // World
+    japan: {body: "#f6f1e7", fn: "#ffffff", md: "#f1ebdf", nm: "#ffffff", op: "#e9e2d4", dl: "#d6402b", eq: "#1f1f1f", sh: "#f2a7b8", lcd: "#fbf8f1", frame: "#1f1f1f", alt: "#b8321f", brand: "#1f1f1f", brand2: "#d6402b", tone: "#d6402b"},
+    morocco: {body: "#b5502e", fn: "#933f22", md: "#a04626", nm: "#fbf1e4", op: "#3fa39b", dl: "#2c4fa8", eq: "#e3b04b", sh: "#3fa39b", lcd: "#fbefe0", frame: "#5a2410", alt: "#ffe0b8", brand: "#fbf1e4", brand2: "#ffd68a"},
+    italy: {body: "#fbf3df", fn: "#ffffff", md: "#f6edd6", nm: "#ffffff", op: "#ffe17a", dl: "#e0623a", eq: "#2f7fb3", sh: "#a8cf86", lcd: "#fffcf0", frame: "#2a5f86", alt: "#2a5f86", brand: "#2a5f86", brand2: "#c4502b", tone: "#e0a21a"},
+    greece: {body: "#f7f9fc", fn: "#ffffff", md: "#eef3fa", nm: "#ffffff", op: "#d6e6f7", dl: "#2f86d6", eq: "#0d4f9e", sh: "#9cc0ea", lcd: "#f2f7fd", frame: "#0d4f9e", alt: "#0d4f9e", brand: "#0d4f9e", brand2: "#2f86d6", tone: "#2f86d6"},
+    egypt: {body: "#caa15a", fn: "#b88c45", md: "#c29650", nm: "#fff6e2", op: "#f3e3bd", dl: "#1f5aa8", eq: "#1f8f8a", sh: "#e8c66a", lcd: "#fbf0d6", frame: "#5a3d12", alt: "#3a2608", brand: "#3a2608", brand2: "#1f4a8a", tone: "#5a3d12"},
+    canada: {body: "#b8211a", fn: "#961a14", md: "#a51d16", nm: "#ffffff", op: "#ffe0dc", dl: "#f4f4f4", dlink: "#a01810", eq: "#3bb3c3", sh: "#ffffff", lcd: "#fff5f4", frame: "#6a0f0a", alt: "#ffffff", brand: "#ffffff", brand2: "#ffd6d2"},
+    mexico: {body: "#e8931a", fn: "#c4206a", md: "#d6267a", nm: "#fff4e0", op: "#2b5fb8", dl: "#e8402c", eq: "#1f9e8f", sh: "#d6267a", lcd: "#fff6e6", frame: "#6b3a05", alt: "#3a1c00", brand: "#3a1c00", brand2: "#8a1048", tone: "#8a4a05"},
+    brazil: {body: "#1f9e4a", fn: "#188a3f", md: "#1c9444", nm: "#fffbe6", op: "#ffdf3a", dl: "#ffdf3a", eq: "#1f3f9e", sh: "#ffdf3a", lcd: "#fbfff0", frame: "#0d4a22", alt: "#fff1a0", brand: "#fffbe6", brand2: "#ffdf3a"}
+  };
   // Themes that look best as a deep-coloured calculator; the rest get a soft tinted one
   const DEEP = new Set(["halloween", "newyear", "neon", "xmas", "gaming", "hanukkah", "arctic", "lunarnewyear", "mocha", "indigo", "plum", "music"]);
 
@@ -90258,6 +90292,35 @@ var SBCALCSKIN = null;
   function toward(fg, to, bgs){ for (let f = 0; f <= 1.001; f += 0.05) { const c = mix(fg, to, f); if (worst(c, bgs) >= 4.6) return c; } return null; }
   const inkFor = (bgs, dark) => toward(dark, "#000000", bgs) || toward("#ffffff", "#ffffff", bgs) || "#000000";
 
+  // A design into the full set: gradients, shadows, and lettering that reads on every key
+  function build(d){
+    const L = hexLum(d.body) > 0.28;
+    // a dark body is deepened just enough for light lettering to read on its lightest part
+    let base = d.body; if (!L) for (let f = 0.03; f <= 1 && cr("#ffffff", mix(base, "#ffffff", 0.1)) < 5; f += 0.03) base = mix(d.body, "#000000", f);
+    const body = [mix(base, "#ffffff", 0.1), base, mix(base, "#000000", 0.16)];
+    // a key: its colour, a slightly deeper lower half, lettering that reads (the key deepens a touch if no lettering would), its shadow
+    const key = (c, pref) => {
+      let c2 = mix(c, "#000000", 0.08), ink = inkFor([c, c2], pref || (hexLum(c) > 0.35 ? mix(d.frame, "#000000", 0.2) : "#ffffff"));
+      if (worst(ink, [c, c2]) < 4.6) { c = deepen(c, "#ffffff", 4.9); c2 = mix(c, "#000000", 0.08); ink = "#ffffff"; }
+      return [c, c2, ink, mix(c, "#000000", 0.45)]; };
+    let fn = key(d.fn), md = key(d.md);
+    // function and mode keys share one lettering colour
+    if (worst(inkFor([fn[0], fn[1], md[0], md[1]], fn[2]), [fn[0], fn[1], md[0], md[1]]) < 4.6) { fn = key(deepen(fn[0], "#ffffff", 4.9), "#ffffff"); md = key(deepen(md[0], "#ffffff", 4.9), "#ffffff"); }
+    const nm = key(d.nm), op = key(d.op), dl = key(d.dl, d.dlink), eq = key(d.eq), sh = key(d.sh), lcd2 = mix(d.lcd, "#000000", 0.06);
+    const fnInk = inkFor([fn[0], fn[1], md[0], md[1]], fn[2]);
+    const lightOn = c => toward(c, "#ffffff", body) || toward(c, "#000000", body) || "#000000";
+    const v = {b1: body[0], b2: body[1], b3: body[2], edge: mix(d.body, "#000000", L ? 0.3 : 0.6),
+      brand: lightOn(d.brand), brand2: toward(d.brand2, L ? "#000000" : "#ffffff", [body[0]]) || lightOn(d.brand),
+      solarbg: d.frame, solar1: mix(d.frame, "#ffffff", 0.25), solar2: mix(d.frame, "#000000", 0.3),
+      lcd1: d.lcd, lcd2, lcdink: inkFor([d.lcd, lcd2], mix(d.frame, "#000000", 0.25)), lcdframe: d.frame,
+      fn1: fn[0], fn2: fn[1], fnink: fnInk, fnsh: fn[3], md1: md[0], md2: md[1],
+      nm1: nm[0], nm2: nm[1], nmink: nm[2], nmsh: nm[3], op1: op[0], op2: op[1], opink: op[2], opsh: op[3],
+      dl1: dl[0], dl2: dl[1], dlink: dl[2], dlsh: dl[3], eq1: eq[0], eq2: eq[1], eqink: eq[2], eqsh: eq[3], sh1: sh[0], sh2: sh[1], shink: sh[2],
+      alt: toward(d.alt, L ? "#000000" : "#ffffff", body) || lightOn(d.alt),
+      xbg: L ? "rgba(0,0,0,.06)" : "rgba(255,255,255,.12)", xink: L ? mix(d.frame, "#000000", 0.1) : "#f4f4f4", tone: d.tone || (L ? mix(d.frame, "#ffffff", 0.1) : "#ffffff")};
+    if (d.keys) v.keys = Object.fromEntries(Object.entries(d.keys).map(([k, c]) => [k, key(c)]));
+    return v;
+  }
   function derive(s){
     const L = s.light, A = L[8], D = L[11], mark = L[14] || "#FFF3A3", deep = DEEP.has(s.id);
     if (deep) {
@@ -90462,6 +90525,7 @@ var SBCALCSKIN = null;
   function varsFor(id){
     if (!id || id === "classic") return null;
     if (HAND[id]) return Object.assign({}, HAND[id]);
+    if (DESIGN[id]) return build(DESIGN[id]);
     const s = (typeof SKINS !== "undefined" ? SKINS : []).find(x => x.id === id);
     return s && s.light ? derive(s) : null;
   }
@@ -90471,13 +90535,16 @@ var SBCALCSKIN = null;
     if (!el) return;
     const id = themeId(), v = varsFor(id);
     VARS.forEach(k => el.style.removeProperty("--" + k));
+    el.querySelectorAll("[data-cx][style]").forEach(b => b.removeAttribute("style"));
     if (!v) { delete el.dataset.cxskin; return; }
     el.dataset.cxskin = id;
     Object.keys(v).forEach(k => { if (VARS.includes(k)) el.style.setProperty("--" + k, v[k]); });
+    // single keys in their own colour
+    if (v.keys) Object.entries(v.keys).forEach(([k, [c1, c2, ink, sh]]) => { const b = el.querySelector(`[data-cx="${k}"]`); if (b) b.setAttribute("style", `background:linear-gradient(180deg,${c1},${c2});color:${ink};box-shadow:0 2px 0 ${sh},0 3px 5px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.5)`); });
     const p = id === "arcade" ? "none" : pattern(id, v);
     el.style.setProperty("--deco", p);
   }
-  SBCALCSKIN = window.SBCALCSKIN = {apply, varsFor, strength, themeId, motifs: id => !!MOTIFS[id],
+  SBCALCSKIN = window.SBCALCSKIN = {apply, varsFor, strength, themeId, motifs: id => !!MOTIFS[id], designed: id => !!(HAND[id] || DESIGN[id]),
     list: () => (typeof SKINS !== "undefined" ? SKINS : []).filter(s => s.light).map(s => ({id: s.id, name: s.name, group: s.group || "", desc: s.desc || ""})), ids: () => ["classic"].concat((typeof SKINS !== "undefined" ? SKINS : []).filter(s => s.light).map(s => s.id))};
 })();
 /* ===== module: 99-calculator.js: a scientific calculator in a floating window ===== */
