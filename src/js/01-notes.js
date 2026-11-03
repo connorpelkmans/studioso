@@ -25,9 +25,9 @@ function fileKind(f){
   if (f.kind === "link") return "link";
   const t = fileTypeOf(f), n = fileNameOf(f);
   if (t === "application/pdf" || /\.pdf$/i.test(n)) return "pdf";
-  if (f.kind === "cloud" && /\.(docx?|odt|rtf|pages)$/i.test(n)) return "doc";
-  if (f.kind === "cloud" && /\.(pptx?|odp|key)$/i.test(n)) return "slides";
-  if (f.kind === "cloud" && /\.(xlsx?|ods|csv|numbers)$/i.test(n)) return "sheet";
+  if (/\.(docx?|odt|rtf|pages)$/i.test(n) || /wordprocessingml|msword|opendocument\.text|rtf/i.test(t)) return "doc";
+  if (/\.(pptx?|odp|key)$/i.test(n) || /presentationml|powerpoint|opendocument\.presentation/i.test(t)) return "slides";
+  if (/\.(xlsx?|ods|csv|numbers)$/i.test(n) || /spreadsheetml|ms-excel|opendocument\.spreadsheet|text\/csv/i.test(t)) return "sheet";
   if (t.startsWith("audio/")) return "audio";
   if (t.startsWith("image/")) return "image";
   if (t.startsWith("video/")) return "video";
@@ -41,13 +41,16 @@ function fileIcon(f){
 function mimeFor(file){
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   const map = {pdf:"application/pdf", png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", gif:"image/gif", webp:"image/webp", svg:"image/svg+xml",
-    mp4:"video/mp4", webm:"video/webm", txt:"text/plain", md:"text/markdown", csv:"text/csv", json:"application/json"};
+    mp4:"video/mp4", webm:"video/webm", txt:"text/plain", md:"text/markdown", csv:"text/csv", json:"application/json",
+    docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document", pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", doc:"application/msword", ppt:"application/vnd.ms-powerpoint", xls:"application/vnd.ms-excel",
+    odt:"application/vnd.oasis.opendocument.text", odp:"application/vnd.oasis.opendocument.presentation", ods:"application/vnd.oasis.opendocument.spreadsheet", rtf:"application/rtf",
+    mp3:"audio/mpeg", m4a:"audio/mp4", wav:"audio/wav"};
   if (map[ext]) return map[ext];
   if (/^(image|video)\//.test(file.type) && !/heic|heif|tiff/.test(file.type)) return file.type;
   return null;
 }
 async function getAssets(){ if (!caps.assets) caps.assets = await useCap("assets"); return caps.assets; }
-const OFFICE = /\.(docx?|pptx?|xlsx?|odt|ods|odp|pages|key|numbers|zip|rar|7z|heic)$/i;
 // Phone photos are 3-8 MB each, and most of what students attach is a photo of a slide
 const UP_SIDE = 2400, UP_MIN = 400 * 1024;
 async function shrinkForUpload(f, type){
@@ -75,20 +78,32 @@ async function shrinkForUpload(f, type){
     return {file: new File([blob], name, {type: out, lastModified: f.lastModified || Date.now()}), type: out};
   } catch (e) { return {file: f, type}; }
 }
+// A file that hits a storage limit (storage full, too big, a type this storage can't keep, or no storage here) is offered
+// to the student's own Google Drive or OneDrive instead. why: "full", "big", "type" or "none"
+const cloudOffer = () => !!(window.SBCLOUD && SBCLOUD.storageFull) && !inPreview();
+function storageLimit(files, opts, why){
+  if (!files.length) return;
+  if (cloudOffer()) { setTimeout(() => SBCLOUD.storageFull(files, opts, why), 300); return; }
+  const n = files.length, what = n === 1 ? files[0].name : n + " files";
+  toast(why === "full" ? `File storage is full, so ${what} couldn't be added. Delete some files first.` : why === "big" ? `${what} ${n === 1 ? "is" : "are"} too large to store here. Use Add Link for a copy in OneDrive or Google Drive.`
+    : why === "type" ? `${what} couldn't be stored here. Save a PDF copy, or use Add Link for the file in OneDrive, Google Drive or Canvas.` : "File storage isn't available here. You can still add links to files.");
+}
 async function uploadFiles(list, opts){
-  if (opts && opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);
+  opts = opts || {};
+  if (opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);
   const assets = await getAssets();
-  if (!assets) { toast("File storage isn't available here. You can still add links to files."); return []; }
-  const made = [], skipped = [], invs = [], full = [];
+  if (!assets) { storageLimit(list, opts, "none"); return []; }
+  const made = [], invs = [], lim = {full: [], big: [], type: []};
   let next = 0;
   const worker = async () => {
     while (next < list.length) {
       const i = next++; let f = list[i];
       let type = mimeFor(f) || (sbActive() || DESK ? (f.type || "application/octet-stream") : null);
-      if (!type) { skipped.push(f.name); continue; }
+      if (!type) { lim.type.push(f); continue; }
+      const orig = f;
       ({file: f, type} = await shrinkForUpload(f, type));
       const cap = sbActive() || DESK ? 50 : type === "image/svg+xml" ? 2 : 20;
-      if (f.size > cap * 1048576) { toast(`${f.name} is over ${cap} MB and can't be stored`); continue; }
+      if (f.size > cap * 1048576) { lim.big.push(orig); continue; }
       toast(list.length > 1 ? `Uploading ${list.length} files…` : `Uploading ${f.name}…`);
       try {
         let r;
@@ -101,17 +116,19 @@ async function uploadFiles(list, opts){
         invs.push(applyChanges([{kind: "file", id: file.id, after: file}], ""));
       } catch(e) {
         const code = e && e.code;
-        if (code === "quota_or_state" && window.SBCLOUD && SBCLOUD.storageFull) { full.push(f); continue; }
-        toast(code === "too_large" ? `${f.name} is too large to store` : code === "unsupported_type" ? `${f.name}: this file type can't be stored` : code === "quota_or_state" ? "File storage is full. Delete some files first." : code === "invalid_request" && type.startsWith("text/") ? `${f.name} isn't saved as UTF-8 text` : code === "rate_limited" ? "Too many uploads at once. Wait a moment and try again." : `Couldn't upload ${f.name}. Try again.`);
+        if (code === "quota_or_state") { lim.full.push(orig); continue; }
+        if (code === "too_large") { lim.big.push(orig); continue; }
+        if (code === "unsupported_type") { lim.type.push(orig); continue; }
+        toast(code === "invalid_request" && type.startsWith("text/") ? `${f.name} isn't saved as UTF-8 text` : code === "rate_limited" ? "Too many uploads at once. Wait a moment and try again." : `Couldn't upload ${f.name}. Try again.`);
       }
     }
   };
   await Promise.all(Array.from({length: Math.min(3, list.length)}, worker));
-  if (full.length) setTimeout(() => SBCLOUD.storageFull(full, opts), 300);
-  const skipMsg = skipped.length ? `${skipped.length === 1 ? skipped[0] + " wasn't" : skipped.length + " files weren't"} uploaded: Word, PowerPoint and Excel files can't be stored here. Save a PDF copy, or use Add Link for the file in OneDrive, Google Drive or Canvas.` : "";
+  const held = lim.full.concat(lim.big, lim.type), why = lim.full.length ? "full" : lim.big.length ? "big" : "type";
   if (made.length) {
-    toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`) + (skipMsg ? " " + skipMsg : ""), () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
-  } else if (skipMsg) toast(skipMsg);
+    toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`), () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
+  }
+  storageLimit(held, opts, why);
   return made;
 }
 function cleanupAssets(ids, delay = 0){
@@ -165,12 +182,12 @@ function fileRow(f){
   else if (f.kind === "file") { meta.push(`<span>Rev ${revLetter(f.revs.length - 1)}</span>`); if (r) meta.push(`<span>${fmtSize(r.size)}</span>`); }
   else { try { meta.push(`<span>${esc(new URL(safeUrl(f.url)).hostname.replace(/^www\./, ""))}</span>`); } catch(e) {} }
   meta.push(`<span>${esc(new Date(f.updated || f.created || Date.now()).toLocaleDateString(undefined, {month:"short", day:"numeric"}))}</span>`);
-  const read = f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
+  const read = f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f), pv = !read && canPreview(f);
   return `<li class="frow" draggable="true" data-fid="${esc(f.id)}">
     ${fileIcon(f)}
     <button class="fmain" data-act="f-open" data-id="${esc(f.id)}" aria-label="Details of ${esc(f.name)}" title="Name, course, folder, tasks and versions"><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
       ${tasks.length ? `<span class="ftasks">${tasks.slice(0, 3).map(t => `<span class="dep-chip" style="--c:${esc(colorOf(t.courseId))}">${CLIP}${esc(t.title)}</span>`).join("")}${tasks.length > 3 ? `<span class="mini">+${tasks.length - 3}</span>` : ""}</span>` : ""}</button>
-    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button><button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
+    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
   </li>`;
 }
 function viewFiles(){
@@ -195,7 +212,7 @@ function viewFiles(){
   let list;
   if (!fs.length) {
     const none = !ui.q.trim();
-    list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt("files") : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, images or text files${caps.assets ? ", or drop them here" : ""}. For Word, PowerPoint or Excel files, save a PDF copy or add a link to the file online.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
+    list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt("files") : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, Word, PowerPoint and Excel files, images or text files${caps.assets ? ", or drop them here" : ""}. Anything too big can go to your Google Drive or OneDrive.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
   } else if (ui.fCourse !== "all" && !ui.fFolder) {
     list = foldersOf(ui.fCourse).map(fo => { const g = fs.filter(f => f.folderId === fo.id); return g.length ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; }).join("")
       + (() => { const known = new Set(foldersOf(ui.fCourse).map(fo => fo.id)); const g = fs.filter(f => !known.has(f.folderId)); return g.length ? `<h3 class="fsec">${FOLDER}Unsorted<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; })();
@@ -213,7 +230,7 @@ function viewFiles(){
     <div class="fwrap">${tree}
       <section class="fpane" id="fpane" aria-label="Files in ${esc(ui.fCourse === "all" ? "all folders" : (c ? c.name : "General"))}">
         ${fhead}${list}
-        <p class="hint-line" id="fmeter">${canUpload ? `<span class="tip-everyday">Drop files here to upload. On a computer, drag a file onto a folder to move it, or open it and pick a new folder.</span>` : (!inPreview() && (sbConfig() || SBGUEST.is()) ? "Sign in or create a free account to upload files. You can still add links." : "File uploads aren't available in this view. You can still add links.")} ${sbActive() ? "Any file type can be uploaded, up to 50 MB each." : "PDFs, images, videos and text files can be uploaded, up to 20 MB each."}</p>
+        <p class="hint-line" id="fmeter">${canUpload ? `<span class="tip-everyday">Drop files here to upload. On a computer, drag a file onto a folder to move it, or open it and pick a new folder.</span>` : (!inPreview() && (sbConfig() || SBGUEST.is()) ? "Sign in or create a free account to upload files. You can still add links." : "File uploads aren't available in this view. You can still add links.")} ${sbActive() || DESK ? "Any file type can be uploaded, up to 50 MB each." : "PDFs, Word, PowerPoint and Excel files, images, videos and text files can be uploaded, up to 20 MB each."} Bigger files can go to your Google Drive or OneDrive.</p>
       </section></div>
     <input type="file" id="fUploadIn" multiple class="sr" tabindex="-1" aria-label="Choose files to upload">`;
 }
@@ -230,7 +247,7 @@ function fileSheet(f){
   const isLink = f.kind === "link" || f.kind === "cloud", isCloud = f.kind === "cloud";
   // What you can do with the file, in one row under its name (Read and Edit for PDFs, Summarize, Open)
   const pdf = !isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
-  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : "Open"}</a></div>`;
+  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a></div>`;
   openSheet(`<form class="sheet">${head(isCloud ? CLOUD_NAMES[f.cloud.p] + " File" : isLink ? "Link" : "File")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="200" value="${esc(f.name)}"></label>
@@ -274,9 +291,11 @@ function fileSheet(f){
     nr.addEventListener("click", () => $("#fsRevIn").click());
     $("#fsRevIn").addEventListener("change", async e => {
       const file = e.target.files && e.target.files[0]; e.target.value = ""; if (!file) return;
-      const type = mimeFor(file) || (sbActive() ? (file.type || "application/octet-stream") : null);
-      if (!type) { toast("That file type can't be stored. Save it as PDF first."); return; }
-      const a = await getAssets(); if (!a) return;
+      const cur1 = state.files[f.id] || f, lopts = {courseId: cur1.courseId, folderId: cur1.folderId};
+      const type = mimeFor(file) || (sbActive() || DESK ? (file.type || "application/octet-stream") : null);
+      if (!type) { dlg.close(); storageLimit([file], lopts, "type"); return; }
+      if (file.size > (sbActive() || DESK ? 50 : 20) * 1048576) { dlg.close(); storageLimit([file], lopts, "big"); return; }
+      const a = await getAssets(); if (!a) { dlg.close(); storageLimit([file], lopts, "none"); return; }
       toast(`Uploading ${file.name}…`);
       try {
         const cur0 = state.files[f.id] || f;
@@ -285,7 +304,10 @@ function fileSheet(f){
         const n = clone(cur); n.revs = n.revs.concat(Object.assign({assetId: r.id, size: r.sizeBytes, type: r.contentType, at: Date.now(), name: file.name}, r.localRel ? {localRel: r.localRel} : {})); n.updated = Date.now();
         dlg.close();
         applyChanges([{kind:"file", id: f.id, after: n}], `${n.name}: Rev ${revLetter(n.revs.length - 1)} uploaded`);
-      } catch(err) { toast(err && err.code === "too_large" ? "That file is too large" : err && err.code === "quota_or_state" ? "File storage is full" : "Couldn't upload the new revision"); }
+      } catch(err) {
+        const code = err && err.code, why = code === "too_large" ? "big" : code === "quota_or_state" ? "full" : code === "unsupported_type" ? "type" : "";
+        if (why) { if (dlg.open) dlg.close(); storageLimit([file], lopts, why); } else toast("Couldn't upload the new revision");
+      }
     });
   }
   if (isCloud) $("#fsDel").textContent = "Remove";
@@ -296,6 +318,42 @@ function fileSheet(f){
     applyChanges([{kind:"file", id: f.id, after: null}], `Deleted ${cur.name}`);
   });
 }
+/* Previews of Word, PowerPoint and Excel files, drawn in the app (Pro's reader adds highlights, notes and cards) */
+const officeKindOf = f => typeof OFFICE === "undefined" || !f || !((f.kind === "file" && f.revs && f.revs.length) || (f.kind === "cloud" && f.cloud)) ? "" : OFFICE.kindOf(fileNameOf(f), fileTypeOf(f));
+const canPreview = f => /^(docx|pptx|xlsx|csv)$/.test(officeKindOf(f));
+let OFV = null;
+function officeClose(){ if (OFV && OFV.res && typeof OFFICE !== "undefined") OFFICE.release(OFV.res); OFV = null; }
+async function officePreview(fid){
+  const f = state.files[fid]; if (!f) return;
+  if (!canPreview(f)) { fileSheet(f); return; }
+  if (f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) { SBPRO.openReader(fid); return; }
+  officeClose();
+  const my = OFV = {fid, res: null}, kind = officeKindOf(f);
+  const proHint = f.kind === "file" && window.SBPRO && SBPRO.openReader ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Highlight and Make Cards</button>` : "";
+  openSheet(`<div class="sheet ofv-sheet">${head(f.name)}<div class="sheet-body ofv-body" id="ofvBody" tabindex="0" aria-label="${esc(kind === "pptx" ? "Slides" : kind === "docx" ? "Pages" : "Sheets")}"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(f.name)}…</p></div>
+    <div class="sheet-foot">${proHint}<span class="spacer"></span><button type="button" class="btn" data-act="f-open" data-id="${esc(f.id)}">Details</button><a class="btn primary" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${f.kind === "cloud" && f.cloud ? "Open in " + esc(CLOUD_NAMES[f.cloud.p] || "the Cloud") : DESK ? "Open in Another App" : "Download"}</a></div></div>`);
+  try {
+    const bytes = await fileBytes(f);
+    const res = await OFFICE.render(bytes, fileNameOf(f));
+    if (OFV !== my) { OFFICE.release(res); return; }
+    my.res = res; officeDraw();
+  } catch (e) {
+    if (OFV !== my) return;
+    const box = $("#ofvBody"), m = String((e && e.message) || "");
+    if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : /not a zip|damaged|corrupt/i.test(m) ? "This file looks damaged, so it can't be shown here. Try opening it in its own app." : m && m.length < 160 ? m : "Couldn't show this file here. Try opening it in its own app.")}</p>`;
+  }
+}
+// Each page keeps its own size and is scaled down to fit the sheet, so text wraps exactly as in the file
+function officeDraw(){
+  const box = $("#ofvBody"); if (!box || !OFV || !OFV.res) return;
+  const res = OFV.res, room = Math.max(200, box.clientWidth - 28);
+  box.innerHTML = (res.warnings || []).map(w => `<p class="mini ofv-warn">${esc(w)}</p>`).join("") + res.pages.map((pg, i) => {
+    const k = Math.min(1, room / pg.w), sheet = res.kind === "xlsx" || res.kind === "csv", s = sheet ? Math.max(0.6, k) : k;
+    return `<figure class="ofv-page${sheet ? " ofv-grid" : ""}" aria-label="${esc(pg.label || "Page " + (i + 1))}"><div class="ofv-frame" style="width:${Math.round(pg.w * s)}px;height:${Math.round(pg.h * s)}px"><div class="ofv-in" style="width:${pg.w}px;height:${pg.h}px;transform:scale(${s.toFixed(4)})">${pg.html}</div></div><figcaption class="mini">${esc(pg.label || "Page " + (i + 1))}</figcaption></figure>`;
+  }).join("") || `<p class="pdr-wait">This file is empty.</p>`;
+}
+dlg.addEventListener("close", () => { if (!dlg.open) officeClose(); });
+let ofvRz = 0; window.addEventListener("resize", () => { if (!OFV || !OFV.res) return; clearTimeout(ofvRz); ofvRz = setTimeout(officeDraw, 200); });
 function linkSheet(){
   const tgt = uploadTarget();
   openSheet(`<form class="sheet">${head("Add a Link")}
@@ -1022,18 +1080,18 @@ function noteExportSheet(preId){
   const keys = [...byCourse.keys()].sort((a, b) => (a === "") - (b === "") || String(a && courseLabel(courseOf(a))).localeCompare(String(b && courseLabel(courseOf(b)))));
   const cName = k => k ? courseLabel(courseOf(k)) : "No course";
   openSheet(`<div class="sheet">${head("Notes to Word or Google Docs")}<div class="sheet-body">
-    ${live.length ? `<div class="nx-step"><h3 class="nx-sec">Choose Notes</h3><span class="nx-quick" role="group" aria-label="Select"><button type="button" class="link-btn" data-nx="all">All (${live.length})</button>${board || noteBoards().length ? `<button type="button" class="link-btn" data-nx="board">This board</button>` : ""}<button type="button" class="link-btn" data-nx="none">None</button></span></div>
-    <div class="nx-list" id="nxList">${keys.map(k => `<div class="nx-h"><span>${esc(cName(k))} <span class="mini">${byCourse.get(k).length}</span></span><button type="button" class="link-btn" data-nx="course" data-k="${esc(k)}">Select all</button></div>${byCourse.get(k).map(n => `<label><input type="checkbox" data-nxc="${esc(n.id)}" ${sel.has(n.id) ? "checked" : ""}><span><span>${esc(first(n))}</span></span></label>`).join("")}`).join("")}</div>
+    ${live.length ? `<div class="nx-step"><h3 class="nx-sec">Choose Notes</h3><span class="nx-quick" role="group" aria-label="Select"><button type="button" class="btn small" data-nx="all">All (${live.length})</button>${board || noteBoards().length ? `<button type="button" class="btn small" data-nx="board">This Board</button>` : ""}<button type="button" class="btn small" data-nx="none">None</button></span></div>
+    <div class="nx-list" id="nxList">${keys.map(k => `<label class="nx-h"><input type="checkbox" data-nxg="${esc(k)}" aria-label="All notes in ${esc(cName(k))}"><span>${esc(cName(k))}</span><span class="mini">${byCourse.get(k).length}</span></label>${byCourse.get(k).map(n => `<label><input type="checkbox" data-nxc="${esc(n.id)}" ${sel.has(n.id) ? "checked" : ""}><span><span>${esc(first(n))}</span></span></label>`).join("")}`).join("")}</div>
     <p class="mini" id="nxCount" style="margin:0"></p>
     <h3 class="nx-sec">Export As</h3>
     <div class="nx-out"><button type="button" class="nx-opt" data-nx="word"><b>Word</b><span>Downloads a .docx file</span></button><button type="button" class="nx-opt" data-nx="gdoc"><b>Google Docs</b><span>Copies the notes and opens a new doc: paste with Ctrl+V (⌘V on a Mac)</span></button><button type="button" class="nx-opt" data-nx="gdrive"><b>Google Drive</b><span>Downloads a Word file to upload, then Open with Google Docs</span></button></div>` : `<p class="status-msg">You have no notes to export yet.</p>`}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
   if (!live.length) return;
   const root = dlg.querySelector(".sheet"), boxes = () => [...root.querySelectorAll("[data-nxc]")];
-  const draw = () => { boxes().forEach(b => { b.checked = sel.has(b.dataset.nxc); }); const c = sel.size; root.querySelector("#nxCount").textContent = c ? `${c} note${c === 1 ? "" : "s"} selected` : "Choose at least one note."; root.querySelectorAll('[data-nx="word"],[data-nx="gdoc"],[data-nx="gdrive"]').forEach(b => { b.disabled = !c; }); };
+  const draw = () => { boxes().forEach(b => { b.checked = sel.has(b.dataset.nxc); }); root.querySelectorAll("[data-nxg]").forEach(g => { const ids = (byCourse.get(g.dataset.nxg) || []).map(n => n.id), on = ids.filter(i => sel.has(i)).length; g.checked = !!ids.length && on === ids.length; g.indeterminate = on > 0 && on < ids.length; }); const c = sel.size; root.querySelector("#nxCount").textContent = c ? `${c} note${c === 1 ? "" : "s"} selected` : "Choose at least one note."; root.querySelectorAll('[data-nx="word"],[data-nx="gdoc"],[data-nx="gdrive"]').forEach(b => { b.disabled = !c; }); };
   draw();
   const pick = ids => { sel.clear(); ids.forEach(i => sel.add(i)); draw(); };
-  root.addEventListener("change", e => { const b = e.target.closest && e.target.closest("[data-nxc]"); if (b) { if (b.checked) sel.add(b.dataset.nxc); else sel.delete(b.dataset.nxc); draw(); } });
+  root.addEventListener("change", e => { const g = e.target.closest && e.target.closest("[data-nxg]"); if (g) { (byCourse.get(g.dataset.nxg) || []).forEach(n => { if (g.checked) sel.add(n.id); else sel.delete(n.id); }); draw(); return; } const b = e.target.closest && e.target.closest("[data-nxc]"); if (b) { if (b.checked) sel.add(b.dataset.nxc); else sel.delete(b.dataset.nxc); draw(); } });
   root.addEventListener("click", async e => {
     const b = e.target.closest && e.target.closest("[data-nx]"); if (!b) return;
     const k = b.dataset.nx;

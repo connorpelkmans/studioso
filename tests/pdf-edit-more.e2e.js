@@ -90,7 +90,7 @@ function restricted(ttf){
     await page.click("#pdeBtn"); await page.waitForFunction(() => !!window.PDFLib); await page.waitForTimeout(400);
     { const inRow = await page.locator(".pde-tools > .pde-tool[data-fit]").count();
       ok(await page.locator(".pde-tools > .pde-tool:not([data-fit])").count() === 6 && inRow >= 1, "six tools, then as many of the rest as fit (" + inRow + "), then More");
-      await page.click('[data-act="pde-more"]'); ok(await page.locator(".pde-menu .pde-mi").count() === 10 - inRow, "More has the ones that didn't fit"); await page.keyboard.press("Escape"); }
+      await page.click('[data-act="pde-more"]'); ok(await page.locator(".pde-menu .pde-mi").count() === 11 - inRow, "More has the ones that didn't fit"); await page.keyboard.press("Escape"); }
     await shot("1-tools");
 
     /* Paragraphs */

@@ -49,7 +49,7 @@ function SEED(){
     await studyDeck(page, "d1");
     ok(await page.locator(".ic-study").count() === 1 && await page.locator(".flip").count() === 0, "an image card is studied on the image card screen");
     ok(await page.locator('.ic-study button.ci-box.me[data-act="fc-flip"]').count() === 1, "old masks: the card's own label is a button that shows the answer");
-    ok(await page.locator(".ic-study .ci-box.other").count() === 1 && await page.locator(".ic-study rect").count() === 2, "old masks: Hide All covers the other label too, drawn as boxes");
+    ok(await page.locator(".ic-study .ci-box.other").count() === 1 && await page.locator(".ic-study rect:not(.ci-bk)").count() === 2, "old masks: Hide All covers the other label too, drawn as boxes");
     ok(/Hide All, Guess One/.test(await page.locator(".ic-top").textContent()), "the study mode has a clear name");
     const c1 = await curCard(page);
     await page.click('.ic-study button.ci-box.me'); await page.waitForTimeout(200);
@@ -85,11 +85,11 @@ function SEED(){
     await page.click('[data-act="pro-oc-tool"][data-id="rect"]');
     await drag([0.6, 0.6], [0.75, 0.69]); await label("Cell");
     await drag([0.62, 0.73], [0.85, 0.8]); await label("membrane");
-    ok(await page.locator(".oc-stage .oc-box").count() === 5 && await page.locator(".oc-stage ellipse").count() === 1 && await page.locator(".oc-stage polygon").count() === 1, "the editor draws boxes, an oval and a freehand shape");
+    ok(await page.locator(".oc-stage .oc-box").count() === 5 && await page.locator(".oc-stage ellipse:not(.ci-bk)").count() === 1 && await page.locator(".oc-stage polygon:not(.ci-bk)").count() === 1, "the editor draws boxes, an oval and a freehand shape");
     await page.click('.oc-list li:nth-child(2) [data-act="pro-oc-del"]'); await page.waitForTimeout(150);
     ok(await page.locator(".oc-stage .oc-box").count() === 4, "a box can be removed");
     await page.click('[data-act="pro-oc-undo"]'); await page.waitForTimeout(150);
-    ok(await page.locator(".oc-stage .oc-box").count() === 5 && await page.locator(".oc-stage ellipse").count() === 1, "Undo brings it back");
+    ok(await page.locator(".oc-stage .oc-box").count() === 5 && await page.locator(".oc-stage ellipse:not(.ci-bk)").count() === 1, "Undo brings it back");
     await page.click('[data-act="pro-oc-multi"]');
     await page.click('.oc-stage [data-oc-box="3"]'); await page.click('.oc-stage [data-oc-box="4"]');
     await page.click('[data-act="pro-oc-group"]'); await page.waitForTimeout(150);
@@ -114,7 +114,7 @@ function SEED(){
 
     // Studying: Tap to Peek, Type Answers, keyboard
     await studyDeck(page, "d3");
-    ok(await page.locator(".ic-study ellipse").count() === 1 && await page.locator(".ic-study polygon").count() === 1, "the oval and freehand masks are drawn in study");
+    ok(await page.locator(".ic-study ellipse:not(.ci-bk)").count() === 1 && await page.locator(".ic-study polygon:not(.ci-bk)").count() === 1, "the oval and freehand masks are drawn in study");
     const peeks = page.locator('.ic-study [data-act="pro-ic-peek"]');
     ok(await peeks.count() >= 3, "Tap to Peek: the other labels are buttons (" + await peeks.count() + ")");
     ok(await page.evaluate(() => [...document.querySelectorAll('.ic-study [data-act="pro-ic-peek"]')].every(b => /Peek/.test(b.getAttribute("aria-label")))), "covered labels are named for screen readers");
@@ -146,7 +146,7 @@ function SEED(){
     await act(page, "pro-cf-open", "d3"); await page.waitForTimeout(400);
     ok(/Pictures in This Deck/.test(await page.textContent("#dlg")) && await page.locator('#dlg .ic-sets [data-act="pro-ic-edit"]').count() === 1, "Image Cards lists the deck's pictures, with Edit");
     await page.click('#dlg .ic-sets [data-act="pro-ic-edit"]'); await page.waitForTimeout(400);
-    ok(await page.locator(".oc-stage .oc-box").count() === 5 && await page.locator(".oc-list li").count() === 4 && await page.locator(".oc-stage ellipse").count() === 1, "Edit opens the picture with its boxes, shapes and groups");
+    ok(await page.locator(".oc-stage .oc-box").count() === 5 && await page.locator(".oc-list li").count() === 4 && await page.locator(".oc-stage ellipse:not(.ci-bk)").count() === 1, "Edit opens the picture with its boxes, shapes and groups");
     ok(await page.locator('input[name="ocMode"][value="tap"]').isChecked() && (await page.textContent("#ocSkip")).trim() === "Cancel", "the study mode is kept, and the picture can be left unchanged");
     await page.locator('.oc-list input[data-oc-ans="0"]').fill("Cell nucleus");
     await page.click('.oc-list [data-act="pro-oc-del"][data-id="1"]'); await page.waitForTimeout(150);
@@ -201,6 +201,51 @@ function SEED(){
     ok(await page.locator(".oc-list input").last().inputValue() === "Golgi body", "a drawn box is filled in from the PDF's text under it, in reading order");
     await page.click("#ocSkip"); await page.waitForTimeout(300);
     ok((await deck(page, "d1")).cards.length === 2, "skipping the picture adds nothing");
+
+    // Keyboard: Add Box, then move and resize it with the arrow keys
+    await page.evaluate(async () => {
+      const cv = document.createElement("canvas"); cv.width = 400; cv.height = 300; cv.getContext("2d").fillRect(0, 0, 4, 4);
+      const blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.9));
+      window.SBPRO.openImageEditor("d1", [{blob, w: 400, h: 300, boxes: [], src: "Keys"}]);
+    });
+    await page.waitForTimeout(300);
+    await page.focus('[data-act="pro-oc-add"]'); await page.keyboard.press("Enter"); await page.waitForTimeout(150);
+    ok(await page.locator(".oc-stage .oc-box").count() === 1 && await page.evaluate(() => document.activeElement && document.activeElement.matches("[data-oc-ans]")), "Add Box adds a box without a mouse and puts you in its answer");
+    await page.keyboard.type("Keyed");
+    await page.focus('[data-act="pro-oc-pick"][data-id="0"]');
+    const box0 = () => page.evaluate(() => { const e = document.querySelector('.oc-stage [data-oc-box="0"]'); return {x: parseFloat(e.style.left), w: parseFloat(e.style.width), h: parseFloat(e.style.height)}; });
+    const k0 = await box0(); await page.keyboard.press("ArrowRight"); await page.keyboard.press("Alt+ArrowRight"); await page.keyboard.press("Alt+ArrowDown"); await page.waitForTimeout(100);
+    const k1 = await box0();
+    ok(Math.abs(k1.x - k0.x - 1) < 0.01 && Math.abs(k1.w - k0.w - 1) < 0.01 && Math.abs(k1.h - k0.h - 1) < 0.01, "arrows move the picked box, Alt and the arrows resize it: " + JSON.stringify([k0, k1]));
+    await page.click("#ocSkip"); await page.waitForTimeout(300);
+
+    // Covers never let the label under them show through, even where the theme's surface is see-through
+    await studyDeck(page, "d1");
+    ok(await page.evaluate(() => [...document.querySelectorAll(".ic-study .ci-box.me .ci-bk, .ic-study .ci-box.other .ci-bk")].map(e => getComputedStyle(e).fill).every(f => f && !/\/\s*0?\.\d|rgba\(.*,\s*0?\.\d+\)|transparent|none/.test(f))) && await page.locator(".ic-study .ci-bk").count() === 2, "each cover has a solid shape underneath");
+    await page.click(".ic-study button.ci-box.me"); await page.waitForTimeout(150);
+    ok(await page.evaluate(() => getComputedStyle(document.querySelector(".ic-study .ci-box.shown .ci-bk")).fill === "rgba(0, 0, 0, 0)" || getComputedStyle(document.querySelector(".ic-study .ci-box.shown .ci-bk")).fill === "transparent"), "the shown answer's box is see-through");
+    await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
+
+    // Cards imported from Anki: no typed label, a header and extra text; a tall picture keeps its shape
+    await page.evaluate(() => {
+      const S = window.__sbSync, d = S.clone(S.state.decks.d1), img = i => ({k: "i:tall", w: 200, h: 2000, m: [[0.1, 0.1, 0.5, 0.05], [0.1, 0.6, 0.5, 0.05, "e"]], i, mode: "one", s: "anki1", nl: 1, x: "Back extra text", src: "Tall"});
+      d.cards = [0, 1].map(i => ({id: "a" + i, front: "Label the spine", back: "Box " + (i + 1), box: 0, due: "", seen: 0, right: 0, wrong: 0, img: img(i)}));
+      S.applyChanges([{kind: "deck", id: "d1", after: d}], null);
+    });
+    await studyDeck(page, "d1");
+    ok(/Label the spine/.test(await page.textContent(".ic-study .ic-prompt")) && await page.locator('.ic-study [data-act="pro-ic-type"]').count() === 0, "the header is the prompt; Type Answers is off for a card with nothing to type");
+    ok(await page.evaluate(() => getComputedStyle(document.querySelector(".ic-study .ci-wrap")).getPropertyValue("--ar").trim()) === "0.100", "a tall picture keeps its own shape (not stretched)");
+    await page.click(".ic-study button.ci-box.me"); await page.waitForTimeout(150);
+    ok(/Check what's under the box/.test(await page.textContent(".ic-study .ci-ans")) && /Back extra text/.test(await page.textContent(".ic-study .ic-extra")) && await page.locator(".ic-study .ci-tag").count() === 0, "the back points to the picture and shows the extra text, no \"Box 1\" tag");
+    await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
+    await act(page, "fc-open", "d1"); await page.waitForTimeout(200);
+    ok(await page.locator('[data-act="pro-dp-open"]').count() === 0, "no Diagram Practice for a picture without typed labels");
+    await act(page, "pro-cf-open", "d1"); await page.waitForTimeout(300);
+    await page.click('#dlg .ic-sets [data-act="pro-ic-edit"]'); await page.waitForTimeout(300);
+    await page.locator('.oc-list input[data-oc-ans="1"]').fill("Sacrum");
+    await page.click("#ocKeep"); await page.waitForTimeout(400);
+    const an = (await deck(page, "d1")).cards;
+    ok(an.find(c => c.id === "a0").img.nl === 1 && !an.find(c => c.id === "a1").img.nl && an.find(c => c.id === "a1").back === "Sacrum" && an.every(c => c.img.x === "Back extra text" && c.front === "Label the spine"), "editing keeps the extra text and prompt; typing a label makes it a normal card");
     ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
 
     // Dark mode renders

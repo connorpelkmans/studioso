@@ -10,7 +10,8 @@
    3. Deep links: universal links and studyboard:// links are passed to the page as ?deck= / ?group= / ?task= on the app's own address.
    4. Push (APNs on iOS, FCM on Android): registers only when the page asks (window.StudyboardNative.enablePush()) and resolves
       {platform, kind, token} for the page to store server-side. StudyboardNative.pushAvailable says whether push is set up in this build.
-   5. Quick capture (UNTESTED: written without a device or compiler): window.StudyboardNative.saveCaptureToken(token, supabaseUrl) / clearCaptureToken()
+   5. Quick capture and Ask Siri (UNTESTED: written without a device or compiler): StudyboardNative.siriData.save(snapshot) / clear() keep the on-device copy
+      Siri answers questions from (src/js/96-siri.js, ios-wrapper/native/StudyboardAskIntents.swift). window.StudyboardNative.saveCaptureToken(token, supabaseUrl) / clearCaptureToken()
       store the capture token where Siri / App Intents / the share extension / the Android share target can read it (see VOICE-CAPTURE-NATIVE.md), and the
       shared queue (items saved by the share extension or by a Siri fallback) is drained into window.SBCAPTURE.ingest(item) at start and on every resume.
    6. Purchases: Buy / Restore / Manage from the Pro sheet go to Apple In-App Purchase / Google Play Billing through RevenueCat (section 6
@@ -225,6 +226,32 @@
     var T = plugin("StudyboardCaptureToken");
     if (!T) return Promise.resolve(false);
     return T.clear().then(function () { return true; }, function () { return false; });
+  };
+
+  // Ask Siri (src/js/96-siri.js): a private copy of tasks, marks, grades and class times on this device, for the App Intents to read
+  if (!isAndroid) native.siriData = {
+    save: function (snap) {
+      var D = plugin("StudyboardSiriData"), json;
+      try { json = JSON.stringify(snap); } catch (e) { return Promise.resolve(false); }
+      if (!D || !snap || snap.v !== 1 || json.length > 1500000) return Promise.resolve(false);
+      return D.save({ json: json }).then(function () { return true; }, function () { return false; });
+    },
+    clear: function () {
+      var D = plugin("StudyboardSiriData");
+      if (!D) return Promise.resolve(false);
+      return D.clear().then(function () { return true; }, function () { return false; });
+    },
+    // changes Siri made to tasks while the app was closed (iOS 27), applied by src/js/96-siri.js
+    drainUpdates: function () {
+      var D = plugin("StudyboardSiriData");
+      if (!D || typeof D.drainUpdates !== "function") return Promise.resolve([]);
+      return D.drainUpdates().then(function (r) { return r && Array.isArray(r.items) ? r.items.slice(0, 50) : []; }, function () { return []; });
+    },
+    ackUpdates: function (ids) {
+      var D = plugin("StudyboardSiriData");
+      if (!D || !Array.isArray(ids) || !ids.length) return Promise.resolve(false);
+      return D.ackUpdates({ ids: ids.filter(function (x) { return typeof x === "string" && /^[\w-]{1,64}$/.test(x); }) }).then(function () { return true; }, function () { return false; });
+    }
   };
 
   var draining = false;

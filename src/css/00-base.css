@@ -541,11 +541,12 @@ nav.tabs button{font-size:.75rem!important}
 .note-hbtns .btn,.note-xbtns .btn,.note-moredd>summary.btn{padding:3px 8px;font-size:.78rem;background:rgba(255,255,255,.5);color:#2A2418;border-color:transparent}
 .nx-list{display:grid;gap:4px;max-height:38vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px}
 .nx-list label{display:flex;gap:8px;align-items:flex-start;font-size:.88rem;padding:3px 2px}
-.nx-list .nx-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;margin-top:6px;padding:4px 2px;position:sticky;top:-6px;background:var(--surface);z-index:1}
-.nx-list .nx-h .mini{font-weight:600;color:var(--muted)}
+.nx-list .nx-h{display:flex;align-items:center;justify-content:flex-start;gap:8px;font-weight:700;margin-top:6px;padding:6px 2px;position:sticky;top:-6px;background:var(--surface);z-index:1;border-bottom:1px solid var(--line);cursor:pointer}
+.nx-list .nx-h .mini{font-weight:600;color:var(--muted);margin-left:auto;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.nx-list label:not(.nx-h){padding-left:10px}
 .nx-step{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .nx-sec{margin:0;font-size:1rem}
-.nx-quick{display:inline-flex;gap:14px}
+.nx-quick{display:inline-flex;gap:6px;flex-wrap:wrap}
 .nx-out{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .nx-opt{display:grid;gap:3px;align-content:start;text-align:left;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
 .nx-opt b{font-size:.95rem}

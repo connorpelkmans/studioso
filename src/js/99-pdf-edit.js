@@ -1814,7 +1814,18 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if ($("#pdeSigKeep") && $("#pdeSigKeep").checked) lsSet(K_SIGS, [{id: pic.id, w: pic.w, h: pic.h, at: Date.now()}].concat(mySigs().filter(s => s.id !== pic.id)).slice(0, 4));
     placeNext(Object.assign({sig: true}, pic));
   }
-  function placeNext(pic){ closePanel(); E.place = pic; E.sel = null; repaint(); bar(); toast(pic.sig ? "Click where your signature goes" : "Click where the picture goes"); }
+  // An equation is drawn by KaTeX (module 01-math.js) and placed like a picture, about the size of 12 pt text
+  function eqPlace(el){
+    if (typeof mathAsk !== "function") return;
+    const at = el && el.isConnected ? el : dlg.querySelector(".pde-bar .pde-tools") || dlg.querySelector(".pde-bar") || el;
+    mathAsk(at, "", async tex => {
+      try {
+        const m = await mathImage(tex, "#000000"), pic = await keepImage(m.canvas, false), k = 12 / m.px / 0.75;
+        placeNext(Object.assign(pic, {eq: 1, w: Math.round(m.w * k * 100) / 100, h: Math.round(m.h * k * 100) / 100}));
+      } catch (err) { toast(/parse|KaTeX/i.test(String(err && err.message)) ? "That formula isn't finished yet. Check it in the preview." : "This browser couldn't turn the equation into a picture. Try Studyboard on a computer, or add it as a Comment."); }
+    }, "Place on Page");
+  }
+  function placeNext(pic){ closePanel(); E.place = pic; E.sel = null; repaint(); bar(); toast(pic.sig ? "Click where your signature goes" : pic.eq ? "Click where the equation goes" : "Click where the picture goes"); }
 
   // Pages: turn, take out, move, add blank pages and pages from other PDFs, take some pages out as their own PDF
   function pagesPanel(){
@@ -1909,9 +1920,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   /* The edit bar */
   // the tools under More
   const MORE = [["fill", "Quick Fill", IC.fill, "Your name, ID, class and date"], ["header", "Header", IC.header, "Name and page numbers on every page"], ["find", "Find", IC.find, "Find and replace"], ["pages", "Pages", IC.pages, "Turn, move, add, take out, scan"], ["ocr", "Recognize Text", IC.ocr, "Make a scan's words real text"],
-    ["fields", "Make Fillable", IC.fill, "Turn blanks and boxes into fields"], ["stamp", "Stamp", IC.header, "Draft, Graded, Approved…"], ["watermark", "Watermark", IC.header, "Faint text across every page"], ["link", "Link", IC.toc, "Link to a web page or a page"], ["history", "History", IC.rotL, "Undo, redo, go back"]];
+    ["fields", "Make Fillable", IC.fill, "Turn blanks and boxes into fields"], ["stamp", "Stamp", IC.header, "Draft, Graded, Approved…"], ["watermark", "Watermark", IC.header, "Faint text across every page"], ["link", "Link", IC.toc, "Link to a web page or a page"], ["history", "History", IC.rotL, "Undo, redo, go back"],
+    ["eq", "Equation", '<path d="M18 5H7l5 7-5 7h11"/>', "Math or chemistry, placed like a picture"]];
   // The edit row fills up with the most useful of these, as many as fit at the row's width; the rest stay under More
-  const ROW_ORDER = ["find", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history"];
+  const ROW_ORDER = ["find", "eq", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history"];
   const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
   const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
   const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.tool === k && !E.place}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
@@ -2176,6 +2188,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-tool":
         if (S.ed) commit(); S.place = null; if (S.more) { S.more = false; bar(); }
         if (id === "sign") { signPanel(); break; }
+        if (id === "eq") { eqPlace(el); break; }
         if (id === "pages") { pagesPanel(); break; }
         if (id === "header") { headerPanel(); break; }
         if (id === "ocr") { ocrPanel(); break; }
@@ -2225,6 +2238,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-fd-draw": S.found = null; closePanel(); S.tool = "field"; repaint(); bar(); break;
       case "pde-fd-show": { const c = (S.found || [])[Number(id)]; if (c && P.readerGo) P.readerGo(c.p); break; }
       case "pde-pic-del": picDelete(); break;
+
       case "pde-toc-edit": tocEdit(); break;
       case "pde-toc-add": tocRows(); { const r = R(), list = S.tocItems || []; list.push({t: "Page " + ((r && r.cur) || 1), p: (r && r.cur) || 1, lv: 0}); S.tocItems = list; tocDraw(); } break;
       case "pde-toc-row": { tocRows(); const [k, i0] = String(id).split(":"), i = Number(i0), L0 = S.tocItems; if (k === "up" && i > 0) [L0[i - 1], L0[i]] = [L0[i], L0[i - 1]]; if (k === "down" && i < L0.length - 1) [L0[i + 1], L0[i]] = [L0[i], L0[i + 1]]; if (k === "in") L0[i].lv = 1; if (k === "out") L0[i].lv = 0; if (k === "del") L0.splice(i, 1); tocDraw(); break; }

@@ -685,14 +685,21 @@ var SBPRO = null;
   function shapeSvg(s){
     const k = typeof s === "string" ? s : "", pts = k[0] === "p" ? ptsOf(k) : [];
     const inner = k === "e" ? `<ellipse cx="50" cy="50" rx="50" ry="50"/>` : pts.length >= 3 ? `<polygon points="${pts.map(p => (p[0] * 100).toFixed(1) + "," + (p[1] * 100).toFixed(1)).join(" ")}"/>` : `<rect width="100" height="100" rx="3"/>`;
-    return `<svg class="ci-sh" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">${inner}</svg>`;
+    // a solid copy underneath, so a see-through theme colour never shows the label it hides
+    return `<svg class="ci-sh" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">${inner.replace("/>", ' class="ci-bk"/>')}${inner}</svg>`;
   }
   const maskIdx = c => { const im = (c && c.img) || {}, n = masksOf(im).length, g = Array.isArray(im.g) ? im.g.map(Number).filter(j => Number.isInteger(j) && j >= 0 && j < n) : []; return g.length ? [...new Set(g)] : [Math.max(0, Number(im.i) || 0)]; };
   const setOf = c => c && c.img ? (c.img.s ? "s:" + c.img.s : "k:" + c.img.k + "|" + JSON.stringify(masksOf(c.img).map(b => Array.isArray(b) ? b.slice(0, 4) : b))) : "";
   const siblings = (d, c) => { const k = setOf(c); return d && k ? d.cards.filter(x => x.img && setOf(x) === k) : [c]; };
+  // nl: no label was typed (Anki's masks hide the picture's own words), so the picture is the answer
+  const noLab = c => !!(c && c.img && c.img.nl);
+  const DEF_Q = "Name the hidden label";
+  const promptOf = c => { const t = String((c && c.front) || "").trim(); return t && t !== DEF_Q ? t : ""; };
+  const extraOf = c => String((c && c.img && c.img.x) || "").trim();
+  const ansText = c => noLab(c) ? "Check what's under the box on the picture." : String(c.back || "");
   function labelsOf(d, c){
     const lab = [], grp = [];
-    siblings(d, c).forEach(x => { const idx = maskIdx(x); idx.forEach(j => { if (lab[j] == null) { lab[j] = String(x.back || ""); grp[j] = idx; } }); });
+    siblings(d, c).forEach(x => { const idx = maskIdx(x); idx.forEach(j => { if (lab[j] == null) { lab[j] = noLab(x) ? "" : String(x.back || ""); grp[j] = idx; } }); });
     return {lab, grp};
   }
   function setsOf(d, drafts){
@@ -704,7 +711,8 @@ var SBPRO = null;
     const url = urlOf(im.k || "");
     return url && url !== "x" ? `<img src="${esc(url)}" alt="" draggable="false">` : `<span class="ci-wait">${url === "x" ? "This picture is on another device or couldn't be loaded." : "Loading the picture…"}</span>`;
   }
-  const arOf = im => Math.max(0.3, Math.min(4, (im.w || 4) / (im.h || 3))).toFixed(3);
+  // the picture's own shape (a narrower range would stretch tall or wide pictures)
+  const arOf = im => Math.max(0.05, Math.min(20, (im.w || 4) / (im.h || 3))).toFixed(3);
   function face(c, back){
     const im = c.img || {}, m = masksOf(im), idx = maskIdx(c), mine = new Set(idx), mode = modeOf(im);
     const boxes = m.map((b, j) => {
@@ -713,7 +721,7 @@ var SBPRO = null;
       if (!hide && !(back && me)) return "";
       return `<i class="ci-box${me ? " me" : " other"}${back && me ? " shown" : ""}" style="${boxStyle(b)}">${shapeSvg(b[4])}${!back && me && j === idx[0] ? "<b>?</b>" : ""}</i>`;
     }).join("");
-    return `<span class="ci-face"><span class="ci-wrap" style="--ar:${arOf(im)}"><span class="ci-pad" aria-hidden="true"></span>${picHtml(im)}${boxes}</span>${back ? `<span class="ci-ans">${esc(c.back)}</span>` : ""}</span>`;
+    return `<span class="ci-face"><span class="ci-wrap" style="--ar:${arOf(im)}"><span class="ci-pad" aria-hidden="true"></span>${picHtml(im)}${boxes}</span>${back ? `<span class="ci-ans">${esc(ansText(c))}</span>` : ""}</span>`;
   }
 
   /* Zoom and pan (pinch on phones, Ctrl + scroll or the buttons elsewhere) */
@@ -761,7 +769,7 @@ var SBPRO = null;
       const st = boxStyle(b), sh = shapeSvg(b[4]);
       if (mine.has(j)) {
         if (!back) return `<button type="button" class="ci-box me" style="${st}" data-act="fc-flip" aria-label="${j === idx[0] ? "The hidden label to name. Show the answer" : "Part of the hidden label. Show the answer"}">${sh}${j === idx[0] ? "<b>?</b>" : ""}</button>`;
-        return `<span class="ci-box me shown" style="${st}">${sh}${j === idx[0] ? tag(b, c.back) : ""}</span>`;
+        return `<span class="ci-box me shown" style="${st}">${sh}${j === idx[0] && !noLab(c) ? tag(b, c.back) : ""}</span>`;
       }
       if (mode === "one") return "";
       if (mode === "all") return `<span class="ci-box other" style="${st}">${sh}</span>`;
@@ -771,10 +779,11 @@ var SBPRO = null;
     const typed = f.icTyped && f.icTyped.id === c.id ? f.icTyped : null;
     const verdict = back && typed ? `<p class="ic-verdict ${typed.res}" role="status">${typed.res === "right" ? "Right!" : typed.res === "close" ? `Close enough. You typed “${esc(typed.given)}”.` : typed.given ? `Not quite. You typed “${esc(typed.given)}”.` : "You didn't type an answer."}</p>` : "";
     return `<div class="ic-study${back ? " is-back" : ""}" style="--c:${esc(colorOf(d.courseId))}" data-ic-card="${esc(c.id)}">
-      <div class="ic-top"><span class="ic-side">${back ? "Back" : "Front"}</span><span class="mini">${esc(modeName(mode))}</span><span class="spacer"></span>${P.locked() ? "" : `<button type="button" class="btn small" data-act="pro-ic-type" aria-pressed="${typeOn()}">Type Answers</button>`}</div>
+      <div class="ic-top"><span class="ic-side">${back ? "Back" : "Front"}</span><span class="mini">${esc(modeName(mode))}</span><span class="spacer"></span>${P.locked() || noLab(c) ? "" : `<button type="button" class="btn small" data-act="pro-ic-type" aria-pressed="${typeOn()}">Type Answers</button>`}</div>
+      ${promptOf(c) ? `<p class="ic-prompt">${esc(promptOf(c))}</p>` : ""}
       <div class="ci-wrap ic-frame${z.s > 1 ? " zoomed" : ""}" data-ic-zoom style="--ar:${arOf(im)}"><span class="ci-pad" aria-hidden="true"></span><div class="ci-zoom" style="transform:${zoomT(z)}">${picHtml(im)}${boxes}</div></div>
       ${zoomBar("pro-ic-zoom")}
-      ${back ? `<p class="ci-ans" aria-live="polite">${esc(c.back)}</p>${verdict}` : `<p class="ic-q">${esc(mode === "tap" ? "Name the label marked ?. Tap any other label to peek." : "Name the label marked ?")}</p>${typeOn() ? `<form class="ic-type" data-ic-type><input type="text" id="icTypeIn" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the hidden label" aria-label="Type the hidden label"><button type="submit" class="btn primary">Check</button></form>` : ""}`}
+      ${back ? `<p class="ci-ans${noLab(c) ? " ic-check" : ""}" aria-live="polite">${esc(ansText(c))}</p>${verdict}${extraOf(c) ? `<p class="ic-extra">${esc(extraOf(c))}</p>` : ""}` : `<p class="ic-q">${esc((noLab(c) ? "Name what's hidden under ?" : "Name the label marked ?") + (mode === "tap" ? " Tap any other box to peek." : ""))}</p>${typeOn() && !noLab(c) ? `<form class="ic-type" data-ic-type><input type="text" id="icTypeIn" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the hidden label" aria-label="Type the hidden label"><button type="submit" class="btn primary">Check</button></form>` : ""}`}
     </div>`;
   }
   const curStudy = () => { const f = ui.fc, it = f && f.mode === "study" ? f.q[f.i] : null, d = it && state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId); return c && c.img ? {f, d, c} : null; };
@@ -1020,8 +1029,11 @@ var SBPRO = null;
       const img = {k: key, w: item.w, h: item.h, m, i: gs[0], mode: MODES.some(x => x[0] === mode) ? mode : "one", src: String(item.src || "").slice(0, 120), s: set};
       if (gs.length > 1) img.g = gs.slice();
       const was = (prev || []).find(c => !used.has(c.id) && gs.some(j => boxes[j].oid === c.id));
-      if (was) { used.add(was.id); const c = Object.assign(clone(was), {back, img}); delete c.draft; if (draft) c.draft = true; return c; }
-      return {id: uid(), front: "Name the hidden label", back, box: 0, due: "", seen: 0, right: 0, wrong: 0, img, ...(draft ? {draft: true} : {})};
+      if (was) {
+        used.add(was.id); if (noLab(was) && back === was.back) img.nl = 1; if (extraOf(was)) img.x = extraOf(was);
+        const c = Object.assign(clone(was), {back, img}); delete c.draft; if (draft) c.draft = true; return c;
+      }
+      return {id: uid(), front: DEF_Q, back, box: 0, due: "", seen: 0, right: 0, wrong: 0, img, ...(draft ? {draft: true} : {})};
     }).filter(Boolean);
   }
   function itemFrom(cards, extra){
@@ -1066,7 +1078,8 @@ var SBPRO = null;
         <button type="button" class="btn small" data-act="pro-oc-undo"${undoN ? "" : " disabled"}>Undo</button>${zoomBar("pro-oc-zoom")}</div>
       <div class="oc-stage${OC.zoom.s > 1 ? " zoomed" : ""} tool-${OC.tool}" style="--ar:${(it.w / it.h).toFixed(4)}" data-oc-stage><span class="oc-pad" aria-hidden="true"></span><div class="oc-zoom" style="transform:${zoomT(OC.zoom)}">${url && url !== "x" ? `<img src="${esc(url)}" alt="" draggable="false">` : `<span class="ci-wait">Loading the picture…</span>`}
         ${it.boxes.map((x, j) => `<i class="oc-box${sel.includes(j) ? " sel" : ""}${x.g ? " grp" : ""}" data-oc-box="${j}" style="left:${x.x * 100}%;top:${x.y * 100}%;width:${x.w * 100}%;height:${x.h * 100}%">${shapeSvg(x.s)}<b>${num[j]}</b>${one === j ? ["nw", "ne", "sw", "se"].map(h => `<span class="oc-h ${h}" data-oc-h="${h}"></span>`).join("") : ""}</i>`).join("")}</div></div>
-      <div class="oc-tools oc-sel" role="toolbar" aria-label="Picked boxes"><button type="button" class="btn small" data-act="pro-oc-multi" aria-pressed="${OC.multi}">Pick Several</button><button type="button" class="btn small" data-act="pro-oc-group"${canGroup ? "" : " disabled"}>Group as One Card</button><button type="button" class="btn small" data-act="pro-oc-delsel"${sel.length ? "" : " disabled"}>Delete${sel.length > 1 ? ` ${sel.length}` : ""}</button><button type="button" class="btn small ai-btn" data-act="pro-oc-ai"${it.aiBusy ? " disabled" : ""}>${AI_ICON}<span>${it.aiTried ? "Find Labels Again" : "Find Labels with AI"}</span></button></div>
+      <div class="oc-tools oc-sel" role="toolbar" aria-label="Picked boxes"><button type="button" class="btn small" data-act="pro-oc-add" title="Adds a box in the middle of the view">Add Box</button><button type="button" class="btn small" data-act="pro-oc-multi" aria-pressed="${OC.multi}">Pick Several</button><button type="button" class="btn small" data-act="pro-oc-group"${canGroup ? "" : " disabled"}>Group as One Card</button><button type="button" class="btn small" data-act="pro-oc-delsel"${sel.length ? "" : " disabled"}>Delete${sel.length > 1 ? ` ${sel.length}` : ""}</button><button type="button" class="btn small ai-btn" data-act="pro-oc-ai"${it.aiBusy ? " disabled" : ""}>${AI_ICON}<span>${it.aiTried ? "Find Labels Again" : "Find Labels with AI"}</span></button></div>
+      <p class="mini kbd-only oc-keys">Pick a box with its number, then use the arrow keys to move it (Shift for bigger steps), Alt and the arrow keys to resize it, and Delete to remove it.</p>
       ${n ? `<ol class="oc-list">${gs.map((g, k) => { const j = g[0], x = it.boxes[j], on = g.some(q => sel.includes(q)); return `<li${on ? ' class="sel"' : ""}><button type="button" class="oc-n" data-act="pro-oc-pick" data-id="${j}" aria-label="Pick card ${k + 1} on the picture" aria-pressed="${on}">${k + 1}</button><input type="text" data-oc-ans="${j}" maxlength="200" value="${esc(x.t || "")}" placeholder="What's under box ${k + 1}?" aria-label="Answer for card ${k + 1}${g.length > 1 ? ` (${g.length} boxes)` : ""}">${g.length > 1 ? `<button type="button" class="btn small" data-act="pro-oc-ungroup" data-id="${j}" aria-label="Split card ${k + 1} into ${g.length} cards">Split</button>` : ""}<button type="button" class="x-btn" data-act="pro-oc-del" data-id="${j}" aria-label="Remove card ${k + 1}">${CLOSE}</button></li>`; }).join("")}</ol>` : ""}
       <fieldset class="oc-modes"><legend>When You Study</legend>${MODES.map(([k, l, sub]) => `<label class="oc-mode"><input type="radio" name="ocMode" value="${k}"${OC.mode === k ? " checked" : ""}><span><b>${l}</b><span class="mini">${sub}</span></span></label>`).join("")}</fieldset>`;
     keepLabel();
@@ -1163,6 +1176,14 @@ var SBPRO = null;
     };
     st.addEventListener("pointerup", end); st.addEventListener("pointercancel", end);
   }
+  // a box without dragging (keyboard and screen reader users): in the middle of what's in view
+  function editorAdd(){
+    const it = OC.queue[OC.i]; if (it.boxes.length >= 30) { toast("Up to 30 boxes on one picture."); return; }
+    const z = OC.zoom, w = 0.2 / z.s, h = 0.08 / z.s, cx = (0.5 - z.x) / z.s, cy = (0.5 - z.y) / z.s;
+    const nb = {x: cl01(Math.min(1 - w, cx - w / 2)), y: cl01(Math.min(1 - h, cy - h / 2)), w, h, s: OC.tool === "oval" ? "e" : "", t: "", g: ""};
+    pushUndo(it); it.boxes.push(nb); OC.sel = [it.boxes.length - 1]; drawEditor();
+    const inp = dlg.querySelector(`[data-oc-ans="${OC.sel[0]}"]`); if (inp) inp.focus();
+  }
   function editorDelete(js){
     const it = OC.queue[OC.i]; if (!js.length) return;
     pushUndo(it); it.boxes = it.boxes.filter((b, k) => !js.includes(k)); OC.sel = []; drawEditor();
@@ -1183,7 +1204,8 @@ var SBPRO = null;
     const mv = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]}[e.key];
     if (mv && OC.sel.length) {
       e.preventDefault(); pushUndo(it); const k = e.shiftKey ? 0.05 : 0.01;
-      OC.sel.forEach(j => { const b = it.boxes[j]; b.x = cl01(Math.min(1 - b.w, b.x + mv[0] * k)); b.y = cl01(Math.min(1 - b.h, b.y + mv[1] * k)); });
+      if (e.altKey) OC.sel.forEach(j => { const b = it.boxes[j]; b.w = Math.max(0.012, Math.min(1 - b.x, b.w + mv[0] * k)); b.h = Math.max(0.008, Math.min(1 - b.y, b.h + mv[1] * k)); });
+      else OC.sel.forEach(j => { const b = it.boxes[j]; b.x = cl01(Math.min(1 - b.w, b.x + mv[0] * k)); b.y = cl01(Math.min(1 - b.h, b.y + mv[1] * k)); });
       drawEditor(); const n = dlg.querySelector(`[data-act="pro-oc-pick"][data-id="${groupOf(it, OC.sel[0])[0]}"]`); if (n) n.focus();
     }
   });
@@ -1224,7 +1246,7 @@ var SBPRO = null;
   /* Diagram Practice (Pro) */
   let DP = null;
   const fmtT = ms => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
-  const practiceSets = d => setsOf(d).filter(s => s.cards.length >= 2);
+  const practiceSets = d => setsOf(d).filter(s => s.cards.length >= 2 && !s.cards.some(noLab));
   function setRows(d, sets, edit){
     return `<ul class="pro-feats ic-sets">${sets.map((s, k) => { const im = s.cards[0].img, url = urlOf(im.k || ""); return `<li><span class="ic-thumb" style="--ar:${arOf(im)}">${url && url !== "x" ? `<img src="${esc(url)}" alt="">` : ""}</span><span class="pf-t"><b>${esc(im.src || `Picture ${k + 1}`)}</b><span class="mini">${s.cards.length} card${s.cards.length === 1 ? "" : "s"} · ${esc(modeName(modeOf(im)))}</span></span><span class="ic-set-btns"><button type="button" class="btn small" data-act="pro-dp-open" data-id="${esc(d.id)}|${esc(s.key)}"${s.cards.length >= 2 ? "" : " disabled"}>Practice</button>${edit ? `<button type="button" class="btn small" data-act="pro-ic-edit" data-id="${esc(d.id)}|${esc(s.key)}">Edit</button>` : ""}</span></li>`; }).join("")}</ul>`;
   }
@@ -1411,6 +1433,7 @@ var SBPRO = null;
       case "pro-oc-ai": if (OC) aiFind(OC.queue[OC.i], true); return true;
       case "pro-oc-tool": if (OC) { OC.tool = TOOLS.some(x => x[0] === id) ? id : "rect"; drawEditor(); const t = dlg.querySelector(`[data-act="pro-oc-tool"][data-id="${OC.tool}"]`); if (t) t.focus(); } return true;
       case "pro-oc-undo": if (OC) undo(); return true;
+      case "pro-oc-add": if (OC) editorAdd(); return true;
       case "pro-oc-multi": if (OC) { OC.multi = !OC.multi; drawEditor(); const t = dlg.querySelector('[data-act="pro-oc-multi"]'); if (t) t.focus(); } return true;
       case "pro-oc-group": if (OC) editorGroup(); return true;
       case "pro-oc-ungroup": if (OC) { const it = OC.queue[OC.i], js = groupOf(it, Number(id)); pushUndo(it); js.forEach(j => { it.boxes[j].g = ""; }); OC.sel = js; drawEditor(); } return true;
@@ -1431,7 +1454,7 @@ var SBPRO = null;
   });
   dlg.addEventListener("close", () => { if (dlg.open) return; OC = null; CF = null; DK = null; DP = null; });
   P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: stats, and picture cards from your files (Smart scheduling is free for everyone)", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
-  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf});
+  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf, storeImage});
 
   const css = document.createElement("style");
   css.textContent = `
@@ -1453,6 +1476,9 @@ var SBPRO = null;
 .ci-box.shown{--f:transparent;--s:var(--leaf)}
 .ci-box.shown .ci-sh *{stroke-width:3}
 .ci-box.peek{--f:transparent;--s:color-mix(in srgb,var(--ink) 45%,transparent)}
+.ci-box.me,.ci-box.other{--bk:#7d8594}
+.ci-box.shown,.ci-box.peek{--bk:transparent}
+svg.ci-sh .ci-bk{fill:var(--bk,transparent);stroke:none}
 button.ci-box{cursor:pointer;-webkit-tap-highlight-color:transparent}
 button.ci-box:focus-visible{outline:3px solid var(--ink);outline-offset:2px;z-index:2}
 .ci-tag{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-3px);z-index:3;background:var(--ink);color:var(--surface);font:600 .74rem/1.25 var(--body);padding:2px 7px;border-radius:6px;white-space:nowrap;pointer-events:none}
@@ -1471,6 +1497,10 @@ button.ci-box:focus-visible{outline:3px solid var(--ink);outline-offset:2px;z-in
 .ic-zbar .ic-zb{padding:0!important;width:44px;height:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .ic-zbar .ic-zb svg{display:block}
 .ic-q{margin:0;text-align:center;color:var(--muted)}
+.ic-prompt{margin:0;text-align:center;font-weight:600;white-space:pre-line;overflow-wrap:anywhere}
+.ic-extra{margin:0;padding:8px 12px;border-radius:10px;background:var(--soft);font-size:.92rem;white-space:pre-line;overflow-wrap:anywhere}
+.ic-study .ci-ans.ic-check{font:600 1rem var(--body);color:var(--muted)}
+.oc-keys{margin:0}
 .ic-study .ci-ans{margin:0;text-align:center;font-size:1.2rem}
 .ic-type{display:flex;gap:8px}
 .ic-type input{flex:1;min-width:0}
@@ -2203,6 +2233,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   function say(text, run){
     return new Promise(res => {
       const t = TTS(); if (!t || !text) { res(); return; }
+      // Math is read as words ("a over b"), not as its LaTeX
+      if (typeof mathSpeech === "function") text = mathSpeech(text);
       const u = new SpeechSynthesisUtterance(text), v = voiceFor(), p = prefs();
       if (v) { u.voice = v; u.lang = v.lang; }
       u.rate = Math.max(0.5, Math.min(2, Number(p.rate) || 1));
@@ -2410,6 +2442,12 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const NOTE_ICO = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="#FFD84D" stroke="#9A7A10" stroke-width="1.4"/><path d="M7 9h10M7 13h10M7 17h6" stroke="#7A5F00" stroke-width="1.6" stroke-linecap="round"/></svg>';
   const MAX_HL = 400;
   const isPdf = f => !!f && f.kind === "file" && f.revs.length && /\.pdf$/i.test(curRev(f).name || f.name);
+  // Word, PowerPoint and Excel files open in the same reader, drawn as pages of text you can select (module 01-office.js)
+  const isOffice = f => !!f && f.kind === "file" && f.revs.length && typeof canPreview === "function" && canPreview(f);
+  // A drawn Word, PowerPoint or Excel file behaves like an open PDF for the reader: pages, and each page's size
+  const officeDoc = res => ({office: res, numPages: res.pages.length,
+    getPage: async n => { const pg = res.pages[n - 1]; return {getViewport: ({scale}) => ({width: pg.w * scale, height: pg.h * scale})}; },
+    destroy(){ OFFICE.release(res); }});
   /*READER-START*/
   function rectsOn(clientRects, box){
     const W = box.width, H = box.height; if (!(W > 0 && H > 0)) return [];
@@ -2461,10 +2499,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* Opening */
   async function open(fid, page){
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("The PDF reader with highlights is part of Studyboard Pro: highlight a reading, and turn what matters into notes and flashcards."); return; }
-    if (!isPdf(f)) { fileSheet(f); return; }
+    if (P.locked()) { proWhy("The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards."); return; }
+    if (!isPdf(f) && !isOffice(f)) { fileSheet(f); return; }
     close();
-    const rev = curRev(f);
+    const rev = curRev(f), ofc = isOffice(f), PDE = ofc ? null : window.SBPDE;
     R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
     openSheet(`<div class="sheet pdr-sheet" data-mode="read">${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
@@ -2473,12 +2511,12 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
-        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${window.SBPDE ? SBPDE.readerBtn() : ""}</span>
+        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>
         <span class="spacer"></span>
-        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}<span class="pdr-out">${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
+        ${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
-        <span class="pdr-g-read">${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}</span>
+        <span class="pdr-g-read">${PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text to highlight it, or pick a color first</span></span>
         <span class="spacer"></span>
@@ -2489,6 +2527,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const my = R;
     try {
       const bytes = await bytesOf(rev.assetId);
+      if (ofc) {
+        const doc = officeDoc(await OFFICE.render(bytes, rev.name || f.name));
+        if (R !== my) { doc.destroy(); return; }
+        R.doc = doc; layout(); counts(); return;
+      }
       await loadPdfJs();
       let doc = null, pw = "";
       // a PDF with a password asks for it (up to three tries); the password isn't kept
@@ -2505,7 +2548,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       R.doc = doc; R.pw = !!pw; layout(); counts();
     } catch (e) {
       if (R !== my) return;
-      const box = $("#pdrPages"); if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(String(e && e.message)) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : "Couldn't open this PDF.")}</p>`;
+      const box = $("#pdrPages"); if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(String(e && e.message)) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : ofc ? "Couldn't show this file. Try opening it in its own app." : "Couldn't open this PDF.")}</p>`;
     }
   }
   const CACHE_KEY = "studyboard:pdfCache", CACHE_N = 8;
@@ -2537,11 +2580,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const box = $("#pdrPages"); if (!box || !R || !R.doc) return;
     const target = keepPage || R.cur;
     if (R.io) R.io.disconnect();
-    const first = await R.doc.getPage(1), base = first.getViewport({scale: 1});
+    const first = await R.doc.getPage(1), base = first.getViewport({scale: 1}), O = R.doc.office;
     R.fit = Math.min(2.5, Math.max(0.3, (box.clientWidth - 28) / base.width));
+    // Spreadsheets keep a readable size and scroll sideways rather than shrinking to fit
+    if (O && /^(xlsx|csv)$/.test(O.kind)) R.fit = Math.max(0.6, Math.min(1.5, (box.clientWidth - 28) / Math.max(...O.pages.map(p => p.w))));
     if (R.fitMode === "page") R.fit = Math.max(0.2, Math.min(R.fit, (box.clientHeight - 28) / base.height));
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
-    box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page" data-p="${i + 1}" style="width:${w}px;height:${h}px" aria-label="Page ${i + 1}"><div class="pdr-hl"></div></div>`).join("");
+    const size = i => O ? `width:${Math.round(O.pages[i].w * s)}px;height:${Math.round(O.pages[i].h * s)}px` : `width:${w}px;height:${h}px`;
+    const label = i => O && O.pages[i].label ? O.pages[i].label : `Page ${i + 1}`;
+    box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page${O ? " pdr-ofc" : ""}" data-p="${i + 1}" style="${size(i)}" aria-label="${esc(label(i))}"><div class="pdr-hl"></div></div>`).join("");
     R.pages = Array.from(box.querySelectorAll(".pdr-page")).map((el, i) => ({n: i + 1, el, done: 0}));
     const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});
@@ -2553,6 +2600,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const pg = R.pages[n - 1], scale = R.fit * R.zoom; if (!pg || pg.done === scale) return;
     pg.done = scale;
     const my = R;
+    if (R.doc.office) {
+      const op = R.doc.office.pages[n - 1], el = pg.el;
+      el.querySelectorAll(".pdr-office").forEach(x => x.remove());
+      el.insertAdjacentHTML("afterbegin", `<div class="pdr-office" style="width:${op.w}px;height:${op.h}px;transform:scale(${scale.toFixed(4)})">${op.html}</div>`);
+      paint(n);
+      if (window.SBINK) SBINK.readerPage(n, el);
+      R.pages.forEach(o => { if (o.done && Math.abs(o.n - n) > 10) { o.done = 0; o.el.querySelectorAll(".pdr-office,.ink-layer").forEach(x => x.remove()); } });
+      return;
+    }
     try {
       const page = await R.doc.getPage(n); if (R !== my || pg.done !== scale) return;
       const vp = page.getViewport({scale}), el = pg.el;
@@ -2740,7 +2796,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   }
   function cardHtml(h){
     const f = fileOf(), decks = deckListArr(), same = decks.filter(d => d.courseId && d.courseId === f.courseId), rest = decks.filter(d => !same.includes(d));
-    const c = courseOf(f.courseId), newName = `${c ? courseLabel(c) : "Readings"}: ${f.name.replace(/\.pdf$/i, "")}`.slice(0, 80);
+    const c = courseOf(f.courseId), newName = `${c ? courseLabel(c) : "Readings"}: ${f.name.replace(/\.(pdf|docx|pptx|xlsx|csv)$/i, "")}`.slice(0, 80);
     return `<div class="pdr-card"><button type="button" class="link-btn" data-act="pdr-card-back">← Highlights</button><h3>New Flashcard</h3>
       <blockquote class="pdr-q" style="--h:${colorHex(h.c)}">${esc(h.t.slice(0, 400))}<span class="mini">Page ${h.p}</span></blockquote>
       <label class="f">Front<input type="text" id="pdrFront" maxlength="300" placeholder="A question or a term" autofocus></label>
@@ -2924,9 +2980,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return true;
   });
 
-  P.canRead = f => !P.locked() && isPdf(f);
+  P.canRead = f => !P.locked() && (isPdf(f) || isOffice(f));
   P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
-  P.addFeature({id: "reader", name: "PDF Reader, Highlights and Editing", where: "Open a PDF in Files, then Read: highlight, make notes and cards, or Edit its text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
+  P.addFeature({id: "reader", name: "PDF Reader, Highlights and Editing", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
   Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
 
@@ -2975,6 +3031,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-page{position:relative;flex:none;margin:0 auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.08)}
 .pdr-cv{position:absolute;inset:0;display:block}
 .pdr-hl{position:absolute;inset:0;z-index:3;pointer-events:none}
+.pdr-office{position:absolute;left:0;top:0;transform-origin:0 0;z-index:0;user-select:text;-webkit-user-select:text;cursor:text}.pdr-ofc{overflow:hidden}
 .pdr-hl i{position:absolute;background:var(--h);mix-blend-mode:multiply;opacity:.55;border-radius:2px}
 .pdr-hl i.m-u,.pdr-hl i.m-s{background:none;opacity:1;mix-blend-mode:normal;border-radius:0}
 .pdr-hl i.m-u{border-bottom:2px solid var(--h)}
@@ -4411,6 +4468,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const prefs = () => {
     const c = (state.settings && state.settings.cloud) || {};
     return {ai: {google: !!(c.ai && c.ai.google), microsoft: !!(c.ai && c.ai.microsoft)}, save: ["google", "microsoft"].includes(c.save) ? c.save : "studyboard", msFolder: c.msFolder && c.msFolder.id ? c.msFolder : null,
+      msCourse: Object.fromEntries(Object.entries(c.msCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
       watch: Array.isArray(c.watch) ? c.watch.filter(w => w && w.id).slice(0, 5) : [], hide: Array.isArray(c.hide) ? c.hide.slice(-500) : []};
   };
   const setPrefs = patch => { state.settings = Object.assign({}, state.settings, {cloud: Object.assign(prefs(), patch)}); saveSettings(); };
@@ -4486,8 +4544,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* OneDrive (Microsoft Graph) */
   const MG = "https://graph.microsoft.com/v1.0/me/drive";
   const msItem = (j, blob, type) => ({p: "microsoft", id: String(j.id), name: String(j.name || ""), size: Number(j.size) || (blob ? blob.size : 0), type: String((j.file && j.file.mimeType) || type || ""), mod: String(j.lastModifiedDateTime || new Date().toISOString()), url: String(j.webUrl || "")});
-  async function msUpload(blob, name, type, segs){
-    const f = prefs().msFolder, rel = segs.concat([seg(name)]).map(encodeURIComponent).join("/");
+  async function msUpload(blob, name, type, segs, cf){
+    /* a folder chosen for this course replaces the course's own subfolder (Lectures still nests inside it) */
+    const f = cf || prefs().msFolder, rel = (cf ? segs.slice(1) : segs).concat([seg(name)]).map(encodeURIComponent).join("/");
     const at = f ? `${MG}/items/${encodeURIComponent(f.id)}:/${rel}:` : `${MG}/root:/Studyboard/${rel}:`;
     if (blob.size <= 4 * 1048576) return msItem(await api("microsoft", `${at}/content?@microsoft.graph.conflictBehavior=rename`, {method: "PUT", headers: {"Content-Type": type || "application/octet-stream"}, body: blob}), blob, type);
     const s = await api("microsoft", `${at}/createUploadSession`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({item: {"@microsoft.graph.conflictBehavior": "rename"}})});
@@ -4517,7 +4576,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* Saving */
   async function saveBlob(p, blob, name, o){
     const type = (o && o.type) || blob.type || "application/octet-stream";
-    return p === "google" ? gUpload(blob, name, type, segsFor(o || {})) : msUpload(blob, name, type, segsFor(o || {}));
+    if (p === "google") return gUpload(blob, name, type, segsFor(o || {}));
+    const cf = o && o.courseId && prefs().msCourse[o.courseId];
+    if (!cf) return msUpload(blob, name, type, segsFor(o || {}));
+    try { return await msUpload(blob, name, type, segsFor(o || {}), cf); }
+    catch (e) { if (e && e.code === "net") throw e; toast(`Couldn't use the OneDrive folder “${cf.name}” for this course, so it went to Studyboard's folder instead.`); return msUpload(blob, name, type, segsFor(o || {})); }
   }
   const MAX_UP = 250 * 1048576;
   async function uploadFiles(list, opts, forced){
@@ -4547,18 +4610,27 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     }
     return made;
   }
-  /* Studyboard storage is full: offer Pro, or keep the files in Google Drive / OneDrive instead */
-  const FULL = {files: [], opts: {}};
-  function storageFull(files, opts){
+  /* A file hit a storage limit: offer Pro when that would help, or keep the files in Google Drive / OneDrive instead.
+     why: "full" (storage used up), "big" (over the size limit), "type" (a type this storage can't keep), "none" (no storage here) */
+  const FULL = {files: [], opts: {}, pend: null};
+  function storageFull(files, opts, why){
+    why = why || "full";
     FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
     const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
-    const offerPro = !!(PL && PL.paywall() && !PL.limitsPro());
-    const n = FULL.files.length, what = n === 1 ? esc(FULL.files[0].name) : `these ${n} files`;
+    const offerPro = why === "full" && !!(PL && PL.paywall() && !PL.limitsPro());
+    const n = FULL.files.length, what = n === 1 ? esc(FULL.files[0].name) : `these ${n} files`, them = n === 1 ? "it" : "them";
     const ch = connected();
     const btn = p => `<button type="button" class="btn${ch.includes(p) ? " primary" : ""} cl-full-btn" data-act="cl-full-save" data-id="${p}">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<span>${ch.includes(p) ? `Save ${n > 1 ? "Them" : "It"} to ${esc(NM[p])}` : `Connect ${esc(NM[p])}`}</span></button>`;
-    openSheet(`<div class="sheet cl-sheet">${head("Your Storage Is Full")}<div class="sheet-body">
-      <p style="margin:0">${offerPro && cap ? `Your free ${esc(fmtSize(cap * 1048576))} of Studyboard file storage is used up, so ${what} couldn't be added.` : `Your Studyboard file storage is full, so ${what} couldn't be added.`}</p>
-      <p class="mini" style="margin:0">${offerPro ? "Go Pro for much more room, or keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive. Files there don't use Studyboard storage." : "Keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive instead. Files there don't use Studyboard storage."}</p>
+    const title = {full: "Your Storage Is Full", big: n === 1 ? "This File Is Too Big" : "These Files Are Too Big", type: "Keep It in Your Cloud", none: "Keep It in Your Cloud"}[why] || "Your Storage Is Full";
+    const lead = why === "big" ? `${n === 1 ? what + " is" : what[0].toUpperCase() + what.slice(1) + " are"} over Studyboard's size limit for one file, so ${them} couldn't be added.`
+      : why === "type" ? `${n === 1 ? what : what[0].toUpperCase() + what.slice(1)} can't be stored in Studyboard here.`
+      : why === "none" ? `Studyboard file storage isn't available here, so ${what} couldn't be added.`
+      : offerPro && cap ? `Your free ${esc(fmtSize(cap * 1048576))} of Studyboard file storage is used up, so ${what} couldn't be added.` : `Your Studyboard file storage is full, so ${what} couldn't be added.`;
+    const tail = `Keep ${them} in your own Google Drive or OneDrive. Files there don't use Studyboard storage, and they still show up in their course here.`;
+    const signIn = !ready() ? `<p class="mini" style="margin:0">Google Drive and OneDrive connect to your Studyboard account, so sign in first.</p>` : "";
+    openSheet(`<div class="sheet cl-sheet">${head(title)}<div class="sheet-body">
+      <p style="margin:0">${lead}</p>
+      <p class="mini" style="margin:0">${offerPro ? "Go Pro for much more room, or k" + tail.slice(1) : tail}</p>${signIn}
       <div class="cs-row" style="flex-wrap:wrap">${offerPro ? `<button type="button" class="btn primary" data-act="cl-full-pro">Go Pro</button>` : ""}${btn("google")}${btn("microsoft")}</div>
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
   }
@@ -4696,6 +4768,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     U.wait = 0; clearInterval(poll); delete TOK[fresh];
     if (prefs().save === "studyboard") { setPrefs({save: fresh}); toast(`${NM[fresh]} is connected. New uploads go there now.`); }
     else toast(`${NM[fresh]} is connected`);
+    const pend = FULL.pend; FULL.pend = null;
+    if (pend && pend.p === fresh && Date.now() - pend.at < 15 * 60000) setTimeout(() => uploadFiles(pend.list, pend.opts, fresh), 400);
     paint(); render();
   });
   document.addEventListener("click", e => {
@@ -4715,7 +4789,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const card = p => {
       const a = acct(p), s = U.start[p] || {}, conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
-      const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
+      const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any you choose to share with it." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
       const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
       if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
@@ -4735,11 +4809,16 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <select data-cl-wc="${esc(w.id)}" aria-label="Course for ${esc(w.name)}">${courseOpts(w.courseId)}</select><button type="button" class="link-btn" data-act="cl-unwatch" data-id="${esc(w.id)}">Stop Watching</button></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">Pick a folder, like your school folder. What's in it (three folders deep) shows up in Files, sorted into courses by folder name, and stays up to date.</p>`}
       <div class="cs-row">${pr.watch.length < 5 ? `<button type="button" class="btn small" data-act="cl-browse" data-mode="watch">Watch a Folder</button>` : ""}${pr.watch.length ? `<button type="button" class="btn small" data-act="cl-scan"${U.scanning ? " disabled" : ""}>${U.scanning ? "Checking…" : "Check Now"}</button><span class="mini">Checked ${esc(ago(U.scanAt))}</span>` : ""}</div>
       ${U.scanErr ? `<p class="cl-warn">${esc(U.scanErr)}</p>` : ""}</fieldset>` : "";
-    return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, attach to tasks and notes, and, if you allow it, AI can read them.</p>
+    const cm = prefs().msCourse, cs = coursesArr();
+    const perCourse = ms && cs.length ? `<fieldset class="cl-set"><legend>OneDrive Folder for Each Course</legend>
+      <p class="mini">Choose where a course's uploads are kept in OneDrive. Files you upload in Studyboard go there on their own, with no prompt each time. Courses without a folder use <b>${esc(pr.msFolder ? pr.msFolder.name : "Studyboard")} › course name</b>. Files you linked from OneDrive are never moved.</p>
+      <ul class="cl-watch">${cs.map(c => { const f = cm[c.id]; return `<li><span class="cl-wn">${FOLDER}<b>${esc(courseLabel(c))}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="cl-browse" data-mode="course" data-course="${esc(c.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="cl-course-reset" data-id="${esc(c.id)}">Use Automatic</button>` : ""}</li>`; }).join("")}</ul></fieldset>` : "";
+    return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, and attach to tasks and notes.</p>
+      <p class="mini cl-scope" style="margin:0"><b>AI can only read what you give Studyboard access to:</b> the Studyboard folder, the folders you add below, and only when “Allow AI to read my files” is on for that account. Nothing else in your Drive is visible to Studyboard or AI.</p>
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="cl-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : `<div class="cl-cards">${provs.map(card).join("")}</div>`}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
-      ${saveSet}${watch}
+      ${saveSet}${perCourse}${watch}
       <p class="mini">Removing a cloud file in Studyboard never deletes it from Google Drive or OneDrive.</p>`;
   }
   function paint(){ const b = document.getElementById("clBody"); if (b && !U.browse) { const y = b.scrollTop; b.innerHTML = sheetHtml(); b.scrollTop = y; } }
@@ -4748,15 +4827,15 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     openSheet(`<div class="sheet cl-sheet">${head("Cloud Storage")}<div class="sheet-body" id="clBody">${sheetHtml()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     setTimeout(() => { if (!U.loading && (Date.now() - cache().at > 30000 || !cache().at)) loadStatus(); else prefetch(); }, 0);
   }
-  async function browse(mode, id, name, trail){
-    U.browse = {mode, id: id || "root", name: name || "OneDrive", trail: trail || []};
+  async function browse(mode, id, name, trail, courseId){
+    U.browse = {mode, id: id || "root", name: name || "OneDrive", trail: trail || [], courseId: courseId || (U.browse && U.browse.courseId) || ""};
     const b = document.getElementById("clBody"); if (!b) return;
     b.innerHTML = `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(U.browse.name)}…</p>`;
     let list; try { list = await msChildren(U.browse.id, true); } catch (e) { list = null; b.innerHTML = `<p class="cl-warn">${esc((e && e.message) || "Couldn't open OneDrive.")}</p><button type="button" class="btn small" data-act="cl-back">Back</button>`; return; }
     if (!U.browse || U.browse.id !== (id || "root")) return;
     const B = U.browse, here = B.id !== "root";
     b.innerHTML = `<div class="cl-crumbs"><button type="button" class="link-btn" data-act="cl-back">‹ Cloud Storage</button><span class="mini">${esc(["OneDrive"].concat(B.trail.map(t => t.name)).join(" › "))}</span></div>
-      <p style="margin:0"><b>${mode === "watch" ? "Choose a folder to watch" : "Choose where uploads go"}</b></p>
+      <p style="margin:0"><b>${mode === "watch" ? "Choose a folder to watch" : mode === "course" ? `Choose where ${esc((courseOf(B.courseId) ? courseLabel(courseOf(B.courseId)) : "this course"))} uploads go` : "Choose where uploads go"}</b></p>
       ${list && list.length ? `<ul class="cl-folders">${list.slice(0, 200).map(f => `<li><button type="button" class="cl-fold" data-act="cl-dir" data-id="${esc(f.id)}" data-name="${esc(f.name)}">${FOLDER}<span>${esc(f.name)}</span><span class="mini">${f.folder && f.folder.childCount != null ? f.folder.childCount + " items" : ""}</span></button></li>`).join("")}</ul>` : `<p class="mini">No folders in here.</p>`}
       <div class="cs-row">${B.trail.length ? `<button type="button" class="btn small" data-act="cl-up">Up a Level</button>` : ""}<span class="spacer"></span>${here ? `<button type="button" class="btn small primary" data-act="cl-pick">${mode === "watch" ? `Watch “${esc(B.name)}”` : `Save to “${esc(B.name)}”`}</button>` : `<span class="mini">Open a folder to choose it</span>`}</div>`;
   }
@@ -4779,11 +4858,16 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   hook("act", (act, el, id) => {
     switch (act) {
       case "cl-open": openSheetCl(); return true;
+      case "f-sync": setTimeout(openSheetCl, 60); return true;
       case "cl-full-pro": { if (dlg.open) dlg.close(); const PL = window.StudyboardPlan; setTimeout(() => PL && PL.openSheet(`Your free file storage is full. Pro has ${PLAN.proLimits().fileMB >= 1024 ? PLAN.proLimits().fileMB / 1024 + " GB" : PLAN.proLimits().fileMB + " MB"}.`), 60); return true; }
       case "cl-full-save": {
         const list = FULL.files, opts = FULL.opts; FULL.files = [];
         if (dlg.open) dlg.close();
-        if (!connected().includes(id)) { setTimeout(openSheetCl, 60); toast(`Connect ${NM[id]}, then add the file again.`); return true; }
+        if (!connected().includes(id)) {
+          // Saved for when the connection finishes, so the files don't have to be added again
+          FULL.pend = list.length ? {p: id, list, opts, at: Date.now()} : null;
+          setTimeout(openSheetCl, 60); toast(list.length ? `Connect ${NM[id]}, and ${list.length === 1 ? "the file saves" : "the files save"} there once it's done.` : `Connect ${NM[id]}, then add the file again.`); return true;
+        }
         if (list.length) uploadFiles(list, opts, id);
         return true;
       }
@@ -4797,12 +4881,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         else toast("Couldn't disconnect. Check your connection and try again.");
         paint();
       })(); return true;
-      case "cl-browse": browse(el.dataset.mode === "save" ? "save" : "watch"); return true;
+      case "cl-browse": { const m = el.dataset.mode === "save" ? "save" : el.dataset.mode === "course" ? "course" : "watch"; U.browse = null; browse(m, "root", "OneDrive", [], el.dataset.course || ""); return true; }
+      case "cl-course-reset": { const m = Object.assign({}, prefs().msCourse); delete m[id]; setPrefs({msCourse: m}); toast("This course's uploads use the automatic folder again"); paint(); return true; }
       case "cl-back": U.browse = null; paint(); return true;
       case "cl-up": { const B = U.browse; if (!B) return true; const t = B.trail.slice(0, -1), last = t[t.length - 1]; browse(B.mode, last ? last.id : "root", last ? last.name : "OneDrive", t); return true; }
       case "cl-pick": {
         const B = U.browse; if (!B || B.id === "root") return true;
-        if (B.mode === "save") { setPrefs({msFolder: {id: B.id, name: B.name}}); toast(`OneDrive uploads go to “${B.name}”`); }
+        if (B.mode === "course") { const c = courseOf(B.courseId); if (c) { setPrefs({msCourse: Object.assign({}, prefs().msCourse, {[c.id]: {id: B.id, name: B.name}})}); toast(`${courseLabel(c)} uploads go to “${B.name}”`); } }
+        else if (B.mode === "save") { setPrefs({msFolder: {id: B.id, name: B.name}}); toast(`OneDrive uploads go to “${B.name}”`); }
         else {
           const W = prefs().watch;
           if (W.some(w => w.id === B.id)) toast("You're already watching that folder");

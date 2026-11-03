@@ -677,7 +677,8 @@ var SBWB = null;
     [120, 450, 800].forEach(ms => setTimeout(() => { if (ED && ED.ta === ta) keepTaVisible(); }, ms));
     ta.addEventListener("pointerdown", e => e.stopPropagation());
     ta.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) { e.preventDefault(); endText(); frame.focus({preventScroll: true}); } });
-    ta.addEventListener("blur", () => setTimeout(() => { if (ED && ED.ta === ta && document.activeElement !== ta) endText(); }, 0));
+    // The formatting toolbar and equation editor (module 01-math.js) keep the text open while they're in use
+    ta.addEventListener("blur", () => setTimeout(() => { const a = document.activeElement; if (ED && ED.ta === ta && a !== ta && !(a && a.closest && a.closest(".rb-bar,.rb-eq")) && !document.querySelector(".rb-eq")) endText(); }, 0));
     setTimeout(() => { try { ta.focus({preventScroll: true}); const l = ta.value.length; ta.setSelectionRange(selectAll ? 0 : l, l); } catch (e) {} }, 0);
   }
   function fitTa(){ if (!ED) return; const m = measure(ED.ta.value || " ", ED.it.f, ED.it.ff); ED.ta.style.width = Math.ceil(m.w + ED.it.f * 0.8) + "px"; ED.ta.style.height = Math.ceil(m.h + ED.it.f * 0.2) + "px"; }
@@ -1335,7 +1336,7 @@ var SBWB = null;
     const DK0 = DK; DK = dk;
     try {
     ink.forEach(st => strokePaint(st.t === "hl" ? chh : cp, st, colOf(st, !dk)));
-    its.forEach(it => { if (it.k !== "t") return; ct.fillStyle = penHex(it.c, !dk); ct.font = `${it.f}px ${famOf(it.ff)}`; ct.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => ct.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
+    its.forEach(it => { if (it.k !== "t") return; ct.fillStyle = penHex(it.c, !dk); ct.font = `${it.f}px ${famOf(it.ff)}`; ct.textBaseline = "top"; String(typeof mathPlain === "function" ? mathPlain(it.s) : it.s).split("\n").forEach((l, i) => ct.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
     } finally { DK = DK0; }
     cm.setTransform(1, 0, 0, 1, 0, 0);
     // Highlighter goes over the ink, as on screen; typed text stays on top of both
