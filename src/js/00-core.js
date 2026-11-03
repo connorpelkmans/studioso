@@ -44,6 +44,12 @@ function edgeDesktop(){
 const extBrowser = () => chromeDesktop() ? "Chrome" : edgeDesktop() ? "Edge" : "";
 const extDesktop = () => !!extBrowser();
 const extStoreUrl = () => edgeDesktop() ? EXT_EDGE_URL : EXT_CHROME_URL;
+// The store's official badge, linking to the extension's listing (Microsoft's and Google's artwork, unaltered: shipped with the website)
+function extBadge(){
+  const edge = edgeDesktop(), a = `<a class="ext-badge${edge ? " edge" : ""}" href="${extStoreUrl()}" target="_blank" rel="noopener noreferrer" aria-label="Get the Studyboard School Sync extension from ${edge ? "Microsoft Edge Add-ons" : "the Chrome Web Store"}">`;
+  return edge ? a + `<img src="website/assets/edge-addons-badge.png" alt="Get it from Microsoft Edge" width="423" height="112"></a>`
+    : a + `<img class="on-light" src="website/assets/cws-badge.png" alt="Available in the Chrome Web Store" width="496" height="150"><img class="on-dark" src="website/assets/cws-badge-border.png" alt="Available in the Chrome Web Store" width="496" height="150"></a>`;
+}
 const $$ = (s, el=document) => [...el.querySelectorAll(s)];
 /* Spelling by where you are */
 const SPELL = (() => {

@@ -1556,7 +1556,7 @@ function cleanFile(r) {
         <div class="bs-acts">
           ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from ${extBrowser() || "your browser"}'s toolbar and connect ${P.name} again to keep syncing.` : extDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome or Edge with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
           ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${extDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to ${extBrowser()}.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
-          ${!P.feedOnly && !P.direct && !P.noExt && grabOk() && extDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? `<a class="btn${gone0 ? " primary" : ""}" href="${esc(extStoreUrl())}" target="_blank" rel="noopener noreferrer">${gone0 ? "Get the Extension" : "Get Grades and Announcements"}</a>` : ""}
+          ${!P.feedOnly && !P.direct && !P.noExt && grabOk() && extDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? extBadge() : ""}
           ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
           <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
           ${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}
@@ -1623,7 +1623,7 @@ function cleanFile(r) {
           ${extFacts()}</div>`
       : extOffer ? `<div class="bs-way rec"><div class="bs-way-h"><b>Get the Studyboard School Sync Extension</b><span class="bs-pill">Recommended</span></div>
           <p class="mini">Brings in due dates plus what the calendar link can't: grades, announcements and what you've submitted. Add it to ${extBrowser()}, click its toolbar button and connect ${P.name}. It then syncs by itself.</p>
-          <div class="bs-acts"><a class="btn primary" href="${esc(extStoreUrl())}" target="_blank" rel="noopener noreferrer">Add to ${extBrowser()}</a></div>
+          <div class="bs-acts">${extBadge()}</div>
           <p class="mini" style="margin-top:4px"><b>Here's exactly what it does:</b></p>
           ${extFacts()}</div>` : "";
     const ext = !!extWay;
@@ -1969,7 +1969,7 @@ function cleanFile(r) {
     readAgain();
   }
   const extNudge = why => extDesktop() ? `Add the Studyboard School Sync extension to ${extBrowser()} and connect ${P.name} ${why}.` : `Connect ${P.name} in the Studyboard desktop app, or add its calendar link, ${why}.`;
-  const extBtn = () => extDesktop() ? {label: "Get the Extension", fn: () => openOutside(extStoreUrl())} : null;
+  const extBtn = () => extDesktop() ? {label: `Add to ${extBrowser()}`, fn: () => openOutside(extStoreUrl())} : null;
   function readAgain(wait){
     const c = cfg();
     if (bsDesk() && c.mode === "api") { syncNow({force: true}); return; }
