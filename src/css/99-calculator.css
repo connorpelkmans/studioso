@@ -1,4 +1,5 @@
-/* The calculator (99-calculator.js): a handheld scientific calculator, the same in light and dark mode */
+/* The calculator (99-calculator.js): a handheld scientific calculator, the same in light and dark mode.
+   Every label is at least 4.5:1 against its key or the body (WCAG AA for small text). */
 @media (max-width:639px){header.top .calc-btn{display:none}}
 .cx{position:fixed;z-index:60;width:344px;max-width:calc(100vw - 16px);filter:drop-shadow(0 18px 40px rgba(0,0,0,.35)) drop-shadow(0 3px 8px rgba(0,0,0,.25));font-family:var(--display),system-ui,sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 .cx[hidden]{display:none}
@@ -31,7 +32,7 @@
 .cx-f{grid-template-columns:repeat(6,1fr);margin-bottom:12px}
 .cx-n{grid-template-columns:repeat(5,1fr);gap:10px 9px}
 .cx-k{display:flex;flex-direction:column;align-items:center;min-width:0}
-.cx-s{height:12px;font:700 .58rem/12px var(--display);color:#f0a33a;white-space:nowrap}
+.cx-s{height:12px;font:800 .62rem/12px var(--display);color:#f0a33a;white-space:nowrap}
 .cx-k button{width:100%;min-width:0;border:0;cursor:pointer;font:700 .78rem/1 var(--display);color:#f2f3f5;height:30px;border-radius:9px 9px 12px 12px;padding:0 2px;background:linear-gradient(180deg,#4a505a,#383d45);box-shadow:0 2px 0 #121418,0 3px 4px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.14);transition:transform 60ms,box-shadow 60ms;white-space:nowrap;overflow:hidden}
 .cx-k button:active,.cx-k button.is-down{transform:translateY(2px);box-shadow:0 0 0 #121418,0 1px 2px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.1)}
 .cx-k button:focus-visible{outline:2px solid #f0a33a;outline-offset:2px}
@@ -43,8 +44,8 @@
 .cx-n .k-num button:active,.cx-n .k-num button.is-down{box-shadow:0 0 0 #8d929b,0 1px 2px rgba(0,0,0,.3),inset 0 1px 0 #fff}
 .cx-n .k-op button{background:linear-gradient(180deg,#e6e8ec,#c9cdd4);color:#1d2026;box-shadow:0 2px 0 #7f848d,0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 #fff}
 .cx-n .k-op button[data-cx="exp"],.cx-n .k-op button[data-cx="ans"]{font-size:.92rem}
-.cx-n .k-del button,.cx-n .k-ac button{background:linear-gradient(180deg,#f08a4b,#d4652a);color:#fff;font-size:1rem;box-shadow:0 2px 0 #7b3611,0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
-.cx-n .k-eq button{background:linear-gradient(180deg,#5d8ff0,#3a6ad1);color:#fff;box-shadow:0 2px 0 #1f3b7a,0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.cx-n .k-del button,.cx-n .k-ac button{background:linear-gradient(180deg,#ba5424,#a8420f);color:#fff;font-size:1rem;box-shadow:0 2px 0 #6b2a08,0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.cx-n .k-eq button{background:linear-gradient(180deg,#3f72dc,#2a55b3);color:#fff;box-shadow:0 2px 0 #16336f,0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
 /* SHIFT on: the keys with a second function light up */
 .cx.is-shift .cx-k button[data-cxs]{box-shadow:0 2px 0 #121418,0 0 0 2px #f0a33a,inset 0 1px 0 rgba(255,255,255,.14)}
 .cx.is-shift .cx-n .k-num button[data-cxs],.cx.is-shift .cx-n .k-op button[data-cxs]{box-shadow:0 2px 0 #7f848d,0 0 0 2px #f0a33a}
