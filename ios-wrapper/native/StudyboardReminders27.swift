@@ -276,7 +276,7 @@ struct SBCreateReminderIntent {
 
     func perform() async throws -> some IntentResult & ReturnsValue<SBTaskReminder> & ProvidesDialog {
         let dt = SBRemind.dayAndTime(dueDate)
-        let due = dt.map { $0.time.map { t in $0.day + "T" + t } ?? $0.day }
+        let due: String? = dt.map { d in d.time.map { t in d.day + "T" + t } ?? d.day }
         // the course goes as a hint the app matches against your courses (its code, else its name)
         var hint: String? = nil
         if let l = list, l.id != SBCourseList.inboxID {
