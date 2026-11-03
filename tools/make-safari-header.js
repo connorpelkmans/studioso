@@ -1,4 +1,4 @@
-// A wide header/banner picture for the Safari extension (3840 x 2160, and 1400 x 560 for stores that use a wide tile).
+// A wide header/banner picture for the Safari extension (3840 x 2160, 5244 x 2950, and 1400 x 560 for stores that use a wide tile).
 //   SB_DSF=3 node tests/extension.e2e.js   (makes tests-out/extension-popup-synced.png at 3x), then:  node tools/make-safari-header.js [outDir]
 "use strict";
 const fs = require("fs"), path = require("path");
@@ -19,7 +19,7 @@ h1{font-size:${big ? 104 : 52}px;line-height:1.06;margin:0 0 ${big ? 34 : 18}px;
 (async () => {
   fs.mkdirSync(OUT, {recursive: true});
   const browser = await chromium.launch({executablePath});
-  for (const [name, w, h, scale, big] of [["header-3840x2160.png", 1920, 1080, 2, true], ["header-1400x560.png", 1400, 560, 1, false]]) {
+  for (const [name, w, h, scale, big] of [["header-3840x2160.png", 1920, 1080, 2, true], ["header-5244x2950.png", 1920, 1080, 5244 / 1920, true], ["header-1400x560.png", 1400, 560, 1, false]]) {
     const ctx = await browser.newContext({viewport: {width: w, height: h}, deviceScaleFactor: scale}), p = await ctx.newPage();
     await p.setContent(html(w, h, big)); await p.evaluate(() => Promise.all([document.fonts.ready, ...[...document.images].map(i => i.decode())]));
     await p.screenshot({path: path.join(OUT, name)}); console.log("saved", name); await ctx.close();
