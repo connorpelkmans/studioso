@@ -3296,7 +3296,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-scan-btn{display:inline-flex;align-items:center;gap:7px}
 .pde-scan-btn svg{flex:none;width:16px;height:16px}
 .pde-scan-sheet .sheet-body{display:grid;gap:12px}
-.pde-scan .row-actions .btn{display:inline-flex;align-items:center;gap:6px}
+.pde-scan .row-actions .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;min-height:40px;height:auto;line-height:1.2}
 .pde-inline{display:inline-grid;margin-left:auto}
 .pde-inline select{width:auto}
 .pde-scanlist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}

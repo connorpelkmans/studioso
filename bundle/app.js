@@ -75642,6 +75642,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       saveHl(mine().concat([h])); paint(h.p); counts(); setNoting(false);
       setTimeout(() => cmEdit(h.id), 0); return;
     }
+    const tapped = e.target.closest(".pdr-note"); if (tapped && tapped.dataset.h) { cmEdit(tapped.dataset.h); return; }
     const h = hitAt(mine(), Number(pgEl.dataset.p), x, y);
     if (!h) { hidePop(); return; }
     if (h.m === "n") { cmEdit(h.id); return; }
@@ -75763,7 +75764,31 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   document.addEventListener("mouseup", e => { if (R && e.target.closest && (e.target.closest(".pdr-pages") || downIn)) setTimeout(onSelectEnd, 0); });
   document.addEventListener("touchend", e => { if (R && e.target.closest && e.target.closest(".pdr-pages")) setTimeout(onSelectEnd, 350); });
   document.addEventListener("keyup", e => { if (R && e.shiftKey && dlg.querySelector(".pdr-pages")) onSelectEnd(); });
-  document.addEventListener("click", e => { if (R && e.target.closest && e.target.closest(".pdr-pages") && !e.target.closest(".pdr-pop")) onTap(e); });
+  // Dragging a sticky note moves it (a tap without moving still opens its comment)
+  let noteDrag = null, noteMoved = false;
+  document.addEventListener("pointerdown", e => {
+    const el = e.target.closest && e.target.closest(".pdr-note"); if (!el || !R || e.button > 0 || (window.SBPDE && SBPDE.active())) return;
+    const h = mine().find(x => x.id === el.dataset.h), pgEl = el.closest(".pdr-page"); if (!h || !pgEl) return;
+    e.preventDefault();
+    noteDrag = {h, el, pgEl, b: pgEl.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, ox: h.r[0][0], oy: h.r[0][1], x: h.r[0][0], y: h.r[0][1], moved: false};
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  document.addEventListener("pointermove", e => {
+    const d = noteDrag; if (!d) return;
+    const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+    if (!d.moved && Math.hypot(dx, dy) < 5) return;
+    d.moved = true; d.el.classList.add("dragging");
+    d.x = Math.max(0, Math.min(0.97, d.ox + dx / d.b.width)); d.y = Math.max(0, Math.min(0.97, d.oy + dy / d.b.height));
+    d.el.style.left = (d.x * 100).toFixed(3) + "%"; d.el.style.top = (d.y * 100).toFixed(3) + "%";
+  });
+  const noteDrop = () => {
+    const d = noteDrag; noteDrag = null; if (!d || !d.moved) return;
+    d.el.classList.remove("dragging"); noteMoved = true; setTimeout(() => { noteMoved = false; }, 60);
+    const r = d.h.r[0];
+    saveHl(mine().map(x => x.id === d.h.id ? Object.assign({}, x, {r: [[d.x, d.y, r[2], r[3]]]}) : x)); paint(d.h.p); if (R.side) side();
+  };
+  document.addEventListener("pointerup", noteDrop); document.addEventListener("pointercancel", noteDrop);
+  document.addEventListener("click", e => { if (noteMoved) { noteMoved = false; return; } if (R && e.target.closest && e.target.closest(".pdr-pages") && !e.target.closest(".pdr-pop")) onTap(e); });
   document.addEventListener("scroll", e => { if (R && e.target && e.target.id === "pdrPages") { trackPage(); hidePop(); } }, true);
   document.addEventListener("change", e => { if (R && e.target && e.target.id === "pdrPg") goTo(e.target.value); });
   document.addEventListener("keydown", e => { if (R && e.target && e.target.id === "pdrPg" && e.key === "Enter") { e.preventDefault(); goTo(e.target.value); } });
@@ -75862,13 +75887,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-wait{display:flex;gap:8px;align-items:center;justify-content:center;margin:40px auto;color:var(--muted)}
 .pdr-page{position:relative;flex:none;margin:0 auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.08)}
 .pdr-cv{position:absolute;inset:0;display:block}
-.pdr-hl{position:absolute;inset:0;z-index:1;pointer-events:none}
+.pdr-hl{position:absolute;inset:0;z-index:3;pointer-events:none}
 .pdr-hl i{position:absolute;background:var(--h);mix-blend-mode:multiply;opacity:.55;border-radius:2px}
 .pdr-hl i.m-u,.pdr-hl i.m-s{background:none;opacity:1;mix-blend-mode:normal;border-radius:0}
 .pdr-hl i.m-u{border-bottom:2px solid var(--h)}
 .pdr-hl i.m-s::after{content:"";position:absolute;left:0;right:0;top:52%;border-top:2px solid var(--h)}
 .pdr-cm{position:absolute;right:-7px;top:-7px;width:10px;height:10px;border-radius:50%;background:#E8B92E;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
-.pdr-note{position:absolute;display:block;width:22px;height:22px;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+.pdr-note{position:absolute;display:block;width:22px;height:22px;pointer-events:auto;touch-action:none;cursor:grab;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+.pdr-note.dragging{cursor:grabbing;filter:drop-shadow(0 4px 8px rgba(0,0,0,.4))}
 .pdr-cmbtn[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,var(--surface));border-color:var(--accent)}
 .pdr-noting .pdr-page{cursor:copy}
 .pdr-noting .pdr-page .textLayer{pointer-events:none}
@@ -82551,7 +82577,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-scan-btn{display:inline-flex;align-items:center;gap:7px}
 .pde-scan-btn svg{flex:none;width:16px;height:16px}
 .pde-scan-sheet .sheet-body{display:grid;gap:12px}
-.pde-scan .row-actions .btn{display:inline-flex;align-items:center;gap:6px}
+.pde-scan .row-actions .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;min-height:40px;height:auto;line-height:1.2}
 .pde-inline{display:inline-grid;margin-left:auto}
 .pde-inline select{width:auto}
 .pde-scanlist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
