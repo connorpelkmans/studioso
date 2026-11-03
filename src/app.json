@@ -200,6 +200,7 @@
   "97-import-apps.js",
   "97-crunch.js",
   "96-capture-inbox.js",
+  "96-siri.js",
   "92-accuracy.js",
   "97-examprep.js",
   "97-exammode.js",

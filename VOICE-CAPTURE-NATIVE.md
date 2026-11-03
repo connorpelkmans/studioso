@@ -28,6 +28,27 @@
 | Android PWA | Web share target | no | n/a | no | cap-core; no assistant integration |
 | Any | Direct HTTP `POST /functions/v1/capture-task` (curl, automations) | no | yes | yes | cap-server tests |
 
+## 1b. Ask Siri (questions about your work, iPhone and iPad app)
+
+**What it does, with no setup:** "What's due this week / today / tomorrow / overdue", "When is <assignment> due", "What did I get on <assignment>", "What's my grade in <course>", "When is <course>" (days, times, room, next meeting) and "What's my next class", each followed by "in Studyboard". It doesn't open the app, and it works offline. Siri asks for Face ID or the passcode before saying a grade or mark. Adding tasks needs no setup either: once you're signed in, the app makes a capture token named "Siri on this iPhone" by itself and keeps it in the Keychain (`nativeAuto` in `96-capture-inbox.js`). Signing out revokes it. Revoking it in Settings turns voice adding off on that device until **Turn On Adding Tasks by Voice** is pressed. Signed out or offline, a spoken task is kept on the phone and added the next time the app opens.
+
+**Why on-device data, not a server call:** Siri gives an intent only a few seconds, and grades are worked out by the app's Grade Tracker: weights, drop rules and letter scales. Class times come from its Schedule: rotating Day 1-6 or A/B cycles, days off and moved classes. So the page computes the answers and writes a small copy (`src/js/96-siri.js`, `siriSnapshot`) through `StudyboardNative.siriData.save()` into the App Group container. The file is readable after the first unlock, excluded from backups and never uploaded. It holds open work, done work from the last 30 days or with a mark (600 at most), courses with their grade and class times, and the next 14 days of classes. It is rewritten 2 s after a change, when the app goes to the background, and every 15 minutes while open. Answers say when the copy is more than 36 hours old. The capture token stays add-only, and no credential that can read the account is given to Siri.
+
+**How the newer Siri finds things:** assignments and courses are App Entities (`StudyboardEntities.swift`) with string queries, so "bio" finds "BIO 101 Biology" and "lab report" finds "Bio lab report". On iOS 18+ they are also `IndexedEntity` and go into Spotlight's semantic index, which is where Apple Intelligence Siri looks for an app's content. Marks and grades are never indexed. The App Shortcuts phrases (`StudyboardShortcuts.swift`) name the suggested assignments and courses (`updateAppShortcutParameters()` after every copy). The newer Siri also runs these intents when asked in other words.
+
+**iOS 27 App Schemas (do on a Mac):** WWDC26 ("Build intelligent Siri experiences with App Schemas") ties Siri's deepest understanding (natural phrasing without the app's exact words, onscreen awareness) to entities and intents that conform to an App Schema domain (`@AppEntity(schema: ...)`). Apple's examples are mail, photos and messages. I could not confirm a domain for tasks, to-dos or reminders. In Xcode 27, type `@AppEntity(schema: .` on `AssignmentEntity` and `@AppIntent(schema: .` on `AddTaskIntent` and see what autocomplete offers. If a to-do or reminders domain exists, adopt it there (Xcode adds stubs for the related schemas it requires) and keep everything else as is. If none fits, the intents above still work with the new Siri through App Shortcuts and the semantic index.
+
+| Question | Intent | Phrase examples (Siri also accepts these in the Shortcuts app) |
+| --- | --- | --- |
+| What's due | `WhatsDueIntent` (today / tomorrow / this week / overdue) | "What's due this week in Studyboard", "What's due in Studyboard" |
+| Due date | `AssignmentDueIntent` | "When is <assignment> due in Studyboard", "When is an assignment due in Studyboard" |
+| Assignment mark | `AssignmentGradeIntent` (unlock first) | "What did I get on <assignment> in Studyboard" |
+| Course grade | `CourseGradeIntent` (unlock first) | "What's my grade in <course> in Studyboard" |
+| Class times | `ClassTimeIntent` | "When is <course> in Studyboard", "Where is <course> in Studyboard" |
+| Next class | `NextClassIntent` | "What's my next class in Studyboard" |
+
+Tests: `node tests/siri.test.js` checks the copy, checks that the Swift types decode the same keys, and checks the wiring. The device test plan is `ios-wrapper/native/capture.md`, tests 16 to 26.
+
 ## 2. Data flow
 
 ```

@@ -66345,13 +66345,33 @@ async function capProcess(rows, d){
     try { const nb = nativeBridge(); if (nb && typeof nb.saveCaptureToken === "function" && t && t.token) { const c = sbConfig(); nb.saveCaptureToken(t.token, c && c.url ? c.url.replace(/\/+$/, "") : ""); ls(NATIVE_KEY, t.id); } } catch (e) {}
   }
   function nativeClear(){ try { const nb = nativeBridge(); if (nb && typeof nb.clearCaptureToken === "function") nb.clearCaptureToken(); ls(NATIVE_KEY, ""); } catch (e) {} }
+  // In the iPhone and iPad app, Siri can add tasks with no setup: a capture token for this device is made on its own once signed in and kept
+  // in the Keychain. Revoking it (here or on another device) turns that off on this device until it's turned back on in Settings.
+  const AUTO_OFF = "studyboard:siriAddOff", AUTO_LABEL = "Siri on this iPhone";
+  const autoApp = () => !!(window.SBSIRI && SBSIRI.available());
+  let autoBusy = false;
+  async function nativeAuto(){
+    const nb = nativeBridge();
+    if (autoBusy || !autoApp() || !nb || typeof nb.saveCaptureToken !== "function" || ls(NATIVE_KEY) || ls(AUTO_OFF) === "1" || !ready()) return;
+    autoBusy = true;
+    try { const {data, error} = await sb.rpc("capture_create_token", {p_label: AUTO_LABEL, p_allow_get: false}); if (!error && data && data.token) nativeSave(data); }
+    catch (e) {} finally { autoBusy = false; }
+  }
   async function nativeCheck(){
-    const id = ls(NATIVE_KEY); if (!id || !nativeBridge()) return;
+    if (!nativeBridge()) return;
+    const id = ls(NATIVE_KEY);
+    if (!id) { nativeAuto(); return; }
     if (!sbUser && !(sb && sbStarting)) { if (typeof sb !== "undefined" && sb) nativeClear(); return; }
     if (!ready()) return;
-    try { const {data, error} = await sb.rpc("capture_list_tokens"); if (!error && Array.isArray(data) && !data.some(x => x.id === id && !x.revoked_at)) nativeClear(); } catch (e) {}
+    try { const {data, error} = await sb.rpc("capture_list_tokens"); if (!error && Array.isArray(data) && !data.some(x => x.id === id && !x.revoked_at)) { nativeClear(); ls(AUTO_OFF, "1"); } } catch (e) {}
   }
-  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'); if (b) nativeClear(); }, true);
+  // Signing out: the device's own token is revoked too (the session is still good at this moment), so signing in again doesn't pile up tokens
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'); if (!b) return;
+    const id = ls(NATIVE_KEY);
+    if (id && autoApp() && ready()) { try { sb.rpc("capture_revoke_token", {p_id: id}).then(() => {}, () => {}); } catch (x) {} }
+    nativeClear();
+  }, true);
   const endpoint = () => { const c = sbConfig(); return c && c.url ? c.url.replace(/\/+$/, "") + "/functions/v1/capture-task" : ""; };
   const ready = () => !inPreview() && typeof sbActive === "function" && sbActive() && !sbStarting;
 
@@ -66400,6 +66420,7 @@ async function capProcess(rows, d){
   const tick = () => pull(false);
   setTimeout(tick, 2500); setTimeout(tick, 9000); setTimeout(tick, 25000);
   setTimeout(nativeCheck, 6000); setTimeout(nativeCheck, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(nativeCheck, 1500); });
   window.addEventListener("focus", tick);
   window.addEventListener("online", () => pull(true));
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
@@ -66449,7 +66470,7 @@ async function capProcess(rows, d){
    Body (JSON): text = Provided Input, source = siri
 3. Get Dictionary Value: speech from Contents of URL
 4. Speak Text: Dictionary Value</div>
-      <p class="mini"><b>Later, with the installed Studyboard app (iOS wrapper):</b> the app's App Intents are meant to let you say "Hey Siri, add &lt;task&gt; to Studyboard" with no setup. That needs the wrapper app from the App Store and is not available in the website version.</p>
+      <p class="mini"><b>With the Studyboard app from the App Store:</b> you don't need this shortcut. Open this screen in the app and use <b>Siri on this iPhone</b> at the top: Siri can then add tasks and answer what's due, your grades and your class times.</p>
     </details>
     <details><summary>Pixel and other Android phones with Gemini</summary>
       <p class="mini"><b>Needs:</b> a capture token and the free, open-source <b>HTTP Shortcuts</b> app from Google Play. Gemini cannot call a web address by itself, so the HTTP Shortcuts app does the sending.</p>
@@ -66472,12 +66493,27 @@ async function capProcess(rows, d){
       </ol>
     </details>`;
   }
+  // The installed iPhone and iPad app: Siri works with no Shortcut to build (ios-wrapper/native/StudyboardAskIntents.swift, src/js/96-siri.js)
+  const siriApp = () => !!(window.SBSIRI && SBSIRI.available());
+  function siriBox(signed){
+    if (!siriApp()) return "";
+    const toks = (S.tokens || []).filter(t => !t.revoked_at), mine = ls(NATIVE_KEY), on = !!mine && (S.tokens === null || toks.some(t => t.id === mine));
+    const say = [["What's due this week in Studyboard?", ""], ["When is my lab report due in Studyboard?", ""], ["What's my grade in Biology in Studyboard?", "grades"], ["What did I get on the midterm in Studyboard?", "grades"], ["When is Chem in Studyboard?", ""], ["What's my next class in Studyboard?", ""], ["Add a task to Studyboard", "add"]];
+    return `<div class="capv-box"><b>Siri on this iPhone</b>
+      <p class="mini" style="margin:0">Ask Siri about your work without opening the app. It already works: there's nothing to set up. Answers come from a private copy on this phone that updates whenever Studyboard is open, so they work offline.</p>
+      <ul class="mini" style="margin:0">${say.map(([q, k]) => `<li>"Hey Siri, ${esc(q)}"${k === "grades" ? " (asks you to unlock first)" : k === "add" ? " (then say the task)" : ""}</li>`).join("")}</ul>
+      <label class="mi-check"><input type="checkbox" data-capx="siri-grades" ${SBSIRI.gradesOn() ? "checked" : ""}> Siri can tell me my grades and marks (on unless you turn it off)</label>
+      ${!signed ? `<p class="mini" style="margin:0">Adding tasks by voice needs an account, because tasks travel through your account's inbox.</p>`
+        : on || (ls(AUTO_OFF) !== "1" && autoBusy) ? `<p class="mini" style="margin:0"><b>Adding tasks by voice is on.</b> To turn it off, revoke "Siri on this iPhone" below.</p>`
+        : `<div class="capv-tok"><button type="button" class="btn primary small" data-capx="siri-on" ${S.busy || toks.length >= 5 ? "disabled" : ""}>${S.busy ? "Turning On…" : "Turn On Adding Tasks by Voice"}</button><span class="mini">${ls(AUTO_OFF) === "1" ? "It was turned off on this phone." : toks.length >= 5 ? "You have 5 tokens. Revoke one first." : ""}</span></div>`}
+      <p class="mini" style="margin:0">If Siri says it can't find Studyboard, open Studyboard once, then try again. Phrases also show in the Shortcuts app under Studyboard.</p></div>`;
+  }
   function html(){
     const signed = ready() || (typeof sbActive === "function" && sbActive());
-    if (!signed) return `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign in</button>`;
+    if (!signed) return siriBox(false) + `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign in</button>`;
     if (S.missing) return `<p class="capv-warn mini" style="margin:0">${esc(srvSetup("Voice capture", "supabase-capture.sql"))}</p>`;
     const toks = (S.tokens || []).filter(t => !t.revoked_at), url = endpoint();
-    return `
+    return siriBox(true) + `
       <p class="mini" style="margin:0">Say "add <i>read chapter 4 due Friday</i> to my Studyboard" to your phone's assistant and the task shows up here. A <b>capture token</b> lets one shortcut add tasks to your inbox, and nothing else: it can't read your tasks. Free for everyone.</p>
       ${S.err ? `<p class="capv-warn mini" role="alert" style="margin:0">${esc(S.err)}</p>` : ""}
       <div class="capv-box">
@@ -66532,10 +66568,19 @@ async function capProcess(rows, d){
     await loadTokens();
     const el = dlg.querySelector(".capv-body"); if (el) el.scrollTop = 0;
   }
+  async function siriOn(){
+    ls(AUTO_OFF, "");
+    S.busy = true; S.err = ""; paint();
+    const {data, error} = await sb.rpc("capture_create_token", {p_label: "Siri on this iPhone", p_allow_get: false});
+    S.busy = false;
+    if (error) { if (missing(error)) S.missing = true; else S.err = /SB_CAPTURE_LIMIT/.test(error.message || "") ? "You already have 5 active tokens. Revoke one first." : "Couldn't turn it on. Check your connection and try again."; paint(); return; }
+    nativeSave(data); toast("Siri can add tasks now. Try \"Hey Siri, add a task to Studyboard\".");
+    await loadTokens();
+  }
   async function revoke(id){
     if (!(await askBox({title: "Revoke This Token?", text: "Any shortcut using it stops working right away.", yes: "Revoke", danger: true}))) return;
     const {error} = await sb.rpc("capture_revoke_token", {p_id: id});
-    if (error) S.err = "Couldn't revoke it. Try again."; else { S.err = ""; toast("Token revoked"); if (ls(NATIVE_KEY) === id) nativeClear(); }
+    if (error) S.err = "Couldn't revoke it. Try again."; else { S.err = ""; toast("Token revoked"); if (ls(NATIVE_KEY) === id) { nativeClear(); ls(AUTO_OFF, "1"); } }
     await loadTokens();
   }
   async function test(){
@@ -66565,8 +66610,10 @@ async function capProcess(rows, d){
     else if (k === "revoke") revoke(b.dataset.id);
     else if (k === "hide") { S.tok = null; paint(); }
     else if (k === "test") test();
+    else if (k === "siri-on") siriOn();
     else if (k === "signin") { if (dlg.open) dlg.close(); setTimeout(() => { try { sbAsk(); } catch (err) {} }, 60); }
   });
+  dlg.addEventListener("change", e => { const b = e.target.closest && e.target.closest('[data-capx="siri-grades"]'); if (b && dlg.querySelector(".capv-sheet") && window.SBSIRI) { SBSIRI.setGrades(b.checked); toast(b.checked ? "Siri can tell you your grades" : "Siri won't say your grades"); } });
   dlg.addEventListener("submit", e => { const f = e.target.closest && e.target.closest("[data-capx-form]"); if (f) { e.preventDefault(); create(f); } });
   const rowHtml = group => `<button data-act="cap-voice-open" data-group="${group}"><span>Voice Assistants &amp; Shortcuts<span class="sub">Add tasks by asking Siri, Gemini or Bixby, or from the share sheet</span></span></button>`;
   hook("act", act => { if (act !== "cap-voice-open") return false; if (dlg.open) dlg.close(); setTimeout(open, 40); return true; });
@@ -66579,6 +66626,95 @@ async function capProcess(rows, d){
 })();
 /* CAPTURE-INBOX-END */
 
+/* ===== module: 96-siri.js ===== */
+/* SIRI-START
+   Ask Siri about your work (iPhone and iPad app only). Siri runs Studyboard's App Intents (ios-wrapper/native/StudyboardAskIntents.swift)
+   without opening the app, so they can't run this page. Instead this module keeps a small copy of what Siri may answer about on the device:
+   tasks with their due dates and marks, courses with their current grade and class times, and the class meetings of the next two weeks
+   (worked out here, so rotating Day 1-6 / A-B schedules, days off and moved classes come out exactly as the Schedule shows them). It is
+   written through StudyboardNative.siriData.save() into the app's own container, never to a server, and is deleted on sign-out.
+   Grades are left out when the person turns "Siri can tell me my grades" off (per device). The native side reads it, answers, and indexes
+   assignments and courses so Siri and Spotlight can find them by name. Shape: SIRI_V below; the Swift Codable types in SBSiriData.swift
+   must match it (tests/siri.test.js checks both). */
+const SIRI_V = 1, SIRI_MAX_TASKS = 600, SIRI_DAYS = 14;
+const siriStr = (s, n) => { const t = String(s == null ? "" : s).replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
+const siriDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+const siriTime = s => typeof s === "string" && /^\d{2}:\d{2}$/.test(s) ? s : "";
+const siriNum = v => typeof v === "number" && isFinite(v) ? Math.round(v * 10) / 10 : null;
+/* in: {now, today, grades, tasks:[task], courses:[course], courseLabel(c), gradeItems:[{id, pct, mark, letter}], courseGrade(c) -> {pct, letter, marked} | null,
+        timesText(c) -> "Mon, Wed · 10–10:50 AM", classes:[{courseId, kind, date, start, end, where}]} */
+function siriSnapshot(i){
+  const grades = !!i.grades, today = i.today, marks = new Map();
+  if (grades) (i.gradeItems || []).forEach(g => { if (g && g.id && siriNum(g.pct) != null) marks.set(g.id, {pct: siriNum(g.pct), text: siriStr(g.mark, 24), letter: siriStr(g.letter, 4)}); });
+  const courses = (i.courses || []).filter(c => c && c.id && !c.archived).map(c => {
+    const o = {id: String(c.id), name: siriStr(c.name || c.code, 80) || "Course", code: siriStr(c.code, 24), room: siriStr(c.room, 60), times: ""};
+    try { o.times = siriStr(i.timesText ? i.timesText(c) : "", 120); } catch (e) { o.times = ""; }
+    if (grades) { let g = null; try { g = i.courseGrade ? i.courseGrade(c) : null; } catch (e) { g = null; } if (g && siriNum(g.pct) != null) o.grade = {pct: siriNum(g.pct), letter: siriStr(g.letter, 4), marked: siriNum(g.marked)}; }
+    return o;
+  });
+  const known = new Set(courses.map(c => c.id));
+  // What Siri is asked about: real work (not Exam Prep sessions or the steps of a broken-down task), open work first, then recent and marked work
+  const real = (i.tasks || []).filter(t => t && t.id && !t.prepFor && !t.breakdownOf && siriStr(t.title, 2));
+  const open = real.filter(t => t.status !== "done" && !t.archivedTerm), done = real.filter(t => !open.includes(t));
+  const byDue = (a, b) => ((a.due || "9999") + (a.time || "")).localeCompare((b.due || "9999") + (b.time || ""));
+  const recent = (a, b) => (Number(b.doneAt) || 0) - (Number(a.doneAt) || 0) || String(b.due).localeCompare(String(a.due));
+  const pick = open.sort(byDue).concat(done.filter(t => marks.has(t.id) || (t.due && t.due >= addDaysPure(today, -30))).sort(recent)).slice(0, SIRI_MAX_TASKS);
+  const tasks = pick.map(t => {
+    const o = {id: String(t.id), title: siriStr(t.title, 140), course: known.has(t.courseId) ? String(t.courseId) : "", type: siriStr(t.type, 24), due: siriDate(t.due), time: siriDate(t.due) ? siriTime(t.time) : "", done: t.status === "done"};
+    if (marks.has(t.id)) o.mark = marks.get(t.id);
+    return o;
+  });
+  const classes = (i.classes || []).filter(m => m && known.has(m.courseId) && siriDate(m.date) && siriTime(m.start) && siriTime(m.end))
+    .map(m => ({course: String(m.courseId), kind: siriStr(m.kind, 24), date: m.date, start: m.start, end: m.end, where: siriStr(m.where, 60)}))
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 400);
+  return {v: SIRI_V, at: Number(i.now) || 0, grades, tasks, courses, classes};
+}
+// The app's addDays, without depending on it (this part is tested on its own)
+function addDaysPure(s, n){ const [y, m, d] = String(s).split("-").map(Number); const x = new Date(y, m - 1, d + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; }
+/* SIRI-PURE-END */
+(() => {
+  const nb = () => { const n = window.StudyboardNative; return n && n.siriData && typeof n.siriData.save === "function" ? n.siriData : null; };
+  const GRADES_KEY = "studyboard:siriGrades";
+  const gradesOn = () => { try { return localStorage.getItem(GRADES_KEY) !== "0"; } catch (e) { return true; } };
+  function input(){
+    const today = todayISO(), G = window.SBGRADES;
+    let classes = [];
+    try {
+      classes = schOccurrences(today, addDays(today, SIRI_DAYS - 1)).filter(o => o.type === "meet" && !o.skipped && o.c)
+        .map(o => ({courseId: o.c.id, kind: o.label, date: o.date, start: o.start, end: o.end, where: o.where || (o.m && o.m.where) || o.c.room || ""}));
+    } catch (e) { classes = []; }
+    return {now: Date.now(), today, grades: gradesOn(), tasks: allTasks(), courses: coursesArr(),
+      gradeItems: G && typeof G.items === "function" ? (() => { try { return G.items(); } catch (e) { return []; } })() : [],
+      courseGrade: c => { const g = G && typeof G.now === "function" ? G.now(c) : null; return g && g.pct != null ? {pct: g.pct, letter: g.letter, marked: g.marked} : null; },
+      timesText: c => courseTimesText(c), classes};
+  }
+  let last = "", t = null;
+  function push(){
+    clearTimeout(t); t = null;
+    const S = nb(); if (!S) return;
+    let snap; try { snap = siriSnapshot(input()); } catch (e) { console.warn("siri snapshot", e); return; }
+    const sig = JSON.stringify(Object.assign({}, snap, {at: 0}));
+    if (sig === last) return;
+    last = sig;
+    S.save(snap).catch(() => { last = ""; });
+  }
+  const soon = () => { if (nb() && !t) t = setTimeout(push, 2000); };
+  hook("boot", () => { if (!nb()) return; setTimeout(push, 3000); setInterval(push, 15 * 60000); });
+  hook("changed", soon);
+  hook("render", soon);
+  // leaving the app: write it now, it's what Siri sees until the app is opened again
+  document.addEventListener("visibilitychange", () => { if (document.hidden && nb()) push(); });
+  // signing out deletes it (and its Spotlight entries)
+  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'); if (b && nb()) { last = ""; nb().clear(); } }, true);
+  window.SBSIRI = {
+    available: () => !!nb(),
+    gradesOn,
+    setGrades: on => { try { localStorage.setItem(GRADES_KEY, on ? "1" : "0"); } catch (e) {} last = ""; push(); },
+    refresh: () => { last = ""; push(); },
+    snapshot: () => siriSnapshot(input())
+  };
+})();
+/* SIRI-END */
 /* ===== module: 92-accuracy.js ===== */
 /* Planning accuracy */
 var SBACC = (() => {

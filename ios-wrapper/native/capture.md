@@ -12,6 +12,9 @@
 | `StudyboardShortcuts.swift` | App | `AppShortcutsProvider` with the spoken phrases. |
 | `StudyboardPlugins.swift` | App | Capacitor plugins `StudyboardCaptureToken` (`save`, `clear`) and `StudyboardSharedQueue` (`drain`, `ack`). |
 | `MainViewController.swift` | App | Registers the two plugins (Capacitor 6/7 style, verify for your version). |
+| `SBSiriData.swift` | App | Ask Siri: the on-device copy of tasks, marks, grades and class times (written by `src/js/96-siri.js`), plus matching and spoken wording. |
+| `StudyboardEntities.swift` | App | Ask Siri: `AssignmentEntity`, `CourseEntity` with string queries, `IndexedEntity` (iOS 18+) and the Spotlight refresh. |
+| `StudyboardAskIntents.swift` | App | Ask Siri: What's Due, When Is It Due, Assignment Grade, Course Grade, Class Times, Next Class. |
 | `ShareExtension/ShareViewController.swift` | ShareExtension | The share sheet entry. |
 | `ShareExtension/Info.plist.snippet.plist`, `ShareExtension.entitlements`, `PrivacyInfo.xcprivacy` | ShareExtension | Extension configuration (the Info.plist needs `SBKeychainAccessGroup`, not only `NSExtension`). |
 | `../native-bridge.js` | web | `saveCaptureToken`, `clearCaptureToken`, shared-queue drain on start and `appStateChange`, deep-link forwarding to `SBCAPTURE.handleUrl`. |
@@ -20,7 +23,7 @@
 
 1. `npx cap add ios`, then merge `Info.plist.additions.plist` and the entitlements as README-IOS.md says.
 2. **App target > Signing & Capabilities**: add **App Groups** with `group.com.studyboardapp.studyboard` and **Keychain Sharing** with `com.studyboardapp.studyboard.shared` (Xcode stores it as `$(AppIdentifierPrefix)com.studyboardapp.studyboard.shared`). Compare with `../App.entitlements.template.plist`. If your bundle id differs, change `SBCaptureConfig.appGroupID`, `keychainService`, and the Info.plist `SBKeychainAccessGroup` value.
-3. Drag `SBCapture.swift`, `AddTaskIntent.swift`, `OpenCaptureIntent.swift`, `StudyboardShortcuts.swift`, `StudyboardPlugins.swift`, `MainViewController.swift` into the **App** group (target membership: App). In `Main.storyboard` set the view controller's class to `MainViewController` (Module `App`).
+3. Drag `SBCapture.swift`, `AddTaskIntent.swift`, `OpenCaptureIntent.swift`, `SBSiriData.swift`, `StudyboardEntities.swift`, `StudyboardAskIntents.swift`, `StudyboardShortcuts.swift`, `StudyboardPlugins.swift`, `MainViewController.swift` into the **App** group (target membership: App). In `Main.storyboard` set the view controller's class to `MainViewController` (Module `App`).
 4. **File > New > Target > Share Extension**, name `StudyboardShare`, bundle id `com.studyboardapp.studyboard.share`, embed in App. Replace its `ShareViewController.swift` with `ShareExtension/ShareViewController.swift`, delete the generated storyboard, merge **every top-level key** of `ShareExtension/Info.plist.snippet.plist` into the extension's Info.plist (the `NSExtension` block replaces the generated one, and **`SBKeychainAccessGroup` must be added too**: without it the extension looks in a different Keychain group, cannot see the token, and every share silently ends up queued as "not configured"; check the built `StudyboardShare.appex/Info.plist`), set its entitlements to `ShareExtension.entitlements` (same App Group + Keychain group), add `PrivacyInfo.xcprivacy`, and tick the extension target for `SBCapture.swift`. Deployment target iOS 16+ for both.
 5. `npm i` the plugins in README-IOS.md section 2, copy `native-bridge.js` as usual, `npx cap sync ios`.
 6. **The token handoff (cap-server's Settings UI must do this).** When the person creates (or regenerates) a capture token, and on every app start while one exists, call:
@@ -69,5 +72,21 @@ Preconditions: signed-in build with capture enabled in Settings (token saved; ch
 | 13 | Siri with the phone locked (after one unlock since boot). | Record whether it asks to unlock or runs. Either is acceptable; note it. | |
 | 14 | iOS 26 and the iOS 27 beta: repeat 4 and 5 with Apple Intelligence Siri on; also try speaking the task in the sentence ("add bio lab report to Studyboard"). | Record exactly what happens; do not assume the in-sentence form works. | |
 | 15 | Xcode > Product > Archive > Generate Privacy Report. | No missing required-reason API warnings for the App and the extension. | |
+
+### Ask Siri (questions; run after test 1 with a few courses, class times, tasks and a mark)
+
+| # | Action | Expected | Result |
+| --- | --- | --- | --- |
+| 16 | Open the app, add a mark to one assignment, wait 10 s, close it. | Spotlight: type the assignment's title; it shows under Studyboard. | |
+| 17 | "Hey Siri, what's due this week in Studyboard?" / "...what's due tomorrow in Studyboard?" | Lists up to 5 with days and times; app not opened. | |
+| 18 | "Hey Siri, when is <assignment title> due in Studyboard?" and "...when is an assignment due in Studyboard?" (then say the title) | The due day and time, the course named. | |
+| 19 | "Hey Siri, what's my grade in <course> in Studyboard?" with the phone locked. | Asks to unlock (Face ID), then the % and letter. | |
+| 20 | "Hey Siri, what did I get on <assignment> in Studyboard?" | "You got 18/20 on ... That's 90%, an A-." | |
+| 21 | "Hey Siri, when is <course> in Studyboard?" / "...what's my next class in Studyboard?" | Days, times, room; the next meeting (a rotating Day 1-6 schedule must match the app's Schedule). | |
+| 22 | Settings > Voice Assistants & Shortcuts: untick "Siri can tell me my grades", repeat 19. | "Grades are turned off for Siri...". | |
+| 23 | Airplane mode, repeat 17 to 21. | Same answers (all on device). | |
+| 24 | Sign out, repeat 17. | "Open Studyboard once so I can see your assignments and classes." Spotlight no longer shows them. | |
+| 25 | Signed in, never opened Voice settings: "Hey Siri, add a task to Studyboard". | Added through the token the app made by itself ("Siri on this iPhone" listed in Voice settings). | |
+| 26 | iOS 27 with the new Siri: ask the same things in your own words without the app's exact phrase ("is my bio lab report due soon?"). | Record what happens. See VOICE-CAPTURE-NATIVE.md, "Ask Siri", for the App Schema step. | |
 
 If test 2 does not list the app: delete the app, reinstall, wait a minute (App Intents metadata is extracted at install), and check the build log for the `appintentsmetadataprocessor` step; the intents must be in the **App** target (not a Swift package unless you follow Apple's package-based metadata rules).

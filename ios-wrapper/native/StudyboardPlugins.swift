@@ -24,6 +24,40 @@ public class StudyboardCaptureTokenPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 }
 
+// Ask Siri: the page (src/js/96-siri.js) hands over the on-device copy of tasks, marks, grades and class times
+@objc(StudyboardSiriDataPlugin)
+public class StudyboardSiriDataPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "StudyboardSiriDataPlugin"
+    public let jsName = "StudyboardSiriData"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "save", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
+    ]
+    private var reindex: DispatchWorkItem?
+
+    @objc func save(_ call: CAPPluginCall) {
+        guard let json = call.getString("json"), let data = json.data(using: .utf8), SBSiriStore.save(data) else { return call.reject("invalid") }
+        scheduleReindex()
+        call.resolve()
+    }
+
+    @objc func clear(_ call: CAPPluginCall) {
+        SBSiriStore.clear()
+        scheduleReindex()
+        call.resolve()
+    }
+
+    // Spotlight and Siri's phrase names are refreshed at most every few seconds, however often the page saves
+    private func scheduleReindex() {
+        DispatchQueue.main.async {
+            self.reindex?.cancel()
+            let w = DispatchWorkItem { Task { await SBSiriIndex.refresh() } }
+            self.reindex = w
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: w)
+        }
+    }
+}
+
 @objc(StudyboardSharedQueuePlugin)
 public class StudyboardSharedQueuePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "StudyboardSharedQueuePlugin"
