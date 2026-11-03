@@ -56,6 +56,9 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     await page.click("#pdeBtn"); await page.waitForTimeout(300);
     ok(await page.locator(".pde-bar").isVisible(), "Edit shows the edit tools");
     ok(await page.locator('.pde-tool[data-id="text"][aria-pressed="true"]').count() === 1, "Edit Text is the tool to start with");
+    await page.click('[data-act="pde-more"]');
+    ok(await page.evaluate(() => !!document.querySelector(".pde-menu") && getComputedStyle(document.querySelector(".pde-tools")).animationName === "none"), "More opens its whole menu at once (the tool row isn't faded back in, which hid the menu behind the page)");
+    await page.click('[data-act="pde-more"]'); await page.waitForTimeout(150);
     await page.waitForFunction(() => !!window.PDFLib, null, {timeout: 10000});
     ok(true, "pdf-lib loads on demand from vendor/pdflib/");
 
