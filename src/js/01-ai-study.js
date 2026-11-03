@@ -196,7 +196,7 @@ function aiBusySheet(title, msg, key){
 /* Exam study plans */
 const planSessions = examId => allTasks().filter(t => t.prepFor === examId);
 const cloudAiOk = f => !(f && f.cloud && !f.revs.length) || !!(window.SBCLOUD && SBCLOUD.aiOk && SBCLOUD.aiOk(f.cloud.p));
-const readableFile = f => !!f && (f.kind === "file" && f.revs.length || f.kind === "cloud") && /\.(pdf|pptx|docx|txt|md|png|jpe?g|webp)$/i.test(fileNameOf(f)) && cloudAiOk(f);
+const readableFile = f => !!f && (f.kind === "file" && f.revs.length || f.kind === "cloud") && /\.(pdf|pptx|docx|xlsx|csv|txt|md|png|jpe?g|webp)$/i.test(fileNameOf(f)) && cloudAiOk(f);
 // The bytes of a stored file, or of one kept in Google Drive or OneDrive
 async function fileBytes(f){
   if (f && f.cloud && !f.revs.length) { if (!window.SBCLOUD) throw new Error("cloud unavailable"); return SBCLOUD.bytes(f); }
@@ -238,7 +238,7 @@ async function summarizeFile(fid, again){
   if (!(f.summary && !again)) {
     if (!aiReady()) { aiSetupSheet(true); return; }
     if (!cloudAiOk(f)) { toast(`AI isn't allowed to read files from ${CLOUD_NAMES[f.cloud.p]}. You can allow it in Files, Cloud.`, null, window.SBCLOUD ? {label: "Open Cloud", fn: () => SBCLOUD.open()} : undefined); return; }
-    if (!readableFile(f)) { toast("Summaries work for PDF, PowerPoint, Word, text and image files."); return; }
+    if (!readableFile(f)) { toast("Summaries work for PDF, PowerPoint, Word, Excel, text and image files."); return; }
   }
   const show = () => {
     const cur = state.files[fid];

@@ -2233,6 +2233,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   function say(text, run){
     return new Promise(res => {
       const t = TTS(); if (!t || !text) { res(); return; }
+      // Math is read as words ("a over b"), not as its LaTeX
+      if (typeof mathSpeech === "function") text = mathSpeech(text);
       const u = new SpeechSynthesisUtterance(text), v = voiceFor(), p = prefs();
       if (v) { u.voice = v; u.lang = v.lang; }
       u.rate = Math.max(0.5, Math.min(2, Number(p.rate) || 1));
@@ -2440,6 +2442,12 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const NOTE_ICO = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="#FFD84D" stroke="#9A7A10" stroke-width="1.4"/><path d="M7 9h10M7 13h10M7 17h6" stroke="#7A5F00" stroke-width="1.6" stroke-linecap="round"/></svg>';
   const MAX_HL = 400;
   const isPdf = f => !!f && f.kind === "file" && f.revs.length && /\.pdf$/i.test(curRev(f).name || f.name);
+  // Word, PowerPoint and Excel files open in the same reader, drawn as pages of text you can select (module 01-office.js)
+  const isOffice = f => !!f && f.kind === "file" && f.revs.length && typeof canPreview === "function" && canPreview(f);
+  // A drawn Word, PowerPoint or Excel file behaves like an open PDF for the reader: pages, and each page's size
+  const officeDoc = res => ({office: res, numPages: res.pages.length,
+    getPage: async n => { const pg = res.pages[n - 1]; return {getViewport: ({scale}) => ({width: pg.w * scale, height: pg.h * scale})}; },
+    destroy(){ OFFICE.release(res); }});
   /*READER-START*/
   function rectsOn(clientRects, box){
     const W = box.width, H = box.height; if (!(W > 0 && H > 0)) return [];
@@ -2491,10 +2499,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* Opening */
   async function open(fid, page){
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("The PDF reader with highlights is part of Studyboard Pro: highlight a reading, and turn what matters into notes and flashcards."); return; }
-    if (!isPdf(f)) { fileSheet(f); return; }
+    if (P.locked()) { proWhy("The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards."); return; }
+    if (!isPdf(f) && !isOffice(f)) { fileSheet(f); return; }
     close();
-    const rev = curRev(f);
+    const rev = curRev(f), ofc = isOffice(f), PDE = ofc ? null : window.SBPDE;
     R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
     openSheet(`<div class="sheet pdr-sheet" data-mode="read">${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
@@ -2503,12 +2511,12 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
-        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${window.SBPDE ? SBPDE.readerBtn() : ""}</span>
+        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>
         <span class="spacer"></span>
-        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}<span class="pdr-out">${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
+        ${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
-        <span class="pdr-g-read">${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}</span>
+        <span class="pdr-g-read">${PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text to highlight it, or pick a color first</span></span>
         <span class="spacer"></span>
@@ -2519,6 +2527,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const my = R;
     try {
       const bytes = await bytesOf(rev.assetId);
+      if (ofc) {
+        const doc = officeDoc(await OFFICE.render(bytes, rev.name || f.name));
+        if (R !== my) { doc.destroy(); return; }
+        R.doc = doc; layout(); counts(); return;
+      }
       await loadPdfJs();
       let doc = null, pw = "";
       // a PDF with a password asks for it (up to three tries); the password isn't kept
@@ -2535,7 +2548,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       R.doc = doc; R.pw = !!pw; layout(); counts();
     } catch (e) {
       if (R !== my) return;
-      const box = $("#pdrPages"); if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(String(e && e.message)) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : "Couldn't open this PDF.")}</p>`;
+      const box = $("#pdrPages"); if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(String(e && e.message)) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : ofc ? "Couldn't show this file. Try opening it in its own app." : "Couldn't open this PDF.")}</p>`;
     }
   }
   const CACHE_KEY = "studyboard:pdfCache", CACHE_N = 8;
@@ -2567,11 +2580,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const box = $("#pdrPages"); if (!box || !R || !R.doc) return;
     const target = keepPage || R.cur;
     if (R.io) R.io.disconnect();
-    const first = await R.doc.getPage(1), base = first.getViewport({scale: 1});
+    const first = await R.doc.getPage(1), base = first.getViewport({scale: 1}), O = R.doc.office;
     R.fit = Math.min(2.5, Math.max(0.3, (box.clientWidth - 28) / base.width));
+    // Spreadsheets keep a readable size and scroll sideways rather than shrinking to fit
+    if (O && /^(xlsx|csv)$/.test(O.kind)) R.fit = Math.max(0.6, Math.min(1.5, (box.clientWidth - 28) / Math.max(...O.pages.map(p => p.w))));
     if (R.fitMode === "page") R.fit = Math.max(0.2, Math.min(R.fit, (box.clientHeight - 28) / base.height));
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
-    box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page" data-p="${i + 1}" style="width:${w}px;height:${h}px" aria-label="Page ${i + 1}"><div class="pdr-hl"></div></div>`).join("");
+    const size = i => O ? `width:${Math.round(O.pages[i].w * s)}px;height:${Math.round(O.pages[i].h * s)}px` : `width:${w}px;height:${h}px`;
+    const label = i => O && O.pages[i].label ? O.pages[i].label : `Page ${i + 1}`;
+    box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page${O ? " pdr-ofc" : ""}" data-p="${i + 1}" style="${size(i)}" aria-label="${esc(label(i))}"><div class="pdr-hl"></div></div>`).join("");
     R.pages = Array.from(box.querySelectorAll(".pdr-page")).map((el, i) => ({n: i + 1, el, done: 0}));
     const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});
@@ -2583,6 +2600,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const pg = R.pages[n - 1], scale = R.fit * R.zoom; if (!pg || pg.done === scale) return;
     pg.done = scale;
     const my = R;
+    if (R.doc.office) {
+      const op = R.doc.office.pages[n - 1], el = pg.el;
+      el.querySelectorAll(".pdr-office").forEach(x => x.remove());
+      el.insertAdjacentHTML("afterbegin", `<div class="pdr-office" style="width:${op.w}px;height:${op.h}px;transform:scale(${scale.toFixed(4)})">${op.html}</div>`);
+      paint(n);
+      if (window.SBINK) SBINK.readerPage(n, el);
+      R.pages.forEach(o => { if (o.done && Math.abs(o.n - n) > 10) { o.done = 0; o.el.querySelectorAll(".pdr-office,.ink-layer").forEach(x => x.remove()); } });
+      return;
+    }
     try {
       const page = await R.doc.getPage(n); if (R !== my || pg.done !== scale) return;
       const vp = page.getViewport({scale}), el = pg.el;
@@ -2770,7 +2796,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   }
   function cardHtml(h){
     const f = fileOf(), decks = deckListArr(), same = decks.filter(d => d.courseId && d.courseId === f.courseId), rest = decks.filter(d => !same.includes(d));
-    const c = courseOf(f.courseId), newName = `${c ? courseLabel(c) : "Readings"}: ${f.name.replace(/\.pdf$/i, "")}`.slice(0, 80);
+    const c = courseOf(f.courseId), newName = `${c ? courseLabel(c) : "Readings"}: ${f.name.replace(/\.(pdf|docx|pptx|xlsx|csv)$/i, "")}`.slice(0, 80);
     return `<div class="pdr-card"><button type="button" class="link-btn" data-act="pdr-card-back">← Highlights</button><h3>New Flashcard</h3>
       <blockquote class="pdr-q" style="--h:${colorHex(h.c)}">${esc(h.t.slice(0, 400))}<span class="mini">Page ${h.p}</span></blockquote>
       <label class="f">Front<input type="text" id="pdrFront" maxlength="300" placeholder="A question or a term" autofocus></label>
@@ -2954,9 +2980,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return true;
   });
 
-  P.canRead = f => !P.locked() && isPdf(f);
+  P.canRead = f => !P.locked() && (isPdf(f) || isOffice(f));
   P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
-  P.addFeature({id: "reader", name: "PDF Reader, Highlights and Editing", where: "Open a PDF in Files, then Read: highlight, make notes and cards, or Edit its text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
+  P.addFeature({id: "reader", name: "PDF Reader, Highlights and Editing", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
   Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
 
@@ -3005,6 +3031,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-page{position:relative;flex:none;margin:0 auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.08)}
 .pdr-cv{position:absolute;inset:0;display:block}
 .pdr-hl{position:absolute;inset:0;z-index:3;pointer-events:none}
+.pdr-office{position:absolute;left:0;top:0;transform-origin:0 0;z-index:0;user-select:text;-webkit-user-select:text;cursor:text}.pdr-ofc{overflow:hidden}
 .pdr-hl i{position:absolute;background:var(--h);mix-blend-mode:multiply;opacity:.55;border-radius:2px}
 .pdr-hl i.m-u,.pdr-hl i.m-s{background:none;opacity:1;mix-blend-mode:normal;border-radius:0}
 .pdr-hl i.m-u{border-bottom:2px solid var(--h)}
@@ -4577,18 +4604,27 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     }
     return made;
   }
-  /* Studyboard storage is full: offer Pro, or keep the files in Google Drive / OneDrive instead */
-  const FULL = {files: [], opts: {}};
-  function storageFull(files, opts){
+  /* A file hit a storage limit: offer Pro when that would help, or keep the files in Google Drive / OneDrive instead.
+     why: "full" (storage used up), "big" (over the size limit), "type" (a type this storage can't keep), "none" (no storage here) */
+  const FULL = {files: [], opts: {}, pend: null};
+  function storageFull(files, opts, why){
+    why = why || "full";
     FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
     const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
-    const offerPro = !!(PL && PL.paywall() && !PL.limitsPro());
-    const n = FULL.files.length, what = n === 1 ? esc(FULL.files[0].name) : `these ${n} files`;
+    const offerPro = why === "full" && !!(PL && PL.paywall() && !PL.limitsPro());
+    const n = FULL.files.length, what = n === 1 ? esc(FULL.files[0].name) : `these ${n} files`, them = n === 1 ? "it" : "them";
     const ch = connected();
     const btn = p => `<button type="button" class="btn${ch.includes(p) ? " primary" : ""} cl-full-btn" data-act="cl-full-save" data-id="${p}">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<span>${ch.includes(p) ? `Save ${n > 1 ? "Them" : "It"} to ${esc(NM[p])}` : `Connect ${esc(NM[p])}`}</span></button>`;
-    openSheet(`<div class="sheet cl-sheet">${head("Your Storage Is Full")}<div class="sheet-body">
-      <p style="margin:0">${offerPro && cap ? `Your free ${esc(fmtSize(cap * 1048576))} of Studyboard file storage is used up, so ${what} couldn't be added.` : `Your Studyboard file storage is full, so ${what} couldn't be added.`}</p>
-      <p class="mini" style="margin:0">${offerPro ? "Go Pro for much more room, or keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive. Files there don't use Studyboard storage." : "Keep " + (n === 1 ? "it" : "them") + " in your own Google Drive or OneDrive instead. Files there don't use Studyboard storage."}</p>
+    const title = {full: "Your Storage Is Full", big: n === 1 ? "This File Is Too Big" : "These Files Are Too Big", type: "Keep It in Your Cloud", none: "Keep It in Your Cloud"}[why] || "Your Storage Is Full";
+    const lead = why === "big" ? `${n === 1 ? what + " is" : what[0].toUpperCase() + what.slice(1) + " are"} over Studyboard's size limit for one file, so ${them} couldn't be added.`
+      : why === "type" ? `${n === 1 ? what : what[0].toUpperCase() + what.slice(1)} can't be stored in Studyboard here.`
+      : why === "none" ? `Studyboard file storage isn't available here, so ${what} couldn't be added.`
+      : offerPro && cap ? `Your free ${esc(fmtSize(cap * 1048576))} of Studyboard file storage is used up, so ${what} couldn't be added.` : `Your Studyboard file storage is full, so ${what} couldn't be added.`;
+    const tail = `Keep ${them} in your own Google Drive or OneDrive. Files there don't use Studyboard storage, and they still show up in their course here.`;
+    const signIn = !ready() ? `<p class="mini" style="margin:0">Google Drive and OneDrive connect to your Studyboard account, so sign in first.</p>` : "";
+    openSheet(`<div class="sheet cl-sheet">${head(title)}<div class="sheet-body">
+      <p style="margin:0">${lead}</p>
+      <p class="mini" style="margin:0">${offerPro ? "Go Pro for much more room, or k" + tail.slice(1) : tail}</p>${signIn}
       <div class="cs-row" style="flex-wrap:wrap">${offerPro ? `<button type="button" class="btn primary" data-act="cl-full-pro">Go Pro</button>` : ""}${btn("google")}${btn("microsoft")}</div>
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
   }
@@ -4726,6 +4762,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     U.wait = 0; clearInterval(poll); delete TOK[fresh];
     if (prefs().save === "studyboard") { setPrefs({save: fresh}); toast(`${NM[fresh]} is connected. New uploads go there now.`); }
     else toast(`${NM[fresh]} is connected`);
+    const pend = FULL.pend; FULL.pend = null;
+    if (pend && pend.p === fresh && Date.now() - pend.at < 15 * 60000) setTimeout(() => uploadFiles(pend.list, pend.opts, fresh), 400);
     paint(); render();
   });
   document.addEventListener("click", e => {
@@ -4813,7 +4851,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       case "cl-full-save": {
         const list = FULL.files, opts = FULL.opts; FULL.files = [];
         if (dlg.open) dlg.close();
-        if (!connected().includes(id)) { setTimeout(openSheetCl, 60); toast(`Connect ${NM[id]}, then add the file again.`); return true; }
+        if (!connected().includes(id)) {
+          // Saved for when the connection finishes, so the files don't have to be added again
+          FULL.pend = list.length ? {p: id, list, opts, at: Date.now()} : null;
+          setTimeout(openSheetCl, 60); toast(list.length ? `Connect ${NM[id]}, and ${list.length === 1 ? "the file saves" : "the files save"} there once it's done.` : `Connect ${NM[id]}, then add the file again.`); return true;
+        }
         if (list.length) uploadFiles(list, opts, id);
         return true;
       }

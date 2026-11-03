@@ -160,6 +160,11 @@ const EXAMSHEET = (() => {
   return {isFormula, formulaIn, pretty, defLine, defCard, pictures, collect, exprKey, termKey, h};
 })();
 /*EXAMSHEET-END*/
+// A formula written in LaTeX is drawn as math (module 01-math.js); others keep the readable form
+const xsMath = e => { const parts = typeof mathSplit === "function" ? mathSplit(e) : [], m = parts.filter(p => p.m);
+  if (m.length === 1 && parts.every(p => p.m || !p.s.trim())) return mathHtml(m[0].s, false);
+  if (typeof mathHtml === "function" && !m.length && /\\[A-Za-z]+|\^\{|_\{/.test(e)) return mathHtml(String(e).trim(), false);
+  return EXAMSHEET.pretty(e); };
 
 /* the app side */
 const locked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return false; } };
@@ -232,7 +237,7 @@ function html(exId, o){
     const f = want.f ? s.formulas : [], d = want.d ? s.defs : [], p = want.p ? s.pictures : [];
     if (!f.length && !d.length && !p.length) return "";
     return `<section class="xs-sec"><h2>${H(s.name)}</h2>
-      ${f.length ? `<div class="xs-k">Formulas</div>${f.map(x => `<div class="xs-f"><span class="xs-x">${EXAMSHEET.pretty(x.expr)}</span>${x.label ? ` <span class="xs-l">${H(x.label)}</span>` : ""}</div>`).join("")}` : ""}
+      ${f.length ? `<div class="xs-k">Formulas</div>${f.map(x => `<div class="xs-f"><span class="xs-x">${xsMath(x.expr)}</span>${x.label ? ` <span class="xs-l">${H(x.label)}</span>` : ""}</div>`).join("")}` : ""}
       ${d.length ? `<div class="xs-k">Definitions</div>${d.map(x => `<div class="xs-d"><b>${H(x.term)}</b> ${H(x.def)}</div>`).join("")}` : ""}
       ${p.length ? `<div class="xs-k">Diagrams</div>${p.map(picHtml).join("")}` : ""}</section>`;
   }).join("");

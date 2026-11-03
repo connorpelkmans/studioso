@@ -677,7 +677,8 @@ var SBWB = null;
     [120, 450, 800].forEach(ms => setTimeout(() => { if (ED && ED.ta === ta) keepTaVisible(); }, ms));
     ta.addEventListener("pointerdown", e => e.stopPropagation());
     ta.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) { e.preventDefault(); endText(); frame.focus({preventScroll: true}); } });
-    ta.addEventListener("blur", () => setTimeout(() => { if (ED && ED.ta === ta && document.activeElement !== ta) endText(); }, 0));
+    // The formatting toolbar and equation editor (module 01-math.js) keep the text open while they're in use
+    ta.addEventListener("blur", () => setTimeout(() => { const a = document.activeElement; if (ED && ED.ta === ta && a !== ta && !(a && a.closest && a.closest(".rb-bar,.rb-eq")) && !document.querySelector(".rb-eq")) endText(); }, 0));
     setTimeout(() => { try { ta.focus({preventScroll: true}); const l = ta.value.length; ta.setSelectionRange(selectAll ? 0 : l, l); } catch (e) {} }, 0);
   }
   function fitTa(){ if (!ED) return; const m = measure(ED.ta.value || " ", ED.it.f, ED.it.ff); ED.ta.style.width = Math.ceil(m.w + ED.it.f * 0.8) + "px"; ED.ta.style.height = Math.ceil(m.h + ED.it.f * 0.2) + "px"; }

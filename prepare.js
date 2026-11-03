@@ -17,6 +17,8 @@ if (fs.existsSync(vendoredSb)) fs.copyFileSync(vendoredSb, path.join(vendor, "su
 else copy("@supabase/supabase-js/dist/umd/supabase.js", "supabase-js-2.117.2.umd.js");
 // fzstd (MIT) unpacks newer Anki files in Import From Another App
 for (const f of ["fzstd-0.1.1.umd.js", "fzstd-LICENSE.txt"]) fs.copyFileSync(path.join(root, "vendor", f), path.join(vendor, f));
+// KaTeX (MIT) draws math and chemistry; loaded the first time a formula is shown
+fs.cpSync(path.join(root, "vendor", "katex-0.18.11"), path.join(vendor, "katex-0.18.11"), { recursive: true });
 // PDF.js is loaded by index.html with import() from vendor/pdfjs/
 fs.mkdirSync(path.join(vendor, "pdfjs"), { recursive: true });
 copy("pdfjs-dist/legacy/build/pdf.min.mjs", "pdfjs/pdf.min.mjs");

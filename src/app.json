@@ -40,7 +40,8 @@
   "100-phone.css",
   "101-phone-v2.css",
   "102-qol.css",
-  "103-phone-design.css"
+  "103-phone-design.css",
+  "99-math.css"
  ],
  "js": [
   "00-core.js",
@@ -63,6 +64,7 @@
   "01-courses.js",
   "01-calendar.js",
   "01-render.js",
+  "01-math.js",
   "01-syllabus.js",
   "01-notes.js",
   "01-flashcards.js",
