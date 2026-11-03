@@ -308,16 +308,18 @@ async function bsHarvest(o) {
       if (fe) fbk[f.Id] = fe;
     });
     let fromPage = 0, folderHtml = null;
-    if (recent.some(f => subs[f.Id] === undefined)) {
+    // The Assignments page as you see it ("1 Submission, 1 File"): read when the API didn't say an assignment was handed in, and
+    // its count of your submissions wins over an API answer of none (Turnitin and group folders can answer empty)
+    if (recent.some(f => subs[f.Id] !== true)) {
       try {
         const r = await fetch(`/d2l/lms/dropbox/user/folders_list.d2l?ou=${c.ou}&isprv=0`, { credentials: "include" });
         if (r.ok) {
           const html = folderHtml = (await r.text()).slice(0, 3000000);
           html.split(/(?=folder_submit_files\.d2l\?)/).slice(1).forEach(part => {
-            const m = part.match(/^folder_submit_files\.d2l\?[^"'<>]*?\bdb=(\d+)/); if (!m || subs[m[1]] !== undefined) return;
+            const m = part.match(/^folder_submit_files\.d2l\?[^"'<>]*?\bdb=(\d+)/); if (!m || subs[m[1]] === true) return;
             const row = htmlText(part.slice(0, 6000), { line: true });
             if (/\b[1-9]\d*\s+submissions?\b/i.test(row)) { subs[m[1]] = true; fromPage++; }
-            else if (/\bnot\s+submitted\b/i.test(row)) { subs[m[1]] = false; fromPage++; }
+            else if (subs[m[1]] === undefined && /\bnot\s+submitted\b/i.test(row)) { subs[m[1]] = false; fromPage++; }
           });
         }
       } catch (e) {}
@@ -526,6 +528,9 @@ async function bsHarvest(o) {
       rub: rubOf(f.Assessment && Array.isArray(f.Assessment.Rubrics) ? f.Assessment.Rubrics[0] : null),
       st: stOf(dt(f.DueDate), dt(f.Availability && f.Availability.EndDate), subs[f.Id] === true || (f.GradeItemId != null && graded.has(String(f.GradeItemId))) ? true : subs[f.Id] === undefined ? null : subs[f.Id], subAt[f.Id]) }));
     c.folders.forEach(f => { const fe = fbk[f.id]; if (fe) f.fb = fbOf(fe, f.rub, f.outOf); });
+    // Content entries that are an assignment (its folder), so an entry named differently ("Sim (CH1) Reflection") is still that assignment
+    c.tocDb = tocTopics.map(t => { const db = t && ((String(t.Url || "").match(/[?&]db=(\d+)/) || [])[1] || (Number(t.ActivityType) === 3 && t.ToolItemId != null ? String(t.ToolItemId) : ""));
+      return db && t.TopicId != null ? { t: String(t.TopicId), f: String(db) } : null; }).filter(Boolean).slice(0, 300);
     c.quizzes = quizzes.filter(x => x && x.IsActive !== false).slice(0, 120).map(x => ({ id: String(x.QuizId), name: String(x.Name || ""), due: dt(x.DueDate), start: dt(x.StartDate), end: dt(x.EndDate),
       gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null,
       done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false,
