@@ -35746,11 +35746,13 @@ function cleanFile(r) {
         <div class="bs-status${needLogin || gone0 ? " warn" : ""}"><span class="bs-ico">${ICON}</span><div><b>${needLogin ? "Sign In Again" : gone0 ? "Not Syncing" : "Connected"}${c.name ? `<span class="mini"> as ${esc(c.name)}</span>` : ""}</b><span class="mini">${esc(statusLine())}</span>${diagHtmlBox()}</div></div>
         <div class="bs-acts">
           ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from ${extBrowser() || "your browser"}'s toolbar and connect ${P.name} again to keep syncing.` : extDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome or Edge with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
-          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${extDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to ${extBrowser()}.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
+          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${extDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to ${extBrowser()}.` : ""}</p>` : ""}
+        </div>
+        <div class="bs-acts bs-acts-row">
+          ${needLogin ? `<button class="btn primary" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
+          ${!gone0 && !(onPhoneApi && !c.feed && c.lastSrc !== "grab") ? `<button class="btn${needLogin ? "" : " primary"}" data-act="${A}-sync">Sync Now</button>` : ""}
           ${!P.feedOnly && !P.direct && !P.noExt && grabOk() && extDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? extBadge() : ""}
-          ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
-          <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
-          ${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}
+          ${gone0 ? "" : `<button class="btn" data-act="${A}-open-site">Open ${P.name}</button>${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}`}
         </div>
         ${sugg.length ? `<h3 class="fsec" id="bsSuggest">Dates Found in Announcements</h3><p class="mini" style="margin:0">AI read your announcements and spotted these. Check them before adding.</p>
           <ul class="bs-list">${sugg.map(s => `<li><div class="bs-main"><b>${s.what === "moved" ? `Move ${esc(s.title)} to ${esc(fmtDate(s.date))}` : `Add ${esc(s.title)}, due ${esc(fmtDate(s.date))}`}${s.time ? " at " + esc(fmtTime(s.time)) : ""}</b><span class="mini">From "${esc(s.news)}"${s.quote ? `: “${esc(s.quote)}”` : ""}</span></div>

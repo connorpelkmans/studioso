@@ -280,7 +280,8 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
           topics: [{id: "306", n: "Module 6 Discussion", due: "2026-10-25", grp: false, graded: false, posts: "refused (403, plain 403)", n0: 0, ids: [], page: "ok 5120 chars, \"posted\" 3x, your name not found", result: "not posted"}]};
         const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); }, H()); await closeDlg(page);
       await page.evaluate(() => SBLMS.brightspace.bsSheet());
-      await page.click('dialog[open] [data-act="bs-report"]');
+      ok(await page.locator('dialog[open] [data-act="bs-report"]').count() === 0, "the sheet has no Copy Sync Report button (the report is still there for support)");
+      await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "bs-report"; document.querySelector("dialog[open] .sheet-body").appendChild(b); b.click(); b.remove(); });
       const rep = await page.inputValue("#bsReport");
       ok(/Midterm Exam- Requires Respondus LockDown Browser" \[8\] from Quizzes page; sat yes/.test(rep) && /Submissions page: sign-in page/.test(rep) && /posts refused \(403, plain 403\)/.test(rep) && /your name not found/.test(rep) && /Studyboard tasks:/.test(rep) && /Grades: list refused \(403\); Grades page ok, 4 rows/.test(rep) && /Grade Midterm Exam: 34 \/ 45/.test(rep) && /Exam calendar entries: BSNC 1020 Midterm Exam/.test(rep),
         "the report says what each step got: " + rep.slice(0, 600));

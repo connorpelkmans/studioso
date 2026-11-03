@@ -8,6 +8,8 @@
 .bs-ico{flex:none;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,var(--surface))}
 .bs-status.warn .bs-ico{color:var(--late)}
 .bs-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bs-acts:not(:has(*)){display:none}
+.bs-acts > p{flex-basis:100%}
 /* The store's official badge ("Get it from Microsoft Edge" / "Available in the Chrome Web Store"): only resized, never restyled.
    Both are 48px tall (Microsoft: at least as large as other badges, over 32px, with a quarter of its height clear around it: the margin plus the 8px row gap) */
 .ext-badge{display:inline-flex;align-items:center;line-height:0;text-decoration:none;margin:4px}
