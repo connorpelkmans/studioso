@@ -810,8 +810,8 @@ async function pdeBake(L, bytes, edits, opts){
       let nm = String(e.name || "Field").replace(/[.]/g, " ").slice(0, 60) || "Field", k = 2; while (taken.has(nm)) nm = `${e.name} ${k++}`; taken.add(nm);
       const at = {x: e.o[0], y: e.o[1], width: e.w, height: e.h, borderWidth: 0.6, borderColor: L.rgb(0.75, 0.78, 0.85)};
       try {
-        if (e.ft === "check") { const cb = form.createCheckBox(nm); cb.addToPage(pages[e.p - 1], at); }
-        else { const tf = form.createTextField(nm); if (e.ft === "multi") tf.enableMultiline(); tf.addToPage(pages[e.p - 1], Object.assign(at, {borderWidth: 0})); try { tf.setFontSize(e.ft === "multi" ? 11 : Math.max(8, Math.min(14, e.h * 0.62))); } catch (err) {} }
+        if (e.ft === "check") { const cb = form.createCheckBox(nm); cb.addToPage(pages[e.p - 1], at); if (e.v === true) cb.check(); }
+        else { const tf = form.createTextField(nm); if (e.ft === "multi") tf.enableMultiline(); tf.addToPage(pages[e.p - 1], Object.assign(at, {borderWidth: 0})); try { tf.setFontSize(e.ft === "multi" ? 11 : Math.max(8, Math.min(14, e.h * 0.62))); } catch (err) {} if (typeof e.v === "string" && e.v) tf.setText(e.v); }
         report.newFields = (report.newFields || 0) + 1;
       } catch (err) {}
     }
@@ -1194,10 +1194,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const prev = ed && ed.el && ed.el.isConnected ? ed.el : null, had = !!prev && document.activeElement === prev; let caret = null;
     if (prev) ed.e.t = textOf(prev);
     if (had) { try { const s = getSelection(); if (s.rangeCount) { const r = s.getRangeAt(0), pre = document.createRange(); pre.selectNodeContents(prev); pre.setEnd(r.startContainer, r.startOffset); const a = pre.toString().length; pre.setEnd(r.endContainer, r.endOffset); caret = [a, pre.toString().length]; } } catch (e) {} }
+    const qf = document.activeElement && document.activeElement.dataset && L.contains(document.activeElement) && document.activeElement.dataset.q ? {id: document.activeElement.dataset.q, v: document.activeElement.value, a: document.activeElement.selectionStart, b: document.activeElement.selectionEnd} : null;
     const list = mine().filter(e => e.p === n && !["f", "h", "m", "o"].includes(e.k) && !(ed && ed.e.id === e.id));
     const one = e => e.k === "x" ? picHtml(pg, e) : e.k === "l" ? linkHtml(pg, e) : e.k === "q" ? fieldHtml(pg, e) : editHtml(pg, e, false);
     const ps = E.picSel && E.picSel.p === n ? (() => { const b = picBox(E.picSel.m), f = frame(pg, b.o, 0); return `<i class="pde-picsel" data-pic="1" style="left:${px(f.x)};top:${px(f.y - b.h * f.s)};width:${px(b.w * f.s)};height:${px(b.h * f.s)}" title="Drag to move this picture"></i>`; })() : "";
     L.innerHTML = watermarkHtml(pg) + headerHtml(pg) + list.map(one).join("") + foundHtml(pg) + ps + (ed ? editHtml(pg, ed.e, true) : "") + '<i class="pde-hover" hidden></i><i class="pde-band" hidden></i><svg class="pde-lnprev" width="100%" height="100%" hidden><path/></svg>';
+    if (qf) { const el = L.querySelector(`[data-q="${CSS.escape(qf.id)}"]`); if (el) { if (el.type !== "checkbox") { el.value = qf.v; try { el.setSelectionRange(qf.a, qf.b); } catch (err) {} } el.focus({preventScroll: true}); } }
     if (E.on && E.tool === "link") oldLinksHtml(pg).then(h => { if (h && L.isConnected) L.insertAdjacentHTML("beforeend", h); });
     if (ed) {
       const t = L.querySelector(".pde-e.editing .pde-t");
@@ -1250,6 +1252,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   document.addEventListener("change", ev => {
     const t = ev.target; if (!E || !t.classList || !t.classList.contains("pde-field")) return;
+    if (t.dataset.q) { qSet(t.dataset.q, t.type === "checkbox" ? t.checked : t.value, false); return; }   // saved a moment later, so Tab can move on first
     const name = t.dataset.f, p = Number(t.dataset.p);
     const v = t.type === "checkbox" ? t.checked : t.type === "radio" ? t.dataset.v : t.value;
     setField(name, v, p, Number(t.dataset.s) || 0);
@@ -1444,7 +1447,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // resizing or moving a line's end: shown live by drawing the changed copy
     const next = resized(d, at); if (!next) return;
     const el = L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`);
-    if (el) { const w = document.createElement("div"); w.innerHTML = editHtml(d.pg, next, false); el.replaceWith(w.firstChild); }
+    if (el) {
+      const w = document.createElement("div"); w.innerHTML = next.k === "x" ? picHtml(d.pg, next) : next.k === "l" ? linkHtml(d.pg, next) : next.k === "q" ? fieldHtml(d.pg, next) : editHtml(d.pg, next, false);
+      // the picture already shown is kept (a new <img> would have to load again, so it blinks while you drag)
+      const nu = w.firstChild, oldImg = el.querySelector("img"), newImg = nu && nu.querySelector("img");
+      if (oldImg && newImg && oldImg.getAttribute("src") === newImg.getAttribute("src")) newImg.replaceWith(oldImg);
+      if (nu) el.replaceWith(nu);
+    }
     d.next = next;
   });
   function resized(d, at){
@@ -1881,7 +1890,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${MORE.some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((MORE.find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${MORE.map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi" data-act="pde-tool" data-id="${k}">${ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span></span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${MORE.some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((MORE.find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${MORE.map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span></span>
       <span class="spacer"></span>
       <span class="pde-save"><button type="button" class="btn small" data-act="pde-dl" title="Download PDF">${ico(IC.down)}<span class="pde-lbl">Download PDF</span></button><button type="button" class="btn small primary" data-act="pde-save"${n ? "" : " disabled"}>${ico(IC.save)}Save${n ? ` ${n} Edit${n === 1 ? "" : "s"}` : ""}</button></span>
       <div class="pde-sub">
@@ -2116,6 +2125,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-cite": citeGo(Number(id), el.dataset.q || ""); break;
       case "pde-st": studyPanel(); break;
       case "pde-st-go": studyGo(); break;
+      case "pde-st-add": cardsAdd(); break;
       case "pde-hist-step": histStep(Number(id) || -1); break;
       // back to just after change k: the later ones move to redo, newest last, so Redo brings them back in order
       case "pde-hist-go": { const H = S.hist, k = Number(id), target = H && H.undo[k]; if (!target) break; while (H.undo.length - 1 > k) H.redo.push(H.undo.pop()); S.histMute = true; try { save(clone(target.after), null); } finally { S.histMute = false; } historyPanel(); break; }
@@ -2311,7 +2321,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         <p class="mini" style="margin:0">The result is saved as a new version of this file. Letters outside Western European languages become “?” for now.</p>
         <p class="mini" id="pdeOcrMsg" aria-live="polite"></p>
       </div>
-      <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-ocr-go">Send to ${esc(W.company)} and Recognize</button></div>`, "fonts");
+      <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary ai-btn" data-act="pde-ocr-go">${AI_ICON} Send to ${esc(W.company)} and Recognize</button></div>`, "fonts");
     E.ocrNone = none;
   }
   async function ocrGo(){
@@ -2887,9 +2897,26 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     closePanel(); E.linkBox = null; E.sel = e.id; save(mine().concat([e]), "Link added");
   }
   // fillable fields: found on the pages, or drawn
+  // a new field's value: kept as it's typed (so a redraw can't lose it), saved on the field's edit shortly after
+  let qTimer = 0;
+  function qSet(id, v, now){
+    E.qv = E.qv || {}; E.qv[id] = v; clearTimeout(qTimer);
+    const go = () => { if (!E || !E.qv) return; const list = mine(); let ch = false; const next = list.map(x => x.k === "q" && E.qv[x.id] !== undefined && E.qv[x.id] !== x.v ? (ch = true, Object.assign({}, x, {v: E.qv[x.id]})) : x); E.qv = {}; if (ch) save(next, null); };
+    if (now) go(); else qTimer = setTimeout(go, 500);
+  }
+  document.addEventListener("input", ev => { const t = ev.target; if (E && t && t.dataset && t.dataset.q && t.classList.contains("pde-qf")) qSet(t.dataset.q, t.type === "checkbox" ? t.checked : t.value, false); });
+  // a new field can be filled in straight away; what's typed goes into the field when the PDF is saved
+  function qInput(e, s){
+    const lab = esc(e.name || "Field"), id = esc(e.id);
+    if (E.qv && E.qv[e.id] !== undefined) e = Object.assign({}, e, {v: E.qv[e.id]});
+    if (e.ft === "check") return `<input type="checkbox" class="pde-field pde-qf" data-q="${id}" aria-label="${lab}"${e.v === true ? " checked" : ""}>`;
+    const fs = px(Math.max(8, (e.ft === "multi" ? 11 : Math.min(14, e.h * 0.62))) * s);
+    return e.ft === "multi" ? `<textarea class="pde-field pde-qf" data-q="${id}" aria-label="${lab}" style="font-size:${fs}">${esc(e.v || "")}</textarea>`
+      : `<input type="text" class="pde-field pde-qf" data-q="${id}" aria-label="${lab}" style="font-size:${fs}" value="${esc(typeof e.v === "string" ? e.v : "")}">`;
+  }
   function fieldHtml(pg, e){
     const sel = E.sel === e.id || (E.multi && E.multi.has(e.id)), f = frame(pg, e.o, e.r || 0), s = f.s;
-    return `<div class="pde-e k-q ft-${e.ft}${sel ? " sel" : ""}" data-e="${esc(e.id)}" style="left:${px(f.x)};top:${px(f.y)}"><i class="pde-fld" style="left:0;top:${px(-e.h * s)};width:${px(e.w * s)};height:${px(e.h * s)}"><span>${esc(e.ft === "check" ? "" : e.name)}</span></i>${sel ? `<i class="pde-grip" data-size="1" style="left:${px(e.w * s)};top:0"></i>` : ""}</div>`;
+    return `<div class="pde-e k-q ft-${e.ft}${sel ? " sel" : ""}" data-e="${esc(e.id)}" style="left:${px(f.x)};top:${px(f.y)}"><i class="pde-fld" style="left:0;top:${px(-e.h * s)};width:${px(e.w * s)};height:${px(e.h * s)}"><span class="pde-fld-tag" title="Drag to move this field">${esc(e.ft === "check" ? "Tick box" : e.name)}</span>${qInput(e, s)}</i>${sel ? `<i class="pde-grip" data-size="1" style="left:${px(e.w * s)};top:0"></i>` : ""}</div>`;
   }
   async function fieldsPanel(){
     const r = R(); if (!r || !r.doc) return;
@@ -3043,7 +3070,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     E.ask = E.ask || [];
     panel(`${panelHead("Ask This PDF", `Answers come only from this PDF, with the pages they're from. Your question and this PDF's text (for a long PDF, the parts that match your question) are sent to ${esc(W.company)} ${esc(W.product)}.`)}
       <div class="pde-pb"><div class="pde-chat" id="pdeAskLog">${askLog()}</div></div>
-      <form class="pde-pf pde-askf" id="pdeAskForm"><input type="text" id="pdeAskQ" maxlength="500" placeholder="Ask about this reading" autocomplete="off" aria-label="Your question"><button type="submit" class="btn primary">Ask</button></form>`, "pages ask");
+      <form class="pde-pf pde-askf" id="pdeAskForm"><input type="text" id="pdeAskQ" maxlength="500" placeholder="Ask about this reading" autocomplete="off" aria-label="Your question"><button type="submit" class="btn primary ai-btn">${AI_ICON} Ask</button></form>`, "pages ask");
     setTimeout(() => { const q = $("#pdeAskQ"); if (q) q.focus(); }, 30);
   }
   function askLog(){
@@ -3098,8 +3125,29 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         ${!ok && !withCm.length ? `<p class="mini" style="margin:0">Comment on some highlights first (select text, then Comment): each becomes a card, the comment on the front and the highlighted words on the back.</p>` : ""}
         <p class="mini" id="pdeStMsg" aria-live="polite"></p>
       </div>
-      <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-st-go">Make It</button></div>`, "fonts");
+      <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary ai-btn" data-act="pde-st-go">${AI_ICON} Make It</button></div>`, "fonts");
   }
+  // the cards, to look over before they're added: untick any you don't want, fix any wording
+  function cardsPreview(d, cards){
+    E.stPrev = {d, cards};
+    panel(`${panelHead("Check Your Flashcards", `${cards.length} card${cards.length === 1 ? "" : "s"} for ${esc(d.name)}. Untick any you don't want, and fix any wording, then add them.`)}
+      <div class="pde-pb"><ol class="pde-cardprev">${cards.map((c, i) => `<li><label class="pde-cp-keep"><input type="checkbox" data-cp-keep="${i}" checked aria-label="Keep card ${i + 1}"></label>
+        <div class="pde-cp-txt"><textarea data-cp-front="${i}" rows="2" maxlength="300" aria-label="Card ${i + 1} front">${esc(c.front)}</textarea><textarea data-cp-back="${i}" rows="2" maxlength="1200" aria-label="Card ${i + 1} back">${esc(c.back)}</textarea>${c.src && c.src.p ? `<span class="mini">Page ${c.src.p}</span>` : ""}</div></li>`).join("")}</ol></div>
+      <div class="pde-pf"><button type="button" class="btn" data-act="pde-st">Start Over</button><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-st-add" id="pdeCpAdd">Add ${cards.length} Card${cards.length === 1 ? "" : "s"}</button></div>`, "fonts");
+  }
+  function cardsAdd(){
+    const pv = E.stPrev; if (!pv) return;
+    const keep = pv.cards.map((c, i) => {
+      if (!(dlg.querySelector(`[data-cp-keep="${i}"]`) || {}).checked) return null;
+      const fr = String((dlg.querySelector(`[data-cp-front="${i}"]`) || {}).value || "").trim(), bk = String((dlg.querySelector(`[data-cp-back="${i}"]`) || {}).value || "").trim();
+      if (!fr || !bk) return null;
+      return fr === c.front && bk === c.back ? c : Object.assign({}, c, {front: fr.slice(0, 300), back: bk.slice(0, 1200)});
+    }).filter(Boolean);
+    if (!keep.length) { toast("Tick at least one card to add"); return; }
+    const d = pv.d; E.stPrev = null;
+    d.cards = d.cards.concat(keep); d.updated = Date.now(); saveDeck(d, `${keep.length} flashcard${keep.length === 1 ? "" : "s"} added to ${d.name}`); closePanel();
+  }
+  document.addEventListener("change", ev => { const t = ev.target; if (!E || !E.stPrev || !t.dataset || t.dataset.cpKeep === undefined) return; const n = dlg.querySelectorAll("[data-cp-keep]:checked").length, b = $("#pdeCpAdd"); if (b) { b.textContent = `Add ${n} Card${n === 1 ? "" : "s"}`; b.disabled = !n; } const li = t.closest("li"); if (li) li.classList.toggle("off", !t.checked); });
   const deckNameFor = f => { const c = courseOf(f.courseId); return `${c ? courseLabel(c) : "Readings"}: ${f.name.replace(/\.pdf$/i, "")}`.slice(0, 80); };
   async function studyGo(){
     const f = fileOf(), msg = $("#pdeStMsg"), go = dlg.querySelector('[data-act="pde-st-go"]'), val = nm => (dlg.querySelector(`input[name="${nm}"]:checked`) || {}).value;
@@ -3114,7 +3162,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         const hls = (f.hl || []).filter(h => h && h.a === E.rev && h.cm && h.t);
         if (!hls.length) { say("Comment on some highlights first: each comment becomes a card's front."); return; }
         const cards = hls.map(h => ({id: uid(), front: h.cm.slice(0, 300), back: h.t.slice(0, 1200), box: 0, due: "", seen: 0, right: 0, wrong: 0, src: {f: f.id, p: h.p}, copied: true}));
-        d.cards = d.cards.concat(cards); d.updated = Date.now(); saveDeck(d, `${cards.length} card${cards.length === 1 ? "" : "s"} added to ${d.name}`); closePanel(); return;
+        cardsPreview(d, cards); return;
       }
       // the material, with its pages
       let material = "", src = [];
@@ -3137,7 +3185,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
           if (aiCopied(card.front + "\n" + card.back, idx)) card.copied = true;
           return card; });
         if (!cards.length) throw new Error("The AI didn't write any cards. Try again.");
-        d.cards = d.cards.concat(cards); d.updated = Date.now(); saveDeck(d, `${cards.length} flashcards added to ${d.name}`); closePanel(); return;
+        cardsPreview(d, cards); return;
       }
       if (make === "quiz") {
         const res = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, parts: [{text: `Reading:\n${material.slice(0, 60000)}\n\nWrite ${n} questions.`}],
@@ -3184,7 +3232,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // the reader's own tools: read aloud, the PDF's contents, and comparing versions
     readerTools(){
       const r = R(), f = r && state.files[r.fid];
-      return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}<button type="button" class="btn small pde-rt" data-act="pde-ask" title="Ask This PDF">${ico('<path d="M4 5h16v11H9l-5 4z"/><path d="M10 9.5a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2M12 14.5h.01"/>')}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt" data-act="pde-st" title="Study From This PDF">${ico('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')}<span class="pde-lbl">Study</span></button><button type="button" class="btn small pde-rt" data-act="pde-ti" title="Turn In">${ico('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>')}<span class="pde-lbl">Turn In</span></button>`;
+      return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF">${AI_ICON}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF">${AI_ICON}<span class="pde-lbl">Study</span></button><button type="button" class="btn small pde-rt" data-act="pde-ti" title="Turn In">${ico('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>')}<span class="pde-lbl">Turn In</span></button>`;
     },
     scanBtn: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small pde-scan-btn" data-act="pde-scan">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Scan to PDF</button>`,
     scan: () => scanOpen(null),
@@ -3280,7 +3328,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pdr-page .pde-form select.pde-field{padding:0 2px;-webkit-appearance:menulist;appearance:menulist}
 .pdr-page .pde-form .pde-field[type=checkbox],.pdr-page .pde-form .pde-field[type=radio]{-webkit-appearance:auto;appearance:auto;accent-color:#1f3a93;padding:0;cursor:pointer;background:none}
 .pdr-page .pde-form .pde-field:focus{outline:2px solid var(--accent,#2563eb);background:rgba(204,215,255,.7)}
-.pde-panel{position:absolute;inset:0;z-index:50;background:color-mix(in srgb,var(--surface) 97%,transparent);display:flex;flex-direction:column;min-height:0}
+.pde-panel{position:absolute;inset:0;z-index:50;background:linear-gradient(var(--surface),var(--surface)),linear-gradient(var(--bg,#fff),var(--bg,#fff)),Canvas;display:flex;flex-direction:column;min-height:0}
 .pde-ph{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 18px 8px;border-bottom:1px solid var(--line)}
 .pde-ph h3{margin:0;font:600 1.05rem var(--display)}
 .pde-ph p{margin:4px 0 0;max-width:46em}
@@ -3342,7 +3390,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-e.k-l.del .pde-lnk{border-color:#c0262d;background:repeating-linear-gradient(45deg,rgba(192,38,45,.12) 0 4px,transparent 4px 8px)}
 .pde-oldlink{position:absolute;border:1.5px solid #2457c5;background:rgba(36,87,197,.12);border-radius:3px;cursor:pointer;padding:0;pointer-events:auto}
 .pde-fld{position:absolute;display:flex;align-items:center;border:1.5px dashed #1d7a3a;background:rgba(29,122,58,.08);border-radius:2px;overflow:hidden}
-.pde-fld span{font:600 10px var(--body);color:#1d7a3a;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pde-fld{overflow:visible}
+.pde-fld .pde-fld-tag{position:absolute;left:-1.5px;bottom:100%;font:600 10px var(--body);color:#fff;background:#1d7a3a;padding:1px 5px;border-radius:3px 3px 0 0;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;cursor:move;pointer-events:auto}
+.pde-fld .pde-qf{position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;margin:0;border:0;padding:0 3px;background:transparent;color:#000;font-family:Helvetica,Arial,sans-serif;pointer-events:auto;outline:none}
+.pde-fld textarea.pde-qf{resize:none;padding:2px 3px;line-height:1.15}
+.pde-fld .pde-qf[type=checkbox]{-webkit-appearance:auto;appearance:auto;accent-color:#1f3a93;cursor:pointer;width:auto;height:auto;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%)}
+.pde-fld .pde-qf:focus{background:rgba(204,215,255,.45)}
 .pde-found{position:absolute;display:block;border:2px solid #1d7a3a;background:rgba(29,122,58,.14);border-radius:2px;pointer-events:none}
 .pde-fdlist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .pde-fdlist li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -3395,6 +3448,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-phone-t{flex:1 1 220px;display:grid;gap:6px}.pde-phone-t p{margin:0}
 .pde-phone-n{font-weight:700;color:var(--ink)}
 .pde-phone .row-actions{margin:2px 0 0}
+.pde-cardprev{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.pde-cardprev li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);position:relative;isolation:isolate}
+.pde-cardprev li.off{opacity:.5}
+.pde-cp-keep{padding-top:6px}
+.pde-cp-txt{display:grid;gap:6px}
+.pde-cp-txt textarea{width:100%;box-sizing:border-box;resize:vertical;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.pde-cp-txt textarea[data-cp-front]{font-weight:600}
 .pde-scan .row-actions{align-items:flex-end}
 .pde-scan .row-actions .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;min-height:40px;height:auto;line-height:1.2}
 .pde-inline{display:inline-grid;margin-left:auto}

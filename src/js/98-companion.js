@@ -1213,7 +1213,7 @@
     if (!isOn() || !cur || !askAvailable()) return;
     const notes = form.querySelector('[name="notes"]'), lab = notes.closest("label") || notes.parentElement;
     lab.insertAdjacentHTML("afterend", `<div class="cp-tq"><button type="button" class="link-btn cp-tq-open">${AI_ICON} Ask ${esc(nameOf(cur))} About This Task</button>
-      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn small primary">Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
+      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn small primary ai-btn">${AI_ICON} Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
     const box = form.querySelector(".cp-tq-box"), inp = box.querySelector("input"), out = box.querySelector(".cp-tq-a"), go = box.querySelector("button");
     form.querySelector(".cp-tq-open").addEventListener("click", () => { box.hidden = !box.hidden; if (!box.hidden) inp.focus(); });
     const ask = async () => {
@@ -1907,7 +1907,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const r = box.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * (cur.eyes.y / VB);
     const dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy);
     if (mood === "idle" || mood === "break") {
-      if (d < 520 || dragging) { looking = true; act.look(Math.max(-1, Math.min(1, dx / 140)), Math.max(-1, Math.min(1, dy / 140))); clearTimeout(lookT); lookT = setTimeout(() => { looking = false; if (act && (mood === "idle" || mood === "break")) act.look(0, 0); }, 2600); }
+      if (d < 347 || dragging) { looking = true; act.look(Math.max(-1, Math.min(1, dx / 140)), Math.max(-1, Math.min(1, dy / 140))); clearTimeout(lookT); lookT = setTimeout(() => { looking = false; if (act && (mood === "idle" || mood === "break")) act.look(0, 0); }, 2600); }
       else if (looking) { looking = false; act.look(0, 0); }
     }
     if (dragging) return;

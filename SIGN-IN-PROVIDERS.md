@@ -1,6 +1,6 @@
 # Sign in with Apple and Google: one-time setup
 
-The app already shows **Continue with Apple** and **Continue with Google** on the Sign In and Create Account sheets. Until the steps below are done, those buttons return an error from Supabase ("provider is not enabled").
+The app (Sign In and Create Account sheets) and the website's Account page both show **Continue with Google**, and **Continue with Apple** on Apple devices. Until the steps below are done, those buttons return an error from Supabase ("provider is not enabled").
 
 | Where | Apple | Google |
 |---|---|---|

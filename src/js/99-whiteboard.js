@@ -55,7 +55,7 @@ var SBWB = null;
   const CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
   const SHAPES = [["line", "Line", '<path d="M5 19L19 5"/>'], ["arrow", "Arrow", '<path d="M5 19L19 5"/><path d="M10 5h9v9"/>'], ["double", "Double Arrow", '<path d="M5 19L19 5"/><path d="M12.5 5H19v6.5"/><path d="M11.5 19H5v-6.5"/>'],
     ["rect", "Rectangle", '<rect x="4" y="6" width="16" height="12" rx="1"/>'], ["ellipse", "Circle", '<ellipse cx="12" cy="12" rx="8.5" ry="6.5"/>'], ["triangle", "Triangle", '<path d="M12 4.5l8.5 15h-17z"/>'], ["diamond", "Diamond", '<path d="M12 3.5l8.5 8.5-8.5 8.5L3.5 12z"/>']];
-  const TOOLS = [["select", "Select", "V"], ["pen", "Marker", "P"], ["hl", "Highlighter", "H"], ["eraser", "Eraser", "E"], ["shape", "Shapes", "S"], ["text", "Text", "T"], ["hand", "Move Around", "Space"]];
+  const TOOLS = [["select", "Select", "V"], ["pen", "Marker", "P"], ["hl", "Highlighter", "H"], ["eraser", "Eraser", "E"], ["shape", "Shapes", "S"], ["text", "Text", "T"], ["hand", "Move", "Space"]];
   const TPL = [["blank", "Blank"], ["grid", "Grid"], ["dots", "Dots"], ["lines", "Lines"], ["cornell", "Cornell Notes"], ["concept", "Concept Map"], ["week", "Week Plan"], ["kanban", "To Do, Doing, Done"], ["venn", "Venn Diagram"], ["timeline", "Timeline"]];
   const tplName = id => (TPL.find(t => t[0] === id) || TPL[0])[1];
 

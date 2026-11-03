@@ -1357,6 +1357,9 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .btn.primary:has(.ai-ic){background:#7C4DEB;border-color:#7C4DEB;color:#fff}
 .btn.primary:has(.ai-ic):hover{background:#6D3FD8;border-color:#6D3FD8}
 .btn.ai-btn:hover{border-color:#8B5CF6}
+/* The AI mark sits centred beside the label, a little apart from it (low specificity, so a button's own layout still wins) */
+.btn:where(:has(> .ai-ic):not([hidden])){display:inline-flex;align-items:center;justify-content:center;gap:.3em}
+.btn:where(:has(> .ai-ic)) > svg.ai-ic{vertical-align:0}
 .btn.busy{opacity:.6;pointer-events:none}
 .ai-spin{display:inline-block;width:14px;height:14px;border:2px solid color-mix(in srgb,#8B5CF6 30%,transparent);border-top-color:#8B5CF6;border-radius:50%;vertical-align:-2px;margin-right:6px;animation:aispin .8s linear infinite}
 @keyframes aispin{to{transform:rotate(360deg)}}

@@ -1357,6 +1357,9 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .btn.primary:has(.ai-ic){background:#7C4DEB;border-color:#7C4DEB;color:#fff}
 .btn.primary:has(.ai-ic):hover{background:#6D3FD8;border-color:#6D3FD8}
 .btn.ai-btn:hover{border-color:#8B5CF6}
+/* The AI mark sits centred beside the label, a little apart from it (low specificity, so a button's own layout still wins) */
+.btn:where(:has(> .ai-ic):not([hidden])){display:inline-flex;align-items:center;justify-content:center;gap:.3em}
+.btn:where(:has(> .ai-ic)) > svg.ai-ic{vertical-align:0}
 .btn.busy{opacity:.6;pointer-events:none}
 .ai-spin{display:inline-block;width:14px;height:14px;border:2px solid color-mix(in srgb,#8B5CF6 30%,transparent);border-top-color:#8B5CF6;border-radius:50%;vertical-align:-2px;margin-right:6px;animation:aispin .8s linear infinite}
 @keyframes aispin{to{transform:rotate(360deg)}}
@@ -3443,8 +3446,8 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .lms-ra li,.lms-cr>li{border-top:1px solid var(--line);padding:6px 0}
 .lms-ra-top,.lms-cr-top{display:flex;justify-content:space-between;gap:10px}
 .lms-ra-pts{font-variant-numeric:tabular-nums;white-space:nowrap}
-.lms-lv{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:6px}
-.lms-lv li{border:1px solid var(--line);border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:2px}
+.lms-lv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:6px}
+.lms-lv li{border:1px solid var(--line);border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere;word-break:break-word}
 .lms-lv li.got{border-color:var(--accent,#2563eb);box-shadow:inset 0 0 0 1px var(--accent,#2563eb)}
 .lms-lv-t{font-weight:600}
 .lms-staff li{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-direction:row}
@@ -3813,10 +3816,13 @@ nav.tabs [data-tab="courses"]{position:relative}
 .bs-ico{flex:none;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,var(--surface))}
 .bs-status.warn .bs-ico{color:var(--late)}
 .bs-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bs-acts:not(:has(*)){display:none}
+.bs-acts > p{flex-basis:100%}
 /* The store's official badge ("Get it from Microsoft Edge" / "Available in the Chrome Web Store"): only resized, never restyled.
    Both are 48px tall (Microsoft: at least as large as other badges, over 32px, with a quarter of its height clear around it: the margin plus the 8px row gap) */
 .ext-badge{display:inline-flex;align-items:center;line-height:0;text-decoration:none;margin:4px}
 .ext-badge img{display:block;height:48px;width:auto}
+.ext-badge .on-light{height:75.0px;margin:-13.5px -18.0px -13.5px -11.5px}
 .ext-badge:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
 .ext-badge .on-dark{display:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ext-badge .on-light{display:none}:root:not([data-theme="light"]) .ext-badge .on-dark{display:block}}

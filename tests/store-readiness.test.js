@@ -87,8 +87,11 @@ const authFiles = [["index.html", require("../scripts/app-files").source()]].con
 for (const [f, s] of authFiles) {
   ok(!/provider:\s*["'](facebook|github|azure|twitter|discord)/i.test(s) && !/Continue with Facebook|Sign in with Facebook|accounts\.google\.com\/gsi|connect\.facebook\.net/i.test(s), f + ": no other social sign-in");
   if (/Continue with Google/.test(s)) {
-    ok(/Continue with Apple/.test(s) && /signInWithIdToken\(\{provider: "apple"/.test(s), f + ": Continue with Google comes with Continue with Apple (native on iPhone)");
-    ok(/const sbAppleOk = \(\) => \{[^}]*getPlatform\(\) === "ios"/.test(s), f + ": the iPhone and iPad app always offers Apple");
+    // the website's Account page runs in a browser, not the iPhone app: there Apple is the provider's own web sign-in, shown on Apple devices
+    if (/^website\//.test(f)) ok(/Continue with Apple/.test(s) || /oa-apple/.test(s), f + ": Continue with Google comes with Continue with Apple");
+    else ok(/Continue with Apple/.test(s) && /signInWithIdToken\(\{provider: "apple"/.test(s), f + ": Continue with Google comes with Continue with Apple (native on iPhone)");
+    if (!/^website\//.test(f)) ok(/const sbAppleOk = \(\) => \{[^}]*getPlatform\(\) === "ios"/.test(s), f + ": the iPhone and iPad app always offers Apple");
+    else ok(/iPhone\|iPad\|iPod\|Macintosh\|Mac OS X/.test(read("website/account/account.js")), f + ": Apple is offered on a Mac, iPhone or iPad");
   }
 }
 

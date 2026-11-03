@@ -1367,7 +1367,7 @@ function viewAiQuiz(){
       return `<li class="${cls}"><span class="num">${k + 1}</span><span class="txt">${esc(q.options[ix])}</span>${a ? "" : `<span class="mv"><button type="button" class="icon-btn sm" data-act="ai-up" data-i="${k}" aria-label="Move up" ${k === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-btn sm" data-act="ai-down" data-i="${k}" aria-label="Move down" ${k === seq.length - 1 ? "disabled" : ""}>↓</button></span>`}</li>`; }).join("")}</ol>
       ${a ? `<p class="mini">Correct order: ${q.correct.map((ix, k) => `${k + 1}. ${esc(q.options[ix])}`).join("  ")}</p>` : `<div class="row-actions"><button class="btn primary" data-act="ai-submit">Submit Order</button></div>`}`;
   } else {
-    body = `<form class="written" id="aiForm"><label class="f">Your answer<input type="text" id="aiWritten" autocomplete="off" ${a ? `value="${esc(a.given)}" disabled` : ""} data-noenter></label>${a ? "" : `<button type="submit" class="btn primary">Check</button>`}</form>`;
+    body = `<form class="written" id="aiForm"><label class="f">Your answer<input type="text" id="aiWritten" autocomplete="off" ${a ? `value="${esc(a.given)}" disabled` : ""} data-noenter></label>${a ? "" : `<button type="submit" class="btn primary${aiReady() ? " ai-btn" : ""}">${aiReady() ? AI_ICON + " " : ""}Check</button>`}</form>`;
   }
   const verdict = a ? (a.correct ? (a.partial && a.partial.close ? "Close enough, counted as correct." : "Correct.") : q.type === "multiple" && a.partial ? `Not quite. You found ${a.partial.hit} of ${a.partial.of} correct answers${a.partial.extra ? ` and picked ${a.partial.extra} wrong one${a.partial.extra === 1 ? "" : "s"}` : ""}.` : "Not quite.") : "";
   const aiFb = f.aiFb && f.aiFb[f.i];
@@ -1444,7 +1444,7 @@ function deckAiBar(d){
 function aiQuizzesHtml(d){
   const list = d.aiQuizzes || [];
   const w = weakSpots([d.id]);
-  const btn = `<span class="aiq-btns">${w.n ? `<button class="btn small" data-act="fc-weak" data-id="${esc(d.id)}">Weak Spots <span class="n-badge">${w.n}</span></button>` : ""}${d.cards.length >= 3 && !inPreview() ? `<button class="btn small" data-act="fc-case" data-id="${esc(d.id)}">Case Study from Cards</button>` : ""}<button class="btn small ai-btn" data-act="fc-ai" data-id="${esc(d.id)}">${AI_ICON} Create with ${esc(aiWho("AI"))}</button></span>`;
+  const btn = `<span class="aiq-btns">${w.n ? `<button class="btn small" data-act="fc-weak" data-id="${esc(d.id)}">Weak Spots <span class="n-badge">${w.n}</span></button>` : ""}${d.cards.length >= 3 && !inPreview() ? `<button class="btn small ai-btn" data-act="fc-case" data-id="${esc(d.id)}">${AI_ICON} Case Study from Cards</button>` : ""}<button class="btn small ai-btn" data-act="fc-ai" data-id="${esc(d.id)}">${AI_ICON} Create with ${esc(aiWho("AI"))}</button></span>`;
   if (!list.length) return `<div class="ai-callout">${AI_ICON}<span>Upload lecture slides or notes and let ${esc(aiWho("AI"))} write flashcards and practice questions in the style you want, like an AP exam or your professor's midterm, with rationales.</span>${btn}</div>`;
   return `<h3 class="fsec">${AI_ICON}Practice Quizzes<span class="n">${list.length}</span><span class="spacer"></span>${btn}</h3>
     <ul class="aiq-list">${list.slice().reverse().map(qz => { const last = (qz.results || [])[qz.results.length - 1];

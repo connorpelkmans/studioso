@@ -3,7 +3,7 @@
 (() => {
   const W = window.SBWB; if (!W) return;
   const MAX = 2000;
-  hook("wb-head", id => id ? `<button class="btn small" data-act="wb-ai" title="Turn this board into typed notes and flashcards">${AI_ICON} Notes and Cards</button>` : "");
+  hook("wb-head", id => id ? `<button class="btn small ai-btn" data-act="wb-ai" title="Turn this board into typed notes and flashcards">${AI_ICON} Notes and Cards</button>` : "");
   const SCHEMA = {type: "OBJECT", properties: {
     title: {type: "STRING", description: "A short title for the notes"},
     notes: {type: "STRING", description: "Clean, organized typed study notes of everything on the board. Plain text: short headings on their own line, bullets starting with '• ', formulas, numbers and labels exact. Describe diagrams and what their arrows connect in words."}},

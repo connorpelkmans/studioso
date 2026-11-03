@@ -894,7 +894,7 @@ function normPdfEdits(list, max){
       else { const m = m6(e.m); if (m && m.every(v => v != null)) x.m = m; if (typeof e.img === "string" && /^[a-f0-9]{16}$/.test(e.img)) x.img = e.img; }
     }
     if (e.k === "k") { x.t = typeof e.t === "string" ? e.t.slice(0, 60) : ""; x.c = hex(e.c) || "#c0262d"; }
-    if (e.k === "q") { x.ft = ["text", "multi", "check"].includes(e.ft) ? e.ft : "text"; x.name = typeof e.name === "string" && e.name.trim() ? e.name.slice(0, 60) : "Field"; }
+    if (e.k === "q") { x.ft = ["text", "multi", "check"].includes(e.ft) ? e.ft : "text"; x.name = typeof e.name === "string" && e.name.trim() ? e.name.slice(0, 60) : "Field"; if (x.ft === "check" ? e.v === true : typeof e.v === "string" && e.v) x.v = x.ft === "check" ? true : e.v.slice(0, 2000); }
     if (e.k === "l") {
       if (typeof e.url === "string" && /^(https?:\/\/|mailto:)\S+$/i.test(e.url)) x.url = e.url.slice(0, 500); else if (fin(e.page, 1, 99999)) x.page = Math.round(e.page); else continue;
     }
@@ -4417,7 +4417,7 @@ function viewAiQuiz(){
       return `<li class="${cls}"><span class="num">${k + 1}</span><span class="txt">${esc(q.options[ix])}</span>${a ? "" : `<span class="mv"><button type="button" class="icon-btn sm" data-act="ai-up" data-i="${k}" aria-label="Move up" ${k === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-btn sm" data-act="ai-down" data-i="${k}" aria-label="Move down" ${k === seq.length - 1 ? "disabled" : ""}>↓</button></span>`}</li>`; }).join("")}</ol>
       ${a ? `<p class="mini">Correct order: ${q.correct.map((ix, k) => `${k + 1}. ${esc(q.options[ix])}`).join("  ")}</p>` : `<div class="row-actions"><button class="btn primary" data-act="ai-submit">Submit Order</button></div>`}`;
   } else {
-    body = `<form class="written" id="aiForm"><label class="f">Your answer<input type="text" id="aiWritten" autocomplete="off" ${a ? `value="${esc(a.given)}" disabled` : ""} data-noenter></label>${a ? "" : `<button type="submit" class="btn primary">Check</button>`}</form>`;
+    body = `<form class="written" id="aiForm"><label class="f">Your answer<input type="text" id="aiWritten" autocomplete="off" ${a ? `value="${esc(a.given)}" disabled` : ""} data-noenter></label>${a ? "" : `<button type="submit" class="btn primary${aiReady() ? " ai-btn" : ""}">${aiReady() ? AI_ICON + " " : ""}Check</button>`}</form>`;
   }
   const verdict = a ? (a.correct ? (a.partial && a.partial.close ? "Close enough, counted as correct." : "Correct.") : q.type === "multiple" && a.partial ? `Not quite. You found ${a.partial.hit} of ${a.partial.of} correct answers${a.partial.extra ? ` and picked ${a.partial.extra} wrong one${a.partial.extra === 1 ? "" : "s"}` : ""}.` : "Not quite.") : "";
   const aiFb = f.aiFb && f.aiFb[f.i];
@@ -4494,7 +4494,7 @@ function deckAiBar(d){
 function aiQuizzesHtml(d){
   const list = d.aiQuizzes || [];
   const w = weakSpots([d.id]);
-  const btn = `<span class="aiq-btns">${w.n ? `<button class="btn small" data-act="fc-weak" data-id="${esc(d.id)}">Weak Spots <span class="n-badge">${w.n}</span></button>` : ""}${d.cards.length >= 3 && !inPreview() ? `<button class="btn small" data-act="fc-case" data-id="${esc(d.id)}">Case Study from Cards</button>` : ""}<button class="btn small ai-btn" data-act="fc-ai" data-id="${esc(d.id)}">${AI_ICON} Create with ${esc(aiWho("AI"))}</button></span>`;
+  const btn = `<span class="aiq-btns">${w.n ? `<button class="btn small" data-act="fc-weak" data-id="${esc(d.id)}">Weak Spots <span class="n-badge">${w.n}</span></button>` : ""}${d.cards.length >= 3 && !inPreview() ? `<button class="btn small ai-btn" data-act="fc-case" data-id="${esc(d.id)}">${AI_ICON} Case Study from Cards</button>` : ""}<button class="btn small ai-btn" data-act="fc-ai" data-id="${esc(d.id)}">${AI_ICON} Create with ${esc(aiWho("AI"))}</button></span>`;
   if (!list.length) return `<div class="ai-callout">${AI_ICON}<span>Upload lecture slides or notes and let ${esc(aiWho("AI"))} write flashcards and practice questions in the style you want, like an AP exam or your professor's midterm, with rationales.</span>${btn}</div>`;
   return `<h3 class="fsec">${AI_ICON}Practice Quizzes<span class="n">${list.length}</span><span class="spacer"></span>${btn}</h3>
     <ul class="aiq-list">${list.slice().reverse().map(qz => { const last = (qz.results || [])[qz.results.length - 1];
@@ -5647,7 +5647,7 @@ async function summarizeFile(fid, again){
   const show = () => {
     const cur = state.files[fid];
     openSheet(`<form class="sheet ai-sheet">${head("Summary: " + cur.name)}<div class="sheet-body">${summaryHtml(cur)}</div>
-      <div class="sheet-foot">${readableFile(cur) ? `<button type="button" class="btn" id="smAgain">Summarize Again</button>` : ""}<span class="spacer"></span>${cur.summary.keyTerms && cur.summary.keyTerms.length ? `<button type="button" class="btn" id="smCards">Make ${cur.summary.keyTerms.length} Flashcards</button>` : ""}<button type="button" class="btn primary" id="smNote">Pin as Sticky Note</button></div></form>`);
+      <div class="sheet-foot">${readableFile(cur) ? `<button type="button" class="btn ai-btn" id="smAgain">${AI_ICON} Summarize Again</button>` : ""}<span class="spacer"></span>${cur.summary.keyTerms && cur.summary.keyTerms.length ? `<button type="button" class="btn" id="smCards">Make ${cur.summary.keyTerms.length} Flashcards</button>` : ""}<button type="button" class="btn primary" id="smNote">Pin as Sticky Note</button></div></form>`);
     { const a = $("#smAgain"); if (a) a.addEventListener("click", () => summarizeFile(fid, true)); }
     const sc = $("#smCards"); if (sc) sc.addEventListener("click", () => {
       const s = state.files[fid].summary, cId = cur.courseId || "";
@@ -5823,7 +5823,7 @@ function askSheet(courseId){
       <div class="ask-log" id="askLog" aria-live="polite"></div>
       ${aiModelBar()}
     </div>
-    <div class="sheet-foot ask-foot"><textarea id="askIn" rows="1" placeholder="Ask anything about this course, e.g. What's the difference between systolic and diastolic heart failure?" maxlength="2000" aria-label="Your question"></textarea><button type="button" class="btn primary" id="askGo">Ask</button></div>
+    <div class="sheet-foot ask-foot"><textarea id="askIn" rows="1" placeholder="Ask anything about this course, e.g. What's the difference between systolic and diastolic heart failure?" maxlength="2000" aria-label="Your question"></textarea><button type="button" class="btn primary ai-btn" id="askGo">${AI_ICON} Ask</button></div>
   </form>`);
   const log = $("#askLog");
   const selSize = () => A.sel.reduce((s, id) => s + ((state.files[id] && sizeOf(state.files[id])) || 0), 0);
@@ -13210,7 +13210,7 @@ function courseForm(c){
       <fieldset class="ci-fs"><legend>Icon <span class="hint">shown in the course's circle</span></legend><div class="ci-grid" id="ciGrid" style="--c:${esc(c.color)}" data-picked="${COURSE_ICONS[c.icon] || customIcon(c.icon) ? "1" : ""}">
         ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and AI draws it in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro() ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
         <div class="ci-ai" id="ciAi" hidden><label class="f"><span class="lh">Describe the Icon<span class="beta-sym" title="Beta: still being improved" role="img" aria-label="Beta">β</span> <span class="hint">e.g. "a stethoscope with a heart" or "a hockey stick and puck"</span></span><input type="text" id="ciAiQ" maxlength="120" autocomplete="off"></label>
-          <div class="ci-ai-row"><button type="button" class="btn primary small" data-act="ci-ai-go">Draw It</button><span class="ci-ai-prev" id="ciAiPrev" aria-live="polite"></span><button type="button" class="btn small" data-act="ci-ai-use" id="ciAiUse" hidden>Use This Icon</button></div></div></fieldset>
+          <div class="ci-ai-row"><button type="button" class="btn primary small ai-btn" data-act="ci-ai-go">${AI_ICON} Draw It</button><span class="ci-ai-prev" id="ciAiPrev" aria-live="polite"></span><button type="button" class="btn small" data-act="ci-ai-use" id="ciAiUse" hidden>Use This Icon</button></div></div></fieldset>
       <label class="f"><span class="lh">Links <span class="hint">one per line, optionally "Label | url"</span></span><textarea name="links" placeholder="Syllabus | https://…&#10;Canvas | https://…">${esc(linksText)}</textarea></label>
       <label class="f">Notes<textarea name="notes" maxlength="10000" placeholder="Grading breakdown, exam dates, TA contact…">${esc(c.notes)}</textarea></label>
     </div>
@@ -14943,7 +14943,7 @@ function viewNoteBoard(){
   const archived = notesArr().filter(n => n.archived).length;
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
-  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
+  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note">${AI_ICON}<span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">
@@ -16182,7 +16182,7 @@ function viewQuiz(){
       return `<button class="opt ${cls}" data-act="fc-answer" data-val="${esc(o)}" ${a ? "disabled" : ""}><span class="key">${"ABCD"[i]}</span><span>${esc(o)}</span></button>`; }).join("")}</div>`;
   else if (q.type === "tf") body = `<div class="tf-pair"><span class="mini">Matching ${kind[1]}</span><p>${esc(q.shown)}</p></div>
       <div class="mc two-col">${[["true", "True"], ["false", "False"]].map(([v, l]) => { const isRight = (v === "true") === q.truth; const cls = a ? (isRight ? "right" : a.given === v ? "wrong" : "") : ""; return `<button class="opt ${cls}" data-act="fc-answer" data-val="${v}" ${a ? "disabled" : ""}><span class="key">${l[0]}</span><span>${l}</span></button>`; }).join("")}</div>`;
-  else body = `<form class="written" id="qForm"><label class="f">Your answer<input type="text" id="qWritten" autocomplete="off" ${a ? `value="${esc(a.given)}" disabled` : ""} data-noenter></label>${a ? "" : `<button type="submit" class="btn primary">Check</button>`}</form>`;
+  else body = `<form class="written" id="qForm"><label class="f">Your answer<input type="text" id="qWritten" autocomplete="off" ${a ? `value="${esc(a.given)}" disabled` : ""} data-noenter></label>${a ? "" : `<button type="submit" class="btn primary${aiReady() ? " ai-btn" : ""}">${aiReady() ? AI_ICON + " " : ""}Check</button>`}</form>`;
   const fb = a ? `<div class="feedback ${a.correct ? "ok" : "no"}" role="status"><b>${a.correct ? (a.close ? "Close enough, counted as correct." : "Correct.") : "Not quite."}</b>${a.correct && !a.close ? "" : ` The answer is <span class="ans">${esc(q.answer)}</span>.`}${!a.correct && q.type === "written" ? ` <button class="link-btn" data-act="fc-override">I Was Right</button>` : ""}${a.ai ? `<p class="ai-fb">${AI_ICON}${esc(a.ai)}</p>` : ""}</div>
       ${explainHtml(`c|${q.deckId}|${q.cardId}`, q.type === "written" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="fc-next" id="qNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
@@ -22448,7 +22448,7 @@ Return JSON only.`;
   function genBox(T, ti){
     const g = T.general; if (!g) return "";
     if (g.state === "loading") return `<div class="sx-ans sx-gen busy">${AI_ICON}${dots}Answering from general knowledge…</div>`;
-    if (g.state === "error") return `<div class="sx-ans sx-gen miss"><p>${esc(g.text)}</p><button type="button" class="btn small" data-sx="general" data-turn="${ti}">Try Again</button></div>`;
+    if (g.state === "error") return `<div class="sx-ans sx-gen miss"><p>${esc(g.text)}</p><button type="button" class="btn small ai-btn" data-sx="general" data-turn="${ti}">${AI_ICON} Try Again</button></div>`;
     return `<div class="sx-ans sx-gen"><div class="sx-ans-h">${AI_ICON}<b>From General Knowledge</b></div><p class="mini sx-gen-l">Not from your course material. Check it against your notes or textbook.</p><p class="sx-ans-t">${esc(g.text)}</p><p class="mini">Answered by ${esc(g.model)}. AI can make mistakes. <button type="button" class="link-btn" data-ai-report="search-ask" data-ai-text="${esc(String(g.text || "").slice(0, 1400))}">Report Response</button></p></div>`;
   }
   function turnHtml(T, ti){
@@ -22466,7 +22466,7 @@ Return JSON only.`;
     const c = scopeC(); if (!c) return "";
     const L = courseLabel(c), list = [`Summarize the main ideas in ${L}`, `What are the key terms in ${L}?`, `What should I review for the next ${L} exam?`];
     return `<div class="sx-fu" role="group" aria-label="Try asking"><span class="mini">Try</span>${list.map(x => `<button type="button" class="chip" data-sx="fu" data-q="${esc(x)}">${esc(x)}</button>`).join("")}</div>`
-      + (aiReady() ? `<p class="sx-hint">Want answers that read whole files instead? <button type="button" class="link-btn" data-sx="deep">Chat With Whole Files</button></p>` : "");
+      + (aiReady() ? `<p class="sx-hint">Want answers that read whole files instead? <button type="button" class="link-btn" data-sx="deep">${AI_ICON} Chat With Whole Files</button></p>` : "");
   }
   function fuRow(T){
     const an = T.answer; if (!an || an.state !== "done" || an.det || !an.found) return "";
@@ -22478,7 +22478,7 @@ Return JSON only.`;
     const ok = an.found && T.rows.length > 0, gen = T.general && T.general.state === "done";
     if (!ok && !gen) return "";
     const saved = T.saved && state.notes[T.saved];
-    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small" data-sx="mk-cards" data-turn="${ti}">Make Flashcards</button><button type="button" class="btn small" data-sx="quiz" data-turn="${ti}">Quiz Me${proLocked() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
+    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
     if (T.study && T.study.busy) h += `<p class="sx-hint">${dots} ${esc(T.study.msg)}</p>`;
     else if (T.study && T.study.err) h += `<p class="sx-hint sx-err">${esc(T.study.err)}</p>`;
     if (saved) h += `<p class="sx-hint" role="status">Saved to your Notes, with a link to each source.</p>`;
@@ -22489,15 +22489,15 @@ Return JSON only.`;
     const tu = S.tutor, T = tu && S.thread[tu.ti]; if (!T) return "";
     const top = sub => `<div class="sx-ans-h">${AI_ICON}<b>Quiz Me</b>${sub ? `<span class="mini sx-tsub">${sub}</span>` : ""}<span class="spacer"></span><button type="button" class="link-btn" data-sx="tutor-end">End Quiz</button></div>`;
     if (tu.state === "loading") return `<div class="sx-ans sx-tutor busy">${AI_ICON}${dots}Writing questions from your material…</div>`;
-    if (tu.state === "error") return `<div class="sx-ans sx-tutor miss">${top("")}<p>${esc(tu.err)}</p><div class="sx-ans-btns"><button type="button" class="btn small" data-sx="quiz" data-turn="${tu.ti}">Try Again</button></div></div>`;
+    if (tu.state === "error") return `<div class="sx-ans sx-tutor miss">${top("")}<p>${esc(tu.err)}</p><div class="sx-ans-btns"><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Try Again</button></div></div>`;
     const n = tu.qs.length;
     if (tu.i >= n) {
       const right = tu.ans.filter(a => a && a.correct).length;
-      return `<div class="sx-ans sx-tutor">${top("Finished")}<p class="sx-tscore"><b>You got ${right} of ${n} right.</b> ${right === n ? "Nicely done." : "Quiz Me Again for new questions, or save these to practice later."}</p><div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="tq-save">Save as Practice Quiz</button><button type="button" class="btn small" data-sx="quiz" data-turn="${tu.ti}">Quiz Me Again</button><button type="button" class="btn small" data-sx="tutor-end">Back to the Answer</button></div></div>`;
+      return `<div class="sx-ans sx-tutor">${top("Finished")}<p class="sx-tscore"><b>You got ${right} of ${n} right.</b> ${right === n ? "Nicely done." : "Quiz Me Again for new questions, or save these to practice later."}</p><div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="tq-save">Save as Practice Quiz</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Quiz Me Again</button><button type="button" class="btn small" data-sx="tutor-end">Back to the Answer</button></div></div>`;
     }
     const q = tu.qs[tu.i], a = tu.ans[tu.i], done = a && !a.checking;
     const opts = q.type === "short" ? "" : `<div class="sx-topts" role="group" aria-label="Answers">${q.options.map((o, k) => `<button type="button" class="sx-topt${done ? (q.correct[0] === k ? " ok" : a.given === k ? " no" : "") : ""}" data-sx="tq-opt" data-id="${k}"${a ? " disabled" : ""}>${esc(o)}</button>`).join("")}</div>`;
-    const inp = q.type !== "short" ? "" : a ? `<p class="sx-tgiven">Your answer: ${esc(a.given)}</p>` : `<div class="sx-tin"><input type="text" id="sxTutorIn" maxlength="300" placeholder="Type your answer" aria-label="Your answer" autocomplete="off" data-noenter><button type="button" class="btn small primary" data-sx="tq-check">Check</button></div>`;
+    const inp = q.type !== "short" ? "" : a ? `<p class="sx-tgiven">Your answer: ${esc(a.given)}</p>` : `<div class="sx-tin"><input type="text" id="sxTutorIn" maxlength="300" placeholder="Type your answer" aria-label="Your answer" autocomplete="off" data-noenter><button type="button" class="btn small primary ai-btn" data-sx="tq-check">${AI_ICON} Check</button></div>`;
     let res = "";
     if (a && a.checking) res = `<p class="sx-tres">${dots} Checking your answer…</p>`;
     else if (a) {
@@ -22534,10 +22534,10 @@ Return JSON only.`;
           if (S.tutor && S.tutor.ti === ti) h += tutorHtml();
           else { h += studyRow(A, ti); if (planOk(plan)) h += fuRow(A); }
         }
-        else if (an && an.state === "error") h += `<div class="sx-ans miss"><p>${esc(an.text)}</p><button type="button" class="btn small" data-sx="answer">Try Again</button></div>`;
+        else if (an && an.state === "error") h += `<div class="sx-ans miss"><p>${esc(an.text)}</p><button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} Try Again</button></div>`;
         else if (plan && plan.kind === "paid" && !plan.ok) h += `<div class="sx-ans"><p style="margin:0"><b>A short answer costs money.</b> It would use <b>${esc(plan.name)}</b>, billed per use to your ${esc(plan.P.label.split(" ")[0])} account. Each answer is one small request.</p>
           <label class="mi-check"><input type="checkbox" id="sxPaidOk"> I understand answers will use my paid ${esc(plan.P.short)} account and may cost money.</label>
-          <div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="paid-yes" disabled id="sxPaidYes">Confirm and Get an Answer</button></div></div>`;
+          <div class="sx-ans-btns"><button type="button" class="btn small primary ai-btn" data-sx="paid-yes" disabled id="sxPaidYes">${AI_ICON} Confirm and Get an Answer</button></div></div>`;
         else if (plan) h += `<div class="sx-ans-row"><button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} ${aiWho() ? `Ask ${esc(aiWho())} for a Short Answer` : "Get a Short Answer"}</button></div>`;
         if (planOk(plan) && an && an.state === "done") h += `<p class="sx-hint">${fresh ? "Type a follow-up above, like “explain that more simply”." : "Press Enter to ask this as a follow-up."} <button type="button" class="link-btn" data-sx="restart">Start Over</button></p>`;
         if (A.rows.length) h += `<div class="sx-gh"><span>${A.byMeaning ? "Best Matches by Meaning" : "Best Matches"}</span><span class="n">${A.rows.length}</span></div>`;
@@ -26392,7 +26392,7 @@ function draw(focus){
     foot = `<button type="button" class="btn cap-photo" data-cap="photo">${PHOTO_SVG}<span>Photo</span></button><span class="spacer"></span><button type="button" class="btn primary" data-cap="add" id="capAdd">Add</button>`;
   } else if (v === "photo") {
     body = `<p class="cap-lbl">Take a photo of a whiteboard, a slide or a handout with a due date.</p>
-      <button type="button" class="btn primary cap-big" data-cap="cam" id="capBig">${PHOTO_SVG}<span>Take Photo</span></button>
+      <button type="button" class="btn primary cap-big${ai ? " ai-btn" : ""}" data-cap="cam" id="capBig">${ai ? AI_ICON : PHOTO_SVG}<span>Take Photo</span></button>
       <button type="button" class="btn" data-cap="lib">Choose from Photos or Files</button>
       <p class="mini">${ai ? esc(`The photo is sent to ${aiWho() || "your AI provider"} to read it.`) : "AI reading is off, so you will type in what is on the photo."}</p>`;
   } else if (v === "busy") {
@@ -26416,7 +26416,7 @@ function draw(focus){
     foot = `<button type="button" class="btn" data-cap="savenote">Save Photo as a Note</button><span class="spacer"></span><button type="button" class="btn primary" data-cap="add" id="capAdd">Add</button>`;
   } else if (v === "error") {
     body = `${thumbsHtml()}<p class="status-msg" role="alert">${esc0(CS.msg)}</p>`;
-    foot = `<button type="button" class="btn" data-cap="typeit">Type It In</button><span class="spacer"></span>${CS.photos.length && CS.retry ? `<button type="button" class="btn primary" data-cap="retry">Try Again</button>` : `<button type="button" class="btn primary" data-cap="close">Close</button>`}`;
+    foot = `<button type="button" class="btn" data-cap="typeit">Type It In</button><span class="spacer"></span>${CS.photos.length && CS.retry ? `<button type="button" class="btn primary ai-btn" data-cap="retry">${AI_ICON} Try Again</button>` : `<button type="button" class="btn primary" data-cap="close">Close</button>`}`;
   }
   el.innerHTML = `<div class="sheet cap" ><div class="sheet-head"><h2 id="capTitle">${title}</h2><button type="button" class="icon-btn" data-cap="close" aria-label="Close">${CLOSE}</button></div>
     <div class="sheet-body cap-body">${body}<p class="cap-live status-msg" id="capLive" role="status" aria-live="polite">${CS.inline ? esc(CS.inline) + (last ? ` <button type="button" class="btn small" data-cap="undo">Undo</button>` : "") : ""}</p></div>
@@ -29037,7 +29037,7 @@ hook("boot", boot);
     const err = x.err ? `<div class="grp-err" role="alert"><span>${esc(x.err)}</span><button type="button" class="btn small" data-act="grp-pt-retry">Try Again</button></div>` : "";
     const top = `${head2}<span class="n">${openAll} open</span><span class="spacer"></span></h3>`;
     if (proj) return ptProjHtml(g, x, top, err, activeIds);
-    if (!lists.length) return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}<p class="grp-none">Split up the work: make a list for a project, like “BIOL 201 Poster”, then add the first task.</p>${proj && GTL.isDay(g.project_due) ? `<div class="row-actions"><button type="button" class="btn small" data-act="grp-pt-plan">Start From a Plan</button></div>` : ""}</section>`;
+    if (!lists.length) return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}<p class="grp-none">Split up the work: make a list for a project, like “BIOL 201 Poster”, then add the first task.</p>${proj && GTL.isDay(g.project_due) ? `<div class="row-actions"><button type="button" class="btn small ai-btn" data-act="grp-pt-plan">${AI_ICON} Start From a Plan</button></div>` : ""}</section>`;
     const chips = lists.filter(l => !l.archived || x.arch).map(l => {
       const n = x.tasks.filter(t => t.list_id === l.id && t.status !== "done" && !t.deleted).length;
       return `<button type="button" class="pt-chip${l.id === curId ? " on" : ""}${l.archived ? " arch" : ""}" data-act="grp-pt-list" data-id="${esc(l.id)}" aria-pressed="${l.id === curId}"><span>${esc(l.title)}</span><small>${l.archived ? "archived" : n + " open"}</small></button>`;
@@ -29062,7 +29062,7 @@ hook("boot", boot);
       : !shown.length ? `<p class="grp-none">${{mine: "Nothing assigned to you here.", unassigned: "Every open task has an owner.", overdue: "Nothing is overdue.", done: "Nothing is done yet."}[x.filter] || "No tasks."}</p>` : "";
     return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}
       <div class="pt-lists" role="group" aria-label="Task lists">${chips}</div>
-      <div class="pt-listbar"><span class="pt-lname"><b>${esc(cur.title)}</b>${cur.course_code ? ` <span class="pill">${esc(cur.course_code)}</span>` : ""}</span>${proj ? `<span class="pt-view" role="group" aria-label="View">${[["list", "List"], ["board", "Board"]].map(([v, l]) => `<button type="button" class="pt-f${(x.view || "list") === v ? " on" : ""}" data-act="grp-pt-view" data-v="${v}" aria-pressed="${(x.view || "list") === v}">${l}</button>`).join("")}</span>` : ""}${proj && canAdd && GTL.isDay(g.project_due) ? `<button type="button" class="btn small" data-act="grp-pt-plan">Start From a Plan</button>` : ""}${archBtn}<button type="button" class="btn small" data-act="grp-pt-list-edit" data-id="${esc(cur.id)}">List Options</button></div>
+      <div class="pt-listbar"><span class="pt-lname"><b>${esc(cur.title)}</b>${cur.course_code ? ` <span class="pill">${esc(cur.course_code)}</span>` : ""}</span>${proj ? `<span class="pt-view" role="group" aria-label="View">${[["list", "List"], ["board", "Board"]].map(([v, l]) => `<button type="button" class="pt-f${(x.view || "list") === v ? " on" : ""}" data-act="grp-pt-view" data-v="${v}" aria-pressed="${(x.view || "list") === v}">${l}</button>`).join("")}</span>` : ""}${proj && canAdd && GTL.isDay(g.project_due) ? `<button type="button" class="btn small ai-btn" data-act="grp-pt-plan">${AI_ICON} Start From a Plan</button>` : ""}${archBtn}<button type="button" class="btn small" data-act="grp-pt-list-edit" data-id="${esc(cur.id)}">List Options</button></div>
       <div class="pt-prog"><div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pr.pct}" aria-label="Progress on ${esc(cur.title)}"><i style="width:${pr.pct}%"></i></div><span class="mini">${pr.done} of ${pr.total} done</span></div>
       ${wlHtml}${add}
       ${proj && (x.view || "list") === "board" ? ptBoard(g, tasks, today) : `<div class="pt-filters" role="group" aria-label="Filter tasks">${PT_FILTERS.map(([k, l]) => `<button type="button" class="pt-f${x.filter === k ? " on" : ""}" data-act="grp-pt-filter" data-f="${k}" aria-pressed="${x.filter === k}">${l}${k === "all" ? "" : ` <small>${cnt[k]}</small>`}</button>`).join("")}</div>
@@ -33034,7 +33034,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <div class="gp-ai-acts">${Object.entries(AI_ASK).map(([k, a]) => `<button type="button" class="btn small ai-btn${st.busy && st.kind === k ? " busy" : ""}" data-act="gp-ai" data-id="${k}"${off || st.busy ? " disabled" : ""}>${AI_ICON} ${esc(a.label)}</button>`).join("")}</div>
       ${paid && cfg && AI_PROVIDERS[cfg.provider] ? `<label class="mi-check"><input type="checkbox" id="gpAiOk"${ui.gpAiOk ? " checked" : ""}> This uses my paid ${esc(AI_PROVIDERS[cfg.provider].short)} account (${esc(aiModelName(cfg.provider, cfg.model))}) and may cost a little money.</label>` : ""}
       <div class="gp-ai-out" role="status" aria-live="polite">${out}</div>
-      ${st.pts && window.SBCOMPTAB ? `<button type="button" class="link-btn" data-act="gp-ai-more" style="justify-self:start">Ask a Follow-Up</button>` : ""}
+      ${st.pts && window.SBCOMPTAB ? `<button type="button" class="link-btn" data-act="gp-ai-more" style="justify-self:start">${AI_ICON} Ask a Follow-Up</button>` : ""}
       <p class="mini" style="margin:0">The AI sees your courses, weights and marks, and can make mistakes. The numbers on this page are exact.</p></section>`;
   }
   hook("act", (act, el, id) => {
@@ -33226,11 +33226,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       else if (sg) top = `<p class="mini" style="margin:0">${esc(tr("gr.school.sug", "Studyboard found a grade scale for {school} on {host}. Is this your school?", {school: sg.school || tr("gr.school.yours", "your school"), host: sg.host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsSugYes">${esc(tr("gr.school.use", "Use It"))}</button><button type="button" class="btn small" id="gsSugNo">${esc(tr("gr.school.no", "Not My School"))}</button></div>`;
       else if (hosts.length) top = `<p class="mini" style="margin:0">${esc(tr("gr.school.know2", "Studyboard can ask the AI for the grade scale and pass mark at your school ({host}), or at your program if it has its own. The AI answers from memory, so check the result against your course outline.", {host: hosts[0].host}))}</p>`;
       else top = `<label class="f"><span class="lh">${esc(tr("gr.school.name", "Your school"))} <span class="hint">${esc(tr("gr.school.nameHint", "The AI fills in its grade scale and pass mark from what it knows"))}</span></span><input type="text" id="gsSchoolName" maxlength="80" autocomplete="off" value="${esc((gs.school && gs.school.name) || "")}" placeholder="${esc(tr("gr.school.ph", "e.g. University of Alberta"))}" data-noenter></label>`;
-      block.innerHTML = top + (ask ? `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label><div class="gr-scale-acts"><button type="button" class="btn small${found ? "" : " primary"}" id="gsFind"${busy ? " disabled" : ""}>${esc(goLbl())}</button></div>` : "");
+      block.innerHTML = top + (ask ? `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label><div class="gr-scale-acts"><button type="button" class="btn small ai-btn${found ? "" : " primary"}" id="gsFind"${busy ? " disabled" : ""}>${AI_ICON} ${esc(goLbl())}</button></div>` : "");
       const fb = $("#gsFind"); if (fb) fb.addEventListener("click", find);
       const pin = $("#gsProgram");
       if (pin) {
-        pin.addEventListener("input", () => { prog = pin.value.trim(); const b = $("#gsFind"); if (b) b.textContent = goLbl(); });
+        pin.addEventListener("input", () => { prog = pin.value.trim(); const b = $("#gsFind"); if (b) b.innerHTML = AI_ICON + " " + esc(goLbl()); });
         pin.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if (!busy) find(); } });
       }
       const nm = $("#gsSchoolName"); if (nm) nm.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if (!busy) find(); } });
@@ -33442,8 +33442,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
           <p class="mini gr-scale-look" style="margin:0">${esc(tr("gr.sc.lookOpt", "To look up your school's or your program's scale, use Grade Options at the top of the Grades page."))} <button type="button" class="link-btn" data-act="gp-opts">${esc(tr("gr.sc.lookBtn", "Open Grade Options"))}</button></p>
           <div class="gr-import">
             <p class="mini" style="margin:0">${esc(tr("gr.sc.import", "Have your school's scale? Upload or paste a screenshot, or paste the text, and the boxes below fill in. Check them before you save."))}</p>
-            <div class="gr-scale-acts"><label class="btn small gr-file">${esc(tr("gr.sc.upload", "Upload Screenshot"))}<input type="file" id="gsFile" accept="image/*,application/pdf" hidden></label><button type="button" class="btn small" id="gsPasteBtn" aria-expanded="false" aria-controls="gsPasteBox">${esc(tr("gr.sc.paste", "Paste a Scale"))}</button></div>
-            <div id="gsPasteBox" hidden><label class="f"><span class="lh">${esc(tr("gr.sc.pasteLbl", "Paste the scale here"))}</span><textarea id="gsPaste" rows="5" data-noenter class="gr-scale-in" placeholder="A+ 90-100&#10;A 85-89&#10;A- 80-84"></textarea></label><button type="button" class="btn small primary" id="gsPasteGo">${esc(tr("gr.sc.read", "Read It"))}</button></div>
+            <div class="gr-scale-acts"><label class="btn small gr-file ai-btn">${AI_ICON} ${esc(tr("gr.sc.upload", "Upload Screenshot"))}<input type="file" id="gsFile" accept="image/*,application/pdf" hidden></label><button type="button" class="btn small" id="gsPasteBtn" aria-expanded="false" aria-controls="gsPasteBox">${esc(tr("gr.sc.paste", "Paste a Scale"))}</button></div>
+            <div id="gsPasteBox" hidden><label class="f"><span class="lh">${esc(tr("gr.sc.pasteLbl", "Paste the scale here"))}</span><textarea id="gsPaste" rows="5" data-noenter class="gr-scale-in" placeholder="A+ 90-100&#10;A 85-89&#10;A- 80-84"></textarea></label><button type="button" class="btn small primary${aiReady() ? " ai-btn" : ""}" id="gsPasteGo">${aiReady() ? AI_ICON + " " : ""}${esc(tr("gr.sc.read", "Read It"))}</button></div>
             <p class="status-msg" id="gsMsg" aria-live="polite" role="status"></p>
           </div>
           <div class="gr-scale-head" aria-hidden="true"><span>${esc(tr("gr.sc.letter", "Letter"))}</span><span>${esc(tr("gr.sc.pct", "Lowest percent"))}</span><span></span></div>
@@ -34036,7 +34036,7 @@ var SBEST = (() => {
         <div class="segb" role="group" aria-label="Which tasks"><button type="button" data-act="est-scope" data-id="soon" aria-pressed="${!S.all}">Due in 2 Weeks</button><button type="button" data-act="est-scope" data-id="all" aria-pressed="${S.all}">All Without a Time${more > 0 ? ` (${more} more)` : ""}</button></div>
         <span class="spacer"></span>
         ${L.length ? `<button type="button" class="btn small" data-act="est-all">Use All Suggestions</button>` : ""}
-        ${L.length && aiReady() ? `<button type="button" class="btn small" data-act="est-ai" ${S.busy ? "disabled" : ""}>${S.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${aiWho() ? esc(aiWho()) + " is thinking…" : "Thinking…"}` : `${AI_ICON} Suggest With ${esc(aiWho("AI"))}`}</button>` : ""}
+        ${L.length && aiReady() ? `<button type="button" class="btn small ai-btn" data-act="est-ai" ${S.busy ? "disabled" : ""}>${S.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${aiWho() ? esc(aiWho()) + " is thinking…" : "Thinking…"}` : `${AI_ICON} Suggest With ${esc(aiWho("AI"))}`}</button>` : ""}
       </div>
       <p class="status-msg" id="estMsg" aria-live="polite">${esc(S.msg || "")}</p>
       ${L.length ? `<ol class="est-list">${L.map(row).join("")}</ol>` : `<p class="empty-note">${S.all ? "Every open task has a time estimate. Nice!" : "Everything due in the next 2 weeks has a time estimate."}</p>`}
@@ -34285,7 +34285,7 @@ function cleanFile(r) {
   function normRub(o){
     if (!o || typeof o !== "object" || !Array.isArray(o.cr)) return null;
     const cr = o.cr.slice(0, 15).map(x => x && ({t: LT(x.t, 200), d: MT(x.d, 300), pts: NUM(x.pts) || 0,
-      lv: (Array.isArray(x.lv) ? x.lv : []).slice(0, 6).map(v => v && ({t: LT(v.t, 80), d: MT(v.d, 160), pts: NUM(v.pts)})).filter(v => v && (v.t || v.d))})).filter(x => x && x.t);
+      lv: (Array.isArray(x.lv) ? x.lv : []).slice(0, 6).map(v => v && ({t: LT(v.t, 80), d: MT(v.d, 700), pts: NUM(v.pts)})).filter(v => v && (v.t || v.d))})).filter(x => x && x.t);
     return cr.length ? {name: LT(o.name, 120) || "Rubric", pts: NUM(o.pts) || cr.reduce((a, x) => a + x.pts, 0), cr} : null;
   }
   const EMAIL = /^[^\s@<>"]{1,64}@[A-Za-z0-9.-]{1,120}\.[A-Za-z]{2,}$/;
@@ -35746,11 +35746,13 @@ function cleanFile(r) {
         <div class="bs-status${needLogin || gone0 ? " warn" : ""}"><span class="bs-ico">${ICON}</span><div><b>${needLogin ? "Sign In Again" : gone0 ? "Not Syncing" : "Connected"}${c.name ? `<span class="mini"> as ${esc(c.name)}</span>` : ""}</b><span class="mini">${esc(statusLine())}</span>${diagHtmlBox()}</div></div>
         <div class="bs-acts">
           ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from ${extBrowser() || "your browser"}'s toolbar and connect ${P.name} again to keep syncing.` : extDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome or Edge with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
-          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${extDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to ${extBrowser()}.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
+          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${extDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to ${extBrowser()}.` : ""}</p>` : ""}
+        </div>
+        <div class="bs-acts bs-acts-row">
+          ${needLogin ? `<button class="btn primary" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
+          ${!gone0 && !(onPhoneApi && !c.feed && c.lastSrc !== "grab") ? `<button class="btn${needLogin ? "" : " primary"}" data-act="${A}-sync">Sync Now</button>` : ""}
           ${!P.feedOnly && !P.direct && !P.noExt && grabOk() && extDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? extBadge() : ""}
-          ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
-          <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
-          ${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}
+          ${gone0 ? "" : `<button class="btn" data-act="${A}-open-site">Open ${P.name}</button>${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}`}
         </div>
         ${sugg.length ? `<h3 class="fsec" id="bsSuggest">Dates Found in Announcements</h3><p class="mini" style="margin:0">AI read your announcements and spotted these. Check them before adding.</p>
           <ul class="bs-list">${sugg.map(s => `<li><div class="bs-main"><b>${s.what === "moved" ? `Move ${esc(s.title)} to ${esc(fmtDate(s.date))}` : `Add ${esc(s.title)}, due ${esc(fmtDate(s.date))}`}${s.time ? " at " + esc(fmtTime(s.time)) : ""}</b><span class="mini">From "${esc(s.news)}"${s.quote ? `: “${esc(s.quote)}”` : ""}</span></div>
@@ -35794,7 +35796,7 @@ function cleanFile(r) {
     if (t) setTimeout(() => t.scrollIntoView({block: "start"}), 60);
   }
   const newsRow = n => { const c = cfg(), bc = c.courses[n.ou] || {}; return `<li><div class="bs-main"><b>${esc(n.title)}</b><span class="mini">${esc(cleanCourseCode(bc.code, bc.name) || bc.name || "")}${n.date ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}</span><p class="bs-news-text">${esc(n.text)}${n.long ? "…" : ""}</p></div>
-    <span class="bs-btns">${n.url ? `<a class="btn small" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}${aiReady() ? `<button class="btn small" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">Check for Dates</button>` : ""}</span></li>`; };
+    <span class="bs-btns">${n.url ? `<a class="btn small" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}${aiReady() ? `<button class="btn small ai-btn" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">${AI_ICON} Check for Dates</button>` : ""}</span></li>`; };
 
   const extFacts = () => `<ul class="help-list bs-facts">
       <li><b>What it reads:</b> only the school site you connect in it, using the sign-in your browser already has (Studyboard never sees your password): your courses, due dates, whether you've submitted, grades, announcements and calendar events.</li>
@@ -36406,9 +36408,9 @@ function cleanFile(r) {
       case "gone-keep": { const t = state.tasks[el.dataset.id]; if (t) { const n = clone(t); n[F] = Object.assign({}, n[F], {gone: true}); applyChanges([{kind: "task", id: n.id, after: n}], ""); } save({gone: cfg().gone.filter(x => x !== el.dataset.id)}); bsSheet(); return true; }
       case "scan": {
         const n = cfg().newsItems.find(x => x.ou === el.dataset.ou && x.id === el.dataset.id); if (!n) return true;
-        el.disabled = true; el.textContent = "Checking…";
+        el.disabled = true; el.innerHTML = `${AI_ICON} Checking…`;
         scanNews([n], true).then(k => { toast(k ? `Found ${plural(k, "date")}. Review them in ${P.name}.` : "No new dates in that announcement", null, k ? {label: "Review", fn: () => bsSheet("suggest")} : null); if (dlg.open && dlg.querySelector(".bs-sheet")) bsSheet("suggest"); })
-          .catch(e => { toast(e && e.message ? e.message : "The AI couldn't check that. Try again."); }).finally(() => { el.disabled = false; el.textContent = "Check for Dates"; });
+          .catch(e => { toast(e && e.message ? e.message : "The AI couldn't check that. Try again."); }).finally(() => { el.disabled = false; el.innerHTML = `${AI_ICON} Check for Dates`; });
         return true;
       }
       case "savefile": saveFile(el.dataset.id, el.dataset.f).catch(e => { console.error(e); toast("Couldn't save that file. Try again."); }); return true;
@@ -58745,7 +58747,7 @@ var COMP_EXTRA = [];
     if (!isOn() || !cur || !askAvailable()) return;
     const notes = form.querySelector('[name="notes"]'), lab = notes.closest("label") || notes.parentElement;
     lab.insertAdjacentHTML("afterend", `<div class="cp-tq"><button type="button" class="link-btn cp-tq-open">${AI_ICON} Ask ${esc(nameOf(cur))} About This Task</button>
-      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn small primary">Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
+      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn small primary ai-btn">${AI_ICON} Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
     const box = form.querySelector(".cp-tq-box"), inp = box.querySelector("input"), out = box.querySelector(".cp-tq-a"), go = box.querySelector("button");
     form.querySelector(".cp-tq-open").addEventListener("click", () => { box.hidden = !box.hidden; if (!box.hidden) inp.focus(); });
     const ask = async () => {
@@ -59439,7 +59441,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const r = box.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * (cur.eyes.y / VB);
     const dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy);
     if (mood === "idle" || mood === "break") {
-      if (d < 520 || dragging) { looking = true; act.look(Math.max(-1, Math.min(1, dx / 140)), Math.max(-1, Math.min(1, dy / 140))); clearTimeout(lookT); lookT = setTimeout(() => { looking = false; if (act && (mood === "idle" || mood === "break")) act.look(0, 0); }, 2600); }
+      if (d < 347 || dragging) { looking = true; act.look(Math.max(-1, Math.min(1, dx / 140)), Math.max(-1, Math.min(1, dy / 140))); clearTimeout(lookT); lookT = setTimeout(() => { looking = false; if (act && (mood === "idle" || mood === "break")) act.look(0, 0); }, 2600); }
       else if (looking) { looking = false; act.look(0, 0); }
     }
     if (dragging) return;
@@ -60329,7 +60331,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         ${E.tLoading ? `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Opening…</p>` : t ? `<p class="mini em-meta">${esc([t.course, who].filter(Boolean).join(" · "))}</p>
         <div class="em-thread">${t.messages.map(m => `<div class="em-msg${m.mine ? " mine" : ""}"><div class="em-from"><b>${esc(m.mine ? "You" : m.from)}</b><span class="mini">${esc(whenLong(m.at))}</span></div><div class="em-body">${esc(m.body)}</div>${m.files ? `<span class="mini">${m.files} attachment${m.files === 1 ? "" : "s"} (open it on your school's site)</span>` : ""}</div>`).join("")}</div>
         ${via().kind === "grab" ? `<p class="mini em-note">This came in through the Studyboard School Sync extension, so you can't reply from here. <a href="${esc(via().host)}/conversations" target="_blank" rel="noopener noreferrer">Reply in Canvas</a></p>` : `<div class="em-reply"><h3 class="fsec">Reply</h3>
-          <div class="em-ai"><input type="text" id="emAsk" maxlength="300" placeholder="Tell ${aiWho("the AI")} what to say, like &quot;ask for an extension until Friday&quot;" value="${esc(E.ask)}" data-noenter><button type="button" class="btn small" data-act="em-draft" ${E.drafting ? "disabled" : ""}>${AI_ICON} ${E.drafting ? "Writing…" : "Draft with AI"}</button></div>
+          <div class="em-ai"><input type="text" id="emAsk" maxlength="300" placeholder="Tell ${aiWho("the AI")} what to say, like &quot;ask for an extension until Friday&quot;" value="${esc(E.ask)}" data-noenter><button type="button" class="btn small ai-btn" data-act="em-draft" ${E.drafting ? "disabled" : ""}>${AI_ICON} ${E.drafting ? "Writing…" : "Draft with AI"}</button></div>
           ${E.aiDraft && E.draft ? `<p class="mini em-ai-note">Drafted by AI from this conversation. Check it's right before you send it.</p>` : ""}<textarea id="emDraft" rows="6" maxlength="10000" placeholder="Write your reply…" aria-label="Your reply">${esc(E.draft)}</textarea>
           <div class="row-actions"><span class="mini">Nothing is sent until you tap Send Reply.</span><span class="spacer"></span><button type="button" class="btn primary" data-act="em-send" ${E.sending ? "disabled" : ""}>${E.sending ? "Sending…" : "Send Reply"}</button></div></div>`}` : ""}`;
     }
@@ -60728,7 +60730,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Add a free Google Gemini key to chat.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog" aria-live="polite">${logHtml()}</div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
-      <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
+      <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>${AI_ICON} Ask</button></form>
       <input type="file" id="cptFile" multiple accept=".pdf,.pptx,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.heic,application/pdf,image/*,text/plain" class="sr" tabindex="-1" aria-hidden="true">
       <p class="mini cpt-priv">Each question sends only the planner parts it needs, plus attachments, to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New Chat</button>` : ""}</p>`;
   }
@@ -69805,7 +69807,7 @@ function sheetHtml(S){
         <label class="f"><span class="lh">Title ${REQ}</span><input type="text" id="bdTitle" maxlength="200" placeholder="e.g. Research paper on coral bleaching" data-noenter></label>
         <div class="two"><label class="f">Course<select id="bdCourse">${courseOpts}</select></label>
           <label class="f"><span class="lh">Due Date ${REQ}</span><input type="date" id="bdDue"></label></div>
-        <div class="bd-act"><button type="button" class="btn primary" id="bdMake">Make a Plan</button><span class="mini" id="bdMakeMsg" aria-live="polite"></span></div>
+        <div class="bd-act"><button type="button" class="btn primary${aiOkNow() ? " ai-btn" : ""}" id="bdMake">${aiOkNow() ? AI_ICON + " " : ""}Make a Plan</button><span class="mini" id="bdMakeMsg" aria-live="polite"></span></div>
       </div>` : `<div class="bd-sum"><b>${esc(S.title)}</b><span class="mini">${S.courseId && courseOf(S.courseId) ? esc(courseLabel(courseOf(S.courseId))) + " · " : ""}Due ${esc(fmtDate(S.due))}${S.time ? " at " + esc(fmtTime(S.time)) : ""}</span></div>`}
       <div id="bdPlan" ${isNew ? "hidden" : ""}>
         <div id="bdBanner"></div>
@@ -71413,7 +71415,7 @@ function reviewBody(){
   let streakLine = "";
   try { if (SBSTREAK.on() && st.studyDays) streakLine = `<p class="mini">${esc(trn("review.streak", st.studyDays, "You had {n} study day this week.|You had {n} study days this week."))}</p>`; } catch (e) {}
   const ai = aiReady() ? `<section class="wkr-sec"><h3>${esc(tr("review.ai.h", "A short recap"))}</h3>${RV.ai.text ? `<p class="wkr-ai">${esc(RV.ai.text)}</p><p class="mini">${esc(tr("review.ai.note", "Written by {who} from the facts above. Check it against your own list.", {who: aiWord()}))}</p>` : ""}
-      <button type="button" class="btn small" data-act="wkr-ai" ${RV.ai.busy ? "disabled" : ""}>${RV.ai.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(tr("review.ai.busy", "Writing…"))}` : esc(RV.ai.text ? tr("review.ai.again", "Write It Again") : tr("review.ai.btn", "Write a Recap"))}</button></section>` : "";
+      <button type="button" class="btn small ai-btn" data-act="wkr-ai" ${RV.ai.busy ? "disabled" : ""}>${RV.ai.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(tr("review.ai.busy", "Writing…"))}` : AI_ICON + " " + esc(RV.ai.text ? tr("review.ai.again", "Write It Again") : tr("review.ai.btn", "Write a Recap"))}</button></section>` : "";
   return `<p class="wkr-range">${esc(range)}${period.kind === "sofar" ? ` <span class="mini">${esc(tr("review.sofar", "(so far this week)"))}</span>` : ""}</p>
     ${sectionDone(st)}${streakLine}${sectionTime(st)}${sectionSlipped(st)}${sectionPlan(period, plan)}${sectionExams(rows)}${window.SBPRO ? SBPRO.reviewHtml() : ""}
     <section class="wkr-sec wkr-idea"><h3>${esc(tr("review.idea.h", "One gentle idea"))}</h3><p style="margin:0">${esc(ideaText(idea, plan))}</p></section>${ai}
@@ -74059,7 +74061,7 @@ var SBPRO = null;
         <button type="button" class="btn small" data-act="pro-oc-undo"${undoN ? "" : " disabled"}>Undo</button>${zoomBar("pro-oc-zoom")}</div>
       <div class="oc-stage${OC.zoom.s > 1 ? " zoomed" : ""} tool-${OC.tool}" style="--ar:${(it.w / it.h).toFixed(4)}" data-oc-stage><span class="oc-pad" aria-hidden="true"></span><div class="oc-zoom" style="transform:${zoomT(OC.zoom)}">${url && url !== "x" ? `<img src="${esc(url)}" alt="" draggable="false">` : `<span class="ci-wait">Loading the picture…</span>`}
         ${it.boxes.map((x, j) => `<i class="oc-box${sel.includes(j) ? " sel" : ""}${x.g ? " grp" : ""}" data-oc-box="${j}" style="left:${x.x * 100}%;top:${x.y * 100}%;width:${x.w * 100}%;height:${x.h * 100}%">${shapeSvg(x.s)}<b>${num[j]}</b>${one === j ? ["nw", "ne", "sw", "se"].map(h => `<span class="oc-h ${h}" data-oc-h="${h}"></span>`).join("") : ""}</i>`).join("")}</div></div>
-      <div class="oc-tools oc-sel" role="toolbar" aria-label="Picked boxes"><button type="button" class="btn small" data-act="pro-oc-multi" aria-pressed="${OC.multi}">Pick Several</button><button type="button" class="btn small" data-act="pro-oc-group"${canGroup ? "" : " disabled"}>Group as One Card</button><button type="button" class="btn small" data-act="pro-oc-delsel"${sel.length ? "" : " disabled"}>Delete${sel.length > 1 ? ` ${sel.length}` : ""}</button><button type="button" class="btn small" data-act="pro-oc-ai"${it.aiBusy ? " disabled" : ""}>${AI_ICON}<span>${it.aiTried ? "Find Labels Again" : "Find Labels with AI"}</span></button></div>
+      <div class="oc-tools oc-sel" role="toolbar" aria-label="Picked boxes"><button type="button" class="btn small" data-act="pro-oc-multi" aria-pressed="${OC.multi}">Pick Several</button><button type="button" class="btn small" data-act="pro-oc-group"${canGroup ? "" : " disabled"}>Group as One Card</button><button type="button" class="btn small" data-act="pro-oc-delsel"${sel.length ? "" : " disabled"}>Delete${sel.length > 1 ? ` ${sel.length}` : ""}</button><button type="button" class="btn small ai-btn" data-act="pro-oc-ai"${it.aiBusy ? " disabled" : ""}>${AI_ICON}<span>${it.aiTried ? "Find Labels Again" : "Find Labels with AI"}</span></button></div>
       ${n ? `<ol class="oc-list">${gs.map((g, k) => { const j = g[0], x = it.boxes[j], on = g.some(q => sel.includes(q)); return `<li${on ? ' class="sel"' : ""}><button type="button" class="oc-n" data-act="pro-oc-pick" data-id="${j}" aria-label="Pick card ${k + 1} on the picture" aria-pressed="${on}">${k + 1}</button><input type="text" data-oc-ans="${j}" maxlength="200" value="${esc(x.t || "")}" placeholder="What's under box ${k + 1}?" aria-label="Answer for card ${k + 1}${g.length > 1 ? ` (${g.length} boxes)` : ""}">${g.length > 1 ? `<button type="button" class="btn small" data-act="pro-oc-ungroup" data-id="${j}" aria-label="Split card ${k + 1} into ${g.length} cards">Split</button>` : ""}<button type="button" class="x-btn" data-act="pro-oc-del" data-id="${j}" aria-label="Remove card ${k + 1}">${CLOSE}</button></li>`; }).join("")}</ol>` : ""}
       <fieldset class="oc-modes"><legend>When You Study</legend>${MODES.map(([k, l, sub]) => `<label class="oc-mode"><input type="radio" name="ocMode" value="${k}"${OC.mode === k ? " checked" : ""}><span><b>${l}</b><span class="mini">${sub}</span></span></label>`).join("")}</fieldset>`;
     keepLabel();
@@ -80091,8 +80093,8 @@ async function pdeBake(L, bytes, edits, opts){
       let nm = String(e.name || "Field").replace(/[.]/g, " ").slice(0, 60) || "Field", k = 2; while (taken.has(nm)) nm = `${e.name} ${k++}`; taken.add(nm);
       const at = {x: e.o[0], y: e.o[1], width: e.w, height: e.h, borderWidth: 0.6, borderColor: L.rgb(0.75, 0.78, 0.85)};
       try {
-        if (e.ft === "check") { const cb = form.createCheckBox(nm); cb.addToPage(pages[e.p - 1], at); }
-        else { const tf = form.createTextField(nm); if (e.ft === "multi") tf.enableMultiline(); tf.addToPage(pages[e.p - 1], Object.assign(at, {borderWidth: 0})); try { tf.setFontSize(e.ft === "multi" ? 11 : Math.max(8, Math.min(14, e.h * 0.62))); } catch (err) {} }
+        if (e.ft === "check") { const cb = form.createCheckBox(nm); cb.addToPage(pages[e.p - 1], at); if (e.v === true) cb.check(); }
+        else { const tf = form.createTextField(nm); if (e.ft === "multi") tf.enableMultiline(); tf.addToPage(pages[e.p - 1], Object.assign(at, {borderWidth: 0})); try { tf.setFontSize(e.ft === "multi" ? 11 : Math.max(8, Math.min(14, e.h * 0.62))); } catch (err) {} if (typeof e.v === "string" && e.v) tf.setText(e.v); }
         report.newFields = (report.newFields || 0) + 1;
       } catch (err) {}
     }
@@ -80475,10 +80477,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const prev = ed && ed.el && ed.el.isConnected ? ed.el : null, had = !!prev && document.activeElement === prev; let caret = null;
     if (prev) ed.e.t = textOf(prev);
     if (had) { try { const s = getSelection(); if (s.rangeCount) { const r = s.getRangeAt(0), pre = document.createRange(); pre.selectNodeContents(prev); pre.setEnd(r.startContainer, r.startOffset); const a = pre.toString().length; pre.setEnd(r.endContainer, r.endOffset); caret = [a, pre.toString().length]; } } catch (e) {} }
+    const qf = document.activeElement && document.activeElement.dataset && L.contains(document.activeElement) && document.activeElement.dataset.q ? {id: document.activeElement.dataset.q, v: document.activeElement.value, a: document.activeElement.selectionStart, b: document.activeElement.selectionEnd} : null;
     const list = mine().filter(e => e.p === n && !["f", "h", "m", "o"].includes(e.k) && !(ed && ed.e.id === e.id));
     const one = e => e.k === "x" ? picHtml(pg, e) : e.k === "l" ? linkHtml(pg, e) : e.k === "q" ? fieldHtml(pg, e) : editHtml(pg, e, false);
     const ps = E.picSel && E.picSel.p === n ? (() => { const b = picBox(E.picSel.m), f = frame(pg, b.o, 0); return `<i class="pde-picsel" data-pic="1" style="left:${px(f.x)};top:${px(f.y - b.h * f.s)};width:${px(b.w * f.s)};height:${px(b.h * f.s)}" title="Drag to move this picture"></i>`; })() : "";
     L.innerHTML = watermarkHtml(pg) + headerHtml(pg) + list.map(one).join("") + foundHtml(pg) + ps + (ed ? editHtml(pg, ed.e, true) : "") + '<i class="pde-hover" hidden></i><i class="pde-band" hidden></i><svg class="pde-lnprev" width="100%" height="100%" hidden><path/></svg>';
+    if (qf) { const el = L.querySelector(`[data-q="${CSS.escape(qf.id)}"]`); if (el) { if (el.type !== "checkbox") { el.value = qf.v; try { el.setSelectionRange(qf.a, qf.b); } catch (err) {} } el.focus({preventScroll: true}); } }
     if (E.on && E.tool === "link") oldLinksHtml(pg).then(h => { if (h && L.isConnected) L.insertAdjacentHTML("beforeend", h); });
     if (ed) {
       const t = L.querySelector(".pde-e.editing .pde-t");
@@ -80531,6 +80535,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   document.addEventListener("change", ev => {
     const t = ev.target; if (!E || !t.classList || !t.classList.contains("pde-field")) return;
+    if (t.dataset.q) { qSet(t.dataset.q, t.type === "checkbox" ? t.checked : t.value, false); return; }   // saved a moment later, so Tab can move on first
     const name = t.dataset.f, p = Number(t.dataset.p);
     const v = t.type === "checkbox" ? t.checked : t.type === "radio" ? t.dataset.v : t.value;
     setField(name, v, p, Number(t.dataset.s) || 0);
@@ -80725,7 +80730,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // resizing or moving a line's end: shown live by drawing the changed copy
     const next = resized(d, at); if (!next) return;
     const el = L.querySelector(`[data-e="${CSS.escape(d.e.id)}"]`);
-    if (el) { const w = document.createElement("div"); w.innerHTML = editHtml(d.pg, next, false); el.replaceWith(w.firstChild); }
+    if (el) {
+      const w = document.createElement("div"); w.innerHTML = next.k === "x" ? picHtml(d.pg, next) : next.k === "l" ? linkHtml(d.pg, next) : next.k === "q" ? fieldHtml(d.pg, next) : editHtml(d.pg, next, false);
+      // the picture already shown is kept (a new <img> would have to load again, so it blinks while you drag)
+      const nu = w.firstChild, oldImg = el.querySelector("img"), newImg = nu && nu.querySelector("img");
+      if (oldImg && newImg && oldImg.getAttribute("src") === newImg.getAttribute("src")) newImg.replaceWith(oldImg);
+      if (nu) el.replaceWith(nu);
+    }
     d.next = next;
   });
   function resized(d, at){
@@ -81162,7 +81173,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${MORE.some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((MORE.find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${MORE.map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi" data-act="pde-tool" data-id="${k}">${ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span></span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${MORE.some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((MORE.find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${MORE.map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span></span>
       <span class="spacer"></span>
       <span class="pde-save"><button type="button" class="btn small" data-act="pde-dl" title="Download PDF">${ico(IC.down)}<span class="pde-lbl">Download PDF</span></button><button type="button" class="btn small primary" data-act="pde-save"${n ? "" : " disabled"}>${ico(IC.save)}Save${n ? ` ${n} Edit${n === 1 ? "" : "s"}` : ""}</button></span>
       <div class="pde-sub">
@@ -81397,6 +81408,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-cite": citeGo(Number(id), el.dataset.q || ""); break;
       case "pde-st": studyPanel(); break;
       case "pde-st-go": studyGo(); break;
+      case "pde-st-add": cardsAdd(); break;
       case "pde-hist-step": histStep(Number(id) || -1); break;
       // back to just after change k: the later ones move to redo, newest last, so Redo brings them back in order
       case "pde-hist-go": { const H = S.hist, k = Number(id), target = H && H.undo[k]; if (!target) break; while (H.undo.length - 1 > k) H.redo.push(H.undo.pop()); S.histMute = true; try { save(clone(target.after), null); } finally { S.histMute = false; } historyPanel(); break; }
@@ -81592,7 +81604,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         <p class="mini" style="margin:0">The result is saved as a new version of this file. Letters outside Western European languages become “?” for now.</p>
         <p class="mini" id="pdeOcrMsg" aria-live="polite"></p>
       </div>
-      <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-ocr-go">Send to ${esc(W.company)} and Recognize</button></div>`, "fonts");
+      <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary ai-btn" data-act="pde-ocr-go">${AI_ICON} Send to ${esc(W.company)} and Recognize</button></div>`, "fonts");
     E.ocrNone = none;
   }
   async function ocrGo(){
@@ -82168,9 +82180,26 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     closePanel(); E.linkBox = null; E.sel = e.id; save(mine().concat([e]), "Link added");
   }
   // fillable fields: found on the pages, or drawn
+  // a new field's value: kept as it's typed (so a redraw can't lose it), saved on the field's edit shortly after
+  let qTimer = 0;
+  function qSet(id, v, now){
+    E.qv = E.qv || {}; E.qv[id] = v; clearTimeout(qTimer);
+    const go = () => { if (!E || !E.qv) return; const list = mine(); let ch = false; const next = list.map(x => x.k === "q" && E.qv[x.id] !== undefined && E.qv[x.id] !== x.v ? (ch = true, Object.assign({}, x, {v: E.qv[x.id]})) : x); E.qv = {}; if (ch) save(next, null); };
+    if (now) go(); else qTimer = setTimeout(go, 500);
+  }
+  document.addEventListener("input", ev => { const t = ev.target; if (E && t && t.dataset && t.dataset.q && t.classList.contains("pde-qf")) qSet(t.dataset.q, t.type === "checkbox" ? t.checked : t.value, false); });
+  // a new field can be filled in straight away; what's typed goes into the field when the PDF is saved
+  function qInput(e, s){
+    const lab = esc(e.name || "Field"), id = esc(e.id);
+    if (E.qv && E.qv[e.id] !== undefined) e = Object.assign({}, e, {v: E.qv[e.id]});
+    if (e.ft === "check") return `<input type="checkbox" class="pde-field pde-qf" data-q="${id}" aria-label="${lab}"${e.v === true ? " checked" : ""}>`;
+    const fs = px(Math.max(8, (e.ft === "multi" ? 11 : Math.min(14, e.h * 0.62))) * s);
+    return e.ft === "multi" ? `<textarea class="pde-field pde-qf" data-q="${id}" aria-label="${lab}" style="font-size:${fs}">${esc(e.v || "")}</textarea>`
+      : `<input type="text" class="pde-field pde-qf" data-q="${id}" aria-label="${lab}" style="font-size:${fs}" value="${esc(typeof e.v === "string" ? e.v : "")}">`;
+  }
   function fieldHtml(pg, e){
     const sel = E.sel === e.id || (E.multi && E.multi.has(e.id)), f = frame(pg, e.o, e.r || 0), s = f.s;
-    return `<div class="pde-e k-q ft-${e.ft}${sel ? " sel" : ""}" data-e="${esc(e.id)}" style="left:${px(f.x)};top:${px(f.y)}"><i class="pde-fld" style="left:0;top:${px(-e.h * s)};width:${px(e.w * s)};height:${px(e.h * s)}"><span>${esc(e.ft === "check" ? "" : e.name)}</span></i>${sel ? `<i class="pde-grip" data-size="1" style="left:${px(e.w * s)};top:0"></i>` : ""}</div>`;
+    return `<div class="pde-e k-q ft-${e.ft}${sel ? " sel" : ""}" data-e="${esc(e.id)}" style="left:${px(f.x)};top:${px(f.y)}"><i class="pde-fld" style="left:0;top:${px(-e.h * s)};width:${px(e.w * s)};height:${px(e.h * s)}"><span class="pde-fld-tag" title="Drag to move this field">${esc(e.ft === "check" ? "Tick box" : e.name)}</span>${qInput(e, s)}</i>${sel ? `<i class="pde-grip" data-size="1" style="left:${px(e.w * s)};top:0"></i>` : ""}</div>`;
   }
   async function fieldsPanel(){
     const r = R(); if (!r || !r.doc) return;
@@ -82324,7 +82353,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     E.ask = E.ask || [];
     panel(`${panelHead("Ask This PDF", `Answers come only from this PDF, with the pages they're from. Your question and this PDF's text (for a long PDF, the parts that match your question) are sent to ${esc(W.company)} ${esc(W.product)}.`)}
       <div class="pde-pb"><div class="pde-chat" id="pdeAskLog">${askLog()}</div></div>
-      <form class="pde-pf pde-askf" id="pdeAskForm"><input type="text" id="pdeAskQ" maxlength="500" placeholder="Ask about this reading" autocomplete="off" aria-label="Your question"><button type="submit" class="btn primary">Ask</button></form>`, "pages ask");
+      <form class="pde-pf pde-askf" id="pdeAskForm"><input type="text" id="pdeAskQ" maxlength="500" placeholder="Ask about this reading" autocomplete="off" aria-label="Your question"><button type="submit" class="btn primary ai-btn">${AI_ICON} Ask</button></form>`, "pages ask");
     setTimeout(() => { const q = $("#pdeAskQ"); if (q) q.focus(); }, 30);
   }
   function askLog(){
@@ -82379,8 +82408,29 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         ${!ok && !withCm.length ? `<p class="mini" style="margin:0">Comment on some highlights first (select text, then Comment): each becomes a card, the comment on the front and the highlighted words on the back.</p>` : ""}
         <p class="mini" id="pdeStMsg" aria-live="polite"></p>
       </div>
-      <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-st-go">Make It</button></div>`, "fonts");
+      <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary ai-btn" data-act="pde-st-go">${AI_ICON} Make It</button></div>`, "fonts");
   }
+  // the cards, to look over before they're added: untick any you don't want, fix any wording
+  function cardsPreview(d, cards){
+    E.stPrev = {d, cards};
+    panel(`${panelHead("Check Your Flashcards", `${cards.length} card${cards.length === 1 ? "" : "s"} for ${esc(d.name)}. Untick any you don't want, and fix any wording, then add them.`)}
+      <div class="pde-pb"><ol class="pde-cardprev">${cards.map((c, i) => `<li><label class="pde-cp-keep"><input type="checkbox" data-cp-keep="${i}" checked aria-label="Keep card ${i + 1}"></label>
+        <div class="pde-cp-txt"><textarea data-cp-front="${i}" rows="2" maxlength="300" aria-label="Card ${i + 1} front">${esc(c.front)}</textarea><textarea data-cp-back="${i}" rows="2" maxlength="1200" aria-label="Card ${i + 1} back">${esc(c.back)}</textarea>${c.src && c.src.p ? `<span class="mini">Page ${c.src.p}</span>` : ""}</div></li>`).join("")}</ol></div>
+      <div class="pde-pf"><button type="button" class="btn" data-act="pde-st">Start Over</button><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-st-add" id="pdeCpAdd">Add ${cards.length} Card${cards.length === 1 ? "" : "s"}</button></div>`, "fonts");
+  }
+  function cardsAdd(){
+    const pv = E.stPrev; if (!pv) return;
+    const keep = pv.cards.map((c, i) => {
+      if (!(dlg.querySelector(`[data-cp-keep="${i}"]`) || {}).checked) return null;
+      const fr = String((dlg.querySelector(`[data-cp-front="${i}"]`) || {}).value || "").trim(), bk = String((dlg.querySelector(`[data-cp-back="${i}"]`) || {}).value || "").trim();
+      if (!fr || !bk) return null;
+      return fr === c.front && bk === c.back ? c : Object.assign({}, c, {front: fr.slice(0, 300), back: bk.slice(0, 1200)});
+    }).filter(Boolean);
+    if (!keep.length) { toast("Tick at least one card to add"); return; }
+    const d = pv.d; E.stPrev = null;
+    d.cards = d.cards.concat(keep); d.updated = Date.now(); saveDeck(d, `${keep.length} flashcard${keep.length === 1 ? "" : "s"} added to ${d.name}`); closePanel();
+  }
+  document.addEventListener("change", ev => { const t = ev.target; if (!E || !E.stPrev || !t.dataset || t.dataset.cpKeep === undefined) return; const n = dlg.querySelectorAll("[data-cp-keep]:checked").length, b = $("#pdeCpAdd"); if (b) { b.textContent = `Add ${n} Card${n === 1 ? "" : "s"}`; b.disabled = !n; } const li = t.closest("li"); if (li) li.classList.toggle("off", !t.checked); });
   const deckNameFor = f => { const c = courseOf(f.courseId); return `${c ? courseLabel(c) : "Readings"}: ${f.name.replace(/\.pdf$/i, "")}`.slice(0, 80); };
   async function studyGo(){
     const f = fileOf(), msg = $("#pdeStMsg"), go = dlg.querySelector('[data-act="pde-st-go"]'), val = nm => (dlg.querySelector(`input[name="${nm}"]:checked`) || {}).value;
@@ -82395,7 +82445,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         const hls = (f.hl || []).filter(h => h && h.a === E.rev && h.cm && h.t);
         if (!hls.length) { say("Comment on some highlights first: each comment becomes a card's front."); return; }
         const cards = hls.map(h => ({id: uid(), front: h.cm.slice(0, 300), back: h.t.slice(0, 1200), box: 0, due: "", seen: 0, right: 0, wrong: 0, src: {f: f.id, p: h.p}, copied: true}));
-        d.cards = d.cards.concat(cards); d.updated = Date.now(); saveDeck(d, `${cards.length} card${cards.length === 1 ? "" : "s"} added to ${d.name}`); closePanel(); return;
+        cardsPreview(d, cards); return;
       }
       // the material, with its pages
       let material = "", src = [];
@@ -82418,7 +82468,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
           if (aiCopied(card.front + "\n" + card.back, idx)) card.copied = true;
           return card; });
         if (!cards.length) throw new Error("The AI didn't write any cards. Try again.");
-        d.cards = d.cards.concat(cards); d.updated = Date.now(); saveDeck(d, `${cards.length} flashcards added to ${d.name}`); closePanel(); return;
+        cardsPreview(d, cards); return;
       }
       if (make === "quiz") {
         const res = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, parts: [{text: `Reading:\n${material.slice(0, 60000)}\n\nWrite ${n} questions.`}],
@@ -82465,7 +82515,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // the reader's own tools: read aloud, the PDF's contents, and comparing versions
     readerTools(){
       const r = R(), f = r && state.files[r.fid];
-      return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}<button type="button" class="btn small pde-rt" data-act="pde-ask" title="Ask This PDF">${ico('<path d="M4 5h16v11H9l-5 4z"/><path d="M10 9.5a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.2M12 14.5h.01"/>')}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt" data-act="pde-st" title="Study From This PDF">${ico('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')}<span class="pde-lbl">Study</span></button><button type="button" class="btn small pde-rt" data-act="pde-ti" title="Turn In">${ico('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>')}<span class="pde-lbl">Turn In</span></button>`;
+      return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF">${AI_ICON}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF">${AI_ICON}<span class="pde-lbl">Study</span></button><button type="button" class="btn small pde-rt" data-act="pde-ti" title="Turn In">${ico('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>')}<span class="pde-lbl">Turn In</span></button>`;
     },
     scanBtn: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small pde-scan-btn" data-act="pde-scan">${ico('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}Scan to PDF</button>`,
     scan: () => scanOpen(null),
@@ -82561,7 +82611,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pdr-page .pde-form select.pde-field{padding:0 2px;-webkit-appearance:menulist;appearance:menulist}
 .pdr-page .pde-form .pde-field[type=checkbox],.pdr-page .pde-form .pde-field[type=radio]{-webkit-appearance:auto;appearance:auto;accent-color:#1f3a93;padding:0;cursor:pointer;background:none}
 .pdr-page .pde-form .pde-field:focus{outline:2px solid var(--accent,#2563eb);background:rgba(204,215,255,.7)}
-.pde-panel{position:absolute;inset:0;z-index:50;background:color-mix(in srgb,var(--surface) 97%,transparent);display:flex;flex-direction:column;min-height:0}
+.pde-panel{position:absolute;inset:0;z-index:50;background:linear-gradient(var(--surface),var(--surface)),linear-gradient(var(--bg,#fff),var(--bg,#fff)),Canvas;display:flex;flex-direction:column;min-height:0}
 .pde-ph{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 18px 8px;border-bottom:1px solid var(--line)}
 .pde-ph h3{margin:0;font:600 1.05rem var(--display)}
 .pde-ph p{margin:4px 0 0;max-width:46em}
@@ -82623,7 +82673,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-e.k-l.del .pde-lnk{border-color:#c0262d;background:repeating-linear-gradient(45deg,rgba(192,38,45,.12) 0 4px,transparent 4px 8px)}
 .pde-oldlink{position:absolute;border:1.5px solid #2457c5;background:rgba(36,87,197,.12);border-radius:3px;cursor:pointer;padding:0;pointer-events:auto}
 .pde-fld{position:absolute;display:flex;align-items:center;border:1.5px dashed #1d7a3a;background:rgba(29,122,58,.08);border-radius:2px;overflow:hidden}
-.pde-fld span{font:600 10px var(--body);color:#1d7a3a;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pde-fld{overflow:visible}
+.pde-fld .pde-fld-tag{position:absolute;left:-1.5px;bottom:100%;font:600 10px var(--body);color:#fff;background:#1d7a3a;padding:1px 5px;border-radius:3px 3px 0 0;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;cursor:move;pointer-events:auto}
+.pde-fld .pde-qf{position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;margin:0;border:0;padding:0 3px;background:transparent;color:#000;font-family:Helvetica,Arial,sans-serif;pointer-events:auto;outline:none}
+.pde-fld textarea.pde-qf{resize:none;padding:2px 3px;line-height:1.15}
+.pde-fld .pde-qf[type=checkbox]{-webkit-appearance:auto;appearance:auto;accent-color:#1f3a93;cursor:pointer;width:auto;height:auto;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%)}
+.pde-fld .pde-qf:focus{background:rgba(204,215,255,.45)}
 .pde-found{position:absolute;display:block;border:2px solid #1d7a3a;background:rgba(29,122,58,.14);border-radius:2px;pointer-events:none}
 .pde-fdlist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .pde-fdlist li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -82676,6 +82731,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-phone-t{flex:1 1 220px;display:grid;gap:6px}.pde-phone-t p{margin:0}
 .pde-phone-n{font-weight:700;color:var(--ink)}
 .pde-phone .row-actions{margin:2px 0 0}
+.pde-cardprev{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.pde-cardprev li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);position:relative;isolation:isolate}
+.pde-cardprev li.off{opacity:.5}
+.pde-cp-keep{padding-top:6px}
+.pde-cp-txt{display:grid;gap:6px}
+.pde-cp-txt textarea{width:100%;box-sizing:border-box;resize:vertical;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.pde-cp-txt textarea[data-cp-front]{font-weight:600}
 .pde-scan .row-actions{align-items:flex-end}
 .pde-scan .row-actions .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;min-height:40px;height:auto;line-height:1.2}
 .pde-inline{display:inline-grid;margin-left:auto}
@@ -83244,7 +83306,7 @@ var SBWB = null;
   const CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
   const SHAPES = [["line", "Line", '<path d="M5 19L19 5"/>'], ["arrow", "Arrow", '<path d="M5 19L19 5"/><path d="M10 5h9v9"/>'], ["double", "Double Arrow", '<path d="M5 19L19 5"/><path d="M12.5 5H19v6.5"/><path d="M11.5 19H5v-6.5"/>'],
     ["rect", "Rectangle", '<rect x="4" y="6" width="16" height="12" rx="1"/>'], ["ellipse", "Circle", '<ellipse cx="12" cy="12" rx="8.5" ry="6.5"/>'], ["triangle", "Triangle", '<path d="M12 4.5l8.5 15h-17z"/>'], ["diamond", "Diamond", '<path d="M12 3.5l8.5 8.5-8.5 8.5L3.5 12z"/>']];
-  const TOOLS = [["select", "Select", "V"], ["pen", "Marker", "P"], ["hl", "Highlighter", "H"], ["eraser", "Eraser", "E"], ["shape", "Shapes", "S"], ["text", "Text", "T"], ["hand", "Move Around", "Space"]];
+  const TOOLS = [["select", "Select", "V"], ["pen", "Marker", "P"], ["hl", "Highlighter", "H"], ["eraser", "Eraser", "E"], ["shape", "Shapes", "S"], ["text", "Text", "T"], ["hand", "Move", "Space"]];
   const TPL = [["blank", "Blank"], ["grid", "Grid"], ["dots", "Dots"], ["lines", "Lines"], ["cornell", "Cornell Notes"], ["concept", "Concept Map"], ["week", "Week Plan"], ["kanban", "To Do, Doing, Done"], ["venn", "Venn Diagram"], ["timeline", "Timeline"]];
   const tplName = id => (TPL.find(t => t[0] === id) || TPL[0])[1];
 
@@ -85380,7 +85442,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
 (() => {
   const W = window.SBWB; if (!W) return;
   const MAX = 2000;
-  hook("wb-head", id => id ? `<button class="btn small" data-act="wb-ai" title="Turn this board into typed notes and flashcards">${AI_ICON} Notes and Cards</button>` : "");
+  hook("wb-head", id => id ? `<button class="btn small ai-btn" data-act="wb-ai" title="Turn this board into typed notes and flashcards">${AI_ICON} Notes and Cards</button>` : "");
   const SCHEMA = {type: "OBJECT", properties: {
     title: {type: "STRING", description: "A short title for the notes"},
     notes: {type: "STRING", description: "Clean, organized typed study notes of everything on the board. Plain text: short headings on their own line, bullets starting with '• ', formulas, numbers and labels exact. Describe diagrams and what their arrows connect in words."}},
@@ -86524,7 +86586,7 @@ function lectureHtml(fid){
     let s2;
     if (cs.length) { const d = cs[0].d; s2 = step(2, !drafts.length, "Cards", esc(`${plural(cs.length, "card")} in ${d.name}${drafts.length ? `, ${drafts.length} to check` : ""}`), drafts.length ? B("lc-check", d.id, `Check ${plural(drafts.length, "Draft")}`, "primary") : B("lc-deck", d.id, "Open Deck")); }
     else if (BUSY["c" + (note && note.id)]) s2 = step(2, false, "Cards", `<span class="ai-spin" aria-hidden="true"></span> Making them…`, "");
-    else if (note) s2 = step(2, false, "Cards", esc(aiOn() ? "Draft cards from the notes, for you to check" : "Made on this device from the notes"), B("lc-cards", note.id, esc(`Make Cards for ${codeOf(cid) || "the"} Deck`), "primary"));
+    else if (note) s2 = step(2, false, "Cards", esc(aiOn() ? "Draft cards from the notes, for you to check" : "Made on this device from the notes"), B("lc-cards", note.id, (aiOn() && !locked() ? AI_ICON + " " : "") + esc(`Make Cards for ${codeOf(cid) || "the"} Deck`), aiOn() && !locked() ? "primary ai-btn" : "primary"));
     else s2 = step(2, false, "Cards", "After the notes", "");
     let s3;
     if (!cs.length) s3 = step(3, false, "Exam Prep", "After the cards", "");
@@ -86544,7 +86606,7 @@ function decorateNotes(){
     if (!f) { if (old) old.remove(); return; }
     const cs = cardsFrom(f.id), drafts = cs.filter(x => isText(x.c)), cid = n.courseId || f.courseId || "";
     const btn = cs.length ? (drafts.length ? `<button type="button" class="btn small" data-act="lc-check" data-id="${esc(cs[0].d.id)}">Check ${plural(drafts.length, "Draft")}</button>` : `<button type="button" class="btn small" data-act="lc-deck" data-id="${esc(cs[0].d.id)}">${plural(cs.length, "Card")}</button>`)
-      : BUSY["c" + n.id] ? `<span class="mini"><span class="ai-spin" aria-hidden="true"></span> Making cards…</span>` : `<button type="button" class="btn small lc-mk" data-act="lc-cards" data-id="${esc(n.id)}">${esc(`Make Cards for ${deckLabel(cid).replace(/ Lectures$/, "") || codeOf(cid)} Deck`)}</button>`;
+      : BUSY["c" + n.id] ? `<span class="mini"><span class="ai-spin" aria-hidden="true"></span> Making cards…</span>` : `<button type="button" class="btn small lc-mk${aiOn() && !locked() ? " ai-btn" : ""}" data-act="lc-cards" data-id="${esc(n.id)}">${aiOn() && !locked() ? AI_ICON + " " : ""}${esc(`Make Cards for ${deckLabel(cid).replace(/ Lectures$/, "") || codeOf(cid)} Deck`)}</button>`;
     const html = `<div class="lc-nrow"><span class="lc-nfrom">From <button type="button" class="link-btn" data-act="lec-view" data-id="${esc(f.id)}">${esc(f.name)}</button>, ${esc(fmtShort(n.lecAt || lecDate(f)))}</span>${btn}</div>`;
     if (old) { if (old.outerHTML !== html) old.outerHTML = html; return; }
     const at = el.querySelector(".note-tools"); if (at) at.insertAdjacentHTML("beforebegin", html);
@@ -87141,7 +87203,7 @@ const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test
 const RUB_NAME = /rubric|criteria|marking|grading|scoring|assessment guide/i;
 function taskBtn(t){
   if (!t || inPreview() || !RBC.eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn" data-act="rb-check" data-id="${esc(t.id)}">Check Against Rubric${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON} Check Against Rubric${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
 // The rubric a task already has: from the school site, an attached rubric file, or notes that read like one
 async function autoRubric(t){
@@ -87567,7 +87629,7 @@ function btn(ex, t){
 function taskHtml(s){
   if (!s || !s.prepFor || s.status === "done" || !(s.kind === "teach" || s.kind === "recall")) return "";
   const ex = state.tasks[s.prepFor], t = ex && findTopic(ex, s.topicId, s.topic); if (!t || ex.status === "done") return "";
-  return `<div class="pp-form"><div><b>Teach It Back</b><span class="mini"> Explain ${esc(t.name)} in your own words, and AI checks it against your linked material.</span></div><button type="button" class="btn small" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">Teach It Back${badge()}</button></div>`;
+  return `<div class="pp-form"><div><b>Teach It Back</b><span class="mini"> Explain ${esc(t.name)} in your own words, and AI checks it against your linked material.</span></div><button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">${AI_ICON} Teach It Back${badge()}</button></div>`;
 }
 hook("act", (act, el, id) => {
   if (act === "tb-open") { open(id, el && el.dataset ? el.dataset.topic : "", el && el.dataset ? el.dataset.name : ""); return true; }

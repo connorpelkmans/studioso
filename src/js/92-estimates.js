@@ -37,7 +37,7 @@ var SBEST = (() => {
         <div class="segb" role="group" aria-label="Which tasks"><button type="button" data-act="est-scope" data-id="soon" aria-pressed="${!S.all}">Due in 2 Weeks</button><button type="button" data-act="est-scope" data-id="all" aria-pressed="${S.all}">All Without a Time${more > 0 ? ` (${more} more)` : ""}</button></div>
         <span class="spacer"></span>
         ${L.length ? `<button type="button" class="btn small" data-act="est-all">Use All Suggestions</button>` : ""}
-        ${L.length && aiReady() ? `<button type="button" class="btn small" data-act="est-ai" ${S.busy ? "disabled" : ""}>${S.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${aiWho() ? esc(aiWho()) + " is thinking…" : "Thinking…"}` : `${AI_ICON} Suggest With ${esc(aiWho("AI"))}`}</button>` : ""}
+        ${L.length && aiReady() ? `<button type="button" class="btn small ai-btn" data-act="est-ai" ${S.busy ? "disabled" : ""}>${S.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${aiWho() ? esc(aiWho()) + " is thinking…" : "Thinking…"}` : `${AI_ICON} Suggest With ${esc(aiWho("AI"))}`}</button>` : ""}
       </div>
       <p class="status-msg" id="estMsg" aria-live="polite">${esc(S.msg || "")}</p>
       ${L.length ? `<ol class="est-list">${L.map(row).join("")}</ol>` : `<p class="empty-note">${S.all ? "Every open task has a time estimate. Nice!" : "Everything due in the next 2 weeks has a time estimate."}</p>`}

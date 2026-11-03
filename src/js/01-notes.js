@@ -725,7 +725,7 @@ function viewNoteBoard(){
   const archived = notesArr().filter(n => n.archived).length;
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
-  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
+  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note">${AI_ICON}<span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">

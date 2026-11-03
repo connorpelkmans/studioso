@@ -266,6 +266,7 @@ details.faq p{margin:.6em 0 0;color:var(--muted)}
 .plat .you-tag{position:absolute;top:-11px;left:16px;font:700 .68rem var(--display);letter-spacing:.06em;text-transform:uppercase;background:var(--accent-2);color:#fff;padding:3px 9px;border-radius:999px}
 .plat .ico{width:38px;height:38px;color:var(--ink)}
 .plat .ico img{display:block;width:38px;height:38px;border-radius:9px}
+.plat.ext .ico img{box-shadow:0 0 0 1px var(--line),0 1px 3px rgba(15,31,61,.12)}
 .plat.ext{grid-template-rows:auto 1fr auto}
 .plat .ext-hd{display:flex;align-items:center;gap:12px}
 .plat .ext-hd .ico{flex:none}
@@ -378,6 +379,8 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 /* "Available in the Chrome Web Store" badge (Google's artwork, resized only) */
 .cwsb{display:inline-flex;align-items:center;text-decoration:none;line-height:0}
 .cwsb img{display:block;height:56px;width:auto}
+/* the light badge has blank space around its artwork: it's drawn larger so the artwork is as tall as the Edge badge (Google allows resizing; Microsoft asks for its badge to be at least as large) */
+.cwsb .on-light{height:87.5px;margin:-15.8px -21.0px -15.8px -13.4px}
 .cwsb:focus-visible{outline:2px solid var(--accent,#2F6FDB);outline-offset:3px}
 .cwsb .on-dark{display:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cwsb .on-light{display:none}:root:not([data-theme="light"]) .cwsb .on-dark{display:block}}
@@ -389,3 +392,18 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 .edgeb:focus-visible{outline:2px solid var(--accent,#2F6FDB);outline-offset:3px}
 .ms-go{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:auto}
 .ms-go .exe{font-size:.85rem;color:var(--muted,#5b6475)}
+
+/* Account: Continue with Apple / Google (Apple: black or white with its logo; Google: its logo on light or dark, pill shape) */
+.oauth{display:grid;gap:10px;margin:4px 0 14px}
+.oauth[hidden]{display:none}
+.oa{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:44px;padding:10px 16px;border-radius:999px;font:500 15px/1.2 Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;border:1px solid #747775;background:#fff;color:#1f1f1f}
+.oa[hidden]{display:none}
+.oa:disabled{opacity:.6;cursor:default}
+.oa:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.oa-ic{flex:none;display:block}
+.oa-apple{background:#000;border-color:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}
+.oa-or{display:flex;align-items:center;gap:10px;margin:4px 0 0;color:var(--muted);font-size:.85rem}
+.oa-or::before,.oa-or::after{content:"";flex:1;height:1px;background:var(--line)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .oa-google{background:#131314;border-color:#8e918f;color:#e3e3e3}:root:not([data-theme="light"]) .oa-apple{background:#fff;border-color:#fff;color:#000}}
+:root[data-theme="dark"] .oa-google{background:#131314;border-color:#8e918f;color:#e3e3e3}
+:root[data-theme="dark"] .oa-apple{background:#fff;border-color:#fff;color:#000}

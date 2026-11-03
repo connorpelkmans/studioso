@@ -198,7 +198,8 @@ async function bsHarvest(o) {
   };
   const txt = (h, n) => {
     if (h && typeof h === "object") h = h.Text && typeof h.Text === "object" ? h.Text : h;
-    if (h && typeof h === "object") h = h.Text || h.Html || "";
+    // the HTML first: Brightspace's plain-text copy drops line breaks without a space ("succinctlydiscusses")
+    if (h && typeof h === "object") h = h.Html || h.Text || "";
     return htmlText(h, { max: n || 4000 });
   };
   // The Grades page as the student sees it (Grades in the course navbar): one row per grade item, read by its column headings
@@ -504,7 +505,7 @@ async function bsHarvest(o) {
       const cr = [];
       r.CriteriaGroups.forEach(g => { const lv = g.Levels || []; (g.Criteria || []).forEach(x => { if (cr.length < 15) cr.push({ id: String(x.Id || ""), t: txt(x.Name, 200), d: "",
         pts: Math.max(0, ...(x.Cells || []).map(y => Number(y && y.Points) || 0), ...lv.map(y => Number(y && y.Points) || 0)),
-        lv: (x.Cells || []).slice(0, 6).map((y, i) => ({ id: String(lv[i] && lv[i].Id || ""), t: txt(lv[i] && lv[i].Name, 80), d: txt(y && y.Description, 160), pts: Number(y && y.Points != null ? y.Points : lv[i] && lv[i].Points) || 0 })) }); }); });
+        lv: (x.Cells || []).slice(0, 6).map((y, i) => ({ id: String(lv[i] && lv[i].Id || ""), t: txt(lv[i] && lv[i].Name, 80), d: txt(y && y.Description, 700), pts: Number(y && y.Points != null ? y.Points : lv[i] && lv[i].Points) || 0 })) }); }); });
       return cr.length ? { name: txt(r.Name, 120) || "Rubric", pts: null, cr } : null;
     };
     const fbOf = (fe, rub, of) => {
@@ -752,7 +753,7 @@ async function cvHarvest(o) {
       const r = Array.isArray(a.rubric) ? a.rubric : null; if (!r || !r.length) return null;
       return { name: String((a.rubric_settings && a.rubric_settings.title) || "Rubric").slice(0, 120), pts: Number(a.rubric_settings && a.rubric_settings.points_possible) || null,
         cr: r.slice(0, 15).map(x => ({ id: String(x.id || ""), t: txt(x.description, 200), d: txt(x.long_description, 300), pts: Number(x.points) || 0,
-          lv: (x.ratings || []).slice(0, 6).map(v => ({ id: String(v.id || ""), t: txt(v.description, 80), d: txt(v.long_description, 160), pts: Number(v.points) || 0 })) })) };
+          lv: (x.ratings || []).slice(0, 6).map(v => ({ id: String(v.id || ""), t: txt(v.description, 80), d: txt(v.long_description, 700), pts: Number(v.points) || 0 })) })) };
     };
     const fbOf = (a, s, rub) => {
       if (!s) return null;
@@ -935,7 +936,7 @@ async function bbHarvest(o) {
       if (!Array.isArray(rows) || !rows.length) return null;
       return { name: txt(r.title || r.name, 120) || "Rubric", pts: null, cr: rows.slice(0, 15).map(x => {
         const cells = x.rubricCells || x.cells || [];
-        const lv = cells.slice(0, 6).map((y, k) => { const lc = lcols.find(z => z && String(z.id) === String(y.rubricColumnId || y.columnId)) || lcols[k] || {}; return { id: String(y.id || lc.id || ""), t: txt(lc.header || lc.title, 80), d: txt(y.description, 160), pts: Number(y.points != null ? y.points : y.maxPoints) || 0 }; });
+        const lv = cells.slice(0, 6).map((y, k) => { const lc = lcols.find(z => z && String(z.id) === String(y.rubricColumnId || y.columnId)) || lcols[k] || {}; return { id: String(y.id || lc.id || ""), t: txt(lc.header || lc.title, 80), d: txt(y.description, 700), pts: Number(y.points != null ? y.points : y.maxPoints) || 0 }; });
         return { id: String(x.id || ""), t: txt(x.header || x.title, 200), d: "", pts: Math.max(0, ...lv.map(v => v.pts)), lv };
       }) };
     };

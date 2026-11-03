@@ -94,7 +94,7 @@ function cleanFile(r) {
   function normRub(o){
     if (!o || typeof o !== "object" || !Array.isArray(o.cr)) return null;
     const cr = o.cr.slice(0, 15).map(x => x && ({t: LT(x.t, 200), d: MT(x.d, 300), pts: NUM(x.pts) || 0,
-      lv: (Array.isArray(x.lv) ? x.lv : []).slice(0, 6).map(v => v && ({t: LT(v.t, 80), d: MT(v.d, 160), pts: NUM(v.pts)})).filter(v => v && (v.t || v.d))})).filter(x => x && x.t);
+      lv: (Array.isArray(x.lv) ? x.lv : []).slice(0, 6).map(v => v && ({t: LT(v.t, 80), d: MT(v.d, 700), pts: NUM(v.pts)})).filter(v => v && (v.t || v.d))})).filter(x => x && x.t);
     return cr.length ? {name: LT(o.name, 120) || "Rubric", pts: NUM(o.pts) || cr.reduce((a, x) => a + x.pts, 0), cr} : null;
   }
   const EMAIL = /^[^\s@<>"]{1,64}@[A-Za-z0-9.-]{1,120}\.[A-Za-z]{2,}$/;
@@ -1555,11 +1555,13 @@ function cleanFile(r) {
         <div class="bs-status${needLogin || gone0 ? " warn" : ""}"><span class="bs-ico">${ICON}</span><div><b>${needLogin ? "Sign In Again" : gone0 ? "Not Syncing" : "Connected"}${c.name ? `<span class="mini"> as ${esc(c.name)}</span>` : ""}</b><span class="mini">${esc(statusLine())}</span>${diagHtmlBox()}</div></div>
         <div class="bs-acts">
           ${gone0 ? `<p class="mini" style="margin:0">${SBEXT.on() ? `Open the extension from ${extBrowser() || "your browser"}'s toolbar and connect ${P.name} again to keep syncing.` : extDesktop() ? `Add the extension back to keep syncing. What it already brought in stays in Studyboard.` : `Open Studyboard in desktop Chrome or Edge with the extension to keep syncing. What it already brought in stays in Studyboard.`}</p>` : ""}
-          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${extDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to ${extBrowser()}.` : ""}</p>` : `<button class="btn primary" data-act="${A}-sync">Sync Now</button>`}<button class="btn" data-act="${A}-report">Copy Sync Report</button>
+          ${onPhoneApi && !c.feed && c.lastSrc !== "grab" ? `<p class="mini" style="margin:0">Your computer's Studyboard app syncs ${P.name}, and changes show up here. To sync from this device too, add your calendar link below. It works like a password, so it stays on this device only.${extDesktop() && !P.noExt && !(window.SBEXT && SBEXT.has(P.id)) ? ` For grades and announcements here too, add the Studyboard School Sync extension to ${extBrowser()}.` : ""}</p>` : ""}
+        </div>
+        <div class="bs-acts bs-acts-row">
+          ${needLogin ? `<button class="btn primary" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
+          ${!gone0 && !(onPhoneApi && !c.feed && c.lastSrc !== "grab") ? `<button class="btn${needLogin ? "" : " primary"}" data-act="${A}-sync">Sync Now</button>` : ""}
           ${!P.feedOnly && !P.direct && !P.noExt && grabOk() && extDesktop() && !(window.SBEXT && (SBEXT.has(P.id) || gone0 && SBEXT.on())) ? extBadge() : ""}
-          ${needLogin ? `<button class="btn" data-act="${A}-login">Sign In to ${P.name}</button>` : ""}
-          <button class="btn" data-act="${A}-open-site">Open ${P.name}</button>
-          ${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}
+          ${gone0 ? "" : `<button class="btn" data-act="${A}-open-site">Open ${P.name}</button>${P.id === "canvas" ? `<button class="btn" data-act="cf-view" data-id="emails">Canvas Inbox</button>` : ""}`}
         </div>
         ${sugg.length ? `<h3 class="fsec" id="bsSuggest">Dates Found in Announcements</h3><p class="mini" style="margin:0">AI read your announcements and spotted these. Check them before adding.</p>
           <ul class="bs-list">${sugg.map(s => `<li><div class="bs-main"><b>${s.what === "moved" ? `Move ${esc(s.title)} to ${esc(fmtDate(s.date))}` : `Add ${esc(s.title)}, due ${esc(fmtDate(s.date))}`}${s.time ? " at " + esc(fmtTime(s.time)) : ""}</b><span class="mini">From "${esc(s.news)}"${s.quote ? `: “${esc(s.quote)}”` : ""}</span></div>
@@ -1603,7 +1605,7 @@ function cleanFile(r) {
     if (t) setTimeout(() => t.scrollIntoView({block: "start"}), 60);
   }
   const newsRow = n => { const c = cfg(), bc = c.courses[n.ou] || {}; return `<li><div class="bs-main"><b>${esc(n.title)}</b><span class="mini">${esc(cleanCourseCode(bc.code, bc.name) || bc.name || "")}${n.date ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}</span><p class="bs-news-text">${esc(n.text)}${n.long ? "…" : ""}</p></div>
-    <span class="bs-btns">${n.url ? `<a class="btn small" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}${aiReady() ? `<button class="btn small" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">Check for Dates</button>` : ""}</span></li>`; };
+    <span class="bs-btns">${n.url ? `<a class="btn small" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}${aiReady() ? `<button class="btn small ai-btn" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">${AI_ICON} Check for Dates</button>` : ""}</span></li>`; };
 
   const extFacts = () => `<ul class="help-list bs-facts">
       <li><b>What it reads:</b> only the school site you connect in it, using the sign-in your browser already has (Studyboard never sees your password): your courses, due dates, whether you've submitted, grades, announcements and calendar events.</li>
@@ -2215,9 +2217,9 @@ function cleanFile(r) {
       case "gone-keep": { const t = state.tasks[el.dataset.id]; if (t) { const n = clone(t); n[F] = Object.assign({}, n[F], {gone: true}); applyChanges([{kind: "task", id: n.id, after: n}], ""); } save({gone: cfg().gone.filter(x => x !== el.dataset.id)}); bsSheet(); return true; }
       case "scan": {
         const n = cfg().newsItems.find(x => x.ou === el.dataset.ou && x.id === el.dataset.id); if (!n) return true;
-        el.disabled = true; el.textContent = "Checking…";
+        el.disabled = true; el.innerHTML = `${AI_ICON} Checking…`;
         scanNews([n], true).then(k => { toast(k ? `Found ${plural(k, "date")}. Review them in ${P.name}.` : "No new dates in that announcement", null, k ? {label: "Review", fn: () => bsSheet("suggest")} : null); if (dlg.open && dlg.querySelector(".bs-sheet")) bsSheet("suggest"); })
-          .catch(e => { toast(e && e.message ? e.message : "The AI couldn't check that. Try again."); }).finally(() => { el.disabled = false; el.textContent = "Check for Dates"; });
+          .catch(e => { toast(e && e.message ? e.message : "The AI couldn't check that. Try again."); }).finally(() => { el.disabled = false; el.innerHTML = `${AI_ICON} Check for Dates`; });
         return true;
       }
       case "savefile": saveFile(el.dataset.id, el.dataset.f).catch(e => { console.error(e); toast("Couldn't save that file. Try again."); }); return true;
