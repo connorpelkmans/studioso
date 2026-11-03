@@ -168,7 +168,9 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     void cv;
 
     /* Save: everything is in the new version */
-    await page.click('[data-act="pde-save"]');
+    await page.click('[data-act="pde-save"]'); await page.waitForSelector("#askDlg[open] #askAlt");
+    ok(/Update Rev A/.test(await page.textContent("#askDlg #askAlt")) && /New Version/.test(await page.textContent("#askDlg #askYes")), "Save asks: a new version, or update the one you opened");
+    await page.click("#askDlg #askYes");
     await page.waitForFunction(() => state.files.f1.revs.length === 2, null, {timeout: 30000}); await page.waitForTimeout(600);
     const savedId = await page.evaluate(() => state.files.f1.revs[1].assetId);
     const saved = Buffer.from(await page.evaluate(async id => [...new Uint8Array(await (await window.__sbProStudy.idbGet("pdf:" + id)).arrayBuffer())], savedId));
@@ -180,6 +182,18 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     ok(/SAMPLE/.test(si.pages[0].text) && /GRADED/.test(si.pages[0].text), "the watermark and stamps are on the page");
     const imgs = await page.evaluate(async bytes => { const d = await window.pdfjsLib.getDocument({data: new Uint8Array(bytes)}).promise, ops = await (await d.getPage(1)).getOperatorList(); return ops.fnArray.filter(f => f === window.pdfjsLib.OPS.paintImageXObject).length; }, [...saved]);
     ok(imgs === 0, "the picture is gone");
+
+    /* Save again, updating the version that's open instead of adding one */
+    { await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(500);
+      if (!await page.evaluate(() => !!(window.__sbProStudy.pde() && window.__sbProStudy.pde().on))) { await page.click("#pdeBtn"); await page.waitForTimeout(400); }
+      await page.click('.pde-tools > .pde-tool[data-id="add"]'); const pb2 = await page.locator(".pdr-page").first().boundingBox();
+      await page.mouse.click(pb2.x + pb2.width * 0.6, Math.min(pb2.y + pb2.height * 0.85, 820)); await page.waitForTimeout(300);
+      await page.keyboard.type("Updated in place"); await page.keyboard.press("Control+Enter"); await page.waitForTimeout(400);
+      await page.click('[data-act="pde-save"]'); await page.waitForSelector("#askDlg[open] #askAlt");
+      ok(/Update Rev B/.test(await page.textContent("#askDlg #askAlt")), "the second time, Update names the version that's open (Rev B)");
+      await page.click("#askDlg #askAlt");
+      await page.waitForFunction(id => state.files.f1.revs[1].assetId !== id, savedId, {timeout: 30000}); await page.waitForTimeout(400);
+      ok(await page.evaluate(() => state.files.f1.revs.length) === 2, "Update keeps the number of versions the same, and Rev B now has the edits"); }
 
     /* Password */
     if (!(await page.locator('[data-act="pde-dl"]').count())) { await page.click("#pdeBtn"); await page.waitForTimeout(400); }

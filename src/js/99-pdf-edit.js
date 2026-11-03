@@ -2085,11 +2085,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   async function saveVersion(){
     if (busy || !E) return; if (E.ed) commit();
     if (!(await signedOk())) return;
+    // a new version (the one you opened stays as it is), or this version updated in place
+    const f0 = fileOf(), ri = f0.revs.findIndex(r => r.assetId === E.rev), L0 = revLetter(ri >= 0 ? ri : f0.revs.length - 1);
+    const how = await askBox({title: "Save Your Edits", text: `Save them as a new version of this file, and keep Rev ${L0} as it was? Or update Rev ${L0} itself?`, yes: "Save as New Version", alt: `Update Rev ${L0}`, no: "Cancel"});
+    if (!how) return;
     busy = true;
     try {
       toast("Saving the edited PDF…");
       const r = await bake(false); if (!r) return;
-      await storeVersion(r.bytes, {label: "saved with your edits", fallbackName: editedName(curRev(fileOf()).name || fileOf().name), report: r.report});
+      await storeVersion(r.bytes, {label: how === "alt" ? `updated with your edits` : "saved with your edits", replace: how === "alt", fallbackName: editedName(curRev(fileOf()).name || fileOf().name), report: r.report});
     } catch (err) { toast((err && /load|locked/.test(err.message || "") && err.message) || "Couldn't save the edited PDF. Your edits are still here."); }
     finally { busy = false; if (E) bar(); }
   }
@@ -2105,7 +2109,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     try { if (bytes.length < 60e6) await idbSet("pdf:" + up.id, new Blob([bytes], {type: "application/pdf"})); } catch (e) {}
     const cur = state.files[S.fid]; if (!cur) return;
     const n = clone(cur), old = S.rev, map = o.map;
-    n.revs = n.revs.concat(Object.assign({assetId: up.id, size: up.sizeBytes || bytes.length, type: "application/pdf", at: Date.now(), name}, up.localRel ? {localRel: up.localRel} : {}));
+    const nrev = Object.assign({assetId: up.id, size: up.sizeBytes || bytes.length, type: "application/pdf", at: Date.now(), name}, up.localRel ? {localRel: up.localRel} : {});
+    const ri = o.replace ? n.revs.findIndex(r => r.assetId === old) : -1;
+    if (ri >= 0) n.revs = n.revs.map((r, k) => k === ri ? nrev : r); else n.revs = n.revs.concat(nrev);
     const turn = (x, y, rot) => rot === 90 ? [1 - y, x] : rot === 180 ? [1 - x, 1 - y] : rot === 270 ? [y, 1 - x] : [x, y];
     const where = p => map ? map.get(p) : {p, rot: 0};
     if (Array.isArray(n.hl)) n.hl = n.hl.map(h => {
@@ -2121,7 +2127,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     });
     const rest = editsOf(n).filter(e => e.a !== old); if (rest.length) n.pe = rest; else delete n.pe;
     n.updated = Date.now();
-    applyChanges([{kind: "file", id: S.fid, after: n}], `${n.name}: Rev ${revLetter(n.revs.length - 1)} ${o.label}`);
+    applyChanges([{kind: "file", id: S.fid, after: n}], `${n.name}: Rev ${revLetter(ri >= 0 ? ri : n.revs.length - 1)} ${o.label}`);
     const note = o.report && missingNote(o.report); if (note) setTimeout(() => toast("Note: " + note + "."), 1800);
     E = null;
     if (P.openReader) { if (dlg.open) dlg.close(); setTimeout(() => P.openReader(S.fid, map && map.get(page) ? map.get(page).p : page), 0); }

@@ -163,7 +163,9 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     // a highlight on the old version comes along to the new one
     await page.evaluate(() => { const f = state.files.f1; window.__sbProStudy.applyChanges([{kind: "file", id: "f1", after: Object.assign(window.__sbProStudy.clone(f), {hl: [{id: "h1", a: "a-syl", p: 1, r: [[0.1, 0.1, 0.2, 0.02]], t: "Grading", c: "yellow", at: 1}]})}], null); });
     await page.click("#pdeBtn"); await page.waitForTimeout(250);
-    await page.click('[data-act="pde-save"]');
+    await page.click('[data-act="pde-save"]'); await page.waitForSelector("#askDlg[open] #askAlt");
+    ok(/Update Rev A/.test(await page.textContent("#askDlg #askAlt")) && /New Version/.test(await page.textContent("#askDlg #askYes")), "Save asks: a new version, or update the one you opened");
+    await page.click("#askDlg #askYes");
     await page.waitForFunction(() => state.files.f1.revs.length === 2, null, {timeout: 20000});
     const f = await page.evaluate(() => state.files.f1);
     ok(f.revs.length === 2 && !f.pe && f.revs[1].assetId === "a-syl-2" && f.revs[1].name === "BIO 101 Syllabus.pdf", "Save adds a new version of the file, and the edits are now part of it");
