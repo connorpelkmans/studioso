@@ -1342,7 +1342,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 
   /* Paragraphs: the lines around a line that belong with it (same size and font, evenly spaced, left edges lined up) */
   async function paragraphAt(n, o){
-    const items = (await pageInfo(n)).filter(it => Math.abs(it.r) < 0.5);
+    const pgv = E.pages.get(n), items = (await pageInfo(n)).filter(it => Math.abs(it.r) < 0.5 && (!pgv || inked(pgv, it)));
     const lines = [];
     items.slice().sort((a, b) => b.o[1] - a.o[1] || a.o[0] - b.o[0]).forEach(it => {
       // the same line: same height and size, and close beside it (text in another table column at that height is a different line)
@@ -1384,9 +1384,34 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   /* Pointing at the page */
   async function itemAt(pg, x, y){
     const items = await pageInfo(pg.n), [px0, py0] = toPdf(pg, x, y);
-    let best = null;
-    for (const it of items) if (pdeInside(Object.assign({tol: it.fs * 0.15}, it), px0, py0)) { const area = it.w * (it.y1 - it.y0); if (!best || area < best.area) best = {it, area}; }
-    return best && best.it;
+    const hits = [];
+    for (const it of items) if (pdeInside(Object.assign({tol: it.fs * 0.15}, it), px0, py0)) hits.push({it, area: it.w * (it.y1 - it.y0)});
+    hits.sort((a, b) => a.area - b.area);
+    // only text you can see: text hidden under a cover, drawn invisibly, or the same colour as what's behind it isn't offered
+    const h = hits.find(x => inked(pg, x.it));
+    return h ? h.it : null;
+  }
+  // Whether a piece of text actually shows on the drawn page: some of its box differs from the colour around it
+  function inked(pg, it){
+    const key = pg.n + ":" + Math.round(pg.vp.scale * 100) + ":" + it.o.map(v => Math.round(v)).join(",") + ":" + Math.round(it.w);
+    E.inkC = E.inkC || new Map(); if (E.inkC.has(key)) return E.inkC.get(key);
+    let out = true;
+    try {
+      const cv = pg.el.querySelector(".pdr-cv"); if (!cv || !cv.width) return true;
+      const k = cv.width / (cv.clientWidth || cv.width), b = vpBox(pg, it);
+      const x0 = Math.max(0, Math.floor(b.x * k)), y0 = Math.max(0, Math.floor(b.y * k)), w = Math.min(cv.width - x0, Math.ceil(b.w * k)), h = Math.min(cv.height - y0, Math.ceil(b.h * k));
+      if (w < 2 || h < 2) { out = false; }
+      else {
+        const d = cv.getContext("2d", {willReadFrequently: true}).getImageData(x0, y0, w, h).data, hist = new Uint32Array(52), step = Math.max(1, Math.floor(Math.sqrt(w * h / 6000)));
+        const L = [];
+        for (let yy = 0; yy < h; yy += step) for (let xx = 0; xx < w; xx += step) { const i = (yy * w + xx) * 4, l = 255 - (255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])) * d[i + 3] / 255 /* as seen over the white page */; L.push(l); hist[Math.min(51, Math.floor(l / 5))]++; }
+        let mode = 0; for (let i = 1; i < 52; i++) if (hist[i] > hist[mode]) mode = i;
+        const bg = mode * 5 + 2.5, ink = L.filter(l => Math.abs(l - bg) > 45).length;
+        out = ink >= Math.max(3, L.length * 0.006);
+      }
+    } catch (e) { out = true; }
+    E.inkC.set(key, out); if (E.inkC.size > 3000) E.inkC.clear();
+    return out;
   }
   // the line of text closest to a point (in page units), for a new text box's size and font
   async function nearest(pg, x, y){
