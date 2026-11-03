@@ -372,7 +372,7 @@ function normPdfEdits(list, max){
       else { const m = m6(e.m); if (m && m.every(v => v != null)) x.m = m; if (typeof e.img === "string" && /^[a-f0-9]{16}$/.test(e.img)) x.img = e.img; }
     }
     if (e.k === "k") { x.t = typeof e.t === "string" ? e.t.slice(0, 60) : ""; x.c = hex(e.c) || "#c0262d"; }
-    if (e.k === "q") { x.ft = ["text", "multi", "check"].includes(e.ft) ? e.ft : "text"; x.name = typeof e.name === "string" && e.name.trim() ? e.name.slice(0, 60) : "Field"; }
+    if (e.k === "q") { x.ft = ["text", "multi", "check"].includes(e.ft) ? e.ft : "text"; x.name = typeof e.name === "string" && e.name.trim() ? e.name.slice(0, 60) : "Field"; if (x.ft === "check" ? e.v === true : typeof e.v === "string" && e.v) x.v = x.ft === "check" ? true : e.v.slice(0, 2000); }
     if (e.k === "l") {
       if (typeof e.url === "string" && /^(https?:\/\/|mailto:)\S+$/i.test(e.url)) x.url = e.url.slice(0, 500); else if (fin(e.page, 1, 99999)) x.page = Math.round(e.page); else continue;
     }

@@ -810,8 +810,8 @@ async function pdeBake(L, bytes, edits, opts){
       let nm = String(e.name || "Field").replace(/[.]/g, " ").slice(0, 60) || "Field", k = 2; while (taken.has(nm)) nm = `${e.name} ${k++}`; taken.add(nm);
       const at = {x: e.o[0], y: e.o[1], width: e.w, height: e.h, borderWidth: 0.6, borderColor: L.rgb(0.75, 0.78, 0.85)};
       try {
-        if (e.ft === "check") { const cb = form.createCheckBox(nm); cb.addToPage(pages[e.p - 1], at); }
-        else { const tf = form.createTextField(nm); if (e.ft === "multi") tf.enableMultiline(); tf.addToPage(pages[e.p - 1], Object.assign(at, {borderWidth: 0})); try { tf.setFontSize(e.ft === "multi" ? 11 : Math.max(8, Math.min(14, e.h * 0.62))); } catch (err) {} }
+        if (e.ft === "check") { const cb = form.createCheckBox(nm); cb.addToPage(pages[e.p - 1], at); if (e.v === true) cb.check(); }
+        else { const tf = form.createTextField(nm); if (e.ft === "multi") tf.enableMultiline(); tf.addToPage(pages[e.p - 1], Object.assign(at, {borderWidth: 0})); try { tf.setFontSize(e.ft === "multi" ? 11 : Math.max(8, Math.min(14, e.h * 0.62))); } catch (err) {} if (typeof e.v === "string" && e.v) tf.setText(e.v); }
         report.newFields = (report.newFields || 0) + 1;
       } catch (err) {}
     }
@@ -1194,10 +1194,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const prev = ed && ed.el && ed.el.isConnected ? ed.el : null, had = !!prev && document.activeElement === prev; let caret = null;
     if (prev) ed.e.t = textOf(prev);
     if (had) { try { const s = getSelection(); if (s.rangeCount) { const r = s.getRangeAt(0), pre = document.createRange(); pre.selectNodeContents(prev); pre.setEnd(r.startContainer, r.startOffset); const a = pre.toString().length; pre.setEnd(r.endContainer, r.endOffset); caret = [a, pre.toString().length]; } } catch (e) {} }
+    const qf = document.activeElement && document.activeElement.dataset && L.contains(document.activeElement) && document.activeElement.dataset.q ? {id: document.activeElement.dataset.q, v: document.activeElement.value, a: document.activeElement.selectionStart, b: document.activeElement.selectionEnd} : null;
     const list = mine().filter(e => e.p === n && !["f", "h", "m", "o"].includes(e.k) && !(ed && ed.e.id === e.id));
     const one = e => e.k === "x" ? picHtml(pg, e) : e.k === "l" ? linkHtml(pg, e) : e.k === "q" ? fieldHtml(pg, e) : editHtml(pg, e, false);
     const ps = E.picSel && E.picSel.p === n ? (() => { const b = picBox(E.picSel.m), f = frame(pg, b.o, 0); return `<i class="pde-picsel" data-pic="1" style="left:${px(f.x)};top:${px(f.y - b.h * f.s)};width:${px(b.w * f.s)};height:${px(b.h * f.s)}" title="Drag to move this picture"></i>`; })() : "";
     L.innerHTML = watermarkHtml(pg) + headerHtml(pg) + list.map(one).join("") + foundHtml(pg) + ps + (ed ? editHtml(pg, ed.e, true) : "") + '<i class="pde-hover" hidden></i><i class="pde-band" hidden></i><svg class="pde-lnprev" width="100%" height="100%" hidden><path/></svg>';
+    if (qf) { const el = L.querySelector(`[data-q="${CSS.escape(qf.id)}"]`); if (el) { if (el.type !== "checkbox") { el.value = qf.v; try { el.setSelectionRange(qf.a, qf.b); } catch (err) {} } el.focus({preventScroll: true}); } }
     if (E.on && E.tool === "link") oldLinksHtml(pg).then(h => { if (h && L.isConnected) L.insertAdjacentHTML("beforeend", h); });
     if (ed) {
       const t = L.querySelector(".pde-e.editing .pde-t");
@@ -1250,6 +1252,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   document.addEventListener("change", ev => {
     const t = ev.target; if (!E || !t.classList || !t.classList.contains("pde-field")) return;
+    if (t.dataset.q) { qSet(t.dataset.q, t.type === "checkbox" ? t.checked : t.value, false); return; }   // saved a moment later, so Tab can move on first
     const name = t.dataset.f, p = Number(t.dataset.p);
     const v = t.type === "checkbox" ? t.checked : t.type === "radio" ? t.dataset.v : t.value;
     setField(name, v, p, Number(t.dataset.s) || 0);
@@ -2887,9 +2890,26 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     closePanel(); E.linkBox = null; E.sel = e.id; save(mine().concat([e]), "Link added");
   }
   // fillable fields: found on the pages, or drawn
+  // a new field's value: kept as it's typed (so a redraw can't lose it), saved on the field's edit shortly after
+  let qTimer = 0;
+  function qSet(id, v, now){
+    E.qv = E.qv || {}; E.qv[id] = v; clearTimeout(qTimer);
+    const go = () => { if (!E || !E.qv) return; const list = mine(); let ch = false; const next = list.map(x => x.k === "q" && E.qv[x.id] !== undefined && E.qv[x.id] !== x.v ? (ch = true, Object.assign({}, x, {v: E.qv[x.id]})) : x); E.qv = {}; if (ch) save(next, null); };
+    if (now) go(); else qTimer = setTimeout(go, 500);
+  }
+  document.addEventListener("input", ev => { const t = ev.target; if (E && t && t.dataset && t.dataset.q && t.classList.contains("pde-qf")) qSet(t.dataset.q, t.type === "checkbox" ? t.checked : t.value, false); });
+  // a new field can be filled in straight away; what's typed goes into the field when the PDF is saved
+  function qInput(e, s){
+    const lab = esc(e.name || "Field"), id = esc(e.id);
+    if (E.qv && E.qv[e.id] !== undefined) e = Object.assign({}, e, {v: E.qv[e.id]});
+    if (e.ft === "check") return `<input type="checkbox" class="pde-field pde-qf" data-q="${id}" aria-label="${lab}"${e.v === true ? " checked" : ""}>`;
+    const fs = px(Math.max(8, (e.ft === "multi" ? 11 : Math.min(14, e.h * 0.62))) * s);
+    return e.ft === "multi" ? `<textarea class="pde-field pde-qf" data-q="${id}" aria-label="${lab}" style="font-size:${fs}">${esc(e.v || "")}</textarea>`
+      : `<input type="text" class="pde-field pde-qf" data-q="${id}" aria-label="${lab}" style="font-size:${fs}" value="${esc(typeof e.v === "string" ? e.v : "")}">`;
+  }
   function fieldHtml(pg, e){
     const sel = E.sel === e.id || (E.multi && E.multi.has(e.id)), f = frame(pg, e.o, e.r || 0), s = f.s;
-    return `<div class="pde-e k-q ft-${e.ft}${sel ? " sel" : ""}" data-e="${esc(e.id)}" style="left:${px(f.x)};top:${px(f.y)}"><i class="pde-fld" style="left:0;top:${px(-e.h * s)};width:${px(e.w * s)};height:${px(e.h * s)}"><span>${esc(e.ft === "check" ? "" : e.name)}</span></i>${sel ? `<i class="pde-grip" data-size="1" style="left:${px(e.w * s)};top:0"></i>` : ""}</div>`;
+    return `<div class="pde-e k-q ft-${e.ft}${sel ? " sel" : ""}" data-e="${esc(e.id)}" style="left:${px(f.x)};top:${px(f.y)}"><i class="pde-fld" style="left:0;top:${px(-e.h * s)};width:${px(e.w * s)};height:${px(e.h * s)}"><span class="pde-fld-tag" title="Drag to move this field">${esc(e.ft === "check" ? "Tick box" : e.name)}</span>${qInput(e, s)}</i>${sel ? `<i class="pde-grip" data-size="1" style="left:${px(e.w * s)};top:0"></i>` : ""}</div>`;
   }
   async function fieldsPanel(){
     const r = R(); if (!r || !r.doc) return;
@@ -3342,7 +3362,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-e.k-l.del .pde-lnk{border-color:#c0262d;background:repeating-linear-gradient(45deg,rgba(192,38,45,.12) 0 4px,transparent 4px 8px)}
 .pde-oldlink{position:absolute;border:1.5px solid #2457c5;background:rgba(36,87,197,.12);border-radius:3px;cursor:pointer;padding:0;pointer-events:auto}
 .pde-fld{position:absolute;display:flex;align-items:center;border:1.5px dashed #1d7a3a;background:rgba(29,122,58,.08);border-radius:2px;overflow:hidden}
-.pde-fld span{font:600 10px var(--body);color:#1d7a3a;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pde-fld{overflow:visible}
+.pde-fld .pde-fld-tag{position:absolute;left:-1.5px;bottom:100%;font:600 10px var(--body);color:#fff;background:#1d7a3a;padding:1px 5px;border-radius:3px 3px 0 0;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;cursor:move;pointer-events:auto}
+.pde-fld .pde-qf{position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;margin:0;border:0;padding:0 3px;background:transparent;color:#000;font-family:Helvetica,Arial,sans-serif;pointer-events:auto;outline:none}
+.pde-fld textarea.pde-qf{resize:none;padding:2px 3px;line-height:1.15}
+.pde-fld .pde-qf[type=checkbox]{-webkit-appearance:auto;appearance:auto;accent-color:#1f3a93;cursor:pointer;width:auto;height:auto;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%)}
+.pde-fld .pde-qf:focus{background:rgba(204,215,255,.45)}
 .pde-found{position:absolute;display:block;border:2px solid #1d7a3a;background:rgba(29,122,58,.14);border-radius:2px;pointer-events:none}
 .pde-fdlist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .pde-fdlist li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}

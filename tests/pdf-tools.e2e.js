@@ -106,6 +106,11 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await page.click('[data-act="pde-fd-add"]'); await page.waitForTimeout(300);
     const nq = (await edits()).filter(e => e.k === "q").length;
     ok(nq === names.length, "they're added as fields");
+    ok(await page.locator(".pde-fld .pde-qf").count() === nq, "each new field has a box to fill in");
+    await page.locator('.pde-fld input.pde-qf[type="text"]').first().click();
+    await page.keyboard.type("Ana López"); await page.keyboard.press("Tab"); await page.waitForTimeout(800);
+    ok((await edits()).some(e => e.k === "q" && e.v === "Ana López"), "a new field can be typed into straight away, and keeps what was typed");
+    ok(await page.evaluate(() => !!document.activeElement && document.activeElement.classList.contains("pde-qf")), "Tab moves on to the next field (typing isn't lost to a redraw)");
 
     /* Stamps, copy and paste, aligning */
     await tool("stamp"); await page.click('[data-act="pde-stamp-t"][data-id="Graded"]');
@@ -169,6 +174,8 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     const saved = Buffer.from(await page.evaluate(async id => [...new Uint8Array(await (await window.__sbProStudy.idbGet("pdf:" + id)).arrayBuffer())], savedId));
     const si = await info(saved), an = si.pages[0].annots.join(" ");
     ok(si.pages[0].annots.filter(a => /^Widget:/.test(a)).length === nq, "the saved PDF has the fields: " + an);
+    { const L = require("pdf-lib"), d = await L.PDFDocument.load(saved); const vals = d.getForm().getFields().filter(f => f instanceof L.PDFTextField).map(f => f.getText() || "");
+      ok(vals.includes("Ana López"), "what was typed in a new field is in the saved PDF's field: " + JSON.stringify(vals)); }
     ok(/Link:https:\/\/example\.org\/trip/.test(an) && !/example\.edu/.test(an), "the new link is in, the old one out");
     ok(/SAMPLE/.test(si.pages[0].text) && /GRADED/.test(si.pages[0].text), "the watermark and stamps are on the page");
     const imgs = await page.evaluate(async bytes => { const d = await window.pdfjsLib.getDocument({data: new Uint8Array(bytes)}).promise, ops = await (await d.getPage(1)).getOperatorList(); return ops.fnArray.filter(f => f === window.pdfjsLib.OPS.paintImageXObject).length; }, [...saved]);
