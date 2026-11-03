@@ -209,9 +209,11 @@
     paint();
   }
   function open(){
-    if (W) { W.hidden = false; place(); W.querySelector('[data-cx="eq"]').focus({preventScroll: true}); return; }
+    if (W) { W.hidden = false; skin(); place(); W.querySelector('[data-cx="eq"]').focus({preventScroll: true}); return; }
     W = document.createElement("div"); W.className = "cx"; W.id = "calc"; W.setAttribute("role", "dialog"); W.setAttribute("aria-label", "Calculator");
-    W.innerHTML = frame(); document.body.appendChild(W);
+    W.innerHTML = frame(); document.body.appendChild(W); skin();
+    // the calculator wears the theme that's on, and changes with it (99-calculator-skins.js)
+    new MutationObserver(() => { if (W && !W.hidden) skin(); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin"]});
     W.addEventListener("click", e => { const b = e.target.closest("[data-cx]"); if (!b) return; e.preventDefault(); act(b.dataset.cx, b.dataset.cxs); });
     W.addEventListener("keydown", onKey);
     // dragging by the top strip (computers)
@@ -228,6 +230,7 @@
     loadMath().catch(() => {});
     W.querySelector('[data-cx="eq"]').focus({preventScroll: true});
   }
+  function skin(){ try { if (window.SBCALCSKIN) SBCALCSKIN.apply(W); } catch (e) { console.warn("calculator theme", e); } }
   function close(){ if (!W) return; W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
   const KEYMAP = {"+": "add", "-": "sub", "*": "mul", "x": "mul", "/": "div", "^": "pow", "(": "lp", ")": "rp", ".": "dot", ",": "dot", "%": "pct", "!": "fact", "Enter": "eq", "=": "eq", "Backspace": "del", "Delete": "ac",
     "ArrowLeft": "left", "ArrowRight": "right", "ArrowUp": "up", "ArrowDown": "down", "p": "pi", "s": "sin", "c": "cos", "t": "tan", "l": "ln", "g": "log", "r": "sqrt", "e": "e", "a": "ans", "E": "exp"};
