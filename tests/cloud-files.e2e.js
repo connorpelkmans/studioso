@@ -142,6 +142,19 @@ function stubs(){
   const big = await page.evaluate(async () => { const b = new Blob([new Uint8Array(6 * 1048576)], {type: "audio/webm"}); return SBCLOUD.saveBlob("microsoft", b, "Lecture 3.webm", {courseId: "c1", folderId: "lectures", type: "audio/webm"}); });
   ok(big.id === "big1" && await page.evaluate(() => window.__cl.ms.chunks) === 2 && await page.evaluate(() => window.__cl.ms.session) === "Studyboard/BIO101/Lectures/Lecture 3.webm", "a 6 MB recording goes to Studyboard/BIO101/Lectures in two pieces");
 
+  await page.click('#view [data-act="cl-open"]'); await page.waitForSelector('#clBody [data-act="cl-browse"][data-mode="course"][data-course="c1"]');
+  await page.click('#clBody [data-act="cl-browse"][data-mode="course"][data-course="c1"]'); await page.waitForSelector("#clBody .cl-fold");
+  ok(/Choose where .+ uploads go/.test(await page.textContent("#clBody")), "the course folder picker says which course it is for");
+  await page.click('#clBody .cl-fold:has-text("Other Stuff")'); await page.waitForSelector('#clBody [data-act="cl-pick"]'); await page.click('#clBody [data-act="cl-pick"]');
+  await page.waitForSelector('#clBody [data-act="cl-course-reset"]');
+  const cp = await page.evaluate(async () => { const a = await SBCLOUD.saveBlob("microsoft", new Blob(["x"]), "Notes.txt", {courseId: "c1"}); const b = await SBCLOUD.saveBlob("microsoft", new Blob(["x"]), "Rec.txt", {courseId: "c1", folderId: "lectures"}); const c = await SBCLOUD.saveBlob("microsoft", new Blob(["x"]), "Other.txt", {courseId: "c2"}); return window.__cl.ms.puts.slice(-3); });
+  ok(cp[0] === "other/Notes.txt" && cp[1] === "other/Lectures/Rec.txt", "a course with its own OneDrive folder saves there: " + cp.slice(0, 2));
+  ok(cp[2] === "Studyboard/History of Art/Other.txt" || /^Studyboard\//.test(cp[2]), "other courses still use the automatic folder: " + cp[2]);
+  await page.click('#clBody [data-act="cl-course-reset"]');
+  const cr = await page.evaluate(async () => { await SBCLOUD.saveBlob("microsoft", new Blob(["x"]), "Back.txt", {courseId: "c1"}); return window.__cl.ms.puts.slice(-1)[0]; });
+  ok(cr === "Studyboard/BIO101/Back.txt", "Use Automatic puts it back: " + cr);
+  await page.keyboard.press("Escape");
+
   await page.click('#view [data-act="cl-open"]'); await page.waitForSelector("#clBody .cl-card");
   await page.waitForSelector('#clBody [data-act="cl-browse"][data-mode="watch"]');
   await page.click('#clBody [data-act="cl-browse"][data-mode="watch"]');

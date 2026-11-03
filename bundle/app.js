@@ -77724,6 +77724,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const prefs = () => {
     const c = (state.settings && state.settings.cloud) || {};
     return {ai: {google: !!(c.ai && c.ai.google), microsoft: !!(c.ai && c.ai.microsoft)}, save: ["google", "microsoft"].includes(c.save) ? c.save : "studyboard", msFolder: c.msFolder && c.msFolder.id ? c.msFolder : null,
+      msCourse: Object.fromEntries(Object.entries(c.msCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
       watch: Array.isArray(c.watch) ? c.watch.filter(w => w && w.id).slice(0, 5) : [], hide: Array.isArray(c.hide) ? c.hide.slice(-500) : []};
   };
   const setPrefs = patch => { state.settings = Object.assign({}, state.settings, {cloud: Object.assign(prefs(), patch)}); saveSettings(); };
@@ -77799,8 +77800,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* OneDrive (Microsoft Graph) */
   const MG = "https://graph.microsoft.com/v1.0/me/drive";
   const msItem = (j, blob, type) => ({p: "microsoft", id: String(j.id), name: String(j.name || ""), size: Number(j.size) || (blob ? blob.size : 0), type: String((j.file && j.file.mimeType) || type || ""), mod: String(j.lastModifiedDateTime || new Date().toISOString()), url: String(j.webUrl || "")});
-  async function msUpload(blob, name, type, segs){
-    const f = prefs().msFolder, rel = segs.concat([seg(name)]).map(encodeURIComponent).join("/");
+  async function msUpload(blob, name, type, segs, cf){
+    /* a folder chosen for this course replaces the course's own subfolder (Lectures still nests inside it) */
+    const f = cf || prefs().msFolder, rel = (cf ? segs.slice(1) : segs).concat([seg(name)]).map(encodeURIComponent).join("/");
     const at = f ? `${MG}/items/${encodeURIComponent(f.id)}:/${rel}:` : `${MG}/root:/Studyboard/${rel}:`;
     if (blob.size <= 4 * 1048576) return msItem(await api("microsoft", `${at}/content?@microsoft.graph.conflictBehavior=rename`, {method: "PUT", headers: {"Content-Type": type || "application/octet-stream"}, body: blob}), blob, type);
     const s = await api("microsoft", `${at}/createUploadSession`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({item: {"@microsoft.graph.conflictBehavior": "rename"}})});
@@ -77830,7 +77832,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* Saving */
   async function saveBlob(p, blob, name, o){
     const type = (o && o.type) || blob.type || "application/octet-stream";
-    return p === "google" ? gUpload(blob, name, type, segsFor(o || {})) : msUpload(blob, name, type, segsFor(o || {}));
+    if (p === "google") return gUpload(blob, name, type, segsFor(o || {}));
+    const cf = o && o.courseId && prefs().msCourse[o.courseId];
+    if (!cf) return msUpload(blob, name, type, segsFor(o || {}));
+    try { return await msUpload(blob, name, type, segsFor(o || {}), cf); }
+    catch (e) { if (e && e.code === "net") throw e; toast(`Couldn't use the OneDrive folder “${cf.name}” for this course, so it went to Studyboard's folder instead.`); return msUpload(blob, name, type, segsFor(o || {})); }
   }
   const MAX_UP = 250 * 1048576;
   async function uploadFiles(list, opts, forced){
@@ -78048,12 +78054,16 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <select data-cl-wc="${esc(w.id)}" aria-label="Course for ${esc(w.name)}">${courseOpts(w.courseId)}</select><button type="button" class="link-btn" data-act="cl-unwatch" data-id="${esc(w.id)}">Stop Watching</button></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">Pick a folder, like your school folder. What's in it (three folders deep) shows up in Files, sorted into courses by folder name, and stays up to date.</p>`}
       <div class="cs-row">${pr.watch.length < 5 ? `<button type="button" class="btn small" data-act="cl-browse" data-mode="watch">Watch a Folder</button>` : ""}${pr.watch.length ? `<button type="button" class="btn small" data-act="cl-scan"${U.scanning ? " disabled" : ""}>${U.scanning ? "Checking…" : "Check Now"}</button><span class="mini">Checked ${esc(ago(U.scanAt))}</span>` : ""}</div>
       ${U.scanErr ? `<p class="cl-warn">${esc(U.scanErr)}</p>` : ""}</fieldset>` : "";
+    const cm = prefs().msCourse, cs = coursesArr();
+    const perCourse = ms && cs.length ? `<fieldset class="cl-set"><legend>OneDrive Folder for Each Course</legend>
+      <p class="mini">Choose where a course's uploads are kept in OneDrive. Files you upload in Studyboard go there on their own, with no prompt each time. Courses without a folder use <b>${esc(pr.msFolder ? pr.msFolder.name : "Studyboard")} › course name</b>. Files you linked from OneDrive are never moved.</p>
+      <ul class="cl-watch">${cs.map(c => { const f = cm[c.id]; return `<li><span class="cl-wn">${FOLDER}<b>${esc(courseLabel(c))}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="cl-browse" data-mode="course" data-course="${esc(c.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="cl-course-reset" data-id="${esc(c.id)}">Use Automatic</button>` : ""}</li>`; }).join("")}</ul></fieldset>` : "";
     return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, and attach to tasks and notes.</p>
       <p class="mini cl-scope" style="margin:0"><b>AI can only read what you give Studyboard access to:</b> the Studyboard folder, the folders you add below, and only when “Allow AI to read my files” is on for that account. Nothing else in your Drive is visible to Studyboard or AI.</p>
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="cl-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : `<div class="cl-cards">${provs.map(card).join("")}</div>`}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
-      ${saveSet}${watch}
+      ${saveSet}${perCourse}${watch}
       <p class="mini">Removing a cloud file in Studyboard never deletes it from Google Drive or OneDrive.</p>`;
   }
   function paint(){ const b = document.getElementById("clBody"); if (b && !U.browse) { const y = b.scrollTop; b.innerHTML = sheetHtml(); b.scrollTop = y; } }
@@ -78062,15 +78072,15 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     openSheet(`<div class="sheet cl-sheet">${head("Cloud Storage")}<div class="sheet-body" id="clBody">${sheetHtml()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     setTimeout(() => { if (!U.loading && (Date.now() - cache().at > 30000 || !cache().at)) loadStatus(); else prefetch(); }, 0);
   }
-  async function browse(mode, id, name, trail){
-    U.browse = {mode, id: id || "root", name: name || "OneDrive", trail: trail || []};
+  async function browse(mode, id, name, trail, courseId){
+    U.browse = {mode, id: id || "root", name: name || "OneDrive", trail: trail || [], courseId: courseId || (U.browse && U.browse.courseId) || ""};
     const b = document.getElementById("clBody"); if (!b) return;
     b.innerHTML = `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(U.browse.name)}…</p>`;
     let list; try { list = await msChildren(U.browse.id, true); } catch (e) { list = null; b.innerHTML = `<p class="cl-warn">${esc((e && e.message) || "Couldn't open OneDrive.")}</p><button type="button" class="btn small" data-act="cl-back">Back</button>`; return; }
     if (!U.browse || U.browse.id !== (id || "root")) return;
     const B = U.browse, here = B.id !== "root";
     b.innerHTML = `<div class="cl-crumbs"><button type="button" class="link-btn" data-act="cl-back">‹ Cloud Storage</button><span class="mini">${esc(["OneDrive"].concat(B.trail.map(t => t.name)).join(" › "))}</span></div>
-      <p style="margin:0"><b>${mode === "watch" ? "Choose a folder to watch" : "Choose where uploads go"}</b></p>
+      <p style="margin:0"><b>${mode === "watch" ? "Choose a folder to watch" : mode === "course" ? `Choose where ${esc((courseOf(B.courseId) ? courseLabel(courseOf(B.courseId)) : "this course"))} uploads go` : "Choose where uploads go"}</b></p>
       ${list && list.length ? `<ul class="cl-folders">${list.slice(0, 200).map(f => `<li><button type="button" class="cl-fold" data-act="cl-dir" data-id="${esc(f.id)}" data-name="${esc(f.name)}">${FOLDER}<span>${esc(f.name)}</span><span class="mini">${f.folder && f.folder.childCount != null ? f.folder.childCount + " items" : ""}</span></button></li>`).join("")}</ul>` : `<p class="mini">No folders in here.</p>`}
       <div class="cs-row">${B.trail.length ? `<button type="button" class="btn small" data-act="cl-up">Up a Level</button>` : ""}<span class="spacer"></span>${here ? `<button type="button" class="btn small primary" data-act="cl-pick">${mode === "watch" ? `Watch “${esc(B.name)}”` : `Save to “${esc(B.name)}”`}</button>` : `<span class="mini">Open a folder to choose it</span>`}</div>`;
   }
@@ -78112,12 +78122,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         else toast("Couldn't disconnect. Check your connection and try again.");
         paint();
       })(); return true;
-      case "cl-browse": browse(el.dataset.mode === "save" ? "save" : "watch"); return true;
+      case "cl-browse": { const m = el.dataset.mode === "save" ? "save" : el.dataset.mode === "course" ? "course" : "watch"; U.browse = null; browse(m, "root", "OneDrive", [], el.dataset.course || ""); return true; }
+      case "cl-course-reset": { const m = Object.assign({}, prefs().msCourse); delete m[id]; setPrefs({msCourse: m}); toast("This course's uploads use the automatic folder again"); paint(); return true; }
       case "cl-back": U.browse = null; paint(); return true;
       case "cl-up": { const B = U.browse; if (!B) return true; const t = B.trail.slice(0, -1), last = t[t.length - 1]; browse(B.mode, last ? last.id : "root", last ? last.name : "OneDrive", t); return true; }
       case "cl-pick": {
         const B = U.browse; if (!B || B.id === "root") return true;
-        if (B.mode === "save") { setPrefs({msFolder: {id: B.id, name: B.name}}); toast(`OneDrive uploads go to “${B.name}”`); }
+        if (B.mode === "course") { const c = courseOf(B.courseId); if (c) { setPrefs({msCourse: Object.assign({}, prefs().msCourse, {[c.id]: {id: B.id, name: B.name}})}); toast(`${courseLabel(c)} uploads go to “${B.name}”`); } }
+        else if (B.mode === "save") { setPrefs({msFolder: {id: B.id, name: B.name}}); toast(`OneDrive uploads go to “${B.name}”`); }
         else {
           const W = prefs().watch;
           if (W.some(w => w.id === B.id)) toast("You're already watching that folder");
