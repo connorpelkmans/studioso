@@ -167,6 +167,13 @@ const page = (title: string, text: string, ok: boolean) => new Response(`${HTML_
 const confirmPage = (title: string, html: string, box: string) => new Response(`${HTML_HEAD(title)}<body><main><h1>${title}</h1><p>${html}</p><form method="post"><input type="hidden" name="confirm" value="${htmlEsc(box)}"><button type="submit">Connect</button></form></main></body></html>`, { status: 200, headers: SAFE_HEADERS(true) });
 const htmlEsc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as any)[c]);
 
+// A school or work Microsoft account whose organization needs an admin to approve Studyboard before people can connect it
+// (Studyboard isn't a verified Microsoft publisher yet). Microsoft sends these back with an "admin approval" error
+export const SCHOOL_BLOCKED_TITLE = "School accounts can't connect yet";
+export const SCHOOL_BLOCKED_TEXT = "Studyboard can't connect school or work Microsoft accounts yet. That's coming in the future. For now you can connect a personal Microsoft account (Outlook.com, Hotmail or Live) instead.";
+export const schoolBlocked = (u: URL) => u.searchParams.get("error") === "consent_required"
+  || /AADSTS(90094|90095|900941|65001)\b|admin(istrator)?(\s+\w+)?\s+(approval|consent)|permission to access resources in your organi[sz]ation/i.test(u.searchParams.get("error_description") || "");
+
 /* Connecting is bound to the browser that started it, and confirmed by the person */
 const COOKIE = "sbcf";
 const cookieOf = (req: Request) => ((req.headers.get("cookie") || "").split(/;\s*/).find(c => c.startsWith(COOKIE + "=")) || "").slice(COOKIE.length + 1);
@@ -188,7 +195,10 @@ async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Ada
   const st = secret.length >= 32 ? await readState(secret, url.searchParams.get("state") || "", d.now()) : null;
   if (!st) { log("cb_bad_state"); return page("That link has expired", "Go back to Studyboard and choose Connect again.", false); }
   if (cookieOf(req) !== st.n) { log("cb_other_browser"); return page("Start again in Studyboard", "This connection wasn't started in this browser, so nothing was connected. Choose Connect in your own Studyboard.", false); }
-  if (url.searchParams.get("error")) { log("cb_denied"); return page("Not connected", "Access wasn't allowed, so nothing changed. You can try again from Studyboard.", false); }
+  if (url.searchParams.get("error")) {
+    if (st.p !== "google" && st.p !== "classroom" && schoolBlocked(url)) { log("cb_school_blocked", { provider: st.p }); return page(SCHOOL_BLOCKED_TITLE, SCHOOL_BLOCKED_TEXT, false); }
+    log("cb_denied"); return page("Not connected", "Access wasn't allowed, so nothing changed. You can try again from Studyboard.", false);
+  }
   const code = url.searchParams.get("code") || ""; if (!code || code.length > 2000) return page("Not connected", "Something was missing. Try again from Studyboard.", false);
   try {
     const t = await A[st.p].exchange(code, redirectOf(d));
