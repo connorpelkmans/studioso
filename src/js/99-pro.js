@@ -685,14 +685,21 @@ var SBPRO = null;
   function shapeSvg(s){
     const k = typeof s === "string" ? s : "", pts = k[0] === "p" ? ptsOf(k) : [];
     const inner = k === "e" ? `<ellipse cx="50" cy="50" rx="50" ry="50"/>` : pts.length >= 3 ? `<polygon points="${pts.map(p => (p[0] * 100).toFixed(1) + "," + (p[1] * 100).toFixed(1)).join(" ")}"/>` : `<rect width="100" height="100" rx="3"/>`;
-    return `<svg class="ci-sh" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">${inner}</svg>`;
+    // a solid copy underneath, so a see-through theme colour never shows the label it hides
+    return `<svg class="ci-sh" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">${inner.replace("/>", ' class="ci-bk"/>')}${inner}</svg>`;
   }
   const maskIdx = c => { const im = (c && c.img) || {}, n = masksOf(im).length, g = Array.isArray(im.g) ? im.g.map(Number).filter(j => Number.isInteger(j) && j >= 0 && j < n) : []; return g.length ? [...new Set(g)] : [Math.max(0, Number(im.i) || 0)]; };
   const setOf = c => c && c.img ? (c.img.s ? "s:" + c.img.s : "k:" + c.img.k + "|" + JSON.stringify(masksOf(c.img).map(b => Array.isArray(b) ? b.slice(0, 4) : b))) : "";
   const siblings = (d, c) => { const k = setOf(c); return d && k ? d.cards.filter(x => x.img && setOf(x) === k) : [c]; };
+  // nl: no label was typed (Anki's masks hide the picture's own words), so the picture is the answer
+  const noLab = c => !!(c && c.img && c.img.nl);
+  const DEF_Q = "Name the hidden label";
+  const promptOf = c => { const t = String((c && c.front) || "").trim(); return t && t !== DEF_Q ? t : ""; };
+  const extraOf = c => String((c && c.img && c.img.x) || "").trim();
+  const ansText = c => noLab(c) ? "Check what's under the box on the picture." : String(c.back || "");
   function labelsOf(d, c){
     const lab = [], grp = [];
-    siblings(d, c).forEach(x => { const idx = maskIdx(x); idx.forEach(j => { if (lab[j] == null) { lab[j] = String(x.back || ""); grp[j] = idx; } }); });
+    siblings(d, c).forEach(x => { const idx = maskIdx(x); idx.forEach(j => { if (lab[j] == null) { lab[j] = noLab(x) ? "" : String(x.back || ""); grp[j] = idx; } }); });
     return {lab, grp};
   }
   function setsOf(d, drafts){
@@ -704,7 +711,8 @@ var SBPRO = null;
     const url = urlOf(im.k || "");
     return url && url !== "x" ? `<img src="${esc(url)}" alt="" draggable="false">` : `<span class="ci-wait">${url === "x" ? "This picture is on another device or couldn't be loaded." : "Loading the picture…"}</span>`;
   }
-  const arOf = im => Math.max(0.3, Math.min(4, (im.w || 4) / (im.h || 3))).toFixed(3);
+  // the picture's own shape (a narrower range would stretch tall or wide pictures)
+  const arOf = im => Math.max(0.05, Math.min(20, (im.w || 4) / (im.h || 3))).toFixed(3);
   function face(c, back){
     const im = c.img || {}, m = masksOf(im), idx = maskIdx(c), mine = new Set(idx), mode = modeOf(im);
     const boxes = m.map((b, j) => {
@@ -713,7 +721,7 @@ var SBPRO = null;
       if (!hide && !(back && me)) return "";
       return `<i class="ci-box${me ? " me" : " other"}${back && me ? " shown" : ""}" style="${boxStyle(b)}">${shapeSvg(b[4])}${!back && me && j === idx[0] ? "<b>?</b>" : ""}</i>`;
     }).join("");
-    return `<span class="ci-face"><span class="ci-wrap" style="--ar:${arOf(im)}"><span class="ci-pad" aria-hidden="true"></span>${picHtml(im)}${boxes}</span>${back ? `<span class="ci-ans">${esc(c.back)}</span>` : ""}</span>`;
+    return `<span class="ci-face"><span class="ci-wrap" style="--ar:${arOf(im)}"><span class="ci-pad" aria-hidden="true"></span>${picHtml(im)}${boxes}</span>${back ? `<span class="ci-ans">${esc(ansText(c))}</span>` : ""}</span>`;
   }
 
   /* Zoom and pan (pinch on phones, Ctrl + scroll or the buttons elsewhere) */
@@ -761,7 +769,7 @@ var SBPRO = null;
       const st = boxStyle(b), sh = shapeSvg(b[4]);
       if (mine.has(j)) {
         if (!back) return `<button type="button" class="ci-box me" style="${st}" data-act="fc-flip" aria-label="${j === idx[0] ? "The hidden label to name. Show the answer" : "Part of the hidden label. Show the answer"}">${sh}${j === idx[0] ? "<b>?</b>" : ""}</button>`;
-        return `<span class="ci-box me shown" style="${st}">${sh}${j === idx[0] ? tag(b, c.back) : ""}</span>`;
+        return `<span class="ci-box me shown" style="${st}">${sh}${j === idx[0] && !noLab(c) ? tag(b, c.back) : ""}</span>`;
       }
       if (mode === "one") return "";
       if (mode === "all") return `<span class="ci-box other" style="${st}">${sh}</span>`;
@@ -771,10 +779,11 @@ var SBPRO = null;
     const typed = f.icTyped && f.icTyped.id === c.id ? f.icTyped : null;
     const verdict = back && typed ? `<p class="ic-verdict ${typed.res}" role="status">${typed.res === "right" ? "Right!" : typed.res === "close" ? `Close enough. You typed “${esc(typed.given)}”.` : typed.given ? `Not quite. You typed “${esc(typed.given)}”.` : "You didn't type an answer."}</p>` : "";
     return `<div class="ic-study${back ? " is-back" : ""}" style="--c:${esc(colorOf(d.courseId))}" data-ic-card="${esc(c.id)}">
-      <div class="ic-top"><span class="ic-side">${back ? "Back" : "Front"}</span><span class="mini">${esc(modeName(mode))}</span><span class="spacer"></span>${P.locked() ? "" : `<button type="button" class="btn small" data-act="pro-ic-type" aria-pressed="${typeOn()}">Type Answers</button>`}</div>
+      <div class="ic-top"><span class="ic-side">${back ? "Back" : "Front"}</span><span class="mini">${esc(modeName(mode))}</span><span class="spacer"></span>${P.locked() || noLab(c) ? "" : `<button type="button" class="btn small" data-act="pro-ic-type" aria-pressed="${typeOn()}">Type Answers</button>`}</div>
+      ${promptOf(c) ? `<p class="ic-prompt">${esc(promptOf(c))}</p>` : ""}
       <div class="ci-wrap ic-frame${z.s > 1 ? " zoomed" : ""}" data-ic-zoom style="--ar:${arOf(im)}"><span class="ci-pad" aria-hidden="true"></span><div class="ci-zoom" style="transform:${zoomT(z)}">${picHtml(im)}${boxes}</div></div>
       ${zoomBar("pro-ic-zoom")}
-      ${back ? `<p class="ci-ans" aria-live="polite">${esc(c.back)}</p>${verdict}` : `<p class="ic-q">${esc(mode === "tap" ? "Name the label marked ?. Tap any other label to peek." : "Name the label marked ?")}</p>${typeOn() ? `<form class="ic-type" data-ic-type><input type="text" id="icTypeIn" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the hidden label" aria-label="Type the hidden label"><button type="submit" class="btn primary">Check</button></form>` : ""}`}
+      ${back ? `<p class="ci-ans${noLab(c) ? " ic-check" : ""}" aria-live="polite">${esc(ansText(c))}</p>${verdict}${extraOf(c) ? `<p class="ic-extra">${esc(extraOf(c))}</p>` : ""}` : `<p class="ic-q">${esc((noLab(c) ? "Name what's hidden under ?" : "Name the label marked ?") + (mode === "tap" ? " Tap any other box to peek." : ""))}</p>${typeOn() && !noLab(c) ? `<form class="ic-type" data-ic-type><input type="text" id="icTypeIn" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the hidden label" aria-label="Type the hidden label"><button type="submit" class="btn primary">Check</button></form>` : ""}`}
     </div>`;
   }
   const curStudy = () => { const f = ui.fc, it = f && f.mode === "study" ? f.q[f.i] : null, d = it && state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId); return c && c.img ? {f, d, c} : null; };
@@ -1020,8 +1029,11 @@ var SBPRO = null;
       const img = {k: key, w: item.w, h: item.h, m, i: gs[0], mode: MODES.some(x => x[0] === mode) ? mode : "one", src: String(item.src || "").slice(0, 120), s: set};
       if (gs.length > 1) img.g = gs.slice();
       const was = (prev || []).find(c => !used.has(c.id) && gs.some(j => boxes[j].oid === c.id));
-      if (was) { used.add(was.id); const c = Object.assign(clone(was), {back, img}); delete c.draft; if (draft) c.draft = true; return c; }
-      return {id: uid(), front: "Name the hidden label", back, box: 0, due: "", seen: 0, right: 0, wrong: 0, img, ...(draft ? {draft: true} : {})};
+      if (was) {
+        used.add(was.id); if (noLab(was) && back === was.back) img.nl = 1; if (extraOf(was)) img.x = extraOf(was);
+        const c = Object.assign(clone(was), {back, img}); delete c.draft; if (draft) c.draft = true; return c;
+      }
+      return {id: uid(), front: DEF_Q, back, box: 0, due: "", seen: 0, right: 0, wrong: 0, img, ...(draft ? {draft: true} : {})};
     }).filter(Boolean);
   }
   function itemFrom(cards, extra){
@@ -1066,7 +1078,8 @@ var SBPRO = null;
         <button type="button" class="btn small" data-act="pro-oc-undo"${undoN ? "" : " disabled"}>Undo</button>${zoomBar("pro-oc-zoom")}</div>
       <div class="oc-stage${OC.zoom.s > 1 ? " zoomed" : ""} tool-${OC.tool}" style="--ar:${(it.w / it.h).toFixed(4)}" data-oc-stage><span class="oc-pad" aria-hidden="true"></span><div class="oc-zoom" style="transform:${zoomT(OC.zoom)}">${url && url !== "x" ? `<img src="${esc(url)}" alt="" draggable="false">` : `<span class="ci-wait">Loading the picture…</span>`}
         ${it.boxes.map((x, j) => `<i class="oc-box${sel.includes(j) ? " sel" : ""}${x.g ? " grp" : ""}" data-oc-box="${j}" style="left:${x.x * 100}%;top:${x.y * 100}%;width:${x.w * 100}%;height:${x.h * 100}%">${shapeSvg(x.s)}<b>${num[j]}</b>${one === j ? ["nw", "ne", "sw", "se"].map(h => `<span class="oc-h ${h}" data-oc-h="${h}"></span>`).join("") : ""}</i>`).join("")}</div></div>
-      <div class="oc-tools oc-sel" role="toolbar" aria-label="Picked boxes"><button type="button" class="btn small" data-act="pro-oc-multi" aria-pressed="${OC.multi}">Pick Several</button><button type="button" class="btn small" data-act="pro-oc-group"${canGroup ? "" : " disabled"}>Group as One Card</button><button type="button" class="btn small" data-act="pro-oc-delsel"${sel.length ? "" : " disabled"}>Delete${sel.length > 1 ? ` ${sel.length}` : ""}</button><button type="button" class="btn small ai-btn" data-act="pro-oc-ai"${it.aiBusy ? " disabled" : ""}>${AI_ICON}<span>${it.aiTried ? "Find Labels Again" : "Find Labels with AI"}</span></button></div>
+      <div class="oc-tools oc-sel" role="toolbar" aria-label="Picked boxes"><button type="button" class="btn small" data-act="pro-oc-add" title="Adds a box in the middle of the view">Add Box</button><button type="button" class="btn small" data-act="pro-oc-multi" aria-pressed="${OC.multi}">Pick Several</button><button type="button" class="btn small" data-act="pro-oc-group"${canGroup ? "" : " disabled"}>Group as One Card</button><button type="button" class="btn small" data-act="pro-oc-delsel"${sel.length ? "" : " disabled"}>Delete${sel.length > 1 ? ` ${sel.length}` : ""}</button><button type="button" class="btn small ai-btn" data-act="pro-oc-ai"${it.aiBusy ? " disabled" : ""}>${AI_ICON}<span>${it.aiTried ? "Find Labels Again" : "Find Labels with AI"}</span></button></div>
+      <p class="mini kbd-only oc-keys">Pick a box with its number, then use the arrow keys to move it (Shift for bigger steps), Alt and the arrow keys to resize it, and Delete to remove it.</p>
       ${n ? `<ol class="oc-list">${gs.map((g, k) => { const j = g[0], x = it.boxes[j], on = g.some(q => sel.includes(q)); return `<li${on ? ' class="sel"' : ""}><button type="button" class="oc-n" data-act="pro-oc-pick" data-id="${j}" aria-label="Pick card ${k + 1} on the picture" aria-pressed="${on}">${k + 1}</button><input type="text" data-oc-ans="${j}" maxlength="200" value="${esc(x.t || "")}" placeholder="What's under box ${k + 1}?" aria-label="Answer for card ${k + 1}${g.length > 1 ? ` (${g.length} boxes)` : ""}">${g.length > 1 ? `<button type="button" class="btn small" data-act="pro-oc-ungroup" data-id="${j}" aria-label="Split card ${k + 1} into ${g.length} cards">Split</button>` : ""}<button type="button" class="x-btn" data-act="pro-oc-del" data-id="${j}" aria-label="Remove card ${k + 1}">${CLOSE}</button></li>`; }).join("")}</ol>` : ""}
       <fieldset class="oc-modes"><legend>When You Study</legend>${MODES.map(([k, l, sub]) => `<label class="oc-mode"><input type="radio" name="ocMode" value="${k}"${OC.mode === k ? " checked" : ""}><span><b>${l}</b><span class="mini">${sub}</span></span></label>`).join("")}</fieldset>`;
     keepLabel();
@@ -1163,6 +1176,14 @@ var SBPRO = null;
     };
     st.addEventListener("pointerup", end); st.addEventListener("pointercancel", end);
   }
+  // a box without dragging (keyboard and screen reader users): in the middle of what's in view
+  function editorAdd(){
+    const it = OC.queue[OC.i]; if (it.boxes.length >= 30) { toast("Up to 30 boxes on one picture."); return; }
+    const z = OC.zoom, w = 0.2 / z.s, h = 0.08 / z.s, cx = (0.5 - z.x) / z.s, cy = (0.5 - z.y) / z.s;
+    const nb = {x: cl01(Math.min(1 - w, cx - w / 2)), y: cl01(Math.min(1 - h, cy - h / 2)), w, h, s: OC.tool === "oval" ? "e" : "", t: "", g: ""};
+    pushUndo(it); it.boxes.push(nb); OC.sel = [it.boxes.length - 1]; drawEditor();
+    const inp = dlg.querySelector(`[data-oc-ans="${OC.sel[0]}"]`); if (inp) inp.focus();
+  }
   function editorDelete(js){
     const it = OC.queue[OC.i]; if (!js.length) return;
     pushUndo(it); it.boxes = it.boxes.filter((b, k) => !js.includes(k)); OC.sel = []; drawEditor();
@@ -1183,7 +1204,8 @@ var SBPRO = null;
     const mv = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]}[e.key];
     if (mv && OC.sel.length) {
       e.preventDefault(); pushUndo(it); const k = e.shiftKey ? 0.05 : 0.01;
-      OC.sel.forEach(j => { const b = it.boxes[j]; b.x = cl01(Math.min(1 - b.w, b.x + mv[0] * k)); b.y = cl01(Math.min(1 - b.h, b.y + mv[1] * k)); });
+      if (e.altKey) OC.sel.forEach(j => { const b = it.boxes[j]; b.w = Math.max(0.012, Math.min(1 - b.x, b.w + mv[0] * k)); b.h = Math.max(0.008, Math.min(1 - b.y, b.h + mv[1] * k)); });
+      else OC.sel.forEach(j => { const b = it.boxes[j]; b.x = cl01(Math.min(1 - b.w, b.x + mv[0] * k)); b.y = cl01(Math.min(1 - b.h, b.y + mv[1] * k)); });
       drawEditor(); const n = dlg.querySelector(`[data-act="pro-oc-pick"][data-id="${groupOf(it, OC.sel[0])[0]}"]`); if (n) n.focus();
     }
   });
@@ -1224,7 +1246,7 @@ var SBPRO = null;
   /* Diagram Practice (Pro) */
   let DP = null;
   const fmtT = ms => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
-  const practiceSets = d => setsOf(d).filter(s => s.cards.length >= 2);
+  const practiceSets = d => setsOf(d).filter(s => s.cards.length >= 2 && !s.cards.some(noLab));
   function setRows(d, sets, edit){
     return `<ul class="pro-feats ic-sets">${sets.map((s, k) => { const im = s.cards[0].img, url = urlOf(im.k || ""); return `<li><span class="ic-thumb" style="--ar:${arOf(im)}">${url && url !== "x" ? `<img src="${esc(url)}" alt="">` : ""}</span><span class="pf-t"><b>${esc(im.src || `Picture ${k + 1}`)}</b><span class="mini">${s.cards.length} card${s.cards.length === 1 ? "" : "s"} · ${esc(modeName(modeOf(im)))}</span></span><span class="ic-set-btns"><button type="button" class="btn small" data-act="pro-dp-open" data-id="${esc(d.id)}|${esc(s.key)}"${s.cards.length >= 2 ? "" : " disabled"}>Practice</button>${edit ? `<button type="button" class="btn small" data-act="pro-ic-edit" data-id="${esc(d.id)}|${esc(s.key)}">Edit</button>` : ""}</span></li>`; }).join("")}</ul>`;
   }
@@ -1411,6 +1433,7 @@ var SBPRO = null;
       case "pro-oc-ai": if (OC) aiFind(OC.queue[OC.i], true); return true;
       case "pro-oc-tool": if (OC) { OC.tool = TOOLS.some(x => x[0] === id) ? id : "rect"; drawEditor(); const t = dlg.querySelector(`[data-act="pro-oc-tool"][data-id="${OC.tool}"]`); if (t) t.focus(); } return true;
       case "pro-oc-undo": if (OC) undo(); return true;
+      case "pro-oc-add": if (OC) editorAdd(); return true;
       case "pro-oc-multi": if (OC) { OC.multi = !OC.multi; drawEditor(); const t = dlg.querySelector('[data-act="pro-oc-multi"]'); if (t) t.focus(); } return true;
       case "pro-oc-group": if (OC) editorGroup(); return true;
       case "pro-oc-ungroup": if (OC) { const it = OC.queue[OC.i], js = groupOf(it, Number(id)); pushUndo(it); js.forEach(j => { it.boxes[j].g = ""; }); OC.sel = js; drawEditor(); } return true;
@@ -1431,7 +1454,7 @@ var SBPRO = null;
   });
   dlg.addEventListener("close", () => { if (dlg.open) return; OC = null; CF = null; DK = null; DP = null; });
   P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: stats, and picture cards from your files (Smart scheduling is free for everyone)", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
-  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf});
+  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf, storeImage});
 
   const css = document.createElement("style");
   css.textContent = `
@@ -1453,6 +1476,9 @@ var SBPRO = null;
 .ci-box.shown{--f:transparent;--s:var(--leaf)}
 .ci-box.shown .ci-sh *{stroke-width:3}
 .ci-box.peek{--f:transparent;--s:color-mix(in srgb,var(--ink) 45%,transparent)}
+.ci-box.me,.ci-box.other{--bk:#7d8594}
+.ci-box.shown,.ci-box.peek{--bk:transparent}
+svg.ci-sh .ci-bk{fill:var(--bk,transparent);stroke:none}
 button.ci-box{cursor:pointer;-webkit-tap-highlight-color:transparent}
 button.ci-box:focus-visible{outline:3px solid var(--ink);outline-offset:2px;z-index:2}
 .ci-tag{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-3px);z-index:3;background:var(--ink);color:var(--surface);font:600 .74rem/1.25 var(--body);padding:2px 7px;border-radius:6px;white-space:nowrap;pointer-events:none}
@@ -1471,6 +1497,10 @@ button.ci-box:focus-visible{outline:3px solid var(--ink);outline-offset:2px;z-in
 .ic-zbar .ic-zb{padding:0!important;width:44px;height:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .ic-zbar .ic-zb svg{display:block}
 .ic-q{margin:0;text-align:center;color:var(--muted)}
+.ic-prompt{margin:0;text-align:center;font-weight:600;white-space:pre-line;overflow-wrap:anywhere}
+.ic-extra{margin:0;padding:8px 12px;border-radius:10px;background:var(--soft);font-size:.92rem;white-space:pre-line;overflow-wrap:anywhere}
+.ic-study .ci-ans.ic-check{font:600 1rem var(--body);color:var(--muted)}
+.oc-keys{margin:0}
 .ic-study .ci-ans{margin:0;text-align:center;font-size:1.2rem}
 .ic-type{display:flex;gap:8px}
 .ic-type input{flex:1;min-width:0}

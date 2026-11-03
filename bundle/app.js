@@ -64831,9 +64831,10 @@ const IA = (() => {
       return a[p] & 0x80 ? v - Math.pow(2, 8 * len) : v;
     };
     const LEN = [0, 1, 2, 3, 4, 6, 8];
-    function payload(p, n){
+    // idx: a cell of an index page (a table made WITHOUT ROWID keeps its rows that way), which spills sooner
+    function payload(p, n, idx){
       if (n > u8.length) throw new Error("bad record");
-      const X = usable - 35;
+      const X = idx ? Math.floor((usable - 12) * 64 / 255) - 23 : usable - 35;
       if (n <= X) return u8.subarray(p, p + n);
       const M = Math.floor((usable - 12) * 32 / 255) - 23, K = M + (n - M) % (usable - 4), local = K <= X ? K : M;
       const out = new Uint8Array(n); out.set(u8.subarray(p, p + local), 0);
@@ -64873,6 +64874,15 @@ const IA = (() => {
         } else if (type === 5) {
           stack.push(dv.getUint32(h + 8));
           for (let i = n - 1; i >= 0; i--) stack.push(dv.getUint32(base + dv.getUint16(h + 12 + 2 * i)));
+        } else if (type === 10 || type === 2) {
+          // index pages: every cell is a row, and on an inner page it also points to the page before it
+          const at = type === 2 ? 4 : 0;
+          if (type === 2) stack.push(dv.getUint32(h + 8));
+          for (let i = 0; i < n; i++) {
+            const c = base + dv.getUint16(h + (type === 2 ? 12 : 8) + 2 * i), r = vi(u8, c + at);
+            if (type === 2) stack.push(dv.getUint32(c));
+            fn(record(payload(r[1], r[0], true)), null);
+          }
         } else throw new Error("not a table page");
       }
     }
@@ -64916,14 +64926,26 @@ const IA = (() => {
   const chr = n => n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : "";
   const decodeEnt = s => s.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (m, e) => e[0] === "#" ? chr(e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : Number(e.slice(1))) : named(e) != null ? named(e) : m);
   // count: {pics, sounds} is added to for each picture and sound left out
+  // Math stays TeX: \(...\) and \[...\] as written, and Anki's older [$], [$$] and [latex] become them
+  const MATH_RE = /\\\(([\s\S]*?)\\\)|\\\[([\s\S]*?)\\\]|\[\$\$\]([\s\S]*?)\[\/\$\$\]|\[\$\]([\s\S]*?)\[\/\$\]|\[latex\]([\s\S]*?)\[\/latex\]/gi;
+  const texOf = s => decodeEnt(String(s).replace(/<br\s*\/?>/gi, " ").replace(/<[^>]*>/g, "")).replace(/ /g, " ");
+  const latexBody = s => { const t = texOf(s).replace(/\\documentclass(\[[^\]]*\])?\{[^}]*\}|\\usepackage(\[[^\]]*\])?\{[^}]*\}|\\pagestyle\{[^}]*\}|\\begin\{document\}|\\end\{document\}/g, "").trim(), m = /^\$\$?([\s\S]*?)\$?\$$/.exec(t); return m ? m[1].trim() : t; };
+  function mathOut(s, keep){
+    return s.replace(MATH_RE, (m, a, b, c, d, e) => {
+      const tex = a != null ? "\\(" + texOf(a) + "\\)" : b != null ? "\\[" + texOf(b) + "\\]" : c != null ? "\\[" + texOf(c).trim() + "\\]" : d != null ? "\\(" + texOf(d).trim() + "\\)" : "\\[" + latexBody(e) + "\\]";
+      keep.push(tex); return "\u0002" + (keep.length - 1) + "\u0003";
+    });
+  }
   function htmlText(h, count){
     let s = String(h == null ? "" : h);
     s = s.replace(/<(style|script)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "").replace(/<!--[\s\S]*?-->/g, "");
+    const tex = []; s = mathOut(s, tex);
     s = s.replace(/<img\b[^>]*>/gi, () => { if (count) count.pics++; return ""; }).replace(/\[sound:[^\]]*\]/gi, () => { if (count) count.sounds++; return ""; });
     s = s.replace(/<br\s*\/?>/gi, "\n").replace(/<li\b[^>]*>/gi, "\u0001• ").replace(/<\/?(div|p|li|ul|ol|h[1-6]|tr|table|blockquote|pre|section)\b[^>]*>/gi, "\u0001");
     s = s.replace(/<[^>]*>/g, "");
     s = decodeEnt(s).replace(/ /g, " ").replace(/\n?\u0001+\n?/g, "\n").replace(/\r\n?/g, "\n");
-    return s.split("\n").map(l => l.replace(/[ \t]+/g, " ").trim()).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+    s = s.split("\n").map(l => l.replace(/[ \t]+/g, " ").trim()).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+    return tex.length ? s.replace(/\u0002(\d+)\u0003/g, (m, i) => tex[+i] || "") : s;
   }
   const CLOZE = /\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g;
   const hasCloze = s => /\{\{c\d+::/.test(s);
@@ -64933,19 +64955,137 @@ const IA = (() => {
     const front = text.replace(CLOZE, (m, k, a, hint) => { if (Number(k) !== n) return a; ans.push(a); return hint ? `_____ (${hint})` : "_____"; });
     return ans.length ? {front, back: ans.join(", ")} : null;
   }
-  // NotetypeConfig (protobuf, newer Anki)
-  function pbKind(b){
+  // NotetypeConfig (protobuf, newer Anki): kind is field 1 (1 = cloze), original_stock_kind field 9 (6 = image occlusion)
+  function pbInt(b, want){
     if (!(b instanceof Uint8Array)) return 0;
     let p = 0;
     const v = () => { let x = 0, m = 1; for (let i = 0; i < 10 && p < b.length; i++) { const c = b[p++]; x += (c & 0x7f) * m; m *= 128; if (!(c & 0x80)) break; } return x; };
     while (p < b.length) {
       const key = v(), f = Math.floor(key / 8), wt = key % 8;
-      if (wt === 0) { const x = v(); if (f === 1) return x; }
+      if (wt === 0) { const x = v(); if (f === want) return x; }
       else if (wt === 1) p += 8; else if (wt === 5) p += 4;
       else if (wt === 2) p += v(); else break;
     }
     return 0;
   }
+  const pbKind = b => pbInt(b, 1);
+  // The media list of a newer package (MediaEntries): [{name, zip}], zip being the file's name in the package
+  function pbMedia(b){
+    const out = [], dec = new TextDecoder(); let p = 0;
+    const v = () => { let x = 0, m = 1; for (let i = 0; i < 10 && p < b.length; i++) { const c = b[p++]; x += (c & 0x7f) * m; m *= 128; if (!(c & 0x80)) break; } return x; };
+    while (p < b.length) {
+      const key = v(), wt = key % 8;
+      if (wt !== 2) { if (wt === 0) v(); else if (wt === 1) p += 8; else if (wt === 5) p += 4; else break; continue; }
+      const len = v(), end = p + len, e = {name: "", zip: String(out.length)};
+      if (Math.floor(key / 8) === 1) {
+        while (p < end) {
+          const k2 = v(), f = Math.floor(k2 / 8), w2 = k2 % 8;
+          if (w2 === 2) { const l = v(); if (f === 1) e.name = dec.decode(b.subarray(p, p + l)); p += l; }
+          else if (w2 === 0) { const x = v(); if (f === 255) e.zip = String(x); }
+          else if (w2 === 1) p += 8; else if (w2 === 5) p += 4; else break;
+        }
+        if (e.name) out.push(e);
+      }
+      p = end;
+    }
+    return out;
+  }
+
+  /* Image occlusion: Anki's own note type (23.10+) and the Image Occlusion Enhanced add-on */
+  const r4 = v => Math.round(Math.max(0, Math.min(1, Number(v) || 0)) * 10000) / 10000;
+  const IO_RE = /\{\{c(\d+(?:,\d+)*)::image-occlusion:(\w+)((?:[^}]|\}(?!\}))*)\}\}/g;
+  const isIO = s => /\{\{c\d+(?:,\d+)*::image-occlusion:/.test(String(s || ""));
+  // The Occlusion field -> [{ords, kind, left, top, width, height, rx, ry, points, oi}], numbers as written (fractions, or pixels in old notes)
+  function ioShapes(field){
+    const out = [], s = String(field || "").replace(/<br\s*\/?>/gi, "");
+    let m; IO_RE.lastIndex = 0;
+    while ((m = IO_RE.exec(s))) {
+      const o = {ords: m[1].split(",").map(Number), kind: m[2].toLowerCase()};
+      m[3].replace(/\\:/g, "\u0000").split(":").forEach(kv => { const i = kv.indexOf("="); if (i > 0) { const k = kv.slice(0, i).trim(), val = decodeEnt(kv.slice(i + 1).replace(/\u0000/g, ":")); o[k] = k === "points" || k === "text" ? val : Number(val); } });
+      out.push(o);
+    }
+    return out;
+  }
+  // A shape -> [x, y, w, h] and, for an oval or polygon, Studyboard's shape code ("e", or "p" and points from 0 to 100 inside the box)
+  function maskOf(x, y, w, h, kind, pts){
+    if (!(w > 0 && h > 0)) return null;
+    const X = r4(x), Y = r4(y), m = [X, Y, r4(Math.min(w, 1 - X)), r4(Math.min(h, 1 - Y))];
+    if (!(m[2] > 0 && m[3] > 0)) return null;
+    if (kind === "e") m.push("e");
+    else if (pts && pts.length >= 3) m.push("p" + pts.map(p => [(p[0] - x) / w, (p[1] - y) / h].map(v => Math.round(Math.max(0, Math.min(1, v)) * 1000) / 10).join(",")).join(" "));
+    return m;
+  }
+  const ptsList = s => String(s || "").trim().split(/\s+/).map(p => p.split(",").map(Number)).filter(p => p.length === 2 && p.every(isFinite));
+  // Anki's shapes -> masks, given the picture's size (to tell pixels from fractions)
+  function ioMasks(shapes, W, H){
+    const occ = shapes.filter(s => s.kind === "rect" || s.kind === "ellipse" || s.kind === "polygon");
+    const nums = occ.flatMap(s => [s.left, s.top, s.width, s.height, s.rx * 2, s.ry * 2].concat(ptsList(s.points).flat())).filter(v => isFinite(v));
+    const px = nums.some(v => v > 1.5), sx = px ? 1 / (W || 1) : 1, sy = px ? 1 / (H || 1) : 1;
+    return occ.map(s => {
+      let x = (s.left || 0) * sx, y = (s.top || 0) * sy;
+      if (s.kind === "rect") return {s, m: maskOf(x, y, (s.width || 0) * sx, (s.height || 0) * sy)};
+      if (s.kind === "ellipse") return {s, m: maskOf(x, y, (s.rx || 0) * 2 * sx, (s.ry || 0) * 2 * sy, "e")};
+      let pts = ptsList(s.points).map(p => [p[0] * sx, p[1] * sy]); if (pts.length < 3) return {s, m: null};
+      const x0 = Math.min(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1]));
+      // points are where the shape is; if they were written from its corner instead, move them there
+      if (isFinite(s.left) && isFinite(s.top) && (Math.abs(x0 - x) > 0.01 || Math.abs(y0 - y) > 0.01) && x0 < 0.01 && y0 < 0.01) pts = pts.map(p => [p[0] + x - x0, p[1] + y - y0]);
+      x = Math.min(...pts.map(p => p[0])); y = Math.min(...pts.map(p => p[1]));
+      return {s, m: maskOf(x, y, Math.max(...pts.map(p => p[0])) - x, Math.max(...pts.map(p => p[1])) - y, "p", pts)};
+    }).filter(o => o.m);
+  }
+  // One card of a built-in image occlusion note -> picture card fields (the picture's key is added on import)
+  function ioCard(field, ord, W, H){
+    const all = ioMasks(ioShapes(field), W, H), own = [];
+    all.forEach((o, j) => { if (o.s.ords.includes(ord)) own.push(j); });
+    if (!own.length) return null;
+    const img = {w: W, h: H, m: all.map(o => o.m), i: own[0], mode: all.some(o => o.s.oi === 1) ? "all" : "one", nl: 1};
+    if (own.length > 1) img.g = own;
+    return img;
+  }
+  // An Image Occlusion Enhanced mask (SVG) -> {w, h, shapes: [{x, y, w, h, kind, pts, q, grp}]}; q marks the card's own shape
+  function svgShapes(svg){
+    const s = String(svg || ""), at = (a, k) => { const m = new RegExp("(?:^|\\s)" + k + "\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", "i").exec(a); return m ? (m[2] != null ? m[2] : m[3]) : null; };
+    const num = (a, k) => { const v = parseFloat(at(a, k)); return isFinite(v) ? v : 0; };
+    const root = /<svg\b([^>]*)>/i.exec(s), ra = root ? root[1] : "", vb = String(at(ra, "viewBox") || "").trim().split(/[\s,]+/).map(Number);
+    const W = num(ra, "width") || (vb.length === 4 ? vb[2] : 0), H = num(ra, "height") || (vb.length === 4 ? vb[3] : 0);
+    const isQ = a => /\bqshape\b/i.test(at(a, "class") || "") || /^#?ff7e7e$/i.test(String(at(a, "fill") || "").trim()) || /fill\s*:\s*#ff7e7e/i.test(at(a, "style") || "");
+    const out = [], stack = []; let gn = 0;
+    const re = /<(\/?)(g|rect|ellipse|circle|polygon)\b([^>]*?)(\/?)>/gi; let m;
+    while ((m = re.exec(s))) {
+      const tag = m[2].toLowerCase(), a = m[3];
+      if (tag === "g") { if (m[1]) stack.pop(); else if (!m[4]) stack.push({id: "g" + (++gn), q: isQ(a)}); continue; }
+      if (m[1]) continue;
+      // the outer <g> is the layer; a <g> inside it is a group of shapes that make one card
+      const grp = stack.length >= 2 ? stack[1].id : "", q = isQ(a) || stack.slice(1).some(g => g.q);
+      let sh = null;
+      if (tag === "rect") sh = {x: num(a, "x"), y: num(a, "y"), w: num(a, "width"), h: num(a, "height"), kind: ""};
+      else if (tag === "ellipse" || tag === "circle") { const rx = tag === "circle" ? num(a, "r") : num(a, "rx"), ry = tag === "circle" ? num(a, "r") : num(a, "ry"); sh = {x: num(a, "cx") - rx, y: num(a, "cy") - ry, w: rx * 2, h: ry * 2, kind: "e"}; }
+      else { const pts = ptsList(at(a, "points")); if (pts.length >= 3) { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x = Math.min(...xs), y = Math.min(...ys); sh = {x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y, kind: "p", pts}; } }
+      if (sh && sh.w > 0 && sh.h > 0) out.push(Object.assign(sh, {q, grp}));
+    }
+    return {w: W, h: H, shapes: out};
+  }
+  // One Image Occlusion Enhanced note -> picture card fields, from its question mask and the set's original mask
+  function ioeCard(qSvg, oSvg, id, W, H){
+    const q = svgShapes(qSvg), o = oSvg ? svgShapes(oSvg) : null, base = o && o.shapes.length ? o : q;
+    const sw = base.w || W || 1, sh = base.h || H || 1, qw = q.w || sw, qh = q.h || sh;
+    const masks = base.shapes.map(x => maskOf(x.x / sw, x.y / sh, x.w / sw, x.h / sh, x.kind, x.pts && x.pts.map(p => [p[0] / sw, p[1] / sh])));
+    const own = new Set();
+    q.shapes.filter(x => x.q).forEach(x => {
+      if (base === q) { own.add(q.shapes.indexOf(x)); return; }
+      let best = -1, bd = Infinity;
+      base.shapes.forEach((b, j) => { const d = Math.abs(b.x / sw - x.x / qw) + Math.abs(b.y / sh - x.y / qh) + Math.abs(b.w / sw - x.w / qw) + Math.abs(b.h / sh - x.h / qh); if (d < bd) { bd = d; best = j; } });
+      if (best >= 0 && bd < 0.02) { own.add(best); const g = base.shapes[best].grp; if (g) base.shapes.forEach((b, j) => { if (b.grp === g) own.add(j); }); }
+    });
+    const keep = masks.map((m, j) => m ? j : -1).filter(j => j >= 0), idx = [...own].filter(j => masks[j]).sort((a, b) => a - b).map(j => keep.indexOf(j));
+    if (!idx.length) return null;
+    const mid = /-(ao|oa)-[^-]*$/i.exec(String(id || "")), mode = mid ? (mid[1].toLowerCase() === "ao" ? "all" : "one") : q.shapes.some(x => !x.q) ? "all" : "one";
+    const img = {w: W || sw, h: H || sh, m: keep.map(j => masks[j]), i: idx[0], mode, nl: 1};
+    if (idx.length > 1) img.g = idx;
+    return img;
+  }
+  const IOE_FIELDS = ["id", "header", "image", "question mask", "footer", "remarks", "sources", "extra 1", "extra 2", "answer mask", "original mask"];
+  const imgSrc = h => { const m = /<img\b[^>]*?\bsrc\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(String(h || "")); return m ? decodeEnt(m[2] != null ? m[2] : m[3] != null ? m[3] : m[4]).trim() : ""; };
 
   /* Anki collection -> decks of Studyboard cards */
   const isPlaceholder = db => db.has("notes") && db.count("notes") <= 1;
@@ -64954,11 +65094,22 @@ const IA = (() => {
     const cap = opts.cap || CARD_CAP;
     const col = (db.has("col") ? db.all("col", ["crt", "models", "decks"]) : [])[0] || {};
     const crt = Number(col.crt) || 0;
-    const deckName = {}, cloze = {};
+    const deckName = {}, cloze = {}, stock = {}, fnames = {};
     if (db.has("decks")) db.each("decks", r => { deckName[r.id] = String(r.name || "").split("\u001f").join("::"); }, ["id", "name"]);
     if (typeof col.decks === "string" && col.decks.length > 2) { try { Object.values(JSON.parse(col.decks)).forEach(d => { if (d && d.id != null && !deckName[d.id]) deckName[d.id] = String(d.name || ""); }); } catch (e) { } }
-    if (typeof col.models === "string" && col.models.length > 2) { try { Object.values(JSON.parse(col.models)).forEach(m => { if (m && m.id != null) cloze[m.id] = m.type === 1; }); } catch (e) { } }
-    if (db.has("notetypes")) db.each("notetypes", r => { cloze[r.id] = pbKind(r.config) === 1; }, ["id", "config"]);
+    if (typeof col.models === "string" && col.models.length > 2) {
+      try { Object.values(JSON.parse(col.models)).forEach(m => { if (m && m.id != null) { cloze[m.id] = m.type === 1; stock[m.id] = Number(m.originalStockKind) || 0; if (Array.isArray(m.flds)) fnames[m.id] = m.flds.slice().sort((a, b) => (a.ord | 0) - (b.ord | 0)).map(x => String(x && x.name || "").trim().toLowerCase()); } }); } catch (e) { }
+    }
+    if (db.has("notetypes")) db.each("notetypes", r => { cloze[r.id] = pbKind(r.config) === 1; stock[r.id] = pbInt(r.config, 9); }, ["id", "config"]);
+    if (db.has("fields")) db.each("fields", r => { (fnames[r.ntid] = fnames[r.ntid] || [])[r.ord | 0] = String(r.name || "").trim().toLowerCase(); }, ["ntid", "ord", "name"]);
+    // image occlusion: "io" (Anki's own, stock kind 6) or "ioe" (the Image Occlusion Enhanced add-on)
+    const ioKind = n => {
+      if (n.io != null) return n.io;
+      const nm = fnames[n.mid] || [];
+      const ioe = nm.includes("question mask") && nm.includes("original mask") && nm.includes("image") || n.flds.some(x => /-Q\.svg$/i.test(imgSrc(x))) && n.flds.some(x => /-O\.svg$/i.test(imgSrc(x)));
+      return (n.io = ioe ? "ioe" : stock[n.mid] === 6 || n.flds.some(isIO) ? "io" : "");
+    };
+    const fieldAt = (n, name, i) => { const nm = fnames[n.mid] || [], k = nm.indexOf(name); return k >= 0 ? n.flds[k] || "" : nm.length ? "" : n.flds[i] || ""; };
     const notes = new Map();
     db.each("notes", r => { notes.set(r.id, {mid: r.mid, flds: String(r.flds == null ? "" : r.flds).split("\u001f"), used: false}); }, ["id", "mid", "flds"]);
     const lastRev = new Map();
@@ -64968,10 +65119,53 @@ const IA = (() => {
     const dayDate = due => isoLocal((crt + due * 86400) * 1000);
     const count = {pics: 0, sounds: 0}, groups = new Map();
     let skipped = 0;
+    // the schedule Anki kept for a card
+    const sched = (c, card, dueRaw) => {
+      const reps = Math.max(0, c.reps | 0), lapses = Math.max(0, c.lapses | 0);
+      if (c.type === 0) return;
+      let data = null; try { data = c.data && String(c.data).trim().startsWith("{") ? JSON.parse(c.data) : null; } catch (e) { data = null; }
+      const ivl = c.ivl > 0 ? c.ivl : 0;
+      const due = Number(dueRaw) > 1e8 ? isoLocal(Number(dueRaw) * 1000) : dayDate(Number(dueRaw) || 0);
+      card.seen = Math.max(1, reps); card.wrong = Math.min(lapses, card.seen); card.right = Math.max(0, card.seen - card.wrong);
+      card.due = due; card.box = boxFor(ivl);
+      const lr = lastRev.get(c.id), lrt = data && Number(data.lrt) > 0 ? Number(data.lrt) * 1000 : 0;
+      card.last = lr ? isoLocal(lr) : lrt ? isoLocal(lrt) : ivl ? addDaysISO(due, -ivl) : due;
+      if (data && Number(data.s) > 0 && Number(data.d) > 0) card.fs = {s: Math.round(Number(data.s) * 1000) / 1000, d: Math.round(Math.min(10, Math.max(1, Number(data.d))) * 1000) / 1000};
+      else {
+        const fac = Number(c.factor) || 2500;
+        card.fs = {s: Math.max(0.5, ivl), d: Math.round(Math.min(10, Math.max(1, 5 + (2500 - fac) / 200)) * 100) / 100};
+      }
+    };
+    const put = (did, card) => { if (!groups.has(did)) groups.set(did, []); groups.get(did).push(card); };
+    const txt = h => htmlText(h);
+    let pictures = 0;
     raw.sort((a, b) => a.nid - b.nid || a.ord - b.ord);
     for (const c of raw) {
       const n = notes.get(c.nid); if (!n) { skipped++; continue; }
       const did = c.odid ? c.odid : c.did, dueRaw = c.odid && c.odue ? c.odue : c.due;
+      const io = ioKind(n);
+      if (io) {
+        // a picture card: its picture and masks are read from the package's media when the file is opened
+        n.used = true;
+        let pic = null, front = "";
+        if (io === "io") {
+          const occ = n.flds.find(isIO) || fieldAt(n, "occlusion", 0), ord = (c.ord | 0) + 1;
+          if (ioShapes(occ).some(x => x.kind !== "text" && x.ords.includes(ord))) pic = {kind: "io", media: imgSrc(fieldAt(n, "image", 1)) || imgSrc(n.flds.find(x => /<img\b/i.test(x))), occ, ord, set: "io:" + c.nid, x: [txt(fieldAt(n, "back extra", 3)), txt(fieldAt(n, "comments", 4))]};
+          front = txt(fieldAt(n, "header", 2));
+        } else {
+          // by name, or where the add-on puts each field
+          const nm = fnames[n.mid] || [], F = k => { const i = nm.indexOf(k); return i >= 0 ? n.flds[i] || "" : nm.includes("image") ? "" : n.flds[IOE_FIELDS.indexOf(k)] || ""; };
+          const svg = re => imgSrc(n.flds.find(x => re.test(imgSrc(x)))), id = txt(F("id")) || txt(n.flds[0]);
+          pic = {kind: "ioe", media: imgSrc(F("image")), q: imgSrc(F("question mask")) || svg(/-Q\.svg$/i), o: imgSrc(F("original mask")) || svg(/-O\.svg$/i), id, set: "ioe:" + (id.replace(/-[^-]*$/, "") || c.nid), x: ["footer", "remarks", "sources", "extra 1", "extra 2"].map(k => txt(F(k)))};
+          front = txt(F("header"));
+          if (!pic.q) pic = null;
+        }
+        if (!pic || !pic.media) { skipped++; continue; }
+        pic.x = clip(pic.x.filter(Boolean).join("\n\n"), 2000);
+        const card = {front: clip(front || "Name the hidden label", TEXT_CAP), back: "", box: 0, due: "", seen: 0, right: 0, wrong: 0, pic};
+        sched(c, card, dueRaw); put(did, card); pictures++;
+        continue;
+      }
       const pc = {pics: 0, sounds: 0}, f = n.flds.map(x => htmlText(x, pc));
       let fb = null;
       const zi = f.findIndex(hasCloze);
@@ -64983,23 +65177,7 @@ const IA = (() => {
       if (!fb || !fb.front.trim() || !fb.back.trim()) { skipped++; if (!n.used) { count.pics += pc.pics; count.sounds += pc.sounds; n.used = true; } continue; }
       if (!n.used) { count.pics += pc.pics; count.sounds += pc.sounds; n.used = true; }
       const card = {front: clip(fb.front, TEXT_CAP), back: clip(fb.back, TEXT_CAP), box: 0, due: "", seen: 0, right: 0, wrong: 0};
-      const reps = Math.max(0, c.reps | 0), lapses = Math.max(0, c.lapses | 0);
-      if (c.type !== 0) {
-        let data = null; try { data = c.data && String(c.data).trim().startsWith("{") ? JSON.parse(c.data) : null; } catch (e) { data = null; }
-        const ivl = c.ivl > 0 ? c.ivl : 0;
-        const due = Number(dueRaw) > 1e8 ? isoLocal(Number(dueRaw) * 1000) : dayDate(Number(dueRaw) || 0);
-        card.seen = Math.max(1, reps); card.wrong = Math.min(lapses, card.seen); card.right = Math.max(0, card.seen - card.wrong);
-        card.due = due; card.box = boxFor(ivl);
-        const lr = lastRev.get(c.id), lrt = data && Number(data.lrt) > 0 ? Number(data.lrt) * 1000 : 0;
-        card.last = lr ? isoLocal(lr) : lrt ? isoLocal(lrt) : ivl ? addDaysISO(due, -ivl) : due;
-        if (data && Number(data.s) > 0 && Number(data.d) > 0) card.fs = {s: Math.round(Number(data.s) * 1000) / 1000, d: Math.round(Math.min(10, Math.max(1, Number(data.d))) * 1000) / 1000};
-        else {
-          const fac = Number(c.factor) || 2500;
-          card.fs = {s: Math.max(0.5, ivl), d: Math.round(Math.min(10, Math.max(1, 5 + (2500 - fac) / 200)) * 100) / 100};
-        }
-      }
-      if (!groups.has(did)) groups.set(did, []);
-      groups.get(did).push(card);
+      sched(c, card, dueRaw); put(did, card);
     }
     const paths = [...groups.keys()].map(did => ({did, path: deckName[did] || "Anki Deck"})).sort((a, b) => a.path.localeCompare(b.path));
     const short = p => p.split("::").pop().trim() || p;
@@ -65014,7 +65192,22 @@ const IA = (() => {
       decks.push({name: clip(name, 120), path: x.path, cards, learned: cards.filter(c => c.seen > 0).length});
     }
     const total = decks.reduce((a, d) => a + d.cards.length, 0);
-    return {decks, total, found, capped: found > total, learned: decks.reduce((a, d) => a + d.learned, 0), pics: count.pics, sounds: count.sounds, skipped};
+    return {decks, total, found, capped: found > total, learned: decks.reduce((a, d) => a + d.learned, 0), pics: count.pics, sounds: count.sounds, skipped, pictures: decks.reduce((a, d) => a + d.cards.filter(c => c.pic).length, 0)};
+  }
+  // A picture card read from Anki, once its files are at hand: media maps a file name to {w, h} for a picture or the text of an SVG mask
+  function picCard(pic, media){
+    const im = media[pic.media]; if (!im || !(im.w > 0 && im.h > 0)) return null;
+    const img = pic.kind === "io" ? ioCard(pic.occ, pic.ord, im.w, im.h) : typeof media[pic.q] === "string" ? ioeCard(media[pic.q], typeof media[pic.o] === "string" ? media[pic.o] : "", pic.id, im.w, im.h) : null;
+    if (!img) return null;
+    img.w = im.w; img.h = im.h; img.src = clip(String(pic.media).replace(/\.[a-z0-9]{2,5}$/i, ""), 120);
+    if (pic.x) img.x = pic.x;
+    return img;
+  }
+  // Every picture card in a deck that reads the same way: "Box 3", numbered in the order the masks are drawn
+  function nameBoxes(cards){
+    const by = new Map();
+    cards.forEach(c => { if (!c.img) return; const k = c.pic ? c.pic.set : ""; if (!by.has(k)) by.set(k, []); by.get(k).push(c); });
+    by.forEach(cs => { cs.sort((a, b) => a.img.i - b.img.i); cs.forEach((c, k) => { c.back = "Box " + (k + 1); }); });
   }
 
   /* CSV */
@@ -65209,7 +65402,7 @@ const IA = (() => {
   const isZip = b => b && b.length > 4 && b[0] === 0x50 && b[1] === 0x4b && (b[2] === 3 || b[2] === 5);
   const isSqlite = b => b && b.length > 16 && String.fromCharCode.apply(null, b.subarray(0, 15)) === "SQLite format 3";
 
-  return {CARD_CAP, NOTE_CAP, sqlite, readAnki, isPlaceholder, htmlText, clozeCard, pbKind, parseCSV, looseDate, todoist, notionTitle, notionDir, mdText, notionTable, plan, matchCourse, zstdRaw, isZstd, isZip, isSqlite, boxFor};
+  return {CARD_CAP, NOTE_CAP, sqlite, readAnki, isPlaceholder, htmlText, clozeCard, pbKind, pbInt, pbMedia, isIO, ioShapes, ioMasks, ioCard, svgShapes, ioeCard, imgSrc, picCard, nameBoxes, parseCSV, looseDate, todoist, notionTitle, notionDir, mdText, notionTable, plan, matchCourse, zstdRaw, isZstd, isZip, isSqlite, boxFor};
 })();
 /*IMPORTAPPS-END*/
 
@@ -65238,7 +65431,63 @@ const IA = (() => {
       db = IA.sqlite(b);
     }
     if (!db) throw oops(tr("ia.err.anki", "That doesn't look like an Anki deck file. In Anki, choose File, then Export, and pick Anki Deck Package."));
-    return IA.readAnki(db, {cap: IA.CARD_CAP});
+    const a = IA.readAnki(db, {cap: IA.CARD_CAP});
+    if (a.pictures) await readPictures(src, a);
+    return a;
+  }
+  /* Image occlusion cards: their pictures and masks come from the package's media */
+  const PIC_MAX = 40 * 1024 * 1024, PIC_SIDE = 2000;
+  const picType = n => /\.png$/i.test(n) ? "image/png" : /\.gif$/i.test(n) ? "image/gif" : /\.webp$/i.test(n) ? "image/webp" : /\.svg$/i.test(n) ? "image/svg+xml" : /\.(jpe?g)$/i.test(n) ? "image/jpeg" : "";
+  // A picture -> {w, h, blob}: a JPEG on white (as picture cards keep them), at most PIC_SIDE on its long side
+  async function picFrom(bytes, name){
+    const url = URL.createObjectURL(new Blob([bytes], {type: picType(name) || "image/png"}));
+    try {
+      const im = new Image(); im.src = url; await im.decode();
+      const W = im.naturalWidth, H = im.naturalHeight; if (!(W > 0 && H > 0)) return null;
+      const sc = Math.min(1, PIC_SIDE / Math.max(W, H)), cv = document.createElement("canvas"); cv.width = Math.max(1, Math.round(W * sc)); cv.height = Math.max(1, Math.round(H * sc));
+      const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height);
+      const blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.88));
+      return blob ? {w: W, h: H, blob} : null;
+    } catch (e) { return null; } finally { URL.revokeObjectURL(url); }
+  }
+  async function readPictures(src, a){
+    const cards = a.decks.flatMap(d => d.cards.filter(c => c.pic)), want = new Set();
+    cards.forEach(c => [c.pic.media, c.pic.q, c.pic.o].forEach(n => { if (n) want.add(n); }));
+    // the media list: JSON in older packages, zstd-packed protobuf in newer ones; files are named 0, 1, 2…
+    let zipOf = {};
+    try {
+      let m = (await unzipBytes(src, n => n === "media", {max: 64 * 1024 * 1024})).media;
+      if (m && IA.isZstd(m)) m = await unzstd(m);
+      if (m && m.length) {
+        const t = m[0] === 0x7b ? new TextDecoder().decode(m) : "";
+        if (t) Object.entries(JSON.parse(t)).forEach(([k, v]) => { zipOf[v] = k; });
+        else IA.pbMedia(m).forEach(e => { zipOf[e.name] = e.zip; });
+      }
+    } catch (e) { zipOf = {}; }
+    const byZip = {}; want.forEach(n => { const z = zipOf[n] != null ? zipOf[n] : zipOf[(() => { try { return decodeURIComponent(n); } catch (x) { return n; } })()]; if (z != null) byZip[z] = n; });
+    let files = {};
+    try { files = Object.keys(byZip).length ? await unzipBytes(src, n => n in byZip, {max: PIC_MAX}) : {}; } catch (e) { files = {}; }
+    const media = {}, blobs = {};
+    for (const [z, b0] of Object.entries(files)) {
+      const name = byZip[z]; let b = b0;
+      try { if (IA.isZstd(b)) b = await unzstd(b); } catch (e) { continue; }
+      if (cards.some(c => c.pic.q === name || c.pic.o === name)) media[name] = new TextDecoder().decode(b);
+      else if (cards.some(c => c.pic.media === name)) { const p = await picFrom(b, name); if (p) { media[name] = {w: p.w, h: p.h}; blobs[name] = p.blob; } }
+    }
+    let lost = 0;
+    a.decks.forEach(d => {
+      d.cards = d.cards.filter(c => {
+        if (!c.pic) return true;
+        const img = blobs[c.pic.media] ? IA.picCard(c.pic, media) : null;
+        if (!img) { lost++; return false; }
+        c.img = img; return true;
+      });
+      IA.nameBoxes(d.cards);
+      d.learned = d.cards.filter(c => c.seen > 0).length;
+    });
+    a.decks = a.decks.filter(d => d.cards.length);
+    a.total = a.decks.reduce((s, d) => s + d.cards.length, 0); a.learned = a.decks.reduce((s, d) => s + d.learned, 0);
+    a.pictures -= lost; a.picsLost = lost; a.media = blobs;
   }
   // Every CSV and Markdown file in a ZIP, and in a ZIP inside it (Notion does that), as [{name
   async function zipTexts(src, depth, out, budget){
@@ -65269,6 +65518,7 @@ const IA = (() => {
   /* The sheets */
   let PV = null;
   const n0 = n => trn("ia.n", n, "{n}|{n}");
+  const picsW = n => trn("ia.pics", n, "{n} picture card|{n} picture cards");
   const cardsW = n => trn("ia.cards", n, "{n} card|{n} cards"), decksW = n => trn("ia.decks", n, "{n} deck|{n} decks"), tasksW = n => trn("ia.tasks", n, "{n} task|{n} tasks"), notesW = n => trn("ia.notes", n, "{n} note|{n} notes");
   const APPS = () => [
     ["anki", "Anki", tr("ia.how.anki", "In Anki, choose File, then Export. Pick Anki Deck Package (.apkg) or Collection Package (.colpkg), keep Include Scheduling Information on, then choose the file here.")],
@@ -65327,10 +65577,12 @@ const IA = (() => {
     if (r.app === "anki") {
       const a = r.anki;
       a.decks.forEach(d => groups.push({kind: "deck", name: d.name, items: d.cards, on: true, courseId: matchCourseFor(d.path, courses)}));
-      head1 = a.total ? tr("ia.sum.anki", "Found {decks}, {cards}", {decks: decksW(a.decks.length), cards: cardsW(a.total)}) + (a.learned ? " " + tr("ia.sum.learned", "({n} already learned, history kept)", {n: n0(a.learned)}) : "") + "." : tr("ia.sum.none", "That file has no cards to bring in.");
+      head1 = a.total ? tr("ia.sum.anki", "Found {decks}, {cards}", {decks: decksW(a.decks.length), cards: cardsW(a.total)}) + (a.pictures ? tr("ia.sum.pics", ", including {pics}", {pics: picsW(a.pictures)}) : "") + (a.learned ? " " + tr("ia.sum.learned", "({n} already learned, history kept)", {n: n0(a.learned)}) : "") + "." : tr("ia.sum.none", "That file has no cards to bring in.");
       if (a.capped) warn.push(tr("ia.w.cap", "This file has {found} cards. Studyboard brings in the first {cap} at once.", {found: n0(a.found), cap: n0(a.total)}));
       if (a.pics) warn.push(trn("ia.w.pics", a.pics, "{n} picture wasn't brought in.|{n} pictures weren't brought in."));
       if (a.sounds) warn.push(trn("ia.w.sounds", a.sounds, "{n} sound wasn't brought in.|{n} sounds weren't brought in."));
+      if (a.picsLost) warn.push(trn("ia.w.picLost", a.picsLost, "{n} image occlusion card's picture wasn't in the file, so it was left out.|{n} image occlusion cards' pictures weren't in the file, so they were left out."));
+      if (a.pictures) warn.push(window.SBPRO && SBPRO.locked && SBPRO.locked() ? tr("ia.w.picsFree", "Image occlusion notes come in as Picture Cards, with their masks and history. You can study them now; editing their boxes and Diagram Practice are part of Studyboard Pro.") : tr("ia.w.picsIn", "Image occlusion notes come in as Picture Cards, with their masks and history."));
       if (a.skipped) warn.push(trn("ia.w.skip", a.skipped, "{n} card had nothing but pictures or sound on one side and was left out.|{n} cards had nothing but pictures or sound on one side and were left out."));
     } else {
       const p = r.plan;
@@ -65350,9 +65602,9 @@ const IA = (() => {
       nn.forEach(g => { if (g.over) warn.push(tr("ia.w.notecap", "Only the first {n} pages are brought in at once.", {n: n0(IA.NOTE_CAP)})); });
       if (p.skipped) warn.push(trn("ia.w.tables", p.skipped, "{n} table wasn't tasks or flashcards and was left out.|{n} tables weren't tasks or flashcards and were left out."));
     }
-    PV = {app, groups};
+    PV = {app, groups, media: (r.anki && r.anki.media) || {}};
     const title = {anki: tr("ia.t.anki", "Import From Anki"), todoist: tr("ia.t.todoist", "Import From Todoist"), notion: tr("ia.t.notion", "Import From Notion")}[app] || tr("ia.t.file", "Import");
-    const kindW = g => g.kind === "deck" ? cardsW(g.items.length) + (g.items.some(c => c.seen > 0) ? " · " + tr("ia.learnedN", "{n} learned", {n: n0(g.items.filter(c => c.seen > 0).length)}) : "") : g.kind === "tasks" ? tasksW(g.items.length) : notesW(g.items.length);
+    const kindW = g => g.kind === "deck" ? cardsW(g.items.length) + (g.items.some(c => c.pic) ? " · " + picsW(g.items.filter(c => c.pic).length) : "") + (g.items.some(c => c.seen > 0) ? " · " + tr("ia.learnedN", "{n} learned", {n: n0(g.items.filter(c => c.seen > 0).length)}) : "") : g.kind === "tasks" ? tasksW(g.items.length) : notesW(g.items.length);
     const opts = sel => `<option value="">${esc(tr("ia.nocourse", "No course"))}</option>` + coursesArr().map(c => `<option value="${esc(c.id)}"${c.id === sel ? " selected" : ""}>${esc(courseLabel(c))}</option>`).join("");
     const row = (g, i) => `<div class="ia-row">
         <label class="ia-on"><input type="checkbox" data-ia-on="${i}" ${g.on ? "checked" : ""}><span><b>${esc(g.kind === "notes" ? tr("ia.pages", "Pages as notes") : g.name)}</b><span class="sub">${esc((g.kind === "deck" ? tr("ia.k.deck", "Deck") : g.kind === "tasks" ? tr("ia.k.tasks", "Tasks") : tr("ia.k.notes", "Notes")) + " · " + kindW(g))}</span></span></label>
@@ -65375,15 +65627,35 @@ const IA = (() => {
   }
   const matchCourseFor = (name, courses) => IA.matchCourse(name, courses);
 
+  // Pictures of image occlusion cards go where picture cards keep theirs (your account's storage, or this device)
+  async function storePictures(pv){
+    const cards = pv.groups.filter(g => g.on && g.kind === "deck").flatMap(g => g.items.filter(c => c.pic && !c.img.k));
+    if (!cards.length) return;
+    const keys = {}, sets = {}, store = window.SBPRO && SBPRO.storeImage;
+    for (const c of cards) {
+      const n = c.pic.media, b = pv.media[n];
+      if (!(n in keys)) { keys[n] = ""; if (b && store) { try { keys[n] = await store(b, n.replace(/\.[a-z0-9]{2,5}$/i, "") + ".jpg"); } catch (e) { keys[n] = ""; } } }
+      if (!sets[c.pic.set]) sets[c.pic.set] = uid();
+      if (keys[n]) c.img = Object.assign({k: keys[n]}, c.img, {s: sets[c.pic.set]});
+    }
+  }
   // The whole import as one applyChanges
-  function commit(){
-    if (!PV) return;
+  async function commit(){
+    if (!PV || PV.saving) return;
+    if (PV.groups.some(g => g.on && g.kind === "deck" && g.items.some(c => c.pic && !c.img.k))) {
+      const pv = PV, go = $("#iaGo"), m = $("#iaMsg"); pv.saving = true; if (go) go.disabled = true; if (m) m.textContent = tr("ia.savingPics", "Saving the pictures…");
+      try { await storePictures(pv); } finally { pv.saving = false; if (go) go.disabled = false; }
+      if (PV !== pv) return;
+    }
     const now = Date.now(), changes = [], made = {deck: 0, card: 0, task: 0, note: 0}, ids = new Set();
     const fresh = () => { let id; do id = uid(); while (ids.has(id)); ids.add(id); return id; };
     let firstDeck = "";
     PV.groups.filter(g => g.on).forEach((g, gi) => {
       if (g.kind === "deck") {
-        const d = normDeck({id: fresh(), created: now + gi, updated: now, name: g.name, courseId: g.courseId || "", cards: g.items.map(c => Object.assign({id: fresh()}, c))});
+        // a picture card whose picture couldn't be kept is left out; the rest drop what was only needed to read them
+        const items = g.items.filter(c => !c.pic || c.img.k).map(c => { const o = Object.assign({id: fresh()}, c); delete o.pic; return o; });
+        if (!items.length) return;
+        const d = normDeck({id: fresh(), created: now + gi, updated: now, name: g.name, courseId: g.courseId || "", cards: items});
         changes.push({kind: "deck", id: d.id, after: d}); made.deck++; made.card += d.cards.length; if (!firstDeck) firstDeck = d.id;
       } else if (g.kind === "tasks") {
         g.items.forEach((x, i) => {
@@ -73817,14 +74089,21 @@ var SBPRO = null;
   function shapeSvg(s){
     const k = typeof s === "string" ? s : "", pts = k[0] === "p" ? ptsOf(k) : [];
     const inner = k === "e" ? `<ellipse cx="50" cy="50" rx="50" ry="50"/>` : pts.length >= 3 ? `<polygon points="${pts.map(p => (p[0] * 100).toFixed(1) + "," + (p[1] * 100).toFixed(1)).join(" ")}"/>` : `<rect width="100" height="100" rx="3"/>`;
-    return `<svg class="ci-sh" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">${inner}</svg>`;
+    // a solid copy underneath, so a see-through theme colour never shows the label it hides
+    return `<svg class="ci-sh" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">${inner.replace("/>", ' class="ci-bk"/>')}${inner}</svg>`;
   }
   const maskIdx = c => { const im = (c && c.img) || {}, n = masksOf(im).length, g = Array.isArray(im.g) ? im.g.map(Number).filter(j => Number.isInteger(j) && j >= 0 && j < n) : []; return g.length ? [...new Set(g)] : [Math.max(0, Number(im.i) || 0)]; };
   const setOf = c => c && c.img ? (c.img.s ? "s:" + c.img.s : "k:" + c.img.k + "|" + JSON.stringify(masksOf(c.img).map(b => Array.isArray(b) ? b.slice(0, 4) : b))) : "";
   const siblings = (d, c) => { const k = setOf(c); return d && k ? d.cards.filter(x => x.img && setOf(x) === k) : [c]; };
+  // nl: no label was typed (Anki's masks hide the picture's own words), so the picture is the answer
+  const noLab = c => !!(c && c.img && c.img.nl);
+  const DEF_Q = "Name the hidden label";
+  const promptOf = c => { const t = String((c && c.front) || "").trim(); return t && t !== DEF_Q ? t : ""; };
+  const extraOf = c => String((c && c.img && c.img.x) || "").trim();
+  const ansText = c => noLab(c) ? "Check what's under the box on the picture." : String(c.back || "");
   function labelsOf(d, c){
     const lab = [], grp = [];
-    siblings(d, c).forEach(x => { const idx = maskIdx(x); idx.forEach(j => { if (lab[j] == null) { lab[j] = String(x.back || ""); grp[j] = idx; } }); });
+    siblings(d, c).forEach(x => { const idx = maskIdx(x); idx.forEach(j => { if (lab[j] == null) { lab[j] = noLab(x) ? "" : String(x.back || ""); grp[j] = idx; } }); });
     return {lab, grp};
   }
   function setsOf(d, drafts){
@@ -73836,7 +74115,8 @@ var SBPRO = null;
     const url = urlOf(im.k || "");
     return url && url !== "x" ? `<img src="${esc(url)}" alt="" draggable="false">` : `<span class="ci-wait">${url === "x" ? "This picture is on another device or couldn't be loaded." : "Loading the picture…"}</span>`;
   }
-  const arOf = im => Math.max(0.3, Math.min(4, (im.w || 4) / (im.h || 3))).toFixed(3);
+  // the picture's own shape (a narrower range would stretch tall or wide pictures)
+  const arOf = im => Math.max(0.05, Math.min(20, (im.w || 4) / (im.h || 3))).toFixed(3);
   function face(c, back){
     const im = c.img || {}, m = masksOf(im), idx = maskIdx(c), mine = new Set(idx), mode = modeOf(im);
     const boxes = m.map((b, j) => {
@@ -73845,7 +74125,7 @@ var SBPRO = null;
       if (!hide && !(back && me)) return "";
       return `<i class="ci-box${me ? " me" : " other"}${back && me ? " shown" : ""}" style="${boxStyle(b)}">${shapeSvg(b[4])}${!back && me && j === idx[0] ? "<b>?</b>" : ""}</i>`;
     }).join("");
-    return `<span class="ci-face"><span class="ci-wrap" style="--ar:${arOf(im)}"><span class="ci-pad" aria-hidden="true"></span>${picHtml(im)}${boxes}</span>${back ? `<span class="ci-ans">${esc(c.back)}</span>` : ""}</span>`;
+    return `<span class="ci-face"><span class="ci-wrap" style="--ar:${arOf(im)}"><span class="ci-pad" aria-hidden="true"></span>${picHtml(im)}${boxes}</span>${back ? `<span class="ci-ans">${esc(ansText(c))}</span>` : ""}</span>`;
   }
 
   /* Zoom and pan (pinch on phones, Ctrl + scroll or the buttons elsewhere) */
@@ -73893,7 +74173,7 @@ var SBPRO = null;
       const st = boxStyle(b), sh = shapeSvg(b[4]);
       if (mine.has(j)) {
         if (!back) return `<button type="button" class="ci-box me" style="${st}" data-act="fc-flip" aria-label="${j === idx[0] ? "The hidden label to name. Show the answer" : "Part of the hidden label. Show the answer"}">${sh}${j === idx[0] ? "<b>?</b>" : ""}</button>`;
-        return `<span class="ci-box me shown" style="${st}">${sh}${j === idx[0] ? tag(b, c.back) : ""}</span>`;
+        return `<span class="ci-box me shown" style="${st}">${sh}${j === idx[0] && !noLab(c) ? tag(b, c.back) : ""}</span>`;
       }
       if (mode === "one") return "";
       if (mode === "all") return `<span class="ci-box other" style="${st}">${sh}</span>`;
@@ -73903,10 +74183,11 @@ var SBPRO = null;
     const typed = f.icTyped && f.icTyped.id === c.id ? f.icTyped : null;
     const verdict = back && typed ? `<p class="ic-verdict ${typed.res}" role="status">${typed.res === "right" ? "Right!" : typed.res === "close" ? `Close enough. You typed “${esc(typed.given)}”.` : typed.given ? `Not quite. You typed “${esc(typed.given)}”.` : "You didn't type an answer."}</p>` : "";
     return `<div class="ic-study${back ? " is-back" : ""}" style="--c:${esc(colorOf(d.courseId))}" data-ic-card="${esc(c.id)}">
-      <div class="ic-top"><span class="ic-side">${back ? "Back" : "Front"}</span><span class="mini">${esc(modeName(mode))}</span><span class="spacer"></span>${P.locked() ? "" : `<button type="button" class="btn small" data-act="pro-ic-type" aria-pressed="${typeOn()}">Type Answers</button>`}</div>
+      <div class="ic-top"><span class="ic-side">${back ? "Back" : "Front"}</span><span class="mini">${esc(modeName(mode))}</span><span class="spacer"></span>${P.locked() || noLab(c) ? "" : `<button type="button" class="btn small" data-act="pro-ic-type" aria-pressed="${typeOn()}">Type Answers</button>`}</div>
+      ${promptOf(c) ? `<p class="ic-prompt">${esc(promptOf(c))}</p>` : ""}
       <div class="ci-wrap ic-frame${z.s > 1 ? " zoomed" : ""}" data-ic-zoom style="--ar:${arOf(im)}"><span class="ci-pad" aria-hidden="true"></span><div class="ci-zoom" style="transform:${zoomT(z)}">${picHtml(im)}${boxes}</div></div>
       ${zoomBar("pro-ic-zoom")}
-      ${back ? `<p class="ci-ans" aria-live="polite">${esc(c.back)}</p>${verdict}` : `<p class="ic-q">${esc(mode === "tap" ? "Name the label marked ?. Tap any other label to peek." : "Name the label marked ?")}</p>${typeOn() ? `<form class="ic-type" data-ic-type><input type="text" id="icTypeIn" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the hidden label" aria-label="Type the hidden label"><button type="submit" class="btn primary">Check</button></form>` : ""}`}
+      ${back ? `<p class="ci-ans${noLab(c) ? " ic-check" : ""}" aria-live="polite">${esc(ansText(c))}</p>${verdict}${extraOf(c) ? `<p class="ic-extra">${esc(extraOf(c))}</p>` : ""}` : `<p class="ic-q">${esc((noLab(c) ? "Name what's hidden under ?" : "Name the label marked ?") + (mode === "tap" ? " Tap any other box to peek." : ""))}</p>${typeOn() && !noLab(c) ? `<form class="ic-type" data-ic-type><input type="text" id="icTypeIn" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the hidden label" aria-label="Type the hidden label"><button type="submit" class="btn primary">Check</button></form>` : ""}`}
     </div>`;
   }
   const curStudy = () => { const f = ui.fc, it = f && f.mode === "study" ? f.q[f.i] : null, d = it && state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId); return c && c.img ? {f, d, c} : null; };
@@ -74152,8 +74433,11 @@ var SBPRO = null;
       const img = {k: key, w: item.w, h: item.h, m, i: gs[0], mode: MODES.some(x => x[0] === mode) ? mode : "one", src: String(item.src || "").slice(0, 120), s: set};
       if (gs.length > 1) img.g = gs.slice();
       const was = (prev || []).find(c => !used.has(c.id) && gs.some(j => boxes[j].oid === c.id));
-      if (was) { used.add(was.id); const c = Object.assign(clone(was), {back, img}); delete c.draft; if (draft) c.draft = true; return c; }
-      return {id: uid(), front: "Name the hidden label", back, box: 0, due: "", seen: 0, right: 0, wrong: 0, img, ...(draft ? {draft: true} : {})};
+      if (was) {
+        used.add(was.id); if (noLab(was) && back === was.back) img.nl = 1; if (extraOf(was)) img.x = extraOf(was);
+        const c = Object.assign(clone(was), {back, img}); delete c.draft; if (draft) c.draft = true; return c;
+      }
+      return {id: uid(), front: DEF_Q, back, box: 0, due: "", seen: 0, right: 0, wrong: 0, img, ...(draft ? {draft: true} : {})};
     }).filter(Boolean);
   }
   function itemFrom(cards, extra){
@@ -74198,7 +74482,8 @@ var SBPRO = null;
         <button type="button" class="btn small" data-act="pro-oc-undo"${undoN ? "" : " disabled"}>Undo</button>${zoomBar("pro-oc-zoom")}</div>
       <div class="oc-stage${OC.zoom.s > 1 ? " zoomed" : ""} tool-${OC.tool}" style="--ar:${(it.w / it.h).toFixed(4)}" data-oc-stage><span class="oc-pad" aria-hidden="true"></span><div class="oc-zoom" style="transform:${zoomT(OC.zoom)}">${url && url !== "x" ? `<img src="${esc(url)}" alt="" draggable="false">` : `<span class="ci-wait">Loading the picture…</span>`}
         ${it.boxes.map((x, j) => `<i class="oc-box${sel.includes(j) ? " sel" : ""}${x.g ? " grp" : ""}" data-oc-box="${j}" style="left:${x.x * 100}%;top:${x.y * 100}%;width:${x.w * 100}%;height:${x.h * 100}%">${shapeSvg(x.s)}<b>${num[j]}</b>${one === j ? ["nw", "ne", "sw", "se"].map(h => `<span class="oc-h ${h}" data-oc-h="${h}"></span>`).join("") : ""}</i>`).join("")}</div></div>
-      <div class="oc-tools oc-sel" role="toolbar" aria-label="Picked boxes"><button type="button" class="btn small" data-act="pro-oc-multi" aria-pressed="${OC.multi}">Pick Several</button><button type="button" class="btn small" data-act="pro-oc-group"${canGroup ? "" : " disabled"}>Group as One Card</button><button type="button" class="btn small" data-act="pro-oc-delsel"${sel.length ? "" : " disabled"}>Delete${sel.length > 1 ? ` ${sel.length}` : ""}</button><button type="button" class="btn small ai-btn" data-act="pro-oc-ai"${it.aiBusy ? " disabled" : ""}>${AI_ICON}<span>${it.aiTried ? "Find Labels Again" : "Find Labels with AI"}</span></button></div>
+      <div class="oc-tools oc-sel" role="toolbar" aria-label="Picked boxes"><button type="button" class="btn small" data-act="pro-oc-add" title="Adds a box in the middle of the view">Add Box</button><button type="button" class="btn small" data-act="pro-oc-multi" aria-pressed="${OC.multi}">Pick Several</button><button type="button" class="btn small" data-act="pro-oc-group"${canGroup ? "" : " disabled"}>Group as One Card</button><button type="button" class="btn small" data-act="pro-oc-delsel"${sel.length ? "" : " disabled"}>Delete${sel.length > 1 ? ` ${sel.length}` : ""}</button><button type="button" class="btn small ai-btn" data-act="pro-oc-ai"${it.aiBusy ? " disabled" : ""}>${AI_ICON}<span>${it.aiTried ? "Find Labels Again" : "Find Labels with AI"}</span></button></div>
+      <p class="mini kbd-only oc-keys">Pick a box with its number, then use the arrow keys to move it (Shift for bigger steps), Alt and the arrow keys to resize it, and Delete to remove it.</p>
       ${n ? `<ol class="oc-list">${gs.map((g, k) => { const j = g[0], x = it.boxes[j], on = g.some(q => sel.includes(q)); return `<li${on ? ' class="sel"' : ""}><button type="button" class="oc-n" data-act="pro-oc-pick" data-id="${j}" aria-label="Pick card ${k + 1} on the picture" aria-pressed="${on}">${k + 1}</button><input type="text" data-oc-ans="${j}" maxlength="200" value="${esc(x.t || "")}" placeholder="What's under box ${k + 1}?" aria-label="Answer for card ${k + 1}${g.length > 1 ? ` (${g.length} boxes)` : ""}">${g.length > 1 ? `<button type="button" class="btn small" data-act="pro-oc-ungroup" data-id="${j}" aria-label="Split card ${k + 1} into ${g.length} cards">Split</button>` : ""}<button type="button" class="x-btn" data-act="pro-oc-del" data-id="${j}" aria-label="Remove card ${k + 1}">${CLOSE}</button></li>`; }).join("")}</ol>` : ""}
       <fieldset class="oc-modes"><legend>When You Study</legend>${MODES.map(([k, l, sub]) => `<label class="oc-mode"><input type="radio" name="ocMode" value="${k}"${OC.mode === k ? " checked" : ""}><span><b>${l}</b><span class="mini">${sub}</span></span></label>`).join("")}</fieldset>`;
     keepLabel();
@@ -74295,6 +74580,14 @@ var SBPRO = null;
     };
     st.addEventListener("pointerup", end); st.addEventListener("pointercancel", end);
   }
+  // a box without dragging (keyboard and screen reader users): in the middle of what's in view
+  function editorAdd(){
+    const it = OC.queue[OC.i]; if (it.boxes.length >= 30) { toast("Up to 30 boxes on one picture."); return; }
+    const z = OC.zoom, w = 0.2 / z.s, h = 0.08 / z.s, cx = (0.5 - z.x) / z.s, cy = (0.5 - z.y) / z.s;
+    const nb = {x: cl01(Math.min(1 - w, cx - w / 2)), y: cl01(Math.min(1 - h, cy - h / 2)), w, h, s: OC.tool === "oval" ? "e" : "", t: "", g: ""};
+    pushUndo(it); it.boxes.push(nb); OC.sel = [it.boxes.length - 1]; drawEditor();
+    const inp = dlg.querySelector(`[data-oc-ans="${OC.sel[0]}"]`); if (inp) inp.focus();
+  }
   function editorDelete(js){
     const it = OC.queue[OC.i]; if (!js.length) return;
     pushUndo(it); it.boxes = it.boxes.filter((b, k) => !js.includes(k)); OC.sel = []; drawEditor();
@@ -74315,7 +74608,8 @@ var SBPRO = null;
     const mv = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]}[e.key];
     if (mv && OC.sel.length) {
       e.preventDefault(); pushUndo(it); const k = e.shiftKey ? 0.05 : 0.01;
-      OC.sel.forEach(j => { const b = it.boxes[j]; b.x = cl01(Math.min(1 - b.w, b.x + mv[0] * k)); b.y = cl01(Math.min(1 - b.h, b.y + mv[1] * k)); });
+      if (e.altKey) OC.sel.forEach(j => { const b = it.boxes[j]; b.w = Math.max(0.012, Math.min(1 - b.x, b.w + mv[0] * k)); b.h = Math.max(0.008, Math.min(1 - b.y, b.h + mv[1] * k)); });
+      else OC.sel.forEach(j => { const b = it.boxes[j]; b.x = cl01(Math.min(1 - b.w, b.x + mv[0] * k)); b.y = cl01(Math.min(1 - b.h, b.y + mv[1] * k)); });
       drawEditor(); const n = dlg.querySelector(`[data-act="pro-oc-pick"][data-id="${groupOf(it, OC.sel[0])[0]}"]`); if (n) n.focus();
     }
   });
@@ -74356,7 +74650,7 @@ var SBPRO = null;
   /* Diagram Practice (Pro) */
   let DP = null;
   const fmtT = ms => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
-  const practiceSets = d => setsOf(d).filter(s => s.cards.length >= 2);
+  const practiceSets = d => setsOf(d).filter(s => s.cards.length >= 2 && !s.cards.some(noLab));
   function setRows(d, sets, edit){
     return `<ul class="pro-feats ic-sets">${sets.map((s, k) => { const im = s.cards[0].img, url = urlOf(im.k || ""); return `<li><span class="ic-thumb" style="--ar:${arOf(im)}">${url && url !== "x" ? `<img src="${esc(url)}" alt="">` : ""}</span><span class="pf-t"><b>${esc(im.src || `Picture ${k + 1}`)}</b><span class="mini">${s.cards.length} card${s.cards.length === 1 ? "" : "s"} · ${esc(modeName(modeOf(im)))}</span></span><span class="ic-set-btns"><button type="button" class="btn small" data-act="pro-dp-open" data-id="${esc(d.id)}|${esc(s.key)}"${s.cards.length >= 2 ? "" : " disabled"}>Practice</button>${edit ? `<button type="button" class="btn small" data-act="pro-ic-edit" data-id="${esc(d.id)}|${esc(s.key)}">Edit</button>` : ""}</span></li>`; }).join("")}</ul>`;
   }
@@ -74543,6 +74837,7 @@ var SBPRO = null;
       case "pro-oc-ai": if (OC) aiFind(OC.queue[OC.i], true); return true;
       case "pro-oc-tool": if (OC) { OC.tool = TOOLS.some(x => x[0] === id) ? id : "rect"; drawEditor(); const t = dlg.querySelector(`[data-act="pro-oc-tool"][data-id="${OC.tool}"]`); if (t) t.focus(); } return true;
       case "pro-oc-undo": if (OC) undo(); return true;
+      case "pro-oc-add": if (OC) editorAdd(); return true;
       case "pro-oc-multi": if (OC) { OC.multi = !OC.multi; drawEditor(); const t = dlg.querySelector('[data-act="pro-oc-multi"]'); if (t) t.focus(); } return true;
       case "pro-oc-group": if (OC) editorGroup(); return true;
       case "pro-oc-ungroup": if (OC) { const it = OC.queue[OC.i], js = groupOf(it, Number(id)); pushUndo(it); js.forEach(j => { it.boxes[j].g = ""; }); OC.sel = js; drawEditor(); } return true;
@@ -74563,7 +74858,7 @@ var SBPRO = null;
   });
   dlg.addEventListener("close", () => { if (dlg.open) return; OC = null; CF = null; DK = null; DP = null; });
   P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: stats, and picture cards from your files (Smart scheduling is free for everyone)", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
-  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf});
+  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf, storeImage});
 
   const css = document.createElement("style");
   css.textContent = `
@@ -74585,6 +74880,9 @@ var SBPRO = null;
 .ci-box.shown{--f:transparent;--s:var(--leaf)}
 .ci-box.shown .ci-sh *{stroke-width:3}
 .ci-box.peek{--f:transparent;--s:color-mix(in srgb,var(--ink) 45%,transparent)}
+.ci-box.me,.ci-box.other{--bk:#7d8594}
+.ci-box.shown,.ci-box.peek{--bk:transparent}
+svg.ci-sh .ci-bk{fill:var(--bk,transparent);stroke:none}
 button.ci-box{cursor:pointer;-webkit-tap-highlight-color:transparent}
 button.ci-box:focus-visible{outline:3px solid var(--ink);outline-offset:2px;z-index:2}
 .ci-tag{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-3px);z-index:3;background:var(--ink);color:var(--surface);font:600 .74rem/1.25 var(--body);padding:2px 7px;border-radius:6px;white-space:nowrap;pointer-events:none}
@@ -74603,6 +74901,10 @@ button.ci-box:focus-visible{outline:3px solid var(--ink);outline-offset:2px;z-in
 .ic-zbar .ic-zb{padding:0!important;width:44px;height:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .ic-zbar .ic-zb svg{display:block}
 .ic-q{margin:0;text-align:center;color:var(--muted)}
+.ic-prompt{margin:0;text-align:center;font-weight:600;white-space:pre-line;overflow-wrap:anywhere}
+.ic-extra{margin:0;padding:8px 12px;border-radius:10px;background:var(--soft);font-size:.92rem;white-space:pre-line;overflow-wrap:anywhere}
+.ic-study .ci-ans.ic-check{font:600 1rem var(--body);color:var(--muted)}
+.oc-keys{margin:0}
 .ic-study .ci-ans{margin:0;text-align:center;font-size:1.2rem}
 .ic-type{display:flex;gap:8px}
 .ic-type input{flex:1;min-width:0}

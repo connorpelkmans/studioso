@@ -78,10 +78,57 @@ else {
   ok(IA.isPlaceholder(IA.sqlite(ankiCollection("dummy"))), "Anki's please-update placeholder is spotted");
   // a SQLite file inside a zstd frame decodes to the same collection
   ok(Buffer.from(fz.decompress(IA.zstdRaw(new Uint8Array(c18)))).equals(c18), "a zstd-wrapped collection round trip");
+  // image occlusion notes become picture cards (masks and pictures are filled in from the package's media)
+  for (const k of ["io", "io18"]) {
+    const db2 = IA.sqlite(ankiCollection(k));
+    if (k === "io18") ok(db2.all("fields").filter(r => r.ntid === 1005).length === 11, "field names from a table made WITHOUT ROWID");
+    const r = IA.readAnki(db2), cs = r.decks[0].cards, pics = cs.filter(c => c.pic);
+    ok(r.pictures === 8 && pics.length === 8 && r.skipped === 0 && r.pics === 0, k + ": 8 picture cards, their pictures not counted as left out");
+    ok(pics.filter(c => c.pic.kind === "io").length === 5 && pics.filter(c => c.pic.kind === "ioe").length === 3 && new Set(pics.filter(c => c.pic.kind === "ioe").map(c => c.pic.set)).size === 1, k + ": both note types, the add-on's notes in one set");
+    const media = {"heart diagram.png": {w: 800, h: 600}, "cell.png": {w: 400, h: 300}, "brain.png": {w: 500, h: 400}};
+    Object.entries(require("./anki-fixture").ioMedia()).forEach(([n, b]) => { if (/\.svg$/.test(n)) media[n] = b.toString(); });
+    pics.forEach(c => { c.img = IA.picCard(c.pic, media); }); IA.nameBoxes(cs);
+    const h3 = pics.find(c => c.pic.ord === 3);
+    ok(h3.img.g.join() === "2,3" && h3.back === "Box 3" && h3.fs.s === 20.5 && h3.due === local(2026, 11, 20) && h3.img.src === "heart diagram", k + ": a grouped card with its schedule: " + JSON.stringify(h3.img));
+    ok(IA.picCard(Object.assign({}, h3.pic, {media: "missing.png"}), media) === null, k + ": no picture, no card");
+  }
   // broken files fail cleanly
   let threw = false; try { IA.sqlite(new Uint8Array(c11.subarray(0, 3000))); IA.readAnki(IA.sqlite(new Uint8Array(c11.subarray(0, 3000)))); } catch (e) { threw = true; }
   ok(threw, "a cut-off database throws instead of hanging");
 }
+
+// Math: kept as TeX through the HTML clean-up, Anki's older forms turned into \( \) and \[ \]
+eq(IA.htmlText("Energy \\(E = mc^2 &lt; x<br>+1\\) is <b>it</b>"), "Energy \\(E = mc^2 < x +1\\) is it", "\\( \\) kept, entities decoded and <br> dropped inside it");
+eq(IA.htmlText("<div>\\[\\frac{a}{b} &amp; {c}\\]</div>"), "\\[\\frac{a}{b} & {c}\\]", "\\[ \\] kept with its braces and backslashes");
+eq(IA.htmlText("[$]x_1[/$] and [$$]\\sum_i i[/$$]"), "\\(x_1\\) and \\[\\sum_i i\\]", "[$] and [$$] become \\( \\) and \\[ \\]");
+eq(IA.htmlText("[latex]\\documentclass{article}\\usepackage{amsmath}\\begin{document}$A = \\pi r^2$\\end{document}[/latex]"), "\\[A = \\pi r^2\\]", "[latex] becomes \\[ \\], without its preamble");
+eq(IA.clozeCard(IA.htmlText("{{c1::\\(x^2\\)}} is the square"), 1), {front: "_____ is the square", back: "\\(x^2\\)"}, "math inside a cloze");
+
+// Image occlusion (Anki's own note type)
+const near = (a, b) => a.length === b.length && a.every((v, i) => typeof v === "string" ? v === b[i] : Math.abs(v - b[i]) < 0.001);
+const OCC = "{{c1::image-occlusion:rect:left=.2345:top=.3:width=.1:height=.05:oi=1}}<br>{{c2::image-occlusion:ellipse:left=.5:top=.5:rx=.1:ry=.05:oi=1}}<br>{{c3::image-occlusion:polygon:left=.1:top=.6:points=.1,.6 .3,.6 .2,.8:oi=1}}<br>{{c3::image-occlusion:rect:left=.7:top=.7:width=.1:height=.1:oi=1}}<br>{{c0::image-occlusion:text:left=.4:top=.1:text=A\\: label:scale=1:fs=.05}}";
+const sh = IA.ioShapes(OCC);
+ok(sh.length === 5 && sh[4].kind === "text" && sh[4].text === "A: label" && sh[0].left === 0.2345 && sh[0].oi === 1 && IA.isIO(OCC) && !IA.isIO("{{c1::Paris}}"), "shapes from the Occlusion field: " + JSON.stringify(sh[4]));
+const io3 = IA.ioCard(OCC, 3, 800, 600);
+ok(near(io3.m.flat(), [0.2345, 0.3, 0.1, 0.05, 0.5, 0.5, 0.2, 0.1, "e", 0.1, 0.6, 0.2, 0.2, "p0,0 100,0 50,100", 0.7, 0.7, 0.1, 0.1]), "rect, ellipse (rx, ry) and polygon masks; text isn't a mask: " + JSON.stringify(io3.m));
+ok(io3.i === 2 && io3.g.join() === "2,3" && io3.mode === "all" && io3.nl === 1, "shapes sharing c3 are one card; oi=1 is hide all");
+ok(IA.ioCard(OCC, 1, 800, 600).i === 0 && !IA.ioCard(OCC, 1, 800, 600).g && IA.ioCard(OCC, 9, 800, 600) === null, "one card per cN; a missing one gives none");
+const px = IA.ioCard("{{c1::image-occlusion:rect:left=80:top=60:width=160:height=120}}{{c2::image-occlusion:polygon:points=400,300 600,300 500,450}}", 2, 800, 600);
+ok(near(px.m.flat(), [0.1, 0.1, 0.2, 0.2, 0.5, 0.5, 0.25, 0.25, "p0,0 100,0 50,100"]) && px.mode === "one", "pixel coordinates (older notes) become fractions; no oi is hide one: " + JSON.stringify(px.m));
+ok(IA.ioCard("{{c1,2::image-occlusion:rect:left=.1:top=.1:width=.1:height=.1}}", 2, 10, 10).i === 0, "a shape in two cards");
+
+// Image Occlusion Enhanced (SVG masks)
+const SHAPES = q => [`<rect x="50" y="40" width="100" height="40" fill="${q === 1 ? "#FF7E7E" : "#FFEBA2"}"${q === 1 ? ' class="qshape"' : ""}/>`, `<ellipse cx="300" cy="100" rx="50" ry="20" fill="${q === 2 ? "#FF7E7E" : "#FFEBA2"}"/>`,
+  `<g id="x-3"${q === 3 ? ' class="qshape"' : ""}><rect x="100" y="300" width="50" height="40"/><polygon points="300,300 400,300 350,380"/></g>`];
+const svg = q => `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="400"><g><title>Masks</title>${SHAPES(q).join("")}</g></svg>`;
+const ss = IA.svgShapes(svg(3));
+ok(ss.w === 500 && ss.shapes.length === 4 && ss.shapes[2].grp && ss.shapes[2].grp === ss.shapes[3].grp && !ss.shapes[0].grp && ss.shapes[2].q && !ss.shapes[0].q, "SVG shapes, groups and the card's own (qshape) shape");
+const e1 = IA.ioeCard(svg(1), svg(0), "abc-ao-1", 500, 400), e3 = IA.ioeCard(svg(3), svg(0), "abc-ao-3", 500, 400);
+ok(near(e1.m.flat(), [0.1, 0.1, 0.2, 0.1, 0.5, 0.2, 0.2, 0.1, "e", 0.2, 0.75, 0.1, 0.1, 0.6, 0.75, 0.2, 0.2, "p0,0 100,0 50,100"]) && e1.i === 0 && !e1.g && e1.mode === "all", "masks from the original mask, the card's from its question mask: " + JSON.stringify(e1.m));
+ok(e3.i === 2 && e3.g.join() === "2,3" && IA.ioeCard(svg(2), svg(0), "abc-oa-2", 500, 400).mode === "one" && IA.ioeCard(svg(2), svg(0), "abc-oa-2", 500, 400).i === 1, "a grouped shape is one card; -oa- is hide one");
+ok(IA.ioeCard(`<svg width="500" height="400"><g><title>Masks</title>${SHAPES(2)[1].replace("#FFEBA2", "#FF7E7E")}</g></svg>`, "", "", 500, 400).m.length === 1, "without an original mask, the question mask's own shapes");
+ok(IA.imgSrc('<div><img alt="" src="a &amp; b.png"></div>') === "a & b.png" && IA.imgSrc("no picture") === "", "a picture's file name from its field");
+eq(IA.pbMedia(new Uint8Array([10, 9, 10, 5, 97, 46, 112, 110, 103, 16, 3, 10, 7, 10, 3, 98, 46, 106, 16, 1])), [{name: "a.png", zip: "0"}, {name: "b.j", zip: "1"}], "the media list of a newer package");
 
 // CSV
 eq(IA.parseCSV('a,b,c\r\n"x, y","say ""hi""",\n"multi\nline",2,3'), [["a", "b", "c"], ["x, y", 'say "hi"', ""], ["multi\nline", "2", "3"]], "quotes, commas, CRLF and line breaks in a field");

@@ -2,7 +2,7 @@
 "use strict";
 const http = require("http"), fs = require("fs"), os = require("os"), path = require("path"), zlib = require("zlib"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
-const {ankiCollection, local} = require("./anki-fixture");
+const {ankiCollection, local, ioMedia, pbMediaList} = require("./anki-fixture");
 const root = path.join(__dirname, "..");
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webp": "image/webp"};
 const served = [];
@@ -37,10 +37,15 @@ function zip(entries){
   const html = require("../scripts/app-files").source();
   const IA = new Function(html.slice(html.indexOf("/*IMPORTAPPS-START*/"), html.indexOf("/*IMPORTAPPS-END*/")) + ";return IA;")();
   const files = {
-    apkg: path.join(tmp, "Biology.apkg"), apkg21b: path.join(tmp, "Newer Anki.apkg"), todoist: path.join(tmp, "BIO 101.csv"), notion: path.join(tmp, "Export-1234.zip"),
+    apkg: path.join(tmp, "Biology.apkg"), apkg21b: path.join(tmp, "Newer Anki.apkg"), io: path.join(tmp, "Anatomy.apkg"), io21b: path.join(tmp, "Anatomy new.apkg"), todoist: path.join(tmp, "BIO 101.csv"), notion: path.join(tmp, "Export-1234.zip"),
   };
   fs.writeFileSync(files.apkg, zip([["collection.anki2", dummy], ["collection.anki21", c11, true], ["media", '{"0": "a.jpg"}', true], ["0", Buffer.alloc(300, 1)]]));
   fs.writeFileSync(files.apkg21b, zip([["meta", Buffer.from([8, 3])], ["collection.anki2", dummy, true], ["collection.anki21b", Buffer.from(IA.zstdRaw(new Uint8Array(c18)))], ["media", Buffer.from(IA.zstdRaw(new Uint8Array(0)))]]));
+  // image occlusion: the older package lists its media as JSON, the newer as zstd-packed protobuf with each file zstd-packed too
+  const med = ioMedia(), names = Object.keys(med);
+  fs.writeFileSync(files.io, zip([["collection.anki21", ankiCollection("io"), true], ["media", JSON.stringify(Object.fromEntries(names.map((n, i) => [String(i), n]))), true], ...names.map((n, i) => [String(i), med[n], true])]));
+  fs.writeFileSync(files.io21b, zip([["meta", Buffer.from([8, 3])], ["collection.anki2", dummy, true], ["collection.anki21b", Buffer.from(IA.zstdRaw(new Uint8Array(ankiCollection("io18"))))], ["media", Buffer.from(IA.zstdRaw(new Uint8Array(pbMediaList(names))))],
+    ...names.map((n, i) => [String(i), Buffer.from(IA.zstdRaw(new Uint8Array(med[n])))])]));
   fs.writeFileSync(files.todoist, [
     "TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,AUTHOR,RESPONSIBLE,DATE,DATE_LANG,TIMEZONE,DURATION,DURATION_UNIT,DEADLINE,DEADLINE_LANG",
     "section,Labs,,1,1,,,,,,,,,", "task,Lab 3 write-up,Use the template,4,1,Me,,Oct 30 2026,en,,,,,", "task,Graph the data,,1,2,Me,,,,,,,,",
@@ -118,6 +123,46 @@ function zip(entries){
     st = await S();
     ok(st.decks.length === 3 && st.decks.some(d => d.cards.some(c => c.front === "The capital of France is _____ (city).")), "decks and cloze cards from collection.anki21b");
     ok(await page.evaluate(() => document.body.textContent.includes("Spanish") && document.body.textContent.includes("Chem › Cells")), "the Flashcards page shows the imported decks");
+
+    // Anki image occlusion -> Picture Cards (both package styles)
+    const near = (a, b) => a.length === b.length && a.every((v, i) => typeof v === "string" ? v === b[i] : Math.abs(v - b[i]) < 0.001);
+    const HEART = [[0.1, 0.1, 0.2, 0.1], [0.5, 0.2, 0.2, 0.1, "e"], [0.1, 0.6, 0.2, 0.2, "p0,0 100,25 50,100"], [0.7, 0.7, 0.15, 0.1]];
+    const BRAIN = [[0.1, 0.1, 0.2, 0.1], [0.5, 0.2, 0.2, 0.1, "e"], [0.2, 0.75, 0.1, 0.1], [0.6, 0.75, 0.2, 0.2, "p0,0 100,0 50,100"]];
+    for (const [f, label] of [[files.io, "older package"], [files.io21b, "newer package"]]) {
+      await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
+      sum = await pick(f);
+      ok(sum === "Found 1 deck, 9 cards, including 8 picture cards (3 already learned, history kept).", label + ": the preview counts the picture cards: " + sum);
+      ok(/8 picture cards/.test(await page.textContent("dialog[open] .ia-row")) && /come in as Picture Cards/.test(await page.textContent("dialog[open] .sheet-body")), label + ": the deck row and a note say they come in as Picture Cards");
+      const before = new Set((await S()).decks.map(d => d.id));
+      await page.click("#iaGo"); await page.waitForFunction(() => !document.querySelector("dialog[open] .ia-sheet"), null, {timeout: 20000}); await page.waitForTimeout(300);
+      const ana = (await S()).decks.find(d => !before.has(d.id) && d.name === "Anatomy");
+      ok(ana && ana.cards.length === 9, label + ": one deck with the picture cards and the math card");
+      const pics = ana.cards.filter(c => c.img);
+      ok(pics.length === 8 && pics.every(c => /^i:|^a:/.test(c.img.k) && c.img.s && !c.pic && c.img.nl === 1), label + ": each has a stored picture, a set, and no typed label");
+      const heart = pics.filter(c => c.img.src === "heart diagram"), cell = pics.filter(c => c.img.src === "cell"), brain = pics.filter(c => c.img.src === "brain");
+      ok(heart.length === 3 && cell.length === 2 && brain.length === 3 && new Set(heart.map(c => c.img.s)).size === 1 && heart[0].img.s !== brain[0].img.s, label + ": one set per picture (the add-on's notes joined by their ID)");
+      ok(heart.every(c => near(c.img.m.flat(), HEART.flat()) && c.img.mode === "all" && c.img.w === 800 && c.img.h === 600), label + ": built-in masks (box, oval, polygon), hide all: " + JSON.stringify(heart[0].img.m));
+      const h3 = heart.find(c => c.img.i === 2);
+      ok(h3 && h3.img.g.join() === "2,3" && h3.back === "Box 3" && h3.due === local(2026, 11, 20) && h3.fs.s === 20.5 && h3.seen === 4, label + ": c3's two shapes are one card, with Anki's schedule: " + JSON.stringify(h3 && {g: h3.img.g, due: h3.due, fs: h3.fs}));
+      const h1 = heart.find(c => c.img.i === 0);
+      ok(h1.due === local(2026, 11, 10) && h1.seen === 3 && h1.wrong === 1 && h1.box === 4 && h1.front === "Parts of the <heart>" && h1.img.x === "Right side carries \\(O_2\\)-poor blood\n\nLecture 4", label + ": header as the prompt, Back Extra and Comments kept: " + JSON.stringify({f: h1.front, x: h1.img.x}));
+      ok(cell.every(c => c.img.mode === "one" && near(c.img.m.flat(), [0.1, 0.1, 0.2, 0.2, 0.5, 0.5, 0.25, 0.1667])) && !cell[0].img.x, label + ": pixel masks become fractions; no oi is hide one");
+      ok(brain.every(c => near(c.img.m.flat(), BRAIN.flat()) && c.img.mode === "all") && brain.find(c => c.img.i === 2).img.g.join() === "2,3" && brain.find(c => c.img.i === 1).due === local(2026, 11, 12), label + ": the add-on's SVG masks, its group, and its schedule");
+      const mth = ana.cards.find(c => !c.img);
+      ok(mth.front === "Area of a circle: \\(\\pi r^2\\)\n\\(x < y\\)" && mth.back === "\\[A = \\pi r^{2}\\] and \\[a +b\\]", label + ": math kept as TeX: " + JSON.stringify(mth));
+      if (label === "older package") {
+        // it studies like a picture card made here
+        await page.evaluate(id => { const b = document.createElement("button"); b.dataset.act = "fc-study"; b.dataset.id = id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }, ana.id);
+        await page.waitForTimeout(300);
+        // the math card may come first: rate it and go on
+        for (let i = 0; i < 8 && !(await page.locator(".ic-study").count()); i++) { await page.keyboard.press("Space"); await page.waitForTimeout(100); await page.click(".rate-btn.good", {timeout: 1000}).catch(() => {}); await page.waitForTimeout(150); }
+        await page.waitForSelector(".ic-study .ci-zoom img", {timeout: 5000}).catch(() => {});
+        ok(await page.locator(".ic-study .ci-zoom img").count() === 1 && await page.locator(".ic-study .ci-box.me").count() >= 1, "an imported picture card opens in study, with its picture and its box");
+        await page.click(".ic-study button.ci-box.me"); await page.waitForTimeout(200);
+        ok(/Check what's under the box/.test(await page.textContent(".ic-study .ci-ans")) && await page.locator(".ic-study .ci-tag").count() === 0, "its back points to the picture instead of a typed label");
+        await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
+      }
+    }
 
     // Todoist CSV
     await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
