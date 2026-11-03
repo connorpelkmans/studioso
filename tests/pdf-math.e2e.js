@@ -54,8 +54,8 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
 
     /* Edit: Equation */
     await page.click("#pdeBtn"); await page.waitForTimeout(300);
-    ok(await page.locator('.pde-tools [data-act="pde-eq"]').count() === 1, "Edit has an Equation tool");
-    await page.click('.pde-tools [data-act="pde-eq"]');
+    ok(await page.locator('.pde-tools > .pde-tool[data-id="eq"]').count() + await page.locator('[data-act="pde-more"]').count() >= 1, "Edit has an Equation tool (in the row, or under More when the row is full)");
+    if (await page.locator('.pde-tools > .pde-tool[data-id="eq"]').count()) await page.click('.pde-tools > .pde-tool[data-id="eq"]'); else { await page.click('[data-act="pde-more"]'); await page.click('.pde-menu [data-id="eq"]'); }
     await page.waitForSelector(".rb-eq .rb-eq-in");
     ok(await page.locator('.rb-eq [data-eqa="ok"]').textContent() === "Place on Page", "the equation editor opens, with Place on Page");
     ok(await page.locator(".rb-eq .rb-eq-d").count() === 0, "no 'own line' choice for a picture");
