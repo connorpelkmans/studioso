@@ -95,8 +95,8 @@ function restricted(ttf){
     /* Paragraphs */
     const oct = await wordAt("October 20");
     await page.mouse.click(oct.x, oct.y); await page.waitForTimeout(300);
-    ok(await page.locator('[data-act="pde-para"]').count() === 1, "a line in a paragraph offers Edit Paragraph");
-    await page.click('[data-act="pde-para"]'); await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
+    ok(await page.locator(".pde-e.k-p.editing").count() === 1, "clicking a line in a paragraph opens the whole paragraph");
     const pe0 = (await edits()).find(e => e.k === "p");
     ok(!pe0 && await page.locator(".pde-e.k-p.editing .pde-pt").count() === 1, "it opens the whole paragraph for typing");
     const ptext = await page.locator(".pde-e.k-p.editing .pde-pt").textContent();

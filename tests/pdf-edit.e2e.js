@@ -78,6 +78,10 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     const oct = await wordAt("October 20");
     await page.mouse.move(oct.x, oct.y); await page.waitForTimeout(150);
     ok(await page.locator(".pde-hover:not([hidden])").count() === 1, "pointing at text outlines the line that can be edited");
+    await page.mouse.click(oct.x, oct.y); await page.waitForTimeout(400);
+    ok(await page.locator(".pde-e.k-p.editing").count() === 1 && await page.locator('[data-act="pde-line"]').count() === 1, "clicking text in a paragraph opens the whole paragraph, with Edit One Line to change just a line");
+    await page.click('[data-act="pde-line"]'); await page.waitForTimeout(250);
+    ok(await page.locator(".pde-e.k-p").count() === 0 && (await page.evaluate(() => state.files.f1.pe || [])).length === 0, "Edit One Line leaves the paragraph as it was (no edit)");
     await page.mouse.click(oct.x, oct.y); await page.waitForTimeout(300);
     ok(await page.locator(".pde-e.editing .pde-t[contenteditable]").count() === 1, "clicking text opens it for typing, in place");
     ok(/October 20 in Hall B/.test(await page.locator(".pde-e.editing .pde-t").textContent()), "with the line's own words");

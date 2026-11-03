@@ -1342,13 +1342,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const items = (await pageInfo(n)).filter(it => Math.abs(it.r) < 0.5);
     const lines = [];
     items.slice().sort((a, b) => b.o[1] - a.o[1] || a.o[0] - b.o[0]).forEach(it => {
-      const ln = lines.find(l => Math.abs(l.o[1] - it.o[1]) < it.fs * 0.3 && Math.abs(l.fs - it.fs) < it.fs * 0.08);
+      // the same line: same height and size, and close beside it (text in another table column at that height is a different line)
+      const ln = lines.find(l => Math.abs(l.o[1] - it.o[1]) < it.fs * 0.3 && Math.abs(l.fs - it.fs) < it.fs * 0.08 && it.o[0] <= l.x1 + it.fs * 1.2 && it.o[0] + it.w >= l.x0 - it.fs * 1.2);
       if (ln) { ln.items.push(it); ln.x0 = Math.min(ln.x0, it.o[0]); ln.x1 = Math.max(ln.x1, it.o[0] + it.w); }
       else lines.push({o: it.o.slice(), fs: it.fs, fn: it.fn, items: [it], x0: it.o[0], x1: it.o[0] + it.w});
     });
     lines.forEach(l => { l.items.sort((a, b) => a.o[0] - b.o[0]); l.o = [l.x0, l.o[1]]; l.w = l.x1 - l.x0; l.str = l.items.map(i => i.str).join(" ").replace(/\s+/g, " ").trim(); l.y0 = Math.min(...l.items.map(i => i.y0)); l.y1 = Math.max(...l.items.map(i => i.y1)); });
     lines.sort((a, b) => b.o[1] - a.o[1]);
     let k = lines.findIndex(l => Math.abs(l.o[1] - o[1]) < l.fs * 0.3 && o[0] >= l.x0 - l.fs && o[0] <= l.x1 + l.fs); if (k < 0) return null;
+    { const me = lines[k]; const col = lines.filter(l => l === me || (l.x0 < me.x1 + me.fs * 2 && l.x1 > me.x0 - me.fs * 2)); lines.length = 0; lines.push(...col); k = lines.indexOf(me); }
     const like = (a, b) => Math.abs(a.fs - b.fs) < a.fs * 0.06 && a.fn === b.fn;
     let lo = k, hi = k, gap = 0;
     const fits = (a, b, first) => { const g = a.o[1] - b.o[1]; if (!like(a, b) || g < a.fs * 0.95 || g > a.fs * 2.3) return false; if (gap && Math.abs(g - gap) > gap * 0.15) return false; return Math.abs(a.x0 - b.x0) < a.fs * (first ? 3 : 0.6) && (gap = gap || g, true); };
@@ -1357,10 +1359,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const par = lines.slice(lo, hi + 1); if (par.length < 2) return null;
     const W = Math.max(...par.map(l => l.w)), lh = par.length > 1 ? (par[0].o[1] - par[par.length - 1].o[1]) / (par.length - 1) : par[0].fs * 1.2;
     const justified = par.slice(0, -1).every(l => l.w > W * 0.975) && par.length > 1;
-    let t = ""; par.forEach((l, i) => { if (!i) t = l.str; else if (/[a-z]-$/.test(t) && /^[a-z]/.test(l.str)) t = t.slice(0, -1) + l.str; else t += " " + l.str; });
+    let t = ""; par.forEach((l, i) => { if (!i) t = l.str; else if (/[a-z]-$/.test(t) && /^[a-z]/.test(l.str)) t = t.slice(0, -1) + l.str; else if (/[A-Za-z0-9]-$/.test(t) && /^[A-Za-z0-9]/.test(l.str)) t += l.str; else t += " " + l.str; });
     return {lines: par.map(l => ({o: l.o, w: l.w, y0: l.y0, y1: l.y1, old: l.str})), W, lh, al: justified ? "j" : "l", t, first: par[0]};
   }
-  async function toParagraph(e){
+  async function toParagraph(e, at){
     if (!e || e.k !== "t" || Math.abs(e.r || 0) > 0.5) return;
     const par = await paragraphAt(e.p, e.o); if (!par) { toast("This line isn't part of a paragraph."); return; }
     const was = textOf(E.ed && E.ed.e.id === e.id && E.ed.el ? E.ed.el : document.createElement("i")) || e.t;
@@ -1372,8 +1374,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const p = {id: uid(), a: E.rev, p: e.p, k: "p", o: par.lines[0].o, r: 0, lines: par.lines, W: par.W, lh: Math.round(par.lh * 100) / 100, al: par.al, fs: Math.round(first.fs * 100) / 100, s0: Math.round(first.fs * 100) / 100,
       f: e.f, b: e.b, i: e.i, c: e.c, bg: e.bg, cf: e.cf, old: par.t, t};
     const list = mine().filter(x => !(x.k === "t" && x.p === e.p && par.lines.some(l => Math.abs(l.o[1] - x.o[1]) < x.fs * 0.3 && x.o[0] >= l.o[0] - 1 && x.o[0] <= l.o[0] + l.w + 1)));
-    save(list, null);
-    startEdit(p); probe([p]);
+    if (list.length !== mine().length) save(list, null);
+    startEdit(p, at); probe([p]);
   }
 
   /* Pointing at the page */
@@ -1567,7 +1569,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (!it && E.libv) { const pic = picAt(pg, at.x, at.y); if (pic) { const done = mine().find(x => x.k === "x" && x.p === pg.n && x.i === pic.i); if (done) { E.sel = done.id; E.picSel = null; } else { const b = picBox(pic.m), f = frame(pg, b.o, 0); E.picSel = {p: pg.n, i: pic.i, m: pic.m, name: pic.name, bg: sample(pg, {x: f.x, y: f.y - b.h * f.s, w: b.w * f.s, h: b.h * f.s}).bg}; E.sel = null; } repaint(); bar(); return; } }
     E.picSel = null;
     if (!it) { if (E.sel) { E.sel = null; repaint(); bar(); } else if ((await pageInfo(pg.n)).length < 3) { if (Date.now() - hinted > 4000) { hinted = Date.now(); toast("This page is a picture of text. Recognize Text makes its words editable."); } } else hint(); return; }
-    startEdit(lineEdit(pg.n, it, sample(pg, vpBox(pg, it))), {x: ev.clientX, y: ev.clientY});
+    const le = lineEdit(pg.n, it, sample(pg, vpBox(pg, it)));
+    // a line that's part of a paragraph opens the whole paragraph, re-wrapping as you type (Edit Line goes back to one line)
+    if (Math.abs(le.r || 0) < 0.5 && !E.lineOnly && await paragraphAt(pg.n, le.o)) { await toParagraph(le, {x: ev.clientX, y: ev.clientY}); return; }
+    startEdit(le, {x: ev.clientX, y: ev.clientY});
     probe([E.ed.e]);
   }, true);
   let hinted = 0;
@@ -1886,7 +1891,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         <span class="pde-size"><button type="button" class="icon-btn" data-act="pde-size" data-id="-1" aria-label="Smaller text">${ico('<path d="M5 12h14"/>')}</button><input id="pdeSize" type="text" inputmode="decimal" value="${e && e.fs ? Math.round(e.fs * 10) / 10 : ""}" aria-label="Text size in points"><button type="button" class="icon-btn" data-act="pde-size" data-id="1" aria-label="Bigger text">${ico(IC.plus)}</button></span>
         <button type="button" class="icon-btn pde-b" data-act="pde-b" aria-pressed="${!!(e && e.b)}" aria-label="Bold"><b>B</b></button><button type="button" class="icon-btn pde-i" data-act="pde-i" aria-pressed="${!!(e && e.i)}" aria-label="Italic"><i>I</i></button>
         <span class="pde-cols">${COLORS.map(([hex, name]) => `<button type="button" class="pde-col" data-act="pde-color" data-id="${hex}" style="--c:${hex}" aria-label="${name}" aria-pressed="${!!(e && (e.c || "").toLowerCase() === hex)}"></button>`).join("")}<label class="pde-col pde-any" style="--c:${esc((e && e.c) || "#000000")}" title="Any color"><span class="sr">Any color</span><input type="color" id="pdeColor" value="${esc((e && /^#[0-9a-f]{6}$/i.test(e.c || "") && e.c) || "#000000")}"></label></span>
-        ${e && e.k === "t" && Math.abs(e.r || 0) < 0.5 ? `<button type="button" class="btn small" data-act="pde-para" title="Edit the whole paragraph, re-wrapping its lines">${ico(IC.para)}Edit Paragraph</button>` : ""}
+        ${e && e.k === "t" && Math.abs(e.r || 0) < 0.5 ? `<button type="button" class="btn small" data-act="pde-para" title="Edit the whole paragraph, re-wrapping its lines">${ico(IC.para)}Edit Paragraph</button>` : ""}${e && e.k === "p" && !mine().some(x => x.id === e.id) ? `<button type="button" class="btn small" data-act="pde-line" title="Change a single line instead of the paragraph">${ico(IC.text)}Edit One Line</button>` : ""}
         ${e && e.k === "p" ? `<span class="pde-al" role="group" aria-label="Alignment"><button type="button" class="btn small" data-act="pde-al" data-id="l" aria-pressed="${e.al !== "j"}">Left</button><button type="button" class="btn small" data-act="pde-al" data-id="j" aria-pressed="${e.al === "j"}">Justified</button></span>` : ""}
       </span>${marks}${find}${E.tool === "stamp" ? `<span class="pde-chips" role="group" aria-label="Stamp">${STAMPS.map(t => `<button type="button" class="btn small" data-act="pde-stamp-t" data-id="${t}" aria-pressed="${(E.stamp || {t: "Draft"}).t === t}">${t}</button>`).join("")}<input type="text" id="pdeStampOwn" maxlength="24" placeholder="Your own" value="${esc(STAMPS.includes((E.stamp || {}).t) ? "" : (E.stamp || {}).t || "")}" aria-label="Your own stamp text" style="width:8em">
         <span class="pde-cols">${STAMP_COLS.map(([c, nm]) => `<button type="button" class="pde-col" data-act="pde-stamp-c" data-id="${c}" style="--c:${c}" aria-label="${nm}" aria-pressed="${((E.stamp || {}).c || "#c0262d") === c}"></button>`).join("")}</span><label class="pde-chk"><input type="checkbox" id="pdeStampDate"${(E.stamp || {date: true}).date !== false ? " checked" : ""}> With today's date</label></span>` : ""}${E.tool === "field" ? `<span class="pde-chips"><label class="f pde-inline"><span class="lh">Draw a</span><select id="pdeFieldKind">${[["text", "Text field"], ["multi", "Box (several lines)"], ["check", "Tick box"]].map(([v, nm]) => `<option value="${v}"${(E.fieldKind || "text") === v ? " selected" : ""}>${nm}</option>`).join("")}</select></label><button type="button" class="btn small" data-act="pde-tool" data-id="fields">Find Blanks…</button></span>` : ""}${E.picSel || (e && e.k === "x") ? `<span class="pde-chips"><b class="mini">Picture</b><label class="btn small">Replace…<input type="file" id="pdePicFile" accept="image/png,image/jpeg,image/webp" class="sr"></label>${E.picSel ? `<button type="button" class="btn small" data-act="pde-pic-del">Take Out</button>` : ""}</span>` : ""}${picked().length > 1 ? `<span class="pde-chips" role="group" aria-label="Align">${[["l", "Left"], ["c", "Centers"], ["r", "Right"], ["t", "Tops"], ["m", "Middles"], ["b", "Bottoms"], ["h", "Spread Across"], ["v", "Spread Down"]].map(([k, nm]) => `<button type="button" class="btn small" data-act="pde-align" data-id="${k}">${nm}</button>`).join("")}</span>` : ""}${E.tool === "fill" ? `<span class="pde-chips" role="group" aria-label="Quick Fill">${fillChips().map(([k, label, v]) => `<button type="button" class="btn small" data-act="pde-chip" data-id="${k}"${v ? ` title="${esc(v)}"` : " disabled"}>${label}</button>`).join("")}<button type="button" class="link-btn" data-act="pde-me">Your Details…</button>${[...E.anns.values()].length ? `<button type="button" class="btn small" data-act="pde-fill-fields">Fill Matching Fields</button>` : ""}</span>` : ""}
@@ -2054,7 +2059,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   function setOn(on){
     const S = session(); if (!S) return;
     if (!on && S.ed) commit();
-    S.on = !!on; if (!on) { S.sel = null; S.place = null; closePanel(); }
+    S.on = !!on; if (!on) { S.sel = null; S.place = null; S.lineOnly = false; closePanel(); }
     if (on) {
       const ink = $("#inkModeBtn"); if (ink && ink.getAttribute("aria-pressed") === "true") ink.click();
       try { getSelection().removeAllRanges(); } catch (e) {}
@@ -2094,6 +2099,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-scolor": { S.sc = id; const e = selected(); if (e && e.k === "s") restyle({c: id}); else bar(); break; }
       case "pde-al": restyle({al: id}, "Paragraph alignment changed"); break;
       case "pde-para": toParagraph(selected()); break;
+      case "pde-line": { const p = E.ed && E.ed.e; if (E.ed) { E.ed = null; } E.lineOnly = true; E.sel = null; if (p) paint(p.p); bar(); toast("Click the line you want to change"); break; }
       case "pde-del": if (S.sel) remove(S.sel); break;
       case "pde-dl": if (S.ed) commit(); downloadPanel(); break;
       case "pde-dl-go": downloadGo(); break;
@@ -3280,8 +3286,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-ph p{margin:4px 0 0;max-width:46em}
 .pde-pb{flex:1;min-height:0;overflow:auto;padding:14px 18px;display:grid;gap:12px;align-content:start}
 .pde-pf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 18px;border-top:1px solid var(--line)}
-.pde-pf .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
-.pde-pf .btn > svg{flex:none;width:16px;height:16px}
+/* every button with an icon in the editor: the icon centred beside its label */
+.pde-bar .btn,.pde-panel .btn,.pde-pf .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.pde-bar .btn > svg,.pde-panel .btn > svg,.pde-pf .btn > svg{flex:none;width:16px;height:16px}
 .pde-pf .spacer{flex:1}
 .pde-panel.sign,.pde-panel.fonts{inset:auto 0 auto 0;top:0;max-height:100%;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .pde-fonts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
