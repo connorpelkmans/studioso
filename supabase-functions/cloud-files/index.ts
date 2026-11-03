@@ -277,7 +277,10 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     let b: any; try { b = JSON.parse(text || "{}"); } catch (_e) { b = null; }
     if (!b || typeof b !== "object") return reply({ error: "bad request" }, 400);
     const providers = { google: A.google.configured(), microsoft: A.microsoft.configured(), classroom: A.classroom.configured(), onenote: A.onenote.configured(), onenote_class: A.onenote_class.configured() };
-    if (b.action === "status") return reply({ accounts: await rpc(d, "cloud_status", { p_uid: uid }) || [], providers }, 200);
+    // The Google Picker's browser key and app (project) number. Both are public by design; they just have to be set as secrets.
+    const pk = d.env("GOOGLE_PICKER_API_KEY").trim(), pa = d.env("GOOGLE_PICKER_APP_ID").trim();
+    const picker = providers.google && pk && /^\d{6,}$/.test(pa) ? { key: pk, appId: pa } : null;
+    if (b.action === "status") return reply({ accounts: await rpc(d, "cloud_status", { p_uid: uid }) || [], providers, picker }, 200);
     if (!PROVIDERS.includes(b.provider)) return reply({ error: "bad request" }, 400);
     const prov: Provider = b.provider;
     if (b.action === "disconnect") {

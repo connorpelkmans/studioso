@@ -80234,6 +80234,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const prefs = () => {
     const c = (state.settings && state.settings.cloud) || {};
     return {ai: {google: !!(c.ai && c.ai.google), microsoft: !!(c.ai && c.ai.microsoft)}, save: ["google", "microsoft"].includes(c.save) ? c.save : "studyboard", msFolder: c.msFolder && c.msFolder.id ? c.msFolder : null,
+      gCourse: Object.fromEntries(Object.entries(c.gCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
       msCourse: Object.fromEntries(Object.entries(c.msCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
       watch: Array.isArray(c.watch) ? c.watch.filter(w => w && w.id).slice(0, 5) : [], hide: Array.isArray(c.hide) ? c.hide.slice(-500) : []};
   };
@@ -80290,9 +80291,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     fc[key] = id; gCacheSet(fc); return id;
   }
   const gItem = (j, blob, type) => ({p: "google", id: String(j.id), name: String(j.name || ""), size: Number(j.size) || blob.size, type: String(j.mimeType || type || ""), mod: String(j.modifiedTime || new Date().toISOString()), url: j.webViewLink || `https://drive.google.com/file/d/${encodeURIComponent(j.id)}/view`});
-  async function gUpload(blob, name, type, segs){
-    let parent = await gFolder("Studyboard", "root");
-    for (const s of segs) parent = await gFolder(s, parent);
+  async function gUpload(blob, name, type, segs, cf){
+    /* a folder picked for this course replaces Studyboard/<course> (Lectures still nests inside it) */
+    let parent = cf ? cf.id : await gFolder("Studyboard", "root");
+    for (const s of cf ? segs.slice(1) : segs) parent = await gFolder(s, parent);
     const meta = JSON.stringify({name, parents: [parent]});
     if (blob.size <= 5 * 1048576) {
       const b = "sb" + Math.random().toString(36).slice(2);
@@ -80342,7 +80344,12 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* Saving */
   async function saveBlob(p, blob, name, o){
     const type = (o && o.type) || blob.type || "application/octet-stream";
-    if (p === "google") return gUpload(blob, name, type, segsFor(o || {}));
+    if (p === "google") {
+      const gf = o && o.courseId && prefs().gCourse[o.courseId];
+      if (!gf) return gUpload(blob, name, type, segsFor(o || {}));
+      try { return await gUpload(blob, name, type, segsFor(o || {}), gf); }
+      catch (e) { if (e && e.code === "net") throw e; toast(`Couldn't use the Google Drive folder “${gf.name}” for this course, so it went to Studyboard's folder instead.`); return gUpload(blob, name, type, segsFor(o || {})); }
+    }
     const cf = o && o.courseId && prefs().msCourse[o.courseId];
     if (!cf) return msUpload(blob, name, type, segsFor(o || {}));
     try { return await msUpload(blob, name, type, segsFor(o || {}), cf); }
@@ -80507,13 +80514,34 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   setInterval(() => { if (!document.hidden && Date.now() - U.scanAt > 15 * 60000) scan({quiet: true}); }, 60000);
   hook("render", () => { if (ui.tab === "files" && Date.now() - U.scanAt > 3 * 60000) scanSoon(400, {quiet: true}); });
 
+  /* Choosing a Google Drive folder for a course (Google's Picker, in its own popup page: drive-picker.html) */
+  function pickGoogleFolder(){
+    return new Promise((resolve, reject) => {
+      const pk = cache().picker; if (!pk) return reject(new CloudErr("Google folder choosing isn't set up on this Studyboard server yet.", "nopicker"));
+      const w = window.open("drive-picker.html", "sbDrivePicker", "popup,width=900,height=640");
+      if (!w) return reject(new CloudErr("Your browser blocked the Google Drive window. Allow pop-ups for Studyboard and try again.", "popup"));
+      let done = false;
+      const end = (fn, v) => { if (done) return; done = true; clearInterval(iv); clearTimeout(to); window.removeEventListener("message", on); fn(v); };
+      const on = async e => {
+        if (e.origin !== location.origin || e.source !== w) return;
+        const m = e.data; if (!m) return;
+        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
+        else if (m.sbPicker === "done" && m.id) end(resolve, {id: String(m.id), name: String(m.name || "Folder").slice(0, 120)});
+        else if (m.sbPicker === "cancel") end(resolve, null);
+        else if (m.sbPicker === "error") end(reject, new CloudErr(String(m.message || "Couldn't open Google Drive.").slice(0, 200), "picker"));
+      };
+      const iv = setInterval(() => { if (w.closed) end(resolve, null); }, 700), to = setTimeout(() => { try { w.close(); } catch (e) {} end(resolve, null); }, 10 * 60000);
+      window.addEventListener("message", on);
+    });
+  }
+
   /* Status and connecting */
   async function loadStatus(){
     if (!ready()) return;
     U.loading = true; paint();
     const r = await call({action: "status"});
     U.loading = false;
-    if (r.ok) { setCache({accounts: r.data.accounts || [], providers: r.data.providers || {}}); U.err = ""; }
+    if (r.ok) { setCache({accounts: r.data.accounts || [], providers: r.data.providers || {}, picker: r.data.picker || null}); U.err = ""; }
     else U.err = r.status === 404 || r.status === 0 ? "Google Drive and OneDrive aren't set up on this Studyboard server yet." : r.status === 501 ? "Google Drive and OneDrive aren't fully set up on this Studyboard server yet." : "Couldn't reach Studyboard. Check your connection.";
     paint(); prefetch();
   }
@@ -80575,7 +80603,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <select data-cl-wc="${esc(w.id)}" aria-label="Course for ${esc(w.name)}">${courseOpts(w.courseId)}</select><button type="button" class="link-btn" data-act="cl-unwatch" data-id="${esc(w.id)}">Stop Watching</button></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">Pick a folder, like your school folder. What's in it (three folders deep) shows up in Files, sorted into courses by folder name, and stays up to date.</p>`}
       <div class="cs-row">${pr.watch.length < 5 ? `<button type="button" class="btn small" data-act="cl-browse" data-mode="watch">Watch a Folder</button>` : ""}${pr.watch.length ? `<button type="button" class="btn small" data-act="cl-scan"${U.scanning ? " disabled" : ""}>${U.scanning ? "Checking…" : "Check Now"}</button><span class="mini">Checked ${esc(ago(U.scanAt))}</span>` : ""}</div>
       ${U.scanErr ? `<p class="cl-warn">${esc(U.scanErr)}</p>` : ""}</fieldset>` : "";
-    const cm = prefs().msCourse, cs = coursesArr();
+    const cm = prefs().msCourse, cs = coursesArr(), gm = prefs().gCourse, gConn = conn.includes("google") && !!c.picker;
+    const gPerCourse = gConn && cs.length ? `<fieldset class="cl-set"><legend>Google Drive Folder for Each Course</legend>
+      <p class="mini">Choose where a course's uploads are kept in Google Drive. Files you upload in Studyboard go there on their own. Courses without a folder use <b>Studyboard › course name</b>. Studyboard can only see the folders you pick here, and files linked from Drive are never moved.</p>
+      <ul class="cl-watch">${cs.map(c => { const f = gm[c.id]; return `<li><span class="cl-wn">${FOLDER}<b>${esc(courseLabel(c))}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="cl-gpick" data-id="${esc(c.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="cl-gcourse-reset" data-id="${esc(c.id)}">Use Automatic</button>` : ""}</li>`; }).join("")}</ul></fieldset>` : "";
     const perCourse = ms && cs.length ? `<fieldset class="cl-set"><legend>OneDrive Folder for Each Course</legend>
       <p class="mini">Choose where a course's uploads are kept in OneDrive. Files you upload in Studyboard go there on their own, with no prompt each time. Courses without a folder use <b>${esc(pr.msFolder ? pr.msFolder.name : "Studyboard")} › course name</b>. Files you linked from OneDrive are never moved.</p>
       <ul class="cl-watch">${cs.map(c => { const f = cm[c.id]; return `<li><span class="cl-wn">${FOLDER}<b>${esc(courseLabel(c))}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="cl-browse" data-mode="course" data-course="${esc(c.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="cl-course-reset" data-id="${esc(c.id)}">Use Automatic</button>` : ""}</li>`; }).join("")}</ul></fieldset>` : "";
@@ -80584,7 +80615,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="cl-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : `<div class="cl-cards">${provs.map(card).join("")}</div>`}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
-      ${saveSet}${perCourse}${watch}
+      ${saveSet}${perCourse}${gPerCourse}${watch}
       <p class="mini">Removing a cloud file in Studyboard never deletes it from Google Drive or OneDrive.</p>`;
   }
   function paint(){ const b = document.getElementById("clBody"); if (b && !U.browse) { const y = b.scrollTop; b.innerHTML = sheetHtml(); b.scrollTop = y; } }
@@ -80648,6 +80679,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         paint();
       })(); return true;
       case "cl-browse": { const m = el.dataset.mode === "save" ? "save" : el.dataset.mode === "course" ? "course" : "watch"; U.browse = null; browse(m, "root", "OneDrive", [], el.dataset.course || ""); return true; }
+      case "cl-gpick": { const c = courseOf(id); if (!c) return true; toast("Choose the folder in the Google window"); pickGoogleFolder().then(f => { if (!f) return; setPrefs({gCourse: Object.assign({}, prefs().gCourse, {[c.id]: f})}); toast(`${courseLabel(c)} uploads go to “${f.name}”`); paint(); }).catch(e => toast((e && e.message) || "Couldn't open Google Drive.")); return true; }
+      case "cl-gcourse-reset": { const m = Object.assign({}, prefs().gCourse); delete m[id]; setPrefs({gCourse: m}); toast("This course's uploads use the automatic folder again"); paint(); return true; }
       case "cl-course-reset": { const m = Object.assign({}, prefs().msCourse); delete m[id]; setPrefs({msCourse: m}); toast("This course's uploads use the automatic folder again"); paint(); return true; }
       case "cl-back": U.browse = null; paint(); return true;
       case "cl-up": { const B = U.browse; if (!B) return true; const t = B.trail.slice(0, -1), last = t[t.length - 1]; browse(B.mode, last ? last.id : "root", last ? last.name : "OneDrive", t); return true; }

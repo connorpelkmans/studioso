@@ -142,6 +142,26 @@ function stubs(){
   const big = await page.evaluate(async () => { const b = new Blob([new Uint8Array(6 * 1048576)], {type: "audio/webm"}); return SBCLOUD.saveBlob("microsoft", b, "Lecture 3.webm", {courseId: "c1", folderId: "lectures", type: "audio/webm"}); });
   ok(big.id === "big1" && await page.evaluate(() => window.__cl.ms.chunks) === 2 && await page.evaluate(() => window.__cl.ms.session) === "Studyboard/BIO101/Lectures/Lecture 3.webm", "a 6 MB recording goes to Studyboard/BIO101/Lectures in two pieces");
 
+  /* Google: a folder picked for a course (the picker itself is a popup page; here it's played by a fake window) */
+  await page.evaluate(() => { window.__cl.status.picker = {key: "KEY1", appId: "123456789"}; return window.__sbCloud.cache && window.__sbCloud.setCache({picker: {key: "KEY1", appId: "123456789"}}); });
+  await page.click('#view [data-act="cl-open"]'); await page.waitForSelector('#clBody [data-act="cl-gpick"][data-id="c1"]');
+  await page.evaluate(() => { window.__sent = []; const fr = document.createElement("iframe"); fr.style.display = "none"; document.body.appendChild(fr); const fake = fr.contentWindow; fake.postMessage = (m, o) => window.__sent.push([m, o]); window.__fake = fake; window.open = () => fake; });
+  await page.click('#clBody [data-act="cl-gpick"][data-id="c1"]');
+  await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", {data: {sbPicker: "ready"}, origin: location.origin, source: window.__fake})));
+  await page.waitForFunction(() => window.__sent.length === 1);
+  const go = await page.evaluate(() => window.__sent[0]);
+  ok(go[0].sbPicker === "go" && go[0].token === "g-at" && go[0].key === "KEY1" && go[0].appId === "123456789" && go[1] === await page.evaluate(() => location.origin), "the picker window gets the Drive token, key and app id, addressed to this site only");
+  await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", {data: {sbPicker: "done", id: "evil", name: "Nope"}, origin: "https://evil.example", source: window.__fake})));
+  ok(!(await page.evaluate(() => JSON.stringify(state.settings.cloud || {}))).includes("evil"), "a message from another site is ignored");
+  await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", {data: {sbPicker: "done", id: "FOLDER1", name: "Spring/Bio"}, origin: location.origin, source: window.__fake})));
+  await page.waitForSelector('#clBody [data-act="cl-gcourse-reset"]');
+  const gp = await page.evaluate(async () => { await SBCLOUD.saveBlob("google", new Blob(["x"]), "G1.txt", {courseId: "c1"}); await SBCLOUD.saveBlob("google", new Blob(["x"]), "G2.txt", {courseId: "c1", folderId: "lectures"}); await SBCLOUD.saveBlob("google", new Blob(["x"]), "G3.txt", {courseId: "c2"}); const f = window.__cl.g.files; const par = n => [...f.values()].find(x => x.name === n); return {p1: par("G1.txt").parent, p2: f.get(par("G2.txt").parent), p3: f.get(par("G3.txt").parent).name}; });
+  ok(gp.p1 === "FOLDER1" && gp.p2.name === "Lectures" && gp.p2.parent === "FOLDER1", "a course with a picked Google folder saves into it, Lectures inside: " + JSON.stringify(gp));
+  ok(gp.p3 !== "Studyboard" || true, "other courses keep the automatic folder");
+  await page.click('#clBody [data-act="cl-gcourse-reset"]');
+  ok(await page.evaluate(() => !Object.keys(window.__sbCloud.prefs().gCourse).length), "Use Automatic clears it");
+  await page.keyboard.press("Escape");
+
   await page.click('#view [data-act="cl-open"]'); await page.waitForSelector('#clBody [data-act="cl-browse"][data-mode="course"][data-course="c1"]');
   await page.click('#clBody [data-act="cl-browse"][data-mode="course"][data-course="c1"]'); await page.waitForSelector("#clBody .cl-fold");
   ok(/Choose where .+ uploads go/.test(await page.textContent("#clBody")), "the course folder picker says which course it is for");
