@@ -816,6 +816,14 @@ function normPrep(p){
   const o = {v: 1, topics: [], intensity: Math.max(15, Math.min(300, Math.round(Number(p.intensity)) || 90)), style: [], styleText: str(p.styleText, 200), days: null, rest: !!p.rest, light: p.light !== false, start: isDate(p.start) ? p.start : "",
     ai: p.ai !== false, examDue: isDate(p.examDue) ? p.examDue : "", createdAt: Number(p.createdAt) || 0, updatedAt: Number(p.updatedAt) || 0};
   if (p.archived) o.archived = true;
+  // What the last exam reflection changed in this plan (97-examprep.js, lessonFor)
+  if (p.lesson && typeof p.lesson === "object" && !Array.isArray(p.lesson)) {
+    const L = p.lesson, pc = v => v === null || v === "" || v === undefined || !Number.isFinite(Number(v)) ? null : Math.max(0, Math.min(100, Math.round(Number(v)))), l = {from: str(L.from, 40), title: str(L.title, 120)};
+    if (["night", "short", "cram"].includes(L.early)) l.early = L.early;
+    if (L.shaky && typeof L.shaky === "object") l.shaky = {felt: pc(L.shaky.felt), mark: pc(L.shaky.mark)};
+    if (L.questions && typeof L.questions === "object") l.questions = {why: L.questions.why === "format" ? "format" : "worked", measured: pc(L.questions.measured), mark: pc(L.questions.mark)};
+    if (l.early || l.shaky || l.questions) o.lesson = l;
+  }
   const seen = new Set();
   (Array.isArray(p.topics) ? p.topics : []).slice(0, 60).forEach((t, i) => {
     if (!t || !str(t.name, 80)) return;
@@ -11283,6 +11291,8 @@ function occView(type, id, key){
   if (c && c.instructor) rows.push([I.person, esc(c.instructor), "Instructor"]);
   if (c && type === "event") rows.push([I.book, esc(c.name || courseLabel(c)), esc(c.code && c.name ? c.code : "")]);
   if (ev && ev.notes) rows.push([I.note, `<span class="occv-notes">${esc(ev.notes)}</span>`, ""]);
+  // a class: its own page with its notes, files and recording (99-class-sessions.js)
+  if (type === "meet" && window.SBCLS) { try { rows.push(...SBCLS.occRows(o)); } catch (e) { console.warn("class page rows", e); } }
   const url = ev && ev.url && /^https:\/\//i.test(ev.url) ? ev.url : "";
   if (url) rows.push([I.link, `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open link</a>`, ""]);
   const band = c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : `<span class="occv-ic" aria-hidden="true">${I.cal}</span><b>Event</b>`;
@@ -14824,6 +14834,8 @@ function fileRow(f){
     ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
   </li>`;
 }
+// A course's Lecture Notes folder, grouped by class, with each class's typed notes and recording too (99-class-sessions.js)
+const clsFolder = g => { if (!window.SBCLS || !ui.fCourse || ui.fCourse === "all") return null; try { return SBCLS.folderHtml(ui.fCourse, g, fileRow); } catch (e) { console.warn("class folder", e); return null; } };
 function viewFiles(){
   const cs = coursesArr();
   const all = Object.values(state.files);
@@ -14848,9 +14860,9 @@ function viewFiles(){
     const none = !ui.q.trim();
     list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt("files") : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, Word, PowerPoint and Excel files, images or text files${caps.assets ? ", or drop them here" : ""}. Anything too big can go to your Google Drive or OneDrive.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
   } else if (ui.fCourse !== "all" && !ui.fFolder) {
-    list = foldersOf(ui.fCourse).map(fo => { const g = fs.filter(f => f.folderId === fo.id); return g.length ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; }).join("")
+    list = foldersOf(ui.fCourse).map(fo => { const g = fs.filter(f => f.folderId === fo.id), byCls = fo.id === "notes" ? clsFolder(g) : null; return byCls ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}</h3>${byCls}` : g.length ? `<h3 class="fsec">${FOLDER}${esc(fo.name)}<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; }).join("")
       + (() => { const known = new Set(foldersOf(ui.fCourse).map(fo => fo.id)); const g = fs.filter(f => !known.has(f.folderId)); return g.length ? `<h3 class="fsec">${FOLDER}Unsorted<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; })();
-  } else list = `<ul class="flist">${fs.map(fileRow).join("")}</ul>`;
+  } else list = (ui.fFolder === "notes" && clsFolder(fs)) || `<ul class="flist">${fs.map(fileRow).join("")}</ul>`;
   const canUpload = !!caps.assets;
   const hcol = c ? c.color : ui.fCourse === "all" ? "var(--accent-band,var(--accent))" : "#8A94A6";
   const nHere = fs.length, bandActs = [ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
@@ -21707,7 +21719,8 @@ const SCN20 = (() => {
     });
     return {defs, rects};
   }
-  function thumbSvg(id, dark){
+  function thumbSvg(id, dark, W, H){
+    const TH_W = W || 640, TH_H = H || 400;
     L.setAnim(null);
     const v = L.buildSceneAt(sceneOf(id), dark, TH_W, TH_H, true);
     const sky = cssToSvg(v.sky, 0, 0, TH_W, TH_H, "g"), band = v.band.h ? cssToSvg(v.band.bg, 0, v.band.top, TH_W, v.band.h, "b") : {defs: "", rects: ""};
@@ -21738,6 +21751,8 @@ const SCN20 = (() => {
       try { im.src = thumbUrl(id, dk === "1"); } catch (e) { console.warn("scene thumb " + id, e); }
     });
   }
+  // A theme's scene as a picture of any size (the calculator's faceplate, 99-calculator.js); null when it has none
+  window.SBSCENE = {has: isScene, load: () => L.ready() ? Promise.resolve(true) : L.load(), svg: (id, dark, w, h) => isScene(id) && L.ready() ? thumbSvg(id, !!dark, w, h) : null};
   hook("thumb", (id, dark) => {
     if (!isScene(id)) return;
     if (!L.ready()) { L.load().then(ok => { if (ok) fillThumbs(); }); return `<span class="sp-art sc-thumb"><img alt="" decoding="async" data-scn-thumb="${esc(id)}|${dark ? 1 : 0}"></span>`; }
@@ -23473,6 +23488,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     if (caps.assets) add("Quick Add Files", "Drop files and let Studyboard sort them into courses", tabAct("files", "f-quick"), "add");
     add("Add a Link to a File", "For files kept in OneDrive, Google Drive or Canvas", tabAct("files", "f-link"), "url");
     add(isDark() ? "Switch to Light Mode" : "Switch to Dark Mode", "Change how Studyboard looks", act("theme-toggle"), "theme night day");
+    add("Calculator", "A scientific calculator in its own window", act("calc-open"), "calculator calc math sum add percent sin cos");
     add("Style Shop", "Themes, card styles, note shapes and stickers", act("shop"), "theme look colors");
     add("Settings", "Backups, study hours, AI and more", act("menu"), "preferences options");
     add("Search Settings", "Search inside files and search by meaning", () => settingsSheet(), "index");
@@ -23553,6 +23569,13 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       const first = txt.split("\n")[0].slice(0, 90), rest = txt.length > first.length ? txt.slice(first.length).trim() : "";
       const doc = put({g: "notes", type: "note", id: n.id, cid: n.courseId || "", boost: n.archived ? 0.7 : 1, arch: !!n.archived}, first, rest, `${cName(n.courseId)} note`);
       semAdd(doc, "Sticky note", txt);
+    });
+    // Whiteboards: found by their title and the text typed on them (handwriting and pictures aren't searchable)
+    Object.values(state.notes || {}).forEach(n => {
+      if (!isWhiteboard(n)) return;
+      const name = String(n.text || "").split("\n")[0].trim() || "Untitled Whiteboard", typed = (n.wbItems || []).filter(it => it.k === "t" && it.s).sort((a, b) => a.y - b.y || a.x - b.x).map(it => it.s.trim()).join("\n");
+      const doc = put({g: "notes", type: "board", id: n.id, cid: n.courseId || "", boost: n.archived ? 0.7 : 1, arch: !!n.archived}, name, typed.slice(0, 600), `${cName(n.courseId)} whiteboard board`);
+      if (typed.trim()) semAdd(doc, name, typed);
     });
     eventsArr().forEach(e => {
       const when = e.repeat ? `Every ${daysLabel(e.repeat.days)}` : fmtDate(e.date);
@@ -24042,7 +24065,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     const d = x.doc;
     if (d.type === "chunk") { const f = state.files[d.fid]; return `${f ? f.name : "File"}${d.label && d.page ? `, ${d.label.toLowerCase()} ${d.page}` : ""}`; }
     if (d.type === "lecture") return `Lecture: ${String(d.title).slice(0, 80)}`;
-    return `${{task: "Task", note: "Sticky note", card: "Flashcard", question: "Practice question", file: "File", course: "Course", event: "Event", deck: "Deck", quiz: "Practice quiz", class: "Class"}[d.type] || "Item"}: ${String(d.title).slice(0, 80)}`;
+    return `${{task: "Task", note: "Sticky note", board: "Whiteboard", card: "Flashcard", question: "Practice question", file: "File", course: "Course", event: "Event", deck: "Deck", quiz: "Practice quiz", class: "Class"}[d.type] || "Item"}: ${String(d.title).slice(0, 80)}`;
   }
 
   /* What the assistant knows */
@@ -24406,6 +24429,7 @@ Return JSON only.`;
     if (["card", "question", "quiz", "deck"].includes(d.type)) { const dk = state.decks[d.type === "deck" ? d.id : d.pid]; return dk ? `[[${ln(dk.name)}]]${d.type === "deck" ? "" : ": " + String(d.title).replace(/\s+/g, " ").slice(0, 80)}` : citeOf(x); }
     if (d.type === "note") { const nt = state.notes[d.id], t = nt ? String(nt.text || "").split("\n").map(l => l.replace(/\[\[|\]\]/g, "").trim()).find(l => /[\p{L}\p{N}]/u.test(l)) : ""; return t ? `[[${ln(t.slice(0, 120))}]]` : citeOf(x); }
     if (d.type === "task") { const t = state.tasks[d.id]; return t && t.title ? `[[${ln(t.title)}]]` : citeOf(x); }
+    if (d.type === "board") { const b = state.notes[d.id], t = b ? String(b.text || "").split("\n")[0].trim() : ""; return t ? `[[${ln(t)}]]` : citeOf(x); }
     return citeOf(x);
   }
   function saveNote(T){
@@ -24531,6 +24555,7 @@ Return JSON only.`;
       case "card": { openDeck(doc.pid); const dk = state.decks[doc.pid]; setTimeout(() => flash(`.fc-cell[data-id="${CSS.escape(doc.id)}"]`), 40); if (dk) cardSheet(dk, doc.id); break; }
       case "quiz": case "question": { openDeck(doc.pid); const qid = doc.type === "quiz" ? doc.id : doc.qid; setTimeout(() => { const b = $(`.aiq-list [data-act="ai-quiz-start"][data-id="${CSS.escape(qid)}"]`); flash(b ? b.closest("li") : ".aiq-sec"); }, 40); break; }
       case "note": openNote(doc.id); break;
+      case "board": { const b = state.notes[doc.id]; if (!b || !window.SBWB) break; if (b.archived) archiveSheet(); else { SBWB.open(doc.id); window.scrollTo(0, 0); } break; }
       case "event": case "class": openSchedule(doc); break;
       case "file": {
         const f = state.files[doc.id]; if (!f) break;
@@ -24563,7 +24588,8 @@ Return JSON only.`;
     const c = doc.type === "chunk" ? courseOf((state.files[doc.fid] || {}).courseId) : courseOf(doc.cid);
     const bits = [];
     if (doc.type === "task") { const t = state.tasks[doc.id]; if (t) { if (doc.arch) bits.push("Archived"); else if (t.status === "done") bits.push("Complete"); if (t.due) bits.push(esc(fmtShort(t.due))); } }
-    if (doc.type === "note" && doc.arch) bits.push("Archived");
+    if ((doc.type === "note" || doc.type === "board") && doc.arch) bits.push("Archived");
+    if (doc.type === "board") bits.push("Whiteboard");
     if (doc.type === "card") { const d = state.decks[doc.pid]; if (d) bits.push(esc(d.name)); }
     if (doc.type === "question") { const d = state.decks[doc.pid], qz = d && (d.aiQuizzes || []).find(x => x.id === doc.qid); if (qz) bits.push(esc(qz.title)); }
     if (doc.type === "chunk" && doc.label && doc.page) bits.push(`${esc(doc.label)} ${doc.page}`);
@@ -35001,6 +35027,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("gr-list")) { ui.grListOpen = ui.grListOpen || {}; ui.grListOpen[d.dataset.cid] = d.open; } }, true);
   /* Courses: a Grades tab, on the course list and inside each course */
   const courseTabs = (cur, labels) => `<div class="bview-tabs cd-tabs" role="tablist" aria-label="Courses view">${labels.map(([k, l]) => `<button type="button" role="tab" data-act="course-tab" data-id="${k}" aria-selected="${cur === k}">${l}</button>`).join("")}</div>`;
+  // recordings that belong to a class are listed under it, not again in Other Recordings
+  const lecturesSkip = c => { const loose = new Set(SBCLS.looseRecs(c)); return Object.values(state.files).filter(f => f.courseId === c.id && f.folderId === "lectures" && !loose.has(f.id)).map(f => f.id); };
   const origDetail = viewCourseDetail;
   viewCourseDetail = function(c){
     const html = origDetail.apply(this, arguments);
@@ -35011,14 +35039,14 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const tabsM = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
       const head = html.slice(0, mb).replace("<!--cd-tabs-->", tabsM), body = html.slice(mb);
       if (tab === "grades") { try { return head + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
-      if (tab === "lectures") return head + SBLEC.listHtml(c);
+      if (tab === "lectures") return head + (window.SBCLS ? SBCLS.listHtml(c) + SBLEC.listHtml(c, {quiet: true, title: "Other Recordings", skip: new Set(lecturesSkip(c))}) : SBLEC.listHtml(c));
       return head + body;
     }
     const k = html.indexOf('<div class="row-actions">'), e = k >= 0 ? html.indexOf("</div>", k) : -1;
     if (e < 0) return html;
     const head = html.slice(0, e + 6), rest = html.slice(e + 6);
     const tabs = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
-    if (tab === "lectures") return head + tabs + SBLEC.listHtml(c);
+    if (tab === "lectures") return head + tabs + (window.SBCLS ? SBCLS.listHtml(c) + SBLEC.listHtml(c, {quiet: true, title: "Other Recordings", skip: new Set(lecturesSkip(c))}) : SBLEC.listHtml(c));
     if (tab === "grades") { try { return head + tabs + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
     return head + tabs + rest;
   };
@@ -69893,7 +69921,7 @@ const EXAMPREP = (() => {
   const GAPS = [1, 3, 6];
   const TOPIC_CAP = {weak: 150, ok: 100, strong: 60};
   const INTENSITY = {light: 45, normal: 90, intense: 120};
-  const HORIZON = 21, MAX_TOPICS = 3, MIN_SESSION = 10;
+  const HORIZON = 21, HORIZON_EARLY = 28, LEARN_BY = 3, LEARN_BY_EARLY = 5, MAX_TOPICS = 3, MIN_SESSION = 10;
   const KIND_LABEL = {learn: "Learn", cards: "Flashcards", questions: "Practice questions", teach: "Teach-back", recall: "Recall", recap: "Final recap", past: "Timed practice", light: "Light review"};
   const KIND_RANK = {cards: 0, recap: 1, recall: 2, learn: 3, teach: 4, questions: 5, past: 6, light: 7};
   const STYLES = [["mc", "Multiple choice"], ["short", "Short answer"], ["calc", "Calculation"], ["essay", "Essay"], ["practical", "Practical"]];
@@ -70069,7 +70097,9 @@ const EXAMPREP = (() => {
     if (!isDate(today) || !isDate(due)) return empty("date", "Pick the exam date first.");
     if (due <= today) return empty("past", due === today ? "The exam is today, so there's no day left to plan before it." : "That exam date has passed.");
     const intensity = clamp(Math.round(num(inp.intensity) ? Number(inp.intensity) : INTENSITY.normal), 15, 300), style = Array.isArray(inp.style) ? inp.style : [];
-    const last = add(due, -1), horizon = inp.horizon || HORIZON;
+    // inp.early: front-load (a longer horizon, and every topic first learned 5+ days out); inp.favor "questions": more practice questions
+    const early = !!inp.early, favorQ = inp.favor === "questions";
+    const last = add(due, -1), horizon = inp.horizon || (early ? HORIZON_EARLY : HORIZON);
     let start = inp.start && isDate(inp.start) && inp.start > today ? inp.start : today;
     if (!(inp.start && isDate(inp.start)) && diff(start, due) > horizon) start = add(due, -horizon);
     if (start > last) start = last;
@@ -70114,7 +70144,7 @@ const EXAMPREP = (() => {
     });
 
     let paper = null;
-    if (reg.length >= 5 && T0.length >= 2 && inp.paper !== false) {
+    if ((favorQ ? reg.length >= 3 : reg.length >= 5 && T0.length >= 2) && inp.paper !== false) {
       const cand = reg.filter(d => diff(d.date, due) >= 3 && diff(d.date, due) <= 5).sort((a, b) => (a.heavy - b.heavy) || (b.cap - a.cap) || (a.date < b.date ? 1 : -1))[0];
       const min = cand ? Math.min(cand.cap, clamp(r5(0.75 * intensity), 45, 90)) : 0;
       if (cand && min >= 40) { paper = {day: cand, min}; cand.used += min; cand.items.push({kind: "past", min, topics: [], text: textFor("past", null, {style}), mat: null}); }
@@ -70142,7 +70172,7 @@ const EXAMPREP = (() => {
       let nRev = REVIEWS[t.conf];
       while (nRev > 0 && (restM / nRev < 10 || nRev > Math.floor(restM / 10))) nRev--;
       const revMin = nRev ? clamp(r5(restM / nRev), 10, 40) : 0;
-      const seq = t.conf === "strong" ? [quiz ? "questions" : deck ? "cards" : "recall"] : [deck ? "cards" : "recall", "questions", "teach"];
+      const seq = t.conf === "strong" ? [quiz || favorQ ? "questions" : deck ? "cards" : "recall"] : [deck ? "cards" : "recall", "questions", favorQ ? "questions" : "teach"];
       t.touches = {learn: learnMin, recap: recapMin, reviews: seq.slice(0, nRev).map(k => ({kind: k, min: revMin}))};
     });
 
@@ -70169,8 +70199,9 @@ const EXAMPREP = (() => {
     const order = active.slice().sort((a, b) => b.score - a.score || a.i - b.i);
     const learnDate = {}, lastTouch = {};
     const nL = Math.max(1, Math.ceil(reg.length * 0.55));
-    const learnLimit = reg.filter(d => diff(d.date, due) >= 3);
-    const learnPool = learnLimit.length ? learnLimit : reg;
+    const learnEarly = early ? reg.filter(d => diff(d.date, due) >= LEARN_BY_EARLY) : [];
+    const learnLimit = reg.filter(d => diff(d.date, due) >= LEARN_BY);
+    const learnPool = learnEarly.length >= 2 ? learnEarly : learnLimit.length ? learnLimit : reg;
     const noRoom = [];
     order.forEach((t, i) => {
       if (t.learned) { lastTouch[t.id] = t.lastDone && t.lastDone >= start ? t.lastDone : add(start, -1); return; }
@@ -70256,7 +70287,25 @@ const EXAMPREP = (() => {
     return {pct: gate && wsum ? Math.round(rsum / wsum * 100) : null, gate, evidence: ev, byTopic};
   }
 
-  return {plan, readiness, matchTopic, flatLinks, suggestTopics, parseTopics, chaptersIn, tokens, keyOf, cleanName, headingsOf, textFor, KIND_LABEL, STYLES, INTENSITY, HORIZON, SHAKY, GAPS, add, diff, dow, isDate, simplePlace};
+  /* What the last exam reflection changes in the next plan's defaults (see 97-exam-wrapper.js for what a reflection holds).
+     early: started 1-2 days before, the night before, or crammed, and it didn't go as well as hoped: learn new material sooner.
+     shaky: felt 15+ points more ready than the mark: new topics start at Shaky, so they get more reviews.
+     questions: practice questions worked (70%+ and no overconfidence), or the cards said 15+ points more than the mark (a format gap). */
+  function lessonOf(w){
+    if (!w || typeof w !== "object") return null;
+    const pct = v => num(v) ? Number(v) : null, felt = pct(w.felt), measured = pct(w.measured), mark = pct(w.mark);
+    const ms = Array.isArray(w.methods) ? w.methods : [], has = k => ms.includes(k);
+    const over = felt != null && mark != null && felt - mark >= 15;
+    const late = w.start === "short" || w.start === "night" || (has("cram") && !has("spaced"));
+    const out = {};
+    if (late && (mark == null || mark < 80 || over)) out.early = w.start === "night" || w.start === "short" ? w.start : "cram";
+    if (over) out.shaky = {felt, mark};
+    if (measured != null && mark != null && measured - mark >= 15) out.questions = {why: "format", measured, mark};
+    else if (has("practice") && mark != null && mark >= 70 && !over) out.questions = {why: "worked", mark};
+    return Object.keys(out).length ? out : null;
+  }
+
+  return {plan, lessonOf, readiness, matchTopic, flatLinks, suggestTopics, parseTopics, chaptersIn, tokens, keyOf, cleanName, headingsOf, textFor, KIND_LABEL, STYLES, INTENSITY, HORIZON, SHAKY, GAPS, add, diff, dow, isDate, simplePlace};
 })();
 /*EXAMPREP-END*/
 
@@ -70311,7 +70360,18 @@ function suggestFor(ex, courseId){
 function prepOf(ex){
   const p = ex.prep && typeof ex.prep === "object" ? ex.prep : {};
   const topics = (Array.isArray(p.topics) && p.topics.length ? p.topics : (ex.planTopics || []).map(t => ({name: t.name, conf: t.conf}))).map(t => ({id: t.id || uid(), name: t.name, conf: t.conf || "ok", weight: t.weight == null ? null : t.weight, done: !!t.done, links: t.links || [], edited: !!t.edited}));
-  return {topics, intensity: p.intensity || intensityDefault(), style: p.style || [], styleText: p.styleText || "", days: p.days || null, rest: !!p.rest, light: p.light !== false, start: p.start || "", ai: p.ai !== false, examDue: p.examDue || "", createdAt: p.createdAt || 0};
+  return {topics, intensity: p.intensity || intensityDefault(), style: p.style || [], styleText: p.styleText || "", days: p.days || null, rest: !!p.rest, light: p.light !== false, start: p.start || "", ai: p.ai !== false, examDue: p.examDue || "", createdAt: p.createdAt || 0,
+    lesson: p.lesson || null};
+}
+/* The last exam reflection, turned into this plan's defaults (EXAMPREP.lessonOf): only for a plan that doesn't exist yet,
+   and only from a reflection in the last year. Same course first, any course otherwise (SBWRAP.lastWrap). */
+function lessonFor(ex){
+  try {
+    const prev = window.SBWRAP && SBWRAP.lastWrap(ex);
+    if (!prev || !prev.wrap || Date.now() - Number(prev.wrap.at) > 365 * 864e5) return null;
+    const L = EXAMPREP.lessonOf(prev.wrap); if (!L) return null;
+    return Object.assign({from: prev.id, title: prev.title}, L);
+  } catch (e) { return null; }
 }
 function dayInfoFn(ex, from, to){
   const today = todayISO(), now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), act = availActive();
@@ -70332,7 +70392,7 @@ function dayInfoFn(ex, from, to){
 function inputFor(ex, P, topics, due){
   const today = todayISO(), done = sessionsOf(ex.id).filter(t => t.status === "done").map(t => ({topicId: t.topicId, kind: t.kind, min: minOf(t), date: t.due}));
   return {today, due, topics: topics.map(t => ({id: t.id, name: t.name, conf: t.conf, weight: t.weight, done: t.done, links: liveLinks(t.links)})), intensity: P.intensity, style: P.style,
-    days: P.days, rest: P.rest, light: P.light, start: P.start || "", done, examTitle: ex.title, dayInfo: dayInfoFn(ex, today, due),
+    days: P.days, rest: P.rest, light: P.light, start: P.start || "", done, examTitle: ex.title, early: !!(P.lesson && P.lesson.early), favor: P.lesson && P.lesson.questions ? "questions" : "", dayInfo: dayInfoFn(ex, today, due),
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
 function readyFor(ex){
@@ -70413,7 +70473,7 @@ function applyPlan(ex0, P, topics, due, time, out, opts){
   });
   olds.filter(o => !used.has(o.id)).forEach(o => changes.push({kind: "task", id: o.id, after: null}));
   const prep = {v: 1, topics: topics.map(t => ({id: t.id, name: t.name, conf: t.conf, weight: t.weight, done: !!t.done, links: (t.links || []).slice(0, 8).map(l => ({k: l.k, id: l.id, title: l.title, deckId: l.deckId || "", cardIds: l.cardIds || null, total: l.total || 0})), edited: !!t.edited})),
-    intensity: P.intensity, style: P.style, styleText: P.styleText || "", days: P.days, rest: !!P.rest, light: P.light !== false, start: P.start || "", ai: !!P.ai, examDue: due, createdAt: (ex.prep && ex.prep.createdAt) || Date.now(), updatedAt: Date.now()};
+    intensity: P.intensity, style: P.style, styleText: P.styleText || "", days: P.days, rest: !!P.rest, light: P.light !== false, start: P.start || "", ai: !!P.ai, lesson: P.lesson || null, examDue: due, createdAt: (ex.prep && ex.prep.createdAt) || Date.now(), updatedAt: Date.now()};
   const ne = Object.assign(clone(state.tasks[ex.id]), {courseId: ex.courseId || "", prep, due, time: time == null ? ex.time : time, planTopics: topics.map(t => ({name: t.name, conf: t.conf})), planPerDay: P.intensity, planStyle: [P.style.map(k => (EXAMPREP.STYLES.find(x => x[0] === k) || [0, k])[1]).join(", "), P.styleText].filter(Boolean).join("; "), planAt: Date.now()});
   if (ne.start && ne.start > ne.due) ne.start = ne.due;
   changes.push({kind: "task", id: ex.id, after: normTask(ne)});
@@ -70443,7 +70503,7 @@ function stateFor(ex, P){
   const today = todayISO(), act = availActive();
   let days = P.days;
   if (!days) { days = [0, 1, 2, 3, 4, 5, 6]; if (act) { try { const ext = availExtMap(today, addDays(today, 13)), ok = new Set(); for (let i = 0; i < 14; i++) { const d = addDays(today, i); if (availFreeDay(d, null, ext).total >= 30) ok.add(parse(d).getDay()); } if (ok.size >= 3) days = [...ok].sort(); } catch (e) {} } }
-  return {exId: ex.id, step: "plan", topics: P.topics, intensity: P.intensity, style: P.style.slice(), styleText: P.styleText, days, rest: P.rest, light: P.light, start: P.start, ai: P.ai && aiReady(), due: ex.due, time: ex.time || "", courseId: ex.courseId || "", msg: "", busy: false, out: null, open: {}, replan: false};
+  return {exId: ex.id, step: "plan", topics: P.topics, intensity: P.intensity, style: P.style.slice(), styleText: P.styleText, days, rest: P.rest, light: P.light, start: P.start, ai: P.ai && aiReady(), lesson: P.lesson ? clone(P.lesson) : ex.prep ? null : lessonFor(ex), due: ex.due, time: ex.time || "", courseId: ex.courseId || "", msg: "", busy: false, out: null, open: {}, replan: false};
 }
 const exOf = () => S && state.tasks[S.exId];
 function readForm(){
@@ -70459,7 +70519,7 @@ function readForm(){
   dlg.querySelectorAll("[data-pw]").forEach(i => { const t = S.topics.find(x => x.id === i.dataset.pw); if (t) t.weight = i.value === "" ? null : clamp(Number(i.value) || 0, 0, 100) || null; });
 }
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-function curP(){ return {intensity: S.intensity, style: S.style, styleText: S.styleText, days: S.days.length === 7 ? null : S.days, rest: S.rest, light: S.light, start: S.start, ai: S.ai}; }
+function curP(){ return {intensity: S.intensity, style: S.style, styleText: S.styleText, days: S.days.length === 7 ? null : S.days, rest: S.rest, light: S.light, start: S.start, ai: S.ai, lesson: S.lesson}; }
 function compute(){
   const ex = exOf(); if (!ex) return null;
   const due = S.due; if (!isDate(due)) { S.out = null; return null; }
@@ -70467,7 +70527,7 @@ function compute(){
 }
 function addTopics(names, src){
   const have = new Set(S.topics.map(t => EXAMPREP.keyOf(t.name))); let n = 0; const mat = materialFor();
-  names.forEach(nm => { const name = String(nm).trim().slice(0, 80), k = EXAMPREP.keyOf(name); if (!name || have.has(k) || S.topics.length >= 40) return; have.add(k); n++; S.topics.push({id: uid(), name, conf: "ok", weight: null, done: false, links: autoLinksFor(name, S.courseId, mat), edited: false}); });
+  names.forEach(nm => { const name = String(nm).trim().slice(0, 80), k = EXAMPREP.keyOf(name); if (!name || have.has(k) || S.topics.length >= 40) return; have.add(k); n++; S.topics.push({id: uid(), name, conf: S.lesson && S.lesson.shaky ? "weak" : "ok", lessonConf: !!(S.lesson && S.lesson.shaky), weight: null, done: false, links: autoLinksFor(name, S.courseId, mat), edited: false}); });
   return n;
 }
 function allMaterialOptions(t){
@@ -70514,6 +70574,7 @@ function drawPlan(){
     <div class="two"><label class="f">Exam Date<input type="date" id="ppDue" value="${esc(S.due)}" min="${esc(addDays(today, 1))}"></label>
       <label class="f"><span class="lh">Time <span class="hint">optional</span></span><input type="time" id="ppTime" value="${esc(S.time)}"></label></div>
     <p class="mini" style="margin:0">${isDate(S.due) ? `${days} day${days === 1 ? "" : "s"} to go.` : ""}${have.length ? ` This exam already has a plan: ${done} of ${have.length} sessions done.` : ""}</p>
+    ${lessonHtml(out)}
     <label class="f"><span class="lh">Course <span class="hint">material is matched within it</span></span><select id="ppCourse"><option value="">No course</option>${coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === S.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
     <fieldset><legend>What It Covers</legend>
       ${window.SBLC ? SBLC.prepHtml(ex) : ""}<ul class="ep-topics pp-topics">${S.topics.map(topicLi).join("")}</ul>
@@ -70528,7 +70589,7 @@ function drawPlan(){
       <div class="segb" role="group" aria-label="Study intensity">${INT3.map(([m, l, d]) => `<button type="button" data-pp="int" data-v="${m}" aria-pressed="${S.intensity === m}">${l} <span class="mini">${d}</span></button>`).join("")}</div>
       <p class="mini" style="margin:6px 0 0">Study time a day. ${availActive() ? "Sessions go in your free time, skipping classes, work and shifts." : `Based on your ${fmtHM(dailyHours())} a day.`}</p>
       <div class="ep-days" role="group" aria-label="Study days">${DAYN.map((l, k) => `<button type="button" data-pp="day" data-v="${k}" aria-pressed="${S.days.includes(k)}">${l}</button>`).join("")}</div>
-      <label class="f" style="margin-top:8px"><span class="lh">Start <span class="hint">optional; defaults to today, or 3 weeks before a far-off exam</span></span><input type="date" id="ppStart" value="${esc(S.start)}" min="${esc(today)}"></label>
+      <label class="f" style="margin-top:8px"><span class="lh">Start <span class="hint">optional; defaults to today, or ${S.lesson && S.lesson.early ? 4 : 3} weeks before a far-off exam</span></span><input type="date" id="ppStart" value="${esc(S.start)}" min="${esc(today)}"></label>
       <label class="mi-check"><input type="checkbox" data-pp="light" ${S.light ? "checked" : ""}> Light review the day before (no new material)</label>
       <label class="mi-check"><input type="checkbox" data-pp="rest" ${S.rest ? "checked" : ""}> Keep the day before the exam free as a rest day</label>
       ${aiReady() ? `<label class="mi-check"><input type="checkbox" data-pp="ai" ${S.ai ? "checked" : ""}> ${AI_ICON} Word each session’s instruction with AI <span class="mini">(dates and minutes stay exact)</span></label>${aiModelBar()}` : ""}
@@ -70538,6 +70599,24 @@ function drawPlan(){
   const n = out && !out.err ? out.sessions.length : 0;
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${have.length && !S.replan ? `<button type="button" class="btn" data-pp="view">Back to Plan</button>` : ""}<button type="button" class="btn primary" id="ppCreate" data-pp="create" ${n ? "" : "disabled"}>${have.length ? `Re-plan ${n} Session${n === 1 ? "" : "s"}` : `Create Plan (${n} Session${n === 1 ? "" : "s"})`}</button>`;
   const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan My Prep" : "Plan My Prep";
+}
+/* What the last reflection changed, one line each, each with its own Undo */
+const LATE = {night: "last time you started the night before", short: "last time you started 1 or 2 days before", cram: "last time it came down to one long session the night before"};
+function lessonHtml(out){
+  const L = S.lesson; if (!L) return "";
+  const lines = [], first = out && !out.err && out.sessions.length ? out.sessions[0].date : "";
+  const undo = k => ` <button type="button" class="link-btn" data-pp="lesson" data-k="${k}">Undo</button>`;
+  if (L.early) {
+    const n = first && isDate(S.due) ? dayDiff(first, S.due) : 0;
+    lines.push((first ? `Starts ${fmtDate(first)}, ${n} day${n === 1 ? "" : "s"} out, with new material first so the last days are for review` : "New material comes first, so the last days are for review") + `: ${LATE[L.early] || LATE.short}.` + undo("early"));
+  }
+  if (L.shaky) lines.push(`Topics start at Shaky: last time you felt ${L.shaky.felt}% ready and got ${L.shaky.mark}%. Mark the ones you know as OK or Strong.` + undo("shaky"));
+  if (L.questions) {
+    const what = `More practice questions${out && !out.err && out.summary.paper ? ", plus a timed practice run" : ""}`;
+    lines.push((L.questions.why === "format" ? `${what}: last time your flashcards and quizzes said ${L.questions.measured}%, but the exam gave ${L.questions.mark}%.` : `${what}: they worked for you last time (${L.questions.mark}%).`) + undo("questions"));
+  }
+  if (!lines.length) return "";
+  return `<div class="pp-lesson" role="note"><b>From your reflection on ${esc(L.title || "your last exam")}</b><ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul></div>`;
 }
 /* the Prep plan view */
 function drawView(){
@@ -70612,7 +70691,12 @@ async function onClick(e){
   readForm();
   const tp = S.topics.find(x => x.id === id);
   switch (a) {
-    case "conf": if (tp) tp.conf = b.dataset.v; break;
+    case "conf": if (tp) { tp.conf = b.dataset.v; delete tp.lessonConf; } break;
+    case "lesson": if (S.lesson) {
+      const k = b.dataset.k; delete S.lesson[k];
+      if (k === "shaky") S.topics.forEach(x => { if (x.lessonConf) { x.conf = "ok"; delete x.lessonConf; } });
+      if (!S.lesson.early && !S.lesson.shaky && !S.lesson.questions) S.lesson = null;
+    } break;
     case "rm": S.topics = S.topics.filter(x => x.id !== id); break;
     case "mat": S.open[id] = !S.open[id]; break;
     case "unlink": if (tp) { const ls = liveLinks(tp.links); ls.splice(Number(b.dataset.i), 1); tp.links = ls; tp.edited = true; } break;
@@ -77581,7 +77665,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return out;
   }
   const noteTitle = text => (String(text || "").split("\n").map(l => l.replace(/\[\[|\]\]/g, "").trim()).find(l => /[\p{L}\p{N}]/u.test(l)) || "").slice(0, 120);
-  const KINDS = ["note", "task", "deck", "file"];
+  const KINDS = ["note", "task", "deck", "file", "board"];
   function buildIndex(items){
     const idx = new Map();
     KINDS.forEach(kind => (items[kind] || []).forEach(x => { const k = keyOf(x.name); if (k && !idx.has(k)) idx.set(k, {kind, id: x.id, name: x.name}); }));
@@ -77605,14 +77689,16 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     note: notesArr().map(n => ({id: n.id, name: noteTitle(n.text)})).filter(x => x.name),
     task: allTasks().filter(t => t.title).sort((a, b) => (a.status === "done") - (b.status === "done")).map(t => ({id: t.id, name: t.title})),
     deck: Object.values(state.decks || {}).filter(d => d && d.name).map(d => ({id: d.id, name: d.name})),
-    file: Object.values(state.files || {}).filter(f => f && f.name).map(f => ({id: f.id, name: f.name}))
+    file: Object.values(state.files || {}).filter(f => f && f.name).map(f => ({id: f.id, name: f.name})),
+    // whiteboards live in state.notes too, but are named by their title, not their first line of text
+    board: Object.values(state.notes || {}).filter(n => isWhiteboard(n) && !n.archived).map(n => ({id: n.id, name: String(n.text || "").split("\n")[0].trim()})).filter(x => x.name)
   });
   function index(){ if (IDX_AT !== state.updated || !IDX) { IDX = buildIndex(named()); IDX_AT = state.updated; } return IDX; }
   const on = () => true;
   const isPdf = f => !!f && f.kind === "file" && f.revs.length && /\.pdf$/i.test(curRev(f).name || f.name);
 
   /* In a note */
-  const KIND_WORD = {note: "note", task: "task", deck: "deck", file: "file"};
+  const KIND_WORD = {note: "note", task: "task", deck: "deck", file: "file", board: "whiteboard"};
   function noteText(n){
     const text = String(n.text || "");
     if (!on() || text.indexOf("[[") < 0) return esc(text);
@@ -77654,6 +77740,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   function openTarget(hit, page){
     if (dlg.open && hit.kind !== "file") dlg.close();
     if (hit.kind === "note") return openNote(hit.id);
+    if (hit.kind === "board") { if (noteEditing) saveNoteText(); if (window.SBWB && state.notes[hit.id]) { SBWB.open(hit.id); window.scrollTo(0, 0); } return; }
     if (hit.kind === "task") { const t = state.tasks[hit.id]; if (t) taskForm(t); return; }
     if (hit.kind === "deck") { if (noteEditing) saveNoteText(); ui.tab = "flashcards"; ui.fc = null; ui.deckId = hit.id; render(); window.scrollTo(0, 0); return; }
     if (hit.kind === "file") {
@@ -77693,7 +77780,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!POP || POP.ta !== ta) { closePop(); const el = document.createElement("div"); el.className = "nl-pop"; el.setAttribute("role", "listbox"); el.setAttribute("aria-label", "Link to"); wrap.appendChild(el); POP = {el, ta, i: 0}; }
     POP.list = list; POP.from = t.from; POP.i = Math.min(POP.i, list.length - 1);
     POP.el.style.top = (ta.offsetTop + ta.offsetHeight + 2) + "px";
-    POP.el.innerHTML = list.map((x, i) => `<button type="button" role="option" class="nl-opt${i === POP.i ? " on" : ""}" aria-selected="${i === POP.i}" data-nl-i="${i}"><span class="nl-k">${x.kind === "new" ? "New note" : x.kind[0].toUpperCase() + x.kind.slice(1)}</span><span class="nl-n">${esc(x.name)}</span></button>`).join("");
+    POP.el.innerHTML = list.map((x, i) => `<button type="button" role="option" class="nl-opt${i === POP.i ? " on" : ""}" aria-selected="${i === POP.i}" data-nl-i="${i}"><span class="nl-k">${x.kind === "new" ? "New note" : x.kind === "board" ? "Whiteboard" : x.kind[0].toUpperCase() + x.kind.slice(1)}</span><span class="nl-n">${esc(x.name)}</span></button>`).join("");
   }
   function pick(i){
     if (!POP) return;
@@ -79329,13 +79416,16 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const DOC_SVG = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6M9 9h2"/></svg>';
   const SUM_SVG = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 12l2 2 4-4M9 17h6"/></svg>';
   const courseBtn = c => canRecord() && !inPreview() ? `<button class="btn small lec-btn" data-act="lec-open" data-course="${esc(c.id)}">${MIC_SVG}<span>Record Lecture</span></button>` : "";
-  function listHtml(c){
-    const ls = lecturesOf(c.id);
+  // o.skip: recordings shown under their class instead (99-class-sessions.js); o.quiet: nothing when there's nothing left
+  function listHtml(c, o){
+    o = o || {};
+    const ls = lecturesOf(c.id).filter(f => !(o.skip && o.skip.has(f.id)));
     const row = f => { const d = new Date(f.created || Date.now()).toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"});
       return `<li><button type="button" class="lec-row" data-act="lec-view" data-id="${esc(f.id)}"><span class="lec-ic" aria-hidden="true">${MIC_SVG}</span><span class="lec-rt"><b>${esc(f.name)}</b><span class="mini">${[d, f.dur ? clock(f.dur * 1000) : "", f.lec && f.lec.sum ? "Transcript and summary" : "Transcript"].filter(Boolean).join(" · ")}</span></span></button></li>`; };
     const ds = DRAFTS.filter(d => d.cid === c.id || !courseOf(d.cid));
     const drow = d => `<li class="lec-draft"><span class="lec-ic" aria-hidden="true">${MIC_SVG}</span><span class="lec-rt"><b>${esc(d.title || "Lecture recording")}</b><span class="mini">${esc(["Draft, not saved yet", new Date(d.at).toLocaleDateString(undefined, {month: "short", day: "numeric"}), d.dur ? clock(d.dur) : ""].filter(Boolean).join(" · "))}</span></span><span class="lec-dbtns"><button type="button" class="btn small primary" data-act="lec-draft-open" data-id="${esc(d.id)}">Finish</button><button type="button" class="btn small" data-act="lec-draft-del" data-id="${esc(d.id)}">Delete</button></span></li>`;
-    return `<section class="lec-tab" style="--c:${esc(c.color)}"><h2 class="sec"><span class="t">Lectures</span><span class="n">${ls.length || ""}</span></h2>
+    if (o.quiet && !ls.length && !ds.length) return "";
+    return `<section class="lec-tab" style="--c:${esc(c.color)}"><h2 class="sec"><span class="t">${esc(o.title || "Lectures")}</span><span class="n">${ls.length || ""}</span></h2>
       ${ds.length ? `<ul class="lec-list lec-drafts">${ds.map(drow).join("")}</ul>` : ""}
       ${ls.length ? `<ul class="lec-list">${ls.map(row).join("")}</ul>` : `<div class="empty"><strong>No Lectures Yet</strong>Record a class with Record Lecture at the top of this page. Name it when you're done, and it's kept here with its transcript and summary.</div>`}</section>`;
   }
@@ -80234,6 +80324,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const prefs = () => {
     const c = (state.settings && state.settings.cloud) || {};
     return {ai: {google: !!(c.ai && c.ai.google), microsoft: !!(c.ai && c.ai.microsoft)}, save: ["google", "microsoft"].includes(c.save) ? c.save : "studyboard", msFolder: c.msFolder && c.msFolder.id ? c.msFolder : null,
+      gCourse: Object.fromEntries(Object.entries(c.gCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
       msCourse: Object.fromEntries(Object.entries(c.msCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
       watch: Array.isArray(c.watch) ? c.watch.filter(w => w && w.id).slice(0, 5) : [], hide: Array.isArray(c.hide) ? c.hide.slice(-500) : []};
   };
@@ -80274,7 +80365,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   }
   const seg = s => String(s || "").replace(/[\\/:*?"<>|#%\u0000-\u001f]+/g, "-").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 80) || "Files";
   const courseSeg = cid => { const c = cid && courseOf(cid); return seg(c ? courseLabel(c) : "General"); };
-  const segsFor = o => [courseSeg(o.courseId)].concat(o.folderId === "lectures" ? ["Lectures"] : []);
+  // o.sub: subfolders under the course (a class's own folder: Lectures/2026-10-05 Lecture 7, from 99-class-sessions.js)
+  const segsFor = o => [courseSeg(o.courseId)].concat(Array.isArray(o.sub) && o.sub.length ? o.sub.slice(0, 3).map(seg) : o.folderId === "lectures" ? ["Lectures"] : []);
 
   /* Google Drive */
   const GD = "https://www.googleapis.com/drive/v3", GU = "https://www.googleapis.com/upload/drive/v3", GFIELDS = "id,name,mimeType,size,webViewLink,modifiedTime";
@@ -80290,9 +80382,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     fc[key] = id; gCacheSet(fc); return id;
   }
   const gItem = (j, blob, type) => ({p: "google", id: String(j.id), name: String(j.name || ""), size: Number(j.size) || blob.size, type: String(j.mimeType || type || ""), mod: String(j.modifiedTime || new Date().toISOString()), url: j.webViewLink || `https://drive.google.com/file/d/${encodeURIComponent(j.id)}/view`});
-  async function gUpload(blob, name, type, segs){
-    let parent = await gFolder("Studyboard", "root");
-    for (const s of segs) parent = await gFolder(s, parent);
+  async function gUpload(blob, name, type, segs, cf){
+    /* a folder picked for this course replaces Studyboard/<course> (Lectures still nests inside it) */
+    let parent = cf ? cf.id : await gFolder("Studyboard", "root");
+    for (const s of cf ? segs.slice(1) : segs) parent = await gFolder(s, parent);
     const meta = JSON.stringify({name, parents: [parent]});
     if (blob.size <= 5 * 1048576) {
       const b = "sb" + Math.random().toString(36).slice(2);
@@ -80342,7 +80435,12 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* Saving */
   async function saveBlob(p, blob, name, o){
     const type = (o && o.type) || blob.type || "application/octet-stream";
-    if (p === "google") return gUpload(blob, name, type, segsFor(o || {}));
+    if (p === "google") {
+      const gf = o && o.courseId && prefs().gCourse[o.courseId];
+      if (!gf) return gUpload(blob, name, type, segsFor(o || {}));
+      try { return await gUpload(blob, name, type, segsFor(o || {}), gf); }
+      catch (e) { if (e && e.code === "net") throw e; toast(`Couldn't use the Google Drive folder “${gf.name}” for this course, so it went to Studyboard's folder instead.`); return gUpload(blob, name, type, segsFor(o || {})); }
+    }
     const cf = o && o.courseId && prefs().msCourse[o.courseId];
     if (!cf) return msUpload(blob, name, type, segsFor(o || {}));
     try { return await msUpload(blob, name, type, segsFor(o || {}), cf); }
@@ -80358,7 +80456,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       ({file: f, type} = await shrinkForUpload(f, type));
       toast(list.length > 1 ? `Saving ${list.length} files to ${NM[p]}…` : `Saving ${f.name} to ${NM[p]}…`);
       try {
-        const rec = await saveBlob(p, f, f.name, {courseId: opts.courseId || "", folderId: opts.folderId || "other", type});
+        const rec = await saveBlob(p, f, f.name, {courseId: opts.courseId || "", folderId: opts.folderId || "other", sub: opts.sub, type});
         const file = normFile({id: uid(), name: f.name, courseId: opts.courseId || "", folderId: opts.folderId || "other", kind: "cloud", url: rec.url, cloud: rec,
           taskIds: opts.taskId ? [opts.taskId] : [], created: Date.now()});
         made.push(file);
@@ -80507,13 +80605,35 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   setInterval(() => { if (!document.hidden && Date.now() - U.scanAt > 15 * 60000) scan({quiet: true}); }, 60000);
   hook("render", () => { if (ui.tab === "files" && Date.now() - U.scanAt > 3 * 60000) scanSoon(400, {quiet: true}); });
 
+  /* Choosing a Google Drive folder for a course (Google's Picker, in its own popup page: drive-picker.html) */
+  function pickGoogleFolder(files){
+    return new Promise((resolve, reject) => {
+      const pk = cache().picker; if (!pk) return reject(new CloudErr("Google folder choosing isn't set up on this Studyboard server yet.", "nopicker"));
+      const w = window.open("drive-picker.html", "sbDrivePicker", "popup,width=900,height=640");
+      if (!w) return reject(new CloudErr("Your browser blocked the Google Drive window. Allow pop-ups for Studyboard and try again.", "popup"));
+      let done = false;
+      const end = (fn, v) => { if (done) return; done = true; clearInterval(iv); clearTimeout(to); window.removeEventListener("message", on); fn(v); };
+      const on = async e => {
+        if (e.origin !== location.origin || e.source !== w) return;
+        const m = e.data; if (!m) return;
+        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
+        else if (m.sbPicker === "done" && files && Array.isArray(m.docs)) end(resolve, m.docs.slice(0, 20).filter(d => d && d.id).map(d => ({id: String(d.id), name: String(d.name || "File").slice(0, 200), type: String(d.mimeType || ""), url: /^https:\/\//.test(String(d.url || "")) ? String(d.url) : "", size: Number(d.size) || 0})));
+        else if (m.sbPicker === "done" && m.id) end(resolve, {id: String(m.id), name: String(m.name || "Folder").slice(0, 120)});
+        else if (m.sbPicker === "cancel") end(resolve, null);
+        else if (m.sbPicker === "error") end(reject, new CloudErr(String(m.message || "Couldn't open Google Drive.").slice(0, 200), "picker"));
+      };
+      const iv = setInterval(() => { if (w.closed) end(resolve, null); }, 700), to = setTimeout(() => { try { w.close(); } catch (e) {} end(resolve, null); }, 10 * 60000);
+      window.addEventListener("message", on);
+    });
+  }
+
   /* Status and connecting */
   async function loadStatus(){
     if (!ready()) return;
     U.loading = true; paint();
     const r = await call({action: "status"});
     U.loading = false;
-    if (r.ok) { setCache({accounts: r.data.accounts || [], providers: r.data.providers || {}}); U.err = ""; }
+    if (r.ok) { setCache({accounts: r.data.accounts || [], providers: r.data.providers || {}, picker: r.data.picker || null}); U.err = ""; }
     else U.err = r.status === 404 || r.status === 0 ? "Google Drive and OneDrive aren't set up on this Studyboard server yet." : r.status === 501 ? "Google Drive and OneDrive aren't fully set up on this Studyboard server yet." : "Couldn't reach Studyboard. Check your connection.";
     paint(); prefetch();
   }
@@ -80575,7 +80695,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <select data-cl-wc="${esc(w.id)}" aria-label="Course for ${esc(w.name)}">${courseOpts(w.courseId)}</select><button type="button" class="link-btn" data-act="cl-unwatch" data-id="${esc(w.id)}">Stop Watching</button></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">Pick a folder, like your school folder. What's in it (three folders deep) shows up in Files, sorted into courses by folder name, and stays up to date.</p>`}
       <div class="cs-row">${pr.watch.length < 5 ? `<button type="button" class="btn small" data-act="cl-browse" data-mode="watch">Watch a Folder</button>` : ""}${pr.watch.length ? `<button type="button" class="btn small" data-act="cl-scan"${U.scanning ? " disabled" : ""}>${U.scanning ? "Checking…" : "Check Now"}</button><span class="mini">Checked ${esc(ago(U.scanAt))}</span>` : ""}</div>
       ${U.scanErr ? `<p class="cl-warn">${esc(U.scanErr)}</p>` : ""}</fieldset>` : "";
-    const cm = prefs().msCourse, cs = coursesArr();
+    const cm = prefs().msCourse, cs = coursesArr(), gm = prefs().gCourse, gConn = conn.includes("google") && !!c.picker;
+    const gPerCourse = gConn && cs.length ? `<fieldset class="cl-set"><legend>Google Drive Folder for Each Course</legend>
+      <p class="mini">Choose where a course's uploads are kept in Google Drive. Files you upload in Studyboard go there on their own. Courses without a folder use <b>Studyboard › course name</b>. Studyboard can only see the folders you pick here, and files linked from Drive are never moved.</p>
+      <ul class="cl-watch">${cs.map(c => { const f = gm[c.id]; return `<li><span class="cl-wn">${FOLDER}<b>${esc(courseLabel(c))}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="cl-gpick" data-id="${esc(c.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="cl-gcourse-reset" data-id="${esc(c.id)}">Use Automatic</button>` : ""}</li>`; }).join("")}</ul></fieldset>` : "";
     const perCourse = ms && cs.length ? `<fieldset class="cl-set"><legend>OneDrive Folder for Each Course</legend>
       <p class="mini">Choose where a course's uploads are kept in OneDrive. Files you upload in Studyboard go there on their own, with no prompt each time. Courses without a folder use <b>${esc(pr.msFolder ? pr.msFolder.name : "Studyboard")} › course name</b>. Files you linked from OneDrive are never moved.</p>
       <ul class="cl-watch">${cs.map(c => { const f = cm[c.id]; return `<li><span class="cl-wn">${FOLDER}<b>${esc(courseLabel(c))}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="cl-browse" data-mode="course" data-course="${esc(c.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="cl-course-reset" data-id="${esc(c.id)}">Use Automatic</button>` : ""}</li>`; }).join("")}</ul></fieldset>` : "";
@@ -80584,7 +80707,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="cl-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : `<div class="cl-cards">${provs.map(card).join("")}</div>`}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
-      ${saveSet}${perCourse}${watch}
+      ${saveSet}${perCourse}${gPerCourse}${watch}
       <p class="mini">Removing a cloud file in Studyboard never deletes it from Google Drive or OneDrive.</p>`;
   }
   function paint(){ const b = document.getElementById("clBody"); if (b && !U.browse) { const y = b.scrollTop; b.innerHTML = sheetHtml(); b.scrollTop = y; } }
@@ -80648,6 +80771,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         paint();
       })(); return true;
       case "cl-browse": { const m = el.dataset.mode === "save" ? "save" : el.dataset.mode === "course" ? "course" : "watch"; U.browse = null; browse(m, "root", "OneDrive", [], el.dataset.course || ""); return true; }
+      case "cl-gpick": { const c = courseOf(id); if (!c) return true; toast("Choose the folder in the Google window"); pickGoogleFolder().then(f => { if (!f) return; setPrefs({gCourse: Object.assign({}, prefs().gCourse, {[c.id]: f})}); toast(`${courseLabel(c)} uploads go to “${f.name}”`); paint(); }).catch(e => toast((e && e.message) || "Couldn't open Google Drive.")); return true; }
+      case "cl-gcourse-reset": { const m = Object.assign({}, prefs().gCourse); delete m[id]; setPrefs({gCourse: m}); toast("This course's uploads use the automatic folder again"); paint(); return true; }
       case "cl-course-reset": { const m = Object.assign({}, prefs().msCourse); delete m[id]; setPrefs({msCourse: m}); toast("This course's uploads use the automatic folder again"); paint(); return true; }
       case "cl-back": U.browse = null; paint(); return true;
       case "cl-up": { const B = U.browse; if (!B) return true; const t = B.trail.slice(0, -1), last = t[t.length - 1]; browse(B.mode, last ? last.id : "root", last ? last.name : "OneDrive", t); return true; }
@@ -80781,7 +80906,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     toast(b.checked ? `AI can read your ${NM[p]} files` : `AI won't read your ${NM[p]} files. They still save and open as usual.`);
   });
   const aiOk = p => !!prefs().ai[p];
-  window.SBCLOUD = {aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  // Google Drive files picked for Studyboard (drive.file access covers the files the student picks)
+  const canPickFiles = () => { try { return connected().includes("google") && !!cache().picker; } catch (e) { return false; } };
+  const pickFiles = () => pickGoogleFolder(true);
+  window.SBCLOUD = {canPickFiles, pickFiles, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
@@ -81041,7 +81169,8 @@ var SBEARLY = null;
 
   /* Items: {k: note | deck | quiz | file | lecture, id, deck (a quiz's deck), why} */
   function item(k, id, extra){
-    if (k === "note") { const n = state.notes[id]; return n ? {k, id, name: noteName(n)} : null; }
+    if (k === "note") { const n = state.notes[id]; return n ? (n.wb ? {k: "board", id, name: String(n.text || "").split("\n")[0].trim() || "Untitled Whiteboard"} : {k, id, name: noteName(n)}) : null; }
+    if (k === "board") return item("note", id);
     if (k === "deck") { const d = state.decks[id]; return d ? {k, id, name: d.name || "Untitled Deck"} : null; }
     if (k === "quiz") { const d = state.decks[extra]; const q = d && (d.aiQuizzes || []).find(x => x.id === id); return q ? {k, id, deck: d.id, name: q.title || "Practice Quiz"} : null; }
     if (k === "file" || k === "lecture") { const f = state.files[id]; return f ? {k: isLec(f) ? "lecture" : "file", id, name: f.name || "Untitled file", pdf: isPdf(f)} : null; }
@@ -81059,8 +81188,8 @@ var SBEARLY = null;
     const own = I.byTask.get(t.id) || [];
     own.forEach(id => notes.push(as(item("note", id), "attached")));
     (I.into.get("task:" + t.id) || []).forEach(id => notes.push(as(item("note", id), "mentions")));
-    const mat = (k, id, deck, why) => { const x = as(item(k, id, deck), why); if (!x) return; (x.k === "note" ? notes : x.k === "deck" || x.k === "quiz" ? decks : files).push(x); };
-    own.forEach(nid => (I.out.get(nid) || []).forEach(s => { const [k, id] = split(s); if (k === "deck" || k === "file") mat(k, id, "", "note"); }));
+    const mat = (k, id, deck, why) => { const x = as(item(k, id, deck), why); if (!x) return; (x.k === "note" || x.k === "board" ? notes : x.k === "deck" || x.k === "quiz" ? decks : files).push(x); };
+    own.forEach(nid => (I.out.get(nid) || []).forEach(s => { const [k, id] = split(s); if (k === "deck" || k === "file" || k === "board") mat(k, id, "", "note"); }));
     ((t.prep && t.prep.topics) || []).forEach(tp => (tp.links || []).forEach(l => mat(l.k, l.id, l.deckId, "prep")));
     if (t.matKind) mat(t.matKind, t.matId, t.matDeck, "prep");
     (Array.isArray(t.studyDecks) ? t.studyDecks : []).forEach(id => mat("deck", id, "", "prep"));
@@ -81094,9 +81223,10 @@ var SBEARLY = null;
     quiz: SV('<path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/>'),
     file: SV('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>'),
     pdf: SV('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/>'),
-    lecture: SV('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')
+    lecture: SV('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'),
+    board: SV('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 13l3-3 3 2 4-4M8 21l4-4 4 4"/>')
   };
-  const WORD = {note: "Note", deck: "Deck", quiz: "Quiz", file: "File", lecture: "Lecture"};
+  const WORD = {note: "Note", deck: "Deck", quiz: "Quiz", file: "File", lecture: "Lecture", board: "Whiteboard"};
   const lead = x => x.why === "from" ? `Made from ${x.k === "file" && x.pdf ? "PDF" : WORD[x.k].toLowerCase()}: ` : x.why === "mentions" ? "Note that links here: " : `${x.k === "file" && x.pdf ? "PDF" : WORD[x.k]}: `;
   function chip(x, hide){
     if (x.k === "doc") return `<li${hide ? " hidden" : ""}><button type="button" class="lk-chip k-doc" data-act="dl-url" data-url="${esc(x.url)}">${x.badge}<span class="sr">${esc(DOCLINK.label(x.app))}: </span><span class="lk-n">${esc(x.name)}</span></button></li>`;
@@ -81115,11 +81245,12 @@ var SBEARLY = null;
   function openItem(k, id, deck){
     const p = window.SBPRO;
     if (k === "quiz") { if (dlg.open) dlg.close(); if (state.decks[deck]) startAiQuiz(deck, id); return; }
-    if (k === "deck" && !state.decks[id] || k === "note" && !state.notes[id] || k === "file" && !state.files[id]) { toast("That isn't in Studyboard any more"); return; }
+    if (k === "deck" && !state.decks[id] || (k === "note" || k === "board") && !state.notes[id] || k === "file" && !state.files[id]) { toast("That isn't in Studyboard any more"); return; }
     if (p && p.openLink) { p.openLink({kind: k, id}, 0); return; }
     if (dlg.open) dlg.close();
     if (k === "deck") { ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }
     else if (k === "file") fileSheet(state.files[id]);
+    else if (k === "board" && window.SBWB) SBWB.open(id);
     else if (k === "note") { ui.tab = "notes"; render(); }
   }
   hook("act", (act, el, id) => {
@@ -89743,6 +89874,994 @@ document.head.appendChild(css);
 window.SBLC = {lectureHtml, prepHtml, fromNote, stamp, afterCards, makeNotes, makeCards, check, pullIn, examFor, coverageOf, gather, LECCHAIN, bar: () => NX};
 })();
 
+/* ===== module: 99-class-sessions.js: every class of a course, each with its own page ===== */
+/* Class pages. A course's Lectures tab lists every class meeting across the term (lectures, labs, discussions, tutorials,
+   office hours), week by week. Each one opens its class page: the notes, slides and files for that class (typed notes,
+   uploads, Google Drive files), and its recording with the transcript and summary.
+   The same class page opens from a class on the Schedule, and the course's Lecture Notes folder in Files shows the same
+   things grouped by class, so a class's material is in one place wherever you look.
+
+   A class is one occurrence of a course meeting, keyed like the Schedule keys it: "date|start|kind" (the usual date, so a
+   class moved for one week keeps its key). Notes and files belong to a class by carrying that key as `cls` (with their
+   courseId); nothing else is stored. Recordings carry `cls` too, and an older recording without one is matched to the class
+   it was made in (same day, during or just after the class). Uploads from a class page go to the course's Lecture Notes
+   folder, and in Google Drive or OneDrive to <course>/Lectures/<date> <class>. The term's dates are guessed from the course's
+   own dates until the student sets them (course.classDates {from, until}). */
+var SBCLS = null;
+(() => {
+  const SV = (p, s) => `<svg viewBox="0 0 24 24" width="${s || 18}" height="${s || 18}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${p}</svg>`;
+  const IC = {
+    note: p => SV('<path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/>', p),
+    file: p => SV('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>', p),
+    mic: p => SV('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>', p),
+    sum: p => SV('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 12l2 2 4-4"/>', p),
+    board: p => SV('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 13l3-3 3 2 4-4M8 21l4-4 4 4"/>', p),
+    up: p => SV('<path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/>', p),
+    link: p => SV('<path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>', p),
+    plus: p => SV('<path d="M12 5v14M5 12h14"/>', p),
+    prev: p => SV('<path d="M15 18l-6-6 6-6"/>', p),
+    next: p => SV('<path d="M9 18l6-6-6-6"/>', p),
+    folder: p => SV('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', p)
+  };
+  const DRIVE = () => (window.SBCLOUD && SBCLOUD.icons && SBCLOUD.icons.google) || IC.file(16);
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const isLec = f => !!f && f.folderId === "lectures";
+  const dOf = ms => { const d = new Date(Number(ms) || Date.now()); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const minOfDay = ms => { const d = new Date(Number(ms) || 0); return d.getHours() * 60 + d.getMinutes(); };
+  const tMin = t => { const [h, m] = String(t || "0:0").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  const keyParts = k => { const [date, start, ...kind] = String(k || "").split("|"); return {date, start, kind: kind.join("|") || "Class"}; };
+  const day = (d, o) => parse(d).toLocaleDateString(undefined, o || {weekday: "short", month: "short", day: "numeric"});
+  const NUMBERED = k => k !== "Office Hours";
+
+  /* The term */
+  function termOf(c){
+    const cd = c.classDates || {}, today = todayISO();
+    let from = isDate(cd.from) ? cd.from : "", until = isDate(cd.until) ? cd.until : "";
+    if (!from || !until) {
+      const seen = [];
+      allTasks().forEach(t => { if (t.courseId === c.id) { if (isDate(t.due)) seen.push(t.due); if (isDate(t.start)) seen.push(t.start); } });
+      Object.values(state.files || {}).forEach(f => { if (f.courseId === c.id && isLec(f)) seen.push(dOf(f.created)); });
+      Object.values(state.notes || {}).forEach(n => { if (n.courseId === c.id && n.cls) seen.push(keyParts(n.cls).date); });
+      const early = seen.filter(isDate).sort()[0], late = seen.filter(isDate).sort().pop();
+      if (!from) { from = [c.created ? dOf(c.created) : today, early || today].sort()[0]; if (from < addDays(today, -150)) from = addDays(today, -150); }
+      if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180); }
+    }
+    if (until < from) until = from;
+    return {from, until, set: isDate(cd.from) && isDate(cd.until)};
+  }
+
+  /* Every class of a course in its term, numbered per kind (Lecture 7, Lab 3); skipped classes stay listed but aren't counted */
+  let CACHE = null;
+  function classesOf(c){
+    if (!c) return [];
+    if (!CACHE || CACHE.at !== state.updated || CACHE.st !== state) CACHE = {at: state.updated, st: state, by: new Map()};
+    if (CACHE.by.has(c.id)) return CACHE.by.get(c.id);
+    const T = termOf(c);
+    let occ = []; try { occ = schOccurrences(T.from, T.until).filter(o => o.type === "meet" && o.id === c.id); } catch (e) { occ = []; }
+    occ.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+    const num = {}, total = {};
+    occ.forEach(o => { const k = o.label || "Class"; if (!o.skipped) total[k] = (total[k] || 0) + 1; });
+    const list = occ.map(o => {
+      const kind = o.label || "Class", n = o.skipped ? 0 : (num[kind] = (num[kind] || 0) + 1);
+      return {key: o.key, cid: c.id, date: o.date, orig: o.orig, start: o.start, end: o.end, where: o.where || "", kind, n, of: total[kind] || 0, skipped: !!o.skipped, moved: !!o.moved,
+        title: NUMBERED(kind) && n ? `${kind} ${n}` : kind};
+    });
+    CACHE.by.set(c.id, list);
+    return list;
+  }
+  const findClass = (cid, key) => classesOf(courseOf(cid)).find(x => x.key === key) || null;
+  // A class that isn't in the term any more (its time changed): named from its key
+  const looseClass = (cid, key) => { const p = keyParts(key); return {key, cid, date: p.date, start: p.start, end: "", where: "", kind: p.kind, n: 0, of: 0, skipped: false, moved: false, title: p.kind, gone: true}; };
+  const classOf = (cid, key) => findClass(cid, key) || (isDate(keyParts(key).date) ? looseClass(cid, key) : null);
+
+  /* What belongs to a class */
+  function recKeyOf(f){
+    if (!isLec(f)) return "";
+    if (f.cls) return f.cls;
+    // older recordings: the class it was made in or just after (saving happens at the end), on the day it was made
+    const d = dOf(f.created), m = minOfDay(f.created), cands = classesOf(courseOf(f.courseId)).filter(x => x.date === d && !x.skipped);
+    const fit = cands.filter(x => m >= tMin(x.start) - 15 && m <= tMin(x.end || x.start) + 90).sort((a, b) => Math.abs(m - tMin(a.end)) - Math.abs(m - tMin(b.end)));
+    return fit[0] ? fit[0].key : cands.length === 1 ? cands[0].key : "";
+  }
+  function itemsOf(cid, key){
+    const notes = Object.values(state.notes || {}).filter(n => n && n.courseId === cid && n.cls === key && !n.archived).sort((a, b) => (a.created || 0) - (b.created || 0));
+    const files = Object.values(state.files || {}).filter(f => f && f.courseId === cid && f.cls === key && !isLec(f)).sort((a, b) => (a.created || 0) - (b.created || 0));
+    const recs = Object.values(state.files || {}).filter(f => f && f.courseId === cid && isLec(f) && recKeyOf(f) === key).sort((a, b) => (a.created || 0) - (b.created || 0));
+    return {notes, files, recs, n: notes.length + files.length + recs.length};
+  }
+  const hasSum = f => !!(f.lec && f.lec.sum);
+  function badges(I){
+    const b = [];
+    const nn = I.notes.length + I.files.length;
+    if (nn) b.push(`<span class="cls-b">${IC.note(14)}${nn}</span>`);
+    if (I.recs.length) b.push(`<span class="cls-b k-rec">${IC.mic(14)}${I.recs.length > 1 ? I.recs.length : ""}</span>`);
+    if (I.recs.some(hasSum)) b.push(`<span class="cls-b k-sum">${IC.sum(14)}</span>`);
+    return b.join("");
+  }
+  const hasLine = I => [I.notes.length ? plural(I.notes.length, "note") : "", I.files.length ? plural(I.files.length, "file") : "", I.recs.length ? "Recording" : "", I.recs.some(hasSum) ? "Summary" : ""].filter(Boolean).join(" · ");
+
+  /* The Lectures tab: every class, week by week */
+  const kindsOf = list => [...new Set(list.map(x => x.kind))];
+  function listHtml(c){
+    const all = classesOf(c), T = termOf(c), today = todayISO();
+    const kinds = kindsOf(all), want = ui.clsKind && ui.clsKind[c.id], pick = want && kinds.includes(want) ? want : "";
+    const list = all.filter(x => !pick || x.kind === pick);
+    const termLine = `${day(T.from, {month: "short", day: "numeric"})} – ${day(T.until, {month: "short", day: "numeric", year: "numeric"})}`;
+    const top = `<div class="cls-top"><h2 class="sec"><span class="t">Classes</span><span class="n">${all.filter(x => !x.skipped).length || ""}</span></h2>
+      <span class="mini cls-term">${T.set ? "" : "About "}${esc(termLine)} <button type="button" class="link-btn" data-act="cls-dates" data-cid="${esc(c.id)}">${T.set ? "Change" : "Set Term Dates"}</button></span></div>`;
+    if (!all.length) return `<section class="cls-tab" style="--c:${esc(c.color)}">${top}<div class="empty"><strong>No Class Times Yet</strong>Add this course's class times (lectures, labs, discussions, office hours) and every class of the term shows here, each with a page for its notes and recording. <div class="row-actions" style="justify-content:center;margin-top:10px"><button type="button" class="btn small primary" data-act="edit-course" data-id="${esc(c.id)}">Add Class Times</button></div></div></section>`;
+    const chips = kinds.length > 1 ? `<div class="cls-kinds ep-days" role="group" aria-label="Show">${[["", "All"]].concat(kinds.map(k => [k, k === "Office Hours" ? k : k + "s"])).map(([k, l]) => `<button type="button" data-act="cls-kind" data-cid="${esc(c.id)}" data-k="${esc(k)}" aria-pressed="${pick === k}">${esc(l)}</button>`).join("")}</div>` : "";
+    const mon = d => mondayOf(d), wk0 = mon(T.from), weeks = new Map();
+    list.forEach(x => { const w = mon(x.date); if (!weeks.has(w)) weeks.set(w, []); weeks.get(w).push(x); });
+    const nowW = mon(today), nextUp = list.find(x => !x.skipped && (x.date > today || (x.date === today && tMin(x.end) >= minOfDay(Date.now()))));
+    const row = x => {
+      const I = itemsOf(c.id, x.key), past = x.date < today, isToday = x.date === today, isNext = nextUp === x;
+      return `<li><button type="button" class="cls-row${isToday ? " is-today" : ""}${past ? " is-past" : ""}${x.skipped ? " is-skip" : ""}${I.n ? " has" : ""}" data-act="cls-open" data-cid="${esc(c.id)}" data-key="${esc(x.key)}">
+        <span class="cls-date"><b>${parse(x.date).getDate()}</b><span>${esc(day(x.date, {weekday: "short"}))}</span></span>
+        <span class="cls-main"><b>${esc(x.title)}${isToday ? ` <span class="cls-pill">Today</span>` : isNext ? ` <span class="cls-pill k-next">Next</span>` : ""}</b><span class="mini">${x.skipped ? "No class this week" : esc([`${fmtTime(x.start)}–${fmtTime(x.end)}`, x.where, x.moved ? "Moved" : ""].filter(Boolean).join(" · "))}</span></span>
+        <span class="cls-has">${badges(I)}</span></button></li>`;
+    };
+    const body = [...weeks.entries()].map(([w, xs]) => {
+      const wn = Math.floor(dayDiff(wk0, w) / 7) + 1;
+      return `<div class="cls-week${w === nowW ? " is-now" : ""}"><h3 class="cls-wk"><span>Week ${wn}</span><span class="mini">${esc(day(w, {month: "short", day: "numeric"}))} – ${esc(day(addDays(w, 6), {month: "short", day: "numeric"}))}</span>${w === nowW ? `<span class="cls-pill">This Week</span>` : ""}</h3><ul class="cls-list">${xs.map(row).join("")}</ul></div>`;
+    }).join("");
+    return `<section class="cls-tab" style="--c:${esc(c.color)}">${top}${chips}${body}</section>`;
+  }
+  // Recordings that don't belong to any class, kept under the class list
+  const looseRecs = c => Object.values(state.files || {}).filter(f => f.courseId === c.id && isLec(f) && !recKeyOf(f)).map(f => f.id);
+
+  function datesSheet(cid){
+    const c = courseOf(cid); if (!c) return;
+    const T = termOf(c);
+    openSheet(`<form class="sheet">${head("Term Dates")}<div class="sheet-body">
+      <p class="mini" style="margin:0 0 10px">When ${esc(courseLabel(c))}'s classes run. Every class between these dates gets its own page in Lectures.</p>
+      <div class="two"><label class="f">First Class<input type="date" name="from" value="${esc(T.from)}" required></label><label class="f">Last Class<input type="date" name="until" value="${esc(T.until)}" required></label></div>
+      </div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button class="btn primary" data-submit>Save</button></div></form>`, fd => {
+      const from = String(fd.get("from") || ""), until = String(fd.get("until") || "");
+      if (!isDate(from) || !isDate(until) || until < from) { toast("The last class needs to be on or after the first."); return false; }
+      const cur = state.courses[cid]; if (!cur) return;
+      applyChanges([{kind: "course", id: cid, after: Object.assign(clone(cur), {classDates: {from, until}})}], "Term dates saved");
+    });
+  }
+
+  /* A class's page */
+  let OPEN = null;
+  const noteName = n => (String(n.text || "").split("\n").map(l => l.replace(/\[\[|\]\]/g, "").trim()).find(Boolean) || "Untitled note").slice(0, 90);
+  const notePeek = n => String(n.text || "").split("\n").slice(1).join(" ").replace(/\[\[|\]\]/g, "").replace(/\s+/g, " ").trim().slice(0, 140);
+  const srcTag = f => f.kind === "cloud" ? `<span class="cls-src">${f.cloud && f.cloud.p === "google" ? DRIVE() : ""}${esc(CLOUD_NAMES[f.cloud && f.cloud.p] || "Cloud")}</span>` : f.kind === "link" ? `<span class="cls-src">Link</span>` : "";
+  function pageHtml(x){
+    const c = courseOf(x.cid), I = itemsOf(x.cid, x.key), all = classesOf(c).filter(y => y.kind === x.kind && (!y.skipped || y.key === x.key));
+    const i = all.findIndex(y => y.key === x.key), prev = i > 0 ? all[i - 1] : null, next = i >= 0 && i < all.length - 1 ? all[i + 1] : null;
+    const rm = (k, id) => `<button type="button" class="x-btn" data-act="cls-unlink" data-k="${k}" data-id="${esc(id)}" aria-label="Take it off this class (it isn't deleted)" title="Take it off this class (it isn't deleted)">${CLOSE}</button>`;
+    const noteLi = n => `<li class="cls-it">${n.wb ? IC.board(16) : IC.note(16)}<button type="button" class="cls-it-main" data-act="cls-note" data-id="${esc(n.id)}"><b>${esc(n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") : noteName(n))}</b>${!n.wb && notePeek(n) ? `<span class="mini">${esc(notePeek(n))}</span>` : `<span class="mini">${n.wb ? "Whiteboard" : "Note"}</span>`}</button>${rm("note", n.id)}</li>`;
+    const fileLi = f => `<li class="cls-it">${IC.file(16)}<button type="button" class="cls-it-main" data-act="cls-file" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${srcTag(f)}${esc(day(dOf(f.created), {month: "short", day: "numeric"}))}</span></button>${rm("file", f.id)}</li>`;
+    const recLi = f => `<li class="cls-it k-rec">${IC.mic(16)}<button type="button" class="cls-it-main" data-act="lec-view" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${esc([f.dur && window.SBLEC ? SBLEC.clock(f.dur * 1000) : "", f.tr && f.tr.text ? "Transcript" : "", hasSum(f) ? "Summary" : ""].filter(Boolean).join(" · ") || "Recording")}</span></button>${hasSum(f) ? `<button type="button" class="btn small" data-act="cls-sum" data-id="${esc(f.id)}">Summary</button>` : ""}</li>`;
+    const nowish = x.date === todayISO() && minOfDay(Date.now()) >= tMin(x.start) - 20 && minOfDay(Date.now()) <= tMin(x.end) + 10;
+    const recOk = window.SBLEC && SBLEC.canAdd && SBLEC.canAdd();
+    const nav = (y, dir) => y ? `<button type="button" class="btn small cls-nav" data-act="cls-go" data-key="${esc(y.key)}" aria-label="${dir === "p" ? "Previous" : "Next"} class: ${esc(y.title)}, ${esc(day(y.date))}">${dir === "p" ? IC.prev(16) : ""}<span>${esc(y.title)}</span>${dir === "n" ? IC.next(16) : ""}</button>` : `<span></span>`;
+    return `<div class="sheet occv cls-sheet" style="--c:${esc(c ? c.color : "var(--accent)")}">
+      <div class="occv-band">${c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : ""}<button type="button" class="icon-btn occv-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
+      <div class="sheet-body occv-body">
+        <p class="cls-kick">${esc(x.title)}${x.n && x.of ? ` <span class="mini">of ${x.of}</span>` : ""}</p>
+        <h2 class="occv-title">${esc(day(x.date, {weekday: "long", month: "long", day: "numeric"}))}</h2>
+        <p class="mini cls-when">${esc([x.start ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
+        <div class="cls-navs">${nav(prev, "p")}${nav(next, "n")}</div>
+
+        <section class="cls-sec"><h3><span>Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
+          ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Add the slides before class, or start a note when it begins." : "Nothing for this class yet."}</p>`}
+          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-new-note">${IC.plus(16)}New Note</button><button type="button" class="btn small" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
+        </section>
+
+        <section class="cls-sec"><h3><span>Recording</span></h3>
+          ${I.recs.length ? `<ul class="cls-items">${I.recs.map(recLi).join("")}</ul>` : `<p class="mini cls-empty">${recOk ? (nowish ? "This class is on now. Record it for a transcript and a summary." : "Record the class, or upload a recording, for a transcript and a summary.") : "No recording for this class."}</p>`}
+          ${recOk && !I.recs.length ? `<div class="cls-acts">${nowish || x.date === todayISO() ? `<button type="button" class="btn small primary" data-act="cls-rec">${IC.mic(16)}Record This Class</button>` : ""}<button type="button" class="btn small" data-act="cls-rec-up">${IC.up(16)}Upload a Recording</button></div>` : ""}
+        </section>
+
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="cls-files">${IC.folder(16)}Open in Files</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div>
+    </div>`;
+  }
+  function openClass(cid, key){
+    const x = classOf(cid, key); if (!x) { toast("That class isn't on the schedule any more."); return; }
+    OPEN = {cid, key};
+    if (dlg.open) dlg.close();
+    openSheet(pageHtml(x));
+    dlg.addEventListener("close", () => { if (OPEN && OPEN.cid === cid && OPEN.key === key && !dlg.querySelector(".cls-sheet")) OPEN = null; }, {once: true});
+  }
+  const redraw = () => { if (!OPEN || !dlg.open || !dlg.querySelector(".cls-sheet")) return; const x = classOf(OPEN.cid, OPEN.key); if (!x) return; const st = dlg.querySelector(".sheet-body").scrollTop; dlg.querySelector(".cls-sheet").outerHTML = pageHtml(x); const b = dlg.querySelector(".sheet-body"); if (b) b.scrollTop = st; };
+
+  /* Adding to a class */
+  const subFor = x => ["Lectures", `${x.date} ${x.title}`];
+  function tag(kind, ids, key, msg){
+    const ch = ids.map(id => { const o = (kind === "note" ? state.notes : state.files)[id]; if (!o) return null; const n = clone(o); if (key) n.cls = key; else delete n.cls; n.updated = Date.now(); return {kind, id, after: n}; }).filter(Boolean);
+    if (ch.length) applyChanges(ch, msg || "");
+  }
+  function newNote(x){
+    const c = courseOf(x.cid), b = noteBoards().find(nb => nb.courseId === x.cid), board = b ? b.id : "";
+    const z = Object.values(state.notes || {}).reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
+    const n = normNote({id: uid(), text: `${c ? courseLabel(c) + " " : ""}${x.title}, ${day(x.date)}\n`, color: "yellow", x: 60, y: 60, z, rot: 0, courseId: x.cid, board, cls: x.key, created: Date.now()});
+    if (dlg.open) dlg.close();
+    ui.tab = "notes"; ui.noteBoard = board; try { localStorage.setItem(NB_KEY, board); } catch (e) {}
+    if (window.SBWB && SBWB.on && SBWB.on()) SBWB.setView("notes");
+    noteEditing = n.id;
+    applyChanges([{kind: "note", id: n.id, after: n}], `New note for ${x.title}`);
+    window.scrollTo(0, 0);
+    setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 80);
+  }
+  function upload(x){
+    const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
+    inp.addEventListener("change", async () => {
+      const list = [...(inp.files || [])]; inp.remove(); if (!list.length) return;
+      const made = await uploadFiles(list, {courseId: x.cid, folderId: "notes", cloud: true, sub: subFor(x)});
+      if (made && made.length) tag("file", made.map(f => f.id), x.key, "");
+      redraw();
+    });
+    document.body.appendChild(inp); inp.click();
+  }
+  async function drive(x){
+    const CL = window.SBCLOUD;
+    if (CL && CL.canPickFiles && CL.canPickFiles()) {
+      let docs = null; try { toast("Choose the files in the Google Drive window"); docs = await CL.pickFiles(); } catch (e) { toast((e && e.message) || "Couldn't open Google Drive."); return; }
+      if (!docs || !docs.length) return;
+      const now = Date.now(), ch = docs.map(d => { const f = normFile({id: uid(), name: d.name, courseId: x.cid, folderId: "notes", kind: "cloud", url: d.url || `https://drive.google.com/file/d/${encodeURIComponent(d.id)}/view`,
+        cloud: {p: "google", id: d.id, name: d.name, size: d.size || 0, type: d.type || "", mod: new Date(now).toISOString(), url: d.url || ""}, cls: x.key, created: now}); return {kind: "file", id: f.id, after: f}; });
+      applyChanges(ch, `Added ${plural(ch.length, "file")} from Google Drive to ${x.title}`);
+      redraw(); return;
+    }
+    // Not connected, or the picker isn't set up on this server: a Drive link works anywhere
+    linkSheet(x, CL && CL.connected && !CL.connected().includes("google"));
+  }
+  function linkSheet(x, offerConnect){
+    openSheet(`<form class="sheet">${head("Add From Google Drive")}<div class="sheet-body">
+      <p class="mini" style="margin:0 0 10px">Paste the Share link of a Google Doc, Slides file, PDF or folder for ${esc(x.title)}.${offerConnect ? ` Or connect Google Drive to pick files there.` : ""}</p>
+      <label class="f"><span class="lh">Link</span><input type="url" name="url" required inputmode="url" placeholder="https://docs.google.com/…" autofocus></label>
+      <label class="f"><span class="lh">Name <span class="hint">optional</span></span><input type="text" name="name" maxlength="120" placeholder="e.g. Week 5 slides"></label>
+      </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button>${offerConnect ? `<button type="button" class="btn" data-act="cls-connect">Connect Google Drive</button>` : ""}<span class="spacer"></span><button class="btn primary" data-submit>Add</button></div></form>`, fd => {
+      const url = safeUrl(String(fd.get("url") || "").trim()); if (!url || !/^https:\/\//.test(url)) { toast("That doesn't look like a link."); return false; }
+      let nm = String(fd.get("name") || "").trim(); if (!nm) { try { const u = new URL(url); nm = /docs\.google\.com/.test(u.hostname) ? ({document: "Google Doc", presentation: "Google Slides", spreadsheets: "Google Sheet"}[u.pathname.split("/")[1]] || "Google Drive file") : /drive\.google\.com/.test(u.hostname) ? "Google Drive file" : u.hostname.replace(/^www\./, ""); } catch (e) { nm = "Link"; } }
+      const f = normFile({id: uid(), name: nm.slice(0, 120), courseId: x.cid, folderId: "notes", kind: "link", url, cls: x.key, created: Date.now()});
+      applyChanges([{kind: "file", id: f.id, after: f}], `Added ${nm} to ${x.title}`);
+      setTimeout(() => openClass(x.cid, x.key), 0);
+    });
+  }
+  function pickSheet(x){
+    const all = classesOf(courseOf(x.cid));
+    const where = k => { if (!k || k === x.key) return ""; const y = all.find(z => z.key === k) || looseClass(x.cid, k); return `${y.title}, ${day(y.date, {month: "short", day: "numeric"})}`; };
+    const notes = Object.values(state.notes || {}).filter(n => n.courseId === x.cid && !n.archived && (n.wb || String(n.text || "").trim())).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0)).slice(0, 60);
+    const files = Object.values(state.files || {}).filter(f => f.courseId === x.cid && !isLec(f)).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0)).slice(0, 80);
+    const item = (k, o, nm) => { const w = where(o.cls); return `<label class="mi-check"><input type="checkbox" data-cls="${k}:${esc(o.id)}"${o.cls === x.key ? " checked" : ""}> <span><b>${esc(nm)}</b>${w ? ` <span class="mini">now in ${esc(w)}</span>` : ""}</span></label>`; };
+    openSheet(`<div class="sheet">${head("Add From Studyboard")}<div class="sheet-body">
+      <p class="mini" style="margin:0">Pick the notes and files that go with ${esc(x.title)}, ${esc(day(x.date))}.</p>
+      ${notes.length ? `<fieldset><legend>Notes</legend><div class="check-list">${notes.map(n => item("note", n, n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") + " (whiteboard)" : noteName(n))).join("")}</div></fieldset>` : ""}
+      ${files.length ? `<fieldset><legend>Files</legend><div class="check-list">${files.map(f => item("file", f, f.name)).join("")}</div></fieldset>` : ""}
+      ${!notes.length && !files.length ? `<p>This course has no notes or files yet. Use New Note or Upload instead.</p>` : ""}
+      </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button><span class="spacer"></span><button type="button" class="btn primary" id="clsPickOk">Done</button></div></div>`);
+    $("#clsPickOk").addEventListener("click", () => {
+      const ch = [];
+      dlg.querySelectorAll("[data-cls]").forEach(i => {
+        const [k, id] = i.dataset.cls.split(":"), o = (k === "note" ? state.notes : state.files)[id]; if (!o) return;
+        if (i.checked && o.cls !== x.key) ch.push({kind: k, id, after: Object.assign(clone(o), {cls: x.key, updated: Date.now()})});
+        else if (!i.checked && o.cls === x.key) { const n = clone(o); delete n.cls; n.updated = Date.now(); ch.push({kind: k, id, after: n}); }
+      });
+      if (ch.length) applyChanges(ch, `Updated ${x.title}`);
+      openClass(x.cid, x.key);
+    });
+  }
+  // A recording started or uploaded from a class page belongs to that class
+  let PEND = null;
+  hook("changed", (changes, inverse) => {
+    if (!PEND || Date.now() - PEND.at > 6 * 36e5 || !Array.isArray(changes)) return;
+    const hit = changes.find((c, i) => c && c.kind === "file" && c.after && isLec(c.after) && c.after.courseId === PEND.cid && !c.after.cls && !(inverse && inverse[i] && inverse[i].after));
+    if (!hit) return;
+    const key = PEND.key, id = hit.id; PEND = null;
+    setTimeout(() => { const f = state.files[id]; if (f && !f.cls) applyChanges([{kind: "file", id, after: Object.assign(clone(f), {cls: key})}], ""); }, 0);
+  });
+  hook("changed", () => { if (OPEN) setTimeout(redraw, 0); });
+
+  /* Files: the course's Lecture Notes folder, grouped by class */
+  function folderHtml(cid, files, row){
+    const c = courseOf(cid); if (!c) return null;
+    const q = String(ui.q || "").trim().toLowerCase(), m = s => !q || q.split(/\s+/).every(w => String(s || "").toLowerCase().includes(w));
+    const groups = new Map(), add = (key, kind, o) => { if (!groups.has(key)) groups.set(key, {notes: [], files: [], recs: []}); groups.get(key)[kind].push(o); };
+    const loose = [];
+    files.forEach(f => { if (f.cls) add(f.cls, "files", f); else loose.push(f); });
+    Object.values(state.notes || {}).forEach(n => { if (n.courseId === cid && n.cls && !n.archived && m(n.text)) add(n.cls, "notes", n); });
+    Object.values(state.files || {}).forEach(f => { if (f.courseId === cid && isLec(f) && m(f.name)) { const k = recKeyOf(f); if (k && groups.has(k) || k && (f.cls || itemsOf(cid, k).n)) add(k, "recs", f); } });
+    if (!groups.size) return null;
+    const noteRow = n => `<li class="frow cls-frow">${n.wb ? IC.board(20) : IC.note(20)}<button class="fmain" data-act="cls-note" data-id="${esc(n.id)}"><span class="fname">${esc(n.wb ? String(n.text || "").split("\n")[0] || "Whiteboard" : noteName(n))}</span><span class="task-meta"><span>${n.wb ? "Whiteboard" : "Typed note"}</span><span>${esc(new Date(n.updated || n.created || Date.now()).toLocaleDateString(undefined, {month: "short", day: "numeric"}))}</span></span></button></li>`;
+    const recRow = f => `<li class="frow cls-frow k-rec">${IC.mic(20)}<button class="fmain" data-act="lec-view" data-id="${esc(f.id)}"><span class="fname">${esc(f.name)}</span><span class="task-meta"><span>Recording</span>${f.tr && f.tr.text ? "<span>Transcript</span>" : ""}${hasSum(f) ? "<span>Summary</span>" : ""}</span></button></li>`;
+    const keys = [...groups.keys()].sort((a, b) => b.localeCompare(a));
+    const out = keys.map(k => {
+      const g = groups.get(k), x = classOf(cid, k) || looseClass(cid, k), n = g.notes.length + g.files.length + g.recs.length;
+      return `<div class="cls-fgroup"><h4 class="cls-fh"><button type="button" class="link-btn" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(k)}">${esc(x.title)} · ${esc(day(x.date))}</button><span class="n">${n}</span></h4><ul class="flist">${g.notes.map(noteRow).join("")}${g.files.map(row).join("")}${g.recs.map(recRow).join("")}</ul></div>`;
+    }).join("");
+    return out + (loose.length ? `<div class="cls-fgroup"><h4 class="cls-fh"><span>Not linked to a class</span><span class="n">${loose.length}</span></h4><ul class="flist">${loose.map(row).join("")}</ul></div>` : "");
+  }
+
+  /* The Schedule: a class's sheet links its page */
+  function occRows(o){
+    if (!o || o.type !== "meet") return [];
+    const x = classOf(o.id, o.key); if (!x) return [];
+    const I = itemsOf(o.id, o.key), rows = [];
+    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(o.id)}" data-key="${esc(o.key)}">${I.n ? "Open Class Notes" : "Start Notes for This Class"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
+    return rows;
+  }
+
+  /* Actions */
+  hook("act", (act, el, id) => {
+    const cur = () => OPEN && classOf(OPEN.cid, OPEN.key);
+    switch (act) {
+      case "cls-open": { const cid = el.dataset.cid, key = el.dataset.key; setTimeout(() => openClass(cid, key), 0); return true; }
+      case "cls-go": { if (OPEN) openClass(OPEN.cid, el.dataset.key); return true; }
+      case "cls-back": { if (OPEN) { const o = OPEN; setTimeout(() => openClass(o.cid, o.key), 0); } return true; }
+      case "cls-kind": { ui.clsKind = Object.assign({}, ui.clsKind, {[el.dataset.cid]: el.dataset.k}); render(); return true; }
+      case "cls-dates": datesSheet(el.dataset.cid); return true;
+      case "cls-new-note": { const x = cur(); if (x) newNote(x); return true; }
+      case "cls-upload": { const x = cur(); if (x) upload(x); return true; }
+      case "cls-drive": { const x = cur(); if (x) drive(x); return true; }
+      case "cls-connect": { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); return true; }
+      case "cls-pick": { const x = cur(); if (x) pickSheet(x); return true; }
+      case "cls-unlink": { const x = cur(); if (!x) return true; tag(el.dataset.k, [id], "", `Taken off ${x.title}`); return true; }
+      case "cls-note": { const n = state.notes[id]; if (!n) return true; if (dlg.open) dlg.close(); if (window.SBPRO && SBPRO.openLink) SBPRO.openLink({kind: n.wb ? "board" : "note", id}, 0); else { ui.tab = "notes"; render(); } return true; }
+      case "cls-file": { const f = state.files[id]; if (!f) return true; if (f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f) && SBPRO.openReader) { if (dlg.open) dlg.close(); SBPRO.openReader(f.id, 0); } else if (f.kind === "link" || f.kind === "cloud") window.open(fileHref(f), "_blank", "noopener"); else fileSheet(f); return true; }
+      case "cls-rec": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now()}; if (dlg.open) dlg.close(); setTimeout(() => { const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-open"; b.dataset.course = x.cid; document.body.appendChild(b); b.click(); b.remove(); }, 0); return true; }
+      case "cls-rec-up": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now()}; const prev = ui.courseId; ui.courseId = x.cid; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-add-up"; document.body.appendChild(b); b.click(); b.remove(); ui.courseId = prev; return true; }
+      case "cls-sum": { if (dlg.open) dlg.close(); setTimeout(() => { const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-view"; b.dataset.id = id; document.body.appendChild(b); b.click(); b.remove();
+        setTimeout(() => { const d = document.createElement("button"); d.hidden = true; d.dataset.act = "lec-doc"; d.dataset.id = id; d.dataset.doc = "sum"; document.body.appendChild(d); d.click(); d.remove(); }, 30); }, 0); return true; }
+      case "cls-files": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; ui.fCourse = x.cid; ui.fFolder = "notes"; ui.q = ""; render(); window.scrollTo(0, 0); return true; }
+    }
+    return false;
+  });
+
+  // Opening the Lectures tab scrolls to this week
+  let lastTab = "";
+  hook("render", () => {
+    const k = ui.tab === "courses" && ui.courseId && ui.courseTab === "lectures" ? ui.courseId : "";
+    if (k && k !== lastTab) setTimeout(() => { const w = document.querySelector(".cls-week.is-now"); if (w && w.getBoundingClientRect().top > innerHeight * 0.6) w.scrollIntoView({block: "start", behavior: "auto"}); }, 30);
+    lastTab = k;
+  });
+
+  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, occRows, open: openClass, recKeyOf};
+})();
+/* ===== module: 99-calculator-skins.js: the calculator in the colours of the current theme ===== */
+/* The calculator (99-calculator.js) wears the theme that's on: its body, keys, screen and lettering in the theme's colours,
+   and a subtle two-tone pattern of the theme's motif scattered over the body. Classic keeps the original graphite look.
+   - Eight themes have hand-tuned colours (HAND). Every other theme gets colours worked out from its own palette (derive):
+     a soft tinted body ("pastel"), or a deep one for darker themes (DEEP), checked so every label is at least 4.5:1.
+   - The pattern is one tone just off the body colour, about 1.07:1 against it, and never strong enough to bring a
+     label under 4.5:1. It's drawn once per theme (a seeded random scatter, so it looks the same every time) as one tile
+     the size of the calculator, so it doesn't visibly repeat. Synthwave, Classic and the plain colour themes have none. */
+var SBCALCSKIN = null;
+(() => {
+  /* Hand-tuned themes (the approved concepts) */
+  const HAND = {
+    sakura: {b1: "#fbe6ee", b2: "#f4cfdd", b3: "#e8b4c8", edge: "#c98aa5", brand: "#7a2e52", brand2: "#a8336a", solarbg: "#7a2e52", solar1: "#b04a7a", solar2: "#5c1f3a", lcd1: "#fff6f9", lcd2: "#f6dfe8", lcdink: "#5a2340", lcdframe: "#7a2e52", fn1: "#ffffff", fn2: "#f8e3ec", fnink: "#7a2e52", fnsh: "#c98aa5", md1: "#fde8f0", md2: "#f3d0de", nm1: "#ffffff", nm2: "#fdf0f5", nmink: "#3b1d2b", nmsh: "#d9a3ba", op1: "#fad2e3", op2: "#f2b8cf", opink: "#5a2340", opsh: "#c98aa5", dl1: "#c0487a", dl2: "#b53a6c", dlsh: "#7a2347", eq1: "#b5386b", eq2: "#8f2552", eqsh: "#5a1433", sh1: "#ff9cc3", sh2: "#ef6fa2", shink: "#4a1230", alt: "#8a2452", xbg: "rgba(122,46,82,.1)", xink: "#7a2e52"},
+    galaxy: {b1: "#2a2068", b2: "#160f3d", b3: "#0b0820", edge: "#06041a", brand: "#c5bcf5", brand2: "#ffe57a", lcd1: "#1e1848", lcd2: "#151036", lcdink: "#d9d0ff", lcdframe: "#06041a", lcdglow: "0 0 6px rgba(157,134,255,.85)", fn1: "#3b3178", fn2: "#2c2560", fnink: "#ece8ff", fnsh: "#06041a", md1: "#4a3f92", md2: "#372d74", nm1: "#ece8ff", nm2: "#cfc6f7", nmink: "#1e1740", nmsh: "#5b45c9", op1: "#b8a6ff", op2: "#9d86ff", opink: "#120a3a", opsh: "#4a35a8", dl1: "#c93984", dl2: "#b52a73", dlsh: "#6e1645", eq1: "#6b4ee6", eq2: "#5236c9", eqsh: "#2c1f6b", sh1: "#ffe57a", sh2: "#f2c94c", shink: "#2c1f00", alt: "#ffe57a"},
+    cafe: {b1: "#7a4e2a", b2: "#5a361b", b3: "#3e2614", edge: "#22140a", brand: "#f4d08a", brand2: "#fff3dc", solarbg: "#22140a", lcd1: "#f8d998", lcd2: "#e6b866", lcdink: "#3a230f", lcdframe: "#22140a", fn1: "#5c3b22", fn2: "#4a2f1c", fnink: "#f5ebdd", fnsh: "#1c110a", md1: "#6e4a2c", md2: "#57391f", nm1: "#fffaf1", nm2: "#efe0c8", nmink: "#2e2016", nmsh: "#a07d5a", op1: "#ebd7c0", op2: "#d9bf9f", opink: "#2e2016", opsh: "#8a6a48", dl1: "#93602f", dl2: "#7a4e24", dlsh: "#3e2614", eq1: "#9a6634", eq2: "#7a4e24", eqsh: "#3e2614", sh1: "#f4d08a", sh2: "#e0b062", shink: "#3a230f", alt: "#f4d08a", tone: "#000000"},
+    arcade: {b1: "#1f1440", b2: "#140c28", b3: "#05020d", edge: "#ff2fb3", brand: "#7cf3ff", brand2: "#ff2fb3", solarbg: "#05020d", solar1: "#3a1a5c", solar2: "#160a2a", lcd1: "#120a26", lcd2: "#0a0616", lcdink: "#7cf3ff", lcdframe: "#05020d", lcdglow: "0 0 8px rgba(40,230,255,.9)", fn1: "#1f1440", fn2: "#170f30", fnink: "#ffb3e6", fnsh: "#05020d", md1: "#241848", md2: "#1b1238", keyline: "inset 0 0 0 1px rgba(255,47,179,.65)", nm1: "#241a4a", nm2: "#1a1238", nmink: "#f4eeff", nmsh: "#05020d", op1: "#2a1550", op2: "#1f0f3c", opink: "#28e6ff", opsh: "#05020d", dl1: "#d91795", dl2: "#b00c6c", dlsh: "#5a0638", eq1: "#c40c78", eq2: "#6a1fe0", eqsh: "#2a0a5c", sh1: "#28e6ff", sh2: "#00b8d9", shink: "#05020d", alt: "#28e6ff", xink: "#ff8fd8"},
+    forest: {b1: "#3a5c40", b2: "#26402c", b3: "#16241a", edge: "#08110a", brand: "#cfe6c8", brand2: "#e8e06a", lcd1: "#d6ebcf", lcd2: "#b9d8ae", lcdink: "#10200f", lcdframe: "#08110a", fn1: "#3f6a47", fn2: "#2f5236", fnink: "#e6f1e1", fnsh: "#08110a", md1: "#43704b", md2: "#335a3a", nm1: "#f8fbf4", nm2: "#dfe9d6", nmink: "#1d2b1a", nmsh: "#7e9a76", op1: "#cfe6c8", op2: "#b4d4aa", opink: "#1d2b1a", opsh: "#6b8a62", dl1: "#e8e06a", dl2: "#cfc44a", dlink: "#2a2a08", dlsh: "#6a6a1c", eq1: "#2c8249", eq2: "#236b3b", eqsh: "#123a20", sh1: "#e8e06a", sh2: "#cfc44a", shink: "#2a2a08", alt: "#e8e06a", tone: "#000000"},
+    ocean: {b1: "#0a7385", b2: "#0a6577", b3: "#0b4f5c", edge: "#04262c", brand: "#ffffff", brand2: "#b8f5ec", lcd1: "#eaf7f8", lcd2: "#c4e7ec", lcdink: "#0b2b33", lcdframe: "#04262c", fn1: "#0e6878", fn2: "#0b5562", fnink: "#e2f5f7", fnsh: "#04262c", md1: "#0f6c7c", md2: "#0b5866", nm1: "#ffffff", nm2: "#e1f0f2", nmink: "#0b2b33", nmsh: "#6fa6ae", op1: "#bfe6ec", op2: "#9fd6de", opink: "#0b2b33", opsh: "#4e8a93", dl1: "#ff9c7a", dl2: "#f07652", dlink: "#4a1a08", dlsh: "#8a3a22", eq1: "#0c7d90", eq2: "#086575", eqsh: "#03333b", sh1: "#9ff0e4", sh2: "#6fd8c8", shink: "#04262c", alt: "#ffffff", xink: "#ffffff"},
+    winter: {b1: "#ffffff", b2: "#eaf0f7", b3: "#d4dfec", edge: "#9fb2c9", brand: "#223e6f", brand2: "#3b6fd1", solarbg: "#223e6f", solar1: "#5a74a0", solar2: "#2a3f66", lcd1: "#eef3fa", lcd2: "#d3deec", lcdink: "#14233a", lcdframe: "#3e5f8a", fn1: "#ffffff", fn2: "#e5edf7", fnink: "#223e6f", fnsh: "#9fb2c9", md1: "#f2f6fb", md2: "#dce6f2", nm1: "#ffffff", nm2: "#f2f6fb", nmink: "#14233a", nmsh: "#a9b9cd", op1: "#d9e3ee", op2: "#c3d1e2", opink: "#14233a", opsh: "#8c9fb8", dl1: "#5073b8", dl2: "#4066b2", dlsh: "#223e6f", eq1: "#3b6fd1", eq2: "#2c5ab5", eqsh: "#223e6f", sh1: "#a4c6ff", sh2: "#7fa8ef", shink: "#14233a", alt: "#2a55a8", xbg: "rgba(34,62,111,.08)", xink: "#223e6f", tone: "#3b6fd1"},
+    lemonade: {b1: "#ffe680", b2: "#ffd23f", b3: "#f2b705", edge: "#9a6b00", brand: "#5c4500", brand2: "#2f6b4f", solarbg: "#5c4500", solar1: "#8a6a10", solar2: "#4a3700", lcd1: "#fffdf3", lcd2: "#f6edc4", lcdink: "#2e2a12", lcdframe: "#5c4500", fn1: "#fff6cf", fn2: "#ffe99a", fnink: "#5c4500", fnsh: "#b8860b", md1: "#fff9e0", md2: "#ffefb0", nm1: "#ffffff", nm2: "#fffbe8", nmink: "#2e2a12", nmsh: "#c9a227", op1: "#d9f2c7", op2: "#bfe6a8", opink: "#1f4a34", opsh: "#6aa35a", dl1: "#ff9f5a", dl2: "#f07a2e", dlink: "#3d1a00", dlsh: "#9a4a10", eq1: "#2f6b4f", eq2: "#235a40", eqsh: "#1a3f2d", sh1: "#2f6b4f", sh2: "#245a41", shink: "#fff", alt: "#1f4a34", xbg: "rgba(92,69,0,.12)", xink: "#5c4500"}
+  };
+  /* Designed themes: each one's colours picked from what the theme looks like (body, function keys, mode keys, number keys,
+     operator keys, DEL and AC, =, SHIFT, the screen and its frame, the small labels, the brand), built into the full set by
+     build(), which also makes every key's lettering read. keys: single keys in their own colour (Holi's powder colours). */
+  const DESIGN = {
+    // Holidays and seasons
+    halloween: {body: "#1c1420", fn: "#3a2448", md: "#4a2e5c", nm: "#f3e9dc", op: "#ffb35c", dl: "#e8641c", eq: "#7b3fa8", sh: "#ff8a2a", lcd: "#1c120a", lcdink: "#ffb35c", glow: "0 0 7px rgba(255,140,40,.75)", frame: "#0d080f", alt: "#ff9f45", brand: "#f3e9dc", brand2: "#ff8a2a"},
+    newyear: {body: "#141a3a", fn: "#222b5c", md: "#2c3670", nm: "#f4f2ea", op: "#f0d98a", dl: "#c43d6a", eq: "#d4a62a", sh: "#f0d98a", lcd: "#e9ecf8", frame: "#090c1f", alt: "#f0d98a", brand: "#f4f2ea", brand2: "#f0c14b"},
+    lunarnewyear: {body: "#b3221e", fn: "#8c1814", md: "#9e1d18", nm: "#fff4e0", op: "#f6c85f", dl: "#2a1714", eq: "#f2b632", sh: "#f6c85f", lcd: "#fff1d6", frame: "#5a0d0a", alt: "#ffd77a", brand: "#ffe6a8", brand2: "#ffd77a"},
+    valentines: {body: "#ffd6e0", fn: "#ffffff", md: "#ffe8ee", nm: "#ffffff", op: "#ffb3c6", dl: "#d81b4a", eq: "#9c1036", sh: "#ff7aa2", lcd: "#fff0f4", frame: "#9c1036", alt: "#9c1036", brand: "#9c1036", brand2: "#d81b4a"},
+    stpatricks: {body: "#1f7a3f", fn: "#17602f", md: "#1d6e38", nm: "#f4fbef", op: "#c9ecb4", dl: "#f08a2c", eq: "#f2c230", sh: "#c9ecb4", lcd: "#e9f7e1", frame: "#0f3d20", alt: "#f2d470", brand: "#f4fbef", brand2: "#f2c230"},
+    easter: {body: "#e9e0f7", fn: "#fff9d6", md: "#dff3e6", nm: "#ffffff", op: "#cfe9ff", dl: "#f5a3c0", eq: "#8f6fd6", sh: "#ffe27a", lcd: "#fffdf2", frame: "#6b55a8", alt: "#5b45a0", brand: "#5b45a0", brand2: "#c2457a"},
+    july4: {body: "#1f2f63", fn: "#2a3d7a", md: "#34488a", nm: "#ffffff", op: "#dfe6f5", dl: "#f4f6fb", dlink: "#b81f30", eq: "#c8283a", sh: "#e9eef8", lcd: "#f3f5fb", frame: "#0f1838", alt: "#ffffff", brand: "#ffffff", brand2: "#ff6b78"},
+    thanksgiving: {body: "#8a4a1f", fn: "#6e3a16", md: "#7a4219", nm: "#fbf0dc", op: "#f2c98a", dl: "#c9561c", eq: "#5a6b2a", sh: "#f2b04a", lcd: "#fbe8c4", frame: "#3e1f0b", alt: "#f7d08a", brand: "#fbf0dc", brand2: "#f2b04a"},
+    hanukkah: {body: "#1e3f8f", fn: "#284c9e", md: "#3157ab", nm: "#f5f7fc", op: "#c9d6f2", dl: "#e8c45a", eq: "#c8cfdd", sh: "#e8c45a", lcd: "#eef3fc", frame: "#0f2257", alt: "#e8d590", brand: "#f5f7fc", brand2: "#e8c45a"},
+    xmas: {body: "#1e5a35", fn: "#174a2b", md: "#1b5331", nm: "#fff8ec", op: "#e9dcc0", dl: "#c8283a", eq: "#e2b33c", sh: "#c8283a", lcd: "#fff4e0", frame: "#0d2c19", alt: "#f4d27a", brand: "#fff8ec", brand2: "#f4d27a"},
+    diwali: {body: "#7a1f52", fn: "#5e1640", md: "#6a1a48", nm: "#fff6e6", op: "#ffcf70", dl: "#ff8a1e", eq: "#f2b632", sh: "#ffcf70", lcd: "#fff1d8", frame: "#3d0b28", alt: "#ffd27a", brand: "#fff1d8", brand2: "#ffb347"},
+    ramadan: {body: "#14244a", fn: "#1f3263", md: "#263c74", nm: "#f7f1e3", op: "#e8d9a8", dl: "#2f8f86", eq: "#d4a62a", sh: "#e8d9a8", lcd: "#f6efdc", frame: "#0a1530", alt: "#e9cf86", brand: "#f7f1e3", brand2: "#e9cf86"},
+    holi: {body: "#fbf7ff", fn: "#ffffff", md: "#f3ecff", nm: "#ffffff", op: "#ffffff", dl: "#8e44f0", eq: "#ff7a1a", sh: "#ff4fa3", lcd: "#fffaf0", frame: "#5b2a86", alt: "#5b2a86", brand: "#5b2a86", brand2: "#d6267a", tone: "#8e44f0",
+      keys: {mul: "#ff4fa3", div: "#ffd23f", add: "#3fd17a", sub: "#3fa9ff"}},
+    midautumn: {body: "#2a2350", fn: "#352d63", md: "#3f3672", nm: "#fff6e0", op: "#f6d58a", dl: "#d9452f", eq: "#f2c14b", sh: "#f6d58a", lcd: "#fff3d6", frame: "#15112b", alt: "#f6d58a", brand: "#fff6e0", brand2: "#f2c14b"},
+    diadelosmuertos: {body: "#2b1a3d", fn: "#3a2452", md: "#44295f", nm: "#fff3e6", op: "#ff9d2e", dl: "#e8327a", eq: "#20a39e", sh: "#ff9d2e", lcd: "#fff1e0", frame: "#120b1d", alt: "#ffb347", brand: "#fff3e6", brand2: "#ff6fb0"},
+    spring: {body: "#e6f4da", fn: "#ffffff", md: "#f4fbee", nm: "#ffffff", op: "#ffd6e3", dl: "#e85d8a", eq: "#4e9a3e", sh: "#ffe27a", lcd: "#fbfff6", frame: "#2f5128", alt: "#2f5128", brand: "#2f5128", brand2: "#c23d6c"},
+    summer: {body: "#19a7c9", fn: "#148aa8", md: "#179abb", nm: "#fffaf0", op: "#ffe1a6", dl: "#ff7f50", eq: "#ffcc33", sh: "#ffcc33", lcd: "#fffdf5", frame: "#0b5a6e", alt: "#06303d", brand: "#06303d", brand2: "#7a2e10"},
+    autumn: {body: "#a84a1c", fn: "#8a3a14", md: "#94401a", nm: "#fff4e6", op: "#f6c27a", dl: "#e8b13a", eq: "#6b2e14", sh: "#f6c27a", lcd: "#fbecd6", frame: "#4a1e08", alt: "#ffd8a0", brand: "#fff4e6", brand2: "#ffcf6b"},
+    // World
+    japan: {body: "#f6f1e7", fn: "#ffffff", md: "#f1ebdf", nm: "#ffffff", op: "#e9e2d4", dl: "#d6402b", eq: "#1f1f1f", sh: "#f2a7b8", lcd: "#fbf8f1", frame: "#1f1f1f", alt: "#b8321f", brand: "#1f1f1f", brand2: "#d6402b", tone: "#d6402b"},
+    morocco: {body: "#b5502e", fn: "#933f22", md: "#a04626", nm: "#fbf1e4", op: "#3fa39b", dl: "#2c4fa8", eq: "#e3b04b", sh: "#3fa39b", lcd: "#fbefe0", frame: "#5a2410", alt: "#ffe0b8", brand: "#fbf1e4", brand2: "#ffd68a"},
+    italy: {body: "#fbf3df", fn: "#ffffff", md: "#f6edd6", nm: "#ffffff", op: "#ffe17a", dl: "#e0623a", eq: "#2f7fb3", sh: "#a8cf86", lcd: "#fffcf0", frame: "#2a5f86", alt: "#2a5f86", brand: "#2a5f86", brand2: "#c4502b", tone: "#e0a21a"},
+    greece: {body: "#f7f9fc", fn: "#ffffff", md: "#eef3fa", nm: "#ffffff", op: "#d6e6f7", dl: "#2f86d6", eq: "#0d4f9e", sh: "#9cc0ea", lcd: "#f2f7fd", frame: "#0d4f9e", alt: "#0d4f9e", brand: "#0d4f9e", brand2: "#2f86d6", tone: "#2f86d6"},
+    egypt: {body: "#caa15a", fn: "#b88c45", md: "#c29650", nm: "#fff6e2", op: "#f3e3bd", dl: "#1f5aa8", eq: "#1f8f8a", sh: "#e8c66a", lcd: "#fbf0d6", frame: "#5a3d12", alt: "#3a2608", brand: "#3a2608", brand2: "#1f4a8a"},
+    canada: {body: "#b8211a", fn: "#961a14", md: "#a51d16", nm: "#ffffff", op: "#ffe0dc", dl: "#f4f4f4", dlink: "#a01810", eq: "#3bb3c3", sh: "#ffffff", lcd: "#fff5f4", frame: "#6a0f0a", alt: "#ffffff", brand: "#ffffff", brand2: "#ffd6d2"},
+    mexico: {body: "#e8931a", fn: "#c4206a", md: "#d6267a", nm: "#fff4e0", op: "#2b5fb8", dl: "#e8402c", eq: "#1f9e8f", sh: "#d6267a", lcd: "#fff6e6", frame: "#6b3a05", alt: "#3a1c00", brand: "#3a1c00", brand2: "#8a1048"},
+    brazil: {body: "#1f9e4a", fn: "#188a3f", md: "#1c9444", nm: "#fffbe6", op: "#ffdf3a", dl: "#ffdf3a", eq: "#1f3f9e", sh: "#ffdf3a", lcd: "#fbfff0", frame: "#0d4a22", alt: "#fff1a0", brand: "#fffbe6", brand2: "#ffdf3a"},
+    // Pro scenes
+    arctic: {body: "#0e1d2b", fn: "#18304a", md: "#1e3a58", nm: "#e4f1fb", op: "#7fe6c0", dl: "#b48cff", eq: "#3cd99a", sh: "#7fe6c0", lcd: "#0a1722", lcdink: "#9ff3d0", glow: "0 0 6px rgba(80,240,180,.6)", frame: "#040b12", alt: "#9ff3d0", brand: "#e4f1fb", brand2: "#7fe6c0"},
+    sunset: {body: "#f7a37c", fn: "#fff1e6", md: "#ffe2cc", nm: "#fffaf3", op: "#ffd27a", dl: "#d43f5c", eq: "#5b2a5e", sh: "#ffb08a", lcd: "#fff6ec", frame: "#5b2a5e", alt: "#4a1f4d", brand: "#4a1f4d", brand2: "#8a2440"},
+    mint: {body: "#c9f0dd", fn: "#ffffff", md: "#e2f7ec", nm: "#ffffff", op: "#a8e3c6", dl: "#3a2a20", eq: "#0f845f", sh: "#8fdcb6", lcd: "#f6fffb", frame: "#3a2a20", alt: "#0f4c3a", brand: "#0f4c3a", brand2: "#3a2a20"},
+    bokeh: {body: "#2a2a4a", fn: "#383866", md: "#42427a", nm: "#f7f6fb", op: "#c9c9f5", dl: "#ff7aa8", eq: "#5b5bd6", sh: "#ffd56b", lcd: "#1a1a33", lcdink: "#f7f6fb", frame: "#0f0f22", alt: "#c9c9f5", brand: "#f7f6fb", brand2: "#ffd56b"},
+    neon: {body: "#0c0b22", fn: "#17163d", md: "#1d1c4a", nm: "#eef0ff", op: "#8098ff", dl: "#c84beb", eq: "#3f63ee", sh: "#8098ff", lcd: "#08071a", lcdink: "#99adff", glow: "0 0 8px rgba(128,152,255,.9)", frame: "#000000", alt: "#99adff", brand: "#eef0ff", brand2: "#e07cff"},
+    candy: {body: "#fbe3f4", fn: "#ffffff", md: "#f6ecff", nm: "#ffffff", op: "#c9f2e3", dl: "#ff6fb5", eq: "#8e44f0", sh: "#ffd86f", lcd: "#fffbff", frame: "#6a4bc4", alt: "#5b3fa0", brand: "#5b3fa0", brand2: "#c4206a"},
+    // Hobbies
+    cats: {body: "#f3dcc8", fn: "#ffffff", md: "#f8eadf", nm: "#ffffff", op: "#e9c6a8", dl: "#b5563f", eq: "#7a3f31", sh: "#f2b89a", lcd: "#fffaf5", frame: "#7a3f31", alt: "#5c2c22", brand: "#5c2c22", brand2: "#a04a36"},
+    music: {body: "#2a2468", fn: "#352e80", md: "#3d3590", nm: "#f3f2f8", op: "#c8c3f0", dl: "#f2c94c", eq: "#5b4fc9", sh: "#c8c3f0", lcd: "#f3f2f8", frame: "#15123a", alt: "#d8d4f7", brand: "#f3f2f8", brand2: "#f2c94c"},
+    reading: {body: "#7d3a40", fn: "#66303a", md: "#70343d", nm: "#f6f2eb", op: "#e3cfb4", dl: "#c9a24a", eq: "#3e2a20", sh: "#e3cfb4", lcd: "#f8f2e4", frame: "#3e1a1e", alt: "#f0dcc0", brand: "#f6f2eb", brand2: "#e0c27a"},
+    knitting: {body: "#dfe9d9", fn: "#ffffff", md: "#edf3ea", nm: "#ffffff", op: "#c9dcc2", dl: "#c45a6a", eq: "#4e7f58", sh: "#f2c1a6", lcd: "#fbfdf9", frame: "#39583e", alt: "#2c4630", brand: "#2c4630", brand2: "#a8434f"},
+    painting: {body: "#f6f4ef", fn: "#ffffff", md: "#eeeae2", nm: "#ffffff", op: "#ffffff", dl: "#28477b", eq: "#f08a2c", sh: "#f2c230", lcd: "#fffdf8", frame: "#28477b", alt: "#28477b", brand: "#28477b", brand2: "#c43a2f", tone: "#2f66b8",
+      keys: {mul: "#e8463a", div: "#f2c230", add: "#2f66b8", sub: "#3fa86a"}},
+    baking: {body: "#f6dfe0", fn: "#fff6ec", md: "#fbe9df", nm: "#fffaf3", op: "#f4c9a6", dl: "#bf4d66", eq: "#6b3a24", sh: "#ffb8c8", lcd: "#fffaf3", frame: "#803946", alt: "#6a2a38", brand: "#6a2a38", brand2: "#a8384f"},
+    gardening: {body: "#cfe3c3", fn: "#ffffff", md: "#e3efda", nm: "#ffffff", op: "#b7d6a6", dl: "#c9783a", eq: "#2b5631", sh: "#f2c94c", lcd: "#fbfef8", frame: "#2b5631", alt: "#234827", brand: "#234827", brand2: "#9a4f1e"},
+    gaming: {body: "#1d1838", fn: "#2b2452", md: "#342b63", nm: "#f3f2fa", op: "#a99cf2", dl: "#ff5a6a", eq: "#3fd17a", sh: "#ffd23f", lcd: "#0f1a12", lcdink: "#9bf28a", glow: "0 0 5px rgba(140,240,120,.6)", frame: "#0b0918", alt: "#c9c0ff", brand: "#f3f2fa", brand2: "#ffd23f"},
+    photography: {body: "#2b2b2b", fn: "#3a3a3a", md: "#444444", nm: "#f4f3f1", op: "#d6d2cc", dl: "#b35f14", eq: "#e8e4dc", sh: "#f2a65a", lcd: "#e9ecef", frame: "#111111", alt: "#f0e2cf", brand: "#f4f3f1", brand2: "#f2a65a"},
+    film: {body: "#6e1a22", fn: "#571419", md: "#62171e", nm: "#fbf3e6", op: "#e6c27a", dl: "#1f1f1f", eq: "#d4a62a", sh: "#e6c27a", lcd: "#fbf3e6", frame: "#2a0a0d", alt: "#f4d48a", brand: "#fbf3e6", brand2: "#f4d48a"},
+    culinary: {body: "#f4efe6", fn: "#ffffff", md: "#ece6db", nm: "#ffffff", op: "#c9e0b8", dl: "#b8643a", eq: "#3f6b3a", sh: "#e3a26f", lcd: "#fffdf8", frame: "#6b3a1e", alt: "#5a2f17", brand: "#5a2f17", brand2: "#9a4f28", tone: "#b8643a"},
+    pottery: {body: "#c98a6a", fn: "#b37658", md: "#bd7f60", nm: "#fbf3ea", op: "#e8cdb8", dl: "#3f6b7a", eq: "#7a3e22", sh: "#e8cdb8", lcd: "#fbf3ea", frame: "#5a2e18", alt: "#3a1c0c", brand: "#3a1c0c", brand2: "#24505e"},
+    // Majors
+    nursing: {body: "#1f3346", fn: "#2a4560", md: "#314f6c", nm: "#f2f6f9", op: "#bfe0e8", dl: "#e8505b", eq: "#4fb3a9", sh: "#f6d48a", lcd: "#eef7f6", frame: "#0e1b26", alt: "#cfe3ec", brand: "#f2f6f9", brand2: "#f6d48a"},
+    biology: {body: "#cfeedd", fn: "#ffffff", md: "#e2f6ea", nm: "#ffffff", op: "#b5e6cf", dl: "#e86a8a", eq: "#2a8a6a", sh: "#a6dfe8", lcd: "#f6fffa", frame: "#1d5a46", alt: "#1d4d3d", brand: "#1d4d3d", brand2: "#1f6e54"},
+    compsci: {body: "#0f1a1e", fn: "#172a30", md: "#1d343c", nm: "#e6f2f0", op: "#7fe0c0", dl: "#ff6b6b", eq: "#22c38e", sh: "#7fe0c0", lcd: "#07120f", lcdink: "#4cf2a0", glow: "0 0 6px rgba(76,242,160,.7)", frame: "#000000", alt: "#7fe0c0", brand: "#e6f2f0", brand2: "#4cf2a0"},
+    engineering: {body: "#1f4f8a", fn: "#2a5c9a", md: "#3266a8", nm: "#f2f6fb", op: "#d9b26a", dl: "#e8853a", eq: "#b8862a", sh: "#d9b26a", lcd: "#eaf2fb", frame: "#0f2a4f", alt: "#e8f0fa", brand: "#f2f6fb", brand2: "#e8c47a"},
+    education: {body: "#2f5a3f", fn: "#3a6b4b", md: "#427755", nm: "#fdf8ec", op: "#f2d06a", dl: "#e8463a", eq: "#f2b632", sh: "#f2d06a", lcd: "#fdf8ec", frame: "#1e3a28", alt: "#f6e7b0", brand: "#fdf8ec", brand2: "#f2d06a"},
+    justice: {body: "#1a1d2e", fn: "#262a42", md: "#2e334f", nm: "#f0ece4", op: "#c9b38a", dl: "#c8283a", eq: "#c9a24a", sh: "#c9b38a", lcd: "#f3eedf", frame: "#0b0d17", alt: "#e0cfa8", brand: "#f0ece4", brand2: "#e04a5a"},
+    chem: {body: "#e6f4f7", fn: "#ffffff", md: "#eef8fa", nm: "#ffffff", op: "#ffffff", dl: "#8e44f0", eq: "#1f8aa8", sh: "#9be3f2", lcd: "#f8feff", frame: "#1d4f5c", alt: "#1d4f5c", brand: "#1d4f5c", brand2: "#7b2fd0", tone: "#1f8aa8",
+      keys: {mul: "#ff6fa3", div: "#ffd23f", add: "#4cd18a", sub: "#4fa9ff"}},
+    sketchcity: {body: "#f4f1e8", fn: "#ffffff", md: "#ebe7dc", nm: "#ffffff", op: "#e2ddd0", dl: "#3d6fb8", eq: "#2a2a2a", sh: "#f2d06a", lcd: "#fdfcf7", frame: "#2a2a2a", alt: "#2a2a2a", brand: "#2a2a2a", brand2: "#3d6fb8", tone: "#2a2a2a"},
+    // Scenes
+    koi: {body: "#1f5a4a", fn: "#1a4c3f", md: "#1d5646", nm: "#f3f8f2", op: "#f7a64a", dl: "#e8463a", eq: "#f2f2ea", sh: "#f7a64a", lcd: "#eaf6ef", frame: "#0d2e25", alt: "#cfeedd", brand: "#f3f8f2", brand2: "#f7a64a"},
+    jelly: {body: "#10224a", fn: "#1a3264", md: "#213c74", nm: "#eef4ff", op: "#f0a6e6", dl: "#8be8f0", eq: "#c86be0", sh: "#f0a6e6", lcd: "#0a1530", lcdink: "#9ff0ff", glow: "0 0 7px rgba(140,230,255,.8)", frame: "#050b1c", alt: "#b8f0ff", brand: "#eef4ff", brand2: "#f0a6e6"},
+    bamboo: {body: "#cfe3b5", fn: "#ffffff", md: "#e2eecf", nm: "#ffffff", op: "#b7d38a", dl: "#6b8a2a", eq: "#2f5a1f", sh: "#e8e08a", lcd: "#fbfef4", frame: "#2f4a1a", alt: "#2a4515", brand: "#2a4515", brand2: "#4f7a1f"},
+    lavenderfields: {body: "#d8ccef", fn: "#ffffff", md: "#eae3f8", nm: "#ffffff", op: "#c4b4ea", dl: "#7a5cc9", eq: "#4a3a7a", sh: "#a8d08a", lcd: "#fbf9ff", frame: "#3d2f66", alt: "#3d2f66", brand: "#3d2f66", brand2: "#6a4fc0"},
+    rainforest: {body: "#1d4a2a", fn: "#235834", md: "#29643c", nm: "#f1f8ee", op: "#9be07a", dl: "#f2a03a", eq: "#2fa8a0", sh: "#9be07a", lcd: "#eef9ea", frame: "#0c2615", alt: "#c9f0b0", brand: "#f1f8ee", brand2: "#f2c94c"},
+    volcano: {body: "#3a2a2a", fn: "#4a3535", md: "#553d3d", nm: "#f6efe8", op: "#f6a65a", dl: "#e8452a", eq: "#ff7a1a", sh: "#ffc35a", lcd: "#2a1712", lcdink: "#ffb04a", glow: "0 0 7px rgba(255,120,40,.8)", frame: "#120a08", alt: "#ffb87a", brand: "#f6efe8", brand2: "#ff9a4a"},
+    geology: {body: "#3a3550", fn: "#474063", md: "#524a72", nm: "#f2f0f8", op: "#b9a6f2", dl: "#6fd6e8", eq: "#9a6be0", sh: "#b9a6f2", lcd: "#f4f2fb", frame: "#1a1728", alt: "#d8cff8", brand: "#f2f0f8", brand2: "#9fe6f2"},
+    marinebio: {body: "#0f4f5a", fn: "#12606e", md: "#156b7a", nm: "#eef8f6", op: "#e8b94a", dl: "#ff8a5a", eq: "#1a8a9a", sh: "#e8b94a", lcd: "#e8f6f4", frame: "#062a30", alt: "#d8f0ea", brand: "#eef8f6", brand2: "#f2c96a"},
+    nighttrain: {body: "#3a1d2a", fn: "#4a2636", md: "#552b3e", nm: "#f6efe4", op: "#d9b26a", dl: "#b8443a", eq: "#c9a24a", sh: "#d9b26a", lcd: "#f6efe0", frame: "#1e0d15", alt: "#e8cf9a", brand: "#f6efe4", brand2: "#e8c47a"},
+    greenhouse: {body: "#dceee0", fn: "#ffffff", md: "#e9f5eb", nm: "#ffffff", op: "#b9e0c2", dl: "#2f7a4a", eq: "#1f4a2e", sh: "#9fd6b0", lcd: "#f6fff8", frame: "#1f4a2e", alt: "#1f4a2e", brand: "#1f4a2e", brand2: "#2f7a4a"},
+    campfire: {body: "#1e2433", fn: "#2a3246", md: "#323b52", nm: "#f6efe4", op: "#f2a65a", dl: "#e8562a", eq: "#ffb03a", sh: "#ffd27a", lcd: "#fff3dc", frame: "#0c0f17", alt: "#ffcf8a", brand: "#f6efe4", brand2: "#ffb03a"},
+    aquarium: {body: "#0f3f6a", fn: "#134a7c", md: "#17558c", nm: "#eef6ff", op: "#8fd6ff", dl: "#ffb03a", eq: "#2fb8d9", sh: "#8fd6ff", lcd: "#e6f6ff", frame: "#06213a", alt: "#cdeeff", brand: "#eef6ff", brand2: "#8fd6ff"},
+    // Plain colours: a clean two-tone design, no pattern
+    paper: {body: "#f7f7f4", fn: "#ffffff", md: "#efefeb", nm: "#ffffff", op: "#e6e9ee", dl: "#2f6fdb", eq: "#24292f", sh: "#c9d8f5", lcd: "#fdfdfb", frame: "#24292f", alt: "#24292f", brand: "#24292f", brand2: "#2f6fdb"},
+    slate: {body: "#5b6b80", fn: "#4a5868", md: "#536274", nm: "#f1f3f6", op: "#cdd6e2", dl: "#9fb4d1", eq: "#2e3a4a", sh: "#cdd6e2", lcd: "#eef1f5", frame: "#2e3a4a", alt: "#e7ecf3", brand: "#f1f3f6", brand2: "#cdd6e2"},
+    sand: {body: "#e8d6b8", fn: "#f7ecd8", md: "#efe0c4", nm: "#fffaf1", op: "#dcc39a", dl: "#b07a3b", eq: "#7a5226", sh: "#f3d9a4", lcd: "#fffaf1", frame: "#7a5226", alt: "#5c3d1b", brand: "#5c3d1b", brand2: "#7a4f1c"},
+    blush: {body: "#f6d5df", fn: "#ffffff", md: "#fbe6ec", nm: "#ffffff", op: "#efc0cf", dl: "#c24d78", eq: "#622f42", sh: "#f3a7c0", lcd: "#fff6f9", frame: "#622f42", alt: "#622f42", brand: "#622f42", brand2: "#a33d63"},
+    lavender: {body: "#ddd3f3", fn: "#ffffff", md: "#ece6fa", nm: "#ffffff", op: "#c9bdee", dl: "#7457c9", eq: "#413369", sh: "#b9a6ec", lcd: "#faf8ff", frame: "#413369", alt: "#413369", brand: "#413369", brand2: "#5f45b8"},
+    sky: {body: "#cfe6f7", fn: "#ffffff", md: "#e6f2fb", nm: "#ffffff", op: "#b7d9f2", dl: "#2f7dc4", eq: "#1e4366", sh: "#9cc9ee", lcd: "#f7fbff", frame: "#1e4366", alt: "#1e4366", brand: "#1e4366", brand2: "#24639c"},
+    sage: {body: "#d5e6d2", fn: "#ffffff", md: "#e6f0e3", nm: "#ffffff", op: "#bdd8b8", dl: "#4e8a5b", eq: "#2f5e3a", sh: "#a8cba1", lcd: "#f8fcf6", frame: "#2f5e3a", alt: "#2f5e3a", brand: "#2f5e3a", brand2: "#3a6e46"},
+    peach: {body: "#ffd9c4", fn: "#ffffff", md: "#ffe9dc", nm: "#ffffff", op: "#ffc4a6", dl: "#e0734a", eq: "#a84a28", sh: "#ffb08a", lcd: "#fffaf6", frame: "#a84a28", alt: "#7a3418", brand: "#7a3418", brand2: "#a8441e"},
+    butter: {body: "#b02f46", fn: "#8c2335", md: "#9a2a3c", nm: "#fff1f2", op: "#ffc9d1", dl: "#2a1015", eq: "#fff1f2", sh: "#ffc9d1", lcd: "#fff1f2", frame: "#5a1520", alt: "#ffd6dc", brand: "#fff1f2", brand2: "#ffd6dc"},
+    teal: {body: "#1f8a80", fn: "#187068", md: "#1b7c73", nm: "#f0f8f7", op: "#b6e3dd", dl: "#f2a65a", eq: "#174a46", sh: "#b6e3dd", lcd: "#f0f8f7", frame: "#0e3b37", alt: "#dff5f2", brand: "#f0f8f7", brand2: "#b6e3dd"},
+    mocha: {body: "#6b4329", fn: "#573522", md: "#613b25", nm: "#f6efe8", op: "#d9bca3", dl: "#c98a5a", eq: "#3e2416", sh: "#d9bca3", lcd: "#f6efe8", frame: "#2e1a0f", alt: "#ecd2bb", brand: "#f6efe8", brand2: "#e0b48c"},
+    plum: {body: "#4e264a", fn: "#5e2e59", md: "#693364", nm: "#f8f2f7", op: "#e4bfe0", dl: "#e08ad0", eq: "#8e3b84", sh: "#e4bfe0", lcd: "#f8f2f7", frame: "#2a1228", alt: "#f0d2ec", brand: "#f8f2f7", brand2: "#f0b8e6"},
+    indigo: {body: "#272d66", fn: "#323a7e", md: "#3a4390", nm: "#f3f4fb", op: "#c9cdf2", dl: "#f2c94c", eq: "#3f4bb8", sh: "#c9cdf2", lcd: "#f3f4fb", frame: "#12163a", alt: "#d9dcf7", brand: "#f3f4fb", brand2: "#f2c94c"},
+  };
+  // Themes that look best as a deep-coloured calculator; the rest get a soft tinted one
+  const DEEP = new Set(["halloween", "newyear", "neon", "xmas", "gaming", "hanukkah", "arctic", "lunarnewyear", "mocha", "indigo", "plum", "music"]);
+
+  /* Colour helpers (mixHex, hexContrast and ensureContrast are the Style Shop's, 01-style-shop.js) */
+  const mix = (a, b, f) => mixHex(a, b, f);
+  const cr = (a, b) => hexContrast(a, b);
+  const worst = (fg, bgs) => Math.min(...bgs.map(b => cr(fg, b)));
+  const fix = (fg, bgs, min) => ensureContrast(fg, bgs, min || 4.6);
+  // Deepen a key until its lettering reads (white lettering on a coloured key)
+  function deepen(bg, ink, min){ let c = bg; for (let f = 0.04; worst(ink, [c]) < (min || 4.6) && f <= 1; f += 0.04) c = mix(bg, "#000000", f); return c; }
+  // The lettering for a key: the theme's dark tone, darkened toward black until it reads, or else white (or black)
+  function toward(fg, to, bgs){ for (let f = 0; f <= 1.001; f += 0.05) { const c = mix(fg, to, f); if (worst(c, bgs) >= 4.6) return c; } return null; }
+  const inkFor = (bgs, dark) => toward(dark, "#000000", bgs) || toward("#ffffff", "#ffffff", bgs) || "#000000";
+
+  // A design into the full set: gradients, shadows, and lettering that reads on every key
+  function build(d){
+    const L = hexLum(d.body) > 0.28;
+    // a dark body is deepened just enough for light lettering to read on its lightest part
+    let base = d.body; if (!L) for (let f = 0.03; f <= 1 && cr("#ffffff", mix(base, "#ffffff", 0.1)) < 5; f += 0.03) base = mix(d.body, "#000000", f);
+    const body = [mix(base, "#ffffff", 0.1), base, mix(base, "#000000", 0.16)];
+    // a key: its colour, a slightly deeper lower half, lettering that reads (the key deepens a touch if no lettering would), its shadow
+    const key = (c, pref) => {
+      let c2 = mix(c, "#000000", 0.08), ink = inkFor([c, c2], pref || (hexLum(c) > 0.35 ? mix(d.frame, "#000000", 0.2) : "#ffffff"));
+      if (worst(ink, [c, c2]) < 4.6) { c = deepen(c, "#ffffff", 4.9); c2 = mix(c, "#000000", 0.08); ink = "#ffffff"; }
+      return [c, c2, ink, mix(c, "#000000", 0.45)]; };
+    let fn = key(d.fn), md = key(d.md);
+    // function and mode keys share one lettering colour
+    if (worst(inkFor([fn[0], fn[1], md[0], md[1]], fn[2]), [fn[0], fn[1], md[0], md[1]]) < 4.6) { fn = key(deepen(fn[0], "#ffffff", 4.9), "#ffffff"); md = key(deepen(md[0], "#ffffff", 4.9), "#ffffff"); }
+    const nm = key(d.nm), op = key(d.op), dl = key(d.dl, d.dlink), eq = key(d.eq), sh = key(d.sh), lcd2 = mix(d.lcd, "#000000", 0.06);
+    const fnInk = inkFor([fn[0], fn[1], md[0], md[1]], fn[2]);
+    const lightOn = c => toward(c, "#ffffff", body) || toward(c, "#000000", body) || "#000000";
+    const v = {b1: body[0], b2: body[1], b3: body[2], edge: mix(d.body, "#000000", L ? 0.3 : 0.6),
+      brand: lightOn(d.brand), brand2: toward(d.brand2, L ? "#000000" : "#ffffff", [body[0]]) || lightOn(d.brand),
+      solarbg: d.frame, solar1: mix(d.frame, "#ffffff", 0.25), solar2: mix(d.frame, "#000000", 0.3),
+      lcd1: d.lcd, lcd2, lcdink: inkFor([d.lcd, lcd2], mix(d.frame, "#000000", 0.25)), lcdframe: d.frame,
+      fn1: fn[0], fn2: fn[1], fnink: fnInk, fnsh: fn[3], md1: md[0], md2: md[1],
+      nm1: nm[0], nm2: nm[1], nmink: nm[2], nmsh: nm[3], op1: op[0], op2: op[1], opink: op[2], opsh: op[3],
+      dl1: dl[0], dl2: dl[1], dlink: dl[2], dlsh: dl[3], eq1: eq[0], eq2: eq[1], eqink: eq[2], eqsh: eq[3], sh1: sh[0], sh2: sh[1], shink: sh[2],
+      alt: toward(d.alt, L ? "#000000" : "#ffffff", body) || lightOn(d.alt),
+      xbg: L ? "rgba(0,0,0,.06)" : "rgba(255,255,255,.12)", xink: L ? mix(d.frame, "#000000", 0.1) : "#f4f4f4",
+      // the pattern goes away from the lettering: a shade darker on a dark body, a shade lighter on a light one
+      // (the very darkest and very lightest bodies, where that wouldn't show, take the other way)
+      tone: d.tone || (L ? (hexLum(base) < 0.8 ? "#ffffff" : mix(d.frame, "#ffffff", 0.1)) : (hexLum(base) > 0.02 ? "#000000" : "#ffffff"))};
+    if (d.lcdink) { v.lcdink = toward(d.lcdink, "#ffffff", [d.lcd, lcd2]) || v.lcdink; }
+    if (d.glow) v.lcdglow = d.glow;
+    if (d.keys) v.keys = Object.fromEntries(Object.entries(d.keys).map(([k, c]) => [k, key(c)]));
+    return v;
+  }
+  function derive(s){
+    const L = s.light, A = L[8], D = L[11], mark = L[14] || "#FFF3A3", deep = DEEP.has(s.id);
+    if (deep) {
+      const b1 = mix(D, "#ffffff", 0.08), b2 = D, b3 = mix(D, "#000000", 0.35), body = [b1, b2, b3];
+      const lcd1 = mix(A, "#ffffff", 0.9), lcd2 = mix(A, "#ffffff", 0.8), fn1 = mix(D, "#ffffff", 0.2), fn2 = mix(D, "#ffffff", 0.1), md1 = deepen(mix(D, "#ffffff", 0.28), "#ffffff", 4.8), md2 = deepen(mix(D, "#ffffff", 0.16), "#ffffff", 4.8);
+      const op1 = mix(A, "#ffffff", 0.7), op2 = mix(A, "#ffffff", 0.56), dl1 = mark, dl2 = mix(mark, "#000000", 0.1), eq1 = deepen(A, "#ffffff"), sh1 = mark, sh2 = mix(mark, "#000000", 0.12);
+      return {b1, b2, b3, edge: mix(D, "#000000", 0.6), brand: fix(mix(A, "#ffffff", 0.75), [b1]), brand2: fix(mix(A, "#ffffff", 0.4), [b1]),
+        solarbg: mix(D, "#000000", 0.55), solar1: mix(D, "#ffffff", 0.2), solar2: mix(D, "#000000", 0.4),
+        lcd1, lcd2, lcdink: fix(mix(D, "#000000", 0.5), [lcd1, lcd2]), lcdframe: mix(D, "#000000", 0.6),
+        fn1, fn2, fnink: toward(mix(A, "#ffffff", 0.9), "#ffffff", [fn1, fn2, md1, md2]) || "#ffffff", fnsh: mix(D, "#000000", 0.6), md1, md2,
+        nm1: "#ffffff", nm2: mix(A, "#ffffff", 0.93), nmink: fix(mix(D, "#000000", 0.3), ["#ffffff", mix(A, "#ffffff", 0.93)]), nmsh: mix(D, "#000000", 0.2),
+        op1, op2, opink: fix(mix(D, "#000000", 0.3), [op1, op2]), opsh: mix(D, "#000000", 0.3),
+        dl1, dl2, dlink: inkFor([dl1, dl2], mix(D, "#000000", 0.3)), dlsh: mix(mark, "#000000", 0.45),
+        eq1, eq2: mix(eq1, "#000000", 0.12), eqink: "#ffffff", eqsh: mix(eq1, "#000000", 0.5),
+        sh1, sh2, shink: inkFor([sh1, sh2], mix(D, "#000000", 0.3)), alt: fix(mix(A, "#ffffff", 0.6), body),
+        xbg: "rgba(255,255,255,.12)", xink: fix("#f2f2f2", [b1]), tone: "#ffffff"};
+    }
+    const b1 = mix(A, "#ffffff", 0.86), b2 = mix(A, "#ffffff", 0.78), b3 = mix(A, "#ffffff", 0.68), body = [b1, b2, b3];
+    const lcd1 = mix(A, "#ffffff", 0.95), lcd2 = mix(A, "#ffffff", 0.88), fn2 = mix(A, "#ffffff", 0.9), md1 = mix(A, "#ffffff", 0.93), md2 = mix(A, "#ffffff", 0.84);
+    const op1 = mix(A, "#ffffff", 0.8), op2 = mix(A, "#ffffff", 0.7), dl1 = deepen(A, "#ffffff"), eq1 = deepen(D, "#ffffff"), sh1 = mix(A, "#ffffff", 0.35);
+    return {b1, b2, b3, edge: mix(D, "#ffffff", 0.35), brand: fix(D, [b1]), brand2: fix(A, [b1]),
+      solarbg: D, solar1: mix(D, "#ffffff", 0.25), solar2: mix(D, "#000000", 0.3),
+      lcd1, lcd2, lcdink: fix(mix(D, "#000000", 0.4), [lcd1, lcd2]), lcdframe: D,
+      fn1: "#ffffff", fn2, fnink: inkFor(["#ffffff", fn2, md1, md2], D), fnsh: mix(A, "#ffffff", 0.55), md1, md2,
+      nm1: "#ffffff", nm2: mix(A, "#ffffff", 0.95), nmink: fix(mix(D, "#000000", 0.3), ["#ffffff", mix(A, "#ffffff", 0.95)]), nmsh: mix(A, "#ffffff", 0.6),
+      op1, op2, opink: fix(D, [op1, op2]), opsh: mix(A, "#ffffff", 0.45),
+      dl1, dl2: mix(dl1, "#000000", 0.1), dlink: "#ffffff", dlsh: mix(dl1, "#000000", 0.45),
+      eq1, eq2: mix(eq1, "#000000", 0.15), eqink: "#ffffff", eqsh: mix(eq1, "#000000", 0.5),
+      sh1, sh2: mix(sh1, "#000000", 0.1), shink: inkFor([sh1, mix(sh1, "#000000", 0.1)], mix(D, "#000000", 0.3)), alt: fix(D, body),
+      xbg: "rgba(0,0,0,.06)", xink: fix(D, [b1]), tone: "#ffffff"};
+  }
+
+  /* Motifs: small shapes drawn in the pattern's one tone (t = tone, a = opacity) */
+  const F = (t, a) => `fill='${t}' fill-opacity='${a}'`, ST = (t, a) => `stroke='${t}' stroke-opacity='${a}'`;
+  const ring = (n, f) => Array.from({length: n}, (_, i) => f(i * 360 / n)).join("");
+  const M = {
+    blossom: r => (t, a) => `<g ${F(t, a)}>${ring(5, q => `<ellipse cy='${-r * .55}' rx='${r * .42}' ry='${r * .55}' transform='rotate(${q})'/>`)}</g>`,
+    petal: () => (t, a) => `<path d='M0-5C3-5 5-1 3 3 2 5-2 5-3 3-5-1-3-5 0-5Z' ${F(t, a)}/>`,
+    star: r => (t, a) => `<path d='M0-${r}L${r * .28} -${r * .28} ${r} 0 ${r * .28} ${r * .28} 0 ${r} -${r * .28} ${r * .28} -${r} 0 -${r * .28} -${r * .28}Z' ${F(t, a)}/>`,
+    dot: r => (t, a) => `<circle r='${r}' ${F(t, a)}/>`,
+    ringO: r => (t, a) => `<circle r='${r}' fill='none' ${ST(t, a)} stroke-width='1.6'/>`,
+    bean: () => (t, a) => `<ellipse rx='5' ry='7' ${F(t, a)}/><path d='M-1-6q3 6 0 12' fill='none' ${ST(t, a)} stroke-width='1.2'/>`,
+    pine: h => (t, a) => { const w = h * .55; return `<path d='M0 ${-h}L${w * .5} ${-h * .5}H${w * .28}L${w * .62} ${-h * .15}H${w * .32}L${w * .7} 0H${-w * .7}L${-w * .32} ${-h * .15}H${-w * .62}L${-w * .28} ${-h * .5}H${-w * .5}Z' ${F(t, a)}/>`; },
+    wave: () => (t, a) => `<path d='M-18 0q4.5-6 9 0t9 0 9 0 9 0' fill='none' ${ST(t, a)} stroke-width='1.6' stroke-linecap='round'/>`,
+    flake: () => (t, a) => `<g ${ST(t, a)} stroke-width='1.6' stroke-linecap='round' fill='none'>${ring(6, q => `<path transform='rotate(${q})' d='M0 0V-9M0-5.5l-3-3M0-5.5l3-3'/>`)}</g>`,
+    lemon: r => (t, a) => `<g ${ST(t, a)} fill='none' stroke-width='1.5'><circle r='${r}'/>${ring(8, q => `<path d='M0 0L${(r * .8 * Math.cos(q * Math.PI / 180)).toFixed(1)} ${(r * .8 * Math.sin(q * Math.PI / 180)).toFixed(1)}'/>`)}</g>`,
+    leaf: () => (t, a) => `<path d='M-7 0C-3-5 4-5 7 0 4 5-3 5-7 0Z' ${F(t, a)}/>`,
+    tulip: () => (t, a) => `<g ${F(t, a)}><path d='M-6-12C-6-4-3 0 0 0S6-4 6-12L3-8 0-13-3-8Z'/><path d='M-.8 0h1.6v9h-1.6z'/></g>`,
+    sun: () => (t, a) => `<circle r='4.5' ${F(t, a)}/><g ${ST(t, a)} stroke-width='1.5' stroke-linecap='round'>${ring(8, q => `<path transform='rotate(${q})' d='M0-7v-3'/>`)}</g>`,
+    maple: () => (t, a) => `<path d='M0-11 2-6 6-8 5-3 10-2 6 1 8 5 2 3 1 9H-1L-2 3-8 5-6 1-10-2-5-3-6-8-2-6Z' ${F(t, a)}/>`,
+    bulb: () => (t, a) => `<g ${F(t, a)}><ellipse cy='2' rx='4' ry='6'/><rect x='-2.2' y='-7' width='4.4' height='4' rx='1'/></g>`,
+    shell: () => (t, a) => `<path d='M0-8C-6-8-9-1-8 6H8C9-1 6-8 0-8Z' ${F(t, a)}/>`,
+    starfish: () => (t, a) => `<path d='M0-9 2.4-3 9-3 3.8 1 5.6 8 0 3.8-5.6 8-3.8 1-9-3-2.4-3Z' ${F(t, a)}/>`,
+    candy: () => (t, a) => `<g ${F(t, a)}><ellipse rx='6' ry='4.5'/><path d='M-6 0-11-4V4ZM6 0 11-4V4Z'/></g>`,
+    paw: () => (t, a) => `<g ${F(t, a)}><ellipse cy='3' rx='4.5' ry='3.6'/><circle cx='-5' cy='-3' r='1.8'/><circle cx='-1.8' cy='-6' r='1.8'/><circle cx='1.8' cy='-6' r='1.8'/><circle cx='5' cy='-3' r='1.8'/></g>`,
+    yarn: r => (t, a) => `<circle r='${r}' ${F(t, a)}/><path d='M${-r * .7} ${-r * .3}q${r * .7} ${r * .6} ${r * 1.4} 0M${-r * .6} ${r * .4}q${r * .6} ${-r * .5} ${r * 1.2} 0' fill='none' ${ST(t, a)} stroke-width='1'/>`,
+    note: () => (t, a) => `<g ${F(t, a)}><ellipse cx='-2' cy='5' rx='3.4' ry='2.5' transform='rotate(-20 -2 5)'/><rect x='.8' y='-8' width='1.6' height='13'/><path d='M2.4-8c3 1 4.5 3 4 6-1-2-2.4-3-4-3Z'/></g>`,
+    book: () => (t, a) => `<g ${F(t, a)}><path d='M-8-6C-5-7-2-7 0-5V7C-2 5-5 5-8 6Z'/><path d='M8-6C5-7 2-7 0-5V7C2 5 5 5 8 6Z'/></g>`,
+    blob: r => (t, a) => `<path d='M${-r} 0C${-r} ${-r * .8} ${-r * .2} ${-r} ${r * .3} ${-r * .9}S${r} ${-r * .2} ${r * .8} ${r * .4}${-r * .1} ${r} ${-r * .5} ${r * .8}${-r} ${r * .5} ${-r} 0Z' ${F(t, a)}/>`,
+    cupcake: () => (t, a) => `<g ${F(t, a)}><path d='M-6 0H6L4 8H-4Z'/><path d='M-7 0C-7-6 7-6 7 0Z'/><circle cy='-6' r='1.6'/></g>`,
+    sprout: () => (t, a) => `<g ${F(t, a)}><path d='M-.7 8V0h1.4v8Z'/><path d='M0 0C-1-5-6-6-8-5-7-1-3 1 0 0Z'/><path d='M0-1C1-6 6-7 8-6 7-2 3 0 0-1Z'/></g>`,
+    plus: () => (t, a) => `<path d='M-2-7h4v5h5v4H2v5h-4V2h-5v-4h5Z' ${F(t, a)}/>`,
+    aperture: r => (t, a) => `<circle r='${r}' fill='none' ${ST(t, a)} stroke-width='1.6'/><circle r='${r * .4}' ${F(t, a)}/>`,
+    burst: () => (t, a) => `<g ${ST(t, a)} stroke-width='1.4' stroke-linecap='round'>${ring(10, q => `<path transform='rotate(${q})' d='M0-4v-6'/>`)}</g>`,
+    lantern: () => (t, a) => `<g ${F(t, a)}><ellipse rx='6' ry='7'/><rect x='-3' y='-9' width='6' height='2'/><rect x='-3' y='7' width='6' height='2'/><path d='M-.5 9h1v5h-1z'/></g>`,
+    heart: () => (t, a) => `<path d='M0 7C-8 1-8-6-4-6-2-6-.6-4.6 0-3.4.6-4.6 2-6 4-6 8-6 8 1 0 7Z' ${F(t, a)}/>`,
+    shamrock: () => (t, a) => `<g ${F(t, a)}><circle cx='0' cy='-4.5' r='3.6'/><circle cx='-4' cy='1' r='3.6'/><circle cx='4' cy='1' r='3.6'/><path d='M-.6 2h1.2l1.4 8h-1.2Z'/></g>`,
+    egg: () => (t, a) => `<path d='M0-8C4-8 6-2 6 2 6 6 3 8 0 8S-6 6-6 2C-6-2-4-8 0-8Z' ${F(t, a)}/>`,
+    bat: () => (t, a) => `<path d='M0-2C2-4 6-5 11-3 9-2 9 0 10 2 7 1 5 2 4 4 3 2 1 2 0 3-1 2-3 2-4 4-5 2-7 1-10 2-9 0-9-2-11-3-6-5-2-4 0-2Z' ${F(t, a)}/>`,
+    acorn: () => (t, a) => `<g ${F(t, a)}><path d='M-5-1H5C5 5 2 8 0 9-2 8-5 5-5-1Z'/><path d='M-6-1C-6-5 6-5 6-1Z'/><path d='M-.5-5h1v-2h-1z'/></g>`,
+    star6: () => (t, a) => `<g fill='none' ${ST(t, a)} stroke-width='1.5' stroke-linejoin='round'><path d='M0-8 7 4H-7Z'/><path d='M0 8-7-4H7Z'/></g>`,
+    flame: () => (t, a) => `<g ${F(t, a)}><path d='M0-9C3-5 5-2 5 1 5 4 3 6 0 6S-5 4-5 1C-5-2-3-5 0-9Z'/><path d='M-8 6H8C7 9 4 10 0 10S-7 9-8 6Z'/></g>`,
+    crescent: () => (t, a) => `<path d='M2-8A8 8 0 1 0 2 8 6.4 6.4 0 1 1 2-8Z' ${F(t, a)}/>`,
+    moon: r => (t, a) => `<circle r='${r}' ${F(t, a)}/>`,
+    marigold: () => (t, a) => `<g ${F(t, a)}>${ring(10, q => `<ellipse cy='-5.5' rx='2.4' ry='4' transform='rotate(${q})'/>`)}</g>`,
+    flag: () => (t, a) => `<path d='M-6-5H6V3L3 6 0 3-3 6-6 3Z' ${F(t, a)}/>`,
+    fish: () => (t, a) => `<path d='M-9 0C-5-6 4-6 7 0 4 6-5 6-9 0ZM7 0 12-5V5Z' ${F(t, a)}/>`,
+    lily: r => (t, a) => `<path d='M0 0L${r} -2A${r} ${r} 0 1 1 ${r} 2Z' ${F(t, a)}/>`,
+    jelly: () => (t, a) => `<path d='M-7 0C-7-9 7-9 7 0Z' ${F(t, a)}/><path d='M-4 1q-1 4 0 8M0 1q1 4 0 9M4 1q-1 4 0 8' fill='none' ${ST(t, a)} stroke-width='1.2' stroke-linecap='round'/>`,
+    bamboo: () => (t, a) => `<g ${F(t, a)}><rect x='-2.2' y='-12' width='4.4' height='11' rx='1.4'/><rect x='-2.2' y='0' width='4.4' height='11' rx='1.4'/></g><path d='M2 -6C6-10 10-9 12-8 9-5 5-5 2-6Z' ${F(t, a)}/>`,
+    lavender: () => (t, a) => `<g ${F(t, a)}><path d='M-.6 10V-2h1.2v12Z'/>${[-9, -6, -3, 0].map((y, i) => `<ellipse cx='${i % 2 ? 1.6 : -1.6}' cy='${y}' rx='1.8' ry='2.4'/>`).join("")}</g>`,
+    cell: r => (t, a) => `<circle r='${r}' fill='none' ${ST(t, a)} stroke-width='1.5'/><circle cx='${r * .25}' cy='${-r * .2}' r='${r * .35}' ${F(t, a)}/>`,
+    chip: () => (t, a) => `<rect x='-5' y='-5' width='10' height='10' rx='1.5' ${F(t, a)}/><g ${ST(t, a)} stroke-width='1.3'>${[-3, 0, 3].map(o => `<path d='M${o} -5v-3M${o} 5v3M-5 ${o}h-3M5 ${o}h3'/>`).join("")}</g>`,
+    gear: () => (t, a) => `<g ${F(t, a)}>${ring(8, q => `<rect x='-1.8' y='-9' width='3.6' height='4' rx='.8' transform='rotate(${q})'/>`)}<path fill-rule='evenodd' d='M0-6.5A6.5 6.5 0 1 1 0 6.5 6.5 6.5 0 1 1 0-6.5ZM0-2.4A2.4 2.4 0 1 0 0 2.4 2.4 2.4 0 1 0 0-2.4Z'/></g>`,
+    apple: () => (t, a) => `<g ${F(t, a)}><path d='M0-4C-3-7-8-6-8 0S-4 9 0 7C4 9 8 5 8 0S3-7 0-4Z'/><path d='M0-4C1-8 3-9 5-9 4-7 2-5 0-4Z'/></g>`,
+    lens: () => (t, a) => `<circle cx='-2' cy='-2' r='5.5' fill='none' ${ST(t, a)} stroke-width='1.8'/><path d='M2 2 8 8' ${ST(t, a)} stroke-width='2.4' stroke-linecap='round'/>`,
+    flask: () => (t, a) => `<path d='M-2.5-9H2.5V-3L8 7C8.6 8.3 7.8 9 6.6 9H-6.6C-7.8 9-8.6 8.3-8 7L-2.5-3Z' ${F(t, a)}/>`,
+    building: () => (t, a) => `<path fill-rule='evenodd' d='M-6-10H6V10H-6ZM-3.5-7v2.5h2.5V-7ZM1-7v2.5h2.5V-7ZM-3.5-2v2.5h2.5V-2ZM1-2v2.5h2.5V-2ZM-3.5 3v2.5h2.5V3ZM1 3v2.5h2.5V3Z' ${F(t, a)}/>`,
+    crystal: () => (t, a) => `<path d='M0-10 5-4 3 9H-3L-5-4Z' ${F(t, a)}/>`,
+    mountain: () => (t, a) => `<path d='M-10 7-2-7 2-1 4-4 10 7Z' ${F(t, a)}/>`,
+    film: () => (t, a) => `<path fill-rule='evenodd' d='M-6-9H6V9H-6ZM-4-6v4h8v-4ZM-4 2v4h8V2Z' ${F(t, a)}/>`,
+    vase: () => (t, a) => `<path d='M-3-9H3V-7C3-5 7-3 7 2S4 9 0 9-7 7-7 2-3-5-3-7Z' ${F(t, a)}/>`,
+    star8: () => (t, a) => `<g ${F(t, a)}><rect x='-6' y='-6' width='12' height='12'/><rect x='-6' y='-6' width='12' height='12' transform='rotate(45)'/></g>`,
+    pyramid: () => (t, a) => `<path d='M-9 7 0-8 9 7Z' ${F(t, a)}/>`,
+    palm: () => (t, a) => `<g ${F(t, a)}>${[-60, -25, 15, 50].map(q => `<path transform='rotate(${q})' d='M0 0C2-4 2-9 0-12-2-9-2-4 0 0Z'/>`).join("")}<path d='M-.7 0h1.4v10h-1.4Z'/></g>`,
+    ribbon: () => (t, a) => `<path d='M-14 2C-8-6-2 6 4-2S14 0 16-4' fill='none' ${ST(t, a)} stroke-width='2' stroke-linecap='round'/>`
+  };
+  function starPath(r){ let d = ""; for (let i = 0; i < 10; i++) { const rr = i % 2 ? r * .45 : r, q = (i * 36 - 90) * Math.PI / 180; d += (i ? "L" : "M") + (rr * Math.cos(q)).toFixed(1) + " " + (rr * Math.sin(q)).toFixed(1); } return d + "Z"; }
+  M.star5 = r => (t, a) => `<path d='${starPath(r)}' ${F(t, a)}/>`;
+  // Each theme's motifs: [motif, how often, stays upright], and the spacing between them
+  const MOTIFS = {
+    sakura: [30, [[M.blossom(8), 3], [M.petal(), 4], [M.blossom(4), 1]]],
+    galaxy: [26, [[M.star(4), 2, 1], [M.dot(1.2), 5], [M.star(2.6), 2, 1]]],
+    cafe: [34, [[M.bean(), 1]]],
+    forest: [30, [[M.pine(20), 2, 1], [M.pine(13), 2, 1]]],
+    ocean: [32, [[M.wave(), 3, 1], [M.dot(1.4), 1]]],
+    winter: [32, [[M.flake(), 3], [M.dot(1.5), 2]]],
+    lemonade: [34, [[M.lemon(9), 3], [M.leaf(), 1]]],
+    spring: [32, [[M.tulip(), 2, 1], [M.leaf(), 2]]],
+    summer: [32, [[M.sun(), 2], [M.wave(), 2, 1]]],
+    autumn: [32, [[M.maple(), 3], [M.leaf(), 2]]],
+    arctic: [30, [[M.star(4), 2, 1], [M.ribbon(), 1, 1], [M.dot(1.3), 3]]],
+    xmas: [32, [[M.bulb(), 3], [M.star5(5), 1, 1]]],
+    sunset: [32, [[M.shell(), 2, 1], [M.starfish(), 2]]],
+    mint: [30, [[M.leaf(), 3], [M.dot(1.8), 3]]],
+    bokeh: [34, [[M.ringO(6), 2], [M.dot(4), 2], [M.ringO(3.5), 2]]],
+    neon: [32, [[M.ringO(5), 2], [M.ribbon(), 1, 1], [M.dot(1.4), 3]]],
+    candy: [32, [[M.candy(), 3], [M.dot(2), 2]]],
+    cats: [32, [[M.paw(), 3], [M.yarn(6), 1]]],
+    music: [30, [[M.note(), 3, 1], [M.dot(1.3), 2]]],
+    reading: [32, [[M.book(), 3], [M.dot(1.3), 2]]],
+    knitting: [32, [[M.yarn(7), 3], [M.dot(1.3), 2]]],
+    painting: [30, [[M.blob(6), 3], [M.dot(2.2), 2]]],
+    baking: [32, [[M.cupcake(), 2, 1], [M.dot(1.6), 3]]],
+    gardening: [32, [[M.sprout(), 3, 1], [M.leaf(), 2]]],
+    gaming: [30, [[M.plus(), 2], [M.ringO(4), 2], [M.dot(2), 2]]],
+    photography: [32, [[M.aperture(6), 3], [M.dot(1.4), 2]]],
+    newyear: [32, [[M.burst(), 3], [M.dot(1.4), 3]]],
+    lunarnewyear: [34, [[M.lantern(), 2, 1], [M.blossom(6), 2]]],
+    valentines: [30, [[M.heart(), 3], [M.dot(1.4), 2]]],
+    stpatricks: [32, [[M.shamrock(), 3], [M.dot(1.4), 2]]],
+    easter: [32, [[M.egg(), 3], [M.tulip(), 1, 1]]],
+    july4: [30, [[M.star5(5), 3, 1], [M.dot(1.4), 2]]],
+    halloween: [34, [[M.bat(), 2, 1], [M.star5(3.5), 1, 1], [M.dot(1.4), 2]]],
+    thanksgiving: [32, [[M.maple(), 2], [M.acorn(), 2, 1]]],
+    hanukkah: [32, [[M.star6(), 3], [M.dot(1.4), 2]]],
+    diwali: [32, [[M.flame(), 2, 1], [M.blossom(6), 2]]],
+    ramadan: [34, [[M.crescent(), 2], [M.star5(3.5), 2, 1], [M.lantern(), 1, 1]]],
+    holi: [30, [[M.blob(6), 3], [M.dot(2.4), 3]]],
+    midautumn: [34, [[M.moon(6), 1], [M.lantern(), 2, 1], [M.dot(1.4), 2]]],
+    diadelosmuertos: [32, [[M.marigold(), 3], [M.flag(), 2, 1]]],
+    koi: [34, [[M.fish(), 2], [M.lily(7), 2]]],
+    jelly: [34, [[M.jelly(), 2, 1], [M.dot(1.6), 3]]],
+    bamboo: [32, [[M.bamboo(), 2, 1], [M.leaf(), 2]]],
+    lavenderfields: [30, [[M.lavender(), 3, 1], [M.dot(1.2), 1]]],
+    nursing: [32, [[M.plus(), 2], [M.heart(), 2]]],
+    biology: [30, [[M.cell(6), 3], [M.dot(1.6), 2]]],
+    compsci: [32, [[M.chip(), 2], [M.dot(1.6), 3]]],
+    engineering: [34, [[M.gear(), 3], [M.dot(1.4), 1]]],
+    education: [32, [[M.apple(), 2, 1], [M.star5(3.5), 2, 1]]],
+    justice: [34, [[M.lens(), 2], [M.dot(1.4), 2]]],
+    chem: [32, [[M.flask(), 2, 1], [M.ringO(3), 3]]],
+    sketchcity: [34, [[M.building(), 3, 1], [M.dot(1.2), 1]]],
+    rainforest: [32, [[M.leaf(), 3], [M.palm(), 1, 1]]],
+    volcano: [34, [[M.mountain(), 2, 1], [M.palm(), 2, 1]]],
+    geology: [32, [[M.crystal(), 3], [M.dot(1.4), 2]]],
+    film: [32, [[M.film(), 2], [M.star5(3.5), 2, 1]]],
+    culinary: [32, [[M.leaf(), 3], [M.dot(1.6), 2]]],
+    marinebio: [32, [[M.fish(), 2], [M.wave(), 2, 1]]],
+    nighttrain: [32, [[M.crescent(), 1], [M.star(3.5), 3, 1], [M.dot(1.2), 2]]],
+    greenhouse: [32, [[M.leaf(), 3], [M.sprout(), 2, 1]]],
+    pottery: [34, [[M.vase(), 3, 1], [M.dot(1.4), 1]]],
+    campfire: [32, [[M.flame(), 2, 1], [M.star(3), 2, 1]]],
+    aquarium: [32, [[M.fish(), 3], [M.ringO(2.6), 3]]],
+    japan: [30, [[M.blossom(7), 3], [M.wave(), 1, 1]]],
+    morocco: [34, [[M.star8(), 3], [M.dot(1.4), 1]]],
+    italy: [34, [[M.lemon(8), 2], [M.sun(), 1]]],
+    greece: [32, [[M.wave(), 2, 1], [M.leaf(), 2]]],
+    egypt: [34, [[M.pyramid(), 2, 1], [M.sun(), 1]]],
+    canada: [32, [[M.maple(), 3], [M.mountain(), 1, 1]]],
+    mexico: [32, [[M.flag(), 2, 1], [M.marigold(), 2]]],
+    brazil: [32, [[M.palm(), 2, 1], [M.sun(), 1], [M.leaf(), 1]]]
+  };
+
+  /* The pattern: a seeded random scatter over one tile the size of the calculator */
+  const W = 360, H = 680;
+  function rng(seed){ let x = seed >>> 0; return () => { x |= 0; x = x + 0x6D2B79F5 | 0; let t = Math.imul(x ^ x >>> 15, 1 | x); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+  // How strong the tone can be: about 1.07:1 against the body, and never pulling a label under 4.5:1
+  function strength(v){
+    const tone = v.tone || "#ffffff", stops = [v.b1, v.b2, v.b3];
+    let a = 0.005; while (a < 0.6 && cr(mix(v.b2, tone, a), v.b2) < 1.07) a += 0.005;
+    const reads = a => worst(v.alt, stops.map(s => mix(s, tone, a))) >= 4.55 && [v.brand, v.brand2].every(c => !c || cr(c, mix(v.b1, tone, a)) >= 4.55);
+    while (a > 0.005 && !reads(a)) a -= 0.005;
+    return Math.round(a * 1000) / 1000;
+  }
+  const PAT = new Map();
+  function pattern(id, v){
+    const spec = MOTIFS[id]; if (!spec) return "none";
+    if (PAT.has(id)) return PAT.get(id);
+    const [r, motifs] = spec, rnd = rng(hash(id)), bag = [], pts = [], tone = v.tone || "#ffffff", a = strength(v);
+    motifs.forEach(([m, n, up]) => { for (let i = 0; i < n; i++) bag.push([m, up]); });
+    for (let i = 0; i < 4000; i++) { const x = rnd() * (W + 20) - 10, y = rnd() * (H + 20) - 10; if (pts.every(p => (p[0] - x) ** 2 + (p[1] - y) ** 2 >= r * r)) pts.push([x, y]); }
+    const body = pts.map(([x, y]) => { const [m, up] = bag[Math.floor(rnd() * bag.length)], sc = 0.7 + rnd() * 0.5, rot = up ? rnd() * 24 - 12 : rnd() * 360;
+      return `<g transform='translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(0)}) scale(${sc.toFixed(2)})'>${m(tone, a)}</g>`; }).join("");
+    const url = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'>${body}</svg>`)}") 0 0/${W}px ${H}px`;
+    PAT.set(id, url); return url;
+  }
+
+  /* The theme on now, and its calculator */
+  const themeId = () => document.documentElement.dataset.skin || "classic";
+  function varsFor(id){
+    if (!id || id === "classic") return null;
+    if (HAND[id]) return Object.assign({}, HAND[id]);
+    if (DESIGN[id]) return build(DESIGN[id]);
+    const s = (typeof SKINS !== "undefined" ? SKINS : []).find(x => x.id === id);
+    return s && s.light ? derive(s) : null;
+  }
+  const VARS = ["b1", "b2", "b3", "edge", "brand", "brand2", "solar1", "solar2", "solarbg", "lcd1", "lcd2", "lcdink", "lcdframe", "lcdglow", "fn1", "fn2", "fnink", "fnsh", "md1", "md2",
+    "nm1", "nm2", "nmink", "nmsh", "op1", "op2", "opink", "opsh", "dl1", "dl2", "dlink", "dlsh", "eq1", "eq2", "eqink", "eqsh", "sh1", "sh2", "shink", "alt", "xbg", "xink", "keyline", "deco"];
+  function apply(el){
+    if (!el) return;
+    const id = themeId(), v = varsFor(id);
+    VARS.forEach(k => el.style.removeProperty("--" + k));
+    el.querySelectorAll("[data-cx][style]").forEach(b => b.removeAttribute("style"));
+    if (!v) { delete el.dataset.cxskin; return; }
+    el.dataset.cxskin = id;
+    Object.keys(v).forEach(k => { if (VARS.includes(k)) el.style.setProperty("--" + k, v[k]); });
+    // single keys in their own colour
+    if (v.keys) Object.entries(v.keys).forEach(([k, [c1, c2, ink, sh]]) => { const b = el.querySelector(`[data-cx="${k}"]`); if (b) b.setAttribute("style", `background:linear-gradient(180deg,${c1},${c2});color:${ink};box-shadow:0 2px 0 ${sh},0 3px 5px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.5)`); });
+    const p = id === "arcade" ? "none" : pattern(id, v);
+    el.style.setProperty("--deco", p);
+  }
+  SBCALCSKIN = window.SBCALCSKIN = {apply, varsFor, strength, themeId, motifs: id => !!MOTIFS[id], designed: id => !!(HAND[id] || DESIGN[id]),
+    list: () => (typeof SKINS !== "undefined" ? SKINS : []).filter(s => s.light).map(s => ({id: s.id, name: s.name, group: s.group || "", desc: s.desc || ""})), ids: () => ["classic"].concat((typeof SKINS !== "undefined" ? SKINS : []).filter(s => s.light).map(s => s.id))};
+})();
+/* ===== module: 99-calculator.js: a scientific calculator in a floating window ===== */
+/* Opened from the calculator button (the sidebar, the top bar, the ⋯ menu, Search). It works like a handheld scientific
+   calculator: you type a whole expression (with a cursor you can move, DEL and AC), = shows the result under it, and the
+   next key carries on from Ans the way a real one does. SHIFT gives each key its second function (printed above it), HYP the
+   hyperbolic ones, DRG switches degrees, radians and gradians, S⇔D shows a result as a fraction, M+ M− MR MC are the memory,
+   and ↑ ↓ (or the arrows on a keyboard) bring back earlier calculations.
+   The arithmetic is done by math.js (Apache 2.0, vendor/mathjs-15.1.1), loaded the first time the calculator opens; this file
+   only turns the keys into a math.js expression and shows the answer the way a calculator would (10 significant digits,
+   ×10ⁿ for very large and small numbers, Math ERROR and Syntax ERROR). Ans, memory and the last 30 calculations stay on this
+   device (localStorage). The window opens in the middle of the screen. */
+(() => {
+  const MATHJS = "vendor/mathjs-15.1.1/math.js", MATHJS_SRI = "sha384-t7oR8uLVricQrZFFrsUy4VYOTXTDUfbsOgeMFFidEt/LU0woW6jhK4HtagwmEPrM";
+  const LS = "studyboard:calc";
+  const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+
+  /* math.js, set up once: degrees, radians or gradians for the trig functions, and exact zeros where a real calculator shows them */
+  let M = null, loading = null;
+  const C = {angle: "deg"};
+  function loadMath(){
+    if (M) return Promise.resolve(M);
+    if (!loading) loading = (async () => {
+      if (!window.math) await loadScript(MATHJS, MATHJS_SRI);
+      const m = window.math; if (!m || !m.create) throw new Error("no math.js");
+      const math = m.create(m.all, {number: "number", precision: 64});
+      const toRad = x => C.angle === "deg" ? x * Math.PI / 180 : C.angle === "gra" ? x * Math.PI / 200 : x;
+      const fromRad = x => C.angle === "deg" ? x * 180 / Math.PI : C.angle === "gra" ? x * 200 / Math.PI : x;
+      const turn = C2 => C.angle === "deg" ? 180 : C.angle === "gra" ? 200 : null;
+      const clean = v => Math.abs(v) < 1e-15 ? 0 : Math.round(v * 1e15) / 1e15;
+      const num = (x, f) => { if (typeof x !== "number") throw new Error("Math"); return f(x); };
+      const inv = f => x => num(x, v => { if (v < -1 || v > 1) throw new Error("Math"); return fromRad(f(v)); });
+      math.import({
+        sin: x => num(x, v => { const h = turn(); if (h && v % h === 0) return 0; return clean(Math.sin(toRad(v))); }),
+        cos: x => num(x, v => { const h = turn(); if (h && (v - h / 2) % h === 0) return 0; return clean(Math.cos(toRad(v))); }),
+        tan: x => num(x, v => { const h = turn(); if (h && v % h === 0) return 0; if (h && (v - h / 2) % h === 0) throw new Error("Math"); const c = Math.cos(toRad(v)); if (Math.abs(c) < 1e-15) throw new Error("Math"); return clean(Math.tan(toRad(v))); }),
+        asin: inv(Math.asin), acos: inv(Math.acos),
+        atan: x => num(x, v => fromRad(Math.atan(v))),
+        _C: (n, r) => math.combinations(n, r), _P: (n, r) => math.permutations(n, r), _root: (n, x) => math.nthRoot(x, n)
+      }, {override: true});
+      M = math; return M;
+    })().catch(e => { loading = null; throw e; });
+    return loading;
+  }
+
+  /* Keys. Each key types a token {d: what the screen shows, m: what math.js reads}; f: the operand-taking infix keys */
+  const T = (d, m) => ({d, m: m == null ? d : m});
+  const FN = name => T(name + "(", ({sin: "sin(", cos: "cos(", tan: "tan(", "sin⁻¹": "asin(", "cos⁻¹": "acos(", "tan⁻¹": "atan(", sinh: "sinh(", cosh: "cosh(", tanh: "tanh(", "sinh⁻¹": "asinh(", "cosh⁻¹": "acosh(", "tanh⁻¹": "atanh(",
+    log: "log10(", ln: "log(", "√": "sqrt(", "∛": "cbrt(", Abs: "abs("})[name]);
+  // [label, action, shift label, shift action, class]
+  const FKEYS = [
+    ["SHIFT", "shift", "", "", "k-shift"], ["HYP", "hyp", "", "", "k-mode"], ["DRG", "drg", "", "", "k-mode"], ["◀", "left", "", "", "k-nav"], ["▶", "right", "", "", "k-nav"], ["S⇔D", "sd", "", "", "k-mode"],
+    ["x⁻¹", "inv", "x!", "fact"], ["nCr", "ncr", "nPr", "npr"], ["√", "sqrt", "∛", "cbrt"], ["x²", "sq", "x³", "cube"], ["xʸ", "pow", "ʸ√x", "root"], ["log", "log", "10ˣ", "tenx"],
+    ["ln", "ln", "eˣ", "ex"], ["sin", "sin", "sin⁻¹", "asin"], ["cos", "cos", "cos⁻¹", "acos"], ["tan", "tan", "tan⁻¹", "atan"], ["(", "lp", "", ""], [")", "rp", "", ""],
+    ["(−)", "neg", "", ""], ["Abs", "abs", "", ""], ["π", "pi", "e", "e"], ["%", "pct", "", ""], ["M+", "mplus", "M−", "mminus"], ["MR", "mr", "MC", "mc"]];
+  const NKEYS = [
+    ["7", "7"], ["8", "8"], ["9", "9"], ["DEL", "del", "", "", "k-del"], ["AC", "ac", "", "", "k-ac"],
+    ["4", "4"], ["5", "5"], ["6", "6"], ["×", "mul", "", "", "k-op"], ["÷", "div", "", "", "k-op"],
+    ["1", "1"], ["2", "2"], ["3", "3"], ["+", "add", "", "", "k-op"], ["−", "sub", "", "", "k-op"],
+    ["0", "0"], [".", "dot"], ["×10ˣ", "exp", "", "", "k-op"], ["Ans", "ans", "", "", "k-op"], ["=", "eq", "", "", "k-eq"]];
+  // keys that carry on from the last answer when pressed right after =
+  const CARRY = new Set(["add", "sub", "mul", "div", "pow", "sq", "cube", "inv", "fact", "pct", "ncr", "npr", "root"]);
+  const TOK = {
+    "0": T("0"), "1": T("1"), "2": T("2"), "3": T("3"), "4": T("4"), "5": T("5"), "6": T("6"), "7": T("7"), "8": T("8"), "9": T("9"), dot: T("."),
+    add: T("+"), sub: T("−", "-"), mul: T("×", "*"), div: T("÷", "/"), neg: T("−", "-"), pow: T("^", "^"), sq: T("²", "^2"), cube: T("³", "^3"), inv: T("⁻¹", "^(-1)"), fact: T("!"),
+    lp: T("("), rp: T(")"), pi: T("π", "pi"), e: T("e", "(e)"), pct: T("%"), ans: T("Ans", "(Ans)"), mr: T("M", "(M)"), exp: T("ᴇ", "ᴇ"),
+    ncr: T("C", "⒞"), npr: T("P", "⒫"), root: T("ˣ√", "⒭"),
+    sqrt: FN("√"), cbrt: FN("∛"), log: FN("log"), ln: FN("ln"), abs: FN("Abs"), tenx: T("10^(", "10^("), ex: T("e^(", "e^(")
+  };
+  const TRIG = {sin: 1, cos: 1, tan: 1, asin: 1, acos: 1, atan: 1};
+  function tokenFor(a){
+    if (TRIG[a]) { const inverse = a[0] === "a", base = inverse ? a.slice(1) : a, nm = base + (S.hyp ? "h" : "") + (inverse ? "⁻¹" : ""); return FN(nm); }
+    return TOK[a] || null;
+  }
+
+  /* Turning tokens into a math.js expression: nCr, nPr and ˣ√ take the operands either side of them */
+  const OPND = String.raw`(?:\d+\.?\d*(?:e-?\d+)?|\.\d+|\(Ans\)|\(M\)|pi|\(e\)|\([^()]*\))`;
+  function toMath(tokens){
+    let s = tokens.map(t => t.m).join("");
+    // ×10ˣ: 2ᴇ-3 is one number, 2×10⁻³
+    s = s.replace(/(\d*\.?\d+)ᴇ(-?\d+)/g, "($1e$2)").replace(/ᴇ/g, "*10^");
+    const rx = new RegExp(`(${OPND})\\s*([⒞⒫⒭])\\s*(${OPND})`);
+    for (let i = 0, m; i < 20 && (m = rx.exec(s)); i++) s = s.slice(0, m.index) + `${({"⒞": "_C", "⒫": "_P", "⒭": "_root"})[m[2]]}(${m[1]},${m[3]})` + s.slice(m.index + m[0].length);
+    if (/[⒞⒫⒭]/.test(s)) throw new Error("Syntax");
+    // close any brackets left open, like a real calculator does at =
+    const open = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
+    if (open < 0) throw new Error("Syntax");
+    return s + ")".repeat(open);
+  }
+
+  /* Showing a number like a calculator: 10 significant digits, ×10ⁿ outside 10⁻⁹…10¹⁰ */
+  const SUP = {"-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹"};
+  function show(v){
+    if (typeof v !== "number" || !isFinite(v)) throw new Error("Math");
+    if (Object.is(v, -0) || v === 0) return {txt: "0", plain: "0"};
+    const r = Number(v.toPrecision(10)), a = Math.abs(r);
+    if (a >= 1e10 || a < 1e-9) {
+      const [mant, ex] = r.toExponential(9).split("e"), mt = mant.replace(/\.?0+$/, ""), e = String(Number(ex));
+      return {txt: `${mt}×10${e.split("").map(c => SUP[c]).join("")}`, plain: `${mt}e${e}`, sci: {mt, e}};
+    }
+    const p = String(r);
+    return {txt: p.replace("-", "−"), plain: p};
+  }
+  function asFraction(v){
+    if (!M || typeof v !== "number" || !isFinite(v) || Number.isInteger(v)) return "";
+    try { const f = M.fraction(v); if (Number(f.d) > 10000 || Math.abs(Number(f.n) / Number(f.d) * Number(f.s) - v) > 1e-10 * Math.max(1, Math.abs(v))) return "";
+      const n = Number(f.n), d = Number(f.d), neg = Number(f.s) < 0;
+      return `${neg ? "−" : ""}${n}⁄${d}`; } catch (e) { return ""; }
+  }
+
+  /* State */
+  const saved = lsGet(LS, {});
+  const S = {tokens: [], cur: 0, shift: false, hyp: false, done: false, result: null, err: "", frac: false,
+    ans: Number(saved.ans) || 0, mem: Number(saved.mem) || 0, hist: Array.isArray(saved.hist) ? saved.hist.slice(0, 30) : [], hi: -1};
+  C.angle = ["deg", "rad", "gra"].includes(saved.angle) ? saved.angle : "deg";
+  const save = () => lsSet(LS, {ans: S.ans, mem: S.mem, hist: S.hist.slice(0, 30), angle: C.angle});
+
+  function insert(t){
+    if (S.done) { S.done = false; S.err = ""; S.result = null; S.frac = false; }
+    S.tokens.splice(S.cur, 0, t); S.cur++;
+  }
+  async function evaluate(){
+    if (!S.tokens.length) return;
+    let expr; try { expr = toMath(S.tokens); } catch (e) { S.err = "Syntax ERROR"; S.done = true; return; }
+    try { await loadMath(); } catch (e) { S.err = "Couldn't load the calculator"; S.done = true; return; }
+    let v; try { v = M.evaluate(expr, {Ans: S.ans, M: S.mem}); } catch (e) { S.err = /Math|Cannot convert|complex|Infinity/i.test(String(e && e.message)) ? "Math ERROR" : "Syntax ERROR"; S.done = true; return; }
+    if (v && typeof v === "object" && typeof v.toNumber === "function") { try { v = v.toNumber(); } catch (e) {} }
+    try { show(v); } catch (e) { S.err = "Math ERROR"; S.done = true; return; }
+    v = Number(v.toPrecision(15));
+    S.result = v; S.ans = v; S.err = ""; S.done = true; S.frac = false;
+    S.hist.unshift({t: S.tokens.slice(), v}); S.hist = S.hist.slice(0, 30); S.hi = -1;
+    save();
+  }
+  async function press(a){
+    const shifted = S.shift;
+    S.shift = false;
+    if (a === "shift") { S.shift = !shifted; return; }
+    if (a === "hyp") { S.hyp = !S.hyp; return; }
+    if (a === "drg") { C.angle = C.angle === "deg" ? "rad" : C.angle === "rad" ? "gra" : "deg"; save(); return; }
+    if (a === "ac") { S.tokens = []; S.cur = 0; S.done = false; S.result = null; S.err = ""; S.frac = false; S.hyp = false; S.hi = -1; return; }
+    if (a === "del") { if (S.done) { S.done = false; S.err = ""; S.result = null; S.cur = S.tokens.length; return; } if (S.cur > 0) { S.tokens.splice(S.cur - 1, 1); S.cur--; } return; }
+    if (a === "left" || a === "right") {
+      if (S.done) { S.done = false; S.err = ""; S.result = null; S.cur = a === "left" ? S.tokens.length : 0; return; }
+      S.cur = Math.max(0, Math.min(S.tokens.length, S.cur + (a === "left" ? -1 : 1))); return;
+    }
+    if (a === "up" || a === "down") {
+      if (!S.hist.length) return;
+      S.hi = Math.max(0, Math.min(S.hist.length - 1, S.hi + (a === "up" ? 1 : -1)));
+      const h = S.hist[S.hi]; S.tokens = h.t.slice(); S.cur = S.tokens.length; S.result = h.v; S.done = true; S.err = ""; S.frac = false; return;
+    }
+    if (a === "sd") { if (S.done && S.result != null && asFraction(S.result)) S.frac = !S.frac; return; }
+    if (a === "eq") { await evaluate(); return; }
+    if (a === "mplus" || a === "mminus" || a === "mc") {
+      if (a === "mc" || (shifted && a === "mr")) { S.mem = 0; save(); return; }
+      if (!S.done && S.tokens.length) await evaluate();
+      if (S.done && !S.err && S.result != null) { S.mem = Number((S.mem + (a === "mplus" ? S.result : -S.result)).toPrecision(15)); save(); }
+      return;
+    }
+    if (a === "mr" && shifted) { S.mem = 0; save(); return; }
+    if (S.done && !S.err && CARRY.has(a)) { S.done = false; S.result = null; S.tokens = [TOK.ans]; S.cur = 1; }
+    else if (S.done) { S.done = false; S.err = ""; S.result = null; S.tokens = []; S.cur = 0; }
+    const t = tokenFor(a); if (t) insert(t);
+  }
+
+  /* The window */
+  let W = null;
+  const keyHtml = ([l, a, sl, sa, cls]) => `<div class="cx-k ${cls || (/^[0-9.]$/.test(l) ? "k-num" : "k-fn")}">${sl ? `<span class="cx-s" aria-hidden="true">${esc(sl)}</span>` : `<span class="cx-s" aria-hidden="true"></span>`}<button type="button" data-cx="${a}"${sa ? ` data-cxs="${sa}"` : ""} aria-label="${esc(KEYNAME[a] || l)}${sl ? `, shift: ${esc(KEYNAME[sa] || sl)}` : ""}">${esc(l)}</button></div>`;
+  const KEYNAME = {shift: "Shift", hyp: "Hyperbolic", drg: "Degrees, radians or gradians", left: "Move left", right: "Move right", sd: "Fraction or decimal", inv: "Reciprocal", fact: "Factorial", ncr: "Combinations", npr: "Permutations", sqrt: "Square root", cbrt: "Cube root", sq: "Squared", cube: "Cubed", pow: "Power", root: "Root", log: "Log", tenx: "10 to the power", ln: "Natural log", ex: "e to the power", sin: "Sine", asin: "Inverse sine", cos: "Cosine", acos: "Inverse cosine", tan: "Tangent", atan: "Inverse tangent", lp: "Open bracket", rp: "Close bracket", neg: "Negative", abs: "Absolute value", pi: "Pi", e: "e", pct: "Percent", mplus: "Memory add", mminus: "Memory subtract", mr: "Memory recall", mc: "Memory clear", del: "Delete", ac: "All clear", mul: "Times", div: "Divide", add: "Plus", sub: "Minus", dot: "Point", exp: "Times ten to the power", ans: "Answer", eq: "Equals"};
+  function frame(){
+    return `<div class="cx-body">
+      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
+      <div class="cx-lcd" role="group" aria-label="Display">
+        <div class="cx-ind" aria-hidden="true"><span data-i="shift">S</span><span data-i="hyp">HYP</span><span data-i="m">M</span><span class="cx-sp"></span><span data-i="ang"></span></div>
+        <div class="cx-expr" aria-label="Expression"></div>
+        <button type="button" class="cx-res" data-cx="copy" aria-live="polite" title="Copy the answer"></button>
+      </div>
+      <div class="cx-keys cx-f">${FKEYS.map(keyHtml).join("")}</div>
+      <div class="cx-keys cx-n">${NKEYS.map(keyHtml).join("")}</div>
+    </div>`;
+  }
+  function paint(){
+    if (!W) return;
+    W.classList.toggle("is-shift", S.shift); W.classList.toggle("is-hyp", S.hyp);
+    const ind = k => W.querySelector(`[data-i="${k}"]`);
+    ind("shift").classList.toggle("on", S.shift); ind("hyp").classList.toggle("on", S.hyp); ind("m").classList.toggle("on", S.mem !== 0);
+    ind("ang").textContent = {deg: "DEG", rad: "RAD", gra: "GRA"}[C.angle];
+    const ex = W.querySelector(".cx-expr"), caret = !S.done ? S.cur : -1;
+    ex.innerHTML = S.tokens.map((t, i) => `${i === caret ? `<i class="cx-caret"></i>` : ""}<span>${esc(t.d)}</span>`).join("") + (caret === S.tokens.length ? `<i class="cx-caret"></i>` : "");
+    const c = ex.querySelector(".cx-caret"); if (c) { const L = c.offsetLeft; if (L - ex.scrollLeft > ex.clientWidth - 12) ex.scrollLeft = L - ex.clientWidth + 24; else if (L < ex.scrollLeft + 8) ex.scrollLeft = Math.max(0, L - 24); } else ex.scrollLeft = 0;
+    const res = W.querySelector(".cx-res");
+    let txt = ""; if (S.err) txt = S.err; else if (S.done && S.result != null) { try { txt = S.frac && asFraction(S.result) ? asFraction(S.result) : show(S.result).txt; } catch (e) { txt = "Math ERROR"; } } else if (!S.tokens.length) txt = "0";
+    res.textContent = txt; res.classList.toggle("is-err", !!S.err); res.classList.toggle("is-dim", !S.done && !!S.tokens.length);
+    res.classList.toggle("is-long", txt.length > 13);
+    // the second functions print over the keys while SHIFT is on
+    W.querySelectorAll("[data-cxs]").forEach(b => b.classList.toggle("is-alt", S.shift));
+    W.querySelectorAll('[data-cx="sin"],[data-cx="cos"],[data-cx="tan"]').forEach(b => { b.textContent = b.dataset.cx + (S.hyp ? "h" : ""); });
+  }
+  function place(){
+    if (!W) return;
+    if (innerWidth < 640) { W.style.left = W.style.top = ""; return; }
+    // opens in the middle of the screen; it can be dragged anywhere while it's open
+    const w = W.offsetWidth || 344, h = W.offsetHeight || 600;
+    const x = Math.max(8, Math.round((innerWidth - w) / 2)), y = Math.max(8, Math.round((innerHeight - h) / 2));
+    W.style.left = x + "px"; W.style.top = y + "px";
+  }
+  async function act(a, alt){
+    if (a === "close") { close(); return; }
+    if (a === "copy") { const r = W.querySelector(".cx-res").textContent; if (S.done && !S.err && S.result != null) { try { await navigator.clipboard.writeText(S.frac && asFraction(S.result) ? asFraction(S.result).replace("⁄", "/").replace("−", "-") : show(S.result).plain); toast(`Copied ${r}`); } catch (e) {} } return; }
+    await press(S.shift && alt ? alt : a);
+    paint();
+  }
+  function open(){
+    if (W) { W.hidden = false; skin(); place(); W.querySelector('[data-cx="eq"]').focus({preventScroll: true}); return; }
+    W = document.createElement("div"); W.className = "cx"; W.id = "calc"; W.setAttribute("role", "dialog"); W.setAttribute("aria-label", "Calculator");
+    W.innerHTML = frame(); document.body.appendChild(W); skin();
+    // the calculator wears the theme that's on, and changes with it (99-calculator-skins.js)
+    new MutationObserver(() => { if (W && !W.hidden) skin(); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin"]});
+    W.addEventListener("click", e => { const b = e.target.closest("[data-cx]"); if (!b) return; e.preventDefault(); act(b.dataset.cx, b.dataset.cxs); });
+    W.addEventListener("keydown", onKey);
+    // dragging by the top strip (computers)
+    const top = W.querySelector("[data-cx-drag]");
+    top.addEventListener("pointerdown", e => {
+      if (innerWidth < 640 || e.target.closest("button")) return;
+      const r = W.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top; top.setPointerCapture(e.pointerId);
+      const mv = ev => { W.style.left = Math.max(0, Math.min(innerWidth - r.width, ev.clientX - dx)) + "px"; W.style.top = Math.max(0, Math.min(innerHeight - 60, ev.clientY - dy)) + "px"; };
+      const up = () => { top.removeEventListener("pointermove", mv); top.removeEventListener("pointerup", up); };
+      top.addEventListener("pointermove", mv); top.addEventListener("pointerup", up);
+    });
+    let rz = 0; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (W && !W.hidden && innerWidth < 640) place(); else if (W && !W.hidden) { const r = W.getBoundingClientRect(); if (r.right > innerWidth || r.bottom > innerHeight) place(); } }, 100); });
+    place(); paint();
+    loadMath().catch(() => {});
+    W.querySelector('[data-cx="eq"]').focus({preventScroll: true});
+  }
+  function skin(){ try { if (window.SBCALCSKIN) SBCALCSKIN.apply(W); } catch (e) { console.warn("calculator theme", e); } }
+  function close(){ if (!W) return; W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
+  const KEYMAP = {"+": "add", "-": "sub", "*": "mul", "x": "mul", "/": "div", "^": "pow", "(": "lp", ")": "rp", ".": "dot", ",": "dot", "%": "pct", "!": "fact", "Enter": "eq", "=": "eq", "Backspace": "del", "Delete": "ac",
+    "ArrowLeft": "left", "ArrowRight": "right", "ArrowUp": "up", "ArrowDown": "down", "p": "pi", "s": "sin", "c": "cos", "t": "tan", "l": "ln", "g": "log", "r": "sqrt", "e": "e", "a": "ans", "E": "exp"};
+  function onKey(e){
+    if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
+    if (e.key === "Escape") { e.preventDefault(); if (S.tokens.length || S.done) act("ac"); else close(); return; }
+    if (e.key === "Tab" || e.key === " ") return;
+    // Enter on a focused key presses that key; Enter elsewhere is =
+    if (e.key === "Enter" && e.target.closest && e.target.closest("[data-cx]") && e.target.dataset.cx !== "eq") return;
+    const a = /^[0-9]$/.test(e.key) ? e.key : KEYMAP[e.key]; if (!a) return;
+    e.preventDefault();
+    const b = W.querySelector(`[data-cx="${a}"]`); if (b) { b.classList.add("is-down"); setTimeout(() => b.classList.remove("is-down"), 110); }
+    act(a);
+  }
+
+  hook("act", act0 => { if (act0 !== "calc-open") return false; if (W && !W.hidden) close(); else open(); return true; });
+  hook("menu", () => `<button data-act="calc-open"><span>Calculator<span class="sub">A scientific calculator in its own window</span></span></button>`);
+  window.SBCALC = {open, close, press: async a => { await press(a); paint(); }, state: () => ({tokens: S.tokens.map(t => t.d).join(""), result: S.result, err: S.err, mem: S.mem, angle: C.angle, frac: S.frac}), toMath, show};
+})();
 /* ===== module: 99-version-history.js ===== */
 /* Version History (Pro): earlier versions of notes and decks from the last 30 days, invisible until someone needs it.
    - Free stays as it was: a note's Earlier Versions (01-notes.js, NOTEHIST: the last 20 versions per note in localStorage on this device,

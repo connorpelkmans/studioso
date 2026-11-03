@@ -255,6 +255,9 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   ok(p.topics[0].weight === 25 && p.topics[0].links.length === 1 && p.topics[0].links[0].cardIds.length === 2, "weight and links kept, bad links dropped");
   ok(p.intensity === 300 && p.style.length === 1 && p.days.join() === "1,3" && p.rest === true && p.start === "" && p.examDue === "2026-10-14" && p.light === true, "settings clamped");
   ok(normPrep(null) === null && normPrep([]) === null && normPrep("x") === null, "junk is not a plan");
+  const lp = normPrep({topics: [], lesson: {from: "ex0", title: "Quiz <1>", early: "night", shaky: {felt: 140, mark: "60"}, questions: {why: "nope", mark: 80}, junk: 1}});
+  ok(lp.lesson.early === "night" && lp.lesson.shaky.felt === 100 && lp.lesson.shaky.mark === 60 && lp.lesson.questions.why === "worked" && !/[<>]/.test(lp.lesson.title) && !("junk" in lp.lesson), "the reflection's lesson is kept, cleaned");
+  ok(!("lesson" in normPrep({topics: [], lesson: {from: "x", early: "someday"}})), "a lesson with nothing in it is dropped");
   const sa = s.indexOf("/* SYNC-MERGE-START"), sb = s.indexOf("/* SYNC-MERGE-END */");
   const SM = vm.runInNewContext(s.slice(sa, sb) + "\nSyncMerge;", {Date, JSON, Math, Map, Set, Uint16Array, Object, Array, String, Number, Promise});
   const J = x => JSON.parse(JSON.stringify(x)), task = o => Object.assign({id: "ex1", title: "Midterm", type: "Exam", due: "2026-10-20", status: "todo", priority: "med", notes: "", checklist: [], dependsOn: [], history: [], pct: 0}, o);
@@ -263,5 +266,29 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const mine = J(base), theirs = J(base); mine.prep.topics[0].conf = "weak"; mine.prep.intensity = 120; theirs.prep.topics.push(topic("c", "C")); theirs.prep.topics[1].done = true;
   const r = SM.mergeItem("task", base, mine, theirs, {now: Date.parse("2026-10-12T15:00:00Z")}).merged;
   ok(r.prep.topics.length === 3 && r.prep.topics.find(t => t.id === "a").conf === "weak" && r.prep.topics.find(t => t.id === "b").done && r.prep.topics.find(t => t.id === "c") && r.prep.intensity === 120, "two devices' edits to topics and settings merge field by field");
+}
+// the last exam reflection, as plan defaults (lessonOf), and what they do to the plan (early, favor)
+{
+  const L = E.lessonOf;
+  ok(L(null) === null && L({}) === null, "no reflection, no lesson");
+  ok(L({start: "night", methods: ["reread"], felt: 80, measured: null, mark: 62}).early === "night", "started the night before and fell short: learn earlier");
+  ok(L({start: "short", methods: [], felt: 60, mark: 90}) === null, "started late but did well: nothing to change");
+  ok(L({start: "week", methods: ["cram"], felt: 70, mark: 60}).early === "cram", "crammed without spacing: learn earlier");
+  ok(L({start: "week", methods: ["cram", "spaced"], felt: 70, mark: 72}) === null, "spaced study plus a final push is fine");
+  const over = L({start: "days", methods: ["cards"], felt: 85, measured: 70, mark: 66});
+  ok(over.shaky && over.shaky.felt === 85 && over.shaky.mark === 66 && !over.early, "felt 15+ points more ready than the mark: topics start Shaky");
+  ok(L({methods: ["cards"], felt: null, measured: 88, mark: 64}).questions.why === "format", "cards said much more than the mark: practice questions in the exam's format");
+  ok(L({methods: ["practice"], felt: 70, mark: 81}).questions.why === "worked", "practice questions worked: more of them");
+  ok(!L({methods: ["practice"], felt: 90, mark: 71}).questions, "practice questions with overconfidence are not called a success");
+  // early: every topic first learned 5+ days before the exam, and a longer horizon for a far-off exam
+  const due = E.add(T0, 14), learnIn = r => r.sessions.filter(x => x.kind === "learn").map(x => E.diff(x.date, due));
+  ok(Math.min(...learnIn(mk(14, {early: true}))) >= 5, "early: no new material in the last 4 days: " + learnIn(mk(14, {early: true})));
+  ok(dates(mk(30, {early: true}))[0] < dates(mk(30))[0] && dates(mk(30, {early: true}))[0] >= E.add(T0, 2), "early: a far-off exam is planned up to 4 weeks out");
+  ok(!mk(2, {early: true}).err && mk(2, {early: true}).sessions.length > 0, "early with almost no time still makes a plan");
+  // favor questions: more practice question sessions, and a timed practice run with fewer days
+  const q = r => r.sessions.filter(x => x.kind === "questions").length;
+  ok(q(mk(14, {favor: "questions"})) > q(mk(14)), `more practice questions: ${q(mk(14, {favor: "questions"}))} vs ${q(mk(14))}`);
+  const one = d => E.plan({today: T0, due: E.add(T0, d), topics: [topics()[1]], intensity: 90});
+  ok(!one(7).summary.paper && E.plan({today: T0, due: E.add(T0, 7), topics: [topics()[1]], intensity: 90, favor: "questions"}).summary.paper, "a one-topic exam gets a timed practice run when questions are favored");
 }
 console.log(`examprep.test.js: ${n} checks passed`);

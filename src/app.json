@@ -42,7 +42,9 @@
   "101-phone-v2.css",
   "102-qol.css",
   "103-phone-design.css",
-  "99-math.css"
+  "99-math.css",
+  "99-class-sessions.css",
+  "99-calculator.css"
  ],
  "js": [
   "00-core.js",
@@ -231,6 +233,9 @@
   "99-whiteboard-share.js",
   "99-color-picker.js",
   "99-lecture-chain.js",
+  "99-class-sessions.js",
+  "99-calculator-skins.js",
+  "99-calculator.js",
   "99-version-history.js",
   "99-rubric-check.js",
   "99-teach-back.js",

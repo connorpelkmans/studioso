@@ -97,6 +97,8 @@ function occView(type, id, key){
   if (c && c.instructor) rows.push([I.person, esc(c.instructor), "Instructor"]);
   if (c && type === "event") rows.push([I.book, esc(c.name || courseLabel(c)), esc(c.code && c.name ? c.code : "")]);
   if (ev && ev.notes) rows.push([I.note, `<span class="occv-notes">${esc(ev.notes)}</span>`, ""]);
+  // a class: its own page with its notes, files and recording (99-class-sessions.js)
+  if (type === "meet" && window.SBCLS) { try { rows.push(...SBCLS.occRows(o)); } catch (e) { console.warn("class page rows", e); } }
   const url = ev && ev.url && /^https:\/\//i.test(ev.url) ? ev.url : "";
   if (url) rows.push([I.link, `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open link</a>`, ""]);
   const band = c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : `<span class="occv-ic" aria-hidden="true">${I.cal}</span><b>Event</b>`;

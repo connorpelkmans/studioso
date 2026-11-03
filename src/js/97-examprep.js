@@ -20,7 +20,7 @@ const EXAMPREP = (() => {
   const GAPS = [1, 3, 6];
   const TOPIC_CAP = {weak: 150, ok: 100, strong: 60};
   const INTENSITY = {light: 45, normal: 90, intense: 120};
-  const HORIZON = 21, MAX_TOPICS = 3, MIN_SESSION = 10;
+  const HORIZON = 21, HORIZON_EARLY = 28, LEARN_BY = 3, LEARN_BY_EARLY = 5, MAX_TOPICS = 3, MIN_SESSION = 10;
   const KIND_LABEL = {learn: "Learn", cards: "Flashcards", questions: "Practice questions", teach: "Teach-back", recall: "Recall", recap: "Final recap", past: "Timed practice", light: "Light review"};
   const KIND_RANK = {cards: 0, recap: 1, recall: 2, learn: 3, teach: 4, questions: 5, past: 6, light: 7};
   const STYLES = [["mc", "Multiple choice"], ["short", "Short answer"], ["calc", "Calculation"], ["essay", "Essay"], ["practical", "Practical"]];
@@ -196,7 +196,9 @@ const EXAMPREP = (() => {
     if (!isDate(today) || !isDate(due)) return empty("date", "Pick the exam date first.");
     if (due <= today) return empty("past", due === today ? "The exam is today, so there's no day left to plan before it." : "That exam date has passed.");
     const intensity = clamp(Math.round(num(inp.intensity) ? Number(inp.intensity) : INTENSITY.normal), 15, 300), style = Array.isArray(inp.style) ? inp.style : [];
-    const last = add(due, -1), horizon = inp.horizon || HORIZON;
+    // inp.early: front-load (a longer horizon, and every topic first learned 5+ days out); inp.favor "questions": more practice questions
+    const early = !!inp.early, favorQ = inp.favor === "questions";
+    const last = add(due, -1), horizon = inp.horizon || (early ? HORIZON_EARLY : HORIZON);
     let start = inp.start && isDate(inp.start) && inp.start > today ? inp.start : today;
     if (!(inp.start && isDate(inp.start)) && diff(start, due) > horizon) start = add(due, -horizon);
     if (start > last) start = last;
@@ -241,7 +243,7 @@ const EXAMPREP = (() => {
     });
 
     let paper = null;
-    if (reg.length >= 5 && T0.length >= 2 && inp.paper !== false) {
+    if ((favorQ ? reg.length >= 3 : reg.length >= 5 && T0.length >= 2) && inp.paper !== false) {
       const cand = reg.filter(d => diff(d.date, due) >= 3 && diff(d.date, due) <= 5).sort((a, b) => (a.heavy - b.heavy) || (b.cap - a.cap) || (a.date < b.date ? 1 : -1))[0];
       const min = cand ? Math.min(cand.cap, clamp(r5(0.75 * intensity), 45, 90)) : 0;
       if (cand && min >= 40) { paper = {day: cand, min}; cand.used += min; cand.items.push({kind: "past", min, topics: [], text: textFor("past", null, {style}), mat: null}); }
@@ -269,7 +271,7 @@ const EXAMPREP = (() => {
       let nRev = REVIEWS[t.conf];
       while (nRev > 0 && (restM / nRev < 10 || nRev > Math.floor(restM / 10))) nRev--;
       const revMin = nRev ? clamp(r5(restM / nRev), 10, 40) : 0;
-      const seq = t.conf === "strong" ? [quiz ? "questions" : deck ? "cards" : "recall"] : [deck ? "cards" : "recall", "questions", "teach"];
+      const seq = t.conf === "strong" ? [quiz || favorQ ? "questions" : deck ? "cards" : "recall"] : [deck ? "cards" : "recall", "questions", favorQ ? "questions" : "teach"];
       t.touches = {learn: learnMin, recap: recapMin, reviews: seq.slice(0, nRev).map(k => ({kind: k, min: revMin}))};
     });
 
@@ -296,8 +298,9 @@ const EXAMPREP = (() => {
     const order = active.slice().sort((a, b) => b.score - a.score || a.i - b.i);
     const learnDate = {}, lastTouch = {};
     const nL = Math.max(1, Math.ceil(reg.length * 0.55));
-    const learnLimit = reg.filter(d => diff(d.date, due) >= 3);
-    const learnPool = learnLimit.length ? learnLimit : reg;
+    const learnEarly = early ? reg.filter(d => diff(d.date, due) >= LEARN_BY_EARLY) : [];
+    const learnLimit = reg.filter(d => diff(d.date, due) >= LEARN_BY);
+    const learnPool = learnEarly.length >= 2 ? learnEarly : learnLimit.length ? learnLimit : reg;
     const noRoom = [];
     order.forEach((t, i) => {
       if (t.learned) { lastTouch[t.id] = t.lastDone && t.lastDone >= start ? t.lastDone : add(start, -1); return; }
@@ -383,7 +386,25 @@ const EXAMPREP = (() => {
     return {pct: gate && wsum ? Math.round(rsum / wsum * 100) : null, gate, evidence: ev, byTopic};
   }
 
-  return {plan, readiness, matchTopic, flatLinks, suggestTopics, parseTopics, chaptersIn, tokens, keyOf, cleanName, headingsOf, textFor, KIND_LABEL, STYLES, INTENSITY, HORIZON, SHAKY, GAPS, add, diff, dow, isDate, simplePlace};
+  /* What the last exam reflection changes in the next plan's defaults (see 97-exam-wrapper.js for what a reflection holds).
+     early: started 1-2 days before, the night before, or crammed, and it didn't go as well as hoped: learn new material sooner.
+     shaky: felt 15+ points more ready than the mark: new topics start at Shaky, so they get more reviews.
+     questions: practice questions worked (70%+ and no overconfidence), or the cards said 15+ points more than the mark (a format gap). */
+  function lessonOf(w){
+    if (!w || typeof w !== "object") return null;
+    const pct = v => num(v) ? Number(v) : null, felt = pct(w.felt), measured = pct(w.measured), mark = pct(w.mark);
+    const ms = Array.isArray(w.methods) ? w.methods : [], has = k => ms.includes(k);
+    const over = felt != null && mark != null && felt - mark >= 15;
+    const late = w.start === "short" || w.start === "night" || (has("cram") && !has("spaced"));
+    const out = {};
+    if (late && (mark == null || mark < 80 || over)) out.early = w.start === "night" || w.start === "short" ? w.start : "cram";
+    if (over) out.shaky = {felt, mark};
+    if (measured != null && mark != null && measured - mark >= 15) out.questions = {why: "format", measured, mark};
+    else if (has("practice") && mark != null && mark >= 70 && !over) out.questions = {why: "worked", mark};
+    return Object.keys(out).length ? out : null;
+  }
+
+  return {plan, lessonOf, readiness, matchTopic, flatLinks, suggestTopics, parseTopics, chaptersIn, tokens, keyOf, cleanName, headingsOf, textFor, KIND_LABEL, STYLES, INTENSITY, HORIZON, SHAKY, GAPS, add, diff, dow, isDate, simplePlace};
 })();
 /*EXAMPREP-END*/
 
@@ -438,7 +459,18 @@ function suggestFor(ex, courseId){
 function prepOf(ex){
   const p = ex.prep && typeof ex.prep === "object" ? ex.prep : {};
   const topics = (Array.isArray(p.topics) && p.topics.length ? p.topics : (ex.planTopics || []).map(t => ({name: t.name, conf: t.conf}))).map(t => ({id: t.id || uid(), name: t.name, conf: t.conf || "ok", weight: t.weight == null ? null : t.weight, done: !!t.done, links: t.links || [], edited: !!t.edited}));
-  return {topics, intensity: p.intensity || intensityDefault(), style: p.style || [], styleText: p.styleText || "", days: p.days || null, rest: !!p.rest, light: p.light !== false, start: p.start || "", ai: p.ai !== false, examDue: p.examDue || "", createdAt: p.createdAt || 0};
+  return {topics, intensity: p.intensity || intensityDefault(), style: p.style || [], styleText: p.styleText || "", days: p.days || null, rest: !!p.rest, light: p.light !== false, start: p.start || "", ai: p.ai !== false, examDue: p.examDue || "", createdAt: p.createdAt || 0,
+    lesson: p.lesson || null};
+}
+/* The last exam reflection, turned into this plan's defaults (EXAMPREP.lessonOf): only for a plan that doesn't exist yet,
+   and only from a reflection in the last year. Same course first, any course otherwise (SBWRAP.lastWrap). */
+function lessonFor(ex){
+  try {
+    const prev = window.SBWRAP && SBWRAP.lastWrap(ex);
+    if (!prev || !prev.wrap || Date.now() - Number(prev.wrap.at) > 365 * 864e5) return null;
+    const L = EXAMPREP.lessonOf(prev.wrap); if (!L) return null;
+    return Object.assign({from: prev.id, title: prev.title}, L);
+  } catch (e) { return null; }
 }
 function dayInfoFn(ex, from, to){
   const today = todayISO(), now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), act = availActive();
@@ -459,7 +491,7 @@ function dayInfoFn(ex, from, to){
 function inputFor(ex, P, topics, due){
   const today = todayISO(), done = sessionsOf(ex.id).filter(t => t.status === "done").map(t => ({topicId: t.topicId, kind: t.kind, min: minOf(t), date: t.due}));
   return {today, due, topics: topics.map(t => ({id: t.id, name: t.name, conf: t.conf, weight: t.weight, done: t.done, links: liveLinks(t.links)})), intensity: P.intensity, style: P.style,
-    days: P.days, rest: P.rest, light: P.light, start: P.start || "", done, examTitle: ex.title, dayInfo: dayInfoFn(ex, today, due),
+    days: P.days, rest: P.rest, light: P.light, start: P.start || "", done, examTitle: ex.title, early: !!(P.lesson && P.lesson.early), favor: P.lesson && P.lesson.questions ? "questions" : "", dayInfo: dayInfoFn(ex, today, due),
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
 function readyFor(ex){
@@ -540,7 +572,7 @@ function applyPlan(ex0, P, topics, due, time, out, opts){
   });
   olds.filter(o => !used.has(o.id)).forEach(o => changes.push({kind: "task", id: o.id, after: null}));
   const prep = {v: 1, topics: topics.map(t => ({id: t.id, name: t.name, conf: t.conf, weight: t.weight, done: !!t.done, links: (t.links || []).slice(0, 8).map(l => ({k: l.k, id: l.id, title: l.title, deckId: l.deckId || "", cardIds: l.cardIds || null, total: l.total || 0})), edited: !!t.edited})),
-    intensity: P.intensity, style: P.style, styleText: P.styleText || "", days: P.days, rest: !!P.rest, light: P.light !== false, start: P.start || "", ai: !!P.ai, examDue: due, createdAt: (ex.prep && ex.prep.createdAt) || Date.now(), updatedAt: Date.now()};
+    intensity: P.intensity, style: P.style, styleText: P.styleText || "", days: P.days, rest: !!P.rest, light: P.light !== false, start: P.start || "", ai: !!P.ai, lesson: P.lesson || null, examDue: due, createdAt: (ex.prep && ex.prep.createdAt) || Date.now(), updatedAt: Date.now()};
   const ne = Object.assign(clone(state.tasks[ex.id]), {courseId: ex.courseId || "", prep, due, time: time == null ? ex.time : time, planTopics: topics.map(t => ({name: t.name, conf: t.conf})), planPerDay: P.intensity, planStyle: [P.style.map(k => (EXAMPREP.STYLES.find(x => x[0] === k) || [0, k])[1]).join(", "), P.styleText].filter(Boolean).join("; "), planAt: Date.now()});
   if (ne.start && ne.start > ne.due) ne.start = ne.due;
   changes.push({kind: "task", id: ex.id, after: normTask(ne)});
@@ -570,7 +602,7 @@ function stateFor(ex, P){
   const today = todayISO(), act = availActive();
   let days = P.days;
   if (!days) { days = [0, 1, 2, 3, 4, 5, 6]; if (act) { try { const ext = availExtMap(today, addDays(today, 13)), ok = new Set(); for (let i = 0; i < 14; i++) { const d = addDays(today, i); if (availFreeDay(d, null, ext).total >= 30) ok.add(parse(d).getDay()); } if (ok.size >= 3) days = [...ok].sort(); } catch (e) {} } }
-  return {exId: ex.id, step: "plan", topics: P.topics, intensity: P.intensity, style: P.style.slice(), styleText: P.styleText, days, rest: P.rest, light: P.light, start: P.start, ai: P.ai && aiReady(), due: ex.due, time: ex.time || "", courseId: ex.courseId || "", msg: "", busy: false, out: null, open: {}, replan: false};
+  return {exId: ex.id, step: "plan", topics: P.topics, intensity: P.intensity, style: P.style.slice(), styleText: P.styleText, days, rest: P.rest, light: P.light, start: P.start, ai: P.ai && aiReady(), lesson: P.lesson ? clone(P.lesson) : ex.prep ? null : lessonFor(ex), due: ex.due, time: ex.time || "", courseId: ex.courseId || "", msg: "", busy: false, out: null, open: {}, replan: false};
 }
 const exOf = () => S && state.tasks[S.exId];
 function readForm(){
@@ -586,7 +618,7 @@ function readForm(){
   dlg.querySelectorAll("[data-pw]").forEach(i => { const t = S.topics.find(x => x.id === i.dataset.pw); if (t) t.weight = i.value === "" ? null : clamp(Number(i.value) || 0, 0, 100) || null; });
 }
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-function curP(){ return {intensity: S.intensity, style: S.style, styleText: S.styleText, days: S.days.length === 7 ? null : S.days, rest: S.rest, light: S.light, start: S.start, ai: S.ai}; }
+function curP(){ return {intensity: S.intensity, style: S.style, styleText: S.styleText, days: S.days.length === 7 ? null : S.days, rest: S.rest, light: S.light, start: S.start, ai: S.ai, lesson: S.lesson}; }
 function compute(){
   const ex = exOf(); if (!ex) return null;
   const due = S.due; if (!isDate(due)) { S.out = null; return null; }
@@ -594,7 +626,7 @@ function compute(){
 }
 function addTopics(names, src){
   const have = new Set(S.topics.map(t => EXAMPREP.keyOf(t.name))); let n = 0; const mat = materialFor();
-  names.forEach(nm => { const name = String(nm).trim().slice(0, 80), k = EXAMPREP.keyOf(name); if (!name || have.has(k) || S.topics.length >= 40) return; have.add(k); n++; S.topics.push({id: uid(), name, conf: "ok", weight: null, done: false, links: autoLinksFor(name, S.courseId, mat), edited: false}); });
+  names.forEach(nm => { const name = String(nm).trim().slice(0, 80), k = EXAMPREP.keyOf(name); if (!name || have.has(k) || S.topics.length >= 40) return; have.add(k); n++; S.topics.push({id: uid(), name, conf: S.lesson && S.lesson.shaky ? "weak" : "ok", lessonConf: !!(S.lesson && S.lesson.shaky), weight: null, done: false, links: autoLinksFor(name, S.courseId, mat), edited: false}); });
   return n;
 }
 function allMaterialOptions(t){
@@ -641,6 +673,7 @@ function drawPlan(){
     <div class="two"><label class="f">Exam Date<input type="date" id="ppDue" value="${esc(S.due)}" min="${esc(addDays(today, 1))}"></label>
       <label class="f"><span class="lh">Time <span class="hint">optional</span></span><input type="time" id="ppTime" value="${esc(S.time)}"></label></div>
     <p class="mini" style="margin:0">${isDate(S.due) ? `${days} day${days === 1 ? "" : "s"} to go.` : ""}${have.length ? ` This exam already has a plan: ${done} of ${have.length} sessions done.` : ""}</p>
+    ${lessonHtml(out)}
     <label class="f"><span class="lh">Course <span class="hint">material is matched within it</span></span><select id="ppCourse"><option value="">No course</option>${coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === S.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
     <fieldset><legend>What It Covers</legend>
       ${window.SBLC ? SBLC.prepHtml(ex) : ""}<ul class="ep-topics pp-topics">${S.topics.map(topicLi).join("")}</ul>
@@ -655,7 +688,7 @@ function drawPlan(){
       <div class="segb" role="group" aria-label="Study intensity">${INT3.map(([m, l, d]) => `<button type="button" data-pp="int" data-v="${m}" aria-pressed="${S.intensity === m}">${l} <span class="mini">${d}</span></button>`).join("")}</div>
       <p class="mini" style="margin:6px 0 0">Study time a day. ${availActive() ? "Sessions go in your free time, skipping classes, work and shifts." : `Based on your ${fmtHM(dailyHours())} a day.`}</p>
       <div class="ep-days" role="group" aria-label="Study days">${DAYN.map((l, k) => `<button type="button" data-pp="day" data-v="${k}" aria-pressed="${S.days.includes(k)}">${l}</button>`).join("")}</div>
-      <label class="f" style="margin-top:8px"><span class="lh">Start <span class="hint">optional; defaults to today, or 3 weeks before a far-off exam</span></span><input type="date" id="ppStart" value="${esc(S.start)}" min="${esc(today)}"></label>
+      <label class="f" style="margin-top:8px"><span class="lh">Start <span class="hint">optional; defaults to today, or ${S.lesson && S.lesson.early ? 4 : 3} weeks before a far-off exam</span></span><input type="date" id="ppStart" value="${esc(S.start)}" min="${esc(today)}"></label>
       <label class="mi-check"><input type="checkbox" data-pp="light" ${S.light ? "checked" : ""}> Light review the day before (no new material)</label>
       <label class="mi-check"><input type="checkbox" data-pp="rest" ${S.rest ? "checked" : ""}> Keep the day before the exam free as a rest day</label>
       ${aiReady() ? `<label class="mi-check"><input type="checkbox" data-pp="ai" ${S.ai ? "checked" : ""}> ${AI_ICON} Word each session’s instruction with AI <span class="mini">(dates and minutes stay exact)</span></label>${aiModelBar()}` : ""}
@@ -665,6 +698,24 @@ function drawPlan(){
   const n = out && !out.err ? out.sessions.length : 0;
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${have.length && !S.replan ? `<button type="button" class="btn" data-pp="view">Back to Plan</button>` : ""}<button type="button" class="btn primary" id="ppCreate" data-pp="create" ${n ? "" : "disabled"}>${have.length ? `Re-plan ${n} Session${n === 1 ? "" : "s"}` : `Create Plan (${n} Session${n === 1 ? "" : "s"})`}</button>`;
   const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan My Prep" : "Plan My Prep";
+}
+/* What the last reflection changed, one line each, each with its own Undo */
+const LATE = {night: "last time you started the night before", short: "last time you started 1 or 2 days before", cram: "last time it came down to one long session the night before"};
+function lessonHtml(out){
+  const L = S.lesson; if (!L) return "";
+  const lines = [], first = out && !out.err && out.sessions.length ? out.sessions[0].date : "";
+  const undo = k => ` <button type="button" class="link-btn" data-pp="lesson" data-k="${k}">Undo</button>`;
+  if (L.early) {
+    const n = first && isDate(S.due) ? dayDiff(first, S.due) : 0;
+    lines.push((first ? `Starts ${fmtDate(first)}, ${n} day${n === 1 ? "" : "s"} out, with new material first so the last days are for review` : "New material comes first, so the last days are for review") + `: ${LATE[L.early] || LATE.short}.` + undo("early"));
+  }
+  if (L.shaky) lines.push(`Topics start at Shaky: last time you felt ${L.shaky.felt}% ready and got ${L.shaky.mark}%. Mark the ones you know as OK or Strong.` + undo("shaky"));
+  if (L.questions) {
+    const what = `More practice questions${out && !out.err && out.summary.paper ? ", plus a timed practice run" : ""}`;
+    lines.push((L.questions.why === "format" ? `${what}: last time your flashcards and quizzes said ${L.questions.measured}%, but the exam gave ${L.questions.mark}%.` : `${what}: they worked for you last time (${L.questions.mark}%).`) + undo("questions"));
+  }
+  if (!lines.length) return "";
+  return `<div class="pp-lesson" role="note"><b>From your reflection on ${esc(L.title || "your last exam")}</b><ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul></div>`;
 }
 /* the Prep plan view */
 function drawView(){
@@ -739,7 +790,12 @@ async function onClick(e){
   readForm();
   const tp = S.topics.find(x => x.id === id);
   switch (a) {
-    case "conf": if (tp) tp.conf = b.dataset.v; break;
+    case "conf": if (tp) { tp.conf = b.dataset.v; delete tp.lessonConf; } break;
+    case "lesson": if (S.lesson) {
+      const k = b.dataset.k; delete S.lesson[k];
+      if (k === "shaky") S.topics.forEach(x => { if (x.lessonConf) { x.conf = "ok"; delete x.lessonConf; } });
+      if (!S.lesson.early && !S.lesson.shaky && !S.lesson.questions) S.lesson = null;
+    } break;
     case "rm": S.topics = S.topics.filter(x => x.id !== id); break;
     case "mat": S.open[id] = !S.open[id]; break;
     case "unlink": if (tp) { const ls = liveLinks(tp.links); ls.splice(Number(b.dataset.i), 1); tp.links = ls; tp.edited = true; } break;

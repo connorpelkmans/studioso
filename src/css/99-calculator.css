@@ -1,0 +1,220 @@
+/* The calculator (99-calculator.js): a handheld scientific calculator, the same in light and dark mode.
+   Every colour is a variable: the values below are Classic, and each theme sets its own on .cx (99-calculator-skins.js),
+   with a subtle pattern in --deco. Every label is at least 4.5:1 against its key or the body (WCAG AA for small text). */
+@media (max-width:639px){header.top .calc-btn{display:none}}
+.cx{--b1:#3c424c;--b2:#2a2e35;--b3:#202329;--edge:#14161a;--brand:#c8ccd4;--brand2:#f0a33a;--solar1:#5a3d2c;--solar2:#2c1d16;--solarbg:#16181c;
+  --lcd1:#c6d0b4;--lcd2:#b7c2a3;--lcdink:#1c2216;--lcdframe:#15171b;--lcdglow:none;--fn1:#4a505a;--fn2:#383d45;--fnink:#f2f3f5;--fnsh:#121418;--md1:#5b626d;--md2:#474d57;
+  --nm1:#f4f5f7;--nm2:#d9dce1;--nmink:#1d2026;--nmsh:#8d929b;--op1:#e6e8ec;--op2:#c9cdd4;--opink:#1d2026;--opsh:#7f848d;
+  --dl1:#ba5424;--dl2:#a8420f;--dlink:#fff;--dlsh:#6b2a08;--eq1:#3f72dc;--eq2:#2a55b3;--eqink:#fff;--eqsh:#16336f;
+  --sh1:#f3b14d;--sh2:#d98f22;--shink:#2a1a05;--alt:#f0a33a;--xbg:rgba(255,255,255,.1);--xink:#d9dce2;--keyline:0 0 0 transparent;--deco:none;
+  position:fixed;z-index:60;width:344px;max-width:calc(100vw - 16px);filter:drop-shadow(0 18px 40px rgba(0,0,0,.35)) drop-shadow(0 3px 8px rgba(0,0,0,.25));font-family:var(--display),system-ui,sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.cx[hidden]{display:none}
+.cx-body{padding:10px 14px 16px;border-radius:22px 22px 30px 30px;background:var(--deco),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%);border:1px solid var(--edge);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -2px 0 rgba(0,0,0,.4)}
+.cx-top{display:flex;align-items:center;gap:10px;height:34px;margin:0 -2px 6px;cursor:grab}
+.cx-top:active{cursor:grabbing}
+.cx-brand{font:800 .72rem/1 var(--display);letter-spacing:.14em;color:var(--brand)}
+.cx-brand b{font-style:italic;letter-spacing:0;color:var(--brand2)}
+.cx-solar{display:flex;margin-left:auto;padding:3px;border-radius:5px;background:var(--solarbg);box-shadow:inset 0 1px 2px rgba(0,0,0,.7)}
+.cx-solar i{width:15px;height:13px;margin:0 1px;border-radius:2px;background:linear-gradient(160deg,var(--solar1),var(--solar2))}
+.cx-x{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:var(--xbg);color:var(--xink);cursor:pointer}
+.cx-x svg{width:15px;height:15px}
+.cx-x:hover,.cx-x:focus-visible{filter:brightness(1.15)}
+.cx-lcd{position:relative;margin:0 0 14px;padding:6px 12px 8px;border-radius:10px;background:linear-gradient(180deg,var(--lcd1),var(--lcd2));border:5px solid var(--lcdframe);box-shadow:inset 0 2px 6px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.08);color:var(--lcdink);min-height:104px;display:flex;flex-direction:column}
+.cx-ind{display:flex;gap:8px;height:13px;font:800 .6rem/13px var(--display);letter-spacing:.05em}
+.cx-ind span{opacity:.12}
+.cx-ind span.on,.cx-ind [data-i="ang"]{opacity:.85}
+.cx-ind .cx-sp{flex:1}
+.cx-expr,.cx-res{text-shadow:var(--lcdglow)}
+.cx-expr{height:30px;margin-top:4px;white-space:nowrap;overflow:hidden;font:500 1.12rem/30px ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.02em}
+.cx-expr span{white-space:pre}
+.cx-caret{display:inline-block;width:2px;height:1.15em;margin:0 -1px;vertical-align:-3px;background:var(--lcdink);animation:cx-blink 1.05s steps(1) infinite}
+@keyframes cx-blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.cx-caret{animation:none}}
+.cx-res{margin-top:auto;align-self:stretch;border:0;padding:0;background:none;text-align:right;font:600 2.15rem/1.15 ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;color:var(--lcdink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:copy}
+.cx-res.is-long{font-size:1.6rem}
+.cx-res.is-dim{opacity:0}
+.cx-res.is-err{font-size:1.5rem;cursor:default}
+.cx-res:focus-visible{outline:2px dashed var(--lcdink);outline-offset:2px}
+.cx-keys{display:grid;gap:6px 7px}
+.cx-f{grid-template-columns:repeat(6,1fr);margin-bottom:12px}
+.cx-n{grid-template-columns:repeat(5,1fr);gap:10px 9px}
+.cx-k{display:flex;flex-direction:column;align-items:center;min-width:0}
+.cx-s{height:12px;font:800 .62rem/12px var(--display);color:var(--alt);white-space:nowrap}
+.cx-k button{width:100%;min-width:0;border:0;cursor:pointer;font:700 .78rem/1 var(--display);color:var(--fnink);height:30px;border-radius:9px 9px 12px 12px;padding:0 2px;background:linear-gradient(180deg,var(--fn1),var(--fn2));box-shadow:0 2px 0 var(--fnsh),0 3px 4px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.14),var(--keyline);transition:transform 60ms,box-shadow 60ms;white-space:nowrap;overflow:hidden}
+.cx-k button:active,.cx-k button.is-down{transform:translateY(2px);box-shadow:0 0 0 var(--fnsh),0 1px 2px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.1),var(--keyline)}
+.cx-k button:focus-visible{outline:2px solid var(--alt);outline-offset:2px}
+.cx-k.k-shift button{background:linear-gradient(180deg,var(--sh1),var(--sh2));color:var(--shink)}
+.cx-k.k-mode button,.cx-k.k-nav button{background:linear-gradient(180deg,var(--md1),var(--md2));font-size:.7rem}
+.cx-n .cx-k .cx-s{height:4px}
+.cx-n .cx-k button{height:44px;font-size:1.25rem;font-weight:600}
+.cx-n .k-num button{background:linear-gradient(180deg,var(--nm1),var(--nm2));color:var(--nmink);box-shadow:0 2px 0 var(--nmsh),0 3px 5px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.7),var(--keyline)}
+.cx-n .k-num button:active,.cx-n .k-num button.is-down{box-shadow:0 0 0 var(--nmsh),0 1px 2px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.7),var(--keyline)}
+.cx-n .k-op button{background:linear-gradient(180deg,var(--op1),var(--op2));color:var(--opink);box-shadow:0 2px 0 var(--opsh),0 3px 5px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.6),var(--keyline)}
+.cx-n .k-op button[data-cx="exp"],.cx-n .k-op button[data-cx="ans"]{font-size:.92rem}
+.cx-n .k-del button,.cx-n .k-ac button{background:linear-gradient(180deg,var(--dl1),var(--dl2));color:var(--dlink);font-size:1rem;box-shadow:0 2px 0 var(--dlsh),0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.cx-n .k-eq button{background:linear-gradient(180deg,var(--eq1),var(--eq2));color:var(--eqink);box-shadow:0 2px 0 var(--eqsh),0 3px 5px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+/* SHIFT on: the keys with a second function light up */
+.cx.is-shift .cx-k button[data-cxs]{box-shadow:0 2px 0 var(--fnsh),0 0 0 2px var(--sh1),inset 0 1px 0 rgba(255,255,255,.14)}
+.cx.is-shift .cx-n .k-num button[data-cxs],.cx.is-shift .cx-n .k-op button[data-cxs]{box-shadow:0 2px 0 var(--opsh),0 0 0 2px var(--sh1)}
+.cx.is-shift .cx-k.k-shift button{filter:brightness(1.12) saturate(1.1)}
+.cx.is-hyp .cx-k button[data-cx="hyp"]{box-shadow:0 2px 0 var(--fnsh),0 0 0 2px var(--alt)}
+/* Synthwave: neon edges, a glowing grid screen */
+.cx[data-cxskin=arcade] .cx-body{box-shadow:0 0 0 1px #ff2fb3,0 0 22px rgba(255,47,179,.45),inset 0 0 30px rgba(122,43,255,.25)}
+.cx[data-cxskin=arcade] .cx-lcd{background:linear-gradient(180deg,transparent 55%,rgba(255,47,179,.18)),repeating-linear-gradient(90deg,rgba(40,230,255,.09) 0 1px,transparent 1px 18px),repeating-linear-gradient(0deg,rgba(40,230,255,.09) 0 1px,transparent 1px 18px),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+.cx[data-cxskin=arcade] .cx-n .k-num button,.cx[data-cxskin=arcade] .cx-n .k-op button{box-shadow:0 2px 0 #05020d,inset 0 0 0 1px rgba(40,230,255,.55),0 0 8px rgba(40,230,255,.18)}
+/* phones: a sheet along the bottom */
+@media (max-width:639px){
+  .cx{left:8px!important;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));top:auto!important;width:auto;max-width:none;max-height:calc(100dvh - 16px);overflow:auto}
+  .cx-top{cursor:default}
+  .cx-n .cx-k button{height:48px}
+  .cx-k button{height:32px}
+}
+/* Signature touches: one clean, fun detail per theme, kept off the lettering (a screen effect, a trim, a key, an edge band).
+   Overlays on a screen stay faint so the digits keep their contrast; keys that change finish keep their dark lettering. */
+.cx[data-cxskin] .cx-body{position:relative}
+/* a band along the bottom edge of the body, under the last row of keys */
+.cx[data-cxskin] .cx-body::after{content:"";position:absolute;left:18px;right:18px;bottom:5px;height:6px;border-radius:3px;background:var(--band,none);pointer-events:none}
+/* metallic finish on a key with dark lettering: a soft highlight across the top */
+.cx .k-eq.is-metal button,.cx[data-cxskin=newyear] .k-eq button,.cx[data-cxskin=stpatricks] .k-eq button,.cx[data-cxskin=hanukkah] .k-eq button,.cx[data-cxskin=lunarnewyear] .k-eq button,.cx[data-cxskin=ramadan] .k-eq button,.cx[data-cxskin=diwali] .k-eq button{background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 48%),linear-gradient(180deg,var(--eq1),var(--eq2))}
+/* Galaxy: a few stars in the screen */
+.cx[data-cxskin=galaxy] .cx-lcd{background:radial-gradient(1px 1px at 12% 28%,rgba(255,255,255,.55),transparent),radial-gradient(1.2px 1.2px at 34% 72%,rgba(255,255,255,.4),transparent),radial-gradient(1px 1px at 58% 22%,rgba(255,229,122,.55),transparent),radial-gradient(1px 1px at 82% 40%,rgba(255,255,255,.45),transparent),radial-gradient(1px 1px at 22% 86%,rgba(197,188,245,.5),transparent),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Winter: frost in the screen's corners */
+.cx[data-cxskin=winter] .cx-lcd{background:radial-gradient(60px 40px at 0 0,rgba(255,255,255,.9),transparent 70%),radial-gradient(70px 44px at 100% 100%,rgba(255,255,255,.85),transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Ocean: a foam-white rim inside the screen */
+.cx[data-cxskin=ocean] .cx-lcd{box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),inset 0 2px 6px rgba(0,0,0,.25)}
+/* Cozy Cafe: a warm glow in the screen, like light through a cup */
+.cx[data-cxskin=cafe] .cx-lcd{box-shadow:inset 0 0 18px rgba(255,214,140,.65),inset 0 2px 6px rgba(0,0,0,.3)}
+/* Lemonade: the stand's striped awning along the top edge */
+.cx[data-cxskin=lemonade] .cx-body{background:repeating-linear-gradient(90deg,#fff8dc 0 14px,#f2b705 14px 28px) 0 0/100% 7px no-repeat,var(--deco),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%)}
+/* Halloween: glowing jack-o'-lantern digits on a dark screen, a pumpkin glow round the frame */
+.cx[data-cxskin=halloween] .cx-lcd{box-shadow:inset 0 0 22px rgba(255,120,30,.28),0 0 12px rgba(255,120,30,.25)}
+/* New Year's Eve: a gold screen frame and a gold = */
+.cx[data-cxskin=newyear] .cx-lcd{border-color:#c9a23a;box-shadow:inset 0 2px 6px rgba(0,0,0,.35),0 0 0 1px #f0d98a}
+/* Lunar New Year: a gold rim round the lacquer body and the screen */
+.cx[data-cxskin=lunarnewyear] .cx-body{box-shadow:inset 0 0 0 3px #e9b949,inset 0 0 0 5px rgba(90,13,10,.6)}
+.cx[data-cxskin=lunarnewyear] .cx-lcd{border-color:#c9952a}
+/* St. Patrick's Day: a little rainbow over the screen and a pot-of-gold = */
+.cx[data-cxskin=stpatricks] .cx-lcd{border-top-width:0;box-shadow:inset 0 2px 6px rgba(0,0,0,.25),0 -5px 0 -1px #0f3d20,0 -4px 0 0 transparent}
+.cx[data-cxskin=stpatricks] .cx-lcd::before{content:"";position:absolute;left:-5px;right:-5px;top:-5px;height:5px;border-radius:6px 6px 0 0;background:linear-gradient(90deg,#e8463a,#f08a2c,#f2c230,#4caf50,#2f86d6,#7b4fc9)}
+/* Easter: every number key a different pastel egg */
+.cx[data-cxskin=easter] [data-cx="1"],.cx[data-cxskin=easter] [data-cx="6"]{background:linear-gradient(180deg,#ffe3ee,#fbd3e2)!important}
+.cx[data-cxskin=easter] [data-cx="2"],.cx[data-cxskin=easter] [data-cx="7"]{background:linear-gradient(180deg,#fff6cc,#fbecb0)!important}
+.cx[data-cxskin=easter] [data-cx="3"],.cx[data-cxskin=easter] [data-cx="8"]{background:linear-gradient(180deg,#dcf5e6,#c9eed8)!important}
+.cx[data-cxskin=easter] [data-cx="4"],.cx[data-cxskin=easter] [data-cx="9"]{background:linear-gradient(180deg,#dcecff,#cce1fb)!important}
+.cx[data-cxskin=easter] [data-cx="5"],.cx[data-cxskin=easter] [data-cx="0"]{background:linear-gradient(180deg,#ece3ff,#ddd0fb)!important}
+/* Fourth of July: red and white stripes along the bottom edge */
+.cx[data-cxskin=july4]{--band:repeating-linear-gradient(90deg,#c8283a 0 10px,#ffffff 10px 20px)}
+/* Hanukkah: a silver screen frame and a silver = */
+.cx[data-cxskin=hanukkah] .cx-lcd{border-color:#b9c3d6;box-shadow:inset 0 2px 6px rgba(0,0,0,.25),0 0 0 1px #e9eef7}
+/* Christmas Lights: a string of lights along the top edge */
+.cx[data-cxskin=xmas] .cx-body{background:radial-gradient(circle,#ff5a5a 0 3px,transparent 3.5px) 6px 3px/48px 10px repeat-x,radial-gradient(circle,#ffd25a 0 3px,transparent 3.5px) 18px 3px/48px 10px repeat-x,radial-gradient(circle,#6fd86f 0 3px,transparent 3.5px) 30px 3px/48px 10px repeat-x,radial-gradient(circle,#6fb4ff 0 3px,transparent 3.5px) 42px 3px/48px 10px repeat-x,var(--deco),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%)}
+.cx[data-cxskin=xmas] .cx-top{margin-top:4px}
+/* Diwali: a warm diya glow round the screen */
+.cx[data-cxskin=diwali] .cx-lcd{border-color:#d99a2b;box-shadow:inset 0 2px 6px rgba(0,0,0,.2),0 0 14px rgba(255,170,60,.55)}
+/* Ramadan: a gold frame and lantern light in the screen */
+.cx[data-cxskin=ramadan] .cx-lcd{border-color:#c9a23a;background:radial-gradient(120px 70px at 85% 0,rgba(255,214,140,.45),transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Holi: a rainbow of powder colours round the screen */
+.cx[data-cxskin=holi] .cx-lcd{border-color:transparent;background:linear-gradient(180deg,var(--lcd1),var(--lcd2)) padding-box,linear-gradient(90deg,#ff4fa3,#ffd23f,#3fd17a,#3fa9ff,#8e44f0) border-box}
+/* Mid-Autumn: a full moon's glow in the screen */
+.cx[data-cxskin=midautumn] .cx-lcd{background:radial-gradient(48px 48px at 18% 50%,rgba(255,224,150,.6),transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Dia de los Muertos: papel picado colours along the bottom edge */
+.cx[data-cxskin=diadelosmuertos]{--band:linear-gradient(90deg,#e8327a 0 20%,#ff9d2e 20% 40%,#20a39e 40% 60%,#8e44f0 60% 80%,#f2c230 80%)}
+/* Summer: sun glare in the screen */
+.cx[data-cxskin=summer] .cx-lcd{background:radial-gradient(90px 60px at 100% 0,rgba(255,230,140,.6),transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Japan: a red hanko seal by the brand */
+.cx[data-cxskin=japan] .cx-brand::after{content:"";display:inline-block;width:13px;height:13px;margin-left:8px;vertical-align:-2px;border-radius:3px;background:#c8321f;box-shadow:inset 0 0 0 2px #e05a44,inset 0 0 0 3.5px #c8321f,inset 0 0 0 4.5px rgba(255,255,255,.55)}
+/* Greece: a Greek key along the bottom edge */
+.cx[data-cxskin=greece] .cx-body::after{height:9px;bottom:4px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='9'%3E%3Cpath d='M0 8.25H13.5V.75H4.5V5.25H9V3' fill='none' stroke='%230d4f9e' stroke-width='1.5'/%3E%3C/svg%3E") 0 0/18px 9px repeat-x}
+/* Morocco: a zellige-teal inlay round the body */
+.cx[data-cxskin=morocco] .cx-body{box-shadow:inset 0 0 0 3px #3fa39b,inset 0 0 0 5px rgba(90,36,16,.55)}
+/* Egypt: a gold cartouche round the screen */
+.cx[data-cxskin=egypt] .cx-lcd{border-color:#b8862a;border-radius:18px;box-shadow:inset 0 2px 6px rgba(0,0,0,.2),0 0 0 2px #e8c66a}
+/* Mexico: serape stripes along the bottom edge */
+.cx[data-cxskin=mexico]{--band:linear-gradient(90deg,#c4206a 0 16%,#2b5fb8 16% 33%,#1f9e8f 33% 50%,#fff4e0 50% 58%,#e8402c 58% 75%,#c4206a 75% 90%,#2b5fb8 90%)}
+/* Brazil: a round blue = with a yellow ring */
+.cx[data-cxskin=brazil] .k-eq button{border-radius:999px;box-shadow:0 2px 0 var(--eqsh),0 0 0 3px #ffdf3a,0 3px 5px rgba(0,0,0,.3)}
+/* Northern Lights: aurora ribbons across the screen */
+.cx[data-cxskin=arctic] .cx-lcd{background:linear-gradient(170deg,transparent 30%,rgba(60,255,170,.16) 42%,transparent 55%),linear-gradient(185deg,transparent 45%,rgba(150,90,255,.16) 58%,transparent 72%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Sunset Beach: the body fades from coral to gold like the sky */
+.cx[data-cxskin=sunset] .cx-body{background:var(--deco),linear-gradient(180deg,#f58a8a 0%,#f7a37c 40%,#ffc27a 100%)}
+/* Mint Chip: a chocolate screen frame with rounded corners */
+.cx[data-cxskin=mint] .cx-lcd{border-width:6px;border-radius:14px}
+/* Colorful Bokeh: soft circles of light in the screen */
+.cx[data-cxskin=bokeh] .cx-lcd{background:radial-gradient(22px 22px at 18% 40%,rgba(255,122,168,.35),transparent 70%),radial-gradient(28px 28px at 46% 70%,rgba(255,213,107,.28),transparent 70%),radial-gradient(18px 18px at 72% 30%,rgba(120,200,255,.35),transparent 70%),radial-gradient(24px 24px at 90% 75%,rgba(160,130,255,.3),transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Neon Dusk: a blue and magenta neon edge */
+.cx[data-cxskin=neon] .cx-body{box-shadow:0 0 0 1px #8098ff,0 0 20px rgba(128,152,255,.45),0 0 34px rgba(200,75,235,.25),inset 0 0 26px rgba(200,75,235,.18)}
+/* Candy Land: a candy-stripe band along the bottom edge */
+.cx[data-cxskin=candy]{--band:repeating-linear-gradient(135deg,#ff6fb5 0 6px,#ffffff 6px 12px)}
+/* Cozy Cats: two little ears on top */
+.cx[data-cxskin=cats]::before,.cx[data-cxskin=cats]::after{content:"";position:absolute;top:-13px;width:30px;height:24px;background:#e3c3a8;clip-path:polygon(50% 0,100% 100%,0 100%);z-index:-1}
+.cx[data-cxskin=cats]::before{left:34px;transform:rotate(-12deg)}
+.cx[data-cxskin=cats]::after{right:34px;transform:rotate(12deg)}
+/* Music Room: a stave in the screen */
+.cx[data-cxskin=music] .cx-lcd{background:repeating-linear-gradient(180deg,transparent 0 13px,rgba(61,53,144,.13) 13px 14px) 0 22px/100% 70px no-repeat,linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Reading Nook: gold stitching round the leather cover */
+.cx[data-cxskin=reading] .cx-body{box-shadow:inset 0 0 0 5px transparent,inset 0 1px 0 rgba(255,255,255,.12);outline:1.5px dashed rgba(224,194,122,.7);outline-offset:-7px}
+/* Knitting Nook: a stitched seam round the screen */
+.cx[data-cxskin=knitting] .cx-lcd{outline:2px dashed #c45a6a;outline-offset:3px}
+/* Art Studio: a paint-dab rainbow along the bottom edge */
+.cx[data-cxskin=painting]{--band:linear-gradient(90deg,#e8463a 0 25%,#f2c230 25% 50%,#3fa86a 50% 75%,#2f66b8 75%)}
+/* Bake Shop: sprinkles along the bottom edge */
+.cx[data-cxskin=baking]{--band:repeating-linear-gradient(90deg,#ff7aa8 0 5px,transparent 5px 9px,#7ad0ff 9px 14px,transparent 14px 18px,#ffd23f 18px 23px,transparent 23px 27px,#8be08a 27px 32px,transparent 32px 36px)}
+/* Garden Plot: a terracotta rim along the bottom edge */
+.cx[data-cxskin=gardening]{--band:linear-gradient(180deg,#d98a4a,#b8622a)}
+/* Game Night: a pixel screen and a round A-button = */
+.cx[data-cxskin=gaming] .cx-lcd{background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+.cx[data-cxskin=gaming] .k-eq button{border-radius:999px}
+/* Photo Walk: a silver lens ring round the screen */
+.cx[data-cxskin=photography] .cx-lcd{border-color:#a9a9a9;border-radius:16px;box-shadow:inset 0 2px 6px rgba(0,0,0,.3),0 0 0 2px #dcdcdc,0 0 0 4px #555}
+/* Movie Palace: marquee lights round the screen */
+.cx[data-cxskin=film] .cx-lcd{box-shadow:inset 0 2px 6px rgba(0,0,0,.25),0 0 0 3px #2a0a0d;outline:3px dotted #f4d48a;outline-offset:3px}
+/* Test Kitchen: a copper screen frame */
+.cx[data-cxskin=culinary] .cx-lcd{border-color:#b8643a;box-shadow:inset 0 2px 6px rgba(0,0,0,.2),0 0 0 1px #e3a26f}
+/* Pottery Studio: a glaze drip along the top edge */
+.cx[data-cxskin=pottery] .cx-body{background:radial-gradient(9px 12px at 30px 7px,#3f6b7a 98%,transparent) ,radial-gradient(7px 10px at 120px 7px,#3f6b7a 98%,transparent),radial-gradient(8px 14px at 230px 7px,#3f6b7a 98%,transparent),radial-gradient(6px 9px at 300px 7px,#3f6b7a 98%,transparent),linear-gradient(#3f6b7a,#3f6b7a) 0 0/100% 7px no-repeat,var(--deco),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%);background-repeat:no-repeat}
+.cx[data-cxskin=pottery] .cx-top{margin-top:6px}
+/* Night Shift: a heartbeat trace in the screen */
+.cx[data-cxskin=nursing] .cx-lcd{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='40'%3E%3Cpath d='M0 26H110L118 26 124 10 132 36 138 20 144 26H300' fill='none' stroke='%234fb3a9' stroke-opacity='.35' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E") 0 18px/100% 40px no-repeat,linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Cell Garden: a round microscope view */
+.cx[data-cxskin=biology] .cx-lcd{border-radius:28px;box-shadow:inset 0 0 0 3px rgba(29,90,70,.15),inset 0 0 22px rgba(29,90,70,.18)}
+/* Code Night: terminal scanlines */
+.cx[data-cxskin=compsci] .cx-lcd{background:repeating-linear-gradient(180deg,rgba(76,242,160,.06) 0 1px,transparent 1px 3px),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Gear Works: a blueprint grid in the screen and a brass = */
+.cx[data-cxskin=engineering] .cx-lcd{background:repeating-linear-gradient(0deg,rgba(15,42,79,.08) 0 1px,transparent 1px 12px),repeating-linear-gradient(90deg,rgba(15,42,79,.08) 0 1px,transparent 1px 12px),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+.cx[data-cxskin=engineering] .k-eq button{background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 48%),linear-gradient(180deg,var(--eq1),var(--eq2))}
+/* Sunny Classroom: a lined-paper screen with a red margin */
+.cx[data-cxskin=education] .cx-lcd{background:linear-gradient(90deg,transparent 22px,rgba(232,70,58,.35) 22px 23px,transparent 23px),repeating-linear-gradient(180deg,transparent 0 17px,rgba(60,110,200,.16) 17px 18px),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Case Room: a red pushpin on the screen's corner */
+.cx[data-cxskin=justice] .cx-lcd::before{content:"";position:absolute;top:-9px;left:-9px;width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ff7a7a,#c8283a 60%,#7a1018);box-shadow:0 2px 3px rgba(0,0,0,.45)}
+/* Chem Lab: bubbles rising in the screen */
+.cx[data-cxskin=chem] .cx-lcd{background:radial-gradient(4px 4px at 14% 80%,rgba(31,138,168,.3) 60%,transparent 70%),radial-gradient(3px 3px at 20% 55%,rgba(31,138,168,.25) 60%,transparent 70%),radial-gradient(5px 5px at 9% 35%,rgba(142,68,240,.22) 60%,transparent 70%),radial-gradient(3px 3px at 26% 20%,rgba(31,138,168,.25) 60%,transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Sketch City: graph paper in the screen */
+.cx[data-cxskin=sketchcity] .cx-lcd{background:repeating-linear-gradient(0deg,rgba(61,111,184,.1) 0 1px,transparent 1px 10px),repeating-linear-gradient(90deg,rgba(61,111,184,.1) 0 1px,transparent 1px 10px),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Koi Pond: ripples in the screen */
+.cx[data-cxskin=koi] .cx-lcd{background:radial-gradient(circle at 20% 60%,transparent 14px,rgba(29,90,70,.12) 15px 16px,transparent 17px 24px,rgba(29,90,70,.08) 25px 26px,transparent 27px),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Jellyfish Drift: a soft bioluminescent glow */
+.cx[data-cxskin=jelly] .cx-body{box-shadow:0 0 0 1px rgba(139,232,240,.5),0 0 24px rgba(139,232,240,.35),inset 0 0 24px rgba(240,166,230,.15)}
+/* Bamboo Grove: bamboo stalks down both sides */
+.cx[data-cxskin=bamboo] .cx-body{background:linear-gradient(180deg,#7fa84a 0 60px,#5f8a2f 60px 62px,#7fa84a 62px 160px,#5f8a2f 160px 162px,#7fa84a 162px 270px,#5f8a2f 270px 272px,#7fa84a 272px 400px,#5f8a2f 400px 402px,#7fa84a 402px) 0 0/5px 100% no-repeat,linear-gradient(180deg,#7fa84a 0 90px,#5f8a2f 90px 92px,#7fa84a 92px 210px,#5f8a2f 210px 212px,#7fa84a 212px 340px,#5f8a2f 340px 342px,#7fa84a 342px) 100% 0/5px 100% no-repeat,var(--deco),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%)}
+/* Lavender Fields: rows of lavender and green along the bottom edge */
+.cx[data-cxskin=lavenderfields]{--band:repeating-linear-gradient(90deg,#8a6ad6 0 12px,#a8d08a 12px 16px)}
+/* Rainforest Canopy: mist rising in the screen */
+.cx[data-cxskin=rainforest] .cx-lcd{background:linear-gradient(0deg,rgba(255,255,255,.7),transparent 45%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Volcano Island: lava glow digits and a molten bottom edge */
+.cx[data-cxskin=volcano]{--band:linear-gradient(90deg,#e8452a,#ff9a3a,#ffcf5a,#ff9a3a,#e8452a)}
+.cx[data-cxskin=volcano] .cx-body::after{box-shadow:0 0 10px rgba(255,120,40,.8)}
+/* Crystal Cave: a crystal sheen on = and DEL/AC */
+.cx[data-cxskin=geology] .k-eq button,.cx[data-cxskin=geology] .k-del button,.cx[data-cxskin=geology] .k-ac button{background:linear-gradient(125deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.45) 42%,rgba(255,255,255,0) 54%),linear-gradient(180deg,var(--eq1),var(--eq2))}
+.cx[data-cxskin=geology] .k-del button,.cx[data-cxskin=geology] .k-ac button{background:linear-gradient(125deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.45) 42%,rgba(255,255,255,0) 54%),linear-gradient(180deg,var(--dl1),var(--dl2))}
+/* Kelp Forest: sunbeams slanting through the screen */
+.cx[data-cxskin=marinebio] .cx-lcd{background:linear-gradient(110deg,transparent 20%,rgba(255,236,170,.35) 26%,transparent 32%,transparent 46%,rgba(255,236,170,.28) 51%,transparent 56%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Night Train: brass rivets in the corners */
+.cx[data-cxskin=nighttrain] .cx-body{background:radial-gradient(circle at 9px 9px,#e8c47a 0 3px,transparent 3.5px),radial-gradient(circle at calc(100% - 9px) 9px,#e8c47a 0 3px,transparent 3.5px),radial-gradient(circle at 9px calc(100% - 9px),#e8c47a 0 3px,transparent 3.5px),radial-gradient(circle at calc(100% - 9px) calc(100% - 9px),#e8c47a 0 3px,transparent 3.5px),var(--deco),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%)}
+/* Greenhouse: window panes in the screen */
+.cx[data-cxskin=greenhouse] .cx-lcd{background:linear-gradient(90deg,transparent calc(33% - 1px),rgba(31,74,46,.12) calc(33% - 1px) 33%,transparent 33%,transparent calc(66% - 1px),rgba(31,74,46,.12) calc(66% - 1px) 66%,transparent 66%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+/* Campfire Night: firelight from below */
+.cx[data-cxskin=campfire] .cx-body{background:var(--deco),radial-gradient(120% 40% at 50% 100%,rgba(255,140,50,.32),transparent 70%),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%)}
+.cx[data-cxskin=campfire] .cx-lcd{box-shadow:inset 0 0 16px rgba(255,170,80,.5),inset 0 2px 6px rgba(0,0,0,.2)}
+/* Aquarium Tunnel: bubbles in the screen and a glassy sheen */
+.cx[data-cxskin=aquarium] .cx-lcd{background:radial-gradient(4px 4px at 88% 78%,rgba(47,184,217,.35) 60%,transparent 70%),radial-gradient(3px 3px at 92% 50%,rgba(47,184,217,.3) 60%,transparent 70%),radial-gradient(5px 5px at 85% 25%,rgba(47,184,217,.28) 60%,transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
+.cx[data-cxskin=aquarium] .cx-body{box-shadow:inset 6px 0 18px -6px rgba(255,255,255,.25),inset 0 1px 0 rgba(255,255,255,.14)}

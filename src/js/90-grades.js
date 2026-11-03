@@ -731,6 +731,8 @@
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("gr-list")) { ui.grListOpen = ui.grListOpen || {}; ui.grListOpen[d.dataset.cid] = d.open; } }, true);
   /* Courses: a Grades tab, on the course list and inside each course */
   const courseTabs = (cur, labels) => `<div class="bview-tabs cd-tabs" role="tablist" aria-label="Courses view">${labels.map(([k, l]) => `<button type="button" role="tab" data-act="course-tab" data-id="${k}" aria-selected="${cur === k}">${l}</button>`).join("")}</div>`;
+  // recordings that belong to a class are listed under it, not again in Other Recordings
+  const lecturesSkip = c => { const loose = new Set(SBCLS.looseRecs(c)); return Object.values(state.files).filter(f => f.courseId === c.id && f.folderId === "lectures" && !loose.has(f.id)).map(f => f.id); };
   const origDetail = viewCourseDetail;
   viewCourseDetail = function(c){
     const html = origDetail.apply(this, arguments);
@@ -741,14 +743,14 @@
       const tabsM = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
       const head = html.slice(0, mb).replace("<!--cd-tabs-->", tabsM), body = html.slice(mb);
       if (tab === "grades") { try { return head + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
-      if (tab === "lectures") return head + SBLEC.listHtml(c);
+      if (tab === "lectures") return head + (window.SBCLS ? SBCLS.listHtml(c) + SBLEC.listHtml(c, {quiet: true, title: "Other Recordings", skip: new Set(lecturesSkip(c))}) : SBLEC.listHtml(c));
       return head + body;
     }
     const k = html.indexOf('<div class="row-actions">'), e = k >= 0 ? html.indexOf("</div>", k) : -1;
     if (e < 0) return html;
     const head = html.slice(0, e + 6), rest = html.slice(e + 6);
     const tabs = courseTabs(tab, [["info", "Overview"], ["grades", "Grades"]].concat(window.SBLEC ? [["lectures", "Lectures"]] : []));
-    if (tab === "lectures") return head + tabs + SBLEC.listHtml(c);
+    if (tab === "lectures") return head + tabs + (window.SBCLS ? SBCLS.listHtml(c) + SBLEC.listHtml(c, {quiet: true, title: "Other Recordings", skip: new Set(lecturesSkip(c))}) : SBLEC.listHtml(c));
     if (tab === "grades") { try { return head + tabs + gradeCard(c); } catch (err) { console.warn("grades: card", err); return html; } }
     return head + tabs + rest;
   };

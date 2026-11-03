@@ -152,6 +152,11 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .ewr-tip:empty{display:none}
 .ewr-last{display:flex;flex-direction:column;gap:3px;margin:10px 4px 2px;padding:10px 12px;border-radius:12px;font-size:.84rem;line-height:1.4;background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)}
 .ewr-last .link-btn{align-self:flex-start;padding:0}
+/* Plan My Prep: what the last exam reflection changed */
+.pp-lesson{margin:2px 0 4px;padding:10px 12px;border-radius:12px;font-size:.84rem;line-height:1.4;background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)}
+.pp-lesson ul{margin:4px 0 0;padding-left:18px}
+.pp-lesson li+li{margin-top:3px}
+.pp-lesson .link-btn{padding:0;font-size:inherit}
 .ewr-btn{margin:10px 4px 2px}
 @media (max-width:600px){.ewr-row{grid-template-columns:minmax(0,8rem) 1fr 2.6rem}}
 /* Heads Up: Today's Plan's notices in one block, a row each */

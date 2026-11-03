@@ -225,6 +225,7 @@
     if (caps.assets) add("Quick Add Files", "Drop files and let Studyboard sort them into courses", tabAct("files", "f-quick"), "add");
     add("Add a Link to a File", "For files kept in OneDrive, Google Drive or Canvas", tabAct("files", "f-link"), "url");
     add(isDark() ? "Switch to Light Mode" : "Switch to Dark Mode", "Change how Studyboard looks", act("theme-toggle"), "theme night day");
+    add("Calculator", "A scientific calculator in its own window", act("calc-open"), "calculator calc math sum add percent sin cos");
     add("Style Shop", "Themes, card styles, note shapes and stickers", act("shop"), "theme look colors");
     add("Settings", "Backups, study hours, AI and more", act("menu"), "preferences options");
     add("Search Settings", "Search inside files and search by meaning", () => settingsSheet(), "index");
@@ -305,6 +306,13 @@
       const first = txt.split("\n")[0].slice(0, 90), rest = txt.length > first.length ? txt.slice(first.length).trim() : "";
       const doc = put({g: "notes", type: "note", id: n.id, cid: n.courseId || "", boost: n.archived ? 0.7 : 1, arch: !!n.archived}, first, rest, `${cName(n.courseId)} note`);
       semAdd(doc, "Sticky note", txt);
+    });
+    // Whiteboards: found by their title and the text typed on them (handwriting and pictures aren't searchable)
+    Object.values(state.notes || {}).forEach(n => {
+      if (!isWhiteboard(n)) return;
+      const name = String(n.text || "").split("\n")[0].trim() || "Untitled Whiteboard", typed = (n.wbItems || []).filter(it => it.k === "t" && it.s).sort((a, b) => a.y - b.y || a.x - b.x).map(it => it.s.trim()).join("\n");
+      const doc = put({g: "notes", type: "board", id: n.id, cid: n.courseId || "", boost: n.archived ? 0.7 : 1, arch: !!n.archived}, name, typed.slice(0, 600), `${cName(n.courseId)} whiteboard board`);
+      if (typed.trim()) semAdd(doc, name, typed);
     });
     eventsArr().forEach(e => {
       const when = e.repeat ? `Every ${daysLabel(e.repeat.days)}` : fmtDate(e.date);
@@ -794,7 +802,7 @@
     const d = x.doc;
     if (d.type === "chunk") { const f = state.files[d.fid]; return `${f ? f.name : "File"}${d.label && d.page ? `, ${d.label.toLowerCase()} ${d.page}` : ""}`; }
     if (d.type === "lecture") return `Lecture: ${String(d.title).slice(0, 80)}`;
-    return `${{task: "Task", note: "Sticky note", card: "Flashcard", question: "Practice question", file: "File", course: "Course", event: "Event", deck: "Deck", quiz: "Practice quiz", class: "Class"}[d.type] || "Item"}: ${String(d.title).slice(0, 80)}`;
+    return `${{task: "Task", note: "Sticky note", board: "Whiteboard", card: "Flashcard", question: "Practice question", file: "File", course: "Course", event: "Event", deck: "Deck", quiz: "Practice quiz", class: "Class"}[d.type] || "Item"}: ${String(d.title).slice(0, 80)}`;
   }
 
   /* What the assistant knows */
@@ -1158,6 +1166,7 @@ Return JSON only.`;
     if (["card", "question", "quiz", "deck"].includes(d.type)) { const dk = state.decks[d.type === "deck" ? d.id : d.pid]; return dk ? `[[${ln(dk.name)}]]${d.type === "deck" ? "" : ": " + String(d.title).replace(/\s+/g, " ").slice(0, 80)}` : citeOf(x); }
     if (d.type === "note") { const nt = state.notes[d.id], t = nt ? String(nt.text || "").split("\n").map(l => l.replace(/\[\[|\]\]/g, "").trim()).find(l => /[\p{L}\p{N}]/u.test(l)) : ""; return t ? `[[${ln(t.slice(0, 120))}]]` : citeOf(x); }
     if (d.type === "task") { const t = state.tasks[d.id]; return t && t.title ? `[[${ln(t.title)}]]` : citeOf(x); }
+    if (d.type === "board") { const b = state.notes[d.id], t = b ? String(b.text || "").split("\n")[0].trim() : ""; return t ? `[[${ln(t)}]]` : citeOf(x); }
     return citeOf(x);
   }
   function saveNote(T){
@@ -1283,6 +1292,7 @@ Return JSON only.`;
       case "card": { openDeck(doc.pid); const dk = state.decks[doc.pid]; setTimeout(() => flash(`.fc-cell[data-id="${CSS.escape(doc.id)}"]`), 40); if (dk) cardSheet(dk, doc.id); break; }
       case "quiz": case "question": { openDeck(doc.pid); const qid = doc.type === "quiz" ? doc.id : doc.qid; setTimeout(() => { const b = $(`.aiq-list [data-act="ai-quiz-start"][data-id="${CSS.escape(qid)}"]`); flash(b ? b.closest("li") : ".aiq-sec"); }, 40); break; }
       case "note": openNote(doc.id); break;
+      case "board": { const b = state.notes[doc.id]; if (!b || !window.SBWB) break; if (b.archived) archiveSheet(); else { SBWB.open(doc.id); window.scrollTo(0, 0); } break; }
       case "event": case "class": openSchedule(doc); break;
       case "file": {
         const f = state.files[doc.id]; if (!f) break;
@@ -1315,7 +1325,8 @@ Return JSON only.`;
     const c = doc.type === "chunk" ? courseOf((state.files[doc.fid] || {}).courseId) : courseOf(doc.cid);
     const bits = [];
     if (doc.type === "task") { const t = state.tasks[doc.id]; if (t) { if (doc.arch) bits.push("Archived"); else if (t.status === "done") bits.push("Complete"); if (t.due) bits.push(esc(fmtShort(t.due))); } }
-    if (doc.type === "note" && doc.arch) bits.push("Archived");
+    if ((doc.type === "note" || doc.type === "board") && doc.arch) bits.push("Archived");
+    if (doc.type === "board") bits.push("Whiteboard");
     if (doc.type === "card") { const d = state.decks[doc.pid]; if (d) bits.push(esc(d.name)); }
     if (doc.type === "question") { const d = state.decks[doc.pid], qz = d && (d.aiQuizzes || []).find(x => x.id === doc.qid); if (qz) bits.push(esc(qz.title)); }
     if (doc.type === "chunk" && doc.label && doc.page) bits.push(`${esc(doc.label)} ${doc.page}`);
