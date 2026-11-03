@@ -256,7 +256,7 @@ function btn(ex, t){
 function taskHtml(s){
   if (!s || !s.prepFor || s.status === "done" || !(s.kind === "teach" || s.kind === "recall")) return "";
   const ex = state.tasks[s.prepFor], t = ex && findTopic(ex, s.topicId, s.topic); if (!t || ex.status === "done") return "";
-  return `<div class="pp-form"><div><b>Teach It Back</b><span class="mini"> Explain ${esc(t.name)} in your own words, and AI checks it against your linked material.</span></div><button type="button" class="btn small" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">Teach It Back${badge()}</button></div>`;
+  return `<div class="pp-form"><div><b>Teach It Back</b><span class="mini"> Explain ${esc(t.name)} in your own words, and AI checks it against your linked material.</span></div><button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">${AI_ICON} Teach It Back${badge()}</button></div>`;
 }
 hook("act", (act, el, id) => {
   if (act === "tb-open") { open(id, el && el.dataset ? el.dataset.topic : "", el && el.dataset ? el.dataset.name : ""); return true; }

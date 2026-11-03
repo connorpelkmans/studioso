@@ -420,7 +420,7 @@ function reviewBody(){
   let streakLine = "";
   try { if (SBSTREAK.on() && st.studyDays) streakLine = `<p class="mini">${esc(trn("review.streak", st.studyDays, "You had {n} study day this week.|You had {n} study days this week."))}</p>`; } catch (e) {}
   const ai = aiReady() ? `<section class="wkr-sec"><h3>${esc(tr("review.ai.h", "A short recap"))}</h3>${RV.ai.text ? `<p class="wkr-ai">${esc(RV.ai.text)}</p><p class="mini">${esc(tr("review.ai.note", "Written by {who} from the facts above. Check it against your own list.", {who: aiWord()}))}</p>` : ""}
-      <button type="button" class="btn small" data-act="wkr-ai" ${RV.ai.busy ? "disabled" : ""}>${RV.ai.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(tr("review.ai.busy", "Writing…"))}` : esc(RV.ai.text ? tr("review.ai.again", "Write It Again") : tr("review.ai.btn", "Write a Recap"))}</button></section>` : "";
+      <button type="button" class="btn small ai-btn" data-act="wkr-ai" ${RV.ai.busy ? "disabled" : ""}>${RV.ai.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(tr("review.ai.busy", "Writing…"))}` : AI_ICON + " " + esc(RV.ai.text ? tr("review.ai.again", "Write It Again") : tr("review.ai.btn", "Write a Recap"))}</button></section>` : "";
   return `<p class="wkr-range">${esc(range)}${period.kind === "sofar" ? ` <span class="mini">${esc(tr("review.sofar", "(so far this week)"))}</span>` : ""}</p>
     ${sectionDone(st)}${streakLine}${sectionTime(st)}${sectionSlipped(st)}${sectionPlan(period, plan)}${sectionExams(rows)}${window.SBPRO ? SBPRO.reviewHtml() : ""}
     <section class="wkr-sec wkr-idea"><h3>${esc(tr("review.idea.h", "One gentle idea"))}</h3><p style="margin:0">${esc(ideaText(idea, plan))}</p></section>${ai}

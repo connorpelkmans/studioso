@@ -1603,7 +1603,7 @@ function cleanFile(r) {
     if (t) setTimeout(() => t.scrollIntoView({block: "start"}), 60);
   }
   const newsRow = n => { const c = cfg(), bc = c.courses[n.ou] || {}; return `<li><div class="bs-main"><b>${esc(n.title)}</b><span class="mini">${esc(cleanCourseCode(bc.code, bc.name) || bc.name || "")}${n.date ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}</span><p class="bs-news-text">${esc(n.text)}${n.long ? "…" : ""}</p></div>
-    <span class="bs-btns">${n.url ? `<a class="btn small" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}${aiReady() ? `<button class="btn small" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">Check for Dates</button>` : ""}</span></li>`; };
+    <span class="bs-btns">${n.url ? `<a class="btn small" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}${aiReady() ? `<button class="btn small ai-btn" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">${AI_ICON} Check for Dates</button>` : ""}</span></li>`; };
 
   const extFacts = () => `<ul class="help-list bs-facts">
       <li><b>What it reads:</b> only the school site you connect in it, using the sign-in your browser already has (Studyboard never sees your password): your courses, due dates, whether you've submitted, grades, announcements and calendar events.</li>
@@ -2215,9 +2215,9 @@ function cleanFile(r) {
       case "gone-keep": { const t = state.tasks[el.dataset.id]; if (t) { const n = clone(t); n[F] = Object.assign({}, n[F], {gone: true}); applyChanges([{kind: "task", id: n.id, after: n}], ""); } save({gone: cfg().gone.filter(x => x !== el.dataset.id)}); bsSheet(); return true; }
       case "scan": {
         const n = cfg().newsItems.find(x => x.ou === el.dataset.ou && x.id === el.dataset.id); if (!n) return true;
-        el.disabled = true; el.textContent = "Checking…";
+        el.disabled = true; el.innerHTML = `${AI_ICON} Checking…`;
         scanNews([n], true).then(k => { toast(k ? `Found ${plural(k, "date")}. Review them in ${P.name}.` : "No new dates in that announcement", null, k ? {label: "Review", fn: () => bsSheet("suggest")} : null); if (dlg.open && dlg.querySelector(".bs-sheet")) bsSheet("suggest"); })
-          .catch(e => { toast(e && e.message ? e.message : "The AI couldn't check that. Try again."); }).finally(() => { el.disabled = false; el.textContent = "Check for Dates"; });
+          .catch(e => { toast(e && e.message ? e.message : "The AI couldn't check that. Try again."); }).finally(() => { el.disabled = false; el.innerHTML = `${AI_ICON} Check for Dates`; });
         return true;
       }
       case "savefile": saveFile(el.dataset.id, el.dataset.f).catch(e => { console.error(e); toast("Couldn't save that file. Try again."); }); return true;

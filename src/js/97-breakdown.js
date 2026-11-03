@@ -644,7 +644,7 @@ function sheetHtml(S){
         <label class="f"><span class="lh">Title ${REQ}</span><input type="text" id="bdTitle" maxlength="200" placeholder="e.g. Research paper on coral bleaching" data-noenter></label>
         <div class="two"><label class="f">Course<select id="bdCourse">${courseOpts}</select></label>
           <label class="f"><span class="lh">Due Date ${REQ}</span><input type="date" id="bdDue"></label></div>
-        <div class="bd-act"><button type="button" class="btn primary" id="bdMake">Make a Plan</button><span class="mini" id="bdMakeMsg" aria-live="polite"></span></div>
+        <div class="bd-act"><button type="button" class="btn primary${aiOkNow() ? " ai-btn" : ""}" id="bdMake">${aiOkNow() ? AI_ICON + " " : ""}Make a Plan</button><span class="mini" id="bdMakeMsg" aria-live="polite"></span></div>
       </div>` : `<div class="bd-sum"><b>${esc(S.title)}</b><span class="mini">${S.courseId && courseOf(S.courseId) ? esc(courseLabel(courseOf(S.courseId))) + " · " : ""}Due ${esc(fmtDate(S.due))}${S.time ? " at " + esc(fmtTime(S.time)) : ""}</span></div>`}
       <div id="bdPlan" ${isNew ? "hidden" : ""}>
         <div id="bdBanner"></div>
