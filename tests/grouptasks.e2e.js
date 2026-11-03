@@ -181,9 +181,32 @@ async function plannerRollback(browser){
   await ctx.close();
 }
 
+// Opening a group shows its content once: fresh data redrawing a section in place must not fade it out and back in (it used to flicker twice)
+async function noFlicker(browser){
+  for (const kind of ["study", "project"]) {
+    const {ctx, page, errs} = await boot(browser, 1280, {me: "u1", seed: true, kind, msgs: [{body: "hi", user_id: "u2", created_at: "2026-02-01T00:00:00Z"}]});
+    await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d && d.open) d.close(); });
+    await click(page, "grp-page"); await page.waitForSelector('[data-act="grp-open"]'); await page.waitForTimeout(600);
+    await page.evaluate(() => {
+      window.__fx = {anims: {}, low: 1, seen: false}; const t0 = performance.now();
+      document.addEventListener("animationstart", e => { if (e.animationName !== "sm-in" || !e.target.closest("#grpDetail")) return; const k = e.target.id || e.target.tagName + "." + e.target.classList[0]; window.__fx.anims[k] = (window.__fx.anims[k] || 0) + 1; }, true);
+      const tick = () => { const h = document.querySelector("#grpHead"); if (h) { window.__fx.seen = true; window.__fx.low = Math.min(window.__fx.low, Number(getComputedStyle(h).opacity)); } if (performance.now() - t0 < 1500) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
+    await page.click('[data-act="grp-open"]'); await page.waitForTimeout(1600);
+    const fx = await page.evaluate(() => window.__fx);
+    ok(fx.seen, kind + " group opened");
+    ok(Object.values(fx.anims).every(n => n <= 1), kind + " no section of the group replays its entrance while data loads: " + JSON.stringify(fx.anims));
+    ok(fx.low > 0.95, kind + " the group's header never fades out after it first shows, lowest opacity " + fx.low);
+    eq(errs, [], "no errors (open " + kind + " group)");
+    await ctx.close();
+  }
+}
+
 (async () => {
   const browser = await chromium.launch({executablePath});
   try {
+    await noFlicker(browser);
     await scenario(browser, 1280); await scenario(browser, 390);
     await plainMember(browser); await sqlNotRun(browser);
     await planner(browser, 1280); await planner(browser, 390); await plannerRollback(browser);
