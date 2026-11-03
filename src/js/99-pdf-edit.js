@@ -2037,6 +2037,17 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (P.openReader) { if (dlg.open) dlg.close(); setTimeout(() => P.openReader(S.fid, map && map.get(page) ? map.get(page).p : page), 0); }
   }
 
+  /* Opening a PDF straight into Edit: the reader opens, then Edit turns on once its first page is drawn */
+  function openEdit(id){
+    if (!P.openReader) return;
+    P.openReader(id, 0);
+    const until = Date.now() + 20000, tick = () => {
+      const r = R(), S = r && r.fid === id ? session() : null;
+      if (S && S.pages.size && $("#pdeBtn")) { if (!S.on) setOn(true); return; }
+      if (Date.now() < until && dlg.open) setTimeout(tick, 120);
+    };
+    setTimeout(tick, 120);
+  }
   /* Turning Edit on and off */
   function setOn(on){
     const S = session(); if (!S) return;
@@ -2054,6 +2065,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   hook("act", (act, el, id) => {
     if (!act.startsWith("pde-")) return false;
+    if (act === "pde-edit") { if (dlg.open) dlg.close(); setTimeout(() => openEdit(id), 0); return true; }
     if (act === "pde-scan") { if (P.locked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Scan to PDF is part of Studyboard Pro: photos of your pages, straightened and cleaned up into one PDF."); } else scanOpen(null); return true; }
     const S = session(); if (!S) return true;
     switch (act) {

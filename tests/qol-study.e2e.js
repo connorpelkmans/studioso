@@ -165,11 +165,15 @@ function SEED(){
     /* PDF reader */
     await page.evaluate(async bytes => { await window.__sbProStudy.idbSet("pdf:a-read4", new Blob([new Uint8Array(bytes)], {type: "application/pdf"})); }, textPdf());
     await page.evaluate(() => { ui.tab = "files"; ui.fCourse = "all"; ui.fFolder = ""; render(); }); await page.waitForTimeout(250);
-    ok(await page.locator('.frow[data-fid="f1"] .fmain[data-act="pdr-open"]').count() === 1 && await page.locator('.frow[data-fid="f1"] [data-act="f-open"]').count() === 1, "tapping a PDF reads it; Edit is the second choice");
-    await act(page, "f-open", "f1"); await page.waitForTimeout(250);
-    ok(/Open in Browser/.test(await page.locator("dialog[open] .sheet-foot").textContent()), "the file sheet says where Open goes");
+    ok(await page.locator('.frow[data-fid="f1"] .fmain[data-act="f-open"]').count() === 1 && await page.locator('.frow[data-fid="f1"] .f-read[data-act="pdr-open"]').count() === 1 && await page.locator('.frow[data-fid="f1"] .f-edit[data-act="pde-edit"]').count() === 1, "a PDF's row has Read and Edit; tapping the rest of the row opens its details");
+    await page.click('.frow[data-fid="f1"] .fmain'); await page.waitForSelector("dialog[open] .fs-acts");
+    ok(/Open in Browser/.test(await page.locator("dialog[open] .fs-acts").textContent()), "the file sheet says where Open goes");
+    ok(await page.locator("dialog[open] .sheet-foot .btn").count() === 2, "the file sheet's footer is just Delete and Save");
     await page.evaluate(() => document.querySelector("dialog[open]").close());
-    await page.click('.frow[data-fid="f1"] .fmain'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000});
+    await page.click('.frow[data-fid="f1"] .f-edit'); await page.waitForFunction(() => { const b = document.getElementById("pdeBtn"); return b && b.getAttribute("aria-pressed") === "true"; }, null, {timeout: 20000});
+    ok(true, "Edit opens the PDF straight into the editor");
+    await page.evaluate(() => document.querySelector("dialog[open]").close());
+    await page.click('.frow[data-fid="f1"] .f-read'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000});
     const P = () => page.evaluate(() => window.__sbProStudy.P.reader().cur);
     const onPage = k => page.waitForFunction(k => { const R = window.__sbProStudy.P.reader(), b = document.getElementById("pdrPages"); return R.cur === k && Math.abs(b.scrollTop - Math.min(b.scrollHeight - b.clientHeight, R.pages[k - 1].el.offsetTop - 12)) < 4; }, k, {timeout: 5000}).then(() => true, () => false);
     await page.focus("#pdrPages"); await page.keyboard.press("PageDown");
@@ -185,7 +189,7 @@ function SEED(){
     await page.click("#pdrFit"); await page.waitForTimeout(400);
     await page.focus("#pdrPages"); await page.keyboard.press("ArrowLeft"); await onPage(2);
     await page.evaluate(() => document.querySelector("dialog[open]").close()); await page.waitForTimeout(200);
-    await page.click('.frow[data-fid="f1"] .fmain'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(400);
+    await page.click('.frow[data-fid="f1"] .f-read'); await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(400);
     ok(await P() === 2 && await page.inputValue("#pdrPg") === "2", "the reader opens where you left off");
     await page.evaluate(() => document.querySelector("dialog[open]").close());
     ok(page.errs.length === 0, "no page errors on desktop: " + page.errs.join(" | "));
