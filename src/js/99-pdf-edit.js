@@ -1871,6 +1871,25 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // the tools under More
   const MORE = [["fill", "Quick Fill", IC.fill, "Your name, ID, class and date"], ["header", "Header", IC.header, "Name and page numbers on every page"], ["find", "Find", IC.find, "Find and replace"], ["pages", "Pages", IC.pages, "Turn, move, add, take out, scan"], ["ocr", "Recognize Text", IC.ocr, "Make a scan's words real text"],
     ["fields", "Make Fillable", IC.fill, "Turn blanks and boxes into fields"], ["stamp", "Stamp", IC.header, "Draft, Graded, Approved…"], ["watermark", "Watermark", IC.header, "Faint text across every page"], ["link", "Link", IC.toc, "Link to a web page or a page"], ["history", "History", IC.rotL, "Undo, redo, go back"]];
+  // The edit row fills up with the most useful of these, as many as fit at the row's width; the rest stay under More
+  const ROW_ORDER = ["find", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history"];
+  const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
+  const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
+  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.tool === k && !E.place}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  function measureFit(){
+    const b = E && E.on && dlg.querySelector(".pde-bar"), row = b && b.querySelector(".pde-tools"); if (!row || !row.offsetWidth) return;
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 6, cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+    if (!E.fitW || E.fitW.k !== b.clientWidth + ":" + window.devicePixelRatio) {
+      const m = document.createElement("span"); m.className = "pde-tools"; m.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;display:flex";
+      m.innerHTML = ROW_ORDER.map(k => fitTool(MORE.find(x => x[0] === k))).join("") + `<button type="button" class="btn small pde-tool"><svg width="16" height="16"></svg><span class="pde-lbl">More</span></button>`;
+      b.appendChild(m); E.fitW = Object.assign([...m.children].map(c => c.offsetWidth), {k: b.clientWidth + ":" + window.devicePixelRatio}); m.remove();
+    }
+    let used = 0; [...row.children].forEach(c => { if (!c.dataset.fit && !c.classList.contains("pde-more-wrap")) used += c.offsetWidth + gap; });
+    const moreW = E.fitW[ROW_ORDER.length]; let k = 0;
+    while (k < ROW_ORDER.length) { const next = used + E.fitW[k] + gap, needMore = k + 1 < ROW_ORDER.length; if (next + (needMore ? moreW : 0) > avail) break; used = next; k++; }
+    if (k !== (E.fit || 0)) { E.fit = k; E.more = false; bar(); }
+  }
+  let fitT = 0; window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { if (E) E.fitW = null; measureFit(); }, 120); });
   function barHtml(){
     const e = selected(), n = mine().length, pr = e && (e.k === "t" || e.k === "p") ? probeOf(e) : null, txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
     const fam = e ? (e.ff ? "ff:" + e.ff : (e.k === "t" || e.k === "p") && e.keep !== false ? "o" : e.f || "h") : "";
@@ -1897,7 +1916,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${MORE.some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((MORE.find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${MORE.map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span></span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}</span>
       <span class="spacer"></span>
 
       <div class="pde-sub">
@@ -1921,13 +1940,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const pages = $("#pdrPages"); if (pages) { pages.classList.toggle("pde-on", E.on); pages.dataset.pdeTool = E.place ? "place" : E.tool; }
     // Save sits in the top row, beside Download, while editing
     const slot = sheet.querySelector("#pdrSaveSlot"), nE = mine().length;
-    if (slot) slot.innerHTML = E.on ? `<button type="button" class="btn small primary" data-act="pde-save"${nE ? "" : " disabled"}>${ico(IC.save)}Save${nE ? ` ${nE} Edit${nE === 1 ? "" : "s"}` : ""}</button>` : "";
+    if (slot) slot.innerHTML = E.on ? `<button type="button" class="btn small primary pdr-save" data-act="pde-save"${nE ? "" : " disabled"} aria-label="Save${nE ? ` ${nE} edit${nE === 1 ? "" : "s"}` : ""}">${ico(IC.save)}<span class="pde-lbl">Save</span>${nE ? `<b class="pdr-badge">${nE}</b>` : ""}</button>` : "";
     sheet.dataset.mode = E.on ? "edit" : ((R() && R().mode) || "read");
     dlg.querySelectorAll('[data-act="pdr-mode"]').forEach(x => x.setAttribute("aria-pressed", String(!E.on && x.dataset.id === sheet.dataset.mode)));
+    if (P.fitBar) P.fitBar();
     if (!E.on) { if (b) b.remove(); return; }
     const ae = document.activeElement, focusId = ae && b && b.contains(ae) ? ae.id || ae.dataset.act + (ae.dataset.id || "") : "", caret = ae && ae.id && /^pdeFind/.test(ae.id) ? ae.selectionStart : null;
     if (!b) { b = document.createElement("div"); b.className = "pde-bar sm-skip"; b.setAttribute("role", "toolbar"); b.setAttribute("aria-label", "Edit PDF"); sheet.querySelector(".pdr-bar").after(b); }
     b.innerHTML = barHtml();
+    requestAnimationFrame(measureFit);
     if (focusId) { const el = b.querySelector("#" + focusId) || [...b.querySelectorAll("[data-act]")].find(x => x.dataset.act + (x.dataset.id || "") === focusId); if (el) { el.focus(); if (caret != null && el.setSelectionRange) try { el.setSelectionRange(caret, caret); } catch (e) {} } }
     if (E.tool === "find") findCount();
   }

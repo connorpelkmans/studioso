@@ -74,7 +74,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await page.waitForTimeout(500);
     const shot = async name => { if (SHOTS) { fs.mkdirSync(SHOTS, {recursive: true}); await page.screenshot({path: path.join(SHOTS, name + ".png")}); } };
     const MORE = ["fill", "header", "find", "pages", "ocr", "fields", "stamp", "watermark", "link", "history"];
-    const tool = async id => { if (MORE.includes(id)) { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } else await page.click(`.pde-tool[data-id="${id}"]`); await page.waitForTimeout(200); };
+    const tool = async id => { if (await page.locator(`.pde-tools > .pde-tool[data-id="${id}"]`).count()) await page.click(`.pde-tools > .pde-tool[data-id="${id}"]`); else { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } await page.waitForTimeout(200); };
     await page.evaluate(async files => { for (const [k, b] of files) await window.__sbProStudy.idbSet("pdf:" + k, new Blob([new Uint8Array(b)])); }, [["a-ws", [...ws]], ["a-ws2", [...ws]], ["a-lk", [...locked]]]);
     await page.evaluate(() => { window.__ups = []; window.__sbProStudy.caps.assets = {upload: async (file, o) => { const id = "up-" + (window.__ups.length + 1), b = new Uint8Array(await file.arrayBuffer()); window.__ups.push({id, name: file.name, size: b.length}); await window.__sbProStudy.idbSet("pdf:" + id, new Blob([b])); return {id, sizeBytes: b.length, contentType: o.type}; }}; });
     const act = (a, id) => page.evaluate(([a, id]) => { const b = document.createElement("button"); b.dataset.act = a; if (id) b.dataset.id = id; document.body.appendChild(b); b.click(); b.remove(); }, [a, id]);
@@ -97,7 +97,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await open("f1");
     await page.click("#pdeBtn"); await page.waitForFunction(() => !!window.PDFLib); await page.waitForTimeout(400);
     await page.click('[data-act="pde-more"]');
-    ok(await page.locator(".pde-menu .pde-mi").count() === 10, "More has the new tools: Make Fillable, Stamp, Watermark, Link and History");
+    ok(await page.locator(".pde-menu .pde-mi").count() + await page.locator(".pde-tools > .pde-tool[data-fit]").count() === 10, "the row and More have all ten extra tools: Quick Fill, Header, Find, Pages, Recognize Text, Make Fillable, Stamp, Watermark, Link and History");
     await page.keyboard.press("Escape");
     await tool("fields"); await page.waitForFunction(() => /Found|No blank/.test((document.getElementById("pdeFdMsg") || {}).textContent || ""), null, {timeout: 15000});
     const names = await page.$$eval("[data-fdn]", l => l.map(x => x.value));

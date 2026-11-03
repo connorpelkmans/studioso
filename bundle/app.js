@@ -75600,11 +75600,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
-        <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit Page</button></span>
+        <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
         <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${window.SBPDE ? SBPDE.readerBtn() : ""}</span>
         <span class="spacer"></span>
-        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span>
+        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}<span class="pdr-out">${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
         <span class="pdr-g-read">${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}</span>
@@ -75672,7 +75672,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
     box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page" data-p="${i + 1}" style="width:${w}px;height:${h}px" aria-label="Page ${i + 1}"><div class="pdr-hl"></div></div>`).join("");
     R.pages = Array.from(box.querySelectorAll(".pdr-page")).map((el, i) => ({n: i + 1, el, done: 0}));
-    const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`;
+    const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});
     R.pages.forEach(p => R.io.observe(p.el));
     goTo(target, true);
@@ -75944,6 +75944,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (e.key === "Home" || e.key === "End") { e.preventDefault(); hidePop(); goTo(e.key === "Home" ? 1 : R.doc.numPages); return; }
     if (e.key === "+" || e.key === "=" || e.key === "-") { e.preventDefault(); zoomBy(e.key === "-" ? -1 : 1); }
   });
+  // the top row on one line: drop labels a step at a time until it fits
+  function fitBar(){
+    const bar = dlg.querySelector(".pdr-sheet .pdr-bar"); if (!bar || !bar.offsetWidth) return;
+    bar.classList.remove("c1", "c2", "c3");
+    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer")); return !k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8); };
+    for (const c of ["c1", "c2", "c3"]) { if (one()) break; bar.classList.add(c); }
+  }
+  P.fitBar = fitBar;
+  let fbT = 0; window.addEventListener("resize", () => { clearTimeout(fbT); fbT = setTimeout(() => { if (R) fitBar(); }, 100); });
   const ZOOMS = [0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
   function zoomBy(step){
     const i = ZOOMS.findIndex(z => Math.abs(z - R.zoom) < 0.001), next = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, (i < 0 ? ZOOMS.indexOf(1) : i) + step))];
@@ -76038,6 +76047,17 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-modes .pde-mode[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink,#fff)}
 .pdr-modes .pdr-mode:focus-visible,.pdr-modes .pde-mode:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pdr-saveslot:empty{display:none}
+/* the top row stays one row: Download and Save stay together, and labels give way to icons, a step at a time, only as far as needed */
+.pdr-out{display:inline-flex;align-items:center;gap:6px;flex:none}
+.pdr-save{min-width:96px}
+.pdr-save .pdr-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:rgba(0,0,0,.22);font-size:.75rem}
+.pdr-bar.c1 .ai-btn .pde-lbl{display:none}
+.pdr-bar.c1 .ai-btn{padding-left:10px;padding-right:10px}
+.pdr-bar.c2 .pdr-split .pde-lbl,.pdr-bar.c2 .pdr-save .pde-lbl,.pdr-bar.c2 .pdr-fit-p{display:none}
+.pdr-bar.c2 .pdr-save{min-width:0}
+.pdr-bar.c3 .pdr-modes .pdr-mode,.pdr-bar.c3 .pdr-modes .pde-mode{padding:0 9px}
+.pdr-bar.c3 .pdr-fit{display:none}
+.pdr-bar .pdr-fit{gap:0}
 .pdr-nav,.pdr-zoom,.pdr-cols{display:inline-flex;align-items:center;gap:4px}
 .pdr-pg input{width:3.4em;text-align:center;padding:6px 4px}
 .pdr-col{width:26px;height:26px;border-radius:50%;border:2px solid rgba(0,0,0,.18);background:var(--h);padding:0;cursor:pointer;box-shadow:inset 0 0 0 2px var(--surface)}
@@ -81317,6 +81337,25 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // the tools under More
   const MORE = [["fill", "Quick Fill", IC.fill, "Your name, ID, class and date"], ["header", "Header", IC.header, "Name and page numbers on every page"], ["find", "Find", IC.find, "Find and replace"], ["pages", "Pages", IC.pages, "Turn, move, add, take out, scan"], ["ocr", "Recognize Text", IC.ocr, "Make a scan's words real text"],
     ["fields", "Make Fillable", IC.fill, "Turn blanks and boxes into fields"], ["stamp", "Stamp", IC.header, "Draft, Graded, Approved…"], ["watermark", "Watermark", IC.header, "Faint text across every page"], ["link", "Link", IC.toc, "Link to a web page or a page"], ["history", "History", IC.rotL, "Undo, redo, go back"]];
+  // The edit row fills up with the most useful of these, as many as fit at the row's width; the rest stay under More
+  const ROW_ORDER = ["find", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history"];
+  const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
+  const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
+  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.tool === k && !E.place}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  function measureFit(){
+    const b = E && E.on && dlg.querySelector(".pde-bar"), row = b && b.querySelector(".pde-tools"); if (!row || !row.offsetWidth) return;
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 6, cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+    if (!E.fitW || E.fitW.k !== b.clientWidth + ":" + window.devicePixelRatio) {
+      const m = document.createElement("span"); m.className = "pde-tools"; m.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;display:flex";
+      m.innerHTML = ROW_ORDER.map(k => fitTool(MORE.find(x => x[0] === k))).join("") + `<button type="button" class="btn small pde-tool"><svg width="16" height="16"></svg><span class="pde-lbl">More</span></button>`;
+      b.appendChild(m); E.fitW = Object.assign([...m.children].map(c => c.offsetWidth), {k: b.clientWidth + ":" + window.devicePixelRatio}); m.remove();
+    }
+    let used = 0; [...row.children].forEach(c => { if (!c.dataset.fit && !c.classList.contains("pde-more-wrap")) used += c.offsetWidth + gap; });
+    const moreW = E.fitW[ROW_ORDER.length]; let k = 0;
+    while (k < ROW_ORDER.length) { const next = used + E.fitW[k] + gap, needMore = k + 1 < ROW_ORDER.length; if (next + (needMore ? moreW : 0) > avail) break; used = next; k++; }
+    if (k !== (E.fit || 0)) { E.fit = k; E.more = false; bar(); }
+  }
+  let fitT = 0; window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { if (E) E.fitW = null; measureFit(); }, 120); });
   function barHtml(){
     const e = selected(), n = mine().length, pr = e && (e.k === "t" || e.k === "p") ? probeOf(e) : null, txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
     const fam = e ? (e.ff ? "ff:" + e.ff : (e.k === "t" || e.k === "p") && e.keep !== false ? "o" : e.f || "h") : "";
@@ -81343,7 +81382,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${MORE.some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((MORE.find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${MORE.map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span></span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}</span>
       <span class="spacer"></span>
 
       <div class="pde-sub">
@@ -81367,13 +81406,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const pages = $("#pdrPages"); if (pages) { pages.classList.toggle("pde-on", E.on); pages.dataset.pdeTool = E.place ? "place" : E.tool; }
     // Save sits in the top row, beside Download, while editing
     const slot = sheet.querySelector("#pdrSaveSlot"), nE = mine().length;
-    if (slot) slot.innerHTML = E.on ? `<button type="button" class="btn small primary" data-act="pde-save"${nE ? "" : " disabled"}>${ico(IC.save)}Save${nE ? ` ${nE} Edit${nE === 1 ? "" : "s"}` : ""}</button>` : "";
+    if (slot) slot.innerHTML = E.on ? `<button type="button" class="btn small primary pdr-save" data-act="pde-save"${nE ? "" : " disabled"} aria-label="Save${nE ? ` ${nE} edit${nE === 1 ? "" : "s"}` : ""}">${ico(IC.save)}<span class="pde-lbl">Save</span>${nE ? `<b class="pdr-badge">${nE}</b>` : ""}</button>` : "";
     sheet.dataset.mode = E.on ? "edit" : ((R() && R().mode) || "read");
     dlg.querySelectorAll('[data-act="pdr-mode"]').forEach(x => x.setAttribute("aria-pressed", String(!E.on && x.dataset.id === sheet.dataset.mode)));
+    if (P.fitBar) P.fitBar();
     if (!E.on) { if (b) b.remove(); return; }
     const ae = document.activeElement, focusId = ae && b && b.contains(ae) ? ae.id || ae.dataset.act + (ae.dataset.id || "") : "", caret = ae && ae.id && /^pdeFind/.test(ae.id) ? ae.selectionStart : null;
     if (!b) { b = document.createElement("div"); b.className = "pde-bar sm-skip"; b.setAttribute("role", "toolbar"); b.setAttribute("aria-label", "Edit PDF"); sheet.querySelector(".pdr-bar").after(b); }
     b.innerHTML = barHtml();
+    requestAnimationFrame(measureFit);
     if (focusId) { const el = b.querySelector("#" + focusId) || [...b.querySelectorAll("[data-act]")].find(x => x.dataset.act + (x.dataset.id || "") === focusId); if (el) { el.focus(); if (caret != null && el.setSelectionRange) try { el.setSelectionRange(caret, caret); } catch (e) {} } }
     if (E.tool === "find") findCount();
   }
