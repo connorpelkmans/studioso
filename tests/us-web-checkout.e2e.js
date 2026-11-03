@@ -42,6 +42,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 
     // 2. the Pro sheet in the app
     const ctx = await browser.newContext({viewport: {width: 430, height: 900}});
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(() => {
       try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studyboard:paywall-test", "1"); } catch (e) {}
@@ -66,6 +67,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 
     // 3. the store's semester plan (4 months, paid once: the App Store has no 4-month renewing length), once its price is set
     const ctx3 = await browser.newContext({viewport: {width: 430, height: 900}});
+    await ctx3.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx3.route(/supabase\.co/, r => r.abort());
     await ctx3.addInitScript(() => {
       try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studyboard:paywall-test", "1");

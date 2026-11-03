@@ -67,6 +67,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
       try { await route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(reply)}]}, finishReason: "STOP"}]})}); } catch (e) {}
     });
     await ctx.route(/\/v1\/ai$/, route => route.fulfill({status: 500, body: "{}"}));
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(seed => {
       window.__SB_TEST = true;

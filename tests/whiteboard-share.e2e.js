@@ -60,6 +60,7 @@ function fake(opts){
   const browser = await chromium.launch({executablePath});
   const boot = async opts => {
     const ctx = await browser.newContext({viewport: {width: 1280, height: 900}, serviceWorkers: "block"});
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co|googleapis\.com/, r => r.abort());
     await ctx.addInitScript(fake, opts);
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));

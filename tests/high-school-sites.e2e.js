@@ -18,6 +18,7 @@ const act = (page, a) => page.evaluate(a => { const b = document.createElement("
   const errs = [];
   try {
     const ctx = await browser.newContext({viewport: {width: 430, height: 900}, isMobile: true, hasTouch: true, serviceWorkers: "block"});
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, r => r.fulfill({status: 200, contentType: "application/json", headers: {"access-control-allow-origin": "*"}, body: "[]"}));
     await ctx.addInitScript(() => {
       localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1");

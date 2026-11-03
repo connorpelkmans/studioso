@@ -17,6 +17,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const errs = [], asked = [];
   try {
     const ctx = await browser.newContext({viewport: {width: 430, height: 900}, isMobile: true, hasTouch: true});
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, async r => {
       const u = new URL(r.request().url()), body = r.request().postData() || "";
       const cors = {"access-control-allow-origin": "*", "access-control-allow-headers": "*"};

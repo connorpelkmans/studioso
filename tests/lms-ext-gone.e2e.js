@@ -16,6 +16,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   try {
     const run = async (ext) => {
       const ctx = await browser.newContext({serviceWorkers: "block"});
+      await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
       await ctx.route(/supabase\.co/, r => r.abort());
       await ctx.addInitScript(() => { try { if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIOL 1200", color: "#1E9E74"}], tasks: [], settings: {}})); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studyboard:tour", "done"); } catch (e) {} });
       if (ext) await ctx.addInitScript(ids => { window.addEventListener("message", ev => { const d = ev.data; if (!d || d.source !== "studyboard-app") return;

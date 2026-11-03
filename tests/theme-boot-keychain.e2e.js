@@ -18,6 +18,7 @@ const UID = "00000000-0000-4000-8000-000000000001";
   // keychain: the saved sign-in (or none), handed over after 1.5 s like the native keychain bridge
   const open = async ({session, hintPro, fresh = true, ctx}) => {
     ctx = ctx || await browser.newContext({serviceWorkers: "block"});
+    await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
     await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(([session, hintPro, uid, fresh]) => {
       try {

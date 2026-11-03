@@ -25,6 +25,7 @@ const dataOf = (empty, skin) => ({v: 2, courses: empty ? [] : COURSES, tasks: em
 async function open(browser, o = {}){
   const W = o.w || 390, phone = W < 640;
   const ctx = await browser.newContext({viewport: {width: W, height: phone ? 844 : 860}, timezoneId: "America/New_York", locale: "en-US", serviceWorkers: "block", hasTouch: phone, isMobile: phone, colorScheme: o.dark ? "dark" : "light", reducedMotion: o.reduce ? "reduce" : "no-preference"});
+  await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
   await ctx.route(/supabase\.co/, r => r.abort());
   const p = await ctx.newPage(), errs = []; p.on("pageerror", e => errs.push(e.message)); p.errs = errs;
   await p.clock.install({time: new Date("2026-10-23T10:30:00-04:00")});

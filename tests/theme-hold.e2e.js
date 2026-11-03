@@ -18,6 +18,7 @@ const skinNow = page => page.evaluate(() => document.documentElement.dataset.ski
   try {
     const open = async signedIn => {
       const ctx = await browser.newContext({serviceWorkers: "block"});
+      await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
       await ctx.route(/supabase\.co/, r => r.abort());
       await ctx.addInitScript(signedIn => {
         try {

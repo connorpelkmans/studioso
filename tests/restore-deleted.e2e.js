@@ -18,7 +18,7 @@ const DATA = {v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: "Old Co
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   const run = async (from, deleted, fail) => {
-    const ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.route(/supabase\.co/, r => r.abort());
+    const ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.routeWebSocket(/supabase\.co/, ws => ws.close()); await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(([d, from]) => { window.__SB_TEST = true; try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1");
       localStorage.setItem("coursework:v2", JSON.stringify(d)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "done");
       if (from) localStorage.setItem("studyboard:folderFrom", from); } } catch (e) {} }, [DATA, from]);
