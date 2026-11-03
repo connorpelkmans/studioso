@@ -969,11 +969,12 @@ function askBox(o){
     if (!d) { d = document.createElement("dialog"); d.id = "askDlg"; d.className = "ask-dlg"; document.body.appendChild(d); }
     const inp = o.input ? `<label class="f"><span class="lh">${esc(o.input.label || "")}</span><input type="text" id="askIn" maxlength="${Number(o.input.max) || 200}" value="${esc(o.input.value || "")}" autocomplete="off"></label>` : "";
     d.innerHTML = `<form class="sheet ask-sheet"><div class="sheet-head"><h2>${esc(o.title || "Are you sure?")}</h2></div><div class="sheet-body">${o.text ? `<p style="margin:0">${esc(o.text)}</p>` : ""}${inp}</div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" id="askNo">${esc(o.no || "Cancel")}</button><button type="submit" class="btn ${o.danger ? "danger" : "primary"}" id="askYes">${esc(o.yes || "OK")}</button></div></form>`;
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" id="askNo">${esc(o.no || "Cancel")}</button>${o.alt ? `<button type="button" class="btn" id="askAlt">${esc(o.alt)}</button>` : ""}<button type="submit" class="btn ${o.danger ? "danger" : "primary"}" id="askYes">${esc(o.yes || "OK")}</button></div></form>`;
     let done = false;
     const fin = v => { if (done) return; done = true; try { d.close(); } catch (e) {} res(v); };
     const nope = () => fin(o.input ? null : false);
     d.querySelector("#askNo").addEventListener("click", nope);
+    const alt = d.querySelector("#askAlt"); if (alt) alt.addEventListener("click", () => fin("alt"));   // a second choice (askBox then resolves "alt")
     d.querySelector("form").addEventListener("submit", e => { e.preventDefault(); fin(o.input ? String(d.querySelector("#askIn").value) : true); });
     d.oncancel = e => { e.preventDefault(); nope(); };
     d.onclick = e => { if (e.target === d) nope(); };

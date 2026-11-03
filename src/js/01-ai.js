@@ -222,7 +222,7 @@ const KEYHO = (() => {
 })();
 /*KEYHO-END*/
 // The key relay
-const KEY_RELAY = "";
+const KEY_RELAY = "https://studyboard-key-relay.connor-pelkmans.workers.dev";
 // Email to Studyboard (Pro)
 const CAPTURE_EMAIL_DOMAIN = "";
 /* Studyboard's free AI trial cloudflare/ai-trial, a Worker on Cloudflare's FREE plan */

@@ -3272,7 +3272,7 @@ const KEYHO = (() => {
 })();
 /*KEYHO-END*/
 // The key relay
-const KEY_RELAY = "";
+const KEY_RELAY = "https://studyboard-key-relay.connor-pelkmans.workers.dev";
 // Email to Studyboard (Pro)
 const CAPTURE_EMAIL_DOMAIN = "";
 /* Studyboard's free AI trial cloudflare/ai-trial, a Worker on Cloudflare's FREE plan */
@@ -12099,8 +12099,10 @@ function dailyQuote(force){
 }
 
 /* Weekly class schedule */
-const COURSE_COLORS = ["#3B6FE0", "#1E9E74", "#E0673B", "#9A4FD1", "#D6386F", "#1D9BB8", "#C79A12", "#5E6B7E", "#DC2626", "#16A34A", "#65A30D", "#0D9488", "#4F46E5", "#C026D3", "#EA580C", "#92400E", "#334155"];
-const COURSE_COLOR_NAMES = ["Blue", "Emerald", "Coral", "Purple", "Raspberry", "Ocean", "Gold", "Slate Gray", "Red", "Green", "Lime", "Teal", "Indigo", "Magenta", "Orange", "Brown", "Charcoal"];
+// Course colors, around the color wheel: each one clearly apart from the rest (at least 13 apart by CIEDE2000; near-twins were dropped
+// in Nov 2026: Tangerine, Magenta, Green, Teal, Indigo, Charcoal, Brown). Courses already using a dropped color keep it, as a custom color.
+const COURSE_COLORS = ["#DC2626", "#9F1239", "#D6386F", "#7A1F6E", "#9A4FD1", "#1E3A8A", "#3B6FE0", "#1D9BB8", "#0F766E", "#1E9E74", "#65A30D", "#CDB022", "#B7860B", "#E0673B", "#5E6B7E"];
+const COURSE_COLOR_NAMES = ["Red", "Wine", "Raspberry", "Plum", "Purple", "Navy", "Blue", "Ocean", "Deep Teal", "Emerald", "Lime", "Mustard", "Gold", "Coral", "Slate Gray"];
 const MEET_KINDS = ["Lecture", "Lab", "Discussion", "Tutorial", "Office Hours", "Other"];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const DAY_SHORT = {1: "M", 2: "T", 3: "W", 4: "Th", 5: "F", 6: "Sa", 0: "Su"};
@@ -13296,11 +13298,12 @@ function askBox(o){
     if (!d) { d = document.createElement("dialog"); d.id = "askDlg"; d.className = "ask-dlg"; document.body.appendChild(d); }
     const inp = o.input ? `<label class="f"><span class="lh">${esc(o.input.label || "")}</span><input type="text" id="askIn" maxlength="${Number(o.input.max) || 200}" value="${esc(o.input.value || "")}" autocomplete="off"></label>` : "";
     d.innerHTML = `<form class="sheet ask-sheet"><div class="sheet-head"><h2>${esc(o.title || "Are you sure?")}</h2></div><div class="sheet-body">${o.text ? `<p style="margin:0">${esc(o.text)}</p>` : ""}${inp}</div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" id="askNo">${esc(o.no || "Cancel")}</button><button type="submit" class="btn ${o.danger ? "danger" : "primary"}" id="askYes">${esc(o.yes || "OK")}</button></div></form>`;
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" id="askNo">${esc(o.no || "Cancel")}</button>${o.alt ? `<button type="button" class="btn" id="askAlt">${esc(o.alt)}</button>` : ""}<button type="submit" class="btn ${o.danger ? "danger" : "primary"}" id="askYes">${esc(o.yes || "OK")}</button></div></form>`;
     let done = false;
     const fin = v => { if (done) return; done = true; try { d.close(); } catch (e) {} res(v); };
     const nope = () => fin(o.input ? null : false);
     d.querySelector("#askNo").addEventListener("click", nope);
+    const alt = d.querySelector("#askAlt"); if (alt) alt.addEventListener("click", () => fin("alt"));   // a second choice (askBox then resolves "alt")
     d.querySelector("form").addEventListener("submit", e => { e.preventDefault(); fin(o.input ? String(d.querySelector("#askIn").value) : true); });
     d.oncancel = e => { e.preventDefault(); nope(); };
     d.onclick = e => { if (e.target === d) nope(); };
@@ -61400,7 +61403,9 @@ You can also DO things in Studyboard, but only when the student asks or what the
     return {side, W: Math.max(1, innerWidth - side), H: Math.max(1, innerHeight)};
   }
   // Glass cards: how much of the card color stays
-  const glassVars = gl => ({"--ph-gl": `${Math.round(100 - gl * 0.62)}%`, "--ph-glb": `${(gl * 0.16).toFixed(1)}px`, "--ph-gls": `${Math.round(94 - gl * 0.1)}%`, "--ph-glo": (0.94 - gl * 0.001).toFixed(3)});
+  // on a computer, glass is 3% more solid (easier to read over a busy picture on a big screen)
+  const deskGlass = () => !matchMedia("(pointer:coarse)").matches && innerWidth >= 900 ? 3 : 0;
+  const glassVars = gl => { const up = deskGlass(); return {"--ph-gl": `${Math.min(100, Math.round(100 - gl * 0.62) + up)}%`, "--ph-glb": `${(gl * 0.16).toFixed(1)}px`, "--ph-gls": `${Math.min(100, Math.round(94 - gl * 0.1) + up)}%`, "--ph-glo": Math.min(1, 0.94 - gl * 0.001 + up / 100).toFixed(3)}; };
   function teardown(){
     const el = document.getElementById("photoArt"); if (el) el.remove();
     root.classList.remove("ph-on", "ph-glass"); ["--ph-gl", "--ph-glb", "--ph-gls", "--ph-glo"].forEach(k => root.style.removeProperty(k));
@@ -75598,11 +75603,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
-        <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit Page</button></span>
+        <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
         <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${window.SBPDE ? SBPDE.readerBtn() : ""}</span>
         <span class="spacer"></span>
-        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span>
+        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}<span class="pdr-out">${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
         <span class="pdr-g-read">${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}</span>
@@ -75670,7 +75675,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
     box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page" data-p="${i + 1}" style="width:${w}px;height:${h}px" aria-label="Page ${i + 1}"><div class="pdr-hl"></div></div>`).join("");
     R.pages = Array.from(box.querySelectorAll(".pdr-page")).map((el, i) => ({n: i + 1, el, done: 0}));
-    const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`;
+    const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});
     R.pages.forEach(p => R.io.observe(p.el));
     goTo(target, true);
@@ -75697,11 +75702,28 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       el.prepend(cv);
       const tl = document.createElement("div"); tl.className = "textLayer"; el.appendChild(tl);
       try { await new window.pdfjsLib.TextLayer({textContentSource: page.streamTextContent({includeMarkedContent: true, disableNormalization: true}), container: tl, viewport: vp}).render(); } catch (e) {}
+      ghostText(el, cv, tl);
       paint(n);
       if (window.SBINK) SBINK.readerPage(n, el);
       if (window.SBPDE) SBPDE.readerPage(n, el, page, vp);
       R.pages.forEach(o => { if (o.done && Math.abs(o.n - n) > 10) { o.done = 0; o.el.querySelectorAll(".pdr-cv,.textLayer,.ink-layer,.pde-layer,.pde-form").forEach(x => x.remove()); } });
     } catch (e) { pg.done = 0; }
+  }
+  // Text you can't see on the page (hidden under a cover, drawn invisibly, or the colour of what's behind it) can't be selected,
+  // so a selection or highlight follows the visible words instead of a hidden block of text
+  function ghostText(el, cv, tl){
+    try {
+      const ctx = cv.getContext("2d", {willReadFrequently: true}), pb = el.getBoundingClientRect(), k = cv.width / (pb.width || cv.width);
+      tl.querySelectorAll("span:not(.markedContent)").forEach(sp => {
+        if (!sp.textContent.trim()) return;
+        const r = sp.getBoundingClientRect(), x0 = Math.max(0, Math.floor((r.left - pb.left) * k)), y0 = Math.max(0, Math.floor((r.top - pb.top) * k));
+        const w = Math.min(cv.width - x0, Math.ceil(r.width * k)), h = Math.min(cv.height - y0, Math.ceil(r.height * k)); if (w < 2 || h < 2) return;
+        const d = ctx.getImageData(x0, y0, w, h).data, step = Math.max(1, Math.floor(Math.sqrt(w * h / 3000))), hist = new Uint32Array(52), L = [];
+        for (let yy = 0; yy < h; yy += step) for (let xx = 0; xx < w; xx += step) { const i = (yy * w + xx) * 4, l = 255 - (255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])) * d[i + 3] / 255; L.push(l); hist[Math.min(51, Math.floor(l / 5))]++; }
+        let mode = 0; for (let i = 1; i < 52; i++) if (hist[i] > hist[mode]) mode = i;
+        const bg = mode * 5 + 2.5; if (L.filter(l => Math.abs(l - bg) > 45).length < Math.max(3, L.length * 0.006)) sp.classList.add("pdr-ghost");
+      });
+    } catch (e) {}
   }
   function paint(n){
     if (!R) return;
@@ -75720,13 +75742,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!R || !R.doc) return;
     n = Math.max(1, Math.min(R.doc.numPages, Math.round(Number(n) || 1)));
     const pg = R.pages[n - 1], box = $("#pdrPages"); if (!pg || !box) return;
-    box.scrollTo({top: pg.el.offsetTop - 12, behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+    const top = pg.el.offsetTop - 12; box.scrollTo({top, behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+    R.going = {top, until: Date.now() + 1200};   // while the scroll travels there, the page number stays on where it's going
     R.cur = n; const inp = $("#pdrPg"); if (inp) inp.value = String(n);
     keepPage(R.rev, n);
     draw(n);
   }
   function trackPage(){
     const box = $("#pdrPages"); if (!box || !R || !R.pages.length) return;
+    if (R.going) { if (Math.abs(box.scrollTop - R.going.top) > 3 && Date.now() < R.going.until && box.scrollTop < box.scrollHeight - box.clientHeight - 2) return; R.going = null; }
     const top = box.scrollTop + box.clientHeight * 0.3;
     let cur = 1; for (const p of R.pages) { if (p.el.offsetTop <= top) cur = p.n; else break; }
     if (cur !== R.cur) { R.cur = cur; const inp = $("#pdrPg"); if (inp && document.activeElement !== inp) inp.value = String(cur); }
@@ -75942,6 +75966,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (e.key === "Home" || e.key === "End") { e.preventDefault(); hidePop(); goTo(e.key === "Home" ? 1 : R.doc.numPages); return; }
     if (e.key === "+" || e.key === "=" || e.key === "-") { e.preventDefault(); zoomBy(e.key === "-" ? -1 : 1); }
   });
+  // the top row on one line: drop labels a step at a time until it fits
+  function fitBar(){
+    const bar = dlg.querySelector(".pdr-sheet .pdr-bar"); if (!bar || !bar.offsetWidth) return;
+    bar.classList.remove("c1", "c2", "c3");
+    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer")); return !k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8); };
+    for (const c of ["c1", "c2", "c3"]) { if (one()) break; bar.classList.add(c); }
+  }
+  P.fitBar = fitBar;
+  let fbT = 0; window.addEventListener("resize", () => { clearTimeout(fbT); fbT = setTimeout(() => { if (R) fitBar(); }, 100); });
   const ZOOMS = [0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
   function zoomBy(step){
     const i = ZOOMS.findIndex(z => Math.abs(z - R.zoom) < 0.001), next = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, (i < 0 ? ZOOMS.indexOf(1) : i) + step))];
@@ -76036,6 +76069,17 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-modes .pde-mode[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink,#fff)}
 .pdr-modes .pdr-mode:focus-visible,.pdr-modes .pde-mode:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pdr-saveslot:empty{display:none}
+/* the top row stays one row: Download and Save stay together, and labels give way to icons, a step at a time, only as far as needed */
+.pdr-out{display:inline-flex;align-items:center;gap:6px;flex:none}
+.pdr-save{min-width:96px}
+.pdr-save .pdr-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:rgba(0,0,0,.22);font-size:.75rem}
+.pdr-bar.c1 .ai-btn .pde-lbl{display:none}
+.pdr-bar.c1 .ai-btn{padding-left:10px;padding-right:10px}
+.pdr-bar.c2 .pdr-split .pde-lbl,.pdr-bar.c2 .pdr-save .pde-lbl,.pdr-bar.c2 .pdr-fit-p{display:none}
+.pdr-bar.c2 .pdr-save{min-width:0}
+.pdr-bar.c3 .pdr-modes .pdr-mode,.pdr-bar.c3 .pdr-modes .pde-mode{padding:0 9px}
+.pdr-bar.c3 .pdr-fit{display:none}
+.pdr-bar .pdr-fit{gap:0}
 .pdr-nav,.pdr-zoom,.pdr-cols{display:inline-flex;align-items:center;gap:4px}
 .pdr-pg input{width:3.4em;text-align:center;padding:6px 4px}
 .pdr-col{width:26px;height:26px;border-radius:50%;border:2px solid rgba(0,0,0,.18);background:var(--h);padding:0;cursor:pointer;box-shadow:inset 0 0 0 2px var(--surface)}
@@ -76070,6 +76114,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-page .textLayer > :not(.markedContent),.pdr-page .textLayer .markedContent span:not(.markedContent){z-index:1;--font-height:0;font-size:calc(var(--text-scale-factor) * var(--font-height));--scale-x:1;--rotate:0deg;transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv))}
 .pdr-page .textLayer .markedContent{display:contents}
 .pdr-page .textLayer span[role="img"]{user-select:none;cursor:default}
+.pdr-page .textLayer .pdr-ghost{user-select:none;-webkit-user-select:none;pointer-events:none}
 .pdr-page .textLayer ::selection{background:rgba(0,90,255,.28)}
 .pdr-page .textLayer br::selection{background:transparent}
 .pdr-page .textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:0;cursor:default;user-select:none}
@@ -80786,7 +80831,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 
   /* Paragraphs: the lines around a line that belong with it (same size and font, evenly spaced, left edges lined up) */
   async function paragraphAt(n, o){
-    const items = (await pageInfo(n)).filter(it => Math.abs(it.r) < 0.5);
+    const pgv = E.pages.get(n), items = (await pageInfo(n)).filter(it => Math.abs(it.r) < 0.5 && (!pgv || inked(pgv, it)));
     const lines = [];
     items.slice().sort((a, b) => b.o[1] - a.o[1] || a.o[0] - b.o[0]).forEach(it => {
       // the same line: same height and size, and close beside it (text in another table column at that height is a different line)
@@ -80828,9 +80873,34 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   /* Pointing at the page */
   async function itemAt(pg, x, y){
     const items = await pageInfo(pg.n), [px0, py0] = toPdf(pg, x, y);
-    let best = null;
-    for (const it of items) if (pdeInside(Object.assign({tol: it.fs * 0.15}, it), px0, py0)) { const area = it.w * (it.y1 - it.y0); if (!best || area < best.area) best = {it, area}; }
-    return best && best.it;
+    const hits = [];
+    for (const it of items) if (pdeInside(Object.assign({tol: it.fs * 0.15}, it), px0, py0)) hits.push({it, area: it.w * (it.y1 - it.y0)});
+    hits.sort((a, b) => a.area - b.area);
+    // only text you can see: text hidden under a cover, drawn invisibly, or the same colour as what's behind it isn't offered
+    const h = hits.find(x => inked(pg, x.it));
+    return h ? h.it : null;
+  }
+  // Whether a piece of text actually shows on the drawn page: some of its box differs from the colour around it
+  function inked(pg, it){
+    const key = pg.n + ":" + Math.round(pg.vp.scale * 100) + ":" + it.o.map(v => Math.round(v)).join(",") + ":" + Math.round(it.w);
+    E.inkC = E.inkC || new Map(); if (E.inkC.has(key)) return E.inkC.get(key);
+    let out = true;
+    try {
+      const cv = pg.el.querySelector(".pdr-cv"); if (!cv || !cv.width) return true;
+      const k = cv.width / (cv.clientWidth || cv.width), b = vpBox(pg, it);
+      const x0 = Math.max(0, Math.floor(b.x * k)), y0 = Math.max(0, Math.floor(b.y * k)), w = Math.min(cv.width - x0, Math.ceil(b.w * k)), h = Math.min(cv.height - y0, Math.ceil(b.h * k));
+      if (w < 2 || h < 2) { out = false; }
+      else {
+        const d = cv.getContext("2d", {willReadFrequently: true}).getImageData(x0, y0, w, h).data, hist = new Uint32Array(52), step = Math.max(1, Math.floor(Math.sqrt(w * h / 6000)));
+        const L = [];
+        for (let yy = 0; yy < h; yy += step) for (let xx = 0; xx < w; xx += step) { const i = (yy * w + xx) * 4, l = 255 - (255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])) * d[i + 3] / 255 /* as seen over the white page */; L.push(l); hist[Math.min(51, Math.floor(l / 5))]++; }
+        let mode = 0; for (let i = 1; i < 52; i++) if (hist[i] > hist[mode]) mode = i;
+        const bg = mode * 5 + 2.5, ink = L.filter(l => Math.abs(l - bg) > 45).length;
+        out = ink >= Math.max(3, L.length * 0.006);
+      }
+    } catch (e) { out = true; }
+    E.inkC.set(key, out); if (E.inkC.size > 3000) E.inkC.clear();
+    return out;
   }
   // the line of text closest to a point (in page units), for a new text box's size and font
   async function nearest(pg, x, y){
@@ -81086,7 +81156,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     for (let n = 1; n <= r.doc.numPages; n++) {
       if (my !== findT) return out;
       if (n % 15 === 0) { const el = $("#pdeFindN"); if (el) el.textContent = `Searching page ${n} of ${r.doc.numPages}…`; }
-      const items = await pageInfo(n);
+      // only text you can see (on pages drawn so far; pages not drawn yet are searched as they are)
+      const pgv = E.pages.get(n), items = (await pageInfo(n)).filter(it => !pgv || inked(pgv, it));
       for (const it of items) {
         const t = list.find(e => e.k === "t" && e.p === n && Math.abs(e.o[0] - it.o[0]) < 0.5 && Math.abs(e.o[1] - it.o[1]) < 0.5);
         const p = list.find(e => e.k === "p" && e.p === n && e.lines.some(l => Math.abs(l.o[1] - it.o[1]) < it.fs * 0.3 && it.o[0] >= l.o[0] - 1 && it.o[0] <= l.o[0] + l.w + 1));
@@ -81182,11 +81253,24 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const cols = `<span class="pde-cols">${[["#14204a", "Dark blue"], ["#000000", "Black"]].map(([c, n]) => `<button type="button" class="pde-col" data-act="pde-sig-color" data-id="${c}" style="--c:${c}" aria-label="${n}" aria-pressed="${SIG.color === c}"></button>`).join("")}</span>`;
     if (t === "Draw") {
       box.innerHTML = `<canvas class="pde-pad" id="pdeSigPad" width="1200" height="400" aria-label="Draw your signature here"></canvas><div class="row-actions">${cols}<span class="spacer"></span><button type="button" class="btn small" data-act="pde-sig-clear">Clear</button></div>`;
-      const cv = $("#pdeSigPad"), ctx = cv.getContext("2d"); let last = null; SIG.drawn = false;
+      // strokes are kept as points and redrawn smoothed (like the whiteboard), so a signature looks drawn with a pen, not a mouse
+      const cv = $("#pdeSigPad"), ctx = cv.getContext("2d"), strokes = []; let cur = null; SIG.drawn = false; SIG.strokes = strokes;
       const pt = ev => { const b = cv.getBoundingClientRect(); return [(ev.clientX - b.left) * cv.width / b.width, (ev.clientY - b.top) * cv.height / b.height]; };
-      cv.addEventListener("pointerdown", ev => { cv.setPointerCapture(ev.pointerId); last = pt(ev); ctx.beginPath(); ctx.arc(last[0], last[1], 2.5, 0, 7); ctx.fillStyle = SIG.color; ctx.fill(); SIG.drawn = true; });
-      cv.addEventListener("pointermove", ev => { if (!last) return; const p = pt(ev); ctx.strokeStyle = SIG.color; ctx.lineWidth = 5 * (ev.pressure && ev.pointerType === "pen" ? 0.6 + ev.pressure : 1); ctx.lineCap = ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(last[0], last[1]); ctx.quadraticCurveTo(last[0], last[1], (last[0] + p[0]) / 2, (last[1] + p[1]) / 2); ctx.lineTo(p[0], p[1]); ctx.stroke(); last = p; });
-      const end = () => { last = null; }; cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+      const simplify = (p, eps) => { if (p.length < 3) return p; const keep = new Uint8Array(p.length); keep[0] = keep[p.length - 1] = 1; const st = [[0, p.length - 1]];
+        while (st.length) { const [a, b] = st.pop(); let md = 0, mi = -1; const [x1, y1] = p[a], [x2, y2] = p[b], L = Math.hypot(x2 - x1, y2 - y1) || 1;
+          for (let k = a + 1; k < b; k++) { const d = Math.abs((y2 - y1) * p[k][0] - (x2 - x1) * p[k][1] + x2 * y1 - y2 * x1) / L; if (d > md) { md = d; mi = k; } }
+          if (md > eps && mi > 0) { keep[mi] = 1; st.push([a, mi], [mi, b]); } }
+        return p.filter((q, k) => keep[k]); };
+      const chaikin = (p, n) => { for (let r = 0; r < n && p.length > 2; r++) { const o = [p[0]]; for (let k = 0; k < p.length - 1; k++) { const [a, b] = [p[k], p[k + 1]]; o.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]); } o.push(p[p.length - 1]); p = o; } return p; };
+      const smooth = p => chaikin(simplify(p, 1.6), 3);
+      const drawOne = (p, w) => { ctx.strokeStyle = ctx.fillStyle = SIG.color; ctx.lineWidth = w; ctx.lineCap = ctx.lineJoin = "round";
+        if (p.length < 2) { ctx.beginPath(); ctx.arc(p[0][0], p[0][1], w / 2, 0, 7); ctx.fill(); return; }
+        ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]); for (let k = 1; k < p.length - 1; k++) ctx.quadraticCurveTo(p[k][0], p[k][1], (p[k][0] + p[k + 1][0]) / 2, (p[k][1] + p[k + 1][1]) / 2); ctx.lineTo(p[p.length - 1][0], p[p.length - 1][1]); ctx.stroke(); };
+      const redraw = () => { ctx.clearRect(0, 0, cv.width, cv.height); strokes.forEach(s0 => drawOne(s0.pts, s0.w)); if (cur) drawOne(cur.raw, cur.w); };
+      SIG.redraw = redraw;
+      cv.addEventListener("pointerdown", ev => { cv.setPointerCapture(ev.pointerId); cur = {raw: [pt(ev)], w: 7 * (ev.pointerType === "pen" && ev.pressure ? 0.7 + ev.pressure * 0.6 : 1)}; SIG.drawn = true; redraw(); });
+      cv.addEventListener("pointermove", ev => { if (!cur) return; const evs = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [ev]; (evs.length ? evs : [ev]).forEach(e => cur.raw.push(pt(e))); redraw(); });
+      const end = () => { if (!cur) return; strokes.push({pts: smooth(cur.raw), w: cur.w}); cur = null; redraw(); }; cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
     } else if (t === "Type") {
       const styles = [["Caveat", "Caveat"], ["Kalam", "Kalam"], ["Patrick Hand", "Patrick Hand"], ["Gochi Hand", "Gochi Hand"]];
       SIG.font = SIG.font || "Caveat";
@@ -81315,6 +81399,25 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // the tools under More
   const MORE = [["fill", "Quick Fill", IC.fill, "Your name, ID, class and date"], ["header", "Header", IC.header, "Name and page numbers on every page"], ["find", "Find", IC.find, "Find and replace"], ["pages", "Pages", IC.pages, "Turn, move, add, take out, scan"], ["ocr", "Recognize Text", IC.ocr, "Make a scan's words real text"],
     ["fields", "Make Fillable", IC.fill, "Turn blanks and boxes into fields"], ["stamp", "Stamp", IC.header, "Draft, Graded, Approved…"], ["watermark", "Watermark", IC.header, "Faint text across every page"], ["link", "Link", IC.toc, "Link to a web page or a page"], ["history", "History", IC.rotL, "Undo, redo, go back"]];
+  // The edit row fills up with the most useful of these, as many as fit at the row's width; the rest stay under More
+  const ROW_ORDER = ["find", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history"];
+  const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
+  const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
+  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.tool === k && !E.place}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  function measureFit(){
+    const b = E && E.on && dlg.querySelector(".pde-bar"), row = b && b.querySelector(".pde-tools"); if (!row || !row.offsetWidth) return;
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 6, cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+    if (!E.fitW || E.fitW.k !== b.clientWidth + ":" + window.devicePixelRatio) {
+      const m = document.createElement("span"); m.className = "pde-tools"; m.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;display:flex";
+      m.innerHTML = ROW_ORDER.map(k => fitTool(MORE.find(x => x[0] === k))).join("") + `<button type="button" class="btn small pde-tool"><svg width="16" height="16"></svg><span class="pde-lbl">More</span></button>`;
+      b.appendChild(m); E.fitW = Object.assign([...m.children].map(c => c.offsetWidth), {k: b.clientWidth + ":" + window.devicePixelRatio}); m.remove();
+    }
+    let used = 0; [...row.children].forEach(c => { if (!c.dataset.fit && !c.classList.contains("pde-more-wrap")) used += c.offsetWidth + gap; });
+    const moreW = E.fitW[ROW_ORDER.length]; let k = 0;
+    while (k < ROW_ORDER.length) { const next = used + E.fitW[k] + gap, needMore = k + 1 < ROW_ORDER.length; if (next + (needMore ? moreW : 0) > avail) break; used = next; k++; }
+    if (k !== (E.fit || 0)) { E.fit = k; E.more = false; bar(); }
+  }
+  let fitT = 0; window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { if (E) E.fitW = null; measureFit(); }, 120); });
   function barHtml(){
     const e = selected(), n = mine().length, pr = e && (e.k === "t" || e.k === "p") ? probeOf(e) : null, txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
     const fam = e ? (e.ff ? "ff:" + e.ff : (e.k === "t" || e.k === "p") && e.keep !== false ? "o" : e.f || "h") : "";
@@ -81341,7 +81444,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${MORE.some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((MORE.find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${MORE.map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span></span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}</span>
       <span class="spacer"></span>
 
       <div class="pde-sub">
@@ -81365,13 +81468,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const pages = $("#pdrPages"); if (pages) { pages.classList.toggle("pde-on", E.on); pages.dataset.pdeTool = E.place ? "place" : E.tool; }
     // Save sits in the top row, beside Download, while editing
     const slot = sheet.querySelector("#pdrSaveSlot"), nE = mine().length;
-    if (slot) slot.innerHTML = E.on ? `<button type="button" class="btn small primary" data-act="pde-save"${nE ? "" : " disabled"}>${ico(IC.save)}Save${nE ? ` ${nE} Edit${nE === 1 ? "" : "s"}` : ""}</button>` : "";
+    if (slot) slot.innerHTML = E.on ? `<button type="button" class="btn small primary pdr-save" data-act="pde-save"${nE ? "" : " disabled"} aria-label="Save${nE ? ` ${nE} edit${nE === 1 ? "" : "s"}` : ""}">${ico(IC.save)}<span class="pde-lbl">Save</span>${nE ? `<b class="pdr-badge">${nE}</b>` : ""}</button>` : "";
     sheet.dataset.mode = E.on ? "edit" : ((R() && R().mode) || "read");
     dlg.querySelectorAll('[data-act="pdr-mode"]').forEach(x => x.setAttribute("aria-pressed", String(!E.on && x.dataset.id === sheet.dataset.mode)));
+    if (P.fitBar) P.fitBar();
     if (!E.on) { if (b) b.remove(); return; }
     const ae = document.activeElement, focusId = ae && b && b.contains(ae) ? ae.id || ae.dataset.act + (ae.dataset.id || "") : "", caret = ae && ae.id && /^pdeFind/.test(ae.id) ? ae.selectionStart : null;
     if (!b) { b = document.createElement("div"); b.className = "pde-bar sm-skip"; b.setAttribute("role", "toolbar"); b.setAttribute("aria-label", "Edit PDF"); sheet.querySelector(".pdr-bar").after(b); }
     b.innerHTML = barHtml();
+    requestAnimationFrame(measureFit);
     if (focusId) { const el = b.querySelector("#" + focusId) || [...b.querySelectorAll("[data-act]")].find(x => x.dataset.act + (x.dataset.id || "") === focusId); if (el) { el.focus(); if (caret != null && el.setSelectionRange) try { el.setSelectionRange(caret, caret); } catch (e) {} } }
     if (E.tool === "find") findCount();
   }
@@ -81469,11 +81574,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   async function saveVersion(){
     if (busy || !E) return; if (E.ed) commit();
     if (!(await signedOk())) return;
+    // a new version (the one you opened stays as it is), or this version updated in place
+    const f0 = fileOf(), ri = f0.revs.findIndex(r => r.assetId === E.rev), L0 = revLetter(ri >= 0 ? ri : f0.revs.length - 1);
+    const how = await askBox({title: "Save Your Edits", text: `Save them as a new version of this file, and keep Rev ${L0} as it was? Or update Rev ${L0} itself?`, yes: "Save as New Version", alt: `Update Rev ${L0}`, no: "Cancel"});
+    if (!how) return;
     busy = true;
     try {
       toast("Saving the edited PDF…");
       const r = await bake(false); if (!r) return;
-      await storeVersion(r.bytes, {label: "saved with your edits", fallbackName: editedName(curRev(fileOf()).name || fileOf().name), report: r.report});
+      await storeVersion(r.bytes, {label: how === "alt" ? `updated with your edits` : "saved with your edits", replace: how === "alt", fallbackName: editedName(curRev(fileOf()).name || fileOf().name), report: r.report});
     } catch (err) { toast((err && /load|locked/.test(err.message || "") && err.message) || "Couldn't save the edited PDF. Your edits are still here."); }
     finally { busy = false; if (E) bar(); }
   }
@@ -81489,7 +81598,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     try { if (bytes.length < 60e6) await idbSet("pdf:" + up.id, new Blob([bytes], {type: "application/pdf"})); } catch (e) {}
     const cur = state.files[S.fid]; if (!cur) return;
     const n = clone(cur), old = S.rev, map = o.map;
-    n.revs = n.revs.concat(Object.assign({assetId: up.id, size: up.sizeBytes || bytes.length, type: "application/pdf", at: Date.now(), name}, up.localRel ? {localRel: up.localRel} : {}));
+    const nrev = Object.assign({assetId: up.id, size: up.sizeBytes || bytes.length, type: "application/pdf", at: Date.now(), name}, up.localRel ? {localRel: up.localRel} : {});
+    const ri = o.replace ? n.revs.findIndex(r => r.assetId === old) : -1;
+    if (ri >= 0) n.revs = n.revs.map((r, k) => k === ri ? nrev : r); else n.revs = n.revs.concat(nrev);
     const turn = (x, y, rot) => rot === 90 ? [1 - y, x] : rot === 180 ? [1 - x, 1 - y] : rot === 270 ? [y, 1 - x] : [x, y];
     const where = p => map ? map.get(p) : {p, rot: 0};
     if (Array.isArray(n.hl)) n.hl = n.hl.map(h => {
@@ -81505,7 +81616,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     });
     const rest = editsOf(n).filter(e => e.a !== old); if (rest.length) n.pe = rest; else delete n.pe;
     n.updated = Date.now();
-    applyChanges([{kind: "file", id: S.fid, after: n}], `${n.name}: Rev ${revLetter(n.revs.length - 1)} ${o.label}`);
+    applyChanges([{kind: "file", id: S.fid, after: n}], `${n.name}: Rev ${revLetter(ri >= 0 ? ri : n.revs.length - 1)} ${o.label}`);
     const note = o.report && missingNote(o.report); if (note) setTimeout(() => toast("Note: " + note + "."), 1800);
     E = null;
     if (P.openReader) { if (dlg.open) dlg.close(); setTimeout(() => P.openReader(S.fid, map && map.get(page) ? map.get(page).p : page), 0); }
@@ -81625,9 +81736,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-font-use": useFont(id).then(closePanel); break;
       case "pde-font-rm": removeFont(id).then(fontsPanel); break;
       case "pde-sig-tab": sigTab(id); break;
-      case "pde-sig-color": SIG.color = id; dlg.querySelectorAll('[data-act="pde-sig-color"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); break;
+      case "pde-sig-color": SIG.color = id; dlg.querySelectorAll('[data-act="pde-sig-color"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); if (SIG.redraw) SIG.redraw(); break;
       case "pde-sig-font": SIG.font = id; dlg.querySelectorAll(".pde-sigstyle").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); break;
-      case "pde-sig-clear": { const cv = $("#pdeSigPad"); if (cv) { cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; } break; }
+      case "pde-sig-clear": { const cv = $("#pdeSigPad"); if (cv) { if (SIG.strokes) SIG.strokes.length = 0; cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; } break; }
       case "pde-sig-use": sigUse(); break;
       case "pde-sig-pick": { const s = mySigs().find(x => x.id === id); if (s) placeNext(Object.assign({sig: true}, s)); break; }
       case "pde-sig-rm": lsSet(K_SIGS, mySigs().filter(x => x.id !== id)); idbDel("pdeimg:" + id).catch(() => {}); sigTab(mySigs().length ? "Saved" : "Draw"); break;
@@ -82077,7 +82188,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         ${phonePanel()}
         ${n ? `<ol class="pde-scanlist">${SCAN.pages.map((p, i) => `<li><img alt="Page ${i + 1}" src="${p.thumb || ""}"><span class="mini">Page ${i + 1}</span><span class="pde-cardbar">
           <button type="button" class="icon-btn" data-scan="up" data-i="${i}" aria-label="Move page ${i + 1} earlier"${i ? "" : " disabled"}>${ico(IC.left)}</button><button type="button" class="icon-btn" data-scan="rot" data-i="${i}" aria-label="Turn page ${i + 1}">${ico(IC.rotR)}</button>
-          <button type="button" class="btn small" data-scan="crop" data-i="${i}">Corners</button><button type="button" class="icon-btn" data-scan="del" data-i="${i}" aria-label="Remove page ${i + 1}">${ico(IC.trash)}</button>
+          <button type="button" class="icon-btn" data-scan="crop" data-i="${i}" aria-label="Fix the corners of page ${i + 1}" title="Corners">${ico('<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>')}</button><button type="button" class="icon-btn" data-scan="del" data-i="${i}" aria-label="Remove page ${i + 1}">${ico(IC.trash)}</button>
           <button type="button" class="icon-btn" data-scan="down" data-i="${i}" aria-label="Move page ${i + 1} later"${i < n - 1 ? "" : " disabled"}>${ico(IC.right)}</button></span></li>`).join("")}</ol>` : `<div class="pde-scan-empty">No pages yet</div>`}
         ${n ? `<label class="f"><span class="lh">PDF name</span><input type="text" data-scan="name" maxlength="120" value="${esc(SCAN.name || "Scan " + new Date().toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}))}"></label>` : ""}
       </div>
@@ -82922,6 +83033,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-phone-t{flex:1 1 220px;display:grid;gap:6px}.pde-phone-t p{margin:0}
 .pde-phone-n{font-weight:700;color:var(--ink)}
 .pde-phone .row-actions{margin:2px 0 0}
+.pde-scanlist .pde-cardbar{display:flex;flex-wrap:nowrap;justify-content:center;gap:4px}
+.pde-scanlist .pde-cardbar .icon-btn{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:inline-grid;place-items:center;flex:none}
+.pde-scanlist .pde-cardbar .icon-btn svg{width:17px;height:17px;display:block}
 .pde-cardprev{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .pde-cardprev li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);position:relative;isolation:isolate}
 .pde-cardprev li.off{opacity:.5}

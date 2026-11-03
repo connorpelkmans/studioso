@@ -2471,11 +2471,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
-        <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit Page</button></span>
+        <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
         <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${window.SBPDE ? SBPDE.readerBtn() : ""}</span>
         <span class="spacer"></span>
-        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span>
+        ${window.SBPDE && SBPDE.readerAi ? SBPDE.readerAi() : ""}<span class="pdr-out">${window.SBPDE && SBPDE.dlBtns ? SBPDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
         <span class="pdr-g-read">${window.SBPDE && SBPDE.readerTools ? SBPDE.readerTools() : ""}</span>
@@ -2543,7 +2543,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
     box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page" data-p="${i + 1}" style="width:${w}px;height:${h}px" aria-label="Page ${i + 1}"><div class="pdr-hl"></div></div>`).join("");
     R.pages = Array.from(box.querySelectorAll(".pdr-page")).map((el, i) => ({n: i + 1, el, done: 0}));
-    const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`;
+    const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});
     R.pages.forEach(p => R.io.observe(p.el));
     goTo(target, true);
@@ -2570,11 +2570,28 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       el.prepend(cv);
       const tl = document.createElement("div"); tl.className = "textLayer"; el.appendChild(tl);
       try { await new window.pdfjsLib.TextLayer({textContentSource: page.streamTextContent({includeMarkedContent: true, disableNormalization: true}), container: tl, viewport: vp}).render(); } catch (e) {}
+      ghostText(el, cv, tl);
       paint(n);
       if (window.SBINK) SBINK.readerPage(n, el);
       if (window.SBPDE) SBPDE.readerPage(n, el, page, vp);
       R.pages.forEach(o => { if (o.done && Math.abs(o.n - n) > 10) { o.done = 0; o.el.querySelectorAll(".pdr-cv,.textLayer,.ink-layer,.pde-layer,.pde-form").forEach(x => x.remove()); } });
     } catch (e) { pg.done = 0; }
+  }
+  // Text you can't see on the page (hidden under a cover, drawn invisibly, or the colour of what's behind it) can't be selected,
+  // so a selection or highlight follows the visible words instead of a hidden block of text
+  function ghostText(el, cv, tl){
+    try {
+      const ctx = cv.getContext("2d", {willReadFrequently: true}), pb = el.getBoundingClientRect(), k = cv.width / (pb.width || cv.width);
+      tl.querySelectorAll("span:not(.markedContent)").forEach(sp => {
+        if (!sp.textContent.trim()) return;
+        const r = sp.getBoundingClientRect(), x0 = Math.max(0, Math.floor((r.left - pb.left) * k)), y0 = Math.max(0, Math.floor((r.top - pb.top) * k));
+        const w = Math.min(cv.width - x0, Math.ceil(r.width * k)), h = Math.min(cv.height - y0, Math.ceil(r.height * k)); if (w < 2 || h < 2) return;
+        const d = ctx.getImageData(x0, y0, w, h).data, step = Math.max(1, Math.floor(Math.sqrt(w * h / 3000))), hist = new Uint32Array(52), L = [];
+        for (let yy = 0; yy < h; yy += step) for (let xx = 0; xx < w; xx += step) { const i = (yy * w + xx) * 4, l = 255 - (255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])) * d[i + 3] / 255; L.push(l); hist[Math.min(51, Math.floor(l / 5))]++; }
+        let mode = 0; for (let i = 1; i < 52; i++) if (hist[i] > hist[mode]) mode = i;
+        const bg = mode * 5 + 2.5; if (L.filter(l => Math.abs(l - bg) > 45).length < Math.max(3, L.length * 0.006)) sp.classList.add("pdr-ghost");
+      });
+    } catch (e) {}
   }
   function paint(n){
     if (!R) return;
@@ -2593,13 +2610,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!R || !R.doc) return;
     n = Math.max(1, Math.min(R.doc.numPages, Math.round(Number(n) || 1)));
     const pg = R.pages[n - 1], box = $("#pdrPages"); if (!pg || !box) return;
-    box.scrollTo({top: pg.el.offsetTop - 12, behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+    const top = pg.el.offsetTop - 12; box.scrollTo({top, behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+    R.going = {top, until: Date.now() + 1200};   // while the scroll travels there, the page number stays on where it's going
     R.cur = n; const inp = $("#pdrPg"); if (inp) inp.value = String(n);
     keepPage(R.rev, n);
     draw(n);
   }
   function trackPage(){
     const box = $("#pdrPages"); if (!box || !R || !R.pages.length) return;
+    if (R.going) { if (Math.abs(box.scrollTop - R.going.top) > 3 && Date.now() < R.going.until && box.scrollTop < box.scrollHeight - box.clientHeight - 2) return; R.going = null; }
     const top = box.scrollTop + box.clientHeight * 0.3;
     let cur = 1; for (const p of R.pages) { if (p.el.offsetTop <= top) cur = p.n; else break; }
     if (cur !== R.cur) { R.cur = cur; const inp = $("#pdrPg"); if (inp && document.activeElement !== inp) inp.value = String(cur); }
@@ -2815,6 +2834,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (e.key === "Home" || e.key === "End") { e.preventDefault(); hidePop(); goTo(e.key === "Home" ? 1 : R.doc.numPages); return; }
     if (e.key === "+" || e.key === "=" || e.key === "-") { e.preventDefault(); zoomBy(e.key === "-" ? -1 : 1); }
   });
+  // the top row on one line: drop labels a step at a time until it fits
+  function fitBar(){
+    const bar = dlg.querySelector(".pdr-sheet .pdr-bar"); if (!bar || !bar.offsetWidth) return;
+    bar.classList.remove("c1", "c2", "c3");
+    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer")); return !k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8); };
+    for (const c of ["c1", "c2", "c3"]) { if (one()) break; bar.classList.add(c); }
+  }
+  P.fitBar = fitBar;
+  let fbT = 0; window.addEventListener("resize", () => { clearTimeout(fbT); fbT = setTimeout(() => { if (R) fitBar(); }, 100); });
   const ZOOMS = [0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
   function zoomBy(step){
     const i = ZOOMS.findIndex(z => Math.abs(z - R.zoom) < 0.001), next = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, (i < 0 ? ZOOMS.indexOf(1) : i) + step))];
@@ -2909,6 +2937,17 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-modes .pde-mode[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink,#fff)}
 .pdr-modes .pdr-mode:focus-visible,.pdr-modes .pde-mode:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pdr-saveslot:empty{display:none}
+/* the top row stays one row: Download and Save stay together, and labels give way to icons, a step at a time, only as far as needed */
+.pdr-out{display:inline-flex;align-items:center;gap:6px;flex:none}
+.pdr-save{min-width:96px}
+.pdr-save .pdr-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:rgba(0,0,0,.22);font-size:.75rem}
+.pdr-bar.c1 .ai-btn .pde-lbl{display:none}
+.pdr-bar.c1 .ai-btn{padding-left:10px;padding-right:10px}
+.pdr-bar.c2 .pdr-split .pde-lbl,.pdr-bar.c2 .pdr-save .pde-lbl,.pdr-bar.c2 .pdr-fit-p{display:none}
+.pdr-bar.c2 .pdr-save{min-width:0}
+.pdr-bar.c3 .pdr-modes .pdr-mode,.pdr-bar.c3 .pdr-modes .pde-mode{padding:0 9px}
+.pdr-bar.c3 .pdr-fit{display:none}
+.pdr-bar .pdr-fit{gap:0}
 .pdr-nav,.pdr-zoom,.pdr-cols{display:inline-flex;align-items:center;gap:4px}
 .pdr-pg input{width:3.4em;text-align:center;padding:6px 4px}
 .pdr-col{width:26px;height:26px;border-radius:50%;border:2px solid rgba(0,0,0,.18);background:var(--h);padding:0;cursor:pointer;box-shadow:inset 0 0 0 2px var(--surface)}
@@ -2943,6 +2982,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-page .textLayer > :not(.markedContent),.pdr-page .textLayer .markedContent span:not(.markedContent){z-index:1;--font-height:0;font-size:calc(var(--text-scale-factor) * var(--font-height));--scale-x:1;--rotate:0deg;transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv))}
 .pdr-page .textLayer .markedContent{display:contents}
 .pdr-page .textLayer span[role="img"]{user-select:none;cursor:default}
+.pdr-page .textLayer .pdr-ghost{user-select:none;-webkit-user-select:none;pointer-events:none}
 .pdr-page .textLayer ::selection{background:rgba(0,90,255,.28)}
 .pdr-page .textLayer br::selection{background:transparent}
 .pdr-page .textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:0;cursor:default;user-select:none}

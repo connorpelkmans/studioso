@@ -86,7 +86,7 @@
 .pdeck-name{font:700 1.12rem/1.25 var(--display);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pdeck-meta{font-size:.84rem;line-height:1.35;color:#4A5875;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pdeck-prev{font-size:.84rem;line-height:1.35;color:#5A6A86;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
-.pc0{--c:#3B6FE0}.pc1{--c:#1E9E74}.pc2{--c:#E0673B}.pc3{--c:#9A4FD1}.pc4{--c:#D6386F}.pc5{--c:#1D9BB8}.pc6{--c:#C79A12}.pc7{--c:#5E6B7E}.pc8{--c:#DC2626}.pc9{--c:#16A34A}.pc10{--c:#65A30D}.pc11{--c:#0D9488}.pc12{--c:#4F46E5}.pc13{--c:#C026D3}.pc14{--c:#EA580C}.pc15{--c:#92400E}.pc16{--c:#334155}
+.pc0{--c:#DC2626}.pc1{--c:#9F1239}.pc2{--c:#D6386F}.pc3{--c:#7A1F6E}.pc4{--c:#9A4FD1}.pc5{--c:#1E3A8A}.pc6{--c:#3B6FE0}.pc7{--c:#1D9BB8}.pc8{--c:#0F766E}.pc9{--c:#1E9E74}.pc10{--c:#65A30D}.pc11{--c:#CDB022}.pc12{--c:#B7860B}.pc13{--c:#E0673B}.pc14{--c:#5E6B7E}
 @media (max-width:560px){.pdecks{grid-template-columns:minmax(0,1fr);gap:26px}}
 @media (prefers-reduced-motion:reduce){.pdeck{transition:none}.pdeck:hover{transform:none}}
 

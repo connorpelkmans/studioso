@@ -45,7 +45,7 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     await page.evaluate(() => { const T = window.__sbProStudy; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); Object.defineProperty(window, "dlg", {get: () => T.dlg(), configurable: true}); });
     await page.waitForTimeout(600);
     // the tools under More open from its menu
-    const tool = async id => { if (["fill", "header", "find", "pages", "ocr", "fields", "stamp", "watermark", "link", "history"].includes(id)) { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } else await page.click(`.pde-tool[data-id="${id}"]`); await page.waitForTimeout(150); };
+    const tool = async id => { if (await page.locator(`.pde-tools > .pde-tool[data-id="${id}"]`).count()) await page.click(`.pde-tools > .pde-tool[data-id="${id}"]`); else { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } await page.waitForTimeout(200); };
     const shot = async name => { if (SHOTS) { fs.mkdirSync(SHOTS, {recursive: true}); await page.screenshot({path: path.join(SHOTS, name + ".png")}); } };
     await page.evaluate(async bytes => { await window.__sbProStudy.idbSet("pdf:a-syl", new Blob([new Uint8Array(bytes)], {type: "application/pdf"})); }, [...pdf]);
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "pdr-open"; b.dataset.id = "f1"; document.body.appendChild(b); b.click(); b.remove(); });
@@ -92,7 +92,7 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     ok(pe.length === 1 && pe[0].k === "t" && /December 22 in Hall B/.test(pe[0].t) && /October 20/.test(pe[0].old) && pe[0].a === "a-syl", "Enter keeps the change as an edit on this version of the file");
     await page.waitForFunction(() => /Same font as the PDF|similar font/i.test((document.getElementById("pdeMsg") || {}).textContent || ""), null, {timeout: 8000}).catch(() => {});
     ok(/Same font as the PDF/.test(await page.locator("#pdeMsg").textContent()), "the new words can use the PDF's own font (every letter is in it)");
-    ok(await page.locator("#pdrSaveSlot [data-act=pde-save]").textContent().then(t => /Save 1 Edit/.test(t)), "Save counts the edits");
+    ok(await page.getAttribute("#pdrSaveSlot [data-act=pde-save]", "aria-label") === "Save 1 edit" && (await page.textContent("#pdrSaveSlot .pdr-badge")).trim() === "1", "Save counts the edits");
 
     // 2. a name the PDF's font can't fully draw (it has no capital Z) gets a similar font, and says so
     const riv = await wordAt("Rivera");
@@ -163,7 +163,9 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     // a highlight on the old version comes along to the new one
     await page.evaluate(() => { const f = state.files.f1; window.__sbProStudy.applyChanges([{kind: "file", id: "f1", after: Object.assign(window.__sbProStudy.clone(f), {hl: [{id: "h1", a: "a-syl", p: 1, r: [[0.1, 0.1, 0.2, 0.02]], t: "Grading", c: "yellow", at: 1}]})}], null); });
     await page.click("#pdeBtn"); await page.waitForTimeout(250);
-    await page.click('[data-act="pde-save"]');
+    await page.click('[data-act="pde-save"]'); await page.waitForSelector("#askDlg[open] #askAlt");
+    ok(/Update Rev A/.test(await page.textContent("#askDlg #askAlt")) && /New Version/.test(await page.textContent("#askDlg #askYes")), "Save asks: a new version, or update the one you opened");
+    await page.click("#askDlg #askYes");
     await page.waitForFunction(() => state.files.f1.revs.length === 2, null, {timeout: 20000});
     const f = await page.evaluate(() => state.files.f1);
     ok(f.revs.length === 2 && !f.pe && f.revs[1].assetId === "a-syl-2" && f.revs[1].name === "BIO 101 Syllabus.pdf", "Save adds a new version of the file, and the edits are now part of it");
