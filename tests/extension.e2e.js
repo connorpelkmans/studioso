@@ -35,7 +35,7 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     "the store build asks for no site at install: school sites are optional permissions, granted one at a time");
   man.host_permissions = [SCHOOL + "/*"]; fs.writeFileSync(path.join(ext, "manifest.json"), JSON.stringify(man));
   await new Promise(r => server.listen(0, r)); const local = "http://127.0.0.1:" + server.address().port;
-  const ctx = await chromium.launchPersistentContext(prof, {executablePath, ...(executablePath ? {} : {channel: "chromium"}), headless: true, viewport: {width: 1100, height: 900}, timezoneId: "UTC",
+  const ctx = await chromium.launchPersistentContext(prof, {executablePath, ...(executablePath ? {} : {channel: "chromium"}), headless: true, viewport: {width: 1100, height: 900}, deviceScaleFactor: Number(process.env.SB_DSF) || 1, timezoneId: "UTC",
     args: ["--disable-extensions-except=" + ext, "--load-extension=" + ext]}); await ctx.addInitScript(require("./consent-ok"));
   const asked = [];
   await ctx.route(SCHOOL + "/**", route => {
