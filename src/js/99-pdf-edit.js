@@ -2693,7 +2693,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         ${phonePanel()}
         ${n ? `<ol class="pde-scanlist">${SCAN.pages.map((p, i) => `<li><img alt="Page ${i + 1}" src="${p.thumb || ""}"><span class="mini">Page ${i + 1}</span><span class="pde-cardbar">
           <button type="button" class="icon-btn" data-scan="up" data-i="${i}" aria-label="Move page ${i + 1} earlier"${i ? "" : " disabled"}>${ico(IC.left)}</button><button type="button" class="icon-btn" data-scan="rot" data-i="${i}" aria-label="Turn page ${i + 1}">${ico(IC.rotR)}</button>
-          <button type="button" class="btn small" data-scan="crop" data-i="${i}">Corners</button><button type="button" class="icon-btn" data-scan="del" data-i="${i}" aria-label="Remove page ${i + 1}">${ico(IC.trash)}</button>
+          <button type="button" class="icon-btn" data-scan="crop" data-i="${i}" aria-label="Fix the corners of page ${i + 1}" title="Corners">${ico('<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>')}</button><button type="button" class="icon-btn" data-scan="del" data-i="${i}" aria-label="Remove page ${i + 1}">${ico(IC.trash)}</button>
           <button type="button" class="icon-btn" data-scan="down" data-i="${i}" aria-label="Move page ${i + 1} later"${i < n - 1 ? "" : " disabled"}>${ico(IC.right)}</button></span></li>`).join("")}</ol>` : `<div class="pde-scan-empty">No pages yet</div>`}
         ${n ? `<label class="f"><span class="lh">PDF name</span><input type="text" data-scan="name" maxlength="120" value="${esc(SCAN.name || "Scan " + new Date().toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}))}"></label>` : ""}
       </div>
@@ -3538,6 +3538,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-phone-t{flex:1 1 220px;display:grid;gap:6px}.pde-phone-t p{margin:0}
 .pde-phone-n{font-weight:700;color:var(--ink)}
 .pde-phone .row-actions{margin:2px 0 0}
+.pde-scanlist .pde-cardbar{display:flex;flex-wrap:nowrap;justify-content:center;gap:4px}
+.pde-scanlist .pde-cardbar .icon-btn{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:inline-grid;place-items:center;flex:none}
+.pde-scanlist .pde-cardbar .icon-btn svg{width:17px;height:17px;display:block}
 .pde-cardprev{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .pde-cardprev li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);position:relative;isolation:isolate}
 .pde-cardprev li.off{opacity:.5}
