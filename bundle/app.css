@@ -2050,7 +2050,10 @@ body.stk-dragging,body.stk-dragging *{cursor:grabbing!important;user-select:none
 .env-q{width:100%;box-sizing:border-box;min-height:36px;padding:6px 30px 6px 10px;border-radius:10px;border:1px solid rgba(74,48,20,.3);background:rgba(255,255,255,.75);color:#3A260F;font:600 .85rem var(--body)}
 .env-q::placeholder{color:#8A6A3C;font-weight:500}
 .env-q::-webkit-search-cancel-button{display:none}
-.env-q:focus-visible{outline:2px solid #8A5A1E;outline-offset:1px;background:#fff}
+.env-q:focus-visible{outline:2px solid #8A5A1E;outline-offset:1px}
+/* typing keeps the box's own colours: it brightens to white only in light mode (dark mode keeps its dark box and light text) */
+:root[data-theme="light"] .env-q:focus-visible{background:#fff}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .env-q:focus-visible{background:#fff}}
 .env-qx{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:30px;height:30px;border:0;border-radius:50%;background:none;color:#6B4A22;font-size:1.1rem;line-height:1;cursor:pointer}
 .env-qx:hover{background:rgba(74,48,20,.12)}
 .env-qx:focus-visible{outline:2px solid #8A5A1E}
@@ -2112,7 +2115,11 @@ dialog:has(.sheet.shop){width:min(960px,calc(100% - 24px))}
 .free-badge{font:700 .62rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--leaf);border:1px solid color-mix(in srgb,var(--leaf) 50%,transparent);border-radius:6px;padding:1px 5px}
 .shop-mode{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .skin-pair{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.skin-prev{position:relative;display:flex;height:90px;border-radius:10px;overflow:hidden;border:1px solid rgba(0,0,0,.1);background-color:var(--paper);background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,12px 12px);background-position:var(--bgpos,0 0);isolation:isolate}
+.skin-prev{position:relative;display:flex;height:90px;border-radius:10px;overflow:hidden;border:0;background-color:var(--paper);background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,12px 12px);background-position:var(--bgpos,0 0);isolation:isolate}
+/* The preview's outline is drawn over the picture, not around it, so no strip of the frame or its background shows at the
+   edges and rounded corners (a light ring in dark mode, a dark one in light mode). A picture preview has no background under it. */
+.skin-prev::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);pointer-events:none;z-index:3}
+.skin-prev:has(> .sp-art img){background:none}
 .sp-scene{position:absolute;left:0;right:0;bottom:0;height:calc(var(--scene-h,0px) * .45);background:var(--scene,none) center bottom/100% 100% no-repeat;z-index:0}
 .sp-spine{position:relative;z-index:1;width:18px;flex:none;background:var(--spine-bg,var(--spine));display:flex;flex-direction:column;align-items:center;gap:5px;padding-top:8px}
 .sp-spine i{width:8px;height:8px;border-radius:3px;background:var(--spine-ink);opacity:.75}
@@ -8078,6 +8085,9 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .focus-go .tomato-ic,.plan-row .focus-go .tomato-ic{width:22px!important;height:22px!important;transform:translateY(-1.5px)}
 /* In a button beside its label (Study for 25m, Start a Focus, Focus): a bigger tomato, without making the button taller */
 .btn .tomato-ic{width:21px!important;height:21px!important;margin:-3px 0 -3px -4px;flex:none}
+.btn:not(.focus-go) .tomato-ic{transform:translate(-2px,-2px)}
+/* The side menu's Focus button: a slightly bigger tomato, 1px higher */
+nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;transform:translateY(-1px)}
 /* The companion's face in buttons: 2px lower, so it sits centred beside the label */
 .btn span.cp-ai-face.ai-ic{top:calc(-.2em + 1px)}
 .btn:is([style*="flex"],.f-sum) span.cp-ai-face.ai-ic,.frow > .f-sum span.cp-ai-face.ai-ic{top:calc(-.14em + 1px)}
