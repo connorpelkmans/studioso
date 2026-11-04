@@ -189,4 +189,17 @@ ok(p.groups[2].items[0].text === "Home\n\nWelcome page" && p.groups[2].items[1].
 // courses
 const courses = [{id: "c1", name: "Biology", code: "BIO 101"}, {id: "c2", name: "Chemistry", code: "CHEM 2"}, {id: "c3", name: "Art", code: ""}];
 eq([IA.matchCourse("BIO 101 [123].csv", courses), IA.matchCourse("bio101 homework", courses), IA.matchCourse("Chemistry notes", courses), IA.matchCourse("Party", courses)], ["c1", "c1", "c2", ""], "a course from the file name");
+// the same file brought in twice: what's already here is spotted
+{
+  const deck = {kind: "deck", name: "Spanish", items: [{front: "hola"}, {front: "adiós"}, {front: "gato"}, {front: "perro"}, {front: "casa"}]};
+  const have = {decks: [{name: "spanish ", cards: [{front: "Hola"}, {front: "adiós"}, {front: "gato"}, {front: "perro"}, {front: "casa"}, {front: "mine"}]}],
+    tasks: [{title: "Essay 1", due: "2026-10-01"}, {title: "Read ch 2", due: ""}], notes: [{text: "Home\n\nWelcome page"}]};
+  ok(IA.already(deck, have), "a deck of the same name holding its cards is already imported");
+  ok(!IA.already(Object.assign({}, deck, {name: "French"}), have), "another deck name is new");
+  ok(!IA.already(Object.assign({}, deck, {items: deck.items.concat([{front: "a"}, {front: "b"}])}), have), "a deck with several new cards is new");
+  ok(IA.already({kind: "tasks", items: [{title: "Essay 1", due: "2026-10-01"}, {title: "Read Ch 2", due: ""}]}, have), "tasks with the same titles and due dates are already imported");
+  ok(!IA.already({kind: "tasks", items: [{title: "Essay 1", due: "2026-10-08"}, {title: "Read ch 2", due: ""}]}, have), "a task due on another day is new");
+  ok(IA.already({kind: "notes", items: [{title: "Home", text: "Home\n\nWelcome page"}]}, have) && !IA.already({kind: "notes", items: [{title: "X", text: "X\n\nnew"}]}, have), "pages already there as notes");
+  ok(!IA.already({kind: "tasks", items: []}, have) && !IA.already(deck, {}), "nothing to compare with");
+}
 console.log(`import-apps.test: ${n} checks passed`);

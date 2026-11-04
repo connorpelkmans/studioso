@@ -155,4 +155,11 @@ t("AI cards that copy the notes word for word are left out", () => {
   assert.strictEqual(v.dropped.copied, 1); assert.strictEqual(v.cards.length, 1);
   assert(/toward higher/.test(v.cards[0].back));
 });
+t("a back too long for one card is cut, and the card says so", () => {
+  const long = "Osmosis - " + "water moves across a membrane toward the side with more dissolved solute. ".repeat(14).trim();
+  const r = NC.extract(long + "\nDiffusion - passive movement from high to low concentration");
+  const o = r.find(c => c.front === "Osmosis"), d = r.find(c => c.front === "Diffusion");
+  assert(o && o.back.length === 700 && o.cut === true, JSON.stringify(o));
+  assert(d && !("cut" in d), "a card that fits isn't flagged");
+});
 console.log(`notecards: ${n} checks passed`);

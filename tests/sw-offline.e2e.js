@@ -1,7 +1,7 @@
 // The offline copy of the app
 "use strict";
 const fs = require("fs"), path = require("path"), os = require("os"), http = require("http"), assert = require("assert");
-const {chromium} = require("playwright");
+const {chromium, executablePath} = require("./pw");
 const ROOT = path.join(__dirname, ".."), AF = require("../scripts/app-files");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 
@@ -17,7 +17,7 @@ const server = http.createServer((req, res) => {
 
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath});
   try {
     const ctx = await browser.newContext({viewport: {width: 1100, height: 800}});
     await ctx.addInitScript(() => { try { localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:tour", "done"); } catch (e) {} });
@@ -48,9 +48,13 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(async u => { const c = await caches.open((await caches.keys()).find(k => /^studyboard-/.test(k))); return !!(await c.match(u)); }, newUrl.slice(1), {timeout: 20000});
     have = await cached();
     ok(have.includes(newUrl) && have.includes(oldUrl), "the new release's file is saved, and the one before it stays for a page that's still open");
+    await page.waitForFunction(() => /new version of Studyboard is ready/.test(document.querySelector("#toastMsg").textContent) && document.querySelector("#toast").classList.contains("show"), null, {timeout: 15000});
+    ok(await page.evaluate(() => document.querySelector("#toastExtra").textContent === "Reload" && !document.querySelector("#toastExtra").hidden), "the open page says a new version is ready, with Reload (it never reloads by itself)");
     await ctx.setOffline(true);
     await page.reload(); await page.waitForTimeout(2500);
     ok(await page.evaluate(() => window.__sbRelease === 2) && await page.locator("[data-tab]").count() > 3, "offline, the next open is the new release with its new file");
+    await page.waitForTimeout(2500);
+    ok(!/new version/.test(await page.evaluate(() => document.querySelector("#toast").classList.contains("show") ? document.querySelector("#toastMsg").textContent : "")), "a page already running the newest release isn't told to reload");
     await ctx.setOffline(false);
     fs.appendFileSync(path.join(tmp, f), "\nwindow.__sbRelease = 3;\n");
     fs.writeFileSync(path.join(tmp, "index.html"), AF.stamp(fs.readFileSync(path.join(tmp, "index.html"), "utf8"), read));

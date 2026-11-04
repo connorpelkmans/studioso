@@ -1364,6 +1364,8 @@ Return JSON only.`;
       }
     } else {
       const r = find(q); S.P = r.P;
+      // only "Ask about…" or filter rows came back: say plainly that nothing matched
+      if (r.groups.length && !r.groups.some(G => G.list.some(x => x.doc.type !== "filter" && x.doc.type !== "ask"))) html.push(`<p class="sx-none">No matches for “${esc(q)}”. Try other words, or ask below.</p>`);
       if (!r.groups.length) html.push(`<div class="sx-empty"><strong>No Matches</strong>Try fewer or different words${S.type !== "all" || S.course ? ", or show everything" : ""}.${S.type !== "all" || S.course ? ` <button type="button" class="link-btn" data-sx="reset">Show Everything</button>` : ""}</div>`);
       r.groups.forEach(G => {
         const cap = S.type === "all" ? (G.g === "actions" ? 4 : G.g === "files" || G.g === "tasks" ? 5 : 4) : 120;
@@ -1549,7 +1551,7 @@ Return JSON only.`;
   function drawFoot(){
     const el = $("#sxFoot"); if (!el || !S.open) return;
     const st = footStatus();
-    el.innerHTML = `<span class="sx-keys"><kbd>↑</kbd><kbd>↓</kbd> Move <kbd>Enter</kbd> Open <kbd>${MAC ? "⌥" : "Alt"}+Enter</kbd> Ask With AI <kbd>Esc</kbd> Close</span><span class="sx-st" aria-live="polite">${st.join(" · ")}</span><button type="button" class="link-btn" data-sx="settings">Search Settings</button>`;
+    el.innerHTML = `<span class="sx-keys"><kbd>↑</kbd><kbd>↓</kbd> Move <kbd>Enter</kbd> Open <kbd>${MAC ? "⌥" : "Alt"}+Enter</kbd> Ask With AI <kbd>Esc</kbd> ${S.q ? "Clear" : "Close"}</span><span class="sx-st" aria-live="polite">${st.join(" · ")}</span><button type="button" class="link-btn" data-sx="settings">Search Settings</button>`;
   }
   function setActive(i, scroll){
     if (!S.rows.length) return;

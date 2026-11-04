@@ -48,7 +48,7 @@ function calExportSheet(){
   const {count} = buildIcs();
   openSheet(`<div class="sheet">${head("Add Deadlines to Your Calendar")}<div class="sheet-body">
     <p style="margin:0">This downloads a calendar file with your ${count} upcoming deadline${count === 1 ? "" : "s"}, each with a reminder the day before.</p>
-    <p class="status-msg" style="margin:0">Unzip the download, then open the .ics file inside. Apple Calendar and Outlook import it when you open it. For Google Calendar, go to Settings, then Import & export. Importing again after changes can create duplicates in some calendars. To add a single task, open it here and choose Add to Google Calendar.</p>
+    <p class="status-msg" style="margin:0">${inPreview() ? "Unzip the download, then open the .ics file inside." : "Open the downloaded .ics file."} Apple Calendar and Outlook import it when you open it. For Google Calendar, go to Settings, then Import & export. Importing again after changes can create duplicates in some calendars. To add a single task, open it here and choose Add to Google Calendar.</p>
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="calDl" ${count ? "" : "disabled"}>Download Calendar File</button></div></div>`);
   $("#calDl").addEventListener("click", async () => {
     const {text} = buildIcs();
@@ -125,7 +125,7 @@ async function exportFullBackup(){
     const dl = caps.downloads || await useCap("downloads");
     if (!dl) { toast("Downloads aren't available here"); return; }
     try { await dl.save({filename: name, data: zip}); } catch(e) { if (!(e && e.code === "declined")) toast("Couldn't save the file. Try again."); return; }
-  } else { saveBlob(name, zip, "application/zip"); try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} }
+  } else { if (!(await saveBlob(name, zip, "application/zip"))) return; try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} }
   toast(missing ? `Backup saved, but ${missing} file${missing === 1 ? "" : "s"} couldn't be included` : `Backup saved with ${revs.length} file${revs.length === 1 ? "" : "s"}`);
 }
 async function importBackupFiles(files, zipEntries){
@@ -195,6 +195,9 @@ async function chooseBackupFolder(kind){
   try {
     const picked = await window.showDirectoryPicker({id: "studioso-backups", mode: "readwrite", startIn: kind === "gdrive" ? "desktop" : "documents"});
     const h = /^(studioso|studyboard) backups$/i.test(picked.name) ? picked : await picked.getDirectoryHandle("Studyboard Backups", {create: true});
+    // a different folder: its Files/ gets every file again, and its own backup is checked before it's replaced
+    let same = false; try { same = !!FSB.dir && await FSB.dir.isSameEntry(h); } catch(e) {}
+    if (!same) { try { localStorage.removeItem("studioso:fsFiles"); } catch(e) {} FSB.size = null; FSB.hold = false; }
     await idbSet("dir", h);
     const label = CLOUD_NAME[kind] ? `${CLOUD_NAME[kind]} › ${picked.name === h.name ? h.name : picked.name + " › Studyboard Backups"}` : (picked.name === h.name ? h.name : picked.name + " › Studyboard Backups");
     try { localStorage.setItem("studioso:fsWhere", label); } catch(e) {}
@@ -245,14 +248,38 @@ async function stopFolderBackup(){ await idbDel("dir"); FSB.dir = null; FSB.stat
 function scheduleFolderBackup(ms){ if (FSB.status !== "on") return; clearTimeout(FSB.timer); FSB.timer = setTimeout(() => fxDefer(runFolderBackup), Math.max(ms, fxBusyMs() + 400)); }
 async function writeText(dir, name, text){ const fh = await dir.getFileHandle(name, {create: true}); const w = await fh.createWritable(); await w.write(text); await w.close(); }
 const safeName = s => String(s || "").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").replace(/\s+/g, " ").trim().slice(0, 100) || "Untitled";
-async function runFolderBackup(){
+/* A much smaller copy never replaces the folder's latest backup without asking: after a fresh install or a copy that couldn't
+   be loaded, the app can start nearly empty, and its first backup would otherwise overwrite the real one */
+const BK_KINDS = ["tasks", "courses", "notes", "decks", "files", "events"];
+const bkCount = o => BK_KINDS.reduce((n, k) => n + (Array.isArray(o && o[k]) ? o[k].length : Object.keys((o && o[k]) || {}).length), 0);
+const bkShrinks = (was, now) => was >= 5 && now < was / 2;
+async function folderLatestCount(){
+  try {
+    let text = "";
+    if (DESK && FSB.dir && FSB.dir.rel != null) { const b = await DESK.read((FSB.dir.rel ? FSB.dir.rel + "/" : "") + "studyboard-latest.json"); if (!b) return 0; text = new TextDecoder().decode(b); }
+    else text = await (await (await FSB.dir.getFileHandle("studyboard-latest.json")).getFile()).text();
+    return bkCount(JSON.parse(text));
+  } catch(e) { return e && e.name === "NotFoundError" ? 0 : -1; }
+}
+async function folderShrinkOk(now, quiet){
+  if (FSB.size == null) FSB.size = await folderLatestCount();
+  if (FSB.size < 0) { FSB.size = null; return !quiet; }
+  if (!bkShrinks(FSB.size, now)) return true;
+  if (quiet || FSB.hold) return false;
+  const yes = await askBox({title: "Replace Your Folder Backup?", text: `The latest backup in ${FSB.where || "your backup folder"} has ${plural0(FSB.size, "item")}, but Studyboard has only ${plural0(now, "item")} right now. Replacing it could lose work.`, yes: "Replace Backup", no: "Keep the Folder's Copy"});
+  if (yes !== true) { FSB.hold = true; toast("Backups to the folder are paused until Studyboard restarts, so its bigger copy is kept. To use it, choose Import from a Backup File in Settings and pick studyboard-latest.json in that folder."); }
+  return yes === true;
+}
+async function runFolderBackup(quiet){
   if (FSB.status !== "on" || !FSB.dir || FSB.busy) return;
   FSB.busy = true;
   try {
-    if (!["tasks", "courses", "notes", "decks", "files", "events"].some(k => Object.keys(state[k] || {}).length)) { FSB.busy = false; return; }
+    const now = bkCount(state);
+    if (!now || !(await folderShrinkOk(now, quiet === true))) { FSB.busy = false; return; }
     let owner = ""; try { owner = localStorage.getItem(OWNER) || NO_OWNER; } catch(e) {}
     const json = JSON.stringify(Object.assign({app: "studyboard", savedAt: new Date().toISOString(), owner}, exportArrays()), null, 1);
     await writeText(FSB.dir, "studyboard-latest.json", json);
+    FSB.size = now;
     const daily = await FSB.dir.getDirectoryHandle("Daily backups", {create: true});
     await writeText(daily, `studyboard-${todayISO()}.json`, json);
     const names = []; for await (const [n, h] of daily.entries()) if (h.kind === "file" && /^(studioso|studyboard)-\d{4}-\d{2}-\d{2}\.json$/.test(n)) names.push(n);
@@ -407,7 +434,7 @@ async function deskOpenAsset(id){
 async function deskChooseFolder(){
   const p = await DESK.chooseDir();
   if (!p) return;
-  FSB.where = p; FSB.dir = deskDir("");
+  FSB.where = p; FSB.dir = deskDir(""); FSB.size = null; FSB.hold = false;
   toast(`Studyboard now saves to ${p}`);
   await runFolderBackup(); scheduleRender();
 }
@@ -419,12 +446,16 @@ async function deskBoot(){
   window.addEventListener("focus", async () => { try { const w = await DESK.dataDir(); if (w && FSB.where && w !== FSB.where) { FSB.where = w; scheduleRender(); } } catch(e) {} });
   let has = false; try { has = !!localStorage.getItem(LS2) || spillMarked(); } catch(e) {}
   if (has) { try { const b = await DESK.read("studyboard-latest.json"); if (b) { const f = JSON.parse(new TextDecoder().decode(b)); if (f && f.app === "studyboard" && Array.isArray(f.tasks)) deskFolderCopy = f; } } catch(e) {} }
-  if (!has) { try { const b = (await DESK.read("studyboard-latest.json")) || (await DESK.read("studioso-latest.json")); if (b) { const t = new TextDecoder().decode(b), f = JSON.parse(t); localStorage.setItem(LS2, t);
-    localStorage.setItem(FOLDER_FROM, f && typeof f.owner === "string" && f.owner ? f.owner.slice(0, 80) : "?"); } } catch(e) { console.warn("No local copy to restore", e); } }
+  if (!has) { try { const b = (await DESK.read("studyboard-latest.json")) || (await DESK.read("studioso-latest.json")); if (b) { const t = new TextDecoder().decode(b), f = JSON.parse(t);
+    // a big planner doesn't fit in localStorage: it goes to IndexedDB, where saveLocal keeps big copies
+    let put = false;
+    if (t.length <= SPILL_AT) { try { localStorage.setItem(LS2, t); put = true; } catch(e) {} }
+    if (!put && spillOk()) { await spillWrite(t); spilled = true; put = true; }
+    if (put) localStorage.setItem(FOLDER_FROM, f && typeof f.owner === "string" && f.owner ? f.owner.slice(0, 80) : "?"); } } catch(e) { console.warn("No local copy to restore", e); } }
   DESK.onFlush(async () => {
     clearTimeout(FSB.timer);
     for (let k = 0; k < 40 && FSB.busy; k++) await sleep(100);
-    try { await runFolderBackup(); } catch(e) {}
+    try { await runFolderBackup(true); } catch(e) {}
     DESK.flushed();
   });
   deskTint();

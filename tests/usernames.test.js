@@ -21,4 +21,9 @@ ok(UNAME.problem("x") === "Use at least 3 characters." && UNAME.problem("abcdefg
 ok(/Start with a letter/.test(UNAME.problem("1abc")) && /Start with a letter/.test(UNAME.problem("hello world")) && /Start with a letter/.test(UNAME.problem("5h1t_lord")), "only letters, numbers, _ and . , starting with a letter");
 ok(/next to each other/.test(UNAME.problem("abc__d")) && /next to each other/.test(UNAME.problem("abc.")) && /next to each other/.test(UNAME.problem("a._b")), "no __ .. ._ or a trailing _ .");
 ok(/reserved/.test(UNAME.problem("admin")) && /reserved/.test(UNAME.problem("studyboard_help")) && /reserved/.test(UNAME.problem("Support")), "reserved names");
+// the live check: the server reports the 30-day change lock, and a failed check never says the name is fine
+const chk = sql.slice(sql.indexOf("function public.username_check"), sql.indexOf("function public.set_username"));
+ok(/username_set_at > now\(\) - interval '30 days'/.test(chk) && /once every 30 days/.test(chk), "username_check reports the 30-day change lock like set_username");
+const wire = html.slice(html.indexOf("function wireCheck"), html.indexOf("const field = (name"));
+ok(/catch \(e\) \{[^}]*Couldn't check right now/.test(wire) && !/catch \(e\) \{[^}]*Looks good/.test(wire), "a failed check says it couldn't check, not that the name looks good");
 console.log(`usernames.test: ${n} checks passed`);

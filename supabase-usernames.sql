@@ -81,10 +81,17 @@ revoke all on function public.sbu_problem(text, uuid, boolean), public.sbu_lette
 -- Can I have this one
 create or replace function public.username_check(p_name text) returns table (ok boolean, reason text)
 language plpgsql volatile security definer set search_path = public as $$
-declare why text;
+declare why text; cur record;
 begin
   if to_regprocedure('public.sbs_lookup_ok()') is not null and not public.sbs_lookup_ok() then return query select false, 'Too many tries. Wait a little and try again.'; return; end if;
   why := public.sbu_problem(p_name, auth.uid(), true);
+  -- The same 30-day lock set_username enforces, so a name isn't shown as free when you can't take it yet
+  if why is null and auth.uid() is not null then
+    select username, username_set_at into cur from public.study_profiles where user_id = auth.uid();
+    if cur.username is not null and lower(cur.username) <> lower(btrim(coalesce(p_name, ''))) and cur.username_set_at > now() - interval '30 days' then
+      why := format('You can change your username once every 30 days (next on %s).', to_char(cur.username_set_at + interval '30 days', 'Mon DD'));
+    end if;
+  end if;
   return query select why is null, coalesce(why, '');
 end $$;
 

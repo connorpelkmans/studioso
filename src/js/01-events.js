@@ -2,8 +2,17 @@
 /* Events */
 const proBtns = where => { try { return window.SBPRO && SBPRO.tabBtns ? SBPRO.tabBtns(where) : ""; } catch (e) { return ""; } };
 let suppressClick = false;
+// A quick second click on a complete circle lands on whatever slid under the pointer once the done card left the list.
+// A second pointer click in the same spot within 450ms is taken as part of the first one and ignored.
+let lastToggle = null;
 function toggleTask(id, el){
   const t = state.tasks[id]; if (!t) return;
+  const ev = window.event, ptr = ev && ev.type === "click" && ev.detail > 0 && el && el !== document.body, now = Date.now();
+  if (ptr) {
+    const l = lastToggle;
+    if (l && now - l.at < 450 && Math.abs(ev.clientX - l.x) < 20 && Math.abs(ev.clientY - l.y) < 20) return;
+    lastToggle = {at: now, x: ev.clientX, y: ev.clientY};
+  }
   const n = clone(t);
   if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
   n.order = nextOrder(n.status);

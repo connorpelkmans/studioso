@@ -14,6 +14,7 @@
   const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
+  /*CALC-START*/
   /* math.js, set up once: degrees, radians or gradians for the trig functions, and exact zeros where a real calculator shows them */
   let M = null, loading = null;
   const C = {angle: "deg"};
@@ -29,13 +30,15 @@
       const clean = v => Math.abs(v) < 1e-15 ? 0 : Math.round(v * 1e15) / 1e15;
       const num = (x, f) => { if (typeof x !== "number") throw new Error("Math"); return f(x); };
       const inv = f => x => num(x, v => { if (v < -1 || v > 1) throw new Error("Math"); return fromRad(f(v)); });
+      const fact0 = math.factorial, nr = (n, r) => { if (![n, r].every(v => typeof v === "number" && Number.isInteger(v) && v >= 0) || r > n) throw new Error("Math"); return n; };
       math.import({
+        factorial: x => num(x, v => { if (v < 0 || !Number.isInteger(v)) throw new Error("Math"); return fact0(v); }),   // 0.5! is Math ERROR, as on a calculator
         sin: x => num(x, v => { const h = turn(); if (h && v % h === 0) return 0; return clean(Math.sin(toRad(v))); }),
         cos: x => num(x, v => { const h = turn(); if (h && (v - h / 2) % h === 0) return 0; return clean(Math.cos(toRad(v))); }),
         tan: x => num(x, v => { const h = turn(); if (h && v % h === 0) return 0; if (h && (v - h / 2) % h === 0) throw new Error("Math"); const c = Math.cos(toRad(v)); if (Math.abs(c) < 1e-15) throw new Error("Math"); return clean(Math.tan(toRad(v))); }),
         asin: inv(Math.asin), acos: inv(Math.acos),
         atan: x => num(x, v => fromRad(Math.atan(v))),
-        _C: (n, r) => math.combinations(n, r), _P: (n, r) => math.permutations(n, r), _root: (n, x) => math.nthRoot(x, n)
+        _C: (n, r) => math.combinations(nr(n, r), r), _P: (n, r) => math.permutations(nr(n, r), r), _root: (n, x) => math.nthRoot(x, n)
       }, {override: true});
       M = math; return M;
     })().catch(e => { loading = null; throw e; });
@@ -72,20 +75,41 @@
     return TOK[a] || null;
   }
 
-  /* Turning tokens into a math.js expression: nCr, nPr and ˣ√ take the operands either side of them */
-  const OPND = String.raw`(?:\d+\.?\d*(?:e-?\d+)?|\.\d+|\(Ans\)|\(M\)|pi|\(e\)|\([^()]*\))`;
+  /* Turning tokens into a math.js expression: nCr, nPr and ˣ√ take the operands either side of them. As on a handheld, an
+     operand is a number, constant, bracket or function call together with what binds tighter than nCr: x², x³, x⁻¹, x! and powers */
+  function atomEnd(s, i){
+    const num = /^(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?/.exec(s.slice(i)); if (num) return i + num[0].length;
+    const nm = /^[A-Za-z_]\w*/.exec(s.slice(i)); if (nm) i += nm[0].length;
+    if (s[i] !== "(") return nm ? i : -1;
+    for (let d = 0; i < s.length; i++) { if (s[i] === "(") d++; else if (s[i] === ")" && --d === 0) return i + 1; }
+    return s.length;   // a bracket left open runs to the end (it's closed at =)
+  }
+  function opndEnd(s, i){
+    let j = atomEnd(s, i); if (j < 0) return -1;
+    for (;;) {
+      if (s[j] === "!") { j++; continue; }
+      if (s[j] === "^") { const k = atomEnd(s, j + (s[j + 1] === "-" ? 2 : 1)); if (k < 0) return -1; j = k; continue; }
+      return j;
+    }
+  }
   function toMath(tokens){
     let s = tokens.map(t => t.m).join("");
     // ×10ˣ: 2ᴇ-3 is one number, 2×10⁻³
     s = s.replace(/(\d*\.?\d+)ᴇ(-?\d+)/g, "($1e$2)").replace(/ᴇ/g, "*10^");
-    const rx = new RegExp(`(${OPND})\\s*([⒞⒫⒭])\\s*(${OPND})`);
-    for (let i = 0, m; i < 20 && (m = rx.exec(s)); i++) s = s.slice(0, m.index) + `${({"⒞": "_C", "⒫": "_P", "⒭": "_root"})[m[2]]}(${m[1]},${m[3]})` + s.slice(m.index + m[0].length);
+    // π next to a number or bracket multiplies (π2, π(2), 2π3), as math.js would otherwise read pi(2) as a call
+    s = s.replace(/pi(?=[\d.(A-Za-z_])/g, "pi*");
+    for (let n = 0, k; n < 40 && (k = s.search(/[⒞⒫⒭]/)) >= 0; n++) {
+      let a = -1; for (let p = 0; p < k && a < 0; p++) if ((p === 0 || !/[\w.]/.test(s[p - 1])) && opndEnd(s, p) === k) a = p;
+      const b = opndEnd(s, k + 1); if (a < 0 || b < 0) throw new Error("Syntax");
+      s = s.slice(0, a) + `${({"⒞": "_C", "⒫": "_P", "⒭": "_root"})[s[k]]}(${s.slice(a, k)},${s.slice(k + 1, b)})` + s.slice(b);
+    }
     if (/[⒞⒫⒭]/.test(s)) throw new Error("Syntax");
     // close any brackets left open, like a real calculator does at =
     const open = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
     if (open < 0) throw new Error("Syntax");
     return s + ")".repeat(open);
   }
+  /*CALC-END*/
 
   /* Showing a number like a calculator: 10 significant digits, ×10ⁿ outside 10⁻⁹…10¹⁰ */
   const SUP = {"-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹"};
@@ -215,7 +239,9 @@
     // the calculator wears the theme that's on, and changes with it (99-calculator-skins.js)
     new MutationObserver(() => { if (W && !W.hidden) skin(); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin"]});
     W.addEventListener("click", e => { const b = e.target.closest("[data-cx]"); if (!b) return; e.preventDefault(); act(b.dataset.cx, b.dataset.cxs); });
-    W.addEventListener("keydown", onKey);
+    // clicking the display or the body (not a key) keeps the keyboard on the calculator
+    W.tabIndex = -1;
+    W.addEventListener("pointerdown", () => { if (!W.contains(document.activeElement)) W.focus({preventScroll: true}); });
     // dragging by the top strip (computers)
     const top = W.querySelector("[data-cx-drag]");
     top.addEventListener("pointerdown", e => {
@@ -245,6 +271,25 @@
     const b = W.querySelector(`[data-cx="${a}"]`); if (b) { b.classList.add("is-down"); setTimeout(() => b.classList.remove("is-down"), 110); }
     act(a);
   }
+  // While the calculator is open, its keys go to it before any page shortcut (1 to 7 switch pages, 1 to 4 rate
+  // flashcards, N adds a task...), wherever the focus is. Typing in a box elsewhere, or a dialog in front, still wins.
+  const editable = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+  const modalOpen = () => [...document.querySelectorAll("dialog[open]")].some(d => { try { return d.matches(":modal"); } catch (e) { return true; } });
+  window.addEventListener("keydown", e => {
+    if (!W || W.hidden || e.isComposing) return;
+    const t = e.target, inside = !!(t && t.nodeType === 1 && W.contains(t));
+    if (!inside) {
+      if (editable(t) || modalOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
+      // keys that move around the page or press the focused button keep doing that
+      if (/^(Escape|Tab| |ArrowLeft|ArrowRight|ArrowUp|ArrowDown)$/.test(e.key)) return;
+      if (e.key === "Enter" && t && t.closest && t.closest("button,a,summary,[role=button]")) return;
+    }
+    onKey(e);
+    if (e.defaultPrevented) {
+      e.stopImmediatePropagation();
+      if (!inside) W.focus({preventScroll: true});
+    }
+  }, true);
 
   hook("act", act0 => { if (act0 !== "calc-open") return false; if (W && !W.hidden) close(); else open(); return true; });
   hook("menu", () => `<button data-act="calc-open"><span>Calculator<span class="sub">A scientific calculator in its own window</span></span></button>`);

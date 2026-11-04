@@ -271,7 +271,47 @@ const DB = (page, f) => page.evaluate(f);
     await tab(page, "members");
     ok(/A member with Studyboard Pro can make this a Pro group/.test(await txt(page, "#gxPro")), "Members explains Pro groups, once");
     ok(await page.locator("#grpHead .gx-assign").count() === 0, "without Pro there's no Assign Pro button");
+    // The member cap and history notes follow the group's Pro status, not the owner's plan
+    ok(/Free groups hold up to 5 members/.test(await txt(page, "#grpMembers")) && await page.locator('#grpMembers [data-act="grp-upgrade"]').count() === 1, "a free owner of a free group is offered Go Pro");
+    await page.evaluate(() => { const P = window.__sbPlanObj(); window.__gpWas = [P.isPro, P.groupsPro, P.limitsPro]; P.isPro = P.groupsPro = P.limitsPro = () => true; });
+    await openGroup(page); await tab(page, "members");
+    ok(/Free groups hold up to 5 members/.test(await txt(page, "#grpMembers")) && await page.locator('#grpMembers [data-act="gx-pro-sheet"]').count() === 1 && await page.locator('#grpMembers [data-act="grp-upgrade"]').count() === 0, "a Pro owner of a group without Pro is told it holds 5, and offered Assign Pro instead of Go Pro");
+    await page.click('#grpMembers [data-act="gx-pro-sheet"]'); await page.waitForTimeout(300);
+    ok(/Assign Pro/.test(await txt(page, "#dlg[open]")) && await page.locator('#dlg[open] [data-act="gx-pro-on"]').count() === 1, "Assign Pro in the note opens the Assign Pro sheet");
+    await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); const P = window.__sbPlanObj(); [P.isPro, P.groupsPro, P.limitsPro] = window.__gpWas; }); await page.waitForTimeout(200);
     ok(!errs.length, "no errors in the free group: " + errs.join(" | "));
+    await page.context().close();
+
+    // A free owner of a group a member made Pro isn't told to pay
+    ({page, errs} = await boot(browser, {me: "u1", kind: "study", pro: true}));
+    await openGroup(page); await tab(page, "members");
+    ok(!/Free groups hold/.test(await txt(page, "#grpMembers")) && await page.locator('[data-act="grp-upgrade"]').count() === 0, "a free owner of a Pro group sees no Go Pro note");
+    ok(!errs.length, "no errors in the Pro group: " + errs.join(" | "));
+    // Ctrl/Cmd+Enter twice while the first post is on its way posts once
+    await tab(page, "chat");
+    ok(!/Messages are kept/.test(await txt(page, "#grpBoard")), "nor a message-history note");
+    {
+      await page.fill("#grpMsgIn", "See you at 3");
+      await page.press("#grpMsgIn", "Control+Enter"); await page.press("#grpMsgIn", "Control+Enter"); await page.waitForTimeout(400);
+      ok(await DB(page, () => window.__DB.group_messages.filter(m => m.body === "See you at 3").length) === 1, "a second Ctrl+Enter while posting doesn't post the message twice");
+    }
+    await page.context().close();
+
+    // The name prompt sets the New Group form aside and puts it back; a failed save keeps the prompt open
+    ({page, errs} = await boot(browser, {me: "u1", kind: "study"}));
+    await DB(page, () => { localStorage.removeItem("sb:grpName:u1"); window.__DB.study_profiles = []; });
+    await click(page, "grp-new"); await page.waitForSelector('#dlg[open] input[name="name"]');
+    await page.fill('#dlg[open] input[name="name"]', "Chem Crew"); await page.click("#dlg[open] [data-submit]");
+    await page.waitForFunction(() => /What Should Classmates Call You/.test(document.querySelector("#dlg").innerText));
+    await page.click("#grpNameBack"); await page.waitForTimeout(200);
+    ok(await page.evaluate(() => { const i = document.querySelector('#dlg[open] input[name="name"]'); return !!i && i.value === "Chem Crew" && !document.querySelector("#dlg [data-submit]").disabled; }), "Back from the name prompt brings the New Group form back as it was");
+    await page.click("#dlg[open] [data-submit]"); await page.waitForFunction(() => /What Should Classmates Call You/.test(document.querySelector("#dlg").innerText));
+    await page.fill('#dlg[open] input[name="name"]', "Connor");
+    await DB(page, () => { window.__offline = true; }); await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(300);
+    ok(/What Should Classmates Call You/.test(await txt(page, "#dlg")) && !(await page.evaluate(() => document.querySelector("#dlg [data-submit]").disabled)), "a failed name save keeps the prompt open to try again");
+    await DB(page, () => { window.__offline = false; }); await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(500);
+    ok(await DB(page, () => window.__calls.some(c => c[1] === "create_group" && c[2].p_name === "Chem Crew")), "once the name is saved, the group is created from the form");
+    ok(!errs.length, "no errors in the name prompt: " + errs.join(" | "));
     console.log(`\nprogroups.e2e: ${checks} checks passed`);
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

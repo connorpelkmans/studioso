@@ -391,6 +391,8 @@
             if (r.status === 401) { stop("You've been signed out. Sign in again, then try again."); return; }
             stop(b.message || deleteErr(r.error)); return;
           }
+          // no sign-in sheet over the summary below; with the copy erased, other open tabs reload empty too
+          if (wipe) sbLeave(); else sbLeaving = true;
           try { await sb.auth.signOut({scope: "local"}); } catch (e) {}
           try { localStorage.removeItem(OUTBOX); } catch (e) {}
           aiWipeLocal();
@@ -408,10 +410,14 @@
   function securitySheet(kind){
     if (!canDelete()) { toast("Sign in to your account first."); return; }
     const isMail = kind === "email", T = isMail ? "Change Email" : "Change Password";
+    // Accounts made with Google or Apple have no password until one is set, by a code sent to their email
+    const u = sbUser, ids = (u.identities || []).map(i => i && i.provider).concat((u.app_metadata && u.app_metadata.providers) || []);
+    const social = ids.some(p => p && p !== "email") && !ids.includes("email");
+    const noPw = social ? `<p class="mini" style="margin:0">Signed up with Google or Apple and never set a password? <button type="button" class="link-btn" id="secSetPw">Set a Password</button> first. We'll email you a code.</p>` : "";
     openSheet(`<form class="sheet" id="secForm" data-kind="${kind}">${head(T)}
       <div class="sheet-body">
         <p style="margin:0">${isMail ? `Your email is <b>${esc(sbUser.email || "")}</b>. We'll email both your current and your new address, and it changes once you confirm.` : "Choose a new password. You'll stay signed in on this device."}</p>
-        <label class="f"><span class="lh">Current Password</span><input type="password" name="current" required autocomplete="current-password" autofocus></label>
+        <label class="f"><span class="lh">Current Password</span><input type="password" name="current" required autocomplete="current-password" autofocus></label>${noPw}
         ${isMail ? `<label class="f"><span class="lh">New Email</span><input type="email" name="email" required autocomplete="email"></label>`
           : `${sbPwHtml("New Password", "new-password", {req: false, id: "secStrength"})}
              <label class="f"><span class="lh">Confirm New Password</span><input type="password" name="confirm" required minlength="8" autocomplete="new-password"></label>
@@ -427,7 +433,7 @@
           if (!cur) { say("Enter your current password."); return; }
           say("Checking…");
           const chk = await sb.auth.signInWithPassword({email: sbUser.email, password: cur});
-          if (chk.error) { say(/invalid login/i.test(chk.error.message || "") ? "That current password isn't right." : sbWords(chk.error)); return; }
+          if (chk.error) { say(/invalid login/i.test(chk.error.message || "") ? (social ? "That current password isn't right. If you've never set one, use Set a Password." : "That current password isn't right.") : sbWords(chk.error)); return; }
           if (isMail) {
             const em = String(fd.get("email") || "").trim();
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) || em.length > 254) { say("That email address doesn't look right."); return; }
@@ -459,6 +465,7 @@
       return false;
     });
     sbPwWire(dlg);
+    const sp = $("#secSetPw"); if (sp) sp.addEventListener("click", () => sbSignInSheet("forgot", sbUser.email || ""));
   }
 
   /* Hooks */

@@ -143,14 +143,20 @@
       <p class="ob-or" aria-hidden="true">or type a course</p>
       <div class="ob-cadd">
         <div class="ob-cfields">
-          <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. BIOL 101" autocomplete="off" data-noenter></label>
-          <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. Biology 101" autocomplete="off" data-noenter></label>
+          <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. ${esc(courseEx()[0])}" autocomplete="off" data-noenter></label>
+          <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. ${esc(courseEx()[1])}" autocomplete="off" data-noenter></label>
           <button type="button" class="btn" data-ob="add-course">Add</button>
         </div>
       </div>
       <p class="ob-more-src mini"><button type="button" class="link-btn" data-ob="ics">Use a Calendar File (.ics)</button> or <button type="button" class="link-btn" data-ob="paste">Paste Text</button>
         <input type="file" id="obIcs" class="sr" tabindex="-1" accept=".ics,.ical,.icalendar,text/calendar" aria-label="Choose a calendar file"></p>`;
   }
+
+  // Example course for the student's area of study (the quick-add example follows it the same way, through SBAREA.example)
+  const COURSE_EX = {stem: ["CHEM 110", "General Chemistry"], eng: ["ENGR 120", "Statics"], cs: ["CS 101", "Intro to Programming"], health: ["NURS 110", "Anatomy and Physiology"],
+    business: ["ECON 101", "Microeconomics"], social: ["PSYC 101", "Intro to Psychology"], humanities: ["HIST 101", "World History"], arts: ["ART 110", "Drawing I"],
+    education: ["EDUC 101", "Child Development"], law: ["LAW 101", "Contracts"]};
+  const courseEx = () => COURSE_EX[(SBAREA.get() || {}).id] || ["BIOL 101", "Biology 101"];
 
   // Themes are picked in the Style Shop, which has all of them
   function themeStep(){
@@ -333,7 +339,7 @@
         : allTasks().length ? "" : `<div class="ob-next">
         <b>Next: Add Your First Task</b>
         <span class="mini">Type it the way you'd say it in the quick-add bar at the top of the Board, and Studyboard fills in the details.</span>
-        <span class="ob-qa" aria-hidden="true"><span>+</span>bio quiz fri 2pm worth 5%</span>
+        <span class="ob-qa" aria-hidden="true"><span>+</span>${esc(SBAREA.example() || "bio quiz fri 2pm worth 5%")}</span>
       </div>`}`;
   }
 
@@ -386,7 +392,9 @@
     form.addEventListener("click", onClick);
     form.addEventListener("keydown", e => {
       const t = e.target, typing = t.tagName === "INPUT" && !["radio", "checkbox", "button"].includes(t.type) || t.tagName === "TEXTAREA" || t.tagName === "SELECT";
-      if (e.key === "Enter" && (t.id === "obCode" || t.id === "obName")) { e.preventDefault(); addCourse(); return; }
+      // Enter in the code goes on to the name; Enter in the name (or Add) adds the course
+      if (e.key === "Enter" && t.id === "obCode" && !e.isComposing) { e.preventDefault(); const nm = $("#obName"); if (nm) nm.focus(); return; }
+      if (e.key === "Enter" && t.id === "obName" && !e.isComposing) { e.preventDefault(); addCourse(); return; }
       if (typing || e.altKey || e.ctrlKey || e.metaKey) return;
       if (e.key === "Enter" && !(t.closest && t.closest("button,a,label"))) { e.preventDefault(); form.querySelector(".ob-go").click(); }
       else if (e.key === "ArrowRight" && !(t.closest && t.closest(".segb,.swatches,.ob-chips"))) { e.preventDefault(); if (step < STEPS.length - 1) go(step + 1); }

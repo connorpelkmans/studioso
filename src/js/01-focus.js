@@ -4,7 +4,7 @@ const POMO_HOW = `<ol><li><b>Pick one task</b> and start a 25-minute focus sessi
 const POMO_DEF = {focus: 25, short: 5, long: 15, every: 4, autoBreak: true, autoFocus: false, sound: "chime", volume: 0.8, notify: true};
 const POMO_LS = "studioso:pomo";
 const MODE_LABEL = {focus: "Focus", short: "Short Break", long: "Long Break"};
-const TOMATO = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 8.1c-2.3-1-5.7-.6-7.4 1.9-1.6 2.4-1.2 6.2 1.2 8.6 1.6 1.6 3.8 2.5 6.2 2.5s4.6-.9 6.2-2.5c2.4-2.4 2.8-6.2 1.2-8.6-1.7-2.5-5.1-2.9-7.4-1.9z" fill="currentColor"/><path d="M19.4 10c1.6 2.4 1.2 6.2-1.2 8.6-1.6 1.6-3.8 2.5-6.2 2.5-1.7 0-3.3-.5-4.6-1.3 4.4.6 9.3-2 10.4-6.2.4-1.3.4-2.6-.1-3.7z" fill="#000" opacity=".18"/><path d="M6.9 11.6c.6-1.4 1.8-2.2 3-2.4" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/><path d="M12 11.4l-1.5-2-3.8 1.2 2.3-2.4-2-1.8 3.3.4L12 5.2l1.7 1.6 3.3-.4-2 1.8 2.3 2.4-3.8-1.2z" fill="var(--leaf,#2E9D5B)" stroke="var(--leaf-d,#1F7A44)" stroke-width=".8" stroke-linejoin="round"/><path d="M12 7.6c-.03-1.8.6-3.25 1.9-4.4" fill="none" stroke="var(--leaf-d,#1F7A44)" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="7.6" r=".9" fill="var(--leaf-d,#1F7A44)"/></svg>';
+const TOMATO = '<svg class="tomato-ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 8.1c-2.3-1-5.7-.6-7.4 1.9-1.6 2.4-1.2 6.2 1.2 8.6 1.6 1.6 3.8 2.5 6.2 2.5s4.6-.9 6.2-2.5c2.4-2.4 2.8-6.2 1.2-8.6-1.7-2.5-5.1-2.9-7.4-1.9z" fill="currentColor"/><path d="M19.4 10c1.6 2.4 1.2 6.2-1.2 8.6-1.6 1.6-3.8 2.5-6.2 2.5-1.7 0-3.3-.5-4.6-1.3 4.4.6 9.3-2 10.4-6.2.4-1.3.4-2.6-.1-3.7z" fill="#000" opacity=".18"/><path d="M6.9 11.6c.6-1.4 1.8-2.2 3-2.4" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/><path d="M12 11.4l-1.5-2-3.8 1.2 2.3-2.4-2-1.8 3.3.4L12 5.2l1.7 1.6 3.3-.4-2 1.8 2.3 2.4-3.8-1.2z" fill="var(--leaf,#2E9D5B)" stroke="var(--leaf-d,#1F7A44)" stroke-width=".8" stroke-linejoin="round"/><path d="M12 7.6c-.02-1.5.5-2.75 1.65-3.75" fill="none" stroke="var(--leaf-d,#1F7A44)" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="7.6" r=".9" fill="var(--leaf-d,#1F7A44)"/></svg>';
 // Minutes for a focus session on a task: the timer length you chose, cut short only when that would
 // run past the time the plan gives this task today (so the session ends as that work is done)
 function focusMinsFor(taskId){
@@ -19,6 +19,8 @@ function pomoLoad(){
 }
 let pomo = pomoLoad(), pomoTimer = null;
 const modeMs = m => m === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) * 60000 : Math.max(1, Number(pomoCfg()[m === "focus" ? "focus" : m === "short" ? "short" : "long"]) || 1) * 60000;
+// The length of the session under way, kept from when it started (new timer settings apply to the next one)
+const pomoLen = () => (pomo.running || pomo.left > 0) && Number(pomo.len) > 0 ? Number(pomo.len) : modeMs(pomo.mode);
 const pomoLeft = () => pomo.running ? Math.max(0, pomo.endAt - Date.now()) : (pomo.left > 0 ? pomo.left : modeMs(pomo.mode));
 const fmtClock = ms => { const s = Math.ceil(ms / 1000), m = Math.floor(s / 60); return `${m}:${String(s % 60).padStart(2, "0")}`; };
 function pomoSave(){ try { localStorage.setItem(POMO_LS, JSON.stringify(pomo)); } catch(e) {} }
@@ -78,7 +80,7 @@ function stopAlarm(){
 /* Timer */
 function pomoSchedule(){
   clearTimeout(pomoTimer);
-  if (pomo.running) pomoTimer = setTimeout(() => pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }), Math.max(0, pomo.endAt - Date.now()) + 30);
+  if (pomo.running) pomoTimer = setTimeout(() => pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoEnd(); }), Math.max(0, pomo.endAt - Date.now()) + 30);
 }
 function pomoStart(){
   audio(); audioIdle(400);   // switched on with the tap, so the alarm can play later, then off again
@@ -86,6 +88,7 @@ function pomoStart(){
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();
   nativeAlarm();
+  if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) pomo.len = modeMs(pomo.mode);
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
   pomoSave(); pomoSchedule(); pomoUI(true);
   try {
@@ -98,7 +101,7 @@ function pomoPause(){ if (!pomo.running) return; pomo.left = Math.max(1000, pomo
 // Minutes of a running or paused focus session already done
 function pomoElapsedMin(){
   if (pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return 0;
-  const total = modeMs("focus"), left = Math.min(total, pomo.running ? Math.max(0, pomo.endAt - Date.now()) : pomo.left);
+  const total = pomoLen(), left = Math.min(total, pomo.running ? Math.max(0, pomo.endAt - Date.now()) : pomo.left);
   return Math.max(0, (total - left) / 60000);
 }
 // Stopping a focus session early
@@ -109,8 +112,8 @@ const pomoEarly = (min, why) => {
   else { try { if (typeof SBSTATS !== "undefined") SBSTATS.addFocus(m, "timer"); pomoToday(); pomo.minutes += m; pomoSave(); } catch(e) { console.warn(e); } }
   fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, why});
 };
-function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
-function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
+function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
+function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
 // Tapping a mode button: ending a focus session for a break asks first
 function pomoPickMode(m){
   if (m === pomo.mode && (pomo.running || pomo.left > 0)) return;
@@ -120,10 +123,27 @@ function pomoPickMode(m){
     .then(ok => { if (ok) { pomoSetMode(m); pomoStart(); } });
 }
 function pomoSkip(){ const next = pomo.mode === "focus" ? ((pomo.cycle + 1) % pomoCfg().every === 0 ? "long" : "short") : "focus"; if (pomo.mode === "long") pomo.cycle = 0; pomoSetMode(next); }
+// Only one tab or window finishes a session (credits it and rings): the first to claim its end time. The others take
+// the finished timer from storage.
+const POMO_FIN = "studioso:pomo-fin";
+const pomoStored = () => { try { const raw = localStorage.getItem(POMO_LS); return raw ? pomoLoad() : null; } catch(e) { return null; } };
+function pomoAdopt(p){ pomo = p; pomoSchedule(); pomoUI(true); }
+function pomoEnd(missed){
+  if (!pomo.running) return;
+  const end = pomo.endAt, go = () => {
+    const cur = pomoStored();
+    let fin = ""; try { fin = localStorage.getItem(POMO_FIN) || ""; } catch(e) {}
+    if (cur && (fin === String(end) || !cur.running || cur.endAt !== end)) { pomoAdopt(cur); return; }
+    try { localStorage.setItem(POMO_FIN, String(end)); } catch(e) {}
+    if (pomo.running && pomo.endAt === end) pomoFinish(missed);
+  };
+  try { if (navigator.locks && navigator.locks.request) { navigator.locks.request("studioso-pomo-finish", go).catch(e => console.warn(e)); return; } } catch(e) {}
+  go();
+}
 function pomoFinish(missed){
   if (!pomo.running) return;
-  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) : Number(cfg.focus) || 25;
-  pomo.running = false; pomo.left = 0; pomo.preset = 0; clearTimeout(pomoTimer);
+  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" ? Math.max(1, Math.round(pomoLen() / 60000)) : 0;
+  pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; clearTimeout(pomoTimer);
   pomoToday();
   if (done === "focus") {
     pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
@@ -141,7 +161,7 @@ function pomoFinish(missed){
   pomo.mode = next;
   const auto = !missed && ((next !== "focus" && cfg.autoBreak) || (next === "focus" && cfg.autoFocus));
   pomoSave();
-  if (auto) { pomo.endAt = Date.now() + modeMs(next); pomo.running = true; pomoSave(); pomoSchedule(); }
+  if (auto) { pomo.len = modeMs(next); pomo.endAt = Date.now() + pomo.len; pomo.running = true; pomoSave(); pomoSchedule(); }
   pomoAlarm(done, next, auto, missed);
   pomoUI(true);
   fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next, auto, missed: !!missed, taskId: done === "focus" ? pomo.taskId : ""});
@@ -170,13 +190,13 @@ function pomoAlarm(done, next, auto, missed){
   </div>`;
   if (!ad.open) { try { ad.showModal(); } catch(e) { ad.setAttribute("open", ""); } }
   const close = () => { stopAlarm(); try { ad.close(); } catch(e) { ad.removeAttribute("open"); } };
-  const toFocus = () => { pomo.mode = "focus"; pomo.running = false; pomo.left = 0; pomo.preset = 0; clearTimeout(pomoTimer); pomoSave(); };
+  const toFocus = () => { pomo.mode = "focus"; pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; clearTimeout(pomoTimer); pomoSave(); };
   $("#alOk").addEventListener("click", close);
   const st = $("#alStart"); if (st) st.addEventListener("click", () => { close(); pomoStart(); });
   const dn = $("#alDone"); if (dn) dn.addEventListener("click", () => { close(); if (pomo.taskId === task.id) { pomo.taskId = ""; pomoSave(); pomoUI(true); } });
   const ag = $("#alAgain"); if (ag) ag.addEventListener("click", () => { close(); toFocus(); pomo.taskId = task.id; pomoStart(); });
   const sk = $("#alSkip"); if (sk) sk.addEventListener("click", () => { close(); toFocus(); pomoUI(true); openPomo(); });
-  ad.addEventListener("cancel", stopAlarm, {once: true});
+  ad.oncancel = stopAlarm;   // set, not added, so repeated alarms don't pile up listeners
 }
 function setTitle(){
   if (flashT) return;
@@ -185,7 +205,7 @@ function setTitle(){
 // Light updates every half second; a full redraw only when something changes
 let lastSig = "";
 function pomoUI(full){
-  const left = pomoLeft(), total = pomo.running ? modeMs(pomo.mode) : modeMs(pomo.mode), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
+  const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
   if (full || sig !== lastSig) { lastSig = sig; renderPomoBits(); if ($("#pomoDlg").open) renderPomo(); }
   const clock = fmtClock(left), frac = Math.max(0, Math.min(1, left / total));
   $$("[data-pomo-time]").forEach(el => { el.textContent = clock; });
@@ -198,6 +218,8 @@ function renderPomoBits(){
   btn.className = `pomo-btn ${active ? "active" : ""} ${pomo.running ? "run" : ""} m-${pomo.mode}`;
   btn.setAttribute("aria-label", active ? `${MODE_LABEL[pomo.mode]} timer, ${pomo.running ? "running" : "paused"}. Open focus timer` : "Open focus timer");
   $("#pomoBtnTime").hidden = !active;
+  // the header button (the phone's Focus button) wears the same tomato as everywhere else
+  const ic = btn.querySelector("svg"); if (ic && !ic.classList.contains("tomato-ic")) ic.outerHTML = TOMATO;
   const nav = $("#navPomo");
   nav.className = `nav-focus m-${pomo.mode} ${active ? "active" : ""} ${pomo.running ? "run" : ""}`;
   nav.setAttribute("aria-label", btn.getAttribute("aria-label"));
@@ -215,7 +237,7 @@ function islandSync(){
   const t = pomo.taskId && state.tasks[pomo.taskId];
   let accent = ""; try { accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(); } catch (e) {}
   const st = {mode: pomo.mode, label: MODE_LABEL[pomo.mode], task: t ? t.title : "", running: pomo.running, endsAt: pomo.running ? pomo.endAt : 0,
-    left: pomo.running ? 0 : Math.max(1, Math.floor(pomoLeft() / 1000)), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : "",
+    left: pomo.running ? 0 : Math.max(1, Math.floor(pomoLeft() / 1000)), total: Math.round(pomoLen() / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : "",
     plan: pomoPlan(6)};
   const sig = JSON.stringify(st);
   if (sig === ISLAND.sig) return;
@@ -249,7 +271,7 @@ function pomoTakeLock(){
         if (a === "pause" && pomo.running) { pomo.left = left > 0 ? left * 1000 : Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
         else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = end > t ? end : t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
         else if (a === "reset" && (pomo.running || pomo.left > 0)) { if (pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.running = false; } pomoReset(); }
-        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.endAt = t + modeMs(pomo.mode); pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.len = modeMs(pomo.mode); pomo.endAt = t + pomo.len; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
       });
       pomoSave(); pomoSchedule();
     } finally { ISLAND.hold = false; }
@@ -318,11 +340,11 @@ function renderPomo(){
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
   const notifyNote = !notifySupported() ? "Desktop notifications aren't available here, so the alarm sound and on-screen alert are used." : Notification.permission === "denied" ? "Notifications are blocked for this site in your browser settings." : Notification.permission === "default" ? "Your browser will ask to allow notifications when you start the timer." : "Notifications are allowed.";
-  d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO.replace('viewBox="0 0 24 24"', 'viewBox="2.14 1.94 19.72 19.72"'), pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
+  d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO.replace('viewBox="0 0 24 24"', 'viewBox="2.14 2.4 19.72 19.72"'), pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
     <div class="sheet-body">
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
-        <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / modeMs(pomo.mode))}"/></svg>
+        <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
         <div class="pomo-read"><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : pomo.left > 0 ? ", paused" : ""}</span></div>
       </div>
       <div class="pomo-cycle" aria-label="${inCycle} of ${every} focus sessions done before a long break">${Array.from({length: every}, (_, i) => `<i class="${i < inCycle ? "on" : ""}"></i>`).join("")}<span>${inCycle} of ${every} before a long break</span></div>
@@ -377,14 +399,16 @@ function pomoDue(then){
   if (!FA || typeof FA.take !== "function") { then(); return; }
   pomoTaking = pomoTakeLock().then(() => { pomoTaking = null; then(); }, () => { pomoTaking = null; then(); });
 }
-setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); else pomoUI(false); } }, 500);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); } });
+setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoEnd(); }); else pomoUI(false); } }, 500);
+// Another tab or window changed the timer: show the same
+window.addEventListener("storage", e => { if (e.key === POMO_LS && e.newValue) { const p = pomoStored(); if (p) pomoAdopt(p); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoEnd(); }); } });
 function pomoBoot(){
   if (pomo.running) nativeAlarm();
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (FA && typeof FA.onAction === "function") FA.onAction(() => pomoDue(() => {}));
   pomoDue(() => {
-    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoFinish(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
+    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoEnd(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
     pomoSchedule(); pomoUI(true);
   });
 }

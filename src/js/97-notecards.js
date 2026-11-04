@@ -123,7 +123,7 @@ const NOTECARDS = (() => {
     const out = [], add = (front, back, kind, pos) => {
       front = flat(front); back = flat(back);
       if (front.length < 2 || back.length < 1 || front.length > 300 || norm(front) === norm(back)) return false;
-      out.push({front, back: back.slice(0, 700), kind, pos}); return true;
+      out.push(Object.assign({front, back: back.slice(0, 700), kind, pos}, back.length > 700 ? {cut: true} : {})); return true;
     };
     const Q1 = /^\s*(?:Q(?:uestion)?\s*\d*\s*[:.)–-]|Q\d+[.)])\s*(.+)$/i, A1 = /^\s*(?:A(?:ns(?:wer)?)?\s*[:.)–-])\s*(.*)$/i, ARROW = /^\s*(?:→|=>|->)\s*(.+)$/;
     for (let i = 0; i < L.length; i++) {
@@ -178,7 +178,7 @@ const NOTECARDS = (() => {
       for (const x of cl) { const card = {front: x.c.front, back: x.c.back, kind: "cloze", pos: x.pos + 0.5}; if (![...cards, ...picked].some(y => similar(card, y))) picked.push(card); if (picked.length >= room) break; }
       cards = cards.concat(picked).sort((a, b) => a.pos - b.pos);
     }
-    return cards.slice(0, max).map(c => ({front: c.front, back: c.back, kind: c.kind, pos: c.pos}));
+    return cards.slice(0, max).map(c => Object.assign({front: c.front, back: c.back, kind: c.kind, pos: c.pos}, c.cut ? {cut: true} : {}));
   }
 
   // AI answers
@@ -284,7 +284,7 @@ const deckCards = () => (S.deck !== "new" && state.decks[S.deck] ? state.decks[S
 const srcText = () => (S.scope === "sel" ? S.sel : S.full).slice(0, MAXSRC);
 function mkCards(list, keep){
   const kept = keep || [], dup = NC.markDupes(list, deckCards().concat(kept), false);
-  return kept.concat(dup.map(c => ({k: ++S.k, front: c.front, back: c.back, kind: c.kind, on: !c.dup, tog: false, touched: false})));
+  return kept.concat(dup.map(c => ({k: ++S.k, front: c.front, back: c.back, kind: c.kind, on: !c.dup, tog: false, touched: false, cut: !!c.cut})));
 }
 function generate(){
   const keep = S.cards.filter(c => c.touched);
@@ -366,7 +366,7 @@ function cardHtml(c, i){
     <div class="nc-fields">
       <label class="f"><span class="lh">${esc(tr("nc.front", "Front"))}</span><textarea data-nc-f rows="${rows(c.front)}" maxlength="300" data-noenter aria-label="${esc(tr("nc.front.n", "Front of card {n}", {n: num}))}">${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">${esc(tr("nc.back", "Back"))}</span><textarea data-nc-b rows="${rows(c.back)}" maxlength="700" data-noenter aria-label="${esc(tr("nc.back.n", "Back of card {n}", {n: num}))}">${esc(c.back)}</textarea></label></div>
-    ${dup ? `<p class="mini nc-dup">${esc(tr("nc.dup", "Looks like a card this deck already has, so it is not ticked."))}</p>` : ""}</li>`;
+    ${dup ? `<p class="mini nc-dup">${esc(tr("nc.dup", "Looks like a card this deck already has, so it is not ticked."))}</p>` : ""}${c.cut && !c.touched ? `<p class="mini nc-cut" style="margin:0">${esc(tr("nc.cut", "The back was too long for one card, so it was cut short. Check how it ends."))}</p>` : ""}</li>`;
 }
 function paint(){
   if (!S) return;

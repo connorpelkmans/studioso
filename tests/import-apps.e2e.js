@@ -133,6 +133,11 @@ function zip(entries){
       sum = await pick(f);
       ok(sum === "Found 1 deck, 9 cards, including 8 picture cards (3 already learned, history kept).", label + ": the preview counts the picture cards: " + sum);
       ok(/8 picture cards/.test(await page.textContent("dialog[open] .ia-row")) && /come in as Picture Cards/.test(await page.textContent("dialog[open] .sheet-body")), label + ": the deck row and a note say they come in as Picture Cards");
+      // the same deck again (the newer package of it): already imported, so unticked until you tick it
+      if (f === files.io21b) {
+        ok(!(await page.$eval('dialog[open] [data-ia-on="0"]', b => b.checked)) && /Already imported/.test(await page.textContent("dialog[open] .ia-row")) && await page.$eval("#iaGo", b => b.disabled), label + ": the Anatomy deck is already here, so it starts unticked");
+        await page.check('dialog[open] [data-ia-on="0"]');
+      }
       const before = new Set((await S()).decks.map(d => d.id));
       await page.click("#iaGo"); await page.waitForFunction(() => !document.querySelector("dialog[open] .ia-sheet"), null, {timeout: 20000}); await page.waitForTimeout(300);
       const ana = (await S()).decks.find(d => !before.has(d.id) && d.name === "Anatomy");
@@ -175,6 +180,11 @@ function zip(entries){
     const lab = st.tasks.find(x => x.title === "Lab 3 write-up"), quiz = st.tasks.find(x => x.title === "Pre-lab quiz");
     ok(lab && lab.courseId === "bio" && lab.due === "2026-10-30" && lab.priority === "urgent" && lab.checklist.length === 1 && lab.checklist[0].text === "Graph the data" && /Section: Labs/.test(lab.notes), "a Todoist task: " + JSON.stringify(lab && {d: lab.due, p: lab.priority, c: lab.checklist, n: lab.notes}));
     ok(quiz && quiz.due && new Date(quiz.due + "T12:00").getDay() === 5, "a repeating task gets its next date: " + (quiz && quiz.due));
+    // the same file again: it's already here, so it starts unticked
+    await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");
+    await pick(files.todoist);
+    ok(!(await page.$eval('dialog[open] [data-ia-on="0"]', b => b.checked)) && /Already imported/.test(await page.textContent("dialog[open] .ia-row")) && await page.$eval("#iaGo", b => b.disabled), "importing the same Todoist file again: Already imported, unticked");
+    await page.click('dialog[open] .sheet-foot [data-act="close"]'); await page.waitForTimeout(200);
 
     // Notion: a ZIP inside the ZIP
     await clickAct("ia-open"); await page.waitForSelector("dialog[open] .ia-sheet");

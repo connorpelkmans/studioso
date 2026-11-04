@@ -68,46 +68,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Quick Capture",
-      "short_name": "Capture",
-      "description": "Add a task in seconds",
-      "url": "./?capture=1",
-      "icons": [
-        {
-          "src": "icons/shortcut-add.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        },
-        {
-          "src": "shortcut-add.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Capture Photo",
-      "short_name": "Photo",
-      "description": "Snap a whiteboard or slide with a due date",
-      "url": "./?capture=photo",
-      "icons": [
-        {
-          "src": "icons/shortcut-add.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        },
-        {
-          "src": "shortcut-add.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
       "name": "Quick Add",
       "short_name": "Quick Add",
       "description": "Add a task by typing a sentence",
-      "url": "./?action=quickadd",
+      "url": "./?capture=1",
       "icons": [
         {
           "src": "icons/shortcut-add.png",
@@ -170,6 +134,24 @@
         },
         {
           "src": "shortcut-search.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Capture Photo",
+      "short_name": "Photo",
+      "description": "Snap a whiteboard or slide with a due date",
+      "url": "./?capture=photo",
+      "icons": [
+        {
+          "src": "icons/shortcut-add.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        },
+        {
+          "src": "shortcut-add.png",
           "sizes": "96x96",
           "type": "image/png"
         }

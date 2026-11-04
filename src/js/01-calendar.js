@@ -167,7 +167,7 @@ function eventForm(ev, preset){
         <label class="f">Starts<input type="time" name="start" value="${esc(ev.start || "10:00")}"></label>
         <label class="f">Ends<input type="time" name="end" value="${esc(ev.end || "11:00")}"></label>
       </div>
-      <label class="f">Repeats<select name="rep"><option value="">Doesn't repeat</option><option value="1" ${rp && rp.every === 1 ? "selected" : ""}>Every week</option><option value="2" ${rp && rp.every === 2 ? "selected" : ""}>Every 2 weeks</option></select></label>
+      <label class="f">Repeats<select name="rep"><option value="">Doesn't repeat</option>${[1, 2, 3, 4].map(k => `<option value="${k}" ${rp && rp.every === k ? "selected" : ""}>${k === 1 ? "Every week" : `Every ${k} weeks`}</option>`).join("")}</select></label>
       <div class="ev-rep" ${rp ? "" : "hidden"}>
         <div class="meet-days" role="group" aria-label="Days" id="evDays">${WEEK_ORDER.map(d => `<button type="button" data-day="${d}" aria-pressed="${days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div>
         <label class="f">Until <span class="hint">optional</span><input type="date" name="until" value="${esc(rp ? rp.until : "")}"></label>
@@ -180,6 +180,7 @@ function eventForm(ev, preset){
     const allDay = !!fd.get("allDay"), start = String(fd.get("start") || ""), end = String(fd.get("end") || ""), rep = Number(fd.get("rep") || 0);
     if (!allDay && (!start || !end || end <= start)) { toast("The event needs to end after it starts"); return false; }
     if (rep && !pickDays.length) { toast("Pick the days it repeats on"); return false; }
+    if (rep && fd.get("until") && String(fd.get("until")) < String(fd.get("date"))) { toast("The repeat needs to end on or after the date"); return false; }
     const n = normEvent(Object.assign(clone(ev), {title, courseId: fd.get("courseId") || "", where: String(fd.get("where") || "").trim(), date: String(fd.get("date")), allDay, start: allDay ? "" : start, end: allDay ? "" : end,
       repeat: rep ? {days: pickDays, every: rep, until: String(fd.get("until") || "")} : null, notes: String(fd.get("notes") || "")}));
     if (isNew) n.id = uid();
@@ -288,11 +289,35 @@ function icsParse(text){
 const icsTxt = s => scrubText(String(s || "").replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1").trim(), false);
 function icsTz(y, mo, d, h, mi, tz){
   try {
-    const f = new Intl.DateTimeFormat("en-US", {timeZone: tz.replace(/^\//, ""), hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"});
+    const f = new Intl.DateTimeFormat("en-US", {timeZone: icsZone(tz), hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"});
     const off = ms => { const P = {}; f.formatToParts(new Date(ms)).forEach(x => { P[x.type] = x.value; }); return Date.UTC(+P.year, +P.month - 1, +P.day, +P.hour % 24, +P.minute) - Math.floor(ms / 6e4) * 6e4; };
     const guess = Date.UTC(y, mo - 1, d, h, mi); let t = guess - off(guess); const o2 = off(t); if (guess - o2 !== t) t = guess - o2;
     return new Date(t);
   } catch(e) { return new Date(y, mo - 1, d, h, mi); }
+}
+// Outlook and Exchange write Windows zone names ("Eastern Standard Time"); Thunderbird writes "/mozilla.org/20050126_1/America/New_York"
+const ICS_WIN_TZ = {"Dateline Standard Time": "Etc/GMT+12", "UTC-11": "Etc/GMT+11", "Hawaiian Standard Time": "Pacific/Honolulu", "Aleutian Standard Time": "America/Adak", "Alaskan Standard Time": "America/Anchorage",
+  "Pacific Standard Time": "America/Los_Angeles", "Pacific Standard Time (Mexico)": "America/Tijuana", "US Mountain Standard Time": "America/Phoenix", "Mountain Standard Time": "America/Denver", "Mountain Standard Time (Mexico)": "America/Mazatlan",
+  "Central America Standard Time": "America/Guatemala", "Central Standard Time": "America/Chicago", "Central Standard Time (Mexico)": "America/Mexico_City", "Canada Central Standard Time": "America/Regina",
+  "SA Pacific Standard Time": "America/Bogota", "Eastern Standard Time": "America/New_York", "Eastern Standard Time (Mexico)": "America/Cancun", "US Eastern Standard Time": "America/Indiana/Indianapolis",
+  "Venezuela Standard Time": "America/Caracas", "Atlantic Standard Time": "America/Halifax", "SA Western Standard Time": "America/La_Paz", "Pacific SA Standard Time": "America/Santiago", "Newfoundland Standard Time": "America/St_Johns",
+  "E. South America Standard Time": "America/Sao_Paulo", "Argentina Standard Time": "America/Argentina/Buenos_Aires", "SA Eastern Standard Time": "America/Cayenne", "Greenland Standard Time": "America/Godthab", "Montevideo Standard Time": "America/Montevideo",
+  "UTC-02": "Etc/GMT+2", "Azores Standard Time": "Atlantic/Azores", "Cape Verde Standard Time": "Atlantic/Cape_Verde", "UTC": "Etc/UTC", "Coordinated Universal Time": "Etc/UTC", "GMT Standard Time": "Europe/London", "Greenwich Standard Time": "Atlantic/Reykjavik",
+  "W. Europe Standard Time": "Europe/Berlin", "Central Europe Standard Time": "Europe/Budapest", "Romance Standard Time": "Europe/Paris", "Central European Standard Time": "Europe/Warsaw", "W. Central Africa Standard Time": "Africa/Lagos", "Morocco Standard Time": "Africa/Casablanca",
+  "GTB Standard Time": "Europe/Bucharest", "Middle East Standard Time": "Asia/Beirut", "Egypt Standard Time": "Africa/Cairo", "E. Europe Standard Time": "Europe/Chisinau", "South Africa Standard Time": "Africa/Johannesburg", "FLE Standard Time": "Europe/Kiev",
+  "Israel Standard Time": "Asia/Jerusalem", "Jordan Standard Time": "Asia/Amman", "Arabic Standard Time": "Asia/Baghdad", "Turkey Standard Time": "Europe/Istanbul", "Arab Standard Time": "Asia/Riyadh", "Russian Standard Time": "Europe/Moscow", "E. Africa Standard Time": "Africa/Nairobi",
+  "Iran Standard Time": "Asia/Tehran", "Arabian Standard Time": "Asia/Dubai", "Azerbaijan Standard Time": "Asia/Baku", "Afghanistan Standard Time": "Asia/Kabul", "Pakistan Standard Time": "Asia/Karachi", "West Asia Standard Time": "Asia/Tashkent",
+  "India Standard Time": "Asia/Kolkata", "Sri Lanka Standard Time": "Asia/Colombo", "Nepal Standard Time": "Asia/Kathmandu", "Central Asia Standard Time": "Asia/Almaty", "Bangladesh Standard Time": "Asia/Dhaka", "Myanmar Standard Time": "Asia/Yangon",
+  "SE Asia Standard Time": "Asia/Bangkok", "China Standard Time": "Asia/Shanghai", "Singapore Standard Time": "Asia/Singapore", "W. Australia Standard Time": "Australia/Perth", "Taipei Standard Time": "Asia/Taipei", "Tokyo Standard Time": "Asia/Tokyo",
+  "Korea Standard Time": "Asia/Seoul", "Cen. Australia Standard Time": "Australia/Adelaide", "AUS Central Standard Time": "Australia/Darwin", "E. Australia Standard Time": "Australia/Brisbane", "AUS Eastern Standard Time": "Australia/Sydney",
+  "West Pacific Standard Time": "Pacific/Port_Moresby", "Tasmania Standard Time": "Australia/Hobart", "New Zealand Standard Time": "Pacific/Auckland", "Fiji Standard Time": "Pacific/Fiji", "Tonga Standard Time": "Pacific/Tongatapu", "Samoa Standard Time": "Pacific/Apia",
+  "Hong Kong Standard Time": "Asia/Hong_Kong", "Philippine Standard Time": "Asia/Manila", "North Asia Standard Time": "Asia/Krasnoyarsk", "Ekaterinburg Standard Time": "Asia/Yekaterinburg", "Kaliningrad Standard Time": "Europe/Kaliningrad"};
+function icsZone(tz){
+  let z = String(tz || "").trim().replace(/^"|"$/g, "");
+  if (ICS_WIN_TZ[z]) return ICS_WIN_TZ[z];
+  const w = Object.keys(ICS_WIN_TZ).find(k => k.toLowerCase() === z.toLowerCase()); if (w) return ICS_WIN_TZ[w];
+  const m = z.match(/(?:^|\/)((?:Africa|America|Antarctica|Asia|Atlantic|Australia|Europe|Indian|Pacific|Etc)\/[A-Za-z0-9_+\-]+(?:\/[A-Za-z0-9_+\-]+)?)$/);
+  return m ? m[1] : z.replace(/^\//, "");
 }
 function icsWhen(x){
   if (!x) return null;
@@ -322,12 +347,14 @@ const isExamSitting = s => { const t = String(s || ""); if (notSitting(t)) retur
 const guessTaskType = s => isExamSitting(s) && /\b(exams?|examination|midterms?|mid-term)\b/i.test(s) ? "Exam" : /\bquiz/i.test(s) && !notSitting(s) ? "Quiz" : isExamSitting(s) ? "Exam" : /\bproject|presentation\b/i.test(s) ? "Project" : /\blab\b/i.test(s) ? "Lab" : /\bread/i.test(s) ? "Reading" : "Assignment";
 const guessMeetLabel = s => /office\s*hours?|\bOH\b/i.test(s) ? "Office Hours" : /\blab\b/i.test(s) ? "Lab" : /tutorial|\btut\b/i.test(s) ? "Tutorial" : /discussion|recitation|\bsection\b|\bdis\b/i.test(s) ? "Discussion" : /lecture|\blec\b|\bclass\b/i.test(s) ? "Lecture" : "";
 const codeKey = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const icsFingerprint = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return "nouid-" + (h >>> 0).toString(36) + "-" + s.length.toString(36); };
 // Turns calendar entries into Studyboard events and tasks
 function icsPlan(text){
   const raw = icsParse(text), today = todayISO(), out = [], overrides = [];
   raw.forEach(it => {
     const g = k => (it.props[k] || [])[0], txt = k => icsTxt(g(k) && g(k).v);
-    const status = txt("STATUS").toUpperCase(), uidv = txt("UID") || uid();
+    // No UID: a fingerprint of start, title and repeat rule, so importing the same file again updates instead of adding twice
+    const status = txt("STATUS").toUpperCase(), uidv = txt("UID") || icsFingerprint([g("DTSTART") && g("DTSTART").v, txt("SUMMARY"), txt("RRULE"), g("RECURRENCE-ID") && g("RECURRENCE-ID").v].join("|"));
     if (it.type === "VEVENT" && g("RECURRENCE-ID")) { overrides.push({uid: uidv, rid: icsWhen(g("RECURRENCE-ID")), s: icsWhen(g("DTSTART")), e: icsWhen(g("DTEND")), dur: icsDur(txt("DURATION")), cancel: status === "CANCELLED"}); return; }
     if (status === "CANCELLED") return;
     const title = txt("SUMMARY").replace(/\s+/g, " ").trim() || "Untitled";
@@ -347,13 +374,22 @@ function icsPlan(text){
       const R = {}; rr.split(";").forEach(kv => { const [k, v] = kv.split("="); R[(k || "").toUpperCase()] = v || ""; });
       const iv = Math.max(1, Math.min(4, Number(R.INTERVAL) || 1));
       if (R.UNTIL) { const u = icsWhen({v: R.UNTIL, p: {}}); until = u ? u.date : ""; }
-      if (R.FREQ === "WEEKLY" || R.FREQ === "DAILY") {
-        const days = R.FREQ === "DAILY" ? [0, 1, 2, 3, 4, 5, 6] : (R.BYDAY ? R.BYDAY.split(",").map(x => ICS_DAY[x.replace(/^[-+\d]+/, "").toUpperCase()]).filter(x => x != null) : [parse(s.date).getDay()]);
-        repeat = {days: [...new Set(days)], every: R.FREQ === "DAILY" ? 1 : iv, until};
+      // BYDAY is in the feed's own zone: when the start moved to another day in yours (a Monday 8 PM UTC class is Tuesday in Asia), the days move with it
+      const raw = String(g("DTSTART").v).trim(), shift = /^\d{8}/.test(raw) ? dayDiff(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`, s.date) : 0;
+      const byDay = R.BYDAY ? R.BYDAY.split(",").map(x => ICS_DAY[x.replace(/^[-+\d]+/, "").toUpperCase()]).filter(x => x != null).map(d => ((d + shift) % 7 + 7) % 7) : null;
+      const n = Number(R.INTERVAL) || 1, weekly = R.FREQ === "WEEKLY" || (R.FREQ === "DAILY" && n > 1 && n % 7 === 0 && n <= 28 && !byDay);
+      if (weekly || (R.FREQ === "DAILY" && n === 1)) {
+        const days = R.FREQ === "DAILY" && !weekly ? byDay || [0, 1, 2, 3, 4, 5, 6] : (byDay && byDay.length ? byDay : [parse(s.date).getDay()]);
+        repeat = {days: [...new Set(days)], every: R.FREQ === "DAILY" ? Math.max(1, Math.min(4, n / 7)) : iv, until};
         if (R.COUNT && !until) { let n = Number(R.COUNT), d = s.date, last = s.date; for (let guard = 0; n > 0 && guard < 3000; guard++, d = addDays(d, 1)) { if (repeat.days.includes(parse(d).getDay()) && !(repeat.every > 1 && wkDiff(d, s.date) % repeat.every)) { n--; last = d; } } repeat.until = last; }
+      } else if (R.FREQ === "DAILY") {
+        // every few days doesn't fit a weekly pattern: the next one is added and the note says so
+        let d = s.date; while (d < today && (!until || addDays(d, n) <= until)) d = addDays(d, n);
+        note = `Repeats every ${n} days; only the next one was added.`; if (endDate) endDate = addDays(d, dayDiff(s.date, endDate)); s.date = d;
       } else if (R.FREQ === "YEARLY") {
         let d = s.date; for (let g = 0; d < today && g < 200; g++) d = `${Number(d.slice(0, 4)) + 1}${d.slice(4)}`;
-        note = "Repeats every year; only the next one was added."; s.date = d;
+        if (!isDate(d)) d = addDays(d.slice(0, 8) + "28", 1);
+        note = "Repeats every year; only the next one was added."; if (endDate) endDate = addDays(d, dayDiff(s.date, endDate)); s.date = d;
       } else note = "Repeats monthly; only the first one was added.";
     }
     const exd = []; (it.props.EXDATE || []).forEach(x => String(x.v).split(",").forEach(v => { const w = icsWhen({v, p: x.p}); if (w) exd.push(w.date); }));
@@ -396,7 +432,7 @@ function icsImportSheet(text, fileName){
   const pick = (L, it) => L ? (L.find(x => x.icsSrc === src) || L.find(x => !x.icsSrc && x.title === it.title)) : undefined;
   const existingEv = {}, existingT = {};
   its.forEach(it => { const e = pick(evByUid[it.uid], it), t = pick(tByUid[it.uid], it); if (e) existingEv[it.uid] = e; if (t) existingT[it.uid] = t; });
-  const whenOf = it => it.kind === "task" && !it.date ? `Due ${fmtShort(it.due)}${it.time ? " " + fmtTime(it.time) : ""}` : it.repeat ? `${it.repeat.every === 2 ? "Every 2 weeks" : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}`;
+  const whenOf = it => it.kind === "task" && !it.date ? `Due ${fmtShort(it.due)}${it.time ? " " + fmtTime(it.time) : ""}` : it.repeat ? `${it.repeat.every > 1 ? `Every ${it.repeat.every} weeks` : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}`;
   const courseName = it => it.courseId ? courseLabel(courseOf(it.courseId)) : it.newCourse ? `${it.newCourse} (new)` : "";
   const ncs = Object.entries(plan.newCourses);
   openSheet(`<form class="sheet ics-sheet">${head("Import Calendar")}
@@ -932,6 +968,8 @@ function parseTimeRange(s){
   const to24 = (h, ap) => ap === "p" ? (h % 12) + 12 : ap === "a" ? h % 12 : h;
   eh = a2 ? to24(eh, a2) : (eh < 8 ? eh + 12 : eh);
   if (a1) sh = to24(sh, a1); else if (a2 === "p" && sh < 12 && sh + 12 <= eh) sh += 12; else if (!a2 && sh < 8) sh += 12;
+  // No AM or PM, and an early start made the end come first ("T 7-8:15"): both are evening times
+  if (!a1 && !a2 && eh < 12 && eh * 60 + em <= sh * 60 + sm && (eh + 12) * 60 + em > sh * 60 + sm) eh += 12;
   if (sh > 23 || eh > 23 || sm > 59 || em > 59 || eh * 60 + em <= sh * 60 + sm) return null;
   return {start: pad(sh) + ":" + pad(sm), end: pad(eh) + ":" + pad(em)};
 }

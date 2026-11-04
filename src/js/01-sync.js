@@ -40,7 +40,10 @@ function syncLabel(){
   const side = $("#syncSide"), t = el.textContent, warn = !/^(Saved|Saved on this device)$/.test(t) && !/Saving|Connecting/.test(t);
   el.setAttribute("aria-label", warn ? t + ". Sync details" : t);
   if (side) {
-    side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = warn ? "warn" : /Saving|Connecting/.test(t) ? "busy" : "ok";
+    // the side menu is narrow: just the first part ("Not signed in"), the rest in a tooltip
+    const st = t === "Saved on this device" ? "On this device" : t.split(",")[0];
+    side.textContent = st; if (st !== t && t !== "Saved on this device") side.dataset.tip = t; else delete side.dataset.tip;
+    side.dataset.state = warn ? "warn" : /Saving|Connecting/.test(t) ? "busy" : "ok";
     // a problem can be tapped for details and Try Again
     if (warn) { side.removeAttribute("aria-hidden"); side.setAttribute("role", "button"); side.tabIndex = 0; side.dataset.act = "sync-status"; side.setAttribute("aria-label", t + ". Sync details"); }
     else { side.setAttribute("aria-hidden", "true"); side.removeAttribute("role"); side.removeAttribute("tabindex"); delete side.dataset.act; side.removeAttribute("aria-label"); }
@@ -61,6 +64,15 @@ function queueWrite(kind, id, data){
   e.next = {data: data === null ? null : clone(data)};
   syncLabel();
   if (!e.running) runQueue(key, e);
+}
+// One item over the server's size limit for a single item: named, and said at most once in 10 minutes per item
+let syncFullAt = 0;
+const syncBigAt = new Map();
+function syncBigWarn(key, data){
+  if (Date.now() - (syncBigAt.get(key) || 0) < 10 * 60000) return;
+  syncBigAt.set(key, Date.now());
+  let name = ""; try { name = SyncMerge.titleOf(key.slice(0, key.indexOf(":")), data) || ""; } catch(e) {}
+  toast(`${name ? `"${String(name).slice(0, 60)}"` : "One item"} is too big to sync (over 10 MB), so it's only saved on this device. Make it smaller, for example by moving pictures into Files.`, null, null, {error: true});
 }
 async function runQueue(key, e){
   e.running = true;
@@ -84,13 +96,14 @@ async function runQueue(key, e){
         syncError = true; console.warn("Save failed", code, err && err.message);
         // tried again later from the offline outbox (which merges with what the server has now); where there is no outbox, a save that
         // failed only because the server was out of reach is sent again as it was
-        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema") {
+        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema" && code !== "item_too_big") {
           if ((inPreview() || !sbConfig()) && (code === "unavailable" || code === "resource_exhausted")) syncLater.set(key, {ref: e.ref, data: job.data});
           syncRetryLater();
         }
         if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
 
-        if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true});
+        if (code === "item_too_big") syncBigWarn(key, job.data);
+        else if ((code === "quota_exceeded" || code === "quota_or_state") && Date.now() - syncFullAt > 5 * 60000) { syncFullAt = Date.now(); toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true}); }
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
       }
     }
@@ -199,9 +212,23 @@ const outboxGet = () => { try { return JSON.parse(localStorage.getItem(OUTBOX) |
 const outboxOwn = new Set(Object.keys(outboxGet()));
 const outboxMine = k => outboxOwn.has(k) && k in outboxGet();
 let outboxWarnAt = 0;
+// Nobody has signed in on this device (or the last account signed out and erased its copy): there's no account to send changes to,
+// so they aren't kept twice. Signing in adds everything on the device then (claimDevice)
+function outboxNoAccount(){
+  if ((typeof sbUser !== "undefined" && sbUser) || (typeof claimRun !== "undefined" && claimRun)) return false;
+  try { const o = localStorage.getItem(OWNER); return (!o || o === NO_OWNER) && !localStorage.getItem("studioso-auth"); } catch(e) { return false; }
+}
+// A tab that closes hands its unsent changes to the tabs still open, which send them (instead of waiting for the next launch).
+// Settings aren't handed over: a tab sends its own settings
+const OUTBOX_LEFT = "studioso:outboxLeft";
+addEventListener("pagehide", () => { try { const o = outboxGet(), mine = [...outboxOwn].filter(k => k in o && k !== "meta:meta"); if (mine.length && !deviceWiping) localStorage.setItem(OUTBOX_LEFT, JSON.stringify({keys: mine, at: Date.now()})); } catch(e) {} });
+addEventListener("storage", e => {
+  if (e.key !== OUTBOX_LEFT || !e.newValue || deviceWiping) return;
+  try { const o = outboxGet(); (JSON.parse(e.newValue).keys || []).forEach(k => { if (typeof k === "string" && k in o && k !== "meta:meta") outboxOwn.add(k); }); if (cloud.on) flushOutbox(); else syncLabel(); } catch(x) {}
+});
 function outboxAdd(kind, id, data){
   if (demoDrawing) return;
-  if (inPreview() || !sbConfig() || deviceWiping) return;
+  if (inPreview() || !sbConfig() || deviceWiping || outboxNoAccount()) return;
   const o = outboxGet(); o[kind + ":" + id] = data === null ? null : clone(data);
   try { localStorage.setItem(OUTBOX, JSON.stringify(o)); outboxOwn.add(kind + ":" + id); }
   catch(e) { if (Date.now() - outboxWarnAt > 6e4) { outboxWarnAt = Date.now(); try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} } }

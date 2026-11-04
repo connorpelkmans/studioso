@@ -844,7 +844,10 @@ function cleanFile(r) {
 
   function fromFeed(text, src){
     const raw = icsParse(text), out = {src: src || "feed", origin: "", courses: [], recs: [], evs: [], grades: [], finals: {}, news: [], synced: []};
-    const groups = {}, courses = {}, alias = {};
+    const groups = {}, courses = {}, alias = {}, parts = [];
+    // The item an entry is for, from its link: Canvas /assignments/12, Schoology /assignment/12, Moodle view.php?id=12, Brightspace db=12
+    const itemOf = u => { const x = String(u || ""), w = workIdsIn(x); if (w) return w.k + w.id;
+      const m = x.match(/\/(?:assignments|assignment|assessment|discussion_topics|discussion|quizzes)\/(\d+)/i) || x.match(/\/mod\/[a-z]+\/view\.php\?(?:[^#]*&)?id=(\d+)/i); return m ? m[0].toLowerCase() : ""; };
     const infoOf = it => {
       const g = k => (it.props[k] || [])[0], txt = k => icsTxt(g(k) && g(k).v), desc0 = txt("DESCRIPTION");
       return P.feedInfo({sum: txt("SUMMARY"), desc: desc0, loc: txt("LOCATION"), cat: txt("CATEGORIES"), uid: txt("UID"), url: txt("URL") || ((desc0.match(/https?:\/\/\S+/) || [])[0] || "").replace(/[)>.,]+$/, "")}, {codeOf, fnv});
@@ -872,19 +875,35 @@ function cleanFile(r) {
       const ct = cleanTitle(sum);
       const k = ou + "|" + titleKey(ct.title);
       if (!ct.phase && info.kind === "task") ct.phase = "due";
-      if (ct.phase) { (groups[k] = groups[k] || {ou, title: ct.title, notes: "", link: ""})[ct.phase] = byEnd(ct.phase, s, e) ? Object.assign({}, s, {time: e.time}) : s; if (notes) groups[k].notes = notes; if (link) groups[k].link = link; if (info.where) groups[k].where = info.where; return; }
+      if (ct.phase) { parts.push({k, ou, title: ct.title, phase: ct.phase, when: byEnd(ct.phase, s, e) ? Object.assign({}, s, {time: e.time}) : s, notes, link, where: info.where, uid: txt("UID"), item: itemOf(link)}); return; }
       if (info.kind !== "event" && WORKISH.test(ct.title) && /\b(quiz|test|exam|midterm|final)\b/i.test(ct.title) && !notSitting(ct.title)) {
-        (groups[k] = groups[k] || {ou, title: ct.title, notes: "", link: ""}).event = s; groups[k].notes = notes; groups[k].link = link; if (info.where) groups[k].where = info.where; return;
+        parts.push({k, ou, title: ct.title, phase: "event", when: s, notes, link, where: info.where, uid: txt("UID"), item: itemOf(link), keep: true}); return;
       }
       out.evs.push({ou, key: k + "|" + s.date + (s.allDay ? "" : "|" + s.time), title: ct.title, date: s.date, allDay: s.allDay, start: s.allDay ? "" : s.time, end: s.allDay || !e ? "" : e.date === s.date ? e.time : "23:59",
         endDate: s.allDay && e && e.date > addDays(s.date, 1) ? addDays(e.date, -1) : "", where: info.where || "", notes, url: link});
     });
-    Object.values(groups).forEach(gp => {
+    // Entries for one piece of work (opens, due, closes) come together by its own id in the link, else by name; "Weekly Reflection" due each
+    // week is a new item every week (a second "due" on another day), and the same entry twice (same day, or same UID) is one
+    const RANK = {starts: 0, due: 1, event: 1, ends: 2};
+    parts.sort((a, b) => (a.when.date + (a.when.time || "")).localeCompare(b.when.date + (b.when.time || "")));
+    parts.forEach(x => {
+      const list = groups[x.k] = groups[x.k] || [];
+      let gp = x.item ? list.find(g => g.item === x.item) : null;
+      if (!gp && !x.item) gp = list.filter(g => !g.item && (!g[x.phase] || g[x.phase].date === x.when.date || (x.uid && g.uids.includes(x.uid))) && ["starts", "due", "event", "ends"].every(q => !g[q] || q === x.phase ||
+          (RANK[q] < RANK[x.phase] ? g[q].date <= x.when.date : RANK[q] > RANK[x.phase] ? g[q].date >= x.when.date : true) && Math.abs(dayDiff(g[q].date, x.when.date)) <= 45))
+        .sort((a, b) => Math.abs(dayDiff(a.last, x.when.date)) - Math.abs(dayDiff(b.last, x.when.date)))[0] || null;
+      if (!gp) { gp = {ou: x.ou, title: x.title, notes: "", link: "", item: x.item, uids: [], last: x.when.date}; list.push(gp); }
+      if (!gp[x.phase]) gp[x.phase] = x.when;
+      gp.last = x.when.date; if (x.uid) gp.uids.push(x.uid);
+      if (x.notes || x.keep) gp.notes = x.notes; if (x.link || x.keep) gp.link = x.link; if (x.where) gp.where = x.where;
+    });
+    Object.entries(groups).forEach(([k, list]) => list.forEach(gp => {
       const when = gp.due || gp.event || (gp.ends && WORKISH.test(gp.title) ? gp.ends : null);
       if (!when) return;
       const st = gp.starts && gp.starts.date < when.date && gp.starts.date >= addDays(when.date, -45) ? gp.starts.date : "";
-      out.recs.push({ou: gp.ou, title: gp.title, type: typeFor(gp.title), due: when.date, time: when.allDay ? "" : when.time, start: gp.event ? "" : st, notes: gp.notes, url: P.taskLink ? P.taskLink(gp.link, gp.title, gp.ou) : gp.link, location: gp.where || ""});
-    });
+      // several items of one name: each keeps its own task (by its id, else its day)
+      out.recs.push(Object.assign(list.length > 1 ? {key: k + "|" + (gp.item || when.date)} : {}, {ou: gp.ou, title: gp.title, type: typeFor(gp.title), due: when.date, time: when.allDay ? "" : when.time, start: gp.event ? "" : st, notes: gp.notes, url: P.taskLink ? P.taskLink(gp.link, gp.title, gp.ou) : gp.link, location: gp.where || ""}));
+    }));
     out.courses = Object.values(courses);
     out.synced = out.courses.map(c => c.ou);
     return cleanData(out);
@@ -1842,7 +1861,8 @@ function cleanFile(r) {
   function findOk(){ return !!findCfg() && !inPreview(); }
   async function findCall(path, body){
     const c = findCfg(); if (!c) throw new Error("offline");
-    const r = await fetch(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)});
+    // the address lookup tries the usual addresses one by one, so it gets longer than the school search
+    const r = await fetchT(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)}, /lms-find/.test(path) ? 45000 : 15000);
     if (!r.ok) throw new Error("HTTP " + r.status);
     return r.json();
   }
@@ -1861,7 +1881,7 @@ function cleanFile(r) {
     // picking a school starts looking up its address, so Connect is quick
     const pick = x => {
       show([]); inp.value = x.name; chosen = x; msg.textContent = "";
-      lookup = findCall("/functions/v1/lms-find", {key: x.key, lms: P.id}).catch(() => ({error: true}));
+      lookup = findCall("/functions/v1/lms-find", {key: x.key, lms: P.id}).catch(e => ({error: true, slow: !!e && e.name === "AbortError"}));
     };
     const tip = x => x && x.kind === "high_school" ? ` High schools usually share their district's or school board's ${P.name}, so ask a teacher if you're not sure.` : "";
     go.addEventListener("click", async () => {
@@ -1872,7 +1892,7 @@ function cleanFile(r) {
       }
       const x = chosen, my = ++seq;
       go.disabled = true; go.textContent = "Finding Your School…";
-      let r; try { r = await (lookup || findCall("/functions/v1/lms-find", {key: x.key, lms: P.id})); } catch (e) { r = {error: true}; }
+      let r; try { r = await (lookup || findCall("/functions/v1/lms-find", {key: x.key, lms: P.id})); } catch (e) { r = {error: true, slow: !!e && e.name === "AbortError"}; }
       go.disabled = false; go.textContent = "Connect";
       if (my !== seq) return;
       if (r && r.host) {
@@ -1881,7 +1901,7 @@ function cleanFile(r) {
         doLogin().catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); });
         return;
       }
-      openManual(r && r.error ? `Couldn't look it up right now. Type your school's ${P.name} address below.`
+      openManual(r && r.error ? `${r.slow ? "Looking up your school took too long." : "Couldn't look it up right now."} Type your school's ${P.name} address below.`
         : `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.${tip(x)}`, true);
     });
     didnt.addEventListener("click", () => { didnt.hidden = true; openManual(`Type the address you use to sign in to ${P.name}. It's in your browser's address bar when you're signed in.${tip(chosen)}`, true); });
@@ -2706,7 +2726,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const c = SB_HOSTED ? SB_DEFAULT : (typeof sbConfig === "function" && sbConfig());
     if (!c || !c.url || !c.key || (FLAGS.at && Date.now() - FLAGS.at < FLAGS_EVERY)) return;
     try {
-      const r = await fetch(c.url.replace(/\/$/, "") + "/rest/v1/app_flags?select=key,value", {headers: {apikey: c.key, Authorization: "Bearer " + c.key}, cache: "no-store"});
+      const r = await fetchT(c.url.replace(/\/$/, "") + "/rest/v1/app_flags?select=key,value", {headers: {apikey: c.key, Authorization: "Bearer " + c.key}, cache: "no-store"}, 15000);
       if (!r.ok) return;
       const v = {}; (await r.json() || []).forEach(x => { if (x && typeof x.key === "string") v[x.key] = !(x.value === false || x.value === "false"); });
       FLAGS = {at: Date.now(), v}; try { localStorage.setItem(FLAGS_KEY, JSON.stringify(FLAGS)); } catch (e) {}
@@ -2805,7 +2825,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   function schoolCfg(){ try { return sbConfig() || (SB_HOSTED ? SB_DEFAULT : null); } catch (e) { return null; } }
   async function schoolCall(path, body){
     const c = schoolCfg(); if (!c) throw new Error("offline");
-    const r = await fetch(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)});
+    // the address lookup tries the usual addresses one by one, so it gets longer than the school search
+    const r = await fetchT(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)}, /lms-find/.test(path) ? 45000 : 15000);
     if (!r.ok) throw new Error("HTTP " + r.status);
     return r.json();
   }
@@ -2848,7 +2869,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const openPlats = text => { plats.hidden = false; if (note) note.textContent = text; didnt.hidden = true; setTimeout(() => { try { plats.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }, 60); };
     // picking a school starts finding its platform, so Connect is quick
     const pick = x => { show([]); inp.value = x.name; chosen = x; msg.textContent = ""; PICKED.school = x; PICKED.host = ""; PICKED.lms = "";
-      lookup = schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"}).catch(() => ({error: true})); };
+      lookup = schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"}).catch(e => ({error: true, slow: !!e && e.name === "AbortError"})); };
     go.addEventListener("click", async () => {
       if (!chosen) {
         if (found.length) { msg.textContent = "Pick your school from the list."; inp.focus(); return; }
@@ -2857,7 +2878,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       }
       const x = chosen, my = ++seq;
       go.disabled = true; go.textContent = "Finding Your School…";
-      let r; try { r = await (lookup || schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"})); } catch (e) { r = {error: true}; }
+      let r; try { r = await (lookup || schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"})); } catch (e) { r = {error: true, slow: !!e && e.name === "AbortError"}; }
       go.disabled = false; go.textContent = "Connect";
       if (my !== seq) return;
       const L = r && r.host && LMS[r.lms];
@@ -2869,7 +2890,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
         return;
       }
       msg.textContent = "";
-      openPlats(r && r.error ? `Couldn't look up ${x.name} right now. Choose its platform, then type its address.`
+      openPlats(r && r.error ? `${r.slow ? `Looking up ${x.name} took too long.` : `Couldn't look up ${x.name} right now.`} Choose its platform, then type its address.`
         : `Couldn't tell which platform ${x.name} uses. Choose it, then type its address.${tip(x)}`);
     });
     didnt.addEventListener("click", () => openPlats(`Choose your school's platform, then type its address.${tip(chosen)}`));

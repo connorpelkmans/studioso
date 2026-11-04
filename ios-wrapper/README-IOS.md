@@ -44,8 +44,8 @@ Recommended plugins and why (install no others unless you need them; every plugi
 | --- | --- |
 | `@capacitor/push-notifications` | Deadline reminders through APNs (web push does not exist in WKWebView). |
 | `@revenuecat/purchases-capacitor` | **Apple In-App Purchase** for Pro (the only allowed way to sell digital subscriptions in the app, guideline 3.1.1). The web layer already has the hooks `plan-checkout`, `plan-restore`, `plan-manage` (see the plan module header in `index.html`). |
-| `@capacitor/share` | Native share sheet for decks and group invites. |
-| `@capacitor/filesystem` | Saving exported backups and files the person picks, in the app's own container. |
+| `@capacitor/share` | Native share sheet: saving backups and exported files (with `@capacitor/filesystem`), decks and group invites. |
+| `@capacitor/filesystem` | Exported backups and files are written to the app's cache, then offered through the share sheet ("Save to Files"). Without both plugins, Export shows an error instead of saving. |
 | `@capacitor/browser` | In-app Safari sheet for https links (used by `native-bridge.js`). |
 | `@capacitor/app` | Deep links and app state. |
 | `capacitor-secure-storage-plugin` | iOS **Keychain** storage (see section 5). |
@@ -206,7 +206,7 @@ What the page does with the answer: it shows progress ("Restoring your purchases
 ## 9. Known differences from the web app on iOS
 
 * There is no service worker inside the app (WKWebView only allows them for "app-bound domains"); the bundled files make the app work offline anyway. Reminders come from APNs instead of web push (section 6b).
-* `navigator.clipboard`, file pickers and downloads behave like Safari; "Save backup" uses the share sheet or the Filesystem plugin.
+* `navigator.clipboard` and file pickers behave like Safari. Downloads (Export Backup, calendar files, PDFs) do not: `saveBlob` writes the file with the Filesystem plugin and opens the share sheet, and only says "saved" once the person has chosen where.
 * The desktop-only features (tray, global shortcuts, the data folder in Documents) do not exist on iOS; the web code hides them when `window.studiosoDesktop` is missing.
 
 ## School sites on iPhone (full sync: grades, announcements, due dates)

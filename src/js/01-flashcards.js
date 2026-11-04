@@ -446,7 +446,7 @@ function viewDeck(d){
           <div class="deck-stats"><span><b>${st.total}</b> cards</span><span class="${st.due ? "due" : ""}"><b>${st.due}</b> due</span><span><b>${st.fresh}</b> new</span><span class="${st.mastered ? "ok" : ""}"><b>${st.mastered}</b> mastered</span>${st.last ? `<span>Last quiz <b>${st.last.score}/${st.last.total}</b></span>` : ""}</div></div></div>
     </div>
     ${window.SBLINKED ? SBLINKED.deckHtml(d) : ""}${deckAiBar(d)}
-    ${cards.length ? `<ul class="fc-list fc-styled cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">${rows}</ul>` : `<div class="empty" style="margin-top:12px"><strong>${d.cards.length ? "No Cards Match" : "No Cards Yet"}</strong>${d.cards.length ? "" : "Tap Add Card at the bottom right, or use Paste Cards to add a whole list at once."}</div>`}`;
+    ${cards.length ? `<ul class="fc-list fc-styled cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">${rows}</ul>` : `<div class="empty" style="margin-top:12px"><strong>${d.cards.length ? "No Cards Match" : "No Cards Yet"}</strong>${d.cards.length ? "" : `${matchMedia("(pointer:coarse)").matches ? "Tap" : "Click"} Add Card at the bottom right, or choose More, then Paste Cards to add a whole list at once.`}</div>`}`;
 }
 function deckSheet(d){
   const isNew = !d;
@@ -473,7 +473,7 @@ function cardSheet(d, cardId){
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
-      <p class="mini" style="margin:0">Level ${c.box} of 5${c.seen ? `, next review ${c.due && c.due > todayISO() ? esc(fmtDate(c.due)) : "today"}` : ", not studied yet"}. Right ${c.right}, wrong ${c.wrong}.</p>
+      <p class="mini" style="margin:0">Level ${c.box} of 5${c.seen ? `, next review ${cardDueOn(c) && cardDueOn(c) > todayISO() ? esc(fmtDate(cardDueOn(c))) : "today"}` : ", not studied yet"}. Right ${c.right}, wrong ${c.wrong}.</p>
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="cdDel">Delete</button><button type="button" class="btn" id="cdReset">Reset Progress</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Card</button></div>
   </form>`, fd => {
@@ -588,15 +588,19 @@ function startStudy(deckIds, onlyIds){
   if (!onlyIds) {
     const due = q.filter(x => cardDue(x.c)), fresh = q.filter(x => cardNew(x.c));
     const pick = studyOrder(due, fresh);
-    if (pick.length) q = pick; else { q = weave(q); note = "Nothing is due, so you're reviewing every card."; }
+    if (pick.length) q = pick; else { q = weave(q); note = q.length > STUDY_MAX ? `Nothing is due, so you're reviewing ${STUDY_MAX} of your cards.` : "Nothing is due, so you're reviewing every card."; }
   } else q = weave(q);
   const ex = [...new Set(q.slice(0, STUDY_MAX).map(x => (state.decks[x.deckId] || {}).courseId))].map(cid => fcExams()[cid]).filter(e => e && e.days <= EXAM_SOON).sort((a, b) => a.days - b.days)[0];
   if (ex && deckIds.length > 1) note = (note ? note + " " : "") + `Cards for ${ex.title} (${ex.days === 1 ? "tomorrow" : "in " + ex.days + " days"}) come up most, mixed in with the rest.`;
   q = q.slice(0, STUDY_MAX).map(x => ({deckId: x.deckId, cardId: x.cardId}));
   ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: []};
-  render(); window.scrollTo(0, 0);
+  fcDropToast(); render(); window.scrollTo(0, 0);
 }
 const nextDue = (box, rating) => rating === "again" ? todayISO() : addDays(todayISO(), rating === "hard" ? 1 : BOX_DAYS[Math.min(5, box)]);
+// A classic deck's level after a rating. A card reviewed before it's due (cramming) doesn't go up a level.
+const boxAfter = (c, rating) => rating === "again" ? 0 : rating === "hard" || (c.seen > 0 && !cardDue(c)) ? Math.max(1, c.box) : Math.min(5, c.box + (rating === "easy" ? 2 : 1));
+// A Study or Quiz session starts: an action toast left from the deck page (such as a card's Undo) doesn't follow it in
+function fcDropToast(){ const t = $("#toast"), u = $("#toastUndo"), x = $("#toastX"); if (t && x && u && t.classList.contains("show") && !u.hidden) x.click(); }
 // Lifetime counts that unlock free companions
 function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.settings || {}).earn); e[k] = Math.max(0, (Number(e[k]) || 0) + (n || 1)); state.settings = Object.assign({}, state.settings, {earn: e}); saveSettings(); } catch(err) {} }
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
@@ -607,11 +611,9 @@ function rateCard(rating){
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
   if (c) {
     const sm = window.SBPRO && SBPRO.cardRated ? SBPRO.cardRated(d, c, rating) : null;
+    c.box = boxAfter(c, rating);
     c.seen++; c.last = todayISO(); c.rate = rating;
-    if (rating === "again") { c.box = 0; c.wrong++; }
-    else if (rating === "hard") { c.box = Math.max(1, c.box); c.right++; }
-    else if (rating === "good") { c.box = Math.min(5, c.box + 1); c.right++; }
-    else { c.box = Math.min(5, c.box + 2); c.right++; }
+    if (rating === "again") c.wrong++; else c.right++;
     c.due = nextDue(c.box, rating);
     if (sm) { c.box = sm.box; c.due = sm.due; }
     d.updated = Date.now();
@@ -659,8 +661,7 @@ function viewStudy(){
   }
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
-  const box = c.box;
-  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
+  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(boxAfter(c, r), r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
@@ -804,7 +805,7 @@ function quizFromCardsLocal(decks, n, types, dir, title){
 }
 function startQuiz(questions, deckIds, opts){
   ui.tab = "flashcards"; ui.fc = {mode: "quiz", deckIds, opts, qs: questions, i: 0, ans: []};
-  render(); window.scrollTo(0, 0);
+  fcDropToast(); render(); window.scrollTo(0, 0);
   setTimeout(() => { const w = $("#qWritten"); if (w) w.focus(); }, 30);
 }
 function answerQuiz(given, pre){
@@ -815,7 +816,7 @@ function answerQuiz(given, pre){
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r;
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
-  if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
+  if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
   render();
 }
 function finishQuiz(){
@@ -869,6 +870,9 @@ function fcKey(e){
   if (ui.tab !== "flashcards" || !ui.fc || dlg.open || e.target.closest("input,textarea,select")) return false;
   const f = ui.fc;
   if (f.mode === "study" && (e.key === "z" || e.key === "Z" || e.key === "Backspace") && !e.altKey && f.hist && f.hist.length) { e.preventDefault(); undoRate(); return true; }
+  // Ctrl, Cmd and Alt shortcuts belong to the browser; Enter and Space on a focused button press that button
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  if ((e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest("button,a,[role=button],summary") && !e.target.closest('[data-act="fc-flip"],[data-act="fc-next"]')) return false;
   if (f.mode === "study" && f.q[f.i]) {
     if (e.key === " " || e.key === "Enter") { if (!f.flipped) { e.preventDefault(); f.flipped = true; render(); return true; } }
     if (f.flipped && ["1", "2", "3", "4"].includes(e.key)) { e.preventDefault(); rateCard(["again", "hard", "good", "easy"][Number(e.key) - 1]); return true; }
@@ -906,11 +910,11 @@ function fcAction(act, el){
     case "fc-undo": undoRate(); return true;
     case "fc-answer": answerQuiz(el.dataset.val); return true;
     case "fc-next": ui.fc.i++; render(); setTimeout(() => { const w = $("#qWritten"); if (w) w.focus(); }, 20); return true;
-    case "fc-override": { const a = ui.fc.ans[ui.fc.i]; if (a) { a.correct = true; a.close = true; const q = ui.fc.qs[ui.fc.i]; const d = clone(state.decks[q.deckId]); const c = d && d.cards.find(x => x.id === q.cardId); if (c) { c.wrong = Math.max(0, c.wrong - 1); c.right++; saveDeck(d, null); } render(); } return true; }
+    case "fc-override": { const a = ui.fc.ans[ui.fc.i]; if (a) { a.correct = true; a.close = true; const q = ui.fc.qs[ui.fc.i]; const d = clone(state.decks[q.deckId]); const c = d && d.cards.find(x => x.id === q.cardId); if (c) { c.wrong = Math.max(0, c.wrong - 1); c.right++; if (a.prev) Object.assign(c, a.prev); saveDeck(d, null); } render(); } return true; }
     case "fc-exit": {
       const f = ui.fc, quiz = f && (f.mode === "quiz" || f.mode === "aiquiz"), left = quiz && f.qs[f.i] && f.ans.filter(Boolean).length;
       const leave = () => { if (ui.fc !== f) return; const aq = f && f.mode === "aiquiz", one = !aq && f && f.deckIds.length === 1 ? f.deckIds[0] : null; ui.fc = null; ui.deckId = one; render(); };
-      if (left) confirmSheet("Quit This Quiz?", `You've answered ${left} of ${f.qs.length} question${f.qs.length === 1 ? "" : "s"}. If you quit now, this attempt isn't scored or saved.`, "Quit Quiz", leave);
+      if (left) confirmSheet("Quit This Quiz?", `You've answered ${left} of ${f.qs.length} question${f.qs.length === 1 ? "" : "s"}. If you quit now, this attempt isn't scored${f.mode === "quiz" ? ". Cards you missed still come up for review" : " or saved"}.`, "Quit Quiz", leave);
       else leave();
       return true;
     }

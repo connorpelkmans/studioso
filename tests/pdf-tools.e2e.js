@@ -73,7 +73,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await page.evaluate(() => { const T = window.__sbProStudy; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); });
     await page.waitForTimeout(500);
     const shot = async name => { if (SHOTS) { fs.mkdirSync(SHOTS, {recursive: true}); await page.screenshot({path: path.join(SHOTS, name + ".png")}); } };
-    const MORE = ["fill", "header", "find", "pages", "ocr", "fields", "stamp", "watermark", "link", "history"];
+    const MORE = ["fill", "header", "find", "pages", "ocr", "fields", "stamp", "watermark", "link", "equation", "history", "contents"];
     const tool = async id => { if (await page.locator(`.pde-tools > .pde-tool[data-id="${id}"]`).count()) await page.click(`.pde-tools > .pde-tool[data-id="${id}"]`); else { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } await page.waitForTimeout(200); };
     await page.evaluate(async files => { for (const [k, b] of files) await window.__sbProStudy.idbSet("pdf:" + k, new Blob([new Uint8Array(b)])); }, [["a-ws", [...ws]], ["a-ws2", [...ws]], ["a-lk", [...locked]]]);
     await page.evaluate(() => { window.__ups = []; window.__sbProStudy.caps.assets = {upload: async (file, o) => { const id = "up-" + (window.__ups.length + 1), b = new Uint8Array(await file.arrayBuffer()); window.__ups.push({id, name: file.name, size: b.length}); await window.__sbProStudy.idbSet("pdf:" + id, new Blob([b])); return {id, sizeBytes: b.length, contentType: o.type}; }}; });
@@ -97,7 +97,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await open("f1");
     await page.click("#pdeBtn"); await page.waitForFunction(() => !!window.PDFLib); await page.waitForTimeout(400);
     await page.click('[data-act="pde-more"]');
-    ok(await page.locator(".pde-menu .pde-mi").count() + await page.locator(".pde-tools > .pde-tool[data-fit]").count() === 10, "the row and More have all ten extra tools: Quick Fill, Header, Find, Pages, Recognize Text, Make Fillable, Stamp, Watermark, Link and History");
+    ok(await page.locator(".pde-menu .pde-mi").count() + await page.locator(".pde-tools > .pde-tool[data-fit]").count() === 12, "the row and More have all twelve extra tools: Quick Fill, Header, Find, Pages, Recognize Text, Make Fillable, Stamp, Watermark, Link, Equation, History and Contents");
     await page.keyboard.press("Escape");
     await tool("fields"); await page.waitForFunction(() => /Found|No blank/.test((document.getElementById("pdeFdMsg") || {}).textContent || ""), null, {timeout: 15000});
     const names = await page.$$eval("[data-fdn]", l => l.map(x => x.value));
@@ -140,11 +140,15 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
 
     /* Watermark */
     await tool("watermark"); await page.waitForSelector("#pdeWmText");
-    ok((await edits()).some(e => e.k === "m" && e.text === "DRAFT") && await page.locator(".pde-wm").count() >= 1, "a watermark shows on the page as soon as it's opened");
+    ok(!(await edits()).some(e => e.k === "m") && await page.locator(".pde-wm").count() >= 1, "a watermark previews on the page as soon as it's opened, but isn't added yet");
+    await page.click('.pde-pf [data-act="pde-panel-close"]'); await page.waitForTimeout(200);
+    ok(!(await edits()).some(e => e.k === "m") && await page.locator(".pde-wm").count() === 0, "Cancel takes the preview away and adds nothing");
+    await tool("watermark"); await page.waitForSelector("#pdeWmText");
     await page.fill("#pdeWmText", "SAMPLE"); await page.waitForTimeout(400);
-    ok((await edits()).some(e => e.k === "m" && e.text === "SAMPLE"), "and changes as you type");
+    ok(/SAMPLE/.test(await page.locator(".pde-wm").first().textContent()) && !(await edits()).some(e => e.k === "m"), "the preview changes as you type");
     await shot("2-stamp-watermark");
-    await page.click('.pde-panel [data-act="pde-panel-close"]');
+    await page.click('.pde-panel [data-act="pde-wm-done"]'); await page.waitForTimeout(200);
+    ok((await edits()).some(e => e.k === "m" && e.text === "SAMPLE"), "and Done adds it");
 
     /* Links */
     await tool("link"); await page.waitForTimeout(400);
@@ -261,13 +265,22 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     const docx = await downloadOf(() => page.click('#pdtConv [data-pdt="go"]'));
     ok(docx.name === "Copy of worksheet.docx" && docx.bytes[0] === 0x50 && docx.bytes[1] === 0x4b && docx.bytes.includes(Buffer.from("word/document.xml")), "PDF to Word downloads a .docx");
     await page.check('#pdtConv input[name="pdtTo"][value="png"]');
+    await page.fill('#pdtConv [data-pdt="pages"]', "50-60"); await page.click('#pdtConv [data-pdt="go"]');
+    await page.waitForFunction(() => /aren't in this PDF/.test(document.getElementById("pdtConvMsg").textContent), null, {timeout: 10000});
+    ok(true, "a page range with none of the PDF's pages says so (rather than converting every page)");
+    await page.fill('#pdtConv [data-pdt="pages"]', "");
     const pngs = await downloadOf(() => page.click('#pdtConv [data-pdt="go"]'));
     ok(/p1\.png$/.test(pngs.name) && pngs.bytes.subarray(1, 4).toString() === "PNG", "and a page as a picture");
     // Word to PDF: a small .docx made here
     const wordBytes = (() => {
       const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
-      const body = `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Lab Report</w:t></w:r></w:p><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Bold start </w:t></w:r><w:r><w:t>and the rest of a paragraph about osmosis.</w:t></w:r></w:p><w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>A list item</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Slice</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Mass</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p><w:r><w:br w:type="page"/></w:r></w:p><w:p><w:r><w:t>Second page</w:t></w:r></w:p>`;
-      return zipStore([{name: "[Content_Types].xml", data: "<Types/>"}, {name: "word/document.xml", data: `<?xml version="1.0"?><w:document ${W}><w:body>${body}</w:body></w:document>`}]);
+      const body = `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Lab Report</w:t></w:r></w:p><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Bold start </w:t></w:r><w:r><w:t>and the rest of a paragraph about osmosis.</w:t></w:r></w:p><w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>A list item</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Slice</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Mass</w:t></w:r></w:p></w:tc><w:tc><w:sdt><w:sdtContent><w:p><w:r><w:t>Cell control</w:t></w:r></w:p></w:sdtContent></w:sdt></w:tc></w:tr></w:tbl>`
+        // content controls (a cover page, a field in a sentence), a simple field, and a numbered list with a sub-list
+        + `<w:sdt><w:sdtPr/><w:sdtContent><w:p><w:r><w:t>Cover block</w:t></w:r></w:p></w:sdtContent></w:sdt><w:p><w:r><w:t xml:space="preserve">Name: </w:t></w:r><w:sdt><w:sdtContent><w:r><w:t>Sam Lee</w:t></w:r></w:sdtContent></w:sdt><w:fldSimple w:instr="DATE"><w:r><w:t xml:space="preserve"> Nov 4</w:t></w:r></w:fldSimple></w:p>`
+        + [[0, "Gather"], [0, "Weigh"], [1, "Dry it"], [1, "Weigh again"], [0, "Record"]].map(([l, t]) => `<w:p><w:pPr><w:numPr><w:ilvl w:val="${l}"/><w:numId w:val="2"/></w:numPr></w:pPr><w:r><w:t>${t}</w:t></w:r></w:p>`).join("")
+        + `<w:p><w:r><w:br w:type="page"/></w:r></w:p><w:p><w:r><w:t>Second page</w:t></w:r></w:p>`;
+      const num = `<?xml version="1.0"?><w:numbering ${W}><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/></w:lvl></w:abstractNum><w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl><w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2)"/></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num></w:numbering>`;
+      return zipStore([{name: "[Content_Types].xml", data: "<Types/>"}, {name: "word/document.xml", data: `<?xml version="1.0"?><w:document ${W}><w:body>${body}</w:body></w:document>`}, {name: "word/numbering.xml", data: num}]);
     })();
     await page.setInputFiles("#pdtConv [data-pdt-in]", {name: "Lab report.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: wordBytes});
     await page.waitForSelector('#pdtConv [data-pdt="go"]'); await page.click('#pdtConv [data-pdt="go"]');
@@ -275,6 +288,9 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     const wp = await page.evaluate(async () => { const f = Object.values(state.files).find(f => f.name === "Lab report.pdf"); return [...new Uint8Array(await (await window.__sbProStudy.idbGet("pdf:" + f.revs[0].assetId)).arrayBuffer())]; });
     const wi = await info(Buffer.from(wp));
     ok(wi.pages.length === 2 && /Lab Report/.test(wi.pages[0].text) && /Bold start/.test(wi.pages[0].text) && /Slice/.test(wi.pages[0].text) && /Second page/.test(wi.pages[1].text), "Word to PDF lays out headings, paragraphs, a table and the page break, and adds it to Files");
+    const t0 = wi.pages[0].text.replace(/\s+/g, " ");
+    ok(/Cell control/.test(t0) && /Cover block/.test(t0) && /Name: Sam Lee Nov 4/.test(t0), "content controls and simple fields come along (in the body, a sentence and a table cell): " + t0);
+    ok(/1\. Gather 2\. Weigh a\) Dry it b\) Weigh again 3\. Record/.test(t0) && /• A list item/.test(t0), "numbered lists keep their numbers (1., 2., a), b), 3.); bulleted ones their bullets");
     // PowerPoint to PDF: one page per slide, at the slide's size
     const R = 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"', PNS = 'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"';
     const slide = (title, body) => `<?xml version="1.0"?><p:sld ${PNS} ${R}><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="T"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="457200" y="274638"/><a:ext cx="8229600" cy="1143000"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:rPr lang="en-US" b="1"/><a:t>${title}</a:t></a:r></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="B"/><p:cNvSpPr/><p:nvPr><p:ph idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:p><a:r><a:t>${body}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`;

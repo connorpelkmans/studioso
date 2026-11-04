@@ -81,6 +81,7 @@ function sbErr(e){
   const status = Number(e && (e.status || e.statusCode)) || 0;
   const x = new Error(msg);
   x.code = /fetch|network|timed? ?out|Load failed/i.test(msg) || status === 0 && /fetch/i.test(msg) || status >= 500 ? "unavailable"
+    : /limit for one item/i.test(msg) ? "item_too_big"
     : status === 413 || /too large|exceeded the maximum/i.test(msg) ? "too_large"
     : /quota|storage limit/i.test(msg) ? "quota_or_state"
     : status === 429 ? "rate_limited" : e && e.code === "23514" ? "schema" : (e && e.code) || "error";
@@ -188,7 +189,7 @@ async function initSupabase(ask){
       const u = session && session.user;
       if (u && sbLocalOnly()) { try { localStorage.removeItem(SB_CFG); } catch(e) {} }
       if (u && (!sbUser || sbUser.id !== u.id)) { sbUser = u; setTimeout(startSupabaseSync, 0); setTimeout(aiTrialSignedIn, 1500); }
-      else if (!u && sbUser && event === "SIGNED_OUT") { SBC.del("rows", sbUser.id); ["brightspace", "canvas", "blackboard", "moodle", "schoology"].forEach(k => SBC.del("rows", "feed:" + k)); if (sbBackend.cur) sbBackend.cur(); sbUser = null; cloud.on = false; caps.assets = DESK ? deskAssets : null; syncLabel(); scheduleRender(); setTimeout(() => { if (!sbUser) sbSignInSheet(); }, 200); }
+      else if (!u && sbUser && event === "SIGNED_OUT") { SBC.del("rows", sbUser.id); ["brightspace", "canvas", "blackboard", "moodle", "schoology"].forEach(k => SBC.del("rows", "feed:" + k)); if (sbBackend.cur) sbBackend.cur(); sbUser = null; cloud.on = false; caps.assets = DESK ? deskAssets : null; syncLabel(); scheduleRender(); setTimeout(() => { if (!sbUser && !sbLeaving) sbSignInSheet(); }, 200); }
     });
   }
   let session = null;
@@ -252,7 +253,25 @@ const AI_KEYS_OWNER = "studyboard:aiKeysOwner";
 const NO_OWNER = "none";
 // Set when a fresh install starts from the copy in the Studyboard folder (deskBoot)
 const FOLDER_FROM = "studyboard:folderFrom";
-async function claimDevice(uid){
+/* Signing out (or deleting the account) erases this device's copy. LEAVING tells the other open tabs at once, so they stop saving
+   their copy back; when the owner becomes "none" they reload empty. An expired sign-in doesn't do this: it keeps the data */
+const LEAVING = "studyboard:leaving";
+let sbLeaving = false;
+function sbLeave(){ sbLeaving = true; try { localStorage.setItem(LEAVING, String(Date.now())); } catch(e) {} }
+window.addEventListener("storage", e => {
+  try {
+    if (e.key === LEAVING && e.newValue && !sbLeaving) {
+      sbLeaving = true; deviceWiping = true; clearTimeout(spillT); spillQ = null;
+      // the tab that signed out normally finishes within seconds; if it was closed first, this one finishes the job
+      setTimeout(async () => { try { if (localStorage.getItem(OWNER) !== NO_OWNER) await wipeDeviceData(); } catch(x) {} location.reload(); }, 20000);
+    }
+    if (e.key === OWNER && e.newValue === NO_OWNER && e.oldValue !== NO_OWNER) { deviceWiping = true; clearTimeout(spillT); spillQ = null; location.reload(); }
+  } catch(x) {}
+});
+// One at a time (a slow start is retried, and the question below can wait on the person)
+let claimRun = null;
+function claimDevice(uid){ return claimRun || (claimRun = claimDevice0(uid).finally(() => { claimRun = null; })); }
+async function claimDevice0(uid){
   let owner = null; try { owner = localStorage.getItem(OWNER); } catch(e) {}
   try {
     const keysOwner = localStorage.getItem(AI_KEYS_OWNER);
@@ -262,18 +281,28 @@ async function claimDevice(uid){
   if (owner === uid) return;
   const kinds = ["courses", "tasks", "files", "notes", "decks", "events"], has = () => kinds.some(k => Object.keys(state[k] || {}).length);
   const KIND_OF = {courses: "course", tasks: "task", files: "file", notes: "note", decks: "deck", events: "event"};
-  if (owner && owner !== uid) {
+  // "none": signing out erased the last account's copy. Work made here since (marked by applyChanges) was made while nobody
+  // was signed in: it may be this person's or someone else's on a shared computer, so they're asked. Anything else is left over
+  // from the old account and is set aside, as before
+  let made = false; try { made = !!localStorage.getItem(OUT_WORK); } catch(e) {}
+  const unclaimed = owner === NO_OWNER && made;
+  let adopt = !owner;
+  if (unclaimed && has()) {
+    const n = kinds.reduce((t, k) => t + Object.keys(state[k] || {}).length, 0);
+    adopt = await askBox({title: "Add What You Made While Signed Out?", text: `This device has ${plural0(n, "item")} made while nobody was signed in. Add ${n === 1 ? "it" : "them"} to this account? If ${n === 1 ? "it's" : "they're"} someone else's, keep ${n === 1 ? "it" : "them"} separate: ${n === 1 ? "it goes" : "they go"} into a device backup instead.`, yes: "Add to My Account", no: "Keep Separate"}) === true;
+  }
+  if (owner && owner !== uid && !adopt) {
     if (has()) {
       let kept = false;
-      try { await saveDeviceBackup(Object.assign(backupSnap(), {note: "Left on this device by another account"}), true); kept = true; } catch(e) { console.warn("set-aside backup", e); }
-      if (!kept) { try { saveBlob(`studyboard-other-account-${todayISO()}.json`, JSON.stringify(Object.assign({app: "studyboard"}, exportArrays()), null, 1), "application/json"); setTimeout(() => toast("This device held another account's data. It was saved as a file in your Downloads before your account's data loaded."), 1300); } catch(e) {} }
+      try { await saveDeviceBackup(Object.assign(backupSnap(), {note: unclaimed ? "Made on this device while signed out" : "Left on this device by another account"}), true); kept = true; } catch(e) { console.warn("set-aside backup", e); }
+      if (!kept) { try { saveBlob(`studyboard-${unclaimed ? "signed-out" : "other-account"}-${todayISO()}.json`, JSON.stringify(Object.assign({app: "studyboard"}, exportArrays()), null, 1), "application/json"); setTimeout(() => toast(unclaimed ? "What was made here while signed out was saved as a file in your Downloads before your account's data loaded." : "This device held another account's data. It was saved as a file in your Downloads before your account's data loaded."), 1300); } catch(e) {} }
     }
     const hadData = has();
     state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
     try { localStorage.removeItem(OUTBOX); localStorage.removeItem(LS_TRASH); outboxOwn.clear(); } catch(e) {}
     saveLocal();
-    if (hadData) { try { setTimeout(() => toast("This device still held another account's data. It was set aside in a device backup, and your account's data is loading."), 1200); } catch(e) {} }
-  } else if (!owner && has()) {
+    if (hadData) { try { setTimeout(() => toast(unclaimed ? "What was made here while signed out was set aside in a device backup, and your account's data is loading." : "This device still held another account's data. It was set aside in a device backup, and your account's data is loading."), 1200); } catch(e) {} }
+  } else if (adopt && has()) {
     let synced = false;
     try { synced = !!(await SBC.get("rows", uid)); } catch(e) {}
     let from = ""; try { from = localStorage.getItem(FOLDER_FROM) || ""; } catch(e) {}
@@ -314,7 +343,7 @@ async function claimDevice(uid){
       }
     }
   }
-  try { localStorage.setItem(OWNER, uid); localStorage.removeItem(FOLDER_FROM); } catch(e) {}
+  try { localStorage.setItem(OWNER, uid); localStorage.removeItem(FOLDER_FROM); localStorage.removeItem(OUT_WORK); outWorkSeen = false; } catch(e) {}
 }
 let sbStartGen = 0, sbStartTries = 0;
 /* What connecting is waiting on, shown under "reconnecting…" in Settings */
@@ -373,12 +402,13 @@ async function startSupabaseSync(){
 /* Lean sync Keeps what Supabase sends small, so it stays free for a lot of students */
 const SBC = {
   db: null,
-  open(){
+  // wait: how long opening may take (iPhones can be slow to open IndexedDB at launch)
+  open(wait){
     if (this.db) return this.db;
     const p = this.db = new Promise((ok, no) => {
       try {
         const r = indexedDB.open("studyboard-sync", 1);
-        let late = false; const t = setTimeout(() => { late = true; no(new Error("device copy unavailable")); }, window.__SBC_WAIT || 4000);
+        let late = false; const t = setTimeout(() => { late = true; no(new Error("device copy unavailable")); }, wait || window.__SBC_WAIT || 4000);
         r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains("rows")) d.createObjectStore("rows"); if (!d.objectStoreNames.contains("backups")) d.createObjectStore("backups"); };
         r.onsuccess = () => { clearTimeout(t); const d = r.result; if (late) { try { d.close(); } catch(e) {} return; }
           d.onversionchange = () => { try { d.close(); } catch(e) {} if (this.db === p) this.db = null; }; ok(d); };
@@ -387,11 +417,13 @@ const SBC = {
     }).catch(e => { if (this.db === p) this.db = null; throw e; });
     return this.db;
   },
-  async run(store, mode, fn){
-    const d = await this.open();
+  async run(store, mode, fn, wait){
+    const d = await this.open(wait);
     return new Promise((ok, no) => { const tx = d.transaction(store, mode), st = tx.objectStore(store); const req = fn(st); tx.oncomplete = () => ok(req && "result" in req ? req.result : undefined); tx.onerror = tx.onabort = () => no(tx.error); });
   },
   get(store, key){ return this.run(store, "readonly", s => s.get(key)).catch(() => undefined); },
+  // Like get, but a failure to open or read throws instead of looking like "nothing saved"
+  getStrict(store, key, wait){ return this.run(store, "readonly", s => s.get(key), wait); },
   put(store, key, val){ return this.run(store, "readwrite", s => s.put(val, key)).catch(e => console.warn("device copy", e)); },
   putStrict(store, key, val){ return this.run(store, "readwrite", s => s.put(val, key)); },
   del(store, key){ return this.run(store, "readwrite", s => s.delete(key)).catch(() => {}); },
@@ -770,7 +802,7 @@ function sbSetupSheet(){
     try { if (cloud.on) await Promise.race([flushOutbox(), new Promise(r => setTimeout(r, 6000))]); } catch(e) {}
     const n = Object.keys(outboxGet()).length;
     confirmSheet(n ? "Not everything is saved yet" : "Switch to a Studyboard account?", n ? `${n} recent change${n === 1 ? "" : "s"} haven't reached your server yet and will be lost if you switch now. Stay online for a minute and try again, or use Export in Settings first.` : "You'll be signed out of your own server on this device. Your data there isn't touched.", n ? "Switch Anyway" : "Switch", async () => {
-    try { if (sb) await sb.auth.signOut(); } catch(e) {}
+    sbLeave(); try { if (sb) await sb.auth.signOut(); } catch(e) {}
     try { localStorage.removeItem(SB_CFG); } catch(e) {}
     aiWipeLocal(true);
     await wipeDeviceData();
@@ -1054,7 +1086,7 @@ function sbLinkErrorSheet(){
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
 }
 // Signing out removes this account's copy from the device
-const WIPE_KEYS = () => [LS2, LS2_IDB, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
+const WIPE_KEYS = () => [LS2, LS2_IDB, LS1, LSB, OUTBOX, LS_TRASH, OUT_WORK, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
 async function wipeDeviceData(){
   deviceWiping = true;
   state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
@@ -1077,7 +1109,7 @@ async function sbSignOut(){
   const n = waiting();
   const note = n ? ` ${n} recent change${n === 1 ? "" : "s"} (or a photo) haven't reached your account yet and will be lost if you sign out now. Stay online for a minute and try again, or use Export in Settings first.` : "";
   confirmSheet(n ? "Not everything is saved yet" : "Sign out?", (n ? note.trim() : "Your data stays safe in your Studyboard account. This device's copy is removed, so sign back in to see it here again."), n ? "Sign Out Anyway" : "Sign Out", async () => {
-    try { window.dispatchEvent(new Event("sb:signing-out")); } catch(e) {}
+    sbLeave(); try { window.dispatchEvent(new Event("sb:signing-out")); } catch(e) {}
     try { await sb.auth.signOut(); } catch(e) {}
     aiWipeLocal(true);
     await wipeDeviceData();

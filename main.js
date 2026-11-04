@@ -28,7 +28,8 @@ function safeExternal(raw) {
     const s = String(raw || "");
     if (!s || s.length > 4096) return null;
     const u = new URL(s);
-    if (u.protocol === "https:") {
+    // http:// too (plenty of school pages still use it): it opens in the system browser, never inside the app
+    if (u.protocol === "https:" || u.protocol === "http:") {
       if (u.username || u.password) return null;
       if (IS_MAS && /(^|\.)(stripe\.com|paypal\.com|paypal\.me|paddle\.com|lemonsqueezy\.com|gumroad\.com|ko-fi\.com|buymeacoffee\.com|patreon\.com)$/i.test(u.hostname)) return null;
       return u.href;
@@ -171,13 +172,16 @@ ipcMain.on("crash:set", (e, on) => {
 });
 // "Keep Running in the Background" is on unless it was turned off. It needs the tray icon, so there's a way back in.
 const bgOn = () => cfg.background !== false && !!tray;
-// dataDirLost: the chosen folder couldn't be reached at start
-let dataDirLost = false;
-const dataRoot = () => (!dataDirLost && cfg.dataDir) || path.join(app.getPath("documents"), "Studyboard");
+// dataDirLost: the chosen folder couldn't be reached at start. docsLost: Documents\Studyboard couldn't be made or written (Windows'
+// controlled folder access, an offline OneDrive Documents), so a folder in the app's own data is used instead of leaving no window
+let dataDirLost = false, docsLost = false;
+const docsRoot = () => { try { return path.join(app.getPath("documents"), "Studyboard"); } catch (e) { return ""; } };
+const dataRoot = () => (!dataDirLost && cfg.dataDir) || (!docsLost && docsRoot()) || path.join(app.getPath("userData"), "Studyboard folder");
 // Documents\Studioso becomes Documents\Studyboard
 function migrateDataFolder() {
   if (cfg.dataDir) return;
-  const docs = app.getPath("documents"), oldDir = path.join(docs, "Studioso"), newDir = path.join(docs, "Studyboard");
+  let docs; try { docs = app.getPath("documents"); } catch (e) { return; }
+  const oldDir = path.join(docs, "Studioso"), newDir = path.join(docs, "Studyboard");
   try {
     if (!fs.existsSync(oldDir) || fs.existsSync(newDir)) return;
     try { fs.renameSync(oldDir, newDir); }
@@ -234,11 +238,18 @@ async function ensureRoot() {
 
 // Window
 let win = null, flushed = false, quitting = false, tray = null, widget = null, pendingMax = false;
-function windowState() { const s = cfg.window || {}; return { width: s.width || 1320, height: s.height || 860, x: s.x, y: s.y, maximized: !!s.maximized }; }
-function saveWindowState() {
+// The saved place is used only while it's still on a screen (a monitor may have been unplugged since)
+function windowState() {
+  const s = cfg.window || {}, width = s.width || 1320, height = s.height || 860;
+  const seen = Number.isFinite(s.x) && Number.isFinite(s.y) && onScreen(s.x, s.y, Math.min(width, 640));
+  return { width, height, x: seen ? s.x : undefined, y: seen ? s.y : undefined, maximized: !!s.maximized };
+}
+// Moving and resizing save a moment later; closing saves at once
+function saveWindowState(soon) {
   if (!win || win.isDestroyed()) return;
   const b = win.getNormalBounds();
-  cfg.window = { width: b.width, height: b.height, x: b.x, y: b.y, maximized: win.isMaximized() }; writeCfg(cfg);
+  cfg.window = { width: b.width, height: b.height, x: b.x, y: b.y, maximized: win.isMaximized() };
+  if (soon === true) writeCfgSoon(); else writeCfg(cfg);
 }
 function spine() { return nativeTheme.shouldUseDarkColors ? "#060F24" : "#0E2A56"; }
 function createWindow(hidden) {
@@ -260,23 +271,28 @@ function createWindow(hidden) {
   win.loadURL("app://studioso/index.html");
   win.webContents.setWindowOpenHandler(({ url }) => { openExternalSafe(url); return { action: "deny" }; });
   win.webContents.on("will-navigate", (e, url) => { if (!isAppUrl(url, MAIN_ORIGIN)) { e.preventDefault(); openExternalSafe(url); } });
-  win.on("resize", saveWindowState); win.on("move", saveWindowState);
+  const saveSoon = () => saveWindowState(true);
+  win.on("resize", saveSoon); win.on("move", saveSoon);
   const fsSay = () => { try { if (!win.isDestroyed()) win.webContents.send("app:fullscreen", win.isFullScreen()); } catch (err) {} };
   win.on("enter-full-screen", fsSay); win.on("leave-full-screen", fsSay);
   win.webContents.on("before-input-event", (e, input) => {
     if (input.type === "keyDown" && input.key === "F11" && process.platform !== "darwin" && !input.control && !input.alt && !input.meta) { e.preventDefault(); win.setFullScreen(!win.isFullScreen()); }
   });
+  // the 5-second fallback belongs to this window: on a Mac the app stays open, and a stale timer must not close the next window
+  const self = win; let closeT = 0;
   win.on("close", e => {
     saveWindowState();
     if (!quitting && bgOn()) { e.preventDefault(); win.hide(); backgroundTip(); return; }
     if (flushed) return;
     e.preventDefault();
     win.webContents.send("app:flush");
-    setTimeout(finishClose, 5000);
+    clearTimeout(closeT); closeT = setTimeout(() => { if (win === self) finishClose(); }, 5000);
   });
   win.on("query-session-end", () => { quitting = true; });
   win.on("session-end", () => { quitting = true; });
   win.on("closed", () => {
+    clearTimeout(closeT);
+    if (win !== self) return;
     win = null; listening.clear();
     if (!quitting && !bgOn() && process.platform !== "darwin") app.quit();
   });
@@ -480,13 +496,14 @@ function cleanWidgetData(d) {
     theme, at: Date.now()
   };
 }
+// True when a window at x, y, w wide has its title strip on one of the screens now attached
+const onScreen = (x, y, w) => { try { return screen.getAllDisplays().some(d => { const a = d.workArea; return x + 60 > a.x && x + w - 60 < a.x + a.width && y >= a.y - 10 && y + 40 < a.y + a.height; }); } catch (e) { return false; } };
 function widgetState() { const w = cfg.widget || {}; return { show: !!w.show, pinned: !!w.pinned, x: w.x, y: w.y, width: w.width || 320, height: w.height || 420 }; }
 // Put the widget back where it was
 function widgetBounds() {
   const s = widgetState(), w = Math.max(260, Math.min(640, s.width)), h = Math.max(300, Math.min(900, s.height));
   if (Number.isFinite(s.x) && Number.isFinite(s.y)) {
-    const onScreen = screen.getAllDisplays().some(d => { const a = d.workArea; return s.x + 60 > a.x && s.x + w - 60 < a.x + a.width && s.y >= a.y - 10 && s.y + 40 < a.y + a.height; });
-    if (onScreen) return { x: s.x, y: s.y, width: w, height: h };
+    if (onScreen(s.x, s.y, w)) return { x: s.x, y: s.y, width: w, height: h };
   }
   const a = screen.getPrimaryDisplay().workArea;
   return { x: a.x + a.width - w - 24, y: a.y + 24, width: w, height: h };
@@ -552,7 +569,7 @@ ipcMain.on("widget:hide", e => { if (fromWidget(e)) setWidgetShown(false); });
 const canLogin = () => (process.platform === "win32" && !IS_MSSTORE) || (process.platform === "darwin" && !IS_MAS);
 function loginOn() { try { return canLogin() && !!app.getLoginItemSettings(process.platform === "win32" ? { args: LOGIN_ARGS } : undefined).openAtLogin; } catch (e) { return false; } }
 function deskSettings() {
-  return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), startupSettings: IS_MSSTORE, widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported(), shot: cfg.shot !== false, shotKey: shotKey(), shotKeys: SHOT_KEYS, shotOn: !!shotRegistered };
+  return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), startupSettings: IS_MSSTORE, widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported(), shot: cfg.shot !== false, shotKey: shotKey(), shotKeys: SHOT_KEYS, shotOn: !!shotRegistered, update: updateInfo() };
 }
 // Power state for the page's animation governor
 function powerState() {
@@ -764,7 +781,7 @@ ipcMain.handle("dir:get", e => fromMain(e) ? dataRoot() : null);
 ipcMain.handle("dir:open", async (e, rel) => { if (!fromMain(e)) return "denied"; await ensureRoot(); return openSafely(resolveRel(rel || "")); });
 ipcMain.handle("dir:choose", async e => fromMain(e) ? chooseDataDir() : null);
 // {path, chosen, inContainer, lost}
-ipcMain.handle("dir:info", e => fromMain(e) ? { path: dataRoot(), chosen: !!cfg.dataDir && !dataDirLost, inContainer: IS_MAS && (!cfg.dataDir || dataDirLost), lost: dataDirLost } : null);
+ipcMain.handle("dir:info", e => fromMain(e) ? { path: dataRoot(), chosen: !!cfg.dataDir && !dataDirLost, inContainer: IS_MAS && (!cfg.dataDir || dataDirLost), lost: dataDirLost || docsLost } : null);
 let choosing = null;
 function chooseDataDir() {
   if (!choosing) choosing = pickDataDir().finally(() => { choosing = null; });
@@ -791,7 +808,7 @@ async function pickDataDir() {
     }
   } catch (e) { try { if (stopNew) stopNew(); } catch (x) {} throw e; }
   adopt();
-  cfg.dataDir = target; dataDirLost = false; writeCfg(cfg); await ensureRoot();
+  cfg.dataDir = target; dataDirLost = false; docsLost = false; writeCfg(cfg); await ensureRoot();
   return target;
 }
 // Mac App Store build
@@ -826,6 +843,15 @@ const UPDATE_API = "https://api.github.com/repos/connorpelkmans/installers/relea
 const DOWNLOAD_PAGE = "https://studyboardapp.com/website/#download";
 const verParts = v => String(v || "").replace(/^v/i, "").split(/[.+-]/).slice(0, 3).map(n => parseInt(n, 10) || 0);
 const verNewer = (a, b) => { const x = verParts(a), y = verParts(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
+// The installer itself for this computer (the website's Windows button leads to the Microsoft Store, which would install a second copy)
+function updateAsset(j) {
+  const want = process.platform === "win32" ? /^Studyboard-Setup-\d+\.\d+\.\d+\.exe$/ : process.platform === "darwin" ? (process.arch === "arm64" ? /^Studyboard-\d+\.\d+\.\d+-mac\.dmg$/ : /^Studyboard-\d+\.\d+\.\d+-mac-intel\.dmg$/) : null;
+  const a = want && Array.isArray(j.assets) ? j.assets.find(x => x && want.test(String(x.name))) : null;
+  const u = a && safeExternal(a.browser_download_url);
+  return u && u.startsWith("https://github.com/connorpelkmans/installers/releases/download/") ? u : DOWNLOAD_PAGE;
+}
+// Shown in Settings, Widgets and Desktop until this version is installed
+const updateInfo = () => { const u = cfg.update; return u && typeof u.version === "string" && verNewer(u.version, app.getVersion()) ? { version: u.version, url: safeExternal(u.url) || DOWNLOAD_PAGE, current: app.getVersion() } : null; };
 async function updateCheck() {
   if (IS_DEV || IS_MAS || IS_MSSTORE) return;
   if (Date.now() - (cfg.updateCheckedAt || 0) < 20 * 3600e3) return;
@@ -833,13 +859,16 @@ async function updateCheck() {
     const r = await net.fetch(UPDATE_API, { headers: { Accept: "application/vnd.github+json", "User-Agent": "Studyboard/" + app.getVersion() } });
     if (!r.ok) return;
     const j = await r.json(), latest = j && !j.draft && !j.prerelease && /^v?\d+\.\d+\.\d+$/.test(String(j.tag_name || "")) ? String(j.tag_name).replace(/^v/i, "") : "";
-    cfg.updateCheckedAt = Date.now(); writeCfg(cfg);
-    if (!latest || !verNewer(latest, app.getVersion()) || cfg.updateNotedFor === latest) return;
-    cfg.updateNotedFor = latest; writeCfg(cfg);
-    if (!Notification.isSupported()) return;
+    cfg.updateCheckedAt = Date.now();
+    if (latest && verNewer(latest, app.getVersion())) cfg.update = { version: latest, url: updateAsset(j) }; else delete cfg.update;
+    writeCfg(cfg);
+    if (!cfg.update || cfg.updateNotedFor === latest || !Notification.isSupported()) return;
+    const url = cfg.update.url;
     const n = new Notification({ title: "A New Studyboard Is Ready", body: `Version ${latest} is out (you have ${app.getVersion()}). Click to download it; your things stay where they are.`, icon: process.platform === "darwin" ? undefined : ICON });
     const drop = () => { const i = liveNotes.indexOf(n); if (i >= 0) liveNotes.splice(i, 1); };
-    n.on("click", () => { drop(); openExternalSafe(DOWNLOAD_PAGE); });
+    n.on("click", () => { drop(); openExternalSafe(url); });
+    // seen only once it has actually shown, so a notification that failed comes back with the next check
+    n.on("show", () => { if (cfg.updateNotedFor !== latest) { cfg.updateNotedFor = latest; writeCfg(cfg); } });
     n.on("close", drop); n.on("failed", drop);
     liveNotes.push(n); n.show();
   } catch (e) {}
@@ -1102,11 +1131,11 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   lockSession(session.defaultSession);
   migrateDataFolder();
   writeCfg(cfg);
+  // never throws: a failure here would leave the app running with no window
   try { await ensureRoot(); }
   catch (e) {
-    if (!cfg.dataDir) throw e;
-    dataDirLost = true;
-    try { await ensureRoot(); } catch (x) {}
+    if (cfg.dataDir) dataDirLost = true; else docsLost = true;
+    try { await ensureRoot(); } catch (x) { if (!docsLost) { docsLost = true; try { await ensureRoot(); } catch (y) {} } }
   }
   protocol.handle("app", async req => {
     try {
@@ -1141,7 +1170,9 @@ if (GOT_LOCK) app.whenReady().then(async () => {
     { label: "View", submenu: [...MENU_VIEWS.map(([id, label], i) => ({ label, accelerator: "CmdOrCtrl+" + (i + 1), click: () => sendAction("view", id) })), { type: "separator" },
       { role: "reload" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }, ...(IS_DEV ? [{ role: "toggleDevTools" }] : [])] },
     { role: "windowMenu" },
-    { role: "help", submenu: [{ label: "Keyboard Shortcuts", accelerator: "CmdOrCtrl+/", click: () => sendAction("shortcuts") }] }
+    { role: "help", submenu: [{ label: "Keyboard Shortcuts", accelerator: "CmdOrCtrl+/", click: () => sendAction("shortcuts") },
+      // the Mac has this in the Studyboard menu
+      ...(process.platform === "darwin" ? [] : [{ type: "separator" }, { label: "About Studyboard", click: () => { const o = { type: "info", title: "About Studyboard", message: "Studyboard", detail: `Version ${app.getVersion()}${IS_MSSTORE ? " (Microsoft Store)" : ""}`, buttons: ["OK"], noLink: true }; (win && !win.isDestroyed() ? dialog.showMessageBox(win, o) : dialog.showMessageBox(o)).catch(() => {}); } }])] }
   ]));
   createTray();
   registerShotKey();
@@ -1149,7 +1180,7 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   widgetData = readJson(WIDGET_FILE, null);
   if (remindersPaused()) pauseTimer = setTimeout(resumeReminders, cfg.pauseUntil - Date.now()); else if (cfg.pauseUntil) resumeReminders();
   createWindow(openedAtLogin() && bgOn());
-  if (dataDirLost && !IS_MAS) win.once("show", () => showNote({ title: "Studyboard Folder Not Found", body: `${cfg.dataDir} couldn't be opened, so Studyboard is saving to ${dataRoot()} for now. Reconnect the drive and restart, or choose a folder in Settings.` }));
+  if ((dataDirLost || docsLost) && !IS_MAS) win.once("show", () => showNote({ title: "Studyboard Folder Not Found", body: `${dataDirLost ? cfg.dataDir : docsRoot() || "Your Documents folder"} couldn't be opened, so Studyboard is saving to ${dataRoot()} for now. ${dataDirLost ? "Reconnect the drive and restart, or choose" : "Choose"} a folder in Settings.` }));
   masFolderPrompt();
   dupInstallNote();
   setTimeout(updateCheck, 15000); setInterval(updateCheck, 6 * 3600e3);
@@ -1161,5 +1192,5 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   try { powerMonitor.on("resume", checkReminders); powerMonitor.on("unlock-screen", checkReminders); powerMonitor.on("shutdown", () => { quitting = true; }); } catch (e) {}
   app.on("activate", () => showMain());
 });
-app.on("will-quit", () => { try { globalShortcut.unregisterAll(); } catch (e) {} });
+app.on("will-quit", () => { try { globalShortcut.unregisterAll(); } catch (e) {} if (cfgTimer) { clearTimeout(cfgTimer); cfgTimer = null; writeCfg(cfg); } });
 app.on("window-all-closed", () => { if (process.platform !== "darwin" && !bgOn()) app.quit(); });

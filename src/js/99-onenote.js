@@ -95,6 +95,9 @@ const ONENOTE = (() => {
   }
   const webUrl = p => { const h = p && p.links && p.links.oneNoteWebUrl && p.links.oneNoteWebUrl.href; return typeof h === "string" && /^https:\/\//.test(h) && h.length < 2000 ? h : ""; };
   const seenNext = (seen, ids) => [...new Set([].concat(ids || [], seen || []))].slice(0, SEEN_MAX);
+  // After a run: the pages seen are those that have a note (notes) or were just brought in (done), never ones only listed,
+  // so pages past this run's limit (or after a stop) still come in next time instead of looking deleted
+  const seenAfter = (seen, notes, done) => seenNext(seen, (notes || []).map(n => n && n.on && n.on.p).filter(Boolean).concat(done || []));
   // A note's OneNote fields, checked (sync and backups bring in anything)
   function normOn(o){
     if (!o || typeof o !== "object") return null;
@@ -102,7 +105,7 @@ const ONENOTE = (() => {
     const r = {p: s(o.p, 200), s: s(o.s, 200), u: /^https:\/\//.test(s(o.u, 2000)) ? o.u : "", m: s(o.m, 40), h: s(o.h, 20)};
     return r.p ? r : null;
   }
-  return {GRAPH, TEXT_MAX, PER_RUN, hash, pageText, pageHtml, plan, webUrl, seenNext, normOn, iso};
+  return {GRAPH, TEXT_MAX, PER_RUN, hash, pageText, pageHtml, plan, webUrl, seenNext, seenAfter, normOn, iso};
 })();
 /*ONENOTE-END*/
 
@@ -244,9 +247,9 @@ const SBONENOTE = (() => {
     try {
       const board = boardFor(L0);
       const pages = await pagesOf(sid, L0.g);
-      const mine = fromSection(sid), P = ONENOTE.plan(pages, mine, L0.seen);
+      const mine = fromSection(sid), P = ONENOTE.plan(pages, mine, L0.seen), base = new Map(mine.map(n => [n.id, String(n.text || "")]));
       const changes = [], live = notesArr().filter(n => !n.archived && (n.board || "") === board);
-      let z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0), top = live.reduce((m, n) => Math.max(m, (n.y || 0) + 280), 40), k = 0, failed = 0, stop = "";
+      let z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0), top = live.reduce((m, n) => Math.max(m, (n.y || 0) + 280), 40), k = 0, failed = 0, stop = "", done = [];
       for (const {page, note} of P.fetch) {
         let html;
         try { html = await graph(`${rootOf(L0.g)}/pages/${encodeURIComponent(page.id)}/content`, null, "text", provOf(L0)); }
@@ -254,6 +257,7 @@ const SBONENOTE = (() => {
         const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
         const text = ONENOTE.pageText(doc, page.title, {pics: 0, files: 0});
         const on = {p: page.id, s: sid, u: ONENOTE.webUrl(page), m: ONENOTE.iso(page.lastModifiedDateTime), h: ONENOTE.hash(text)};
+        done.push(page.id);
         if (note) changes.push({kind: "note", id: note.id, after: Object.assign(clone(note), {text, on})});
         else {
           const n = normNote({id: uid(), text, color: "purple", x: 40 + (k % 4) * (NOTE_W0() + 24), y: top + Math.floor(k / 4) * 300, z: ++z, rot: 0, courseId: L0.courseId || "", board, created: Date.parse(page.createdDateTime) || Date.now(), on});
@@ -261,14 +265,22 @@ const SBONENOTE = (() => {
         }
         await new Promise(r => setTimeout(r, opts.gap == null ? 150 : opts.gap));
       }
+      // A note edited (or deleted) here while the pages were coming in keeps the edit: re-read it now
+      let kept = P.kept;
+      for (let i = changes.length - 1; i >= 0; i--) {
+        const c = changes[i]; if (!base.has(c.id)) continue;
+        const cur = state.notes[c.id];
+        if (!cur || String(cur.text || "") !== base.get(c.id)) { changes.splice(i, 1); if (cur) kept++; continue; }
+        c.after = Object.assign(clone(cur), {text: c.after.text, on: c.after.on});
+      }
       const added = changes.filter(c => !state.notes[c.id]).length, updated = changes.length - added;
       if (changes.length) applyChanges(changes, `OneNote: ${[added ? `${added} page${added === 1 ? "" : "s"} brought in` : "", updated ? `${updated} updated` : ""].filter(Boolean).join(", ")} from ${L0.name}`);
-      const ids = pages.map(p => p.id);
-      setPrefs({links: prefs().links.map(l => l.sid === sid ? Object.assign({}, l, {board, at: Date.now(), seen: ONENOTE.seenNext(l.seen, ids.concat(changes.map(c => c.after.on.p))), n: fromSection(sid).length, more: P.more + (stop ? P.fetch.length : 0)}) : l)});
-      const msg = stop || (failed ? `${failed} page${failed === 1 ? "" : "s"} couldn't be read. ` : "") + (P.kept ? `${P.kept} note${P.kept === 1 ? "" : "s"} you edited here kept your changes. ` : "") + (P.more ? "The rest come in on the next update." : "");
+      const more = P.more + (stop ? P.fetch.length - done.length : 0);
+      setPrefs({links: prefs().links.map(l => l.sid === sid ? Object.assign({}, l, {board, at: Date.now(), seen: ONENOTE.seenAfter(l.seen, mine, done), n: fromSection(sid).length, more}) : l)});
+      const msg = stop || (failed ? `${failed} page${failed === 1 ? "" : "s"} couldn't be read. ` : "") + (kept ? `${kept} note${kept === 1 ? "" : "s"} you edited here kept your changes. ` : "") + (more ? "The rest come in on the next update." : "");
       if (!changes.length && opts.say) toast(msg.trim() || `${L0.name} is up to date`);
       else if (msg.trim() && opts.say) setTimeout(() => toast(msg.trim()), 2800);
-      return {added, updated, kept: P.kept, more: P.more, failed};
+      return {added, updated, kept, more, failed};
     } catch (x) {
       if (opts.say) toast(x instanceof OnErr ? x.message : "Couldn't update from OneNote.", null, null, {error: true});
       return null;

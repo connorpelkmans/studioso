@@ -32,6 +32,18 @@ eq([P.kept, P.gone], [1, 1], "a note edited in Studyboard (d) keeps its edits; a
 const many = Array.from({length: O.PER_RUN + 7}, (_, i) => pg("p" + i, "2026-11-02T10:00:00Z"));
 const M = O.plan(many, [], []);
 eq([M.fetch.length, M.more], [O.PER_RUN, 7], "a big section comes in over several updates");
+// A 47-page section: 40 come in, then the other 7 next time (not taken for deleted); and after a network stop
+const asNotes = ids => ids.map(id => ({id: "n" + id, text: "x", on: {p: id, s: "S", m: "2026-11-02T10:00:00.000Z", h: O.hash("x")}}));
+let R1 = O.plan(many, [], []), done1 = R1.fetch.map(x => x.page.id), seen1 = O.seenAfter([], [], done1);
+eq(seen1.length, O.PER_RUN, "only the pages brought in count as seen");
+let R2 = O.plan(many, asNotes(done1), seen1);
+eq([R2.fetch.length, R2.gone, R2.more], [7, 0, 0], "the rest of a big section comes in on the next update");
+const seen2 = O.seenAfter(seen1, asNotes(done1), R2.fetch.map(x => x.page.id));
+eq(O.plan(many, asNotes(many.map(p => p.id)), seen2).fetch.length, 0, "then it's all in");
+const done3 = R1.fetch.slice(0, 10).map(x => x.page.id), seen3 = O.seenAfter([], [], done3);   // the network dropped after 10
+R2 = O.plan(many, asNotes(done3), seen3);
+eq([R2.fetch.length, R2.gone, R2.more], [37, 0, 0], "after a stop, the pages not reached still come in");
+eq(O.plan(many, asNotes(done3.slice(1)), O.seenAfter(seen3, asNotes(done3.slice(1)), [])).gone, 1, "a note deleted here still isn't brought back");
 eq(O.plan([{id: "x".repeat(300)}, null, {nope: 1}], [], []).fetch.length, 0, "junk in the list is skipped");
 
 // small pieces

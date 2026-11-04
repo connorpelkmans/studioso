@@ -267,7 +267,9 @@ var SBCLS = null;
   function pickSheet(x){
     const all = classesOf(courseOf(x.cid));
     const where = k => { if (!k || k === x.key) return ""; const y = all.find(z => z.key === k) || looseClass(x.cid, k); return `${y.title}, ${day(y.date, {month: "short", day: "numeric"})}`; };
-    const files = Object.values(state.files || {}).filter(f => f.courseId === x.cid && !isLec(f)).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0)).slice(0, 80);
+    // the 80 newest, and always every file already with this class (so an older one can be unticked)
+    const all0 = Object.values(state.files || {}).filter(f => f.courseId === x.cid && !isLec(f)).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
+    const files = all0.filter((f, i) => i < 80 || f.cls === x.key);
     const item = (k, o, nm) => { const w = where(o.cls); return `<label class="mi-check"><input type="checkbox" data-cls="${k}:${esc(o.id)}"${o.cls === x.key ? " checked" : ""}> <span><b>${esc(nm)}</b>${w ? ` <span class="mini">now in ${esc(w)}</span>` : ""}</span></label>`; };
     openSheet(`<div class="sheet">${head("Add Files From Studyboard")}<div class="sheet-body">
       <p class="mini" style="margin:0">Pick the files from this course's Files that go with ${esc(x.title)}, ${esc(day(x.date))}.</p>
@@ -293,6 +295,9 @@ var SBCLS = null;
     const key = PEND.key, id = hit.id; PEND = null;
     setTimeout(() => { const f = state.files[id]; if (f && !f.cls) applyChanges([{kind: "file", id, after: Object.assign(clone(f), {cls: key})}], ""); }, 0);
   });
+  // the recorder (or whatever opened instead) closed with no recording going on or saved, or the file picker was cancelled:
+  // the next recording isn't this class's
+  dlg.addEventListener("close", () => { if (!PEND || !PEND.arm) return; const p = PEND; setTimeout(() => { if (PEND === p && !document.getElementById("lecPill") && !(dlg.open && dlg.querySelector(".lec-body"))) PEND = null; }, 60); });
   hook("changed", () => { if (OPEN) setTimeout(redraw, 0); });
 
   /* Files: the course's Lecture Notes folder, grouped by class */
@@ -388,8 +393,9 @@ var SBCLS = null;
       case "cls-unlink": { const x = cur(); if (!x) return true; tag(el.dataset.k, [id], "", `Taken off ${x.title}`); return true; }
       case "cls-note": { const n = state.notes[id]; if (!n) return true; if (dlg.open) dlg.close(); if (window.SBPRO && SBPRO.openLink) SBPRO.openLink({kind: n.wb ? "board" : "note", id}, 0); else { ui.tab = "notes"; render(); } return true; }
       case "cls-file": { const f = state.files[id]; if (!f) return true; if (f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f) && SBPRO.openReader) { if (dlg.open) dlg.close(); SBPRO.openReader(f.id, 0); } else if (f.kind === "link" || f.kind === "cloud") window.open(fileHref(f), "_blank", "noopener"); else fileSheet(f); return true; }
-      case "cls-rec": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now()}; if (dlg.open) dlg.close(); setTimeout(() => { const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-open"; b.dataset.course = x.cid; document.body.appendChild(b); b.click(); b.remove(); }, 0); return true; }
-      case "cls-rec-up": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now()}; const prev = ui.courseId; ui.courseId = x.cid; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-add-up"; document.body.appendChild(b); b.click(); b.remove(); ui.courseId = prev; return true; }
+      case "cls-rec": { const x = cur(); if (!x) return true; const p = PEND = {cid: x.cid, key: x.key, at: Date.now()}; if (dlg.open) dlg.close(); setTimeout(() => { p.arm = true; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-open"; b.dataset.course = x.cid; document.body.appendChild(b); b.click(); b.remove(); }, 0); return true; }
+      case "cls-rec-up": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now(), arm: true}; const prev = ui.courseId; ui.courseId = x.cid; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-add-up"; document.body.appendChild(b); b.click(); b.remove(); ui.courseId = prev;
+        const p = PEND, inp = [...document.querySelectorAll('input[type="file"]')].pop(); if (inp) inp.addEventListener("cancel", () => { if (PEND === p) PEND = null; }, {once: true}); return true; }
       case "cls-sum": { if (dlg.open) dlg.close(); setTimeout(() => { const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-view"; b.dataset.id = id; document.body.appendChild(b); b.click(); b.remove();
         setTimeout(() => { const d = document.createElement("button"); d.hidden = true; d.dataset.act = "lec-doc"; d.dataset.id = id; d.dataset.doc = "sum"; document.body.appendChild(d); d.click(); d.remove(); }, 30); }, 0); return true; }
       case "cls-files": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; ui.fCourse = x.cid; ui.fFolder = "notes"; ui.fCls = x.key; ui.q = ""; render(); window.scrollTo(0, 0); return true; }

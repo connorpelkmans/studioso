@@ -52,7 +52,7 @@
       msg.textContent = "Checking…"; msg.className = "mini un-msg";
       try { const r = (await call("username_check", {p_name: v}) || [])[0]; if (my !== seq) return;
         if (r && r.ok) { msg.textContent = `@${v} is free.`; msg.className = "mini un-msg good"; } else { msg.textContent = (r && r.reason) || "That name isn't available."; msg.className = "mini un-msg bad"; } }
-      catch (e) { if (my === seq) { msg.textContent = "Looks good."; msg.className = "mini un-msg good"; } }
+      catch (e) { if (my === seq) { msg.textContent = "Couldn't check right now."; msg.className = "mini un-msg"; } }
     };
     input.addEventListener("input", () => { input.value = input.value.replace(/\s+/g, "").slice(0, 20); clearTimeout(t); t = setTimeout(run, 300); });
     return run;

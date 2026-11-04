@@ -8,6 +8,8 @@
 .mth .katex-error{color:var(--late)!important;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em}
 .face-text .mth .katex,.fc-front .mth .katex,.fc-back .mth .katex{max-width:100%}
 .face-text .mth-d .katex-display,.q-prompt .mth-d .katex-display{max-width:100%}
+/* On a phone a long inline formula wraps between its parts (and its source text anywhere) instead of running off the side */
+@media (max-width:640px){.mth,.mth .katex{white-space:normal}.mth:not(.mth-ok){overflow-wrap:anywhere}}
 .rt-mark{background:color-mix(in srgb,var(--mark,#FFE58A) 75%,transparent);color:inherit;border-radius:3px;padding:0 .12em}
 .note-body code,.face-text code,.fc-front code,.fc-back code,.q-prompt code,.opt code,.wb-t code,.rt code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;background:color-mix(in srgb,var(--ink) 8%,transparent);border-radius:4px;padding:0 .25em}
 

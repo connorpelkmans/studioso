@@ -35,15 +35,51 @@ function pdtParagraphs(pages){
   });
   return blocks.map(b => b.pageBreak ? b : {style: b.style, t: b.t});
 }
-// Word to PDF: the parts of a .docx we lay out (paragraphs with runs, list items, tables, pictures, page breaks)
-function pdtReadDocx(xml, rels){
+// Word's list numbering (word/numbering.xml): numId -> its levels' format, start and text ("%1.")
+function pdtNumbering(xml){
+  const out = {}; if (!xml) return out;
   const doc = new DOMParser().parseFromString(xml, "application/xml"), W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const val = el => el ? (el.getAttributeNS(W, "val") || el.getAttribute("w:val")) : null, at = (el, a) => el.getAttributeNS(W, a) || el.getAttribute("w:" + a);
+  const one = (el, name) => [...el.childNodes].find(n => n.nodeType === 1 && n.localName === name) || null;
+  const abs = {};
+  [...doc.getElementsByTagNameNS(W, "abstractNum")].forEach(a => { const lv = abs[at(a, "abstractNumId")] = {};
+    [...a.getElementsByTagNameNS(W, "lvl")].forEach(l => { lv[at(l, "ilvl")] = {fmt: val(one(l, "numFmt")) || "decimal", start: Number(val(one(l, "start"))) || 1, text: val(one(l, "lvlText"))}; }); });
+  [...doc.getElementsByTagNameNS(W, "num")].forEach(n => { const a = val(one(n, "abstractNumId")); if (a != null && abs[a]) out[at(n, "numId")] = abs[a]; });
+  return out;
+}
+// a list number as Word shows it: 3, c, C, iii or III
+function pdtNumFmt(n, fmt){
+  if (/letter/i.test(fmt)) { let s = ""; for (let k = n; k > 0; k = Math.floor((k - 1) / 26)) s = String.fromCharCode(97 + (k - 1) % 26) + s; return fmt === "upperLetter" ? s.toUpperCase() : s; }
+  if (/roman/i.test(fmt)) { let s = "", k = n; [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]].forEach(([v, r]) => { while (k >= v) { s += r; k -= v; } }); return fmt === "upperRoman" ? s.toUpperCase() : s; }
+  return String(n);
+}
+// Word to PDF: the parts of a .docx we lay out (paragraphs with runs, list items with their numbers, tables, pictures, page breaks).
+// Content controls (w:sdt: cover pages, tables of contents, template fields) and simple fields are read through.
+function pdtReadDocx(xml, rels, numXml){
+  const doc = new DOMParser().parseFromString(xml, "application/xml"), W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const WRAP = /^(sdt|sdtContent|customXml)$/;
+  // an element's children, looking through content controls
+  const flat = el => [...el.childNodes].filter(n => n.nodeType === 1).flatMap(n => n.localName === "sdt" ? (kids(n, "sdtContent")[0] ? flat(kids(n, "sdtContent")[0]) : []) : WRAP.test(n.localName) ? flat(n) : [n]);
   const kids = (el, name) => [...el.childNodes].filter(n => n.nodeType === 1 && n.localName === name);
   const kid = (el, name) => kids(el, name)[0] || null;
   const val = el => el ? (el.getAttributeNS(W, "val") || el.getAttribute("w:val")) : null;
   const on = el => !!el && !/^(0|false|off)$/i.test(val(el) || "true");
+  const NUM = pdtNumbering(numXml), count = {};
+  // "1.", "a)", "ii." or a bullet, counting each list in document order (a level restarts under a new item above it)
+  function label(numPr){
+    const id = val(kid(numPr, "numId")), lvl = Math.max(0, Math.min(8, Number(val(kid(numPr, "ilvl"))) || 0)), def = NUM[id];
+    if (!def || id === "0") return {lvl, label: ""};
+    const c = count[id] = count[id] || [];
+    for (let k = 0; k < lvl; k++) if (c[k] == null) c[k] = (def[k] || {}).start || 1;
+    c[lvl] = c[lvl] == null ? (def[lvl] || {}).start || 1 : c[lvl] + 1; c.length = lvl + 1;
+    const L0 = def[lvl] || {fmt: "decimal", text: `%${lvl + 1}.`};
+    if (L0.fmt === "bullet" || L0.fmt === "none") return {lvl, label: L0.fmt === "none" ? " " : ""};
+    const t = String(L0.text == null ? `%${lvl + 1}.` : L0.text).replace(/%(\d)/g, (m, d) => { const k = Number(d) - 1; return c[k] == null ? "" : pdtNumFmt(c[k], (def[k] || {}).fmt || "decimal"); });
+    return {lvl, label: t};
+  }
   function para(p){
-    const ppr = kid(p, "pPr"), style = ppr && val(kid(ppr, "pStyle")) || "", list = !!(ppr && kid(ppr, "numPr")), jc = ppr && val(kid(ppr, "jc")) || "";
+    const ppr = kid(p, "pPr"), style = ppr && val(kid(ppr, "pStyle")) || "", numPr = ppr && kid(ppr, "numPr"), list = !!numPr, jc = ppr && val(kid(ppr, "jc")) || "";
+    const nb = numPr ? label(numPr) : {lvl: 0, label: ""};
     const runs = []; let pageBreak = false; const pics = [];
     const walk = node => { [...node.childNodes].forEach(n => { if (n.nodeType !== 1) return;
       if (n.localName === "r") {
@@ -54,16 +90,18 @@ function pdtReadDocx(xml, rels){
           else if (c.localName === "br") { if ((c.getAttributeNS(W, "type") || c.getAttribute("w:type")) === "page") pageBreak = true; else runs.push({t: "\n", b, i, sz, col}); }
           else if (c.localName === "drawing") { const blip = c.getElementsByTagNameNS("*", "blip")[0], ext = c.getElementsByTagNameNS("*", "extent")[0], id = blip && (blip.getAttribute("r:embed") || blip.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed")); if (id && rels[id]) pics.push({src: rels[id], w: ext ? Number(ext.getAttribute("cx")) / 12700 : 0, h: ext ? Number(ext.getAttribute("cy")) / 12700 : 0}); }
         });
-      } else if (n.localName === "hyperlink" || n.localName === "smartTag" || n.localName === "ins") walk(n);
+      } else if (/^(hyperlink|smartTag|ins|fldSimple|sdt|sdtContent|customXml)$/.test(n.localName)) walk(n);
     }); };
     walk(p);
-    return {k: "p", style, list, jc, runs, pageBreak, pics};
+    return {k: "p", style, list, lvl: nb.lvl, label: nb.label, jc, runs, pageBreak, pics};
   }
+  // a cell's paragraphs (a table inside a cell comes in as its paragraphs)
+  const cellParas = tc => flat(tc).flatMap(n => n.localName === "p" ? [para(n)] : n.localName === "tbl" ? flat(n).filter(r => r.localName === "tr").flatMap(tr => flat(tr).filter(c => c.localName === "tc").flatMap(cellParas)) : []);
   const body = doc.getElementsByTagNameNS(W, "body")[0], out = [];
   if (!body) return out;
-  [...body.childNodes].forEach(n => { if (n.nodeType !== 1) return;
+  flat(body).forEach(n => {
     if (n.localName === "p") out.push(para(n));
-    else if (n.localName === "tbl") out.push({k: "table", rows: kids(n, "tr").map(tr => kids(tr, "tc").map(tc => kids(tc, "p").map(para)))});
+    else if (n.localName === "tbl") out.push({k: "table", rows: flat(n).filter(r => r.localName === "tr").map(tr => flat(tr).filter(c => c.localName === "tc").map(cellParas))});
   });
   return out;
 }
@@ -160,7 +198,7 @@ function reviewMemoryStore(){
   }
 
   /* ---------- Convert ---------- */
-  const CONV = {src: null};
+  const CONV = {src: null, stop: false};
   const kindOf = (name, type) => /\.pdf$/i.test(name) || type === "application/pdf" ? "pdf" : /\.docx$/i.test(name) ? "docx" : /\.pptx$/i.test(name) ? "pptx" : /^image\//.test(type || "") || /\.(png|jpe?g|webp|gif|heic)$/i.test(name) ? "img" : "";
   function convertOpen(){
     CONV.src = null;
@@ -185,8 +223,10 @@ function reviewMemoryStore(){
     else box.innerHTML = `<p><b>${esc(label)}</b></p><p class="mini">Makes a PDF${s.kind === "docx" ? " from the document's text, headings, lists, tables and pictures" : s.kind === "pptx" ? ", one page per slide, from each slide's text boxes and pictures" : " with one picture per page"}. ${s.kind === "img" ? "" : "It's close to the original but not exact: fonts become standard ones, and some layout (columns, shapes, effects) is simplified. Letters outside Western European languages become “?” for now."}</p>
       <div class="row-actions"><button type="button" class="btn primary" data-pdt="go">Make the PDF</button></div>`;
   }
-  // "1-3, 5" as page numbers (all when empty)
-  const pageList = (txt, n) => { const out = new Set(); String(txt || "").split(",").forEach(part => { const m = part.trim().match(/^(\d+)\s*(?:-\s*(\d+))?$/); if (!m) return; const a = Number(m[1]), b = Number(m[2] || m[1]); for (let k = Math.max(1, a); k <= Math.min(n, b); k++) out.add(k); }); return out.size ? [...out].sort((a, b) => a - b) : Array.from({length: n}, (_, i) => i + 1); };
+  // "1-3, 5" as page numbers (all when empty; none when nothing typed is a page of this PDF)
+  const pageList = (txt, n) => { const out = new Set(); String(txt || "").split(",").forEach(part => { const m = part.trim().match(/^(\d+)\s*(?:-\s*(\d+))?$/); if (!m) return; const a = Number(m[1]), b = Number(m[2] || m[1]); for (let k = Math.max(1, a); k <= Math.min(n, b); k++) out.add(k); }); return out.size ? [...out].sort((a, b) => a - b) : String(txt || "").trim() ? [] : Array.from({length: n}, (_, i) => i + 1); };
+  // Pictures of pages: at most this many pages and pixels at once, and each picture no bigger than a phone's canvas allows
+  const PIC_PAGES = 200, PIC_PX = 400e6, CANVAS_PX = 16e6, CANVAS_SIDE = 8192;
   async function convertGo(){
     const s = CONV.src, msg = $("#pdtConvMsg"), say = t => { if (msg) msg.innerHTML = t; }, go = document.querySelector('#pdtConv [data-pdt="go"]'); if (!s) return;
     if (go) go.disabled = true;
@@ -194,6 +234,7 @@ function reviewMemoryStore(){
       if (s.kind === "pdf") {
         const to = (document.querySelector('#pdtConv input[name="pdtTo"]:checked') || {}).value, bytes = await s.bytes(0);
         await loadPdfJs(); const doc = await window.pdfjsLib.getDocument({data: bytes.slice(), ...PDF_OPTS}).promise, pages = pageList(document.querySelector('#pdtConv [data-pdt="pages"]').value, doc.numPages), base = s.files[0].name.replace(/\.pdf$/i, "");
+        if (!pages.length) { say(`Those pages aren't in this PDF. It has ${doc.numPages} page${doc.numPages === 1 ? "" : "s"}.`); try { doc.destroy(); } catch (e) {} return; }
         if (to === "docx") {
           const texts = [];
           for (const n of pages) { say(`<span class="ai-spin" aria-hidden="true"></span> Reading page ${n}…`); const tc = await (await doc.getPage(n)).getTextContent(); texts.push(tc.items.filter(it => typeof it.str === "string").map(it => ({str: it.str, x: it.transform[4], y: it.transform[5], fs: Math.hypot(it.transform[2], it.transform[3]) || 11}))); }
@@ -201,13 +242,23 @@ function reviewMemoryStore(){
           if (!blocks.some(b => b.t)) { say("This PDF has no text to put in a Word file. For a scan, use Recognize Text in the reader first."); return; }
           const zip = docxOf(blocks); await deliverAny(zip, base + ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"); say(`Made ${esc(base)}.docx`);
         } else {
-          const dpi = Number(document.querySelector('#pdtConv [data-pdt="dpi"]').value) || 150, files = [];
-          for (const n of pages) {
-            say(`<span class="ai-spin" aria-hidden="true"></span> Drawing page ${n}…`);
-            const page = await doc.getPage(n), vp = page.getViewport({scale: dpi / 72}), cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
-            const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height); await page.render({canvasContext: ctx, viewport: vp}).promise;
-            const blob = await new Promise(res => cv.toBlob(res, to === "jpg" ? "image/jpeg" : "image/png", 0.88)); files.push({name: `${base} p${n}.${to}`, data: new Uint8Array(await blob.arrayBuffer())});
-          }
+          const dpi = Number(document.querySelector('#pdtConv [data-pdt="dpi"]').value) || 150, files = [], dlg = document.getElementById("pdtConv");
+          const v1 = (await doc.getPage(pages[0])).getViewport({scale: dpi / 72});
+          if (pages.length > PIC_PAGES || pages.length * v1.width * v1.height > PIC_PX) { say(`That's too many pictures at once (${pages.length} page${pages.length === 1 ? "" : "s"} at ${dpi} dpi). Pick fewer pages or a lower sharpness.`); try { doc.destroy(); } catch (e) {} return; }
+          CONV.stop = false; dlg.dataset.busy = "1";
+          try {
+            for (const n of pages) {
+              if (CONV.stop) break;
+              say(`<span class="ai-spin" aria-hidden="true"></span> Drawing page ${n} (${files.length + 1} of ${pages.length})… <button type="button" class="btn small" data-pdt="stop">Stop</button>`);
+              const page = await doc.getPage(n), v0 = page.getViewport({scale: 1}), k = Math.min(dpi / 72, Math.sqrt(CANVAS_PX / (v0.width * v0.height)), CANVAS_SIDE / Math.max(v0.width, v0.height));
+              const vp = page.getViewport({scale: k}), cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+              const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height); await page.render({canvasContext: ctx, viewport: vp}).promise;
+              const blob = await new Promise(res => cv.toBlob(res, to === "jpg" ? "image/jpeg" : "image/png", 0.88)); cv.width = cv.height = 0;
+              if (!blob) throw new Error(`Couldn't draw page ${n}. Try a lower sharpness.`);
+              files.push({name: `${base} p${n}.${to}`, data: new Uint8Array(await blob.arrayBuffer())});
+            }
+          } finally { delete dlg.dataset.busy; }
+          if (CONV.stop) { say("Stopped. Nothing was downloaded."); try { doc.destroy(); } catch (e) {} return; }
           if (files.length === 1) await deliverAny(files[0].data, files[0].name, to === "jpg" ? "image/jpeg" : "image/png");
           else await deliverAny(zipMany(files), base + " pages.zip", "application/zip");
           say(`Made ${files.length} picture${files.length === 1 ? "" : "s"}`);
@@ -258,16 +309,16 @@ function reviewMemoryStore(){
     return {lines, fontFor, clean, rgb, f};
   }
   async function docxToPdf(L, bytes){
-    const files = await unzipBytes(bytes, n => n === "word/document.xml" || n === "word/_rels/document.xml.rels" || /^word\/media\//.test(n), {max: 40e6});
+    const files = await unzipBytes(bytes, n => n === "word/document.xml" || n === "word/_rels/document.xml.rels" || n === "word/numbering.xml" || /^word\/media\//.test(n), {max: 40e6});
     const dec = new TextDecoder(), xml = files["word/document.xml"]; if (!xml) throw new Error("That isn't a Word document Studyboard can read.");
     const rels = {}; if (files["word/_rels/document.xml.rels"]) dec.decode(files["word/_rels/document.xml.rels"]).replace(/<Relationship [^>]*Id="([^"]+)"[^>]*Target="([^"]+)"/g, (m, id, t) => { rels[id] = "word/" + t.replace(/^\.?\//, ""); });
-    const blocks = pdtReadDocx(dec.decode(xml), rels), doc = await L.PDFDocument.create(), K = await layoutKit(L, doc);
+    const blocks = pdtReadDocx(dec.decode(xml), rels, files["word/numbering.xml"] ? dec.decode(files["word/numbering.xml"]) : ""), doc = await L.PDFDocument.create(), K = await layoutKit(L, doc);
     const PW = 612, PH = 792, M = 72, CW = PW - M * 2; let page = doc.addPage([PW, PH]), y = PH - M, skipped = 0;
     const newPage = () => { page = doc.addPage([PW, PH]); y = PH - M; };
     const sizes = {Title: 26, Heading1: 18, Heading2: 15, Heading3: 13};
     async function drawPara(p, x, w, base){
       const sz = sizes[p.style] || 0, runs = p.runs.map(r => Object.assign({}, r, sz ? {sz: r.sz || sz, b: true} : {}));
-      if (p.list) runs.unshift({t: "•  ", sz: base});
+      if (p.list) runs.unshift({t: (p.label || "•") + "  ", sz: base});
       const ls = await K.lines(runs, w - (p.list ? 0 : 0), sz || base);
       for (const l of ls) {
         if (y - l.h < M) newPage();
@@ -279,7 +330,7 @@ function reviewMemoryStore(){
     for (const b of blocks) {
       if (b.k === "p") {
         if (b.pageBreak && b.runs.every(r => !r.t.trim())) { newPage(); continue; }
-        if (b.runs.some(r => r.t.trim()) || !b.pics.length) { await drawPara(b, M + (b.list ? 18 : 0), CW - (b.list ? 18 : 0), 11); y -= sizes[b.style] ? 6 : 4; }
+        if (b.runs.some(r => r.t.trim()) || !b.pics.length) { const ind = b.list ? 18 * (1 + Math.min(4, b.lvl || 0)) : 0; await drawPara(b, M + ind, CW - ind, 11); y -= sizes[b.style] ? 6 : 4; }
         for (const pic of b.pics) {
           const data = files[pic.src]; if (!data || !/\.(png|jpe?g)$/i.test(pic.src)) { skipped++; continue; }
           const img = /\.png$/i.test(pic.src) ? await doc.embedPng(data) : await doc.embedJpg(data), w0 = pic.w || img.width * 0.75, h0 = pic.h || img.height * 0.75, k = Math.min(1, CW / w0, (PH - M * 2) / h0);
@@ -452,7 +503,8 @@ function reviewMemoryStore(){
   document.addEventListener("click", ev => {
     const b = ev.target.closest && ev.target.closest("[data-pdt]"); if (!b || b.tagName === "SELECT" || b.tagName === "INPUT") return;
     const d = b.closest("dialog"), k = b.dataset.pdt;
-    if (k === "close") { if (d && d.dataset.busy) { BATCH.stop = true; toast("Stopping after this file…"); return; } if (d) d.close(); }
+    if (k === "close") { if (d && d.dataset.busy) { if (d.id === "pdtConv") { CONV.stop = true; toast("Stopping…"); } else { BATCH.stop = true; toast("Stopping after this file…"); } return; } if (d) d.close(); }
+    else if (k === "stop") CONV.stop = true;
     else if (k === "go") convertGo();
     else if (k === "run") batchRun();
     else if (k === "all" || k === "none") d.querySelectorAll("[data-pdt-f]").forEach(x => { x.checked = k === "all"; });

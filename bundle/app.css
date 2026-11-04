@@ -260,6 +260,9 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl-m small{font:600 .78rem var(--body);color:var(--muted);margin-left:6px}
 .tl-d{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:.84rem;font-weight:500;color:var(--muted)}
 .tl-d b{font:inherit}
+/* The day numbers fade out at both edges of the scrolled window, so a half-hidden day never reads as a cut-off number */
+.tl-headrow > .tl-label{box-shadow:14px 0 8px -4px var(--surface)}
+.tl-headrow::after{content:"";position:sticky;right:0;z-index:3;flex:none;width:18px;margin-left:-18px;background:linear-gradient(90deg,transparent,var(--surface) 70%)}
 .tl-d.is-today b{background:var(--late);color:#fff;border-radius:999px;min-width:22px;padding:1px 4px;text-align:center;font-weight:700}
 .tl-d.is-today{color:var(--late);font-weight:700}
 .tlbar{position:absolute;top:9px;height:28px;border-radius:7px;border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 20%,var(--surface));color:var(--ink);font-size:.75rem;font-weight:600;text-align:left;padding:0 8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:10px}
@@ -357,10 +360,10 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 @media (min-width:1200px){.cal .dow .dw-s{display:none}.cal .dow .dw-l{display:inline}}
 
 /* Dialog */
-dialog{border:0;padding:0;background:var(--surface);color:var(--ink);width:min(560px,100%);max-height:92vh;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+dialog{border:0;padding:0;background:var(--surface);color:var(--ink);width:min(560px,100%);max-height:92vh;max-height:92dvh;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 dialog::backdrop{background:rgba(10,14,24,.5)}
 @media (max-width:600px){
-  dialog{margin:auto 0 0;max-width:100%;width:100%;border-radius:20px 20px 0 0;max-height:90vh}
+  dialog{margin:auto 0 0;max-width:100%;width:100%;border-radius:20px 20px 0 0;max-height:90vh;max-height:90dvh}
 }
 .sheet{display:flex;flex-direction:column;max-height:inherit}
 a.btn{text-decoration:none}
@@ -368,7 +371,9 @@ a.btn{text-decoration:none}
 dialog:has(> .sheet){overflow:hidden}
 .sheet-head{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
 .sheet-head h2{flex:1;margin:0;font:700 1.25rem var(--display)}
-.sheet-body{overflow:auto;padding:6px 18px 12px;display:grid;gap:14px}
+.sheet-body{overflow:auto;overscroll-behavior:contain;padding:6px 18px 12px;display:grid;gap:14px}
+/* A sheet with no footer: its body keeps clear of the iPhone's home bar (any sheet's own padding still wins) */
+.sheet-body:where(.sheet > :last-child){padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 .sheet-foot{display:flex;flex-wrap:wrap;gap:10px;padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
 .fs-acts{display:flex;flex-wrap:wrap;gap:8px}
 .fs-acts .btn{padding:7px 14px;font-size:.92rem;display:inline-flex;align-items:center;gap:6px}
@@ -1341,7 +1346,7 @@ body.desk{--tb:34px;padding-top:var(--tb)}
 body.desk::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--tb);background:var(--spine);-webkit-app-region:drag;z-index:400}
 body.desk header.top{top:var(--tb)}
 @media (min-width:980px){body.desk nav.tabs{top:var(--tb)}}
-body.desk dialog{max-height:calc(100vh - var(--tb) - 24px)}
+body.desk dialog{max-height:calc(100vh - var(--tb) - 24px);max-height:calc(100dvh - var(--tb) - 24px)}
 /* Full screen: no strip for the window buttons */
 body.desk.fs{--tb:0px}
 body.desk.fs::before{display:none}
@@ -1870,6 +1875,13 @@ dialog.tour::backdrop{background:transparent}
 /* ===== Style Shop v2 ===== */
 body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:var(--bgpos,0 0);background-attachment:var(--bgatt,scroll)}
 .motion-tog,.anim-tog{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}
+/* On/off settings are switches, with On or Off beside them to match (the label's own "On" stays as the checkbox's name) */
+.anim-tog:has(> input[type=checkbox]){font-size:0;gap:0}
+label.anim-tog > input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;box-sizing:border-box;width:42px!important;height:26px;margin:0;padding:0;border:0;border-radius:999px;cursor:pointer;background:radial-gradient(circle at 13px 50%,#fff 0 9px,rgba(0,0,0,.16) 9.5px 10.5px,transparent 11px),color-mix(in srgb,var(--ink) 26%,var(--surface))}
+label.anim-tog > input[type=checkbox]:checked{background:radial-gradient(circle at 29px 50%,#fff 0 9px,rgba(0,0,0,.16) 9.5px 10.5px,transparent 11px),var(--accent)}
+label.anim-tog > input[type=checkbox]:disabled{opacity:.5;cursor:default}
+.anim-tog:has(> input[type=checkbox])::after{content:"Off";content:"Off" / "";min-width:2.1em;margin-left:8px;font-size:.92rem}
+.anim-tog:has(> input[type=checkbox]:checked)::after{content:"On";content:"On" / ""}
 .kit-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;margin:8px 0}
 /* theme flashcards and shapes */
 .cs-theme .face{background:var(--tc-bg,#fff);color:var(--tc-ink,#15213A);border:2px solid var(--tc-bd,var(--line));border-radius:var(--tc-r,14px)}
@@ -2516,7 +2528,7 @@ html.sc-on #view :is(.hint-line,.sch-legend,.tl-legend,.term-bar){width:fit-cont
 
 /* ===== module: 30-search.css ===== */
 /* Search Everywhere */
-dialog.sx-dlg{width:min(720px,calc(100% - 32px));max-height:min(80vh,760px);margin:8vh auto auto;border-radius:18px;overflow:hidden}
+dialog.sx-dlg{width:min(720px,calc(100% - 32px));max-height:min(80vh,760px);max-height:min(80dvh,760px);margin:8vh auto auto;border-radius:18px;overflow:hidden}
 dialog.sx-dlg[open]{display:flex}
 .sx{display:flex;flex-direction:column;width:100%;min-height:0;max-height:inherit}
 .sx-top{display:flex;align-items:center;gap:10px;padding:14px 14px 10px}
@@ -2552,6 +2564,7 @@ dialog.sx-dlg[open]{display:flex}
 .sx-tag{font-weight:700;color:color-mix(in srgb,var(--c) 75%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border-radius:6px;padding:1px 6px}
 .sx-row mark,.sx-pl mark,.sx-ans mark{background:color-mix(in srgb,var(--mark) 75%,transparent);color:inherit;border-radius:3px;padding:0 1px}
 .sx-empty{margin:18px 8px;background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted)}
+.sx-none{margin:12px 14px 2px;color:var(--muted);font-size:.92rem}
 .sx-empty strong{display:block;color:var(--ink);font:700 1.05rem var(--display);margin-bottom:4px}
 .sx-tip,.sx-hint{font-size:.85rem;color:var(--muted);margin:10px 8px 4px}
 .sx-callout{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 8px 4px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,#8B5CF6 7%,var(--surface));border:1px dashed color-mix(in srgb,#8B5CF6 40%,var(--line));font-size:.9rem}
@@ -2630,7 +2643,7 @@ dialog.sx-dlg[open]{display:flex}
   .sx-meta{max-width:30%}
   .sx-st{text-align:left}
 }
-body.desk dialog.sx-dlg{max-height:calc(100vh - var(--tb, 0px) - 60px)}
+body.desk dialog.sx-dlg{max-height:calc(100vh - var(--tb, 0px) - 60px);max-height:calc(100dvh - var(--tb, 0px) - 60px)}
 @media (max-width:600px){.sx-t{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}
 @media (min-width:601px){.sx-types{gap:6px}.sx-types .chip{padding:5px 10px;font-size:.84rem}}
 @media (max-width:600px){.sx-types .chip,.sx-mode button{min-height:44px}.sx-bar select{min-height:44px}.sx-row{min-height:56px}}
@@ -3219,7 +3232,7 @@ button.grp-item-main{cursor:pointer;min-height:44px}
 .grp-msg-top .link-btn:hover,.grp-msg-top .link-btn:focus-visible,.grp-members .link-btn:hover,.grp-members .link-btn:focus-visible{opacity:1}
 .grp-report fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
 .grp-report legend{font-weight:600;padding:0;margin-bottom:6px}
-dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:auto}
+dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:90dvh;overflow:auto}
 /* phones: a bottom sheet the full width of the screen, like every other sheet (the narrower width left it pushed to the left) */
 @media (max-width:600px){dialog.ai-consent,dialog:has(.sheet.shop){width:100%;max-width:100%}}
 /* Project Tasks (shared task lists in a group) and My Group Tasks on the Board */
@@ -4062,6 +4075,8 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
   nav.tabs:is([data-fit="1"],[data-fit="2"]) .in button{padding:5px 4px 4px;gap:3px}
   nav.tabs:is([data-fit="1"],[data-fit="2"]) .in button svg{width:20px;height:20px}
   nav.tabs[data-fit="1"] .nav-tool{padding:5px 4px;gap:3px}
+  /* the sync status keeps to its one line, so it never runs into the buttons under it */
+  nav.tabs .nav-sync{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   /* 2: the tools at the bottom become a single column of icons (they stay in a line, under each other) */
   nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-foot{display:grid;grid-template-columns:1fr;gap:0;padding-top:6px}
@@ -4257,7 +4272,7 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 
 /* Wide screens: categories on the left, the chosen one on the right */
 @media (min-width:720px){
-  dialog:has(.us-sheet){width:min(900px,calc(100% - 32px));height:min(680px,90vh)}
+  dialog:has(.us-sheet){width:min(900px,calc(100% - 32px));height:min(680px,90vh);height:min(680px,90dvh)}
   .us-sheet{height:100%}
   .us-sheet .sheet-body{flex:1;min-height:0;overflow:hidden;padding:0}
   .us{display:grid;grid-template-columns:268px minmax(0,1fr);height:100%}
@@ -5663,7 +5678,8 @@ html:not([data-motion="static"]) details[open] > :not(summary){animation:sm-in .
 @media (hover:none){html:not([data-motion="static"]) :is(button,.btn):not(nav.tabs button):active{transform:scale(.97)}}
 dialog:focus,dialog:focus-visible{outline:none}
 dialog [tabindex="-1"]:focus,dialog [tabindex="-1"]:focus-visible{outline:none}
-.sm-focus{position:absolute;width:0;height:0;overflow:hidden;outline:none!important;pointer-events:none}
+/* a sheet focuses its heading on opening (99-smooth.js): no ring, it is not something to press */
+.sm-focus-h:focus,.sm-focus-h:focus-visible{outline:none!important}
 
 /* Text that sits straight on a scene gets the same soft glow as the other page headings */
 html.sc-on #view :is(h2,h3,h4,.fsec,.fsec .n,.grp-sec > h3,.hint,.hint-line,.empty,.view-head > :is(span,p,div):not(.btn),#view > p,section > .mini,.sec-head,.cf-sec-t,.lbl-sec,.board-sec-head,.tl-controls .mini,.cf-chips > .mini):not(:is(.card,.sheet,button,.btn,.tile,[class*="card"],.plan-hero,table,li) *){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
@@ -6934,6 +6950,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .pview-tabs,#view > .bview-row .bview-tabs{max-width:none;width:100%;margin:2px 0 12px}
   #view > .pview-tabs button,#view > .bview-row .bview-tabs button{padding:8px 6px;font-size:1.2rem;min-height:42px;white-space:nowrap}
   #view > .pview-tabs:has(> button:nth-of-type(4)) button,#view > .bview-row .bview-tabs:has(> button:nth-of-type(4)) button{font-size:1.1rem;padding:8px 4px;flex:1 1 auto;min-width:0}
+  /* the smallest phones: three page names still fit (Due Dates, Schedule, Crunch) */
+  @media (max-width:359px){#view > .pview-tabs button,#view > .bview-row .bview-tabs button{font-size:1.02rem;padding:8px 2px;flex:1 1 auto;min-width:0}}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
@@ -7071,9 +7089,9 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
   /* the starter questions always stack (the chat scrolls if there's no room) */
   /* Notes / Groups */
-  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;color:var(--ink);font:800 1.3rem var(--display);letter-spacing:-.01em}
-  #view > .pview-tabs.ph-solo{justify-content:center}
-  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;min-width:0;padding:0 26px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow)}
+  /* a page with one view gets a plain title, not a switch with a single choice */
+  #view > .pview-tabs.ph-solo{justify-content:flex-start;padding:0 4px;background:none;border:0;box-shadow:none}
+  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;display:flex;align-items:center;min-width:0;min-height:42px;padding:0;color:var(--ink);font:800 1.55rem var(--display);letter-spacing:-.01em}
   :is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small{min-height:40px;margin:0!important}
   /* Task Board: Group By as a small control */
   .bview-row .board-ctl .segb button{min-height:34px;padding-block:4px;font-size:.84rem}
@@ -7333,11 +7351,12 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   @media (max-width:350px){.next-up .nu-alloc .nu-td{display:none}}
 }
 
-/* Phones stay upright: sideways shows a "turn your phone" screen, except in full-screen notes and whiteboard */
-@media (orientation:landscape) and (max-height:520px) and (pointer:coarse){
-  html:not(.board-max){overflow:hidden}
-  html:not(.board-max) body,html:not(.board-max) dialog,html:not(.board-max) .fab{visibility:hidden!important}
-  html:not(.board-max)::before{content:"Turn your phone upright to keep using Studyboard.\A Notes and the whiteboard can go sideways in full screen.";white-space:pre-wrap;position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 48px;background:var(--bg,#f4f6fa);color:var(--ink,#1a2238);font:700 1.05rem/1.5 var(--display,system-ui)}
+/* Phones stay upright: sideways shows a "turn your phone" screen, except in full-screen notes and whiteboard. Only on
+   phone-short screens, and never while typing (a keyboard can leave a small phone's page wider than it is tall) */
+@media (orientation:landscape) and (max-height:460px) and (pointer:coarse){
+  html:not(.board-max):not(.kb-open):not(:has(:is(input,textarea,[contenteditable]):focus)){overflow:hidden}
+  html:not(.board-max):not(.kb-open):not(:has(:is(input,textarea,[contenteditable]):focus)) :is(body,dialog,.fab){visibility:hidden!important}
+  html:not(.board-max):not(.kb-open):not(:has(:is(input,textarea,[contenteditable]):focus))::before{content:"Turn your phone upright to keep using Studyboard.\A Notes and the whiteboard can go sideways in full screen.";white-space:pre-wrap;position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 48px;background:var(--bg,#f4f6fa);color:var(--ink,#1a2238);font:700 1.05rem/1.5 var(--display,system-ui)}
 }
 
 /* Group tabs: an even grid of equal, centred buttons */
@@ -7788,6 +7807,8 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   :root{--sb-snack-b:calc(var(--ph-bar-b,6px) + 78px)}
   #toast.toast{left:12px;right:12px;bottom:var(--sb-snack-b);transform:none;width:auto;max-width:none;flex-wrap:nowrap;align-items:center;gap:10px;padding:8px 8px 8px 14px;min-height:52px;border-radius:16px;background:var(--spine);color:#fff;box-shadow:0 12px 30px -8px rgba(8,20,50,.45),0 0 0 1px color-mix(in srgb,#fff 8%,transparent);font-size:.95rem;line-height:1.3}
   #toast.toast #toastMsg{flex:1 1 auto;min-width:0}
+  /* keyboard up: the toast sits just above it, so a "fill in…" message is never hidden under the keys */
+  html.kb-open #toast.toast{bottom:calc(var(--kb-h,0px) + 12px)}
   #toast.toast-done::before{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:var(--leaf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/15px no-repeat}
   #toast.toast-done #toastMsg{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #toast.toast button:not(.toast-x){flex:none;min-height:40px;padding:0 12px;border-radius:10px;color:#FFE45C;font-weight:800}
@@ -8053,6 +8074,25 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 /* Sheet header icons: each is framed tightly around its own drawing (centred), so all fill the ring the same */
 .g2-sheet-head .sh-ring svg{width:54%!important;height:54%!important}
 .pomo-sheet .g2-sheet-head .sh-ring svg{width:58%!important;height:58%!important}
+/* The round Focus button beside a plan item: a bigger tomato that fills its circle */
+.focus-go .tomato-ic,.plan-row .focus-go .tomato-ic{width:22px!important;height:22px!important;transform:translateY(-1.5px)}
+/* In a button beside its label (Study for 25m, Start a Focus, Focus): a bigger tomato, without making the button taller */
+.btn .tomato-ic{width:21px!important;height:21px!important;margin:-3px 0 -3px -4px;flex:none}
+/* The companion's face in buttons: 2px lower, so it sits centred beside the label */
+.btn span.cp-ai-face.ai-ic{top:calc(-.2em + 1px)}
+.btn:is([style*="flex"],.f-sum) span.cp-ai-face.ai-ic,.frow > .f-sum span.cp-ai-face.ai-ic{top:calc(-.14em + 1px)}
+
+/* The smallest phones (320px): labels wrap instead of being cut to "D…" or "2." */
+@media (max-width:359px){
+  /* Today's plan rows: the title takes the full width; the time and buttons sit beside the course and reason below it */
+  .plan-row,.plan-row:has(.pr-ring){grid-template-areas:"chk main main" ". chip side" ". why side" ". slot slot" ". more more"}
+  .plan-row .pr-why{flex-wrap:wrap;row-gap:2px;text-align:left}
+  .plan-row .pr-lead{white-space:normal;overflow:visible}
+  /* course cards: the hours and the due pill share a line, and wrap onto a second one when they don't fit */
+  #view .c2-card .c2-foot{flex-wrap:wrap;row-gap:4px;column-gap:10px}
+  #view .c2-card .c2-foot > .mini{overflow:visible;text-overflow:clip}
+  .ph-sch .sch-range{white-space:normal;line-height:1.15;font-size:.88rem}
+}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
@@ -8063,6 +8103,8 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .mth .katex-error{color:var(--late)!important;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em}
 .face-text .mth .katex,.fc-front .mth .katex,.fc-back .mth .katex{max-width:100%}
 .face-text .mth-d .katex-display,.q-prompt .mth-d .katex-display{max-width:100%}
+/* On a phone a long inline formula wraps between its parts (and its source text anywhere) instead of running off the side */
+@media (max-width:640px){.mth,.mth .katex{white-space:normal}.mth:not(.mth-ok){overflow-wrap:anywhere}}
 .rt-mark{background:color-mix(in srgb,var(--mark,#FFE58A) 75%,transparent);color:inherit;border-radius:3px;padding:0 .12em}
 .note-body code,.face-text code,.fc-front code,.fc-back code,.q-prompt code,.opt code,.wb-t code,.rt code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;background:color-mix(in srgb,var(--ink) 8%,transparent);border-radius:4px;padding:0 .25em}
 
@@ -8417,3 +8459,4 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 /* Aquarium Tunnel: bubbles in the screen and a glassy sheen */
 .cx[data-cxskin=aquarium] .cx-lcd{background:radial-gradient(4px 4px at 88% 78%,rgba(47,184,217,.35) 60%,transparent 70%),radial-gradient(3px 3px at 92% 50%,rgba(47,184,217,.3) 60%,transparent 70%),radial-gradient(5px 5px at 85% 25%,rgba(47,184,217,.28) 60%,transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
 .cx[data-cxskin=aquarium] .cx-body{box-shadow:inset 6px 0 18px -6px rgba(255,255,255,.25),inset 0 1px 0 rgba(255,255,255,.14)}
+.cx:focus{outline:none}

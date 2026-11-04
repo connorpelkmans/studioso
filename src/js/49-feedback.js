@@ -91,6 +91,8 @@
     shot = ""; busy = false;
     const ai = opts.ai && typeof opts.ai === "object" ? {text: String(opts.ai.text || "").slice(0, 1400), feature: String(opts.ai.feature || "").slice(0, 40)} : null;
     const email = (sbUser && sbUser.email) || "";
+    // The server drops screenshots from reports sent without an account (bug_reports_guard)
+    const signedIn = !!(sb && sbUser);
     const queued = readQ().length;
     openSheet(`<form class="sheet bug-sheet">${head(ai ? "Report an AI Response" : "Report a Bug or Send Feedback")}
       <div class="sheet-body">
@@ -100,11 +102,11 @@
         <label class="f"><span class="lh">What happened?<span class="req" aria-hidden="true">*</span></span><textarea name="msg" id="bugMsg" rows="4" maxlength="2000" placeholder="${ai ? "What was wrong with the response?" : "Describe the problem or your idea. What did you expect to happen?"}" data-noenter autofocus></textarea></label>
         ${ai ? `<label class="f"><span class="lh">The AI response <span class="hint">sent with your report; remove anything private</span></span><textarea name="steps" rows="5" maxlength="1500" data-noenter>${esc(ai.text)}</textarea></label>`
           : `<label class="f"><span class="lh">Steps to make it happen <span class="hint">optional</span></span><textarea name="steps" rows="3" maxlength="1500" placeholder="1. Go to… 2. Tap… 3. See…" data-noenter></textarea></label>`}
-        <div class="bug-shot">
+        ${signedIn ? `<div class="bug-shot">
           <label class="btn small" style="cursor:pointer">Attach a Screenshot<input type="file" id="bugFile" accept="image/*" class="sr"></label>
           <span class="mini" id="bugShotNote">Optional. It may show your tasks or notes, so only add one you're happy to share.</span>
           <div id="bugShotPrev"></div>
-        </div>
+        </div>` : `<p class="mini" id="bugShotNote" style="margin:0">To attach a screenshot, sign in first. Reports sent without an account can't include pictures.</p>`}
         <label class="mi-check"><input type="checkbox" name="contact" id="bugContact"> You can email me about this</label>
         <label class="f" id="bugMailRow" style="display:none">Your email<input type="email" name="email" id="bugMail" maxlength="200" value="${esc(email)}" placeholder="you@example.com" autocomplete="email" data-noenter></label>
         <details class="bug-diag"><summary>What gets sent with it</summary><p class="mini" style="margin:6px 0">Only this technical info, plus a random ID from this device so reports can be grouped and rate-limited. Never your tasks, notes or files:</p><pre class="mini" id="bugDiag" style="white-space:pre-wrap;word-break:break-word;max-height:160px;overflow:auto;margin:0"></pre></details>
@@ -118,7 +120,7 @@
     $("#bugDiag").textContent = Object.entries(diag).filter(([k]) => k !== "errors" && k !== "ua").map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join("\n") + `\nrecent errors: ${diag.errors.length ? diag.errors.map(e => e.m).join(" | ") : "none"}\nbrowser: ${diag.ua || ""}`;
     const contact = $("#bugContact");
     contact.addEventListener("change", () => { $("#bugMailRow").style.display = contact.checked ? "" : "none"; if (contact.checked) $("#bugMail").focus(); });
-    $("#bugFile").addEventListener("change", async e => {
+    if (signedIn) $("#bugFile").addEventListener("change", async e => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
       const note = $("#bugShotNote");
       note.textContent = "Preparing the picture…";
@@ -157,7 +159,8 @@
     }
     btn.disabled = false; btn.textContent = "Send Report";
     say(res === "missing" ? srvSetup("Sending reports", "supabase-bug-reports.sql")
-      : res === "limited" ? "You've sent quite a few reports lately. Please try again in an hour."
+      // Signed out, part of the limit is shared by everyone without an account, so it may not be this person's doing
+      : res === "limited" ? (sbUser ? "You've sent quite a few reports lately. Please try again in an hour." : "Lots of reports are coming in right now. Please try again in an hour.")
       : "That report couldn't be sent. If it has a screenshot, try again without it.");
   }
 

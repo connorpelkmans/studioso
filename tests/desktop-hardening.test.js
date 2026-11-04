@@ -17,21 +17,23 @@ function fake(over) {
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sb-harden-"));
 for (const d of ["documents", "userData", "appData", "temp"]) fs.mkdirSync(path.join(tmp, d), { recursive: true });
 
-function load(packaged, platform) {
+function load(packaged, platform, opt) {
+  opt = opt || {};
   const E = { handlers: {}, opened: [], shown: [], fetched: [], sandbox: false, dialogs: [], dialogAnswer: 1, proto: null, ready: null };
   const electron = {
-    app: fake({ isPackaged: packaged, getPath: k => path.join(tmp, k), requestSingleInstanceLock: () => true, isReady: () => true, getVersion: () => "1.0.0",
+    app: fake({ isPackaged: packaged, getPath: k => (opt.paths && opt.paths[k]) || path.join(tmp, k), requestSingleInstanceLock: () => true, isReady: () => true, getVersion: () => "1.0.0",
       whenReady: () => ({ then: f => { E.ready = Promise.resolve().then(f); return E.ready; } }), on() {}, quit() {}, enableSandbox: () => { E.sandbox = true; } }),
     ipcMain: { handle: (c, f) => { E.handlers[c] = f; }, on: (c, f) => { E.handlers[c] = f; } },
     protocol: { registerSchemesAsPrivileged() {}, handle: (s, f) => { E.proto = f; } },
     net: fake({ fetch: async u => { E.fetched.push(u); return { headers: {}, body: "x", status: 200 }; } }),
     shell: { openPath: async p => { E.opened.push(p); return ""; }, showItemInFolder: p => { E.shown.push(p); }, openExternal: async () => {} },
+    ...(opt.screen ? { screen: opt.screen } : {}),
     session: fake({ fromPartition: () => fake() }),
     dialog: fake({ showMessageBox: async (...a) => { E.dialogs.push(a[a.length - 1]); return { response: E.dialogAnswer }; } }),
     BrowserWindow: function (o) {
       if (o && o.webPreferences && o.webPreferences.partition) return fake({ isDestroyed: () => false, destroy() {}, loadURL: async () => {},
         webContents: fake({ getURL: () => "https://school.instructure.com/", executeJavaScript: async js => E.school(js) }) });
-      const w = fake({ isDestroyed: () => false }); E.win = w; return w;
+      const w = fake({ isDestroyed: () => false }); E.win = w; E.winOpts = o; return w;
     }
   };
   const el = fake(electron);
@@ -150,6 +152,38 @@ function load(packaged, platform) {
   ran.length = 0; dev.dialogs.length = 0;
   ok((await lms.mail("canvas", "school.instructure.com", { op: "list" }, parent)).ok === true && !dev.dialogs.length, "reading the inbox asks nothing");
   dev.restore();
+
+  /* http:// links open in the system browser too; other schemes never */
+  {
+    const src = fs.readFileSync(path.join(root, "main.js"), "utf8"), m = /function safeExternal\(raw\) \{[\s\S]*?\n\}/.exec(src);
+    const safeExternal = new Function("IS_MAS", "return " + m[0])(false);
+    ok(safeExternal("http://school.example/syllabus") === "http://school.example/syllabus" && safeExternal("https://x.example/") === "https://x.example/", "http:// and https:// links are opened in the browser");
+    ok(!safeExternal("file:///etc/passwd") && !safeExternal("javascript:alert(1)") && !safeExternal("http://u:p@x.example/"), "file:, javascript: and links with a password still aren't");
+    ok(/n\.on\("show", \(\) => \{ if \(cfg\.updateNotedFor !== latest\) \{ cfg\.updateNotedFor = latest;/.test(src), "the update notice is marked seen only once it has shown");
+    ok(/update: updateInfo\(\)/.test(src) && /data-act="sbw-update"/.test(fs.readFileSync(path.join(root, "src", "js", "70-widgets.js"), "utf8")), "a newer version is passed to Settings, which shows an Update Available row");
+  }
+
+  /* Documents can't be written (controlled folder access, offline OneDrive); the window's saved place is on an unplugged monitor */
+  {
+    const t2 = fs.mkdtempSync(path.join(os.tmpdir(), "sb-docs-")), ud = path.join(t2, "ud");
+    fs.writeFileSync(path.join(t2, "docs-is-a-file"), "x");
+    fs.mkdirSync(ud, { recursive: true });
+    const one = { getAllDisplays: () => [{ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }], getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }), on() {} };
+    fs.writeFileSync(path.join(ud, "studyboard-desktop.json"), JSON.stringify({ window: { x: 4000, y: 300, width: 1200, height: 800 } }));
+    const E = load(false, null, { paths: { documents: path.join(t2, "docs-is-a-file"), userData: ud }, screen: one });
+    await E.ready;
+    ok(E.winOpts && E.winOpts.width === 1200, "Documents can't be written: the window still opens");
+    const info = await E.handlers["dir:info"](E.ev());
+    ok(info.path === path.join(ud, "Studyboard folder") && info.lost && fs.existsSync(path.join(info.path, "README.txt")), "and the app saves to a folder in its own data instead: " + info.path);
+    ok(E.winOpts.x === undefined && E.winOpts.y === undefined, "a window last seen on a monitor that is gone opens centred on this one");
+    E.restore();
+    fs.writeFileSync(path.join(ud, "studyboard-desktop.json"), JSON.stringify({ window: { x: 100, y: 120, width: 1000, height: 700 } }));
+    const F = load(false, null, { paths: { userData: ud }, screen: one });
+    await F.ready;
+    ok(F.winOpts.x === 100 && F.winOpts.y === 120, "a saved place that is on screen is kept");
+    F.restore();
+    fs.rmSync(t2, { recursive: true, force: true });
+  }
 
   /* 2. packaged: no 'unsafe-inline', sandbox always on */
   const pk = load(true); await pk.ready;

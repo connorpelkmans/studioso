@@ -7,7 +7,29 @@ function pwaBoot(){
   if (inPreview() || DESK || !(location.protocol === "https:" || (location.protocol === "http:" && location.hostname === "localhost"))) { if (inPreview() || DESK) links.forEach(x => x.remove()); return; }
   if (!links.length) { const l = document.createElement("link"); l.rel = "manifest"; l.href = "manifest.webmanifest"; document.head.appendChild(l); }
   else for (let i = 1; i < links.length; i++) links[i].remove();
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => { if (window.SBERR) SBERR.flow("sw-register", e); });
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("sw.js").catch(e => { if (window.SBERR) SBERR.flow("sw-register", e); });
+  navigator.serviceWorker.addEventListener("message", e => { const m = e.data; if (m && m.type === "sb-new-version" && Array.isArray(m.parts)) pwaNewVersion(m.parts); });
+  // An app left open checks for a new release now and then (the service worker saves it and says so)
+  let checkedAt = Date.now();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || Date.now() - checkedAt < 6 * 36e5 || !navigator.serviceWorker.controller) return;
+    checkedAt = Date.now(); fetch("./index.html", {cache: "no-cache"}).catch(() => {});
+  });
+}
+// A newer release is saved: offer to reload. Never reloads by itself, so nothing being typed is lost
+let pwaNewShown = false;
+function pwaNewVersion(parts){
+  const mine = new Set([...document.querySelectorAll('script[src*="bundle/"], link[href*="bundle/"]')].map(x => x.src || x.href));
+  if (pwaNewShown || !mine.size || parts.every(u => mine.has(u))) return;
+  pwaNewShown = true;
+  let tries = 0;
+  const go = () => {
+    const t = $("#toast");
+    if (t && t.classList.contains("show") && ++tries < 40) { setTimeout(go, 5000); return; }
+    toast("A new version of Studyboard is ready.", null, {label: "Reload", fn: () => location.reload()});
+  };
+  setTimeout(go, 1500);
 }
 /* Keeping this browser's copy */
 const PST = {state: "unknown"};
@@ -82,13 +104,29 @@ function themeRow(){
 }
 
 /* Backup files */
+// Resolves true once the file is saved (or handed to the share sheet). In the phone apps an <a download> click does nothing, so the file is
+// written to the app's cache with @capacitor/filesystem and offered with @capacitor/share, where the person picks "Save to Files" or similar.
 function saveBlob(filename, data, type){
   const blob = data instanceof Blob ? data : new Blob([data], {type: type || "application/octet-stream"});
+  if (nativeShell()) return saveBlobNative(filename, blob);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.style.display = "none";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
+  return Promise.resolve(true);
+}
+async function saveBlobNative(filename, blob){
+  const P = (window.Capacitor && window.Capacitor.Plugins) || {}, FS = P.Filesystem, SH = P.Share, bad = m => { toast(m, null, null, {error: true}); return false; };
+  if (!FS || !SH || typeof FS.writeFile !== "function" || typeof SH.share !== "function") return bad("Saving files isn't available in this version of the app. Update the app and try again.");
+  const name = String(filename || "").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120) || "file";
+  let uri;
+  try {
+    const b64 = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).replace(/^data:[^,]*,/, "")); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
+    uri = (await FS.writeFile({path: name, data: b64, directory: "CACHE"})).uri;
+  } catch (e) { return bad("Couldn't save the file. Check there's free space on your phone and try again."); }
+  try { await SH.share({title: name, files: [uri]}); return true; }
+  catch (e) { return /cancel/i.test(String(e && (e.message || e))) ? false : bad("Couldn't open the share sheet to save the file. Try again."); }
 }
 const inPreview = () => !!(window.claude && typeof window.claude.use === "function");
 // The main backup includes your uploaded files whenever there are any (a ZIP); "data only" skips them
@@ -99,7 +137,7 @@ async function exportBackup(opts){
     const dl = caps.downloads || await useCap("downloads");
     if (dl) { await dl.save({filename: `studyboard-backup-${todayISO()}.json`, data}); toast("Backup file saved"); return; }
   } catch(e) { if (e && e.code === "declined") return; }
-  if (!inPreview()) { saveBlob(`studyboard-backup-${todayISO()}.json`, data, "application/json"); try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} toast("Backup file saved"); scheduleRender(); return; }
+  if (!inPreview()) { if (!(await saveBlob(`studyboard-backup-${todayISO()}.json`, data, "application/json"))) return; try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} toast("Backup file saved"); scheduleRender(); return; }
   try { await navigator.clipboard.writeText(data); toast("Backup copied to clipboard"); }
   catch(e) { toast("Export isn't available here"); }
 }

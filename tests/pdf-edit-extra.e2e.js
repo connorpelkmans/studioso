@@ -220,7 +220,11 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     const corners = await page.evaluate(() => [...document.querySelectorAll(".pde-corner")].map(c => [parseFloat(c.style.left), parseFloat(c.style.top)]));
     ok(corners[0][0] > 10 && corners[0][1] > 8 && corners[2][0] < 90 && corners[2][1] < 92, "the page's corners are found in the photo: " + JSON.stringify(corners.map(c => c.map(Math.round))));
     await shot("6-scan-corners");
-    await page.click('[data-scan="crop-done"]'); await page.waitForSelector('[data-scan="make"]');
+    await page.focus(".pde-corner"); await page.keyboard.press("Escape"); await page.waitForSelector('[data-scan="make"]');
+    ok(await page.locator("#pdeScanDlg[open] .pde-scanlist li").count() === 1, "Esc in the corners view is Done: the scan and its page stay");
+    await page.click('#pdeScanDlg .sheet-foot [data-scan="close"]'); await page.waitForSelector("#askDlg[open]");
+    await page.click("#askNo"); await page.waitForTimeout(200);
+    ok(await page.locator("#pdeScanDlg[open] .pde-scanlist li").count() === 1, "Cancel with pages asks first; Keep Scanning keeps them");
     await shot("7-scan");
     const before = await page.evaluate(() => Object.keys(state.files).length);
     await page.click('[data-scan="make"]');
