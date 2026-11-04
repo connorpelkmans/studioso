@@ -39,7 +39,22 @@ var SBCLS = null;
   /* Classes also come from calendar events linked to the course (a school calendar's "NK1 Module 8, Class 3 · Lecture"):
      a timed event whose label is a kind of class, or that has no label */
   const CLASS_KIND = /lecture|lab|discussion|tutorial|seminar|recitation|class|studio|clinical|practicum|workshop|office hours|section|lesson/i;
-  const isClassEvent = ev => !!ev && !!ev.courseId && !ev.allDay && !!ev.start && (!ev.label || CLASS_KIND.test(ev.label));
+  // An event with no label only counts when it looks like a class: it repeats, names a kind of class, or is titled with the course.
+  // Imported deadlines ("Forms DUE", "Essay submission") are timed events too: a clear deadline word always rules one out,
+  // and a softer one (plan, report, exam) does unless the title also names a kind of class ("Exam Review Lecture" stays)
+  const DUE_WORD = /\bdue\b|deadline|submi(t|ssion)|lab report|\bcloses?\b|\bopens?\b/i;
+  const DEADLINE = /assignment|\bexam\b|midterm|\bquiz|\btest\b|\bforms?\b|\bplan\b|\breport\b|\bessay\b|\bpaper\b|\bproject\b|portfolio|reflection|\bavailable\b/i;
+  const squash = x => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const namesCourse = ev => { const c = state.courses && state.courses[ev.courseId], t = squash(ev.title); if (!c || !t) return false;
+    return [c.code, c.name].map(squash).some(k => k && (t === k || (t.includes(k) && t.length <= k.length + 12))); };
+  const isClassEvent = ev => !!ev && !!ev.courseId && !ev.allDay && !!ev.start && (ev.label ? CLASS_KIND.test(ev.label)
+    : unlabeledClass(ev));
+  function unlabeledClass(ev){
+    const t = ev.title || "";
+    if (DUE_WORD.test(t)) return false;
+    if (CLASS_KIND.test(t)) return true;
+    return !DEADLINE.test(t) && (!!(ev.repeat && ev.repeat.days && ev.repeat.days.length) || namesCourse(ev));
+  }
   // A class's key: "date|start|kind" (the usual date and time, so a class moved for one week keeps it)
   const classKey = o => o.type === "meet" ? o.key : `${o.orig}|${(o.ev && o.ev.start) || o.start}|${o.label || "Class"}`;
   const courseIdOf = o => o.type === "meet" ? o.id : o.ev && o.ev.courseId;
@@ -122,10 +137,11 @@ var SBCLS = null;
     const kinds = kindsOf(all), want = ui.clsKind && ui.clsKind[c.id], pick = want && kinds.includes(want) ? want : "";
     const list = all.filter(x => !pick || x.kind === pick);
     const termLine = `${day(T.from, {month: "short", day: "numeric"})} – ${day(T.until, {month: "short", day: "numeric", year: "numeric"})}`;
-    const top = `<div class="cls-top"><h2 class="sec"><span class="t">Classes</span><span class="n">${all.filter(x => !x.skipped).length || ""}</span></h2>
-      <span class="mini cls-term">${T.set ? "" : "About "}${esc(termLine)} <button type="button" class="link-btn" data-act="cls-dates" data-cid="${esc(c.id)}">${T.set ? "Change" : "Set Term Dates"}</button></span></div>`;
-    if (!all.length) return `<section class="cls-tab" style="--c:${esc(c.color)}">${top}<div class="empty"><strong>No Class Times Yet</strong>Add this course's class times (lectures, labs, discussions, office hours) and every class of the term shows here, each with a page for its notes and recording. <div class="row-actions" style="justify-content:center;margin-top:10px"><button type="button" class="btn small primary" data-act="edit-course" data-id="${esc(c.id)}">Add Class Times</button></div></div></section>`;
-    const chips = kinds.length > 1 ? `<div class="cls-kinds ep-days" role="group" aria-label="Show">${[["", "All"]].concat(kinds.map(k => [k, k === "Office Hours" ? k : k + "s"])).map(([k, l]) => `<button type="button" data-act="cls-kind" data-cid="${esc(c.id)}" data-k="${esc(k)}" aria-pressed="${pick === k}">${esc(l)}</button>`).join("")}</div>` : "";
+    const hasNow = list.some(x => mondayOf(x.date) === mondayOf(today));
+    const top = `<div class="cls-top">${c2Head("classes", "Classes", all.filter(x => !x.skipped).length || "")}${hasNow ? `<button type="button" class="btn small cls-now" data-act="cls-now">This Week</button>` : ""}</div>
+      <p class="mini cls-term">${T.set ? "" : "About "}${esc(termLine)} <button type="button" class="link-btn" data-act="cls-dates" data-cid="${esc(c.id)}">${T.set ? "Change" : "Set Term Dates"}</button></p>`;
+    if (!all.length) return `<section class="c2-card2 c2-box cls-tab" style="--c:${esc(c.color)}">${top}<div class="empty"><strong>No Class Times Yet</strong>Add this course's class times (lectures, labs, discussions, office hours) and every class of the term shows here, each with a page for its notes and recording. <div class="row-actions" style="justify-content:center;margin-top:10px"><button type="button" class="btn small primary" data-act="edit-course" data-id="${esc(c.id)}">Add Class Times</button></div></div></section>`;
+    const chips = kinds.length > 1 ? `<div class="cls-kinds ep-days" role="group" aria-label="Show">${[["", "All"]].concat(kinds.map(k => [k, k === "Office Hours" ? k : /(s|x|z|ch|sh)$/i.test(k) ? k + "es" : k + "s"])).map(([k, l]) => `<button type="button" data-act="cls-kind" data-cid="${esc(c.id)}" data-k="${esc(k)}" aria-pressed="${pick === k}">${esc(l)}</button>`).join("")}</div>` : "";
     const mon = d => mondayOf(d), wk0 = mon(T.from), weeks = new Map();
     list.forEach(x => { const w = mon(x.date); if (!weeks.has(w)) weeks.set(w, []); weeks.get(w).push(x); });
     const nowW = mon(today), nextUp = list.find(x => !x.skipped && (x.date > today || (x.date === today && tMin(x.end) >= minOfDay(Date.now()))));
@@ -140,7 +156,7 @@ var SBCLS = null;
       const wn = Math.floor(dayDiff(wk0, w) / 7) + 1;
       return `<div class="cls-week${w === nowW ? " is-now" : ""}"><h3 class="cls-wk"><span>Week ${wn}</span><span class="mini">${esc(day(w, {month: "short", day: "numeric"}))} – ${esc(day(addDays(w, 6), {month: "short", day: "numeric"}))}</span>${w === nowW ? `<span class="cls-pill">This Week</span>` : ""}</h3><ul class="cls-list">${xs.map(row).join("")}</ul></div>`;
     }).join("");
-    return `<section class="cls-tab" style="--c:${esc(c.color)}">${top}${chips}${body}</section>`;
+    return `<section class="c2-card2 c2-box cls-tab" style="--c:${esc(c.color)}">${top}${chips}${body}</section>`;
   }
   // Recordings that don't belong to any class, kept under the class list
   const looseRecs = c => Object.values(state.files || {}).filter(f => f.courseId === c.id && isLec(f) && !recKeyOf(f)).map(f => f.id);
@@ -349,12 +365,13 @@ var SBCLS = null;
     return false;
   });
 
-  // Opening the Lectures tab scrolls to this week
-  let lastTab = "";
-  hook("render", () => {
-    const k = ui.tab === "courses" && ui.courseId && ui.courseTab === "lectures" ? ui.courseId : "";
-    if (k && k !== lastTab) setTimeout(() => { const w = document.querySelector(".cls-week.is-now"); if (w && w.getBoundingClientRect().top > innerHeight * 0.6) w.scrollIntoView({block: "start", behavior: "auto"}); }, 30);
-    lastTab = k;
+  // This Week: glide down so the current week sits in the middle of the screen
+  hook("act", act => {
+    if (act !== "cls-now") return false;
+    const w = document.querySelector(".cls-week.is-now"); if (!w) return true;
+    const still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    w.scrollIntoView({block: "center", behavior: still ? "auto" : "smooth"});
+    return true;
   });
 
   SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, occRows, open: openClass, recKeyOf};

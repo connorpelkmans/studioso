@@ -363,6 +363,7 @@ dialog::backdrop{background:rgba(10,14,24,.5)}
   dialog{margin:auto 0 0;max-width:100%;width:100%;border-radius:20px 20px 0 0;max-height:90vh}
 }
 .sheet{display:flex;flex-direction:column;max-height:inherit}
+a.btn{text-decoration:none}
 /* A sheet scrolls in its own body; the dialog around it never shows a second, stray scrollbar */
 dialog:has(> .sheet){overflow:hidden}
 .sheet-head{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
@@ -5849,6 +5850,24 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .c2-promo > .lib-strip{margin:0 10px 10px}
 .c2-card2{margin-top:18px;padding:14px 16px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.06)}
 .c2-card2 h2.sec{margin-top:0}
+/* Course page cards: the title sits inside the box with a round icon, like a group's sections */
+.c2-cols .c2-box{margin-top:14px}
+h2.sec.c2-bh{align-items:center}
+.c2-box > h2.sec.c2-bh{margin:0 0 10px}
+.c2-ic{box-sizing:border-box;width:30px;height:30px;padding:6px;border-radius:50%;background:color-mix(in srgb,var(--c,var(--accent)) 15%,var(--surface));color:var(--c,var(--accent));flex:none}
+.c2-promo > summary > .c2-ic{margin-right:2px}
+.c2-promo{border-radius:18px}
+.c2-box > :is(ul.tasks,.c2-list,.facts,.bs-course,.notes){margin:0;background:transparent;border:0;box-shadow:none;border-radius:0;padding-left:0;padding-right:0}
+.c2-box > ul.tasks{margin:0 -16px;overflow:visible}
+.c2-box > ul.tasks > li.task:first-child{border-top:1px solid var(--line)}
+.c2-box > ul.tasks + .show-old{margin-top:10px}
+.c2-box:has(> ul.tasks:last-child){padding-bottom:0}
+.c2-box > ul.tasks:last-child{margin-bottom:-1px}
+.c2-box > .facts,.c2-box > .notes{padding-top:2px;padding-bottom:0}
+.c2-box > .c2-list{padding-top:0;padding-bottom:0}
+.c2-box > .bs-course{padding:0}
+.c2-box .c2-more{margin:6px 0 0}
+.c2-box > .pp-exams{margin:0}
 .c2-big{display:flex;align-items:center;gap:8px;font:800 2.2rem/1.1 var(--display);margin:4px 0 8px}
 .c2-side .c2-card2 .prog .track i,.c2-head ~ .c2-cols .c2-card2 .prog i{background:var(--c,var(--accent))}
 @media (max-width:899px){.c2-cols{grid-template-columns:1fr}}
@@ -7950,7 +7969,9 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 @media (max-width:560px){.rb-eq{left:6px!important;right:6px;width:auto}}
 
 /* Office previews (Files > Preview) */
-.ofv-sheet{width:min(1000px,100%)}
+.ofv-sheet{width:100%}
+dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
+@media (max-width:600px){dialog:has(.sheet.ofv-sheet){width:100%}}
 .ofv-body{background:color-mix(in srgb,var(--ink) 8%,var(--soft));display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px;overflow:auto}
 .ofv-page{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;max-width:100%}
 .ofv-grid{align-self:stretch;align-items:flex-start;overflow-x:auto}
@@ -7959,9 +7980,10 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .ofv-warn{align-self:stretch;margin:0}
 
 /* Class pages (99-class-sessions.js): the Lectures tab's class list, a class's page, and the Lecture Notes folder by class */
-.cls-tab{margin-top:6px}
-.cls-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px 14px;flex-wrap:wrap}
-.cls-top .sec{margin-bottom:4px}
+.cls-tab{margin-top:14px}
+.cls-top{display:flex;align-items:center;justify-content:space-between;gap:8px 14px;flex-wrap:wrap}
+.cls-tab .cls-top > h2.sec.c2-bh{margin:0}
+.cls-term{margin:6px 0 0}
 .cls-term .link-btn{padding:0;font-size:inherit}
 .cls-kinds{margin:6px 0 4px}
 .cls-week{margin-top:14px}
