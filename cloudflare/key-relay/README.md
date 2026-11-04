@@ -22,15 +22,15 @@ The relay never sees the code or a key. Each box is deleted when it is collected
 | `DELETE /v1/h/<id>` | The first device cancels. |
 | `GET /k#XXXX-XXXX-XXXX` | The page a scanned QR code opens. It shows the code with **Copy Code**, and an **Open Studyboard** button if `APP_URL` is set. |
 
-## Phone photos for Scan to PDF
+## Phone photos for Scan to PDF and Photo to Note
 
-The same Worker also powers **Take Photos** in Scan to PDF on a computer. Clicking it shows a QR code; the phone opens the relay's camera page (`/s`), and each photo taken there turns up as a page on the computer. No app or sign-in is needed on the phone.
+The same Worker also powers **Take Photos** in Scan to PDF and in Photo to Note on a computer (Photo to Note's QR code opens `/s?for=notes`, which only changes the camera page's wording). Clicking it shows a QR code; the phone opens the relay's camera page (`/s`), and each photo taken there turns up as a page on the computer. No app or sign-in is needed on the phone.
 
 1. The computer makes a random code and works out a session id and an AES-GCM key from it (SHA-256 of `sb-scan-id:` or `sb-scan-key:` plus the code). It opens the session here with only the id.
 2. The QR code links to `/s#<code>`. The `#fragment` is never sent to a server.
 3. The phone shrinks each photo to a JPEG under 1.8 MB, locks it with the key and posts it. The computer polls, collects each photo once (which deletes it) and unlocks it.
 
-A session ends when the computer closes Scan to PDF, or after 30 minutes, and holds at most 60 photos. The relay only ever sees the session id and locked photos (`src/scan.js`).
+A session ends when the computer closes Scan to PDF (or Photo to Note), or after 30 minutes, and holds at most 60 photos. The relay only ever sees the session id and locked photos (`src/scan.js`).
 
 | Route | What it does |
 |---|---|

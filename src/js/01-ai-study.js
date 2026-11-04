@@ -308,40 +308,68 @@ function photoNoteSheet(file){
   if (!aiReady()) { aiSetupSheet(true); return; }
   const KK = "photo-note";
   if (file) sheetDrop(KK); else if (sheetResume(KK)) return;
-  const S = {srcs: [], files: [], result: null, busy: false, ac: null, dropped: false};
+  const S = {srcs: [], files: [], urls: [], result: null, busy: false, ac: null, dropped: false, phone: null};
+  // like Scan to PDF: on a computer, Take Photos shows a QR code for your phone (PHONE_CAM); on a phone or tablet it opens the camera
+  const qr = typeof PHONE_CAM !== "undefined" && PHONE_CAM.can(), cam = !qr && phoneLike();
+  const CAM_IC = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>`;
+  const IMG_IC = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>`;
   openSheet(`<form class="sheet ai-sheet">${head("Photo to Note")}
-    <div class="sheet-body" id="pnBody">
-      <div class="drop" id="pnDrop"><p style="margin:0 0 10px"><strong>Take or choose photos of the whiteboard, a slide, or handwritten notes.</strong><br><span class="mini">They become clean, typed notes on your board. Dates written in them can be added as tasks.</span></p>
-        <div class="row-actions" style="justify-content:center">${phoneLike() ? `<button type="button" class="btn primary" id="pnTake">Take Photo</button>` : ""}<button type="button" class="btn${phoneLike() ? "" : " primary"}" id="pnPick">Choose Photos</button></div>
-        <input type="file" id="pnFile" accept="image/*,application/pdf" multiple class="sr" tabindex="-1"><input type="file" id="pnCam" accept="image/*" capture="environment" class="sr" tabindex="-1"></div>
-      <ul class="ai-srcs" id="pnSrcs"></ul>
+    <div class="sheet-body pnote-intake" id="pnBody">
+      <p class="mini" style="margin:0">Take or choose photos of the whiteboard, a slide, or handwritten notes. They become clean, typed notes on your board, and dates written in them can be added as tasks.${qr ? " Photos from your phone come here locked, through Studyboard's relay." : ""}</p>
+      <div class="row-actions pnote-acts">${qr ? `<button type="button" class="btn primary" id="pnPhone" aria-pressed="false">${CAM_IC}Take Photos</button>` : cam ? `<button type="button" class="btn primary" id="pnTake">${CAM_IC}Take Photo</button>` : ""}<button type="button" class="btn${qr || cam ? "" : " primary"}" id="pnPick">${IMG_IC}Choose Photos</button></div>
+      <input type="file" id="pnFile" accept="image/*,application/pdf" multiple class="sr" tabindex="-1">${cam ? `<input type="file" id="pnCam" accept="image/*" capture="environment" class="sr" tabindex="-1">` : ""}
+      <div id="pnPhoneP"></div>
+      <div class="drop pnote-drop" id="pnDrop"><ol class="pnote-thumbs" id="pnSrcs"></ol><p class="pnote-empty" id="pnEmpty">No photos yet${cam ? "" : `<span class="mini">You can also drop photos here.</span>`}</p></div>
       <label class="f">Course<select id="pnCourse">${courseSelectHtml(ui.filter !== "all" ? ui.filter : "")}</select></label>
       ${aiModelBar()}
       <p class="status-msg" id="pnStatus" style="margin:0" aria-live="polite"></p>
     </div>
-    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnGo">${AI_ICON} Make Note</button></div></form>`);
+    <div class="sheet-foot"><button type="button" class="btn" data-act="close" id="pnCancel">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnGo">${AI_ICON} Make Note</button></div></form>`);
   // queries stay inside this sheet, so a note that's read while it's set aside lands in the right one
   const form = dlg.querySelector("form.ai-sheet"), $ = q => form.querySelector(q);
-  sheetKeep(KK, {name: "Photo to Note", dirty: () => S.srcs.length > 0 || !!S.result, busy: () => S.busy, drop: () => { S.dropped = true; if (S.ac) { try { S.ac.abort(); } catch (e) {} } }});
+  // the phone: its session ends when the sheet closes, is set aside, or starts reading the photos
+  const phoneDraw = () => { const p = $("#pnPhoneP"); if (p) p.innerHTML = S.phone ? PHONE_CAM.panel(S.phone, "data-pn", "Take a photo of the board, a slide or your notes there and it shows up here.") : ""; const b = $("#pnPhone"); if (b) b.setAttribute("aria-pressed", S.phone ? "true" : "false"); };
+  const phoneStop = () => { const ph = S.phone; if (!ph) return; S.phone = null; PHONE_CAM.stop(ph); phoneDraw(); };
+  const phoneStart = () => {
+    if (S.phone) return;
+    const ph = S.phone = PHONE_CAM.start({kind: "notes", onPhoto: f => add([f]), onChange: phoneDraw, alive: () => S.phone === ph && !S.dropped && !S.busy && !S.result && form.isConnected && dlg.open && dlg.contains(form)});
+    phoneDraw();
+  };
+  sheetKeep(KK, {name: "Photo to Note", dirty: () => S.srcs.length > 0 || !!S.result, busy: () => S.busy,
+    drop: () => { S.dropped = true; phoneStop(); S.urls.forEach(u => { if (u) try { URL.revokeObjectURL(u); } catch (e) {} }); if (S.ac) { try { S.ac.abort(); } catch (e) {} } },
+    // set aside, the phone's session ended (it stops itself once the sheet isn't showing)
+    resume: () => { if (S.phone && S.phone.stopped) { S.phone = null; phoneDraw(); } }});
   const status = $("#pnStatus");
   if (S.course != null) $("#pnCourse").value = S.course;
   $("#pnCourse").addEventListener("change", e => { S.course = e.target.value; });
-  const draw = () => { $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
-  const add = async list => { for (const f of list) { try { S.srcs.push(await aiSourceFromFile(f)); S.files.push(f); } catch(e) { status.textContent = e.message; } } draw(); };
+  const draw = () => {
+    const l = $("#pnSrcs"), em = $("#pnEmpty"); if (!l) return;
+    l.innerHTML = S.srcs.map((s, i) => `<li>${s.kind === "Image" && S.urls[i] ? `<img alt="" src="${esc(S.urls[i])}">` : `<span class="pnote-tile">${s.kind === "PDF" ? "PDF" : "IMG"}</span>`}<span class="mini nm" title="${esc(s.name)}">${esc(s.name)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove ${esc(s.name)}">${CLOSE}</button></li>`).join("");
+    if (em) em.hidden = S.srcs.length > 0;
+  };
+  const add = async list => { for (const f of list) { if (S.dropped || S.result) return; try { const src = await aiSourceFromFile(f); S.srcs.push(src); S.files.push(f); S.urls.push(src.kind === "Image" ? URL.createObjectURL(f) : ""); } catch(e) { status.textContent = e.message; } } draw(); };
   if (file) add([file]).then(() => { const g = $("#pnGo"); if (g && S.srcs.length) g.click(); });
   $("#pnPick").addEventListener("click", () => $("#pnFile").click());
   $("#pnFile").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); });
-  const cam = $("#pnTake"); if (cam) { cam.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }
-  const drop = $("#pnDrop");
-  ["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
-  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  const take = $("#pnTake"); if (take) { take.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }
+  const pb = $("#pnPhone"); if (pb) pb.addEventListener("click", phoneStart);
+  $("#pnPhoneP").addEventListener("click", e => { const b = e.target.closest("[data-pn]"); if (!b) return; if (b.dataset.pn === "phone-stop") phoneStop(); else if (b.dataset.pn === "phone-again") { phoneStop(); phoneStart(); } });
+  const drop = $("#pnBody");
+  ["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); $("#pnDrop").classList.add("over"); }));
+  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); $("#pnDrop").classList.remove("over"); }));
   drop.addEventListener("drop", e => add([...((e.dataTransfer && e.dataTransfer.files) || [])]));
-  $("#pnSrcs").addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { S.srcs.splice(Number(b.dataset.rm), 1); S.files.splice(Number(b.dataset.rm), 1); draw(); } });
+  $("#pnSrcs").addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { const i = Number(b.dataset.rm), u = S.urls[i]; if (u) try { URL.revokeObjectURL(u); } catch (er) {} S.srcs.splice(i, 1); S.files.splice(i, 1); S.urls.splice(i, 1); draw(); } });
+  // Cancel throws the photos away, so with photos in it, it asks first (without, it closes as any sheet does)
+  $("#pnCancel").addEventListener("click", e => {
+    const n = S.srcs.length; if (!n) return;
+    e.stopPropagation();
+    askBox({title: "Discard Photos?", text: `The ${n === 1 ? "photo" : `${n} photos`} you added won't be kept.`, yes: "Discard", no: "Keep", danger: true}).then(ok => { if (ok && dlg.open && dlg.contains(form)) dlg.close(); });
+  });
   $("#pnGo").addEventListener("click", async () => {
     const go = $("#pnGo");
     if (!S.srcs.length) { status.textContent = "Add a photo first."; return; }
     if (S.srcs.reduce((s, x) => s + aiSourceBytes(x), 0) > AI_LIMIT_BYTES) { status.textContent = "Those photos are too big to send at once. Try fewer."; return; }
-    go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your photos…`;
+    phoneStop(); go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your photos…`;
     S.busy = true; const ac = S.ac = typeof AbortController === "function" ? new AbortController() : null;
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
