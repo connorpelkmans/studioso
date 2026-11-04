@@ -718,3 +718,8 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 @media (max-width:639px) and (prefers-reduced-motion:reduce){
   html.ph-lock #view :is(.cpt-head.cpt3,.cpt3-mini > *,.cpt3-acts,.cpt3-ring,.cpt-id,.cpt3-tabs,.cpt-priv),html.ph-lock :is(.cp-layer,.cp-front){transition:none!important}
 }
+/* Today's rail: a class or event's colour runs around its whole edge (thicker on the left), like a group chat message,
+   so the left stripe and the Now/Next outline read as one border instead of two */
+.dtl-c.ev{border:1px solid color-mix(in srgb,var(--c) 40%,var(--line));border-left:4px solid var(--c)}
+.dtl-c.ev:is(.now,.next){box-shadow:none;border:2px solid var(--c);border-left-width:5px;padding-left:9px}
+.dtl-c.tk:is(.now,.next){box-shadow:none;border:2px solid var(--c,var(--accent))}
