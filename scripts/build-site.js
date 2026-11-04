@@ -33,6 +33,8 @@ if (fs.existsSync(path.join(ROOT, ".well-known"))) copy(".well-known");
 // Icons go in icons/ and also stay next to index.html
 ICONS.forEach(f => { copy(f, "icons/" + f); copy(f); });
 WIDGETS.forEach(f => copy(f, "widgets/" + f));
+// The favicon search engines and browsers look for at the root (16 to 256 px inside)
+copy("icon.ico", "favicon.ico");
 // Fresh script hashes in the page's own policy
 {
   const crypto = require("crypto"), file = path.join(OUT, "index.html");
