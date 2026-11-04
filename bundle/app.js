@@ -4558,7 +4558,8 @@ Rules:
 - sure=false when you had to infer the date.
 Return JSON only.`});
   const d = res.data || {}, c = d.course || {};
-  const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || ""), isTime = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || "");
+  // a real calendar day: "2026-02-30" is left blank, not saved
+  const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || "") && !isNaN(Date.parse(s + "T00:00:00Z")) && new Date(s + "T00:00:00Z").toISOString().slice(0, 10) === s, isTime = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || "");
   const meetings = (Array.isArray(c.meetings) ? c.meetings : []).map(m => ({id: uid(), kind: MEET_KINDS.includes(m.kind) ? m.kind : "Other", days: [...new Set((m.days || []).map(Number).filter(x => x >= 0 && x <= 6))].sort(), start: isTime(m.start) ? m.start : "", end: isTime(m.end) ? m.end : "", where: String(m.where || "").trim()})).filter(m => m.days.length && m.start && m.end && m.end > m.start);
   const course = {name: String(c.name || "").trim(), code: String(c.code || "").trim(), instructor: String(c.instructor || "").trim(), room: String(c.room || "").trim(), office: String(c.officeHours || "").trim(),
     schedule: meetingsSummary(meetings), meetings, links: (Array.isArray(c.links) ? c.links : []).map(l => ({label: String(l.label || "Link").trim() || "Link", url: String(l.url || "").trim()})).filter(l => safeUrl(l.url)).slice(0, 8)};
@@ -4568,7 +4569,7 @@ Return JSON only.`});
   const gate = aiGateSyllabus(items, today); items.length = 0; gate.items.forEach(i => items.push(i));
   items.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
   const gateNote = [gate.fixed ? `${gate.fixed} date${gate.fixed === 1 ? " looked" : "s looked"} wrong (far from the rest) and ${gate.fixed === 1 ? "was" : "were"} left blank for you to fill in.` : "", gate.dups ? `${gate.dups} repeated item${gate.dups === 1 ? " was" : "s were"} merged.` : ""].filter(Boolean).join(" ");
-  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote, rules: aiSylRules(d.rules)};
+  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote, rules: aiSylRules(d.rules), truncated: !!res.truncated};
 }
 
 /* Settings: turning AI on and choosing a model */
@@ -14133,7 +14134,9 @@ const SY = (() => {
     const words = s.match(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*/gi);
     if (words) words.forEach(w => days.add(NAMES.indexOf(w.slice(0, 3).toLowerCase())));
     else if (!days.size) {
-      s = s.replace(/\b(M|Tu|W|Th|R|F|Sa|Su)\s*[/,&]\s*(?=(?:M|Tu|W|Th|R|F|Sa|Su)\b)/g, "$1").replace(/\b(M|Tu|W|Th|R|F|Sa|Su)\s*[/,&]\s*(?=(?:M|Tu|W|Th|R|F|Sa|Su)\b)/g, "$1");
+      // "T/R", "M W F", "Tu & Th", "MW F" -> one code ("TR", "MWF", ...)
+      const join = /\b((?:M|Tu|Th|T|W|R|F|Sa|Su)+)(?:\s*(?:[/,&+]|\band\b)\s*|\s+)(?=(?:M|Tu|Th|T|W|R|F|Sa|Su)+\b)/g;
+      for (let k = 0; k < 6 && join.test(s); k++) { join.lastIndex = 0; s = s.replace(join, "$1"); }
       const code = (s.match(/\b([MTWRFSU]|Th|Tu|Sa|Su){2,5}\b/) || s.match(/\b(Th|Tu|Sa|Su|[MWRF])\b(?=\s*\d)/) || [""])[0];
       code.replace(/Th|Tu|Sa|Su|[MTWRFSU]/g, t => { days.add({M:1, T:2, Tu:2, W:3, R:4, Th:4, F:5, S:6, Sa:6, Su:0, U:0}[t]); return t; });
     }
@@ -14149,6 +14152,9 @@ const SY = (() => {
       [/^(?:pop\s+|in-class\s+|weekly\s+)?quiz(?:zes)?\b/i, "Quiz"], [/^(?:homework|hw|home\s*works?|assignments?|problem\s+sets?|psets?|written\s+assignments?)\b/i, "Assignment"],
       [/^(?:labs?|lab\s+reports?|laboratory(?:\s+work)?)\b/i, "Lab"], [/^(?:(?:term|group|final|class)\s+)?projects?\b/i, "Project"], [/^(?:readings?|reading\s+responses?)\b/i, "Reading"]];
     const WORDN = {one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, twelve:12};
+    // "Quizzes 20%, Homework 20%, Midterm 30%" on one line: each part is its own entry
+    const isCat = p => CATS.some(([re]) => re.test(p.replace(/^[\s•\-*·]+/, "").trim()));
+    lines = lines.flatMap(l => { const ps = l.split(/\s*[,;]\s*|\t|\s[|•·]\s/); return ps.filter(p => isCat(p) && /\d\s*%/.test(p)).length >= 2 ? ps : [l]; });
     lines.forEach(l => {
       const t = l.replace(/^[\s•\-*·]+/, "").trim();
       if (t.length > 110) return;
@@ -14259,6 +14265,7 @@ const SY = (() => {
     };
 
     const items = [], assigned = {};
+    const timeCol = x => { const ds = findDates(x, yearFor); for (let i = ds.length - 1; i >= 0; i--) x = x.slice(0, ds[i].index) + " " + x.slice(ds[i].end); return x.replace(/\b\d{1,2}(?:[:.]\d{2})?\s*(?:a\.?m\.?|p\.?m\.?|[ap](?![a-z]))|\b\d{1,2}[:.]\d{2}\b/gi, " ").replace(WEEKDAY_RE, " ").replace(/\b(?:due|by|at|until|before|noon|midnight|eod|end of (?:the )?day)\b/gi, " "); };
     let ctxMonth = -1, ctxMonthAge = 99;
     let ctxDate = null, ctxAge = 99, ctxWeek = null, ctxWeekAge = 99;
     const MONTH_ONLY = new RegExp("^\\s*" + MONTH_RE + "(?:\\s+20\\d{2})?\\s*[:\\-–—]?\\s*$", "i");
@@ -14315,7 +14322,9 @@ const SY = (() => {
         if (!title || title.length < 2) return;
         if (ASSIGNED.test(seg) && !/\bdue\b/i.test(seg) && due && type !== "Exam" && type !== "Quiz") { assigned[title.toLowerCase()] = due; return; }
         const pS = type === "Exam" || type === "Quiz";
-        const time = findTime(seg, pS) || (ds.length && dates.length === 1 && source !== "context" ? findTime(line, pS) : "");
+        // a time elsewhere on the row counts only from a date/time column, not from another entry ("Lecture 10:00 am; Homework 3 due")
+        const tSeg = ds.length && dates.length === 1 && source !== "context" ? segs.find(x => x !== seg && findTime(x, pS) && !/[a-z]/i.test(timeCol(x))) : null;
+        const time = findTime(seg, pS) || (tSeg ? findTime(tSeg, pS) : "");
         items.push({title, type, due, start, time, source, note: line.slice(0, 300), hasDue: /\bdue\b/i.test(seg)});
       });
     });
@@ -14355,9 +14364,20 @@ const SY = (() => {
       const v = w.each != null ? w.each : w.pct / Math.max(1, w.count || (key === "Final" ? 1 : countOf(x.type)));
       if (v > 0 && v <= 100) x.weight = Math.round(v * 10) / 10;
     });
-    return {course, items: final, term, lineCount: lines.length, weightsFound: Object.keys(weights).length > 0 || own.length > 0, byType: weights, rules: gradeRules(text)};
+    return {course, items: final, term, lineCount: lines.length, weightsFound: final.some(x => x.weight != null), byType: weights, rules: gradeRules(text)};
   }
-  return {parse, findDates, termInfo, findTime, meetingDays, gradeRules};
+  // "HW 3", "Homework #03" and "homework 3" are the same task
+  const normTitle = t => String(t || "").toLowerCase().replace(/\b(?:hw|home\s*work)\s*#?\s*(?=\d)/g, "homework ").replace(/\b(?:ps|pset|problem\s+set)\s*#?\s*(?=\d)/g, "problemset ")
+    .replace(/\b(mid-?term|final)\s+exam(?:ination)?\b/g, "$1").replace(/\bmid-term\b/g, "midterm").replace(/#|\bno\.\s*(?=\d)/g, " ").replace(/\b0+(?=\d)/g, "").replace(/[^a-z0-9]/g, "");
+  // The AI ran out of room: the last date it got to, and the dated items this device's reading found from there on that the AI hasn't got
+  function fillCut(ai, local){
+    const its = (ai && ai.items) || [], last = its.map(i => i.due).filter(Boolean).sort().pop() || "";
+    const have = new Set(its.map(i => normTitle(i.title) + "|" + i.due)), haveN = new Set(its.filter(i => /\d/.test(i.title)).map(i => normTitle(i.title)));
+    const added = ((local && local.items) || []).filter(i => i.due && i.due >= last && !have.has(normTitle(i.title) + "|" + i.due) && !(/\d/.test(i.title) && haveN.has(normTitle(i.title))) && !its.some(a => a.due === i.due && a.type === i.type))
+      .map(i => Object.assign({}, i, {source: "cut"}));
+    return {last, added};
+  }
+  return {parse, findDates, termInfo, findTime, meetingDays, gradeRules, normTitle, fillCut};
 })();
 
 /* Syllabus import (PDF or text, parsed on this device) */
@@ -14477,7 +14497,11 @@ function importSheet(courseId, file){
     aiBusy = true; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true;
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading ${esc(from)}. This usually takes 10 to 40 seconds…`;
     ac = typeof AbortController === "function" ? new AbortController() : null;
-    try { const r = await aiReadSyllabus(parts, m => { status.textContent = m; }, ac ? ac.signal : undefined); aiBusy = false; if (dropped) return true; show(text, from, r); return true; }
+    try {
+      const r = await aiReadSyllabus(parts, m => { status.textContent = m; }, ac ? ac.signal : undefined);
+      if (r.truncated && !dropped) await fillCut(r, text);
+      aiBusy = false; if (dropped) return true; show(text, from, r); return true;
+    }
     catch(e) {
       aiBusy = false; if (dropped || (e && e.code === "cancelled")) return true;
       console.warn(e);
@@ -14485,6 +14509,21 @@ function importSheet(courseId, file){
       if (text) { show(text, from, null, why + " Read on this device instead. "); return true; }
       status.textContent = why; return false;
     }
+  }
+
+  // The AI's answer was cut off: say from when items may be missing, and add the later ones this device can read
+  async function fillCut(r, text){
+    let t = text;
+    if (!t && srcFile && (/\.pdf$/i.test(srcFile.name) || srcFile.type === "application/pdf")) {
+      status.textContent = "Checking the end of the PDF on this device…";
+      try { t = (await pdfText(await srcFile.arrayBuffer())).text; } catch (e) { t = ""; }
+    }
+    let f = {last: "", added: []};
+    try { f = SY.fillCut(r, t ? SY.parse(t, todayISO()) : null); } catch (e) { console.warn(e); }
+    if (f.added.length) r.items = r.items.concat(f.added).sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
+    const n = f.added.length;
+    r.gateNote = [r.gateNote, (f.last ? `The AI ran out of room, so items after ${fmtDate(f.last)} may be missing.` : "The AI ran out of room, so some items may be missing.") +
+      (n ? ` ${n} later item${n === 1 ? " was" : "s were"} found on this device and added; check ${n === 1 ? "it" : "them"}.` : t ? "" : " Check the end of the syllabus yourself.")].filter(Boolean).join(" ");
   }
 
   async function readFile0(f){
@@ -14538,15 +14577,19 @@ function importSheet(courseId, file){
     const cs = coursesArr();
     const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     const match = courseId ? courseOf(courseId) : cs.find(c => (r.course.code && norm(c.code) === norm(r.course.code)) || (r.course.name && norm(c.name) === norm(r.course.name)));
-    const existingKeys = new Set(tasksArr().map(t => norm(t.title) + "|" + t.due + "|" + t.courseId));
+    // "HW 3" and "Homework 3" are the same task; a numbered one is the same whatever its date
+    const nt = SY.normTitle;
+    const existingKeys = new Set();
+    tasksArr().forEach(t => { existingKeys.add(nt(t.title) + "|" + t.due + "|" + t.courseId); if (/\d/.test(t.title)) existingKeys.add(nt(t.title) + "|#|" + t.courseId); });
+    const isDup = (i, cid) => !!cid && cid !== "new" && (existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)));
     const dated = r.items.filter(i => i.due).length;
-    status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.gateNote ? r.gateNote + " " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? " Grade weights were taken from the grading breakdown." : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
+    status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.gateNote ? r.gateNote + " " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? (wN => wN < r.items.length ? ` Grade weights were found for ${wN} of ${r.items.length} items.` : " Grade weights were taken from the grading breakdown.")(r.items.filter(i => i.weight != null).length) : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
     const c = r.course;
-    const flag = i => i.source === "ai-low" ? (i.due ? "The AI worked out this date, so double-check it" : "No date found") : i.source === "week" ? "Date estimated from the week number" : i.source === "session" ? "Date estimated from the class number" : i.source === "context" ? "Date taken from the schedule entry above" : !i.due ? "No date found" : "";
+    const flag = i => i.source === "cut" ? "Found on this device after the AI ran out of room, so check it" : i.source === "ai-low" ? (i.due ? "The AI worked out this date, so double-check it" : "No date found") : i.source === "week" ? "Date estimated from the week number" : i.source === "session" ? "Date estimated from the class number" : i.source === "context" ? "Date taken from the schedule entry above" : !i.due ? "No date found" : "";
     const typeSel = (i, n) => `<select data-f="type" data-n="${n}" aria-label="Type">${TYPES.map(x => `<option ${x === i.type ? "selected" : ""}>${x}</option>`).join("")}</select>`;
     const today = todayISO(), past = i => !!i.due && i.due < today;
-    const rowOf = (i, n) => {
-      const dup = match && existingKeys.has(norm(i.title) + "|" + i.due + "|" + match.id);
+    const rowOf = (i, n, cid) => {
+      const dup = isDup(i, cid);
       const checked = i.due && !dup && !past(i);
       const f = dup ? "Already in your planner" : flag(i);
       return `<li class="imp-row ${checked ? "" : "off"}"><input type="checkbox" data-n="${n}" ${checked ? "checked" : ""} aria-label="Include ${esc(i.title)}">
@@ -14557,9 +14600,9 @@ function importSheet(courseId, file){
           <span class="imp-src" title="${esc(i.note)}">${esc(i.note.replace(/\t/g, "  "))}</span></div></li>`;
     };
     const idx = r.items.map((it, n) => n);
-    const rowsDated = idx.filter(n => r.items[n].due && !past(r.items[n])).map(n => rowOf(r.items[n], n)).join("");
     const undated = idx.filter(n => !r.items[n].due), gone = idx.filter(n => past(r.items[n]));
-    const rows = `<ul class="imp-list">${rowsDated}</ul>` + (gone.length ? `<details class="imp-group"><summary>Already Past (${gone.length})</summary><p class="mini" style="margin:0 0 8px">These dates have passed, so they're left out. Tick any you want in your planner, for example to add a mark. They're added as done.</p><ul class="imp-list">${gone.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "") + (undated.length ? `<details class="imp-group"><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "");
+    const rowsFor = cid => `<ul class="imp-list">${idx.filter(n => r.items[n].due && !past(r.items[n])).map(n => rowOf(r.items[n], n, cid)).join("")}</ul>` + (gone.length ? `<details class="imp-group"><summary>Already Past (${gone.length})</summary><p class="mini" style="margin:0 0 8px">These dates have passed, so they're left out. Tick any you want in your planner, for example to add a mark. They're added as done.</p><ul class="imp-list">${gone.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "") + (undated.length ? `<details class="imp-group"><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "");
+    const rows = rowsFor(match ? match.id : "new");
     $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", root).forEach(x => { x.hidden = true; });
     $("#impResult").innerHTML = `
       <p style="margin:0"><button type="button" class="link-btn" id="impAgain">Choose a Different File</button></p>
@@ -14583,8 +14626,23 @@ function importSheet(courseId, file){
 
     const target = $("#impTarget");
     const syncTarget = () => { const isNew = target.value === "new"; $("#impNew").hidden = !isNew; $("#impFillWrap").hidden = isNew; updateAdd(); };
-    target.addEventListener("change", syncTarget);
     const list = $("#impLists");
+    // A different course has different tasks already: redo the "Already in your planner" marks, keeping the other ticks
+    let shownFor = match ? match.id : "new";
+    target.addEventListener("change", () => {
+      if (list && target.value !== shownFor) {
+        const was = shownFor, ticks = {}, open = $$("details", list).map(d => d.open);
+        $$("input[type=checkbox][data-n]", list).forEach(b => { ticks[b.dataset.n] = b.checked; });
+        list.innerHTML = rowsFor(shownFor = target.value);
+        $$("details", list).forEach((d, k) => { d.open = !!open[k]; });
+        $$("input[type=checkbox][data-n]", list).forEach(b => {
+          const i = r.items[Number(b.dataset.n)];
+          if (isDup(i, was) !== isDup(i, shownFor) || !(b.dataset.n in ticks)) return;
+          b.checked = ticks[b.dataset.n]; b.closest("li").classList.toggle("off", !b.checked);
+        });
+      }
+      syncTarget();
+    });
     if (list) {
       list.addEventListener("change", e => {
         const n = e.target.dataset.n; if (n == null) return;
@@ -27152,7 +27210,7 @@ async function csLoad(){
 // Is the Edge Function deployed and open to calendar apps
 async function csCheckFn(){
   cs.fn = "checking"; csDraw();
-  const ping = async headers => { const r = await fetch(csFnUrl() + "?ping=1", {cache: "no-store", headers: headers || {}}); if (!r.ok) return {status: r.status}; const j = await r.json().catch(() => ({})); return {status: r.status, ok: j && j.app === "studyboard-calendar-feed"}; };
+  const ping = async headers => { const r = await fetchT(csFnUrl() + "?ping=1", {cache: "no-store", headers: headers || {}}, 15000); if (!r.ok) return {status: r.status}; const j = await r.json().catch(() => ({})); return {status: r.status, ok: j && j.app === "studyboard-calendar-feed"}; };
   let res = "missing";
   try { const r = await ping(); res = r.ok ? "ok" : r.status === 401 || r.status === 403 ? "jwt" : "missing"; }
   catch (e) {
@@ -37318,7 +37376,10 @@ function cleanFile(r) {
 
   function fromFeed(text, src){
     const raw = icsParse(text), out = {src: src || "feed", origin: "", courses: [], recs: [], evs: [], grades: [], finals: {}, news: [], synced: []};
-    const groups = {}, courses = {}, alias = {};
+    const groups = {}, courses = {}, alias = {}, parts = [];
+    // The item an entry is for, from its link: Canvas /assignments/12, Schoology /assignment/12, Moodle view.php?id=12, Brightspace db=12
+    const itemOf = u => { const x = String(u || ""), w = workIdsIn(x); if (w) return w.k + w.id;
+      const m = x.match(/\/(?:assignments|assignment|assessment|discussion_topics|discussion|quizzes)\/(\d+)/i) || x.match(/\/mod\/[a-z]+\/view\.php\?(?:[^#]*&)?id=(\d+)/i); return m ? m[0].toLowerCase() : ""; };
     const infoOf = it => {
       const g = k => (it.props[k] || [])[0], txt = k => icsTxt(g(k) && g(k).v), desc0 = txt("DESCRIPTION");
       return P.feedInfo({sum: txt("SUMMARY"), desc: desc0, loc: txt("LOCATION"), cat: txt("CATEGORIES"), uid: txt("UID"), url: txt("URL") || ((desc0.match(/https?:\/\/\S+/) || [])[0] || "").replace(/[)>.,]+$/, "")}, {codeOf, fnv});
@@ -37346,19 +37407,35 @@ function cleanFile(r) {
       const ct = cleanTitle(sum);
       const k = ou + "|" + titleKey(ct.title);
       if (!ct.phase && info.kind === "task") ct.phase = "due";
-      if (ct.phase) { (groups[k] = groups[k] || {ou, title: ct.title, notes: "", link: ""})[ct.phase] = byEnd(ct.phase, s, e) ? Object.assign({}, s, {time: e.time}) : s; if (notes) groups[k].notes = notes; if (link) groups[k].link = link; if (info.where) groups[k].where = info.where; return; }
+      if (ct.phase) { parts.push({k, ou, title: ct.title, phase: ct.phase, when: byEnd(ct.phase, s, e) ? Object.assign({}, s, {time: e.time}) : s, notes, link, where: info.where, uid: txt("UID"), item: itemOf(link)}); return; }
       if (info.kind !== "event" && WORKISH.test(ct.title) && /\b(quiz|test|exam|midterm|final)\b/i.test(ct.title) && !notSitting(ct.title)) {
-        (groups[k] = groups[k] || {ou, title: ct.title, notes: "", link: ""}).event = s; groups[k].notes = notes; groups[k].link = link; if (info.where) groups[k].where = info.where; return;
+        parts.push({k, ou, title: ct.title, phase: "event", when: s, notes, link, where: info.where, uid: txt("UID"), item: itemOf(link), keep: true}); return;
       }
       out.evs.push({ou, key: k + "|" + s.date + (s.allDay ? "" : "|" + s.time), title: ct.title, date: s.date, allDay: s.allDay, start: s.allDay ? "" : s.time, end: s.allDay || !e ? "" : e.date === s.date ? e.time : "23:59",
         endDate: s.allDay && e && e.date > addDays(s.date, 1) ? addDays(e.date, -1) : "", where: info.where || "", notes, url: link});
     });
-    Object.values(groups).forEach(gp => {
+    // Entries for one piece of work (opens, due, closes) come together by its own id in the link, else by name; "Weekly Reflection" due each
+    // week is a new item every week (a second "due" on another day), and the same entry twice (same day, or same UID) is one
+    const RANK = {starts: 0, due: 1, event: 1, ends: 2};
+    parts.sort((a, b) => (a.when.date + (a.when.time || "")).localeCompare(b.when.date + (b.when.time || "")));
+    parts.forEach(x => {
+      const list = groups[x.k] = groups[x.k] || [];
+      let gp = x.item ? list.find(g => g.item === x.item) : null;
+      if (!gp && !x.item) gp = list.filter(g => !g.item && (!g[x.phase] || g[x.phase].date === x.when.date || (x.uid && g.uids.includes(x.uid))) && ["starts", "due", "event", "ends"].every(q => !g[q] || q === x.phase ||
+          (RANK[q] < RANK[x.phase] ? g[q].date <= x.when.date : RANK[q] > RANK[x.phase] ? g[q].date >= x.when.date : true) && Math.abs(dayDiff(g[q].date, x.when.date)) <= 45))
+        .sort((a, b) => Math.abs(dayDiff(a.last, x.when.date)) - Math.abs(dayDiff(b.last, x.when.date)))[0] || null;
+      if (!gp) { gp = {ou: x.ou, title: x.title, notes: "", link: "", item: x.item, uids: [], last: x.when.date}; list.push(gp); }
+      if (!gp[x.phase]) gp[x.phase] = x.when;
+      gp.last = x.when.date; if (x.uid) gp.uids.push(x.uid);
+      if (x.notes || x.keep) gp.notes = x.notes; if (x.link || x.keep) gp.link = x.link; if (x.where) gp.where = x.where;
+    });
+    Object.entries(groups).forEach(([k, list]) => list.forEach(gp => {
       const when = gp.due || gp.event || (gp.ends && WORKISH.test(gp.title) ? gp.ends : null);
       if (!when) return;
       const st = gp.starts && gp.starts.date < when.date && gp.starts.date >= addDays(when.date, -45) ? gp.starts.date : "";
-      out.recs.push({ou: gp.ou, title: gp.title, type: typeFor(gp.title), due: when.date, time: when.allDay ? "" : when.time, start: gp.event ? "" : st, notes: gp.notes, url: P.taskLink ? P.taskLink(gp.link, gp.title, gp.ou) : gp.link, location: gp.where || ""});
-    });
+      // several items of one name: each keeps its own task (by its id, else its day)
+      out.recs.push(Object.assign(list.length > 1 ? {key: k + "|" + (gp.item || when.date)} : {}, {ou: gp.ou, title: gp.title, type: typeFor(gp.title), due: when.date, time: when.allDay ? "" : when.time, start: gp.event ? "" : st, notes: gp.notes, url: P.taskLink ? P.taskLink(gp.link, gp.title, gp.ou) : gp.link, location: gp.where || ""}));
+    }));
     out.courses = Object.values(courses);
     out.synced = out.courses.map(c => c.ou);
     return cleanData(out);
@@ -38316,7 +38393,8 @@ function cleanFile(r) {
   function findOk(){ return !!findCfg() && !inPreview(); }
   async function findCall(path, body){
     const c = findCfg(); if (!c) throw new Error("offline");
-    const r = await fetch(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)});
+    // the address lookup tries the usual addresses one by one, so it gets longer than the school search
+    const r = await fetchT(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)}, /lms-find/.test(path) ? 45000 : 15000);
     if (!r.ok) throw new Error("HTTP " + r.status);
     return r.json();
   }
@@ -38335,7 +38413,7 @@ function cleanFile(r) {
     // picking a school starts looking up its address, so Connect is quick
     const pick = x => {
       show([]); inp.value = x.name; chosen = x; msg.textContent = "";
-      lookup = findCall("/functions/v1/lms-find", {key: x.key, lms: P.id}).catch(() => ({error: true}));
+      lookup = findCall("/functions/v1/lms-find", {key: x.key, lms: P.id}).catch(e => ({error: true, slow: !!e && e.name === "AbortError"}));
     };
     const tip = x => x && x.kind === "high_school" ? ` High schools usually share their district's or school board's ${P.name}, so ask a teacher if you're not sure.` : "";
     go.addEventListener("click", async () => {
@@ -38346,7 +38424,7 @@ function cleanFile(r) {
       }
       const x = chosen, my = ++seq;
       go.disabled = true; go.textContent = "Finding Your School…";
-      let r; try { r = await (lookup || findCall("/functions/v1/lms-find", {key: x.key, lms: P.id})); } catch (e) { r = {error: true}; }
+      let r; try { r = await (lookup || findCall("/functions/v1/lms-find", {key: x.key, lms: P.id})); } catch (e) { r = {error: true, slow: !!e && e.name === "AbortError"}; }
       go.disabled = false; go.textContent = "Connect";
       if (my !== seq) return;
       if (r && r.host) {
@@ -38355,7 +38433,7 @@ function cleanFile(r) {
         doLogin().catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); });
         return;
       }
-      openManual(r && r.error ? `Couldn't look it up right now. Type your school's ${P.name} address below.`
+      openManual(r && r.error ? `${r.slow ? "Looking up your school took too long." : "Couldn't look it up right now."} Type your school's ${P.name} address below.`
         : `Couldn't find ${x.name}'s ${P.name} address. Type it below: it's the address in your browser when you're signed in to ${P.name}.${tip(x)}`, true);
     });
     didnt.addEventListener("click", () => { didnt.hidden = true; openManual(`Type the address you use to sign in to ${P.name}. It's in your browser's address bar when you're signed in.${tip(chosen)}`, true); });
@@ -39180,7 +39258,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const c = SB_HOSTED ? SB_DEFAULT : (typeof sbConfig === "function" && sbConfig());
     if (!c || !c.url || !c.key || (FLAGS.at && Date.now() - FLAGS.at < FLAGS_EVERY)) return;
     try {
-      const r = await fetch(c.url.replace(/\/$/, "") + "/rest/v1/app_flags?select=key,value", {headers: {apikey: c.key, Authorization: "Bearer " + c.key}, cache: "no-store"});
+      const r = await fetchT(c.url.replace(/\/$/, "") + "/rest/v1/app_flags?select=key,value", {headers: {apikey: c.key, Authorization: "Bearer " + c.key}, cache: "no-store"}, 15000);
       if (!r.ok) return;
       const v = {}; (await r.json() || []).forEach(x => { if (x && typeof x.key === "string") v[x.key] = !(x.value === false || x.value === "false"); });
       FLAGS = {at: Date.now(), v}; try { localStorage.setItem(FLAGS_KEY, JSON.stringify(FLAGS)); } catch (e) {}
@@ -39279,7 +39357,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   function schoolCfg(){ try { return sbConfig() || (SB_HOSTED ? SB_DEFAULT : null); } catch (e) { return null; } }
   async function schoolCall(path, body){
     const c = schoolCfg(); if (!c) throw new Error("offline");
-    const r = await fetch(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)});
+    // the address lookup tries the usual addresses one by one, so it gets longer than the school search
+    const r = await fetchT(c.url.replace(/\/+$/, "") + path, {method: "POST", headers: {apikey: c.key, Authorization: "Bearer " + c.key, "content-type": "application/json"}, body: JSON.stringify(body)}, /lms-find/.test(path) ? 45000 : 15000);
     if (!r.ok) throw new Error("HTTP " + r.status);
     return r.json();
   }
@@ -39322,7 +39401,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const openPlats = text => { plats.hidden = false; if (note) note.textContent = text; didnt.hidden = true; setTimeout(() => { try { plats.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }, 60); };
     // picking a school starts finding its platform, so Connect is quick
     const pick = x => { show([]); inp.value = x.name; chosen = x; msg.textContent = ""; PICKED.school = x; PICKED.host = ""; PICKED.lms = "";
-      lookup = schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"}).catch(() => ({error: true})); };
+      lookup = schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"}).catch(e => ({error: true, slow: !!e && e.name === "AbortError"})); };
     go.addEventListener("click", async () => {
       if (!chosen) {
         if (found.length) { msg.textContent = "Pick your school from the list."; inp.focus(); return; }
@@ -39331,7 +39410,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       }
       const x = chosen, my = ++seq;
       go.disabled = true; go.textContent = "Finding Your School…";
-      let r; try { r = await (lookup || schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"})); } catch (e) { r = {error: true}; }
+      let r; try { r = await (lookup || schoolCall("/functions/v1/lms-find", {key: x.key, lms: "auto"})); } catch (e) { r = {error: true, slow: !!e && e.name === "AbortError"}; }
       go.disabled = false; go.textContent = "Connect";
       if (my !== seq) return;
       const L = r && r.host && LMS[r.lms];
@@ -39343,7 +39422,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
         return;
       }
       msg.textContent = "";
-      openPlats(r && r.error ? `Couldn't look up ${x.name} right now. Choose its platform, then type its address.`
+      openPlats(r && r.error ? `${r.slow ? `Looking up ${x.name} took too long.` : `Couldn't look up ${x.name} right now.`} Choose its platform, then type its address.`
         : `Couldn't tell which platform ${x.name} uses. Choose it, then type its address.${tip(x)}`);
     });
     didnt.addEventListener("click", () => openPlats(`Choose your school's platform, then type its address.${tip(chosen)}`));
@@ -67683,6 +67762,16 @@ const IA = (() => {
     return best;
   }
 
+  // Already brought in before: a deck of the same name holding most of its cards, or most of its tasks (title and due date) or notes already there.
+  // have: {decks: [{name, cards: [{front}]}], tasks: [{title, due}], notes: [{text}]}
+  function already(g, have){
+    const k = s => String(s || "").toLowerCase().replace(/\s+/g, " ").trim(), most = (list, has) => list.length > 0 && list.filter(has).length >= Math.ceil(list.length * 0.8);
+    if (g.kind === "deck") return (have.decks || []).some(d => k(d.name) === k(g.name) && (fr => most(g.items, c => fr.has(k(c.front))))(new Set((d.cards || []).map(c => k(c.front)))));
+    if (g.kind === "tasks") { const ts = new Set((have.tasks || []).map(t => k(t.title) + "|" + (t.due || ""))); return most(g.items, x => ts.has(k(x.title) + "|" + (x.due || ""))); }
+    if (g.kind === "notes") { const ns = new Set((have.notes || []).map(n => k(n.text).slice(0, 300))); return most(g.items, p => ns.has(k(p.text).slice(0, 300))); }
+    return false;
+  }
+
   /* zstd: a plain frame of raw blocks (for tests; Anki's real files are unpacked by fzstd) */
   function zstdRaw(data){
     const parts = [new Uint8Array([0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x58])], B = 131072;
@@ -67698,7 +67787,7 @@ const IA = (() => {
   const isZip = b => b && b.length > 4 && b[0] === 0x50 && b[1] === 0x4b && (b[2] === 3 || b[2] === 5);
   const isSqlite = b => b && b.length > 16 && String.fromCharCode.apply(null, b.subarray(0, 15)) === "SQLite format 3";
 
-  return {CARD_CAP, NOTE_CAP, sqlite, readAnki, isPlaceholder, htmlText, clozeCard, pbKind, pbInt, pbMedia, isIO, ioShapes, ioMasks, ioCard, svgShapes, ioeCard, imgSrc, picCard, nameBoxes, parseCSV, looseDate, todoist, notionTitle, notionDir, mdText, notionTable, plan, matchCourse, zstdRaw, isZstd, isZip, isSqlite, boxFor};
+  return {CARD_CAP, NOTE_CAP, sqlite, readAnki, isPlaceholder, htmlText, clozeCard, pbKind, pbInt, pbMedia, isIO, ioShapes, ioMasks, ioCard, svgShapes, ioeCard, imgSrc, picCard, nameBoxes, parseCSV, looseDate, todoist, notionTitle, notionDir, mdText, notionTable, plan, matchCourse, already, zstdRaw, isZstd, isZip, isSqlite, boxFor};
 })();
 /*IMPORTAPPS-END*/
 
@@ -67898,12 +67987,15 @@ const IA = (() => {
       nn.forEach(g => { if (g.over) warn.push(tr("ia.w.notecap", "Only the first {n} pages are brought in at once.", {n: n0(IA.NOTE_CAP)})); });
       if (p.skipped) warn.push(trn("ia.w.tables", p.skipped, "{n} table wasn't tasks or flashcards and was left out.|{n} tables weren't tasks or flashcards and were left out."));
     }
+    // the same file brought in twice: what's already here starts unticked
+    const have = {decks: Object.values(state.decks || {}), tasks: allTasks(), notes: Object.values(state.notes || {})};
+    groups.forEach(g => { if (IA.already(g, have)) { g.on = false; g.dup = true; } });
     PV = {app, groups, media: (r.anki && r.anki.media) || {}};
     const title = {anki: tr("ia.t.anki", "Import From Anki"), todoist: tr("ia.t.todoist", "Import From Todoist"), notion: tr("ia.t.notion", "Import From Notion")}[app] || tr("ia.t.file", "Import");
     const kindW = g => g.kind === "deck" ? cardsW(g.items.length) + (g.items.some(c => c.pic) ? " · " + picsW(g.items.filter(c => c.pic).length) : "") + (g.items.some(c => c.seen > 0) ? " · " + tr("ia.learnedN", "{n} learned", {n: n0(g.items.filter(c => c.seen > 0).length)}) : "") : g.kind === "tasks" ? tasksW(g.items.length) : notesW(g.items.length);
     const opts = sel => `<option value="">${esc(tr("ia.nocourse", "No course"))}</option>` + coursesArr().map(c => `<option value="${esc(c.id)}"${c.id === sel ? " selected" : ""}>${esc(courseLabel(c))}</option>`).join("");
     const row = (g, i) => `<div class="ia-row">
-        <label class="ia-on"><input type="checkbox" data-ia-on="${i}" ${g.on ? "checked" : ""}><span><b>${esc(g.kind === "notes" ? tr("ia.pages", "Pages as notes") : g.name)}</b><span class="sub">${esc((g.kind === "deck" ? tr("ia.k.deck", "Deck") : g.kind === "tasks" ? tr("ia.k.tasks", "Tasks") : tr("ia.k.notes", "Notes")) + " · " + kindW(g))}</span></span></label>
+        <label class="ia-on"><input type="checkbox" data-ia-on="${i}" ${g.on ? "checked" : ""}><span><b>${esc(g.kind === "notes" ? tr("ia.pages", "Pages as notes") : g.name)}</b><span class="sub">${esc((g.kind === "deck" ? tr("ia.k.deck", "Deck") : g.kind === "tasks" ? tr("ia.k.tasks", "Tasks") : tr("ia.k.notes", "Notes")) + " · " + kindW(g) + (g.dup ? " · " + tr("ia.dup", "Already imported") : ""))}</span></span></label>
         ${coursesArr().length ? `<select data-ia-course="${i}" aria-label="${esc(tr("ia.courseFor", "Course for {name}", {name: g.name}))}">${opts(g.courseId)}</select>` : ""}
       </div>`;
     openSheet(`<div class="sheet ia-sheet">${head(title)}
@@ -67914,7 +68006,7 @@ const IA = (() => {
         ${groups.length ? `<p class="mini" style="margin:8px 0 0">${esc(tr("ia.undo", "Everything comes in as one change, so one Undo takes it all back out."))}</p>` : ""}
         <p class="status-msg" id="iaMsg" aria-live="polite" style="margin:6px 0 0"></p>
       </div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="ia-open">${esc(tr("ia.back", "Back"))}</button><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("ia.cancel", "Cancel"))}</button>${groups.length ? `<button type="button" class="btn primary" data-act="ia-go" id="iaGo">${esc(tr("ia.import", "Import"))}</button>` : ""}</div></div>`);
+      <div class="sheet-foot"><button type="button" class="btn" data-act="ia-open">${esc(tr("ia.back", "Back"))}</button><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("ia.cancel", "Cancel"))}</button>${groups.length ? `<button type="button" class="btn primary" data-act="ia-go" id="iaGo"${groups.some(g => g.on) ? "" : " disabled"}>${esc(tr("ia.import", "Import"))}</button>` : ""}</div></div>`);
     const mine = PV;
     sheetKeep(IKEY, {name: title, dirty: () => mine.groups.length > 0, resume: () => { PV = mine; }});
     dlg.querySelectorAll("[data-ia-on]").forEach(cb => cb.addEventListener("change", () => { PV.groups[+cb.dataset.iaOn].on = cb.checked; const g = $("#iaGo"); if (g) g.disabled = !PV.groups.some(x => x.on); }));
@@ -93125,7 +93217,7 @@ const LINKCARDS = (() => {
       say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), (offerPaste ? PASTE : "") + (e && e.diag && e.diag.length ? `<details class="cl-diag"><summary>Details</summary><ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : ""));
       aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
-    }
+    } finally { clearInterval(tick); }
   }
 
   window.SBLINKCARDS = {html, claims, run, parse: LINKCARDS.parse, LINKCARDS};
