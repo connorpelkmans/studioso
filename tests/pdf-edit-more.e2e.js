@@ -143,7 +143,7 @@ function restricted(ttf){
     await page.mouse.click(sg.r + 10, sg.t - 12); await page.waitForTimeout(400);
     es = await edits();
     const sig = es.find(e => e.k === "i" && e.sig);
-    ok(sig && sig.w === 150 && sig.h > 10, "Place Signature puts it where you click");
+    ok(sig && sig.h >= 18 && sig.h <= 40 && sig.w <= 220, "Place Signature puts it where you click, sized by the text near it: " + JSON.stringify(sig && [sig.w, sig.h]));
     ok(await page.evaluate(() => JSON.parse(localStorage.getItem("studyboard:pdeSigs") || "[]").length === 1), "and keeps it on this device for next time");
     await page.waitForSelector(`.pde-e[data-e="${sig.id}"] img`, {timeout: 5000});
     // resizing a picture keeps it on screen the whole time (the same image, not a new one that has to load and blinks)
@@ -156,7 +156,7 @@ function restricted(ttf){
       for (let i = 1; i <= 6; i++) { await page.mouse.move(g.x + g.width / 2 + i * 8, g.y + g.height / 2 + i * 3); same = same && await page.evaluate(id => document.querySelector(`.pde-e[data-e="${id}"] img`) === window.__img0 && window.__img0.complete, sig.id); }
       await page.mouse.up(); await page.waitForTimeout(300);
       ok(same, "resizing a picture keeps the same image showing while you drag (no blinking)");
-      ok((await edits()).find(e => e.id === sig.id).w > 155, "and it's bigger after"); }
+      ok((await edits()).find(e => e.id === sig.id).w > sig.w + 5, "and it's bigger after"); }
 
     /* Your own fonts */
     const dejavu = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";

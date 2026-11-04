@@ -1211,8 +1211,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   /* Fillable forms: the PDF's own fields, typed into on the page (in reading and editing alike) */
   async function annsOf(page){
     if (!E) return [];
+    const S = E;
     if (!E.anns.has(page)) E.anns.set(page, page.getAnnotations({intent: "display"}).then(list => list.filter(a => a.subtype === "Widget" && !a.hidden && !a.readOnly && a.fieldName &&
-      (a.fieldType === "Tx" || a.fieldType === "Ch" || (a.fieldType === "Btn" && (a.checkBox || a.radioButton))))).catch(() => []));
+      (a.fieldType === "Tx" || a.fieldType === "Ch" || (a.fieldType === "Btn" && (a.checkBox || a.radioButton))))).then(list => {
+      // Quick Fill offers Fill Matching Fields only once a text field turns up
+      if (!S.hasTx && list.some(a => a.fieldType === "Tx")) { S.hasTx = true; if (E === S && S.on && S.tool === "fill") bar(); }
+      return list; }).catch(() => []));
     return E.anns.get(page);
   }
   const fieldEdit = name => mine().find(e => e.k === "f" && e.name === name);
@@ -1427,10 +1431,33 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const b = vpBox(pg, Object.assign({}, it, {w: it.w + it.fs * 0.12, o: [it.o[0] - it.fs * 0.06 * Math.cos(it.r * Math.PI / 180), it.o[1] - it.fs * 0.06 * Math.sin(it.r * Math.PI / 180)]}));
     h.hidden = false; h.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
   }
+  // where a picture, equation or signature being placed goes: its size in page units, its top-left corner on screen
+  function placeBox(pg, pl, at, near){
+    const s = pg.vp.scale, W = pg.vp.width / s, H = pg.vp.height / s; let w, h;
+    if (pl.sig) {
+      // a signature is about twice as tall as the text near it, however long the name
+      h = Math.max(18, Math.min(40, (near ? near.fs : 12) * 2.2)); w = h * pl.w / pl.h;
+      const cap = Math.min(220, W * 0.9); if (w > cap) { w = cap; h = w * pl.h / pl.w; }
+    } else { w = Math.min(pl.w * 0.75, W * 0.6); h = w * pl.h / pl.w; if (h > H * 0.8) { h = H * 0.8; w = h * pl.w / pl.h; } }
+    // the click is a signature's bottom-left (so it sits on the line) and a picture's top-left; either stays on the page
+    const x = Math.max(0, Math.min(at.x, pg.vp.width - w * s)), y = Math.max(0, Math.min(pl.sig ? at.y - h * s : at.y, pg.vp.height - h * s));
+    return {x, y, w, h};
+  }
+  // a faint copy of what's being placed follows the pointer
+  let ghostT = 0;
+  async function ghostAt(pg, ev){
+    const pl = E.place, at = local(pg, ev), my = ++ghostT, near = pl.sig ? await nearest(pg, ...toPdf(pg, at.x, at.y)) : null;
+    const L = my === ghostT && E && E.place === pl ? layerOf(pg.n) : null; if (!L) return;
+    const b = placeBox(pg, pl, at, near), s = pg.vp.scale, url = imgUrl(pl.id);
+    let g = E.ghost; if (!g || g.parentNode !== L) { if (g) g.remove(); g = E.ghost = document.createElement("i"); g.className = "pde-ghost"; g.setAttribute("aria-hidden", "true"); L.appendChild(g); }
+    g.style.cssText = `left:${px(b.x)};top:${px(b.y)};width:${px(b.w * s)};height:${px(b.h * s)}`;
+    if (url && g.dataset.src !== url) { g.dataset.src = url; g.innerHTML = `<img src="${esc(url)}" alt="">`; }
+  }
   let hoverT = 0;
   document.addEventListener("pointermove", ev => {
     if (!E || !E.on || E.drag) return;
-    const pg = pageOfEv(ev); if (!pg) return;
+    const pg = pageOfEv(ev); if (!pg) { if (E.ghost) { E.ghost.remove(); E.ghost = null; } return; }
+    if (E.place && E.place.text == null) { ghostAt(pg, ev); return; }
     if (E.tool !== "text" || ev.target.closest(".pde-e,.pde-field")) { showHover(pg, null); return; }
     const at = local(pg, ev), my = ++hoverT;
     itemAt(pg, at.x, at.y).then(it => { if (my === hoverT && E) { showHover(pg, it); pg.el.classList.toggle("pde-over", !!it); } });
@@ -1565,6 +1592,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (ev.shiftKey && movable(e)) { if (E.ed) commit(); E.multi = E.multi || new Set(E.sel ? [E.sel] : []); if (E.multi.has(e.id)) E.multi.delete(e.id); else E.multi.add(e.id); E.sel = e.id; repaint(); bar(); return; }
       E.multi = null; E.picSel = null;
       if (e.k === "k" || e.k === "q" || e.k === "l" || e.k === "x") { if (E.ed) commit(); E.sel = e.id; repaint(); bar(); return; }
+      // an equation picked again (or double-clicked) opens its formula
+      if (e.k === "i" && e.tex && (E.sel === e.id || ev.detail > 1)) { if (E.ed) commit(); E.sel = e.id; eqPlace(null, e); return; }
       if (e.k === "w" || e.k === "s" || e.k === "i") { if (E.ed) commit(); E.sel = e.id; repaint(); bar(); return; }
       if (E.sel === e.id || ev.detail > 1) startEdit(e, {x: ev.clientX, y: ev.clientY});
       else { if (E.ed) commit(); E.sel = e.id; repaint(); bar(); }
@@ -1579,20 +1608,27 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       E.place = null; E.sel = e.id; save(mine().concat([e]), "Filled in"); E.justMade = Date.now(); return;
     }
     if (E.place) {
-      // a picture or signature goes where you click, its top-left corner there
-      const pl = E.place, s = pg.vp.scale, w = pl.sig ? 150 : Math.min(pl.w * 0.75, pg.vp.width / s * 0.6), h = w * pl.h / pl.w;
-      const [bx, by] = toPdf(pg, at.x, at.y + h * s);
-      const e = {id: uid(), a: E.rev, p: pg.n, k: "i", img: pl.id, o: [bx, by], r, w, h, at: Date.now()}; if (pl.sig) e.sig = 1;
-      E.place = null; E.tool = "text"; E.sel = e.id; save(mine().concat([e]), pl.sig ? "Signature added" : "Picture added"); E.justMade = Date.now(); return;
+      // a picture or equation goes with its top-left corner where you click; a signature sits on the line you click
+      const pl = E.place, b = placeBox(pg, pl, at, pl.sig ? await nearest(pg, x, y) : null), [bx, by] = toPdf(pg, b.x, b.y + b.h * pg.vp.scale);
+      const e = {id: uid(), a: E.rev, p: pg.n, k: "i", img: pl.id, o: [bx, by], r, w: b.w, h: b.h, at: Date.now()}; if (pl.sig) e.sig = 1; if (pl.tex) e.tex = pl.tex;
+      if (E.ghost) { E.ghost.remove(); E.ghost = null; }
+      E.place = null; E.tool = "text"; E.sel = e.id; save(mine().concat([e]), pl.sig ? "Signature added" : pl.eq ? "Equation added" : "Picture added"); E.justMade = Date.now(); return;
     }
     if (ev.target.closest(".pde-picsel")) return;
+    // with something picked, a click on the empty page only lets go of it (it doesn't also add a mark or stamp)
+    if ((E.tool === "mark" || E.tool === "stamp") && (E.sel || (E.multi && E.multi.size))) { E.sel = null; E.multi = null; repaint(); bar(); return; }
     E.multi = null;
     if (E.tool === "stamp") {
       const st = E.stamp || {t: "Draft", date: true, c: "#c0262d"}, s = pg.vp.scale, w = 130, h = st.date ? 46 : 34, [bx, by] = toPdf(pg, at.x - w * s / 2, at.y + h * s / 2);
       const e = {id: uid(), a: E.rev, p: pg.n, k: "k", o: [bx, by], r, w, h, t: stampText(), c: st.c || "#c0262d", at: Date.now()};
       E.sel = e.id; save(mine().concat([e]), "Stamp added"); return;
     }
-    if (E.tool === "white" || E.tool === "link" || E.tool === "field" || (E.tool === "mark" && !["check", "cross", "dot"].includes(E.shape))) { if (E.sel) { E.sel = null; repaint(); bar(); } return; }
+    if (E.tool === "white" || E.tool === "link" || E.tool === "field" || (E.tool === "mark" && !["check", "cross", "dot"].includes(E.shape))) {
+      if (E.sel) { E.sel = null; repaint(); bar(); }
+      // a tap with a drawing tool says how to draw
+      else if (Date.now() - hinted > 2500) { hinted = Date.now(); const sh = E.tool === "mark" && SHAPES.find(x => x[0] === E.shape); toast(sh ? `Drag to draw ${sh[0] === "arrow" ? "an arrow" : "a " + sh[1].toLowerCase()}` : E.tool === "white" ? "Drag over what to cover" : E.tool === "link" ? "Drag a box over what should be a link" : "Drag a box where the field goes"); }
+      return;
+    }
     if (E.tool === "mark") {
       const near = await nearest(pg, x, y), z = E.shape === "dot" ? Math.max(4, E.sw * 3) : near ? Math.max(8, near.fs * 1.1) : 14, s = pg.vp.scale;
       const [bx, by] = toPdf(pg, at.x - z * s / 2, at.y + z * s / 2);
@@ -1616,8 +1652,17 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     startEdit(le, {x: ev.clientX, y: ev.clientY});
     probe([E.ed.e]);
   }, true);
-  let hinted = 0;
-  const hint = () => { if (Date.now() - hinted < 4000) return; hinted = Date.now(); toast("Click a line of text to change it, or pick another tool"); };
+  let hinted = 0, lastPtr = "";
+  // "Tap" on a touch screen, "Click" with a mouse
+  document.addEventListener("pointerdown", ev => { lastPtr = ev.pointerType; }, true);
+  const tapWord = () => lastPtr === "touch" || (!lastPtr && window.matchMedia && matchMedia("(pointer: coarse)").matches) ? "Tap" : "Click";
+  const hint = () => { if (Date.now() - hinted < 4000) return; hinted = Date.now(); toast(`${tapWord()} a line of text to change it, or pick another tool`); };
+  // whether an edit is on screen (a picked edit scrolled out of sight isn't deleted by the Delete key)
+  const inView = id => {
+    const el = dlg.querySelector(`.pde-e[data-e="${CSS.escape(id)}"]`), box = $("#pdrPages"); if (!el) return false;
+    const b = (el.firstElementChild || el).getBoundingClientRect(), v = box ? box.getBoundingClientRect() : {top: 0, bottom: innerHeight, left: 0, right: innerWidth};
+    return b.bottom > v.top && b.top < v.bottom && b.right > v.left && b.left < v.right;
+  };
   // Delete removes the picked edit; Escape lets go of it; Ctrl+Z undoes (the app's own Ctrl+Z is off while a sheet is open)
   document.addEventListener("keydown", ev => {
     if (!E || !E.on || E.ed) return;
@@ -1628,11 +1673,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (mod && key === "c" && !String(getSelection()).trim()) { if (copyPicked()) { ev.preventDefault(); ev.stopPropagation(); } return; }
     if (mod && key === "v") { if (pastePicked()) { ev.preventDefault(); ev.stopPropagation(); } return; }
     if (mod && key === "d") { ev.preventDefault(); ev.stopPropagation(); if (copyPicked()) pastePicked(); return; }
+    if ((ev.key === "Delete" || ev.key === "Backspace") && (E.sel || (E.multi && E.multi.size)) && ![...(E.multi || []), E.sel].some(id => id && inView(id))) { E.sel = null; E.multi = null; repaint(); bar(); return; }
     if ((ev.key === "Delete" || ev.key === "Backspace") && E.multi && E.multi.size > 1) { ev.preventDefault(); const ids = new Set(E.multi); E.multi = null; E.sel = null; save(mine().filter(x => !ids.has(x.id)), `Removed ${ids.size} items`); return; }
     if ((ev.key === "Delete" || ev.key === "Backspace") && E.picSel) { ev.preventDefault(); picDelete(); return; }
     if ((ev.key === "Delete" || ev.key === "Backspace") && E.sel) { ev.preventDefault(); remove(E.sel); }
     else if (ev.key === "Escape" && (E.sel || E.place || E.panel || E.picSel || E.multi)) { ev.preventDefault(); ev.stopPropagation(); if (E.panel) closePanel(); else { E.sel = null; E.place = null; E.picSel = null; E.multi = null; repaint(); bar(); } }
-    else if (ev.key === "Enter" && E.sel) { const e = mine().find(x => x.id === E.sel); if (e && (e.k === "t" || e.k === "n" || e.k === "p")) { ev.preventDefault(); startEdit(e); } }
+    else if (ev.key === "Enter" && E.sel) { const e = mine().find(x => x.id === E.sel); if (e && (e.k === "t" || e.k === "n" || e.k === "p")) { ev.preventDefault(); startEdit(e); } else if (e && e.k === "i" && e.tex) { ev.preventDefault(); eqPlace(null, e); } }
     // arrow keys nudge what's picked
     else if (/^Arrow/.test(ev.key) && E.sel) {
       const e = mine().find(x => x.id === E.sel), pg = e && E.pages.get(e.p); if (!e || !pg || !(movable(e) || (e.k === "x" && !e.del))) return;
@@ -1751,16 +1797,17 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <div class="pde-pb">
         <div class="pde-tabs" role="tablist">${["Draw", "Type", "Photo"].concat(sigs.length ? ["Saved"] : []).map((t, i) => `<button type="button" role="tab" class="pde-tab" data-act="pde-sig-tab" data-id="${t}" aria-selected="${i === 0}">${t}</button>`).join("")}</div>
         <div class="pde-sigbox" id="pdeSigBox"></div>
-        <label class="pde-chk"><input type="checkbox" id="pdeSigKeep" checked> Keep this signature on this device for next time</label>
+        <label class="pde-chk" id="pdeSigKeepL"><input type="checkbox" id="pdeSigKeep" checked> Keep this signature on this device for next time</label>
       </div>
       <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-sig-use">Place Signature</button></div>`, "sign");
-    sigTab("Draw");
+    sigTab(sigs.length ? "Saved" : "Draw");
   }
   let SIG = null;
   function sigTab(t){
     const box = $("#pdeSigBox"); if (!box) return;
     dlg.querySelectorAll(".pde-tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.id === t)));
     SIG = {tab: t, color: (SIG && SIG.color) || "#14204a"};
+    const keep = $("#pdeSigKeepL"); if (keep) keep.hidden = t === "Saved";   // a saved one is already kept
     const cols = `<span class="pde-cols">${[["#14204a", "Dark blue"], ["#000000", "Black"]].map(([c, n]) => `<button type="button" class="pde-col" data-act="pde-sig-color" data-id="${c}" style="--c:${c}" aria-label="${n}" aria-pressed="${SIG.color === c}"></button>`).join("")}</span>`;
     if (t === "Draw") {
       box.innerHTML = `<canvas class="pde-pad" id="pdeSigPad" width="1200" height="400" aria-label="Draw your signature here"></canvas><div class="row-actions">${cols}<span class="spacer"></span><button type="button" class="btn small" data-act="pde-sig-clear">Clear</button></div>`;
@@ -1794,7 +1841,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         <label class="pde-chk"><input type="checkbox" id="pdeSigClear" checked> Make the white paper see-through</label><p class="mini" id="pdeSigFileName"></p>`;
       $("#pdeSigFile").addEventListener("change", ev => { SIG.file = ev.target.files && ev.target.files[0]; $("#pdeSigFileName").textContent = SIG.file ? SIG.file.name : ""; });
     } else {
-      box.innerHTML = `<ul class="pde-sigs">${mySigs().map(s => `<li><button type="button" class="pde-sigpick" data-act="pde-sig-pick" data-id="${s.id}" aria-label="Use this signature"><img alt="" data-sig="${s.id}"></button><button type="button" class="icon-btn" data-act="pde-sig-rm" data-id="${s.id}" aria-label="Forget this signature">${ico(IC.trash)}</button></li>`).join("")}</ul>`;
+      // the newest is picked to start with; Place Signature uses the picked one
+      SIG.pick = (mySigs()[0] || {}).id;
+      box.innerHTML = `<ul class="pde-sigs">${mySigs().map(s => `<li><button type="button" class="pde-sigpick" data-act="pde-sig-pick" data-id="${s.id}" aria-label="This signature" aria-pressed="${SIG.pick === s.id}"><img alt="" data-sig="${s.id}"></button><button type="button" class="icon-btn" data-act="pde-sig-rm" data-id="${s.id}" aria-label="Forget this signature">${ico(IC.trash)}</button></li>`).join("")}</ul>`;
       box.querySelectorAll("img[data-sig]").forEach(img => imgData(img.dataset.sig).then(v => { if (v) img.src = URL.createObjectURL(new Blob([v.bytes], {type: "image/png"})); }));
     }
   }
@@ -1809,23 +1858,30 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         cv.width = Math.ceil(ctx.measureText(name).width + 40); cv.height = 200; const c2 = cv.getContext("2d"); c2.font = `120px "${SIG.font}",cursive`; c2.fillStyle = SIG.color; c2.textBaseline = "middle"; c2.fillText(name, 20, 100);
         pic = await keepImage(trimmed(cv), false);
       } else if (SIG.tab === "Photo") { if (!SIG.file) { toast("Choose a picture first"); return; } pic = await imageFromFile(SIG.file, {clearWhite: $("#pdeSigClear").checked, trim: true}); }
+      else { const s0 = mySigs().find(x => x.id === SIG.pick); if (!s0) { toast("Pick a signature first"); return; } placeNext(Object.assign({sig: true}, s0)); return; }
     } catch (err) { toast((err && err.message) || "Couldn't use that signature."); return; }
     if (!pic) return;
     if ($("#pdeSigKeep") && $("#pdeSigKeep").checked) lsSet(K_SIGS, [{id: pic.id, w: pic.w, h: pic.h, at: Date.now()}].concat(mySigs().filter(s => s.id !== pic.id)).slice(0, 4));
     placeNext(Object.assign({sig: true}, pic));
   }
   // An equation is drawn by KaTeX (module 01-math.js) and placed like a picture, about the size of 12 pt text
-  function eqPlace(el){
+  // (with old, a placed equation: it opens with its formula, and the change replaces it where it is, its top-left kept)
+  function eqPlace(el, old){
     if (typeof mathAsk !== "function") return;
     const at = el && el.isConnected ? el : dlg.querySelector(".pde-bar .pde-tools") || dlg.querySelector(".pde-bar") || el;
-    mathAsk(at, "", async tex => {
+    mathAsk(at, old ? old.tex : "", async tex => {
       try {
         const m = await mathImage(tex, "#000000"), pic = await keepImage(m.canvas, false), k = 12 / m.px / 0.75;
-        placeNext(Object.assign(pic, {eq: 1, w: Math.round(m.w * k * 100) / 100, h: Math.round(m.h * k * 100) / 100}));
+        if (!old) { placeNext(Object.assign(pic, {eq: 1, tex, w: Math.round(m.w * k * 100) / 100, h: Math.round(m.h * k * 100) / 100})); return; }
+        // the same scale as before (it may have been resized)
+        const cur = E && mine().find(x => x.id === old.id); if (!cur) return;
+        const v = await imgData(cur.img), was = v && v.w ? v.w / (m.canvas.width / m.w) * k * 0.75 : 0, z = was ? cur.w / was : 1, w = Math.round(m.w * k * 0.75 * z * 100) / 100, h = Math.round(m.h * k * 0.75 * z * 100) / 100;
+        const next = Object.assign({}, cur, {img: pic.id, tex, w, h, o: [cur.o[0], cur.o[1] + cur.h - h], at: Date.now()});
+        E.sel = next.id; save(mine().map(x => x.id === cur.id ? next : x), "Equation changed");
       } catch (err) { toast(/parse|KaTeX/i.test(String(err && err.message)) ? "That formula isn't finished yet. Check it in the preview." : "This browser couldn't turn the equation into a picture. Try Studyboard on a computer, or add it as a Comment."); }
-    }, "Place on Page");
+    }, old ? "Update" : "Place on Page");
   }
-  function placeNext(pic){ closePanel(); E.place = pic; E.sel = null; repaint(); bar(); toast(pic.sig ? "Click where your signature goes" : pic.eq ? "Click where the equation goes" : "Click where the picture goes"); }
+  function placeNext(pic){ closePanel(); E.place = pic; E.sel = null; E.multi = null; E.tool = "text"; repaint(); bar(); toast(pic.sig ? `${tapWord()} the line your signature goes on` : pic.eq ? `${tapWord()} where the equation goes` : `${tapWord()} where the picture goes`); }
 
   // Pages: turn, take out, move, add blank pages and pages from other PDFs, take some pages out as their own PDF
   function pagesPanel(){
@@ -1926,7 +1982,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   const ROW_ORDER = ["find", "eq", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history"];
   const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
   const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
-  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.tool === k && !E.place}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.place ? k === "eq" && !!E.place.eq : E.tool === k}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
   function measureFit(){
     const b = E && E.on && dlg.querySelector(".pde-bar"), row = b && b.querySelector(".pde-tools"); if (!row || !row.offsetWidth) return;
     const gap = parseFloat(getComputedStyle(row).columnGap) || 6, cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
@@ -1944,30 +2000,36 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   function barHtml(){
     const e = selected(), n = mine().length, pr = e && (e.k === "t" || e.k === "p") ? probeOf(e) : null, txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
     const fam = e ? (e.ff ? "ff:" + e.ff : (e.k === "t" || e.k === "p") && e.keep !== false ? "o" : e.f || "h") : "";
-    const tool = (k, label, icon, extra) => `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${E.tool === k && !E.place}" title="${label}"${extra || ""}>${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
+    const tool = (k, label, icon, extra) => `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${E.place ? k === "sign" && !!E.place.sig : E.tool === k}" title="${label}"${extra || ""}>${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
     const fonts = myFonts(), markish = E.tool === "mark" || (e && e.k === "s");
+    const T = tapWord(), drag = E.tool === "mark" && !e && SHAPES.find(x => x[0] === E.shape && !["check", "cross", "dot"].includes(x[0]));
     const msg = E.locked ? "This PDF is locked (encrypted), so it can't be edited here."
-      : E.place ? (E.place.text != null ? `Click where “${E.place.text}” goes` : E.place.sig ? "Click where your signature goes" : "Click where the picture goes")
+      : E.place ? (E.place.text != null ? `${T} where “${E.place.text}” goes` : E.place.sig ? `${T} the line your signature goes on` : E.place.eq ? `${T} where the equation goes` : `${T} where the picture goes`)
       : picked().length > 1 ? `${picked().length} picked: drag to move them together, or align them`
       : E.picSel ? "One of the PDF's own pictures: drag it to move it, or replace or take it out"
       : e && e.k === "x" ? (e.del ? "This picture is taken out" : "Drag to move, the corner to resize")
+      : e && e.k === "q" ? "A field: its name here is its name in the saved PDF"
       : E.tool === "link" ? "Drag a box over what should be a link. The PDF's own links show in blue; click one to take it out"
       : E.tool === "field" ? "Drag a box where the field goes"
-      : E.tool === "stamp" && !e ? "Pick a stamp, then click where it goes"
+      : E.tool === "stamp" && !e ? `Pick a stamp, then ${T.toLowerCase()} where it goes`
       : E.tool === "fill" && !e ? (me().name ? "Pick a detail, then click where it goes" : "Add your details first (Your Details), then click where each one goes")
       : E.signed ? "This PDF has a digital signature. Saving changes will make it show as no longer valid."
       : e && e.ff && !FK.get(e.ff) && !myFonts().some(f => f.id === e.ff) ? "This font is on another device. Until it's added here, a similar font is used."
       : e && (e.k === "t" || e.k === "p") && pr ? (pr.keep ? "Same font as the PDF" : "A similar font: this PDF's font doesn't have every letter here")
       : e && e.k === "i" && e.sig ? "A picture of your signature (not a certified digital signature)"
-      : !n ? "Click any text to change it" : "";
+      : e && e.k === "i" && e.tex ? `An equation: ${T === "Tap" ? "double-tap" : "double-click"} it to change it, drag to move it`
+      : e && e.k === "i" ? "Drag to move, the corner to resize"
+      : drag ? `Drag on the page to draw ${drag[1] === "Arrow" ? "an arrow" : "a " + drag[1].toLowerCase()}`
+      : E.tool === "mark" && !e ? `${T} to add a ✓, ✗ or dot; drag for a box, circle, line or arrow`
+      : !n && E.tool === "text" ? `${T} any text to change it` : "";
     const marks = markish ? `<span class="pde-marks" role="group" aria-label="Marks">${SHAPES.map(([k, name, d]) => `<button type="button" class="icon-btn pde-shape-btn" data-act="pde-shape" data-id="${k}" aria-label="${name}" title="${name}" aria-pressed="${E.tool === "mark" && E.shape === k}">${ico(d)}</button>`).join("")}</span>
       <span class="pde-cols">${COLORS.map(([hex, name]) => `<button type="button" class="pde-col" data-act="pde-scolor" data-id="${hex}" style="--c:${hex}" aria-label="${name}" aria-pressed="${((e && e.k === "s" ? e.c : E.sc) || "").toLowerCase() === hex}"></button>`).join("")}</span>
-      <select id="pdeSw" aria-label="Line width">${WIDTHS.map(([w, name]) => `<option value="${w}"${(e && e.k === "s" ? e.lw : E.sw) === w ? " selected" : ""}>${name}</option>`).join("")}</select>` : "";
+      ${e && e.k === "s" && e.sh === "dot" ? "" : `<select id="pdeSw" aria-label="Line width">${WIDTHS.map(([w, name]) => `<option value="${w}"${(e && e.k === "s" ? e.lw : E.sw) === w ? " selected" : ""}>${name}</option>`).join("")}</select>`}` : "";
     const find = E.tool === "find" ? `<span class="pde-find" role="search"><input type="search" id="pdeFindQ" placeholder="Find" aria-label="Find" value="${esc(E.find.q)}" autocomplete="off"><input type="text" id="pdeFindR" placeholder="Replace with" aria-label="Replace with" value="${esc(E.find.r)}" autocomplete="off">
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}</span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="${!!(E.place && !E.place.sig && !E.place.eq && E.place.text == null)}" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}</span>
       <span class="spacer"></span>
 
       <div class="pde-sub">
@@ -1980,7 +2042,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         ${e && e.k === "t" && Math.abs(e.r || 0) < 0.5 ? `<button type="button" class="btn small" data-act="pde-para" title="Edit the whole paragraph, re-wrapping its lines">${ico(IC.para)}Edit Paragraph</button>` : ""}${e && e.k === "p" && !mine().some(x => x.id === e.id) ? `<button type="button" class="btn small" data-act="pde-line" title="Change a single line instead of the paragraph">${ico(IC.text)}Edit One Line</button>` : ""}
         ${e && e.k === "p" ? `<span class="pde-al" role="group" aria-label="Alignment"><button type="button" class="btn small" data-act="pde-al" data-id="l" aria-pressed="${e.al !== "j"}">Left</button><button type="button" class="btn small" data-act="pde-al" data-id="j" aria-pressed="${e.al === "j"}">Justified</button></span>` : ""}
       </span>${marks}${find}${E.tool === "stamp" ? `<span class="pde-chips" role="group" aria-label="Stamp">${STAMPS.map(t => `<button type="button" class="btn small" data-act="pde-stamp-t" data-id="${t}" aria-pressed="${(E.stamp || {t: "Draft"}).t === t}">${t}</button>`).join("")}<input type="text" id="pdeStampOwn" maxlength="24" placeholder="Your own" value="${esc(STAMPS.includes((E.stamp || {}).t) ? "" : (E.stamp || {}).t || "")}" aria-label="Your own stamp text" style="width:8em">
-        <span class="pde-cols">${STAMP_COLS.map(([c, nm]) => `<button type="button" class="pde-col" data-act="pde-stamp-c" data-id="${c}" style="--c:${c}" aria-label="${nm}" aria-pressed="${((E.stamp || {}).c || "#c0262d") === c}"></button>`).join("")}</span><label class="pde-chk"><input type="checkbox" id="pdeStampDate"${(E.stamp || {date: true}).date !== false ? " checked" : ""}> With today's date</label></span>` : ""}${E.tool === "field" ? `<span class="pde-chips"><label class="f pde-inline"><span class="lh">Draw a</span><select id="pdeFieldKind">${[["text", "Text field"], ["multi", "Box (several lines)"], ["check", "Tick box"]].map(([v, nm]) => `<option value="${v}"${(E.fieldKind || "text") === v ? " selected" : ""}>${nm}</option>`).join("")}</select></label><button type="button" class="btn small" data-act="pde-tool" data-id="fields">Find Blanks…</button></span>` : ""}${E.picSel || (e && e.k === "x") ? `<span class="pde-chips"><b class="mini">Picture</b><label class="btn small">Replace…<input type="file" id="pdePicFile" accept="image/png,image/jpeg,image/webp" class="sr"></label>${E.picSel ? `<button type="button" class="btn small" data-act="pde-pic-del">Take Out</button>` : ""}</span>` : ""}${picked().length > 1 ? `<span class="pde-chips" role="group" aria-label="Align">${[["l", "Left"], ["c", "Centers"], ["r", "Right"], ["t", "Tops"], ["m", "Middles"], ["b", "Bottoms"], ["h", "Spread Across"], ["v", "Spread Down"]].map(([k, nm]) => `<button type="button" class="btn small" data-act="pde-align" data-id="${k}">${nm}</button>`).join("")}</span>` : ""}${E.tool === "fill" ? `<span class="pde-chips" role="group" aria-label="Quick Fill">${fillChips().map(([k, label, v]) => `<button type="button" class="btn small" data-act="pde-chip" data-id="${k}"${v ? ` title="${esc(v)}"` : " disabled"}>${label}</button>`).join("")}<button type="button" class="link-btn" data-act="pde-me">Your Details…</button>${[...E.anns.values()].length ? `<button type="button" class="btn small" data-act="pde-fill-fields">Fill Matching Fields</button>` : ""}</span>` : ""}
+        <span class="pde-cols">${STAMP_COLS.map(([c, nm]) => `<button type="button" class="pde-col" data-act="pde-stamp-c" data-id="${c}" style="--c:${c}" aria-label="${nm}" aria-pressed="${((E.stamp || {}).c || "#c0262d") === c}"></button>`).join("")}</span><label class="pde-chk"><input type="checkbox" id="pdeStampDate"${(E.stamp || {date: true}).date !== false ? " checked" : ""}> With today's date</label></span>` : ""}${E.tool === "field" && !(e && e.k === "q") ? `<span class="pde-chips"><select id="pdeFieldKind" aria-label="Kind of field to draw">${FIELD_KINDS.map(([v, nm]) => `<option value="${v}"${(E.fieldKind || "text") === v ? " selected" : ""}>${nm}</option>`).join("")}</select><button type="button" class="btn small" data-act="pde-tool" data-id="fields">Find Blanks…</button></span>` : ""}${e && e.k === "q" ? `<span class="pde-chips" role="group" aria-label="Field"><input type="text" id="pdeFieldName" maxlength="60" value="${esc(e.name || "")}" aria-label="Field name" placeholder="Field name" style="width:9em"><select id="pdeFieldFt" aria-label="Kind of field">${FIELD_KINDS.map(([v, nm]) => `<option value="${v}"${e.ft === v ? " selected" : ""}>${nm}</option>`).join("")}</select></span>` : ""}${E.picSel || (e && e.k === "x") ? `<span class="pde-chips"><b class="mini">Picture</b><label class="btn small">Replace…<input type="file" id="pdePicFile" accept="image/png,image/jpeg,image/webp" class="sr"></label>${E.picSel ? `<button type="button" class="btn small" data-act="pde-pic-del">Take Out</button>` : ""}</span>` : ""}${picked().length > 1 ? `<span class="pde-chips" role="group" aria-label="Align">${[["l", "Left"], ["c", "Centers"], ["r", "Right"], ["t", "Tops"], ["m", "Middles"], ["b", "Bottoms"], ["h", "Spread Across"], ["v", "Spread Down"]].map(([k, nm]) => `<button type="button" class="btn small" data-act="pde-align" data-id="${k}">${nm}</button>`).join("")}</span>` : ""}${E.tool === "fill" ? `<span class="pde-chips" role="group" aria-label="Quick Fill">${fillChips().map(([k, label, v]) => `<button type="button" class="btn small" data-act="pde-chip" data-id="${k}"${v ? ` title="${esc(v)}"` : " disabled"}>${label}</button>`).join("")}<button type="button" class="link-btn" data-act="pde-me">Your Details…</button>${E.hasTx ? `<button type="button" class="btn small" data-act="pde-fill-fields">Fill Matching Fields</button>` : ""}</span>` : ""}
       ${e ? `<button type="button" class="icon-btn pde-del" data-act="pde-del" aria-label="${e.k === "t" || e.k === "p" ? "Undo this edit" : "Remove"}" title="${e.k === "t" || e.k === "p" ? "Put the original text back" : "Remove"}">${ico(IC.trash)}</button>` : ""}
       <span class="mini pde-note${E.signed && !e ? " warn" : ""}" id="pdeMsg" aria-live="polite">${esc(msg)}</span></div>`;
   }
@@ -2032,6 +2094,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (id === "pdeFindWw") { E.find.ww = ev.target.checked; findCount(); return; }
     if (id === "pdeSw") { const w = Number(ev.target.value) || 2; E.sw = w; const e = selected(); if (e && e.k === "s") restyle({lw: e.sh === "dot" ? e.lw : w}); return; }
     const e = selected(); if (!e) return;
+    // a drawn field's name (the name it has in the saved PDF) and kind
+    if (id === "pdeFieldName" && e.k === "q") { const v = ev.target.value.trim().slice(0, 60); if (v && v !== e.name) restyle({name: v}, "Field renamed"); else bar(); return; }
+    if (id === "pdeFieldFt" && e.k === "q") { restyle({ft: ev.target.value}, "Field kind changed"); return; }
     if (id === "pdeFam") {
       const v = ev.target.value; if (!v) { bar(); return; }
       if (v === "+") { bar(); fontsPanel(); return; }
@@ -2265,7 +2330,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-sig-font": SIG.font = id; dlg.querySelectorAll(".pde-sigstyle").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); break;
       case "pde-sig-clear": { const cv = $("#pdeSigPad"); if (cv) { if (SIG.strokes) SIG.strokes.length = 0; cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; } break; }
       case "pde-sig-use": sigUse(); break;
-      case "pde-sig-pick": { const s = mySigs().find(x => x.id === id); if (s) placeNext(Object.assign({sig: true}, s)); break; }
+      case "pde-sig-pick": SIG.pick = id; dlg.querySelectorAll(".pde-sigpick").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); break;
       case "pde-sig-rm": lsSet(K_SIGS, mySigs().filter(x => x.id !== id)); idbDel("pdeimg:" + id).catch(() => {}); sigTab(mySigs().length ? "Saved" : "Draw"); break;
       case "pde-find-step": findStep(Number(id) || 1); break;
       case "pde-find-all": replaceAll(); break;
@@ -2359,17 +2424,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   // fields named like name, date, student ID or class are filled in from your details (only empty ones)
   async function fillFields(){
-    let n = 0; const m = me();
+    let n = 0, list = mine(); const m = me(), done = new Set();
     for (const pg of E.pages.values()) {
       for (const a of await annsOf(pg.page)) {
-        if (a.fieldType !== "Tx" || String(fieldValue(a) || "").trim()) continue;
-        const k = String(a.fieldName + " " + (a.alternativeText || "")).toLowerCase();
-        const v = /date/.test(k) ? todayText() : /(student|^|\W)(id|number|no\.?)(\W|$)/.test(k) ? m.id : /(name)/.test(k) && !/(parent|teacher|guardian|school|course|class)/.test(k) ? m.name : /(class|course|subject)/.test(k) ? classOf() : "";
-        if (v) { await setField(a.fieldName, v, pg.n, 0); n++; }
+        if (a.fieldType !== "Tx" || done.has(a.fieldName) || String(fieldValue(a) || "").trim()) continue;
+        // student_id, studentID and student-id all read as "student id"
+        const k = String(a.fieldName + " " + (a.alternativeText || "")).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_.\-]+/g, " ").toLowerCase();
+        const v = /date/.test(k) ? todayText() : /(student|^|\W)(id|number|no)(\W|$)/.test(k) ? m.id : /(name)/.test(k) && !/(parent|teacher|guardian|school|course|class)/.test(k) ? m.name : /(class|course|subject)/.test(k) ? classOf() : "";
+        if (v) { done.add(a.fieldName); list = list.filter(e => !(e.k === "f" && e.name === a.fieldName)).concat([{id: uid(), a: E.rev, p: pg.n, k: "f", name: a.fieldName, v, fsz: 0, at: Date.now()}]); n++; }
       }
     }
+    // all of them in one step, so one Undo takes them back out
+    if (n) save(list, `Filled ${n} field${n === 1 ? "" : "s"}`);
     for (const n0 of E.pages.keys()) paintForm(n0);
-    toast(n ? `Filled ${n} field${n === 1 ? "" : "s"}` : m.name ? "No empty fields here match your details" : "Add your details first (Your Details)");
+    if (!n) toast(m.name ? "No empty fields here match your details" : "Add your details first (Your Details)");
   }
 
   /* Header and page numbers */
@@ -2902,7 +2970,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (moved.length < 3) { toast("Pick three or more to spread them out"); return; }
       const k = how === "h" ? 0 : 1, sz = e => k ? e.h : e.w, sorted = moved.slice().sort((a, b) => a.o[k] - b.o[k]), lo = sorted[0].o[k], hi = sorted[sorted.length - 1].o[k] + sz(sorted[sorted.length - 1]);
       const gap = (hi - lo - sorted.reduce((s0, e) => s0 + sz(e), 0)) / (sorted.length - 1); let at = lo;
-      sorted.forEach(e => { e.o = k ? [e.o[0], at] : [at, e.o[1]]; at += sz(e) + gap; });
+      // too big to fit side by side: their centres are spread evenly instead (gaps would be negative)
+      if (gap < 0) { const last = sorted[sorted.length - 1], c0 = lo + sz(sorted[0]) / 2, st = (last.o[k] + sz(last) / 2 - c0) / (sorted.length - 1); sorted.forEach((e, i) => { const c = c0 + st * i - sz(e) / 2; e.o = k ? [e.o[0], c] : [c, e.o[1]]; }); }
+      else sorted.forEach(e => { e.o = k ? [e.o[0], at] : [at, e.o[1]]; at += sz(e) + gap; });
     }
     save(mine().map(x => moved.find(m => m.id === x.id) || x), "Aligned");
   }
@@ -2910,6 +2980,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   /* Stamps, a watermark, links, fillable fields, the PDF's own pictures */
   const STAMPS = ["Draft", "Final", "Graded", "Reviewed", "Completed", "Late", "Approved", "Confidential"];
   const STAMP_COLS = [["#c0262d", "Red"], ["#1f3a93", "Blue"], ["#1d7a3a", "Green"]];
+  const FIELD_KINDS = [["text", "Text field"], ["multi", "Several lines"], ["check", "Tick box"]];
   function stampText(){ const st = E.stamp || {t: "Draft", date: true}; return String(st.t || "Draft").toUpperCase().slice(0, 24) + (st.date ? "\n" + todayText() : ""); }
   const wmEdit = () => mine().find(e => e.k === "m");
   function watermarkPanel(){
@@ -3401,11 +3472,14 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-shape-btn[aria-pressed="true"],.pde-al .btn[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,var(--surface));border-color:var(--accent);color:var(--accent)}
 .pde-find input[type=search],.pde-find input[type=text]{width:11em;padding:5px 8px}
 .pde-chk{display:inline-flex;align-items:center;gap:6px;font-size:.88rem}
+.pde-chk[hidden]{display:none}
 .pde-note.warn{color:var(--late,#c0262d);font-weight:600}
 .pde-on[data-pde-tool="mark"] .pde-layer{cursor:crosshair;touch-action:none}
 .pde-on[data-pde-tool="place"] .pde-layer{cursor:copy}
-.pde-on .pde-e.sel.k-s,.pde-on .pde-e.sel.k-i{touch-action:none}
+.pde-on .pde-e.sel.k-s,.pde-on .pde-e.sel.k-i,.pde-on .pde-e.sel.k-k,.pde-on .pde-e.sel.k-q,.pde-on .pde-e.sel.k-l,.pde-on .pde-e.sel.k-x,.pde-on .pde-picsel{touch-action:none}
 .pde-pic{position:absolute;display:block}
+.pde-ghost{position:absolute;display:block;pointer-events:none;opacity:.5;outline:1.5px dashed var(--accent,#2563eb);outline-offset:2px}
+.pde-ghost img{display:block;width:100%;height:100%}
 .pde-pic img{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
 .pde-pic .mini{display:grid;place-items:center;width:100%;height:100%;border:1px dashed var(--line);background:color-mix(in srgb,var(--soft) 70%,transparent)}
 .pde-shape{position:absolute;display:block}
@@ -3461,6 +3535,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-sigs li{display:flex;align-items:center;gap:4px}
 .pde-sigpick{border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px;cursor:pointer}
 .pde-sigpick img{display:block;max-height:60px;max-width:220px}
+.pde-sigpick[aria-pressed="true"]{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:1px}
 .pde-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
 .pde-card{display:grid;gap:4px;justify-items:center;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .pde-card.picked{outline:3px solid var(--accent);outline-offset:-1px}
@@ -3484,7 +3559,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-hist li{display:flex;gap:10px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line)}
 .pde-hist li > span:first-child{flex:1}
 .pde-hist li.undone{opacity:.55;text-decoration:line-through}
-.pde-stamp{position:absolute;display:grid;place-items:center;align-content:center;border:2px solid currentColor;border-radius:4px;font-family:Helvetica,Arial,sans-serif;line-height:1;opacity:.9;text-align:center;overflow:hidden}
+.pde-stamp{position:absolute;display:grid;place-items:center;align-content:center;border:2px solid currentColor;border-radius:4px;font-family:Helvetica,Arial,sans-serif;line-height:1;font-style:normal;opacity:.9;text-align:center;overflow:hidden}
 .pde-stamp b{display:block;letter-spacing:.02em}
 .pde-wm{position:absolute;white-space:pre;font-family:Helvetica,Arial,sans-serif;font-weight:700;pointer-events:none;line-height:1}
 .pde-picsel{position:absolute;display:block;outline:2px dashed var(--accent,#2563eb);outline-offset:2px;cursor:move;touch-action:none;background:rgba(36,87,197,.06)}

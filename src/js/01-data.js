@@ -397,7 +397,8 @@ function normPdfEdits(list, max){
     // a picture or signature: which picture (kept on the device it was added on)
     if (e.k === "i") {
       if (typeof e.img !== "string" || !/^[a-f0-9]{16}$/.test(e.img)) continue;
-      x.img = e.img; if (e.sig) x.sig = 1; const op = fin(e.op, 0.05, 1); if (op != null && op < 1) x.op = op;
+      x.img = e.img; if (e.sig) x.sig = 1; if (typeof e.tex === "string" && e.tex.trim()) x.tex = e.tex.slice(0, 2000);   // an equation's formula, to change it later
+      const op = fin(e.op, 0.05, 1); if (op != null && op < 1) x.op = op;
       seen.add(e.id); out.push(x); continue;
     }
     // a mark: checkmark, cross, dot, box, circle, line or arrow
