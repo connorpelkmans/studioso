@@ -252,6 +252,26 @@ const STUB = () => {
     ok(chatAt > 0 && chatAt < 4000, `with a file that takes 15 seconds to read, the question still reaches the AI in ${chatAt} ms`);
     await M.ctx.close();
     W.tier = "paid";
+
+    // 11. Files get to the AI faster: read while the question is typed, then kept for next time
+    W.tier = "none";
+    const Q = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+    await Q.page.waitForFunction(() => window.__sbSync && window.SBCOMPTAB && window.SBFILETEXT);
+    await Q.page.evaluate(() => { window.__reads = 0;
+      window.__sxBytes = async assetId => { if (assetId !== "a-slow") return null; window.__reads++; await new Promise(r => setTimeout(r, 2500)); return new TextEncoder().encode("Coral grade scale: an A is 90 percent or more."); };
+      window.__sbSync.state.files.fs = {id: "fs", name: "Coral Grades.txt", kind: "file", courseId: "c1", folderId: "", taskIds: [], desc: "", url: "", revs: [{assetId: "a-slow", name: "Coral Grades.txt", size: 46, type: "text/plain", at: 1}]}; });
+    await Q.page.evaluate(() => SBCOMPTAB.open()); await Q.page.waitForSelector("#cptIn");
+    await Q.page.type("#cptIn", "what is the coral grade scale for an A", {delay: 90});
+    const q0 = Q.ctx.claude.length; await Q.page.click("#cptGo");
+    let sentQ = null; for (let i = 0; i < 60 && !sentQ; i++) { sentQ = Q.ctx.claude.slice(q0).find(c => JSON.stringify(c.b.messages).includes("coral grade scale for an A")); if (!sentQ) await Q.page.waitForTimeout(100); }
+    ok(sentQ && JSON.stringify(sentQ.b.messages).includes("an A is 90 percent"), "a file that takes 2.5 seconds to download was read while the question was typed, and its text went with it");
+    await Q.page.waitForTimeout(1500);
+    const q1 = Q.ctx.claude.length, reads1 = await Q.page.evaluate(() => window.__reads);
+    await Q.page.fill("#cptIn", "remind me what the coral grades file says"); await Q.page.click("#cptGo");
+    let sentR = null; for (let i = 0; i < 60 && !sentR; i++) { sentR = Q.ctx.claude.slice(q1).find(c => JSON.stringify(c.b.messages).includes("coral grades file says")); if (!sentR) await Q.page.waitForTimeout(100); }
+    ok(sentR && JSON.stringify(sentR.b.messages).includes("an A is 90 percent") && (await Q.page.evaluate(() => window.__reads)) === reads1 && reads1 === 1, "the next question uses the saved text: the file was downloaded once");
+    await Q.ctx.close();
+    W.tier = "paid";
   } finally { await browser.close(); }
   console.log(`ai-pro e2e: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

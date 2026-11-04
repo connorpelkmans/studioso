@@ -64,6 +64,17 @@
   const info = () => SBCOMP.tab.info();
   const aiOk = () => { try { return !inPreview() && aiReady(); } catch (e) { return false; } };
 
+  // The files a question names (by file name, course or description), best first
+  const namedFiles = (ws, n) => !ws.length ? [] : Object.values(state.files).filter(f => f.kind === "file" || f.kind === "cloud")
+    .map(f => ({f, s: hits(f.name + " " + ((courseOf(f.courseId) || {}).name || "") + " " + (f.desc || ""), ws)})).filter(x => x.s > 0 && readableFile(x.f)).sort((a, b) => b.s - a.s).slice(0, n);
+  // While the student types, start reading the files their question names, so the text is usually ready when they tap Ask
+  let preT = 0;
+  document.addEventListener("input", e => {
+    if (!e.target || e.target.id !== "cptIn") return;
+    // every 400 ms while they type (not only when they stop), with the words so far; a file already being read isn't read twice
+    const el = e.target; if (preT) return;
+    preT = setTimeout(() => { preT = 0; try { if (!aiOk() || !window.SBFILETEXT) return; namedFiles(words(el.value), 2).forEach(({f}) => { SBFILETEXT(f.id, 5000).catch(() => {}); }); } catch (err) {} }, 400);
+  });
   /* What the companion may look at, for one question */
   // Only the parts of the planner this question needs (aiNeeds); attachments may need courses and boards for their actions
   async function context(q, prev, hasAtt){
@@ -112,10 +123,10 @@
     // (from Studyboard, Google Drive or OneDrive) keep loading in the background for the next question
     let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
     if (R && R.text) { L.push("SEARCH RESULTS (passages from the student's files, notes, flashcards and tasks that match the question):\n" + R.text); R.src.forEach(x => src.push(x)); }
-    const files = Object.values(state.files).filter(f => f.kind === "file");
+    const files = Object.values(state.files).filter(f => f.kind === "file" || f.kind === "cloud");
     if (files.length) {
       if (N.files || hasAtt) L.push("FILES: " + files.slice(0, 40).map(f => { const c = courseOf(f.courseId); return f.name + (c ? " (" + courseLabel(c) + ")" : ""); }).join("; "));
-      const want = ws.length && !(R && R.rows.some(x => x.doc.type === "chunk")) ? files.map(f => ({f, s: hits(f.name + " " + ((courseOf(f.courseId) || {}).name || "") + " " + (f.desc || ""), ws)})).filter(x => x.s > 0 && readableFile(x.f)).sort((a, b) => b.s - a.s).slice(0, 2) : [];
+      const want = !(R && R.rows.some(x => x.doc.type === "chunk")) ? namedFiles(ws, 2) : [];
       // Both files at once, for at most 1.5 seconds in all; a file that isn't ready by then is left out of this answer
       const late = new Promise(r => setTimeout(() => r(""), 1500));
       const texts = await Promise.all(want.map(({f}) => Promise.race([(async () => { try { return window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; } catch (e) { return ""; } })(), late])));
@@ -448,7 +459,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const cptGrow = t => { t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 9 * parseFloat(getComputedStyle(t).fontSize)) + "px"; };
   document.addEventListener("input", e => { if (e.target.id === "cptIn") { T.draft = e.target.value; cptGrow(e.target); } });
   // Anywhere else in the app
-  window.SBCOMPTAB = {open: q => { ui.tab = "companion"; ui.courseId = null; T.tab = "chat"; render(); window.scrollTo(0, 0); if (q) ask(q); }, chats: rd};
+  window.SBCOMPTAB = {open: q => { try { if (window.SBSEARCH && SBSEARCH.warm) SBSEARCH.warm(); } catch (e) {} ui.tab = "companion"; ui.courseId = null; T.tab = "chat"; render(); window.scrollTo(0, 0); if (q) ask(q); }, chats: rd};
 
   const st = document.createElement("style");
   st.textContent = `.cpt{display:grid;gap:12px;max-width:860px;margin:0 auto}
