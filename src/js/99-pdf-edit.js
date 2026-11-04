@@ -676,7 +676,7 @@ async function pdeBake(L, bytes, edits, opts){
   if (doc.isEncrypted) { const err = new Error("This PDF is locked (encrypted), so it can't be edited here."); err.code = "locked"; throw err; }
   if (opts.fontkit) doc.registerFontkit(opts.fontkit);
   const pages = doc.getPages(), std = {}, custom = {};
-  const report = {removed: 0, covered: 0, kept: 0, swapped: 0, missingFonts: 0, missingImages: 0, fields: 0, fieldsSkipped: 0, annots: 0, signed: pdeSigned(L, doc)};
+  const report = {removed: 0, covered: 0, kept: 0, swapped: 0, missingFonts: 0, missingImages: 0, fields: 0, fieldsSkipped: 0, annots: 0, qmarks: 0, signed: pdeSigned(L, doc)};
   const stdFont = async k => std[k] || (std[k] = await doc.embedFont(L.StandardFonts[k]));
   async function fontFor(e){
     if (e.ff && opts.fontkit && opts.fonts && opts.fonts[e.ff]) {
@@ -688,8 +688,8 @@ async function pdeBake(L, bytes, edits, opts){
     } else if (e.ff) report.missingFonts++;
     return stdFont(pdeFontKey(e));
   }
-  // letters a font can't draw become ?, rather than stopping the save
-  const drawable = (f, s) => { const cs = f.getCharacterSet ? new Set(f.getCharacterSet()) : null; return [...pdeTidy(s)].map(ch => cs ? (cs.has(ch.codePointAt(0)) || ch === " " ? ch : "?") : pdeBadChars(ch).length ? "?" : ch).join(""); };
+  // letters a font can't draw become ?, rather than stopping the save (counted, so saving can say so)
+  const drawable = (f, s, count) => { const cs = f.getCharacterSet ? new Set(f.getCharacterSet()) : null; return [...pdeTidy(s)].map(ch => { const ok = cs ? cs.has(ch.codePointAt(0)) || ch === " " : !pdeBadChars(ch).length; if (!ok && count) report.qmarks++; return ok ? ch : "?"; }).join(""); };
   const byPage = new Map();
   for (const e of edits) { if (e.k === "f" || e.k === "h" || e.k === "m" || e.k === "o" || !(e.p >= 1 && e.p <= pages.length)) continue; if (!byPage.has(e.p)) byPage.set(e.p, []); byPage.get(e.p).push(e); }
   for (const [p, list] of byPage) {
@@ -791,7 +791,7 @@ async function pdeBake(L, bytes, edits, opts){
       const lines = e.k === "p" ? pdeWrap(e.t, e.W, meas) : pdeTidy(e.t).split("\n").map(t => ({t, end: true}));
       const lh = e.k === "p" ? e.lh : e.fs * 1.2;
       lines.forEach((l, j) => {
-        const line = drawable(f, l.t); if (!line) return;
+        const line = drawable(f, l.t, true); if (!line) return;
         const x = e.o[0] + j * lh * Math.sin(a), y = e.o[1] - j * lh * Math.cos(a);
         const words = line.split(" "), spaces = words.length - 1;
         if (e.k === "p" && e.al === "j" && !l.end && spaces) {
@@ -994,6 +994,31 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (E && E.libv && (e.k === "t" || e.k === "p") && e.keep !== false) { try { const r = pdeProbe(E.libv.L, E.libv.doc, e.p, [Object.assign({}, e, {t})])[0]; if (r && (e.k === "t" ? r.keep : paraKeep(Object.assign({}, e, {t}), r))) return []; } catch (err) {} }
     return pdeBadChars(t);
   }
+  // what those letters are, said plainly: "Greek, Japanese and 1 emoji aren't in this PDF's fonts"
+  const SCRIPTS = [["Greek", /\p{Script=Greek}/u], ["Cyrillic", /\p{Script=Cyrillic}/u], ["Japanese", /[\p{Script=Hiragana}\p{Script=Katakana}]/u], ["Chinese", /\p{Script=Han}/u], ["Korean", /\p{Script=Hangul}/u], ["Arabic", /\p{Script=Arabic}/u], ["Hebrew", /\p{Script=Hebrew}/u], ["Hindi", /\p{Script=Devanagari}/u], ["Thai", /\p{Script=Thai}/u]];
+  function badMsg(bad, e){
+    const emoji = bad.filter(ch => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(ch)), rest = bad.filter(ch => !emoji.includes(ch)), names = [], other = [];
+    rest.forEach(ch => { const s = SCRIPTS.find(x => x[1].test(ch)); if (!s) other.push(ch); else if (!names.includes(s[0])) names.push(s[0]); });
+    if (names.includes("Japanese") && names.includes("Chinese")) names.splice(names.indexOf("Chinese"), 1);
+    const parts = names.concat(other.length ? [`${other.length > 3 ? other.length + " symbols" : other.join(" ")}`] : [], emoji.length ? [`${emoji.length} emoji`] : []);
+    const list = parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0] || "";
+    const one = parts.length === 1 && (names.length === 1 || other.length + emoji.length === 1), lead = parts.length === 1 && names.length === 1 ? names[0] + " text" : list;
+    return `${lead} ${one ? "isn't" : "aren't"} in ${e.ff ? "this font" : "this PDF's fonts"}.` + (rest.length ? (e.ff ? " Pick a font that has them." : " Add a font that has them, such as Noto Sans (Font, then Add a Font).") : "") + (emoji.length ? " Emoji can't be drawn in a PDF here." : "");
+  }
+  // whether changed text still fits: a line running past the page's edge, a paragraph growing over what's below it
+  async function fitNote(e, t){
+    const pg = E && E.pages.get(e.p), view = pg && pg.page && pg.page.view; if (!view || Math.abs(e.r || 0) > 0.5) return "";
+    const m = measurer(e); if (!m) return "";
+    if (e.k === "p") {
+      const n0 = (e.lines || []).length, n1 = pdeWrap(t, e.W, m).length, extra = n1 - n0; if (extra <= 0 || !n0) return "";
+      // (text below the old last line whose letters reach up into the new lines)
+      const top = e.lines[n0 - 1].o[1] - e.fs * 0.5, bot = e.o[1] - (n1 - 1) * e.lh - e.fs * 0.25;
+      const below = (await pageInfo(e.p)).some(it => it.o[1] < top && it.o[1] + it.y1 > bot && it.o[0] < e.o[0] + e.W && it.o[0] + it.w > e.o[0]);
+      return below || bot < view[1] ? `This paragraph is now ${extra} line${extra === 1 ? "" : "s"} longer and ${below ? "overlaps what's below" : "runs off the page"}. Shorten it or make the text smaller.` : "";
+    }
+    const w = Math.max(0, ...pdeTidy(t).split("\n").map(s => m(s) || 0));
+    return e.o[0] + w > view[2] + 1 ? "This text runs past the edge of the page, so its end won't show. Shorten it or make it smaller." : "";
+  }
 
   /* Pictures (images and signatures), kept on this device until they're saved into the PDF */
   const IMGS = new Map();
@@ -1191,22 +1216,36 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const pg = E.pages.get(n), L = layerOf(n); if (!pg || !L) return;
     const ed = E.ed && E.ed.e.p === n ? E.ed : null;
     // what's being typed survives a redraw: its words, focus and caret
-    const prev = ed && ed.el && ed.el.isConnected ? ed.el : null, had = !!prev && document.activeElement === prev; let caret = null;
+    // (when the page itself was drawn again, as on zooming, the editor comes back open, focused where the caret was)
+    const prev = ed && ed.el && ed.el.isConnected ? ed.el : null, lost = !!(ed && ed.el && !prev && (ed.refocus || !document.activeElement || document.activeElement === document.body));
+    const had = (!!prev && document.activeElement === prev) || lost; let caret = lost ? ed.caret || null : null;
     if (prev) ed.e.t = textOf(prev);
-    if (had) { try { const s = getSelection(); if (s.rangeCount) { const r = s.getRangeAt(0), pre = document.createRange(); pre.selectNodeContents(prev); pre.setEnd(r.startContainer, r.startOffset); const a = pre.toString().length; pre.setEnd(r.endContainer, r.endOffset); caret = [a, pre.toString().length]; } } catch (e) {} }
+    if (had && prev) caret = caretIn(prev);
+    const pf = document.activeElement && L.contains(document.activeElement) && document.activeElement.matches(".pde-e[data-e]") ? document.activeElement.dataset.e : "";
     const qf = document.activeElement && document.activeElement.dataset && L.contains(document.activeElement) && document.activeElement.dataset.q ? {id: document.activeElement.dataset.q, v: document.activeElement.value, a: document.activeElement.selectionStart, b: document.activeElement.selectionEnd} : null;
     const list = mine().filter(e => e.p === n && !["f", "h", "m", "o"].includes(e.k) && !(ed && ed.e.id === e.id));
     const one = e => e.k === "x" ? picHtml(pg, e) : e.k === "l" ? linkHtml(pg, e) : e.k === "q" ? fieldHtml(pg, e) : editHtml(pg, e, false);
     const ps = E.picSel && E.picSel.p === n ? (() => { const b = picBox(E.picSel.m), f = frame(pg, b.o, 0); return `<i class="pde-picsel" data-pic="1" style="left:${px(f.x)};top:${px(f.y - b.h * f.s)};width:${px(b.w * f.s)};height:${px(b.h * f.s)}" title="Drag to move this picture"></i>`; })() : "";
     L.innerHTML = watermarkHtml(pg) + headerHtml(pg) + list.map(one).join("") + foundHtml(pg) + ps + (ed ? editHtml(pg, ed.e, true) : "") + '<i class="pde-hover" hidden></i><i class="pde-band" hidden></i><svg class="pde-lnprev" width="100%" height="100%" hidden><path/></svg>';
+    if (L.scrollLeft || L.scrollTop) { L.scrollLeft = 0; L.scrollTop = 0; }
+    if (pf) focusPicked(pf);
     if (qf) { const el = L.querySelector(`[data-q="${CSS.escape(qf.id)}"]`); if (el) { if (el.type !== "checkbox") { el.value = qf.v; try { el.setSelectionRange(qf.a, qf.b); } catch (err) {} } el.focus({preventScroll: true}); } }
     if (E.on && E.tool === "link") oldLinksHtml(pg).then(h => { if (h && L.isConnected) L.insertAdjacentHTML("beforeend", h); });
     if (ed) {
       const t = L.querySelector(".pde-e.editing .pde-t");
-      if (t) { ed.el = t; wireEditor(t); if (had) { t.focus({preventScroll: true}); if (caret) setCaret(t, caret[0], caret[1]); } }
+      if (t) { ed.el = t; wireEditor(t); if (had) { ed.refocus = false; t.focus({preventScroll: true}); if (caret) setCaret(t, caret[0], caret[1]); } }
     }
   }
   const repaint = () => { if (E) for (const n of E.pages.keys()) paint(n); };
+  // where the caret is in the text being typed, as [start, end]
+  function caretIn(t){ try { const s = getSelection(); if (!s.rangeCount || !t.contains(s.anchorNode)) return null; const r = s.getRangeAt(0), pre = document.createRange(); pre.selectNodeContents(t); pre.setEnd(r.startContainer, r.startOffset); const a = pre.toString().length; pre.setEnd(r.endContainer, r.endOffset); return [a, pre.toString().length]; } catch (e) { return null; } }
+  document.addEventListener("selectionchange", () => { const ed = E && E.ed, t = ed && ed.el; if (t && t.isConnected && document.activeElement === t) { const c = caretIn(t); if (c) ed.caret = c; } });
+  // focus on what's picked (after typing in it ends), so the keys still work on it: arrows, Enter, Delete, Escape
+  function focusPicked(id){
+    const el = E && (id || E.sel) ? dlg.querySelector(`.pde-layer .pde-e[data-e="${CSS.escape(id || E.sel)}"]`) : null;
+    const to = el || dlg.querySelector('.pde-tools .pde-tool[aria-pressed="true"]');
+    if (to) { if (el) el.tabIndex = -1; to.focus({preventScroll: true}); }
+  }
 
   /* Fillable forms: the PDF's own fields, typed into on the page (in reading and editing alike) */
   async function annsOf(page){
@@ -1277,12 +1316,24 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (t.contentEditable !== "plaintext-only") t.contentEditable = "true";
     t.addEventListener("paste", ev => { ev.preventDefault(); const s = pdeTidy((ev.clipboardData || window.clipboardData).getData("text")); document.execCommand("insertText", false, E && E.ed && E.ed.e.k === "t" ? s.replace(/\n+/g, " ") : s); });
     t.addEventListener("keydown", ev => {
-      if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); cancel(); return; }
-      if (ev.key === "Enter" && (E.ed.e.k === "t" || ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); commit(); return; }
-      if (ev.key === "Tab") { ev.preventDefault(); commit(); }
+      // Escape and Tab finish too, keeping what was typed (Ctrl+Z takes it back); focus stays on what was typed in
+      if (ev.key === "Escape" || ev.key === "Tab") { ev.preventDefault(); ev.stopPropagation(); commit(); if (E && !E.ed) focusPicked(); return; }
+      if (ev.key === "Enter" && (E.ed.e.k === "t" || ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); commit(); }
     });
-    t.addEventListener("input", () => { if (!E || !E.ed) return; const m = $("#pdeMsg"), bad = badFor(E.ed.e, pdeTidy(textOf(t))); if (m) { m.textContent = bad.length ? `${bad.slice(0, 4).join(" ")} can't be saved in this font. ${E.ed.e.ff ? "Pick a font that has those letters." : "Add a font that has them (Font, then Add a Font)."}` : ""; m.classList.toggle("bad", !!bad.length); } t.classList.toggle("bad", !!bad.length); });
-    t.addEventListener("blur", () => setTimeout(() => { if (E && E.ed && E.ed.el === t && !(document.activeElement && document.activeElement.closest && document.activeElement.closest(".pde-bar,.pde-e.editing,.pde-pop,.ask-dlg"))) commit(); }, 120));
+    t.addEventListener("input", () => {
+      if (!E || !E.ed) return;
+      const ed = E.ed, raw = textOf(t), txt = pdeTidy(raw), bad = badFor(ed.e, txt); ed.e.t = raw;
+      // the page's layer never scrolls sideways to follow the caret (that would shift every edit on the page)
+      const L = t.closest(".pde-layer"); if (L && (L.scrollLeft || L.scrollTop)) { L.scrollLeft = 0; L.scrollTop = 0; }
+      note(bad.length ? badMsg(bad, ed.e) : "", !!bad.length); t.classList.toggle("bad", !!bad.length);
+      if (!bad.length) fitNote(ed.e, txt).then(w => { if (E && E.ed === ed && w) note(w, true); }).catch(() => {});
+    });
+    t.addEventListener("blur", () => setTimeout(() => {
+      if (!E || !E.ed || E.ed.el !== t) return;
+      // the page was drawn again (zooming): the editor comes back on it, still open
+      if (!t.isConnected) { E.ed.refocus = true; return; }
+      if (!(document.activeElement && document.activeElement.closest && document.activeElement.closest(".pde-bar,.pde-e.editing,.pde-pop,.ask-dlg"))) commit();
+    }, 120));
   }
   function setCaret(t, a, b){
     try {
@@ -1291,24 +1342,31 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     } catch (e) {}
   }
   const textOf = t => (t.innerText != null ? t.innerText : t.textContent).replace(/\n$/, "");
+  // the message line under the tools: a note about what's being typed, or (none) what the bar says
+  function note(text, bad){ const m = $("#pdeMsg"); if (!m) return; m.textContent = text || barMsg(); m.classList.toggle("bad", !!(text && bad)); }
   function cancel(){ if (!E || !E.ed) return; const p = E.ed.e.p; E.ed = null; paint(p); bar(); }
   function commit(){
     if (!E || !E.ed) return;
-    const ed = E.ed, e = ed.e, raw = ed.el ? textOf(ed.el) : e.t;
-    let t = pdeTidy(raw).slice(0, MAX_TEXT); if (e.k === "t") t = t.replace(/\n+/g, " ");
+    const ed = E.ed, e = ed.e, raw = ed.el && ed.el.isConnected ? textOf(ed.el) : e.t;
+    // (a paragraph or text box doesn't keep empty lines at its end)
+    let t = pdeTidy(raw).slice(0, MAX_TEXT); t = e.k === "t" ? t.replace(/\n+/g, " ") : t.replace(/\s+$/, "");
     const bad = badFor(e, t);
-    if (bad.length) { toast(`${bad.slice(0, 3).join(" ")} can't be saved in this font. Try another font.`); if (ed.el) ed.el.focus(); return; }
-    E.ed = null;
+    if (bad.length) { toast(badMsg(bad, e)); if (ed.el && ed.el.isConnected) ed.el.focus(); return; }
+    // Edit One Line is for one line: the next click opens paragraphs again
+    E.ed = null; E.lineOnly = false;
     const list = mine(), exists = list.some(x => x.id === e.id);
     if (e.k === "n" && !t.trim()) { if (exists) save(list.filter(x => x.id !== e.id), "Text box removed"); else paint(e.p); bar(); return; }
     // clicking into a line or paragraph and leaving it as it was isn't a change (spacing aside)
     const same = (x, y) => pdeTidy(String(x || "")).replace(/\s+/g, " ").trim() === pdeTidy(String(y || "")).replace(/\s+/g, " ").trim();
-    if ((e.k === "t" || e.k === "p") && !exists && same(t, e.old)) { E.sel = null; paint(e.p); bar(); return; }
+    if ((e.k === "t" || e.k === "p") && !exists && same(t, e.old) && !ed.dirty) { E.sel = null; paint(e.p); bar(); return; }
     if (exists && t === ed.was && !ed.dirty) { paint(e.p); bar(); return; }
     const next = Object.assign({}, e, {t, at: Date.now()});
     if (!exists && list.length >= MAX_EDITS) { toast(`A file can hold ${MAX_EDITS} edits. Save a new version to keep going.`); paint(e.p); return; }
-    save(exists ? list.map(x => x.id === e.id ? next : x) : list.concat([next]), e.k === "t" ? (t ? "Text changed" : "Text removed") : e.k === "p" ? "Paragraph changed" : "Text added");
+    const restyled = ed.dirty && same(t, exists ? ed.was : e.old);
+    save(exists ? list.map(x => x.id === e.id ? next : x) : list.concat([next]), e.k === "t" ? (restyled ? "Text style changed" : t ? "Text changed" : "Text removed") : e.k === "p" ? (restyled ? "Paragraph style changed" : "Paragraph changed") : "Text added");
     E.sel = e.id; probe([next]); bar();
+    // say so when the change doesn't fit where it is
+    fitNote(next, t).then(w => { if (w) toast(w); }).catch(() => {});
   }
   function save(list, label){
     const f = fileOf(); if (!f) return;
@@ -1355,11 +1413,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     let k = lines.findIndex(l => Math.abs(l.o[1] - o[1]) < l.fs * 0.3 && o[0] >= l.x0 - l.fs && o[0] <= l.x1 + l.fs); if (k < 0) return null;
     { const me = lines[k]; const col = lines.filter(l => l === me || (l.x0 < me.x1 + me.fs * 2 && l.x1 > me.x0 - me.fs * 2)); lines.length = 0; lines.push(...col); k = lines.indexOf(me); }
     const like = (a, b) => Math.abs(a.fs - b.fs) < a.fs * 0.06 && a.fn === b.fn;
+    // where this column's lines wrap: its widest line with the same left edge
+    const me = lines[k], right = Math.max(...lines.filter(l => Math.abs(l.x0 - me.x0) < me.fs * 3).map(l => l.x1));
+    // a line wrapped when the next line's first word wouldn't have fit after it (a short line before more text is a line break: another paragraph)
+    const wrapped = (a, b, edge) => { if (/-$/.test(a.str)) return true; const it = b.items[0], w0 = (String(it.str).trim().split(/\s+/)[0] || "").length * it.w / Math.max(1, String(it.str).length); return a.x1 + a.fs * 0.25 + w0 * 0.9 > (edge || right) - a.fs * 0.3; };
     let lo = k, hi = k, gap = 0;
-    const fits = (a, b, first) => { const g = a.o[1] - b.o[1]; if (!like(a, b) || g < a.fs * 0.95 || g > a.fs * 2.3) return false; if (gap && Math.abs(g - gap) > gap * 0.15) return false; return Math.abs(a.x0 - b.x0) < a.fs * (first ? 3 : 0.6) && (gap = gap || g, true); };
-    while (lo > 0 && fits(lines[lo - 1], lines[lo], lo - 1 === 0 || true)) lo--;
-    while (hi < lines.length - 1 && fits(lines[hi], lines[hi + 1], false)) hi++;
+    const fits = (a, b, first) => { const g = a.o[1] - b.o[1]; if (!like(a, b) || g < a.fs * 0.95 || g > a.fs * 2.3) return false; if (gap && Math.abs(g - gap) > gap * 0.15) return false; if (!wrapped(a, b)) return false; const d = a.x0 - b.x0; return (first ? d > -a.fs * 0.6 && d < a.fs * 3 : Math.abs(d) < a.fs * 0.6) && (gap = gap || g, true); };
+    while (lo > 0 && fits(lines[lo - 1], lines[lo], false)) lo--;
+    // the first line may be indented
+    if (lo > 0 && fits(lines[lo - 1], lines[lo], true)) lo--;
+    while (hi < lines.length - 1 && fits(lines[hi], lines[hi + 1], hi === lo)) hi++;
     const par = lines.slice(lo, hi + 1); if (par.length < 2) return null;
+    // two lines alone don't show where lines wrap: the first must reach the page's margin too (unless there's text beside them)
+    const view = pgv && pgv.page && pgv.page.view;
+    if (par.length === 2 && view && !(await pageInfo(n)).some(it => it.o[0] > right + me.fs) && !wrapped(par[0], par[1], view[2] - (par[0].x0 - view[0]))) return null;
     const W = Math.max(...par.map(l => l.w)), lh = par.length > 1 ? (par[0].o[1] - par[par.length - 1].o[1]) / (par.length - 1) : par[0].fs * 1.2;
     const justified = par.slice(0, -1).every(l => l.w > W * 0.975) && par.length > 1;
     let t = ""; par.forEach((l, i) => { if (!i) t = l.str; else if (/[a-z]-$/.test(t) && /^[a-z]/.test(l.str)) t = t.slice(0, -1) + l.str; else if (/[A-Za-z0-9]-$/.test(t) && /^[A-Za-z0-9]/.test(l.str)) t += l.str; else t += " " + l.str; });
@@ -1368,11 +1435,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   async function toParagraph(e, at){
     if (!e || e.k !== "t" || Math.abs(e.r || 0) > 0.5) return;
     const par = await paragraphAt(e.p, e.o); if (!par) { toast("This line isn't part of a paragraph."); return; }
-    const was = textOf(E.ed && E.ed.e.id === e.id && E.ed.el ? E.ed.el : document.createElement("i")) || e.t;
+    const typing = E.ed && E.ed.e.id === e.id, was = typing ? (E.ed.el && E.ed.el.isConnected ? textOf(E.ed.el) : E.ed.e.t) : e.t;
     if (E.ed) { E.ed = null; }
-    // the line's own change carries into the paragraph
+    // the line's own change carries into the paragraph (only the piece of the line that was typed in: its other words stay)
     const idx = par.lines.findIndex(l => Math.abs(l.o[1] - e.o[1]) < e.fs * 0.3);
-    let t = par.t; if (idx >= 0 && was && was !== par.lines[idx].old) t = t.replace(par.lines[idx].old, was);
+    let t = par.t;
+    if (idx >= 0 && was != null && e.old != null && pdeTidy(was) !== pdeTidy(e.old)) { const lo = par.lines[idx].old, eo = String(e.old).replace(/\s+/g, " ").trim(), i = lo.indexOf(eo); t = t.replace(lo, i >= 0 ? lo.slice(0, i) + was + lo.slice(i + eo.length) : was); }
     const first = par.first.items[0];
     const p = {id: uid(), a: E.rev, p: e.p, k: "p", o: par.lines[0].o, r: 0, lines: par.lines, W: par.W, lh: Math.round(par.lh * 100) / 100, al: par.al, fs: Math.round(first.fs * 100) / 100, s0: Math.round(first.fs * 100) / 100,
       f: e.f, b: e.b, i: e.i, c: e.c, bg: e.bg, cf: e.cf, old: par.t, t};
@@ -1570,7 +1638,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       else { if (E.ed) commit(); E.sel = e.id; repaint(); bar(); }
       return;
     }
-    if (E.ed) { commit(); if (E && E.ed) return; }
+    if (E.ed) { const k = E.ed.e.k; commit(); if (E && E.ed) return; if (k === "n" || E.tool === "add") return; }
     const [x, y] = toPdf(pg, at.x, at.y), r = level(pg, x, y);
     if (E.place && E.place.text != null) {
       // a Quick Fill detail: a text box where you click, the size of the text near it
@@ -1620,8 +1688,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   const hint = () => { if (Date.now() - hinted < 4000) return; hinted = Date.now(); toast("Click a line of text to change it, or pick another tool"); };
   // Delete removes the picked edit; Escape lets go of it; Ctrl+Z undoes (the app's own Ctrl+Z is off while a sheet is open)
   document.addEventListener("keydown", ev => {
-    if (!E || !E.on || E.ed) return;
-    const t = ev.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (!E || !E.on) return;
+    if (ev.key === "Escape") { escStep(ev); return; }
+    if (E.ed) return;
+    const t = ev.target;
+    // in Find: Enter goes to the next match, Shift+Enter the one before
+    if (ev.key === "Enter" && t && (t.id === "pdeFindQ" || t.id === "pdeFindR")) { ev.preventDefault(); ev.stopPropagation(); findStep(ev.shiftKey ? -1 : 1); return; }
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     const key = String(ev.key).toLowerCase(), mod = (ev.ctrlKey || ev.metaKey) && !ev.altKey;
     if (mod && key === "z") { ev.preventDefault(); ev.stopPropagation(); histStep(ev.shiftKey ? 1 : -1); return; }
     if (mod && key === "y") { ev.preventDefault(); ev.stopPropagation(); histStep(1); return; }
@@ -1631,7 +1704,6 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if ((ev.key === "Delete" || ev.key === "Backspace") && E.multi && E.multi.size > 1) { ev.preventDefault(); const ids = new Set(E.multi); E.multi = null; E.sel = null; save(mine().filter(x => !ids.has(x.id)), `Removed ${ids.size} items`); return; }
     if ((ev.key === "Delete" || ev.key === "Backspace") && E.picSel) { ev.preventDefault(); picDelete(); return; }
     if ((ev.key === "Delete" || ev.key === "Backspace") && E.sel) { ev.preventDefault(); remove(E.sel); }
-    else if (ev.key === "Escape" && (E.sel || E.place || E.panel || E.picSel || E.multi)) { ev.preventDefault(); ev.stopPropagation(); if (E.panel) closePanel(); else { E.sel = null; E.place = null; E.picSel = null; E.multi = null; repaint(); bar(); } }
     else if (ev.key === "Enter" && E.sel) { const e = mine().find(x => x.id === E.sel); if (e && (e.k === "t" || e.k === "n" || e.k === "p")) { ev.preventDefault(); startEdit(e); } }
     // arrow keys nudge what's picked
     else if (/^Arrow/.test(ev.key) && E.sel) {
@@ -1639,10 +1711,26 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       ev.preventDefault(); const st = ev.shiftKey ? 10 : 1, dx = {ArrowLeft: -st, ArrowRight: st}[ev.key] || 0, dy = {ArrowUp: -st, ArrowDown: st}[ev.key] || 0;
       const [ox, oy] = toVp(pg, e.o[0], e.o[1]), [nx, ny] = toPdf(pg, ox + dx, oy + dy), mx = nx - e.o[0], my = ny - e.o[1];
       const moved = Object.assign({}, e, {o: [nx, ny]}); if (e.pts) moved.pts = [e.pts[0] + mx, e.pts[1] + my, e.pts[2] + mx, e.pts[3] + my];
-      save(mine().map(x => x.id === e.id ? moved : x), null);
+      // presses in a row are one change in History ("Moved"), not one per press
+      const H = E.hist, last = H && !H.redo.length && H.undo[H.undo.length - 1], list = mine().map(x => x.id === e.id ? moved : x);
+      if (last && last.nudge === e.id && Date.now() - last.at < 3000) { E.histMute = true; try { save(list, null); } finally { E.histMute = false; } last.after = clone(list); last.at = Date.now(); }
+      else { save(list, null); const top = E.hist && E.hist.undo[E.hist.undo.length - 1]; if (top) { top.label = "Moved"; top.nudge = e.id; } }
     }
   }, true);
-  dlg.addEventListener("cancel", ev => { if (E && E.on && (E.ed || E.sel || E.place || E.panel || E.picSel || E.multi)) ev.preventDefault(); });
+  // Escape: out of what's being typed, a field, a panel or a pick, then back to Edit Text, then out of Edit (the reader stays open)
+  function escStep(ev){
+    const t = ev.target, box = t && t.closest && t.closest("dialog");
+    if (!dlg.open || (box && box !== dlg) || E.more) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if (E.ed) { commit(); if (E && !E.ed) focusPicked(); return; }
+    const dm = dlg.querySelector(".pdr-dlmenu"); if (dm) { dm.remove(); return; }
+    if (E.panel) { closePanel(); return; }
+    if (t && t !== document.body && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { t.blur(); return; }
+    if (E.sel || E.place || E.picSel || E.multi) { E.sel = null; E.place = null; E.picSel = null; E.multi = null; repaint(); bar(); return; }
+    if (E.tool !== "text") { E.tool = "text"; repaint(); bar(); return; }
+    setOn(false); const b = $("#pdeBtn"); if (b) b.focus({preventScroll: true});
+  }
+  dlg.addEventListener("cancel", ev => { if (E && E.on) ev.preventDefault(); });
   function picDelete(){ const ps = E.picSel; if (!ps) return; const b = picBox(ps.m); E.picSel = null; save(mine().filter(x => !(x.k === "x" && x.p === ps.p && x.i === ps.i)).concat([{id: uid(), a: E.rev, p: ps.p, k: "x", i: ps.i, m0: ps.m, o: b.o, w: b.w, h: b.h, del: true, bg: ps.bg || "#ffffff", at: Date.now()}]), "Picture taken out"); }
   async function picReplace(file){
     const ps = E.picSel, cur = mine().find(x => x.id === E.sel && x.k === "x"); const base = ps ? {p: ps.p, i: ps.i, m0: ps.m, bg: ps.bg} : cur ? {p: cur.p, i: cur.i, m0: cur.m0, bg: cur.bg} : null; if (!base) return;
@@ -1689,25 +1777,29 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   async function findStep(dir){
     const all = E.find.all || []; if (!all.length) return;
-    E.find.at = (E.find.at + dir + all.length) % all.length;
+    E.find.at = E.find.at < 0 && dir < 0 ? all.length - 1 : (E.find.at + dir + all.length) % all.length;
     const m = all[E.find.at]; if (P.readerGo) P.readerGo(m.n);
     setTimeout(() => { const pg = E && E.pages.get(m.n); if (pg && m.it) showHover(pg, m.it); }, 350);
   }
   async function replaceAll(){
     const re = findRe(); if (!re) return;
     const all = await findAll(); if (!all.length) return;
-    let list = mine(), n = 0;
+    let list = mine(), n = 0, full = 0; const skip = new Set();
     if (!(await libDoc().catch(() => null))) return;
+    const fix = s => { re.lastIndex = 0; return pdeTidy(s.replace(re, E.find.r)); };
+    // an edit with the new words, unless its font can't draw them
+    const take = (x, t, hits) => { const bad = badFor(x, t); if (bad.length) { bad.forEach(ch => skip.add(ch)); return false; } n += hits; return true; };
+    let skipped = 0;
     for (const m of all) {
-      const fix = s => { re.lastIndex = 0; return s.replace(re, E.find.r); };
-      if (m.edit) { list = list.map(x => x.id === m.edit.id ? Object.assign({}, x, {t: fix(x.t)}) : x); n += m.hits; continue; }
-      if (m.t) { list = list.map(x => x.id === m.t.id ? Object.assign({}, x, {t: fix(x.t)}) : x); n += m.hits; continue; }
-      if (list.length >= MAX_EDITS) break;
+      const old = m.edit || m.t;
+      if (old) { const x = list.find(y => y.id === old.id), t = fix(x.t); if (take(x, t, m.hits)) list = list.map(y => y.id === x.id ? Object.assign({}, y, {t}) : y); else skipped += m.hits; continue; }
+      if (list.length >= MAX_EDITS) { full += m.hits; continue; }
       const pg = E.pages.get(m.n), e = lineEdit(m.n, m.it, pg ? sample(pg, vpBox(pg, m.it)) : null); e.t = fix(m.it.str);
-      const bad = badFor(e, e.t); if (bad.length) continue;
-      list.push(e); n += m.hits;
+      if (take(e, e.t, m.hits)) list.push(e); else skipped += m.hits;
     }
-    save(list, `Replaced ${n} match${n === 1 ? "" : "es"}`); probe(list); findCount();
+    const why = [skipped ? `skipped ${skipped}: ${[...skip].slice(0, 6).join(" ")} ${skip.size === 1 ? "isn't" : "aren't"} in this PDF's fonts` : "", full ? `skipped ${full}: a file can hold ${MAX_EDITS} edits` : ""].filter(Boolean).join("; ");
+    if (!n) { toast(`Nothing replaced${why ? ", " + why : ""}`); return; }
+    save(list, `Replaced ${n}${why ? ", " + why : ` match${n === 1 ? "" : "es"}`}`); probe(list); findCount();
   }
 
   /* Panels over the pages (fonts, signatures, pages) */
@@ -1941,12 +2033,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (k !== (E.fit || 0)) { E.fit = k; E.more = false; bar(); }
   }
   let fitT = 0; window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { if (E) E.fitW = null; measureFit(); }, 120); });
-  function barHtml(){
-    const e = selected(), n = mine().length, pr = e && (e.k === "t" || e.k === "p") ? probeOf(e) : null, txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
-    const fam = e ? (e.ff ? "ff:" + e.ff : (e.k === "t" || e.k === "p") && e.keep !== false ? "o" : e.f || "h") : "";
-    const tool = (k, label, icon, extra) => `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${E.tool === k && !E.place}" title="${label}"${extra || ""}>${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
-    const fonts = myFonts(), markish = E.tool === "mark" || (e && e.k === "s");
-    const msg = E.locked ? "This PDF is locked (encrypted), so it can't be edited here."
+  const touchy = () => { try { return matchMedia("(pointer: coarse)").matches; } catch (e) { return false; } };
+  function barMsg(){
+    const e = selected(), n = mine().length, pr = e && (e.k === "t" || e.k === "p") ? probeOf(e) : null, typing = !!(e && E.ed && E.ed.e.id === e.id), tap = touchy();
+    // how to finish typing where Enter makes a new line, and what a picked text box can do
+    const finish = typing && e.k !== "t" ? (tap ? "Tap away from it to finish" : "Ctrl+Enter or click away to finish") : "";
+    return E.locked ? "This PDF is locked (encrypted), so it can't be edited here."
       : E.place ? (E.place.text != null ? `Click where “${E.place.text}” goes` : E.place.sig ? "Click where your signature goes" : "Click where the picture goes")
       : picked().length > 1 ? `${picked().length} picked: drag to move them together, or align them`
       : E.picSel ? "One of the PDF's own pictures: drag it to move it, or replace or take it out"
@@ -1957,9 +2049,17 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       : E.tool === "fill" && !e ? (me().name ? "Pick a detail, then click where it goes" : "Add your details first (Your Details), then click where each one goes")
       : E.signed ? "This PDF has a digital signature. Saving changes will make it show as no longer valid."
       : e && e.ff && !FK.get(e.ff) && !myFonts().some(f => f.id === e.ff) ? "This font is on another device. Until it's added here, a similar font is used."
-      : e && (e.k === "t" || e.k === "p") && pr ? (pr.keep ? "Same font as the PDF" : "A similar font: this PDF's font doesn't have every letter here")
+      : e && e.k === "n" ? (typing ? finish : tap ? "Tap again to type, or drag to move" : "Click again to type, drag to move, arrows to nudge")
+      : e && (e.k === "t" || e.k === "p") && pr ? (pr.keep ? "Same font as the PDF" : "A similar font: this PDF's font doesn't have every letter here") + (finish ? ". " + finish : "")
+      : finish ? finish
       : e && e.k === "i" && e.sig ? "A picture of your signature (not a certified digital signature)"
       : !n ? "Click any text to change it" : "";
+  }
+  function barHtml(){
+    const e = selected(), txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
+    const fam = e ? (e.ff ? "ff:" + e.ff : (e.k === "t" || e.k === "p") && e.keep !== false ? "o" : e.f || "h") : "";
+    const tool = (k, label, icon, extra) => `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${E.tool === k && !E.place}" title="${label}"${extra || ""}>${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
+    const fonts = myFonts(), markish = E.tool === "mark" || (e && e.k === "s"), msg = barMsg();
     const marks = markish ? `<span class="pde-marks" role="group" aria-label="Marks">${SHAPES.map(([k, name, d]) => `<button type="button" class="icon-btn pde-shape-btn" data-act="pde-shape" data-id="${k}" aria-label="${name}" title="${name}" aria-pressed="${E.tool === "mark" && E.shape === k}">${ico(d)}</button>`).join("")}</span>
       <span class="pde-cols">${COLORS.map(([hex, name]) => `<button type="button" class="pde-col" data-act="pde-scolor" data-id="${hex}" style="--c:${hex}" aria-label="${name}" aria-pressed="${((e && e.k === "s" ? e.c : E.sc) || "").toLowerCase() === hex}"></button>`).join("")}</span>
       <select id="pdeSw" aria-label="Line width">${WIDTHS.map(([w, name]) => `<option value="${w}"${(e && e.k === "s" ? e.lw : E.sw) === w ? " selected" : ""}>${name}</option>`).join("")}</select>` : "";
@@ -2047,8 +2147,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // the Download menu closes on a click anywhere else, and after a choice
   document.addEventListener("click", ev => { const m = document.querySelector(".pdr-dlmenu"); if (!m) return; const inSplit = ev.target.closest && ev.target.closest(".pdr-split"); if (inSplit && !ev.target.closest(".pde-mi")) return; setTimeout(() => { m.remove(); const b = document.querySelector('[data-act="pde-dlmenu"]'); if (b) b.setAttribute("aria-expanded", "false"); }, 0); }, true);
   document.addEventListener("keydown", ev => { if (E && E.more && ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); E.more = false; bar(); const b = dlg.querySelector('[data-act="pde-more"]'); if (b) b.focus(); } }, true);
-  // keeps a click on the bar from ending the text being typed
-  document.addEventListener("pointerdown", ev => { if (E && E.ed && ev.target.closest && ev.target.closest(".pde-bar") && !ev.target.closest("select,input,label")) ev.preventDefault(); }, true);
+  // keeps a click on the bar (or zooming) from ending the text being typed
+  document.addEventListener("pointerdown", ev => { if (E && E.ed && ev.target.closest && ev.target.closest('.pde-bar,[data-act="pdr-zoom"],[data-act="pdr-fit"]') && !ev.target.closest("select,input,label")) ev.preventDefault(); }, true);
 
   /* Saving */
   const hasMarks = () => { const f = fileOf(); return !!f && ((f.hl || []).some(h => h && h.a === E.rev) || (f.ink || []).some(s => s && s.a === E.rev && s.p)); };
@@ -2092,7 +2192,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   // a digitally signed PDF: say so before changing it
   async function signedOk(){ return !E.signed || await askBox({title: "This PDF Is Digitally Signed", text: "Changing it will make its digital signature show as no longer valid in PDF apps. Keep the original if you need the signature to stay valid.", yes: "Change It Anyway", no: "Cancel"}); }
-  const missingNote = rp => [rp.missingFonts ? "a font that isn't on this device was replaced by a similar one" : "", rp.missingImages ? "a picture that isn't on this device was left out" : "", rp.fieldsSkipped ? `${rp.fieldsSkipped} form field${rp.fieldsSkipped === 1 ? "" : "s"} couldn't be filled in` : ""].filter(Boolean).join("; ");
+  const missingNote = rp => [rp.qmarks ? `${rp.qmarks} letter${rp.qmarks === 1 ? "" : "s"} the font can't draw became ?` : "", rp.missingFonts ? "a font that isn't on this device was replaced by a similar one" : "", rp.missingImages ? "a picture that isn't on this device was left out" : "", rp.fieldsSkipped ? `${rp.fieldsSkipped} form field${rp.fieldsSkipped === 1 ? "" : "s"} couldn't be filled in` : ""].filter(Boolean).join("; ");
   let busy = false;
   async function saveVersion(){
     if (busy || !E) return; if (E.ed) commit();
@@ -3321,8 +3421,6 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // a page was drawn: keep its text positions, and draw the edits and fields on it
     readerPage(n, el, page, vp){
       const S = session(); if (!S) return;
-      const old = S.pages.get(n);
-      if (old && S.ed && S.ed.e.p === n && old.vp.scale !== vp.scale) commit();
       S.pages.set(n, {n, el, page, vp});
       paint(n); paintForm(n); paintLinks(n);
       if (!S.tocChecked) { S.tocChecked = true; const r = R(); if (r && r.doc) r.doc.getOutline().then(o => { const b = $("#pdeTocBtn"); if (b && o && o.length) b.hidden = false; }).catch(() => {}); }
@@ -3368,7 +3466,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-save .btn{display:inline-flex;align-items:center;gap:6px}
 .pde-note{max-width:26em}
 .pde-note.bad{color:var(--late,#c0262d)}
-.pde-layer{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
+.pde-layer{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden;overflow:clip}
+.pde-e:focus{outline:none}
 .pde-on .pde-layer{pointer-events:auto}
 .pde-on .textLayer{pointer-events:none}
 .pde-on .ink-layer{pointer-events:none}
