@@ -55,6 +55,7 @@
   "01-sync.js",
   "01-accounts.js",
   "01-undo.js",
+  "01-ai-policy.js",
   "01-ai.js",
   "01-phone-cam.js",
   "01-quick-add.js",

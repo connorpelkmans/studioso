@@ -516,7 +516,7 @@ Return JSON only.`;
     return v;
   });
 }
-const aiOkNow = () => { try { return aiReady() && !aiTrialing() && aiConsented(aiCfg().provider); } catch (e) { return false; } };
+const aiOkNow = () => { try { return aiReady() && aiConsented(aiCfg().provider); } catch (e) { return false; } };
 
 /* The review sheet */
 let CUR = null;

@@ -138,6 +138,17 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     const before = pe.length;
     await page.keyboard.press("Control+z"); await page.waitForTimeout(300);
     ok((await page.evaluate(() => (state.files.f1.pe || []).length)) === before - 1, "Ctrl+Z undoes the last edit");
+    // Undo and Redo buttons at the right end of the edit row, after More
+    { const pos = await page.evaluate(() => { const u = document.querySelector('.pde-ur [data-id="-1"]'), r = document.querySelector('.pde-ur [data-id="1"]'), m = document.querySelector('[data-act="pde-more"]'), bar = document.querySelector(".pde-bar");
+        if (!u || !r) return null; const ub = u.getBoundingClientRect(), rb = r.getBoundingClientRect(), bb = bar.getBoundingClientRect(), mb = m ? m.getBoundingClientRect() : {right: 0};
+        return {after: ub.left > mb.right, right: bb.right - rb.right, sameRow: Math.abs(ub.top - (m ? mb.top : ub.top)) < 4, redoOn: !r.disabled}; });
+      ok(pos && pos.after && pos.sameRow && pos.right < 40, "Undo and Redo sit at the right end of the edit row, after More: " + JSON.stringify(pos));
+      ok(pos.redoOn, "after an undo, Redo is available");
+      await page.click('.pde-ur [data-id="1"]'); await page.waitForTimeout(300);
+      ok((await page.evaluate(() => (state.files.f1.pe || []).length)) === before, "the Redo button brings the edit back");
+      await page.click('.pde-ur [data-id="-1"]'); await page.waitForTimeout(300);
+      ok((await page.evaluate(() => (state.files.f1.pe || []).length)) === before - 1, "the Undo button takes it back again");
+      ok(await page.evaluate(() => !document.querySelector('.pde-ur [data-id="1"]').disabled), "Redo stays available after Undo"); }
     await page.mouse.move(dr.l - 4, dr.y - 12);
     await page.click('.pde-tool[data-id="white"]');
     await page.mouse.move(dr.l - 4, dr.y - 12); await page.mouse.down(); await page.mouse.move(end.r + 4, dr.y + 12, {steps: 6}); await page.mouse.up(); await page.waitForTimeout(300);

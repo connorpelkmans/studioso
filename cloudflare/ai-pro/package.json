@@ -1,0 +1,13 @@
+{
+  "name": "studyboard-pro-ai",
+  "private": true,
+  "type": "module",
+  "description": "Claude Haiku 5.5 for Studyboard Pro students, with per-student allowances enforced on the server",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.5.0"
+  }
+}

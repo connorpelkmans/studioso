@@ -1,4 +1,4 @@
-/* ===== module: 01-ai.js: the app's core, AI: providers, keys, the free trial, consent, study sets, quizzes, syllabus reading, settings ===== */
+/* ===== module: 01-ai.js: the app's core, AI: providers, keys, consent, study sets, quizzes, syllabus reading, settings ===== */
 /* AI: Google Gemini (free) by default, or paid Gemini, Claude or ChatGPT with your own key */
 const AI_ICON = '<svg class="ai-ic" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M11 2.5l1.6 4.4a3 3 0 0 0 1.8 1.8L18.8 10.3l-4.4 1.6a3 3 0 0 0-1.8 1.8L11 18.1l-1.6-4.4a3 3 0 0 0-1.8-1.8L3.2 10.3l4.4-1.6a3 3 0 0 0 1.8-1.8z"/><path d="M18.5 14.5l.8 2.1a1.5 1.5 0 0 0 .9.9l2.1.8-2.1.8a1.5 1.5 0 0 0-.9.9l-.8 2.1-.8-2.1a1.5 1.5 0 0 0-.9-.9l-2.1-.8 2.1-.8a1.5 1.5 0 0 0 .9-.9z"/></svg>';
 // 1.11.1: with a study companion out, AI work is presented as the companion's
@@ -25,7 +25,8 @@ const AI_PROVIDERS = {
   gemini: {label: "Google Gemini", short: "Gemini", keyLabel: "Gemini API Key", keyUrl: "https://aistudio.google.com/apikey", keyHint: "Free from Google AI Studio",
     models: [["auto", "Gemini Auto (free, recommended)", "free"], ["gemini-3.8-flash", "Gemini 3.8 Flash (free)", "free"], ["gemini-3.7-flash", "Gemini 3.7 Flash (free)", "free"], ["gemini-3.6-flash", "Gemini 3.6 Flash (free)", "free"], ["gemini-3.5-flash", "Gemini 3.5 Flash (free)", "free"], ["gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite (free, fastest)", "free"], ["gemini-3.1-pro-preview", "Gemini 3.1 Pro (paid, needs billing)", "paid"], ["auto-pro", "Gemini, Smartest First (Pro for hard jobs, paid, needs billing)", "paid"]]},
   anthropic: {label: "Anthropic Claude", short: "Claude", keyLabel: "Claude API Key", keyUrl: "https://console.anthropic.com/settings/keys", keyHint: "Paid, billed per use by Anthropic",
-    models: [["claude-sonnet-5", "Claude Sonnet 5 (paid)", "paid"], ["claude-opus-5-5", "Claude Opus 5.5 (paid, most capable)", "paid"], ["claude-haiku-4-5-20251001", "Claude Haiku 4.5 (paid, cheapest)", "paid"]]},
+    // Claude runs only as Studyboard AI does: Haiku 5.5, thinking matched to each job, with its limits (src/js/01-ai-policy.js)
+    models: [["studyboard", "Claude Haiku 5.5, Studyboard AI Mode (paid)", "paid"]]},
   openai: {label: "OpenAI ChatGPT", short: "ChatGPT", keyLabel: "OpenAI API Key", keyUrl: "https://platform.openai.com/api-keys", keyHint: "Paid, billed per use by OpenAI",
     models: [["gpt-6-sol", "GPT-6 Sol (paid)", "paid"], ["gpt-6-luna", "GPT-6 Luna (paid, cheapest)", "paid"], ["gpt-6-astra", "GPT-6 Astra (paid, most capable)", "paid"]]}
 };
@@ -225,33 +226,90 @@ const KEYHO = (() => {
 const KEY_RELAY = "https://studyboard-key-relay.connor-pelkmans.workers.dev";
 // Email to Studyboard (Pro)
 const CAPTURE_EMAIL_DOMAIN = "";
-/* Studyboard's free AI trial cloudflare/ai-trial, a Worker on Cloudflare's FREE plan */
-const AI_TRIAL = "";
-const AI_TRIAL_LS = "studyboard:aiTrial";
-const aiToday = () => new Date().toISOString().slice(0, 10);
-// The last count the trial server sent for the signed-in student
-function aiTrialGet(){ try { const t = JSON.parse(localStorage.getItem(AI_TRIAL_LS) || "null"); return t && sbUser && t.uid === sbUser.id ? t : null; } catch(e) { return null; } }
-function aiTrialSet(j){
-  if (!sbUser || !j || typeof j.left !== "number") return;
-  try { localStorage.setItem(AI_TRIAL_LS, JSON.stringify({uid: sbUser.id, left: j.left, total: j.total, todayLeft: j.todayLeft, daily: j.daily, verify: !!j.verify, day: aiToday()})); } catch(e) {}
+// The signed-in student's access token, for Studyboard's own AI server
+async function aiSessionToken(){ try { const {data} = await sb.auth.getSession(); return (data && data.session && data.session.access_token) || ""; } catch(e) { return ""; } }
+/* Studyboard AI, included with Pro: cloudflare/ai-pro, a Worker that holds Studyboard's Anthropic key (Claude Haiku 5.5).
+   The server checks the plan and keeps each student's allowance; this only shows what it last said. Off while this is "". */
+const AI_PRO = "";
+const AI_PRO_LS = "studyboard:aiPro";
+function aiProGet(){ try { const t = JSON.parse(localStorage.getItem(AI_PRO_LS) || "null"); return t && sbUser && t.uid === sbUser.id ? t : null; } catch(e) { return null; } }
+function aiProSet(j){
+  if (!sbUser || !j || typeof j !== "object") return;
+  const prev = aiProGet() || {}, today = new Date().toISOString().slice(0, 10);
+  const on = j.on === false ? false : j.on === true ? true : !!prev.on;
+  const next = {uid: sbUser.id, on, tier: j.tier || prev.tier || "", usedPct: typeof j.usedPct === "number" ? j.usedPct : prev.usedPct || 0, soft: typeof j.soft === "boolean" ? j.soft : !!prev.soft,
+    resets: j.resets !== undefined ? j.resets : prev.resets || null, transcribe: typeof j.transcribe === "boolean" ? j.transcribe : !!prev.transcribe, youtube: typeof j.youtube === "boolean" ? j.youtube : !!prev.youtube, at: Date.now(),
+    // Out of today's allowance: the student's own key covers the rest of the day
+    outDay: j.error === "today" ? today : prev.outDay === today ? today : ""};
+  try { localStorage.setItem(AI_PRO_LS, JSON.stringify(next)); } catch(e) {}
 }
-const aiTrialAvail = () => { if (!AI_TRIAL || !sbUser || sbUser.is_anonymous) return false; const t = aiTrialGet(); return !t || t.left > 0; };
-// Tries left today (null before the first count), and in all
-function aiTrialLeft(){ const t = aiTrialGet(); if (!t) return {left: null, today: null, total: null}; return {left: t.left, total: t.total, today: t.day === aiToday() ? t.todayLeft : Math.min(t.left, t.daily || t.left)}; }
-async function aiTrialToken(){ try { const {data} = await sb.auth.getSession(); return (data && data.session && data.session.access_token) || ""; } catch(e) { return ""; } }
-// Refreshes the count from the server (after sign-in, and when AI Features opens)
-async function aiTrialRefresh(){
-  if (!AI_TRIAL || !sbUser) return null;
-  const tok = await aiTrialToken(); if (!tok) return null;
-  try { const res = await fetchT(`${AI_TRIAL}/v1/trial`, {headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 15000); if (!res.ok) return null; const j = await res.json(); aiTrialSet(j); return j; } catch(e) { return null; }
+const aiProUsedUp = () => { const t = aiProGet(); return !!t && (t.usedPct >= 100 || t.outDay === new Date().toISOString().slice(0, 10)); };
+// The student's own key to fall back on when Studyboard AI runs out: Gemini first, then any other key they added
+const aiProBackup = keys => keys.gemini ? "gemini" : keys.anthropic ? "anthropic" : keys.openai ? "openai" : "";
+// The student turned it off to use their own key instead (Settings, AI Features)
+const aiProDeclined = () => { try { return !!((state.settings && state.settings.ai) || {}).ownKey; } catch(e) { return false; } };
+let aiProChecking = null;
+function aiProAvail(){
+  if (!AI_PRO || !sbUser || sbUser.is_anonymous || inPreview()) return false;
+  const t = aiProGet();
+  // Checked again in the background every half hour, so a new or ended plan shows up
+  if ((!t || Date.now() - (t.at || 0) > 30 * 60000) && !aiProChecking) aiProRefresh().then(() => { try { scheduleRender(); } catch(e) {} });
+  return !!(t && t.on);
+}
+async function aiProRefresh(){
+  if (!AI_PRO || !sbUser || sbUser.is_anonymous) return null;
+  if (aiProChecking) return aiProChecking;
+  aiProChecking = (async () => {
+    const tok = await aiSessionToken(); if (!tok) return null;
+    try { const res = await fetchT(`${AI_PRO}/v1/status`, {headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 15000); if (!res.ok && res.status !== 200) return null; const j = await res.json(); aiProSet(j); return j; } catch(e) { return null; }
+  })();
+  try { return await aiProChecking; } finally { aiProChecking = null; }
 }
 // Delete My Account
-async function aiTrialForget(){
-  if (!AI_TRIAL || !sbUser) return;
-  const tok = await aiTrialToken(); if (!tok) return;
-  try { await fetchT(`${AI_TRIAL}/v1/trial`, {method: "DELETE", headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 8000); } catch(e) {}
-  try { localStorage.removeItem(AI_TRIAL_LS); } catch(e) {}
+async function aiProForget(){
+  if (!AI_PRO || !sbUser) return;
+  const tok = await aiSessionToken(); if (!tok) return;
+  try { await fetchT(`${AI_PRO}/v1/me`, {method: "DELETE", headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 8000); } catch(e) {}
+  try { localStorage.removeItem(AI_PRO_LS); } catch(e) {}
 }
+// Test handle (only when a test page sets window.__SB_TEST)
+if (window.__SB_TEST) window.__sbAi = {cfg: () => aiCfg(), proRefresh: () => aiProRefresh(), proGet: () => aiProGet(), useOwnMode: () => aiSaveCfg({provider: "anthropic", model: "studyboard"})};
+// Studyboard AI's rules (src/js/01-ai-policy.js): the built-in AI, or a student's own Claude key in Studyboard AI Mode
+const aiSbMode = c => !!c && (c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard"));
+/* A student's own Claude key in Studyboard AI Mode: the same rules as the built-in AI (SBPOLICY.runJob: model, thinking per job,
+   output caps, the same monthly, daily, per-minute and at-once limits), run on this device and paid by their key. The allowance
+   is kept on this device, one change at a time across tabs. */
+const AI_OWN_LS = "studyboard:ownAI";
+const ownStore = {
+  all(){ try { const o = JSON.parse(localStorage.getItem(AI_OWN_LS) || "{}"); return o && typeof o === "object" ? o : {}; } catch(e) { return {}; } },
+  async get(k){ return this.all()[k]; },
+  async put(k, v){ const o = this.all(); if (k && typeof k === "object") Object.assign(o, k); else o[k] = v; try { localStorage.setItem(AI_OWN_LS, JSON.stringify(o)); } catch(e) {} },
+  async deleteAll(){ try { localStorage.removeItem(AI_OWN_LS); } catch(e) {} }
+};
+const ownLock = typeof navigator !== "undefined" && navigator.locks && navigator.locks.request ? fn => navigator.locks.request("studyboard-own-ai", () => fn()) : null;
+let OWN_METER = null;
+const ownMeter = () => OWN_METER || (OWN_METER = new SBPOLICY.Meter(ownStore, () => Date.now(), ownLock));
+const ownLimits = () => SBPOLICY.limits({});
+// Claude straight from this device with the student's key, in the shape SBPOLICY.runJob expects (errors carry their status)
+function ownClaude(key, signal, ms){
+  const call = async (path, body, beta) => {
+    const hdr = {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"};
+    if (beta) hdr["anthropic-beta"] = beta;
+    let res;
+    try { res = await fetchT("https://api.anthropic.com" + path, {method: "POST", headers: hdr, body: JSON.stringify(body)}, ms, signal); }
+    catch (e) { throw Object.assign(new Error(signal && signal.aborted ? "cancelled" : "offline"), {net: true, aborted: !!(signal && signal.aborted)}); }
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error((j && j.error && j.error.message) || "error " + res.status), {status: res.status});
+    return j;
+  };
+  return {
+    create: req => call("/v1/messages", req, (req.tools || []).some(t => t.name === "web_fetch") ? "web-fetch-2025-09-10" : ""),
+    count: async req => { const rest = Object.assign({}, req); delete rest.max_tokens; return (await call("/v1/messages/count_tokens", rest)).input_tokens; }
+  };
+}
+const ownView = () => { try { const r = ownStore.all(), L = ownLimits(), m = SBPOLICY.monthOf(Date.now()), spent = r.month === m ? r.spent || 0 : 0; return {usedPct: Math.min(100, Math.round(spent / L.monthMicro * 100)), soft: spent >= L.softMicro, resets: SBPOLICY.nextMonth(Date.now())}; } catch(e) { return {usedPct: 0, soft: false, resets: null}; } };
+// "Resets on December 1"
+const aiProResets = () => { const t = aiProGet(); if (!t || !t.resets) return ""; try { return new Date(t.resets).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } };
 // A scanned code opens the app as <app>#sbkey=XXXX-XXXX-XXXX
 const KEYHO_LINK = (() => {
   try {
@@ -267,7 +325,7 @@ const AI_WHO = {
   gemini: {company: "Google", product: "Gemini", host: "generativelanguage.googleapis.com", policy: "https://policies.google.com/privacy"},
   anthropic: {company: "Anthropic", product: "Claude", host: "api.anthropic.com", policy: "https://www.anthropic.com/legal/privacy"},
   openai: {company: "OpenAI", product: "ChatGPT", host: "api.openai.com", policy: "https://openai.com/policies/privacy-policy"},
-  trial: {company: "Cloudflare", product: "Studyboard's Free AI Trial", host: (() => { try { return new URL(AI_TRIAL).host; } catch(e) { return "Studyboard's trial server"; } })(), policy: "https://www.cloudflare.com/privacypolicy/"}
+  studyboard: {company: "Anthropic", product: "Studyboard AI", host: (() => { try { return new URL(AI_PRO).host; } catch(e) { return "Studyboard's AI server"; } })(), policy: "https://www.anthropic.com/legal/privacy"},
 };
 const aiConsentMap = () => { try { const m = JSON.parse(localStorage.getItem(AI_CONSENT_LS) || "{}"); return m && typeof m === "object" && !Array.isArray(m) ? m : {}; } catch(e) { return {}; } };
 const aiConsented = provider => ((aiConsentMap()[provider] || {}).v || 0) >= AI_CONSENT_V;
@@ -280,7 +338,7 @@ function aiConsentAsk(provider){
   const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiConsentTitle");
   d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiConsentTitle">Send Your Content to ${esc(W.company)}?</h2></div>
     <div class="sheet-body">
-      ${provider === "trial" ? `<p style="margin:0">Studyboard's free AI trial runs on an open AI model (Google's Gemma) that <b>Cloudflare</b> hosts for Studyboard. To answer, the content of each request goes from this device to Studyboard's trial server (<b>${esc(W.host)}</b>, run on Cloudflare), which passes it to the model and sends the answer back. Nothing you send is stored: the trial server keeps only a count of your tries. Your sign-in token goes along so it can count them; the model never sees who you are.</p>`
+      ${provider === "studyboard" ? `<p style="margin:0">Studyboard AI comes with your Pro plan. It runs on <b>Anthropic's Claude</b>. To answer, the content of each request goes from this device to Studyboard's AI server (<b>${esc(W.host)}</b>, run on Cloudflare), which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store what you send or keep logs of it, and Anthropic doesn't use it to train its models.</p>`
         : `<p style="margin:0">Studyboard's AI features use <b>${esc(W.company)} ${esc(W.product)}</b> with the API key you added. To answer, they send the content of each request directly from this device to <b>${esc(W.host)}</b>. Studyboard's own servers are not involved.</p>`}
       <p style="margin:0"><b>What is sent:</b> what you type into an AI window, plus the material for that job, such as the task, note, flashcards, file, slides or photo you choose, and your course names, deadlines and progress when you ask about your schedule or plan. If Automatic AI is on, short summaries of your tasks and deadlines are also sent in the background.</p>
       <p style="margin:0"><b>What is not sent:</b> your Studyboard password, your email address, or anything when you aren't using an AI feature.</p>
@@ -316,15 +374,21 @@ function aiCfg(){
   let provider = AI_PROVIDERS[raw.provider] ? raw.provider : "gemini";
   let model = raw.model || (provider === "gemini" ? "auto" : AI_PROVIDERS[provider].models[0][0]);
   if (!keys[provider]) { const p = ["gemini", "anthropic", "openai"].find(x => keys[x]); if (p) { provider = p; model = p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]; } }
-  if (!keys[provider] && aiTrialAvail()) return {provider: "trial", model: "trial", keys, key: "trial"};
+  if (provider === "anthropic") model = "studyboard";
+  // Studyboard AI (Pro) unless the student chose their own key; once this month's is used up, their own key takes over if they have one
+  // Paid Pro: Studyboard AI first, always. The student's own key (Gemini first) only once this month's or today's allowance is used up.
+  if (aiProAvail() && !raw.ownKey) {
+    if (!aiProUsedUp()) return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
+    const b = aiProBackup(keys);
+    if (b) return {provider: b, model: b === "gemini" ? (raw.provider === "gemini" && raw.model ? raw.model : "auto") : AI_PROVIDERS[b].models[0][0], keys, key: keys[b], backup: true};
+    return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
+  }
   return {provider, model, keys, key: keys[provider]};
 }
 const aiReady = () => !inPreview() && !!aiCfg().key;
-// On the free trial, AI runs only when the student taps for it
-const aiTrialing = () => { try { return aiCfg().provider === "trial"; } catch (e) { return false; } };
 const aiErr = (code, message) => Object.assign(new Error(message), {code});
 function aiModelName(provider, model){
-  if (provider === "trial") return "Studyboard's Free AI Trial";
+  if (provider === "studyboard") return "Studyboard AI";
   const P = AI_PROVIDERS[provider]; if (!P) return model;
   const m = P.models.find(x => x[0] === model);
   return m ? m[1].replace(/ \(.*$/, "").replace(/, Auto$/, "") : model;
@@ -332,6 +396,8 @@ function aiModelName(provider, model){
 function aiSaveCfg(patch){
   const c = aiCfg(), raw = (state.settings && state.settings.ai) || {};
   const next = {provider: patch.provider || c.provider, model: patch.model || c.model, keys: Object.assign({}, raw.keys || {}, patch.keys || {})};
+  if (next.provider === "studyboard") { next.provider = raw.provider || "gemini"; next.model = raw.model || "auto"; }
+  const own = patch.ownKey !== undefined ? patch.ownKey : raw.ownKey; if (own) next.ownKey = true;
   if (patch.provider && !patch.model) next.model = patch.provider === "gemini" ? "auto" : AI_PROVIDERS[patch.provider].models[0][0];
   state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings();
 }
@@ -523,15 +589,17 @@ function aiJobFailed(){ try { document.dispatchEvent(new CustomEvent("sb-ai-job"
 function aiShowStatus(el){ try { if (el && el.textContent.trim() && el.isConnected) el.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }
 function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
 async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
+  const arguments0 = arguments[0];
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
   system = aiCopyRule(system, task);
   if (auto) { const a = autoState(); if (!a.on) throw aiErr("auto-off", "Automatic AI is off."); cfg = a.cfg; }
   if (inPreview()) throw aiErr("preview", "AI features work in the Studyboard app and on your website, not in this preview.");
   if (!cfg.key) throw aiErr("nokey", "Set up AI in Settings first.");
-  if (cfg.provider === "trial") {
-    const why = parts.some(x => x.text == null) ? "files" : search || urlContext ? "search" : aiTrialLeft().today === 0 ? "today" : "";
-    if (why) { aiTrialPrompt(why); throw aiErr("trial-" + why, AI_TRIAL_WORDS[why].err); }
+  if (aiSbMode(cfg)) {
+    // Studyboard AI reads text, photos and PDFs, and can look things up on the web; video (YouTube) needs a Gemini key
+    const why = parts.some(x => x && x.text == null && !/^(image\/(png|jpeg|gif|webp)|application\/pdf)$/.test(((x.inline_data || {}).mime_type) || "")) ? "files" : "";
+    if (why) { if (!auto) aiProPrompt(why); throw aiErr("pro-" + why, AI_PRO_WORDS[why].err); }
   }
   if (!aiConsented(cfg.provider)) {
     if (auto) throw aiErr("no-consent", "Automatic AI is waiting for your OK.");
@@ -543,8 +611,13 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   // a request the student is waiting on (not background work): the companion shows it's thinking
   if (!auto) aiWaiting(1);
   try {
-    if (cfg.provider === "trial") return await trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal});
-    if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
+    if (cfg.provider === "studyboard") {
+      const backup = aiProBackup(cfg.keys || {});
+      try { return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, hasBackup: !!backup}); }
+      catch (e) { if (e && e.out && backup && !(signal && signal.aborted) && aiProUsedUp()) { if (!auto) aiWaiting(-1); clearTimeout(slow); try { return await aiCall(arguments0); } finally { if (!auto) aiWaiting(1); } } throw e; }
+    }
+    // Claude only ever runs as Studyboard AI does (Haiku 5.5, thinking per job, its limits), whatever model was saved
+    if (cfg.provider === "anthropic") return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own: cfg.key});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext});
   } finally { clearTimeout(slow); if (!auto) aiWaiting(-1); }
@@ -650,132 +723,119 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
     launch();
   });
 }
-// The free trial (AI_TRIAL)
-const AI_TRIAL_WORDS = {
-  used_up: {title: "You've Used Your Free AI Tries", body: "That was the last of your free tries. Studyboard's AI stays free with your own Google Gemini key, and it takes about a minute.", err: "Your free AI tries are used up. Add your free Gemini key to keep using AI."},
-  today: {title: "That's Today's Free Tries", body: "More free tries come tomorrow. Or add your own free Google Gemini key now (it takes about a minute) and use AI as much as you like.", err: "You've used today's free AI tries. More tomorrow, or add your free Gemini key."},
-  busy: {title: "The Free Trial Is Busy Today", body: "Lots of students tried AI today, so the free trial is resting until tomorrow. Your own free Google Gemini key works right away.", err: "The free AI trial is busy today. Try tomorrow, or add your free Gemini key."},
-  files: {title: "Reading Files Needs Your Own Key", body: "The free trial reads text only. Files, slides and photos need your own free Google Gemini key, which takes about a minute.", err: "Reading files needs your own free Gemini key."},
+// Studyboard AI (AI_PRO)
+const AI_PRO_WORDS = {
+  used_up: {title: "You've Used This Month's Studyboard AI", body: "Studyboard AI is back when your allowance resets. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
+  today: {title: "That's a Lot of AI for One Day", body: "Studyboard AI has a daily limit so this month's allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
+  files: {title: "This Needs a Gemini Key", body: "Studyboard AI reads text, photos and PDFs. Videos need Google's Gemini, the only AI that can watch them. A free Gemini key takes about a minute to set up.", err: "Videos need a free Gemini key."},
   search: {title: "This Needs Your Own Key", body: "Looking things up on the web needs your own free Google Gemini key, which takes about a minute.", err: "This needs your own free Gemini key."},
-  too_long: {title: "That's a Big Job for the Trial", body: "The free trial handles shorter jobs. Your own free Google Gemini key handles big ones, and takes about a minute to set up.", err: "That's too much for the free trial. Add your free Gemini key for bigger jobs."},
-  unconfirmed: {title: "Confirm Your Email First", body: "The free AI trial starts once you've confirmed your email address. Or add your own free Google Gemini key, which works without an account.", err: "Confirm your email to try AI."}
+  too_long: {title: "That's Too Much in One Go", body: "Studyboard AI handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
 };
-async function trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal}, again){
-  if ((aiTrialGet() || {}).verify && !(await aiTrialVerify())) throw aiErr("trial-verify", "Finish the quick check to start your free AI tries.");
-  const tok = await aiTrialToken();
-  if (!tok) throw aiErr("nokey", "Sign in again to try AI, or add your free Gemini key in Settings.");
-  const text = parts.map(x => x.text || "").join("\n\n");
-  let res;
-  try {
-    res = await fetchT(`${AI_TRIAL}/v1/ai`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok},
-      body: JSON.stringify({task, system, text, schema: schema ? toJsonSchema(schema) : null, maxTokens, temperature})}, Math.min(ms, 90000), signal);
-  } catch(e) {
+// own: the student's own Claude key in Studyboard AI Mode (the same job, run on this device), otherwise the built-in AI
+const AI_OWN_WORDS = {
+  used_up: {title: "Your Claude Key's Monthly Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same monthly limit as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
+  today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
+};
+async function proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own, hasBackup}){
+  const content = claudeBlocks(parts), job = {task, system, content, schema: schema ? toJsonSchema(schema) : null, search: !!search, urlContext: !!urlContext};
+  let res, j;
+  if (own) {
+    let r;
+    try { r = await SBPOLICY.runJob(job, {meter: ownMeter(), lim: ownLimits(), claude: ownClaude(own, signal, Math.min(ms, 180000))}); }
+    catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); throw offlineErr("Anthropic"); }
     if (signal && signal.aborted) throw aiErr("cancelled", "Canceled.");
-    if (e && e.name === "AbortError") throw aiErr("slow", "The AI took too long to answer. Try again.");
-    throw offlineErr("Studyboard's AI trial");
+    res = {status: r.status, ok: r.status === 200}; j = r.body || {};
+    if (j.error === "key") throw aiErr("key", "Anthropic didn't accept your Claude key. Check it in Settings, then AI Features.");
+    if (r.status === 503 && j.error === "ai_failed") throw offlineErr("Anthropic");
+  } else {
+    const tok = await aiSessionToken();
+    if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+    try { res = await fetchT(`${AI_PRO}/v1/ai`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok}, body: JSON.stringify(job)}, Math.min(ms, 180000), signal); }
+    catch(e) {
+      if (signal && signal.aborted) throw aiErr("cancelled", "Canceled.");
+      if (e && e.name === "AbortError") throw aiErr("slow", "The AI took too long to answer. Try again.");
+      throw offlineErr("Studyboard AI");
+    }
+    j = await res.json().catch(() => ({}));
+    aiProSet(j);
   }
-  const j = await res.json().catch(() => ({}));
-  aiTrialSet(j);
   if (res.ok && j.data && typeof j.data === "object") {
-    try { scheduleRender(); } catch(e) {}
-    if (j.left === 0) setTimeout(() => toast("That was your last free AI try. Add your free Gemini key in Settings to keep going."), 600);
-    return {data: j.data, model: j.model || "Studyboard AI", provider: "trial", truncated: !!j.truncated};
+    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of this month's Studyboard AI. Everyday jobs now think a little less so the rest lasts."), 600); }
+    return {data: j.data, model: own ? "Claude Haiku 5.5" : "Studyboard AI", provider: own ? "anthropic" : "studyboard", truncated: !!j.truncated};
   }
-  if (j.error === "verify" && !again) {
-    if (!(await aiTrialVerify())) throw aiErr("trial-verify", "Finish the quick check to start your free AI tries.");
-    return trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal}, true);
-  }
-  const why = res.status === 413 ? "too_long" : AI_TRIAL_WORDS[j.error] ? j.error : "";
-  if (why) { aiTrialPrompt(why); try { scheduleRender(); } catch(e) {} throw aiErr("trial-" + why, AI_TRIAL_WORDS[why].err); }
-  if (res.status === 401) throw aiErr("nokey", "Sign in again to try AI, or add your free Gemini key in Settings.");
-  if (res.status === 502) throw aiErr("bad", j.refunded === false ? "The AI's answer came back garbled. Try again." : "The AI's answer came back garbled. Try again (that try wasn't counted).");
-  throw aiErr("http", "The free AI trial couldn't do that right now. Try again in a minute.");
+  const why = res.status === 413 ? "too_long" : AI_PRO_WORDS[j.error] && j.error !== "files" && j.error !== "search" ? j.error : "";
+  const out = why === "used_up" || why === "today";
+  // Out of allowance with the student's own key to fall back on: no message, the job just moves to their key
+  if (why) { if (!auto && !(out && hasBackup)) aiProPrompt(why, !!own); try { scheduleRender(); } catch(e) {} throw Object.assign(aiErr(out ? "limit" : "pro-" + why, (own && AI_OWN_WORDS[why] || AI_PRO_WORDS[why]).err), {out: out && !own}); }
+  if (j.error === "not_pro" || j.error === "off" || j.error === "unconfirmed") { aiProSet({on: false}); try { scheduleRender(); } catch(e) {} throw aiErr("nokey", j.error === "unconfirmed" ? "Confirm your email to use Studyboard AI." : "Studyboard AI comes with Pro. Add your own free Gemini key in Settings to use AI without it."); }
+  if (res.status === 401) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+  if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
+  if (j.error === "refused") throw aiErr("blocked", "The AI wouldn't help with this one. Try asking another way.");
+  if (res.status === 502) throw aiErr("bad", "The AI's answer came back garbled. Try again.");
+  if (res.status === 400) throw aiErr("bad", "The AI couldn't read that. Try again, or with a different file.");
+  throw aiErr("busy", "Studyboard AI is very busy right now. Try again in a minute.");
 }
-// The one-time "not a robot" check (Cloudflare Turnstile)
-let aiVerifying = null;
-function aiTrialVerify(){
-  if (aiVerifying) return aiVerifying;
-  aiVerifying = new Promise(resolve => {
-    const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiVerifyTitle");
-    d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiVerifyTitle">Quick Check First</h2></div>
-      <div class="sheet-body"><p style="margin:0">Before your first free AI try, a quick one-time check confirms you're not a robot, so bots can't use up the free AI everyone shares. It opens in your browser and takes a few seconds.</p>
-        <p class="mini" id="aiVerifyMsg" role="status" style="margin:0"></p></div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-go disabled>Start the Check</button></div></div>`;
-    const msg = d.querySelector("#aiVerifyMsg"), go = d.querySelector("[data-go]");
-    let url = "", timer = 0, done = false;
-    const finish = ok => { if (done) return; done = true; clearInterval(timer); aiVerifying = null; try { d.close(); } catch(e) {} d.remove(); if (ok) toast("Thanks! Your free AI tries are ready. Tap any AI button, like Explain This or Break It Down."); resolve(ok); };
-    d.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
-    d.querySelector("[data-no]").addEventListener("click", () => finish(false));
-    go.addEventListener("click", () => {
-      if (!url) return;
-      try { window.open(url, "_blank", "noopener"); } catch(e) {}
-      go.textContent = "Open It Again"; msg.textContent = "Waiting for the check… Finish it in the page that opened, then come back here.";
-      if (!timer) { const until = Date.now() + 15 * 60000; timer = setInterval(async () => {
-        if (Date.now() > until) { clearInterval(timer); timer = 0; msg.textContent = "The check timed out. Tap Start the Check to try again."; go.textContent = "Start the Check"; url = ""; prep(); return; }
-        const j = await aiTrialRefresh(); if (j && !j.verify) finish(true);
-      }, 2500); }
-    });
-    const prep = async () => {
-      go.disabled = true;
-      const tok = await aiTrialToken();
-      try { const res = await fetchT(`${AI_TRIAL}/v1/verify/start`, {method: "POST", headers: {Authorization: "Bearer " + tok}}, 15000); const j = await res.json().catch(() => ({}));
-        if (res.status === 404) { finish(true); return; }
-        if (res.ok && /^https:\/\//.test(j.url || "")) { url = j.url; go.disabled = false; } else msg.textContent = "Couldn't start the check. Try again in a minute.";
-      } catch(e) { msg.textContent = "Couldn't reach Studyboard. Check your internet connection and try again."; }
-    };
-    document.body.appendChild(d); d.showModal(); prep();
-  });
-  return aiVerifying;
+// Speech to text for lecture recordings (Whisper on Cloudflare), for Pro students on Studyboard AI
+async function proTranscribe(blob, signal, ms){
+  const tok = await aiSessionToken();
+  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+  const type = String(blob.type || "audio/webm").split(";")[0] || "audio/webm";
+  let res;
+  try { res = await fetchT(`${AI_PRO}/v1/transcribe`, {method: "POST", headers: {"Content-Type": /^(audio|video)\//.test(type) ? type : "audio/webm", Authorization: "Bearer " + tok}, body: blob}, ms || 120000, signal); }
+  catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "The AI took too long on part of the recording."); throw offlineErr("Studyboard AI"); }
+  const j = await res.json().catch(() => ({}));
+  aiProSet(j);
+  if (res.ok && typeof j.text === "string") return j.text;
+  if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
+  if (res.status === 413) throw aiErr("long", "That part of the recording is too big. Split the recording into shorter parts.");
+  if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
+  throw aiErr("busy", "Couldn't transcribe that part right now. Try again in a minute.");
 }
-// Why the trial stopped, with the way on
-let aiTrialAsking = null;
-function aiTrialPrompt(why){
-  const W = AI_TRIAL_WORDS[why]; if (!W || aiTrialAsking) return;
-  const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiTrialTitle");
-  const t = aiTrialLeft();
-  d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiTrialTitle">${esc(W.title)}</h2></div>
-    <div class="sheet-body"><p style="margin:0">${esc(W.body)}</p>
-      <ol class="ai-steps"><li>Open Google AI Studio and sign in with your Google account.</li><li>Click <b>Create API key</b>, then <b>Copy</b>.</li><li>Come back and paste it into the Gemini box in Settings, AI Features.</li></ol>
-      ${why === "today" && t.left ? `<p class="mini" style="margin:0">${t.left} free ${t.left === 1 ? "try" : "tries"} left in all.</p>` : ""}</div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>Get My Free Gemini Key</button></div></div>`;
-  const finish = go => { aiTrialAsking = null; try { d.close(); } catch(e) {} d.remove(); if (go) { aiSetupSheet(true); try { window.open("https://aistudio.google.com/apikey", "_blank", "noopener"); } catch(e) {} } };
+// Search by meaning on Studyboard AI: texts in, vectors out (one batch of up to 100)
+async function proEmbed(texts, isQuery){
+  const tok = await aiSessionToken();
+  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+  let res;
+  try { res = await fetchT(`${AI_PRO}/v1/embed`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok}, body: JSON.stringify({texts: texts.map(t => String(t || " ").slice(0, 8000) || " ")})}, isQuery ? 20000 : 60000); }
+  catch(e) { throw offlineErr("Studyboard AI"); }
+  const j = await res.json().catch(() => ({}));
+  aiProSet(j);
+  if (res.ok && Array.isArray(j.vectors)) return j.vectors;
+  if (res.status === 429 || j.error === "used_up" || j.error === "today") throw aiErr("limit", "Search by meaning is resting for now. It picks up again later.");
+  throw aiErr("busy", "Studyboard AI is very busy right now. Try again in a minute.");
+}
+// A YouTube video's transcript and on-screen text, from Studyboard AI (Google's Gemini watches it on the server)
+const aiProYoutube = () => { try { return aiCfg().provider === "studyboard" && !!(aiProGet() || {}).youtube; } catch(e) { return false; } };
+async function proYoutube(url, signal){
+  const tok = await aiSessionToken();
+  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+  let res;
+  try { res = await fetchT(`${AI_PRO}/v1/youtube`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok}, body: JSON.stringify({url})}, 300000, signal); }
+  catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "Watching the video took too long. Try a shorter one."); throw offlineErr("Studyboard AI"); }
+  const j = await res.json().catch(() => ({}));
+  aiProSet(j);
+  if (res.ok && typeof j.transcript === "string" && j.transcript) return j;
+  if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
+  if (j.error === "video") throw aiErr("video", "That video couldn't be watched. It may be private, unlisted, age-restricted, members-only or removed.");
+  if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
+  throw aiErr("busy", "Studyboard AI couldn't watch that video right now. Try again in a minute.");
+}
+const aiProAudio = () => { try { return aiCfg().provider === "studyboard" && !!(aiProGet() || {}).transcribe; } catch(e) { return false; } };
+// Why Studyboard AI stopped, with the way on
+let aiProAsking = null;
+function aiProPrompt(why, own){
+  const W = (own && AI_OWN_WORDS[why]) || AI_PRO_WORDS[why]; if (!W || aiProAsking) return;
+  const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiProTitle");
+  const when = why === "used_up" ? (own ? (r => { try { return new Date(r).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } })(ownView().resets) : aiProResets()) : "";
+  d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiProTitle">${esc(W.title)}</h2></div>
+    <div class="sheet-body"><p style="margin:0">${esc(W.body)}</p>${when ? `<p class="mini" style="margin:0">Your Studyboard AI resets on ${esc(when)}.</p>` : ""}</div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>${own ? "AI Settings" : "Add My Free Gemini Key"}</button></div></div>`;
+  const finish = go => { aiProAsking = null; try { d.close(); } catch(e) {} d.remove(); if (go) { aiSetupSheet(true); if (!own) try { window.open("https://aistudio.google.com/apikey", "_blank", "noopener"); } catch(e) {} } };
   d.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
   d.querySelector("[data-yes]").addEventListener("click", () => finish(true));
   d.querySelector("[data-no]").addEventListener("click", () => finish(false));
-  aiTrialAsking = d;
+  aiProAsking = d;
   document.body.appendChild(d); d.showModal();
-}
-// Once per student on this device, after they sign in without an AI key here
-const AI_WELCOME_LS = "studyboard:aiWelcome";
-async function aiTrialSignedIn(){
-  if (!AI_TRIAL || !sbUser || inPreview()) return;
-  const uid = sbUser.id;
-  await aiTrialRefresh();
-  const k = aiCfg().keys;
-  if (!sbUser || sbUser.id !== uid || k.gemini || k.anthropic || k.openai) return;
-  try { if ((JSON.parse(localStorage.getItem(AI_WELCOME_LS) || "[]") || []).includes(uid)) return; } catch(e) {}
-  let tries = 0;
-  const show = () => {
-    if (!sbUser || sbUser.id !== uid) return;
-    if ((dlg.open || aiTrialAsking || aiAsking) && tries++ < 180) { setTimeout(show, 1000); return; }
-    try { const seen = JSON.parse(localStorage.getItem(AI_WELCOME_LS) || "[]") || []; seen.push(uid); localStorage.setItem(AI_WELCOME_LS, JSON.stringify(seen.slice(-20))); } catch(e) {}
-    const t = aiTrialLeft(), n = t.left == null ? 15 : t.left, daily = (aiTrialGet() || {}).daily || 5;
-    openSheet(`<div class="sheet">${head("Turn On AI")}
-      <div class="sheet-body">
-        <p style="margin:0">Studyboard's AI makes flashcards and quizzes, explains answers, plans your exam prep and more. There are two ways to start:</p>
-        <div class="ai-paid" style="display:grid;gap:6px"><b>Set up AI with your free Gemini key</b><span class="mini">About a minute: get a free key from Google AI Studio, copy it and paste it in. Use AI as much as you like, including your files and slides.</span>
-          <button type="button" class="btn primary" id="aiwKey">Set Up With Gemini</button></div>
-        ${n > 0 ? `<div class="ai-paid" style="display:grid;gap:6px"><b>Or try AI first, no Google AI Studio account needed</b><span class="mini">You have ${n} free ${n === 1 ? "try" : "tries"} (up to ${daily} a day) for typed jobs like quick add, explanations, breaking down an assignment and study plans. When they're used up, Studyboard shows you how to add your free Gemini key.</span>
-          <button type="button" class="btn" id="aiwTry">Try AI First</button></div>` : ""}
-      </div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Later</button></div></div>`);
-    $("#aiwKey").addEventListener("click", () => aiSetupSheet(false));
-    const tryBtn = $("#aiwTry"); if (tryBtn) tryBtn.addEventListener("click", async () => {
-      dlg.close();
-      if ((aiTrialGet() || {}).verify) { await aiTrialVerify(); scheduleRender(); return; }
-      toast("Your free AI tries are on. Tap any AI button, like Explain This or Break It Down."); scheduleRender(); });
-  };
-  setTimeout(show, 800);
 }
 function claudeBlocks(parts){
   return parts.map(p => {
@@ -785,47 +845,6 @@ function claudeBlocks(parts){
     if (/^image\/(png|jpeg|gif|webp)$/.test(d.mime_type)) return {type: "image", source: {type: "base64", media_type: d.mime_type, data: d.data}};
     throw aiErr("type", "Claude can't read HEIC photos. Save the photo as JPG or PNG, or switch to Gemini.");
   });
-}
-const CLAUDE_NO_FORCED = /^claude-(opus-5-5|sonnet-5-5|fable-5-1|mythos-5-1)/;
-async function claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext}){
-  const body = {model: cfg.model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{role: "user", content: claudeBlocks(parts)}]};
-  if (schema && !search && !urlContext) {
-    body.tools = [{name: "answer", description: "Give your answer in this exact structure.", input_schema: toJsonSchema(schema)}];
-    // Newer models refuse a forced tool call (400), so they're asked to use it instead
-    if (CLAUDE_NO_FORCED.test(String(cfg.model || ""))) { body.tool_choice = {type: "auto"}; body.system = `${system || ""}\n\nGive your whole answer by calling the answer tool once, with nothing else.`.trim(); }
-    else body.tool_choice = {type: "tool", name: "answer"};
-  }
-  if (search) body.tools = [{type: "web_search_20250305", name: "web_search", max_uses: 4}];
-  if (urlContext) body.tools = (body.tools || []).concat({type: "web_fetch_20250910", name: "web_fetch", max_uses: 3, max_content_tokens: 60000});
-  const hdr = {"content-type": "application/json", "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"};
-  if (urlContext) hdr["anthropic-beta"] = "web-fetch-2025-09-10";
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let res;
-    try { res = await fetchT("https://api.anthropic.com/v1/messages", {method: "POST", headers: hdr, body: JSON.stringify(body)}, ms, signal); }
-    catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "Claude took too long to answer. Try again, or use fewer files."); throw offlineErr("Anthropic"); }
-    if (res.ok) {
-      const j = await res.json().catch(() => ({}));
-      const blocks = j.content || [];
-      const tool = blocks.find(b => b.type === "tool_use");
-      const data = tool ? tool.input : aiParseJson(blocks.filter(b => b.type === "text").map(b => b.text).join(""));
-      if (data && typeof data === "object") {
-        const sources = search ? blocks.flatMap(b => b.type === "web_search_tool_result" && Array.isArray(b.content) ? b.content.filter(x => x && x.url).map(x => ({url: String(x.url), title: String(x.title || "")})) : []) : undefined;
-        const fetched = urlContext ? blocks.filter(b => b.type === "web_fetch_tool_result").map(b => { const c = b.content || {}, err = c.type === "web_fetch_tool_error" || c.error_code; return {url: String(c.url || ""), ok: !err, status: err ? String(c.error_code || "error") : "success"}; }) : undefined;
-        return {data, model: cfg.model, provider: "anthropic", truncated: j.stop_reason === "max_tokens", sources, fetched};
-      }
-      if (j.stop_reason === "max_tokens") throw aiErr("long", "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files.");
-      throw aiErr("bad", "Claude's answer came back garbled. Try again.");
-    }
-    const msg = await errMsg(res);
-    if (res.status === 401 || res.status === 403) throw aiErr("key", "Anthropic didn't accept your Claude key. Check it in Settings, then AI Features.");
-    if (/credit balance|billing/i.test(msg)) throw aiErr("credit", "Your Anthropic account is out of credit. Add credit in the Claude Console, or switch back to free Gemini.");
-    if (res.status === 404) throw aiErr("model", `The model ${cfg.model} isn't available on your Claude account.`);
-    if (res.status === 413) throw aiErr("big", "Those files are too big to send at once. Try fewer or smaller files.");
-    if (res.status === 429) throw aiErr("limit", "Your Claude account's rate limit was reached. Wait a minute and try again.");
-    if ((res.status === 529 || res.status >= 500) && attempt === 0) { await sleep(1500); continue; }
-    if (res.status === 529 || res.status >= 500) throw aiErr("busy", "Claude is very busy right now. Try again in a minute.");
-    throw aiErr("http", msg ? "Claude couldn't do that: " + msg.slice(0, 180) : "Claude couldn't do that right now (error " + res.status + ").");
-  }
 }
 function openaiContent(parts){
   let n = 0;
@@ -869,7 +888,7 @@ async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
 // The model picker shown in every AI sheet
 function aiModelBar(){
   const c = aiCfg();
-  if (c.provider === "trial") { const t = aiTrialLeft(); return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Free AI trial${t.left != null ? `: ${t.left} ${t.left === 1 ? "try" : "tries"} left` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Add My Free Gemini Key</button></label>`; }
+  if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% of this month's used` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
   const groups = Object.entries(AI_PROVIDERS).filter(([p]) => c.keys[p]).map(([p, P]) => `<optgroup label="${esc(P.label)}">${P.models.map(([m, l]) => `<option value="${p}|${esc(m)}" ${p === c.provider && m === c.model ? "selected" : ""}>${esc(l)}</option>`).join("")}${p === c.provider && !P.models.some(x => x[0] === c.model) ? `<option value="${p}|${esc(c.model)}" selected>${esc(c.model)}</option>` : ""}</optgroup>`).join("");
   return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Model</span><select data-ai-model aria-label="AI model">${groups}</select><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></label>`;
 }
@@ -1518,10 +1537,15 @@ Return JSON only.`});
 }
 
 /* Settings: turning AI on and choosing a model */
+// What Studyboard AI says about this month, for Settings
+function aiProLine(){
+  const t = aiProGet() || {}, when = aiProResets();
+  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% of this month's used` : ""}${when ? `, resets ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
+}
 function aiRow(){
   const on = aiReady(), c = aiCfg();
-  if (on && c.provider === "trial") { const t = aiTrialLeft();
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">Trying AI for free${t.left != null ? `: ${t.left} of ${t.total} ${t.total === 1 ? "try" : "tries"} left${t.today != null && t.today < t.left ? `, ${t.today} today` : ""}` : ""}. Add your own free Gemini key to use AI as much as you like, with your files too.</span></span><button class="btn small primary" data-act="ai-setup">Set Up</button></div>`; }
+  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job.${v.usedPct ? ` ${v.usedPct}% of this month's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
+  if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
   return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
 // opts.code: a code from another device (a scanned link) to offer at the top
@@ -1535,10 +1559,11 @@ function aiSetupSheet(fromFeature, opts){
     return Object.entries(AI_PROVIDERS).filter(([p]) => keys[p]).map(([p, P]) => `<optgroup label="${esc(P.label)}">${P.models.map(([m, l]) => `<option value="${p}|${esc(m)}" ${p === c.provider && m === c.model ? "selected" : ""}>${esc(l)}</option>`).join("")}</optgroup>`).join("") || `<option value="">Add a key first</option>`; };
   openSheet(`<form class="sheet">${head("AI Features")}
     <div class="sheet-body">
-      ${(() => { const t = aiTrialLeft(), used = AI_TRIAL && sbUser && t.left === 0;
-        if (used) return `<p class="ai-disclaimer" style="margin:0"><b>You've used your free AI tries.</b> Add your own free Gemini key below to keep using AI. It takes about a minute.</p>`;
-        if (c.provider === "trial") return `<p class="ai-disclaimer" id="aiTrialNote" style="margin:0"><b>You're trying AI for free</b>${t.left != null ? `: ${t.left} ${t.left === 1 ? "try" : "tries"} left` : ""}. Add your own free Gemini key to use AI as much as you like, including files and slides.</p>`;
-        return fromFeature ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""; })()}
+      ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:6px"><p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}. ${esc(aiProLine())}</p>
+        <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
+        <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
+        <p class="mini" style="margin:0">Turn it off to use your own key below instead. ${aiProUsedUp() ? "It's used up for now, so your own key (Gemini first) is used until it resets." : "Your own key below is only a backup: if this month's or today's Studyboard AI runs out, your Gemini key (or another key you added) takes over until it resets."}</p></div>` : ""}
+      ${fromFeature && !aiProAvail() ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       <p style="margin:0">Studyboard's AI uses <b>Google Gemini</b> by default because it's free. The free tier easily covers one student's studying.</p>
       <ol class="ai-steps">
         <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> and sign in with your Google account.</li>
@@ -1555,7 +1580,9 @@ function aiSetupSheet(fromFeature, opts){
       <details class="ai-paid" ${c.keys.anthropic || c.keys.openai ? "open" : ""}><summary>Use a Paid Model Instead (Optional)</summary>
         <div class="ai-paid-body">
           <p class="mini ai-disclaimer" style="margin:0"><b>These cost money.</b> You can use a paid Gemini model (like Gemini 3.1 Pro) by turning on billing for your key in Google AI Studio, or use Claude or ChatGPT with an API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a>. API keys are separate from a Claude or ChatGPT subscription and are billed per use by that company. Big PDFs cost the most. Paid services generally don't use what you send to train their models.</p>
-          ${keyRow("anthropic")}${keyRow("openai")}
+          ${keyRow("anthropic")}
+          <p class="mini" style="margin:0"><b>A Claude key always runs in Studyboard AI Mode</b>, exactly like Studyboard AI: Claude Haiku 5.5, the same thinking for each job, and the same limits (everyday jobs think less after $${SBPOLICY.limits({}).softUsd} in a month; AI pauses at $${SBPOLICY.limits({}).hardUsd} a month or $${SBPOLICY.limits({}).dayUsd} a day, and resets on the 1st).${c.provider === "anthropic" && c.model === "studyboard" ? ` This month: ${ownView().usedPct}% used.` : ""}</p>
+          ${keyRow("openai")}
         </div></details>
       <label class="f"><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
       <fieldset class="ai-auto"><legend>Automatic AI</legend>
@@ -1700,7 +1727,14 @@ function aiSetupSheet(fromFeature, opts){
     $("#aiHoCode").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); hoGet.click(); } });
   }
   const hoSend = $("#aiHoSend"); if (hoSend) hoSend.addEventListener("click", () => keyHandoffSend(aiCfg().keys));
-  if (AI_TRIAL && sbUser && !hasKey) aiTrialRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} });
+  const usePro = $("#aiUsePro");
+  if (usePro) usePro.addEventListener("change", () => {
+    const raw = Object.assign({}, (state.settings && state.settings.ai) || {});
+    if (usePro.checked) delete raw.ownKey; else raw.ownKey = true;
+    state.settings = Object.assign({}, state.settings, {ai: raw}); saveSettings();
+    toast(usePro.checked ? "Studyboard AI is on." : "Using your own key. Turn Studyboard AI back on here any time."); try { scheduleRender(); } catch(e) {}
+  });
+  if (AI_PRO && sbUser) aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} });
   const rm = $("#aiRemove"); if (rm) rm.addEventListener("click", () => { aiWipeLocal(); state.settings = Object.assign({}, state.settings, {ai: null}); saveSettings(); dlg.close(); toast("AI features turned off. Your keys were removed."); scheduleRender(); });
 }
 /* Add AI to Another Device This device locks its saved keys with a new code */

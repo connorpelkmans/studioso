@@ -1,14 +1,16 @@
 /* ===== module: 01-ai-auto.js: the app's core, automatic AI jobs ===== */
 /* Automatic AI: quietly improves Today's Plan and study sessions */
-const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "trial";
+// Free to the student: their free Gemini key, or Studyboard AI (included with paid Pro)
+// A Claude key in Studyboard AI Mode counts too: its monthly and daily limits cap what automatic AI can spend
+const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "studyboard" || (p === "anthropic" && m === "studyboard");
 function autoState(){
   if (inPreview()) return {on: false, reason: "preview"};
   const raw = (state.settings && state.settings.ai) || {}, c = aiCfg();
   if (!c.key) return {on: false, reason: "nokey"};
-  if (c.provider === "trial") return {on: false, reason: "trial"};
   const want = raw.auto !== undefined ? !!raw.auto : isFreeModel(c.provider, c.model);
   if (!want) return {on: false, reason: "off"};
-  const cfg = raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
+  // Free Gemini for automatic AI when the student has a key, except on Studyboard AI (paid Pro), where their key is only the backup
+  const cfg = c.provider !== "studyboard" && !c.backup && raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
   if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};
   const paid = !isFreeModel(cfg.provider, cfg.model);
   if (paid && raw.autoPaidOk !== `${cfg.provider}|${cfg.model}`) return {on: false, reason: "confirm", cfg, paid};
@@ -24,6 +26,14 @@ function autoBudget(paid){
 }
 const leftSig = t => `${Number(t.focusMin) || 0}|${Number(t.pct) || 0}|${(t.checklist || []).filter(i => i.done).length}/${(t.checklist || []).length}|${t.hours ?? ""}`;
 const autoFresh = (x, days) => x && x.at && Date.now() - x.at < days * 864e5;
+// The parts of the plan's inputs that can change which task comes next: the tasks, their dates and weights, the schedule.
+// Progress (focus minutes, checklists, percent done) and the time of day move often and change the plan little.
+function planCoreSig(){
+  const open = tasksArr().filter(t => t.status !== "done" && t.due).sort((a, b) => a.due < b.due ? -1 : 1).slice(0, 40);
+  let grp = ""; try { grp = window.SBGROUPTASKS ? window.SBGROUPTASKS.mine().map(x => [x.id, x.status, x.due, x.priority].join(",")).join(";") : ""; } catch(e) {}
+  let extra = ""; try { const n = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; extra = n.length + ":" + (n[0] ? n[0].date : "") + ":" + eventsArr().length + ":" + coursesArr().map(c => (c.meetings || []).length).join(","); } catch(e) {}
+  return extra + "#g" + grp + "#" + todayISO() + "#" + open.map(t => [t.id, t.status, t.due, t.time, t.hours, t.weight, t.priority, t.difficulty, (t.checklist || []).length, MILESTONE(t.type) ? remoteOf(t).v || "?" : ""].join(",")).join(";") + "#" + dailyHours();
+}
 function planSig(){
   const open = tasksArr().filter(t => t.status !== "done" && t.due).sort((a, b) => a.due < b.due ? -1 : 1).slice(0, 40);
   let grp = ""; try { grp = window.SBGROUPTASKS ? window.SBGROUPTASKS.mine().map(x => [x.id, x.status, x.due, x.priority].join(",")).join(";") : ""; } catch(e) {}
@@ -155,9 +165,11 @@ async function autoRun(){
   if (autoBudget(a.paid) <= 0) return;
   const today = todayISO(), tomorrow = addDays(today, 1);
   let job = null;
-  const sig = planSig();
-  if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > 90000 : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
-    job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt; AUTO.sig = sig; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.planAt = prevAt; throw e; } };
+  const sig = planSig(), core = planCoreSig();
+  // On Studyboard AI (or a Claude key in its mode), a change in progress or the time of day alone waits 20 minutes, so ticking focus minutes don't rerun the plan
+  const gap = aiSbMode(a.cfg) && AUTO.core === core ? 20 * 60000 : 90000;
+  if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > gap : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
+    job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt, prevCore = AUTO.core; AUTO.sig = sig; AUTO.core = core; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.core = prevCore; AUTO.planAt = prevAt; throw e; } };
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.studyKind === "practice" && x.status !== "done" && x.due && dayDiff(today, x.due) <= 2 && dayDiff(today, x.due) >= 0 && !x.practiceQuiz); if (t) job = () => autoPractice(t); }
   if (!job) { try { job = autoExtraJob(a); } catch(e) { console.warn("Automatic AI:", e); } }

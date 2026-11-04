@@ -38,3 +38,5 @@ android-wrapper/keystore.properties
 android-wrapper/google-services.json
 *.jks
 *.keystore
+# Wrangler local secrets (an API key goes here for wrangler dev)
+.dev.vars

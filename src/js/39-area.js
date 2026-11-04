@@ -53,7 +53,7 @@ var SBAREA = (() => {
   async function tune(text){
     if (!text || tuning === text) return;
     const a = get(); if (!a || (a.custom && a.custom.for === text)) return;
-    let ok = false; try { ok = aiReady() && !aiTrialing(); } catch (e) {}
+    let ok = false; try { ok = aiReady(); } catch (e) {}
     if (!ok) return;
     tuning = text;
     try {

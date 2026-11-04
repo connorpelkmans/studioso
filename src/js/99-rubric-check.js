@@ -8,7 +8,7 @@
      or text file.
    - The draft is pasted, uploaded (PDF, Word .docx or text, read on this device) or picked from a file already in Studyboard. A long
      draft is shortened to its first and last parts (about 9,000 words in all), and the result says so.
-   - AI (the student's own key, never the free trial, so the draft goes only to their own AI provider) returns for each criterion:
+   - AI (the student's own key or Studyboard AI, so the draft goes only to their AI provider) returns for each criterion:
      Strong, OK, Weak or Missing, a quote from the draft (checked against the draft here, at most 20 words) and one suggestion; plus a short
      summary. The prompt forbids writing or rewriting any of the student's work: it gives feedback, never wording.
    - "Add N Steps to This Task" saves the Weak and Missing criteria as checklist steps on the task (one applyChanges step, so Undo works).
@@ -103,7 +103,7 @@ const KEY = id => "rubric:" + id;
 const shown = () => !!R.el && dlg.open && dlg.contains(R.el);
 const lines = text => window.SBGXP && SBGXP.rubricLines ? SBGXP.rubricLines(text) : String(text || "").split("\n").map(s => s.replace(/^\s*([-*•]|\d{1,2}[.)])\s+/, "").trim()).filter(s => s.length >= 6 && s.length <= 200);
 const crits = () => RBC.criteria(R.rubric, lines);
-const own = () => { try { return aiReady() && !aiTrialing(); } catch (e) { return false; } };
+const own = () => { try { return aiReady(); } catch (e) { return false; } };
 const who = () => { try { const c = aiCfg(); return (AI_WHO[c.provider] || {}).company ? `${AI_WHO[c.provider].company} (${AI_WHO[c.provider].product})` : "your AI provider"; } catch (e) { return "your AI provider"; } };
 const docExt = n => (String(n || "").split(".").pop() || "").toLowerCase();
 const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test(docExt((f.revs && f.revs.length && f.revs[f.revs.length - 1].name) || (f.cloud && f.cloud.name) || f.name));
