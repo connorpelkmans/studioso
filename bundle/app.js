@@ -10332,6 +10332,7 @@ const C2_ICONS = {
   decks: '<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v10"/>',
   pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   classes: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M7 9h6M7 12h4"/>',
+  news: '<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
   links: '<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>'
 };
 // title is HTML-safe text; n is a count or short note (empty hides it)
@@ -38758,11 +38759,14 @@ function cleanFile(r) {
     const news = c.newsItems.filter(n => ous.includes(n.ou)).slice(0, 5);
     const fin = ous.map(o => c.finals[o]).find(Boolean);
     const files = allTasks().filter(t => t.courseId === course.id && t[F] && (t[F].files || []).length && t.status !== "done" && (!t.due || t.due >= addDays(todayISO(), -7))).sort(sortTasks).slice(0, 8);
+    // compact: the newest three, the rest folded away
+    const nRow = n => `<li class="cn-row"><div class="cn-top"><b>${esc(n.title)}</b>${n.date ? `<span class="mini">${esc(fmtShort(iso(new Date(n.date))))}</span>` : ""}</div>${n.text ? `<p class="cn-text">${esc(n.text)}</p>` : ""}<div class="cn-acts">${n.url ? `<a class="link-btn" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open in ${esc(P.name)}</a>` : ""}${aiReady() ? `<button type="button" class="link-btn" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">Check for Dates</button>` : ""}</div></li>`;
+    const newsBody = news.length ? `<ul class="cn-list">${news.slice(0, 3).map(nRow).join("")}</ul>${news.length > 3 ? `<details class="cn-more"><summary>${news.length - 3} more</summary><ul class="cn-list">${news.slice(3).map(nRow).join("")}</ul></details>` : ""}`
+      : `<p class="mini" style="margin:0">${c.mode === "api" ? "No announcements yet." : `Announcements come in through the Studyboard School Sync extension, or when you sign in to ${esc(P.name)} from the Studyboard app.`}</p>`;
     return `${fin ? `<p class="bs-final"><span class="mini">Grade in ${esc(P.name)}</span> <b>${esc(fin.shown || (fin.pct != null ? fin.pct + "%" : ""))}</b></p>` : ""}
-        <h2 class="sec"><span class="t">Announcements</span>${news.length ? `<span class="n">${news.length}</span>` : ""}</h2>
-        <div class="bs-course">${news.length ? `<ul class="bs-news">${news.map(newsRow).join("")}</ul>` : c.mode === "api" ? `<p class="mini" style="margin:0">No announcements yet.</p>` : `<p class="mini" style="margin:0">Announcements come in through the Studyboard School Sync extension, or when you sign in to ${esc(P.name)} from the Studyboard app.</p>`}</div>
+        ${c2Box("news", "Announcements", news.length || "", newsBody, "c2-news")}
         ${sylHtml(course, ous)}
-        ${files.length ? `<h2 class="sec"><span class="t">Assignment Files</span></h2><div class="bs-course"><ul class="bs-list">${files.map(t => t[F].files.map(f => `<li><div class="bs-main"><b>${esc(f.name)}</b><span class="mini">${esc(t.title)}${f.size ? ` · ${Math.max(1, Math.round(f.size / 1024))} KB` : ""}</span></div><span class="bs-btns">${t[F].saved && t[F].saved[f.id] && state.files[t[F].saved[f.id]] ? `<span class="mini">Saved</span>` : bsDesk() && c.mode === "api" ? `<button class="btn small" data-act="${A}-savefile" data-id="${esc(t.id)}" data-f="${esc(f.id)}">Save to Studyboard</button>` : t.link ? `<a class="btn small" href="${esc(safeUrl(t.link) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}</span></li>`).join("")).join("")}</ul></div>` : ""}`;
+        ${files.length ? c2Box("files", "Assignment Files", "", `<div class="bs-course"><ul class="bs-list">${files.map(t => t[F].files.map(f => `<li><div class="bs-main"><b>${esc(f.name)}</b><span class="mini">${esc(t.title)}${f.size ? ` · ${Math.max(1, Math.round(f.size / 1024))} KB` : ""}</span></div><span class="bs-btns">${t[F].saved && t[F].saved[f.id] && state.files[t[F].saved[f.id]] ? `<span class="mini">Saved</span>` : bsDesk() && c.mode === "api" ? `<button class="btn small" data-act="${A}-savefile" data-id="${esc(t.id)}" data-f="${esc(f.id)}">Save to Studyboard</button>` : t.link ? `<a class="btn small" href="${esc(safeUrl(t.link) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}</span></li>`).join("")).join("")}</ul></div>`) : ""}`;
   }
   function staffHtml(course){
     const staff = (course[F] && course[F].staff) || [];
@@ -38773,9 +38777,9 @@ function cleanFile(r) {
     const meta = course[F] && course[F].syl; if (!meta && !(course[F] && course[F].sylUrl)) return "";
     const b = bulk().syl || {}, k = ous.map(o => P.id + "|" + o).find(x => b[x]), got = k ? b[k] : null, url = (got && got.url) || (meta && meta.url) || "";
     if (!got && !url) return "";
-    return `<h2 class="sec"><span class="t">Syllabus</span></h2><div class="bs-course">
+    return c2Box("notes", "Syllabus", "", `<div class="bs-course">
       ${got ? `<details class="lms-syl"><summary>Read the Syllabus</summary><div class="lms-syl-t">${esc(got.text.slice(0, 24000)).replace(/\n/g, "<br>")}</div></details>` : `<p class="mini" style="margin:0">Sync with ${esc(P.name)} on this device to read it here.</p>`}
-      <div class="bs-btns" style="margin-top:6px">${got ? `<button class="btn small" data-act="${A}-syl" data-id="${esc(course.id)}" data-k="${esc(k)}">Find Dates and Weights</button>` : ""}${url && safeUrl(url) ? `<a class="btn small" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open in ${esc(P.name)}</a>` : ""}</div></div>`;
+      <div class="bs-btns" style="margin-top:6px">${got ? `<button class="btn small" data-act="${A}-syl" data-id="${esc(course.id)}" data-k="${esc(k)}">Find Dates and Weights</button>` : ""}${url && safeUrl(url) ? `<a class="btn small" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open in ${esc(P.name)}</a>` : ""}</div></div>`);
   }
 
   /* Buttons */
@@ -39402,8 +39406,9 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     const html2 = staff ? html.replace(/<!--team-->[\s\S]*?<!--\/team-->/, () => courseTeamHtml(c, staff)) : html;
     if (!cards) return html2;
     html = html2;
-    const k = html.indexOf(`<h2 class="sec"><span class="t">Files</span>`);
-    return k >= 0 ? html.slice(0, k) + cards + html.slice(k) : html + cards;
+    // at the end of the main column, under the course's own work
+    const k = html.indexOf(`<aside class="c2-side">`), d = k >= 0 ? html.lastIndexOf("</div>", k) : -1;
+    return d >= 0 ? html.slice(0, d) + cards + html.slice(d) : html + cards;
   };
   const tickAll = why => ALL().forEach((L, i) => setTimeout(() => L.autoTick(why), i * 20000));
   let beat = Date.now();
