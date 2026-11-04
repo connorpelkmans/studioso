@@ -609,6 +609,8 @@ hook("changed", changes => {
   changes.forEach(c => { if (chip && chip.kind === "took" && c.kind === "task" && c.id === chip.id && c.after && c.after.status !== "done") chipHide(); });
   if (fresh.length) {
     const t = fresh[0].after;
+    // a newer finish: the question about the earlier task goes, so it never sits beside a "Completed" for another task
+    if (chip && chip.kind === "took" && chip.id !== t.id) chipHide();
     maybeAskTook(t, fresh.length);
     if (fresh.length === 1 && !(chip && chip.kind === "took")) setTimeout(() => maybeLearned(state.tasks[t.id]), 0);
   }

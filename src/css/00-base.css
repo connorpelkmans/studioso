@@ -260,6 +260,9 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl-m small{font:600 .78rem var(--body);color:var(--muted);margin-left:6px}
 .tl-d{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:.84rem;font-weight:500;color:var(--muted)}
 .tl-d b{font:inherit}
+/* The day numbers fade out at both edges of the scrolled window, so a half-hidden day never reads as a cut-off number */
+.tl-headrow > .tl-label{box-shadow:14px 0 8px -4px var(--surface)}
+.tl-headrow::after{content:"";position:sticky;right:0;z-index:3;flex:none;width:18px;margin-left:-18px;background:linear-gradient(90deg,transparent,var(--surface) 70%)}
 .tl-d.is-today b{background:var(--late);color:#fff;border-radius:999px;min-width:22px;padding:1px 4px;text-align:center;font-weight:700}
 .tl-d.is-today{color:var(--late);font-weight:700}
 .tlbar{position:absolute;top:9px;height:28px;border-radius:7px;border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 20%,var(--surface));color:var(--ink);font-size:.75rem;font-weight:600;text-align:left;padding:0 8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:10px}
@@ -357,10 +360,10 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 @media (min-width:1200px){.cal .dow .dw-s{display:none}.cal .dow .dw-l{display:inline}}
 
 /* Dialog */
-dialog{border:0;padding:0;background:var(--surface);color:var(--ink);width:min(560px,100%);max-height:92vh;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+dialog{border:0;padding:0;background:var(--surface);color:var(--ink);width:min(560px,100%);max-height:92vh;max-height:92dvh;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 dialog::backdrop{background:rgba(10,14,24,.5)}
 @media (max-width:600px){
-  dialog{margin:auto 0 0;max-width:100%;width:100%;border-radius:20px 20px 0 0;max-height:90vh}
+  dialog{margin:auto 0 0;max-width:100%;width:100%;border-radius:20px 20px 0 0;max-height:90vh;max-height:90dvh}
 }
 .sheet{display:flex;flex-direction:column;max-height:inherit}
 a.btn{text-decoration:none}
@@ -368,7 +371,9 @@ a.btn{text-decoration:none}
 dialog:has(> .sheet){overflow:hidden}
 .sheet-head{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
 .sheet-head h2{flex:1;margin:0;font:700 1.25rem var(--display)}
-.sheet-body{overflow:auto;padding:6px 18px 12px;display:grid;gap:14px}
+.sheet-body{overflow:auto;overscroll-behavior:contain;padding:6px 18px 12px;display:grid;gap:14px}
+/* A sheet with no footer: its body keeps clear of the iPhone's home bar (any sheet's own padding still wins) */
+.sheet-body:where(.sheet > :last-child){padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 .sheet-foot{display:flex;flex-wrap:wrap;gap:10px;padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
 .fs-acts{display:flex;flex-wrap:wrap;gap:8px}
 .fs-acts .btn{padding:7px 14px;font-size:.92rem;display:inline-flex;align-items:center;gap:6px}
@@ -1341,7 +1346,7 @@ body.desk{--tb:34px;padding-top:var(--tb)}
 body.desk::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--tb);background:var(--spine);-webkit-app-region:drag;z-index:400}
 body.desk header.top{top:var(--tb)}
 @media (min-width:980px){body.desk nav.tabs{top:var(--tb)}}
-body.desk dialog{max-height:calc(100vh - var(--tb) - 24px)}
+body.desk dialog{max-height:calc(100vh - var(--tb) - 24px);max-height:calc(100dvh - var(--tb) - 24px)}
 /* Full screen: no strip for the window buttons */
 body.desk.fs{--tb:0px}
 body.desk.fs::before{display:none}
@@ -1870,6 +1875,13 @@ dialog.tour::backdrop{background:transparent}
 /* ===== Style Shop v2 ===== */
 body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:var(--bgpos,0 0);background-attachment:var(--bgatt,scroll)}
 .motion-tog,.anim-tog{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}
+/* On/off settings are switches, with On or Off beside them to match (the label's own "On" stays as the checkbox's name) */
+.anim-tog:has(> input[type=checkbox]){font-size:0;gap:0}
+label.anim-tog > input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;box-sizing:border-box;width:42px!important;height:26px;margin:0;padding:0;border:0;border-radius:999px;cursor:pointer;background:radial-gradient(circle at 13px 50%,#fff 0 9px,rgba(0,0,0,.16) 9.5px 10.5px,transparent 11px),color-mix(in srgb,var(--ink) 26%,var(--surface))}
+label.anim-tog > input[type=checkbox]:checked{background:radial-gradient(circle at 29px 50%,#fff 0 9px,rgba(0,0,0,.16) 9.5px 10.5px,transparent 11px),var(--accent)}
+label.anim-tog > input[type=checkbox]:disabled{opacity:.5;cursor:default}
+.anim-tog:has(> input[type=checkbox])::after{content:"Off";content:"Off" / "";min-width:2.1em;margin-left:8px;font-size:.92rem}
+.anim-tog:has(> input[type=checkbox]:checked)::after{content:"On";content:"On" / ""}
 .kit-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px;margin:8px 0}
 /* theme flashcards and shapes */
 .cs-theme .face{background:var(--tc-bg,#fff);color:var(--tc-ink,#15213A);border:2px solid var(--tc-bd,var(--line));border-radius:var(--tc-r,14px)}

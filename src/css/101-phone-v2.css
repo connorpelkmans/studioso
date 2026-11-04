@@ -78,6 +78,8 @@
   #view > .pview-tabs,#view > .bview-row .bview-tabs{max-width:none;width:100%;margin:2px 0 12px}
   #view > .pview-tabs button,#view > .bview-row .bview-tabs button{padding:8px 6px;font-size:1.2rem;min-height:42px;white-space:nowrap}
   #view > .pview-tabs:has(> button:nth-of-type(4)) button,#view > .bview-row .bview-tabs:has(> button:nth-of-type(4)) button{font-size:1.1rem;padding:8px 4px;flex:1 1 auto;min-width:0}
+  /* the smallest phones: three page names still fit (Due Dates, Schedule, Crunch) */
+  @media (max-width:359px){#view > .pview-tabs button,#view > .bview-row .bview-tabs button{font-size:1.02rem;padding:8px 2px;flex:1 1 auto;min-width:0}}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
@@ -215,9 +217,9 @@
   @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
   /* the starter questions always stack (the chat scrolls if there's no room) */
   /* Notes / Groups */
-  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1;display:flex;align-items:center;justify-content:center;min-height:42px;color:var(--ink);font:800 1.3rem var(--display);letter-spacing:-.01em}
-  #view > .pview-tabs.ph-solo{justify-content:center}
-  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;min-width:0;padding:0 26px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow)}
+  /* a page with one view gets a plain title, not a switch with a single choice */
+  #view > .pview-tabs.ph-solo{justify-content:flex-start;padding:0 4px;background:none;border:0;box-shadow:none}
+  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;display:flex;align-items:center;min-width:0;min-height:42px;padding:0;color:var(--ink);font:800 1.55rem var(--display);letter-spacing:-.01em}
   :is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small{min-height:40px;margin:0!important}
   /* Task Board: Group By as a small control */
   .bview-row .board-ctl .segb button{min-height:34px;padding-block:4px;font-size:.84rem}
@@ -477,11 +479,12 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   @media (max-width:350px){.next-up .nu-alloc .nu-td{display:none}}
 }
 
-/* Phones stay upright: sideways shows a "turn your phone" screen, except in full-screen notes and whiteboard */
-@media (orientation:landscape) and (max-height:520px) and (pointer:coarse){
-  html:not(.board-max){overflow:hidden}
-  html:not(.board-max) body,html:not(.board-max) dialog,html:not(.board-max) .fab{visibility:hidden!important}
-  html:not(.board-max)::before{content:"Turn your phone upright to keep using Studyboard.\A Notes and the whiteboard can go sideways in full screen.";white-space:pre-wrap;position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 48px;background:var(--bg,#f4f6fa);color:var(--ink,#1a2238);font:700 1.05rem/1.5 var(--display,system-ui)}
+/* Phones stay upright: sideways shows a "turn your phone" screen, except in full-screen notes and whiteboard. Only on
+   phone-short screens, and never while typing (a keyboard can leave a small phone's page wider than it is tall) */
+@media (orientation:landscape) and (max-height:460px) and (pointer:coarse){
+  html:not(.board-max):not(.kb-open):not(:has(:is(input,textarea,[contenteditable]):focus)){overflow:hidden}
+  html:not(.board-max):not(.kb-open):not(:has(:is(input,textarea,[contenteditable]):focus)) :is(body,dialog,.fab){visibility:hidden!important}
+  html:not(.board-max):not(.kb-open):not(:has(:is(input,textarea,[contenteditable]):focus))::before{content:"Turn your phone upright to keep using Studyboard.\A Notes and the whiteboard can go sideways in full screen.";white-space:pre-wrap;position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 48px;background:var(--bg,#f4f6fa);color:var(--ink,#1a2238);font:700 1.05rem/1.5 var(--display,system-ui)}
 }
 
 /* Group tabs: an even grid of equal, centred buttons */

@@ -142,12 +142,21 @@
     if (c) { sel.style.setProperty("--cs-dot", c.color); sel.classList.add("has-dot"); } else { sel.style.removeProperty("--cs-dot"); sel.classList.remove("has-dot"); }
   }
   let csOpen = null;
-  const csKey = e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); csClose(); } };
+  // Keys: Esc closes (back to the dropdown), the arrows, Home and End move between the choices, Enter or Space picks one
+  const csKey = e => {
+    if (!csOpen) return;
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); const s = csOpen.sel; csClose(); try { s.focus({preventScroll: true}); } catch (x) {} return; }
+    const bs = [...csOpen.menu.querySelectorAll("button")], i = bs.indexOf(document.activeElement);
+    const to = {ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: bs.length - 1}[e.key];
+    if (to === undefined || !bs.length) { if (e.key === "Tab") { e.preventDefault(); const s = csOpen.sel; csClose(); try { s.focus({preventScroll: true}); } catch (x) {} } return; }
+    e.preventDefault(); e.stopPropagation(); bs[Math.max(0, Math.min(bs.length - 1, i < 0 && to < 0 ? 0 : to))].focus();
+  };
   function csClose(){ if (!csOpen) return; csOpen.back.remove(); csOpen.menu.remove(); document.removeEventListener("keydown", csKey, true); csOpen = null; }
   function csShow(sel){
     csClose();
     const host = sel.closest("dialog[open]") || document.body, menu = document.createElement("div"), back = document.createElement("div");
     menu.className = "cs-menu"; menu.setAttribute("role", "listbox"); back.className = "cs-back";
+    { const lb = sel.getAttribute("aria-label") || (sel.labels && sel.labels[0] && sel.labels[0].textContent.trim()) || ""; if (lb) menu.setAttribute("aria-label", lb); }
     [...sel.options].filter(o => !o.disabled && !o.hidden).forEach(o => {
       const c = optCourse(o), b = document.createElement("button");
       b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(o.selected));
@@ -169,8 +178,10 @@
       menu.style.width = w + "px"; menu.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px"; menu.style.maxHeight = Math.min(innerHeight * 0.5, 360) + "px";
       const h = menu.offsetHeight; menu.style.top = (r.bottom + 6 + h <= innerHeight - 8 ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + "px";
     }
-    csOpen = {menu, back}; document.addEventListener("keydown", csKey, true);
-    const cur = menu.querySelector('[aria-selected="true"]'); if (cur && cur.scrollIntoView) cur.scrollIntoView({block: "center"});
+    csOpen = {menu, back, sel}; document.addEventListener("keydown", csKey, true);
+    // the chosen one has focus, so VoiceOver and the keyboard start there
+    const cur = menu.querySelector('[aria-selected="true"]') || menu.querySelector("button"); if (cur && cur.scrollIntoView) cur.scrollIntoView({block: "center"});
+    if (cur) try { cur.focus({preventScroll: true}); } catch (e) {}
   }
   // Take over the tap on a course dropdown (a mouse click, or a touch that did not scroll)
   // (on a mouse or trackpad the app's own dropdown already handles selects, and shows the dots too)

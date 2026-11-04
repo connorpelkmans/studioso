@@ -169,7 +169,7 @@
     const chats = rd();
     let c = chats.find(x => x.id === T.id);
     if (!c) { c = {id: uid(), title: clip(q, 56), at: Date.now(), msgs: []}; chats.unshift(c); T.id = c.id; wr(chats); }
-    T.busy = {id: c.id, q}; T.draft = ""; T.status = "Looking through your stuff…"; draw();
+    T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.status = "Looking through your stuff…"; draw();
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     try {
@@ -189,7 +189,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
     fresh.sort((a, b) => b.at - a.at); wr(fresh);
-    T.busy = null; T.status = ""; draw();
+    T.busy = null; T.status = ""; draw(); say();
     try { if (m.a && window.SBCOMP) { SBCOMP.cheer && 0; } } catch (e) {}
   }
   const clip2 = (s, n) => String(s == null ? "" : s).trim().slice(0, n);
@@ -347,7 +347,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const ready = aiOk();
     const gate = inPreview() ? `<div class="cpt-gate"><p class="mini" style="margin:0">Chat works in the Studyboard app and on your own Studyboard website. There's nothing to set up in this preview.</p></div>`
       : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Add a free Google Gemini key to chat.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
-    return `${gate}<div class="cpt-log" id="cptLog" aria-live="polite">${logHtml()}</div>
+    return `${gate}<div class="cpt-log" id="cptLog">${logHtml()}</div><div class="sr" id="cptSay" aria-live="polite"></div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
       <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
       <input type="file" id="cptFile" multiple accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.heic,application/pdf,image/*,text/plain" class="sr" tabindex="-1" aria-hidden="true">
@@ -380,9 +380,16 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (ui.tab !== "companion") return;
     const log = $("#cptLog");
     if (!log || T.tab !== "chat") { render(); return; }
-    log.innerHTML = logHtml();
+    log.innerHTML = logHtml(); say();
     const go = $("#cptGo"); if (go) go.disabled = !aiOk() || !!T.busy;
     toLatest(log); requestAnimationFrame(() => { if (log.isConnected) toLatest(log); });
+  }
+  // Screen readers hear only the newest reply (the chat log itself is redrawn whole, so it can't be a live region)
+  function say(){
+    const el = $("#cptSay"), c = rd().find(x => x.id === T.id), m = c && c.msgs[c.msgs.length - 1];
+    if (!el || !m || T.busy || !T.say) return;
+    T.say = false;
+    el.textContent = m.err ? String(m.err) : String((m.a && m.a.answer) || "").replace(/[*_`#>|]+/g, "").replace(/\s+/g, " ").trim().slice(0, 1500);
   }
   // A new answer opens at its start (its question at the top), not at its last line; while thinking, the bottom shows
   function toLatest(log){

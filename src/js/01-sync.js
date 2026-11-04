@@ -40,7 +40,10 @@ function syncLabel(){
   const side = $("#syncSide"), t = el.textContent, warn = !/^(Saved|Saved on this device)$/.test(t) && !/Saving|Connecting/.test(t);
   el.setAttribute("aria-label", warn ? t + ". Sync details" : t);
   if (side) {
-    side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = warn ? "warn" : /Saving|Connecting/.test(t) ? "busy" : "ok";
+    // the side menu is narrow: just the first part ("Not signed in"), the rest in a tooltip
+    const st = t === "Saved on this device" ? "On this device" : t.split(",")[0];
+    side.textContent = st; if (st !== t && t !== "Saved on this device") side.dataset.tip = t; else delete side.dataset.tip;
+    side.dataset.state = warn ? "warn" : /Saving|Connecting/.test(t) ? "busy" : "ok";
     // a problem can be tapped for details and Try Again
     if (warn) { side.removeAttribute("aria-hidden"); side.setAttribute("role", "button"); side.tabIndex = 0; side.dataset.act = "sync-status"; side.setAttribute("aria-label", t + ". Sync details"); }
     else { side.setAttribute("aria-hidden", "true"); side.removeAttribute("role"); side.removeAttribute("tabindex"); delete side.dataset.act; side.removeAttribute("aria-label"); }
