@@ -257,3 +257,17 @@
   .tv-foot .tv-row > .btn{flex:none}
   .tv-foot .tv-row:last-child{margin-left:auto}
 }
+
+/* ===== One dropdown arrow everywhere =====
+   Every folding section (details > summary) gets the same thin chevron after its title: same size, line, colour and turn
+   when it opens. Sections laid out with the arrow at the far right keep it there. Select boxes get the same chevron. */
+:root details > summary{list-style:none}
+:root details > summary::-webkit-details-marker{display:none}
+:root details > summary:not(:has(> svg:last-child))::after{content:"";display:inline-block;flex:none;box-sizing:border-box;width:7px;height:7px;margin-left:.5em;border:solid var(--muted);border-width:0 2px 2px 0;border-radius:0 0 1px 0;background:none;color:inherit;opacity:1;vertical-align:.18em;align-self:center;transform:translateY(-2px) rotate(45deg);transition:transform .15s ease}
+:root details[open] > summary:not(:has(> svg:last-child))::after{transform:translateY(1px) rotate(-135deg)}
+:root :is(.ann-rest,.plan-extra,.pe-item,.bs-hs,.cpt3-how,.ph-grp,.ph-cpg) > summary::after{margin-left:auto}
+:root :is(details.adv,details.pp-group) > summary::before{content:none}
+:root :is(.bs-diag,.sd-more) summary::after,:root .sd-more summary > span:first-child::after{content:none}
+:root .bs-diag > summary::after{content:""}
+@media (prefers-reduced-motion:reduce){:root details > summary::after{transition:none}}
+:root select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px 14px;padding-right:34px}
