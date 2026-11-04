@@ -3525,8 +3525,10 @@ function qaConfident(text, t){
   const s = String(text || "");
   if (s.length > 140 || /[;\n]|\balso\b|\bthen\b|\band\b.*\b(due|by|on)\b/i.test(s)) return false;
   if (!t || !t.title || !/[a-z]{2}/i.test(t.title) || t.title === t.type) return false;
+  if ((t.flags || []).length) return false;
   const left = String(t.title);
-  if (/\b(next|this|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|days?|hrs?|hours?|mins?|minutes?)\b|\d/i.test(left.replace(/\b(?:lab|quiz|exam|test|project|chapter|ch|homework|hw|assignment|problem set|pset|week|module|unit|part|lecture|report|essay|paper|midterm|final|reading|read|worksheet|discussion|post|presentation|draft|set)\s*\d+\b/gi, " "))) return false;
+  if (/\b20\d\d\b/.test(left)) return false;
+  if (/\b(next|this|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|days?|hrs?|hours?|mins?|minutes?)\b|\d/i.test(left.replace(/\b(?:lab|quiz|exam|test|project|chapter|ch|homework|hw|assignment|problem set|pset|week|module|unit|part|lecture|report|essay|paper|midterm|final|reading|read|worksheet|discussion|post|presentation|draft|set)\s*\d+(?:\.\d+)?\b/gi, " "))) return false;
   return true;
 }
 /* AI-QUALITY-END */
@@ -4484,6 +4486,8 @@ document.addEventListener("submit", e => {
 document.addEventListener("keydown", e => {
   if (ui.tab !== "flashcards" || !ui.fc || ui.fc.mode !== "aiquiz" || dlg.open || (e.target.closest && e.target.closest("input,textarea,select"))) return;
   const f = ui.fc, q = f.qs[f.i]; if (!q) return;
+  // Ctrl, Cmd and Alt shortcuts belong to the browser; Enter on a focused button presses that button
+  if (e.ctrlKey || e.metaKey || e.altKey || (e.key === "Enter" && e.target.closest && e.target.closest("button,a,[role=button],summary") && !e.target.closest("#aiNext"))) return;
   if (f.ans[f.i] && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); aiQuizAction("ai-next", {dataset: {}}); return; }
   if (f.ans[f.i]) return;
   if (q.type === "truefalse" && /^[tf]$/i.test(e.key)) {
@@ -4899,7 +4903,7 @@ function qaCourse(text){
 }
 function qaLocal(text){
   const d = SBCAPTURE.line(text);
-  return {title: d.title || d.type, type: d.type, due: d.due, time: d.time, hours: d.hours, weight: d.weight, priority: d.priority, courseId: d.courseId};
+  return {title: d.title || d.type, type: d.type, due: d.due, time: d.time, hours: d.hours, weight: d.weight, priority: d.priority, courseId: d.courseId, flags: d.flags || [], ampm: (d.flags || []).includes("ampm")};
 }
 const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {type: "OBJECT", properties: {
   title: {type: "STRING"}, course: {type: "STRING", description: "Exactly one of the listed course codes, or empty"},
@@ -4912,8 +4916,10 @@ const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {t
 async function qaRun(text){
   // Phones always show the check first: a mistyped date is easy to miss on a small screen
   const phoneQa = !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
-  if (!phoneQa && window.SBCAPTURE && SBCAPTURE.fast(text)) { ui.qa = null; ui.qaText = ""; render(); setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30); return; }
-  ui.qa = {busy: true, text, items: []}; render();
+  // A draft still waiting for review is kept: the new items join it instead of replacing it
+  const keep = ui.qa && !ui.qa.busy && ui.qa.items && ui.qa.items.length ? ui.qa.items : [];
+  if (!phoneQa && !keep.length && window.SBCAPTURE && SBCAPTURE.fast(text)) { ui.qa = null; ui.qaText = ""; render(); setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30); return; }
+  ui.qa = {busy: true, text, items: keep, prevBy: ui.qa && ui.qa.by}; render();
   let items = null, by = "local", err = "";
   const loc = qaLocal(text), sure = qaConfident(text, loc);
   if (sure) items = [loc];
@@ -4935,7 +4941,7 @@ async function qaRun(text){
   if (!items || !items.length) { items = [loc]; by = "local"; }
   items.forEach(x => { if (!isNum(x.hours) && !MILESTONE(x.type)) { const est = localEstimate(x); x.hours = est.hours; x.est = true; } });
   if (!ui.qa || ui.qa.text !== text) return;
-  ui.qa = {text, items, by, err, sure}; render();
+  ui.qa = {text, items: keep.concat(items), by: keep.length && ui.qa.prevBy === "ai" ? "ai" : by, err, sure}; render();
   setTimeout(() => { const b = $("#qaAddBtn"); if (b) b.focus(); }, 30);
 }
 function qaBarHtml(){
@@ -4948,7 +4954,7 @@ function qaBarHtml(){
       <input type="time" data-qa="time" data-i="${i}" value="${esc(x.time)}" aria-label="Due time">
       <span class="qa-meta">${!MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
       <button type="button" class="x-btn" data-act="qa-rm" data-i="${i}" aria-label="Remove">${CLOSE}</button>
-      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span></li>`;
+      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}</li>`;
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
       <span class="qa-ic" aria-hidden="true">${aiReady() ? AI_ICON : "+"}</span>
       <input type="text" id="qaIn" value="${esc(ui.qaText || "")}" ${(ex => phPh("Add a task by typing, e.g. " + (ex || "bio quiz fri 2pm worth 5%"), "e.g. " + (ex ? ex.split(" ").slice(0, 2).join(" ") : "bio quiz fri")))(window.SBAREA && SBAREA.example())} aria-label="Add a task by typing a sentence" maxlength="400" data-noenter>
@@ -4979,7 +4985,8 @@ function qaLiveText(v){
 }
 document.addEventListener("input", e => { if (e.target.id === "qaIn") { ui.qaText = e.target.value; const l = $("#qaLive"); if (l && !ui.qa) l.textContent = qaLiveText(ui.qaText); } const i = e.target.dataset && e.target.dataset.qa; if (i && ui.qa && e.target.type === "text") ui.qa.items[Number(e.target.dataset.i)][i] = e.target.value; });
 document.addEventListener("change", e => { const k = e.target.dataset && e.target.dataset.qa; if (!k || !ui.qa) return; const it = ui.qa.items[Number(e.target.dataset.i)]; if (!it) return; it[k] = e.target.value; if (k === "courseId" || k === "type") render();
-  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); } });
+  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); }
+  else if (k === "time") { it.ampm = false; const h = e.target.closest(".qa-item") && e.target.closest(".qa-item").querySelector(".qa-ampm"); if (h) h.remove(); } });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape" || e.defaultPrevented || !ui.qa || ui.qa.busy || document.querySelector("dialog[open]")) return;
   const t = e.target; if (t !== document.body && !(t.closest && t.closest(".qa-wrap"))) return;
@@ -8665,7 +8672,9 @@ function soonBadge(t){
   const h = (dueDate(t) - new Date()) / 36e5;
   if (h < 0) return `<span class="soon late">Late</span>`;
   if (h <= 48) {
-    const label = t.due === todayISO() ? (t.time ? "Due in " + Math.max(1, Math.round(h)) + "h" : "Due today") : (h < 24 && t.time ? "Due in " + Math.round(h) + "h" : "Due tomorrow");
+    // The word comes from calendar days, not hours left: a Friday 9 AM task seen Wednesday morning is not "tomorrow"
+    const n = dayDiff(todayISO(), t.due);
+    const label = n <= 0 ? (t.time ? "Due in " + Math.max(1, Math.round(h)) + "h" : "Due today") : h < 24 && t.time ? "Due in " + Math.max(1, Math.round(h)) + "h" : n === 1 ? "Due tomorrow" : "Due " + parse(t.due).toLocaleDateString(undefined, {weekday: "long"});
     return `<span class="soon">${label}</span>`;
   }
   return "";
@@ -8988,19 +8997,15 @@ function viewBoard(){
   const hasAny = tasksArr().length || coursesArr().length;
   const banner = coursesArr().length ? "" : `<div class="empty tb-setup${hasAny ? "" : " sb-es"}">${hasAny ? "" : emptyArt("board")}<span class="tb-setup-t"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Sync your school site to bring in your courses and deadlines, or import a syllabus PDF, or add a course yourself.</span><div class="row-actions"><button class="btn primary small" data-act="lms-open">Sync School Site</button><button class="btn small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div></div>`;
   const ts = visibleTasks();
-  const weekAgo = Date.now() - 7 * 864e5;
   const colsFor = (tsx, laneId) => STATUSES.map(([k, label, col]) => {
     let list = tsx.filter(t => t.status === k).sort(boardManual(k) ? boardOrder : autoBoardOrder(k));
-    let older = 0;
     const gRows = laneId == null || laneId === "" ? groupBoardShown(k) : [];
     const merged = mergeBoardCol(list, gRows, k), shown = x => x.t ? card(x.t) : groupBoardCard(x.r);
-    const nArch = k === "done" ? allTasks().filter(t => autoArchived(t) && !t.archivedTerm && inFilter(t) && matchesQ(t) && (laneId == null || (t.courseId || "") === laneId)).length : 0;
+    const nArch = k === "done" ? allTasks().filter(t => autoArchived(t) && !t.archivedTerm && inFilter(t) && matchesQ(t) && (laneId == null || (laneId ? t.courseId === laneId : !(state.courses[t.courseId] && !state.courses[t.courseId].archived)))).length : 0;
     return `<section class="col" data-status="${k}" ${laneId != null ? `data-course="${esc(laneId)}"` : ""} style="--sc:${col}" aria-label="${label}">
-      <div class="col-head"><span class="sd"></span>${label}<span class="n">${list.length + older + gRows.length}</span>${boardManual(k) ? `<button type="button" class="col-resort" data-act="board-resort" data-id="${k}" title="${k === "done" ? "Put the most recently completed first again" : "Order by due date again"}">${k === "done" ? "Newest First" : "Sort by Due"}</button>` : ""}</div>
+      <div class="col-head"><span class="sd"></span>${label}<span class="n">${list.length + gRows.length}</span>${boardManual(k) ? `<button type="button" class="col-resort" data-act="board-resort" data-id="${k}" title="${k === "done" ? "Put the most recently completed first again" : "Order by due date again"}">${k === "done" ? "Newest First" : "Sort by Due"}</button>` : ""}</div>
       <div class="col-list">${merged.slice(0, COL_MAX).map(shown).join("")}</div>
       ${merged.length > COL_MAX ? (() => { const key = (laneId == null ? "all" : laneId || "none") + ":" + k, more = merged.length - COL_MAX; return `<details class="col-more" data-col="${esc(key)}" ${ui.colOpen[key] ? "open" : ""}><summary><span class="cm-open">Show ${more} more</span><span class="cm-close">Show less</span></summary><div class="col-list">${merged.slice(COL_MAX).map(shown).join("")}</div></details>`; })() : ""}
-      ${older ? `<button class="show-old" data-act="show-old" style="width:100%;margin-top:8px">Show ${older} Completed More Than a Week Ago</button>` : ""}
-      ${k === "done" && ui.showOldDone ? `<button class="show-old" data-act="hide-old" style="width:100%;margin-top:8px">Hide Older Completed Tasks</button>` : ""}
       ${nArch ? `<button class="arch-link" data-act="archive-open">${ARCHIVE_SM}${nArch} finished more than 2 weeks ago ${nArch === 1 ? "is" : "are"} in the Archive</button>` : ""}
     </section>`;
   }).join("");
@@ -9008,8 +9013,10 @@ function viewBoard(){
   let boardHtml;
   if (ui.groupBy === "course") {
     const lanes = [...coursesArr().filter(c => inFilterCourse(c.id)).map(c => ({id: c.id, name: c.name, code: c.code, color: c.color})), {id: "", name: "No Course", color: "#8A94A6"}];
+    // Tasks of an archived or deleted course go in the No Course lane, so carried-over work never disappears
+    const live = new Set(coursesArr().map(c => c.id)), laneOf = t => live.has(t.courseId) ? t.courseId : "";
     boardHtml = lanes.map(l => {
-      const lt = ts.filter(t => (t.courseId || "") === l.id && (l.id || !courseOf(t.courseId)));
+      const lt = ts.filter(t => laneOf(t) === l.id);
       if (!lt.length && !l.id && !groupBoardShown().length) return "";
       const done = lt.filter(t => t.status === "done").length;
       return `<section class="lane" style="--c:${esc(l.color)}"><h3 class="lane-head"><span class="sd"></span>${esc(l.name)}<span class="n">${done}/${lt.length} complete</span></h3><div class="board lane-board">${colsFor(lt, l.id)}</div></section>`;
@@ -9525,14 +9532,15 @@ function computeFocus(){
     if (x.stale) r.push([33, "Started a while ago and hasn't moved since"]);
     if (t.xs) {
       const ex = state.tasks[t.xs.id] || {}, L = t.xs.lead, why = [L.risk ? (L.risk === "watch" ? "the course is close to its pass mark" : "the course is below its pass mark") : "", L.p < 0.75 ? readyWords(L.from, L.p) : ""].filter(Boolean);
-      r.push([85, `${ex.type || "Exam"} ${x.dl === 1 ? "tomorrow" : `in ${x.dl} days`}${ex.time ? " at " + fmtTime(ex.time) : ""}, in person. Study starts ${L.days} days before it${why.length ? " because " + why.join(" and ") : ""}`]);
+      r.push([85, `${ex.type || "Exam"} ${x.dl === 1 ? "tomorrow" : `in ${x.dl} days`}${ex.time ? " at " + fmtTime(ex.time) : ""}, in person. Study starts ${L.days} days before it${why.length ? " because " + why.join(" and ") : ""}${x.dl < L.days ? ", so it's already under way" : ""}`]);
       if (x.lightEve) r.push([86, "Light review only today (30 minutes at most), then stop early and sleep: a good night's sleep helps you remember more than a late night"]);
       if (x.afterWork) r.push([84, "Work due before the exam (or later that day) comes first, then the rest of today's time goes to studying"]);
     }
     { const xr = MILESTONE(t.type) ? examReadiness(t) : t.xs && state.tasks[t.xs.id] ? examReadiness(state.tasks[t.xs.id]) : null;
       if (xr && xr.gap) r.push([88, xr.gap > 0 ? `You feel ${xr.self}% ready, but your flashcards and quizzes say about ${xr.measured}%` : `Your flashcards and quizzes say about ${xr.measured}%, more than the ${xr.self}% you feel`]); }
     if (t.dueFor) { const d = state.tasks[t.dueFor] || info[t.dueFor] && info[t.dueFor].t; r.push([85, `No due date, but ${d ? d.title : "another task"} needs it first, so aim to finish by ${fmtDate(t.due)}`]); }
-    if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) r.push([50 + x.W, `${hasWeight(t) ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]);
+    // a weight the school site didn't give (split from points or guessed) is said as "About"
+    if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) { const sure = hasWeight(t) && !weightGuessed(t); r.push([50 + x.W, `${sure ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]); }
     if (x.fullDay) r.push([72, `${dayDiff(today, x.fullDay) === 1 ? "Tomorrow" : parse(x.fullDay).toLocaleDateString(undefined, {weekday: "long"})} is a full day${(B.what[x.fullDay] || [])[0] ? ` (${B.what[x.fullDay][0]})` : ""}, so it helps to get ahead`]);
     if (x.early) r.push([68, "The instructions mention an earlier step (like a draft or pre-lab). Check for a sooner deadline"]);
     const pr = MILESTONE(t.type) ? progress(t) : null;
@@ -9598,7 +9606,9 @@ function planLead(rs){
 function dayTimelineHtml(F, todayList, heroId){
   // Your study day: its end may be after midnight; once it's over (or before it starts) nothing is put in it
   const sd = (F && F.sd) || studyDay(), atT = m => fmtTime(AVAIL.toT(m % 1440));
-  if (sd.past) return `<div class="dtl dtl-over" role="group" aria-label="Today's schedule"><div class="dtl-rail"><div class="dtl-c fr dtl-end" data-anchor><span>Past your end of day</span><b>${esc(sd.night ? `Your day starts at ${atT(sd.start)}` : `Your day ended at ${atT(sd.end)}`)}</b></div></div></div>`;
+  // Before the day starts: nearer last night's end it's "past your end of day", nearer the morning's start it "hasn't started yet"
+  const early = sd.night && sd.now >= (sd.end - 1440 + sd.start) / 2;
+  if (sd.past) return `<div class="dtl dtl-over" role="group" aria-label="Today's schedule"><div class="dtl-rail"><div class="dtl-c fr dtl-end" data-anchor><span>${early ? "Your day hasn't started yet" : "Past your end of day"}</span><b>${esc(sd.night ? `Your day starts at ${atT(sd.start)}` : `Your day ended at ${atT(sd.end)}`)}</b></div></div></div>`;
   const sb = (F && F.slotsBy) || {}, a = F && F.avail, items = [];
   (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e > sl.s) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
   try {
@@ -9834,6 +9844,18 @@ function focusHtml(){
       <${"!--"}plan-how-end--></div>` : ""}
   </section>`;
 }
+// A window left open overnight moves to the new day: Today's Plan, "due today" badges and the calendar redraw when the
+// date changes (checked every minute, and when the app comes back to the front). Not while you're typing in the page.
+{ let day = todayISO();
+  const roll = () => {
+    if (document.hidden || todayISO() === day) return;
+    const a = document.activeElement;
+    if (a && a.closest && a.closest("#view") && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
+    const was = day; day = todayISO();
+    if (ui.calDay === was) { ui.calDay = day; ui.calMonth = day.slice(0, 7) + "-01"; }
+    scheduleRender();
+  };
+  setInterval(roll, 60000); document.addEventListener("visibilitychange", roll); addEventListener("focus", roll); }
 
 /* ===== module: 01-courses.js: the app's core, Timeline, Courses and Archive ===== */
 /* Timeline */
@@ -11388,7 +11410,7 @@ function eventForm(ev, preset){
         <label class="f">Starts<input type="time" name="start" value="${esc(ev.start || "10:00")}"></label>
         <label class="f">Ends<input type="time" name="end" value="${esc(ev.end || "11:00")}"></label>
       </div>
-      <label class="f">Repeats<select name="rep"><option value="">Doesn't repeat</option><option value="1" ${rp && rp.every === 1 ? "selected" : ""}>Every week</option><option value="2" ${rp && rp.every === 2 ? "selected" : ""}>Every 2 weeks</option></select></label>
+      <label class="f">Repeats<select name="rep"><option value="">Doesn't repeat</option>${[1, 2, 3, 4].map(k => `<option value="${k}" ${rp && rp.every === k ? "selected" : ""}>${k === 1 ? "Every week" : `Every ${k} weeks`}</option>`).join("")}</select></label>
       <div class="ev-rep" ${rp ? "" : "hidden"}>
         <div class="meet-days" role="group" aria-label="Days" id="evDays">${WEEK_ORDER.map(d => `<button type="button" data-day="${d}" aria-pressed="${days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div>
         <label class="f">Until <span class="hint">optional</span><input type="date" name="until" value="${esc(rp ? rp.until : "")}"></label>
@@ -11401,6 +11423,7 @@ function eventForm(ev, preset){
     const allDay = !!fd.get("allDay"), start = String(fd.get("start") || ""), end = String(fd.get("end") || ""), rep = Number(fd.get("rep") || 0);
     if (!allDay && (!start || !end || end <= start)) { toast("The event needs to end after it starts"); return false; }
     if (rep && !pickDays.length) { toast("Pick the days it repeats on"); return false; }
+    if (rep && fd.get("until") && String(fd.get("until")) < String(fd.get("date"))) { toast("The repeat needs to end on or after the date"); return false; }
     const n = normEvent(Object.assign(clone(ev), {title, courseId: fd.get("courseId") || "", where: String(fd.get("where") || "").trim(), date: String(fd.get("date")), allDay, start: allDay ? "" : start, end: allDay ? "" : end,
       repeat: rep ? {days: pickDays, every: rep, until: String(fd.get("until") || "")} : null, notes: String(fd.get("notes") || "")}));
     if (isNew) n.id = uid();
@@ -11509,11 +11532,35 @@ function icsParse(text){
 const icsTxt = s => scrubText(String(s || "").replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1").trim(), false);
 function icsTz(y, mo, d, h, mi, tz){
   try {
-    const f = new Intl.DateTimeFormat("en-US", {timeZone: tz.replace(/^\//, ""), hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"});
+    const f = new Intl.DateTimeFormat("en-US", {timeZone: icsZone(tz), hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"});
     const off = ms => { const P = {}; f.formatToParts(new Date(ms)).forEach(x => { P[x.type] = x.value; }); return Date.UTC(+P.year, +P.month - 1, +P.day, +P.hour % 24, +P.minute) - Math.floor(ms / 6e4) * 6e4; };
     const guess = Date.UTC(y, mo - 1, d, h, mi); let t = guess - off(guess); const o2 = off(t); if (guess - o2 !== t) t = guess - o2;
     return new Date(t);
   } catch(e) { return new Date(y, mo - 1, d, h, mi); }
+}
+// Outlook and Exchange write Windows zone names ("Eastern Standard Time"); Thunderbird writes "/mozilla.org/20050126_1/America/New_York"
+const ICS_WIN_TZ = {"Dateline Standard Time": "Etc/GMT+12", "UTC-11": "Etc/GMT+11", "Hawaiian Standard Time": "Pacific/Honolulu", "Aleutian Standard Time": "America/Adak", "Alaskan Standard Time": "America/Anchorage",
+  "Pacific Standard Time": "America/Los_Angeles", "Pacific Standard Time (Mexico)": "America/Tijuana", "US Mountain Standard Time": "America/Phoenix", "Mountain Standard Time": "America/Denver", "Mountain Standard Time (Mexico)": "America/Mazatlan",
+  "Central America Standard Time": "America/Guatemala", "Central Standard Time": "America/Chicago", "Central Standard Time (Mexico)": "America/Mexico_City", "Canada Central Standard Time": "America/Regina",
+  "SA Pacific Standard Time": "America/Bogota", "Eastern Standard Time": "America/New_York", "Eastern Standard Time (Mexico)": "America/Cancun", "US Eastern Standard Time": "America/Indiana/Indianapolis",
+  "Venezuela Standard Time": "America/Caracas", "Atlantic Standard Time": "America/Halifax", "SA Western Standard Time": "America/La_Paz", "Pacific SA Standard Time": "America/Santiago", "Newfoundland Standard Time": "America/St_Johns",
+  "E. South America Standard Time": "America/Sao_Paulo", "Argentina Standard Time": "America/Argentina/Buenos_Aires", "SA Eastern Standard Time": "America/Cayenne", "Greenland Standard Time": "America/Godthab", "Montevideo Standard Time": "America/Montevideo",
+  "UTC-02": "Etc/GMT+2", "Azores Standard Time": "Atlantic/Azores", "Cape Verde Standard Time": "Atlantic/Cape_Verde", "UTC": "Etc/UTC", "Coordinated Universal Time": "Etc/UTC", "GMT Standard Time": "Europe/London", "Greenwich Standard Time": "Atlantic/Reykjavik",
+  "W. Europe Standard Time": "Europe/Berlin", "Central Europe Standard Time": "Europe/Budapest", "Romance Standard Time": "Europe/Paris", "Central European Standard Time": "Europe/Warsaw", "W. Central Africa Standard Time": "Africa/Lagos", "Morocco Standard Time": "Africa/Casablanca",
+  "GTB Standard Time": "Europe/Bucharest", "Middle East Standard Time": "Asia/Beirut", "Egypt Standard Time": "Africa/Cairo", "E. Europe Standard Time": "Europe/Chisinau", "South Africa Standard Time": "Africa/Johannesburg", "FLE Standard Time": "Europe/Kiev",
+  "Israel Standard Time": "Asia/Jerusalem", "Jordan Standard Time": "Asia/Amman", "Arabic Standard Time": "Asia/Baghdad", "Turkey Standard Time": "Europe/Istanbul", "Arab Standard Time": "Asia/Riyadh", "Russian Standard Time": "Europe/Moscow", "E. Africa Standard Time": "Africa/Nairobi",
+  "Iran Standard Time": "Asia/Tehran", "Arabian Standard Time": "Asia/Dubai", "Azerbaijan Standard Time": "Asia/Baku", "Afghanistan Standard Time": "Asia/Kabul", "Pakistan Standard Time": "Asia/Karachi", "West Asia Standard Time": "Asia/Tashkent",
+  "India Standard Time": "Asia/Kolkata", "Sri Lanka Standard Time": "Asia/Colombo", "Nepal Standard Time": "Asia/Kathmandu", "Central Asia Standard Time": "Asia/Almaty", "Bangladesh Standard Time": "Asia/Dhaka", "Myanmar Standard Time": "Asia/Yangon",
+  "SE Asia Standard Time": "Asia/Bangkok", "China Standard Time": "Asia/Shanghai", "Singapore Standard Time": "Asia/Singapore", "W. Australia Standard Time": "Australia/Perth", "Taipei Standard Time": "Asia/Taipei", "Tokyo Standard Time": "Asia/Tokyo",
+  "Korea Standard Time": "Asia/Seoul", "Cen. Australia Standard Time": "Australia/Adelaide", "AUS Central Standard Time": "Australia/Darwin", "E. Australia Standard Time": "Australia/Brisbane", "AUS Eastern Standard Time": "Australia/Sydney",
+  "West Pacific Standard Time": "Pacific/Port_Moresby", "Tasmania Standard Time": "Australia/Hobart", "New Zealand Standard Time": "Pacific/Auckland", "Fiji Standard Time": "Pacific/Fiji", "Tonga Standard Time": "Pacific/Tongatapu", "Samoa Standard Time": "Pacific/Apia",
+  "Hong Kong Standard Time": "Asia/Hong_Kong", "Philippine Standard Time": "Asia/Manila", "North Asia Standard Time": "Asia/Krasnoyarsk", "Ekaterinburg Standard Time": "Asia/Yekaterinburg", "Kaliningrad Standard Time": "Europe/Kaliningrad"};
+function icsZone(tz){
+  let z = String(tz || "").trim().replace(/^"|"$/g, "");
+  if (ICS_WIN_TZ[z]) return ICS_WIN_TZ[z];
+  const w = Object.keys(ICS_WIN_TZ).find(k => k.toLowerCase() === z.toLowerCase()); if (w) return ICS_WIN_TZ[w];
+  const m = z.match(/(?:^|\/)((?:Africa|America|Antarctica|Asia|Atlantic|Australia|Europe|Indian|Pacific|Etc)\/[A-Za-z0-9_+\-]+(?:\/[A-Za-z0-9_+\-]+)?)$/);
+  return m ? m[1] : z.replace(/^\//, "");
 }
 function icsWhen(x){
   if (!x) return null;
@@ -11543,12 +11590,14 @@ const isExamSitting = s => { const t = String(s || ""); if (notSitting(t)) retur
 const guessTaskType = s => isExamSitting(s) && /\b(exams?|examination|midterms?|mid-term)\b/i.test(s) ? "Exam" : /\bquiz/i.test(s) && !notSitting(s) ? "Quiz" : isExamSitting(s) ? "Exam" : /\bproject|presentation\b/i.test(s) ? "Project" : /\blab\b/i.test(s) ? "Lab" : /\bread/i.test(s) ? "Reading" : "Assignment";
 const guessMeetLabel = s => /office\s*hours?|\bOH\b/i.test(s) ? "Office Hours" : /\blab\b/i.test(s) ? "Lab" : /tutorial|\btut\b/i.test(s) ? "Tutorial" : /discussion|recitation|\bsection\b|\bdis\b/i.test(s) ? "Discussion" : /lecture|\blec\b|\bclass\b/i.test(s) ? "Lecture" : "";
 const codeKey = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const icsFingerprint = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return "nouid-" + (h >>> 0).toString(36) + "-" + s.length.toString(36); };
 // Turns calendar entries into Studyboard events and tasks
 function icsPlan(text){
   const raw = icsParse(text), today = todayISO(), out = [], overrides = [];
   raw.forEach(it => {
     const g = k => (it.props[k] || [])[0], txt = k => icsTxt(g(k) && g(k).v);
-    const status = txt("STATUS").toUpperCase(), uidv = txt("UID") || uid();
+    // No UID: a fingerprint of start, title and repeat rule, so importing the same file again updates instead of adding twice
+    const status = txt("STATUS").toUpperCase(), uidv = txt("UID") || icsFingerprint([g("DTSTART") && g("DTSTART").v, txt("SUMMARY"), txt("RRULE"), g("RECURRENCE-ID") && g("RECURRENCE-ID").v].join("|"));
     if (it.type === "VEVENT" && g("RECURRENCE-ID")) { overrides.push({uid: uidv, rid: icsWhen(g("RECURRENCE-ID")), s: icsWhen(g("DTSTART")), e: icsWhen(g("DTEND")), dur: icsDur(txt("DURATION")), cancel: status === "CANCELLED"}); return; }
     if (status === "CANCELLED") return;
     const title = txt("SUMMARY").replace(/\s+/g, " ").trim() || "Untitled";
@@ -11568,13 +11617,22 @@ function icsPlan(text){
       const R = {}; rr.split(";").forEach(kv => { const [k, v] = kv.split("="); R[(k || "").toUpperCase()] = v || ""; });
       const iv = Math.max(1, Math.min(4, Number(R.INTERVAL) || 1));
       if (R.UNTIL) { const u = icsWhen({v: R.UNTIL, p: {}}); until = u ? u.date : ""; }
-      if (R.FREQ === "WEEKLY" || R.FREQ === "DAILY") {
-        const days = R.FREQ === "DAILY" ? [0, 1, 2, 3, 4, 5, 6] : (R.BYDAY ? R.BYDAY.split(",").map(x => ICS_DAY[x.replace(/^[-+\d]+/, "").toUpperCase()]).filter(x => x != null) : [parse(s.date).getDay()]);
-        repeat = {days: [...new Set(days)], every: R.FREQ === "DAILY" ? 1 : iv, until};
+      // BYDAY is in the feed's own zone: when the start moved to another day in yours (a Monday 8 PM UTC class is Tuesday in Asia), the days move with it
+      const raw = String(g("DTSTART").v).trim(), shift = /^\d{8}/.test(raw) ? dayDiff(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`, s.date) : 0;
+      const byDay = R.BYDAY ? R.BYDAY.split(",").map(x => ICS_DAY[x.replace(/^[-+\d]+/, "").toUpperCase()]).filter(x => x != null).map(d => ((d + shift) % 7 + 7) % 7) : null;
+      const n = Number(R.INTERVAL) || 1, weekly = R.FREQ === "WEEKLY" || (R.FREQ === "DAILY" && n > 1 && n % 7 === 0 && n <= 28 && !byDay);
+      if (weekly || (R.FREQ === "DAILY" && n === 1)) {
+        const days = R.FREQ === "DAILY" && !weekly ? byDay || [0, 1, 2, 3, 4, 5, 6] : (byDay && byDay.length ? byDay : [parse(s.date).getDay()]);
+        repeat = {days: [...new Set(days)], every: R.FREQ === "DAILY" ? Math.max(1, Math.min(4, n / 7)) : iv, until};
         if (R.COUNT && !until) { let n = Number(R.COUNT), d = s.date, last = s.date; for (let guard = 0; n > 0 && guard < 3000; guard++, d = addDays(d, 1)) { if (repeat.days.includes(parse(d).getDay()) && !(repeat.every > 1 && wkDiff(d, s.date) % repeat.every)) { n--; last = d; } } repeat.until = last; }
+      } else if (R.FREQ === "DAILY") {
+        // every few days doesn't fit a weekly pattern: the next one is added and the note says so
+        let d = s.date; while (d < today && (!until || addDays(d, n) <= until)) d = addDays(d, n);
+        note = `Repeats every ${n} days; only the next one was added.`; if (endDate) endDate = addDays(d, dayDiff(s.date, endDate)); s.date = d;
       } else if (R.FREQ === "YEARLY") {
         let d = s.date; for (let g = 0; d < today && g < 200; g++) d = `${Number(d.slice(0, 4)) + 1}${d.slice(4)}`;
-        note = "Repeats every year; only the next one was added."; s.date = d;
+        if (!isDate(d)) d = addDays(d.slice(0, 8) + "28", 1);
+        note = "Repeats every year; only the next one was added."; if (endDate) endDate = addDays(d, dayDiff(s.date, endDate)); s.date = d;
       } else note = "Repeats monthly; only the first one was added.";
     }
     const exd = []; (it.props.EXDATE || []).forEach(x => String(x.v).split(",").forEach(v => { const w = icsWhen({v, p: x.p}); if (w) exd.push(w.date); }));
@@ -11617,7 +11675,7 @@ function icsImportSheet(text, fileName){
   const pick = (L, it) => L ? (L.find(x => x.icsSrc === src) || L.find(x => !x.icsSrc && x.title === it.title)) : undefined;
   const existingEv = {}, existingT = {};
   its.forEach(it => { const e = pick(evByUid[it.uid], it), t = pick(tByUid[it.uid], it); if (e) existingEv[it.uid] = e; if (t) existingT[it.uid] = t; });
-  const whenOf = it => it.kind === "task" && !it.date ? `Due ${fmtShort(it.due)}${it.time ? " " + fmtTime(it.time) : ""}` : it.repeat ? `${it.repeat.every === 2 ? "Every 2 weeks" : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}`;
+  const whenOf = it => it.kind === "task" && !it.date ? `Due ${fmtShort(it.due)}${it.time ? " " + fmtTime(it.time) : ""}` : it.repeat ? `${it.repeat.every > 1 ? `Every ${it.repeat.every} weeks` : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}`;
   const courseName = it => it.courseId ? courseLabel(courseOf(it.courseId)) : it.newCourse ? `${it.newCourse} (new)` : "";
   const ncs = Object.entries(plan.newCourses);
   openSheet(`<form class="sheet ics-sheet">${head("Import Calendar")}
@@ -12153,6 +12211,8 @@ function parseTimeRange(s){
   const to24 = (h, ap) => ap === "p" ? (h % 12) + 12 : ap === "a" ? h % 12 : h;
   eh = a2 ? to24(eh, a2) : (eh < 8 ? eh + 12 : eh);
   if (a1) sh = to24(sh, a1); else if (a2 === "p" && sh < 12 && sh + 12 <= eh) sh += 12; else if (!a2 && sh < 8) sh += 12;
+  // No AM or PM, and an early start made the end come first ("T 7-8:15"): both are evening times
+  if (!a1 && !a2 && eh < 12 && eh * 60 + em <= sh * 60 + sm && (eh + 12) * 60 + em > sh * 60 + sm) eh += 12;
   if (sh > 23 || eh > 23 || sm > 59 || em > 59 || eh * 60 + em <= sh * 60 + sm) return null;
   return {start: pad(sh) + ":" + pad(sm), end: pad(eh) + ":" + pad(em)};
 }
@@ -16383,7 +16443,7 @@ function viewDeck(d){
           <div class="deck-stats"><span><b>${st.total}</b> cards</span><span class="${st.due ? "due" : ""}"><b>${st.due}</b> due</span><span><b>${st.fresh}</b> new</span><span class="${st.mastered ? "ok" : ""}"><b>${st.mastered}</b> mastered</span>${st.last ? `<span>Last quiz <b>${st.last.score}/${st.last.total}</b></span>` : ""}</div></div></div>
     </div>
     ${window.SBLINKED ? SBLINKED.deckHtml(d) : ""}${deckAiBar(d)}
-    ${cards.length ? `<ul class="fc-list fc-styled cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">${rows}</ul>` : `<div class="empty" style="margin-top:12px"><strong>${d.cards.length ? "No Cards Match" : "No Cards Yet"}</strong>${d.cards.length ? "" : "Tap Add Card at the bottom right, or use Paste Cards to add a whole list at once."}</div>`}`;
+    ${cards.length ? `<ul class="fc-list fc-styled cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">${rows}</ul>` : `<div class="empty" style="margin-top:12px"><strong>${d.cards.length ? "No Cards Match" : "No Cards Yet"}</strong>${d.cards.length ? "" : `${matchMedia("(pointer:coarse)").matches ? "Tap" : "Click"} Add Card at the bottom right, or choose More, then Paste Cards to add a whole list at once.`}</div>`}`;
 }
 function deckSheet(d){
   const isNew = !d;
@@ -16410,7 +16470,7 @@ function cardSheet(d, cardId){
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
-      <p class="mini" style="margin:0">Level ${c.box} of 5${c.seen ? `, next review ${c.due && c.due > todayISO() ? esc(fmtDate(c.due)) : "today"}` : ", not studied yet"}. Right ${c.right}, wrong ${c.wrong}.</p>
+      <p class="mini" style="margin:0">Level ${c.box} of 5${c.seen ? `, next review ${cardDueOn(c) && cardDueOn(c) > todayISO() ? esc(fmtDate(cardDueOn(c))) : "today"}` : ", not studied yet"}. Right ${c.right}, wrong ${c.wrong}.</p>
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="cdDel">Delete</button><button type="button" class="btn" id="cdReset">Reset Progress</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Card</button></div>
   </form>`, fd => {
@@ -16525,15 +16585,19 @@ function startStudy(deckIds, onlyIds){
   if (!onlyIds) {
     const due = q.filter(x => cardDue(x.c)), fresh = q.filter(x => cardNew(x.c));
     const pick = studyOrder(due, fresh);
-    if (pick.length) q = pick; else { q = weave(q); note = "Nothing is due, so you're reviewing every card."; }
+    if (pick.length) q = pick; else { q = weave(q); note = q.length > STUDY_MAX ? `Nothing is due, so you're reviewing ${STUDY_MAX} of your cards.` : "Nothing is due, so you're reviewing every card."; }
   } else q = weave(q);
   const ex = [...new Set(q.slice(0, STUDY_MAX).map(x => (state.decks[x.deckId] || {}).courseId))].map(cid => fcExams()[cid]).filter(e => e && e.days <= EXAM_SOON).sort((a, b) => a.days - b.days)[0];
   if (ex && deckIds.length > 1) note = (note ? note + " " : "") + `Cards for ${ex.title} (${ex.days === 1 ? "tomorrow" : "in " + ex.days + " days"}) come up most, mixed in with the rest.`;
   q = q.slice(0, STUDY_MAX).map(x => ({deckId: x.deckId, cardId: x.cardId}));
   ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: []};
-  render(); window.scrollTo(0, 0);
+  fcDropToast(); render(); window.scrollTo(0, 0);
 }
 const nextDue = (box, rating) => rating === "again" ? todayISO() : addDays(todayISO(), rating === "hard" ? 1 : BOX_DAYS[Math.min(5, box)]);
+// A classic deck's level after a rating. A card reviewed before it's due (cramming) doesn't go up a level.
+const boxAfter = (c, rating) => rating === "again" ? 0 : rating === "hard" || (c.seen > 0 && !cardDue(c)) ? Math.max(1, c.box) : Math.min(5, c.box + (rating === "easy" ? 2 : 1));
+// A Study or Quiz session starts: an action toast left from the deck page (such as a card's Undo) doesn't follow it in
+function fcDropToast(){ const t = $("#toast"), u = $("#toastUndo"), x = $("#toastX"); if (t && x && u && t.classList.contains("show") && !u.hidden) x.click(); }
 // Lifetime counts that unlock free companions
 function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.settings || {}).earn); e[k] = Math.max(0, (Number(e[k]) || 0) + (n || 1)); state.settings = Object.assign({}, state.settings, {earn: e}); saveSettings(); } catch(err) {} }
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
@@ -16544,11 +16608,9 @@ function rateCard(rating){
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
   if (c) {
     const sm = window.SBPRO && SBPRO.cardRated ? SBPRO.cardRated(d, c, rating) : null;
+    c.box = boxAfter(c, rating);
     c.seen++; c.last = todayISO(); c.rate = rating;
-    if (rating === "again") { c.box = 0; c.wrong++; }
-    else if (rating === "hard") { c.box = Math.max(1, c.box); c.right++; }
-    else if (rating === "good") { c.box = Math.min(5, c.box + 1); c.right++; }
-    else { c.box = Math.min(5, c.box + 2); c.right++; }
+    if (rating === "again") c.wrong++; else c.right++;
     c.due = nextDue(c.box, rating);
     if (sm) { c.box = sm.box; c.due = sm.due; }
     d.updated = Date.now();
@@ -16596,8 +16658,7 @@ function viewStudy(){
   }
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
-  const box = c.box;
-  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(r === "good" ? Math.min(5, box + 1) : r === "easy" ? Math.min(5, box + 2) : box, r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
+  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(boxAfter(c, r), r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
@@ -16741,7 +16802,7 @@ function quizFromCardsLocal(decks, n, types, dir, title){
 }
 function startQuiz(questions, deckIds, opts){
   ui.tab = "flashcards"; ui.fc = {mode: "quiz", deckIds, opts, qs: questions, i: 0, ans: []};
-  render(); window.scrollTo(0, 0);
+  fcDropToast(); render(); window.scrollTo(0, 0);
   setTimeout(() => { const w = $("#qWritten"); if (w) w.focus(); }, 30);
 }
 function answerQuiz(given, pre){
@@ -16752,7 +16813,7 @@ function answerQuiz(given, pre){
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r;
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
-  if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
+  if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
   render();
 }
 function finishQuiz(){
@@ -16806,6 +16867,9 @@ function fcKey(e){
   if (ui.tab !== "flashcards" || !ui.fc || dlg.open || e.target.closest("input,textarea,select")) return false;
   const f = ui.fc;
   if (f.mode === "study" && (e.key === "z" || e.key === "Z" || e.key === "Backspace") && !e.altKey && f.hist && f.hist.length) { e.preventDefault(); undoRate(); return true; }
+  // Ctrl, Cmd and Alt shortcuts belong to the browser; Enter and Space on a focused button press that button
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  if ((e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest("button,a,[role=button],summary") && !e.target.closest('[data-act="fc-flip"],[data-act="fc-next"]')) return false;
   if (f.mode === "study" && f.q[f.i]) {
     if (e.key === " " || e.key === "Enter") { if (!f.flipped) { e.preventDefault(); f.flipped = true; render(); return true; } }
     if (f.flipped && ["1", "2", "3", "4"].includes(e.key)) { e.preventDefault(); rateCard(["again", "hard", "good", "easy"][Number(e.key) - 1]); return true; }
@@ -16843,11 +16907,11 @@ function fcAction(act, el){
     case "fc-undo": undoRate(); return true;
     case "fc-answer": answerQuiz(el.dataset.val); return true;
     case "fc-next": ui.fc.i++; render(); setTimeout(() => { const w = $("#qWritten"); if (w) w.focus(); }, 20); return true;
-    case "fc-override": { const a = ui.fc.ans[ui.fc.i]; if (a) { a.correct = true; a.close = true; const q = ui.fc.qs[ui.fc.i]; const d = clone(state.decks[q.deckId]); const c = d && d.cards.find(x => x.id === q.cardId); if (c) { c.wrong = Math.max(0, c.wrong - 1); c.right++; saveDeck(d, null); } render(); } return true; }
+    case "fc-override": { const a = ui.fc.ans[ui.fc.i]; if (a) { a.correct = true; a.close = true; const q = ui.fc.qs[ui.fc.i]; const d = clone(state.decks[q.deckId]); const c = d && d.cards.find(x => x.id === q.cardId); if (c) { c.wrong = Math.max(0, c.wrong - 1); c.right++; if (a.prev) Object.assign(c, a.prev); saveDeck(d, null); } render(); } return true; }
     case "fc-exit": {
       const f = ui.fc, quiz = f && (f.mode === "quiz" || f.mode === "aiquiz"), left = quiz && f.qs[f.i] && f.ans.filter(Boolean).length;
       const leave = () => { if (ui.fc !== f) return; const aq = f && f.mode === "aiquiz", one = !aq && f && f.deckIds.length === 1 ? f.deckIds[0] : null; ui.fc = null; ui.deckId = one; render(); };
-      if (left) confirmSheet("Quit This Quiz?", `You've answered ${left} of ${f.qs.length} question${f.qs.length === 1 ? "" : "s"}. If you quit now, this attempt isn't scored or saved.`, "Quit Quiz", leave);
+      if (left) confirmSheet("Quit This Quiz?", `You've answered ${left} of ${f.qs.length} question${f.qs.length === 1 ? "" : "s"}. If you quit now, this attempt isn't scored${f.mode === "quiz" ? ". Cards you missed still come up for review" : " or saved"}.`, "Quit Quiz", leave);
       else leave();
       return true;
     }
@@ -17047,6 +17111,8 @@ function pomoLoad(){
 }
 let pomo = pomoLoad(), pomoTimer = null;
 const modeMs = m => m === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) * 60000 : Math.max(1, Number(pomoCfg()[m === "focus" ? "focus" : m === "short" ? "short" : "long"]) || 1) * 60000;
+// The length of the session under way, kept from when it started (new timer settings apply to the next one)
+const pomoLen = () => (pomo.running || pomo.left > 0) && Number(pomo.len) > 0 ? Number(pomo.len) : modeMs(pomo.mode);
 const pomoLeft = () => pomo.running ? Math.max(0, pomo.endAt - Date.now()) : (pomo.left > 0 ? pomo.left : modeMs(pomo.mode));
 const fmtClock = ms => { const s = Math.ceil(ms / 1000), m = Math.floor(s / 60); return `${m}:${String(s % 60).padStart(2, "0")}`; };
 function pomoSave(){ try { localStorage.setItem(POMO_LS, JSON.stringify(pomo)); } catch(e) {} }
@@ -17106,7 +17172,7 @@ function stopAlarm(){
 /* Timer */
 function pomoSchedule(){
   clearTimeout(pomoTimer);
-  if (pomo.running) pomoTimer = setTimeout(() => pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }), Math.max(0, pomo.endAt - Date.now()) + 30);
+  if (pomo.running) pomoTimer = setTimeout(() => pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoEnd(); }), Math.max(0, pomo.endAt - Date.now()) + 30);
 }
 function pomoStart(){
   audio(); audioIdle(400);   // switched on with the tap, so the alarm can play later, then off again
@@ -17114,6 +17180,7 @@ function pomoStart(){
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();
   nativeAlarm();
+  if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) pomo.len = modeMs(pomo.mode);
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
   pomoSave(); pomoSchedule(); pomoUI(true);
   try {
@@ -17126,7 +17193,7 @@ function pomoPause(){ if (!pomo.running) return; pomo.left = Math.max(1000, pomo
 // Minutes of a running or paused focus session already done
 function pomoElapsedMin(){
   if (pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return 0;
-  const total = modeMs("focus"), left = Math.min(total, pomo.running ? Math.max(0, pomo.endAt - Date.now()) : pomo.left);
+  const total = pomoLen(), left = Math.min(total, pomo.running ? Math.max(0, pomo.endAt - Date.now()) : pomo.left);
   return Math.max(0, (total - left) / 60000);
 }
 // Stopping a focus session early
@@ -17137,8 +17204,8 @@ const pomoEarly = (min, why) => {
   else { try { if (typeof SBSTATS !== "undefined") SBSTATS.addFocus(m, "timer"); pomoToday(); pomo.minutes += m; pomoSave(); } catch(e) { console.warn(e); } }
   fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, why});
 };
-function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
-function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
+function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
+function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
 // Tapping a mode button: ending a focus session for a break asks first
 function pomoPickMode(m){
   if (m === pomo.mode && (pomo.running || pomo.left > 0)) return;
@@ -17148,10 +17215,27 @@ function pomoPickMode(m){
     .then(ok => { if (ok) { pomoSetMode(m); pomoStart(); } });
 }
 function pomoSkip(){ const next = pomo.mode === "focus" ? ((pomo.cycle + 1) % pomoCfg().every === 0 ? "long" : "short") : "focus"; if (pomo.mode === "long") pomo.cycle = 0; pomoSetMode(next); }
+// Only one tab or window finishes a session (credits it and rings): the first to claim its end time. The others take
+// the finished timer from storage.
+const POMO_FIN = "studioso:pomo-fin";
+const pomoStored = () => { try { const raw = localStorage.getItem(POMO_LS); return raw ? pomoLoad() : null; } catch(e) { return null; } };
+function pomoAdopt(p){ pomo = p; pomoSchedule(); pomoUI(true); }
+function pomoEnd(missed){
+  if (!pomo.running) return;
+  const end = pomo.endAt, go = () => {
+    const cur = pomoStored();
+    let fin = ""; try { fin = localStorage.getItem(POMO_FIN) || ""; } catch(e) {}
+    if (cur && (fin === String(end) || !cur.running || cur.endAt !== end)) { pomoAdopt(cur); return; }
+    try { localStorage.setItem(POMO_FIN, String(end)); } catch(e) {}
+    if (pomo.running && pomo.endAt === end) pomoFinish(missed);
+  };
+  try { if (navigator.locks && navigator.locks.request) { navigator.locks.request("studioso-pomo-finish", go).catch(e => console.warn(e)); return; } } catch(e) {}
+  go();
+}
 function pomoFinish(missed){
   if (!pomo.running) return;
-  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) : Number(cfg.focus) || 25;
-  pomo.running = false; pomo.left = 0; pomo.preset = 0; clearTimeout(pomoTimer);
+  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" ? Math.max(1, Math.round(pomoLen() / 60000)) : 0;
+  pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; clearTimeout(pomoTimer);
   pomoToday();
   if (done === "focus") {
     pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
@@ -17169,7 +17253,7 @@ function pomoFinish(missed){
   pomo.mode = next;
   const auto = !missed && ((next !== "focus" && cfg.autoBreak) || (next === "focus" && cfg.autoFocus));
   pomoSave();
-  if (auto) { pomo.endAt = Date.now() + modeMs(next); pomo.running = true; pomoSave(); pomoSchedule(); }
+  if (auto) { pomo.len = modeMs(next); pomo.endAt = Date.now() + pomo.len; pomo.running = true; pomoSave(); pomoSchedule(); }
   pomoAlarm(done, next, auto, missed);
   pomoUI(true);
   fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next, auto, missed: !!missed, taskId: done === "focus" ? pomo.taskId : ""});
@@ -17198,13 +17282,13 @@ function pomoAlarm(done, next, auto, missed){
   </div>`;
   if (!ad.open) { try { ad.showModal(); } catch(e) { ad.setAttribute("open", ""); } }
   const close = () => { stopAlarm(); try { ad.close(); } catch(e) { ad.removeAttribute("open"); } };
-  const toFocus = () => { pomo.mode = "focus"; pomo.running = false; pomo.left = 0; pomo.preset = 0; clearTimeout(pomoTimer); pomoSave(); };
+  const toFocus = () => { pomo.mode = "focus"; pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; clearTimeout(pomoTimer); pomoSave(); };
   $("#alOk").addEventListener("click", close);
   const st = $("#alStart"); if (st) st.addEventListener("click", () => { close(); pomoStart(); });
   const dn = $("#alDone"); if (dn) dn.addEventListener("click", () => { close(); if (pomo.taskId === task.id) { pomo.taskId = ""; pomoSave(); pomoUI(true); } });
   const ag = $("#alAgain"); if (ag) ag.addEventListener("click", () => { close(); toFocus(); pomo.taskId = task.id; pomoStart(); });
   const sk = $("#alSkip"); if (sk) sk.addEventListener("click", () => { close(); toFocus(); pomoUI(true); openPomo(); });
-  ad.addEventListener("cancel", stopAlarm, {once: true});
+  ad.oncancel = stopAlarm;   // set, not added, so repeated alarms don't pile up listeners
 }
 function setTitle(){
   if (flashT) return;
@@ -17213,7 +17297,7 @@ function setTitle(){
 // Light updates every half second; a full redraw only when something changes
 let lastSig = "";
 function pomoUI(full){
-  const left = pomoLeft(), total = pomo.running ? modeMs(pomo.mode) : modeMs(pomo.mode), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
+  const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
   if (full || sig !== lastSig) { lastSig = sig; renderPomoBits(); if ($("#pomoDlg").open) renderPomo(); }
   const clock = fmtClock(left), frac = Math.max(0, Math.min(1, left / total));
   $$("[data-pomo-time]").forEach(el => { el.textContent = clock; });
@@ -17245,7 +17329,7 @@ function islandSync(){
   const t = pomo.taskId && state.tasks[pomo.taskId];
   let accent = ""; try { accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(); } catch (e) {}
   const st = {mode: pomo.mode, label: MODE_LABEL[pomo.mode], task: t ? t.title : "", running: pomo.running, endsAt: pomo.running ? pomo.endAt : 0,
-    left: pomo.running ? 0 : Math.max(1, Math.floor(pomoLeft() / 1000)), total: Math.round(modeMs(pomo.mode) / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : "",
+    left: pomo.running ? 0 : Math.max(1, Math.floor(pomoLeft() / 1000)), total: Math.round(pomoLen() / 1000), accent: /^#[0-9a-f]{6}$/i.test(accent) ? accent : "",
     plan: pomoPlan(6)};
   const sig = JSON.stringify(st);
   if (sig === ISLAND.sig) return;
@@ -17279,7 +17363,7 @@ function pomoTakeLock(){
         if (a === "pause" && pomo.running) { pomo.left = left > 0 ? left * 1000 : Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
         else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = end > t ? end : t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
         else if (a === "reset" && (pomo.running || pomo.left > 0)) { if (pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.running = false; } pomoReset(); }
-        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.endAt = t + modeMs(pomo.mode); pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.len = modeMs(pomo.mode); pomo.endAt = t + pomo.len; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
       });
       pomoSave(); pomoSchedule();
     } finally { ISLAND.hold = false; }
@@ -17352,7 +17436,7 @@ function renderPomo(){
     <div class="sheet-body">
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
-        <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / modeMs(pomo.mode))}"/></svg>
+        <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
         <div class="pomo-read"><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : pomo.left > 0 ? ", paused" : ""}</span></div>
       </div>
       <div class="pomo-cycle" aria-label="${inCycle} of ${every} focus sessions done before a long break">${Array.from({length: every}, (_, i) => `<i class="${i < inCycle ? "on" : ""}"></i>`).join("")}<span>${inCycle} of ${every} before a long break</span></div>
@@ -17407,14 +17491,16 @@ function pomoDue(then){
   if (!FA || typeof FA.take !== "function") { then(); return; }
   pomoTaking = pomoTakeLock().then(() => { pomoTaking = null; then(); }, () => { pomoTaking = null; then(); });
 }
-setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); else pomoUI(false); } }, 500);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoFinish(); }); } });
+setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoEnd(); }); else pomoUI(false); } }, 500);
+// Another tab or window changed the timer: show the same
+window.addEventListener("storage", e => { if (e.key === POMO_LS && e.newValue) { const p = pomoStored(); if (p) pomoAdopt(p); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoEnd(); }); } });
 function pomoBoot(){
   if (pomo.running) nativeAlarm();
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (FA && typeof FA.onAction === "function") FA.onAction(() => pomoDue(() => {}));
   pomoDue(() => {
-    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoFinish(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
+    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoEnd(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
     pomoSchedule(); pomoUI(true);
   });
 }
@@ -17564,7 +17650,7 @@ async function exportFullBackup(){
     const dl = caps.downloads || await useCap("downloads");
     if (!dl) { toast("Downloads aren't available here"); return; }
     try { await dl.save({filename: name, data: zip}); } catch(e) { if (!(e && e.code === "declined")) toast("Couldn't save the file. Try again."); return; }
-  } else { saveBlob(name, zip, "application/zip"); try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} }
+  } else { if (!(await saveBlob(name, zip, "application/zip"))) return; try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} }
   toast(missing ? `Backup saved, but ${missing} file${missing === 1 ? "" : "s"} couldn't be included` : `Backup saved with ${revs.length} file${revs.length === 1 ? "" : "s"}`);
 }
 async function importBackupFiles(files, zipEntries){
@@ -19662,13 +19748,29 @@ function themeRow(){
 }
 
 /* Backup files */
+// Resolves true once the file is saved (or handed to the share sheet). In the phone apps an <a download> click does nothing, so the file is
+// written to the app's cache with @capacitor/filesystem and offered with @capacitor/share, where the person picks "Save to Files" or similar.
 function saveBlob(filename, data, type){
   const blob = data instanceof Blob ? data : new Blob([data], {type: type || "application/octet-stream"});
+  if (nativeShell()) return saveBlobNative(filename, blob);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.style.display = "none";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
+  return Promise.resolve(true);
+}
+async function saveBlobNative(filename, blob){
+  const P = (window.Capacitor && window.Capacitor.Plugins) || {}, FS = P.Filesystem, SH = P.Share, bad = m => { toast(m, null, null, {error: true}); return false; };
+  if (!FS || !SH || typeof FS.writeFile !== "function" || typeof SH.share !== "function") return bad("Saving files isn't available in this version of the app. Update the app and try again.");
+  const name = String(filename || "").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120) || "file";
+  let uri;
+  try {
+    const b64 = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).replace(/^data:[^,]*,/, "")); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
+    uri = (await FS.writeFile({path: name, data: b64, directory: "CACHE"})).uri;
+  } catch (e) { return bad("Couldn't save the file. Check there's free space on your phone and try again."); }
+  try { await SH.share({title: name, files: [uri]}); return true; }
+  catch (e) { return /cancel/i.test(String(e && (e.message || e))) ? false : bad("Couldn't open the share sheet to save the file. Try again."); }
 }
 const inPreview = () => !!(window.claude && typeof window.claude.use === "function");
 // The main backup includes your uploaded files whenever there are any (a ZIP); "data only" skips them
@@ -19679,7 +19781,7 @@ async function exportBackup(opts){
     const dl = caps.downloads || await useCap("downloads");
     if (dl) { await dl.save({filename: `studyboard-backup-${todayISO()}.json`, data}); toast("Backup file saved"); return; }
   } catch(e) { if (e && e.code === "declined") return; }
-  if (!inPreview()) { saveBlob(`studyboard-backup-${todayISO()}.json`, data, "application/json"); try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} toast("Backup file saved"); scheduleRender(); return; }
+  if (!inPreview()) { if (!(await saveBlob(`studyboard-backup-${todayISO()}.json`, data, "application/json"))) return; try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} toast("Backup file saved"); scheduleRender(); return; }
   try { await navigator.clipboard.writeText(data); toast("Backup copied to clipboard"); }
   catch(e) { toast("Export isn't available here"); }
 }
@@ -19722,8 +19824,17 @@ $("#importFile").addEventListener("change", async e => {
 /* Events */
 const proBtns = where => { try { return window.SBPRO && SBPRO.tabBtns ? SBPRO.tabBtns(where) : ""; } catch (e) { return ""; } };
 let suppressClick = false;
+// A quick second click on a complete circle lands on whatever slid under the pointer once the done card left the list.
+// A second pointer click in the same spot within 450ms is taken as part of the first one and ignored.
+let lastToggle = null;
 function toggleTask(id, el){
   const t = state.tasks[id]; if (!t) return;
+  const ev = window.event, ptr = ev && ev.type === "click" && ev.detail > 0 && el && el !== document.body, now = Date.now();
+  if (ptr) {
+    const l = lastToggle;
+    if (l && now - l.at < 450 && Math.abs(ev.clientX - l.x) < 20 && Math.abs(ev.clientY - l.y) < 20) return;
+    lastToggle = {at: now, x: ev.clientX, y: ev.clientY};
+  }
   const n = clone(t);
   if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
   n.order = nextOrder(n.status);
@@ -28261,7 +28372,15 @@ const CAP = (() => {
     take(/\b(?:at\s*|@\s*|by\s*)?(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/i, m => {
       let h = Number(m[1]); if (h < 1 || h > 12) { out.flags.push("time"); return false; }
       h %= 12; if (/p/i.test(m[3])) h += 12; out.time = pad2(h) + ":" + (m[2] || "00");
-    }) || take(/\b(?:at\s*|@\s*|by\s*)?([01]?\d|2[0-3]):([0-5]\d)\b/, m => { out.time = pad2(Number(m[1])) + ":" + m[2]; }) ||
+    }) || take(/\b(?:at\s*|@\s*|by\s*)?([01]?\d|2[0-3]):([0-5]\d)\b/, m => {
+      /* A bare h:mm with no am/pm. 0:mm, 13-23 and a leading zero ("09:30") are 24-hour. 1-6 means afternoon ("5:30" is 17:30):
+         classes and deadlines at 1-6 AM are rare. 7-12 could be either, so they are flagged "ampm" and the check shows before
+         anything is saved: 11:59 is read as 23:59 (the usual deadline), the rest keep the plain reading (9:15 morning, 12:30 noon). */
+      let h = Number(m[1]);
+      if (!/^0/.test(m[1]) && h >= 1 && h <= 6) h += 12;
+      else if (!/^0/.test(m[1]) && h >= 7 && h <= 12) { out.flags.push("ampm"); if (h === 11 && m[2] === "59") h = 23; }
+      out.time = pad2(h) + ":" + m[2];
+    }) ||
       take(/\b(?:at\s*|by\s*)?noon\b/i, () => { out.time = "12:00"; }) || take(/\b(?:at\s*|by\s*)?(midnight|end of (?:the )?day|eod)\b/i, () => { out.time = "23:59"; });
     if (!out.time && /\b(?:at|@)\s*\d{1,2}\b(?!\s*[\/:%.-]\d)/i.test(s)) out.flags.push("time");
     const wd = new RegExp(`\\b(?:(next|this|coming)\\s+)?(${WDRE})\\b\\.?`, "i");
@@ -28283,11 +28402,18 @@ const CAP = (() => {
       out.due = addDays(mon, (n - 1) * 7 + 4); out.term = "week";
     }) ||
     take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
-    take(new RegExp(`\\b(${MONRE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[1].slice(0, 3).toLowerCase()), Number(m[2]), today); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    // An optional year may follow: "dec 5 2027", "January 10, 2027", "5 dec 2027"
+    take(new RegExp(`\\b(${MONRE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = monthDay(MON.indexOf(m[1].slice(0, 3).toLowerCase()), Number(m[2]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[1]), today); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    take(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = monthDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[1]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    }) ||
+    // "due the 15th": the next 15th, this month or next
+    take(/\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i, m => {
+      const n = Number(m[1]); let [y, mo] = parts(today), d = isoOf(y, mo, n);
+      if (!validISO(d) || d < today) { mo = mo % 12 + 1; if (mo === 1) y++; d = isoOf(y, mo, n); }
+      if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d;
     }) ||
     take(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/, m => {
       const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : 0;
@@ -28332,7 +28458,7 @@ const CAP = (() => {
     [/\b(read|reading|chapters?|ch\.?\s*\d)/i, "Reading"], [/\b(hw|homework|assignment|essay|paper|report|problem set|pset|worksheet|discussion post)\b/i, "Assignment"], [/\b(study|review)\b/i, "Study"]];
   const guessType = s => { const h = TYPE_WORDS.find(([re]) => re.test(s)); return h ? h[1] : ""; };
   // Words left in the title that still look like a date or a second task
-  const LEFTOVER = /\b(next|this|coming|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|weekly|daily)\b|\d{1,2}[\/.]\d{1,2}|\b(?:at|by)\s+\d{1,2}\b/i;
+  const LEFTOVER = /\b(next|this|coming|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|weekly|daily)\b|\d{1,2}\/\d{1,2}|\b\d{1,2}\.\d{2}\b|\b(?:at|by)\s+\d{1,2}\b|\b20\d\d\b/i;
   const stripEdges = t => {
     let prev;
     do { prev = t; t = t.replace(/\s+(due|by|on|at|for|before|until|till|the|is|its|it's|@|-|,|:|due by|due on)\s*$/i, "").replace(/^\s*(due|by|on|at|for|the|is|-|,|:)\s+/i, ""); } while (t !== prev);
@@ -28715,7 +28841,7 @@ const rowHtml = (d, i) => `<li class="qc-row ${d.checked === false ? "is-off" : 
     <input type="date" data-f="due" value="${esc(d.due)}" aria-label="Due date" class="${d.due ? "" : "cap-miss"}" ${d.due ? "" : 'aria-invalid="true" title="No due date yet"'}>
     <input type="time" data-f="time" value="${esc(d.time)}" aria-label="Due time">
     <button type="button" class="x-btn" data-cap="rm" data-i="${i}" aria-label="Remove ${esc(d.title || "this task")}">${CLOSE}</button>
-    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : ""}
+    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : ""}
   </li>`;
 const thumbsHtml = () => CS.photos.length ? `<div class="cap-thumbs">${CS.photos.map(p => `<img src="${esc(p.url)}" alt="Your photo, to check the tasks against" class="cap-thumb">`).join("")}</div>` : "";
 const confirmCount = () => CS.drafts.filter(d => d.checked !== false && String(d.title || "").trim()).length;
@@ -29379,7 +29505,8 @@ hook("boot", boot);
     const c = deskCfg || {}, mac = DESK.platform === "darwin", where = mac ? "menu bar" : "notification area";
     const paused = c.pausedUntil && c.pausedUntil > Date.now();
     const fsRow = DESK.fullscreen ? `<div class="cap-row"><span style="flex:1;font-weight:600">Full Screen<span class="sub">Fill the whole screen with Studyboard. Press ${mac ? "Ctrl+Cmd+F" : "F11"} to switch any time.</span></span><button class="btn small" data-act="sbw-fs">${document.body.classList.contains("fs") ? "Exit Full Screen" : "Full Screen"}</button></div>` : "";
-    return `${fsRow}<div class="cap-row"><span style="flex:1;font-weight:600">Keep Running in the Background<span class="sub">${c.tray === false ? "The tray icon isn't available on this computer, so closing the window closes Studyboard." : `Closing the window keeps Studyboard in the ${where}, so reminders and the Today widget keep working. Choose Quit Studyboard from its icon to close it all the way.`}</span></span>${c.tray === false ? "" : tog("background", c.background !== false, "Keep Running in the Background")}</div>
+    const up = c.update && c.update.version ? `<div class="cap-row"><span style="flex:1;font-weight:600">Update Available<span class="sub">Version ${esc(c.update.version)} is out (you have ${esc(c.update.current || "")}). Download it and open it to update; your things stay where they are.</span></span><button class="btn small" data-act="sbw-update">Download</button></div>` : "";
+    return `${up}${fsRow}<div class="cap-row"><span style="flex:1;font-weight:600">Keep Running in the Background<span class="sub">${c.tray === false ? "The tray icon isn't available on this computer, so closing the window closes Studyboard." : `Closing the window keeps Studyboard in the ${where}, so reminders and the Today widget keep working. Choose Quit Studyboard from its icon to close it all the way.`}</span></span>${c.tray === false ? "" : tog("background", c.background !== false, "Keep Running in the Background")}</div>
       ${c.canLogin ? `<div class="cap-row"><span style="flex:1;font-weight:600">Start When I Sign In to My Computer<span class="sub">Studyboard starts quietly in the ${where}, ready with your reminders.</span></span>${tog("openAtLogin", !!c.openAtLogin, "Start When I Sign In to My Computer")}</div>` : ""}
       ${c.startupSettings && DESK.openStartupSettings ? `<div class="cap-row"><span style="flex:1;font-weight:600">Start When I Sign In to My Computer<span class="sub">Windows decides this for apps from the Microsoft Store. Turn Studyboard on under Settings, Apps, Startup.</span></span><button class="btn small" data-act="sbw-startup">Open Startup Settings</button></div>` : ""}
       <div class="cap-row"><span style="flex:1;font-weight:600">Today Widget<span class="sub">A small window with Do This Next, today's list, flashcards due and your streak. Drag it by the top, resize it from the edges.</span></span>${tog("widget", !!c.widget, "Show Today Widget")}</div>
@@ -29432,6 +29559,7 @@ hook("boot", boot);
     if (act === "sbw-resume") { setDesk("pauseReminders", 0); toast("Reminders are back on"); return true; }
     if (act === "sbw-startup") { try { DESK.openStartupSettings(); } catch (e) {} return true; }
     if (act === "sbw-fs") { try { DESK.fullscreen(); } catch (e) {} return true; }
+    if (act === "sbw-update") { const u = deskCfg && deskCfg.update; if (u && u.url) window.open(u.url, "_blank"); return true; }
     return false;
   });
   hook("render", pushSoon);
@@ -29450,6 +29578,22 @@ hook("boot", boot);
     setInterval(push, 5 * 60000);
     handleUrl();
     push();
+    // The phone apps' native-bridge.js hands deep links and reminder taps here once the app is running, so open quizzes and unsaved text survive.
+    // Returns false for anything it can't open in place (the bridge then reloads with the link, as on a cold start).
+    window.SBOPEN = q => {
+      try {
+        const a = q.get("action"), task = q.get("task") || q.get("sbtask"), dk = q.get("deck"), gp = q.get("group");
+        if (dk || gp) {
+          const N = window.SBGROUPS && SBGROUPS.share && SBGROUPS.share.normCode, code = N && N(dk || gp).code;
+          if (!code) return false;
+          localStorage.setItem("sb:grpPending", JSON.stringify({kind: dk ? "deck" : "group", code, at: Date.now()}));   // 80-groups.js picks this up within seconds
+          return true;
+        }
+        if (task) { doAction("task", task); return true; }
+        if (ACTIONS.includes(a) && a !== "done") { doAction(a); return true; }
+      } catch (e) {}
+      return false;
+    };
   });
 })();
 
@@ -36241,7 +36385,9 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
       vals = vals.filter(v => v != null && isFinite(v));
       if (!vals.length) return {lo: 0, hi: 100};
       let lo = Math.floor((Math.min.apply(null, vals) - 5) / 5) * 5, hi = Math.ceil((Math.max.apply(null, vals) + 5) / 5) * 5;
-      lo = Math.max(0, lo); hi = Math.min(100, hi);
+      // the top stays at 100 unless a bonus mark goes over it
+      const top = Math.max.apply(null, vals) > 100 ? Math.ceil(Math.max.apply(null, vals) / 5) * 5 : 100;
+      lo = Math.max(0, lo); hi = Math.min(top, hi);
       if (hi - lo < 10) { if (hi >= 100) lo = hi - 10; else hi = lo + 10; }
       return {lo, hi};
     }
@@ -71628,7 +71774,7 @@ const NOTECARDS = (() => {
     const out = [], add = (front, back, kind, pos) => {
       front = flat(front); back = flat(back);
       if (front.length < 2 || back.length < 1 || front.length > 300 || norm(front) === norm(back)) return false;
-      out.push({front, back: back.slice(0, 700), kind, pos}); return true;
+      out.push(Object.assign({front, back: back.slice(0, 700), kind, pos}, back.length > 700 ? {cut: true} : {})); return true;
     };
     const Q1 = /^\s*(?:Q(?:uestion)?\s*\d*\s*[:.)–-]|Q\d+[.)])\s*(.+)$/i, A1 = /^\s*(?:A(?:ns(?:wer)?)?\s*[:.)–-])\s*(.*)$/i, ARROW = /^\s*(?:→|=>|->)\s*(.+)$/;
     for (let i = 0; i < L.length; i++) {
@@ -71683,7 +71829,7 @@ const NOTECARDS = (() => {
       for (const x of cl) { const card = {front: x.c.front, back: x.c.back, kind: "cloze", pos: x.pos + 0.5}; if (![...cards, ...picked].some(y => similar(card, y))) picked.push(card); if (picked.length >= room) break; }
       cards = cards.concat(picked).sort((a, b) => a.pos - b.pos);
     }
-    return cards.slice(0, max).map(c => ({front: c.front, back: c.back, kind: c.kind, pos: c.pos}));
+    return cards.slice(0, max).map(c => Object.assign({front: c.front, back: c.back, kind: c.kind, pos: c.pos}, c.cut ? {cut: true} : {}));
   }
 
   // AI answers
@@ -71789,7 +71935,7 @@ const deckCards = () => (S.deck !== "new" && state.decks[S.deck] ? state.decks[S
 const srcText = () => (S.scope === "sel" ? S.sel : S.full).slice(0, MAXSRC);
 function mkCards(list, keep){
   const kept = keep || [], dup = NC.markDupes(list, deckCards().concat(kept), false);
-  return kept.concat(dup.map(c => ({k: ++S.k, front: c.front, back: c.back, kind: c.kind, on: !c.dup, tog: false, touched: false})));
+  return kept.concat(dup.map(c => ({k: ++S.k, front: c.front, back: c.back, kind: c.kind, on: !c.dup, tog: false, touched: false, cut: !!c.cut})));
 }
 function generate(){
   const keep = S.cards.filter(c => c.touched);
@@ -71871,7 +72017,7 @@ function cardHtml(c, i){
     <div class="nc-fields">
       <label class="f"><span class="lh">${esc(tr("nc.front", "Front"))}</span><textarea data-nc-f rows="${rows(c.front)}" maxlength="300" data-noenter aria-label="${esc(tr("nc.front.n", "Front of card {n}", {n: num}))}">${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">${esc(tr("nc.back", "Back"))}</span><textarea data-nc-b rows="${rows(c.back)}" maxlength="700" data-noenter aria-label="${esc(tr("nc.back.n", "Back of card {n}", {n: num}))}">${esc(c.back)}</textarea></label></div>
-    ${dup ? `<p class="mini nc-dup">${esc(tr("nc.dup", "Looks like a card this deck already has, so it is not ticked."))}</p>` : ""}</li>`;
+    ${dup ? `<p class="mini nc-dup">${esc(tr("nc.dup", "Looks like a card this deck already has, so it is not ticked."))}</p>` : ""}${c.cut && !c.touched ? `<p class="mini nc-cut" style="margin:0">${esc(tr("nc.cut", "The back was too long for one card, so it was cut short. Check how it ends."))}</p>` : ""}</li>`;
 }
 function paint(){
   if (!S) return;
@@ -89447,14 +89593,25 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const who = (G() && G().myId && G().myId()) || "local"; if (purged === who) return; purged = who;
     setTimeout(() => Object.values(state.notes || {}).filter(n => live(n)).forEach(n => dropReceived(n.id)), 0);
   });
-  async function catchUp(nid, Lx){
+  async function catchUp(nid, Lx, from){
     const g = live(state.notes[nid]); if (!g || !online()) return;
-    const rows = await fetchOps(g.bid, seqGet(g.bid));
+    const rows = await fetchOps(g.bid, from != null ? Math.min(from, seqGet(g.bid)) : seqGet(g.bid));
     let ch = [];
     rows.forEach(r => { if (r.tag === TAG || (Lx && (Lx.sent.has(r.id) || Lx.seen.has(r.id)))) return; if (Lx) Lx.seen.add(r.id); ch = ch.concat(clean(r.ch)); });
     applyNote(nid, ch);
     if (rows.length) seqSet(g.bid, rows[rows.length - 1].id);
   }
+  // While the connection may be down (the live channel dropped, the device went offline or the tab was hidden), strokes
+  // can be missed even as later ones arrive, so the catch-up reads from where things stood when it went down
+  const mark = x => { if (x && x.low == null) x.low = seqGet(x.bid); };
+  function resume(x){
+    if (!x || L !== x) return;
+    const from = x.low; x.low = null;
+    catchUp(x.nid, x, from).catch(() => { if (x.low == null && from != null) x.low = from; });
+  }
+  window.addEventListener("offline", () => mark(L));
+  window.addEventListener("online", () => resume(L));
+  document.addEventListener("visibilitychange", () => { if (document.hidden) mark(L); else resume(L); });
   function stop(){
     if (!L) return; const x = L; L = null;
     if (x.q.length) send(x);
@@ -89475,7 +89632,8 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
           const r = p && p.new; if (!r || L !== x || r.tag === TAG || x.sent.has(r.id) || x.seen.has(r.id)) return;
           x.seen.add(r.id); applyNote(x.nid, clean(r.ch)); seqSet(x.bid, r.id);
         });
-        ch.subscribe(st => { x.on = st === "SUBSCRIBED" || st === undefined; chip(); });
+        // a channel that comes back (after sleep or a dropped connection) catches up on what it missed meanwhile
+        ch.subscribe(st => { x.on = st === "SUBSCRIBED" || st === undefined; chip(); if (!x.on) mark(x); else if (x.subbed) resume(x); else x.subbed = true; });
         x.ch = ch;
       } catch (e) {}
     }
@@ -92379,7 +92537,7 @@ function draw(){
           <label class="mi-check"><input type="checkbox" data-tb="general"${TB.general ? " checked" : ""}> Check against general knowledge instead <span class="mini">(not your course's material)</span></label></div>`}
       ${aiReady() ? "" : `<p class="mini tb-ai">Checking uses AI. <button type="button" class="link-btn" data-tb="setup">Set Up AI</button> first; what you write here is kept.</p>`}
       <label class="f"><span class="lh">Explain It in Your Own Words <span class="hint">as if teaching a friend who missed the class, without notes</span></span>
-        <textarea id="tbText" rows="8" maxlength="6000" placeholder="Start with what ${esc(t.name)} is, then how it works and why it matters…"${TB.busy ? " disabled" : ""}>${esc(TB.text)}</textarea></label>
+        <textarea id="tbText" rows="8" maxlength="6000" placeholder="Start with what ${esc(t.name)} is, then how it works and why it matters…"${TB.busy ? " disabled" : ""}${TB.sr ? " readonly" : ""}>${esc(TB.text)}</textarea></label>
       ${SRC() ? `<div class="tb-row"><button type="button" class="btn small tb-mic${TB.sr ? " on" : ""}" data-tb="mic" aria-pressed="${!!TB.sr}"${TB.busy ? " disabled" : ""}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg> ${TB.sr ? "Stop Listening" : "Speak Instead"}</button>${TB.sr ? `<span class="mini" role="status">Listening… talk it through, then Stop.</span>` : ""}</div>` : ""}
       <p class="status-msg tb-msg" id="tbStatus" role="status" aria-live="polite">${TB.busy ? `<span class="ai-spin" aria-hidden="true"></span> Checking ${TB.general ? "against general knowledge" : "against your material"}…` : esc(TB.msg || "")}</p>`;
     const can = has || TB.general;
