@@ -1244,7 +1244,7 @@ var SBWB = null;
   /* Sheets: new board, options, all boards, export */
   const courseOpts = cur => `<option value="">No course</option>${coursesArr().map(c => `<option value="${esc(c.id)}"${c.id === cur ? " selected" : ""}>${esc(courseLabel(c))}</option>`).join("")}`;
   function newSheet(tpl){
-    openSheet(`<form class="sheet wb-sheet">${head("New Whiteboard")}<div class="sheet-body">
+    openSheet(`<form class="sheet wb-sheet">${bandHead("New Whiteboard", SH_IC.board, "var(--accent-band,var(--accent))")}<div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="60" value="${esc(nextName())}"></label>
       <fieldset class="wb-tplset"><legend>Start With</legend>
         <div class="segb wb-start" role="radiogroup" aria-label="Start with"><label><input type="radio" name="start" value="blank"${!tpl || tpl === "blank" ? " checked" : ""}> Blank Board</label><label><input type="radio" name="start" value="tpl"${tpl && tpl !== "blank" ? " checked" : ""}> A Template</label></div>
