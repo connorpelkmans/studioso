@@ -16047,10 +16047,18 @@ function archivedQuizzesSheet(){
 function viewQuizDetail(d, qz){
   const c = courseOf(d.courseId), res = qz.results || [], last = res[res.length - 1], best = res.reduce((m, r) => Math.max(m, r.total ? r.score / r.total : 0), 0);
   const TL = {single: "One answer", multiple: "Select all that apply", order: "Put in order", truefalse: "True or false", short: "Short answer"};
-  const qs = qz.questions.map((q, i) => `<li class="qzd-q"><div class="qzd-top"><b class="qzd-n">${i + 1}</b><span class="pill">${esc(TL[q.type] || "Question")}</span></div>
+  const CHK = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+  const hide = !!ui.qzHide, L = k => String.fromCharCode(65 + k);
+  const ans = (q, i) => {
+    if (q.type === "short") return `<div class="qzd-ans qzd-hide" data-act="qz-reveal" data-i="${i}"><span class="qzd-ck">${CHK}</span><span>${esc(q.answer)}</span></div>`;
+    if (q.type === "order") return `<ol class="qzd-opts qzd-hide" data-act="qz-reveal" data-i="${i}">${q.correct.map((ix, k) => `<li><span class="qzd-l">${k + 1}</span><span>${esc(q.options[ix])}</span></li>`).join("")}</ol>`;
+    return `<ul class="qzd-opts qzd-mc" data-act="qz-reveal" data-i="${i}">${q.options.map((o, k) => { const ok = q.correct.includes(k); return `<li class="${ok ? "ok" : ""}"><span class="qzd-l"><i class="lt">${L(k)}</i>${ok ? `<i class="ck">${CHK}</i>` : ""}</span><span>${esc(o)}</span></li>`; }).join("")}</ul>`;
+  };
+  const qs = qz.questions.map((q, i) => `<li class="qzd-q"><span class="qzd-n">${i + 1}</span><div class="qzd-body">
+      <span class="qzd-type">${esc(TL[q.type] || "Question")}</span>
       <p class="qzd-stem">${esc(q.stem)}</p>
-      ${q.type === "short" ? `<p class="qzd-ans">Answer: <b>${esc(q.answer)}</b></p>` : `<ul class="qzd-opts">${(q.type === "order" ? q.correct.map(ix => q.options[ix]) : q.options).map((o, k) => `<li class="${q.type !== "order" && q.correct.includes(k) ? "ok" : ""}">${q.type === "order" ? `<b>${k + 1}.</b> ` : q.correct.includes(k) ? "✓ " : ""}${esc(o)}</li>`).join("")}</ul>`}
-      ${q.rationale ? `<details><summary>Why</summary><p>${esc(q.rationale)}</p></details>` : ""}</li>`).join("");
+      ${ans(q, i)}
+      ${q.rationale ? `<details class="qzd-why"><summary>Explanation</summary><p>${esc(q.rationale)}</p></details>` : ""}</div></li>`).join("");
   const ref = d.id + ":" + qz.id;
   return `<button class="back" data-act="qz-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Quizzes</button>
     <div class="deck-head g2-head dk2" style="--c:${esc(colorOf(d.courseId))}">
@@ -16058,10 +16066,11 @@ function viewQuizDetail(d, qz){
         <div class="row-actions"><button class="btn primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><button class="btn" data-act="qz-edit" data-id="${esc(ref)}">Edit</button><button class="btn" data-act="qz-archive" data-id="${esc(ref)}">Archive</button><button class="btn" data-act="ai-quiz-del" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Delete</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>
         <div class="g2-txt"><h2>${esc(qz.title || "Practice Quiz")}</h2>
-          <div class="deck-stats"><span><b>${qz.questions.length}</b> questions</span><span>from <b>${esc(quizFrom(d, qz))}</b></span>${last ? `<span>Last score <b>${last.score}/${last.total}</b></span><span>Best <b>${Math.round(best * 100)}%</b></span>` : ""}</div></div></div>
+          <div class="deck-stats"><span><b>${qz.questions.length}</b> question${qz.questions.length === 1 ? "" : "s"}</span><span>from <b>${esc(quizFrom(d, qz))}</b></span>${last ? `<span>Last score <b>${last.score}/${last.total}</b></span><span>Best <b>${Math.round(best * 100)}%</b></span>` : ""}</div></div></div>
     </div>
     ${qz.kind === "case" && qz.scenario ? `<p class="qzd-scen">${esc(qz.scenario)}</p>` : ""}
-    <ol class="qzd-list">${qs}</ol>`;
+    <section class="c2-card2 c2-box qzd-card${hide ? " qzd-hidden" : ""}" style="--c:${esc(colorOf(d.courseId))}"><div class="qzd-head">${c2Head("goals", "Questions", qz.questions.length)}<button type="button" class="btn small" data-act="qz-hide" aria-pressed="${hide}">${hide ? "Show Answers" : "Hide Answers"}</button></div>
+      ${hide ? `<p class="mini qzd-hint">Answers are hidden. Tap one to check it.</p>` : ""}<ol class="qzd-list">${qs}</ol></section>`;
 }
 function viewQuizzes(){
   if (ui.qzOpen) { const f = qzFind(ui.qzOpen); if (f && !f.qz.archived) return viewQuizDetail(f.d, f.qz); ui.qzOpen = null; }
@@ -16942,6 +16951,13 @@ function quizMaker(ref){
     const li = $(`#qmList .qm-q[data-i="${QM.qs.length - 1}"]`); if (li) li.scrollIntoView({block: "nearest"});
   });
 }
+
+// A quiz's questions: hide the answers to test yourself, and tap one to check it
+hook("act", (act, el) => {
+  if (act === "qz-hide") { ui.qzHide = !ui.qzHide; render(); return true; }
+  if (act === "qz-reveal") { if (!ui.qzHide) return true; const q = el.closest(".qzd-q"); if (q) q.classList.toggle("qzd-shown"); return true; }
+  return false;
+});
 /* ===== module: 01-focus.js: the app's core, the Pomodoro focus timer ===== */
 /* Pomodoro focus timer */
 const POMO_HOW = `<ol><li><b>Pick one task</b> and start a 25-minute focus session (one "pomodoro").</li><li><b>Work only on that task</b> until the timer rings. If something else comes up, jot it down for later.</li><li><b>Take a 5-minute break.</b> Stand up, stretch, get water: anything but work.</li><li><b>After four sessions, take a longer break</b> of 15 to 30 minutes.</li></ol><p>Short, timed bursts make it easier to start and keep your focus fresh, and counting sessions shows how long things really take. Studyboard's Classic routine uses these times. The method was created by Francesco Cirillo in the late 1980s.</p>`;
