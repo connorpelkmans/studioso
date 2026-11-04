@@ -5852,7 +5852,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .c2-card2 h2.sec{margin-top:0}
 /* Course page cards: the title sits inside the box with a round icon, like a group's sections */
 .c2-cols .c2-box{margin-top:14px}
-.c2-box > h2.sec.c2-bh{margin:0 0 10px;align-items:center}
+h2.sec.c2-bh{align-items:center}
+.c2-box > h2.sec.c2-bh{margin:0 0 10px}
 .c2-ic{box-sizing:border-box;width:30px;height:30px;padding:6px;border-radius:50%;background:color-mix(in srgb,var(--c,var(--accent)) 15%,var(--surface));color:var(--c,var(--accent));flex:none}
 .c2-promo > summary > .c2-ic{margin-right:2px}
 .c2-promo{border-radius:18px}
@@ -7979,9 +7980,10 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .ofv-warn{align-self:stretch;margin:0}
 
 /* Class pages (99-class-sessions.js): the Lectures tab's class list, a class's page, and the Lecture Notes folder by class */
-.cls-tab{margin-top:6px}
-.cls-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px 14px;flex-wrap:wrap}
-.cls-top .sec{margin-bottom:4px}
+.cls-tab{margin-top:14px}
+.cls-top{display:flex;align-items:center;justify-content:space-between;gap:8px 14px;flex-wrap:wrap}
+.cls-tab .cls-top > h2.sec.c2-bh{margin:0}
+.cls-term{margin:6px 0 0}
 .cls-term .link-btn{padding:0;font-size:inherit}
 .cls-kinds{margin:6px 0 4px}
 .cls-week{margin-top:14px}

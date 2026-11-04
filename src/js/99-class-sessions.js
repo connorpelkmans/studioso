@@ -122,10 +122,11 @@ var SBCLS = null;
     const kinds = kindsOf(all), want = ui.clsKind && ui.clsKind[c.id], pick = want && kinds.includes(want) ? want : "";
     const list = all.filter(x => !pick || x.kind === pick);
     const termLine = `${day(T.from, {month: "short", day: "numeric"})} – ${day(T.until, {month: "short", day: "numeric", year: "numeric"})}`;
-    const top = `<div class="cls-top"><h2 class="sec"><span class="t">Classes</span><span class="n">${all.filter(x => !x.skipped).length || ""}</span></h2>
-      <span class="mini cls-term">${T.set ? "" : "About "}${esc(termLine)} <button type="button" class="link-btn" data-act="cls-dates" data-cid="${esc(c.id)}">${T.set ? "Change" : "Set Term Dates"}</button></span></div>`;
-    if (!all.length) return `<section class="cls-tab" style="--c:${esc(c.color)}">${top}<div class="empty"><strong>No Class Times Yet</strong>Add this course's class times (lectures, labs, discussions, office hours) and every class of the term shows here, each with a page for its notes and recording. <div class="row-actions" style="justify-content:center;margin-top:10px"><button type="button" class="btn small primary" data-act="edit-course" data-id="${esc(c.id)}">Add Class Times</button></div></div></section>`;
-    const chips = kinds.length > 1 ? `<div class="cls-kinds ep-days" role="group" aria-label="Show">${[["", "All"]].concat(kinds.map(k => [k, k === "Office Hours" ? k : k + "s"])).map(([k, l]) => `<button type="button" data-act="cls-kind" data-cid="${esc(c.id)}" data-k="${esc(k)}" aria-pressed="${pick === k}">${esc(l)}</button>`).join("")}</div>` : "";
+    const hasNow = list.some(x => mondayOf(x.date) === mondayOf(today));
+    const top = `<div class="cls-top">${c2Head("classes", "Classes", all.filter(x => !x.skipped).length || "")}${hasNow ? `<button type="button" class="btn small cls-now" data-act="cls-now">This Week</button>` : ""}</div>
+      <p class="mini cls-term">${T.set ? "" : "About "}${esc(termLine)} <button type="button" class="link-btn" data-act="cls-dates" data-cid="${esc(c.id)}">${T.set ? "Change" : "Set Term Dates"}</button></p>`;
+    if (!all.length) return `<section class="c2-card2 c2-box cls-tab" style="--c:${esc(c.color)}">${top}<div class="empty"><strong>No Class Times Yet</strong>Add this course's class times (lectures, labs, discussions, office hours) and every class of the term shows here, each with a page for its notes and recording. <div class="row-actions" style="justify-content:center;margin-top:10px"><button type="button" class="btn small primary" data-act="edit-course" data-id="${esc(c.id)}">Add Class Times</button></div></div></section>`;
+    const chips = kinds.length > 1 ? `<div class="cls-kinds ep-days" role="group" aria-label="Show">${[["", "All"]].concat(kinds.map(k => [k, k === "Office Hours" ? k : /(s|x|z|ch|sh)$/i.test(k) ? k + "es" : k + "s"])).map(([k, l]) => `<button type="button" data-act="cls-kind" data-cid="${esc(c.id)}" data-k="${esc(k)}" aria-pressed="${pick === k}">${esc(l)}</button>`).join("")}</div>` : "";
     const mon = d => mondayOf(d), wk0 = mon(T.from), weeks = new Map();
     list.forEach(x => { const w = mon(x.date); if (!weeks.has(w)) weeks.set(w, []); weeks.get(w).push(x); });
     const nowW = mon(today), nextUp = list.find(x => !x.skipped && (x.date > today || (x.date === today && tMin(x.end) >= minOfDay(Date.now()))));
@@ -140,7 +141,7 @@ var SBCLS = null;
       const wn = Math.floor(dayDiff(wk0, w) / 7) + 1;
       return `<div class="cls-week${w === nowW ? " is-now" : ""}"><h3 class="cls-wk"><span>Week ${wn}</span><span class="mini">${esc(day(w, {month: "short", day: "numeric"}))} – ${esc(day(addDays(w, 6), {month: "short", day: "numeric"}))}</span>${w === nowW ? `<span class="cls-pill">This Week</span>` : ""}</h3><ul class="cls-list">${xs.map(row).join("")}</ul></div>`;
     }).join("");
-    return `<section class="cls-tab" style="--c:${esc(c.color)}">${top}${chips}${body}</section>`;
+    return `<section class="c2-card2 c2-box cls-tab" style="--c:${esc(c.color)}">${top}${chips}${body}</section>`;
   }
   // Recordings that don't belong to any class, kept under the class list
   const looseRecs = c => Object.values(state.files || {}).filter(f => f.courseId === c.id && isLec(f) && !recKeyOf(f)).map(f => f.id);
@@ -349,12 +350,13 @@ var SBCLS = null;
     return false;
   });
 
-  // Opening the Lectures tab scrolls to this week
-  let lastTab = "";
-  hook("render", () => {
-    const k = ui.tab === "courses" && ui.courseId && ui.courseTab === "lectures" ? ui.courseId : "";
-    if (k && k !== lastTab) setTimeout(() => { const w = document.querySelector(".cls-week.is-now"); if (w && w.getBoundingClientRect().top > innerHeight * 0.6) w.scrollIntoView({block: "start", behavior: "auto"}); }, 30);
-    lastTab = k;
+  // This Week: glide down so the current week sits in the middle of the screen
+  hook("act", act => {
+    if (act !== "cls-now") return false;
+    const w = document.querySelector(".cls-week.is-now"); if (!w) return true;
+    const still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    w.scrollIntoView({block: "center", behavior: still ? "auto" : "smooth"});
+    return true;
   });
 
   SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, occRows, open: openClass, recKeyOf};

@@ -1,7 +1,8 @@
 /* Class pages (99-class-sessions.js): the Lectures tab's class list, a class's page, and the Lecture Notes folder by class */
-.cls-tab{margin-top:6px}
-.cls-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px 14px;flex-wrap:wrap}
-.cls-top .sec{margin-bottom:4px}
+.cls-tab{margin-top:14px}
+.cls-top{display:flex;align-items:center;justify-content:space-between;gap:8px 14px;flex-wrap:wrap}
+.cls-tab .cls-top > h2.sec.c2-bh{margin:0}
+.cls-term{margin:6px 0 0}
 .cls-term .link-btn{padding:0;font-size:inherit}
 .cls-kinds{margin:6px 0 4px}
 .cls-week{margin-top:14px}
