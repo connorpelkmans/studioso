@@ -124,7 +124,7 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
     await openReader(page);
     ok(await page.locator('[data-act="ink-mode"]').count() === 1, "with the iPad check on, the reader has a Pen button");
     await page.click('[data-act="pdr-mode"][data-id="mark"]'); await page.click('[data-act="ink-mode"]'); await page.waitForTimeout(150);
-    ok(await page.locator("#inkBar .ink-t").count() === 3 && await page.locator("#inkBar .ink-col").count() === 6 && await page.locator("#inkBar .ink-w").count() === 3, "the pen tools: pen, highlighter, eraser, six colours, three widths");
+    ok(await page.locator("#inkBar .ink-t").count() === 3 && await page.locator("#inkBar .ink-col").count() === 5 && await page.locator('#inkBar .ink-col[aria-label="Theme Color"]').count() === 0 && await page.locator("#inkBar .ink-w").count() === 3, "the pen tools: pen, highlighter, eraser, five colours (Theme Color is left out when it looks like Blue), three widths");
     ok(await page.locator(P1).count() === 1 && await page.evaluate(() => document.querySelector("#pdrPages").classList.contains("ink-on")), "each page gets an ink layer");
     await stroke(page, P1, line(0.15, 0.3, 0.7, 0.32)); await page.waitForTimeout(100);
     let ink = await pageInk(page);
