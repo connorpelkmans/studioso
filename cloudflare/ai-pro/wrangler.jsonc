@@ -1,0 +1,39 @@
+// Studyboard Pro AI (Claude Haiku 5.5 for Pro students). Off until the ANTHROPIC_API_KEY secret is set.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "studyboard-pro-ai",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-15",
+  "compatibility_flags": ["nodejs_compat"],
+  // Nothing students send is logged
+  "observability": { "enabled": false },
+  // Whisper for lecture transcription
+  "ai": { "binding": "AI" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "STUDENT", "class_name": "StudentMeter" },
+      { "name": "CEILING", "class_name": "DayCeiling" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StudentMeter", "DayCeiling"] }],
+  "vars": {
+    "SUPABASE_URL": "https://pivcmrqcjseycjkbocmc.supabase.co",
+    "SUPABASE_KEY": "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd",
+    // Per student, per calendar month (UTC), in US dollars. Past the soft limit routine jobs think less; at the hard limit AI stops until next month.
+    "MONTHLY_SOFT_USD": "3",
+    "MONTHLY_HARD_USD": "4",
+    // Pro from a grant or promo code (defaults to the same as paid)
+    "GIFT_MONTHLY_HARD_USD": "4",
+    // The free week of Pro: this much in total, once
+    "TRIAL_TOTAL_USD": "0.30",
+    // One student in one day
+    "DAILY_USD": "1",
+    // Everyone together in one day: past this every request answers "busy" until midnight UTC
+    "GLOBAL_DAILY_USD": "25",
+    "PER_MINUTE": "20",
+    "MAX_INFLIGHT": "4",
+    // "1" turns Pro AI off without removing the key
+    "PRO_AI_OFF": "",
+    "WHISPER_OFF": ""
+  }
+}
