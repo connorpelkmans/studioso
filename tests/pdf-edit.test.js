@@ -67,6 +67,8 @@ const region = (it, extra) => Object.assign({k: "t", p: 1, o: [it.x, it.y], r: 0
   ok(r2b.report.swapped === 1 && (await textOf(r2b.bytes)).some(i => /Mitochondria/.test(i.s)), "a letter the font can't draw (é) falls back to a standard font rather than failing");
   const r2c = await E.pdeBake(L, b1, [region(line, {t: ""})]);
   ok(!(await textOf(r2c.bytes)).some(i => /Mitochondria/.test(i.s)), "an empty line removes the text");
+  const rQ = await E.pdeBake(L, b1, [{k: "n", p: 1, o: [72, 500], r: 0, fs: 12, f: "h", t: "Room Ω and 📚"}]);
+  ok(rQ.report.qmarks === 2 && r2b.report.qmarks === 0, "letters no font can draw become ?, and the report counts them so saving can say so: " + rQ.report.qmarks);
 
   /* Kerning arrays, ' and ", Tz and Tc, and a WinAnsi font */
   const c3 = "BT /F2 12 Tf 14 TL 80 600 Td [(Mid) 40 (term) -250 (on) -250 (Friday)] TJ (Second line) ' 2 0.5 (Third line) \" 110 Tz 1 Tc 0 -40 Td (Wide caf\xe9 text) Tj ET";

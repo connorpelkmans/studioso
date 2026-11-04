@@ -307,7 +307,8 @@ function eqPal(){
   return set.map(([t, name], i) => `<button type="button" class="rb-pk" data-eqk="${i}" title="${esc(name)}" aria-label="${esc(name)}">${katexOk ? eqLabel(t) : esc(t.replace(/#/g, "").slice(0, 14))}</button>`).join("");
 }
 function eqLabel(t){
-  const chem = /\\ce\{/.test(t), x = t.replace(/#/g, chem ? "A" : SQ).replace(/\{\}/g, chem ? "{B}" : `{${SQ}}`);
+  // inside \text{} a box can't be drawn (it would show as red code), so words get a word
+  const chem = /\\ce\{/.test(t), x = t.replace(/\\text\{#\}/g, "\\text{abc}").replace(/#/g, chem ? "A" : SQ).replace(/\{\}/g, chem ? "{B}" : `{${SQ}}`);
   try { return window.katex.renderToString(x, {throwOnError: false, strict: "ignore", output: "html"}); } catch (e) { return esc(t); }
 }
 // opts.done(tex): the formula goes to that function instead of into a text field (f is then only where the editor opens)

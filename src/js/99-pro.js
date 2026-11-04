@@ -2521,7 +2521,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
         <span class="pdr-g-read">${PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
-        <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text to highlight it, or pick a color first</span></span>
+        <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text, then pick a color to highlight it</span></span>
         <span class="spacer"></span>
         <button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>
       </div>
@@ -2713,13 +2713,29 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     PEND = s;
     showPop(`${colorBtns("pdr-hl-add")}<button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="u" aria-label="Underline" title="Underline"><span style="text-decoration:underline;text-decoration-color:${MARKS.u[1]};text-decoration-thickness:2px">U</span></button><button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="s" aria-label="Strike-through" title="Strike-Through"><span style="text-decoration:line-through;text-decoration-color:${MARKS.s[1]};text-decoration-thickness:2px">S</span></button><span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-sel-cm">Comment</button><button type="button" class="btn small" data-act="pdr-sel-note">Note</button><button type="button" class="btn small" data-act="pdr-sel-card">Card</button>`, s.end);
   }
+  // a change to your highlights can be undone: Undo on its message, or Ctrl+Z (the app's own undo is off while the reader is open)
+  function hlDone(before, label){
+    const x = {before, label}; R.hlHist = (R.hlHist || []).concat([x]).slice(-30);
+    toast(label, () => { if (R && R.hlHist && R.hlHist[R.hlHist.length - 1] === x) hlUndo(); });
+  }
+  function hlUndo(){
+    const x = R && R.hlHist && R.hlHist.pop(); if (!x) return null;
+    saveHl(x.before); hidePop(); paint(); counts(); if (R.side) side(); return x;
+  }
+  document.addEventListener("keydown", e => {
+    if (!R || !R.doc || !dlg.open || !(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || String(e.key).toLowerCase() !== "z" || !(R.hlHist && R.hlHist.length)) return;
+    const t = e.target, ink = document.getElementById("inkModeBtn");
+    if ((window.SBPDE && SBPDE.active()) || (ink && ink.getAttribute("aria-pressed") === "true") || (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))) return;
+    e.preventDefault(); e.stopPropagation(); const x = hlUndo(); if (x) toast(`Undone: ${x.label}`);
+  }, true);
   function addFromSel(color, extra){
     const s = PEND; if (!s || !R) return null;
     if (mine().length >= MAX_HL) { toast(`A file can hold ${MAX_HL} highlights.`); return null; }
-    const h = Object.assign({id: uid(), a: R.rev, p: s.p, r: s.r, t: s.t, c: color || R.color, at: Date.now()}, extra || {});
-    saveHl(mine().concat([h]));
+    const h = Object.assign({id: uid(), a: R.rev, p: s.p, r: s.r, t: s.t, c: color || R.color, at: Date.now()}, extra || {}), before = mine();
+    saveHl(before.concat([h]));
     PEND = null; hidePop(); try { window.getSelection().removeAllRanges(); } catch (e) {}
     paint(s.p); counts(); if (R.side) side();
+    hlDone(before, h.m === "u" ? "Underline added" : h.m === "s" ? "Strike-through added" : "Highlight added");
     return h;
   }
   function onTap(e){
@@ -2905,9 +2921,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   // the top row on one line: drop labels a step at a time until it fits
   function fitBar(){
     const bar = dlg.querySelector(".pdr-sheet .pdr-bar"); if (!bar || !bar.offsetWidth) return;
-    bar.classList.remove("c1", "c2", "c3");
-    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer")); return !k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8); };
-    for (const c of ["c1", "c2", "c3"]) { if (one()) break; bar.classList.add(c); }
+    bar.classList.remove("c1", "c2", "c3", "c4", "c5");
+    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer")); return (!k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8)) && bar.scrollWidth <= bar.clientWidth + 1; };
+    for (const c of ["c1", "c2", "c3", "c4", "c5"]) { if (one()) break; bar.classList.add(c); }
   }
   P.fitBar = fitBar;
   let fbT = 0; window.addEventListener("resize", () => { clearTimeout(fbT); fbT = setTimeout(() => { if (R) fitBar(); }, 100); });
@@ -2967,11 +2983,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       }
       case "pdr-sel-note": { const h = addFromSel(R.color); if (h) hlNote(h); break; }
       case "pdr-sel-card": { const h = addFromSel(R.color); if (h) { hidePop(); cardForm(h); } break; }
-      case "pdr-hl-color": { const hid = el.dataset.h; saveHl(mine().map(x => x.id === hid ? Object.assign({}, x, {c: id}) : x)); hidePop(); paint(); break; }
+      case "pdr-hl-color": { const hid = el.dataset.h, before = mine(); saveHl(before.map(x => x.id === hid ? Object.assign({}, x, {c: id}) : x)); hidePop(); paint(); hlDone(before, "Highlight color changed"); break; }
       case "pdr-hl-note": R.popAt = el.getBoundingClientRect(); hlNote(byId(id)); break;
       case "pdr-note-to": { const go = R.boardGo; R.boardGo = null; hidePop(); if (go) go(id || ""); break; }
       case "pdr-hl-card": hidePop(); cardForm(byId(id)); break;
-      case "pdr-hl-del": { const h = byId(id); if (!h) break; const before = mine(); saveHl(before.filter(x => x.id !== id)); hidePop(); paint(h.p); counts(); if (R.side) side(); toast("Highlight removed", () => { if (R) { saveHl(before); paint(h.p); counts(); if (R.side) side(); } }); break; }
+      case "pdr-hl-del": { const h = byId(id); if (!h) break; const before = mine(); saveHl(before.filter(x => x.id !== id)); hidePop(); paint(h.p); counts(); if (R.side) side(); hlDone(before, "Highlight removed"); break; }
       case "pdr-side": R.side = !R.side; R.card = null; side(); break;
       case "pdr-go-h": { const h = byId(id); if (h) goTo(h.p); break; }
       case "pdr-all-note": allToNote(); break;
@@ -2993,7 +3009,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   css.textContent = `
 dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400px)}
 .pdr-sheet{height:100%}
-.pdr-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 16px 10px;border-bottom:1px solid var(--line)}
+.pdr-bar{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;padding:6px 16px 10px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-x:contain}
+.pdr-bar > *{flex:none}
 .pdr-bar2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--ink) 3%,var(--surface));min-height:46px}
 .pdr-g-read,.pdr-g-mark{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
@@ -3005,6 +3022,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-modes{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
 .pdr-modes .pdr-mode,.pdr-modes .pde-mode{display:inline-flex;align-items:center;gap:6px;min-height:34px;height:34px;padding:0 14px;border:0;border-radius:999px;background:none;color:var(--muted);font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;box-shadow:none}
 .pdr-modes .pdr-mode svg,.pdr-modes .pde-mode svg{width:16px;height:16px;flex:none}
+@media (pointer:coarse){ .pdr-modes .pdr-mode,.pdr-modes .pde-mode{min-height:40px;height:40px} }
 .pdr-modes .pdr-mode[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
 .pdr-modes .pde-mode[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink,#fff)}
 .pdr-modes .pdr-mode:focus-visible,.pdr-modes .pde-mode:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -3019,6 +3037,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-bar.c2 .pdr-save{min-width:0}
 .pdr-bar.c3 .pdr-modes .pdr-mode,.pdr-bar.c3 .pdr-modes .pde-mode{padding:0 9px}
 .pdr-bar.c3 .pdr-fit{display:none}
+.pdr-bar.c4 .pdr-modes .pdr-mode,.pdr-bar.c4 .pdr-modes .pde-mode{font-size:0;padding:0 11px;gap:0}
+.pdr-bar.c4 .pdr-modes .pdr-badge{font-size:.72rem}
+.pdr-bar.c5{gap:4px;padding-left:10px;padding-right:10px}
+.pdr-bar.c5 .pdr-nav,.pdr-bar.c5 .pdr-zoom{gap:2px}
 .pdr-bar .pdr-fit{gap:0}
 .pdr-nav,.pdr-zoom,.pdr-cols{display:inline-flex;align-items:center;gap:4px}
 .pdr-pg input{width:3.4em;text-align:center;padding:6px 4px}
@@ -3079,6 +3101,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-main.with-side{grid-template-columns:minmax(0,1fr)}
   .pdr-side{position:absolute;inset:auto 0 0 0;max-height:62%;border-left:0;border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.18);border-radius:16px 16px 0 0;z-index:40}
   .pdr-bar{gap:6px;padding:6px 10px 8px}
+  /* one row on a phone, the mode switch and Save first; the rest scrolls sideways */
+  .pdr-bar > .spacer{display:none}
+  .pdr-bar > .pdr-modes{order:-3}
+  .pdr-bar > .pdr-out{order:-2}
   .pdr-bar2{gap:6px;padding:6px 10px}
   .pdr-bar .icon-btn{width:40px;height:40px}
   .pdr-fit{min-height:40px}

@@ -46,6 +46,9 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.025em;line-height:1.0
 .task{background:var(--surface);border-radius:24px;box-shadow:0 2px 4px rgba(14,42,86,.06),0 14px 34px -10px rgba(14,42,86,.25);overflow:hidden}
 .task .band{font:700 22px var(--display);letter-spacing:.08em;color:#fff;padding:14px 24px;display:flex;gap:12px;align-items:center}
 .task .body{padding:20px 24px 24px;display:flex;gap:18px;align-items:flex-start}
+.task .band .ci{width:30px;height:30px;color:#fff;flex:none}
+.ci .a{fill:rgba(255,255,255,.4)} .ci .b{fill:rgba(255,255,255,.2)} .ci .w{fill:#fff;stroke:none} .ci .y{fill:#FFE45C}
+.ci .sa{stroke:#fff;stroke-width:3} .ci .sb{stroke:rgba(255,255,255,.6);stroke-width:3}
 .task .ring{width:36px;height:36px;border-radius:50%;border:3.5px solid currentColor;flex:none;margin-top:2px}
 .task .ring.done{background:currentColor;display:grid;place-items:center}
 .task .t{font:600 30px/1.2 var(--display);color:var(--ink)}
@@ -88,15 +91,15 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.025em;line-height:1.0
   <!-- mini task board -->
   <div style="position:absolute;left:80px;right:80px;top:770px;display:grid;grid-template-columns:1fr 1fr;gap:28px">
     <div style="display:flex;flex-direction:column;gap:24px;transform:rotate(-1.6deg)">
-      <div class="task"><div class="band b-plum">✎ ENGL 102</div><div class="body c-plum"><span class="ring"></span><div><div class="t">Essay 2 outline</div><div class="m"><span class="tag y">Due today</span>2h</div></div></div></div>
-      <div class="task"><div class="band b-tom">⚗ CHEM 221</div><div class="body c-tom"><span class="ring"></span><div><div class="t">Problem Set 5</div><div class="m"><span class="tag r">At risk</span>Assignment</div></div></div></div>
+      <div class="task"><div class="band b-plum"><svg class="ci" viewBox="1.6 2.1 20.3 20.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="a" d="M16.5 3.5l4 4L8 20l-4-4z"/><path class="y" d="M4 16l4 4-5 1z"/><path d="M16.5 3.5l4 4L8 20l-5 1 1-5zM14 6l4 4"/></svg>ENGL 102</div><div class="body c-plum"><span class="ring"></span><div><div class="t">Essay 2 outline</div><div class="m"><span class="tag y">Due today</span>2h</div></div></div></div>
+      <div class="task"><div class="band b-tom"><svg class="ci" viewBox="1.6 1.6 20.8 20.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="b" d="M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3z"/><path class="a" d="M6.6 14.5h10.8l2.1 4A1.7 1.7 0 0 1 18 21H6a1.7 1.7 0 0 1-1.5-2.5z"/><path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><circle class="w" cx="10" cy="17.5" r="1"/><circle class="w" cx="13.5" cy="18.5" r=".7"/></svg>CHEM 221</div><div class="body c-tom"><span class="ring"></span><div><div class="t">Problem Set 5</div><div class="m"><span class="tag r">At risk</span>Assignment</div></div></div></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:24px;transform:rotate(1.4deg);margin-top:40px">
-      <div class="task"><div class="band b-leaf">BIO 201</div><div class="body c-leaf"><span class="ring done"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 10.5l4 4 8-9" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><div class="t strike">Quiz 3: Cell Respiration</div><div class="m">Quiz · Thu, Oct 1</div></div></div></div>
-      <div class="task"><div class="band b-blue">NURS 310</div><div class="body c-blue"><span class="ring"></span><div><div class="t">Exam 2: Cardiac</div><div class="m">Monday, 9:00 AM</div></div></div></div>
+      <div class="task"><div class="band b-leaf"><svg class="ci" viewBox="1.6 1.6 20.8 20.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="sa" d="M8 3c0 5 8 6 8 9s-8 4-8 9"/><path class="sb" d="M16 3c0 5-8 6-8 9s8 4 8 9"/><path d="M9 6h6M9.5 18h5M10 9.5h4M10 14.5h4"/></svg>BIO 201</div><div class="body c-leaf"><span class="ring done"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 10.5l4 4 8-9" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><div class="t strike">Quiz 3: Cell Respiration</div><div class="m">Quiz · Thu, Oct 1</div></div></div></div>
+      <div class="task"><div class="band b-blue"><svg class="ci" viewBox="2.6 -0.6 21.1 21.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v6a5 5 0 0 0 10 0V3"/><path d="M11 14v2a4 4 0 0 0 8 0v-2"/><circle class="a" cx="19" cy="11.5" r="2.6"/><circle class="b" cx="6" cy="3" r="1.3"/><circle class="b" cx="16" cy="3" r="1.3"/></svg>NURS 310</div><div class="body c-blue"><span class="ring"></span><div><div class="t">Exam 2: Cardiac</div><div class="m">Monday, 9:00 AM</div></div></div></div>
     </div>
   </div>
-  <div class="comp" style="width:190px;height:190px;right:70px;top:640px">{{owl}}</div>
+  <div class="comp" style="width:190px;height:190px;right:66px;top:620px">{{mochi}}</div>
 
   <div class="foot"><span>Free · works in any browser</span><span style="color:var(--accent)">studyboardapp.com</span></div>
 </section>
@@ -176,7 +179,7 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.025em;line-height:1.0
   </div>
   <svg width="60" height="90" viewBox="0 0 60 90" style="position:absolute;left:510px;top:790px"><path d="M30 6v66M10 54l20 22 20-22" fill="none" stroke="#8DB8FF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
   <div class="task" style="position:absolute;left:80px;right:300px;top:910px">
-    <div class="band b-leaf">BIO 101</div>
+    <div class="band b-leaf"><svg class="ci" viewBox="1.6 1.6 20.8 20.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="sa" d="M8 3c0 5 8 6 8 9s-8 4-8 9"/><path class="sb" d="M16 3c0 5-8 6-8 9s8 4 8 9"/><path d="M9 6h6M9.5 18h5M10 9.5h4M10 14.5h4"/></svg>BIO 101</div>
     <div class="body c-leaf"><span class="ring"></span><div><div class="t" style="font-size:38px">Quiz</div><div class="m" style="font-size:27px"><span>Fri · 2:00 PM</span><span class="tag" style="background:#E3F4EC;color:#14724F">Worth 5%</span></div><div style="margin-top:18px;font:600 26px var(--display);color:var(--leaf)">✓ Added to Friday</div></div></div>
   </div>
   <div class="comp" style="width:220px;height:220px;right:70px;top:950px">{{packy}}</div>
