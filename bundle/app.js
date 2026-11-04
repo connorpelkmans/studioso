@@ -90123,9 +90123,9 @@ var SBCLS = null;
         <p class="mini cls-when">${esc([x.start ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
         <div class="cls-navs">${nav(prev, "p")}${nav(next, "n")}</div>
 
-        <section class="cls-sec"><h3><span>Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
-          ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Add the slides before class, or start a note when it begins." : "Nothing for this class yet."}</p>`}
-          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-new-note">${IC.plus(16)}New Note</button><button type="button" class="btn small" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
+        <section class="cls-sec"><h3><span>${esc(x.kind || "Class")} Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
+          ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Upload the slides before class." : "Nothing for this class yet."}</p>`}
+          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
         </section>
 
         <section class="cls-sec"><h3><span>Recording</span></h3>
@@ -90151,18 +90151,6 @@ var SBCLS = null;
   function tag(kind, ids, key, msg){
     const ch = ids.map(id => { const o = (kind === "note" ? state.notes : state.files)[id]; if (!o) return null; const n = clone(o); if (key) n.cls = key; else delete n.cls; n.updated = Date.now(); return {kind, id, after: n}; }).filter(Boolean);
     if (ch.length) applyChanges(ch, msg || "");
-  }
-  function newNote(x){
-    const c = courseOf(x.cid), b = noteBoards().find(nb => nb.courseId === x.cid), board = b ? b.id : "";
-    const z = Object.values(state.notes || {}).reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
-    const n = normNote({id: uid(), text: `${c ? courseLabel(c) + " " : ""}${x.title}, ${day(x.date)}\n`, color: "yellow", x: 60, y: 60, z, rot: 0, courseId: x.cid, board, cls: x.key, created: Date.now()});
-    if (dlg.open) dlg.close();
-    ui.tab = "notes"; ui.noteBoard = board; try { localStorage.setItem(NB_KEY, board); } catch (e) {}
-    if (window.SBWB && SBWB.on && SBWB.on()) SBWB.setView("notes");
-    noteEditing = n.id;
-    applyChanges([{kind: "note", id: n.id, after: n}], `New note for ${x.title}`);
-    window.scrollTo(0, 0);
-    setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 80);
   }
   function upload(x){
     const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
@@ -90203,14 +90191,11 @@ var SBCLS = null;
   function pickSheet(x){
     const all = classesOf(courseOf(x.cid));
     const where = k => { if (!k || k === x.key) return ""; const y = all.find(z => z.key === k) || looseClass(x.cid, k); return `${y.title}, ${day(y.date, {month: "short", day: "numeric"})}`; };
-    const notes = Object.values(state.notes || {}).filter(n => n.courseId === x.cid && !n.archived && (n.wb || String(n.text || "").trim())).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0)).slice(0, 60);
     const files = Object.values(state.files || {}).filter(f => f.courseId === x.cid && !isLec(f)).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0)).slice(0, 80);
     const item = (k, o, nm) => { const w = where(o.cls); return `<label class="mi-check"><input type="checkbox" data-cls="${k}:${esc(o.id)}"${o.cls === x.key ? " checked" : ""}> <span><b>${esc(nm)}</b>${w ? ` <span class="mini">now in ${esc(w)}</span>` : ""}</span></label>`; };
-    openSheet(`<div class="sheet">${head("Add From Studyboard")}<div class="sheet-body">
-      <p class="mini" style="margin:0">Pick the notes and files that go with ${esc(x.title)}, ${esc(day(x.date))}.</p>
-      ${notes.length ? `<fieldset><legend>Notes</legend><div class="check-list">${notes.map(n => item("note", n, n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") + " (whiteboard)" : noteName(n))).join("")}</div></fieldset>` : ""}
-      ${files.length ? `<fieldset><legend>Files</legend><div class="check-list">${files.map(f => item("file", f, f.name)).join("")}</div></fieldset>` : ""}
-      ${!notes.length && !files.length ? `<p>This course has no notes or files yet. Use New Note or Upload instead.</p>` : ""}
+    openSheet(`<div class="sheet">${head("Add Files From Studyboard")}<div class="sheet-body">
+      <p class="mini" style="margin:0">Pick the files from this course's Files that go with ${esc(x.title)}, ${esc(day(x.date))}.</p>
+      ${files.length ? `<div class="check-list">${files.map(f => item("file", f, f.name)).join("")}</div>` : `<p>This course has no files yet. Use Upload or Google Drive instead.</p>`}
       </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button><span class="spacer"></span><button type="button" class="btn primary" id="clsPickOk">Done</button></div></div>`);
     $("#clsPickOk").addEventListener("click", () => {
       const ch = [];
@@ -90272,7 +90257,6 @@ var SBCLS = null;
       case "cls-back": { if (OPEN) { const o = OPEN; setTimeout(() => openClass(o.cid, o.key), 0); } return true; }
       case "cls-kind": { ui.clsKind = Object.assign({}, ui.clsKind, {[el.dataset.cid]: el.dataset.k}); render(); return true; }
       case "cls-dates": datesSheet(el.dataset.cid); return true;
-      case "cls-new-note": { const x = cur(); if (x) newNote(x); return true; }
       case "cls-upload": { const x = cur(); if (x) upload(x); return true; }
       case "cls-drive": { const x = cur(); if (x) drive(x); return true; }
       case "cls-connect": { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); return true; }
