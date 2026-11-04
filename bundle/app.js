@@ -5126,7 +5126,10 @@ function aiSetupSheet(fromFeature, opts){
   ["#aiAuto", "#aiAutoModel", "#aiDefault"].forEach(id => $(id).addEventListener("change", autoWarn));
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", autoWarn));
   autoWarn();
-  const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v; };
+  // A Claude key added here becomes the default (it would otherwise sit unused behind Gemini); the student can switch back
+  const hadClaude = !!c.keys.anthropic;
+  const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v;
+    if (!hadClaude && keysNow().anthropic && /^gemini\|/.test(v) && [...sel.options].some(o => o.value === "anthropic|studyboard")) { sel.value = "anthropic|studyboard"; try { sel.dispatchEvent(new Event("change")); } catch(e) {} } };
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", refreshModels));
   $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`), hid = KEY_MASK ? i.classList.toggle("key-mask") : (i.type = i.type === "password" ? "text" : "password") === "password"; b.textContent = hid ? "Show" : "Hide"; }));
   const testKey = async (p, key) => {
@@ -25015,7 +25018,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       if (semOn() && o.meaning !== false) {
         try {
           await semLoad();
-          if (SEM.vecs.size) { const got = await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
+          if (SEM.vecs.size) { const got = o.semWait ? await Promise.race([semQuery(q, all), wait(o.semWait).then(() => [])]) : await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
         } catch(e) {}
       }
       const rows = fuse(kw, sm).slice(0, o.max || 8), per = o.chars || 1500;
@@ -62196,7 +62199,7 @@ var COMP_EXTRA = [];
         return c ? Object.assign(p, {text: clip(`Deck: ${d.name}\nFront: ${c.front}\nBack: ${c.back}${ui.fc.flipped ? "" : "\n(The student hasn't flipped the card yet: don't reveal the back unless they ask for the answer.)"}`, 3000)}) : null;
       }
       if (p.kind === "Note") { const ed = document.querySelector(".note.editing[data-note]") || document.activeElement.closest(".note[data-note]"); const n = state.notes[ed.dataset.note]; return Object.assign(p, {text: clip(n.text, 4000)}); }
-      if (p.kind === "File") { const f = state.files[lastFile.id]; const t = typeof window.SBFILETEXT === "function" ? await window.SBFILETEXT(f.id, 7000) : ""; return t ? Object.assign(p, {text: clip(t, 7000)}) : Object.assign(p, {text: `(The text inside "${f.name}" couldn't be read. Its name is all that's known.)`}); }
+      if (p.kind === "File") { const f = state.files[lastFile.id]; const t = typeof window.SBFILETEXT === "function" ? await Promise.race([window.SBFILETEXT(f.id, 7000).catch(() => ""), new Promise(r => setTimeout(() => r(""), 2500))]) : ""; return t ? Object.assign(p, {text: clip(t, 7000)}) : Object.assign(p, {text: `(The text inside "${f.name}" couldn't be read. Its name is all that's known.)`}); }
       if (p.kind === "Course") {
         const c = state.courses[ui.courseId], ts = allTasks().filter(t => t.courseId === c.id && t.status !== "done" && t.due).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 12);
         return Object.assign(p, {text: clip(`Course: ${c.name}${c.code ? " (" + c.code + ")" : ""}\nOpen tasks:\n${ts.map(t => `- ${t.title} (${t.type}, due ${t.due}${t.weight ? ", worth " + t.weight + "%" : ""})`).join("\n") || "none"}\nNotes: ${c.notes || ""}`, 4000)});
@@ -63967,13 +63970,18 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       if (picked.length) { L.push("STICKY NOTES:\n" + picked.map(({n}) => `- ${clip(n.text, 450)}${n.board ? " [board: " + nbName(noteBoardOf(n)) + "]" : ""}`).join("\n")); src.push("Notes"); }
     }
     // the student's own material that matches the question (always: it's how content questions get answered)
-    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100}) : null; } catch (e) {}
+    // Chat never waits long for files: search gets about a second for file text, and files still downloading
+    // (from Studyboard, Google Drive or OneDrive) keep loading in the background for the next question
+    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
     if (R && R.text) { L.push("SEARCH RESULTS (passages from the student's files, notes, flashcards and tasks that match the question):\n" + R.text); R.src.forEach(x => src.push(x)); }
     const files = Object.values(state.files).filter(f => f.kind === "file");
     if (files.length) {
       if (N.files || hasAtt) L.push("FILES: " + files.slice(0, 40).map(f => { const c = courseOf(f.courseId); return f.name + (c ? " (" + courseLabel(c) + ")" : ""); }).join("; "));
       const want = ws.length && !(R && R.rows.some(x => x.doc.type === "chunk")) ? files.map(f => ({f, s: hits(f.name + " " + ((courseOf(f.courseId) || {}).name || "") + " " + (f.desc || ""), ws)})).filter(x => x.s > 0 && readableFile(x.f)).sort((a, b) => b.s - a.s).slice(0, 2) : [];
-      for (const {f} of want) { try { const t = window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } } catch (e) {} }
+      // Both files at once, for at most 1.5 seconds in all; a file that isn't ready by then is left out of this answer
+      const late = new Promise(r => setTimeout(() => r(""), 1500));
+      const texts = await Promise.all(want.map(({f}) => Promise.race([(async () => { try { return window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; } catch (e) { return ""; } })(), late])));
+      want.forEach(({f}, i) => { const t = texts[i]; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } });
     }
     return {text: L.join("\n\n").slice(0, 45000), src, need: N};
   }

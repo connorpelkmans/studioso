@@ -1192,7 +1192,7 @@
         return c ? Object.assign(p, {text: clip(`Deck: ${d.name}\nFront: ${c.front}\nBack: ${c.back}${ui.fc.flipped ? "" : "\n(The student hasn't flipped the card yet: don't reveal the back unless they ask for the answer.)"}`, 3000)}) : null;
       }
       if (p.kind === "Note") { const ed = document.querySelector(".note.editing[data-note]") || document.activeElement.closest(".note[data-note]"); const n = state.notes[ed.dataset.note]; return Object.assign(p, {text: clip(n.text, 4000)}); }
-      if (p.kind === "File") { const f = state.files[lastFile.id]; const t = typeof window.SBFILETEXT === "function" ? await window.SBFILETEXT(f.id, 7000) : ""; return t ? Object.assign(p, {text: clip(t, 7000)}) : Object.assign(p, {text: `(The text inside "${f.name}" couldn't be read. Its name is all that's known.)`}); }
+      if (p.kind === "File") { const f = state.files[lastFile.id]; const t = typeof window.SBFILETEXT === "function" ? await Promise.race([window.SBFILETEXT(f.id, 7000).catch(() => ""), new Promise(r => setTimeout(() => r(""), 2500))]) : ""; return t ? Object.assign(p, {text: clip(t, 7000)}) : Object.assign(p, {text: `(The text inside "${f.name}" couldn't be read. Its name is all that's known.)`}); }
       if (p.kind === "Course") {
         const c = state.courses[ui.courseId], ts = allTasks().filter(t => t.courseId === c.id && t.status !== "done" && t.due).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 12);
         return Object.assign(p, {text: clip(`Course: ${c.name}${c.code ? " (" + c.code + ")" : ""}\nOpen tasks:\n${ts.map(t => `- ${t.title} (${t.type}, due ${t.due}${t.weight ? ", worth " + t.weight + "%" : ""})`).join("\n") || "none"}\nNotes: ${c.notes || ""}`, 4000)});

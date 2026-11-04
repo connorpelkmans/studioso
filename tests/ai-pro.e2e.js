@@ -226,6 +226,32 @@ const STUB = () => {
     ok(G.ctx.claude.length === n0, "and nothing reached Anthropic");
     await G.ctx.close();
     W.tier = "paid";
+
+    // 9. Adding a Claude key next to a Gemini key makes Claude the default (it used to sit unused behind Gemini)
+    W.tier = "none";
+    const K = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}}});
+    await openAi(K.page);
+    ok((await K.page.inputValue("#aiDefault")).startsWith("gemini|"), "with only a Gemini key, Gemini is the default");
+    await K.page.evaluate(() => { const d = document.querySelector("#dlg details.ai-paid:not(#aiHoIn)"); if (d) d.open = true; });
+    await K.page.fill('[data-key="anthropic"]', "sk-ant-test-key-0000000000");
+    await K.page.dispatchEvent('[data-key="anthropic"]', "change");
+    ok(await K.page.inputValue("#aiDefault") === "anthropic|studyboard", "typing a Claude key switches the default to Claude (Studyboard AI Mode)");
+    await K.ctx.close();
+    W.tier = "paid";
+
+    // 10. A file named like the question that's slow to read (a big download from Drive) doesn't hold up the chat
+    W.tier = "none";
+    const M = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+    await M.page.waitForFunction(() => window.__sbSync && window.SBCOMPTAB);
+    await M.page.evaluate(() => { window.SBFILETEXT = () => new Promise(r => setTimeout(() => r("Grade breakdown"), 15000));
+      window.__sbSync.state.files.fg = {id: "fg", name: "Best Grade Breakdown.pdf", kind: "file", courseId: "c1", folderId: "", taskIds: [], desc: "", url: "", revs: [{assetId: "local:fg", name: "Best Grade Breakdown.pdf", size: 5000, type: "application/pdf", at: 1}]}; });
+    await M.page.evaluate(() => SBCOMPTAB.open()); await M.page.waitForSelector("#cptIn");
+    const n1 = M.ctx.claude.length, tq = Date.now();
+    await M.page.fill("#cptIn", "What's my best grade so far"); await M.page.click("#cptGo");
+    let chatAt = 0; for (let i = 0; i < 80 && !chatAt; i++) { if (M.ctx.claude.slice(n1).some(c => /You are \w+/.test(JSON.stringify(c.b.system || "")) && JSON.stringify(c.b.messages).includes("best grade"))) chatAt = Date.now() - tq; else await M.page.waitForTimeout(100); }
+    ok(chatAt > 0 && chatAt < 4000, `with a file that takes 15 seconds to read, the question still reaches the AI in ${chatAt} ms`);
+    await M.ctx.close();
+    W.tier = "paid";
   } finally { await browser.close(); }
   console.log(`ai-pro e2e: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

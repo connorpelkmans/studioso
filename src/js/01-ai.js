@@ -1610,7 +1610,10 @@ function aiSetupSheet(fromFeature, opts){
   ["#aiAuto", "#aiAutoModel", "#aiDefault"].forEach(id => $(id).addEventListener("change", autoWarn));
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", autoWarn));
   autoWarn();
-  const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v; };
+  // A Claude key added here becomes the default (it would otherwise sit unused behind Gemini); the student can switch back
+  const hadClaude = !!c.keys.anthropic;
+  const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v;
+    if (!hadClaude && keysNow().anthropic && /^gemini\|/.test(v) && [...sel.options].some(o => o.value === "anthropic|studyboard")) { sel.value = "anthropic|studyboard"; try { sel.dispatchEvent(new Event("change")); } catch(e) {} } };
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", refreshModels));
   $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`), hid = KEY_MASK ? i.classList.toggle("key-mask") : (i.type = i.type === "password" ? "text" : "password") === "password"; b.textContent = hid ? "Show" : "Hide"; }));
   const testKey = async (p, key) => {

@@ -108,13 +108,18 @@
       if (picked.length) { L.push("STICKY NOTES:\n" + picked.map(({n}) => `- ${clip(n.text, 450)}${n.board ? " [board: " + nbName(noteBoardOf(n)) + "]" : ""}`).join("\n")); src.push("Notes"); }
     }
     // the student's own material that matches the question (always: it's how content questions get answered)
-    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100}) : null; } catch (e) {}
+    // Chat never waits long for files: search gets about a second for file text, and files still downloading
+    // (from Studyboard, Google Drive or OneDrive) keep loading in the background for the next question
+    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
     if (R && R.text) { L.push("SEARCH RESULTS (passages from the student's files, notes, flashcards and tasks that match the question):\n" + R.text); R.src.forEach(x => src.push(x)); }
     const files = Object.values(state.files).filter(f => f.kind === "file");
     if (files.length) {
       if (N.files || hasAtt) L.push("FILES: " + files.slice(0, 40).map(f => { const c = courseOf(f.courseId); return f.name + (c ? " (" + courseLabel(c) + ")" : ""); }).join("; "));
       const want = ws.length && !(R && R.rows.some(x => x.doc.type === "chunk")) ? files.map(f => ({f, s: hits(f.name + " " + ((courseOf(f.courseId) || {}).name || "") + " " + (f.desc || ""), ws)})).filter(x => x.s > 0 && readableFile(x.f)).sort((a, b) => b.s - a.s).slice(0, 2) : [];
-      for (const {f} of want) { try { const t = window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } } catch (e) {} }
+      // Both files at once, for at most 1.5 seconds in all; a file that isn't ready by then is left out of this answer
+      const late = new Promise(r => setTimeout(() => r(""), 1500));
+      const texts = await Promise.all(want.map(({f}) => Promise.race([(async () => { try { return window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; } catch (e) { return ""; } })(), late])));
+      want.forEach(({f}, i) => { const t = texts[i]; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } });
     }
     return {text: L.join("\n\n").slice(0, 45000), src, need: N};
   }

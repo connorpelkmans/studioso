@@ -828,7 +828,7 @@
       if (semOn() && o.meaning !== false) {
         try {
           await semLoad();
-          if (SEM.vecs.size) { const got = await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
+          if (SEM.vecs.size) { const got = o.semWait ? await Promise.race([semQuery(q, all), wait(o.semWait).then(() => [])]) : await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
         } catch(e) {}
       }
       const rows = fuse(kw, sm).slice(0, o.max || 8), per = o.chars || 1500;
