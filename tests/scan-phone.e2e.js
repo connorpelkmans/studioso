@@ -90,6 +90,10 @@ const PHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWe
 
     // closing Scan to PDF ends the session; the phone is told
     await pc.click('#pdeScanDlg [data-scan="close"]').catch(() => pc.evaluate(() => document.querySelector('#pdeScanDlg [data-scan="close"]').click()));
+    // with pages scanned, closing asks first; Discard closes it
+    await pc.waitForSelector("#askDlg[open]");
+    ok(/Discard the Scanned Pages/.test(await pc.textContent("#askDlg h2")), "closing with pages scanned asks before discarding them");
+    await pc.click("#askDlg #askYes");
     await pc.waitForTimeout(400);
     ok(calls.some(c => /^DELETE \/v1\/s\/[0-9a-f]{64}$/.test(c)), "closing Scan to PDF ends the session on the relay");
     await ph.setInputFiles("#cam", {name: "late.png", mimeType: "image/png", buffer: photo});
