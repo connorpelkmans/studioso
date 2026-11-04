@@ -89941,13 +89941,21 @@ var SBCLS = null;
      a timed event whose label is a kind of class, or that has no label */
   const CLASS_KIND = /lecture|lab|discussion|tutorial|seminar|recitation|class|studio|clinical|practicum|workshop|office hours|section|lesson/i;
   // An event with no label only counts when it looks like a class: it repeats, names a kind of class, or is titled with the course.
-  // Imported deadlines ("Forms DUE", "Essay submission") are timed events too, so anything that reads like one is left out.
-  const DEADLINE = /\bdue\b|deadline|submi(t|ssion)|assignment|\bexam\b|midterm|\bquiz|\btest\b|\bforms?\b|\bplan\b|\breport\b|\bessay\b|\bpaper\b|\bproject\b|portfolio|reflection|\bclose[sd]?\b|\bopens?\b|\bavailable\b/i;
+  // Imported deadlines ("Forms DUE", "Essay submission") are timed events too: a clear deadline word always rules one out,
+  // and a softer one (plan, report, exam) does unless the title also names a kind of class ("Exam Review Lecture" stays)
+  const DUE_WORD = /\bdue\b|deadline|submi(t|ssion)|lab report|\bcloses?\b|\bopens?\b/i;
+  const DEADLINE = /assignment|\bexam\b|midterm|\bquiz|\btest\b|\bforms?\b|\bplan\b|\breport\b|\bessay\b|\bpaper\b|\bproject\b|portfolio|reflection|\bavailable\b/i;
   const squash = x => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const namesCourse = ev => { const c = state.courses && state.courses[ev.courseId], t = squash(ev.title); if (!c || !t) return false;
     return [c.code, c.name].map(squash).some(k => k && (t === k || (t.includes(k) && t.length <= k.length + 12))); };
   const isClassEvent = ev => !!ev && !!ev.courseId && !ev.allDay && !!ev.start && (ev.label ? CLASS_KIND.test(ev.label)
-    : !DEADLINE.test(ev.title || "") && (!!(ev.repeat && ev.repeat.days && ev.repeat.days.length) || CLASS_KIND.test(ev.title || "") || namesCourse(ev)));
+    : unlabeledClass(ev));
+  function unlabeledClass(ev){
+    const t = ev.title || "";
+    if (DUE_WORD.test(t)) return false;
+    if (CLASS_KIND.test(t)) return true;
+    return !DEADLINE.test(t) && (!!(ev.repeat && ev.repeat.days && ev.repeat.days.length) || namesCourse(ev));
+  }
   // A class's key: "date|start|kind" (the usual date and time, so a class moved for one week keeps it)
   const classKey = o => o.type === "meet" ? o.key : `${o.orig}|${(o.ev && o.ev.start) || o.start}|${o.label || "Class"}`;
   const courseIdOf = o => o.type === "meet" ? o.id : o.ev && o.ev.courseId;
