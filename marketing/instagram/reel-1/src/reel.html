@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studyboard promo reel</title>
+<style>
+@font-face{font-family:"Lexend";font-weight:400;src:url(../../../../website/assets/fonts/lexend-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:500;src:url(../../../../website/assets/fonts/lexend-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:600;src:url(../../../../website/assets/fonts/lexend-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:700;src:url(../../../../website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url(../../../../website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:400;src:url(../../../../website/assets/fonts/atkinson-hyperlegible-next-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:700;src:url(../../../../website/assets/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Digits";font-weight:100 1000;src:url(../../../../website/assets/fonts/lexend-latin-500-normal.woff2) format("woff2");unicode-range:U+0030-0039}
+
+:root{
+  --paper:#F2F5FA; --grid:rgba(57,136,254,.09); --surface:#FFFFFF; --ink:#0F1F3D; --navy:#0E2A56; --muted:#5A6A86;
+  --line:#D9E2EF; --soft:#EAF0F8; --accent:#1F6FEB; --accent-2:#3988FE;
+  --mark:#FFE45C; --tomato:#E4513B; --leaf:#1E9E74; --plum:#7A4FD6;
+  --display:"Lexend",system-ui,sans-serif; --body:"Digits","Atkinson",system-ui,sans-serif;
+  --shadow:0 2px 4px rgba(14,42,86,.06),0 30px 70px -14px rgba(14,42,86,.32);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased}
+.scene{position:absolute;inset:0;will-change:transform,opacity}
+.paper{background-color:var(--paper);background-image:linear-gradient(var(--grid) 2px,transparent 2px),linear-gradient(90deg,var(--grid) 2px,transparent 2px);background-size:54px 54px}
+.navy{color:#fff;background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
+h1,h2{font-family:var(--display);margin:0;letter-spacing:-.025em;line-height:1.06}
+.line{display:block;will-change:transform,opacity}
+.mk{position:relative;z-index:0;white-space:nowrap}
+.mk::before{content:"";position:absolute;left:-.05em;right:-.05em;top:.58em;height:.36em;background:var(--mark);z-index:-1;transform-origin:left;transform:scaleX(var(--mk,0))}
+.y{color:var(--mark)}
+.eyebrow{font:600 30px/1 var(--display);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.center{text-align:center}
+.abs{position:absolute}
+
+/* chips (scene 1) */
+.chip{position:absolute;left:0;top:0;display:flex;align-items:center;gap:16px;background:#fff;color:var(--ink);border-radius:20px;padding:20px 28px;font:600 32px var(--display);box-shadow:0 18px 40px -10px rgba(0,0,0,.45);white-space:nowrap}
+.chip i{width:18px;height:18px;border-radius:50%;flex:none}
+.chip em{font-style:normal;font-weight:500;color:var(--tomato);font-size:26px}
+
+/* cards */
+.card{background:var(--surface);border-radius:32px;box-shadow:var(--shadow);border:2px solid #fff}
+.task{background:var(--surface);border-radius:28px;box-shadow:var(--shadow);overflow:hidden}
+.task .band{font:700 26px var(--display);letter-spacing:.08em;color:#fff;padding:16px 28px;display:flex;gap:14px;align-items:center}
+.task .body{padding:24px 28px 30px;display:flex;gap:20px;align-items:flex-start}
+.task .ring{width:42px;height:42px;border-radius:50%;border:4px solid currentColor;flex:none;margin-top:4px}
+.task .t{font:600 44px/1.15 var(--display);color:var(--ink)}
+.task .m{margin-top:14px;font-size:30px;color:var(--muted);display:flex;gap:14px;align-items:center}
+.tag{font:600 26px var(--display);padding:6px 14px;border-radius:10px}
+.b-leaf{background:linear-gradient(90deg,#1E9E74,#4DBF97)} .c-leaf{color:#1E9E74}
+.ci{width:34px;height:34px;color:#fff;flex:none}
+.ci .a{fill:rgba(255,255,255,.4)} .ci .b{fill:rgba(255,255,255,.2)} .ci .w{fill:#fff;stroke:none} .ci .yy{fill:#FFE45C}
+.ci .sa{stroke:#fff;stroke-width:3} .ci .sb{stroke:rgba(255,255,255,.6);stroke-width:3}
+
+/* plan rows */
+.row{display:flex;align-items:center;gap:22px;padding:26px 30px;border-radius:22px;font:500 40px var(--display);position:relative}
+.row i{width:20px;height:20px;border-radius:50%;flex:none}
+.row .d{color:var(--muted)}
+.row .nx{position:absolute;inset:0;border-radius:22px;background:#EAF0F8;outline:4px solid var(--accent-2);z-index:-1}
+.next{background:var(--navy);color:#fff;font:600 26px var(--display);padding:8px 16px;border-radius:10px}
+
+/* companion */
+.comp{position:absolute}
+.comp svg{width:100%;height:100%;overflow:visible;display:block;filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 10px 18px rgba(30,20,50,.25))}
+.cp-svg .cp-p,.cp-svg .cp-headg,.cp-svg .cp-eye,.cp-svg .cp-page{transform-box:view-box}
+.cp-svg .cp-cheeks{opacity:.62}
+.cp-svg .cp-e-happy,.cp-svg .cp-e-sleepy,.cp-svg .cp-mouth>g,.cp-svg .cp-prop,.cp-svg .cp-zs{display:none}
+.cp-svg[data-m=neutral] .cp-m-neutral,.cp-svg[data-m=smile] .cp-m-smile,.cp-svg[data-m=open] .cp-m-open{display:inline}
+.cp-svg[data-e=happy] .cp-eye{display:none}
+.cp-svg[data-e=happy] .cp-e-happy{display:inline}
+.bubble{position:absolute;background:var(--surface);color:var(--ink);border-radius:34px;padding:32px 38px;font:600 40px/1.3 var(--display);box-shadow:var(--shadow);border:2px solid var(--line)}
+.bubble::after{content:"";position:absolute;left:90px;bottom:-17px;width:30px;height:30px;background:inherit;border-right:2px solid var(--line);border-bottom:2px solid var(--line);transform:rotate(45deg)}
+
+/* flashcard */
+.flip{position:absolute;perspective:2400px}
+.flip .inner{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+.flip .face{position:absolute;inset:0;backface-visibility:hidden;border-radius:34px;background:#fff;box-shadow:var(--shadow);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:50px}
+.flip .back{transform:rotateY(180deg)}
+.flip .lbl{position:absolute;top:34px;left:40px;font:700 26px var(--display);letter-spacing:.1em;color:var(--leaf);text-transform:uppercase}
+.rate{display:flex;gap:16px;justify-content:center}
+.rate span{font:600 30px var(--display);padding:16px 26px;border-radius:16px;background:#fff;border:2px solid var(--line);color:var(--ink)}
+
+.pill{display:inline-flex;align-items:center;gap:14px;background:#3988FE;color:#fff;border-radius:26px;padding:26px 44px;font:700 44px var(--display);box-shadow:0 20px 50px -12px rgba(57,136,254,.6)}
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- 1. Hook -->
+  <section class="scene navy" id="s1">
+    <div id="chips"></div>
+    <h1 class="abs center" style="left:60px;right:60px;top:780px;font-size:118px;font-weight:800">
+      <span class="line" id="h1a">Five classes.</span>
+      <span class="line" id="h1b">Forty deadlines.</span>
+      <span class="line y" id="h1c">One plan?</span>
+    </h1>
+  </section>
+
+  <!-- Paper backdrop that stays put while scenes 2 to 5 move over it -->
+  <div class="scene paper" id="bg"></div>
+
+  <!-- 2. Logo reveal -->
+  <section class="scene paper" id="s2">
+    <img id="s2icon" src="../../../../icon-512.png" alt="" class="abs" style="left:390px;top:560px;width:300px;height:300px;border-radius:68px;box-shadow:0 30px 70px -10px rgba(14,42,86,.45)">
+    <img id="s2word" src="../../../../website/assets/logo-light.webp" alt="Studyboard" class="abs" style="left:190px;top:940px;width:700px">
+    <h2 class="abs center" id="s2tag" style="left:80px;right:80px;top:1150px;font-size:76px;font-weight:800">Your whole semester<br>on <span class="mk" id="s2mk">one board.</span></h2>
+  </section>
+
+  <!-- 3. Quick Add -->
+  <section class="scene" id="s3">
+    <div class="abs" style="left:90px;right:90px;top:330px">
+      <div class="eyebrow line" id="s3e">Quick Add</div>
+      <h2 style="font-size:104px;font-weight:800;margin-top:30px"><span class="line" id="s3a">Type it like</span><span class="line" id="s3b"><span class="mk" id="s3mk">you'd say it.</span></span></h2>
+    </div>
+    <div class="card abs" id="s3in" style="left:90px;right:90px;top:820px;padding:34px 40px;display:flex;align-items:center;gap:24px">
+      <span style="font:700 44px var(--display);color:var(--accent)">+</span>
+      <span style="font:500 52px var(--display);flex:1;white-space:nowrap"><span id="s3txt"></span><span id="s3caret" style="display:inline-block;width:5px;height:58px;background:var(--accent);vertical-align:-10px;margin-left:6px"></span></span>
+      <span id="s3btn" style="background:var(--navy);color:#fff;font:600 32px var(--display);padding:18px 30px;border-radius:16px">Add</span>
+    </div>
+    <div class="task abs" id="s3card" style="left:90px;right:330px;top:1070px">
+      <div class="band b-leaf"><svg class="ci" viewBox="1.6 1.6 20.8 20.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path class="sa" d="M8 3c0 5 8 6 8 9s-8 4-8 9"/><path class="sb" d="M16 3c0 5-8 6-8 9s8 4 8 9"/><path d="M9 6h6M9.5 18h5M10 9.5h4M10 14.5h4"/></svg>BIO 101</div>
+      <div class="body c-leaf"><span class="ring"></span><div><div class="t">Quiz</div><div class="m"><span>Fri · 2:00 PM</span><span class="tag" style="background:#E3F4EC;color:#14724F">Worth 5%</span></div><div id="s3ok" style="margin-top:20px;font:600 32px var(--display);color:var(--leaf)">✓ Added to Friday</div></div></div>
+    </div>
+    <div class="comp" id="s3comp" style="width:230px;height:230px;right:80px;top:1130px">{{packy}}</div>
+  </section>
+
+  <!-- 4. Today's Plan -->
+  <section class="scene" id="s4">
+    <div class="abs" style="left:90px;right:90px;top:330px">
+      <div class="eyebrow line" id="s4e">Today's Plan</div>
+      <h2 style="font-size:104px;font-weight:800;margin-top:30px"><span class="line" id="s4a">Always knows</span><span class="line" id="s4b"><span class="mk" id="s4mk">what's next.</span></span></h2>
+    </div>
+    <div class="card abs" id="s4card" style="left:90px;right:90px;top:800px;padding:46px 40px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:0 10px 26px">
+        <span style="font:700 50px var(--display)">Today</span>
+        <span class="tag" id="s4free" style="background:#E3F4EC;color:#14724F;font-size:32px;padding:10px 20px">Free 4–7 PM</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;position:relative;z-index:0">
+        <div class="row" id="r0"><span class="nx" id="s4nx"></span><i style="background:var(--leaf)"></i><span style="flex:1">Bio lab report</span><span class="d">45m</span><span class="next" id="s4next">Next</span></div>
+        <div class="row" id="r1"><i style="background:var(--tomato)"></i><span style="flex:1">Calc problem set</span><span class="d">30m</span></div>
+        <div class="row" id="r2"><i style="background:var(--plum)"></i><span style="flex:1">History reading</span><span class="d">20m</span></div>
+        <div class="row" id="r3"><i style="background:var(--accent)"></i><span style="flex:1">Chem flashcards</span><span class="d">15m</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Companion and flashcards -->
+  <section class="scene" id="s5">
+    <div class="abs" style="left:90px;right:90px;top:330px">
+      <div class="eyebrow line" id="s5e">Study Companion</div>
+      <h2 style="font-size:104px;font-weight:800;margin-top:30px"><span class="line" id="s5a">A study buddy</span><span class="line" id="s5b">that <span class="mk" id="s5mk">quizzes you.</span></span></h2>
+    </div>
+    <div class="comp" id="s5comp" style="width:250px;height:250px;left:90px;top:790px">{{owl}}</div>
+    <div class="bubble" id="s5bub" style="left:340px;top:800px;max-width:650px">Quiz you on chapter 4?</div>
+    <div class="flip" id="s5flip" style="left:90px;right:90px;top:1090px;height:400px">
+      <div class="inner" id="s5inner">
+        <div class="face"><span class="lbl">Biology</span><div style="font:700 54px/1.25 var(--display)">What does the Krebs cycle make?</div></div>
+        <div class="face back"><span class="lbl">Answer</span><div style="font:700 60px/1.25 var(--display)">2 ATP, 6 NADH<br>and 2 FADH<sub style="font-size:.6em">2</sub></div></div>
+      </div>
+    </div>
+    <div class="rate abs" id="s5rate" style="left:90px;right:90px;top:1530px"><span>Again</span><span>Hard</span><span id="s5good">Good</span><span>Easy</span></div>
+  </section>
+
+  <!-- 6. End card -->
+  <section class="scene navy" id="s6">
+    <img id="s6icon" src="../../../../icon-512.png" alt="" class="abs" style="left:430px;top:380px;width:220px;height:220px;border-radius:50px;box-shadow:0 26px 60px rgba(0,0,0,.4)">
+    <h1 class="abs center" style="left:60px;right:60px;top:690px;font-size:112px;font-weight:800">
+      <span class="line" id="s6a">Your whole</span>
+      <span class="line" id="s6b">semester on</span>
+      <span class="line y" id="s6c">one board.</span>
+    </h1>
+    <div class="abs center" id="s6sub" style="left:60px;right:60px;top:1110px;font:500 40px var(--display);color:#C9D7F2">Free · works in any browser · no account needed</div>
+    <div class="abs center" id="s6cta" style="left:0;right:0;top:1230px"><span class="pill">studyboardapp.com</span></div>
+    <div class="comp" id="s6c1" style="width:190px;height:190px;left:250px;top:1400px">{{mochi}}</div>
+    <div class="comp" id="s6c2" style="width:190px;height:190px;left:445px;top:1390px">{{inky}}</div>
+    <div class="comp" id="s6c3" style="width:190px;height:190px;left:640px;top:1400px">{{packy}}</div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const oCubic = x => 1 - Math.pow(1 - x, 3);
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const oBack = x => { const c = 1.7, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const lerp = (a, b, k) => a + (b - a) * k;
+const set = (el, tf, op) => { el.style.transform = tf; if (op != null) el.style.opacity = op; };
+// A line of text rising in
+const rise = (el, t, t0, d = .55, dist = 70) => { const k = oCubic(P(t, t0, t0 + d)); set(el, `translateY(${(1 - k) * dist}px)`, k); };
+// A pop with a little overshoot
+const pop = (el, t, t0, d = .5, from = .6) => { const k = P(t, t0, t0 + d); set(el, `scale(${lerp(from, 1, oBack(k))})`, clamp(k * 2.5)); };
+// Scene in/out: slides up with a fade
+const scene = (el, t, tin, tout, d = .45) => {
+  const i = ioCubic(P(t, tin, tin + d)), o = ioCubic(P(t, tout - d, tout));
+  el.style.visibility = t < tin || t > tout ? "hidden" : "visible";
+  set(el, `translateY(${(1 - i) * 160 - o * 160}px)`, Math.min(i, 1 - o));
+};
+const bob = (t, f = 1, a = 8) => Math.sin(t * Math.PI * 2 * f) * a;
+
+// Scene 1 chips
+const CHIPS = [
+  ["Lab report", "Fri", "#1E9E74", 70, 250, -8], ["Calc quiz", "Mon", "#E4513B", 600, 320, 6], ["Essay draft", "11:59 PM", "#7A4FD6", 120, 470, 4],
+  ["Midterm", "Nov 9", "#1F6FEB", 640, 520, -5], ["Reading ch. 7–8", "Tue", "#B86A00", 300, 650, -3],
+  ["Problem set 5", "Due today", "#E4513B", 90, 1300, 5], ["Group project", "Thu", "#7A4FD6", 590, 1380, -6], ["Flashcards", "40 due", "#1E9E74", 260, 1500, 3],
+  ["Office hours", "3 PM", "#1F6FEB", 640, 1600, 7], ["Chem lab", "Wed", "#1E9E74", 60, 1680, -4]
+];
+$("chips").innerHTML = CHIPS.map(c => `<div class="chip"><i style="background:${c[2]}"></i>${c[0]}<em>${c[1]}</em></div>`).join("");
+const chipEls = [...document.querySelectorAll(".chip")];
+const TYPE = "bio quiz fri 2pm 5%";
+const END = 22;
+
+function render(t) {
+  // 1. Hook (0 to 3.6)
+  const s1 = $("s1"); s1.style.visibility = t < 3.7 ? "visible" : "hidden";
+  const gather = ioCubic(P(t, 2.7, 3.4));
+  chipEls.forEach((el, i) => {
+    const c = CHIPS[i], k = P(t, .05 + i * .1, .5 + i * .1);
+    const x = c[3] + bob(t + i * .37, .25, 14), y = c[4] + bob(t + i * .21, .2, 18);
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const gx = lerp(x, 540 - w / 2, gather), gy = lerp(y, 960 - h / 2, gather);
+    el.style.transform = `translate(${gx}px,${gy}px) rotate(${c[5] * (1 - gather)}deg) scale(${lerp(.5, 1, oBack(k)) * (1 - gather * .7)})`;
+    el.style.opacity = clamp(k * 3) * (1 - P(t, 3.1, 3.4));
+  });
+  rise($("h1a"), t, .35); rise($("h1b"), t, .85); rise($("h1c"), t, 1.45);
+  const hOut = P(t, 2.6, 3.0); ["h1a", "h1b", "h1c"].forEach(id => { if (hOut > 0) { $(id).style.opacity = 1 - hOut; $(id).style.transform = `scale(${1 - hOut * .08})`; } });
+
+  // 2. Logo reveal (3.0 to 6.6), opens with a circle from the middle
+  const s2 = $("s2"); s2.style.visibility = t >= 3.0 && t <= 6.6 ? "visible" : "hidden";
+  const r = ioCubic(P(t, 3.0, 3.6)) * 1200; s2.style.clipPath = `circle(${r}px at 540px 960px)`;
+  const o2 = ioCubic(P(t, 6.2, 6.6)); s2.style.transform = `translateY(${-o2 * 160}px)`; s2.style.opacity = 1 - o2;
+  pop($("s2icon"), t, 3.45, .6, .3);
+  rise($("s2word"), t, 3.85, .55, 50); rise($("s2tag"), t, 4.25, .6, 60);
+  $("s2mk").style.setProperty("--mk", oCubic(P(t, 4.85, 5.35)));
+
+  $("bg").style.visibility = t >= 3.6 ? "visible" : "hidden";
+
+  // 3. Quick Add (6.4 to 10.6)
+  scene($("s3"), t, 6.4, 10.6);
+  rise($("s3e"), t, 6.55); rise($("s3a"), t, 6.65); rise($("s3b"), t, 6.8);
+  $("s3mk").style.setProperty("--mk", oCubic(P(t, 7.25, 7.7)));
+  rise($("s3in"), t, 7.0, .5, 60);
+  const n = Math.round(P(t, 7.5, 8.75) * TYPE.length); $("s3txt").textContent = TYPE.slice(0, n);
+  $("s3caret").style.opacity = (t > 7.5 && t < 8.8) || Math.floor(t * 2.4) % 2 === 0 ? 1 : 0;
+  const press = P(t, 8.95, 9.05) - P(t, 9.05, 9.2); $("s3btn").style.transform = `scale(${1 - press * .08})`;
+  const kc = P(t, 9.15, 9.75); set($("s3card"), `translateY(${(1 - oBack(kc)) * -120}px) scale(${lerp(.92, 1, oBack(kc))})`, clamp(kc * 3));
+  const ko = P(t, 9.7, 10.0); set($("s3ok"), `translateX(${(1 - oCubic(ko)) * -20}px)`, ko);
+  const kp = P(t, 9.5, 10.0); set($("s3comp"), `translateY(${(1 - oBack(kp)) * 80 + (kp >= 1 ? -Math.abs(bob(t - 10, 1.4, 14)) : 0)}px)`, clamp(kp * 3));
+
+  // 4. Today's Plan (10.4 to 14.4)
+  scene($("s4"), t, 10.4, 14.4);
+  rise($("s4e"), t, 10.55); rise($("s4a"), t, 10.65); rise($("s4b"), t, 10.8);
+  $("s4mk").style.setProperty("--mk", oCubic(P(t, 11.25, 11.7)));
+  rise($("s4card"), t, 11.0, .55, 80);
+  pop($("s4free"), t, 11.45, .45, .7);
+  [0, 1, 2, 3].forEach(i => { const k = oCubic(P(t, 11.5 + i * .14, 11.95 + i * .14)); set($("r" + i), `translateX(${(1 - k) * 60}px)`, k); });
+  const kn = P(t, 12.45, 12.85); $("s4nx").style.opacity = kn; $("s4nx").style.transform = `scale(${lerp(.96, 1, oBack(kn))})`;
+  pop($("s4next"), t, 12.6, .45, .3);
+
+  // 5. Companion and flashcards (14.2 to 18.0)
+  scene($("s5"), t, 14.2, 18.0);
+  rise($("s5e"), t, 14.35); rise($("s5a"), t, 14.45); rise($("s5b"), t, 14.6);
+  $("s5mk").style.setProperty("--mk", oCubic(P(t, 15.05, 15.5)));
+  const kw = P(t, 14.85, 15.35); set($("s5comp"), `translateY(${(1 - oBack(kw)) * 90 + (kw >= 1 ? bob(t, .8, 6) : 0)}px) rotate(${kw >= 1 ? bob(t, .5, 2.5) : 0}deg)`, clamp(kw * 3));
+  pop($("s5bub"), t, 15.25, .5, .7); $("s5bub").style.transformOrigin = "10% 100%";
+  rise($("s5flip"), t, 15.6, .55, 80);
+  $("s5inner").style.transform = `rotateY(${ioCubic(P(t, 16.35, 16.85)) * 180}deg)`;
+  rise($("s5rate"), t, 16.8, .45, 40);
+  const g = P(t, 17.15, 17.3); $("s5good").style.cssText = g > 0 ? `background:var(--leaf);color:#fff;border-color:var(--leaf);transform:scale(${1 + Math.sin(g * Math.PI) * .08})` : "";
+
+  // 6. End card (17.8 to end), wipes up from the bottom
+  const s6 = $("s6"); s6.style.visibility = t >= 17.8 ? "visible" : "hidden";
+  s6.style.clipPath = `inset(${(1 - ioCubic(P(t, 17.8, 18.35))) * 100}% 0 0 0)`;
+  pop($("s6icon"), t, 18.25, .6, .3);
+  rise($("s6a"), t, 18.55); rise($("s6b"), t, 18.7); rise($("s6c"), t, 18.85);
+  rise($("s6sub"), t, 19.3, .5, 40);
+  pop($("s6cta"), t, 19.6, .55, .7);
+  ["s6c1", "s6c2", "s6c3"].forEach((id, i) => {
+    const k = P(t, 19.95 + i * .15, 20.45 + i * .15), hop = k >= 1 ? -Math.abs(Math.sin((t - 20.6 - i * .2) * Math.PI * 1.1)) * 22 : 0;
+    set($(id), `translateY(${(1 - oBack(k)) * 120 + hop}px)`, clamp(k * 3));
+  });
+}
+window.render = render; window.END = END;
+render(new URLSearchParams(location.search).has("t") ? +new URLSearchParams(location.search).get("t") : 0);
+</script>
+</body>
+</html>
