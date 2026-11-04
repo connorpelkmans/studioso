@@ -87,9 +87,9 @@ function stubs(){
   ok(/Cloud/.test(await page.textContent('#view [data-act="cl-open"]')), "Files has a Cloud button");
   await page.evaluate(() => document.querySelector('[data-act="fab-file"]') && document.querySelector('[data-act="fab-file"]').click());
   await page.waitForSelector('[data-act="f-sync"]');
-  ok(/AI only reads what you share/.test(await page.textContent('[data-act="f-sync"]')), "Add File has Sync Drive, and says AI only reads what you share");
+  ok(/AI only reads files you've added/.test(await page.textContent('[data-act="f-sync"]')), "Add File has Sync Drive, and says AI only reads files you've added");
   await page.click('[data-act="f-sync"]'); await page.waitForSelector("#clBody .cl-card");
-  ok(/AI can only read what you give Studyboard access to/.test(await page.textContent("#clBody")), "the Drive sheet states AI's access limit");
+  ok(/AI only reads files Studyboard lists/.test(await page.textContent("#clBody")), "the Drive sheet states AI's access limit");
   await page.keyboard.press("Escape");
   await page.click('#view [data-act="cl-open"]'); await page.waitForSelector("#clBody .cl-card");
   await page.waitForFunction(() => document.querySelectorAll("#clBody .cl-card").length === 2 && /sam@gmail\.com/.test(document.getElementById("clBody").textContent));
