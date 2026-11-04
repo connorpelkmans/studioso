@@ -29,5 +29,14 @@ const assert = require("assert"), path = require("path"), {pathToFileURL} = requ
     const r = await W.fetch(new Request("https://studyboardapp.com" + from), env);
     ok(r.status === 301 && r.headers.get("location") === "https://studyboardapp.com" + to, from + " goes to the website's page, not the app");
   }
+  // a mistyped /website/ address: the website's "Page not found" with a 404, not the app; real pages and the app's own routes are untouched
+  const FILES = {"/": "app", "/website/": "home", "/website/privacy": "privacy", "/website/404": "notfound"}, asked = [];
+  const env2 = {ASSETS: {fetch: async req => { const p = new URL(req.url).pathname; asked.push(p); const f = FILES[p] || "app"; return new Response("<p>" + f, {headers: {"content-type": "text/html; charset=utf-8", etag: '"' + f + '"'}}); }}};
+  const r6 = await W.fetch(new Request("https://studyboardapp.com/website/pricng"), env2);
+  ok(r6.status === 404 && (await r6.text()) === "<p>notfound", "a mistyped /website/ address shows the website's Page not found, with a 404");
+  const r7 = await W.fetch(new Request("https://studyboardapp.com/website/privacy"), env2);
+  ok(r7.status === 200 && (await r7.text()) === "<p>privacy", "a real website page is served as it is");
+  const r8 = await W.fetch(new Request("https://studyboardapp.com/board"), env2);
+  ok(r8.status === 200 && (await r8.text()) === "<p>app", "the app's own addresses still get the app");
   console.log(n + " checks passed");
 })().catch(e => { console.error(e); process.exit(1); });

@@ -145,7 +145,8 @@ async function detect(origin) {
   return null;
 }
 
-async function addSchool(origin0, platform) {
+// One site per platform: connecting a second school on the same platform replaces the first only once the person has said so (replace)
+async function addSchool(origin0, platform, replace) {
   const origin = SBX.originOf(origin0);
   if (!origin) return { error: "bad-address" };
   if (!(await granted(origin))) return { error: "permission" };
@@ -153,6 +154,7 @@ async function addSchool(origin0, platform) {
   if (!id) return { error: "unknown-platform" };
   const st = await load();
   const old = st.schools[id];
+  if (old && old.origin !== origin && !replace) return { error: "exists", id, origin, old: old.origin };
   st.schools[id] = { id, origin, added: Date.now() };
   await set({ schools: st.schools, pending: null });
   if (old && old.origin !== origin) {
@@ -207,7 +209,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 chrome.permissions.onAdded.addListener(async p => {
   const { pending } = await load();
   if (!pending || Date.now() - pending.at > 10 * 60000) return;
-  if ((p.origins || []).some(o => o === pending.origin + "/*")) addSchool(pending.origin, pending.platform);
+  if (!(p.origins || []).some(o => o === pending.origin + "/*")) return;
+  // the popup asks about replacing the next time it opens
+  const r = await addSchool(pending.origin, pending.platform);
+  if (r && r.error === "exists") await set({ pending: Object.assign({}, pending, { platform: r.id, conflict: { id: r.id, old: r.old } }) });
 });
 chrome.permissions.onRemoved.addListener(async p => {
   const { schools } = await load();
@@ -238,9 +243,17 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     if (fromPage && m.op === "forget") return forgetReads();
     if (fromPage) return m.op === "sync" ? { ok: true, started: (syncAll(m.why === "open" ? "open" : "app"), true) } : { error: "not-allowed" };
     switch (m.op) {
-      case "status": { const st = await load(); return { schools: st.schools, settings: st.settings, status: st.status, version: chrome.runtime.getManifest().version }; }
+      case "status": { const st = await load(), p = st.pending; return { schools: st.schools, settings: st.settings, status: st.status, version: chrome.runtime.getManifest().version,
+        conflict: p && p.conflict && Date.now() - p.at < 10 * 60000 ? { id: p.conflict.id, old: p.conflict.old, origin: p.origin } : null }; }
       case "pending": await set({ pending: { origin: SBX.originOf(m.origin) || "", platform: NAMES[m.platform] ? m.platform : "", at: Date.now() } }); return { ok: true };
-      case "add": return addSchool(m.origin, m.platform);
+      case "add": return addSchool(m.origin, m.platform, m.replace === true);
+      // "Keep" on the replace question: forget the question and the new site's permission (unless it's in use)
+      case "keep": {
+        const st = await load(), o = SBX.originOf(m.origin);
+        await set({ pending: null });
+        if (o && !Object.values(st.schools).some(x => x.origin === o)) chrome.permissions.remove({ origins: [o + "/*"] }).catch(() => {});
+        return { ok: true };
+      }
       case "remove": return removeSchool(String(m.id || ""));
       case "sync": { if (m.id) await syncOne(String(m.id), "button"); else await syncAll("button"); return { ok: true }; }
       case "settings": {

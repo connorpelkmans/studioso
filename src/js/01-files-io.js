@@ -125,7 +125,7 @@ async function exportFullBackup(){
     const dl = caps.downloads || await useCap("downloads");
     if (!dl) { toast("Downloads aren't available here"); return; }
     try { await dl.save({filename: name, data: zip}); } catch(e) { if (!(e && e.code === "declined")) toast("Couldn't save the file. Try again."); return; }
-  } else { saveBlob(name, zip, "application/zip"); try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} }
+  } else { if (!(await saveBlob(name, zip, "application/zip"))) return; try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} }
   toast(missing ? `Backup saved, but ${missing} file${missing === 1 ? "" : "s"} couldn't be included` : `Backup saved with ${revs.length} file${revs.length === 1 ? "" : "s"}`);
 }
 async function importBackupFiles(files, zipEntries){

@@ -173,7 +173,8 @@
     const c = deskCfg || {}, mac = DESK.platform === "darwin", where = mac ? "menu bar" : "notification area";
     const paused = c.pausedUntil && c.pausedUntil > Date.now();
     const fsRow = DESK.fullscreen ? `<div class="cap-row"><span style="flex:1;font-weight:600">Full Screen<span class="sub">Fill the whole screen with Studyboard. Press ${mac ? "Ctrl+Cmd+F" : "F11"} to switch any time.</span></span><button class="btn small" data-act="sbw-fs">${document.body.classList.contains("fs") ? "Exit Full Screen" : "Full Screen"}</button></div>` : "";
-    return `${fsRow}<div class="cap-row"><span style="flex:1;font-weight:600">Keep Running in the Background<span class="sub">${c.tray === false ? "The tray icon isn't available on this computer, so closing the window closes Studyboard." : `Closing the window keeps Studyboard in the ${where}, so reminders and the Today widget keep working. Choose Quit Studyboard from its icon to close it all the way.`}</span></span>${c.tray === false ? "" : tog("background", c.background !== false, "Keep Running in the Background")}</div>
+    const up = c.update && c.update.version ? `<div class="cap-row"><span style="flex:1;font-weight:600">Update Available<span class="sub">Version ${esc(c.update.version)} is out (you have ${esc(c.update.current || "")}). Download it and open it to update; your things stay where they are.</span></span><button class="btn small" data-act="sbw-update">Download</button></div>` : "";
+    return `${up}${fsRow}<div class="cap-row"><span style="flex:1;font-weight:600">Keep Running in the Background<span class="sub">${c.tray === false ? "The tray icon isn't available on this computer, so closing the window closes Studyboard." : `Closing the window keeps Studyboard in the ${where}, so reminders and the Today widget keep working. Choose Quit Studyboard from its icon to close it all the way.`}</span></span>${c.tray === false ? "" : tog("background", c.background !== false, "Keep Running in the Background")}</div>
       ${c.canLogin ? `<div class="cap-row"><span style="flex:1;font-weight:600">Start When I Sign In to My Computer<span class="sub">Studyboard starts quietly in the ${where}, ready with your reminders.</span></span>${tog("openAtLogin", !!c.openAtLogin, "Start When I Sign In to My Computer")}</div>` : ""}
       ${c.startupSettings && DESK.openStartupSettings ? `<div class="cap-row"><span style="flex:1;font-weight:600">Start When I Sign In to My Computer<span class="sub">Windows decides this for apps from the Microsoft Store. Turn Studyboard on under Settings, Apps, Startup.</span></span><button class="btn small" data-act="sbw-startup">Open Startup Settings</button></div>` : ""}
       <div class="cap-row"><span style="flex:1;font-weight:600">Today Widget<span class="sub">A small window with Do This Next, today's list, flashcards due and your streak. Drag it by the top, resize it from the edges.</span></span>${tog("widget", !!c.widget, "Show Today Widget")}</div>
@@ -226,6 +227,7 @@
     if (act === "sbw-resume") { setDesk("pauseReminders", 0); toast("Reminders are back on"); return true; }
     if (act === "sbw-startup") { try { DESK.openStartupSettings(); } catch (e) {} return true; }
     if (act === "sbw-fs") { try { DESK.fullscreen(); } catch (e) {} return true; }
+    if (act === "sbw-update") { const u = deskCfg && deskCfg.update; if (u && u.url) window.open(u.url, "_blank"); return true; }
     return false;
   });
   hook("render", pushSoon);
@@ -244,6 +246,22 @@
     setInterval(push, 5 * 60000);
     handleUrl();
     push();
+    // The phone apps' native-bridge.js hands deep links and reminder taps here once the app is running, so open quizzes and unsaved text survive.
+    // Returns false for anything it can't open in place (the bridge then reloads with the link, as on a cold start).
+    window.SBOPEN = q => {
+      try {
+        const a = q.get("action"), task = q.get("task") || q.get("sbtask"), dk = q.get("deck"), gp = q.get("group");
+        if (dk || gp) {
+          const N = window.SBGROUPS && SBGROUPS.share && SBGROUPS.share.normCode, code = N && N(dk || gp).code;
+          if (!code) return false;
+          localStorage.setItem("sb:grpPending", JSON.stringify({kind: dk ? "deck" : "group", code, at: Date.now()}));   // 80-groups.js picks this up within seconds
+          return true;
+        }
+        if (task) { doAction("task", task); return true; }
+        if (ACTIONS.includes(a) && a !== "done") { doAction(a); return true; }
+      } catch (e) {}
+      return false;
+    };
   });
 })();
 

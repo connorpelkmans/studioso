@@ -96,6 +96,9 @@ else log("WARNING: android-wrapper/branding/res is missing, so the app keeps Cap
     m = m.replace("</application>", "\n        " + share[0] + "\n\n        " + tile[0] + "\n    </application>");
     for (const p of add.match(/<uses-permission [^>]*\/>/g) || []) if (!m.includes(p.replace(/\s+/g, " ")) && !m.includes(/android:name="([^"]+)"/.exec(p)[1])) m = m.replace("</manifest>", "    " + p + "\n</manifest>");
     write(mf, m); log("merged the manifest");
+  } else if (m.includes(`android:scheme="https" android:host="${DOMAIN}" />`)) {
+    // projects merged before the App Link was limited to the app's own address (reset-password etc. stay in the browser)
+    write(mf, m.split(`android:scheme="https" android:host="${DOMAIN}" />`).join(`android:scheme="https" android:host="${DOMAIN}" android:path="/" />`)); log("limited the App Link to the app's address");
   }
 }
 

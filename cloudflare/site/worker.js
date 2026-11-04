@@ -5,6 +5,20 @@ const PASS = /^\/functions\/v1\/(cloud-files|calendar-sync)$/;
 // The privacy policy and terms live in the website folder; the short addresses people
 const MOVED = {"/privacy": "/website/privacy", "/privacy.html": "/website/privacy", "/terms": "/website/terms", "/terms.html": "/website/terms"};
 
+// A mistyped /website/ address would get the app (the assets answer unknown paths with /index.html for the app's own routes),
+// so the website's "Page not found" is shown instead, with a 404. Only /website/ paths come through here (wrangler.jsonc run_worker_first).
+let appTag = null;
+async function websiteAsset(request, env) {
+  const res = await env.ASSETS.fetch(request);
+  const tag = res.status === 200 && /text\/html/i.test(res.headers.get("content-type") || "") ? res.headers.get("etag") : "";
+  if (!tag) return res;
+  if (appTag === null) { try { appTag = (await env.ASSETS.fetch(new Request(new URL("/", request.url)))).headers.get("etag") || ""; } catch (e) { return res; } }
+  if (!appTag || tag !== appTag) return res;
+  const nf = await env.ASSETS.fetch(new Request(new URL("/website/404", request.url)));
+  if (nf.status !== 200) return res;
+  return new Response(request.method === "HEAD" ? null : nf.body, {status: 404, headers: nf.headers});
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -26,6 +40,7 @@ export default {
       }
       return res;
     }
+    if (url.pathname.startsWith("/website/") && (request.method === "GET" || request.method === "HEAD")) return websiteAsset(request, env);
     return env.ASSETS.fetch(request);
   },
 };

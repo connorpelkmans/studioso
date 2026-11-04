@@ -52,7 +52,22 @@ for (const t of chosen) {
     });
   }
 }
+// The website's installer links must be this release: the desktop app's update notice sends people there
+function siteDownloads() {
+  const vm = require("vm"), sb = {window: {}};
+  vm.runInNewContext(fs.readFileSync(path.join(ROOT, "website", "config.js"), "utf8"), sb, {timeout: 1000});
+  return (sb.window.STUDYBOARD_SITE || {}).DOWNLOADS || {};
+}
+const urlVersion = u => { const m = /\/v?(\d+\.\d+\.\d+)\/[^/]*$/.exec(String(u || "")); return m ? m[1] : ""; };
+if (chosen.includes("web") || chosen.includes("desktop")) {
+  const pkgVer = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
+  let dl = {}; try { dl = siteDownloads(); } catch (e) { problems.push(`[web] website/config.js: couldn't be read (${e.message})`); }
+  for (const [k, d] of Object.entries(dl)) {
+    const v = d && urlVersion(d.url);
+    if (v && v !== pkgVer) problems.push(`[web] website/config.js DOWNLOADS.${k}: links to ${v}, but package.json is ${pkgVer}. Upload the ${pkgVer} installers to the GitHub release, then change the link.`);
+  }
+}
 if (!problems.length) { console.log(`check-release: nothing left to fill in for ${chosen.join(", ")}`); process.exit(0); }
 console.log(problems.join("\n"));
-console.log(`\ncheck-release: ${problems.length} placeholder(s) left for ${chosen.join(", ")}. Fill them in (see SETUP-GUIDE.md and APP-STORE-CHECKLIST.md) before releasing.`);
+console.log(`\ncheck-release: ${problems.length} item(s) left for ${chosen.join(", ")}. Fill them in (see SETUP-GUIDE.md and APP-STORE-CHECKLIST.md) before releasing.`);
 process.exit(1);

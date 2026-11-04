@@ -16,7 +16,10 @@
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]; }); };
   var httpsUrl = function (u) { try { var x = new URL(u); return x.protocol === "https:" && !x.username && !x.password ? x.href : ""; } catch (e) { return ""; } };
   var WEB = httpsUrl(cfg.APP_URL || "");
-  var fileName = function (d) { return d && d.file ? String(d.file).replace("{version}", VER) : ""; };
+  // An installer's version is the one in its download address (".../download/v1.14.4/..."), so the label always matches the file you get;
+  // VERSION (the web app's) is only a fallback for links without one
+  var verOf = function (k) { var d = D[k] || {}, m = /\/v?(\d+\.\d+\.\d+)\/[^/]*$/.exec(String(d.url || "")) || /[-_](\d+\.\d+\.\d+)[-_.]/.exec(String(d.url || "").split("/").pop() || ""); return m ? m[1] : VER; };
+  var fileName = function (d, k) { return d && d.file ? String(d.file).replace("{version}", verOf(k)) : ""; };
   // Windows comes from the Microsoft Store when its page is set
   var MS = httpsUrl((D.windows && D.windows.store) || "");
   function msBadge(cls) {
@@ -100,7 +103,7 @@
   var NAMES = {windows: ["windows", "Windows", "Windows 10 & 11"], macArm: ["mac", "Mac", "Apple M-series"], macIntel: ["mac", "Mac", "Intel Macs"], linux: ["linux", "Linux", "AppImage"]};
 
   function desktopRow(k, p) {
-    var n = NAMES[k], free = "Free · v" + VER + " · " + (D[k] && D[k].needs ? D[k].needs : n[2]);
+    var n = NAMES[k], free = "Free · v" + verOf(k) + " · " + (D[k] && D[k].needs ? D[k].needs : n[2]);
     if (k === "windows" && MS) return webButton(true) + msBadge("big");
     if (ready(k)) return webButton(true) + bigButton(k, ICONS[n[0]], free, "Download for " + n[1], false);
     return webButton(true) + bigButton(k, ICONS[n[0]], "Coming soon · " + n[2], n[1], false);
@@ -121,7 +124,7 @@
         var k = p.chip === "arm" ? "macArm" : "macIntel", other = p.chip === "arm" ? "macIntel" : "macArm";
         html = '<div class="dlrow">' + desktopRow(k) + '</div><div class="others"><span>Also on</span>' + chip(other, ICONS.mac, p.chip === "arm" ? "Mac Intel" : "Mac M-series") + chip("windows", ICONS.windows, "Windows") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
       } else {
-        html = '<div class="dlrow">' + webButton(true) + (ready("macArm") ? bigButton("macArm", ICONS.mac, "Free · v" + VER + " · Apple M-series", "Download for Mac", false) : bigButton("macArm", ICONS.mac, "Coming soon · Apple M-series", "Mac", false)) + bigButton("macIntel", ICONS.mac, ready("macIntel") ? "Older Macs" : "Coming soon · older Macs", "Mac with Intel", false) + "</div>" + macHelp +
+        html = '<div class="dlrow">' + webButton(true) + (ready("macArm") ? bigButton("macArm", ICONS.mac, "Free · v" + verOf("macArm") + " · Apple M-series", "Download for Mac", false) : bigButton("macArm", ICONS.mac, "Coming soon · Apple M-series", "Mac", false)) + bigButton("macIntel", ICONS.mac, ready("macIntel") ? "Older Macs" : "Coming soon · older Macs", "Mac with Intel", false) + "</div>" + macHelp +
           '<div class="others"><span>Also on</span>' + chip("windows", ICONS.windows, "Windows") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
       }
     } else {
@@ -134,7 +137,7 @@
     var el = document.getElementById("allDownloads"); if (!el) return;
     var mine = p.os === "windows" ? "windows" : p.os === "mac" ? (p.chip === "intel" ? "macIntel" : p.chip === "arm" ? "macArm" : "") : p.os === "ios" ? "ios" : p.os === "android" ? "android" : p.os === "linux" ? "linux" : "";
     function card(k, icon, title, action) {
-      var d = D[k] || {}, f = fileName(d);
+      var d = D[k] || {}, f = fileName(d, k);
       if (k === "windows" && MS) {
         return '<div class="plat' + (mine === k ? " you" : "") + '">' + (mine === k ? '<span class="you-tag">Your device</span>' : "") + '<div class="ico">' + icon + "</div><h4>" + title + "</h4><div><p>" + esc(d.needs || "") + " · from the Microsoft Store, with automatic updates</p></div>" +
           '<div class="ms-go">' + msBadge("") + "</div></div>";

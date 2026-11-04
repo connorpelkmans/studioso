@@ -117,5 +117,22 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(!b.store["result:canvas"] && !b.granted.has(ORIGIN + "/*") && !Object.keys(b.store.schools).length, "removing a school drops its data and the permission");
 
   ok((await b.send({op: "add", origin: "http://192.168.1.1", platform: "canvas"})).error === "bad-address", "a local or plain-http address is refused");
+
+  // a second school on the same platform replaces the first only when the person says so
+  { const c = browser(CANVAS), OTHER = "https://college.example.edu";
+    await c.send({op: "add", origin: ORIGIN, platform: "canvas"});
+    c.granted.add(OTHER + "/*");
+    const r2 = await c.send({op: "add", origin: OTHER, platform: "canvas"});
+    ok(r2.error === "exists" && r2.old === ORIGIN && c.store.schools.canvas.origin === ORIGIN, "connecting a second Canvas asks first and changes nothing: " + JSON.stringify(r2));
+    // Firefox: the popup closed while asking for the permission, so the background finishes the connection and leaves the question for the popup
+    await c.send({op: "pending", origin: OTHER, platform: "canvas"});
+    c.fire("padd", {origins: [OTHER + "/*"]}); for (let i = 0; i < 50 && !(c.store.pending && c.store.pending.conflict); i++) await new Promise(r => setTimeout(r, 10));
+    const st2 = await c.send({op: "status"});
+    ok(st2.conflict && st2.conflict.id === "canvas" && st2.conflict.old === ORIGIN && st2.conflict.origin === OTHER && c.store.schools.canvas.origin === ORIGIN, "Firefox: the question waits for the popup, nothing replaced: " + JSON.stringify(st2.conflict));
+    await c.send({op: "keep", origin: OTHER});
+    ok(!c.store.pending && !c.granted.has(OTHER + "/*") && c.granted.has(ORIGIN + "/*") && !(await c.send({op: "status"})).conflict, "Keep forgets the question and the new site's permission");
+    c.granted.add(OTHER + "/*");
+    const r3 = await c.send({op: "add", origin: OTHER, platform: "canvas", replace: true});
+    ok(r3.ok && c.store.schools.canvas.origin === OTHER && !c.granted.has(ORIGIN + "/*"), "Switch replaces it and drops the old site's permission"); }
   console.log("extension: " + n + " checks passed");
 })().catch(e => { console.error(e); process.exit(1); });
