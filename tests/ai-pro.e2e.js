@@ -33,13 +33,12 @@ const STUB = () => {
   const P = await import(pathToFileURL(path.join(ROOT, "cloudflare", "ai-pro", "src", "pro.js")).href);
   const mem = () => { const m = new Map(); return {get: async k => m.get(k), put: async (k, v) => { if (typeof k === "object") Object.entries(k).forEach(([x, y]) => m.set(x, y)); else m.set(k, v); },
     deleteAll: async () => m.clear(), getAlarm: async () => null, setAlarm: async () => {}}; };
-  const env = {ANTHROPIC_API_KEY: "sk-test", SUPABASE_URL: "https://sb.test", SUPABASE_KEY: "k"};
-  const W = {tier: "paid", meters: new Map(), ceilings: new Map(), sent: []};
+  const env = {CF_ACCOUNT_ID: "acct", AI_GATEWAY_ID: "gw", CF_AIG_TOKEN: "cf", SUPABASE_URL: "https://sb.test", SUPABASE_KEY: "k"};
+  const W = {tier: "paid", meters: new Map(), sent: []};
   const deps = {
     user: async tok => tok === "t" ? {id: "0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", confirmed: true, anonymous: false} : null,
     plan: async () => W.tier,
     meter: id => { if (!W.meters.has(id)) W.meters.set(id, new P.Meter(mem())); return W.meters.get(id); },
-    ceiling: d => { if (!W.ceilings.has(d)) W.ceilings.set(d, new P.Ceiling(mem())); return W.ceilings.get(d); },
     claude: {
       create: async req => { W.sent.push(req); const sys = JSON.stringify(req.system || "");
         const data = /break|milestone|stage/i.test(sys) ? STAGES : {};
@@ -52,14 +51,15 @@ const STUB = () => {
   ok(html.includes(`const AI_PRO = "${PRO}";`), "test copy of the app points at the test Studyboard AI server");
 
   const browser = await chromium.launch({executablePath});
-  const device = async ({keys, consent, ownKey} = {}) => {
+  const device = async ({keys, consent, ownKey, proSeed} = {}) => {
     const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"});
     const seed = Object.assign({}, SEED, ownKey ? {settings: Object.assign({}, SEED.settings, {ai: {ownKey: true}})} : {});
     await ctx.addInitScript({content: `
       try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1");
         localStorage.setItem("coursework:v2", ${JSON.stringify(JSON.stringify(seed))}); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:tour", "done"); localStorage.setItem("studyboard:uname:0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", "student");
         ${keys ? `localStorage.setItem("studyboard:aiKeys", ${JSON.stringify(JSON.stringify(keys))});` : ""}
-        ${consent ? `localStorage.setItem("studyboard:aiConsent", ${JSON.stringify(JSON.stringify(consent))});` : ""} } } catch (e) {}
+        ${consent ? `localStorage.setItem("studyboard:aiConsent", ${JSON.stringify(JSON.stringify(consent))});` : ""}
+        ${proSeed ? `localStorage.setItem("studyboard:aiPro", JSON.stringify(Object.assign({uid: "0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", at: Date.now()}, ${JSON.stringify(proSeed)})));` : ""} } } catch (e) {}
       window.__SB_TEST = true; (${STUB.toString()})();`});
     await ctx.route(`${APP}/**`, route => {
       const p = decodeURIComponent(new URL(route.request().url()).pathname);
@@ -76,6 +76,11 @@ const STUB = () => {
       route.fulfill({status: res.status, headers: Object.fromEntries(res.headers), body: res.status === 204 ? "" : Buffer.from(await res.arrayBuffer())});
     });
     ctx.google = 0;
+    ctx.claude = [];
+    await ctx.route(/api\.anthropic\.com/, async route => { const r = route.request(), u = new URL(r.url()); const b = JSON.parse(r.postData() || "{}");
+      if (u.pathname.endsWith("/count_tokens")) return route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({input_tokens: 3000})});
+      ctx.claude.push({b, h: r.headers()}); const sys = JSON.stringify(b.system || "");
+      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: [{type: "text", text: JSON.stringify(/break|milestone|stage/i.test(sys) ? STAGES : {})}], stop_reason: "end_turn", usage: {input_tokens: 1200, output_tokens: 300}})}); });
     await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.google++; route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(STAGES)}]}, finishReason: "STOP"}]})}); });
     const page = await ctx.newPage();
     page.on("pageerror", e => console.error("page error:", e.message));
@@ -121,7 +126,7 @@ const STUB = () => {
 
     // 3. The month's allowance used up: the student is told, and no request is sent
     const m = deps.meter("0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b"); m.now = () => Date.now() - 3 * 86400000;
-    const lim = P.limitsFor("paid", P.config(env)), fill = lim.monthMicro - (await m.read()).spent - 5;
+    const lim = P.limits(env), fill = lim.monthMicro - (await m.read()).spent - 5;
     const big = await m.reserve(fill, {...lim, dayMicro: 9e6}); assert(big.ok, "test setup: fill the month"); await m.settle(big.id, fill); m.now = () => Date.now();
     const before = W.sent.length;
     await A.page.waitForTimeout(6500); await A.page.click("#bdAi");
@@ -131,12 +136,21 @@ const STUB = () => {
     await A.page.click("dialog.ai-consent[open] [data-no]");
     await A.ctx.close();
 
-    // 4. Their own key once this month's is used up
+    // 4. Their own Gemini key is only the backup: the month has room, today's allowance runs out on this job,
+    //    and the job moves to their Gemini key with no message
+    W.meters.clear();
+    { const mb = deps.meter("0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b"), lb = P.limits(env), rb = await mb.reserve(lb.dayMicro - 500, lb); await mb.settle(rb.id, lb.dayMicro - 500); }
     const B = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}, studyboard: {v: 1, at: 1}}});
     await B.page.evaluate(() => __sbAi.proRefresh());
-    ok(await B.page.evaluate(() => __sbAi.cfg().provider) === "gemini", "with the month used up, the student's own Gemini key takes over");
+    ok(await B.page.evaluate(() => __sbAi.cfg().provider) === "studyboard", "a paid Pro student with a Gemini key uses Studyboard AI first");
+    await openTask(B.page, "t1"); await B.page.click('#dlg [data-act="bd-open"]'); await B.page.waitForSelector("#bdList li");
+    await B.page.waitForTimeout(6500);
+    if (!/Used the AI/.test(await B.page.evaluate(() => (document.querySelector("#bdAiMsg") || {}).textContent || ""))) await B.page.click("#bdAi");
+    await B.page.waitForFunction(() => /Used the AI/.test((document.querySelector("#bdAiMsg") || {}).textContent || ""), null, {timeout: 15000});
+    ok(aiPosts(B.ctx).some(c => c.body && c.body.task === "breakdown") && B.ctx.google > 0, "out of today's allowance on the server: the job moved to their Gemini key");
+    ok(!(await B.page.$("dialog.ai-consent[open] #aiProTitle")), "with no used-up message (they have a backup)");
+    ok(await B.page.evaluate(() => __sbAi.cfg().provider) === "gemini", "and their Gemini key carries on until it resets");
     await B.ctx.close();
-    // a fresh month for the next students
     W.meters.clear();
 
     // 5. Their own key by choice
@@ -158,6 +172,19 @@ const STUB = () => {
     await D.ctx.close();
     W.tier = "paid";
 
+    // 6b. A free account with a free Gemini key: exactly as before (Gemini, with no Studyboard AI requests)
+    W.tier = "none";
+    const D2 = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}}});
+    await D2.page.evaluate(() => __sbAi.proRefresh()); await D2.page.waitForTimeout(300);
+    ok(await D2.page.evaluate(() => __sbAi.cfg().provider + "|" + __sbAi.cfg().model) === "gemini|auto", "a free account's Gemini key works as before (Gemini, Auto)");
+    await openTask(D2.page, "t1"); await D2.page.click('#dlg [data-act="bd-open"]'); await D2.page.waitForSelector("#bdList li");
+    await D2.page.waitForTimeout(6500);
+    if (!/Used the AI/.test(await D2.page.evaluate(() => (document.querySelector("#bdAiMsg") || {}).textContent || ""))) await D2.page.click("#bdAi");
+    await D2.page.waitForFunction(() => /Used the AI/.test((document.querySelector("#bdAiMsg") || {}).textContent || ""), null, {timeout: 15000});
+    ok(D2.ctx.google > 0 && aiPosts(D2.ctx).length === 0, "and its jobs go to Gemini, none to Studyboard's server");
+    await D2.ctx.close();
+    W.tier = "paid";
+
     // 7. Search by meaning and the companion's Ask Me without a Gemini key
     const E = await device({consent: {studyboard: {v: 1, at: 1}}});
     await E.page.waitForFunction(() => { try { return __sbAi.cfg().provider === "studyboard"; } catch (e) { return false; } }, null, {timeout: 15000});
@@ -172,6 +199,33 @@ const STUB = () => {
     ok(await F.page.evaluate(() => __sbAi.cfg().provider) === "anthropic", "a student with only a Claude key uses Claude");
     ok(await F.page.evaluate(() => window.SBCOMP && SBCOMP.askAvailable && SBCOMP.askAvailable()), "and Ask Me is available with Claude too");
     await F.ctx.close();
+
+    // 8. Your own Claude key in Studyboard AI Mode: the same rules, on this device
+    W.tier = "none";
+    const G = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+    await G.page.evaluate(() => __sbAi.useOwnMode());
+    ok(await G.page.evaluate(() => __sbAi.cfg().provider + "|" + __sbAi.cfg().model) === "anthropic|studyboard", "a Claude key in Studyboard AI Mode");
+    await openTask(G.page, "t1"); await G.page.click('#dlg [data-act="bd-open"]'); await G.page.waitForSelector("#bdList li");
+    // Break It Down runs the AI by itself when it opens with a key; tap only if it didn't
+    await G.page.waitForTimeout(6500);
+    if (!/Used the AI/.test(await G.page.evaluate(() => (document.querySelector("#bdAiMsg") || {}).textContent || ""))) await G.page.click("#bdAi");
+    await G.page.waitForFunction(() => /Used the AI/.test((document.querySelector("#bdAiMsg") || {}).textContent || ""), null, {timeout: 15000});
+    const own = G.ctx.claude.find(c => /break|milestone|stage/i.test(JSON.stringify(c.b.system || "")));
+    const ref = P.buildRequest({system: "x", blocks: [{type: "text", text: "y"}], task: P.taskOf("breakdown")});
+    ok(own && own.b.model === "claude-haiku-5-5" && own.b.output_config.effort === "high" && own.b.max_tokens === ref.max_tokens && JSON.stringify(own.b.thinking) === JSON.stringify(ref.thinking), "the same model, thinking and output cap as Studyboard AI for this job");
+    ok(own && !("temperature" in own.b) && own.h["x-api-key"] === "sk-ant-test-key-0000000000", "sent with the student's own key, no temperature");
+    ok(G.ctx.calls.filter(c => c.path === "/v1/ai").length === 0, "and nothing went through Studyboard's server");
+    const spent = await G.page.evaluate(() => JSON.parse(localStorage.getItem("studyboard:ownAI") || "{}").spent || 0);
+    ok(G.ctx.claude.length >= 1 && spent === G.ctx.claude.length * P.costOf({input_tokens: 1200, output_tokens: 300}), `every job (${G.ctx.claude.length}, automatic ones included) charged to this device's allowance at its real cost`);
+    // fill this month's limit, then the next job is stopped before it reaches Anthropic
+    await G.page.evaluate(lim => { const o = JSON.parse(localStorage.getItem("studyboard:ownAI") || "{}"); o.spent = lim - 5; localStorage.setItem("studyboard:ownAI", JSON.stringify(o)); }, P.limits({}).monthMicro);
+    const n0 = G.ctx.claude.length;
+    await G.page.waitForTimeout(6500); await G.page.click("#bdAi");
+    await G.page.waitForSelector("dialog.ai-consent[open] #aiProTitle", {timeout: 10000});
+    ok(/Claude Key's Monthly Limit/.test(await G.page.textContent("#aiProTitle")), "the same monthly limit stops it, with its own message");
+    ok(G.ctx.claude.length === n0, "and nothing reached Anthropic");
+    await G.ctx.close();
+    W.tier = "paid";
   } finally { await browser.close(); }
   console.log(`ai-pro e2e: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

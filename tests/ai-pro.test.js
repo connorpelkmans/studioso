@@ -11,28 +11,33 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
     get: async k => { await tick(); return m.get(k); },
     put: async (k, v) => { await tick(); if (typeof k === "object") Object.entries(k).forEach(([x, y]) => m.set(x, y)); else m.set(k, v); },
     deleteAll: async () => { await tick(); m.clear(); }, getAlarm: async () => alarm, setAlarm: async t => { alarm = t; }}; };
-  const ENV = {ANTHROPIC_API_KEY: "sk-test", SUPABASE_URL: "https://x.supabase.co", SUPABASE_KEY: "pk"};
+  const ENV = {CF_ACCOUNT_ID: "acct", AI_GATEWAY_ID: "gw", CF_AIG_TOKEN: "cf-token", SUPABASE_URL: "https://x.supabase.co", SUPABASE_KEY: "pk"};
 
   /* Settings can't be raised past the hard ranges */
-  eq(P.config({}).on, false, "off without an API key");
-  eq(P.config(ENV).on, true, "on with a key");
-  eq(P.config({...ENV, PRO_AI_OFF: "1"}).on, false, "PRO_AI_OFF turns it off with the key still set");
-  const wild = P.config({...ENV, MONTHLY_HARD_USD: "500", MONTHLY_SOFT_USD: "900", DAILY_USD: "99", TRIAL_TOTAL_USD: "50", GLOBAL_DAILY_USD: "1e9", PER_MINUTE: "5000", MAX_INFLIGHT: "999", GIFT_MONTHLY_HARD_USD: "77"});
-  ok(wild.hardUsd <= P.HARD.monthUsd && wild.softUsd <= wild.hardUsd && wild.dayUsd <= P.HARD.dayUsd && wild.trialUsd <= P.HARD.trialUsd, "a mistyped setting can't lift the per-student limits past their hard ranges");
-  ok(wild.globalDayUsd <= P.HARD.globalDayUsd && wild.perMinute <= P.HARD.perMinute && wild.inflight <= P.HARD.inflight && wild.giftHardUsd <= wild.hardUsd, "nor the shared ceiling, the rate or the gift limit");
-  eq([P.config({...ENV, MONTHLY_HARD_USD: "abc"}).hardUsd, P.config({...ENV, MONTHLY_HARD_USD: "-3"}).hardUsd], [4, 0], "a bad value falls back to the default; a negative one means no AI");
-  eq([P.config(ENV).softUsd, P.config(ENV).hardUsd, P.config(ENV).trialUsd, P.config(ENV).dayUsd, P.config(ENV).globalDayUsd], [3, 4, 0.3, 1, 25], "defaults: $3 soft, $4 hard a month, $0.30 for the free week, $1 a day, $25 a day for everyone");
+  eq(P.config({}).on, false, "off without the gateway settings");
+  eq(P.config({ANTHROPIC_API_KEY: "sk-ant-x"}).on, false, "an Anthropic key alone doesn't turn it on (it never uses one)");
+  eq(P.config(ENV).on, true, "on with the account, gateway and gateway token");
+  eq(P.config({...ENV, CF_AIG_TOKEN: ""}).on, false, "not without the gateway token");
+  eq(P.config({...ENV, PRO_AI_OFF: "1"}).on, false, "PRO_AI_OFF turns it off");
+  const wild = P.limits({MONTHLY_HARD_USD: "500", MONTHLY_SOFT_USD: "900", DAILY_USD: "99", PER_MINUTE: "5000", MAX_INFLIGHT: "999"});
+  ok(wild.hardUsd <= P.HARD.monthUsd && wild.softUsd <= wild.hardUsd && wild.dayUsd <= P.HARD.dayUsd && wild.perMinute <= P.HARD.perMinute && wild.inflight <= P.HARD.inflight, "a mistyped setting can't lift the limits past their hard ranges");
+  eq([P.limits({MONTHLY_HARD_USD: "abc"}).hardUsd, P.limits({MONTHLY_HARD_USD: "-3"}).hardUsd], [4, 0], "a bad value falls back to the default; a negative one means no AI");
+  const L0 = P.limits({});
+  eq([L0.softUsd, L0.hardUsd, L0.dayUsd, L0.perMinute, L0.inflight], [3, 4, 1, 20, 4], "defaults: $3 soft, $4 hard a month, $1 a day, 20 a minute, 4 at once");
+  ok(!("globalDayUsd" in L0) && !("trialUsd" in L0), "no limit shared across students, and nothing for a free week");
+  const src = require("fs").readFileSync(path.join(__dirname, "..", "cloudflare", "ai-pro", "src", "pro.js"), "utf8");
+  ok(src.includes('import "../../../src/js/01-ai-policy.js"') && !/\bconst TASKS\b|\bfunction buildRequest\b/.test(src), "the Worker uses the app's own rules file, not a copy");
+  ok(globalThis.SBPOLICY && globalThis.SBPOLICY.TASKS === P.TASKS && globalThis.SBPOLICY.buildRequest === P.buildRequest, "the very same rules object");
 
-  /* Plans: only the server's own row decides */
+  /* Plans: only a Pro plan someone pays for */
   const now0 = Date.UTC(2026, 10, 4, 12), later = new Date(now0 + 86400000).toISOString(), past = new Date(now0 - 86400000).toISOString();
   eq(P.tierOf({plan: "pro", pro_until: later}, now0), "paid", "paid Pro");
   eq(P.tierOf({plan: "pro", pro_until: null}, now0), "paid", "Pro with no end date");
   eq(P.tierOf({plan: "lifetime"}, now0), "paid", "lifetime");
   eq(P.tierOf({plan: "pro", pro_until: past}, now0), "none", "lapsed Pro gets nothing");
-  eq(P.tierOf({plan: "free", promo_until: later}, now0), "gift", "a promo code");
-  eq(P.tierOf({plan: "free", grant_lifetime: true}, now0), "gift", "a lifetime grant");
-  eq(P.tierOf({plan: "free", trial_until: later}, now0), "trial", "the free week");
-  eq(P.tierOf({plan: "free", trial_until: past}, now0), "none", "an ended free week");
+  eq(P.tierOf({plan: "free", promo_until: later, promo_lifetime: true}, now0), "none", "Pro from a promo code: no Studyboard AI");
+  eq(P.tierOf({plan: "free", grant_lifetime: true, grant_until: later}, now0), "none", "Pro from a server grant: no Studyboard AI");
+  eq(P.tierOf({plan: "free", trial_until: later}, now0), "none", "the free week: no Studyboard AI");
   eq([P.tierOf(null), P.tierOf(undefined), P.tierOf({plan: "free"}), P.tierOf({plan: "pro", pro_until: "not a date"}, now0)], ["none", "none", "none", "none"], "no row, a free row, or a garbled date: nothing");
 
   /* The server picks the thinking level and the output cap */
@@ -99,8 +104,8 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
 
   /* One student's meter */
   let now = Date.UTC(2026, 10, 4, 12);
-  const lim = P.limitsFor("paid", P.config(ENV)), st = new P.Meter(mem(), () => now);
-  eq([lim.monthMicro, lim.softMicro, lim.dayMicro, lim.trialMicro], [4e6, 3e6, 1e6, null], "paid limits in micro-dollars");
+  const lim = P.limits(ENV), st = new P.Meter(mem(), () => now);
+  eq([lim.monthMicro, lim.softMicro, lim.dayMicro], [4e6, 3e6, 1e6], "limits in micro-dollars");
   let r = await st.reserve(500000, lim); ok(r.ok, "a $0.50 job fits");
   ok(await st.settle(r.id, 1000), "settled to its real cost");
   eq((await st.status(lim)).usedPct, 0, "a tenth of a cent rounds to 0%");
@@ -118,13 +123,6 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await st2.reserve(100000, lim)).reason, "used_up", "$4 a month: refused until next month");
   now = Date.UTC(2026, 11, 1, 0, 0, 1);
   ok((await st2.reserve(100000, lim)).ok, "a new month starts a new allowance");
-  // The free week: once, and a new month doesn't reset it
-  const tl = P.limitsFor("trial", P.config(ENV)), st3 = new P.Meter(mem(), () => now);
-  eq(tl.trialMicro, 300000, "$0.30 for the free week");
-  const t1 = await st3.reserve(290000, tl); ok(t1.ok, "trial job"); await st3.settle(t1.id, 290000);
-  eq((await st3.reserve(20000, tl)).reason, "used_up", "the free week's AI runs out");
-  now = Date.UTC(2027, 0, 1, 0, 0, 1);
-  eq((await st3.reserve(20000, tl)).reason, "used_up", "and a new month doesn't refill it");
   // A job that never settles stays charged
   const st4 = new P.Meter(mem(), () => now), lost = await st4.reserve(600000, lim);
   ok(lost.ok, "a job whose Worker dies mid-way");
@@ -158,19 +156,12 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   const del = new P.Meter(mem(), () => now); await del.reserve(3900000, {...lim, dayMicro: 4e6});
   await del.forget();
   eq((await del.reserve(1, lim)).reason, "gone", "a deleted account's id can't be used to get a fresh allowance");
-  // The shared ceiling
-  const ce = new P.Ceiling(mem());
-  const cr = await Promise.all(Array.from({length: 30}, () => ce.reserve(1000000, 25e6)));
-  eq(cr.filter(Boolean).length, 25, "everyone together: $25 a day, exactly");
-  await ce.settle(1000000, 0);
-  ok(await ce.reserve(1000000, 25e6), "a cheaper real cost frees room");
-
   /* The whole request path, with a fake Anthropic */
   now = Date.UTC(2027, 0, 15, 12);
   // Spending from earlier days this month (so the daily limit doesn't get in the way)
   const spendBefore = async (m, amount) => { const save = now; now -= 2 * 86400000; const r = await m.reserve(amount, {...lim, dayMicro: 9e6}); await m.settle(r.id, amount); now = save; };
   function harness(over = {}){
-    const meters = new Map(), ceilings = new Map(), calls = [], counts = [];
+    const meters = new Map(), calls = [], counts = [];
     const H = {calls, counts, deferred: [],
       tier: "paid", user: {id: "0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", confirmed: true, anonymous: false},
       reply: req => ({content: [{type: "thinking", thinking: ""}, {type: "text", text: JSON.stringify({ok: 1})}], stop_reason: "end_turn", usage: {input_tokens: 1000, output_tokens: 200}}),
@@ -180,7 +171,6 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
       user: async t => t === "good" ? H.user : null,
       plan: async () => H.tier,
       meter: id => { if (!meters.has(id)) meters.set(id, new P.Meter(mem(), H.now)); return meters.get(id); },
-      ceiling: d => { if (!ceilings.has(d)) ceilings.set(d, new P.Ceiling(mem())); return ceilings.get(d); },
       claude: {create: async req => { calls.push(JSON.parse(JSON.stringify(req))); const x = H.reply(req); if (x instanceof Error) throw x; return x; }, count: async req => { counts.push(req); return H.count(req); }},
       whisper: async bytes => H.whisper ? H.whisper(bytes) : {text: " hello ", transcription_info: {duration: 30}},
       defer: p => H.deferred.push(p), now: H.now};
@@ -213,8 +203,8 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq([x.s, x.j.error], [403, "not_pro"], "a free account");
   ok(!H.calls.length, "and nothing reached Anthropic");
   H = harness({tier: null}); eq((await J(await call(H, job()))).s, 503, "if the plan can't be checked, nothing runs");
-  H = harness({tier: "trial"}); eq((await J(await call(H, job(), {env: {...ENV, TRIAL_TOTAL_USD: "0"}}))).j.error, "not_pro", "the free week can be given no AI at all");
-  H = harness(); eq((await J(await call(H, job(), {env: {...ENV, ANTHROPIC_API_KEY: ""}}))).j.error, "off", "no key: off");
+  for (const t of ["none"]) { H = harness({tier: t}); eq((await J(await call(H, job()))).j.error, "not_pro", "anything but paid Pro is refused"); }
+  H = harness(); eq((await J(await call(H, job(), {env: {...ENV, CF_AIG_TOKEN: ""}}))).j.error, "off", "no gateway token: off");
   H = harness(); x = await J(await call(H, null, {path: "/v1/status", method: "GET"}));
   eq([x.s, x.j.on, x.j.tier, x.j.usedPct], [200, true, "paid", 0], "status for a Pro student");
   H = harness({tier: "none"}); x = await J(await call(H, null, {path: "/v1/status", method: "GET"}));
@@ -261,10 +251,8 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   x = await J(await call(H, job()));
   eq([x.s, x.j.data, tries], [200, {ok: 2}, 2], "an answer shape the API won't take: retried once with the shape in the instructions");
   ok(/JSON Schema/.test(H.calls[1].system) && !H.calls[1].output_config.format, "the retry has no structured-output setting");
-  // The shared ceiling
-  H = harness(); const day = P.dayOf(now), ce2 = H.deps.ceiling(day); await ce2.reserve(25e6 - 10, 25e6);
-  x = await J(await call(H, job())); eq([x.s, x.j.error], [503, "busy"], "the shared daily ceiling reached: busy");
-  eq((await H.meterOf().read()).spent, 0, "and the student isn't charged");
+  // No limit shared across students: a thousand students' jobs on one day all run
+  { const many = harness(); let okAll = true; for (let i = 0; i < 40; i++) { many.user = {...many.user, id: "0b6f2a1c-1d2e-4f50-8a9b-" + String(i).padStart(12, "0")}; const r = await J(await call(many, job())); if (r.s !== 200) okAll = false; } ok(okAll, "forty students in a row all get answers (each has only their own limits)"); }
   // Soft limit reaches the request
   H = harness(); await spendBefore(H.meterOf(), 3100000);
   await call(H, job({task: "chat"})); await call(H, job({task: "grade"}));
@@ -340,7 +328,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   const yr = P.youtubeRequest("dQw4w9WgXcQ");
   eq([yr.contents[0].parts[0].file_data.file_uri, yr.contents[0].parts[0].video_metadata.end_offset, yr.generationConfig.maxOutputTokens], ["https://www.youtube.com/watch?v=dQw4w9WgXcQ", "7200s", 32000], "Gemini sees only the canonical link, at most 2 hours, and writes at most 32K tokens");
   ok(P.ytWorst() >= P.ytCost(7200 * 100, 32000), "the reservation covers 2 hours at 100 tokens a second and a full answer");
-  const ycall = (H, body, env) => P.handle(new Request("https://w.example/v1/youtube", {method: "POST", headers: {Authorization: "Bearer good", "Content-Type": "application/json"}, body: JSON.stringify(body)}), env || {...ENV, GOOGLE_AI_KEY: "g"}, H.deps).then(J);
+  const ycall = (H, body, env) => P.handle(new Request("https://w.example/v1/youtube", {method: "POST", headers: {Authorization: "Bearer good", "Content-Type": "application/json"}, body: JSON.stringify(body)}), env || ENV, H.deps).then(J);
   const gOk = (u = {promptTokenCount: 160000, candidatesTokenCount: 20000, thoughtsTokenCount: 500}) => async req => ({status: 200, json: {candidates: [{content: {parts: [{text: JSON.stringify({title: "Cells", transcript: "Today: membranes.", onScreen: "Slide 1"})}]}, finishReason: "STOP"}], usageMetadata: u}});
   H = harness(); H.deps.gemini = gOk(); x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
   eq([x.s, x.j.transcript, x.j.title], [200, "Today: membranes.", "Cells"], "a video becomes a transcript");
@@ -350,8 +338,10 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   H = harness(); H.deps.gemini = async () => { throw new Error("reset"); }; await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
   eq((await H.meterOf().read()).spent, P.ytWorst(), "a dropped connection keeps the worst case charged");
   H = harness(); H.deps.gemini = gOk(); eq((await ycall(H, {url: "https://vimeo.com/123"})).s, 400, "only YouTube links");
-  H = harness(); H.deps.gemini = gOk(); eq((await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, ENV)).s, 503, "off without GOOGLE_AI_KEY");
-  H = harness(); H.deps.gemini = gOk(); x = await J(await call(H, null, {path: "/v1/status", method: "GET", env: {...ENV, GOOGLE_AI_KEY: "g"}}));
+  H = harness(); H.deps.gemini = gOk(); eq((await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, {...ENV, YOUTUBE_OFF: "1"})).s, 503, "YOUTUBE_OFF turns YouTube links off");
+  H = harness(); H.deps.gemini = async () => ({status: 401, json: {}}); x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
+  eq([x.s, x.j.error, (await H.meterOf().read()).spent], [503, "off", 0], "if the gateway won't serve Gemini, it's off for now and nothing is charged");
+  H = harness(); H.deps.gemini = gOk(); x = await J(await call(H, null, {path: "/v1/status", method: "GET", env: ENV}));
   eq(x.j.youtube, true, "status says YouTube links work");
   H = harness({tier: "none"}); H.deps.gemini = gOk(); eq((await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"})).s, 403, "free accounts can't");
 
@@ -360,5 +350,29 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   const floods = []; for (let i = 0; i < 25; i++) floods.push((await J(await call(H, job({content: [{type: "text", text: "x".repeat(200000)}]})))).j.error);
   eq([floods.filter(e => e === "too_long").length, floods.filter(e => e === "rate").length], [20, 5], "after 20 counted requests in a minute, the rest are turned away before reaching Anthropic");
   ok(H.counts.length === 20, "so only 20 token counts were made");
+
+  /* If the gateway can't count tokens, files get a generous estimate instead (jobs still run, and are still charged first) */
+  const pdf3 = Buffer.from("%PDF-1.4\n1 0 obj << /Type /Pages /Kids [2 0 R 3 0 R 4 0 R] >>\n2 0 obj << /Type /Page >>\n3 0 obj << /Type /Page >>\n4 0 obj << /Type/Page >>\n%%EOF").toString("base64");
+  eq(P.pdfPages(pdf3), 3, "pages are counted from the PDF (and /Pages isn't a page)");
+  H = harness({count: () => { throw new Error("not supported"); }});
+  let seenReserve = 0; const m0 = H.meterOf(), r0 = m0.reserve.bind(m0); m0.reserve = (c, l) => { seenReserve = c; return r0(c, l); };
+  x = await J(await call(H, job({task: "tutor", content: [{type: "document", source: {type: "base64", media_type: "application/pdf", data: pdf3}}, {type: "text", text: "summarize"}]})));
+  eq(x.s, 200, "a PDF still runs when the count isn't available");
+  ok(seenReserve >= P.worstCost(3 * P.PDF_PAGE_TOKENS, P.TASKS.tutor.out), "reserved as if each page were 5,000 tokens");
+
+  /* Nothing but Haiku 5.5 for Claude, and only Whisper and bge-m3 on Workers AI */
+  const idx = require("fs").readFileSync(path.join(__dirname, "..", "cloudflare", "ai-pro", "src", "index.js"), "utf8");
+  const aiRuns = [...idx.matchAll(/env\.AI\.run\(\s*([A-Za-z_]+)/g)].map(m => m[1]);
+  eq(aiRuns.sort(), ["EMBED_MODEL", "WHISPER_MODEL"], "Workers AI is only ever asked for Whisper (audio) and bge-m3 (search by meaning), by name");
+  eq([P.WHISPER_MODEL, P.EMBED_MODEL], ["@cf/openai/whisper-large-v3-turbo", "@cf/baai/bge-m3"], "and those names are fixed in code");
+  ok(!/model\s*:\s*(?!MODEL\b)["'`]claude/.test(idx) && !/messages\.create\(\s*\{/.test(idx), "the Worker never names another Claude model, or builds a Claude request itself");
+  let allHaiku = true;
+  for (const name of Object.keys(P.TASKS).concat(["unknown-job", "__proto__"])) for (const soft of [false, true]) for (const web of [null, {search: true, fetch: true}]) {
+    const t = P.taskOf(name, soft), r = P.buildRequest({system: "s", blocks: [{type: "text", text: "q"}], schema: {type: "object", properties: {}, additionalProperties: false}, task: t, web});
+    if (r.model !== "claude-haiku-5-5" || !["low", "medium", "high"].includes(r.output_config.effort) || (t.effort === "none") !== (r.thinking.type === "disabled")) allHaiku = false;
+  }
+  ok(allHaiku, "every job, before and past the soft limit, with or without web lookups: Haiku 5.5 at its own effort (thinking off only for the no-thinking jobs)");
+  eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "high").map(([k]) => k).sort(), ["breakdown", "cards", "cases", "grade", "practice", "quiz", "rubric", "syllabus", "tutor"], "the high-thinking jobs");
+  eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "none").map(([k]) => k).sort(), ["annintel", "classify", "line", "news", "ping", "quickadd", "remote", "tag", "triage"], "the no-thinking jobs");
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

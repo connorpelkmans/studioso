@@ -129,7 +129,7 @@ const LINKCARDS = (() => {
   async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider, trial = prov === "trial";
     // Studyboard AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI makes the notes from it
-    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube() && !(aiCfg().keys || {}).gemini) {
+    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube()) {
       const v = await proYoutube(L.url, signal);
       if (onStatus) onStatus("Got the video's transcript. Writing study notes…");
       pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");

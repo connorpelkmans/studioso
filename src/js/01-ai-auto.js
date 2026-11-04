@@ -1,7 +1,8 @@
 /* ===== module: 01-ai-auto.js: the app's core, automatic AI jobs ===== */
 /* Automatic AI: quietly improves Today's Plan and study sessions */
 // Free to the student: their free Gemini key, the trial, or Studyboard AI (included with Pro)
-const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "trial" || p === "studyboard";
+// A Claude key in Studyboard AI Mode counts too: its monthly and daily limits cap what automatic AI can spend
+const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "trial" || p === "studyboard" || (p === "anthropic" && m === "studyboard");
 function autoState(){
   if (inPreview()) return {on: false, reason: "preview"};
   const raw = (state.settings && state.settings.ai) || {}, c = aiCfg();
@@ -9,7 +10,8 @@ function autoState(){
   if (c.provider === "trial") return {on: false, reason: "trial"};
   const want = raw.auto !== undefined ? !!raw.auto : isFreeModel(c.provider, c.model);
   if (!want) return {on: false, reason: "off"};
-  const cfg = raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
+  // Free Gemini for automatic AI when the student has a key, except on Studyboard AI (paid Pro), where their key is only the backup
+  const cfg = c.provider !== "studyboard" && !c.backup && raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
   if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};
   const paid = !isFreeModel(cfg.provider, cfg.model);
   if (paid && raw.autoPaidOk !== `${cfg.provider}|${cfg.model}`) return {on: false, reason: "confirm", cfg, paid};
@@ -165,8 +167,8 @@ async function autoRun(){
   const today = todayISO(), tomorrow = addDays(today, 1);
   let job = null;
   const sig = planSig(), core = planCoreSig();
-  // On Studyboard AI, a change in progress or the time of day alone waits 20 minutes, so ticking focus minutes don't rerun the plan
-  const gap = a.cfg && a.cfg.provider === "studyboard" && AUTO.core === core ? 20 * 60000 : 90000;
+  // On Studyboard AI (or a Claude key in its mode), a change in progress or the time of day alone waits 20 minutes, so ticking focus minutes don't rerun the plan
+  const gap = aiSbMode(a.cfg) && AUTO.core === core ? 20 * 60000 : 90000;
   if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > gap : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
     job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt, prevCore = AUTO.core; AUTO.sig = sig; AUTO.core = core; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.core = prevCore; AUTO.planAt = prevAt; throw e; } };
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }

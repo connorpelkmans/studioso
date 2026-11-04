@@ -3222,6 +3222,298 @@ function saveSettings(){
   queueWrite("meta", "meta", {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)});
 }
 
+/* ===== module: 01-ai-policy.js: the app's core, Studyboard AI's rules ===== */
+/* Studyboard AI's rules: one copy, used in two places.
+   - cloudflare/ai-pro (the Worker that runs Studyboard AI for paid Pro students) imports this file.
+   - The app uses it when a student runs their own Claude key in Studyboard AI mode (Settings, AI Features).
+   So both pick the same model, the same thinking for each job, the same output caps, the same prices and the same limits.
+   Plain script, no imports: it works in the app's bundle and as a module the Worker imports (both read globalThis.SBPOLICY). */
+const SBPOLICY = (() => {
+  const MODEL = "claude-haiku-5-5";
+  // Dollars per token on Haiku 5.5's normal rate card (prompts up to 100K tokens); over that, every rate times 5
+  const PRICE = {in: 0.10e-6, cacheWrite: 0.125e-6, cacheRead: 0.01e-6, out: 0.50e-6};
+  const LONG_PROMPT = 100000, LONG_MULT = 5;
+  // Requests are capped below the long rate card
+  const MAX_INPUT_TOKENS = 90000;
+  // Fixed cost of a request's framing and the structured-output instructions, in tokens (added to every text estimate)
+  const FRAME_TOKENS = 3000;
+  const MAX_SCHEMA_CHARS = 20000, MAX_BLOCKS = 40, MAX_SYSTEM_BYTES = 60000;
+  // Web lookups (Anthropic's web search and web fetch tools): a search costs $0.01; fetched pages and results are read as input.
+  // These keep every round of the tool loop, all rounds together, under the 100K tokens where the price goes up 5 times:
+  // (input + frame + one search + one page) x 3 rounds = (8,000 + 3,000 + 10,000 + 12,000) x 3 = 99,000.
+  const WEB = {searchUses: 1, fetchUses: 1, fetchTokens: 12000, searchTokens: 10000, maxInput: 8000, perSearch: 0.01};
+  // When a file can't be counted by Anthropic: the most an image can take, and a PDF page (its text plus its picture)
+  const IMAGE_TOKENS = 6000, PDF_PAGE_TOKENS = 5000;
+
+  // Thinking per job. none = thinking off. out = the most tokens one answer may use (thinking included).
+  // routine: past the soft limit these drop to low thinking; hard jobs keep their level until the hard limit.
+  const TASKS = {
+    // Hard jobs, where answer quality matters most
+    grade: {effort: "high", out: 6000}, tutor: {effort: "high", out: 12000}, rubric: {effort: "high", out: 12000},
+    syllabus: {effort: "high", out: 32000}, cards: {effort: "high", out: 24000}, quiz: {effort: "high", out: 32000},
+    cases: {effort: "high", out: 24000}, breakdown: {effort: "high", out: 8000}, practice: {effort: "high", out: 24000},
+    // Conversation and middle-weight jobs
+    chat: {effort: "medium", out: 6000, routine: true}, ask: {effort: "medium", out: 6000, routine: true},
+    examplan: {effort: "medium", out: 8000, routine: true}, topics: {effort: "medium", out: 6000, routine: true},
+    explain: {effort: "medium", out: 4000, routine: true}, summary: {effort: "medium", out: 12000, routine: true},
+    photo: {effort: "medium", out: 10000, routine: true}, linknotes: {effort: "medium", out: 10000, routine: true},
+    transcript: {effort: "medium", out: 16000, routine: true}, groupplan: {effort: "medium", out: 6000, routine: true},
+    // Routine: ranks and words what the app has already worked out
+    plan: {effort: "low", out: 6000, routine: true}, tune: {effort: "low", out: 4000, routine: true},
+    estimate: {effort: "low", out: 3000, routine: true}, capture: {effort: "low", out: 4000, routine: true},
+    weekly: {effort: "low", out: 2000, routine: true}, coach: {effort: "low", out: 3000, routine: true},
+    "cards-light": {effort: "low", out: 10000, routine: true}, "quiz-light": {effort: "low", out: 10000, routine: true},
+    "cases-light": {effort: "low", out: 10000, routine: true}, rewrite: {effort: "low", out: 9000, routine: true},
+    // Yes/no and tiny lookups: no thinking
+    remote: {effort: "none", out: 800, routine: true}, quickadd: {effort: "none", out: 3000, routine: true},
+    news: {effort: "none", out: 4000, routine: true}, annintel: {effort: "none", out: 2000, routine: true},
+    classify: {effort: "none", out: 2000, routine: true}, triage: {effort: "none", out: 2500, routine: true},
+    tag: {effort: "none", out: 1000, routine: true}, line: {effort: "none", out: 2000, routine: true},
+    ping: {effort: "none", out: 400, routine: true}
+  };
+  // A job the app doesn't name
+  const DEFAULT_TASK = {effort: "medium", out: 8000, routine: true};
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  function taskOf(name, soft){
+    const t = own(TASKS, name) ? TASKS[name] : DEFAULT_TASK;
+    // Past the soft limit, routine jobs think less (never more)
+    const effort = soft && t.routine && (t.effort === "medium" || t.effort === "high") ? "low" : t.effort;
+    return {name: own(TASKS, name) ? name : "other", effort, out: t.out};
+  }
+
+  // Limits per student, each clamped to a range settings can't widen. env: the Worker's settings ({} gives the defaults).
+  const HARD = {monthUsd: 10, dayUsd: 3, perMinute: 60, inflight: 8};
+  const num = (v, d, lo, hi) => { const n = Number(v); return v != null && String(v).trim() !== "" && Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+  // Money is kept in whole micro-dollars (integers), always rounded up
+  const micro = usd => Math.max(0, Math.ceil(usd * 1e6 - 1e-6));
+  function limits(env){
+    env = env || {};
+    const hard = num(env.MONTHLY_HARD_USD, 4, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 3, 0, HARD.monthUsd));
+    const day = num(env.DAILY_USD, 1, 0.05, HARD.dayUsd);
+    return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
+      perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};
+  }
+  const monthOf = now => new Date(now).toISOString().slice(0, 7);
+  const dayOf = now => new Date(now).toISOString().slice(0, 10);
+  const nextMonth = now => { const d = new Date(now); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1); };
+
+  // What a finished request cost, from Anthropic's usage report
+  function costOf(u){
+    const n = k => Math.max(0, Number(u && u[k]) || 0);
+    const inT = n("input_tokens"), cw = n("cache_creation_input_tokens"), cr = n("cache_read_input_tokens"), out = n("output_tokens");
+    const mult = inT + cw + cr > LONG_PROMPT ? LONG_MULT : 1;
+    const searches = Math.max(0, Number(u && u.server_tool_use && u.server_tool_use.web_search_requests) || 0);
+    return micro(mult * (inT * PRICE.in + cw * PRICE.cacheWrite + cr * PRICE.cacheRead + out * PRICE.out) + searches * WEB.perSearch);
+  }
+  // The worst a request can cost: every input token written to the cache, and the whole output cap used
+  const worstCost = (inTok, outCap) => micro((inTok > LONG_PROMPT ? LONG_MULT : 1) * (inTok * PRICE.cacheWrite + outCap * PRICE.out));
+  // The worst a web lookup can cost: every round of the tool loop reads the prompt plus everything fetched so far
+  function webWorst(inTok, outCap, web){
+    const uses = (web.search ? WEB.searchUses : 0) + (web.fetch ? WEB.fetchUses : 0);
+    const perRound = inTok + (web.search ? WEB.searchUses * WEB.searchTokens : 0) + (web.fetch ? WEB.fetchUses * WEB.fetchTokens : 0);
+    return micro((uses + 1) * perRound * PRICE.cacheWrite * (perRound > LONG_PROMPT ? LONG_MULT : 1) + outCap * PRICE.out + (web.search ? WEB.searchUses * WEB.perSearch : 0));
+  }
+  // A UTF-8 byte is never split across two tokens, so a text's byte count is never below its token count
+  const textBytes = s => new TextEncoder().encode(String(s || "")).length;
+
+  // One call at a time, in order of arrival
+  const serial = () => { let q = Promise.resolve(); return fn => { const run = q.then(fn, fn); q = run.catch(() => {}); return run; }; };
+  /* One student's allowance. storage: {get(k), put(k, v) or put({k: v}), deleteAll()}, all async (a Durable Object's storage on
+     the Worker; the device's storage for a student's own key). Each call reads and writes with nothing in between, one at a time,
+     so two jobs can never both pass a check that only one fits. lock: optional, wraps each call (the app uses a cross-tab lock). */
+  class Meter {
+    constructor(storage, now = () => Date.now(), lock = null){ this.s = storage; this.now = now; const one = serial(); this.one = lock ? fn => one(() => lock(fn)) : one; }
+    async read(){
+      const keys = ["gone", "month", "spent", "day", "daySpent", "flying", "hits"], v = await Promise.all(keys.map(k => this.s.get(k)));
+      const [gone, month, spent, day, daySpent, flying, hits] = v, now = this.now(), m = monthOf(now), d = dayOf(now);
+      return {gone: !!gone, now, month: m, spent: month === m ? spent || 0 : 0, day: d, daySpent: day === d ? daySpent || 0 : 0,
+        // A job that never settled (its Worker or tab stopped) stays charged; after 15 minutes it stops counting as in flight
+        flying: (flying || []).filter(f => now - f.at < 15 * 60000), hits: (hits || []).filter(t => now - t < 60000)};
+    }
+    reserve(cost, lim){ return this.one(() => this._reserve(cost, lim)); }
+    settle(id, actual){ return this.one(() => this._settle(id, actual)); }
+    status(lim){ return this.one(() => this._status(lim)); }
+    touch(lim){ return this.one(() => this._touch(lim)); }
+    forget(){ return this.one(() => this._forget()); }
+    // A free call made for the student (Anthropic's token count) still counts toward their requests a minute
+    async _touch(lim){
+      const r = await this.read();
+      if (r.gone || r.hits.length >= lim.perMinute) return false;
+      r.hits.push(r.now); await this.s.put("hits", r.hits);
+      return true;
+    }
+    async _reserve(cost, lim){
+      if (!Number.isFinite(cost) || cost < 0) return {ok: false, reason: "bad"};
+      const r = await this.read();
+      if (r.gone) return {ok: false, reason: "gone"};
+      if (r.hits.length >= lim.perMinute || r.flying.length >= lim.inflight) return {ok: false, reason: "rate"};
+      if (r.spent + cost > lim.monthMicro) return {ok: false, reason: "used_up", ...this.view(r, lim)};
+      if (r.daySpent + cost > lim.dayMicro) return {ok: false, reason: "today", ...this.view(r, lim)};
+      const id = crypto.randomUUID();
+      r.flying.push({id, at: r.now, cost, month: r.month, day: r.day}); r.hits.push(r.now);
+      await this.s.put({month: r.month, spent: r.spent + cost, day: r.day, daySpent: r.daySpent + cost, flying: r.flying, hits: r.hits});
+      return {ok: true, id};
+    }
+    // Replace a reservation with what the job really cost (never more than 4 times the reservation; a garbled amount keeps it)
+    async _settle(id, actual){
+      const r = await this.read(), all = (await this.s.get("flying")) || [], f = all.find(x => x.id === id);
+      if (!f || r.gone) return false;
+      const real = Number.isFinite(actual) ? Math.max(0, Math.min(Math.ceil(actual), f.cost * 4)) : f.cost, delta = real - f.cost;
+      const upd = {flying: r.flying.filter(x => x.id !== id)};
+      if (f.month === r.month) upd.spent = Math.max(0, r.spent + delta);
+      if (f.day === r.day) upd.daySpent = Math.max(0, r.daySpent + delta);
+      await this.s.put(upd);
+      return true;
+    }
+    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextMonth(r.now)}; }
+    async _status(lim){ const r = await this.read(); return r.gone ? {usedPct: 100, soft: false, resets: null, gone: true} : this.view(r, lim); }
+    // Delete My Account: the id is closed for good, so deleting can't be used to reset an allowance
+    async _forget(){ await this.s.deleteAll(); await this.s.put("gone", true); }
+  }
+
+  // The app's answer shapes, made strict for structured outputs: only the keywords the API supports, every object closed
+  const KEEP = new Set(["type", "properties", "items", "required", "enum", "description"]);
+  function strictSchema(s, depth = 0){
+    if (depth > 12) throw new Error("schema_deep");
+    if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error("schema_bad");
+    const o = {};
+    for (const [k, v] of Object.entries(s)) {
+      if (!KEEP.has(k)) continue;
+      if (k === "type") { const t = String(v).toLowerCase(); if (!["object", "array", "string", "integer", "number", "boolean"].includes(t)) throw new Error("schema_bad"); o.type = t; }
+      else if (k === "properties") { if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("schema_bad"); o.properties = {}; for (const [pk, pv] of Object.entries(v)) o.properties[String(pk).slice(0, 64)] = strictSchema(pv, depth + 1); }
+      else if (k === "items") o.items = strictSchema(v, depth + 1);
+      else if (k === "required") o.required = Array.isArray(v) ? v.filter(x => typeof x === "string").slice(0, 64) : undefined;
+      else if (k === "enum") o.enum = Array.isArray(v) ? v.filter(x => typeof x === "string" || typeof x === "number").slice(0, 100) : undefined;
+      else if (k === "description") o.description = String(v).slice(0, 500);
+    }
+    if (!o.type) o.type = o.properties ? "object" : "string";
+    if (o.type === "object") { o.properties = o.properties || {}; o.additionalProperties = false; if (o.required) o.required = o.required.filter(r => own(o.properties, r)); }
+    if (o.type === "array" && !o.items) o.items = {type: "string"};
+    Object.keys(o).forEach(k => o[k] === undefined && delete o[k]);
+    return o;
+  }
+
+  // The content a job may send: text, images and PDFs, nothing else (no tools, URLs, files by id or server-side fetches)
+  const IMG = /^image\/(png|jpeg|gif|webp)$/, B64 = /^[A-Za-z0-9+/]*={0,2}$/;
+  function readBlocks(blocks){
+    if (!Array.isArray(blocks) || !blocks.length || blocks.length > MAX_BLOCKS) throw new Error("bad");
+    let text = 0, media = 0, guess = 0;
+    const out = blocks.map(b => {
+      if (!b || typeof b !== "object") throw new Error("bad");
+      if (b.type === "text" && typeof b.text === "string") { text += textBytes(b.text); return {type: "text", text: b.text}; }
+      const src = b.source || {};
+      if (src.type !== "base64" || typeof src.data !== "string" || !src.data || src.data.length % 4 !== 0 || !B64.test(src.data)) throw new Error("bad");
+      if (b.type === "image" && IMG.test(src.media_type)) { media++; guess += IMAGE_TOKENS; return {type: "image", source: {type: "base64", media_type: src.media_type, data: src.data}}; }
+      if (b.type === "document" && src.media_type === "application/pdf") { media++; guess += pdfPages(src.data) * PDF_PAGE_TOKENS; return {type: "document", source: {type: "base64", media_type: "application/pdf", data: src.data}}; }
+      throw new Error("bad");
+    });
+    if (!out.some(b => b.type === "text" ? b.text.trim() : true)) throw new Error("bad");
+    return {blocks: out, textBytes: text, media, mediaGuess: guess};
+  }
+  // Pages in a PDF, counted from its "/Type /Page" entries (at least 1); used only when Anthropic can't count the file
+  function pdfPages(b64){
+    let s = ""; try { s = atob(b64); } catch (e) { return 1000; }
+    const m = s.match(/\/Type\s*\/Page(?![a-zA-Z])/g);
+    return Math.max(1, m ? m.length : 1);
+  }
+
+  // The request sent to Anthropic. Only this builds it, from the choices above.
+  function buildRequest({system, blocks, schema, task, cacheMedia, web}){
+    let sys = String(system || "").trim();
+    // Web tools answer in text, so the answer shape goes into the instructions
+    if (web && (web.search || web.fetch) && schema) { sys = `${sys}\n\nReply with one JSON object only, no other text. It must match this JSON Schema:\n${JSON.stringify(schema)}`.trim(); schema = null; }
+    const req = {model: MODEL, max_tokens: task.out, messages: [{role: "user", content: blocks.map(b => Object.assign({}, b))}]};
+    // Prompt caching: system prompts are the same for every student, so they stay warm. Under 2,000 characters they're
+    // shorter than the minimum that can be cached, so they're sent plain.
+    if (sys) req.system = sys.length >= 2000 ? [{type: "text", text: sys, cache_control: {type: "ephemeral"}}] : sys;
+    // Follow-up questions about the same files reuse them from the cache
+    if (cacheMedia) { const c = req.messages[0].content; let last = -1; c.forEach((b, i) => { if (b.type !== "text") last = i; }); if (last >= 0) c[last] = Object.assign({}, c[last], {cache_control: {type: "ephemeral"}}); }
+    if (task.effort === "none") { req.thinking = {type: "disabled"}; req.output_config = {effort: "low"}; }
+    else { req.thinking = {type: "adaptive"}; req.output_config = {effort: task.effort}; }
+    if (schema) req.output_config.format = {type: "json_schema", schema};
+    if (web && (web.search || web.fetch)) {
+      req.tools = [];
+      if (web.search) req.tools.push({type: "web_search_20250305", name: "web_search", max_uses: WEB.searchUses});
+      if (web.fetch) req.tools.push({type: "web_fetch_20250910", name: "web_fetch", max_uses: WEB.fetchUses, max_content_tokens: WEB.fetchTokens});
+    }
+    return req;
+  }
+  // The answer: JSON from the text blocks (thinking blocks are skipped)
+  function readAnswer(msg){
+    const t = ((msg && msg.content) || []).filter(b => b && b.type === "text").map(b => b.text || "").join("").trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    try { const d = JSON.parse(t); if (d && typeof d === "object") return d; } catch (e) { }
+    const a = t.indexOf("{"), b = t.lastIndexOf("}");
+    if (a >= 0 && b > a) { try { const d = JSON.parse(t.slice(a, b + 1)); if (d && typeof d === "object") return d; } catch (e) { } }
+    return null;
+  }
+  // An error with an HTTP status was refused before any work, so nothing was billed. Anything else
+  // (a timeout, a dropped connection) may have been billed, so its reservation is kept.
+  const refusedEarly = e => !!e && Number.isInteger(e.status) && e.status >= 400;
+
+  /* One Claude job, start to finish: check it, pick the model and thinking, count it, charge its worst case, run it, settle.
+     job: what the app sends ({task, system, content, schema, search, urlContext}).
+     ctx: {meter, lim, claude: {create(req), count(req)}, defer(promise)?}. Returns {status, body}: the Worker sends it as is,
+     and the app reads it the same way for a student's own key. */
+  async function runJob(job, ctx){
+    const {meter, lim, claude} = ctx, view = async () => meter.status(lim);
+    if (!job || typeof job !== "object") return {status: 400, body: {error: "bad"}};
+    let read, schema = null;
+    try { read = readBlocks(job.content); } catch (e) { return {status: 400, body: {error: "bad"}}; }
+    if (job.schema != null) {
+      if (JSON.stringify(job.schema).length > MAX_SCHEMA_CHARS) return {status: 413, body: {error: "too_long"}};
+      try { schema = strictSchema(job.schema); } catch (e) { return {status: 400, body: {error: "bad"}}; }
+    }
+    const system = typeof job.system === "string" ? job.system : "";
+    if (textBytes(system) > MAX_SYSTEM_BYTES) return {status: 413, body: {error: "too_long"}};
+    const task = taskOf(String(job.task || "").slice(0, 40), (await view()).soft);
+    const cacheMedia = (task.name === "tutor" || task.name === "chat") && read.media > 0;
+    const web = {search: job.search === true, fetch: job.urlContext === true}, onWeb = web.search || web.fetch;
+    const req = buildRequest({system, blocks: read.blocks, schema, task, cacheMedia, web});
+    // Input tokens: an upper bound from the bytes for plain text; Anthropic's own count when files are attached or the text is
+    // long (so a long prompt isn't refused on an estimate). If the count can't be had, a generous estimate for the files.
+    const bound = textBytes(system) + read.textBytes + (schema ? JSON.stringify(schema).length : 0) + FRAME_TOKENS;
+    let inTok = bound;
+    if (read.media || bound > MAX_INPUT_TOKENS) {
+      if (!(await meter.touch(lim))) return {status: 429, body: Object.assign({error: "rate"}, await view())};
+      let counted = NaN;
+      try { counted = await claude.count(req); } catch (e) { counted = NaN; }
+      inTok = Number.isFinite(counted) && counted > 0 ? counted + 200 : bound + read.mediaGuess;
+    }
+    if (inTok > MAX_INPUT_TOKENS || (onWeb && inTok > WEB.maxInput + FRAME_TOKENS)) return {status: 413, body: {error: "too_long", tokens: inTok}};
+    // Charge the worst case first
+    const reserve = onWeb ? webWorst(inTok, task.out, web) : worstCost(inTok, task.out);
+    const got = await meter.reserve(reserve, lim);
+    if (!got.ok) return {status: got.reason === "rate" ? 429 : 402, body: Object.assign({error: got.reason}, await view())};
+    // The model runs on its own promise, kept alive if the app hangs up, so the charge is always corrected
+    const work = (async () => {
+      let msg = null, cost = reserve;
+      try { msg = await claude.create(req); cost = msg && msg.usage ? costOf(msg.usage) : reserve; }
+      catch (e) {
+        cost = refusedEarly(e) ? 0 : reserve; msg = {error: e};
+        // An answer shape the API won't compile: once more, with the shape written into the instructions instead
+        if (!onWeb && e && e.status === 400 && schema) {
+          const plain = buildRequest({system: `${system}\n\nReply with one JSON object only, no other text. It must match this JSON Schema:\n${JSON.stringify(schema)}`, blocks: read.blocks, schema: null, task, cacheMedia});
+          try { msg = await claude.create(plain); cost = msg && msg.usage ? costOf(msg.usage) : reserve; }
+          catch (e2) { cost = refusedEarly(e2) ? 0 : reserve; msg = {error: e2}; }
+        }
+      }
+      await meter.settle(got.id, cost);
+      return msg;
+    })();
+    if (ctx.defer) ctx.defer(work);
+    const msg = await work, after = await view();
+    if (msg.error) { const s = msg.error && msg.error.status; return {status: s === 400 ? 400 : s === 401 || s === 403 ? 401 : 503, body: Object.assign({error: s === 429 || s === 529 || (s >= 500 && s < 600) ? "busy" : s === 400 ? "bad" : s === 401 || s === 403 ? "key" : "ai_failed"}, after)}; }
+    if (msg.stop_reason === "refusal") return {status: 422, body: Object.assign({error: "refused"}, after)};
+    const data = readAnswer(msg);
+    if (!data) return {status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)};
+    return {status: 200, body: Object.assign({data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens"}, after)};
+  }
+
+  return {MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,
+    TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, costOf, worstCost, webWorst, textBytes, Meter,
+    strictSchema, readBlocks, pdfPages, buildRequest, readAnswer, refusedEarly, runJob};
+})();
+globalThis.SBPOLICY = SBPOLICY;
 /* ===== module: 01-ai.js: the app's core, AI: providers, keys, the free trial, consent, study sets, quizzes, syllabus reading, settings ===== */
 /* AI: Google Gemini (free) by default, or paid Gemini, Claude or ChatGPT with your own key */
 const AI_ICON = '<svg class="ai-ic" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M11 2.5l1.6 4.4a3 3 0 0 0 1.8 1.8L18.8 10.3l-4.4 1.6a3 3 0 0 0-1.8 1.8L11 18.1l-1.6-4.4a3 3 0 0 0-1.8-1.8L3.2 10.3l4.4-1.6a3 3 0 0 0 1.8-1.8z"/><path d="M18.5 14.5l.8 2.1a1.5 1.5 0 0 0 .9.9l2.1.8-2.1.8a1.5 1.5 0 0 0-.9.9l-.8 2.1-.8-2.1a1.5 1.5 0 0 0-.9-.9l-2.1-.8 2.1-.8a1.5 1.5 0 0 0 .9-.9z"/></svg>';
@@ -3249,7 +3541,8 @@ const AI_PROVIDERS = {
   gemini: {label: "Google Gemini", short: "Gemini", keyLabel: "Gemini API Key", keyUrl: "https://aistudio.google.com/apikey", keyHint: "Free from Google AI Studio",
     models: [["auto", "Gemini Auto (free, recommended)", "free"], ["gemini-3.8-flash", "Gemini 3.8 Flash (free)", "free"], ["gemini-3.7-flash", "Gemini 3.7 Flash (free)", "free"], ["gemini-3.6-flash", "Gemini 3.6 Flash (free)", "free"], ["gemini-3.5-flash", "Gemini 3.5 Flash (free)", "free"], ["gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite (free, fastest)", "free"], ["gemini-3.1-pro-preview", "Gemini 3.1 Pro (paid, needs billing)", "paid"], ["auto-pro", "Gemini, Smartest First (Pro for hard jobs, paid, needs billing)", "paid"]]},
   anthropic: {label: "Anthropic Claude", short: "Claude", keyLabel: "Claude API Key", keyUrl: "https://console.anthropic.com/settings/keys", keyHint: "Paid, billed per use by Anthropic",
-    models: [["claude-sonnet-5", "Claude Sonnet 5 (paid)", "paid"], ["claude-opus-5-5", "Claude Opus 5.5 (paid, most capable)", "paid"], ["claude-haiku-4-5-20251001", "Claude Haiku 4.5 (paid, cheapest)", "paid"]]},
+    // Claude runs only as Studyboard AI does: Haiku 5.5, thinking matched to each job, with its limits (src/js/01-ai-policy.js)
+    models: [["studyboard", "Claude Haiku 5.5, Studyboard AI Mode (paid)", "paid"]]},
   openai: {label: "OpenAI ChatGPT", short: "ChatGPT", keyLabel: "OpenAI API Key", keyUrl: "https://platform.openai.com/api-keys", keyHint: "Paid, billed per use by OpenAI",
     models: [["gpt-6-sol", "GPT-6 Sol (paid)", "paid"], ["gpt-6-luna", "GPT-6 Luna (paid, cheapest)", "paid"], ["gpt-6-astra", "GPT-6 Astra (paid, most capable)", "paid"]]}
 };
@@ -3483,13 +3776,17 @@ const AI_PRO_LS = "studyboard:aiPro";
 function aiProGet(){ try { const t = JSON.parse(localStorage.getItem(AI_PRO_LS) || "null"); return t && sbUser && t.uid === sbUser.id ? t : null; } catch(e) { return null; } }
 function aiProSet(j){
   if (!sbUser || !j || typeof j !== "object") return;
-  const prev = aiProGet() || {};
+  const prev = aiProGet() || {}, today = new Date().toISOString().slice(0, 10);
   const on = j.on === false ? false : j.on === true ? true : !!prev.on;
   const next = {uid: sbUser.id, on, tier: j.tier || prev.tier || "", usedPct: typeof j.usedPct === "number" ? j.usedPct : prev.usedPct || 0, soft: typeof j.soft === "boolean" ? j.soft : !!prev.soft,
-    resets: j.resets !== undefined ? j.resets : prev.resets || null, transcribe: typeof j.transcribe === "boolean" ? j.transcribe : !!prev.transcribe, youtube: typeof j.youtube === "boolean" ? j.youtube : !!prev.youtube, at: Date.now()};
+    resets: j.resets !== undefined ? j.resets : prev.resets || null, transcribe: typeof j.transcribe === "boolean" ? j.transcribe : !!prev.transcribe, youtube: typeof j.youtube === "boolean" ? j.youtube : !!prev.youtube, at: Date.now(),
+    // Out of today's allowance: the student's own key covers the rest of the day
+    outDay: j.error === "today" ? today : prev.outDay === today ? today : ""};
   try { localStorage.setItem(AI_PRO_LS, JSON.stringify(next)); } catch(e) {}
 }
-const aiProUsedUp = () => { const t = aiProGet(); return !!t && t.usedPct >= 100; };
+const aiProUsedUp = () => { const t = aiProGet(); return !!t && (t.usedPct >= 100 || t.outDay === new Date().toISOString().slice(0, 10)); };
+// The student's own key to fall back on when Studyboard AI runs out: Gemini first, then any other key they added
+const aiProBackup = keys => keys.gemini ? "gemini" : keys.anthropic ? "anthropic" : keys.openai ? "openai" : "";
 // The student turned it off to use their own key instead (Settings, AI Features)
 const aiProDeclined = () => { try { return !!((state.settings && state.settings.ai) || {}).ownKey; } catch(e) { return false; } };
 let aiProChecking = null;
@@ -3517,7 +3814,41 @@ async function aiProForget(){
   try { localStorage.removeItem(AI_PRO_LS); } catch(e) {}
 }
 // Test handle (only when a test page sets window.__SB_TEST)
-if (window.__SB_TEST) window.__sbAi = {cfg: () => aiCfg(), proRefresh: () => aiProRefresh(), proGet: () => aiProGet()};
+if (window.__SB_TEST) window.__sbAi = {cfg: () => aiCfg(), proRefresh: () => aiProRefresh(), proGet: () => aiProGet(), useOwnMode: () => aiSaveCfg({provider: "anthropic", model: "studyboard"})};
+// Studyboard AI's rules (src/js/01-ai-policy.js): the built-in AI, or a student's own Claude key in Studyboard AI Mode
+const aiSbMode = c => !!c && (c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard"));
+/* A student's own Claude key in Studyboard AI Mode: the same rules as the built-in AI (SBPOLICY.runJob: model, thinking per job,
+   output caps, the same monthly, daily, per-minute and at-once limits), run on this device and paid by their key. The allowance
+   is kept on this device, one change at a time across tabs. */
+const AI_OWN_LS = "studyboard:ownAI";
+const ownStore = {
+  all(){ try { const o = JSON.parse(localStorage.getItem(AI_OWN_LS) || "{}"); return o && typeof o === "object" ? o : {}; } catch(e) { return {}; } },
+  async get(k){ return this.all()[k]; },
+  async put(k, v){ const o = this.all(); if (k && typeof k === "object") Object.assign(o, k); else o[k] = v; try { localStorage.setItem(AI_OWN_LS, JSON.stringify(o)); } catch(e) {} },
+  async deleteAll(){ try { localStorage.removeItem(AI_OWN_LS); } catch(e) {} }
+};
+const ownLock = typeof navigator !== "undefined" && navigator.locks && navigator.locks.request ? fn => navigator.locks.request("studyboard-own-ai", () => fn()) : null;
+let OWN_METER = null;
+const ownMeter = () => OWN_METER || (OWN_METER = new SBPOLICY.Meter(ownStore, () => Date.now(), ownLock));
+const ownLimits = () => SBPOLICY.limits({});
+// Claude straight from this device with the student's key, in the shape SBPOLICY.runJob expects (errors carry their status)
+function ownClaude(key, signal, ms){
+  const call = async (path, body, beta) => {
+    const hdr = {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"};
+    if (beta) hdr["anthropic-beta"] = beta;
+    let res;
+    try { res = await fetchT("https://api.anthropic.com" + path, {method: "POST", headers: hdr, body: JSON.stringify(body)}, ms, signal); }
+    catch (e) { throw Object.assign(new Error(signal && signal.aborted ? "cancelled" : "offline"), {net: true, aborted: !!(signal && signal.aborted)}); }
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error((j && j.error && j.error.message) || "error " + res.status), {status: res.status});
+    return j;
+  };
+  return {
+    create: req => call("/v1/messages", req, (req.tools || []).some(t => t.name === "web_fetch") ? "web-fetch-2025-09-10" : ""),
+    count: async req => { const rest = Object.assign({}, req); delete rest.max_tokens; return (await call("/v1/messages/count_tokens", rest)).input_tokens; }
+  };
+}
+const ownView = () => { try { const r = ownStore.all(), L = ownLimits(), m = SBPOLICY.monthOf(Date.now()), spent = r.month === m ? r.spent || 0 : 0; return {usedPct: Math.min(100, Math.round(spent / L.monthMicro * 100)), soft: spent >= L.softMicro, resets: SBPOLICY.nextMonth(Date.now())}; } catch(e) { return {usedPct: 0, soft: false, resets: null}; } };
 // "Resets on December 1"
 const aiProResets = () => { const t = aiProGet(); if (!t || !t.resets) return ""; try { return new Date(t.resets).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } };
 // A scanned code opens the app as <app>#sbkey=XXXX-XXXX-XXXX
@@ -3586,8 +3917,15 @@ function aiCfg(){
   let provider = AI_PROVIDERS[raw.provider] ? raw.provider : "gemini";
   let model = raw.model || (provider === "gemini" ? "auto" : AI_PROVIDERS[provider].models[0][0]);
   if (!keys[provider]) { const p = ["gemini", "anthropic", "openai"].find(x => keys[x]); if (p) { provider = p; model = p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]; } }
+  if (provider === "anthropic") model = "studyboard";
   // Studyboard AI (Pro) unless the student chose their own key; once this month's is used up, their own key takes over if they have one
-  if (aiProAvail() && !raw.ownKey && !(aiProUsedUp() && keys[provider])) return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
+  // Paid Pro: Studyboard AI first, always. The student's own key (Gemini first) only once this month's or today's allowance is used up.
+  if (aiProAvail() && !raw.ownKey) {
+    if (!aiProUsedUp()) return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
+    const b = aiProBackup(keys);
+    if (b) return {provider: b, model: b === "gemini" ? (raw.provider === "gemini" && raw.model ? raw.model : "auto") : AI_PROVIDERS[b].models[0][0], keys, key: keys[b], backup: true};
+    return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
+  }
   if (!keys[provider] && aiTrialAvail()) return {provider: "trial", model: "trial", keys, key: "trial"};
   return {provider, model, keys, key: keys[provider]};
 }
@@ -3798,6 +4136,7 @@ function aiJobFailed(){ try { document.dispatchEvent(new CustomEvent("sb-ai-job"
 function aiShowStatus(el){ try { if (el && el.textContent.trim() && el.isConnected) el.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }
 function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
 async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
+  const arguments0 = arguments[0];
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
   system = aiCopyRule(system, task);
@@ -3808,7 +4147,7 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
     const why = parts.some(x => x.text == null) ? "files" : search || urlContext ? "search" : aiTrialLeft().today === 0 ? "today" : "";
     if (why) { aiTrialPrompt(why); throw aiErr("trial-" + why, AI_TRIAL_WORDS[why].err); }
   }
-  if (cfg.provider === "studyboard") {
+  if (aiSbMode(cfg)) {
     // Studyboard AI reads text, photos and PDFs, and can look things up on the web; video (YouTube) needs a Gemini key
     const why = parts.some(x => x && x.text == null && !/^(image\/(png|jpeg|gif|webp)|application\/pdf)$/.test(((x.inline_data || {}).mime_type) || "")) ? "files" : "";
     if (why) { if (!auto) aiProPrompt(why); throw aiErr("pro-" + why, AI_PRO_WORDS[why].err); }
@@ -3824,8 +4163,13 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   if (!auto) aiWaiting(1);
   try {
     if (cfg.provider === "trial") return await trialCall({system, parts, schema, maxTokens, temperature, ms, task, signal});
-    if (cfg.provider === "studyboard") return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext});
-    if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
+    if (cfg.provider === "studyboard") {
+      const backup = aiProBackup(cfg.keys || {});
+      try { return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, hasBackup: !!backup}); }
+      catch (e) { if (e && e.out && backup && !(signal && signal.aborted) && aiProUsedUp()) { if (!auto) aiWaiting(-1); clearTimeout(slow); try { return await aiCall(arguments0); } finally { if (!auto) aiWaiting(1); } } throw e; }
+    }
+    // Claude only ever runs as Studyboard AI does (Haiku 5.5, thinking per job, its limits), whatever model was saved
+    if (cfg.provider === "anthropic") return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own: cfg.key});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext});
   } finally { clearTimeout(slow); if (!auto) aiWaiting(-1); }
@@ -3939,27 +4283,42 @@ const AI_PRO_WORDS = {
   search: {title: "This Needs Your Own Key", body: "Looking things up on the web needs your own free Google Gemini key, which takes about a minute.", err: "This needs your own free Gemini key."},
   too_long: {title: "That's Too Much in One Go", body: "Studyboard AI handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
 };
-async function proCall({system, parts, schema, ms, task, signal, auto, search, urlContext}){
-  const tok = await aiTrialToken();
-  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
-  const content = claudeBlocks(parts);
-  let res;
-  try {
-    res = await fetchT(`${AI_PRO}/v1/ai`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok},
-      body: JSON.stringify({task, system, content, schema: schema ? toJsonSchema(schema) : null, search: !!search, urlContext: !!urlContext})}, Math.min(ms, 180000), signal);
-  } catch(e) {
+// own: the student's own Claude key in Studyboard AI Mode (the same job, run on this device), otherwise the built-in AI
+const AI_OWN_WORDS = {
+  used_up: {title: "Your Claude Key's Monthly Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same monthly limit as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
+  today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
+};
+async function proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own, hasBackup}){
+  const content = claudeBlocks(parts), job = {task, system, content, schema: schema ? toJsonSchema(schema) : null, search: !!search, urlContext: !!urlContext};
+  let res, j;
+  if (own) {
+    let r;
+    try { r = await SBPOLICY.runJob(job, {meter: ownMeter(), lim: ownLimits(), claude: ownClaude(own, signal, Math.min(ms, 180000))}); }
+    catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); throw offlineErr("Anthropic"); }
     if (signal && signal.aborted) throw aiErr("cancelled", "Canceled.");
-    if (e && e.name === "AbortError") throw aiErr("slow", "The AI took too long to answer. Try again.");
-    throw offlineErr("Studyboard AI");
+    res = {status: r.status, ok: r.status === 200}; j = r.body || {};
+    if (j.error === "key") throw aiErr("key", "Anthropic didn't accept your Claude key. Check it in Settings, then AI Features.");
+    if (r.status === 503 && j.error === "ai_failed") throw offlineErr("Anthropic");
+  } else {
+    const tok = await aiTrialToken();
+    if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+    try { res = await fetchT(`${AI_PRO}/v1/ai`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok}, body: JSON.stringify(job)}, Math.min(ms, 180000), signal); }
+    catch(e) {
+      if (signal && signal.aborted) throw aiErr("cancelled", "Canceled.");
+      if (e && e.name === "AbortError") throw aiErr("slow", "The AI took too long to answer. Try again.");
+      throw offlineErr("Studyboard AI");
+    }
+    j = await res.json().catch(() => ({}));
+    aiProSet(j);
   }
-  const j = await res.json().catch(() => ({}));
-  aiProSet(j);
   if (res.ok && j.data && typeof j.data === "object") {
-    if (j.soft && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of this month's Studyboard AI. Everyday jobs now think a little less so the rest lasts."), 600); }
-    return {data: j.data, model: "Studyboard AI", provider: "studyboard", truncated: !!j.truncated};
+    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of this month's Studyboard AI. Everyday jobs now think a little less so the rest lasts."), 600); }
+    return {data: j.data, model: own ? "Claude Haiku 5.5" : "Studyboard AI", provider: own ? "anthropic" : "studyboard", truncated: !!j.truncated};
   }
   const why = res.status === 413 ? "too_long" : AI_PRO_WORDS[j.error] && j.error !== "files" && j.error !== "search" ? j.error : "";
-  if (why) { if (!auto) aiProPrompt(why); try { scheduleRender(); } catch(e) {} throw aiErr(why === "used_up" || why === "today" ? "limit" : "pro-" + why, AI_PRO_WORDS[why].err); }
+  const out = why === "used_up" || why === "today";
+  // Out of allowance with the student's own key to fall back on: no message, the job just moves to their key
+  if (why) { if (!auto && !(out && hasBackup)) aiProPrompt(why, !!own); try { scheduleRender(); } catch(e) {} throw Object.assign(aiErr(out ? "limit" : "pro-" + why, (own && AI_OWN_WORDS[why] || AI_PRO_WORDS[why]).err), {out: out && !own}); }
   if (j.error === "not_pro" || j.error === "off" || j.error === "unconfirmed") { aiProSet({on: false}); try { scheduleRender(); } catch(e) {} throw aiErr("nokey", j.error === "unconfirmed" ? "Confirm your email to use Studyboard AI." : "Studyboard AI comes with Pro. Add your own free Gemini key in Settings to use AI without it."); }
   if (res.status === 401) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
   if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
@@ -4016,14 +4375,14 @@ async function proYoutube(url, signal){
 const aiProAudio = () => { try { return aiCfg().provider === "studyboard" && !!(aiProGet() || {}).transcribe; } catch(e) { return false; } };
 // Why Studyboard AI stopped, with the way on
 let aiProAsking = null;
-function aiProPrompt(why){
-  const W = AI_PRO_WORDS[why]; if (!W || aiProAsking) return;
+function aiProPrompt(why, own){
+  const W = (own && AI_OWN_WORDS[why]) || AI_PRO_WORDS[why]; if (!W || aiProAsking) return;
   const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiProTitle");
-  const when = why === "used_up" ? aiProResets() : "";
+  const when = why === "used_up" ? (own ? (r => { try { return new Date(r).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } })(ownView().resets) : aiProResets()) : "";
   d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiProTitle">${esc(W.title)}</h2></div>
     <div class="sheet-body"><p style="margin:0">${esc(W.body)}</p>${when ? `<p class="mini" style="margin:0">Your Studyboard AI resets on ${esc(when)}.</p>` : ""}</div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>Add My Free Gemini Key</button></div></div>`;
-  const finish = go => { aiProAsking = null; try { d.close(); } catch(e) {} d.remove(); if (go) { aiSetupSheet(true); try { window.open("https://aistudio.google.com/apikey", "_blank", "noopener"); } catch(e) {} } };
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>${own ? "AI Settings" : "Add My Free Gemini Key"}</button></div></div>`;
+  const finish = go => { aiProAsking = null; try { d.close(); } catch(e) {} d.remove(); if (go) { aiSetupSheet(true); if (!own) try { window.open("https://aistudio.google.com/apikey", "_blank", "noopener"); } catch(e) {} } };
   d.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
   d.querySelector("[data-yes]").addEventListener("click", () => finish(true));
   d.querySelector("[data-no]").addEventListener("click", () => finish(false));
@@ -4166,47 +4525,6 @@ function claudeBlocks(parts){
     if (/^image\/(png|jpeg|gif|webp)$/.test(d.mime_type)) return {type: "image", source: {type: "base64", media_type: d.mime_type, data: d.data}};
     throw aiErr("type", "Claude can't read HEIC photos. Save the photo as JPG or PNG, or switch to Gemini.");
   });
-}
-const CLAUDE_NO_FORCED = /^claude-(opus-5-5|sonnet-5-5|fable-5-1|mythos-5-1)/;
-async function claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext}){
-  const body = {model: cfg.model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{role: "user", content: claudeBlocks(parts)}]};
-  if (schema && !search && !urlContext) {
-    body.tools = [{name: "answer", description: "Give your answer in this exact structure.", input_schema: toJsonSchema(schema)}];
-    // Newer models refuse a forced tool call (400), so they're asked to use it instead
-    if (CLAUDE_NO_FORCED.test(String(cfg.model || ""))) { body.tool_choice = {type: "auto"}; body.system = `${system || ""}\n\nGive your whole answer by calling the answer tool once, with nothing else.`.trim(); }
-    else body.tool_choice = {type: "tool", name: "answer"};
-  }
-  if (search) body.tools = [{type: "web_search_20250305", name: "web_search", max_uses: 4}];
-  if (urlContext) body.tools = (body.tools || []).concat({type: "web_fetch_20250910", name: "web_fetch", max_uses: 3, max_content_tokens: 60000});
-  const hdr = {"content-type": "application/json", "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"};
-  if (urlContext) hdr["anthropic-beta"] = "web-fetch-2025-09-10";
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let res;
-    try { res = await fetchT("https://api.anthropic.com/v1/messages", {method: "POST", headers: hdr, body: JSON.stringify(body)}, ms, signal); }
-    catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "Claude took too long to answer. Try again, or use fewer files."); throw offlineErr("Anthropic"); }
-    if (res.ok) {
-      const j = await res.json().catch(() => ({}));
-      const blocks = j.content || [];
-      const tool = blocks.find(b => b.type === "tool_use");
-      const data = tool ? tool.input : aiParseJson(blocks.filter(b => b.type === "text").map(b => b.text).join(""));
-      if (data && typeof data === "object") {
-        const sources = search ? blocks.flatMap(b => b.type === "web_search_tool_result" && Array.isArray(b.content) ? b.content.filter(x => x && x.url).map(x => ({url: String(x.url), title: String(x.title || "")})) : []) : undefined;
-        const fetched = urlContext ? blocks.filter(b => b.type === "web_fetch_tool_result").map(b => { const c = b.content || {}, err = c.type === "web_fetch_tool_error" || c.error_code; return {url: String(c.url || ""), ok: !err, status: err ? String(c.error_code || "error") : "success"}; }) : undefined;
-        return {data, model: cfg.model, provider: "anthropic", truncated: j.stop_reason === "max_tokens", sources, fetched};
-      }
-      if (j.stop_reason === "max_tokens") throw aiErr("long", "That was too much to make in one go. Ask for fewer cards or questions, or use fewer files.");
-      throw aiErr("bad", "Claude's answer came back garbled. Try again.");
-    }
-    const msg = await errMsg(res);
-    if (res.status === 401 || res.status === 403) throw aiErr("key", "Anthropic didn't accept your Claude key. Check it in Settings, then AI Features.");
-    if (/credit balance|billing/i.test(msg)) throw aiErr("credit", "Your Anthropic account is out of credit. Add credit in the Claude Console, or switch back to free Gemini.");
-    if (res.status === 404) throw aiErr("model", `The model ${cfg.model} isn't available on your Claude account.`);
-    if (res.status === 413) throw aiErr("big", "Those files are too big to send at once. Try fewer or smaller files.");
-    if (res.status === 429) throw aiErr("limit", "Your Claude account's rate limit was reached. Wait a minute and try again.");
-    if ((res.status === 529 || res.status >= 500) && attempt === 0) { await sleep(1500); continue; }
-    if (res.status === 529 || res.status >= 500) throw aiErr("busy", "Claude is very busy right now. Try again in a minute.");
-    throw aiErr("http", msg ? "Claude couldn't do that: " + msg.slice(0, 180) : "Claude couldn't do that right now (error " + res.status + ").");
-  }
 }
 function openaiContent(parts){
   let n = 0;
@@ -4903,11 +5221,11 @@ Return JSON only.`});
 // What Studyboard AI says about this month, for Settings
 function aiProLine(){
   const t = aiProGet() || {}, when = aiProResets();
-  if (t.tier === "trial") return `Included with your free week of Pro${t.usedPct ? `: ${t.usedPct}% used` : ""}.`;
   return `Included with Pro${t.usedPct ? `: ${t.usedPct}% of this month's used` : ""}${when ? `, resets ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
 }
 function aiRow(){
   const on = aiReady(), c = aiCfg();
+  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job.${v.usedPct ? ` ${v.usedPct}% of this month's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
   if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
   if (on && c.provider === "trial") { const t = aiTrialLeft();
     return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">Trying AI for free${t.left != null ? `: ${t.left} of ${t.total} ${t.total === 1 ? "try" : "tries"} left${t.today != null && t.today < t.left ? `, ${t.today} today` : ""}` : ""}. Add your own free Gemini key to use AI as much as you like, with your files too.</span></span><button class="btn small primary" data-act="ai-setup">Set Up</button></div>`; }
@@ -4925,8 +5243,9 @@ function aiSetupSheet(fromFeature, opts){
   openSheet(`<form class="sheet">${head("AI Features")}
     <div class="sheet-body">
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:6px"><p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}. ${esc(aiProLine())}</p>
+        <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
-        <p class="mini" style="margin:0">Turn it off to use your own key below instead. ${aiProUsedUp() ? "This month's is used up, so your own key is used until it resets." : "If this month's runs out, your own key takes over."}</p></div>` : ""}
+        <p class="mini" style="margin:0">Turn it off to use your own key below instead. ${aiProUsedUp() ? "It's used up for now, so your own key (Gemini first) is used until it resets." : "Your own key below is only a backup: if this month's or today's Studyboard AI runs out, your Gemini key (or another key you added) takes over until it resets."}</p></div>` : ""}
       ${(() => { const t = aiTrialLeft(), used = AI_TRIAL && sbUser && t.left === 0;
         if (used) return `<p class="ai-disclaimer" style="margin:0"><b>You've used your free AI tries.</b> Add your own free Gemini key below to keep using AI. It takes about a minute.</p>`;
         if (c.provider === "trial") return `<p class="ai-disclaimer" id="aiTrialNote" style="margin:0"><b>You're trying AI for free</b>${t.left != null ? `: ${t.left} ${t.left === 1 ? "try" : "tries"} left` : ""}. Add your own free Gemini key to use AI as much as you like, including files and slides.</p>`;
@@ -4947,7 +5266,9 @@ function aiSetupSheet(fromFeature, opts){
       <details class="ai-paid" ${c.keys.anthropic || c.keys.openai ? "open" : ""}><summary>Use a Paid Model Instead (Optional)</summary>
         <div class="ai-paid-body">
           <p class="mini ai-disclaimer" style="margin:0"><b>These cost money.</b> You can use a paid Gemini model (like Gemini 3.1 Pro) by turning on billing for your key in Google AI Studio, or use Claude or ChatGPT with an API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a>. API keys are separate from a Claude or ChatGPT subscription and are billed per use by that company. Big PDFs cost the most. Paid services generally don't use what you send to train their models.</p>
-          ${keyRow("anthropic")}${keyRow("openai")}
+          ${keyRow("anthropic")}
+          <p class="mini" style="margin:0"><b>A Claude key always runs in Studyboard AI Mode</b>, exactly like Studyboard AI: Claude Haiku 5.5, the same thinking for each job, and the same limits (everyday jobs think less after $${SBPOLICY.limits({}).softUsd} in a month; AI pauses at $${SBPOLICY.limits({}).hardUsd} a month or $${SBPOLICY.limits({}).dayUsd} a day, and resets on the 1st).${c.provider === "anthropic" && c.model === "studyboard" ? ` This month: ${ownView().usedPct}% used.` : ""}</p>
+          ${keyRow("openai")}
         </div></details>
       <label class="f"><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
       <fieldset class="ai-auto"><legend>Automatic AI</legend>
@@ -6344,7 +6665,8 @@ function askSheet(courseId){
 /* ===== module: 01-ai-auto.js: the app's core, automatic AI jobs ===== */
 /* Automatic AI: quietly improves Today's Plan and study sessions */
 // Free to the student: their free Gemini key, the trial, or Studyboard AI (included with Pro)
-const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "trial" || p === "studyboard";
+// A Claude key in Studyboard AI Mode counts too: its monthly and daily limits cap what automatic AI can spend
+const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "trial" || p === "studyboard" || (p === "anthropic" && m === "studyboard");
 function autoState(){
   if (inPreview()) return {on: false, reason: "preview"};
   const raw = (state.settings && state.settings.ai) || {}, c = aiCfg();
@@ -6352,7 +6674,8 @@ function autoState(){
   if (c.provider === "trial") return {on: false, reason: "trial"};
   const want = raw.auto !== undefined ? !!raw.auto : isFreeModel(c.provider, c.model);
   if (!want) return {on: false, reason: "off"};
-  const cfg = raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
+  // Free Gemini for automatic AI when the student has a key, except on Studyboard AI (paid Pro), where their key is only the backup
+  const cfg = c.provider !== "studyboard" && !c.backup && raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
   if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};
   const paid = !isFreeModel(cfg.provider, cfg.model);
   if (paid && raw.autoPaidOk !== `${cfg.provider}|${cfg.model}`) return {on: false, reason: "confirm", cfg, paid};
@@ -6508,8 +6831,8 @@ async function autoRun(){
   const today = todayISO(), tomorrow = addDays(today, 1);
   let job = null;
   const sig = planSig(), core = planCoreSig();
-  // On Studyboard AI, a change in progress or the time of day alone waits 20 minutes, so ticking focus minutes don't rerun the plan
-  const gap = a.cfg && a.cfg.provider === "studyboard" && AUTO.core === core ? 20 * 60000 : 90000;
+  // On Studyboard AI (or a Claude key in its mode), a change in progress or the time of day alone waits 20 minutes, so ticking focus minutes don't rerun the plan
+  const gap = aiSbMode(a.cfg) && AUTO.core === core ? 20 * 60000 : 90000;
   if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > gap : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
     job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt, prevCore = AUTO.core; AUTO.sig = sig; AUTO.core = core; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.core = prevCore; AUTO.planAt = prevAt; throw e; } };
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }
@@ -24595,8 +24918,9 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   function embedder(){
     if (inPreview()) return null;
     let c; try { c = aiCfg(); } catch(e) { return null; }
-    if (c.keys.gemini && aiConsented("gemini")) return {kind: "gemini", key: c.keys.gemini};
+    // Paid Pro: Studyboard AI first (the student's own key is only the backup)
     if (c.provider === "studyboard" && aiConsented("studyboard")) return {kind: "studyboard"};
+    if (c.keys.gemini && aiConsented("gemini")) return {kind: "gemini", key: c.keys.gemini};
     if (c.keys.openai && aiConsented("openai")) return {kind: "openai", key: c.keys.openai};
     return null;
   }
@@ -62500,7 +62824,7 @@ var COMP_EXTRA = [];
     try {
       if (!smartOn()) return "";
       const a = autoState(); if (!a.on) return "";
-      if (a.cfg && a.cfg.provider === "studyboard") return "studyboard";
+      if (aiSbMode(a.cfg)) return "studyboard";
       return a.cfg && a.cfg.provider === "gemini" && isFreeModel(a.cfg.provider, a.cfg.model) && a.cfg.key && LITE.length ? "lite" : "paid";
     } catch (e) { return ""; }
   }
@@ -94081,7 +94405,7 @@ const LINKCARDS = (() => {
   async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider, trial = prov === "trial";
     // Studyboard AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI makes the notes from it
-    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube() && !(aiCfg().keys || {}).gemini) {
+    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube()) {
       const v = await proYoutube(L.url, signal);
       if (onStatus) onStatus("Got the video's transcript. Writing study notes…");
       pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");

@@ -560,8 +560,9 @@
   function embedder(){
     if (inPreview()) return null;
     let c; try { c = aiCfg(); } catch(e) { return null; }
-    if (c.keys.gemini && aiConsented("gemini")) return {kind: "gemini", key: c.keys.gemini};
+    // Paid Pro: Studyboard AI first (the student's own key is only the backup)
     if (c.provider === "studyboard" && aiConsented("studyboard")) return {kind: "studyboard"};
+    if (c.keys.gemini && aiConsented("gemini")) return {kind: "gemini", key: c.keys.gemini};
     if (c.keys.openai && aiConsented("openai")) return {kind: "openai", key: c.keys.openai};
     return null;
   }

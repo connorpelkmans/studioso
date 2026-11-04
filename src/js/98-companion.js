@@ -1649,7 +1649,7 @@
     try {
       if (!smartOn()) return "";
       const a = autoState(); if (!a.on) return "";
-      if (a.cfg && a.cfg.provider === "studyboard") return "studyboard";
+      if (aiSbMode(a.cfg)) return "studyboard";
       return a.cfg && a.cfg.provider === "gemini" && isFreeModel(a.cfg.provider, a.cfg.model) && a.cfg.key && LITE.length ? "lite" : "paid";
     } catch (e) { return ""; }
   }

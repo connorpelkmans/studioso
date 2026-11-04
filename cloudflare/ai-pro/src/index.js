@@ -1,7 +1,7 @@
-// Cloudflare wiring for Studyboard Pro AI
+// Cloudflare wiring for Studyboard AI
 import { DurableObject } from "cloudflare:workers";
 import Anthropic from "@anthropic-ai/sdk";
-import { Meter, Ceiling, handle, verifyUser, planOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
+import { Meter, handle, verifyUser, planOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
 
 // One per student, named by their Supabase user id
 export class StudentMeter extends DurableObject {
@@ -9,37 +9,33 @@ export class StudentMeter extends DurableObject {
   reserve(cost, lim) { return this.m.reserve(cost, lim); }
   settle(id, actual) { return this.m.settle(id, actual); }
   status(lim) { return this.m.status(lim); }
-  forget() { return this.m.forget(); }
   touch(lim) { return this.m.touch(lim); }
-}
-
-// One per UTC day for everyone, named by the date
-export class DayCeiling extends DurableObject {
-  constructor(ctx, env) { super(ctx, env); this.c = new Ceiling(ctx.storage); }
-  reserve(cost, max) { return this.c.reserve(cost, max); }
-  settle(reserved, actual) { return this.c.settle(reserved, actual); }
-  async alarm() { await this.c.expire(); }
+  forget() { return this.m.forget(); }
 }
 
 const b64 = bytes => { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); };
+// AI Gateway, paid with Cloudflare's Unified Billing: Cloudflare's own provider keys, billed to this Cloudflare account's
+// credits. The request carries only the gateway token: with no x-api-key, the gateway uses Unified Billing.
+const gatewayBase = env => env.AI_GATEWAY_BASE || `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/${env.AI_GATEWAY_ID}`;
 
 export default {
   async fetch(request, env, ctx) {
     try {
+      const on = env.CF_ACCOUNT_ID && env.AI_GATEWAY_ID && env.CF_AIG_TOKEN;
       // No retries inside the SDK: a retried request could be billed twice without being charged twice
-      const client = env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 0, timeout: 170000, ...(env.ANTHROPIC_BASE_URL ? { baseURL: env.ANTHROPIC_BASE_URL } : {}) }) : null;
+      const client = on ? new Anthropic({ apiKey: "unified-billing", baseURL: `${gatewayBase(env)}/anthropic`, maxRetries: 0, timeout: 170000,
+        defaultHeaders: { "cf-aig-authorization": `Bearer ${env.CF_AIG_TOKEN}`, "x-api-key": null, Authorization: null } }) : null;
       return await handle(request, env, {
         user: token => verifyUser(token, env),
         plan: (token, uid) => planOf(token, uid, env),
         meter: id => env.STUDENT.getByName("u:" + id),
-        ceiling: day => env.CEILING.getByName("day:" + day),
         claude: {
           // Web fetch is a beta tool on Haiku-class models
           create: req => client.messages.create(req, (req.tools || []).some(t => t.name === "web_fetch") ? { headers: { "anthropic-beta": "web-fetch-2025-09-10" } } : undefined),
           count: async req => { const { max_tokens, ...rest } = req; void max_tokens; return (await client.messages.countTokens(rest)).input_tokens; }
         },
-        // YouTube links: Google's Gemini API with Studyboard's Google AI Studio key (GOOGLE_AI_KEY)
-        gemini: env.GOOGLE_AI_KEY ? async body => { const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${YT.model}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": env.GOOGLE_AI_KEY }, body: JSON.stringify(body) }); return { status: res.status, json: await res.json().catch(() => null) }; } : null,
+        // YouTube links: Google's Gemini API, also through AI Gateway with Unified Billing
+        gemini: on ? async body => { const res = await fetch(`${gatewayBase(env)}/google-ai-studio/v1beta/models/${YT.model}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "cf-aig-authorization": `Bearer ${env.CF_AIG_TOKEN}` }, body: JSON.stringify(body) }); return { status: res.status, json: await res.json().catch(() => null) }; } : null,
         embed: env.AI ? texts => env.AI.run(EMBED_MODEL, { text: texts }) : null,
         whisper: env.AI ? bytes => env.AI.run(WHISPER_MODEL, { audio: b64(bytes), task: "transcribe", vad_filter: true }) : null,
         defer: p => ctx.waitUntil(p.catch(() => {}))

@@ -67,12 +67,14 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
       const req = route.request(), body = JSON.parse(req.postData() || "{}"); ctx.claude.push({body, headers: req.headers()});
       const sys = String(body.system || "");
       let content;
-      if (/write excellent flashcards/.test(sys)) content = [{type: "tool_use", id: "t1", name: "answer", input: /Active transport/.test(JSON.stringify(body.messages)) ? PAGE_CARDS : CARDS}];
+      // Claude answers with structured outputs (JSON text), the way Studyboard AI's rules ask for it
+      if (/count_tokens/.test(req.url())) { route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({input_tokens: 2000})}); return; }
+      if (/write excellent flashcards/.test(sys)) content = [{type: "text", text: JSON.stringify(/Active transport/.test(JSON.stringify(body.messages)) ? PAGE_CARDS : CARDS)}];
       else if ((body.tools || []).some(t => t.type === "web_fetch_20250910")) content = [{type: "server_tool_use", id: "s1", name: "web_fetch", input: {url: "https://www.khanacademy.org/science/biology/membranes/active-transport"}},
         {type: "web_fetch_tool_result", tool_use_id: "s1", content: {type: "web_fetch_result", url: "https://www.khanacademy.org/science/biology/membranes/active-transport", content: {type: "document", source: {type: "text", media_type: "text/plain", data: "..."}}}},
         {type: "text", text: JSON.stringify(PAGE_NOTES)}];
-      else content = [{type: "tool_use", id: "t2", name: "answer", input: VIDEO_NOTES}];
-      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content, stop_reason: "end_turn"})});
+      else content = [{type: "text", text: JSON.stringify(VIDEO_NOTES)}];
+      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content, stop_reason: "end_turn", usage: {input_tokens: 1500, output_tokens: 500}})});
     });
     await ctx.addInitScript(([seed, o]) => {
       window.__SB_TEST = true;
@@ -198,6 +200,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     await pc.selectOption("#aiCourse", "c1");
     await pc.click("#aiGo"); await pc.waitForSelector("#arSave", {timeout: 15000});
     const c1 = pc.context().claude[0].body;
+    ok(pc.context().claude.every(x => x.body.model === "claude-haiku-5-5"), "every Claude request is Haiku 5.5 (the saved Sonnet setting doesn't matter)");
     ok(/The student pasted its transcript/.test(JSON.stringify(c1.messages)) && /Today: osmosis/.test(JSON.stringify(c1.messages)) && !(c1.tools || []).some(t => /web_fetch/.test(t.type)), "the pasted transcript goes to Claude as text, with no web tool");
     ok(/The source's own text/.test(JSON.stringify(pc.context().claude[1].body.messages)), "and the cards are checked against it");
     await pc.check("#arNoteOn");

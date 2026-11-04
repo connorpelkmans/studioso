@@ -1,6 +1,6 @@
 // node tests/claude-structured.e2e.js
-// Structured answers from Claude: newer models (Opus 5.5, Sonnet 5.5, Fable 5.1) refuse a forced tool call with a 400,
-// so they get tool_choice auto plus an instruction; older ones keep the forced call. Both answer shapes are read.
+// A Claude key only ever runs as Studyboard AI does: Claude Haiku 5.5 with the thinking chosen for each job (src/js/01-ai-policy.js),
+// structured outputs for the answer shape, and no tools, temperature or other model, whatever Claude model was saved before.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const csp = require("../scripts/csp");
@@ -27,11 +27,9 @@ const SEED = {v: 2, updated: 1, tasks: [], files: [], notes: [], settings: {}, c
     const ctx = await browser.newContext({viewport: {width: 1280, height: 900}, serviceWorkers: "block"}); const sent = [];
     await ctx.route(/api\.anthropic\.com/, route => {
       const body = JSON.parse(route.request().postData() || "{}"); sent.push(body);
-      const forcedBad = /^claude-(opus-5-5|sonnet-5-5|fable-5-1)/.test(body.model) && body.tool_choice && /^(tool|any)$/.test(body.tool_choice.type);
-      if (forcedBad) { route.fulfill({status: 400, contentType: "application/json", body: JSON.stringify({type: "error", error: {type: "invalid_request_error", message: "tool_choice: type \"tool\" and \"any\" are not supported for this model."}})}); return; }
-      const content = reply === "text" ? [{type: "thinking", thinking: "", signature: "x"}, {type: "text", text: "Here you go:\n" + JSON.stringify(CARDS)}]
-        : [{type: "thinking", thinking: "", signature: "x"}, {type: "tool_use", id: "t1", name: "answer", input: CARDS}];
-      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content, stop_reason: reply === "text" ? "end_turn" : "tool_use"})});
+      if (/count_tokens/.test(route.request().url())) { route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({input_tokens: 2000})}); return; }
+      const content = [{type: "thinking", thinking: "", signature: "x"}, {type: "text", text: reply === "fenced" ? "```json\n" + JSON.stringify(CARDS) + "\n```" : JSON.stringify(CARDS)}];
+      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content, stop_reason: "end_turn", usage: {input_tokens: 1500, output_tokens: 600}})});
     });
     await ctx.addInitScript(([seed, model]) => {
       window.__SB_TEST = true;
@@ -57,19 +55,21 @@ const SEED = {v: 2, updated: 1, tasks: [], files: [], notes: [], settings: {}, c
     return {sent, got, status, errs};
   };
   try {
-    let r = await run("claude-opus-5-5", "tool");
-    const b = r.sent[r.sent.length - 1];
-    ok(r.got, "Opus 5.5 makes cards (was a 400 before): " + r.status);
-    ok(r.sent.every(x => x.tool_choice && x.tool_choice.type === "auto"), "Opus 5.5 gets tool_choice auto, never a forced tool");
-    ok(/calling the answer tool/.test(b.system) && b.tools.some(t => t.name === "answer"), "and is told to answer with the answer tool, which is offered");
-    ok(!r.errs.length, "no console errors: " + r.errs.join(" | "));
-    r = await run("claude-opus-5-5", "text");
-    ok(r.got, "if Opus 5.5 answers in plain text instead, the JSON is still read: " + r.status);
-    r = await run("claude-sonnet-5", "tool");
-    ok(r.got && r.sent.every(x => x.tool_choice && x.tool_choice.type === "tool" && x.tool_choice.name === "answer"), "Sonnet 5 keeps the forced answer tool");
-    ok(!/calling the answer tool/.test(r.sent[0].system), "and its system prompt is unchanged");
-    r = await run("claude-haiku-4-5-20251001", "tool");
-    ok(r.got && r.sent[0].tool_choice.type === "tool", "Haiku 4.5 keeps the forced answer tool");
+    const P = await import(require("url").pathToFileURL(path.join(root, "cloudflare", "ai-pro", "src", "pro.js")).href);
+    for (const saved of ["claude-opus-5-5", "claude-sonnet-5", "claude-haiku-4-5-20251001", "studyboard"]) {
+      const r = await run(saved, "json");
+      ok(r.got, `a Claude key saved with ${saved} makes cards: ${r.status}`);
+      const jobs = r.sent.filter(x => x.messages);
+      ok(jobs.length && jobs.every(x => x.model === "claude-haiku-5-5"), `every request from it is Claude Haiku 5.5 (${jobs.map(x => x.model).join(", ")})`);
+      const cards = jobs.find(x => JSON.stringify(x.messages).includes("Osmosis is the passive movement"));
+      const want = P.buildRequest({system: "", blocks: [{type: "text", text: "x"}], task: P.taskOf("cards")});
+      ok(cards && cards.output_config.effort === want.output_config.effort && cards.max_tokens === want.max_tokens && JSON.stringify(cards.thinking) === JSON.stringify(want.thinking), `with the cards job's own thinking (${want.output_config.effort}) and output cap, the same as Studyboard AI`);
+      ok(jobs.every(x => !x.tools && !x.tool_choice && !("temperature" in x) && !("top_p" in x)), "no tools, forced tool calls or sampling settings");
+      ok(cards && cards.output_config.format && cards.output_config.format.type === "json_schema", "the answer shape goes as structured outputs");
+      ok(!r.errs.length, "no console errors: " + r.errs.join(" | "));
+    }
+    const r = await run("claude-opus-5-5", "fenced");
+    ok(r.got, "an answer wrapped in a code fence is still read");
     console.log("\nclaude-structured.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });
