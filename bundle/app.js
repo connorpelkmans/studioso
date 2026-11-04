@@ -11371,7 +11371,7 @@ function eventForm(ev, preset){
   const isNew = !ev;
   ev = ev ? clone(ev) : normEvent(Object.assign({title: "", date: todayISO(), start: "10:00", end: "11:00"}, preset || {}));
   const rp = ev.repeat, days = rp ? rp.days : [parse(ev.date).getDay()];
-  openSheet(`<form class="sheet">${bandHead(isNew ? "New Event" : "Edit Event", SH_IC.calendar, ev.courseId ? colorOf(ev.courseId) : "#2F6FE4", "", isNew ? "" : esc(ev.title))}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Event" : "Edit Event", SH_IC.calendar, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(ev.title))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="120" value="${esc(ev.title)}" autofocus placeholder="e.g. Advisor meeting, Work shift, Study group"></label>
       <div class="two">
@@ -11409,8 +11409,6 @@ function eventForm(ev, preset){
   const f = dlg.querySelector("form"), repSel = f.elements.rep, box = f.querySelector(".ev-rep"), times = f.querySelector(".ev-times"), ad = f.elements.allDay;
   const sync = () => { box.hidden = !repSel.value; times.hidden = ad.checked; };
   repSel.addEventListener("change", sync); ad.addEventListener("change", sync); sync();
-  // the header takes the course's colour as you pick it
-  { const cs = dlg.querySelector('select[name="courseId"]'), hd = dlg.querySelector(".g2-sheet-head"); if (cs && hd) cs.addEventListener("change", () => hd.style.setProperty("--c", cs.value ? colorOf(cs.value) : "#2F6FE4")); }
   $("#evDays").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (!b) return; const d = Number(b.dataset.day); pickDays = pickDays.includes(d) ? pickDays.filter(x => x !== d) : pickDays.concat(d); b.setAttribute("aria-pressed", pickDays.includes(d)); });
   const del = $("#evDel"); if (del) del.addEventListener("click", () => { dlg.close(); applyChanges([{kind: "event", id: ev.id, after: null}], `Deleted ${ev.title}`); });
 }
@@ -12884,7 +12882,7 @@ function taskForm(t, preset = {}){
   const canRepeat = isNew || !(t.seriesId || lmsOf(t) || t.prepFor || t.breakdownOf || t.breakdownParent || t.gt);
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
-  openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", isNew ? "" : esc(t.title))}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(t.title))}
     <div class="sheet-body">${REQ_NOTE}${window.SBBREAK ? SBBREAK.formHtml(isNew ? null : t, isNew) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <div class="two">
@@ -13238,7 +13236,7 @@ function courseForm(c){
   const used = coursesArr().map(x => x.color);
   c = c ? clone(c) : {name:"", code:"", instructor:"", schedule:"", room:"", office:"", color: COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length], notes:"", links:[]};
   const linksText = (c.links || []).map(l => l.label && l.label !== "Link" ? `${l.label} | ${l.url}` : l.url).join("\n");
-  openSheet(`<form class="sheet">${bandHead(isNew ? "New Course" : "Edit Course", SH_IC.book, c.color || "#2F6FE4", "", isNew ? "" : esc(c.name))}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Course" : "Edit Course", SH_IC.book, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(c.name))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Course Name ${REQ}</span><input type="text" name="name" required maxlength="120" value="${esc(c.name)}" autofocus placeholder="e.g. Organic Chemistry"></label>
       <div class="two">
@@ -13286,8 +13284,6 @@ function courseForm(c){
     if (isNew) { const nc = Object.assign({id: uid(), created: Date.now()}, data); applyChanges([{kind:"course", id: nc.id, after: nc}], `Added ${name}`); }
     else { applyChanges([{kind:"course", id: c.id, after: Object.assign(clone(state.courses[c.id] || c), data)}], "Course saved"); }
   });
-  // the header takes the colour as you pick it
-  setTimeout(() => { const f = dlg.querySelector("form.sheet"), hd = f && f.querySelector(".g2-sheet-head"); if (f && hd) f.addEventListener("change", e => { if (e.target && e.target.name === "color" && e.target.value) hd.style.setProperty("--c", e.target.value); }); }, 0);
   dlg.querySelectorAll('input[name="color"]').forEach(r => r.addEventListener("change", () => { const g = $("#ciGrid"); if (g) g.style.setProperty("--c", r.value); }));
   { const pk = $("#ccPick"), rd = $("#ccRadio");
     if (pk && rd) { pk.addEventListener("input", () => { rd.value = pk.value; rd.nextElementSibling.style.setProperty("--c", pk.value); rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); });
@@ -16348,7 +16344,7 @@ function deckSheet(d){
 }
 function cardSheet(d, cardId){
   const c = d.cards.find(x => x.id === cardId); if (!c) return;
-  openSheet(`<form class="sheet">${bandHead("Edit Card", SH_IC.card, d.courseId ? colorOf(d.courseId) : "#2F6FE4", "", esc(d.name))}
+  openSheet(`<form class="sheet">${bandHead("Edit Card", SH_IC.card, "var(--accent-band,var(--accent))", "", esc(d.name))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
@@ -16396,7 +16392,7 @@ function reviewSheet(){
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
 }
 function addCardSheet(d){
-  openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, d.courseId ? colorOf(d.courseId) : "#2F6FE4", "", esc(d.name))}
+  openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, "var(--accent-band,var(--accent))", "", esc(d.name))}
     <div class="sheet-body">
       <label class="f"><span class="lh">Front ${REQ}<span class="hint">term or question</span></span><textarea id="fcFront" rows="3" required data-noenter autofocus placeholder="e.g. Logistic growth"></textarea></label>
       <label class="f"><span class="lh">Back ${REQ}<span class="hint">definition or answer</span></span><textarea id="fcBack" rows="3" required data-noenter placeholder="e.g. Growth that slows as a population nears carrying capacity"></textarea></label>
@@ -16887,7 +16883,7 @@ function quizMaker(ref){
   const holder = !f || isQuizHolder(f.d);
   QM = {ref: f ? ref : "", qs: f ? f.qz.questions.map(q => Object.assign(qmFromSaved(q), {old: q})) : [qmBlank("single")]};
   const course = f ? f.d.courseId : (ui.filter && ui.filter !== "all" && courseOf(ui.filter) ? ui.filter : "");
-  openSheet(`<form class="sheet qm-sheet">${bandHead(f ? "Edit Quiz" : "Write Your Own Quiz", SH_IC.quiz, course ? colorOf(course) : "#2F6FE4", "", f ? esc(f.qz.title || "") : "")}
+  openSheet(`<form class="sheet qm-sheet">${bandHead(f ? "Edit Quiz" : "Write Your Own Quiz", SH_IC.quiz, "var(--accent-band,var(--accent))", "", f ? esc(f.qz.title || "") : "")}
     <div class="sheet-body">
       <div class="two"><label class="f"><span class="lh">Quiz Name</span><input type="text" name="qmName" id="qmName" maxlength="120" value="${esc(f ? f.qz.title : "")}" placeholder="e.g. Cardiac Meds Practice"${f ? "" : " autofocus"}></label>
         ${holder ? `<label class="f"><span class="lh">Course</span><select name="qmCourse">${courseSelectHtml(course)}</select></label>` : `<p class="mini" style="margin:auto 0 8px">Saved with the deck <b>${esc(f.d.name)}</b>.</p>`}</div>
@@ -16921,7 +16917,6 @@ function quizMaker(ref){
   qmDraw();
   const start = JSON.stringify(QM.qs) + "|" + ($("#qmName") || {}).value;
   dlgGuard = () => !!QM && JSON.stringify(QM.qs) + "|" + ($("#qmName") || {}).value !== start;
-  { const cs = dlg.querySelector('select[name="qmCourse"]'), hd = dlg.querySelector(".g2-sheet-head"); if (cs && hd) cs.addEventListener("change", () => hd.style.setProperty("--c", cs.value ? colorOf(cs.value) : "#2F6FE4")); }
   const ol = $("#qmList");
   const at = el => { const li = el.closest(".qm-q"); return li ? QM.qs[Number(li.dataset.i)] : null; };
   ol.addEventListener("input", e => {
@@ -32185,7 +32180,7 @@ hook("boot", boot);
     const tplPick = TPL.length ? `<div class="f grp-tpls"><span class="lh">Start From</span><div class="grp-tpl-row" role="group" aria-label="Start from a template"><button type="button" class="chip" data-tpl="" aria-pressed="true">Blank</button>${TPL.map(t => `<button type="button" class="chip" data-tpl="${esc(t.id)}" aria-pressed="false">${t.icon && STICKERS[t.icon] ? `<span class="grp-tpl-ic">${stickerSvg(t.icon)}</span>` : ""}${esc(t.name)}<span class="mini">${t.kind === "project" ? (t.tasks || []).length ? `Project · ${t.tasks.length} tasks` : "Project" : "Study group"}</span></button>`).join("")}</div></div>` : "";
     const kindPick = edit ? "" : `${tplPick}<div class="segb grp-kind" role="group" aria-label="Group type"><button type="button" data-kind="study" aria-pressed="true">Study Group</button><button type="button" data-kind="project" aria-pressed="false">Group Project</button></div>
 ${kindPreview("study")}${kindPreview("project")}`;
-    openSheet(`<form class="sheet">${bandHead(edit ? (proj ? "Edit Project" : "Edit Group") : "New Group", SH_IC.group, edit && g.color ? g.color : "#2F6FE4", "", edit ? esc(g.name || "") : "")}<div class="sheet-body">${REQ_NOTE}
+    openSheet(`<form class="sheet">${bandHead(edit ? (proj ? "Edit Project" : "Edit Group") : "New Group", SH_IC.group, "var(--accent-band,var(--accent))", "", edit ? esc(g.name || "") : "")}<div class="sheet-body">${REQ_NOTE}
       ${kindPick}
       <label class="f"><span class="lh"><span class="grp-nm-l">${proj ? "Project Name" : "Group Name"}</span> ${REQ}</span><input type="text" name="name" required maxlength="80" value="${esc(edit ? g.name : "")}" autofocus placeholder="${proj ? "e.g. Biology Poster" : "e.g. Biology Study Squad"}"></label>
       <label class="f"><span class="lh">Course <span class="hint">optional</span></span><input type="text" name="course" maxlength="80" list="grpCourses" value="${esc(edit ? g.course : (ui.filter !== "all" && courseOf(ui.filter) ? courseLabel(courseOf(ui.filter)) : ""))}" placeholder="e.g. PSYC 101"><datalist id="grpCourses">${opts}</datalist></label>

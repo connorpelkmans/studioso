@@ -517,7 +517,7 @@ function taskForm(t, preset = {}){
   const canRepeat = isNew || !(t.seriesId || lmsOf(t) || t.prepFor || t.breakdownOf || t.breakdownParent || t.gt);
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
-  openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", isNew ? "" : esc(t.title))}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(t.title))}
     <div class="sheet-body">${REQ_NOTE}${window.SBBREAK ? SBBREAK.formHtml(isNew ? null : t, isNew) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <div class="two">
@@ -871,7 +871,7 @@ function courseForm(c){
   const used = coursesArr().map(x => x.color);
   c = c ? clone(c) : {name:"", code:"", instructor:"", schedule:"", room:"", office:"", color: COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length], notes:"", links:[]};
   const linksText = (c.links || []).map(l => l.label && l.label !== "Link" ? `${l.label} | ${l.url}` : l.url).join("\n");
-  openSheet(`<form class="sheet">${bandHead(isNew ? "New Course" : "Edit Course", SH_IC.book, c.color || "#2F6FE4", "", isNew ? "" : esc(c.name))}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Course" : "Edit Course", SH_IC.book, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(c.name))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Course Name ${REQ}</span><input type="text" name="name" required maxlength="120" value="${esc(c.name)}" autofocus placeholder="e.g. Organic Chemistry"></label>
       <div class="two">
@@ -919,8 +919,6 @@ function courseForm(c){
     if (isNew) { const nc = Object.assign({id: uid(), created: Date.now()}, data); applyChanges([{kind:"course", id: nc.id, after: nc}], `Added ${name}`); }
     else { applyChanges([{kind:"course", id: c.id, after: Object.assign(clone(state.courses[c.id] || c), data)}], "Course saved"); }
   });
-  // the header takes the colour as you pick it
-  setTimeout(() => { const f = dlg.querySelector("form.sheet"), hd = f && f.querySelector(".g2-sheet-head"); if (f && hd) f.addEventListener("change", e => { if (e.target && e.target.name === "color" && e.target.value) hd.style.setProperty("--c", e.target.value); }); }, 0);
   dlg.querySelectorAll('input[name="color"]').forEach(r => r.addEventListener("change", () => { const g = $("#ciGrid"); if (g) g.style.setProperty("--c", r.value); }));
   { const pk = $("#ccPick"), rd = $("#ccRadio");
     if (pk && rd) { pk.addEventListener("input", () => { rd.value = pk.value; rd.nextElementSibling.style.setProperty("--c", pk.value); rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); });

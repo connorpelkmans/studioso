@@ -152,7 +152,7 @@ function eventForm(ev, preset){
   const isNew = !ev;
   ev = ev ? clone(ev) : normEvent(Object.assign({title: "", date: todayISO(), start: "10:00", end: "11:00"}, preset || {}));
   const rp = ev.repeat, days = rp ? rp.days : [parse(ev.date).getDay()];
-  openSheet(`<form class="sheet">${bandHead(isNew ? "New Event" : "Edit Event", SH_IC.calendar, ev.courseId ? colorOf(ev.courseId) : "#2F6FE4", "", isNew ? "" : esc(ev.title))}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Event" : "Edit Event", SH_IC.calendar, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(ev.title))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="120" value="${esc(ev.title)}" autofocus placeholder="e.g. Advisor meeting, Work shift, Study group"></label>
       <div class="two">
@@ -190,8 +190,6 @@ function eventForm(ev, preset){
   const f = dlg.querySelector("form"), repSel = f.elements.rep, box = f.querySelector(".ev-rep"), times = f.querySelector(".ev-times"), ad = f.elements.allDay;
   const sync = () => { box.hidden = !repSel.value; times.hidden = ad.checked; };
   repSel.addEventListener("change", sync); ad.addEventListener("change", sync); sync();
-  // the header takes the course's colour as you pick it
-  { const cs = dlg.querySelector('select[name="courseId"]'), hd = dlg.querySelector(".g2-sheet-head"); if (cs && hd) cs.addEventListener("change", () => hd.style.setProperty("--c", cs.value ? colorOf(cs.value) : "#2F6FE4")); }
   $("#evDays").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (!b) return; const d = Number(b.dataset.day); pickDays = pickDays.includes(d) ? pickDays.filter(x => x !== d) : pickDays.concat(d); b.setAttribute("aria-pressed", pickDays.includes(d)); });
   const del = $("#evDel"); if (del) del.addEventListener("click", () => { dlg.close(); applyChanges([{kind: "event", id: ev.id, after: null}], `Deleted ${ev.title}`); });
 }

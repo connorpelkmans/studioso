@@ -469,7 +469,7 @@ function deckSheet(d){
 }
 function cardSheet(d, cardId){
   const c = d.cards.find(x => x.id === cardId); if (!c) return;
-  openSheet(`<form class="sheet">${bandHead("Edit Card", SH_IC.card, d.courseId ? colorOf(d.courseId) : "#2F6FE4", "", esc(d.name))}
+  openSheet(`<form class="sheet">${bandHead("Edit Card", SH_IC.card, "var(--accent-band,var(--accent))", "", esc(d.name))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
@@ -517,7 +517,7 @@ function reviewSheet(){
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
 }
 function addCardSheet(d){
-  openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, d.courseId ? colorOf(d.courseId) : "#2F6FE4", "", esc(d.name))}
+  openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, "var(--accent-band,var(--accent))", "", esc(d.name))}
     <div class="sheet-body">
       <label class="f"><span class="lh">Front ${REQ}<span class="hint">term or question</span></span><textarea id="fcFront" rows="3" required data-noenter autofocus placeholder="e.g. Logistic growth"></textarea></label>
       <label class="f"><span class="lh">Back ${REQ}<span class="hint">definition or answer</span></span><textarea id="fcBack" rows="3" required data-noenter placeholder="e.g. Growth that slows as a population nears carrying capacity"></textarea></label>
@@ -1008,7 +1008,7 @@ function quizMaker(ref){
   const holder = !f || isQuizHolder(f.d);
   QM = {ref: f ? ref : "", qs: f ? f.qz.questions.map(q => Object.assign(qmFromSaved(q), {old: q})) : [qmBlank("single")]};
   const course = f ? f.d.courseId : (ui.filter && ui.filter !== "all" && courseOf(ui.filter) ? ui.filter : "");
-  openSheet(`<form class="sheet qm-sheet">${bandHead(f ? "Edit Quiz" : "Write Your Own Quiz", SH_IC.quiz, course ? colorOf(course) : "#2F6FE4", "", f ? esc(f.qz.title || "") : "")}
+  openSheet(`<form class="sheet qm-sheet">${bandHead(f ? "Edit Quiz" : "Write Your Own Quiz", SH_IC.quiz, "var(--accent-band,var(--accent))", "", f ? esc(f.qz.title || "") : "")}
     <div class="sheet-body">
       <div class="two"><label class="f"><span class="lh">Quiz Name</span><input type="text" name="qmName" id="qmName" maxlength="120" value="${esc(f ? f.qz.title : "")}" placeholder="e.g. Cardiac Meds Practice"${f ? "" : " autofocus"}></label>
         ${holder ? `<label class="f"><span class="lh">Course</span><select name="qmCourse">${courseSelectHtml(course)}</select></label>` : `<p class="mini" style="margin:auto 0 8px">Saved with the deck <b>${esc(f.d.name)}</b>.</p>`}</div>
@@ -1042,7 +1042,6 @@ function quizMaker(ref){
   qmDraw();
   const start = JSON.stringify(QM.qs) + "|" + ($("#qmName") || {}).value;
   dlgGuard = () => !!QM && JSON.stringify(QM.qs) + "|" + ($("#qmName") || {}).value !== start;
-  { const cs = dlg.querySelector('select[name="qmCourse"]'), hd = dlg.querySelector(".g2-sheet-head"); if (cs && hd) cs.addEventListener("change", () => hd.style.setProperty("--c", cs.value ? colorOf(cs.value) : "#2F6FE4")); }
   const ol = $("#qmList");
   const at = el => { const li = el.closest(".qm-q"); return li ? QM.qs[Number(li.dataset.i)] : null; };
   ol.addEventListener("input", e => {
