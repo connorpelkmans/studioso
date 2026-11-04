@@ -17,21 +17,29 @@ const DATA = {v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: "Old Co
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
-  const run = async (from, deleted, fail) => {
+  const run = async (from, deleted, fail, owner, answer) => {
     const ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.routeWebSocket(/supabase\.co/, ws => ws.close()); await ctx.route(/supabase\.co/, r => r.abort());
-    await ctx.addInitScript(([d, from]) => { window.__SB_TEST = true; try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1");
+    await ctx.addInitScript(([d, from, owner]) => { window.__SB_TEST = true; try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1");
       localStorage.setItem("coursework:v2", JSON.stringify(d)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "done");
-      if (from) localStorage.setItem("studyboard:folderFrom", from); } } catch (e) {} }, [DATA, from]);
+      if (from) localStorage.setItem("studyboard:folderFrom", from); if (owner) localStorage.setItem("studioso:owner", owner); if (owner === "none") localStorage.setItem("studyboard:signedOutWork", "1"); } } catch (e) {} }, [DATA, from, owner]);
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => window.__sbSync, null, {timeout: 40000});
-    const r = await page.evaluate(async ([deleted, fail]) => {
+    await page.evaluate(([deleted, fail]) => {
       const S = window.__sbSync;
       S.useClient({from: () => ({select: () => ({in: async (col, ids) => fail ? {data: null, error: {message: "network"}} : {data: ids.filter(id => deleted.includes(id)).map(id => ({kind: id[0] === "c" ? "course" : "task", id})), error: null}})})});
-      await S.claimDevice("user-1");
+      window.__claim = S.claimDevice("user-1");
+    }, [deleted, !!fail]);
+    let asked = "";
+    if (answer) { await page.waitForSelector("#askDlg[open]", {timeout: 5000}); asked = await page.textContent("#askDlg h2"); await page.evaluate(id => document.querySelector(id).click(), answer === "add" ? "#askYes" : "#askNo"); }
+    const r = await page.evaluate(async () => {
+      const S = window.__sbSync;
+      await window.__claim;
       const out = JSON.parse(localStorage.getItem(S.devKeys.OUTBOX) || "[]");
       return {courses: Object.keys(S.state.courses).sort(), tasks: Object.keys(S.state.tasks).sort(), queued: (Array.isArray(out) ? out : Object.values(out)).map(x => x.id || (x[1])).filter(Boolean).sort(),
-        owner: localStorage.getItem(S.devKeys.OWNER), from: localStorage.getItem("studyboard:folderFrom")};
-    }, [deleted, !!fail]);
+        owner: localStorage.getItem(S.devKeys.OWNER), from: localStorage.getItem("studyboard:folderFrom"),
+        backups: await new Promise(res => { const q = indexedDB.open("studyboard-sync", 1); q.onsuccess = () => { try { const g = q.result.transaction("backups").objectStore("backups").getAll(); g.onsuccess = () => res(g.result.map(b => b.note || "")); g.onerror = () => res([]); } catch (e) { res([]); } }; q.onerror = () => res([]); })};
+    });
+    r.asked = asked;
     await page.waitForTimeout(1800);
     r.toast = await page.evaluate(() => document.querySelector("#toastMsg") ? document.querySelector("#toastMsg").textContent : "");
     r.errs = errs; await ctx.close(); return r;
@@ -54,6 +62,18 @@ const DATA = {v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: "Old Co
   ok(r.tasks.length === 3 && r.queued.includes("t1"), "work made on this device before the first sign-in (not a restore) still joins the account when the log can't be read");
   r = await run(null, ["t3"]);
   ok(JSON.stringify(r.tasks) === '["t1","t2"]' && !r.queued.includes("t3"), "and anything the account deleted is left out there too");
+  ok(!r.errs.length, "no page errors: " + r.errs.join(" | "));
+
+  // Work made after signing out (owner "none"): the person is asked, not told it's another account's
+  r = await run(null, [], false, "none", "add");
+  ok(/Signed Out/.test(r.asked), "signing in after working signed out asks first: " + r.asked);
+  ok(r.tasks.length === 3 && r.queued.includes("t1") && r.queued.includes("c2") && r.owner === "user-1", "Add to My Account keeps it and uploads it: " + JSON.stringify(r));
+  ok(!r.backups.some(b => /another account/.test(b)), "and nothing is filed as another account's data");
+  r = await run(null, [], false, "none", "keep");
+  ok(!r.tasks.length && !r.queued.length && r.backups.some(b => /while signed out/.test(b)), "Keep Separate sets it aside in a device backup instead: " + JSON.stringify(r.backups));
+  ok(/while signed out was set aside/.test(r.toast), "and says so: " + r.toast);
+  r = await run(null, [], false, "user-9");
+  ok(!r.tasks.length && !r.asked && r.backups.some(b => /another account/.test(b)), "a different account's copy is still set aside without asking");
   ok(!r.errs.length, "no page errors: " + r.errs.join(" | "));
   await browser.close(); server.close();
   console.log(`\nrestore-deleted.e2e: ${n} checks passed`);

@@ -6,12 +6,32 @@ function undoLast(){
   while (undoStack.length) {
     const s = undoStack.pop();
     if (s.done || Date.now() - s.at > 30 * 60000) continue;
-    s.undo(); toast(s.label ? `Undone: ${s.label}` : "Undone");
+    const kept = s.undo();
+    toast((s.label ? `Undone: ${s.label}` : "Undone") + (kept ? ". Changes you made after it were kept." : ""));
     return true;
   }
   toast("Nothing to undo");
   return false;
 }
+/*UNDO-MERGE-START*/
+// What undoing one item puts back. before: the item before the step, applied: right after it, cur: now.
+// Only what the step changed goes back, and only where it hasn't been changed again since. skip leaves the item as it is;
+// kept says a later change was left in place
+function undoMerge(before, applied, cur, eq){
+  if (eq(cur, applied)) return {val: before, kept: false};
+  // made or deleted by the step, then changed, deleted or brought back again: left as it is
+  if (!before || !applied || !cur) return {skip: true, kept: true};
+  const val = Object.assign({}, cur);
+  let kept = false, changed = false;
+  new Set(Object.keys(before).concat(Object.keys(applied))).forEach(k => {
+    if (k === "history" || eq(before[k], applied[k])) return;
+    if (!eq(cur[k], applied[k])) { kept = true; return; }
+    if (before[k] === undefined) delete val[k]; else val[k] = before[k];
+    changed = true;
+  });
+  return changed ? {val, kept} : {skip: true, kept};
+}
+/*UNDO-MERGE-END*/
 const mapOf = kind => state[KIND_MAP[kind]];
 const getItem = (kind, id) => mapOf(kind)[id] || null;
 function historyDiff(a, b){
@@ -46,6 +66,13 @@ function setItem(kind, id, obj, record){
   }
   queueWrite(kind, id, obj === null ? null : m[id]);
 }
+// Work done here after an account signed out and erased its copy (claimDevice asks whether to add it to the next account that signs in)
+const OUT_WORK = "studyboard:signedOutWork";
+let outWorkSeen = false;
+function markSignedOutWork(){
+  if (outWorkSeen || (typeof sbUser !== "undefined" && sbUser)) return;
+  try { if (localStorage.getItem(OWNER) === NO_OWNER) { localStorage.setItem(OUT_WORK, "1"); outWorkSeen = true; } } catch(e) {}
+}
 function applyChanges(changes, label, extra, opts){
   if (!changes.length) return;
   const inverse = changes.map(c => ({kind:c.kind, id:c.id, after: clone(getItem(c.kind, c.id))}));
@@ -60,11 +87,21 @@ function applyChanges(changes, label, extra, opts){
     try { const xr = examReadiness(Object.assign({}, a, {status: "todo"})); c.after = Object.assign({}, a, {readySnap: {felt: xr ? xr.self : null, measured: xr ? xr.measured : null, at: Date.now()}}); } catch (e) { console.warn("readiness snapshot", e); }
   });
   changes.forEach(c => setItem(c.kind, c.id, c.after === null ? null : c.after, label !== null));
+  if (label !== null) markSignedOutWork();
+  const applied = label ? changes.map(c => clone(getItem(c.kind, c.id))) : null;
   state.updated = Date.now();
   saveLocal();
   scheduleRender();
   const step = {label: label || "", at: Date.now(), done: false, binned: binned.length > 0};
-  const undo = () => { if (step.done) return; step.done = true; applyChanges(inverse, null); trashDrop(binned); toast("Undone"); };
+  // Puts back what this step changed but keeps later edits to the same items (Ctrl+Z can come much later). Returns how many items kept one
+  const undo = () => {
+    if (step.done) return 0; step.done = true;
+    let kept = 0; const back = [];
+    inverse.forEach((v, i) => { const r = applied ? undoMerge(v.after, applied[i], getItem(v.kind, v.id), SyncMerge.eq) : {val: v.after}; if (r.kept) kept++; if (!r.skip) back.push({kind: v.kind, id: v.id, after: r.val}); });
+    if (back.length) applyChanges(back, null);
+    trashDrop(binned); toast(kept ? "Undone. Changes you made after it were kept." : "Undone");
+    return kept;
+  };
   step.undo = undo;
   if (typeof extra === "function") extra = extra();
   if (label) { toast(label, undo, extra, opts); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }

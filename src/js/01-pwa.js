@@ -7,7 +7,29 @@ function pwaBoot(){
   if (inPreview() || DESK || !(location.protocol === "https:" || (location.protocol === "http:" && location.hostname === "localhost"))) { if (inPreview() || DESK) links.forEach(x => x.remove()); return; }
   if (!links.length) { const l = document.createElement("link"); l.rel = "manifest"; l.href = "manifest.webmanifest"; document.head.appendChild(l); }
   else for (let i = 1; i < links.length; i++) links[i].remove();
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => { if (window.SBERR) SBERR.flow("sw-register", e); });
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("sw.js").catch(e => { if (window.SBERR) SBERR.flow("sw-register", e); });
+  navigator.serviceWorker.addEventListener("message", e => { const m = e.data; if (m && m.type === "sb-new-version" && Array.isArray(m.parts)) pwaNewVersion(m.parts); });
+  // An app left open checks for a new release now and then (the service worker saves it and says so)
+  let checkedAt = Date.now();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || Date.now() - checkedAt < 6 * 36e5 || !navigator.serviceWorker.controller) return;
+    checkedAt = Date.now(); fetch("./index.html", {cache: "no-cache"}).catch(() => {});
+  });
+}
+// A newer release is saved: offer to reload. Never reloads by itself, so nothing being typed is lost
+let pwaNewShown = false;
+function pwaNewVersion(parts){
+  const mine = new Set([...document.querySelectorAll('script[src*="bundle/"], link[href*="bundle/"]')].map(x => x.src || x.href));
+  if (pwaNewShown || !mine.size || parts.every(u => mine.has(u))) return;
+  pwaNewShown = true;
+  let tries = 0;
+  const go = () => {
+    const t = $("#toast");
+    if (t && t.classList.contains("show") && ++tries < 40) { setTimeout(go, 5000); return; }
+    toast("A new version of Studyboard is ready.", null, {label: "Reload", fn: () => location.reload()});
+  };
+  setTimeout(go, 1500);
 }
 /* Keeping this browser's copy */
 const PST = {state: "unknown"};
