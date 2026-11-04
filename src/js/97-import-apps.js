@@ -586,6 +586,16 @@ const IA = (() => {
     return best;
   }
 
+  // Already brought in before: a deck of the same name holding most of its cards, or most of its tasks (title and due date) or notes already there.
+  // have: {decks: [{name, cards: [{front}]}], tasks: [{title, due}], notes: [{text}]}
+  function already(g, have){
+    const k = s => String(s || "").toLowerCase().replace(/\s+/g, " ").trim(), most = (list, has) => list.length > 0 && list.filter(has).length >= Math.ceil(list.length * 0.8);
+    if (g.kind === "deck") return (have.decks || []).some(d => k(d.name) === k(g.name) && (fr => most(g.items, c => fr.has(k(c.front))))(new Set((d.cards || []).map(c => k(c.front)))));
+    if (g.kind === "tasks") { const ts = new Set((have.tasks || []).map(t => k(t.title) + "|" + (t.due || ""))); return most(g.items, x => ts.has(k(x.title) + "|" + (x.due || ""))); }
+    if (g.kind === "notes") { const ns = new Set((have.notes || []).map(n => k(n.text).slice(0, 300))); return most(g.items, p => ns.has(k(p.text).slice(0, 300))); }
+    return false;
+  }
+
   /* zstd: a plain frame of raw blocks (for tests; Anki's real files are unpacked by fzstd) */
   function zstdRaw(data){
     const parts = [new Uint8Array([0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x58])], B = 131072;
@@ -601,7 +611,7 @@ const IA = (() => {
   const isZip = b => b && b.length > 4 && b[0] === 0x50 && b[1] === 0x4b && (b[2] === 3 || b[2] === 5);
   const isSqlite = b => b && b.length > 16 && String.fromCharCode.apply(null, b.subarray(0, 15)) === "SQLite format 3";
 
-  return {CARD_CAP, NOTE_CAP, sqlite, readAnki, isPlaceholder, htmlText, clozeCard, pbKind, pbInt, pbMedia, isIO, ioShapes, ioMasks, ioCard, svgShapes, ioeCard, imgSrc, picCard, nameBoxes, parseCSV, looseDate, todoist, notionTitle, notionDir, mdText, notionTable, plan, matchCourse, zstdRaw, isZstd, isZip, isSqlite, boxFor};
+  return {CARD_CAP, NOTE_CAP, sqlite, readAnki, isPlaceholder, htmlText, clozeCard, pbKind, pbInt, pbMedia, isIO, ioShapes, ioMasks, ioCard, svgShapes, ioeCard, imgSrc, picCard, nameBoxes, parseCSV, looseDate, todoist, notionTitle, notionDir, mdText, notionTable, plan, matchCourse, already, zstdRaw, isZstd, isZip, isSqlite, boxFor};
 })();
 /*IMPORTAPPS-END*/
 
@@ -801,12 +811,15 @@ const IA = (() => {
       nn.forEach(g => { if (g.over) warn.push(tr("ia.w.notecap", "Only the first {n} pages are brought in at once.", {n: n0(IA.NOTE_CAP)})); });
       if (p.skipped) warn.push(trn("ia.w.tables", p.skipped, "{n} table wasn't tasks or flashcards and was left out.|{n} tables weren't tasks or flashcards and were left out."));
     }
+    // the same file brought in twice: what's already here starts unticked
+    const have = {decks: Object.values(state.decks || {}), tasks: allTasks(), notes: Object.values(state.notes || {})};
+    groups.forEach(g => { if (IA.already(g, have)) { g.on = false; g.dup = true; } });
     PV = {app, groups, media: (r.anki && r.anki.media) || {}};
     const title = {anki: tr("ia.t.anki", "Import From Anki"), todoist: tr("ia.t.todoist", "Import From Todoist"), notion: tr("ia.t.notion", "Import From Notion")}[app] || tr("ia.t.file", "Import");
     const kindW = g => g.kind === "deck" ? cardsW(g.items.length) + (g.items.some(c => c.pic) ? " · " + picsW(g.items.filter(c => c.pic).length) : "") + (g.items.some(c => c.seen > 0) ? " · " + tr("ia.learnedN", "{n} learned", {n: n0(g.items.filter(c => c.seen > 0).length)}) : "") : g.kind === "tasks" ? tasksW(g.items.length) : notesW(g.items.length);
     const opts = sel => `<option value="">${esc(tr("ia.nocourse", "No course"))}</option>` + coursesArr().map(c => `<option value="${esc(c.id)}"${c.id === sel ? " selected" : ""}>${esc(courseLabel(c))}</option>`).join("");
     const row = (g, i) => `<div class="ia-row">
-        <label class="ia-on"><input type="checkbox" data-ia-on="${i}" ${g.on ? "checked" : ""}><span><b>${esc(g.kind === "notes" ? tr("ia.pages", "Pages as notes") : g.name)}</b><span class="sub">${esc((g.kind === "deck" ? tr("ia.k.deck", "Deck") : g.kind === "tasks" ? tr("ia.k.tasks", "Tasks") : tr("ia.k.notes", "Notes")) + " · " + kindW(g))}</span></span></label>
+        <label class="ia-on"><input type="checkbox" data-ia-on="${i}" ${g.on ? "checked" : ""}><span><b>${esc(g.kind === "notes" ? tr("ia.pages", "Pages as notes") : g.name)}</b><span class="sub">${esc((g.kind === "deck" ? tr("ia.k.deck", "Deck") : g.kind === "tasks" ? tr("ia.k.tasks", "Tasks") : tr("ia.k.notes", "Notes")) + " · " + kindW(g) + (g.dup ? " · " + tr("ia.dup", "Already imported") : ""))}</span></span></label>
         ${coursesArr().length ? `<select data-ia-course="${i}" aria-label="${esc(tr("ia.courseFor", "Course for {name}", {name: g.name}))}">${opts(g.courseId)}</select>` : ""}
       </div>`;
     openSheet(`<div class="sheet ia-sheet">${head(title)}
@@ -817,7 +830,7 @@ const IA = (() => {
         ${groups.length ? `<p class="mini" style="margin:8px 0 0">${esc(tr("ia.undo", "Everything comes in as one change, so one Undo takes it all back out."))}</p>` : ""}
         <p class="status-msg" id="iaMsg" aria-live="polite" style="margin:6px 0 0"></p>
       </div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="ia-open">${esc(tr("ia.back", "Back"))}</button><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("ia.cancel", "Cancel"))}</button>${groups.length ? `<button type="button" class="btn primary" data-act="ia-go" id="iaGo">${esc(tr("ia.import", "Import"))}</button>` : ""}</div></div>`);
+      <div class="sheet-foot"><button type="button" class="btn" data-act="ia-open">${esc(tr("ia.back", "Back"))}</button><span class="spacer"></span><button type="button" class="btn" data-act="close">${esc(tr("ia.cancel", "Cancel"))}</button>${groups.length ? `<button type="button" class="btn primary" data-act="ia-go" id="iaGo"${groups.some(g => g.on) ? "" : " disabled"}>${esc(tr("ia.import", "Import"))}</button>` : ""}</div></div>`);
     const mine = PV;
     sheetKeep(IKEY, {name: title, dirty: () => mine.groups.length > 0, resume: () => { PV = mine; }});
     dlg.querySelectorAll("[data-ia-on]").forEach(cb => cb.addEventListener("change", () => { PV.groups[+cb.dataset.iaOn].on = cb.checked; const g = $("#iaGo"); if (g) g.disabled = !PV.groups.some(x => x.on); }));

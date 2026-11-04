@@ -239,7 +239,9 @@
     // the calculator wears the theme that's on, and changes with it (99-calculator-skins.js)
     new MutationObserver(() => { if (W && !W.hidden) skin(); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin"]});
     W.addEventListener("click", e => { const b = e.target.closest("[data-cx]"); if (!b) return; e.preventDefault(); act(b.dataset.cx, b.dataset.cxs); });
-    W.addEventListener("keydown", onKey);
+    // clicking the display or the body (not a key) keeps the keyboard on the calculator
+    W.tabIndex = -1;
+    W.addEventListener("pointerdown", () => { if (!W.contains(document.activeElement)) W.focus({preventScroll: true}); });
     // dragging by the top strip (computers)
     const top = W.querySelector("[data-cx-drag]");
     top.addEventListener("pointerdown", e => {
@@ -269,6 +271,25 @@
     const b = W.querySelector(`[data-cx="${a}"]`); if (b) { b.classList.add("is-down"); setTimeout(() => b.classList.remove("is-down"), 110); }
     act(a);
   }
+  // While the calculator is open, its keys go to it before any page shortcut (1 to 7 switch pages, 1 to 4 rate
+  // flashcards, N adds a task...), wherever the focus is. Typing in a box elsewhere, or a dialog in front, still wins.
+  const editable = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+  const modalOpen = () => [...document.querySelectorAll("dialog[open]")].some(d => { try { return d.matches(":modal"); } catch (e) { return true; } });
+  window.addEventListener("keydown", e => {
+    if (!W || W.hidden || e.isComposing) return;
+    const t = e.target, inside = !!(t && t.nodeType === 1 && W.contains(t));
+    if (!inside) {
+      if (editable(t) || modalOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
+      // keys that move around the page or press the focused button keep doing that
+      if (/^(Escape|Tab| |ArrowLeft|ArrowRight|ArrowUp|ArrowDown)$/.test(e.key)) return;
+      if (e.key === "Enter" && t && t.closest && t.closest("button,a,summary,[role=button]")) return;
+    }
+    onKey(e);
+    if (e.defaultPrevented) {
+      e.stopImmediatePropagation();
+      if (!inside) W.focus({preventScroll: true});
+    }
+  }, true);
 
   hook("act", act0 => { if (act0 !== "calc-open") return false; if (W && !W.hidden) close(); else open(); return true; });
   hook("menu", () => `<button data-act="calc-open"><span>Calculator<span class="sub">A scientific calculator in its own window</span></span></button>`);

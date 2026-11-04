@@ -1499,7 +1499,8 @@ Rules:
 - sure=false when you had to infer the date.
 Return JSON only.`});
   const d = res.data || {}, c = d.course || {};
-  const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || ""), isTime = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || "");
+  // a real calendar day: "2026-02-30" is left blank, not saved
+  const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || "") && !isNaN(Date.parse(s + "T00:00:00Z")) && new Date(s + "T00:00:00Z").toISOString().slice(0, 10) === s, isTime = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || "");
   const meetings = (Array.isArray(c.meetings) ? c.meetings : []).map(m => ({id: uid(), kind: MEET_KINDS.includes(m.kind) ? m.kind : "Other", days: [...new Set((m.days || []).map(Number).filter(x => x >= 0 && x <= 6))].sort(), start: isTime(m.start) ? m.start : "", end: isTime(m.end) ? m.end : "", where: String(m.where || "").trim()})).filter(m => m.days.length && m.start && m.end && m.end > m.start);
   const course = {name: String(c.name || "").trim(), code: String(c.code || "").trim(), instructor: String(c.instructor || "").trim(), room: String(c.room || "").trim(), office: String(c.officeHours || "").trim(),
     schedule: meetingsSummary(meetings), meetings, links: (Array.isArray(c.links) ? c.links : []).map(l => ({label: String(l.label || "Link").trim() || "Link", url: String(l.url || "").trim()})).filter(l => safeUrl(l.url)).slice(0, 8)};
@@ -1509,7 +1510,7 @@ Return JSON only.`});
   const gate = aiGateSyllabus(items, today); items.length = 0; gate.items.forEach(i => items.push(i));
   items.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
   const gateNote = [gate.fixed ? `${gate.fixed} date${gate.fixed === 1 ? " looked" : "s looked"} wrong (far from the rest) and ${gate.fixed === 1 ? "was" : "were"} left blank for you to fill in.` : "", gate.dups ? `${gate.dups} repeated item${gate.dups === 1 ? " was" : "s were"} merged.` : ""].filter(Boolean).join(" ");
-  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote, rules: aiSylRules(d.rules)};
+  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote, rules: aiSylRules(d.rules), truncated: !!res.truncated};
 }
 
 /* Settings: turning AI on and choosing a model */

@@ -73,7 +73,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await page.evaluate(() => { const T = window.__sbProStudy; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); });
     await page.waitForTimeout(500);
     const shot = async name => { if (SHOTS) { fs.mkdirSync(SHOTS, {recursive: true}); await page.screenshot({path: path.join(SHOTS, name + ".png")}); } };
-    const MORE = ["fill", "header", "find", "pages", "ocr", "fields", "stamp", "watermark", "link", "history"];
+    const MORE = ["fill", "header", "find", "pages", "ocr", "fields", "stamp", "watermark", "link", "equation", "history", "contents"];
     const tool = async id => { if (await page.locator(`.pde-tools > .pde-tool[data-id="${id}"]`).count()) await page.click(`.pde-tools > .pde-tool[data-id="${id}"]`); else { await page.click('[data-act="pde-more"]'); await page.click(`.pde-mi[data-id="${id}"]`); } await page.waitForTimeout(200); };
     await page.evaluate(async files => { for (const [k, b] of files) await window.__sbProStudy.idbSet("pdf:" + k, new Blob([new Uint8Array(b)])); }, [["a-ws", [...ws]], ["a-ws2", [...ws]], ["a-lk", [...locked]]]);
     await page.evaluate(() => { window.__ups = []; window.__sbProStudy.caps.assets = {upload: async (file, o) => { const id = "up-" + (window.__ups.length + 1), b = new Uint8Array(await file.arrayBuffer()); window.__ups.push({id, name: file.name, size: b.length}); await window.__sbProStudy.idbSet("pdf:" + id, new Blob([b])); return {id, sizeBytes: b.length, contentType: o.type}; }}; });
@@ -97,7 +97,7 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await open("f1");
     await page.click("#pdeBtn"); await page.waitForFunction(() => !!window.PDFLib); await page.waitForTimeout(400);
     await page.click('[data-act="pde-more"]');
-    ok(await page.locator(".pde-menu .pde-mi").count() + await page.locator(".pde-tools > .pde-tool[data-fit]").count() === 11, "the row and More have all eleven extra tools (Quick Fill, Header, Find, Pages, Recognize Text, Make Fillable, Stamp, Watermark, Link, History…)");
+    ok(await page.locator(".pde-menu .pde-mi").count() + await page.locator(".pde-tools > .pde-tool[data-fit]").count() === 12, "the row and More have all twelve extra tools: Quick Fill, Header, Find, Pages, Recognize Text, Make Fillable, Stamp, Watermark, Link, Equation, History and Contents");
     await page.keyboard.press("Escape");
     await tool("fields"); await page.waitForFunction(() => /Found|No blank/.test((document.getElementById("pdeFdMsg") || {}).textContent || ""), null, {timeout: 15000});
     const names = await page.$$eval("[data-fdn]", l => l.map(x => x.value));
@@ -140,11 +140,15 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
 
     /* Watermark */
     await tool("watermark"); await page.waitForSelector("#pdeWmText");
-    ok((await edits()).some(e => e.k === "m" && e.text === "DRAFT") && await page.locator(".pde-wm").count() >= 1, "a watermark shows on the page as soon as it's opened");
+    ok(!(await edits()).some(e => e.k === "m") && await page.locator(".pde-wm").count() >= 1, "a watermark previews on the page as soon as it's opened, but isn't added yet");
+    await page.click('.pde-pf [data-act="pde-panel-close"]'); await page.waitForTimeout(200);
+    ok(!(await edits()).some(e => e.k === "m") && await page.locator(".pde-wm").count() === 0, "Cancel takes the preview away and adds nothing");
+    await tool("watermark"); await page.waitForSelector("#pdeWmText");
     await page.fill("#pdeWmText", "SAMPLE"); await page.waitForTimeout(400);
-    ok((await edits()).some(e => e.k === "m" && e.text === "SAMPLE"), "and changes as you type");
+    ok(/SAMPLE/.test(await page.locator(".pde-wm").first().textContent()) && !(await edits()).some(e => e.k === "m"), "the preview changes as you type");
     await shot("2-stamp-watermark");
-    await page.click('.pde-panel [data-act="pde-panel-close"]');
+    await page.click('.pde-panel [data-act="pde-wm-done"]'); await page.waitForTimeout(200);
+    ok((await edits()).some(e => e.k === "m" && e.text === "SAMPLE"), "and Done adds it");
 
     /* Links */
     await tool("link"); await page.waitForTimeout(400);

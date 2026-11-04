@@ -382,7 +382,9 @@ var SBINK = null;
     hand: ico('<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 11V4.5a1.5 1.5 0 0 1 3 0V12"/><path d="M14 11.5V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-6 6h-.5a6 6 0 0 1-4.6-2.2L4 15.5a1.5 1.5 0 0 1 2.3-1.9L8 15.5"/>')
   };
   function barHtml(){
-    const tool = T.tool, hl = tool === "hl", cols = hl ? HLC : PEN, cur = hl ? T.hl : T.pen, wi = hl ? T.hw : T.pw;
+    // Theme Color is left out when it's the same as one of the pens (a blue theme looks just like Blue)
+    const near = (a, b) => { const m = x => /^#[0-9a-f]{6}$/i.test(x) ? [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16)) : null, p = m(a), q = m(b); return !!p && !!q && Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < 60; };
+    const tool = T.tool, hl = tool === "hl", cur = hl ? T.hl : T.pen, cols = hl ? HLC : PEN.filter(([k]) => k !== "accent" || cur === "accent" || !PEN.some(x => near(x[2], accent()))), wi = hl ? T.hw : T.pw;
     const tb = (k, name) => `<button type="button" class="icon-btn ink-t" data-act="ink-tool" data-id="${k}" aria-pressed="${tool === k}" aria-label="${name}" title="${name}">${IC[k]}</button>`;
     return `<span class="ink-g" role="group" aria-label="Tool">${tb("pen", "Pen")}${tb("hl", "Highlighter")}${tb("erase", "Eraser")}</span>
       ${tool === "erase" ? `<span class="mini ink-tip">Touch a stroke to erase it.</span>` : `<span class="ink-g" role="group" aria-label="Color">${cols.map(([k, name, hex]) => `<button type="button" class="ink-col" data-act="ink-color" data-id="${k}" style="--h:${esc(hex || accent())}" aria-pressed="${cur === k}" aria-label="${name}" title="${name}"></button>`).join("")}</span>

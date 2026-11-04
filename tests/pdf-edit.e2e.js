@@ -123,6 +123,7 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
 
     // 4. white-out the draft line
     await page.click('.pde-tool[data-id="white"]');
+    await page.evaluate(() => { const s = [...document.querySelectorAll(".pdr-page .textLayer span")].find(s => s.textContent.includes("Draft copy")); s.scrollIntoView({block: "center"}); }); await page.waitForTimeout(300);
     const dr = await wordAt("Draft copy");
     const end = await wordAt("distribution");
     await page.mouse.move(dr.l - 4, dr.y - 12); await page.mouse.down(); await page.mouse.move((dr.l + end.r) / 2, dr.y, {steps: 4}); await page.mouse.move(end.r + 4, dr.y + 12, {steps: 4}); await page.mouse.up();

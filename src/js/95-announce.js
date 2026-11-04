@@ -86,7 +86,7 @@
     const status = st.busy ? `<p class="ann-status" role="status" aria-live="polite" data-kind="busy">Checking your school site for new announcements…</p>`
       : st.msg ? `<p class="ann-status" role="status" aria-live="polite" data-kind="${esc(st.kind)}">${esc(st.msg)}${st.btn ? ` <button type="button" class="btn small" data-act="${esc(st.btn.act)}" data-plat="${esc(st.btn.plat || "")}">${esc(st.btn.label)}</button>` : ""}</p>` : "";
     const lc = lastChecked();
-    openSheet(`<div class="sheet ann-sheet">${head("Class Announcements")}
+    openSheet(`<div class="sheet ann-sheet">${bandHead("Class Announcements", SH_IC.bell, "var(--accent-band,var(--accent))")}
       <div class="sheet-body">
         ${np.length ? `<p class="mini ann-bar">${nUn ? `${nUn} unread` : "All caught up"}${lc ? ` · checked ${esc(ago(lc))}` : ""}</p>` : ""}
         ${np.length || all.length ? `<div class="ann-ctl">${all.length ? `<select class="ann-sel" id="annSel" aria-label="Show announcements for" aria-controls="annPanel">${opt(HOME, "All Classes", 0)}${groups.map(g => opt(g.k, g.name, g.un)).join("")}</select>` : ""}${np.length ? `${nUn ? `<button type="button" class="btn small" data-act="ann-readall">Mark All Read</button>` : ""}<button type="button" class="btn small" data-act="ann-check"${st.busy ? " disabled" : ""}>${st.busy ? "Syncing…" : "Sync"}</button>` : ""}</div>` : ""}${np.length ? status : ""}

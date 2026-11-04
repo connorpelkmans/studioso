@@ -8053,6 +8053,13 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 /* Sheet header icons: each is framed tightly around its own drawing (centred), so all fill the ring the same */
 .g2-sheet-head .sh-ring svg{width:54%!important;height:54%!important}
 .pomo-sheet .g2-sheet-head .sh-ring svg{width:58%!important;height:58%!important}
+/* The round Focus button beside a plan item: a bigger tomato that fills its circle */
+.focus-go .tomato-ic,.plan-row .focus-go .tomato-ic{width:22px!important;height:22px!important;transform:translateY(-1.5px)}
+/* In a button beside its label (Study for 25m, Start a Focus, Focus): a bigger tomato, without making the button taller */
+.btn .tomato-ic{width:21px!important;height:21px!important;margin:-3px 0 -3px -4px;flex:none}
+/* The companion's face in buttons: 2px lower, so it sits centred beside the label */
+.btn span.cp-ai-face.ai-ic{top:calc(-.2em + 1px)}
+.btn:is([style*="flex"],.f-sum) span.cp-ai-face.ai-ic,.frow > .f-sum span.cp-ai-face.ai-ic{top:calc(-.14em + 1px)}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
@@ -8417,3 +8424,4 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 /* Aquarium Tunnel: bubbles in the screen and a glassy sheen */
 .cx[data-cxskin=aquarium] .cx-lcd{background:radial-gradient(4px 4px at 88% 78%,rgba(47,184,217,.35) 60%,transparent 70%),radial-gradient(3px 3px at 92% 50%,rgba(47,184,217,.3) 60%,transparent 70%),radial-gradient(5px 5px at 85% 25%,rgba(47,184,217,.28) 60%,transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
 .cx[data-cxskin=aquarium] .cx-body{box-shadow:inset 6px 0 18px -6px rgba(255,255,255,.25),inset 0 1px 0 rgba(255,255,255,.14)}
+.cx:focus{outline:none}
