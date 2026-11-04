@@ -180,4 +180,34 @@ t("screenshot prompt and schema classify what the picture is", () => {
   assert.ok(CAP.SHOT_SCHEMA.properties.items && CAP.SHOT_SCHEMA.properties.rawText);
   assert.deepStrictEqual(CAP.VISION_SCHEMA.required, ["items", "rawText"]);
 });
+t("a typed year is read, a stray year is not confident (T1)", () => {
+  [["exam dec 5 2027", "2027-12-05"], ["exam January 10, 2027", "2027-01-10"], ["essay 5 dec 2027", "2027-12-05"], ["essay dec 5, 2026", "2026-12-05"], ["hw oct 28 2026 5pm", "2026-10-28"]].forEach(([s, due]) => {
+    const d = P(s); assert.strictEqual(d.due, due, s); assert.ok(!/20\d\d/.test(d.title), s + " -> " + d.title);
+  });
+  assert.strictEqual(P("exam dec 5 2027").title, "Exam"); assert.strictEqual(P("exam dec 5 2027").time, "");
+  assert.ok(!P("essay 2027 fri").confident, "a leftover year asks first");
+  assert.ok(P("essay 2027 fri").flags.includes("words"));
+});
+t("bare times without am/pm are never silently guessed (T2)", () => {
+  const tm = s => { const d = P(s); return [d.time, d.flags.includes("ampm"), d.confident]; };
+  // 24-hour forms are sure
+  [["hw fri 17:00", "17:00"], ["hw fri 09:30", "09:30"], ["hw fri 00:15", "00:15"], ["hw fri 23:59", "23:59"], ["hw fri 13:05", "13:05"]].forEach(([s, t]) => assert.deepStrictEqual(tm(s).slice(0, 2), [t, false], s));
+  // 1-6 is afternoon
+  [["hw fri 5:30", "17:30"], ["hw fri 1:00", "13:00"], ["essay due 6:45 fri", "18:45"], ["hw fri by 4:15", "16:15"]].forEach(([s, t]) => assert.deepStrictEqual(tm(s).slice(0, 2), [t, false], s));
+  // 7-12 are flagged, so the check shows; 11:59 reads as the usual deadline
+  [["essay due 11:59 fri", "23:59"], ["hw fri 11:30", "11:30"], ["hw fri 7:00", "07:00"], ["hw fri 9:15", "09:15"], ["hw fri 12:30", "12:30"], ["hw fri at 10:00", "10:00"]].forEach(([s, t]) => {
+    const r = tm(s); assert.strictEqual(r[0], t, s); assert.ok(r[1], s + " flagged"); assert.ok(!r[2], s + " not confident");
+  });
+  // am/pm and words stay sure
+  assert.deepStrictEqual(tm("hw 3 fri 11:59pm"), ["23:59", false, true]); assert.deepStrictEqual(tm("hw 3 fri 9am"), ["09:00", false, true]); assert.strictEqual(P("hw fri noon").time, "12:00");
+  assert.ok(P("hw 3 fri 5:30").confident);
+});
+t("ordinal-only dates and section numbers (T12)", () => {
+  assert.strictEqual(P("essay due the 15th").due, "2026-10-15"); assert.strictEqual(P("essay due the 15th").title, "Essay");
+  assert.strictEqual(P("essay due the 2nd").due, "2026-11-02", "a day already past this month means next month");
+  assert.strictEqual(P("hw on the 3rd").due, "2026-10-03");
+  assert.strictEqual(CAP.parseLine("hw the 31st", {today: "2026-11-04", courses}).due, "2026-12-31");
+  assert.ok(!P("Homework 2.5 fri").flags.includes("words")); assert.ok(P("Homework 2.5 fri").confident);
+  assert.ok(P("hw 10.28").flags.includes("words"), "a dotted month.day still asks");
+});
 console.log(n + " capture tests passed");

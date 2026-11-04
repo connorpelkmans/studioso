@@ -7,7 +7,7 @@ function qaCourse(text){
 }
 function qaLocal(text){
   const d = SBCAPTURE.line(text);
-  return {title: d.title || d.type, type: d.type, due: d.due, time: d.time, hours: d.hours, weight: d.weight, priority: d.priority, courseId: d.courseId};
+  return {title: d.title || d.type, type: d.type, due: d.due, time: d.time, hours: d.hours, weight: d.weight, priority: d.priority, courseId: d.courseId, flags: d.flags || [], ampm: (d.flags || []).includes("ampm")};
 }
 const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {type: "OBJECT", properties: {
   title: {type: "STRING"}, course: {type: "STRING", description: "Exactly one of the listed course codes, or empty"},
@@ -20,8 +20,10 @@ const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {t
 async function qaRun(text){
   // Phones always show the check first: a mistyped date is easy to miss on a small screen
   const phoneQa = !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
-  if (!phoneQa && window.SBCAPTURE && SBCAPTURE.fast(text)) { ui.qa = null; ui.qaText = ""; render(); setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30); return; }
-  ui.qa = {busy: true, text, items: []}; render();
+  // A draft still waiting for review is kept: the new items join it instead of replacing it
+  const keep = ui.qa && !ui.qa.busy && ui.qa.items && ui.qa.items.length ? ui.qa.items : [];
+  if (!phoneQa && !keep.length && window.SBCAPTURE && SBCAPTURE.fast(text)) { ui.qa = null; ui.qaText = ""; render(); setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30); return; }
+  ui.qa = {busy: true, text, items: keep, prevBy: ui.qa && ui.qa.by}; render();
   let items = null, by = "local", err = "";
   const loc = qaLocal(text), sure = qaConfident(text, loc);
   if (sure) items = [loc];
@@ -43,7 +45,7 @@ async function qaRun(text){
   if (!items || !items.length) { items = [loc]; by = "local"; }
   items.forEach(x => { if (!isNum(x.hours) && !MILESTONE(x.type)) { const est = localEstimate(x); x.hours = est.hours; x.est = true; } });
   if (!ui.qa || ui.qa.text !== text) return;
-  ui.qa = {text, items, by, err, sure}; render();
+  ui.qa = {text, items: keep.concat(items), by: keep.length && ui.qa.prevBy === "ai" ? "ai" : by, err, sure}; render();
   setTimeout(() => { const b = $("#qaAddBtn"); if (b) b.focus(); }, 30);
 }
 function qaBarHtml(){
@@ -56,7 +58,7 @@ function qaBarHtml(){
       <input type="time" data-qa="time" data-i="${i}" value="${esc(x.time)}" aria-label="Due time">
       <span class="qa-meta">${!MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
       <button type="button" class="x-btn" data-act="qa-rm" data-i="${i}" aria-label="Remove">${CLOSE}</button>
-      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span></li>`;
+      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}</li>`;
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
       <span class="qa-ic" aria-hidden="true">${aiReady() ? AI_ICON : "+"}</span>
       <input type="text" id="qaIn" value="${esc(ui.qaText || "")}" ${(ex => phPh("Add a task by typing, e.g. " + (ex || "bio quiz fri 2pm worth 5%"), "e.g. " + (ex ? ex.split(" ").slice(0, 2).join(" ") : "bio quiz fri")))(window.SBAREA && SBAREA.example())} aria-label="Add a task by typing a sentence" maxlength="400" data-noenter>
@@ -87,7 +89,8 @@ function qaLiveText(v){
 }
 document.addEventListener("input", e => { if (e.target.id === "qaIn") { ui.qaText = e.target.value; const l = $("#qaLive"); if (l && !ui.qa) l.textContent = qaLiveText(ui.qaText); } const i = e.target.dataset && e.target.dataset.qa; if (i && ui.qa && e.target.type === "text") ui.qa.items[Number(e.target.dataset.i)][i] = e.target.value; });
 document.addEventListener("change", e => { const k = e.target.dataset && e.target.dataset.qa; if (!k || !ui.qa) return; const it = ui.qa.items[Number(e.target.dataset.i)]; if (!it) return; it[k] = e.target.value; if (k === "courseId" || k === "type") render();
-  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); } });
+  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); }
+  else if (k === "time") { it.ampm = false; const h = e.target.closest(".qa-item") && e.target.closest(".qa-item").querySelector(".qa-ampm"); if (h) h.remove(); } });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape" || e.defaultPrevented || !ui.qa || ui.qa.busy || document.querySelector("dialog[open]")) return;
   const t = e.target; if (t !== document.body && !(t.closest && t.closest(".qa-wrap"))) return;

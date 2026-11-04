@@ -466,8 +466,10 @@ function qaConfident(text, t){
   const s = String(text || "");
   if (s.length > 140 || /[;\n]|\balso\b|\bthen\b|\band\b.*\b(due|by|on)\b/i.test(s)) return false;
   if (!t || !t.title || !/[a-z]{2}/i.test(t.title) || t.title === t.type) return false;
+  if ((t.flags || []).length) return false;
   const left = String(t.title);
-  if (/\b(next|this|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|days?|hrs?|hours?|mins?|minutes?)\b|\d/i.test(left.replace(/\b(?:lab|quiz|exam|test|project|chapter|ch|homework|hw|assignment|problem set|pset|week|module|unit|part|lecture|report|essay|paper|midterm|final|reading|read|worksheet|discussion|post|presentation|draft|set)\s*\d+\b/gi, " "))) return false;
+  if (/\b20\d\d\b/.test(left)) return false;
+  if (/\b(next|this|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|days?|hrs?|hours?|mins?|minutes?)\b|\d/i.test(left.replace(/\b(?:lab|quiz|exam|test|project|chapter|ch|homework|hw|assignment|problem set|pset|week|module|unit|part|lecture|report|essay|paper|midterm|final|reading|read|worksheet|discussion|post|presentation|draft|set)\s*\d+(?:\.\d+)?\b/gi, " "))) return false;
   return true;
 }
 /* AI-QUALITY-END */

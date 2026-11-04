@@ -74,6 +74,9 @@ t("quick add confidence", () => {
   assert.ok(!ok("essay due end of the month", "Essay end of the month"));
   assert.ok(!ok("x".repeat(200), "x"));
   assert.ok(!ok("", ""));
+  assert.ok(!ok("exam 2027 dec 5", "Exam 2027", "Exam"), "a stray year is not sure");
+  assert.ok(ok("homework 2.5 fri", "Homework 2.5"), "a section number is fine");
+  assert.ok(!api.qaConfident("essay due 11:59 fri", {title: "Essay", type: "Assignment", flags: ["ampm"]}), "a parser flag is not sure");
 });
 t("copy check: 8 or more words in a row from the material is copied; restating is not", () => {
   const src = "Mitochondria are membrane-bound organelles that generate most of the chemical energy needed to power the cell's biochemical reactions.";
