@@ -547,7 +547,7 @@ async function csLoad(){
 // Is the Edge Function deployed and open to calendar apps
 async function csCheckFn(){
   cs.fn = "checking"; csDraw();
-  const ping = async headers => { const r = await fetch(csFnUrl() + "?ping=1", {cache: "no-store", headers: headers || {}}); if (!r.ok) return {status: r.status}; const j = await r.json().catch(() => ({})); return {status: r.status, ok: j && j.app === "studyboard-calendar-feed"}; };
+  const ping = async headers => { const r = await fetchT(csFnUrl() + "?ping=1", {cache: "no-store", headers: headers || {}}, 15000); if (!r.ok) return {status: r.status}; const j = await r.json().catch(() => ({})); return {status: r.status, ok: j && j.app === "studyboard-calendar-feed"}; };
   let res = "missing";
   try { const r = await ping(); res = r.ok ? "ok" : r.status === 401 || r.status === 403 ? "jwt" : "missing"; }
   catch (e) {
