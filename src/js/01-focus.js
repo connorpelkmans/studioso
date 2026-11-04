@@ -318,7 +318,7 @@ function renderPomo(){
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
   const notifyNote = !notifySupported() ? "Desktop notifications aren't available here, so the alarm sound and on-screen alert are used." : Notification.permission === "denied" ? "Notifications are blocked for this site in your browser settings." : Notification.permission === "default" ? "Your browser will ask to allow notifications when you start the timer." : "Notifications are allowed.";
-  d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO, pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
+  d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO.replace('viewBox="0 0 24 24"', 'viewBox="2.62 2.87 18.76 18.76"'), pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
     <div class="sheet-body">
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
