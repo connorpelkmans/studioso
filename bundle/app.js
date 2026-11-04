@@ -16344,7 +16344,7 @@ function deckSheet(d){
 }
 function cardSheet(d, cardId){
   const c = d.cards.find(x => x.id === cardId); if (!c) return;
-  openSheet(`<form class="sheet">${bandHead("Edit Card", SH_IC.card, "var(--accent-band,var(--accent))", "", esc(d.name))}
+  openSheet(`<form class="sheet">${bandHead("Edit Card", SH_IC.card, "var(--accent-band,var(--accent))", esc(d.name))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
@@ -16392,7 +16392,7 @@ function reviewSheet(){
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
 }
 function addCardSheet(d){
-  openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, "var(--accent-band,var(--accent))", "", esc(d.name))}
+  openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, "var(--accent-band,var(--accent))", esc(d.name))}
     <div class="sheet-body">
       <label class="f"><span class="lh">Front ${REQ}<span class="hint">term or question</span></span><textarea id="fcFront" rows="3" required data-noenter autofocus placeholder="e.g. Logistic growth"></textarea></label>
       <label class="f"><span class="lh">Back ${REQ}<span class="hint">definition or answer</span></span><textarea id="fcBack" rows="3" required data-noenter placeholder="e.g. Growth that slows as a population nears carrying capacity"></textarea></label>
