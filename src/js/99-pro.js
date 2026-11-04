@@ -2905,9 +2905,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   // the top row on one line: drop labels a step at a time until it fits
   function fitBar(){
     const bar = dlg.querySelector(".pdr-sheet .pdr-bar"); if (!bar || !bar.offsetWidth) return;
-    bar.classList.remove("c1", "c2", "c3");
-    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer")); return !k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8); };
-    for (const c of ["c1", "c2", "c3"]) { if (one()) break; bar.classList.add(c); }
+    bar.classList.remove("c1", "c2", "c3", "c4", "c5");
+    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer")); return (!k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8)) && bar.scrollWidth <= bar.clientWidth + 1; };
+    for (const c of ["c1", "c2", "c3", "c4", "c5"]) { if (one()) break; bar.classList.add(c); }
   }
   P.fitBar = fitBar;
   let fbT = 0; window.addEventListener("resize", () => { clearTimeout(fbT); fbT = setTimeout(() => { if (R) fitBar(); }, 100); });
@@ -2993,7 +2993,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   css.textContent = `
 dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400px)}
 .pdr-sheet{height:100%}
-.pdr-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 16px 10px;border-bottom:1px solid var(--line)}
+.pdr-bar{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;padding:6px 16px 10px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-x:contain}
+.pdr-bar > *{flex:none}
 .pdr-bar2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--ink) 3%,var(--surface));min-height:46px}
 .pdr-g-read,.pdr-g-mark{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
@@ -3005,6 +3006,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-modes{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
 .pdr-modes .pdr-mode,.pdr-modes .pde-mode{display:inline-flex;align-items:center;gap:6px;min-height:34px;height:34px;padding:0 14px;border:0;border-radius:999px;background:none;color:var(--muted);font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;box-shadow:none}
 .pdr-modes .pdr-mode svg,.pdr-modes .pde-mode svg{width:16px;height:16px;flex:none}
+@media (pointer:coarse){ .pdr-modes .pdr-mode,.pdr-modes .pde-mode{min-height:40px;height:40px} }
 .pdr-modes .pdr-mode[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
 .pdr-modes .pde-mode[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink,#fff)}
 .pdr-modes .pdr-mode:focus-visible,.pdr-modes .pde-mode:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -3019,6 +3021,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-bar.c2 .pdr-save{min-width:0}
 .pdr-bar.c3 .pdr-modes .pdr-mode,.pdr-bar.c3 .pdr-modes .pde-mode{padding:0 9px}
 .pdr-bar.c3 .pdr-fit{display:none}
+.pdr-bar.c4 .pdr-modes .pdr-mode,.pdr-bar.c4 .pdr-modes .pde-mode{font-size:0;padding:0 11px;gap:0}
+.pdr-bar.c4 .pdr-modes .pdr-badge{font-size:.72rem}
+.pdr-bar.c5{gap:4px;padding-left:10px;padding-right:10px}
+.pdr-bar.c5 .pdr-nav,.pdr-bar.c5 .pdr-zoom{gap:2px}
 .pdr-bar .pdr-fit{gap:0}
 .pdr-nav,.pdr-zoom,.pdr-cols{display:inline-flex;align-items:center;gap:4px}
 .pdr-pg input{width:3.4em;text-align:center;padding:6px 4px}
@@ -3079,6 +3085,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-main.with-side{grid-template-columns:minmax(0,1fr)}
   .pdr-side{position:absolute;inset:auto 0 0 0;max-height:62%;border-left:0;border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.18);border-radius:16px 16px 0 0;z-index:40}
   .pdr-bar{gap:6px;padding:6px 10px 8px}
+  /* one row on a phone, the mode switch and Save first; the rest scrolls sideways */
+  .pdr-bar > .spacer{display:none}
+  .pdr-bar > .pdr-modes{order:-3}
+  .pdr-bar > .pdr-out{order:-2}
   .pdr-bar2{gap:6px;padding:6px 10px}
   .pdr-bar .icon-btn{width:40px;height:40px}
   .pdr-fit{min-height:40px}

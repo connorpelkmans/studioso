@@ -888,7 +888,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   const IC = {
     edit: '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M14 7l3 3"/>',
     text: '<path d="M5 6V5h14v1M12 5v14M9 19h6"/>', add: '<path d="M4 7V5h10v2M9 5v12M7 17h4"/><path d="M18 13v6M15 16h6"/>',
-    white: '<rect x="4" y="6" width="16" height="12" rx="1.5"/><path d="M4 14l5-4 4 3 3-2 4 3"/>', trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    white: '<path d="M20 20H9l-5-5a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0L21 8a2 2 0 0 1 0 2.8L11 20"/><path d="M8.5 8.5l7 7"/>', trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
     down: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>', save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
     mark: '<path d="M4 12l5 5L20 6"/>', image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/>',
     sign: '<path d="M3 17c3-1 4-8 6-8s0 7 2 7 3-4 4-4 1 3 3 3 3-1 3-1"/><path d="M3 21h18"/>', find: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
@@ -896,6 +896,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     rotL: '<path d="M3 4v6h6"/><path d="M4.5 15a8 8 0 1 0 2-8.5L3 10"/>', rotR: '<path d="M21 4v6h-6"/><path d="M19.5 15a8 8 0 1 1-2-8.5L21 10"/>',
     fill: '<path d="M4 6h10M4 12h7M4 18h5"/><path d="M14 18l2 2 4-5"/>', header: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M7 7h10M9 17h6"/>', ocr: '<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 10h8M8 14h5"/>',
     speak: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/>', toc: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>', cmp: '<path d="M8 4v16M16 4v16M4 8h4M16 16h4M4 16l4-4M20 8l-4 4"/>',
+    fields: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 10v4"/>', stamp: '<path d="M9.5 3h5l-1 7h-3z"/><path d="M5 13h14v4H5zM7 21h10"/>', wm: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 16l8-8M8 11l3-3M13 16l3-3"/>',
+    link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>', hist: '<path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5"/><path d="M3.5 3.5v5h5M12 7.5V12l3 2"/>',
+    ask: '<path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3.5 21l1.5-5A8.5 8.5 0 1 1 21 12z"/><path d="M9.8 9.6a2.3 2.3 0 1 1 3.2 2.1c-.6.3-1 .8-1 1.4M12 16h.01"/>', study: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6"/>', dup: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
     left: '<path d="M15 6l-6 6 6 6"/>', right: '<path d="M9 6l6 6-6 6"/>', plus: '<path d="M12 5v14M5 12h14"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>'};
   const COLORS = [["#000000", "Black"], ["#1f3a93", "Dark blue"], ["#c0262d", "Red"], ["#1d7a3a", "Green"]];
   const SHAPES = [["check", "Checkmark", '<path d="M4 12l5 5L20 6"/>'], ["cross", "Cross", '<path d="M6 6l12 12M18 6L6 18"/>'], ["rect", "Box", '<rect x="4" y="6" width="16" height="12"/>'],
@@ -1148,7 +1151,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const [x1, y1] = toVp(pg, e.pts[0], e.pts[1]), [x2, y2] = toVp(pg, e.pts[2], e.pts[3]), s = pg.vp.scale, lw = Math.max(0.6, (e.lw || 2) * s);
       const a = Math.atan2(y2 - y1, x2 - x1), L = Math.max(6, (e.lw || 2) * 4) * s, sp = 0.45;
       const head = e.sh === "arrow" ? `<path d="M${x2} ${y2}L${x2 - L * Math.cos(a - sp)} ${y2 - L * Math.sin(a - sp)}L${x2 - L * Math.cos(a + sp)} ${y2 - L * Math.sin(a + sp)}Z" fill="${esc(e.c)}" stroke="none"/>` : "";
-      return `<svg class="${cls} pde-ln" data-e="${esc(e.id)}" width="100%" height="100%"><path class="pde-hit" d="M${x1} ${y1}L${x2} ${y2}"/><path d="M${x1} ${y1}L${x2} ${y2}" stroke="${esc(e.c)}" stroke-width="${lw}" stroke-linecap="round" fill="none"/>${head}${sel ? `<circle class="pde-end" data-end="1" cx="${x1}" cy="${y1}" r="7"/><circle class="pde-end" data-end="2" cx="${x2}" cy="${y2}" r="7"/>` : ""}</svg>`;
+      return `<svg class="${cls} pde-ln" data-e="${esc(e.id)}" width="100%" height="100%"><path class="pde-hit" d="M${x1} ${y1}L${x2} ${y2}"/><path d="M${x1} ${y1}L${x2} ${y2}" stroke="${esc(e.c)}" stroke-width="${lw}" stroke-linecap="round" fill="none"/>${head}${sel ? `<circle class="pde-end pde-endhit" data-end="1" cx="${x1}" cy="${y1}" r="11"/><circle class="pde-end pde-endhit" data-end="2" cx="${x2}" cy="${y2}" r="11"/><circle class="pde-end" data-end="1" cx="${x1}" cy="${y1}" r="7"/><circle class="pde-end" data-end="2" cx="${x2}" cy="${y2}" r="7"/>` : ""}</svg>`;
     }
     const f = frame(pg, e.o, e.r || 0), s = f.s;
     const pos = `left:${px(f.x)};top:${px(f.y)};transform:rotate(${f.rot.toFixed(5)}rad)`;
@@ -1711,15 +1714,22 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
 
   /* Panels over the pages (fonts, signatures, pages) */
+  const PANEL_TOOLS = ["sign", "pages", "header", "ocr", "fields", "watermark", "history", "toc"];
   function panel(html, cls){
     const main = dlg.querySelector(".pdr-main"); if (!main) return null;
-    closePanel();
+    const nx = E.ptoolNext; closePanel(true); E.ptoolNext = null; E.ptool = nx && Date.now() - nx.at < 8000 ? nx.id : null;
     const el = document.createElement("div"); el.className = "pde-panel " + (cls || ""); el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.innerHTML = html;
-    main.appendChild(el); E.panel = el;
+    main.appendChild(el); E.panel = el; if (E.on) bar();
     setTimeout(() => { const f = el.querySelector("[autofocus],input,button"); if (f) f.focus(); }, 30);
     return el;
   }
-  function closePanel(){ if (E && E.panel) { E.panel.remove(); E.panel = null; } }
+  // closing a panel drops a watermark that wasn't finished (Done keeps it), and the tool that opened it stops showing as pressed
+  function closePanel(quiet){
+    if (!E) return;
+    if (E.wmDraft !== undefined) { E.wmDraft = undefined; repaint(); }
+    const had = E.panel || E.ptool; if (E.panel) { E.panel.remove(); E.panel = null; }
+    E.ptool = null; if (had && !quiet && E.on) bar();
+  }
   const panelHead = (title, sub) => `<div class="pde-ph"><div><h3>${esc(title)}</h3>${sub ? `<p class="mini">${sub}</p>` : ""}</div><button type="button" class="icon-btn" data-act="pde-panel-close" aria-label="Close">${ico(IC.x)}</button></div>`;
 
   // Fonts: a file, or (Chrome and Edge on a computer) one installed on this computer
@@ -1834,7 +1844,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // a blank page is the size of this PDF's first page
     r.doc.getPage(1).then(pg => { const v = pg.view; if (E && E.pp) E.pp.size = [Math.abs(v[2] - v[0]) || 612, Math.abs(v[3] - v[1]) || 792]; }).catch(() => {});
     panel(`${panelHead("Pages", "Turn, move or take out pages, add blank pages or pages from another PDF, then Apply. Select pages to save them as their own PDF.")}
-      <div class="pde-pb"><div class="pde-grid" id="pdeGrid"></div></div>
+      <div class="pde-pb"><div class="pde-pgmove" role="group" aria-label="Selected pages"><span class="mini" id="pdePgSel"></span><button type="button" class="btn small" data-act="pde-pgm" data-id="start">Move to Start</button><button type="button" class="btn small" data-act="pde-pgm" data-id="end">Move to End</button><label class="pde-pgto"><span>Move to page</span><input type="number" id="pdePgTo" min="1" inputmode="numeric" aria-label="Move the selected pages to page number"></label><button type="button" class="btn small" data-act="pde-pgm" data-id="to">Move</button><button type="button" class="btn small" data-act="pde-pgm" data-id="dup">${ico(IC.dup)}Duplicate</button></div><div class="pde-grid" id="pdeGrid"></div></div>
       <div class="pde-pf"><label class="btn small">${ico(IC.plus)}Add Pages From a PDF<input type="file" id="pdePagesFile" accept="application/pdf,.pdf" class="sr"></label><button type="button" class="btn small" data-act="pde-scan-pages">Scan Pages</button>
         ${otherPdfs().length ? `<select id="pdePagesFrom" aria-label="Add pages from a PDF in Studyboard"><option value="">Or add from your files…</option>${otherPdfs().map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}
         <span class="spacer"></span><button type="button" class="btn small" data-act="pde-pages-extract" disabled>Save Selected as a PDF</button><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-pages-apply">Apply</button></div>`, "pages");
@@ -1863,6 +1873,9 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     E.thumbIO = new IntersectionObserver(es => es.forEach(en => { if (!en.isIntersecting) return; const img = en.target; E.thumbIO.unobserve(img); thumbOf(Number(img.dataset.src), Number(img.dataset.p)).then(u => { img.src = u; }).catch(() => {}); }), {root: g.closest(".pde-pb"), rootMargin: "400px"});
     g.querySelectorAll("img[data-src]").forEach(img => E.thumbIO.observe(img));
     const ex = dlg.querySelector('[data-act="pde-pages-extract"]'); if (ex) ex.disabled = !E.pp.pick.size;
+    dlg.querySelectorAll('[data-act="pde-pgm"]').forEach(b => { b.disabled = !E.pp.pick.size; });
+    const ps = $("#pdePgSel"), to = $("#pdePgTo"); if (to) to.max = pl.length;
+    if (ps) ps.textContent = E.pp.pick.size ? `${E.pp.pick.size} selected:` : "Select pages (click them) to move them anywhere at once or duplicate them.";
   }
   // another PDF's bytes: the copy kept on this device for reading, or the stored file
   async function pdfBytesOf(id){
@@ -1878,12 +1891,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     } catch (e) { toast("Couldn't read that PDF."); }
   }
   // Everything waiting (edits and form answers) goes into the file first; the pages are then rearranged from that
-  async function baseBytes(withMarks){
-    const L = await loadLib(), bytes = await P.readerBytes(), list = mine();
+  // (the header and watermark go on every page, so they wait: they're drawn on the pages as they end up)
+  const docWide = e => e.k === "h" || e.k === "m";
+  async function baseBytes(withMarks, skip){
+    const L = await loadLib(), bytes = await P.readerBytes(), list = mine().filter(e => !(skip && skip(e)));
     if (!list.length && !withMarks) return bytes;
     const opts = await bakeOpts(list, withMarks);
     return (await pdeBake(L, bytes, list.map(e => Object.assign({}, e)), opts)).bytes;
   }
+  const pagesPlanned = () => { const r = R(); return E.pp.docs.length > 0 || E.pp.plan.length !== ((r && r.doc && r.doc.numPages) || 0) || E.pp.plan.some((x, i) => x.blank || x.s || x.p !== i + 1 || x.rot); };
   async function pagesApply(){
     if (!(await signedOk())) return;
     const plan = E.pp.plan.map(x => x.blank ? {blank: x.blank} : {s: x.s, p: x.p, rot: x.rot});
@@ -1891,19 +1907,21 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     busy = true;
     try {
       toast("Changing the pages…");
-      const L = await loadLib(), base = await baseBytes(false), out = await pdeReorg(L, base, plan, E.pp.docs.map(d => d.bytes));
+      const L = await loadLib(), base = await baseBytes(false, docWide), out = await pdeReorg(L, base, plan, E.pp.docs.map(d => d.bytes));
       // where each of this PDF's pages went, so highlights and handwriting can follow
       const map = new Map(); E.pp.plan.forEach((x, i) => { if (!x.s && !x.blank && !map.has(x.p)) map.set(x.p, {p: i + 1, rot: x.rot}); });
       closePanel();
-      await storeVersion(out, {map, label: "pages changed", fallbackName: editedName(curRev(fileOf()).name || fileOf().name)});
+      await storeVersion(out, {map, carry: mine().filter(docWide), label: "pages changed", fallbackName: editedName(curRev(fileOf()).name || fileOf().name)});
     } catch (err) { toast((err && err.message) || "Couldn't change the pages."); }
     finally { busy = false; if (E) bar(); }
   }
+  // the header and watermark drawn on pages that were rearranged
+  async function withDocWide(bytes, list){ return list.length ? (await pdeBake(await loadLib(), bytes, list.map(e => Object.assign({}, e)), {fonts: {}, images: {}, annots: []})).bytes : bytes; }
   async function pagesExtract(){
     const sel = E.pp.plan.filter(x => E.pp.pick.has(x.key)); if (!sel.length) return;
     try {
-      const L = await loadLib(), base = await baseBytes(false);
-      const out = await pdeReorg(L, base, sel.map(x => x.blank ? {blank: x.blank} : {s: x.s, p: x.p, rot: x.rot}), E.pp.docs.map(d => d.bytes));
+      const L = await loadLib(), base = await baseBytes(false, docWide);
+      const out = await withDocWide(await pdeReorg(L, base, sel.map(x => x.blank ? {blank: x.blank} : {s: x.s, p: x.p, rot: x.rot}), E.pp.docs.map(d => d.bytes)), mine().filter(docWide));
       const f = fileOf(), nums = sel.filter(x => !x.s && !x.blank).map(x => x.p), name = (curRev(f).name || f.name).replace(/\.pdf$/i, "") + (nums.length ? ` (page${nums.length === 1 ? "" : "s"} ${nums.join(", ")})` : " (pages)") + ".pdf";
       const assets = await getAssets().catch(() => null);
       const where = assets ? await askBox({title: "Save the Selected Pages", text: `${sel.length} page${sel.length === 1 ? "" : "s"} as a new PDF, “${name}”.`, yes: "Add to My Files", no: "Download Instead"}) : false;
@@ -1920,31 +1938,38 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   /* The edit bar */
   // the tools under More
   const MORE = [["fill", "Quick Fill", IC.fill, "Your name, ID, class and date"], ["header", "Header", IC.header, "Name and page numbers on every page"], ["find", "Find", IC.find, "Find and replace"], ["pages", "Pages", IC.pages, "Turn, move, add, take out, scan"], ["ocr", "Recognize Text", IC.ocr, "Make a scan's words real text"],
-    ["fields", "Make Fillable", IC.fill, "Turn blanks and boxes into fields"], ["stamp", "Stamp", IC.header, "Draft, Graded, Approved…"], ["watermark", "Watermark", IC.header, "Faint text across every page"], ["link", "Link", IC.toc, "Link to a web page or a page"], ["history", "History", IC.rotL, "Undo, redo, go back"],
-    ["eq", "Equation", '<path d="M18 5H7l5 7-5 7h11"/>', "Math or chemistry, placed like a picture"]];
+    ["fields", "Make Fillable", IC.fields, "Turn blanks and boxes into fields"], ["stamp", "Stamp", IC.stamp, "Draft, Graded, Approved…"], ["watermark", "Watermark", IC.wm, "Faint text across every page"], ["link", "Link", IC.link, "Link to a web page or a page"], ["history", "History", IC.hist, "Undo, redo, go back"],
+    ["eq", "Equation", '<path d="M18 5H7l5 7-5 7h11"/>', "Math or chemistry, placed like a picture"], ["toc", "Contents", IC.toc, "Bookmarks: see, add and edit them"]];
   // The edit row fills up with the most useful of these, as many as fit at the row's width; the rest stay under More
-  const ROW_ORDER = ["find", "eq", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history"];
+  const ROW_ORDER = ["find", "eq", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history", "toc"];
   const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
   const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
-  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.tool === k && !E.place}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.tool === k && !E.place && !E.ptool || E.ptool === k}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
   function measureFit(){
     const b = E && E.on && dlg.querySelector(".pde-bar"), row = b && b.querySelector(".pde-tools"); if (!row || !row.offsetWidth) return;
     const gap = parseFloat(getComputedStyle(row).columnGap) || 6, cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
     if (!E.fitW || E.fitW.k !== b.clientWidth + ":" + window.devicePixelRatio) {
-      const m = document.createElement("span"); m.className = "pde-tools"; m.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;display:flex";
-      m.innerHTML = ROW_ORDER.map(k => fitTool(MORE.find(x => x[0] === k))).join("") + `<button type="button" class="btn small pde-tool"><svg width="16" height="16"></svg><span class="pde-lbl">More</span></button>`;
-      b.appendChild(m); E.fitW = Object.assign([...m.children].map(c => c.offsetWidth), {k: b.clientWidth + ":" + window.devicePixelRatio}); m.remove();
+      // every tool's width, with its label and as an icon only (More with its longest label)
+      const core = [...row.children].filter(c => !c.dataset.fit && !c.classList.contains("pde-more-wrap")), m = document.createElement("div");
+      m.className = "pde-bar"; m.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;padding:0;border:0;width:auto";
+      m.innerHTML = `<span class="pde-tools" style="display:flex">${core.map(c => c.outerHTML).join("")}${ROW_ORDER.map(k => fitTool(MORE.find(x => x[0] === k))).join("")}<button type="button" class="btn small pde-tool"><svg width="16" height="16"></svg><span class="pde-lbl">Recognize Text</span></button></span>`;
+      m.querySelectorAll("[id]").forEach(x => x.removeAttribute("id"));
+      b.parentNode.appendChild(m); const widths = () => [...m.firstChild.children].map(c => c.offsetWidth);
+      const wl = widths(); m.classList.add("compact"); const wc = widths(); m.remove();
+      E.fitW = {k: b.clientWidth + ":" + window.devicePixelRatio, n: core.length, wl, wc};
     }
-    let used = 0; [...row.children].forEach(c => { if (!c.dataset.fit && !c.classList.contains("pde-more-wrap")) used += c.offsetWidth + gap; });
-    const moreW = E.fitW[ROW_ORDER.length]; let k = 0;
-    while (k < ROW_ORDER.length) { const next = used + E.fitW[k] + gap, needMore = k + 1 < ROW_ORDER.length; if (next + (needMore ? moreW : 0) > avail) break; used = next; k++; }
-    if (k !== (E.fit || 0)) { E.fit = k; E.more = false; bar(); }
+    // labels give way to icons only when the six main tools and More don't fit with them; then as many extra tools as fit join the row
+    const F = E.fitW, more = F.wl.length - 1, sum = (w, a, z) => w.slice(a, z).reduce((t, x) => t + x + gap, 0);
+    const fits = (w, k) => sum(w, 0, F.n) + sum(w, F.n, F.n + k) + (k < ROW_ORDER.length ? w[more] : 0) <= avail;
+    const compact = !fits(F.wl, 0), w = compact ? F.wc : F.wl; let k = 0;
+    while (k < ROW_ORDER.length && fits(w, k + 1)) k++;
+    if (k !== (E.fit || 0) || compact !== !!E.compact) { E.fit = k; E.compact = compact; E.more = false; bar(); }
   }
   let fitT = 0; window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { if (E) E.fitW = null; measureFit(); }, 120); });
   function barHtml(){
     const e = selected(), n = mine().length, pr = e && (e.k === "t" || e.k === "p") ? probeOf(e) : null, txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
     const fam = e ? (e.ff ? "ff:" + e.ff : (e.k === "t" || e.k === "p") && e.keep !== false ? "o" : e.f || "h") : "";
-    const tool = (k, label, icon, extra) => `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${E.tool === k && !E.place}" title="${label}"${extra || ""}>${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
+    const tool = (k, label, icon, extra) => `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${E.tool === k && !E.place && !E.ptool || E.ptool === k}" title="${label}"${extra || ""}>${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
     const fonts = myFonts(), markish = E.tool === "mark" || (e && e.k === "s");
     const msg = E.locked ? "This PDF is locked (encrypted), so it can't be edited here."
       : E.place ? (E.place.text != null ? `Click where “${E.place.text}” goes` : E.place.sig ? "Click where your signature goes" : "Click where the picture goes")
@@ -1967,7 +1992,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === E.tool)}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === E.tool) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}</span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="false" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === (E.ptool || E.tool))}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === (E.ptool || E.tool)) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}</span>
       <span class="spacer"></span>
 
       <div class="pde-sub">
@@ -1997,8 +2022,14 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (P.fitBar) P.fitBar();
     if (!E.on) { if (b) b.remove(); return; }
     const ae = document.activeElement, focusId = ae && b && b.contains(ae) ? ae.id || ae.dataset.act + (ae.dataset.id || "") : "", caret = ae && ae.id && /^pdeFind/.test(ae.id) ? ae.selectionStart : null;
+    const fresh = !b;
     if (!b) { b = document.createElement("div"); b.className = "pde-bar sm-skip"; b.setAttribute("role", "toolbar"); b.setAttribute("aria-label", "Edit PDF"); sheet.querySelector(".pdr-bar").after(b); }
+    // the pages stay put under the pointer even if the bar's height changes
+    const pgs = $("#pdrPages"), y0 = pgs ? pgs.getBoundingClientRect().top : 0;
+    b.classList.toggle("compact", !!E.compact); b.classList.toggle("paneled", !!E.panel);
     b.innerHTML = barHtml();
+    if (pgs) { const dy = pgs.getBoundingClientRect().top - y0; if (dy && !fresh && !E.panel) pgs.scrollTop += dy; }
+    if (E.more) placeMenu(b.querySelector(".pde-more-wrap .pde-menu"), b.querySelector('[data-act="pde-more"]'));
     requestAnimationFrame(measureFit);
     if (focusId) { const el = b.querySelector("#" + focusId) || [...b.querySelectorAll("[data-act]")].find(x => x.dataset.act + (x.dataset.id || "") === focusId); if (el) { el.focus(); if (caret != null && el.setSelectionRange) try { el.setSelectionRange(caret, caret); } catch (e) {} } }
     if (E.tool === "find") findCount();
@@ -2010,6 +2041,11 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (ev.target && /^pdeWm/.test(ev.target.id || "") && E) wmSave();
     if (ev.target && ev.target.id === "pdeStampDate" && E) E.stamp = Object.assign({t: "Draft", c: "#c0262d"}, E.stamp, {date: ev.target.checked});
     if (ev.target && ev.target.id === "pdeFieldKind" && E) E.fieldKind = ev.target.value;
+    if (ev.target && ev.target.id === "pdeTiTask" && E && E.tiNameFor) {
+      const t = state.tasks[ev.target.value], nm = $("#pdeTiName"), row = $("#pdeTiDoneRow"), next = E.tiNameFor(t);
+      if (nm && nm.value === E.tiName) nm.value = next; E.tiName = next;
+      if (row) { row.hidden = !t; $("#pdeTiDoneLbl").textContent = t ? `Mark “${t.title}” as done in Studyboard after downloading` : ""; if (!t) $("#pdeTiDone").checked = false; }
+    }
     if (ev.target && ev.target.id === "pdePicFile" && E) { const f = ev.target.files && ev.target.files[0]; ev.target.value = ""; if (f) picReplace(f); }
     if (ev.target && ev.target.id === "pdeSayRate") { lsSet(K_SAY, {rate: Number(ev.target.value) || 1}); if (SAY.on && !SAY.paused) { const t = TTS(); if (t) t.cancel(); sayOne(); } }
   });
@@ -2046,6 +2082,18 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   document.addEventListener("click", ev => { if (E && E.more && !(ev.target.closest && ev.target.closest(".pde-more-wrap"))) { E.more = false; bar(); } }, true);
   // the Download menu closes on a click anywhere else, and after a choice
   document.addEventListener("click", ev => { const m = document.querySelector(".pdr-dlmenu"); if (!m) return; const inSplit = ev.target.closest && ev.target.closest(".pdr-split"); if (inSplit && !ev.target.closest(".pde-mi")) return; setTimeout(() => { m.remove(); const b = document.querySelector('[data-act="pde-dlmenu"]'); if (b) b.setAttribute("aria-expanded", "false"); }, 0); }, true);
+  document.addEventListener("keydown", ev => { const dm = ev.key === "Escape" && document.querySelector(".pdr-dlmenu"); if (dm) { ev.preventDefault(); ev.stopPropagation(); const b = dm.parentNode.querySelector('[data-act="pde-dlmenu"]'); dm.remove(); if (b) { b.setAttribute("aria-expanded", "false"); b.focus(); } } }, true);
+  document.addEventListener("scroll", ev => { const m = ev.target && ev.target.classList && ev.target.classList.contains("pdr-bar") && document.querySelector(".pdr-dlmenu"); if (m) { m.remove(); const b = document.querySelector('[data-act="pde-dlmenu"]'); if (b) b.setAttribute("aria-expanded", "false"); } }, true);
+  // A menu opens under its button, on the side with room, inside the window, and scrolls when the window is short
+  function placeMenu(m, btn){
+    if (!m || !btn) return;
+    const r = btn.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight;
+    Object.assign(m.style, {position: "fixed", left: "0px", top: "0px", right: "auto", maxWidth: Math.min(360, vw - 16) + "px", maxHeight: ""});
+    const o = m.getBoundingClientRect(), w = o.width, below = vh - r.bottom - 14, above = r.top - 14, up = below < Math.min(m.scrollHeight, 260) && above > below;
+    const h = Math.min(m.scrollHeight, Math.max(120, up ? above : below)), x = Math.max(8, Math.min(r.left + w > vw - 8 ? r.right - w : r.left, vw - 8 - w));
+    // o is where 0,0 landed (a moved parent shifts it)
+    Object.assign(m.style, {maxHeight: h + "px", left: (x - o.left) + "px", top: ((up ? r.top - 6 - h : r.bottom + 6) - o.top) + "px"});
+  }
   document.addEventListener("keydown", ev => { if (E && E.more && ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); E.more = false; bar(); const b = dlg.querySelector('[data-act="pde-more"]'); if (b) b.focus(); } }, true);
   // keeps a click on the bar from ending the text being typed
   document.addEventListener("pointerdown", ev => { if (E && E.ed && ev.target.closest && ev.target.closest(".pde-bar") && !ev.target.closest("select,input,label")) ev.preventDefault(); }, true);
@@ -2112,12 +2160,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // A new version of the file: highlights and handwriting come along (to where their pages went); the edits are now in the file
   async function storeVersion(bytes, o){
     const S = E, f0 = fileOf(), page = (R() || {}).cur || 1;
-    const assets = await getAssets().catch(() => null);
-    if (!assets) { await deliver(bytes, o.fallbackName); toast("This device can't store files here, so the PDF was downloaded instead."); return; }
+    const assets = await getAssets().catch(() => null), carry = o.carry || [];
+    if (!assets) { await deliver(await withDocWide(bytes, carry), o.fallbackName); toast("This device can't store files here, so the PDF was downloaded instead."); return; }
     const name = (curRev(f0).name || f0.name).replace(/\s*\(edited\)(?=\.pdf$)/i, "");
     let up;
     try { up = await assets.upload(new File([bytes], name, {type: "application/pdf"}), {type: "application/pdf", courseId: f0.courseId, folderId: f0.folderId}); }
-    catch (err) { toast(err && err.code === "too_large" ? "The PDF is too large to store. It was downloaded instead." : err && err.code === "quota_or_state" ? "File storage is full. The PDF was downloaded instead." : "Couldn't store the PDF. It was downloaded instead."); await deliver(bytes, o.fallbackName); return; }
+    catch (err) { toast(err && err.code === "too_large" ? "The PDF is too large to store. It was downloaded instead." : err && err.code === "quota_or_state" ? "File storage is full. The PDF was downloaded instead." : "Couldn't store the PDF. It was downloaded instead."); await deliver(await withDocWide(bytes, carry), o.fallbackName); return; }
     try { if (bytes.length < 60e6) await idbSet("pdf:" + up.id, new Blob([bytes], {type: "application/pdf"})); } catch (e) {}
     const cur = state.files[S.fid]; if (!cur) return;
     const n = clone(cur), old = S.rev, map = o.map;
@@ -2137,18 +2185,21 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (rot && !(I && I.decode && I.encode)) return s;
       return Object.assign({}, s, {a: up.id, p: to.p}, rot ? {d: I.encode(I.decode(s.d).map(([x, y, pr]) => turn(x, y, rot).concat([pr])))} : {});
     });
-    const rest = editsOf(n).filter(e => e.a !== old); if (rest.length) n.pe = rest; else delete n.pe;
+    // the header and watermark stay edits, now of the new version, so they're drawn on its pages
+    const rest = editsOf(n).filter(e => e.a !== old).concat(carry.map(e => Object.assign({}, e, {id: uid(), a: up.id}))); if (rest.length) n.pe = rest; else delete n.pe;
     n.updated = Date.now();
     applyChanges([{kind: "file", id: S.fid, after: n}], `${n.name}: Rev ${revLetter(ri >= 0 ? ri : n.revs.length - 1)} ${o.label}`);
     const note = o.report && missingNote(o.report); if (note) setTimeout(() => toast("Note: " + note + "."), 1800);
     E = null;
-    if (P.openReader) { if (dlg.open) dlg.close(); setTimeout(() => P.openReader(S.fid, map && map.get(page) ? map.get(page).p : page), 0); }
+    // the new version opens where you were, still in Edit if you were editing
+    const at = map && map.get(page) ? map.get(page).p : page;
+    if (P.openReader) { if (dlg.open) dlg.close(); setTimeout(() => S.on ? openEdit(S.fid, at) : P.openReader(S.fid, at), 0); }
   }
 
   /* Opening a PDF straight into Edit: the reader opens, then Edit turns on once its first page is drawn */
-  function openEdit(id){
+  function openEdit(id, page){
     if (!P.openReader) return;
-    P.openReader(id, 0);
+    P.openReader(id, page || 0);
     const until = Date.now() + 20000, tick = () => {
       const r = R(), S = r && r.fid === id ? session() : null;
       if (S && S.pages.size && $("#pdeBtn")) { if (!S.on) setOn(true); return; }
@@ -2182,11 +2233,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         const wrap = el.closest(".pdr-split"), open = wrap.querySelector(".pdr-dlmenu");
         if (open) { open.remove(); el.setAttribute("aria-expanded", "false"); break; }
         wrap.insertAdjacentHTML("beforeend", `<div class="pde-menu pdr-dlmenu" role="menu"><button type="button" role="menuitem" class="pde-mi" data-act="pde-dl">${ico(IC.down)}<span><b>Download PDF</b><span class="mini">This PDF with your edits</span></span></button><button type="button" role="menuitem" class="pde-mi" data-act="pde-ti">${ico('<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 14l2 2 4-4"/>')}<span><b>Turn In…</b><span class="mini">A copy to hand in: your name and the date at the top, page numbers, locked, under a size</span></span></button></div>`);
-        el.setAttribute("aria-expanded", "true"); setTimeout(() => { const m = wrap.querySelector(".pdr-dlmenu .pde-mi"); if (m) m.focus(); }, 20); break;
+        placeMenu(wrap.querySelector(".pdr-dlmenu"), wrap);
+        el.setAttribute("aria-expanded", "true"); setTimeout(() => { const m = wrap.querySelector(".pdr-dlmenu .pde-mi"); if (m) m.focus({preventScroll: true}); }, 20); break;
       }
-      case "pde-more": S.more = !S.more; bar(); if (S.more) setTimeout(() => { const m = dlg.querySelector(".pde-mi"); if (m) m.focus(); }, 20); break;
+      case "pde-more": S.more = !S.more; bar(); if (S.more) setTimeout(() => { const m = dlg.querySelector(".pde-mi"); if (m) m.focus({preventScroll: true}); }, 20); break;
       case "pde-tool":
         if (S.ed) commit(); S.place = null; if (S.more) { S.more = false; bar(); }
+        // a tool that opens a panel: back to Edit Text with nothing picked, and the tool shows as pressed while its panel is open
+        if (PANEL_TOOLS.includes(id)) { S.sel = null; S.multi = null; S.picSel = null; S.lineOnly = false; S.tool = "text"; S.ptoolNext = {id, at: Date.now()}; repaint(); }
+        if (id === "toc") { contentsPanel(); break; }
         if (id === "sign") { signPanel(); break; }
         if (id === "eq") { eqPlace(el); break; }
         if (id === "pages") { pagesPanel(); break; }
@@ -2231,7 +2286,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-align": align(id); break;
       case "pde-stamp-t": S.stamp = Object.assign({date: true, c: "#c0262d"}, S.stamp, {t: id}); bar(); break;
       case "pde-stamp-c": { S.stamp = Object.assign({t: "Draft", date: true}, S.stamp, {c: id}); const e = selected(); if (e && e.k === "k") restyle({c: id}, "Stamp colour changed"); else bar(); break; }
-      case "pde-wm-rm": save(mine().filter(e => e.k !== "m"), "Watermark removed"); closePanel(); break;
+      case "pde-wm-rm": S.wmDraft = undefined; save(mine().filter(e => e.k !== "m"), "Watermark removed"); closePanel(); break;
+      case "pde-wm-done": wmDone(); break;
       case "pde-link-add": linkAdd(); break;
       case "pde-link-rm": { const [n0, k] = String(id).split(":").map(Number), pg = S.pages.get(n0); if (!pg) break; allAnns(pg.page).then(list => { const a = list.filter(x => x.subtype === "Link")[k]; if (!a) return; save(mine().concat([{id: uid(), a: S.rev, p: n0, k: "l", del: true, rect: [Math.min(a.rect[0], a.rect[2]), Math.min(a.rect[1], a.rect[3]), Math.abs(a.rect[2] - a.rect[0]), Math.abs(a.rect[3] - a.rect[1])], at: Date.now()}]), "Link taken out"); }); break; }
       case "pde-fd-add": fieldsAdd(); break;
@@ -2255,7 +2311,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-cmp-page": closePanel(); if (P.readerGo) P.readerGo(Number(id)); break;
       case "pde-scan-pages": scanOpen((bytes, name) => addPdfToPages(bytes, name)); break;
       case "pde-save": saveVersion(); break;
-      case "pde-panel-close": closePanel(); break;
+      case "pde-panel-close":
+        // planned page changes aren't thrown away without asking
+        if (S.panel && S.panel.querySelector("#pdeGrid") && S.pp && pagesPlanned()) { askBox({title: "Discard the Page Changes?", text: "The pages you moved, turned, added or took out go back to how they were.", yes: "Discard", no: "Keep Editing"}).then(y => { if (y) closePanel(); }); break; }
+        closePanel(); break;
       case "pde-font-local": localFonts(); break;
       case "pde-font-pick": { const f = S.localFonts && S.localFonts[Number(id)]; if (f) f.blob().then(b => b.arrayBuffer()).then(buf => addFont(new Uint8Array(buf))).then(fid => { if (fid) { useFont(fid); fontsPanel(); } }); break; }
       case "pde-font-use": useFont(id).then(closePanel); break;
@@ -2277,6 +2336,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         else if (k === "x" && pl.length > 1) { S.pp.pick.delete(pl[i].key); pl.splice(i, 1); }
         else if (k === "b") pl.splice(i + 1, 0, {blank: S.pp.size || [612, 792], rot: 0, key: "b:" + uid()});
         drawGrid(); break;
+      }
+      // the selected pages moved together (to the start, the end or a page number), or copied
+      case "pde-pgm": {
+        const pl = S.pp.plan, sel = pl.filter(x => S.pp.pick.has(x.key)); if (!sel.length) break;
+        if (id === "dup") { const out = []; pl.forEach(x => { out.push(x); if (S.pp.pick.has(x.key)) out.push(Object.assign({}, x, {key: x.key + ":" + uid()})); }); S.pp.plan = out; drawGrid(); toast(`${sel.length} page${sel.length === 1 ? "" : "s"} duplicated`); break; }
+        const rest = pl.filter(x => !S.pp.pick.has(x.key)), want = Math.round(Number(($("#pdePgTo") || {}).value));
+        if (id === "to" && !(want >= 1)) { toast("Type the page number to move them to"); const t = $("#pdePgTo"); if (t) t.focus(); break; }
+        const at = id === "start" ? 0 : id === "end" ? rest.length : Math.min(rest.length, want - 1);
+        rest.splice(at, 0, ...sel); S.pp.plan = rest; S.pp.pick.clear(); drawGrid(); toast(`Moved to page ${at + 1}`); break;
       }
       case "pde-pages-apply": pagesApply(); break;
       case "pde-pages-extract": pagesExtract(); break;
@@ -2404,11 +2472,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     return (h.text ? at(h.pos || "tr", h.text.replace(/\{page\}/g, pg.n).replace(/\{pages\}/g, n)) : "") + (h.num && h.num !== "none" ? at(h.num, pdeNumText(h.fmt, pg.n, n)) : "");
   }
 
+  // without AI set up: a way to set it up (your edits wait here; they're kept with the file)
+  const aiSetupFoot = () => `<div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Close</button>${inPreview() ? "" : `<button type="button" class="btn primary ai-btn" data-act="ai-setup">${AI_ICON} Set Up AI Features</button>`}</div>`;
   /* Recognize Text: a scanned page's words, read by the AI the student set up, become real (invisible) text in the PDF */
   async function pagesWithoutText(){ const r = R(), out = []; if (!r || !r.doc) return out; for (let n = 1; n <= r.doc.numPages; n++) if ((await pageInfo(n)).length < 3) out.push(n); return out; }
   async function ocrPanel(){
     const r = R(); if (!r || !r.doc) return;
-    if (!aiReady()) { panel(`${panelHead("Recognize Text", "Turns a scanned page's words into real text you can search, select, highlight and edit.")}<div class="pde-pb"><p style="margin:0">This uses the AI Features you set up in Settings, and they aren't set up on this device yet.</p></div><div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Close</button></div>`, "fonts"); return; }
+    if (!aiReady()) { panel(`${panelHead("Recognize Text", "Turns a scanned page's words into real text you can search, select, highlight and edit.")}<div class="pde-pb"><p style="margin:0">This uses the AI Features you set up in Settings, and they aren't set up on this device yet.</p></div>${aiSetupFoot()}`, "fonts"); return; }
     const cfg = aiCfg(), W = AI_WHO[cfg.provider] || {company: "your AI provider", product: "AI"}, none = await pagesWithoutText(), cur = r.cur || 1, curHas = !none.includes(cur);
     panel(`${panelHead("Recognize Text", "Turns a scanned page's words into real text you can search, select, highlight and edit. The page looks the same.")}
       <div class="pde-pb">
@@ -2534,11 +2604,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   async function contentsPanel(){
     const r = R(); if (!r || !r.doc) return;
-    const outline = await r.doc.getOutline().catch(() => null);
-    if (!outline || !outline.length) { toast("This PDF has no table of contents."); return; }
+    // contents changed here and not saved yet are what's shown (they go into the PDF when it's saved)
+    const o = mine().find(e => e.k === "o"), outline = o ? o.items.map(it => ({title: it.t, dest: [it.p - 1], items: (it.kids || []).map(k => ({title: k.t, dest: [k.p - 1]}))})) : await r.doc.getOutline().catch(() => null);
+    if (!outline || !outline.length) { if (E.on) { tocEdit(); return; } closePanel(); toast("This PDF has no table of contents. Edit can add one (More, then Contents)."); return; }
     E.outline = [];
     const list = items => `<ul class="pde-toc">${items.slice(0, 500).map(it => { const k = E.outline.push(it.dest) - 1; return `<li><button type="button" class="pde-toc-item" data-act="pde-toc-go" data-id="${k}">${esc(it.title || "Untitled")}</button>${it.items && it.items.length ? list(it.items) : ""}</li>`; }).join("")}</ul>`;
-    panel(`${panelHead("Contents", "The PDF's own table of contents.")}<div class="pde-pb">${list(outline)}</div>${E.on ? `<div class="pde-pf"><span class="spacer"></span><button type="button" class="btn small" data-act="pde-toc-edit">Edit Contents</button></div>` : ""}`, "fonts toc");
+    panel(`${panelHead("Contents", o ? "Your changes to the table of contents. They go into the PDF when you Save or Download." : "The PDF's own table of contents.")}<div class="pde-pb">${list(outline)}</div>${E.on ? `<div class="pde-pf"><span class="spacer"></span><button type="button" class="btn small" data-act="pde-toc-edit">Edit Contents</button></div>` : ""}`, "fonts toc");
   }
   // the contents as rows (title, page, level) to edit; saved as the PDF's bookmarks
   async function tocEdit(){
@@ -2912,25 +2983,33 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   const STAMP_COLS = [["#c0262d", "Red"], ["#1f3a93", "Blue"], ["#1d7a3a", "Green"]];
   function stampText(){ const st = E.stamp || {t: "Draft", date: true}; return String(st.t || "Draft").toUpperCase().slice(0, 24) + (st.date ? "\n" + todayText() : ""); }
   const wmEdit = () => mine().find(e => e.k === "m");
+  // what the pages show: the watermark being made (only kept with Done), or the one already added
+  const wmShown = () => E.wmDraft !== undefined ? E.wmDraft : wmEdit();
   function watermarkPanel(){
     const w = wmEdit() || {text: "DRAFT", fs: 60, c: "#c0262d", op: 0.18, diag: true};
-    panel(`${panelHead("Watermark", "Big, faint text across the middle of every page. It shows on the pages as you change it.")}
+    panel(`${panelHead("Watermark", "Big, faint text across the middle of every page. It shows on the pages as you change it; Done adds it.")}
       <div class="pde-pb"><label class="f"><span class="lh">Text</span><input type="text" id="pdeWmText" maxlength="60" value="${esc(w.text || "")}" placeholder="DRAFT"></label>
         <div class="pde-row2"><label class="f"><span class="lh">Size</span><select id="pdeWmFs">${[36, 48, 60, 72, 96].map(v => `<option value="${v}"${w.fs === v ? " selected" : ""}>${v} pt</option>`).join("")}</select></label>
           <label class="f"><span class="lh">Color</span><select id="pdeWmC">${[["#c0262d", "Red"], ["#1f3a93", "Blue"], ["#6b7280", "Gray"], ["#000000", "Black"]].map(([v, n]) => `<option value="${v}"${w.c === v ? " selected" : ""}>${n}</option>`).join("")}</select></label>
           <label class="f"><span class="lh">Strength</span><select id="pdeWmOp">${[[0.1, "Light"], [0.18, "Medium"], [0.3, "Strong"]].map(([v, n]) => `<option value="${v}"${w.op === v ? " selected" : ""}>${n}</option>`).join("")}</select></label></div>
         <label class="pde-chk"><input type="checkbox" id="pdeWmDiag"${w.diag !== false ? " checked" : ""}> Corner to corner</label></div>
-      <div class="pde-pf"><button type="button" class="btn danger" data-act="pde-wm-rm"${wmEdit() ? "" : " disabled"}>Remove</button><span class="spacer"></span><button type="button" class="btn primary" data-act="pde-panel-close">Done</button></div>`, "fonts");
-    if (!wmEdit()) wmSave();
+      <div class="pde-pf"><button type="button" class="btn danger" data-act="pde-wm-rm"${wmEdit() ? "" : " disabled"}>Remove</button><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-wm-done">Done</button></div>`, "fonts");
+    wmSave();
   }
+  // a preview while the panel is open: nothing is added until Done
   function wmSave(){
     const t = ($("#pdeWmText") || {}).value; if (t == null) return;
-    const list = mine().filter(e => e.k !== "m"), old = wmEdit();
-    if (t.trim()) list.push({id: old ? old.id : uid(), a: E.rev, p: 1, k: "m", text: t.slice(0, 60), fs: Number($("#pdeWmFs").value) || 60, c: $("#pdeWmC").value, op: Number($("#pdeWmOp").value) || 0.18, diag: $("#pdeWmDiag").checked, at: Date.now()});
-    save(list, null);
+    const old = wmEdit();
+    E.wmDraft = t.trim() ? {id: old ? old.id : uid(), a: E.rev, p: 1, k: "m", text: t.slice(0, 60), fs: Number($("#pdeWmFs").value) || 60, c: $("#pdeWmC").value, op: Number($("#pdeWmOp").value) || 0.18, diag: $("#pdeWmDiag").checked, at: Date.now()} : null;
+    repaint();
+  }
+  function wmDone(){
+    wmSave(); const w = E.wmDraft, old = wmEdit(); E.wmDraft = undefined;
+    if (w || old) save(mine().filter(e => e.k !== "m").concat(w ? [w] : []), w ? (old ? "Watermark changed" : "Watermark added") : "Watermark removed");
+    closePanel();
   }
   function watermarkHtml(pg){
-    const w = wmEdit(); if (!w || !w.text) return "";
+    const w = wmShown(); if (!w || !w.text) return "";
     const W = pg.vp.width, H = pg.vp.height, ang = w.diag === false ? 0 : -Math.atan2(H, W);
     return `<span class="pde-wm" style="left:50%;top:50%;font-size:${px((w.fs || 60) * pg.vp.scale)};color:${esc(w.c || "#c0262d")};opacity:${w.op != null ? w.op : 0.18};transform:translate(-50%,-50%) rotate(${ang.toFixed(4)}rad)">${esc(w.text)}</span>`;
   }
@@ -3112,18 +3191,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const f = fileOf(), m = me(); if (!f) return;
     const linked = (f.taskIds || []).map(id => state.tasks[id]).filter(t => t && t.status !== "done");
     const others = tasksArr().filter(t => t.status !== "done" && t.courseId === f.courseId && !linked.includes(t)).sort((a, b) => String(a.due || "9").localeCompare(String(b.due || "9"))).slice(0, 40);
-    const first = linked[0] || null, base = (first ? first.title : (curRev(f).name || f.name).replace(/\.pdf$/i, "")).replace(/[\\/:*?"<>|]+/g, "-").trim();
-    const last = m.name ? m.name.trim().split(/\s+/).pop() : "";
+    const first = linked[0] || null, last = m.name ? m.name.trim().split(/\s+/).pop() : "";
+    // the file name follows the task picked, until it's typed over
+    const nameFor = t => (last ? last + "_" : "") + (t ? t.title : (curRev(f).name || f.name).replace(/\.pdf$/i, "")).replace(/[\\/:*?"<>|]+/g, "-").trim().replace(/\s+/g, "_") + ".pdf";
+    E.tiName = nameFor(first); E.tiNameFor = nameFor;
     panel(`${panelHead("Turn In", "A copy ready to hand in, made from this PDF and your edits. Your file in Studyboard stays as it is.")}
       <div class="pde-pb">
         <label class="f"><span class="lh">Task</span><select id="pdeTiTask"><option value="">No task</option>${linked.length ? `<optgroup label="Attached to this file">${linked.map(t => `<option value="${esc(t.id)}"${t === first ? " selected" : ""}>${esc(t.title)}${t.due ? " · due " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>` : ""}${others.length ? `<optgroup label="This course">${others.map(t => `<option value="${esc(t.id)}">${esc(t.title)}${t.due ? " · due " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>` : ""}</select></label>
-        <label class="f"><span class="lh">File name</span><input type="text" id="pdeTiName" maxlength="120" value="${esc((last ? last + "_" : "") + base.replace(/\s+/g, "_"))}.pdf"></label>
+        <label class="f"><span class="lh">File name</span><input type="text" id="pdeTiName" maxlength="120" value="${esc(E.tiName)}"></label>
         <label class="pde-chk"><input type="checkbox" id="pdeTiHead"${m.name ? " checked" : ""}> My name, class and date at the top${m.name ? "" : ` <button type="button" class="link-btn" data-act="pde-me">Add your details…</button>`}</label>
         <label class="pde-chk"><input type="checkbox" id="pdeTiNum" checked> Page numbers</label>
         <label class="pde-chk"><input type="checkbox" id="pdeTiFlat" checked> Lock it (answers and markup can't be changed)</label>
         ${hasMarks() ? `<label class="pde-chk"><input type="checkbox" id="pdeTiMarks"> Include my highlights and comments</label>` : ""}
         <label class="f"><span class="lh">Keep it under (MB)</span><input type="number" id="pdeTiMb" min="1" max="500" value="10" style="width:7em"></label>
-        <label class="pde-chk"><input type="checkbox" id="pdeTiDone" checked> Mark the task done after downloading</label>
+        <label class="pde-chk" id="pdeTiDoneRow"${first ? "" : " hidden"}><input type="checkbox" id="pdeTiDone"${first ? " checked" : ""}> <span id="pdeTiDoneLbl">Mark “${esc(first ? first.title : "")}” as done in Studyboard after downloading</span></label>
         <p class="mini" id="pdeTiMsg" aria-live="polite"></p>
       </div>
       <div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Cancel</button><button type="button" class="btn primary" data-act="pde-ti-go">${ico(IC.down)}Make and Download</button></div>`, "fonts");
@@ -3165,7 +3246,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     return chunks.filter(c => c.score > 0).sort((a, b) => b.score - a.score).slice(0, k || 6);
   }
   function askPanel(){
-    if (!aiReady()) { panel(`${panelHead("Ask This PDF", "Questions about the reading, answered from its pages.")}<div class="pde-pb"><p style="margin:0">This uses the AI Features you set up in Settings, and they aren't set up on this device yet.</p></div><div class="pde-pf"><span class="spacer"></span><button type="button" class="btn" data-act="pde-panel-close">Close</button></div>`, "pages"); return; }
+    if (!aiReady()) { panel(`${panelHead("Ask This PDF", "Questions about the reading, answered from its pages.")}<div class="pde-pb"><p style="margin:0">This uses the AI Features you set up in Settings, and they aren't set up on this device yet.</p></div>${aiSetupFoot()}`, "pages"); return; }
     const W = aiWhoGets();
     E.ask = E.ask || [];
     panel(`${panelHead("Ask This PDF", `Answers come only from this PDF, with the pages they're from. Your question and this PDF's text (for a long PDF, the parts that match your question) are sent to ${esc(W.company)} ${esc(W.product)}.`)}
@@ -3325,7 +3406,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (old && S.ed && S.ed.e.p === n && old.vp.scale !== vp.scale) commit();
       S.pages.set(n, {n, el, page, vp});
       paint(n); paintForm(n); paintLinks(n);
-      if (!S.tocChecked) { S.tocChecked = true; const r = R(); if (r && r.doc) r.doc.getOutline().then(o => { const b = $("#pdeTocBtn"); if (b && o && o.length) b.hidden = false; }).catch(() => {}); }
+      if (!S.tocChecked) { S.tocChecked = true; const r = R(); if (r && r.doc) r.doc.getOutline().then(o => { const b = $("#pdeTocBtn"); if (b && (o && o.length || mine().some(e => e.k === "o"))) b.hidden = false; }).catch(() => {}); }
       if (n === 1 || !S.barDone) { S.barDone = true; bar(); }
     },
     readerClose(){ if (E && E.ed) commit(); if (SAY.on) sayStop(); E = null; },
@@ -3334,7 +3415,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const r = R(), f = r && state.files[r.fid];
       return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}`;
     },
-    readerAi: () => `<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF">${AI_ICON}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF">${AI_ICON}<span class="pde-lbl">Study</span></button>`,
+    readerAi: () => `<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF" aria-label="Ask This PDF">${ico(IC.ask)}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF" aria-label="Study From This PDF">${ico(IC.study)}<span class="pde-lbl">Study</span></button>`,
     // Download, and its menu: Turn In (a copy ready to hand in)
     dlBtns: () => `<span class="pdr-split"><button type="button" class="btn small" data-act="pde-dl" title="Download this PDF with your edits">${ico(IC.down)}<span class="pde-lbl">Download</span></button><button type="button" class="btn small pdr-dl-more" data-act="pde-dlmenu" aria-haspopup="menu" aria-expanded="false" aria-label="More ways to download" title="More ways to download">${ico('<path d="M7 10l5 5 5-5"/>')}</button></span>`,
     setOn: on => setOn(on),
@@ -3366,7 +3447,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-any{background:conic-gradient(#e53935,#fdd835,#43a047,#1e88e5,#8e24aa,#e53935)}
 .pde-any input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;padding:0;border:0}
 .pde-save .btn{display:inline-flex;align-items:center;gap:6px}
-.pde-note{max-width:26em}
+.pde-note{flex:1 0 14em;max-width:40em;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pde-note.bad{color:var(--late,#c0262d)}
 .pde-layer{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
 .pde-on .pde-layer{pointer-events:auto}
@@ -3390,14 +3471,18 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-hover{position:absolute;display:block;pointer-events:none;border:1.5px solid color-mix(in srgb,var(--accent) 70%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:3px}
 .pde-band{position:absolute;display:block;pointer-events:none;border:1.5px dashed var(--accent);background:rgba(255,255,255,.6)}
 .pde-hover[hidden],.pde-band[hidden]{display:none}
-.pde-fmt{flex-wrap:wrap}
+.pde-fmt{flex-wrap:nowrap}
 .pde-fmt select{min-width:8.5em}
-.pde-sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-basis:100%}
+/* the options row is always there and one line high (it scrolls sideways when it's full), so the pages never jump as tools and picks change */
+.pde-sub{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;flex-basis:100%;height:46px;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-x:contain}
+.pde-sub > *{flex:none}
+.pde-sub > .pde-note{flex:1 0 14em}
 .pde-bar select{width:auto;max-width:14em;flex:none}
-.pde-sub:not(:has(> :not([hidden]):not(.pde-note:empty))){display:none}
-.pde-tools{flex-wrap:wrap}
+.pde-tools{flex-wrap:nowrap;min-width:0}
+.pde-bar.compact .pde-tools .pde-tool{padding:6px 8px;min-width:40px;justify-content:center}
+.pde-bar.compact .pde-tools .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .pde-tools label.pde-tool{cursor:pointer}
-.pde-marks,.pde-al,.pde-find{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.pde-marks,.pde-al,.pde-find{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap}
 .pde-shape-btn[aria-pressed="true"],.pde-al .btn[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,var(--surface));border-color:var(--accent);color:var(--accent)}
 .pde-find input[type=search],.pde-find input[type=text]{width:11em;padding:5px 8px}
 .pde-chk{display:inline-flex;align-items:center;gap:6px;font-size:.88rem}
@@ -3416,6 +3501,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-on .pde-ln .pde-hit{pointer-events:stroke;cursor:pointer}
 .pde-on .pde-ln.sel .pde-hit{cursor:move;stroke:color-mix(in srgb,var(--accent) 22%,transparent)}
 .pde-end{fill:var(--surface);stroke:var(--accent,#2563eb);stroke-width:2;pointer-events:all;cursor:grab}
+.pde-end.pde-endhit{fill:transparent;stroke:none}
 .pde-on .pde-e.k-s.sel .pde-shape,.pde-on .pde-e.k-i.sel .pde-pic{outline:2px solid var(--accent,#2563eb);outline-offset:3px}
 .pde-grip{position:absolute;display:block;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:3px;background:var(--surface);border:2px solid var(--accent,#2563eb);cursor:nwse-resize;z-index:2;touch-action:none}
 .pde-pt{position:absolute;left:0;white-space:pre-wrap;overflow-wrap:break-word;min-height:1em}
@@ -3472,6 +3558,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-cardbar .icon-btn{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:inline-grid;place-items:center}
 .pde-cardbar .icon-btn svg{width:18px;height:18px;display:block}
 .pde-pf select{max-width:16em}
+.pde-pgmove{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.pde-pgto{display:inline-flex;align-items:center;gap:6px;font-size:.88rem}
+.pde-pgto input{width:4.5em;padding:5px 6px}
+.pde-chk[hidden]{display:none}
 @media (max-width:760px){ .pde-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))} .pde-thumb{width:120px;height:130px} .pde-find input[type=search],.pde-find input[type=text]{width:9em} }
 .pde-chat{display:grid;gap:8px;align-content:start}
 .pde-q{justify-self:end;max-width:85%;background:color-mix(in srgb,var(--accent) 14%,var(--surface));border-radius:14px 14px 4px 14px;padding:8px 12px}
@@ -3516,16 +3606,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .mini.bad{color:var(--late,#c0262d)}
 .pde-on[data-pde-tool="stamp"] .pde-layer,.pde-on[data-pde-tool="link"] .pde-layer,.pde-on[data-pde-tool="field"] .pde-layer{cursor:crosshair;touch-action:none}
 .pde-more-wrap{position:relative;display:inline-flex}
-.pde-more-wrap .pde-menu{left:auto;right:0}   /* More sits at the end of a full row: its menu opens leftward, inside the window */
 .pdr-split{position:relative;display:inline-flex}
 .pdr-split > .btn:first-child{border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0}
 .pdr-split > .pdr-dl-more{border-top-left-radius:0;border-bottom-left-radius:0;padding-left:8px;padding-right:8px;min-width:0}
-.pdr-dlmenu{left:auto;right:0;min-width:290px}
-.pde-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:70;display:grid;min-width:250px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.2);padding:6px}
+.pdr-dlmenu{min-width:290px}
+.pde-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:70;display:grid;min-width:250px;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.2);padding:6px}
 .pde-mi{display:flex;align-items:center;gap:10px;border:0;background:none;padding:8px 10px;border-radius:8px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
 .pde-mi > span{display:grid;gap:1px}
 .pde-mi:hover,.pde-mi:focus-visible{background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
-.pde-chips{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.pde-chips{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap}
 .pde-row2{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
 .pde-row2 .f{min-width:9em}
 .pde-radios{border:0;margin:0;padding:0;display:grid;gap:6px}
@@ -3587,15 +3676,25 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 @media (max-width:760px){
   .pde-bar{padding:6px 10px;gap:6px}
   .pde-tool{padding-inline:8px}
-  .pde-tools{flex-wrap:nowrap;gap:2px}
-  .pde-menu{left:auto;right:0}
-  .pde-tools .pde-tool{padding:6px 8px;min-width:40px;justify-content:center}
-  .pde-tools .pde-lbl,.pde-save [data-act="pde-dl"] .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  .pde-fmt{flex-basis:100%;gap:6px}
-  .pde-fmt select{flex:1 1 8em}
+  .pde-save [data-act="pde-dl"] .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .pde-fmt{gap:6px}
   .pde-cols{gap:6px}
-  .pde-note{order:9;flex-basis:100%}
   .pde-save{margin-left:auto}
+  /* while a panel is open its tool's options aren't needed: the panel gets the room */
+  .pde-bar.paneled .pde-sub{display:none}
+}
+/* while a panel is open, toasts show at the top, clear of its buttons */
+body:has(dialog[open] .pde-panel) #toast.toast{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto}
+/* touch: every small control gets a hit area of at least 40px; the visible part stays small */
+@media (pointer:coarse){
+  .pde-grip::after{content:"";position:absolute;inset:-15px}
+  .pde-endhit{r:20px}
+  .pde-col::after{content:"";position:absolute;inset:-10px;border-radius:50%}
+  .pde-cols{gap:18px;padding:0 8px}
+  .pde-cardbar .icon-btn{width:40px;height:40px;min-width:40px;min-height:40px}
+  .pde-chk{min-height:40px}
+  .pde-sub{height:52px}
+  .pdr-split > .pdr-dl-more{min-width:40px}
 }
 @media (forced-colors:active){ .pde-hover,.pde-band{border-color:Highlight} }
 `;
