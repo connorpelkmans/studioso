@@ -2913,61 +2913,18 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   function scanClose(){ phoneStop(); const d = document.getElementById("pdeScanDlg"); if (d) { try { d.close(); } catch (e) {} } SCAN = null; }
 
-  /* Take Photos on a computer: a QR code for your phone, and the photos it takes come in here
-     (through the relay in cloudflare/key-relay, locked with a key that only the QR code carries) */
-  const RELAY = () => (typeof KEY_RELAY === "string" && /^https:\/\//.test(KEY_RELAY) ? KEY_RELAY.replace(/\/+$/, "") : "");
-  function phoneCam(){
-    if (!RELAY() || !window.crypto || !crypto.subtle || typeof QR === "undefined") return false;
-    const ua = navigator.userAgent || "";
-    return !(/Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (navigator.userAgentData && navigator.userAgentData.mobile));
-  }
-  const b64u = b => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const hexOf = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
-  async function phoneStart(){
+  /* Take Photos on a computer: a QR code for your phone, and the photos it takes come in here (PHONE_CAM, shared with Photo to Note) */
+  const phoneCam = () => typeof PHONE_CAM !== "undefined" && PHONE_CAM.can();
+  function phoneStart(){
     if (!SCAN || SCAN.phone) return;
-    const code = b64u(crypto.getRandomValues(new Uint8Array(16))), te = new TextEncoder();
-    const [idH, kH] = await Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-scan-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-scan-key:" + code))]);
-    const ph = {id: hexOf(idH), key: await crypto.subtle.importKey("raw", kH, "AES-GCM", false, ["decrypt"]), url: RELAY() + "/s#" + code, got: 0, err: "", busy: false};
-    SCAN.phone = ph; scanDraw();
-    try {
-      const r = await fetch(`${RELAY()}/v1/s/${ph.id}`, {method: "POST"});
-      if (r.status !== 201) throw new Error(r.status === 429 ? "busy" : "relay");
-    } catch (e) { if (SCAN && SCAN.phone === ph) { ph.err = e.message === "busy" ? "Too many tries just now. Wait a minute and try again." : "Couldn't connect to your phone. Check your connection and try again."; scanDraw(); } return; }
-    ph.live = true; scanDraw(); phonePoll(ph);
-  }
-  async function phonePoll(ph){
-    if (!SCAN || SCAN.phone !== ph || !ph.live) return;
-    if (!ph.busy) {
-      ph.busy = true;
-      try {
-        const r = await fetch(`${RELAY()}/v1/s/${ph.id}/p`, {cache: "no-store"});
-        if (r.status === 404) { ph.live = false; ph.err = "The code ran out. Click Take Photos to get a new one."; scanDraw(); return; }
-        const {ks} = await r.json();
-        for (const k of ks || []) {
-          if (!SCAN || SCAN.phone !== ph) return;
-          const g = await fetch(`${RELAY()}/v1/s/${ph.id}/p/${k}`, {cache: "no-store"}); if (!g.ok) continue;
-          const box = new Uint8Array(await g.arrayBuffer());
-          let raw; try { raw = await crypto.subtle.decrypt({name: "AES-GCM", iv: box.slice(0, 12)}, ph.key, box.slice(12)); } catch (e) { continue; }
-          ph.got++;
-          await scanAdd([new File([raw], `Phone photo ${ph.got}.jpg`, {type: "image/jpeg"})]);
-        }
-      } catch (e) {} finally { ph.busy = false; }
-    }
-    setTimeout(() => phonePoll(ph), 1500);
+    const ph = SCAN.phone = PHONE_CAM.start({onPhoto: f => scanAdd([f]), onChange: scanDraw, alive: () => !!SCAN && SCAN.phone === ph});
+    scanDraw();
   }
   function phoneStop(){
     const ph = SCAN && SCAN.phone; if (!ph) return;
-    SCAN.phone = null; ph.live = false;
-    fetch(`${RELAY()}/v1/s/${ph.id}`, {method: "DELETE", keepalive: true}).catch(() => {});
+    SCAN.phone = null; PHONE_CAM.stop(ph);
   }
-  function phonePanel(){
-    const ph = SCAN && SCAN.phone; if (!ph) return "";
-    return `<div class="pde-phone"${ph.err ? "" : ` data-link="${esc(ph.url)}"`}>${ph.err ? "" : QR.svg(ph.url, "QR code to open the camera page on your phone")}<div class="pde-phone-t">
-      <b>${ph.err ? "Phone Not Connected" : "Scan This With Your Phone's Camera"}</b>
-      <p class="mini">${ph.err ? esc(ph.err) : "It opens a page on your phone. Take a photo of each page there and it shows up here. Photos are locked (encrypted) on your phone, and deleted from the relay as soon as this computer has them."}</p>
-      ${ph.err ? "" : `<p class="mini pde-phone-n" aria-live="polite">${!ph.live ? "Connecting…" : ph.got ? `${ph.got} photo${ph.got === 1 ? "" : "s"} from your phone` : "Waiting for photos…"}</p>`}
-      <div class="row-actions">${ph.err ? `<button type="button" class="btn small" data-scan="phone-again">Try Again</button>` : ""}<button type="button" class="btn small" data-scan="phone-stop">${ph.err ? "Close" : "Done With Phone"}</button></div></div></div>`;
-  }
+  const phonePanel = () => SCAN && SCAN.phone ? PHONE_CAM.panel(SCAN.phone, "data-scan") : "";
   const FILTERS = [["doc", "Document"], ["color", "Color"], ["gray", "Gray"], ["bw", "Black & White"]];
   function scanDraw(){
     const d = document.getElementById("pdeScanDlg"); if (!d || !SCAN) return;
@@ -3847,11 +3804,6 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-scan-btn{display:inline-flex;align-items:center;gap:7px}
 .pde-scan-btn svg{flex:none;width:16px;height:16px}
 .pde-scan-sheet .sheet-body{display:grid;gap:12px}
-.pde-phone{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
-.pde-phone .qr{width:168px;height:168px;flex:none;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
-.pde-phone-t{flex:1 1 220px;display:grid;gap:6px}.pde-phone-t p{margin:0}
-.pde-phone-n{font-weight:700;color:var(--ink)}
-.pde-phone .row-actions{margin:2px 0 0}
 .pde-scanlist .pde-cardbar{display:flex;flex-wrap:nowrap;justify-content:center;gap:4px}
 .pde-scanlist .pde-cardbar .icon-btn{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:inline-grid;place-items:center;flex:none}
 .pde-scanlist .pde-cardbar .icon-btn svg{width:17px;height:17px;display:block}

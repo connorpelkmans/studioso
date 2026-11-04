@@ -1,6 +1,7 @@
-// Studyboard photo relay: photos taken on a phone go to Scan to PDF on a computer
+// Studyboard photo relay: photos taken on a phone go to Scan to PDF (or Photo to Note) on a computer
 //
-// The computer makes a random code and shows it in a QR code. From the code it works out a session id and an
+// The computer makes a random code and shows it in a QR code (/s#code for Scan to PDF, /s?for=notes#code for Photo to Note, which
+// only changes the page's wording). From the code it works out a session id and an
 // AES-GCM key (SHA-256 of two labels plus the code). The phone gets the code from the link's #fragment, which
 // browsers never send to a server, locks (encrypts) each photo with the key and posts it here. The computer
 // collects each photo once, which deletes it. Everything goes when the computer stops, or after 30 minutes.
@@ -119,21 +120,29 @@ li.ok span{background:rgba(26,127,69,.85)}li.bad span{background:rgba(179,38,30,
 [hidden]{display:none!important}
 </style></head>
 <body><main><div class="card">
-<h1>Scan pages to your computer</h1>
+<h1 id="h">Scan pages to your computer</h1>
 <div id="ok" hidden>
-<p>Take a photo of each page. They go straight to Scan to PDF on your computer, where you can fix the corners and make the PDF.</p>
+<p id="intro">Take a photo of each page. They go straight to Scan to PDF on your computer, where you can fix the corners and make the PDF.</p>
 <label class="btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Take a Photo<input type="file" accept="image/*" capture="environment" id="cam"></label>
 <label class="btn alt">Choose Photos<input type="file" accept="image/*" multiple id="pick"></label>
 <p id="msg" role="status" aria-live="polite"></p>
 <ol id="list"></ol>
 <p>Photos are locked (encrypted) on this phone before they're sent, and deleted from the relay as soon as your computer has them.</p>
 </div>
-<p id="bad" hidden>This link is missing its code. On your computer, open Scan to PDF and click Take Photos again, then scan the new code.</p>
+<p id="bad" hidden>This link is missing its code. On your computer, click Take Photos again, then scan the new code.</p>
 </div></main><script src="/s.js"></script></body></html>`;
 
 export const SCAN_JS = `(function(){
-  var code = (location.hash || "").replace(/^#/, "");
+  var code = (location.hash || "").replace(/^#/, ""), notes = /(^|[?&])for=notes(&|$)/.test(location.search || "");
   try { history.replaceState(null, "", location.pathname); } catch (e) {}
+  // the words: pages for Scan to PDF, or photos for Photo to Note
+  var W = notes ? {one: "Photo", ones: "photos", full: "That's as many photos as one session can take. Make the note on your computer, then start again."}
+    : {one: "Page", ones: "pages", full: "That's as many pages as one scan can take. Make the PDF on your computer, then start a new scan."};
+  if (notes) {
+    document.title = "Photos to Studyboard";
+    document.getElementById("h").textContent = "Send photos to your computer";
+    document.getElementById("intro").textContent = "Take a photo of the board, a slide or your notes. They go straight to Photo to Note on your computer, where they become typed notes.";
+  }
   var good = /^[A-Za-z0-9_-]{22}$/.test(code) && window.crypto && crypto.subtle;
   document.getElementById(good ? "ok" : "bad").hidden = false;
   if (!good) return;
@@ -158,7 +167,7 @@ export const SCAN_JS = `(function(){
   }
   function one(file){
     var li = document.createElement("li"), url = URL.createObjectURL(file), n = list.children.length + 1;
-    li.innerHTML = '<img alt=""><span>Page ' + n + ': sending…</span>'; li.querySelector("img").src = url; list.appendChild(li);
+    li.innerHTML = '<img alt=""><span>' + W.one + ' ' + n + ': sending…</span>'; li.querySelector("img").src = url; list.appendChild(li);
     var lab = li.querySelector("span");
     return ready.then(function(s){
       return fit(file).then(function(jpg){
@@ -172,10 +181,10 @@ export const SCAN_JS = `(function(){
         });
       });
     }).then(function(r){
-      if (r.status === 201) { sent++; li.className = "ok"; lab.textContent = "Page " + n + ": sent"; say(sent + (sent === 1 ? " page" : " pages") + " sent to your computer."); return; }
-      li.className = "bad"; lab.textContent = "Page " + n + ": not sent";
-      if (r.status === 404) gone(); else if (r.status === 429) say("That's as many pages as one scan can take. Make the PDF on your computer, then start a new scan.", true); else say("Couldn't send that page. Try it again.", true);
-    }, function(e){ li.className = "bad"; lab.textContent = "Page " + n + ": not sent"; say(e && e.message === "photo" ? "That photo couldn't be read. Try another." : "Couldn't send that page. Check your connection and try again.", true); });
+      if (r.status === 201) { sent++; li.className = "ok"; lab.textContent = W.one + " " + n + ": sent"; say(sent + " " + (sent === 1 ? W.one.toLowerCase() : W.ones) + " sent to your computer."); return; }
+      li.className = "bad"; lab.textContent = W.one + " " + n + ": not sent";
+      if (r.status === 404) gone(); else if (r.status === 429) say(W.full, true); else say("Couldn't send that " + W.one.toLowerCase() + ". Try it again.", true);
+    }, function(e){ li.className = "bad"; lab.textContent = W.one + " " + n + ": not sent"; say(e && e.message === "photo" ? "That photo couldn't be read. Try another." : "Couldn't send that " + W.one.toLowerCase() + ". Check your connection and try again.", true); });
   }
   function take(ev){
     var fs = Array.prototype.slice.call(ev.target.files || []); ev.target.value = "";

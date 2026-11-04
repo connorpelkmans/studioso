@@ -281,6 +281,9 @@
 .focus-go .tomato-ic,.plan-row .focus-go .tomato-ic{width:22px!important;height:22px!important;transform:translateY(-1.5px)}
 /* In a button beside its label (Study for 25m, Start a Focus, Focus): a bigger tomato, without making the button taller */
 .btn .tomato-ic{width:21px!important;height:21px!important;margin:-3px 0 -3px -4px;flex:none}
+.btn:not(.focus-go) .tomato-ic{transform:translate(-2px,-2px)}
+/* The side menu's Focus button: a slightly bigger tomato, 1px higher */
+nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;transform:translateY(-1px)}
 /* The companion's face in buttons: 2px lower, so it sits centred beside the label */
 .btn span.cp-ai-face.ai-ic{top:calc(-.2em + 1px)}
 .btn:is([style*="flex"],.f-sum) span.cp-ai-face.ai-ic,.frow > .f-sum span.cp-ai-face.ai-ic{top:calc(-.14em + 1px)}
