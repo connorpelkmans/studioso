@@ -6845,6 +6845,15 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   /* only once the buttons are folded into one row (with More): wrapped buttons would meet the ring */
   :is(.c2-head,.deck-head) .g2-band:has(> .row-actions[data-ra]){padding-bottom:12px}
 }
+/* Day by Day: a chevron right after the title, flipping when open */
+.cr2-days > summary{gap:8px;list-style:none}
+.cr2-days > summary::-webkit-details-marker{display:none}
+.cr2-days > summary::after{content:"";width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-top:-4px;transition:transform .15s}
+.cr2-days[open] > summary::after{transform:rotate(-135deg);margin-top:3px}
+.cr-help > summary{display:flex;align-items:center;gap:8px;list-style:none}
+.cr-help > summary::-webkit-details-marker{display:none}
+.cr-help > summary::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-top:-3px}
+.cr-help[open] > summary::after{transform:rotate(-135deg);margin-top:3px}
 /* ===== module: 101-phone-v2.css ===== */
 /* Saving is automatic, so the header says nothing about it unless there's a problem */
 #guestBadge,#guestBadgeSide{display:none!important}
