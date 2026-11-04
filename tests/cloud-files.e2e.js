@@ -144,7 +144,7 @@ function stubs(){
 
   /* Google: a folder picked for a course (the picker itself is a popup page; here it's played by a fake window) */
   await page.evaluate(() => { window.__cl.status.picker = {key: "KEY1", appId: "123456789"}; return window.__sbCloud.cache && window.__sbCloud.setCache({picker: {key: "KEY1", appId: "123456789"}}); });
-  await page.click('#view [data-act="cl-open"]'); await page.waitForSelector('#clBody [data-act="cl-gpick"][data-id="c1"]');
+  await page.click('#view [data-act="cl-open"]'); await page.waitForSelector('#clBody [data-cl-fc]'); await page.selectOption('#clBody [data-cl-fc]', "c1"); await page.waitForSelector('#clBody [data-act="cl-gpick"][data-id="c1"]');
   await page.evaluate(() => { window.__sent = []; const fr = document.createElement("iframe"); fr.style.display = "none"; document.body.appendChild(fr); const fake = fr.contentWindow; fake.postMessage = (m, o) => window.__sent.push([m, o]); window.__fake = fake; window.open = () => fake; });
   await page.click('#clBody [data-act="cl-gpick"][data-id="c1"]');
   await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", {data: {sbPicker: "ready"}, origin: location.origin, source: window.__fake})));
@@ -162,7 +162,7 @@ function stubs(){
   ok(await page.evaluate(() => !Object.keys(window.__sbCloud.prefs().gCourse).length), "Use Automatic clears it");
   await page.keyboard.press("Escape");
 
-  await page.click('#view [data-act="cl-open"]'); await page.waitForSelector('#clBody [data-act="cl-browse"][data-mode="course"][data-course="c1"]');
+  await page.click('#view [data-act="cl-open"]'); await page.waitForSelector('#clBody [data-cl-fc]'); await page.selectOption('#clBody [data-cl-fc]', "c1"); await page.waitForSelector('#clBody [data-act="cl-browse"][data-mode="course"][data-course="c1"]');
   await page.click('#clBody [data-act="cl-browse"][data-mode="course"][data-course="c1"]'); await page.waitForSelector("#clBody .cl-fold");
   ok(/Choose where .+ uploads go/.test(await page.textContent("#clBody")), "the course folder picker says which course it is for");
   await page.click('#clBody .cl-fold:has-text("Other Stuff")'); await page.waitForSelector('#clBody [data-act="cl-pick"]'); await page.click('#clBody [data-act="cl-pick"]');

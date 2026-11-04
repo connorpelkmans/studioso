@@ -80695,19 +80695,21 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <select data-cl-wc="${esc(w.id)}" aria-label="Course for ${esc(w.name)}">${courseOpts(w.courseId)}</select><button type="button" class="link-btn" data-act="cl-unwatch" data-id="${esc(w.id)}">Stop Watching</button></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">Pick a folder, like your school folder. What's in it (three folders deep) shows up in Files, sorted into courses by folder name, and stays up to date.</p>`}
       <div class="cs-row">${pr.watch.length < 5 ? `<button type="button" class="btn small" data-act="cl-browse" data-mode="watch">Watch a Folder</button>` : ""}${pr.watch.length ? `<button type="button" class="btn small" data-act="cl-scan"${U.scanning ? " disabled" : ""}>${U.scanning ? "Checking…" : "Check Now"}</button><span class="mini">Checked ${esc(ago(U.scanAt))}</span>` : ""}</div>
       ${U.scanErr ? `<p class="cl-warn">${esc(U.scanErr)}</p>` : ""}</fieldset>` : "";
-    const cm = prefs().msCourse, cs = coursesArr(), gm = prefs().gCourse, gConn = conn.includes("google") && !!c.picker;
-    const gPerCourse = gConn && cs.length ? `<fieldset class="cl-set"><legend>Google Drive Folder for Each Course</legend>
-      <p class="mini">Choose where a course's uploads are kept in Google Drive. Files you upload in Studyboard go there on their own. Courses without a folder use <b>Studyboard › course name</b>. Studyboard can only see the folders you pick here, and files linked from Drive are never moved.</p>
-      <ul class="cl-watch">${cs.map(c => { const f = gm[c.id]; return `<li><span class="cl-wn">${FOLDER}<b>${esc(courseLabel(c))}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="cl-gpick" data-id="${esc(c.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="cl-gcourse-reset" data-id="${esc(c.id)}">Use Automatic</button>` : ""}</li>`; }).join("")}</ul></fieldset>` : "";
-    const perCourse = ms && cs.length ? `<fieldset class="cl-set"><legend>OneDrive Folder for Each Course</legend>
-      <p class="mini">Choose where a course's uploads are kept in OneDrive. Files you upload in Studyboard go there on their own, with no prompt each time. Courses without a folder use <b>${esc(pr.msFolder ? pr.msFolder.name : "Studyboard")} › course name</b>. Files you linked from OneDrive are never moved.</p>
-      <ul class="cl-watch">${cs.map(c => { const f = cm[c.id]; return `<li><span class="cl-wn">${FOLDER}<b>${esc(courseLabel(c))}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="cl-browse" data-mode="course" data-course="${esc(c.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="cl-course-reset" data-id="${esc(c.id)}">Use Automatic</button>` : ""}</li>`; }).join("")}</ul></fieldset>` : "";
+    const cm = prefs().msCourse, gm = prefs().gCourse, cs = coursesArr(), gConn = conn.includes("google") && !!c.picker;
+    const sel = cs.find(x => x.id === U.fc) || cs[0];
+    const fcRow = (p, f, pickAct, resetAct) => `<div class="cl-fc-row">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<span class="cl-wn"><b>${esc(NM[p])}</b><span class="mini">${f ? esc(f.name) : "Automatic"}</span></span><button type="button" class="btn small" data-act="${pickAct}" data-id="${esc(sel.id)}" data-mode="course" data-course="${esc(sel.id)}">${f ? "Change" : "Choose Folder"}</button>${f ? `<button type="button" class="link-btn" data-act="${resetAct}" data-id="${esc(sel.id)}">Use Automatic</button>` : ""}</div>`;
+    const custom = cs.map(x => [x, [cm[x.id] && "OneDrive: " + cm[x.id].name, gm[x.id] && "Google Drive: " + gm[x.id].name].filter(Boolean)]).filter(([, l]) => l.length);
+    const perCourse = (ms || gConn) && cs.length ? `<fieldset class="cl-set"><legend>Where Each Course's Uploads Go</legend>
+      <p class="mini">Pick a course, then choose a folder for it. Files you upload in Studyboard for that course are saved there on their own, with no prompt each time. Courses without a folder use <b>Studyboard › course name</b>. Files you linked from ${ms && gConn ? "OneDrive or Google Drive" : ms ? "OneDrive" : "Google Drive"} are never moved.</p>
+      <select data-cl-fc aria-label="Course">${cs.map(x => `<option value="${esc(x.id)}"${x.id === sel.id ? " selected" : ""}>${esc(courseLabel(x))}${cm[x.id] || gm[x.id] ? " ✓" : ""}</option>`).join("")}</select>
+      ${ms ? fcRow("microsoft", cm[sel.id], "cl-browse", "cl-course-reset") : ""}${gConn ? fcRow("google", gm[sel.id], "cl-gpick", "cl-gcourse-reset") : ""}
+      ${custom.length ? `<p class="mini" style="margin:0"><b>Folders set:</b> ${custom.map(([x, l]) => `${esc(courseLabel(x))} (${esc(l.join(", "))})`).join(" · ")}</p>` : ""}</fieldset>` : "";
     return `<p style="margin:0">Keep files in your own Google Drive or OneDrive. They show up here in their courses, open anywhere, and attach to tasks and notes.</p>
       <p class="mini cl-scope" style="margin:0"><b>AI can only read what you give Studyboard access to:</b> the Studyboard folder, the folders you add below, and only when “Allow AI to read my files” is on for that account. Nothing else in your Drive is visible to Studyboard or AI.</p>
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="cl-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : `<div class="cl-cards">${provs.map(card).join("")}</div>`}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
-      ${saveSet}${perCourse}${gPerCourse}${watch}
+      ${saveSet}${perCourse}${watch}
       <p class="mini">Removing a cloud file in Studyboard never deletes it from Google Drive or OneDrive.</p>`;
   }
   function paint(){ const b = document.getElementById("clBody"); if (b && !U.browse) { const y = b.scrollTop; b.innerHTML = sheetHtml(); b.scrollTop = y; } }
@@ -80802,6 +80804,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   });
   document.addEventListener("change", e => {
     const t = e.target; if (!t || !t.closest || !t.closest("#clBody")) return;
+    if (t.dataset.clFc !== undefined) { U.fc = t.value; paint(); return; }
     if (t.name === "clSave") { setPrefs({save: t.value}); toast(t.value === "studyboard" ? "New uploads stay in Studyboard" : `New uploads go to ${NM[t.value]}`); render(); }
     else if (t.dataset.clWc) { setPrefs({watch: prefs().watch.map(w => w.id === t.dataset.clWc ? Object.assign({}, w, {courseId: t.value}) : w)}); U.scanAt = 0; scan({quiet: true}); toast("Saved"); }
   });
@@ -80935,6 +80938,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .cl-wn{display:flex;gap:6px;align-items:center;flex:1 1 160px;min-width:0}
 .cl-wn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cl-watch select{flex:0 1 220px;min-width:0}
+.cl-fc-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cl-fc-row>svg,.cl-fc-row>img{flex:none}
+.cl-set select[data-cl-fc]{width:100%;min-width:0}
 .cl-crumbs{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .cl-folders{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:46vh;overflow:auto}
 .cl-fold{display:flex;gap:8px;align-items:center;width:100%;text-align:left;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
