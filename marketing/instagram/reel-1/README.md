@@ -12,7 +12,7 @@ Brand as in the first-post concepts: navy, blue and highlighter yellow, grid pap
 | 3.4–7.6 s | Quick Add | "bio quiz fri 2pm 5%" is typed, Add is pressed, and a BIO 101 quiz card drops in. Packy bounces. |
 | 7.4–11.4 s | Today's Plan | The plan card fills row by row in the 4–7 PM free time, and "Bio lab report" becomes Next. |
 | 11.2–15.0 s | Companion | A flashcard slides in, Hoot lands on top of it and asks "Quiz you on chapter 4?", the card flips to its answer (Hoot hops), and Good is tapped. |
-| 14.8–20 s | End card | Wipes up to navy: "Your whole semester on one board.", "Free · works in any browser · no account needed", studyboardapp.com, and three companions hop. |
+| 14.8–20 s | End card | Wipes up to navy: "Your whole semester on one board.", "Free · works in any browser · no account needed", studyboardapp.com, and three companions hop twice each, then stay still. |
 
 Text sits between roughly 330 px and 1600 px from the top, clear of Instagram's top bar and the caption and buttons at the bottom. The headline area also survives the 3:4 crop on the profile grid.
 
