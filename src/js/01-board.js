@@ -81,19 +81,15 @@ function viewBoard(){
   const hasAny = tasksArr().length || coursesArr().length;
   const banner = coursesArr().length ? "" : `<div class="empty tb-setup${hasAny ? "" : " sb-es"}">${hasAny ? "" : emptyArt("board")}<span class="tb-setup-t"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Sync your school site to bring in your courses and deadlines, or import a syllabus PDF, or add a course yourself.</span><div class="row-actions"><button class="btn primary small" data-act="lms-open">Sync School Site</button><button class="btn small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div></div>`;
   const ts = visibleTasks();
-  const weekAgo = Date.now() - 7 * 864e5;
   const colsFor = (tsx, laneId) => STATUSES.map(([k, label, col]) => {
     let list = tsx.filter(t => t.status === k).sort(boardManual(k) ? boardOrder : autoBoardOrder(k));
-    let older = 0;
     const gRows = laneId == null || laneId === "" ? groupBoardShown(k) : [];
     const merged = mergeBoardCol(list, gRows, k), shown = x => x.t ? card(x.t) : groupBoardCard(x.r);
-    const nArch = k === "done" ? allTasks().filter(t => autoArchived(t) && !t.archivedTerm && inFilter(t) && matchesQ(t) && (laneId == null || (t.courseId || "") === laneId)).length : 0;
+    const nArch = k === "done" ? allTasks().filter(t => autoArchived(t) && !t.archivedTerm && inFilter(t) && matchesQ(t) && (laneId == null || (laneId ? t.courseId === laneId : !(state.courses[t.courseId] && !state.courses[t.courseId].archived)))).length : 0;
     return `<section class="col" data-status="${k}" ${laneId != null ? `data-course="${esc(laneId)}"` : ""} style="--sc:${col}" aria-label="${label}">
-      <div class="col-head"><span class="sd"></span>${label}<span class="n">${list.length + older + gRows.length}</span>${boardManual(k) ? `<button type="button" class="col-resort" data-act="board-resort" data-id="${k}" title="${k === "done" ? "Put the most recently completed first again" : "Order by due date again"}">${k === "done" ? "Newest First" : "Sort by Due"}</button>` : ""}</div>
+      <div class="col-head"><span class="sd"></span>${label}<span class="n">${list.length + gRows.length}</span>${boardManual(k) ? `<button type="button" class="col-resort" data-act="board-resort" data-id="${k}" title="${k === "done" ? "Put the most recently completed first again" : "Order by due date again"}">${k === "done" ? "Newest First" : "Sort by Due"}</button>` : ""}</div>
       <div class="col-list">${merged.slice(0, COL_MAX).map(shown).join("")}</div>
       ${merged.length > COL_MAX ? (() => { const key = (laneId == null ? "all" : laneId || "none") + ":" + k, more = merged.length - COL_MAX; return `<details class="col-more" data-col="${esc(key)}" ${ui.colOpen[key] ? "open" : ""}><summary><span class="cm-open">Show ${more} more</span><span class="cm-close">Show less</span></summary><div class="col-list">${merged.slice(COL_MAX).map(shown).join("")}</div></details>`; })() : ""}
-      ${older ? `<button class="show-old" data-act="show-old" style="width:100%;margin-top:8px">Show ${older} Completed More Than a Week Ago</button>` : ""}
-      ${k === "done" && ui.showOldDone ? `<button class="show-old" data-act="hide-old" style="width:100%;margin-top:8px">Hide Older Completed Tasks</button>` : ""}
       ${nArch ? `<button class="arch-link" data-act="archive-open">${ARCHIVE_SM}${nArch} finished more than 2 weeks ago ${nArch === 1 ? "is" : "are"} in the Archive</button>` : ""}
     </section>`;
   }).join("");
@@ -101,8 +97,10 @@ function viewBoard(){
   let boardHtml;
   if (ui.groupBy === "course") {
     const lanes = [...coursesArr().filter(c => inFilterCourse(c.id)).map(c => ({id: c.id, name: c.name, code: c.code, color: c.color})), {id: "", name: "No Course", color: "#8A94A6"}];
+    // Tasks of an archived or deleted course go in the No Course lane, so carried-over work never disappears
+    const live = new Set(coursesArr().map(c => c.id)), laneOf = t => live.has(t.courseId) ? t.courseId : "";
     boardHtml = lanes.map(l => {
-      const lt = ts.filter(t => (t.courseId || "") === l.id && (l.id || !courseOf(t.courseId)));
+      const lt = ts.filter(t => laneOf(t) === l.id);
       if (!lt.length && !l.id && !groupBoardShown().length) return "";
       const done = lt.filter(t => t.status === "done").length;
       return `<section class="lane" style="--c:${esc(l.color)}"><h3 class="lane-head"><span class="sd"></span>${esc(l.name)}<span class="n">${done}/${lt.length} complete</span></h3><div class="board lane-board">${colsFor(lt, l.id)}</div></section>`;
@@ -618,14 +616,15 @@ function computeFocus(){
     if (x.stale) r.push([33, "Started a while ago and hasn't moved since"]);
     if (t.xs) {
       const ex = state.tasks[t.xs.id] || {}, L = t.xs.lead, why = [L.risk ? (L.risk === "watch" ? "the course is close to its pass mark" : "the course is below its pass mark") : "", L.p < 0.75 ? readyWords(L.from, L.p) : ""].filter(Boolean);
-      r.push([85, `${ex.type || "Exam"} ${x.dl === 1 ? "tomorrow" : `in ${x.dl} days`}${ex.time ? " at " + fmtTime(ex.time) : ""}, in person. Study starts ${L.days} days before it${why.length ? " because " + why.join(" and ") : ""}`]);
+      r.push([85, `${ex.type || "Exam"} ${x.dl === 1 ? "tomorrow" : `in ${x.dl} days`}${ex.time ? " at " + fmtTime(ex.time) : ""}, in person. Study starts ${L.days} days before it${why.length ? " because " + why.join(" and ") : ""}${x.dl < L.days ? ", so it's already under way" : ""}`]);
       if (x.lightEve) r.push([86, "Light review only today (30 minutes at most), then stop early and sleep: a good night's sleep helps you remember more than a late night"]);
       if (x.afterWork) r.push([84, "Work due before the exam (or later that day) comes first, then the rest of today's time goes to studying"]);
     }
     { const xr = MILESTONE(t.type) ? examReadiness(t) : t.xs && state.tasks[t.xs.id] ? examReadiness(state.tasks[t.xs.id]) : null;
       if (xr && xr.gap) r.push([88, xr.gap > 0 ? `You feel ${xr.self}% ready, but your flashcards and quizzes say about ${xr.measured}%` : `Your flashcards and quizzes say about ${xr.measured}%, more than the ${xr.self}% you feel`]); }
     if (t.dueFor) { const d = state.tasks[t.dueFor] || info[t.dueFor] && info[t.dueFor].t; r.push([85, `No due date, but ${d ? d.title : "another task"} needs it first, so aim to finish by ${fmtDate(t.due)}`]); }
-    if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) r.push([50 + x.W, `${hasWeight(t) ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]);
+    // a weight the school site didn't give (split from points or guessed) is said as "About"
+    if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) { const sure = hasWeight(t) && !weightGuessed(t); r.push([50 + x.W, `${sure ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]); }
     if (x.fullDay) r.push([72, `${dayDiff(today, x.fullDay) === 1 ? "Tomorrow" : parse(x.fullDay).toLocaleDateString(undefined, {weekday: "long"})} is a full day${(B.what[x.fullDay] || [])[0] ? ` (${B.what[x.fullDay][0]})` : ""}, so it helps to get ahead`]);
     if (x.early) r.push([68, "The instructions mention an earlier step (like a draft or pre-lab). Check for a sooner deadline"]);
     const pr = MILESTONE(t.type) ? progress(t) : null;
@@ -691,7 +690,9 @@ function planLead(rs){
 function dayTimelineHtml(F, todayList, heroId){
   // Your study day: its end may be after midnight; once it's over (or before it starts) nothing is put in it
   const sd = (F && F.sd) || studyDay(), atT = m => fmtTime(AVAIL.toT(m % 1440));
-  if (sd.past) return `<div class="dtl dtl-over" role="group" aria-label="Today's schedule"><div class="dtl-rail"><div class="dtl-c fr dtl-end" data-anchor><span>Past your end of day</span><b>${esc(sd.night ? `Your day starts at ${atT(sd.start)}` : `Your day ended at ${atT(sd.end)}`)}</b></div></div></div>`;
+  // Before the day starts: nearer last night's end it's "past your end of day", nearer the morning's start it "hasn't started yet"
+  const early = sd.night && sd.now >= (sd.end - 1440 + sd.start) / 2;
+  if (sd.past) return `<div class="dtl dtl-over" role="group" aria-label="Today's schedule"><div class="dtl-rail"><div class="dtl-c fr dtl-end" data-anchor><span>${early ? "Your day hasn't started yet" : "Past your end of day"}</span><b>${esc(sd.night ? `Your day starts at ${atT(sd.start)}` : `Your day ended at ${atT(sd.end)}`)}</b></div></div></div>`;
   const sb = (F && F.slotsBy) || {}, a = F && F.avail, items = [];
   (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e > sl.s) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
   try {
@@ -927,4 +928,16 @@ function focusHtml(){
       <${"!--"}plan-how-end--></div>` : ""}
   </section>`;
 }
+// A window left open overnight moves to the new day: Today's Plan, "due today" badges and the calendar redraw when the
+// date changes (checked every minute, and when the app comes back to the front). Not while you're typing in the page.
+{ let day = todayISO();
+  const roll = () => {
+    if (document.hidden || todayISO() === day) return;
+    const a = document.activeElement;
+    if (a && a.closest && a.closest("#view") && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
+    const was = day; day = todayISO();
+    if (ui.calDay === was) { ui.calDay = day; ui.calMonth = day.slice(0, 7) + "-01"; }
+    scheduleRender();
+  };
+  setInterval(roll, 60000); document.addEventListener("visibilitychange", roll); addEventListener("focus", roll); }
 
