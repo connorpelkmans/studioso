@@ -263,8 +263,8 @@
    when it opens. Sections laid out with the arrow at the far right keep it there. Select boxes get the same chevron. */
 :root details > summary{list-style:none}
 :root details > summary::-webkit-details-marker{display:none}
-:root details > summary:not(:has(> svg:last-child))::after{content:"";display:inline-block;flex:none;box-sizing:border-box;width:7px;height:7px;margin-left:.5em;border:solid var(--muted);border-width:0 2px 2px 0;border-radius:0 0 1px 0;background:none;color:inherit;opacity:1;vertical-align:.18em;align-self:center;transform:translateY(-2px) rotate(45deg);transition:transform .15s ease}
-:root details[open] > summary:not(:has(> svg:last-child))::after{transform:translateY(1px) rotate(-135deg)}
+:root details > summary:not(:has(> svg:last-child))::after{content:"";display:inline-block;flex:none;box-sizing:border-box;width:7px;height:7px;margin-left:.5em;border:solid var(--muted);border-width:0 2px 2px 0;border-radius:0 0 1px 0;background:none;color:inherit;opacity:1;vertical-align:.12em;align-self:center;transform:translateY(.8px) rotate(45deg);transition:transform .15s ease}
+:root details[open] > summary:not(:has(> svg:last-child))::after{transform:translateY(3.2px) rotate(-135deg)}
 :root :is(.ann-rest,.plan-extra,.pe-item,.bs-hs,.cpt3-how,.ph-grp,.ph-cpg) > summary::after{margin-left:auto}
 :root :is(details.adv,details.pp-group) > summary::before{content:none}
 :root :is(.bs-diag,.sd-more) summary::after,:root .sd-more summary > span:first-child::after{content:none}
