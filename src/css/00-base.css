@@ -2317,3 +2317,15 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 /* A dropdown in a settings row sizes to its choices, so the label keeps the room */
 .cap-row > select{width:auto;flex:none;max-width:55%}
 .ar-quiz[hidden]{display:none!important}
+/* Files header path: a clear arrow between the course and the folder */
+.fcrumb .fc-sep{display:inline-block;margin:0 .3em;font-size:1.15em;line-height:1;vertical-align:.04em;opacity:.6}
+.fcrumb .fc-up{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px;text-decoration-color:color-mix(in srgb,currentColor 35%,transparent)}
+/* A task's sheet: tools (Focus, Rubric, Prep) on one row, then Mark Done and Edit, each row in even widths */
+.sheet-foot.tv-foot{flex-direction:column;gap:8px}
+.tv-row{display:flex;gap:8px;width:100%}
+.tv-row > .btn{flex:1 1 0;min-width:0;justify-content:center;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-tools > .btn{min-height:40px}
+.rb-short{display:none}
+/* In a task's sheet the shorter label, so the tools and Mark Done and Edit fit on one row */
+.tv-tools .rb-long{display:none}.tv-tools .rb-short{display:inline}
+@media (max-width:480px){.tv-tools > .btn{padding-left:10px;padding-right:10px}.tv-tools .rb-long{display:none}.tv-tools .rb-short{display:inline}.tv-tools .pro-badge{font-size:.62rem;padding:1px 5px}.tv-tools .ai-btn > .ai-ic{display:none}}

@@ -62,3 +62,24 @@
 .cls-frow>svg{flex:none;margin:0 2px 0 4px;color:var(--muted)}
 .cls-frow.k-rec>svg{color:var(--accent)}
 @media (max-width:600px){.cls-acts .btn{flex:1 1 calc(50% - 6px);justify-content:center}}
+/* Files > Lecture Notes: a folder for every class */
+.lf-week{margin-top:14px}
+.lf-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.lf-tile{display:flex;align-items:center;gap:10px;width:100%;min-height:54px;padding:8px 12px;text-align:left;font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.lf-tile > svg{flex:none;width:20px;height:20px;color:color-mix(in srgb,var(--c,var(--accent)) 75%,var(--ink));opacity:.55}
+.lf-tile.has > svg{opacity:1}
+.lf-tile:hover,.lf-tile:focus-visible,.lf-tile.drop-on{border-color:color-mix(in srgb,var(--c,var(--accent)) 55%,var(--line))}
+.lf-tile.drop-on{background:color-mix(in srgb,var(--c,var(--accent)) 10%,var(--surface))}
+.lf-tile.is-today{box-shadow:0 0 0 1px color-mix(in srgb,var(--c,var(--accent)) 40%,transparent)}
+.lf-t{flex:1;min-width:0;display:grid;gap:1px}
+.lf-t b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lf-tile .n{font:700 .78rem var(--body);color:var(--muted)}
+.lf-later{margin-top:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:0 12px}
+.lf-later > summary{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer;font:700 .92rem var(--display)}
+.lf-later > summary .n{font:500 .8rem var(--body);color:var(--muted)}
+.lf-later[open]{padding-bottom:12px}
+.lf-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+.lf-bar .btn{display:inline-flex;align-items:center;gap:4px}
+.lf-empty{margin-top:12px}
+.lf-loose{margin-top:22px}
+.lf-hint{margin:0 0 6px}

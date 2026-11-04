@@ -165,8 +165,8 @@ document.addEventListener("click", e => {
     case "note-archive-open": if (noteEditing) saveNoteText(); archiveSheet(); break;
     case "board-resort": setBoardManual(id, false); render(); toast(id === "done" ? "Most recently completed first" : "Sorted by due date"); break;
     case "group": ui.groupBy = id; try { localStorage.setItem("coursework:group", id); } catch(err){} render(); break;
-    case "f-nav": ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; render(); break;
-    case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
+    case "f-nav": ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; render(); break;
+    case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-preview": officePreview(id); break;
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
@@ -259,7 +259,7 @@ document.addEventListener("change", e => {
     if (n) applyChanges([{kind:"note", id: n.id, after: Object.assign(clone(n), {courseId: e.target.value, text: t ? t.value : n.text})}], "");
     return;
   }
-  if (e.target.id === "fUploadIn") { const list = [...(e.target.files || [])]; e.target.value = ""; if (list.length) uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})); }
+  if (e.target.id === "fUploadIn") { const list = [...(e.target.files || [])]; e.target.value = ""; if (list.length) { if (ui.fFolder === "notes" && ui.fCls && ui.fCourse !== "all" && window.SBCLS && SBCLS.uploadTo) SBCLS.uploadTo(ui.fCourse, ui.fCls, list); else uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})); } }
 });
 document.addEventListener("keydown", e => {
   if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }

@@ -469,3 +469,11 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .sm-btn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .sm-btn svg{width:16px;height:16px;flex:none}
 @media (max-width:639px){.sm-btn .sm-lbl{display:none}.sm-btn{padding-inline:12px!important}}
+/* My Group Tasks on the Board: the title inside the card with the tasks, like a group's sections */
+.grp-mine{padding:12px 16px 6px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.06)}
+.grp-mine > h3.fsec{margin:0 0 12px;align-items:center}
+.grp-mine > h3.fsec > svg:first-child{box-sizing:border-box;width:30px;height:30px;padding:6px;border-radius:50%;background:color-mix(in srgb,var(--accent) 15%,var(--surface));color:var(--accent);flex:none}
+.grp-mine .gm-sum{margin:0 0 6px 38px}
+.grp-mine .gm-list{margin:0 -16px;background:transparent;border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none}
+.grp-mine .gm-list .gm-row{padding-left:12px;padding-right:16px}
+.grp-mine > p.mini:last-child{margin:8px 0 6px}

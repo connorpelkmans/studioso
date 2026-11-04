@@ -2317,6 +2317,18 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 /* A dropdown in a settings row sizes to its choices, so the label keeps the room */
 .cap-row > select{width:auto;flex:none;max-width:55%}
 .ar-quiz[hidden]{display:none!important}
+/* Files header path: a clear arrow between the course and the folder */
+.fcrumb .fc-sep{display:inline-block;margin:0 .3em;font-size:1.15em;line-height:1;vertical-align:.04em;opacity:.6}
+.fcrumb .fc-up{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px;text-decoration-color:color-mix(in srgb,currentColor 35%,transparent)}
+/* A task's sheet: tools (Focus, Rubric, Prep) on one row, then Mark Done and Edit, each row in even widths */
+.sheet-foot.tv-foot{flex-direction:column;gap:8px}
+.tv-row{display:flex;gap:8px;width:100%}
+.tv-row > .btn{flex:1 1 0;min-width:0;justify-content:center;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-tools > .btn{min-height:40px}
+.rb-short{display:none}
+/* In a task's sheet the shorter label, so the tools and Mark Done and Edit fit on one row */
+.tv-tools .rb-long{display:none}.tv-tools .rb-short{display:inline}
+@media (max-width:480px){.tv-tools > .btn{padding-left:10px;padding-right:10px}.tv-tools .rb-long{display:none}.tv-tools .rb-short{display:inline}.tv-tools .pro-badge{font-size:.62rem;padding:1px 5px}.tv-tools .ai-btn > .ai-ic{display:none}}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -3415,6 +3427,14 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .sm-btn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .sm-btn svg{width:16px;height:16px;flex:none}
 @media (max-width:639px){.sm-btn .sm-lbl{display:none}.sm-btn{padding-inline:12px!important}}
+/* My Group Tasks on the Board: the title inside the card with the tasks, like a group's sections */
+.grp-mine{padding:12px 16px 6px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.06)}
+.grp-mine > h3.fsec{margin:0 0 12px;align-items:center}
+.grp-mine > h3.fsec > svg:first-child{box-sizing:border-box;width:30px;height:30px;padding:6px;border-radius:50%;background:color-mix(in srgb,var(--accent) 15%,var(--surface));color:var(--accent);flex:none}
+.grp-mine .gm-sum{margin:0 0 6px 38px}
+.grp-mine .gm-list{margin:0 -16px;background:transparent;border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none}
+.grp-mine .gm-list .gm-row{padding-left:12px;padding-right:16px}
+.grp-mine > p.mini:last-child{margin:8px 0 6px}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
@@ -3791,6 +3811,15 @@ nav.tabs [data-tab="courses"]{position:relative}
 .go-pass-note:empty{display:none}
 .go-pass-note{margin:0;color:var(--warn-ink,var(--ink))}
 .go-prev .gr-scale-rows{max-height:none}
+/* A weight estimated from points (the school site showed none): red, with a note */
+.w-est{color:var(--late,#d64545);font-weight:700}
+.w-est-note{display:flex;gap:10px;align-items:flex-start;margin:10px 0;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--late,#d64545) 45%,var(--line));background:color-mix(in srgb,var(--late,#d64545) 10%,var(--surface));font-size:.86rem;line-height:1.4}
+.w-est-note svg{flex:none;color:var(--late,#d64545);margin-top:1px}
+.w-est-note b{color:var(--late,#d64545)}
+input.w-est-in{color:var(--late,#d64545);font-weight:700;border-color:color-mix(in srgb,var(--late,#d64545) 60%,var(--line))}
+.w-est-tip{display:flex;gap:8px;align-items:flex-start;margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--late,#d64545) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--late,#d64545) 35%,var(--line));font-size:.8rem;font-weight:500;line-height:1.4;color:var(--ink)}
+.w-est-tip svg{flex:none;margin-top:1px;color:var(--late,#d64545)}
+.w-est-pill{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font:700 .7rem/1.5 var(--display);vertical-align:1px;color:var(--late,#d64545);background:color-mix(in srgb,var(--late,#d64545) 14%,var(--surface))}
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
 .est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
@@ -7922,6 +7951,32 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 @media (max-width:639px){
   .next-up .nu-acts > [data-act="nu-enough"]{flex:0 0 100%;min-height:36px;margin:-2px 0 -4px;padding:4px 0!important;border:0!important;background:none!important;box-shadow:none!important;color:var(--muted);font-weight:600;text-decoration:underline;text-underline-offset:3px}
 }
+
+/* Phone: button rows that line up. The main action leads; buttons grow to fill the row, and a button that doesn't fit takes a full row (never cut off) */
+@media (max-width:480px){
+  #view .nu-acts,#dlg .cls-acts,#view .gn-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  :is(#view .nu-acts,#dlg .cls-acts,#view .gn-acts) > .btn{width:100%;min-width:0;margin:0;justify-content:center;white-space:nowrap}
+  :is(#view .nu-acts,#dlg .cls-acts) > .btn:first-child:nth-last-child(odd){grid-column:1/-1}
+  #view .gn-acts > :nth-child(3){grid-column:1/-1;justify-self:center;min-height:36px}
+  #view .gr-headrow{flex-wrap:wrap;row-gap:10px}
+  #view .gr-headrow > h3{flex:1 0 100%}
+  #view .gr-headrow > .spacer{display:none}
+  #view .gr-headrow > .btn{flex:1 1 0;justify-content:center}
+  #view .row-actions:not(.g2-band *):has(> .btn:first-child:nth-last-child(2)) > .btn{flex:1 1 auto;justify-content:center;text-align:center}
+  /* A sheet's footer: buttons fill the row; a Delete or Remove button goes on its own row under Cancel and the main action */
+  #dlg .sheet-foot:not(.tv-foot){flex-wrap:wrap}
+  #dlg .sheet-foot:not(.tv-foot) > .spacer{display:none}
+  #dlg .sheet-foot:not(.tv-foot) > .btn{flex:1 1 auto;justify-content:center;text-align:center;white-space:nowrap}
+  #dlg .sheet-foot:not(.tv-foot) > .btn.danger{order:3;flex-basis:100%}
+}
+
+/* Desktop: a task's sheet footer like every other sheet: tools on the left, Mark Done and Edit on the right, one row */
+@media (min-width:481px){
+  .sheet-foot.tv-foot{flex-direction:row;align-items:center;flex-wrap:wrap}
+  .tv-foot .tv-row{width:auto}
+  .tv-foot .tv-row > .btn{flex:none}
+  .tv-foot .tv-row:last-child{margin-left:auto}
+}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
@@ -8043,6 +8098,27 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .cls-frow>svg{flex:none;margin:0 2px 0 4px;color:var(--muted)}
 .cls-frow.k-rec>svg{color:var(--accent)}
 @media (max-width:600px){.cls-acts .btn{flex:1 1 calc(50% - 6px);justify-content:center}}
+/* Files > Lecture Notes: a folder for every class */
+.lf-week{margin-top:14px}
+.lf-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.lf-tile{display:flex;align-items:center;gap:10px;width:100%;min-height:54px;padding:8px 12px;text-align:left;font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.lf-tile > svg{flex:none;width:20px;height:20px;color:color-mix(in srgb,var(--c,var(--accent)) 75%,var(--ink));opacity:.55}
+.lf-tile.has > svg{opacity:1}
+.lf-tile:hover,.lf-tile:focus-visible,.lf-tile.drop-on{border-color:color-mix(in srgb,var(--c,var(--accent)) 55%,var(--line))}
+.lf-tile.drop-on{background:color-mix(in srgb,var(--c,var(--accent)) 10%,var(--surface))}
+.lf-tile.is-today{box-shadow:0 0 0 1px color-mix(in srgb,var(--c,var(--accent)) 40%,transparent)}
+.lf-t{flex:1;min-width:0;display:grid;gap:1px}
+.lf-t b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lf-tile .n{font:700 .78rem var(--body);color:var(--muted)}
+.lf-later{margin-top:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:0 12px}
+.lf-later > summary{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer;font:700 .92rem var(--display)}
+.lf-later > summary .n{font:500 .8rem var(--body);color:var(--muted)}
+.lf-later[open]{padding-bottom:12px}
+.lf-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+.lf-bar .btn{display:inline-flex;align-items:center;gap:4px}
+.lf-empty{margin-top:12px}
+.lf-loose{margin-top:22px}
+.lf-hint{margin:0 0 6px}
 /* The calculator (99-calculator.js): a handheld scientific calculator, the same in light and dark mode.
    Every colour is a variable: the values below are Classic, and each theme sets its own on .cx (99-calculator-skins.js),
    with a subtle pattern in --deco. Every label is at least 4.5:1 against its key or the body (WCAG AA for small text). */

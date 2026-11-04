@@ -80,13 +80,17 @@ const shot = async (page, name, sel) => { if (!SHOTS) return; await page.waitFor
   await page.click('#dlg [data-act="cls-drive"]'); await page.waitForSelector('#dlg input[name="url"]');
   await page.fill('#dlg input[name="url"]', "https://docs.google.com/presentation/d/abc123/edit"); await page.click("#dlg [data-submit]"); await page.waitForSelector("#dlg .cls-sheet");
   ok(/Google Slides/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "a Google Drive link is added to the class");
-  // From Studyboard: the loose note goes with today's class
-  await page.click('#dlg [data-act="cls-pick"]'); await page.waitForSelector('#dlg [data-cls="note:n2"]');
-  await page.check('#dlg [data-cls="note:n2"]'); await page.click("#clsPickOk"); await page.waitForSelector("#dlg .cls-sheet");
+  // The section is named for the kind of class; Upload leads and there's no New Note
+  const sec = await page.$eval("#dlg .cls-sec h3", el => el.textContent);
+  ok(/^Lecture Notes and Files/.test(sec) && await page.locator('#dlg [data-act="cls-new-note"]').count() === 0 && await page.locator('#dlg .btn.primary[data-act="cls-upload"]').count() === 1, "Lecture Notes and Files, with Upload highlighted and no New Note: " + sec);
+  // From Studyboard: lists the course's files, not notes; the syllabus goes with today's class
+  await page.click('#dlg [data-act="cls-pick"]'); await page.waitForSelector('#dlg [data-cls="file:f2"]');
+  ok(await page.locator('#dlg [data-cls^="note:"]').count() === 0, "From Studyboard lists files, not notes from the note board");
+  await page.check('#dlg [data-cls="file:f2"]'); await page.click("#clsPickOk"); await page.waitForSelector("#dlg .cls-sheet");
   let s = await store(page);
-  ok(s.notes.find(x => x.id === "n2").cls === TODAYKEY && s.files.some(f => f.kind === "link" && f.cls === TODAYKEY && f.folderId === "notes"), "picked notes and added links belong to the class, in Lecture Notes");
-  await page.click('#dlg [data-act="cls-unlink"][data-id="n2"]'); await page.waitForTimeout(150);
-  s = await store(page); ok(!s.notes.find(x => x.id === "n2").cls && s.notes.some(x => x.id === "n2"), "taking a note off a class keeps the note");
+  ok(s.files.find(x => x.id === "f2").cls === TODAYKEY && s.files.some(f => f.kind === "link" && f.cls === TODAYKEY && f.folderId === "notes"), "picked files and added links belong to the class, in Lecture Notes");
+  await page.click('#dlg [data-act="cls-unlink"][data-id="f2"]'); await page.waitForTimeout(150);
+  s = await store(page); ok(!s.files.find(x => x.id === "f2").cls && s.files.some(x => x.id === "f2"), "taking a file off a class keeps the file");
   await page.evaluate(() => document.querySelector("#dlg").close());
 
   // 3. The Schedule's class sheet opens the class page
@@ -96,22 +100,27 @@ const shot = async (page, name, sel) => { if (!SHOTS) return; await page.waitFor
   await shot(page, "3-schedule-class", "#dlg .sheet");
   await page.click('#dlg [data-act="cls-open"]'); await page.waitForSelector("#dlg .cls-sheet");
   ok(/Monday, October 5/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "the button opens that class's page");
-  // New Note: a note for this class, ready to type
-  await page.click('#dlg [data-act="cls-new-note"]'); await page.waitForTimeout(400);
-  s = await store(page); const nn = s.notes.find(x => x.cls === TODAYKEY && /Lecture 9/.test(x.text));
-  ok(!!nn && nn.courseId === "c1" && await page.evaluate(() => window.__sbProStudy.ui.tab === "notes"), "New Note makes a note for the class and opens it on Notes");
-  await page.keyboard.type("Photosynthesis intro"); await page.evaluate(() => document.body.click()); await page.waitForTimeout(300);
 
   // 4. Files > Biology > Lecture Notes: the same things, by class
   await act(page, "sch-occ", "c1", {type: "meet", key: TODAYKEY}); await page.waitForSelector("#dlg .occv-rows");
   await page.click('#dlg [data-act="cls-open"]'); await page.waitForSelector("#dlg .cls-sheet");
   await page.click('#dlg [data-act="cls-files"]'); await page.waitForTimeout(400);
   const fx = await page.$eval("#fpane", el => el.textContent);
-  ok(/Lecture 9 · Mon, Oct 5/.test(fx) && /Lecture 8 · Wed, Sep 30/.test(fx), "Files groups Lecture Notes by class");
-  ok(/Cell respiration lecture/.test(fx) && /Week 4 slides\.pdf/.test(fx) && /Typed note/.test(fx) && /Not linked to a class/.test(fx) && /Syllabus\.pdf/.test(fx), "with each class's typed notes and recording, and the rest under Not linked to a class");
+  ok(/Lecture Notes›Lecture 9, Oct 5/.test(fx) && /Google Slides|docs\.google/.test(fx), "Open in Files opens the class's own folder, with what was added to it: " + fx.replace(/\s+/g, " ").slice(0, 160));
+  await page.click('#fpane [data-act="f-cls"][data-key=""]'); await page.waitForTimeout(250);
+  const all = await page.$eval("#fpane", el => el.textContent);
+  ok(await page.locator(`#fpane .lf-tile[data-key="${WEDKEY}"]`).count() === 1 && await page.locator(`#fpane .lf-tile[data-key="${TODAYKEY}"]`).count() === 1 && /Not Linked to a Class/.test(all) && /Syllabus\.pdf/.test(all),
+    "Lecture Notes has a folder for every class, and the rest under Not Linked to a Class");
   await shot(page, "4-files-lecture-notes");
-  await page.click('#fpane .cls-fh [data-key="' + WEDKEY + '"]'); await page.waitForSelector("#dlg .cls-sheet");
-  ok(/Wednesday, September 30/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "a class heading in Files opens its class page");
+  // dropping a file on a class's folder links it to that class
+  await page.evaluate(k => { const t = document.querySelector(`#fpane .lf-tile[data-key="${k}"]`), dt = new DataTransfer(); dt.setData("text/x-file-id", "f2"); t.dispatchEvent(new DragEvent("drop", {bubbles: true, cancelable: true, dataTransfer: dt})); }, WEDKEY);
+  await page.waitForTimeout(200);
+  ok((await store(page)).files.find(f => f.id === "f2").cls === WEDKEY, "a file dropped on a class's folder is linked to that class");
+  await page.click(`#fpane .lf-tile[data-key="${WEDKEY}"]`); await page.waitForTimeout(250);
+  const wf = await page.$eval("#fpane", el => el.textContent);
+  ok(/Week 4 slides\.pdf/.test(wf) && /Syllabus\.pdf/.test(wf) && /Cell respiration lecture/.test(wf) && /Typed note/.test(wf), "a class's folder holds its files, typed notes and recording");
+  await page.click('#fpane [data-act="cls-open"]'); await page.waitForSelector("#dlg .cls-sheet");
+  ok(/Wednesday, September 30/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "Open Class Page opens it");
 
   // 5. A course whose classes come only from calendar events (a school calendar's lectures)
   await page.evaluate(() => document.querySelector("#dlg").open && document.querySelector("#dlg").close());

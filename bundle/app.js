@@ -9044,6 +9044,11 @@ function todayHours(){
 function setTodayHours(h){ try { localStorage.setItem("coursework:today", JSON.stringify({d: todayISO(), h})); } catch(e) {} }
 const typeDef = t => TYPE_DEFAULTS[t.type] || TYPE_DEFAULTS.Other;
 const hasWeight = t => isNum(t.weight) && Number(t.weight) > 0;
+// A weight the school-site sync worked out from points because the site showed none (not the course's real weighting)
+const weightGuessed = t => hasWeight(t) && ["bs", "cv", "bb", "md", "sg", "gc"].some(f => t[f] && t[f].last && t[f].last.wPts && Number(t[f].last.weight) === Number(t.weight));
+const WEIGHT_GUESS_TIP = "Your school site didn't show a weight for this, so Studyboard split the course by points. Check your syllabus and type in the real weight.";
+// The note above a list of marks when some weights are estimates
+const weightGuessNote = list => { const n = list.filter(weightGuessed).length; return n ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>${n === 1 ? "1 weight is an estimate" : n + " weights are estimates"}.</b> Your school site didn't show ${n === 1 ? "a weight for it" : "weights for them"}, so Studyboard split the course by points. Numbers in red may be wrong: check your syllabus and tap an item to type in the real weight.</span></div>` : ""; };
 const weightOf = t => hasWeight(t) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
 
 /* What the planner knows beyond the task itself (1.11) - School sync */
@@ -10385,7 +10390,7 @@ function courseGradeSide(c){
   const gn = window.SBGRADES && SBGRADES.now(c); if (!gn) return "";
   return `<section class="c2-card2 c2-box">${c2Head("grade", "Grade So Far", `${esc(gn.fmt(gn.marked))} marked`)}
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
-    <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
+    <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${(n => n ? `<p class="mini w-est" style="margin:-4px 0 10px" title="${esc(WEIGHT_GUESS_TIP)}">Uses ${n === 1 ? "1 estimated weight" : n + " estimated weights"}. Check them in Grades.</p>` : "")(courseTasks(c).filter(weightGuessed).length)}${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
 }
 // The student's own decks and notes for a course
 function courseDecksHtml(c){
@@ -12816,7 +12821,7 @@ function taskView(t0){
         ${cl}
         ${prog}
       </div>
-      <div class="sheet-foot">${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBRUBRIC ? SBRUBRIC.taskBtn(t) : ""}<span class="spacer"></span><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div>
+      ${(tools => `<div class="sheet-foot tv-foot">${tools ? `<div class="tv-row tv-tools">${tools}</div>` : ""}<div class="tv-row"><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div></div>`)(`${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBRUBRIC ? SBRUBRIC.taskBtn(t) : ""}`)}
     </div>`);
     const sc2 = dlg.querySelector(".occv-body"); if (sc2) sc2.scrollTop = top;
     $("#tvEdit").addEventListener("click", () => { const x = state.tasks[id]; if (x) taskForm(x); });
@@ -12911,9 +12916,10 @@ function taskForm(t, preset = {}){
           <label class="f" data-fld="link"><span class="lh"><span class="lbl">Link</span>${t.link && safeUrl(t.link) ? `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(safeUrl(t.link))}">Open in ${esc(lmsSite(t) || "browser")}</button>` : ""}</span><input type="url" name="link" maxlength="500" value="${esc(t.link)}" placeholder="https://…"></label>
           <fieldset class="plan-fs"><legend>Planning Details <span class="hint">used to rank Today's Plan</span></legend>
             <div class="two">
-              <label class="f"><span class="lh">Grade Weight <span class="hint">% of course grade</span></span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"></label>
+              <label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
+            ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
             <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
@@ -13008,13 +13014,15 @@ function taskForm(t, preset = {}){
     if (v("location")) bits.push(v("location"));
     if (v("team")) bits.push("team");
     if (v("link")) bits.push("link");
-    if (v("weight")) bits.push(v("weight") + "% of grade");
+    const wIn = f.elements.weight, est = !!(wIn && wIn.classList.contains("w-est-in") && v("weight"));
+    if (v("weight")) bits.push(est ? `~${v("weight")}% of grade (estimated)` : v("weight") + "% of grade");
     const diff = (f.querySelector("input[name=difficulty]:checked") || {}).value; if (diff && diff !== "med") bits.push(DIFF_LABEL[diff].toLowerCase());
     { const nn = (typeof noteSet !== "undefined" ? noteSet.size : 0) + (typeof newNotes !== "undefined" ? newNotes.length : 0); if (nn) bits.push(nn + " sticky note" + (nn === 1 ? "" : "s")); }
     if (items.length) bits.push(`checklist ${items.filter(i => i.done).length}/${items.length}`);
     if (deps.length) bits.push(`${deps.length} dependenc${deps.length === 1 ? "y" : "ies"}`);
     if (attached.size) bits.push(`${attached.size} file${attached.size === 1 ? "" : "s"}`);
     $("#advSum").textContent = bits.length ? bits.join(", ") : "Hours, checklist, files and more";
+    $("#advSum").classList.toggle("w-est", est);
   };
   const drawCl = () => {
     const pw = $("#pctWrap"); if (pw) pw.hidden = isNew || (items.length > 0 && !MILESTONE(curType()));
@@ -13113,6 +13121,8 @@ function taskForm(t, preset = {}){
       : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
+  // typing a weight over an estimated one makes it yours: no longer red
+  { const w = tForm.elements.weight; if (w && w.classList.contains("w-est-in")) w.addEventListener("input", () => { w.classList.remove("w-est-in"); w.removeAttribute("aria-describedby"); const tip = $("#wEstTip"); if (tip) tip.remove(); const pl = $("#wEstPill"); if (pl) pl.outerHTML = `<span class="hint">% of course grade</span>`; }, {once: true}); }
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
   $("#tfAdv").addEventListener("toggle", e => { ui.advOpen = e.target.open; });
   const depList = $("#depList"), depAdd = $("#depAdd");
@@ -14872,10 +14882,16 @@ function viewFiles(){
   </nav>`;
   const c = ui.fCourse !== "all" ? courseOf(ui.fCourse) : null;
   const folder = ui.fCourse !== "all" && ui.fFolder ? foldersOf(ui.fCourse).find(fo => fo.id === ui.fFolder) : null;
-  const crumbs = ui.fCourse === "all" ? "All Files" : `${esc(c ? c.name : "General")}${folder ? ` <span class="mini">›</span> ${esc(folder.name)}` : ""}`;
   const fs = filesVisible();
+  // Lecture Notes: a folder for each class (made from the schedule)
+  if (ui.fFolder !== "notes" || ui.fCourse === "all") ui.fCls = "";
+  let lec = null;
+  if (ui.fFolder === "notes" && ui.fCourse !== "all" && window.SBCLS && SBCLS.lecFolders) { try { lec = SBCLS.lecFolders(ui.fCourse, fs, fileRow); } catch (e) { console.warn("lecture folders", e); } }
+  const sep = `<span class="fc-sep" aria-hidden="true">›</span>`;
+  const crumbs = ui.fCourse === "all" ? "All Files" : `${esc(c ? c.name : "General")}${folder ? `${sep}${lec && lec.crumb ? `<button type="button" class="fc-up" data-act="f-cls" data-key="">${esc(folder.name)}</button>${sep}${esc(lec.crumb)}` : esc(folder.name)}` : ""}`;
   let list;
-  if (!fs.length) {
+  if (lec) list = lec.html;
+  else if (!fs.length) {
     const none = !ui.q.trim();
     list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt("files") : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, Word, PowerPoint and Excel files, images or text files${caps.assets ? ", or drop them here" : ""}. Anything too big can go to your Google Drive or OneDrive.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
   } else if (ui.fCourse !== "all" && !ui.fFolder) {
@@ -14884,7 +14900,7 @@ function viewFiles(){
   } else list = (ui.fFolder === "notes" && clsFolder(fs)) || `<ul class="flist">${fs.map(fileRow).join("")}</ul>`;
   const canUpload = !!caps.assets;
   const hcol = c ? c.color : ui.fCourse === "all" ? "var(--accent-band,var(--accent))" : "#8A94A6";
-  const nHere = fs.length, bandActs = [ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
+  const nHere = lec ? lec.n : fs.length, inCls = !!(lec && lec.crumb), bandActs = [ui.fCourse !== "all" && !inCls ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder && !inCls ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
   const fhead = `<div class="fhead g2-head" style="--c:${esc(hcol)}">
       <div class="g2-band"><span class="g2-kick">${c ? esc(courseLabel(c)) + " · " : ""}Files</span>${bandActs ? `<div class="row-actions">${bandActs}</div>` : ""}</div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : ui.fCourse === "all" ? FOLDER : GENERAL_ICON}</span>
@@ -15037,6 +15053,8 @@ function linkSheet(){
     let name = String(fd.get("name") || "").trim();
     if (!name) { try { const x = new URL(u); name = x.hostname.replace(/^www\./, "") + (x.pathname.length > 1 ? decodeURIComponent(x.pathname).split("/").filter(Boolean).pop().slice(0, 60) : ""); } catch(e) { name = u; } }
     const f = normFile({id: uid(), name, kind: "link", url: u, courseId: fd.get("courseId") || "", folderId: fd.get("folderId") || "other", created: Date.now()});
+    // added inside a class's folder: it goes with that class
+    if (ui.fCls && ui.fFolder === "notes" && f.folderId === "notes" && f.courseId === ui.fCourse) f.cls = ui.fCls;
     applyChanges([{kind:"file", id: f.id, after: f}], `Added ${name}`);
   });
   $("#lkCourse").addEventListener("change", e => { $("#lkFolder").innerHTML = folderSelectHtml(e.target.value, "other"); });
@@ -15097,8 +15115,14 @@ document.addEventListener("drop", e => {
   if (!node && !pane) return;
   e.preventDefault();
   const fid = e.dataTransfer.getData("text/x-file-id");
+  // "course|folder|class key" (a class key has "|" in it too)
+  const dp = node ? node.dataset.drop.split("|") : [], dc = dp[0], dk = dp.slice(2).join("|");
+  // onto a class's folder (or inside one): the file goes with that class
+  const toCls = dk || (!node && ui.fFolder === "notes" && ui.fCls ? ui.fCls : "");
+  if (fid && node && dk) { const f = state.files[fid]; if (f) applyChanges([{kind: "file", id: fid, after: Object.assign(clone(f), {courseId: dc, folderId: "notes", cls: dk, updated: Date.now()})}], `Moved ${f.name} to its class`); return; }
   if (fid && node) { moveFile(fid, node.dataset.drop); return; }
   const list = [...(e.dataTransfer.files || [])];
+  if (list.length && toCls && window.SBCLS && SBCLS.uploadTo) { SBCLS.uploadTo(dk ? dc : ui.fCourse, toCls, list); return; }
   if (list.length) {
     if (node) { const [cid, folderId] = node.dataset.drop.split("|"); uploadFiles(list, {courseId: cid, folderId, cloud: true}); }
     else if (ui.fCourse === "all" && window.SBQADD && caps.assets) SBQADD.open(list);
@@ -19774,8 +19798,8 @@ document.addEventListener("click", e => {
     case "note-archive-open": if (noteEditing) saveNoteText(); archiveSheet(); break;
     case "board-resort": setBoardManual(id, false); render(); toast(id === "done" ? "Most recently completed first" : "Sorted by due date"); break;
     case "group": ui.groupBy = id; try { localStorage.setItem("coursework:group", id); } catch(err){} render(); break;
-    case "f-nav": ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; render(); break;
-    case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
+    case "f-nav": ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; render(); break;
+    case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-preview": officePreview(id); break;
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
@@ -19868,7 +19892,7 @@ document.addEventListener("change", e => {
     if (n) applyChanges([{kind:"note", id: n.id, after: Object.assign(clone(n), {courseId: e.target.value, text: t ? t.value : n.text})}], "");
     return;
   }
-  if (e.target.id === "fUploadIn") { const list = [...(e.target.files || [])]; e.target.value = ""; if (list.length) uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})); }
+  if (e.target.id === "fUploadIn") { const list = [...(e.target.files || [])]; e.target.value = ""; if (list.length) { if (ui.fFolder === "notes" && ui.fCls && ui.fCourse !== "all" && window.SBCLS && SBCLS.uploadTo) SBCLS.uploadTo(ui.fCourse, ui.fCls, list); else uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})); } }
 });
 document.addEventListener("keydown", e => {
   if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
@@ -31428,14 +31452,12 @@ hook("boot", boot);
     const v = $("#view"), pane = v && $(".bpane-plan", v); if (!pane) return;
     const old = $("#grpMine", pane); if (old) old.remove();
     const rows = mineRows(); if (!rows.length) return;
-    const today = todayISO(), wk = GTL.weekDue(rows, today), shown = rows.slice(0, 5), one = [...new Set(rows.map(r => r.gid))].length === 1;
-    const sum = [wk.week ? `${plural(wk.week, "group task")} due this week` : `${plural(rows.length, "group task")} assigned to you`, wk.late ? `${wk.late} overdue` : ""].filter(Boolean).join(" · ");
+    const today = todayISO(), shown = rows.slice(0, 5);
     const li = r => { const c = GTL.due(r.due, today);
       return `<li class="gm-row${c.late ? " is-late" : ""}"><button type="button" class="pt-check" role="checkbox" aria-checked="false" data-act="grp-pt-done" data-id="${esc(r.id)}" data-g="${esc(r.gid)}" aria-label="Mark done: ${esc(str(r.title, 80))}"><span class="pt-box">${CHECK}</span></button>
         <button type="button" class="gm-main" data-act="grp-pt-open" data-g="${esc(r.gid)}" data-l="${esc(r.listId)}" data-id="${esc(r.id)}"><span class="gm-title">${esc(r.title)}</span>
           <span class="pt-meta"><span class="gm-badge" title="${esc(r.groupName)}">${esc(r.badge)}</span>${r.due ? `<span class="pt-due${c.late ? " late" : c.soon ? " soon" : ""}">${esc(ptDueTxt(r.due))}</span>` : ""}<span class="mini">about ${r.hours}h</span></span></button></li>`; };
     pane.insertAdjacentHTML("beforeend", `<section class="grp-mine" id="grpMine" aria-label="Group tasks assigned to you"><h3 class="fsec">${PT_ICON}My Group Tasks<span class="n">${rows.length}</span></h3>
-      <p class="mini gm-sum">${esc(sum)}. <button type="button" class="link-btn" data-act="${one ? "grp-pt-open" : "grp-page"}" data-g="${esc(rows[0].gid)}" data-l="${esc(rows[0].listId)}">${one ? "Open the Group" : "Open Study Groups"}</button></p>
       <ul class="gm-list">${shown.map(li).join("")}</ul>${rows.length > shown.length ? `<p class="mini">+${rows.length - shown.length} more in your groups</p>` : ""}</section>`);
   }
 
@@ -34540,7 +34562,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const c = courseOf(t.courseId), g = gradingOf(c);
     openSheet(`<form class="sheet">${head(t.mark ? "Edit Your Mark" : "Add Your Mark")}
       <div class="sheet-body">
-        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${hasWeight(t) ? `Worth ${fmtW(Number(t.weight))} of your course grade.` : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
+        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est">Worth about ${fmtW(Number(t.weight))} of your course grade (estimated).</span> ${esc(WEIGHT_GUESS_TIP)}` : `Worth ${fmtW(Number(t.weight))} of your course grade.`) : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
         <label class="f"><span class="lh">Your Mark <span class="hint">a score like 43/50, or a percent like 86%</span></span><input type="text" id="gmIn" inputmode="decimal" autocomplete="off" maxlength="24" value="${esc(markInput(t.mark))}" placeholder="e.g. 43/50" autofocus></label>
         <p class="gr-preview" id="gmOut" aria-live="polite"></p>
       </div>
@@ -34916,7 +34938,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
       const nw = p != null && !hasWeight(t);
-      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? `worth ${fmtW(Number(t.weight))}` : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est" title="${esc(WEIGHT_GUESS_TIP)}">worth ~${fmtW(Number(t.weight))} (estimated)</span>` : `worth ${fmtW(Number(t.weight))}`) : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -34998,6 +35020,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         <div class="gr-stat"><span class="gr-k">Projected Final</span>${gr.projected != null ? `<span class="gr-v">${fmtP(gr.projected)}${L(gr.projected) ? ` <span class="gr-l">${esc(L(gr.projected))}</span>` : ""}</span><span class="mini">${gr.done ? "all work marked" : `if you keep this up. Possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}`}</span>` : `<span class="gr-v gr-none">Not Yet</span><span class="mini">Needs a first mark</span>`}</div>
         <div class="gr-stat gr-pass"><span class="gr-k">Pass Mark</span><span class="gr-v">${fmtP(g.pass)}${L(g.pass) ? ` <span class="gr-l">${esc(L(g.pass))}</span>` : ""}</span><span class="mini">${g.goal != null && gg ? `<b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></div>
       </div>
+      ${weightGuessNote(gr.ts)}
       ${goalAsk(gr) || goalField(c, gr)}
       ${gradeBar(gr)}
       ${need.length ? `<div class="gr-sub"><h4>What You Need</h4><ul class="gr-need">${need.map(x => `<li>${x}</li>`).join("")}</ul></div>` : ""}
@@ -35314,7 +35337,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         <div class="chips gp-calc-t" role="group" aria-label="Target">${tg.map(([k, v]) => `<button type="button" class="chip" data-act="gp-target" data-cid="${esc(c.id)}" data-id="${v}" aria-pressed="${Math.abs(v - want) < 0.01}">${esc(k)} ${r1(v)}%</button>`).join("")}</div>
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
-        ${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
+        ${weightGuessNote(gr.ts)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
@@ -37108,10 +37131,17 @@ function cleanFile(r) {
       const num = (c.grades || []).filter(g => (g.type === 1 || g.type === 3) && g.name);
       const wsum = num.reduce((s, g) => s + (isNum(g.wden) ? Number(g.wden) : 0), 0);
       const weighted = wsum > 0 && wsum <= 100.5;
-      const pts = num.reduce((s, g) => s + (isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : 0), 0);
-      const wOf = g => weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : !weighted && pts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / pts * 10000) / 100 : null;
+      // No weights to see: each item's share of the course's points. The grades list often holds only items with a mark, so graded work
+      // missing from it (an assignment or quiz tied to a grade item) is counted too, and when its points aren't known no share is guessed.
+      const inList = new Set((c.grades || []).map(g => String(g.gid || "")));
+      const fromPage = (c.grades || []).some(g => /^gp\d/.test(String(g.gid || "")));
+      const missing = fromPage ? [] : [].concat(c.folders || [], c.quizzes || [], c.discussions || []).filter(x => x && x.gid && !inList.has(String(x.gid)));
+      const missingPts = missing.reduce((s, x) => s + (isNum(x.outOf) && Number(x.outOf) > 0 ? Number(x.outOf) : 0), 0);
+      const canShare = !weighted && missing.every(x => isNum(x.outOf) && Number(x.outOf) > 0);
+      const listPts = num.reduce((s, g) => s + (isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : 0), 0), pts = listPts + missingPts;
+      const wOf = g => weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : canShare && pts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / pts * 10000) / 100 : null;
       num.forEach(g => out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null,
-        weight: wOf(g), shown: g.shown || "", at: g.at || null, fb: g.fb || null}));
+        weight: wOf(g), wPts: !weighted && wOf(g) != null, oldShare: !weighted && listPts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / listPts * 10000) / 100 : null, shown: g.shown || "", at: g.at || null, fb: g.fb || null}));
       // Marks not on the Grades page (quiz Submissions pages, assignment feedback, the Assignments page, discussion pages)
       addMarks(out, c, m => { const list = {quiz: c.quizzes, folder: c.folders, topic: c.discussions}[m.kind], pre = {quiz: "q", folder: "f", topic: "d"}[m.kind];
         const x = (list || []).find(y => y && String(y.id) === String(m.id)); return x ? {pid: pre + x.id, gid: x.gid || "", name: x.name} : null; });
@@ -37643,10 +37673,15 @@ function cleanFile(r) {
       const from = g.from || "grades";
       if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf && (n.mark.from || "grades") === from)) {
         n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) { rep.graded.push({t: n, g}); if (c.last) n.markNew = Date.now(); } }
-      const lastW = n[F] && n[F].last ? n[F].last.weight : undefined;
-      if (g.weight != null && (n.weight == null || n.weight === "" || (lastW !== undefined && Number(n.weight) === Number(lastW))) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
-      if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: g.weight})}); }
-      else { n[F] = {key: n.id.startsWith(F + "_") ? key : "", ou: g.ou, gid: g.gid, last: {weight: g.weight}, gradeOnly: true}; changed = true; }
+      // (a share set before this was tracked: the old formula's number, which only counted items already in the grades list)
+      const lastW = n[F] && n[F].last ? n[F].last.weight : undefined, lastPts = !!(n[F] && n[F].last && (n[F].last.wPts || (n[F].last.wPts === undefined && g.oldShare != null && Number(n[F].last.weight) === g.oldShare)));
+      // a share worked out from points that no longer holds (more of the course turned up) is taken back, unless you changed it
+      const untouched = lastW !== undefined && lastW !== null && Number(n.weight) === Number(lastW);
+      if (g.weight == null && lastPts && untouched) { n.weight = null; changed = true; }
+      if (g.weight != null && (n.weight == null || n.weight === "" || untouched) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
+      const keepW = g.weight, wp = g.weight != null && !!g.wPts;
+      if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: keepW, wPts: wp})}); }
+      else { n[F] = {key: n.id.startsWith(F + "_") ? key : "", ou: g.ou, gid: g.gid, last: {weight: g.weight, wPts: wp}, gradeOnly: true}; changed = true; }
       if (g.fb && JSON.stringify(n[F].fb || null) !== JSON.stringify(g.fb)) { n[F] = Object.assign({}, n[F], {fb: g.fb}); changed = true; }
       if (changed || !cur("task", n.id)) put("task", normTask(n));
     });
@@ -90100,9 +90135,9 @@ var SBCLS = null;
         <p class="mini cls-when">${esc([x.start ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
         <div class="cls-navs">${nav(prev, "p")}${nav(next, "n")}</div>
 
-        <section class="cls-sec"><h3><span>Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
-          ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Add the slides before class, or start a note when it begins." : "Nothing for this class yet."}</p>`}
-          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-new-note">${IC.plus(16)}New Note</button><button type="button" class="btn small" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
+        <section class="cls-sec"><h3><span>${esc(x.kind || "Class")} Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
+          ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Upload the slides before class." : "Nothing for this class yet."}</p>`}
+          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
         </section>
 
         <section class="cls-sec"><h3><span>Recording</span></h3>
@@ -90128,18 +90163,6 @@ var SBCLS = null;
   function tag(kind, ids, key, msg){
     const ch = ids.map(id => { const o = (kind === "note" ? state.notes : state.files)[id]; if (!o) return null; const n = clone(o); if (key) n.cls = key; else delete n.cls; n.updated = Date.now(); return {kind, id, after: n}; }).filter(Boolean);
     if (ch.length) applyChanges(ch, msg || "");
-  }
-  function newNote(x){
-    const c = courseOf(x.cid), b = noteBoards().find(nb => nb.courseId === x.cid), board = b ? b.id : "";
-    const z = Object.values(state.notes || {}).reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
-    const n = normNote({id: uid(), text: `${c ? courseLabel(c) + " " : ""}${x.title}, ${day(x.date)}\n`, color: "yellow", x: 60, y: 60, z, rot: 0, courseId: x.cid, board, cls: x.key, created: Date.now()});
-    if (dlg.open) dlg.close();
-    ui.tab = "notes"; ui.noteBoard = board; try { localStorage.setItem(NB_KEY, board); } catch (e) {}
-    if (window.SBWB && SBWB.on && SBWB.on()) SBWB.setView("notes");
-    noteEditing = n.id;
-    applyChanges([{kind: "note", id: n.id, after: n}], `New note for ${x.title}`);
-    window.scrollTo(0, 0);
-    setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 80);
   }
   function upload(x){
     const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
@@ -90180,14 +90203,11 @@ var SBCLS = null;
   function pickSheet(x){
     const all = classesOf(courseOf(x.cid));
     const where = k => { if (!k || k === x.key) return ""; const y = all.find(z => z.key === k) || looseClass(x.cid, k); return `${y.title}, ${day(y.date, {month: "short", day: "numeric"})}`; };
-    const notes = Object.values(state.notes || {}).filter(n => n.courseId === x.cid && !n.archived && (n.wb || String(n.text || "").trim())).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0)).slice(0, 60);
     const files = Object.values(state.files || {}).filter(f => f.courseId === x.cid && !isLec(f)).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0)).slice(0, 80);
     const item = (k, o, nm) => { const w = where(o.cls); return `<label class="mi-check"><input type="checkbox" data-cls="${k}:${esc(o.id)}"${o.cls === x.key ? " checked" : ""}> <span><b>${esc(nm)}</b>${w ? ` <span class="mini">now in ${esc(w)}</span>` : ""}</span></label>`; };
-    openSheet(`<div class="sheet">${head("Add From Studyboard")}<div class="sheet-body">
-      <p class="mini" style="margin:0">Pick the notes and files that go with ${esc(x.title)}, ${esc(day(x.date))}.</p>
-      ${notes.length ? `<fieldset><legend>Notes</legend><div class="check-list">${notes.map(n => item("note", n, n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") + " (whiteboard)" : noteName(n))).join("")}</div></fieldset>` : ""}
-      ${files.length ? `<fieldset><legend>Files</legend><div class="check-list">${files.map(f => item("file", f, f.name)).join("")}</div></fieldset>` : ""}
-      ${!notes.length && !files.length ? `<p>This course has no notes or files yet. Use New Note or Upload instead.</p>` : ""}
+    openSheet(`<div class="sheet">${head("Add Files From Studyboard")}<div class="sheet-body">
+      <p class="mini" style="margin:0">Pick the files from this course's Files that go with ${esc(x.title)}, ${esc(day(x.date))}.</p>
+      ${files.length ? `<div class="check-list">${files.map(f => item("file", f, f.name)).join("")}</div>` : `<p>This course has no files yet. Use Upload or Google Drive instead.</p>`}
       </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button><span class="spacer"></span><button type="button" class="btn primary" id="clsPickOk">Done</button></div></div>`);
     $("#clsPickOk").addEventListener("click", () => {
       const ch = [];
@@ -90231,6 +90251,54 @@ var SBCLS = null;
     return out + (loose.length ? `<div class="cls-fgroup"><h4 class="cls-fh"><span>Not linked to a class</span><span class="n">${loose.length}</span></h4><ul class="flist">${loose.map(row).join("")}</ul></div>` : "");
   }
 
+  /* Files > a course > Lecture Notes: a folder for every class of the term, made from the schedule (nothing extra is stored).
+     A file put in one (Upload, or dropped on it) is linked to that class. */
+  function lecFolders(cid, fs, row){
+    const c = courseOf(cid); if (!c) return null;
+    const all = classesOf(c); if (!all.length) return null;
+    const today = todayISO(), nowW = mondayOf(today), q = String(ui.q || "").trim();
+    const known = new Set(all.map(x => x.key));
+    if (ui.fCls) {
+      const x = classOf(cid, ui.fCls) || looseClass(cid, ui.fCls), I = itemsOf(cid, ui.fCls);
+      const files = fs.filter(f => f.cls === ui.fCls), n = I.notes.length + files.length + I.recs.length;
+      const noteRow = nt => `<li class="frow cls-frow">${nt.wb ? IC.board(20) : IC.note(20)}<button class="fmain" data-act="cls-note" data-id="${esc(nt.id)}"><span class="fname">${esc(nt.wb ? String(nt.text || "").split("\n")[0] || "Whiteboard" : noteName(nt))}</span><span class="task-meta"><span>${nt.wb ? "Whiteboard" : "Typed note"}</span></span></button></li>`;
+      const recRow = f => `<li class="frow cls-frow k-rec">${IC.mic(20)}<button class="fmain" data-act="lec-view" data-id="${esc(f.id)}"><span class="fname">${esc(f.name)}</span><span class="task-meta"><span>Recording</span></span></button></li>`;
+      const html = `<div class="lf-bar"><button type="button" class="btn small" data-act="f-cls" data-key="">${IC.prev(16)}All Classes</button><span class="spacer"></span><button type="button" class="btn small" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(x.key)}">Open Class Page</button><button type="button" class="btn small primary" data-act="lf-upload" data-cid="${esc(cid)}" data-key="${esc(x.key)}">${IC.up(16)}Upload</button></div>
+        ${n ? `<ul class="flist">${I.notes.map(noteRow).join("")}${files.map(row).join("")}${I.recs.map(recRow).join("")}</ul>`
+          : `<div class="empty lf-empty"><strong>${q ? "Nothing Here Matches Your Search" : "Nothing for This Class Yet"}</strong>${q ? "" : "Upload the slides or handouts, or drop files here. They're linked to " + esc(x.title) + " automatically."}</div>`}`;
+      return {html, n, crumb: `${x.title}, ${day(x.date, {month: "short", day: "numeric"})}`};
+    }
+    // every class, newest week first; classes still to come fold away at the end
+    const count = x => fs.filter(f => f.cls === x.key).length + itemsOf(cid, x.key).notes.length + itemsOf(cid, x.key).recs.length;
+    const shown = all.filter(x => !x.skipped || count(x));
+    const tile = x => { const k = count(x), isNow = x.date === today;
+      return `<li><button type="button" class="lf-tile${isNow ? " is-today" : ""}${k ? " has" : ""}" data-act="f-cls" data-key="${esc(x.key)}" data-drop="${esc(cid)}|notes|${esc(x.key)}">${FOLDER}<span class="lf-t"><b>${esc(x.title)}</b><span class="mini">${esc(day(x.date, {weekday: "short", month: "short", day: "numeric"}))}${isNow ? " · Today" : ""}</span></span><span class="n">${k || ""}</span></button></li>`; };
+    const weeks = list => { const m = new Map(); list.forEach(x => { const w = mondayOf(x.date); if (!m.has(w)) m.set(w, []); m.get(w).push(x); }); return [...m.entries()]; };
+    const wk = ([w, xs]) => `<div class="lf-week"><h4 class="cls-wk"><span>${w === nowW ? "This Week" : "Week of " + esc(day(w, {month: "short", day: "numeric"}))}</span></h4><ul class="lf-grid">${xs.map(tile).join("")}</ul></div>`;
+    const past = shown.filter(x => mondayOf(x.date) <= nowW), later = shown.filter(x => mondayOf(x.date) > nowW);
+    const loose = fs.filter(f => !f.cls || !known.has(f.cls));
+    const html = weeks(past).reverse().map(wk).join("")
+      + (later.length ? `<details class="lf-later"><summary>Upcoming Classes<span class="n">${later.length}</span></summary>${weeks(later).map(wk).join("")}</details>` : "")
+      + (loose.length ? `<h3 class="fsec lf-loose">Not Linked to a Class<span class="n">${loose.length}</span></h3><p class="mini lf-hint">Drag one onto a class's folder to link it.</p><ul class="flist">${loose.map(row).join("")}</ul>` : "");
+    return {html, n: fs.length, crumb: ""};
+  }
+  // Upload into a class's folder: the files go in Lecture Notes, linked to the class
+  async function uploadTo(cid, key, list){
+    const x = classOf(cid, key) || looseClass(cid, key);
+    const made = await uploadFiles(list, {courseId: cid, folderId: "notes", cloud: true, sub: subFor(x)});
+    if (made && made.length) tag("file", made.map(f => f.id), key, `Added to ${x.title}`);
+  }
+  function pickUpload(cid, key){
+    const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
+    inp.addEventListener("change", () => { const list = [...(inp.files || [])]; inp.remove(); if (list.length) uploadTo(cid, key, list); });
+    document.body.appendChild(inp); inp.click();
+  }
+  hook("act", (act, el) => {
+    if (act === "f-cls") { ui.fCls = el.dataset.key || ""; render(); window.scrollTo(0, 0); return true; }
+    if (act === "lf-upload") { pickUpload(el.dataset.cid, el.dataset.key); return true; }
+    return false;
+  });
+
   /* The Schedule: a class's sheet links its page */
   function occRows(o){
     if (!o || !(o.type === "meet" || (o.type === "event" && isClassEvent(o.ev)))) return [];
@@ -90249,7 +90317,6 @@ var SBCLS = null;
       case "cls-back": { if (OPEN) { const o = OPEN; setTimeout(() => openClass(o.cid, o.key), 0); } return true; }
       case "cls-kind": { ui.clsKind = Object.assign({}, ui.clsKind, {[el.dataset.cid]: el.dataset.k}); render(); return true; }
       case "cls-dates": datesSheet(el.dataset.cid); return true;
-      case "cls-new-note": { const x = cur(); if (x) newNote(x); return true; }
       case "cls-upload": { const x = cur(); if (x) upload(x); return true; }
       case "cls-drive": { const x = cur(); if (x) drive(x); return true; }
       case "cls-connect": { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); return true; }
@@ -90261,7 +90328,7 @@ var SBCLS = null;
       case "cls-rec-up": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now()}; const prev = ui.courseId; ui.courseId = x.cid; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-add-up"; document.body.appendChild(b); b.click(); b.remove(); ui.courseId = prev; return true; }
       case "cls-sum": { if (dlg.open) dlg.close(); setTimeout(() => { const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-view"; b.dataset.id = id; document.body.appendChild(b); b.click(); b.remove();
         setTimeout(() => { const d = document.createElement("button"); d.hidden = true; d.dataset.act = "lec-doc"; d.dataset.id = id; d.dataset.doc = "sum"; document.body.appendChild(d); d.click(); d.remove(); }, 30); }, 0); return true; }
-      case "cls-files": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; ui.fCourse = x.cid; ui.fFolder = "notes"; ui.q = ""; render(); window.scrollTo(0, 0); return true; }
+      case "cls-files": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; ui.fCourse = x.cid; ui.fFolder = "notes"; ui.fCls = x.key; ui.q = ""; render(); window.scrollTo(0, 0); return true; }
     }
     return false;
   });
@@ -90275,7 +90342,7 @@ var SBCLS = null;
     return true;
   });
 
-  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, occRows, open: openClass, recKeyOf};
+  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();
 /* ===== module: 99-calculator-skins.js: the calculator in the colours of the current theme ===== */
 /* The calculator (99-calculator.js) wears the theme that's on: its body, keys, screen and lettering in the theme's colours,
@@ -91432,7 +91499,7 @@ const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test
 const RUB_NAME = /rubric|criteria|marking|grading|scoring|assessment guide/i;
 function taskBtn(t){
   if (!t || inPreview() || !RBC.eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON} Check Against Rubric${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
 // The rubric a task already has: from the school site, an attached rubric file, or notes that read like one
 async function autoRubric(t){
