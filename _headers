@@ -16,6 +16,12 @@
   Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com; frame-src https://docs.google.com https://accounts.google.com https://content.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   Cache-Control: no-cache
 
+# Cloudflare serves the page without ".html" (it redirects there), so the same rule is needed for that address
+/drive-picker
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com; frame-src https://docs.google.com https://accounts.google.com https://content.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Cache-Control: no-cache
+
 # The service worker must always be fetched fresh
 /sw.js
   Cache-Control: no-cache
