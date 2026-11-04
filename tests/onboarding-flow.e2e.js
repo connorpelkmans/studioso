@@ -73,6 +73,23 @@ const day = k => { const d = new Date(); d.setDate(d.getDate() + k); return d.to
       ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
       await ctx.close();
     }
+    /* Typing a course: Enter in Course Code goes on to the name; examples follow the chosen area */
+    {
+      const {ctx, page} = await fresh();
+      await page.click('dialog[open] .sheet-head [data-act="close"]'); await page.waitForSelector(".sheet.ob", {timeout: 10000});
+      await page.click('[data-ob-area="cs"]'); await page.waitForTimeout(200);
+      await page.click(".ob-go"); await page.waitForTimeout(300);
+      ok(await page.getAttribute("#obCode", "placeholder") === "e.g. CS 101" && await page.getAttribute("#obName", "placeholder") === "e.g. Intro to Programming", "the course examples follow the chosen area");
+      await page.fill("#obCode", "CS 201"); await page.press("#obCode", "Enter"); await page.waitForTimeout(200);
+      ok(await page.evaluate(() => document.activeElement && document.activeElement.id) === "obName" && await page.locator(".ob-clist li").count() === 0, "Enter in Course Code moves to Course Name without adding a course");
+      await page.fill("#obName", "Data Structures"); await page.press("#obName", "Enter"); await page.waitForTimeout(300);
+      const cs = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem("coursework:v2")).courses || {}).map(c => [c.code, c.name]));
+      ok(cs.length === 1 && cs[0][0] === "CS 201" && cs[0][1] === "Data Structures", "Enter in Course Name adds one course with both: " + JSON.stringify(cs));
+      await page.click(".ob-go"); await page.waitForTimeout(300); await page.click(".ob-go"); await page.waitForTimeout(400);
+      ok(/cs project milestone/.test(await page.textContent(".ob-qa")), "the done page's quick-add example follows the area too");
+      ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
+      await ctx.close();
+    }
   } finally { await browser.close(); server.close(); fs.rmSync(dir, {recursive: true, force: true}); }
   console.log(`onboarding-flow.e2e.js: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

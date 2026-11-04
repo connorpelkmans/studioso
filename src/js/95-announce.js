@@ -28,7 +28,9 @@
     });
     return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   }
-  const isNew = (n, rs) => !rs.has(n.key) && (!n.date || Date.parse(n.date) > Date.now() - FRESH_DAYS * 864e5);
+  // Past FRESH_DAYS an announcement never counts as new, so Mark Unread would do nothing there
+  const canUnread = n => !n.date || Date.parse(n.date) > Date.now() - FRESH_DAYS * 864e5;
+  const isNew = (n, rs) => !rs.has(n.key) && canUnread(n);
   const unread = () => { const rs = readSet(); return items().filter(n => isNew(n, rs)).length; };
   window.SBANN = {items, info: key => { try { return AUTO_ON && autoFeatOn("news") && AUTO.ann && AUTO.ann[key] || null; } catch(e) { return null; } }};
   function badge(){
@@ -70,7 +72,7 @@
       const ai = window.SBANN.info(n.key), AB = ai && ai.imp ? `<p class="ann-ai"><span class="ann-attn">Needs attention</span> ${ai.sum ? esc(ai.sum) : ""}</p>` : "";
       return `<li class="${un ? "unread" : ""}${ai && ai.imp ? " attn" : ""}">${chip ? `<span class="ann-chip" style="--c:${esc(n.color)}"${n.courseName && n.courseName !== n.course ? ` title="${esc(n.courseName)}"` : ""}><span class="sd"></span>${esc(n.course)}</span>` : ""}<b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${when ? ` · <span title="${esc(fmtShort(iso(new Date(n.date))))}">${esc(when)}</span>` : ""}${un ? " · New" : ""}</span>${AB}
         ${n.text ? (n.text.length > 200 || n.long ? `<details><summary><span class="ann-pre">${esc(n.text.slice(0, 120).replace(/\s+/g, " "))}… Read more</span><span class="ann-less">Show less</span></summary><p class="ann-txt">${esc(n.text)}${n.long ? "…" : ""}</p></details>` : `<p class="ann-txt">${esc(n.text)}</p>`) : ""}
-        <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button></span></li>`; };
+        <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}${un || canUnread(n) ? `<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button>` : ""}</span></li>`; };
     const opt = (k, label, un) => `<option value="${esc(k)}"${tab === k ? " selected" : ""}>${esc(label)}${un ? ` · ${un} new` : ""}</option>`;
     let panel;
     if (!all.length) panel = "";

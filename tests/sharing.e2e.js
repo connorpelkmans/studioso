@@ -214,8 +214,8 @@ async function sharer(browser){
   ok(/isn't allowed/.test(await txt(page, "#unMsg")), "a foul username is refused while typing: " + await txt(page, "#unMsg"));
   await page.fill("#unIn", "taken_name"); await page.waitForTimeout(450);
   ok(/taken/.test(await txt(page, "#unMsg")), "a taken username says so");
-  await page.fill("#unIn", "Connor_P"); await page.waitForTimeout(450);
-  ok(/@Connor_P is free/.test(await txt(page, "#unMsg")), "a free one says so");
+  await page.fill("#unIn", "Connor_P"); await page.waitForFunction(() => /is free/.test((document.querySelector("#unMsg") || {}).textContent || ""), null, {timeout: 3000}).catch(() => {});
+  ok(/@Connor_P is free/.test(await txt(page, "#unMsg")), "a free one says so: " + await txt(page, "#unMsg"));
   await page.screenshot({path: shots + "/username-sheet.png"});
   await page.click("#unSave"); await page.waitForSelector("dialog[open] #schUseAuto", {timeout: 6000});
   ok(await page.evaluate(() => window.__SV.username === "Connor_P"), "the username is saved");
@@ -249,6 +249,17 @@ async function sharer(browser){
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #pubOff");
   await page.click("#pubOff"); await page.waitForSelector("#askDlg[open]"); await page.click("#askYes"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => window.__SV.decks.find(x => x.deck_id === "d3").published === false && !__sbSync.state.decks.d3.published), "Unpublish takes the page down");
+  // Stop Sharing deletes the shared copy, and with it the published page
+  await page.evaluate(() => { const sv = window.__SV.decks.find(x => x.deck_id === "d3"); sv.published = true; const d = __sbSync.clone(__sbSync.state.decks.d3); d.published = {code: sv.code, at: Date.now(), school: ""}; __sbSync.applyChanges([{kind: "deck", id: "d3", after: d}], ""); });
+  await act(page, "grp-deck-share", {id: "d3"}); await page.waitForSelector("dialog[open] #grpStop");
+  await page.click("#grpStop"); await page.waitForTimeout(300);
+  ok(/public page in Studyboard Flashcards is taken down too/.test(await txt(page, "dialog[open]")), "Stop Sharing a published deck warns that its public page goes too");
+  const refBefore = refreshed.length;
+  await page.locator("dialog[open] .sheet-foot .btn.danger, dialog[open] .sheet-foot .btn.primary").last().click(); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => !window.__SV.decks.some(x => x.deck_id === "d3") && !__sbSync.state.decks.d3.published && !__sbSync.state.decks.d3.shared), "after Stop Sharing the deck is no longer marked shared or Published");
+  ok(refreshed.length > refBefore, "and the website is told to drop the page");
+  await page.evaluate(() => { if (__sbSync.dlg.open) __sbSync.dlg.close(); __sbSync.render(); }); await page.waitForTimeout(200);
+  ok(!/Published/.test(await txt(page, '#view [data-act="pub-deck"]')), "the deck's button no longer says Published");
   await page.evaluate(() => { window.__SV.age = null; Object.keys(localStorage).filter(k => k.startsWith("studyboard:age:")).forEach(k => localStorage.removeItem(k)); });
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] input[name=bday]");
   ok(/When's Your Birthday/.test(await txt(page, "dialog[open]")) && /can't be changed later/.test(await txt(page, "dialog[open]")), "with no birthday saved, publishing asks for it once");
