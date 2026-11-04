@@ -47,7 +47,7 @@ function fake(opts){
   };
   const client = {from: mk, rpc: async (fn, a) => { if (fn === "group_board_preview_nopics") { const b = DB.group_boards.find(x => x.id === a.p_board); if (b) { b.preview = a.p_preview; b.preview_dark = a.p_dark || null; } DB.calls.push(fn); return {data: null, error: null}; }
       return {data: fn === "my_username" ? "connor" : fn === "my_age" ? 20 : null, error: null}; }, removeChannel(c) { c.closed = true; },
-    channel: name => { const c = {name, subs: [], on(ev, f, cb) { c.subs.push({f, cb}); return c; }, subscribe(cb) { if (cb) cb("SUBSCRIBED"); return c; }}; DB.chans.push(c); return c; }};
+    channel: name => { const c = {name, subs: [], on(ev, f, cb) { c.subs.push({f, cb}); return c; }, subscribe(cb) { c.status = cb; if (cb) cb("SUBSCRIBED"); return c; }}; DB.chans.push(c); return c; }};
   window.__sbGroupsStub = {user: {id: opts.me, email: opts.me + "@x.com"}, client};
   window.__SB_TEST = true;
   try {
@@ -118,6 +118,16 @@ function fake(opts){
       const evil = L1.items.find(i => i.id === "evil");
       ok(evil && evil.c === "ink" && await page.locator(".wb-t img").count() === 0 && (await page.locator('.wb-t[data-id="evil"]').textContent()).includes("<img"), "their text is checked like any saved text (shown as text, unknown colour made black)");
       ok(await page.evaluate(() => __DB.group_board_ops.length) === ops2.length + 1, "changes from others aren't sent back out");
+      // The live connection drops (sleep, Wi-Fi): strokes made meanwhile are fetched when it comes back, even when a later one arrived live first
+      const stroke = (id, sid) => ({id, board_id: "b1", group_id: "g1", user_id: "u2", tag: "other", ch: [{t: "s", id: sid, v: {id: sid, t: "pen", c: "green", w: 90, d: "oPoPgBgB", at: 2}}]});
+      await page.evaluate(([a, b]) => { const ch = __DB.chans.find(c => /^sbwb-b1-/.test(c.name) && !c.closed); ch.status("CHANNEL_ERROR"); __DB.group_board_ops.push(a, b); ch.subs.forEach(s => s.cb({new: b})); }, [stroke(902, "m1"), stroke(903, "m2")]);
+      await page.waitForTimeout(200);
+      ok(await page.evaluate(() => SBWB.board().strokes.some(s => s.id === "m2") && !SBWB.board().strokes.some(s => s.id === "m1")), "while the connection is down a stroke is missed");
+      await page.evaluate(() => __DB.chans.find(c => /^sbwb-b1-/.test(c.name) && !c.closed).status("SUBSCRIBED")); await page.waitForTimeout(300);
+      ok(await page.evaluate(() => SBWB.board().strokes.some(s => s.id === "m1")), "when the live channel comes back, the missed stroke is caught up");
+      await page.evaluate(([a]) => { window.dispatchEvent(new Event("offline")); __DB.group_board_ops.push(a); window.dispatchEvent(new Event("online")); }, [stroke(904, "m3")]);
+      await page.waitForTimeout(300);
+      ok(await page.evaluate(() => SBWB.board().strokes.some(s => s.id === "m3")), "back online, strokes made meanwhile are caught up");
       // Pictures never travel through a group board: one sent by someone else is not taken in, and one added here stays here
       await page.evaluate(() => { const ch = __DB.chans.find(c => /^sbwb-b1-/.test(c.name) && !c.closed); const row = {id: 901, board_id: "b1", group_id: "g1", user_id: "u2", tag: "other", ch: [{t: "i", id: "rpic", v: {k: "i", x: 10, y: 10, w: 100, h: 80, src: "data:image/png;base64,iVBORw0KGgo=", at: 3}}]};
         __DB.group_board_ops.push(row); ch.subs.forEach(s => s.cb({new: row})); });
