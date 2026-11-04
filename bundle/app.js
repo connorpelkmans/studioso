@@ -24180,18 +24180,32 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   /* Text inside files */
   const FT = {loaded: false, loading: null, recs: new Map(), queue: [], busy: false, fails: new Map(), total: 0, done: 0, cur: ""};
   const UPC = [];
-  function extKind(f){
-    if (!f || f.kind !== "file") return "";
-    const r = curRev(f); if (!r) return "";
-    const n = r.name || f.name, ext = (n.split(".").pop() || "").toLowerCase(), t = r.type || "";
+  // The copy of a file that search reads: a stored file's current version, or a synced cloud file (OneDrive, Google Drive),
+  // which is read from the cloud when the student lets AI read those files. A cloud file's key changes when it's edited there,
+  // so the new version is read again.
+  function srcRev(f){
+    if (!f) return null;
+    if (f.kind === "cloud" && f.cloud && !(f.revs && f.revs.length)) {
+      if (!cloudAiOk(f)) return null;
+      const c = f.cloud;
+      return {assetId: `cloud:${c.p}:${c.id}:${c.mod || ""}`, name: c.name || f.name, type: c.type || "", size: Number(c.size) || 0, cloud: true};
+    }
+    return f.kind === "file" ? curRev(f) : null;
+  }
+  // What kind of readable file a name and type are ("" when search can't read it)
+  function nameKind(n, t){
+    const ext = (String(n || "").split(".").pop() || "").toLowerCase(); t = t || "";
     if (ext === "pdf" || t === "application/pdf") return "pdf";
     if (ext === "docx") return "docx";
     if (ext === "pptx") return "pptx";
     if (/^(txt|md|markdown|csv|tsv|json|html?|xml)$/.test(ext) || /^text\//.test(t)) return "text";
     return "";
   }
+  function extKind(f){ const r = srcRev(f); return r ? nameKind(r.name || f.name, r.type) : ""; }
+  // Synced cloud files search could read, but doesn't because AI isn't allowed to read that cloud's files
+  const cloudShut = () => Object.values(state.files).filter(f => f.kind === "cloud" && f.cloud && !(f.revs && f.revs.length) && !cloudAiOk(f) && nameKind(f.cloud.name || f.name, f.cloud.type));
   const canFetch = () => typeof window.__sxBytes === "function" || !!DESK || inPreview() || sbActive();
-  function currentAssets(){ const m = new Map(); Object.values(state.files).forEach(f => { const r = f.kind === "file" && curRev(f); if (r && r.assetId) m.set(r.assetId, f); }); return m; }
+  function currentAssets(){ const m = new Map(); Object.values(state.files).forEach(f => { const r = srcRev(f); if (r && r.assetId) m.set(r.assetId, f); }); return m; }
   async function getBytes(r){
     const hit = UPC.find(u => u.name === r.name && u.size === r.size);
     if (hit) return new Uint8Array(await hit.file.arrayBuffer());
@@ -24228,9 +24242,9 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     return out;
   }
   async function readFileText(f, given){
-    const r = curRev(f) || {name: fileNameOf(f), type: fileTypeOf(f)}, kind = given ? given.kind : extKind(f);
+    const r = srcRev(f) || {name: fileNameOf(f), type: fileTypeOf(f)}, kind = given ? given.kind : extKind(f);
     let bytes = given ? given.bytes : null;
-    if (!given) { try { bytes = await getBytes(r); } catch(e) { throw Object.assign(new Error("fetch"), {retry: true}); } }
+    if (!given) { try { bytes = r.cloud ? new Uint8Array(await fileBytes(f)) : await getBytes(r); } catch(e) { throw Object.assign(new Error("fetch"), {retry: true}); } }
     if (!bytes || bytes.byteLength > MAX_FILE_BYTES) return {status: "bad", pages: []};
     let pages = [];
     if (kind === "pdf") {
@@ -24314,7 +24328,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     if (!sxCfg().files) return;
     const list = (fids ? fids.map(id => state.files[id]) : Object.values(state.files).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0))).filter(Boolean);
     list.forEach(f => {
-      const r = curRev(f); if (!r || !extKind(f) || FT.recs.has(r.assetId) || FT.queue.includes(f.id)) return;
+      const r = srcRev(f); if (!r || !extKind(f) || FT.recs.has(r.assetId) || FT.queue.includes(f.id)) return;
       const fail = FT.fails.get(r.assetId); if (fail && Date.now() - fail < 10 * 60000) return;
       FT.queue.push(f.id); FT.total++;
     });
@@ -24326,7 +24340,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     try {
       while (FT.queue.length && sxCfg().files) {
         if (!canFetch() || navigator.onLine === false && !DESK) break;
-        const fid = FT.queue.shift(), f = state.files[fid], r = f && curRev(f);
+        const fid = FT.queue.shift(), f = state.files[fid], r = f && srcRev(f);
         FT.done++;
         if (!r || FT.recs.has(r.assetId) || !extKind(f)) continue;
         FT.cur = f.name; drawFoot();
@@ -24618,7 +24632,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       const P = prepQuery(q, true); if (!P.terms.length) return out;
       if (sxCfg().files && canFetch()) {
         try {
-          const ts = new Set(P.terms), mine = Object.values(state.files).filter(f => extKind(f) && curRev(f) && !FT.recs.has(curRev(f).assetId) && toks(`${f.name} ${(state.courses[f.courseId] || {}).name || ""} ${f.desc || ""}`).some(t => ts.has(t))).map(f => f.id).slice(0, 6);
+          const ts = new Set(P.terms), mine = Object.values(state.files).filter(f => extKind(f) && srcRev(f) && !FT.recs.has(srcRev(f).assetId) && toks(`${f.name} ${(state.courses[f.courseId] || {}).name || ""} ${f.desc || ""}`).some(t => ts.has(t))).map(f => f.id).slice(0, 6);
           if (S.used) queueFiles(); else if (mine.length) queueFiles(mine);
           if (mine.length) for (let i = 0; i < 4 * (o.readWait || 6) && (FT.busy || FT.queue.length); i++) await wait(250);
         } catch(e) {}
@@ -25321,6 +25335,9 @@ Return JSON only.`;
       if (A.state === "search") h += (A.answer && A.answer.det ? ansBox(A, A.answer, ti) : "") + `<div class="sx-ans busy">${dots}Looking through your things…</div>`;
       else {
         if (A.note) h += `<p class="sx-hint">${esc(A.note)}</p>`;
+        // synced files (OneDrive, Google Drive) are only read when AI may read that cloud's files: say so, with a way to allow it
+        { const shut = cloudShut(); if (shut.length && window.SBCLOUD && SBCLOUD.setPrefs) { const names = [...new Set(shut.map(f => (typeof CLOUD_NAMES === "object" && CLOUD_NAMES[f.cloud.p]) || "the cloud"))].join(" and ");
+          h += `<p class="sx-hint sx-cloud-shut">${shut.length} file${shut.length === 1 ? "" : "s"} synced from ${esc(names)} ${shut.length === 1 ? "isn't" : "aren't"} searched, because AI isn't allowed to read ${esc(names)} files. <button type="button" class="link-btn" data-sx="cloud-ai">Let AI Read Them</button></p>`; } }
         const plan = answerPlan(), an = A.answer, det = an && an.state === "done" && an.det;
         if (an && an.state === "loading") h += `<div class="sx-ans busy">${AI_ICON}${dots}${aiWho() ? esc(aiWho()) + " is writing" : "Writing"} a short answer…</div>`;
         else if (an && an.state === "done") {
@@ -25450,7 +25467,7 @@ Return JSON only.`;
   function settingsSheet(){
     close();
     const c = sxCfg(), files = Object.values(state.files).filter(f => extKind(f));
-    const read = files.filter(f => { const r = FT.recs.get(curRev(f).assetId); return r && r.status === "ok"; }).length;
+    const read = files.filter(f => { const r = FT.recs.get(srcRev(f).assetId); return r && r.status === "ok"; }).length;
     const row = (key, title, sub, on) => `<div class="cap-row"><span style="flex:1;font-weight:600">${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-sxopt="${key}" ${on ? "checked" : ""}> On</label></div>`;
     const semSub = inPreview() ? "Works in the Studyboard app and on your website." : !embKey() ? "Needs a free Google Gemini key (Settings, then AI Features). Without one, Ask With AI uses word search and a list of common synonyms." : `Uses your free Gemini key to understand what your things are about, so you can describe them in your own words.${SEM.loaded ? ` ${SEM.total ? Math.round((SEM.total - SEM.left) / SEM.total * 100) + "% ready." : ""}` : ""}`;
     openSheet(`<div class="sheet">${head("Search Settings")}<div class="sheet-body"><div class="menu-list">
@@ -25506,6 +25523,11 @@ Return JSON only.`;
         else if (k === "setup") { close(); aiSetupSheet(true); }
         else if (k === "settings") settingsSheet();
         else if (k === "answer") getAnswer();
+        else if (k === "cloud-ai") {
+          const pr = SBCLOUD.prefs(), ai = Object.assign({}, pr.ai); cloudShut().forEach(f => { ai[f.cloud.p] = true; });
+          SBCLOUD.setPrefs({ai}); queueFiles(); draw(); inp.focus();
+          toast("Reading your synced files now. Ask again in a moment.");
+        }
         else if (k === "paid-yes") { const cb = $("#sxPaidOk"), p = answerPlan(); if (!cb || !cb.checked || !p) return; sxSave({paidOk: p.sig}); getAnswer(); }
         else if (k === "task") { const t = state.tasks[b.dataset.id]; if (t) { close(); setTimeout(() => openDoc({type: "task", id: t.id}), 0); } }
         else if (k === "cite") { const T = turnOf(b), x = T && T.rows[Number(b.dataset.id)]; if (x) { close(); setTimeout(() => openDoc(x.doc), 0); } }
@@ -25554,7 +25576,7 @@ Return JSON only.`;
     const fids = (changes || []).filter(c => c && c.kind === "file").map(c => c.id);
     if (fids.length) {
       if (FT.loaded) syncFiles();
-      const fresh = fids.filter(id => { const f = state.files[id], r = f && curRev(f); return r && !FT.recs.has(r.assetId); });
+      const fresh = fids.filter(id => { const f = state.files[id], r = f && srcRev(f); return r && !FT.recs.has(r.assetId); });
       if (fresh.length && canFetch()) queueFiles(fresh);
     }
     semKick();
