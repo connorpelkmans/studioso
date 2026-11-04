@@ -231,3 +231,29 @@
 @media (max-width:639px){
   .next-up .nu-acts > [data-act="nu-enough"]{flex:0 0 100%;min-height:36px;margin:-2px 0 -4px;padding:4px 0!important;border:0!important;background:none!important;box-shadow:none!important;color:var(--muted);font-weight:600;text-decoration:underline;text-underline-offset:3px}
 }
+
+/* Phone: button rows that line up. The main action leads; buttons grow to fill the row, and a button that doesn't fit takes a full row (never cut off) */
+@media (max-width:480px){
+  #view .nu-acts,#dlg .cls-acts,#view .gn-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  :is(#view .nu-acts,#dlg .cls-acts,#view .gn-acts) > .btn{width:100%;min-width:0;margin:0;justify-content:center;white-space:nowrap}
+  :is(#view .nu-acts,#dlg .cls-acts) > .btn:first-child:nth-last-child(odd){grid-column:1/-1}
+  #view .gn-acts > :nth-child(3){grid-column:1/-1;justify-self:center;min-height:36px}
+  #view .gr-headrow{flex-wrap:wrap;row-gap:10px}
+  #view .gr-headrow > h3{flex:1 0 100%}
+  #view .gr-headrow > .spacer{display:none}
+  #view .gr-headrow > .btn{flex:1 1 0;justify-content:center}
+  #view .row-actions:not(.g2-band *):has(> .btn:first-child:nth-last-child(2)) > .btn{flex:1 1 auto;justify-content:center;text-align:center}
+  /* A sheet's footer: buttons fill the row; a Delete or Remove button goes on its own row under Cancel and the main action */
+  #dlg .sheet-foot:not(.tv-foot){flex-wrap:wrap}
+  #dlg .sheet-foot:not(.tv-foot) > .spacer{display:none}
+  #dlg .sheet-foot:not(.tv-foot) > .btn{flex:1 1 auto;justify-content:center;text-align:center;white-space:nowrap}
+  #dlg .sheet-foot:not(.tv-foot) > .btn.danger{order:3;flex-basis:100%}
+}
+
+/* Desktop: a task's sheet footer like every other sheet: tools on the left, Mark Done and Edit on the right, one row */
+@media (min-width:481px){
+  .sheet-foot.tv-foot{flex-direction:row;align-items:center;flex-wrap:wrap}
+  .tv-foot .tv-row{width:auto}
+  .tv-foot .tv-row > .btn{flex:none}
+  .tv-foot .tv-row:last-child{margin-left:auto}
+}

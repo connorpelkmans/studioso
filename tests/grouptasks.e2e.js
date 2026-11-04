@@ -148,8 +148,8 @@ async function planner(browser, w){
   const card = await txt(page, "#grpMine");
   ok(/Group: BIOL 201 Poster/.test(card), tag + " group badge: " + card.replace(/\s+/g, " "));
   ok(/Write the methods section/.test(card) && /Collect survey data/.test(card) && !/Design the poster layout/.test(card) && !/Proofread/.test(card), tag + " only my tasks");
-  ok(/1 group task due this week/.test(card), tag + " Today line: " + card.replace(/\s+/g, " ").slice(0, 160));
-  ok(/1 overdue/.test(card), tag + " overdue count");
+  ok(/My Group Tasks\s*2/.test(card) && !/assigned to you|due this week|Open the Group/.test(card), tag + " the card has its title and count, no summary line: " + card.replace(/\s+/g, " ").slice(0, 160));
+  ok(/Due yesterday/.test(card) && await page.locator("#grpMine .gm-row.is-late").count() === 1, tag + " an overdue task is marked late on its row");
   ok(/about 1h/.test(card), tag + " default 1h effort");
   ok(await page.evaluate(() => typeof window.SBGROUPTASKS.mine === "function" && window.SBGROUPTASKS.mine().length === 2), tag + " accessor returns two rows");
   ok(await page.evaluate(() => window.SBGROUPTASKS.mine().every(r => r.hours === 1 && /^\d{4}-\d{2}-\d{2}$/.test(r.due))), tag + " rows have dates and hours");
