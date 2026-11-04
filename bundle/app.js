@@ -3533,7 +3533,7 @@ const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
   syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"], ocr: ["lite", "low"],
-  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["reason", "medium"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
+  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "low"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
   school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
 };
 const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
@@ -4149,7 +4149,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
   const msEach = light ? Math.min(ms, (window.__SB_TEST && window.__SB_AI_STALL) || 25000) : ms;
   // Hedging: when a model is slow, the next one starts on the same request too (two at most) and the first good answer wins,
   // so a stalled or overloaded free model costs a short wait instead of minutes, and a slow but working one isn't thrown away
-  const hedgeMs = (window.__SB_TEST && window.__SB_AI_HEDGE) || (light ? 20000 : media ? 90000 : search || urlContext ? 45000 : 60000);
+  // Chat is a conversation: a second model starts after 10 seconds, not 20, so a stalled free model doesn't keep the student waiting
+  const hedgeMs = (window.__SB_TEST && window.__SB_AI_HEDGE) || (light ? (task === "chat" ? 10000 : 20000) : media ? 90000 : search || urlContext ? 45000 : 60000);
   const url = m => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
   const cool = (m, ms2) => aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + ms2; });
   let settled = false;
