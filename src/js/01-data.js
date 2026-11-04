@@ -507,6 +507,7 @@ function spillMove(json){
   }, e => { spillMoving = false; spillNext = null; saveWarn(e); });
 }
 function spillQueue(json){
+  if (spillBlocked) return;
   spillQ = json; clearTimeout(spillT);
   spillT = setTimeout(spillFlush, 300);
 }
@@ -514,16 +515,49 @@ function spillQueue(json){
 function spillFlush(){
   clearTimeout(spillT);
   const json = spillQ; spillQ = null;
-  if (json == null) return spillChain;
+  if (json == null || spillBlocked || deviceWiping) return spillChain;
   return spillWrite(json).catch(saveWarn);
 }
-async function spillRead(){ try { const v = await SBC.get("rows", SPILL_KEY); return typeof v === "string" && v ? v : null; } catch(e) { return null; } }
+// null when there's no copy; throws when IndexedDB couldn't be opened or read
+async function spillReadStrict(wait){ const v = await SBC.getStrict("rows", SPILL_KEY, wait); return typeof v === "string" && v ? v : null; }
+async function spillRead(){ try { return await spillReadStrict(); } catch(e) { return null; } }
+/* When the copy in IndexedDB can't be read at launch (iPhones can be slow to open it), the app doesn't start empty and save over it:
+   saving waits until a read works, tried again in the background and with Retry */
+let spillBlocked = false, spillWarnAt = 0, spillRetryT = 0, spillTries = 0;
 // Called before loadLocal when the copy is in IndexedDB
-async function spillLoad(){ spilled = spilled || spillMarked(); if (spilled) spillRaw = await spillRead(); }
+async function spillLoad(){
+  spilled = spilled || spillMarked(); if (!spilled) return;
+  for (const wait of [0, 8000]) {
+    try { spillRaw = await spillReadStrict(wait); spillBlocked = false; return; }
+    catch(e) { spillBlocked = true; console.warn("device copy", e); }
+  }
+}
+function spillStuckToast(){
+  spillWarnAt = Date.now();
+  setTimeout(() => { try { toast("Couldn't open your saved data on this device, so nothing is saved for now. Your data hasn't been changed.", null, {label: "Retry", fn: () => spillRetry(true)}, {error: true}); } catch(e) {} }, 700);
+}
+async function spillRetry(asked){
+  clearTimeout(spillRetryT);
+  if (!spillBlocked) return;
+  if (asked) toast("Opening your saved data…");
+  let raw;
+  try { raw = await spillReadStrict(20000); }
+  catch(e) {
+    if (asked) spillStuckToast();
+    if (++spillTries < 8) spillRetryT = setTimeout(() => spillRetry(false), 15000);
+    return;
+  }
+  if (!raw) { spillBlocked = false; return; }
+  // Nothing was made meanwhile: the saved copy just appears. Otherwise a reload loads it cleanly
+  const made = ["tasks", "courses", "notes", "decks", "files", "events"].some(k => Object.keys(state[k] || {}).length);
+  if (!made && !(typeof cloud !== "undefined" && cloud.on)) { spillBlocked = false; adoptOtherTab(raw); scheduleRender(); toast("Your saved data is open again."); }
+  else toast("Your saved data can be opened now. Reload to see it. Changes made since Studyboard started weren't saved on this device.", null, {label: "Reload", fn: () => location.reload()}, {error: true});
+}
 window.addEventListener("pagehide", () => { try { spillFlush(); } catch(e) {} });
 document.addEventListener("visibilitychange", () => { if (document.hidden) { try { spillFlush(); } catch(e) {} } });
 function saveLocal(){
   if (deviceWiping || demoDrawing) return;
+  if (spillBlocked) { if (Date.now() - spillWarnAt > 6e4 && !$("#toast").classList.contains("show")) spillStuckToast(); return; }
   if (lsHold) return;
   let json;
   try { const a = toArrays(); delete a.trash; json = JSON.stringify(a); } catch(e) { console.warn("save", e); return; }
@@ -552,6 +586,7 @@ function adoptOtherTab(raw){
 window.addEventListener("storage", e => {
   try {
     if (!e.newValue || (typeof cloud !== "undefined" && cloud.on)) return;
+    if (e.key === LS2_IDB && spillBlocked) { spillRetry(false); return; }
     if (e.key === LS2_IDB) { spilled = true; spillRead().then(v => { if (v) adoptOtherTab(v); }); return; }
     if (e.key === LS2) adoptOtherTab(e.newValue);
   } catch(x) {}
@@ -586,7 +621,17 @@ function loadLocal(){
   try {
     r = spillRaw != null ? spillRaw : localStorage.getItem(LS2);
     spillRaw = null;
-    if (!r && spilled) { loadProblem = "v2"; const f = deskNewer(null); if (f) { state = fromArrays(f); spillQueue(JSON.stringify(f)); loadProblem = ""; trashLoadLocal(); return; } }
+    if (!r && spilled && spillBlocked) {
+      // couldn't be read (not missing): nothing is saved over it. The desktop app shows the copy in its folder meanwhile
+      const f = deskNewer(null); if (f) state = fromArrays(f);
+      spillStuckToast(); spillRetryT = setTimeout(() => spillRetry(false), 5000);
+      trashLoadLocal(); return;
+    }
+    if (!r && spilled) {
+      const f = deskNewer(null); if (f) { state = fromArrays(f); spillQueue(JSON.stringify(f)); trashLoadLocal(); return; }
+      // IndexedDB opened but the copy isn't in it (the browser cleared it): nothing was set aside, so the message doesn't say so
+      setTimeout(() => { try { toast("Your saved data on this device couldn't be found. Your browser may have cleared it. Sign in to get your account's copy, or restore a backup.", null, {label: "Open Backups", fn: restoreSheet}, {error: true}); } catch(e) {} }, 2500);
+    }
     if (r) {
       const own = JSON.parse(r), newer = deskNewer(own);
       state = fromArrays(newer || own);
@@ -755,7 +800,8 @@ const SyncMerge = (() => {
   const isTomb = o => o === null || tombAt(o) > 0;
   const untomb = o => { const x = copy(o); TOMB_KEYS.forEach(k => { delete x[k]; }); return x; };
   const skewFrom = (serverNow, t0, t1) => ms(serverNow) ? ms(serverNow) - Math.round((t0 + t1) / 2) : 0;
-  const fmtAt = at => { try { return new Date(at).toLocaleString("en-US", {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); } catch(e) { return ""; } };
+  // in the interface's language (the divider text itself is matched by its fixed words, not the date)
+  const fmtAt = at => { const o = {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}; try { return typeof SBI18N !== "undefined" && SBI18N.fmtD ? SBI18N.fmtD(new Date(at), o) : new Date(at).toLocaleString(undefined, o); } catch(e) { return ""; } };
 
   /* text: diff3 by line */
   const MARK = {mine: "─── Your edit on this device ───", end: "─── End of conflicting edit ───", theirsRe: /^─── Conflicting edit from your other device( \(.*\))? ───$/};

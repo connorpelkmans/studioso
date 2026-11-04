@@ -30,9 +30,14 @@ const isPart = url => url.origin === location.origin && /\?v=[0-9a-f]+$/.test(ur
 async function savePage(c, res){
   const html = await res.text(), want = partsOf(html);
   await Promise.all(want.map(async u => { if (await c.match(u)) return; const r = await fetch(u); if (!r.ok) throw new Error("sw: " + u + " " + r.status); await c.put(u, r); }));
-  const old = await c.match("./index.html"), keep = new Set(want.concat(old ? partsOf(await old.text()) : []).map(u => new URL(u, location.href).href));
+  const old = await c.match("./index.html"), was = old ? partsOf(await old.text()) : [], keep = new Set(want.concat(was).map(u => new URL(u, location.href).href));
   await c.put("./index.html", new Response(html, {status: res.status, statusText: res.statusText, headers: res.headers}));
   for (const k of await c.keys()) { const u = new URL(k.url); if (isPart(u) && !keep.has(u.href)) await c.delete(k); }
+  // A new release is saved: open pages offer to reload (each page checks whether it already runs it)
+  if (old && want.length && (want.length !== was.length || want.some(u => !was.includes(u)))) {
+    const parts = want.map(u => new URL(u, location.href).href);
+    for (const w of await self.clients.matchAll({type: "window"})) { try { w.postMessage({type: "sb-new-version", parts}); } catch (err) {} }
+  }
 }
 self.addEventListener("install", e => {
   e.waitUntil((async () => {

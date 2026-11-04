@@ -69,8 +69,8 @@ const SPELL = (() => {
     return "";
   }
   const mode = region();
-  const W = {color: "colour", colors: "colours", colored: "coloured", colorful: "colourful", coloring: "colouring", favorite: "favorite", favorites: "favorites",
-    favorited: "favorited", behavior: "behaviour", behaviors: "behaviours", honor: "honour", honors: "honours", neighbor: "neighbour", neighbors: "neighbours", labor: "labour",
+  const W = {color: "colour", colors: "colours", colored: "coloured", colorful: "colourful", coloring: "colouring", favorite: "favourite", favorites: "favourites",
+    favorited: "favourited", favoriting: "favouriting", behavior: "behaviour", behaviors: "behaviours", honor: "honour", honors: "honours", neighbor: "neighbour", neighbors: "neighbours", labor: "labour",
     humor: "humour", flavor: "flavour", harbor: "harbour", rumor: "rumour", center: "centre", centers: "centres", centered: "centred", theater: "theatre", fiber: "fibre",
     liter: "litre", liters: "litres", gray: "grey", grayed: "greyed", canceled: "cancelled", canceling: "cancelling", labeled: "labelled", labeling: "labelling",
     traveled: "travelled", traveling: "travelling", traveler: "traveller", modeled: "modelled", modeling: "modelling", jewelry: "jewellery", catalog: "catalogue",
