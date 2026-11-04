@@ -5059,6 +5059,79 @@ function aiPlannerFacts(need){
   } catch (e) {}
   return L.join("\n\n");
 }
+/* ===== module: 01-phone-cam.js: photos from your phone on a computer (a QR code and the photo relay), for Scan to PDF and Photo to Note ===== */
+/* On a computer, Take Photos shows a QR code. It opens a camera page on the phone (cloudflare/key-relay/src/scan.js), and the photos
+   taken there come in here, locked (AES-GCM) with a key that only the QR code carries, through the relay. The relay never sees the code.
+   PHONE_CAM.start(o) begins a session: o.onPhoto(file) gets each photo, o.onChange() redraws the panel, o.alive() says the sheet is
+   still open (once it isn't, the session ends), o.kind "notes" words the phone's page for Photo to Note. PHONE_CAM.panel(ph, attr)
+   draws the QR panel; its buttons carry attr="phone-again" or "phone-stop" for the sheet to handle. */
+const PHONE_CAM = (() => {
+  const RELAY = () => (typeof KEY_RELAY === "string" && /^https:\/\//.test(KEY_RELAY) ? KEY_RELAY.replace(/\/+$/, "") : "");
+  // only on a computer: a phone or tablet takes the photos itself
+  function can(){
+    if (!RELAY() || !window.crypto || !crypto.subtle || typeof QR === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    return !(/Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (navigator.userAgentData && navigator.userAgentData.mobile));
+  }
+  const b64u = b => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const hexOf = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
+  const on = ph => ph.live && !ph.stopped && (!ph.o.alive || ph.o.alive());
+  function start(o){
+    const ph = {o: o || {}, got: 0, err: "", busy: false, live: false, stopped: false, url: ""};
+    (async () => {
+      const code = b64u(crypto.getRandomValues(new Uint8Array(16))), te = new TextEncoder();
+      const [idH, kH] = await Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-scan-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-scan-key:" + code))]);
+      ph.id = hexOf(idH); ph.key = await crypto.subtle.importKey("raw", kH, "AES-GCM", false, ["decrypt"]);
+      ph.url = RELAY() + "/s" + (ph.o.kind === "notes" ? "?for=notes" : "") + "#" + code;
+      if (ph.stopped) return;
+      draw(ph);
+      try {
+        const r = await fetch(`${RELAY()}/v1/s/${ph.id}`, {method: "POST"});
+        if (r.status !== 201) throw new Error(r.status === 429 ? "busy" : "relay");
+      } catch (e) { if (!ph.stopped) { ph.err = e.message === "busy" ? "Too many tries just now. Wait a minute and try again." : "Couldn't connect to your phone. Check your connection and try again."; draw(ph); } return; }
+      if (ph.stopped) { end(ph); return; }
+      ph.live = true; draw(ph); poll(ph);
+    })();
+    return ph;
+  }
+  const draw = ph => { if (!ph.stopped && ph.o.onChange) { try { ph.o.onChange(); } catch (e) {} } };
+  async function poll(ph){
+    if (!ph.live || ph.stopped) return;
+    if (ph.o.alive && !ph.o.alive()) { stop(ph); return; }   // the sheet was closed or set aside
+    if (!ph.busy) {
+      ph.busy = true;
+      try {
+        const r = await fetch(`${RELAY()}/v1/s/${ph.id}/p`, {cache: "no-store"});
+        if (r.status === 404) { ph.live = false; ph.err = "The code ran out. Click Take Photos to get a new one."; draw(ph); return; }
+        const {ks} = await r.json();
+        for (const k of ks || []) {
+          if (!on(ph)) return;
+          const g = await fetch(`${RELAY()}/v1/s/${ph.id}/p/${k}`, {cache: "no-store"}); if (!g.ok) continue;
+          const box = new Uint8Array(await g.arrayBuffer());
+          let raw; try { raw = await crypto.subtle.decrypt({name: "AES-GCM", iv: box.slice(0, 12)}, ph.key, box.slice(12)); } catch (e) { continue; }
+          ph.got++;
+          await ph.o.onPhoto(new File([raw], `Phone photo ${ph.got}.jpg`, {type: "image/jpeg"})); draw(ph);
+        }
+      } catch (e) {} finally { ph.busy = false; }
+    }
+    setTimeout(() => poll(ph), 1500);
+  }
+  const end = ph => { if (ph.id) fetch(`${RELAY()}/v1/s/${ph.id}`, {method: "DELETE", keepalive: true}).catch(() => {}); };
+  // ends the session: the relay deletes anything still waiting, and the phone's page says the code ran out
+  function stop(ph){
+    if (!ph || ph.stopped) return;
+    ph.stopped = true; ph.live = false; end(ph);
+  }
+  function panel(ph, attr, what){
+    if (!ph || !ph.url && !ph.err) return "";
+    return `<div class="phone-qr pde-phone"${ph.err ? "" : ` data-link="${esc(ph.url)}"`}>${ph.err ? "" : QR.svg(ph.url, "QR code to open the camera page on your phone")}<div class="phone-qr-t">
+      <b>${ph.err ? "Phone Not Connected" : "Scan This With Your Phone's Camera"}</b>
+      <p class="mini">${ph.err ? esc(ph.err) : `It opens a page on your phone. ${what || "Take a photo of each page there and it shows up here."} Photos are locked (encrypted) on your phone, and deleted from the relay as soon as this computer has them.`}</p>
+      ${ph.err ? "" : `<p class="mini phone-qr-n" aria-live="polite">${!ph.live ? "Connecting…" : ph.got ? `${ph.got} photo${ph.got === 1 ? "" : "s"} from your phone` : "Waiting for photos…"}</p>`}
+      <div class="row-actions">${ph.err ? `<button type="button" class="btn small" ${attr}="phone-again">Try Again</button>` : ""}<button type="button" class="btn small" ${attr}="phone-stop">${ph.err ? "Close" : "Done With Phone"}</button></div></div></div>`;
+  }
+  return {can, start, stop, panel};
+})();
 /* ===== module: 01-quick-add.js: the app's core, quick add: type a sentence ===== */
 /* Quick add: type a sentence */
 // Reads a sentence with the same rules as Quick Capture (75-capture.js)
@@ -5895,40 +5968,68 @@ function photoNoteSheet(file){
   if (!aiReady()) { aiSetupSheet(true); return; }
   const KK = "photo-note";
   if (file) sheetDrop(KK); else if (sheetResume(KK)) return;
-  const S = {srcs: [], files: [], result: null, busy: false, ac: null, dropped: false};
+  const S = {srcs: [], files: [], urls: [], result: null, busy: false, ac: null, dropped: false, phone: null};
+  // like Scan to PDF: on a computer, Take Photos shows a QR code for your phone (PHONE_CAM); on a phone or tablet it opens the camera
+  const qr = typeof PHONE_CAM !== "undefined" && PHONE_CAM.can(), cam = !qr && phoneLike();
+  const CAM_IC = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>`;
+  const IMG_IC = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>`;
   openSheet(`<form class="sheet ai-sheet">${head("Photo to Note")}
-    <div class="sheet-body" id="pnBody">
-      <div class="drop" id="pnDrop"><p style="margin:0 0 10px"><strong>Take or choose photos of the whiteboard, a slide, or handwritten notes.</strong><br><span class="mini">They become clean, typed notes on your board. Dates written in them can be added as tasks.</span></p>
-        <div class="row-actions" style="justify-content:center">${phoneLike() ? `<button type="button" class="btn primary" id="pnTake">Take Photo</button>` : ""}<button type="button" class="btn${phoneLike() ? "" : " primary"}" id="pnPick">Choose Photos</button></div>
-        <input type="file" id="pnFile" accept="image/*,application/pdf" multiple class="sr" tabindex="-1"><input type="file" id="pnCam" accept="image/*" capture="environment" class="sr" tabindex="-1"></div>
-      <ul class="ai-srcs" id="pnSrcs"></ul>
+    <div class="sheet-body pnote-intake" id="pnBody">
+      <p class="mini" style="margin:0">Take or choose photos of the whiteboard, a slide, or handwritten notes. They become clean, typed notes on your board, and dates written in them can be added as tasks.${qr ? " Photos from your phone come here locked, through Studyboard's relay." : ""}</p>
+      <div class="row-actions pnote-acts">${qr ? `<button type="button" class="btn primary" id="pnPhone" aria-pressed="false">${CAM_IC}Take Photos</button>` : cam ? `<button type="button" class="btn primary" id="pnTake">${CAM_IC}Take Photo</button>` : ""}<button type="button" class="btn${qr || cam ? "" : " primary"}" id="pnPick">${IMG_IC}Choose Photos</button></div>
+      <input type="file" id="pnFile" accept="image/*,application/pdf" multiple class="sr" tabindex="-1">${cam ? `<input type="file" id="pnCam" accept="image/*" capture="environment" class="sr" tabindex="-1">` : ""}
+      <div id="pnPhoneP"></div>
+      <div class="drop pnote-drop" id="pnDrop"><ol class="pnote-thumbs" id="pnSrcs"></ol><p class="pnote-empty" id="pnEmpty">No photos yet${cam ? "" : `<span class="mini">You can also drop photos here.</span>`}</p></div>
       <label class="f">Course<select id="pnCourse">${courseSelectHtml(ui.filter !== "all" ? ui.filter : "")}</select></label>
       ${aiModelBar()}
       <p class="status-msg" id="pnStatus" style="margin:0" aria-live="polite"></p>
     </div>
-    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnGo">${AI_ICON} Make Note</button></div></form>`);
+    <div class="sheet-foot"><button type="button" class="btn" data-act="close" id="pnCancel">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnGo">${AI_ICON} Make Note</button></div></form>`);
   // queries stay inside this sheet, so a note that's read while it's set aside lands in the right one
   const form = dlg.querySelector("form.ai-sheet"), $ = q => form.querySelector(q);
-  sheetKeep(KK, {name: "Photo to Note", dirty: () => S.srcs.length > 0 || !!S.result, busy: () => S.busy, drop: () => { S.dropped = true; if (S.ac) { try { S.ac.abort(); } catch (e) {} } }});
+  // the phone: its session ends when the sheet closes, is set aside, or starts reading the photos
+  const phoneDraw = () => { const p = $("#pnPhoneP"); if (p) p.innerHTML = S.phone ? PHONE_CAM.panel(S.phone, "data-pn", "Take a photo of the board, a slide or your notes there and it shows up here.") : ""; const b = $("#pnPhone"); if (b) b.setAttribute("aria-pressed", S.phone ? "true" : "false"); };
+  const phoneStop = () => { const ph = S.phone; if (!ph) return; S.phone = null; PHONE_CAM.stop(ph); phoneDraw(); };
+  const phoneStart = () => {
+    if (S.phone) return;
+    const ph = S.phone = PHONE_CAM.start({kind: "notes", onPhoto: f => add([f]), onChange: phoneDraw, alive: () => S.phone === ph && !S.dropped && !S.busy && !S.result && form.isConnected && dlg.open && dlg.contains(form)});
+    phoneDraw();
+  };
+  sheetKeep(KK, {name: "Photo to Note", dirty: () => S.srcs.length > 0 || !!S.result, busy: () => S.busy,
+    drop: () => { S.dropped = true; phoneStop(); S.urls.forEach(u => { if (u) try { URL.revokeObjectURL(u); } catch (e) {} }); if (S.ac) { try { S.ac.abort(); } catch (e) {} } },
+    // set aside, the phone's session ended (it stops itself once the sheet isn't showing)
+    resume: () => { if (S.phone && S.phone.stopped) { S.phone = null; phoneDraw(); } }});
   const status = $("#pnStatus");
   if (S.course != null) $("#pnCourse").value = S.course;
   $("#pnCourse").addEventListener("change", e => { S.course = e.target.value; });
-  const draw = () => { $("#pnSrcs").innerHTML = S.srcs.map((s, i) => `<li><span class="ficon">${s.kind === "PDF" ? "PDF" : "IMG"}</span><span class="nm">${esc(s.name)}</span><span class="mini">${fmtSize(s.size)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove">${CLOSE}</button></li>`).join(""); };
-  const add = async list => { for (const f of list) { try { S.srcs.push(await aiSourceFromFile(f)); S.files.push(f); } catch(e) { status.textContent = e.message; } } draw(); };
+  const draw = () => {
+    const l = $("#pnSrcs"), em = $("#pnEmpty"); if (!l) return;
+    l.innerHTML = S.srcs.map((s, i) => `<li>${s.kind === "Image" && S.urls[i] ? `<img alt="" src="${esc(S.urls[i])}">` : `<span class="pnote-tile">${s.kind === "PDF" ? "PDF" : "IMG"}</span>`}<span class="mini nm" title="${esc(s.name)}">${esc(s.name)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove ${esc(s.name)}">${CLOSE}</button></li>`).join("");
+    if (em) em.hidden = S.srcs.length > 0;
+  };
+  const add = async list => { for (const f of list) { if (S.dropped || S.result) return; try { const src = await aiSourceFromFile(f); S.srcs.push(src); S.files.push(f); S.urls.push(src.kind === "Image" ? URL.createObjectURL(f) : ""); } catch(e) { status.textContent = e.message; } } draw(); };
   if (file) add([file]).then(() => { const g = $("#pnGo"); if (g && S.srcs.length) g.click(); });
   $("#pnPick").addEventListener("click", () => $("#pnFile").click());
   $("#pnFile").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); });
-  const cam = $("#pnTake"); if (cam) { cam.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }
-  const drop = $("#pnDrop");
-  ["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
-  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  const take = $("#pnTake"); if (take) { take.addEventListener("click", () => $("#pnCam").click()); $("#pnCam").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); }); }
+  const pb = $("#pnPhone"); if (pb) pb.addEventListener("click", phoneStart);
+  $("#pnPhoneP").addEventListener("click", e => { const b = e.target.closest("[data-pn]"); if (!b) return; if (b.dataset.pn === "phone-stop") phoneStop(); else if (b.dataset.pn === "phone-again") { phoneStop(); phoneStart(); } });
+  const drop = $("#pnBody");
+  ["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); $("#pnDrop").classList.add("over"); }));
+  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); $("#pnDrop").classList.remove("over"); }));
   drop.addEventListener("drop", e => add([...((e.dataTransfer && e.dataTransfer.files) || [])]));
-  $("#pnSrcs").addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { S.srcs.splice(Number(b.dataset.rm), 1); S.files.splice(Number(b.dataset.rm), 1); draw(); } });
+  $("#pnSrcs").addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { const i = Number(b.dataset.rm), u = S.urls[i]; if (u) try { URL.revokeObjectURL(u); } catch (er) {} S.srcs.splice(i, 1); S.files.splice(i, 1); S.urls.splice(i, 1); draw(); } });
+  // Cancel throws the photos away, so with photos in it, it asks first (without, it closes as any sheet does)
+  $("#pnCancel").addEventListener("click", e => {
+    const n = S.srcs.length; if (!n) return;
+    e.stopPropagation();
+    askBox({title: "Discard Photos?", text: `The ${n === 1 ? "photo" : `${n} photos`} you added won't be kept.`, yes: "Discard", no: "Keep", danger: true}).then(ok => { if (ok && dlg.open && dlg.contains(form)) dlg.close(); });
+  });
   $("#pnGo").addEventListener("click", async () => {
     const go = $("#pnGo");
     if (!S.srcs.length) { status.textContent = "Add a photo first."; return; }
     if (S.srcs.reduce((s, x) => s + aiSourceBytes(x), 0) > AI_LIMIT_BYTES) { status.textContent = "Those photos are too big to send at once. Try fewer."; return; }
-    go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your photos…`;
+    phoneStop(); go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your photos…`;
     S.busy = true; const ac = S.ac = typeof AbortController === "function" ? new AbortController() : null;
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
@@ -85966,61 +86067,18 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   function scanClose(){ phoneStop(); const d = document.getElementById("pdeScanDlg"); if (d) { try { d.close(); } catch (e) {} } SCAN = null; }
 
-  /* Take Photos on a computer: a QR code for your phone, and the photos it takes come in here
-     (through the relay in cloudflare/key-relay, locked with a key that only the QR code carries) */
-  const RELAY = () => (typeof KEY_RELAY === "string" && /^https:\/\//.test(KEY_RELAY) ? KEY_RELAY.replace(/\/+$/, "") : "");
-  function phoneCam(){
-    if (!RELAY() || !window.crypto || !crypto.subtle || typeof QR === "undefined") return false;
-    const ua = navigator.userAgent || "";
-    return !(/Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (navigator.userAgentData && navigator.userAgentData.mobile));
-  }
-  const b64u = b => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const hexOf = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
-  async function phoneStart(){
+  /* Take Photos on a computer: a QR code for your phone, and the photos it takes come in here (PHONE_CAM, shared with Photo to Note) */
+  const phoneCam = () => typeof PHONE_CAM !== "undefined" && PHONE_CAM.can();
+  function phoneStart(){
     if (!SCAN || SCAN.phone) return;
-    const code = b64u(crypto.getRandomValues(new Uint8Array(16))), te = new TextEncoder();
-    const [idH, kH] = await Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-scan-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-scan-key:" + code))]);
-    const ph = {id: hexOf(idH), key: await crypto.subtle.importKey("raw", kH, "AES-GCM", false, ["decrypt"]), url: RELAY() + "/s#" + code, got: 0, err: "", busy: false};
-    SCAN.phone = ph; scanDraw();
-    try {
-      const r = await fetch(`${RELAY()}/v1/s/${ph.id}`, {method: "POST"});
-      if (r.status !== 201) throw new Error(r.status === 429 ? "busy" : "relay");
-    } catch (e) { if (SCAN && SCAN.phone === ph) { ph.err = e.message === "busy" ? "Too many tries just now. Wait a minute and try again." : "Couldn't connect to your phone. Check your connection and try again."; scanDraw(); } return; }
-    ph.live = true; scanDraw(); phonePoll(ph);
-  }
-  async function phonePoll(ph){
-    if (!SCAN || SCAN.phone !== ph || !ph.live) return;
-    if (!ph.busy) {
-      ph.busy = true;
-      try {
-        const r = await fetch(`${RELAY()}/v1/s/${ph.id}/p`, {cache: "no-store"});
-        if (r.status === 404) { ph.live = false; ph.err = "The code ran out. Click Take Photos to get a new one."; scanDraw(); return; }
-        const {ks} = await r.json();
-        for (const k of ks || []) {
-          if (!SCAN || SCAN.phone !== ph) return;
-          const g = await fetch(`${RELAY()}/v1/s/${ph.id}/p/${k}`, {cache: "no-store"}); if (!g.ok) continue;
-          const box = new Uint8Array(await g.arrayBuffer());
-          let raw; try { raw = await crypto.subtle.decrypt({name: "AES-GCM", iv: box.slice(0, 12)}, ph.key, box.slice(12)); } catch (e) { continue; }
-          ph.got++;
-          await scanAdd([new File([raw], `Phone photo ${ph.got}.jpg`, {type: "image/jpeg"})]);
-        }
-      } catch (e) {} finally { ph.busy = false; }
-    }
-    setTimeout(() => phonePoll(ph), 1500);
+    const ph = SCAN.phone = PHONE_CAM.start({onPhoto: f => scanAdd([f]), onChange: scanDraw, alive: () => !!SCAN && SCAN.phone === ph});
+    scanDraw();
   }
   function phoneStop(){
     const ph = SCAN && SCAN.phone; if (!ph) return;
-    SCAN.phone = null; ph.live = false;
-    fetch(`${RELAY()}/v1/s/${ph.id}`, {method: "DELETE", keepalive: true}).catch(() => {});
+    SCAN.phone = null; PHONE_CAM.stop(ph);
   }
-  function phonePanel(){
-    const ph = SCAN && SCAN.phone; if (!ph) return "";
-    return `<div class="pde-phone"${ph.err ? "" : ` data-link="${esc(ph.url)}"`}>${ph.err ? "" : QR.svg(ph.url, "QR code to open the camera page on your phone")}<div class="pde-phone-t">
-      <b>${ph.err ? "Phone Not Connected" : "Scan This With Your Phone's Camera"}</b>
-      <p class="mini">${ph.err ? esc(ph.err) : "It opens a page on your phone. Take a photo of each page there and it shows up here. Photos are locked (encrypted) on your phone, and deleted from the relay as soon as this computer has them."}</p>
-      ${ph.err ? "" : `<p class="mini pde-phone-n" aria-live="polite">${!ph.live ? "Connecting…" : ph.got ? `${ph.got} photo${ph.got === 1 ? "" : "s"} from your phone` : "Waiting for photos…"}</p>`}
-      <div class="row-actions">${ph.err ? `<button type="button" class="btn small" data-scan="phone-again">Try Again</button>` : ""}<button type="button" class="btn small" data-scan="phone-stop">${ph.err ? "Close" : "Done With Phone"}</button></div></div></div>`;
-  }
+  const phonePanel = () => SCAN && SCAN.phone ? PHONE_CAM.panel(SCAN.phone, "data-scan") : "";
   const FILTERS = [["doc", "Document"], ["color", "Color"], ["gray", "Gray"], ["bw", "Black & White"]];
   function scanDraw(){
     const d = document.getElementById("pdeScanDlg"); if (!d || !SCAN) return;
@@ -86900,11 +86958,6 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-scan-btn{display:inline-flex;align-items:center;gap:7px}
 .pde-scan-btn svg{flex:none;width:16px;height:16px}
 .pde-scan-sheet .sheet-body{display:grid;gap:12px}
-.pde-phone{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
-.pde-phone .qr{width:168px;height:168px;flex:none;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
-.pde-phone-t{flex:1 1 220px;display:grid;gap:6px}.pde-phone-t p{margin:0}
-.pde-phone-n{font-weight:700;color:var(--ink)}
-.pde-phone .row-actions{margin:2px 0 0}
 .pde-scanlist .pde-cardbar{display:flex;flex-wrap:nowrap;justify-content:center;gap:4px}
 .pde-scanlist .pde-cardbar .icon-btn{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:inline-grid;place-items:center;flex:none}
 .pde-scanlist .pde-cardbar .icon-btn svg{width:17px;height:17px;display:block}
