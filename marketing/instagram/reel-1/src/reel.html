@@ -270,9 +270,20 @@ function render(t) {
   rise($("s6a"), t, 18.55); rise($("s6b"), t, 18.7); rise($("s6c"), t, 18.85);
   rise($("s6sub"), t, 19.3, .5, 40);
   pop($("s6cta"), t, 19.6, .55, .7);
+  // Companions pop up from their feet, then hop in a wave. Each hop starts and ends on the ground
+  // (a gravity arc), with a little squash when they land, so there are no jumps between frames.
   ["s6c1", "s6c2", "s6c3"].forEach((id, i) => {
-    const k = P(t, 19.95 + i * .15, 20.45 + i * .15), hop = k >= 1 ? -Math.abs(Math.sin((t - 20.6 - i * .2) * Math.PI * 1.1)) * 22 : 0;
-    set($(id), `translateY(${(1 - oBack(k)) * 120 + hop}px)`, clamp(k * 3));
+    const t0 = 19.95 + i * .12, k = P(t, t0, t0 + .5);
+    let y = 0, sx = 1, sy = 1;
+    const start = t0 + .75 + i * .1, period = .85, air = .48, H = 34;
+    if (t >= start) {
+      const ph = (t - start) % period;
+      if (ph < air) { const x = ph / air; y = -H * 4 * x * (1 - x); const st = .05 * Math.abs(1 - 2 * x); sy = 1 + st; sx = 1 - st * .6; }
+      else { const g = Math.sin(((ph - air) / (period - air)) * Math.PI) * .07; sy = 1 - g; sx = 1 + g * .8; }
+    }
+    const sc = lerp(.4, 1, oBack(k));
+    const el = $(id); el.style.transformOrigin = "50% 92%";
+    set(el, `translateY(${y}px) scale(${sc * sx},${sc * sy})`, clamp(k * 3));
   });
 }
 window.render = render; window.END = END;
