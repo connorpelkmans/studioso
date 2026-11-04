@@ -14994,7 +14994,7 @@ function officeDraw(){
   const box = $("#ofvBody"); if (!box || !OFV || !OFV.res) return;
   const res = OFV.res, room = Math.max(200, box.clientWidth - 28);
   box.innerHTML = (res.warnings || []).map(w => `<p class="mini ofv-warn">${esc(w)}</p>`).join("") + res.pages.map((pg, i) => {
-    const k = Math.min(1, room / pg.w), sheet = res.kind === "xlsx" || res.kind === "csv", s = sheet ? Math.max(0.6, k) : k;
+    const k = Math.min(res.kind === "pptx" ? 1.5 : 1, room / pg.w), sheet = res.kind === "xlsx" || res.kind === "csv", s = sheet ? Math.max(0.6, k) : k;
     return `<figure class="ofv-page${sheet ? " ofv-grid" : ""}" aria-label="${esc(pg.label || "Page " + (i + 1))}"><div class="ofv-frame" style="width:${Math.round(pg.w * s)}px;height:${Math.round(pg.h * s)}px"><div class="ofv-in" style="width:${pg.w}px;height:${pg.h}px;transform:scale(${s.toFixed(4)})">${pg.html}</div></div><figcaption class="mini">${esc(pg.label || "Page " + (i + 1))}</figcaption></figure>`;
   }).join("") || `<p class="pdr-wait">This file is empty.</p>`;
 }
