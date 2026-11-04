@@ -97,7 +97,8 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     // 2. a name the PDF's font can't fully draw (it has no capital Z) gets a similar font, and says so
     const riv = await wordAt("Rivera");
     await page.mouse.click(riv.x, riv.y); await page.waitForTimeout(300);
-    await selectInEditor("Maria Rivera"); await page.keyboard.type("Zoe Kim"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
+    await selectInEditor("Maria Rivera"); await page.keyboard.type("Zoe Kim"); await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+    ok((await page.evaluate(() => state.files.f1.pe || [])).some(e => /Zoe Kim/.test(e.t)) && await page.locator(".pde-e.editing").count() === 0, "Esc closes the editor and keeps what was typed");
     await page.waitForFunction(() => /similar font/i.test((document.getElementById("pdeMsg") || {}).textContent || ""), null, {timeout: 8000}).catch(() => {});
     ok(/similar font/.test(await page.locator("#pdeMsg").textContent()), "letters the PDF's font doesn't have get a similar standard font, and the bar says so");
 
@@ -114,6 +115,11 @@ const SYLLABUS = `<html><body style="margin:56px 64px;font-family:Arial;color:#1
     pe = await page.evaluate(() => state.files.f1.pe || []);
     const box = pe.find(e => e.k === "n");
     ok(box && box.t === "Lab reports go in the Canvas dropbox." && box.b === 1 && box.c === "#c0262d", "the text box is kept, bold and red");
+    // keys in a box over the editor are that box's: Backspace there doesn't delete the picked text box
+    await page.evaluate(() => { const d = document.createElement("dialog"); d.id = "testDlg"; d.innerHTML = "<button>OK</button>"; document.body.appendChild(d); d.showModal(); d.querySelector("button").focus(); });
+    await page.keyboard.press("Backspace"); await page.keyboard.press("Delete"); await page.keyboard.press("Escape");
+    await page.evaluate(() => document.getElementById("testDlg").remove());
+    ok((await page.evaluate(() => state.files.f1.pe || [])).some(e => e.k === "n"), "Backspace in a dialog over the editor doesn't delete the picked edit");
 
     // 4. white-out the draft line
     await page.click('.pde-tool[data-id="white"]');

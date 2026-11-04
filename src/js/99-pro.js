@@ -2551,7 +2551,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       R.doc = doc; R.pw = !!pw; layout(); counts();
     } catch (e) {
       if (R !== my) return;
-      const box = $("#pdrPages"); if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(String(e && e.message)) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : ofc ? "Couldn't show this file. Try opening it in its own app." : "Couldn't open this PDF.")}</p>`;
+      // the same short, specific messages as the plain viewer (01-notes officeView)
+      const box = $("#pdrPages"), m = String((e && e.message) || "");
+      if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : !ofc ? "Couldn't open this PDF." : /not a zip|damaged|corrupt/i.test(m) ? "This file looks damaged, so it can't be shown here. Try opening it in its own app." : m && m.length < 160 ? m : "Couldn't show this file. Try opening it in its own app.")}</p>`;
     }
   }
   const CACHE_KEY = "studyboard:pdfCache", CACHE_N = 8;
@@ -2591,7 +2593,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
     const size = i => O ? `width:${Math.round(O.pages[i].w * s)}px;height:${Math.round(O.pages[i].h * s)}px` : `width:${w}px;height:${h}px`;
     const label = i => O && O.pages[i].label ? O.pages[i].label : `Page ${i + 1}`;
-    box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page${O ? " pdr-ofc" : ""}" data-p="${i + 1}" style="${size(i)}" aria-label="${esc(label(i))}"><div class="pdr-hl"></div></div>`).join("");
+    // what the Office reader left out (a long document or a big sheet cut short), said above the pages
+    box.innerHTML = (O && O.warnings || []).map(w => `<p class="mini ofv-warn pdr-warn">${esc(w)}</p>`).join("") + Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page${O ? " pdr-ofc" : ""}" data-p="${i + 1}" style="${size(i)}" aria-label="${esc(label(i))}"><div class="pdr-hl"></div></div>`).join("");
     R.pages = Array.from(box.querySelectorAll(".pdr-page")).map((el, i) => ({n: i + 1, el, done: 0}));
     const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});

@@ -1277,7 +1277,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (t.contentEditable !== "plaintext-only") t.contentEditable = "true";
     t.addEventListener("paste", ev => { ev.preventDefault(); const s = pdeTidy((ev.clipboardData || window.clipboardData).getData("text")); document.execCommand("insertText", false, E && E.ed && E.ed.e.k === "t" ? s.replace(/\n+/g, " ") : s); });
     t.addEventListener("keydown", ev => {
-      if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); cancel(); return; }
+      if (ev.isComposing || ev.keyCode === 229) return;   // typing with an IME (Chinese, Japanese…): its own keys
+      if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); commit(); return; }   // keeps the text (Ctrl+Z undoes it)
       if (ev.key === "Enter" && (E.ed.e.k === "t" || ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); commit(); return; }
       if (ev.key === "Tab") { ev.preventDefault(); commit(); }
     });
@@ -1292,12 +1293,14 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   const textOf = t => (t.innerText != null ? t.innerText : t.textContent).replace(/\n$/, "");
   function cancel(){ if (!E || !E.ed) return; const p = E.ed.e.p; E.ed = null; paint(p); bar(); }
-  function commit(){
+  // force: the editor is going away (the reader closed), so letters the font can't draw become "?" rather than being lost
+  function commit(force){
     if (!E || !E.ed) return;
     const ed = E.ed, e = ed.e, raw = ed.el ? textOf(ed.el) : e.t;
     let t = pdeTidy(raw).slice(0, MAX_TEXT); if (e.k === "t") t = t.replace(/\n+/g, " ");
     const bad = badFor(e, t);
-    if (bad.length) { toast(`${bad.slice(0, 3).join(" ")} can't be saved in this font. Try another font.`); if (ed.el) ed.el.focus(); return; }
+    if (bad.length && force) { t = [...t].map(ch => bad.includes(ch) ? "?" : ch).join(""); toast(`${bad.slice(0, 3).join(" ")} can't be saved in this font, so ${bad.length === 1 ? "it was" : "they were"} saved as “?”.`); }
+    else if (bad.length) { toast(`${bad.slice(0, 3).join(" ")} can't be saved in this font. Try another font.`); if (ed.el) ed.el.focus(); return; }
     E.ed = null;
     const list = mine(), exists = list.some(x => x.id === e.id);
     if (e.k === "n" && !t.trim()) { if (exists) save(list.filter(x => x.id !== e.id), "Text box removed"); else paint(e.p); bar(); return; }
@@ -1622,6 +1625,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   document.addEventListener("keydown", ev => {
     if (!E || !E.on || E.ed) return;
     const t = ev.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    // not for keys meant for another dialog over the reader (a confirm box…), nor Enter, arrows or Delete on a button or link
+    if ((t && t !== document.body && !dlg.contains(t)) || [...document.querySelectorAll("dialog[open]")].some(d => d !== dlg && !dlg.contains(d) && d.matches(":modal"))) return;
+    const ctl = t && t.closest && t.closest('button,a[href],summary,[role="button"],[role="menuitem"],[role="tab"],[role="option"],[role="slider"]');
+    if (ctl && /^(Enter| |Delete|Backspace|Arrow.*)$/.test(ev.key)) return;
+    const onPages = !t || t === document.body || t === dlg || !!(t.closest && t.closest("#pdrPages"));
+    if (!onPages && /^(Enter|Arrow.*)$/.test(ev.key)) return;
     const key = String(ev.key).toLowerCase(), mod = (ev.ctrlKey || ev.metaKey) && !ev.altKey;
     if (mod && key === "z") { ev.preventDefault(); ev.stopPropagation(); histStep(ev.shiftKey ? 1 : -1); return; }
     if (mod && key === "y") { ev.preventDefault(); ev.stopPropagation(); histStep(1); return; }
@@ -1642,6 +1651,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       save(mine().map(x => x.id === e.id ? moved : x), null);
     }
   }, true);
+  // while the edited PDF is saving, the reader stays open
+  const holdOpen = ev => { if (!busy || !R()) return false; ev.preventDefault(); ev.stopPropagation(); toast("Still working on the PDF… one moment."); return true; };
+  dlg.addEventListener("cancel", holdOpen, true);
+  document.addEventListener("click", ev => { if (busy && ev.target.closest && ev.target.closest('#dlg [data-act="close"]')) holdOpen(ev); }, true);
   dlg.addEventListener("cancel", ev => { if (E && E.on && (E.ed || E.sel || E.place || E.panel || E.picSel || E.multi)) ev.preventDefault(); });
   function picDelete(){ const ps = E.picSel; if (!ps) return; const b = picBox(ps.m); E.picSel = null; save(mine().filter(x => !(x.k === "x" && x.p === ps.p && x.i === ps.i)).concat([{id: uid(), a: E.rev, p: ps.p, k: "x", i: ps.i, m0: ps.m, o: b.o, w: b.w, h: b.h, del: true, bg: ps.bg || "#ffffff", at: Date.now()}]), "Picture taken out"); }
   async function picReplace(file){
@@ -1879,7 +1892,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   // Everything waiting (edits and form answers) goes into the file first; the pages are then rearranged from that
   async function baseBytes(withMarks){
-    const L = await loadLib(), bytes = await P.readerBytes(), list = mine();
+    const bp = P.readerBytes(), list = mine(); bp.catch(() => {});
+    const L = await loadLib(), bytes = await bp;
     if (!list.length && !withMarks) return bytes;
     const opts = await bakeOpts(list, withMarks);
     return (await pdeBake(L, bytes, list.map(e => Object.assign({}, e)), opts)).bytes;
@@ -1888,6 +1902,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (!(await signedOk())) return;
     const plan = E.pp.plan.map(x => x.blank ? {blank: x.blank} : {s: x.s, p: x.p, rot: x.rot});
     if (plan.every((x, i) => !x.blank && !x.s && x.p === i + 1 && !x.rot) && E.pp.plan.length === R().doc.numPages) { closePanel(); toast("No page changes to apply"); return; }
+    const S = E, f0 = fileOf(), fallbackName = editedName(curRev(f0).name || f0.name);
     busy = true;
     try {
       toast("Changing the pages…");
@@ -1895,7 +1910,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       // where each of this PDF's pages went, so highlights and handwriting can follow
       const map = new Map(); E.pp.plan.forEach((x, i) => { if (!x.s && !x.blank && !map.has(x.p)) map.set(x.p, {p: i + 1, rot: x.rot}); });
       closePanel();
-      await storeVersion(out, {map, label: "pages changed", fallbackName: editedName(curRev(fileOf()).name || fileOf().name)});
+      await storeVersion(out, {S, map, label: "pages changed", fallbackName});
     } catch (err) { toast((err && err.message) || "Couldn't change the pages."); }
     finally { busy = false; if (E) bar(); }
   }
@@ -2081,7 +2096,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   async function bake(withMarks){
     const f = fileOf(), list = mine(); if (!f || (!list.length && !withMarks)) return null;
-    const L = await loadLib(), bytes = await P.readerBytes();
+    const bp = P.readerBytes(); bp.catch(() => {});   // asked for now, while the reader is surely open
+    const L = await loadLib(), bytes = await bp;
     return pdeBake(L, bytes, list.map(e => Object.assign({}, e)), await bakeOpts(list, withMarks));
   }
   const editedName = name => name.replace(/(\.pdf)?$/i, "").replace(/\s*\(edited\)$/i, "") + " (edited).pdf";
@@ -2100,18 +2116,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // a new version (the one you opened stays as it is), or this version updated in place
     const f0 = fileOf(), ri = f0.revs.findIndex(r => r.assetId === E.rev), L0 = revLetter(ri >= 0 ? ri : f0.revs.length - 1);
     const how = await askBox({title: "Save Your Edits", text: `Save them as a new version of this file, and keep Rev ${L0} as it was? Or update Rev ${L0} itself?`, yes: "Save as New Version", alt: `Update Rev ${L0}`, no: "Cancel"});
-    if (!how) return;
+    if (!how || !E || E.fid !== f0.id) return;
+    // the file and version are kept from here, and the reader stays open (busy) until the PDF is saved
+    const S = E, fallbackName = editedName(curRev(f0).name || f0.name);
     busy = true;
     try {
       toast("Saving the edited PDF…");
       const r = await bake(false); if (!r) return;
-      await storeVersion(r.bytes, {label: how === "alt" ? `updated with your edits` : "saved with your edits", replace: how === "alt", fallbackName: editedName(curRev(fileOf()).name || fileOf().name), report: r.report});
+      await storeVersion(r.bytes, {S, label: how === "alt" ? `updated with your edits` : "saved with your edits", replace: how === "alt", fallbackName, report: r.report});
     } catch (err) { toast((err && /load|locked/.test(err.message || "") && err.message) || "Couldn't save the edited PDF. Your edits are still here."); }
     finally { busy = false; if (E) bar(); }
   }
   // A new version of the file: highlights and handwriting come along (to where their pages went); the edits are now in the file
   async function storeVersion(bytes, o){
-    const S = E, f0 = fileOf(), page = (R() || {}).cur || 1;
+    const S = o.S || E, f0 = state.files[S.fid], r0 = R(), page = r0 && r0.fid === S.fid ? r0.cur || 1 : 1;
     const assets = await getAssets().catch(() => null);
     if (!assets) { await deliver(bytes, o.fallbackName); toast("This device can't store files here, so the PDF was downloaded instead."); return; }
     const name = (curRev(f0).name || f0.name).replace(/\s*\(edited\)(?=\.pdf$)/i, "");
@@ -2141,8 +2159,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     n.updated = Date.now();
     applyChanges([{kind: "file", id: S.fid, after: n}], `${n.name}: Rev ${revLetter(ri >= 0 ? ri : n.revs.length - 1)} ${o.label}`);
     const note = o.report && missingNote(o.report); if (note) setTimeout(() => toast("Note: " + note + "."), 1800);
-    E = null;
-    if (P.openReader) { if (dlg.open) dlg.close(); setTimeout(() => P.openReader(S.fid, map && map.get(page) ? map.get(page).p : page), 0); }
+    const still = R() && R().fid === S.fid; if (E === S) E = null;
+    if (P.openReader && still) { if (dlg.open) dlg.close(); setTimeout(() => P.openReader(S.fid, map && map.get(page) ? map.get(page).p : page), 0); }
   }
 
   /* Opening a PDF straight into Edit: the reader opens, then Edit turns on once its first page is drawn */
@@ -2429,7 +2447,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const pages = which === "all" ? Array.from({length: r.doc.numPages}, (_, i) => i + 1) : which === "none" ? E.ocrNone : [r.cur || 1];
     if (!pages.length) return;
     const msg = $("#pdeOcrMsg"), go = dlg.querySelector('[data-act="pde-ocr-go"]'); if (go) go.disabled = true;
-    const S = E;
+    const S = E, f0 = fileOf(), fallbackName = editedName(curRev(f0).name || f0.name);
     try {
       if (msg) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading ${pages.length === 1 ? `page ${pages[0]}` : `${pages.length} pages`}…`;
       const read = await ocrRead(r.doc, pages, (d, t) => { if (msg && d < t) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading pages (${d} of ${t} done)…`; });
@@ -2438,7 +2456,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const done = await ocrApply(await baseBytes(false), read);
       if (!done.n) { if (msg) msg.textContent = "No text was found on " + (pages.length === 1 ? "that page." : "those pages."); if (go) go.disabled = false; return; }
       closePanel();
-      await storeVersion(done.bytes, {label: `text recognized on ${pages.length} page${pages.length === 1 ? "" : "s"}`, fallbackName: editedName(curRev(fileOf()).name || fileOf().name)});
+      await storeVersion(done.bytes, {label: `text recognized on ${pages.length} page${pages.length === 1 ? "" : "s"}`, S, fallbackName});
     } catch (err) {
       if (msg) msg.textContent = (err && err.message) || "Couldn't read the text. Try again."; if (go) go.disabled = false;
     }
@@ -2639,8 +2657,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     let d = document.getElementById("pdeScanDlg");
     if (!d) { d = document.createElement("dialog"); d.id = "pdeScanDlg"; d.className = "pde-scan"; d.setAttribute("aria-labelledby", "pdeScanT"); document.body.appendChild(d); }
     SCAN = {pages: [], done, filter: "none", edit: -1};   // pages keep their own colours (no Document / Black & White look)
-    d.oncancel = e => { e.preventDefault(); scanClose(); };
+    d.oncancel = e => { e.preventDefault(); scanQuit(); };
     scanDraw(); try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
+  }
+  // Esc, Cancel or X: in the corners view it means Done; with pages scanned, ask before throwing them away
+  async function scanQuit(){
+    if (!SCAN || SCAN.asking) return;
+    if (SCAN.edit >= 0) { const p = SCAN.pages[SCAN.edit]; SCAN.edit = -1; await scanRender(p); scanDraw(); return; }
+    const n = SCAN.pages.length;
+    if (n) {
+      const S0 = SCAN; S0.asking = true;
+      const yes = await askBox({title: "Discard the Scanned Pages?", text: `${n} page${n === 1 ? "" : "s"} you scanned will be lost.`, yes: "Discard", no: "Keep Scanning", danger: true});
+      S0.asking = false; if (!yes || SCAN !== S0) return;
+    }
+    scanClose();
   }
   function scanClose(){ phoneStop(); const d = document.getElementById("pdeScanDlg"); if (d) { try { d.close(); } catch (e) {} } SCAN = null; }
 
@@ -2843,7 +2873,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   document.addEventListener("click", async ev => {
     const b = ev.target.closest && ev.target.closest("#pdeScanDlg [data-scan]"); if (!b || !SCAN || b.tagName === "SELECT" || b.tagName === "INPUT") return;
     const k = b.dataset.scan, i = Number(b.dataset.i), pl = SCAN.pages;
-    if (k === "close") scanClose();
+    if (k === "close") scanQuit();
     else if (k === "phone") { if (!SCAN.phone) phoneStart(); }
     else if (k === "phone-stop") { phoneStop(); scanDraw(); }
     else if (k === "phone-again") { phoneStop(); phoneStart(); }
@@ -3328,7 +3358,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (!S.tocChecked) { S.tocChecked = true; const r = R(); if (r && r.doc) r.doc.getOutline().then(o => { const b = $("#pdeTocBtn"); if (b && o && o.length) b.hidden = false; }).catch(() => {}); }
       if (n === 1 || !S.barDone) { S.barDone = true; bar(); }
     },
-    readerClose(){ if (E && E.ed) commit(); if (SAY.on) sayStop(); E = null; },
+    readerClose(){ if (E && E.ed) commit(true); if (SAY.on) sayStop(); E = null; },
     // the reader's own tools: read aloud, the PDF's contents, and comparing versions
     readerTools(){
       const r = R(), f = r && state.files[r.fid];

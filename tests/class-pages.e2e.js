@@ -91,6 +91,24 @@ const shot = async (page, name, sel) => { if (!SHOTS) return; await page.waitFor
   ok(s.files.find(x => x.id === "f2").cls === TODAYKEY && s.files.some(f => f.kind === "link" && f.cls === TODAYKEY && f.folderId === "notes"), "picked files and added links belong to the class, in Lecture Notes");
   await page.click('#dlg [data-act="cls-unlink"][data-id="f2"]'); await page.waitForTimeout(150);
   s = await store(page); ok(!s.files.find(x => x.id === "f2").cls && s.files.some(x => x.id === "f2"), "taking a file off a class keeps the file");
+  // an older file that's with this class is listed even past the 80 newest, so it can be unticked
+  await page.evaluate(k => { const P = window.__sbProStudy, st = P.state(), ch = Array.from({length: 85}, (_, i) => ({kind: "file", id: "h" + i, after: {id: "h" + i, name: "Handout " + i + ".pdf", courseId: "c1", folderId: "other", kind: "link", url: "https://example.com/h" + i, revs: [], taskIds: [], created: Date.now() - i * 1000}}));
+    ch.push({kind: "file", id: "f2", after: Object.assign(P.clone(st.files.f2), {cls: k})}); P.applyChanges(ch, null); }, TODAYKEY);
+  await page.click('#dlg [data-act="cls-pick"]'); await page.waitForSelector('#dlg [data-cls="file:h0"]');
+  ok(await page.locator('#dlg [data-cls="file:f2"]:checked').count() === 1, "an older file with this class is in the list (ticked), past the 80 newest");
+  await page.uncheck('#dlg [data-cls="file:f2"]'); await page.click("#clsPickOk"); await page.waitForSelector("#dlg .cls-sheet");
+  ok(!(await store(page)).files.find(x => x.id === "f2").cls, "and can be unticked");
+  await page.evaluate(() => window.__sbProStudy.applyChanges(Array.from({length: 85}, (_, i) => ({kind: "file", id: "h" + i, after: null})), null));
+  // Record This Class, then closing the recorder without recording: the next recording isn't put with this class
+  if (await page.locator('#dlg [data-act="cls-rec"]').count()) {
+    await page.click('#dlg [data-act="cls-rec"]'); await page.waitForTimeout(400);
+    await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); }); await page.waitForTimeout(200);
+    await page.evaluate(() => window.__sbProStudy.applyChanges([{kind: "file", id: "r9", after: {id: "r9", name: "Later recording", courseId: "c1", folderId: "lectures", kind: "file", revs: [], taskIds: [], created: Date.now()}}], null));
+    await page.waitForTimeout(200);
+    ok(!(await store(page)).files.find(x => x.id === "r9").cls, "a recorder closed without recording doesn't tag the next recording with this class");
+    await page.evaluate(() => window.__sbProStudy.applyChanges([{kind: "file", id: "r9", after: null}], null));
+    await act(page, "sch-occ", "c1", {type: "meet", key: TODAYKEY}); await page.waitForSelector("#dlg .occv-rows"); await page.click('#dlg [data-act="cls-open"]'); await page.waitForSelector("#dlg .cls-sheet");
+  } else ok(false, "Record This Class is offered for today's class");
   await page.evaluate(() => document.querySelector("#dlg").close());
 
   // 3. The Schedule's class sheet opens the class page
