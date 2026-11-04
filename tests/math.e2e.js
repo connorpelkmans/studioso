@@ -99,6 +99,23 @@ function seedInit(seed){
     ok(await page.evaluate(() => !!document.querySelector("#noteText") && /\$E=mc\^2\$/.test(document.querySelector("#noteText").value)), "the equation goes into the note being edited");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     await ctx.close();
+    const mac = await browser.newContext({viewport: {width: 360, height: 760}, userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"});
+    const mp = await mac.newPage();
+    await mp.addInitScript(() => { Object.defineProperty(navigator, "platform", {get: () => "MacIntel"}); });
+    await mp.addInitScript(seedInit, SEED);
+    await mp.goto(base); await mp.waitForFunction(() => window.__sbMath); await mp.waitForTimeout(400);
+    await mp.evaluate(() => { const M = window.__sbMath; M.ui.tab = "flashcards"; M.ui.fc = null; M.ui.deckId = "d1"; M.render(); });
+    await mp.click('[data-act="fc-card"][data-id="k2"]'); await mp.waitForSelector('dialog[open] textarea[name="front"]'); await mp.focus('dialog[open] textarea[name="front"]');
+    await mp.keyboard.press("Alt+Equal"); await mp.waitForTimeout(200);
+    ok(await mp.locator(".rb-eq").count() === 0, "on a Mac, Option+= is left for typing ≠");
+    await mp.keyboard.press("Control+Equal"); await mp.waitForSelector(".rb-eq .rb-eq-in", {timeout: 5000});
+    ok(await mp.evaluate(() => { const b = document.querySelector('.rb-bar [data-rb="eq"]'); return /⌃=/.test(b.title + " " + (b.dataset.tip || "")); }), "Control+= opens the equation editor there, and the button says so");
+    await mp.keyboard.press("Escape");
+    // a long inline formula wraps on a phone instead of running off the side
+    await mp.evaluate(() => window.__sbMath.loadKatex());
+    const wide = await mp.evaluate(() => { const d = document.createElement("div"); d.style.cssText = "width:300px;position:absolute;left:0;top:0"; d.appendChild(window.__sbMath.richFrag("See $a_1 + a_2 + a_3 + a_4 + a_5 + a_6 + a_7 + a_8 + a_9 + a_{10} + a_{11} + a_{12} + a_{13} + a_{14} = S$ here")); document.body.appendChild(d); const r = d.getBoundingClientRect(), w = Math.max(...[...d.querySelectorAll("*")].filter(e => !e.closest(".katex-mathml")).map(e => e.getBoundingClientRect().right)), ok2 = !!d.querySelector(".mth-ok .katex-html"); d.remove(); return {w, r: r.right, ok2}; });
+    ok(wide.ok2 && wide.w <= wide.r + 1, "a long inline formula fits a phone's width: " + JSON.stringify(wide));
+    await mac.close();
   } finally { await browser.close(); server.close(); }
   console.log(`\n${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

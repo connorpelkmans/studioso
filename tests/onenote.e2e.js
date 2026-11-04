@@ -73,6 +73,7 @@ const EXPECT1 = "Cell division\n\nMitosis\nMakes two identical cells\n• Propha
         if (m === "GET" && p === "/sections") return J({value: [{id: "S2", displayName: "Lab Notes", parentNotebook: {displayName: "Chem"}}, {id: "S1", displayName: "BIO 101 Lectures", parentNotebook: {displayName: "School"}}]});
         let x;
         if (m === "GET" && (x = /^\/sections\/([^/]+)\/pages$/.exec(p))) return J({value: G.pages[x[1]] || []});
+        if (m === "GET" && (x = /^\/pages\/([^/]+)\/content$/.exec(p)) && G.wait) await G.wait;
         if (m === "GET" && (x = /^\/pages\/([^/]+)\/content$/.exec(p))) return G.content[x[1]] ? new Response(G.content[x[1]], {headers: {"content-type": "text/html"}}) : J({}, 404);
         if (m === "POST" && (x = /^\/sections\/([^/]+)\/pages$/.exec(p))) { G.posts.push({sid: x[1], type: init.headers["Content-Type"], body: init.body}); return J({id: "new" + G.posts.length, links: {oneNoteWebUrl: {href: "https://onedrive.live.com/view.aspx?new" + G.posts.length}}}, 201); }
         return J({}, 404);
@@ -128,6 +129,13 @@ const EXPECT1 = "Cell division\n\nMitosis\nMakes two identical cells\n• Propha
     await page.evaluate(() => { const s = SBIMPORT.state(); const n = Object.values(s.notes).find(x => x.on && x.on.p === "p3"); delete s.notes[n.id]; __G.pages.S1.find(p => p.id === "p3").lastModifiedDateTime = "2026-11-02T12:00:00Z"; });
     await page.click('#onBody [data-act="on-sync"]'); await page.waitForTimeout(1200);
     ok(!(await fromOn()).some(x => x.on.p === "p3"), "a note you deleted isn't brought back");
+    // a note edited while the sync is running keeps the edit
+    await page.evaluate(() => { __G.wait = new Promise(r => { __G.go = r; }); __G.pages.S1[0].lastModifiedDateTime = "2026-11-03T09:00:00Z"; __G.content.p1 = __G.content.p1.replace("Pulled to the poles", "Pulled to the spindle"); });
+    await page.click('#onBody [data-act="on-sync"]'); await page.waitForTimeout(300);
+    await page.evaluate(() => { const n = Object.values(SBIMPORT.state().notes).find(x => x.on && x.on.p === "p1"); n.text += "\nTyped during the sync"; __G.wait = null; __G.go(); });
+    await page.waitForTimeout(1200);
+    const p1 = (await fromOn()).find(x => x.on.p === "p1");
+    ok(/Typed during the sync/.test(p1.text) && !/spindle/.test(p1.text), "a note edited during a sync keeps the edit");
 
     // the note toolbar and Open Notes
     ok(/Open in OneNote/.test(await page.evaluate(id => SBONENOTE.saveBtn(id), cell.id)), "a note from OneNote offers Open in OneNote");

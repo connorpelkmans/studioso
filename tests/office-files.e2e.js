@@ -110,6 +110,14 @@ const cachePut = (page, list) => page.evaluate(list => new Promise((res, rej) =>
     ok(await pp.evaluate(() => document.querySelectorAll(".pdr-page .pdr-hl i").length) >= 1, "a highlight is drawn on the slide");
     ok(await pp.evaluate(() => (window.__sbProStudy.state().files.fp.hl || []).length === 1), "and saved with the file");
     await pp.screenshot({path: path.join(shots, "reader-pptx.png")});
+    // what the Office reader left out is said above the pages; a file it can't read gets a short, specific message
+    await pp.evaluate(() => { const O = window.SBOFFICE, r0 = O.render; window.__r0 = r0; O.render = async (...a) => Object.assign(await r0(...a), {warnings: ["Only the first 40 slides are shown."]}); window.__sbProStudy.dlg().close(); });
+    await pp.click('.frow[data-fid="fp"] [data-act="pdr-open"]'); await pp.waitForSelector(".pdr-pages .pdr-warn", {timeout: 15000});
+    ok(/first 40 slides/.test(await pp.textContent(".pdr-pages .pdr-warn")), "the Pro reader shows the Office reader's warnings");
+    await pp.evaluate(() => { window.SBOFFICE.render = async () => { throw new Error("This file looks damaged (not a zip)"); }; window.__sbProStudy.dlg().close(); });
+    await pp.click('.frow[data-fid="fp"] [data-act="pdr-open"]'); await pp.waitForFunction(() => /looks damaged/.test((document.querySelector(".pdr-pages .pdr-wait") || {}).textContent || ""), null, {timeout: 15000});
+    ok(true, "and a damaged file says so");
+    await pp.evaluate(() => { window.SBOFFICE.render = window.__r0; });
     ok(!pp.errs.length, "Pro: no page errors: " + pp.errs.join(" | "));
     await P.ctx.close();
   } finally { await browser.close(); free.close(); pro.close(); }

@@ -1323,6 +1323,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (t.contentEditable !== "plaintext-only") t.contentEditable = "true";
     t.addEventListener("paste", ev => { ev.preventDefault(); const s = pdeTidy((ev.clipboardData || window.clipboardData).getData("text")); document.execCommand("insertText", false, E && E.ed && E.ed.e.k === "t" ? s.replace(/\n+/g, " ") : s); });
     t.addEventListener("keydown", ev => {
+      if (ev.isComposing || ev.keyCode === 229) return;   // typing with an IME (Chinese, Japanese…): its own keys
       // Escape and Tab finish too, keeping what was typed (Ctrl+Z takes it back); focus stays on what was typed in
       if (ev.key === "Escape" || ev.key === "Tab") { ev.preventDefault(); ev.stopPropagation(); commit(); if (E && !E.ed) focusPicked(); return; }
       if (ev.key === "Enter" && (E.ed.e.k === "t" || ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); commit(); }
@@ -1352,13 +1353,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // the message line under the tools: a note about what's being typed, or (none) what the bar says
   function note(text, bad){ const m = $("#pdeMsg"); if (!m) return; m.textContent = text || barMsg(); m.classList.toggle("bad", !!(text && bad)); }
   function cancel(){ if (!E || !E.ed) return; const p = E.ed.e.p; E.ed = null; paint(p); bar(); }
-  function commit(){
+  // force: the editor is going away (the reader closed), so letters the font can't draw become "?" rather than being lost
+  function commit(force){
     if (!E || !E.ed) return;
     const ed = E.ed, e = ed.e, raw = ed.el && ed.el.isConnected ? textOf(ed.el) : e.t;
     // (a paragraph or text box doesn't keep empty lines at its end)
     let t = pdeTidy(raw).slice(0, MAX_TEXT); t = e.k === "t" ? t.replace(/\n+/g, " ") : t.replace(/\s+$/, "");
     const bad = badFor(e, t);
-    if (bad.length) { toast(badMsg(bad, e)); if (ed.el && ed.el.isConnected) ed.el.focus(); return; }
+    if (bad.length && force) { t = [...t].map(ch => bad.includes(ch) ? "?" : ch).join(""); toast(`${bad.slice(0, 3).join(" ")} can't be saved in this font, so ${bad.length === 1 ? "it was" : "they were"} saved as “?”.`); }
+    else if (bad.length) { toast(badMsg(bad, e)); if (ed.el && ed.el.isConnected) ed.el.focus(); return; }
     // Edit One Line is for one line: the next click opens paragraphs again
     E.ed = null; E.lineOnly = false;
     const list = mine(), exists = list.some(x => x.id === e.id);
@@ -1743,6 +1746,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // in Find: Enter goes to the next match, Shift+Enter the one before
     if (ev.key === "Enter" && t && (t.id === "pdeFindQ" || t.id === "pdeFindR")) { ev.preventDefault(); ev.stopPropagation(); findStep(ev.shiftKey ? -1 : 1); return; }
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    // not for keys meant for another dialog over the reader (a confirm box…), nor Enter, arrows or Delete on a button or link
+    if ((t && t !== document.body && !dlg.contains(t)) || [...document.querySelectorAll("dialog[open]")].some(d => d !== dlg && !dlg.contains(d) && d.matches(":modal"))) return;
+    const ctl = t && t.closest && t.closest('button,a[href],summary,[role="button"],[role="menuitem"],[role="tab"],[role="option"],[role="slider"]');
+    if (ctl && /^(Enter| |Delete|Backspace|Arrow.*)$/.test(ev.key)) return;
+    const onPages = !t || t === document.body || t === dlg || !!(t.closest && t.closest("#pdrPages"));
+    if (!onPages && /^(Enter|Arrow.*)$/.test(ev.key)) return;
     const key = String(ev.key).toLowerCase(), mod = (ev.ctrlKey || ev.metaKey) && !ev.altKey;
     if (mod && key === "z") { ev.preventDefault(); ev.stopPropagation(); histStep(ev.shiftKey ? 1 : -1); return; }
     if (mod && key === "y") { ev.preventDefault(); ev.stopPropagation(); histStep(1); return; }
@@ -1766,6 +1775,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       else { save(list, null); const top = E.hist && E.hist.undo[E.hist.undo.length - 1]; if (top) { top.label = "Moved"; top.nudge = e.id; } }
     }
   }, true);
+  // while the edited PDF is saving, the reader stays open
+  const holdOpen = ev => { if (!busy || !R()) return false; ev.preventDefault(); ev.stopPropagation(); toast("Still working on the PDF… one moment."); return true; };
+  dlg.addEventListener("cancel", holdOpen, true);
+  document.addEventListener("click", ev => { if (busy && ev.target.closest && ev.target.closest('#dlg [data-act="close"]')) holdOpen(ev); }, true);
   // Escape: out of what's being typed, a field, a panel or a pick, then back to Edit Text, then out of Edit (the reader stays open)
   function escStep(ev){
     const t = ev.target, box = t && t.closest && t.closest("dialog");
@@ -2042,7 +2055,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // (the header and watermark go on every page, so they wait: they're drawn on the pages as they end up)
   const docWide = e => e.k === "h" || e.k === "m";
   async function baseBytes(withMarks, skip){
-    const L = await loadLib(), bytes = await P.readerBytes(), list = mine().filter(e => !(skip && skip(e)));
+    const bp = P.readerBytes(), list = mine().filter(e => !(skip && skip(e))); bp.catch(() => {});   // asked for now, while the reader is surely open
+    const L = await loadLib(), bytes = await bp;
     if (!list.length && !withMarks) return bytes;
     const opts = await bakeOpts(list, withMarks);
     return (await pdeBake(L, bytes, list.map(e => Object.assign({}, e)), opts)).bytes;
@@ -2052,6 +2066,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (!(await signedOk())) return;
     const plan = E.pp.plan.map(x => x.blank ? {blank: x.blank} : {s: x.s, p: x.p, rot: x.rot});
     if (plan.every((x, i) => !x.blank && !x.s && x.p === i + 1 && !x.rot) && E.pp.plan.length === R().doc.numPages) { closePanel(); toast("No page changes to apply"); return; }
+    const S = E, f0 = fileOf(), fallbackName = editedName(curRev(f0).name || f0.name);
     busy = true;
     try {
       toast("Changing the pages…");
@@ -2059,7 +2074,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       // where each of this PDF's pages went, so highlights and handwriting can follow
       const map = new Map(); E.pp.plan.forEach((x, i) => { if (!x.s && !x.blank && !map.has(x.p)) map.set(x.p, {p: i + 1, rot: x.rot}); });
       closePanel();
-      await storeVersion(out, {map, carry: mine().filter(docWide), label: "pages changed", fallbackName: editedName(curRev(fileOf()).name || fileOf().name)});
+      await storeVersion(out, {S, map, carry: mine().filter(docWide), label: "pages changed", fallbackName});
     } catch (err) { toast((err && err.message) || "Couldn't change the pages."); }
     finally { busy = false; if (E) bar(); }
   }
@@ -2294,7 +2309,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   async function bake(withMarks){
     const f = fileOf(), list = mine(); if (!f || (!list.length && !withMarks)) return null;
-    const L = await loadLib(), bytes = await P.readerBytes();
+    const bp = P.readerBytes(); bp.catch(() => {});   // asked for now, while the reader is surely open
+    const L = await loadLib(), bytes = await bp;
     return pdeBake(L, bytes, list.map(e => Object.assign({}, e)), await bakeOpts(list, withMarks));
   }
   const editedName = name => name.replace(/(\.pdf)?$/i, "").replace(/\s*\(edited\)$/i, "") + " (edited).pdf";
@@ -2313,18 +2329,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // a new version (the one you opened stays as it is), or this version updated in place
     const f0 = fileOf(), ri = f0.revs.findIndex(r => r.assetId === E.rev), L0 = revLetter(ri >= 0 ? ri : f0.revs.length - 1);
     const how = await askBox({title: "Save Your Edits", text: `Save them as a new version of this file, and keep Rev ${L0} as it was? Or update Rev ${L0} itself?`, yes: "Save as New Version", alt: `Update Rev ${L0}`, no: "Cancel"});
-    if (!how) return;
+    if (!how || !E || E.fid !== f0.id) return;
+    // the file and version are kept from here, and the reader stays open (busy) until the PDF is saved
+    const S = E, fallbackName = editedName(curRev(f0).name || f0.name);
     busy = true;
     try {
       toast("Saving the edited PDF…");
       const r = await bake(false); if (!r) return;
-      await storeVersion(r.bytes, {label: how === "alt" ? `updated with your edits` : "saved with your edits", replace: how === "alt", fallbackName: editedName(curRev(fileOf()).name || fileOf().name), report: r.report});
+      await storeVersion(r.bytes, {S, label: how === "alt" ? `updated with your edits` : "saved with your edits", replace: how === "alt", fallbackName, report: r.report});
     } catch (err) { toast((err && /load|locked/.test(err.message || "") && err.message) || "Couldn't save the edited PDF. Your edits are still here."); }
     finally { busy = false; if (E) bar(); }
   }
   // A new version of the file: highlights and handwriting come along (to where their pages went); the edits are now in the file
   async function storeVersion(bytes, o){
-    const S = E, f0 = fileOf(), page = (R() || {}).cur || 1;
+    const S = o.S || E, f0 = state.files[S.fid], r0 = R(), page = r0 && r0.fid === S.fid ? r0.cur || 1 : 1;
     const assets = await getAssets().catch(() => null), carry = o.carry || [];
     if (!assets) { await deliver(await withDocWide(bytes, carry), o.fallbackName); toast("This device can't store files here, so the PDF was downloaded instead."); return; }
     const name = (curRev(f0).name || f0.name).replace(/\s*\(edited\)(?=\.pdf$)/i, "");
@@ -2355,10 +2373,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     n.updated = Date.now();
     applyChanges([{kind: "file", id: S.fid, after: n}], `${n.name}: Rev ${revLetter(ri >= 0 ? ri : n.revs.length - 1)} ${o.label}`);
     const note = o.report && missingNote(o.report); if (note) setTimeout(() => toast("Note: " + note + "."), 1800);
-    E = null;
-    // the new version opens where you were, still in Edit if you were editing
+    const still = R() && R().fid === S.fid; if (E === S) E = null;
+    // the new version opens where you were, still in Edit if you were editing (unless the reader was closed meanwhile)
     const at = map && map.get(page) ? map.get(page).p : page;
-    if (P.openReader) { if (dlg.open) dlg.close(); setTimeout(() => S.on ? openEdit(S.fid, at) : P.openReader(S.fid, at), 0); }
+    if (P.openReader && still) { if (dlg.open) dlg.close(); setTimeout(() => S.on ? openEdit(S.fid, at) : P.openReader(S.fid, at), 0); }
   }
 
   /* Opening a PDF straight into Edit: the reader opens, then Edit turns on once its first page is drawn */
@@ -2667,7 +2685,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const pages = which === "all" ? Array.from({length: r.doc.numPages}, (_, i) => i + 1) : which === "none" ? E.ocrNone : [r.cur || 1];
     if (!pages.length) return;
     const msg = $("#pdeOcrMsg"), go = dlg.querySelector('[data-act="pde-ocr-go"]'); if (go) go.disabled = true;
-    const S = E;
+    const S = E, f0 = fileOf(), fallbackName = editedName(curRev(f0).name || f0.name);
     try {
       if (msg) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading ${pages.length === 1 ? `page ${pages[0]}` : `${pages.length} pages`}…`;
       const read = await ocrRead(r.doc, pages, (d, t) => { if (msg && d < t) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading pages (${d} of ${t} done)…`; });
@@ -2676,7 +2694,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const done = await ocrApply(await baseBytes(false), read);
       if (!done.n) { if (msg) msg.textContent = "No text was found on " + (pages.length === 1 ? "that page." : "those pages."); if (go) go.disabled = false; return; }
       closePanel();
-      await storeVersion(done.bytes, {label: `text recognized on ${pages.length} page${pages.length === 1 ? "" : "s"}`, fallbackName: editedName(curRev(fileOf()).name || fileOf().name)});
+      await storeVersion(done.bytes, {label: `text recognized on ${pages.length} page${pages.length === 1 ? "" : "s"}`, S, fallbackName});
     } catch (err) {
       if (msg) msg.textContent = (err && err.message) || "Couldn't read the text. Try again."; if (go) go.disabled = false;
     }
@@ -2878,8 +2896,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     let d = document.getElementById("pdeScanDlg");
     if (!d) { d = document.createElement("dialog"); d.id = "pdeScanDlg"; d.className = "pde-scan"; d.setAttribute("aria-labelledby", "pdeScanT"); document.body.appendChild(d); }
     SCAN = {pages: [], done, filter: "none", edit: -1};   // pages keep their own colours (no Document / Black & White look)
-    d.oncancel = e => { e.preventDefault(); scanClose(); };
+    d.oncancel = e => { e.preventDefault(); scanQuit(); };
     scanDraw(); try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
+  }
+  // Esc, Cancel or X: in the corners view it means Done; with pages scanned, ask before throwing them away
+  async function scanQuit(){
+    if (!SCAN || SCAN.asking) return;
+    if (SCAN.edit >= 0) { const p = SCAN.pages[SCAN.edit]; SCAN.edit = -1; await scanRender(p); scanDraw(); return; }
+    const n = SCAN.pages.length;
+    if (n) {
+      const S0 = SCAN; S0.asking = true;
+      const yes = await askBox({title: "Discard the Scanned Pages?", text: `${n} page${n === 1 ? "" : "s"} you scanned will be lost.`, yes: "Discard", no: "Keep Scanning", danger: true});
+      S0.asking = false; if (!yes || SCAN !== S0) return;
+    }
+    scanClose();
   }
   function scanClose(){ phoneStop(); const d = document.getElementById("pdeScanDlg"); if (d) { try { d.close(); } catch (e) {} } SCAN = null; }
 
@@ -3082,7 +3112,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   document.addEventListener("click", async ev => {
     const b = ev.target.closest && ev.target.closest("#pdeScanDlg [data-scan]"); if (!b || !SCAN || b.tagName === "SELECT" || b.tagName === "INPUT") return;
     const k = b.dataset.scan, i = Number(b.dataset.i), pl = SCAN.pages;
-    if (k === "close") scanClose();
+    if (k === "close") scanQuit();
     else if (k === "phone") { if (!SCAN.phone) phoneStart(); }
     else if (k === "phone-stop") { phoneStop(); scanDraw(); }
     else if (k === "phone-again") { phoneStop(); phoneStart(); }
@@ -3578,7 +3608,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (!S.tocChecked) { S.tocChecked = true; const r = R(); if (r && r.doc) r.doc.getOutline().then(o => { const b = $("#pdeTocBtn"); if (b && (o && o.length || mine().some(e => e.k === "o"))) b.hidden = false; }).catch(() => {}); }
       if (n === 1 || !S.barDone) { S.barDone = true; bar(); }
     },
-    readerClose(){ if (E && E.ed) commit(); if (SAY.on) sayStop(); E = null; },
+    readerClose(){ if (E && E.ed) commit(true); if (SAY.on) sayStop(); E = null; },
     // the reader's own tools: read aloud, the PDF's contents, and comparing versions
     readerTools(){
       const r = R(), f = r && state.files[r.fid];

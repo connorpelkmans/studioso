@@ -197,6 +197,9 @@ const RT_EDIT = ["#noteText", "textarea[name=front]", "textarea[name=back]", "#f
 const RB = {bar: null, eq: null, field: null, sel: null, tok: null, hideT: 0};
 const RB_ICON = d => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl+";
+// The equation editor's shortcut: Alt+= (as in Word), but Control+= on a Mac, where Option+= types ≠ (Word for Mac's own)
+const EQ_KEY = MOD === "⌘" ? "⌃=" : "Alt+=";
+const eqKey = e => e.code === "Equal" && !e.shiftKey && !e.metaKey && (MOD === "⌘" ? e.ctrlKey && !e.altKey : e.altKey && !e.ctrlKey);
 function rbBarEl(){
   if (RB.bar) return RB.bar;
   const b = document.createElement("div");
@@ -205,7 +208,7 @@ function rbBarEl(){
   b.innerHTML = btn("b", "Bold", `Bold (${MOD}B)`, "<b>B</b>") + btn("i", "Italic", `Italic (${MOD}I)`, "<i>I</i>") + btn("s", "Strikethrough", "Strikethrough", "<s>S</s>")
     + btn("hl", "Highlight", "Highlight", '<span class="rb-hl">H</span>') + `<span class="rb-sep" aria-hidden="true"></span>`
     + btn("sup", "Superscript", "Superscript, like x²", "x²") + btn("sub", "Subscript", "Subscript, like H₂O", "x₂")
-    + btn("eq", "Equation", "Equation, math or chemistry (Alt+=)", RB_ICON('<path d="M18 5H7l5 7-5 7h11"/>') + "<span>Equation</span>");
+    + btn("eq", "Equation", `Equation, math or chemistry (${EQ_KEY})`, RB_ICON('<path d="M18 5H7l5 7-5 7h11"/>') + "<span>Equation</span>");
   // Pressing a button keeps the text box focused, and its selection
   b.addEventListener("pointerdown", e => { if (e.target.closest("button")) e.preventDefault(); });
   b.addEventListener("mousedown", e => { if (e.target.closest("button")) e.preventDefault(); });
@@ -284,7 +287,7 @@ document.addEventListener("keydown", e => {
   const t = e.target; if (!t || !t.matches || !t.matches(RT_EDIT)) return;
   const mod = e.ctrlKey || e.metaKey;
   if (mod && !e.shiftKey && !e.altKey && (e.key === "b" || e.key === "B" || e.key === "i" || e.key === "I")) { e.preventDefault(); e.stopPropagation(); RB.field = t; rbDo(e.key.toLowerCase()); }
-  else if (e.altKey && !mod && e.code === "Equal") { e.preventDefault(); e.stopPropagation(); RB.field = t; rbDo("eq"); }
+  else if (eqKey(e)) { e.preventDefault(); e.stopPropagation(); RB.field = t; rbDo("eq"); }
 }, true);
 
 /* The equation editor */
@@ -337,6 +340,7 @@ function eqOpen(f, opts){
     catch (er) { p.textContent = "Not quite right yet: " + String((er && er.message) || "").replace(/^KaTeX parse error:\s*/, "").slice(0, 140); p.classList.add("bad"); } };
   inp.addEventListener("input", prev);
   inp.addEventListener("keydown", ev => {
+    if (ev.isComposing || ev.keyCode === 229) return;   // typing with an IME: Enter picks the characters
     if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); eqDone(true); }
     else if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); eqDone(false); }
   });
