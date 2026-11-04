@@ -19,6 +19,14 @@ export const MAX_AUDIO_BYTES = 20 * 1048576;
 export const MAX_BODY_BYTES = 26 * 1048576;
 export const MAX_SCHEMA_CHARS = 20000;
 export const MAX_BLOCKS = 40;
+// Search by meaning: bge-m3 on Workers AI, $0.012 per million tokens (rounded up)
+export const EMBED_MODEL = "@cf/baai/bge-m3";
+export const EMBED_PER_TOKEN = 0.013e-6;
+export const MAX_EMBED_TEXTS = 100, MAX_EMBED_CHARS = 8000;
+// Web lookups (Anthropic's web search and web fetch tools): a search costs $0.01; fetched pages and results are read as input
+// The limits keep every round of the tool loop, all rounds together, under the 100K tokens where the price goes up 5 times:
+// (input + frame + one search + one page) x 3 rounds = (8,000 + 3,000 + 10,000 + 12,000) x 3 = 99,000.
+export const WEB = { searchUses: 1, fetchUses: 1, fetchTokens: 12000, searchTokens: 10000, maxInput: 8000, perSearch: 0.01 };
 // Fixed cost of a request's framing and the structured-output instructions, in tokens (added to every text estimate)
 export const FRAME_TOKENS = 3000;
 
@@ -87,7 +95,14 @@ export function costOf(u) {
   const inT = Math.max(0, Number(u && u.input_tokens) || 0), cw = Math.max(0, Number(u && u.cache_creation_input_tokens) || 0);
   const cr = Math.max(0, Number(u && u.cache_read_input_tokens) || 0), out = Math.max(0, Number(u && u.output_tokens) || 0);
   const mult = inT + cw + cr > LONG_PROMPT ? LONG_MULT : 1;
-  return micro(mult * (inT * PRICE.in + cw * PRICE.cacheWrite + cr * PRICE.cacheRead + out * PRICE.out));
+  const searches = Math.max(0, Number(u && u.server_tool_use && u.server_tool_use.web_search_requests) || 0);
+  return micro(mult * (inT * PRICE.in + cw * PRICE.cacheWrite + cr * PRICE.cacheRead + out * PRICE.out) + searches * WEB.perSearch);
+}
+// The worst a web lookup can cost: every round of the tool loop reads the prompt plus everything fetched so far
+export function webWorst(inTok, outCap, web) {
+  const uses = (web.search ? WEB.searchUses : 0) + (web.fetch ? WEB.fetchUses : 0);
+  const perRound = inTok + (web.search ? WEB.searchUses * WEB.searchTokens : 0) + (web.fetch ? WEB.fetchUses * WEB.fetchTokens : 0);
+  return micro((uses + 1) * perRound * PRICE.cacheWrite * (perRound > LONG_PROMPT ? LONG_MULT : 1) + outCap * PRICE.out + (web.search ? WEB.searchUses * WEB.perSearch : 0));
 }
 // The worst a request can cost: every input token written to the cache, and the whole output cap used
 export const worstCost = (inTok, outCap) => micro((inTok > LONG_PROMPT ? LONG_MULT : 1) * (inTok * PRICE.cacheWrite + outCap * PRICE.out));
@@ -258,8 +273,10 @@ export function readBlocks(blocks) {
 }
 
 // The request sent to Anthropic. Only this function builds it, from values this file chose.
-export function buildRequest({ system, blocks, schema, task, cacheMedia }) {
-  const sys = String(system || "").trim();
+export function buildRequest({ system, blocks, schema, task, cacheMedia, web }) {
+  let sys = String(system || "").trim();
+  // Web tools answer in text, so the answer shape goes into the instructions
+  if (web && (web.search || web.fetch) && schema) { sys = `${sys}\n\nReply with one JSON object only, no other text. It must match this JSON Schema:\n${JSON.stringify(schema)}`.trim(); schema = null; }
   const req = {
     model: MODEL,
     max_tokens: task.out,
@@ -273,6 +290,11 @@ export function buildRequest({ system, blocks, schema, task, cacheMedia }) {
   if (task.effort === "none") { req.thinking = { type: "disabled" }; req.output_config = { effort: "low" }; }
   else { req.thinking = { type: "adaptive" }; req.output_config = { effort: task.effort }; }
   if (schema) req.output_config.format = { type: "json_schema", schema };
+  if (web && (web.search || web.fetch)) {
+    req.tools = [];
+    if (web.search) req.tools.push({ type: "web_search_20250305", name: "web_search", max_uses: WEB.searchUses });
+    if (web.fetch) req.tools.push({ type: "web_fetch_20250910", name: "web_fetch", max_uses: WEB.fetchUses, max_content_tokens: WEB.fetchTokens });
+  }
   return req;
 }
 // The answer: JSON from the text blocks (thinking blocks are skipped)
@@ -292,7 +314,7 @@ export async function handle(request, env, deps) {
   const url = new URL(request.url), cfg = config(env), now = deps.now ? deps.now() : Date.now();
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (url.pathname === "/" && request.method === "GET") return new Response("Studyboard Pro AI\n", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
-  if (!["/v1/status", "/v1/ai", "/v1/transcribe", "/v1/me"].includes(url.pathname)) return json({ error: "not_found" }, 404);
+  if (!["/v1/status", "/v1/ai", "/v1/transcribe", "/v1/embed", "/v1/me"].includes(url.pathname)) return json({ error: "not_found" }, 404);
   const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const user = await deps.user(token);
   if (!user || user.anonymous) return json({ error: "auth" }, 401);
@@ -310,6 +332,7 @@ export async function handle(request, env, deps) {
   const len = Number(request.headers.get("Content-Length") || 0);
   if (len > MAX_BODY_BYTES) return json({ error: "too_long" }, 413);
   if (url.pathname === "/v1/transcribe") return transcribe(request, cfg, deps, meter, lim, now);
+  if (url.pathname === "/v1/embed") return embedJob(request, cfg, deps, meter, lim, now);
 
   // Read and check the job
   let body;
@@ -326,7 +349,8 @@ export async function handle(request, env, deps) {
   const status0 = await meter.status(lim);
   const task = taskOf(String(body.task || "").slice(0, 40), status0.soft);
   const cacheMedia = (task.name === "tutor" || task.name === "chat") && read.media > 0;
-  const req = buildRequest({ system, blocks: read.blocks, schema, task, cacheMedia });
+  const web = { search: body.search === true, fetch: body.urlContext === true }, onWeb = web.search || web.fetch;
+  const req = buildRequest({ system, blocks: read.blocks, schema, task, cacheMedia, web });
 
   // How many input tokens: an upper bound from the bytes for plain text, Anthropic's own count when files are attached
   // or the text is long (so a long prompt isn't refused on an estimate)
@@ -336,10 +360,10 @@ export async function handle(request, env, deps) {
     if (!Number.isFinite(inTok) || inTok <= 0) return json({ error: "busy" }, 503);
     inTok += 200;
   }
-  if (inTok > MAX_INPUT_TOKENS) return json({ error: "too_long", tokens: inTok }, 413);
+  if (inTok > MAX_INPUT_TOKENS || (onWeb && inTok > WEB.maxInput + FRAME_TOKENS)) return json({ error: "too_long", tokens: inTok }, 413);
 
   // Charge the worst case first: the student's allowance, then the shared daily ceiling
-  const reserve = worstCost(inTok, task.out);
+  const reserve = onWeb ? webWorst(inTok, task.out, web) : worstCost(inTok, task.out);
   const got = await meter.reserve(reserve, lim);
   if (!got.ok) return json({ error: got.reason, ...(await meter.status(lim)) }, got.reason === "rate" ? 429 : 402);
   const ceiling = deps.ceiling(dayOf(now));
@@ -350,6 +374,7 @@ export async function handle(request, env, deps) {
     let msg = null, cost = reserve;
     try { msg = await deps.claude.create(req); cost = msg && msg.usage ? costOf(msg.usage) : reserve; }
     catch (e) {
+      if (onWeb) { if (refusedEarly(e)) cost = 0; msg = { error: e }; await Promise.all([meter.settle(got.id, cost), ceiling.settle(reserve, cost)]); return msg; }
       if (refusedEarly(e)) cost = 0;
       msg = { error: e };
       // An answer shape the API won't compile: once more, with the shape written into the instructions instead
@@ -370,6 +395,26 @@ export async function handle(request, env, deps) {
   const data = readAnswer(msg);
   if (!data) return json({ error: "ai_failed", truncated: msg.stop_reason === "max_tokens", ...after }, 502);
   return json({ data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens", ...after });
+}
+
+async function embedJob(request, cfg, deps, meter, lim, now) {
+  if (!deps.embed) return json({ error: "off" }, 503);
+  let body;
+  try { const raw = await request.text(); if (raw.length > MAX_EMBED_TEXTS * MAX_EMBED_CHARS * 4 + 1000) return json({ error: "too_long" }, 413); body = JSON.parse(raw); } catch (e) { return json({ error: "bad" }, 400); }
+  const texts = body && Array.isArray(body.texts) ? body.texts : null;
+  if (!texts || !texts.length || texts.length > MAX_EMBED_TEXTS || texts.some(t => typeof t !== "string" || !t.trim() || t.length > MAX_EMBED_CHARS)) return json({ error: "bad" }, 400);
+  // Charged at the byte count, an upper bound on the tokens; nothing is reported back to correct it
+  const reserve = micro(texts.reduce((n, t) => n + textBytes(t) + 8, 0) * EMBED_PER_TOKEN);
+  const got = await meter.reserve(reserve, lim);
+  if (!got.ok) return json({ error: got.reason, ...(await meter.status(lim)) }, got.reason === "rate" ? 429 : 402);
+  const ceiling = deps.ceiling(dayOf(now));
+  if (!(await ceiling.reserve(reserve, micro(cfg.globalDayUsd)))) { await meter.settle(got.id, 0); return json({ error: "busy" }, 503); }
+  let out = null;
+  try { out = await deps.embed(texts); } catch (e) { out = null; }
+  const data = out && Array.isArray(out.data) ? out.data : null;
+  const good = data && data.length === texts.length && data.every(v => Array.isArray(v) && v.length > 0 && v.length <= 4096 && v.every(Number.isFinite));
+  if (!good) return json({ error: "ai_failed", ...(await meter.status(lim)) }, 502);
+  return json({ vectors: data, ...(await meter.status(lim)) });
 }
 
 async function transcribe(request, cfg, deps, meter, lim, now) {

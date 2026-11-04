@@ -1649,6 +1649,7 @@
     try {
       if (!smartOn()) return "";
       const a = autoState(); if (!a.on) return "";
+      if (a.cfg && a.cfg.provider === "studyboard") return "studyboard";
       return a.cfg && a.cfg.provider === "gemini" && isFreeModel(a.cfg.provider, a.cfg.model) && a.cfg.key && LITE.length ? "lite" : "paid";
     } catch (e) { return ""; }
   }
@@ -1789,15 +1790,18 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // One call, counted against the companion's own budget
   let aiBusy = false;
   async function aiRun(kind, build){
-    const s = aiRead(), mode = aiRoom(s, kind === "ask" ? 0 : GAP_MS);
+    const s = aiRead();
+    let mode = aiRoom(s, kind === "ask" ? 0 : GAP_MS);
+    if (kind === "ask" && askMode() === "manual" && isOn() && cur && !aiPaused(s) && navigator.onLine !== false) mode = "manual";
     if (!mode || aiBusy) return null;
     if (mode === "paid" && kind !== "plan") return null;
     if (mode === "paid") { try { if (autoBudget(true) <= 0) return null; AUTO.n = (AUTO.n || 0) + 1; autoSave(); } catch (e) { return null; } }
-    s.n = (s.n || 0) + 1; s.last = Date.now(); s.calls = (s.calls || []).concat({at: Date.now(), kind}).slice(-60); aiWrite(s);
+    if (mode !== "manual") s.n = (s.n || 0) + 1;
+    s.last = Date.now(); s.calls = (s.calls || []).concat({at: Date.now(), kind}).slice(-60); aiWrite(s);
     aiBusy = true;
     const req = build();
     try {
-      const r = mode === "lite" ? await liteCall(req) : await aiCall({task: "rewrite", auto: true, fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
+      const r = mode === "lite" ? await liteCall(req) : await aiCall({task: mode === "studyboard" ? (kind === "ask" ? "explain" : "line") : "rewrite", auto: mode !== "manual", fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
       const s2 = aiRead(); delete s2.err; s2.model = r && r.model; aiWrite(s2);
       return r && r.data;
     } catch (e) {
@@ -1863,11 +1867,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return SPEECH.ok(pickL.text) ? pickL.text : "";
   }
   // Ask Me
-  const askAvailable = () => { const s = aiRead(); return aiMode() === "lite" && !aiPaused(s) && (today0(s).n || 0) < LITE_MAX && navigator.onLine !== false; };
+  // Ask Me works with any AI: free Gemini and Studyboard AI share the daily allowance for lines; with another key (Claude, ChatGPT, or
+  // Gemini with automatic AI off) each question is an ordinary request the student makes, on their own key
+  const askMode = () => { const m = aiMode(); if (m === "lite" || m === "studyboard") return m; try { return smartOn() && aiReady() ? "manual" : ""; } catch (e) { return ""; } };
+  const askAvailable = () => { const s = aiRead(), m = askMode(); return !!m && !aiPaused(s) && (m === "manual" || (today0(s).n || 0) < LITE_MAX) && navigator.onLine !== false; };
   async function aiAsk(q, sc){
     const clean = String(q).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 160);
     if (!clean) return null;
-    if (!askAvailable()) return {why: aiPaused(aiRead()) ? "I'm out of answers for today. Ask me again tomorrow?" : "Ask Me needs Smart Lines and a free Gemini key."};
+    if (!askAvailable()) return {why: aiPaused(aiRead()) ? "I'm out of answers for today. Ask me again tomorrow?" : "Ask Me needs Smart Lines and AI set up (Settings, AI Features)."};
     const s0 = aiRead();
     if (Date.now() - (s0.lastAsk || 0) < 8000) return {why: "One sec, I'm still thinking. Ask again in a moment?"};
     for (let i = 0; aiBusy && i < 80; i++) await new Promise(r => setTimeout(r, 250));
@@ -2277,9 +2284,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";
     const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), your streak, your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
-      : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day and Ask Me is off. It sends only: ${sends}.`
+      : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
+      : u.mode === "studyboard" ? `Studyboard AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
       : `Your free Gemini key writes fresh lines and answers Ask Me (tap it, then Ask), using Gemini's lighter models and a separate daily allowance of ${LITE_MAX}, so other AI features aren't affected. It sends only: ${sends}. Nothing is sent while this is off.`;
-    const use = on && smartOn() ? `<span class="cp-use">Smart Lines today: ${u.n} of ${u.max}${u.paused ? ". Resting until Gemini's free allowance resets." : ""}</span>` : "";
+    const use = on && smartOn() ? `<span class="cp-use">Smart Lines today: ${u.n} of ${u.max}${u.paused ? (u.mode === "studyboard" ? ". Resting for now." : ". Resting until Gemini's free allowance resets.") : ""}</span>` : "";
     return `<div class="cap-row"><span style="flex:1;font-weight:600">Smart Lines and Ask Me<span class="sub">${esc(sub)}</span>${use}</span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="ai" ${on && smartOn() ? "checked" : ""} ${on ? "" : "disabled"}> On</label></div>`;
   }
   function wirePreviews(scope){

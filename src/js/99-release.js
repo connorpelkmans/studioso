@@ -365,6 +365,7 @@
           if (storeSub() && !ack) { stop("Tick the box about your App Store subscription first.", true); return; }
           say("Deleting your account on the server…");
           try { await aiTrialForget(); } catch (e) {}
+          try { await aiProForget(); } catch (e) {}
           const payload = {confirm: "DELETE", ack_store_subscription: ack};
           if (pw) payload.password = pw;
           const r = await callDelete(payload);

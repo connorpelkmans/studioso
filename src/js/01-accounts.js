@@ -188,14 +188,14 @@ async function initSupabase(ask){
       if (event === "PASSWORD_RECOVERY") setTimeout(() => sbNewPasswordSheet(), 300);
       const u = session && session.user;
       if (u && sbLocalOnly()) { try { localStorage.removeItem(SB_CFG); } catch(e) {} }
-      if (u && (!sbUser || sbUser.id !== u.id)) { sbUser = u; setTimeout(startSupabaseSync, 0); setTimeout(aiTrialSignedIn, 1500); }
+      if (u && (!sbUser || sbUser.id !== u.id)) { sbUser = u; setTimeout(startSupabaseSync, 0); setTimeout(aiTrialSignedIn, 1500); setTimeout(() => { if (typeof aiProRefresh === "function") aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} }); }, 1200); }
       else if (!u && sbUser && event === "SIGNED_OUT") { SBC.del("rows", sbUser.id); ["brightspace", "canvas", "blackboard", "moodle", "schoology"].forEach(k => SBC.del("rows", "feed:" + k)); if (sbBackend.cur) sbBackend.cur(); sbUser = null; cloud.on = false; caps.assets = DESK ? deskAssets : null; syncLabel(); scheduleRender(); setTimeout(() => { if (!sbUser && !sbLeaving) sbSignInSheet(); }, 200); }
     });
   }
   let session = null;
   try { const r = await sb.auth.getSession(); session = r.data && r.data.session; } catch(e) {}
   if (SB_LINK_ERR && !SB_LINK_ERR.shown) { SB_LINK_ERR.shown = true; try { history.replaceState(null, "", location.pathname); } catch(e) {} setTimeout(sbLinkErrorSheet, 500); }
-  if (session) { if (!sbUser) { sbUser = session.user; startSupabaseSync(); setTimeout(aiTrialSignedIn, 1500); } }
+  if (session) { if (!sbUser) { sbUser = session.user; startSupabaseSync(); setTimeout(aiTrialSignedIn, 1500); setTimeout(() => { if (typeof aiProRefresh === "function") aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} }); }, 1200); } }
   else {
     // nobody signed in, and no saved sign-in at all (an expired or offline one doesn't count): the plan forgets the account from last time
     (async () => { let raw = null; try { const st = authStorage(); raw = st ? await st.getItem("studioso-auth") : localStorage.getItem("studioso-auth"); } catch (e) { raw = "?"; } if (!raw && !sbUser) fire("auth-none"); })();

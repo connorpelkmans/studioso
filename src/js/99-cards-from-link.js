@@ -89,7 +89,7 @@ const LINKCARDS = (() => {
     h.classList.toggle("cl-bad", !!v && !L.ok);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
-      : L.kind === "youtube" ? (prov === "gemini" ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
+      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.${prov === "trial" ? " Reading pages needs your own free Gemini key, or paste the text below." : ""}`;
   });
   document.addEventListener("click", e => {
@@ -137,7 +137,11 @@ const LINKCARDS = (() => {
       // YouTube example sends it (no file type, no frame rate). Notes from a long video get plenty of room, and more if they still come back cut off.
       // (no outer retry: each try is a full pass over the video, and Gemini already retries a cut-off answer with more room)
       // the most Gemini can write in one answer: enough for the notes of any video up to an hour; running out even so means the video is too long
-      const vid = (fps, plain) => aiCall(Object.assign({}, opts, {maxTokens: 65536, schema: NOTE_SCHEMA, timeout: 300000, parts: [Object.assign({file_data: plain ? {file_uri: L.url} : {file_uri: L.url, mime_type: "video/*"}}, fps && !plain ? {video_metadata: {fps}} : {}), {text: ask}]})).catch(e => {
+      // Only Gemini watches YouTube: with another AI chosen, the student's Gemini key is used for the video
+      const gk = (aiCfg().keys || {}).gemini, viaGem = prov !== "gemini" && !!gk;
+      if (viaGem && !aiConsented("gemini") && !(await aiConsentAsk("gemini"))) throw Object.assign(aiErr("no-consent", "Watching YouTube videos needs your OK to send the link to Google Gemini."), {link: true});
+      const watch = o => viaGem ? geminiCall({provider: "gemini", model: "auto", keys: aiCfg().keys, key: gk}, Object.assign({temperature: 0.4, fast: false, task: o.task || "linknotes", ms: o.timeout || 300000}, o)) : aiCall(o);
+      const vid = (fps, plain) => watch(Object.assign({}, opts, {maxTokens: 65536, schema: NOTE_SCHEMA, timeout: 300000, parts: [Object.assign({file_data: plain ? {file_uri: L.url} : {file_uri: L.url, mime_type: "video/*"}}, fps && !plain ? {video_metadata: {fps}} : {}), {text: ask}]})).catch(e => {
         if (e && e.code === "long") throw Object.assign(aiErr("link-too_long", failMsg("too_long", L)), {link: true, st: "too_long"});
         throw e;
       });
@@ -192,7 +196,7 @@ const LINKCARDS = (() => {
     if (locked()) { proWhy(); return; }
     const pasted = String(o.pasted || "").trim(), prov = aiCfg().provider;
     if (!pasted && prov === "trial") { say("Reading a link needs your own free Gemini key, which takes about a minute to set up. Or paste the text, and the free trial can use that.", PASTE + ` <button type="button" class="btn small" data-act="ai-setup">Add My Free Gemini Key</button>`); return; }
-    if (!pasted && L.kind === "youtube" && prov !== "gemini") { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
+    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;

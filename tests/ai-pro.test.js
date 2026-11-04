@@ -298,5 +298,40 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   H = harness(); eq((await tcall(H, audio(1000), {...ENV, WHISPER_OFF: "1"})).s, 503, "transcription can be turned off on its own");
   H = harness({tier: "none"}); eq((await tcall(H, audio(1000))).s, 403, "free accounts can't transcribe");
 
+
+  /* Search by meaning */
+  const ecall = (H, body, env) => P.handle(new Request("https://w.example/v1/embed", {method: "POST", headers: {Authorization: "Bearer good", "Content-Type": "application/json"}, body: JSON.stringify(body)}), env || ENV, H.deps).then(J);
+  H = harness(); H.deps.embed = async texts => ({data: texts.map(() => [0.1, 0.2, 0.3])});
+  x = await ecall(H, {texts: ["photosynthesis", "日本語のノート"]});
+  eq([x.s, x.j.vectors.length], [200, 2], "texts become vectors");
+  eq((await H.meterOf().read()).spent, P.micro((P.textBytes("photosynthesis") + 8 + P.textBytes("日本語のノート") + 8) * P.EMBED_PER_TOKEN), "charged by bytes, an upper bound on tokens");
+  H = harness(); H.deps.embed = async () => ({data: [[1]]});
+  for (const [b, m] of [[{texts: []}, "no texts"], [{texts: Array(101).fill("x")}, "over 100 texts"], [{texts: ["x".repeat(8001)]}, "a text over 8,000 characters"], [{texts: [5]}, "a number"], [{texts: ["  "]}, "blank text"], [{}, "no list"]]) eq((await ecall(H, b)).s, 400, `refused: ${m}`);
+  H = harness({tier: "none"}); H.deps.embed = async () => ({data: [[1]]}); eq((await ecall(H, {texts: ["a"]})).s, 403, "free accounts can't");
+  H = harness(); H.deps.embed = async () => ({data: [[NaN]]}); eq((await ecall(H, {texts: ["a"]})).s, 502, "garbled vectors are refused");
+  H = harness(); H.deps.embed = null; eq((await ecall(H, {texts: ["a"]})).s, 503, "off without Workers AI");
+
+  /* Web lookups on Studyboard AI */
+  eq(P.costOf({input_tokens: 0, output_tokens: 0, server_tool_use: {web_search_requests: 3}}), 30000, "each web search is charged $0.01");
+  const wr = P.buildRequest({system: "Find it.", blocks: [{type: "text", text: "q"}], schema: {type: "object", properties: {}, additionalProperties: false}, task: P.taskOf("ask"), web: {search: true, fetch: true}});
+  eq(wr.tools.map(t => [t.name, t.max_uses]), [["web_search", 1], ["web_fetch", 1]], "web tools with the server's own use limits");
+  ok(!wr.output_config.format && /JSON Schema/.test(wr.system), "and the answer shape in the instructions instead");
+  const maxIn = P.WEB.maxInput + P.FRAME_TOKENS, rounds = P.WEB.searchUses + P.WEB.fetchUses + 1, per = maxIn + P.WEB.searchUses * P.WEB.searchTokens + P.WEB.fetchUses * P.WEB.fetchTokens;
+  ok(rounds * per < P.LONG_PROMPT, `a web job's worst case, all rounds together (${rounds * per} tokens), stays under the 100K long-prompt rate`);
+  let wOk = true;
+  for (let i = 0; i < 500; i++) { const inTok = Math.floor(Math.random() * maxIn), web = {search: Math.random() < 0.5, fetch: true};
+    const r = (web.search ? P.WEB.searchUses : 0) + P.WEB.fetchUses + 1, pr = inTok + (web.search ? P.WEB.searchUses * P.WEB.searchTokens : 0) + P.WEB.fetchUses * P.WEB.fetchTokens;
+    const real = P.costOf({input_tokens: r * pr, output_tokens: 6000, server_tool_use: {web_search_requests: web.search ? P.WEB.searchUses : 0}});
+    if (real > P.webWorst(inTok, 6000, web)) wOk = false; }
+  ok(wOk, "a web job's real cost never beats its reservation");
+  H = harness(); x = await J(await call(H, job({search: true, urlContext: true})));
+  eq([x.s, H.calls[0].tools.length], [200, 2], "a web lookup runs with both tools");
+  H = harness(); await call(H, job({search: "yes", urlContext: 1, tools: [{type: "web_search_20250305", name: "web_search", max_uses: 99}]}));
+  eq(H.calls[0].tools, undefined, "only a true flag turns web tools on, and a forged tool list is ignored");
+  H = harness(); x = await J(await call(H, job({search: true, content: [{type: "text", text: "z".repeat(12000)}]})));
+  eq([x.s, x.j.error], [413, "too_long"], "web lookups take at most about 8K tokens of input, so the whole loop stays on the normal rate card");
+  H = harness({reply: () => ({content: [{type: "text", text: "{\"ok\":3}"}], stop_reason: "end_turn", usage: {input_tokens: 9000, output_tokens: 400, server_tool_use: {web_search_requests: 2}}})});
+  await call(H, job({search: true}));
+  eq((await H.meterOf().read()).spent, P.costOf({input_tokens: 9000, output_tokens: 400, server_tool_use: {web_search_requests: 2}}), "charged for its tokens and its searches");
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

@@ -244,7 +244,10 @@ window.__sbPlanObj = () => PLAN;
         data = e;
       }
       if (error) { if (missing(error)) { P.tablesMissing = true; P.row = {uid, ent: null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row); } return false; }
+      const was = JSON.stringify((P.row && P.row.uid === uid && P.row.ent) || null);
       P.row = {uid, ent: data || null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row);
+      // A new or ended plan changes whether Studyboard AI is included
+      if (was !== JSON.stringify(data || null)) { try { if (typeof aiProRefresh === "function") aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} }); } catch(e) {} }
       return true;
     } catch (e) { return false; }
   }

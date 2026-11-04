@@ -1,7 +1,7 @@
 // Cloudflare wiring for Studyboard Pro AI
 import { DurableObject } from "cloudflare:workers";
 import Anthropic from "@anthropic-ai/sdk";
-import { Meter, Ceiling, handle, verifyUser, planOf, WHISPER_MODEL } from "./pro.js";
+import { Meter, Ceiling, handle, verifyUser, planOf, WHISPER_MODEL, EMBED_MODEL } from "./pro.js";
 
 // One per student, named by their Supabase user id
 export class StudentMeter extends DurableObject {
@@ -33,9 +33,11 @@ export default {
         meter: id => env.STUDENT.getByName("u:" + id),
         ceiling: day => env.CEILING.getByName("day:" + day),
         claude: {
-          create: req => client.messages.create(req),
+          // Web fetch is a beta tool on Haiku-class models
+          create: req => client.messages.create(req, (req.tools || []).some(t => t.name === "web_fetch") ? { headers: { "anthropic-beta": "web-fetch-2025-09-10" } } : undefined),
           count: async req => { const { max_tokens, ...rest } = req; void max_tokens; return (await client.messages.countTokens(rest)).input_tokens; }
         },
+        embed: env.AI ? texts => env.AI.run(EMBED_MODEL, { text: texts }) : null,
         whisper: env.AI ? bytes => env.AI.run(WHISPER_MODEL, { audio: b64(bytes), task: "transcribe", vad_filter: true }) : null,
         defer: p => ctx.waitUntil(p.catch(() => {}))
       });
