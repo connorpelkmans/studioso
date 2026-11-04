@@ -139,6 +139,11 @@ function todayHours(){
 function setTodayHours(h){ try { localStorage.setItem("coursework:today", JSON.stringify({d: todayISO(), h})); } catch(e) {} }
 const typeDef = t => TYPE_DEFAULTS[t.type] || TYPE_DEFAULTS.Other;
 const hasWeight = t => isNum(t.weight) && Number(t.weight) > 0;
+// A weight the school-site sync worked out from points because the site showed none (not the course's real weighting)
+const weightGuessed = t => hasWeight(t) && ["bs", "cv", "bb", "md", "sg", "gc"].some(f => t[f] && t[f].last && t[f].last.wPts && Number(t[f].last.weight) === Number(t.weight));
+const WEIGHT_GUESS_TIP = "Your school site didn't show a weight for this, so Studyboard split the course by points. Check your syllabus and type in the real weight.";
+// The note above a list of marks when some weights are estimates
+const weightGuessNote = list => { const n = list.filter(weightGuessed).length; return n ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>${n === 1 ? "1 weight is an estimate" : n + " weights are estimates"}.</b> Your school site didn't show ${n === 1 ? "a weight for it" : "weights for them"}, so Studyboard split the course by points. Numbers in red may be wrong: check your syllabus and tap an item to type in the real weight.</span></div>` : ""; };
 const weightOf = t => hasWeight(t) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
 
 /* What the planner knows beyond the task itself (1.11) - School sync */

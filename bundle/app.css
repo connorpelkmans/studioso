@@ -3791,6 +3791,13 @@ nav.tabs [data-tab="courses"]{position:relative}
 .go-pass-note:empty{display:none}
 .go-pass-note{margin:0;color:var(--warn-ink,var(--ink))}
 .go-prev .gr-scale-rows{max-height:none}
+/* A weight estimated from points (the school site showed none): red, with a note */
+.w-est{color:var(--late,#d64545);font-weight:700}
+.w-est-note{display:flex;gap:10px;align-items:flex-start;margin:10px 0;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--late,#d64545) 45%,var(--line));background:color-mix(in srgb,var(--late,#d64545) 10%,var(--surface));font-size:.86rem;line-height:1.4}
+.w-est-note svg{flex:none;color:var(--late,#d64545);margin-top:1px}
+.w-est-note b{color:var(--late,#d64545)}
+input.w-est-in{color:var(--late,#d64545);font-weight:700;border-color:color-mix(in srgb,var(--late,#d64545) 60%,var(--line))}
+.w-est-tip{display:block;margin-top:4px;font-size:.78rem;font-weight:500;line-height:1.35;color:var(--late,#d64545)}
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
 .est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
