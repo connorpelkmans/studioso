@@ -28,7 +28,9 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="YOUR-DOMAIN.example" />
+                <!-- only the app's own address (/?deck=, /?group=, /?task=, as in apple-app-site-association): reset-password.html,
+                     confirm-signup.html, magic links and /website/ pages must keep opening in the browser -->
+                <data android:scheme="https" android:host="YOUR-DOMAIN.example" android:path="/" />
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>

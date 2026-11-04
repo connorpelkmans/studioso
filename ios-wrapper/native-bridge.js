@@ -5,7 +5,7 @@
    What it does, and no more:
    1. window.StudyboardAuthStorage: keeps the Supabase sign-in session in the iOS Keychain / Android Keystore-backed storage instead of localStorage.
       (index.html uses it automatically when it exists: see authStorage() there.)
-   2. Links: https and mailto links open in the in-app Safari sheet (Capacitor Browser). Nothing else is ever opened, and payment
+   2. Links: https, http and mailto links open in the in-app Safari sheet (Capacitor Browser). Nothing else is ever opened, and payment
       pages are never opened from the store apps (App Store rule 3.1.1, Google Play payments policy: Pro is bought with in-app purchase).
    3. Deep links: universal links and studyboard:// links are passed to the page as ?deck= / ?group= / ?task= on the app's own address.
    4. Push (APNs on iOS, FCM on Android): registers only when the page asks (window.StudyboardNative.enablePush()) and resolves
@@ -23,7 +23,7 @@
       and on the Lock Screen through the local plugin StudyboardFocusActivity (ios-wrapper/native/FocusActivity). show() resolves true when it is showing,
       so the page can take the timer out of its own header. Missing on Android and when the plugin isn't in the build.
 
-   Needs these Capacitor plugins installed (README-IOS.md section 2, README-ANDROID.md section 2): @capacitor/app, @capacitor/browser, @capacitor/push-notifications,
+   Needs these Capacitor plugins installed (README-IOS.md section 2, README-ANDROID.md section 2): @capacitor/app, @capacitor/browser, @capacitor/push-notifications, @capacitor/filesystem + @capacitor/share (saveBlob in src/js/01-pwa.js),
    capacitor-secure-storage-plugin, @revenuecat/purchases-capacitor (section 6), @capacitor/screen-orientation (section 8), @capacitor/keyboard (section 9), plus the two local plugins in ios-wrapper/native (StudyboardCaptureToken, StudyboardSharedQueue) for section 5. */
 (function () {
   "use strict";
@@ -80,7 +80,7 @@
     try {
       var u = new URL(String(raw), window.location.href);
       if (u.protocol === "mailto:") return u.href;
-      if (u.protocol !== "https:" || u.username || u.password || (BLOCKED.test(u.hostname) && !extBuy)) return null;
+      if ((u.protocol !== "https:" && u.protocol !== "http:") || u.username || u.password || (BLOCKED.test(u.hostname) && !extBuy)) return null;
       return u.href;
     } catch (e) { return null; }
   }
@@ -101,6 +101,12 @@
   }, true);
 
   /* 3. Deep links */
+  // once the page is running (window.SBOPEN, src/js/70-widgets.js) links open in place, so nothing unsaved is lost; on a cold start the page reads the query
+  function openInApp(q) {
+    if (!String(q)) return;
+    try { if (typeof window.SBOPEN === "function" && window.SBOPEN(q)) return; } catch (e) { }
+    window.location.href = window.location.pathname + "?" + q.toString();
+  }
   if (P.App) {
     P.App.addListener("appUrlOpen", function (ev) {
       try {
@@ -123,7 +129,7 @@
           var a = u.pathname.replace(/^\/+|\/+$/g, "");
           if (["quickadd", "today", "focus", "search", "flashcards", "settings"].indexOf(a) >= 0) q.set("action", a);
         }
-        if (String(q)) window.location.href = window.location.pathname + "?" + q.toString();
+        openInApp(q);
       } catch (e) { }
     });
     // Android's Back button closes an open sheet, then goes back a page, then to the Board; only from the Board does it leave the app
@@ -186,7 +192,7 @@
         var d = (a && a.notification && a.notification.data) || {}, q = new URLSearchParams();
         if (typeof d.taskId === "string" && /^[\w.:-]{1,200}$/.test(d.taskId)) q.set("sbtask", d.taskId);
         if (typeof d.rid === "string" && /^[\w.:-]{1,200}$/.test(d.rid)) q.set("sbrid", d.rid);
-        if (String(q)) window.location.href = window.location.pathname + "?" + q.toString();
+        openInApp(q);
       } catch (e) { }
     });
   }

@@ -1,4 +1,5 @@
 // Studyboard desktop
+/* global M */ // Moodle's page global, read (behind a typeof check) when a harvest runs inside a Moodle tab
 const HT_ENT = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ensp: " ", emsp: " ", thinsp: " ", zwnj: "", zwj: "", shy: "", lrm: "", rlm: "",
   lsquo: "\u2018", rsquo: "\u2019", sbquo: "\u201A", ldquo: "\u201C", rdquo: "\u201D", bdquo: "\u201E", laquo: "\u00AB", raquo: "\u00BB", lsaquo: "\u2039", rsaquo: "\u203A",
   ndash: "\u2013", mdash: "\u2014", hellip: "\u2026", bull: "\u2022", middot: "\u00B7", sdot: "\u22C5", dagger: "\u2020", Dagger: "\u2021", prime: "\u2032", Prime: "\u2033",

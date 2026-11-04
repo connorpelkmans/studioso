@@ -35,9 +35,9 @@ if (fs.existsSync(plistFile)) {
 
 // Plugins the page relies on that an older setup may not have installed yet: installed here, so the app gets them with
 // the next sync (keyboard: the app fits above the keyboard instead of iOS sliding the page; screen orientation: upright
-// except full-screen boards)
+// except full-screen boards; filesystem + share: saving exported files, src/js/01-pwa.js saveBlob)
 {
-  const need = ["@capacitor/keyboard", "@capacitor/screen-orientation"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
+  const need = ["@capacitor/keyboard", "@capacitor/screen-orientation", "@capacitor/filesystem", "@capacitor/share"].filter(m => fs.existsSync(path.join(wrap, "node_modules")) && !fs.existsSync(path.join(wrap, "node_modules", m)));
   if (need.length) {
     console.log("ios-stage: installing " + need.join(", ") + " in ios-wrapper");
     // the plugins' major version has to match the project's Capacitor, or npm refuses
