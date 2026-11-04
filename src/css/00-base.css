@@ -1389,6 +1389,29 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .ai-srcs li{display:flex;align-items:center;gap:10px;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:4px 4px 4px 10px}
 .ai-srcs .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .ai-srcs .ficon{flex:none;font:700 .66rem var(--display);letter-spacing:.04em;border-radius:5px;padding:3px 5px;background:var(--soft);color:var(--muted)}
+/* Photos from your phone (PHONE_CAM): the QR code panel in Scan to PDF and Photo to Note */
+.phone-qr{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.phone-qr .qr{width:168px;height:168px;flex:none;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
+.phone-qr-t{flex:1 1 220px;display:grid;gap:6px}.phone-qr-t p{margin:0}
+.phone-qr-n{font-weight:700;color:var(--ink)}
+.phone-qr .row-actions{margin:2px 0 0}
+/* Photo to Note: laid out like Scan to PDF */
+.pnote-intake{display:grid;gap:12px}
+.pnote-acts{margin:0;justify-content:flex-start}
+.pnote-acts .btn{display:inline-flex;align-items:center;gap:7px}
+.pnote-acts .btn svg{flex:none}
+#pnPhoneP:empty{display:none}
+.pnote-drop{padding:12px;text-align:left;border-width:1.5px}
+.pnote-empty{margin:0;display:grid;place-items:center;align-content:center;gap:2px;min-height:110px;color:var(--muted);text-align:center}
+.pnote-empty[hidden]{display:none}
+.pnote-thumbs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.pnote-thumbs:empty{display:none}
+.pnote-thumbs li{position:relative;display:grid;gap:4px;padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);min-width:0}
+.pnote-thumbs img,.pnote-thumbs .pnote-tile{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;background:#fff;display:block;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.pnote-thumbs .pnote-tile{display:grid;place-items:center;background:var(--soft);color:var(--muted);font:700 .8rem var(--display);letter-spacing:.04em;box-shadow:none}
+.pnote-thumbs .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pnote-thumbs .x-btn{position:absolute;top:10px;right:10px;width:30px;height:30px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+@media (max-width:480px){.pnote-thumbs{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}}
 .ai-make{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
 .ai-make .mi-check{min-width:140px}
 .ai-styles{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
