@@ -171,7 +171,7 @@ function restricted(ttf){
       await page.mouse.click(lab.l, lab.b + 60); await page.waitForTimeout(250);
       await page.keyboard.type("Подпись родителя / Firma del padre");
       await page.waitForTimeout(150);
-      ok(/can't be saved in this font/.test(await page.locator("#pdeMsg").textContent()), "letters the standard fonts can't draw are flagged as you type");
+      ok(/Cyrillic text isn't in this PDF's fonts.*Noto Sans/.test(await page.locator("#pdeMsg").textContent()), "letters the standard fonts can't draw are flagged as you type, by name: " + await page.locator("#pdeMsg").textContent());
       const fid = await page.evaluate(b => window.__sbProStudy.pdeFonts.add(new Uint8Array(b)), [...fs.readFileSync(dejavu)]);
       ok(/^[a-f0-9]{16}$/.test(fid || ""), "an ordinary font is added (kept on this device)");
       await page.evaluate(fid => { const s = document.getElementById("pdeFam"); s.value = "ff:" + fid; s.dispatchEvent(new Event("change", {bubbles: true})); }, fid);
