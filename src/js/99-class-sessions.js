@@ -315,6 +315,54 @@ var SBCLS = null;
     return out + (loose.length ? `<div class="cls-fgroup"><h4 class="cls-fh"><span>Not linked to a class</span><span class="n">${loose.length}</span></h4><ul class="flist">${loose.map(row).join("")}</ul></div>` : "");
   }
 
+  /* Files > a course > Lecture Notes: a folder for every class of the term, made from the schedule (nothing extra is stored).
+     A file put in one (Upload, or dropped on it) is linked to that class. */
+  function lecFolders(cid, fs, row){
+    const c = courseOf(cid); if (!c) return null;
+    const all = classesOf(c); if (!all.length) return null;
+    const today = todayISO(), nowW = mondayOf(today), q = String(ui.q || "").trim();
+    const known = new Set(all.map(x => x.key));
+    if (ui.fCls) {
+      const x = classOf(cid, ui.fCls) || looseClass(cid, ui.fCls), I = itemsOf(cid, ui.fCls);
+      const files = fs.filter(f => f.cls === ui.fCls), n = I.notes.length + files.length + I.recs.length;
+      const noteRow = nt => `<li class="frow cls-frow">${nt.wb ? IC.board(20) : IC.note(20)}<button class="fmain" data-act="cls-note" data-id="${esc(nt.id)}"><span class="fname">${esc(nt.wb ? String(nt.text || "").split("\n")[0] || "Whiteboard" : noteName(nt))}</span><span class="task-meta"><span>${nt.wb ? "Whiteboard" : "Typed note"}</span></span></button></li>`;
+      const recRow = f => `<li class="frow cls-frow k-rec">${IC.mic(20)}<button class="fmain" data-act="lec-view" data-id="${esc(f.id)}"><span class="fname">${esc(f.name)}</span><span class="task-meta"><span>Recording</span></span></button></li>`;
+      const html = `<div class="lf-bar"><button type="button" class="btn small" data-act="f-cls" data-key="">${IC.prev(16)}All Classes</button><span class="spacer"></span><button type="button" class="btn small" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(x.key)}">Open Class Page</button><button type="button" class="btn small primary" data-act="lf-upload" data-cid="${esc(cid)}" data-key="${esc(x.key)}">${IC.up(16)}Upload</button></div>
+        ${n ? `<ul class="flist">${I.notes.map(noteRow).join("")}${files.map(row).join("")}${I.recs.map(recRow).join("")}</ul>`
+          : `<div class="empty lf-empty"><strong>${q ? "Nothing Here Matches Your Search" : "Nothing for This Class Yet"}</strong>${q ? "" : "Upload the slides or handouts, or drop files here. They're linked to " + esc(x.title) + " automatically."}</div>`}`;
+      return {html, n, crumb: `${x.title}, ${day(x.date, {month: "short", day: "numeric"})}`};
+    }
+    // every class, newest week first; classes still to come fold away at the end
+    const count = x => fs.filter(f => f.cls === x.key).length + itemsOf(cid, x.key).notes.length + itemsOf(cid, x.key).recs.length;
+    const shown = all.filter(x => !x.skipped || count(x));
+    const tile = x => { const k = count(x), isNow = x.date === today;
+      return `<li><button type="button" class="lf-tile${isNow ? " is-today" : ""}${k ? " has" : ""}" data-act="f-cls" data-key="${esc(x.key)}" data-drop="${esc(cid)}|notes|${esc(x.key)}">${FOLDER}<span class="lf-t"><b>${esc(x.title)}</b><span class="mini">${esc(day(x.date, {weekday: "short", month: "short", day: "numeric"}))}${isNow ? " · Today" : ""}</span></span><span class="n">${k || ""}</span></button></li>`; };
+    const weeks = list => { const m = new Map(); list.forEach(x => { const w = mondayOf(x.date); if (!m.has(w)) m.set(w, []); m.get(w).push(x); }); return [...m.entries()]; };
+    const wk = ([w, xs]) => `<div class="lf-week"><h4 class="cls-wk"><span>${w === nowW ? "This Week" : "Week of " + esc(day(w, {month: "short", day: "numeric"}))}</span></h4><ul class="lf-grid">${xs.map(tile).join("")}</ul></div>`;
+    const past = shown.filter(x => mondayOf(x.date) <= nowW), later = shown.filter(x => mondayOf(x.date) > nowW);
+    const loose = fs.filter(f => !f.cls || !known.has(f.cls));
+    const html = weeks(past).reverse().map(wk).join("")
+      + (later.length ? `<details class="lf-later"><summary>Upcoming Classes<span class="n">${later.length}</span></summary>${weeks(later).map(wk).join("")}</details>` : "")
+      + (loose.length ? `<h3 class="fsec lf-loose">Not Linked to a Class<span class="n">${loose.length}</span></h3><p class="mini lf-hint">Drag one onto a class's folder to link it.</p><ul class="flist">${loose.map(row).join("")}</ul>` : "");
+    return {html, n: fs.length, crumb: ""};
+  }
+  // Upload into a class's folder: the files go in Lecture Notes, linked to the class
+  async function uploadTo(cid, key, list){
+    const x = classOf(cid, key) || looseClass(cid, key);
+    const made = await uploadFiles(list, {courseId: cid, folderId: "notes", cloud: true, sub: subFor(x)});
+    if (made && made.length) tag("file", made.map(f => f.id), key, `Added to ${x.title}`);
+  }
+  function pickUpload(cid, key){
+    const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
+    inp.addEventListener("change", () => { const list = [...(inp.files || [])]; inp.remove(); if (list.length) uploadTo(cid, key, list); });
+    document.body.appendChild(inp); inp.click();
+  }
+  hook("act", (act, el) => {
+    if (act === "f-cls") { ui.fCls = el.dataset.key || ""; render(); window.scrollTo(0, 0); return true; }
+    if (act === "lf-upload") { pickUpload(el.dataset.cid, el.dataset.key); return true; }
+    return false;
+  });
+
   /* The Schedule: a class's sheet links its page */
   function occRows(o){
     if (!o || !(o.type === "meet" || (o.type === "event" && isClassEvent(o.ev)))) return [];
@@ -344,7 +392,7 @@ var SBCLS = null;
       case "cls-rec-up": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now()}; const prev = ui.courseId; ui.courseId = x.cid; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-add-up"; document.body.appendChild(b); b.click(); b.remove(); ui.courseId = prev; return true; }
       case "cls-sum": { if (dlg.open) dlg.close(); setTimeout(() => { const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-view"; b.dataset.id = id; document.body.appendChild(b); b.click(); b.remove();
         setTimeout(() => { const d = document.createElement("button"); d.hidden = true; d.dataset.act = "lec-doc"; d.dataset.id = id; d.dataset.doc = "sum"; document.body.appendChild(d); d.click(); d.remove(); }, 30); }, 0); return true; }
-      case "cls-files": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; ui.fCourse = x.cid; ui.fFolder = "notes"; ui.q = ""; render(); window.scrollTo(0, 0); return true; }
+      case "cls-files": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; ui.fCourse = x.cid; ui.fFolder = "notes"; ui.fCls = x.key; ui.q = ""; render(); window.scrollTo(0, 0); return true; }
     }
     return false;
   });
@@ -358,5 +406,5 @@ var SBCLS = null;
     return true;
   });
 
-  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, occRows, open: openClass, recKeyOf};
+  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();

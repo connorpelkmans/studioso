@@ -106,11 +106,21 @@ const shot = async (page, name, sel) => { if (!SHOTS) return; await page.waitFor
   await page.click('#dlg [data-act="cls-open"]'); await page.waitForSelector("#dlg .cls-sheet");
   await page.click('#dlg [data-act="cls-files"]'); await page.waitForTimeout(400);
   const fx = await page.$eval("#fpane", el => el.textContent);
-  ok(/Lecture 9 · Mon, Oct 5/.test(fx) && /Lecture 8 · Wed, Sep 30/.test(fx), "Files groups Lecture Notes by class");
-  ok(/Cell respiration lecture/.test(fx) && /Week 4 slides\.pdf/.test(fx) && /Typed note/.test(fx) && /Not linked to a class/.test(fx) && /Syllabus\.pdf/.test(fx), "with each class's typed notes and recording, and the rest under Not linked to a class");
+  ok(/Lecture Notes›Lecture 9, Oct 5/.test(fx) && /Google Slides|docs\.google/.test(fx), "Open in Files opens the class's own folder, with what was added to it: " + fx.replace(/\s+/g, " ").slice(0, 160));
+  await page.click('#fpane [data-act="f-cls"][data-key=""]'); await page.waitForTimeout(250);
+  const all = await page.$eval("#fpane", el => el.textContent);
+  ok(await page.locator(`#fpane .lf-tile[data-key="${WEDKEY}"]`).count() === 1 && await page.locator(`#fpane .lf-tile[data-key="${TODAYKEY}"]`).count() === 1 && /Not Linked to a Class/.test(all) && /Syllabus\.pdf/.test(all),
+    "Lecture Notes has a folder for every class, and the rest under Not Linked to a Class");
   await shot(page, "4-files-lecture-notes");
-  await page.click('#fpane .cls-fh [data-key="' + WEDKEY + '"]'); await page.waitForSelector("#dlg .cls-sheet");
-  ok(/Wednesday, September 30/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "a class heading in Files opens its class page");
+  // dropping a file on a class's folder links it to that class
+  await page.evaluate(k => { const t = document.querySelector(`#fpane .lf-tile[data-key="${k}"]`), dt = new DataTransfer(); dt.setData("text/x-file-id", "f2"); t.dispatchEvent(new DragEvent("drop", {bubbles: true, cancelable: true, dataTransfer: dt})); }, WEDKEY);
+  await page.waitForTimeout(200);
+  ok((await store(page)).files.find(f => f.id === "f2").cls === WEDKEY, "a file dropped on a class's folder is linked to that class");
+  await page.click(`#fpane .lf-tile[data-key="${WEDKEY}"]`); await page.waitForTimeout(250);
+  const wf = await page.$eval("#fpane", el => el.textContent);
+  ok(/Week 4 slides\.pdf/.test(wf) && /Syllabus\.pdf/.test(wf) && /Cell respiration lecture/.test(wf) && /Typed note/.test(wf), "a class's folder holds its files, typed notes and recording");
+  await page.click('#fpane [data-act="cls-open"]'); await page.waitForSelector("#dlg .cls-sheet");
+  ok(/Wednesday, September 30/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "Open Class Page opens it");
 
   // 5. A course whose classes come only from calendar events (a school calendar's lectures)
   await page.evaluate(() => document.querySelector("#dlg").open && document.querySelector("#dlg").close());

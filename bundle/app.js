@@ -14882,10 +14882,16 @@ function viewFiles(){
   </nav>`;
   const c = ui.fCourse !== "all" ? courseOf(ui.fCourse) : null;
   const folder = ui.fCourse !== "all" && ui.fFolder ? foldersOf(ui.fCourse).find(fo => fo.id === ui.fFolder) : null;
-  const crumbs = ui.fCourse === "all" ? "All Files" : `${esc(c ? c.name : "General")}${folder ? ` <span class="mini">›</span> ${esc(folder.name)}` : ""}`;
   const fs = filesVisible();
+  // Lecture Notes: a folder for each class (made from the schedule)
+  if (ui.fFolder !== "notes" || ui.fCourse === "all") ui.fCls = "";
+  let lec = null;
+  if (ui.fFolder === "notes" && ui.fCourse !== "all" && window.SBCLS && SBCLS.lecFolders) { try { lec = SBCLS.lecFolders(ui.fCourse, fs, fileRow); } catch (e) { console.warn("lecture folders", e); } }
+  const sep = `<span class="fc-sep" aria-hidden="true">›</span>`;
+  const crumbs = ui.fCourse === "all" ? "All Files" : `${esc(c ? c.name : "General")}${folder ? `${sep}${lec && lec.crumb ? `<button type="button" class="fc-up" data-act="f-cls" data-key="">${esc(folder.name)}</button>${sep}${esc(lec.crumb)}` : esc(folder.name)}` : ""}`;
   let list;
-  if (!fs.length) {
+  if (lec) list = lec.html;
+  else if (!fs.length) {
     const none = !ui.q.trim();
     list = `<div class="empty${none ? " sb-es" : ""}" style="margin-top:12px">${none ? emptyArt("files") : ""}<strong>${none ? "No Files Here Yet" : "No Files Match Your Search"}</strong>${none ? (sbActive() ? "Upload any file, like PDFs, Word documents, slides or images, or drop them here." : `Upload PDFs, Word, PowerPoint and Excel files, images or text files${caps.assets ? ", or drop them here" : ""}. Anything too big can go to your Google Drive or OneDrive.`) : ""}${none ? `<div class="row-actions es-ph"><button type="button" class="btn primary" data-act="fab-file">Add a File</button></div>` : ""}</div>`;
   } else if (ui.fCourse !== "all" && !ui.fFolder) {
@@ -14894,7 +14900,7 @@ function viewFiles(){
   } else list = (ui.fFolder === "notes" && clsFolder(fs)) || `<ul class="flist">${fs.map(fileRow).join("")}</ul>`;
   const canUpload = !!caps.assets;
   const hcol = c ? c.color : ui.fCourse === "all" ? "var(--accent-band,var(--accent))" : "#8A94A6";
-  const nHere = fs.length, bandActs = [ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
+  const nHere = lec ? lec.n : fs.length, inCls = !!(lec && lec.crumb), bandActs = [ui.fCourse !== "all" && !inCls ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder && !inCls ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
   const fhead = `<div class="fhead g2-head" style="--c:${esc(hcol)}">
       <div class="g2-band"><span class="g2-kick">${c ? esc(courseLabel(c)) + " · " : ""}Files</span>${bandActs ? `<div class="row-actions">${bandActs}</div>` : ""}</div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : ui.fCourse === "all" ? FOLDER : GENERAL_ICON}</span>
@@ -15047,6 +15053,8 @@ function linkSheet(){
     let name = String(fd.get("name") || "").trim();
     if (!name) { try { const x = new URL(u); name = x.hostname.replace(/^www\./, "") + (x.pathname.length > 1 ? decodeURIComponent(x.pathname).split("/").filter(Boolean).pop().slice(0, 60) : ""); } catch(e) { name = u; } }
     const f = normFile({id: uid(), name, kind: "link", url: u, courseId: fd.get("courseId") || "", folderId: fd.get("folderId") || "other", created: Date.now()});
+    // added inside a class's folder: it goes with that class
+    if (ui.fCls && ui.fFolder === "notes" && f.folderId === "notes" && f.courseId === ui.fCourse) f.cls = ui.fCls;
     applyChanges([{kind:"file", id: f.id, after: f}], `Added ${name}`);
   });
   $("#lkCourse").addEventListener("change", e => { $("#lkFolder").innerHTML = folderSelectHtml(e.target.value, "other"); });
@@ -15107,8 +15115,14 @@ document.addEventListener("drop", e => {
   if (!node && !pane) return;
   e.preventDefault();
   const fid = e.dataTransfer.getData("text/x-file-id");
+  // "course|folder|class key" (a class key has "|" in it too)
+  const dp = node ? node.dataset.drop.split("|") : [], dc = dp[0], dk = dp.slice(2).join("|");
+  // onto a class's folder (or inside one): the file goes with that class
+  const toCls = dk || (!node && ui.fFolder === "notes" && ui.fCls ? ui.fCls : "");
+  if (fid && node && dk) { const f = state.files[fid]; if (f) applyChanges([{kind: "file", id: fid, after: Object.assign(clone(f), {courseId: dc, folderId: "notes", cls: dk, updated: Date.now()})}], `Moved ${f.name} to its class`); return; }
   if (fid && node) { moveFile(fid, node.dataset.drop); return; }
   const list = [...(e.dataTransfer.files || [])];
+  if (list.length && toCls && window.SBCLS && SBCLS.uploadTo) { SBCLS.uploadTo(dk ? dc : ui.fCourse, toCls, list); return; }
   if (list.length) {
     if (node) { const [cid, folderId] = node.dataset.drop.split("|"); uploadFiles(list, {courseId: cid, folderId, cloud: true}); }
     else if (ui.fCourse === "all" && window.SBQADD && caps.assets) SBQADD.open(list);
@@ -19784,8 +19798,8 @@ document.addEventListener("click", e => {
     case "note-archive-open": if (noteEditing) saveNoteText(); archiveSheet(); break;
     case "board-resort": setBoardManual(id, false); render(); toast(id === "done" ? "Most recently completed first" : "Sorted by due date"); break;
     case "group": ui.groupBy = id; try { localStorage.setItem("coursework:group", id); } catch(err){} render(); break;
-    case "f-nav": ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; render(); break;
-    case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
+    case "f-nav": ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; render(); break;
+    case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-preview": officePreview(id); break;
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
@@ -19878,7 +19892,7 @@ document.addEventListener("change", e => {
     if (n) applyChanges([{kind:"note", id: n.id, after: Object.assign(clone(n), {courseId: e.target.value, text: t ? t.value : n.text})}], "");
     return;
   }
-  if (e.target.id === "fUploadIn") { const list = [...(e.target.files || [])]; e.target.value = ""; if (list.length) uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})); }
+  if (e.target.id === "fUploadIn") { const list = [...(e.target.files || [])]; e.target.value = ""; if (list.length) { if (ui.fFolder === "notes" && ui.fCls && ui.fCourse !== "all" && window.SBCLS && SBCLS.uploadTo) SBCLS.uploadTo(ui.fCourse, ui.fCls, list); else uploadFiles(list, Object.assign(uploadTarget(), {cloud: true})); } }
 });
 document.addEventListener("keydown", e => {
   if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
@@ -90239,6 +90253,54 @@ var SBCLS = null;
     return out + (loose.length ? `<div class="cls-fgroup"><h4 class="cls-fh"><span>Not linked to a class</span><span class="n">${loose.length}</span></h4><ul class="flist">${loose.map(row).join("")}</ul></div>` : "");
   }
 
+  /* Files > a course > Lecture Notes: a folder for every class of the term, made from the schedule (nothing extra is stored).
+     A file put in one (Upload, or dropped on it) is linked to that class. */
+  function lecFolders(cid, fs, row){
+    const c = courseOf(cid); if (!c) return null;
+    const all = classesOf(c); if (!all.length) return null;
+    const today = todayISO(), nowW = mondayOf(today), q = String(ui.q || "").trim();
+    const known = new Set(all.map(x => x.key));
+    if (ui.fCls) {
+      const x = classOf(cid, ui.fCls) || looseClass(cid, ui.fCls), I = itemsOf(cid, ui.fCls);
+      const files = fs.filter(f => f.cls === ui.fCls), n = I.notes.length + files.length + I.recs.length;
+      const noteRow = nt => `<li class="frow cls-frow">${nt.wb ? IC.board(20) : IC.note(20)}<button class="fmain" data-act="cls-note" data-id="${esc(nt.id)}"><span class="fname">${esc(nt.wb ? String(nt.text || "").split("\n")[0] || "Whiteboard" : noteName(nt))}</span><span class="task-meta"><span>${nt.wb ? "Whiteboard" : "Typed note"}</span></span></button></li>`;
+      const recRow = f => `<li class="frow cls-frow k-rec">${IC.mic(20)}<button class="fmain" data-act="lec-view" data-id="${esc(f.id)}"><span class="fname">${esc(f.name)}</span><span class="task-meta"><span>Recording</span></span></button></li>`;
+      const html = `<div class="lf-bar"><button type="button" class="btn small" data-act="f-cls" data-key="">${IC.prev(16)}All Classes</button><span class="spacer"></span><button type="button" class="btn small" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(x.key)}">Open Class Page</button><button type="button" class="btn small primary" data-act="lf-upload" data-cid="${esc(cid)}" data-key="${esc(x.key)}">${IC.up(16)}Upload</button></div>
+        ${n ? `<ul class="flist">${I.notes.map(noteRow).join("")}${files.map(row).join("")}${I.recs.map(recRow).join("")}</ul>`
+          : `<div class="empty lf-empty"><strong>${q ? "Nothing Here Matches Your Search" : "Nothing for This Class Yet"}</strong>${q ? "" : "Upload the slides or handouts, or drop files here. They're linked to " + esc(x.title) + " automatically."}</div>`}`;
+      return {html, n, crumb: `${x.title}, ${day(x.date, {month: "short", day: "numeric"})}`};
+    }
+    // every class, newest week first; classes still to come fold away at the end
+    const count = x => fs.filter(f => f.cls === x.key).length + itemsOf(cid, x.key).notes.length + itemsOf(cid, x.key).recs.length;
+    const shown = all.filter(x => !x.skipped || count(x));
+    const tile = x => { const k = count(x), isNow = x.date === today;
+      return `<li><button type="button" class="lf-tile${isNow ? " is-today" : ""}${k ? " has" : ""}" data-act="f-cls" data-key="${esc(x.key)}" data-drop="${esc(cid)}|notes|${esc(x.key)}">${FOLDER}<span class="lf-t"><b>${esc(x.title)}</b><span class="mini">${esc(day(x.date, {weekday: "short", month: "short", day: "numeric"}))}${isNow ? " · Today" : ""}</span></span><span class="n">${k || ""}</span></button></li>`; };
+    const weeks = list => { const m = new Map(); list.forEach(x => { const w = mondayOf(x.date); if (!m.has(w)) m.set(w, []); m.get(w).push(x); }); return [...m.entries()]; };
+    const wk = ([w, xs]) => `<div class="lf-week"><h4 class="cls-wk"><span>${w === nowW ? "This Week" : "Week of " + esc(day(w, {month: "short", day: "numeric"}))}</span></h4><ul class="lf-grid">${xs.map(tile).join("")}</ul></div>`;
+    const past = shown.filter(x => mondayOf(x.date) <= nowW), later = shown.filter(x => mondayOf(x.date) > nowW);
+    const loose = fs.filter(f => !f.cls || !known.has(f.cls));
+    const html = weeks(past).reverse().map(wk).join("")
+      + (later.length ? `<details class="lf-later"><summary>Upcoming Classes<span class="n">${later.length}</span></summary>${weeks(later).map(wk).join("")}</details>` : "")
+      + (loose.length ? `<h3 class="fsec lf-loose">Not Linked to a Class<span class="n">${loose.length}</span></h3><p class="mini lf-hint">Drag one onto a class's folder to link it.</p><ul class="flist">${loose.map(row).join("")}</ul>` : "");
+    return {html, n: fs.length, crumb: ""};
+  }
+  // Upload into a class's folder: the files go in Lecture Notes, linked to the class
+  async function uploadTo(cid, key, list){
+    const x = classOf(cid, key) || looseClass(cid, key);
+    const made = await uploadFiles(list, {courseId: cid, folderId: "notes", cloud: true, sub: subFor(x)});
+    if (made && made.length) tag("file", made.map(f => f.id), key, `Added to ${x.title}`);
+  }
+  function pickUpload(cid, key){
+    const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
+    inp.addEventListener("change", () => { const list = [...(inp.files || [])]; inp.remove(); if (list.length) uploadTo(cid, key, list); });
+    document.body.appendChild(inp); inp.click();
+  }
+  hook("act", (act, el) => {
+    if (act === "f-cls") { ui.fCls = el.dataset.key || ""; render(); window.scrollTo(0, 0); return true; }
+    if (act === "lf-upload") { pickUpload(el.dataset.cid, el.dataset.key); return true; }
+    return false;
+  });
+
   /* The Schedule: a class's sheet links its page */
   function occRows(o){
     if (!o || !(o.type === "meet" || (o.type === "event" && isClassEvent(o.ev)))) return [];
@@ -90268,7 +90330,7 @@ var SBCLS = null;
       case "cls-rec-up": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now()}; const prev = ui.courseId; ui.courseId = x.cid; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-add-up"; document.body.appendChild(b); b.click(); b.remove(); ui.courseId = prev; return true; }
       case "cls-sum": { if (dlg.open) dlg.close(); setTimeout(() => { const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-view"; b.dataset.id = id; document.body.appendChild(b); b.click(); b.remove();
         setTimeout(() => { const d = document.createElement("button"); d.hidden = true; d.dataset.act = "lec-doc"; d.dataset.id = id; d.dataset.doc = "sum"; document.body.appendChild(d); d.click(); d.remove(); }, 30); }, 0); return true; }
-      case "cls-files": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; ui.fCourse = x.cid; ui.fFolder = "notes"; ui.q = ""; render(); window.scrollTo(0, 0); return true; }
+      case "cls-files": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; ui.fCourse = x.cid; ui.fFolder = "notes"; ui.fCls = x.key; ui.q = ""; render(); window.scrollTo(0, 0); return true; }
     }
     return false;
   });
@@ -90282,7 +90344,7 @@ var SBCLS = null;
     return true;
   });
 
-  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, occRows, open: openClass, recKeyOf};
+  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();
 /* ===== module: 99-calculator-skins.js: the calculator in the colours of the current theme ===== */
 /* The calculator (99-calculator.js) wears the theme that's on: its body, keys, screen and lettering in the theme's colours,
