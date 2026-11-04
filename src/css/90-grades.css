@@ -380,4 +380,6 @@ nav.tabs [data-tab="courses"]{position:relative}
 .w-est-note svg{flex:none;color:var(--late,#d64545);margin-top:1px}
 .w-est-note b{color:var(--late,#d64545)}
 input.w-est-in{color:var(--late,#d64545);font-weight:700;border-color:color-mix(in srgb,var(--late,#d64545) 60%,var(--line))}
-.w-est-tip{display:block;margin-top:4px;font-size:.78rem;font-weight:500;line-height:1.35;color:var(--late,#d64545)}
+.w-est-tip{display:flex;gap:8px;align-items:flex-start;margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--late,#d64545) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--late,#d64545) 35%,var(--line));font-size:.8rem;font-weight:500;line-height:1.4;color:var(--ink)}
+.w-est-tip svg{flex:none;margin-top:1px;color:var(--late,#d64545)}
+.w-est-pill{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font:700 .7rem/1.5 var(--display);vertical-align:1px;color:var(--late,#d64545);background:color-mix(in srgb,var(--late,#d64545) 14%,var(--surface))}

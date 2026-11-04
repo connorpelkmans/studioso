@@ -12916,9 +12916,10 @@ function taskForm(t, preset = {}){
           <label class="f" data-fld="link"><span class="lh"><span class="lbl">Link</span>${t.link && safeUrl(t.link) ? `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(safeUrl(t.link))}">Open in ${esc(lmsSite(t) || "browser")}</button>` : ""}</span><input type="url" name="link" maxlength="500" value="${esc(t.link)}" placeholder="https://…"></label>
           <fieldset class="plan-fs"><legend>Planning Details <span class="hint">used to rank Today's Plan</span></legend>
             <div class="two">
-              <label class="f"><span class="lh">Grade Weight <span class="hint">% of course grade</span></span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}>${weightGuessed(t) ? `<span class="w-est-tip" id="wEstTip">Estimated. ${esc(WEIGHT_GUESS_TIP)}</span>` : ""}</label>
+              <label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
+            ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
             <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
@@ -13121,7 +13122,7 @@ function taskForm(t, preset = {}){
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   // typing a weight over an estimated one makes it yours: no longer red
-  { const w = tForm.elements.weight; if (w && w.classList.contains("w-est-in")) w.addEventListener("input", () => { w.classList.remove("w-est-in"); w.removeAttribute("aria-describedby"); const tip = $("#wEstTip"); if (tip) tip.remove(); }, {once: true}); }
+  { const w = tForm.elements.weight; if (w && w.classList.contains("w-est-in")) w.addEventListener("input", () => { w.classList.remove("w-est-in"); w.removeAttribute("aria-describedby"); const tip = $("#wEstTip"); if (tip) tip.remove(); const pl = $("#wEstPill"); if (pl) pl.outerHTML = `<span class="hint">% of course grade</span>`; }, {once: true}); }
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
   $("#tfAdv").addEventListener("toggle", e => { ui.advOpen = e.target.open; });
   const depList = $("#depList"), depAdd = $("#depAdd");
