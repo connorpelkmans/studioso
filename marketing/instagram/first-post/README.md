@@ -17,7 +17,7 @@ The finished images are in `png/`.
 
 `png/a-one-board.png`
 
-A light, grid-paper intro: the website's headline, highlighted in yellow, above a slightly tilted mini task board with Hoot sitting on it.
+A light, grid-paper intro: the website's headline, highlighted in yellow, above a slightly tilted mini task board with Mochi sitting on it. Each card uses its course icon from the app.
 
 **Caption**
 
@@ -29,7 +29,7 @@ A light, grid-paper intro: the website's headline, highlighted in yellow, above 
 >
 > #studyboard #studentplanner #studytok #studygram #college #university #studentlife
 
-**Alt text:** Studyboard logo above the headline "Your whole semester on one board." Below, four colorful course task cards (an essay outline, a problem set, a finished quiz and an upcoming exam) with a small cartoon owl perched on top.
+**Alt text:** Studyboard logo above the headline "Your whole semester on one board." Below, four colorful course task cards (an essay outline, a problem set, a finished quiz and an upcoming exam) with a small cartoon sprout named Mochi perched on top.
 
 ---
 
