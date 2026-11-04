@@ -1048,7 +1048,7 @@ Return JSON only.`;
   }
   async function runAsk(){
     const q = S.q.trim(); if (!q) return;
-    const seq = ++S.seq;
+    S.seq++;
     S.tutor = null;
     if (!S.scopeSet || (S.autoScope && S.autoScope === S.course)) {
       let cs = []; try { cs = coursesInQ(askData(), q); } catch(e) {}
@@ -1079,7 +1079,7 @@ Return JSON only.`;
       } catch(e) { note = `Couldn't search by meaning right now. ${e.message || ""} Showing word matches instead.`; }
       semKick(1500);
     }
-    if (seq !== S.seq) return;
+    if (S.ask !== A) return;
     let rows = fuse(kw, sm);
     if (prev && prev.rows.length) {
       const used = prev.answer && prev.answer.used && prev.answer.used.length ? prev.answer.used.map(n => prev.rows[n - 1]) : prev.rows.slice(0, 3);
@@ -1089,9 +1089,11 @@ Return JSON only.`;
     Object.assign(A, {P, state: "done", rows, note, err: "", byMeaning: sm.length > 0, follow: !!prev});
     draw();
     const plan = answerPlan();
-    if (!detAns && planOk(plan)) getAnswer(seq);
+    if (!detAns && planOk(plan)) getAnswer();
   }
-  async function getAnswer(seq){
+  // The answer belongs to its question (A), not to a request number: it is kept while that question is still in the chat
+  // (closing Search or switching modes doesn't throw it away), and the screen is always redrawn when it arrives
+  async function getAnswer(){
     const A = S.ask; if (!A) return;
     const plan = answerPlan(); if (!plan) return;
     const prior = A.det, n = Math.min(SENT, A.rows.length), c = A.course && A.course !== "_none" ? courseOf(A.course) : null;
@@ -1104,14 +1106,14 @@ Return JSON only.`;
       parts: [{text: `PLANNER SNAPSHOT\n${snap}\n\n${scope}NUMBERED SOURCES (search results from the student's notes, files, cards, lectures and tasks)\n${srcText(A.rows) || "none found for this question"}\n\n${histText(A)}${prior ? `ALREADY WORKED OUT (correct): ${prior.text}\n\n` : ""}QUESTION: ${A.q}`}]};
     try {
       const r = await callPlan(plan, args);
-      if (seq !== S.seq) { A.answer = prior; return; }
+      if (!S.thread.includes(A)) return;
       const fu = (Array.isArray(r.data.followUps) ? r.data.followUps : []).map(x => aiTidyText(x).replace(/\s+/g, " ").trim()).filter(x => x && x.length <= 90).slice(0, 3);
       A.answer = {state: "done", text: aiCleanCites(aiTidyText(r.data.answer), n), found: r.data.found !== false, used: [...new Set((r.data.sources || []).map(Number).filter(k => k >= 1 && k <= n))], items: prior ? prior.items : [], model: aiModelName(r.provider || "gemini", r.model || ""), followUps: fu};
     } catch(e) {
-      if (seq !== S.seq) { A.answer = prior; return; }
+      if (!S.thread.includes(A)) return;
       A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
     }
-    draw();
+    if (S.ask === A || S.thread.includes(A)) draw();
   }
   // Only when the student asks, and only the question (and the course's name) is sent
   async function getGeneral(T){
@@ -1477,7 +1479,8 @@ Return JSON only.`;
         const plan = answerPlan(), an = A.answer, det = an && an.state === "done" && an.det;
         if (an && an.state === "loading") h += `<div class="sx-ans busy">${AI_ICON}${dots}${aiWho() ? esc(aiWho()) + " is writing" : "Writing"} a short answer…</div>`;
         else if (an && an.state === "done") {
-          h += ansBox(A, an, ti);
+          // an answer that can't be drawn says so (and can be asked again) instead of leaving "writing…" up
+          try { h += ansBox(A, an, ti); } catch (e) { console.error("search answer", e); h += `<div class="sx-ans miss"><p>Couldn't show this answer.</p><button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} Try Again</button></div>`; }
           if (det && planOk(plan)) h += `<div class="sx-ans-row"><button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} Ask AI to Explain More</button></div>`;
           if (!det && !an.found && !A.general && planOk(plan)) h += `<div class="sx-ans-row sx-gen-row"><button type="button" class="btn small ai-btn" data-sx="general" data-turn="${ti}">${AI_ICON} Answer From General Knowledge</button><span class="mini">Not from your course material</span></div>`;
           h += genBox(A, ti);
@@ -1657,8 +1660,8 @@ Return JSON only.`;
         else if (k === "reset") { S.type = "all"; S.course = ""; S.autoScope = ""; draw(); inp.focus(); }
         else if (k === "setup") { close(); aiSetupSheet(true); }
         else if (k === "settings") settingsSheet();
-        else if (k === "answer") getAnswer(S.seq);
-        else if (k === "paid-yes") { const cb = $("#sxPaidOk"), p = answerPlan(); if (!cb || !cb.checked || !p) return; sxSave({paidOk: p.sig}); getAnswer(S.seq); }
+        else if (k === "answer") getAnswer();
+        else if (k === "paid-yes") { const cb = $("#sxPaidOk"), p = answerPlan(); if (!cb || !cb.checked || !p) return; sxSave({paidOk: p.sig}); getAnswer(); }
         else if (k === "task") { const t = state.tasks[b.dataset.id]; if (t) { close(); setTimeout(() => openDoc({type: "task", id: t.id}), 0); } }
         else if (k === "cite") { const T = turnOf(b), x = T && T.rows[Number(b.dataset.id)]; if (x) { close(); setTimeout(() => openDoc(x.doc), 0); } }
         else if (k === "scope") { S.course = b.dataset.id || ""; S.scopeSet = true; S.autoScope = ""; resetThread(); S.active = 0; syncModeUi(); if (S.q.trim()) runAsk(); else draw(); inp.focus(); }
