@@ -75,7 +75,15 @@ const CAP = (() => {
     take(/\b(?:at\s*|@\s*|by\s*)?(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/i, m => {
       let h = Number(m[1]); if (h < 1 || h > 12) { out.flags.push("time"); return false; }
       h %= 12; if (/p/i.test(m[3])) h += 12; out.time = pad2(h) + ":" + (m[2] || "00");
-    }) || take(/\b(?:at\s*|@\s*|by\s*)?([01]?\d|2[0-3]):([0-5]\d)\b/, m => { out.time = pad2(Number(m[1])) + ":" + m[2]; }) ||
+    }) || take(/\b(?:at\s*|@\s*|by\s*)?([01]?\d|2[0-3]):([0-5]\d)\b/, m => {
+      /* A bare h:mm with no am/pm. 0:mm, 13-23 and a leading zero ("09:30") are 24-hour. 1-6 means afternoon ("5:30" is 17:30):
+         classes and deadlines at 1-6 AM are rare. 7-12 could be either, so they are flagged "ampm" and the check shows before
+         anything is saved: 11:59 is read as 23:59 (the usual deadline), the rest keep the plain reading (9:15 morning, 12:30 noon). */
+      let h = Number(m[1]);
+      if (!/^0/.test(m[1]) && h >= 1 && h <= 6) h += 12;
+      else if (!/^0/.test(m[1]) && h >= 7 && h <= 12) { out.flags.push("ampm"); if (h === 11 && m[2] === "59") h = 23; }
+      out.time = pad2(h) + ":" + m[2];
+    }) ||
       take(/\b(?:at\s*|by\s*)?noon\b/i, () => { out.time = "12:00"; }) || take(/\b(?:at\s*|by\s*)?(midnight|end of (?:the )?day|eod)\b/i, () => { out.time = "23:59"; });
     if (!out.time && /\b(?:at|@)\s*\d{1,2}\b(?!\s*[\/:%.-]\d)/i.test(s)) out.flags.push("time");
     const wd = new RegExp(`\\b(?:(next|this|coming)\\s+)?(${WDRE})\\b\\.?`, "i");
@@ -97,11 +105,18 @@ const CAP = (() => {
       out.due = addDays(mon, (n - 1) * 7 + 4); out.term = "week";
     }) ||
     take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
-    take(new RegExp(`\\b(${MONRE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[1].slice(0, 3).toLowerCase()), Number(m[2]), today); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    // An optional year may follow: "dec 5 2027", "January 10, 2027", "5 dec 2027"
+    take(new RegExp(`\\b(${MONRE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = monthDay(MON.indexOf(m[1].slice(0, 3).toLowerCase()), Number(m[2]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[1]), today); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    take(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = monthDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[1]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    }) ||
+    // "due the 15th": the next 15th, this month or next
+    take(/\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i, m => {
+      const n = Number(m[1]); let [y, mo] = parts(today), d = isoOf(y, mo, n);
+      if (!validISO(d) || d < today) { mo = mo % 12 + 1; if (mo === 1) y++; d = isoOf(y, mo, n); }
+      if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d;
     }) ||
     take(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/, m => {
       const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : 0;
@@ -146,7 +161,7 @@ const CAP = (() => {
     [/\b(read|reading|chapters?|ch\.?\s*\d)/i, "Reading"], [/\b(hw|homework|assignment|essay|paper|report|problem set|pset|worksheet|discussion post)\b/i, "Assignment"], [/\b(study|review)\b/i, "Study"]];
   const guessType = s => { const h = TYPE_WORDS.find(([re]) => re.test(s)); return h ? h[1] : ""; };
   // Words left in the title that still look like a date or a second task
-  const LEFTOVER = /\b(next|this|coming|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|weekly|daily)\b|\d{1,2}[\/.]\d{1,2}|\b(?:at|by)\s+\d{1,2}\b/i;
+  const LEFTOVER = /\b(next|this|coming|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|weekly|daily)\b|\d{1,2}\/\d{1,2}|\b\d{1,2}\.\d{2}\b|\b(?:at|by)\s+\d{1,2}\b|\b20\d\d\b/i;
   const stripEdges = t => {
     let prev;
     do { prev = t; t = t.replace(/\s+(due|by|on|at|for|before|until|till|the|is|its|it's|@|-|,|:|due by|due on)\s*$/i, "").replace(/^\s*(due|by|on|at|for|the|is|-|,|:)\s+/i, ""); } while (t !== prev);
@@ -529,7 +544,7 @@ const rowHtml = (d, i) => `<li class="qc-row ${d.checked === false ? "is-off" : 
     <input type="date" data-f="due" value="${esc(d.due)}" aria-label="Due date" class="${d.due ? "" : "cap-miss"}" ${d.due ? "" : 'aria-invalid="true" title="No due date yet"'}>
     <input type="time" data-f="time" value="${esc(d.time)}" aria-label="Due time">
     <button type="button" class="x-btn" data-cap="rm" data-i="${i}" aria-label="Remove ${esc(d.title || "this task")}">${CLOSE}</button>
-    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : ""}
+    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : ""}
   </li>`;
 const thumbsHtml = () => CS.photos.length ? `<div class="cap-thumbs">${CS.photos.map(p => `<img src="${esc(p.url)}" alt="Your photo, to check the tasks against" class="cap-thumb">`).join("")}</div>` : "";
 const confirmCount = () => CS.drafts.filter(d => d.checked !== false && String(d.title || "").trim()).length;

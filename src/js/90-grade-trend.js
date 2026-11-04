@@ -28,7 +28,9 @@
       vals = vals.filter(v => v != null && isFinite(v));
       if (!vals.length) return {lo: 0, hi: 100};
       let lo = Math.floor((Math.min.apply(null, vals) - 5) / 5) * 5, hi = Math.ceil((Math.max.apply(null, vals) + 5) / 5) * 5;
-      lo = Math.max(0, lo); hi = Math.min(100, hi);
+      // the top stays at 100 unless a bonus mark goes over it
+      const top = Math.max.apply(null, vals) > 100 ? Math.ceil(Math.max.apply(null, vals) / 5) * 5 : 100;
+      lo = Math.max(0, lo); hi = Math.min(top, hi);
       if (hi - lo < 10) { if (hi >= 100) lo = hi - 10; else hi = lo + 10; }
       return {lo, hi};
     }

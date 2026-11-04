@@ -47,6 +47,8 @@ const it = (id, key, seq) => ({id, title: id, key, seq});
   d = G.domain([0, 2]); ok(d.lo === 0 && d.hi >= 10, "stays above 0");
   d = G.domain([50, 50, 80]); ok(d.lo === 45 && d.hi === 85, "goal line is part of the range");
   d = G.domain([]); ok(d.lo === 0 && d.hi === 100, "no values");
+  d = G.domain([95, 104.5]); ok(d.hi === 105 && d.lo <= 90, "a bonus mark over 100% stays on the chart: " + JSON.stringify(d));
+  d = G.domain([100, 112]); ok(d.hi >= 112 && d.hi - d.lo >= 10, "well over 100: " + JSON.stringify(d));
   const box = {l: 10, t: 5, w: 100, h: 50}, dom = {lo: 0, hi: 100};
   const a = G.xy(0, 3, 100, dom, box), b = G.xy(2, 3, 0, dom, box), m = G.xy(1, 3, 50, dom, box);
   ok(a.x === 10 && a.y === 5 && b.x === 110 && b.y === 55 && m.x === 60 && m.y === 30, "xy corners and middle");

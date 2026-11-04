@@ -351,7 +351,9 @@ function soonBadge(t){
   const h = (dueDate(t) - new Date()) / 36e5;
   if (h < 0) return `<span class="soon late">Late</span>`;
   if (h <= 48) {
-    const label = t.due === todayISO() ? (t.time ? "Due in " + Math.max(1, Math.round(h)) + "h" : "Due today") : (h < 24 && t.time ? "Due in " + Math.round(h) + "h" : "Due tomorrow");
+    // The word comes from calendar days, not hours left: a Friday 9 AM task seen Wednesday morning is not "tomorrow"
+    const n = dayDiff(todayISO(), t.due);
+    const label = n <= 0 ? (t.time ? "Due in " + Math.max(1, Math.round(h)) + "h" : "Due today") : h < 24 && t.time ? "Due in " + Math.max(1, Math.round(h)) + "h" : n === 1 ? "Due tomorrow" : "Due " + parse(t.due).toLocaleDateString(undefined, {weekday: "long"});
     return `<span class="soon">${label}</span>`;
   }
   return "";
