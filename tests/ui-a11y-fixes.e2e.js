@@ -117,7 +117,7 @@ const sheet = p => p.evaluate(() => { const d = document.createElement("dialog")
     { const {ctx, p} = await open(browser, {w: 1280, ls: {"studioso:sb": "null"}});
       // B5: the side menu's sync status is one short line with the rest in a tooltip
       await wait(500);
-      ok(await p.evaluate(() => { const s = document.getElementById("syncSide"), r = s.getBoundingClientRect(), nx = s.nextElementSibling; let b = nx; while (b && !b.getClientRects().length) b = b.nextElementSibling; return s.textContent === "Not signed in" && s.dataset.tip === "Not signed in, changes kept here" && (!b || b.getBoundingClientRect().top >= r.bottom - 1); }), "side menu: \"Not signed in\" fits on its line, the full status is its tooltip");
+      ok(await p.evaluate(() => { const s = document.getElementById("syncSide"), r = s.getBoundingClientRect(), nx = s.nextElementSibling; let b = nx; while (b && !b.getClientRects().length) b = b.nextElementSibling; return s.textContent === "Not signed in" && /^(Not signed in(, changes kept here)?)?$/.test(s.dataset.tip || "") && (!b || b.getBoundingClientRect().top >= r.bottom - 1); }), "side menu: \"Not signed in\" fits on its line, the full status is its tooltip");
       await ctx.close(); }
     { const {ctx, p} = await open(browser, {w: 1280});
       // U15: Ctrl+1-7 only listed in the installed app

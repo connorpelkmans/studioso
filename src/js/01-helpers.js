@@ -409,30 +409,36 @@ function newTask(fields){
   if (due && start > due) start = due;
   return normTask(Object.assign({id: uid(), created: Date.now(), order: nextOrder(fields.status || "todo")}, fields, {start}));
 }
+// The toast element itself, kept here: it can be inside a pop-up while it shows, and a pop-up that is removed
+// (close() then remove(), before its close event runs) would otherwise take it off the page
+const TOAST_EL = document.getElementById("toast");
+const toastEl = () => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); return TOAST_EL; };
+const toastPart = id => TOAST_EL.querySelector("#" + id);
+try { new MutationObserver(() => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); }).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
 let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0, toastView = null;
 // Long enough to read (about 15 characters a second), longer with a button to press
 const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, Math.min(12000, 1500 + String(msg || "").length * 65));
 // extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once.
 // opts.view: the toast (and its buttons) goes away when the page changes, for buttons that only make sense on this page
 const toastViewKey = () => { try { return ui.tab + "|" + (ui.courseId || ""); } catch (e) { return ""; } };
-function toastHide(){ clearTimeout(toastT); const t = $("#toast"); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
+function toastHide(){ clearTimeout(toastT); const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
 // The top-most open modal (focus is kept inside it), so a toast is never hidden behind a pop-up
 function toastHost(){
   let ms = []; try { ms = [...document.querySelectorAll("dialog[open]")].filter(d => d.matches(":modal")); } catch (e) { try { if (dlg.open) ms = [dlg]; } catch (x) {} }
   const a = document.activeElement;
-  return ms.filter(d => d.contains(a)).pop() || ms.pop() || document.body;
+  return ms.filter(d => d.isConnected && d.contains(a)).pop() || ms.filter(d => d.isConnected).pop() || document.body;
 }
 function toast(msg, undoFn, extra, opts){
-  const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
-  let xx = $("#toastX");
+  const t = toastEl(), b = toastPart("toastUndo"), x = toastPart("toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
+  let xx = toastPart("toastX");
   if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", toastHide); }
   t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); t.classList.toggle("toast-done", !err && !!(opts && opts.done)); xx.hidden = !err; toastErr = err;
-  $("#toastMsg").textContent = SPELL.fix(msg);
+  toastPart("toastMsg").textContent = SPELL.fix(msg);
   toastUndoFn = undoFn || null;
   b.hidden = !undoFn;
   toastExtraFn = more[0] ? more[0].fn : null;
   x.hidden = !more[0]; if (more[0]) x.textContent = more[0].label;
-  let x2 = $("#toastExtra2");
+  let x2 = toastPart("toastExtra2");
   if (more[1] && !x2) { x2 = document.createElement("button"); x2.id = "toastExtra2"; x.after(x2); x2.addEventListener("click", () => { const f = toastExtra2Fn; toastExtra2Fn = null; t.classList.remove("show"); if (f) f(); }); }
   toastExtra2Fn = more[1] ? more[1].fn : null;
   if (x2) { x2.hidden = !more[1]; if (more[1]) x2.textContent = more[1].label; }
@@ -446,14 +452,14 @@ function toast(msg, undoFn, extra, opts){
 }
 function toastTimer(ms){
   clearTimeout(toastT);
-  toastT = setTimeout(() => { $("#toast").classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
+  toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
-document.addEventListener("close", e => { const t = $("#toast"); if (t && e.target && t.parentNode === e.target) document.body.appendChild(t); }, true);
-hook("render", () => { if (toastView && toastView !== toastViewKey() && $("#toast").classList.contains("show")) toastHide(); });
-$("#toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; $("#toast").classList.remove("show"); if (f) f(); });
-$("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; $("#toast").classList.remove("show"); if (f) f(); });
+document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
+hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
+toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) f(); });
+toastPart("toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; toastEl().classList.remove("show"); if (f) f(); });
 // Pointing at a toast with a button, or tabbing into it, holds it open
-{ const t = $("#toast"), acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = e => { if (acts() && (e.type === "focusin" || Date.now() - toastAt > 700)) clearTimeout(toastT); }, go = () => { if (acts() && !toastErr) toastTimer(Math.max(3000, toastMs / 2)); };
+{ const t = TOAST_EL, acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = e => { if (acts() && (e.type === "focusin" || Date.now() - toastAt > 700)) clearTimeout(toastT); }, go = () => { if (acts() && !toastErr) toastTimer(Math.max(3000, toastMs / 2)); };
   t.addEventListener("pointerenter", hold); t.addEventListener("pointermove", hold); t.addEventListener("focusin", hold);
   t.addEventListener("pointerleave", () => { if (!t.contains(document.activeElement)) go(); });
   t.addEventListener("focusout", () => setTimeout(() => { if (!t.contains(document.activeElement) && !t.matches(":hover")) go(); }, 0)); }
