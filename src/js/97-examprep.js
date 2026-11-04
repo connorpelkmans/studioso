@@ -931,7 +931,7 @@ const rowLine = t => { if (!t || !MILESTONE(t.type) || t.status === "done") retu
 const courseExams = c => upcoming().filter(t => t.courseId === c.id).slice(0, 3);
 function courseHtml(c){
   const list = courseExams(c); if (!list.length) return "";
-  return `<h2 class="sec"><span class="t">Upcoming Exams</span><span class="n">${list.length}</span></h2><ul class="pp-exams">${list.map(t => { const sm = summaryOf(t), d = dayDiff(todayISO(), t.due); return `<li><button type="button" class="pp-ex-main" data-act="edit-task" data-id="${esc(t.id)}"><b>${esc(t.title)}</b><span class="mini">${esc(fmtDate(t.due))}${t.time ? " at " + esc(fmtTime(t.time)) : ""} · ${d === 0 ? "today" : d === 1 ? "tomorrow" : d + " days"}${sm ? " · " + esc(sm.line) : ""}</span></button><button type="button" class="btn small ${sm ? "" : "primary"}" data-act="exam-plan" data-id="${esc(t.id)}">${sm ? "Prep Plan" : "Plan My Prep"}</button></li>`; }).join("")}</ul>`;
+  return c2Box("exams", "Upcoming Exams", list.length, `<ul class="pp-exams">${list.map(t => { const sm = summaryOf(t), d = dayDiff(todayISO(), t.due); return `<li><button type="button" class="pp-ex-main" data-act="edit-task" data-id="${esc(t.id)}"><b>${esc(t.title)}</b><span class="mini">${esc(fmtDate(t.due))}${t.time ? " at " + esc(fmtTime(t.time)) : ""} · ${d === 0 ? "today" : d === 1 ? "tomorrow" : d + " days"}${sm ? " · " + esc(sm.line) : ""}</span></button><button type="button" class="btn small ${sm ? "" : "primary"}" data-act="exam-plan" data-id="${esc(t.id)}">${sm ? "Prep Plan" : "Plan My Prep"}</button></li>`; }).join("")}</ul>`);
 }
 /* the companion */
 function offer(){

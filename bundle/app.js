@@ -10311,6 +10311,26 @@ function courseMoreSheet(c){
     </div></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
 }
+// A titled card on a course page: icon, title and count inside the box, like a group's sections
+const c2Ic = d => `<svg class="c2-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const C2_ICONS = {
+  notes: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
+  exams: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>',
+  todo: '<circle cx="12" cy="12" r="9"/>',
+  doing: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  done: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>',
+  goals: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  shared: '<rect x="3" y="5" width="13" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/>',
+  grade: '<circle cx="12" cy="9" r="6"/><path d="M8.5 14L7 21l5-3 5 3-1.5-7"/>',
+  team: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
+  files: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  decks: '<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v10"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  links: '<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>'
+};
+// title is HTML-safe text; n is a count or short note (empty hides it)
+const c2Head = (ic, title, n) => `<h2 class="sec c2-bh">${c2Ic(C2_ICONS[ic] || "")}<span class="t">${title}</span>${n === "" || n == null ? "" : `<span class="n">${n}</span>`}</h2>`;
+const c2Box = (ic, title, n, body, cls) => `<section class="c2-card2 c2-box${cls ? " " + cls : ""}">${c2Head(ic, title, n)}${body}</section>`;
 // Every task of a course this term, including finished work the Board has tucked away
 const courseTasks = c => allTasks().filter(t => t.courseId === c.id && !t.archivedTerm);
 function viewCourseDetail(c){
@@ -10329,12 +10349,12 @@ function viewCourseDetail(c){
         <div class="g2-txt"><h2>${esc(c.name)}</h2><div class="g2-meta"><span>${esc(courseMetaLine(c))}</span></div></div></div>
       <!--cd-tabs--></div><!--cd-body-->
     <div class="c2-cols" style="--c:${esc(c.color)}"><div class="c2-main">
-    ${c.notes ? `<h2 class="sec"><span class="t">Notes</span></h2><p class="notes">${esc(c.notes)}</p>` : ""}
+    ${c.notes ? c2Box("notes", "Notes", "", `<p class="notes">${esc(c.notes)}</p>`) : ""}
     ${searchNote()}
     ${window.SBPREP ? SBPREP.courseHtml(c) : ""}
-    ${section("To Do", by("todo"), "", {hideCourse:true})}
-    ${section("In Progress", by("doing"), "", {hideCourse:true})}
-    ${doneL.length || old.length ? `<h2 class="sec"><span class="t">Complete</span><span class="n">${by("done").length + old.length}</span></h2>${doneL.length ? taskList(doneL, {hideCourse:true}) : ""}${old.length ? `<button class="show-old" data-act="cd-old" aria-expanded="${showOld}">${showOld ? "Hide Older" : `Show Older (${old.length})`}</button>` : ""}` : ""}
+    ${(l => l.length ? c2Box("todo", "To Do", l.length, taskList(l, {hideCourse:true})) : "")(by("todo"))}
+    ${(l => l.length ? c2Box("doing", "In Progress", l.length, taskList(l, {hideCourse:true})) : "")(by("doing"))}
+    ${doneL.length || old.length ? c2Box("done", "Complete", by("done").length + old.length, `${doneL.length ? taskList(doneL, {hideCourse:true}) : ""}${old.length ? `<button class="show-old" data-act="cd-old" aria-expanded="${showOld}">${showOld ? "Hide Older" : `Show Older (${old.length})`}</button>` : ""}`) : ""}
     ${!ts.length && !old.length ? `<div class="empty" style="margin-top:18px"><strong>No Tasks Yet</strong>Add assignments, exams and readings for this course.</div>` : ""}
     ${window.SBOBJ ? SBOBJ.courseHtml(c) : ""}
     ${window.SBSHARE ? SBSHARE.courseHtml(c) : ""}
@@ -10344,14 +10364,14 @@ function viewCourseDetail(c){
     ${courseFilesHtml(c)}
     ${courseDecksHtml(c)}
     ${courseNotesHtml(c)}
-    ${links ? `<h2 class="sec"><span class="t">Links</span></h2><dl class="facts">${links}</dl>` : ""}
+    ${links ? c2Box("links", "Links", "", `<dl class="facts">${links}</dl>`) : ""}
     </aside></div>`;
 }
 // Teaching Team on a course page
 function courseTeamHtml(c, staff){
   const rows = staff || (c.instructor ? `<li><div class="bs-main"><b>${esc(c.instructor)}</b><span class="mini">Instructor</span></div></li>` : "");
   if (!rows && !c.office) return "<!--team--><!--/team-->";
-  return `<!--team--><h2 class="sec"><span class="t">Teaching Team</span></h2><div class="bs-course">${rows ? `<ul class="bs-list lms-staff">${rows}</ul>` : ""}${c.office ? `<p class="mini c-office"><b>Office Hours</b> ${esc(c.office)}</p>` : ""}</div><!--/team-->`;
+  return `<!--team-->${c2Box("team", "Teaching Team", "", `<div class="bs-course">${rows ? `<ul class="bs-list lms-staff">${rows}</ul>` : ""}${c.office ? `<p class="mini c-office"><b>Office Hours</b> ${esc(c.office)}</p>` : ""}</div>`)}<!--/team-->`;
 }
 // The line under a course's name on its page
 function courseMetaLine(c){
@@ -10362,7 +10382,7 @@ function courseMetaLine(c){
 // The side card on a course's page
 function courseGradeSide(c){
   const gn = window.SBGRADES && SBGRADES.now(c); if (!gn) return "";
-  return `<section class="c2-card2"><h2 class="sec"><span class="t">Grade So Far</span><span class="n">${esc(gn.fmt(gn.marked))} marked</span></h2>
+  return `<section class="c2-card2 c2-box">${c2Head("grade", "Grade So Far", `${esc(gn.fmt(gn.marked))} marked`)}
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
     <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
 }
@@ -10371,23 +10391,21 @@ function courseDecksHtml(c){
   const ds = deckListArr().filter(d => d.courseId === c.id);
   const row = d => { const st = deckStats(d), n = studyCounts([d.id]);
     return `<li><button class="c2-li-main" data-act="course-deck" data-id="${esc(d.id)}"><b>${esc(d.name)}</b><span class="mini${st.due ? " c2-due" : ""}">${st.total ? (st.due || st.fresh ? `${st.due} due · ${st.fresh} new` : "All caught up") : "No cards yet"}</span></button>${st.total ? `<button class="btn small${n.due ? " primary" : ""}" data-act="fc-study" data-id="${esc(d.id)}" aria-label="Study ${esc(d.name)}">Study</button>` : ""}</li>`; };
-  return `<h2 class="sec"><span class="t">Your Decks</span><span class="n">${ds.length || ""}</span></h2>
-    ${ds.length ? `<ul class="c2-list">${ds.map(row).join("")}</ul>` : `<div class="facts c2-none"><span class="mini">No flashcard decks for this course yet.</span><button class="btn small" data-act="course-deck-new" data-id="${esc(c.id)}">New Deck</button></div>`}`;
+  return c2Box("decks", "Your Decks", ds.length || "",
+    ds.length ? `<ul class="c2-list">${ds.map(row).join("")}</ul>` : `<div class="facts c2-none"><span class="mini">No flashcard decks for this course yet.</span><button class="btn small" data-act="course-deck-new" data-id="${esc(c.id)}">New Deck</button></div>`);
 }
 function courseNotesHtml(c){
   const ns = notesArr().filter(n => !n.archived && n.courseId === c.id).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
   const title = n => (String(n.text || "").split("\n").map(x => x.trim()).find(Boolean) || "Empty note").slice(0, 80);
   const shown = ns.slice(0, 5);
-  return `<h2 class="sec"><span class="t">Notes</span><span class="n">${ns.length || ""}</span></h2>
-    ${ns.length ? `<ul class="c2-list">${shown.map(n => `<li><button class="c2-li-main" data-act="course-note" data-id="${esc(n.id)}" style="--nc:${noteColor(n.color)}"><b><span class="c2-nc" aria-hidden="true"></span>${esc(title(n))}</b></button></li>`).join("")}</ul>${ns.length > shown.length ? `<button class="link-btn c2-more" data-act="course-notes" data-id="${esc(c.id)}">See All ${ns.length} Notes</button>` : ""}`
-      : `<div class="facts c2-none"><span class="mini">No notes for this course yet.</span><button class="btn small" data-act="course-notes" data-id="${esc(c.id)}">Open Notes</button></div>`}`;
+  return c2Box("pen", "Notes", ns.length || "", ns.length ? `<ul class="c2-list">${shown.map(n => `<li><button class="c2-li-main" data-act="course-note" data-id="${esc(n.id)}" style="--nc:${noteColor(n.color)}"><b><span class="c2-nc" aria-hidden="true"></span>${esc(title(n))}</b></button></li>`).join("")}</ul>${ns.length > shown.length ? `<button class="link-btn c2-more" data-act="course-notes" data-id="${esc(c.id)}">See All ${ns.length} Notes</button>` : ""}`
+      : `<div class="facts c2-none"><span class="mini">No notes for this course yet.</span><button class="btn small" data-act="course-notes" data-id="${esc(c.id)}">Open Notes</button></div>`);
 }
 function courseFilesHtml(c){
   const fs = Object.values(state.files).filter(f => f.courseId === c.id && f.folderId !== "lectures");
   const byF = foldersOf(c.id).map(fo => [fo, fs.filter(f => f.folderId === fo.id).length]).filter(x => x[1]);
-  return `<h2 class="sec"><span class="t">Files</span><span class="n">${fs.length || ""}</span></h2>
-    <div class="facts" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${byF.map(([fo, n]) => `<button class="chip" data-act="f-go" data-c="${esc(c.id)}" data-f="${esc(fo.id)}">${FOLDER}${esc(fo.name)} <span class="mini">${n}</span></button>`).join("") || `<span class="mini" style="flex:1">No files yet. Keep the syllabus, assignment sheets and notes for this course here.</span>`}
-    <button class="btn small" data-act="f-go" data-c="${esc(c.id)}" data-f="">Open Files</button></div>`;
+  return c2Box("files", "Files", fs.length || "", `<div class="facts" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${byF.map(([fo, n]) => `<button class="chip" data-act="f-go" data-c="${esc(c.id)}" data-f="${esc(fo.id)}">${FOLDER}${esc(fo.name)} <span class="mini">${n}</span></button>`).join("") || `<span class="mini" style="flex:1">No files yet. Keep the syllabus, assignment sheets and notes for this course here.</span>`}
+    <button class="btn small" data-act="f-go" data-c="${esc(c.id)}" data-f="">Open Files</button></div>`);
 }
 
 
@@ -34100,7 +34118,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const strip = `<section class="lib-strip"><span class="lib-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg></span>
       <span class="lib-txt"><b>Decks From Classmates</b><span class="mini">${n == null ? `Shared decks for ${esc(c.code || k)}` : n ? `${plural(n, "deck")} shared for ${esc(c.code || k)}` : `None shared for ${esc(c.code || k)} yet. Share one of yours from its deck page.`}</span></span>
       <button type="button" class="btn small" data-act="lib-open" data-id="${esc(c.id)}">Browse</button></section>`;
-    return n ? strip : `<details class="c2-promo"><summary>Decks From Classmates<span class="mini">${n === 0 ? "None shared yet" : "Shared decks"}</span></summary>${strip}</details>`;
+    return n ? strip : `<details class="c2-promo"><summary>${c2Ic(C2_ICONS.shared)}Decks From Classmates<span class="mini">${n === 0 ? "None shared yet" : "Shared decks"}</span></summary>${strip}</details>`;
   }
   const libBtn = what => { const q = what === "quizzes"; return exploreBtn(q ? "quizzes" : "flashcards") + (can() && coded().length ? `<button class="btn small" data-act="lib-open"${q ? ' data-kind="quiz"' : ""}>Course Library</button>` : ""); };
   const L = {cid: "", all: false, kind: "deck"};
@@ -70832,7 +70850,7 @@ const rowLine = t => { if (!t || !MILESTONE(t.type) || t.status === "done") retu
 const courseExams = c => upcoming().filter(t => t.courseId === c.id).slice(0, 3);
 function courseHtml(c){
   const list = courseExams(c); if (!list.length) return "";
-  return `<h2 class="sec"><span class="t">Upcoming Exams</span><span class="n">${list.length}</span></h2><ul class="pp-exams">${list.map(t => { const sm = summaryOf(t), d = dayDiff(todayISO(), t.due); return `<li><button type="button" class="pp-ex-main" data-act="edit-task" data-id="${esc(t.id)}"><b>${esc(t.title)}</b><span class="mini">${esc(fmtDate(t.due))}${t.time ? " at " + esc(fmtTime(t.time)) : ""} · ${d === 0 ? "today" : d === 1 ? "tomorrow" : d + " days"}${sm ? " · " + esc(sm.line) : ""}</span></button><button type="button" class="btn small ${sm ? "" : "primary"}" data-act="exam-plan" data-id="${esc(t.id)}">${sm ? "Prep Plan" : "Plan My Prep"}</button></li>`; }).join("")}</ul>`;
+  return c2Box("exams", "Upcoming Exams", list.length, `<ul class="pp-exams">${list.map(t => { const sm = summaryOf(t), d = dayDiff(todayISO(), t.due); return `<li><button type="button" class="pp-ex-main" data-act="edit-task" data-id="${esc(t.id)}"><b>${esc(t.title)}</b><span class="mini">${esc(fmtDate(t.due))}${t.time ? " at " + esc(fmtTime(t.time)) : ""} · ${d === 0 ? "today" : d === 1 ? "tomorrow" : d + " days"}${sm ? " · " + esc(sm.line) : ""}</span></button><button type="button" class="btn small ${sm ? "" : "primary"}" data-act="exam-plan" data-id="${esc(t.id)}">${sm ? "Prep Plan" : "Plan My Prep"}</button></li>`; }).join("")}</ul>`);
 }
 /* the companion */
 function offer(){
@@ -73810,22 +73828,22 @@ const QADD = (() => {
     const objs = objsOf(c), pend = OB.pending[c.id];
     const hasFiles = Object.values(state.files).some(f => f.courseId === c.id && f.kind === "file");
     const done = objs.filter(o => o.done).length;
-    const head = `<h2 class="sec"><span class="t">Learning Objectives</span><span class="n">${objs.length ? done + "/" + objs.length : ""}</span></h2>`;
+    const head = c2Head("goals", "Learning Objectives", objs.length ? done + "/" + objs.length : "");
     const review = pend && pend.list.length ? `<div class="obj-pend"><span>${pend.list.length} suggested from ${esc(clip(pend.src, 60))}</span><button type="button" class="btn small primary" data-act="obj-review" data-c="${esc(c.id)}">Review</button></div>` : "";
     const intro = `<div class="facts" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="mini" style="flex:1 1 220px">What you should be able to do by the end of the course. Pulled from a syllabus or lecture slides, then used for flashcards, coverage and exam prep.</span>
       ${hasFiles ? `<button class="btn small ai-btn" data-act="obj-find" data-c="${esc(c.id)}">${AI_ICON} Find in My Files</button>` : ""}<button class="btn small" data-act="obj-edit" data-c="${esc(c.id)}">Add Objectives</button></div>`;
-    if (!objs.length) return review ? `${head}${review}${intro}` : `<details class="c2-promo"><summary>Learning Objectives<span class="mini">None yet</span></summary>${intro}</details>`;
+    if (!objs.length) return review ? `<section class="c2-card2 c2-box">${head}${review}${intro}</section>` : `<details class="c2-promo"><summary>${c2Ic(C2_ICONS.goals)}Learning Objectives<span class="mini">None yet</span></summary>${intro}</details>`;
     const cov = QADD.coverage(objs, materialOf(c)), gaps = objs.filter(o => !o.done && !(cov[o.id] || {}).cards).length;
     const shown = OB.all[c.id] || objs.length <= 6 ? objs : objs.slice(0, 5);
     const chip = (n, one, many) => n ? `<span class="obj-chip">${n} ${n === 1 ? one : many}</span>` : "";
     const li = o => { const v = cov[o.id] || {}, any = v.cards || v.notes || v.files;
       return `<li class="obj-li${o.done ? " done" : ""}"><label class="mi-check"><input type="checkbox" data-act="obj-done" data-id="${esc(o.id)}" data-c="${esc(c.id)}" ${o.done ? "checked" : ""}><span class="obj-t">${esc(o.text)}</span></label>
         <span class="obj-cov" title="Flashcards, notes and files that cover this objective">${chip(v.cards, "card", "cards")}${chip(v.notes, "note", "notes")}${chip(v.files, "file", "files")}${any || o.done ? "" : `<span class="obj-chip gap">No material yet</span>`}</span></li>`; };
-    return `${head}${review}<div class="obj-bar"><span class="track"><i style="width:${Math.round(done / objs.length * 100)}%"></i></span><span class="mini">${done} of ${objs.length} mastered</span></div>
+    return `<section class="c2-card2 c2-box">${head}${review}<div class="obj-bar"><span class="track"><i style="width:${Math.round(done / objs.length * 100)}%"></i></span><span class="mini">${done} of ${objs.length} mastered</span></div>
       <ul class="obj-list">${shown.map(li).join("")}</ul>
       ${objs.length > shown.length ? `<button class="link-btn" data-act="obj-more" data-c="${esc(c.id)}">Show All ${objs.length}</button>` : objs.length > 6 ? `<button class="link-btn" data-act="obj-more" data-c="${esc(c.id)}">Show Fewer</button>` : ""}
       <div class="row-actions" style="margin-top:10px">${!inPreview() && gaps ? `<button class="btn small ai-btn" data-act="obj-cards" data-c="${esc(c.id)}">${AI_ICON} Flashcards for ${gaps} Without Cards</button>` : !inPreview() ? `<button class="btn small ai-btn" data-act="obj-cards" data-c="${esc(c.id)}">${AI_ICON} Make Flashcards</button>` : ""}
-        <button class="btn small" data-act="obj-edit" data-c="${esc(c.id)}">Edit</button>${hasFiles ? `<button class="btn small ai-btn" data-act="obj-find" data-c="${esc(c.id)}">${AI_ICON} Find in Files</button>` : ""}</div>`;
+        <button class="btn small" data-act="obj-edit" data-c="${esc(c.id)}">Edit</button>${hasFiles ? `<button class="btn small ai-btn" data-act="obj-find" data-c="${esc(c.id)}">${AI_ICON} Find in Files</button>` : ""}</div></section>`;
   }
   // Topic names for the Exam Prep Planner
   const topicNames = cid => { const c = courseOf(cid); return c ? objsOf(c).filter(o => !o.done).map(o => QADD.shortName(o.text)).slice(0, 12) : []; };

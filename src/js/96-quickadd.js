@@ -564,22 +564,22 @@ const QADD = (() => {
     const objs = objsOf(c), pend = OB.pending[c.id];
     const hasFiles = Object.values(state.files).some(f => f.courseId === c.id && f.kind === "file");
     const done = objs.filter(o => o.done).length;
-    const head = `<h2 class="sec"><span class="t">Learning Objectives</span><span class="n">${objs.length ? done + "/" + objs.length : ""}</span></h2>`;
+    const head = c2Head("goals", "Learning Objectives", objs.length ? done + "/" + objs.length : "");
     const review = pend && pend.list.length ? `<div class="obj-pend"><span>${pend.list.length} suggested from ${esc(clip(pend.src, 60))}</span><button type="button" class="btn small primary" data-act="obj-review" data-c="${esc(c.id)}">Review</button></div>` : "";
     const intro = `<div class="facts" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="mini" style="flex:1 1 220px">What you should be able to do by the end of the course. Pulled from a syllabus or lecture slides, then used for flashcards, coverage and exam prep.</span>
       ${hasFiles ? `<button class="btn small ai-btn" data-act="obj-find" data-c="${esc(c.id)}">${AI_ICON} Find in My Files</button>` : ""}<button class="btn small" data-act="obj-edit" data-c="${esc(c.id)}">Add Objectives</button></div>`;
-    if (!objs.length) return review ? `${head}${review}${intro}` : `<details class="c2-promo"><summary>Learning Objectives<span class="mini">None yet</span></summary>${intro}</details>`;
+    if (!objs.length) return review ? `<section class="c2-card2 c2-box">${head}${review}${intro}</section>` : `<details class="c2-promo"><summary>${c2Ic(C2_ICONS.goals)}Learning Objectives<span class="mini">None yet</span></summary>${intro}</details>`;
     const cov = QADD.coverage(objs, materialOf(c)), gaps = objs.filter(o => !o.done && !(cov[o.id] || {}).cards).length;
     const shown = OB.all[c.id] || objs.length <= 6 ? objs : objs.slice(0, 5);
     const chip = (n, one, many) => n ? `<span class="obj-chip">${n} ${n === 1 ? one : many}</span>` : "";
     const li = o => { const v = cov[o.id] || {}, any = v.cards || v.notes || v.files;
       return `<li class="obj-li${o.done ? " done" : ""}"><label class="mi-check"><input type="checkbox" data-act="obj-done" data-id="${esc(o.id)}" data-c="${esc(c.id)}" ${o.done ? "checked" : ""}><span class="obj-t">${esc(o.text)}</span></label>
         <span class="obj-cov" title="Flashcards, notes and files that cover this objective">${chip(v.cards, "card", "cards")}${chip(v.notes, "note", "notes")}${chip(v.files, "file", "files")}${any || o.done ? "" : `<span class="obj-chip gap">No material yet</span>`}</span></li>`; };
-    return `${head}${review}<div class="obj-bar"><span class="track"><i style="width:${Math.round(done / objs.length * 100)}%"></i></span><span class="mini">${done} of ${objs.length} mastered</span></div>
+    return `<section class="c2-card2 c2-box">${head}${review}<div class="obj-bar"><span class="track"><i style="width:${Math.round(done / objs.length * 100)}%"></i></span><span class="mini">${done} of ${objs.length} mastered</span></div>
       <ul class="obj-list">${shown.map(li).join("")}</ul>
       ${objs.length > shown.length ? `<button class="link-btn" data-act="obj-more" data-c="${esc(c.id)}">Show All ${objs.length}</button>` : objs.length > 6 ? `<button class="link-btn" data-act="obj-more" data-c="${esc(c.id)}">Show Fewer</button>` : ""}
       <div class="row-actions" style="margin-top:10px">${!inPreview() && gaps ? `<button class="btn small ai-btn" data-act="obj-cards" data-c="${esc(c.id)}">${AI_ICON} Flashcards for ${gaps} Without Cards</button>` : !inPreview() ? `<button class="btn small ai-btn" data-act="obj-cards" data-c="${esc(c.id)}">${AI_ICON} Make Flashcards</button>` : ""}
-        <button class="btn small" data-act="obj-edit" data-c="${esc(c.id)}">Edit</button>${hasFiles ? `<button class="btn small ai-btn" data-act="obj-find" data-c="${esc(c.id)}">${AI_ICON} Find in Files</button>` : ""}</div>`;
+        <button class="btn small" data-act="obj-edit" data-c="${esc(c.id)}">Edit</button>${hasFiles ? `<button class="btn small ai-btn" data-act="obj-find" data-c="${esc(c.id)}">${AI_ICON} Find in Files</button>` : ""}</div></section>`;
   }
   // Topic names for the Exam Prep Planner
   const topicNames = cid => { const c = courseOf(cid); return c ? objsOf(c).filter(o => !o.done).map(o => QADD.shortName(o.text)).slice(0, 12) : []; };
