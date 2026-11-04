@@ -643,22 +643,35 @@
     if (S.name) { try { localStorage.setItem(NAMEK(), S.name); } catch(e) {} return then(); }
     nameSheet(true, then);
   }
+  // The sheet you were in (Create Group, Join, Share…) is set aside while the name is asked, and put back after
   function nameSheet(firstTime, then){
+    const tt = $("#toast"), prev = then && dlg.open ? [...dlg.childNodes].filter(n => n !== tt) : null;
+    // a sheet that keeps its work (sheetKeep) is set aside by openSheet itself, so it comes back the same way
+    const kept = prev && KEEP && prev.includes(KEEP.node) ? KEEP.key : "";
+    const putBack = () => { if (!prev) return; if (kept && sheetKept(kept)) { sheetResume(kept); return; } const inSheet = !!tt && tt.parentNode === dlg; dlg.replaceChildren(...prev); if (inSheet) dlg.appendChild(tt); };
     openSheet(`<form class="sheet">${head(firstTime ? "What Should Classmates Call You?" : "Your Name in Groups")}
       <div class="sheet-body">
         <p style="margin:0">People in your study groups and anyone you share a deck with will see this name. Your first name is enough.</p>
         <label class="f"><span class="lh">Display Name ${REQ}</span><input type="text" name="name" required maxlength="40" autocomplete="given-name" value="${esc(S.name || guessName())}" autofocus placeholder="e.g. Connor"></label>
       </div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${firstTime ? "Continue" : "Save Name"}</button></div>
-    </form>`, fd => {
+      <div class="sheet-foot"><span class="spacer"></span>${prev ? `<button type="button" class="btn" id="grpNameBack">Back</button>` : `<button type="button" class="btn" data-act="close">Cancel</button>`}<button type="button" class="btn primary" data-submit>${firstTime ? "Continue" : "Save Name"}</button></div>
+    </form>`, (fd, form) => {
       const name = String(fd.get("name") || "").trim().replace(/\s+/g, " ").slice(0, 40); if (!name) return false;
+      // Stays open until the name is saved, so a failed save can be tried again (and what you were doing goes on after)
+      const btn = $("[data-submit]", form); if (btn && btn.disabled) return false;
+      busyBtn(btn, true);
       (async () => {
-        try { await api.setProfile(name); S.name = name; try { localStorage.setItem(NAMEK(), name); } catch(e) {}
-          (S.groups || []).forEach(g => (S.members[g.id] || []).forEach(m => { if (m.user_id === myId()) m.display_name = name; }));
-          if (then) then(); else { toast(`Groups will see you as ${name}`); scheduleRender(); } }
-        catch(e) { toast(e.message); }
+        try { await api.setProfile(name); }
+        catch(e) { busyBtn(btn, false); toast(e.message); return; }
+        S.name = name; try { localStorage.setItem(NAMEK(), name); } catch(e) {}
+        (S.groups || []).forEach(g => (S.members[g.id] || []).forEach(m => { if (m.user_id === myId()) m.display_name = name; }));
+        if (dlg.open && dlg.contains(form)) { if (prev) putBack(); else dlg.close(); }
+        if (then) then(); else { toast(`Groups will see you as ${name}`); scheduleRender(); }
       })();
+      return false;
     });
+    const back = $("#grpNameBack");
+    if (back) back.addEventListener("click", () => { putBack(); prev.forEach(n => { if (n.querySelectorAll) n.querySelectorAll("button.busy").forEach(b => busyBtn(b, false)); }); });
   }
 
   /* Loading group data */
@@ -2463,13 +2476,30 @@
       return `<li class="grp-msg${mine ? " mine" : ""}${m.pinned ? " pinned" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b><span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span>${m.pinned ? `<span class="pill">Pinned</span>` : ""}${mine ? "" : `<button class="link-btn" data-act="grp-report" data-kind="message" data-id="${esc(m.id)}" aria-label="Report message from ${esc(m.author_name || "member")}">Report</button>`}</div><p>${esc(m.body)}</p>
         ${ext ? `<div class="grp-msg-acts">${chips}${picker || `<button class="grp-react add" data-act="grp-react-open" data-id="${esc(m.id)}" aria-label="Add a reaction">+</button>`}${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">${m.pinned ? "Unpin" : "Pin"}</button>` : ""}</div>` : ""}</div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
   }
+  // A group's member cap and message history follow the GROUP's Pro status (plans_group_is_pro on the server), not your plan.
+  // For the owner: "" (no note), "assign" (you can make it a Pro group), "full" (all your Pro groups used) or "upgrade" (Go Pro)
+  function freeGrpKind(g){
+    if (!g || !isOwner(g) || typeof PLAN === "undefined" || !PLAN || !PLAN.paywall()) return "";
+    let known = false, on = false, mine = false, room = true;
+    try { known = !S.gproErr && !!S.gpro[g.id]; on = gxOn(g); mine = meGroupPro(); room = gxMine() < GX_MAX; } catch(e) { mine = PLAN.groupsPro ? PLAN.groupsPro() : PLAN.isPro(); }
+    // Until the group's status loads, go by your plan as before
+    if (known ? on : mine) return "";
+    return mine ? (room ? "assign" : "full") : "upgrade";
+  }
+  const freeGrpLim = k => (PLAN.freeLimits ? PLAN.freeLimits() : PLAN.limits())[k];
+  // The end of a free-group note: Assign Pro for a Pro owner, Go Pro otherwise
+  function freeGrpAct(g, kind, upR, upTail){
+    return kind === "assign" ? `<button type="button" class="link-btn" data-act="gx-pro-sheet" data-id="${esc(g.id)}">Assign Pro</button> to keep full history and up to 100 members.`
+      : kind === "full" ? "You've assigned Pro to all 5 of your Pro groups."
+      : `<button type="button" class="link-btn" data-act="grp-upgrade" data-r="${esc(upR)}">Go Pro</button> ${upTail}`;
+  }
   function boardHtml(g){
-    const free = isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()), days = free ? PLAN.limits().groupMsgDays : 0;
+    const kind = freeGrpKind(g), days = kind ? freeGrpLim("groupMsgDays") : 0;
     return `<section class="grp-sec" id="grpBoard"><h3 class="fsec"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Message Board</h3>
       ${pinsHtml(g)}
       <form class="grp-post" id="grpPost" data-gid="${esc(g.id)}"><textarea id="grpMsgIn" rows="2" maxlength="2000" aria-label="Write a message to the group" aria-describedby="grpPostHint" placeholder="Write to the group…">${esc(S.drafts[g.id] || "")}</textarea><button type="submit" class="btn primary small">Post</button><span class="mini grp-post-hint" id="grpPostHint">Press ${/Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl"}+Enter to post</span></form>
       <ul class="grp-msgs" id="grpMsgList" aria-live="polite">${msgsHtml(g)}</ul>
-      ${days ? `<p class="mini" style="margin:8px 0 0">Messages are kept ${days} days in Free groups. <button class="link-btn" data-act="grp-upgrade" data-r="Pro keeps your group's message history for good.">Go Pro</button> to keep them all.</p>` : ""}</section>`;
+      ${days ? `<p class="mini" style="margin:8px 0 0">Messages are kept ${days} days in Free groups. ${freeGrpAct(g, kind, "Pro keeps your group's message history for good.", "to keep them all.")}</p>` : ""}</section>`;
   }
   // Pick a colour
   const rgbOf = c => [1, 3, 5].map(i => parseInt(String(c).substr(i, 2), 16));
@@ -2524,7 +2554,7 @@
         const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
         if (!me2 && S.blocked.has(m.user_id)) return `<li class="blocked">${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")} <span class="pill">Blocked</span></span><button class="btn small" data-act="grp-unblock" data-id="${esc(m.user_id)}">Unblock</button>${owner ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`;
         return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge ? gxBadgeIcon(m) : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") || gxBadgeLabel(m) ? `<span class="grp-badges">${gxBadgeLabel(m)}${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
-      ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
+      ${(k => k ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${freeGrpLim("groupMembers")} members (${ms.length} now). ${freeGrpAct(g, k, "Pro groups hold up to 100 members.", "for up to 100.")}</p>` : "")(freeGrpKind(g))}</section>`;
   }
   // Update parts of the open group page in place, so a message you're typing isn't lost
   function patch(gid){
@@ -2620,7 +2650,7 @@
       const li = $("#grpLinkIn"); if (li) li.addEventListener("focus", () => li.select());
       const sd = $("#grpSend"); if (sd) sd.addEventListener("click", () => sendText(d.name, `Study my Studyboard deck "${d.name}". Code: ${row.code}`, link));
       $("#grpUpd").addEventListener("click", e => { const wq = !!($("#grpWithQ") || {}).checked; if (!$("#shRights")) { openSheet(`<form class="sheet">${head("Update Shared Copy")}<div class="sheet-body">${picNote(d)}${rightsBox()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpUpd2">Update</button></div></form>`, () => { if (!rightsOk()) return false; doShare(d, wq, $("#grpUpd2")); return false; }); return; } if (!rightsOk()) return; doShare(d, wq, e.currentTarget); });
-      $("#grpStop").addEventListener("click", () => confirmSheet("Stop Sharing?", `The link and code for ${d.name} stop working. People who already added it keep their copy.`, "Stop Sharing", () => stopShare(row.code)));
+      $("#grpStop").addEventListener("click", () => confirmSheet("Stop Sharing?", stopText(d.name, row.code), "Stop Sharing", () => stopShare(row.code)));
     });
   }
   async function doShare(d, withQ, btn){
@@ -2638,11 +2668,19 @@
       deckShareSheet(nd);
     } catch(e) { busyBtn(btn, false); if (e.terms && window.SBSHARE && SBSHARE.reconfirm) SBSHARE.reconfirm(); else toast(e.message); }
   }
+  // The deck behind a share code (its link, or its published page, which is the same shared copy)
+  const deckOfCode = code => decksArr().find(x => (x.shared && x.shared.code === code) || (x.published && x.published.code === code));
+  const stopText = (name, code) => { const d = deckOfCode(code); return `The link and code for ${name} stop working.${d && d.published && d.published.code === code ? " Its public page in Studyboard Flashcards is taken down too." : ""} People who already added it keep their copy.`; };
   async function stopShare(code){
     try {
       await api.stopShare(code);
-      const d = decksArr().find(x => x.shared && x.shared.code === code);
-      if (d) { const nd = clone(d); delete nd.shared; saveDeck(nd, null); }
+      const d = deckOfCode(code);
+      if (d) {
+        const nd = clone(d); if (nd.shared && nd.shared.code === code) delete nd.shared;
+        // Stopping sharing deletes the shared copy, and with it the published page
+        if (nd.published && nd.published.code === code) { delete nd.published; if (window.SBSHARE && SBSHARE.pubGone) SBSHARE.pubGone(d, code); }
+        saveDeck(nd, null);
+      }
       S.shares = (S.shares || []).filter(s => s.code !== code);
       const el = $("#grpShares"); if (el) el.innerHTML = sharesHtml();
       toast("Stopped sharing. The link and code no longer work.");
@@ -2925,11 +2963,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (!g) return;
     rememberWebUrl();
     const link = linkFor("group", g.invite_code);
-    if (isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) && PLAN.limitNote && (S.members[g.id] || []).length >= PLAN.limits().groupMembers)
-      setTimeout(() => PLAN.limitNote("group", `${g.name} has ${PLAN.limits().groupMembers} members, the most a free group holds. Upgrade to Pro for groups of up to ${PLAN.proLimits().groupMembers}.`, {reason: `Pro groups hold up to ${PLAN.proLimits().groupMembers} members.`}), 300);
+    const fk = freeGrpKind(g);
+    if (fk === "upgrade" && PLAN.limitNote && (S.members[g.id] || []).length >= freeGrpLim("groupMembers"))
+      setTimeout(() => PLAN.limitNote("group", `${g.name} has ${freeGrpLim("groupMembers")} members, the most a free group holds. Upgrade to Pro for groups of up to ${PLAN.proLimits().groupMembers}.`, {reason: `Pro groups hold up to ${PLAN.proLimits().groupMembers} members.`}), 300);
     openSheet(`<div class="sheet">${head("Invite to " + g.name)}<div class="sheet-body">
       <p style="margin:0">Send this link or code to ${isProj(g) ? "your teammates" : "classmates"}. After they sign in to Studyboard, they can join. ${isOwner(g) ? "You can make a new code in Edit Group." : ""}</p>
-      ${(() => { if (!isOwner(g) || typeof PLAN === "undefined" || !PLAN || !PLAN.paywall() || (PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro())) return ""; const n = (S.members[g.id] || []).length, lim = PLAN.limits().groupMembers; return `<div class="grp-note">Free groups hold up to ${lim} members${n >= lim ? " and yours is full" : ` (${n} now)`}. <button type="button" class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</div>`; })()}
+      ${(() => { if (!fk) return ""; const n = (S.members[g.id] || []).length, lim = freeGrpLim("groupMembers"); return `<div class="grp-note">Free groups hold up to ${lim} members${n >= lim ? " and yours is full" : ` (${n} now)`}. ${freeGrpAct(g, fk, "Pro groups hold up to 100 members.", "for up to 100.")}</div>`; })()}
       <div class="grp-code-big" aria-label="Invite code">${esc(g.invite_code)}</div>
       ${link ? `<div class="grp-link"><input type="text" readonly value="${esc(link)}" aria-label="Invite link" id="grpInvLink"><button type="button" class="btn small" id="grpInvCopy">Copy Link</button></div>` : `<p class="mini" style="margin:0">They can type the code in Studyboard: Groups, then Enter a Code.</p>`}</div>
       <div class="sheet-foot"><button type="button" class="btn" id="grpInvCode">Copy Code</button><span class="spacer"></span><button type="button" class="btn primary" id="grpInvSend">Send Invite</button></div></div>`);
@@ -3064,7 +3103,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-deck-share": { const d = state.decks[id]; if (d) deckShareSheet(d); return true; }
       case "grp-file-deck": { const d = state.decks[id]; if (d) deckFileSheet(d); return true; }
       case "grp-share-copy": { const l = linkFor("deck", id); copyText(l || id, l ? "Link copied" : "Code copied"); return true; }
-      case "grp-share-stop": { const s = (S.shares || []).find(x => x.code === id); confirmSheet("Stop Sharing?", `The link and code for ${s ? s.name : "this deck"} stop working. People who already added it keep their copy.`, "Stop Sharing", () => stopShare(id)); return true; }
+      case "grp-share-stop": { const s = (S.shares || []).find(x => x.code === id); confirmSheet("Stop Sharing?", stopText(s ? s.name : "this deck", id), "Stop Sharing", () => stopShare(id)); return true; }
       case "grp-share-deck": if (g) shareDeckToGroupSheet(g); return true;
       case "grp-share-tasks": if (g) shareTasksSheet(g); return true;
       case "grp-item-view": { const it = itemOf(id), p = it && itemDeck(it); if (!p) { if (it) toast("That deck couldn't be read."); return true; }
@@ -3166,14 +3205,18 @@ ${kindPreview("study")}${kindPreview("project")}`;
     e.preventDefault();
     const gid = e.target.dataset.gid, ta = $("#grpMsgIn"), body = (ta.value || "").trim();
     if (!body) { ta.focus(); return; }
+    // A second Ctrl/Cmd+Enter while the first post is on its way would post it twice
+    if (S.posting) return;
     const btn = $("button[type=submit]", e.target); busyBtn(btn, true);
     ensureName(async () => {
+      S.posting = true;
       try {
         const row = await api.post(gid, body.slice(0, 2000));
         S.drafts[gid] = ""; const t2 = $("#grpMsgIn"); if (t2) t2.value = "";
         if (row && S.msgs[gid] && !S.msgs[gid].some(x => x.id === row.id)) S.msgs[gid].unshift(row);
         patch(gid);
       } catch(err) { toast(err.message); }
+      S.posting = false;
       busyBtn($("#grpPost button[type=submit]"), false);
     });
   });
@@ -3292,7 +3335,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
 
   /* Links (?deck=CODE, ?group=CODE) and update checks */
   const PEND = "sb:grpPending";
-  let watchT = 0, checked = false;
+  let watchT = 0, checked = false, outTicks = 0, askedIn = "";
   function takePending(){ try { const p = JSON.parse(localStorage.getItem(PEND) || "null"); if (p && Date.now() - p.at < 864e5) return p; localStorage.removeItem(PEND); } catch(e) {} return null; }
   function tick(){
     const p = takePending();
@@ -3301,9 +3344,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
     else if (p) {
       if (online()) {
         if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} if (p.kind === "group") openGroupCode(p.code); else openDeckCode(p.code); }
-      } else if ((!sbConfig() && sbLocalOnly()) || inPreview()) {
-        if (!dlg.open) {
-          try { localStorage.removeItem(PEND); } catch(e) {}
+      } else {
+        const local = (!sbConfig() && sbLocalOnly()) || inPreview();
+        // Signed out: ask once, after sign-in has had a moment to finish, and keep the invite so it opens once you're in
+        if (!local) outTicks = sbStarting ? 0 : outTicks + 1;
+        if (!dlg.open && (local || (outTicks >= 3 && askedIn !== p.kind + p.code))) {
+          if (local) { try { localStorage.removeItem(PEND); } catch(e) {} } else askedIn = p.kind + p.code;
           openSheet(`<div class="sheet">${head(p.kind === "group" ? "Study Group Invite" : "Shared Deck")}<div class="sheet-body">
             <p style="margin:0">Someone sent you ${p.kind === "group" ? "an invite to a study group" : "a shared deck"} (code <b>${esc(p.code)}</b>). ${inPreview() ? "Open it on the Studyboard website or in the desktop app to add it." : "Sign in to your Studyboard account to open it."}</p>
             ${p.kind === "group" ? "" : `<p class="mini" style="margin:0">Or ask them to send the deck as a file (Share, then Share as File) and use Import a Deck File.</p>`}</div>

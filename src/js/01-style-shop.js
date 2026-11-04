@@ -907,7 +907,8 @@ function stkPackInfo(id){
   STICKER_PACKS.forEach((p, i) => { if (!stkPacks.has(p.id)) stkPacks.set(p.id, {id: p.id, name: p.name, tier: p.tier, theme: p.theme, i}); });
   return stkPacks.get(id) || null;
 }
-const stkOwns = k => { const i = stkPackInfo((STICKERS[k] || {}).pack); return !STORE.paywall || !i || i.tier !== "pro" || (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro()) || cpAllows("sticker", i.id); };
+// The same ownership check as the shop (owns), so Pro stickers don't lock in the grace period while their pack shows as yours
+const stkOwns = k => { const i = stkPackInfo((STICKERS[k] || {}).pack); return !i || owns("sticker", i.id); };
 function stkIndex(){
   stkPackInfo("");
   const sig = Object.keys(STICKERS).length + ":" + stkPacks.size;

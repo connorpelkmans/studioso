@@ -725,6 +725,8 @@
 `;
   document.head.appendChild(css);
 
-  window.SBSHARE = {can, open, shareRef, agreedThen, reconfirm, libRow, libBtn, exploreBtn, pubRow, pubUrl, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
+  // The deck's shared copy was deleted (Stop Sharing), so its public page went with it
+  const pubGone = (d, code) => pubRefresh("deck", d.name, code, deckCourse(d));
+  window.SBSHARE = {can, open, shareRef, agreedThen, reconfirm, libRow, libBtn, exploreBtn, pubRow, pubUrl, pubGone, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
 })();
 
