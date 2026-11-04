@@ -1425,6 +1425,8 @@ document.addEventListener("submit", e => {
 document.addEventListener("keydown", e => {
   if (ui.tab !== "flashcards" || !ui.fc || ui.fc.mode !== "aiquiz" || dlg.open || (e.target.closest && e.target.closest("input,textarea,select"))) return;
   const f = ui.fc, q = f.qs[f.i]; if (!q) return;
+  // Ctrl, Cmd and Alt shortcuts belong to the browser; Enter on a focused button presses that button
+  if (e.ctrlKey || e.metaKey || e.altKey || (e.key === "Enter" && e.target.closest && e.target.closest("button,a,[role=button],summary") && !e.target.closest("#aiNext"))) return;
   if (f.ans[f.i] && e.key === "Enter") { e.preventDefault(); e.stopPropagation(); aiQuizAction("ai-next", {dataset: {}}); return; }
   if (f.ans[f.i]) return;
   if (q.type === "truefalse" && /^[tf]$/i.test(e.key)) {

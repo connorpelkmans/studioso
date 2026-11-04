@@ -100,14 +100,25 @@
     const who = (G() && G().myId && G().myId()) || "local"; if (purged === who) return; purged = who;
     setTimeout(() => Object.values(state.notes || {}).filter(n => live(n)).forEach(n => dropReceived(n.id)), 0);
   });
-  async function catchUp(nid, Lx){
+  async function catchUp(nid, Lx, from){
     const g = live(state.notes[nid]); if (!g || !online()) return;
-    const rows = await fetchOps(g.bid, seqGet(g.bid));
+    const rows = await fetchOps(g.bid, from != null ? Math.min(from, seqGet(g.bid)) : seqGet(g.bid));
     let ch = [];
     rows.forEach(r => { if (r.tag === TAG || (Lx && (Lx.sent.has(r.id) || Lx.seen.has(r.id)))) return; if (Lx) Lx.seen.add(r.id); ch = ch.concat(clean(r.ch)); });
     applyNote(nid, ch);
     if (rows.length) seqSet(g.bid, rows[rows.length - 1].id);
   }
+  // While the connection may be down (the live channel dropped, the device went offline or the tab was hidden), strokes
+  // can be missed even as later ones arrive, so the catch-up reads from where things stood when it went down
+  const mark = x => { if (x && x.low == null) x.low = seqGet(x.bid); };
+  function resume(x){
+    if (!x || L !== x) return;
+    const from = x.low; x.low = null;
+    catchUp(x.nid, x, from).catch(() => { if (x.low == null && from != null) x.low = from; });
+  }
+  window.addEventListener("offline", () => mark(L));
+  window.addEventListener("online", () => resume(L));
+  document.addEventListener("visibilitychange", () => { if (document.hidden) mark(L); else resume(L); });
   function stop(){
     if (!L) return; const x = L; L = null;
     if (x.q.length) send(x);
@@ -128,7 +139,8 @@
           const r = p && p.new; if (!r || L !== x || r.tag === TAG || x.sent.has(r.id) || x.seen.has(r.id)) return;
           x.seen.add(r.id); applyNote(x.nid, clean(r.ch)); seqSet(x.bid, r.id);
         });
-        ch.subscribe(st => { x.on = st === "SUBSCRIBED" || st === undefined; chip(); });
+        // a channel that comes back (after sleep or a dropped connection) catches up on what it missed meanwhile
+        ch.subscribe(st => { x.on = st === "SUBSCRIBED" || st === undefined; chip(); if (!x.on) mark(x); else if (x.subbed) resume(x); else x.subbed = true; });
         x.ch = ch;
       } catch (e) {}
     }
