@@ -451,7 +451,7 @@ function viewDeck(d){
 function deckSheet(d){
   const isNew = !d;
   d = d ? clone(d) : {name: "", courseId: ui.filter !== "all" ? ui.filter : ""};
-  openSheet(`<form class="sheet">${head(isNew ? "New Deck" : "Edit Deck")}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Deck" : "Edit Deck", SH_IC.card, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(d.name))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Deck Name ${REQ}</span><input type="text" name="name" required maxlength="120" value="${esc(d.name)}" autofocus placeholder="e.g. Population ecology"></label>
       <label class="f">Course<select name="courseId">${courseSelectHtml(d.courseId)}</select></label>
