@@ -89,7 +89,7 @@ const LINKCARDS = (() => {
     h.classList.toggle("cl-bad", !!v && !L.ok);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
-      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
+      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.${prov === "trial" ? " Reading pages needs your own free Gemini key, or paste the text below." : ""}`;
   });
   document.addEventListener("click", e => {
@@ -128,6 +128,12 @@ const LINKCARDS = (() => {
   }
   async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider, trial = prov === "trial";
+    // Studyboard AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI makes the notes from it
+    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube() && !(aiCfg().keys || {}).gemini) {
+      const v = await proYoutube(L.url, signal);
+      if (onStatus) onStatus("Got the video's transcript. Writing study notes…");
+      pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
+    }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: trial ? 1400 : 8000, temperature: 0.2, onStatus, system: SYS(trial)};
     let r;
@@ -196,7 +202,7 @@ const LINKCARDS = (() => {
     if (locked()) { proWhy(); return; }
     const pasted = String(o.pasted || "").trim(), prov = aiCfg().provider;
     if (!pasted && prov === "trial") { say("Reading a link needs your own free Gemini key, which takes about a minute to set up. Or paste the text, and the free trial can use that.", PASTE + ` <button type="button" class="btn small" data-act="ai-setup">Add My Free Gemini Key</button>`); return; }
-    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
+    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;

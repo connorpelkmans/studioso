@@ -333,5 +333,32 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   H = harness({reply: () => ({content: [{type: "text", text: "{\"ok\":3}"}], stop_reason: "end_turn", usage: {input_tokens: 9000, output_tokens: 400, server_tool_use: {web_search_requests: 2}}})});
   await call(H, job({search: true}));
   eq((await H.meterOf().read()).spent, P.costOf({input_tokens: 9000, output_tokens: 400, server_tool_use: {web_search_requests: 2}}), "charged for its tokens and its searches");
+
+  /* YouTube links (Gemini writes the transcript) */
+  eq([P.youtubeId("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10"), P.youtubeId("https://youtu.be/dQw4w9WgXcQ"), P.youtubeId("https://m.youtube.com/shorts/dQw4w9WgXcQ")], ["dQw4w9WgXcQ", "dQw4w9WgXcQ", "dQw4w9WgXcQ"], "YouTube links, short links and Shorts");
+  for (const bad of ["https://evil.example/watch?v=dQw4w9WgXcQ", "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ", "javascript:alert(1)", "https://www.youtube.com/watch?v=short", "https://www.youtube.com/watch?v=dQw4w9WgXcQ/../x", "file:///etc/passwd"]) eq(P.youtubeId(bad), null, `refused: ${bad.slice(0, 40)}`);
+  const yr = P.youtubeRequest("dQw4w9WgXcQ");
+  eq([yr.contents[0].parts[0].file_data.file_uri, yr.contents[0].parts[0].video_metadata.end_offset, yr.generationConfig.maxOutputTokens], ["https://www.youtube.com/watch?v=dQw4w9WgXcQ", "7200s", 32000], "Gemini sees only the canonical link, at most 2 hours, and writes at most 32K tokens");
+  ok(P.ytWorst() >= P.ytCost(7200 * 100, 32000), "the reservation covers 2 hours at 100 tokens a second and a full answer");
+  const ycall = (H, body, env) => P.handle(new Request("https://w.example/v1/youtube", {method: "POST", headers: {Authorization: "Bearer good", "Content-Type": "application/json"}, body: JSON.stringify(body)}), env || {...ENV, GOOGLE_AI_KEY: "g"}, H.deps).then(J);
+  const gOk = (u = {promptTokenCount: 160000, candidatesTokenCount: 20000, thoughtsTokenCount: 500}) => async req => ({status: 200, json: {candidates: [{content: {parts: [{text: JSON.stringify({title: "Cells", transcript: "Today: membranes.", onScreen: "Slide 1"})}]}, finishReason: "STOP"}], usageMetadata: u}});
+  H = harness(); H.deps.gemini = gOk(); x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
+  eq([x.s, x.j.transcript, x.j.title], [200, "Today: membranes.", "Cells"], "a video becomes a transcript");
+  eq((await H.meterOf().read()).spent, P.ytCost(160000, 20500), "charged for what Gemini read and wrote, thinking included");
+  H = harness(); H.deps.gemini = async () => ({status: 400, json: {error: {message: "private"}}}); x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
+  eq([x.s, x.j.error, (await H.meterOf().read()).spent], [422, "video", 0], "a private or missing video: refused, and not charged");
+  H = harness(); H.deps.gemini = async () => { throw new Error("reset"); }; await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
+  eq((await H.meterOf().read()).spent, P.ytWorst(), "a dropped connection keeps the worst case charged");
+  H = harness(); H.deps.gemini = gOk(); eq((await ycall(H, {url: "https://vimeo.com/123"})).s, 400, "only YouTube links");
+  H = harness(); H.deps.gemini = gOk(); eq((await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, ENV)).s, 503, "off without GOOGLE_AI_KEY");
+  H = harness(); H.deps.gemini = gOk(); x = await J(await call(H, null, {path: "/v1/status", method: "GET", env: {...ENV, GOOGLE_AI_KEY: "g"}}));
+  eq(x.j.youtube, true, "status says YouTube links work");
+  H = harness({tier: "none"}); H.deps.gemini = gOk(); eq((await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"})).s, 403, "free accounts can't");
+
+  /* Token counts are free to us but limited per student, so they can't be used to flood Anthropic */
+  H = harness({count: () => 95000});
+  const floods = []; for (let i = 0; i < 25; i++) floods.push((await J(await call(H, job({content: [{type: "text", text: "x".repeat(200000)}]})))).j.error);
+  eq([floods.filter(e => e === "too_long").length, floods.filter(e => e === "rate").length], [20, 5], "after 20 counted requests in a minute, the rest are turned away before reaching Anthropic");
+  ok(H.counts.length === 20, "so only 20 token counts were made");
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

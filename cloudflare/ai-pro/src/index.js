@@ -1,7 +1,7 @@
 // Cloudflare wiring for Studyboard Pro AI
 import { DurableObject } from "cloudflare:workers";
 import Anthropic from "@anthropic-ai/sdk";
-import { Meter, Ceiling, handle, verifyUser, planOf, WHISPER_MODEL, EMBED_MODEL } from "./pro.js";
+import { Meter, Ceiling, handle, verifyUser, planOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
 
 // One per student, named by their Supabase user id
 export class StudentMeter extends DurableObject {
@@ -10,6 +10,7 @@ export class StudentMeter extends DurableObject {
   settle(id, actual) { return this.m.settle(id, actual); }
   status(lim) { return this.m.status(lim); }
   forget() { return this.m.forget(); }
+  touch(lim) { return this.m.touch(lim); }
 }
 
 // One per UTC day for everyone, named by the date
@@ -37,6 +38,8 @@ export default {
           create: req => client.messages.create(req, (req.tools || []).some(t => t.name === "web_fetch") ? { headers: { "anthropic-beta": "web-fetch-2025-09-10" } } : undefined),
           count: async req => { const { max_tokens, ...rest } = req; void max_tokens; return (await client.messages.countTokens(rest)).input_tokens; }
         },
+        // YouTube links: Google's Gemini API with Studyboard's Google AI Studio key (GOOGLE_AI_KEY)
+        gemini: env.GOOGLE_AI_KEY ? async body => { const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${YT.model}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": env.GOOGLE_AI_KEY }, body: JSON.stringify(body) }); return { status: res.status, json: await res.json().catch(() => null) }; } : null,
         embed: env.AI ? texts => env.AI.run(EMBED_MODEL, { text: texts }) : null,
         whisper: env.AI ? bytes => env.AI.run(WHISPER_MODEL, { audio: b64(bytes), task: "transcribe", vad_filter: true }) : null,
         defer: p => ctx.waitUntil(p.catch(() => {}))

@@ -34,6 +34,8 @@
     "MAX_INFLIGHT": "4",
     // "1" turns Pro AI off without removing the key
     "PRO_AI_OFF": "",
-    "WHISPER_OFF": ""
+    "WHISPER_OFF": "",
+    // YouTube links need the GOOGLE_AI_KEY secret (a paid Google AI Studio key); "1" turns them off
+    "YOUTUBE_OFF": ""
   }
 }

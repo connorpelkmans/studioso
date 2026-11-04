@@ -3486,7 +3486,7 @@ function aiProSet(j){
   const prev = aiProGet() || {};
   const on = j.on === false ? false : j.on === true ? true : !!prev.on;
   const next = {uid: sbUser.id, on, tier: j.tier || prev.tier || "", usedPct: typeof j.usedPct === "number" ? j.usedPct : prev.usedPct || 0, soft: typeof j.soft === "boolean" ? j.soft : !!prev.soft,
-    resets: j.resets !== undefined ? j.resets : prev.resets || null, transcribe: typeof j.transcribe === "boolean" ? j.transcribe : !!prev.transcribe, at: Date.now()};
+    resets: j.resets !== undefined ? j.resets : prev.resets || null, transcribe: typeof j.transcribe === "boolean" ? j.transcribe : !!prev.transcribe, youtube: typeof j.youtube === "boolean" ? j.youtube : !!prev.youtube, at: Date.now()};
   try { localStorage.setItem(AI_PRO_LS, JSON.stringify(next)); } catch(e) {}
 }
 const aiProUsedUp = () => { const t = aiProGet(); return !!t && t.usedPct >= 100; };
@@ -3516,6 +3516,8 @@ async function aiProForget(){
   try { await fetchT(`${AI_PRO}/v1/me`, {method: "DELETE", headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 8000); } catch(e) {}
   try { localStorage.removeItem(AI_PRO_LS); } catch(e) {}
 }
+// Test handle (only when a test page sets window.__SB_TEST)
+if (window.__SB_TEST) window.__sbAi = {cfg: () => aiCfg(), proRefresh: () => aiProRefresh(), proGet: () => aiProGet()};
 // "Resets on December 1"
 const aiProResets = () => { const t = aiProGet(); if (!t || !t.resets) return ""; try { return new Date(t.resets).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } };
 // A scanned code opens the app as <app>#sbkey=XXXX-XXXX-XXXX
@@ -3994,6 +3996,22 @@ async function proEmbed(texts, isQuery){
   if (res.ok && Array.isArray(j.vectors)) return j.vectors;
   if (res.status === 429 || j.error === "used_up" || j.error === "today") throw aiErr("limit", "Search by meaning is resting for now. It picks up again later.");
   throw aiErr("busy", "Studyboard AI is very busy right now. Try again in a minute.");
+}
+// A YouTube video's transcript and on-screen text, from Studyboard AI (Google's Gemini watches it on the server)
+const aiProYoutube = () => { try { return aiCfg().provider === "studyboard" && !!(aiProGet() || {}).youtube; } catch(e) { return false; } };
+async function proYoutube(url, signal){
+  const tok = await aiTrialToken();
+  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+  let res;
+  try { res = await fetchT(`${AI_PRO}/v1/youtube`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok}, body: JSON.stringify({url})}, 300000, signal); }
+  catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "Watching the video took too long. Try a shorter one."); throw offlineErr("Studyboard AI"); }
+  const j = await res.json().catch(() => ({}));
+  aiProSet(j);
+  if (res.ok && typeof j.transcript === "string" && j.transcript) return j;
+  if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
+  if (j.error === "video") throw aiErr("video", "That video couldn't be watched. It may be private, unlisted, age-restricted, members-only or removed.");
+  if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
+  throw aiErr("busy", "Studyboard AI couldn't watch that video right now. Try again in a minute.");
 }
 const aiProAudio = () => { try { return aiCfg().provider === "studyboard" && !!(aiProGet() || {}).transcribe; } catch(e) { return false; } };
 // Why Studyboard AI stopped, with the way on
@@ -94023,7 +94041,7 @@ const LINKCARDS = (() => {
     h.classList.toggle("cl-bad", !!v && !L.ok);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
-      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
+      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.${prov === "trial" ? " Reading pages needs your own free Gemini key, or paste the text below." : ""}`;
   });
   document.addEventListener("click", e => {
@@ -94062,6 +94080,12 @@ const LINKCARDS = (() => {
   }
   async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider, trial = prov === "trial";
+    // Studyboard AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI makes the notes from it
+    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube() && !(aiCfg().keys || {}).gemini) {
+      const v = await proYoutube(L.url, signal);
+      if (onStatus) onStatus("Got the video's transcript. Writing study notes…");
+      pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
+    }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: trial ? 1400 : 8000, temperature: 0.2, onStatus, system: SYS(trial)};
     let r;
@@ -94130,7 +94154,7 @@ const LINKCARDS = (() => {
     if (locked()) { proWhy(); return; }
     const pasted = String(o.pasted || "").trim(), prov = aiCfg().provider;
     if (!pasted && prov === "trial") { say("Reading a link needs your own free Gemini key, which takes about a minute to set up. Or paste the text, and the free trial can use that.", PASTE + ` <button type="button" class="btn small" data-act="ai-setup">Add My Free Gemini Key</button>`); return; }
-    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
+    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
