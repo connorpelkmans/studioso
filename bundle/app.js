@@ -12821,7 +12821,7 @@ function taskView(t0){
         ${cl}
         ${prog}
       </div>
-      <div class="sheet-foot">${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBRUBRIC ? SBRUBRIC.taskBtn(t) : ""}<span class="spacer"></span><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div>
+      ${(tools => `<div class="sheet-foot tv-foot">${tools ? `<div class="tv-row tv-tools">${tools}</div>` : ""}<div class="tv-row"><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div></div>`)(`${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBRUBRIC ? SBRUBRIC.taskBtn(t) : ""}`)}
     </div>`);
     const sc2 = dlg.querySelector(".occv-body"); if (sc2) sc2.scrollTop = top;
     $("#tvEdit").addEventListener("click", () => { const x = state.tasks[id]; if (x) taskForm(x); });
@@ -31452,14 +31452,12 @@ hook("boot", boot);
     const v = $("#view"), pane = v && $(".bpane-plan", v); if (!pane) return;
     const old = $("#grpMine", pane); if (old) old.remove();
     const rows = mineRows(); if (!rows.length) return;
-    const today = todayISO(), wk = GTL.weekDue(rows, today), shown = rows.slice(0, 5), one = [...new Set(rows.map(r => r.gid))].length === 1;
-    const sum = [wk.week ? `${plural(wk.week, "group task")} due this week` : `${plural(rows.length, "group task")} assigned to you`, wk.late ? `${wk.late} overdue` : ""].filter(Boolean).join(" · ");
+    const today = todayISO(), shown = rows.slice(0, 5);
     const li = r => { const c = GTL.due(r.due, today);
       return `<li class="gm-row${c.late ? " is-late" : ""}"><button type="button" class="pt-check" role="checkbox" aria-checked="false" data-act="grp-pt-done" data-id="${esc(r.id)}" data-g="${esc(r.gid)}" aria-label="Mark done: ${esc(str(r.title, 80))}"><span class="pt-box">${CHECK}</span></button>
         <button type="button" class="gm-main" data-act="grp-pt-open" data-g="${esc(r.gid)}" data-l="${esc(r.listId)}" data-id="${esc(r.id)}"><span class="gm-title">${esc(r.title)}</span>
           <span class="pt-meta"><span class="gm-badge" title="${esc(r.groupName)}">${esc(r.badge)}</span>${r.due ? `<span class="pt-due${c.late ? " late" : c.soon ? " soon" : ""}">${esc(ptDueTxt(r.due))}</span>` : ""}<span class="mini">about ${r.hours}h</span></span></button></li>`; };
     pane.insertAdjacentHTML("beforeend", `<section class="grp-mine" id="grpMine" aria-label="Group tasks assigned to you"><h3 class="fsec">${PT_ICON}My Group Tasks<span class="n">${rows.length}</span></h3>
-      <p class="mini gm-sum">${esc(sum)}. <button type="button" class="link-btn" data-act="${one ? "grp-pt-open" : "grp-page"}" data-g="${esc(rows[0].gid)}" data-l="${esc(rows[0].listId)}">${one ? "Open the Group" : "Open Study Groups"}</button></p>
       <ul class="gm-list">${shown.map(li).join("")}</ul>${rows.length > shown.length ? `<p class="mini">+${rows.length - shown.length} more in your groups</p>` : ""}</section>`);
   }
 
@@ -91501,7 +91499,7 @@ const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test
 const RUB_NAME = /rubric|criteria|marking|grading|scoring|assessment guide/i;
 function taskBtn(t){
   if (!t || inPreview() || !RBC.eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON} Check Against Rubric${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
 // The rubric a task already has: from the school site, an attached rubric file, or notes that read like one
 async function autoRubric(t){

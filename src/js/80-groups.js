@@ -2083,14 +2083,12 @@
     const v = $("#view"), pane = v && $(".bpane-plan", v); if (!pane) return;
     const old = $("#grpMine", pane); if (old) old.remove();
     const rows = mineRows(); if (!rows.length) return;
-    const today = todayISO(), wk = GTL.weekDue(rows, today), shown = rows.slice(0, 5), one = [...new Set(rows.map(r => r.gid))].length === 1;
-    const sum = [wk.week ? `${plural(wk.week, "group task")} due this week` : `${plural(rows.length, "group task")} assigned to you`, wk.late ? `${wk.late} overdue` : ""].filter(Boolean).join(" · ");
+    const today = todayISO(), shown = rows.slice(0, 5);
     const li = r => { const c = GTL.due(r.due, today);
       return `<li class="gm-row${c.late ? " is-late" : ""}"><button type="button" class="pt-check" role="checkbox" aria-checked="false" data-act="grp-pt-done" data-id="${esc(r.id)}" data-g="${esc(r.gid)}" aria-label="Mark done: ${esc(str(r.title, 80))}"><span class="pt-box">${CHECK}</span></button>
         <button type="button" class="gm-main" data-act="grp-pt-open" data-g="${esc(r.gid)}" data-l="${esc(r.listId)}" data-id="${esc(r.id)}"><span class="gm-title">${esc(r.title)}</span>
           <span class="pt-meta"><span class="gm-badge" title="${esc(r.groupName)}">${esc(r.badge)}</span>${r.due ? `<span class="pt-due${c.late ? " late" : c.soon ? " soon" : ""}">${esc(ptDueTxt(r.due))}</span>` : ""}<span class="mini">about ${r.hours}h</span></span></button></li>`; };
     pane.insertAdjacentHTML("beforeend", `<section class="grp-mine" id="grpMine" aria-label="Group tasks assigned to you"><h3 class="fsec">${PT_ICON}My Group Tasks<span class="n">${rows.length}</span></h3>
-      <p class="mini gm-sum">${esc(sum)}. <button type="button" class="link-btn" data-act="${one ? "grp-pt-open" : "grp-page"}" data-g="${esc(rows[0].gid)}" data-l="${esc(rows[0].listId)}">${one ? "Open the Group" : "Open Study Groups"}</button></p>
       <ul class="gm-list">${shown.map(li).join("")}</ul>${rows.length > shown.length ? `<p class="mini">+${rows.length - shown.length} more in your groups</p>` : ""}</section>`);
   }
 
