@@ -7,7 +7,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
 // 1. static checks on the native sources
 const swift = read("ios-wrapper/native/SBCapture.swift");
-const kotlin = read("android-wrapper/app/src/main/java/com/studioso/app/capture/CaptureClient.kt") + read("android-wrapper/app/src/main/java/com/studioso/app/capture/CaptureStore.kt");
+const kotlin = read("android-wrapper/app/src/main/java/com/studyboardapp/studyboard/capture/CaptureClient.kt") + read("android-wrapper/app/src/main/java/com/studyboardapp/studyboard/capture/CaptureStore.kt");
 const both = { swift, kotlin };
 for (const [name, src] of Object.entries(both)) {
   ok(src.includes(C.path), name + ": endpoint path");

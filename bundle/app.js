@@ -71,8 +71,8 @@ const SPELL = (() => {
     return "";
   }
   const mode = region();
-  const W = {color: "colour", colors: "colours", colored: "coloured", colorful: "colourful", coloring: "colouring", favorite: "favorite", favorites: "favorites",
-    favorited: "favorited", behavior: "behaviour", behaviors: "behaviours", honor: "honour", honors: "honours", neighbor: "neighbour", neighbors: "neighbours", labor: "labour",
+  const W = {color: "colour", colors: "colours", colored: "coloured", colorful: "colourful", coloring: "colouring", favorite: "favourite", favorites: "favourites",
+    favorited: "favourited", favoriting: "favouriting", behavior: "behaviour", behaviors: "behaviours", honor: "honour", honors: "honours", neighbor: "neighbour", neighbors: "neighbours", labor: "labour",
     humor: "humour", flavor: "flavour", harbor: "harbour", rumor: "rumour", center: "centre", centers: "centres", centered: "centred", theater: "theatre", fiber: "fibre",
     liter: "litre", liters: "litres", gray: "grey", grayed: "greyed", canceled: "cancelled", canceling: "cancelling", labeled: "labelled", labeling: "labelling",
     traveled: "travelled", traveling: "travelling", traveler: "traveller", modeled: "modelled", modeling: "modelling", jewelry: "jewellery", catalog: "catalogue",
@@ -200,8 +200,12 @@ const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));
    Placeholders are {name}; plurals are "one|other" pairs picked with Intl.PluralRules. tools/extract-i18n.js rebuilds locales/en.json from the code.
    Static HTML opts in with data-i18n="key" (text) and data-i18n-aria="key" (aria-label); English stays in data-i18n-en. */
 const SBI18N = (() => {
-  const LS = "studyboard:lang", CATS = {en: {}}, SOURCES = ["en"];
-  let lang = "en", rules = null;
+  // the languages that ship with the app (locales/<lang>.json): always offered in Settings, loaded when picked
+  const LS = "studyboard:lang", CATS = {en: {}}, SOURCES = ["en", "es"];
+  // A catalog with fewer strings than this (about half of locales/en.json) leaves most of the page in English: the page stays
+  // marked English (so screen readers keep an English voice) and only the translated bits are marked with their language
+  const FULL = 300;
+  let lang = "en", rules = null, dloc;
   const norm = l => String(l || "").toLowerCase().replace("_", "-");
   const base = l => norm(l).split("-")[0];
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
@@ -212,6 +216,16 @@ const SBI18N = (() => {
   };
   function setRules(){ try { rules = new Intl.PluralRules(lang); } catch (e) { rules = null; } }
   function fill(str, vars){ return vars ? String(str).replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m) : String(str); }
+  const full = l => { const c = CATS[norm(l)] || CATS[base(l)]; return base(l) === "en" || !!c && Object.keys(c).length >= FULL; };
+  const pageLang = () => full(lang) ? lang : "en";
+  // Dates and times follow the page's language: on an English page in a German browser, "Due Monday", not "Due Montag"
+  // (the region's own date order and 24-hour clock are kept where English has them, e.g. en-DE)
+  function dateLoc(){
+    const pl = pageLang(); if (base(pl) !== "en") return pl;
+    const nav = norm((navigator.languages && navigator.languages[0]) || navigator.language || "en"); if (base(nav) === "en") return undefined;
+    try { const r = new Intl.Locale(nav).maximize().region; if (r && Intl.DateTimeFormat.supportedLocalesOf("en-" + r).length) return "en-" + r; } catch (e) {}
+    return "en";
+  }
   function lookup(key){ const c = CATS[lang] || CATS[base(lang)]; return c && c[key] != null ? c[key] : null; }
   function tr(key, en, vars){ const hit = lookup(key); return fill(hit != null ? hit : en, vars); }
   // trn(key, n, "one form|other form")
@@ -223,23 +237,24 @@ const SBI18N = (() => {
     else if (rules) { const k = rules.select(n), at = forms.length === names.length ? names.indexOf(k) : Math.min(names.indexOf(k), forms.length - 1); if (at >= 0) i = Math.min(at, forms.length - 1); }
     return fill(forms[i], Object.assign({n: fmtN(n)}, vars || {}));
   }
-  const fmtN = (n, o) => { try { return new Intl.NumberFormat(lang, o).format(n); } catch (e) { return String(n); } };
-  const fmtD = (d, o) => { try { return new Intl.DateTimeFormat(lang, o || {month: "short", day: "numeric"}).format(d instanceof Date ? d : new Date(d)); } catch (e) { return String(d); } };
+  const fmtN = (n, o) => { try { return new Intl.NumberFormat(pageLang(), o).format(n); } catch (e) { return String(n); } };
+  const fmtD = (d, o) => { try { return new Intl.DateTimeFormat(dloc, o || {month: "short", day: "numeric"}).format(d instanceof Date ? d : new Date(d)); } catch (e) { return String(d); } };
   function register(l, cat){ l = norm(l); CATS[l] = Object.assign(CATS[l] || {}, cat || {}); if (SOURCES.indexOf(l) < 0) SOURCES.push(l); if (l === lang || l === base(lang)) applyDom(); return CATS[l]; }
   function applyDom(root){
-    const r = root || document;
+    const r = root || document, pl = pageLang(), mark = (el, hit) => { if (hit && pl !== lang) { el.setAttribute("lang", lang); el.setAttribute("data-i18n-l", ""); } else if (el.hasAttribute("data-i18n-l")) { el.removeAttribute("lang"); el.removeAttribute("data-i18n-l"); } };
     r.querySelectorAll("[data-i18n]").forEach(el => {
       if (!el.hasAttribute("data-i18n-en")) {
         const t = [...el.childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         el.setAttribute("data-i18n-en", t ? t.nodeValue.trim() : el.textContent.trim());
       }
-      const txt = tr(el.getAttribute("data-i18n"), el.getAttribute("data-i18n-en"));
+      const txt = tr(el.getAttribute("data-i18n"), el.getAttribute("data-i18n-en")); mark(el, lookup(el.getAttribute("data-i18n")) != null);
       const t = [...el.childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
       if (t) t.nodeValue = txt; else if (!el.children.length) el.textContent = txt; else el.appendChild(document.createTextNode(txt));
     });
     r.querySelectorAll("[data-i18n-aria]").forEach(el => {
       if (!el.hasAttribute("data-i18n-aria-en")) el.setAttribute("data-i18n-aria-en", el.getAttribute("aria-label") || "");
       el.setAttribute("aria-label", tr(el.getAttribute("data-i18n-aria"), el.getAttribute("data-i18n-aria-en")));
+      if (!el.hasAttribute("data-i18n")) mark(el, lookup(el.getAttribute("data-i18n-aria")) != null);
     });
   }
   async function load(l){
@@ -251,20 +266,28 @@ const SBI18N = (() => {
     }
   }
   function use(l){
-    lang = norm(l) || "en"; setRules();
-    try { document.documentElement.setAttribute("lang", lang); document.documentElement.setAttribute("dir", /^(ar|he|fa|ur)/.test(base(lang)) ? "rtl" : "ltr"); } catch (e) {}
+    lang = norm(l) || "en"; setRules(); const pl = pageLang(); dloc = dateLoc();
+    try { document.documentElement.setAttribute("lang", pl); document.documentElement.setAttribute("dir", /^(ar|he|fa|ur)/.test(base(pl)) ? "rtl" : "ltr"); } catch (e) {}
     applyDom();
     try { fire("lang", lang); } catch (e) {}
   }
   async function set(l){ store(LS, l || "auto"); const want = l && l !== "auto" ? l : pick(); await load(want); use(want); }
   const have = l => !!CATS[norm(l)] || !!CATS[base(l)];
   lang = pick(); setRules();
+  dloc = dateLoc();
+  // A date formatted with no language given uses the page's (above), not the browser's
+  try {
+    const wrap = f => function(l, o){ return f.call(this, l === undefined && dloc ? dloc : l, o); }, D = Date.prototype;
+    D.toLocaleDateString = wrap(D.toLocaleDateString); D.toLocaleTimeString = wrap(D.toLocaleTimeString); D.toLocaleString = wrap(D.toLocaleString);
+    const DTF = Intl.DateTimeFormat, P = function(l, o){ return new DTF(l === undefined && dloc ? dloc : l, o); };
+    P.prototype = DTF.prototype; P.supportedLocalesOf = DTF.supportedLocalesOf.bind(DTF); Intl.DateTimeFormat = P;
+  } catch (e) {}
   // English pages stay untouched
   if (base(lang) !== "en") load(lang).then(() => { if (have(lang)) use(lang); else { lang = "en"; setRules(); } });
-  return {tr, trn, fmtN, fmtD, register, applyDom, load, set, use, have, get lang(){ return lang; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
+  return {tr, trn, fmtN, fmtD, register, applyDom, load, set, use, have, get lang(){ return lang; }, get page(){ return pageLang(); }, get dates(){ return dloc; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
 })();
 const tr = SBI18N.tr, trn = SBI18N.trn;
-// Settings: a language picker, shown only once a second language is installed
+// Settings: a language picker with every language that ships with the app (so English can always be switched back)
 hook("menu", () => {
   const av = SBI18N.available(); if (av.length < 2) return "";
   const cur = SBI18N.saved, items = [["auto", tr("lang.auto", "Auto")]].concat(av.map(l => [l, SBI18N.names[l] || l]));
@@ -1029,6 +1052,7 @@ function spillMove(json){
   }, e => { spillMoving = false; spillNext = null; saveWarn(e); });
 }
 function spillQueue(json){
+  if (spillBlocked) return;
   spillQ = json; clearTimeout(spillT);
   spillT = setTimeout(spillFlush, 300);
 }
@@ -1036,16 +1060,49 @@ function spillQueue(json){
 function spillFlush(){
   clearTimeout(spillT);
   const json = spillQ; spillQ = null;
-  if (json == null) return spillChain;
+  if (json == null || spillBlocked || deviceWiping) return spillChain;
   return spillWrite(json).catch(saveWarn);
 }
-async function spillRead(){ try { const v = await SBC.get("rows", SPILL_KEY); return typeof v === "string" && v ? v : null; } catch(e) { return null; } }
+// null when there's no copy; throws when IndexedDB couldn't be opened or read
+async function spillReadStrict(wait){ const v = await SBC.getStrict("rows", SPILL_KEY, wait); return typeof v === "string" && v ? v : null; }
+async function spillRead(){ try { return await spillReadStrict(); } catch(e) { return null; } }
+/* When the copy in IndexedDB can't be read at launch (iPhones can be slow to open it), the app doesn't start empty and save over it:
+   saving waits until a read works, tried again in the background and with Retry */
+let spillBlocked = false, spillWarnAt = 0, spillRetryT = 0, spillTries = 0;
 // Called before loadLocal when the copy is in IndexedDB
-async function spillLoad(){ spilled = spilled || spillMarked(); if (spilled) spillRaw = await spillRead(); }
+async function spillLoad(){
+  spilled = spilled || spillMarked(); if (!spilled) return;
+  for (const wait of [0, 8000]) {
+    try { spillRaw = await spillReadStrict(wait); spillBlocked = false; return; }
+    catch(e) { spillBlocked = true; console.warn("device copy", e); }
+  }
+}
+function spillStuckToast(){
+  spillWarnAt = Date.now();
+  setTimeout(() => { try { toast("Couldn't open your saved data on this device, so nothing is saved for now. Your data hasn't been changed.", null, {label: "Retry", fn: () => spillRetry(true)}, {error: true}); } catch(e) {} }, 700);
+}
+async function spillRetry(asked){
+  clearTimeout(spillRetryT);
+  if (!spillBlocked) return;
+  if (asked) toast("Opening your saved data…");
+  let raw;
+  try { raw = await spillReadStrict(20000); }
+  catch(e) {
+    if (asked) spillStuckToast();
+    if (++spillTries < 8) spillRetryT = setTimeout(() => spillRetry(false), 15000);
+    return;
+  }
+  if (!raw) { spillBlocked = false; return; }
+  // Nothing was made meanwhile: the saved copy just appears. Otherwise a reload loads it cleanly
+  const made = ["tasks", "courses", "notes", "decks", "files", "events"].some(k => Object.keys(state[k] || {}).length);
+  if (!made && !(typeof cloud !== "undefined" && cloud.on)) { spillBlocked = false; adoptOtherTab(raw); scheduleRender(); toast("Your saved data is open again."); }
+  else toast("Your saved data can be opened now. Reload to see it. Changes made since Studyboard started weren't saved on this device.", null, {label: "Reload", fn: () => location.reload()}, {error: true});
+}
 window.addEventListener("pagehide", () => { try { spillFlush(); } catch(e) {} });
 document.addEventListener("visibilitychange", () => { if (document.hidden) { try { spillFlush(); } catch(e) {} } });
 function saveLocal(){
   if (deviceWiping || demoDrawing) return;
+  if (spillBlocked) { if (Date.now() - spillWarnAt > 6e4 && !$("#toast").classList.contains("show")) spillStuckToast(); return; }
   if (lsHold) return;
   let json;
   try { const a = toArrays(); delete a.trash; json = JSON.stringify(a); } catch(e) { console.warn("save", e); return; }
@@ -1074,6 +1131,7 @@ function adoptOtherTab(raw){
 window.addEventListener("storage", e => {
   try {
     if (!e.newValue || (typeof cloud !== "undefined" && cloud.on)) return;
+    if (e.key === LS2_IDB && spillBlocked) { spillRetry(false); return; }
     if (e.key === LS2_IDB) { spilled = true; spillRead().then(v => { if (v) adoptOtherTab(v); }); return; }
     if (e.key === LS2) adoptOtherTab(e.newValue);
   } catch(x) {}
@@ -1108,7 +1166,17 @@ function loadLocal(){
   try {
     r = spillRaw != null ? spillRaw : localStorage.getItem(LS2);
     spillRaw = null;
-    if (!r && spilled) { loadProblem = "v2"; const f = deskNewer(null); if (f) { state = fromArrays(f); spillQueue(JSON.stringify(f)); loadProblem = ""; trashLoadLocal(); return; } }
+    if (!r && spilled && spillBlocked) {
+      // couldn't be read (not missing): nothing is saved over it. The desktop app shows the copy in its folder meanwhile
+      const f = deskNewer(null); if (f) state = fromArrays(f);
+      spillStuckToast(); spillRetryT = setTimeout(() => spillRetry(false), 5000);
+      trashLoadLocal(); return;
+    }
+    if (!r && spilled) {
+      const f = deskNewer(null); if (f) { state = fromArrays(f); spillQueue(JSON.stringify(f)); trashLoadLocal(); return; }
+      // IndexedDB opened but the copy isn't in it (the browser cleared it): nothing was set aside, so the message doesn't say so
+      setTimeout(() => { try { toast("Your saved data on this device couldn't be found. Your browser may have cleared it. Sign in to get your account's copy, or restore a backup.", null, {label: "Open Backups", fn: restoreSheet}, {error: true}); } catch(e) {} }, 2500);
+    }
     if (r) {
       const own = JSON.parse(r), newer = deskNewer(own);
       state = fromArrays(newer || own);
@@ -1277,7 +1345,8 @@ const SyncMerge = (() => {
   const isTomb = o => o === null || tombAt(o) > 0;
   const untomb = o => { const x = copy(o); TOMB_KEYS.forEach(k => { delete x[k]; }); return x; };
   const skewFrom = (serverNow, t0, t1) => ms(serverNow) ? ms(serverNow) - Math.round((t0 + t1) / 2) : 0;
-  const fmtAt = at => { try { return new Date(at).toLocaleString("en-US", {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); } catch(e) { return ""; } };
+  // in the interface's language (the divider text itself is matched by its fixed words, not the date)
+  const fmtAt = at => { const o = {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}; try { return typeof SBI18N !== "undefined" && SBI18N.fmtD ? SBI18N.fmtD(new Date(at), o) : new Date(at).toLocaleString(undefined, o); } catch(e) { return ""; } };
 
   /* text: diff3 by line */
   const MARK = {mine: "─── Your edit on this device ───", end: "─── End of conflicting edit ───", theirsRe: /^─── Conflicting edit from your other device( \(.*\))? ───$/};
@@ -1518,7 +1587,10 @@ function syncLabel(){
   const side = $("#syncSide"), t = el.textContent, warn = !/^(Saved|Saved on this device)$/.test(t) && !/Saving|Connecting/.test(t);
   el.setAttribute("aria-label", warn ? t + ". Sync details" : t);
   if (side) {
-    side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = warn ? "warn" : /Saving|Connecting/.test(t) ? "busy" : "ok";
+    // the side menu is narrow: just the first part ("Not signed in"), the rest in a tooltip
+    const st = t === "Saved on this device" ? "On this device" : t.split(",")[0];
+    side.textContent = st; if (st !== t && t !== "Saved on this device") side.dataset.tip = t; else delete side.dataset.tip;
+    side.dataset.state = warn ? "warn" : /Saving|Connecting/.test(t) ? "busy" : "ok";
     // a problem can be tapped for details and Try Again
     if (warn) { side.removeAttribute("aria-hidden"); side.setAttribute("role", "button"); side.tabIndex = 0; side.dataset.act = "sync-status"; side.setAttribute("aria-label", t + ". Sync details"); }
     else { side.setAttribute("aria-hidden", "true"); side.removeAttribute("role"); side.removeAttribute("tabindex"); delete side.dataset.act; side.removeAttribute("aria-label"); }
@@ -1539,6 +1611,15 @@ function queueWrite(kind, id, data){
   e.next = {data: data === null ? null : clone(data)};
   syncLabel();
   if (!e.running) runQueue(key, e);
+}
+// One item over the server's size limit for a single item: named, and said at most once in 10 minutes per item
+let syncFullAt = 0;
+const syncBigAt = new Map();
+function syncBigWarn(key, data){
+  if (Date.now() - (syncBigAt.get(key) || 0) < 10 * 60000) return;
+  syncBigAt.set(key, Date.now());
+  let name = ""; try { name = SyncMerge.titleOf(key.slice(0, key.indexOf(":")), data) || ""; } catch(e) {}
+  toast(`${name ? `"${String(name).slice(0, 60)}"` : "One item"} is too big to sync (over 10 MB), so it's only saved on this device. Make it smaller, for example by moving pictures into Files.`, null, null, {error: true});
 }
 async function runQueue(key, e){
   e.running = true;
@@ -1562,13 +1643,14 @@ async function runQueue(key, e){
         syncError = true; console.warn("Save failed", code, err && err.message);
         // tried again later from the offline outbox (which merges with what the server has now); where there is no outbox, a save that
         // failed only because the server was out of reach is sent again as it was
-        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema") {
+        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema" && code !== "item_too_big") {
           if ((inPreview() || !sbConfig()) && (code === "unavailable" || code === "resource_exhausted")) syncLater.set(key, {ref: e.ref, data: job.data});
           syncRetryLater();
         }
         if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
 
-        if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true});
+        if (code === "item_too_big") syncBigWarn(key, job.data);
+        else if ((code === "quota_exceeded" || code === "quota_or_state") && Date.now() - syncFullAt > 5 * 60000) { syncFullAt = Date.now(); toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true}); }
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
       }
     }
@@ -1677,9 +1759,23 @@ const outboxGet = () => { try { return JSON.parse(localStorage.getItem(OUTBOX) |
 const outboxOwn = new Set(Object.keys(outboxGet()));
 const outboxMine = k => outboxOwn.has(k) && k in outboxGet();
 let outboxWarnAt = 0;
+// Nobody has signed in on this device (or the last account signed out and erased its copy): there's no account to send changes to,
+// so they aren't kept twice. Signing in adds everything on the device then (claimDevice)
+function outboxNoAccount(){
+  if ((typeof sbUser !== "undefined" && sbUser) || (typeof claimRun !== "undefined" && claimRun)) return false;
+  try { const o = localStorage.getItem(OWNER); return (!o || o === NO_OWNER) && !localStorage.getItem("studioso-auth"); } catch(e) { return false; }
+}
+// A tab that closes hands its unsent changes to the tabs still open, which send them (instead of waiting for the next launch).
+// Settings aren't handed over: a tab sends its own settings
+const OUTBOX_LEFT = "studioso:outboxLeft";
+addEventListener("pagehide", () => { try { const o = outboxGet(), mine = [...outboxOwn].filter(k => k in o && k !== "meta:meta"); if (mine.length && !deviceWiping) localStorage.setItem(OUTBOX_LEFT, JSON.stringify({keys: mine, at: Date.now()})); } catch(e) {} });
+addEventListener("storage", e => {
+  if (e.key !== OUTBOX_LEFT || !e.newValue || deviceWiping) return;
+  try { const o = outboxGet(); (JSON.parse(e.newValue).keys || []).forEach(k => { if (typeof k === "string" && k in o && k !== "meta:meta") outboxOwn.add(k); }); if (cloud.on) flushOutbox(); else syncLabel(); } catch(x) {}
+});
 function outboxAdd(kind, id, data){
   if (demoDrawing) return;
-  if (inPreview() || !sbConfig() || deviceWiping) return;
+  if (inPreview() || !sbConfig() || deviceWiping || outboxNoAccount()) return;
   const o = outboxGet(); o[kind + ":" + id] = data === null ? null : clone(data);
   try { localStorage.setItem(OUTBOX, JSON.stringify(o)); outboxOwn.add(kind + ":" + id); }
   catch(e) { if (Date.now() - outboxWarnAt > 6e4) { outboxWarnAt = Date.now(); try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} } }
@@ -1955,6 +2051,7 @@ function sbErr(e){
   const status = Number(e && (e.status || e.statusCode)) || 0;
   const x = new Error(msg);
   x.code = /fetch|network|timed? ?out|Load failed/i.test(msg) || status === 0 && /fetch/i.test(msg) || status >= 500 ? "unavailable"
+    : /limit for one item/i.test(msg) ? "item_too_big"
     : status === 413 || /too large|exceeded the maximum/i.test(msg) ? "too_large"
     : /quota|storage limit/i.test(msg) ? "quota_or_state"
     : status === 429 ? "rate_limited" : e && e.code === "23514" ? "schema" : (e && e.code) || "error";
@@ -2062,7 +2159,7 @@ async function initSupabase(ask){
       const u = session && session.user;
       if (u && sbLocalOnly()) { try { localStorage.removeItem(SB_CFG); } catch(e) {} }
       if (u && (!sbUser || sbUser.id !== u.id)) { sbUser = u; setTimeout(startSupabaseSync, 0); setTimeout(aiTrialSignedIn, 1500); }
-      else if (!u && sbUser && event === "SIGNED_OUT") { SBC.del("rows", sbUser.id); ["brightspace", "canvas", "blackboard", "moodle", "schoology"].forEach(k => SBC.del("rows", "feed:" + k)); if (sbBackend.cur) sbBackend.cur(); sbUser = null; cloud.on = false; caps.assets = DESK ? deskAssets : null; syncLabel(); scheduleRender(); setTimeout(() => { if (!sbUser) sbSignInSheet(); }, 200); }
+      else if (!u && sbUser && event === "SIGNED_OUT") { SBC.del("rows", sbUser.id); ["brightspace", "canvas", "blackboard", "moodle", "schoology"].forEach(k => SBC.del("rows", "feed:" + k)); if (sbBackend.cur) sbBackend.cur(); sbUser = null; cloud.on = false; caps.assets = DESK ? deskAssets : null; syncLabel(); scheduleRender(); setTimeout(() => { if (!sbUser && !sbLeaving) sbSignInSheet(); }, 200); }
     });
   }
   let session = null;
@@ -2126,7 +2223,25 @@ const AI_KEYS_OWNER = "studyboard:aiKeysOwner";
 const NO_OWNER = "none";
 // Set when a fresh install starts from the copy in the Studyboard folder (deskBoot)
 const FOLDER_FROM = "studyboard:folderFrom";
-async function claimDevice(uid){
+/* Signing out (or deleting the account) erases this device's copy. LEAVING tells the other open tabs at once, so they stop saving
+   their copy back; when the owner becomes "none" they reload empty. An expired sign-in doesn't do this: it keeps the data */
+const LEAVING = "studyboard:leaving";
+let sbLeaving = false;
+function sbLeave(){ sbLeaving = true; try { localStorage.setItem(LEAVING, String(Date.now())); } catch(e) {} }
+window.addEventListener("storage", e => {
+  try {
+    if (e.key === LEAVING && e.newValue && !sbLeaving) {
+      sbLeaving = true; deviceWiping = true; clearTimeout(spillT); spillQ = null;
+      // the tab that signed out normally finishes within seconds; if it was closed first, this one finishes the job
+      setTimeout(async () => { try { if (localStorage.getItem(OWNER) !== NO_OWNER) await wipeDeviceData(); } catch(x) {} location.reload(); }, 20000);
+    }
+    if (e.key === OWNER && e.newValue === NO_OWNER && e.oldValue !== NO_OWNER) { deviceWiping = true; clearTimeout(spillT); spillQ = null; location.reload(); }
+  } catch(x) {}
+});
+// One at a time (a slow start is retried, and the question below can wait on the person)
+let claimRun = null;
+function claimDevice(uid){ return claimRun || (claimRun = claimDevice0(uid).finally(() => { claimRun = null; })); }
+async function claimDevice0(uid){
   let owner = null; try { owner = localStorage.getItem(OWNER); } catch(e) {}
   try {
     const keysOwner = localStorage.getItem(AI_KEYS_OWNER);
@@ -2136,18 +2251,28 @@ async function claimDevice(uid){
   if (owner === uid) return;
   const kinds = ["courses", "tasks", "files", "notes", "decks", "events"], has = () => kinds.some(k => Object.keys(state[k] || {}).length);
   const KIND_OF = {courses: "course", tasks: "task", files: "file", notes: "note", decks: "deck", events: "event"};
-  if (owner && owner !== uid) {
+  // "none": signing out erased the last account's copy. Work made here since (marked by applyChanges) was made while nobody
+  // was signed in: it may be this person's or someone else's on a shared computer, so they're asked. Anything else is left over
+  // from the old account and is set aside, as before
+  let made = false; try { made = !!localStorage.getItem(OUT_WORK); } catch(e) {}
+  const unclaimed = owner === NO_OWNER && made;
+  let adopt = !owner;
+  if (unclaimed && has()) {
+    const n = kinds.reduce((t, k) => t + Object.keys(state[k] || {}).length, 0);
+    adopt = await askBox({title: "Add What You Made While Signed Out?", text: `This device has ${plural0(n, "item")} made while nobody was signed in. Add ${n === 1 ? "it" : "them"} to this account? If ${n === 1 ? "it's" : "they're"} someone else's, keep ${n === 1 ? "it" : "them"} separate: ${n === 1 ? "it goes" : "they go"} into a device backup instead.`, yes: "Add to My Account", no: "Keep Separate"}) === true;
+  }
+  if (owner && owner !== uid && !adopt) {
     if (has()) {
       let kept = false;
-      try { await saveDeviceBackup(Object.assign(backupSnap(), {note: "Left on this device by another account"}), true); kept = true; } catch(e) { console.warn("set-aside backup", e); }
-      if (!kept) { try { saveBlob(`studyboard-other-account-${todayISO()}.json`, JSON.stringify(Object.assign({app: "studyboard"}, exportArrays()), null, 1), "application/json"); setTimeout(() => toast("This device held another account's data. It was saved as a file in your Downloads before your account's data loaded."), 1300); } catch(e) {} }
+      try { await saveDeviceBackup(Object.assign(backupSnap(), {note: unclaimed ? "Made on this device while signed out" : "Left on this device by another account"}), true); kept = true; } catch(e) { console.warn("set-aside backup", e); }
+      if (!kept) { try { saveBlob(`studyboard-${unclaimed ? "signed-out" : "other-account"}-${todayISO()}.json`, JSON.stringify(Object.assign({app: "studyboard"}, exportArrays()), null, 1), "application/json"); setTimeout(() => toast(unclaimed ? "What was made here while signed out was saved as a file in your Downloads before your account's data loaded." : "This device held another account's data. It was saved as a file in your Downloads before your account's data loaded."), 1300); } catch(e) {} }
     }
     const hadData = has();
     state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
     try { localStorage.removeItem(OUTBOX); localStorage.removeItem(LS_TRASH); outboxOwn.clear(); } catch(e) {}
     saveLocal();
-    if (hadData) { try { setTimeout(() => toast("This device still held another account's data. It was set aside in a device backup, and your account's data is loading."), 1200); } catch(e) {} }
-  } else if (!owner && has()) {
+    if (hadData) { try { setTimeout(() => toast(unclaimed ? "What was made here while signed out was set aside in a device backup, and your account's data is loading." : "This device still held another account's data. It was set aside in a device backup, and your account's data is loading."), 1200); } catch(e) {} }
+  } else if (adopt && has()) {
     let synced = false;
     try { synced = !!(await SBC.get("rows", uid)); } catch(e) {}
     let from = ""; try { from = localStorage.getItem(FOLDER_FROM) || ""; } catch(e) {}
@@ -2188,7 +2313,7 @@ async function claimDevice(uid){
       }
     }
   }
-  try { localStorage.setItem(OWNER, uid); localStorage.removeItem(FOLDER_FROM); } catch(e) {}
+  try { localStorage.setItem(OWNER, uid); localStorage.removeItem(FOLDER_FROM); localStorage.removeItem(OUT_WORK); outWorkSeen = false; } catch(e) {}
 }
 let sbStartGen = 0, sbStartTries = 0;
 /* What connecting is waiting on, shown under "reconnecting…" in Settings */
@@ -2247,12 +2372,13 @@ async function startSupabaseSync(){
 /* Lean sync Keeps what Supabase sends small, so it stays free for a lot of students */
 const SBC = {
   db: null,
-  open(){
+  // wait: how long opening may take (iPhones can be slow to open IndexedDB at launch)
+  open(wait){
     if (this.db) return this.db;
     const p = this.db = new Promise((ok, no) => {
       try {
         const r = indexedDB.open("studyboard-sync", 1);
-        let late = false; const t = setTimeout(() => { late = true; no(new Error("device copy unavailable")); }, window.__SBC_WAIT || 4000);
+        let late = false; const t = setTimeout(() => { late = true; no(new Error("device copy unavailable")); }, wait || window.__SBC_WAIT || 4000);
         r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains("rows")) d.createObjectStore("rows"); if (!d.objectStoreNames.contains("backups")) d.createObjectStore("backups"); };
         r.onsuccess = () => { clearTimeout(t); const d = r.result; if (late) { try { d.close(); } catch(e) {} return; }
           d.onversionchange = () => { try { d.close(); } catch(e) {} if (this.db === p) this.db = null; }; ok(d); };
@@ -2261,11 +2387,13 @@ const SBC = {
     }).catch(e => { if (this.db === p) this.db = null; throw e; });
     return this.db;
   },
-  async run(store, mode, fn){
-    const d = await this.open();
+  async run(store, mode, fn, wait){
+    const d = await this.open(wait);
     return new Promise((ok, no) => { const tx = d.transaction(store, mode), st = tx.objectStore(store); const req = fn(st); tx.oncomplete = () => ok(req && "result" in req ? req.result : undefined); tx.onerror = tx.onabort = () => no(tx.error); });
   },
   get(store, key){ return this.run(store, "readonly", s => s.get(key)).catch(() => undefined); },
+  // Like get, but a failure to open or read throws instead of looking like "nothing saved"
+  getStrict(store, key, wait){ return this.run(store, "readonly", s => s.get(key), wait); },
   put(store, key, val){ return this.run(store, "readwrite", s => s.put(val, key)).catch(e => console.warn("device copy", e)); },
   putStrict(store, key, val){ return this.run(store, "readwrite", s => s.put(val, key)); },
   del(store, key){ return this.run(store, "readwrite", s => s.delete(key)).catch(() => {}); },
@@ -2644,7 +2772,7 @@ function sbSetupSheet(){
     try { if (cloud.on) await Promise.race([flushOutbox(), new Promise(r => setTimeout(r, 6000))]); } catch(e) {}
     const n = Object.keys(outboxGet()).length;
     confirmSheet(n ? "Not everything is saved yet" : "Switch to a Studyboard account?", n ? `${n} recent change${n === 1 ? "" : "s"} haven't reached your server yet and will be lost if you switch now. Stay online for a minute and try again, or use Export in Settings first.` : "You'll be signed out of your own server on this device. Your data there isn't touched.", n ? "Switch Anyway" : "Switch", async () => {
-    try { if (sb) await sb.auth.signOut(); } catch(e) {}
+    sbLeave(); try { if (sb) await sb.auth.signOut(); } catch(e) {}
     try { localStorage.removeItem(SB_CFG); } catch(e) {}
     aiWipeLocal(true);
     await wipeDeviceData();
@@ -2928,7 +3056,7 @@ function sbLinkErrorSheet(){
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
 }
 // Signing out removes this account's copy from the device
-const WIPE_KEYS = () => [LS2, LS2_IDB, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
+const WIPE_KEYS = () => [LS2, LS2_IDB, LS1, LSB, OUTBOX, LS_TRASH, OUT_WORK, "studyboard:bugq", "studyboard:comp:uname", "studyboard:comp:helloDay"];
 async function wipeDeviceData(){
   deviceWiping = true;
   state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
@@ -2951,7 +3079,7 @@ async function sbSignOut(){
   const n = waiting();
   const note = n ? ` ${n} recent change${n === 1 ? "" : "s"} (or a photo) haven't reached your account yet and will be lost if you sign out now. Stay online for a minute and try again, or use Export in Settings first.` : "";
   confirmSheet(n ? "Not everything is saved yet" : "Sign out?", (n ? note.trim() : "Your data stays safe in your Studyboard account. This device's copy is removed, so sign back in to see it here again."), n ? "Sign Out Anyway" : "Sign Out", async () => {
-    try { window.dispatchEvent(new Event("sb:signing-out")); } catch(e) {}
+    sbLeave(); try { window.dispatchEvent(new Event("sb:signing-out")); } catch(e) {}
     try { await sb.auth.signOut(); } catch(e) {}
     aiWipeLocal(true);
     await wipeDeviceData();
@@ -2967,12 +3095,32 @@ function undoLast(){
   while (undoStack.length) {
     const s = undoStack.pop();
     if (s.done || Date.now() - s.at > 30 * 60000) continue;
-    s.undo(); toast(s.label ? `Undone: ${s.label}` : "Undone");
+    const kept = s.undo();
+    toast((s.label ? `Undone: ${s.label}` : "Undone") + (kept ? ". Changes you made after it were kept." : ""));
     return true;
   }
   toast("Nothing to undo");
   return false;
 }
+/*UNDO-MERGE-START*/
+// What undoing one item puts back. before: the item before the step, applied: right after it, cur: now.
+// Only what the step changed goes back, and only where it hasn't been changed again since. skip leaves the item as it is;
+// kept says a later change was left in place
+function undoMerge(before, applied, cur, eq){
+  if (eq(cur, applied)) return {val: before, kept: false};
+  // made or deleted by the step, then changed, deleted or brought back again: left as it is
+  if (!before || !applied || !cur) return {skip: true, kept: true};
+  const val = Object.assign({}, cur);
+  let kept = false, changed = false;
+  new Set(Object.keys(before).concat(Object.keys(applied))).forEach(k => {
+    if (k === "history" || eq(before[k], applied[k])) return;
+    if (!eq(cur[k], applied[k])) { kept = true; return; }
+    if (before[k] === undefined) delete val[k]; else val[k] = before[k];
+    changed = true;
+  });
+  return changed ? {val, kept} : {skip: true, kept};
+}
+/*UNDO-MERGE-END*/
 const mapOf = kind => state[KIND_MAP[kind]];
 const getItem = (kind, id) => mapOf(kind)[id] || null;
 function historyDiff(a, b){
@@ -3007,6 +3155,13 @@ function setItem(kind, id, obj, record){
   }
   queueWrite(kind, id, obj === null ? null : m[id]);
 }
+// Work done here after an account signed out and erased its copy (claimDevice asks whether to add it to the next account that signs in)
+const OUT_WORK = "studyboard:signedOutWork";
+let outWorkSeen = false;
+function markSignedOutWork(){
+  if (outWorkSeen || (typeof sbUser !== "undefined" && sbUser)) return;
+  try { if (localStorage.getItem(OWNER) === NO_OWNER) { localStorage.setItem(OUT_WORK, "1"); outWorkSeen = true; } } catch(e) {}
+}
 function applyChanges(changes, label, extra, opts){
   if (!changes.length) return;
   const inverse = changes.map(c => ({kind:c.kind, id:c.id, after: clone(getItem(c.kind, c.id))}));
@@ -3021,11 +3176,21 @@ function applyChanges(changes, label, extra, opts){
     try { const xr = examReadiness(Object.assign({}, a, {status: "todo"})); c.after = Object.assign({}, a, {readySnap: {felt: xr ? xr.self : null, measured: xr ? xr.measured : null, at: Date.now()}}); } catch (e) { console.warn("readiness snapshot", e); }
   });
   changes.forEach(c => setItem(c.kind, c.id, c.after === null ? null : c.after, label !== null));
+  if (label !== null) markSignedOutWork();
+  const applied = label ? changes.map(c => clone(getItem(c.kind, c.id))) : null;
   state.updated = Date.now();
   saveLocal();
   scheduleRender();
   const step = {label: label || "", at: Date.now(), done: false, binned: binned.length > 0};
-  const undo = () => { if (step.done) return; step.done = true; applyChanges(inverse, null); trashDrop(binned); toast("Undone"); };
+  // Puts back what this step changed but keeps later edits to the same items (Ctrl+Z can come much later). Returns how many items kept one
+  const undo = () => {
+    if (step.done) return 0; step.done = true;
+    let kept = 0; const back = [];
+    inverse.forEach((v, i) => { const r = applied ? undoMerge(v.after, applied[i], getItem(v.kind, v.id), SyncMerge.eq) : {val: v.after}; if (r.kept) kept++; if (!r.skip) back.push({kind: v.kind, id: v.id, after: r.val}); });
+    if (back.length) applyChanges(back, null);
+    trashDrop(binned); toast(kept ? "Undone. Changes you made after it were kept." : "Undone");
+    return kept;
+  };
   step.undo = undo;
   if (typeof extra === "function") extra = extra();
   if (label) { toast(label, undo, extra, opts); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
@@ -8040,7 +8205,8 @@ function stkPackInfo(id){
   STICKER_PACKS.forEach((p, i) => { if (!stkPacks.has(p.id)) stkPacks.set(p.id, {id: p.id, name: p.name, tier: p.tier, theme: p.theme, i}); });
   return stkPacks.get(id) || null;
 }
-const stkOwns = k => { const i = stkPackInfo((STICKERS[k] || {}).pack); return !STORE.paywall || !i || i.tier !== "pro" || (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro()) || cpAllows("sticker", i.id); };
+// The same ownership check as the shop (owns), so Pro stickers don't lock in the grace period while their pack shows as yours
+const stkOwns = k => { const i = stkPackInfo((STICKERS[k] || {}).pack); return !i || owns("sticker", i.id); };
 function stkIndex(){
   stkPackInfo("");
   const sig = Object.keys(STICKERS).length + ":" + stkPacks.size;
@@ -8730,14 +8896,23 @@ function newTask(fields){
   if (due && start > due) start = due;
   return normTask(Object.assign({id: uid(), created: Date.now(), order: nextOrder(fields.status || "todo")}, fields, {start}));
 }
-let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0;
+let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0, toastView = null;
 // Long enough to read (about 15 characters a second), longer with a button to press
 const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, Math.min(12000, 1500 + String(msg || "").length * 65));
-// extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once
+// extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once.
+// opts.view: the toast (and its buttons) goes away when the page changes, for buttons that only make sense on this page
+const toastViewKey = () => { try { return ui.tab + "|" + (ui.courseId || ""); } catch (e) { return ""; } };
+function toastHide(){ clearTimeout(toastT); const t = $("#toast"); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
+// The top-most open modal (focus is kept inside it), so a toast is never hidden behind a pop-up
+function toastHost(){
+  let ms = []; try { ms = [...document.querySelectorAll("dialog[open]")].filter(d => d.matches(":modal")); } catch (e) { try { if (dlg.open) ms = [dlg]; } catch (x) {} }
+  const a = document.activeElement;
+  return ms.filter(d => d.contains(a)).pop() || ms.pop() || document.body;
+}
 function toast(msg, undoFn, extra, opts){
   const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = $("#toastX");
-  if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", () => { clearTimeout(toastT); t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }); }
+  if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", toastHide); }
   t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); t.classList.toggle("toast-done", !err && !!(opts && opts.done)); xx.hidden = !err; toastErr = err;
   $("#toastMsg").textContent = SPELL.fix(msg);
   toastUndoFn = undoFn || null;
@@ -8748,8 +8923,9 @@ function toast(msg, undoFn, extra, opts){
   if (more[1] && !x2) { x2 = document.createElement("button"); x2.id = "toastExtra2"; x.after(x2); x2.addEventListener("click", () => { const f = toastExtra2Fn; toastExtra2Fn = null; t.classList.remove("show"); if (f) f(); }); }
   toastExtra2Fn = more[1] ? more[1].fn : null;
   if (x2) { x2.hidden = !more[1]; if (more[1]) x2.textContent = more[1].label; }
-  let host = document.body; try { if (dlg.open) host = dlg; } catch(e) {}
+  const host = toastHost();
   if (t.parentNode !== host) host.appendChild(t);
+  toastView = opts && opts.view ? toastViewKey() : null;
   t.classList.add("show");
   toastMs = toastLen(msg, undoFn, more.length); toastAt = Date.now();
   if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
@@ -8760,6 +8936,7 @@ function toastTimer(ms){
   toastT = setTimeout(() => { $("#toast").classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
 document.addEventListener("close", e => { const t = $("#toast"); if (t && e.target && t.parentNode === e.target) document.body.appendChild(t); }, true);
+hook("render", () => { if (toastView && toastView !== toastViewKey() && $("#toast").classList.contains("show")) toastHide(); });
 $("#toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 // Pointing at a toast with a button, or tabbing into it, holds it open
@@ -13702,6 +13879,9 @@ const RT_EDIT = ["#noteText", "textarea[name=front]", "textarea[name=back]", "#f
 const RB = {bar: null, eq: null, field: null, sel: null, tok: null, hideT: 0};
 const RB_ICON = d => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const MOD = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl+";
+// The equation editor's shortcut: Alt+= (as in Word), but Control+= on a Mac, where Option+= types ≠ (Word for Mac's own)
+const EQ_KEY = MOD === "⌘" ? "⌃=" : "Alt+=";
+const eqKey = e => e.code === "Equal" && !e.shiftKey && !e.metaKey && (MOD === "⌘" ? e.ctrlKey && !e.altKey : e.altKey && !e.ctrlKey);
 function rbBarEl(){
   if (RB.bar) return RB.bar;
   const b = document.createElement("div");
@@ -13710,7 +13890,7 @@ function rbBarEl(){
   b.innerHTML = btn("b", "Bold", `Bold (${MOD}B)`, "<b>B</b>") + btn("i", "Italic", `Italic (${MOD}I)`, "<i>I</i>") + btn("s", "Strikethrough", "Strikethrough", "<s>S</s>")
     + btn("hl", "Highlight", "Highlight", '<span class="rb-hl">H</span>') + `<span class="rb-sep" aria-hidden="true"></span>`
     + btn("sup", "Superscript", "Superscript, like x²", "x²") + btn("sub", "Subscript", "Subscript, like H₂O", "x₂")
-    + btn("eq", "Equation", "Equation, math or chemistry (Alt+=)", RB_ICON('<path d="M18 5H7l5 7-5 7h11"/>') + "<span>Equation</span>");
+    + btn("eq", "Equation", `Equation, math or chemistry (${EQ_KEY})`, RB_ICON('<path d="M18 5H7l5 7-5 7h11"/>') + "<span>Equation</span>");
   // Pressing a button keeps the text box focused, and its selection
   b.addEventListener("pointerdown", e => { if (e.target.closest("button")) e.preventDefault(); });
   b.addEventListener("mousedown", e => { if (e.target.closest("button")) e.preventDefault(); });
@@ -13789,7 +13969,7 @@ document.addEventListener("keydown", e => {
   const t = e.target; if (!t || !t.matches || !t.matches(RT_EDIT)) return;
   const mod = e.ctrlKey || e.metaKey;
   if (mod && !e.shiftKey && !e.altKey && (e.key === "b" || e.key === "B" || e.key === "i" || e.key === "I")) { e.preventDefault(); e.stopPropagation(); RB.field = t; rbDo(e.key.toLowerCase()); }
-  else if (e.altKey && !mod && e.code === "Equal") { e.preventDefault(); e.stopPropagation(); RB.field = t; rbDo("eq"); }
+  else if (eqKey(e)) { e.preventDefault(); e.stopPropagation(); RB.field = t; rbDo("eq"); }
 }, true);
 
 /* The equation editor */
@@ -13842,6 +14022,7 @@ function eqOpen(f, opts){
     catch (er) { p.textContent = "Not quite right yet: " + String((er && er.message) || "").replace(/^KaTeX parse error:\s*/, "").slice(0, 140); p.classList.add("bad"); } };
   inp.addEventListener("input", prev);
   inp.addEventListener("keydown", ev => {
+    if (ev.isComposing || ev.keyCode === 229) return;   // typing with an IME: Enter picks the characters
     if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); eqDone(true); }
     else if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); eqDone(false); }
   });
@@ -17573,7 +17754,7 @@ function calExportSheet(){
   const {count} = buildIcs();
   openSheet(`<div class="sheet">${head("Add Deadlines to Your Calendar")}<div class="sheet-body">
     <p style="margin:0">This downloads a calendar file with your ${count} upcoming deadline${count === 1 ? "" : "s"}, each with a reminder the day before.</p>
-    <p class="status-msg" style="margin:0">Unzip the download, then open the .ics file inside. Apple Calendar and Outlook import it when you open it. For Google Calendar, go to Settings, then Import & export. Importing again after changes can create duplicates in some calendars. To add a single task, open it here and choose Add to Google Calendar.</p>
+    <p class="status-msg" style="margin:0">${inPreview() ? "Unzip the download, then open the .ics file inside." : "Open the downloaded .ics file."} Apple Calendar and Outlook import it when you open it. For Google Calendar, go to Settings, then Import & export. Importing again after changes can create duplicates in some calendars. To add a single task, open it here and choose Add to Google Calendar.</p>
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="calDl" ${count ? "" : "disabled"}>Download Calendar File</button></div></div>`);
   $("#calDl").addEventListener("click", async () => {
     const {text} = buildIcs();
@@ -17720,6 +17901,9 @@ async function chooseBackupFolder(kind){
   try {
     const picked = await window.showDirectoryPicker({id: "studioso-backups", mode: "readwrite", startIn: kind === "gdrive" ? "desktop" : "documents"});
     const h = /^(studioso|studyboard) backups$/i.test(picked.name) ? picked : await picked.getDirectoryHandle("Studyboard Backups", {create: true});
+    // a different folder: its Files/ gets every file again, and its own backup is checked before it's replaced
+    let same = false; try { same = !!FSB.dir && await FSB.dir.isSameEntry(h); } catch(e) {}
+    if (!same) { try { localStorage.removeItem("studioso:fsFiles"); } catch(e) {} FSB.size = null; FSB.hold = false; }
     await idbSet("dir", h);
     const label = CLOUD_NAME[kind] ? `${CLOUD_NAME[kind]} › ${picked.name === h.name ? h.name : picked.name + " › Studyboard Backups"}` : (picked.name === h.name ? h.name : picked.name + " › Studyboard Backups");
     try { localStorage.setItem("studioso:fsWhere", label); } catch(e) {}
@@ -17770,14 +17954,38 @@ async function stopFolderBackup(){ await idbDel("dir"); FSB.dir = null; FSB.stat
 function scheduleFolderBackup(ms){ if (FSB.status !== "on") return; clearTimeout(FSB.timer); FSB.timer = setTimeout(() => fxDefer(runFolderBackup), Math.max(ms, fxBusyMs() + 400)); }
 async function writeText(dir, name, text){ const fh = await dir.getFileHandle(name, {create: true}); const w = await fh.createWritable(); await w.write(text); await w.close(); }
 const safeName = s => String(s || "").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").replace(/\s+/g, " ").trim().slice(0, 100) || "Untitled";
-async function runFolderBackup(){
+/* A much smaller copy never replaces the folder's latest backup without asking: after a fresh install or a copy that couldn't
+   be loaded, the app can start nearly empty, and its first backup would otherwise overwrite the real one */
+const BK_KINDS = ["tasks", "courses", "notes", "decks", "files", "events"];
+const bkCount = o => BK_KINDS.reduce((n, k) => n + (Array.isArray(o && o[k]) ? o[k].length : Object.keys((o && o[k]) || {}).length), 0);
+const bkShrinks = (was, now) => was >= 5 && now < was / 2;
+async function folderLatestCount(){
+  try {
+    let text = "";
+    if (DESK && FSB.dir && FSB.dir.rel != null) { const b = await DESK.read((FSB.dir.rel ? FSB.dir.rel + "/" : "") + "studyboard-latest.json"); if (!b) return 0; text = new TextDecoder().decode(b); }
+    else text = await (await (await FSB.dir.getFileHandle("studyboard-latest.json")).getFile()).text();
+    return bkCount(JSON.parse(text));
+  } catch(e) { return e && e.name === "NotFoundError" ? 0 : -1; }
+}
+async function folderShrinkOk(now, quiet){
+  if (FSB.size == null) FSB.size = await folderLatestCount();
+  if (FSB.size < 0) { FSB.size = null; return !quiet; }
+  if (!bkShrinks(FSB.size, now)) return true;
+  if (quiet || FSB.hold) return false;
+  const yes = await askBox({title: "Replace Your Folder Backup?", text: `The latest backup in ${FSB.where || "your backup folder"} has ${plural0(FSB.size, "item")}, but Studyboard has only ${plural0(now, "item")} right now. Replacing it could lose work.`, yes: "Replace Backup", no: "Keep the Folder's Copy"});
+  if (yes !== true) { FSB.hold = true; toast("Backups to the folder are paused until Studyboard restarts, so its bigger copy is kept. To use it, choose Import from a Backup File in Settings and pick studyboard-latest.json in that folder."); }
+  return yes === true;
+}
+async function runFolderBackup(quiet){
   if (FSB.status !== "on" || !FSB.dir || FSB.busy) return;
   FSB.busy = true;
   try {
-    if (!["tasks", "courses", "notes", "decks", "files", "events"].some(k => Object.keys(state[k] || {}).length)) { FSB.busy = false; return; }
+    const now = bkCount(state);
+    if (!now || !(await folderShrinkOk(now, quiet === true))) { FSB.busy = false; return; }
     let owner = ""; try { owner = localStorage.getItem(OWNER) || NO_OWNER; } catch(e) {}
     const json = JSON.stringify(Object.assign({app: "studyboard", savedAt: new Date().toISOString(), owner}, exportArrays()), null, 1);
     await writeText(FSB.dir, "studyboard-latest.json", json);
+    FSB.size = now;
     const daily = await FSB.dir.getDirectoryHandle("Daily backups", {create: true});
     await writeText(daily, `studyboard-${todayISO()}.json`, json);
     const names = []; for await (const [n, h] of daily.entries()) if (h.kind === "file" && /^(studioso|studyboard)-\d{4}-\d{2}-\d{2}\.json$/.test(n)) names.push(n);
@@ -17932,7 +18140,7 @@ async function deskOpenAsset(id){
 async function deskChooseFolder(){
   const p = await DESK.chooseDir();
   if (!p) return;
-  FSB.where = p; FSB.dir = deskDir("");
+  FSB.where = p; FSB.dir = deskDir(""); FSB.size = null; FSB.hold = false;
   toast(`Studyboard now saves to ${p}`);
   await runFolderBackup(); scheduleRender();
 }
@@ -17944,12 +18152,16 @@ async function deskBoot(){
   window.addEventListener("focus", async () => { try { const w = await DESK.dataDir(); if (w && FSB.where && w !== FSB.where) { FSB.where = w; scheduleRender(); } } catch(e) {} });
   let has = false; try { has = !!localStorage.getItem(LS2) || spillMarked(); } catch(e) {}
   if (has) { try { const b = await DESK.read("studyboard-latest.json"); if (b) { const f = JSON.parse(new TextDecoder().decode(b)); if (f && f.app === "studyboard" && Array.isArray(f.tasks)) deskFolderCopy = f; } } catch(e) {} }
-  if (!has) { try { const b = (await DESK.read("studyboard-latest.json")) || (await DESK.read("studioso-latest.json")); if (b) { const t = new TextDecoder().decode(b), f = JSON.parse(t); localStorage.setItem(LS2, t);
-    localStorage.setItem(FOLDER_FROM, f && typeof f.owner === "string" && f.owner ? f.owner.slice(0, 80) : "?"); } } catch(e) { console.warn("No local copy to restore", e); } }
+  if (!has) { try { const b = (await DESK.read("studyboard-latest.json")) || (await DESK.read("studioso-latest.json")); if (b) { const t = new TextDecoder().decode(b), f = JSON.parse(t);
+    // a big planner doesn't fit in localStorage: it goes to IndexedDB, where saveLocal keeps big copies
+    let put = false;
+    if (t.length <= SPILL_AT) { try { localStorage.setItem(LS2, t); put = true; } catch(e) {} }
+    if (!put && spillOk()) { await spillWrite(t); spilled = true; put = true; }
+    if (put) localStorage.setItem(FOLDER_FROM, f && typeof f.owner === "string" && f.owner ? f.owner.slice(0, 80) : "?"); } } catch(e) { console.warn("No local copy to restore", e); } }
   DESK.onFlush(async () => {
     clearTimeout(FSB.timer);
     for (let k = 0; k < 40 && FSB.busy; k++) await sleep(100);
-    try { await runFolderBackup(); } catch(e) {}
+    try { await runFolderBackup(true); } catch(e) {}
     DESK.flushed();
   });
   deskTint();
@@ -19673,7 +19885,29 @@ function pwaBoot(){
   if (inPreview() || DESK || !(location.protocol === "https:" || (location.protocol === "http:" && location.hostname === "localhost"))) { if (inPreview() || DESK) links.forEach(x => x.remove()); return; }
   if (!links.length) { const l = document.createElement("link"); l.rel = "manifest"; l.href = "manifest.webmanifest"; document.head.appendChild(l); }
   else for (let i = 1; i < links.length; i++) links[i].remove();
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => { if (window.SBERR) SBERR.flow("sw-register", e); });
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("sw.js").catch(e => { if (window.SBERR) SBERR.flow("sw-register", e); });
+  navigator.serviceWorker.addEventListener("message", e => { const m = e.data; if (m && m.type === "sb-new-version" && Array.isArray(m.parts)) pwaNewVersion(m.parts); });
+  // An app left open checks for a new release now and then (the service worker saves it and says so)
+  let checkedAt = Date.now();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || Date.now() - checkedAt < 6 * 36e5 || !navigator.serviceWorker.controller) return;
+    checkedAt = Date.now(); fetch("./index.html", {cache: "no-cache"}).catch(() => {});
+  });
+}
+// A newer release is saved: offer to reload. Never reloads by itself, so nothing being typed is lost
+let pwaNewShown = false;
+function pwaNewVersion(parts){
+  const mine = new Set([...document.querySelectorAll('script[src*="bundle/"], link[href*="bundle/"]')].map(x => x.src || x.href));
+  if (pwaNewShown || !mine.size || parts.every(u => mine.has(u))) return;
+  pwaNewShown = true;
+  let tries = 0;
+  const go = () => {
+    const t = $("#toast");
+    if (t && t.classList.contains("show") && ++tries < 40) { setTimeout(go, 5000); return; }
+    toast("A new version of Studyboard is ready.", null, {label: "Reload", fn: () => location.reload()});
+  };
+  setTimeout(go, 1500);
 }
 /* Keeping this browser's copy */
 const PST = {state: "unknown"};
@@ -24868,6 +25102,8 @@ Return JSON only.`;
       }
     } else {
       const r = find(q); S.P = r.P;
+      // only "Ask about…" or filter rows came back: say plainly that nothing matched
+      if (r.groups.length && !r.groups.some(G => G.list.some(x => x.doc.type !== "filter" && x.doc.type !== "ask"))) html.push(`<p class="sx-none">No matches for “${esc(q)}”. Try other words, or ask below.</p>`);
       if (!r.groups.length) html.push(`<div class="sx-empty"><strong>No Matches</strong>Try fewer or different words${S.type !== "all" || S.course ? ", or show everything" : ""}.${S.type !== "all" || S.course ? ` <button type="button" class="link-btn" data-sx="reset">Show Everything</button>` : ""}</div>`);
       r.groups.forEach(G => {
         const cap = S.type === "all" ? (G.g === "actions" ? 4 : G.g === "files" || G.g === "tasks" ? 5 : 4) : 120;
@@ -25053,7 +25289,7 @@ Return JSON only.`;
   function drawFoot(){
     const el = $("#sxFoot"); if (!el || !S.open) return;
     const st = footStatus();
-    el.innerHTML = `<span class="sx-keys"><kbd>↑</kbd><kbd>↓</kbd> Move <kbd>Enter</kbd> Open <kbd>${MAC ? "⌥" : "Alt"}+Enter</kbd> Ask With AI <kbd>Esc</kbd> Close</span><span class="sx-st" aria-live="polite">${st.join(" · ")}</span><button type="button" class="link-btn" data-sx="settings">Search Settings</button>`;
+    el.innerHTML = `<span class="sx-keys"><kbd>↑</kbd><kbd>↓</kbd> Move <kbd>Enter</kbd> Open <kbd>${MAC ? "⌥" : "Alt"}+Enter</kbd> Ask With AI <kbd>Esc</kbd> ${S.q ? "Clear" : "Close"}</span><span class="sx-st" aria-live="polite">${st.join(" · ")}</span><button type="button" class="link-btn" data-sx="settings">Search Settings</button>`;
   }
   function setActive(i, scroll){
     if (!S.rows.length) return;
@@ -25519,14 +25755,20 @@ document.head.appendChild(AREA_CSS);
       <p class="ob-or" aria-hidden="true">or type a course</p>
       <div class="ob-cadd">
         <div class="ob-cfields">
-          <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. BIOL 101" autocomplete="off" data-noenter></label>
-          <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. Biology 101" autocomplete="off" data-noenter></label>
+          <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. ${esc(courseEx()[0])}" autocomplete="off" data-noenter></label>
+          <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. ${esc(courseEx()[1])}" autocomplete="off" data-noenter></label>
           <button type="button" class="btn" data-ob="add-course">Add</button>
         </div>
       </div>
       <p class="ob-more-src mini"><button type="button" class="link-btn" data-ob="ics">Use a Calendar File (.ics)</button> or <button type="button" class="link-btn" data-ob="paste">Paste Text</button>
         <input type="file" id="obIcs" class="sr" tabindex="-1" accept=".ics,.ical,.icalendar,text/calendar" aria-label="Choose a calendar file"></p>`;
   }
+
+  // Example course for the student's area of study (the quick-add example follows it the same way, through SBAREA.example)
+  const COURSE_EX = {stem: ["CHEM 110", "General Chemistry"], eng: ["ENGR 120", "Statics"], cs: ["CS 101", "Intro to Programming"], health: ["NURS 110", "Anatomy and Physiology"],
+    business: ["ECON 101", "Microeconomics"], social: ["PSYC 101", "Intro to Psychology"], humanities: ["HIST 101", "World History"], arts: ["ART 110", "Drawing I"],
+    education: ["EDUC 101", "Child Development"], law: ["LAW 101", "Contracts"]};
+  const courseEx = () => COURSE_EX[(SBAREA.get() || {}).id] || ["BIOL 101", "Biology 101"];
 
   // Themes are picked in the Style Shop, which has all of them
   function themeStep(){
@@ -25709,7 +25951,7 @@ document.head.appendChild(AREA_CSS);
         : allTasks().length ? "" : `<div class="ob-next">
         <b>Next: Add Your First Task</b>
         <span class="mini">Type it the way you'd say it in the quick-add bar at the top of the Board, and Studyboard fills in the details.</span>
-        <span class="ob-qa" aria-hidden="true"><span>+</span>bio quiz fri 2pm worth 5%</span>
+        <span class="ob-qa" aria-hidden="true"><span>+</span>${esc(SBAREA.example() || "bio quiz fri 2pm worth 5%")}</span>
       </div>`}`;
   }
 
@@ -25762,7 +26004,9 @@ document.head.appendChild(AREA_CSS);
     form.addEventListener("click", onClick);
     form.addEventListener("keydown", e => {
       const t = e.target, typing = t.tagName === "INPUT" && !["radio", "checkbox", "button"].includes(t.type) || t.tagName === "TEXTAREA" || t.tagName === "SELECT";
-      if (e.key === "Enter" && (t.id === "obCode" || t.id === "obName")) { e.preventDefault(); addCourse(); return; }
+      // Enter in the code goes on to the name; Enter in the name (or Add) adds the course
+      if (e.key === "Enter" && t.id === "obCode" && !e.isComposing) { e.preventDefault(); const nm = $("#obName"); if (nm) nm.focus(); return; }
+      if (e.key === "Enter" && t.id === "obName" && !e.isComposing) { e.preventDefault(); addCourse(); return; }
       if (typing || e.altKey || e.ctrlKey || e.metaKey) return;
       if (e.key === "Enter" && !(t.closest && t.closest("button,a,label"))) { e.preventDefault(); form.querySelector(".ob-go").click(); }
       else if (e.key === "ArrowRight" && !(t.closest && t.closest(".segb,.swatches,.ob-chips"))) { e.preventDefault(); if (step < STEPS.length - 1) go(step + 1); }
@@ -26116,6 +26360,8 @@ document.head.appendChild(AREA_CSS);
     shot = ""; busy = false;
     const ai = opts.ai && typeof opts.ai === "object" ? {text: String(opts.ai.text || "").slice(0, 1400), feature: String(opts.ai.feature || "").slice(0, 40)} : null;
     const email = (sbUser && sbUser.email) || "";
+    // The server drops screenshots from reports sent without an account (bug_reports_guard)
+    const signedIn = !!(sb && sbUser);
     const queued = readQ().length;
     openSheet(`<form class="sheet bug-sheet">${head(ai ? "Report an AI Response" : "Report a Bug or Send Feedback")}
       <div class="sheet-body">
@@ -26125,11 +26371,11 @@ document.head.appendChild(AREA_CSS);
         <label class="f"><span class="lh">What happened?<span class="req" aria-hidden="true">*</span></span><textarea name="msg" id="bugMsg" rows="4" maxlength="2000" placeholder="${ai ? "What was wrong with the response?" : "Describe the problem or your idea. What did you expect to happen?"}" data-noenter autofocus></textarea></label>
         ${ai ? `<label class="f"><span class="lh">The AI response <span class="hint">sent with your report; remove anything private</span></span><textarea name="steps" rows="5" maxlength="1500" data-noenter>${esc(ai.text)}</textarea></label>`
           : `<label class="f"><span class="lh">Steps to make it happen <span class="hint">optional</span></span><textarea name="steps" rows="3" maxlength="1500" placeholder="1. Go to… 2. Tap… 3. See…" data-noenter></textarea></label>`}
-        <div class="bug-shot">
+        ${signedIn ? `<div class="bug-shot">
           <label class="btn small" style="cursor:pointer">Attach a Screenshot<input type="file" id="bugFile" accept="image/*" class="sr"></label>
           <span class="mini" id="bugShotNote">Optional. It may show your tasks or notes, so only add one you're happy to share.</span>
           <div id="bugShotPrev"></div>
-        </div>
+        </div>` : `<p class="mini" id="bugShotNote" style="margin:0">To attach a screenshot, sign in first. Reports sent without an account can't include pictures.</p>`}
         <label class="mi-check"><input type="checkbox" name="contact" id="bugContact"> You can email me about this</label>
         <label class="f" id="bugMailRow" style="display:none">Your email<input type="email" name="email" id="bugMail" maxlength="200" value="${esc(email)}" placeholder="you@example.com" autocomplete="email" data-noenter></label>
         <details class="bug-diag"><summary>What gets sent with it</summary><p class="mini" style="margin:6px 0">Only this technical info, plus a random ID from this device so reports can be grouped and rate-limited. Never your tasks, notes or files:</p><pre class="mini" id="bugDiag" style="white-space:pre-wrap;word-break:break-word;max-height:160px;overflow:auto;margin:0"></pre></details>
@@ -26143,7 +26389,7 @@ document.head.appendChild(AREA_CSS);
     $("#bugDiag").textContent = Object.entries(diag).filter(([k]) => k !== "errors" && k !== "ua").map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join("\n") + `\nrecent errors: ${diag.errors.length ? diag.errors.map(e => e.m).join(" | ") : "none"}\nbrowser: ${diag.ua || ""}`;
     const contact = $("#bugContact");
     contact.addEventListener("change", () => { $("#bugMailRow").style.display = contact.checked ? "" : "none"; if (contact.checked) $("#bugMail").focus(); });
-    $("#bugFile").addEventListener("change", async e => {
+    if (signedIn) $("#bugFile").addEventListener("change", async e => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
       const note = $("#bugShotNote");
       note.textContent = "Preparing the picture…";
@@ -26182,7 +26428,8 @@ document.head.appendChild(AREA_CSS);
     }
     btn.disabled = false; btn.textContent = "Send Report";
     say(res === "missing" ? srvSetup("Sending reports", "supabase-bug-reports.sql")
-      : res === "limited" ? "You've sent quite a few reports lately. Please try again in an hour."
+      // Signed out, part of the limit is shared by everyone without an account, so it may not be this person's doing
+      : res === "limited" ? (sbUser ? "You've sent quite a few reports lately. Please try again in an hour." : "Lots of reports are coming in right now. Please try again in an hour.")
       : "That report couldn't be sent. If it has a screenshot, try again without it.");
   }
 
@@ -30243,22 +30490,35 @@ hook("boot", boot);
     if (S.name) { try { localStorage.setItem(NAMEK(), S.name); } catch(e) {} return then(); }
     nameSheet(true, then);
   }
+  // The sheet you were in (Create Group, Join, Share…) is set aside while the name is asked, and put back after
   function nameSheet(firstTime, then){
+    const tt = $("#toast"), prev = then && dlg.open ? [...dlg.childNodes].filter(n => n !== tt) : null;
+    // a sheet that keeps its work (sheetKeep) is set aside by openSheet itself, so it comes back the same way
+    const kept = prev && KEEP && prev.includes(KEEP.node) ? KEEP.key : "";
+    const putBack = () => { if (!prev) return; if (kept && sheetKept(kept)) { sheetResume(kept); return; } const inSheet = !!tt && tt.parentNode === dlg; dlg.replaceChildren(...prev); if (inSheet) dlg.appendChild(tt); };
     openSheet(`<form class="sheet">${head(firstTime ? "What Should Classmates Call You?" : "Your Name in Groups")}
       <div class="sheet-body">
         <p style="margin:0">People in your study groups and anyone you share a deck with will see this name. Your first name is enough.</p>
         <label class="f"><span class="lh">Display Name ${REQ}</span><input type="text" name="name" required maxlength="40" autocomplete="given-name" value="${esc(S.name || guessName())}" autofocus placeholder="e.g. Connor"></label>
       </div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${firstTime ? "Continue" : "Save Name"}</button></div>
-    </form>`, fd => {
+      <div class="sheet-foot"><span class="spacer"></span>${prev ? `<button type="button" class="btn" id="grpNameBack">Back</button>` : `<button type="button" class="btn" data-act="close">Cancel</button>`}<button type="button" class="btn primary" data-submit>${firstTime ? "Continue" : "Save Name"}</button></div>
+    </form>`, (fd, form) => {
       const name = String(fd.get("name") || "").trim().replace(/\s+/g, " ").slice(0, 40); if (!name) return false;
+      // Stays open until the name is saved, so a failed save can be tried again (and what you were doing goes on after)
+      const btn = $("[data-submit]", form); if (btn && btn.disabled) return false;
+      busyBtn(btn, true);
       (async () => {
-        try { await api.setProfile(name); S.name = name; try { localStorage.setItem(NAMEK(), name); } catch(e) {}
-          (S.groups || []).forEach(g => (S.members[g.id] || []).forEach(m => { if (m.user_id === myId()) m.display_name = name; }));
-          if (then) then(); else { toast(`Groups will see you as ${name}`); scheduleRender(); } }
-        catch(e) { toast(e.message); }
+        try { await api.setProfile(name); }
+        catch(e) { busyBtn(btn, false); toast(e.message); return; }
+        S.name = name; try { localStorage.setItem(NAMEK(), name); } catch(e) {}
+        (S.groups || []).forEach(g => (S.members[g.id] || []).forEach(m => { if (m.user_id === myId()) m.display_name = name; }));
+        if (dlg.open && dlg.contains(form)) { if (prev) putBack(); else dlg.close(); }
+        if (then) then(); else { toast(`Groups will see you as ${name}`); scheduleRender(); }
       })();
+      return false;
     });
+    const back = $("#grpNameBack");
+    if (back) back.addEventListener("click", () => { putBack(); prev.forEach(n => { if (n.querySelectorAll) n.querySelectorAll("button.busy").forEach(b => busyBtn(b, false)); }); });
   }
 
   /* Loading group data */
@@ -32063,13 +32323,30 @@ hook("boot", boot);
       return `<li class="grp-msg${mine ? " mine" : ""}${m.pinned ? " pinned" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b><span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span>${m.pinned ? `<span class="pill">Pinned</span>` : ""}${mine ? "" : `<button class="link-btn" data-act="grp-report" data-kind="message" data-id="${esc(m.id)}" aria-label="Report message from ${esc(m.author_name || "member")}">Report</button>`}</div><p>${esc(m.body)}</p>
         ${ext ? `<div class="grp-msg-acts">${chips}${picker || `<button class="grp-react add" data-act="grp-react-open" data-id="${esc(m.id)}" aria-label="Add a reaction">+</button>`}${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">${m.pinned ? "Unpin" : "Pin"}</button>` : ""}</div>` : ""}</div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
   }
+  // A group's member cap and message history follow the GROUP's Pro status (plans_group_is_pro on the server), not your plan.
+  // For the owner: "" (no note), "assign" (you can make it a Pro group), "full" (all your Pro groups used) or "upgrade" (Go Pro)
+  function freeGrpKind(g){
+    if (!g || !isOwner(g) || typeof PLAN === "undefined" || !PLAN || !PLAN.paywall()) return "";
+    let known = false, on = false, mine = false, room = true;
+    try { known = !S.gproErr && !!S.gpro[g.id]; on = gxOn(g); mine = meGroupPro(); room = gxMine() < GX_MAX; } catch(e) { mine = PLAN.groupsPro ? PLAN.groupsPro() : PLAN.isPro(); }
+    // Until the group's status loads, go by your plan as before
+    if (known ? on : mine) return "";
+    return mine ? (room ? "assign" : "full") : "upgrade";
+  }
+  const freeGrpLim = k => (PLAN.freeLimits ? PLAN.freeLimits() : PLAN.limits())[k];
+  // The end of a free-group note: Assign Pro for a Pro owner, Go Pro otherwise
+  function freeGrpAct(g, kind, upR, upTail){
+    return kind === "assign" ? `<button type="button" class="link-btn" data-act="gx-pro-sheet" data-id="${esc(g.id)}">Assign Pro</button> to keep full history and up to 100 members.`
+      : kind === "full" ? "You've assigned Pro to all 5 of your Pro groups."
+      : `<button type="button" class="link-btn" data-act="grp-upgrade" data-r="${esc(upR)}">Go Pro</button> ${upTail}`;
+  }
   function boardHtml(g){
-    const free = isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()), days = free ? PLAN.limits().groupMsgDays : 0;
+    const kind = freeGrpKind(g), days = kind ? freeGrpLim("groupMsgDays") : 0;
     return `<section class="grp-sec" id="grpBoard"><h3 class="fsec"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Message Board</h3>
       ${pinsHtml(g)}
       <form class="grp-post" id="grpPost" data-gid="${esc(g.id)}"><textarea id="grpMsgIn" rows="2" maxlength="2000" aria-label="Write a message to the group" aria-describedby="grpPostHint" placeholder="Write to the group…">${esc(S.drafts[g.id] || "")}</textarea><button type="submit" class="btn primary small">Post</button><span class="mini grp-post-hint" id="grpPostHint">Press ${/Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl"}+Enter to post</span></form>
       <ul class="grp-msgs" id="grpMsgList" aria-live="polite">${msgsHtml(g)}</ul>
-      ${days ? `<p class="mini" style="margin:8px 0 0">Messages are kept ${days} days in Free groups. <button class="link-btn" data-act="grp-upgrade" data-r="Pro keeps your group's message history for good.">Go Pro</button> to keep them all.</p>` : ""}</section>`;
+      ${days ? `<p class="mini" style="margin:8px 0 0">Messages are kept ${days} days in Free groups. ${freeGrpAct(g, kind, "Pro keeps your group's message history for good.", "to keep them all.")}</p>` : ""}</section>`;
   }
   // Pick a colour
   const rgbOf = c => [1, 3, 5].map(i => parseInt(String(c).substr(i, 2), 16));
@@ -32124,7 +32401,7 @@ hook("boot", boot);
         const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
         if (!me2 && S.blocked.has(m.user_id)) return `<li class="blocked">${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")} <span class="pill">Blocked</span></span><button class="btn small" data-act="grp-unblock" data-id="${esc(m.user_id)}">Unblock</button>${owner ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`;
         return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge ? gxBadgeIcon(m) : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") || gxBadgeLabel(m) ? `<span class="grp-badges">${gxBadgeLabel(m)}${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
-      ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
+      ${(k => k ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${freeGrpLim("groupMembers")} members (${ms.length} now). ${freeGrpAct(g, k, "Pro groups hold up to 100 members.", "for up to 100.")}</p>` : "")(freeGrpKind(g))}</section>`;
   }
   // Update parts of the open group page in place, so a message you're typing isn't lost
   function patch(gid){
@@ -32220,7 +32497,7 @@ hook("boot", boot);
       const li = $("#grpLinkIn"); if (li) li.addEventListener("focus", () => li.select());
       const sd = $("#grpSend"); if (sd) sd.addEventListener("click", () => sendText(d.name, `Study my Studyboard deck "${d.name}". Code: ${row.code}`, link));
       $("#grpUpd").addEventListener("click", e => { const wq = !!($("#grpWithQ") || {}).checked; if (!$("#shRights")) { openSheet(`<form class="sheet">${head("Update Shared Copy")}<div class="sheet-body">${picNote(d)}${rightsBox()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpUpd2">Update</button></div></form>`, () => { if (!rightsOk()) return false; doShare(d, wq, $("#grpUpd2")); return false; }); return; } if (!rightsOk()) return; doShare(d, wq, e.currentTarget); });
-      $("#grpStop").addEventListener("click", () => confirmSheet("Stop Sharing?", `The link and code for ${d.name} stop working. People who already added it keep their copy.`, "Stop Sharing", () => stopShare(row.code)));
+      $("#grpStop").addEventListener("click", () => confirmSheet("Stop Sharing?", stopText(d.name, row.code), "Stop Sharing", () => stopShare(row.code)));
     });
   }
   async function doShare(d, withQ, btn){
@@ -32238,11 +32515,19 @@ hook("boot", boot);
       deckShareSheet(nd);
     } catch(e) { busyBtn(btn, false); if (e.terms && window.SBSHARE && SBSHARE.reconfirm) SBSHARE.reconfirm(); else toast(e.message); }
   }
+  // The deck behind a share code (its link, or its published page, which is the same shared copy)
+  const deckOfCode = code => decksArr().find(x => (x.shared && x.shared.code === code) || (x.published && x.published.code === code));
+  const stopText = (name, code) => { const d = deckOfCode(code); return `The link and code for ${name} stop working.${d && d.published && d.published.code === code ? " Its public page in Studyboard Flashcards is taken down too." : ""} People who already added it keep their copy.`; };
   async function stopShare(code){
     try {
       await api.stopShare(code);
-      const d = decksArr().find(x => x.shared && x.shared.code === code);
-      if (d) { const nd = clone(d); delete nd.shared; saveDeck(nd, null); }
+      const d = deckOfCode(code);
+      if (d) {
+        const nd = clone(d); if (nd.shared && nd.shared.code === code) delete nd.shared;
+        // Stopping sharing deletes the shared copy, and with it the published page
+        if (nd.published && nd.published.code === code) { delete nd.published; if (window.SBSHARE && SBSHARE.pubGone) SBSHARE.pubGone(d, code); }
+        saveDeck(nd, null);
+      }
       S.shares = (S.shares || []).filter(s => s.code !== code);
       const el = $("#grpShares"); if (el) el.innerHTML = sharesHtml();
       toast("Stopped sharing. The link and code no longer work.");
@@ -32525,11 +32810,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (!g) return;
     rememberWebUrl();
     const link = linkFor("group", g.invite_code);
-    if (isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) && PLAN.limitNote && (S.members[g.id] || []).length >= PLAN.limits().groupMembers)
-      setTimeout(() => PLAN.limitNote("group", `${g.name} has ${PLAN.limits().groupMembers} members, the most a free group holds. Upgrade to Pro for groups of up to ${PLAN.proLimits().groupMembers}.`, {reason: `Pro groups hold up to ${PLAN.proLimits().groupMembers} members.`}), 300);
+    const fk = freeGrpKind(g);
+    if (fk === "upgrade" && PLAN.limitNote && (S.members[g.id] || []).length >= freeGrpLim("groupMembers"))
+      setTimeout(() => PLAN.limitNote("group", `${g.name} has ${freeGrpLim("groupMembers")} members, the most a free group holds. Upgrade to Pro for groups of up to ${PLAN.proLimits().groupMembers}.`, {reason: `Pro groups hold up to ${PLAN.proLimits().groupMembers} members.`}), 300);
     openSheet(`<div class="sheet">${head("Invite to " + g.name)}<div class="sheet-body">
       <p style="margin:0">Send this link or code to ${isProj(g) ? "your teammates" : "classmates"}. After they sign in to Studyboard, they can join. ${isOwner(g) ? "You can make a new code in Edit Group." : ""}</p>
-      ${(() => { if (!isOwner(g) || typeof PLAN === "undefined" || !PLAN || !PLAN.paywall() || (PLAN.groupsPro ? PLAN.groupsPro() : PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro())) return ""; const n = (S.members[g.id] || []).length, lim = PLAN.limits().groupMembers; return `<div class="grp-note">Free groups hold up to ${lim} members${n >= lim ? " and yours is full" : ` (${n} now)`}. <button type="button" class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</div>`; })()}
+      ${(() => { if (!fk) return ""; const n = (S.members[g.id] || []).length, lim = freeGrpLim("groupMembers"); return `<div class="grp-note">Free groups hold up to ${lim} members${n >= lim ? " and yours is full" : ` (${n} now)`}. ${freeGrpAct(g, fk, "Pro groups hold up to 100 members.", "for up to 100.")}</div>`; })()}
       <div class="grp-code-big" aria-label="Invite code">${esc(g.invite_code)}</div>
       ${link ? `<div class="grp-link"><input type="text" readonly value="${esc(link)}" aria-label="Invite link" id="grpInvLink"><button type="button" class="btn small" id="grpInvCopy">Copy Link</button></div>` : `<p class="mini" style="margin:0">They can type the code in Studyboard: Groups, then Enter a Code.</p>`}</div>
       <div class="sheet-foot"><button type="button" class="btn" id="grpInvCode">Copy Code</button><span class="spacer"></span><button type="button" class="btn primary" id="grpInvSend">Send Invite</button></div></div>`);
@@ -32664,7 +32950,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-deck-share": { const d = state.decks[id]; if (d) deckShareSheet(d); return true; }
       case "grp-file-deck": { const d = state.decks[id]; if (d) deckFileSheet(d); return true; }
       case "grp-share-copy": { const l = linkFor("deck", id); copyText(l || id, l ? "Link copied" : "Code copied"); return true; }
-      case "grp-share-stop": { const s = (S.shares || []).find(x => x.code === id); confirmSheet("Stop Sharing?", `The link and code for ${s ? s.name : "this deck"} stop working. People who already added it keep their copy.`, "Stop Sharing", () => stopShare(id)); return true; }
+      case "grp-share-stop": { const s = (S.shares || []).find(x => x.code === id); confirmSheet("Stop Sharing?", stopText(s ? s.name : "this deck", id), "Stop Sharing", () => stopShare(id)); return true; }
       case "grp-share-deck": if (g) shareDeckToGroupSheet(g); return true;
       case "grp-share-tasks": if (g) shareTasksSheet(g); return true;
       case "grp-item-view": { const it = itemOf(id), p = it && itemDeck(it); if (!p) { if (it) toast("That deck couldn't be read."); return true; }
@@ -32766,14 +33052,18 @@ ${kindPreview("study")}${kindPreview("project")}`;
     e.preventDefault();
     const gid = e.target.dataset.gid, ta = $("#grpMsgIn"), body = (ta.value || "").trim();
     if (!body) { ta.focus(); return; }
+    // A second Ctrl/Cmd+Enter while the first post is on its way would post it twice
+    if (S.posting) return;
     const btn = $("button[type=submit]", e.target); busyBtn(btn, true);
     ensureName(async () => {
+      S.posting = true;
       try {
         const row = await api.post(gid, body.slice(0, 2000));
         S.drafts[gid] = ""; const t2 = $("#grpMsgIn"); if (t2) t2.value = "";
         if (row && S.msgs[gid] && !S.msgs[gid].some(x => x.id === row.id)) S.msgs[gid].unshift(row);
         patch(gid);
       } catch(err) { toast(err.message); }
+      S.posting = false;
       busyBtn($("#grpPost button[type=submit]"), false);
     });
   });
@@ -32892,7 +33182,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
 
   /* Links (?deck=CODE, ?group=CODE) and update checks */
   const PEND = "sb:grpPending";
-  let watchT = 0, checked = false;
+  let watchT = 0, checked = false, outTicks = 0, askedIn = "";
   function takePending(){ try { const p = JSON.parse(localStorage.getItem(PEND) || "null"); if (p && Date.now() - p.at < 864e5) return p; localStorage.removeItem(PEND); } catch(e) {} return null; }
   function tick(){
     const p = takePending();
@@ -32901,9 +33191,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
     else if (p) {
       if (online()) {
         if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} if (p.kind === "group") openGroupCode(p.code); else openDeckCode(p.code); }
-      } else if ((!sbConfig() && sbLocalOnly()) || inPreview()) {
-        if (!dlg.open) {
-          try { localStorage.removeItem(PEND); } catch(e) {}
+      } else {
+        const local = (!sbConfig() && sbLocalOnly()) || inPreview();
+        // Signed out: ask once, after sign-in has had a moment to finish, and keep the invite so it opens once you're in
+        if (!local) outTicks = sbStarting ? 0 : outTicks + 1;
+        if (!dlg.open && (local || (outTicks >= 3 && askedIn !== p.kind + p.code))) {
+          if (local) { try { localStorage.removeItem(PEND); } catch(e) {} } else askedIn = p.kind + p.code;
           openSheet(`<div class="sheet">${head(p.kind === "group" ? "Study Group Invite" : "Shared Deck")}<div class="sheet-body">
             <p style="margin:0">Someone sent you ${p.kind === "group" ? "an invite to a study group" : "a shared deck"} (code <b>${esc(p.code)}</b>). ${inPreview() ? "Open it on the Studyboard website or in the desktop app to add it." : "Sign in to your Studyboard account to open it."}</p>
             ${p.kind === "group" ? "" : `<p class="mini" style="margin:0">Or ask them to send the deck as a file (Share, then Share as File) and use Import a Deck File.</p>`}</div>
@@ -33725,7 +34018,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       msg.textContent = "Checking…"; msg.className = "mini un-msg";
       try { const r = (await call("username_check", {p_name: v}) || [])[0]; if (my !== seq) return;
         if (r && r.ok) { msg.textContent = `@${v} is free.`; msg.className = "mini un-msg good"; } else { msg.textContent = (r && r.reason) || "That name isn't available."; msg.className = "mini un-msg bad"; } }
-      catch (e) { if (my === seq) { msg.textContent = "Looks good."; msg.className = "mini un-msg good"; } }
+      catch (e) { if (my === seq) { msg.textContent = "Couldn't check right now."; msg.className = "mini un-msg"; } }
     };
     input.addEventListener("input", () => { input.value = input.value.replace(/\s+/g, "").slice(0, 20); clearTimeout(t); t = setTimeout(run, 300); });
     return run;
@@ -34564,7 +34857,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
 `;
   document.head.appendChild(css);
 
-  window.SBSHARE = {can, open, shareRef, agreedThen, reconfirm, libRow, libBtn, exploreBtn, pubRow, pubUrl, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
+  // The deck's shared copy was deleted (Stop Sharing), so its public page went with it
+  const pubGone = (d, code) => pubRefresh("deck", d.name, code, deckCourse(d));
+  window.SBSHARE = {can, open, shareRef, agreedThen, reconfirm, libRow, libBtn, exploreBtn, pubRow, pubUrl, pubGone, courseHtml, libSheet, schoolOf, hostKey, schoolSheet, publishDeck, T: {rpc, COUNTS}};
 })();
 
 /* ===== module: 90-grades.js ===== */
@@ -39722,7 +40017,9 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     });
     return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   }
-  const isNew = (n, rs) => !rs.has(n.key) && (!n.date || Date.parse(n.date) > Date.now() - FRESH_DAYS * 864e5);
+  // Past FRESH_DAYS an announcement never counts as new, so Mark Unread would do nothing there
+  const canUnread = n => !n.date || Date.parse(n.date) > Date.now() - FRESH_DAYS * 864e5;
+  const isNew = (n, rs) => !rs.has(n.key) && canUnread(n);
   const unread = () => { const rs = readSet(); return items().filter(n => isNew(n, rs)).length; };
   window.SBANN = {items, info: key => { try { return AUTO_ON && autoFeatOn("news") && AUTO.ann && AUTO.ann[key] || null; } catch(e) { return null; } }};
   function badge(){
@@ -39764,7 +40061,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       const ai = window.SBANN.info(n.key), AB = ai && ai.imp ? `<p class="ann-ai"><span class="ann-attn">Needs attention</span> ${ai.sum ? esc(ai.sum) : ""}</p>` : "";
       return `<li class="${un ? "unread" : ""}${ai && ai.imp ? " attn" : ""}">${chip ? `<span class="ann-chip" style="--c:${esc(n.color)}"${n.courseName && n.courseName !== n.course ? ` title="${esc(n.courseName)}"` : ""}><span class="sd"></span>${esc(n.course)}</span>` : ""}<b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${when ? ` · <span title="${esc(fmtShort(iso(new Date(n.date))))}">${esc(when)}</span>` : ""}${un ? " · New" : ""}</span>${AB}
         ${n.text ? (n.text.length > 200 || n.long ? `<details><summary><span class="ann-pre">${esc(n.text.slice(0, 120).replace(/\s+/g, " "))}… Read more</span><span class="ann-less">Show less</span></summary><p class="ann-txt">${esc(n.text)}${n.long ? "…" : ""}</p></details>` : `<p class="ann-txt">${esc(n.text)}</p>`) : ""}
-        <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button></span></li>`; };
+        <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}${un || canUnread(n) ? `<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button>` : ""}</span></li>`; };
     const opt = (k, label, un) => `<option value="${esc(k)}"${tab === k ? " selected" : ""}>${esc(label)}${un ? ` · ${un} new` : ""}</option>`;
     let panel;
     if (!all.length) panel = "";
@@ -63206,7 +63503,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const chats = rd();
     let c = chats.find(x => x.id === T.id);
     if (!c) { c = {id: uid(), title: clip(q, 56), at: Date.now(), msgs: []}; chats.unshift(c); T.id = c.id; wr(chats); }
-    T.busy = {id: c.id, q}; T.draft = ""; T.status = "Looking through your stuff…"; draw();
+    T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.status = "Looking through your stuff…"; draw();
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     try {
@@ -63226,7 +63523,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
     fresh.sort((a, b) => b.at - a.at); wr(fresh);
-    T.busy = null; T.status = ""; draw();
+    T.busy = null; T.status = ""; draw(); say();
     try { if (m.a && window.SBCOMP) { SBCOMP.cheer && 0; } } catch (e) {}
   }
   const clip2 = (s, n) => String(s == null ? "" : s).trim().slice(0, n);
@@ -63384,7 +63681,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const ready = aiOk();
     const gate = inPreview() ? `<div class="cpt-gate"><p class="mini" style="margin:0">Chat works in the Studyboard app and on your own Studyboard website. There's nothing to set up in this preview.</p></div>`
       : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Add a free Google Gemini key to chat.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
-    return `${gate}<div class="cpt-log" id="cptLog" aria-live="polite">${logHtml()}</div>
+    return `${gate}<div class="cpt-log" id="cptLog">${logHtml()}</div><div class="sr" id="cptSay" aria-live="polite"></div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
       <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
       <input type="file" id="cptFile" multiple accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.heic,application/pdf,image/*,text/plain" class="sr" tabindex="-1" aria-hidden="true">
@@ -63417,9 +63714,16 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (ui.tab !== "companion") return;
     const log = $("#cptLog");
     if (!log || T.tab !== "chat") { render(); return; }
-    log.innerHTML = logHtml();
+    log.innerHTML = logHtml(); say();
     const go = $("#cptGo"); if (go) go.disabled = !aiOk() || !!T.busy;
     toLatest(log); requestAnimationFrame(() => { if (log.isConnected) toLatest(log); });
+  }
+  // Screen readers hear only the newest reply (the chat log itself is redrawn whole, so it can't be a live region)
+  function say(){
+    const el = $("#cptSay"), c = rd().find(x => x.id === T.id), m = c && c.msgs[c.msgs.length - 1];
+    if (!el || !m || T.busy || !T.say) return;
+    T.say = false;
+    el.textContent = m.err ? String(m.err) : String((m.a && m.a.answer) || "").replace(/[*_`#>|]+/g, "").replace(/\s+/g, " ").trim().slice(0, 1500);
   }
   // A new answer opens at its start (its question at the top), not at its last line; while thinking, the bottom shows
   function toLatest(log){
@@ -65723,10 +66027,12 @@ window.__scrapArt = SCRAP_ART;
   const TOAST_GAP = 3 * 60e3, K_T = "studyboard:scrapToastAt";
   let toastTimer = 0;
   function toastBusy(){ const t = document.getElementById("toast"); return !!(t && t.classList.contains("show")); }
+  // a sticker waits while the tour, any sheet or pop-up, or a note being edited is open, so it never covers them
+  const held = () => document.hidden || toastBusy() || !!document.querySelector("dialog[open], .note.n-sheet, .cs-menu");
   function quietToast(msg, key, still){
     const sc = SC(); if (sc && sc.toast === false) return;
     if (still && !still()) return;
-    if (document.hidden || toastBusy() || (dlg && dlg.open)) { clearTimeout(toastTimer); toastTimer = setTimeout(() => quietToast(msg, key, still), 3000); return; }
+    if (held()) { clearTimeout(toastTimer); toastTimer = setTimeout(() => quietToast(msg, key, still), 3000); return; }
     ls(K_T, String(Date.now()));
     toast(msg, null, {label: "See It", fn: () => openBook(null, key)});
   }
@@ -65736,7 +66042,7 @@ window.__scrapArt = SCRAP_ART;
     const sc = SC(); if (sc && sc.toast === false) { pending.length = 0; return; }
     if (ui.tab === "scrapbook") { pending.length = 0; return; }
     const last = Number(ls(K_T)) || 0, wait = Math.max(0, last + TOAST_GAP - Date.now());
-    if (wait || document.hidden || toastBusy() || (dlg && dlg.open)) { toastTimer = setTimeout(flushToast, Math.max(3000, wait)); return; }
+    if (wait || held()) { toastTimer = setTimeout(flushToast, Math.max(3000, wait)); return; }
     const rank = k => { const m = MI[k]; return m ? (m.special ? 20 : 0) + (TIER[k] || 0) * 2 - m.i / 100 : 1; };
     const ks = [...new Set(pending.splice(0))].sort((a, b) => rank(b) - rank(a));
     const first = ks[0];
@@ -70178,6 +70484,8 @@ hook("changed", changes => {
   changes.forEach(c => { if (chip && chip.kind === "took" && c.kind === "task" && c.id === chip.id && c.after && c.after.status !== "done") chipHide(); });
   if (fresh.length) {
     const t = fresh[0].after;
+    // a newer finish: the question about the earlier task goes, so it never sits beside a "Completed" for another task
+    if (chip && chip.kind === "took" && chip.id !== t.id) chipHide();
     maybeAskTook(t, fresh.length);
     if (fresh.length === 1 && !(chip && chip.kind === "took")) setTimeout(() => maybeLearned(state.tasks[t.id]), 0);
   }
@@ -75297,6 +75605,8 @@ window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow
             if (r.status === 401) { stop("You've been signed out. Sign in again, then try again."); return; }
             stop(b.message || deleteErr(r.error)); return;
           }
+          // no sign-in sheet over the summary below; with the copy erased, other open tabs reload empty too
+          if (wipe) sbLeave(); else sbLeaving = true;
           try { await sb.auth.signOut({scope: "local"}); } catch (e) {}
           try { localStorage.removeItem(OUTBOX); } catch (e) {}
           aiWipeLocal();
@@ -75314,10 +75624,14 @@ window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow
   function securitySheet(kind){
     if (!canDelete()) { toast("Sign in to your account first."); return; }
     const isMail = kind === "email", T = isMail ? "Change Email" : "Change Password";
+    // Accounts made with Google or Apple have no password until one is set, by a code sent to their email
+    const u = sbUser, ids = (u.identities || []).map(i => i && i.provider).concat((u.app_metadata && u.app_metadata.providers) || []);
+    const social = ids.some(p => p && p !== "email") && !ids.includes("email");
+    const noPw = social ? `<p class="mini" style="margin:0">Signed up with Google or Apple and never set a password? <button type="button" class="link-btn" id="secSetPw">Set a Password</button> first. We'll email you a code.</p>` : "";
     openSheet(`<form class="sheet" id="secForm" data-kind="${kind}">${head(T)}
       <div class="sheet-body">
         <p style="margin:0">${isMail ? `Your email is <b>${esc(sbUser.email || "")}</b>. We'll email both your current and your new address, and it changes once you confirm.` : "Choose a new password. You'll stay signed in on this device."}</p>
-        <label class="f"><span class="lh">Current Password</span><input type="password" name="current" required autocomplete="current-password" autofocus></label>
+        <label class="f"><span class="lh">Current Password</span><input type="password" name="current" required autocomplete="current-password" autofocus></label>${noPw}
         ${isMail ? `<label class="f"><span class="lh">New Email</span><input type="email" name="email" required autocomplete="email"></label>`
           : `${sbPwHtml("New Password", "new-password", {req: false, id: "secStrength"})}
              <label class="f"><span class="lh">Confirm New Password</span><input type="password" name="confirm" required minlength="8" autocomplete="new-password"></label>
@@ -75333,7 +75647,7 @@ window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow
           if (!cur) { say("Enter your current password."); return; }
           say("Checking…");
           const chk = await sb.auth.signInWithPassword({email: sbUser.email, password: cur});
-          if (chk.error) { say(/invalid login/i.test(chk.error.message || "") ? "That current password isn't right." : sbWords(chk.error)); return; }
+          if (chk.error) { say(/invalid login/i.test(chk.error.message || "") ? (social ? "That current password isn't right. If you've never set one, use Set a Password." : "That current password isn't right.") : sbWords(chk.error)); return; }
           if (isMail) {
             const em = String(fd.get("email") || "").trim();
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) || em.length > 254) { say("That email address doesn't look right."); return; }
@@ -75365,6 +75679,7 @@ window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow
       return false;
     });
     sbPwWire(dlg);
+    const sp = $("#secSetPw"); if (sp) sp.addEventListener("click", () => sbSignInSheet("forgot", sbUser.email || ""));
   }
 
   /* Hooks */
@@ -78728,7 +79043,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       R.doc = doc; R.pw = !!pw; layout(); counts();
     } catch (e) {
       if (R !== my) return;
-      const box = $("#pdrPages"); if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(String(e && e.message)) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : ofc ? "Couldn't show this file. Try opening it in its own app." : "Couldn't open this PDF.")}</p>`;
+      // the same short, specific messages as the plain viewer (01-notes officeView)
+      const box = $("#pdrPages"), m = String((e && e.message) || "");
+      if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : !ofc ? "Couldn't open this PDF." : /not a zip|damaged|corrupt/i.test(m) ? "This file looks damaged, so it can't be shown here. Try opening it in its own app." : m && m.length < 160 ? m : "Couldn't show this file. Try opening it in its own app.")}</p>`;
     }
   }
   const CACHE_KEY = "studyboard:pdfCache", CACHE_N = 8;
@@ -78768,7 +79085,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
     const size = i => O ? `width:${Math.round(O.pages[i].w * s)}px;height:${Math.round(O.pages[i].h * s)}px` : `width:${w}px;height:${h}px`;
     const label = i => O && O.pages[i].label ? O.pages[i].label : `Page ${i + 1}`;
-    box.innerHTML = Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page${O ? " pdr-ofc" : ""}" data-p="${i + 1}" style="${size(i)}" aria-label="${esc(label(i))}"><div class="pdr-hl"></div></div>`).join("");
+    // what the Office reader left out (a long document or a big sheet cut short), said above the pages
+    box.innerHTML = (O && O.warnings || []).map(w => `<p class="mini ofv-warn pdr-warn">${esc(w)}</p>`).join("") + Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page${O ? " pdr-ofc" : ""}" data-p="${i + 1}" style="${size(i)}" aria-label="${esc(label(i))}"><div class="pdr-hl"></div></div>`).join("");
     R.pages = Array.from(box.querySelectorAll(".pdr-page")).map((el, i) => ({n: i + 1, el, done: 0}));
     const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});
@@ -81763,6 +82081,9 @@ const ONENOTE = (() => {
   }
   const webUrl = p => { const h = p && p.links && p.links.oneNoteWebUrl && p.links.oneNoteWebUrl.href; return typeof h === "string" && /^https:\/\//.test(h) && h.length < 2000 ? h : ""; };
   const seenNext = (seen, ids) => [...new Set([].concat(ids || [], seen || []))].slice(0, SEEN_MAX);
+  // After a run: the pages seen are those that have a note (notes) or were just brought in (done), never ones only listed,
+  // so pages past this run's limit (or after a stop) still come in next time instead of looking deleted
+  const seenAfter = (seen, notes, done) => seenNext(seen, (notes || []).map(n => n && n.on && n.on.p).filter(Boolean).concat(done || []));
   // A note's OneNote fields, checked (sync and backups bring in anything)
   function normOn(o){
     if (!o || typeof o !== "object") return null;
@@ -81770,7 +82091,7 @@ const ONENOTE = (() => {
     const r = {p: s(o.p, 200), s: s(o.s, 200), u: /^https:\/\//.test(s(o.u, 2000)) ? o.u : "", m: s(o.m, 40), h: s(o.h, 20)};
     return r.p ? r : null;
   }
-  return {GRAPH, TEXT_MAX, PER_RUN, hash, pageText, pageHtml, plan, webUrl, seenNext, normOn, iso};
+  return {GRAPH, TEXT_MAX, PER_RUN, hash, pageText, pageHtml, plan, webUrl, seenNext, seenAfter, normOn, iso};
 })();
 /*ONENOTE-END*/
 
@@ -81912,9 +82233,9 @@ const SBONENOTE = (() => {
     try {
       const board = boardFor(L0);
       const pages = await pagesOf(sid, L0.g);
-      const mine = fromSection(sid), P = ONENOTE.plan(pages, mine, L0.seen);
+      const mine = fromSection(sid), P = ONENOTE.plan(pages, mine, L0.seen), base = new Map(mine.map(n => [n.id, String(n.text || "")]));
       const changes = [], live = notesArr().filter(n => !n.archived && (n.board || "") === board);
-      let z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0), top = live.reduce((m, n) => Math.max(m, (n.y || 0) + 280), 40), k = 0, failed = 0, stop = "";
+      let z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0), top = live.reduce((m, n) => Math.max(m, (n.y || 0) + 280), 40), k = 0, failed = 0, stop = "", done = [];
       for (const {page, note} of P.fetch) {
         let html;
         try { html = await graph(`${rootOf(L0.g)}/pages/${encodeURIComponent(page.id)}/content`, null, "text", provOf(L0)); }
@@ -81922,6 +82243,7 @@ const SBONENOTE = (() => {
         const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
         const text = ONENOTE.pageText(doc, page.title, {pics: 0, files: 0});
         const on = {p: page.id, s: sid, u: ONENOTE.webUrl(page), m: ONENOTE.iso(page.lastModifiedDateTime), h: ONENOTE.hash(text)};
+        done.push(page.id);
         if (note) changes.push({kind: "note", id: note.id, after: Object.assign(clone(note), {text, on})});
         else {
           const n = normNote({id: uid(), text, color: "purple", x: 40 + (k % 4) * (NOTE_W0() + 24), y: top + Math.floor(k / 4) * 300, z: ++z, rot: 0, courseId: L0.courseId || "", board, created: Date.parse(page.createdDateTime) || Date.now(), on});
@@ -81929,14 +82251,22 @@ const SBONENOTE = (() => {
         }
         await new Promise(r => setTimeout(r, opts.gap == null ? 150 : opts.gap));
       }
+      // A note edited (or deleted) here while the pages were coming in keeps the edit: re-read it now
+      let kept = P.kept;
+      for (let i = changes.length - 1; i >= 0; i--) {
+        const c = changes[i]; if (!base.has(c.id)) continue;
+        const cur = state.notes[c.id];
+        if (!cur || String(cur.text || "") !== base.get(c.id)) { changes.splice(i, 1); if (cur) kept++; continue; }
+        c.after = Object.assign(clone(cur), {text: c.after.text, on: c.after.on});
+      }
       const added = changes.filter(c => !state.notes[c.id]).length, updated = changes.length - added;
       if (changes.length) applyChanges(changes, `OneNote: ${[added ? `${added} page${added === 1 ? "" : "s"} brought in` : "", updated ? `${updated} updated` : ""].filter(Boolean).join(", ")} from ${L0.name}`);
-      const ids = pages.map(p => p.id);
-      setPrefs({links: prefs().links.map(l => l.sid === sid ? Object.assign({}, l, {board, at: Date.now(), seen: ONENOTE.seenNext(l.seen, ids.concat(changes.map(c => c.after.on.p))), n: fromSection(sid).length, more: P.more + (stop ? P.fetch.length : 0)}) : l)});
-      const msg = stop || (failed ? `${failed} page${failed === 1 ? "" : "s"} couldn't be read. ` : "") + (P.kept ? `${P.kept} note${P.kept === 1 ? "" : "s"} you edited here kept your changes. ` : "") + (P.more ? "The rest come in on the next update." : "");
+      const more = P.more + (stop ? P.fetch.length - done.length : 0);
+      setPrefs({links: prefs().links.map(l => l.sid === sid ? Object.assign({}, l, {board, at: Date.now(), seen: ONENOTE.seenAfter(l.seen, mine, done), n: fromSection(sid).length, more}) : l)});
+      const msg = stop || (failed ? `${failed} page${failed === 1 ? "" : "s"} couldn't be read. ` : "") + (kept ? `${kept} note${kept === 1 ? "" : "s"} you edited here kept your changes. ` : "") + (more ? "The rest come in on the next update." : "");
       if (!changes.length && opts.say) toast(msg.trim() || `${L0.name} is up to date`);
       else if (msg.trim() && opts.say) setTimeout(() => toast(msg.trim()), 2800);
-      return {added, updated, kept: P.kept, more: P.more, failed};
+      return {added, updated, kept, more, failed};
     } catch (x) {
       if (opts.say) toast(x instanceof OnErr ? x.message : "Couldn't update from OneNote.", null, null, {error: true});
       return null;
@@ -84037,6 +84367,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (t.contentEditable !== "plaintext-only") t.contentEditable = "true";
     t.addEventListener("paste", ev => { ev.preventDefault(); const s = pdeTidy((ev.clipboardData || window.clipboardData).getData("text")); document.execCommand("insertText", false, E && E.ed && E.ed.e.k === "t" ? s.replace(/\n+/g, " ") : s); });
     t.addEventListener("keydown", ev => {
+      if (ev.isComposing || ev.keyCode === 229) return;   // typing with an IME (Chinese, Japanese…): its own keys
       // Escape and Tab finish too, keeping what was typed (Ctrl+Z takes it back); focus stays on what was typed in
       if (ev.key === "Escape" || ev.key === "Tab") { ev.preventDefault(); ev.stopPropagation(); commit(); if (E && !E.ed) focusPicked(); return; }
       if (ev.key === "Enter" && (E.ed.e.k === "t" || ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); commit(); }
@@ -84066,13 +84397,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // the message line under the tools: a note about what's being typed, or (none) what the bar says
   function note(text, bad){ const m = $("#pdeMsg"); if (!m) return; m.textContent = text || barMsg(); m.classList.toggle("bad", !!(text && bad)); }
   function cancel(){ if (!E || !E.ed) return; const p = E.ed.e.p; E.ed = null; paint(p); bar(); }
-  function commit(){
+  // force: the editor is going away (the reader closed), so letters the font can't draw become "?" rather than being lost
+  function commit(force){
     if (!E || !E.ed) return;
     const ed = E.ed, e = ed.e, raw = ed.el && ed.el.isConnected ? textOf(ed.el) : e.t;
     // (a paragraph or text box doesn't keep empty lines at its end)
     let t = pdeTidy(raw).slice(0, MAX_TEXT); t = e.k === "t" ? t.replace(/\n+/g, " ") : t.replace(/\s+$/, "");
     const bad = badFor(e, t);
-    if (bad.length) { toast(badMsg(bad, e)); if (ed.el && ed.el.isConnected) ed.el.focus(); return; }
+    if (bad.length && force) { t = [...t].map(ch => bad.includes(ch) ? "?" : ch).join(""); toast(`${bad.slice(0, 3).join(" ")} can't be saved in this font, so ${bad.length === 1 ? "it was" : "they were"} saved as “?”.`); }
+    else if (bad.length) { toast(badMsg(bad, e)); if (ed.el && ed.el.isConnected) ed.el.focus(); return; }
     // Edit One Line is for one line: the next click opens paragraphs again
     E.ed = null; E.lineOnly = false;
     const list = mine(), exists = list.some(x => x.id === e.id);
@@ -84457,6 +84790,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // in Find: Enter goes to the next match, Shift+Enter the one before
     if (ev.key === "Enter" && t && (t.id === "pdeFindQ" || t.id === "pdeFindR")) { ev.preventDefault(); ev.stopPropagation(); findStep(ev.shiftKey ? -1 : 1); return; }
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    // not for keys meant for another dialog over the reader (a confirm box…), nor Enter, arrows or Delete on a button or link
+    if ((t && t !== document.body && !dlg.contains(t)) || [...document.querySelectorAll("dialog[open]")].some(d => d !== dlg && !dlg.contains(d) && d.matches(":modal"))) return;
+    const ctl = t && t.closest && t.closest('button,a[href],summary,[role="button"],[role="menuitem"],[role="tab"],[role="option"],[role="slider"]');
+    if (ctl && /^(Enter| |Delete|Backspace|Arrow.*)$/.test(ev.key)) return;
+    const onPages = !t || t === document.body || t === dlg || !!(t.closest && t.closest("#pdrPages"));
+    if (!onPages && /^(Enter|Arrow.*)$/.test(ev.key)) return;
     const key = String(ev.key).toLowerCase(), mod = (ev.ctrlKey || ev.metaKey) && !ev.altKey;
     if (mod && key === "z") { ev.preventDefault(); ev.stopPropagation(); histStep(ev.shiftKey ? 1 : -1); return; }
     if (mod && key === "y") { ev.preventDefault(); ev.stopPropagation(); histStep(1); return; }
@@ -84480,6 +84819,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       else { save(list, null); const top = E.hist && E.hist.undo[E.hist.undo.length - 1]; if (top) { top.label = "Moved"; top.nudge = e.id; } }
     }
   }, true);
+  // while the edited PDF is saving, the reader stays open
+  const holdOpen = ev => { if (!busy || !R()) return false; ev.preventDefault(); ev.stopPropagation(); toast("Still working on the PDF… one moment."); return true; };
+  dlg.addEventListener("cancel", holdOpen, true);
+  document.addEventListener("click", ev => { if (busy && ev.target.closest && ev.target.closest('#dlg [data-act="close"]')) holdOpen(ev); }, true);
   // Escape: out of what's being typed, a field, a panel or a pick, then back to Edit Text, then out of Edit (the reader stays open)
   function escStep(ev){
     const t = ev.target, box = t && t.closest && t.closest("dialog");
@@ -84756,7 +85099,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // (the header and watermark go on every page, so they wait: they're drawn on the pages as they end up)
   const docWide = e => e.k === "h" || e.k === "m";
   async function baseBytes(withMarks, skip){
-    const L = await loadLib(), bytes = await P.readerBytes(), list = mine().filter(e => !(skip && skip(e)));
+    const bp = P.readerBytes(), list = mine().filter(e => !(skip && skip(e))); bp.catch(() => {});   // asked for now, while the reader is surely open
+    const L = await loadLib(), bytes = await bp;
     if (!list.length && !withMarks) return bytes;
     const opts = await bakeOpts(list, withMarks);
     return (await pdeBake(L, bytes, list.map(e => Object.assign({}, e)), opts)).bytes;
@@ -84766,6 +85110,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     if (!(await signedOk())) return;
     const plan = E.pp.plan.map(x => x.blank ? {blank: x.blank} : {s: x.s, p: x.p, rot: x.rot});
     if (plan.every((x, i) => !x.blank && !x.s && x.p === i + 1 && !x.rot) && E.pp.plan.length === R().doc.numPages) { closePanel(); toast("No page changes to apply"); return; }
+    const S = E, f0 = fileOf(), fallbackName = editedName(curRev(f0).name || f0.name);
     busy = true;
     try {
       toast("Changing the pages…");
@@ -84773,7 +85118,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       // where each of this PDF's pages went, so highlights and handwriting can follow
       const map = new Map(); E.pp.plan.forEach((x, i) => { if (!x.s && !x.blank && !map.has(x.p)) map.set(x.p, {p: i + 1, rot: x.rot}); });
       closePanel();
-      await storeVersion(out, {map, carry: mine().filter(docWide), label: "pages changed", fallbackName: editedName(curRev(fileOf()).name || fileOf().name)});
+      await storeVersion(out, {S, map, carry: mine().filter(docWide), label: "pages changed", fallbackName});
     } catch (err) { toast((err && err.message) || "Couldn't change the pages."); }
     finally { busy = false; if (E) bar(); }
   }
@@ -85008,7 +85353,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   async function bake(withMarks){
     const f = fileOf(), list = mine(); if (!f || (!list.length && !withMarks)) return null;
-    const L = await loadLib(), bytes = await P.readerBytes();
+    const bp = P.readerBytes(); bp.catch(() => {});   // asked for now, while the reader is surely open
+    const L = await loadLib(), bytes = await bp;
     return pdeBake(L, bytes, list.map(e => Object.assign({}, e)), await bakeOpts(list, withMarks));
   }
   const editedName = name => name.replace(/(\.pdf)?$/i, "").replace(/\s*\(edited\)$/i, "") + " (edited).pdf";
@@ -85027,18 +85373,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     // a new version (the one you opened stays as it is), or this version updated in place
     const f0 = fileOf(), ri = f0.revs.findIndex(r => r.assetId === E.rev), L0 = revLetter(ri >= 0 ? ri : f0.revs.length - 1);
     const how = await askBox({title: "Save Your Edits", text: `Save them as a new version of this file, and keep Rev ${L0} as it was? Or update Rev ${L0} itself?`, yes: "Save as New Version", alt: `Update Rev ${L0}`, no: "Cancel"});
-    if (!how) return;
+    if (!how || !E || E.fid !== f0.id) return;
+    // the file and version are kept from here, and the reader stays open (busy) until the PDF is saved
+    const S = E, fallbackName = editedName(curRev(f0).name || f0.name);
     busy = true;
     try {
       toast("Saving the edited PDF…");
       const r = await bake(false); if (!r) return;
-      await storeVersion(r.bytes, {label: how === "alt" ? `updated with your edits` : "saved with your edits", replace: how === "alt", fallbackName: editedName(curRev(fileOf()).name || fileOf().name), report: r.report});
+      await storeVersion(r.bytes, {S, label: how === "alt" ? `updated with your edits` : "saved with your edits", replace: how === "alt", fallbackName, report: r.report});
     } catch (err) { toast((err && /load|locked/.test(err.message || "") && err.message) || "Couldn't save the edited PDF. Your edits are still here."); }
     finally { busy = false; if (E) bar(); }
   }
   // A new version of the file: highlights and handwriting come along (to where their pages went); the edits are now in the file
   async function storeVersion(bytes, o){
-    const S = E, f0 = fileOf(), page = (R() || {}).cur || 1;
+    const S = o.S || E, f0 = state.files[S.fid], r0 = R(), page = r0 && r0.fid === S.fid ? r0.cur || 1 : 1;
     const assets = await getAssets().catch(() => null), carry = o.carry || [];
     if (!assets) { await deliver(await withDocWide(bytes, carry), o.fallbackName); toast("This device can't store files here, so the PDF was downloaded instead."); return; }
     const name = (curRev(f0).name || f0.name).replace(/\s*\(edited\)(?=\.pdf$)/i, "");
@@ -85069,10 +85417,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     n.updated = Date.now();
     applyChanges([{kind: "file", id: S.fid, after: n}], `${n.name}: Rev ${revLetter(ri >= 0 ? ri : n.revs.length - 1)} ${o.label}`);
     const note = o.report && missingNote(o.report); if (note) setTimeout(() => toast("Note: " + note + "."), 1800);
-    E = null;
-    // the new version opens where you were, still in Edit if you were editing
+    const still = R() && R().fid === S.fid; if (E === S) E = null;
+    // the new version opens where you were, still in Edit if you were editing (unless the reader was closed meanwhile)
     const at = map && map.get(page) ? map.get(page).p : page;
-    if (P.openReader) { if (dlg.open) dlg.close(); setTimeout(() => S.on ? openEdit(S.fid, at) : P.openReader(S.fid, at), 0); }
+    if (P.openReader && still) { if (dlg.open) dlg.close(); setTimeout(() => S.on ? openEdit(S.fid, at) : P.openReader(S.fid, at), 0); }
   }
 
   /* Opening a PDF straight into Edit: the reader opens, then Edit turns on once its first page is drawn */
@@ -85381,7 +85729,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     const pages = which === "all" ? Array.from({length: r.doc.numPages}, (_, i) => i + 1) : which === "none" ? E.ocrNone : [r.cur || 1];
     if (!pages.length) return;
     const msg = $("#pdeOcrMsg"), go = dlg.querySelector('[data-act="pde-ocr-go"]'); if (go) go.disabled = true;
-    const S = E;
+    const S = E, f0 = fileOf(), fallbackName = editedName(curRev(f0).name || f0.name);
     try {
       if (msg) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading ${pages.length === 1 ? `page ${pages[0]}` : `${pages.length} pages`}…`;
       const read = await ocrRead(r.doc, pages, (d, t) => { if (msg && d < t) msg.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading pages (${d} of ${t} done)…`; });
@@ -85390,7 +85738,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const done = await ocrApply(await baseBytes(false), read);
       if (!done.n) { if (msg) msg.textContent = "No text was found on " + (pages.length === 1 ? "that page." : "those pages."); if (go) go.disabled = false; return; }
       closePanel();
-      await storeVersion(done.bytes, {label: `text recognized on ${pages.length} page${pages.length === 1 ? "" : "s"}`, fallbackName: editedName(curRev(fileOf()).name || fileOf().name)});
+      await storeVersion(done.bytes, {label: `text recognized on ${pages.length} page${pages.length === 1 ? "" : "s"}`, S, fallbackName});
     } catch (err) {
       if (msg) msg.textContent = (err && err.message) || "Couldn't read the text. Try again."; if (go) go.disabled = false;
     }
@@ -85592,8 +85940,20 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     let d = document.getElementById("pdeScanDlg");
     if (!d) { d = document.createElement("dialog"); d.id = "pdeScanDlg"; d.className = "pde-scan"; d.setAttribute("aria-labelledby", "pdeScanT"); document.body.appendChild(d); }
     SCAN = {pages: [], done, filter: "none", edit: -1};   // pages keep their own colours (no Document / Black & White look)
-    d.oncancel = e => { e.preventDefault(); scanClose(); };
+    d.oncancel = e => { e.preventDefault(); scanQuit(); };
     scanDraw(); try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
+  }
+  // Esc, Cancel or X: in the corners view it means Done; with pages scanned, ask before throwing them away
+  async function scanQuit(){
+    if (!SCAN || SCAN.asking) return;
+    if (SCAN.edit >= 0) { const p = SCAN.pages[SCAN.edit]; SCAN.edit = -1; await scanRender(p); scanDraw(); return; }
+    const n = SCAN.pages.length;
+    if (n) {
+      const S0 = SCAN; S0.asking = true;
+      const yes = await askBox({title: "Discard the Scanned Pages?", text: `${n} page${n === 1 ? "" : "s"} you scanned will be lost.`, yes: "Discard", no: "Keep Scanning", danger: true});
+      S0.asking = false; if (!yes || SCAN !== S0) return;
+    }
+    scanClose();
   }
   function scanClose(){ phoneStop(); const d = document.getElementById("pdeScanDlg"); if (d) { try { d.close(); } catch (e) {} } SCAN = null; }
 
@@ -85796,7 +86156,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   document.addEventListener("click", async ev => {
     const b = ev.target.closest && ev.target.closest("#pdeScanDlg [data-scan]"); if (!b || !SCAN || b.tagName === "SELECT" || b.tagName === "INPUT") return;
     const k = b.dataset.scan, i = Number(b.dataset.i), pl = SCAN.pages;
-    if (k === "close") scanClose();
+    if (k === "close") scanQuit();
     else if (k === "phone") { if (!SCAN.phone) phoneStart(); }
     else if (k === "phone-stop") { phoneStop(); scanDraw(); }
     else if (k === "phone-again") { phoneStop(); phoneStart(); }
@@ -86292,7 +86652,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (!S.tocChecked) { S.tocChecked = true; const r = R(); if (r && r.doc) r.doc.getOutline().then(o => { const b = $("#pdeTocBtn"); if (b && (o && o.length || mine().some(e => e.k === "o"))) b.hidden = false; }).catch(() => {}); }
       if (n === 1 || !S.barDone) { S.barDone = true; bar(); }
     },
-    readerClose(){ if (E && E.ed) commit(); if (SAY.on) sayStop(); E = null; },
+    readerClose(){ if (E && E.ed) commit(true); if (SAY.on) sayStop(); E = null; },
     // the reader's own tools: read aloud, the PDF's contents, and comparing versions
     readerTools(){
       const r = R(), f = r && state.files[r.fid];
@@ -86625,15 +86985,51 @@ function pdtParagraphs(pages){
   });
   return blocks.map(b => b.pageBreak ? b : {style: b.style, t: b.t});
 }
-// Word to PDF: the parts of a .docx we lay out (paragraphs with runs, list items, tables, pictures, page breaks)
-function pdtReadDocx(xml, rels){
+// Word's list numbering (word/numbering.xml): numId -> its levels' format, start and text ("%1.")
+function pdtNumbering(xml){
+  const out = {}; if (!xml) return out;
   const doc = new DOMParser().parseFromString(xml, "application/xml"), W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const val = el => el ? (el.getAttributeNS(W, "val") || el.getAttribute("w:val")) : null, at = (el, a) => el.getAttributeNS(W, a) || el.getAttribute("w:" + a);
+  const one = (el, name) => [...el.childNodes].find(n => n.nodeType === 1 && n.localName === name) || null;
+  const abs = {};
+  [...doc.getElementsByTagNameNS(W, "abstractNum")].forEach(a => { const lv = abs[at(a, "abstractNumId")] = {};
+    [...a.getElementsByTagNameNS(W, "lvl")].forEach(l => { lv[at(l, "ilvl")] = {fmt: val(one(l, "numFmt")) || "decimal", start: Number(val(one(l, "start"))) || 1, text: val(one(l, "lvlText"))}; }); });
+  [...doc.getElementsByTagNameNS(W, "num")].forEach(n => { const a = val(one(n, "abstractNumId")); if (a != null && abs[a]) out[at(n, "numId")] = abs[a]; });
+  return out;
+}
+// a list number as Word shows it: 3, c, C, iii or III
+function pdtNumFmt(n, fmt){
+  if (/letter/i.test(fmt)) { let s = ""; for (let k = n; k > 0; k = Math.floor((k - 1) / 26)) s = String.fromCharCode(97 + (k - 1) % 26) + s; return fmt === "upperLetter" ? s.toUpperCase() : s; }
+  if (/roman/i.test(fmt)) { let s = "", k = n; [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]].forEach(([v, r]) => { while (k >= v) { s += r; k -= v; } }); return fmt === "upperRoman" ? s.toUpperCase() : s; }
+  return String(n);
+}
+// Word to PDF: the parts of a .docx we lay out (paragraphs with runs, list items with their numbers, tables, pictures, page breaks).
+// Content controls (w:sdt: cover pages, tables of contents, template fields) and simple fields are read through.
+function pdtReadDocx(xml, rels, numXml){
+  const doc = new DOMParser().parseFromString(xml, "application/xml"), W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const WRAP = /^(sdt|sdtContent|customXml)$/;
+  // an element's children, looking through content controls
+  const flat = el => [...el.childNodes].filter(n => n.nodeType === 1).flatMap(n => n.localName === "sdt" ? (kids(n, "sdtContent")[0] ? flat(kids(n, "sdtContent")[0]) : []) : WRAP.test(n.localName) ? flat(n) : [n]);
   const kids = (el, name) => [...el.childNodes].filter(n => n.nodeType === 1 && n.localName === name);
   const kid = (el, name) => kids(el, name)[0] || null;
   const val = el => el ? (el.getAttributeNS(W, "val") || el.getAttribute("w:val")) : null;
   const on = el => !!el && !/^(0|false|off)$/i.test(val(el) || "true");
+  const NUM = pdtNumbering(numXml), count = {};
+  // "1.", "a)", "ii." or a bullet, counting each list in document order (a level restarts under a new item above it)
+  function label(numPr){
+    const id = val(kid(numPr, "numId")), lvl = Math.max(0, Math.min(8, Number(val(kid(numPr, "ilvl"))) || 0)), def = NUM[id];
+    if (!def || id === "0") return {lvl, label: ""};
+    const c = count[id] = count[id] || [];
+    for (let k = 0; k < lvl; k++) if (c[k] == null) c[k] = (def[k] || {}).start || 1;
+    c[lvl] = c[lvl] == null ? (def[lvl] || {}).start || 1 : c[lvl] + 1; c.length = lvl + 1;
+    const L0 = def[lvl] || {fmt: "decimal", text: `%${lvl + 1}.`};
+    if (L0.fmt === "bullet" || L0.fmt === "none") return {lvl, label: L0.fmt === "none" ? " " : ""};
+    const t = String(L0.text == null ? `%${lvl + 1}.` : L0.text).replace(/%(\d)/g, (m, d) => { const k = Number(d) - 1; return c[k] == null ? "" : pdtNumFmt(c[k], (def[k] || {}).fmt || "decimal"); });
+    return {lvl, label: t};
+  }
   function para(p){
-    const ppr = kid(p, "pPr"), style = ppr && val(kid(ppr, "pStyle")) || "", list = !!(ppr && kid(ppr, "numPr")), jc = ppr && val(kid(ppr, "jc")) || "";
+    const ppr = kid(p, "pPr"), style = ppr && val(kid(ppr, "pStyle")) || "", numPr = ppr && kid(ppr, "numPr"), list = !!numPr, jc = ppr && val(kid(ppr, "jc")) || "";
+    const nb = numPr ? label(numPr) : {lvl: 0, label: ""};
     const runs = []; let pageBreak = false; const pics = [];
     const walk = node => { [...node.childNodes].forEach(n => { if (n.nodeType !== 1) return;
       if (n.localName === "r") {
@@ -86644,16 +87040,18 @@ function pdtReadDocx(xml, rels){
           else if (c.localName === "br") { if ((c.getAttributeNS(W, "type") || c.getAttribute("w:type")) === "page") pageBreak = true; else runs.push({t: "\n", b, i, sz, col}); }
           else if (c.localName === "drawing") { const blip = c.getElementsByTagNameNS("*", "blip")[0], ext = c.getElementsByTagNameNS("*", "extent")[0], id = blip && (blip.getAttribute("r:embed") || blip.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed")); if (id && rels[id]) pics.push({src: rels[id], w: ext ? Number(ext.getAttribute("cx")) / 12700 : 0, h: ext ? Number(ext.getAttribute("cy")) / 12700 : 0}); }
         });
-      } else if (n.localName === "hyperlink" || n.localName === "smartTag" || n.localName === "ins") walk(n);
+      } else if (/^(hyperlink|smartTag|ins|fldSimple|sdt|sdtContent|customXml)$/.test(n.localName)) walk(n);
     }); };
     walk(p);
-    return {k: "p", style, list, jc, runs, pageBreak, pics};
+    return {k: "p", style, list, lvl: nb.lvl, label: nb.label, jc, runs, pageBreak, pics};
   }
+  // a cell's paragraphs (a table inside a cell comes in as its paragraphs)
+  const cellParas = tc => flat(tc).flatMap(n => n.localName === "p" ? [para(n)] : n.localName === "tbl" ? flat(n).filter(r => r.localName === "tr").flatMap(tr => flat(tr).filter(c => c.localName === "tc").flatMap(cellParas)) : []);
   const body = doc.getElementsByTagNameNS(W, "body")[0], out = [];
   if (!body) return out;
-  [...body.childNodes].forEach(n => { if (n.nodeType !== 1) return;
+  flat(body).forEach(n => {
     if (n.localName === "p") out.push(para(n));
-    else if (n.localName === "tbl") out.push({k: "table", rows: kids(n, "tr").map(tr => kids(tr, "tc").map(tc => kids(tc, "p").map(para)))});
+    else if (n.localName === "tbl") out.push({k: "table", rows: flat(n).filter(r => r.localName === "tr").map(tr => flat(tr).filter(c => c.localName === "tc").map(cellParas))});
   });
   return out;
 }
@@ -86750,7 +87148,7 @@ function reviewMemoryStore(){
   }
 
   /* ---------- Convert ---------- */
-  const CONV = {src: null};
+  const CONV = {src: null, stop: false};
   const kindOf = (name, type) => /\.pdf$/i.test(name) || type === "application/pdf" ? "pdf" : /\.docx$/i.test(name) ? "docx" : /\.pptx$/i.test(name) ? "pptx" : /^image\//.test(type || "") || /\.(png|jpe?g|webp|gif|heic)$/i.test(name) ? "img" : "";
   function convertOpen(){
     CONV.src = null;
@@ -86775,8 +87173,10 @@ function reviewMemoryStore(){
     else box.innerHTML = `<p><b>${esc(label)}</b></p><p class="mini">Makes a PDF${s.kind === "docx" ? " from the document's text, headings, lists, tables and pictures" : s.kind === "pptx" ? ", one page per slide, from each slide's text boxes and pictures" : " with one picture per page"}. ${s.kind === "img" ? "" : "It's close to the original but not exact: fonts become standard ones, and some layout (columns, shapes, effects) is simplified. Letters outside Western European languages become “?” for now."}</p>
       <div class="row-actions"><button type="button" class="btn primary" data-pdt="go">Make the PDF</button></div>`;
   }
-  // "1-3, 5" as page numbers (all when empty)
-  const pageList = (txt, n) => { const out = new Set(); String(txt || "").split(",").forEach(part => { const m = part.trim().match(/^(\d+)\s*(?:-\s*(\d+))?$/); if (!m) return; const a = Number(m[1]), b = Number(m[2] || m[1]); for (let k = Math.max(1, a); k <= Math.min(n, b); k++) out.add(k); }); return out.size ? [...out].sort((a, b) => a - b) : Array.from({length: n}, (_, i) => i + 1); };
+  // "1-3, 5" as page numbers (all when empty; none when nothing typed is a page of this PDF)
+  const pageList = (txt, n) => { const out = new Set(); String(txt || "").split(",").forEach(part => { const m = part.trim().match(/^(\d+)\s*(?:-\s*(\d+))?$/); if (!m) return; const a = Number(m[1]), b = Number(m[2] || m[1]); for (let k = Math.max(1, a); k <= Math.min(n, b); k++) out.add(k); }); return out.size ? [...out].sort((a, b) => a - b) : String(txt || "").trim() ? [] : Array.from({length: n}, (_, i) => i + 1); };
+  // Pictures of pages: at most this many pages and pixels at once, and each picture no bigger than a phone's canvas allows
+  const PIC_PAGES = 200, PIC_PX = 400e6, CANVAS_PX = 16e6, CANVAS_SIDE = 8192;
   async function convertGo(){
     const s = CONV.src, msg = $("#pdtConvMsg"), say = t => { if (msg) msg.innerHTML = t; }, go = document.querySelector('#pdtConv [data-pdt="go"]'); if (!s) return;
     if (go) go.disabled = true;
@@ -86784,6 +87184,7 @@ function reviewMemoryStore(){
       if (s.kind === "pdf") {
         const to = (document.querySelector('#pdtConv input[name="pdtTo"]:checked') || {}).value, bytes = await s.bytes(0);
         await loadPdfJs(); const doc = await window.pdfjsLib.getDocument({data: bytes.slice(), ...PDF_OPTS}).promise, pages = pageList(document.querySelector('#pdtConv [data-pdt="pages"]').value, doc.numPages), base = s.files[0].name.replace(/\.pdf$/i, "");
+        if (!pages.length) { say(`Those pages aren't in this PDF. It has ${doc.numPages} page${doc.numPages === 1 ? "" : "s"}.`); try { doc.destroy(); } catch (e) {} return; }
         if (to === "docx") {
           const texts = [];
           for (const n of pages) { say(`<span class="ai-spin" aria-hidden="true"></span> Reading page ${n}…`); const tc = await (await doc.getPage(n)).getTextContent(); texts.push(tc.items.filter(it => typeof it.str === "string").map(it => ({str: it.str, x: it.transform[4], y: it.transform[5], fs: Math.hypot(it.transform[2], it.transform[3]) || 11}))); }
@@ -86791,13 +87192,23 @@ function reviewMemoryStore(){
           if (!blocks.some(b => b.t)) { say("This PDF has no text to put in a Word file. For a scan, use Recognize Text in the reader first."); return; }
           const zip = docxOf(blocks); await deliverAny(zip, base + ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"); say(`Made ${esc(base)}.docx`);
         } else {
-          const dpi = Number(document.querySelector('#pdtConv [data-pdt="dpi"]').value) || 150, files = [];
-          for (const n of pages) {
-            say(`<span class="ai-spin" aria-hidden="true"></span> Drawing page ${n}…`);
-            const page = await doc.getPage(n), vp = page.getViewport({scale: dpi / 72}), cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
-            const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height); await page.render({canvasContext: ctx, viewport: vp}).promise;
-            const blob = await new Promise(res => cv.toBlob(res, to === "jpg" ? "image/jpeg" : "image/png", 0.88)); files.push({name: `${base} p${n}.${to}`, data: new Uint8Array(await blob.arrayBuffer())});
-          }
+          const dpi = Number(document.querySelector('#pdtConv [data-pdt="dpi"]').value) || 150, files = [], dlg = document.getElementById("pdtConv");
+          const v1 = (await doc.getPage(pages[0])).getViewport({scale: dpi / 72});
+          if (pages.length > PIC_PAGES || pages.length * v1.width * v1.height > PIC_PX) { say(`That's too many pictures at once (${pages.length} page${pages.length === 1 ? "" : "s"} at ${dpi} dpi). Pick fewer pages or a lower sharpness.`); try { doc.destroy(); } catch (e) {} return; }
+          CONV.stop = false; dlg.dataset.busy = "1";
+          try {
+            for (const n of pages) {
+              if (CONV.stop) break;
+              say(`<span class="ai-spin" aria-hidden="true"></span> Drawing page ${n} (${files.length + 1} of ${pages.length})… <button type="button" class="btn small" data-pdt="stop">Stop</button>`);
+              const page = await doc.getPage(n), v0 = page.getViewport({scale: 1}), k = Math.min(dpi / 72, Math.sqrt(CANVAS_PX / (v0.width * v0.height)), CANVAS_SIDE / Math.max(v0.width, v0.height));
+              const vp = page.getViewport({scale: k}), cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+              const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height); await page.render({canvasContext: ctx, viewport: vp}).promise;
+              const blob = await new Promise(res => cv.toBlob(res, to === "jpg" ? "image/jpeg" : "image/png", 0.88)); cv.width = cv.height = 0;
+              if (!blob) throw new Error(`Couldn't draw page ${n}. Try a lower sharpness.`);
+              files.push({name: `${base} p${n}.${to}`, data: new Uint8Array(await blob.arrayBuffer())});
+            }
+          } finally { delete dlg.dataset.busy; }
+          if (CONV.stop) { say("Stopped. Nothing was downloaded."); try { doc.destroy(); } catch (e) {} return; }
           if (files.length === 1) await deliverAny(files[0].data, files[0].name, to === "jpg" ? "image/jpeg" : "image/png");
           else await deliverAny(zipMany(files), base + " pages.zip", "application/zip");
           say(`Made ${files.length} picture${files.length === 1 ? "" : "s"}`);
@@ -86848,16 +87259,16 @@ function reviewMemoryStore(){
     return {lines, fontFor, clean, rgb, f};
   }
   async function docxToPdf(L, bytes){
-    const files = await unzipBytes(bytes, n => n === "word/document.xml" || n === "word/_rels/document.xml.rels" || /^word\/media\//.test(n), {max: 40e6});
+    const files = await unzipBytes(bytes, n => n === "word/document.xml" || n === "word/_rels/document.xml.rels" || n === "word/numbering.xml" || /^word\/media\//.test(n), {max: 40e6});
     const dec = new TextDecoder(), xml = files["word/document.xml"]; if (!xml) throw new Error("That isn't a Word document Studyboard can read.");
     const rels = {}; if (files["word/_rels/document.xml.rels"]) dec.decode(files["word/_rels/document.xml.rels"]).replace(/<Relationship [^>]*Id="([^"]+)"[^>]*Target="([^"]+)"/g, (m, id, t) => { rels[id] = "word/" + t.replace(/^\.?\//, ""); });
-    const blocks = pdtReadDocx(dec.decode(xml), rels), doc = await L.PDFDocument.create(), K = await layoutKit(L, doc);
+    const blocks = pdtReadDocx(dec.decode(xml), rels, files["word/numbering.xml"] ? dec.decode(files["word/numbering.xml"]) : ""), doc = await L.PDFDocument.create(), K = await layoutKit(L, doc);
     const PW = 612, PH = 792, M = 72, CW = PW - M * 2; let page = doc.addPage([PW, PH]), y = PH - M, skipped = 0;
     const newPage = () => { page = doc.addPage([PW, PH]); y = PH - M; };
     const sizes = {Title: 26, Heading1: 18, Heading2: 15, Heading3: 13};
     async function drawPara(p, x, w, base){
       const sz = sizes[p.style] || 0, runs = p.runs.map(r => Object.assign({}, r, sz ? {sz: r.sz || sz, b: true} : {}));
-      if (p.list) runs.unshift({t: "•  ", sz: base});
+      if (p.list) runs.unshift({t: (p.label || "•") + "  ", sz: base});
       const ls = await K.lines(runs, w - (p.list ? 0 : 0), sz || base);
       for (const l of ls) {
         if (y - l.h < M) newPage();
@@ -86869,7 +87280,7 @@ function reviewMemoryStore(){
     for (const b of blocks) {
       if (b.k === "p") {
         if (b.pageBreak && b.runs.every(r => !r.t.trim())) { newPage(); continue; }
-        if (b.runs.some(r => r.t.trim()) || !b.pics.length) { await drawPara(b, M + (b.list ? 18 : 0), CW - (b.list ? 18 : 0), 11); y -= sizes[b.style] ? 6 : 4; }
+        if (b.runs.some(r => r.t.trim()) || !b.pics.length) { const ind = b.list ? 18 * (1 + Math.min(4, b.lvl || 0)) : 0; await drawPara(b, M + ind, CW - ind, 11); y -= sizes[b.style] ? 6 : 4; }
         for (const pic of b.pics) {
           const data = files[pic.src]; if (!data || !/\.(png|jpe?g)$/i.test(pic.src)) { skipped++; continue; }
           const img = /\.png$/i.test(pic.src) ? await doc.embedPng(data) : await doc.embedJpg(data), w0 = pic.w || img.width * 0.75, h0 = pic.h || img.height * 0.75, k = Math.min(1, CW / w0, (PH - M * 2) / h0);
@@ -87042,7 +87453,8 @@ function reviewMemoryStore(){
   document.addEventListener("click", ev => {
     const b = ev.target.closest && ev.target.closest("[data-pdt]"); if (!b || b.tagName === "SELECT" || b.tagName === "INPUT") return;
     const d = b.closest("dialog"), k = b.dataset.pdt;
-    if (k === "close") { if (d && d.dataset.busy) { BATCH.stop = true; toast("Stopping after this file…"); return; } if (d) d.close(); }
+    if (k === "close") { if (d && d.dataset.busy) { if (d.id === "pdtConv") { CONV.stop = true; toast("Stopping…"); } else { BATCH.stop = true; toast("Stopping after this file…"); } return; } if (d) d.close(); }
+    else if (k === "stop") CONV.stop = true;
     else if (k === "go") convertGo();
     else if (k === "run") batchRun();
     else if (k === "all" || k === "none") d.querySelectorAll("[data-pdt-f]").forEach(x => { x.checked = k === "all"; });
@@ -89912,12 +90324,22 @@ html[data-theme=dark] .wb-livechip{color:#7FE3A6}
 /* One colour picker for the whole app, in the whiteboard's style */
 (() => {
   const SW = ["#ff3b30", "#ff9500", "#ffcc00", "#34c759", "#00c7be", "#30b0c7", "#007aff", "#5856d6", "#af52de", "#ff2d55", "#a2845e", "#8e8e93", "#e83e8c", "#20c997", "#6f42c1", "#fd7e14"];
+  const NAMES = ["Red", "Orange", "Yellow", "Green", "Mint", "Teal", "Blue", "Indigo", "Purple", "Pink", "Brown", "Gray", "Magenta", "Sea Green", "Violet", "Tangerine"];
   const K_RECENT = "studyboard:recentColors";
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const hsv2hex = (h, s, v) => { const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); }; return "#" + [f(5), f(3), f(1)].map(x => Math.round(x * 255).toString(16).padStart(2, "0")).join(""); };
   const hex2hsv = hex => { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
     let h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; return [h, mx ? d / mx : 0, mx]; };
   const okHex = v => /^#[0-9a-f]{6}$/i.test(v || "");
+  // A colour's name for screen readers: the swatch's own, or a plain one from its hue ("Dark Blue", "Light Pink")
+  const colorName = hex => {
+    const i = SW.indexOf(String(hex).toLowerCase()); if (i >= 0) return SPELL.fix(NAMES[i]);
+    const [h, s, v] = hex2hsv(hex);
+    if (v < 0.15) return "Black"; if (s < 0.12) return v > 0.92 ? "White" : SPELL.fix(v > 0.6 ? "Light Gray" : v > 0.35 ? "Gray" : "Dark Gray");
+    const n = h < 15 || h >= 345 ? "Red" : h < 40 ? (v < 0.6 ? "Brown" : "Orange") : h < 65 ? "Yellow" : h < 160 ? "Green" : h < 190 ? "Teal" : h < 250 ? "Blue" : h < 290 ? "Purple" : "Pink";
+    return (v < 0.45 ? "Dark " : s < 0.45 && v > 0.8 ? "Light " : "") + n;
+  };
+  const swatch = c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${colorName(c)}" data-tip="${colorName(c)}"></button>`;
   const recent = () => { try { const a = JSON.parse(localStorage.getItem(K_RECENT) || "[]"); return Array.isArray(a) ? a.filter(okHex).slice(0, 8) : []; } catch (e) { return []; } };
   const ours = inp => inp && inp.type === "color" && !inp.disabled && !(inp.closest && inp.closest(".wb-stage"));
   let OPEN = null, lastPtr = null;
@@ -89943,8 +90365,8 @@ html[data-theme=dark] .wb-livechip{color:#7FE3A6}
     el.innerHTML = `<div class="sb-cp-sv" tabindex="0" aria-label="Shade (arrow keys change it)"><span class="sb-cp-k"></span></div>
       <input type="range" class="sb-cp-hue" min="0" max="359" step="1" aria-label="Hue">
       <div class="sb-cp-row"><span class="sb-cp-now" aria-hidden="true"></span><label class="sb-cp-hexl"><span>#</span><input class="sb-cp-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex color"></label><button type="button" class="btn small primary sb-cp-done">Done</button></div>
-      <div class="sb-cp-sw" role="group" aria-label="Colors">${SW.map(c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${c}"></button>`).join("")}</div>
-      ${rec.length ? `<div class="sb-cp-lbl">Recent</div><div class="sb-cp-sw" role="group" aria-label="Recent colors">${rec.map(c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${c}"></button>`).join("")}</div>` : ""}`;
+      <div class="sb-cp-sw" role="group" aria-label="Colors">${SW.map(swatch).join("")}</div>
+      ${rec.length ? `<div class="sb-cp-lbl">Recent</div><div class="sb-cp-sw" role="group" aria-label="Recent colors">${rec.map(swatch).join("")}</div>` : ""}`;
     (inp.closest("dialog[open]") || document.body).appendChild(el);
     const away = e => { if (!el.contains(e.target) && e.target !== inp) close(); };
     OPEN = {el, inp, start, anchor, away};
@@ -90007,6 +90429,9 @@ html[data-theme=dark] .wb-livechip{color:#7FE3A6}
 .sb-cp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
 .sb-cp-s{aspect-ratio:1;width:100%;min-width:0;min-height:0;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .sb-cp-s:hover,.sb-cp-s:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sb-cp-s{position:relative}
+.sb-cp-s::after{content:"";position:absolute;inset:-3px}
+@media (pointer:coarse){.sb-cpick{width:min(300px,calc(100vw - 16px));box-sizing:border-box}.sb-cp-sw{grid-template-columns:repeat(6,1fr);gap:8px}.sb-cp-s::after{inset:-4px}}
 `;
   document.head.appendChild(css);
 })();
@@ -90865,7 +91290,9 @@ var SBCLS = null;
   function pickSheet(x){
     const all = classesOf(courseOf(x.cid));
     const where = k => { if (!k || k === x.key) return ""; const y = all.find(z => z.key === k) || looseClass(x.cid, k); return `${y.title}, ${day(y.date, {month: "short", day: "numeric"})}`; };
-    const files = Object.values(state.files || {}).filter(f => f.courseId === x.cid && !isLec(f)).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0)).slice(0, 80);
+    // the 80 newest, and always every file already with this class (so an older one can be unticked)
+    const all0 = Object.values(state.files || {}).filter(f => f.courseId === x.cid && !isLec(f)).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
+    const files = all0.filter((f, i) => i < 80 || f.cls === x.key);
     const item = (k, o, nm) => { const w = where(o.cls); return `<label class="mi-check"><input type="checkbox" data-cls="${k}:${esc(o.id)}"${o.cls === x.key ? " checked" : ""}> <span><b>${esc(nm)}</b>${w ? ` <span class="mini">now in ${esc(w)}</span>` : ""}</span></label>`; };
     openSheet(`<div class="sheet">${head("Add Files From Studyboard")}<div class="sheet-body">
       <p class="mini" style="margin:0">Pick the files from this course's Files that go with ${esc(x.title)}, ${esc(day(x.date))}.</p>
@@ -90891,6 +91318,9 @@ var SBCLS = null;
     const key = PEND.key, id = hit.id; PEND = null;
     setTimeout(() => { const f = state.files[id]; if (f && !f.cls) applyChanges([{kind: "file", id, after: Object.assign(clone(f), {cls: key})}], ""); }, 0);
   });
+  // the recorder (or whatever opened instead) closed with no recording going on or saved, or the file picker was cancelled:
+  // the next recording isn't this class's
+  dlg.addEventListener("close", () => { if (!PEND || !PEND.arm) return; const p = PEND; setTimeout(() => { if (PEND === p && !document.getElementById("lecPill") && !(dlg.open && dlg.querySelector(".lec-body"))) PEND = null; }, 60); });
   hook("changed", () => { if (OPEN) setTimeout(redraw, 0); });
 
   /* Files: the course's Lecture Notes folder, grouped by class */
@@ -90986,8 +91416,9 @@ var SBCLS = null;
       case "cls-unlink": { const x = cur(); if (!x) return true; tag(el.dataset.k, [id], "", `Taken off ${x.title}`); return true; }
       case "cls-note": { const n = state.notes[id]; if (!n) return true; if (dlg.open) dlg.close(); if (window.SBPRO && SBPRO.openLink) SBPRO.openLink({kind: n.wb ? "board" : "note", id}, 0); else { ui.tab = "notes"; render(); } return true; }
       case "cls-file": { const f = state.files[id]; if (!f) return true; if (f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f) && SBPRO.openReader) { if (dlg.open) dlg.close(); SBPRO.openReader(f.id, 0); } else if (f.kind === "link" || f.kind === "cloud") window.open(fileHref(f), "_blank", "noopener"); else fileSheet(f); return true; }
-      case "cls-rec": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now()}; if (dlg.open) dlg.close(); setTimeout(() => { const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-open"; b.dataset.course = x.cid; document.body.appendChild(b); b.click(); b.remove(); }, 0); return true; }
-      case "cls-rec-up": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now()}; const prev = ui.courseId; ui.courseId = x.cid; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-add-up"; document.body.appendChild(b); b.click(); b.remove(); ui.courseId = prev; return true; }
+      case "cls-rec": { const x = cur(); if (!x) return true; const p = PEND = {cid: x.cid, key: x.key, at: Date.now()}; if (dlg.open) dlg.close(); setTimeout(() => { p.arm = true; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-open"; b.dataset.course = x.cid; document.body.appendChild(b); b.click(); b.remove(); }, 0); return true; }
+      case "cls-rec-up": { const x = cur(); if (!x) return true; PEND = {cid: x.cid, key: x.key, at: Date.now(), arm: true}; const prev = ui.courseId; ui.courseId = x.cid; const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-add-up"; document.body.appendChild(b); b.click(); b.remove(); ui.courseId = prev;
+        const p = PEND, inp = [...document.querySelectorAll('input[type="file"]')].pop(); if (inp) inp.addEventListener("cancel", () => { if (PEND === p) PEND = null; }, {once: true}); return true; }
       case "cls-sum": { if (dlg.open) dlg.close(); setTimeout(() => { const b = document.createElement("button"); b.hidden = true; b.dataset.act = "lec-view"; b.dataset.id = id; document.body.appendChild(b); b.click(); b.remove();
         setTimeout(() => { const d = document.createElement("button"); d.hidden = true; d.dataset.act = "lec-doc"; d.dataset.id = id; d.dataset.doc = "sum"; document.body.appendChild(d); d.click(); d.remove(); }, 30); }, 0); return true; }
       case "cls-files": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; ui.fCourse = x.cid; ui.fFolder = "notes"; ui.fCls = x.key; ui.q = ""; render(); window.scrollTo(0, 0); return true; }
@@ -91409,6 +91840,7 @@ var SBCALCSKIN = null;
   const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
+  /*CALC-START*/
   /* math.js, set up once: degrees, radians or gradians for the trig functions, and exact zeros where a real calculator shows them */
   let M = null, loading = null;
   const C = {angle: "deg"};
@@ -91424,13 +91856,15 @@ var SBCALCSKIN = null;
       const clean = v => Math.abs(v) < 1e-15 ? 0 : Math.round(v * 1e15) / 1e15;
       const num = (x, f) => { if (typeof x !== "number") throw new Error("Math"); return f(x); };
       const inv = f => x => num(x, v => { if (v < -1 || v > 1) throw new Error("Math"); return fromRad(f(v)); });
+      const fact0 = math.factorial, nr = (n, r) => { if (![n, r].every(v => typeof v === "number" && Number.isInteger(v) && v >= 0) || r > n) throw new Error("Math"); return n; };
       math.import({
+        factorial: x => num(x, v => { if (v < 0 || !Number.isInteger(v)) throw new Error("Math"); return fact0(v); }),   // 0.5! is Math ERROR, as on a calculator
         sin: x => num(x, v => { const h = turn(); if (h && v % h === 0) return 0; return clean(Math.sin(toRad(v))); }),
         cos: x => num(x, v => { const h = turn(); if (h && (v - h / 2) % h === 0) return 0; return clean(Math.cos(toRad(v))); }),
         tan: x => num(x, v => { const h = turn(); if (h && v % h === 0) return 0; if (h && (v - h / 2) % h === 0) throw new Error("Math"); const c = Math.cos(toRad(v)); if (Math.abs(c) < 1e-15) throw new Error("Math"); return clean(Math.tan(toRad(v))); }),
         asin: inv(Math.asin), acos: inv(Math.acos),
         atan: x => num(x, v => fromRad(Math.atan(v))),
-        _C: (n, r) => math.combinations(n, r), _P: (n, r) => math.permutations(n, r), _root: (n, x) => math.nthRoot(x, n)
+        _C: (n, r) => math.combinations(nr(n, r), r), _P: (n, r) => math.permutations(nr(n, r), r), _root: (n, x) => math.nthRoot(x, n)
       }, {override: true});
       M = math; return M;
     })().catch(e => { loading = null; throw e; });
@@ -91467,20 +91901,41 @@ var SBCALCSKIN = null;
     return TOK[a] || null;
   }
 
-  /* Turning tokens into a math.js expression: nCr, nPr and ˣ√ take the operands either side of them */
-  const OPND = String.raw`(?:\d+\.?\d*(?:e-?\d+)?|\.\d+|\(Ans\)|\(M\)|pi|\(e\)|\([^()]*\))`;
+  /* Turning tokens into a math.js expression: nCr, nPr and ˣ√ take the operands either side of them. As on a handheld, an
+     operand is a number, constant, bracket or function call together with what binds tighter than nCr: x², x³, x⁻¹, x! and powers */
+  function atomEnd(s, i){
+    const num = /^(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?/.exec(s.slice(i)); if (num) return i + num[0].length;
+    const nm = /^[A-Za-z_]\w*/.exec(s.slice(i)); if (nm) i += nm[0].length;
+    if (s[i] !== "(") return nm ? i : -1;
+    for (let d = 0; i < s.length; i++) { if (s[i] === "(") d++; else if (s[i] === ")" && --d === 0) return i + 1; }
+    return s.length;   // a bracket left open runs to the end (it's closed at =)
+  }
+  function opndEnd(s, i){
+    let j = atomEnd(s, i); if (j < 0) return -1;
+    for (;;) {
+      if (s[j] === "!") { j++; continue; }
+      if (s[j] === "^") { const k = atomEnd(s, j + (s[j + 1] === "-" ? 2 : 1)); if (k < 0) return -1; j = k; continue; }
+      return j;
+    }
+  }
   function toMath(tokens){
     let s = tokens.map(t => t.m).join("");
     // ×10ˣ: 2ᴇ-3 is one number, 2×10⁻³
     s = s.replace(/(\d*\.?\d+)ᴇ(-?\d+)/g, "($1e$2)").replace(/ᴇ/g, "*10^");
-    const rx = new RegExp(`(${OPND})\\s*([⒞⒫⒭])\\s*(${OPND})`);
-    for (let i = 0, m; i < 20 && (m = rx.exec(s)); i++) s = s.slice(0, m.index) + `${({"⒞": "_C", "⒫": "_P", "⒭": "_root"})[m[2]]}(${m[1]},${m[3]})` + s.slice(m.index + m[0].length);
+    // π next to a number or bracket multiplies (π2, π(2), 2π3), as math.js would otherwise read pi(2) as a call
+    s = s.replace(/pi(?=[\d.(A-Za-z_])/g, "pi*");
+    for (let n = 0, k; n < 40 && (k = s.search(/[⒞⒫⒭]/)) >= 0; n++) {
+      let a = -1; for (let p = 0; p < k && a < 0; p++) if ((p === 0 || !/[\w.]/.test(s[p - 1])) && opndEnd(s, p) === k) a = p;
+      const b = opndEnd(s, k + 1); if (a < 0 || b < 0) throw new Error("Syntax");
+      s = s.slice(0, a) + `${({"⒞": "_C", "⒫": "_P", "⒭": "_root"})[s[k]]}(${s.slice(a, k)},${s.slice(k + 1, b)})` + s.slice(b);
+    }
     if (/[⒞⒫⒭]/.test(s)) throw new Error("Syntax");
     // close any brackets left open, like a real calculator does at =
     const open = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
     if (open < 0) throw new Error("Syntax");
     return s + ")".repeat(open);
   }
+  /*CALC-END*/
 
   /* Showing a number like a calculator: 10 significant digits, ×10ⁿ outside 10⁻⁹…10¹⁰ */
   const SUP = {"-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹"};
@@ -94209,12 +94664,21 @@ const AUTOPILOT = (() => {
     if (c) { sel.style.setProperty("--cs-dot", c.color); sel.classList.add("has-dot"); } else { sel.style.removeProperty("--cs-dot"); sel.classList.remove("has-dot"); }
   }
   let csOpen = null;
-  const csKey = e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); csClose(); } };
+  // Keys: Esc closes (back to the dropdown), the arrows, Home and End move between the choices, Enter or Space picks one
+  const csKey = e => {
+    if (!csOpen) return;
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); const s = csOpen.sel; csClose(); try { s.focus({preventScroll: true}); } catch (x) {} return; }
+    const bs = [...csOpen.menu.querySelectorAll("button")], i = bs.indexOf(document.activeElement);
+    const to = {ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: bs.length - 1}[e.key];
+    if (to === undefined || !bs.length) { if (e.key === "Tab") { e.preventDefault(); const s = csOpen.sel; csClose(); try { s.focus({preventScroll: true}); } catch (x) {} } return; }
+    e.preventDefault(); e.stopPropagation(); bs[Math.max(0, Math.min(bs.length - 1, i < 0 && to < 0 ? 0 : to))].focus();
+  };
   function csClose(){ if (!csOpen) return; csOpen.back.remove(); csOpen.menu.remove(); document.removeEventListener("keydown", csKey, true); csOpen = null; }
   function csShow(sel){
     csClose();
     const host = sel.closest("dialog[open]") || document.body, menu = document.createElement("div"), back = document.createElement("div");
     menu.className = "cs-menu"; menu.setAttribute("role", "listbox"); back.className = "cs-back";
+    { const lb = sel.getAttribute("aria-label") || (sel.labels && sel.labels[0] && sel.labels[0].textContent.trim()) || ""; if (lb) menu.setAttribute("aria-label", lb); }
     [...sel.options].filter(o => !o.disabled && !o.hidden).forEach(o => {
       const c = optCourse(o), b = document.createElement("button");
       b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(o.selected));
@@ -94236,8 +94700,10 @@ const AUTOPILOT = (() => {
       menu.style.width = w + "px"; menu.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px"; menu.style.maxHeight = Math.min(innerHeight * 0.5, 360) + "px";
       const h = menu.offsetHeight; menu.style.top = (r.bottom + 6 + h <= innerHeight - 8 ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + "px";
     }
-    csOpen = {menu, back}; document.addEventListener("keydown", csKey, true);
-    const cur = menu.querySelector('[aria-selected="true"]'); if (cur && cur.scrollIntoView) cur.scrollIntoView({block: "center"});
+    csOpen = {menu, back, sel}; document.addEventListener("keydown", csKey, true);
+    // the chosen one has focus, so VoiceOver and the keyboard start there
+    const cur = menu.querySelector('[aria-selected="true"]') || menu.querySelector("button"); if (cur && cur.scrollIntoView) cur.scrollIntoView({block: "center"});
+    if (cur) try { cur.focus({preventScroll: true}); } catch (e) {}
   }
   // Take over the tap on a course dropdown (a mouse click, or a touch that did not scroll)
   // (on a mouse or trackpad the app's own dropdown already handles selects, and shows the dots too)
@@ -94550,6 +95016,8 @@ const AUTOPILOT = (() => {
   function newTask(){ if (dlg.open) dlg.close(); taskForm(null, {courseId: (ui.tab === "courses" && ui.courseId) || undefined}); }
   function settings(){ if (dlg.open) dlg.close(); menuSheet(); }
   const typing = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || !!(t.closest && t.closest('[role="application"],[contenteditable="true"],[contenteditable=""]')));
+  // in a browser tab, Ctrl/Cmd+1 to 7 switch the browser's tabs, so they're only listed in the installed app
+  const appWin = () => !!DESK || !!(window.matchMedia && (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: window-controls-overlay)").matches)) || navigator.standalone === true;
   const kbd = s => s.split("+").map(k => `<kbd>${esc(k)}</kbd>`).join("+");
   function helpSheet(){
     const row = (keys, what) => `<tr><th scope="row">${keys.map(kbd).join(" or ")}</th><td>${esc(what)}</td></tr>`;
@@ -94557,7 +95025,7 @@ const AUTOPILOT = (() => {
     openSheet(`<div class="sheet kb-sheet">${head("Keyboard Shortcuts")}<div class="sheet-body">
       <p class="mini" style="margin:0">These work when you're not typing in a box.</p>
       ${sec("Anywhere", [row(["N"], "New task"), row(["C"], "Quick Capture"), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
-      ${sec("Go To", VIEWS_KEYS.map(([t], i) => row([String(i + 1), MOD + "+" + (i + 1)], viewName(t))))}
+      ${sec("Go To", VIEWS_KEYS.map(([t], i) => row(appWin() ? [String(i + 1), MOD + "+" + (i + 1)] : [String(i + 1)], viewName(t))))}
       ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz")])}
       ${sec("Notes", [row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
@@ -94641,7 +95109,10 @@ const AUTOPILOT = (() => {
     host.appendChild(tip);
     const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 8;
     let top = r.top - h - gap; if (top < 6) top = r.bottom + gap;
-    const left = Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2));
+    // a tooltip for something on the page stays off the side menu
+    const nav = !el.closest("nav.tabs, dialog") && document.querySelector("nav.tabs"), nr = nav && nav.getBoundingClientRect();
+    const min = nr && nr.right > 0 && nr.left <= 0 && nr.height > innerHeight / 2 && nr.right < innerWidth / 2 && nr.right <= r.left ? nr.right + 6 : 6;
+    const left = Math.max(min, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2));
     tip.style.left = left + "px"; tip.style.top = top + "px";
   }
   const want = (el, delay) => {
@@ -95336,8 +95807,9 @@ ui._day = todayISO();
       const a = document.activeElement;
       // A heading the sheet focused on purpose stays focused, so screen readers start there
       if (a && a !== d && d.open && d.contains(a) && !/^H[1-6]$/.test(a.tagName) && (phoneW() || !d.querySelector("[autofocus]")) && (phoneW() || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.isContentEditable) {
-        let h = d.querySelector(":scope > .sm-focus");
-        if (!h) { h = document.createElement("span"); h.className = "sm-focus"; h.tabIndex = -1; h.setAttribute("aria-hidden", "true"); d.append(h); }
+        // the sheet's heading takes focus (screen readers start at its name, Tab goes on from the top); with no heading, the sheet itself
+        const h = [...d.querySelectorAll("h1,h2,h3,[role=heading]")].find(x => x.getClientRects().length) || d;
+        if (!h.hasAttribute("tabindex")) { h.tabIndex = -1; h.classList.add("sm-focus-h"); }
         h.focus({preventScroll: true});
       }
     } catch (e) {}
@@ -95363,6 +95835,8 @@ ui._day = todayISO();
       src.forEach((el, i) => { const t = dst[i]; if (!t) return; if (el.type === "checkbox" || el.type === "radio") t.checked = el.checked; else try { t.value = el.value; } catch (e) {} });
       // a closed dialog shown by hand, so nothing looking for an open sheet ever finds it; it wears the sheet's own box
       c.removeAttribute("open"); c.classList.add("sm-ghost-sheet");
+      // a toast shown in the sheet stays behind on the page (a copy here would share its id)
+      c.querySelectorAll("#toast").forEach(x => x.remove());
       const cs = getComputedStyle(d), box = {};
       ["display", "flexDirection", "background", "backgroundColor", "color", "border", "borderRadius", "padding", "boxShadow", "overflow", "fontFamily", "fontSize", "boxSizing"].forEach(k => { box[k] = cs[k]; });
       Object.assign(c.style, box, {position: "fixed", left: r.left + "px", top: r.top + "px", right: "auto", bottom: "auto", width: r.width + "px", height: r.height + "px", margin: "0", maxHeight: "none", maxWidth: "none", transform: "none", animation: "none"});
