@@ -198,6 +198,8 @@ function renderPomoBits(){
   btn.className = `pomo-btn ${active ? "active" : ""} ${pomo.running ? "run" : ""} m-${pomo.mode}`;
   btn.setAttribute("aria-label", active ? `${MODE_LABEL[pomo.mode]} timer, ${pomo.running ? "running" : "paused"}. Open focus timer` : "Open focus timer");
   $("#pomoBtnTime").hidden = !active;
+  // the header button (the phone's Focus button) wears the same tomato as everywhere else
+  const ic = btn.querySelector("svg"); if (ic && !ic.classList.contains("tomato-ic")) ic.outerHTML = TOMATO;
   const nav = $("#navPomo");
   nav.className = `nav-focus m-${pomo.mode} ${active ? "active" : ""} ${pomo.running ? "run" : ""}`;
   nav.setAttribute("aria-label", btn.getAttribute("aria-label"));
