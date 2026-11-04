@@ -11,39 +11,83 @@
   const PIC = SV('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 16l-5-5-8.5 8.5"/>');
 
   /* Showing pictures */
-  const URLS = new Map(), FAIL = new Map();
-  const fileOf = it => { const f = it && it.f && state.files[it.f]; return f && f.revs && f.revs.length ? f : null; };
+  // A picture's bytes are in Studyboard's file storage (its file's current revision) or, once that file was moved to
+  // Google Drive or OneDrive, in the student's own cloud. key: one cache entry per stored copy
+  const URLS = new Map(), FAIL = new Map(), ERR = new Map();
+  const inCloud = f => !!(f && f.kind === "cloud" && f.cloud && f.cloud.id && window.SBCLOUD && SBCLOUD.bytes);
+  const fileOf = it => { const f = it && it.f && state.files[it.f]; return f && ((f.revs && f.revs.length) || inCloud(f)) ? f : null; };
+  const srcOf = f => { if (f.revs && f.revs.length) { const r = curRev(f); return {key: r.assetId, type: r.type, get: () => IO.bytes(r.assetId)}; }
+    return {key: "cloud:" + f.cloud.p + ":" + f.cloud.id, type: f.cloud.type, get: () => SBCLOUD.bytes(f)}; };
   function urlOf(it){
     if (it.src) return it.src;
     const f = fileOf(it); if (!f) return null;
-    const r = curRev(f); let u = URLS.get(r.assetId);
-    if (u === "!" && Date.now() - (FAIL.get(r.assetId) || 0) > 20000) { URLS.delete(r.assetId); u = undefined; }
-    if (u === undefined) load(r.assetId, r.type);
+    const s = srcOf(f); let u = URLS.get(s.key);
+    if (u === "!" && Date.now() - (FAIL.get(s.key) || 0) > 20000) { URLS.delete(s.key); u = undefined; }
+    if (u === undefined) load(s);
     return u && u !== "!" ? u : null;
   }
   // Right after a reload, sign-in may still be coming back
   const TRIES = new Map();
-  async function load(id, type){
-    URLS.set(id, "");
-    try { const b = await IO.bytes(id); URLS.set(id, URL.createObjectURL(new Blob([b], {type: type || "image/png"}))); TRIES.delete(id); }
+  async function load(s){
+    const id = s.key; URLS.set(id, "");
+    try { const b = await s.get(); URLS.set(id, URL.createObjectURL(new Blob([b], {type: s.type || "image/png"}))); TRIES.delete(id); ERR.delete(id); }
     catch (e) {
+      ERR.set(id, String((e && e.message) || ""));
       const n = (TRIES.get(id) || 0) + 1; TRIES.set(id, n);
       if (n <= 5) { setTimeout(() => { if (URLS.get(id) === "") { URLS.delete(id); W.refreshItems(); } }, 600 * 2 ** (n - 1)); return; }
       URLS.set(id, "!"); FAIL.set(id, Date.now()); TRIES.delete(id);
     }
     W.refreshItems();
   }
+  // Why a picture can't be shown, in words (null while it is still loading). fix: the student can replace or remove it
+  const SEEN = new Map(), LOOK = 8000;
+  const inTrash = fid => trashList().some(e => e.items.some(i => i && i.kind === "file" && (i.id === fid || (i.data && i.data.id === fid))));
+  const syncing = () => (typeof cloud !== "undefined" && cloud.on) || (typeof sbActive === "function" && sbActive());
+  function whyNot(it){
+    const f = fileOf(it);
+    if (f) {
+      const k = srcOf(f).key; if (URLS.get(k) !== "!") return null;
+      const m = ERR.get(k) || "";
+      if (/only on the computer/i.test(m)) return {t: "This picture is on another computer", d: "It was saved only in the Studyboard app on the computer it was added from. Select it to replace or remove it.", fix: 1};
+      if (/not signed in/i.test(m)) return {t: "Sign in to see this picture", d: "It's saved in your Studyboard account."};
+      if (inCloud(f)) return {t: "Couldn't open this picture", d: (m && m.length < 140 ? m + " " : "") + "It's saved in your " + (f.cloud.p === "google" ? "Google Drive" : "OneDrive") + ".", fix: 1};
+      return {t: "Couldn't load this picture", d: "Check your connection. Studyboard tries again by itself, or select it to replace or remove it.", fix: 1};
+    }
+    if (!it.f || it.src) return null;
+    if (state.files[it.f]) return {t: "This picture's file is empty", d: "Select it to replace or remove it.", fix: 1};
+    if (inTrash(it.f)) return {t: "This picture's file was deleted", d: "Restore it from Trash, or select it to replace or remove it.", fix: 1};
+    // its file may still be on its way from another device: look for a few seconds before saying it's missing
+    if (!SEEN.has(it.f)) { SEEN.set(it.f, Date.now()); setTimeout(() => W.refreshItems(), LOOK + 100); }
+    if (Date.now() - SEEN.get(it.f) < LOOK) return {t: "Looking for this picture…", wait: 1};
+    return syncing() ? {t: "This picture didn't sync from your other device", d: "Open Studyboard on the device you added it from so it can finish syncing, or select it to replace or remove it.", fix: 1}
+      : {t: "This picture is on another device", d: "Sign in to sync it here, or select it to replace or remove it.", fix: 1};
+  }
+  function placeholder(it){
+    const w = whyNot(it) || {t: "Loading picture…", wait: 1};
+    return `<span class="wb-img-ph${w.fix ? " miss" : ""}" role="img" aria-label="${esc(w.t)}"><span class="wb-ph-in">${w.wait ? '<span class="spinner"></span>' : PIC}<b>${esc(w.t)}</b>${w.d ? `<span>${esc(w.d)}</span>` : ""}</span></span>`;
+  }
   const BUSY = new Set();
   hook("wb-items", ({host, list, xf}) => {
     if (!host) return;
     host.innerHTML = list.map(it => {
-      const p = xf(it), u = urlOf(it), f = fileOf(it), bad = !u && f && URLS.get(curRev(f).assetId) === "!";
-      return `<div class="wb-img${it.r ? " drawn" : ""}${it.fade ? " fade" : ""}${BUSY.has(it.id) ? " busy" : ""}" style="left:${+p.x}px;top:${+p.y}px;width:${+p.w}px;height:${+p.h}px">${u ? (it.er && it.er.length ? `<span class="wb-er" style="-webkit-mask-image:url('${erMask(it)}');mask-image:url('${erMask(it)}')">` : "") + (it.r && it.tint ? `<span class="wb-tint" style="background:${W.penHex(it.tint)};-webkit-mask-image:url('${esc(u)}');mask-image:url('${esc(u)}')"></span>` : `<img src="${esc(u)}" alt="" draggable="false">`) + (it.er && it.er.length ? "</span>" : "") : `<span class="wb-img-ph">${bad ? "Picture not available on this device" : (it.f && !f ? "Picture not here yet" : "Loading picture…")}</span>`}${BUSY.has(it.id) ? `<span class="wb-img-busy"><span class="spinner"></span>Drawing…</span>` : ""}</div>`;
+      const p = xf(it), u = urlOf(it);
+      return `<div class="wb-img${it.r ? " drawn" : ""}${it.fade ? " fade" : ""}${BUSY.has(it.id) ? " busy" : ""}" style="left:${+p.x}px;top:${+p.y}px;width:${+p.w}px;height:${+p.h}px">${u ? (it.er && it.er.length ? `<span class="wb-er" style="-webkit-mask-image:url('${erMask(it)}');mask-image:url('${erMask(it)}')">` : "") + (it.r && it.tint ? `<span class="wb-tint" style="background:${W.penHex(it.tint)};-webkit-mask-image:url('${esc(u)}');mask-image:url('${esc(u)}')"></span>` : `<img src="${esc(u)}" alt="" draggable="false">`) + (it.er && it.er.length ? "</span>" : "") : placeholder(it)}${BUSY.has(it.id) ? `<span class="wb-img-busy"><span class="spinner"></span>Drawing…</span>` : ""}</div>`;
     }).join("");
   });
+  // Redraw the pictures when what they need changes: a picture's file arriving by sync (the board itself may have come first,
+  // and then nothing on the board changes), a file moved to the cloud or put in Trash, or the student signing in
+  let picSig = "", wasIn = false;
+  hook("render", () => {
+    const b = W.board(); if (!b) return;
+    const nowIn = !!syncing(); if (nowIn && !wasIn) { wasIn = true; picSig = ""; retry(); return; } wasIn = nowIn;
+    const g = b.id + "#" + trashList().length + "#" + b.items.filter(it => it.k === "i").map(it => { const f = it.f && state.files[it.f]; return it.id + ":" + (!f ? "-" : fileOf(it) ? srcOf(f).key : "0"); }).join("|");
+    if (g !== picSig) { const first = !picSig; picSig = g; if (!first) W.refreshItems(); }
+  });
+  addEventListener("online", () => retry());
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && [...URLS.values()].includes("!")) retry(); });
   async function imageOf(it){
     let u = urlOf(it);
-    if (!u) { const f = fileOf(it); if (!f) return null; const r = curRev(f); try { const b = await IO.bytes(r.assetId); u = URL.createObjectURL(new Blob([b], {type: r.type || "image/png"})); URLS.set(r.assetId, u); } catch (e) { return null; } }
+    if (!u) { const f = fileOf(it); if (!f) return null; const s = srcOf(f); try { const b = await s.get(); u = URL.createObjectURL(new Blob([b], {type: s.type || "image/png"})); URLS.set(s.key, u); } catch (e) { return null; } }
     return new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = u; });
   }
   // all in one marker colour
@@ -108,19 +152,36 @@
     for (const file of files.slice(0, room)) {
       const s = await shrink(file); if (!s) { toast(`Couldn't read ${file.name || "that picture"}.`); continue; }
       const name = String(file.name || "Picture").replace(/\.[a-z0-9]+$/i, "") + ".webp";
-      const made = await IO.upload([new File([s.blob], name, {type: "image/webp"})], {courseId: (n && n.courseId) || "", folderId: "notes"});
-      if (!made || !made.length) continue;
-      const f = made[0], r = curRev(f); if (r && r.assetId) URLS.set(r.assetId, URL.createObjectURL(s.blob));
+      const f = await store(s, name, n); if (!f) continue;
       const vw = fw / cam.z, vh = fh / cam.z, w = Math.min(vw * 0.38, vh * 0.5 * s.w / s.h), h = w * s.h / s.w, id = uid();
       W.set("i", id, {id, k: "i", x: Math.round(cx - w / 2 + k * 30), y: Math.round(cy - h / 2 + k * 30), w: Math.round(w), h: Math.round(h), f: f.id, at: Date.now()});
       ids.push("i" + id); k++;
     }
     if (ids.length) { W.setTool("select"); W.select(ids); }
   }
-  function choose(){
+  // Saves a shrunk picture as a file in the board's course. Adding it can be undone on the board itself, so the upload's own
+  // Undo is left out: it would take the file away and leave the picture on the board with nothing to show
+  async function store(s, name, n){
+    const made = await IO.upload([new File([s.blob], name, {type: "image/webp"})], {courseId: (n && n.courseId) || "", folderId: "notes", noUndo: true});
+    if (!made || !made.length) return null;
+    const f = made[0], r = curRev(f); if (r && r.assetId) URLS.set(r.assetId, URL.createObjectURL(s.blob));
+    return f;
+  }
+  // A picture whose file can't be found anywhere: put a new one in its place (same spot and width)
+  async function replace(id, file){
     if (locked()) { upsell(); return; }
-    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.multiple = true; inp.className = "sr"; inp.tabIndex = -1;
-    inp.addEventListener("change", () => { const fs = [...(inp.files || [])]; inp.remove(); if (fs.length) add(fs); });
+    const b = W.board(), it = W.getI(id); if (!b || !it || it.k !== "i") return;
+    const s = await shrink(file); if (!s) { toast(`Couldn't read ${file.name || "that picture"}.`); return; }
+    const f = await store(s, String(file.name || "Picture").replace(/\.[a-z0-9]+$/i, "") + ".webp", state.notes[b.id]); if (!f) return;
+    const cur = W.getI(id); if (!cur) return;
+    const o = Object.assign({}, cur, {f: f.id, h: Math.round(cur.w * s.h / s.w), at: Date.now()}); ["r", "o", "tint", "er", "src"].forEach(k => delete o[k]);
+    W.change(set => set("i", id, o)); W.select(["i" + id]);
+    toast("Picture replaced", () => W.undo());
+  }
+  function choose(id){
+    if (locked()) { upsell(); return; }
+    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.multiple = !id; inp.className = "sr"; inp.tabIndex = -1;
+    inp.addEventListener("change", () => { const fs = [...(inp.files || [])]; inp.remove(); if (fs.length) { if (id) replace(id, fs[0]); else add(fs); } });
     document.body.appendChild(inp); inp.click();
   }
   const onBoard = () => ui.tab === "notes" && W.on() && W.stage() && W.stage().isConnected;
@@ -149,6 +210,11 @@
   });
   hook("wb-selbar", ({bar, it}) => {
     if (!it || it.k !== "i") return;
+    const w = !urlOf(it) && whyNot(it);
+    if (w && w.fix) {
+      const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "pic-replace"; b.dataset.id = it.id; b.title = "Choose a picture to put in its place";
+      b.innerHTML = `${PIC}Replace Picture`; bar.insertBefore(b, bar.querySelector('[data-wb="sel-copy"]')); return;
+    }
     const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "restyle"; b.dataset.id = it.id;
     b.className = "wb-ai-btn";
     const st = styleOf(styleId());
@@ -158,7 +224,7 @@
     bar.insertBefore(b, bar.querySelector('[data-wb="sel-copy"]'));
   });
   hook("wb-act", (a, el, id) => {
-    if (a === "pic") choose(); else if (a === "restyle") restyle(id);
+    if (a === "pic") choose(); else if (a === "pic-replace") choose(id); else if (a === "restyle") restyle(id);
     else if (a === "restyle-menu") styleMenu(el, id);
     else if (a === "restyle-as") { const [iid, sid] = String(id).split("|"); closeStyleMenu(); try { localStorage.setItem(K_STYLE, sid); } catch (e) {} restyle(iid, sid); }
     else if (a === "fade" && selPics.length) { const on = !selPics.every(x => x.fade), ids = selPics.map(x => "i" + x.id); W.change(set => selPics.forEach(x => { const cur = W.getI(x.id); if (!cur) return; const o = Object.assign({}, cur); if (on) o.fade = 1; else delete o.fade; set("i", x.id, o); })); W.select(ids); }
@@ -460,7 +526,7 @@
       const blob = await canvasBlob(out, "image/png");
       const b = W.board(), n = b && state.notes[b.id], f0 = fileOf(it);
       const name = String((f0 && f0.name) || "Picture").replace(/(\s+\(marker\))?\.[a-z0-9]+$/i, "") + " (marker).png";
-      const made = blob ? await IO.upload([new File([blob], name, {type: "image/png"})], {courseId: (n && n.courseId) || "", folderId: "notes"}) : [];
+      const made = blob ? await IO.upload([new File([blob], name, {type: "image/png"})], {courseId: (n && n.courseId) || "", folderId: "notes", noUndo: true}) : [];
       if (!made || !made.length) { toast("Couldn't save the redrawn picture. Try again."); return; }
       const f = made[0], r = curRev(f); if (r && r.assetId) URLS.set(r.assetId, URL.createObjectURL(blob));
       const cur = W.getI(id) || it, ow = out.width, oh = out.height, w = cur.w, h = Math.round(w * oh / ow);
@@ -482,8 +548,18 @@
 .wb-tint{display:block;width:100%;height:100%;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 .wb-img img{display:block;width:100%;height:100%;object-fit:fill;-webkit-user-drag:none;user-select:none}
 .wb-img:not(.drawn) img{box-shadow:0 2px 10px rgba(20,30,45,.18)}
-.wb-dk .wb-img-ph{background:#2A323C;border-color:#46505C;color:#AEB7C2}
-.wb-img-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:#EEF1F4;border:2px dashed #C3CCD7;color:#6B7686;font:600 max(14px,2.2%) var(--display);padding:8px}
+.wb-img{container-type:size}
+.wb-img-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:#EEF1F4;border:calc(2px * var(--wb-inv,1)) dashed #C3CCD7;border-radius:calc(8px * var(--wb-inv,1));color:#4F5A69;
+  /* readable at any zoom (the board is scaled, so sizes are in screen pixels times 1 / zoom), but never bigger than the picture's box */
+  font-size:calc(15px * var(--wb-inv,1));font-size:min(calc(15px * var(--wb-inv,1)),5.6cqw,9cqh);padding:.8em}
+.wb-ph-in{display:flex;flex-direction:column;align-items:center;gap:.45em;max-width:26em;line-height:1.35}
+.wb-ph-in svg{width:1.9em;height:1.9em;opacity:.7}
+.wb-ph-in .spinner{width:1.4em;height:1.4em}
+.wb-ph-in b{font:700 1em/1.3 var(--display)}
+.wb-ph-in span{font:500 .86em/1.4 var(--body,system-ui);opacity:.85}
+.wb-img-ph.miss{background:#FFF6E8;border-color:#E9B872;color:#6B4A12}
+.wb-dk .wb-img-ph{background:#2A323C;border-color:#5A6572;color:#D5DBE2}
+.wb-dk .wb-img-ph.miss{background:#3A3124;border-color:#9C7A3E;color:#F2DDB8}
 .wb-img.busy img{filter:grayscale(.6) opacity(.55)}
 .wb-img-busy{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(var(--wb-inv,1));display:flex;align-items:center;gap:8px;background:#fff;color:#22262D;border-radius:999px;padding:8px 14px;font:600 14px var(--display);box-shadow:0 4px 14px rgba(0,0,0,.2);white-space:nowrap}
 .wb-pic{position:relative}

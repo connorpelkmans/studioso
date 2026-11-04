@@ -11,7 +11,8 @@
   const cycName = (names, k) => names === "abc" ? String.fromCharCode(64 + k) + " Day" : "Day " + k;
 
   function save(next, msg){
-    const cur = cfg(), school = {off: next.off, cycle: next.cycle, pub: next.pub === undefined ? cur.pub : next.pub, ans: next.ans || cur.ans};
+    // settings.school is shared with Your School (97-sharing: key, name, v…), so those stay
+    const cur = cfg(), school = Object.assign({}, cur, {off: next.off, cycle: next.cycle, pub: next.pub === undefined ? cur.pub : next.pub, ans: next.ans || cur.ans});
     if (!school.off || !school.off.length) delete school.off;
     if (!school.cycle) delete school.cycle;
     if (school.pub !== false) delete school.pub;

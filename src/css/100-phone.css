@@ -916,16 +916,41 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .qz-body:focus-visible{outline:none}.qz-card:has(.qz-body:focus-visible){outline:2px solid var(--accent,#3B6FE0);outline-offset:2px}
 .qz-acts > .btn{position:relative;z-index:1}
 .qz-acts .deck-arch,.deck-actions .deck-arch{display:inline-grid;place-items:center;padding:0;width:2.25rem;height:2.25rem;min-height:0;aspect-ratio:1}.qz-acts .deck-arch svg,.deck-actions .deck-arch svg{display:block}
-.qzd-list{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:10px}
-.qzd-q{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 14px}
-.qzd-top{display:flex;align-items:center;gap:8px}
-.qzd-n{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:50%;background:var(--soft);font:700 .8rem var(--display)}
-.qzd-stem{margin:8px 0;white-space:pre-wrap}
-.qzd-opts{list-style:none;margin:0;padding:0;display:grid;gap:4px}
-.qzd-opts li{padding:6px 10px;border-radius:10px;background:var(--soft)}
-.qzd-opts li.ok{background:color-mix(in srgb,var(--leaf,#2e9d5b) 16%,var(--surface));font-weight:600}
-.qzd-ans{margin:0}
-.qzd-q details{margin-top:8px}
+.qzd-card{margin-top:14px}
+.qzd-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.qzd-head > h2.sec.c2-bh{margin:0;flex:1}
+.qzd-hint{margin:0 0 4px}
+.qzd-list{list-style:none;margin:0 -16px;padding:0}
+.qzd-q{display:flex;gap:12px;padding:14px 16px;border-top:1px solid var(--line)}
+.qzd-n{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:color-mix(in srgb,var(--c,var(--accent)) 18%,var(--surface));color:color-mix(in srgb,var(--c,var(--accent)) 75%,var(--ink));font:800 .82rem var(--display)}
+.qzd-body{flex:1;min-width:0;display:grid;gap:6px}
+.qzd-type{font:700 .7rem/1.2 var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.qzd-stem{margin:0;font-weight:600;line-height:1.45;white-space:pre-wrap}
+.qzd-opts{list-style:none;margin:2px 0 0;padding:0;display:grid;gap:4px}
+.qzd-opts li,.qzd-ans{display:flex;align-items:flex-start;gap:10px;padding:7px 10px;border-radius:10px;line-height:1.4}
+.qzd-opts li{color:var(--muted)}
+.qzd-l{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:6px;font:700 .72rem var(--display);background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
+.qzd-opts li.ok,.qzd-ans{background:color-mix(in srgb,var(--leaf,#2e9d5b) 14%,var(--surface));color:var(--ink);font-weight:600}
+.qzd-opts li.ok .qzd-l,.qzd-ck{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--leaf,#2e9d5b);color:#fff}
+.qzd-ol .qzd-l,ol.qzd-opts .qzd-l{border-radius:50%}
+ol.qzd-opts li{color:var(--ink)}
+.qzd-why > summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;list-style:none;font-size:.82rem;font-weight:600;color:var(--muted);min-height:28px}
+.qzd-why > summary::-webkit-details-marker{display:none}
+.qzd-why > summary::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-top:-3px}
+.qzd-why[open] > summary::after{transform:rotate(-135deg);margin-top:3px}
+.qzd-why p{margin:4px 0 0;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--ink) 5%,transparent);font-size:.9rem;line-height:1.5}
+.qzd-l i{font-style:normal;display:grid;place-items:center}
+.qzd-mc li.ok .lt,.qzd-mc li:not(.ok) .ck{display:none}
+/* Answers hidden: a written answer is a blank bar, and choices all look alike, until tapped */
+.qzd-hidden .qzd-q:not(.qzd-shown) .qzd-mc{cursor:pointer}
+.qzd-hidden .qzd-q:not(.qzd-shown) .qzd-mc li.ok{background:none;color:var(--muted);font-weight:inherit}
+.qzd-hidden .qzd-q:not(.qzd-shown) .qzd-mc li.ok .qzd-l{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted);border-radius:6px}
+.qzd-hidden .qzd-q:not(.qzd-shown) .qzd-mc li.ok .lt{display:grid}
+.qzd-hidden .qzd-q:not(.qzd-shown) .qzd-mc li.ok .ck{display:none}
+.qzd-hidden .qzd-q:not(.qzd-shown) .qzd-hide{cursor:pointer;color:transparent;background:color-mix(in srgb,var(--ink) 8%,transparent);user-select:none}
+.qzd-hidden .qzd-q:not(.qzd-shown) .qzd-hide *{visibility:hidden}
+.qzd-hidden .qzd-q:not(.qzd-shown) .qzd-hide::before{content:"Tap to show";visibility:visible;color:var(--muted);font-size:.82rem;font-weight:600}
+.qzd-hidden .qzd-q:not(.qzd-shown) .qzd-why{display:none}
 .qzd-scen{margin:14px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);white-space:pre-wrap}
 .qz-title{font:700 1.05rem/1.25 var(--display);overflow-wrap:anywhere}
 .qz-acts{display:flex;align-items:center;gap:8px;padding:8px 14px 12px}
@@ -1107,3 +1132,12 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   /* only once the buttons are folded into one row (with More): wrapped buttons would meet the ring */
   :is(.c2-head,.deck-head) .g2-band:has(> .row-actions[data-ra]){padding-bottom:12px}
 }
+/* Day by Day: a chevron right after the title, flipping when open */
+.cr2-days > summary{gap:8px;list-style:none}
+.cr2-days > summary::-webkit-details-marker{display:none}
+.cr2-days > summary::after{content:"";width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-top:-4px;transition:transform .15s}
+.cr2-days[open] > summary::after{transform:rotate(-135deg);margin-top:3px}
+.cr-help > summary{display:flex;align-items:center;gap:8px;list-style:none}
+.cr-help > summary::-webkit-details-marker{display:none}
+.cr-help > summary::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-top:-3px}
+.cr-help[open] > summary::after{transform:rotate(-135deg);margin-top:3px}

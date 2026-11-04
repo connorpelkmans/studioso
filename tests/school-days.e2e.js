@@ -150,6 +150,38 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await o.page.locator(".hol-ask").count() === 0 && /BIO/.test((await occ(o.page, "2026-11-26", "2026-11-26"))[0]), "elsewhere, Thursday Nov 26 is a normal day");
       await done(o.ctx, o.page);
     }
+    { // 7. A holiday answer sticks: settings.school is shared with Your School (97-sharing), which used to replace it
+      // when it filled in your school from a connected school site, a few seconds after every load
+      const us = [{id: "c1", name: "Biology 11", code: "BIO 11", color: "#3B6FE0", meetings: [W([1, 3, 5], "09:00", "10:00")]}];
+      const mine = {key: "example.edu", name: "Example U", country: "US", region: "", kind: "university", v: 1};
+      const {ctx, page} = await open({courses: us, settings: {capacity: 15, dailyHours: 3, brightspace: {host: "learn.example.edu"}}, tasks: []}, {day: "2026-11-04", tz: "America/New_York"});
+      await ctx.addInitScript(sc => { window.__sbShareStub = async fn => fn === "school_for_host" ? [sc] : []; }, mine);
+      const sch = () => page.evaluate(() => window.__sbSync.state.settings.school || {});
+      const vet = async () => { await toSchedule(page, "2026-11-09"); return {ask: await page.locator(".hol-ask").count(), bio: /BIO/.test((await occ(page, "2026-11-11", "2026-11-11"))[0])}; };
+      await page.reload(); await page.waitForFunction(() => window.__sbSync && document.querySelector("#view").children.length, null, {timeout: 20000});
+      let v = await vet();
+      ok(v.ask === 1 && /Veterans Day/.test(await page.locator(".hol-ask").innerText()) && v.bio, "the Schedule asks about Veterans Day");
+      await page.click('.hol-ask [data-act="hol-ans"][data-v="off"]'); await page.waitForTimeout(300);
+      await page.waitForTimeout(4500);
+      let s = await sch();
+      ok(s.ans && s.ans["US:vet"] === "off" && s.v === 1 && s.key === mine.key, "your school, filled in from the school site, keeps the answer: " + JSON.stringify(s));
+      await page.reload(); await page.waitForFunction(() => window.__sbSync && document.querySelector("#view").children.length, null, {timeout: 20000}); await page.waitForTimeout(4500);
+      s = await sch(); v = await vet();
+      ok(s.ans && s.ans["US:vet"] === "off" && v.ask === 0 && !v.bio, "after a reload: still a day off, and not asked again: " + JSON.stringify(s));
+      // School Days saves keep your school, so it isn't looked up (and replaced) again
+      await page.click('[data-act="school-open"]'); await page.waitForSelector("dialog[open] .sd-sheet"); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(300);
+      s = await sch();
+      ok(s.ans["US:vet"] === "off" && s.v === 1 && s.key === mine.key, "saving School Days keeps your school and the answer: " + JSON.stringify(s));
+      // settings from another device that only picked the school (made before the answer) merge, field by field
+      const src = require("../scripts/app-files").source(), SM = require("vm").runInNewContext(src.slice(src.indexOf("/* SYNC-MERGE-START"), src.indexOf("/* SYNC-MERGE-END */")) + "\nSyncMerge;", {Date, JSON, Math, Map, Set, Uint16Array, Object, Array, String, Number, Promise});
+      const st = await page.evaluate(() => window.__sbSync.state.settings), m3 = sc => ({schema: 2, settings: Object.assign({}, st, {school: sc})});
+      const merged = SM.mergeItem("meta", m3({}), m3(st.school), m3(mine)).merged.settings.school;
+      ok(merged.ans && merged.ans["US:vet"] === "off" && merged.key === mine.key, "a sync with your other device keeps the answer: " + JSON.stringify(merged));
+      // the holidays are worked out again for any range or year: the answer holds
+      const later = await page.evaluate(() => SBSCHOOL.holidays(window.__sbSync.state.settings.school, "2027-11-01", "2027-11-30").find(h => h.key === "US:vet"));
+      ok(later && later.ans === "off", "and next year's Veterans Day is a day off too");
+      await done(ctx, page);
+    }
   } finally { await browser.close(); server.close(); }
   console.log(`\n${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

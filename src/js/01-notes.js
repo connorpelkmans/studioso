@@ -126,7 +126,8 @@ async function uploadFiles(list, opts){
   await Promise.all(Array.from({length: Math.min(3, list.length)}, worker));
   const held = lim.full.concat(lim.big, lim.type), why = lim.full.length ? "full" : lim.big.length ? "big" : "type";
   if (made.length) {
-    toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`), () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
+    // noUndo: the caller has its own undo (a whiteboard picture), and taking the file away alone would leave it broken
+    toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`), opts.noUndo ? null : () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
   }
   storageLimit(held, opts, why);
   return made;

@@ -182,6 +182,29 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(!page.errs.length, "no page errors (free): " + page.errs.join(" | "));
       await ctx.close();
     }
+    {
+      // a board that synced before its pictures' files (or whose file never arrives)
+      const seed = Object.assign({}, SEED, {notes: [Object.assign({}, SEED.notes[0], {wbItems: [{id: "p1", k: "i", x: 100, y: 100, w: 1200, h: 800, f: "late", at: 1}, {id: "p2", k: "i", x: 1500, y: 100, w: 1200, h: 800, f: "gone", at: 1}]})]});
+      const {ctx, page} = await mk(false, seed);
+      ok(/Looking for this picture/.test(await page.locator(".wb-imgs").textContent()), "a picture whose file hasn't arrived says it's being looked for");
+      await page.evaluate(async () => { const T = window.__sbProStudy, NP = window.__sbNotePhotos;
+        window.__bytes["asset-late"] = new Uint8Array(await (await window.__pic()).arrayBuffer());
+        T.state().files = Object.assign({}, T.state().files, {late: NP.normFile({id: "late", name: "late.webp", courseId: "", folderId: "notes", kind: "file", revs: [{assetId: "asset-late", size: 10, type: "image/png", at: 1, name: "late.webp"}], taskIds: []})});
+        T.render(); });
+      await page.waitForTimeout(500);
+      ok(await page.locator(".wb-imgs .wb-img img").count() === 1, "when its file arrives by sync (nothing else on the board changing), the picture shows");
+      await page.waitForTimeout(8300);
+      ok(/is on another device|didn't sync/.test(await page.locator(".wb-imgs").textContent()) && await page.locator(".wb-img-ph.miss").count() === 1, "a file that never arrives gets a plain explanation");
+      await page.evaluate(() => SBWB.select(["ip2"])); await page.waitForTimeout(150);
+      ok(await page.locator('.wb-selbar [data-wb="pic-replace"]').count() === 1 && await page.locator('.wb-selbar [data-wb="restyle-menu"]').count() === 0, "selecting it offers Replace Picture (and no Draw)");
+      const [fc] = await Promise.all([page.waitForEvent("filechooser"), page.click('.wb-selbar [data-wb="pic-replace"]')]);
+      await fc.setFiles({name: "new.png", mimeType: "image/png", buffer: Buffer.from(await page.evaluate(async () => Array.from(new Uint8Array(await (await window.__pic()).arrayBuffer()))))});
+      await page.waitForTimeout(600);
+      const p2 = (await items(page)).find(i => i.id === "p2");
+      ok(p2 && p2.f !== "gone" && p2.x === 1500 && p2.w === 1200 && Math.abs(p2.h - 900) <= 1 && await page.locator(".wb-imgs .wb-img img").count() === 2, "Replace Picture puts a new picture in its place: " + JSON.stringify(p2));
+      ok(!page.errs.length, "no page errors (missing pictures): " + page.errs.join(" | "));
+      await ctx.close();
+    }
     console.log(`whiteboard-pro.e2e: ${n} checks passed`);
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

@@ -152,7 +152,7 @@ function eventForm(ev, preset){
   const isNew = !ev;
   ev = ev ? clone(ev) : normEvent(Object.assign({title: "", date: todayISO(), start: "10:00", end: "11:00"}, preset || {}));
   const rp = ev.repeat, days = rp ? rp.days : [parse(ev.date).getDay()];
-  openSheet(`<form class="sheet">${head(isNew ? "New Event" : "Edit Event")}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Event" : "Edit Event", SH_IC.calendar, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(ev.title))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="120" value="${esc(ev.title)}" autofocus placeholder="e.g. Advisor meeting, Work shift, Study group"></label>
       <div class="two">

@@ -10332,7 +10332,7 @@ const C2_ICONS = {
   decks: '<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v10"/>',
   pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   classes: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M7 9h6M7 12h4"/>',
-  news: '<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
+  news: '<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   links: '<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>'
 };
 // title is HTML-safe text; n is a count or short note (empty hides it)
@@ -11371,7 +11371,7 @@ function eventForm(ev, preset){
   const isNew = !ev;
   ev = ev ? clone(ev) : normEvent(Object.assign({title: "", date: todayISO(), start: "10:00", end: "11:00"}, preset || {}));
   const rp = ev.repeat, days = rp ? rp.days : [parse(ev.date).getDay()];
-  openSheet(`<form class="sheet">${head(isNew ? "New Event" : "Edit Event")}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Event" : "Edit Event", SH_IC.calendar, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(ev.title))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="120" value="${esc(ev.title)}" autofocus placeholder="e.g. Advisor meeting, Work shift, Study group"></label>
       <div class="two">
@@ -12727,7 +12727,7 @@ const FAB_IC = {
   note: '<path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/>',
   write: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4M14 20h6"/>',
   deck: '<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v11"/>',
-  group: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.8M18 20a5.5 5.5 0 0 0-3-5"/>',
+  group: '<svg viewBox="1.61 1.71 20.99 20.99" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="16.4" cy="8" r="2.7" fill="currentColor" fill-opacity=".3"/><path d="M11.6 19.6v-1.1c0-2.9 2.1-5.3 4.8-5.3s4.8 2.4 4.8 5.3v1.1z" fill="currentColor" fill-opacity=".3"/><path d="M3 19.6v-.9c0-3.2 2.7-5.8 6-5.8s6 2.6 6 5.8v.9z" fill="var(--sh-ring-bg,#fff)"/><circle cx="9" cy="8.2" r="3.4" fill="var(--sh-ring-bg,#fff)"/><circle cx="9" cy="8.2" r="3.4" fill="currentColor" fill-opacity=".75"/><path d="M3 19.6v-.9c0-3.2 2.7-5.8 6-5.8s6 2.6 6 5.8v.9z" fill="currentColor" fill-opacity=".75"/></svg>',
   project: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3M8 14h3"/>',
   code: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h2"/>',
   sync: '<path d="M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4"/>',
@@ -12740,8 +12740,13 @@ const head = title => `<div class="sheet-head"><h2>${esc(title)}</h2><button typ
 // A sheet header with a colour band and a line icon in a ring (Direction 1)
 const bandHead = (title, icon, color, sub, big) => `<div class="sheet-head g2-sheet-head${big ? " sh-big" : ""}" style="--c:${esc(color)}"><span class="g2-ring sh-ring" aria-hidden="true">${icon}</span>${big ? `<span class="sh-kick">${esc(title)}</span><div class="sh-t"><h2 class="sh-name">${big}</h2></div>` : `<div class="sh-t"><h2>${esc(title)}</h2>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`}<button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div>`;
 const SH_IC = {
-  pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5l4 4L8 20l-5 1 1-5z"/><path d="M14 6l4 4"/></svg>',
-  timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 2.5h5M12 2.5v3.5"/></svg>'};
+  pencil: '<svg viewBox="2.8 0.7 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(12 12) scale(1.15) rotate(45) translate(-12 -12)"><path d="M9.2 5.2V4.4a2.8 2.8 0 0 1 5.6 0v.8z" fill="currentColor" fill-opacity=".3"/><rect x="9.2" y="5.2" width="5.6" height="2.4" fill="currentColor" fill-opacity=".75"/><path d="M9.2 7.6h5.6v9.2H9.2z" fill="currentColor" fill-opacity=".12"/><path d="M12 7.6v9.2" stroke-opacity=".55"/><path d="M9.2 16.8 12 21.4l2.8-4.6z" fill="currentColor" fill-opacity=".06"/><path d="M11.1 19.9 12 21.4l.9-1.5z" fill="currentColor"/></g></svg>',
+  calendar: '<svg viewBox="2.04 1.94 19.93 19.93" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.6" fill="currentColor" fill-opacity=".12"/><path d="M3.5 7.6A2.6 2.6 0 0 1 6.1 5h11.8a2.6 2.6 0 0 1 2.6 2.6v2.2h-17z" fill="currentColor" fill-opacity=".75"/><path d="M8 3.3v3.4M16 3.3v3.4"/><g fill="currentColor" stroke="none"><circle cx="7.6" cy="13.2" r=".95" opacity=".55"/><circle cx="12" cy="13.2" r=".95" opacity=".55"/><circle cx="7.6" cy="16.8" r=".95" opacity=".55"/><circle cx="12" cy="16.8" r=".95" opacity=".55"/><rect x="14.6" y="11.9" width="3.6" height="3.6" rx="1"/><circle cx="16.4" cy="16.8" r=".95" opacity=".55"/></g></svg>',
+  card: '<svg viewBox="2.04 1.94 19.93 19.93" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3.4" width="12.6" height="10" rx="2.2" fill="var(--sh-ring-bg,#fff)"/><rect x="8" y="3.4" width="12.6" height="10" rx="2.2" fill="currentColor" fill-opacity=".35"/><rect x="3.4" y="8.4" width="13.4" height="12" rx="2.4" fill="var(--sh-ring-bg,#fff)"/><rect x="3.4" y="8.4" width="13.4" height="12" rx="2.4" fill="currentColor" fill-opacity=".12"/><path d="M6.6 12.6h7" stroke-width="1.8"/><path d="M6.6 15.6h5M6.6 17.8h3.2" stroke-opacity=".55"/></svg>',
+  quiz: '<svg viewBox="1.61 1.81 20.78 20.78" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.6" width="15" height="16.6" rx="2.4" fill="currentColor" fill-opacity=".12"/><path d="M9 3.2h6a1 1 0 0 1 1 1v1.6a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4.2a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity=".75"/><path d="M7.6 11.2l1.2 1.2 2-2.2M7.6 16.2l1.2 1.2 2-2.2" stroke-width="1.7"/><path d="M13 11.4h3.6M13 16.4h3.6" stroke-opacity=".55"/></svg>',
+  book: '<svg viewBox="2.02 1.82 20.35 20.35" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 4v13.6H7.2a2.2 2.2 0 0 0-2.2 2.2V5.4a2.2 2.2 0 0 1 2.2-2.2h11.4a.8.8 0 0 1 .8.8z" fill="currentColor" fill-opacity=".12"/><path d="M19.4 17.6v3.2H7.2a1.6 1.6 0 0 1 0-3.2z" fill="var(--sh-ring-bg,#fff)"/><path d="M19.4 17.6v3.2H7.2a1.6 1.6 0 0 1 0-3.2z" fill="currentColor" fill-opacity=".35"/><path d="M5 19.8V5.4a2.2 2.2 0 0 1 2.2-2.2h1.4v14.4H7.2A2.2 2.2 0 0 0 5 19.8z" fill="currentColor" fill-opacity=".75"/><path d="M13.6 3.2v6l1.6-1.3 1.6 1.3v-6" fill="currentColor" fill-opacity=".75"/><path d="M11 12.2h5.4M11 14.6h3.4" stroke-opacity=".55"/></svg>',
+  group: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="16.4" cy="8.2" r="2.7" fill="currentColor" fill-opacity=".3"/><path d="M13.6 13.6c.9-.6 1.8-.9 2.8-.9 2.6 0 4.6 2 4.6 4.6v.9h-4.2" fill="currentColor" fill-opacity=".3"/><circle cx="9.2" cy="8.4" r="3.3" fill="currentColor" fill-opacity=".75"/><path d="M3.4 19.6v-.9c0-3.1 2.6-5.6 5.8-5.6s5.8 2.5 5.8 5.6v.9z" fill="currentColor" fill-opacity=".75"/></svg>',
+  timer: '<svg viewBox="1.13 0.88 21.73 21.73" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 2.5h5M12 2.5v3.5"/></svg>'};
 const seg = (name, opts, val) => `<div class="seg">${opts.map(([v, l]) => `<label><input type="radio" name="${name}" value="${v}" ${v === val ? "checked" : ""}><span>${l}</span></label>`).join("")}</div>`;
 
 function gcalLink(t){
@@ -12877,7 +12882,7 @@ function taskForm(t, preset = {}){
   const canRepeat = isNew || !(t.seriesId || lmsOf(t) || t.prepFor || t.breakdownOf || t.breakdownParent || t.gt);
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
-  openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", isNew ? "" : esc(t.title))}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(t.title))}
     <div class="sheet-body">${REQ_NOTE}${window.SBBREAK ? SBBREAK.formHtml(isNew ? null : t, isNew) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <div class="two">
@@ -13231,7 +13236,7 @@ function courseForm(c){
   const used = coursesArr().map(x => x.color);
   c = c ? clone(c) : {name:"", code:"", instructor:"", schedule:"", room:"", office:"", color: COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length], notes:"", links:[]};
   const linksText = (c.links || []).map(l => l.label && l.label !== "Link" ? `${l.label} | ${l.url}` : l.url).join("\n");
-  openSheet(`<form class="sheet">${head(isNew ? "New Course" : "Edit Course")}
+  openSheet(`<form class="sheet">${bandHead(isNew ? "New Course" : "Edit Course", SH_IC.book, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(c.name))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Course Name ${REQ}</span><input type="text" name="name" required maxlength="120" value="${esc(c.name)}" autofocus placeholder="e.g. Organic Chemistry"></label>
       <div class="two">
@@ -14800,7 +14805,8 @@ async function uploadFiles(list, opts){
   await Promise.all(Array.from({length: Math.min(3, list.length)}, worker));
   const held = lim.full.concat(lim.big, lim.type), why = lim.full.length ? "full" : lim.big.length ? "big" : "type";
   if (made.length) {
-    toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`), () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
+    // noUndo: the caller has its own undo (a whiteboard picture), and taking the file away alone would leave it broken
+    toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`), opts.noUndo ? null : () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
   }
   storageLimit(held, opts, why);
   return made;
@@ -16047,10 +16053,18 @@ function archivedQuizzesSheet(){
 function viewQuizDetail(d, qz){
   const c = courseOf(d.courseId), res = qz.results || [], last = res[res.length - 1], best = res.reduce((m, r) => Math.max(m, r.total ? r.score / r.total : 0), 0);
   const TL = {single: "One answer", multiple: "Select all that apply", order: "Put in order", truefalse: "True or false", short: "Short answer"};
-  const qs = qz.questions.map((q, i) => `<li class="qzd-q"><div class="qzd-top"><b class="qzd-n">${i + 1}</b><span class="pill">${esc(TL[q.type] || "Question")}</span></div>
+  const CHK = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+  const hide = !!ui.qzHide, L = k => String.fromCharCode(65 + k);
+  const ans = (q, i) => {
+    if (q.type === "short") return `<div class="qzd-ans qzd-hide" data-act="qz-reveal" data-i="${i}"><span class="qzd-ck">${CHK}</span><span>${esc(q.answer)}</span></div>`;
+    if (q.type === "order") return `<ol class="qzd-opts qzd-hide" data-act="qz-reveal" data-i="${i}">${q.correct.map((ix, k) => `<li><span class="qzd-l">${k + 1}</span><span>${esc(q.options[ix])}</span></li>`).join("")}</ol>`;
+    return `<ul class="qzd-opts qzd-mc" data-act="qz-reveal" data-i="${i}">${q.options.map((o, k) => { const ok = q.correct.includes(k); return `<li class="${ok ? "ok" : ""}"><span class="qzd-l"><i class="lt">${L(k)}</i>${ok ? `<i class="ck">${CHK}</i>` : ""}</span><span>${esc(o)}</span></li>`; }).join("")}</ul>`;
+  };
+  const qs = qz.questions.map((q, i) => `<li class="qzd-q"><span class="qzd-n">${i + 1}</span><div class="qzd-body">
+      <span class="qzd-type">${esc(TL[q.type] || "Question")}</span>
       <p class="qzd-stem">${esc(q.stem)}</p>
-      ${q.type === "short" ? `<p class="qzd-ans">Answer: <b>${esc(q.answer)}</b></p>` : `<ul class="qzd-opts">${(q.type === "order" ? q.correct.map(ix => q.options[ix]) : q.options).map((o, k) => `<li class="${q.type !== "order" && q.correct.includes(k) ? "ok" : ""}">${q.type === "order" ? `<b>${k + 1}.</b> ` : q.correct.includes(k) ? "✓ " : ""}${esc(o)}</li>`).join("")}</ul>`}
-      ${q.rationale ? `<details><summary>Why</summary><p>${esc(q.rationale)}</p></details>` : ""}</li>`).join("");
+      ${ans(q, i)}
+      ${q.rationale ? `<details class="qzd-why"><summary>Explanation</summary><p>${esc(q.rationale)}</p></details>` : ""}</div></li>`).join("");
   const ref = d.id + ":" + qz.id;
   return `<button class="back" data-act="qz-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Quizzes</button>
     <div class="deck-head g2-head dk2" style="--c:${esc(colorOf(d.courseId))}">
@@ -16058,10 +16072,11 @@ function viewQuizDetail(d, qz){
         <div class="row-actions"><button class="btn primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><button class="btn" data-act="qz-edit" data-id="${esc(ref)}">Edit</button><button class="btn" data-act="qz-archive" data-id="${esc(ref)}">Archive</button><button class="btn" data-act="ai-quiz-del" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Delete</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>
         <div class="g2-txt"><h2>${esc(qz.title || "Practice Quiz")}</h2>
-          <div class="deck-stats"><span><b>${qz.questions.length}</b> questions</span><span>from <b>${esc(quizFrom(d, qz))}</b></span>${last ? `<span>Last score <b>${last.score}/${last.total}</b></span><span>Best <b>${Math.round(best * 100)}%</b></span>` : ""}</div></div></div>
+          <div class="deck-stats"><span><b>${qz.questions.length}</b> question${qz.questions.length === 1 ? "" : "s"}</span><span>from <b>${esc(quizFrom(d, qz))}</b></span>${last ? `<span>Last score <b>${last.score}/${last.total}</b></span><span>Best <b>${Math.round(best * 100)}%</b></span>` : ""}</div></div></div>
     </div>
     ${qz.kind === "case" && qz.scenario ? `<p class="qzd-scen">${esc(qz.scenario)}</p>` : ""}
-    <ol class="qzd-list">${qs}</ol>`;
+    <section class="c2-card2 c2-box qzd-card${hide ? " qzd-hidden" : ""}" style="--c:${esc(colorOf(d.courseId))}"><div class="qzd-head">${c2Head("goals", "Questions", qz.questions.length)}<button type="button" class="btn small" data-act="qz-hide" aria-pressed="${hide}">${hide ? "Show Answers" : "Hide Answers"}</button></div>
+      ${hide ? `<p class="mini qzd-hint">Answers are hidden. Tap one to check it.</p>` : ""}<ol class="qzd-list">${qs}</ol></section>`;
 }
 function viewQuizzes(){
   if (ui.qzOpen) { const f = qzFind(ui.qzOpen); if (f && !f.qz.archived) return viewQuizDetail(f.d, f.qz); ui.qzOpen = null; }
@@ -16329,7 +16344,7 @@ function deckSheet(d){
 }
 function cardSheet(d, cardId){
   const c = d.cards.find(x => x.id === cardId); if (!c) return;
-  openSheet(`<form class="sheet">${head("Edit Card")}
+  openSheet(`<form class="sheet">${bandHead("Edit Card", SH_IC.card, "var(--accent-band,var(--accent))", esc(d.name))}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
@@ -16377,7 +16392,7 @@ function reviewSheet(){
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
 }
 function addCardSheet(d){
-  openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${head("Add Card")}
+  openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, "var(--accent-band,var(--accent))", esc(d.name))}
     <div class="sheet-body">
       <label class="f"><span class="lh">Front ${REQ}<span class="hint">term or question</span></span><textarea id="fcFront" rows="3" required data-noenter autofocus placeholder="e.g. Logistic growth"></textarea></label>
       <label class="f"><span class="lh">Back ${REQ}<span class="hint">definition or answer</span></span><textarea id="fcBack" rows="3" required data-noenter placeholder="e.g. Growth that slows as a population nears carrying capacity"></textarea></label>
@@ -16868,7 +16883,7 @@ function quizMaker(ref){
   const holder = !f || isQuizHolder(f.d);
   QM = {ref: f ? ref : "", qs: f ? f.qz.questions.map(q => Object.assign(qmFromSaved(q), {old: q})) : [qmBlank("single")]};
   const course = f ? f.d.courseId : (ui.filter && ui.filter !== "all" && courseOf(ui.filter) ? ui.filter : "");
-  openSheet(`<form class="sheet qm-sheet">${head(f ? "Edit Quiz" : "Write Your Own Quiz")}
+  openSheet(`<form class="sheet qm-sheet">${bandHead(f ? "Edit Quiz" : "Write Your Own Quiz", SH_IC.quiz, "var(--accent-band,var(--accent))", "", f ? esc(f.qz.title || "") : "")}
     <div class="sheet-body">
       <div class="two"><label class="f"><span class="lh">Quiz Name</span><input type="text" name="qmName" id="qmName" maxlength="120" value="${esc(f ? f.qz.title : "")}" placeholder="e.g. Cardiac Meds Practice"${f ? "" : " autofocus"}></label>
         ${holder ? `<label class="f"><span class="lh">Course</span><select name="qmCourse">${courseSelectHtml(course)}</select></label>` : `<p class="mini" style="margin:auto 0 8px">Saved with the deck <b>${esc(f.d.name)}</b>.</p>`}</div>
@@ -16942,13 +16957,20 @@ function quizMaker(ref){
     const li = $(`#qmList .qm-q[data-i="${QM.qs.length - 1}"]`); if (li) li.scrollIntoView({block: "nearest"});
   });
 }
+
+// A quiz's questions: hide the answers to test yourself, and tap one to check it
+hook("act", (act, el) => {
+  if (act === "qz-hide") { ui.qzHide = !ui.qzHide; render(); return true; }
+  if (act === "qz-reveal") { if (!ui.qzHide) return true; const q = el.closest(".qzd-q"); if (q) q.classList.toggle("qzd-shown"); return true; }
+  return false;
+});
 /* ===== module: 01-focus.js: the app's core, the Pomodoro focus timer ===== */
 /* Pomodoro focus timer */
 const POMO_HOW = `<ol><li><b>Pick one task</b> and start a 25-minute focus session (one "pomodoro").</li><li><b>Work only on that task</b> until the timer rings. If something else comes up, jot it down for later.</li><li><b>Take a 5-minute break.</b> Stand up, stretch, get water: anything but work.</li><li><b>After four sessions, take a longer break</b> of 15 to 30 minutes.</li></ol><p>Short, timed bursts make it easier to start and keep your focus fresh, and counting sessions shows how long things really take. Studyboard's Classic routine uses these times. The method was created by Francesco Cirillo in the late 1980s.</p>`;
 const POMO_DEF = {focus: 25, short: 5, long: 15, every: 4, autoBreak: true, autoFocus: false, sound: "chime", volume: 0.8, notify: true};
 const POMO_LS = "studioso:pomo";
 const MODE_LABEL = {focus: "Focus", short: "Short Break", long: "Long Break"};
-const TOMATO = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 7.2c-4.6 0-8 2.9-8 6.7C4 17.8 7.6 21 12 21s8-3.2 8-7.1c0-3.8-3.4-6.7-8-6.7z" fill="currentColor"/><path d="M12 7.5V4.2M12 6.6c-1.4-1.6-3.4-1.9-4.8-1.3 1.2.4 2.4 1.3 3 2.6M12 6.6c1.4-1.6 3.4-1.9 4.8-1.3-1.2.4-2.4 1.3-3 2.6" fill="none" stroke="var(--leaf,#1E9E74)" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const TOMATO = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 8.1c-2.3-1-5.7-.6-7.4 1.9-1.6 2.4-1.2 6.2 1.2 8.6 1.6 1.6 3.8 2.5 6.2 2.5s4.6-.9 6.2-2.5c2.4-2.4 2.8-6.2 1.2-8.6-1.7-2.5-5.1-2.9-7.4-1.9z" fill="currentColor"/><path d="M19.4 10c1.6 2.4 1.2 6.2-1.2 8.6-1.6 1.6-3.8 2.5-6.2 2.5-1.7 0-3.3-.5-4.6-1.3 4.4.6 9.3-2 10.4-6.2.4-1.3.4-2.6-.1-3.7z" fill="#000" opacity=".18"/><path d="M6.9 11.6c.6-1.4 1.8-2.2 3-2.4" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/><path d="M12 7.9c0-1.6.5-2.9 1.6-3.7" fill="none" stroke="var(--leaf-d,#1F7A44)" stroke-width="1.6" stroke-linecap="round"/><path d="M12 10.6l-1-1.5-2.9.9 1.7-1.8-1.5-1.3 2.5.3 1.2-1.1 1.2 1.1 2.5-.3-1.5 1.3 1.7 1.8-2.9-.9z" fill="var(--leaf,#2E9D5B)" stroke="var(--leaf-d,#1F7A44)" stroke-width=".7" stroke-linejoin="round"/></svg>';
 // Minutes for a focus session on a task: the timer length you chose, cut short only when that would
 // run past the time the plan gives this task today (so the session ends as that work is done)
 function focusMinsFor(taskId){
@@ -17262,7 +17284,7 @@ function renderPomo(){
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
   const notifyNote = !notifySupported() ? "Desktop notifications aren't available here, so the alarm sound and on-screen alert are used." : Notification.permission === "denied" ? "Notifications are blocked for this site in your browser settings." : Notification.permission === "default" ? "Your browser will ask to allow notifications when you start the timer." : "Notifications are allowed.";
-  d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO, pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
+  d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO.replace('viewBox="0 0 24 24"', 'viewBox="2.62 2.87 18.76 18.76"'), pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
     <div class="sheet-body">
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
@@ -32158,7 +32180,7 @@ hook("boot", boot);
     const tplPick = TPL.length ? `<div class="f grp-tpls"><span class="lh">Start From</span><div class="grp-tpl-row" role="group" aria-label="Start from a template"><button type="button" class="chip" data-tpl="" aria-pressed="true">Blank</button>${TPL.map(t => `<button type="button" class="chip" data-tpl="${esc(t.id)}" aria-pressed="false">${t.icon && STICKERS[t.icon] ? `<span class="grp-tpl-ic">${stickerSvg(t.icon)}</span>` : ""}${esc(t.name)}<span class="mini">${t.kind === "project" ? (t.tasks || []).length ? `Project · ${t.tasks.length} tasks` : "Project" : "Study group"}</span></button>`).join("")}</div></div>` : "";
     const kindPick = edit ? "" : `${tplPick}<div class="segb grp-kind" role="group" aria-label="Group type"><button type="button" data-kind="study" aria-pressed="true">Study Group</button><button type="button" data-kind="project" aria-pressed="false">Group Project</button></div>
 ${kindPreview("study")}${kindPreview("project")}`;
-    openSheet(`<form class="sheet">${head(edit ? (proj ? "Edit Project" : "Edit Group") : "New Group")}<div class="sheet-body">${REQ_NOTE}
+    openSheet(`<form class="sheet">${bandHead(edit ? (proj ? "Edit Project" : "Edit Group") : "New Group", SH_IC.group, "var(--accent-band,var(--accent))", "", edit ? esc(g.name || "") : "")}<div class="sheet-body">${REQ_NOTE}
       ${kindPick}
       <label class="f"><span class="lh"><span class="grp-nm-l">${proj ? "Project Name" : "Group Name"}</span> ${REQ}</span><input type="text" name="name" required maxlength="80" value="${esc(edit ? g.name : "")}" autofocus placeholder="${proj ? "e.g. Biology Poster" : "e.g. Biology Study Squad"}"></label>
       <label class="f"><span class="lh">Course <span class="hint">optional</span></span><input type="text" name="course" maxlength="80" list="grpCourses" value="${esc(edit ? g.course : (ui.filter !== "all" && courseOf(ui.filter) ? courseLabel(courseOf(ui.filter)) : ""))}" placeholder="e.g. PSYC 101"><datalist id="grpCourses">${opts}</datalist></label>
@@ -33912,8 +33934,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     }
     return null;
   }
+  // settings.school also holds School Days (days off, the class cycle, holiday answers: 96-school), so those stay
   async function keepSchool(sc, quiet){
-    state.settings = Object.assign({}, state.settings, {school: {key: sc.key, name: sc.name, country: sc.country || "", region: sc.region || "", kind: sc.kind || "university", v: 1}}); saveSettings();
+    state.settings = Object.assign({}, state.settings, {school: Object.assign({}, (state.settings || {}).school, {key: sc.key, name: sc.name, country: sc.country || "", region: sc.region || "", kind: sc.kind || "university", v: 1})}); saveSettings();
     COUNTS.at = 0;
     if (signedIn()) { try { await rpc("set_my_school", {p_key: sc.key}); } catch (e) { if (!quiet) toast(e.message); return false; } }
     return true;
@@ -75673,7 +75696,8 @@ window.SBSEM = {
   const cycName = (names, k) => names === "abc" ? String.fromCharCode(64 + k) + " Day" : "Day " + k;
 
   function save(next, msg){
-    const cur = cfg(), school = {off: next.off, cycle: next.cycle, pub: next.pub === undefined ? cur.pub : next.pub, ans: next.ans || cur.ans};
+    // settings.school is shared with Your School (97-sharing: key, name, v…), so those stay
+    const cur = cfg(), school = Object.assign({}, cur, {off: next.off, cycle: next.cycle, pub: next.pub === undefined ? cur.pub : next.pub, ans: next.ans || cur.ans});
     if (!school.off || !school.off.length) delete school.off;
     if (!school.cycle) delete school.cycle;
     if (school.pub !== false) delete school.pub;
@@ -88191,39 +88215,83 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   const PIC = SV('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 16l-5-5-8.5 8.5"/>');
 
   /* Showing pictures */
-  const URLS = new Map(), FAIL = new Map();
-  const fileOf = it => { const f = it && it.f && state.files[it.f]; return f && f.revs && f.revs.length ? f : null; };
+  // A picture's bytes are in Studyboard's file storage (its file's current revision) or, once that file was moved to
+  // Google Drive or OneDrive, in the student's own cloud. key: one cache entry per stored copy
+  const URLS = new Map(), FAIL = new Map(), ERR = new Map();
+  const inCloud = f => !!(f && f.kind === "cloud" && f.cloud && f.cloud.id && window.SBCLOUD && SBCLOUD.bytes);
+  const fileOf = it => { const f = it && it.f && state.files[it.f]; return f && ((f.revs && f.revs.length) || inCloud(f)) ? f : null; };
+  const srcOf = f => { if (f.revs && f.revs.length) { const r = curRev(f); return {key: r.assetId, type: r.type, get: () => IO.bytes(r.assetId)}; }
+    return {key: "cloud:" + f.cloud.p + ":" + f.cloud.id, type: f.cloud.type, get: () => SBCLOUD.bytes(f)}; };
   function urlOf(it){
     if (it.src) return it.src;
     const f = fileOf(it); if (!f) return null;
-    const r = curRev(f); let u = URLS.get(r.assetId);
-    if (u === "!" && Date.now() - (FAIL.get(r.assetId) || 0) > 20000) { URLS.delete(r.assetId); u = undefined; }
-    if (u === undefined) load(r.assetId, r.type);
+    const s = srcOf(f); let u = URLS.get(s.key);
+    if (u === "!" && Date.now() - (FAIL.get(s.key) || 0) > 20000) { URLS.delete(s.key); u = undefined; }
+    if (u === undefined) load(s);
     return u && u !== "!" ? u : null;
   }
   // Right after a reload, sign-in may still be coming back
   const TRIES = new Map();
-  async function load(id, type){
-    URLS.set(id, "");
-    try { const b = await IO.bytes(id); URLS.set(id, URL.createObjectURL(new Blob([b], {type: type || "image/png"}))); TRIES.delete(id); }
+  async function load(s){
+    const id = s.key; URLS.set(id, "");
+    try { const b = await s.get(); URLS.set(id, URL.createObjectURL(new Blob([b], {type: s.type || "image/png"}))); TRIES.delete(id); ERR.delete(id); }
     catch (e) {
+      ERR.set(id, String((e && e.message) || ""));
       const n = (TRIES.get(id) || 0) + 1; TRIES.set(id, n);
       if (n <= 5) { setTimeout(() => { if (URLS.get(id) === "") { URLS.delete(id); W.refreshItems(); } }, 600 * 2 ** (n - 1)); return; }
       URLS.set(id, "!"); FAIL.set(id, Date.now()); TRIES.delete(id);
     }
     W.refreshItems();
   }
+  // Why a picture can't be shown, in words (null while it is still loading). fix: the student can replace or remove it
+  const SEEN = new Map(), LOOK = 8000;
+  const inTrash = fid => trashList().some(e => e.items.some(i => i && i.kind === "file" && (i.id === fid || (i.data && i.data.id === fid))));
+  const syncing = () => (typeof cloud !== "undefined" && cloud.on) || (typeof sbActive === "function" && sbActive());
+  function whyNot(it){
+    const f = fileOf(it);
+    if (f) {
+      const k = srcOf(f).key; if (URLS.get(k) !== "!") return null;
+      const m = ERR.get(k) || "";
+      if (/only on the computer/i.test(m)) return {t: "This picture is on another computer", d: "It was saved only in the Studyboard app on the computer it was added from. Select it to replace or remove it.", fix: 1};
+      if (/not signed in/i.test(m)) return {t: "Sign in to see this picture", d: "It's saved in your Studyboard account."};
+      if (inCloud(f)) return {t: "Couldn't open this picture", d: (m && m.length < 140 ? m + " " : "") + "It's saved in your " + (f.cloud.p === "google" ? "Google Drive" : "OneDrive") + ".", fix: 1};
+      return {t: "Couldn't load this picture", d: "Check your connection. Studyboard tries again by itself, or select it to replace or remove it.", fix: 1};
+    }
+    if (!it.f || it.src) return null;
+    if (state.files[it.f]) return {t: "This picture's file is empty", d: "Select it to replace or remove it.", fix: 1};
+    if (inTrash(it.f)) return {t: "This picture's file was deleted", d: "Restore it from Trash, or select it to replace or remove it.", fix: 1};
+    // its file may still be on its way from another device: look for a few seconds before saying it's missing
+    if (!SEEN.has(it.f)) { SEEN.set(it.f, Date.now()); setTimeout(() => W.refreshItems(), LOOK + 100); }
+    if (Date.now() - SEEN.get(it.f) < LOOK) return {t: "Looking for this picture…", wait: 1};
+    return syncing() ? {t: "This picture didn't sync from your other device", d: "Open Studyboard on the device you added it from so it can finish syncing, or select it to replace or remove it.", fix: 1}
+      : {t: "This picture is on another device", d: "Sign in to sync it here, or select it to replace or remove it.", fix: 1};
+  }
+  function placeholder(it){
+    const w = whyNot(it) || {t: "Loading picture…", wait: 1};
+    return `<span class="wb-img-ph${w.fix ? " miss" : ""}" role="img" aria-label="${esc(w.t)}"><span class="wb-ph-in">${w.wait ? '<span class="spinner"></span>' : PIC}<b>${esc(w.t)}</b>${w.d ? `<span>${esc(w.d)}</span>` : ""}</span></span>`;
+  }
   const BUSY = new Set();
   hook("wb-items", ({host, list, xf}) => {
     if (!host) return;
     host.innerHTML = list.map(it => {
-      const p = xf(it), u = urlOf(it), f = fileOf(it), bad = !u && f && URLS.get(curRev(f).assetId) === "!";
-      return `<div class="wb-img${it.r ? " drawn" : ""}${it.fade ? " fade" : ""}${BUSY.has(it.id) ? " busy" : ""}" style="left:${+p.x}px;top:${+p.y}px;width:${+p.w}px;height:${+p.h}px">${u ? (it.er && it.er.length ? `<span class="wb-er" style="-webkit-mask-image:url('${erMask(it)}');mask-image:url('${erMask(it)}')">` : "") + (it.r && it.tint ? `<span class="wb-tint" style="background:${W.penHex(it.tint)};-webkit-mask-image:url('${esc(u)}');mask-image:url('${esc(u)}')"></span>` : `<img src="${esc(u)}" alt="" draggable="false">`) + (it.er && it.er.length ? "</span>" : "") : `<span class="wb-img-ph">${bad ? "Picture not available on this device" : (it.f && !f ? "Picture not here yet" : "Loading picture…")}</span>`}${BUSY.has(it.id) ? `<span class="wb-img-busy"><span class="spinner"></span>Drawing…</span>` : ""}</div>`;
+      const p = xf(it), u = urlOf(it);
+      return `<div class="wb-img${it.r ? " drawn" : ""}${it.fade ? " fade" : ""}${BUSY.has(it.id) ? " busy" : ""}" style="left:${+p.x}px;top:${+p.y}px;width:${+p.w}px;height:${+p.h}px">${u ? (it.er && it.er.length ? `<span class="wb-er" style="-webkit-mask-image:url('${erMask(it)}');mask-image:url('${erMask(it)}')">` : "") + (it.r && it.tint ? `<span class="wb-tint" style="background:${W.penHex(it.tint)};-webkit-mask-image:url('${esc(u)}');mask-image:url('${esc(u)}')"></span>` : `<img src="${esc(u)}" alt="" draggable="false">`) + (it.er && it.er.length ? "</span>" : "") : placeholder(it)}${BUSY.has(it.id) ? `<span class="wb-img-busy"><span class="spinner"></span>Drawing…</span>` : ""}</div>`;
     }).join("");
   });
+  // Redraw the pictures when what they need changes: a picture's file arriving by sync (the board itself may have come first,
+  // and then nothing on the board changes), a file moved to the cloud or put in Trash, or the student signing in
+  let picSig = "", wasIn = false;
+  hook("render", () => {
+    const b = W.board(); if (!b) return;
+    const nowIn = !!syncing(); if (nowIn && !wasIn) { wasIn = true; picSig = ""; retry(); return; } wasIn = nowIn;
+    const g = b.id + "#" + trashList().length + "#" + b.items.filter(it => it.k === "i").map(it => { const f = it.f && state.files[it.f]; return it.id + ":" + (!f ? "-" : fileOf(it) ? srcOf(f).key : "0"); }).join("|");
+    if (g !== picSig) { const first = !picSig; picSig = g; if (!first) W.refreshItems(); }
+  });
+  addEventListener("online", () => retry());
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && [...URLS.values()].includes("!")) retry(); });
   async function imageOf(it){
     let u = urlOf(it);
-    if (!u) { const f = fileOf(it); if (!f) return null; const r = curRev(f); try { const b = await IO.bytes(r.assetId); u = URL.createObjectURL(new Blob([b], {type: r.type || "image/png"})); URLS.set(r.assetId, u); } catch (e) { return null; } }
+    if (!u) { const f = fileOf(it); if (!f) return null; const s = srcOf(f); try { const b = await s.get(); u = URL.createObjectURL(new Blob([b], {type: s.type || "image/png"})); URLS.set(s.key, u); } catch (e) { return null; } }
     return new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = u; });
   }
   // all in one marker colour
@@ -88288,19 +88356,36 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     for (const file of files.slice(0, room)) {
       const s = await shrink(file); if (!s) { toast(`Couldn't read ${file.name || "that picture"}.`); continue; }
       const name = String(file.name || "Picture").replace(/\.[a-z0-9]+$/i, "") + ".webp";
-      const made = await IO.upload([new File([s.blob], name, {type: "image/webp"})], {courseId: (n && n.courseId) || "", folderId: "notes"});
-      if (!made || !made.length) continue;
-      const f = made[0], r = curRev(f); if (r && r.assetId) URLS.set(r.assetId, URL.createObjectURL(s.blob));
+      const f = await store(s, name, n); if (!f) continue;
       const vw = fw / cam.z, vh = fh / cam.z, w = Math.min(vw * 0.38, vh * 0.5 * s.w / s.h), h = w * s.h / s.w, id = uid();
       W.set("i", id, {id, k: "i", x: Math.round(cx - w / 2 + k * 30), y: Math.round(cy - h / 2 + k * 30), w: Math.round(w), h: Math.round(h), f: f.id, at: Date.now()});
       ids.push("i" + id); k++;
     }
     if (ids.length) { W.setTool("select"); W.select(ids); }
   }
-  function choose(){
+  // Saves a shrunk picture as a file in the board's course. Adding it can be undone on the board itself, so the upload's own
+  // Undo is left out: it would take the file away and leave the picture on the board with nothing to show
+  async function store(s, name, n){
+    const made = await IO.upload([new File([s.blob], name, {type: "image/webp"})], {courseId: (n && n.courseId) || "", folderId: "notes", noUndo: true});
+    if (!made || !made.length) return null;
+    const f = made[0], r = curRev(f); if (r && r.assetId) URLS.set(r.assetId, URL.createObjectURL(s.blob));
+    return f;
+  }
+  // A picture whose file can't be found anywhere: put a new one in its place (same spot and width)
+  async function replace(id, file){
     if (locked()) { upsell(); return; }
-    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.multiple = true; inp.className = "sr"; inp.tabIndex = -1;
-    inp.addEventListener("change", () => { const fs = [...(inp.files || [])]; inp.remove(); if (fs.length) add(fs); });
+    const b = W.board(), it = W.getI(id); if (!b || !it || it.k !== "i") return;
+    const s = await shrink(file); if (!s) { toast(`Couldn't read ${file.name || "that picture"}.`); return; }
+    const f = await store(s, String(file.name || "Picture").replace(/\.[a-z0-9]+$/i, "") + ".webp", state.notes[b.id]); if (!f) return;
+    const cur = W.getI(id); if (!cur) return;
+    const o = Object.assign({}, cur, {f: f.id, h: Math.round(cur.w * s.h / s.w), at: Date.now()}); ["r", "o", "tint", "er", "src"].forEach(k => delete o[k]);
+    W.change(set => set("i", id, o)); W.select(["i" + id]);
+    toast("Picture replaced", () => W.undo());
+  }
+  function choose(id){
+    if (locked()) { upsell(); return; }
+    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.multiple = !id; inp.className = "sr"; inp.tabIndex = -1;
+    inp.addEventListener("change", () => { const fs = [...(inp.files || [])]; inp.remove(); if (fs.length) { if (id) replace(id, fs[0]); else add(fs); } });
     document.body.appendChild(inp); inp.click();
   }
   const onBoard = () => ui.tab === "notes" && W.on() && W.stage() && W.stage().isConnected;
@@ -88329,6 +88414,11 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   });
   hook("wb-selbar", ({bar, it}) => {
     if (!it || it.k !== "i") return;
+    const w = !urlOf(it) && whyNot(it);
+    if (w && w.fix) {
+      const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "pic-replace"; b.dataset.id = it.id; b.title = "Choose a picture to put in its place";
+      b.innerHTML = `${PIC}Replace Picture`; bar.insertBefore(b, bar.querySelector('[data-wb="sel-copy"]')); return;
+    }
     const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "restyle"; b.dataset.id = it.id;
     b.className = "wb-ai-btn";
     const st = styleOf(styleId());
@@ -88338,7 +88428,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     bar.insertBefore(b, bar.querySelector('[data-wb="sel-copy"]'));
   });
   hook("wb-act", (a, el, id) => {
-    if (a === "pic") choose(); else if (a === "restyle") restyle(id);
+    if (a === "pic") choose(); else if (a === "pic-replace") choose(id); else if (a === "restyle") restyle(id);
     else if (a === "restyle-menu") styleMenu(el, id);
     else if (a === "restyle-as") { const [iid, sid] = String(id).split("|"); closeStyleMenu(); try { localStorage.setItem(K_STYLE, sid); } catch (e) {} restyle(iid, sid); }
     else if (a === "fade" && selPics.length) { const on = !selPics.every(x => x.fade), ids = selPics.map(x => "i" + x.id); W.change(set => selPics.forEach(x => { const cur = W.getI(x.id); if (!cur) return; const o = Object.assign({}, cur); if (on) o.fade = 1; else delete o.fade; set("i", x.id, o); })); W.select(ids); }
@@ -88640,7 +88730,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
       const blob = await canvasBlob(out, "image/png");
       const b = W.board(), n = b && state.notes[b.id], f0 = fileOf(it);
       const name = String((f0 && f0.name) || "Picture").replace(/(\s+\(marker\))?\.[a-z0-9]+$/i, "") + " (marker).png";
-      const made = blob ? await IO.upload([new File([blob], name, {type: "image/png"})], {courseId: (n && n.courseId) || "", folderId: "notes"}) : [];
+      const made = blob ? await IO.upload([new File([blob], name, {type: "image/png"})], {courseId: (n && n.courseId) || "", folderId: "notes", noUndo: true}) : [];
       if (!made || !made.length) { toast("Couldn't save the redrawn picture. Try again."); return; }
       const f = made[0], r = curRev(f); if (r && r.assetId) URLS.set(r.assetId, URL.createObjectURL(blob));
       const cur = W.getI(id) || it, ow = out.width, oh = out.height, w = cur.w, h = Math.round(w * oh / ow);
@@ -88662,8 +88752,18 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
 .wb-tint{display:block;width:100%;height:100%;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 .wb-img img{display:block;width:100%;height:100%;object-fit:fill;-webkit-user-drag:none;user-select:none}
 .wb-img:not(.drawn) img{box-shadow:0 2px 10px rgba(20,30,45,.18)}
-.wb-dk .wb-img-ph{background:#2A323C;border-color:#46505C;color:#AEB7C2}
-.wb-img-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:#EEF1F4;border:2px dashed #C3CCD7;color:#6B7686;font:600 max(14px,2.2%) var(--display);padding:8px}
+.wb-img{container-type:size}
+.wb-img-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:#EEF1F4;border:calc(2px * var(--wb-inv,1)) dashed #C3CCD7;border-radius:calc(8px * var(--wb-inv,1));color:#4F5A69;
+  /* readable at any zoom (the board is scaled, so sizes are in screen pixels times 1 / zoom), but never bigger than the picture's box */
+  font-size:calc(15px * var(--wb-inv,1));font-size:min(calc(15px * var(--wb-inv,1)),5.6cqw,9cqh);padding:.8em}
+.wb-ph-in{display:flex;flex-direction:column;align-items:center;gap:.45em;max-width:26em;line-height:1.35}
+.wb-ph-in svg{width:1.9em;height:1.9em;opacity:.7}
+.wb-ph-in .spinner{width:1.4em;height:1.4em}
+.wb-ph-in b{font:700 1em/1.3 var(--display)}
+.wb-ph-in span{font:500 .86em/1.4 var(--body,system-ui);opacity:.85}
+.wb-img-ph.miss{background:#FFF6E8;border-color:#E9B872;color:#6B4A12}
+.wb-dk .wb-img-ph{background:#2A323C;border-color:#5A6572;color:#D5DBE2}
+.wb-dk .wb-img-ph.miss{background:#3A3124;border-color:#9C7A3E;color:#F2DDB8}
 .wb-img.busy img{filter:grayscale(.6) opacity(.55)}
 .wb-img-busy{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(var(--wb-inv,1));display:flex;align-items:center;gap:8px;background:#fff;color:#22262D;border-radius:999px;padding:8px 14px;font:600 14px var(--display);box-shadow:0 4px 14px rgba(0,0,0,.2);white-space:nowrap}
 .wb-pic{position:relative}

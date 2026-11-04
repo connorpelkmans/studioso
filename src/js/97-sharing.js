@@ -303,8 +303,9 @@
     }
     return null;
   }
+  // settings.school also holds School Days (days off, the class cycle, holiday answers: 96-school), so those stay
   async function keepSchool(sc, quiet){
-    state.settings = Object.assign({}, state.settings, {school: {key: sc.key, name: sc.name, country: sc.country || "", region: sc.region || "", kind: sc.kind || "university", v: 1}}); saveSettings();
+    state.settings = Object.assign({}, state.settings, {school: Object.assign({}, (state.settings || {}).school, {key: sc.key, name: sc.name, country: sc.country || "", region: sc.region || "", kind: sc.kind || "university", v: 1})}); saveSettings();
     COUNTS.at = 0;
     if (signedIn()) { try { await rpc("set_my_school", {p_key: sc.key}); } catch (e) { if (!quiet) toast(e.message); return false; } }
     return true;
