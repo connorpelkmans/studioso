@@ -4,8 +4,7 @@
    deck, plus one summary note under the course that credits the source (title and link) and links the deck.
    - Reading the link (a browser can't fetch other sites itself): a YouTube video goes to Gemini as a file_data part (file_uri, video/*),
      so it needs a Gemini key; with Claude or ChatGPT the student is told so and offered Paste the Text Instead. A web page is opened by
-     the AI (aiCall urlContext: Gemini url_context, Claude web fetch, ChatGPT web search). The free trial reads typed text only, so a link
-     there asks for the student's own key, and pasted text works.
+     the AI (aiCall urlContext: Gemini url_context, Claude web fetch, ChatGPT web search; Studyboard AI uses web fetch on its server).
    - Step 1 turns the source into study notes in the AI's own words (never copied sentences; only a few words quoted for an exact term or
      definition). The AI says when it couldn't see the content (unreachable, paywall or login, empty, too long) and nothing is invented.
    - Step 2 is the existing study set maker (aiMakeStudySet) on those notes (and on pasted text, when given), with the student's style,
@@ -90,7 +89,7 @@ const LINKCARDS = (() => {
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
       : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
-      : `Web page on ${L.host}.${prov === "trial" ? " Reading pages needs your own free Gemini key, or paste the text below." : ""}`;
+      : `Web page on ${L.host}.`;
   });
   document.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-cl]"); if (!b) return;
@@ -108,8 +107,8 @@ const LINKCARDS = (() => {
     // every field required: Gemini's structured answers leave optional fields out, and a {"status": "ok"} with no notes read as "nothing to study"
     required: ["status", "title", "overview", "sections", "terms", "reason"], propertyOrdering: ["status", "title", "overview", "sections", "terms", "reason"]};
   const SHAPE = '{"status": "ok" | "unreachable" | "paywall" | "empty" | "too_long", "title": "...", "overview": "...", "sections": [{"heading": "...", "points": ["..."]}], "terms": [{"term": "...", "definition": "..."}], "reason": "..."}';
-  const SYS = trial => "You turn one source (a YouTube video, a web article or text a student pasted from one) into study notes for a university student, who will make flashcards from them. " +
-    `title: the source's real title. overview: 2 to 4 sentences on what it covers. sections: one per main topic in order (2 to 7), each with 2 to 6 points that keep the specifics: definitions, steps, mechanisms, numbers, examples. terms: the key terms it defines (at most 12), each with a one-sentence definition. ${trial ? "About 250 to 400 words in all." : "About 400 to 900 words in all."} ` +
+  const SYS = () => "You turn one source (a YouTube video, a web article or text a student pasted from one) into study notes for a university student, who will make flashcards from them. " +
+    `title: the source's real title. overview: 2 to 4 sentences on what it covers. sections: one per main topic in order (2 to 7), each with 2 to 6 points that keep the specifics: definitions, steps, mechanisms, numbers, examples. terms: the key terms it defines (at most 12), each with a one-sentence definition. About 400 to 900 words in all. ` +
     "Copyright: the source belongs to its authors. Write everything in your own words: restate the ideas, never copy its sentences or distinctive phrases, and never repeat more than a few words in a row; quote only a very short exact term or definition where it can't be avoided. Names, numbers, formulas and technical terms may stay exact. " +
     "status: ok only when you could actually watch or read the content. If you could not open it, set unreachable; if you only saw a login, subscription or paywall page, a cookie notice or a teaser, set paywall; if there is truly nothing informative in it (an error page, just links or ads, a music video with no talking), set empty; if it is far too long to cover, set too_long; and in all of those leave every other field empty and say in reason, in one short sentence, what you actually saw. " +
     "Anything where someone explains, reviews, compares, demonstrates, discusses or teaches something is content: a product review, a news report, a talk, a vlog or a tutorial counts, not only a lecture. " +
@@ -127,7 +126,7 @@ const LINKCARDS = (() => {
     catch (e) { if (e && typeof e === "object" && diag.length) e.diag = diag; throw e; }
   }
   async function readLink0(L, pasted, signal, onStatus, diag){
-    const prov = aiCfg().provider, trial = prov === "trial";
+    const prov = aiCfg().provider;
     // Studyboard AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI makes the notes from it
     if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube()) {
       const v = await proYoutube(L.url, signal);
@@ -135,9 +134,9 @@ const LINKCARDS = (() => {
       pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
     }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
-    const opts = {task: "linknotes", signal, maxTokens: trial ? 1400 : 8000, temperature: 0.2, onStatus, system: SYS(trial)};
+    const opts = {task: "linknotes", signal, maxTokens: 8000, temperature: 0.2, onStatus, system: SYS()};
     let r;
-    if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nThe student pasted its ${L.kind === "youtube" ? "transcript" : "text"}:\n\n${pasted.slice(0, trial ? 9000 : 150000)}\n\n${ask}`}]})));
+    if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nThe student pasted its ${L.kind === "youtube" ? "transcript" : "text"}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})));
     else if (L.kind === "youtube") {
       // a lecture's content is in what's said: one frame every 5 seconds cuts most of the video work. plain: just the link, the way Google's own
       // YouTube example sends it (no file type, no frame rate). Notes from a long video get plenty of room, and more if they still come back cut off.
@@ -201,7 +200,6 @@ const LINKCARDS = (() => {
     if (!L.ok) { say(L.msg, L.why === "local" ? PASTE : ""); inp.focus(); return; }
     if (locked()) { proWhy(); return; }
     const pasted = String(o.pasted || "").trim(), prov = aiCfg().provider;
-    if (!pasted && prov === "trial") { say("Reading a link needs your own free Gemini key, which takes about a minute to set up. Or paste the text, and the free trial can use that.", PASTE + ` <button type="button" class="btn small" data-act="ai-setup">Add My Free Gemini Key</button>`); return; }
     if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
@@ -222,9 +220,8 @@ const LINKCARDS = (() => {
       const src = {kind: L.kind, url: L.url, title, host: L.host};
       const notes = LINKCARDS.noteText(Object.assign({}, d, {title}), src, "");
       spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`, "Step 2 of 2:");
-      const trial = aiCfg().provider === "trial";
       const sources = [{name: title, kind: "Text", size: notes.length, part: {text: `Study notes on “${title}” (${L.kind === "youtube" ? "a YouTube video" : "a web page"}):\n\n${notes}`}}]
-        .concat(pasted && !trial ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : [])
+        .concat(pasted ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : [])
         .concat((o.files || []).filter(s => s && s.part));
       const r = await aiMakeStudySet({light: true, sources, style: o.style, difficulty: o.difficulty, cards: o.cards, quiz: o.quiz, cases: o.cases, caseCount: o.caseCount, caseStyle: o.caseStyle, cardCount: o.cardCount, quizCount: o.quizCount, courseName: courseOf(o.courseId) ? courseOf(o.courseId).name : "", signal: ac && ac.signal}, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;

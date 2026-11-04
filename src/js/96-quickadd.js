@@ -194,7 +194,7 @@ const QADD = (() => {
   const clip = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
   const aiOn = () => { try { return aiReady(); } catch (e) { return false; } };
   // AI without asking
-  const aiQuiet = () => { try { return aiReady() && !aiTrialing() && aiConsented(aiCfg().provider); } catch (e) { return false; } };
+  const aiQuiet = () => { try { return aiReady() && aiConsented(aiCfg().provider); } catch (e) { return false; } };
   const aiMsg = e => (e && e.code === "no-consent") ? "AI is off until you agree to send content to your AI provider." : (e && e.message) || "AI isn't available right now.";
   const css = document.createElement("style");
   css.textContent = `
@@ -323,7 +323,7 @@ const QADD = (() => {
       <div class="sheet-body">
         <div class="drop" id="qaDrop"><p style="margin:0 0 10px"><strong>Drop files here, or choose them.</strong><br><span class="mini">No need to pick a course or type. Studyboard files each one for you, and you can fix any guess before saving.</span></p>
           <button type="button" class="btn primary" id="qaPick">Choose Files</button><input type="file" id="qaFileIn" multiple class="sr" tabindex="-1" aria-label="Choose files to add"></div>
-        ${aiOn() ? `<label class="mi-check ai-toggle"><input type="checkbox" id="qaAI" ${aiTrialing() ? "" : "checked"}> ${AI_ICON}<span><b>Sort with AI</b><span class="mini" style="display:block">Reads the start of each file to find its course and type. Without it, Studyboard goes by file names and keywords.</span></span></label>` : `<p class="mini" style="margin:8px 0 0">Sorting by file names and keywords. Turn on AI in Settings to read inside files for a better guess.</p>`}
+        ${aiOn() ? `<label class="mi-check ai-toggle"><input type="checkbox" id="qaAI" checked> ${AI_ICON}<span><b>Sort with AI</b><span class="mini" style="display:block">Reads the start of each file to find its course and type. Without it, Studyboard goes by file names and keywords.</span></span></label>` : `<p class="mini" style="margin:8px 0 0">Sorting by file names and keywords. Turn on AI in Settings to read inside files for a better guess.</p>`}
         <p class="status-msg" id="qaMsg" aria-live="polite" style="margin:8px 0 0"></p>
         <ul class="qa-list" id="qaList"></ul>
       </div>

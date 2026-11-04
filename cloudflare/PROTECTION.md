@@ -9,7 +9,7 @@ These are settings in the Cloudflare dashboard, not code. Open **dash.cloudflare
 Cloudflare blocks DDoS attacks automatically and without limit on every plan, for all traffic that goes through it.
 
 - **DNS > Records:** every record for `studyboardapp.com` and `www` should show an orange cloud (**Proxied**). A grey cloud (**DNS only**) bypasses Cloudflare, protection included. Switch any grey ones to orange, except records for email (MX) or verification (TXT), which have no cloud.
-- **Workers and the website:** these are always behind Cloudflare. That includes the key relay, the AI trial and the site itself.
+- **Workers and the website:** these are always behind Cloudflare. That includes the key relay, Studyboard AI and the site itself.
 
 ## 2. Bot Fight Mode
 
@@ -23,7 +23,7 @@ Also on that page:
 Bot Fight Mode only covers traffic to `studyboardapp.com`. It doesn't touch:
 
 - Supabase (`*.supabase.co`), so sign-in, sync and Stripe webhooks aren't affected.
-- The Workers on `workers.dev`: the key relay, the AI trial and the Supabase ping.
+- The Workers on `workers.dev`: the key relay, Studyboard AI and the Supabase ping.
 
 **Keep the Workers on their `workers.dev` addresses.** On the Free plan, Bot Fight Mode can't make exceptions. If a Worker moved to your own domain, it could challenge the desktop and phone apps' requests to it.
 
@@ -57,24 +57,9 @@ Under **Security > Settings**:
 - **Minimum TLS Version:** **TLS 1.2**.
 - **HSTS:** leave it off here. Your `_headers` file already sends HSTS (with preload), and two sources would conflict.
 
-## 6. Turnstile (the "not a robot" check)
+## 6. Studyboard AI
 
-Students pass this once, before their first free AI try. It stops bots from creating accounts just to use up the free AI everyone shares.
-
-1. **Turnstile > Add widget.**
-   - **Name:** Studyboard AI trial.
-   - **Hostname:** the AI trial Worker's address without `https://`, for example `studyboard-ai-trial.<your-subdomain>.workers.dev`.
-   - **Widget mode:** Managed.
-2. **Copy the site key** into `TURNSTILE_SITE_KEY` in `cloudflare/ai-trial/wrangler.jsonc`.
-3. **Store the secret key** as a secret, never in a file:
-
-   ```
-   cd cloudflare/ai-trial
-   npx wrangler secret put TURNSTILE_SECRET
-   npx wrangler deploy
-   ```
-
-Why it isn't on the sign-in form: Turnstile only runs on real web addresses (running anywhere is an Enterprise feature). The desktop app (`app://studioso`) and the phone apps (`capacitor://localhost`) aren't web addresses. If Supabase required Turnstile at sign-in, students couldn't sign in from the apps. So the check runs on the AI trial's own page, which opens in the browser from every version of the app. Sign-up is still protected by email confirmation and Supabase's own rate limits.
+Studyboard AI (`cloudflare/ai-pro`) needs no extra protection here: it answers only signed-in students with a confirmed email and a paid Pro plan, and keeps each one to their own monthly, daily, per-minute and at-once limits. Set a spend limit on its AI Gateway as the backstop for your total bill (see `cloudflare/ai-pro/README.md`).
 
 ## What's protected after this
 
@@ -84,6 +69,6 @@ Why it isn't on the sign-in form: Turnstile only runs on real web addresses (run
 | Scrapers and bad bots on the website | Bot Fight Mode, plus Block AI bots (step 2) |
 | Common web attacks | Free Managed Ruleset (step 4) |
 | Password guessing on the account page | One rate-limiting rule (step 4), plus Supabase's own limits |
-| Bots using up the free AI trial | Turnstile check (step 6), confirmed email, per-student and daily caps |
+| Running up the AI bill | Studyboard AI only for paid Pro, per-student limits, and the gateway's spend limit (step 6) |
 | Bots using up the key relay | 10-minute, single-use boxes, and the free plan's hard limits |
 | Repo internals readable on the site | only `site/` is published (`wrangler.jsonc`, `scripts/build-site.js`; already done) |

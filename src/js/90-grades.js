@@ -1271,7 +1271,7 @@
   // Looks it up on the school's own pages, in up to three ways:
   // 1. a web search (Claude, ChatGPT, and Gemini keys with search quota; free Gemini keys don't get search on current models),
   // 2. reading the school's own pages directly: the AI names the pages it knows, then reads them (works on free Gemini keys),
-  // 3. what the AI remembers, said plainly as unchecked. The free trial can't read the web, so it goes straight to 3.
+  // 3. what the AI remembers, said plainly as unchecked.
   const SEARCH_OFF = "schoolNoSearch";
   async function findSchool({host, name, program}){
     const text = `Learning site address: ${host || "(not given)"}.${name ? ` The student calls their school: ${name}.` : ""}${program ? ` The student's program: ${program}.` : ""}`;
@@ -1285,7 +1285,7 @@
         : "You know the grading rules of colleges and universities. Work out which school uses the learning site address given (or is named). Some schools give a program (a faculty, school, college or degree such as nursing, engineering or an MBA) its own letter scale or pass mark. If a program is given and you are confident that program has its own scale or pass mark, give that one and set scope to \"program\". Otherwise give the school's general undergraduate letter scale (each letter with the lowest percent that earns it) and minimum passing mark, and set scope to \"school\". Only answer if you are confident the numbers are right for that school (and program). If you are not sure, answer found false. Never guess and never use another school's scale. Leave url empty. ")
         + SCHOOL_PASS + " " + SCHOOL_JSON});
     const cfg = aiCfg(), gem = cfg.provider === "gemini";
-    let why = cfg.provider === "trial" ? "trial" : "";
+    let why = "";
     if (!why) {
       // 1. web search, unless this Gemini key turned it down recently
       const off = gem && (aiMem()[SEARCH_OFF] || 0) > Date.now();

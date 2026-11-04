@@ -873,7 +873,7 @@ var SBPRO = null;
     return {blob: await canvasBlob(cv), w: cv.width, h: cv.height, boxes, words, src: name};
   }
   /* AI: find the labels in a picture, and read what is under a box you draw */
-  const aiOn = () => aiReady() && aiCfg().provider !== "trial";
+  const aiOn = () => aiReady();
   const aiAuto = () => aiOn() && aiConsented(aiCfg().provider);
   const gridOf = () => aiCfg().provider === "gemini" ? "g" : "px";
   const AI_LABELS = grid => ({type: "OBJECT", properties: {labels: {type: "ARRAY", items: {type: "OBJECT", properties: {

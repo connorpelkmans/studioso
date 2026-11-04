@@ -7,7 +7,7 @@ Students on a **paid** Pro plan get AI with nothing to set up. Every AI feature 
 - **Lecture audio:** Whisper on Workers AI.
 - **Search by meaning:** bge-m3 on Workers AI.
 
-**It's off until the gateway is set up.** Without `CF_ACCOUNT_ID`, `AI_GATEWAY_ID` and the `CF_AIG_TOKEN` secret, every request answers `off`, and the app carries on as before: students use their own key or the free trial.
+**It's off until the gateway is set up.** Without `CF_ACCOUNT_ID`, `AI_GATEWAY_ID` and the `CF_AIG_TOKEN` secret, every request answers `off`, and the app carries on as before: students use their own key.
 
 ## Who gets it
 

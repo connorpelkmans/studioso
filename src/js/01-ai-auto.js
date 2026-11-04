@@ -1,13 +1,12 @@
 /* ===== module: 01-ai-auto.js: the app's core, automatic AI jobs ===== */
 /* Automatic AI: quietly improves Today's Plan and study sessions */
-// Free to the student: their free Gemini key, the trial, or Studyboard AI (included with Pro)
+// Free to the student: their free Gemini key, or Studyboard AI (included with paid Pro)
 // A Claude key in Studyboard AI Mode counts too: its monthly and daily limits cap what automatic AI can spend
-const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "trial" || p === "studyboard" || (p === "anthropic" && m === "studyboard");
+const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "studyboard" || (p === "anthropic" && m === "studyboard");
 function autoState(){
   if (inPreview()) return {on: false, reason: "preview"};
   const raw = (state.settings && state.settings.ai) || {}, c = aiCfg();
   if (!c.key) return {on: false, reason: "nokey"};
-  if (c.provider === "trial") return {on: false, reason: "trial"};
   const want = raw.auto !== undefined ? !!raw.auto : isFreeModel(c.provider, c.model);
   if (!want) return {on: false, reason: "off"};
   // Free Gemini for automatic AI when the student has a key, except on Studyboard AI (paid Pro), where their key is only the backup
