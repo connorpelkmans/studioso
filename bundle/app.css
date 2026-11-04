@@ -8424,3 +8424,4 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 /* Aquarium Tunnel: bubbles in the screen and a glassy sheen */
 .cx[data-cxskin=aquarium] .cx-lcd{background:radial-gradient(4px 4px at 88% 78%,rgba(47,184,217,.35) 60%,transparent 70%),radial-gradient(3px 3px at 92% 50%,rgba(47,184,217,.3) 60%,transparent 70%),radial-gradient(5px 5px at 85% 25%,rgba(47,184,217,.28) 60%,transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
 .cx[data-cxskin=aquarium] .cx-body{box-shadow:inset 6px 0 18px -6px rgba(255,255,255,.25),inset 0 1px 0 rgba(255,255,255,.14)}
+.cx:focus{outline:none}
