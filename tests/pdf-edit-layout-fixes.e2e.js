@@ -147,6 +147,9 @@ async function makePdf(pages){
       const icons = await page.evaluate(() => [...document.querySelectorAll(".pde-tools > .pde-tool, .pde-menu .pde-mi")].map(b => (b.querySelector("svg, img") || {}).outerHTML));
       ok(new Set(icons).size === icons.length, "every edit tool has its own icon (" + icons.length + " tools)");
       ok(await menuReach(page, ".pde-more-wrap .pde-menu") === "ok", "and every tool in More can be reached on a phone");
+      // Undo and Redo: not in the full row on a phone, but at the top of More
+      ok(await page.evaluate(() => { const ur = document.querySelector(".pde-ur"), row = document.querySelector(".pde-tools"); return (!ur || !ur.offsetParent) && row.scrollWidth <= row.clientWidth + 1; }), "on a phone the row fits, with Undo and Redo moved out of it");
+      ok(await page.evaluate(() => { const it = [...document.querySelectorAll(".pde-menu .pde-mi")].filter(x => x.offsetParent).map(x => x.querySelector("b").textContent); return it[0] === "Undo" && it[1] === "Redo"; }), "Undo and Redo head the More menu on a phone");
       await T.shot("5-phone-more");
       await page.keyboard.press("Escape");
       await T.ctx.close();

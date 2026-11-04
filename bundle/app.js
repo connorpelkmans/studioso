@@ -85284,6 +85284,14 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
   const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
   const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.place ? k === "eq" && !!E.place.eq : E.tool === k && !E.ptool || E.ptool === k}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  // Undo and Redo at the right end of the edit row (the same history as Ctrl+Z and History)
+  const MACK = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl";
+  // On narrow phones the row has no room for them, so they head the More menu instead
+  const histMenu = () => { if (!window.matchMedia || !matchMedia("(max-width:480px)").matches) return ""; const H = E.hist || {undo: [], redo: []};
+    return [[-1, "Undo", H.undo, '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'], [1, "Redo", H.redo, '<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>']]
+      .map(([d, label, list, icon]) => `<button type="button" role="menuitem" class="pde-mi pde-mi-ur" data-act="pde-hist-step" data-id="${d}"${list.length ? "" : " disabled"}>${ico(icon)}<span><b>${label}</b><span class="mini">${list.length ? esc(list[list.length - 1].label) : d < 0 ? "Nothing to undo" : "Nothing to redo"}</span></span></button>`).join(""); };
+  const histBtns = () => { const H = E.hist || {undo: [], redo: []};
+    return `<span class="pde-ur" role="group" aria-label="Undo and redo"><button type="button" class="btn small pde-tool" data-act="pde-hist-step" data-id="-1"${H.undo.length ? "" : " disabled"} title="Undo${H.undo.length ? ": " + esc(H.undo[H.undo.length - 1].label) : ""} (${MACK}+Z)" aria-label="Undo">${ico('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button><button type="button" class="btn small pde-tool" data-act="pde-hist-step" data-id="1"${H.redo.length ? "" : " disabled"} title="Redo${H.redo.length ? ": " + esc(H.redo[H.redo.length - 1].label) : ""} (${MACK}+Shift+Z)" aria-label="Redo">${ico('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>')}</button></span>`; };
   function measureFit(){
     const b = E && E.on && dlg.querySelector(".pde-bar"), row = b && b.querySelector(".pde-tools"); if (!row || !row.offsetWidth) return;
     const gap = parseFloat(getComputedStyle(row).columnGap) || 6, cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
@@ -85345,7 +85353,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="${!!(E.place && !E.place.sig && !E.place.eq && E.place.text == null)}" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === (E.ptool || E.tool))}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === (E.ptool || E.tool)) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}</span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="${!!(E.place && !E.place.sig && !E.place.eq && E.place.text == null)}" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === (E.ptool || E.tool))}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === (E.ptool || E.tool)) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${histMenu()}${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}${histBtns()}</span>
       <span class="spacer"></span>
 
       <div class="pde-sub">
@@ -85595,7 +85603,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         placeMenu(wrap.querySelector(".pdr-dlmenu"), wrap);
         el.setAttribute("aria-expanded", "true"); setTimeout(() => { const m = wrap.querySelector(".pdr-dlmenu .pde-mi"); if (m) m.focus({preventScroll: true}); }, 20); break;
       }
-      case "pde-more": S.more = !S.more; bar(); if (S.more) setTimeout(() => { const m = dlg.querySelector(".pde-mi"); if (m) m.focus({preventScroll: true}); }, 20); break;
+      case "pde-more": S.more = !S.more; bar(); if (S.more) setTimeout(() => { const m = [...dlg.querySelectorAll(".pde-menu .pde-mi")].find(x => x.offsetParent && !x.disabled); if (m) m.focus({preventScroll: true}); }, 20); break;
       case "pde-tool":
         if (S.ed) commit(); S.place = null; if (S.more) { S.more = false; bar(); }
         // a tool that opens a panel: back to Edit Text with nothing picked, and the tool shows as pressed while its panel is open
@@ -85639,7 +85647,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-st": studyPanel(); break;
       case "pde-st-go": studyGo(); break;
       case "pde-st-add": cardsAdd(); break;
-      case "pde-hist-step": histStep(Number(id) || -1); break;
+      case "pde-hist-step": S.more = false; histStep(Number(id) || -1); bar(); break;
       // back to just after change k: the later ones move to redo, newest last, so Redo brings them back in order
       case "pde-hist-go": { const H = S.hist, k = Number(id), target = H && H.undo[k]; if (!target) break; while (H.undo.length - 1 > k) H.redo.push(H.undo.pop()); S.histMute = true; try { save(clone(target.after), null); } finally { S.histMute = false; } historyPanel(); break; }
       case "pde-align": align(id); break;
@@ -86812,6 +86820,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-sub > .pde-note{flex:1 0 14em}
 .pde-bar select{width:auto;max-width:14em;flex:none}
 .pde-tools{flex-wrap:nowrap;min-width:0}
+.pde-tools{flex:1 1 auto}
+.pde-ur{display:inline-flex;gap:4px;margin-left:auto;flex:none}
+.pde-ur .pde-tool{min-width:40px;justify-content:center;padding:6px 8px}
+.pde-ur .pde-tool:disabled{opacity:.45;cursor:default}
+.pde-menu .pde-mi-ur{display:none}
+.pde-menu .pde-mi-ur:disabled{opacity:.5;cursor:default}
+@media (max-width:480px){ .pde-ur{display:none} .pde-menu .pde-mi-ur{display:flex} }
 .pde-bar.compact .pde-tools .pde-tool{padding:6px 8px;min-width:40px;justify-content:center}
 .pde-bar.compact .pde-tools .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .pde-tools label.pde-tool{cursor:pointer}
