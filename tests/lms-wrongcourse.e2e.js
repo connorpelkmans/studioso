@@ -56,6 +56,23 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       const held = await page.evaluate(h => { const d = SBLMS.brightspace.fromApi(h); return d.grades.filter(g => g.ou === "10").map(g => g.got + "/" + g.outOf + " w" + g.weight); },
         H({gid: "55", g10: [{gid: "55", name: MID, type: 1, num: null, den: 45, wnum: null, wden: 20}]}));
       ok(JSON.stringify(held) === JSON.stringify(["34/45 w20"]), "a Grades row with no mark yet takes the Submissions page's mark and keeps its weight: " + JSON.stringify(held));
+      // No weights to see: points shares count graded work that isn't in the grades list yet, and aren't guessed when its points are unknown
+      const share = more => page.evaluate(h => SBLMS.brightspace.fromApi(h).grades.filter(g => g.ou === "10" && /^7\d$/.test(g.gid)).map(g => g.weight), H(more));
+      const three = [1, 2, 3].map(i => ({gid: "7" + i, name: "Quiz " + i, type: 1, num: 8, den: 10, shown: "80 %"}));
+      const s0 = JSON.stringify(await share({g10: three})); ok(s0 === "[33.33,33.33,33.33]", "three graded items and nothing else: a third each: " + s0);
+      ok(JSON.stringify(await share({g10: three, folders: [{id: "23", name: "Sim Reflection", due: iso(5), end: null, gid: "90", outOf: 70, files: []}]})) === "[10,10,10]",
+        "an ungraded assignment's points count too: 10% each, not a third");
+      ok(JSON.stringify(await share({g10: three, folders: [{id: "23", name: "Sim Reflection", due: iso(5), end: null, gid: "90", outOf: null, files: []}]})) === "[null,null,null]",
+        "an ungraded assignment with unknown points: no guessed weights");
+      ok(JSON.stringify(await share({g10: three.map(g => Object.assign({}, g, {wden: 15}))})) === "[15,15,15]", "real weights from Brightspace are used as they are");
+      // a third set by the old formula is taken back once the course's other graded work shows up; one you typed stays
+      { const p2 = await fresh([
+          bsTask("q1", "Quiz 1", "c10", "10", {type: "Quiz", weight: 33.33, bs: {key: "10|quiz1", ou: "10", gid: "71", last: {title: "Quiz 1", courseId: "c10", weight: 33.33}, seen: {api: 1}, item: false}}),
+          bsTask("q2", "Quiz 2", "c10", "10", {type: "Quiz", weight: 25, bs: {key: "10|quiz2", ou: "10", gid: "72", last: {title: "Quiz 2", courseId: "c10", weight: 33.33}, seen: {api: 1}, item: false}})]);
+      await sync(p2, H({g10: three, folders: [{id: "23", name: "Sim Reflection", due: iso(5), end: null, gid: "90", outOf: null, files: []}]})); await closeDlg(p2);
+      const ws = await p2.evaluate(() => ["q1", "q2"].map(id => SBLMS.st().tasks[id] && SBLMS.st().tasks[id].weight));
+      ok(ws[0] == null && ws[1] === 25, "an old points third is cleared, a weight you typed stays: " + JSON.stringify(ws));
+      await p2.context().close(); }
       const sheet = await page.evaluate(m => SBLMS_TASK(Object.values(SBLMS.st().tasks).find(t => t.title === m)).replace(/<[^>]+>/g, " ").replace(/\s+/g, " "), MID);
       ok(/Mark 34 \/ 45 read from the quiz(&#39;|')s Submissions page/.test(sheet) && /isn't on Brightspace's Grades page yet/.test(sheet), "the task says where its mark came from: " + sheet.slice(0, 160));
       await sync(page, H({gid: "55", g10: [{gid: "55", name: MID, type: 1, num: 36, den: 45, shown: "80 %"}]})); await closeDlg(page);

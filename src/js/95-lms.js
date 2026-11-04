@@ -685,10 +685,17 @@ function cleanFile(r) {
       const num = (c.grades || []).filter(g => (g.type === 1 || g.type === 3) && g.name);
       const wsum = num.reduce((s, g) => s + (isNum(g.wden) ? Number(g.wden) : 0), 0);
       const weighted = wsum > 0 && wsum <= 100.5;
-      const pts = num.reduce((s, g) => s + (isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : 0), 0);
-      const wOf = g => weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : !weighted && pts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / pts * 10000) / 100 : null;
+      // No weights to see: each item's share of the course's points. The grades list often holds only items with a mark, so graded work
+      // missing from it (an assignment or quiz tied to a grade item) is counted too, and when its points aren't known no share is guessed.
+      const inList = new Set((c.grades || []).map(g => String(g.gid || "")));
+      const fromPage = (c.grades || []).some(g => /^gp\d/.test(String(g.gid || "")));
+      const missing = fromPage ? [] : [].concat(c.folders || [], c.quizzes || [], c.discussions || []).filter(x => x && x.gid && !inList.has(String(x.gid)));
+      const missingPts = missing.reduce((s, x) => s + (isNum(x.outOf) && Number(x.outOf) > 0 ? Number(x.outOf) : 0), 0);
+      const canShare = !weighted && missing.every(x => isNum(x.outOf) && Number(x.outOf) > 0);
+      const listPts = num.reduce((s, g) => s + (isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : 0), 0), pts = listPts + missingPts;
+      const wOf = g => weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : canShare && pts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / pts * 10000) / 100 : null;
       num.forEach(g => out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null,
-        weight: wOf(g), shown: g.shown || "", at: g.at || null, fb: g.fb || null}));
+        weight: wOf(g), wPts: !weighted && wOf(g) != null, oldShare: !weighted && listPts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / listPts * 10000) / 100 : null, shown: g.shown || "", at: g.at || null, fb: g.fb || null}));
       // Marks not on the Grades page (quiz Submissions pages, assignment feedback, the Assignments page, discussion pages)
       addMarks(out, c, m => { const list = {quiz: c.quizzes, folder: c.folders, topic: c.discussions}[m.kind], pre = {quiz: "q", folder: "f", topic: "d"}[m.kind];
         const x = (list || []).find(y => y && String(y.id) === String(m.id)); return x ? {pid: pre + x.id, gid: x.gid || "", name: x.name} : null; });
@@ -1220,10 +1227,15 @@ function cleanFile(r) {
       const from = g.from || "grades";
       if (g.got != null && g.outOf && (!n.mark || n.mark.src === F) && !(n.mark && n.mark.got === g.got && n.mark.outOf === g.outOf && (n.mark.from || "grades") === from)) {
         n.mark = Object.assign({got: g.got, outOf: g.outOf, src: F}, from !== "grades" ? {from} : {}); changed = true; if (!t.mark || t.mark.got !== g.got) { rep.graded.push({t: n, g}); if (c.last) n.markNew = Date.now(); } }
-      const lastW = n[F] && n[F].last ? n[F].last.weight : undefined;
-      if (g.weight != null && (n.weight == null || n.weight === "" || (lastW !== undefined && Number(n.weight) === Number(lastW))) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
-      if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: g.weight})}); }
-      else { n[F] = {key: n.id.startsWith(F + "_") ? key : "", ou: g.ou, gid: g.gid, last: {weight: g.weight}, gradeOnly: true}; changed = true; }
+      // (a share set before this was tracked: the old formula's number, which only counted items already in the grades list)
+      const lastW = n[F] && n[F].last ? n[F].last.weight : undefined, lastPts = !!(n[F] && n[F].last && (n[F].last.wPts || (n[F].last.wPts === undefined && g.oldShare != null && Number(n[F].last.weight) === g.oldShare)));
+      // a share worked out from points that no longer holds (more of the course turned up) is taken back, unless you changed it
+      const untouched = lastW !== undefined && lastW !== null && Number(n.weight) === Number(lastW);
+      if (g.weight == null && lastPts && untouched) { n.weight = null; changed = true; }
+      if (g.weight != null && (n.weight == null || n.weight === "" || untouched) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
+      const keepW = g.weight, wp = g.weight != null && !!g.wPts;
+      if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: keepW, wPts: wp})}); }
+      else { n[F] = {key: n.id.startsWith(F + "_") ? key : "", ou: g.ou, gid: g.gid, last: {weight: g.weight, wPts: wp}, gradeOnly: true}; changed = true; }
       if (g.fb && JSON.stringify(n[F].fb || null) !== JSON.stringify(g.fb)) { n[F] = Object.assign({}, n[F], {fb: g.fb}); changed = true; }
       if (changed || !cur("task", n.id)) put("task", normTask(n));
     });
