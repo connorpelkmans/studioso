@@ -15,8 +15,9 @@
       const a = document.activeElement;
       // A heading the sheet focused on purpose stays focused, so screen readers start there
       if (a && a !== d && d.open && d.contains(a) && !/^H[1-6]$/.test(a.tagName) && (phoneW() || !d.querySelector("[autofocus]")) && (phoneW() || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !a.isContentEditable) {
-        let h = d.querySelector(":scope > .sm-focus");
-        if (!h) { h = document.createElement("span"); h.className = "sm-focus"; h.tabIndex = -1; h.setAttribute("aria-hidden", "true"); d.append(h); }
+        // the sheet's heading takes focus (screen readers start at its name, Tab goes on from the top); with no heading, the sheet itself
+        const h = [...d.querySelectorAll("h1,h2,h3,[role=heading]")].find(x => x.getClientRects().length) || d;
+        if (!h.hasAttribute("tabindex")) { h.tabIndex = -1; h.classList.add("sm-focus-h"); }
         h.focus({preventScroll: true});
       }
     } catch (e) {}
@@ -42,6 +43,8 @@
       src.forEach((el, i) => { const t = dst[i]; if (!t) return; if (el.type === "checkbox" || el.type === "radio") t.checked = el.checked; else try { t.value = el.value; } catch (e) {} });
       // a closed dialog shown by hand, so nothing looking for an open sheet ever finds it; it wears the sheet's own box
       c.removeAttribute("open"); c.classList.add("sm-ghost-sheet");
+      // a toast shown in the sheet stays behind on the page (a copy here would share its id)
+      c.querySelectorAll("#toast").forEach(x => x.remove());
       const cs = getComputedStyle(d), box = {};
       ["display", "flexDirection", "background", "backgroundColor", "color", "border", "borderRadius", "padding", "boxShadow", "overflow", "fontFamily", "fontSize", "boxSizing"].forEach(k => { box[k] = cs[k]; });
       Object.assign(c.style, box, {position: "fixed", left: r.left + "px", top: r.top + "px", right: "auto", bottom: "auto", width: r.width + "px", height: r.height + "px", margin: "0", maxHeight: "none", maxWidth: "none", transform: "none", animation: "none"});

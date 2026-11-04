@@ -269,10 +269,12 @@
   const TOAST_GAP = 3 * 60e3, K_T = "studyboard:scrapToastAt";
   let toastTimer = 0;
   function toastBusy(){ const t = document.getElementById("toast"); return !!(t && t.classList.contains("show")); }
+  // a sticker waits while the tour, any sheet or pop-up, or a note being edited is open, so it never covers them
+  const held = () => document.hidden || toastBusy() || !!document.querySelector("dialog[open], .note.n-sheet, .cs-menu");
   function quietToast(msg, key, still){
     const sc = SC(); if (sc && sc.toast === false) return;
     if (still && !still()) return;
-    if (document.hidden || toastBusy() || (dlg && dlg.open)) { clearTimeout(toastTimer); toastTimer = setTimeout(() => quietToast(msg, key, still), 3000); return; }
+    if (held()) { clearTimeout(toastTimer); toastTimer = setTimeout(() => quietToast(msg, key, still), 3000); return; }
     ls(K_T, String(Date.now()));
     toast(msg, null, {label: "See It", fn: () => openBook(null, key)});
   }
@@ -282,7 +284,7 @@
     const sc = SC(); if (sc && sc.toast === false) { pending.length = 0; return; }
     if (ui.tab === "scrapbook") { pending.length = 0; return; }
     const last = Number(ls(K_T)) || 0, wait = Math.max(0, last + TOAST_GAP - Date.now());
-    if (wait || document.hidden || toastBusy() || (dlg && dlg.open)) { toastTimer = setTimeout(flushToast, Math.max(3000, wait)); return; }
+    if (wait || held()) { toastTimer = setTimeout(flushToast, Math.max(3000, wait)); return; }
     const rank = k => { const m = MI[k]; return m ? (m.special ? 20 : 0) + (TIER[k] || 0) * 2 - m.i / 100 : 1; };
     const ks = [...new Set(pending.splice(0))].sort((a, b) => rank(b) - rank(a));
     const first = ks[0];

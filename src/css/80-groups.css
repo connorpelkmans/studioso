@@ -261,7 +261,7 @@ button.grp-item-main{cursor:pointer;min-height:44px}
 .grp-msg-top .link-btn:hover,.grp-msg-top .link-btn:focus-visible,.grp-members .link-btn:hover,.grp-members .link-btn:focus-visible{opacity:1}
 .grp-report fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
 .grp-report legend{font-weight:600;padding:0;margin-bottom:6px}
-dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:auto}
+dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:90dvh;overflow:auto}
 /* phones: a bottom sheet the full width of the screen, like every other sheet (the narrower width left it pushed to the left) */
 @media (max-width:600px){dialog.ai-consent,dialog:has(.sheet.shop){width:100%;max-width:100%}}
 /* Project Tasks (shared task lists in a group) and My Group Tasks on the Board */

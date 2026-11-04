@@ -409,14 +409,23 @@ function newTask(fields){
   if (due && start > due) start = due;
   return normTask(Object.assign({id: uid(), created: Date.now(), order: nextOrder(fields.status || "todo")}, fields, {start}));
 }
-let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0;
+let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0, toastView = null;
 // Long enough to read (about 15 characters a second), longer with a button to press
 const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, Math.min(12000, 1500 + String(msg || "").length * 65));
-// extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once
+// extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once.
+// opts.view: the toast (and its buttons) goes away when the page changes, for buttons that only make sense on this page
+const toastViewKey = () => { try { return ui.tab + "|" + (ui.courseId || ""); } catch (e) { return ""; } };
+function toastHide(){ clearTimeout(toastT); const t = $("#toast"); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
+// The top-most open modal (focus is kept inside it), so a toast is never hidden behind a pop-up
+function toastHost(){
+  let ms = []; try { ms = [...document.querySelectorAll("dialog[open]")].filter(d => d.matches(":modal")); } catch (e) { try { if (dlg.open) ms = [dlg]; } catch (x) {} }
+  const a = document.activeElement;
+  return ms.filter(d => d.contains(a)).pop() || ms.pop() || document.body;
+}
 function toast(msg, undoFn, extra, opts){
   const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = $("#toastX");
-  if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", () => { clearTimeout(toastT); t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }); }
+  if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", toastHide); }
   t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); t.classList.toggle("toast-done", !err && !!(opts && opts.done)); xx.hidden = !err; toastErr = err;
   $("#toastMsg").textContent = SPELL.fix(msg);
   toastUndoFn = undoFn || null;
@@ -427,8 +436,9 @@ function toast(msg, undoFn, extra, opts){
   if (more[1] && !x2) { x2 = document.createElement("button"); x2.id = "toastExtra2"; x.after(x2); x2.addEventListener("click", () => { const f = toastExtra2Fn; toastExtra2Fn = null; t.classList.remove("show"); if (f) f(); }); }
   toastExtra2Fn = more[1] ? more[1].fn : null;
   if (x2) { x2.hidden = !more[1]; if (more[1]) x2.textContent = more[1].label; }
-  let host = document.body; try { if (dlg.open) host = dlg; } catch(e) {}
+  const host = toastHost();
   if (t.parentNode !== host) host.appendChild(t);
+  toastView = opts && opts.view ? toastViewKey() : null;
   t.classList.add("show");
   toastMs = toastLen(msg, undoFn, more.length); toastAt = Date.now();
   if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
@@ -439,6 +449,7 @@ function toastTimer(ms){
   toastT = setTimeout(() => { $("#toast").classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
 document.addEventListener("close", e => { const t = $("#toast"); if (t && e.target && t.parentNode === e.target) document.body.appendChild(t); }, true);
+hook("render", () => { if (toastView && toastView !== toastViewKey() && $("#toast").classList.contains("show")) toastHide(); });
 $("#toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 // Pointing at a toast with a button, or tabbing into it, holds it open

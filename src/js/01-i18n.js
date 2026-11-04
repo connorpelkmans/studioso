@@ -5,8 +5,12 @@
    Placeholders are {name}; plurals are "one|other" pairs picked with Intl.PluralRules. tools/extract-i18n.js rebuilds locales/en.json from the code.
    Static HTML opts in with data-i18n="key" (text) and data-i18n-aria="key" (aria-label); English stays in data-i18n-en. */
 const SBI18N = (() => {
-  const LS = "studyboard:lang", CATS = {en: {}}, SOURCES = ["en"];
-  let lang = "en", rules = null;
+  // the languages that ship with the app (locales/<lang>.json): always offered in Settings, loaded when picked
+  const LS = "studyboard:lang", CATS = {en: {}}, SOURCES = ["en", "es"];
+  // A catalog with fewer strings than this (about half of locales/en.json) leaves most of the page in English: the page stays
+  // marked English (so screen readers keep an English voice) and only the translated bits are marked with their language
+  const FULL = 300;
+  let lang = "en", rules = null, dloc;
   const norm = l => String(l || "").toLowerCase().replace("_", "-");
   const base = l => norm(l).split("-")[0];
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
@@ -17,6 +21,16 @@ const SBI18N = (() => {
   };
   function setRules(){ try { rules = new Intl.PluralRules(lang); } catch (e) { rules = null; } }
   function fill(str, vars){ return vars ? String(str).replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m) : String(str); }
+  const full = l => { const c = CATS[norm(l)] || CATS[base(l)]; return base(l) === "en" || !!c && Object.keys(c).length >= FULL; };
+  const pageLang = () => full(lang) ? lang : "en";
+  // Dates and times follow the page's language: on an English page in a German browser, "Due Monday", not "Due Montag"
+  // (the region's own date order and 24-hour clock are kept where English has them, e.g. en-DE)
+  function dateLoc(){
+    const pl = pageLang(); if (base(pl) !== "en") return pl;
+    const nav = norm((navigator.languages && navigator.languages[0]) || navigator.language || "en"); if (base(nav) === "en") return undefined;
+    try { const r = new Intl.Locale(nav).maximize().region; if (r && Intl.DateTimeFormat.supportedLocalesOf("en-" + r).length) return "en-" + r; } catch (e) {}
+    return "en";
+  }
   function lookup(key){ const c = CATS[lang] || CATS[base(lang)]; return c && c[key] != null ? c[key] : null; }
   function tr(key, en, vars){ const hit = lookup(key); return fill(hit != null ? hit : en, vars); }
   // trn(key, n, "one form|other form")
@@ -28,23 +42,24 @@ const SBI18N = (() => {
     else if (rules) { const k = rules.select(n), at = forms.length === names.length ? names.indexOf(k) : Math.min(names.indexOf(k), forms.length - 1); if (at >= 0) i = Math.min(at, forms.length - 1); }
     return fill(forms[i], Object.assign({n: fmtN(n)}, vars || {}));
   }
-  const fmtN = (n, o) => { try { return new Intl.NumberFormat(lang, o).format(n); } catch (e) { return String(n); } };
-  const fmtD = (d, o) => { try { return new Intl.DateTimeFormat(lang, o || {month: "short", day: "numeric"}).format(d instanceof Date ? d : new Date(d)); } catch (e) { return String(d); } };
+  const fmtN = (n, o) => { try { return new Intl.NumberFormat(pageLang(), o).format(n); } catch (e) { return String(n); } };
+  const fmtD = (d, o) => { try { return new Intl.DateTimeFormat(dloc, o || {month: "short", day: "numeric"}).format(d instanceof Date ? d : new Date(d)); } catch (e) { return String(d); } };
   function register(l, cat){ l = norm(l); CATS[l] = Object.assign(CATS[l] || {}, cat || {}); if (SOURCES.indexOf(l) < 0) SOURCES.push(l); if (l === lang || l === base(lang)) applyDom(); return CATS[l]; }
   function applyDom(root){
-    const r = root || document;
+    const r = root || document, pl = pageLang(), mark = (el, hit) => { if (hit && pl !== lang) { el.setAttribute("lang", lang); el.setAttribute("data-i18n-l", ""); } else if (el.hasAttribute("data-i18n-l")) { el.removeAttribute("lang"); el.removeAttribute("data-i18n-l"); } };
     r.querySelectorAll("[data-i18n]").forEach(el => {
       if (!el.hasAttribute("data-i18n-en")) {
         const t = [...el.childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
         el.setAttribute("data-i18n-en", t ? t.nodeValue.trim() : el.textContent.trim());
       }
-      const txt = tr(el.getAttribute("data-i18n"), el.getAttribute("data-i18n-en"));
+      const txt = tr(el.getAttribute("data-i18n"), el.getAttribute("data-i18n-en")); mark(el, lookup(el.getAttribute("data-i18n")) != null);
       const t = [...el.childNodes].reverse().find(n => n.nodeType === 3 && n.nodeValue.trim());
       if (t) t.nodeValue = txt; else if (!el.children.length) el.textContent = txt; else el.appendChild(document.createTextNode(txt));
     });
     r.querySelectorAll("[data-i18n-aria]").forEach(el => {
       if (!el.hasAttribute("data-i18n-aria-en")) el.setAttribute("data-i18n-aria-en", el.getAttribute("aria-label") || "");
       el.setAttribute("aria-label", tr(el.getAttribute("data-i18n-aria"), el.getAttribute("data-i18n-aria-en")));
+      if (!el.hasAttribute("data-i18n")) mark(el, lookup(el.getAttribute("data-i18n-aria")) != null);
     });
   }
   async function load(l){
@@ -56,20 +71,28 @@ const SBI18N = (() => {
     }
   }
   function use(l){
-    lang = norm(l) || "en"; setRules();
-    try { document.documentElement.setAttribute("lang", lang); document.documentElement.setAttribute("dir", /^(ar|he|fa|ur)/.test(base(lang)) ? "rtl" : "ltr"); } catch (e) {}
+    lang = norm(l) || "en"; setRules(); const pl = pageLang(); dloc = dateLoc();
+    try { document.documentElement.setAttribute("lang", pl); document.documentElement.setAttribute("dir", /^(ar|he|fa|ur)/.test(base(pl)) ? "rtl" : "ltr"); } catch (e) {}
     applyDom();
     try { fire("lang", lang); } catch (e) {}
   }
   async function set(l){ store(LS, l || "auto"); const want = l && l !== "auto" ? l : pick(); await load(want); use(want); }
   const have = l => !!CATS[norm(l)] || !!CATS[base(l)];
   lang = pick(); setRules();
+  dloc = dateLoc();
+  // A date formatted with no language given uses the page's (above), not the browser's
+  try {
+    const wrap = f => function(l, o){ return f.call(this, l === undefined && dloc ? dloc : l, o); }, D = Date.prototype;
+    D.toLocaleDateString = wrap(D.toLocaleDateString); D.toLocaleTimeString = wrap(D.toLocaleTimeString); D.toLocaleString = wrap(D.toLocaleString);
+    const DTF = Intl.DateTimeFormat, P = function(l, o){ return new DTF(l === undefined && dloc ? dloc : l, o); };
+    P.prototype = DTF.prototype; P.supportedLocalesOf = DTF.supportedLocalesOf.bind(DTF); Intl.DateTimeFormat = P;
+  } catch (e) {}
   // English pages stay untouched
   if (base(lang) !== "en") load(lang).then(() => { if (have(lang)) use(lang); else { lang = "en"; setRules(); } });
-  return {tr, trn, fmtN, fmtD, register, applyDom, load, set, use, have, get lang(){ return lang; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
+  return {tr, trn, fmtN, fmtD, register, applyDom, load, set, use, have, get lang(){ return lang; }, get page(){ return pageLang(); }, get dates(){ return dloc; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
 })();
 const tr = SBI18N.tr, trn = SBI18N.trn;
-// Settings: a language picker, shown only once a second language is installed
+// Settings: a language picker with every language that ships with the app (so English can always be switched back)
 hook("menu", () => {
   const av = SBI18N.available(); if (av.length < 2) return "";
   const cur = SBI18N.saved, items = [["auto", tr("lang.auto", "Auto")]].concat(av.map(l => [l, SBI18N.names[l] || l]));

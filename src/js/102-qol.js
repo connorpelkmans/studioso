@@ -143,6 +143,8 @@
   function newTask(){ if (dlg.open) dlg.close(); taskForm(null, {courseId: (ui.tab === "courses" && ui.courseId) || undefined}); }
   function settings(){ if (dlg.open) dlg.close(); menuSheet(); }
   const typing = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || !!(t.closest && t.closest('[role="application"],[contenteditable="true"],[contenteditable=""]')));
+  // in a browser tab, Ctrl/Cmd+1 to 7 switch the browser's tabs, so they're only listed in the installed app
+  const appWin = () => !!DESK || !!(window.matchMedia && (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: window-controls-overlay)").matches)) || navigator.standalone === true;
   const kbd = s => s.split("+").map(k => `<kbd>${esc(k)}</kbd>`).join("+");
   function helpSheet(){
     const row = (keys, what) => `<tr><th scope="row">${keys.map(kbd).join(" or ")}</th><td>${esc(what)}</td></tr>`;
@@ -150,7 +152,7 @@
     openSheet(`<div class="sheet kb-sheet">${head("Keyboard Shortcuts")}<div class="sheet-body">
       <p class="mini" style="margin:0">These work when you're not typing in a box.</p>
       ${sec("Anywhere", [row(["N"], "New task"), row(["C"], "Quick Capture"), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
-      ${sec("Go To", VIEWS_KEYS.map(([t], i) => row([String(i + 1), MOD + "+" + (i + 1)], viewName(t))))}
+      ${sec("Go To", VIEWS_KEYS.map(([t], i) => row(appWin() ? [String(i + 1), MOD + "+" + (i + 1)] : [String(i + 1)], viewName(t))))}
       ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz")])}
       ${sec("Notes", [row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
@@ -234,7 +236,10 @@
     host.appendChild(tip);
     const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 8;
     let top = r.top - h - gap; if (top < 6) top = r.bottom + gap;
-    const left = Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2));
+    // a tooltip for something on the page stays off the side menu
+    const nav = !el.closest("nav.tabs, dialog") && document.querySelector("nav.tabs"), nr = nav && nav.getBoundingClientRect();
+    const min = nr && nr.right > 0 && nr.left <= 0 && nr.height > innerHeight / 2 && nr.right < innerWidth / 2 && nr.right <= r.left ? nr.right + 6 : 6;
+    const left = Math.max(min, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2));
     tip.style.left = left + "px"; tip.style.top = top + "px";
   }
   const want = (el, delay) => {

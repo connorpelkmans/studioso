@@ -2,12 +2,22 @@
 /* One colour picker for the whole app, in the whiteboard's style */
 (() => {
   const SW = ["#ff3b30", "#ff9500", "#ffcc00", "#34c759", "#00c7be", "#30b0c7", "#007aff", "#5856d6", "#af52de", "#ff2d55", "#a2845e", "#8e8e93", "#e83e8c", "#20c997", "#6f42c1", "#fd7e14"];
+  const NAMES = ["Red", "Orange", "Yellow", "Green", "Mint", "Teal", "Blue", "Indigo", "Purple", "Pink", "Brown", "Gray", "Magenta", "Sea Green", "Violet", "Tangerine"];
   const K_RECENT = "studyboard:recentColors";
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const hsv2hex = (h, s, v) => { const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); }; return "#" + [f(5), f(3), f(1)].map(x => Math.round(x * 255).toString(16).padStart(2, "0")).join(""); };
   const hex2hsv = hex => { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
     let h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; return [h, mx ? d / mx : 0, mx]; };
   const okHex = v => /^#[0-9a-f]{6}$/i.test(v || "");
+  // A colour's name for screen readers: the swatch's own, or a plain one from its hue ("Dark Blue", "Light Pink")
+  const colorName = hex => {
+    const i = SW.indexOf(String(hex).toLowerCase()); if (i >= 0) return SPELL.fix(NAMES[i]);
+    const [h, s, v] = hex2hsv(hex);
+    if (v < 0.15) return "Black"; if (s < 0.12) return v > 0.92 ? "White" : SPELL.fix(v > 0.6 ? "Light Gray" : v > 0.35 ? "Gray" : "Dark Gray");
+    const n = h < 15 || h >= 345 ? "Red" : h < 40 ? (v < 0.6 ? "Brown" : "Orange") : h < 65 ? "Yellow" : h < 160 ? "Green" : h < 190 ? "Teal" : h < 250 ? "Blue" : h < 290 ? "Purple" : "Pink";
+    return (v < 0.45 ? "Dark " : s < 0.45 && v > 0.8 ? "Light " : "") + n;
+  };
+  const swatch = c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${colorName(c)}" data-tip="${colorName(c)}"></button>`;
   const recent = () => { try { const a = JSON.parse(localStorage.getItem(K_RECENT) || "[]"); return Array.isArray(a) ? a.filter(okHex).slice(0, 8) : []; } catch (e) { return []; } };
   const ours = inp => inp && inp.type === "color" && !inp.disabled && !(inp.closest && inp.closest(".wb-stage"));
   let OPEN = null, lastPtr = null;
@@ -33,8 +43,8 @@
     el.innerHTML = `<div class="sb-cp-sv" tabindex="0" aria-label="Shade (arrow keys change it)"><span class="sb-cp-k"></span></div>
       <input type="range" class="sb-cp-hue" min="0" max="359" step="1" aria-label="Hue">
       <div class="sb-cp-row"><span class="sb-cp-now" aria-hidden="true"></span><label class="sb-cp-hexl"><span>#</span><input class="sb-cp-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex color"></label><button type="button" class="btn small primary sb-cp-done">Done</button></div>
-      <div class="sb-cp-sw" role="group" aria-label="Colors">${SW.map(c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${c}"></button>`).join("")}</div>
-      ${rec.length ? `<div class="sb-cp-lbl">Recent</div><div class="sb-cp-sw" role="group" aria-label="Recent colors">${rec.map(c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${c}"></button>`).join("")}</div>` : ""}`;
+      <div class="sb-cp-sw" role="group" aria-label="Colors">${SW.map(swatch).join("")}</div>
+      ${rec.length ? `<div class="sb-cp-lbl">Recent</div><div class="sb-cp-sw" role="group" aria-label="Recent colors">${rec.map(swatch).join("")}</div>` : ""}`;
     (inp.closest("dialog[open]") || document.body).appendChild(el);
     const away = e => { if (!el.contains(e.target) && e.target !== inp) close(); };
     OPEN = {el, inp, start, anchor, away};
@@ -97,6 +107,9 @@
 .sb-cp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
 .sb-cp-s{aspect-ratio:1;width:100%;min-width:0;min-height:0;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .sb-cp-s:hover,.sb-cp-s:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sb-cp-s{position:relative}
+.sb-cp-s::after{content:"";position:absolute;inset:-3px}
+@media (pointer:coarse){.sb-cpick{width:min(300px,calc(100vw - 16px));box-sizing:border-box}.sb-cp-sw{grid-template-columns:repeat(6,1fr);gap:8px}.sb-cp-s::after{inset:-4px}}
 `;
   document.head.appendChild(css);
 })();
