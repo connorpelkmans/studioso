@@ -1572,9 +1572,9 @@ function aiSetupSheet(fromFeature, opts){
       ${fromFeature && !aiProAvail() ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       <p style="margin:0">Studyboard's AI uses <b>Google Gemini</b> by default because it's free. The free tier easily covers one student's studying.</p>
       <ol class="ai-steps">
-        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> and sign in with your Google account.</li>
-        <li>Click <b>Create API key</b>. Don't turn on billing for it, so it can never cost anything. If you use up the free amount, AI just pauses until it resets.</li>
-        <li>Click <b>Copy</b> next to the key, come back here and paste it into the <b>Gemini</b> box below.${DESK && DESK.aiClipboard ? " Studyboard also picks it up on its own when you come back to this window." : ""}</li>
+        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a></li>
+        <li>Click <b>Create API Key</b> (keep billing off)</li>
+        <li>Copy the key and paste below</li>
       </ol>
       ${opts.code && KEY_RELAY ? `<div class="ai-disclaimer" id="aiHoAsk" style="display:grid;gap:8px"><p style="margin:0"><b>Add AI from your other device?</b> This adds the AI keys you set up there to this device, using code <b>${esc(opts.code)}</b>.</p><div class="row" style="display:flex;gap:8px"><button type="button" class="btn primary small" id="aiHoYes">Add Keys</button><button type="button" class="btn small" id="aiHoNo">Not Now</button></div></div>` : ""}
       <p class="mini" id="aiPasteMsg" aria-live="polite" style="margin:0" hidden></p>

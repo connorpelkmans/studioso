@@ -1761,9 +1761,8 @@
       : !x ? `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>`
       : !x.ok ? `<div class="grp-err" role="alert"><span>${esc(x.err || "Couldn't load this.")}</span><button type="button" class="btn small" data-act="grp-weak-retry">Try Again</button></div>`
       : list.length ? `<ul class="grp-list">${rows}</ul>${cards.length ? `<div class="row-actions"><button class="btn small" data-act="grp-weak-deck" data-id="${esc(g.id)}">Make a Deck From the Cards</button></div>` : ""}`
-      : `<p class="grp-none">${on ? "Nothing to show yet. This appears once 3 members share their results and 2 miss the same card or question." : "Share your results to join in. It appears once at least 3 members take part and at least 2 miss the same card or question."}</p>`;
-    return `<section class="grp-sec" id="grpWeak">${secHead(I_WEAK, "Most Missed", null, btn)}${body}
-      <p class="mini">Anonymous: only totals per card or question are kept, and nobody, not even the owner, can see who missed what.</p></section>`;
+      : `<p class="grp-none">${on ? "Nothing to show yet. This appears once 3 members share their results and 2 miss the same card or question. Anonymous." : "Share your results to join in. It appears once at least 3 members take part and at least 2 miss the same card or question. Anonymous."}</p>`;
+    return `<section class="grp-sec" id="grpWeak">${secHead(I_WEAK, "Most Missed", null, btn)}${body}</section>`;
   }
   function weakDeck(g){
     const cards = GK.topMisses((S.miss[g.id] || {}).rows, S.items[g.id] || []).filter(r => r.kind === "card").slice(0, 20);
