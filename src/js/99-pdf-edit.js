@@ -244,8 +244,10 @@ function pdeStrip(bytes, regions, fontOf, dry){
         if (f.ok && fs && th) for (let r = 0; r < regions.length; r++) if (pdeInside(regions[r], px, py)) { hit = r; break; }
         if (hit >= 0) {
           const [lx] = pdeLocal(regions[hit], ...pdeApply(m, 0, 0)), I = info[hit];
-          if (!I || lx < I.lx) info[hit] = {lx, font: f, fs, th, tc: gs.Tc, ts: gs.Ts, m: m.slice(), fill: gs.fill, nat: I ? I.nat : 0, spaces: I ? I.spaces : 0, n: I ? I.n : 0};
+          if (!I || lx < I.lx) info[hit] = {lx, font: f, fs, th, tc: gs.Tc, ts: gs.Ts, m: m.slice(), fill: gs.fill, nat: I ? I.nat : 0, spaces: I ? I.spaces : 0, n: I ? I.n : 0, seq: I ? I.seq : ""};
           const J = info[hit], blank = space || !!(f.uni && /^\s*$/.test(f.uni.get(code) || "x")); J.nat += (w0 * fs + gs.Tc) * th; J.n++; if (blank) J.spaces++;
+          // which letters are spaces, in the order they're drawn (" " a space, "x" any other letter)
+          J.seq += blank ? " " : "x";
           // invisible text (a recognized scan) goes, but the picture of the words under it stays: it still counts as not taken out
           if (!blank && gs.Tr !== 3 && gs.Tr !== 7) hits[hit]++;
           if (keep.length) { out.push(Uint8Array.from(keep)); keep.length = 0; }
@@ -300,6 +302,22 @@ function pdeStrip(bytes, regions, fontOf, dry){
     out = concatU8(parts);
   }
   return {bytes: out, hits, info, open: Math.max(0, depth - minDepth), under: -minDepth};
+}
+
+// A line's words as the PDF really has them: PDF.js puts a space where letters sit a little apart ("Summe r"), so a space
+// that isn't one of the PDF's own space letters (seq, from pdeStrip) is left out. The words come back as they were when the
+// letters can't be matched up one to one.
+function pdeRealSpaces(str, seq){
+  str = String(str || ""); seq = String(seq || "");
+  const letters = [...str].filter(c => !/\s/.test(c)).length;
+  if (!seq || letters !== seq.replace(/ /g, "").length) return str;
+  let out = "", i = 0;
+  for (const c of str) {
+    if (/\s/.test(c)) { if (seq[i] === " ") { out += c; while (seq[i] === " ") i++; } continue; }
+    while (seq[i] === " ") i++;
+    out += c; i++;
+  }
+  return out;
 }
 
 /* A page's content and fonts */
@@ -1075,8 +1093,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const page = await pageObj(n); if (!page) return [];
       const tc = await page.getTextContent();
       return tc.items.filter(it => typeof it.str === "string" && it.str.trim() && Array.isArray(it.transform) && it.width > 0).map(it => {
-        const tx = it.transform, fs = Math.hypot(tx[2], tx[3]) || Math.abs(tx[3]) || 10, st = tc.styles[it.fontName] || {};
+        const tx = it.transform, st = tc.styles[it.fontName] || {};
         let obj = null; try { obj = page.commonObjs.has(it.fontName) ? page.commonObjs.get(it.fontName) : null; } catch (e) {}
+        let fs = Math.hypot(tx[2], tx[3]) || Math.abs(tx[3]) || 10;
+        // PDF.js stretches a Type3 font's height to its letters' box (a font drawn at size 1, or with boxes per letter): undone, so
+        // its text is edited at the size it's drawn, not 10-20% bigger (only when the height is that much more than the width's scale)
+        try {
+          const bb = obj && obj.isType3Font && obj.bbox, fm = obj && obj.fontMatrix, k = bb && fm ? (bb[3] - bb[1]) * fm[3] : 0, wx = Math.hypot(tx[0], tx[1]);
+          if (k > 0 && Math.abs(k - 1) > 0.01 && wx > 0 && Math.abs(fs / wx - k) < k * 0.005) fs /= k;
+        } catch (e) {}
         const name = String((obj && obj.name) || "").replace(/^[A-Z]{6}\+/, ""), fam = String(st.fontFamily || "");
         const mono = /courier|mono|consol|menlo/i.test(name) || fam === "monospace", serif = !mono && (fam === "serif" || /times|roman|serif|georgia|garamond|cambria|book|minion|palatino|baskerville/i.test(name)) && !/sans/i.test(name);
         const asc = Number.isFinite(st.ascent) && st.ascent > 0.5 ? Math.min(1.05, st.ascent) : 0.9, desc = Number.isFinite(st.descent) && st.descent < 0 ? Math.max(-0.35, st.descent) : -0.22;
@@ -1092,7 +1117,17 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // A text edit for a line of the PDF, with the PDF's own font facts and colour when pdf-lib has the file open
   function lineEdit(n, it, col){
     const e = {id: uid(), a: E.rev, p: n, k: "t", o: it.o, r: it.r, w: it.w, y0: it.y0, y1: it.y1, fs: Math.round(it.fs * 100) / 100, s0: Math.round(it.fs * 100) / 100, f: it.f, b: it.b, i: it.i, c: (col && col.c) || "#000000", bg: (col && col.bg) || "#ffffff", old: it.str, t: it.str, cf: it.cf};
-    if (E.libv) { try { const pr = pdeProbe(E.libv.L, E.libv.doc, n, [e])[0]; if (pr && pr.base) { e.f = pr.mono ? "c" : pr.serif ? "t" : "h"; e.b = pr.bold ? 1 : 0; e.i = pr.italic ? 1 : 0; e.cf = cssName(pr.base, e.f); } if (pr && pr.fill && pr.hits) e.c = pr.fill; } catch (err) {} }
+    if (E.libv) { try {
+      const pr = pdeProbe(E.libv.L, E.libv.doc, n, [e])[0];
+      if (pr && pr.base) { e.f = pr.mono ? "c" : pr.serif ? "t" : "h"; e.b = pr.bold ? 1 : 0; e.i = pr.italic ? 1 : 0; e.cf = cssName(pr.base, e.f); }
+      if (pr && pr.fill && pr.hits) e.c = pr.fill;
+      if (pr && pr.hits && pr.I) {
+        // the size the PDF really draws these letters at (PDF.js's can be off, as for some Type3 fonts), and its own spaces only
+        const size = Math.round(pdeSizeOf(pr.I) * 100) / 100;
+        if (size > it.fs * 0.5 && size < it.fs * 2) e.fs = e.s0 = size;
+        e.old = e.t = pdeRealSpaces(it.str, pr.I.seq);
+      }
+    } catch (err) {} }
     return e;
   }
   // Page units to screen pixels on a drawn page, and back
@@ -1856,7 +1891,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const old = m.edit || m.t;
       if (old) { const x = list.find(y => y.id === old.id), t = fix(x.t); if (take(x, t, m.hits)) list = list.map(y => y.id === x.id ? Object.assign({}, y, {t}) : y); else skipped += m.hits; continue; }
       if (list.length >= MAX_EDITS) { full += m.hits; continue; }
-      const pg = E.pages.get(m.n), e = lineEdit(m.n, m.it, pg ? sample(pg, vpBox(pg, m.it)) : null); e.t = fix(m.it.str);
+      const pg = E.pages.get(m.n), e = lineEdit(m.n, m.it, pg ? sample(pg, vpBox(pg, m.it)) : null); e.t = fix(e.t);
       if (take(e, e.t, m.hits)) list.push(e); else skipped += m.hits;
     }
     const why = [skipped ? `skipped ${skipped}: ${[...skip].slice(0, 6).join(" ")} ${skip.size === 1 ? "isn't" : "aren't"} in this PDF's fonts` : "", full ? `skipped ${full}: a file can hold ${MAX_EDITS} edits` : ""].filter(Boolean).join("; ");
