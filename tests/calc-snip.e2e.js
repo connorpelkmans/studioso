@@ -18,7 +18,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const ctx = await browser.newContext({viewport: {width: 1280, height: 860}, serviceWorkers: "block"}); ctx.sent = [];
     await ctx.route(/generativelanguage\.googleapis\.com/, route => {
       const body = route.request().postData() || ""; ctx.sent.push(body);
-      route.fulfill(gem(/inline_data/.test(body) ? JSON.stringify({found: true, calc: "3(4+1)", angle: ""}) : /speed of a train/.test(body) ? JSON.stringify({found: true, calc: "60t = 150", angle: ""}) : JSON.stringify({found: false, calc: "", angle: ""})));
+      route.fulfill(gem(/inline_data/.test(body) ? JSON.stringify({found: true, calc: "3(4+1)", angle: "none"}) : /speed of a train/.test(body) ? JSON.stringify({found: true, calc: "60t = 150", angle: "none"}) : JSON.stringify({found: false, calc: "", angle: "none"})));
     });
     await ctx.addInitScript(ai => { try { if (!localStorage.getItem("coursework:v2")) {
       localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1");

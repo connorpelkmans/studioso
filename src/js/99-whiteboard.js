@@ -1313,6 +1313,20 @@ var SBWB = null;
   }
 
   /* A board as a picture */
+  // The part of a board with something on it (what renderBoard draws by default on a blank board), in board units
+  function areaOf(n){
+    const ink = (B && n.id === B.id) ? strokes() : (n.wbInk || []), its = (B && n.id === B.id) ? items() : (n.wbItems || []);
+    let bb = null; ink.forEach(st => { bb = bbJoin(bb, geo(st).bb); }); its.forEach(it => { bb = bbJoin(bb, itemBB(it)); });
+    return bb ? [Math.max(0, bb[0] - 60), Math.max(0, bb[1] - 60), Math.min(BW, bb[2] + 60), Math.min(BH, bb[3] + 60)] : [0, 0, BW, BH];
+  }
+  // Bring a spot on the open board into view (Ask's "show me"), zoomed in no further than 1.5×
+  function focusOn(x0, y0, x1, y1){
+    if (!fw || !fh) return false;
+    const M = phone() ? 16 : 60, w = Math.max(300, x1 - x0), h = Math.max(200, y1 - y0);
+    cam.z = clamp(Math.min((fw - M * 2) / w, (fh - M * 2) / h), zMin(), 1.5);
+    cam.x = (fw - w * cam.z) / 2 - x0 * cam.z; cam.y = (fh - h * cam.z) / 2 - y0 * cam.z;
+    clampCam(); dirty(); camSave(); return true;
+  }
   async function renderBoard(n, o){
     o = o || {};
     try { if (document.fonts && document.fonts.load) await Promise.all(FONTS.map(f => document.fonts.load(`40px ${f[2]}`))); } catch (e) {}
@@ -1377,7 +1391,7 @@ var SBWB = null;
     return false;
   });
 
-  SBWB = window.SBWB = {view, on, setView, boards, boardName, curId, create, flush, renderBoard, dark: () => boardDark(), open: id => { setView("wb"); ui.wbCur = id; ui.tab = "notes"; render(); },
+  SBWB = window.SBWB = {view, on, setView, boards, boardName, curId, create, flush, renderBoard, areaOf, focusOn, dark: () => boardDark(), open: id => { setView("wb"); ui.wbCur = id; ui.tab = "notes"; render(); },
     board: () => B && {id: B.id, strokes: strokes(), items: items()},
     // for the Pro pictures and live group modules
     set: (t, id, v) => { if (!B) return; opBegin(); set(t, id, v); opEnd(); }, change: fn => { if (!B) return; opBegin(); try { fn(set); } finally { opEnd(); } },

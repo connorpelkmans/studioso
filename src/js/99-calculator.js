@@ -483,7 +483,7 @@
   const editable = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
   const modalOpen = () => [...document.querySelectorAll("dialog[open]")].some(d => { try { return d.matches(":modal"); } catch (e) { return true; } });
   window.addEventListener("keydown", e => {
-    if (!W || W.hidden || e.isComposing) return;
+    if (!W || W.hidden || e.isComposing || document.querySelector(".cxs-veil")) return;   // selecting an equation on screen: Esc is the selector's
     const t = e.target, inside = !!(t && t.nodeType === 1 && W.contains(t));
     if (!inside) {
       if (editable(t) || modalOpen() || e.ctrlKey || e.metaKey || e.altKey) return;

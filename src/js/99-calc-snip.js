@@ -196,9 +196,9 @@
 Find the one equation or expression they most likely want calculated or solved, and write it exactly as shown (don't solve it, don't simplify it, don't change any number).
 If it's a word problem or an instruction like "solve for x", write the equation it gives. If there are several, take the first complete one; a system of equations is one answer.
 ${CALC_RULES}
-angle: "deg" when the problem uses degrees (°), "rad" when it uses radians or calculus with trig, otherwise "".
+angle: "deg" when the problem uses degrees (°), "rad" when it uses radians or calculus with trig, otherwise "none".
 If there's no math in it, set found to false.`;
-  const SCHEMA = {type: "OBJECT", properties: {found: {type: "BOOLEAN"}, calc: {type: "STRING"}, angle: {type: "STRING", enum: ["", "deg", "rad"]}}, required: ["found", "calc", "angle"]};
+  const SCHEMA = {type: "OBJECT", properties: {found: {type: "BOOLEAN"}, calc: {type: "STRING"}, angle: {type: "STRING", enum: ["none", "deg", "rad"]}}, required: ["found", "calc", "angle"]};
 
   async function read(r, got){
     say("Reading…");
