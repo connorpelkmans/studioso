@@ -2416,7 +2416,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   });
   hook("menu", () => {
     const c = current(); if (!c) return "";
-    return `<button data-act="comp-open" data-group="appearance"><span>Study Companion<span class="sub">${isOn() ? `${esc(nameOf(c))} the ${esc(c.kind || "companion")} lives in your theme` : "Turned off. A little friend who studies with you."}</span></span></button>` + (phone() ? "" : `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Companion Stays Put<span class="sub">The companion stays in the bottom-left corner instead of moving around the page. It still moves into its circle when you open the Companion tab.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="still" ${cfg().still === true ? "checked" : ""}> On</label></div>`);
+    return `<button data-act="comp-open" data-group="appearance"><span>Study Companion<span class="sub">${isOn() ? `${esc(nameOf(c))} the ${esc(c.kind || "companion")} lives in your theme` : "Turned off. A little friend who studies with you."}</span></span></button>` + (phone() ? "" : `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Companion Stays Put<span class="sub">The companion stays in the bottom left corner instead of moving around.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="still" ${cfg().still === true ? "checked" : ""}> On</label></div>`);
   });
 
   /* Style Shop: a Companions tab */
