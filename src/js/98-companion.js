@@ -1231,6 +1231,7 @@
   // Phones type to the companion on its own tab (tapping the companion opens it), so its bubble has no Ask box there
   function askOnTab(){ return phone() || !!(window.matchMedia && matchMedia("(hover:none) and (pointer:coarse) and (max-height:639px)").matches); }
   function openAsk(){
+    if (!aiSetUp() && !linesAsk()) { hideBubble(); try { if (inPreview()) toast("Ask works in the Studyboard app and on your own Studyboard website."); else aiSetupSheet(false); } catch (e) {} return; }
     if (askOnTab()) { if (typeof ui !== "undefined" && ui.tab !== "companion") { ui.tab = "companion"; render(); } return; }
     const b = front && front.querySelector(".cp-bubble"); if (!b || !cur) return;
     clearTimeout(bubbleT);
@@ -1434,7 +1435,7 @@
     else { act.motion(act.has("armL") || act.has("armR") ? "wave" : "bounce"); spawnFx("heart", 1); }
     if (talkOn()) {
       const idea = wasMood === "idle" && now - lastIdea > 2 * 3600000 && Math.random() < 0.5 ? ideaNow() : null;
-      const ask = askAvailable();
+      const ask = askShown();
       if (idea && SPEECH.ok(idea.text)) { lastIdea = now; say(idea.text, {idea, ask}); }
       else say(tapLine(), {ask});
     }
@@ -1875,18 +1876,24 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // Ask Me works with any AI: free Gemini and Studyboard AI share the daily allowance for lines; with another key (Claude, ChatGPT, or
   // Gemini with automatic AI off) each question is an ordinary request the student makes, on their own key
   const askMode = () => { const m = aiMode(); if (m === "lite" || m === "studyboard") return m; try { return smartOn() && aiReady() ? "manual" : ""; } catch (e) { return ""; } };
-  const askAvailable = () => { const s = aiRead(), m = askMode(); return !!m && !aiPaused(s) && (m === "manual" || (today0(s).n || 0) < LITE_MAX) && navigator.onLine !== false; };
+  const linesAsk = () => { const s = aiRead(), m = askMode(); return !!m && !aiPaused(s) && (m === "manual" || (today0(s).n || 0) < LITE_MAX) && navigator.onLine !== false; };
+  // Ask is the student's own request: with AI set up it's always there (it doesn't share the companion's daily lines,
+  // or stop when they're paused or Smart Lines are off). Without AI, the bubble still offers it, and it opens AI setup.
+  const aiSetUp = () => { try { return aiReady(); } catch (e) { return false; } };
+  const askAvailable = () => navigator.onLine !== false && (aiSetUp() || linesAsk());
+  const askShown = () => navigator.onLine !== false;
   async function aiAsk(q, sc){
     const clean = String(q).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 160);
     if (!clean) return null;
-    if (!askAvailable()) return {why: aiPaused(aiRead()) ? "I'm out of answers for today. Ask me again tomorrow?" : "Ask Me needs Smart Lines and AI set up (Settings, AI Features)."};
+    const viaAssist = !!window.SBASSIST && (!sc || sc.kind !== "Task") && aiSetUp();
+    if (!viaAssist && !linesAsk()) return {why: aiPaused(aiRead()) ? "I'm out of answers for today. Ask me again tomorrow?" : "Ask Me needs Smart Lines and AI set up (Settings, AI Features)."};
     const s0 = aiRead();
     if (Date.now() - (s0.lastAsk || 0) < 8000) return {why: "One sec, I'm still thinking. Ask again in a moment?"};
     for (let i = 0; aiBusy && i < 80; i++) await new Promise(r => setTimeout(r, 250));
     { const s1 = aiRead(); s1.lastAsk = Date.now(); aiWrite(s1); }
     // With AI set up, Ask can find anything in the app, knows the page the student is on, and proposes changes they confirm
     // (98-assist.js). The task sheet's own Ask box stays a plain answer, so it never leaves the task.
-    if (window.SBASSIST && (!sc || sc.kind !== "Task") && (() => { try { return aiReady(); } catch (e) { return false; } })()) {
+    if (viaAssist) {
       try {
         const res = await SBASSIST.ask(clean, {extra: sc && sc.text ? `${sc.kind}: ${sc.label}\n${sc.text}` : ""});
         const answer = cleanLine(res.answer, 650, BAD_ASK) || (res.changes.length ? "Here's the change. Check it, then tap Apply." : res.show.length ? "Here it is!" : "");
@@ -2137,7 +2144,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const est = estIdea();
     if (est) { estMark(); say(est.text, {idea: est}); chatMark(); if (act && !still()) { act.eyes("happy"); act.motion(act.has("armL") || act.has("armR") ? "wave" : "hop"); later(() => act && mood === "idle" && act.eyes("open"), 1400); } return true; }
     const idea = ideaNow(), useIdea = idea && Math.random() < 0.3 && !dismissedIdea();
-    if (useIdea) say(idea.text, {idea, ask: askAvailable()}); else say(tapLine());
+    if (useIdea) say(idea.text, {idea, ask: askShown()}); else say(tapLine());
     chatMark();
     if (act && !still()) { act.eyes("happy"); act.motion(act.has("armL") || act.has("armR") ? "wave" : "hop"); later(() => act && mood === "idle" && act.eyes("open"), 1400); }
     return true;
@@ -2737,9 +2744,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     home: () => ({home, rect: box && !box.hidden ? box.getBoundingClientRect().toJSON() : null}),
     brain: () => ({mood, energy: BR.energy, taskDone: BR.taskDone && BR.taskDone.title, context: contextKinds()}),
     ai: () => aiRead(), aiRun: force => aiMaybe("test", !!force), think, idle: ms => { BR.input = Date.now() - ms; think(); },
-    _speech: SPEECH, _speechGuard: speechGuard, line: () => tapLine(), idea: () => ideaNow(), offer: () => { const i = ideaNow(); if (i) say(i.text, {idea: i, ask: askAvailable()}); return i ? i.text : ""; },
+    _speech: SPEECH, _speechGuard: speechGuard, line: () => tapLine(), idea: () => ideaNow(), offer: () => { const i = ideaNow(); if (i) say(i.text, {idea: i, ask: askShown()}); return i ? i.text : ""; },
     peek: () => screenPeek(), askScreen: async q => aiAsk(q, await screenCtx()),
-    usage: () => aiUsage(), flush: () => aiFlush(), queue: m => queueMoment(m), ask: q => aiAsk(q), askOpen: () => { say("Hi!", {ask: askAvailable()}); openAsk(); }, askAvailable: () => askAvailable(),
+    usage: () => aiUsage(), flush: () => aiFlush(), queue: m => queueMoment(m), ask: q => aiAsk(q), askOpen: () => { say("Hi!", {ask: askShown()}); openAsk(); }, askAvailable: () => askAvailable(),
     setPomo: min => { state.settings = Object.assign({}, state.settings, {pomo: Object.assign({}, state.settings.pomo, {focus: min})}); saveSettings(); },
     chatTick: () => chatTick(true), bubble: () => { const b = front && front.querySelector(".cp-bubble.on"); return b ? b.textContent : ""; },
     openTask: () => { const t = Object.values(state.tasks).find(x => x.status !== "done"); return t ? t.id : ""; },

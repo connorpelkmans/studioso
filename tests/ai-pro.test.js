@@ -448,5 +448,28 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(H.calls.map(c => c.output_config.effort), ["low", "low"], "past the soft limit automatic jobs drop back (a yes/no job to no thinking, the plan to low)");
   H = harness(); await call(H, job({task: "plan", auto: true}));
   eq(H.calls[0].output_config.effort, "medium", "the automatic plan thinks at medium either way (its own level)");
+  // Jobs left behind by a page that closed or reloaded don't block new ones (Studyboard AI Mode keeps its meter on the device)
+  { const store = mem(), L = P.limits(ENV);
+    const old = new P.Meter(store, () => now, null, {sid: "gone", alive: sid => sid === "gone"});
+    for (let i = 0; i < L.inflight; i++) ok((await old.reserve(1000, L)).ok, "a job starts on the old page " + (i + 1));
+    eq((await old.reserve(1000, L)).reason, "rate", "a full set of jobs in flight blocks the next one on that page");
+    const fresh = new P.Meter(store, () => now + 1000, null, {sid: "new", alive: sid => sid === "new"});
+    const r = await fresh.reserve(1000, L);
+    ok(r.ok, "after a reload, the old page's unfinished jobs no longer count as in flight");
+    eq((await fresh.read()).spent, 1000 * (L.inflight + 1), "but what they reserved stays charged");
+    const legacy = mem(); await legacy.put("flying", [{id: "x1", at: now, cost: 5}, {id: "x2", at: now, cost: 5}, {id: "x3", at: now, cost: 5}, {id: "x4", at: now, cost: 5}]);
+    ok((await new P.Meter(legacy, () => now, null, {sid: "me", alive: sid => sid === "me"}).reserve(1000, L)).ok, "and jobs saved before pages were tracked don't block either");
+    const w = mem(); await w.put("flying", [{id: "x1", at: now, cost: 5}, {id: "x2", at: now, cost: 5}, {id: "x3", at: now, cost: 5}, {id: "x4", at: now, cost: 5}]);
+    ok(!(await new P.Meter(w, () => now).reserve(1000, L)).ok, "the Worker (no pages) still counts every job in flight"); }
+  // Background jobs leave room for what the student asks for
+  { H = harness(); const L = P.limits(ENV), m = H.meterOf();
+    for (let i = 0; i < L.inflight - 1; i++) await m.reserve(1000, L);
+    x = await J(await call(H, job({auto: true})));
+    eq(x.s, 429, "a background job can't take the last job slot");
+    x = await J(await call(H, job()));
+    eq(x.s, 200, "but the student's own request still runs");
+    H = harness(); for (let i = 0; i < L.perMinute - 5; i++) await H.meterOf().touch(L);
+    eq((await J(await call(H, job({auto: true})))).s, 429, "background jobs stop 5 requests short of the per-minute limit");
+    eq((await J(await call(H, job()))).s, 200, "leaving those for the student"); }
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

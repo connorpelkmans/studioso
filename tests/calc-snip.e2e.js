@@ -14,17 +14,26 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
-  const mk = async ai => {
+  const mk = async (ai, claude, stuck) => {
     const ctx = await browser.newContext({viewport: {width: 1280, height: 860}, serviceWorkers: "block"}); ctx.sent = [];
     await ctx.route(/generativelanguage\.googleapis\.com/, route => {
       const body = route.request().postData() || ""; ctx.sent.push(body);
       route.fulfill(gem(/inline_data/.test(body) ? JSON.stringify({found: true, calc: "3(4+1)", angle: "none"}) : /speed of a train/.test(body) ? JSON.stringify({found: true, calc: "60t = 150", angle: "none"}) : JSON.stringify({found: false, calc: "", angle: "none"})));
     });
-    await ctx.addInitScript(ai => { try { if (!localStorage.getItem("coursework:v2")) {
+    await ctx.route(/api\.anthropic\.com/, route => {
+      const req = route.request(), body = JSON.parse(req.postData() || "{}"); ctx.sent.push(JSON.stringify(body));
+      if (/count_tokens/.test(req.url())) { route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({input_tokens: 1800})}); return; }
+      const pic = JSON.stringify(body.messages).includes('"type":"image"');
+      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: [{type: "text", text: JSON.stringify(pic ? {found: true, calc: "3(4+1)", angle: "none"} : {found: false, calc: "", angle: "none"})}], stop_reason: "end_turn", usage: {input_tokens: 1800, output_tokens: 40}})});
+    });
+    await ctx.addInitScript(([ai, claude, stuck]) => { try { if (!localStorage.getItem("coursework:v2")) {
+      if (claude) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({anthropic: "sk-ant-TESTTESTTESTTESTTEST"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({anthropic: {v: 1, at: 1}})); }
+      // jobs left "in flight" by earlier page loads that were closed or reloaded mid-job
+      if (stuck) localStorage.setItem("studyboard:ownAI", JSON.stringify({flying: [1, 2, 3, 4, 5, 6].map(i => ({id: "old" + i, at: Date.now() - 60000, cost: 1000})), hits: Array.from({length: 18}, () => Date.now() - 5000)}));
       localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1");
-      localStorage.setItem("coursework:v2", JSON.stringify({v: 2, courses: [], tasks: [], decks: [], notes: [], files: [], events: [], settings: {}, updated: 1}));
+      localStorage.setItem("coursework:v2", JSON.stringify({v: 2, courses: [], tasks: [], decks: [], notes: [], files: [], events: [], settings: claude ? {ai: {provider: "anthropic", model: "studyboard"}} : {}, updated: 1}));
       if (ai) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); }
-    } } catch (e) {} }, ai);
+    } } catch (e) {} }, [ai, claude, stuck]);
     const page = await ctx.newPage(); page.errs = []; page.ctx = ctx;
     page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) page.errs.push(m.text()); });
     await page.goto(base); await page.waitForFunction(() => window.SBCALC && window.SBCALCSNIP); await page.waitForTimeout(600);
@@ -84,6 +93,15 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await snip(page, "#q7"); ok(await solve(page) === "t = 2.5", `a word problem becomes its equation: ${await expr(page)} → t = 2.5`);
     const sentBefore = page.ctx.sent.length; await snip(page, "#q1");
     ok(page.ctx.sent.length === sentBefore && await solve(page) === "x = 2, 3", "clear math is still read on the device, without asking the AI");
+    ok(!page.errs.length, "no errors: " + page.errs.join("; "));
+    await page.context().close(); }
+
+  // A Claude key (Studyboard AI Mode), after page reloads left jobs "in flight" and the minute busy: it still works
+  { const page = await mk(false, true, true);
+    await snip(page, "#q6");
+    ok(!(await page.locator(".toast", {hasText: "a lot of AI"}).count()), "no \"That's a lot of AI at once\" from jobs an earlier page left behind");
+    ok(await solve(page) === "15", `the picture is read with the Claude key and solved: ${await expr(page)} = 15`);
+    ok(page.ctx.sent.some(b => /claude-haiku-5-5/.test(b)), "on Haiku 5.5, Studyboard AI Mode");
     ok(!page.errs.length, "no errors: " + page.errs.join("; "));
     await page.context().close(); }
 
