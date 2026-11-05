@@ -248,7 +248,7 @@ function offered(){ const s = lsGet(SAID_KEY), today = todayISO(), said = s.day 
 const ideaValid = id => { const m = current(); return !!m && m.exam.id === id; };
 
 /* Settings */
-hook("menu", () => `<div class="cap-row" data-group="study"><span style="flex:1;font-weight:600">Exam Mode<span class="sub">In the last 3 days before an exam or quiz, Today's Plan, Do This Next, your decks and Focus point at it. Work due sooner than your exam study still comes first.</span></span><label class="anim-tog"><input type="checkbox" data-act="exm-toggle" ${enabled() ? "checked" : ""}> On</label></div>`);
+hook("menu", () => `<div class="cap-row" data-group="study"><span style="flex:1;font-weight:600">Exam Mode<span class="sub">Shifts focus towards exams less than 3 days away. Still prioritizes work due before it.</span></span><label class="anim-tog"><input type="checkbox" data-act="exm-toggle" ${enabled() ? "checked" : ""}> On</label></div>`);
 
 hook("act", (act, el, id) => {
   switch (act) {
