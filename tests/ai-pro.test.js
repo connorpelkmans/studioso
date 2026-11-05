@@ -437,13 +437,16 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
 
   /* Automatic jobs on Studyboard AI think at least at medium */
   now = Date.UTC(2027, 1, 15, 12);
-  eq([P.config(ENV).autoEffort, P.config({...ENV, AUTO_EFFORT: ""}).autoEffort, P.config({...ENV, AUTO_EFFORT: "max"}).autoEffort], ["medium", "", ""], "medium by default; empty or unknown leaves jobs at their own level");
+  eq([P.config(ENV).autoEffort, P.config({...ENV, AUTO_EFFORT: "medium"}).autoEffort, P.config({...ENV, AUTO_EFFORT: "max"}).autoEffort], ["", "medium", ""], "each job's own level by default; AUTO_EFFORT can raise them; unknown values are ignored");
   H = harness();
-  await call(H, job({task: "remote", auto: true})); await call(H, job({task: "remote"})); await call(H, job({task: "line", auto: true})); await call(H, job({task: "practice", auto: true}));
+  await call(H, job({task: "remote", auto: true})); await call(H, job({task: "line", auto: true}));
+  eq(H.calls.map(c => [c.output_config.effort, c.thinking.type]), [["low", "disabled"], ["low", "disabled"]], "by default an automatic yes/no job and a companion line don't think");
+  const AE = {...ENV, AUTO_EFFORT: "medium"}; H = harness();
+  await call(H, job({task: "remote", auto: true}), {env: AE}); await call(H, job({task: "remote"}), {env: AE}); await call(H, job({task: "line", auto: true}), {env: AE}); await call(H, job({task: "practice", auto: true}), {env: AE});
   eq(H.calls.map(c => [c.output_config.effort, c.thinking.type, c.max_tokens]), [["medium", "adaptive", 4000], ["low", "disabled", 800], ["medium", "adaptive", 4000], ["high", "adaptive", 24000]], "an automatic yes/no job or companion line thinks at medium (with room for it); the same job tapped by hand doesn't; a job already above medium keeps its level");
-  H = harness(); await spendBefore(H.meterOf(), 2100000); await call(H, job({task: "remote", auto: true})); await call(H, job({task: "plan", auto: true}));
+  H = harness(); await spendBefore(H.meterOf(), 2100000); await call(H, job({task: "remote", auto: true}), {env: AE}); await call(H, job({task: "plan", auto: true}), {env: AE});
   eq(H.calls.map(c => c.output_config.effort), ["low", "low"], "past the soft limit automatic jobs drop back (a yes/no job to no thinking, the plan to low)");
-  H = harness(); await call(H, job({task: "remote", auto: true}), {env: {...ENV, AUTO_EFFORT: ""}});
-  eq(H.calls[0].thinking.type, "disabled", "AUTO_EFFORT empty: each job at its own level");
+  H = harness(); await call(H, job({task: "plan", auto: true}));
+  eq(H.calls[0].output_config.effort, "medium", "the automatic plan thinks at medium either way (its own level)");
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

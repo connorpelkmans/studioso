@@ -57,8 +57,8 @@ export function config(env) {
     lim: limits(env),
     whisper: String(env.WHISPER_OFF || "") !== "1",
     youtube: String(env.YOUTUBE_OFF || "") !== "1",
-    // The least thinking automatic jobs get: "medium" by default; "" leaves each job at its own level
-    autoEffort: env.AUTO_EFFORT == null ? "medium" : ["low", "medium", "high"].includes(String(env.AUTO_EFFORT)) ? String(env.AUTO_EFFORT) : "",
+    // The least thinking automatic jobs get: each job's own level by default (""); "low", "medium" or "high" raises them
+    autoEffort: ["low", "medium", "high"].includes(String(env.AUTO_EFFORT || "")) ? String(env.AUTO_EFFORT) : "",
     // YouTube videos a student can turn into notes and cards each calendar month (UTC), on top of their dollar allowance
     ytMonthly: (n => Number.isFinite(n) && String(env.YOUTUBE_MONTHLY == null ? "" : env.YOUTUBE_MONTHLY).trim() !== "" ? Math.min(YT_MONTHLY_MAX, Math.max(0, Math.floor(n))) : 10)(Number(env.YOUTUBE_MONTHLY))
   };
