@@ -115,7 +115,7 @@ The app sends only the job's name, its text and files, and the answer shape it w
 | | Default | Highest a setting can go |
 |---|---|---|
 | `MONTHLY_SOFT_USD`: past it, everyday jobs think less | $3 | the hard limit |
-| `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $4 | $10 |
+| `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $3.50 | $10 |
 | `DAILY_USD` | $1 | $3 |
 | `PER_MINUTE` requests | 20 | 60 |
 | `YOUTUBE_MONTHLY` videos (each at most 2 hours, about $0.10 an hour) | 10 | 100 (`0` turns YouTube links off) |
@@ -145,7 +145,7 @@ From a simulation of the app's real prompts:
 | Average | about $0.96 |
 | Typical | about $0.65 |
 | Heavy | about $2.30 |
-| Uses every feature as much as the app allows | stopped at $4 |
+| Uses every feature as much as the app allows | stopped at $3.50 |
 
 A one-hour YouTube lecture costs about $0.10, and a one-hour recording transcribed by Whisper about $0.03. Add Cloudflare's 5% credit fee.
 
