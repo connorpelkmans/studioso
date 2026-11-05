@@ -9,6 +9,36 @@ Students on a **paid** Pro plan get AI with nothing to set up. Every AI feature 
 
 **It's off until the gateway is set up.** Without `CF_ACCOUNT_ID`, `AI_GATEWAY_ID` and the `CF_AIG_TOKEN` secret, every request answers `off`, and the app carries on as before: students use their own key.
 
+## Paying for it: Unified Billing or your company key
+
+- **Unified Billing (the default):** Cloudflare's own provider keys make the calls, and Cloudflare bills your prepaid credits at the providers' prices plus a **5% fee on each credit purchase**. Good for launch: there's no Anthropic account to set up, and you don't start on Anthropic's low new-account rate limits.
+- **Your company Anthropic key (no 5%):** in the gateway, open Provider Keys and add your Anthropic key under the name **`default`**. The gateway then uses it for every Claude request, and Anthropic bills you directly. Nothing in the Worker changes. Also set a monthly spend limit in the Anthropic Console. The usage reports, and so the students' allowances and your usage summary, stay exactly the same.
+- **YouTube links** (Gemini) stay on Unified Billing unless you also add a Google AI Studio key as `default`.
+- **Transcription and search by meaning** run on Workers AI and are billed as normal Workers usage. There's no 5% on them either way.
+
+## Checking usage: your summary
+
+Set the `OWNER_TOKEN` secret (at least 24 random characters): `npx wrangler secret put OWNER_TOKEN`. Then:
+
+```
+curl -H "Authorization: Bearer <OWNER_TOKEN>" "https://studyboard-pro-ai.<your-subdomain>.workers.dev/v1/owner/usage?days=30"
+```
+
+It returns daily totals and a total for the period. Nothing a student sent is stored. The totals cover:
+- jobs and cost, overall and by job (`grade`, `chat`, `plan` and so on)
+- for each kind (`claude`, `youtube`, `whisper`, `embed`): input tokens, cache writes, cache reads, output tokens (thinking included), web searches, and minutes of audio
+
+How it should compare with your bills:
+
+| Part | Counted from | Compared with the bill |
+|---|---|---|
+| Claude | Anthropic's usage report for each job | Matches your Anthropic Console (or Cloudflare's gateway analytics) to within cents: each job is rounded up to the next millionth of a dollar |
+| YouTube (Gemini) | Gemini's usage report and the prices in this file | Close. Videos over about 75 minutes are priced as if Google charged double above 200K tokens, so they can read high. The 5% isn't included. |
+| Transcription | the audio length Whisper reports, at $0.00052 a minute | About 1% high (Cloudflare charges $0.000513) |
+| Search by meaning | the text's size in bytes (Workers AI reports no usage) | Reads high; only about a cent per student a month |
+
+`unreported` counts jobs that came back without a usage report. Those students were charged the job's worst case. A job whose Worker stops partway through (rare) is missing from the summary, so the summary can read slightly below the bill. The prices live in `src/js/01-ai-policy.js` and `src/pro.js`: if a provider changes its prices, update them there.
+
 ## Who gets it
 
 Only a Pro plan someone pays for: monthly, semester, yearly or lifetime. The Worker reads the student's own row in `studyboard_entitlements` with their sign-in. Row-level security means it can only read their row, and students can't write it.
@@ -125,6 +155,7 @@ All need the student's Supabase access token as `Authorization: Bearer …`.
 | `POST /v1/transcribe` | raw audio (up to 20 MB), `Content-Type: audio/*` → `{text}` |
 | `POST /v1/youtube` | `{url}` → `{title, transcript, onScreen}` |
 | `DELETE /v1/me` | Delete My Account |
+| `GET /v1/owner/usage?days=30` | Your usage summary (needs `OWNER_TOKEN`, not a student's sign-in) |
 
 Errors: `402` `used_up` or `today`; `429` `rate`; `413` `too_long`; `403` `not_pro` or `unconfirmed`; `422` `refused` or `video`; `503` `busy` or `off`.
 

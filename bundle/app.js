@@ -3450,6 +3450,27 @@ const SBPOLICY = (() => {
   // (a timeout, a dropped connection) may have been billed, so its reservation is kept.
   const refusedEarly = e => !!e && Number.isInteger(e.status) && e.status >= 400;
 
+  /* Totals for the owner: one day's usage, added up from the providers' usage reports. Counts only, never content.
+     storage: like Meter's. Each add happens on its own, one at a time. */
+  class Totals {
+    constructor(storage){ this.s = storage; this.one = serial(); }
+    add(kind, task, usage, cost){ return this.one(() => this._add(kind, task, usage, cost)); }
+    async _add(kind, task, usage, cost){
+      const t = (await this.s.get("t")) || {jobs: 0, cost: 0, kinds: {}, tasks: {}};
+      const n = k => Math.max(0, Number(usage && usage[k]) || 0);
+      const k = t.kinds[kind] || (t.kinds[kind] = {jobs: 0, cost: 0, unreported: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, searches: 0});
+      k.jobs++; k.cost += Math.max(0, cost || 0); t.jobs++; t.cost += Math.max(0, cost || 0);
+      if (!usage) k.unreported++;
+      else { k.input += n("input_tokens"); k.cacheWrite += n("cache_creation_input_tokens"); k.cacheRead += n("cache_read_input_tokens"); k.output += n("output_tokens");
+        k.searches += Math.max(0, Number(usage.server_tool_use && usage.server_tool_use.web_search_requests) || 0);
+        if (usage.audio_seconds != null) k.audioSeconds = (k.audioSeconds || 0) + n("audio_seconds"); }
+      if (task) { const tk = String(task).slice(0, 24), x = t.tasks[tk] || (t.tasks[tk] = {jobs: 0, cost: 0}); x.jobs++; x.cost += Math.max(0, cost || 0); }
+      await this.s.put("t", t);
+      return true;
+    }
+    async read(){ return (await this.s.get("t")) || {jobs: 0, cost: 0, kinds: {}, tasks: {}}; }
+  }
+
   /* One Claude job, start to finish: check it, pick the model and thinking, count it, charge its worst case, run it, settle.
      job: what the app sends ({task, system, content, schema, search, urlContext}).
      ctx: {meter, lim, claude: {create(req), count(req)}, defer(promise)?}. Returns {status, body}: the Worker sends it as is,
@@ -3485,6 +3506,7 @@ const SBPOLICY = (() => {
     const got = await meter.reserve(reserve, lim);
     if (!got.ok) return {status: got.reason === "rate" ? 429 : 402, body: Object.assign({error: got.reason}, await view())};
     // The model runs on its own promise, kept alive if the app hangs up, so the charge is always corrected
+    let spent = null;
     const work = (async () => {
       let msg = null, cost = reserve;
       try { msg = await claude.create(req); cost = msg && msg.usage ? costOf(msg.usage) : reserve; }
@@ -3498,19 +3520,21 @@ const SBPOLICY = (() => {
         }
       }
       await meter.settle(got.id, cost);
+      spent = {task: task.name, usage: msg && msg.usage ? msg.usage : null, cost};
       return msg;
     })();
     if (ctx.defer) ctx.defer(work);
-    const msg = await work, after = await view();
-    if (msg.error) { const s = msg.error && msg.error.status; return {status: s === 400 ? 400 : s === 401 || s === 403 ? 401 : 503, body: Object.assign({error: s === 429 || s === 529 || (s >= 500 && s < 600) ? "busy" : s === 400 ? "bad" : s === 401 || s === 403 ? "key" : "ai_failed"}, after)}; }
-    if (msg.stop_reason === "refusal") return {status: 422, body: Object.assign({error: "refused"}, after)};
+    const msg = await work, after = await view(), done = r => Object.assign(r, {spent});
+    if (msg.error) { const s = msg.error && msg.error.status; return done({status: s === 400 ? 400 : s === 401 || s === 403 ? 401 : 503, body: Object.assign({error: s === 429 || s === 529 || (s >= 500 && s < 600) ? "busy" : s === 400 ? "bad" : s === 401 || s === 403 ? "key" : "ai_failed"}, after)}); }
+    if (msg.stop_reason === "refusal") return done({status: 422, body: Object.assign({error: "refused"}, after)});
     const data = readAnswer(msg);
-    if (!data) return {status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)};
-    return {status: 200, body: Object.assign({data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens"}, after)};
+    if (!data) return done({status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)});
+    // spent: what this job really used and cost (for the owner's totals), never sent to the student
+    return done({status: 200, body: Object.assign({data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens"}, after)});
   }
 
   return {MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,
-    TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, costOf, worstCost, webWorst, textBytes, Meter,
+    TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, costOf, worstCost, webWorst, textBytes, Meter, Totals,
     strictSchema, readBlocks, pdfPages, buildRequest, readAnswer, refusedEarly, runJob};
 })();
 globalThis.SBPOLICY = SBPOLICY;

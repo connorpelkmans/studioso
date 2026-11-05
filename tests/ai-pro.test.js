@@ -161,7 +161,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   // Spending from earlier days this month (so the daily limit doesn't get in the way)
   const spendBefore = async (m, amount) => { const save = now; now -= 2 * 86400000; const r = await m.reserve(amount, {...lim, dayMicro: 9e6}); await m.settle(r.id, amount); now = save; };
   function harness(over = {}){
-    const meters = new Map(), calls = [], counts = [];
+    const meters = new Map(), totals = new Map(), calls = [], counts = [];
     const H = {calls, counts, deferred: [],
       tier: "paid", user: {id: "0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", confirmed: true, anonymous: false},
       reply: req => ({content: [{type: "thinking", thinking: ""}, {type: "text", text: JSON.stringify({ok: 1})}], stop_reason: "end_turn", usage: {input_tokens: 1000, output_tokens: 200}}),
@@ -171,6 +171,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
       user: async t => t === "good" ? H.user : null,
       plan: async () => H.tier,
       meter: id => { if (!meters.has(id)) meters.set(id, new P.Meter(mem(), H.now)); return meters.get(id); },
+      totals: d => { if (!totals.has(d)) totals.set(d, new P.Totals(mem())); return totals.get(d); }, totalsMap: totals,
       claude: {create: async req => { calls.push(JSON.parse(JSON.stringify(req))); const x = H.reply(req); if (x instanceof Error) throw x; return x; }, count: async req => { counts.push(req); return H.count(req); }},
       whisper: async bytes => H.whisper ? H.whisper(bytes) : {text: " hello ", transcription_info: {duration: 30}},
       defer: p => H.deferred.push(p), now: H.now};
@@ -374,5 +375,33 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   ok(allHaiku, "every job, before and past the soft limit, with or without web lookups: Haiku 5.5 at its own effort (thinking off only for the no-thinking jobs)");
   eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "high").map(([k]) => k).sort(), ["breakdown", "cards", "cases", "grade", "practice", "quiz", "rubric", "syllabus", "tutor"], "the high-thinking jobs");
   eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "none").map(([k]) => k).sort(), ["annintel", "classify", "line", "news", "ping", "quickadd", "remote", "tag", "triage"], "the no-thinking jobs");
+
+  /* The owner's usage summary: exact totals from the usage reports, counts only, behind its own secret */
+  const OWNER = "owner-secret-0123456789-abcdefghij";
+  const oget = (H, tok, env, q = "") => P.handle(new Request("https://w.example/v1/owner/usage" + q, {headers: tok ? {Authorization: "Bearer " + tok} : {}}), env || {...ENV, OWNER_TOKEN: OWNER}, H.deps).then(J);
+  H = harness({reply: req => ({content: [{type: "text", text: "{\"ok\":1}"}], stop_reason: "end_turn", usage: req.output_config.effort === "high"
+    ? {input_tokens: 2000, cache_read_input_tokens: 5000, cache_creation_input_tokens: 0, output_tokens: 900}
+    : {input_tokens: 1000, cache_creation_input_tokens: 3000, output_tokens: 200, server_tool_use: {web_search_requests: 1}}})});
+  await call(H, job({task: "grade", content: [{type: "text", text: "SECRET-STUDENT-ANSWER 42"}]}));
+  await call(H, job({task: "chat", search: true}));
+  await new Promise(r => setTimeout(r, 30));
+  x = await oget(H, OWNER);
+  const k = x.j.total.kinds.claude, c1 = P.costOf({input_tokens: 2000, cache_read_input_tokens: 5000, output_tokens: 900}), c2 = P.costOf({input_tokens: 1000, cache_creation_input_tokens: 3000, output_tokens: 200, server_tool_use: {web_search_requests: 1}});
+  eq([x.s, k.jobs, k.input, k.cacheRead, k.cacheWrite, k.output, k.searches, k.unreported], [200, 2, 3000, 5000, 3000, 1100, 1, 0], "the owner sees every kind of token, and web searches, added up exactly");
+  eq(k.cost, (c1 + c2) / 1e6, "and the cost, the same as what the students were charged (in dollars)");
+  eq(x.j.total.tasks, undefined, "the total has no per-job split; each day does");
+  eq(Object.keys(x.j.days[0].tasks).sort(), ["chat", "grade"], "each day shows cost by job");
+  ok(!JSON.stringify([...H.deps.totalsMap.values()].map(t => t.s.m ? [...t.s.m.values()] : [])).includes("SECRET-STUDENT-ANSWER"), "nothing a student sent is stored in the totals");
+  eq((await oget(H, "wrong-token-0123456789-abcdefgh")).s, 404, "a wrong owner token gets nothing (not even a hint the page exists)");
+  eq((await oget(H, "")).s, 404, "no token, nothing");
+  eq((await oget(H, "short", {...ENV, OWNER_TOKEN: "short"})).s, 404, "an owner token under 24 characters doesn't switch it on");
+  eq((await oget(H, OWNER, ENV)).s, 404, "off until OWNER_TOKEN is set");
+  H = harness({reply: () => ({content: [{type: "text", text: "{}"}], stop_reason: "end_turn"})});
+  await call(H, job()); await new Promise(r => setTimeout(r, 30));
+  x = await oget(H, OWNER);
+  eq(x.j.total.kinds.claude.unreported, 1, "a reply without a usage report is counted as unreported (charged at its worst case)");
+  H = harness(); await tcall(H, audio(240000)); await new Promise(r => setTimeout(r, 30));
+  x = await oget(H, OWNER);
+  eq([x.j.total.kinds.whisper.jobs, x.j.total.kinds.whisper.audioSeconds, x.j.total.kinds.whisper.cost], [1, 30, P.audioCost(30) / 1e6], "transcription: minutes of audio and their cost");
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

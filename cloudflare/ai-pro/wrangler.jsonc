@@ -11,9 +11,9 @@
   // Whisper (lecture transcription) and bge-m3 (search by meaning) on Workers AI
   "ai": { "binding": "AI" },
   "durable_objects": {
-    "bindings": [{ "name": "STUDENT", "class_name": "StudentMeter" }]
+    "bindings": [{ "name": "STUDENT", "class_name": "StudentMeter" }, { "name": "TOTALS", "class_name": "DayTotals" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StudentMeter"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StudentMeter", "DayTotals"] }],
   "vars": {
     "SUPABASE_URL": "https://pivcmrqcjseycjkbocmc.supabase.co",
     "SUPABASE_KEY": "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd",
@@ -31,6 +31,7 @@
     // "1" turns Studyboard AI off without removing anything
     "PRO_AI_OFF": "",
     "WHISPER_OFF": "",
+    // The owner's usage summary (GET /v1/owner/usage) needs the OWNER_TOKEN secret: at least 24 random characters
     // YouTube links go to Google's Gemini through the same gateway; "1" turns them off
     "YOUTUBE_OFF": ""
   }
