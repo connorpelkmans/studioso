@@ -1552,7 +1552,8 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .qa-meta{display:flex;gap:6px;font-size:.8rem;color:var(--muted)}
 .qa-meta span{background:var(--soft);border-radius:6px;padding:2px 6px}
 /* do this next */
-.est-btn{font-size:.82rem;padding:0 0 0 8px;display:inline-flex;align-items:center;gap:3px}
+.tf-hours-row{display:flex;align-items:center;gap:8px}.tf-hours-row>input{flex:1;min-width:0}
+.btn.est-btn{flex:none;display:inline-flex;align-items:center;gap:4px;align-self:stretch;white-space:nowrap}
 .est-hint{margin:0;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 /* explain & grading */
 .explain{display:flex;gap:10px;margin-top:12px;background:color-mix(in srgb,#8B5CF6 7%,var(--surface));border:1px solid color-mix(in srgb,#8B5CF6 30%,var(--line));border-radius:12px;padding:10px 14px;max-width:760px;text-align:left}

@@ -5136,11 +5136,11 @@ function aiSetupSheet(fromFeature, opts){
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your own key below instead. ${aiProUsedUp() ? "It's used up for now, so your own key (Gemini first) is used until it resets." : "Your own key below is only a backup: if this month's or today's Studyboard AI runs out, your Gemini key (or another key you added) takes over until it resets."}</p></div>` : ""}
       ${fromFeature && !aiProAvail() ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
-      <p style="margin:0">Studyboard's AI uses <b>Google Gemini</b> by default because it's free. The free tier easily covers one student's studying.</p>
+      <p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
-        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> and sign in with your Google account.</li>
-        <li>Click <b>Create API key</b>. Don't turn on billing for it, so it can never cost anything. If you use up the free amount, AI just pauses until it resets.</li>
-        <li>Click <b>Copy</b> next to the key, come back here and paste it into the <b>Gemini</b> box below.${DESK && DESK.aiClipboard ? " Studyboard also picks it up on its own when you come back to this window." : ""}</li>
+        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a></li>
+        <li>Click <b>Create API Key</b> (keep billing off)</li>
+        <li>Copy the key and paste below</li>
       </ol>
       ${opts.code && KEY_RELAY ? `<div class="ai-disclaimer" id="aiHoAsk" style="display:grid;gap:8px"><p style="margin:0"><b>Add AI from your other device?</b> This adds the AI keys you set up there to this device, using code <b>${esc(opts.code)}</b>.</p><div class="row" style="display:flex;gap:8px"><button type="button" class="btn primary small" id="aiHoYes">Add Keys</button><button type="button" class="btn small" id="aiHoNo">Not Now</button></div></div>` : ""}
       <p class="mini" id="aiPasteMsg" aria-live="polite" style="margin:0" hidden></p>
@@ -13628,7 +13628,7 @@ function taskForm(t, preset = {}){
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
   openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(t.title))}
-    <div class="sheet-body">${REQ_NOTE}${window.SBBREAK ? SBBREAK.formHtml(isNew ? null : t, isNew) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
+    <div class="sheet-body">${window.SBBREAK && !isNew ? SBBREAK.formHtml(t, false) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <div class="two">
         <label class="f">Type<select name="type" id="tfType">${(window.SBAREA ? SBAREA.types() : TYPES).map(x => `<option ${x === t.type ? "selected" : ""}>${x}</option>`).join("")}</select></label>
@@ -13658,7 +13658,7 @@ function taskForm(t, preset = {}){
         <summary><span class="adv-title">Advanced Settings</span><span class="adv-sum" id="advSum"></span></summary>
         <div class="adv-body">
           <div class="two">
-            <label class="f" data-fld="hours"><span class="lh"><span class="lbl">Hours Needed</span>${inPreview() ? "" : `<button type="button" class="link-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3"></label>
+            <label class="f" data-fld="hours"><span class="lbl">Hours Needed</span><span class="tf-hours-row"><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3">${inPreview() ? "" : `<button type="button" class="btn small ai-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span></label>
           </div>
           <p class="mini est-hint" id="estHint" hidden aria-live="polite"></p>
           <p class="mini acc-hint" id="accHint" hidden aria-live="polite"></p>
@@ -13690,6 +13690,7 @@ function taskForm(t, preset = {}){
       ${!isNew && t.due ? `<div class="link-row"><a href="${esc(gcalLink(t))}" target="_blank" rel="noopener noreferrer">Add to Google Calendar</a></div>` : ""}
       ${!isNew && t.seriesId ? `<p class="mini" style="margin:0">${REPEAT} Part of a repeating series. Changes here apply to this task only.</p>` : ""}
       ${!isNew && t.history.length ? `<details class="hist"><summary>History (${t.history.length})</summary><ul>${t.history.slice().reverse().map(h => `<li><span>${esc(h.text)}</span><time>${esc(new Date(h.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</time></li>`).join("")}</ul></details>` : ""}
+      ${isNew && window.SBBREAK ? SBBREAK.formHtml(null, true) : ""}
     </div>
     <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-task" data-id="${esc(t.id)}">Delete</button>${canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Focus</button>` : ""}${MILESTONE(t.type) && t.due > todayISO() && t.status !== "done" ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : ""}${t.type === "Study" && (t.studyDecks || []).some(id => state.decks[id]) ? `<button type="button" class="btn" data-act="${t.studyKind === "practice" ? "fc-practice-plan" : "fc-study-plan"}" data-id="${esc(t.id)}">${t.studyKind === "practice" ? "Practice Quiz" : "Study Cards"}</button>` : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button>${isNew ? `<button type="button" class="btn" id="tfPlanPrep" hidden>Add &amp; Plan Prep</button>` : ""}<button type="button" class="btn primary" data-submit>${isNew ? "Add Task" : "Save Task"}</button></div>
   </form>`, fd => {
@@ -13869,7 +13870,7 @@ function taskForm(t, preset = {}){
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
     const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
     $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because ${esc(readyWords(lead.from, lead.p))}` : ""}.` : ""}`
-      : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
+      : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (add Hours Needed for a better estimate)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   // typing a weight over an estimated one makes it yours: no longer red
@@ -25783,7 +25784,7 @@ Return JSON only.`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI to search by meaning and get short answers from your own notes and files. It's free with a Google Gemini key. For now, this finds related words.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? "Claude has no search-by-meaning service, so Ask With AI has Claude suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning." : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar();
-      if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `<p class="sx-hint">${scopeC() ? `Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.` : "Describe what you're looking for in your own words, like “the slide about photosynthesis and light” or “when is my bio midterm”."}</p>${starters()}`;
+      if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
     }
     if (live) {
       S.thread.forEach((T, i) => { if (T !== A) h += turnHtml(T, i); });
@@ -32218,9 +32219,8 @@ hook("boot", boot);
       : !x ? `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>`
       : !x.ok ? `<div class="grp-err" role="alert"><span>${esc(x.err || "Couldn't load this.")}</span><button type="button" class="btn small" data-act="grp-weak-retry">Try Again</button></div>`
       : list.length ? `<ul class="grp-list">${rows}</ul>${cards.length ? `<div class="row-actions"><button class="btn small" data-act="grp-weak-deck" data-id="${esc(g.id)}">Make a Deck From the Cards</button></div>` : ""}`
-      : `<p class="grp-none">${on ? "Nothing to show yet. This appears once 3 members share their results and 2 miss the same card or question." : "Share your results to join in. It appears once at least 3 members take part and at least 2 miss the same card or question."}</p>`;
-    return `<section class="grp-sec" id="grpWeak">${secHead(I_WEAK, "Most Missed", null, btn)}${body}
-      <p class="mini">Anonymous: only totals per card or question are kept, and nobody, not even the owner, can see who missed what.</p></section>`;
+      : `<p class="grp-none">${on ? "Nothing to show yet. This appears once 3 members share their results and 2 miss the same card or question. Anonymous." : "Share your results to join in. It appears once at least 3 members take part and at least 2 miss the same card or question. Anonymous."}</p>`;
+    return `<section class="grp-sec" id="grpWeak">${secHead(I_WEAK, "Most Missed", null, btn)}${body}</section>`;
   }
   function weakDeck(g){
     const cards = GK.topMisses((S.miss[g.id] || {}).rows, S.items[g.id] || []).filter(r => r.kind === "card").slice(0, 20);
@@ -97692,8 +97692,10 @@ ui._day = todayISO();
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
         // A piece redrawn in place (swapped for a fresh copy of itself: same id, or same tag and kind) is already on screen, so it stays still:
         // fading it in again would blank it out and back each time fresh data arrives (opening a group used to flicker twice)
+        // The companion's face on an AI icon (98-companion swapFaces) stands in for an icon that was already there, so it never
+        // eases in by itself: Ask redraws its callout on every keystroke, and the face blinked out and back each key
         const was = new Set(); for (const r of m.removedNodes) if (r.nodeType === 1) was.add(r.id ? "#" + r.id : r.tagName + "." + (r.classList[0] || ""));
-        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && !(was.size && was.has(a.id ? "#" + a.id : a.tagName + "." + (a.classList[0] || ""))) && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.tagName === "DIALOG") continue; play(a, "sm-in"); n++; }   // a sheet redrawn whole (a button pressed in it) stays still
+        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && !(was.size && was.has(a.id ? "#" + a.id : a.tagName + "." + (a.classList[0] || ""))) && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu, .cp-ai-face") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.tagName === "DIALOG") continue; play(a, "sm-in"); n++; }   // a sheet redrawn whole (a button pressed in it) stays still
       }
     }
   });
