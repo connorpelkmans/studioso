@@ -63698,8 +63698,24 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function faceFor(){
     if (!aiName()) return "";
     const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(cfg().tint || {}) + "|" + nameOf(cur);
-    if (sig !== faceSig) { faceSig = sig; faceHtml = rigSvg(cur, {eyes: "happy", mouth: "smile", wear: wearOf(cur)}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, ""); }
+    if (sig !== faceSig) { faceSig = sig; faceHtml = faceSvg(cur, wearOf(cur)); }
     return faceHtml;
+  }
+  // The happy face for an AI button, cropped to a square around the drawing itself. Each companion sits somewhere
+  // different in its 120x120 box (a tall one fills it, a small one sits low, a sparkle reaches up), so without this
+  // some faces ride high and some low next to the button's text.
+  function faceSvg(c, wear){
+    const html = rigSvg(c, {eyes: "happy", mouth: "smile", wear: wear || []}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, "");
+    try {
+      const m = document.createElement("div");
+      m.style.cssText = "position:fixed;left:-1000px;top:0;width:120px;height:120px;visibility:hidden;pointer-events:none;contain:strict";
+      m.innerHTML = html; document.body.appendChild(m);
+      const b = m.querySelector(".cp-rig").getBBox(); m.remove();
+      if (!(b.width > 1 && b.height > 1)) return html;
+      // a little room for the outlines (getBBox leaves out strokes)
+      const s = Math.max(b.width, b.height) + 6, x = b.x + b.width / 2 - s / 2, y = b.y + b.height / 2 - s / 2;
+      return html.replace(`viewBox="0 0 ${VB} ${VB}"`, `viewBox="${f1(x)} ${f1(y)} ${f1(s)} ${f1(s)}"`);
+    } catch (e) { return html; }
   }
   // Each copy of the face gets its own gradient and clip ids
   let faceN = 0;
@@ -63780,7 +63796,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const quietNow2 = () => !isOn() || !talkOn() || !cur || !box || box.hidden || document.hidden;
 
   window.SBCOMP = {
-    aiName, face: () => faceFor(),
+    aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec">Accessories</h3>'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn More</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn More</summary>' + w.slice(k + '<h3 class="fsec">How to Earn More</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
     wearColor: () => { try { const c = current(); return c ? wearColor(c) : ""; } catch (e) { return ""; } },
