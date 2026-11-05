@@ -376,7 +376,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   }
   ok(allHaiku, "every job, before and past the soft limit, with or without web lookups: Haiku 5.5 at its own effort (thinking off only for the no-thinking jobs)");
   eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "high").map(([k]) => k).sort(), ["breakdown", "cards", "cases", "grade", "practice", "quiz", "rubric", "syllabus", "tutor"], "the high-thinking jobs");
-  eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "none").map(([k]) => k).sort(), ["annintel", "classify", "line", "news", "ping", "quickadd", "remote", "tag", "triage"], "the no-thinking jobs");
+  eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "none").map(([k]) => k).sort(), ["annintel", "classify", "describe", "line", "news", "ping", "quickadd", "remote", "tag", "triage"], "the no-thinking jobs");
 
   /* The owner's usage summary: exact totals from the usage reports, counts only, behind its own secret */
   const OWNER = "owner-secret-0123456789-abcdefghij";

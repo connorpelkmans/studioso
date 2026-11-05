@@ -101,10 +101,10 @@ The Worker imports that file, and the app bundles the very same file. A student,
 | Jobs | Thinking |
 |---|---|
 | Grading answers, Teach It Back, Rubric Check, Ask About Course, syllabus import, flashcard, quiz and case sets, practice tests, Break It Down | High |
-| Companion chat, Ask, summaries, explanations, exam plans | Medium |
+| Companion chat, Ask (including finding things and proposing changes), summaries, explanations, exam plans | Medium |
 | The automatic plan | Medium |
-| Session tuning, estimates, weekly review | Low |
-| Exam location check, quick add, announcement dates, companion lines | None |
+| Session tuning, estimates, weekly review, reading an equation for the calculator | Low |
+| Exam location check, quick add, announcement dates, companion lines, describing whiteboard pictures for search | None |
 
 Automatic jobs (the ones the app runs in the background) use their own level from the table: the plan at medium, companion lines and yes/no checks with no thinking. `AUTO_EFFORT` can raise all of them to at least `"medium"` (or `"low"`/`"high"`) on Studyboard AI, for about $0.28 more per student a month; it's empty by default.
 
