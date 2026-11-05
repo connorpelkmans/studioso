@@ -5583,7 +5583,7 @@ function qaBarHtml(){
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
       <span class="qa-ic" aria-hidden="true">${aiReady() ? AI_ICON : "+"}</span>
       <input type="text" id="qaIn" value="${esc(ui.qaText || "")}" ${(ex => phPh("Add a task by typing, e.g. " + (ex || "bio quiz fri 2pm worth 5%"), "e.g. " + (ex ? ex.split(" ").slice(0, 2).join(" ") : "bio quiz fri")))(window.SBAREA && SBAREA.example())} aria-label="Add a task by typing a sentence" maxlength="400" data-noenter>
-      <button type="button" class="btn small cap-cam" data-act="cap-photo" aria-label="Add tasks from a photo of a whiteboard or slide" title="Photo of a whiteboard or slide"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.2-2h5.6L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.4"/></svg></button>
+      ${CAPTURE_OFF ? "" : `<button type="button" class="btn small cap-cam" data-act="cap-photo" aria-label="Add tasks from a photo of a whiteboard or slide" title="Photo of a whiteboard or slide"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.2-2h5.6L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.4"/></svg></button>`}
       <button type="submit" class="btn small primary" ${q && q.busy ? "disabled" : ""}>${q && q.busy ? `<span class="ai-spin" aria-hidden="true"></span>Reading` : "Add"}</button>
     </form>
     <p class="qa-live mini" id="qaLive" aria-live="polite">${q ? "" : esc(qaLiveText(ui.qaText))}</p>
@@ -8986,6 +8986,9 @@ const AI_ACTS = {
   "ask-course": el => askSheet(el.dataset.id || "")
 };
 /* ===== module: 01-helpers.js: the app's core, backups, helpers, workload and shared pieces ===== */
+// Quick Capture (the C window, photo and screenshot capture, share sheet, links and its Settings) is switched off for now.
+// Set to false to bring it all back. The add bar's sentence reading (same parser) stays on either way.
+const CAPTURE_OFF = true;
 /* Backups */
 let autoBackupDone = false;
 // Backups are kept on this device
@@ -29679,6 +29682,7 @@ const pastedImages = e => [...((e.clipboardData && e.clipboardData.files) || [])
 const anyDialogOpen = () => ["dlg", "pomoDlg", "sxDlg", "capDlg", "alarmDlg", "aiConsent", "sbTour"].some(id => { const d = document.getElementById(id); return d && d.open; }) || !!document.querySelector("dialog.ai-consent[open]");
 
 function openCapture(o){
+  if (CAPTURE_OFF) return;
   o = o || {};
   ensureDom();
   if (dlg.open) { try { dlg.close(); } catch (e) {} }
@@ -29852,6 +29856,7 @@ async function shrink(file){
 }
 const b64 = async blob => bytesToB64(new Uint8Array(await blob.arrayBuffer()));
 async function photoFiles(files, o){
+  if (CAPTURE_OFF) return;
   o = o || {};
   const list = [...files].filter(isImg).slice(0, 10);
   if (!list.length) { toast("Studyboard can't read that photo. Try a JPEG or PNG."); return; }
@@ -30042,6 +30047,7 @@ function settingsExtra(fn){ if (typeof fn === "function") settingsFns.push(fn); 
 /* links */
 function handleUrl(raw, o){
   o = o || {};
+  if (CAPTURE_OFF) { if (!o.quiet) toast("Adding tasks from shares and links isn't available right now."); return {ok: false, reason: "off"}; }
   const r = CAP.parseUrl(raw, {today: todayISO()});
   if (!r.ok) { if (!o.quiet) toast("That link can't be used for capture."); return {ok: false, reason: r.reason}; }
   const p = r.params;
@@ -30085,12 +30091,13 @@ function fast(text){
 
 /* entry points */
 document.addEventListener("keydown", e => {
-  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.key !== "c") return;
+  if (CAPTURE_OFF || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.key !== "c") return;
   const t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
   if (anyDialogOpen() || (ui.tab === "flashcards" && ui.fc)) return;
   e.preventDefault(); openCapture({shortcut: true});
 });
 document.addEventListener("paste", e => {
+  if (CAPTURE_OFF) return;
   const t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
   if (anyDialogOpen() || ui.tab !== "board") return;
   const imgs = pastedImages(e);
@@ -30098,14 +30105,15 @@ document.addEventListener("paste", e => {
   const txt = (e.clipboardData && e.clipboardData.getData("text/plain")) || "";
   if (txt.trim().split(/\r?\n/).filter(Boolean).length >= 2 && txt.length <= 4000) { e.preventDefault(); const r = CAP.fromText(txt, ctx(), {source: "paste"}); if (r.drafts.length) present(r.drafts, {trusted: true}); }
 });
-["dragover", "dragenter"].forEach(ev => window.addEventListener(ev, e => { if (anyDialogOpen() || !hasFiles(e) || ui.tab === "files") return; e.preventDefault(); document.body.classList.add("cap-drag"); }));
+["dragover", "dragenter"].forEach(ev => window.addEventListener(ev, e => { if (CAPTURE_OFF || anyDialogOpen() || !hasFiles(e) || ui.tab === "files") return; e.preventDefault(); document.body.classList.add("cap-drag"); }));
 ["dragleave", "drop"].forEach(ev => window.addEventListener(ev, e => { if (ev === "dragleave" && e.relatedTarget) return; document.body.classList.remove("cap-drag"); }));
 window.addEventListener("drop", e => {
-  if (anyDialogOpen() || ui.tab === "files") return;
+  if (CAPTURE_OFF || anyDialogOpen() || ui.tab === "files") return;
   const f = imageFiles(e.dataTransfer); if (!f.length) return;
   e.preventDefault(); photoFiles(f, {source: "drop"});
 });
 hook("act", (act, b) => {
+  if (CAPTURE_OFF && /^cap-(open|photo|try)$/.test(act)) return true;
   if (act === "cap-open") { openCapture({shortcut: true}); return true; }
   if (act === "cap-photo") { ensureDom(); if (dlg.open) dlg.close(); camInput.click(); return true; }
   if (act === "cap-try") { tryIt(b.dataset.try); return true; }
@@ -30163,7 +30171,7 @@ function settingsHtml(){
     ${desk ? shotHtml() : ""}${extra}
   </div>`;
 }
-hook("menu", () => settingsHtml());
+hook("menu", () => CAPTURE_OFF ? "" : settingsHtml());
 
 /* start */
 function boot(){
@@ -30376,6 +30384,7 @@ hook("boot", boot);
   // Inside the App Store / Google Play apps (Capacitor) the web-only steps
   const NATIVE_APP = (() => { try { const C = window.Capacitor; return !!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform()); } catch (e) { return false; } })();
   function nativeRows(){
+    if (CAPTURE_OFF) return IOS ? "" : `<div class="cap-row"><span style="flex:1;font-weight:600">App Shortcuts<span class="sub">Press and hold the Studyboard icon on your Home screen for Quick Add.</span></span></div>`;
     const share = `<div class="cap-row"><span style="flex:1;font-weight:600">Share to Studyboard<span class="sub">In any app, tap Share and choose Studyboard to turn text, a link or a photo into a task.</span></span></div>`;
     if (IOS) return share + `<div class="cap-row"><span style="flex:1;font-weight:600">Siri and Shortcuts<span class="sub">Say "Add a task to Studyboard" or "Take a photo for Studyboard". Both are also in the Shortcuts app, ready to put on your Home Screen or Action button.</span></span></div>`;
     return share + `<div class="cap-row"><span style="flex:1;font-weight:600">Quick Capture Tile<span class="sub">Swipe down twice, tap the pencil to edit your Quick Settings, and drag Quick capture in. One tap opens Studyboard ready to add a task.</span></span></div>
@@ -81999,7 +82008,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   });
   window.addEventListener("sb:secrets-wiped", () => { E.st = "idle"; E.key = ""; });
 
-  if (domain()) P.addFeature({id: "email", name: "Email to Studyboard", where: "Settings, Quick Capture: forward emails, check what's found, add it", icon: MAIL});
+  if (domain() && !CAPTURE_OFF) P.addFeature({id: "email", name: "Email to Studyboard", where: "Settings, Quick Capture: forward emails, check what's found, add it", icon: MAIL});
   Object.assign(P, {emailIngest: ingest});
   Object.assign(window.__sbProStudy || {}, {email: {cleanSubject, dateLines, gmailConfirm, draftsFor, state: E, box: boxHtml, pending}});
 

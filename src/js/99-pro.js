@@ -4198,7 +4198,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   });
   window.addEventListener("sb:secrets-wiped", () => { E.st = "idle"; E.key = ""; });
 
-  if (domain()) P.addFeature({id: "email", name: "Email to Studyboard", where: "Settings, Quick Capture: forward emails, check what's found, add it", icon: MAIL});
+  if (domain() && !CAPTURE_OFF) P.addFeature({id: "email", name: "Email to Studyboard", where: "Settings, Quick Capture: forward emails, check what's found, add it", icon: MAIL});
   Object.assign(P, {emailIngest: ingest});
   Object.assign(window.__sbProStudy || {}, {email: {cleanSubject, dateLines, gmailConfirm, draftsFor, state: E, box: boxHtml, pending}});
 
