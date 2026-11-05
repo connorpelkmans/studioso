@@ -221,3 +221,17 @@
 .cx[data-cxskin=aquarium] .cx-lcd{background:radial-gradient(4px 4px at 88% 78%,rgba(47,184,217,.35) 60%,transparent 70%),radial-gradient(3px 3px at 92% 50%,rgba(47,184,217,.3) 60%,transparent 70%),radial-gradient(5px 5px at 85% 25%,rgba(47,184,217,.28) 60%,transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
 .cx[data-cxskin=aquarium] .cx-body{box-shadow:inset 6px 0 18px -6px rgba(255,255,255,.25),inset 0 1px 0 rgba(255,255,255,.14)}
 .cx:focus{outline:none}
+
+/* "Select an equation on screen" (99-calc-snip.js): the corner button and the sheet you drag a box on */
+.cx-snip{display:grid;place-items:center;width:28px;height:28px;margin-left:0;padding:0;border:0;border-radius:50%;background:var(--xbg);color:var(--xink);cursor:pointer}
+.cx-snip svg{width:16px;height:16px}
+.cx-snip:hover,.cx-snip:focus-visible{filter:brightness(1.15)}
+.cx-snip + .cx-x{margin-left:0}
+.cx-expr.cx-in{animation:cxIn .9s ease}
+@keyframes cxIn{0%{background:color-mix(in srgb,var(--accent,#4f7cff) 30%,transparent)}100%{background:transparent}}
+.cxs-veil{position:fixed;inset:0;z-index:2147483000;cursor:crosshair;background:rgba(10,14,24,.18);touch-action:none;user-select:none;-webkit-user-select:none}
+.cxs-hint{position:fixed;top:14px;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:999px;background:rgba(18,22,32,.92);color:#fff;font:600 .85rem/1.2 var(--font,system-ui);box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none;white-space:nowrap}
+.cxs-hint span{margin-left:8px;opacity:.65;font-weight:500}
+.cxs-veil.is-drag .cxs-hint{opacity:0;transition:opacity .15s}
+.cxs-box{position:fixed;border:2px solid #4f7cff;border-radius:4px;background:rgba(79,124,255,.12);box-shadow:0 0 0 9999px rgba(10,14,24,.22);pointer-events:none}
+@media (prefers-reduced-motion:reduce){.cx-expr.cx-in{animation:none}}

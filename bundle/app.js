@@ -3258,6 +3258,8 @@ const SBPOLICY = (() => {
     explain: {effort: "medium", out: 4000, routine: true}, summary: {effort: "medium", out: 12000, routine: true},
     photo: {effort: "medium", out: 10000, routine: true}, linknotes: {effort: "medium", out: 10000, routine: true},
     transcript: {effort: "medium", out: 16000, routine: true}, groupplan: {effort: "medium", out: 6000, routine: true},
+    // The companion's Ask: answers, finds things in the app and proposes changes the student confirms
+    assist: {effort: "medium", out: 6000, routine: true},
     // The automatic plan: medium, to match what free Gemini users get today (it drops to low past the soft limit)
     plan: {effort: "medium", out: 6000, routine: true},
     // Routine: ranks and words what the app has already worked out
@@ -3266,11 +3268,15 @@ const SBPOLICY = (() => {
     weekly: {effort: "low", out: 2000, routine: true}, coach: {effort: "low", out: 3000, routine: true},
     "cards-light": {effort: "low", out: 10000, routine: true}, "quiz-light": {effort: "low", out: 10000, routine: true},
     "cases-light": {effort: "low", out: 10000, routine: true}, rewrite: {effort: "low", out: 9000, routine: true},
+    // Reading an equation the student selected on screen, for the calculator
+    mathread: {effort: "low", out: 3000, routine: true},
     // Yes/no and tiny lookups: no thinking
     remote: {effort: "none", out: 800, routine: true}, quickadd: {effort: "none", out: 3000, routine: true},
     news: {effort: "none", out: 4000, routine: true}, annintel: {effort: "none", out: 2000, routine: true},
     classify: {effort: "none", out: 2000, routine: true}, triage: {effort: "none", out: 2500, routine: true},
     tag: {effort: "none", out: 1000, routine: true}, line: {effort: "none", out: 2000, routine: true},
+    // A short description of a whiteboard picture or drawing, so Ask can find it
+    describe: {effort: "none", out: 1200, routine: true},
     ping: {effort: "none", out: 400, routine: true}
   };
   // A job the app doesn't name
@@ -3578,7 +3584,8 @@ const AI_TASKS = {
   syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["mid", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"], ocr: ["lite", "low"],
   topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "low"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
-  school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
+  school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"],
+  assist: ["mid", "medium"], mathread: ["mid", "low"], describe: ["lite", "low"]
 };
 const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
 const AI_PROVIDERS = {
@@ -92465,6 +92472,60 @@ var SBCALCSKIN = null;
   /* math.js, set up once: degrees, radians or gradians for the trig functions, and exact zeros where a real calculator shows them */
   let M = null, loading = null;
   const C = {angle: "deg"};
+  /* ∫, d/dx and Σ take an expression and its variable unread (math.js "rawArgs"): f(x, x, a, b) */
+  function rawFn(n, run){
+    const f = (args, math, scope) => {
+      if (args.length !== n || !args[1] || args[1].type !== "SymbolNode") throw new Error("Syntax");
+      const body = args[0].compile(), v = args[1].name, sc = new Map();
+      if (scope && typeof scope.keys === "function" && typeof scope.get === "function") { for (const k of scope.keys()) sc.set(k, scope.get(k)); }
+      else if (scope) Object.keys(scope).forEach(k => sc.set(k, scope[k]));
+      const at = x => { sc.set(v, x); const y = body.evaluate(sc); if (typeof y !== "number" || !isFinite(y)) throw new Error("Math"); return y; };
+      const val = k => { const y = args[k].compile().evaluate(scope); if (typeof y !== "number" || Number.isNaN(y)) throw new Error("Math"); return y; };
+      return run(at, val);
+    };
+    f.rawArgs = true; return f;
+  }
+  // Adaptive Simpson over 16 pieces; an end the function can't be evaluated at (1/√x at 0) is approached from inside
+  // Tanh-sinh: crowds points toward the ends, so 1/√x from 0 to 1 comes out at 2
+  function integralEnds(f, a, b){
+    const c = (a + b) / 2, r = (b - a) / 2; let prev = null, calls = 0;
+    for (let L = 0; L <= 10; L++) {
+      const h = 1 / (1 << L); let sum = 0;
+      for (let k = -Math.ceil(4.5 / h); k <= Math.ceil(4.5 / h); k++) {
+        const t = k * h, u = Math.PI / 2 * Math.sinh(t), ch = Math.cosh(u), w = Math.PI / 2 * Math.cosh(t) / (ch * ch);
+        const gap = r * Math.exp(-Math.abs(u)) / ch, x = t === 0 ? c : t > 0 ? b - gap : a + gap;
+        if (x <= a || x >= b || !(w > 0)) continue;
+        if (++calls > 400000) throw new Error("Math");
+        let y; try { y = f(x); } catch (e) { if (w < 1e-15) continue; throw e; }
+        sum += w * y;
+      }
+      const I = r * h * sum;
+      if (prev != null && Math.abs(I - prev) <= 1e-11 * Math.max(1, Math.abs(I))) return Number(I.toPrecision(12));
+      prev = I;
+    }
+    return Number(prev.toPrecision(9));
+  }
+  function integral(f, a, b){
+    const bad = x => { try { return !isFinite(f(x)); } catch (e) { return true; } };
+    if (bad(a) || bad(b)) return integralEnds(f, a, b);
+    let calls = 0;
+    const g = x => { if (++calls > 400000) throw new Error("Math"); try { return f(x); } catch (e) { if (x !== a && x !== b) throw e; const h = (b - a) * 1e-10; return f(x === a ? a + h : b - h); } };
+    const simp = (a, b, fa, fm, fb) => (b - a) / 6 * (fa + 4 * fm + fb);
+    const rec = (a, b, fa, fm, fb, whole, eps, depth) => {
+      const m = (a + b) / 2, lm = (a + m) / 2, rm = (m + b) / 2, flm = g(lm), frm = g(rm);
+      const left = simp(a, m, fa, flm, fm), right = simp(m, b, fm, frm, fb), d = left + right - whole;
+      if (depth <= 0 || Math.abs(d) <= 15 * eps) return left + right + d / 15;
+      return rec(a, m, fa, flm, fm, left, eps / 2, depth - 1) + rec(m, b, fm, frm, fb, right, eps / 2, depth - 1);
+    };
+    let t = 0; const N = 16, w = (b - a) / N;
+    for (let i = 0; i < N; i++) { const x0 = a + i * w, x1 = i === N - 1 ? b : x0 + w, f0 = g(x0), f1 = g(x1), fm = g((x0 + x1) / 2); t += rec(x0, x1, f0, fm, f1, simp(x0, x1, f0, fm, f1), 1e-12, 40); }
+    return Math.abs(t) < 1e-13 ? 0 : t;
+  }
+  // Five-point difference, refined once (Richardson)
+  function derivative(f, a){
+    const d = h => (-f(a + 2 * h) + 8 * f(a + h) - 8 * f(a - h) + f(a - 2 * h)) / (12 * h), h = 1e-3 * Math.max(1, Math.abs(a));
+    const v = (16 * d(h / 2) - d(h)) / 15; return Math.abs(v) < 1e-10 ? 0 : Number(v.toPrecision(10));
+  }
   function loadMath(){
     if (M) return Promise.resolve(M);
     if (!loading) loading = (async () => {
@@ -92485,7 +92546,10 @@ var SBCALCSKIN = null;
         tan: x => num(x, v => { const h = turn(); if (h && v % h === 0) return 0; if (h && (v - h / 2) % h === 0) throw new Error("Math"); const c = Math.cos(toRad(v)); if (Math.abs(c) < 1e-15) throw new Error("Math"); return clean(Math.tan(toRad(v))); }),
         asin: inv(Math.asin), acos: inv(Math.acos),
         atan: x => num(x, v => fromRad(Math.atan(v))),
-        _C: (n, r) => math.combinations(nr(n, r), r), _P: (n, r) => math.permutations(nr(n, r), r), _root: (n, x) => math.nthRoot(x, n)
+        _C: (n, r) => math.combinations(nr(n, r), r), _P: (n, r) => math.permutations(nr(n, r), r), _root: (n, x) => math.nthRoot(x, n),
+        _int: rawFn(4, (at, val) => { let a = val(2), b = val(3); if (!isFinite(a) || !isFinite(b)) throw new Error("Math"); if (a === b) return 0; const sg = a < b ? 1 : -1; if (sg < 0) [a, b] = [b, a]; return sg * integral(at, a, b); }),
+        _der: rawFn(3, (at, val) => derivative(at, val(2))),
+        _sum: rawFn(4, (at, val) => { const a = val(2), b = val(3); if (!Number.isInteger(a) || !Number.isInteger(b) || b - a > 1e6) throw new Error("Math"); let t = 0; for (let k = a; k <= b; k++) t += at(k); return t; })
       }, {override: true});
       M = math; return M;
     })().catch(e => { loading = null; throw e; });
@@ -92540,7 +92604,8 @@ var SBCALCSKIN = null;
     }
   }
   function toMath(tokens){
-    let s = tokens.map(t => t.m).join("");
+    // an unknown next to a letter, number or bracket multiplies (xy, x2, x(1+x)), which math.js would read as a name or a call
+    let s = tokens.map((t, k) => (k && tokens[k - 1].v && /^[\w(.]/.test(t.m) ? "*" : "") + t.m).join("");
     // ×10ˣ: 2ᴇ-3 is one number, 2×10⁻³
     s = s.replace(/(\d*\.?\d+)ᴇ(-?\d+)/g, "($1e$2)").replace(/ᴇ/g, "*10^");
     // π next to a number or bracket multiplies (π2, π(2), 2π3), as math.js would otherwise read pi(2) as a call
@@ -92555,6 +92620,146 @@ var SBCALCSKIN = null;
     const open = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
     if (open < 0) throw new Error("Syntax");
     return s + ")".repeat(open);
+  }
+
+  /* Text to keys: what "select an equation on screen" types. The text is math.js-like: numbers, + - * / ^ ( ) ! %, the
+     functions below, pi and e, single letters for unknowns, = for an equation and ; between the equations of a system.
+     log(x) is base 10, log(x, b) base b, ln(x) natural; root(n, x); integrate(f, x, a, b), deriv(f, x, a), sum(f, n, a, b) */
+  const VAR = l => ({d: l, m: l, v: true});
+  const FNS = {sin: "sin", cos: "cos", tan: "tan", asin: "sin⁻¹", acos: "cos⁻¹", atan: "tan⁻¹", arcsin: "sin⁻¹", arccos: "cos⁻¹", arctan: "tan⁻¹",
+    sinh: "sinh", cosh: "cosh", tanh: "tanh", asinh: "sinh⁻¹", acosh: "cosh⁻¹", atanh: "tanh⁻¹", sqrt: "√", cbrt: "∛", ln: "ln", abs: "Abs", log10: "log"};
+  const FNT = {exp: T("e^(", "e^("), root: T("ʸ√(", "_root("), nCr: T("nCr(", "_C("), nPr: T("nPr(", "_P("), integrate: T("∫(", "_int("), deriv: T("d/d(", "_der("), sum: T("Σ(", "_sum(")};
+  function fromText(src){
+    const s = String(src == null ? "" : src).replace(/\s+/g, " ").trim(), out = [];
+    const args = j => { let d = 0, n = 1; for (let k = j; k < s.length; k++) { const c = s[k]; if (c === "(") d++; else if (c === ")") { if (--d === 0) return n; } else if (c === "," && d === 1) n++; } return n; };
+    const SYM = {"+": TOK.add, "-": TOK.sub, "*": TOK.mul, "/": TOK.div, "^": TOK.pow, "(": TOK.lp, ")": TOK.rp, "!": TOK.fact, "%": TOK.pct, ",": T(","), "=": T("="), ";": T(";")};
+    for (let i = 0; i < s.length;) {
+      const c = s[i]; if (c === " ") { i++; continue; }
+      // squares and cubes show as ² and ³
+      const pw = /^\^\s*(?:([23])|\(\s*([23])\s*\))(?![\d.])/.exec(s.slice(i));
+      if (pw) { out.push((pw[1] || pw[2]) === "2" ? TOK.sq : TOK.cube); i += pw[0].length; continue; }
+      const num = /^(?:\d+\.?\d*|\.\d+)/.exec(s.slice(i));
+      if (num) { for (const ch of num[0]) out.push(ch === "." ? TOK.dot : TOK[ch]); i += num[0].length; continue; }
+      const id = /^[A-Za-z]+/.exec(s.slice(i));
+      if (id) {
+        const w = id[0]; let j = i + w.length; while (s[j] === " ") j++;
+        if (s[j] === "(" && (FNS[w] || FNT[w] || w === "log")) { out.push(w === "log" ? (args(j) > 1 ? T("log(", "log(") : FN("log")) : FNT[w] || FN(FNS[w])); i = j + 1; continue; }
+        if (w === "pi") out.push(TOK.pi); else if (w === "e") out.push(TOK.e); else if (w === "Ans") out.push(TOK.ans);
+        else for (const l of w) out.push(VAR(l));   // xy is x times y
+        i += w.length; continue;
+      }
+      if (!SYM[c]) throw new Error("Syntax");
+      out.push(SYM[c]); i++;
+    }
+    return out;
+  }
+
+  /* Working out what's typed: a number, or an equation solved for its unknown, or a system solved for its unknowns */
+  const KNOWN = new Set(["pi", "e", "Ans", "M", "i", "Infinity"]);
+  function freeVars(n, bound, out){
+    if (n.type === "SymbolNode") { if (!KNOWN.has(n.name) && !bound.has(n.name)) out.add(n.name); return; }
+    if (n.type === "FunctionNode" && /^_(int|der|sum)$/.test(n.fn && n.fn.name)) {
+      const b2 = new Set(bound); if (n.args[1] && n.args[1].name) b2.add(n.args[1].name);
+      if (n.args[0]) freeVars(n.args[0], b2, out); n.args.slice(2).forEach(a => freeVars(a, bound, out)); return;
+    }
+    if (n.type === "FunctionNode") { n.args.forEach(c => freeVars(c, bound, out)); return; }   // the function's own name isn't an unknown
+    n.forEach(c => freeVars(c, bound, out));
+  }
+  const TRIGF = /^(sin|cos|tan|asin|acos|atan)$/;
+  function trigOn(n, v){
+    let hit = false;
+    const walk = (x, inside) => { if (hit) return; if (x.type === "SymbolNode" && x.name === v && inside) { hit = true; return; } const t = inside || (x.type === "FunctionNode" && TRIGF.test(x.fn && x.fn.name)); (x.type === "FunctionNode" ? x.args : (() => { const k = []; x.forEach(c => k.push(c)); return k; })()).forEach(c => walk(c, t)); };
+    walk(n, false); return hit;
+  }
+  const fmtN = x => { const r = Number(x.toPrecision(10)); if (Math.abs(r) >= 1e10 || (r !== 0 && Math.abs(r) < 1e-9)) return r.toExponential(6).replace(/\.?0+e/, "e").replace("-", "−"); return String(r).replace("-", "−"); };
+  const tidy = r => { r = Number(r.toPrecision(12)); const k = Math.round(r); return Math.abs(r - k) < 1e-9 * Math.max(1, Math.abs(r)) ? k : r; };
+  const say = m => Object.assign(new Error(m), {say: m});
+  // Every real root of f: sign changes and touching zeros over a wide range (one turn for trig equations)
+  function roots(f, period){
+    const xs = [];
+    if (period) for (let i = 0; i <= 3600; i++) xs.push(period * i / 3600);
+    else { xs.push(0); for (let k = -9; k <= 7; k += 1 / 240) { const a = Math.pow(10, k); xs.push(a, -a); } xs.sort((a, b) => a - b); }
+    const F = x => { try { const y = f(x); return typeof y === "number" && isFinite(y) ? y : NaN; } catch (e) { return NaN; } };
+    const ys = xs.map(F), out = [];
+    const ok = r => { const y = F(r); return !Number.isNaN(y) && Math.abs(y) <= 1e-7 * Math.max(1, Math.abs(r)); };
+    for (let i = 0; i < xs.length; i++) {
+      const y = ys[i]; if (Number.isNaN(y)) continue;
+      if (y === 0) { out.push(xs[i]); continue; }
+      const y2 = ys[i + 1];
+      if (i + 1 < xs.length && !Number.isNaN(y2) && y2 !== 0 && (y < 0) !== (y2 < 0)) {
+        let a = xs[i], b = xs[i + 1], fa = y;
+        for (let k = 0; k < 200; k++) { const m = (a + b) / 2; if (m === a || m === b) break; const fm = F(m); if (Number.isNaN(fm)) break; if (fm === 0) { a = b = m; break; } if ((fm < 0) === (fa < 0)) { a = m; fa = fm; } else b = m; }
+        const r = (a + b) / 2; if (ok(r)) out.push(r);
+      } else if (i > 0 && i + 1 < xs.length && !Number.isNaN(ys[i - 1]) && !Number.isNaN(y2) && Math.abs(y) <= Math.abs(ys[i - 1]) && Math.abs(y) <= Math.abs(y2) && (y < 0) === (y2 < 0) && (y < 0) === (ys[i - 1] < 0)) {
+        // a zero the curve only touches, like (x−2)² = 0
+        let a = xs[i - 1], b = xs[i + 1]; const g = x => Math.abs(F(x)), R = (Math.sqrt(5) - 1) / 2;
+        for (let k = 0; k < 200 && b - a > 1e-15 * Math.max(1, Math.abs(a)); k++) { const c = b - R * (b - a), d = a + R * (b - a); if (g(c) < g(d)) b = d; else a = c; }
+        const r = (a + b) / 2; if (Math.abs(F(r)) <= 1e-9 * Math.max(1, Math.abs(r))) out.push(r);
+      }
+    }
+    const uniq = []; out.map(tidy).sort((a, b) => a - b).forEach(r => { if (!uniq.length || Math.abs(r - uniq[uniq.length - 1]) > 1e-7 * Math.max(1, Math.abs(r))) uniq.push(r); });
+    return period ? uniq.filter(r => r >= 0 && r < period - 1e-9 * period) : uniq;
+  }
+  // Newton's method for a system, from several starting points; each distinct answer is kept
+  function newton(F, n){
+    const sols = [], starts = [Array(n).fill(0), Array(n).fill(1), Array(n).fill(-1)];
+    for (let k = 0; k < 24; k++) starts.push(Array.from({length: n}, (_, j) => Math.sin(k * 12.9898 + j * 78.233) * 10 * (1 + k % 4)));
+    const solveLin = (A, b) => { const m = A.map((r, i) => r.concat([b[i]])); for (let c = 0; c < n; c++) { let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(m[r][c]) > Math.abs(m[p][c])) p = r; if (Math.abs(m[p][c]) < 1e-14) return null; [m[c], m[p]] = [m[p], m[c]]; for (let r = 0; r < n; r++) if (r !== c) { const f = m[r][c] / m[c][c]; for (let k = c; k <= n; k++) m[r][k] -= f * m[c][k]; } } return m.map((r, i) => r[n] / r[i]); };
+    for (const s0 of starts) {
+      let x = s0.slice(), good = false;
+      for (let it = 0; it < 80; it++) {
+        let fx; try { fx = F(x); } catch (e) { break; } if (fx.some(v => !isFinite(v))) break;
+        if (Math.max(...fx.map(Math.abs)) < 1e-11) { good = true; break; }
+        const J = []; for (let j = 0; j < n; j++) { const h = 1e-7 * Math.max(1, Math.abs(x[j])), x2 = x.slice(); x2[j] += h; let f2; try { f2 = F(x2); } catch (e) { f2 = null; } if (!f2) break; f2.forEach((v, i) => { (J[i] = J[i] || [])[j] = (v - fx[i]) / h; }); }
+        if (J.length !== n) break;
+        const dx = solveLin(J, fx.map(v => -v)); if (!dx) break;
+        x = x.map((v, j) => v + dx[j]);
+      }
+      if (!good) continue;
+      const r = x.map(tidy);
+      if (!sols.some(s => s.every((v, j) => Math.abs(v - r[j]) <= 1e-7 * Math.max(1, Math.abs(v))))) sols.push(r);
+      if (sols.length >= 4) break;
+    }
+    return sols;
+  }
+  // tokens → {v: a number (for Ans and S⇔D), txt: what the screen shows when it isn't just v}
+  async function compute(tokens, scope){
+    const math = await loadMath(), eqs = [[]];
+    tokens.forEach(t => { if (t.m === ";") eqs.push([]); else eqs[eqs.length - 1].push(t); });
+    const parts = eqs.filter(e => e.length).map(e => {
+      const k = e.findIndex(t => t.m === "=");
+      if (k >= 0 && e.slice(k + 1).some(t => t.m === "=")) throw new Error("Syntax");
+      return k < 0 ? [toMath(e)] : [toMath(e.slice(0, k)), toMath(e.slice(k + 1))];
+    });
+    if (!parts.length || parts.some(p => p.some(x => !x))) throw new Error("Syntax");
+    let nodes; try { nodes = parts.map(p => p.map(x => math.parse(x))); } catch (e) { throw new Error("Syntax"); }
+    const free = new Set(); nodes.forEach(p => p.forEach(n => freeVars(n, new Set(), free)));
+    const isEq = parts.some(p => p.length === 2), vars = [...free].sort();
+    const base = new Map(Object.entries(scope || {}));
+    const num = y => { if (y && typeof y === "object" && typeof y.toNumber === "function") y = y.toNumber(); if (typeof y !== "number" || !isFinite(y)) throw new Error("Math"); return y; };
+    if (!vars.length && parts.length === 1 && !isEq) return {v: num(math.evaluate(parts[0][0], scope))};
+    if (!vars.length) {   // 2 + 2 = 4: true or false
+      const t = parts.every(p => p.length < 2 || Math.abs(num(p[0] && math.evaluate(p[0], scope)) - num(math.evaluate(p[1], scope))) <= 1e-9 * Math.max(1, Math.abs(num(math.evaluate(p[1], scope)))));
+      return {v: null, txt: t ? "True" : "False"};
+    }
+    if (!isEq) throw say("Add = to solve");
+    const code = nodes.map(p => p.map(n => n.compile()));
+    const diff = (c, sc) => num(c[0].evaluate(sc)) - (c[1] ? num(c[1].evaluate(sc)) : 0);
+    if (vars.length === 1 && parts.length === 1) {
+      const v = vars[0], sc = new Map(base), trig = nodes[0].some(n => trigOn(n, v));
+      const period = trig ? (C.angle === "deg" ? 360 : C.angle === "gra" ? 400 : 2 * Math.PI) : 0;
+      const rs = roots(x => { sc.set(v, x); return diff(code[0], sc); }, period);
+      if (!rs.length) throw say("No real solution");
+      const shown = rs.slice(0, 8).map(fmtN).join(", ") + (rs.length > 8 ? ", …" : "");
+      const range = trig ? (C.angle === "deg" ? " (0–360°)" : C.angle === "gra" ? " (0–400ᵍ)" : " (0–2π)") : "";
+      return {v: rs[0], txt: `${v} = ${shown}${range}`, all: rs};
+    }
+    if (vars.length > parts.length) throw say(vars.length - parts.length === 1 && parts.length === 1 ? "Two unknowns: add an equation" : "More unknowns than equations");
+    if (vars.length < parts.length || vars.length > 4) throw say("Can't solve this system");
+    const sc = new Map(base);
+    const sols = newton(x => { vars.forEach((v, j) => sc.set(v, x[j])); return code.map(c => diff(c, sc)); }, vars.length);
+    if (!sols.length) throw say("No real solution");
+    return {v: sols[0][0], txt: sols.map(s => vars.map((v, j) => `${v} = ${fmtN(s[j])}`).join(", ")).join("  or  "), all: sols};
   }
   /*CALC-END*/
 
@@ -92580,26 +92785,33 @@ var SBCALCSKIN = null;
 
   /* State */
   const saved = lsGet(LS, {});
-  const S = {tokens: [], cur: 0, shift: false, hyp: false, done: false, result: null, err: "", frac: false,
+  const S = {tokens: [], cur: 0, shift: false, hyp: false, done: false, result: null, err: "", txt: "", note: "", frac: false,
     ans: Number(saved.ans) || 0, mem: Number(saved.mem) || 0, hist: Array.isArray(saved.hist) ? saved.hist.slice(0, 30) : [], hi: -1};
   C.angle = ["deg", "rad", "gra"].includes(saved.angle) ? saved.angle : "deg";
   const save = () => lsSet(LS, {ans: S.ans, mem: S.mem, hist: S.hist.slice(0, 30), angle: C.angle});
 
   function insert(t){
-    if (S.done) { S.done = false; S.err = ""; S.result = null; S.frac = false; }
+    if (S.done) { S.done = false; S.err = ""; S.result = null; S.txt = ""; S.frac = false; }
     S.tokens.splice(S.cur, 0, t); S.cur++;
   }
   async function evaluate(){
     if (!S.tokens.length) return;
-    let expr; try { expr = toMath(S.tokens); } catch (e) { S.err = "Syntax ERROR"; S.done = true; return; }
+    S.txt = ""; S.note = "";
     try { await loadMath(); } catch (e) { S.err = "Couldn't load the calculator"; S.done = true; return; }
-    let v; try { v = M.evaluate(expr, {Ans: S.ans, M: S.mem}); } catch (e) { S.err = /Math|Cannot convert|complex|Infinity/i.test(String(e && e.message)) ? "Math ERROR" : "Syntax ERROR"; S.done = true; return; }
-    if (v && typeof v === "object" && typeof v.toNumber === "function") { try { v = v.toNumber(); } catch (e) {} }
-    try { show(v); } catch (e) { S.err = "Math ERROR"; S.done = true; return; }
-    v = Number(v.toPrecision(15));
-    S.result = v; S.ans = v; S.err = ""; S.done = true; S.frac = false;
-    S.hist.unshift({t: S.tokens.slice(), v}); S.hist = S.hist.slice(0, 30); S.hi = -1;
+    let r; try { r = await compute(S.tokens, {Ans: S.ans, M: S.mem}); } catch (e) { S.err = e && e.say ? e.say : /Math|Cannot convert|complex|Infinity/i.test(String(e && e.message)) ? "Math ERROR" : "Syntax ERROR"; S.done = true; return; }
+    let v = r.v;
+    if (v != null) { try { show(v); } catch (e) { S.err = "Math ERROR"; S.done = true; return; } v = Number(v.toPrecision(15)); S.ans = v; }
+    S.result = v; S.txt = r.txt || ""; S.err = ""; S.done = true; S.frac = false;
+    S.hist.unshift({t: S.tokens.slice(), v, txt: S.txt || undefined}); S.hist = S.hist.slice(0, 30); S.hi = -1;
     save();
+  }
+  /* Typing a whole expression in at once (from "select an equation on screen"); false if it isn't one the calculator reads */
+  function put(text, angle){
+    let toks; try { toks = fromText(text); toMath(toks.filter(t => t.m !== "=" && t.m !== ";")); } catch (e) { return false; }
+    if (!toks.length) return false;
+    if (angle === "deg" || angle === "rad") { C.angle = angle; save(); }
+    S.tokens = toks; S.cur = toks.length; S.done = false; S.result = null; S.err = ""; S.txt = ""; S.note = ""; S.frac = false; S.hi = -1;
+    return true;
   }
   async function press(a){
     const shifted = S.shift;
@@ -92607,7 +92819,7 @@ var SBCALCSKIN = null;
     if (a === "shift") { S.shift = !shifted; return; }
     if (a === "hyp") { S.hyp = !S.hyp; return; }
     if (a === "drg") { C.angle = C.angle === "deg" ? "rad" : C.angle === "rad" ? "gra" : "deg"; save(); return; }
-    if (a === "ac") { S.tokens = []; S.cur = 0; S.done = false; S.result = null; S.err = ""; S.frac = false; S.hyp = false; S.hi = -1; return; }
+    if (a === "ac") { S.tokens = []; S.cur = 0; S.done = false; S.result = null; S.err = ""; S.txt = ""; S.note = ""; S.frac = false; S.hyp = false; S.hi = -1; return; }
     if (a === "del") { if (S.done) { S.done = false; S.err = ""; S.result = null; S.cur = S.tokens.length; return; } if (S.cur > 0) { S.tokens.splice(S.cur - 1, 1); S.cur--; } return; }
     if (a === "left" || a === "right") {
       if (S.done) { S.done = false; S.err = ""; S.result = null; S.cur = a === "left" ? S.tokens.length : 0; return; }
@@ -92616,9 +92828,9 @@ var SBCALCSKIN = null;
     if (a === "up" || a === "down") {
       if (!S.hist.length) return;
       S.hi = Math.max(0, Math.min(S.hist.length - 1, S.hi + (a === "up" ? 1 : -1)));
-      const h = S.hist[S.hi]; S.tokens = h.t.slice(); S.cur = S.tokens.length; S.result = h.v; S.done = true; S.err = ""; S.frac = false; return;
+      const h = S.hist[S.hi]; S.tokens = h.t.slice(); S.cur = S.tokens.length; S.result = h.v; S.txt = h.txt || ""; S.done = true; S.err = ""; S.frac = false; return;
     }
-    if (a === "sd") { if (S.done && S.result != null && asFraction(S.result)) S.frac = !S.frac; return; }
+    if (a === "sd") { if (S.done && S.result != null && !S.txt && asFraction(S.result)) S.frac = !S.frac; return; }
     if (a === "eq") { await evaluate(); return; }
     if (a === "mplus" || a === "mminus" || a === "mc") {
       if (a === "mc" || (shifted && a === "mr")) { S.mem = 0; save(); return; }
@@ -92627,8 +92839,9 @@ var SBCALCSKIN = null;
       return;
     }
     if (a === "mr" && shifted) { S.mem = 0; save(); return; }
-    if (S.done && !S.err && CARRY.has(a)) { S.done = false; S.result = null; S.tokens = [TOK.ans]; S.cur = 1; }
-    else if (S.done) { S.done = false; S.err = ""; S.result = null; S.tokens = []; S.cur = 0; }
+    S.note = "";
+    if (S.done && !S.err && S.result != null && CARRY.has(a)) { S.done = false; S.result = null; S.txt = ""; S.tokens = [TOK.ans]; S.cur = 1; }
+    else if (S.done) { S.done = false; S.err = ""; S.result = null; S.txt = ""; S.tokens = []; S.cur = 0; }
     const t = tokenFor(a); if (t) insert(t);
   }
 
@@ -92638,7 +92851,7 @@ var SBCALCSKIN = null;
   const KEYNAME = {shift: "Shift", hyp: "Hyperbolic", drg: "Degrees, radians or gradians", left: "Move left", right: "Move right", sd: "Fraction or decimal", inv: "Reciprocal", fact: "Factorial", ncr: "Combinations", npr: "Permutations", sqrt: "Square root", cbrt: "Cube root", sq: "Squared", cube: "Cubed", pow: "Power", root: "Root", log: "Log", tenx: "10 to the power", ln: "Natural log", ex: "e to the power", sin: "Sine", asin: "Inverse sine", cos: "Cosine", acos: "Inverse cosine", tan: "Tangent", atan: "Inverse tangent", lp: "Open bracket", rp: "Close bracket", neg: "Negative", abs: "Absolute value", pi: "Pi", e: "e", pct: "Percent", mplus: "Memory add", mminus: "Memory subtract", mr: "Memory recall", mc: "Memory clear", del: "Delete", ac: "All clear", mul: "Times", div: "Divide", add: "Plus", sub: "Minus", dot: "Point", exp: "Times ten to the power", ans: "Answer", eq: "Equals"};
   function frame(){
     return `<div class="cx-body">
-      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
+      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-snip" data-cx="snip" aria-label="Select an equation on screen" title="Select an equation on screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.5 10.5h3M10 9v3M13 15.5h3M8.6 15.4l2.8-2.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
       <div class="cx-lcd" role="group" aria-label="Display">
         <div class="cx-ind" aria-hidden="true"><span data-i="shift">S</span><span data-i="hyp">HYP</span><span data-i="m">M</span><span class="cx-sp"></span><span data-i="ang"></span></div>
         <div class="cx-expr" aria-label="Expression"></div>
@@ -92658,8 +92871,8 @@ var SBCALCSKIN = null;
     ex.innerHTML = S.tokens.map((t, i) => `${i === caret ? `<i class="cx-caret"></i>` : ""}<span>${esc(t.d)}</span>`).join("") + (caret === S.tokens.length ? `<i class="cx-caret"></i>` : "");
     const c = ex.querySelector(".cx-caret"); if (c) { const L = c.offsetLeft; if (L - ex.scrollLeft > ex.clientWidth - 12) ex.scrollLeft = L - ex.clientWidth + 24; else if (L < ex.scrollLeft + 8) ex.scrollLeft = Math.max(0, L - 24); } else ex.scrollLeft = 0;
     const res = W.querySelector(".cx-res");
-    let txt = ""; if (S.err) txt = S.err; else if (S.done && S.result != null) { try { txt = S.frac && asFraction(S.result) ? asFraction(S.result) : show(S.result).txt; } catch (e) { txt = "Math ERROR"; } } else if (!S.tokens.length) txt = "0";
-    res.textContent = txt; res.classList.toggle("is-err", !!S.err); res.classList.toggle("is-dim", !S.done && !!S.tokens.length);
+    let txt = ""; if (S.err) txt = S.err; else if (S.note) txt = S.note; else if (S.done && S.txt) txt = S.txt; else if (S.done && S.result != null) { try { txt = S.frac && asFraction(S.result) ? asFraction(S.result) : show(S.result).txt; } catch (e) { txt = "Math ERROR"; } } else if (!S.tokens.length) txt = "0";
+    res.textContent = txt; res.classList.toggle("is-err", !!S.err); res.classList.toggle("is-dim", !!S.note || (!S.done && !!S.tokens.length));
     res.classList.toggle("is-long", txt.length > 13);
     // the second functions print over the keys while SHIFT is on
     W.querySelectorAll("[data-cxs]").forEach(b => b.classList.toggle("is-alt", S.shift));
@@ -92675,7 +92888,8 @@ var SBCALCSKIN = null;
   }
   async function act(a, alt){
     if (a === "close") { close(); return; }
-    if (a === "copy") { const r = W.querySelector(".cx-res").textContent; if (S.done && !S.err && S.result != null) { try { await navigator.clipboard.writeText(S.frac && asFraction(S.result) ? asFraction(S.result).replace("⁄", "/").replace("−", "-") : show(S.result).plain); toast(`Copied ${r}`); } catch (e) {} } return; }
+    if (a === "snip") { if (window.SBCALCSNIP) SBCALCSNIP.start(); return; }
+    if (a === "copy") { const r = W.querySelector(".cx-res").textContent; if (S.done && !S.err && S.txt) { try { await navigator.clipboard.writeText(S.txt.replace(/−/g, "-")); toast(`Copied ${r}`); } catch (e) {} return; } if (S.done && !S.err && S.result != null) { try { await navigator.clipboard.writeText(S.frac && asFraction(S.result) ? asFraction(S.result).replace("⁄", "/").replace("−", "-") : show(S.result).plain); toast(`Copied ${r}`); } catch (e) {} } return; }
     await press(S.shift && alt ? alt : a);
     paint();
   }
@@ -92740,7 +92954,254 @@ var SBCALCSKIN = null;
 
   hook("act", act0 => { if (act0 !== "calc-open") return false; if (W && !W.hidden) close(); else open(); return true; });
   hook("menu", () => `<button data-act="calc-open"><span>Calculator<span class="sub">A scientific calculator in its own window</span></span></button>`);
-  window.SBCALC = {open, close, press: async a => { await press(a); paint(); }, state: () => ({tokens: S.tokens.map(t => t.d).join(""), result: S.result, err: S.err, mem: S.mem, angle: C.angle, frac: S.frac}), toMath, show};
+  window.SBCALC = {open, close, press: async a => { await press(a); paint(); }, state: () => ({tokens: S.tokens.map(t => t.d).join(""), result: S.result, txt: S.txt, err: S.err, mem: S.mem, angle: C.angle, frac: S.frac}), toMath, show,
+    // "select an equation on screen" (99-calc-snip.js)
+    put: (text, angle) => { if (!W) open(); const ok = put(text, angle); paint(); return ok; },
+    note: t => { S.note = t || ""; paint(); },
+    win: () => W, fromText, compute: (text, scope) => compute(fromText(text), scope || {Ans: 0, M: 0})};
+})();
+/* ===== module: 99-calc-snip.js: "select an equation on screen" for the calculator ===== */
+/* The calculator's corner button lays a sheet over the app; drag a box over an equation anywhere (a note, a card, a PDF, a
+   whiteboard, a picture) and it's typed into the calculator, ready for =. Reading it, in order:
+   1. math the app drew itself (KaTeX keeps each formula's TeX), turned into calculator text here;
+   2. plain text under the box, tidied (×, ÷, −, ², √, π, ½ ...) and used as it is when it's clearly just math;
+   3. otherwise the AI reads the text and a picture of the box (handwriting, photos, drawings, word problems) and writes
+      the equation in the calculator's own syntax, which is checked before it's typed in.
+   Without AI only 1 and 2 work, and the calculator says so for pictures. */
+(() => {
+  let veil = null;
+  const calcWin = () => window.SBCALC && SBCALC.win && SBCALC.win();
+
+  /* The sheet you drag on */
+  function start(){
+    if (veil) return;
+    const W = calcWin(); if (W) W.style.visibility = "hidden";
+    veil = document.createElement("div"); veil.className = "cxs-veil"; veil.setAttribute("role", "dialog"); veil.setAttribute("aria-label", "Select an equation");
+    veil.innerHTML = `<div class="cxs-hint">Drag over an equation <span>Esc to cancel</span></div><div class="cxs-box" hidden></div>`;
+    document.body.appendChild(veil);
+    const box = veil.querySelector(".cxs-box");
+    let x0 = 0, y0 = 0, on = false;
+    const draw = (x, y) => { const L = Math.min(x0, x), T = Math.min(y0, y); Object.assign(box.style, {left: L + "px", top: T + "px", width: Math.abs(x - x0) + "px", height: Math.abs(y - y0) + "px"}); box.hidden = false; };
+    veil.addEventListener("pointerdown", e => { if (e.button > 0) { end(null); return; } e.preventDefault(); on = true; x0 = e.clientX; y0 = e.clientY; draw(x0, y0); veil.setPointerCapture(e.pointerId); veil.classList.add("is-drag"); });
+    veil.addEventListener("pointermove", e => { if (on) draw(e.clientX, e.clientY); });
+    veil.addEventListener("pointerup", e => {
+      if (!on) return; on = false;
+      const r = {left: Math.min(x0, e.clientX), top: Math.min(y0, e.clientY), right: Math.max(x0, e.clientX), bottom: Math.max(y0, e.clientY)};
+      r.width = r.right - r.left; r.height = r.bottom - r.top;
+      end(r.width < 8 || r.height < 6 ? null : r);
+    });
+    veil.addEventListener("contextmenu", e => { e.preventDefault(); end(null); });
+    document.addEventListener("keydown", esc0, true);
+  }
+  function esc0(e){ if (e.key === "Escape" && veil) { e.preventDefault(); e.stopImmediatePropagation(); end(null); } }
+  function end(rect){
+    document.removeEventListener("keydown", esc0, true);
+    if (veil) { veil.remove(); veil = null; }
+    // what's under the box is read before the calculator comes back over it
+    let got = null; if (rect) { try { got = {tex: texIn(rect), text: textIn(rect)}; } catch (e) { console.warn("calculator select", e); } }
+    const W = calcWin(); if (W) W.style.visibility = "";
+    if (rect) read(rect, got).catch(e => { console.warn("calculator select", e); say("Couldn't read that"); });
+  }
+  const say = t => { if (window.SBCALC) SBCALC.note(t); };
+
+  /* What's under the box */
+  const over = (a, r) => Math.max(0, Math.min(a.right, r.right) - Math.max(a.left, r.left)) * Math.max(0, Math.min(a.bottom, r.bottom) - Math.max(a.top, r.top));
+  const skip = el => !!(el && el.closest && el.closest("#calc,.cxs-veil,script,style,noscript,template,[hidden],.katex-mathml"));
+  // only what's on top at that point (not text hidden under a sheet or a window)
+  const onTop = (x, y, el) => { const h = document.elementFromPoint(x, y); return !!h && (h === el || el.contains(h) || h.contains(el)); };
+  const shown = el => { const cs = getComputedStyle(el); return cs.visibility !== "hidden" && cs.display !== "none" && Number(cs.opacity) > 0.05; };
+  function texIn(r){
+    const out = [];
+    document.querySelectorAll(".mth[data-tex]").forEach(m => { if (skip(m) || !shown(m)) return; const b = m.getBoundingClientRect(); if (b.width && over(b, r) >= 0.5 * b.width * b.height && onTop(b.left + b.width / 2, b.top + b.height / 2, m)) out.push({tex: m.dataset.tex, top: b.top, left: b.left}); });
+    return out;
+  }
+  function textIn(r){
+    const bits = [], walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => {
+      const p = n.parentElement; if (!p || !n.nodeValue.trim() || skip(p) || p.closest(".mth,.katex")) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT; }});
+    const range = document.createRange();
+    for (let n = walker.nextNode(), seen = 0; n && seen < 4000; n = walker.nextNode()) {
+      const pr = n.parentElement.getBoundingClientRect(); if (!over(pr, r) && !(pr.width === 0 && pr.height === 0)) continue;
+      range.selectNodeContents(n); const rects = [...range.getClientRects()]; if (!rects.some(x => over(x, r) > 0)) continue;
+      if (!shown(n.parentElement)) continue; seen++;
+      const all = range.getBoundingClientRect(), s = n.nodeValue;
+      const first = rects.find(x => over(x, r) > 0);
+      if (all.left >= r.left - 2 && all.right <= r.right + 2 && all.top >= r.top - 2 && all.bottom <= r.bottom + 2) { if (onTop(first.left + first.width / 2, first.top + first.height / 2, n.parentElement)) bits.push({s, top: all.top, left: all.left, h: all.height}); continue; }
+      // partly inside: keep the letters whose middle is in the box
+      let cur = null; const lim = Math.min(s.length, 3000);
+      for (let i = 0; i < lim; i++) {
+        range.setStart(n, i); range.setEnd(n, i + 1); const b = range.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+        const inside = b.width + b.height > 0 && cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom && onTop(cx, cy, n.parentElement);
+        if (inside) { if (!cur || Math.abs(b.top - cur.top) > b.height / 2) { cur = {s: "", top: b.top, left: b.left, h: b.height}; bits.push(cur); } cur.s += s[i]; } else cur = null;
+      }
+    }
+    // form fields under the box: their text (or what's selected in them)
+    document.querySelectorAll("input,textarea").forEach(f => {
+      if (skip(f) || !shown(f) || /^(checkbox|radio|button|submit|range|color|file|hidden|password)$/i.test(f.type)) return;
+      const b = f.getBoundingClientRect(); if (!over(b, r) || !onTop(b.left + b.width / 2, b.top + b.height / 2, f)) return;
+      const v = f.selectionEnd > f.selectionStart ? f.value.slice(f.selectionStart, f.selectionEnd) : f.value;
+      if (v.trim()) bits.push({s: v, top: b.top, left: b.left, h: b.height});
+    });
+    // lines, top to bottom, then left to right
+    bits.sort((a, b) => Math.abs(a.top - b.top) > Math.min(a.h, b.h) / 2 ? a.top - b.top : a.left - b.left);
+    let txt = "", last = null;
+    bits.forEach(b => { txt += !last ? b.s : Math.abs(b.top - last.top) > Math.min(b.h, last.h) / 2 ? "\n" + b.s : (/\s$/.test(txt) || /^\s/.test(b.s) ? "" : " ") + b.s; last = b; });
+    return txt.replace(/[ \t]+/g, " ").trim().slice(0, 4000);
+  }
+  // A picture of the box: the images, canvases and drawings under it (text is read separately). null when there are none.
+  async function pictureOf(r){
+    const els = [...document.querySelectorAll("img,canvas,svg,video")].filter(el => {
+      if (skip(el) || !shown(el) || (el.tagName === "svg" && el.parentElement && el.parentElement.closest("svg"))) return false;
+      const b = el.getBoundingClientRect(); if (b.width < 24 || b.height < 16 || !over(b, r)) return false;
+      if (el.tagName === "svg" && b.width < 48 && b.height < 48) return false;   // icons
+      return true;
+    });
+    if (!els.length) return null;
+    const scale = Math.min(2.5, Math.max(1, 1400 / Math.max(r.width, r.height))), c = document.createElement("canvas");
+    c.width = Math.round(r.width * scale); c.height = Math.round(r.height * scale);
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+    let drew = 0;
+    for (const el of els) {
+      const b = el.getBoundingClientRect(), dx = (b.left - r.left) * scale, dy = (b.top - r.top) * scale, dw = b.width * scale, dh = b.height * scale;
+      try {
+        if (el.tagName === "svg") {
+          const cl = el.cloneNode(true); cl.setAttribute("width", b.width); cl.setAttribute("height", b.height); if (!cl.getAttribute("xmlns")) cl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+          // strokes drawn with currentColor or CSS colours: write the computed ones in
+          const src = el.querySelectorAll("path,line,polyline,polygon,circle,ellipse,rect,text"), dst = cl.querySelectorAll("path,line,polyline,polygon,circle,ellipse,rect,text");
+          src.forEach((s, i) => { const cs = getComputedStyle(s); if (dst[i]) { dst[i].setAttribute("stroke", cs.stroke); dst[i].setAttribute("fill", cs.fill); dst[i].setAttribute("stroke-width", cs.strokeWidth); } });
+          const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(cl)], {type: "image/svg+xml"}));
+          try { const im = new Image(); im.src = url; await im.decode(); g.drawImage(im, dx, dy, dw, dh); drew++; } finally { URL.revokeObjectURL(url); }
+        } else if (el.tagName === "IMG") {
+          if (!el.complete || !el.naturalWidth) continue;
+          // object-fit contain / cover: where the picture really is inside the element
+          const fit = getComputedStyle(el).objectFit, iw = el.naturalWidth, ih = el.naturalHeight;
+          let x = dx, y = dy, w = dw, h = dh;
+          if (fit === "contain" || fit === "cover") { const k = (fit === "contain" ? Math.min : Math.max)(dw / iw, dh / ih); w = iw * k; h = ih * k; x = dx + (dw - w) / 2; y = dy + (dh - h) / 2; }
+          g.save(); g.beginPath(); g.rect(dx, dy, dw, dh); g.clip(); g.drawImage(el, x, y, w, h); g.restore(); drew++;
+        } else { g.drawImage(el, dx, dy, dw, dh); drew++; }
+      } catch (e) { /* a picture from another site can't be read */ }
+    }
+    if (!drew) return null;
+    try { c.getContext("2d").getImageData(0, 0, 1, 1); } catch (e) { return null; }   // tainted
+    return await new Promise(res => c.toBlob(b => res(b), "image/jpeg", 0.9));
+  }
+
+  /*SNIP-START*/
+  /* Tidying text into the calculator's syntax (see fromText in 99-calculator.js) */
+  const SUPS = {"⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁻": "-", "⁺": "+", "ˣ": "x", "ⁿ": "n", "⁽": "(", "⁾": ")"};
+  const VULG = {"½": "(1/2)", "⅓": "(1/3)", "⅔": "(2/3)", "¼": "(1/4)", "¾": "(3/4)", "⅕": "(1/5)", "⅖": "(2/5)", "⅗": "(3/5)", "⅘": "(4/5)", "⅙": "(1/6)", "⅚": "(5/6)", "⅛": "(1/8)", "⅜": "(3/8)", "⅝": "(5/8)", "⅞": "(7/8)"};
+  const FUN = /^(sin|cos|tan|asin|acos|atan|arcsin|arccos|arctan|sinh|cosh|tanh|sqrt|cbrt|ln|log|abs|exp|root|integrate|deriv|sum|nCr|nPr|pi|Ans)$/;
+  function tidy(s){
+    let deg = false;
+    // equations on separate lines are a system
+    const lines = String(s || "").split(/\n+/).map(x => x.trim()).filter(Boolean);
+    if (lines.length > 1 && lines.every(x => /=/.test(x))) s = lines.join("; ");
+    s = String(s || "").replace(/[​ ]/g, " ");
+    s = s.replace(/[×✕⨯·⋅∙]/g, "*").replace(/[÷∶]/g, "/").replace(/[−–—‒﹣]/g, "-").replace(/[＝]/g, "=").replace(/[（]/g, "(").replace(/[）]/g, ")");
+    s = s.replace(/π/g, " pi ").replace(/[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]/g, c => VULG[c]);
+    s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺ˣⁿ⁽⁾]+/g, m => "^(" + [...m].map(c => SUPS[c]).join("") + ")");
+    if (/°/.test(s)) { deg = true; s = s.replace(/°/g, ""); }
+    // √x, √(x), ∛x
+    s = s.replace(/([√∛])\s*(\((?:[^()]|\([^()]*\))*\)|[\d.]+|[A-Za-z])/g, (m, r, a) => (r === "√" ? "sqrt" : "cbrt") + (a[0] === "(" ? a : "(" + a + ")"));
+    s = s.replace(/\*\*/g, "^").replace(/\s+/g, " ").trim().replace(/[.?:]+$/, "").trim();
+    return {s, deg};
+  }
+  // Is this just math (not a sentence with numbers in it)?
+  function justMath(s){
+    if (!s || !/^[0-9A-Za-z+\-*/^().,=;!% ]+$/.test(s) || !/[\d]/.test(s) && !/=/.test(s)) return false;
+    const words = s.match(/[A-Za-z]{2,}/g) || [];
+    return words.every(w => FUN.test(w)) && /[+\-*/^=!%]|[A-Za-z]\(/.test(s);
+  }
+  // The math in a line of text, without AI: words become breaks, and the longest piece that's clearly math is kept
+  function mathRuns(s){
+    const t = s.replace(/[A-Za-z]{2,}/g, w => FUN.test(w) ? w : "|").replace(/\b(?:a|A|I)\b(?!\s*[-+*/^=(\d])/g, "|").replace(/[^0-9A-Za-z+\-*/^().,=;!% ]/g, "|");
+    return t.split("|").map(x => {
+      x = x.trim().replace(/^[,;=*/^)+]+|[,;=*/^(+-]+$/g, "").trim();
+      for (let k = 0; k < 4; k++) { const o = (x.match(/\(/g) || []).length, c = (x.match(/\)/g) || []).length; if (o > c && x[0] === "(") x = x.slice(1).trim(); else if (c > o && x.endsWith(")")) x = x.slice(0, -1).trim(); else break; }
+      return x;
+    }).filter(justMath).sort((a, b) => b.length - a.length);
+  }
+  /* TeX (from the app's own math) to calculator text; "" if it uses something this doesn't know (then the AI reads it) */
+  function group(s, i){ if (s[i] !== "{") { const m = /^\\[A-Za-z]+|^./.exec(s.slice(i)); return m ? [m[0], i + m[0].length] : ["", i]; } let d = 0; for (let k = i; k < s.length; k++) { if (s[k] === "{") d++; else if (s[k] === "}" && --d === 0) return [s.slice(i + 1, k), k + 1]; } return [s.slice(i + 1), s.length]; }
+  function texToCalc(tex){
+    let s = String(tex || "").replace(/\\(left|right|displaystyle|textstyle|,|;|!|quad|qquad)\b|\\[,;! ]/g, " ").replace(/\$/g, "").replace(/&/g, "");
+    let out = "", i = 0;
+    while (i < s.length) {
+      if (s.startsWith("\\frac", i) || s.startsWith("\\dfrac", i) || s.startsWith("\\tfrac", i)) { i = s.indexOf("frac", i) + 4; while (s[i] === " ") i++; const [a, j] = group(s, i); let k = j; while (s[k] === " ") k++; const [b, l] = group(s, k); const A = texToCalc(a), B = texToCalc(b); if (!A || !B) return ""; const w = x => /^\s*(?:[\d.]+|[A-Za-z])\s*$/.test(x) ? x.trim() : `(${x})`; out += `(${w(A)}/${w(B)})`; i = l; continue; }
+      if (s.startsWith("\\sqrt", i)) { i += 5; while (s[i] === " ") i++; let n = ""; if (s[i] === "[") { const e = s.indexOf("]", i); n = texToCalc(s.slice(i + 1, e)); i = e + 1; } const [a, j] = group(s, i); const A = texToCalc(a); if (!A) return ""; out += n ? `root(${n}, ${A})` : `sqrt(${A})`; i = j; continue; }
+      if (s[i] === "^") { i++; while (s[i] === " ") i++; const [a, j] = group(s, i); const A = texToCalc(a); if (!A) return ""; out += `^(${A})`; i = j; continue; }
+      if (s[i] === "_") return "";   // subscripts (log bases, indices): left to the AI
+      if (s[i] === "{") { const [a, j] = group(s, i); const A = texToCalc(a); if (!A && a.trim()) return ""; out += `(${A})`; i = j; continue; }
+      if (s[i] === "\\") {
+        const m = /^\\([A-Za-z]+)/.exec(s.slice(i)); if (!m) { i++; continue; }
+        const w = m[1], MAP = {cdot: "*", times: "*", div: "/", pi: "pi", sin: "sin", cos: "cos", tan: "tan", ln: "ln", log: "log", sinh: "sinh", cosh: "cosh", tanh: "tanh", arcsin: "asin", arccos: "acos", arctan: "atan", exp: "exp"};
+        if (!(w in MAP)) return "";
+        out += " " + MAP[w] + " "; i += m[0].length; continue;
+      }
+      out += s[i]; i++;
+    }
+    // sin x → sin(x), sin 2x → sin(2x)
+    out = out.replace(/\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|ln|log|exp)\s+(?!\()([\d.]*[A-Za-z]?(?:\^\([^()]*\))?)/g, (m, f, a) => a ? `${f}(${a})` : m);
+    return tidy(out).s;
+  }
+  /*SNIP-END*/
+
+  const CALC_RULES = `Write it in this calculator syntax, nothing else:
+- numbers, + - * / ^ and brackets; implied multiplication is fine (2x, 3(x+1))
+- functions: sqrt(x), cbrt(x), root(n, x) for the nth root, ln(x), log(x) for base 10, log(x, b) for base b, exp(x), abs(x), sin cos tan asin acos atan sinh cosh tanh, n! for factorial, nCr(n, r), nPr(n, r)
+- constants: pi, e
+- unknowns: single letters only (x, y, z, t, n ...); never use e as an unknown
+- an equation uses one =; the equations of a system are separated by ;
+- calculus: integrate(f, x, a, b) for a definite integral, deriv(f, x, a) for the derivative at x = a, sum(f, n, a, b) for a sum from n = a to b
+- a fraction a over b is (a)/(b); a mixed number like 2 1/2 is (2+1/2); percent: write 15% of 80 as 0.15*80`;
+  const SYSTEM = `You read math for a student's scientific calculator. The student dragged a box over part of their screen; you get the text found in the box and, when there is one, a picture of it (handwriting, a photo, a drawing or a screenshot).
+Find the one equation or expression they most likely want calculated or solved, and write it exactly as shown (don't solve it, don't simplify it, don't change any number).
+If it's a word problem or an instruction like "solve for x", write the equation it gives. If there are several, take the first complete one; a system of equations is one answer.
+${CALC_RULES}
+angle: "deg" when the problem uses degrees (°), "rad" when it uses radians or calculus with trig, otherwise "".
+If there's no math in it, set found to false.`;
+  const SCHEMA = {type: "OBJECT", properties: {found: {type: "BOOLEAN"}, calc: {type: "STRING"}, angle: {type: "STRING", enum: ["", "deg", "rad"]}}, required: ["found", "calc", "angle"]};
+
+  async function read(r, got){
+    say("Reading…");
+    const tex = got ? got.tex : texIn(r), text = got ? got.text : textIn(r);
+    // 1. the app's own math, when that's all that's in the box
+    if (tex.length && text.replace(/\s+/g, "").length < 3) {
+      const calc = tex.sort((a, b) => a.top - b.top || a.left - b.left).map(t => texToCalc(t.tex)).filter(Boolean);
+      if (calc.length === tex.length && calc.length <= 4 && SBCALC.put(calc.join("; "))) { done(); return; }
+    }
+    // 2. plain math as text
+    const t = tidy(text);
+    if (!tex.length && justMath(t.s) && SBCALC.put(t.s, t.deg ? "deg" : "")) { done(); return; }
+    // 3. the AI
+    const pic = await pictureOf(r);
+    if (!aiReady()) {
+      // the last try without AI: the longest run of math in the text
+      const runs = mathRuns(t.s);
+      if (runs[0] && SBCALC.put(runs[0], t.deg ? "deg" : "")) { done(); return; }
+      say(""); toast(pic || tex.length ? "Turn on AI in Settings to read equations from pictures and handwriting" : "No equation found there");
+      return;
+    }
+    if (!text && !tex.length && !pic) { say(""); toast("Nothing to read there"); return; }
+    const parts = [];
+    if (pic) parts.push({inline_data: {mime_type: "image/jpeg", data: bytesToB64(new Uint8Array(await pic.arrayBuffer()))}});
+    parts.push({text: `TEXT IN THE BOX:\n"""${text || "(none)"}"""${tex.length ? `\nFORMULAS IN THE BOX (LaTeX):\n${tex.map(x => x.tex).join("\n")}` : ""}`});
+    let res;
+    try { res = await aiCall({task: "mathread", fast: true, temperature: 0, maxTokens: 1500, timeout: 45000, schema: SCHEMA, system: SYSTEM, parts}); }
+    catch (e) { say(""); toast((e && e.message) || "Couldn't read that. Try again."); return; }
+    const d = res && res.data;
+    if (!d || !d.found || !d.calc) { say(""); toast("No equation found there"); return; }
+    const calc = tidy(d.calc).s;
+    if (!SBCALC.put(calc, d.angle)) { say(""); toast("Couldn't read that equation"); return; }
+    done();
+  }
+  function done(){
+    const W = calcWin(); if (!W) return;
+    const ex = W.querySelector(".cx-expr"); if (ex) { ex.classList.remove("cx-in"); void ex.offsetWidth; ex.classList.add("cx-in"); }
+    const eq = W.querySelector('[data-cx="eq"]'); if (eq) eq.focus({preventScroll: true});
+  }
+
+  window.SBCALCSNIP = {start, read, tidy, justMath, mathRuns, texToCalc, textIn, texIn};
 })();
 /* ===== module: 99-version-history.js ===== */
 /* Version History (Pro): earlier versions of notes and decks from the last 30 days, invisible until someone needs it.

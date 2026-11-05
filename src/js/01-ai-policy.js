@@ -34,6 +34,8 @@ const SBPOLICY = (() => {
     explain: {effort: "medium", out: 4000, routine: true}, summary: {effort: "medium", out: 12000, routine: true},
     photo: {effort: "medium", out: 10000, routine: true}, linknotes: {effort: "medium", out: 10000, routine: true},
     transcript: {effort: "medium", out: 16000, routine: true}, groupplan: {effort: "medium", out: 6000, routine: true},
+    // The companion's Ask: answers, finds things in the app and proposes changes the student confirms
+    assist: {effort: "medium", out: 6000, routine: true},
     // The automatic plan: medium, to match what free Gemini users get today (it drops to low past the soft limit)
     plan: {effort: "medium", out: 6000, routine: true},
     // Routine: ranks and words what the app has already worked out
@@ -42,11 +44,15 @@ const SBPOLICY = (() => {
     weekly: {effort: "low", out: 2000, routine: true}, coach: {effort: "low", out: 3000, routine: true},
     "cards-light": {effort: "low", out: 10000, routine: true}, "quiz-light": {effort: "low", out: 10000, routine: true},
     "cases-light": {effort: "low", out: 10000, routine: true}, rewrite: {effort: "low", out: 9000, routine: true},
+    // Reading an equation the student selected on screen, for the calculator
+    mathread: {effort: "low", out: 3000, routine: true},
     // Yes/no and tiny lookups: no thinking
     remote: {effort: "none", out: 800, routine: true}, quickadd: {effort: "none", out: 3000, routine: true},
     news: {effort: "none", out: 4000, routine: true}, annintel: {effort: "none", out: 2000, routine: true},
     classify: {effort: "none", out: 2000, routine: true}, triage: {effort: "none", out: 2500, routine: true},
     tag: {effort: "none", out: 1000, routine: true}, line: {effort: "none", out: 2000, routine: true},
+    // A short description of a whiteboard picture or drawing, so Ask can find it
+    describe: {effort: "none", out: 1200, routine: true},
     ping: {effort: "none", out: 400, routine: true}
   };
   // A job the app doesn't name
