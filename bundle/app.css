@@ -4615,6 +4615,15 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 /* "Show me" chips under a Companion tab answer */
 .cpt-show{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
 .cpt-show-b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The companion's Ask button (Companion tab, the speech bubble, Ask About This Task): one look everywhere, in every theme.
+   A solid purple pill with the companion's face, white bold text, and no colour change on hover; a theme's button gradient, hover
+   tint or photo glow never reaches it. Keyboard focus still gets a clear ring. */
+html .btn.primary.cp-ask-go{display:inline-flex;align-items:center;justify-content:center;gap:.3em;flex:none;box-sizing:border-box;min-height:44px;padding:0 16px;border:1px solid #7C4DEB!important;border-radius:999px!important;background:#7C4DEB!important;color:#fff!important;font:700 1rem/1.2 var(--body);letter-spacing:normal;text-transform:none;white-space:nowrap;filter:none!important;box-shadow:none!important;text-shadow:none!important;transition:none}
+html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
+html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
+html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
+.cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
+.cp-tq-row{align-items:center}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
