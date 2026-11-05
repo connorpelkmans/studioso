@@ -13281,8 +13281,17 @@ function nbZoomCtl(){
   const pct = Math.round(NBZ * 100);
   return `<div class="nb-zoom" role="group" aria-label="Board zoom"><button type="button" class="nbz-b" data-act="nb-zoom" data-id="out" aria-label="Zoom out"${NBZ <= NBZ_MIN + 0.001 ? " disabled" : ""}>−</button><button type="button" class="nbz-pct${pct === 100 ? "" : " on"}" data-act="nb-zoom" data-id="reset" aria-label="${pct === 100 ? "Zoom 100%" : `Zoom ${pct}%. Back to 100%`}" title="Back to 100%">${pct === 100 ? "100%" : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>${pct}%`}</button><button type="button" class="nbz-b" data-act="nb-zoom" data-id="in" aria-label="Zoom in"${NBZ >= NBZ_MAX - 0.001 ? " disabled" : ""}>+</button></div>`;
 }
+// Re-fit when the board's view changes size (window resized, a side panel opens), so a zoomed-out board still fills it
+let nbRO = null, nbROel = null;
+function nbWatch(sc){
+  if (nbROel === sc || typeof ResizeObserver !== "function") return;
+  if (!nbRO) nbRO = new ResizeObserver(() => { if (nbROel && nbROel.isConnected) nbZoomApply(); });
+  if (nbROel) nbRO.unobserve(nbROel);
+  nbROel = sc; nbRO.observe(sc);
+}
 function nbZoomApply(){
   const sc = $("#nbScroll"), sz = $("#nbSizer"), b = $("#nbBoard"); if (!sc || !sz || !b) return;
+  nbWatch(sc);
   if (Math.abs(NBZ - 1) < 0.001) { b.style.transform = ""; b.style.minWidth = b.style.minHeight = ""; sz.style.width = sz.style.height = ""; sz.classList.remove("zoomed"); return; }
   sz.classList.add("zoomed"); sz.style.setProperty("--nbz", NBZ);
   b.style.transform = `scale(${NBZ})`;
