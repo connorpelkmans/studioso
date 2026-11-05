@@ -599,7 +599,7 @@ setTimeout(async () => {
       if ($("#toast").classList.contains("show") || (typeof dlg !== "undefined" && dlg.open)) continue;
       localStorage.setItem(K, String(Date.now()));
       toast("Your browser may clear website data on its own. Keep your planner safe: install Studyboard as an app, sign in, or export a backup.", null,
-        {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser will keep your Studyboard data until you remove it." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});
+        {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});
       return;
     }
   } catch (e) {}

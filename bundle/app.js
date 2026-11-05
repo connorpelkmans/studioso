@@ -20469,8 +20469,10 @@ function storageRow(){
   // the iPhone, iPad, Android and desktop apps keep their data themselves: nothing to ask (checked here too, since the
   // first ask happens a few seconds after start-up)
   if (st === "app" || DESK || nativeShell() || inPreview()) return "";
-  if (st === "granted") return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser has agreed never to clear Studyboard's data on its own. Only you can remove it (Clear All Data, or clearing this site's data).</span></span></div>`;
   const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent || ""), standalone = !!(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  // "Persistent" only means the browser won't clear it to free up space. In a Safari tab, Safari can still clear it after
+  // 7 days without a visit, so the promise is only made where it holds.
+  if (st === "granted" && !(safari && !standalone)) return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser won't clear Studyboard's data to free up space. It's only removed if you clear it (Clear All Data, or clearing this site's data).</span></span></div>`;
   const how = st === "unsupported" ? "This browser can't promise to keep website data." : safari && !standalone ? "Safari can clear a website's data after 7 days without a visit. Add Studyboard to your Home Screen (Share, then Add to Home Screen) to stop that." : "Your browser hasn't agreed yet. Installing Studyboard as an app or bookmarking it usually lets it say yes.";
   return `<button data-act="storage-protect"><span>Protect My Data on This Device<span class="sub">${esc(how)} ${typeof sbUser !== "undefined" && sbUser ? "Your account also keeps a copy." : "Signing in or exporting a backup keeps a second copy."}</span></span></button>`;
 }
@@ -20687,7 +20689,7 @@ document.addEventListener("click", e => {
     case "theme-toggle": setTheme(isDark() ? "light" : "dark"); break;
     case "theme-set": setTheme(id); $$('[data-act="theme-set"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); break;
     case "desk-choose": dlg.close(); deskChooseFolder(); break;
-    case "storage-protect": storageProtect(true).then(r => { if (r === "app") { toast("Studyboard keeps your data on this device as an app. Nothing else to do."); scheduleRender(); return; } toast(r === "granted" ? "Done. This browser will keep your Studyboard data until you remove it." : r === "unsupported" ? "This browser can't promise to keep website data. Sign in or export a backup so you always have a copy." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again. Meanwhile, sign in or export a backup."); scheduleRender(); }); break;
+    case "storage-protect": storageProtect(true).then(r => { if (r === "app") { toast("Studyboard keeps your data on this device as an app. Nothing else to do."); scheduleRender(); return; } toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : r === "unsupported" ? "This browser can't promise to keep website data. Sign in or export a backup so you always have a copy." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again. Meanwhile, sign in or export a backup."); scheduleRender(); }); break;
     case "pwa-install": if (installEvt) { dlg.close(); installEvt.prompt(); installEvt.userChoice.then(() => { installEvt = null; }); } break;
     case "fsb-resume": dlg.close(); resumeFolderBackup(); break;
     case "fsb-stop": dlg.close(); stopFolderBackup(); break;
@@ -97595,7 +97597,7 @@ setTimeout(async () => {
       if ($("#toast").classList.contains("show") || (typeof dlg !== "undefined" && dlg.open)) continue;
       localStorage.setItem(K, String(Date.now()));
       toast("Your browser may clear website data on its own. Keep your planner safe: install Studyboard as an app, sign in, or export a backup.", null,
-        {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser will keep your Studyboard data until you remove it." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});
+        {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});
       return;
     }
   } catch (e) {}
