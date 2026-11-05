@@ -344,10 +344,9 @@ const SBONENOTE = (() => {
       return `${U.why ? `<p class="on-why"><b>${esc(U.why)}</b></p>` : ""}
         <p>Link a OneNote section to a course and its pages come into Studyboard as notes, kept up to date. Ask Your Course, Make Flashcards and Exam Prep use them like your other notes. Save to OneNote adds a note, a lecture's study notes or an Ask Your Course answer as a new page.</p>
         <p class="mini">Studyboard reads only the sections you link, and never changes or deletes your pages.</p>
-        <p class="mini ms-school"><b>${esc(MS_SCHOOL_SOON)}</b></p>
         ${a && a.status === "reauth" ? `<p class="cl-warn">OneNote stopped accepting Studyboard's access. Connect again to keep using it.</p>` : ""}
         <div class="row-actions">${link(a ? "Connect Again" : "Connect OneNote")}</div>
-        ${U.wait ? `<p class="mini" role="status">Finish in the tab that opened. This updates when you come back. If Microsoft asked for admin approval, you signed in with a school or work account, which can't connect yet.</p>` : ""}`;
+        ${U.wait ? `<p class="mini" role="status">Finish in the tab that opened. This updates when you come back.</p>` : ""}`;
     }
     const rows = pr.links.map(l => {
       const c = l.courseId && courseOf(l.courseId), busy = running.has(l.sid);
@@ -381,10 +380,8 @@ const SBONENOTE = (() => {
     if (!clsOffered()) return "";
     const a = clsAccount(), on = clsConnected();
     const go = label => U.clsUrl ? `<a class="btn small on-btn" href="${esc(U.clsUrl)}" target="_blank" rel="noopener noreferrer" data-on-go="cls">${icon(16)}${esc(label)}</a>` : `<button type="button" class="btn small" disabled>Getting Class Notebooks ready…</button>`;
-    // Class Notebooks live in school accounts, which can't connect yet
-    if (!on && msPersonal((account() || {}).account)) return `<h3 class="on-h">Class Notebooks</h3><p class="mini">Teachers' Class Notebooks need a school Microsoft account. School accounts can't connect yet. That's coming in the future.</p>`;
     if (!on) return `<h3 class="on-h">Class Notebooks</h3>
-      <p class="mini">See your teachers' OneNote Class Notebooks from Microsoft Teams too, and link their sections like your own (read only). This asks Microsoft for one more permission. Your own notebooks keep working either way.</p>
+      <p class="mini">See your teachers' OneNote Class Notebooks from Microsoft Teams too (sign in with your school Microsoft account), and link their sections like your own (read only). This asks Microsoft for one more permission. Your own notebooks keep working either way.</p>
       ${a && a.status === "reauth" ? `<p class="cl-warn">Class Notebooks stopped working. Connect again to keep them.</p>` : ""}
       <div class="row-actions">${go(a ? "Connect Class Notebooks Again" : "Add Class Notebooks")}</div>`;
     return `<h3 class="on-h">Class Notebooks</h3><p class="mini">On. Sections from your class teams show under Class Notebooks in Link a Section.</p>

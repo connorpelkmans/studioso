@@ -357,10 +357,6 @@ const MS_ICON = {
 /* ===== module: 01-doclinks.js ===== */
 /* Document links on a task: a Google Doc, a Word file, a OneNote page or a Canva design, one tap from the deadline.
    Links only: nothing is fetched or signed in to, and the page opens in the browser (or the computer's own browser). */
-// Studyboard isn't a verified Microsoft publisher yet, so Microsoft makes school and work accounts ask their admin first.
-// Shown wherever a Microsoft account connects (OneDrive, Outlook calendar, OneNote); the servers say the same when Microsoft refuses
-const MS_SCHOOL_SOON = "School and work Microsoft accounts can't connect yet. That's coming in the future. For now, use a personal Microsoft account (Outlook.com, Hotmail or Live).";
-const msPersonal = email => /@(outlook|hotmail|live|msn|passport)\.[a-z.]+$/i.test(String(email || ""));
 /*DOCLINKS-START*/
 const DOCLINK = (() => {
   const MAX = 12, NAME_MAX = 120, URL_MAX = 2000;
@@ -82357,7 +82353,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const card = p => {
       const a = (c.accounts || []).find(x => x.provider === p), s = U.start[p] || {}, busy = U.busy[p], conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-csy-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.err ? "Not Available" : "Getting Ready…"}</button>`;
-      if (!a) return `<div class="csy-card"><div class="csy-h"><b>${NAMES[p]}</b><span class="mini">Not connected</span></div>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${link(`Connect ${NAMES[p]}`)}</div>`;
+      if (!a) return `<div class="csy-card"><div class="csy-h"><b>${NAMES[p]}</b><span class="mini">Not connected</span></div>${link(`Connect ${NAMES[p]}`)}</div>`;
       const warn = a.status === "reauth" ? `<p class="csy-warn">${NAMES[p]} stopped accepting Studyboard's access. Connect again to keep syncing.</p>${link("Connect Again")}` : "";
       const nr = U.noRead[p] && pr.bring !== "off" && reads(p) ? `<p class="csy-warn">Studyboard can't see the events in your ${NAMES[p]}, so they can't come in. Connect again and allow ${p === "google" ? "“See events on all your calendars”" : "access to your calendars"}.</p>${link("Connect Again")}` : "";
       const m = U.msg[p], msg = m === "error" ? `<p class="csy-warn">The last sync didn't finish. It tries again on its own.</p>` : m === "pro" ? `<p class="csy-warn">Two-way sync needs Studyboard Pro.</p>` : "";
@@ -82820,7 +82816,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
       const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any folders you pick." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
       const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
-      if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
+      if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
         ${aiBox}
         ${a.status === "reauth" ? `<p class="cl-warn">${NM[p]} stopped accepting Studyboard's access. Connect again to keep using it.</p>${link("Connect Again")}` : ""}
@@ -83802,10 +83798,9 @@ const SBONENOTE = (() => {
       return `${U.why ? `<p class="on-why"><b>${esc(U.why)}</b></p>` : ""}
         <p>Link a OneNote section to a course and its pages come into Studyboard as notes, kept up to date. Ask Your Course, Make Flashcards and Exam Prep use them like your other notes. Save to OneNote adds a note, a lecture's study notes or an Ask Your Course answer as a new page.</p>
         <p class="mini">Studyboard reads only the sections you link, and never changes or deletes your pages.</p>
-        <p class="mini ms-school"><b>${esc(MS_SCHOOL_SOON)}</b></p>
         ${a && a.status === "reauth" ? `<p class="cl-warn">OneNote stopped accepting Studyboard's access. Connect again to keep using it.</p>` : ""}
         <div class="row-actions">${link(a ? "Connect Again" : "Connect OneNote")}</div>
-        ${U.wait ? `<p class="mini" role="status">Finish in the tab that opened. This updates when you come back. If Microsoft asked for admin approval, you signed in with a school or work account, which can't connect yet.</p>` : ""}`;
+        ${U.wait ? `<p class="mini" role="status">Finish in the tab that opened. This updates when you come back.</p>` : ""}`;
     }
     const rows = pr.links.map(l => {
       const c = l.courseId && courseOf(l.courseId), busy = running.has(l.sid);
@@ -83839,10 +83834,8 @@ const SBONENOTE = (() => {
     if (!clsOffered()) return "";
     const a = clsAccount(), on = clsConnected();
     const go = label => U.clsUrl ? `<a class="btn small on-btn" href="${esc(U.clsUrl)}" target="_blank" rel="noopener noreferrer" data-on-go="cls">${icon(16)}${esc(label)}</a>` : `<button type="button" class="btn small" disabled>Getting Class Notebooks ready…</button>`;
-    // Class Notebooks live in school accounts, which can't connect yet
-    if (!on && msPersonal((account() || {}).account)) return `<h3 class="on-h">Class Notebooks</h3><p class="mini">Teachers' Class Notebooks need a school Microsoft account. School accounts can't connect yet. That's coming in the future.</p>`;
     if (!on) return `<h3 class="on-h">Class Notebooks</h3>
-      <p class="mini">See your teachers' OneNote Class Notebooks from Microsoft Teams too, and link their sections like your own (read only). This asks Microsoft for one more permission. Your own notebooks keep working either way.</p>
+      <p class="mini">See your teachers' OneNote Class Notebooks from Microsoft Teams too (sign in with your school Microsoft account), and link their sections like your own (read only). This asks Microsoft for one more permission. Your own notebooks keep working either way.</p>
       ${a && a.status === "reauth" ? `<p class="cl-warn">Class Notebooks stopped working. Connect again to keep them.</p>` : ""}
       <div class="row-actions">${go(a ? "Connect Class Notebooks Again" : "Add Class Notebooks")}</div>`;
     return `<h3 class="on-h">Class Notebooks</h3><p class="mini">On. Sections from your class teams show under Class Notebooks in Link a Section.</p>
