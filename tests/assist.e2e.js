@@ -45,6 +45,8 @@ function reply(body){
   if (/made up/.test(q)) return {answer: "Done!", show: ["T99"], changes: [{ref: "T99", field: "due", value: "2030-01-01"}, {ref: refOf(/^T\d+ \| Lab report/), field: "due", value: "not a date"}]};
   if (/add a bio quiz/.test(q)) return {answer: "Adding it.", show: [], changes: [], newTasks: [{title: "Cell quiz", course: refOf(/^C\d+ \| Biology/), type: "Quiz", due: "2031-04-02", time: "9:30", priority: "", hours: 2, notes: "Chapters 3 and 4"}]};
   if (/add my readings/.test(q)) return {answer: "Adding both.", show: [], changes: [], newTasks: [{title: "Read chapter 5", course: "", type: "Reading", due: "2031-04-03", time: "", priority: "low", hours: 0, notes: ""}, {title: "Read chapter 6", course: "C99", type: "Reading", due: "not a date", time: "25:00", priority: "low", hours: 0, notes: ""}, {title: "", type: "Reading", due: "2031-04-04"}]};
+  if (/retry me/.test(q)) { reply.tries = (reply.tries || 0) + 1; return reply.tries === 1 ? {answer: "", show: [], changes: []} : {answer: "Second try worked.", show: [], changes: []}; }
+  if (/long answer/.test(q)) return {answer: "Osmosis explained. " + "Water moves across a membrane toward the side with more solute. ".repeat(70) + "THE END.", show: [], changes: []};
   if (/what deck/.test(q)) return {answer: "You're looking at Cells.", show: [], changes: []};
   return {answer: "Okay.", show: [], changes: []};
 }
@@ -190,6 +192,31 @@ function reply(body){
   const addBtn = page.locator(".cpt-action", {hasText: "Cell quiz"}).locator('[data-act="cpt-change"]');
   await addBtn.waitFor({timeout: 15000}); await addBtn.click(); await confirmShown(); await page.click("#asYes"); await page.waitForTimeout(500);
   ok(await S(() => Object.values(state.tasks).some(t => t.title === "Cell quiz" && t.courseId === "c1")), "the Companion tab adds tasks the same way");
+
+  // The Companion tab answers far more kinds of questions from the student's data, the app and their materials
+  const bodyOf = b => (b.contents || []).flatMap(c => c.parts || []).map(p => p.text || "").join("\n");
+  const chatQ = async q => {
+    const n0 = sent.length; await page.evaluate(q => SBCOMPTAB.open(q), q);
+    let found = ""; for (let i = 0; i < 150 && !found; i++) { await page.waitForTimeout(100); const b = sent.slice(n0).find(x => bodyOf(x).includes("STUDENT'S QUESTION: " + q)); if (b) found = bodyOf(b); }
+    await page.waitForTimeout(1200);   // the answer lands, and the chat is free for the next question
+    return found;
+  };
+  let body = await chatQ("anything I'm forgetting?");
+  ok(/OPEN TASKS/.test(body) && /COURSES/.test(body) && /CLASSES AND EVENTS/.test(body) && /HOW STUDYBOARD WORKS/.test(body), "a question about the student that names no topic still gets their whole planner, compactly");
+  body = await chatQ("how do I share a deck with classmates");
+  ok(/HOW STUDYBOARD WORKS/.test(body) && /Study Groups: share decks/.test(body), "questions about the app get a guide to how Studyboard works");
+  body = await chatQ("how much did I study this week");
+  ok(/STUDY ACTIVITY: focused \d+ min today/.test(body), "questions about their studying get their focus time and finished work");
+  body = await chatQ("explain osmosis simply");
+  ok(!/OPEN TASKS|HOW STUDYBOARD WORKS/.test(body), "a subject question still doesn't send the planner");
+  const sysOf = () => ((sent.filter(x => /STUDENT'S QUESTION/.test(bodyOf(x))).pop() || {}).systemInstruction || {parts: [{}]}).parts[0].text || "";
+  ok(/real AI helper/.test(sysOf()) && /Always give a real, useful answer/.test(sysOf()), "the companion is told to always help, from their data, the app guide and its own knowledge");
+  await chatQ("retry me please");
+  await page.waitForFunction(() => /Second try worked/.test(document.body.innerText), null, {timeout: 10000});
+  ok(true, "an empty reply is asked for once more, and the answer shows");
+  await chatQ("give me a long answer about osmosis");
+  await page.waitForFunction(() => /THE END\./.test(document.body.innerText), null, {timeout: 10000}).catch(() => {});
+  ok(await page.evaluate(() => /THE END\./.test(document.body.innerText)), "long answers aren't cut short");
 
   // The bubble on a computer: tap the companion, Ask, and it goes there
   await S(() => { ui.tab = "board"; render(); }); await page.waitForTimeout(400);

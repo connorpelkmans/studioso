@@ -560,7 +560,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const me = window.SBCOMP && SBCOMP.tab && SBCOMP.tab.info ? (SBCOMP.tab.info() || {}) : {};
     const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Use the student's own data below.\n${RULES}`;
     const r = await aiCall({task: "assist", maxTokens: 6000, temperature: 0.3, schema: SCHEMA, system, signal: o.signal, quiet: true,
-      parts: [{text: `THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}]});
+      parts: [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}]});
     const d = r && r.data || {};
     return Object.assign({answer: clip(d.answer, 1200)}, resolve(d, cat.refs));
   }
@@ -576,7 +576,32 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   // Serializable copies, for chats kept on the device
   const pack = res => ({show: (res.show || []).map(t => Object.assign({}, t)), changes: (res.changes || []).map(c => Object.assign({}, c, {t: Object.assign({}, c.t)}))});
 
+  /* What Studyboard is and where things are, for "how do I" and "where is" questions (kept to what the app really has) */
+  const GUIDE = `HOW STUDYBOARD WORKS (for questions about the app itself; Settings is the gear at the bottom of the sidebar, or in the top bar on phones):
+Pages (the sidebar; keys 1 to 7 switch pages):
+- Board: Today's Plan (what to do today, fitted into the study hours per day) and the Task Board (To Do, In Progress, Done). The add bar takes a sentence like "bio quiz fri 2pm"; N adds a task; C opens Quick Capture anywhere; a photo of a whiteboard or slide dropped on the Board adds the tasks on it.
+- Calendar: the Timeline, the week Schedule (classes, events and deadlines; click a class to move or skip one week, or Edit All Weeks) and Rough Week Rescue (plans a heavy week within the Weekly Hours Limit).
+- Review: flashcard decks (study with spaced repetition; keys 1 to 4 rate a card) and quizzes, including AI practice quizzes made from course materials.
+- Notes: sticky-note boards (several boards, one per course if you like) and whiteboards (draw, write, add pictures; handwriting can be turned into typed text).
+- Courses: each course's page with its tasks and class times, a Grades tab (marks, weights, and what you need on the rest), a Lectures tab (each class with its notes and files, recordings and transcripts), and Files (upload or link files, Google Drive and OneDrive) and Emails.
+- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up.
+- Study Groups: share decks, quizzes and deadlines, plan sessions together, and a weekly challenge.
+Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text inside files, and can answer with AI; the Focus timer (pomodoro sessions on a task); the Calculator (sidebar; its corner button reads an equation selected anywhere on screen and solves it); the Style Shop (themes, flashcard styles, note shapes, pins and stickers); ? lists keyboard shortcuts; Ctrl+Z undoes.
+Settings, by section:
+- Account and Sync: sign in to keep everything in sync across devices; Studyboard Pro; Restore Purchases.
+- Appearance: Light, Dark or System; Style Shop; animations; text size; language; high contrast; daily quote; spelling; page tips; the study companion.
+- Study and AI: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Break Down an Assignment (milestones backward from the due date); Weekly Review; Gentle Study Streak; AI Features (set up AI); Search Everywhere; Term Scrapbook (milestone stickers); Print or Save as PDF (Pro).
+- Quick Capture: add right away when sure; keep photos with tasks; use AI to read photos; the Quick Capture window; share sheet; Siri, Gemini, Bixby and Shortcuts.
+- School and Groups: Set Up Your Semester; Brightspace, Canvas, Blackboard and Moodle (due dates, grades and announcements); Import a Syllabus (a PDF becomes a course and its deadlines); Calendar Sync (Apple, Google or Outlook, live link or file); Study Groups; School Days (holidays, reading week, rotating Day 1 to 6 or A/B schedules).
+- App and Notifications: Reminders and Notifications; widgets; replay the welcome setup; the app tour; report a bug; crash reports; keyboard shortcuts; time zone; AI keys on all devices.
+- Data and Backups: automatic backups to Google Drive or OneDrive (with an account); export a backup file; restore; import from Anki, Quizlet, Knowt, Todoist or Notion; export my data; Start a New Term; Archive; Recently Deleted (kept 30 days); clear all data.
+AI: free with a Google Gemini key (Settings, Study and AI, AI Features), or Studyboard AI, included with paid Pro. AI makes flashcards and quizzes from slides and readings, reads syllabi and photos, explains, plans exam prep and grades practice answers.
+Ask (here or the companion's bubble) can itself find and open anything, change things and settings, and add tasks; the student confirms each change.
+If you're not sure a feature exists, say where in Settings to look rather than inventing steps.`;
+  const APPQ = /\b(how (do|can|to|would)|where (is|are|do|can|did)|can (i|you|studyboard)|is there|does (it|studyboard|the app)|feature|setting|settings|studyboard|app|button|tab|page|turn (on|off)|set ?up|import|export|sync|share|widget|calculator|whiteboard|focus timer|pomodoro|streak|pro\b|subscription|backup|restore|theme|dark mode|shortcut|keyboard|notification|remind|canvas|brightspace|moodle|blackboard|syllabus|archive|delete|undo|companion|wardrobe|scrapbook|exam mode|autopilot|group)/i;
+  const appQ = q => APPQ.test(String(q || ""));
+
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();
