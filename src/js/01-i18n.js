@@ -96,13 +96,13 @@ const tr = SBI18N.tr, trn = SBI18N.trn;
 hook("menu", () => {
   const av = SBI18N.available(); if (av.length < 2) return "";
   const cur = SBI18N.saved, items = [["auto", tr("lang.auto", "Auto")]].concat(av.map(l => [l, SBI18N.names[l] || l]));
-  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">${esc(tr("lang.title", "Language"))}<span class="sub">${esc(tr("lang.sub", "Auto follows your device. Anything not translated yet stays in English."))}</span></span><div class="segb" role="group" aria-label="${esc(tr("lang.title", "Language"))}">${items.map(([k, l]) => `<button type="button" data-act="lang-set" data-id="${esc(k)}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div></div>`;
+  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem" data-i18n="lang.title" data-i18n-en="Language">${esc(tr("lang.title", "Language"))}<span class="sub" data-i18n="lang.sub2" data-i18n-en="Anything not translated yet stays in English.">${esc(tr("lang.sub2", "Anything not translated yet stays in English."))}</span></span><div class="segb" role="group" aria-label="${esc(tr("lang.title", "Language"))}">${items.map(([k, l]) => `<button type="button" data-act="lang-set" data-id="${esc(k)}" aria-pressed="${cur === k}"${k === "auto" ? ' data-i18n="lang.auto" data-i18n-en="Auto"' : ""}>${esc(l)}</button>`).join("")}</div></div>`;
 });
 // Spelling: Automatic (by where you are), or fixed to American, British or Canadian
 hook("menu", () => {
   let cur = "auto"; try { cur = localStorage.getItem(SPELL.KEY) || "auto"; } catch (e) {}
   const opts = [["auto", "Automatic"], ["us", "American"], ["gb", "British"], ["ca", "Canadian"]];
-  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Spelling<span class="sub">Automatic follows where you are: colour and centre in Canada, the UK, Australia and more; &#99;olor and &#99;enter in the US. Your own text is never changed.</span></span><div class="segb" role="group" aria-label="Spelling">${opts.map(([k, l]) => `<button type="button" data-act="spell-set" data-id="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;
+  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Spelling<span class="sub">Automatic follows where you are.</span></span><div class="segb" role="group" aria-label="Spelling">${opts.map(([k, l]) => `<button type="button" data-act="spell-set" data-id="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;
 });
 hook("act", (act, el, id) => {
   if (act !== "spell-set") return false;
@@ -112,6 +112,8 @@ hook("act", (act, el, id) => {
 });
 hook("act", (act, el, id) => {
   if (act !== "lang-set") return false;
+  // Show the pick right away (the settings sheet isn't redrawn by render())
+  document.querySelectorAll('[data-act="lang-set"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id));
   SBI18N.set(id).then(() => { try { render(); } catch (e) {} });
   return true;
 });

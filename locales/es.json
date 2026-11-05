@@ -1,6 +1,5 @@
 {
   "lang.auto": "Automático",
-  "lang.sub": "Automático sigue tu dispositivo. Lo que aún no está traducido se queda en inglés.",
   "lang.title": "Idioma",
   "nav.board": "Tablero",
   "nav.courses": "Cursos",
@@ -8,5 +7,6 @@
   "nav.notes": "Notas",
   "nav.plan": "Calendario",
   "nav.courses.aria": "Cursos y archivos",
-  "nav.companion": "Compañero"
+  "nav.companion": "Compañero",
+  "lang.sub2": "Lo que aún no está traducido se queda en inglés."
 }

@@ -291,13 +291,13 @@ const tr = SBI18N.tr, trn = SBI18N.trn;
 hook("menu", () => {
   const av = SBI18N.available(); if (av.length < 2) return "";
   const cur = SBI18N.saved, items = [["auto", tr("lang.auto", "Auto")]].concat(av.map(l => [l, SBI18N.names[l] || l]));
-  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">${esc(tr("lang.title", "Language"))}<span class="sub">${esc(tr("lang.sub", "Auto follows your device. Anything not translated yet stays in English."))}</span></span><div class="segb" role="group" aria-label="${esc(tr("lang.title", "Language"))}">${items.map(([k, l]) => `<button type="button" data-act="lang-set" data-id="${esc(k)}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div></div>`;
+  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem" data-i18n="lang.title" data-i18n-en="Language">${esc(tr("lang.title", "Language"))}<span class="sub" data-i18n="lang.sub2" data-i18n-en="Anything not translated yet stays in English.">${esc(tr("lang.sub2", "Anything not translated yet stays in English."))}</span></span><div class="segb" role="group" aria-label="${esc(tr("lang.title", "Language"))}">${items.map(([k, l]) => `<button type="button" data-act="lang-set" data-id="${esc(k)}" aria-pressed="${cur === k}"${k === "auto" ? ' data-i18n="lang.auto" data-i18n-en="Auto"' : ""}>${esc(l)}</button>`).join("")}</div></div>`;
 });
 // Spelling: Automatic (by where you are), or fixed to American, British or Canadian
 hook("menu", () => {
   let cur = "auto"; try { cur = localStorage.getItem(SPELL.KEY) || "auto"; } catch (e) {}
   const opts = [["auto", "Automatic"], ["us", "American"], ["gb", "British"], ["ca", "Canadian"]];
-  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Spelling<span class="sub">Automatic follows where you are: colour and centre in Canada, the UK, Australia and more; &#99;olor and &#99;enter in the US. Your own text is never changed.</span></span><div class="segb" role="group" aria-label="Spelling">${opts.map(([k, l]) => `<button type="button" data-act="spell-set" data-id="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;
+  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Spelling<span class="sub">Automatic follows where you are.</span></span><div class="segb" role="group" aria-label="Spelling">${opts.map(([k, l]) => `<button type="button" data-act="spell-set" data-id="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;
 });
 hook("act", (act, el, id) => {
   if (act !== "spell-set") return false;
@@ -307,6 +307,8 @@ hook("act", (act, el, id) => {
 });
 hook("act", (act, el, id) => {
   if (act !== "lang-set") return false;
+  // Show the pick right away (the settings sheet isn't redrawn by render())
+  document.querySelectorAll('[data-act="lang-set"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id));
   SBI18N.set(id).then(() => { try { render(); } catch (e) {} });
   return true;
 });
@@ -8628,7 +8630,7 @@ function kitFollow(kind, list, cur, auto){
 }
 function animRows(){
   const c = styleCfg(), row = (key, icon, title, sub) => `<div class="cap-row"><span style="flex:1;font-weight:600">${icon} ${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-act="anim-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""}> On</label></div>`;
-  return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes. Turn off if they get distracting.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
+  return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
     + row("quotes", "💬", "Daily Quote", "A short motivational quote the first time you open Studyboard each day.")
     + `<button data-act="daily-quote"><span>Today's Quote and Streak<span class="sub">${esc(streakLine())}</span></span></button>`;
 }
@@ -63350,7 +63352,6 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function pickerBody(){
     const list = setOf(skinId()), c = current(), key = themeKey(skinId());
-    const skin = SKINS.find(s => s.id === skinId());
     const lockedMsg = paywall() && !pro();
     const want = Number((cfg().pick || {})[key]) || 0;
     const ord = id => { const k = SET_ORDER.indexOf(id); return k < 0 ? 99 : k; };
@@ -63378,8 +63379,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     };
     const tintRow = id => { const a = ACC.find(x => x.id === id), cur = colOf(id);
       return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}"><button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
-    return `<p class="mini" style="margin:0">A little friend who lives in your ${esc(skin ? skin.name : "")} ${key === "plain" ? "theme" : "scene"}. It sits beside the Add Task button, says hi when you tap it, and studies with you during Focus.</p>
-      <div class="cp-tiles">${tiles}</div>
+    return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>

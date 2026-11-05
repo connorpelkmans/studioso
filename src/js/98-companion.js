@@ -2253,7 +2253,6 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function pickerBody(){
     const list = setOf(skinId()), c = current(), key = themeKey(skinId());
-    const skin = SKINS.find(s => s.id === skinId());
     const lockedMsg = paywall() && !pro();
     const want = Number((cfg().pick || {})[key]) || 0;
     const ord = id => { const k = SET_ORDER.indexOf(id); return k < 0 ? 99 : k; };
@@ -2281,8 +2280,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     };
     const tintRow = id => { const a = ACC.find(x => x.id === id), cur = colOf(id);
       return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}"><button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
-    return `<p class="mini" style="margin:0">A little friend who lives in your ${esc(skin ? skin.name : "")} ${key === "plain" ? "theme" : "scene"}. It sits beside the Add Task button, says hi when you tap it, and studies with you during Focus.</p>
-      <div class="cp-tiles">${tiles}</div>
+    return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
