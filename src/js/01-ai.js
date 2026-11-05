@@ -1570,7 +1570,7 @@ function aiSetupSheet(fromFeature, opts){
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your own key below instead. ${aiProUsedUp() ? "It's used up for now, so your own key (Gemini first) is used until it resets." : "Your own key below is only a backup: if this month's or today's Studyboard AI runs out, your Gemini key (or another key you added) takes over until it resets."}</p></div>` : ""}
       ${fromFeature && !aiProAvail() ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
-      <p style="margin:0">Studyboard's AI uses <b>Google Gemini</b> by default because it's free. The free tier easily covers one student's studying.</p>
+      <p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
         <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a></li>
         <li>Click <b>Create API Key</b> (keep billing off)</li>
