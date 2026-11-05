@@ -1236,9 +1236,9 @@
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
-    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} something short`}" aria-label="Your question" data-noenter><button type="submit" class="btn small primary">Ask</button></form>
+    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn small primary">Ask</button></form>
       ${sc ? `<label class="cp-ask-ctx"><input type="checkbox" class="cp-ctx-on" checked> <span>About this ${esc(sc.kind.toLowerCase())}: <b>${esc(shortT(sc.label, 34))}</b></span></label>` : ""}
-      <span class="cp-ask-hint">${sc ? esc(sc.hint) : `Like "what should I do next?" or "quiz me on something"`}</span>`;
+      <span class="cp-ask-hint">${sc ? esc(sc.hint) : (() => { try { return aiReady(); } catch (e) { return false; } })() ? `Like "find my lab notes" or "move my essay to Friday"` : `Like "what should I do next?" or "quiz me on something"`}</span>`;
     placeBubble(b);
     const f = b.querySelector("form"), i = b.querySelector("input.cp-ask-in");
     f.addEventListener("submit", e => { e.preventDefault(); e.stopPropagation(); const q = i.value.replace(/\s+/g, " ").trim(); const on = b.querySelector(".cp-ctx-on"); if (q) askNow(q, on && on.checked); });
@@ -1258,7 +1258,12 @@
     if (!act) return;
     act.look(0, 0);
     if (r && r.answer && !SPEECH.ok(r.answer)) r = {why: pickFrom("ask:same", ["Hmm, I'd say the same thing again! Try asking another way?", "That's my answer again! Want to ask it differently?", "I keep landing on the same answer! Give me a different question?"])};
-    if (r && r.answer) { say(r.answer, {idea: r.idea, ms: Math.min(60000, Math.max(14000, 6000 + r.answer.length * 75)), long: r.answer.length > 200}); act.eyes("happy"); later(() => act && act.eyes("open"), 1200); }
+    if (r && r.answer) {
+      const speak = () => { if (!act) return; say(r.answer, {idea: r.idea, ms: Math.min(60000, Math.max(14000, 6000 + r.answer.length * 75)), long: r.answer.length > 200}); act.eyes("happy"); later(() => act && act.eyes("open"), 1200); };
+      // Ask found something or has a change: go there first (that redraws the page), then say the answer there
+      if (r.go) { let spoke = false; const once = () => { if (!spoke) { spoke = true; setTimeout(speak, 150); } }; Promise.resolve().then(() => r.go(once)).catch(e => console.warn(e)).finally(once); }
+      else speak();
+    }
     else say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000});
   }
 
@@ -1879,6 +1884,16 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (Date.now() - (s0.lastAsk || 0) < 8000) return {why: "One sec, I'm still thinking. Ask again in a moment?"};
     for (let i = 0; aiBusy && i < 80; i++) await new Promise(r => setTimeout(r, 250));
     { const s1 = aiRead(); s1.lastAsk = Date.now(); aiWrite(s1); }
+    // With AI set up, Ask can find anything in the app, knows the page the student is on, and proposes changes they confirm
+    // (98-assist.js). The task sheet's own Ask box stays a plain answer, so it never leaves the task.
+    if (window.SBASSIST && (!sc || sc.kind !== "Task") && (() => { try { return aiReady(); } catch (e) { return false; } })()) {
+      try {
+        const res = await SBASSIST.ask(clean, {extra: sc && sc.text ? `${sc.kind}: ${sc.label}\n${sc.text}` : ""});
+        const answer = cleanLine(res.answer, 650, BAD_ASK) || (res.changes.length ? "Here's the change. Check it, then tap Apply." : res.show.length ? "Here it is!" : "");
+        if (!answer) return {why: ""};
+        return {answer, idea: null, go: res.changes.length || res.show.length ? shown => SBASSIST.act(res, {shown}) : null};
+      } catch (e) { return {why: clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 160)}; }
+    }
     let sum;
     const screen = sc && sc.text ? `\n\nOn the student's screen right now (${sc.kind}: ${sc.label}):\n"""\n${sc.text}\n"""` : "";
     let found = ""; if (!screen) { try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(clean, {max: 4, chars: 800, readWait: 3}) : null; if (R && R.text) found = `\n\nFOUND IN THEIR FILES, NOTES AND CARDS:\n"""\n${R.text}\n"""`; } catch (e) {} }
@@ -2645,7 +2660,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       if (act && !quietNow2()) say(pickFrom("ai:oops", OOPS), {ms: 4000});
     });
     aiCall = async function(o){
-      const mine = !(o && o.auto) && !!aiName() && talkOn();
+      // quiet: the caller speaks for itself (Ask's own answer goes in the bubble)
+      const mine = !(o && (o.auto || o.quiet)) && !!aiName() && talkOn();
       if (!mine) return origAI.apply(this, arguments);
       cpAiBusy++;
       clearTimeout(cpJobT);

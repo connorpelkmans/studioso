@@ -19,7 +19,7 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 -- Starting values
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
-  ('prices', '{"monthly": "$3.99", "yearly": "$29.99", "trialDays": 7, "currency": "USD"}'),
+  ('prices', '{"monthly": "$4.99", "yearly": "$39.99", "trialDays": 7, "currency": "USD"}'),
   ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
@@ -43,6 +43,15 @@ update public.studyboard_config set
   value = jsonb_set(value, '{free}', (value -> 'free') || '{"devices": 2, "groupMembers": 3, "groupMsgDays": 60}'::jsonb), updated_at = now()
 where key = 'limits'
   and value -> 'free' @> '{"devices": 3, "groupMembers": 30, "groupMsgDays": 120}'::jsonb;
+
+-- Pro went from $3.99 a month, $12.99 a semester and $29.99 a year to $4.99, $15.99 and $39.99 (Studyboard AI included).
+-- Only rows still on the old prices change. The app shows $15.99 for the semester plan unless a "semester" price is set here.
+update public.studyboard_config set value = jsonb_set(jsonb_set(value, '{monthly}', '"$4.99"'), '{yearly}', '"$39.99"'), updated_at = now()
+where key = 'prices' and value ->> 'monthly' = '$3.99' and value ->> 'yearly' = '$29.99';
+update public.studyboard_config set value = jsonb_set(value, '{semester}', '"$15.99"'), updated_at = now()
+where key = 'prices' and value ->> 'semester' = '$12.99';
+update public.studyboard_config set value = jsonb_set(value, '{storeSemester}', '"$15.99"'), updated_at = now()
+where key = 'prices' and value ->> 'storeSemester' = '$12.99';
 
 -- Free groups went from 3 members to 5
 update public.studyboard_config set value = jsonb_set(value, '{free,groupMembers}', '5'), updated_at = now()

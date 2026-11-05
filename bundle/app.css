@@ -4599,6 +4599,21 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-dots i:nth-child(3){animation-delay:.36s}
 @keyframes cpDot{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:.9;transform:translateY(-4px)}}
 @media (prefers-reduced-motion:reduce){.cp-dots i{animation:cpDotFade 1.6s infinite}@keyframes cpDotFade{0%,100%{opacity:.35}50%{opacity:1}}}
+
+/* Ask's confirm panel (98-assist.js): sits low on the screen so the highlighted thing above stays in view */
+.as-dlg{margin:auto auto max(18px,env(safe-area-inset-bottom));width:min(520px,calc(100vw - 32px));max-height:min(70vh,560px);padding:0;border:0;border-radius:16px;background:var(--card,#fff);color:var(--ink,inherit);box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.as-dlg::backdrop{background:rgba(10,14,24,.12)}
+.as-sheet .sheet-body{max-height:min(48vh,380px);overflow:auto}
+.as-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.as-list li{display:grid;gap:2px;padding:10px 12px;border-radius:10px;background:var(--soft,rgba(0,0,0,.04))}
+.as-it{font-weight:700;overflow-wrap:anywhere}
+.as-f{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#667)}
+.as-ch{overflow-wrap:anywhere}
+.as-ch s{color:var(--muted,#667)}
+.as-ch b{color:var(--accent,#2f6fed)}
+/* "Show me" chips under a Companion tab answer */
+.cpt-show{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+.cpt-show-b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -8493,3 +8508,17 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .cx[data-cxskin=aquarium] .cx-lcd{background:radial-gradient(4px 4px at 88% 78%,rgba(47,184,217,.35) 60%,transparent 70%),radial-gradient(3px 3px at 92% 50%,rgba(47,184,217,.3) 60%,transparent 70%),radial-gradient(5px 5px at 85% 25%,rgba(47,184,217,.28) 60%,transparent 70%),linear-gradient(180deg,var(--lcd1),var(--lcd2))}
 .cx[data-cxskin=aquarium] .cx-body{box-shadow:inset 6px 0 18px -6px rgba(255,255,255,.25),inset 0 1px 0 rgba(255,255,255,.14)}
 .cx:focus{outline:none}
+
+/* "Select an equation on screen" (99-calc-snip.js): the corner button and the sheet you drag a box on */
+.cx-snip{display:grid;place-items:center;width:28px;height:28px;margin-left:0;padding:0;border:0;border-radius:50%;background:var(--xbg);color:var(--xink);cursor:pointer}
+.cx-snip svg{width:16px;height:16px}
+.cx-snip:hover,.cx-snip:focus-visible{filter:brightness(1.15)}
+.cx-snip + .cx-x{margin-left:0}
+.cx-expr.cx-in{animation:cxIn .9s ease}
+@keyframes cxIn{0%{background:color-mix(in srgb,var(--accent,#4f7cff) 30%,transparent)}100%{background:transparent}}
+.cxs-veil{position:fixed;inset:0;z-index:2147483000;cursor:crosshair;background:rgba(10,14,24,.18);touch-action:none;user-select:none;-webkit-user-select:none}
+.cxs-hint{position:fixed;top:14px;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:999px;background:rgba(18,22,32,.92);color:#fff;font:600 .85rem/1.2 var(--font,system-ui);box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none;white-space:nowrap}
+.cxs-hint span{margin-left:8px;opacity:.65;font-weight:500}
+.cxs-veil.is-drag .cxs-hint{opacity:0;transition:opacity .15s}
+.cxs-box{position:fixed;border:2px solid #4f7cff;border-radius:4px;background:rgba(79,124,255,.12);box-shadow:0 0 0 9999px rgba(10,14,24,.22);pointer-events:none}
+@media (prefers-reduced-motion:reduce){.cx-expr.cx-in{animation:none}}

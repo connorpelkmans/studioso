@@ -3258,17 +3258,25 @@ const SBPOLICY = (() => {
     explain: {effort: "medium", out: 4000, routine: true}, summary: {effort: "medium", out: 12000, routine: true},
     photo: {effort: "medium", out: 10000, routine: true}, linknotes: {effort: "medium", out: 10000, routine: true},
     transcript: {effort: "medium", out: 16000, routine: true}, groupplan: {effort: "medium", out: 6000, routine: true},
+    // The companion's Ask: answers, finds things in the app and proposes changes the student confirms
+    assist: {effort: "medium", out: 6000, routine: true},
+    // The automatic plan: medium, to match what free Gemini users get today (it drops to low past the soft limit)
+    plan: {effort: "medium", out: 6000, routine: true},
     // Routine: ranks and words what the app has already worked out
-    plan: {effort: "low", out: 6000, routine: true}, tune: {effort: "low", out: 4000, routine: true},
+    tune: {effort: "low", out: 4000, routine: true},
     estimate: {effort: "low", out: 3000, routine: true}, capture: {effort: "low", out: 4000, routine: true},
     weekly: {effort: "low", out: 2000, routine: true}, coach: {effort: "low", out: 3000, routine: true},
     "cards-light": {effort: "low", out: 10000, routine: true}, "quiz-light": {effort: "low", out: 10000, routine: true},
     "cases-light": {effort: "low", out: 10000, routine: true}, rewrite: {effort: "low", out: 9000, routine: true},
+    // Reading an equation the student selected on screen, for the calculator
+    mathread: {effort: "low", out: 3000, routine: true},
     // Yes/no and tiny lookups: no thinking
     remote: {effort: "none", out: 800, routine: true}, quickadd: {effort: "none", out: 3000, routine: true},
     news: {effort: "none", out: 4000, routine: true}, annintel: {effort: "none", out: 2000, routine: true},
     classify: {effort: "none", out: 2000, routine: true}, triage: {effort: "none", out: 2500, routine: true},
     tag: {effort: "none", out: 1000, routine: true}, line: {effort: "none", out: 2000, routine: true},
+    // A short description of a whiteboard picture or drawing, so Ask can find it
+    describe: {effort: "none", out: 1200, routine: true},
     ping: {effort: "none", out: 400, routine: true}
   };
   // A job the app doesn't name
@@ -3288,7 +3296,7 @@ const SBPOLICY = (() => {
   const micro = usd => Math.max(0, Math.ceil(usd * 1e6 - 1e-6));
   function limits(env){
     env = env || {};
-    const hard = num(env.MONTHLY_HARD_USD, 4, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 3, 0, HARD.monthUsd));
+    const hard = num(env.MONTHLY_HARD_USD, 2.5, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 2, 0, HARD.monthUsd));
     const day = num(env.DAILY_USD, 1, 0.05, HARD.dayUsd);
     return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
       perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};
@@ -3499,7 +3507,12 @@ const SBPOLICY = (() => {
     }
     const system = typeof job.system === "string" ? job.system : "";
     if (textBytes(system) > MAX_SYSTEM_BYTES) return {status: 413, body: {error: "too_long"}};
-    const task = taskOf(String(job.task || "").slice(0, 40), (await view()).soft);
+    const soft = (await view()).soft;
+    let task = taskOf(String(job.task || "").slice(0, 40), soft);
+    // Automatic jobs (the ones the app runs in the background) can be given more thinking than their usual level
+    // (the Worker raises them to medium for paid Pro), never past the soft limit, and never less than they had
+    const RANK = {none: 0, low: 1, medium: 2, high: 3};
+    if (job.auto === true && ctx.autoEffort && RANK[ctx.autoEffort] != null && !soft && RANK[ctx.autoEffort] > RANK[task.effort]) task = {name: task.name, effort: ctx.autoEffort, out: Math.max(task.out, 4000)};
     const cacheMedia = (task.name === "tutor" || task.name === "chat") && read.media > 0;
     const web = {search: job.search === true, fetch: job.urlContext === true}, onWeb = web.search || web.fetch;
     const req = buildRequest({system, blocks: read.blocks, schema, task, cacheMedia, web});
@@ -3568,10 +3581,11 @@ const AI_TIERS = {
 };
 const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
-  syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
+  syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["mid", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"], ocr: ["lite", "low"],
-  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "low"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
-  school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
+  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "medium"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
+  school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"],
+  assist: ["mid", "medium"], mathread: ["mid", "low"], describe: ["lite", "low"]
 };
 const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
 const AI_PROVIDERS = {
@@ -4294,7 +4308,7 @@ const AI_OWN_WORDS = {
   today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
 };
 async function proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own, hasBackup}){
-  const content = claudeBlocks(parts), job = {task, system, content, schema: schema ? toJsonSchema(schema) : null, search: !!search, urlContext: !!urlContext};
+  const content = claudeBlocks(parts), job = {task, system, content, schema: schema ? toJsonSchema(schema) : null, search: !!search, urlContext: !!urlContext, auto: !!auto};
   let res, j;
   if (own) {
     let r;
@@ -21287,7 +21301,7 @@ window.__sbPlanObj = () => PLAN;
       free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$3.99", semester: "$12.99", yearly: "$29.99", trialDays: 7, checkoutTrialDays: 0},
+    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 7, checkoutTrialDays: 0},
     checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
@@ -62319,9 +62333,9 @@ var COMP_EXTRA = [];
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
-    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} something short`}" aria-label="Your question" data-noenter><button type="submit" class="btn small primary">Ask</button></form>
+    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn small primary">Ask</button></form>
       ${sc ? `<label class="cp-ask-ctx"><input type="checkbox" class="cp-ctx-on" checked> <span>About this ${esc(sc.kind.toLowerCase())}: <b>${esc(shortT(sc.label, 34))}</b></span></label>` : ""}
-      <span class="cp-ask-hint">${sc ? esc(sc.hint) : `Like "what should I do next?" or "quiz me on something"`}</span>`;
+      <span class="cp-ask-hint">${sc ? esc(sc.hint) : (() => { try { return aiReady(); } catch (e) { return false; } })() ? `Like "find my lab notes" or "move my essay to Friday"` : `Like "what should I do next?" or "quiz me on something"`}</span>`;
     placeBubble(b);
     const f = b.querySelector("form"), i = b.querySelector("input.cp-ask-in");
     f.addEventListener("submit", e => { e.preventDefault(); e.stopPropagation(); const q = i.value.replace(/\s+/g, " ").trim(); const on = b.querySelector(".cp-ctx-on"); if (q) askNow(q, on && on.checked); });
@@ -62341,7 +62355,12 @@ var COMP_EXTRA = [];
     if (!act) return;
     act.look(0, 0);
     if (r && r.answer && !SPEECH.ok(r.answer)) r = {why: pickFrom("ask:same", ["Hmm, I'd say the same thing again! Try asking another way?", "That's my answer again! Want to ask it differently?", "I keep landing on the same answer! Give me a different question?"])};
-    if (r && r.answer) { say(r.answer, {idea: r.idea, ms: Math.min(60000, Math.max(14000, 6000 + r.answer.length * 75)), long: r.answer.length > 200}); act.eyes("happy"); later(() => act && act.eyes("open"), 1200); }
+    if (r && r.answer) {
+      const speak = () => { if (!act) return; say(r.answer, {idea: r.idea, ms: Math.min(60000, Math.max(14000, 6000 + r.answer.length * 75)), long: r.answer.length > 200}); act.eyes("happy"); later(() => act && act.eyes("open"), 1200); };
+      // Ask found something or has a change: go there first (that redraws the page), then say the answer there
+      if (r.go) { let spoke = false; const once = () => { if (!spoke) { spoke = true; setTimeout(speak, 150); } }; Promise.resolve().then(() => r.go(once)).catch(e => console.warn(e)).finally(once); }
+      else speak();
+    }
     else say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000});
   }
 
@@ -62962,6 +62981,16 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (Date.now() - (s0.lastAsk || 0) < 8000) return {why: "One sec, I'm still thinking. Ask again in a moment?"};
     for (let i = 0; aiBusy && i < 80; i++) await new Promise(r => setTimeout(r, 250));
     { const s1 = aiRead(); s1.lastAsk = Date.now(); aiWrite(s1); }
+    // With AI set up, Ask can find anything in the app, knows the page the student is on, and proposes changes they confirm
+    // (98-assist.js). The task sheet's own Ask box stays a plain answer, so it never leaves the task.
+    if (window.SBASSIST && (!sc || sc.kind !== "Task") && (() => { try { return aiReady(); } catch (e) { return false; } })()) {
+      try {
+        const res = await SBASSIST.ask(clean, {extra: sc && sc.text ? `${sc.kind}: ${sc.label}\n${sc.text}` : ""});
+        const answer = cleanLine(res.answer, 650, BAD_ASK) || (res.changes.length ? "Here's the change. Check it, then tap Apply." : res.show.length ? "Here it is!" : "");
+        if (!answer) return {why: ""};
+        return {answer, idea: null, go: res.changes.length || res.show.length ? shown => SBASSIST.act(res, {shown}) : null};
+      } catch (e) { return {why: clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 160)}; }
+    }
     let sum;
     const screen = sc && sc.text ? `\n\nOn the student's screen right now (${sc.kind}: ${sc.label}):\n"""\n${sc.text}\n"""` : "";
     let found = ""; if (!screen) { try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(clean, {max: 4, chars: 800, readWait: 3}) : null; if (R && R.text) found = `\n\nFOUND IN THEIR FILES, NOTES AND CARDS:\n"""\n${R.text}\n"""`; } catch (e) {} }
@@ -63728,7 +63757,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       if (act && !quietNow2()) say(pickFrom("ai:oops", OOPS), {ms: 4000});
     });
     aiCall = async function(o){
-      const mine = !(o && o.auto) && !!aiName() && talkOn();
+      // quiet: the caller speaks for itself (Ask's own answer goes in the bubble)
+      const mine = !(o && (o.auto || o.quiet)) && !!aiName() && talkOn();
       if (!mine) return origAI.apply(this, arguments);
       cpAiBusy++;
       clearTimeout(cpJobT);
@@ -63936,6 +63966,613 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   document.head.appendChild(st);
 })();
 
+/* ===== module: 98-assist.js: Ask finds anything, knows the page you're on, and makes changes you confirm ===== */
+/* Used by the companion's Ask (the bubble on computers, the Companion tab on phones and everywhere else).
+   - catalog(q): everything Ask can point at, each with a short ref (T3 = a task, K12 = one class on one day, F2 = a card...),
+     plus what search finds for the question inside files, notes and cards, and what's on the student's screen.
+   - The AI answers with {answer, show: [refs], changes: [{ref, field, value, scope, setting}]}.
+   - jump(target) goes there and highlights it; propose(changes) goes to the first one, lists each change as before → after,
+     and only on Apply makes them (one Undo for all). Settings are changed through the Settings sheet's own controls.
+   - Whiteboards get a short description of their pictures, drawings and handwriting in the background (the "describe"
+     job), so "the whiteboard with the cell diagram" can be found, and the jump lands on that spot. */
+(() => {
+  const clip = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const wd = d => { try { return DAYS[parse(d).getDay()]; } catch (e) { return ""; } };
+  const ISO = /^\d{4}-\d{2}-\d{2}$/, HM = /^([01]?\d|2[0-3]):[0-5]\d$/;
+  const hm = v => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(v || "").trim()); return m && HM.test(v) ? String(m[1]).padStart(2, "0") + ":" + m[2] : ""; };
+  const nice = d => { try { return parse(d).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"}); } catch (e) { return d; } };
+  const tm = t => { try { return t ? fmtTime(t) : "no time"; } catch (e) { return t; } };
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const frame = () => new Promise(r => requestAnimationFrame(() => r()));
+
+  /* ---------- 1. The page the student is on ---------- */
+  const NAMES = {board: "Board", timeline: "Calendar (timeline)", schedule: "Calendar (week schedule)", crunch: "Rough Week Rescue", flashcards: "Review (flashcards and quizzes)",
+    notes: "Notes", courses: "Courses", files: "Files", emails: "Emails", groups: "Study Groups", archive: "Archive", scrapbook: "Term Scrapbook", sbtoday: "Today", companion: "Companion"};
+  function here(){
+    const tab = ui.tab, bits = [];
+    try {
+      if (tab === "courses" && ui.courseId && state.courses[ui.courseId]) { const c = state.courses[ui.courseId]; bits.push(`course page: ${c.name}${c.code ? " (" + c.code + ")" : ""}${ui.courseTab ? ", " + ui.courseTab + " tab" : ""}`); }
+      if (tab === "flashcards") {
+        if (ui.fc && ui.fc.q && ui.fc.q[ui.fc.i]) { const it = ui.fc.q[ui.fc.i], d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId); if (c) bits.push(`studying the deck "${d.name}", card showing: "${clip(c.front, 200)}"${ui.fc.flipped ? ` (flipped; back: "${clip(c.back, 200)}")` : " (not flipped yet: don't reveal the back unless they ask)"}`); }
+        else if (ui.deckId && state.decks[ui.deckId]) bits.push(`deck "${state.decks[ui.deckId].name}"${ui.rvView === "quizzes" ? ", quizzes" : ""}`);
+      }
+      if (tab === "notes") {
+        if (ui.notesView === "wb" && window.SBWB && SBWB.curId && SBWB.curId()) { const b = state.notes[SBWB.curId()]; if (b) bits.push(`whiteboard "${SBWB.boardName(b)}"`); }
+        else bits.push(`note board "${nbName(ui.noteBoard || "")}"`);
+      }
+      if (isPlanTab(tab) && tab === "schedule" && ui.schWeek) bits.push(`week of ${nice(ui.schWeek)}`);
+      if (tab === "files" && ui.fCourse && ui.fCourse !== "all" && state.courses[ui.fCourse]) bits.push(`files for ${courseLabel(state.courses[ui.fCourse])}`);
+    } catch (e) {}
+    const view = document.getElementById("view");
+    let text = ""; try { text = view ? view.innerText : ""; } catch (e) {}
+    let sheet = "";
+    try { if (dlg && dlg.open) { const h = dlg.querySelector("h2"); sheet = `${h ? h.textContent.trim() + ": " : ""}${clip(dlg.innerText, 2500)}`; } } catch (e) {}
+    return {tab, name: NAMES[tab] || tab, detail: bits.join("; "), text: clip(text, 5000), sheet, at: Date.now()};
+  }
+  // The Companion tab is a page too: what was on screen just before it is kept
+  let snap = null, snapT = 0;
+  hook("render", () => { if (ui.tab === "companion") return; clearTimeout(snapT); snapT = setTimeout(() => { try { if (ui.tab !== "companion") snap = here(); } catch (e) {} }, 700); });
+  function current(){ if (ui.tab !== "companion") return here(); return snap && Date.now() - snap.at < 6 * 3600000 ? Object.assign({}, snap, {before: true}) : null; }
+  function screenText(cur){
+    if (!cur) return "";
+    return `\n\nTHE STUDENT ${cur.before ? "WAS JUST LOOKING AT (before opening the Companion tab)" : "IS LOOKING AT RIGHT NOW"}: the ${cur.name} page${cur.detail ? " (" + cur.detail + ")" : ""}.${cur.sheet ? `\nAn open window on top: ${cur.sheet}` : ""}\nWhat the page shows:\n"""\n${cur.text}\n"""\nQuestions like "this", "here", "on this page" or "these" are about it.`;
+  }
+
+  /* ---------- 2. Everything Ask can point at ---------- */
+  const DESC_KEY = "studyboard:wbDesc";
+  const descs = () => { try { return JSON.parse(localStorage.getItem(DESC_KEY) || "{}") || {}; } catch (e) { return {}; } };
+  async function catalog(q, o){
+    o = o || {};
+    const refs = new Map(), byKey = new Map(), cnt = {}, L = [];
+    const ref = (p, t) => { const k = t.kind + ":" + (t.key || t.id) + (t.page ? "@" + t.page : "") + (t.spot ? "#" + t.spot.what + t.spot.x0 + "," + t.spot.y0 : ""); if (byKey.has(k)) return byKey.get(k); cnt[p] = (cnt[p] || 0) + 1; const r = p + cnt[p]; refs.set(r, t); byKey.set(k, r); return r; };
+    const today = todayISO(), cl = id => { const c = id && state.courses[id]; return c ? courseLabel(c) : ""; };
+    // courses and their weekly class times
+    const cs = coursesArr();
+    if (cs.length) L.push("COURSES (ref | name | code | instructor | room | weekly class times):\n" + cs.map(c => `${ref("C", {kind: "course", id: c.id})} | ${clip(c.name, 60)} | ${clip(c.code, 20)} | ${clip(c.instructor, 40)} | ${clip(c.room, 30)} | ${courseMeetings(c).map(m => `${m.kind} ${(m.days || []).map(x => DAYS[x]).join("/")} ${m.start}-${m.end}${m.where ? " at " + m.where : ""}`).join("; ")}`).join("\n"));
+    // tasks
+    const all = tasksArr(), open = all.filter(t => t.status !== "done").sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 220);
+    const done = all.filter(t => t.status === "done").sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 30);
+    const tl = t => `${ref("T", {kind: "task", id: t.id})} | ${clip(t.title, 90)} | ${cl(t.courseId)} | ${t.type} | ${t.due ? `due ${t.due} (${wd(t.due)})${t.time ? " " + t.time : ""}` : "no due date"} | ${t.status} | ${t.priority || "med"}${t.hours ? " | est " + t.hours + "h" : ""}${t.weight ? " | worth " + t.weight + "%" : ""}`;
+    if (open.length) L.push("OPEN TASKS (ref | title | course | type | due | status | priority):\n" + open.map(tl).join("\n"));
+    if (done.length) L.push("RECENTLY FINISHED TASKS:\n" + done.map(tl).join("\n"));
+    // classes and events, one line per day they happen (two weeks back, five ahead)
+    try {
+      const occ = schOccurrences(addDays(today, -14), addDays(today, 35)).filter(x => x.type === "meet" || x.type === "event").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 300);
+      if (occ.length) L.push("CLASSES AND EVENTS BY DATE (ref | day | date | time | what | where):\n" + occ.map(x => `${ref("K", {kind: x.type === "meet" ? "class" : "event", id: x.id, key: x.key, date: x.date, start: x.start, end: x.end, mid: x.m && x.m.id, label: x.label, repeats: x.type === "meet" || !!(x.ev && x.ev.repeat)})} | ${wd(x.date)} | ${x.date} | ${x.allDay ? "all day" : `${x.start}-${x.end}`} | ${x.type === "meet" ? `${courseLabel(x.c)} ${x.label}` : clip(x.title, 60) + (x.ev && x.ev.repeat ? " (repeats)" : "")} | ${clip(x.where, 40)}${x.skipped ? " | cancelled this day" : x.moved ? " | moved this day" : ""}`).join("\n"));
+    } catch (e) { console.warn("assist classes", e); }
+    // decks, quizzes, and the cards of the deck on screen
+    const ds = decksArr();
+    if (ds.length) L.push("FLASHCARD DECKS AND QUIZZES (ref | name | course | cards | quizzes):\n" + ds.map(d => `${ref("D", {kind: "deck", id: d.id})} | ${clip(d.name, 60)} | ${cl(d.courseId)} | ${d.cards.length} cards | ${(d.aiQuizzes || []).filter(z => !z.archived).map(z => `${ref("Z", {kind: "quiz", deck: d.id, id: z.id})} "${clip(z.title, 50)}" (${(z.questions || []).length} questions)`).join(", ")}`).join("\n"));
+    const onDeck = ui.tab === "flashcards" && ui.deckId && state.decks[ui.deckId] ? state.decks[ui.deckId] : null;
+    if (onDeck && onDeck.cards.length) L.push(`CARDS IN "${clip(onDeck.name, 60)}" (ref | front | back):\n` + onDeck.cards.slice(0, 200).map(c => `${ref("F", {kind: "card", deck: onDeck.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)}`).join("\n"));
+    // notes and whiteboards
+    const ns = notesArr().filter(n => !n.archived && String(n.text || "").trim()).sort((a, b) => (b.updated || 0) - (a.updated || 0)).slice(0, 150);
+    if (ns.length) L.push("STICKY NOTES (ref | note board | text):\n" + ns.map(n => `${ref("N", {kind: "note", id: n.id})} | ${nbName(noteBoardOf(n))} | ${clip(n.text, 160)}`).join("\n"));
+    const D = descs(), wbs = Object.values(state.notes || {}).filter(n => isWhiteboard(n) && !n.archived).slice(0, 80);
+    if (wbs.length) L.push("WHITEBOARDS (ref | name | course | typed text | what's drawn, written or pictured on it):\n" + wbs.map(n => {
+      const d = D[n.id] && D[n.id].d, typed = (n.wbItems || []).filter(i => i.k === "t").map(i => i.s).join(" / "), own = ref("W", {kind: "board", id: n.id});
+      const spots = d && Array.isArray(d.spots) ? d.spots.slice(0, 12).map((s, i) => `${ref("W", {kind: "board", id: n.id, spot: s})} ${clip(s.what, 60)}`).join("; ") : "";
+      return `${own} | ${clip(window.SBWB ? SBWB.boardName(n) : (n.text || "").split("\n")[0], 60)} | ${cl(n.courseId)} | ${clip(typed, 200)} | ${d ? clip(d.about, 200) + (d.words ? ` Words on it: ${clip(d.words, 300)}` : "") : (n.wbInk || []).length ? "has drawings or handwriting (not described yet)" : ""}${spots ? ` | spots: ${spots}` : ""}`;
+    }).join("\n"));
+    // files
+    const fs = Object.values(state.files || {}).filter(f => f && !f.archived).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0)).slice(0, 250);
+    if (fs.length) L.push("FILES (ref | name | course | folder):\n" + fs.map(f => `${ref("P", {kind: "file", id: f.id})} | ${clip(f.name, 80)} | ${cl(f.courseId)} | ${f.folderId === "lectures" ? "lecture recording" : clip(f.folderId || "", 20)}${f.desc ? " | " + clip(f.desc, 80) : ""}`).join("\n"));
+    // what search finds for the question, inside files, notes, cards and quizzes
+    if (q && window.SBSEARCH) {
+      try {
+        const R = await SBSEARCH.retrieve(q, {max: 10, chars: 700, wait: 800, readWait: 1, semWait: 2500});
+        // R.text has each row as "[n] where" and then its text, in the same order as R.rows
+        const told = {}; String(R && R.text || "").split(/\n\n(?=\[\d+\] )/).forEach(b => { const m = /^\[(\d+)\] ([^\n]*)\n?([\s\S]*)$/.exec(b); if (m) told[Number(m[1]) - 1] = {cite: m[2], body: m[3]}; });
+        const rows = (R && R.rows || []).map((x, i) => {
+          const d = x.doc || {}; let t = null, p = "S";
+          if (d.type === "task") { t = {kind: "task", id: d.id}; p = "T"; }
+          else if (d.type === "card") { t = {kind: "card", deck: d.pid, id: d.id}; p = "F"; }
+          else if (d.type === "question") { t = {kind: "question", deck: d.pid, quiz: d.qid, id: d.id}; p = "Q"; }
+          else if (d.type === "quiz") { t = {kind: "quiz", deck: d.pid, id: d.id}; p = "Z"; }
+          else if (d.type === "deck") { t = {kind: "deck", id: d.id}; p = "D"; }
+          else if (d.type === "note") { t = {kind: "note", id: d.id}; p = "N"; }
+          else if (d.type === "board") { t = {kind: "board", id: d.id}; p = "W"; }
+          else if (d.type === "course") { t = {kind: "course", id: d.id}; p = "C"; }
+          else if (d.type === "file") { t = {kind: "file", id: d.id}; p = "P"; }
+          else if (d.type === "chunk") { t = {kind: "file", id: d.fid, page: d.label === "Page" ? d.page : 0}; p = "P"; }
+          else if (d.type === "lecture") { t = {kind: "file", id: d.fid}; p = "P"; }
+          else if (d.type === "event") { t = {kind: "event", id: d.id}; p = "K"; }
+          if (!t) return "";
+          const tt = told[i] || {}, d2 = x.doc || {};
+          return `${ref(p, t)} | ${clip(tt.cite || d2.title || "", 80)}\n${clip(tt.body || x.text || [d2.title, d2.text].filter(Boolean).join(" "), 700)}`;
+        }).filter(Boolean);
+        if (rows.length) L.push("SEARCH MATCHES FOR THE QUESTION (ref | where, then the matching text):\n" + rows.join("\n\n"));
+      } catch (e) { console.warn("assist search", e); }
+    }
+    const text = (`TODAY: ${today} (${wd(today)})\n\n` + L.join("\n\n")).slice(0, o.max || 60000);
+    return {text, refs};
+  }
+
+  /* ---------- 3. What the AI may answer with ---------- */
+  const FIELDS = ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete",
+    "name", "code", "instructor", "room", "date", "from", "to", "where", "weekday", "skip", "front", "back", "stem", "answer", "explanation", "options", "correct", "text", "setting"];
+  const SHOW_CHANGE = {
+    show: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (like T3, K12, P4, W2) of what the student asked to find or see, most relevant first. Empty when they didn't ask to find anything and nothing is being changed."},
+    changes: {type: "ARRAY", description: "Changes to make, ONLY when the student asked for a change. The app shows each one and asks them to confirm. Empty otherwise.", items: {type: "OBJECT", properties: {
+      ref: {type: "STRING", description: "The ref of the thing to change, or SETTINGS for an app setting"},
+      field: {type: "STRING", enum: FIELDS},
+      value: {type: "STRING", description: "The new value (formats in the rules). For delete or skip: yes"},
+      scope: {type: "STRING", enum: ["none", "once", "all"], description: "Classes and repeating events: once = only that day, all = every week; none for everything else"},
+      setting: {type: "STRING", description: "field setting: the setting to change, in words, like 'daily quote' or 'study hours per day'"}}, required: ["ref", "field", "value"]}},
+    newTasks: {type: "ARRAY", description: "New tasks to add, ONLY when the student asked to add or create them. The app shows them and asks them to confirm. Empty otherwise.", items: {type: "OBJECT", properties: {
+      title: {type: "STRING"}, course: {type: "STRING", description: "A C ref, or empty"}, type: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Study", "Other"]},
+      due: {type: "STRING", description: "YYYY-MM-DD, or empty for no due date"}, time: {type: "STRING", description: "HH:MM (24h), or empty"},
+      priority: {type: "STRING", enum: ["low", "med", "high", "urgent"]}, hours: {type: "NUMBER", description: "Time estimate in hours, or 0 if unknown"}, notes: {type: "STRING", description: "Details the student gave, or empty"}},
+      required: ["title", "type", "due"]}}
+  };
+  // The Companion tab sends only what a question needs: the list of things to find or change goes with questions that are about that
+  const WANTS = /\b(find|where|show|open|locate|look(ing)? for|search|go to|take me|jump|bring up|pull up|which (note|file|board|whiteboard|deck|card|quiz|task|class)|change|move|rename|edit|update|set|make (it|my|the)|turn (on|off)|enable|disable|delete|remove|cancel|skip|reschedule|push|postpone|switch|fix|correct|replace|swap|mark (it|as)|due (date|time)|setting|settings|add|create|new task|remind me|put (in|on)|schedule)\b/i;
+  const wants = q => WANTS.test(String(q || ""));
+  const SCHEMA = {type: "OBJECT", properties: Object.assign({answer: {type: "STRING", description: "The reply, plain text, short"}}, SHOW_CHANGE), required: ["answer", "show", "changes"]};
+  const RULES = `FINDING THINGS: when the student asks where something is, to find, open or show something (a task, a note that says something, a whiteboard with a certain picture, drawing or writing on it, a file by its name or by what's in it, a card, a quiz question, a class), put its ref first in "show" and say in one short sentence what and where it is. The app opens it and highlights it. A whiteboard spot ref (W with a description) lands on that part of the board. Search matches show what's inside files and notes. If nothing fits, say so and leave "show" empty; never guess a ref.
+CHANGING THINGS: when (and only when) the student asks to change something, add it to "changes". Never say it's already done: the app shows them the change and they confirm it. Use exactly one change per field per thing. Fields by kind:
+- task (T): title; due YYYY-MM-DD; time HH:MM (24h) or empty; startDate YYYY-MM-DD; status todo|doing|done; priority low|med|high|urgent; notes; hours (number); type Assignment|Exam|Quiz|Reading|Project|Lab|Study|Other; course (a C ref); weight (percent number); delete yes
+- course (C): name; code; instructor; room
+- class on a day (K for a class): scope once = only that day: date YYYY-MM-DD (move it), from HH:MM, to HH:MM, skip yes (cancel that day). scope all = every week: from, to, where, weekday Sun|Mon|Tue|Wed|Thu|Fri|Sat (moves that weekly class to another day). "Change my Tuesday lecture to 3pm" with no date means every week; "this Tuesday" or a date means once.
+- event (K for an event): title; date; from; to; where; notes; delete yes; for repeating ones scope once or all
+- deck (D): name. quiz (Z): title
+- card (F): front; back; delete yes
+- quiz question (Q): stem; answer (for a short-answer question); explanation; options (all the choices, separated by " | "); correct (the correct choice's exact text; several separated by " | "); delete yes
+- sticky note (N): text (the whole new note); delete yes. whiteboard (W): name
+- file (P): name (keep the file's extension); course (a C ref); delete yes
+- app settings: ref SETTINGS, field setting, "setting" = which setting in words, value = the new value in words or a number (like "off", "dark", "4", "Spanish").
+ADDING TASKS: when the student asks to add, create or remember something to do (homework, an exam, a reading, a reminder to study), put each one in "newTasks": a short clear title, its course ref when it's for a course, its type, the due date worked out from TODAY (like "next Friday"), a time only if they gave one, and priority high for exams. Several at once is fine ("add the readings for each week"). Never say they're added: the student confirms them first.
+Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
+
+  /* ---------- 4. Checking what came back ---------- */
+  const fieldOk = {
+    task: ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete"],
+    course: ["name", "code", "instructor", "room"], class: ["date", "from", "to", "where", "weekday", "skip"], event: ["title", "date", "from", "to", "where", "notes", "delete", "skip"],
+    deck: ["name"], quiz: ["title"], card: ["front", "back", "delete"], question: ["stem", "answer", "explanation", "options", "correct", "delete"],
+    note: ["text", "delete"], board: ["name"], file: ["name", "course", "delete"]
+  };
+  const yes = v => /^(yes|true|1|on|delete|skip|cancel)$/i.test(String(v || "").trim());
+  function exists(t){
+    if (!t) return false;
+    switch (t.kind) {
+      case "task": return !!state.tasks[t.id];
+      case "course": case "class": return !!state.courses[t.id];
+      case "event": return !!state.events[t.id];
+      case "deck": return !!state.decks[t.id];
+      case "quiz": case "card": case "question": return !!state.decks[t.deck];
+      case "note": case "board": return !!state.notes[t.id];
+      case "file": return !!state.files[t.id];
+      case "newtask": return !!(t.task && t.task.title);
+    }
+    return false;
+  }
+  const labelOf = t => {
+    try {
+      switch (t.kind) {
+        case "task": return clip(state.tasks[t.id].title, 60);
+        case "course": return courseLabel(state.courses[t.id]);
+        case "class": return `${courseLabel(state.courses[t.id])} ${t.label || "class"}, ${nice(t.date)}`;
+        case "event": { const e = state.events[t.id]; return `${clip(e.title, 50)}${t.date ? ", " + nice(t.date) : ""}`; }
+        case "deck": return clip(state.decks[t.id].name, 60);
+        case "quiz": { const z = (state.decks[t.deck].aiQuizzes || []).find(x => x.id === t.id); return z ? clip(z.title, 60) : "Quiz"; }
+        case "card": { const c = state.decks[t.deck].cards.find(x => x.id === t.id); return c ? clip(c.front, 60) : "Card"; }
+        case "question": { const z = (state.decks[t.deck].aiQuizzes || []).find(x => x.id === t.quiz), qq = z && z.questions.find(x => x.id === t.id); return qq ? clip(qq.stem, 60) : "Question"; }
+        case "note": return clip((state.notes[t.id].text || "Note").split("\n")[0], 60) || "Note";
+        case "board": return clip(window.SBWB ? SBWB.boardName(state.notes[t.id]) : "Whiteboard", 60) + (t.spot ? ": " + clip(t.spot.what, 40) : "");
+        case "file": return clip(state.files[t.id].name, 60) + (t.page ? `, page ${t.page}` : "");
+        case "settings": return "Settings";
+      }
+    } catch (e) {}
+    return "";
+  };
+  const NAMEF = {title: "Title", due: "Due date", time: "Due time", startDate: "Start date", status: "Status", priority: "Priority", notes: "Notes", hours: "Time estimate", type: "Type", course: "Course", weight: "Weight",
+    name: "Name", code: "Code", instructor: "Instructor", room: "Room", date: "Date", from: "Starts", to: "Ends", where: "Where", weekday: "Day", skip: "Cancel", front: "Front", back: "Back", stem: "Question", answer: "Answer",
+    explanation: "Explanation", options: "Choices", correct: "Correct answer", text: "Text", delete: "Delete"};
+  const STATUS = {todo: "To Do", doing: "In Progress", done: "Done"}, PRI = {low: "Low", med: "Medium", high: "High", urgent: "Urgent"};
+  // One change, checked and described (before → after); null when it isn't something that can be done
+  function check(c, refs){
+    if (!c || typeof c !== "object") return null;
+    const field = String(c.field || ""), raw = String(c.value == null ? "" : c.value).trim().slice(0, 4000), scope = c.scope === "once" || c.scope === "all" ? c.scope : "";
+    if (String(c.ref || "").toUpperCase() === "SETTINGS" || field === "setting") {
+      const what = clip(c.setting, 120); if (!what || !raw) return null;
+      return {t: {kind: "settings"}, field: "setting", setting: what, value: clip(raw, 200), label: "Settings", what: what, from: "", to: clip(raw, 80)};
+    }
+    const t = refs.get(String(c.ref || "").trim().toUpperCase()); if (!t || !exists(t)) return null;
+    if (!(fieldOk[t.kind] || []).includes(field)) return null;
+    const out = {t, field, value: raw, scope, label: labelOf(t), what: NAMEF[field] || field};
+    const S = (from, to) => Object.assign(out, {from, to});
+    try {
+      if (t.kind === "task") {
+        const k = state.tasks[t.id];
+        if (field === "delete") return yes(raw) ? S("", "Delete it (it goes to Recently Deleted)") : null;
+        if (field === "due" || field === "startDate") { if (!ISO.test(raw)) return null; const cur = field === "due" ? k.due : k.start; return S(cur ? nice(cur) : "none", nice(raw)); }
+        if (field === "time") { const v = raw ? hm(raw) : ""; if (raw && !v) return null; out.value = v; return S(k.time ? tm(k.time) : "no time", v ? tm(v) : "no time"); }
+        if (field === "status") { if (!STATUS[raw]) return null; return S(STATUS[k.status] || k.status, STATUS[raw]); }
+        if (field === "priority") { if (!PRI[raw]) return null; return S(PRI[k.priority] || k.priority, PRI[raw]); }
+        if (field === "type") { if (!TYPES.includes(raw)) return null; return S(k.type, raw); }
+        if (field === "hours") { const n = Number(raw); if (!(n >= 0 && n <= 500)) return null; out.value = n; return S(k.hours ? k.hours + "h" : "none", n + "h"); }
+        if (field === "weight") { const n = Number(String(raw).replace("%", "")); if (!(n >= 0 && n <= 100)) return null; out.value = n; return S(k.weight ? k.weight + "%" : "none", n + "%"); }
+        if (field === "course") { const ct = refs.get(raw.toUpperCase()); if (!ct || ct.kind !== "course" || !state.courses[ct.id]) return null; out.value = ct.id; return S(k.courseId && state.courses[k.courseId] ? courseLabel(state.courses[k.courseId]) : "none", courseLabel(state.courses[ct.id])); }
+        if (!raw && field === "title") return null;
+        return S(clip(k[field], 80) || "empty", clip(raw, 80) || "empty");
+      }
+      if (t.kind === "course") { if (!raw && field === "name") return null; return S(clip(state.courses[t.id][field], 60) || "none", clip(raw, 60)); }
+      if (t.kind === "class" || t.kind === "event") {
+        if (field === "skip") return yes(raw) ? S(`${nice(t.date)}, ${tm(t.start)}`, "Cancelled that day") : null;
+        if (field === "delete") return t.kind === "event" && yes(raw) ? S("", "Delete it") : null;
+        if (t.kind === "class" && !scope) out.scope = field === "date" ? "once" : "all";
+        if (t.kind === "event" && !t.repeats) out.scope = "all";
+        if (t.kind === "event" && t.repeats && !scope) out.scope = "all";
+        if (field === "date") { if (!ISO.test(raw)) return null; if (t.kind === "class") out.scope = "once"; return S(nice(t.date), nice(raw)); }
+        if (field === "from" || field === "to") { const v = hm(raw); if (!v) return null; out.value = v; return S(tm(field === "from" ? t.start : t.end), tm(v)); }
+        if (field === "weekday") { const i = DAYS.findIndex(d => d.toLowerCase() === raw.slice(0, 3).toLowerCase()); if (i < 0 || t.kind !== "class") return null; out.value = i; out.scope = "all"; return S(DAYS[parse(t.date).getDay()] + " every week", DAYS[i] + " every week"); }
+        if (field === "where") { if (t.kind === "class" && out.scope === "once") return null; const cur = t.kind === "class" ? ((courseMeetings(state.courses[t.id]).find(m => m.id === t.mid) || {}).where || "") : state.events[t.id].where; return S(cur || "none", clip(raw, 60) || "none"); }
+        if (field === "title" || field === "notes") return raw || field === "notes" ? S(clip(state.events[t.id][field], 60) || "none", clip(raw, 60) || "none") : null;
+        return null;
+      }
+      if (t.kind === "deck") return raw ? S(state.decks[t.id].name, clip(raw, 80)) : null;
+      if (t.kind === "quiz") { const z = state.decks[t.deck].aiQuizzes.find(x => x.id === t.id); return z && raw ? S(z.title, clip(raw, 80)) : null; }
+      if (t.kind === "card") { const k = state.decks[t.deck].cards.find(x => x.id === t.id); if (!k) return null; if (field === "delete") return yes(raw) ? S("", "Delete the card") : null; if (!raw) return null; return S(clip(k[field], 100), clip(raw, 100)); }
+      if (t.kind === "question") {
+        const z = (state.decks[t.deck].aiQuizzes || []).find(x => x.id === t.quiz), k = z && z.questions.find(x => x.id === t.id); if (!k) return null;
+        if (field === "delete") return yes(raw) ? S("", "Delete the question") : null;
+        if (field === "options") { const o = raw.split("|").map(x => x.trim()).filter(Boolean); if (o.length < 2 || !Array.isArray(k.options)) return null; out.value = o; return S(k.options.join(" | "), o.join(" | ")); }
+        if (field === "correct") { if (!Array.isArray(k.options)) return null; const want = raw.split("|").map(x => x.trim().toLowerCase()).filter(Boolean), idx = want.map(w => k.options.findIndex(o => String(o).trim().toLowerCase() === w)); if (!idx.length || idx.some(i => i < 0)) return null; out.value = idx; return S((k.correct || []).map(i => k.options[i]).join(" | "), idx.map(i => k.options[i]).join(" | ")); }
+        const key = field === "explanation" ? "rationale" : field; if (!raw && field === "stem") return null; return S(clip(k[key], 100) || "none", clip(raw, 100));
+      }
+      if (t.kind === "note") { if (field === "delete") return yes(raw) ? S("", "Delete the note (it goes to Recently Deleted)") : null; return raw ? S(clip(state.notes[t.id].text, 100), clip(raw, 100)) : null; }
+      if (t.kind === "board") return raw ? S(SBWB.boardName(state.notes[t.id]), clip(raw, 60)) : null;
+      if (t.kind === "file") {
+        const f = state.files[t.id];
+        if (field === "delete") return yes(raw) ? S("", "Delete the file (it goes to Recently Deleted)") : null;
+        if (field === "course") { const ct = refs.get(raw.toUpperCase()); if (!ct || ct.kind !== "course" || !state.courses[ct.id]) return null; out.value = ct.id; return S(f.courseId && state.courses[f.courseId] ? courseLabel(state.courses[f.courseId]) : "none", courseLabel(state.courses[ct.id])); }
+        if (!raw) return null;
+        // a rename keeps the file's extension
+        let v = clip(raw, 140).replace(/[\\/:*?"<>|]+/g, "-"); const ext = (/\.[A-Za-z0-9]{1,6}$/.exec(f.name || "") || [""])[0];
+        if (ext && !v.toLowerCase().endsWith(ext.toLowerCase())) v += ext; out.value = v; return S(f.name, v);
+      }
+    } catch (e) { console.warn("assist check", e); }
+    return null;
+  }
+  function resolve(d, refs){
+    d = d || {};
+    const show = (Array.isArray(d.show) ? d.show : []).map(r => refs.get(String(r || "").trim().toUpperCase())).filter(t => t && exists(t)).slice(0, 5).map(t => Object.assign({}, t, {label: labelOf(t)}));
+    const seen = new Set(), changes = [];
+    (Array.isArray(d.changes) ? d.changes : []).slice(0, 20).forEach(c => { const x = check(c, refs); if (!x) return; const k = JSON.stringify([x.t.kind, x.t.id, x.t.key, x.field, x.setting]); if (seen.has(k)) return; seen.add(k); changes.push(x); });
+    (Array.isArray(d.newTasks) ? d.newTasks : []).slice(0, 25).forEach(x => {
+      if (!x || !clip(x.title, 160)) return;
+      const ct = x.course ? refs.get(String(x.course).trim().toUpperCase()) : null, cid = ct && ct.kind === "course" && state.courses[ct.id] ? ct.id : "";
+      const due = ISO.test(String(x.due || "")) ? x.due : "", time = due ? hm(x.time || "") : "";
+      const t = {title: clip(x.title, 160), type: TYPES.includes(x.type) ? x.type : "Assignment", courseId: cid, due, time, priority: PRI[x.priority] ? x.priority : (x.type === "Exam" ? "high" : "med"),
+        hours: Math.max(0, Math.min(200, Number(x.hours) || 0)), notes: String(x.notes || "").trim().slice(0, 4000)};
+      const k = JSON.stringify(["new", t.title.toLowerCase(), t.due]); if (seen.has(k)) return; seen.add(k);
+      const bits = [t.type, cid ? courseLabel(state.courses[cid]) : "", due ? "due " + nice(due) + (time ? ", " + tm(time) : "") : "no due date", t.priority !== "med" ? PRI[t.priority] + " priority" : ""].filter(Boolean);
+      changes.push({t: {kind: "newtask", task: t}, field: "create", value: "", scope: "", label: t.title, what: "New task", from: "", to: bits.join(" · ")});
+    });
+    return {show, changes};
+  }
+
+  /* ---------- 5. Going there ---------- */
+  function flash(sel){
+    const el = typeof sel === "string" ? document.querySelector(sel) : sel; if (!el) return false;
+    try { el.scrollIntoView({block: "center", behavior: "smooth"}); } catch (e) {}
+    el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2600);
+    return true;
+  }
+  function go(tab){ if (dlg && dlg.open) try { dlg.close(); } catch (e) {} ui.tab = tab; if (tab !== "courses") ui.courseId = null; if (ui.fc) ui.fc = null; render(); window.scrollTo(0, 0); }
+  function runAct(act, data){ const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = act; Object.entries(data || {}).forEach(([k, v]) => { b.dataset[k] = v; }); document.body.appendChild(b); b.click(); b.remove(); }
+  async function jump(t, o){
+    o = o || {};
+    if (!t) return false;
+    if (t.kind === "settings") return true;
+    if (!exists(t)) { toast("That's no longer there."); return false; }
+    try {
+      switch (t.kind) {
+        case "task": {
+          const k = state.tasks[t.id];
+          if (isArchived(k)) { go("archive"); return true; }
+          go("board"); await frame();
+          if (!flash(`#view .card[data-id="${CSS.escape(t.id)}"]`) || o.open) taskView(k);
+          return true;
+        }
+        case "course": go("courses"); ui.courseId = t.id; ui.courseTab = ""; render(); return true;
+        case "class": case "event": {
+          let date = t.date;
+          if (!date && t.kind === "event") { const today = todayISO(); const occ = schOccurrences(today, addDays(today, 180)).find(x => x.type === "event" && x.id === t.id && !x.skipped); date = occ ? occ.date : state.events[t.id].date; t = Object.assign({}, t, {key: occ ? occ.key : t.key}); }
+          go("schedule"); ui.schWeek = mondayOf(date || todayISO()); ui.schDay = dayDiff(ui.schWeek, date || todayISO()); render(); await frame(); await wait(60);
+          const id = CSS.escape(t.id);
+          flash(t.key ? `.sch-b[data-id="${id}"][data-key="${CSS.escape(t.key)}"], .sch-chip[data-id="${id}"]` : `.sch-b[data-id="${id}"], .sch-chip[data-id="${id}"]`);
+          return true;
+        }
+        case "deck": go("flashcards"); ui.deckId = t.id; rvSet("cards"); render(); return true;
+        case "card": go("flashcards"); ui.deckId = t.deck; rvSet("cards"); render(); await frame(); await wait(40); if (!flash(`.fc-cell[data-id="${CSS.escape(t.id)}"]`)) { const d = state.decks[t.deck]; if (d) cardSheet(d, t.id); } return true;
+        case "quiz": case "question": {
+          go("flashcards"); ui.deckId = t.deck; rvSet("quizzes"); ui.qzOpen = t.deck + ":" + (t.kind === "quiz" ? t.id : t.quiz); render(); await frame(); await wait(60);
+          flash(t.kind === "question" && document.querySelector(`[data-qid="${CSS.escape(t.id)}"]`) ? `[data-qid="${CSS.escape(t.id)}"]` : `.aiq-list [data-id="${CSS.escape(t.kind === "quiz" ? t.id : t.quiz)}"]`) || flash(".aiq-sec, #view .qz-head");
+          return true;
+        }
+        case "note": {
+          const n = state.notes[t.id];
+          if (n.archived) { go("archive"); return true; }
+          if (dlg && dlg.open) try { dlg.close(); } catch (e) {}
+          ui.tab = "notes"; ui.courseId = null; ui.noteBoard = noteBoardOf(n); try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {}
+          if (window.SBWB && ui.notesView === "wb") SBWB.setView("board");
+          render(); window.scrollTo(0, 0); await frame();
+          const el = document.querySelector(`.note[data-note="${CSS.escape(t.id)}"]`), sc = document.getElementById("nbScroll");
+          if (el && sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch (e) {} }
+          if (el) { el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2600); }
+          return true;
+        }
+        case "board": {
+          if (!window.SBWB) return false;
+          if (dlg && dlg.open) try { dlg.close(); } catch (e) {}
+          SBWB.open(t.id); window.scrollTo(0, 0);
+          for (let i = 0; i < 20; i++) { await wait(60); if (t.spot ? SBWB.focusOn(t.spot.x0, t.spot.y0, t.spot.x1, t.spot.y1) : true) break; }
+          flash(".wb-frame");
+          return true;
+        }
+        case "file": {
+          const f = state.files[t.id];
+          if (f.folderId === "lectures" && window.SBLEC) { runAct("lec-view", {id: f.id}); return true; }
+          go("files"); ui.fCourse = "all"; ui.fFolder = ""; ui.fCls = ""; render(); await frame(); await wait(40);
+          flash(`li.frow[data-fid="${CSS.escape(t.id)}"]`);
+          if (t.page && !o.noOpen && window.SBPRO && SBPRO.openReader && fileKind(f) === "pdf") { try { if (!(SBPRO.locked && SBPRO.locked())) { SBPRO.openReader(f.id, t.page); return true; } } catch (e) {} }
+          if (!document.querySelector(`li.frow[data-fid="${CSS.escape(t.id)}"]`) && !o.noOpen) fileSheet(f);
+          return true;
+        }
+      }
+    } catch (e) { console.warn("assist jump", e); }
+    return false;
+  }
+
+  /* ---------- 6. Confirming and making changes ---------- */
+  function confirmBox(title, rows, yesLabel){
+    return new Promise(res => {
+      let d = document.getElementById("asDlg");
+      if (!d) { d = document.createElement("dialog"); d.id = "asDlg"; d.className = "as-dlg"; document.body.appendChild(d); }
+      d.innerHTML = `<form class="sheet as-sheet"><div class="sheet-head"><h2>${esc(title)}</h2></div><div class="sheet-body"><ul class="as-list">${rows.map(r => `<li><span class="as-it">${esc(r.label)}</span><span class="as-f">${esc(r.what)}</span><span class="as-ch">${r.from ? `<s>${esc(r.from)}</s> <span aria-hidden="true">→</span> ` : ""}<b>${esc(r.to)}</b></span></li>`).join("")}</ul></div>
+        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" id="asNo">Cancel</button><button type="submit" class="btn primary" id="asYes">${esc(yesLabel || "Apply")}</button></div></form>`;
+      let done = false; const fin = v => { if (done) return; done = true; try { d.close(); } catch (e) {} res(v); };
+      d.querySelector("#asNo").addEventListener("click", () => fin(false));
+      d.querySelector("form").addEventListener("submit", e => { e.preventDefault(); fin(true); });
+      d.oncancel = e => { e.preventDefault(); fin(false); };
+      d.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); fin(false); } };
+      try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
+      setTimeout(() => { const b = d.querySelector("#asYes"); if (b) b.focus(); }, 30);
+    });
+  }
+  function build(list){
+    const after = new Map(), get = (kind, id) => { const k = kind + ":" + id; if (!after.has(k)) { const cur = kind === "task" ? state.tasks[id] : kind === "course" ? state.courses[id] : kind === "event" ? state.events[id] : kind === "deck" ? state.decks[id] : kind === "note" ? state.notes[id] : state.files[id]; after.set(k, cur ? clone(cur) : null); } return after.get(k); };
+    const dead = new Set();
+    for (const c of list) {
+      const t = c.t, v = c.value;
+      if (t.kind === "newtask") {
+        const T0 = t.task, start = T0.due ? (MILESTONE(T0.type) ? T0.due : addDays(T0.due, -3)) : todayISO();
+        const nt = newTask(Object.assign({}, T0, {start: start < todayISO() ? todayISO() : start, status: "todo"}));
+        c.made = nt.id; after.set("task:" + nt.id, nt); continue;
+      }
+      if (t.kind === "task") {
+        if (c.field === "delete") { dead.add("task:" + t.id); continue; }
+        const n = get("task", t.id); if (!n) continue;
+        const map = {startDate: "start", course: "courseId"}; n[map[c.field] || c.field] = v;
+        if (c.field === "status") { if (v === "done" && !n.doneAt) n.doneAt = Date.now(); if (v !== "done") n.doneAt = null; }
+      } else if (t.kind === "course") { const n = get("course", t.id); if (n) n[c.field] = v; }
+      else if (t.kind === "class") {
+        const n = get("course", t.id); if (!n) continue;
+        if (c.scope === "once" || c.field === "skip" || c.field === "date") {
+          n.meetMoves = Object.assign({}, n.meetMoves || {});
+          if (c.field === "skip") n.meetMoves[t.key] = {skip: true};
+          else { const mv = Object.assign({date: t.date, start: t.start, end: t.end}, n.meetMoves[t.key] && !n.meetMoves[t.key].skip ? n.meetMoves[t.key] : {}); if (c.field === "date") mv.date = v; if (c.field === "from") { const len = tToMin(mv.end) - tToMin(mv.start); mv.start = v; if (!list.some(x => x !== c && x.t === t && x.field === "to") && len > 0) mv.end = minToT(Math.min(1439, tToMin(v) + len)); } if (c.field === "to") mv.end = v; n.meetMoves[t.key] = mv; }
+        } else {
+          const ms = courseMeetings(n).map(m => Object.assign({}, m)), m = ms.find(x => x.id === t.mid) || ms.find(x => x.start === t.start && x.kind === t.label); if (!m) continue;
+          if (c.field === "from") { const len = tToMin(m.end) - tToMin(m.start); m.start = v; if (!list.some(x => x !== c && x.t === t && x.field === "to") && len > 0) m.end = minToT(Math.min(1439, tToMin(v) + len)); }
+          if (c.field === "to") m.end = v;
+          if (c.field === "where") m.where = v;
+          if (c.field === "weekday") { const old = parse(t.date).getDay(); m.days = [...new Set((m.days || []).filter(x => x !== old).concat([v]))].sort(); }
+          n.meetings = ms; n.schedule = meetingsSummary(ms);
+        }
+      } else if (t.kind === "event") {
+        if (c.field === "delete") { dead.add("event:" + t.id); continue; }
+        const n = get("event", t.id); if (!n) continue;
+        if (c.scope === "once" && t.repeats || c.field === "skip") {
+          n.moved = Object.assign({}, n.moved || {});
+          if (c.field === "skip") n.moved[t.key] = {skip: true};
+          else if (c.field === "date" || c.field === "from" || c.field === "to") { const mv = Object.assign({date: t.date, start: t.start, end: t.end}, n.moved[t.key] && !n.moved[t.key].skip ? n.moved[t.key] : {}); if (c.field === "date") mv.date = v; if (c.field === "from") mv.start = v; if (c.field === "to") mv.end = v; n.moved[t.key] = mv; }
+          else n[c.field] = v;
+        } else { const map = {from: "start", to: "end"}; n[map[c.field] || c.field] = v; }
+      } else if (t.kind === "deck") { const n = get("deck", t.id); if (n) n.name = v; }
+      else if (t.kind === "quiz" || t.kind === "card" || t.kind === "question") {
+        const n = get("deck", t.deck); if (!n) continue;
+        if (t.kind === "card") { if (c.field === "delete") n.cards = n.cards.filter(x => x.id !== t.id); else { const k = n.cards.find(x => x.id === t.id); if (k) k[c.field] = v; } }
+        else if (t.kind === "quiz") { const z = (n.aiQuizzes || []).find(x => x.id === t.id); if (z) z.title = v; }
+        else { const z = (n.aiQuizzes || []).find(x => x.id === t.quiz); if (!z) continue; if (c.field === "delete") z.questions = z.questions.filter(x => x.id !== t.id); else { const k = z.questions.find(x => x.id === t.id); if (k) k[c.field === "explanation" ? "rationale" : c.field] = v; } }
+      } else if (t.kind === "note") { if (c.field === "delete") { dead.add("note:" + t.id); continue; } const n = get("note", t.id); if (n) { n.text = v; n.updated = Date.now(); } }
+      else if (t.kind === "board") { const n = get("note", t.id); if (n) { const lines = String(n.text || "").split("\n"); lines[0] = v; n.text = lines.join("\n"); n.updated = Date.now(); } }
+      else if (t.kind === "file") { if (c.field === "delete") { dead.add("file:" + t.id); continue; } const n = get("file", t.id); if (n) { n[c.field === "course" ? "courseId" : "name"] = v; n.updated = Date.now(); } }
+    }
+    const out = [];
+    after.forEach((v, k) => { if (!v || dead.has(k)) return; const [kind, id] = k.split(/:(.*)/s); out.push({kind, id, after: v}); });
+    dead.forEach(k => { const [kind, id] = k.split(/:(.*)/s); out.push({kind, id, after: null}); });
+    return out;
+  }
+  async function propose(changes, o){
+    o = o || {};
+    const list = (changes || []).filter(c => c && c.t && (c.t.kind === "settings" || exists(c.t)));
+    if (!list.length) { toast("Nothing to change any more."); return false; }
+    const sets = list.filter(c => c.t.kind === "settings"), rest = list.filter(c => c.t.kind !== "settings");
+    if (rest.length) {
+      const first = rest.find(c => c.t.kind !== "newtask");
+      if (first) await jump(first.t, {noOpen: true}); else if (ui.tab !== "board") { go("board"); await frame(); }
+      await wait(250);
+      if (o.shown) try { o.shown(); } catch (e) {}
+      const onlyAdds = rest.every(c => c.t.kind === "newtask");
+      const ok = await confirmBox(onlyAdds ? (rest.length === 1 ? "Add this task?" : `Add these ${rest.length} tasks?`) : rest.length === 1 ? "Make this change?" : `Make these ${rest.length} changes?`, rest, onlyAdds ? "Add" : "Apply");
+      if (!ok) { toast("Nothing changed."); }
+      else {
+        const ch = build(rest), adds = rest.filter(c => c.t.kind === "newtask");
+        if (ch.length) applyChanges(ch, adds.length === rest.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : rest.length === 1 ? `Changed ${rest[0].what.toLowerCase()}` : `Made ${rest.length} changes`);
+        await wait(80);
+        const show = first ? first.t : adds[0] && adds[0].made && state.tasks[adds[0].made] ? {kind: "task", id: adds[0].made} : null;
+        if (show) await jump(show, {noOpen: true, after: true});
+      }
+    }
+    if (!rest.length && o.shown) try { o.shown(); } catch (e) {}
+    for (const s of sets) await settingChange(s);
+    return true;
+  }
+
+  /* Settings: found in the Settings sheet itself, shown, confirmed, then set with its own control */
+  function rowTitle(el){
+    let p = el.parentElement;
+    for (let i = 0; p && i < 6; i++, p = p.parentElement) { const t = clip(p.innerText, 220); if (t.replace(clip(el.innerText || el.value || "", 60), "").trim().length > 3) return t; }
+    return clip(el.getAttribute("aria-label") || el.innerText, 160);
+  }
+  function controls(root){
+    const out = [], groups = new Map();
+    root.querySelectorAll('input[type="checkbox"]').forEach(el => { if (!el.closest("[hidden]")) out.push({type: "toggle", el, title: rowTitle(el), now: el.checked ? "on" : "off"}); });
+    root.querySelectorAll('input[type="number"], input[type="text"]:not([type="search"]), input[type="time"], select').forEach(el => { if (el.closest("[hidden]") || el.type === "search") return; out.push({type: el.tagName === "SELECT" ? "choice" : "value", el, title: rowTitle(el), now: el.tagName === "SELECT" ? (el.selectedOptions[0] || {}).textContent || "" : el.value, options: el.tagName === "SELECT" ? [...el.options].map(o => o.textContent.trim()) : null}); });
+    root.querySelectorAll("button[data-act]").forEach(el => { if (el.closest("[hidden]") || el.dataset.act === "close") return; const k = el.parentElement; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(el); });
+    groups.forEach((els, parent) => {
+      const byAct = {}; els.forEach(b => { (byAct[b.dataset.act] = byAct[b.dataset.act] || []).push(b); });
+      Object.values(byAct).forEach(bs => {
+        if (bs.length >= 2) { const on = bs.find(b => b.getAttribute("aria-pressed") === "true" || b.getAttribute("aria-checked") === "true" || /\b(on|sel|active|cur)\b/.test(b.className)); out.push({type: "choice", els: bs, title: rowTitle(parent), options: bs.map(b => clip(b.innerText, 30)), now: on ? clip(on.innerText, 30) : ""}); }
+        else bs.forEach(b => out.push({type: "open", el: b, title: clip(b.innerText, 160)}));
+      });
+    });
+    return out.slice(0, 160);
+  }
+  const PICK = {type: "OBJECT", properties: {i: {type: "INTEGER", description: "The number of the control, or -1 if none fits"}, value: {type: "STRING", description: "toggle: on or off. choice: one of its options exactly. value: the new value. open: empty"}}, required: ["i", "value"]};
+  async function pick(list, want){
+    const r = await aiCall({task: "assist", fast: true, temperature: 0, maxTokens: 600, schema: PICK, quiet: true,
+      system: "You pick the control in a settings screen that makes the change the student wants. Choose a toggle, choice or value control when one does it; choose an 'open' control (it opens a page with more settings) only when the setting must be inside it. -1 if nothing fits.",
+      parts: [{text: `CONTROLS (number | kind | label | options | now):\n${list.map((c, i) => `${i} | ${c.type} | ${c.title}${c.options ? " | " + c.options.join(" / ") : ""}${c.now ? " | now: " + c.now : ""}`).join("\n")}\n\nCHANGE WANTED: ${want.setting} → ${want.value}`}]});
+    const d = r && r.data; const i = d ? Number(d.i) : -1;
+    return i >= 0 && i < list.length ? {c: list[i], value: String(d.value || "").trim()} : null;
+  }
+  async function settingChange(s){
+    try {
+      if (dlg && dlg.open) try { dlg.close(); } catch (e) {}
+      menuSheet(); await frame(); await wait(120);
+      let found = null;
+      for (let depth = 0; depth < 3; depth++) {
+        const list = controls(dlg); if (!list.length) break;
+        found = await pick(list, s); if (!found) break;
+        if (found.c.type !== "open") break;
+        found.c.el.click(); await frame(); await wait(250); found = null;
+      }
+      if (!found) { toast(`I couldn't find a setting for "${s.setting}". It's open for you to look.`); return false; }
+      const {c} = found; let v = found.value;
+      const el = c.el || (c.type === "choice" && c.els ? c.els.find(b => clip(b.innerText, 30).toLowerCase() === v.toLowerCase()) : null);
+      if (c.type === "choice" && c.els && !el) { toast("That setting doesn't have that option."); return false; }
+      const target = el || (c.els && c.els[0]);
+      try { if (window.SBUI && SBUI.reveal && dlg.contains(target)) SBUI.reveal(target); } catch (e) {}
+      await wait(200); flash(target.closest(".menu-row, .cap-row, label, li") || target);
+      if (c.type === "toggle") v = /^(on|yes|true|enable|enabled|show)$/i.test(v) ? "on" : "off";
+      if (c.type === "toggle" && v === c.now) { toast(`${clip(c.title.split(/[.!]/)[0], 50)} is already ${v}.`); return true; }
+      const ok = await confirmBox("Change this setting?", [{label: clip(c.title.split(/[.!]/)[0], 60), what: "Setting", from: c.now || "", to: v}], "Change");
+      if (!ok) { toast("Nothing changed."); return false; }
+      if (c.type === "toggle") c.el.click();
+      else if (c.type === "choice" && c.els) el.click();
+      else if (c.el.tagName === "SELECT") { const o = [...c.el.options].find(x => x.textContent.trim().toLowerCase() === v.toLowerCase()); if (!o) { toast("That setting doesn't have that option."); return false; } c.el.value = o.value; c.el.dispatchEvent(new Event("input", {bubbles: true})); c.el.dispatchEvent(new Event("change", {bubbles: true})); }
+      else { c.el.value = v; c.el.dispatchEvent(new Event("input", {bubbles: true})); c.el.dispatchEvent(new Event("change", {bubbles: true})); }
+      return true;
+    } catch (e) { console.warn("assist setting", e); toast((e && e.message) || "Couldn't change that setting."); return false; }
+  }
+
+  /* ---------- 7. Whiteboard descriptions (in the background) ---------- */
+  const DESC = {type: "OBJECT", properties: {
+    about: {type: "STRING", description: "One or two sentences: what's on the board (topics, pictures, diagrams, drawings)"},
+    words: {type: "STRING", description: "All the words, numbers and formulas written or typed on it, handwriting included, in reading order"},
+    spots: {type: "ARRAY", description: "Up to 12 distinct things on it (a photo, a diagram, a drawing, a block of writing) and where", items: {type: "OBJECT", properties: {
+      what: {type: "STRING", description: "Short: 'photo of a mitochondrion', 'handwritten notes on Newton's laws', 'graph of y = x²'"},
+      x0: {type: "NUMBER"}, y0: {type: "NUMBER"}, x1: {type: "NUMBER"}, y1: {type: "NUMBER"}}, required: ["what", "x0", "y0", "x1", "y1"]}}}, required: ["about", "words", "spots"]};
+  const sigOf = n => `${n.updated || n.created || 0}:${(n.wbInk || []).length}:${(n.wbItems || []).length}`;
+  let describing = false;
+  // asked: the student's own question needs it (runs even with automatic AI off); otherwise it's automatic, in the background
+  async function describeBoards(max, onlyIds, asked){
+    if (describing || !window.SBWB || !SBWB.renderBoard || typeof aiReady !== "function" || !aiReady() || (typeof inPreview === "function" && inPreview()) || navigator.onLine === false) return 0;
+    describing = true; let done = 0;
+    try {
+      const D = descs();
+      const todo = Object.values(state.notes || {}).filter(n => isWhiteboard(n) && !n.archived && ((n.wbInk || []).length || (n.wbItems || []).length) && (!onlyIds || onlyIds.includes(n.id))
+        && (!D[n.id] || D[n.id].sig !== sigOf(n)) && (asked || Date.now() - (n.updated || 0) > 90000)).slice(0, max || 2);
+      for (const n of todo) {
+        const area = SBWB.areaOf(n), cv = await SBWB.renderBoard(n, {max: 1100, area});
+        const b64 = cv.toDataURL("image/jpeg", 0.85).split(",")[1];
+        const r = await aiCall({task: "describe", auto: !asked, quiet: true, fast: true, temperature: 0, maxTokens: 1200, schema: DESC,
+          system: "Describe a student's whiteboard so it can be found by searching later. Read all writing, handwriting included. For each spot give its box as fractions of the picture's width and height (0 to 1), from the top-left.",
+          parts: [{inline_data: {mime_type: "image/jpeg", data: b64}}, {text: `The whiteboard "${SBWB.boardName(n)}".`}]});
+        const d = r && r.data; if (!d) continue;
+        const W = area[2] - area[0], H = area[3] - area[1], f = (v, a) => Math.max(0, Math.min(1, Number(v) || 0)) * a;
+        const spots = (Array.isArray(d.spots) ? d.spots : []).slice(0, 12).filter(s => s && s.what).map(s => ({what: clip(s.what, 80), x0: Math.round(area[0] + f(s.x0, W)), y0: Math.round(area[1] + f(s.y0, H)), x1: Math.round(area[0] + f(s.x1, W)), y1: Math.round(area[1] + f(s.y1, H))})).filter(s => s.x1 > s.x0 && s.y1 > s.y0);
+        const all = descs(); all[n.id] = {sig: sigOf(n), d: {about: clip(d.about, 400), words: clip(d.words, 1500), spots}};
+        Object.keys(all).forEach(id => { if (!state.notes[id]) delete all[id]; });
+        try { localStorage.setItem(DESC_KEY, JSON.stringify(all)); } catch (e) {}
+        done++;
+      }
+    } catch (e) { if (!/cancel|consent|nokey|auto-off|limit|offline/i.test(String(e && (e.code || e.message)))) console.warn("assist describe", e); }
+    finally { describing = false; }
+    return done;
+  }
+  // a couple of boards at a time, once the app has been quiet a while
+  setTimeout(function tick(){ try { if (!document.hidden) describeBoards(2); } catch (e) {} setTimeout(tick, 6 * 60000); }, 45000);
+
+  /* ---------- 8. Asking ---------- */
+  const VISUAL = /\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit|wrote|written|graph|chart|map)\b/i;
+  async function ask(q, o){
+    o = o || {};
+    if (VISUAL.test(q)) await Promise.race([describeBoards(3, null, true), wait(9000)]);
+    const cur = o.screen === false ? null : current();
+    const cat = await catalog(q);
+    const me = window.SBCOMP && SBCOMP.tab && SBCOMP.tab.info ? (SBCOMP.tab.info() || {}) : {};
+    const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Use the student's own data below.\n${RULES}`;
+    const r = await aiCall({task: "assist", maxTokens: 6000, temperature: 0.3, schema: SCHEMA, system, signal: o.signal, quiet: true,
+      parts: [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}]});
+    const d = r && r.data || {};
+    return Object.assign({answer: clip(d.answer, 1200)}, resolve(d, cat.refs));
+  }
+  // Show what was found and offer the changes (the bubble does both at once)
+  // o.shown: called once the app is there (the bubble speaks then, as going there redraws the page)
+  async function act(res, o){
+    o = o || {};
+    if (!res) return;
+    if (res.changes && res.changes.length) { await propose(res.changes, o); return; }
+    if (res.show && res.show.length) await jump(res.show[0]);
+    if (o.shown) try { o.shown(); } catch (e) {}
+  }
+  // Serializable copies, for chats kept on the device
+  const pack = res => ({show: (res.show || []).map(t => Object.assign({}, t)), changes: (res.changes || []).map(c => Object.assign({}, c, {t: Object.assign({}, c.t)}))});
+
+  /* What Studyboard is and where things are, for "how do I" and "where is" questions (kept to what the app really has) */
+  const GUIDE = `HOW STUDYBOARD WORKS (for questions about the app itself; Settings is the gear at the bottom of the sidebar, or in the top bar on phones):
+Pages (the sidebar; keys 1 to 7 switch pages):
+- Board: Today's Plan (what to do today, fitted into the study hours per day) and the Task Board (To Do, In Progress, Done). The add bar takes a sentence like "bio quiz fri 2pm"; N adds a task; C opens Quick Capture anywhere; a photo of a whiteboard or slide dropped on the Board adds the tasks on it.
+- Calendar: the Timeline, the week Schedule (classes, events and deadlines; click a class to move or skip one week, or Edit All Weeks) and Rough Week Rescue (plans a heavy week within the Weekly Hours Limit).
+- Review: flashcard decks (study with spaced repetition; keys 1 to 4 rate a card) and quizzes, including AI practice quizzes made from course materials.
+- Notes: sticky-note boards (several boards, one per course if you like) and whiteboards (draw, write, add pictures; handwriting can be turned into typed text).
+- Courses: each course's page with its tasks and class times, a Grades tab (marks, weights, and what you need on the rest), a Lectures tab (each class with its notes and files, recordings and transcripts), and Files (upload or link files, Google Drive and OneDrive) and Emails.
+- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up.
+- Study Groups: share decks, quizzes and deadlines, plan sessions together, and a weekly challenge.
+Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text inside files, and can answer with AI; the Focus timer (pomodoro sessions on a task); the Calculator (sidebar; its corner button reads an equation selected anywhere on screen and solves it); the Style Shop (themes, flashcard styles, note shapes, pins and stickers); ? lists keyboard shortcuts; Ctrl+Z undoes.
+Settings, by section:
+- Account and Sync: sign in to keep everything in sync across devices; Studyboard Pro; Restore Purchases.
+- Appearance: Light, Dark or System; Style Shop; animations; text size; language; high contrast; daily quote; spelling; page tips; the study companion.
+- Study and AI: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Break Down an Assignment (milestones backward from the due date); Weekly Review; Gentle Study Streak; AI Features (set up AI); Search Everywhere; Term Scrapbook (milestone stickers); Print or Save as PDF (Pro).
+- Quick Capture: add right away when sure; keep photos with tasks; use AI to read photos; the Quick Capture window; share sheet; Siri, Gemini, Bixby and Shortcuts.
+- School and Groups: Set Up Your Semester; Brightspace, Canvas, Blackboard and Moodle (due dates, grades and announcements); Import a Syllabus (a PDF becomes a course and its deadlines); Calendar Sync (Apple, Google or Outlook, live link or file); Study Groups; School Days (holidays, reading week, rotating Day 1 to 6 or A/B schedules).
+- App and Notifications: Reminders and Notifications; widgets; replay the welcome setup; the app tour; report a bug; crash reports; keyboard shortcuts; time zone; AI keys on all devices.
+- Data and Backups: automatic backups to Google Drive or OneDrive (with an account); export a backup file; restore; import from Anki, Quizlet, Knowt, Todoist or Notion; export my data; Start a New Term; Archive; Recently Deleted (kept 30 days); clear all data.
+AI: free with a Google Gemini key (Settings, Study and AI, AI Features), or Studyboard AI, included with paid Pro. AI makes flashcards and quizzes from slides and readings, reads syllabi and photos, explains, plans exam prep and grades practice answers.
+Ask (here or the companion's bubble) can itself find and open anything, change things and settings, and add tasks; the student confirms each change.
+If you're not sure a feature exists, say where in Settings to look rather than inventing steps.`;
+  const APPQ = /\b(how (do|can|to|would)|where (is|are|do|can|did)|can (i|you|studyboard)|is there|does (it|studyboard|the app)|feature|setting|settings|studyboard|app|button|tab|page|turn (on|off)|set ?up|import|export|sync|share|widget|calculator|whiteboard|focus timer|pomodoro|streak|pro\b|subscription|backup|restore|theme|dark mode|shortcut|keyboard|notification|remind|canvas|brightspace|moodle|blackboard|syllabus|archive|delete|undo|companion|wardrobe|scrapbook|exam mode|autopilot|group)/i;
+  const appQ = q => APPQ.test(String(q || ""));
+
+  // Test handle (only when a test page sets window.__SB_TEST)
+  if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
+  window.SBASSIST = {ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+})();
 /* ===== module: 98-companion-tab.js ===== */
 /* The Companion tab */
 (() => {
@@ -64017,8 +64654,27 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // Only the parts of the planner this question needs (aiNeeds); attachments may need courses and boards for their actions
   async function context(q, prev, hasAtt){
     const ws = words(q), today = todayISO(), src = [], L = [], N = aiNeeds(q, prev);
+    // A question that names none of the usual topics ("what's my busiest day?", "anything I'm forgetting?") gets a compact
+    // look at everything instead of nothing, so it can still be answered from the student's own data
+    // (only questions about the student themselves: "explain osmosis" is answered from their materials and knowledge alone)
+    const broad = !N.small && !aiNeedsAny(N) && !hasAtt && /\b(my|me|mine|i|i'm|im|i've|i'd|i'll|am i|do i|did i|have i|should i|can i|we|our)\b/i.test(q);
+    if (broad) Object.assign(N, {grades: true, plan: true, tasks: true, schedule: true, cards: true, notes: true, files: true, broad: true});
     L.push(`Today is ${today}, ${new Date().toLocaleDateString(undefined, {weekday: "long"})}.${N.plan ? ` The student plans ${dailyHours()} hours of study a day.` : ""}`);
     if (N.small && !hasAtt) return {text: L.join("\n\n"), src, need: N};
+    // how the app works, for questions about Studyboard itself
+    if (window.SBASSIST && (SBASSIST.appQ(q) || broad)) { L.push(SBASSIST.GUIDE); src.push("How Studyboard works"); }
+    const subject = !N.small && !aiNeedsAny(N) && !broad && !hasAtt;
+    // what they've been doing: focus time and finished work
+    if (broad || (!subject && /\b(stud(y|ied|ying)|focus(ed)?|time|hours?|minutes?|productive|progress|streak|did i|have i|got done|accomplish|finished|completed|this week|last week|today|yesterday)\b/i.test(q))) {
+      try {
+        const st = typeof SBSTATS !== "undefined" ? SBSTATS : null, wk = mondayOf(today), lw = addDays(wk, -7);
+        const m = (a, b) => st ? Math.round(st.focusMinutes(a, b)) : 0, n = (a, b) => st && st.focusSessions ? st.focusSessions(a, b) : 0;
+        const doneWk = tasksArr().filter(t => t.status === "done" && t.doneAt && t.doneAt >= parse(addDays(today, -7)).getTime()).sort((a, b) => b.doneAt - a.doneAt);
+        L.push(`STUDY ACTIVITY: focused ${m(today, today)} min today (${n(today, today)} sessions), ${m(wk, today)} min this week since Monday (${n(wk, today)} sessions), ${m(lw, addDays(wk, -1))} min last week.`
+          + ` Finished in the last 7 days (${doneWk.length}): ${doneWk.slice(0, 25).map(t => `${t.title} (${new Date(t.doneAt).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})})`).join("; ") || "nothing yet"}.`);
+        src.push("Study activity");
+      } catch (e) {}
+    }
     const al = window.SBAREA ? SBAREA.aiLine() : ""; if (al) L.push(al);
     const any = aiNeedsAny(N) || hasAtt, cs = coursesArr(), mine = c => !N.course.length || N.course.includes(c.id);
     if (cs.length && any) {
@@ -64033,7 +64689,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (N.tasks || hasAtt) {
       const open = tasksArr().filter(t => t.status !== "done" && (!t.courseId || mine(courseOf(t.courseId) || {}))).sort(sortTasks);
       const tl = t => { const c = courseOf(t.courseId); return `- ${t.title} (${c ? courseLabel(c) + ", " : ""}${t.type}${t.due ? ", due " + t.due + (t.time ? " " + t.time : "") : ", no due date"}${hasWeight(t) ? ", worth " + t.weight + "%" : ""}${t.status === "doing" ? ", in progress" : ""}${isNum(t.hours) ? ", ~" + t.hours + "h" : ""}${t.pct ? ", " + t.pct + "% done" : ""}${t.notes ? ", note: " + clip(t.notes, 80) : ""})`; };
-      if (open.length) { L.push(`OPEN TASKS${N.course.length ? " FOR " + N.course.map(id => courseLabel(courseOf(id))).join(", ") : ""} (${open.length}, soonest first):\n` + open.slice(0, 80).map(tl).join("\n")); src.push("Tasks"); }
+      if (open.length) { L.push(`OPEN TASKS${N.course.length ? " FOR " + N.course.map(id => courseLabel(courseOf(id))).join(", ") : ""} (${open.length}, soonest first${N.broad && open.length > 50 ? ", the first 50" : ""}):\n` + open.slice(0, N.broad ? 50 : 80).map(tl).join("\n")); src.push("Tasks"); }
       const recent = tasksArr().filter(t => t.status === "done" && (!t.courseId || mine(courseOf(t.courseId) || {}))).sort((a, b) => (doneTime(b) || 0) - (doneTime(a) || 0)).slice(0, 8);
       if (recent.length) L.push("RECENTLY FINISHED: " + recent.map(t => t.title).join("; "));
     }
@@ -64059,7 +64715,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // the student's own material that matches the question (always: it's how content questions get answered)
     // Chat never waits long for files: search gets about a second for file text, and files still downloading
     // (from Studyboard, Google Drive or OneDrive) keep loading in the background for the next question
-    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
+    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 12, chars: 1400, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
     if (R && R.text) { L.push("SEARCH RESULTS (passages from the student's files, notes, flashcards and tasks that match the question):\n" + R.text); R.src.forEach(x => src.push(x)); }
     const files = Object.values(state.files).filter(f => f.kind === "file" || f.kind === "cloud");
     if (files.length) {
@@ -64070,7 +64726,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const texts = await Promise.all(want.map(({f}) => Promise.race([(async () => { try { return window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; } catch (e) { return ""; } })(), late])));
       want.forEach(({f}, i) => { const t = texts[i]; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } });
     }
-    return {text: L.join("\n\n").slice(0, 45000), src, need: N};
+    return {text: L.join("\n\n").slice(0, 60000), src, need: N};
   }
   const SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "The reply, in the companion's friendly voice. Plain text; short paragraphs or '- ' bullets, **bold** sparingly."},
@@ -64091,6 +64747,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       text: {type: "STRING", description: "quick_add: the sentence to add tasks from, as the student would type it. note: the full clean typed note (transcribe the student's own handwriting fully; restate slides, handouts and textbook pages in your own words instead of copying them; keep formulas and numbers exact, headings and '- ' bullets). flashcards, quiz or case_study with nothing attached: the study material to use."},
       tasks: {type: "ARRAY", items: {type: "OBJECT", properties: {title: {type: "STRING"}, type: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Other"]}, due: {type: "STRING", description: "YYYY-MM-DD"}, time: {type: "STRING", description: "HH:MM, 24-hour, or empty"}}, required: ["title", "due"]}}},
       required: ["type", "label"]}}}, required: ["answer"]};
+  // Finding things and changing anything (98-assist.js): refs from the list sent with each question
+  if (window.SBASSIST) Object.assign(SCHEMA.properties, SBASSIST.SHOW_CHANGE);
+  SCHEMA.properties.actions.items.properties.type.enum = SCHEMA.properties.actions.items.properties.type.enum.filter(t => t !== "edit_tasks");
   const ACT_TYPES = ["flashcards", "quiz", "case_study", "note", "tasks", "edit_tasks", "quick_add", "syllabus", "breakdown", "estimate", "exam_plan", "ask_materials", "summarize_file", "save_file"];
   const FILE_ACTS = ["syllabus", "save_file"], GEN_ACTS = ["flashcards", "quiz", "case_study"];
   const ACT_LABEL = {flashcards: "Make flashcards", quiz: "Make a quiz", case_study: "Make a case study", note: "Save as a note", tasks: "Add tasks", edit_tasks: "Update tasks", quick_add: "Add tasks", syllabus: "Import syllabus", breakdown: "Break it down", estimate: "Estimate times", exam_plan: "Plan exam prep", ask_materials: "Ask your course materials", summarize_file: "Summarize the file", save_file: "Save to Files"};
@@ -64127,15 +64786,22 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     try {
-      const me = info() || {}, prevQ = (c.msgs.filter(x => x.a).slice(-1)[0] || {}).q || "", ctx = await context(q, prevQ, att.length > 0);
+      const me = info() || {}, prevQ = (c.msgs.filter(x => x.a).slice(-1)[0] || {}).q || "";
+      const [ctx, cat] = await Promise.all([context(q, prevQ, att.length > 0), window.SBASSIST && SBASSIST.wants(q) ? SBASSIST.catalog(q, {max: 30000}).catch(e => { console.warn(e); return null; }) : null]);
+      const seen = window.SBASSIST ? SBASSIST.screenText(SBASSIST.current()) : "";
       T.status = "Thinking…"; draw();
-      const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 500)}`).join("\n\n");
-      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. If the part you'd need isn't included (for example a follow-up on something new), say what you'd need to look at instead of guessing, and never invent facts, dates or marks. For general study or subject questions, answer with your own knowledge, clearly and correctly. Keep it short: a few sentences or a short list. For questions about their work, suggest a concrete next step when it helps. When the student is just chatting (\"how are you?\", hello, thanks, how their day is going, a joke, how they feel), answer like a friend would and in character: say how you are and what you've been up to as yourself, show interest in them, maybe ask a light question back. Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.
-You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); edit_tasks (move a due date, change an estimate, priority or status of existing open tasks, using their titles exactly); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.`;
-      const r = await aiCall({task: att.length ? "tutor" : "chat", maxTokens: att.length ? 12000 : 3000, schema: SCHEMA, system, onStatus: s => { T.status = s; drawStatus(); },
-        parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}`}])});
+      const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 1200)}`).join("\n\n");
+      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. You are a real AI helper for anything about their courses, their course materials or Studyboard itself: use everything below (their planner, the search results from their own files, notes and cards, the file text, what's on their screen, and HOW STUDYBOARD WORKS for questions about the app), and your own knowledge for subject matter. Always give a real, useful answer: if their data doesn't have something, say briefly what you checked, then help anyway (explain the topic, say where in the app it would be, or ask one short question). Never invent their facts, dates, marks or file contents. When you use their course materials, say which file or note it came from. Match the length to the question: a sentence for a quick fact, a clear explanation with short paragraphs, steps or '- ' bullets when they want to understand, learn, plan or do something. For questions about their work, suggest a concrete next step when it helps. When the student is just chatting (\"how are you?\", hello, thanks, how their day is going, a joke, how they feel), answer like a friend would and in character: say how you are and what you've been up to as yourself, show interest in them, maybe ask a light question back. Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.
+You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.${window.SBASSIST ? "\n" + SBASSIST.RULES + "\nThe refs are in ITEMS YOU CAN SHOW OR CHANGE. Changing existing things always goes in \"changes\", never in actions. Tasks the student asks you to add go in \"newTasks\"; keep the tasks action for due dates found in files they attached." : ""}`;
+      const call = () => aiCall({task: att.length ? "tutor" : "chat", maxTokens: att.length ? 12000 : 6000, schema: SCHEMA, system, onStatus: s => { T.status = s; drawStatus(); },
+        parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}`}])});
+      // a reply that comes back empty or cut off is asked for once more
+      let r; try { r = await call(); } catch (e) { if (!e || !/parse|json|empty|truncat|format/i.test(String(e.code || e.message || ""))) throw e; }
+      if (!r || !r.data || !String(r.data.answer || "").trim() || r.truncated) { const r2 = await call().catch(() => null); if (r2 && r2.data && String(r2.data.answer || "").trim()) r = r2; }
+      if (!r) throw new Error("I couldn't answer that just now. Try again in a bit?");
       const d = r.data || {};
-      m.a = {answer: clip2(d.answer, 2400), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(Boolean).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
+      m.a = {answer: clip2(d.answer, 8000), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(Boolean).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
+      if (cat && window.SBASSIST) { const res = SBASSIST.pack(SBASSIST.resolve(d, cat.refs)); if (res.show.length) m.a.show = res.show; if (res.changes.length) m.a.changes = res.changes; }
       if (!m.a.answer) throw new Error("I couldn't come up with an answer. Try asking it another way?");
       if (!m.a.sources.length) m.a.sources = ctx.src.slice(0, 4);
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); }
@@ -64163,9 +64829,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function msgHtml(m){
     const me = info() || {};
     const acts = m.a && m.a.actions && m.a.actions.length ? `<div class="cpt-actions">${m.a.actions.map((a, i) => `<div class="cpt-action"><span class="cpt-action-t">${esc(a.label)}</span>${a.done ? `<span class="mini cpt-done">${esc(a.done)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-do" data-m="${esc(String(m.at))}" data-i="${i}">${ACT_BTN[a.type] || "Make It"}</button>`}${a.deckId && state.decks[a.deckId] ? `<button type="button" class="btn small" data-act="cpt-open-deck" data-id="${esc(a.deckId)}">Open Deck</button>` : ""}</div>`).join("")}</div>` : "";
+    const found = m.a && m.a.show && m.a.show.length ? `<div class="cpt-show">${m.a.show.map((t, i) => `<button type="button" class="chip cpt-show-b" data-act="cpt-show" data-m="${esc(String(m.at))}" data-i="${i}">${esc(t.label || "Show")}<span aria-hidden="true"> →</span></button>`).join("")}</div>` : "";
+    const chg = m.a && m.a.changes && m.a.changes.length ? `<div class="cpt-actions"><div class="cpt-action"><span class="cpt-action-t">${m.a.changes.length === 1 ? esc(`${m.a.changes[0].what}: ${m.a.changes[0].label}`) : `${m.a.changes.length} changes`}</span>${m.a.changesDone ? `<span class="mini cpt-done">${esc(m.a.changesDone)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-change" data-m="${esc(String(m.at))}">Review ${m.a.changes.length === 1 ? "Change" : "Changes"}</button>`}</div></div>` : "";
     return `<div class="cpt-q">${esc(m.q)}${m.files && m.files.length ? `<div class="cpt-qf">${m.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}</div>
       <div class="cpt-a">${m.err ? `<p class="mini">${esc(m.err)}</p>` : `${miniMd(m.a.answer)}
-        ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${acts}`}
+        ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${found}${chg}${acts}`}
         ${m.a && !m.err ? `<div class="cpt-acts"><button type="button" class="link-btn" data-act="cpt-note" data-id="${esc(String(m.at))}">Save as Note</button><button type="button" class="link-btn" data-ai-report="companion-chat" data-ai-text="${esc(String(m.a.answer || "").slice(0, 1400))}">Report Response</button></div>` : ""}</div>`;
   }
   function logHtml(){
@@ -64366,6 +65034,13 @@ You can also DO things in Studyboard, but only when the student asks or what the
       case "cpt-attach": { const f = $("#cptFile"); if (f) f.click(); return true; }
       case "cpt-att-rm": T.att.splice(Number(id), 1); drawAtt(); return true;
       case "cpt-do": runAction(el); return true;
+      case "cpt-show": case "cpt-change": {
+        const chats = rd(), c = chats.find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === el.dataset.m);
+        if (!m || !m.a || !window.SBASSIST) return true;
+        if (act === "cpt-show") { const t = (m.a.show || [])[Number(el.dataset.i) || 0]; if (t) SBASSIST.jump(t, {open: true}); return true; }
+        SBASSIST.propose(m.a.changes || []).then(ok => { if (!ok) return; const all = rd(), cc = all.find(x => x.id === T.id), mm = cc && cc.msgs.find(x => String(x.at) === el.dataset.m); if (mm && mm.a) { mm.a.changesDone = "Reviewed"; wr(all); } });
+        return true;
+      }
       case "cpt-open-deck": ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); return true;
       case "cpt-ask": T.tab = "chat"; if (ui.tab === "companion") ask(el.dataset.q); return true;
       case "cpt-new": T.id = null; T.draft = ""; T.tab = "chat"; render(); setTimeout(() => { const i = $("#cptIn"); if (i) i.focus(); }, 30); return true;
@@ -89410,6 +90085,20 @@ var SBWB = null;
   }
 
   /* A board as a picture */
+  // The part of a board with something on it (what renderBoard draws by default on a blank board), in board units
+  function areaOf(n){
+    const ink = (B && n.id === B.id) ? strokes() : (n.wbInk || []), its = (B && n.id === B.id) ? items() : (n.wbItems || []);
+    let bb = null; ink.forEach(st => { bb = bbJoin(bb, geo(st).bb); }); its.forEach(it => { bb = bbJoin(bb, itemBB(it)); });
+    return bb ? [Math.max(0, bb[0] - 60), Math.max(0, bb[1] - 60), Math.min(BW, bb[2] + 60), Math.min(BH, bb[3] + 60)] : [0, 0, BW, BH];
+  }
+  // Bring a spot on the open board into view (Ask's "show me"), zoomed in no further than 1.5×
+  function focusOn(x0, y0, x1, y1){
+    if (!fw || !fh) return false;
+    const M = phone() ? 16 : 60, w = Math.max(300, x1 - x0), h = Math.max(200, y1 - y0);
+    cam.z = clamp(Math.min((fw - M * 2) / w, (fh - M * 2) / h), zMin(), 1.5);
+    cam.x = (fw - w * cam.z) / 2 - x0 * cam.z; cam.y = (fh - h * cam.z) / 2 - y0 * cam.z;
+    clampCam(); dirty(); camSave(); return true;
+  }
   async function renderBoard(n, o){
     o = o || {};
     try { if (document.fonts && document.fonts.load) await Promise.all(FONTS.map(f => document.fonts.load(`40px ${f[2]}`))); } catch (e) {}
@@ -89474,7 +90163,7 @@ var SBWB = null;
     return false;
   });
 
-  SBWB = window.SBWB = {view, on, setView, boards, boardName, curId, create, flush, renderBoard, dark: () => boardDark(), open: id => { setView("wb"); ui.wbCur = id; ui.tab = "notes"; render(); },
+  SBWB = window.SBWB = {view, on, setView, boards, boardName, curId, create, flush, renderBoard, areaOf, focusOn, dark: () => boardDark(), open: id => { setView("wb"); ui.wbCur = id; ui.tab = "notes"; render(); },
     board: () => B && {id: B.id, strokes: strokes(), items: items()},
     // for the Pro pictures and live group modules
     set: (t, id, v) => { if (!B) return; opBegin(); set(t, id, v); opEnd(); }, change: fn => { if (!B) return; opBegin(); try { fn(set); } finally { opEnd(); } },
@@ -92458,6 +93147,60 @@ var SBCALCSKIN = null;
   /* math.js, set up once: degrees, radians or gradians for the trig functions, and exact zeros where a real calculator shows them */
   let M = null, loading = null;
   const C = {angle: "deg"};
+  /* ∫, d/dx and Σ take an expression and its variable unread (math.js "rawArgs"): f(x, x, a, b) */
+  function rawFn(n, run){
+    const f = (args, math, scope) => {
+      if (args.length !== n || !args[1] || args[1].type !== "SymbolNode") throw new Error("Syntax");
+      const body = args[0].compile(), v = args[1].name, sc = new Map();
+      if (scope && typeof scope.keys === "function" && typeof scope.get === "function") { for (const k of scope.keys()) sc.set(k, scope.get(k)); }
+      else if (scope) Object.keys(scope).forEach(k => sc.set(k, scope[k]));
+      const at = x => { sc.set(v, x); const y = body.evaluate(sc); if (typeof y !== "number" || !isFinite(y)) throw new Error("Math"); return y; };
+      const val = k => { const y = args[k].compile().evaluate(scope); if (typeof y !== "number" || Number.isNaN(y)) throw new Error("Math"); return y; };
+      return run(at, val);
+    };
+    f.rawArgs = true; return f;
+  }
+  // Adaptive Simpson over 16 pieces; an end the function can't be evaluated at (1/√x at 0) is approached from inside
+  // Tanh-sinh: crowds points toward the ends, so 1/√x from 0 to 1 comes out at 2
+  function integralEnds(f, a, b){
+    const c = (a + b) / 2, r = (b - a) / 2; let prev = null, calls = 0;
+    for (let L = 0; L <= 10; L++) {
+      const h = 1 / (1 << L); let sum = 0;
+      for (let k = -Math.ceil(4.5 / h); k <= Math.ceil(4.5 / h); k++) {
+        const t = k * h, u = Math.PI / 2 * Math.sinh(t), ch = Math.cosh(u), w = Math.PI / 2 * Math.cosh(t) / (ch * ch);
+        const gap = r * Math.exp(-Math.abs(u)) / ch, x = t === 0 ? c : t > 0 ? b - gap : a + gap;
+        if (x <= a || x >= b || !(w > 0)) continue;
+        if (++calls > 400000) throw new Error("Math");
+        let y; try { y = f(x); } catch (e) { if (w < 1e-15) continue; throw e; }
+        sum += w * y;
+      }
+      const I = r * h * sum;
+      if (prev != null && Math.abs(I - prev) <= 1e-11 * Math.max(1, Math.abs(I))) return Number(I.toPrecision(12));
+      prev = I;
+    }
+    return Number(prev.toPrecision(9));
+  }
+  function integral(f, a, b){
+    const bad = x => { try { return !isFinite(f(x)); } catch (e) { return true; } };
+    if (bad(a) || bad(b)) return integralEnds(f, a, b);
+    let calls = 0;
+    const g = x => { if (++calls > 400000) throw new Error("Math"); try { return f(x); } catch (e) { if (x !== a && x !== b) throw e; const h = (b - a) * 1e-10; return f(x === a ? a + h : b - h); } };
+    const simp = (a, b, fa, fm, fb) => (b - a) / 6 * (fa + 4 * fm + fb);
+    const rec = (a, b, fa, fm, fb, whole, eps, depth) => {
+      const m = (a + b) / 2, lm = (a + m) / 2, rm = (m + b) / 2, flm = g(lm), frm = g(rm);
+      const left = simp(a, m, fa, flm, fm), right = simp(m, b, fm, frm, fb), d = left + right - whole;
+      if (depth <= 0 || Math.abs(d) <= 15 * eps) return left + right + d / 15;
+      return rec(a, m, fa, flm, fm, left, eps / 2, depth - 1) + rec(m, b, fm, frm, fb, right, eps / 2, depth - 1);
+    };
+    let t = 0; const N = 16, w = (b - a) / N;
+    for (let i = 0; i < N; i++) { const x0 = a + i * w, x1 = i === N - 1 ? b : x0 + w, f0 = g(x0), f1 = g(x1), fm = g((x0 + x1) / 2); t += rec(x0, x1, f0, fm, f1, simp(x0, x1, f0, fm, f1), 1e-12, 40); }
+    return Math.abs(t) < 1e-13 ? 0 : t;
+  }
+  // Five-point difference, refined once (Richardson)
+  function derivative(f, a){
+    const d = h => (-f(a + 2 * h) + 8 * f(a + h) - 8 * f(a - h) + f(a - 2 * h)) / (12 * h), h = 1e-3 * Math.max(1, Math.abs(a));
+    const v = (16 * d(h / 2) - d(h)) / 15; return Math.abs(v) < 1e-10 ? 0 : Number(v.toPrecision(10));
+  }
   function loadMath(){
     if (M) return Promise.resolve(M);
     if (!loading) loading = (async () => {
@@ -92478,7 +93221,10 @@ var SBCALCSKIN = null;
         tan: x => num(x, v => { const h = turn(); if (h && v % h === 0) return 0; if (h && (v - h / 2) % h === 0) throw new Error("Math"); const c = Math.cos(toRad(v)); if (Math.abs(c) < 1e-15) throw new Error("Math"); return clean(Math.tan(toRad(v))); }),
         asin: inv(Math.asin), acos: inv(Math.acos),
         atan: x => num(x, v => fromRad(Math.atan(v))),
-        _C: (n, r) => math.combinations(nr(n, r), r), _P: (n, r) => math.permutations(nr(n, r), r), _root: (n, x) => math.nthRoot(x, n)
+        _C: (n, r) => math.combinations(nr(n, r), r), _P: (n, r) => math.permutations(nr(n, r), r), _root: (n, x) => math.nthRoot(x, n),
+        _int: rawFn(4, (at, val) => { let a = val(2), b = val(3); if (!isFinite(a) || !isFinite(b)) throw new Error("Math"); if (a === b) return 0; const sg = a < b ? 1 : -1; if (sg < 0) [a, b] = [b, a]; return sg * integral(at, a, b); }),
+        _der: rawFn(3, (at, val) => derivative(at, val(2))),
+        _sum: rawFn(4, (at, val) => { const a = val(2), b = val(3); if (!Number.isInteger(a) || !Number.isInteger(b) || b - a > 1e6) throw new Error("Math"); let t = 0; for (let k = a; k <= b; k++) t += at(k); return t; })
       }, {override: true});
       M = math; return M;
     })().catch(e => { loading = null; throw e; });
@@ -92533,7 +93279,8 @@ var SBCALCSKIN = null;
     }
   }
   function toMath(tokens){
-    let s = tokens.map(t => t.m).join("");
+    // an unknown next to a letter, number or bracket multiplies (xy, x2, x(1+x)), which math.js would read as a name or a call
+    let s = tokens.map((t, k) => (k && tokens[k - 1].v && /^[\w(.]/.test(t.m) ? "*" : "") + t.m).join("");
     // ×10ˣ: 2ᴇ-3 is one number, 2×10⁻³
     s = s.replace(/(\d*\.?\d+)ᴇ(-?\d+)/g, "($1e$2)").replace(/ᴇ/g, "*10^");
     // π next to a number or bracket multiplies (π2, π(2), 2π3), as math.js would otherwise read pi(2) as a call
@@ -92548,6 +93295,146 @@ var SBCALCSKIN = null;
     const open = (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
     if (open < 0) throw new Error("Syntax");
     return s + ")".repeat(open);
+  }
+
+  /* Text to keys: what "select an equation on screen" types. The text is math.js-like: numbers, + - * / ^ ( ) ! %, the
+     functions below, pi and e, single letters for unknowns, = for an equation and ; between the equations of a system.
+     log(x) is base 10, log(x, b) base b, ln(x) natural; root(n, x); integrate(f, x, a, b), deriv(f, x, a), sum(f, n, a, b) */
+  const VAR = l => ({d: l, m: l, v: true});
+  const FNS = {sin: "sin", cos: "cos", tan: "tan", asin: "sin⁻¹", acos: "cos⁻¹", atan: "tan⁻¹", arcsin: "sin⁻¹", arccos: "cos⁻¹", arctan: "tan⁻¹",
+    sinh: "sinh", cosh: "cosh", tanh: "tanh", asinh: "sinh⁻¹", acosh: "cosh⁻¹", atanh: "tanh⁻¹", sqrt: "√", cbrt: "∛", ln: "ln", abs: "Abs", log10: "log"};
+  const FNT = {exp: T("e^(", "e^("), root: T("ʸ√(", "_root("), nCr: T("nCr(", "_C("), nPr: T("nPr(", "_P("), integrate: T("∫(", "_int("), deriv: T("d/d(", "_der("), sum: T("Σ(", "_sum(")};
+  function fromText(src){
+    const s = String(src == null ? "" : src).replace(/\s+/g, " ").trim(), out = [];
+    const args = j => { let d = 0, n = 1; for (let k = j; k < s.length; k++) { const c = s[k]; if (c === "(") d++; else if (c === ")") { if (--d === 0) return n; } else if (c === "," && d === 1) n++; } return n; };
+    const SYM = {"+": TOK.add, "-": TOK.sub, "*": TOK.mul, "/": TOK.div, "^": TOK.pow, "(": TOK.lp, ")": TOK.rp, "!": TOK.fact, "%": TOK.pct, ",": T(","), "=": T("="), ";": T(";")};
+    for (let i = 0; i < s.length;) {
+      const c = s[i]; if (c === " ") { i++; continue; }
+      // squares and cubes show as ² and ³
+      const pw = /^\^\s*(?:([23])|\(\s*([23])\s*\))(?![\d.])/.exec(s.slice(i));
+      if (pw) { out.push((pw[1] || pw[2]) === "2" ? TOK.sq : TOK.cube); i += pw[0].length; continue; }
+      const num = /^(?:\d+\.?\d*|\.\d+)/.exec(s.slice(i));
+      if (num) { for (const ch of num[0]) out.push(ch === "." ? TOK.dot : TOK[ch]); i += num[0].length; continue; }
+      const id = /^[A-Za-z]+/.exec(s.slice(i));
+      if (id) {
+        const w = id[0]; let j = i + w.length; while (s[j] === " ") j++;
+        if (s[j] === "(" && (FNS[w] || FNT[w] || w === "log")) { out.push(w === "log" ? (args(j) > 1 ? T("log(", "log(") : FN("log")) : FNT[w] || FN(FNS[w])); i = j + 1; continue; }
+        if (w === "pi") out.push(TOK.pi); else if (w === "e") out.push(TOK.e); else if (w === "Ans") out.push(TOK.ans);
+        else for (const l of w) out.push(VAR(l));   // xy is x times y
+        i += w.length; continue;
+      }
+      if (!SYM[c]) throw new Error("Syntax");
+      out.push(SYM[c]); i++;
+    }
+    return out;
+  }
+
+  /* Working out what's typed: a number, or an equation solved for its unknown, or a system solved for its unknowns */
+  const KNOWN = new Set(["pi", "e", "Ans", "M", "i", "Infinity"]);
+  function freeVars(n, bound, out){
+    if (n.type === "SymbolNode") { if (!KNOWN.has(n.name) && !bound.has(n.name)) out.add(n.name); return; }
+    if (n.type === "FunctionNode" && /^_(int|der|sum)$/.test(n.fn && n.fn.name)) {
+      const b2 = new Set(bound); if (n.args[1] && n.args[1].name) b2.add(n.args[1].name);
+      if (n.args[0]) freeVars(n.args[0], b2, out); n.args.slice(2).forEach(a => freeVars(a, bound, out)); return;
+    }
+    if (n.type === "FunctionNode") { n.args.forEach(c => freeVars(c, bound, out)); return; }   // the function's own name isn't an unknown
+    n.forEach(c => freeVars(c, bound, out));
+  }
+  const TRIGF = /^(sin|cos|tan|asin|acos|atan)$/;
+  function trigOn(n, v){
+    let hit = false;
+    const walk = (x, inside) => { if (hit) return; if (x.type === "SymbolNode" && x.name === v && inside) { hit = true; return; } const t = inside || (x.type === "FunctionNode" && TRIGF.test(x.fn && x.fn.name)); (x.type === "FunctionNode" ? x.args : (() => { const k = []; x.forEach(c => k.push(c)); return k; })()).forEach(c => walk(c, t)); };
+    walk(n, false); return hit;
+  }
+  const fmtN = x => { const r = Number(x.toPrecision(10)); if (Math.abs(r) >= 1e10 || (r !== 0 && Math.abs(r) < 1e-9)) return r.toExponential(6).replace(/\.?0+e/, "e").replace("-", "−"); return String(r).replace("-", "−"); };
+  const tidy = r => { r = Number(r.toPrecision(12)); const k = Math.round(r); return Math.abs(r - k) < 1e-9 * Math.max(1, Math.abs(r)) ? k : r; };
+  const say = m => Object.assign(new Error(m), {say: m});
+  // Every real root of f: sign changes and touching zeros over a wide range (one turn for trig equations)
+  function roots(f, period){
+    const xs = [];
+    if (period) for (let i = 0; i <= 3600; i++) xs.push(period * i / 3600);
+    else { xs.push(0); for (let k = -9; k <= 7; k += 1 / 240) { const a = Math.pow(10, k); xs.push(a, -a); } xs.sort((a, b) => a - b); }
+    const F = x => { try { const y = f(x); return typeof y === "number" && isFinite(y) ? y : NaN; } catch (e) { return NaN; } };
+    const ys = xs.map(F), out = [];
+    const ok = r => { const y = F(r); return !Number.isNaN(y) && Math.abs(y) <= 1e-7 * Math.max(1, Math.abs(r)); };
+    for (let i = 0; i < xs.length; i++) {
+      const y = ys[i]; if (Number.isNaN(y)) continue;
+      if (y === 0) { out.push(xs[i]); continue; }
+      const y2 = ys[i + 1];
+      if (i + 1 < xs.length && !Number.isNaN(y2) && y2 !== 0 && (y < 0) !== (y2 < 0)) {
+        let a = xs[i], b = xs[i + 1], fa = y;
+        for (let k = 0; k < 200; k++) { const m = (a + b) / 2; if (m === a || m === b) break; const fm = F(m); if (Number.isNaN(fm)) break; if (fm === 0) { a = b = m; break; } if ((fm < 0) === (fa < 0)) { a = m; fa = fm; } else b = m; }
+        const r = (a + b) / 2; if (ok(r)) out.push(r);
+      } else if (i > 0 && i + 1 < xs.length && !Number.isNaN(ys[i - 1]) && !Number.isNaN(y2) && Math.abs(y) <= Math.abs(ys[i - 1]) && Math.abs(y) <= Math.abs(y2) && (y < 0) === (y2 < 0) && (y < 0) === (ys[i - 1] < 0)) {
+        // a zero the curve only touches, like (x−2)² = 0
+        let a = xs[i - 1], b = xs[i + 1]; const g = x => Math.abs(F(x)), R = (Math.sqrt(5) - 1) / 2;
+        for (let k = 0; k < 200 && b - a > 1e-15 * Math.max(1, Math.abs(a)); k++) { const c = b - R * (b - a), d = a + R * (b - a); if (g(c) < g(d)) b = d; else a = c; }
+        const r = (a + b) / 2; if (Math.abs(F(r)) <= 1e-9 * Math.max(1, Math.abs(r))) out.push(r);
+      }
+    }
+    const uniq = []; out.map(tidy).sort((a, b) => a - b).forEach(r => { if (!uniq.length || Math.abs(r - uniq[uniq.length - 1]) > 1e-7 * Math.max(1, Math.abs(r))) uniq.push(r); });
+    return period ? uniq.filter(r => r >= 0 && r < period - 1e-9 * period) : uniq;
+  }
+  // Newton's method for a system, from several starting points; each distinct answer is kept
+  function newton(F, n){
+    const sols = [], starts = [Array(n).fill(0), Array(n).fill(1), Array(n).fill(-1)];
+    for (let k = 0; k < 24; k++) starts.push(Array.from({length: n}, (_, j) => Math.sin(k * 12.9898 + j * 78.233) * 10 * (1 + k % 4)));
+    const solveLin = (A, b) => { const m = A.map((r, i) => r.concat([b[i]])); for (let c = 0; c < n; c++) { let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(m[r][c]) > Math.abs(m[p][c])) p = r; if (Math.abs(m[p][c]) < 1e-14) return null; [m[c], m[p]] = [m[p], m[c]]; for (let r = 0; r < n; r++) if (r !== c) { const f = m[r][c] / m[c][c]; for (let k = c; k <= n; k++) m[r][k] -= f * m[c][k]; } } return m.map((r, i) => r[n] / r[i]); };
+    for (const s0 of starts) {
+      let x = s0.slice(), good = false;
+      for (let it = 0; it < 80; it++) {
+        let fx; try { fx = F(x); } catch (e) { break; } if (fx.some(v => !isFinite(v))) break;
+        if (Math.max(...fx.map(Math.abs)) < 1e-11) { good = true; break; }
+        const J = []; for (let j = 0; j < n; j++) { const h = 1e-7 * Math.max(1, Math.abs(x[j])), x2 = x.slice(); x2[j] += h; let f2; try { f2 = F(x2); } catch (e) { f2 = null; } if (!f2) break; f2.forEach((v, i) => { (J[i] = J[i] || [])[j] = (v - fx[i]) / h; }); }
+        if (J.length !== n) break;
+        const dx = solveLin(J, fx.map(v => -v)); if (!dx) break;
+        x = x.map((v, j) => v + dx[j]);
+      }
+      if (!good) continue;
+      const r = x.map(tidy);
+      if (!sols.some(s => s.every((v, j) => Math.abs(v - r[j]) <= 1e-7 * Math.max(1, Math.abs(v))))) sols.push(r);
+      if (sols.length >= 4) break;
+    }
+    return sols;
+  }
+  // tokens → {v: a number (for Ans and S⇔D), txt: what the screen shows when it isn't just v}
+  async function compute(tokens, scope){
+    const math = await loadMath(), eqs = [[]];
+    tokens.forEach(t => { if (t.m === ";") eqs.push([]); else eqs[eqs.length - 1].push(t); });
+    const parts = eqs.filter(e => e.length).map(e => {
+      const k = e.findIndex(t => t.m === "=");
+      if (k >= 0 && e.slice(k + 1).some(t => t.m === "=")) throw new Error("Syntax");
+      return k < 0 ? [toMath(e)] : [toMath(e.slice(0, k)), toMath(e.slice(k + 1))];
+    });
+    if (!parts.length || parts.some(p => p.some(x => !x))) throw new Error("Syntax");
+    let nodes; try { nodes = parts.map(p => p.map(x => math.parse(x))); } catch (e) { throw new Error("Syntax"); }
+    const free = new Set(); nodes.forEach(p => p.forEach(n => freeVars(n, new Set(), free)));
+    const isEq = parts.some(p => p.length === 2), vars = [...free].sort();
+    const base = new Map(Object.entries(scope || {}));
+    const num = y => { if (y && typeof y === "object" && typeof y.toNumber === "function") y = y.toNumber(); if (typeof y !== "number" || !isFinite(y)) throw new Error("Math"); return y; };
+    if (!vars.length && parts.length === 1 && !isEq) return {v: num(math.evaluate(parts[0][0], scope))};
+    if (!vars.length) {   // 2 + 2 = 4: true or false
+      const t = parts.every(p => p.length < 2 || Math.abs(num(p[0] && math.evaluate(p[0], scope)) - num(math.evaluate(p[1], scope))) <= 1e-9 * Math.max(1, Math.abs(num(math.evaluate(p[1], scope)))));
+      return {v: null, txt: t ? "True" : "False"};
+    }
+    if (!isEq) throw say("Add = to solve");
+    const code = nodes.map(p => p.map(n => n.compile()));
+    const diff = (c, sc) => num(c[0].evaluate(sc)) - (c[1] ? num(c[1].evaluate(sc)) : 0);
+    if (vars.length === 1 && parts.length === 1) {
+      const v = vars[0], sc = new Map(base), trig = nodes[0].some(n => trigOn(n, v));
+      const period = trig ? (C.angle === "deg" ? 360 : C.angle === "gra" ? 400 : 2 * Math.PI) : 0;
+      const rs = roots(x => { sc.set(v, x); return diff(code[0], sc); }, period);
+      if (!rs.length) throw say("No real solution");
+      const shown = rs.slice(0, 8).map(fmtN).join(", ") + (rs.length > 8 ? ", …" : "");
+      const range = trig ? (C.angle === "deg" ? " (0–360°)" : C.angle === "gra" ? " (0–400ᵍ)" : " (0–2π)") : "";
+      return {v: rs[0], txt: `${v} = ${shown}${range}`, all: rs};
+    }
+    if (vars.length > parts.length) throw say(vars.length - parts.length === 1 && parts.length === 1 ? "Two unknowns: add an equation" : "More unknowns than equations");
+    if (vars.length < parts.length || vars.length > 4) throw say("Can't solve this system");
+    const sc = new Map(base);
+    const sols = newton(x => { vars.forEach((v, j) => sc.set(v, x[j])); return code.map(c => diff(c, sc)); }, vars.length);
+    if (!sols.length) throw say("No real solution");
+    return {v: sols[0][0], txt: sols.map(s => vars.map((v, j) => `${v} = ${fmtN(s[j])}`).join(", ")).join("  or  "), all: sols};
   }
   /*CALC-END*/
 
@@ -92573,26 +93460,33 @@ var SBCALCSKIN = null;
 
   /* State */
   const saved = lsGet(LS, {});
-  const S = {tokens: [], cur: 0, shift: false, hyp: false, done: false, result: null, err: "", frac: false,
+  const S = {tokens: [], cur: 0, shift: false, hyp: false, done: false, result: null, err: "", txt: "", note: "", frac: false,
     ans: Number(saved.ans) || 0, mem: Number(saved.mem) || 0, hist: Array.isArray(saved.hist) ? saved.hist.slice(0, 30) : [], hi: -1};
   C.angle = ["deg", "rad", "gra"].includes(saved.angle) ? saved.angle : "deg";
   const save = () => lsSet(LS, {ans: S.ans, mem: S.mem, hist: S.hist.slice(0, 30), angle: C.angle});
 
   function insert(t){
-    if (S.done) { S.done = false; S.err = ""; S.result = null; S.frac = false; }
+    if (S.done) { S.done = false; S.err = ""; S.result = null; S.txt = ""; S.frac = false; }
     S.tokens.splice(S.cur, 0, t); S.cur++;
   }
   async function evaluate(){
     if (!S.tokens.length) return;
-    let expr; try { expr = toMath(S.tokens); } catch (e) { S.err = "Syntax ERROR"; S.done = true; return; }
+    S.txt = ""; S.note = "";
     try { await loadMath(); } catch (e) { S.err = "Couldn't load the calculator"; S.done = true; return; }
-    let v; try { v = M.evaluate(expr, {Ans: S.ans, M: S.mem}); } catch (e) { S.err = /Math|Cannot convert|complex|Infinity/i.test(String(e && e.message)) ? "Math ERROR" : "Syntax ERROR"; S.done = true; return; }
-    if (v && typeof v === "object" && typeof v.toNumber === "function") { try { v = v.toNumber(); } catch (e) {} }
-    try { show(v); } catch (e) { S.err = "Math ERROR"; S.done = true; return; }
-    v = Number(v.toPrecision(15));
-    S.result = v; S.ans = v; S.err = ""; S.done = true; S.frac = false;
-    S.hist.unshift({t: S.tokens.slice(), v}); S.hist = S.hist.slice(0, 30); S.hi = -1;
+    let r; try { r = await compute(S.tokens, {Ans: S.ans, M: S.mem}); } catch (e) { S.err = e && e.say ? e.say : /Math|Cannot convert|complex|Infinity/i.test(String(e && e.message)) ? "Math ERROR" : "Syntax ERROR"; S.done = true; return; }
+    let v = r.v;
+    if (v != null) { try { show(v); } catch (e) { S.err = "Math ERROR"; S.done = true; return; } v = Number(v.toPrecision(15)); S.ans = v; }
+    S.result = v; S.txt = r.txt || ""; S.err = ""; S.done = true; S.frac = false;
+    S.hist.unshift({t: S.tokens.slice(), v, txt: S.txt || undefined}); S.hist = S.hist.slice(0, 30); S.hi = -1;
     save();
+  }
+  /* Typing a whole expression in at once (from "select an equation on screen"); false if it isn't one the calculator reads */
+  function put(text, angle){
+    let toks; try { toks = fromText(text); toMath(toks.filter(t => t.m !== "=" && t.m !== ";")); } catch (e) { return false; }
+    if (!toks.length) return false;
+    if (angle === "deg" || angle === "rad") { C.angle = angle; save(); }
+    S.tokens = toks; S.cur = toks.length; S.done = false; S.result = null; S.err = ""; S.txt = ""; S.note = ""; S.frac = false; S.hi = -1;
+    return true;
   }
   async function press(a){
     const shifted = S.shift;
@@ -92600,7 +93494,7 @@ var SBCALCSKIN = null;
     if (a === "shift") { S.shift = !shifted; return; }
     if (a === "hyp") { S.hyp = !S.hyp; return; }
     if (a === "drg") { C.angle = C.angle === "deg" ? "rad" : C.angle === "rad" ? "gra" : "deg"; save(); return; }
-    if (a === "ac") { S.tokens = []; S.cur = 0; S.done = false; S.result = null; S.err = ""; S.frac = false; S.hyp = false; S.hi = -1; return; }
+    if (a === "ac") { S.tokens = []; S.cur = 0; S.done = false; S.result = null; S.err = ""; S.txt = ""; S.note = ""; S.frac = false; S.hyp = false; S.hi = -1; return; }
     if (a === "del") { if (S.done) { S.done = false; S.err = ""; S.result = null; S.cur = S.tokens.length; return; } if (S.cur > 0) { S.tokens.splice(S.cur - 1, 1); S.cur--; } return; }
     if (a === "left" || a === "right") {
       if (S.done) { S.done = false; S.err = ""; S.result = null; S.cur = a === "left" ? S.tokens.length : 0; return; }
@@ -92609,9 +93503,9 @@ var SBCALCSKIN = null;
     if (a === "up" || a === "down") {
       if (!S.hist.length) return;
       S.hi = Math.max(0, Math.min(S.hist.length - 1, S.hi + (a === "up" ? 1 : -1)));
-      const h = S.hist[S.hi]; S.tokens = h.t.slice(); S.cur = S.tokens.length; S.result = h.v; S.done = true; S.err = ""; S.frac = false; return;
+      const h = S.hist[S.hi]; S.tokens = h.t.slice(); S.cur = S.tokens.length; S.result = h.v; S.txt = h.txt || ""; S.done = true; S.err = ""; S.frac = false; return;
     }
-    if (a === "sd") { if (S.done && S.result != null && asFraction(S.result)) S.frac = !S.frac; return; }
+    if (a === "sd") { if (S.done && S.result != null && !S.txt && asFraction(S.result)) S.frac = !S.frac; return; }
     if (a === "eq") { await evaluate(); return; }
     if (a === "mplus" || a === "mminus" || a === "mc") {
       if (a === "mc" || (shifted && a === "mr")) { S.mem = 0; save(); return; }
@@ -92620,8 +93514,9 @@ var SBCALCSKIN = null;
       return;
     }
     if (a === "mr" && shifted) { S.mem = 0; save(); return; }
-    if (S.done && !S.err && CARRY.has(a)) { S.done = false; S.result = null; S.tokens = [TOK.ans]; S.cur = 1; }
-    else if (S.done) { S.done = false; S.err = ""; S.result = null; S.tokens = []; S.cur = 0; }
+    S.note = "";
+    if (S.done && !S.err && S.result != null && CARRY.has(a)) { S.done = false; S.result = null; S.txt = ""; S.tokens = [TOK.ans]; S.cur = 1; }
+    else if (S.done) { S.done = false; S.err = ""; S.result = null; S.txt = ""; S.tokens = []; S.cur = 0; }
     const t = tokenFor(a); if (t) insert(t);
   }
 
@@ -92631,7 +93526,7 @@ var SBCALCSKIN = null;
   const KEYNAME = {shift: "Shift", hyp: "Hyperbolic", drg: "Degrees, radians or gradians", left: "Move left", right: "Move right", sd: "Fraction or decimal", inv: "Reciprocal", fact: "Factorial", ncr: "Combinations", npr: "Permutations", sqrt: "Square root", cbrt: "Cube root", sq: "Squared", cube: "Cubed", pow: "Power", root: "Root", log: "Log", tenx: "10 to the power", ln: "Natural log", ex: "e to the power", sin: "Sine", asin: "Inverse sine", cos: "Cosine", acos: "Inverse cosine", tan: "Tangent", atan: "Inverse tangent", lp: "Open bracket", rp: "Close bracket", neg: "Negative", abs: "Absolute value", pi: "Pi", e: "e", pct: "Percent", mplus: "Memory add", mminus: "Memory subtract", mr: "Memory recall", mc: "Memory clear", del: "Delete", ac: "All clear", mul: "Times", div: "Divide", add: "Plus", sub: "Minus", dot: "Point", exp: "Times ten to the power", ans: "Answer", eq: "Equals"};
   function frame(){
     return `<div class="cx-body">
-      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
+      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-snip" data-cx="snip" aria-label="Select an equation on screen" title="Select an equation on screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.5 10.5h3M10 9v3M13 15.5h3M8.6 15.4l2.8-2.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
       <div class="cx-lcd" role="group" aria-label="Display">
         <div class="cx-ind" aria-hidden="true"><span data-i="shift">S</span><span data-i="hyp">HYP</span><span data-i="m">M</span><span class="cx-sp"></span><span data-i="ang"></span></div>
         <div class="cx-expr" aria-label="Expression"></div>
@@ -92651,8 +93546,8 @@ var SBCALCSKIN = null;
     ex.innerHTML = S.tokens.map((t, i) => `${i === caret ? `<i class="cx-caret"></i>` : ""}<span>${esc(t.d)}</span>`).join("") + (caret === S.tokens.length ? `<i class="cx-caret"></i>` : "");
     const c = ex.querySelector(".cx-caret"); if (c) { const L = c.offsetLeft; if (L - ex.scrollLeft > ex.clientWidth - 12) ex.scrollLeft = L - ex.clientWidth + 24; else if (L < ex.scrollLeft + 8) ex.scrollLeft = Math.max(0, L - 24); } else ex.scrollLeft = 0;
     const res = W.querySelector(".cx-res");
-    let txt = ""; if (S.err) txt = S.err; else if (S.done && S.result != null) { try { txt = S.frac && asFraction(S.result) ? asFraction(S.result) : show(S.result).txt; } catch (e) { txt = "Math ERROR"; } } else if (!S.tokens.length) txt = "0";
-    res.textContent = txt; res.classList.toggle("is-err", !!S.err); res.classList.toggle("is-dim", !S.done && !!S.tokens.length);
+    let txt = ""; if (S.err) txt = S.err; else if (S.note) txt = S.note; else if (S.done && S.txt) txt = S.txt; else if (S.done && S.result != null) { try { txt = S.frac && asFraction(S.result) ? asFraction(S.result) : show(S.result).txt; } catch (e) { txt = "Math ERROR"; } } else if (!S.tokens.length) txt = "0";
+    res.textContent = txt; res.classList.toggle("is-err", !!S.err); res.classList.toggle("is-dim", !!S.note || (!S.done && !!S.tokens.length));
     res.classList.toggle("is-long", txt.length > 13);
     // the second functions print over the keys while SHIFT is on
     W.querySelectorAll("[data-cxs]").forEach(b => b.classList.toggle("is-alt", S.shift));
@@ -92668,7 +93563,8 @@ var SBCALCSKIN = null;
   }
   async function act(a, alt){
     if (a === "close") { close(); return; }
-    if (a === "copy") { const r = W.querySelector(".cx-res").textContent; if (S.done && !S.err && S.result != null) { try { await navigator.clipboard.writeText(S.frac && asFraction(S.result) ? asFraction(S.result).replace("⁄", "/").replace("−", "-") : show(S.result).plain); toast(`Copied ${r}`); } catch (e) {} } return; }
+    if (a === "snip") { if (window.SBCALCSNIP) SBCALCSNIP.start(); return; }
+    if (a === "copy") { const r = W.querySelector(".cx-res").textContent; if (S.done && !S.err && S.txt) { try { await navigator.clipboard.writeText(S.txt.replace(/−/g, "-")); toast(`Copied ${r}`); } catch (e) {} return; } if (S.done && !S.err && S.result != null) { try { await navigator.clipboard.writeText(S.frac && asFraction(S.result) ? asFraction(S.result).replace("⁄", "/").replace("−", "-") : show(S.result).plain); toast(`Copied ${r}`); } catch (e) {} } return; }
     await press(S.shift && alt ? alt : a);
     paint();
   }
@@ -92716,7 +93612,7 @@ var SBCALCSKIN = null;
   const editable = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
   const modalOpen = () => [...document.querySelectorAll("dialog[open]")].some(d => { try { return d.matches(":modal"); } catch (e) { return true; } });
   window.addEventListener("keydown", e => {
-    if (!W || W.hidden || e.isComposing) return;
+    if (!W || W.hidden || e.isComposing || document.querySelector(".cxs-veil")) return;   // selecting an equation on screen: Esc is the selector's
     const t = e.target, inside = !!(t && t.nodeType === 1 && W.contains(t));
     if (!inside) {
       if (editable(t) || modalOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -92733,7 +93629,254 @@ var SBCALCSKIN = null;
 
   hook("act", act0 => { if (act0 !== "calc-open") return false; if (W && !W.hidden) close(); else open(); return true; });
   hook("menu", () => `<button data-act="calc-open"><span>Calculator<span class="sub">A scientific calculator in its own window</span></span></button>`);
-  window.SBCALC = {open, close, press: async a => { await press(a); paint(); }, state: () => ({tokens: S.tokens.map(t => t.d).join(""), result: S.result, err: S.err, mem: S.mem, angle: C.angle, frac: S.frac}), toMath, show};
+  window.SBCALC = {open, close, press: async a => { await press(a); paint(); }, state: () => ({tokens: S.tokens.map(t => t.d).join(""), result: S.result, txt: S.txt, err: S.err, mem: S.mem, angle: C.angle, frac: S.frac}), toMath, show,
+    // "select an equation on screen" (99-calc-snip.js)
+    put: (text, angle) => { if (!W) open(); const ok = put(text, angle); paint(); return ok; },
+    note: t => { S.note = t || ""; paint(); },
+    win: () => W, fromText, compute: (text, scope) => compute(fromText(text), scope || {Ans: 0, M: 0})};
+})();
+/* ===== module: 99-calc-snip.js: "select an equation on screen" for the calculator ===== */
+/* The calculator's corner button lays a sheet over the app; drag a box over an equation anywhere (a note, a card, a PDF, a
+   whiteboard, a picture) and it's typed into the calculator, ready for =. Reading it, in order:
+   1. math the app drew itself (KaTeX keeps each formula's TeX), turned into calculator text here;
+   2. plain text under the box, tidied (×, ÷, −, ², √, π, ½ ...) and used as it is when it's clearly just math;
+   3. otherwise the AI reads the text and a picture of the box (handwriting, photos, drawings, word problems) and writes
+      the equation in the calculator's own syntax, which is checked before it's typed in.
+   Without AI only 1 and 2 work, and the calculator says so for pictures. */
+(() => {
+  let veil = null;
+  const calcWin = () => window.SBCALC && SBCALC.win && SBCALC.win();
+
+  /* The sheet you drag on */
+  function start(){
+    if (veil) return;
+    const W = calcWin(); if (W) W.style.visibility = "hidden";
+    veil = document.createElement("div"); veil.className = "cxs-veil"; veil.setAttribute("role", "dialog"); veil.setAttribute("aria-label", "Select an equation");
+    veil.innerHTML = `<div class="cxs-hint">Drag over an equation <span>Esc to cancel</span></div><div class="cxs-box" hidden></div>`;
+    document.body.appendChild(veil);
+    const box = veil.querySelector(".cxs-box");
+    let x0 = 0, y0 = 0, on = false;
+    const draw = (x, y) => { const L = Math.min(x0, x), T = Math.min(y0, y); Object.assign(box.style, {left: L + "px", top: T + "px", width: Math.abs(x - x0) + "px", height: Math.abs(y - y0) + "px"}); box.hidden = false; };
+    veil.addEventListener("pointerdown", e => { if (e.button > 0) { end(null); return; } e.preventDefault(); on = true; x0 = e.clientX; y0 = e.clientY; draw(x0, y0); veil.setPointerCapture(e.pointerId); veil.classList.add("is-drag"); });
+    veil.addEventListener("pointermove", e => { if (on) draw(e.clientX, e.clientY); });
+    veil.addEventListener("pointerup", e => {
+      if (!on) return; on = false;
+      const r = {left: Math.min(x0, e.clientX), top: Math.min(y0, e.clientY), right: Math.max(x0, e.clientX), bottom: Math.max(y0, e.clientY)};
+      r.width = r.right - r.left; r.height = r.bottom - r.top;
+      end(r.width < 8 || r.height < 6 ? null : r);
+    });
+    veil.addEventListener("contextmenu", e => { e.preventDefault(); end(null); });
+    document.addEventListener("keydown", esc0, true);
+  }
+  function esc0(e){ if (e.key === "Escape" && veil) { e.preventDefault(); e.stopImmediatePropagation(); end(null); } }
+  function end(rect){
+    document.removeEventListener("keydown", esc0, true);
+    if (veil) { veil.remove(); veil = null; }
+    // what's under the box is read before the calculator comes back over it
+    let got = null; if (rect) { try { got = {tex: texIn(rect), text: textIn(rect)}; } catch (e) { console.warn("calculator select", e); } }
+    const W = calcWin(); if (W) W.style.visibility = "";
+    if (rect) read(rect, got).catch(e => { console.warn("calculator select", e); say("Couldn't read that"); });
+  }
+  const say = t => { if (window.SBCALC) SBCALC.note(t); };
+
+  /* What's under the box */
+  const over = (a, r) => Math.max(0, Math.min(a.right, r.right) - Math.max(a.left, r.left)) * Math.max(0, Math.min(a.bottom, r.bottom) - Math.max(a.top, r.top));
+  const skip = el => !!(el && el.closest && el.closest("#calc,.cxs-veil,script,style,noscript,template,[hidden],.katex-mathml"));
+  // only what's on top at that point (not text hidden under a sheet or a window)
+  const onTop = (x, y, el) => { const h = document.elementFromPoint(x, y); return !!h && (h === el || el.contains(h) || h.contains(el)); };
+  const shown = el => { const cs = getComputedStyle(el); return cs.visibility !== "hidden" && cs.display !== "none" && Number(cs.opacity) > 0.05; };
+  function texIn(r){
+    const out = [];
+    document.querySelectorAll(".mth[data-tex]").forEach(m => { if (skip(m) || !shown(m)) return; const b = m.getBoundingClientRect(); if (b.width && over(b, r) >= 0.5 * b.width * b.height && onTop(b.left + b.width / 2, b.top + b.height / 2, m)) out.push({tex: m.dataset.tex, top: b.top, left: b.left}); });
+    return out;
+  }
+  function textIn(r){
+    const bits = [], walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => {
+      const p = n.parentElement; if (!p || !n.nodeValue.trim() || skip(p) || p.closest(".mth,.katex")) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT; }});
+    const range = document.createRange();
+    for (let n = walker.nextNode(), seen = 0; n && seen < 4000; n = walker.nextNode()) {
+      const pr = n.parentElement.getBoundingClientRect(); if (!over(pr, r) && !(pr.width === 0 && pr.height === 0)) continue;
+      range.selectNodeContents(n); const rects = [...range.getClientRects()]; if (!rects.some(x => over(x, r) > 0)) continue;
+      if (!shown(n.parentElement)) continue; seen++;
+      const all = range.getBoundingClientRect(), s = n.nodeValue;
+      const first = rects.find(x => over(x, r) > 0);
+      if (all.left >= r.left - 2 && all.right <= r.right + 2 && all.top >= r.top - 2 && all.bottom <= r.bottom + 2) { if (onTop(first.left + first.width / 2, first.top + first.height / 2, n.parentElement)) bits.push({s, top: all.top, left: all.left, h: all.height}); continue; }
+      // partly inside: keep the letters whose middle is in the box
+      let cur = null; const lim = Math.min(s.length, 3000);
+      for (let i = 0; i < lim; i++) {
+        range.setStart(n, i); range.setEnd(n, i + 1); const b = range.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+        const inside = b.width + b.height > 0 && cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom && onTop(cx, cy, n.parentElement);
+        if (inside) { if (!cur || Math.abs(b.top - cur.top) > b.height / 2) { cur = {s: "", top: b.top, left: b.left, h: b.height}; bits.push(cur); } cur.s += s[i]; } else cur = null;
+      }
+    }
+    // form fields under the box: their text (or what's selected in them)
+    document.querySelectorAll("input,textarea").forEach(f => {
+      if (skip(f) || !shown(f) || /^(checkbox|radio|button|submit|range|color|file|hidden|password)$/i.test(f.type)) return;
+      const b = f.getBoundingClientRect(); if (!over(b, r) || !onTop(b.left + b.width / 2, b.top + b.height / 2, f)) return;
+      const v = f.selectionEnd > f.selectionStart ? f.value.slice(f.selectionStart, f.selectionEnd) : f.value;
+      if (v.trim()) bits.push({s: v, top: b.top, left: b.left, h: b.height});
+    });
+    // lines, top to bottom, then left to right
+    bits.sort((a, b) => Math.abs(a.top - b.top) > Math.min(a.h, b.h) / 2 ? a.top - b.top : a.left - b.left);
+    let txt = "", last = null;
+    bits.forEach(b => { txt += !last ? b.s : Math.abs(b.top - last.top) > Math.min(b.h, last.h) / 2 ? "\n" + b.s : (/\s$/.test(txt) || /^\s/.test(b.s) ? "" : " ") + b.s; last = b; });
+    return txt.replace(/[ \t]+/g, " ").trim().slice(0, 4000);
+  }
+  // A picture of the box: the images, canvases and drawings under it (text is read separately). null when there are none.
+  async function pictureOf(r){
+    const els = [...document.querySelectorAll("img,canvas,svg,video")].filter(el => {
+      if (skip(el) || !shown(el) || (el.tagName === "svg" && el.parentElement && el.parentElement.closest("svg"))) return false;
+      const b = el.getBoundingClientRect(); if (b.width < 24 || b.height < 16 || !over(b, r)) return false;
+      if (el.tagName === "svg" && b.width < 48 && b.height < 48) return false;   // icons
+      return true;
+    });
+    if (!els.length) return null;
+    const scale = Math.min(2.5, Math.max(1, 1400 / Math.max(r.width, r.height))), c = document.createElement("canvas");
+    c.width = Math.round(r.width * scale); c.height = Math.round(r.height * scale);
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+    let drew = 0;
+    for (const el of els) {
+      const b = el.getBoundingClientRect(), dx = (b.left - r.left) * scale, dy = (b.top - r.top) * scale, dw = b.width * scale, dh = b.height * scale;
+      try {
+        if (el.tagName === "svg") {
+          const cl = el.cloneNode(true); cl.setAttribute("width", b.width); cl.setAttribute("height", b.height); if (!cl.getAttribute("xmlns")) cl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+          // strokes drawn with currentColor or CSS colours: write the computed ones in
+          const src = el.querySelectorAll("path,line,polyline,polygon,circle,ellipse,rect,text"), dst = cl.querySelectorAll("path,line,polyline,polygon,circle,ellipse,rect,text");
+          src.forEach((s, i) => { const cs = getComputedStyle(s); if (dst[i]) { dst[i].setAttribute("stroke", cs.stroke); dst[i].setAttribute("fill", cs.fill); dst[i].setAttribute("stroke-width", cs.strokeWidth); } });
+          const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(cl)], {type: "image/svg+xml"}));
+          try { const im = new Image(); im.src = url; await im.decode(); g.drawImage(im, dx, dy, dw, dh); drew++; } finally { URL.revokeObjectURL(url); }
+        } else if (el.tagName === "IMG") {
+          if (!el.complete || !el.naturalWidth) continue;
+          // object-fit contain / cover: where the picture really is inside the element
+          const fit = getComputedStyle(el).objectFit, iw = el.naturalWidth, ih = el.naturalHeight;
+          let x = dx, y = dy, w = dw, h = dh;
+          if (fit === "contain" || fit === "cover") { const k = (fit === "contain" ? Math.min : Math.max)(dw / iw, dh / ih); w = iw * k; h = ih * k; x = dx + (dw - w) / 2; y = dy + (dh - h) / 2; }
+          g.save(); g.beginPath(); g.rect(dx, dy, dw, dh); g.clip(); g.drawImage(el, x, y, w, h); g.restore(); drew++;
+        } else { g.drawImage(el, dx, dy, dw, dh); drew++; }
+      } catch (e) { /* a picture from another site can't be read */ }
+    }
+    if (!drew) return null;
+    try { c.getContext("2d").getImageData(0, 0, 1, 1); } catch (e) { return null; }   // tainted
+    return await new Promise(res => c.toBlob(b => res(b), "image/jpeg", 0.9));
+  }
+
+  /*SNIP-START*/
+  /* Tidying text into the calculator's syntax (see fromText in 99-calculator.js) */
+  const SUPS = {"⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁻": "-", "⁺": "+", "ˣ": "x", "ⁿ": "n", "⁽": "(", "⁾": ")"};
+  const VULG = {"½": "(1/2)", "⅓": "(1/3)", "⅔": "(2/3)", "¼": "(1/4)", "¾": "(3/4)", "⅕": "(1/5)", "⅖": "(2/5)", "⅗": "(3/5)", "⅘": "(4/5)", "⅙": "(1/6)", "⅚": "(5/6)", "⅛": "(1/8)", "⅜": "(3/8)", "⅝": "(5/8)", "⅞": "(7/8)"};
+  const FUN = /^(sin|cos|tan|asin|acos|atan|arcsin|arccos|arctan|sinh|cosh|tanh|sqrt|cbrt|ln|log|abs|exp|root|integrate|deriv|sum|nCr|nPr|pi|Ans)$/;
+  function tidy(s){
+    let deg = false;
+    // equations on separate lines are a system
+    const lines = String(s || "").split(/\n+/).map(x => x.trim()).filter(Boolean);
+    if (lines.length > 1 && lines.every(x => /=/.test(x))) s = lines.join("; ");
+    s = String(s || "").replace(/[​ ]/g, " ");
+    s = s.replace(/[×✕⨯·⋅∙]/g, "*").replace(/[÷∶]/g, "/").replace(/[−–—‒﹣]/g, "-").replace(/[＝]/g, "=").replace(/[（]/g, "(").replace(/[）]/g, ")");
+    s = s.replace(/π/g, " pi ").replace(/[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]/g, c => VULG[c]);
+    s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺ˣⁿ⁽⁾]+/g, m => "^(" + [...m].map(c => SUPS[c]).join("") + ")");
+    if (/°/.test(s)) { deg = true; s = s.replace(/°/g, ""); }
+    // √x, √(x), ∛x
+    s = s.replace(/([√∛])\s*(\((?:[^()]|\([^()]*\))*\)|[\d.]+|[A-Za-z])/g, (m, r, a) => (r === "√" ? "sqrt" : "cbrt") + (a[0] === "(" ? a : "(" + a + ")"));
+    s = s.replace(/\*\*/g, "^").replace(/\s+/g, " ").trim().replace(/[.?:]+$/, "").trim();
+    return {s, deg};
+  }
+  // Is this just math (not a sentence with numbers in it)?
+  function justMath(s){
+    if (!s || !/^[0-9A-Za-z+\-*/^().,=;!% ]+$/.test(s) || !/[\d]/.test(s) && !/=/.test(s)) return false;
+    const words = s.match(/[A-Za-z]{2,}/g) || [];
+    return words.every(w => FUN.test(w)) && /[+\-*/^=!%]|[A-Za-z]\(/.test(s);
+  }
+  // The math in a line of text, without AI: words become breaks, and the longest piece that's clearly math is kept
+  function mathRuns(s){
+    const t = s.replace(/[A-Za-z]{2,}/g, w => FUN.test(w) ? w : "|").replace(/\b(?:a|A|I)\b(?!\s*[-+*/^=(\d])/g, "|").replace(/[^0-9A-Za-z+\-*/^().,=;!% ]/g, "|");
+    return t.split("|").map(x => {
+      x = x.trim().replace(/^[,;=*/^)+]+|[,;=*/^(+-]+$/g, "").trim();
+      for (let k = 0; k < 4; k++) { const o = (x.match(/\(/g) || []).length, c = (x.match(/\)/g) || []).length; if (o > c && x[0] === "(") x = x.slice(1).trim(); else if (c > o && x.endsWith(")")) x = x.slice(0, -1).trim(); else break; }
+      return x;
+    }).filter(justMath).sort((a, b) => b.length - a.length);
+  }
+  /* TeX (from the app's own math) to calculator text; "" if it uses something this doesn't know (then the AI reads it) */
+  function group(s, i){ if (s[i] !== "{") { const m = /^\\[A-Za-z]+|^./.exec(s.slice(i)); return m ? [m[0], i + m[0].length] : ["", i]; } let d = 0; for (let k = i; k < s.length; k++) { if (s[k] === "{") d++; else if (s[k] === "}" && --d === 0) return [s.slice(i + 1, k), k + 1]; } return [s.slice(i + 1), s.length]; }
+  function texToCalc(tex){
+    let s = String(tex || "").replace(/\\(left|right|displaystyle|textstyle|,|;|!|quad|qquad)\b|\\[,;! ]/g, " ").replace(/\$/g, "").replace(/&/g, "");
+    let out = "", i = 0;
+    while (i < s.length) {
+      if (s.startsWith("\\frac", i) || s.startsWith("\\dfrac", i) || s.startsWith("\\tfrac", i)) { i = s.indexOf("frac", i) + 4; while (s[i] === " ") i++; const [a, j] = group(s, i); let k = j; while (s[k] === " ") k++; const [b, l] = group(s, k); const A = texToCalc(a), B = texToCalc(b); if (!A || !B) return ""; const w = x => /^\s*(?:[\d.]+|[A-Za-z])\s*$/.test(x) ? x.trim() : `(${x})`; out += `(${w(A)}/${w(B)})`; i = l; continue; }
+      if (s.startsWith("\\sqrt", i)) { i += 5; while (s[i] === " ") i++; let n = ""; if (s[i] === "[") { const e = s.indexOf("]", i); n = texToCalc(s.slice(i + 1, e)); i = e + 1; } const [a, j] = group(s, i); const A = texToCalc(a); if (!A) return ""; out += n ? `root(${n}, ${A})` : `sqrt(${A})`; i = j; continue; }
+      if (s[i] === "^") { i++; while (s[i] === " ") i++; const [a, j] = group(s, i); const A = texToCalc(a); if (!A) return ""; out += `^(${A})`; i = j; continue; }
+      if (s[i] === "_") return "";   // subscripts (log bases, indices): left to the AI
+      if (s[i] === "{") { const [a, j] = group(s, i); const A = texToCalc(a); if (!A && a.trim()) return ""; out += `(${A})`; i = j; continue; }
+      if (s[i] === "\\") {
+        const m = /^\\([A-Za-z]+)/.exec(s.slice(i)); if (!m) { i++; continue; }
+        const w = m[1], MAP = {cdot: "*", times: "*", div: "/", pi: "pi", sin: "sin", cos: "cos", tan: "tan", ln: "ln", log: "log", sinh: "sinh", cosh: "cosh", tanh: "tanh", arcsin: "asin", arccos: "acos", arctan: "atan", exp: "exp"};
+        if (!(w in MAP)) return "";
+        out += " " + MAP[w] + " "; i += m[0].length; continue;
+      }
+      out += s[i]; i++;
+    }
+    // sin x → sin(x), sin 2x → sin(2x)
+    out = out.replace(/\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|ln|log|exp)\s+(?!\()([\d.]*[A-Za-z]?(?:\^\([^()]*\))?)/g, (m, f, a) => a ? `${f}(${a})` : m);
+    return tidy(out).s;
+  }
+  /*SNIP-END*/
+
+  const CALC_RULES = `Write it in this calculator syntax, nothing else:
+- numbers, + - * / ^ and brackets; implied multiplication is fine (2x, 3(x+1))
+- functions: sqrt(x), cbrt(x), root(n, x) for the nth root, ln(x), log(x) for base 10, log(x, b) for base b, exp(x), abs(x), sin cos tan asin acos atan sinh cosh tanh, n! for factorial, nCr(n, r), nPr(n, r)
+- constants: pi, e
+- unknowns: single letters only (x, y, z, t, n ...); never use e as an unknown
+- an equation uses one =; the equations of a system are separated by ;
+- calculus: integrate(f, x, a, b) for a definite integral, deriv(f, x, a) for the derivative at x = a, sum(f, n, a, b) for a sum from n = a to b
+- a fraction a over b is (a)/(b); a mixed number like 2 1/2 is (2+1/2); percent: write 15% of 80 as 0.15*80`;
+  const SYSTEM = `You read math for a student's scientific calculator. The student dragged a box over part of their screen; you get the text found in the box and, when there is one, a picture of it (handwriting, a photo, a drawing or a screenshot).
+Find the one equation or expression they most likely want calculated or solved, and write it exactly as shown (don't solve it, don't simplify it, don't change any number).
+If it's a word problem or an instruction like "solve for x", write the equation it gives. If there are several, take the first complete one; a system of equations is one answer.
+${CALC_RULES}
+angle: "deg" when the problem uses degrees (°), "rad" when it uses radians or calculus with trig, otherwise "none".
+If there's no math in it, set found to false.`;
+  const SCHEMA = {type: "OBJECT", properties: {found: {type: "BOOLEAN"}, calc: {type: "STRING"}, angle: {type: "STRING", enum: ["none", "deg", "rad"]}}, required: ["found", "calc", "angle"]};
+
+  async function read(r, got){
+    say("Reading…");
+    const tex = got ? got.tex : texIn(r), text = got ? got.text : textIn(r);
+    // 1. the app's own math, when that's all that's in the box
+    if (tex.length && text.replace(/\s+/g, "").length < 3) {
+      const calc = tex.sort((a, b) => a.top - b.top || a.left - b.left).map(t => texToCalc(t.tex)).filter(Boolean);
+      if (calc.length === tex.length && calc.length <= 4 && SBCALC.put(calc.join("; "))) { done(); return; }
+    }
+    // 2. plain math as text
+    const t = tidy(text);
+    if (!tex.length && justMath(t.s) && SBCALC.put(t.s, t.deg ? "deg" : "")) { done(); return; }
+    // 3. the AI
+    const pic = await pictureOf(r);
+    if (!aiReady()) {
+      // the last try without AI: the longest run of math in the text
+      const runs = mathRuns(t.s);
+      if (runs[0] && SBCALC.put(runs[0], t.deg ? "deg" : "")) { done(); return; }
+      say(""); toast(pic || tex.length ? "Turn on AI in Settings to read equations from pictures and handwriting" : "No equation found there");
+      return;
+    }
+    if (!text && !tex.length && !pic) { say(""); toast("Nothing to read there"); return; }
+    const parts = [];
+    if (pic) parts.push({inline_data: {mime_type: "image/jpeg", data: bytesToB64(new Uint8Array(await pic.arrayBuffer()))}});
+    parts.push({text: `TEXT IN THE BOX:\n"""${text || "(none)"}"""${tex.length ? `\nFORMULAS IN THE BOX (LaTeX):\n${tex.map(x => x.tex).join("\n")}` : ""}`});
+    let res;
+    try { res = await aiCall({task: "mathread", fast: true, temperature: 0, maxTokens: 1500, timeout: 45000, schema: SCHEMA, system: SYSTEM, parts}); }
+    catch (e) { say(""); toast((e && e.message) || "Couldn't read that. Try again."); return; }
+    const d = res && res.data;
+    if (!d || !d.found || !d.calc) { say(""); toast("No equation found there"); return; }
+    const calc = tidy(d.calc).s;
+    if (!SBCALC.put(calc, d.angle)) { say(""); toast("Couldn't read that equation"); return; }
+    done();
+  }
+  function done(){
+    const W = calcWin(); if (!W) return;
+    const ex = W.querySelector(".cx-expr"); if (ex) { ex.classList.remove("cx-in"); void ex.offsetWidth; ex.classList.add("cx-in"); }
+    const eq = W.querySelector('[data-cx="eq"]'); if (eq) eq.focus({preventScroll: true});
+  }
+
+  window.SBCALCSNIP = {start, read, tidy, justMath, mathRuns, texToCalc, textIn, texIn};
 })();
 /* ===== module: 99-version-history.js ===== */
 /* Version History (Pro): earlier versions of notes and decks from the last 30 days, invisible until someone needs it.

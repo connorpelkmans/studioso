@@ -71,7 +71,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await ctx3.route(/supabase\.co/, r => r.abort());
     await ctx3.addInitScript(() => {
       try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studyboard:paywall-test", "1");
-        localStorage.setItem("studyboard:plancfg", JSON.stringify({rows: {prices: {storeSemester: "$12.99"}}, at: Date.now()})); } catch (e) {}
+        localStorage.setItem("studyboard:plancfg", JSON.stringify({rows: {prices: {storeSemester: "$15.99"}}, at: Date.now()})); } catch (e) {}
       window.StudyboardNative = {platform: "ios", purchasesAvailable: true, externalPurchase: false, storefront: "CAN"};
     });
     const p3 = await ctx3.newPage(); p3.on("pageerror", e => errs.push(e.message));
@@ -79,7 +79,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await p3.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await p3.evaluate(() => window.__sbPlanObj().openSheet()); await p3.waitForSelector("dialog[open] .plan-sheet", {timeout: 5000});
     const sem = await p3.evaluate(() => { const b = document.querySelector('dialog[open] [data-act="plan-buy"][data-id="semester"]'); return {btn: b ? b.textContent : "", legal: (document.getElementById("planLegal") || {}).textContent || ""}; });
-    ok(/\$12\.99\s*\/ 4 months/.test(sem.btn) && /doesn't renew/.test(sem.btn) && !/Free Trial/.test(sem.btn) && /Semester: \$12\.99 for 4 months of Pro, paid once/.test(sem.legal) && !/every 4 months/.test(sem.legal) && /Apple ID/.test(sem.legal), "with storeSemester set, the App Store sheet sells a 4-month semester plan, paid once: " + sem.btn);
+    ok(/\$15\.99\s*\/ 4 months/.test(sem.btn) && /doesn't renew/.test(sem.btn) && !/Free Trial/.test(sem.btn) && /Semester: \$15\.99 for 4 months of Pro, paid once/.test(sem.legal) && !/every 4 months/.test(sem.legal) && /Apple ID/.test(sem.legal), "with storeSemester set, the App Store sheet sells a 4-month semester plan, paid once: " + sem.btn);
     await ctx3.close();
 
     // 4. the bridge buys the store's 3-month package for the semester plan

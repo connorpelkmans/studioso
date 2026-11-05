@@ -101,9 +101,12 @@ The Worker imports that file, and the app bundles the very same file. A student,
 | Jobs | Thinking |
 |---|---|
 | Grading answers, Teach It Back, Rubric Check, Ask About Course, syllabus import, flashcard, quiz and case sets, practice tests, Break It Down | High |
-| Companion chat, Ask, summaries, explanations, exam plans | Medium |
-| The automatic plan, session tuning, estimates, weekly review | Low |
-| Exam location check, quick add, announcement dates, companion lines | None |
+| Companion chat, Ask (including finding things and proposing changes), summaries, explanations, exam plans | Medium |
+| The automatic plan | Medium |
+| Session tuning, estimates, weekly review, reading an equation for the calculator | Low |
+| Exam location check, quick add, announcement dates, companion lines, describing whiteboard pictures for search | None |
+
+Automatic jobs (the ones the app runs in the background) use their own level from the table: the plan at medium, companion lines and yes/no checks with no thinking. `AUTO_EFFORT` can raise all of them to at least `"medium"` (or `"low"`/`"high"`) on Studyboard AI, for about $0.28 more per student a month; it's empty by default.
 
 The app sends only the job's name, its text and files, and the answer shape it wants. Any model, thinking level, output cap, temperature or tool list it sends is ignored.
 
@@ -111,8 +114,8 @@ The app sends only the job's name, its text and files, and the answer shape it w
 
 | | Default | Highest a setting can go |
 |---|---|---|
-| `MONTHLY_SOFT_USD`: past it, everyday jobs think less | $3 | the hard limit |
-| `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $4 | $10 |
+| `MONTHLY_SOFT_USD`: past it, everyday jobs think less | $2 | the hard limit |
+| `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $2.50 | $10 |
 | `DAILY_USD` | $1 | $3 |
 | `PER_MINUTE` requests | 20 | 60 |
 | `YOUTUBE_MONTHLY` videos (each at most 2 hours, about $0.10 an hour) | 10 | 100 (`0` turns YouTube links off) |
@@ -142,7 +145,7 @@ From a simulation of the app's real prompts:
 | Average | about $0.96 |
 | Typical | about $0.65 |
 | Heavy | about $2.30 |
-| Uses every feature as much as the app allows | stopped at $4 |
+| Uses every feature as much as the app allows | stopped at $2.50 |
 
 A one-hour YouTube lecture costs about $0.10, and a one-hour recording transcribed by Whisper about $0.03. Add Cloudflare's 5% credit fee.
 

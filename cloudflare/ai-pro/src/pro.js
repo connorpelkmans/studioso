@@ -57,6 +57,8 @@ export function config(env) {
     lim: limits(env),
     whisper: String(env.WHISPER_OFF || "") !== "1",
     youtube: String(env.YOUTUBE_OFF || "") !== "1",
+    // The least thinking automatic jobs get: each job's own level by default (""); "low", "medium" or "high" raises them
+    autoEffort: ["low", "medium", "high"].includes(String(env.AUTO_EFFORT || "")) ? String(env.AUTO_EFFORT) : "",
     // YouTube videos a student can turn into notes and cards each calendar month (UTC), on top of their dollar allowance
     ytMonthly: (n => Number.isFinite(n) && String(env.YOUTUBE_MONTHLY == null ? "" : env.YOUTUBE_MONTHLY).trim() !== "" ? Math.min(YT_MONTHLY_MAX, Math.max(0, Math.floor(n))) : 10)(Number(env.YOUTUBE_MONTHLY))
   };
@@ -156,7 +158,7 @@ export async function handle(request, env, deps) {
   if (url.pathname === "/v1/youtube") return youtubeJob(request, cfg, deps, meter, lim);
   let body;
   try { const raw = await request.text(); if (raw.length > MAX_BODY_BYTES) return json({ error: "too_long" }, 413); body = JSON.parse(raw); } catch (e) { return json({ error: "bad" }, 400); }
-  const r = await runJob(body, { meter, lim, claude: deps.claude, defer: deps.defer });
+  const r = await runJob(body, { meter, lim, claude: deps.claude, defer: deps.defer, autoEffort: cfg.autoEffort });
   if (r.spent) record(deps, "claude", r.spent.task, r.spent.usage, r.spent.cost);
   return json(r.body, r.status);
 }

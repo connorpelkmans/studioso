@@ -123,6 +123,9 @@ const STUB = () => {
     ok(sent && sent.model === "claude-haiku-5-5" && sent.output_config.effort === "high", "the server ran it on Haiku 5.5 at high effort");
     ok((await A.page.$$eval("#bdList [data-f=title]", e => e.map(x => x.value)))[0] === STAGES.stages[0].title, "and the answer is used");
     ok(A.ctx.google === 0, "nothing went to Google");
+    for (let i = 0; i < 40 && !aiPosts(A.ctx).some(c => c.body && c.body.task === "plan"); i++) await A.page.waitForTimeout(250);
+    const planJob = aiPosts(A.ctx).find(c => c.body && c.body.task === "plan"), planSent = W.sent.find(r => /expert study planner/i.test(JSON.stringify(r.system || "")));
+    ok(planJob && planJob.body.auto === true && planSent && planSent.output_config.effort === "medium", "the automatic plan is sent as automatic, and runs on Haiku 5.5 at medium");
 
     // 3. The month's allowance used up: the student is told, and no request is sent
     const m = deps.meter("0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b"); m.now = () => Date.now() - 3 * 86400000;

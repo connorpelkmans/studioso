@@ -211,3 +211,18 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-dots i:nth-child(3){animation-delay:.36s}
 @keyframes cpDot{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:.9;transform:translateY(-4px)}}
 @media (prefers-reduced-motion:reduce){.cp-dots i{animation:cpDotFade 1.6s infinite}@keyframes cpDotFade{0%,100%{opacity:.35}50%{opacity:1}}}
+
+/* Ask's confirm panel (98-assist.js): sits low on the screen so the highlighted thing above stays in view */
+.as-dlg{margin:auto auto max(18px,env(safe-area-inset-bottom));width:min(520px,calc(100vw - 32px));max-height:min(70vh,560px);padding:0;border:0;border-radius:16px;background:var(--card,#fff);color:var(--ink,inherit);box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.as-dlg::backdrop{background:rgba(10,14,24,.12)}
+.as-sheet .sheet-body{max-height:min(48vh,380px);overflow:auto}
+.as-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.as-list li{display:grid;gap:2px;padding:10px 12px;border-radius:10px;background:var(--soft,rgba(0,0,0,.04))}
+.as-it{font-weight:700;overflow-wrap:anywhere}
+.as-f{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#667)}
+.as-ch{overflow-wrap:anywhere}
+.as-ch s{color:var(--muted,#667)}
+.as-ch b{color:var(--accent,#2f6fed)}
+/* "Show me" chips under a Companion tab answer */
+.cpt-show{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+.cpt-show-b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

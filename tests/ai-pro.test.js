@@ -21,9 +21,9 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(P.config({...ENV, PRO_AI_OFF: "1"}).on, false, "PRO_AI_OFF turns it off");
   const wild = P.limits({MONTHLY_HARD_USD: "500", MONTHLY_SOFT_USD: "900", DAILY_USD: "99", PER_MINUTE: "5000", MAX_INFLIGHT: "999"});
   ok(wild.hardUsd <= P.HARD.monthUsd && wild.softUsd <= wild.hardUsd && wild.dayUsd <= P.HARD.dayUsd && wild.perMinute <= P.HARD.perMinute && wild.inflight <= P.HARD.inflight, "a mistyped setting can't lift the limits past their hard ranges");
-  eq([P.limits({MONTHLY_HARD_USD: "abc"}).hardUsd, P.limits({MONTHLY_HARD_USD: "-3"}).hardUsd], [4, 0], "a bad value falls back to the default; a negative one means no AI");
+  eq([P.limits({MONTHLY_HARD_USD: "abc"}).hardUsd, P.limits({MONTHLY_HARD_USD: "-3"}).hardUsd], [2.5, 0], "a bad value falls back to the default; a negative one means no AI");
   const L0 = P.limits({});
-  eq([L0.softUsd, L0.hardUsd, L0.dayUsd, L0.perMinute, L0.inflight], [3, 4, 1, 20, 4], "defaults: $3 soft, $4 hard a month, $1 a day, 20 a minute, 4 at once");
+  eq([L0.softUsd, L0.hardUsd, L0.dayUsd, L0.perMinute, L0.inflight], [2, 2.5, 1, 20, 4], "defaults: $2 soft, $2.50 hard a month, $1 a day, 20 a minute, 4 at once");
   ok(!("globalDayUsd" in L0) && !("trialUsd" in L0), "no limit shared across students, and nothing for a free week");
   const src = require("fs").readFileSync(path.join(__dirname, "..", "cloudflare", "ai-pro", "src", "pro.js"), "utf8");
   ok(src.includes('import "../../../src/js/01-ai-policy.js"') && !/\bconst TASKS\b|\bfunction buildRequest\b/.test(src), "the Worker uses the app's own rules file, not a copy");
@@ -44,7 +44,8 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(P.taskOf("grade").effort, "high", "grading thinks hard");
   eq(P.taskOf("tutor").effort, "high", "Ask About Course and Teach It Back think hard");
   eq(P.taskOf("chat").effort, "medium", "chat thinks at medium");
-  eq(P.taskOf("plan").effort, "low", "the automatic plan thinks a little");
+  eq(P.taskOf("plan").effort, "medium", "the automatic plan thinks at medium");
+  eq(P.taskOf("plan", true).effort, "low", "and at low past the soft limit");
   eq(P.taskOf("remote").effort, "none", "yes/no jobs don't think");
   eq(P.taskOf("rubric", true).effort, "high", "past the soft limit, hard jobs keep their level");
   eq(P.taskOf("chat", true).effort, "low", "past the soft limit, routine jobs drop to low");
@@ -105,7 +106,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   /* One student's meter */
   let now = Date.UTC(2026, 10, 4, 12);
   const lim = P.limits(ENV), st = new P.Meter(mem(), () => now);
-  eq([lim.monthMicro, lim.softMicro, lim.dayMicro], [4e6, 3e6, 1e6], "limits in micro-dollars");
+  eq([lim.monthMicro, lim.softMicro, lim.dayMicro], [2.5e6, 2e6, 1e6], "limits in micro-dollars");
   let r = await st.reserve(500000, lim); ok(r.ok, "a $0.50 job fits");
   ok(await st.settle(r.id, 1000), "settled to its real cost");
   eq((await st.status(lim)).usedPct, 0, "a tenth of a cent rounds to 0%");
@@ -118,9 +119,10 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   ok((await st.reserve(100000, lim)).ok, "the next day it runs");
   // The monthly limit, across days
   const st2 = new P.Meter(mem(), () => now);
-  for (let d = 0; d < 4; d++) { const x = await st2.reserve(990000, lim); ok(x.ok, `day ${d + 1}`); await st2.settle(x.id, 990000); now += 86400000; }
-  const soft = await st2.status(lim); ok(soft.soft && soft.usedPct === 99, "past $3 the student is told routine jobs think less");
-  eq((await st2.reserve(100000, lim)).reason, "used_up", "$4 a month: refused until next month");
+  for (let d = 0; d < 2; d++) { const x = await st2.reserve(1000000, lim); ok(x.ok, `day ${d + 1}`); await st2.settle(x.id, 1000000); now += 86400000; }
+  const soft = await st2.status(lim); ok(soft.soft && soft.usedPct === 80, "past $2 the student is told routine jobs think less");
+  ok((await st2.reserve(490000, lim)).ok, "up to $2.50 still runs");
+  eq((await st2.reserve(20000, lim)).reason, "used_up", "$2.50 a month: refused until next month");
   now = Date.UTC(2026, 11, 1, 0, 0, 1);
   ok((await st2.reserve(100000, lim)).ok, "a new month starts a new allowance");
   // A job that never settles stays charged
@@ -153,7 +155,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   now += 61000;
   ok((await rate.reserve(10, rr)).ok, "a minute later it runs");
   // Delete My Account closes the id for good
-  const del = new P.Meter(mem(), () => now); await del.reserve(3900000, {...lim, dayMicro: 4e6});
+  const del = new P.Meter(mem(), () => now); await del.reserve(2400000, {...lim, dayMicro: 4e6});
   await del.forget();
   eq((await del.reserve(1, lim)).reason, "gone", "a deleted account's id can't be used to get a fresh allowance");
   /* The whole request path, with a fake Anthropic */
@@ -231,9 +233,9 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   x = await J(await call(H, job()));
   ok(x.j.data.sp >= P.worstCost(1, 6000), "while the model runs, the worst case is already charged");
   // A student near their limit can't start a job whose worst case would pass it
-  H = harness(); await spendBefore(H.meterOf(), 3999000);
+  H = harness(); await spendBefore(H.meterOf(), 2499000);
   x = await J(await call(H, job({task: "cards"})));
-  eq([x.s, x.j.error], [402, "used_up"], "$3.999 used: a flashcard job (worst case over $0.001) is refused");
+  eq([x.s, x.j.error], [402, "used_up"], "$2.499 used: a flashcard job (worst case over $0.001) is refused");
   ok(!H.calls.length, "and never reached Anthropic");
   // Failures
   H = harness({reply: () => Object.assign(new Error("overloaded"), {status: 529})});
@@ -255,9 +257,9 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   // No limit shared across students: a thousand students' jobs on one day all run
   { const many = harness(); let okAll = true; for (let i = 0; i < 40; i++) { many.user = {...many.user, id: "0b6f2a1c-1d2e-4f50-8a9b-" + String(i).padStart(12, "0")}; const r = await J(await call(many, job())); if (r.s !== 200) okAll = false; } ok(okAll, "forty students in a row all get answers (each has only their own limits)"); }
   // Soft limit reaches the request
-  H = harness(); await spendBefore(H.meterOf(), 3100000);
+  H = harness(); await spendBefore(H.meterOf(), 2100000);
   await call(H, job({task: "chat"})); await call(H, job({task: "grade"}));
-  eq([H.calls[0].output_config.effort, H.calls[1].output_config.effort], ["low", "high"], "past $3: chat thinks less, grading doesn't");
+  eq([H.calls[0].output_config.effort, H.calls[1].output_config.effort], ["low", "high"], "past $2: chat thinks less, grading doesn't");
   // Parallel requests through the whole path
   H = harness({reply: () => ({content: [{type: "text", text: "{}"}], stop_reason: "end_turn", usage: {input_tokens: 3000, output_tokens: 6000}})});
   const env2 = {...ENV, DAILY_USD: "0.05", PER_MINUTE: "60", MAX_INFLIGHT: "8"};
@@ -374,7 +376,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   }
   ok(allHaiku, "every job, before and past the soft limit, with or without web lookups: Haiku 5.5 at its own effort (thinking off only for the no-thinking jobs)");
   eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "high").map(([k]) => k).sort(), ["breakdown", "cards", "cases", "grade", "practice", "quiz", "rubric", "syllabus", "tutor"], "the high-thinking jobs");
-  eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "none").map(([k]) => k).sort(), ["annintel", "classify", "line", "news", "ping", "quickadd", "remote", "tag", "triage"], "the no-thinking jobs");
+  eq(Object.entries(P.TASKS).filter(([, t]) => t.effort === "none").map(([k]) => k).sort(), ["annintel", "classify", "describe", "line", "news", "ping", "quickadd", "remote", "tag", "triage"], "the no-thinking jobs");
 
   /* The owner's usage summary: exact totals from the usage reports, counts only, behind its own secret */
   const OWNER = "owner-secret-0123456789-abcdefghij";
@@ -410,7 +412,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   await call(H, job({task: "grade"})); await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
   x = await oget(H, OWNER, null, "?user=" + H.user.id);
   const want1 = P.costOf({input_tokens: 4000, output_tokens: 1000}) + P.ytCost(160000, 20500);
-  eq([x.s, x.j.spent, x.j.today, x.j.limit, x.j.dailyLimit, x.j.youtubeVideos, x.j.youtubeMonthly], [200, want1 / 1e6, want1 / 1e6, 4, 1, 1, 10], "one student's month: exactly what their jobs cost, against $4 a month and $1 a day, and their YouTube videos");
+  eq([x.s, x.j.spent, x.j.today, x.j.limit, x.j.dailyLimit, x.j.youtubeVideos, x.j.youtubeMonthly], [200, want1 / 1e6, want1 / 1e6, 2.5, 1, 1, 10], "one student's month: exactly what their jobs cost, against $2.50 a month and $1 a day, and their YouTube videos");
   eq(Object.keys(x.j).filter(k => /text|content|message|question/i.test(k)), [], "and nothing about what they asked");
   eq((await oget(H, "", null, "?user=" + H.user.id)).s, 404, "only with the owner token");
   eq((await oget(H, OWNER, null, "?user=not-an-id")).s, 400, "a garbled id is refused");
@@ -432,5 +434,19 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(rs.filter(r => r.s === 200).length, 2, "six at once: exactly two run");
   now = Date.UTC(2027, 1, 1, 0, 0, 5);
   x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq(x.s, 200, "a new month brings new videos");
+
+  /* Automatic jobs on Studyboard AI think at least at medium */
+  now = Date.UTC(2027, 1, 15, 12);
+  eq([P.config(ENV).autoEffort, P.config({...ENV, AUTO_EFFORT: "medium"}).autoEffort, P.config({...ENV, AUTO_EFFORT: "max"}).autoEffort], ["", "medium", ""], "each job's own level by default; AUTO_EFFORT can raise them; unknown values are ignored");
+  H = harness();
+  await call(H, job({task: "remote", auto: true})); await call(H, job({task: "line", auto: true}));
+  eq(H.calls.map(c => [c.output_config.effort, c.thinking.type]), [["low", "disabled"], ["low", "disabled"]], "by default an automatic yes/no job and a companion line don't think");
+  const AE = {...ENV, AUTO_EFFORT: "medium"}; H = harness();
+  await call(H, job({task: "remote", auto: true}), {env: AE}); await call(H, job({task: "remote"}), {env: AE}); await call(H, job({task: "line", auto: true}), {env: AE}); await call(H, job({task: "practice", auto: true}), {env: AE});
+  eq(H.calls.map(c => [c.output_config.effort, c.thinking.type, c.max_tokens]), [["medium", "adaptive", 4000], ["low", "disabled", 800], ["medium", "adaptive", 4000], ["high", "adaptive", 24000]], "an automatic yes/no job or companion line thinks at medium (with room for it); the same job tapped by hand doesn't; a job already above medium keeps its level");
+  H = harness(); await spendBefore(H.meterOf(), 2100000); await call(H, job({task: "remote", auto: true}), {env: AE}); await call(H, job({task: "plan", auto: true}), {env: AE});
+  eq(H.calls.map(c => c.output_config.effort), ["low", "low"], "past the soft limit automatic jobs drop back (a yes/no job to no thinking, the plan to low)");
+  H = harness(); await call(H, job({task: "plan", auto: true}));
+  eq(H.calls[0].output_config.effort, "medium", "the automatic plan thinks at medium either way (its own level)");
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });
