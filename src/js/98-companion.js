@@ -1124,7 +1124,8 @@
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
     b.querySelector(".cp-b-t").textContent = text;
-    const idea = opts.idea || null, ask = !!opts.ask && !askOnTab();
+    // Every bubble on a computer offers Ask (the companion's own lines too), unless the caller turns it off
+    const idea = opts.idea || null, ask = (opts.ask === undefined ? askShown() : !!opts.ask) && !askOnTab();
     bubbleIdea = idea; bubbleAsk = ask;
     const btns = [];
     if (idea) btns.push(`<button type="button" class="btn small primary" data-cp="yes">${esc(idea.yes || "Let's Do It")}</button>`, `<button type="button" class="btn small" data-cp="no">Not Now</button>`);
@@ -1881,7 +1882,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // or stop when they're paused or Smart Lines are off). Without AI, the bubble still offers it, and it opens AI setup.
   const aiSetUp = () => { try { return aiReady(); } catch (e) { return false; } };
   const askAvailable = () => navigator.onLine !== false && (aiSetUp() || linesAsk());
-  const askShown = () => navigator.onLine !== false;
+  function askShown(){ return navigator.onLine !== false; }
   async function aiAsk(q, sc){
     const clean = String(q).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 160);
     if (!clean) return null;

@@ -33,6 +33,7 @@ function reply(body){
   if (/You pick the control in a settings screen/.test(sys)) { const line = text.split("\n").find(l => /Daily Quote/.test(l)); return {i: line ? Number(line.split(" | ")[0]) : -1, value: "off"}; }
   if (/Describe a student's whiteboard/.test(sys)) return {about: "A labelled diagram of an animal cell", words: "Cell parts, nucleus, membrane", spots: [{what: "labelled cell diagram", x0: 0.1, y0: 0.1, x1: 0.6, y1: 0.7}]};
   const q = (/THE STUDENT ASKS: (.*)$/m.exec(text) || /STUDENT'S QUESTION: (.*)$/m.exec(text) || [])[1] || "";
+  if (/always broken/.test(q)) return {answer: "string", followUps: [], show: [], changes: []};
   if (/powerhouse note/.test(q)) return {answer: "Your Mitochondria note is on My Notes.", show: [refOf(/^N\d+ \|.*Mitochondria/)], changes: []};
   if (/cell diagram/.test(q)) return {answer: "It's on your Cell Biology board.", show: [refOf(/^W\d+ labelled cell diagram/) || (/W\d+ labelled cell diagram/.exec(text) || [""])[0].split(" ")[0]], changes: []};
   if (/essay to/.test(q)) return {answer: "Here's the change.", show: [], changes: [{ref: refOf(/^T\d+ \| Essay draft/), field: "due", value: "2031-03-14", scope: ""}, {ref: refOf(/^T\d+ \| Essay draft/), field: "priority", value: "high", scope: ""}]};
@@ -45,6 +46,8 @@ function reply(body){
   if (/made up/.test(q)) return {answer: "Done!", show: ["T99"], changes: [{ref: "T99", field: "due", value: "2030-01-01"}, {ref: refOf(/^T\d+ \| Lab report/), field: "due", value: "not a date"}]};
   if (/add a bio quiz/.test(q)) return {answer: "Adding it.", show: [], changes: [], newTasks: [{title: "Cell quiz", course: refOf(/^C\d+ \| Biology/), type: "Quiz", due: "2031-04-02", time: "9:30", priority: "", hours: 2, notes: "Chapters 3 and 4"}]};
   if (/add my readings/.test(q)) return {answer: "Adding both.", show: [], changes: [], newTasks: [{title: "Read chapter 5", course: "", type: "Reading", due: "2031-04-03", time: "", priority: "low", hours: 0, notes: ""}, {title: "Read chapter 6", course: "C99", type: "Reading", due: "not a date", time: "25:00", priority: "low", hours: 0, notes: ""}, {title: "", type: "Reading", due: "2031-04-04"}]};
+  if (/third time/.test(q)) return body.generationConfig && body.generationConfig.responseSchema ? {answer: "string", followUps: []} : {answer: "Third time lucky: here's the real answer."};
+  if (/how many courses/.test(q)) { reply.hm = (reply.hm || 0) + 1; return reply.hm === 1 ? {answer: "string", sources: ["Courses"], followUps: ["Which courses have marks entered?"], show: [], changes: []} : {answer: "You have 2 courses: BIO101 and HIS200.", followUps: []}; }
   if (/retry me/.test(q)) { reply.tries = (reply.tries || 0) + 1; return reply.tries === 1 ? {answer: "", show: [], changes: []} : {answer: "Second try worked.", show: [], changes: []}; }
   if (/long answer/.test(q)) return {answer: "Osmosis explained. " + "Water moves across a membrane toward the side with more solute. ".repeat(70) + "THE END.", show: [], changes: []};
   if (/what deck/.test(q)) return {answer: "You're looking at Cells.", show: [], changes: []};
@@ -58,6 +61,7 @@ function reply(body){
   await ctx.route(/generativelanguage\.googleapis\.com/, route => {
     let body = {}; try { body = JSON.parse(route.request().postData() || "{}"); } catch (e) {}
     sent.push(body);
+    if (/(STUDENT'S QUESTION|THE STUDENT ASKS): server down/.test(((body.contents || []).flatMap(c => c.parts || []).map(p => p.text || "").join("\n")))) { route.fulfill({status: 500, contentType: "application/json", body: JSON.stringify({error: {code: 500, message: "Internal error", status: "INTERNAL"}})}); return; }
     route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(reply(body))}]}, finishReason: "STOP"}]})});
   });
   await ctx.addInitScript(seed => { window.__SB_TEST = true; try { if (!localStorage.getItem("coursework:v2")) {
@@ -214,6 +218,23 @@ function reply(body){
   await chatQ("retry me please");
   await page.waitForFunction(() => /Second try worked/.test(document.body.innerText), null, {timeout: 10000});
   ok(true, "an empty reply is asked for once more, and the answer shows");
+  const before2 = sent.length; await chatQ("how many courses do I have?");
+  const tries = sent.slice(before2).filter(x => /how many courses/.test(bodyOf(x)));
+  await page.waitForFunction(() => /You have 2 courses/.test(document.body.innerText), null, {timeout: 10000}).catch(() => {});
+  ok(await page.evaluate(() => /You have 2 courses/.test(document.body.innerText) && ![...document.querySelectorAll(".cpt-a")].some(a => /^\s*string\b/.test(a.innerText))), "a placeholder answer (\"string\") is never shown: the question is asked again and the real answer shows");
+  const fmt0 = JSON.stringify((tries[0] || {}).generationConfig || {}), fmt1 = JSON.stringify((tries[1] || {}).generationConfig || {});
+  ok(tries.length === 2 && !/"actions"|"changes"|"newTasks"/.test(fmt0) && /"answer"/.test(fmt0) && !/"sources"/.test(fmt1), "a simple question gets a small answer format, and the retry the simplest one");
+  await chatQ("answer this the third time");
+  await page.waitForFunction(() => /Third time lucky/.test(document.body.innerText), null, {timeout: 15000}).catch(() => {});
+  ok(await page.evaluate(() => /Third time lucky/.test(document.body.innerText)), "if two tries come back broken, a third, free reply gives the real answer");
+  await chatQ("always broken: what do I know about mitochondria");
+  await page.waitForFunction(() => /here's what I found in your Studyboard/.test(document.body.innerText), null, {timeout: 20000}).catch(() => {});
+  ok(await page.evaluate(() => { const a = [...document.querySelectorAll(".cpt-a")].pop(); return !!a && /here's what I found in your Studyboard/.test(a.innerText) && /Mitochondria/i.test(a.innerText) && !/^\s*string\b/.test(a.innerText); }), "if the AI never gives a real answer, the student still gets one, made from their own data");
+  await chatQ("server down: when is my lab report due");
+  await page.waitForFunction(() => /found in your Studyboard|couldn't get an answer/.test(([...document.querySelectorAll(".cpt-a")].pop() || {}).innerText || ""), null, {timeout: 30000}).catch(() => {});
+  ok(await page.evaluate(() => /here's what I found in your Studyboard/.test(([...document.querySelectorAll(".cpt-a")].pop() || {}).innerText || "")), "if the AI is down, the answer is still made from what was found");
+  const loc = await page.evaluate(async () => { const r = await SBASSIST.ask("always broken: where's my powerhouse note"); return {answer: r.answer, show: r.show.map(t => t.kind + ":" + t.id)}; });
+  ok(/best match/.test(loc.answer) && loc.show[0] === "note:n1", "the bubble's Ask still offers (and goes to) the best match when the AI won't answer: " + JSON.stringify(loc));
   await chatQ("give me a long answer about osmosis");
   await page.waitForFunction(() => /THE END\./.test(document.body.innerText), null, {timeout: 10000}).catch(() => {});
   ok(await page.evaluate(() => /THE END\./.test(document.body.innerText)), "long answers aren't cut short");

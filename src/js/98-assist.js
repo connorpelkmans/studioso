@@ -559,9 +559,26 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const cat = await catalog(q);
     const me = window.SBCOMP && SBCOMP.tab && SBCOMP.tab.info ? (SBCOMP.tab.info() || {}) : {};
     const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Use the student's own data below.\n${RULES}`;
-    const r = await aiCall({task: "assist", maxTokens: 6000, temperature: 0.3, schema: SCHEMA, system, signal: o.signal, quiet: true,
-      parts: [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}]});
-    const d = r && r.data || {};
+    const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
+    const callAI = free => aiCall({task: "assist", maxTokens: 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
+      system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": []}. The answer is the reply itself, never a placeholder.` : system});
+    // Always a real answer: the format, the format again, then a free reply; a moment between tries after an error. If the
+    // AI can't be reached at all, the best match search finds is offered (and shown), made on this device.
+    const junk = x => { x = String(x == null ? "" : x).trim(); return x.length < 2 || /^(string|text|str|answer|reply|response|\.{2,}|…|n\/?a|null|undefined|none|<[^>]*>|\{[\s\S]*\}|\[[\s\S]*\])$/i.test(x); };
+    let r = null, lastErr = null;
+    for (let i = 0; i < 3 && !r; i++) {
+      try { const x = await callAI(i === 2); if (x && x.data && !junk(x.data.answer)) r = x; }
+      catch (e) { lastErr = e; if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; await wait(1200 * (i + 1)); }
+    }
+    if (!r) {
+      let best = null;
+      try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 3, chars: 300, wait: 600, readWait: 1, semWait: 1500}) : null; const d0 = R && R.rows && R.rows[0] && R.rows[0].doc;
+        if (d0) best = d0.type === "chunk" ? {kind: "file", id: d0.fid, page: d0.label === "Page" ? d0.page : 0} : d0.type === "card" ? {kind: "card", deck: d0.pid, id: d0.id} : d0.type === "question" ? {kind: "question", deck: d0.pid, quiz: d0.qid, id: d0.id} : ["task", "note", "board", "course", "file", "deck", "event"].includes(d0.type) ? {kind: d0.type, id: d0.id} : null; } catch (e) {}
+      const why = lastErr && lastErr.code === "limit" && !lastErr.rate ? "the AI allowance is used up for now" : navigator.onLine === false ? "you're offline" : "the AI isn't answering right now";
+      if (best && exists(best)) return {answer: `I couldn't get a full answer because ${why}, but this looks like the best match: ${labelOf(best)}.`, show: [Object.assign(best, {label: labelOf(best)})], changes: [], local: true};
+      return {answer: `I couldn't get an answer because ${why}. Ask me again in a moment?`, show: [], changes: [], local: true};
+    }
+    const d = r.data || {};
     return Object.assign({answer: clip(d.answer, 1200)}, resolve(d, cat.refs));
   }
   // Show what was found and offer the changes (the bubble does both at once)
