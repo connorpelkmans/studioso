@@ -1554,10 +1554,19 @@ function aiRow(){
   if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
   return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
+// Which company a pasted key is from, by its format (Claude keys also start with sk-, so they're checked first)
+const aiKeyKind = k => /^sk-ant-/.test(k) ? "anthropic" : /^sk-/.test(k) ? "openai" : /^AIza/.test(k) ? "gemini" : "";
 // opts.code: a code from another device (a scanned link) to offer at the top
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
-  const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai);
+  const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai), pro = aiProAvail();
+  // Pro: one box for a backup key from any company, saved into the same per-company keys the separate boxes use
+  const backupHint = () => aiProDeclined() ? "Used while Studyboard AI is off. Paste a Gemini, OpenAI or Claude key." : "Used if your Studyboard AI runs out. Paste a Gemini, OpenAI or Claude key.";
+  const backupRow = () => { const b = aiProBackup(c.keys); return `<div class="ai-key" id="aiBackup">
+      <label class="f"><span class="lh">Backup API Key <span class="hint" id="aiBackupHint">${esc(backupHint())}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-backup" id="aiBackupKey" value="${esc(b ? c.keys[b] : "")}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" id="aiBackupShow">Show</button><button type="button" class="btn small" id="aiBackupTest">Test</button></span></label>
+      <p class="mini" id="aiBackupKind" aria-live="polite" style="margin:0"></p>
+      <p class="mini ai-test-msg" id="aiBackupMsg" aria-live="polite" style="margin:0"></p>
+      ${Object.keys(AI_PROVIDERS).map(p => `<input type="hidden" data-key="${p}" value="${esc(c.keys[p])}">`).join("")}</div>`; };
   const keyRow = (p) => { const P = AI_PROVIDERS[p]; return `<div class="ai-key" data-p="${p}">
       <label class="f"><span class="lh">${esc(P.keyLabel)}${p === "gemini" ? ` ${REQ}` : ""} <span class="hint">${esc(P.keyHint)}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-${p}" data-key="${p}" value="${esc(c.keys[p])}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" data-show="${p}">Show</button><button type="button" class="btn small" data-test="${p}">Test</button></span></label>
       <p class="mini ai-test-msg" data-msg="${p}" aria-live="polite" style="margin:0"></p></div>`; };
@@ -1568,28 +1577,27 @@ function aiSetupSheet(fromFeature, opts){
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:6px"><p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}. ${esc(aiProLine())}</p>
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
-        <p class="mini" style="margin:0">Turn it off to use your own key below instead. ${aiProUsedUp() ? "It's used up for now, so your own key (Gemini first) is used until it resets." : "Your own key below is only a backup: if this month's or today's Studyboard AI runs out, your Gemini key (or another key you added) takes over until it resets."}</p></div>` : ""}
-      ${fromFeature && !aiProAvail() ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
-      <p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
+        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If this month's or today's Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+      ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
+      ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
         <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a></li>
         <li>Click <b>Create API Key</b> (keep billing off)</li>
         <li>Copy the key and paste below</li>
-      </ol>
+      </ol>`}
       ${opts.code && KEY_RELAY ? `<div class="ai-disclaimer" id="aiHoAsk" style="display:grid;gap:8px"><p style="margin:0"><b>Add AI from your other device?</b> This adds the AI keys you set up there to this device, using code <b>${esc(opts.code)}</b>.</p><div class="row" style="display:flex;gap:8px"><button type="button" class="btn primary small" id="aiHoYes">Add Keys</button><button type="button" class="btn small" id="aiHoNo">Not Now</button></div></div>` : ""}
       <p class="mini" id="aiPasteMsg" aria-live="polite" style="margin:0" hidden></p>
-      ${keyRow("gemini")}
+      ${pro ? backupRow() : keyRow("gemini")}
       ${KEY_RELAY ? `<details class="ai-paid" id="aiHoIn" ${opts.code ? "open" : ""}><summary>Already Set Up on Another Device?</summary>
         <div class="ai-handoff-in"><p class="mini" style="margin:0">On that device, open <b>Settings</b>, <b>AI Features</b> and tap <b>Add AI to Another Device</b>. Scan the code it shows with this device's camera, or type the code here.</p>
           <span class="key-row"><input type="text" class="ai-code-in" id="aiHoCode" value="${esc(opts.code || "")}" placeholder="XXXX-XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Code from your other device" data-noenter><button type="button" class="btn small" id="aiHoGet">Add Keys</button></span>
           <p class="mini" id="aiHoMsg" aria-live="polite" style="margin:0"></p></div></details>` : ""}
-      <details class="ai-paid" ${c.keys.anthropic || c.keys.openai ? "open" : ""}><summary>Use a Paid Model Instead (Optional)</summary>
+      ${pro ? "" : `<details class="ai-paid" ${c.keys.anthropic || c.keys.openai ? "open" : ""}><summary>Use a Paid Model Instead (Optional)</summary>
         <div class="ai-paid-body">
           <p class="mini ai-disclaimer" style="margin:0"><b>These cost money.</b> You can use a paid Gemini model (like Gemini 3.1 Pro) by turning on billing for your key in Google AI Studio, or use Claude or ChatGPT with an API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a>. API keys are separate from a Claude or ChatGPT subscription and are billed per use by that company. Big PDFs cost the most. Paid services generally don't use what you send to train their models.</p>
           ${keyRow("anthropic")}
-          <p class="mini" style="margin:0"><b>A Claude key always runs in Studyboard AI Mode</b>, exactly like Studyboard AI: Claude Haiku 5.5, the same thinking for each job, and the same limits (everyday jobs think less after $${SBPOLICY.limits({}).softUsd} in a month; AI pauses at $${SBPOLICY.limits({}).hardUsd} a month or $${SBPOLICY.limits({}).dayUsd} a day, and resets on the 1st).${c.provider === "anthropic" && c.model === "studyboard" ? ` This month: ${ownView().usedPct}% used.` : ""}</p>
           ${keyRow("openai")}
-        </div></details>
+        </div></details>`}
       <label class="f"><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
       <fieldset class="ai-auto"><legend>Automatic AI</legend>
         <label class="mi-check"><input type="checkbox" id="aiAuto" ${(ai => ai.auto !== undefined ? ai.auto : isFreeModel(c.provider, c.model))((state.settings && state.settings.ai) || {}) ? "checked" : ""}> Improve Today's Plan and study sessions automatically</label>
@@ -1607,7 +1615,7 @@ function aiSetupSheet(fromFeature, opts){
   const keysNow = () => { const k = {}; $$("[data-key]", dlg).forEach(i => { k[i.dataset.key] = i.value.trim(); }); return k; };
   const autoEngine = () => { const k = keysNow(), [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); return $("#aiAutoModel").value === "free" && k.gemini ? {provider: "gemini", model: "auto"} : {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto"}; };
   const autoWarn = () => { if (!$("#aiAutoWarn") || !$("#aiDefault")) return; const w = $("#aiAutoWarn"), e = autoEngine(), paid = !isFreeModel(e.provider, e.model); w.hidden = !($("#aiAuto").checked && paid);
-    w.innerHTML = `<b>This would use a paid model (${esc(aiModelName(e.provider, e.model))}) in the background and may cost money.</b> You'll be asked to confirm before it's turned on.${keysNow().gemini ? "" : " Add a free Gemini key to run it at no cost."}`; };
+    w.innerHTML = `<b>This would use a paid model (${esc(aiModelName(e.provider, e.model))}) in the background and may cost money.</b> You'll be asked to confirm before it's turned on.${keysNow().gemini || pro ? "" : " Add a free Gemini key to run it at no cost."}`; };
   let autoTouched = ((state.settings && state.settings.ai) || {}).auto !== undefined;
   $("#aiAuto").addEventListener("change", () => { autoTouched = true; });
   const autoDefault = () => { if (autoTouched || !$("#aiDefault") || !$("#aiAuto")) return; const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); $("#aiAuto").checked = !!keysNow()[p] && isFreeModel(p, m); };
@@ -1626,7 +1634,7 @@ function aiSetupSheet(fromFeature, opts){
     const model = sel[0] === p ? sel[1] : (p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]);
     const prev = state.settings.ai, prevKeys = aiLocalKeys;
     aiLocalKeys = Object.assign({}, aiCfg().keys, {[p]: key});
-    state.settings = Object.assign({}, state.settings, {ai: {provider: p, model, keys: {}}});
+    state.settings = Object.assign({}, state.settings, {ai: {provider: p, model, keys: {}, ownKey: true}}); // ownKey: test the key itself, not Studyboard AI
     let out;
     try { const r = await aiCall({task: "ping", fast: true, maxTokens: 400, temperature: 0, parts: [{text: "Reply with {\"ok\": true}"}], system: "Reply with JSON only.", schema: {type: "OBJECT", properties: {ok: {type: "BOOLEAN"}}, required: ["ok"]}}); out = {ok: true, model: r.model}; }
     catch(e) { out = {ok: false, err: e.message}; }
@@ -1640,17 +1648,38 @@ function aiSetupSheet(fromFeature, opts){
     const r = await testKey(p, key);
     msg.textContent = r.ok ? `It works. Connected to ${r.model}.` : r.err; b.disabled = false;
   }));
+  // Pro's one backup box: the key's format says which company it's from; it replaces any saved keys, and an empty box removes them
+  const bx = $("#aiBackupKey"), bxKind = $("#aiBackupKind"), bxMsg = $("#aiBackupMsg");
+  const bxSay = () => { if (!bx) return; const v = bx.value.trim(), p = aiKeyKind(v), k = keysNow(), saved = aiProBackup(c.keys), others = Object.keys(AI_PROVIDERS).filter(x => x !== p && k[x]);
+    bxKind.textContent = !v ? "No backup key." : !p ? "That doesn't look like a Gemini, OpenAI or Claude key." : `${v === c.keys[p] && p === saved ? "Saved" : "New"}: ${AI_PROVIDERS[p].label} key${others.length ? ` (also ${others.map(x => AI_PROVIDERS[x].short).join(" and ")})` : ""}.`; };
+  const bxSet = () => { const v = bx.value.trim(), p = aiKeyKind(v), hid = dlg.querySelector('[data-key="gemini"]');
+    $$("[data-key]", dlg).forEach(i => { i.value = p === i.dataset.key ? v : ""; });
+    bxMsg.textContent = ""; bxSay(); hid.dispatchEvent(new Event("change")); };
+  if (bx) {
+    bxSay();
+    bx.addEventListener("input", bxSet);
+    bx.addEventListener("paste", e => { const t = e.clipboardData ? e.clipboardData.getData("text") : "", code = KEY_RELAY && !aiKeyKind(t.trim()) ? KEYHO.codeIn(t) : ""; if (code) { e.preventDefault(); getKeys(code); } });
+    $("#aiBackupShow").addEventListener("click", e => { const hid = KEY_MASK ? bx.classList.toggle("key-mask") : (bx.type = bx.type === "password" ? "text" : "password") === "password"; e.currentTarget.textContent = hid ? "Show" : "Hide"; });
+    $("#aiBackupTest").addEventListener("click", async e => { const b = e.currentTarget, v = bx.value.trim(), p = aiKeyKind(v);
+      if (!v) { bxMsg.textContent = "Paste the key first."; return; }
+      if (!p) { bxMsg.textContent = "That doesn't look like a Gemini, OpenAI or Claude key."; return; }
+      bxMsg.textContent = "Testing…"; b.disabled = true;
+      const r = await testKey(p, v);
+      bxMsg.textContent = r.ok ? `It works. Connected to ${r.model}.` : r.err; b.disabled = false; });
+  }
   const save = okMsg => {
-    const k = keysNow();
-    if (!k.gemini && !k.anthropic && !k.openai) { const m = dlg.querySelector('[data-msg="gemini"]'); m.textContent = "Paste your Gemini key first."; dlg.querySelector('[data-key="gemini"]').focus(); return; }
+    const k = keysNow(), bx = $("#aiBackupKey");
+    if (bx) { const v = bx.value.trim(); if (v && !aiKeyKind(v)) { $("#aiBackupMsg").textContent = "That doesn't look like a Gemini, OpenAI or Claude key."; bx.focus(); return; } }
+    else if (!k.gemini && !k.anthropic && !k.openai) { const m = dlg.querySelector('[data-msg="gemini"]'); m.textContent = "Paste your Gemini key first."; dlg.querySelector('[data-key="gemini"]').focus(); return; }
     if (k.gemini && /^(sk-|sb_)/.test(k.gemini)) { dlg.querySelector('[data-msg="gemini"]').textContent = "That doesn't look like a Gemini key. Gemini keys come from Google AI Studio."; return; }
     if (k.anthropic && !/^sk-ant-/.test(k.anthropic)) { dlg.querySelector('[data-msg="anthropic"]').textContent = "Claude API keys start with sk-ant-."; return; }
     const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|");
     const prev = state.settings.ai || {};
     const next = {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto", keys: {}, auto: $("#aiAuto").checked, autoModel: $("#aiAutoModel").value, autoPaidOk: prev.autoPaidOk || ""};
+    if (prev.ownKey) next.ownKey = true;
     const e = autoEngine(), paid = !isFreeModel(e.provider, e.model), tag = `${e.provider}|${e.model}`;
     const finish = msg => { aiKeysSetLocal(k); state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings(); AUTO.sig = ""; AUTO.planAt = 0; autoErr = null; autoSave(); if (dlg.open) dlg.close(); toast(msg); scheduleRender();
-      const pv = next.provider; if (!aiConsented(pv)) setTimeout(() => aiConsentAsk(pv), 300); };
+      const pv = next.provider; if (k[pv] && !aiConsented(pv)) setTimeout(() => aiConsentAsk(pv), 300); };
     if (next.auto && paid && next.autoPaidOk !== tag) {
       autoPaidConfirmSheet(e, ok => { if (ok) { next.autoPaidOk = tag; finish("AI settings saved. Automatic AI will use your paid model."); } else { next.auto = false; finish("AI settings saved. Automatic AI is off."); } });
       return;
@@ -1689,6 +1718,7 @@ function aiSetupSheet(fromFeature, opts){
     lastTried = keys.gemini || "";
     Object.entries(keys).forEach(([p, k]) => { const i = dlg.querySelector(`[data-key="${p}"]`); if (i) { i.value = k; i.dispatchEvent(new Event("change")); } });
     if (keys.anthropic || keys.openai) { const d = dlg.querySelector("details.ai-paid:not(#aiHoIn)"); if (d) d.open = true; }
+    if (bx) { const p = aiProBackup(keysNow()); bx.value = p ? keysNow()[p] : ""; bxSay(); }
     const n = Object.keys(keys).length;
     m.textContent = n === 1 ? "Got your key." : `Got ${n} keys.`;
     setTimeout(() => { if (live()) save(`AI is on. ${n === 1 ? "Your key" : "Your keys"} came from your other device.`); }, 0);
@@ -1711,7 +1741,8 @@ function aiSetupSheet(fromFeature, opts){
     if (k) setTimeout(() => { lastTried = ""; useKey(k); }, 0);
     else if (code) { e.preventDefault(); getKeys(code); }
   });
-  if (DESK && DESK.aiClipboard) {
+  // Watching the clipboard for a free Gemini key is for the Gemini set-up; Pro has the one backup box instead
+  if (!pro && DESK && DESK.aiClipboard) {
     let timer = 0;
     const poll = async () => {
       if (!live()) { clearInterval(timer); window.removeEventListener("focus", poll); return; }
@@ -1719,7 +1750,7 @@ function aiSetupSheet(fromFeature, opts){
       try { const k = KEYHO.geminiKeyIn(String(await DESK.aiClipboard() || "")); if (k) useKey(k); } catch (e) {}
     };
     timer = setInterval(poll, 1500); window.addEventListener("focus", poll);
-  } else if (navigator.permissions && navigator.clipboard && navigator.clipboard.readText) {
+  } else if (!pro && navigator.permissions && navigator.clipboard && navigator.clipboard.readText) {
     const onFocus = async () => {
       if (!live()) { window.removeEventListener("focus", onFocus); return; }
       if (gIn.value.trim()) return;
@@ -1741,6 +1772,7 @@ function aiSetupSheet(fromFeature, opts){
     const raw = Object.assign({}, (state.settings && state.settings.ai) || {});
     if (usePro.checked) delete raw.ownKey; else raw.ownKey = true;
     state.settings = Object.assign({}, state.settings, {ai: raw}); saveSettings();
+    const bh = $("#aiBackupHint"); if (bh) bh.textContent = backupHint();
     toast(usePro.checked ? "Studyboard AI is on." : "Using your own key. Turn Studyboard AI back on here any time."); try { scheduleRender(); } catch(e) {}
   });
   if (AI_PRO && sbUser) aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} });
