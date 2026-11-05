@@ -66,7 +66,7 @@ const SBPOLICY = (() => {
   const micro = usd => Math.max(0, Math.ceil(usd * 1e6 - 1e-6));
   function limits(env){
     env = env || {};
-    const hard = num(env.MONTHLY_HARD_USD, 3.5, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 3, 0, HARD.monthUsd));
+    const hard = num(env.MONTHLY_HARD_USD, 2.5, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 2, 0, HARD.monthUsd));
     const day = num(env.DAILY_USD, 1, 0.05, HARD.dayUsd);
     return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
       perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};

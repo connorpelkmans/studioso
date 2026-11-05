@@ -23,8 +23,8 @@
     // Set as secrets, not here (see README, Turn it on): CF_ACCOUNT_ID, AI_GATEWAY_ID, CF_AIG_TOKEN, OWNER_TOKEN
     // Per paid Pro student, per calendar month (UTC), in US dollars. Past the soft limit everyday jobs think less;
     // at the hard limit AI stops until next month. The same limits apply to a student's own Claude key in Studyboard AI mode.
-    "MONTHLY_SOFT_USD": "3",
-    "MONTHLY_HARD_USD": "3.50",
+    "MONTHLY_SOFT_USD": "2",
+    "MONTHLY_HARD_USD": "2.50",
     // One student in one day
     "DAILY_USD": "1",
     "PER_MINUTE": "20",
