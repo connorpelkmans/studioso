@@ -499,8 +499,9 @@ nav.tabs button{font-size:.75rem!important}
 .nb-sizer{width:100%;height:100%}
 .nb-sizer.zoomed{position:relative;overflow:hidden;width:auto;height:auto}
 .nb-sizer.zoomed > .nb-board{transform-origin:0 0}
-/* Zoomed, the cork is drawn on the unscaled frame behind the board: a scaled patterned layer shows seams on iPhone */
-.nb-sizer.zoomed{background-color:#C69C6D;background-image:radial-gradient(rgba(90,55,20,.28) 1px,transparent 1.4px),radial-gradient(rgba(255,235,200,.22) 1px,transparent 1.5px);background-size:calc(9px * var(--nbz,1)) calc(9px * var(--nbz,1)),calc(13px * var(--nbz,1)) calc(13px * var(--nbz,1));background-position:0 0,calc(5px * var(--nbz,1)) calc(7px * var(--nbz,1))}
+/* Zoomed, the cork is drawn on the unscaled frame behind the board: a scaled patterned layer shows seams on iPhone.
+   The dots keep the same size and place at every zoom (the cork stays put while the notes zoom), and the cork always fills the view. */
+.nb-sizer.zoomed{min-width:100%;min-height:100%;background-color:#C69C6D;background-image:radial-gradient(rgba(90,55,20,.28) 1px,transparent 1.4px),radial-gradient(rgba(255,235,200,.22) 1px,transparent 1.5px);background-size:9px 9px,13px 13px;background-position:0 0,5px 7px}
 :root[data-theme="dark"] .nb-sizer.zoomed{background-color:#6E5238}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .nb-sizer.zoomed{background-color:#6E5238}}
 .nb-sizer.zoomed > .nb-board{background:none!important}

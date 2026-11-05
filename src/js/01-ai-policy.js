@@ -106,13 +106,15 @@ const SBPOLICY = (() => {
      the Worker; the device's storage for a student's own key). Each call reads and writes with nothing in between, one at a time,
      so two jobs can never both pass a check that only one fits. lock: optional, wraps each call (the app uses a cross-tab lock). */
   class Meter {
-    constructor(storage, now = () => Date.now(), lock = null){ this.s = storage; this.now = now; const one = serial(); this.one = lock ? fn => one(() => lock(fn)) : one; }
+    // o (on a device only): {sid: this page's id, alive: sid => is that page still open}. A job started by a page that has
+    // closed or reloaded can't still be running, so it stops counting as in flight at once (its charge stays).
+    constructor(storage, now = () => Date.now(), lock = null, o = null){ this.s = storage; this.now = now; this.o = o || {}; const one = serial(); this.one = lock ? fn => one(() => lock(fn)) : one; }
     async read(){
       const keys = ["gone", "month", "spent", "day", "daySpent", "flying", "hits"], v = await Promise.all(keys.map(k => this.s.get(k)));
       const [gone, month, spent, day, daySpent, flying, hits] = v, now = this.now(), m = monthOf(now), d = dayOf(now);
       return {gone: !!gone, now, month: m, spent: month === m ? spent || 0 : 0, day: d, daySpent: day === d ? daySpent || 0 : 0,
         // A job that never settled (its Worker or tab stopped) stays charged; after 15 minutes it stops counting as in flight
-        flying: (flying || []).filter(f => now - f.at < 15 * 60000), hits: (hits || []).filter(t => now - t < 60000)};
+        flying: (flying || []).filter(f => now - f.at < 15 * 60000 && (!this.o.alive || this.o.alive(f.sid))), hits: (hits || []).filter(t => now - t < 60000)};
     }
     reserve(cost, lim){ return this.one(() => this._reserve(cost, lim)); }
     settle(id, actual){ return this.one(() => this._settle(id, actual)); }
@@ -147,7 +149,7 @@ const SBPOLICY = (() => {
       if (r.spent + cost > lim.monthMicro) return {ok: false, reason: "used_up", ...this.view(r, lim)};
       if (r.daySpent + cost > lim.dayMicro) return {ok: false, reason: "today", ...this.view(r, lim)};
       const id = crypto.randomUUID();
-      r.flying.push({id, at: r.now, cost, month: r.month, day: r.day}); r.hits.push(r.now);
+      r.flying.push(Object.assign({id, at: r.now, cost, month: r.month, day: r.day}, this.o.sid ? {sid: this.o.sid} : {})); r.hits.push(r.now);
       await this.s.put({month: r.month, spent: r.spent + cost, day: r.day, daySpent: r.daySpent + cost, flying: r.flying, hits: r.hits});
       return {ok: true, id};
     }
@@ -275,6 +277,8 @@ const SBPOLICY = (() => {
   async function runJob(job, ctx){
     const {meter, lim, claude} = ctx, view = async () => meter.status(lim);
     if (!job || typeof job !== "object") return {status: 400, body: {error: "bad"}};
+    // Background jobs always leave one job slot and 5 requests a minute for what the student asks for themselves
+    const limJob = job.auto === true ? Object.assign({}, lim, {perMinute: Math.max(1, lim.perMinute - 5), inflight: Math.max(1, lim.inflight - 1)}) : lim;
     let read, schema = null;
     try { read = readBlocks(job.content); } catch (e) { return {status: 400, body: {error: "bad"}}; }
     if (job.schema != null) {
@@ -297,7 +301,7 @@ const SBPOLICY = (() => {
     const bound = textBytes(system) + read.textBytes + (schema ? JSON.stringify(schema).length : 0) + FRAME_TOKENS;
     let inTok = bound;
     if (read.media || bound > MAX_INPUT_TOKENS) {
-      if (!(await meter.touch(lim))) return {status: 429, body: Object.assign({error: "rate"}, await view())};
+      if (!(await meter.touch(limJob))) return {status: 429, body: Object.assign({error: "rate"}, await view())};
       let counted = NaN;
       try { counted = await claude.count(req); } catch (e) { counted = NaN; }
       inTok = Number.isFinite(counted) && counted > 0 ? counted + 200 : bound + read.mediaGuess;
@@ -305,7 +309,7 @@ const SBPOLICY = (() => {
     if (inTok > MAX_INPUT_TOKENS || (onWeb && inTok > WEB.maxInput + FRAME_TOKENS)) return {status: 413, body: {error: "too_long", tokens: inTok}};
     // Charge the worst case first
     const reserve = onWeb ? webWorst(inTok, task.out, web) : worstCost(inTok, task.out);
-    const got = await meter.reserve(reserve, lim);
+    const got = await meter.reserve(reserve, limJob);
     if (!got.ok) return {status: got.reason === "rate" ? 429 : 402, body: Object.assign({error: got.reason}, await view())};
     // The model runs on its own promise, kept alive if the app hangs up, so the charge is always corrected
     let spent = null;

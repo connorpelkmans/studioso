@@ -292,7 +292,13 @@ const ownStore = {
 };
 const ownLock = typeof navigator !== "undefined" && navigator.locks && navigator.locks.request ? fn => navigator.locks.request("studyboard-own-ai", () => fn()) : null;
 let OWN_METER = null;
-const ownMeter = () => OWN_METER || (OWN_METER = new SBPOLICY.Meter(ownStore, () => Date.now(), ownLock));
+// Jobs in flight belong to this page; each open page checks in every 20 seconds, so jobs left behind by a page that was
+// closed or reloaded stop counting as in flight straight away (they used to block new ones for 15 minutes)
+const OWN_SID = Math.random().toString(36).slice(2, 12), OWN_LIVE = "studyboard:aiOwnLive";
+const ownBeats = () => { try { const o = JSON.parse(localStorage.getItem(OWN_LIVE) || "{}"); return o && typeof o === "object" ? o : {}; } catch(e) { return {}; } };
+function ownBeat(){ try { const o = ownBeats(), now = Date.now(); o[OWN_SID] = now; Object.keys(o).forEach(k => { if (now - o[k] > 120000) delete o[k]; }); localStorage.setItem(OWN_LIVE, JSON.stringify(o)); } catch(e) {} }
+const ownAlive = sid => sid === OWN_SID || (!!sid && Date.now() - (ownBeats()[sid] || 0) < 60000);
+const ownMeter = () => { if (!OWN_METER) { ownBeat(); setInterval(ownBeat, 20000); OWN_METER = new SBPOLICY.Meter(ownStore, () => Date.now(), ownLock, {sid: OWN_SID, alive: ownAlive}); } return OWN_METER; };
 const ownLimits = () => SBPOLICY.limits({});
 // Claude straight from this device with the student's key, in the shape SBPOLICY.runJob expects (errors carry their status)
 function ownClaude(key, signal, ms){
@@ -741,7 +747,17 @@ const AI_OWN_WORDS = {
   used_up: {title: "Your Claude Key's Monthly Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same monthly limit as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
   today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
 };
-async function proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own, hasBackup}){
+// A request the student made that meets "too many at once" waits a moment and tries again (up to 3 times) instead of failing
+async function proCall(o){
+  for (let i = 0; ; i++) {
+    try { return await proCallOnce(o); }
+    catch(e) {
+      if (!(e && e.rate) || o.auto || i >= 3 || (o.signal && o.signal.aborted)) throw e;
+      await new Promise(r => setTimeout(r, 2500 * (i + 1)));
+    }
+  }
+}
+async function proCallOnce({system, parts, schema, ms, task, signal, auto, search, urlContext, own, hasBackup}){
   const content = claudeBlocks(parts), job = {task, system, content, schema: schema ? toJsonSchema(schema) : null, search: !!search, urlContext: !!urlContext, auto: !!auto};
   let res, j;
   if (own) {
@@ -774,7 +790,7 @@ async function proCall({system, parts, schema, ms, task, signal, auto, search, u
   if (why) { if (!auto && !(out && hasBackup)) aiProPrompt(why, !!own); try { scheduleRender(); } catch(e) {} throw Object.assign(aiErr(out ? "limit" : "pro-" + why, (own && AI_OWN_WORDS[why] || AI_PRO_WORDS[why]).err), {out: out && !own}); }
   if (j.error === "not_pro" || j.error === "off" || j.error === "unconfirmed") { aiProSet({on: false}); try { scheduleRender(); } catch(e) {} throw aiErr("nokey", j.error === "unconfirmed" ? "Confirm your email to use Studyboard AI." : "Studyboard AI comes with Pro. Add your own free Gemini key in Settings to use AI without it."); }
   if (res.status === 401) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
-  if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
+  if (res.status === 429) throw Object.assign(aiErr("limit", "That's a lot of AI at once. Try again in a minute."), {rate: true});
   if (j.error === "refused") throw aiErr("blocked", "The AI wouldn't help with this one. Try asking another way.");
   if (res.status === 502) throw aiErr("bad", "The AI's answer came back garbled. Try again.");
   if (res.status === 400) throw aiErr("bad", "The AI couldn't read that. Try again, or with a different file.");
