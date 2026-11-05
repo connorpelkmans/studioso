@@ -407,3 +407,7 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .oa-google{background:#131314;border-color:#8e918f;color:#e3e3e3}:root:not([data-theme="light"]) .oa-apple{background:#fff;border-color:#fff;color:#000}}
 :root[data-theme="dark"] .oa-google{background:#131314;border-color:#8e918f;color:#e3e3e3}
 :root[data-theme="dark"] .oa-apple{background:#fff;border-color:#fff;color:#000}
+/* Sign in with Microsoft: Microsoft's own button colours (light #FFFFFF, #8C8C8C border, #5E5E5E text; dark #2F2F2F, white text), Segoe UI */
+.oa-ms{background:#fff;border-color:#8c8c8c;color:#5e5e5e;font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,sans-serif;font-weight:600}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .oa-ms{background:#2f2f2f;border-color:#2f2f2f;color:#fff}}
+:root[data-theme="dark"] .oa-ms{background:#2f2f2f;border-color:#2f2f2f;color:#fff}

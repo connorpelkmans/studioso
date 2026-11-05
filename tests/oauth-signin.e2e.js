@@ -51,8 +51,8 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     let seen = [];
     let {ctx, page} = await open(null, seen);
     const btn = await page.evaluate(() => [...document.querySelectorAll("dialog[open] [data-oauth]")].map(b => { const r = b.getBoundingClientRect(); return {p: b.dataset.oauth, t: b.textContent.trim(), w: Math.round(r.width), h: Math.round(r.height)}; }));
-    ok(btn.length === 2 && btn[0].t === "Continue with Apple" && btn[1].t === "Continue with Google" && btn[0].w === btn[1].w && btn[0].h === btn[1].h && btn[0].h >= 44,
-      "sign in offers Continue with Apple and Continue with Google, the same size, above the email form: " + JSON.stringify(btn));
+    ok(btn.length === 3 && btn[0].t === "Continue with Apple" && btn[1].t === "Continue with Google" && btn[2].t === "Continue with Microsoft" && btn[2].p === "azure" && btn.every(b => b.w === btn[0].w && b.h === btn[0].h) && btn[0].h >= 44,
+      "sign in offers Continue with Apple, Google and Microsoft, the same size, above the email form: " + JSON.stringify(btn));
     ok(await page.evaluate(() => { const o = document.querySelector("dialog[open] .sb-or"), e = document.querySelector("dialog[open] input[name=email]"); return !!o && !!(o.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING); }), "then 'or use your email' and the email form");
     await page.click('dialog[open] [data-sbm="signup"]');
     await page.waitForSelector("dialog[open] form.sb-acct[data-mode=signup] [data-oauth=apple]", {timeout: 5000});
@@ -61,6 +61,16 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     await page.click("dialog[open] [data-oauth=google]");
     ok(await signedIn(page), "web: Continue with Google goes to Google and comes back signed in");
     ok(seen.some(x => /authorize google/.test(x)) && seen.some(x => /\/auth\/v1\/user/.test(x)), "through Supabase's Google sign-in: " + seen.filter(x => /auth/.test(x)).join(", "));
+    await ctx.close();
+
+    // the web: Microsoft (Supabase's "azure"), asking for the email and letting them pick the account
+    seen = [];
+    ({ctx, page} = await open(null, seen));
+    const msUrls = []; page.on("request", r => { if (/\/auth\/v1\/authorize/.test(r.url())) msUrls.push(r.url()); });
+    await page.click("dialog[open] [data-oauth=azure]");
+    ok(await signedIn(page), "web: Continue with Microsoft goes to Microsoft and comes back signed in");
+    const msq = msUrls[0] ? new URL(msUrls[0]).searchParams : new URLSearchParams();
+    ok(msq.get("provider") === "azure" && /\bemail\b/.test(msq.get("scopes") || "") && msq.get("prompt") === "select_account", "through Supabase's Microsoft (azure) sign-in, with the email scope and the account picker: " + (msUrls[0] || "none"));
     await ctx.close();
 
     // the app: Google opens outside the app and its return address is made into a session
@@ -76,6 +86,37 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     ok(opened.length === 1 && /\/auth\/v1\/authorize\?/.test(opened[0]) && /provider=google/.test(opened[0]) && /redirect_to=studyboard%3A%2F%2Fauth-callback/.test(opened[0]) && /prompt=select_account/.test(opened[0]),
       "it opened Supabase's Google page, set to return to studyboard://auth-callback and to let them pick an account");
     ok(await page.evaluate(() => !location.hash && location.href.startsWith("http://localhost")), "and the app itself never left its page");
+    await ctx.close();
+
+    // the app (iPhone, Android): Microsoft the same way, outside the app
+    seen = [];
+    ({ctx, page} = await open(() => {
+      window.__opened = [];
+      window.StudyboardNative = {signIn: {redirect: "studyboard://auth-callback", apple: null, open: url => { window.__opened.push(url); return Promise.resolve("studyboard://auth-callback#access_token=" + window.__jwt + "&refresh_token=rt3&expires_in=3600&token_type=bearer"); }}};
+    }, seen));
+    await page.evaluate(t => { window.__jwt = t; }, jwt());
+    await page.click("dialog[open] [data-oauth=azure]");
+    ok(await signedIn(page), "app: Continue with Microsoft opens Microsoft outside the app and signs in with what comes back");
+    { const o = await page.evaluate(() => window.__opened); const q = o[0] ? new URL(o[0]).searchParams : new URLSearchParams();
+      ok(o.length === 1 && q.get("provider") === "azure" && q.get("redirect_to") === "studyboard://auth-callback" && /\bemail\b/.test(q.get("scopes") || ""), "it opened Supabase's Microsoft page, returning to studyboard://auth-callback, with the email scope"); }
+    await ctx.close();
+
+    // the desktop app (Mac, Windows): Microsoft in the computer's browser, back through the one-time page on this computer
+    seen = [];
+    ({ctx, page} = await open(() => {
+      window.__desk = [];
+      // the desktop bridge: the two sign-in calls (and where its data folder is)
+      const real = {platform: "win32", oauthPort: () => Promise.resolve(43821),
+        oauthOpen: url => { window.__desk.push(url); return Promise.resolve("http://127.0.0.1:43821/auth#access_token=" + window.__jwt + "&refresh_token=rt4&expires_in=3600&token_type=bearer"); }};
+      real.dataDir = () => Promise.resolve("");
+      window.studiosoDesktop = real;
+    }, seen, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"));
+    await page.evaluate(t => { window.__jwt = t; }, jwt());
+    ok(await page.evaluate(() => [...document.querySelectorAll("dialog[open] [data-oauth]")].map(b => b.dataset.oauth).join()) === "google,azure", "the Windows app offers Google and Microsoft");
+    await page.click("dialog[open] [data-oauth=azure]");
+    ok(await signedIn(page), "desktop: Continue with Microsoft signs in through the computer's browser");
+    { const o = await page.evaluate(() => window.__desk); const q = o[0] ? new URL(o[0]).searchParams : new URLSearchParams();
+      ok(o.length === 1 && q.get("provider") === "azure" && q.get("redirect_to") === "http://127.0.0.1:43821/auth", "returning to the one-time page on this computer: " + (o[0] || "none")); }
     await ctx.close();
 
     // the app, cancelled: nothing happens, no message
@@ -102,7 +143,7 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     // not an Apple device: Google only
     seen = [];
     ({ctx, page} = await open(null, seen, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"));
-    ok(await page.evaluate(() => [...document.querySelectorAll("dialog[open] [data-oauth]")].map(b => b.dataset.oauth).join()) === "google", "on Windows (or Android, Linux) only Continue with Google is offered");
+    ok(await page.evaluate(() => [...document.querySelectorAll("dialog[open] [data-oauth]")].map(b => b.dataset.oauth).join()) === "google,azure", "on Windows (or Android, Linux) Continue with Google and Microsoft are offered, not Apple");
     await ctx.close();
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log(`oauth-signin.e2e: ${n} checks passed`);

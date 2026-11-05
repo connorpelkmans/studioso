@@ -410,10 +410,10 @@
   function securitySheet(kind){
     if (!canDelete()) { toast("Sign in to your account first."); return; }
     const isMail = kind === "email", T = isMail ? "Change Email" : "Change Password";
-    // Accounts made with Google or Apple have no password until one is set, by a code sent to their email
+    // Accounts made with Google, Apple or Microsoft have no password until one is set, by a code sent to their email
     const u = sbUser, ids = (u.identities || []).map(i => i && i.provider).concat((u.app_metadata && u.app_metadata.providers) || []);
     const social = ids.some(p => p && p !== "email") && !ids.includes("email");
-    const noPw = social ? `<p class="mini" style="margin:0">Signed up with Google or Apple and never set a password? <button type="button" class="link-btn" id="secSetPw">Set a Password</button> first. We'll email you a code.</p>` : "";
+    const noPw = social ? `<p class="mini" style="margin:0">Signed up with Google, Apple or Microsoft and never set a password? <button type="button" class="link-btn" id="secSetPw">Set a Password</button> first. We'll email you a code.</p>` : "";
     openSheet(`<form class="sheet" id="secForm" data-kind="${kind}">${head(T)}
       <div class="sheet-body">
         <p style="margin:0">${isMail ? `Your email is <b>${esc(sbUser.email || "")}</b>. We'll email both your current and your new address, and it changes once you confirm.` : "Choose a new password. You'll stay signed in on this device."}</p>

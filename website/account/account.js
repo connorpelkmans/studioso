@@ -231,13 +231,18 @@
     if ($("buy-semester")) $("buy-semester").addEventListener("click", function () { startCheckout("semester"); });
     $("btn-manage").addEventListener("click", openPortal);
 
-    // Sign in with Google (every browser) or Apple (on a Mac, iPhone or iPad), like the app: the provider's page, then back here signed in
+    // Sign in with Google or Microsoft (every browser) or Apple (on a Mac, iPhone or iPad), like the app: the provider's page, then back here signed in
     if (/iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "") && $("oa-apple")) $("oa-apple").hidden = false;
     document.querySelectorAll("[data-oauth]").forEach(function (b) {
       b.addEventListener("click", function () {
         var provider = b.getAttribute("data-oauth"); b.disabled = true;
-        state.sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: redirectBack() } }).then(function (r) {
-          if (r && r.error) { b.disabled = false; msg($("auth-msg"), /not enabled|unsupported provider/i.test(r.error.message || "") ? "Signing in with " + (provider === "apple" ? "Apple" : "Google") + " isn't turned on yet. Use your email for now." : words(r.error), "error"); }
+        // Microsoft is "azure" in Supabase, must be asked for the email, and (like Google) lets the student pick the account
+        var opts = { redirectTo: redirectBack() };
+        if (provider === "google") opts.queryParams = { prompt: "select_account" };
+        if (provider === "azure") { opts.scopes = "openid profile email offline_access"; opts.queryParams = { prompt: "select_account" }; }
+        var name = { apple: "Apple", google: "Google", azure: "Microsoft" }[provider] || "that";
+        state.sb.auth.signInWithOAuth({ provider: provider, options: opts }).then(function (r) {
+          if (r && r.error) { b.disabled = false; msg($("auth-msg"), /not enabled|unsupported provider/i.test(r.error.message || "") ? "Signing in with " + name + " isn't turned on yet. Use your email for now." : words(r.error), "error"); }
         }, function (e) { b.disabled = false; msg($("auth-msg"), words(e), "error"); });
       });
     });
