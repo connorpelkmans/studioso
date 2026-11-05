@@ -11,6 +11,10 @@ export class StudentMeter extends DurableObject {
   status(lim) { return this.m.status(lim); }
   touch(lim) { return this.m.touch(lim); }
   forget() { return this.m.forget(); }
+  take(name, max) { return this.m.take(name, max); }
+  give(name) { return this.m.give(name); }
+  used(name) { return this.m.used(name); }
+  summary(lim) { return this.m.summary(lim); }
 }
 
 // One per UTC day: the owner's usage totals (counts only)

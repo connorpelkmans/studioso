@@ -403,5 +403,34 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   H = harness(); await tcall(H, audio(240000)); await new Promise(r => setTimeout(r, 30));
   x = await oget(H, OWNER);
   eq([x.j.total.kinds.whisper.jobs, x.j.total.kinds.whisper.audioSeconds, x.j.total.kinds.whisper.cost], [1, 30, P.audioCost(30) / 1e6], "transcription: minutes of audio and their cost");
+
+
+  /* The owner can look up one student: their month so far, in dollars, against their limits */
+  H = harness({reply: () => ({content: [{type: "text", text: "{}"}], stop_reason: "end_turn", usage: {input_tokens: 4000, output_tokens: 1000}})}); H.deps.gemini = gOk();
+  await call(H, job({task: "grade"})); await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
+  x = await oget(H, OWNER, null, "?user=" + H.user.id);
+  const want1 = P.costOf({input_tokens: 4000, output_tokens: 1000}) + P.ytCost(160000, 20500);
+  eq([x.s, x.j.spent, x.j.today, x.j.limit, x.j.dailyLimit, x.j.youtubeVideos, x.j.youtubeMonthly], [200, want1 / 1e6, want1 / 1e6, 4, 1, 1, 20], "one student's month: exactly what their jobs cost, against $4 a month and $1 a day, and their YouTube videos");
+  eq(Object.keys(x.j).filter(k => /text|content|message|question/i.test(k)), [], "and nothing about what they asked");
+  eq((await oget(H, "", null, "?user=" + H.user.id)).s, 404, "only with the owner token");
+  eq((await oget(H, OWNER, null, "?user=not-an-id")).s, 400, "a garbled id is refused");
+  /* A monthly cap on YouTube videos per student */
+  eq([P.config({...ENV}).ytMonthly, P.config({...ENV, YOUTUBE_MONTHLY: "5"}).ytMonthly, P.config({...ENV, YOUTUBE_MONTHLY: "9999"}).ytMonthly, P.config({...ENV, YOUTUBE_MONTHLY: "0"}).ytMonthly], [20, 5, 100, 0], "20 videos a month by default; settings can't go past 100; 0 turns them off");
+  H = harness(); H.deps.gemini = gOk();
+  const yenv = {...ENV, YOUTUBE_MONTHLY: "2"};
+  x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq([x.s, x.j.youtubeLeft], [200, 1], "first video: 1 left");
+  H.deps.gemini = async () => ({status: 400, json: {}});
+  x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq(x.s, 422, "a video that can't be watched...");
+  H.deps.gemini = gOk();
+  x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq([x.s, x.j.youtubeLeft], [200, 0], "...gives its place back: the next one still runs");
+  const spentBefore = (await H.meterOf().read()).spent;
+  x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq([x.s, x.j.error], [402, "video_limit"], "the month's videos used: refused");
+  eq((await H.meterOf().read()).spent, spentBefore, "before anything was charged or sent to Gemini");
+  x = await J(await call(H, null, {path: "/v1/status", method: "GET", env: yenv})); eq([x.j.youtubeLeft, x.j.youtubeMonthly], [0, 2], "status shows the videos left");
+  const racer = harness(); racer.deps.gemini = gOk();
+  const rs = await Promise.all(Array.from({length: 6}, () => ycall(racer, {url: "https://youtu.be/dQw4w9WgXcQ"}, {...ENV, YOUTUBE_MONTHLY: "2", MAX_INFLIGHT: "8", DAILY_USD: "3"})));
+  eq(rs.filter(r => r.s === 200).length, 2, "six at once: exactly two run");
+  now = Date.UTC(2027, 1, 1, 0, 0, 5);
+  x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq(x.s, 200, "a new month brings new videos");
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

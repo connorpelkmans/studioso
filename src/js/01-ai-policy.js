@@ -111,6 +111,19 @@ const SBPOLICY = (() => {
     status(lim){ return this.one(() => this._status(lim)); }
     touch(lim){ return this.one(() => this._touch(lim)); }
     forget(){ return this.one(() => this._forget()); }
+    // A count per calendar month (UTC), such as YouTube videos: take one if fewer than max are used, give it back if the job failed
+    take(name, max){ return this.one(() => this._take(name, max)); }
+    give(name){ return this.one(() => this._give(name)); }
+    used(name){ return this.one(async () => { const c = await this._counts(); return c.n[name] || 0; }); }
+    async _counts(){ const c = (await this.s.get("counts")) || {}, m = monthOf(this.now()); return c.month === m ? {month: m, n: c.n || {}} : {month: m, n: {}}; }
+    async _take(name, max){
+      if ((await this.s.get("gone"))) return false;
+      const c = await this._counts(); if ((c.n[name] || 0) >= max) return false;
+      c.n[name] = (c.n[name] || 0) + 1; await this.s.put("counts", c); return true;
+    }
+    // For the owner: this student's month so far, in micro-dollars and counts (never anything they sent)
+    summary(lim){ return this.one(async () => { const r = await this.read(), c = await this._counts(); return {gone: r.gone, month: r.month, spent: r.spent, day: r.day, daySpent: r.daySpent, inFlight: r.flying.length, counts: c.n, ...this.view(r, lim)}; }); }
+    async _give(name){ const c = await this._counts(); if (c.n[name] > 0) { c.n[name]--; await this.s.put("counts", c); } return true; }
     // A free call made for the student (Anthropic's token count) still counts toward their requests a minute
     async _touch(lim){
       const r = await this.read();

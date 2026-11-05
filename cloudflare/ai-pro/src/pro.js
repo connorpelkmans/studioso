@@ -46,6 +46,7 @@ export function youtubeRequest(id) {
       responseSchema: { type: "OBJECT", properties: { title: { type: "STRING" }, transcript: { type: "STRING" }, onScreen: { type: "STRING" } }, required: ["transcript"] } }
   };
 }
+export const YT_MONTHLY_MAX = 100;
 export const audioWorst = bytes => micro((bytes * 8 / AUDIO_FLOOR_BPS / 60) * WHISPER_PER_MIN);
 export const audioCost = seconds => micro((Math.max(0, seconds) / 60) * WHISPER_PER_MIN);
 
@@ -55,7 +56,9 @@ export function config(env) {
     on: !!(env.CF_ACCOUNT_ID && env.AI_GATEWAY_ID && env.CF_AIG_TOKEN) && String(env.PRO_AI_OFF || "") !== "1",
     lim: limits(env),
     whisper: String(env.WHISPER_OFF || "") !== "1",
-    youtube: String(env.YOUTUBE_OFF || "") !== "1"
+    youtube: String(env.YOUTUBE_OFF || "") !== "1",
+    // YouTube videos a student can turn into notes and cards each calendar month (UTC), on top of their dollar allowance
+    ytMonthly: (n => Number.isFinite(n) && String(env.YOUTUBE_MONTHLY == null ? "" : env.YOUTUBE_MONTHLY).trim() !== "" ? Math.min(YT_MONTHLY_MAX, Math.max(0, Math.floor(n))) : 20)(Number(env.YOUTUBE_MONTHLY))
   };
 }
 
@@ -107,6 +110,14 @@ const usd = m => Math.round((m || 0)) / 1e6;
 export async function ownerUsage(request, env, deps) {
   const tok = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   if (!env.OWNER_TOKEN || String(env.OWNER_TOKEN).length < 24 || !sameText(tok, env.OWNER_TOKEN)) return json({ error: "not_found" }, 404);
+  const url0 = new URL(request.url), uid = String(url0.searchParams.get("user") || "").toLowerCase();
+  // One student: ?user=<their account id>. Their month so far against their limits, and their YouTube videos.
+  if (uid) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(uid)) return json({ error: "bad" }, 400);
+    const cfg = config(env), m = await deps.meter(uid).summary(cfg.lim);
+    return json({ user: uid, month: m.month, spent: usd(m.spent), limit: cfg.lim.hardUsd, softLimit: cfg.lim.softUsd, usedPct: m.usedPct, pastSoftLimit: m.soft,
+      today: usd(m.daySpent), dailyLimit: cfg.lim.dayUsd, youtubeVideos: (m.counts || {}).youtube || 0, youtubeMonthly: cfg.ytMonthly, jobsRunning: m.inFlight, deleted: m.gone, resets: m.resets });
+  }
   if (!deps.totals) return json({ error: "off" }, 503);
   const url = new URL(request.url), n = Math.min(62, Math.max(1, Math.floor(Number(url.searchParams.get("days")) || 30))), now = deps.now ? deps.now() : Date.now();
   const days = [];
@@ -137,7 +148,7 @@ export async function handle(request, env, deps) {
   const tier = await deps.plan(token, user.id);
   if (tier == null) return json({ error: "busy" }, 503);
   if (tier !== "paid") return json({ on: false, error: "not_pro" }, isStatus ? 200 : 403);
-  if (isStatus) { if (request.method !== "GET") return json({ error: "method" }, 405); return json({ on: true, tier, transcribe: cfg.whisper && !!deps.whisper, youtube: cfg.youtube && !!deps.gemini, ...(await meter.status(lim)) }); }
+  if (isStatus) { if (request.method !== "GET") return json({ error: "method" }, 405); const ytUsed = await meter.used("youtube"); return json({ on: true, tier, transcribe: cfg.whisper && !!deps.whisper, youtube: cfg.youtube && !!deps.gemini && cfg.ytMonthly > 0, youtubeLeft: Math.max(0, cfg.ytMonthly - ytUsed), youtubeMonthly: cfg.ytMonthly, ...(await meter.status(lim)) }); }
   if (request.method !== "POST") return json({ error: "method" }, 405);
   if (Number(request.headers.get("Content-Length") || 0) > MAX_BODY_BYTES) return json({ error: "too_long" }, 413);
   if (url.pathname === "/v1/transcribe") return transcribe(request, cfg, deps, meter, lim);
@@ -164,6 +175,10 @@ async function youtubeJob(request, cfg, deps, meter, lim) {
   let body; try { body = JSON.parse((await request.text()).slice(0, 4000)); } catch (e) { return json({ error: "bad" }, 400); }
   const id = youtubeId(body && body.url);
   if (!id) return json({ error: "bad" }, 400);
+  // This month's videos first: a video that fails (private, removed, busy) gives its place back
+  if (!(await meter.take("youtube", cfg.ytMonthly))) return json({ error: "video_limit", youtubeLeft: 0, youtubeMonthly: cfg.ytMonthly, ...(await meter.status(lim)) }, 402);
+  let counted = true;
+  const back = async () => { if (counted) { counted = false; await meter.give("youtube"); } };
   const reserve = ytWorst();
   const c = await charged(meter, lim, reserve, deps, async () => {
     const r = await deps.gemini(youtubeRequest(id)), u = r && r.json && r.json.usageMetadata;
@@ -171,17 +186,18 @@ async function youtubeJob(request, cfg, deps, meter, lim) {
     const cost = r && r.status >= 400 ? 0 : u && Number.isFinite(u.promptTokenCount) ? ytCost(u.promptTokenCount, (Number(u.candidatesTokenCount) || 0) + (Number(u.thoughtsTokenCount) || 0)) : reserve;
     return { out: r, cost, usage: u ? { input_tokens: Number(u.promptTokenCount) || 0, output_tokens: (Number(u.candidatesTokenCount) || 0) + (Number(u.thoughtsTokenCount) || 0) } : null };
   }, "youtube");
-  if (c.refused) return c.refused;
+  if (c.refused) { await back(); return c.refused; }
   const r = c.out, after = c.after;
-  if (!r || r.status === 429 || r.status >= 500) return json({ error: "busy", ...after }, 503);
-  if (r.status === 401 || r.status === 403) return json({ error: "off", ...after }, 503);
-  if (r.status >= 400) return json({ error: "video", ...after }, 422);
+  if (!r || r.status === 429 || r.status >= 500) { await back(); return json({ error: "busy", ...after }, 503); }
+  if (r.status === 401 || r.status === 403) { await back(); return json({ error: "off", ...after }, 503); }
+  if (r.status >= 400) { await back(); return json({ error: "video", ...after }, 422); }
   const cand = r.json && r.json.candidates && r.json.candidates[0];
   const text = ((cand && cand.content && cand.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
   let d = null; try { d = JSON.parse(text); } catch (e) { d = null; }
   const transcript = d && typeof d.transcript === "string" ? d.transcript.trim() : "";
-  if (!transcript) return json({ error: "video", ...after }, 422);
-  return json({ title: String(d.title || "").slice(0, 200), transcript: transcript.slice(0, 200000), onScreen: String(d.onScreen || "").slice(0, 60000), cut: cand.finishReason === "MAX_TOKENS", ...after });
+  if (!transcript) { await back(); return json({ error: "video", ...after }, 422); }
+  const left = Math.max(0, cfg.ytMonthly - (await meter.used("youtube")));
+  return json({ youtubeLeft: left, youtubeMonthly: cfg.ytMonthly, title: String(d.title || "").slice(0, 200), transcript: transcript.slice(0, 200000), onScreen: String(d.onScreen || "").slice(0, 60000), cut: cand.finishReason === "MAX_TOKENS", ...after });
 }
 
 async function embedJob(request, deps, meter, lim) {

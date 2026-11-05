@@ -33,6 +33,8 @@
     "WHISPER_OFF": "",
     // The owner's usage summary (GET /v1/owner/usage) needs the OWNER_TOKEN secret: at least 24 random characters
     // YouTube links go to Google's Gemini through the same gateway; "1" turns them off
-    "YOUTUBE_OFF": ""
+    "YOUTUBE_OFF": "",
+    // YouTube videos each paid Pro student can turn into notes and cards a month (at most 100; "0" turns them off)
+    "YOUTUBE_MONTHLY": "20"
   }
 }

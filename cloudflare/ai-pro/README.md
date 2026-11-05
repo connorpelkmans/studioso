@@ -37,6 +37,8 @@ How it should compare with your bills:
 | Transcription | the audio length Whisper reports, at $0.00052 a minute | About 1% high (Cloudflare charges $0.000513) |
 | Search by meaning | the text's size in bytes (Workers AI reports no usage) | Reads high; only about a cent per student a month |
 
+**One student:** add `&user=<their account id>` (or use `?user=` on its own) to see their month so far: dollars used against the monthly limit, today's against the daily one, and their YouTube videos. It shows counts only, never what they asked.
+
 `unreported` counts jobs that came back without a usage report. Those students were charged the job's worst case. A job whose Worker stops partway through (rare) is missing from the summary, so the summary can read slightly below the bill. The prices live in `src/js/01-ai-policy.js` and `src/pro.js`: if a provider changes its prices, update them there.
 
 ## Who gets it
@@ -113,6 +115,7 @@ The app sends only the job's name, its text and files, and the answer shape it w
 | `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $4 | $10 |
 | `DAILY_USD` | $1 | $3 |
 | `PER_MINUTE` requests | 20 | 60 |
+| `YOUTUBE_MONTHLY` videos (each at most 2 hours, about $0.10 an hour) | 20 | 100 (`0` turns YouTube links off) |
 | `MAX_INFLIGHT` jobs at once | 4 | 8 |
 
 There's no limit shared across students. Your total is bounded by the gateway's spend limit (step 3), and by your credits if auto top-up is off.
@@ -149,13 +152,13 @@ All need the student's Supabase access token as `Authorization: Bearer …`.
 
 | | |
 |---|---|
-| `GET /v1/status` | `{on, tier, usedPct, soft, resets, transcribe, youtube}` |
+| `GET /v1/status` | `{on, tier, usedPct, soft, resets, transcribe, youtube, youtubeLeft, youtubeMonthly}` |
 | `POST /v1/ai` | `{task, system, content: [blocks], schema, search?, urlContext?}` → `{data, truncated, usedPct, soft, resets}` |
 | `POST /v1/embed` | `{texts: [up to 100]}` → `{vectors}` |
 | `POST /v1/transcribe` | raw audio (up to 20 MB), `Content-Type: audio/*` → `{text}` |
 | `POST /v1/youtube` | `{url}` → `{title, transcript, onScreen}` |
 | `DELETE /v1/me` | Delete My Account |
-| `GET /v1/owner/usage?days=30` | Your usage summary (needs `OWNER_TOKEN`, not a student's sign-in) |
+| `GET /v1/owner/usage?days=30` | Your usage summary (needs `OWNER_TOKEN`, not a student's sign-in); `?user=<id>` for one student |
 
 Errors: `402` `used_up` or `today`; `429` `rate`; `413` `too_long`; `403` `not_pro` or `unconfirmed`; `422` `refused` or `video`; `503` `busy` or `off`.
 
