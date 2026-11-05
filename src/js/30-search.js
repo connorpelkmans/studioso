@@ -489,6 +489,17 @@
     });
     pump();
   }
+  // One read of a file at a time, shared by the background reader and the AI (SBFILETEXT): text another device saved in the
+  // account first, otherwise the file itself
+  const readsInFlight = new Map();
+  function readOnce(f, r){
+    if (!readsInFlight.has(r.assetId)) {
+      const p = (async () => (await sharedTextGet(r.assetId)) || await readFileText(f))();
+      readsInFlight.set(r.assetId, p);
+      p.then(() => readsInFlight.delete(r.assetId), () => readsInFlight.delete(r.assetId));
+    }
+    return readsInFlight.get(r.assetId);
+  }
   async function pump(){
     if (FT.busy) return;
     FT.busy = true;
@@ -501,7 +512,8 @@
         FT.cur = f.name; drawFoot();
         await idle();
         try {
-          const res = (await sharedTextGet(r.assetId)) || await readFileText(f);
+          const res = await readOnce(f, r);
+          if (FT.recs.has(r.assetId)) continue;
           if (!res.shared && res.status === "ok") sharedTextPut(r.assetId, res);
           const rec = Object.assign({v: 1, assetId: r.assetId, fid, name: f.name, at: Date.now()}, res);
           FT.recs.set(r.assetId, {status: rec.status, at: rec.at});
@@ -828,7 +840,7 @@
       if (semOn() && o.meaning !== false) {
         try {
           await semLoad();
-          if (SEM.vecs.size) { const got = await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
+          if (SEM.vecs.size) { const got = o.semWait ? await Promise.race([semQuery(q, all), wait(o.semWait).then(() => [])]) : await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
         } catch(e) {}
       }
       const rows = fuse(kw, sm).slice(0, o.max || 8), per = o.chars || 1500;
@@ -1115,7 +1127,8 @@ Return JSON only.`;
     const P = prepQuery(q, true);
     const kw = keywordPassages(P);
     let sm = [], note = "";
-    if (!semOn() && aiReady() && planOk(answerPlan())) { try { sm = await relatedPassages(q); } catch(e) { sm = []; } }
+    // Only with no way to search by meaning (a Claude key alone) and search by meaning not turned off; never more than 4 seconds
+    if (!embedder() && sxCfg().meaning !== false && aiReady() && planOk(answerPlan())) { try { sm = await Promise.race([relatedPassages(q), wait(4000).then(() => [])]); } catch(e) { sm = []; } }
     if (semOn()) {
       try {
         await semLoad();
@@ -1796,25 +1809,47 @@ Return JSON only.`;
     };
   });
   // The text inside one file
-  const cloudText = new Map();
-  window.SBFILETEXT = async (fid, max) => {
-    const f0 = state.files[fid];
-    if (f0 && f0.kind === "cloud" && f0.cloud) {
-      if (!cloudAiOk(f0)) return "";
-      const n = String(f0.cloud.name || f0.name), ext = (n.split(".").pop() || "").toLowerCase();
-      const kind = ext === "pdf" ? "pdf" : ext === "docx" ? "docx" : ext === "pptx" ? "pptx" : /^(txt|md|markdown|csv|tsv|json|html?|xml)$/.test(ext) ? "text" : "";
-      if (!kind || (f0.cloud.size || 0) > MAX_FILE_BYTES) return "";
-      const key = f0.cloud.id + "|" + (f0.cloud.mod || "");
-      if (!cloudText.has(key)) { try { const res = await readFileText(f0, {kind, bytes: await fileBytes(f0)}); cloudText.set(key, res.status === "ok" ? res.pages || [] : []); } catch(e) { return ""; } }
-      return cloudText.get(key).map(pg => (pg.l && pg.p ? `[${pg.l} ${pg.p}] ` : "") + pg.t).join("\n").slice(0, max || 6000);
-    }
-    const f = f0, r = f && curRev(f); if (!r || !extKind(f)) return "";
+  /* The text inside one file, for the AI (the companion chat, its screen questions). Fastest first: text this device already read
+     (saved by the background reader, cloud files included), text saved in the account by another device, then reading the file.
+     Whatever is read is saved, so the next question, and the next session, have it at once. One read per file at a time:
+     a read started while the student types is the same one the question waits on. */
+  const fileReads = new Map();
+  const pagesText = (pages, max) => (pages || []).map(pg => (pg.l && pg.p ? `[${pg.l} ${pg.p}] ` : "") + pg.t).join("\n").slice(0, max || 6000);
+  async function fileTextRec(fid){
+    const f = state.files[fid], r = f && srcRev(f); if (!r || !extKind(f)) return null;
     let rec = null;
     try { rec = await dbDo("text", "readonly", st => st.get(r.assetId)); } catch(e) {}
-    if (!rec || rec.status !== "ok") { try { const res = await readFileText(f); rec = {status: res.status, pages: res.pages || []}; } catch(e) { return ""; } }
-    if (!rec || rec.status !== "ok") return "";
-    return (rec.pages || []).map(pg => (pg.l && pg.p ? `[${pg.l} ${pg.p}] ` : "") + pg.t).join("\n").slice(0, max || 6000);
+    if (rec && rec.status === "ok") return rec;
+    if (f.kind === "cloud" && f.cloud && (f.cloud.size || 0) > MAX_FILE_BYTES) return null;
+    let res = null;
+    try { res = await readOnce(f, r); } catch(e) { return null; }
+    if (!res) return null;
+    // the background reader may have saved it while this waited
+    if (FT.recs.has(r.assetId)) { try { const saved = await dbDo("text", "readonly", st => st.get(r.assetId)); if (saved && saved.status === "ok") return saved; } catch(e) {} }
+    if (!res.shared && res.status === "ok") sharedTextPut(r.assetId, res);
+    rec = Object.assign({v: 1, assetId: r.assetId, fid, name: f.name, at: Date.now()}, res);
+    FT.recs.set(r.assetId, {status: rec.status, at: rec.at});
+    dbPut("text", r.assetId, rec);
+    if (FT.loaded && rec.status === "ok") { try { await addChunks(rec, f); } catch(e) {} }
+    return rec.status === "ok" ? rec : null;
+  }
+  window.SBFILETEXT = async (fid, max) => {
+    const f = state.files[fid], r = f && srcRev(f); if (!r) return "";
+    const key = r.assetId;
+    if (!fileReads.has(key)) { const p = fileTextRec(fid).catch(() => null); fileReads.set(key, p); p.then(rec => { if (!rec) fileReads.delete(key); }); }
+    const rec = await fileReads.get(key);
+    return rec ? pagesText(rec.pages, max) : "";
   };
+  // Start reading files before anyone asks: once, a little after the app opens, for students who have AI set up, and when the chat opens
+  let warmed = false;
+  function warmFiles(){
+    if (warmed || !sxCfg().files || !canFetch()) return;
+    try { if (!aiReady()) return; } catch(e) { return; }
+    warmed = true;
+    loadTexts().then(() => queueFiles()).catch(() => {});
+  }
+  window.SBSEARCH.warm = warmFiles;
+  setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });
 })();

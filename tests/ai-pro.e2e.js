@@ -47,7 +47,7 @@ const STUB = () => {
     embed: async texts => ({data: texts.map((t, i) => Array.from({length: 1024}, (_, k) => Math.sin(i + k)))}),
     whisper: async () => ({text: "Today we cover coral bleaching.", transcription_info: {duration: 30}})
   };
-  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const AI_PRO = "";', `const AI_PRO = "${PRO}";`));
+  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const AI_PRO = "https://ai.studyboardapp.com";', `const AI_PRO = "${PRO}";`));
   ok(html.includes(`const AI_PRO = "${PRO}";`), "test copy of the app points at the test Studyboard AI server");
 
   const browser = await chromium.launch({executablePath});
@@ -225,6 +225,52 @@ const STUB = () => {
     ok(/Claude Key's Monthly Limit/.test(await G.page.textContent("#aiProTitle")), "the same monthly limit stops it, with its own message");
     ok(G.ctx.claude.length === n0, "and nothing reached Anthropic");
     await G.ctx.close();
+    W.tier = "paid";
+
+    // 9. Adding a Claude key next to a Gemini key makes Claude the default (it used to sit unused behind Gemini)
+    W.tier = "none";
+    const K = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}}});
+    await openAi(K.page);
+    ok((await K.page.inputValue("#aiDefault")).startsWith("gemini|"), "with only a Gemini key, Gemini is the default");
+    await K.page.evaluate(() => { const d = document.querySelector("#dlg details.ai-paid:not(#aiHoIn)"); if (d) d.open = true; });
+    await K.page.fill('[data-key="anthropic"]', "sk-ant-test-key-0000000000");
+    await K.page.dispatchEvent('[data-key="anthropic"]', "change");
+    ok(await K.page.inputValue("#aiDefault") === "anthropic|studyboard", "typing a Claude key switches the default to Claude (Studyboard AI Mode)");
+    await K.ctx.close();
+    W.tier = "paid";
+
+    // 10. A file named like the question that's slow to read (a big download from Drive) doesn't hold up the chat
+    W.tier = "none";
+    const M = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+    await M.page.waitForFunction(() => window.__sbSync && window.SBCOMPTAB);
+    await M.page.evaluate(() => { window.SBFILETEXT = () => new Promise(r => setTimeout(() => r("Grade breakdown"), 15000));
+      window.__sbSync.state.files.fg = {id: "fg", name: "Best Grade Breakdown.pdf", kind: "file", courseId: "c1", folderId: "", taskIds: [], desc: "", url: "", revs: [{assetId: "local:fg", name: "Best Grade Breakdown.pdf", size: 5000, type: "application/pdf", at: 1}]}; });
+    await M.page.evaluate(() => SBCOMPTAB.open()); await M.page.waitForSelector("#cptIn");
+    const n1 = M.ctx.claude.length, tq = Date.now();
+    await M.page.fill("#cptIn", "What's my best grade so far"); await M.page.click("#cptGo");
+    let chatAt = 0; for (let i = 0; i < 80 && !chatAt; i++) { if (M.ctx.claude.slice(n1).some(c => /You are \w+/.test(JSON.stringify(c.b.system || "")) && JSON.stringify(c.b.messages).includes("best grade"))) chatAt = Date.now() - tq; else await M.page.waitForTimeout(100); }
+    ok(chatAt > 0 && chatAt < 4000, `with a file that takes 15 seconds to read, the question still reaches the AI in ${chatAt} ms`);
+    await M.ctx.close();
+    W.tier = "paid";
+
+    // 11. Files get to the AI faster: read while the question is typed, then kept for next time
+    W.tier = "none";
+    const Q = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+    await Q.page.waitForFunction(() => window.__sbSync && window.SBCOMPTAB && window.SBFILETEXT);
+    await Q.page.evaluate(() => { window.__reads = 0;
+      window.__sxBytes = async assetId => { if (assetId !== "a-slow") return null; window.__reads++; await new Promise(r => setTimeout(r, 2500)); return new TextEncoder().encode("Coral grade scale: an A is 90 percent or more."); };
+      window.__sbSync.state.files.fs = {id: "fs", name: "Coral Grades.txt", kind: "file", courseId: "c1", folderId: "", taskIds: [], desc: "", url: "", revs: [{assetId: "a-slow", name: "Coral Grades.txt", size: 46, type: "text/plain", at: 1}]}; });
+    await Q.page.evaluate(() => SBCOMPTAB.open()); await Q.page.waitForSelector("#cptIn");
+    await Q.page.type("#cptIn", "what is the coral grade scale for an A", {delay: 90});
+    const q0 = Q.ctx.claude.length; await Q.page.click("#cptGo");
+    let sentQ = null; for (let i = 0; i < 60 && !sentQ; i++) { sentQ = Q.ctx.claude.slice(q0).find(c => JSON.stringify(c.b.messages).includes("coral grade scale for an A")); if (!sentQ) await Q.page.waitForTimeout(100); }
+    ok(sentQ && JSON.stringify(sentQ.b.messages).includes("an A is 90 percent"), "a file that takes 2.5 seconds to download was read while the question was typed, and its text went with it");
+    await Q.page.waitForTimeout(1500);
+    const q1 = Q.ctx.claude.length, reads1 = await Q.page.evaluate(() => window.__reads);
+    await Q.page.fill("#cptIn", "remind me what the coral grades file says"); await Q.page.click("#cptGo");
+    let sentR = null; for (let i = 0; i < 60 && !sentR; i++) { sentR = Q.ctx.claude.slice(q1).find(c => JSON.stringify(c.b.messages).includes("coral grades file says")); if (!sentR) await Q.page.waitForTimeout(100); }
+    ok(sentR && JSON.stringify(sentR.b.messages).includes("an A is 90 percent") && (await Q.page.evaluate(() => window.__reads)) === reads1 && reads1 === 1, "the next question uses the saved text: the file was downloaded once");
+    await Q.ctx.close();
     W.tier = "paid";
   } finally { await browser.close(); }
   console.log(`ai-pro e2e: ${n} checks passed`);

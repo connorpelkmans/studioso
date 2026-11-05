@@ -17,7 +17,7 @@ const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
   syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"], ocr: ["lite", "low"],
-  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["reason", "medium"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
+  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "low"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
   school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
 };
 const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
@@ -229,8 +229,9 @@ const CAPTURE_EMAIL_DOMAIN = "";
 // The signed-in student's access token, for Studyboard's own AI server
 async function aiSessionToken(){ try { const {data} = await sb.auth.getSession(); return (data && data.session && data.session.access_token) || ""; } catch(e) { return ""; } }
 /* Studyboard AI, included with Pro: cloudflare/ai-pro, a Worker that holds Studyboard's Anthropic key (Claude Haiku 5.5).
-   The server checks the plan and keeps each student's allowance; this only shows what it last said. Off while this is "". */
-const AI_PRO = "";
+   The server checks the plan and keeps each student's allowance; this only shows what it last said. Until the Worker is deployed
+   (cloudflare/ai-pro/README.md) the address doesn't answer and the app carries on without it; "" switches it off in the app. */
+const AI_PRO = "https://ai.studyboardapp.com";
 const AI_PRO_LS = "studyboard:aiPro";
 function aiProGet(){ try { const t = JSON.parse(localStorage.getItem(AI_PRO_LS) || "null"); return t && sbUser && t.uid === sbUser.id ? t : null; } catch(e) { return null; } }
 function aiProSet(j){
@@ -239,6 +240,7 @@ function aiProSet(j){
   const on = j.on === false ? false : j.on === true ? true : !!prev.on;
   const next = {uid: sbUser.id, on, tier: j.tier || prev.tier || "", usedPct: typeof j.usedPct === "number" ? j.usedPct : prev.usedPct || 0, soft: typeof j.soft === "boolean" ? j.soft : !!prev.soft,
     resets: j.resets !== undefined ? j.resets : prev.resets || null, transcribe: typeof j.transcribe === "boolean" ? j.transcribe : !!prev.transcribe, youtube: typeof j.youtube === "boolean" ? j.youtube : !!prev.youtube, at: Date.now(),
+    youtubeLeft: typeof j.youtubeLeft === "number" ? j.youtubeLeft : prev.youtubeLeft, youtubeMonthly: typeof j.youtubeMonthly === "number" ? j.youtubeMonthly : prev.youtubeMonthly,
     // Out of today's allowance: the student's own key covers the rest of the day
     outDay: j.error === "today" ? today : prev.outDay === today ? today : ""};
   try { localStorage.setItem(AI_PRO_LS, JSON.stringify(next)); } catch(e) {}
@@ -248,17 +250,18 @@ const aiProUsedUp = () => { const t = aiProGet(); return !!t && (t.usedPct >= 10
 const aiProBackup = keys => keys.gemini ? "gemini" : keys.anthropic ? "anthropic" : keys.openai ? "openai" : "";
 // The student turned it off to use their own key instead (Settings, AI Features)
 const aiProDeclined = () => { try { return !!((state.settings && state.settings.ai) || {}).ownKey; } catch(e) { return false; } };
-let aiProChecking = null;
+let aiProChecking = null, aiProTried = 0;
 function aiProAvail(){
   if (!AI_PRO || !sbUser || sbUser.is_anonymous || inPreview()) return false;
   const t = aiProGet();
-  // Checked again in the background every half hour, so a new or ended plan shows up
-  if ((!t || Date.now() - (t.at || 0) > 30 * 60000) && !aiProChecking) aiProRefresh().then(() => { try { scheduleRender(); } catch(e) {} });
+  // Checked again in the background every half hour, so a new or ended plan shows up; when it doesn't answer, tried again after 10 minutes
+  if ((!t || Date.now() - (t.at || 0) > 30 * 60000) && !aiProChecking && Date.now() - aiProTried > 10 * 60000) aiProRefresh().then(() => { try { scheduleRender(); } catch(e) {} });
   return !!(t && t.on);
 }
 async function aiProRefresh(){
   if (!AI_PRO || !sbUser || sbUser.is_anonymous) return null;
   if (aiProChecking) return aiProChecking;
+  aiProTried = Date.now();
   aiProChecking = (async () => {
     const tok = await aiSessionToken(); if (!tok) return null;
     try { const res = await fetchT(`${AI_PRO}/v1/status`, {headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 15000); if (!res.ok && res.status !== 200) return null; const j = await res.json(); aiProSet(j); return j; } catch(e) { return null; }
@@ -633,7 +636,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
   const msEach = light ? Math.min(ms, (window.__SB_TEST && window.__SB_AI_STALL) || 25000) : ms;
   // Hedging: when a model is slow, the next one starts on the same request too (two at most) and the first good answer wins,
   // so a stalled or overloaded free model costs a short wait instead of minutes, and a slow but working one isn't thrown away
-  const hedgeMs = (window.__SB_TEST && window.__SB_AI_HEDGE) || (light ? 20000 : media ? 90000 : search || urlContext ? 45000 : 60000);
+  // Chat is a conversation: a second model starts after 10 seconds, not 20, so a stalled free model doesn't keep the student waiting
+  const hedgeMs = (window.__SB_TEST && window.__SB_AI_HEDGE) || (light ? (task === "chat" ? 10000 : 20000) : media ? 90000 : search || urlContext ? 45000 : 60000);
   const url = m => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
   const cool = (m, ms2) => aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + ms2; });
   let settled = false;
@@ -816,6 +820,7 @@ async function proYoutube(url, signal){
   aiProSet(j);
   if (res.ok && typeof j.transcript === "string" && j.transcript) return j;
   if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
+  if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI.${aiProResets() ? ` More on ${aiProResets()}.` : ""} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
   if (j.error === "video") throw aiErr("video", "That video couldn't be watched. It may be private, unlisted, age-restricted, members-only or removed.");
   if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
   throw aiErr("busy", "Studyboard AI couldn't watch that video right now. Try again in a minute.");
@@ -1609,7 +1614,10 @@ function aiSetupSheet(fromFeature, opts){
   ["#aiAuto", "#aiAutoModel", "#aiDefault"].forEach(id => $(id).addEventListener("change", autoWarn));
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", autoWarn));
   autoWarn();
-  const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v; };
+  // A Claude key added here becomes the default (it would otherwise sit unused behind Gemini); the student can switch back
+  const hadClaude = !!c.keys.anthropic;
+  const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v;
+    if (!hadClaude && keysNow().anthropic && /^gemini\|/.test(v) && [...sel.options].some(o => o.value === "anthropic|studyboard")) { sel.value = "anthropic|studyboard"; try { sel.dispatchEvent(new Event("change")); } catch(e) {} } };
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", refreshModels));
   $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`), hid = KEY_MASK ? i.classList.toggle("key-mask") : (i.type = i.type === "password" ? "text" : "password") === "password"; b.textContent = hid ? "Show" : "Hide"; }));
   const testKey = async (p, key) => {

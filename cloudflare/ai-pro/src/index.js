@@ -1,7 +1,7 @@
 // Cloudflare wiring for Studyboard AI
 import { DurableObject } from "cloudflare:workers";
 import Anthropic from "@anthropic-ai/sdk";
-import { Meter, handle, verifyUser, planOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
+import { Meter, Totals, handle, verifyUser, planOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
 
 // One per student, named by their Supabase user id
 export class StudentMeter extends DurableObject {
@@ -11,6 +11,17 @@ export class StudentMeter extends DurableObject {
   status(lim) { return this.m.status(lim); }
   touch(lim) { return this.m.touch(lim); }
   forget() { return this.m.forget(); }
+  take(name, max) { return this.m.take(name, max); }
+  give(name) { return this.m.give(name); }
+  used(name) { return this.m.used(name); }
+  summary(lim) { return this.m.summary(lim); }
+}
+
+// One per UTC day: the owner's usage totals (counts only)
+export class DayTotals extends DurableObject {
+  constructor(ctx, env) { super(ctx, env); this.t = new Totals(ctx.storage); }
+  add(kind, task, usage, cost) { return this.t.add(kind, task, usage, cost); }
+  read() { return this.t.read(); }
 }
 
 const b64 = bytes => { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); };
@@ -29,6 +40,7 @@ export default {
         user: token => verifyUser(token, env),
         plan: (token, uid) => planOf(token, uid, env),
         meter: id => env.STUDENT.getByName("u:" + id),
+        totals: day => env.TOTALS.getByName("t:" + day),
         claude: {
           // Web fetch is a beta tool on Haiku-class models
           create: req => client.messages.create(req, (req.tools || []).some(t => t.name === "web_fetch") ? { headers: { "anthropic-beta": "web-fetch-2025-09-10" } } : undefined),

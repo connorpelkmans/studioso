@@ -88,7 +88,7 @@ const LINKCARDS = (() => {
     h.classList.toggle("cl-bad", !!v && !L.ok);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
-      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
+      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.`;
   });
   document.addEventListener("click", e => {
@@ -128,10 +128,15 @@ const LINKCARDS = (() => {
   async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider;
     // Studyboard AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI makes the notes from it
-    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube()) {
-      const v = await proYoutube(L.url, signal);
-      if (onStatus) onStatus("Got the video's transcript. Writing study notes…");
-      pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
+    // At this month's video limit, a student with their own Gemini key watches it with that instead (below)
+    const ownGem = !!(aiCfg().keys || {}).gemini, ytOut = () => { const t = aiProGet() || {}; return typeof t.youtubeLeft === "number" && t.youtubeLeft <= 0; };
+    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube() && !(ownGem && ytOut())) {
+      let v = null;
+      try { v = await proYoutube(L.url, signal); } catch (e) { if (!(e && e.code === "video_limit" && ownGem)) throw e; }
+      if (v) {
+        if (onStatus) onStatus("Got the video's transcript. Writing study notes…");
+        pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
+      }
     }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: 8000, temperature: 0.2, onStatus, system: SYS()};

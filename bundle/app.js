@@ -3335,6 +3335,19 @@ const SBPOLICY = (() => {
     status(lim){ return this.one(() => this._status(lim)); }
     touch(lim){ return this.one(() => this._touch(lim)); }
     forget(){ return this.one(() => this._forget()); }
+    // A count per calendar month (UTC), such as YouTube videos: take one if fewer than max are used, give it back if the job failed
+    take(name, max){ return this.one(() => this._take(name, max)); }
+    give(name){ return this.one(() => this._give(name)); }
+    used(name){ return this.one(async () => { const c = await this._counts(); return c.n[name] || 0; }); }
+    async _counts(){ const c = (await this.s.get("counts")) || {}, m = monthOf(this.now()); return c.month === m ? {month: m, n: c.n || {}} : {month: m, n: {}}; }
+    async _take(name, max){
+      if ((await this.s.get("gone"))) return false;
+      const c = await this._counts(); if ((c.n[name] || 0) >= max) return false;
+      c.n[name] = (c.n[name] || 0) + 1; await this.s.put("counts", c); return true;
+    }
+    // For the owner: this student's month so far, in micro-dollars and counts (never anything they sent)
+    summary(lim){ return this.one(async () => { const r = await this.read(), c = await this._counts(); return {gone: r.gone, month: r.month, spent: r.spent, day: r.day, daySpent: r.daySpent, inFlight: r.flying.length, counts: c.n, ...this.view(r, lim)}; }); }
+    async _give(name){ const c = await this._counts(); if (c.n[name] > 0) { c.n[name]--; await this.s.put("counts", c); } return true; }
     // A free call made for the student (Anthropic's token count) still counts toward their requests a minute
     async _touch(lim){
       const r = await this.read();
@@ -3450,6 +3463,27 @@ const SBPOLICY = (() => {
   // (a timeout, a dropped connection) may have been billed, so its reservation is kept.
   const refusedEarly = e => !!e && Number.isInteger(e.status) && e.status >= 400;
 
+  /* Totals for the owner: one day's usage, added up from the providers' usage reports. Counts only, never content.
+     storage: like Meter's. Each add happens on its own, one at a time. */
+  class Totals {
+    constructor(storage){ this.s = storage; this.one = serial(); }
+    add(kind, task, usage, cost){ return this.one(() => this._add(kind, task, usage, cost)); }
+    async _add(kind, task, usage, cost){
+      const t = (await this.s.get("t")) || {jobs: 0, cost: 0, kinds: {}, tasks: {}};
+      const n = k => Math.max(0, Number(usage && usage[k]) || 0);
+      const k = t.kinds[kind] || (t.kinds[kind] = {jobs: 0, cost: 0, unreported: 0, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, searches: 0});
+      k.jobs++; k.cost += Math.max(0, cost || 0); t.jobs++; t.cost += Math.max(0, cost || 0);
+      if (!usage) k.unreported++;
+      else { k.input += n("input_tokens"); k.cacheWrite += n("cache_creation_input_tokens"); k.cacheRead += n("cache_read_input_tokens"); k.output += n("output_tokens");
+        k.searches += Math.max(0, Number(usage.server_tool_use && usage.server_tool_use.web_search_requests) || 0);
+        if (usage.audio_seconds != null) k.audioSeconds = (k.audioSeconds || 0) + n("audio_seconds"); }
+      if (task) { const tk = String(task).slice(0, 24), x = t.tasks[tk] || (t.tasks[tk] = {jobs: 0, cost: 0}); x.jobs++; x.cost += Math.max(0, cost || 0); }
+      await this.s.put("t", t);
+      return true;
+    }
+    async read(){ return (await this.s.get("t")) || {jobs: 0, cost: 0, kinds: {}, tasks: {}}; }
+  }
+
   /* One Claude job, start to finish: check it, pick the model and thinking, count it, charge its worst case, run it, settle.
      job: what the app sends ({task, system, content, schema, search, urlContext}).
      ctx: {meter, lim, claude: {create(req), count(req)}, defer(promise)?}. Returns {status, body}: the Worker sends it as is,
@@ -3485,6 +3519,7 @@ const SBPOLICY = (() => {
     const got = await meter.reserve(reserve, lim);
     if (!got.ok) return {status: got.reason === "rate" ? 429 : 402, body: Object.assign({error: got.reason}, await view())};
     // The model runs on its own promise, kept alive if the app hangs up, so the charge is always corrected
+    let spent = null;
     const work = (async () => {
       let msg = null, cost = reserve;
       try { msg = await claude.create(req); cost = msg && msg.usage ? costOf(msg.usage) : reserve; }
@@ -3498,19 +3533,21 @@ const SBPOLICY = (() => {
         }
       }
       await meter.settle(got.id, cost);
+      spent = {task: task.name, usage: msg && msg.usage ? msg.usage : null, cost};
       return msg;
     })();
     if (ctx.defer) ctx.defer(work);
-    const msg = await work, after = await view();
-    if (msg.error) { const s = msg.error && msg.error.status; return {status: s === 400 ? 400 : s === 401 || s === 403 ? 401 : 503, body: Object.assign({error: s === 429 || s === 529 || (s >= 500 && s < 600) ? "busy" : s === 400 ? "bad" : s === 401 || s === 403 ? "key" : "ai_failed"}, after)}; }
-    if (msg.stop_reason === "refusal") return {status: 422, body: Object.assign({error: "refused"}, after)};
+    const msg = await work, after = await view(), done = r => Object.assign(r, {spent});
+    if (msg.error) { const s = msg.error && msg.error.status; return done({status: s === 400 ? 400 : s === 401 || s === 403 ? 401 : 503, body: Object.assign({error: s === 429 || s === 529 || (s >= 500 && s < 600) ? "busy" : s === 400 ? "bad" : s === 401 || s === 403 ? "key" : "ai_failed"}, after)}); }
+    if (msg.stop_reason === "refusal") return done({status: 422, body: Object.assign({error: "refused"}, after)});
     const data = readAnswer(msg);
-    if (!data) return {status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)};
-    return {status: 200, body: Object.assign({data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens"}, after)};
+    if (!data) return done({status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)});
+    // spent: what this job really used and cost (for the owner's totals), never sent to the student
+    return done({status: 200, body: Object.assign({data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens"}, after)});
   }
 
   return {MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,
-    TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, costOf, worstCost, webWorst, textBytes, Meter,
+    TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, costOf, worstCost, webWorst, textBytes, Meter, Totals,
     strictSchema, readBlocks, pdfPages, buildRequest, readAnswer, refusedEarly, runJob};
 })();
 globalThis.SBPOLICY = SBPOLICY;
@@ -3533,7 +3570,7 @@ const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
   syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"], ocr: ["lite", "low"],
-  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["reason", "medium"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
+  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "low"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
   school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
 };
 const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
@@ -3745,8 +3782,9 @@ const CAPTURE_EMAIL_DOMAIN = "";
 // The signed-in student's access token, for Studyboard's own AI server
 async function aiSessionToken(){ try { const {data} = await sb.auth.getSession(); return (data && data.session && data.session.access_token) || ""; } catch(e) { return ""; } }
 /* Studyboard AI, included with Pro: cloudflare/ai-pro, a Worker that holds Studyboard's Anthropic key (Claude Haiku 5.5).
-   The server checks the plan and keeps each student's allowance; this only shows what it last said. Off while this is "". */
-const AI_PRO = "";
+   The server checks the plan and keeps each student's allowance; this only shows what it last said. Until the Worker is deployed
+   (cloudflare/ai-pro/README.md) the address doesn't answer and the app carries on without it; "" switches it off in the app. */
+const AI_PRO = "https://ai.studyboardapp.com";
 const AI_PRO_LS = "studyboard:aiPro";
 function aiProGet(){ try { const t = JSON.parse(localStorage.getItem(AI_PRO_LS) || "null"); return t && sbUser && t.uid === sbUser.id ? t : null; } catch(e) { return null; } }
 function aiProSet(j){
@@ -3755,6 +3793,7 @@ function aiProSet(j){
   const on = j.on === false ? false : j.on === true ? true : !!prev.on;
   const next = {uid: sbUser.id, on, tier: j.tier || prev.tier || "", usedPct: typeof j.usedPct === "number" ? j.usedPct : prev.usedPct || 0, soft: typeof j.soft === "boolean" ? j.soft : !!prev.soft,
     resets: j.resets !== undefined ? j.resets : prev.resets || null, transcribe: typeof j.transcribe === "boolean" ? j.transcribe : !!prev.transcribe, youtube: typeof j.youtube === "boolean" ? j.youtube : !!prev.youtube, at: Date.now(),
+    youtubeLeft: typeof j.youtubeLeft === "number" ? j.youtubeLeft : prev.youtubeLeft, youtubeMonthly: typeof j.youtubeMonthly === "number" ? j.youtubeMonthly : prev.youtubeMonthly,
     // Out of today's allowance: the student's own key covers the rest of the day
     outDay: j.error === "today" ? today : prev.outDay === today ? today : ""};
   try { localStorage.setItem(AI_PRO_LS, JSON.stringify(next)); } catch(e) {}
@@ -3764,17 +3803,18 @@ const aiProUsedUp = () => { const t = aiProGet(); return !!t && (t.usedPct >= 10
 const aiProBackup = keys => keys.gemini ? "gemini" : keys.anthropic ? "anthropic" : keys.openai ? "openai" : "";
 // The student turned it off to use their own key instead (Settings, AI Features)
 const aiProDeclined = () => { try { return !!((state.settings && state.settings.ai) || {}).ownKey; } catch(e) { return false; } };
-let aiProChecking = null;
+let aiProChecking = null, aiProTried = 0;
 function aiProAvail(){
   if (!AI_PRO || !sbUser || sbUser.is_anonymous || inPreview()) return false;
   const t = aiProGet();
-  // Checked again in the background every half hour, so a new or ended plan shows up
-  if ((!t || Date.now() - (t.at || 0) > 30 * 60000) && !aiProChecking) aiProRefresh().then(() => { try { scheduleRender(); } catch(e) {} });
+  // Checked again in the background every half hour, so a new or ended plan shows up; when it doesn't answer, tried again after 10 minutes
+  if ((!t || Date.now() - (t.at || 0) > 30 * 60000) && !aiProChecking && Date.now() - aiProTried > 10 * 60000) aiProRefresh().then(() => { try { scheduleRender(); } catch(e) {} });
   return !!(t && t.on);
 }
 async function aiProRefresh(){
   if (!AI_PRO || !sbUser || sbUser.is_anonymous) return null;
   if (aiProChecking) return aiProChecking;
+  aiProTried = Date.now();
   aiProChecking = (async () => {
     const tok = await aiSessionToken(); if (!tok) return null;
     try { const res = await fetchT(`${AI_PRO}/v1/status`, {headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 15000); if (!res.ok && res.status !== 200) return null; const j = await res.json(); aiProSet(j); return j; } catch(e) { return null; }
@@ -4149,7 +4189,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
   const msEach = light ? Math.min(ms, (window.__SB_TEST && window.__SB_AI_STALL) || 25000) : ms;
   // Hedging: when a model is slow, the next one starts on the same request too (two at most) and the first good answer wins,
   // so a stalled or overloaded free model costs a short wait instead of minutes, and a slow but working one isn't thrown away
-  const hedgeMs = (window.__SB_TEST && window.__SB_AI_HEDGE) || (light ? 20000 : media ? 90000 : search || urlContext ? 45000 : 60000);
+  // Chat is a conversation: a second model starts after 10 seconds, not 20, so a stalled free model doesn't keep the student waiting
+  const hedgeMs = (window.__SB_TEST && window.__SB_AI_HEDGE) || (light ? (task === "chat" ? 10000 : 20000) : media ? 90000 : search || urlContext ? 45000 : 60000);
   const url = m => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
   const cool = (m, ms2) => aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + ms2; });
   let settled = false;
@@ -4332,6 +4373,7 @@ async function proYoutube(url, signal){
   aiProSet(j);
   if (res.ok && typeof j.transcript === "string" && j.transcript) return j;
   if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
+  if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI.${aiProResets() ? ` More on ${aiProResets()}.` : ""} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
   if (j.error === "video") throw aiErr("video", "That video couldn't be watched. It may be private, unlisted, age-restricted, members-only or removed.");
   if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
   throw aiErr("busy", "Studyboard AI couldn't watch that video right now. Try again in a minute.");
@@ -5125,7 +5167,10 @@ function aiSetupSheet(fromFeature, opts){
   ["#aiAuto", "#aiAutoModel", "#aiDefault"].forEach(id => $(id).addEventListener("change", autoWarn));
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", autoWarn));
   autoWarn();
-  const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v; };
+  // A Claude key added here becomes the default (it would otherwise sit unused behind Gemini); the student can switch back
+  const hadClaude = !!c.keys.anthropic;
+  const refreshModels = () => { const sel = $("#aiDefault"), v = sel.value; sel.innerHTML = modelOpts(true); if ([...sel.options].some(o => o.value === v)) sel.value = v;
+    if (!hadClaude && keysNow().anthropic && /^gemini\|/.test(v) && [...sel.options].some(o => o.value === "anthropic|studyboard")) { sel.value = "anthropic|studyboard"; try { sel.dispatchEvent(new Event("change")); } catch(e) {} } };
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", refreshModels));
   $$("[data-show]", dlg).forEach(b => b.addEventListener("click", () => { const i = dlg.querySelector(`[data-key="${b.dataset.show}"]`), hid = KEY_MASK ? i.classList.toggle("key-mask") : (i.type = i.type === "password" ? "text" : "password") === "password"; b.textContent = hid ? "Show" : "Hide"; }));
   const testKey = async (p, key) => {
@@ -24675,6 +24720,17 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     });
     pump();
   }
+  // One read of a file at a time, shared by the background reader and the AI (SBFILETEXT): text another device saved in the
+  // account first, otherwise the file itself
+  const readsInFlight = new Map();
+  function readOnce(f, r){
+    if (!readsInFlight.has(r.assetId)) {
+      const p = (async () => (await sharedTextGet(r.assetId)) || await readFileText(f))();
+      readsInFlight.set(r.assetId, p);
+      p.then(() => readsInFlight.delete(r.assetId), () => readsInFlight.delete(r.assetId));
+    }
+    return readsInFlight.get(r.assetId);
+  }
   async function pump(){
     if (FT.busy) return;
     FT.busy = true;
@@ -24687,7 +24743,8 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
         FT.cur = f.name; drawFoot();
         await idle();
         try {
-          const res = (await sharedTextGet(r.assetId)) || await readFileText(f);
+          const res = await readOnce(f, r);
+          if (FT.recs.has(r.assetId)) continue;
           if (!res.shared && res.status === "ok") sharedTextPut(r.assetId, res);
           const rec = Object.assign({v: 1, assetId: r.assetId, fid, name: f.name, at: Date.now()}, res);
           FT.recs.set(r.assetId, {status: rec.status, at: rec.at});
@@ -25014,7 +25071,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       if (semOn() && o.meaning !== false) {
         try {
           await semLoad();
-          if (SEM.vecs.size) { const got = await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
+          if (SEM.vecs.size) { const got = o.semWait ? await Promise.race([semQuery(q, all), wait(o.semWait).then(() => [])]) : await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
         } catch(e) {}
       }
       const rows = fuse(kw, sm).slice(0, o.max || 8), per = o.chars || 1500;
@@ -25301,7 +25358,8 @@ Return JSON only.`;
     const P = prepQuery(q, true);
     const kw = keywordPassages(P);
     let sm = [], note = "";
-    if (!semOn() && aiReady() && planOk(answerPlan())) { try { sm = await relatedPassages(q); } catch(e) { sm = []; } }
+    // Only with no way to search by meaning (a Claude key alone) and search by meaning not turned off; never more than 4 seconds
+    if (!embedder() && sxCfg().meaning !== false && aiReady() && planOk(answerPlan())) { try { sm = await Promise.race([relatedPassages(q), wait(4000).then(() => [])]); } catch(e) { sm = []; } }
     if (semOn()) {
       try {
         await semLoad();
@@ -25982,25 +26040,47 @@ Return JSON only.`;
     };
   });
   // The text inside one file
-  const cloudText = new Map();
-  window.SBFILETEXT = async (fid, max) => {
-    const f0 = state.files[fid];
-    if (f0 && f0.kind === "cloud" && f0.cloud) {
-      if (!cloudAiOk(f0)) return "";
-      const n = String(f0.cloud.name || f0.name), ext = (n.split(".").pop() || "").toLowerCase();
-      const kind = ext === "pdf" ? "pdf" : ext === "docx" ? "docx" : ext === "pptx" ? "pptx" : /^(txt|md|markdown|csv|tsv|json|html?|xml)$/.test(ext) ? "text" : "";
-      if (!kind || (f0.cloud.size || 0) > MAX_FILE_BYTES) return "";
-      const key = f0.cloud.id + "|" + (f0.cloud.mod || "");
-      if (!cloudText.has(key)) { try { const res = await readFileText(f0, {kind, bytes: await fileBytes(f0)}); cloudText.set(key, res.status === "ok" ? res.pages || [] : []); } catch(e) { return ""; } }
-      return cloudText.get(key).map(pg => (pg.l && pg.p ? `[${pg.l} ${pg.p}] ` : "") + pg.t).join("\n").slice(0, max || 6000);
-    }
-    const f = f0, r = f && curRev(f); if (!r || !extKind(f)) return "";
+  /* The text inside one file, for the AI (the companion chat, its screen questions). Fastest first: text this device already read
+     (saved by the background reader, cloud files included), text saved in the account by another device, then reading the file.
+     Whatever is read is saved, so the next question, and the next session, have it at once. One read per file at a time:
+     a read started while the student types is the same one the question waits on. */
+  const fileReads = new Map();
+  const pagesText = (pages, max) => (pages || []).map(pg => (pg.l && pg.p ? `[${pg.l} ${pg.p}] ` : "") + pg.t).join("\n").slice(0, max || 6000);
+  async function fileTextRec(fid){
+    const f = state.files[fid], r = f && srcRev(f); if (!r || !extKind(f)) return null;
     let rec = null;
     try { rec = await dbDo("text", "readonly", st => st.get(r.assetId)); } catch(e) {}
-    if (!rec || rec.status !== "ok") { try { const res = await readFileText(f); rec = {status: res.status, pages: res.pages || []}; } catch(e) { return ""; } }
-    if (!rec || rec.status !== "ok") return "";
-    return (rec.pages || []).map(pg => (pg.l && pg.p ? `[${pg.l} ${pg.p}] ` : "") + pg.t).join("\n").slice(0, max || 6000);
+    if (rec && rec.status === "ok") return rec;
+    if (f.kind === "cloud" && f.cloud && (f.cloud.size || 0) > MAX_FILE_BYTES) return null;
+    let res = null;
+    try { res = await readOnce(f, r); } catch(e) { return null; }
+    if (!res) return null;
+    // the background reader may have saved it while this waited
+    if (FT.recs.has(r.assetId)) { try { const saved = await dbDo("text", "readonly", st => st.get(r.assetId)); if (saved && saved.status === "ok") return saved; } catch(e) {} }
+    if (!res.shared && res.status === "ok") sharedTextPut(r.assetId, res);
+    rec = Object.assign({v: 1, assetId: r.assetId, fid, name: f.name, at: Date.now()}, res);
+    FT.recs.set(r.assetId, {status: rec.status, at: rec.at});
+    dbPut("text", r.assetId, rec);
+    if (FT.loaded && rec.status === "ok") { try { await addChunks(rec, f); } catch(e) {} }
+    return rec.status === "ok" ? rec : null;
+  }
+  window.SBFILETEXT = async (fid, max) => {
+    const f = state.files[fid], r = f && srcRev(f); if (!r) return "";
+    const key = r.assetId;
+    if (!fileReads.has(key)) { const p = fileTextRec(fid).catch(() => null); fileReads.set(key, p); p.then(rec => { if (!rec) fileReads.delete(key); }); }
+    const rec = await fileReads.get(key);
+    return rec ? pagesText(rec.pages, max) : "";
   };
+  // Start reading files before anyone asks: once, a little after the app opens, for students who have AI set up, and when the chat opens
+  let warmed = false;
+  function warmFiles(){
+    if (warmed || !sxCfg().files || !canFetch()) return;
+    try { if (!aiReady()) return; } catch(e) { return; }
+    warmed = true;
+    loadTexts().then(() => queueFiles()).catch(() => {});
+  }
+  window.SBSEARCH.warm = warmFiles;
+  setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });
 })();
@@ -62195,7 +62275,7 @@ var COMP_EXTRA = [];
         return c ? Object.assign(p, {text: clip(`Deck: ${d.name}\nFront: ${c.front}\nBack: ${c.back}${ui.fc.flipped ? "" : "\n(The student hasn't flipped the card yet: don't reveal the back unless they ask for the answer.)"}`, 3000)}) : null;
       }
       if (p.kind === "Note") { const ed = document.querySelector(".note.editing[data-note]") || document.activeElement.closest(".note[data-note]"); const n = state.notes[ed.dataset.note]; return Object.assign(p, {text: clip(n.text, 4000)}); }
-      if (p.kind === "File") { const f = state.files[lastFile.id]; const t = typeof window.SBFILETEXT === "function" ? await window.SBFILETEXT(f.id, 7000) : ""; return t ? Object.assign(p, {text: clip(t, 7000)}) : Object.assign(p, {text: `(The text inside "${f.name}" couldn't be read. Its name is all that's known.)`}); }
+      if (p.kind === "File") { const f = state.files[lastFile.id]; const t = typeof window.SBFILETEXT === "function" ? await Promise.race([window.SBFILETEXT(f.id, 7000).catch(() => ""), new Promise(r => setTimeout(() => r(""), 2500))]) : ""; return t ? Object.assign(p, {text: clip(t, 7000)}) : Object.assign(p, {text: `(The text inside "${f.name}" couldn't be read. Its name is all that's known.)`}); }
       if (p.kind === "Course") {
         const c = state.courses[ui.courseId], ts = allTasks().filter(t => t.courseId === c.id && t.status !== "done" && t.due).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 12);
         return Object.assign(p, {text: clip(`Course: ${c.name}${c.code ? " (" + c.code + ")" : ""}\nOpen tasks:\n${ts.map(t => `- ${t.title} (${t.type}, due ${t.due}${t.weight ? ", worth " + t.weight + "%" : ""})`).join("\n") || "none"}\nNotes: ${c.notes || ""}`, 4000)});
@@ -63922,6 +64002,17 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const info = () => SBCOMP.tab.info();
   const aiOk = () => { try { return !inPreview() && aiReady(); } catch (e) { return false; } };
 
+  // The files a question names (by file name, course or description), best first
+  const namedFiles = (ws, n) => !ws.length ? [] : Object.values(state.files).filter(f => f.kind === "file" || f.kind === "cloud")
+    .map(f => ({f, s: hits(f.name + " " + ((courseOf(f.courseId) || {}).name || "") + " " + (f.desc || ""), ws)})).filter(x => x.s > 0 && readableFile(x.f)).sort((a, b) => b.s - a.s).slice(0, n);
+  // While the student types, start reading the files their question names, so the text is usually ready when they tap Ask
+  let preT = 0;
+  document.addEventListener("input", e => {
+    if (!e.target || e.target.id !== "cptIn") return;
+    // every 400 ms while they type (not only when they stop), with the words so far; a file already being read isn't read twice
+    const el = e.target; if (preT) return;
+    preT = setTimeout(() => { preT = 0; try { if (!aiOk() || !window.SBFILETEXT) return; namedFiles(words(el.value), 2).forEach(({f}) => { SBFILETEXT(f.id, 5000).catch(() => {}); }); } catch (err) {} }, 400);
+  });
   /* What the companion may look at, for one question */
   // Only the parts of the planner this question needs (aiNeeds); attachments may need courses and boards for their actions
   async function context(q, prev, hasAtt){
@@ -63966,13 +64057,18 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       if (picked.length) { L.push("STICKY NOTES:\n" + picked.map(({n}) => `- ${clip(n.text, 450)}${n.board ? " [board: " + nbName(noteBoardOf(n)) + "]" : ""}`).join("\n")); src.push("Notes"); }
     }
     // the student's own material that matches the question (always: it's how content questions get answered)
-    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100}) : null; } catch (e) {}
+    // Chat never waits long for files: search gets about a second for file text, and files still downloading
+    // (from Studyboard, Google Drive or OneDrive) keep loading in the background for the next question
+    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
     if (R && R.text) { L.push("SEARCH RESULTS (passages from the student's files, notes, flashcards and tasks that match the question):\n" + R.text); R.src.forEach(x => src.push(x)); }
-    const files = Object.values(state.files).filter(f => f.kind === "file");
+    const files = Object.values(state.files).filter(f => f.kind === "file" || f.kind === "cloud");
     if (files.length) {
       if (N.files || hasAtt) L.push("FILES: " + files.slice(0, 40).map(f => { const c = courseOf(f.courseId); return f.name + (c ? " (" + courseLabel(c) + ")" : ""); }).join("; "));
-      const want = ws.length && !(R && R.rows.some(x => x.doc.type === "chunk")) ? files.map(f => ({f, s: hits(f.name + " " + ((courseOf(f.courseId) || {}).name || "") + " " + (f.desc || ""), ws)})).filter(x => x.s > 0 && readableFile(x.f)).sort((a, b) => b.s - a.s).slice(0, 2) : [];
-      for (const {f} of want) { try { const t = window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } } catch (e) {} }
+      const want = !(R && R.rows.some(x => x.doc.type === "chunk")) ? namedFiles(ws, 2) : [];
+      // Both files at once, for at most 1.5 seconds in all; a file that isn't ready by then is left out of this answer
+      const late = new Promise(r => setTimeout(() => r(""), 1500));
+      const texts = await Promise.all(want.map(({f}) => Promise.race([(async () => { try { return window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; } catch (e) { return ""; } })(), late])));
+      want.forEach(({f}, i) => { const t = texts[i]; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } });
     }
     return {text: L.join("\n\n").slice(0, 45000), src, need: N};
   }
@@ -64301,7 +64397,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const cptGrow = t => { t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 9 * parseFloat(getComputedStyle(t).fontSize)) + "px"; };
   document.addEventListener("input", e => { if (e.target.id === "cptIn") { T.draft = e.target.value; cptGrow(e.target); } });
   // Anywhere else in the app
-  window.SBCOMPTAB = {open: q => { ui.tab = "companion"; ui.courseId = null; T.tab = "chat"; render(); window.scrollTo(0, 0); if (q) ask(q); }, chats: rd};
+  window.SBCOMPTAB = {open: q => { try { if (window.SBSEARCH && SBSEARCH.warm) SBSEARCH.warm(); } catch (e) {} ui.tab = "companion"; ui.courseId = null; T.tab = "chat"; render(); window.scrollTo(0, 0); if (q) ask(q); }, chats: rd};
 
   const st = document.createElement("style");
   st.textContent = `.cpt{display:grid;gap:12px;max-width:860px;margin:0 auto}
@@ -94191,7 +94287,7 @@ const LINKCARDS = (() => {
     h.classList.toggle("cl-bad", !!v && !L.ok);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
-      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
+      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.`;
   });
   document.addEventListener("click", e => {
@@ -94231,10 +94327,15 @@ const LINKCARDS = (() => {
   async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider;
     // Studyboard AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI makes the notes from it
-    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube()) {
-      const v = await proYoutube(L.url, signal);
-      if (onStatus) onStatus("Got the video's transcript. Writing study notes…");
-      pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
+    // At this month's video limit, a student with their own Gemini key watches it with that instead (below)
+    const ownGem = !!(aiCfg().keys || {}).gemini, ytOut = () => { const t = aiProGet() || {}; return typeof t.youtubeLeft === "number" && t.youtubeLeft <= 0; };
+    if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube() && !(ownGem && ytOut())) {
+      let v = null;
+      try { v = await proYoutube(L.url, signal); } catch (e) { if (!(e && e.code === "video_limit" && ownGem)) throw e; }
+      if (v) {
+        if (onStatus) onStatus("Got the video's transcript. Writing study notes…");
+        pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
+      }
     }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: 8000, temperature: 0.2, onStatus, system: SYS()};
