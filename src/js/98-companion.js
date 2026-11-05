@@ -2021,6 +2021,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     applyVars(); fitHitSoon();
     const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && !staysPut() && roamDue(0.2);
     if (wander) lastRoam = Date.now();
+    // an open Ask box doesn't stay behind when the page changes and the companion moves (Ask's own answers, said after it
+    // goes somewhere, aren't the Ask box, so they stay)
+    if (newTab && !first && front) { const b = front.querySelector(".cp-bubble.asking"); if (b) {
+      if (b.contains(document.activeElement)) document.activeElement.blur();
+      hideBubble(); setTimeout(() => { if (!b.classList.contains("on")) b.innerHTML = ""; }, 260);
+    } }
     placeSoon(newTab ? (phone() ? 0 : 160) : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });

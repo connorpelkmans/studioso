@@ -235,3 +235,5 @@ html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:n
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
 .cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
 .cp-tq-row{align-items:center}
+/* a hidden bubble (faded out) can't be clicked or typed into */
+.cp-bubble:not(.on){pointer-events:none}
