@@ -62295,8 +62295,8 @@ var COMP_EXTRA = [];
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
     b.querySelector(".cp-b-t").textContent = text;
-    // Every bubble on a computer offers Ask (the companion's own lines too), unless the caller turns it off
-    const idea = opts.idea || null, ask = (opts.ask === undefined ? askShown() : !!opts.ask) && !askOnTab();
+    // Ask is offered on the bubble that answers a click on the companion (react, loved), not on lines it says by itself
+    const idea = opts.idea || null, ask = !!opts.ask && !askOnTab();
     bubbleIdea = idea; bubbleAsk = ask;
     const btns = [];
     if (idea) btns.push(`<button type="button" class="btn small primary" data-cp="yes">${esc(idea.yes || "Let's Do It")}</button>`, `<button type="button" class="btn small" data-cp="no">Not Now</button>`);
@@ -62620,7 +62620,7 @@ var COMP_EXTRA = [];
     act.motion(cur.cheer === "hop" ? "spin" : cur.cheer, true);
     later(() => act && act.motion("hop"), 950);
     spawnFx("heart", 5);
-    if (talkOn()) say(pickFrom(cur.id + ":pet", ownLines("pet")));
+    if (talkOn()) say(pickFrom(cur.id + ":pet", ownLines("pet")), {ask: askShown()});
     later(() => { if (!act) return; box.classList.remove("cp-loved"); act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2600);
   }
   // Celebrations are wordless
@@ -63316,7 +63316,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const est = estIdea();
     if (est) { estMark(); say(est.text, {idea: est}); chatMark(); if (act && !still()) { act.eyes("happy"); act.motion(act.has("armL") || act.has("armR") ? "wave" : "hop"); later(() => act && mood === "idle" && act.eyes("open"), 1400); } return true; }
     const idea = ideaNow(), useIdea = idea && Math.random() < 0.3 && !dismissedIdea();
-    if (useIdea) say(idea.text, {idea, ask: askShown()}); else say(tapLine());
+    if (useIdea) say(idea.text, {idea}); else say(tapLine());
     chatMark();
     if (act && !still()) { act.eyes("happy"); act.motion(act.has("armL") || act.has("armR") ? "wave" : "hop"); later(() => act && mood === "idle" && act.eyes("open"), 1400); }
     return true;
@@ -63916,7 +63916,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     home: () => ({home, rect: box && !box.hidden ? box.getBoundingClientRect().toJSON() : null}),
     brain: () => ({mood, energy: BR.energy, taskDone: BR.taskDone && BR.taskDone.title, context: contextKinds()}),
     ai: () => aiRead(), aiRun: force => aiMaybe("test", !!force), think, idle: ms => { BR.input = Date.now() - ms; think(); },
-    _speech: SPEECH, _speechGuard: speechGuard, line: () => tapLine(), idea: () => ideaNow(), offer: () => { const i = ideaNow(); if (i) say(i.text, {idea: i, ask: askShown()}); return i ? i.text : ""; },
+    _speech: SPEECH, _speechGuard: speechGuard, line: () => tapLine(), idea: () => ideaNow(), offer: () => { const i = ideaNow(); if (i) say(i.text, {idea: i}); return i ? i.text : ""; },
     peek: () => screenPeek(), askScreen: async q => aiAsk(q, await screenCtx()),
     usage: () => aiUsage(), flush: () => aiFlush(), queue: m => queueMoment(m), ask: q => aiAsk(q), askOpen: () => { say("Hi!", {ask: askShown()}); openAsk(); }, askAvailable: () => askAvailable(),
     setPomo: min => { state.settings = Object.assign({}, state.settings, {pomo: Object.assign({}, state.settings.pomo, {focus: min})}); saveSettings(); },
