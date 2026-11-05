@@ -3345,6 +3345,8 @@ const SBPOLICY = (() => {
       const c = await this._counts(); if ((c.n[name] || 0) >= max) return false;
       c.n[name] = (c.n[name] || 0) + 1; await this.s.put("counts", c); return true;
     }
+    // For the owner: this student's month so far, in micro-dollars and counts (never anything they sent)
+    summary(lim){ return this.one(async () => { const r = await this.read(), c = await this._counts(); return {gone: r.gone, month: r.month, spent: r.spent, day: r.day, daySpent: r.daySpent, inFlight: r.flying.length, counts: c.n, ...this.view(r, lim)}; }); }
     async _give(name){ const c = await this._counts(); if (c.n[name] > 0) { c.n[name]--; await this.s.put("counts", c); } return true; }
     // A free call made for the student (Anthropic's token count) still counts toward their requests a minute
     async _touch(lim){
@@ -3780,8 +3782,9 @@ const CAPTURE_EMAIL_DOMAIN = "";
 // The signed-in student's access token, for Studyboard's own AI server
 async function aiSessionToken(){ try { const {data} = await sb.auth.getSession(); return (data && data.session && data.session.access_token) || ""; } catch(e) { return ""; } }
 /* Studyboard AI, included with Pro: cloudflare/ai-pro, a Worker that holds Studyboard's Anthropic key (Claude Haiku 5.5).
-   The server checks the plan and keeps each student's allowance; this only shows what it last said. Off while this is "". */
-const AI_PRO = "";
+   The server checks the plan and keeps each student's allowance; this only shows what it last said. Until the Worker is deployed
+   (cloudflare/ai-pro/README.md) the address doesn't answer and the app carries on without it; "" switches it off in the app. */
+const AI_PRO = "https://ai.studyboardapp.com";
 const AI_PRO_LS = "studyboard:aiPro";
 function aiProGet(){ try { const t = JSON.parse(localStorage.getItem(AI_PRO_LS) || "null"); return t && sbUser && t.uid === sbUser.id ? t : null; } catch(e) { return null; } }
 function aiProSet(j){
@@ -3800,17 +3803,18 @@ const aiProUsedUp = () => { const t = aiProGet(); return !!t && (t.usedPct >= 10
 const aiProBackup = keys => keys.gemini ? "gemini" : keys.anthropic ? "anthropic" : keys.openai ? "openai" : "";
 // The student turned it off to use their own key instead (Settings, AI Features)
 const aiProDeclined = () => { try { return !!((state.settings && state.settings.ai) || {}).ownKey; } catch(e) { return false; } };
-let aiProChecking = null;
+let aiProChecking = null, aiProTried = 0;
 function aiProAvail(){
   if (!AI_PRO || !sbUser || sbUser.is_anonymous || inPreview()) return false;
   const t = aiProGet();
-  // Checked again in the background every half hour, so a new or ended plan shows up
-  if ((!t || Date.now() - (t.at || 0) > 30 * 60000) && !aiProChecking) aiProRefresh().then(() => { try { scheduleRender(); } catch(e) {} });
+  // Checked again in the background every half hour, so a new or ended plan shows up; when it doesn't answer, tried again after 10 minutes
+  if ((!t || Date.now() - (t.at || 0) > 30 * 60000) && !aiProChecking && Date.now() - aiProTried > 10 * 60000) aiProRefresh().then(() => { try { scheduleRender(); } catch(e) {} });
   return !!(t && t.on);
 }
 async function aiProRefresh(){
   if (!AI_PRO || !sbUser || sbUser.is_anonymous) return null;
   if (aiProChecking) return aiProChecking;
+  aiProTried = Date.now();
   aiProChecking = (async () => {
     const tok = await aiSessionToken(); if (!tok) return null;
     try { const res = await fetchT(`${AI_PRO}/v1/status`, {headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 15000); if (!res.ok && res.status !== 200) return null; const j = await res.json(); aiProSet(j); return j; } catch(e) { return null; }

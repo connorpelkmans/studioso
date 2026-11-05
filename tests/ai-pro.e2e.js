@@ -47,7 +47,7 @@ const STUB = () => {
     embed: async texts => ({data: texts.map((t, i) => Array.from({length: 1024}, (_, k) => Math.sin(i + k)))}),
     whisper: async () => ({text: "Today we cover coral bleaching.", transcription_info: {duration: 30}})
   };
-  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const AI_PRO = "";', `const AI_PRO = "${PRO}";`));
+  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const AI_PRO = "https://ai.studyboardapp.com";', `const AI_PRO = "${PRO}";`));
   ok(html.includes(`const AI_PRO = "${PRO}";`), "test copy of the app points at the test Studyboard AI server");
 
   const browser = await chromium.launch({executablePath});

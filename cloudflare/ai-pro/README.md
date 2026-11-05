@@ -7,7 +7,7 @@ Students on a **paid** Pro plan get AI with nothing to set up. Every AI feature 
 - **Lecture audio:** Whisper on Workers AI.
 - **Search by meaning:** bge-m3 on Workers AI.
 
-**It's off until the gateway is set up.** Without `CF_ACCOUNT_ID`, `AI_GATEWAY_ID` and the `CF_AIG_TOKEN` secret, every request answers `off`, and the app carries on as before: students use their own key.
+**It's off until you turn it on** (below). Until the Worker is deployed with its gateway secrets, the app carries on as before: students use their own key.
 
 ## Paying for it: Unified Billing or your company key
 
@@ -54,38 +54,38 @@ Only a Pro plan someone pays for: monthly, semester, yearly or lifetime. The Wor
 
 ## Turn it on
 
-You need:
-- A Cloudflare account on the **Workers Paid** plan ($5 a month), with a credit card for AI Gateway credits.
-- Node.js 20 or newer.
+Everything is built and in the app already. The app calls `https://ai.studyboardapp.com` (`AI_PRO` in `src/js/01-ai.js`), and until that address answers it carries on without Studyboard AI. Turning it on is all done in Cloudflare and needs no app release.
 
-Steps:
+You need the Cloudflare account that already serves studyboardapp.com, on the **Workers Paid** plan ($5 a month), and Node.js 20 or newer.
 
-1. **Create the gateway.** In the Cloudflare dashboard, open AI, then AI Gateway, then Create a gateway (for example `studyboard`). In its settings:
-   - Turn on **Authenticated Gateway** and create a gateway token.
-   - Leave **Require provider credentials** off, so Unified Billing is used.
-   - Turn **logging off**, so student content isn't stored.
-2. **Buy credits** under AI Gateway, Unified Billing. Cloudflare passes through Anthropic's and Google's prices with no markup and adds a 5% fee on each credit purchase.
-   - **Auto top-up** is optional. Without it, AI stops when the credits run out.
-   - Cloudflare says a balance can in rare cases go slightly negative, and it then charges your card for the difference.
-3. **Add a spend limit** in the gateway (AI Gateway, Spend limits), for example a monthly amount you're comfortable with. This is the backstop for your total bill; each student's own limits are below.
-4. **Deploy:**
+1. **Create the AI Gateway.** Open AI, then AI Gateway, then Create (for example, name it `studyboard`). In its settings:
+   - Turn on **Authenticated Gateway** and create a gateway token. Keep it for step 4.
+   - Turn **logging off**.
+   - Set a **spend limit**.
+2. **Choose how Claude is paid for** (see "Paying for it" below):
+   - **Unified Billing:** buy credits under AI Gateway, Unified Billing.
+   - **Your company Anthropic key:** add it under the gateway's Provider Keys as `default`, and set a spend limit in the Anthropic Console.
+
+   YouTube links (Gemini) use Unified Billing either way, so buy a small amount of credit if you want them. Without credit, YouTube links fail at no cost and students are offered "paste the transcript". Check that Google AI Studio is listed among Unified Billing's providers.
+3. **Deploy** from this folder:
    ```
    cd cloudflare/ai-pro
    npm install
    npx wrangler login
-   ```
-   Then put your account id and gateway name into `CF_ACCOUNT_ID` and `AI_GATEWAY_ID` in `wrangler.jsonc`, and run:
-   ```
    npx wrangler deploy
-   npx wrangler secret put CF_AIG_TOKEN
    ```
-5. **Point the app at the Worker.** In `src/js/01-ai.js`, set `const AI_PRO = "https://studyboard-pro-ai.<your-subdomain>.workers.dev";`, run `node scripts/csp.js`, and ship. Once that version is out, adding or removing the gateway token turns Studyboard AI on or off for every paid Pro student with no new release.
+   The first deploy creates `ai.studyboardapp.com` and its certificate.
+4. **Add the secrets.** The Worker turns on once the first three are set:
+   ```
+   npx wrangler secret put CF_ACCOUNT_ID     # your Cloudflare account id (Dashboard, any domain, right-hand side)
+   npx wrangler secret put AI_GATEWAY_ID     # the gateway's name from step 1, e.g. studyboard
+   npx wrangler secret put CF_AIG_TOKEN      # the gateway token from step 1
+   npx wrangler secret put OWNER_TOKEN       # optional: 24+ random characters, for your usage summary
+   ```
+5. **Check it.** As a paid Pro student, open Settings, then AI Features. It should say "Studyboard AI is included with your Pro plan". Ask the companion a question, then compare your usage summary with Anthropic's console or the gateway's analytics.
+6. **Update the legal pages.** Bump the Effective date on the Privacy Policy and Terms, in the app (`src/js/99-release.js`) and on the website (`website/privacy.html`, `website/terms.html`), and tell students in the app. Their text already describes Studyboard AI.
 
-Two things to confirm in your gateway before launch:
-- **Google's Gemini** (YouTube links) needs to be available through Unified Billing. If it isn't, those requests are refused, cost nothing, and the app suggests pasting the transcript. Set `YOUTUBE_OFF` to `"1"` to hide the option.
-- **Anthropic's token count** (`count_tokens`) may not pass through the gateway. If it doesn't, files are estimated generously instead (6,000 tokens an image, 5,000 a PDF page), so jobs still run and are still charged first.
-
-To turn everything off without removing anything, set `PRO_AI_OFF` to `"1"` and deploy.
+**To turn it off:** set `PRO_AI_OFF` to `"1"` in `wrangler.jsonc` and run `npx wrangler deploy`, or remove the `CF_AIG_TOKEN` secret. Students go back to their own keys at once.
 
 ## One set of rules, two places
 
@@ -115,7 +115,7 @@ The app sends only the job's name, its text and files, and the answer shape it w
 | `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $4 | $10 |
 | `DAILY_USD` | $1 | $3 |
 | `PER_MINUTE` requests | 20 | 60 |
-| `YOUTUBE_MONTHLY` videos (each at most 2 hours, about $0.10 an hour) | 20 | 100 (`0` turns YouTube links off) |
+| `YOUTUBE_MONTHLY` videos (each at most 2 hours, about $0.10 an hour) | 10 | 100 (`0` turns YouTube links off) |
 | `MAX_INFLIGHT` jobs at once | 4 | 8 |
 
 There's no limit shared across students. Your total is bounded by the gateway's spend limit (step 3), and by your credits if auto top-up is off.

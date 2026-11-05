@@ -410,12 +410,12 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   await call(H, job({task: "grade"})); await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
   x = await oget(H, OWNER, null, "?user=" + H.user.id);
   const want1 = P.costOf({input_tokens: 4000, output_tokens: 1000}) + P.ytCost(160000, 20500);
-  eq([x.s, x.j.spent, x.j.today, x.j.limit, x.j.dailyLimit, x.j.youtubeVideos, x.j.youtubeMonthly], [200, want1 / 1e6, want1 / 1e6, 4, 1, 1, 20], "one student's month: exactly what their jobs cost, against $4 a month and $1 a day, and their YouTube videos");
+  eq([x.s, x.j.spent, x.j.today, x.j.limit, x.j.dailyLimit, x.j.youtubeVideos, x.j.youtubeMonthly], [200, want1 / 1e6, want1 / 1e6, 4, 1, 1, 10], "one student's month: exactly what their jobs cost, against $4 a month and $1 a day, and their YouTube videos");
   eq(Object.keys(x.j).filter(k => /text|content|message|question/i.test(k)), [], "and nothing about what they asked");
   eq((await oget(H, "", null, "?user=" + H.user.id)).s, 404, "only with the owner token");
   eq((await oget(H, OWNER, null, "?user=not-an-id")).s, 400, "a garbled id is refused");
   /* A monthly cap on YouTube videos per student */
-  eq([P.config({...ENV}).ytMonthly, P.config({...ENV, YOUTUBE_MONTHLY: "5"}).ytMonthly, P.config({...ENV, YOUTUBE_MONTHLY: "9999"}).ytMonthly, P.config({...ENV, YOUTUBE_MONTHLY: "0"}).ytMonthly], [20, 5, 100, 0], "20 videos a month by default; settings can't go past 100; 0 turns them off");
+  eq([P.config({...ENV}).ytMonthly, P.config({...ENV, YOUTUBE_MONTHLY: "5"}).ytMonthly, P.config({...ENV, YOUTUBE_MONTHLY: "9999"}).ytMonthly, P.config({...ENV, YOUTUBE_MONTHLY: "0"}).ytMonthly], [10, 5, 100, 0], "10 videos a month by default; settings can't go past 100; 0 turns them off");
   H = harness(); H.deps.gemini = gOk();
   const yenv = {...ENV, YOUTUBE_MONTHLY: "2"};
   x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq([x.s, x.j.youtubeLeft], [200, 1], "first video: 1 left");

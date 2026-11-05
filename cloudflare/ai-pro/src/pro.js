@@ -58,7 +58,7 @@ export function config(env) {
     whisper: String(env.WHISPER_OFF || "") !== "1",
     youtube: String(env.YOUTUBE_OFF || "") !== "1",
     // YouTube videos a student can turn into notes and cards each calendar month (UTC), on top of their dollar allowance
-    ytMonthly: (n => Number.isFinite(n) && String(env.YOUTUBE_MONTHLY == null ? "" : env.YOUTUBE_MONTHLY).trim() !== "" ? Math.min(YT_MONTHLY_MAX, Math.max(0, Math.floor(n))) : 20)(Number(env.YOUTUBE_MONTHLY))
+    ytMonthly: (n => Number.isFinite(n) && String(env.YOUTUBE_MONTHLY == null ? "" : env.YOUTUBE_MONTHLY).trim() !== "" ? Math.min(YT_MONTHLY_MAX, Math.max(0, Math.floor(n))) : 10)(Number(env.YOUTUBE_MONTHLY))
   };
 }
 
