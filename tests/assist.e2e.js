@@ -43,6 +43,8 @@ function reply(body){
   if (/quiz answer/.test(q)) return {answer: "Fixing it.", show: [], changes: [{ref: (/(Q\d+) \|[^\n]*Which organelle/.exec(text) || [])[1] || "", field: "correct", value: "Mitochondria", scope: ""}]};
   if (/daily quote/.test(q)) return {answer: "Turning it off.", show: [], changes: [{ref: "SETTINGS", field: "setting", setting: "daily quote", value: "off", scope: ""}]};
   if (/made up/.test(q)) return {answer: "Done!", show: ["T99"], changes: [{ref: "T99", field: "due", value: "2030-01-01"}, {ref: refOf(/^T\d+ \| Lab report/), field: "due", value: "not a date"}]};
+  if (/add a bio quiz/.test(q)) return {answer: "Adding it.", show: [], changes: [], newTasks: [{title: "Cell quiz", course: refOf(/^C\d+ \| Biology/), type: "Quiz", due: "2031-04-02", time: "9:30", priority: "", hours: 2, notes: "Chapters 3 and 4"}]};
+  if (/add my readings/.test(q)) return {answer: "Adding both.", show: [], changes: [], newTasks: [{title: "Read chapter 5", course: "", type: "Reading", due: "2031-04-03", time: "", priority: "low", hours: 0, notes: ""}, {title: "Read chapter 6", course: "C99", type: "Reading", due: "not a date", time: "25:00", priority: "low", hours: 0, notes: ""}, {title: "", type: "Reading", due: "2031-04-04"}]};
   if (/what deck/.test(q)) return {answer: "You're looking at Cells.", show: [], changes: []};
   return {answer: "Okay.", show: [], changes: []};
 }
@@ -139,6 +141,25 @@ function reply(body){
   await actNow(); await confirmShown(); await page.click("#asYes"); await page.waitForFunction(() => window.__done);
   ok(await S(() => JSON.stringify(state.decks.d1.aiQuizzes[0].questions[0].correct)) === "[1]", "and the quiz is fixed");
 
+  // New tasks: checked, shown, and only added on Add
+  const before0 = await S(() => Object.keys(state.tasks).length);
+  r = await ask("add a bio quiz on april 2 at 9:30");
+  ok(r.changes.length === 1 && r.changes[0][0] === "newtask" && /Quiz · BIO101 · due .*Apr 2.*9:30/.test(r.changes[0][3]), "a new task is checked and described: " + JSON.stringify(r.changes));
+  await actNow(); box = await confirmShown();
+  ok(/Add this task\?/.test(box) && /Cell quiz/.test(box), "it's shown for the student to confirm");
+  ok(await S(() => Object.keys(state.tasks).length) === before0, "nothing is added before Add");
+  await page.click("#asYes"); await page.waitForFunction(() => window.__done);
+  const made = await S(() => Object.values(state.tasks).find(t => t.title === "Cell quiz"));
+  ok(made && made.courseId === "c1" && made.type === "Quiz" && made.due === "2031-04-02" && made.time === "09:30" && made.priority === "med" && made.hours === 2 && /Chapters 3/.test(made.notes) && made.status === "todo", "Add makes the task with its course, date, time, type and details: " + JSON.stringify(made && {c: made.courseId, due: made.due, time: made.time, p: made.priority}));
+  ok(await page.locator(".toast", {hasText: 'Added "Cell quiz"'}).count() > 0, "with Undo");
+  await S(() => { if (dlg.open) dlg.close(); undoLast(); }); await page.waitForTimeout(200);
+  ok(await S(() => !Object.values(state.tasks).some(t => t.title === "Cell quiz")), "and Undo takes it away again");
+  r = await ask("add my readings for chapters 5 and 6");
+  ok(r.changes.length === 2 && /no due date/.test(r.changes[1][3]) && !/BIO|HIS/.test(r.changes[1][3]), "several at once; a bad date, time or course is dropped, and a task with no title is skipped: " + JSON.stringify(r.changes));
+  await actNow(); box = await confirmShown(); ok(/Add these 2 tasks\?/.test(box), "several are confirmed together");
+  await page.click("#asNo"); await page.waitForFunction(() => window.__done);
+  ok(await S(() => !Object.values(state.tasks).some(t => /Read chapter/.test(t.title))), "Cancel adds nothing");
+
   // Made-up refs and bad values are dropped
   r = await ask("this is made up");
   ok(!r.show.length && !r.changes.length, "refs that don't exist and values that aren't valid are dropped");
@@ -165,6 +186,10 @@ function reply(body){
   await page.waitForSelector('[data-act="cpt-change"]', {timeout: 15000});
   await page.click('[data-act="cpt-change"]'); await confirmShown(); await page.click("#asYes"); await page.waitForTimeout(500);
   ok(await S(() => state.tasks.t1.due) === "2031-03-14", "changes from the Companion tab are confirmed the same way");
+  await S(() => SBCOMPTAB.open("add a bio quiz on april 2 at 9:30"));
+  const addBtn = page.locator(".cpt-action", {hasText: "Cell quiz"}).locator('[data-act="cpt-change"]');
+  await addBtn.waitFor({timeout: 15000}); await addBtn.click(); await confirmShown(); await page.click("#asYes"); await page.waitForTimeout(500);
+  ok(await S(() => Object.values(state.tasks).some(t => t.title === "Cell quiz" && t.courseId === "c1")), "the Companion tab adds tasks the same way");
 
   // The bubble on a computer: tap the companion, Ask, and it goes there
   await S(() => { ui.tab = "board"; render(); }); await page.waitForTimeout(400);

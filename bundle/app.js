@@ -64099,10 +64099,15 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       field: {type: "STRING", enum: FIELDS},
       value: {type: "STRING", description: "The new value (formats in the rules). For delete or skip: yes"},
       scope: {type: "STRING", enum: ["none", "once", "all"], description: "Classes and repeating events: once = only that day, all = every week; none for everything else"},
-      setting: {type: "STRING", description: "field setting: the setting to change, in words, like 'daily quote' or 'study hours per day'"}}, required: ["ref", "field", "value"]}}
+      setting: {type: "STRING", description: "field setting: the setting to change, in words, like 'daily quote' or 'study hours per day'"}}, required: ["ref", "field", "value"]}},
+    newTasks: {type: "ARRAY", description: "New tasks to add, ONLY when the student asked to add or create them. The app shows them and asks them to confirm. Empty otherwise.", items: {type: "OBJECT", properties: {
+      title: {type: "STRING"}, course: {type: "STRING", description: "A C ref, or empty"}, type: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Study", "Other"]},
+      due: {type: "STRING", description: "YYYY-MM-DD, or empty for no due date"}, time: {type: "STRING", description: "HH:MM (24h), or empty"},
+      priority: {type: "STRING", enum: ["low", "med", "high", "urgent"]}, hours: {type: "NUMBER", description: "Time estimate in hours, or 0 if unknown"}, notes: {type: "STRING", description: "Details the student gave, or empty"}},
+      required: ["title", "type", "due"]}}
   };
   // The Companion tab sends only what a question needs: the list of things to find or change goes with questions that are about that
-  const WANTS = /\b(find|where|show|open|locate|look(ing)? for|search|go to|take me|jump|bring up|pull up|which (note|file|board|whiteboard|deck|card|quiz|task|class)|change|move|rename|edit|update|set|make (it|my|the)|turn (on|off)|enable|disable|delete|remove|cancel|skip|reschedule|push|postpone|switch|fix|correct|replace|swap|mark (it|as)|due (date|time)|setting|settings)\b/i;
+  const WANTS = /\b(find|where|show|open|locate|look(ing)? for|search|go to|take me|jump|bring up|pull up|which (note|file|board|whiteboard|deck|card|quiz|task|class)|change|move|rename|edit|update|set|make (it|my|the)|turn (on|off)|enable|disable|delete|remove|cancel|skip|reschedule|push|postpone|switch|fix|correct|replace|swap|mark (it|as)|due (date|time)|setting|settings|add|create|new task|remind me|put (in|on)|schedule)\b/i;
   const wants = q => WANTS.test(String(q || ""));
   const SCHEMA = {type: "OBJECT", properties: Object.assign({answer: {type: "STRING", description: "The reply, plain text, short"}}, SHOW_CHANGE), required: ["answer", "show", "changes"]};
   const RULES = `FINDING THINGS: when the student asks where something is, to find, open or show something (a task, a note that says something, a whiteboard with a certain picture, drawing or writing on it, a file by its name or by what's in it, a card, a quiz question, a class), put its ref first in "show" and say in one short sentence what and where it is. The app opens it and highlights it. A whiteboard spot ref (W with a description) lands on that part of the board. Search matches show what's inside files and notes. If nothing fits, say so and leave "show" empty; never guess a ref.
@@ -64117,7 +64122,8 @@ CHANGING THINGS: when (and only when) the student asks to change something, add 
 - sticky note (N): text (the whole new note); delete yes. whiteboard (W): name
 - file (P): name (keep the file's extension); course (a C ref); delete yes
 - app settings: ref SETTINGS, field setting, "setting" = which setting in words, value = the new value in words or a number (like "off", "dark", "4", "Spanish").
-Use dates and refs exactly as listed. Don't invent things that aren't listed; to add brand new tasks say how (the student can type it on the Board).`;
+ADDING TASKS: when the student asks to add, create or remember something to do (homework, an exam, a reading, a reminder to study), put each one in "newTasks": a short clear title, its course ref when it's for a course, its type, the due date worked out from TODAY (like "next Friday"), a time only if they gave one, and priority high for exams. Several at once is fine ("add the readings for each week"). Never say they're added: the student confirms them first.
+Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
 
   /* ---------- 4. Checking what came back ---------- */
   const fieldOk = {
@@ -64137,6 +64143,7 @@ Use dates and refs exactly as listed. Don't invent things that aren't listed; to
       case "quiz": case "card": case "question": return !!state.decks[t.deck];
       case "note": case "board": return !!state.notes[t.id];
       case "file": return !!state.files[t.id];
+      case "newtask": return !!(t.task && t.task.title);
     }
     return false;
   }
@@ -64233,6 +64240,16 @@ Use dates and refs exactly as listed. Don't invent things that aren't listed; to
     const show = (Array.isArray(d.show) ? d.show : []).map(r => refs.get(String(r || "").trim().toUpperCase())).filter(t => t && exists(t)).slice(0, 5).map(t => Object.assign({}, t, {label: labelOf(t)}));
     const seen = new Set(), changes = [];
     (Array.isArray(d.changes) ? d.changes : []).slice(0, 20).forEach(c => { const x = check(c, refs); if (!x) return; const k = JSON.stringify([x.t.kind, x.t.id, x.t.key, x.field, x.setting]); if (seen.has(k)) return; seen.add(k); changes.push(x); });
+    (Array.isArray(d.newTasks) ? d.newTasks : []).slice(0, 25).forEach(x => {
+      if (!x || !clip(x.title, 160)) return;
+      const ct = x.course ? refs.get(String(x.course).trim().toUpperCase()) : null, cid = ct && ct.kind === "course" && state.courses[ct.id] ? ct.id : "";
+      const due = ISO.test(String(x.due || "")) ? x.due : "", time = due ? hm(x.time || "") : "";
+      const t = {title: clip(x.title, 160), type: TYPES.includes(x.type) ? x.type : "Assignment", courseId: cid, due, time, priority: PRI[x.priority] ? x.priority : (x.type === "Exam" ? "high" : "med"),
+        hours: Math.max(0, Math.min(200, Number(x.hours) || 0)), notes: String(x.notes || "").trim().slice(0, 4000)};
+      const k = JSON.stringify(["new", t.title.toLowerCase(), t.due]); if (seen.has(k)) return; seen.add(k);
+      const bits = [t.type, cid ? courseLabel(state.courses[cid]) : "", due ? "due " + nice(due) + (time ? ", " + tm(time) : "") : "no due date", t.priority !== "med" ? PRI[t.priority] + " priority" : ""].filter(Boolean);
+      changes.push({t: {kind: "newtask", task: t}, field: "create", value: "", scope: "", label: t.title, what: "New task", from: "", to: bits.join(" · ")});
+    });
     return {show, changes};
   }
 
@@ -64330,6 +64347,11 @@ Use dates and refs exactly as listed. Don't invent things that aren't listed; to
     const dead = new Set();
     for (const c of list) {
       const t = c.t, v = c.value;
+      if (t.kind === "newtask") {
+        const T0 = t.task, start = T0.due ? (MILESTONE(T0.type) ? T0.due : addDays(T0.due, -3)) : todayISO();
+        const nt = newTask(Object.assign({}, T0, {start: start < todayISO() ? todayISO() : start, status: "todo"}));
+        c.made = nt.id; after.set("task:" + nt.id, nt); continue;
+      }
       if (t.kind === "task") {
         if (c.field === "delete") { dead.add("task:" + t.id); continue; }
         const n = get("task", t.id); if (!n) continue;
@@ -64380,15 +64402,19 @@ Use dates and refs exactly as listed. Don't invent things that aren't listed; to
     if (!list.length) { toast("Nothing to change any more."); return false; }
     const sets = list.filter(c => c.t.kind === "settings"), rest = list.filter(c => c.t.kind !== "settings");
     if (rest.length) {
-      await jump(rest[0].t, {noOpen: true});
+      const first = rest.find(c => c.t.kind !== "newtask");
+      if (first) await jump(first.t, {noOpen: true}); else if (ui.tab !== "board") { go("board"); await frame(); }
       await wait(250);
       if (o.shown) try { o.shown(); } catch (e) {}
-      const ok = await confirmBox(rest.length === 1 ? "Make this change?" : `Make these ${rest.length} changes?`, rest, "Apply");
+      const onlyAdds = rest.every(c => c.t.kind === "newtask");
+      const ok = await confirmBox(onlyAdds ? (rest.length === 1 ? "Add this task?" : `Add these ${rest.length} tasks?`) : rest.length === 1 ? "Make this change?" : `Make these ${rest.length} changes?`, rest, onlyAdds ? "Add" : "Apply");
       if (!ok) { toast("Nothing changed."); }
       else {
-        const ch = build(rest);
-        if (ch.length) applyChanges(ch, rest.length === 1 ? `Changed ${rest[0].what.toLowerCase()}` : `Made ${rest.length} changes`);
-        await wait(80); await jump(rest[0].t, {noOpen: true, after: true});
+        const ch = build(rest), adds = rest.filter(c => c.t.kind === "newtask");
+        if (ch.length) applyChanges(ch, adds.length === rest.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : rest.length === 1 ? `Changed ${rest[0].what.toLowerCase()}` : `Made ${rest.length} changes`);
+        await wait(80);
+        const show = first ? first.t : adds[0] && adds[0].made && state.tasks[adds[0].made] ? {kind: "task", id: adds[0].made} : null;
+        if (show) await jump(show, {noOpen: true, after: true});
       }
     }
     if (!rest.length && o.shown) try { o.shown(); } catch (e) {}
@@ -64722,7 +64748,7 @@ Use dates and refs exactly as listed. Don't invent things that aren't listed; to
       T.status = "Thinking…"; draw();
       const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 500)}`).join("\n\n");
       const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. If the part you'd need isn't included (for example a follow-up on something new), say what you'd need to look at instead of guessing, and never invent facts, dates or marks. For general study or subject questions, answer with your own knowledge, clearly and correctly. Keep it short: a few sentences or a short list. For questions about their work, suggest a concrete next step when it helps. When the student is just chatting (\"how are you?\", hello, thanks, how their day is going, a joke, how they feel), answer like a friend would and in character: say how you are and what you've been up to as yourself, show interest in them, maybe ask a light question back. Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.
-You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.${window.SBASSIST ? "\n" + SBASSIST.RULES + "\nThe refs are in ITEMS YOU CAN SHOW OR CHANGE. Changing existing things always goes in \"changes\", never in actions." : ""}`;
+You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.${window.SBASSIST ? "\n" + SBASSIST.RULES + "\nThe refs are in ITEMS YOU CAN SHOW OR CHANGE. Changing existing things always goes in \"changes\", never in actions. Tasks the student asks you to add go in \"newTasks\"; keep the tasks action for due dates found in files they attached." : ""}`;
       const r = await aiCall({task: att.length ? "tutor" : "chat", maxTokens: att.length ? 12000 : 3000, schema: SCHEMA, system, onStatus: s => { T.status = s; drawStatus(); },
         parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}`}])});
       const d = r.data || {};
