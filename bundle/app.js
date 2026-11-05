@@ -5162,7 +5162,7 @@ function aiSetupSheet(fromFeature, opts){
           <p class="mini" id="aiHoMsg" aria-live="polite" style="margin:0"></p></div></details>` : ""}
       ${pro ? "" : `<details class="ai-paid" ${c.keys.anthropic || c.keys.openai ? "open" : ""}><summary>Use a Paid Model Instead (Optional)</summary>
         <div class="ai-paid-body">
-          <p class="mini ai-disclaimer" style="margin:0"><b>These cost money.</b> You can use a paid Gemini model (like Gemini 3.1 Pro) by turning on billing for your key in Google AI Studio, or use Claude or ChatGPT with an API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a>. API keys are separate from a Claude or ChatGPT subscription and are billed per use by that company. Big PDFs cost the most. Paid services generally don't use what you send to train their models.</p>
+          <p class="mini ai-disclaimer" style="margin:0"><b>These cost money.</b> You can use a paid Gemini model by turning on billing for your key in Google AI Studio, or use Claude or ChatGPT with an API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a>. These usually do not use what you send to train their models.</p>
           ${keyRow("anthropic")}
           ${keyRow("openai")}
         </div></details>`}
