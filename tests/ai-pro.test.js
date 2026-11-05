@@ -44,7 +44,8 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(P.taskOf("grade").effort, "high", "grading thinks hard");
   eq(P.taskOf("tutor").effort, "high", "Ask About Course and Teach It Back think hard");
   eq(P.taskOf("chat").effort, "medium", "chat thinks at medium");
-  eq(P.taskOf("plan").effort, "low", "the automatic plan thinks a little");
+  eq(P.taskOf("plan").effort, "medium", "the automatic plan thinks at medium");
+  eq(P.taskOf("plan", true).effort, "low", "and at low past the soft limit");
   eq(P.taskOf("remote").effort, "none", "yes/no jobs don't think");
   eq(P.taskOf("rubric", true).effort, "high", "past the soft limit, hard jobs keep their level");
   eq(P.taskOf("chat", true).effort, "low", "past the soft limit, routine jobs drop to low");
@@ -432,5 +433,16 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(rs.filter(r => r.s === 200).length, 2, "six at once: exactly two run");
   now = Date.UTC(2027, 1, 1, 0, 0, 5);
   x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq(x.s, 200, "a new month brings new videos");
+
+  /* Automatic jobs on Studyboard AI think at least at medium */
+  now = Date.UTC(2027, 1, 15, 12);
+  eq([P.config(ENV).autoEffort, P.config({...ENV, AUTO_EFFORT: ""}).autoEffort, P.config({...ENV, AUTO_EFFORT: "max"}).autoEffort], ["medium", "", ""], "medium by default; empty or unknown leaves jobs at their own level");
+  H = harness();
+  await call(H, job({task: "remote", auto: true})); await call(H, job({task: "remote"})); await call(H, job({task: "line", auto: true})); await call(H, job({task: "practice", auto: true}));
+  eq(H.calls.map(c => [c.output_config.effort, c.thinking.type, c.max_tokens]), [["medium", "adaptive", 4000], ["low", "disabled", 800], ["medium", "adaptive", 4000], ["high", "adaptive", 24000]], "an automatic yes/no job or companion line thinks at medium (with room for it); the same job tapped by hand doesn't; a job already above medium keeps its level");
+  H = harness(); await spendBefore(H.meterOf(), 3100000); await call(H, job({task: "remote", auto: true})); await call(H, job({task: "plan", auto: true}));
+  eq(H.calls.map(c => c.output_config.effort), ["low", "low"], "past the soft limit automatic jobs drop back (a yes/no job to no thinking, the plan to low)");
+  H = harness(); await call(H, job({task: "remote", auto: true}), {env: {...ENV, AUTO_EFFORT: ""}});
+  eq(H.calls[0].thinking.type, "disabled", "AUTO_EFFORT empty: each job at its own level");
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

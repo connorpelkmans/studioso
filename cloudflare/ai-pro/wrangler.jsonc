@@ -28,6 +28,8 @@
     // One student in one day
     "DAILY_USD": "1",
     "PER_MINUTE": "20",
+    // The least thinking automatic (background) jobs get: "low", "medium" or "high"; "" leaves each job at its own level
+    "AUTO_EFFORT": "medium",
     "MAX_INFLIGHT": "4",
     // "1" turns Studyboard AI off without removing anything
     "PRO_AI_OFF": "",

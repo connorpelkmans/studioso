@@ -102,8 +102,11 @@ The Worker imports that file, and the app bundles the very same file. A student,
 |---|---|
 | Grading answers, Teach It Back, Rubric Check, Ask About Course, syllabus import, flashcard, quiz and case sets, practice tests, Break It Down | High |
 | Companion chat, Ask, summaries, explanations, exam plans | Medium |
-| The automatic plan, session tuning, estimates, weekly review | Low |
+| The automatic plan | Medium |
+| Session tuning, estimates, weekly review | Low |
 | Exam location check, quick add, announcement dates, companion lines | None |
+
+On Studyboard AI, every **automatic** job (the ones the app runs in the background: the plan, companion lines, session tuning, exam location checks, announcement checks, fixing vague tasks, weekly review) thinks at least at **medium** (`AUTO_EFFORT`), to match or beat what free Gemini gives today. That adds about $0.28 per student a month. Past the soft limit they drop back to their own level, or to low. A Claude key in Studyboard AI Mode keeps each job at the level in the table.
 
 The app sends only the job's name, its text and files, and the answer shape it wants. Any model, thinking level, output cap, temperature or tool list it sends is ignored.
 

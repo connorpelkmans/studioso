@@ -3258,8 +3258,10 @@ const SBPOLICY = (() => {
     explain: {effort: "medium", out: 4000, routine: true}, summary: {effort: "medium", out: 12000, routine: true},
     photo: {effort: "medium", out: 10000, routine: true}, linknotes: {effort: "medium", out: 10000, routine: true},
     transcript: {effort: "medium", out: 16000, routine: true}, groupplan: {effort: "medium", out: 6000, routine: true},
+    // The automatic plan: medium, to match what free Gemini users get today (it drops to low past the soft limit)
+    plan: {effort: "medium", out: 6000, routine: true},
     // Routine: ranks and words what the app has already worked out
-    plan: {effort: "low", out: 6000, routine: true}, tune: {effort: "low", out: 4000, routine: true},
+    tune: {effort: "low", out: 4000, routine: true},
     estimate: {effort: "low", out: 3000, routine: true}, capture: {effort: "low", out: 4000, routine: true},
     weekly: {effort: "low", out: 2000, routine: true}, coach: {effort: "low", out: 3000, routine: true},
     "cards-light": {effort: "low", out: 10000, routine: true}, "quiz-light": {effort: "low", out: 10000, routine: true},
@@ -3499,7 +3501,12 @@ const SBPOLICY = (() => {
     }
     const system = typeof job.system === "string" ? job.system : "";
     if (textBytes(system) > MAX_SYSTEM_BYTES) return {status: 413, body: {error: "too_long"}};
-    const task = taskOf(String(job.task || "").slice(0, 40), (await view()).soft);
+    const soft = (await view()).soft;
+    let task = taskOf(String(job.task || "").slice(0, 40), soft);
+    // Automatic jobs (the ones the app runs in the background) can be given more thinking than their usual level
+    // (the Worker raises them to medium for paid Pro), never past the soft limit, and never less than they had
+    const RANK = {none: 0, low: 1, medium: 2, high: 3};
+    if (job.auto === true && ctx.autoEffort && RANK[ctx.autoEffort] != null && !soft && RANK[ctx.autoEffort] > RANK[task.effort]) task = {name: task.name, effort: ctx.autoEffort, out: Math.max(task.out, 4000)};
     const cacheMedia = (task.name === "tutor" || task.name === "chat") && read.media > 0;
     const web = {search: job.search === true, fetch: job.urlContext === true}, onWeb = web.search || web.fetch;
     const req = buildRequest({system, blocks: read.blocks, schema, task, cacheMedia, web});
@@ -3568,7 +3575,7 @@ const AI_TIERS = {
 };
 const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
-  syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
+  syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["mid", "medium"], practice: ["reason", "medium"], rubric: ["reason", "medium"],
   transcribe: ["lite", "low"], ocr: ["lite", "low"],
   topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], chat: ["mid", "low"], linknotes: ["mid", "low"], "cards-light": ["mid", "low"], "quiz-light": ["mid", "low"], "cases-light": ["mid", "low"], photo: ["mid", "medium"], capture: ["mid", "low"], tune: ["mid", "low"], estimate: ["mid", "low"], breakdown: ["mid", "high"],
   school: ["mid", "low"], quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], remote: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
@@ -4294,7 +4301,7 @@ const AI_OWN_WORDS = {
   today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
 };
 async function proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own, hasBackup}){
-  const content = claudeBlocks(parts), job = {task, system, content, schema: schema ? toJsonSchema(schema) : null, search: !!search, urlContext: !!urlContext};
+  const content = claudeBlocks(parts), job = {task, system, content, schema: schema ? toJsonSchema(schema) : null, search: !!search, urlContext: !!urlContext, auto: !!auto};
   let res, j;
   if (own) {
     let r;
