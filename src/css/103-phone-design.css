@@ -284,9 +284,6 @@
 .btn:not(.focus-go) .tomato-ic{transform:translate(-2px,-2px)}
 /* The side menu's Focus button: a slightly bigger tomato, 1px higher */
 nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;transform:translateY(-1px)}
-/* The companion's face in buttons: 2px lower, so it sits centred beside the label */
-.btn span.cp-ai-face.ai-ic{top:calc(-.2em + 1px)}
-.btn:is([style*="flex"],.f-sum) span.cp-ai-face.ai-ic,.frow > .f-sum span.cp-ai-face.ai-ic{top:calc(-.14em + 1px)}
 
 /* The smallest phones (320px): labels wrap instead of being cut to "D…" or "2." */
 @media (max-width:359px){
