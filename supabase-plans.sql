@@ -44,9 +44,14 @@ update public.studyboard_config set
 where key = 'limits'
   and value -> 'free' @> '{"devices": 3, "groupMembers": 30, "groupMsgDays": 120}'::jsonb;
 
--- Pro went from $3.99 a month and $29.99 a year to $4.99 and $39.99 (Studyboard AI included). Only rows still on the old prices change.
+-- Pro went from $3.99 a month, $12.99 a semester and $29.99 a year to $4.99, $15.99 and $39.99 (Studyboard AI included).
+-- Only rows still on the old prices change. The app shows $15.99 for the semester plan unless a "semester" price is set here.
 update public.studyboard_config set value = jsonb_set(jsonb_set(value, '{monthly}', '"$4.99"'), '{yearly}', '"$39.99"'), updated_at = now()
 where key = 'prices' and value ->> 'monthly' = '$3.99' and value ->> 'yearly' = '$29.99';
+update public.studyboard_config set value = jsonb_set(value, '{semester}', '"$15.99"'), updated_at = now()
+where key = 'prices' and value ->> 'semester' = '$12.99';
+update public.studyboard_config set value = jsonb_set(value, '{storeSemester}', '"$15.99"'), updated_at = now()
+where key = 'prices' and value ->> 'storeSemester' = '$12.99';
 
 -- Free groups went from 3 members to 5
 update public.studyboard_config set value = jsonb_set(value, '{free,groupMembers}', '5'), updated_at = now()

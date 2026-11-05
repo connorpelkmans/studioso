@@ -21294,7 +21294,7 @@ window.__sbPlanObj = () => PLAN;
       free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$4.99", semester: "$12.99", yearly: "$39.99", trialDays: 7, checkoutTrialDays: 0},
+    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 7, checkoutTrialDays: 0},
     checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
