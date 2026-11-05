@@ -4,7 +4,7 @@ const assert = require("assert"), path = require("path");
 const L = require("pdf-lib");
 const src = require("../scripts/app-files").source();
 const block = (a, b, names) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, "markers " + a); return new Function(src.slice(i + a.length, j) + `; return {${names}};`)(); };
-const E = block("/*PDFEDIT-ENGINE-START*/", "/*PDFEDIT-ENGINE-END*/", "pdeLex, pdeStrip, pdeBake, pdeProbe, pdeBadChars, pdeTidy, pdeInside, pdeCmap, pdeWrap, pdeFontRights, pdeShapeOps, pdeReorg, pdeSigned, pdeOcrLayer, pdeCompress, pdeShown, pdeNumText, pdePage, pdeImages, pdeDetectFields, pdeProtect");
+const E = block("/*PDFEDIT-ENGINE-START*/", "/*PDFEDIT-ENGINE-END*/", "pdeLex, pdeStrip, pdeBake, pdeProbe, pdeBadChars, pdeTidy, pdeInside, pdeCmap, pdeWrap, pdeFontRights, pdeShapeOps, pdeReorg, pdeSigned, pdeOcrLayer, pdeCompress, pdeShown, pdeNumText, pdePage, pdeImages, pdeDetectFields, pdeProtect, pdeRealSpaces");
 const T = block("/*PDFTOOLS-START*/", "/*PDFTOOLS-END*/", "pdtParagraphs, pdtDocxBody, pdtTokens");
 const RV = block("/*REVIEW-START*/", "/*REVIEW-END*/", "REVIEW_ON, reviewNorm, reviewMerge, reviewCan, reviewKey, reviewMemoryStore");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
@@ -236,6 +236,15 @@ const region = (it, extra) => Object.assign({k: "t", p: 1, o: [it.x, it.y], r: 0
   ok(keptB4.map(e => e.id).join() === "x1,k1,l2,l3,q1,m2,o1", "new kinds are checked: a bad picture number, a script link and an empty watermark are dropped: " + keptB4.map(e => e.id).join());
   const qB1 = keptB4.find(e => e.id === "q1"), mB2 = keptB4.find(e => e.id === "m2"), oB1 = keptB4.find(e => e.id === "o1");
   ok(qB1.ft === "text" && qB1.name === "Field" && mB2.op === 0.6 && oB1.items.length === 1 && !oB1.items[0].kids[0].kids, "field kinds, watermark strength and two levels of contents are kept in bounds");
+
+  /* A heading drawn as two runs a little apart (PDF.js reads "Summe r"): the line is edited with the PDF's own letters and spaces */
+  const cS = "BT /F2 16 Tf 140 720 Td (BIOS 230 Ecology and Evolution, Summe) Tj ET BT /F2 16 Tf " + (140 + L.StandardFontEmbedder.for(L.StandardFonts.TimesRoman).widthOfTextAtSize("BIOS 230 Ecology and Evolution, Summe", 16) + 2.2) + " 720 Td (r 2026) Tj ET";
+  const bS = pdf(cS), hS = (await textOf(bS))[0];
+  ok(hS.s === "BIOS 230 Ecology and Evolution, Summe r 2026", "PDF.js puts a space between letters that sit a little apart: " + hS.s);
+  const dS = await L.PDFDocument.load(bS), pS = E.pdeProbe(L, dS, 1, [region(hS)])[0];
+  ok(pS.I.seq.replace(/ /g, "").length === 37 && pS.I.seq.split(" ").length === 7, "the probe lists the PDF's own letters and spaces in order: " + pS.I.seq);
+  ok(E.pdeRealSpaces(hS.s, pS.I.seq) === "BIOS 230 Ecology and Evolution, Summer 2026", "so the space that isn't in the PDF is left out");
+  ok(E.pdeRealSpaces("a b", "xx x") === "a b" && E.pdeRealSpaces("ﬁne", "xx x") === "ﬁne" && E.pdeRealSpaces("ab cd", "xxxx") === "abcd", "and nothing else changes (letters that don't match up one to one leave the words as they were)");
 
   /* Convert: a PDF's text as paragraphs and headings, then a Word bodyB */
   const itemsB = [{str: "Lab Report", x: 72, y: 720, fs: 22}, {str: "The first line of a", x: 72, y: 680, fs: 11}, {str: "paragraph that wraps.", x: 72, y: 666, fs: 11},

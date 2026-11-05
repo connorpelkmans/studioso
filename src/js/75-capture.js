@@ -522,6 +522,7 @@ const pastedImages = e => [...((e.clipboardData && e.clipboardData.files) || [])
 const anyDialogOpen = () => ["dlg", "pomoDlg", "sxDlg", "capDlg", "alarmDlg", "aiConsent", "sbTour"].some(id => { const d = document.getElementById(id); return d && d.open; }) || !!document.querySelector("dialog.ai-consent[open]");
 
 function openCapture(o){
+  if (CAPTURE_OFF) return;
   o = o || {};
   ensureDom();
   if (dlg.open) { try { dlg.close(); } catch (e) {} }
@@ -695,6 +696,7 @@ async function shrink(file){
 }
 const b64 = async blob => bytesToB64(new Uint8Array(await blob.arrayBuffer()));
 async function photoFiles(files, o){
+  if (CAPTURE_OFF) return;
   o = o || {};
   const list = [...files].filter(isImg).slice(0, 10);
   if (!list.length) { toast("Studyboard can't read that photo. Try a JPEG or PNG."); return; }
@@ -885,6 +887,7 @@ function settingsExtra(fn){ if (typeof fn === "function") settingsFns.push(fn); 
 /* links */
 function handleUrl(raw, o){
   o = o || {};
+  if (CAPTURE_OFF) { if (!o.quiet) toast("Adding tasks from shares and links isn't available right now."); return {ok: false, reason: "off"}; }
   const r = CAP.parseUrl(raw, {today: todayISO()});
   if (!r.ok) { if (!o.quiet) toast("That link can't be used for capture."); return {ok: false, reason: r.reason}; }
   const p = r.params;
@@ -928,12 +931,13 @@ function fast(text){
 
 /* entry points */
 document.addEventListener("keydown", e => {
-  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.key !== "c") return;
+  if (CAPTURE_OFF || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.key !== "c") return;
   const t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
   if (anyDialogOpen() || (ui.tab === "flashcards" && ui.fc)) return;
   e.preventDefault(); openCapture({shortcut: true});
 });
 document.addEventListener("paste", e => {
+  if (CAPTURE_OFF) return;
   const t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
   if (anyDialogOpen() || ui.tab !== "board") return;
   const imgs = pastedImages(e);
@@ -941,14 +945,15 @@ document.addEventListener("paste", e => {
   const txt = (e.clipboardData && e.clipboardData.getData("text/plain")) || "";
   if (txt.trim().split(/\r?\n/).filter(Boolean).length >= 2 && txt.length <= 4000) { e.preventDefault(); const r = CAP.fromText(txt, ctx(), {source: "paste"}); if (r.drafts.length) present(r.drafts, {trusted: true}); }
 });
-["dragover", "dragenter"].forEach(ev => window.addEventListener(ev, e => { if (anyDialogOpen() || !hasFiles(e) || ui.tab === "files") return; e.preventDefault(); document.body.classList.add("cap-drag"); }));
+["dragover", "dragenter"].forEach(ev => window.addEventListener(ev, e => { if (CAPTURE_OFF || anyDialogOpen() || !hasFiles(e) || ui.tab === "files") return; e.preventDefault(); document.body.classList.add("cap-drag"); }));
 ["dragleave", "drop"].forEach(ev => window.addEventListener(ev, e => { if (ev === "dragleave" && e.relatedTarget) return; document.body.classList.remove("cap-drag"); }));
 window.addEventListener("drop", e => {
-  if (anyDialogOpen() || ui.tab === "files") return;
+  if (CAPTURE_OFF || anyDialogOpen() || ui.tab === "files") return;
   const f = imageFiles(e.dataTransfer); if (!f.length) return;
   e.preventDefault(); photoFiles(f, {source: "drop"});
 });
 hook("act", (act, b) => {
+  if (CAPTURE_OFF && /^cap-(open|photo|try)$/.test(act)) return true;
   if (act === "cap-open") { openCapture({shortcut: true}); return true; }
   if (act === "cap-photo") { ensureDom(); if (dlg.open) dlg.close(); camInput.click(); return true; }
   if (act === "cap-try") { tryIt(b.dataset.try); return true; }
@@ -1006,7 +1011,7 @@ function settingsHtml(){
     ${desk ? shotHtml() : ""}${extra}
   </div>`;
 }
-hook("menu", () => settingsHtml());
+hook("menu", () => CAPTURE_OFF ? "" : settingsHtml());
 
 /* start */
 function boot(){

@@ -1,4 +1,7 @@
 /* ===== module: 01-helpers.js: the app's core, backups, helpers, workload and shared pieces ===== */
+// Quick Capture (the C window, photo and screenshot capture, share sheet, links and its Settings) is switched off for now.
+// Set to false to bring it all back. The add bar's sentence reading (same parser) stays on either way.
+const CAPTURE_OFF = true;
 /* Backups */
 let autoBackupDone = false;
 // Backups are kept on this device

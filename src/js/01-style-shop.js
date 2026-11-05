@@ -832,7 +832,7 @@ function kitFollow(kind, list, cur, auto){
 }
 function animRows(){
   const c = styleCfg(), row = (key, icon, title, sub) => `<div class="cap-row"><span style="flex:1;font-weight:600">${icon} ${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-act="anim-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""}> On</label></div>`;
-  return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes. Turn off if they get distracting.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
+  return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
     + row("quotes", "💬", "Daily Quote", "A short motivational quote the first time you open Studyboard each day.")
     + `<button data-act="daily-quote"><span>Today's Quote and Streak<span class="sub">${esc(streakLine())}</span></span></button>`;
 }

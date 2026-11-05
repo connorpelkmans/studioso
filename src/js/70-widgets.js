@@ -184,6 +184,7 @@
   // Inside the App Store / Google Play apps (Capacitor) the web-only steps
   const NATIVE_APP = (() => { try { const C = window.Capacitor; return !!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform()); } catch (e) { return false; } })();
   function nativeRows(){
+    if (CAPTURE_OFF) return IOS ? "" : `<div class="cap-row"><span style="flex:1;font-weight:600">App Shortcuts<span class="sub">Press and hold the Studyboard icon on your Home screen for Quick Add.</span></span></div>`;
     const share = `<div class="cap-row"><span style="flex:1;font-weight:600">Share to Studyboard<span class="sub">In any app, tap Share and choose Studyboard to turn text, a link or a photo into a task.</span></span></div>`;
     if (IOS) return share + `<div class="cap-row"><span style="flex:1;font-weight:600">Siri and Shortcuts<span class="sub">Say "Add a task to Studyboard" or "Take a photo for Studyboard". Both are also in the Shortcuts app, ready to put on your Home Screen or Action button.</span></span></div>`;
     return share + `<div class="cap-row"><span style="flex:1;font-weight:600">Quick Capture Tile<span class="sub">Swipe down twice, tap the pencil to edit your Quick Settings, and drag Quick capture in. One tap opens Studyboard ready to add a task.</span></span></div>

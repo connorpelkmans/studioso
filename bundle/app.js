@@ -291,13 +291,13 @@ const tr = SBI18N.tr, trn = SBI18N.trn;
 hook("menu", () => {
   const av = SBI18N.available(); if (av.length < 2) return "";
   const cur = SBI18N.saved, items = [["auto", tr("lang.auto", "Auto")]].concat(av.map(l => [l, SBI18N.names[l] || l]));
-  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">${esc(tr("lang.title", "Language"))}<span class="sub">${esc(tr("lang.sub", "Auto follows your device. Anything not translated yet stays in English."))}</span></span><div class="segb" role="group" aria-label="${esc(tr("lang.title", "Language"))}">${items.map(([k, l]) => `<button type="button" data-act="lang-set" data-id="${esc(k)}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div></div>`;
+  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem" data-i18n="lang.title" data-i18n-en="Language">${esc(tr("lang.title", "Language"))}<span class="sub" data-i18n="lang.sub2" data-i18n-en="Anything not translated yet stays in English.">${esc(tr("lang.sub2", "Anything not translated yet stays in English."))}</span></span><div class="segb" role="group" aria-label="${esc(tr("lang.title", "Language"))}">${items.map(([k, l]) => `<button type="button" data-act="lang-set" data-id="${esc(k)}" aria-pressed="${cur === k}"${k === "auto" ? ' data-i18n="lang.auto" data-i18n-en="Auto"' : ""}>${esc(l)}</button>`).join("")}</div></div>`;
 });
 // Spelling: Automatic (by where you are), or fixed to American, British or Canadian
 hook("menu", () => {
   let cur = "auto"; try { cur = localStorage.getItem(SPELL.KEY) || "auto"; } catch (e) {}
   const opts = [["auto", "Automatic"], ["us", "American"], ["gb", "British"], ["ca", "Canadian"]];
-  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Spelling<span class="sub">Automatic follows where you are: colour and centre in Canada, the UK, Australia and more; &#99;olor and &#99;enter in the US. Your own text is never changed.</span></span><div class="segb" role="group" aria-label="Spelling">${opts.map(([k, l]) => `<button type="button" data-act="spell-set" data-id="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;
+  return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Spelling<span class="sub">Automatic follows where you are.</span></span><div class="segb" role="group" aria-label="Spelling">${opts.map(([k, l]) => `<button type="button" data-act="spell-set" data-id="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;
 });
 hook("act", (act, el, id) => {
   if (act !== "spell-set") return false;
@@ -307,6 +307,8 @@ hook("act", (act, el, id) => {
 });
 hook("act", (act, el, id) => {
   if (act !== "lang-set") return false;
+  // Show the pick right away (the settings sheet isn't redrawn by render())
+  document.querySelectorAll('[data-act="lang-set"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id));
   SBI18N.set(id).then(() => { try { render(); } catch (e) {} });
   return true;
 });
@@ -5120,10 +5122,19 @@ function aiRow(){
   if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
   return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
+// Which company a pasted key is from, by its format (Claude keys also start with sk-, so they're checked first)
+const aiKeyKind = k => /^sk-ant-/.test(k) ? "anthropic" : /^sk-/.test(k) ? "openai" : /^AIza/.test(k) ? "gemini" : "";
 // opts.code: a code from another device (a scanned link) to offer at the top
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
-  const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai);
+  const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai), pro = aiProAvail();
+  // Pro: one box for a backup key from any company, saved into the same per-company keys the separate boxes use
+  const backupHint = () => aiProDeclined() ? "Used while Studyboard AI is off. Paste a Gemini, OpenAI or Claude key." : "Used if your Studyboard AI runs out. Paste a Gemini, OpenAI or Claude key.";
+  const backupRow = () => { const b = aiProBackup(c.keys); return `<div class="ai-key" id="aiBackup">
+      <label class="f"><span class="lh">Backup API Key <span class="hint" id="aiBackupHint">${esc(backupHint())}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-backup" id="aiBackupKey" value="${esc(b ? c.keys[b] : "")}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" id="aiBackupShow">Show</button><button type="button" class="btn small" id="aiBackupTest">Test</button></span></label>
+      <p class="mini" id="aiBackupKind" aria-live="polite" style="margin:0"></p>
+      <p class="mini ai-test-msg" id="aiBackupMsg" aria-live="polite" style="margin:0"></p>
+      ${Object.keys(AI_PROVIDERS).map(p => `<input type="hidden" data-key="${p}" value="${esc(c.keys[p])}">`).join("")}</div>`; };
   const keyRow = (p) => { const P = AI_PROVIDERS[p]; return `<div class="ai-key" data-p="${p}">
       <label class="f"><span class="lh">${esc(P.keyLabel)}${p === "gemini" ? ` ${REQ}` : ""} <span class="hint">${esc(P.keyHint)}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-${p}" data-key="${p}" value="${esc(c.keys[p])}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" data-show="${p}">Show</button><button type="button" class="btn small" data-test="${p}">Test</button></span></label>
       <p class="mini ai-test-msg" data-msg="${p}" aria-live="polite" style="margin:0"></p></div>`; };
@@ -5134,46 +5145,45 @@ function aiSetupSheet(fromFeature, opts){
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:6px"><p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}. ${esc(aiProLine())}</p>
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
-        <p class="mini" style="margin:0">Turn it off to use your own key below instead. ${aiProUsedUp() ? "It's used up for now, so your own key (Gemini first) is used until it resets." : "Your own key below is only a backup: if this month's or today's Studyboard AI runs out, your Gemini key (or another key you added) takes over until it resets."}</p></div>` : ""}
-      ${fromFeature && !aiProAvail() ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
-      <p style="margin:0">Studyboard's AI uses <b>Google Gemini</b> by default because it's free. The free tier easily covers one student's studying.</p>
+        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If this month's or today's Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+      ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
+      ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
-        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> and sign in with your Google account.</li>
-        <li>Click <b>Create API key</b>. Don't turn on billing for it, so it can never cost anything. If you use up the free amount, AI just pauses until it resets.</li>
-        <li>Click <b>Copy</b> next to the key, come back here and paste it into the <b>Gemini</b> box below.${DESK && DESK.aiClipboard ? " Studyboard also picks it up on its own when you come back to this window." : ""}</li>
-      </ol>
+        <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a></li>
+        <li>Click <b>Create API Key</b> (keep billing off)</li>
+        <li>Copy the key and paste below</li>
+      </ol>`}
       ${opts.code && KEY_RELAY ? `<div class="ai-disclaimer" id="aiHoAsk" style="display:grid;gap:8px"><p style="margin:0"><b>Add AI from your other device?</b> This adds the AI keys you set up there to this device, using code <b>${esc(opts.code)}</b>.</p><div class="row" style="display:flex;gap:8px"><button type="button" class="btn primary small" id="aiHoYes">Add Keys</button><button type="button" class="btn small" id="aiHoNo">Not Now</button></div></div>` : ""}
       <p class="mini" id="aiPasteMsg" aria-live="polite" style="margin:0" hidden></p>
-      ${keyRow("gemini")}
+      ${pro ? backupRow() : keyRow("gemini")}
       ${KEY_RELAY ? `<details class="ai-paid" id="aiHoIn" ${opts.code ? "open" : ""}><summary>Already Set Up on Another Device?</summary>
         <div class="ai-handoff-in"><p class="mini" style="margin:0">On that device, open <b>Settings</b>, <b>AI Features</b> and tap <b>Add AI to Another Device</b>. Scan the code it shows with this device's camera, or type the code here.</p>
           <span class="key-row"><input type="text" class="ai-code-in" id="aiHoCode" value="${esc(opts.code || "")}" placeholder="XXXX-XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Code from your other device" data-noenter><button type="button" class="btn small" id="aiHoGet">Add Keys</button></span>
           <p class="mini" id="aiHoMsg" aria-live="polite" style="margin:0"></p></div></details>` : ""}
-      <details class="ai-paid" ${c.keys.anthropic || c.keys.openai ? "open" : ""}><summary>Use a Paid Model Instead (Optional)</summary>
+      ${pro ? "" : `<details class="ai-paid" ${c.keys.anthropic || c.keys.openai ? "open" : ""}><summary>Use a Paid Model Instead (Optional)</summary>
         <div class="ai-paid-body">
-          <p class="mini ai-disclaimer" style="margin:0"><b>These cost money.</b> You can use a paid Gemini model (like Gemini 3.1 Pro) by turning on billing for your key in Google AI Studio, or use Claude or ChatGPT with an API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a>. API keys are separate from a Claude or ChatGPT subscription and are billed per use by that company. Big PDFs cost the most. Paid services generally don't use what you send to train their models.</p>
+          <p class="mini ai-disclaimer" style="margin:0"><b>These cost money.</b> You can use a paid Gemini model by turning on billing for your key in Google AI Studio, or use Claude or ChatGPT with an API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a>. These usually do not use what you send to train their models.</p>
           ${keyRow("anthropic")}
-          <p class="mini" style="margin:0"><b>A Claude key always runs in Studyboard AI Mode</b>, exactly like Studyboard AI: Claude Haiku 5.5, the same thinking for each job, and the same limits (everyday jobs think less after $${SBPOLICY.limits({}).softUsd} in a month; AI pauses at $${SBPOLICY.limits({}).hardUsd} a month or $${SBPOLICY.limits({}).dayUsd} a day, and resets on the 1st).${c.provider === "anthropic" && c.model === "studyboard" ? ` This month: ${ownView().usedPct}% used.` : ""}</p>
           ${keyRow("openai")}
-        </div></details>
+        </div></details>`}
       <label class="f"><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
       <fieldset class="ai-auto"><legend>Automatic AI</legend>
         <label class="mi-check"><input type="checkbox" id="aiAuto" ${(ai => ai.auto !== undefined ? ai.auto : isFreeModel(c.provider, c.model))((state.settings && state.settings.ai) || {}) ? "checked" : ""}> Improve Today's Plan and study sessions automatically</label>
-        <p class="mini" style="margin:0">When this is on, the AI quietly helps in the background and never changes anything without a tap: it helps choose <b>Do This Next</b>, estimates hours for tasks you didn't estimate, can flag a few things you might miss (like an earlier deadline buried in instructions), tunes study sessions to your weak cards, and drafts exam study plans, announcement alerts and a weekly review. Anything it writes must point at your own tasks and dates or it is thrown away. Pick exactly which parts you want in <button type="button" class="link-btn" data-act="auto-panel">What Each Part Does</button>.</p>
+        <p class="mini" style="margin:0">AI helps in the background, like picking <b>Do This Next</b> and estimating hours. It never changes anything without a tap. Choose the parts in <button type="button" class="link-btn" data-act="auto-panel">What Each Part Does</button>.</p>
         <label class="f"><span class="lh">Model for Automatic AI</span><select id="aiAutoModel"><option value="free" ${((state.settings.ai || {}).autoModel || "free") === "free" ? "selected" : ""}>Free Gemini (no cost)</option><option value="default" ${(state.settings.ai || {}).autoModel === "default" ? "selected" : ""}>My default model</option></select></label>
         <p class="ai-disclaimer mini" id="aiAutoWarn" hidden style="margin:0"></p>
         <button type="button" class="btn small" data-act="auto-panel">What Automatic AI Is Doing</button>
       </fieldset>
       ${KEY_RELAY && hasKey ? `<div class="ai-paste"><button type="button" class="btn" id="aiHoSend">Add AI to Another Device</button><p class="mini">Shows a code to scan on your phone or other computer, so you don't have to paste the key there.</p></div>` : ""}
-      <p class="mini" style="margin:0">Your keys are saved on this device only${DESK ? ", locked with your system keychain" : ""}. They are never sent to your Studyboard account, they're left out of backup files you export, and they're removed when you sign out. To use AI on another device, add the key there too${KEY_RELAY ? ", or use Add AI to Another Device: your keys are locked with the code it shows before they leave this device, and the locked copy is deleted as soon as your other device takes it, or after 10 minutes" : ""}. When you use an AI feature, what you ask about is sent to the AI company you chose (you'll be asked to agree first). On Google's free tier, Google may use what you send to improve its products, so don't upload private or sensitive information.</p>
-      <div class="ai-paste"><button type="button" class="btn" data-ai-report="settings" data-ai-text="">Report an AI Response</button><p class="mini">AI answers, summaries, plans and flashcards are written by the model you choose (Google Gemini, Anthropic Claude or OpenAI ChatGPT) from what Studyboard sends it, and they can be wrong. If one was wrong, harmful or inappropriate, tell us.</p></div>
+      <p class="mini" style="margin:0">Your keys stay on this device${DESK ? " (in your system keychain)" : ""}, never in your account or backups. AI requests go to the company you chose. Google's free tier may use them to improve its products, so avoid private info.</p>
+      <div class="ai-paste"><button type="button" class="btn" data-ai-report="settings" data-ai-text="">Report an AI Response</button><p class="mini">AI can be wrong. Tell us if a response was wrong or harmful.</p></div>
     </div>
     <div class="sheet-foot">${c.keys.gemini || c.keys.anthropic || c.keys.openai ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
   </form>`);
   const keysNow = () => { const k = {}; $$("[data-key]", dlg).forEach(i => { k[i.dataset.key] = i.value.trim(); }); return k; };
   const autoEngine = () => { const k = keysNow(), [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); return $("#aiAutoModel").value === "free" && k.gemini ? {provider: "gemini", model: "auto"} : {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto"}; };
   const autoWarn = () => { if (!$("#aiAutoWarn") || !$("#aiDefault")) return; const w = $("#aiAutoWarn"), e = autoEngine(), paid = !isFreeModel(e.provider, e.model); w.hidden = !($("#aiAuto").checked && paid);
-    w.innerHTML = `<b>This would use a paid model (${esc(aiModelName(e.provider, e.model))}) in the background and may cost money.</b> You'll be asked to confirm before it's turned on.${keysNow().gemini ? "" : " Add a free Gemini key to run it at no cost."}`; };
+    w.innerHTML = `<b>This would use a paid model (${esc(aiModelName(e.provider, e.model))}) in the background and may cost money.</b> You'll be asked to confirm before it's turned on.${keysNow().gemini || pro ? "" : " Add a free Gemini key to run it at no cost."}`; };
   let autoTouched = ((state.settings && state.settings.ai) || {}).auto !== undefined;
   $("#aiAuto").addEventListener("change", () => { autoTouched = true; });
   const autoDefault = () => { if (autoTouched || !$("#aiDefault") || !$("#aiAuto")) return; const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); $("#aiAuto").checked = !!keysNow()[p] && isFreeModel(p, m); };
@@ -5192,7 +5202,7 @@ function aiSetupSheet(fromFeature, opts){
     const model = sel[0] === p ? sel[1] : (p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]);
     const prev = state.settings.ai, prevKeys = aiLocalKeys;
     aiLocalKeys = Object.assign({}, aiCfg().keys, {[p]: key});
-    state.settings = Object.assign({}, state.settings, {ai: {provider: p, model, keys: {}}});
+    state.settings = Object.assign({}, state.settings, {ai: {provider: p, model, keys: {}, ownKey: true}}); // ownKey: test the key itself, not Studyboard AI
     let out;
     try { const r = await aiCall({task: "ping", fast: true, maxTokens: 400, temperature: 0, parts: [{text: "Reply with {\"ok\": true}"}], system: "Reply with JSON only.", schema: {type: "OBJECT", properties: {ok: {type: "BOOLEAN"}}, required: ["ok"]}}); out = {ok: true, model: r.model}; }
     catch(e) { out = {ok: false, err: e.message}; }
@@ -5206,17 +5216,38 @@ function aiSetupSheet(fromFeature, opts){
     const r = await testKey(p, key);
     msg.textContent = r.ok ? `It works. Connected to ${r.model}.` : r.err; b.disabled = false;
   }));
+  // Pro's one backup box: the key's format says which company it's from; it replaces any saved keys, and an empty box removes them
+  const bx = $("#aiBackupKey"), bxKind = $("#aiBackupKind"), bxMsg = $("#aiBackupMsg");
+  const bxSay = () => { if (!bx) return; const v = bx.value.trim(), p = aiKeyKind(v), k = keysNow(), saved = aiProBackup(c.keys), others = Object.keys(AI_PROVIDERS).filter(x => x !== p && k[x]);
+    bxKind.textContent = !v ? "No backup key." : !p ? "That doesn't look like a Gemini, OpenAI or Claude key." : `${v === c.keys[p] && p === saved ? "Saved" : "New"}: ${AI_PROVIDERS[p].label} key${others.length ? ` (also ${others.map(x => AI_PROVIDERS[x].short).join(" and ")})` : ""}.`; };
+  const bxSet = () => { const v = bx.value.trim(), p = aiKeyKind(v), hid = dlg.querySelector('[data-key="gemini"]');
+    $$("[data-key]", dlg).forEach(i => { i.value = p === i.dataset.key ? v : ""; });
+    bxMsg.textContent = ""; bxSay(); hid.dispatchEvent(new Event("change")); };
+  if (bx) {
+    bxSay();
+    bx.addEventListener("input", bxSet);
+    bx.addEventListener("paste", e => { const t = e.clipboardData ? e.clipboardData.getData("text") : "", code = KEY_RELAY && !aiKeyKind(t.trim()) ? KEYHO.codeIn(t) : ""; if (code) { e.preventDefault(); getKeys(code); } });
+    $("#aiBackupShow").addEventListener("click", e => { const hid = KEY_MASK ? bx.classList.toggle("key-mask") : (bx.type = bx.type === "password" ? "text" : "password") === "password"; e.currentTarget.textContent = hid ? "Show" : "Hide"; });
+    $("#aiBackupTest").addEventListener("click", async e => { const b = e.currentTarget, v = bx.value.trim(), p = aiKeyKind(v);
+      if (!v) { bxMsg.textContent = "Paste the key first."; return; }
+      if (!p) { bxMsg.textContent = "That doesn't look like a Gemini, OpenAI or Claude key."; return; }
+      bxMsg.textContent = "Testing…"; b.disabled = true;
+      const r = await testKey(p, v);
+      bxMsg.textContent = r.ok ? `It works. Connected to ${r.model}.` : r.err; b.disabled = false; });
+  }
   const save = okMsg => {
-    const k = keysNow();
-    if (!k.gemini && !k.anthropic && !k.openai) { const m = dlg.querySelector('[data-msg="gemini"]'); m.textContent = "Paste your Gemini key first."; dlg.querySelector('[data-key="gemini"]').focus(); return; }
+    const k = keysNow(), bx = $("#aiBackupKey");
+    if (bx) { const v = bx.value.trim(); if (v && !aiKeyKind(v)) { $("#aiBackupMsg").textContent = "That doesn't look like a Gemini, OpenAI or Claude key."; bx.focus(); return; } }
+    else if (!k.gemini && !k.anthropic && !k.openai) { const m = dlg.querySelector('[data-msg="gemini"]'); m.textContent = "Paste your Gemini key first."; dlg.querySelector('[data-key="gemini"]').focus(); return; }
     if (k.gemini && /^(sk-|sb_)/.test(k.gemini)) { dlg.querySelector('[data-msg="gemini"]').textContent = "That doesn't look like a Gemini key. Gemini keys come from Google AI Studio."; return; }
     if (k.anthropic && !/^sk-ant-/.test(k.anthropic)) { dlg.querySelector('[data-msg="anthropic"]').textContent = "Claude API keys start with sk-ant-."; return; }
     const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|");
     const prev = state.settings.ai || {};
     const next = {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto", keys: {}, auto: $("#aiAuto").checked, autoModel: $("#aiAutoModel").value, autoPaidOk: prev.autoPaidOk || ""};
+    if (prev.ownKey) next.ownKey = true;
     const e = autoEngine(), paid = !isFreeModel(e.provider, e.model), tag = `${e.provider}|${e.model}`;
     const finish = msg => { aiKeysSetLocal(k); state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings(); AUTO.sig = ""; AUTO.planAt = 0; autoErr = null; autoSave(); if (dlg.open) dlg.close(); toast(msg); scheduleRender();
-      const pv = next.provider; if (!aiConsented(pv)) setTimeout(() => aiConsentAsk(pv), 300); };
+      const pv = next.provider; if (k[pv] && !aiConsented(pv)) setTimeout(() => aiConsentAsk(pv), 300); };
     if (next.auto && paid && next.autoPaidOk !== tag) {
       autoPaidConfirmSheet(e, ok => { if (ok) { next.autoPaidOk = tag; finish("AI settings saved. Automatic AI will use your paid model."); } else { next.auto = false; finish("AI settings saved. Automatic AI is off."); } });
       return;
@@ -5255,6 +5286,7 @@ function aiSetupSheet(fromFeature, opts){
     lastTried = keys.gemini || "";
     Object.entries(keys).forEach(([p, k]) => { const i = dlg.querySelector(`[data-key="${p}"]`); if (i) { i.value = k; i.dispatchEvent(new Event("change")); } });
     if (keys.anthropic || keys.openai) { const d = dlg.querySelector("details.ai-paid:not(#aiHoIn)"); if (d) d.open = true; }
+    if (bx) { const p = aiProBackup(keysNow()); bx.value = p ? keysNow()[p] : ""; bxSay(); }
     const n = Object.keys(keys).length;
     m.textContent = n === 1 ? "Got your key." : `Got ${n} keys.`;
     setTimeout(() => { if (live()) save(`AI is on. ${n === 1 ? "Your key" : "Your keys"} came from your other device.`); }, 0);
@@ -5277,7 +5309,8 @@ function aiSetupSheet(fromFeature, opts){
     if (k) setTimeout(() => { lastTried = ""; useKey(k); }, 0);
     else if (code) { e.preventDefault(); getKeys(code); }
   });
-  if (DESK && DESK.aiClipboard) {
+  // Watching the clipboard for a free Gemini key is for the Gemini set-up; Pro has the one backup box instead
+  if (!pro && DESK && DESK.aiClipboard) {
     let timer = 0;
     const poll = async () => {
       if (!live()) { clearInterval(timer); window.removeEventListener("focus", poll); return; }
@@ -5285,7 +5318,7 @@ function aiSetupSheet(fromFeature, opts){
       try { const k = KEYHO.geminiKeyIn(String(await DESK.aiClipboard() || "")); if (k) useKey(k); } catch (e) {}
     };
     timer = setInterval(poll, 1500); window.addEventListener("focus", poll);
-  } else if (navigator.permissions && navigator.clipboard && navigator.clipboard.readText) {
+  } else if (!pro && navigator.permissions && navigator.clipboard && navigator.clipboard.readText) {
     const onFocus = async () => {
       if (!live()) { window.removeEventListener("focus", onFocus); return; }
       if (gIn.value.trim()) return;
@@ -5307,6 +5340,7 @@ function aiSetupSheet(fromFeature, opts){
     const raw = Object.assign({}, (state.settings && state.settings.ai) || {});
     if (usePro.checked) delete raw.ownKey; else raw.ownKey = true;
     state.settings = Object.assign({}, state.settings, {ai: raw}); saveSettings();
+    const bh = $("#aiBackupHint"); if (bh) bh.textContent = backupHint();
     toast(usePro.checked ? "Studyboard AI is on." : "Using your own key. Turn Studyboard AI back on here any time."); try { scheduleRender(); } catch(e) {}
   });
   if (AI_PRO && sbUser) aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} });
@@ -5581,7 +5615,7 @@ function qaBarHtml(){
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
       <span class="qa-ic" aria-hidden="true">${aiReady() ? AI_ICON : "+"}</span>
       <input type="text" id="qaIn" value="${esc(ui.qaText || "")}" ${(ex => phPh("Add a task by typing, e.g. " + (ex || "bio quiz fri 2pm worth 5%"), "e.g. " + (ex ? ex.split(" ").slice(0, 2).join(" ") : "bio quiz fri")))(window.SBAREA && SBAREA.example())} aria-label="Add a task by typing a sentence" maxlength="400" data-noenter>
-      <button type="button" class="btn small cap-cam" data-act="cap-photo" aria-label="Add tasks from a photo of a whiteboard or slide" title="Photo of a whiteboard or slide"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.2-2h5.6L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.4"/></svg></button>
+      ${CAPTURE_OFF ? "" : `<button type="button" class="btn small cap-cam" data-act="cap-photo" aria-label="Add tasks from a photo of a whiteboard or slide" title="Photo of a whiteboard or slide"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.2-2h5.6L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.4"/></svg></button>`}
       <button type="submit" class="btn small primary" ${q && q.busy ? "disabled" : ""}>${q && q.busy ? `<span class="ai-spin" aria-hidden="true"></span>Reading` : "Add"}</button>
     </form>
     <p class="qa-live mini" id="qaLive" aria-live="polite">${q ? "" : esc(qaLiveText(ui.qaText))}</p>
@@ -8628,7 +8662,7 @@ function kitFollow(kind, list, cur, auto){
 }
 function animRows(){
   const c = styleCfg(), row = (key, icon, title, sub) => `<div class="cap-row"><span style="flex:1;font-weight:600">${icon} ${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-act="anim-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""}> On</label></div>`;
-  return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes. Turn off if they get distracting.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
+  return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
     + row("quotes", "💬", "Daily Quote", "A short motivational quote the first time you open Studyboard each day.")
     + `<button data-act="daily-quote"><span>Today's Quote and Streak<span class="sub">${esc(streakLine())}</span></span></button>`;
 }
@@ -8984,6 +9018,9 @@ const AI_ACTS = {
   "ask-course": el => askSheet(el.dataset.id || "")
 };
 /* ===== module: 01-helpers.js: the app's core, backups, helpers, workload and shared pieces ===== */
+// Quick Capture (the C window, photo and screenshot capture, share sheet, links and its Settings) is switched off for now.
+// Set to false to bring it all back. The add bar's sentence reading (same parser) stays on either way.
+const CAPTURE_OFF = true;
 /* Backups */
 let autoBackupDone = false;
 // Backups are kept on this device
@@ -13628,7 +13665,7 @@ function taskForm(t, preset = {}){
   const dependsOnSelf = (id, seen = new Set()) => { if (id === t.id) return true; if (seen.has(id)) return false; seen.add(id); return ((state.tasks[id] || {}).dependsOn || []).some(x => dependsOnSelf(x, seen)); };
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === t.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
   openSheet(`<form class="sheet">${bandHead(isNew ? "New Task" : "Edit Task", SH_IC.pencil, "var(--accent-band,var(--accent))", "", isNew ? "" : esc(t.title))}
-    <div class="sheet-body">${REQ_NOTE}${window.SBBREAK ? SBBREAK.formHtml(isNew ? null : t, isNew) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
+    <div class="sheet-body">${window.SBBREAK && !isNew ? SBBREAK.formHtml(t, false) : ""}${!isNew && window.SBLINKED ? SBLINKED.taskHtml(t) : ""}
       <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="200" value="${esc(t.title)}" autofocus></label>
       <div class="two">
         <label class="f">Type<select name="type" id="tfType">${(window.SBAREA ? SBAREA.types() : TYPES).map(x => `<option ${x === t.type ? "selected" : ""}>${x}</option>`).join("")}</select></label>
@@ -13658,7 +13695,7 @@ function taskForm(t, preset = {}){
         <summary><span class="adv-title">Advanced Settings</span><span class="adv-sum" id="advSum"></span></summary>
         <div class="adv-body">
           <div class="two">
-            <label class="f" data-fld="hours"><span class="lh"><span class="lbl">Hours Needed</span>${inPreview() ? "" : `<button type="button" class="link-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3"></label>
+            <label class="f" data-fld="hours"><span class="lbl">Hours Needed</span><span class="tf-hours-row"><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3">${inPreview() ? "" : `<button type="button" class="btn small ai-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span></label>
           </div>
           <p class="mini est-hint" id="estHint" hidden aria-live="polite"></p>
           <p class="mini acc-hint" id="accHint" hidden aria-live="polite"></p>
@@ -13690,6 +13727,7 @@ function taskForm(t, preset = {}){
       ${!isNew && t.due ? `<div class="link-row"><a href="${esc(gcalLink(t))}" target="_blank" rel="noopener noreferrer">Add to Google Calendar</a></div>` : ""}
       ${!isNew && t.seriesId ? `<p class="mini" style="margin:0">${REPEAT} Part of a repeating series. Changes here apply to this task only.</p>` : ""}
       ${!isNew && t.history.length ? `<details class="hist"><summary>History (${t.history.length})</summary><ul>${t.history.slice().reverse().map(h => `<li><span>${esc(h.text)}</span><time>${esc(new Date(h.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</time></li>`).join("")}</ul></details>` : ""}
+      ${isNew && window.SBBREAK ? SBBREAK.formHtml(null, true) : ""}
     </div>
     <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-task" data-id="${esc(t.id)}">Delete</button>${canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Focus</button>` : ""}${MILESTONE(t.type) && t.due > todayISO() && t.status !== "done" ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : ""}${t.type === "Study" && (t.studyDecks || []).some(id => state.decks[id]) ? `<button type="button" class="btn" data-act="${t.studyKind === "practice" ? "fc-practice-plan" : "fc-study-plan"}" data-id="${esc(t.id)}">${t.studyKind === "practice" ? "Practice Quiz" : "Study Cards"}</button>` : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button>${isNew ? `<button type="button" class="btn" id="tfPlanPrep" hidden>Add &amp; Plan Prep</button>` : ""}<button type="button" class="btn primary" data-submit>${isNew ? "Add Task" : "Save Task"}</button></div>
   </form>`, fd => {
@@ -13869,7 +13907,7 @@ function taskForm(t, preset = {}){
     const rankTxt = x ? (() => { const i = FOCUS.ranked.indexOf(x); return i >= 0 ? ` Currently #${i + 1} in Today's Plan${x.alloc > 0 ? `, with ${fmtHM(x.alloc)} suggested today` : ""}.` : ""; })() : "";
     const inPerson = ms && !canDoNow(probe) && !planSessions(t.id).length, lead = inPerson ? examLead(probe) : null;
     $("#planHint").innerHTML = (ms ? `Estimated <b>${fmtHM(R)}</b> of studying left, based on difficulty, grade weight and preparedness.${lead ? ` Today's Plan starts study time for it ${lead.days} days before${lead.risk ? ", sooner because of your standing in the course" : ""}${lead.p < 0.75 ? `${lead.risk ? " and" : ", sooner"} because ${esc(readyWords(lead.from, lead.p))}` : ""}.` : ""}`
-      : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (a typical amount for this type; add Hours Needed for a better plan)"}.`) + rankTxt;
+      : `Estimated <b>${esc(leftRange(probe))}</b> of work left${isNum(probe.hours) && probe.hours > 0 ? "" : " (add Hours Needed for a better estimate)"}.`) + rankTxt;
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   // typing a weight over an estimated one makes it yours: no longer red
@@ -20431,8 +20469,10 @@ function storageRow(){
   // the iPhone, iPad, Android and desktop apps keep their data themselves: nothing to ask (checked here too, since the
   // first ask happens a few seconds after start-up)
   if (st === "app" || DESK || nativeShell() || inPreview()) return "";
-  if (st === "granted") return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser has agreed never to clear Studyboard's data on its own. Only you can remove it (Clear All Data, or clearing this site's data).</span></span></div>`;
   const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent || ""), standalone = !!(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  // "Persistent" only means the browser won't clear it to free up space. In a Safari tab, Safari can still clear it after
+  // 7 days without a visit, so the promise is only made where it holds.
+  if (st === "granted" && !(safari && !standalone)) return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser won't clear Studyboard's data to free up space. It's only removed if you clear it (Clear All Data, or clearing this site's data).</span></span></div>`;
   const how = st === "unsupported" ? "This browser can't promise to keep website data." : safari && !standalone ? "Safari can clear a website's data after 7 days without a visit. Add Studyboard to your Home Screen (Share, then Add to Home Screen) to stop that." : "Your browser hasn't agreed yet. Installing Studyboard as an app or bookmarking it usually lets it say yes.";
   return `<button data-act="storage-protect"><span>Protect My Data on This Device<span class="sub">${esc(how)} ${typeof sbUser !== "undefined" && sbUser ? "Your account also keeps a copy." : "Signing in or exporting a backup keeps a second copy."}</span></span></button>`;
 }
@@ -20649,7 +20689,7 @@ document.addEventListener("click", e => {
     case "theme-toggle": setTheme(isDark() ? "light" : "dark"); break;
     case "theme-set": setTheme(id); $$('[data-act="theme-set"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); break;
     case "desk-choose": dlg.close(); deskChooseFolder(); break;
-    case "storage-protect": storageProtect(true).then(r => { if (r === "app") { toast("Studyboard keeps your data on this device as an app. Nothing else to do."); scheduleRender(); return; } toast(r === "granted" ? "Done. This browser will keep your Studyboard data until you remove it." : r === "unsupported" ? "This browser can't promise to keep website data. Sign in or export a backup so you always have a copy." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again. Meanwhile, sign in or export a backup."); scheduleRender(); }); break;
+    case "storage-protect": storageProtect(true).then(r => { if (r === "app") { toast("Studyboard keeps your data on this device as an app. Nothing else to do."); scheduleRender(); return; } toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : r === "unsupported" ? "This browser can't promise to keep website data. Sign in or export a backup so you always have a copy." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again. Meanwhile, sign in or export a backup."); scheduleRender(); }); break;
     case "pwa-install": if (installEvt) { dlg.close(); installEvt.prompt(); installEvt.userChoice.then(() => { installEvt = null; }); } break;
     case "fsb-resume": dlg.close(); resumeFolderBackup(); break;
     case "fsb-stop": dlg.close(); stopFolderBackup(); break;
@@ -25783,7 +25823,7 @@ Return JSON only.`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI to search by meaning and get short answers from your own notes and files. It's free with a Google Gemini key. For now, this finds related words.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? "Claude has no search-by-meaning service, so Ask With AI has Claude suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning." : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar();
-      if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `<p class="sx-hint">${scopeC() ? `Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.` : "Describe what you're looking for in your own words, like “the slide about photosynthesis and light” or “when is my bio midterm”."}</p>${starters()}`;
+      if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
     }
     if (live) {
       S.thread.forEach((T, i) => { if (T !== A) h += turnHtml(T, i); });
@@ -29676,6 +29716,7 @@ const pastedImages = e => [...((e.clipboardData && e.clipboardData.files) || [])
 const anyDialogOpen = () => ["dlg", "pomoDlg", "sxDlg", "capDlg", "alarmDlg", "aiConsent", "sbTour"].some(id => { const d = document.getElementById(id); return d && d.open; }) || !!document.querySelector("dialog.ai-consent[open]");
 
 function openCapture(o){
+  if (CAPTURE_OFF) return;
   o = o || {};
   ensureDom();
   if (dlg.open) { try { dlg.close(); } catch (e) {} }
@@ -29849,6 +29890,7 @@ async function shrink(file){
 }
 const b64 = async blob => bytesToB64(new Uint8Array(await blob.arrayBuffer()));
 async function photoFiles(files, o){
+  if (CAPTURE_OFF) return;
   o = o || {};
   const list = [...files].filter(isImg).slice(0, 10);
   if (!list.length) { toast("Studyboard can't read that photo. Try a JPEG or PNG."); return; }
@@ -30039,6 +30081,7 @@ function settingsExtra(fn){ if (typeof fn === "function") settingsFns.push(fn); 
 /* links */
 function handleUrl(raw, o){
   o = o || {};
+  if (CAPTURE_OFF) { if (!o.quiet) toast("Adding tasks from shares and links isn't available right now."); return {ok: false, reason: "off"}; }
   const r = CAP.parseUrl(raw, {today: todayISO()});
   if (!r.ok) { if (!o.quiet) toast("That link can't be used for capture."); return {ok: false, reason: r.reason}; }
   const p = r.params;
@@ -30082,12 +30125,13 @@ function fast(text){
 
 /* entry points */
 document.addEventListener("keydown", e => {
-  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.key !== "c") return;
+  if (CAPTURE_OFF || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.key !== "c") return;
   const t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
   if (anyDialogOpen() || (ui.tab === "flashcards" && ui.fc)) return;
   e.preventDefault(); openCapture({shortcut: true});
 });
 document.addEventListener("paste", e => {
+  if (CAPTURE_OFF) return;
   const t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
   if (anyDialogOpen() || ui.tab !== "board") return;
   const imgs = pastedImages(e);
@@ -30095,14 +30139,15 @@ document.addEventListener("paste", e => {
   const txt = (e.clipboardData && e.clipboardData.getData("text/plain")) || "";
   if (txt.trim().split(/\r?\n/).filter(Boolean).length >= 2 && txt.length <= 4000) { e.preventDefault(); const r = CAP.fromText(txt, ctx(), {source: "paste"}); if (r.drafts.length) present(r.drafts, {trusted: true}); }
 });
-["dragover", "dragenter"].forEach(ev => window.addEventListener(ev, e => { if (anyDialogOpen() || !hasFiles(e) || ui.tab === "files") return; e.preventDefault(); document.body.classList.add("cap-drag"); }));
+["dragover", "dragenter"].forEach(ev => window.addEventListener(ev, e => { if (CAPTURE_OFF || anyDialogOpen() || !hasFiles(e) || ui.tab === "files") return; e.preventDefault(); document.body.classList.add("cap-drag"); }));
 ["dragleave", "drop"].forEach(ev => window.addEventListener(ev, e => { if (ev === "dragleave" && e.relatedTarget) return; document.body.classList.remove("cap-drag"); }));
 window.addEventListener("drop", e => {
-  if (anyDialogOpen() || ui.tab === "files") return;
+  if (CAPTURE_OFF || anyDialogOpen() || ui.tab === "files") return;
   const f = imageFiles(e.dataTransfer); if (!f.length) return;
   e.preventDefault(); photoFiles(f, {source: "drop"});
 });
 hook("act", (act, b) => {
+  if (CAPTURE_OFF && /^cap-(open|photo|try)$/.test(act)) return true;
   if (act === "cap-open") { openCapture({shortcut: true}); return true; }
   if (act === "cap-photo") { ensureDom(); if (dlg.open) dlg.close(); camInput.click(); return true; }
   if (act === "cap-try") { tryIt(b.dataset.try); return true; }
@@ -30160,7 +30205,7 @@ function settingsHtml(){
     ${desk ? shotHtml() : ""}${extra}
   </div>`;
 }
-hook("menu", () => settingsHtml());
+hook("menu", () => CAPTURE_OFF ? "" : settingsHtml());
 
 /* start */
 function boot(){
@@ -30373,6 +30418,7 @@ hook("boot", boot);
   // Inside the App Store / Google Play apps (Capacitor) the web-only steps
   const NATIVE_APP = (() => { try { const C = window.Capacitor; return !!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform()); } catch (e) { return false; } })();
   function nativeRows(){
+    if (CAPTURE_OFF) return IOS ? "" : `<div class="cap-row"><span style="flex:1;font-weight:600">App Shortcuts<span class="sub">Press and hold the Studyboard icon on your Home screen for Quick Add.</span></span></div>`;
     const share = `<div class="cap-row"><span style="flex:1;font-weight:600">Share to Studyboard<span class="sub">In any app, tap Share and choose Studyboard to turn text, a link or a photo into a task.</span></span></div>`;
     if (IOS) return share + `<div class="cap-row"><span style="flex:1;font-weight:600">Siri and Shortcuts<span class="sub">Say "Add a task to Studyboard" or "Take a photo for Studyboard". Both are also in the Shortcuts app, ready to put on your Home Screen or Action button.</span></span></div>`;
     return share + `<div class="cap-row"><span style="flex:1;font-weight:600">Quick Capture Tile<span class="sub">Swipe down twice, tap the pencil to edit your Quick Settings, and drag Quick capture in. One tap opens Studyboard ready to add a task.</span></span></div>
@@ -32218,9 +32264,8 @@ hook("boot", boot);
       : !x ? `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>`
       : !x.ok ? `<div class="grp-err" role="alert"><span>${esc(x.err || "Couldn't load this.")}</span><button type="button" class="btn small" data-act="grp-weak-retry">Try Again</button></div>`
       : list.length ? `<ul class="grp-list">${rows}</ul>${cards.length ? `<div class="row-actions"><button class="btn small" data-act="grp-weak-deck" data-id="${esc(g.id)}">Make a Deck From the Cards</button></div>` : ""}`
-      : `<p class="grp-none">${on ? "Nothing to show yet. This appears once 3 members share their results and 2 miss the same card or question." : "Share your results to join in. It appears once at least 3 members take part and at least 2 miss the same card or question."}</p>`;
-    return `<section class="grp-sec" id="grpWeak">${secHead(I_WEAK, "Most Missed", null, btn)}${body}
-      <p class="mini">Anonymous: only totals per card or question are kept, and nobody, not even the owner, can see who missed what.</p></section>`;
+      : `<p class="grp-none">${on ? "Nothing to show yet. This appears once 3 members share their results and 2 miss the same card or question. Anonymous." : "Share your results to join in. It appears once at least 3 members take part and at least 2 miss the same card or question. Anonymous."}</p>`;
+    return `<section class="grp-sec" id="grpWeak">${secHead(I_WEAK, "Most Missed", null, btn)}${body}</section>`;
   }
   function weakDeck(g){
     const cards = GK.topMisses((S.miss[g.id] || {}).rows, S.items[g.id] || []).filter(r => r.kind === "card").slice(0, 20);
@@ -62310,7 +62355,7 @@ var COMP_EXTRA = [];
     if (!isOn() || !cur || !askAvailable()) return;
     const notes = form.querySelector('[name="notes"]'), lab = notes.closest("label") || notes.parentElement;
     lab.insertAdjacentHTML("afterend", `<div class="cp-tq"><button type="button" class="link-btn cp-tq-open">${AI_ICON} Ask ${esc(nameOf(cur))} About This Task</button>
-      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn small primary ai-btn">${AI_ICON} Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
+      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn primary ai-btn cp-ask-go">${AI_ICON} Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
     const box = form.querySelector(".cp-tq-box"), inp = box.querySelector("input"), out = box.querySelector(".cp-tq-a"), go = box.querySelector("button");
     form.querySelector(".cp-tq-open").addEventListener("click", () => { box.hidden = !box.hidden; if (!box.hidden) inp.focus(); });
     const ask = async () => {
@@ -62333,7 +62378,7 @@ var COMP_EXTRA = [];
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
-    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn small primary">Ask</button></form>
+    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">${AI_ICON} Ask</button></form>
       ${sc ? `<label class="cp-ask-ctx"><input type="checkbox" class="cp-ctx-on" checked> <span>About this ${esc(sc.kind.toLowerCase())}: <b>${esc(shortT(sc.label, 34))}</b></span></label>` : ""}
       <span class="cp-ask-hint">${sc ? esc(sc.hint) : (() => { try { return aiReady(); } catch (e) { return false; } })() ? `Like "find my lab notes" or "move my essay to Friday"` : `Like "what should I do next?" or "quiz me on something"`}</span>`;
     placeBubble(b);
@@ -63350,7 +63395,6 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function pickerBody(){
     const list = setOf(skinId()), c = current(), key = themeKey(skinId());
-    const skin = SKINS.find(s => s.id === skinId());
     const lockedMsg = paywall() && !pro();
     const want = Number((cfg().pick || {})[key]) || 0;
     const ord = id => { const k = SET_ORDER.indexOf(id); return k < 0 ? 99 : k; };
@@ -63378,8 +63422,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     };
     const tintRow = id => { const a = ACC.find(x => x.id === id), cur = colOf(id);
       return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}"><button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
-    return `<p class="mini" style="margin:0">A little friend who lives in your ${esc(skin ? skin.name : "")} ${key === "plain" ? "theme" : "scene"}. It sits beside the Add Task button, says hi when you tap it, and studies with you during Focus.</p>
-      <div class="cp-tiles">${tiles}</div>
+    return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
@@ -63513,7 +63556,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   });
   hook("menu", () => {
     const c = current(); if (!c) return "";
-    return `<button data-act="comp-open" data-group="appearance"><span>Study Companion<span class="sub">${isOn() ? `${esc(nameOf(c))} the ${esc(c.kind || "companion")} lives in your theme` : "Turned off. A little friend who studies with you."}</span></span></button>` + (phone() ? "" : `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Companion Stays Put<span class="sub">The companion stays in the bottom-left corner instead of moving around the page. It still moves into its circle when you open the Companion tab.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="still" ${cfg().still === true ? "checked" : ""}> On</label></div>`);
+    return `<button data-act="comp-open" data-group="appearance"><span>Study Companion<span class="sub">${isOn() ? `${esc(nameOf(c))} the ${esc(c.kind || "companion")} lives in your theme` : "Turned off. A little friend who studies with you."}</span></span></button>` + (phone() ? "" : `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Companion Stays Put<span class="sub">The companion stays in the bottom left corner instead of moving around.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="still" ${cfg().still === true ? "checked" : ""}> On</label></div>`);
   });
 
   /* Style Shop: a Companions tab */
@@ -63698,8 +63741,24 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function faceFor(){
     if (!aiName()) return "";
     const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(cfg().tint || {}) + "|" + nameOf(cur);
-    if (sig !== faceSig) { faceSig = sig; faceHtml = rigSvg(cur, {eyes: "happy", mouth: "smile", wear: wearOf(cur)}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, ""); }
+    if (sig !== faceSig) { faceSig = sig; faceHtml = faceSvg(cur, wearOf(cur)); }
     return faceHtml;
+  }
+  // The happy face for an AI button, cropped to a square around the drawing itself. Each companion sits somewhere
+  // different in its 120x120 box (a tall one fills it, a small one sits low, a sparkle reaches up), so without this
+  // some faces ride high and some low next to the button's text.
+  function faceSvg(c, wear){
+    const html = rigSvg(c, {eyes: "happy", mouth: "smile", wear: wear || []}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, "");
+    try {
+      const m = document.createElement("div");
+      m.style.cssText = "position:fixed;left:-1000px;top:0;width:120px;height:120px;visibility:hidden;pointer-events:none;contain:strict";
+      m.innerHTML = html; document.body.appendChild(m);
+      const b = m.querySelector(".cp-rig").getBBox(); m.remove();
+      if (!(b.width > 1 && b.height > 1)) return html;
+      // a little room for the outlines (getBBox leaves out strokes)
+      const s = Math.max(b.width, b.height) + 6, x = b.x + b.width / 2 - s / 2, y = b.y + b.height / 2 - s / 2;
+      return html.replace(`viewBox="0 0 ${VB} ${VB}"`, `viewBox="${f1(x)} ${f1(y)} ${f1(s)} ${f1(s)}"`);
+    } catch (e) { return html; }
   }
   // Each copy of the face gets its own gradient and clip ids
   let faceN = 0;
@@ -63780,7 +63839,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const quietNow2 = () => !isOn() || !talkOn() || !cur || !box || box.hidden || document.hidden;
 
   window.SBCOMP = {
-    aiName, face: () => faceFor(),
+    aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec">Accessories</h3>'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn More</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn More</summary>' + w.slice(k + '<h3 class="fsec">How to Earn More</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
     wearColor: () => { try { const c = current(); return c ? wearColor(c) : ""; } catch (e) { return ""; } },
@@ -64971,7 +65030,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Set up AI to chat: a free Google Gemini key, Claude, ChatGPT, or Studyboard AI with Pro.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog">${logHtml()}</div><div class="sr" id="cptSay" aria-live="polite"></div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
-      <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
+      <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary ai-btn cp-ask-go" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>${AI_ICON} Ask</button></form>
       <input type="file" id="cptFile" multiple accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.heic,application/pdf,image/*,text/plain" class="sr" tabindex="-1" aria-hidden="true">
       <p class="mini cpt-priv">Each question sends only the planner parts it needs, plus attachments, to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New Chat</button>` : ""}</p>`;
   }
@@ -71793,9 +71852,7 @@ hook("changed", changes => {
   });
 });
 hook("menu", () => {
-  const v = memo(), n = v.S.length;
-  const sub = on() ? (n >= 3 ? tr("acc.setOnData", "On. Learned from {n} finished tasks.", {n}) : tr("acc.setOn", "On. It starts once you have finished a few tasks with a time estimate.")) : tr("acc.setOff", "Off. Plans use your estimates exactly as typed.");
-  return `<div class="cap-row" data-group="study"><span style="flex:1;font-weight:600">${esc(tr("acc.setTitle", "Learn My Pace"))}<span class="sub">${esc(tr("acc.setSub", "Adjust plans to how long your work really takes, using time you track and how you finish tasks. Stays on this device and in your own tasks."))} ${esc(sub)}</span></span><label class="anim-tog"><input type="checkbox" data-act="acc-toggle" ${on() ? "checked" : ""}> ${esc(tr("acc.on", "On"))}</label></div>`;
+  return `<div class="cap-row" data-group="study"><span style="flex:1;font-weight:600">${esc(tr("acc.setTitle", "Learn My Pace"))}<span class="sub">${esc(tr("acc.setSub2", "Adjust plans to how long your work really takes using time you track."))}</span></span><label class="anim-tog"><input type="checkbox" data-act="acc-toggle" ${on() ? "checked" : ""}> ${esc(tr("acc.on", "On"))}</label></div>`;
 });
 // The task sheet's hint under Hours Needed
 function formHint(){
@@ -73057,7 +73114,7 @@ function offered(){ const s = lsGet(SAID_KEY), today = todayISO(), said = s.day 
 const ideaValid = id => { const m = current(); return !!m && m.exam.id === id; };
 
 /* Settings */
-hook("menu", () => `<div class="cap-row" data-group="study"><span style="flex:1;font-weight:600">Exam Mode<span class="sub">In the last 3 days before an exam or quiz, Today's Plan, Do This Next, your decks and Focus point at it. Work due sooner than your exam study still comes first.</span></span><label class="anim-tog"><input type="checkbox" data-act="exm-toggle" ${enabled() ? "checked" : ""}> On</label></div>`);
+hook("menu", () => `<div class="cap-row" data-group="study"><span style="flex:1;font-weight:600">Exam Mode<span class="sub">Shifts focus towards exams less than 3 days away. Still prioritizes work due before it.</span></span><label class="anim-tog"><input type="checkbox" data-act="exm-toggle" ${enabled() ? "checked" : ""}> On</label></div>`);
 
 hook("act", (act, el, id) => {
   switch (act) {
@@ -81985,7 +82042,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   });
   window.addEventListener("sb:secrets-wiped", () => { E.st = "idle"; E.key = ""; });
 
-  if (domain()) P.addFeature({id: "email", name: "Email to Studyboard", where: "Settings, Quick Capture: forward emails, check what's found, add it", icon: MAIL});
+  if (domain() && !CAPTURE_OFF) P.addFeature({id: "email", name: "Email to Studyboard", where: "Settings, Quick Capture: forward emails, check what's found, add it", icon: MAIL});
   Object.assign(P, {emailIngest: ingest});
   Object.assign(window.__sbProStudy || {}, {email: {cleanSubject, dateLines, gmailConfirm, draftsFor, state: E, box: boxHtml, pending}});
 
@@ -84610,8 +84667,10 @@ function pdeStrip(bytes, regions, fontOf, dry){
         if (f.ok && fs && th) for (let r = 0; r < regions.length; r++) if (pdeInside(regions[r], px, py)) { hit = r; break; }
         if (hit >= 0) {
           const [lx] = pdeLocal(regions[hit], ...pdeApply(m, 0, 0)), I = info[hit];
-          if (!I || lx < I.lx) info[hit] = {lx, font: f, fs, th, tc: gs.Tc, ts: gs.Ts, m: m.slice(), fill: gs.fill, nat: I ? I.nat : 0, spaces: I ? I.spaces : 0, n: I ? I.n : 0};
+          if (!I || lx < I.lx) info[hit] = {lx, font: f, fs, th, tc: gs.Tc, ts: gs.Ts, m: m.slice(), fill: gs.fill, nat: I ? I.nat : 0, spaces: I ? I.spaces : 0, n: I ? I.n : 0, seq: I ? I.seq : ""};
           const J = info[hit], blank = space || !!(f.uni && /^\s*$/.test(f.uni.get(code) || "x")); J.nat += (w0 * fs + gs.Tc) * th; J.n++; if (blank) J.spaces++;
+          // which letters are spaces, in the order they're drawn (" " a space, "x" any other letter)
+          J.seq += blank ? " " : "x";
           // invisible text (a recognized scan) goes, but the picture of the words under it stays: it still counts as not taken out
           if (!blank && gs.Tr !== 3 && gs.Tr !== 7) hits[hit]++;
           if (keep.length) { out.push(Uint8Array.from(keep)); keep.length = 0; }
@@ -84666,6 +84725,22 @@ function pdeStrip(bytes, regions, fontOf, dry){
     out = concatU8(parts);
   }
   return {bytes: out, hits, info, open: Math.max(0, depth - minDepth), under: -minDepth};
+}
+
+// A line's words as the PDF really has them: PDF.js puts a space where letters sit a little apart ("Summe r"), so a space
+// that isn't one of the PDF's own space letters (seq, from pdeStrip) is left out. The words come back as they were when the
+// letters can't be matched up one to one.
+function pdeRealSpaces(str, seq){
+  str = String(str || ""); seq = String(seq || "");
+  const letters = [...str].filter(c => !/\s/.test(c)).length;
+  if (!seq || letters !== seq.replace(/ /g, "").length) return str;
+  let out = "", i = 0;
+  for (const c of str) {
+    if (/\s/.test(c)) { if (seq[i] === " ") { out += c; while (seq[i] === " ") i++; } continue; }
+    while (seq[i] === " ") i++;
+    out += c; i++;
+  }
+  return out;
 }
 
 /* A page's content and fonts */
@@ -85441,8 +85516,15 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const page = await pageObj(n); if (!page) return [];
       const tc = await page.getTextContent();
       return tc.items.filter(it => typeof it.str === "string" && it.str.trim() && Array.isArray(it.transform) && it.width > 0).map(it => {
-        const tx = it.transform, fs = Math.hypot(tx[2], tx[3]) || Math.abs(tx[3]) || 10, st = tc.styles[it.fontName] || {};
+        const tx = it.transform, st = tc.styles[it.fontName] || {};
         let obj = null; try { obj = page.commonObjs.has(it.fontName) ? page.commonObjs.get(it.fontName) : null; } catch (e) {}
+        let fs = Math.hypot(tx[2], tx[3]) || Math.abs(tx[3]) || 10;
+        // PDF.js stretches a Type3 font's height to its letters' box (a font drawn at size 1, or with boxes per letter): undone, so
+        // its text is edited at the size it's drawn, not 10-20% bigger (only when the height is that much more than the width's scale)
+        try {
+          const bb = obj && obj.isType3Font && obj.bbox, fm = obj && obj.fontMatrix, k = bb && fm ? (bb[3] - bb[1]) * fm[3] : 0, wx = Math.hypot(tx[0], tx[1]);
+          if (k > 0 && Math.abs(k - 1) > 0.01 && wx > 0 && Math.abs(fs / wx - k) < k * 0.005) fs /= k;
+        } catch (e) {}
         const name = String((obj && obj.name) || "").replace(/^[A-Z]{6}\+/, ""), fam = String(st.fontFamily || "");
         const mono = /courier|mono|consol|menlo/i.test(name) || fam === "monospace", serif = !mono && (fam === "serif" || /times|roman|serif|georgia|garamond|cambria|book|minion|palatino|baskerville/i.test(name)) && !/sans/i.test(name);
         const asc = Number.isFinite(st.ascent) && st.ascent > 0.5 ? Math.min(1.05, st.ascent) : 0.9, desc = Number.isFinite(st.descent) && st.descent < 0 ? Math.max(-0.35, st.descent) : -0.22;
@@ -85458,7 +85540,17 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   // A text edit for a line of the PDF, with the PDF's own font facts and colour when pdf-lib has the file open
   function lineEdit(n, it, col){
     const e = {id: uid(), a: E.rev, p: n, k: "t", o: it.o, r: it.r, w: it.w, y0: it.y0, y1: it.y1, fs: Math.round(it.fs * 100) / 100, s0: Math.round(it.fs * 100) / 100, f: it.f, b: it.b, i: it.i, c: (col && col.c) || "#000000", bg: (col && col.bg) || "#ffffff", old: it.str, t: it.str, cf: it.cf};
-    if (E.libv) { try { const pr = pdeProbe(E.libv.L, E.libv.doc, n, [e])[0]; if (pr && pr.base) { e.f = pr.mono ? "c" : pr.serif ? "t" : "h"; e.b = pr.bold ? 1 : 0; e.i = pr.italic ? 1 : 0; e.cf = cssName(pr.base, e.f); } if (pr && pr.fill && pr.hits) e.c = pr.fill; } catch (err) {} }
+    if (E.libv) { try {
+      const pr = pdeProbe(E.libv.L, E.libv.doc, n, [e])[0];
+      if (pr && pr.base) { e.f = pr.mono ? "c" : pr.serif ? "t" : "h"; e.b = pr.bold ? 1 : 0; e.i = pr.italic ? 1 : 0; e.cf = cssName(pr.base, e.f); }
+      if (pr && pr.fill && pr.hits) e.c = pr.fill;
+      if (pr && pr.hits && pr.I) {
+        // the size the PDF really draws these letters at (PDF.js's can be off, as for some Type3 fonts), and its own spaces only
+        const size = Math.round(pdeSizeOf(pr.I) * 100) / 100;
+        if (size > it.fs * 0.5 && size < it.fs * 2) e.fs = e.s0 = size;
+        e.old = e.t = pdeRealSpaces(it.str, pr.I.seq);
+      }
+    } catch (err) {} }
     return e;
   }
   // Page units to screen pixels on a drawn page, and back
@@ -86222,7 +86314,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const old = m.edit || m.t;
       if (old) { const x = list.find(y => y.id === old.id), t = fix(x.t); if (take(x, t, m.hits)) list = list.map(y => y.id === x.id ? Object.assign({}, y, {t}) : y); else skipped += m.hits; continue; }
       if (list.length >= MAX_EDITS) { full += m.hits; continue; }
-      const pg = E.pages.get(m.n), e = lineEdit(m.n, m.it, pg ? sample(pg, vpBox(pg, m.it)) : null); e.t = fix(m.it.str);
+      const pg = E.pages.get(m.n), e = lineEdit(m.n, m.it, pg ? sample(pg, vpBox(pg, m.it)) : null); e.t = fix(e.t);
       if (take(e, e.t, m.hits)) list.push(e); else skipped += m.hits;
     }
     const why = [skipped ? `skipped ${skipped}: ${[...skip].slice(0, 6).join(" ")} ${skip.size === 1 ? "isn't" : "aren't"} in this PDF's fonts` : "", full ? `skipped ${full}: a file can hold ${MAX_EDITS} edits` : ""].filter(Boolean).join("; ");
@@ -95947,7 +96039,7 @@ const AUTOPILOT = (() => {
   /* Settings > Study */
   hook("menu", () => {
     if (locked()) return `<button type="button" data-act="ap-pro" data-group="study"><span>Autopilot ${PRO_BADGE}<span class="sub">Moves missed study sessions and steps into your next free time overnight, then tells you once.</span></span></button>`;
-    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot<span class="sub">Once a day, moves missed prep sessions, milestones and Study tasks into your next free time before their deadlines, then tells you once on Today's Plan. Real due dates never move.</span></span>${modeSeg()}</div>`;
+    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot<span class="sub">Reschedules missed study sessions into your free time. Due dates never move.</span></span>${modeSeg()}</div>`;
   });
   hook("act", (act, el, id) => {
     if (!act || act.slice(0, 3) !== "ap-") return false;
@@ -97086,8 +97178,8 @@ const AUTOPILOT = (() => {
   const seg = (act, items, cur, label) => `<div class="segb" role="group" aria-label="${esc(label)}">${items.map(([k, l]) => `<button type="button" data-act="${act}" data-id="${k}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div>`;
   hook("menu", () => {
     const tzr = homeZone(), cur = deviceZone(), differs = SBTZ_CORE.zoneChanged(tzr, cur);
-    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span><span class="sub">On plays the moving scenery and effects. Off shows still scenery and replaces confetti with a quiet highlight, which also saves battery. Your iPhone's own Low Power Mode slows things down by itself.</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
-    <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size<span class="sub">Makes all text and buttons bigger or smaller. Default follows your device's text size.</span></span>${seg("text-size", TS, tsNow(), "Text size")}</div>
+    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
+    <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
     <div class="cap-row sb-wide" data-group="app"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
@@ -97505,7 +97597,7 @@ setTimeout(async () => {
       if ($("#toast").classList.contains("show") || (typeof dlg !== "undefined" && dlg.open)) continue;
       localStorage.setItem(K, String(Date.now()));
       toast("Your browser may clear website data on its own. Keep your planner safe: install Studyboard as an app, sign in, or export a backup.", null,
-        {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser will keep your Studyboard data until you remove it." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});
+        {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});
       return;
     }
   } catch (e) {}
@@ -97676,8 +97768,10 @@ ui._day = todayISO();
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
         // A piece redrawn in place (swapped for a fresh copy of itself: same id, or same tag and kind) is already on screen, so it stays still:
         // fading it in again would blank it out and back each time fresh data arrives (opening a group used to flicker twice)
+        // The companion's face on an AI icon (98-companion swapFaces) stands in for an icon that was already there, so it never
+        // eases in by itself: Ask redraws its callout on every keystroke, and the face blinked out and back each key
         const was = new Set(); for (const r of m.removedNodes) if (r.nodeType === 1) was.add(r.id ? "#" + r.id : r.tagName + "." + (r.classList[0] || ""));
-        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && !(was.size && was.has(a.id ? "#" + a.id : a.tagName + "." + (a.classList[0] || ""))) && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.tagName === "DIALOG") continue; play(a, "sm-in"); n++; }   // a sheet redrawn whole (a button pressed in it) stays still
+        for (const a of m.addedNodes) if (a.nodeType === 1 && !a.classList.contains("sm-in") && !(was.size && was.has(a.id ? "#" + a.id : a.tagName + "." + (a.classList[0] || ""))) && n < 6 && !a.closest(".sm-skip, .g2-band, .detail-head, .view-head, .cf-row, .qa-bar, nav, header") && !a.matches(".ra-more, .ph-more, .ph-menu, .cp-ai-face") && !/^(SCRIPT|STYLE|CANVAS)$/.test(a.tagName)) { if (t.tagName === "DIALOG") continue; play(a, "sm-in"); n++; }   // a sheet redrawn whole (a button pressed in it) stays still
       }
     }
   });

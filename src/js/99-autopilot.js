@@ -324,7 +324,7 @@ const AUTOPILOT = (() => {
   /* Settings > Study */
   hook("menu", () => {
     if (locked()) return `<button type="button" data-act="ap-pro" data-group="study"><span>Autopilot ${PRO_BADGE}<span class="sub">Moves missed study sessions and steps into your next free time overnight, then tells you once.</span></span></button>`;
-    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot<span class="sub">Once a day, moves missed prep sessions, milestones and Study tasks into your next free time before their deadlines, then tells you once on Today's Plan. Real due dates never move.</span></span>${modeSeg()}</div>`;
+    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot<span class="sub">Reschedules missed study sessions into your free time. Due dates never move.</span></span>${modeSeg()}</div>`;
   });
   hook("act", (act, el, id) => {
     if (!act || act.slice(0, 3) !== "ap-") return false;

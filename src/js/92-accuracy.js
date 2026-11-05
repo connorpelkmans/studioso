@@ -623,9 +623,7 @@ hook("changed", changes => {
   });
 });
 hook("menu", () => {
-  const v = memo(), n = v.S.length;
-  const sub = on() ? (n >= 3 ? tr("acc.setOnData", "On. Learned from {n} finished tasks.", {n}) : tr("acc.setOn", "On. It starts once you have finished a few tasks with a time estimate.")) : tr("acc.setOff", "Off. Plans use your estimates exactly as typed.");
-  return `<div class="cap-row" data-group="study"><span style="flex:1;font-weight:600">${esc(tr("acc.setTitle", "Learn My Pace"))}<span class="sub">${esc(tr("acc.setSub", "Adjust plans to how long your work really takes, using time you track and how you finish tasks. Stays on this device and in your own tasks."))} ${esc(sub)}</span></span><label class="anim-tog"><input type="checkbox" data-act="acc-toggle" ${on() ? "checked" : ""}> ${esc(tr("acc.on", "On"))}</label></div>`;
+  return `<div class="cap-row" data-group="study"><span style="flex:1;font-weight:600">${esc(tr("acc.setTitle", "Learn My Pace"))}<span class="sub">${esc(tr("acc.setSub2", "Adjust plans to how long your work really takes using time you track."))}</span></span><label class="anim-tog"><input type="checkbox" data-act="acc-toggle" ${on() ? "checked" : ""}> ${esc(tr("acc.on", "On"))}</label></div>`;
 });
 // The task sheet's hint under Hours Needed
 function formHint(){

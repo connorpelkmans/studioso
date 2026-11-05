@@ -1213,7 +1213,7 @@
     if (!isOn() || !cur || !askAvailable()) return;
     const notes = form.querySelector('[name="notes"]'), lab = notes.closest("label") || notes.parentElement;
     lab.insertAdjacentHTML("afterend", `<div class="cp-tq"><button type="button" class="link-btn cp-tq-open">${AI_ICON} Ask ${esc(nameOf(cur))} About This Task</button>
-      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn small primary ai-btn">${AI_ICON} Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
+      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn primary ai-btn cp-ask-go">${AI_ICON} Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
     const box = form.querySelector(".cp-tq-box"), inp = box.querySelector("input"), out = box.querySelector(".cp-tq-a"), go = box.querySelector("button");
     form.querySelector(".cp-tq-open").addEventListener("click", () => { box.hidden = !box.hidden; if (!box.hidden) inp.focus(); });
     const ask = async () => {
@@ -1236,7 +1236,7 @@
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
-    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn small primary">Ask</button></form>
+    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">${AI_ICON} Ask</button></form>
       ${sc ? `<label class="cp-ask-ctx"><input type="checkbox" class="cp-ctx-on" checked> <span>About this ${esc(sc.kind.toLowerCase())}: <b>${esc(shortT(sc.label, 34))}</b></span></label>` : ""}
       <span class="cp-ask-hint">${sc ? esc(sc.hint) : (() => { try { return aiReady(); } catch (e) { return false; } })() ? `Like "find my lab notes" or "move my essay to Friday"` : `Like "what should I do next?" or "quiz me on something"`}</span>`;
     placeBubble(b);
@@ -2253,7 +2253,6 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function pickerBody(){
     const list = setOf(skinId()), c = current(), key = themeKey(skinId());
-    const skin = SKINS.find(s => s.id === skinId());
     const lockedMsg = paywall() && !pro();
     const want = Number((cfg().pick || {})[key]) || 0;
     const ord = id => { const k = SET_ORDER.indexOf(id); return k < 0 ? 99 : k; };
@@ -2281,8 +2280,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     };
     const tintRow = id => { const a = ACC.find(x => x.id === id), cur = colOf(id);
       return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}"><button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
-    return `<p class="mini" style="margin:0">A little friend who lives in your ${esc(skin ? skin.name : "")} ${key === "plain" ? "theme" : "scene"}. It sits beside the Add Task button, says hi when you tap it, and studies with you during Focus.</p>
-      <div class="cp-tiles">${tiles}</div>
+    return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
@@ -2416,7 +2414,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   });
   hook("menu", () => {
     const c = current(); if (!c) return "";
-    return `<button data-act="comp-open" data-group="appearance"><span>Study Companion<span class="sub">${isOn() ? `${esc(nameOf(c))} the ${esc(c.kind || "companion")} lives in your theme` : "Turned off. A little friend who studies with you."}</span></span></button>` + (phone() ? "" : `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Companion Stays Put<span class="sub">The companion stays in the bottom-left corner instead of moving around the page. It still moves into its circle when you open the Companion tab.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="still" ${cfg().still === true ? "checked" : ""}> On</label></div>`);
+    return `<button data-act="comp-open" data-group="appearance"><span>Study Companion<span class="sub">${isOn() ? `${esc(nameOf(c))} the ${esc(c.kind || "companion")} lives in your theme` : "Turned off. A little friend who studies with you."}</span></span></button>` + (phone() ? "" : `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Companion Stays Put<span class="sub">The companion stays in the bottom left corner instead of moving around.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="still" ${cfg().still === true ? "checked" : ""}> On</label></div>`);
   });
 
   /* Style Shop: a Companions tab */
@@ -2601,8 +2599,24 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function faceFor(){
     if (!aiName()) return "";
     const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(cfg().tint || {}) + "|" + nameOf(cur);
-    if (sig !== faceSig) { faceSig = sig; faceHtml = rigSvg(cur, {eyes: "happy", mouth: "smile", wear: wearOf(cur)}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, ""); }
+    if (sig !== faceSig) { faceSig = sig; faceHtml = faceSvg(cur, wearOf(cur)); }
     return faceHtml;
+  }
+  // The happy face for an AI button, cropped to a square around the drawing itself. Each companion sits somewhere
+  // different in its 120x120 box (a tall one fills it, a small one sits low, a sparkle reaches up), so without this
+  // some faces ride high and some low next to the button's text.
+  function faceSvg(c, wear){
+    const html = rigSvg(c, {eyes: "happy", mouth: "smile", wear: wear || []}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, "");
+    try {
+      const m = document.createElement("div");
+      m.style.cssText = "position:fixed;left:-1000px;top:0;width:120px;height:120px;visibility:hidden;pointer-events:none;contain:strict";
+      m.innerHTML = html; document.body.appendChild(m);
+      const b = m.querySelector(".cp-rig").getBBox(); m.remove();
+      if (!(b.width > 1 && b.height > 1)) return html;
+      // a little room for the outlines (getBBox leaves out strokes)
+      const s = Math.max(b.width, b.height) + 6, x = b.x + b.width / 2 - s / 2, y = b.y + b.height / 2 - s / 2;
+      return html.replace(`viewBox="0 0 ${VB} ${VB}"`, `viewBox="${f1(x)} ${f1(y)} ${f1(s)} ${f1(s)}"`);
+    } catch (e) { return html; }
   }
   // Each copy of the face gets its own gradient and clip ids
   let faceN = 0;
@@ -2683,7 +2697,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const quietNow2 = () => !isOn() || !talkOn() || !cur || !box || box.hidden || document.hidden;
 
   window.SBCOMP = {
-    aiName, face: () => faceFor(),
+    aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec">Accessories</h3>'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn More</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn More</summary>' + w.slice(k + '<h3 class="fsec">How to Earn More</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
     wearColor: () => { try { const c = current(); return c ? wearColor(c) : ""; } catch (e) { return ""; } },

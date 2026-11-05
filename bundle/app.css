@@ -1552,7 +1552,8 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .qa-meta{display:flex;gap:6px;font-size:.8rem;color:var(--muted)}
 .qa-meta span{background:var(--soft);border-radius:6px;padding:2px 6px}
 /* do this next */
-.est-btn{font-size:.82rem;padding:0 0 0 8px;display:inline-flex;align-items:center;gap:3px}
+.tf-hours-row{display:flex;align-items:center;gap:8px}.tf-hours-row>input{flex:1;min-width:0}
+.btn.est-btn{flex:none;display:inline-flex;align-items:center;gap:4px;align-self:stretch;white-space:nowrap}
 .est-hint{margin:0;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 /* explain & grading */
 .explain{display:flex;gap:10px;margin-top:12px;background:color-mix(in srgb,#8B5CF6 7%,var(--surface));border:1px solid color-mix(in srgb,#8B5CF6 30%,var(--line));border-radius:12px;padding:10px 14px;max-width:760px;text-align:left}
@@ -4448,8 +4449,8 @@ html.cp-hover{cursor:pointer}
 span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height:1.45em;min-width:1.45em;vertical-align:-.38em;flex:none;margin:0 .12em 0 0;line-height:0;color:inherit}
 .cp-ai-face>svg.cp-svg{position:absolute;inset:0;width:100%!important;height:100%!important;overflow:visible;display:block;filter:drop-shadow(0 1px 1.5px rgba(30,20,50,.18))}
 /* In a button the companion is a little bigger than the text, centred on it */
-.btn span.cp-ai-face.ai-ic{width:1.7em;height:1.7em;min-width:1.7em;margin:-.3em .24em -.3em -.12em;vertical-align:middle;top:-.2em}
-.btn:is([style*="flex"],.f-sum) span.cp-ai-face.ai-ic,.frow > .f-sum span.cp-ai-face.ai-ic{margin:-.3em 0;top:-.14em}
+.btn span.cp-ai-face.ai-ic{width:1.45em;height:1.45em;min-width:1.45em;margin:-.25em .3em -.25em -.1em;vertical-align:middle;top:-.06em}
+.btn:is([style*="flex"],.f-sum) span.cp-ai-face.ai-ic,.frow > .f-sum span.cp-ai-face.ai-ic{margin:-.25em 0;top:0}
 .nu-who{font-weight:600;opacity:.85}
 .cp-bubble.right{transform:translateX(-6px) scale(.96);transform-origin:0 var(--ty,50%)}
 .cp-bubble.right.on{transform:none}
@@ -4614,6 +4615,15 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 /* "Show me" chips under a Companion tab answer */
 .cpt-show{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
 .cpt-show-b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The companion's Ask button (Companion tab, the speech bubble, Ask About This Task): one look everywhere, in every theme.
+   A solid purple pill with the companion's face, white bold text, and no colour change on hover; a theme's button gradient, hover
+   tint or photo glow never reaches it. Keyboard focus still gets a clear ring. */
+html .btn.primary.cp-ask-go{display:inline-flex;align-items:center;justify-content:center;gap:.3em;flex:none;box-sizing:border-box;min-height:44px;padding:0 16px;border:1px solid #7C4DEB!important;border-radius:999px!important;background:#7C4DEB!important;color:#fff!important;font:700 1rem/1.2 var(--body);letter-spacing:normal;text-transform:none;white-space:nowrap;filter:none!important;box-shadow:none!important;text-shadow:none!important;transition:none}
+html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
+html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
+html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
+.cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
+.cp-tq-row{align-items:center}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -8126,9 +8136,6 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .btn:not(.focus-go) .tomato-ic{transform:translate(-2px,-2px)}
 /* The side menu's Focus button: a slightly bigger tomato, 1px higher */
 nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;transform:translateY(-1px)}
-/* The companion's face in buttons: 2px lower, so it sits centred beside the label */
-.btn span.cp-ai-face.ai-ic{top:calc(-.2em + 1px)}
-.btn:is([style*="flex"],.f-sum) span.cp-ai-face.ai-ic,.frow > .f-sum span.cp-ai-face.ai-ic{top:calc(-.14em + 1px)}
 
 /* The smallest phones (320px): labels wrap instead of being cut to "D…" or "2." */
 @media (max-width:359px){
