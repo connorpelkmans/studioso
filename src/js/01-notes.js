@@ -626,7 +626,8 @@ function noteSheetAway(){
   [["inset", `${L.r.top}px auto auto ${L.r.left}px`], ["width", L.r.width + "px"], ["height", L.r.height + "px"], ["max-height", "none"], ["animation", "none"]].forEach(([k, v]) => c.style.setProperty(k, v, "important"));
   host.appendChild(c); document.body.appendChild(host);
   try { host.showPopover(); } catch (e) {}
-  const opts = {duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+  // the same quick, smooth slide as other sheets (99-smooth.js)
+  const opts = {duration: 180, easing: "cubic-bezier(.3,0,.7,.4)", fill: "forwards"};
   const a = c.animate([{translate: "0 0"}, {translate: `0 ${Math.max(L.r.height, innerHeight - L.r.top) + 20}px`}], opts);
   host.firstChild.animate([{opacity: 1}, {opacity: 0}], opts);
   const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 700);
