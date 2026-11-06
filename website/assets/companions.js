@@ -27,7 +27,8 @@
     if (!c || host.__cp) return;
     var talks = host.hasAttribute("data-talk"), max = 80;
     var geo = window.SB_TILE_GEO, hg = host.getAttribute("data-geo") === "hero" && geo && geo.hero && geo.hero.light;
-    if (hg) { host.style.left = (hg.c[0] / hg.w * 100) + "%"; host.style.top = (hg.c[1] / hg.h * 100) + "%"; host.style.width = (hg.c[2] / hg.w * 100) + "%"; }
+    // the hero's companion is shown a fifth larger than in the picture's own app, standing on the same spot
+    if (hg) { var HK = 1.2, cw = hg.c[2] * HK; host.style.left = ((hg.c[0] - (cw - hg.c[2]) / 2) / hg.w * 100) + "%"; host.style.top = ((hg.c[1] - (cw - hg.c[2])) / hg.h * 100) + "%"; host.style.width = (cw / hg.w * 100) + "%"; }
     var svg = W.rigSvg(c, {}).replace(/\sstyle="([^"]*)"/g, ' data-st="$1"');
     host.innerHTML = '<div class="cp cp-' + c.pose + '"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">' + svg + "</div></div></div>";
     host.querySelectorAll("[data-st]").forEach(function (n) {
