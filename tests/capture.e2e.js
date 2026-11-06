@@ -118,6 +118,15 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(res.ok && res.trusted === false && res.confirm === true, "unknown source is not trusted even in the wrapper"); await page.keyboard.press("Escape");
     ok(await page.evaluate(async () => (await SBCAPTURE.ingest({id: "x9", kind: "text", text: "lab 2 fri 3pm", source: "share-ios"})) === true), "native item (share-ios) accepted"); await page.waitForTimeout(200);
     ok((await tasks(page)).some(t => /lab 2/i.test(t.title)), "confident native text is added without a sheet");
+    // Siri (queued while offline): the date and time it heard are kept, and a spoken task goes straight on the board
+    await page.evaluate(due => SBCAPTURE.ingest({id: "siri-q1", kind: "task", text: "Quiz", due: due + "T17:00", source: "siri", createdAt: Date.now()}), DUE10); await page.waitForTimeout(200);
+    let sq = (await tasks(page)).find(t => t.title === "Quiz");
+    ok(sq && sq.due === DUE10 && sq.time === "17:00" && !(await page.isVisible(".cap-ext")), "a Siri task with a day and time is added with both, without the Check and Add sheet");
+    await page.evaluate(() => SBCAPTURE.ingest({id: "siri-q2", kind: "task", text: "Essay outline", due: "friday 5pm", source: "siri", createdAt: Date.now()})); await page.waitForTimeout(200);
+    sq = (await tasks(page)).find(t => t.title === "Essay outline");
+    ok(sq && sq.due === nextFri() && sq.time === "17:00", "a spoken due date from the older Siri action (friday 5pm) is read too");
+    await page.evaluate(() => SBCAPTURE.ingest({id: "siri-q3", kind: "task", text: "Call advisor", source: "siri", createdAt: Date.now()})); await page.waitForTimeout(200);
+    ok((await tasks(page)).some(t => t.title === "Call advisor"), "a Siri task with no date is still added straight away");
     const imgRes = await page.evaluate(async () => { const c = document.createElement("canvas"); c.width = 50; c.height = 50; const u = c.toDataURL("image/jpeg"); return [await SBCAPTURE.ingest({id: "img-1", kind: "image", text: "", image: u, source: "share-android", createdAt: Date.now()}), await SBCAPTURE.ingest({id: "img-1", kind: "image", image: u, source: "share-android"}), await SBCAPTURE.ingest({id: "bad", kind: "image", image: "data:text/html;base64,AAAA", text: "", source: "siri"})]; });
     ok(imgRes[0] === true && imgRes[1] === true && imgRes[2] === false, "native image item (JPEG data URL) is queued and acknowledged once; a non-JPEG data URL is refused");
     await page.close(); await ctx.close();
