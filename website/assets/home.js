@@ -44,22 +44,32 @@
   }
 
   var EDGE = httpsUrl((D.edge && D.edge.store) || "");
-  var onEdge = /Edg\//.test(navigator.userAgent || "");
   function edgeBadge() {
     return '<a class="edgeb" href="' + esc(EDGE) + '" target="_blank" rel="noopener" aria-label="Get the Studyboard School Sync extension from Microsoft Edge Add-ons">' +
       '<img src="assets/edge-addons-badge.png" alt="Get it from Microsoft Edge" decoding="async" width="423" height="112"></a>';
   }
   // Firefox: Mozilla's own "Get the Add-on" badge, first for someone browsing in Firefox
   var FF = httpsUrl((D.firefox && D.firefox.store) || "");
-  var onFirefox = /Firefox\/|FxiOS\//.test(navigator.userAgent || "");
   function ffBadge() {
     return '<a class="ffb" href="' + esc(FF) + '" target="_blank" rel="noopener" aria-label="Get the Studyboard School Sync add-on for Firefox">' +
       '<img src="assets/firefox-addon-badge.svg" alt="Get the Add-on for Firefox" decoding="async" width="172" height="60"></a>';
   }
+  // Only the store for the browser they're using (Firefox, Edge, or Chrome and the browsers built on it: Brave, Opera, Vivaldi),
+  // with the others as plain links; a browser that can't take the extension (Safari, phones) sees every store
+  function extBrowser() {
+    var ua = navigator.userAgent || "";
+    if (/iPhone|iPad|iPod|Android|FxiOS|CriOS|EdgiOS/i.test(ua) || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1)) return "";
+    if (/Firefox\//.test(ua)) return FF ? "firefox" : "";
+    if (/Edg\//.test(ua)) return EDGE ? "edge" : "";
+    if (/Chrome\/|Chromium\//.test(ua)) return "chrome";
+    return "";
+  }
   function extBadges() {
-    var list = onEdge && EDGE ? [edgeBadge(), cwsBadge()] : [cwsBadge()].concat(EDGE ? [edgeBadge()] : []);
-    if (FF) { if (onFirefox) list.unshift(ffBadge()); else list.push(ffBadge()); }
-    return list.length > 1 ? '<div class="ext-badges">' + list.join("") + "</div>" : list[0];
+    var all = [["chrome", "Chrome", CWS, cwsBadge], ["edge", "Edge", EDGE, edgeBadge], ["firefox", "Firefox", FF, ffBadge]].filter(function (x) { return x[2]; });
+    var mine = extBrowser(), hit = all.filter(function (x) { return x[0] === mine; })[0];
+    if (!hit) return all.length > 1 ? '<div class="ext-badges">' + all.map(function (x) { return x[3](); }).join("") + "</div>" : all[0][3]();
+    var rest = all.filter(function (x) { return x !== hit; });
+    return hit[3]() + (rest.length ? '<p class="ext-others">Other browsers: ' + rest.map(function (x) { return '<a href="' + esc(x[2]) + '" target="_blank" rel="noopener">' + x[1] + "</a>"; }).join(" · ") + "</p>" : "");
   }
 
   // -- Which device is this
