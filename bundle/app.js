@@ -62261,18 +62261,10 @@ var COMP_EXTRA = [];
     return !!document.querySelector("dialog[open]") || (performance.now() - dlgShut < 800 && h < fullH - 100);
   }
   let dlgShut = -1e9;
-  // Leaving the Companion tab, it waits a moment in its circle before heading back, so the new page shows first
-  const LEAVE_MS = 120;
-  let leaveT = 0, leaveGo = false;
   function place(fresh){
     if (!box || !cur) return;
     if (press) return;
     if (dockFrozen()) return;
-    if (!leaveGo && box.dataset.spot === "slot" && typeof ui !== "undefined" && ui.tab !== "companion" && !document.hidden && !still()) {
-      if (!leaveT) leaveT = setTimeout(() => { leaveT = 0; leaveGo = true; try { passCacheReset(); place(fresh); } finally { leaveGo = false; } }, LEAVE_MS);
-      return;
-    }
-    if (leaveT && !leaveGo) { clearTimeout(leaveT); leaveT = 0; }
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
     const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;
