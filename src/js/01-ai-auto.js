@@ -20,9 +20,10 @@ let AUTO_ON = false;
 const AUTO_LS = "studyboard:autoAI";
 const AUTO = (() => { try { return JSON.parse(localStorage.getItem(AUTO_LS) || "{}") || {}; } catch(e) { return {}; } })();
 const autoSave = () => { try { localStorage.setItem(AUTO_LS, JSON.stringify(AUTO)); } catch(e) {} };
-function autoBudget(paid){
+function autoBudget(paid, sb){
   const d = todayISO(); if (AUTO.day !== d) { AUTO.day = d; AUTO.n = 0; }
-  return (paid ? 12 : 40) - (AUTO.n || 0);
+  // Studyboard AI (paid Pro's allowance, or a Claude key in its mode): 24 a day, a backstop the timings below rarely reach
+  return (paid ? 12 : sb ? 24 : 40) - (AUTO.n || 0);
 }
 const leftSig = t => `${Number(t.focusMin) || 0}|${Number(t.pct) || 0}|${(t.checklist || []).filter(i => i.done).length}/${(t.checklist || []).length}|${t.hours ?? ""}`;
 const autoFresh = (x, days) => x && x.at && Date.now() - x.at < days * 864e5;
@@ -162,13 +163,17 @@ async function autoRun(){
   const a = autoState();
   if (!a.on || autoBusy || document.hidden || navigator.onLine === false) return;
   if (autoErr && Date.now() - autoErr.at < (autoErr.code === "limit" ? 15 * 60000 : 5 * 60000)) return;
-  if (autoBudget(a.paid) <= 0) return;
+  const sb = aiSbMode(a.cfg);
+  if (autoBudget(a.paid, sb) <= 0) return;
   const today = todayISO(), tomorrow = addDays(today, 1);
   let job = null;
   const sig = planSig(), core = planCoreSig();
-  // On Studyboard AI (or a Claude key in its mode), a change in progress or the time of day alone waits 20 minutes, so ticking focus minutes don't rerun the plan
-  const gap = aiSbMode(a.cfg) && AUTO.core === core ? 20 * 60000 : 90000;
-  if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > gap : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
+  // On Studyboard AI (or a Claude key in its mode), to make its allowance last without the plan thinking any less:
+  // a change to the tasks waits 3 minutes so a burst of edits makes one run, a change in progress or the time of day alone
+  // waits 45 minutes (ticking focus minutes and checklists barely move the plan), and with nothing changed it refreshes
+  // every 4 hours. The app's own ranking updates at once either way; only the AI's reasons and estimates come later.
+  const gap = sb ? (AUTO.core === core ? 45 * 60000 : 3 * 60000) : 90000, idle = (sb ? 4 : 3) * 3600000;
+  if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > gap : Date.now() - (AUTO.planAt || 0) > idle))
     job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt, prevCore = AUTO.core; AUTO.sig = sig; AUTO.core = core; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.core = prevCore; AUTO.planAt = prevAt; throw e; } };
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.studyKind === "practice" && x.status !== "done" && x.due && dayDiff(today, x.due) <= 2 && dayDiff(today, x.due) >= 0 && !x.practiceQuiz); if (t) job = () => autoPractice(t); }

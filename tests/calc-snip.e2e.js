@@ -99,7 +99,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   // A Claude key (Studyboard AI Mode), after page reloads left jobs "in flight" and the minute busy: it still works
   { const page = await mk(false, true, true);
     await snip(page, "#q6");
-    ok(!(await page.locator(".toast", {hasText: "a lot of AI"}).count()), "no \"That's a lot of AI at once\" from jobs an earlier page left behind");
+    ok(!(await page.locator(".toast", {hasText: "handling a few requests"}).count()), "no \"Studyboard AI is handling a few requests\" from jobs an earlier page left behind");
     ok(await solve(page) === "15", `the picture is read with the Claude key and solved: ${await expr(page)} = 15`);
     ok(page.ctx.sent.some(b => /claude-haiku-5-5/.test(b)), "on Haiku 5.5, Studyboard AI Mode");
     ok(!page.errs.length, "no errors: " + page.errs.join("; "));
