@@ -2797,7 +2797,7 @@ function sbSetupSheet(){
 const SB_APPLE_SVG = '<svg class="sb-oa-a" viewBox="20 15.6 16 19.8" width="16" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="nonzero" d="M28.2226562,20.3846154 C29.0546875,20.3846154 30.0976562,19.8048315 30.71875,19.0317864 C31.28125,18.3312142 31.6914062,17.352829 31.6914062,16.3744437 C31.6914062,16.2415766 31.6796875,16.1087095 31.65625,16 C30.7304687,16.0362365 29.6171875,16.640178 28.9492187,17.4494596 C28.421875,18.06548 27.9414062,19.0317864 27.9414062,20.0222505 C27.9414062,20.1671964 27.9648438,20.3121424 27.9765625,20.3604577 C28.0351562,20.3725366 28.1289062,20.3846154 28.2226562,20.3846154 Z M25.2929688,35 C26.4296875,35 26.9335938,34.214876 28.3515625,34.214876 C29.7929688,34.214876 30.109375,34.9758423 31.375,34.9758423 C32.6171875,34.9758423 33.4492188,33.792117 34.234375,32.6325493 C35.1132812,31.3038779 35.4765625,29.9993643 35.5,29.9389701 C35.4179688,29.9148125 33.0390625,28.9122695 33.0390625,26.0979021 C33.0390625,23.6579784 34.9140625,22.5588048 35.0195312,22.474253 C33.7773438,20.6382708 31.890625,20.5899555 31.375,20.5899555 C29.9804688,20.5899555 28.84375,21.4596313 28.1289062,21.4596313 C27.3554688,21.4596313 26.3359375,20.6382708 25.1289062,20.6382708 C22.8320312,20.6382708 20.5,22.5950413 20.5,26.2911634 C20.5,28.5861411 21.3671875,31.013986 22.4335938,32.5842339 C23.3476562,33.9129053 24.1445312,35 25.2929688,35 Z"/></svg>';
 const SB_GOOGLE_SVG = '<svg class="sb-oa-g" width="20" height="20" viewBox="10 10 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><mask id="mask0_sbg" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="10" y="10" width="20" height="20"><path d="M29.3987 18.1814H19.9849V22.0445H25.3598C25.1286 23.294 24.4294 24.3596 23.3676 25.0712C22.4746 25.6716 21.3266 26.0211 19.9849 26.0211C17.3864 26.0211 15.1823 24.2666 14.3947 21.9004C14.1952 21.2989 14.0853 20.6599 14.0853 19.9983C14.0853 19.3367 14.1952 18.6966 14.3947 18.0962C15.1823 15.7311 17.3864 13.9755 19.9849 13.9755C21.4524 13.9755 22.767 14.4816 23.8039 15.4713L26.6653 12.6057C24.936 10.9908 22.6786 10 19.9849 10C16.0832 10 12.705 12.2414 11.0618 15.5076C10.383 16.8592 10 18.3834 10 19.9994C10 21.6155 10.383 23.1396 11.0618 24.4913C12.705 27.7597 16.0832 30 19.9849 30C22.6797 30 24.9485 29.1137 26.6018 27.5861C28.4887 25.8452 29.5732 23.2702 29.5732 20.2275C29.5732 19.5182 29.5131 18.835 29.3987 18.1825V18.1814Z" fill="#E94FFF"/></mask><g mask="url(#mask0_sbg)"><g filter="url(#filter0_f_sbg)"><g clip-path="url(#paint0_angular_sbg_clip_path)"><g transform="matrix(0.00804129 -0.00805186 0.00804128 0.00805186 19.6819 19.7927)"><foreignObject x="-2105.64" y="-2105.64" width="4211.29" height="4211.29"><div xmlns="http://www.w3.org/1999/xhtml" style="background:conic-gradient(from 90deg,rgba(255, 70, 65, 1) 0deg,rgba(255, 70, 65, 1) 4.14555deg,rgba(49, 134, 255, 1) 39.154deg,rgba(49, 134, 255, 1) 72.0044deg,rgba(0, 165, 183, 1) 96.7463deg,rgba(14, 188, 95, 1) 120.897deg,rgba(14, 188, 95, 1) 154.722deg,rgba(108, 196, 0, 1) 179.136deg,rgba(255, 204, 0, 1) 203.588deg,rgba(255, 211, 20, 1) 226.915deg,rgba(255, 204, 0, 1) 251.688deg,rgba(255, 106, 43, 1) 273.129deg,rgba(253, 70, 65, 1) 289.305deg,rgba(255, 70, 65, 1) 359.593deg,rgba(255, 70, 65, 1) 360deg);height:100%;width:100%;opacity:1"></div></foreignObject></g></g><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z"/></g><g filter="url(#filter1_f_sbg)"><ellipse cx="20.0496" cy="20.2413" rx="5.39634" ry="2.83537" transform="rotate(24.4473 20.0496 20.2413)" fill="#3186FF"/></g><g filter="url(#filter2_f_sbg)"><ellipse cx="33.3538" cy="18.2155" rx="7.43918" ry="3.09357" fill="#3186FF"/></g><g filter="url(#filter3_f_sbg)"><ellipse cx="25.2744" cy="16.2195" rx="7.40854" ry="2.37805" fill="#FF4641"/></g><g filter="url(#filter4_f_sbg)"><ellipse cx="29.5427" cy="12.9268" rx="7.40854" ry="2.37805" fill="#FF5B8B"/></g><g filter="url(#filter5_f_sbg)"><ellipse cx="24.4817" cy="19.878" rx="8.5061" ry="3.10976" fill="#3186FF"/></g><g filter="url(#filter6_f_sbg)"><ellipse cx="25.1842" cy="14.0197" rx="4.53882" ry="2.37805" transform="rotate(-28.6599 25.1842 14.0197)" fill="#FF4641"/></g></g><defs><filter id="filter0_f_sbg" x="5.25922" y="4.90668" width="29.7381" height="29.772" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><clipPath id="paint0_angular_sbg_clip_path"><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z"/></clipPath><filter id="filter1_f_sbg" x="12.9977" y="14.828" width="14.1038" height="10.8265" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter2_f_sbg" x="23.9146" y="13.1219" width="18.8784" height="10.1871" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter3_f_sbg" x="15.8659" y="11.8415" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter4_f_sbg" x="20.1341" y="8.54878" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter5_f_sbg" x="13.9756" y="14.7683" width="21.0122" height="10.2195" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter6_f_sbg" x="19.0404" y="9.00419" width="12.2878" height="10.0309" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter></defs></svg>';
 // Microsoft's four squares, in Microsoft's own colours (Sign in with Microsoft branding guidelines: the logo, Segoe UI,
-// light #FFFFFF / #8C8C8C border / #5E5E5E text, dark #2F2F2F / #FFFFFF)
+// light #FFFFFF with a #8C8C8C border, dark #2F2F2F; the text is the same colour as Google's, so the buttons read alike)
 const SB_MS_SVG = '<svg class="sb-oa-m" viewBox="0 0 21 21" width="18" height="18" aria-hidden="true" focusable="false"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>';
 // Supabase calls Microsoft "azure"; every Microsoft account can sign in (personal, school and work: the "common" tenant)
 const SB_OAUTH_NAME = {apple: "Apple", google: "Google", azure: "Microsoft"};
@@ -4677,7 +4677,7 @@ async function aiSourceFromFile(file){
 const aiSourceBytes = s => s.part.inline_data ? s.part.inline_data.data.length : s.part.text.length;
 
 /* Study sets: flashcards and quizzes from your material */
-const AI_STYLE_GROUPS = ["General exam styles", "Question formats", "Focus", "Healthcare / nursing exams (NCLEX-style)", "Other standardized exams"];
+const AI_STYLE_GROUPS = ["General Exam Style", "Question Format", "Focus", "Healthcare Exams", "Standardized Exams"];
 const AI_STYLES = [
   ["Mixed (multiple choice, true/false, short answer)", "A deliberate mix of question types: about 45% single best answer, 15% true/false, 15% select all that apply, 15% short answer and 10% put-in-order.", 0],
   ["University Midterm", "A typical university midterm: a balanced mix of multiple choice, true/false, a few select-all-that-apply and short-answer questions, ordered from straightforward recall to application.", 0],
@@ -4825,8 +4825,8 @@ function aiStudySheet(deckId, mode){
       <fieldset><legend>Style</legend>
         <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. AP-style multiple choice with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
         <div class="chips ai-recent" id="aiRecent" role="group" aria-label="Your recent styles"></div>
-        ${AI_STYLE_GROUPS.map((g, gi) => `<p class="mini" style="margin:10px 0 4px">${esc(g)}</p><div class="chips ai-styles" role="group" aria-label="${esc(g)}">${AI_STYLES.map((x, i) => x[2] === gi ? `<button type="button" class="chip" data-style="${i}" aria-pressed="false" title="${esc(x[1])}">${esc(x[0])}</button>` : "").join("")}</div>`).join("")}
-        <p class="mini" style="margin:8px 0 0">Pick as many ready-made styles as you like. They add to what you wrote.</p>
+        <div class="ai-style-sels">${AI_STYLE_GROUPS.map((g, gi) => `<label class="f"><span class="lbl">${esc(g)}</span><select class="ai-style-sel" data-group="${gi}"><option value="">None</option>${AI_STYLES.map((x, i) => x[2] === gi ? `<option value="${i}" title="${esc(x[1])}">${esc(x[0])}</option>` : "").join("")}</select></label>`).join("")}</div>
+        <p class="mini" style="margin:8px 0 0">Pick a ready-made style from any of these. They add to what you wrote.</p>
       </fieldset>
       <fieldset><legend>Difficulty</legend>${seg("aiDiff", [["mixed", "Mixed"], ["easier", "Easier"], ["harder", "Harder"]], "mixed")}</fieldset>
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
@@ -4872,7 +4872,6 @@ function aiStudySheet(deckId, mode){
     catch(e) { status.textContent = `Couldn't get ${f.name}${navigator.onLine === false ? " while offline" : ""}.`; }
   });
   srcList.addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { job.sources.splice(Number(b.dataset.rm), 1); drawSrcs(); status.textContent = ""; } });
-  $$(".ai-styles [data-style]", dlg).forEach(b => b.addEventListener("click", () => { b.classList.toggle("on"); b.setAttribute("aria-pressed", b.classList.contains("on")); }));
   const drawRecent = () => {
     const r = aiRecentStyles(), box = $("#aiRecent");
     box.innerHTML = r.length ? `<span class="mini" style="align-self:center">Recent:</span>` + r.map((t, i) => `<span class="chip" style="display:inline-flex;gap:4px;align-items:center"><button type="button" data-recent="${i}" style="all:unset;cursor:pointer" title="${esc(t)}">${esc(t.length > 44 ? t.slice(0, 43) + "…" : t)}</button><button type="button" data-forget="${i}" style="all:unset;cursor:pointer;opacity:.6" aria-label="Forget this style">×</button></span>`).join("") : "";
@@ -4894,7 +4893,7 @@ function aiStudySheet(deckId, mode){
     const wantCards = $("#aiCards").checked, wantQuiz = $("#aiQuiz").checked, wantCase = $("#aiCase").checked;
     if (!wantCards && !wantQuiz && !wantCase) { status.textContent = "Pick flashcards, a quiz, case studies, or a mix."; return; }
     const val = n => (dlg.querySelector(`input[name=${n}]:checked`) || {}).value;
-    const custom = $("#aiStyle").value.trim(), picks = $$(".ai-styles .chip.on", dlg).map(b => Number(b.dataset.style));
+    const custom = $("#aiStyle").value.trim(), picks = $$(".ai-style-sel", dlg).map(s => s.value).filter(v => v !== "").map(Number);
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
     job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
@@ -13437,33 +13436,50 @@ function nbZoomTo(z, cx, cy){
 const NBZ_STEPS = [0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2];
 // Found a note (Ask, the companion, Search, a link): glide the board so the note is centred and big enough to read,
 // then draw a highlight box around it. One smooth move of zoom and scroll together; instant with Reduce Motion.
+// Whatever Ask, the companion or Search finds gets the same highlight box notes get: it settles in around the whole
+// item (a flashcard's whole tile, not just its text), then fades after a few seconds
+let foundT = [];
+function foundBox(el){
+  if (!el) return false;
+  const tile = el.matches && el.matches(".fc-cell, .fc-face") ? el.closest(".fc-row") || el : el;
+  document.querySelectorAll(".sb-found").forEach(x => x.classList.remove("sb-found", "sb-found-out"));
+  foundT.forEach(clearTimeout);
+  tile.classList.remove("sb-found", "sb-found-out"); void tile.offsetWidth; tile.classList.add("sb-found");
+  foundT = [setTimeout(() => tile.classList.add("sb-found-out"), 2600), setTimeout(() => tile.classList.remove("sb-found", "sb-found-out"), 3100)];
+  return true;
+}
 let nbFocusRun = 0;
 function nbFocusNote(id){
-  const sc = $("#nbScroll"), el = sc && sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`); if (!el) return false;
+  // The board can be redrawn while this runs (on phones the Notes page redraws right after it opens), so each frame
+  // looks the board and the note up again instead of holding on to the first ones
+  const q = () => { const sc = $("#nbScroll"); return {sc, el: sc && sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`)}; };
+  const first = q(); if (!first.el) return false;
   const run = ++nbFocusRun, calm = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  const nx = el.offsetLeft + el.offsetWidth / 2, ny = el.offsetTop + el.offsetHeight / 2;
+  const {sc: sc0, el: el0} = first;
+  const nx = el0.offsetLeft + el0.offsetWidth / 2, ny = el0.offsetTop + el0.offsetHeight / 2;
   // big enough that the note fills about half the view, never smaller than now's zoom or 100%
-  const fit = Math.min(sc.clientWidth * 0.55 / el.offsetWidth, sc.clientHeight * 0.55 / el.offsetHeight);
+  const fit = Math.min(sc0.clientWidth * 0.55 / el0.offsetWidth, sc0.clientHeight * 0.55 / el0.offsetHeight);
   const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, 1, Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
-  const cx0 = (sc.scrollLeft + sc.clientWidth / 2) / z0, cy0 = (sc.scrollTop + sc.clientHeight / 2) / z0;
-  const place = (z, cx, cy) => { NBZ = z; nbZoomApply(); sc.scrollLeft = cx * z - sc.clientWidth / 2; sc.scrollTop = cy * z - sc.clientHeight / 2; };
+  const cx0 = (sc0.scrollLeft + sc0.clientWidth / 2) / z0, cy0 = (sc0.scrollTop + sc0.clientHeight / 2) / z0;
+  const place = (z, cx, cy) => { const {sc} = q(); if (!sc) return false; NBZ = z; nbZoomApply(); sc.scrollLeft = cx * z - sc.clientWidth / 2; sc.scrollTop = cy * z - sc.clientHeight / 2; return true; };
   const done = () => {
-    place(z1, nx, ny);
+    if (!place(z1, nx, ny)) return;
     try { localStorage.setItem(NBZ_KEY, String(z1)); } catch (e) {}
     const ctl = document.querySelector(".nb-zoom"); if (ctl) ctl.outerHTML = nbZoomCtl();
-    const n = sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`) || el;
-    n.classList.remove("nb-found"); void n.offsetWidth; n.classList.add("nb-found");
-    setTimeout(() => { if (run === nbFocusRun) n.classList.add("nb-found-out"); }, 2600);
-    setTimeout(() => { if (run === nbFocusRun) n.classList.remove("nb-found", "nb-found-out"); }, 3100);
+    const box = () => { const n = q().el; if (n) { n.classList.remove("nb-found-out"); n.classList.add("nb-found"); } return n; };
+    const n = box(); if (n) { n.classList.remove("nb-found"); void n.offsetWidth; n.classList.add("nb-found"); }
+    // keep the box on if the board is redrawn while it shows
+    const keep = setInterval(() => { if (run !== nbFocusRun || ui.tab !== "notes") { clearInterval(keep); return; } const m = q().el; if (m && !m.classList.contains("nb-found")) m.classList.add("nb-found"); }, 200);
+    setTimeout(() => { clearInterval(keep); if (run === nbFocusRun) { const m = q().el; if (m) m.classList.add("nb-found-out"); } }, 2600);
+    setTimeout(() => { if (run === nbFocusRun) { const m = q().el; if (m) m.classList.remove("nb-found", "nb-found-out"); } }, 3100);
   };
   if (calm) { done(); return true; }
   const t0 = performance.now(), dur = 650, ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   const step = now => {
-    if (run !== nbFocusRun || !sc.isConnected) return;
+    if (run !== nbFocusRun || ui.tab !== "notes") return;
     const k = Math.min(1, (now - t0) / dur), e = ease(k);
     // zoom moves on a log scale so zooming in and out feel equally even
-    const z = z0 * Math.pow(z1 / z0, e);
-    place(z, cx0 + (nx - cx0) * e, cy0 + (ny - cy0) * e);
+    if (!place(z0 * Math.pow(z1 / z0, e), cx0 + (nx - cx0) * e, cy0 + (ny - cy0) * e)) return;
     if (k < 1) requestAnimationFrame(step); else done();
   };
   requestAnimationFrame(step);
@@ -25788,8 +25804,7 @@ Return JSON only.`;
   function flash(sel, center){
     const el = typeof sel === "string" ? $(sel) : sel; if (!el) return;
     try { el.scrollIntoView({block: center === false ? "nearest" : "center", behavior: "smooth"}); } catch(e) {}
-    el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash");
-    setTimeout(() => el.classList.remove("sx-flash"), 2200);
+    foundBox(el);
   }
   function openDeck(id){ go("flashcards"); ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }
   function openNote(id){
@@ -62246,10 +62261,18 @@ var COMP_EXTRA = [];
     return !!document.querySelector("dialog[open]") || (performance.now() - dlgShut < 800 && h < fullH - 100);
   }
   let dlgShut = -1e9;
+  // Leaving the Companion tab, it waits a moment in its circle before heading back, so the new page shows first
+  const LEAVE_MS = 120;
+  let leaveT = 0, leaveGo = false;
   function place(fresh){
     if (!box || !cur) return;
     if (press) return;
     if (dockFrozen()) return;
+    if (!leaveGo && box.dataset.spot === "slot" && typeof ui !== "undefined" && ui.tab !== "companion" && !document.hidden && !still()) {
+      if (!leaveT) leaveT = setTimeout(() => { leaveT = 0; leaveGo = true; try { passCacheReset(); place(fresh); } finally { leaveGo = false; } }, LEAVE_MS);
+      return;
+    }
+    if (leaveT && !leaveGo) { clearTimeout(leaveT); leaveT = 0; }
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
     const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;
@@ -62564,7 +62587,7 @@ var COMP_EXTRA = [];
     if (!isOn() || !cur || !askAvailable()) return;
     const notes = form.querySelector('[name="notes"]'), lab = notes.closest("label") || notes.parentElement;
     lab.insertAdjacentHTML("afterend", `<div class="cp-tq"><button type="button" class="link-btn cp-tq-open">${AI_ICON} Ask ${esc(nameOf(cur))} About This Task</button>
-      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn primary ai-btn cp-ask-go">${AI_ICON} Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
+      <div class="cp-tq-box" hidden><div class="cp-tq-row"><input type="text" maxlength="160" placeholder="Like &quot;what is this asking me to do?&quot;" aria-label="Your question about this task" data-noenter><button type="button" class="btn primary ai-btn cp-ask-go">Ask</button></div><p class="cp-tq-a" aria-live="polite"></p></div></div>`);
     const box = form.querySelector(".cp-tq-box"), inp = box.querySelector("input"), out = box.querySelector(".cp-tq-a"), go = box.querySelector("button");
     form.querySelector(".cp-tq-open").addEventListener("click", () => { box.hidden = !box.hidden; if (!box.hidden) inp.focus(); });
     const ask = async () => {
@@ -62588,7 +62611,7 @@ var COMP_EXTRA = [];
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
-    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">${AI_ICON} Ask</button></form>
+    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
       ${sc ? `<label class="cp-ask-ctx"><input type="checkbox" class="cp-ctx-on" checked> <span>About this ${esc(sc.kind.toLowerCase())}: <b>${esc(shortT(sc.label, 34))}</b></span></label>` : ""}
       <span class="cp-ask-hint">${sc ? esc(sc.hint) : (() => { try { return aiReady(); } catch (e) { return false; } })() ? `Like "find my lab notes" or "move my essay to Friday"` : `Like "what should I do next?" or "quiz me on something"`}</span>`;
     placeBubble(b);
@@ -64543,7 +64566,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   function flash(sel){
     const el = typeof sel === "string" ? document.querySelector(sel) : sel; if (!el) return false;
     try { el.scrollIntoView({block: "center", behavior: "smooth"}); } catch (e) {}
-    el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2600);
+    foundBox(el);
     return true;
   }
   function go(tab){ if (dlg && dlg.open) try { dlg.close(); } catch (e) {} ui.tab = tab; if (tab !== "courses") ui.courseId = null; if (ui.fc) ui.fc = null; render(); window.scrollTo(0, 0); }

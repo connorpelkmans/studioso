@@ -103,6 +103,11 @@ dialog.sx-dlg[open]{display:flex}
 .sx-pg{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 @keyframes sxFlash{0%,100%{box-shadow:0 0 0 0 transparent}20%,60%{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 55%,transparent)}}
 .sx-flash{animation:sxFlash 1.1s ease-in-out 2;border-radius:10px}
+/* Something Ask, the companion or Search found (see foundBox): the same highlight box found notes get */
+.sb-found{outline:3px solid var(--accent)!important;outline-offset:5px!important;animation:sbFoundIn .45s cubic-bezier(.2,.8,.2,1) both;transition:outline-color .5s ease}
+.sb-found.sb-found-out{outline-color:transparent!important}
+@keyframes sbFoundIn{from{outline-offset:14px;outline-color:transparent}to{outline-offset:5px;outline-color:var(--accent)}}
+@media (prefers-reduced-motion:reduce){.sb-found{animation:none}}
 @media (prefers-reduced-motion:reduce){.sx-flash{animation:none;outline:3px solid var(--accent)}.sx-dots i{animation:none;opacity:.7}}
 @media (max-width:600px){
   dialog.sx-dlg{width:100%;max-width:100%;height:100%;height:100dvh;max-height:100dvh;margin:0;border-radius:0}
