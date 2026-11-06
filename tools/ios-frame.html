@@ -32,8 +32,8 @@ html.ipad .bar{height:calc(100% * 24 / 1376);display:flex;justify-content:space-
 html.ipad .bar .ic{gap:5px}
 html.ipad .bar svg{transform:scale(.85)}
 .bar .date{display:none;margin-left:5px;font-weight:500}
-/* no time or date on the iPad: only the icons at the top right */
-html.ipad .bar > span:first-child{visibility:hidden}
+/* no status bar on the iPad: no time, date, Wi-Fi or battery */
+html.ipad .bar{visibility:hidden}
 html.ipad .bar .cell{display:none}
 html.ipad .bar > span:nth-child(2){display:none}
 html.ipad .home{width:240px;margin-left:-120px;bottom:8px;height:5px}
