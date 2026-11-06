@@ -3620,7 +3620,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const r = R(), f = r && state.files[r.fid];
       return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}`;
     },
-    readerAi: () => `<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF" aria-label="Ask This PDF">${ico(IC.ask)}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF" aria-label="Study From This PDF">${ico(IC.study)}<span class="pde-lbl">Study</span></button>`,
+    readerAi: () => `<span class="pdr-ai"><button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF" aria-label="Ask This PDF">${ico(IC.ask)}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF" aria-label="Study From This PDF">${ico(IC.study)}<span class="pde-lbl">Study</span></button></span>`,
     // Download, and its menu: Turn In (a copy ready to hand in)
     dlBtns: () => `<span class="pdr-split"><button type="button" class="btn small" data-act="pde-dl" title="Download this PDF with your edits">${ico(IC.down)}<span class="pde-lbl">Download</span></button><button type="button" class="btn small pdr-dl-more" data-act="pde-dlmenu" aria-haspopup="menu" aria-expanded="false" aria-label="More ways to download" title="More ways to download">${ico('<path d="M7 10l5 5 5-5"/>')}</button></span>`,
     setOn: on => setOn(on),
@@ -3846,6 +3846,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-saybar select{width:auto;padding:4px 6px}
 .pdr-sheet{position:relative}
 .pde-rt{display:inline-flex;align-items:center;gap:6px}
+.pdr-ai{display:inline-flex;align-items:center;gap:8px}
+.pdr-ai:not(:has(.pde-rt:not([hidden]))){display:none}
 .pde-rt[hidden]{display:none}
 .pde-toc{list-style:none;margin:0;padding:0 0 0 14px;display:grid;gap:2px}
 .pde-pb > .pde-toc{padding-left:0}

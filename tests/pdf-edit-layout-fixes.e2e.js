@@ -116,8 +116,8 @@ async function makePdf(pages){
       await page.click("#pdeBtn"); await page.waitForFunction(() => !!window.PDFLib); await page.waitForTimeout(500);
       await clickLine(page, "Line 3 of sheet 1"); await page.waitForTimeout(300);
       const hd = await page.evaluate(() => { const one = el => { const k = [...el.children].filter(x => x.offsetWidth && getComputedStyle(x).position !== "absolute"); const b = el.getBoundingClientRect(); return b.height <= 72 && k.every(x => { const r = x.getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; }); };
-        return {top: Math.round(document.querySelector("#pdrPages").getBoundingClientRect().top), reader: one(document.querySelector(".pdr-bar")), sub: one(document.querySelector(".pde-sub")), doc: document.documentElement.scrollWidth}; });
-      ok(hd.top <= 300 && hd.reader && hd.sub && hd.doc <= 390, "editing on a phone, the bars are one row each and leave the page most of the screen: " + JSON.stringify(hd));
+        return {top: Math.round(document.querySelector("#pdrPages").getBoundingClientRect().top), reader: (b => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().height <= 125)(document.querySelector(".pdr-bar")), sub: one(document.querySelector(".pde-sub")), doc: document.documentElement.scrollWidth}; });
+      ok(hd.top <= 300 && hd.reader && hd.sub && hd.doc <= 390, "editing on a phone, the reader bar is two tidy rows, the tool rows one each, and the page keeps most of the screen: " + JSON.stringify(hd));
       await T.shot("4-phone-picked");
       // typing with the keyboard up (a 364px keyboard leaves 480px): only the text style row stays above the line being typed
       { await clickLine(page, "Line 3 of sheet 1"); await page.waitForTimeout(300);
