@@ -1278,7 +1278,11 @@ SCENES.cafe = function (W, H, dk, rnd) {
   for (var m = 1; m <= nm; m++) fr += rect(wx0 + ww * m / (nm + 1) - fw * 0.4, wy0, fw * 0.8, wh);
   if (!ph) fr += rect(wx0, tb, ww, fw * 0.7);
   add(mid, 'b', fr, dk ? '#3A271A' : '#6E4B32');
-  var sh = ''; for (m = 0; m <= nm; m++) { var px = wx0 + ww * m / (nm + 1) + ww / (nm + 1) * 0.25; sh += poly([[px, tb + 40], [px + 40 * u, tb + 40], [px - 60 * u, wy1 - 20], [px - 100 * u, wy1 - 20]]) + poly([[px + 60 * u, tb + 60], [px + 72 * u, tb + 60], [px - 18 * u, wy1 - 40], [px - 30 * u, wy1 - 40]]); }
+  // glare streaks; on a phone they run right up to the top of the window (each edge carried up along its own slant)
+  var sh = '', gy = function (x1, y1, x2, y2, y0) { return [x1 + (x2 - x1) * (y0 - y1) / (y2 - y1), y0]; };
+  for (m = 0; m <= nm; m++) { var px = wx0 + ww * m / (nm + 1) + ww / (nm + 1) * 0.25, t1 = ph ? wy0 : tb + 40, t2 = ph ? wy0 : tb + 60;
+    sh += poly([gy(px, tb + 40, px - 100 * u, wy1 - 20, t1), gy(px + 40 * u, tb + 40, px - 60 * u, wy1 - 20, t1), [px - 60 * u, wy1 - 20], [px - 100 * u, wy1 - 20]])
+      + poly([gy(px + 60 * u, tb + 60, px - 30 * u, wy1 - 40, t2), gy(px + 72 * u, tb + 60, px - 18 * u, wy1 - 40, t2), [px - 18 * u, wy1 - 40], [px - 30 * u, wy1 - 40]]); }
   add(mid, 'a', sh, dk ? 'rgba(255,220,180,0.05)' : 'rgba(255,255,255,0.22)');
   if (ph) {
     // the wall: soft wallpaper stripes down to a wooden rail just above the window
