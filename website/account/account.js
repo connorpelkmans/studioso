@@ -242,9 +242,19 @@
         if (provider === "azure") { opts.scopes = "openid profile email offline_access"; opts.queryParams = { prompt: "select_account" }; }
         var name = { apple: "Apple", google: "Google", azure: "Microsoft" }[provider] || "that";
         try { localStorage.setItem("studyboard-site-oauth", JSON.stringify({ p: provider, at: Date.now() })); } catch (e) {}
-        state.sb.auth.signInWithOAuth({ provider: provider, options: opts }).then(function (r) {
+        // Microsoft through Studyboard's own step (ms-signin) once it's deployed, so school and work accounts work too
+        if (provider === "azure") {
+          msReady().then(function (ok) {
+            if (!ok) return builtIn();
+            var bind = randId(); try { localStorage.setItem("studyboard-site-msbind", bind); } catch (e) {}
+            location.assign(fnBase() + "/ms-signin/start?" + new URLSearchParams({ return: redirectBack(), bind: bind }).toString());
+          });
+          return;
+        }
+        builtIn();
+        function builtIn() { state.sb.auth.signInWithOAuth({ provider: provider, options: opts }).then(function (r) {
           if (r && r.error) { b.disabled = false; msg($("auth-msg"), /not enabled|unsupported provider/i.test(r.error.message || "") ? "Signing in with " + name + " isn't turned on yet. Use your email for now." : words(r.error), "error"); }
-        }, function (e) { b.disabled = false; msg($("auth-msg"), words(e), "error"); });
+        }, function (e) { b.disabled = false; msg($("auth-msg"), words(e), "error"); }); }
       });
     });
 
@@ -322,6 +332,14 @@
     });
   }
 
+  // Studyboard's own Microsoft sign-in (the ms-signin function): is it deployed, and its address
+  function fnBase() { return String(cfg.SUPABASE_URL).replace(/\/+$/, "") + "/functions/v1"; }
+  function msReady() {
+    var ac = new AbortController(), t = setTimeout(function () { ac.abort(); }, 2500);
+    return fetch(fnBase() + "/ms-signin/ready", { headers: { apikey: cfg.SUPABASE_ANON_KEY }, signal: ac.signal }).then(function (r) { clearTimeout(t); return r.ok ? r.json() : {}; }).then(function (j) { return !!(j && j.ok); }, function () { return false; });
+  }
+  function randId() { var b = crypto.getRandomValues(new Uint8Array(24)), s = ""; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+
   // A provider sign-in that came back with an error, in plain words (the same as the app's sbOAuthWords)
   function oauthWords(d, provider) {
     var name = { apple: "Apple", google: "Google", azure: "Microsoft" }[provider] || "that account";
@@ -356,7 +374,16 @@
         setTimeout(renderAccount, 0);
       }
     });
-    state.sb.auth.getSession().then(function (r) {
+    // back from Studyboard's Microsoft sign-in with its one-time token (only on the browser that began it)
+    var msBack = new URLSearchParams(location.hash.replace(/^#/, "")), msTok = msBack.get("sb_ms"), msWait = Promise.resolve();
+    if (msTok) {
+      var bind = ""; try { bind = localStorage.getItem("studyboard-site-msbind") || ""; localStorage.removeItem("studyboard-site-msbind"); localStorage.removeItem("studyboard-site-oauth"); } catch (e) {}
+      history.replaceState(null, "", location.pathname + location.search);
+      msWait = bind && msBack.get("sb_ms_bind") === bind
+        ? state.sb.auth.verifyOtp({ token_hash: msTok, type: "magiclink" }).then(function (r) { if (r && r.error) oauthErr = oauthWords(r.error.message || "", "azure"); }, function (e) { oauthErr = oauthWords(String(e && e.message || ""), "azure"); })
+        : Promise.resolve().then(function () { oauthErr = "That sign-in was started in another browser. Choose Sign in with Microsoft again."; });
+    }
+    msWait.then(function () { return state.sb.auth.getSession(); }).then(function (r) {
       state.session = r.data && r.data.session;
       if (!state.session && !state.recovering) {
         show("v-auth"); showForm("form-signin");
