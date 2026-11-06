@@ -38,7 +38,7 @@ const SB_LINK_ERR = (() => {
     const q = new URLSearchParams(location.hash.replace(/^#/, "") + "&" + location.search.replace(/^\?/, ""));
     const code = q.get("error_code") || (q.get("error") ? "error" : "");
     if (!code && !q.get("error_description")) return null;
-    return {code: String(code).slice(0, 40), recovery: /recover|reset/i.test(String(q.get("type") || "")) };
+    return {code: String(code).slice(0, 40), recovery: /recover|reset/i.test(String(q.get("type") || "")), desc: String(q.get("error_description") || q.get("error") || "").replace(/\+/g, " ").slice(0, 400)};
   } catch (e) { return null; }
 })();
 // Password strength for the new-password forms
@@ -835,12 +835,26 @@ const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="
 async function sbOAuthFinish(addr){
   const u = new URL(addr), p = new URLSearchParams((u.hash || "").replace(/^#/, "")), q = u.searchParams;
   const err = p.get("error_description") || q.get("error_description") || p.get("error") || q.get("error");
-  if (err) throw new Error(err.replace(/\+/g, " "));
+  if (err) throw Object.assign(new Error(err.replace(/\+/g, " ")), {oauth: true});
   const code = q.get("code") || p.get("code");
   if (code) { const {error} = await sb.auth.exchangeCodeForSession(code); if (error) throw error; return true; }
   const at = p.get("access_token"), rt = p.get("refresh_token");
   if (at && rt) { const {error} = await sb.auth.setSession({access_token: at, refresh_token: rt}); if (error) throw error; return true; }
   throw new Error("The sign-in didn't come back complete. Try again.");
+}
+// The provider last started on the web (the page reloads on the way back, so the error that comes back doesn't say which)
+const SB_OAUTH_TRIED = "studioso:oauthTried";
+// A sign-in with Google, Apple or Microsoft that came back with an error, in plain words: what went wrong and who fixes it
+function sbOAuthWords(desc, provider){
+  const d = String(desc || ""), name = SB_OAUTH_NAME[provider] || "that account";
+  if (/provider is not enabled|unsupported provider/i.test(d)) return `Signing in with ${name} isn't turned on yet. Use your email for now.`;
+  if (/getting user email|email.*(missing|not (found|provided|available))|no email/i.test(d)) return `${name} didn't share your email address, which Studyboard needs for your account. (Setup: in the Microsoft app registration, add the optional "email" claim under Token configuration and the email permission under API permissions.)`;
+  if (/exchange external code|invalid_client|AADSTS7000215|AADSTS7000218|client secret|unauthorized_client/i.test(d)) return `${name} didn't accept Studyboard's sign-in settings, so the sign-in couldn't finish. (Setup: in Supabase's ${provider === "azure" ? "Azure" : name} provider, paste the client secret's Value, not its Secret ID, or make a new secret.)`;
+  if (/AADSTS50011|redirect_uri|redirect uri|reply url/i.test(d)) return `${name} doesn't recognise where to send you back. (Setup: add the Supabase callback address to the app's Web redirect URIs.)`;
+  if (/AADSTS65001|AADSTS90094|admin approval|admin consent|need.*approval/i.test(d)) return `Your school or work account needs its IT admin to allow Studyboard first. Try a personal account, Google, or your email instead.`;
+  if (/access_denied|cancel+ed|user denied|consent/i.test(d)) return `The sign-in with ${name} was cancelled. Try again whenever you're ready.`;
+  if (/already (registered|exists)|identity.*already|multiple accounts/i.test(d)) return `There's already a Studyboard account with that email. Sign in with your email and password first, then you can use ${name} next time.`;
+  return `Signing in with ${name} didn't finish${d ? ": " + d.replace(/\s+/g, " ").slice(0, 200) : ""}. Try again, or use your email.`;
 }
 // true once signed in; false if cancelled or still on its way (the web leaves the page)
 async function sbOAuth(provider, say, back){
@@ -887,6 +901,7 @@ async function sbOAuth(provider, say, back){
   // the web: off to the provider, and back here signed in
   if (!/^https?:$/.test(location.protocol)) throw new Error(`Sign in with ${name} isn't available here. Use your email instead.`);
   sbLinkAsked();
+  try { localStorage.setItem(SB_OAUTH_TRIED, JSON.stringify({p: provider, at: Date.now()})); } catch (e) {}
   const {error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: back}, opts)});
   if (error) throw error;
   say(`Opening ${name}…`);
@@ -1002,7 +1017,7 @@ function sbSignInSheet(mode, email, note){
     if (busy) return; busy = true;
     dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = true; });
     try { if (await sbOAuth(b.dataset.oauth, say, back)) done("Signed in"); }
-    catch (e) { say(/not enabled|unsupported provider/i.test(String(e && e.message || "")) ? `Signing in with ${SB_OAUTH_NAME[b.dataset.oauth] || "that"} isn't turned on yet. Use your email for now.` : sbWords(e)); }
+    catch (e) { say(e && e.oauth || /not enabled|unsupported provider/i.test(String(e && e.message || "")) ? sbOAuthWords(e && e.message, b.dataset.oauth) : sbWords(e)); }
     finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
   }));
   sbPwWire(dlg);
@@ -1083,8 +1098,17 @@ function sbNewPasswordSheet(){
   });
   sbPwWire(dlg);
 }
-// A link in an email failed (expired or already used)
+// A link in an email failed (expired or already used), or a sign-in with Google, Apple or Microsoft came back with an error
 function sbLinkErrorSheet(){
+  let tried = null; try { tried = JSON.parse(localStorage.getItem(SB_OAUTH_TRIED) || "null"); localStorage.removeItem(SB_OAUTH_TRIED); } catch (e) {}
+  const E = SB_LINK_ERR || {}, emailLink = /otp_expired|email link|link is invalid|token has expired/i.test(E.code + " " + E.desc) || E.recovery;
+  if (!emailLink && tried && Date.now() - tried.at < 30 * 60000) {
+    openSheet(`<div class="sheet sb-acct">${head("Sign-In Didn't Finish")}
+      <div class="sheet-body"><p style="margin:0" role="status">${esc(sbOAuthWords(E.desc, tried.p))}</p></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-sbm="signin">Try Again</button></div></div>`);
+    dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
+    return;
+  }
   openSheet(`<div class="sheet sb-acct">${head("That Link Didn't Work")}
     <div class="sheet-body"><p style="margin:0" role="status">This link has expired or was already used. Links in Studyboard emails work once, for 1 hour.</p>
       <p class="mini" style="margin:0">Ask for a new one:</p>

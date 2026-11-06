@@ -25,6 +25,7 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
       seen.push(r.request().method() + " " + u.pathname + (u.searchParams.get("grant_type") ? "?" + u.searchParams.get("grant_type") : "") + (u.searchParams.get("provider") ? " " + u.searchParams.get("provider") : ""));
       if (u.pathname === "/auth/v1/authorize") {   // the provider, approving at once and sending the person back
         const back = u.searchParams.get("redirect_to");
+        if (ctx.failWith) return r.fulfill({status: 302, headers: {location: back + "#error=server_error&error_code=unexpected_failure&error_description=" + encodeURIComponent(ctx.failWith).replace(/%20/g, "+")}});
         return r.fulfill({status: 302, headers: {location: back + "#access_token=" + jwt() + "&refresh_token=rt1&expires_in=3600&token_type=bearer"}});
       }
       if (u.pathname === "/auth/v1/user") return r.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(USER)});
@@ -86,6 +87,23 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     ok(opened.length === 1 && /\/auth\/v1\/authorize\?/.test(opened[0]) && /provider=google/.test(opened[0]) && /redirect_to=studyboard%3A%2F%2Fauth-callback/.test(opened[0]) && /prompt=select_account/.test(opened[0]),
       "it opened Supabase's Google page, set to return to studyboard://auth-callback and to let them pick an account");
     ok(await page.evaluate(() => !location.hash && location.href.startsWith("http://localhost")), "and the app itself never left its page");
+    await ctx.close();
+
+    // the web: a Microsoft sign-in that comes back with an error says what went wrong (not "that link expired")
+    seen = [];
+    ({ctx, page} = await open(null, seen));
+    ctx.failWith = "Error getting user email from external provider";
+    await page.click("dialog[open] [data-oauth=azure]");
+    await page.waitForFunction(() => { const d = document.querySelector("dialog[open]"); return d && /Sign-In Didn.t Finish|Link Didn.t Work/.test(d.innerText); }, null, {timeout: 10000}).catch(() => {});
+    { const t = await page.evaluate(() => (document.querySelector("dialog[open]") || {}).innerText || "");
+      ok(/Sign-In Didn.t Finish/.test(t) && /Microsoft didn.t share your email/.test(t) && !/expired/.test(t), "a failed Microsoft sign-in explains what went wrong, instead of \"That link didn't work\": " + t.replace(/\s+/g, " ").slice(0, 160)); }
+    await ctx.close();
+
+    // the app: the same error, coming back through studyboard://auth-callback
+    seen = [];
+    ({ctx, page} = await open(() => { window.StudyboardNative = {signIn: {redirect: "studyboard://auth-callback", apple: null, open: () => Promise.resolve("studyboard://auth-callback#error=server_error&error_description=Unable+to+exchange+external+code")}}; }, seen));
+    await page.click("dialog[open] [data-oauth=azure]"); await page.waitForTimeout(600);
+    ok(/Microsoft didn.t accept Studyboard.s sign-in settings/.test(await page.evaluate(() => (document.getElementById("sbMsg") || {}).textContent || "")), "in the app too, in plain words");
     await ctx.close();
 
     // the app (iPhone, Android): Microsoft the same way, outside the app
