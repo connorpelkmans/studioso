@@ -1564,8 +1564,10 @@
   focusHtml = function(){
     const html = origFocusHtml.apply(this, arguments);
     const i = html.indexOf('class="plan-how"'); if (i < 0) return html;
-    const j = html.indexOf("<" + "!--plan-how-end-->", i); if (j < 0) return html;
-    const p = `<p><b>Pass mark check</b>: when a course is close to its pass mark (you'd need 70% or more on the rest, or you're within 5% of it), its graded work due in the next 3 weeks moves up the list, without pushing aside anything due sooner. These tasks say why. A course under its target grade gets a smaller lift the same way, study sessions for its exams included. Set pass marks under Grades in Settings, and a Target Grade on each course page.</p>`;
+    // one line in the ranking list: courses near their pass mark (or under their target grade) move up
+    const L = html.indexOf('class="plan-how-list"', i); if (L < 0) return html;
+    const dn = html.indexOf("<li><b>Today's time</b>", L), j = dn > 0 ? dn : html.indexOf("</ul>", L); if (j < 0) return html;
+    const p = `<li><b>Courses near their pass mark</b> (or under their target grade) move up.</li>`;
     return html.slice(0, j) + p + html.slice(j);
   };
 

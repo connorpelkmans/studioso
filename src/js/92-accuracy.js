@@ -549,7 +549,7 @@ function customLog(el){
 /* Words for Today's Plan */
 function howHtml(){
   if (!on()) return `<p>${esc(tr("acc.howOff", "Learning from your own pace is turned off in Settings, so the plan uses your estimates exactly as you typed them."))}</p>`;
-  return `<p>${esc(tr("acc.how", "Studyboard also learns your pace. After you finish a few tasks, it adjusts for how long your work really takes (by task type, and by course once there's enough history), matches each day's plan to what you actually get done, and starts tasks sooner if you tend to finish close to the deadline. You can turn this off in Settings."))}</p>`;
+  return `<p>${esc(tr("acc.how", "It also learns your pace from tasks you finish. You can turn this off in Settings."))}</p>`;
 }
 
 /* Wiring */
