@@ -1812,6 +1812,14 @@ b.hc-ring.long > span:not(.pt-sr){font-size:.72em}
 .plan-foot:has(> .pf-toggles){flex-wrap:nowrap;align-items:flex-start}
 .plan-foot > .pf-toggles{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;gap:2px 18px}
 .plan-foot > .ap-off-btn{flex:none;white-space:nowrap}
+/* phones: the links are buttons that pair up two to a row (four make a 2x2, an odd one out fills the last row), Take Today Off last */
+@media (max-width:600px){
+  .plan-foot:has(> .pf-toggles){flex-wrap:wrap;gap:8px;padding-top:12px}
+  .plan-foot > .pf-toggles{display:contents}
+  .plan-foot .pf-link.pf-link{flex:1 1 calc(50% - 4px);min-width:0;justify-content:center;text-align:center;margin:0;min-height:42px;padding:8px 6px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--soft) 60%,var(--surface));color:var(--ink);font:600 .84rem var(--body);white-space:normal}
+  .plan-foot .pf-link.pf-link[aria-expanded="true"],.plan-foot .pf-link.pf-link[aria-pressed="true"]{border-color:transparent;background:var(--accent-band,var(--accent));color:#fff}
+  .plan-foot .pf-link.pf-link[aria-expanded="true"] .pe-dot{background:rgba(255,255,255,.25);color:#fff}
+}
 .pf-link{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:6px 0;font-size:.84rem;font-weight:600;color:var(--muted);cursor:pointer}
 .pf-link:hover,.pf-link[aria-expanded=true]{color:var(--ink)}
 .pf-chev{width:14px;height:14px;transition:transform .15s}
