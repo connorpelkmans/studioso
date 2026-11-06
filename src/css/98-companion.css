@@ -216,8 +216,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 @media (prefers-reduced-motion:reduce){.cp-dots i{animation:cpDotFade 1.6s infinite}@keyframes cpDotFade{0%,100%{opacity:.35}50%{opacity:1}}}
 
 /* Ask's confirm panel (98-assist.js): sits low on the screen so the highlighted thing above stays in view */
-.as-dlg{margin:auto auto max(18px,env(safe-area-inset-bottom));width:min(520px,calc(100vw - 32px));max-height:min(70vh,560px);padding:0;border:0;border-radius:16px;background:var(--card,#fff);color:var(--ink,inherit);box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.as-dlg{margin:auto auto max(18px,env(safe-area-inset-bottom));width:min(520px,calc(100vw - 32px));max-height:min(70vh,560px);padding:0;border:0;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 18px 50px rgba(0,0,0,.28)}
 .as-dlg::backdrop{background:rgba(10,14,24,.12)}
+/* the title reads like every other sheet's, in light and dark */
+.as-dlg .sheet-head h2{color:var(--ink)}
 .as-sheet .sheet-body{max-height:min(48vh,380px);overflow:auto}
 .as-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .as-list li{display:grid;gap:2px;padding:10px 12px;border-radius:10px;background:var(--soft,rgba(0,0,0,.04))}
