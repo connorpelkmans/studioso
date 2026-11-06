@@ -20,6 +20,8 @@ See PRO-PLANS-GUIDE.md in the main folder for the full owner steps.
 - `assets/logo-light.webp` and `assets/logo-dark.webp` are the wordmark for light and dark.
 - **Installers:** open `config.js` and paste each link into `DOWNLOADS` (Windows, Mac Apple M-series, Mac Intel, Linux, App Store, Google Play). While a link is empty its button stays on the page and says "coming soon" when pressed. The home page detects the visitor's device and highlights the right one. To preview another device add `?os=` to the address: `windows`, `mac-arm`, `mac-intel`, `mac-unknown`, `linux`, `ios` or `android`.
 - **Chrome extension:** `DOWNLOADS.chrome.store` is the extension's Chrome Web Store page. While it's set, the download section shows Google's "Available in the Chrome Web Store" badge linking to it. Google's rules: don't change the badge other than resizing, keep it linked to the listing, and remove it if the listing is ever taken down.
+- **App Store:** `DOWNLOADS.ios.url` (or `appId`) is the iPhone and iPad app's App Store page. While it's set, the page shows Apple's "Download on the App Store" badge (`assets/app-store-badge.svg`, from developer.apple.com, unaltered and never shown under 40px tall). On a Mac it stays out of the top download area until the Mac app is on the App Store.
+- **Edge and Firefox add-ons:** `DOWNLOADS.edge.store` and `DOWNLOADS.firefox.store` are the extension's Edge Add-ons and Firefox Add-ons pages. The extension card shows only the badge for the visitor's browser (Mozilla's "Get the Add-on" badge in `assets/firefox-addon-badge.svg` for Firefox), with the other stores as small links; Safari and phones see every badge.
 - `VERSION` in `config.js` is the version number shown on the page.
 
 ## Screenshots of the real app
