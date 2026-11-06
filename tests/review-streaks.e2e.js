@@ -6,7 +6,10 @@ const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/java
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://x"); let p = decodeURIComponent(u.pathname); if (p === "/") p = "/index.html";
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
-  res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
+  res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"});
+  // study streaks are hidden in the app for now (STREAK_HIDDEN); these checks run with them shown
+  if (/^\/bundle\/app\.js$/.test(p)) { res.end(fs.readFileSync(f, "utf8").replace("const STREAK_HIDDEN = true;", "const STREAK_HIDDEN = false;")); return; }
+  fs.createReadStream(f).pipe(res);
 });
 const TZ = "America/New_York";
 const T = (day, h = 12, m = 0) => new Date(`${day}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-04:00`).getTime();

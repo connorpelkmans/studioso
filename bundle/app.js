@@ -1,5 +1,8 @@
 (function(){
 "use strict";
+// Study streaks are hidden for now (to be revisited): no streak strip, chip, line, celebration or companion talk about them.
+// Study days are still counted, so turning this back to false brings everything back as it was.
+const STREAK_HIDDEN = true;
 /* Every on-device database this page opens closes itself when another tab */
 try { if (window.SBLaunch) SBLaunch.to(32); } catch (e) {}   // the launch screen (index.html): the app's code is running
 try {
@@ -8687,7 +8690,7 @@ function animRows(){
   const c = styleCfg(), row = (key, icon, title, sub) => `<div class="cap-row"><span style="flex:1;font-weight:600">${icon} ${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-act="anim-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""}> On</label></div>`;
   return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
     + row("quotes", "💬", "Daily Quote", "A short motivational quote the first time you open Studyboard each day.")
-    + `<button data-act="daily-quote"><span>Today's Quote and Streak<span class="sub">${esc(streakLine())}</span></span></button>`;
+    + `<button data-act="daily-quote"><span>${STREAK_HIDDEN ? "Today's Quote" : "Today's Quote and Streak"}<span class="sub">${esc(STREAK_HIDDEN ? "See today's quote again" : streakLine())}</span></span></button>`;
 }
 function styleShop(tab){
   if (typeof PLAN !== "undefined" && PLAN && PLAN.endStyleGrace && PLAN.endStyleGrace()) { try { applySkin(); } catch (e) {} render(); }
@@ -12931,7 +12934,7 @@ function dailyQuote(force){
   const [q, who] = todaysQuote();
   qodPop(`<div class="qod-eyebrow">${esc(new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}</div>
     <p class="qod-q" id="qodT">“${esc(q)}”</p>${who ? `<p class="qod-who">${esc(who)}</p>` : ""}
-    <p class="qod-streak">${esc(streakLine())}</p>
+    ${STREAK_HIDDEN ? "" : `<p class="qod-streak">${esc(streakLine())}</p>`}
     <div class="qod-foot"><button type="button" class="btn primary" data-qod-close>Let's Go</button></div>`);
 }
 
@@ -13231,7 +13234,7 @@ function renderNow(){
   // the date, and what today is at school (Day 3, B Day, or a day off)
   const sdT = (() => { try { return schoolDayText(todayISO()); } catch (e) { return ""; } })();
   { const nd = new Date(); $("#navDate").innerHTML = esc(nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"})) + (sdT ? `<span class="nd-sd">${esc(sdT)}</span>` : ""); }
-  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
@@ -30448,7 +30451,7 @@ hook("boot", boot);
     return `<section class="sbw" aria-label="Today">
       <header class="sbw-head">
         <div class="sbw-hl"><h1>Today</h1><span>${esc(d.dateLabel)}</span></div>
-        ${d.streak.cur && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip ${d.streak.today ? "" : "sbw-dim"}" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${d.streak.cur}</button>` : ""}
+        ${d.streak.cur && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip ${d.streak.today ? "" : "sbw-dim"}" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${d.streak.cur}</button>` : ""}
         <a class="icon-btn" href="${esc(location.pathname)}" aria-label="Open Studyboard" title="Open Studyboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
       </header>
       ${n ? `<div class="sbw-next" style="--c:${esc(n.color)}">
@@ -30473,7 +30476,7 @@ hook("boot", boot);
     document.title = "Studyboard Today";
     const at = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (at) at.setAttribute("content", "Today");
     // No daily quote pop-up over the little card
-    dailyQuote = function(force){ if (force) { if (dlg.open) dlg.close(); openSheet(`<div class="sheet">${head("Your Streak")}<div class="sheet-body"><p>${esc(streakLine())}</p></div></div>`); } };
+    dailyQuote = function(force){ if (force && !STREAK_HIDDEN) { if (dlg.open) dlg.close(); openSheet(`<div class="sheet">${head("Your Streak")}<div class="sheet-body"><p>${esc(streakLine())}</p></div></div>`); } };
     // Its own Home Screen icon
     const origPwa = pwaBoot;
     pwaBoot = function(){ const r = origPwa.apply(this, arguments); const l = document.querySelector('link[rel="manifest"]'); if (l) l.href = "today.webmanifest"; return r; };
@@ -62762,7 +62765,7 @@ var COMP_EXTRA = [];
     const today = todayISO(), lim = addDays(today, days);
     return openTasks().filter(t => t.due && t.due >= today && t.due <= lim && /exam|quiz|test|midterm|final/i.test(t.type + " " + t.title)).sort((a, b) => a.due < b.due ? -1 : 1)[0] || null;
   }
-  const streakN = () => { try { return shownStreak().cur || 0; } catch (e) { return 0; } };
+  const streakN = () => { if (STREAK_HIDDEN) return 0; try { return shownStreak().cur || 0; } catch (e) { return 0; } };
   const focusToday = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.focusMinutes(todayISO(), todayISO()) : 0; } catch (e) { return 0; } };
   function contextKinds(){
     const h = new Date().getHours(), k = [];
@@ -62984,7 +62987,7 @@ var COMP_EXTRA = [];
       `Tasks: ${dueToday} due today, ${dueWeek} due in the next 7 days, ${overdue} overdue.`,
       `Next deadlines:\n${nextLines.join("\n") || "none"}`,
       `Finished in the last 2 days: ${recent.join("; ") || "nothing yet"}.`,
-      `Study streak: ${streakN()} days. Focus today: ${focusToday()} min. Focus this week: ${week7} min.`,
+      `${STREAK_HIDDEN ? "" : `Study streak: ${streakN()} days. `}Focus today: ${focusToday()} min. Focus this week: ${week7} min.`,
       `Nearest exam or quiz: ${ex ? `${shortT(ex.title, 50)} in ${Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5))} days` : "none in the next 2 weeks"}.`
     ].join("\n");
     return {text, refs, dueWeek};
@@ -67702,7 +67705,7 @@ window.__scrapArt = SCRAP_ART;
     const c = cur ? (lastCtx && lastCtx.start === page.s ? lastCtx : context(sc)) : null;
     const g = page.g || {};
     const got = Object.keys(g).filter(k => MI[k]).length;
-    return `<div class="sbk-mhead"><b>Milestones</b><span class="mini">${got} sticker${got === 1 ? "" : "s"} on this page</span></div>` + CATS.map(([cat, title]) => {
+    return `<div class="sbk-mhead"><b>Milestones</b><span class="mini">${got} sticker${got === 1 ? "" : "s"} on this page</span></div>` + CATS.filter(([cat]) => !(STREAK_HIDDEN && cat === "streaks")).map(([cat, title]) => {
       const ms = M.filter(m => m.cat === cat);
       return `<h4 class="sbk-cat">${esc(title)}</h4><ul class="sbk-ml">${ms.map(m => {
         const pr = cur ? progressOf(m, c, page) : {got: !!g[m.id], p: 0, text: ""};
@@ -76511,6 +76514,7 @@ function chipText(res){
 }
 const LEAF = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z"/><path d="M5 19c3-5 6-8 10-10"/></svg>';
 function streakStripHtml(hideIntro){
+  if (STREAK_HIDDEN) return "";
   if (gentleOn()) {
     const res = streakNow();
     return `<div class="fgs-strip"><button type="button" class="fgs-chip" data-act="fgs-open" aria-label="${esc(tr("streak.chip.aria", "Study streak. {line} Open details.", {line: streakLineText(res)}))}"><span class="fgs-pill">${LEAF}<span>${esc(chipText(res))}</span></span></button></div>`;
@@ -76680,17 +76684,17 @@ function paintBoard(){
 }
 hook("render", tab => {
   try {
-    if (gentleOn()) { noteCards(); const res = streakNow(); observe(res); if (res.todayActive) celebrateSoon(); }
+    if (gentleOn() && !STREAK_HIDDEN) { noteCards(); const res = streakNow(); observe(res); if (res.todayActive) celebrateSoon(); }
     if (tab === "board") paintBoard();
     if (SG && dlg.open) drawStreak();
   } catch (e) { console.warn("review and streak", e); }
 });
-hook("changed", () => { try { if (gentleOn()) celebrateSoon(4000); } catch (e) {} });
-hook("stats-focus", () => { try { if (gentleOn()) { GMEMO = {k: "", v: null}; scheduleRender(); celebrateSoon(4000); } } catch (e) {} });
+hook("changed", () => { try { if (gentleOn() && !STREAK_HIDDEN) celebrateSoon(4000); } catch (e) {} });
+hook("stats-focus", () => { try { if (gentleOn() && !STREAK_HIDDEN) { GMEMO = {k: "", v: null}; scheduleRender(); celebrateSoon(4000); } } catch (e) {} });
 hook("menu", () => {
   const r = reviewCfg(), on = gentleOn();
   return `<div class="cap-row sb-wide" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">${esc(tr("review.set.title", "Weekly Review"))}<span class="sub">${esc(tr("review.set.sub", "A calm summary of your week. The card shows on the Board from Sunday afternoon through Monday."))}</span></span><button type="button" class="btn small" data-act="wkr-open">${esc(tr("review.set.open", "Review My Week"))}</button><label class="anim-tog"><input type="checkbox" data-act="wkr-card-toggle" ${r.off ? "" : "checked"}> ${esc(tr("review.set.card", "Show the Sunday card"))}</label></div>
-    <button type="button" data-act="fgs-open" data-group="study"><span>${esc(tr("streak.set.title", "Gentle Study Streak"))}<span class="sub">${esc(on ? streakLineText(streakNow()) : tr("streak.set.off", "Off. A streak that counts study days and forgives quiet ones."))}</span></span></button>`;
+    ${STREAK_HIDDEN ? "" : `<button type="button" data-act="fgs-open" data-group="study"><span>${esc(tr("streak.set.title", "Gentle Study Streak"))}<span class="sub">${esc(on ? streakLineText(streakNow()) : tr("streak.set.off", "Off. A streak that counts study days and forgives quiet ones."))}</span></span></button>`}`;
 });
 hook("act", (a, el) => {
   if (!a || (a.slice(0, 4) !== "wkr-" && a.slice(0, 4) !== "fgs-")) return false;
@@ -76745,7 +76749,7 @@ function studyDays(from, to){
   const g = gcfg(), v = Object.keys(RS.activityDays({tasks: allTasks(), focusDays: focusDaysNow(), log: g.log, timeDays: sbtimeDays(from, to), from, to})).sort();
   SDMEMO = {k, v}; return v;
 }
-window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
+window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
 })();
 
 /* ===== module: 99-release.js ===== */

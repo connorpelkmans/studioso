@@ -491,6 +491,7 @@ function chipText(res){
 }
 const LEAF = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z"/><path d="M5 19c3-5 6-8 10-10"/></svg>';
 function streakStripHtml(hideIntro){
+  if (STREAK_HIDDEN) return "";
   if (gentleOn()) {
     const res = streakNow();
     return `<div class="fgs-strip"><button type="button" class="fgs-chip" data-act="fgs-open" aria-label="${esc(tr("streak.chip.aria", "Study streak. {line} Open details.", {line: streakLineText(res)}))}"><span class="fgs-pill">${LEAF}<span>${esc(chipText(res))}</span></span></button></div>`;
@@ -660,17 +661,17 @@ function paintBoard(){
 }
 hook("render", tab => {
   try {
-    if (gentleOn()) { noteCards(); const res = streakNow(); observe(res); if (res.todayActive) celebrateSoon(); }
+    if (gentleOn() && !STREAK_HIDDEN) { noteCards(); const res = streakNow(); observe(res); if (res.todayActive) celebrateSoon(); }
     if (tab === "board") paintBoard();
     if (SG && dlg.open) drawStreak();
   } catch (e) { console.warn("review and streak", e); }
 });
-hook("changed", () => { try { if (gentleOn()) celebrateSoon(4000); } catch (e) {} });
-hook("stats-focus", () => { try { if (gentleOn()) { GMEMO = {k: "", v: null}; scheduleRender(); celebrateSoon(4000); } } catch (e) {} });
+hook("changed", () => { try { if (gentleOn() && !STREAK_HIDDEN) celebrateSoon(4000); } catch (e) {} });
+hook("stats-focus", () => { try { if (gentleOn() && !STREAK_HIDDEN) { GMEMO = {k: "", v: null}; scheduleRender(); celebrateSoon(4000); } } catch (e) {} });
 hook("menu", () => {
   const r = reviewCfg(), on = gentleOn();
   return `<div class="cap-row sb-wide" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">${esc(tr("review.set.title", "Weekly Review"))}<span class="sub">${esc(tr("review.set.sub", "A calm summary of your week. The card shows on the Board from Sunday afternoon through Monday."))}</span></span><button type="button" class="btn small" data-act="wkr-open">${esc(tr("review.set.open", "Review My Week"))}</button><label class="anim-tog"><input type="checkbox" data-act="wkr-card-toggle" ${r.off ? "" : "checked"}> ${esc(tr("review.set.card", "Show the Sunday card"))}</label></div>
-    <button type="button" data-act="fgs-open" data-group="study"><span>${esc(tr("streak.set.title", "Gentle Study Streak"))}<span class="sub">${esc(on ? streakLineText(streakNow()) : tr("streak.set.off", "Off. A streak that counts study days and forgives quiet ones."))}</span></span></button>`;
+    ${STREAK_HIDDEN ? "" : `<button type="button" data-act="fgs-open" data-group="study"><span>${esc(tr("streak.set.title", "Gentle Study Streak"))}<span class="sub">${esc(on ? streakLineText(streakNow()) : tr("streak.set.off", "Off. A streak that counts study days and forgives quiet ones."))}</span></span></button>`}`;
 });
 hook("act", (a, el) => {
   if (!a || (a.slice(0, 4) !== "wkr-" && a.slice(0, 4) !== "fgs-")) return false;
@@ -725,6 +726,6 @@ function studyDays(from, to){
   const g = gcfg(), v = Object.keys(RS.activityDays({tasks: allTasks(), focusDays: focusDaysNow(), log: g.log, timeDays: sbtimeDays(from, to), from, to})).sort();
   SDMEMO = {k, v}; return v;
 }
-window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
+window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
 })();
 

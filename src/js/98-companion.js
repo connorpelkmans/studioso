@@ -1534,7 +1534,7 @@
     const today = todayISO(), lim = addDays(today, days);
     return openTasks().filter(t => t.due && t.due >= today && t.due <= lim && /exam|quiz|test|midterm|final/i.test(t.type + " " + t.title)).sort((a, b) => a.due < b.due ? -1 : 1)[0] || null;
   }
-  const streakN = () => { try { return shownStreak().cur || 0; } catch (e) { return 0; } };
+  const streakN = () => { if (STREAK_HIDDEN) return 0; try { return shownStreak().cur || 0; } catch (e) { return 0; } };
   const focusToday = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.focusMinutes(todayISO(), todayISO()) : 0; } catch (e) { return 0; } };
   function contextKinds(){
     const h = new Date().getHours(), k = [];
@@ -1756,7 +1756,7 @@
       `Tasks: ${dueToday} due today, ${dueWeek} due in the next 7 days, ${overdue} overdue.`,
       `Next deadlines:\n${nextLines.join("\n") || "none"}`,
       `Finished in the last 2 days: ${recent.join("; ") || "nothing yet"}.`,
-      `Study streak: ${streakN()} days. Focus today: ${focusToday()} min. Focus this week: ${week7} min.`,
+      `${STREAK_HIDDEN ? "" : `Study streak: ${streakN()} days. `}Focus today: ${focusToday()} min. Focus this week: ${week7} min.`,
       `Nearest exam or quiz: ${ex ? `${shortT(ex.title, 50)} in ${Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5))} days` : "none in the next 2 weeks"}.`
     ].join("\n");
     return {text, refs, dueWeek};

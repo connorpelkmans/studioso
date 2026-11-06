@@ -947,7 +947,7 @@ function dailyQuote(force){
   const [q, who] = todaysQuote();
   qodPop(`<div class="qod-eyebrow">${esc(new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}</div>
     <p class="qod-q" id="qodT">“${esc(q)}”</p>${who ? `<p class="qod-who">${esc(who)}</p>` : ""}
-    <p class="qod-streak">${esc(streakLine())}</p>
+    ${STREAK_HIDDEN ? "" : `<p class="qod-streak">${esc(streakLine())}</p>`}
     <div class="qod-foot"><button type="button" class="btn primary" data-qod-close>Let's Go</button></div>`);
 }
 
