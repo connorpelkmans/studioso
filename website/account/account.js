@@ -231,8 +231,9 @@
     if ($("buy-semester")) $("buy-semester").addEventListener("click", function () { startCheckout("semester"); });
     $("btn-manage").addEventListener("click", openPortal);
 
-    // Sign in with Google or Microsoft (every browser) or Apple (on a Mac, iPhone or iPad), like the app: the provider's page, then back here signed in
-    if (/iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "") && $("oa-apple")) $("oa-apple").hidden = false;
+    // Sign in with Apple, Google or Microsoft in every browser, like the app: the provider's page, then back here signed in
+    // (an account made with Apple on the iPhone signs in on any computer)
+    if ($("oa-apple")) $("oa-apple").hidden = false;
     document.querySelectorAll("[data-oauth]").forEach(function (b) {
       b.addEventListener("click", function () {
         var provider = b.getAttribute("data-oauth"); b.disabled = true;

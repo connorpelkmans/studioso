@@ -171,7 +171,7 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
       window.studiosoDesktop = real;
     }, seen, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"));
     await page.evaluate(t => { window.__jwt = t; }, jwt());
-    ok(await page.evaluate(() => [...document.querySelectorAll("dialog[open] [data-oauth]")].map(b => b.dataset.oauth).join()) === "google,azure", "the Windows app offers Google and Microsoft");
+    ok(await page.evaluate(() => [...document.querySelectorAll("dialog[open] [data-oauth]")].map(b => b.dataset.oauth).join()) === "apple,google,azure", "the Windows app offers Apple, Google and Microsoft");
     await page.click("dialog[open] [data-oauth=azure]");
     ok(await signedIn(page), "desktop: Sign in with Microsoft signs in through the computer's browser");
     { const o = await page.evaluate(() => window.__desk); const q = o[0] ? new URL(o[0]).searchParams : new URLSearchParams();
@@ -199,10 +199,13 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     ok(posted.some(p => /\/functions\/v1\/delete-account\/apple-token/.test(p) && /"code":"c.native-code-123"/.test(p)), "and Apple's one-time code is handed to the server, so deleting the account can revoke Sign in with Apple");
     await ctx.close();
 
-    // not an Apple device: Google only
+    // not an Apple device: Apple too (an account made with Apple on the iPhone signs in on a Windows computer)
     seen = [];
     ({ctx, page} = await open(null, seen, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"));
-    ok(await page.evaluate(() => [...document.querySelectorAll("dialog[open] [data-oauth]")].map(b => b.dataset.oauth).join()) === "google,azure", "on Windows (or Android, Linux) Sign in with Google and Microsoft are offered, not Apple");
+    ok(await page.evaluate(() => [...document.querySelectorAll("dialog[open] [data-oauth]")].map(b => b.dataset.oauth).join()) === "apple,google,azure", "on Windows (or Android, Linux) Sign in with Apple is offered too, with Google and Microsoft");
+    await page.click("dialog[open] [data-oauth=apple]");
+    ok(await signedIn(page), "on Windows, Sign in with Apple goes to Apple's web sign-in and comes back signed in");
+    ok(seen.some(x => /authorize apple/.test(x)), "through Supabase's Apple sign-in: " + seen.filter(x => /auth/.test(x)).join(", "));
     await ctx.close();
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log(`oauth-signin.e2e: ${n} checks passed`);

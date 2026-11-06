@@ -81,7 +81,7 @@ const site = read("website/index.html");
 ok(/auto-renewing subscription/.test(site) && /href="terms(\.html)?"/.test(site) && /href="privacy(\.html)?"/.test(site), "website pricing has the renewal disclosure and links");
 for (const f of ["website/index.html", "website/privacy.html", "website/terms.html", "website/account/index.html", "website/success.html", "website/cancel.html"]) ok(/href="(\.\.\/)?privacy(\.html)?"/.test(read(f)) && /href="(\.\.\/)?terms(\.html)?"/.test(read(f)), f + " footer links to privacy and terms");
 
-/* 3. social sign-in: Google and Microsoft are only ever offered alongside Sign in with Apple on Apple devices (App Store Review
+/* 3. social sign-in: Google and Microsoft are only ever offered alongside Sign in with Apple (App Store Review
    Guideline 4.8), and nothing else (no Facebook or other providers, no provider SDKs loaded) */
 const authFiles = [["index.html", require("../scripts/app-files").source()]].concat(["website/account/account.js", "website/account/index.html", "SETUP-GUIDE.md", "lms.js", "sw.js"].map(f => [f, read(f)]));
 for (const [f, s] of authFiles) {
@@ -90,8 +90,9 @@ for (const [f, s] of authFiles) {
     // the website's Account page runs in a browser, not the iPhone app: there Apple is the provider's own web sign-in, shown on Apple devices
     if (/^website\//.test(f)) ok(/Sign in with Apple/.test(s) || /oa-apple/.test(s), f + ": Sign in with Google and Microsoft come with Sign in with Apple");
     else ok(/Sign in with Apple/.test(s) && /signInWithIdToken\(\{provider: "apple"/.test(s), f + ": Sign in with Google and Microsoft come with Sign in with Apple (native on iPhone)");
-    if (!/^website\//.test(f)) ok(/const sbAppleOk = \(\) => \{[^}]*getPlatform\(\) === "ios"/.test(s), f + ": the iPhone and iPad app always offers Apple");
-    else ok(/iPhone\|iPad\|iPod\|Macintosh\|Mac OS X/.test(read("website/account/account.js")), f + ": Apple is offered on a Mac, iPhone or iPad");
+    // Apple everywhere (so an account made with Apple on the iPhone signs in on any computer), always on the iPhone and iPad app
+    if (!/^website\//.test(f)) ok(/const sbAppleOk = \(\) => true;/.test(s), f + ": Sign in with Apple is offered everywhere, the iPhone and iPad app included");
+    else ok(/if \(\$\("oa-apple"\)\) \$\("oa-apple"\)\.hidden = false;/.test(read("website/account/account.js")), f + ": the website offers Apple in every browser");
   }
 }
 

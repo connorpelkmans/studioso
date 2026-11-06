@@ -38,10 +38,13 @@ What to try in the packaged app:
 * reminders show as notifications and clicking one opens the task;
 * a `studyboard://action/today` link opens the app;
 * Settings > Widgets and Desktop > **Open Startup Settings** goes to Windows' Startup page, and turning Studyboard on there starts it at sign-in;
-* the tray icon, the Today widget, Ctrl+Shift+Alt+C screenshots, a school sign-in window, and Documents\Studyboard filling up;
+* the tray icon, the Today widget, a school sign-in window, and Documents\Studyboard filling up;
+* while Quick Capture is switched off (`CAPTURE_OFF` in `src/js/01-helpers.js`): Ctrl+Shift+Alt+C does nothing and the tray has no Screenshot to Task;
 * on a PC that also has the website version installed: the "installed twice" note appears once.
 
 ## 4. The submission
+
+Quick Capture is switched off for now (`CAPTURE_OFF`), so the text below leaves out the screenshot shortcut. When it comes back, add the shortcut to the runFullTrust note, the features line and the notes for certification again.
 
 **Pricing and availability:** Free. Markets: all, or the ones your terms cover.
 
@@ -55,7 +58,7 @@ What to try in the packaged app:
 
 **Restricted capability `runFullTrust`.** The package upload warns that it needs approval. That is expected for every Electron/MSIX desktop app. Under Submission options > Restricted capabilities (or Notes for certification), paste:
 
-> Studyboard is a desktop app built with Electron and packaged as MSIX, so it requires runFullTrust to run as a standard Win32 desktop process. It uses this for normal desktop features: a window with system tray support so reminders keep working when the window is closed, Windows notifications, an optional global keyboard shortcut for screenshot capture (which can be turned off in Settings), the studyboard:// link handler, and a startup task that is off until the user turns it on in Windows Settings. It doesn't install drivers or services or change system settings.
+> Studyboard is a desktop app built with Electron and packaged as MSIX, so it requires runFullTrust to run as a standard Win32 desktop process. It uses this for normal desktop features: a window with system tray support so reminders keep working when the window is closed, Windows notifications, the studyboard:// link handler, and a startup task that is off until the user turns it on in Windows Settings. It doesn't install drivers or services or change system settings.
 
 **Age ratings (IARC questionnaire).** Answer it honestly. The points specific to Studyboard:
 * **Users can interact or exchange content:** Yes. Study groups have chat, shared tasks and decks. Report and Block exist, and the Terms ban objectionable content.
@@ -71,13 +74,13 @@ What to try in the packaged app:
   >
   > Optional AI features (Google Gemini, Anthropic Claude or OpenAI ChatGPT) use your own API key: they summarize files, answer questions about your own notes, plan your day and make flashcards. AI answers are written by the model you choose from what you send it, can be wrong, and can be reported from the answer itself or in Settings, AI Features. Studyboard Pro is an optional subscription bought on the Studyboard website.
 
-* Features (short lines): Task board and Today's Plan · Courses, grades and syllabus import · Flashcards and practice quizzes · Study groups and shared decks · Brightspace, Canvas and Blackboard sync (read-only) · Reminders, tray icon and a Today widget · Screenshot to task (Ctrl+Shift+Alt+C) · Optional AI with your own key.
+* Features (short lines): Task board and Today's Plan · Courses, grades and syllabus import · Flashcards and practice quizzes · Study groups and shared decks · Brightspace, Canvas and Blackboard sync (read-only) · Reminders, tray icon and a Today widget · Optional AI with your own key.
 * **Screenshots:** `build-resources/msstore-listing/screenshots/`, numbered in upload order: `00-banner.png` (3840×2160) and nine 1920×1080 app screens, each in its own theme (Classic, Sakura, Galaxy, Ocean Waves, Northern Lights, Spring, Synthwave, Classic, Evergreen) with the app tour's sample semester. After the app's look changes, run `node tools/capture-store-screens.js` to make them all again (add file names such as `03-timeline` to redo only those). The banner's layout is `tools/store-banner.html`.
 * **Store logos:** `build-resources/msstore-listing/BoxArt-1080x1080.png` (1:1), `Poster-720x1080.png` (2:3) and `Logo-300x300.png`.
 
 **Notes for certification** (paste into the submission's notes field):
 
-> Studyboard works without an account. Sign-in is optional and only needed to sync between devices. AI features need the tester's own free Google Gemini API key (Settings > AI Features). Without one, AI buttons explain how to add a key, and nothing else is affected. Closing the window keeps Studyboard running in the notification area for reminders; a tip says so, and Quit Studyboard on the tray icon closes it (Settings > Widgets and Desktop can turn this off). Start-at-sign-in is declared as a startup task that is off until the user turns it on in Windows Settings > Apps > Startup. The global shortcut Ctrl+Shift+Alt+C starts a screenshot to turn part of the screen into a task, and can be turned off in Settings > Quick Capture. Pro is an optional subscription bought on our website (third-party payment, non-game app).
+> Studyboard works without an account. Sign-in is optional and only needed to sync between devices. AI features need the tester's own free Google Gemini API key (Settings > AI Features). Without one, AI buttons explain how to add a key, and nothing else is affected. Closing the window keeps Studyboard running in the notification area for reminders; a tip says so, and Quit Studyboard on the tray icon closes it (Settings > Widgets and Desktop can turn this off). Start-at-sign-in is declared as a startup task that is off until the user turns it on in Windows Settings > Apps > Startup. Pro is an optional subscription bought on our website (third-party payment, non-game app).
 
 ## 5. What the Store build does differently (main.js, `IS_MSSTORE`)
 

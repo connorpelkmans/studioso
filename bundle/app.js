@@ -2801,13 +2801,9 @@ const SB_GOOGLE_SVG = '<svg class="sb-oa-g" width="20" height="20" viewBox="10 1
 const SB_MS_SVG = '<svg class="sb-oa-m" viewBox="0 0 21 21" width="18" height="18" aria-hidden="true" focusable="false"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>';
 // Supabase calls Microsoft "azure"; every Microsoft account can sign in (personal, school and work: the "common" tenant)
 const SB_OAUTH_NAME = {apple: "Apple", google: "Google", azure: "Microsoft"};
-// Apple's option on Apple devices only (the iPhone and iPad app, the Mac app, and a browser on a Mac, iPhone or iPad, which
-// includes iPads that call themselves a Mac); Google everywhere
-const sbAppleOk = () => {
-  try { if (window.Capacitor && typeof Capacitor.getPlatform === "function" && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) return Capacitor.getPlatform() === "ios"; } catch (e) {}
-  if (DESK) return DESK.platform === "darwin";
-  return /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "");
-};
+// Apple's option everywhere, as Google's is: an account made with Apple on the iPhone signs in the same way on a Windows or
+// Linux computer, an Android phone or any browser (there it's Apple's own web sign-in page; on iPhone, Apple's own sheet)
+const sbAppleOk = () => true;
 const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Sign in with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Sign in with Google</span></button><button type="button" class="sb-oa sb-oa-ms" data-oauth="azure">${SB_MS_SVG}<span>Sign in with Microsoft</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
 // The code or tokens a provider sent back to a return address, made into a session
 async function sbOAuthFinish(addr, bind){
@@ -18032,7 +18028,7 @@ const POMO_HOW = `<ol><li><b>Pick one task</b> and start a 25-minute focus sessi
 const POMO_DEF = {focus: 25, short: 5, long: 15, every: 4, autoBreak: true, autoFocus: false, sound: "chime", volume: 0.8, notify: true};
 const POMO_LS = "studioso:pomo";
 const MODE_LABEL = {focus: "Focus", short: "Short Break", long: "Long Break"};
-const TOMATO = '<svg class="tomato-ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 8.1c-2.3-1-5.7-.6-7.4 1.9-1.6 2.4-1.2 6.2 1.2 8.6 1.6 1.6 3.8 2.5 6.2 2.5s4.6-.9 6.2-2.5c2.4-2.4 2.8-6.2 1.2-8.6-1.7-2.5-5.1-2.9-7.4-1.9z" fill="currentColor"/><path d="M19.4 10c1.6 2.4 1.2 6.2-1.2 8.6-1.6 1.6-3.8 2.5-6.2 2.5-1.7 0-3.3-.5-4.6-1.3 4.4.6 9.3-2 10.4-6.2.4-1.3.4-2.6-.1-3.7z" fill="#000" opacity=".18"/><path d="M6.9 11.6c.6-1.4 1.8-2.2 3-2.4" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/><path d="M12 11.4l-1.5-2-3.8 1.2 2.3-2.4-2-1.8 3.3.4L12 5.2l1.7 1.6 3.3-.4-2 1.8 2.3 2.4-3.8-1.2z" fill="var(--leaf,#2E9D5B)" stroke="var(--leaf-d,#1F7A44)" stroke-width=".8" stroke-linejoin="round"/><path d="M12 7.6c-.02-1.5.5-2.75 1.65-3.75" fill="none" stroke="var(--leaf-d,#1F7A44)" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="7.6" r=".9" fill="var(--leaf-d,#1F7A44)"/></svg>';
+const TOMATO = '<svg class="tomato-ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 8.1c-2.3-1-5.7-.6-7.4 1.9-1.6 2.4-1.2 6.2 1.2 8.6 1.6 1.6 3.8 2.5 6.2 2.5s4.6-.9 6.2-2.5c2.4-2.4 2.8-6.2 1.2-8.6-1.7-2.5-5.1-2.9-7.4-1.9z" fill="currentColor"/><path d="M15.52 7.66C17.02 7.89 18.47 8.61 19.4 10C21 12.4 20.6 16.2 18.2 18.6C16.6 20.2 14.4 21.1 12 21.1C10.3 21.1 8.7 20.6 7.4 19.8C18.05 21.25 20.46 8.42 15.52 7.66Z" fill="#000" opacity=".18"/><path d="M6.9 11.6c.6-1.4 1.8-2.2 3-2.4" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/><path d="M12 11.4l-1.5-2-3.8 1.2 2.3-2.4-2-1.8 3.3.4L12 5.2l1.7 1.6 3.3-.4-2 1.8 2.3 2.4-3.8-1.2z" fill="var(--leaf,#2E9D5B)" stroke="var(--leaf-d,#1F7A44)" stroke-width=".8" stroke-linejoin="round"/><path d="M12 7.6c-.02-1.5.5-2.75 1.65-3.75" fill="none" stroke="var(--leaf-d,#1F7A44)" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="7.6" r=".9" fill="var(--leaf-d,#1F7A44)"/></svg>';
 // Minutes for a focus session on a task: the timer length you chose, cut short only when that would
 // run past the time the plan gives this task today (so the session ends as that work is done)
 function focusMinsFor(taskId){
@@ -18301,7 +18297,8 @@ function pomoTakeLock(){
           if (pomo.running || pomo.left > 0) pomoReset();
           // an exam's study time in the plan ("study:<exam id>") is a session on the exam
           const tid = typeof task === "string" && task.indexOf(XS_ID) === 0 ? task.slice(XS_ID.length) : task;
-          if (tid && state.tasks[tid]) pomo.taskId = tid;
+          // a plain timer ("start a 25-minute focus timer") is on no task, not on whatever the last session was on
+          pomo.taskId = tid && state.tasks[tid] ? tid : "";
           pomo.mode = "focus"; pomo.left = 0; pomo.len = 0;
           pomo.preset = mins >= 5 && mins <= 180 ? Math.round(mins) : pomo.taskId ? focusMinsFor(pomo.taskId) : 0;
           pomoStart();
@@ -18320,11 +18317,11 @@ function pomoTakeLock(){
 }
 // iPhone app: the alarm at the end of a session is rung by iOS (so it sounds with the app closed or the phone locked), with
 // the sound and volume you picked, made here once as a short recording and saved in the app
-function wavB64(name, vol){
+function wavB64(name, vol, reps){
   const SR = 22050, s = SOUNDS[name] || SOUNDS.chime, C = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   if (!C) return Promise.resolve("");
   const ac = new C(1, SR * 10, SR), keep = alarmOsc; alarmOsc = [];
-  let t = 0.05; for (let r = 0; r < 3; r++) t += s.play(ac, ac.destination, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
+  let t = 0.05; for (let r = 0; r < (reps || 3); r++) t += s.play(ac, ac.destination, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
   alarmOsc = keep;
   return ac.startRendering().then(buf => {
     const d = buf.getChannelData(0), n = Math.min(d.length, Math.ceil(t * SR)), out = new DataView(new ArrayBuffer(44 + n * 2));
@@ -18460,7 +18457,16 @@ function pomoAction(act, el){
     case "pomo-reset": pomoReset(); return true;
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoPickMode(el.dataset.id); return true;
-    case "pomo-test": { const cfg = pomoCfg(); if (($("#psSound") ? $("#psSound").value : cfg.sound) === "none") { toast("The alarm is set to No Sound"); return true; } if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
+    case "pomo-test": {
+      const cfg = pomoCfg(), snd = $("#psSound") ? $("#psSound").value : cfg.sound, vol = $("#psVol") ? Number($("#psVol").value) : cfg.volume;
+      if (snd === "none") { toast("The alarm is set to No Sound"); return true; }
+      const web = () => { if (!playAlarm(snd, vol, 1)) toast("Sound isn't available in this browser"); };
+      // iPhone app: the page's own sound is muted while the phone is on silent, so the test plays through iOS, the way the real alarm rings
+      const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+      if (FA && typeof FA.preview === "function") wavB64(SOUNDS[snd] ? snd : "chime", Number(vol) || 0.8, 1).then(w => w ? FA.preview(w) : false).then(ok => { if (!ok) web(); }, web);
+      else web();
+      return true;
+    }
     case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
       { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }
@@ -21871,7 +21877,6 @@ window.__sbPlanObj = () => PLAN;
     if (P.sessionPro == null && paywall() && sbUser && P.entDone) P.sessionPro = paid();
     changed();
     welcomeNotes();
-    setTimeout(proFixNote, 2500);
   }
   const K_WELCOME = "studyboard:welcomeWeek";
   let welcomeRetry = 0;
@@ -21901,27 +21906,6 @@ window.__sbPlanObj = () => PLAN;
       save("end");
       setTimeout(() => toast("Your free week of Pro has ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your free week of Pro has ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
-  }
-  /* One note, on the website only: in early November 2026 a server key mix-up kept Pro from Pro accounts for a while (fixed Nov 2).
-     Once per account on each browser, only for Pro accounts that existed before the fix (anyone who signs up later never
-     sees it), and not after November 2026 */
-  const K_FIXNOTE = "studyboard:proFixNote", FIXNOTE_BEFORE = Date.parse("2026-11-02T19:35:00Z"), FIXNOTE_UNTIL = Date.parse("2026-12-01T00:00:00Z");
-  const fixNoteHtml = () => `<div class="qod-eyebrow">A Quick Note</div><h2 id="qodT">Pro Is Working Again</h2>
-      <p class="qod-q" style="font-size:1.05rem">For a short time, a problem on our end kept some Pro accounts from using Pro features and themes. It's fixed now, and nothing you made was lost.</p>
-      <p class="mini">If your theme changed, you can pick it again in the Style Shop. Sorry for the trouble!</p>
-      <div class="qod-foot"><button type="button" class="btn" data-qod-close data-act="shop">Open Style Shop</button><button type="button" class="btn primary" data-qod-close>Got It</button></div>`;
-  let fixRetry = 0;
-  function proFixNote(){
-    const uid = curUid();
-    if (!uid || !sbUser || !paywall() || !paid() || Date.now() > FIXNOTE_UNTIL || typeof qodPop !== "function") return;
-    if (DESK || inPreview() || (navigator.webdriver && !window.__fixNoteTest)) return;
-    try { const C = window.Capacitor; if (window.StudyboardNative || (C && typeof C.isNativePlatform === "function" && C.isNativePlatform())) return; } catch (e) { return; }
-    if (!(ts(sbUser.created_at) && ts(sbUser.created_at) < FIXNOTE_BEFORE)) return;
-    const seen = read(K_FIXNOTE) || {}; if (seen[uid]) return;
-    // after onboarding, any open sheet and the daily quote
-    if ((window.SBOB && SBOB.pending()) || dlg.open || document.getElementById("qod") || document.hidden) { clearTimeout(fixRetry); fixRetry = setTimeout(proFixNote, 4000); return; }
-    seen[uid] = Date.now(); write(K_FIXNOTE, seen);
-    qodPop(fixNoteHtml(), "qod-plain");
   }
   // The sign-in finished loading and nobody is signed in: forget the account from last time, and that it had Pro, at once
   hook("auth-none", () => {
@@ -22463,7 +22447,7 @@ window.__sbPlanObj = () => PLAN;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, liteNow, groupsPro, fixNotePreview: () => qodPop(fixNoteHtml(), "qod-plain"), styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
@@ -27153,7 +27137,7 @@ document.head.appendChild(AREA_CSS);
 /* ===== module: 49-feedback.js ===== */
 /* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.4";
+  const APP_VERSION = "1.15.5";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
   const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
@@ -27339,7 +27323,7 @@ document.head.appendChild(AREA_CSS);
 
 /* ===== module: 49-errreport.js ===== */
 /* Anonymous crash and error reports */
-const APP_VERSION = "1.15.4";
+const APP_VERSION = "1.15.5";
 const BUILD_ID = "dev";
 const ERROR_REPORTING = {
   dsn: "",
@@ -30459,6 +30443,8 @@ function boot(){
   }
   if (DESK && typeof DESK.onCapture === "function") DESK.onCapture(u => handleUrl(String(u), {channel: "native"}));
   if (DESK && typeof DESK.onScreenshot === "function") DESK.onScreenshot(b => screenshotBytes(b));
+  // Quick Capture off: the desktop app's screenshot shortcut would open a capture with nowhere to go, so pause it
+  if (CAPTURE_OFF && DESK && typeof DESK.setDesktopSetting === "function") { try { Promise.resolve(DESK.setDesktopSetting("shotPaused", true)).catch(() => {}); } catch (e) {} }
   setTimeout(queueNudge, 2500);
   setTimeout(pullInbox, 1500);
   window.addEventListener("online", () => { queueNudge(); pullInbox(); });
@@ -61856,9 +61842,10 @@ var COMP_EXTRA = [];
   }
   /* Smooth moves only */
   let glideAnim = null, glideEnd = 0;
-  function glideBy(ox, oy, sc, replace){
+  // slow: a little slower (leaving the Companion tab's circle for its corner)
+  function glideBy(ox, oy, sc, replace, slow){
     if (!box || still() || document.hidden || !box.animate) return;
-    const d = Math.hypot(ox, oy), ms = Math.round(Math.max(220, Math.min(520, 200 + d * 1.2)));
+    const d = Math.hypot(ox, oy), ms = Math.round(Math.max(220, Math.min(520, 200 + d * 1.2)) * (slow ? 1.35 : 1));
     if (d < 0.5 && (!sc || Math.abs(sc - 1) < 0.01)) return;
     if (glideAnim) try { glideAnim.cancel(); } catch (e) {}
     const me = glideAnim = box.animate([{transform: `translate(${f1(ox)}px,${f1(oy)}px)${sc ? ` scale(${f1(sc)})` : ""}`}, {transform: "translate(0px,0px) scale(1)"}], Object.assign({duration: ms, easing: "cubic-bezier(.22,.8,.3,1)"}, replace ? {} : {composite: "add"}));
@@ -62320,7 +62307,7 @@ var COMP_EXTRA = [];
     box.style.cssText = `left:${s.left}px;top:${s.top}px;width:${s.px}px;height:${s.px}px`;
     box.dataset.x = s.left; box.dataset.y = s.top; box.dataset.px = s.px; box.dataset.spot = s.kind;
     if (from && homeSig) {
-      if (Math.abs(oldPx - s.px) > 1) { const c = dc || was; stopTravel(); glideBy(c.x - (s.left + s.px / 2), c.y - (s.top + s.px / 2), oldPx / s.px, true); }
+      if (Math.abs(oldPx - s.px) > 1) { const c = dc || was; stopTravel(); glideBy(c.x - (s.left + s.px / 2), c.y - (s.top + s.px / 2), oldPx / s.px, true, prevKind === "slot"); }
       else if (Math.hypot(from.left - s.left, from.top - s.top) >= 6 && !still() && !document.hidden) travel(from, s, s.px);
       else if (Math.hypot(from.left - s.left, from.top - s.top) >= 0.5) { stopTravel(); glideBy(from.left - s.left, from.top - s.top, 0, true); }
     }
@@ -71524,7 +71511,7 @@ function siriUpdated(t, u, now, courseOk){
     try {
       const F = typeof FOCUS !== "undefined" && FOCUS && FOCUS.today === today ? FOCUS : computeFocus();
       if (F && Array.isArray(F.ranked)) plan = {hours: F.planned, doneHours: F.doneToday,
-        items: F.ranked.filter(x => x && x.t && x.alloc > 0 && x.t.status !== "done").map(x => ({id: x.t.id, title: x.t.title, courseId: x.t.courseId, hours: x.alloc}))};
+        items: F.ranked.filter(x => x && x.t && x.alloc > 0 && x.t.status !== "done" && !x.t.archivedTerm && !(x.t.courseId && courseOf(x.t.courseId) && courseOf(x.t.courseId).archived)).map(x => ({id: x.t.id, title: x.t.title, courseId: x.t.courseId, hours: x.alloc}))};
     } catch (e) { plan = null; }
     let focusMins = 0; try { focusMins = pomoCfg().focus; } catch (e) {}
     return {now: Date.now(), today, grades: gradesOn(), tasks: allTasks(), courses: coursesArr(), plan, focusMins,
@@ -76925,7 +76912,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 /* ===== module: 99-release.js ===== */
 /* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.4";
+  const VERSION = "1.15.5";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "October 27, 2026", TERMS_UPDATED = "October 27, 2026";
