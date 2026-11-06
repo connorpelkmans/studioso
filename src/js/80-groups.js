@@ -1081,7 +1081,7 @@
   function badgesFor(g, uid2){
     const ext = extOf(g.id); if (!ext) return [];
     const out = [], st = streakOf(ext, uid2), its = S.items[g.id] || [];
-    if (st >= 7) out.push(["streak", "7-Day Streak", "Checked in 7 days in a row"]); else if (st >= 3) out.push(["streak", "3-Day Streak", "Checked in 3 days in a row"]);
+    if (STREAK_HIDDEN) {} else if (st >= 7) out.push(["streak", "7-Day Streak", "Checked in 7 days in a row"]); else if (st >= 3) out.push(["streak", "3-Day Streak", "Checked in 3 days in a row"]);
     const goal = Number(g.weekly_goal) || 0;
     if (goal && weekVal(ext, g.id, uid2, wkStart(), "focus_min") >= goal) out.push(["goal", "Goal Met", `Reached the weekly goal of ${gMins(goal)}`]);
     const last = ext.stats.filter(s => s.week === addDays(wkStart(), -7) && s.focus_min > 0).sort((a, b) => b.focus_min - a.focus_min)[0];
@@ -1129,7 +1129,7 @@
     const st = streakOf(ext, myId());
     return `<section class="grp-sec" id="grpCheckin"><h3 class="fsec">${I_CHECK}Daily Check-in<span class="n">${todays.length} of ${ms.length} today</span></h3>
       <form class="grp-check" id="grpCheck" data-gid="${esc(g.id)}"><input type="text" name="plan" maxlength="140" value="${esc(mine ? mine.plan : "")}" placeholder="What are you studying today?" aria-label="What are you studying today?" autocomplete="off"><button type="submit" class="btn primary small">${mine ? "Update" : "Check In"}</button>${mine ? `<button type="button" class="btn small" data-act="grp-check-done">${mine.done ? "Undo Done" : "Mark Done"}</button>` : ""}</form>
-      ${st ? `<p class="mini grp-streak">Your streak: <b>${st} day${st === 1 ? "" : "s"}</b> in a row${mine ? "" : ". Check in today to keep it going"}.</p>` : `<p class="mini grp-streak">Check in on 3 days in a row for a streak badge.</p>`}
+      ${STREAK_HIDDEN ? "" : st ? `<p class="mini grp-streak">Your streak: <b>${st} day${st === 1 ? "" : "s"}</b> in a row${mine ? "" : ". Check in today to keep it going"}.</p>` : `<p class="mini grp-streak">Check in on 3 days in a row for a streak badge.</p>`}
       ${todays.length ? `<ul class="grp-checks">${todays.map(c => `<li class="${c.done ? "done" : ""}">${av(mName(g.id, c.user_id), c.user_id)}<span class="nm"><b>${esc(c.user_id === myId() ? "You" : mName(g.id, c.user_id))}</b><span class="mini">${esc(c.plan || "Checked in")}</span></span>${c.done ? `<span class="pill ok">Done</span>` : ""}</li>`).join("")}</ul>` : `<p class="grp-none">Nobody has checked in yet today. Be the first and set the pace.</p>`}</section>`;
   }
 

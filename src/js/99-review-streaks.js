@@ -507,6 +507,7 @@ function streakStripHtml(hideIntro){
 const CARDS = "studyboard:fgs:cards";
 let fcSeen = 0;
 function logDay(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const today = todayISO(), g = gcfg(), log = Object.assign({}, g.log);
   if (log[today]) return;
   log[today] = 1;
@@ -514,6 +515,7 @@ function logDay(){
   setStg("gentle", {log: out});
 }
 function noteCards(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const f = ui && ui.fc;
   if (ui.tab !== "flashcards" || !f || f.mode !== "study") { fcSeen = 0; return; }
   const n = (f.again || 0) + (f.hard || 0) + (f.good || 0) + (f.easy || 0);
@@ -527,6 +529,7 @@ function noteCards(){
 }
 // Keep what was seen
 function observe(res){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const g = gcfg(), patch = {};
   if (res.todayActive && !(g.log && g.log[res.today])) { const log = Object.assign({}, g.log); log[res.today] = 1; const out = {}; Object.keys(log).sort().slice(-120).forEach(d => { out[d] = 1; }); patch.log = out; }
   if (res.best > (Number(g.best) || 0)) patch.best = res.best;
@@ -552,6 +555,7 @@ function lines(c){
 let celT = 0, celTries = 0;
 function celebrateSoon(delay){ clearTimeout(celT); celTries = 0; celT = setTimeout(tryCelebrate, delay == null ? 2500 : delay); }
 function tryCelebrate(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   try {
     if (!gentleOn()) return;
     const res = streakNow(), c = RS.celebration(res, saidRead(), res.today); if (!c) return;
@@ -632,6 +636,7 @@ function turnOn(){
 }
 // A brand new account starts with the gentle streak, unless a choice was already made
 function newUser(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const g = gcfg();
   if (g.on !== undefined || g.intro !== undefined || lsr(FGS_CHOICE)) return;
   setStg("gentle", {on: true, intro: true, since: todayISO()});

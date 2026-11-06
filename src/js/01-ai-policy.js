@@ -164,7 +164,7 @@ const SBPOLICY = (() => {
       await this.s.put(upd);
       return true;
     }
-    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextMonth(r.now)}; }
+    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextMonth(r.now)}; }
     async _status(lim){ const r = await this.read(); return r.gone ? {usedPct: 100, soft: false, resets: null, gone: true} : this.view(r, lim); }
     // Delete My Account: the id is closed for good, so deleting can't be used to reset an allowance
     async _forget(){ await this.s.deleteAll(); await this.s.put("gone", true); }

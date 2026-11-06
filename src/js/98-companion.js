@@ -34,8 +34,10 @@
     {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
     {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
   ];
+  // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
+  if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
   const GENERIC = {
-    tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep this streak of awesome going!"],
+    tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep the awesome going!"],
     pet: ["Hehe, that tickles! Again!", "You're the best, you know that?"], hello: ["You're back! Yay! Ready when you are!", "Hello hello! I missed you!"],
     morning: ["Good morning! Let's make today great!"], night: ["Late one tonight! Rest soon, okay?"], focus: ["Let's focus together! We've got this!", "Studying right beside you! Go go go!"],
     done: ["Session done! That was AMAZING!", "You did it! So proud of you!"], task: ["WOO! Nice work!", "Yes! One more done!", "Look at you go! Checked off!"], break: ["Stretch time! Big happy stretch!"]
@@ -2316,7 +2318,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function smartRow(){
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";
-    const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), your streak, your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
+    const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), " + (STREAK_HIDDEN ? "" : "your streak, ") + "your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
       : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
       : u.mode === "studyboard" ? `Studyboard AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`

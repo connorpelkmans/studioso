@@ -241,6 +241,8 @@ function aiProSet(j){
   const on = j.on === false ? false : j.on === true ? true : !!prev.on;
   const next = {uid: sbUser.id, on, tier: j.tier || prev.tier || "", usedPct: typeof j.usedPct === "number" ? j.usedPct : prev.usedPct || 0, soft: typeof j.soft === "boolean" ? j.soft : !!prev.soft,
     resets: j.resets !== undefined ? j.resets : prev.resets || null, transcribe: typeof j.transcribe === "boolean" ? j.transcribe : !!prev.transcribe, youtube: typeof j.youtube === "boolean" ? j.youtube : !!prev.youtube, at: Date.now(),
+    // today's share, as a percentage (the server's day is UTC); kept only for the day it was read
+    dayPct: typeof j.dayPct === "number" ? j.dayPct : prev.dayDay === today ? prev.dayPct : undefined, dayDay: typeof j.dayPct === "number" ? today : prev.dayDay === today ? today : "",
     youtubeLeft: typeof j.youtubeLeft === "number" ? j.youtubeLeft : prev.youtubeLeft, youtubeMonthly: typeof j.youtubeMonthly === "number" ? j.youtubeMonthly : prev.youtubeMonthly,
     // Out of today's allowance: the student's own key covers the rest of the day
     outDay: j.error === "today" ? today : prev.outDay === today ? today : ""};
@@ -752,7 +754,7 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
 // Studyboard AI (AI_PRO)
 const AI_PRO_WORDS = {
   used_up: {title: "You've Used This Month's Studyboard AI", body: "Studyboard AI is back when your allowance resets. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
-  today: {title: "That's a Lot of AI for One Day", body: "Studyboard AI has a daily limit so this month's allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
+  today: {title: "You've Used Today's Studyboard AI", body: "Studyboard AI has a daily share so this month's allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
   files: {title: "This Needs a Gemini Key", body: "Studyboard AI reads text, photos and PDFs. Videos need Google's Gemini, the only AI that can watch them. A free Gemini key takes about a minute to set up.", err: "Videos need a free Gemini key."},
   search: {title: "This Needs Your Own Key", body: "Looking things up on the web needs your own free Google Gemini key, which takes about a minute.", err: "This needs your own free Gemini key."},
   too_long: {title: "That's Too Much in One Go", body: "Studyboard AI handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
@@ -810,7 +812,7 @@ async function proCallOnce({system, parts, schema, ms, task, signal, auto, searc
   if (why) { if (!auto && !(out && hasBackup)) aiProPrompt(why, !!own); try { scheduleRender(); } catch(e) {} throw Object.assign(aiErr(out ? "limit" : "pro-" + why, (own && aiOwnWords()[why] || AI_PRO_WORDS[why]).err), {out: out && !own}); }
   if (j.error === "not_pro" || j.error === "off" || j.error === "unconfirmed") { aiProSet({on: false}); try { scheduleRender(); } catch(e) {} throw aiErr("nokey", j.error === "unconfirmed" ? "Confirm your email to use Studyboard AI." : "Studyboard AI comes with Pro. Add your own free Gemini key in Settings to use AI without it."); }
   if (res.status === 401) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
-  if (res.status === 429) throw Object.assign(aiErr("limit", "That's a lot of AI at once. Try again in a minute."), {rate: true});
+  if (res.status === 429) throw Object.assign(aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute."), {rate: true});
   if (j.error === "refused") throw aiErr("blocked", "The AI wouldn't help with this one. Try asking another way.");
   if (res.status === 502) throw aiErr("bad", "The AI's answer came back garbled. Try again.");
   if (res.status === 400) throw aiErr("bad", "The AI couldn't read that. Try again, or with a different file.");
@@ -829,7 +831,7 @@ async function proTranscribe(blob, signal, ms){
   if (res.ok && typeof j.text === "string") return j.text;
   if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
   if (res.status === 413) throw aiErr("long", "That part of the recording is too big. Split the recording into shorter parts.");
-  if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
+  if (res.status === 429) throw aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute.");
   throw aiErr("busy", "Couldn't transcribe that part right now. Try again in a minute.");
 }
 // Search by meaning on Studyboard AI: texts in, vectors out (one batch of up to 100)
@@ -859,7 +861,7 @@ async function proYoutube(url, signal){
   if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
   if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI.${aiProResets() ? ` More on ${aiProResets()}.` : ""} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
   if (j.error === "video") throw aiErr("video", "That video couldn't be watched. It may be private, unlisted, age-restricted, members-only or removed.");
-  if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
+  if (res.status === 429) throw aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute.");
   throw aiErr("busy", "Studyboard AI couldn't watch that video right now. Try again in a minute.");
 }
 const aiProAudio = () => { try { return aiCfg().provider === "studyboard" && !!(aiProGet() || {}).transcribe; } catch(e) { return false; } };
@@ -1583,6 +1585,33 @@ function aiProLine(){
   const t = aiProGet() || {}, when = aiProResets();
   return `Included with Pro${t.usedPct ? `: ${t.usedPct}% of this month's used` : ""}${when ? `, resets ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
 }
+/* The AI menu's usage card: this month as a percentage, and today's share, with no amounts or costs. The chip in its header
+   always says where things stand; amber once everyday answers get shorter, orange when the month or the day is used up. */
+const SBAI_STAR = '<svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" aria-hidden="true"><path d="M12 4.5l1.9 5.6 5.6 1.9-5.6 1.9L12 19.5l-1.9-5.6-5.6-1.9 5.6-1.9z"/></svg>';
+function aiUseCard(){
+  const t = aiProGet() || {}, today = new Date().toISOString().slice(0, 10), when = aiProResets();
+  const m = Math.max(0, Math.min(100, Math.round(Number(t.usedPct) || 0)));
+  const dayOut = t.outDay === today, d = dayOut ? 100 : t.dayDay === today && typeof t.dayPct === "number" ? Math.max(0, Math.min(100, Math.round(t.dayPct))) : null;
+  const monthOut = m >= 100, low = !monthOut && !!t.soft;
+  // the server's day ends at midnight UTC: said in this person's own time
+  const dayEndAt = (() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + 1)); })();
+  const dayEnds = (() => { try { return dayEndAt.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}); } catch(e) { return ""; } })();
+  // later today where they live (west of UTC), or tomorrow
+  const backToday = dayEndAt.toDateString() === new Date().toDateString(), back = backToday && dayEnds ? `back at ${dayEnds}` : "back tomorrow";
+  const st = monthOut ? "out" : dayOut ? "day" : low ? "warn" : "";
+  const ringCls = monthOut || dayOut ? "out" : low ? "warn" : "", ringPct = monthOut || dayOut ? 100 : m;
+  const chip = monthOut ? "Used up" : dayOut ? back.replace(/^b/, "B") : `${m}%`;
+  const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "this month"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
+  const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "next month"}. Until then, AI keeps working with your backup key below.`
+    : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
+    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` The month resets <b>${esc(when)}</b>.` : ""}`
+    : `Included with Pro.${when ? ` The month resets <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
+  return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
+    <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
+    <div class="sbai-num">${m}%<small>used this month</small></div>
+    <div class="sbai-rows">${bar("This month", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
+    <p class="sbai-note">${note}</p></div>`;
+}
 function aiRow(){
   const on = aiReady(), c = aiCfg();
   if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of this month's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
@@ -1609,7 +1638,7 @@ function aiSetupSheet(fromFeature, opts){
     return aiModelOpts(keys, `${c.provider}|${c.model}`) || `<option value="">Add a key first</option>`; };
   openSheet(`<form class="sheet">${head("AI Features")}
     <div class="sheet-body">
-      ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:6px"><p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}. ${esc(aiProLine())}</p>
+      ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If this month's or today's Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
@@ -1802,6 +1831,8 @@ function aiSetupSheet(fromFeature, opts){
     $("#aiHoCode").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); hoGet.click(); } });
   }
   const hoSend = $("#aiHoSend"); if (hoSend) hoSend.addEventListener("click", () => keyHandoffSend(aiCfg().keys));
+  // the usage card shows what was last read; read it again now and redraw it in place
+  if (aiProAvail() && AI_PRO && sbUser) aiProRefresh().then(j => { const el = j && dlg.open ? dlg.querySelector("#sbaiUse") : null; if (el) el.outerHTML = aiUseCard(); });
   const usePro = $("#aiUsePro");
   if (usePro) usePro.addEventListener("change", () => {
     const raw = Object.assign({}, (state.settings && state.settings.ai) || {});

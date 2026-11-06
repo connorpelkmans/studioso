@@ -3469,7 +3469,7 @@ const SBPOLICY = (() => {
       await this.s.put(upd);
       return true;
     }
-    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextMonth(r.now)}; }
+    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextMonth(r.now)}; }
     async _status(lim){ const r = await this.read(); return r.gone ? {usedPct: 100, soft: false, resets: null, gone: true} : this.view(r, lim); }
     // Delete My Account: the id is closed for good, so deleting can't be used to reset an allowance
     async _forget(){ await this.s.deleteAll(); await this.s.put("gone", true); }
@@ -3892,6 +3892,8 @@ function aiProSet(j){
   const on = j.on === false ? false : j.on === true ? true : !!prev.on;
   const next = {uid: sbUser.id, on, tier: j.tier || prev.tier || "", usedPct: typeof j.usedPct === "number" ? j.usedPct : prev.usedPct || 0, soft: typeof j.soft === "boolean" ? j.soft : !!prev.soft,
     resets: j.resets !== undefined ? j.resets : prev.resets || null, transcribe: typeof j.transcribe === "boolean" ? j.transcribe : !!prev.transcribe, youtube: typeof j.youtube === "boolean" ? j.youtube : !!prev.youtube, at: Date.now(),
+    // today's share, as a percentage (the server's day is UTC); kept only for the day it was read
+    dayPct: typeof j.dayPct === "number" ? j.dayPct : prev.dayDay === today ? prev.dayPct : undefined, dayDay: typeof j.dayPct === "number" ? today : prev.dayDay === today ? today : "",
     youtubeLeft: typeof j.youtubeLeft === "number" ? j.youtubeLeft : prev.youtubeLeft, youtubeMonthly: typeof j.youtubeMonthly === "number" ? j.youtubeMonthly : prev.youtubeMonthly,
     // Out of today's allowance: the student's own key covers the rest of the day
     outDay: j.error === "today" ? today : prev.outDay === today ? today : ""};
@@ -4403,7 +4405,7 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
 // Studyboard AI (AI_PRO)
 const AI_PRO_WORDS = {
   used_up: {title: "You've Used This Month's Studyboard AI", body: "Studyboard AI is back when your allowance resets. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
-  today: {title: "That's a Lot of AI for One Day", body: "Studyboard AI has a daily limit so this month's allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
+  today: {title: "You've Used Today's Studyboard AI", body: "Studyboard AI has a daily share so this month's allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
   files: {title: "This Needs a Gemini Key", body: "Studyboard AI reads text, photos and PDFs. Videos need Google's Gemini, the only AI that can watch them. A free Gemini key takes about a minute to set up.", err: "Videos need a free Gemini key."},
   search: {title: "This Needs Your Own Key", body: "Looking things up on the web needs your own free Google Gemini key, which takes about a minute.", err: "This needs your own free Gemini key."},
   too_long: {title: "That's Too Much in One Go", body: "Studyboard AI handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
@@ -4461,7 +4463,7 @@ async function proCallOnce({system, parts, schema, ms, task, signal, auto, searc
   if (why) { if (!auto && !(out && hasBackup)) aiProPrompt(why, !!own); try { scheduleRender(); } catch(e) {} throw Object.assign(aiErr(out ? "limit" : "pro-" + why, (own && aiOwnWords()[why] || AI_PRO_WORDS[why]).err), {out: out && !own}); }
   if (j.error === "not_pro" || j.error === "off" || j.error === "unconfirmed") { aiProSet({on: false}); try { scheduleRender(); } catch(e) {} throw aiErr("nokey", j.error === "unconfirmed" ? "Confirm your email to use Studyboard AI." : "Studyboard AI comes with Pro. Add your own free Gemini key in Settings to use AI without it."); }
   if (res.status === 401) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
-  if (res.status === 429) throw Object.assign(aiErr("limit", "That's a lot of AI at once. Try again in a minute."), {rate: true});
+  if (res.status === 429) throw Object.assign(aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute."), {rate: true});
   if (j.error === "refused") throw aiErr("blocked", "The AI wouldn't help with this one. Try asking another way.");
   if (res.status === 502) throw aiErr("bad", "The AI's answer came back garbled. Try again.");
   if (res.status === 400) throw aiErr("bad", "The AI couldn't read that. Try again, or with a different file.");
@@ -4480,7 +4482,7 @@ async function proTranscribe(blob, signal, ms){
   if (res.ok && typeof j.text === "string") return j.text;
   if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
   if (res.status === 413) throw aiErr("long", "That part of the recording is too big. Split the recording into shorter parts.");
-  if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
+  if (res.status === 429) throw aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute.");
   throw aiErr("busy", "Couldn't transcribe that part right now. Try again in a minute.");
 }
 // Search by meaning on Studyboard AI: texts in, vectors out (one batch of up to 100)
@@ -4510,7 +4512,7 @@ async function proYoutube(url, signal){
   if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
   if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI.${aiProResets() ? ` More on ${aiProResets()}.` : ""} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
   if (j.error === "video") throw aiErr("video", "That video couldn't be watched. It may be private, unlisted, age-restricted, members-only or removed.");
-  if (res.status === 429) throw aiErr("limit", "That's a lot of AI at once. Try again in a minute.");
+  if (res.status === 429) throw aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute.");
   throw aiErr("busy", "Studyboard AI couldn't watch that video right now. Try again in a minute.");
 }
 const aiProAudio = () => { try { return aiCfg().provider === "studyboard" && !!(aiProGet() || {}).transcribe; } catch(e) { return false; } };
@@ -5234,6 +5236,33 @@ function aiProLine(){
   const t = aiProGet() || {}, when = aiProResets();
   return `Included with Pro${t.usedPct ? `: ${t.usedPct}% of this month's used` : ""}${when ? `, resets ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
 }
+/* The AI menu's usage card: this month as a percentage, and today's share, with no amounts or costs. The chip in its header
+   always says where things stand; amber once everyday answers get shorter, orange when the month or the day is used up. */
+const SBAI_STAR = '<svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" aria-hidden="true"><path d="M12 4.5l1.9 5.6 5.6 1.9-5.6 1.9L12 19.5l-1.9-5.6-5.6-1.9 5.6-1.9z"/></svg>';
+function aiUseCard(){
+  const t = aiProGet() || {}, today = new Date().toISOString().slice(0, 10), when = aiProResets();
+  const m = Math.max(0, Math.min(100, Math.round(Number(t.usedPct) || 0)));
+  const dayOut = t.outDay === today, d = dayOut ? 100 : t.dayDay === today && typeof t.dayPct === "number" ? Math.max(0, Math.min(100, Math.round(t.dayPct))) : null;
+  const monthOut = m >= 100, low = !monthOut && !!t.soft;
+  // the server's day ends at midnight UTC: said in this person's own time
+  const dayEndAt = (() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + 1)); })();
+  const dayEnds = (() => { try { return dayEndAt.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}); } catch(e) { return ""; } })();
+  // later today where they live (west of UTC), or tomorrow
+  const backToday = dayEndAt.toDateString() === new Date().toDateString(), back = backToday && dayEnds ? `back at ${dayEnds}` : "back tomorrow";
+  const st = monthOut ? "out" : dayOut ? "day" : low ? "warn" : "";
+  const ringCls = monthOut || dayOut ? "out" : low ? "warn" : "", ringPct = monthOut || dayOut ? 100 : m;
+  const chip = monthOut ? "Used up" : dayOut ? back.replace(/^b/, "B") : `${m}%`;
+  const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "this month"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
+  const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "next month"}. Until then, AI keeps working with your backup key below.`
+    : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
+    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` The month resets <b>${esc(when)}</b>.` : ""}`
+    : `Included with Pro.${when ? ` The month resets <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
+  return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
+    <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
+    <div class="sbai-num">${m}%<small>used this month</small></div>
+    <div class="sbai-rows">${bar("This month", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
+    <p class="sbai-note">${note}</p></div>`;
+}
 function aiRow(){
   const on = aiReady(), c = aiCfg();
   if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of this month's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
@@ -5260,7 +5289,7 @@ function aiSetupSheet(fromFeature, opts){
     return aiModelOpts(keys, `${c.provider}|${c.model}`) || `<option value="">Add a key first</option>`; };
   openSheet(`<form class="sheet">${head("AI Features")}
     <div class="sheet-body">
-      ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:6px"><p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}. ${esc(aiProLine())}</p>
+      ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If this month's or today's Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
@@ -5453,6 +5482,8 @@ function aiSetupSheet(fromFeature, opts){
     $("#aiHoCode").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); hoGet.click(); } });
   }
   const hoSend = $("#aiHoSend"); if (hoSend) hoSend.addEventListener("click", () => keyHandoffSend(aiCfg().keys));
+  // the usage card shows what was last read; read it again now and redraw it in place
+  if (aiProAvail() && AI_PRO && sbUser) aiProRefresh().then(j => { const el = j && dlg.open ? dlg.querySelector("#sbaiUse") : null; if (el) el.outerHTML = aiUseCard(); });
   const usePro = $("#aiUsePro");
   if (usePro) usePro.addEventListener("change", () => {
     const raw = Object.assign({}, (state.settings && state.settings.ai) || {});
@@ -6724,9 +6755,10 @@ let AUTO_ON = false;
 const AUTO_LS = "studyboard:autoAI";
 const AUTO = (() => { try { return JSON.parse(localStorage.getItem(AUTO_LS) || "{}") || {}; } catch(e) { return {}; } })();
 const autoSave = () => { try { localStorage.setItem(AUTO_LS, JSON.stringify(AUTO)); } catch(e) {} };
-function autoBudget(paid){
+function autoBudget(paid, sb){
   const d = todayISO(); if (AUTO.day !== d) { AUTO.day = d; AUTO.n = 0; }
-  return (paid ? 12 : 40) - (AUTO.n || 0);
+  // Studyboard AI (paid Pro's allowance, or a Claude key in its mode): 24 a day, a backstop the timings below rarely reach
+  return (paid ? 12 : sb ? 24 : 40) - (AUTO.n || 0);
 }
 const leftSig = t => `${Number(t.focusMin) || 0}|${Number(t.pct) || 0}|${(t.checklist || []).filter(i => i.done).length}/${(t.checklist || []).length}|${t.hours ?? ""}`;
 const autoFresh = (x, days) => x && x.at && Date.now() - x.at < days * 864e5;
@@ -6866,13 +6898,17 @@ async function autoRun(){
   const a = autoState();
   if (!a.on || autoBusy || document.hidden || navigator.onLine === false) return;
   if (autoErr && Date.now() - autoErr.at < (autoErr.code === "limit" ? 15 * 60000 : 5 * 60000)) return;
-  if (autoBudget(a.paid) <= 0) return;
+  const sb = aiSbMode(a.cfg);
+  if (autoBudget(a.paid, sb) <= 0) return;
   const today = todayISO(), tomorrow = addDays(today, 1);
   let job = null;
   const sig = planSig(), core = planCoreSig();
-  // On Studyboard AI (or a Claude key in its mode), a change in progress or the time of day alone waits 20 minutes, so ticking focus minutes don't rerun the plan
-  const gap = aiSbMode(a.cfg) && AUTO.core === core ? 20 * 60000 : 90000;
-  if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > gap : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
+  // On Studyboard AI (or a Claude key in its mode), to make its allowance last without the plan thinking any less:
+  // a change to the tasks waits 3 minutes so a burst of edits makes one run, a change in progress or the time of day alone
+  // waits 45 minutes (ticking focus minutes and checklists barely move the plan), and with nothing changed it refreshes
+  // every 4 hours. The app's own ranking updates at once either way; only the AI's reasons and estimates come later.
+  const gap = sb ? (AUTO.core === core ? 45 * 60000 : 3 * 60000) : 90000, idle = (sb ? 4 : 3) * 3600000;
+  if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > gap : Date.now() - (AUTO.planAt || 0) > idle))
     job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt, prevCore = AUTO.core; AUTO.sig = sig; AUTO.core = core; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.core = prevCore; AUTO.planAt = prevAt; throw e; } };
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.studyKind === "practice" && x.status !== "done" && x.due && dayDiff(today, x.due) <= 2 && dayDiff(today, x.due) >= 0 && !x.practiceQuiz); if (t) job = () => autoPractice(t); }
@@ -7621,7 +7657,7 @@ async function autoWeekly(){
 }
 // The next small background job, if any
 function autoExtraJob(a){
-  if (autoBudget(a.paid) < (a.paid ? 5 : 12)) return null;
+  if (autoBudget(a.paid, aiSbMode(a.cfg)) < (a.paid ? 5 : 12)) return null;
   const today = todayISO(), ok = id => autoFeatOn(id) && autoFeatUse(id).n < AUTO_FEATS.find(f => f.id === id).cap;
   const wrap = (id, fn) => async () => { const u = autoFeatUse(id); u.n++; u.at = Date.now(); try { await fn(); u.err = ""; } catch(e) { if (!autoTransient(e)) u.err = (e && e.message) || "failed"; throw e; } };
   if (ok("remote") && remoteCands(1).length) return wrap("remote", autoRemote);
@@ -7769,7 +7805,7 @@ hook("act", (act, el) => {
 });
 const agoText = ms => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
 function autoPanelSheet(){
-  const a = autoState(), lim = a.paid ? 12 : 40; autoBudget(a.paid); const used = AUTO.n || 0;
+  const a = autoState(), sb = !!a.cfg && aiSbMode(a.cfg), lim = a.paid ? 12 : sb ? 24 : 40; autoBudget(a.paid, sb); const used = AUTO.n || 0;
   const row = f => { const u = (AUTO.feat || {})[f.id] || {}, on = autoFeatOn(f.id);
     const snz = Object.keys(INS_FEAT).filter(k => INS_FEAT[k] === f.id && insSnoozed(k)).map(k => AUTO.snz[k]).sort()[0];
     const last = snz ? `Paused until ${fmtShort(iso(new Date(snz)))} because you dismissed several. Turn it off and on to resume.` : f.core ? (u.at || (f.id === "plan" && AUTO.planAt) ? `Last ran ${agoText(u.at || AUTO.planAt)}` : "Runs when your tasks change") : f.ai ? (u.at ? `Last ran ${agoText(u.at)}${u.day === todayISO() ? `, ${u.n || 0} of ${f.cap} runs today` : ""}${u.err ? `. Last problem: ${u.err}` : ""}` : "Hasn't run yet") : (u.at ? `Last checked ${agoText(u.at)}, uses no AI requests` : "Checks live, uses no AI requests");
@@ -12983,11 +13019,11 @@ function todaysQuote(){
   const t = todayISO(), n = Math.floor(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)) / 864e5), N = DAILY_QUOTES.length;
   return DAILY_QUOTES[((n * 37) % N + N) % N];
 }
-const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
+const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (!STREAK_HIDDEN && state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
 // The streak the student actually sees: the gentle one when it is on
 // The streak that rewards (stickers, Term Goals, companion props) follow: study days in a row (a task finished, focus or logged time,
 // a checklist step, flashcards; rest days don't break it), whichever streak is shown. Falls back to the task streak before it loads.
-const rewardStreak = () => { try { if (window.SBSTREAK && SBSTREAK.state) { const r = SBSTREAK.state(); return {cur: Number(r.run) || 0, best: Number(r.best) || 0}; } } catch (e) {} const s = streakOf(); return {cur: s.cur, best: s.best}; };
+const rewardStreak = () => { if (STREAK_HIDDEN) return {cur: 0, best: 0}; try { if (window.SBSTREAK && SBSTREAK.state) { const r = SBSTREAK.state(); return {cur: Number(r.run) || 0, best: Number(r.best) || 0}; } } catch (e) {} const s = streakOf(); return {cur: s.cur, best: s.best}; };
 const shownStreak = () => { if (window.SBSTREAK && SBSTREAK.on()) { const r = SBSTREAK.state(); return {cur: r.run, best: r.best}; } const s = streakOf(); return {cur: s.cur, best: s.best}; };
 function streakLine(){
   if (window.SBSTREAK && SBSTREAK.on()) return SBSTREAK.line();
@@ -13004,6 +13040,8 @@ function isProgress(a, b){
   return cb > ca;
 }
 function noteProgress(){
+  // streaks are hidden for now, and nothing about them is recorded either
+  if (STREAK_HIDDEN) return;
   const d = todayISO(), s = streakOf();
   if (s.last === d) return;
   s.cur = s.last === addDays(d, -1) ? s.cur + 1 : 1; s.last = d; s.best = Math.max(s.best || 0, s.cur);
@@ -27653,7 +27691,7 @@ const ERRCORE = (() => {
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".cf-tabs", ".gp-hero", NAV("courses")],
       text: () => "Your marks and average in each course as they come in. Set the weights to see what you need on the remaining work to reach your target grade."},
     {id: "focus", title: "Focus Timer", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
-      text: () => "The timer follows the Pomodoro method: short bursts of focused work with breaks in between. Start a session on any task; the time counts toward the task and your streak, and your companion keeps you company.",
+      text: () => "The timer follows the Pomodoro method: short bursts of focused work with breaks in between. Start a session on any task; the time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ", and your companion keeps you company.",
       more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
     {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
       text: () => "Find tasks, cards, notes and text inside your files from anywhere (Ctrl or Cmd K). Switch to Ask With AI to ask questions about your own material."},
@@ -31810,7 +31848,7 @@ hook("boot", boot);
   function badgesFor(g, uid2){
     const ext = extOf(g.id); if (!ext) return [];
     const out = [], st = streakOf(ext, uid2), its = S.items[g.id] || [];
-    if (st >= 7) out.push(["streak", "7-Day Streak", "Checked in 7 days in a row"]); else if (st >= 3) out.push(["streak", "3-Day Streak", "Checked in 3 days in a row"]);
+    if (STREAK_HIDDEN) {} else if (st >= 7) out.push(["streak", "7-Day Streak", "Checked in 7 days in a row"]); else if (st >= 3) out.push(["streak", "3-Day Streak", "Checked in 3 days in a row"]);
     const goal = Number(g.weekly_goal) || 0;
     if (goal && weekVal(ext, g.id, uid2, wkStart(), "focus_min") >= goal) out.push(["goal", "Goal Met", `Reached the weekly goal of ${gMins(goal)}`]);
     const last = ext.stats.filter(s => s.week === addDays(wkStart(), -7) && s.focus_min > 0).sort((a, b) => b.focus_min - a.focus_min)[0];
@@ -31858,7 +31896,7 @@ hook("boot", boot);
     const st = streakOf(ext, myId());
     return `<section class="grp-sec" id="grpCheckin"><h3 class="fsec">${I_CHECK}Daily Check-in<span class="n">${todays.length} of ${ms.length} today</span></h3>
       <form class="grp-check" id="grpCheck" data-gid="${esc(g.id)}"><input type="text" name="plan" maxlength="140" value="${esc(mine ? mine.plan : "")}" placeholder="What are you studying today?" aria-label="What are you studying today?" autocomplete="off"><button type="submit" class="btn primary small">${mine ? "Update" : "Check In"}</button>${mine ? `<button type="button" class="btn small" data-act="grp-check-done">${mine.done ? "Undo Done" : "Mark Done"}</button>` : ""}</form>
-      ${st ? `<p class="mini grp-streak">Your streak: <b>${st} day${st === 1 ? "" : "s"}</b> in a row${mine ? "" : ". Check in today to keep it going"}.</p>` : `<p class="mini grp-streak">Check in on 3 days in a row for a streak badge.</p>`}
+      ${STREAK_HIDDEN ? "" : st ? `<p class="mini grp-streak">Your streak: <b>${st} day${st === 1 ? "" : "s"}</b> in a row${mine ? "" : ". Check in today to keep it going"}.</p>` : `<p class="mini grp-streak">Check in on 3 days in a row for a streak badge.</p>`}
       ${todays.length ? `<ul class="grp-checks">${todays.map(c => `<li class="${c.done ? "done" : ""}">${av(mName(g.id, c.user_id), c.user_id)}<span class="nm"><b>${esc(c.user_id === myId() ? "You" : mName(g.id, c.user_id))}</b><span class="mini">${esc(c.plan || "Checked in")}</span></span>${c.done ? `<span class="pill ok">Done</span>` : ""}</li>`).join("")}</ul>` : `<p class="grp-none">Nobody has checked in yet today. Be the first and set the pace.</p>`}</section>`;
   }
 
@@ -61404,8 +61442,10 @@ var COMP_EXTRA = [];
     {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
     {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
   ];
+  // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
+  if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
   const GENERIC = {
-    tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep this streak of awesome going!"],
+    tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep the awesome going!"],
     pet: ["Hehe, that tickles! Again!", "You're the best, you know that?"], hello: ["You're back! Yay! Ready when you are!", "Hello hello! I missed you!"],
     morning: ["Good morning! Let's make today great!"], night: ["Late one tonight! Rest soon, okay?"], focus: ["Let's focus together! We've got this!", "Studying right beside you! Go go go!"],
     done: ["Session done! That was AMAZING!", "You did it! So proud of you!"], task: ["WOO! Nice work!", "Yes! One more done!", "Look at you go! Checked off!"], break: ["Stretch time! Big happy stretch!"]
@@ -63686,7 +63726,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function smartRow(){
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";
-    const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), your streak, your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
+    const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), " + (STREAK_HIDDEN ? "" : "your streak, ") + "your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
       : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
       : u.mode === "studyboard" ? `Studyboard AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
@@ -64881,7 +64921,7 @@ Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text in
 Settings, by section:
 - Account and Sync: sign in to keep everything in sync across devices; Studyboard Pro; Restore Purchases.
 - Appearance: Light, Dark or System; Style Shop; animations; text size; language; high contrast; daily quote; spelling; page tips; the study companion.
-- Study and AI: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Break Down an Assignment (milestones backward from the due date); Weekly Review; Gentle Study Streak; AI Features (set up AI); Search Everywhere; Term Scrapbook (milestone stickers); Print or Save as PDF (Pro).
+- Study and AI: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Break Down an Assignment (milestones backward from the due date); Weekly Review; ${STREAK_HIDDEN ? "" : "Gentle Study Streak; "}AI Features (set up AI); Search Everywhere; Term Scrapbook (milestone stickers); Print or Save as PDF (Pro).
 - Quick Capture: add right away when sure; keep photos with tasks; use AI to read photos; the Quick Capture window; share sheet; Siri, Gemini, Bixby and Shortcuts.
 - School and Groups: Set Up Your Semester; Brightspace, Canvas, Blackboard and Moodle (due dates, grades and announcements); Import a Syllabus (a PDF becomes a course and its deadlines); Calendar Sync (Apple, Google or Outlook, live link or file); Study Groups; School Days (holidays, reading week, rotating Day 1 to 6 or A/B schedules).
 - App and Notifications: Reminders and Notifications; widgets; replay the welcome setup; the app tour; report a bug; crash reports; keyboard shortcuts; time zone; AI keys on all devices.
@@ -67611,7 +67651,7 @@ window.__scrapArt = SCRAP_ART;
     const byCourse = {}; c.marks.forEach(t => (byCourse[t.courseId || "-"] = byCourse[t.courseId || "-"] || []).push(t));
     Object.values(byCourse).forEach(ts => { ts.sort((a, b) => ((a.due || "") < (b.due || "") ? -1 : (a.due || "") > (b.due || "") ? 1 : doneTime(a) - doneTime(b)));
       for (let i = 1; i < ts.length; i++) if (markPct(ts[i]) > markPct(ts[i - 1]) + .5) c.improved = true; });
-    c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, rewardStreak().cur);
+    c.streak = STREAK_HIDDEN ? 0 : Math.max(Number(sc.hi && sc.hi.st) || 0, rewardStreak().cur);
     const S = typeof SBSTATS !== "undefined" ? SBSTATS : null;
     const logged = S ? S.focusMinutes(start, today) : 0;
     const fromTasks = allTasks().filter(inTerm).reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
@@ -67654,7 +67694,7 @@ window.__scrapArt = SCRAP_ART;
     sc.f = sc.f || {}; sc.hi = sc.hi || {};
     const c = context(sc, opts.lab); lastCtx = c;
     if (c.dbDirty) sc.db = c.db;
-    sc.hi.st = c.streak; sc.hi.rv = c.reviewed;
+    if (!STREAK_HIDDEN) sc.hi.st = c.streak; sc.hi.rv = c.reviewed;
     const page = sc.cur, fresh = [];
     page.g = page.g || {};
     M.forEach(m => { if (m.id === "term-end" || page.g[m.id]) return; if ((Number(m.v(c)) || 0) >= m.need) { page.g[m.id] = nowMin(); fresh.push(m.id); } });
@@ -76687,6 +76727,7 @@ function streakStripHtml(hideIntro){
 const CARDS = "studyboard:fgs:cards";
 let fcSeen = 0;
 function logDay(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const today = todayISO(), g = gcfg(), log = Object.assign({}, g.log);
   if (log[today]) return;
   log[today] = 1;
@@ -76694,6 +76735,7 @@ function logDay(){
   setStg("gentle", {log: out});
 }
 function noteCards(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const f = ui && ui.fc;
   if (ui.tab !== "flashcards" || !f || f.mode !== "study") { fcSeen = 0; return; }
   const n = (f.again || 0) + (f.hard || 0) + (f.good || 0) + (f.easy || 0);
@@ -76707,6 +76749,7 @@ function noteCards(){
 }
 // Keep what was seen
 function observe(res){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const g = gcfg(), patch = {};
   if (res.todayActive && !(g.log && g.log[res.today])) { const log = Object.assign({}, g.log); log[res.today] = 1; const out = {}; Object.keys(log).sort().slice(-120).forEach(d => { out[d] = 1; }); patch.log = out; }
   if (res.best > (Number(g.best) || 0)) patch.best = res.best;
@@ -76732,6 +76775,7 @@ function lines(c){
 let celT = 0, celTries = 0;
 function celebrateSoon(delay){ clearTimeout(celT); celTries = 0; celT = setTimeout(tryCelebrate, delay == null ? 2500 : delay); }
 function tryCelebrate(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   try {
     if (!gentleOn()) return;
     const res = streakNow(), c = RS.celebration(res, saidRead(), res.today); if (!c) return;
@@ -76812,6 +76856,7 @@ function turnOn(){
 }
 // A brand new account starts with the gentle streak, unless a choice was already made
 function newUser(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const g = gcfg();
   if (g.on !== undefined || g.intro !== undefined || lsr(FGS_CHOICE)) return;
   setStg("gentle", {on: true, intro: true, since: todayISO()});

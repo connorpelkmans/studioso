@@ -9,7 +9,10 @@ const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/java
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://x"); let p = decodeURIComponent(u.pathname); if (p === "/") p = "/index.html";
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
-  res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
+  res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"});
+  // study streaks are hidden in the app for now (STREAK_HIDDEN); the streak reward checks run with them shown
+  if (p === "/bundle/app.js") { res.end(fs.readFileSync(f, "utf8").replace("const STREAK_HIDDEN = true;", "const STREAK_HIDDEN = false;")); return; }
+  fs.createReadStream(f).pipe(res);
 });
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addD = n => { const d = new Date(); d.setDate(d.getDate() + n); return iso(d); };

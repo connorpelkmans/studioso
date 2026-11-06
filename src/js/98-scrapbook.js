@@ -202,7 +202,7 @@
     const byCourse = {}; c.marks.forEach(t => (byCourse[t.courseId || "-"] = byCourse[t.courseId || "-"] || []).push(t));
     Object.values(byCourse).forEach(ts => { ts.sort((a, b) => ((a.due || "") < (b.due || "") ? -1 : (a.due || "") > (b.due || "") ? 1 : doneTime(a) - doneTime(b)));
       for (let i = 1; i < ts.length; i++) if (markPct(ts[i]) > markPct(ts[i - 1]) + .5) c.improved = true; });
-    c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, rewardStreak().cur);
+    c.streak = STREAK_HIDDEN ? 0 : Math.max(Number(sc.hi && sc.hi.st) || 0, rewardStreak().cur);
     const S = typeof SBSTATS !== "undefined" ? SBSTATS : null;
     const logged = S ? S.focusMinutes(start, today) : 0;
     const fromTasks = allTasks().filter(inTerm).reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
@@ -245,7 +245,7 @@
     sc.f = sc.f || {}; sc.hi = sc.hi || {};
     const c = context(sc, opts.lab); lastCtx = c;
     if (c.dbDirty) sc.db = c.db;
-    sc.hi.st = c.streak; sc.hi.rv = c.reviewed;
+    if (!STREAK_HIDDEN) sc.hi.st = c.streak; sc.hi.rv = c.reviewed;
     const page = sc.cur, fresh = [];
     page.g = page.g || {};
     M.forEach(m => { if (m.id === "term-end" || page.g[m.id]) return; if ((Number(m.v(c)) || 0) >= m.need) { page.g[m.id] = nowMin(); fresh.push(m.id); } });

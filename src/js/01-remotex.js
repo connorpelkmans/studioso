@@ -228,7 +228,7 @@ async function autoWeekly(){
 }
 // The next small background job, if any
 function autoExtraJob(a){
-  if (autoBudget(a.paid) < (a.paid ? 5 : 12)) return null;
+  if (autoBudget(a.paid, aiSbMode(a.cfg)) < (a.paid ? 5 : 12)) return null;
   const today = todayISO(), ok = id => autoFeatOn(id) && autoFeatUse(id).n < AUTO_FEATS.find(f => f.id === id).cap;
   const wrap = (id, fn) => async () => { const u = autoFeatUse(id); u.n++; u.at = Date.now(); try { await fn(); u.err = ""; } catch(e) { if (!autoTransient(e)) u.err = (e && e.message) || "failed"; throw e; } };
   if (ok("remote") && remoteCands(1).length) return wrap("remote", autoRemote);
@@ -376,7 +376,7 @@ hook("act", (act, el) => {
 });
 const agoText = ms => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
 function autoPanelSheet(){
-  const a = autoState(), lim = a.paid ? 12 : 40; autoBudget(a.paid); const used = AUTO.n || 0;
+  const a = autoState(), sb = !!a.cfg && aiSbMode(a.cfg), lim = a.paid ? 12 : sb ? 24 : 40; autoBudget(a.paid, sb); const used = AUTO.n || 0;
   const row = f => { const u = (AUTO.feat || {})[f.id] || {}, on = autoFeatOn(f.id);
     const snz = Object.keys(INS_FEAT).filter(k => INS_FEAT[k] === f.id && insSnoozed(k)).map(k => AUTO.snz[k]).sort()[0];
     const last = snz ? `Paused until ${fmtShort(iso(new Date(snz)))} because you dismissed several. Turn it off and on to resume.` : f.core ? (u.at || (f.id === "plan" && AUTO.planAt) ? `Last ran ${agoText(u.at || AUTO.planAt)}` : "Runs when your tasks change") : f.ai ? (u.at ? `Last ran ${agoText(u.at)}${u.day === todayISO() ? `, ${u.n || 0} of ${f.cap} runs today` : ""}${u.err ? `. Last problem: ${u.err}` : ""}` : "Hasn't run yet") : (u.at ? `Last checked ${agoText(u.at)}, uses no AI requests` : "Checks live, uses no AI requests");
