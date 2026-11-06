@@ -68,6 +68,9 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble.right::after{left:-6px;top:var(--ty,50%);bottom:auto;margin:-6px 0 0 0;border-radius:0 0 0 3px;box-shadow:-1.5px 1.5px 0 0 color-mix(in srgb,var(--cp-wear,var(--accent)) 35%,var(--line))}
 .cp-bubble.has-idea.on{pointer-events:auto}
 .cp-bubble .cp-b-t{display:block}
+/* the thinking dots sit in a row (the line above would otherwise squash them to nothing) */
+.cp-bubble .cp-b-t.cp-thinking{display:flex}
+.cp-thinking i{display:block;flex:none}
 .cp-bubble .cp-b-acts{display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap}
 .cp-bubble .cp-b-acts .btn{min-height:34px;font-size:.8rem}
 .cp-bubble.asking{pointer-events:auto;padding:8px}

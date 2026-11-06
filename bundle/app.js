@@ -62309,7 +62309,8 @@ var COMP_EXTRA = [];
     void b.offsetWidth; b.classList.add("on");
     guardSoon("bubble", 450);
     clearTimeout(bubbleT);
-    bubbleT = setTimeout(hideBubble, opts.ms || (btns.length ? 9000 : Math.max(2600, 1400 + text.length * 55)));
+    // long enough to read, a little longer with Ask on it; an idea to act on (Let's Do It / Not Now) waits longer
+    bubbleT = setTimeout(hideBubble, opts.ms || (idea ? 12000 : ask ? Math.max(4500, 2400 + text.length * 55) : Math.max(2600, 1400 + text.length * 55)));
     act.mouth("open"); later(() => { if (act && mood !== "doze" && mood !== "nap") act.mouth(mood === "study" ? "neutral" : "smile"); later(() => { if (act && mood === "idle") act.mouth("neutral"); }, 1400); }, 420);
   }
   /* Thinking: three dots in a bubble while the student waits on the AI (after any "On it!" line has had its moment) */
@@ -62543,6 +62544,10 @@ var COMP_EXTRA = [];
       document.body.appendChild(layer);
       front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front";
       front.innerHTML = `<div class="cp-bubble" role="status"></div>`;
+      // pointing at a bubble keeps it up; it goes a moment after the pointer leaves (an open Ask box keeps its own timer)
+      { const bb = front.querySelector(".cp-bubble");
+        bb.addEventListener("pointerenter", () => { if (bb.classList.contains("on") && !bb.classList.contains("asking") && !bb.classList.contains("cp-think") && !bb.querySelector(".cp-thinking")) clearTimeout(bubbleT); });
+        bb.addEventListener("pointerleave", () => { if (bb.classList.contains("on") && !bb.classList.contains("asking") && !bb.classList.contains("cp-think") && !bb.querySelector(".cp-thinking") && !bb.contains(document.activeElement)) { clearTimeout(bubbleT); bubbleT = setTimeout(hideBubble, 2500); } }); }
       document.body.appendChild(front);
       front.querySelector(".cp-bubble").addEventListener("click", onBubbleClick);
     }
