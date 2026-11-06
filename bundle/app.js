@@ -63201,7 +63201,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       if (b.contains(document.activeElement)) document.activeElement.blur();
       hideBubble(); setTimeout(() => { if (!b.classList.contains("on")) b.innerHTML = ""; }, 260);
     } }
-    placeSoon(newTab ? (phone() ? 0 : 160) : 400, first || wander);
+    // a new page: it moves at once (a placement asked for at once isn't pushed back by the page's layout settling)
+    placeSoon(newTab ? 0 : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });
   hook("boot", () => { lastTab = ui.tab; refresh(0); BR.knownTasks = new Set(Object.keys(state.tasks || {})); BR.doneIds = new Set(Object.values(state.tasks || {}).filter(t => t && t.status === "done").map(t => t.id)); });
@@ -65126,7 +65127,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Set up AI to chat: a free Google Gemini key, Claude, ChatGPT, or Studyboard AI with Pro.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog">${logHtml()}</div><div class="sr" id="cptSay" aria-live="polite"></div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
-      <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary ai-btn cp-ask-go" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>${AI_ICON} Ask</button></form>
+      <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary ai-btn cp-ask-go" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
       <input type="file" id="cptFile" multiple accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.heic,application/pdf,image/*,text/plain" class="sr" tabindex="-1" aria-hidden="true">
       <p class="mini cpt-priv">Each question sends only the planner parts it needs, plus attachments, to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New Chat</button>` : ""}</p>`;
   }
@@ -93772,16 +93773,46 @@ var SBCALCSKIN = null;
       const up = () => { top.removeEventListener("pointermove", mv); top.removeEventListener("pointerup", up); };
       top.addEventListener("pointermove", mv); top.addEventListener("pointerup", up);
     });
+    // its size: drag the corner grip (or use the arrow keys on it) to make it smaller or bigger; double-click goes back to normal
+    W.insertAdjacentHTML("beforeend", `<button type="button" class="cx-grip" aria-label="Resize calculator" title="Drag to resize. Double-click for normal size."><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M14 6L6 14M14 10.5L10.5 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`);
+    const grip = W.querySelector(".cx-grip");
+    grip.addEventListener("pointerdown", e => {
+      if (innerWidth < 640) return;
+      e.preventDefault(); e.stopPropagation(); grip.setPointerCapture(e.pointerId);
+      const st = {x: e.clientX, y: e.clientY, k: K, w: W.offsetWidth, h: W.offsetHeight};
+      const mv = ev => { const f = ((st.w + ev.clientX - st.x) / st.w + (st.h + ev.clientY - st.y) / st.h) / 2; setK(st.k * f, false); };
+      const up = () => { grip.removeEventListener("pointermove", mv); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up); setK(K, true); };
+      grip.addEventListener("pointermove", mv); grip.addEventListener("pointerup", up); grip.addEventListener("pointercancel", up);
+    });
+    grip.addEventListener("dblclick", () => setK(1, true));
+    grip.addEventListener("keydown", e => {
+      const d = {ArrowUp: 0.05, ArrowRight: 0.05, ArrowDown: -0.05, ArrowLeft: -0.05}[e.key];
+      if (d) { e.preventDefault(); e.stopPropagation(); setK(K + d, true); } else if (e.key === "Home") { e.preventDefault(); setK(1, true); }
+    });
+    setK(K, false);
     let rz = 0; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (W && !W.hidden && innerWidth < 640) place(); else if (W && !W.hidden) { const r = W.getBoundingClientRect(); if (r.right > innerWidth || r.bottom > innerHeight) place(); } }, 100); });
     place(); paint();
     loadMath().catch(() => {});
     W.querySelector('[data-cx="eq"]').focus({preventScroll: true});
+  }
+  /* Size (computers): 60% to 120% of normal, kept on this device */
+  const SIZE_LS = "studyboard:calcSize", K_MIN = 0.6, K_MAX = 1.2;
+  let K = (() => { try { const v = Number(localStorage.getItem(SIZE_LS)); return v >= K_MIN && v <= K_MAX ? v : 1; } catch (e) { return 1; } })();
+  function setK(k, keep){
+    K = Math.round(Math.max(K_MIN, Math.min(K_MAX, Number(k) || 1)) * 100) / 100;
+    if (!W) return;
+    W.style.setProperty("--cx-k", K);
+    const g = W.querySelector(".cx-grip"); if (g) g.setAttribute("aria-label", `Resize calculator (${Math.round(K * 100)}%). Arrow keys change the size.`);
+    // the top-left corner stays put; if the bigger size would leave the screen, it moves back on
+    if (innerWidth >= 640 && W.style.left) { const r = W.getBoundingClientRect(); if (r.right > innerWidth - 4) W.style.left = Math.max(4, innerWidth - 4 - r.width) + "px"; if (r.bottom > innerHeight - 4) W.style.top = Math.max(4, innerHeight - 4 - r.height) + "px"; }
+    if (keep) { try { if (K === 1) localStorage.removeItem(SIZE_LS); else localStorage.setItem(SIZE_LS, String(K)); } catch (e) {} }
   }
   function skin(){ try { if (window.SBCALCSKIN) SBCALCSKIN.apply(W); } catch (e) { console.warn("calculator theme", e); } }
   function close(){ if (!W) return; W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
   const KEYMAP = {"+": "add", "-": "sub", "*": "mul", "x": "mul", "/": "div", "^": "pow", "(": "lp", ")": "rp", ".": "dot", ",": "dot", "%": "pct", "!": "fact", "Enter": "eq", "=": "eq", "Backspace": "del", "Delete": "ac",
     "ArrowLeft": "left", "ArrowRight": "right", "ArrowUp": "up", "ArrowDown": "down", "p": "pi", "s": "sin", "c": "cos", "t": "tan", "l": "ln", "g": "log", "r": "sqrt", "e": "e", "a": "ans", "E": "exp"};
   function onKey(e){
+    if (e.target && e.target.closest && e.target.closest(".cx-grip")) return;
     if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
     if (e.key === "Escape") { e.preventDefault(); if (S.tokens.length || S.done) act("ac"); else close(); return; }
     if (e.key === "Tab" || e.key === " ") return;

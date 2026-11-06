@@ -2027,7 +2027,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       if (b.contains(document.activeElement)) document.activeElement.blur();
       hideBubble(); setTimeout(() => { if (!b.classList.contains("on")) b.innerHTML = ""; }, 260);
     } }
-    placeSoon(newTab ? (phone() ? 0 : 160) : 400, first || wander);
+    // a new page: it moves at once (a placement asked for at once isn't pushed back by the page's layout settling)
+    placeSoon(newTab ? 0 : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });
   hook("boot", () => { lastTab = ui.tab; refresh(0); BR.knownTasks = new Set(Object.keys(state.tasks || {})); BR.doneIds = new Set(Object.values(state.tasks || {}).filter(t => t && t.status === "done").map(t => t.id)); });
