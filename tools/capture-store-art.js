@@ -38,7 +38,7 @@ async function phone(browser, name) {
 const LOGO = "data:image/webp;base64," + fs.readFileSync(path.join(root, "website/assets/logo-dark.webp")).toString("base64");
 async function art(browser, s, imgs, logo) {
   const [sx, sy, sw, sh] = s.safe, cx = sx + sw / 2;
-  const lw = Math.round(sw * 0.45), lh = Math.round(lw * 240 / 1086), ltop = Math.round(sy + sh * 0.05);
+  const lw = Math.round(Math.min(sw * 0.6, 1086)), lh = Math.round(lw * 240 / 1086), ltop = Math.round(sy + sh * 0.05);
   // the fan is about 1.3 times as wide as the safe area; each phone is 352 x 744 in shape
   const pw = Math.round(1.3 * sw / 2.24), ph = Math.round(pw * 744 / 352), top = logo ? ltop + lh + Math.round(sh * 0.12) : Math.round(sy + sh * 0.05);
   const side = (img, dir) => `<img src="${img}" style="position:absolute;width:${Math.round(pw * 0.9)}px;left:${Math.round(cx - pw * 0.45 + dir * pw * 0.66)}px;top:${Math.round(top + ph * 0.06)}px;transform:rotate(${dir * 9}deg);transform-origin:50% 100%;filter:drop-shadow(0 ${pw * 0.05}px ${pw * 0.08}px rgba(0,0,0,.45)) brightness(.92)">`;
