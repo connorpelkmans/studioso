@@ -1253,9 +1253,32 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 .sch-nav{display:flex;align-items:center;gap:8px}
 .sch-range{font:600 .95rem var(--display);min-width:118px;text-align:center}
 .sch-missing{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.sch-setup{margin:4px 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
-.sch-setup .mini{display:block;margin-top:2px}
-.sch-setup .sch-missing{margin-top:10px}
+/* The empty week's set-up card: a header, one row per course, then three ways to add your own */
+.sch-setup{margin:4px 0 14px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.sch-setup .ss-head{display:flex;gap:12px;align-items:flex-start;min-width:0}
+.sch-setup .ss-head > div{min-width:0}
+.sch-setup .ss-badge{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.sch-setup .ss-badge .ss-ic{width:22px;height:22px}
+.sch-setup h3{margin:0;font:700 1.05rem/1.25 var(--display);color:var(--ink)}
+.sch-setup .ss-head p{margin:3px 0 0;font-size:.88rem;line-height:1.45;color:var(--muted)}
+.sch-setup .ss-courses{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.sch-setup .ss-courses li{min-width:0}
+.sch-setup .ss-row{width:100%;min-height:46px;display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--field,var(--soft));color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.sch-setup .ss-row:hover{border-color:color-mix(in srgb,var(--c,var(--accent)) 55%,var(--line))}
+.sch-setup .ss-row .dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c,var(--accent))}
+.sch-setup .ss-name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sch-setup .ss-go{flex:none;display:inline-flex;align-items:center;gap:2px;font-size:.84rem;font-weight:700;color:var(--accent)}
+.sch-setup .ss-chev{width:16px;height:16px}
+.sch-setup .ss-first{justify-self:start}
+.sch-setup .ss-or{margin:0;display:flex;align-items:center;gap:10px;font-size:.74rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sch-setup .ss-or::before,.sch-setup .ss-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.sch-setup .ss-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sch-setup .ss-tile{min-width:0;overflow-wrap:anywhere;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:78px;padding:10px 6px;border:1px solid var(--line);border-radius:12px;background:none;color:var(--ink);font:inherit;text-align:center;cursor:pointer}
+.sch-setup .ss-tile:hover{background:var(--soft)}
+.sch-setup .ss-tile .ss-ic{width:22px;height:22px;color:var(--accent);margin-bottom:2px}
+.sch-setup .ss-t{font-weight:700;font-size:.88rem;line-height:1.2}
+.sch-setup .ss-s{font-size:.72rem;line-height:1.25;color:var(--muted)}
+.sch-setup :is(.ss-row,.ss-tile):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .sch-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .sch-grid{display:grid;grid-template-columns:54px repeat(var(--n),minmax(0,1fr))}
 .sch-corner,.sch-head{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--soft) 55%,var(--surface))}
