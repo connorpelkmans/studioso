@@ -266,7 +266,19 @@ function pomoTakeLock(){
     ISLAND.hold = true;
     try {
       // the card's exact result when it says it (left in seconds when paused, end in ms when running), so both show the same
-      list.forEach(({a, t, left, end}) => {
+      list.forEach(({a, t, left, end, task, mins}) => {
+        // "Hey Siri, start studying for bio": a new focus session on the task Siri named (it opened the app for this)
+        if (a === "start") {
+          if (Date.now() - t > 10 * 60000) return;
+          if (pomo.running || pomo.left > 0) pomoReset();
+          // an exam's study time in the plan ("study:<exam id>") is a session on the exam
+          const tid = typeof task === "string" && task.indexOf(XS_ID) === 0 ? task.slice(XS_ID.length) : task;
+          if (tid && state.tasks[tid]) pomo.taskId = tid;
+          pomo.mode = "focus"; pomo.left = 0; pomo.len = 0;
+          pomo.preset = mins >= 5 && mins <= 180 ? Math.round(mins) : pomo.taskId ? focusMinsFor(pomo.taskId) : 0;
+          pomoStart();
+          return;
+        }
         if (pomo.running && pomo.endAt <= t) return; // the timer had already run out by then
         if (a === "pause" && pomo.running) { pomo.left = left > 0 ? left * 1000 : Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
         else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = end > t ? end : t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }

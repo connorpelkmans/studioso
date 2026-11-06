@@ -36,8 +36,8 @@ public struct StudyboardFocusControl: LiveActivityIntent {
     public init() { action = "pause" }
     public init(action: String) { self.action = action }
 
-    public static let queueKey = "sbFocusActions"
-    public static let changed = Notification.Name("sbFocusAction")
+    public static let queueKey = SBFocusLive.queueKey
+    public static let changed = SBFocusLive.changed
 
     public func perform() async throws -> some IntentResult {
         await Self.apply(action)
@@ -45,23 +45,77 @@ public struct StudyboardFocusControl: LiveActivityIntent {
     }
 
     static func apply(_ action: String) async {
-        guard let act = Activity<StudyboardFocusAttributes>.activities.first else { return }
+        _ = await SBFocusLive.apply(action)
+    }
+}
+
+// The timer as the app last showed it, so Siri can pause, resume or stop it even with Lock Screen timers turned off.
+// Written by the app (StudyboardFocusActivityPlugin.show / end) and by every change made here.
+public struct SBFocusMirror: Codable {
+    public var mode: String
+    public var running: Bool
+    public var endsAt: Double   // ms, when running
+    public var left: Int        // seconds, when paused
+    public var total: Int
+    public var task: String
+
+    static let key = "sbFocusMirror"
+
+    public var active: Bool { running ? endsAt > Date().timeIntervalSince1970 * 1000 : left > 0 }
+    public var secondsLeft: Int { running ? max(0, Int(endsAt / 1000 - Date().timeIntervalSince1970)) : left }
+
+    public static func load() -> SBFocusMirror? {
+        guard let d = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(SBFocusMirror.self, from: d)
+    }
+
+    public static func save(_ m: SBFocusMirror?) {
+        if let m = m, let d = try? JSONEncoder().encode(m) { UserDefaults.standard.set(d, forKey: key) }
+        else { UserDefaults.standard.removeObject(forKey: key) }
+    }
+}
+
+// Pause, play, skip and reset, for the Lock Screen buttons and for Siri: the timer card changes at once, the alarm follows, and
+// the app is told (a queue it reads with take(), plus a notification when it's running) so its own timer matches
+public enum SBFocusLive {
+    public static let queueKey = "sbFocusActions"
+    public static let changed = Notification.Name("sbFocusAction")
+
+    // hands an action to the app's timer
+    public static func queue(_ entry: [String: Any]) async {
+        let d = UserDefaults.standard
+        var q = d.array(forKey: queueKey) as? [[String: Any]] ?? []
+        q.append(entry)
+        d.set(Array(q.suffix(20)), forKey: queueKey)
+        await MainActor.run { NotificationCenter.default.post(name: changed, object: nil) }
+    }
+
+    // true when the timer changed. Uses the Lock Screen card when there is one, else the app's last saved timer.
+    @discardableResult
+    public static func apply(_ action: String) async -> Bool {
+        if #available(iOS 16.2, *), Activity<StudyboardFocusAttributes>.activities.first != nil { return await applyCard(action) }
+        return await applyMirror(action)
+    }
+
+    @available(iOS 16.2, *)
+    private static func applyCard(_ action: String) async -> Bool {
+        guard let act = Activity<StudyboardFocusAttributes>.activities.first else { return false }
         var s = act.content.state
         // the card keeps showing the time as it was until this lands, so it freezes or starts from now
         let now = Date()
         switch action {
         case "pause":
-            guard s.pausedLeft == 0, s.endsAt > now else { return }
+            guard s.pausedLeft == 0, s.endsAt > now else { return false }
             // rounded down, as iOS's running timer shows it, so the frozen time is the same number that was on screen
             s.pausedLeft = max(1, Int(s.endsAt.timeIntervalSince(now).rounded(.down)))
             s.endsAt = now.addingTimeInterval(Double(s.pausedLeft))
         case "play":
-            guard s.pausedLeft > 0 else { return }
+            guard s.pausedLeft > 0 else { return false }
             s.endsAt = now.addingTimeInterval(Double(s.pausedLeft))
             s.startedAt = s.endsAt.addingTimeInterval(-Double(s.total))
             s.pausedLeft = 0
         case "skip":
-            guard var plan = s.plan, !plan.isEmpty else { return }
+            guard var plan = s.plan, !plan.isEmpty else { return false }
             let next = plan.removeFirst()
             s.mode = next.mode; s.label = next.label; s.total = max(60, next.total)
             s.startedAt = now; s.endsAt = now.addingTimeInterval(Double(s.total)); s.pausedLeft = 0
@@ -69,16 +123,37 @@ public struct StudyboardFocusControl: LiveActivityIntent {
         case "reset":
             await act.end(nil, dismissalPolicy: .immediate)
         default:
-            return
+            return false
         }
         if action != "reset" { await act.update(ActivityContent(state: s, staleDate: s.pausedLeft > 0 ? nil : s.endsAt)) }
         StudyboardFocusAlarm.sync(mode: s.mode, endsAt: action == "reset" || s.pausedLeft > 0 ? nil : s.endsAt)
-        let d = UserDefaults.standard
-        var q = d.array(forKey: Self.queueKey) as? [[String: Any]] ?? []
+        SBFocusMirror.save(action == "reset" ? nil : SBFocusMirror(mode: s.mode, running: s.pausedLeft == 0, endsAt: s.endsAt.timeIntervalSince1970 * 1000,
+                                                                    left: s.pausedLeft, total: s.total, task: s.task))
         // with the exact result, so the app's own timer matches the card to the millisecond
-        q.append(["a": action, "t": now.timeIntervalSince1970 * 1000, "left": s.pausedLeft, "end": s.endsAt.timeIntervalSince1970 * 1000])
-        d.set(Array(q.suffix(20)), forKey: Self.queueKey)
-        await MainActor.run { NotificationCenter.default.post(name: Self.changed, object: nil) }
+        await queue(["a": action, "t": now.timeIntervalSince1970 * 1000, "left": s.pausedLeft, "end": s.endsAt.timeIntervalSince1970 * 1000])
+        return true
+    }
+
+    // No Lock Screen card (Live Activities off, or an older iPhone): the same change on the app's last saved timer
+    private static func applyMirror(_ action: String) async -> Bool {
+        guard var m = SBFocusMirror.load(), m.active else { return false }
+        let now = Date(), nowMs = now.timeIntervalSince1970 * 1000
+        switch action {
+        case "pause":
+            guard m.running else { return false }
+            m.left = max(1, m.secondsLeft); m.running = false; m.endsAt = nowMs + Double(m.left) * 1000
+        case "play":
+            guard !m.running, m.left > 0 else { return false }
+            m.endsAt = nowMs + Double(m.left) * 1000; m.running = true; m.left = 0
+        case "reset":
+            break
+        default:
+            return false
+        }
+        StudyboardFocusAlarm.sync(mode: m.mode, endsAt: action == "reset" || !m.running ? nil : Date(timeIntervalSince1970: m.endsAt / 1000))
+        SBFocusMirror.save(action == "reset" ? nil : m)
+        await queue(["a": action, "t": nowMs, "left": m.running ? 0 : m.left, "end": m.endsAt])
+        return true
     }
 }
 
