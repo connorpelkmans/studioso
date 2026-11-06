@@ -108,7 +108,7 @@ const STUB = () => {
     ok(await A.page.isChecked("#aiUsePro"), "with its switch on");
     ok(!/Google Gemini<\/b> by default|non-Pro users/.test(await A.page.innerHTML("#dlg")) && !(await A.page.$("#dlg .ai-steps")) && !/Free from Google AI Studio/.test(sheet), "a Pro student isn't walked through getting a free Gemini key");
     ok(!/Use a Paid Model Instead/.test(sheet) && !/These cost money/.test(sheet) && !(await A.page.$('#dlg [data-show="anthropic"], #dlg [data-show="openai"], #dlg [data-show="gemini"]')), "and has no separate Gemini, Claude or OpenAI boxes");
-    ok(/Backup API Key/.test(sheet) && /Used if your Studyboard AI runs out\. Paste a Gemini, OpenAI or Claude key\./.test(sheet) && await A.page.isVisible("#aiBackupKey") && await A.page.isVisible("#aiBackupShow") && await A.page.isVisible("#aiBackupTest"), "one Backup API Key box, with Show and Test");
+    ok(/Backup API Key/.test(sheet) && /Used if your Studyboard AI runs out\. Paste your own AI API key\./.test(sheet) && await A.page.isVisible("#aiBackupKey") && await A.page.isVisible("#aiBackupShow") && await A.page.isVisible("#aiBackupTest"), "one Backup API Key box, with Show and Test");
     ok(!/always runs in Studyboard AI Mode/.test(sheet), "and no note about a Claude key's Studyboard AI Mode");
 
     // 2. Break It Down: consent names Anthropic, then the request goes through the server
@@ -338,6 +338,51 @@ const STUB = () => {
       await S.ctx.close();
     }
     W.tier = "paid";
+
+    // 14. A Pro student only ever sees "Studyboard AI": no Claude, Haiku or Anthropic on screen, in pickers or anywhere else
+    // (the one exception is the note in AI Features that says where Studyboard AI sends content, a privacy disclosure)
+    {
+      const SHOTS = process.env.SB_SHOTS || "";
+      const NAMES = /haiku|claude|anthropic/i, DISCLOSE = /Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare\./;
+      const shown = async (page, sel) => page.evaluate(s => [...document.querySelectorAll(s)].map(el => el.innerText + " " + [...el.querySelectorAll("option, optgroup")].map(o => o.label || o.textContent).join(" ")).join(" "), sel);
+      const clean = t => !NAMES.test(t.replace(DISCLOSE, ""));
+      const act = (page, a) => page.evaluate(x => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); const b = document.createElement("button"); b.dataset.act = x; document.body.appendChild(b); b.click(); b.remove(); }, a);
+      const shot = async (page, name, sel) => { if (!SHOTS) return; if (sel) await page.evaluate(s => { const el = document.querySelector(s); if (el) el.scrollIntoView({block: "center"}); }, sel); await page.waitForTimeout(700); await page.screenshot({path: path.join(SHOTS, name)}); };
+      const proOn = page => page.waitForFunction(() => { try { const t = __sbAi.proGet(); return !!(t && t.on); } catch (e) { return false; } }, null, {timeout: 15000});
+
+      // On Studyboard AI, no key of their own
+      const T = await device({});
+      await proOn(T.page);
+      await openAi(T.page);
+      const sheetT = await shown(T.page, "#dlg");
+      ok(DISCLOSE.test(sheetT) && clean(sheetT), "AI Features names only Studyboard AI (apart from the note on where content goes)");
+      await shot(T.page, "pro-ai-features.png");
+      await act(T.page, "fc-ai-cards"); await T.page.waitForSelector("#dlg[open] .ai-model-bar");
+      ok(/^Studyboard AI/.test((await T.page.textContent("#dlg .ai-model-bar")).trim()) && clean(await shown(T.page, "#dlg")), "an AI window says Studyboard AI and nothing else");
+      await shot(T.page, "pro-ai-window.png", "#dlg .ai-model-bar");
+      await act(T.page, "menu"); await T.page.waitForSelector("#dlg[open]");
+      ok(/On, using Studyboard AI/.test(await T.page.textContent("#dlg")) && clean(await shown(T.page, "#dlg")), "Settings says Studyboard AI, no model or company");
+      await T.page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); SBCOMPTAB.open(); }); await T.page.waitForSelector("#cptIn");
+      ok(clean(await shown(T.page, "body")), "the Companion tab and the page behind it name no model or company");
+      await T.ctx.close();
+
+      // With their own Claude key as backup and Studyboard AI switched off (it runs in Studyboard AI's mode): still just "Studyboard AI"
+      const U = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}, ownKey: true});
+      await proOn(U.page);
+      ok(await U.page.evaluate(() => __sbAi.cfg().provider + "|" + __sbAi.cfg().model) === "anthropic|studyboard", "a Pro student on their own Claude key");
+      await act(U.page, "fc-ai-cards"); await U.page.waitForSelector("#dlg[open] select[data-ai-model]");
+      const pick = await U.page.evaluate(() => { const s = document.querySelector("#dlg select[data-ai-model]"); return {sel: s.selectedOptions[0].textContent, all: [...s.querySelectorAll("option, optgroup")].map(o => o.label || o.textContent)}; });
+      ok(pick.sel === "Studyboard AI" && pick.all.every(x => !NAMES.test(x)), `the Model picker says just "Studyboard AI" (${pick.all.join(", ")})`);
+      ok(clean(await shown(U.page, "#dlg")), "and the AI window names no model or company");
+      await shot(U.page, "pro-own-key-model-picker.png", "#dlg .ai-model-bar");
+      await openAi(U.page);
+      ok(await U.page.evaluate(() => document.querySelector("#aiDefault").selectedOptions[0].textContent) === "Studyboard AI", "Default Model says Studyboard AI too");
+      await shot(U.page, "pro-own-key-ai-features.png", "#aiDefault");
+      ok(clean(await shown(U.page, "#aiDefault")) && clean(await shown(U.page, "#aiBackupHint")), "with no model or company in the picker or the backup hint");
+      await act(U.page, "menu"); await U.page.waitForSelector("#dlg[open]");
+      ok(/On, using Studyboard AI with your own key/.test(await U.page.textContent("#dlg")) && clean(await shown(U.page, "#dlg")), "Settings: Studyboard AI with your own key, no Haiku");
+      await U.ctx.close();
+    }
   } finally { await browser.close(); }
   console.log(`ai-pro e2e: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });
