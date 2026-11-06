@@ -3596,6 +3596,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   document.addEventListener("submit", ev => { if (ev.target && ev.target.id === "pdeAskForm") { ev.preventDefault(); const q = $("#pdeAskQ"); askGo(q.value); q.value = ""; } });
 
+  // Phones: when the keyboard comes up (or goes) while typing into the page, the line being typed is scrolled back into view
+  { let kbWas = false; new MutationObserver(() => {
+      const kb = document.documentElement.classList.contains("kb-open"); if (kb === kbWas) return; kbWas = kb;
+      if (!kb || !E || !E.on) return;
+      setTimeout(() => { const el = dlg.querySelector(".pde-e.editing"); if (el && el.scrollIntoView) el.scrollIntoView({block: "center", inline: "nearest"}); }, 120);
+    }).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]}); }
   SBPDE = window.SBPDE = {
     readerBtn: () => `<button type="button" class="btn small pde-mode" data-act="pde-mode" aria-pressed="false" id="pdeBtn">${ico(IC.edit)}Edit<b class="pdr-badge" hidden></b></button>`,
     // how to draw a page: with fillable fields, the fields are typed into on the page, so the picture leaves them out
@@ -3879,6 +3885,14 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-corner{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:rgba(255,255,255,.9);border:3px solid #2457c5;cursor:grab;touch-action:none}
 .pde-corner:focus-visible{outline:3px solid var(--ink)}
 @media (max-width:760px){ .pde-rt .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)} .pde-saybar{bottom:8px} }
+/* Phones, typing into the page: the reader fills just the space above the keyboard, and only the text style row stays,
+   so the line being typed has room (the title, page and mode bars, tools and notes come back when the keyboard closes) */
+@media (max-width:760px){
+  html.kb-open dialog#dlg:has(.pdr-sheet .pde-e.editing){top:0;bottom:auto;margin:0;height:var(--vv-h,100dvh);max-height:var(--vv-h,100dvh);transition:none}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar2,
+  html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-tools,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-note,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar > .spacer{display:none!important}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar{padding-top:6px;padding-bottom:6px}
+}
 @media (max-width:760px){
   .pde-bar{padding:6px 10px;gap:6px}
   .pde-tool{padding-inline:8px}
