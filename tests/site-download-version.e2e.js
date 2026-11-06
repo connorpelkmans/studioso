@@ -17,6 +17,11 @@ const server = http.createServer((req, res) => { let p = decodeURIComponent(new 
     await ctx.close(); return r;
   };
   try {
+    // the Mac app is "coming soon" on the site: these checks put test links in (this copy only) to see how a linked installer is labelled
+    { const now = await look("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
+      ok(!now.files.some(f => /\.dmg$/.test(f)) && /Coming soon/.test(now.hero), "the Mac app shows as coming soon, with no download: " + now.hero.replace(/\s+/g, " ").slice(0, 120)); }
+    CONFIG = CONFIG.replace(/(macArm:[^}]*?)url: "", file: ""/, '$1url: "https://github.com/connorpelkmans/installers/releases/download/v1.0.0/Studyboard-1.0.0-mac.dmg", file: "Studyboard-{version}-mac.dmg"')
+      .replace(/(macIntel:[^}]*?)url: "", file: ""/, '$1url: "https://github.com/connorpelkmans/installers/releases/download/v1.0.0/Studyboard-1.0.0-mac-intel.dmg", file: "Studyboard-{version}-mac-intel.dmg"');
     CONFIG = CONFIG.replace(/VERSION: "[^"]*"/, 'VERSION: "9.9.9"')
       .replace(/releases\/download\/v[\d.]+\/Studyboard-([\w-]*?)[\d.]+(-mac(?:-intel)?\.dmg|\.exe)/g, "releases/download/v1.2.3/Studyboard-$11.2.3$2");
     const mac = await look("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
