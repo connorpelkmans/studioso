@@ -241,6 +241,7 @@
         if (provider === "google") opts.queryParams = { prompt: "select_account" };
         if (provider === "azure") { opts.scopes = "openid profile email offline_access"; opts.queryParams = { prompt: "select_account" }; }
         var name = { apple: "Apple", google: "Google", azure: "Microsoft" }[provider] || "that";
+        try { localStorage.setItem("studyboard-site-oauth", JSON.stringify({ p: provider, at: Date.now() })); } catch (e) {}
         state.sb.auth.signInWithOAuth({ provider: provider, options: opts }).then(function (r) {
           if (r && r.error) { b.disabled = false; msg($("auth-msg"), /not enabled|unsupported provider/i.test(r.error.message || "") ? "Signing in with " + name + " isn't turned on yet. Use your email for now." : words(r.error), "error"); }
         }, function (e) { b.disabled = false; msg($("auth-msg"), words(e), "error"); });
@@ -321,9 +322,25 @@
     });
   }
 
+  // A provider sign-in that came back with an error, in plain words (the same as the app's sbOAuthWords)
+  function oauthWords(d, provider) {
+    var name = { apple: "Apple", google: "Google", azure: "Microsoft" }[provider] || "that account";
+    if (/provider is not enabled|unsupported provider/i.test(d)) return "Signing in with " + name + " isn't turned on yet. Use your email for now.";
+    if (/getting user email|email.*(missing|not (found|provided|available))|no email/i.test(d)) return name + " didn't share your email address, which Studyboard needs for your account.";
+    if (/exchange external code|invalid_client|AADSTS7000215|AADSTS7000218|client secret|unauthorized_client/i.test(d)) return name + " didn't accept Studyboard's sign-in settings, so the sign-in couldn't finish. Try again later, or use your email.";
+    if (/AADSTS65001|AADSTS90094|admin approval|admin consent/i.test(d)) return "Your school or work account needs its IT admin to allow Studyboard first. Try a personal account, Google, or your email instead.";
+    if (/access_denied|cancel+ed|user denied|consent/i.test(d)) return "The sign-in with " + name + " was cancelled. Try again whenever you're ready.";
+    if (/already (registered|exists)|identity.*already/i.test(d)) return "There's already a Studyboard account with that email. Sign in with your email and password first.";
+    return "Signing in with " + name + " didn't finish: " + d.slice(0, 200) + ". Try again, or use your email.";
+  }
+
   function init() {
     if (!configured()) { show("v-config"); return; }
-    var hashErr = new URLSearchParams(location.hash.replace(/^#/, "")).get("error_description");
+    var back = new URLSearchParams(location.hash.replace(/^#/, "") + "&" + location.search.replace(/^\?/, ""));
+    var hashErr = back.get("error_description") || (back.get("error") ? back.get("error") : "");
+    // a sign-in with Google, Apple or Microsoft that came back with an error (not an email link)
+    var tried = null; try { tried = JSON.parse(localStorage.getItem("studyboard-site-oauth") || "null"); localStorage.removeItem("studyboard-site-oauth"); } catch (e) {}
+    var oauthErr = hashErr && tried && Date.now() - tried.at < 30 * 60000 && !/otp_expired|email link|link is invalid/i.test((back.get("error_code") || "") + " " + hashErr) ? oauthWords(hashErr.replace(/\+/g, " "), tried.p) : "";
     state.sb = window.supabase.createClient(String(cfg.SUPABASE_URL).replace(/\/+$/, ""), cfg.SUPABASE_ANON_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "studyboard-site-auth" }
     });
@@ -343,7 +360,8 @@
       state.session = r.data && r.data.session;
       if (!state.session && !state.recovering) {
         show("v-auth"); showForm("form-signin");
-        if (hashErr) { msg($("auth-msg"), "That link has expired or was already used. Links in Studyboard emails work once, for 1 hour.", "error"); $("link-expired").hidden = false; }
+        if (oauthErr) msg($("auth-msg"), oauthErr, "error");
+        else if (hashErr) { msg($("auth-msg"), "That link has expired or was already used. Links in Studyboard emails work once, for 1 hour.", "error"); $("link-expired").hidden = false; }
         if (wantPlan) { var b = $("plan-intent"); b.hidden = false; b.textContent = "Sign in or create a free account to start your Studyboard Pro " + wantPlan + " plan. Every new account starts with 7 days of Pro free."; }
       }
     });
