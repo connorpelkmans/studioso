@@ -319,7 +319,6 @@ window.__sbPlanObj = () => PLAN;
     if (P.sessionPro == null && paywall() && sbUser && P.entDone) P.sessionPro = paid();
     changed();
     welcomeNotes();
-    setTimeout(proFixNote, 2500);
   }
   const K_WELCOME = "studyboard:welcomeWeek";
   let welcomeRetry = 0;
@@ -349,27 +348,6 @@ window.__sbPlanObj = () => PLAN;
       save("end");
       setTimeout(() => toast("Your free week of Pro has ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your free week of Pro has ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
-  }
-  /* One note, on the website only: in early November 2026 a server key mix-up kept Pro from Pro accounts for a while (fixed Nov 2).
-     Once per account on each browser, only for Pro accounts that existed before the fix (anyone who signs up later never
-     sees it), and not after November 2026 */
-  const K_FIXNOTE = "studyboard:proFixNote", FIXNOTE_BEFORE = Date.parse("2026-11-02T19:35:00Z"), FIXNOTE_UNTIL = Date.parse("2026-12-01T00:00:00Z");
-  const fixNoteHtml = () => `<div class="qod-eyebrow">A Quick Note</div><h2 id="qodT">Pro Is Working Again</h2>
-      <p class="qod-q" style="font-size:1.05rem">For a short time, a problem on our end kept some Pro accounts from using Pro features and themes. It's fixed now, and nothing you made was lost.</p>
-      <p class="mini">If your theme changed, you can pick it again in the Style Shop. Sorry for the trouble!</p>
-      <div class="qod-foot"><button type="button" class="btn" data-qod-close data-act="shop">Open Style Shop</button><button type="button" class="btn primary" data-qod-close>Got It</button></div>`;
-  let fixRetry = 0;
-  function proFixNote(){
-    const uid = curUid();
-    if (!uid || !sbUser || !paywall() || !paid() || Date.now() > FIXNOTE_UNTIL || typeof qodPop !== "function") return;
-    if (DESK || inPreview() || (navigator.webdriver && !window.__fixNoteTest)) return;
-    try { const C = window.Capacitor; if (window.StudyboardNative || (C && typeof C.isNativePlatform === "function" && C.isNativePlatform())) return; } catch (e) { return; }
-    if (!(ts(sbUser.created_at) && ts(sbUser.created_at) < FIXNOTE_BEFORE)) return;
-    const seen = read(K_FIXNOTE) || {}; if (seen[uid]) return;
-    // after onboarding, any open sheet and the daily quote
-    if ((window.SBOB && SBOB.pending()) || dlg.open || document.getElementById("qod") || document.hidden) { clearTimeout(fixRetry); fixRetry = setTimeout(proFixNote, 4000); return; }
-    seen[uid] = Date.now(); write(K_FIXNOTE, seen);
-    qodPop(fixNoteHtml(), "qod-plain");
   }
   // The sign-in finished loading and nobody is signed in: forget the account from last time, and that it had Pro, at once
   hook("auth-none", () => {
@@ -911,7 +889,7 @@ window.__sbPlanObj = () => PLAN;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, liteNow, groupsPro, fixNotePreview: () => qodPop(fixNoteHtml(), "qod-plain"), styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
