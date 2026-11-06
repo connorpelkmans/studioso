@@ -36,6 +36,7 @@ actor0 = find("  /* ---------- An actor: animations on one rendered rig --------
 parts = [rng(a0, tiers), rng(draw, sett), rng(actor0, front0)]
 stubs = '''
   // The app's settings and conditions, reduced to what the website needs.
+  const STREAK_HIDDEN = true;   // the app's switch (00-core.js): streaks are hidden for now
   const cfg = () => ({});
   const skinId = () => "classic";
   const mq = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;

@@ -69,7 +69,8 @@
     var pad = Math.max(3, 10 * t), art = el("div", "scn-art", box), inner = el("div", "scn-in", art);
     art.style.left = (sx - pad) + "px"; art.style.top = sy + "px"; art.style.width = (sw + pad) + "px"; art.style.height = sh + "px"; art.style.background = v.sky;
     inner.style.left = pad + "px"; inner.style.top = "0px"; inner.style.width = sw + "px"; inner.style.height = sh + "px";
-    if (v.band && v.band.h) { var b = el("div", "scn-band", art); b.style.top = (v.band.top * k) + "px"; b.style.height = (v.band.h * k) + "px"; b.style.background = v.band.bg; }
+    // the band (sea or sand below the horizon) goes under the scene's layers, as in the app; on top it hid the waves and the beach
+    if (v.band && v.band.h) { var b = el("div", "scn-band"); art.insertBefore(b, inner); b.style.top = (v.band.top * k) + "px"; b.style.height = (v.band.h * k) + "px"; b.style.background = v.band.bg; }
     layer(v.far, true, v, k, inner); layer(v.refl, true, v, k, inner); layer(v.mid, true, v, k, inner);
     var cA = eng ? el("canvas", "scn-cv", inner) : null;
     layer(v.near, false, v, k, inner);

@@ -3,6 +3,7 @@
 window.SBCOMPW = (function () {
 
   // The app's settings and conditions, reduced to what the website needs.
+  const STREAK_HIDDEN = true;   // the app's switch (00-core.js): streaks are hidden for now
   const cfg = () => ({});
   const skinId = () => "classic";
   const mq = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;
@@ -43,8 +44,10 @@ window.SBCOMPW = (function () {
     {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
     {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
   ];
+  // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
+  if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
   const GENERIC = {
-    tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep this streak of awesome going!"],
+    tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep the awesome going!"],
     pet: ["Hehe, that tickles! Again!", "You're the best, you know that?"], hello: ["You're back! Yay! Ready when you are!", "Hello hello! I missed you!"],
     morning: ["Good morning! Let's make today great!"], night: ["Late one tonight! Rest soon, okay?"], focus: ["Let's focus together! We've got this!", "Studying right beside you! Go go go!"],
     done: ["Session done! That was AMAZING!", "You did it! So proud of you!"], task: ["WOO! Nice work!", "Yes! One more done!", "Look at you go! Checked off!"], break: ["Stretch time! Big happy stretch!"]
