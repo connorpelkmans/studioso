@@ -1032,6 +1032,8 @@ function boot(){
   }
   if (DESK && typeof DESK.onCapture === "function") DESK.onCapture(u => handleUrl(String(u), {channel: "native"}));
   if (DESK && typeof DESK.onScreenshot === "function") DESK.onScreenshot(b => screenshotBytes(b));
+  // Quick Capture off: the desktop app's screenshot shortcut would open a capture with nowhere to go, so pause it
+  if (CAPTURE_OFF && DESK && typeof DESK.setDesktopSetting === "function") { try { Promise.resolve(DESK.setDesktopSetting("shotPaused", true)).catch(() => {}); } catch (e) {} }
   setTimeout(queueNudge, 2500);
   setTimeout(pullInbox, 1500);
   window.addEventListener("online", () => { queueNudge(); pullInbox(); });
