@@ -52,19 +52,6 @@ private struct TomatoBody: Shape {
         return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
     }
 }
-private struct TomatoShade: Shape {
-    func path(in r: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: 19.4, y: 10))
-        p.addCurve(to: CGPoint(x: 18.2, y: 18.6), control1: CGPoint(x: 21, y: 12.4), control2: CGPoint(x: 20.6, y: 16.2))
-        p.addCurve(to: CGPoint(x: 12, y: 21.1), control1: CGPoint(x: 16.6, y: 20.2), control2: CGPoint(x: 14.4, y: 21.1))
-        p.addCurve(to: CGPoint(x: 7.4, y: 19.8), control1: CGPoint(x: 10.3, y: 21.1), control2: CGPoint(x: 8.7, y: 20.6))
-        p.addCurve(to: CGPoint(x: 17.8, y: 13.6), control1: CGPoint(x: 11.8, y: 20.4), control2: CGPoint(x: 16.7, y: 17.8))
-        p.addCurve(to: CGPoint(x: 17.7, y: 9.9), control1: CGPoint(x: 18.2, y: 12.3), control2: CGPoint(x: 18.2, y: 11))
-        p.closeSubpath()
-        return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
-    }
-}
 private struct TomatoShine: Shape {
     func path(in r: CGRect) -> Path {
         var p = Path()
@@ -110,7 +97,6 @@ private struct Tomato: View {
         let u = size / 24
         ZStack {
             TomatoBody().fill(Self.red)
-            TomatoShade().fill(Color.black.opacity(0.18))
             TomatoShine().stroke(Color.white.opacity(0.6), style: StrokeStyle(lineWidth: 1.5 * u, lineCap: .round))
             TomatoLeaves().fill(Self.leaf)
             TomatoLeaves().stroke(Self.leafDark, style: StrokeStyle(lineWidth: 0.8 * u, lineJoin: .round))
