@@ -36,39 +36,86 @@ private struct TimeLeft: View {
     }
 }
 
-// Studyboard's tomato (the same drawing as the app's focus button, on a 24 by 24 grid)
+// Studyboard's tomato: the same drawing as the app's focus button (TOMATO in src/js/01-focus.js, a 24 by 24 grid), in the
+// app's dark-mode colours. Change both together.
 private struct TomatoBody: Shape {
     func path(in r: CGRect) -> Path {
         var p = Path()
-        p.move(to: CGPoint(x: 12, y: 7.2))
-        p.addCurve(to: CGPoint(x: 4, y: 13.9), control1: CGPoint(x: 7.4, y: 7.2), control2: CGPoint(x: 4, y: 10.1))
-        p.addCurve(to: CGPoint(x: 12, y: 21), control1: CGPoint(x: 4, y: 17.8), control2: CGPoint(x: 7.6, y: 21))
-        p.addCurve(to: CGPoint(x: 20, y: 13.9), control1: CGPoint(x: 16.4, y: 21), control2: CGPoint(x: 20, y: 17.8))
-        p.addCurve(to: CGPoint(x: 12, y: 7.2), control1: CGPoint(x: 20, y: 10.1), control2: CGPoint(x: 16.6, y: 7.2))
+        p.move(to: CGPoint(x: 12, y: 8.1))
+        p.addCurve(to: CGPoint(x: 4.6, y: 10), control1: CGPoint(x: 9.7, y: 7.1), control2: CGPoint(x: 6.3, y: 7.5))
+        p.addCurve(to: CGPoint(x: 5.8, y: 18.6), control1: CGPoint(x: 3, y: 12.4), control2: CGPoint(x: 3.4, y: 16.2))
+        p.addCurve(to: CGPoint(x: 12, y: 21.1), control1: CGPoint(x: 7.4, y: 20.2), control2: CGPoint(x: 9.6, y: 21.1))
+        p.addCurve(to: CGPoint(x: 18.2, y: 18.6), control1: CGPoint(x: 14.4, y: 21.1), control2: CGPoint(x: 16.6, y: 20.2))
+        p.addCurve(to: CGPoint(x: 19.4, y: 10), control1: CGPoint(x: 20.6, y: 16.2), control2: CGPoint(x: 21, y: 12.4))
+        p.addCurve(to: CGPoint(x: 12, y: 8.1), control1: CGPoint(x: 17.7, y: 7.5), control2: CGPoint(x: 14.3, y: 7.1))
         p.closeSubpath()
+        return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
+    }
+}
+private struct TomatoShade: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 19.4, y: 10))
+        p.addCurve(to: CGPoint(x: 18.2, y: 18.6), control1: CGPoint(x: 21, y: 12.4), control2: CGPoint(x: 20.6, y: 16.2))
+        p.addCurve(to: CGPoint(x: 12, y: 21.1), control1: CGPoint(x: 16.6, y: 20.2), control2: CGPoint(x: 14.4, y: 21.1))
+        p.addCurve(to: CGPoint(x: 7.4, y: 19.8), control1: CGPoint(x: 10.3, y: 21.1), control2: CGPoint(x: 8.7, y: 20.6))
+        p.addCurve(to: CGPoint(x: 17.8, y: 13.6), control1: CGPoint(x: 11.8, y: 20.4), control2: CGPoint(x: 16.7, y: 17.8))
+        p.addCurve(to: CGPoint(x: 17.7, y: 9.9), control1: CGPoint(x: 18.2, y: 12.3), control2: CGPoint(x: 18.2, y: 11))
+        p.closeSubpath()
+        return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
+    }
+}
+private struct TomatoShine: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 6.9, y: 11.6))
+        p.addCurve(to: CGPoint(x: 9.9, y: 9.2), control1: CGPoint(x: 7.5, y: 10.2), control2: CGPoint(x: 8.7, y: 9.4))
         return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
     }
 }
 private struct TomatoLeaves: Shape {
     func path(in r: CGRect) -> Path {
         var p = Path()
-        p.move(to: CGPoint(x: 12, y: 7.5)); p.addLine(to: CGPoint(x: 12, y: 4.2))
-        p.move(to: CGPoint(x: 12, y: 6.6))
-        p.addCurve(to: CGPoint(x: 7.2, y: 5.3), control1: CGPoint(x: 10.6, y: 5.0), control2: CGPoint(x: 8.6, y: 4.7))
-        p.addCurve(to: CGPoint(x: 10.2, y: 7.9), control1: CGPoint(x: 8.4, y: 5.7), control2: CGPoint(x: 9.6, y: 6.6))
-        p.move(to: CGPoint(x: 12, y: 6.6))
-        p.addCurve(to: CGPoint(x: 16.8, y: 5.3), control1: CGPoint(x: 13.4, y: 5.0), control2: CGPoint(x: 15.4, y: 4.7))
-        p.addCurve(to: CGPoint(x: 13.8, y: 7.9), control1: CGPoint(x: 15.6, y: 5.7), control2: CGPoint(x: 14.4, y: 6.6))
+        p.move(to: CGPoint(x: 12, y: 11.4))
+        p.addLine(to: CGPoint(x: 10.5, y: 9.4))
+        p.addLine(to: CGPoint(x: 6.7, y: 10.6))
+        p.addLine(to: CGPoint(x: 9, y: 8.2))
+        p.addLine(to: CGPoint(x: 7, y: 6.4))
+        p.addLine(to: CGPoint(x: 10.3, y: 6.8))
+        p.addLine(to: CGPoint(x: 12, y: 5.2))
+        p.addLine(to: CGPoint(x: 13.7, y: 6.8))
+        p.addLine(to: CGPoint(x: 17, y: 6.4))
+        p.addLine(to: CGPoint(x: 15, y: 8.2))
+        p.addLine(to: CGPoint(x: 17.3, y: 10.6))
+        p.addLine(to: CGPoint(x: 13.5, y: 9.4))
+        p.closeSubpath()
+        return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
+    }
+}
+private struct TomatoStem: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 12, y: 7.6))
+        p.addCurve(to: CGPoint(x: 13.65, y: 3.85), control1: CGPoint(x: 11.98, y: 6.1), control2: CGPoint(x: 12.5, y: 4.85))
         return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
     }
 }
 private struct Tomato: View {
     let s: StudyboardFocusAttributes.ContentState
     var size: CGFloat = 22
+    private static let red = Color(red: 1.0, green: 0.42, blue: 0.33)        // --tomato #FF6B55
+    private static let leaf = Color(red: 0.235, green: 0.78, blue: 0.58)     // --leaf #3CC794
+    private static let leafDark = Color(red: 0.12, green: 0.48, blue: 0.27)  // #1F7A44
     var body: some View {
+        let u = size / 24
         ZStack {
-            TomatoBody().fill(Color(red: 1.0, green: 0.42, blue: 0.33))
-            TomatoLeaves().stroke(Color(red: 0.24, green: 0.78, blue: 0.58), style: StrokeStyle(lineWidth: 1.8 * size / 24, lineCap: .round))
+            TomatoBody().fill(Self.red)
+            TomatoShade().fill(Color.black.opacity(0.18))
+            TomatoShine().stroke(Color.white.opacity(0.6), style: StrokeStyle(lineWidth: 1.5 * u, lineCap: .round))
+            TomatoLeaves().fill(Self.leaf)
+            TomatoLeaves().stroke(Self.leafDark, style: StrokeStyle(lineWidth: 0.8 * u, lineJoin: .round))
+            TomatoStem().stroke(Self.leafDark, style: StrokeStyle(lineWidth: 1.9 * u, lineCap: .round))
+            Circle().fill(Self.leafDark).frame(width: 1.8 * u, height: 1.8 * u).position(x: 12 * u, y: 7.6 * u)
         }
         .frame(width: size, height: size)
     }
