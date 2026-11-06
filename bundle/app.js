@@ -13334,6 +13334,40 @@ function nbZoomTo(z, cx, cy){
   const ctl = document.querySelector(".nb-zoom"); if (ctl) ctl.outerHTML = nbZoomCtl();
 }
 const NBZ_STEPS = [0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2];
+// Found a note (Ask, the companion, Search, a link): glide the board so the note is centred and big enough to read,
+// then draw a highlight box around it. One smooth move of zoom and scroll together; instant with Reduce Motion.
+let nbFocusRun = 0;
+function nbFocusNote(id){
+  const sc = $("#nbScroll"), el = sc && sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`); if (!el) return false;
+  const run = ++nbFocusRun, calm = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const nx = el.offsetLeft + el.offsetWidth / 2, ny = el.offsetTop + el.offsetHeight / 2;
+  // big enough that the note fills about half the view, never smaller than now's zoom or 100%
+  const fit = Math.min(sc.clientWidth * 0.55 / el.offsetWidth, sc.clientHeight * 0.55 / el.offsetHeight);
+  const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, 1, Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
+  const cx0 = (sc.scrollLeft + sc.clientWidth / 2) / z0, cy0 = (sc.scrollTop + sc.clientHeight / 2) / z0;
+  const place = (z, cx, cy) => { NBZ = z; nbZoomApply(); sc.scrollLeft = cx * z - sc.clientWidth / 2; sc.scrollTop = cy * z - sc.clientHeight / 2; };
+  const done = () => {
+    place(z1, nx, ny);
+    try { localStorage.setItem(NBZ_KEY, String(z1)); } catch (e) {}
+    const ctl = document.querySelector(".nb-zoom"); if (ctl) ctl.outerHTML = nbZoomCtl();
+    const n = sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`) || el;
+    n.classList.remove("nb-found"); void n.offsetWidth; n.classList.add("nb-found");
+    setTimeout(() => { if (run === nbFocusRun) n.classList.add("nb-found-out"); }, 2600);
+    setTimeout(() => { if (run === nbFocusRun) n.classList.remove("nb-found", "nb-found-out"); }, 3100);
+  };
+  if (calm) { done(); return true; }
+  const t0 = performance.now(), dur = 650, ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const step = now => {
+    if (run !== nbFocusRun || !sc.isConnected) return;
+    const k = Math.min(1, (now - t0) / dur), e = ease(k);
+    // zoom moves on a log scale so zooming in and out feel equally even
+    const z = z0 * Math.pow(z1 / z0, e);
+    place(z, cx0 + (nx - cx0) * e, cy0 + (ny - cy0) * e);
+    if (k < 1) requestAnimationFrame(step); else done();
+  };
+  requestAnimationFrame(step);
+  return true;
+}
 function nbZoomStep(dir){ const z = dir > 0 ? NBZ_STEPS.find(v => v > NBZ + 0.001) : [...NBZ_STEPS].reverse().find(v => v < NBZ - 0.001); if (z) nbZoomTo(z); }
 // Trackpad pinch (Chrome, Edge, Firefox send it as Ctrl + wheel) and Ctrl/⌘ + mouse wheel
 document.addEventListener("wheel", e => {
@@ -25631,8 +25665,7 @@ Return JSON only.`;
     go("notes"); render(); window.scrollTo(0, 0);
     const el = $(`.note[data-note="${CSS.escape(id)}"]`), sc = $("#nbScroll");
     if (el && sc) {
-      try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch(e) { sc.scrollLeft = n.x; sc.scrollTop = n.y; }
-      el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200);
+      nbFocusNote(id);
       try { el.focus({preventScroll: true}); } catch(e) {}
       const refocus = () => { const n2 = $(`.note[data-note="${CSS.escape(id)}"]`); if (n2 && n2 !== document.activeElement && ui.tab === "notes" && (!document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected)) { try { n2.focus({preventScroll: true}); } catch(e) {} } };
       requestAnimationFrame(refocus); [250, 700, 1600].forEach(ms => setTimeout(refocus, ms));
@@ -64410,9 +64443,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
           ui.tab = "notes"; ui.courseId = null; ui.noteBoard = noteBoardOf(n); try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {}
           if (window.SBWB && ui.notesView === "wb") SBWB.setView("board");
           render(); window.scrollTo(0, 0); await frame();
-          const el = document.querySelector(`.note[data-note="${CSS.escape(t.id)}"]`), sc = document.getElementById("nbScroll");
-          if (el && sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch (e) {} }
-          if (el) { el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2600); }
+          nbFocusNote(t.id);
           return true;
         }
         case "board": {
@@ -72511,7 +72542,7 @@ function openNoteById(id){
   if (dlg.open) dlg.close();
   ui.tab = "notes"; ui.courseId = null; render(); window.scrollTo(0, 0);
   const el = document.querySelector(`.note[data-note="${CSS.escape(id)}"]`), sc = $("#nbScroll");
-  if (el && sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch (e) { sc.scrollLeft = n.x; sc.scrollTop = n.y; } el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200); }
+  if (el && sc) nbFocusNote(id);
 }
 function openMaterial(t){
   if (!t) return;
@@ -92195,7 +92226,7 @@ function openNote(id){
   ui.tab = "notes"; ui.courseId = null; ui.noteBoard = noteBoardOf(n); try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {}
   render(); window.scrollTo(0, 0);
   const el = document.querySelector(`.note[data-note="${CSS.escape(id)}"]`), sc = $("#nbScroll");
-  if (el) { if (sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50)}); } catch (e) {} } el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200); try { el.focus({preventScroll: true}); } catch (e) {} }
+  if (el) { if (sc) nbFocusNote(id); try { el.focus({preventScroll: true}); } catch (e) {} }
 }
 
 /* 2. Notes to draft cards */

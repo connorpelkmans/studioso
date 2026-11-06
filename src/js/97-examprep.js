@@ -522,7 +522,7 @@ function openNoteById(id){
   if (dlg.open) dlg.close();
   ui.tab = "notes"; ui.courseId = null; render(); window.scrollTo(0, 0);
   const el = document.querySelector(`.note[data-note="${CSS.escape(id)}"]`), sc = $("#nbScroll");
-  if (el && sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch (e) { sc.scrollLeft = n.x; sc.scrollTop = n.y; } el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200); }
+  if (el && sc) nbFocusNote(id);
 }
 function openMaterial(t){
   if (!t) return;

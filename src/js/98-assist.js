@@ -331,9 +331,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
           ui.tab = "notes"; ui.courseId = null; ui.noteBoard = noteBoardOf(n); try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {}
           if (window.SBWB && ui.notesView === "wb") SBWB.setView("board");
           render(); window.scrollTo(0, 0); await frame();
-          const el = document.querySelector(`.note[data-note="${CSS.escape(t.id)}"]`), sc = document.getElementById("nbScroll");
-          if (el && sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch (e) {} }
-          if (el) { el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2600); }
+          nbFocusNote(t.id);
           return true;
         }
         case "board": {

@@ -80,8 +80,8 @@ function reply(body){
   // Finding: a note by what it says
   let r = await ask("where's my powerhouse note");
   ok(r.show[0] === "note:n1", "a note is found by what it says: " + JSON.stringify(r.show));
-  await actNow(); await page.waitForTimeout(500);
-  ok(await S(() => ui.tab) === "notes" && await S(() => !!document.querySelector('.note[data-note="n1"].sx-flash')), "and Ask jumps to it on the Notes page and highlights it");
+  await actNow(); await page.waitForTimeout(1000);
+  ok(await S(() => ui.tab) === "notes" && await S(() => !!document.querySelector('.note[data-note="n1"].nb-found')), "and Ask jumps to it on the Notes page, zooms in and draws a box around it");
 
   // Whiteboards are described in the background, and a picture on one can be found and shown
   const described = await S(() => SBASSIST.describeBoards(3));
