@@ -81129,6 +81129,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-badge{display:inline-grid;place-items:center;min-width:1.5em;height:1.5em;padding:0 4px;border-radius:999px;background:var(--accent);color:#fff;font-size:.72rem;font-weight:700;margin-left:4px}
 @media (max-width:760px){
   dialog:has(.pdr-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}
+  /* full screen on a phone: clear of the status bar and clock at the top, the home bar below and the notch on its side */
+  dialog:has(.pdr-sheet){box-sizing:border-box;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
   .pdr-main.with-side{grid-template-columns:minmax(0,1fr)}
   .pdr-side{position:absolute;inset:auto 0 0 0;max-height:62%;border-left:0;border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.18);border-radius:16px 16px 0 0;z-index:40}
   .pdr-bar{gap:6px;padding:6px 10px 8px}
