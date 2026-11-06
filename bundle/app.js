@@ -4677,7 +4677,7 @@ async function aiSourceFromFile(file){
 const aiSourceBytes = s => s.part.inline_data ? s.part.inline_data.data.length : s.part.text.length;
 
 /* Study sets: flashcards and quizzes from your material */
-const AI_STYLE_GROUPS = ["General exam styles", "Question formats", "Focus", "Healthcare / nursing exams (NCLEX-style)", "Other standardized exams"];
+const AI_STYLE_GROUPS = ["General Exam Style", "Question Format", "Focus", "Healthcare Exams", "Standardized Exams"];
 const AI_STYLES = [
   ["Mixed (multiple choice, true/false, short answer)", "A deliberate mix of question types: about 45% single best answer, 15% true/false, 15% select all that apply, 15% short answer and 10% put-in-order.", 0],
   ["University Midterm", "A typical university midterm: a balanced mix of multiple choice, true/false, a few select-all-that-apply and short-answer questions, ordered from straightforward recall to application.", 0],
@@ -4825,8 +4825,8 @@ function aiStudySheet(deckId, mode){
       <fieldset><legend>Style</legend>
         <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. AP-style multiple choice with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
         <div class="chips ai-recent" id="aiRecent" role="group" aria-label="Your recent styles"></div>
-        ${AI_STYLE_GROUPS.map((g, gi) => `<p class="mini" style="margin:10px 0 4px">${esc(g)}</p><div class="chips ai-styles" role="group" aria-label="${esc(g)}">${AI_STYLES.map((x, i) => x[2] === gi ? `<button type="button" class="chip" data-style="${i}" aria-pressed="false" title="${esc(x[1])}">${esc(x[0])}</button>` : "").join("")}</div>`).join("")}
-        <p class="mini" style="margin:8px 0 0">Pick as many ready-made styles as you like. They add to what you wrote.</p>
+        <div class="ai-style-sels">${AI_STYLE_GROUPS.map((g, gi) => `<label class="f"><span class="lbl">${esc(g)}</span><select class="ai-style-sel" data-group="${gi}"><option value="">None</option>${AI_STYLES.map((x, i) => x[2] === gi ? `<option value="${i}" title="${esc(x[1])}">${esc(x[0])}</option>` : "").join("")}</select></label>`).join("")}</div>
+        <p class="mini" style="margin:8px 0 0">Pick a ready-made style from any of these. They add to what you wrote.</p>
       </fieldset>
       <fieldset><legend>Difficulty</legend>${seg("aiDiff", [["mixed", "Mixed"], ["easier", "Easier"], ["harder", "Harder"]], "mixed")}</fieldset>
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
@@ -4872,7 +4872,6 @@ function aiStudySheet(deckId, mode){
     catch(e) { status.textContent = `Couldn't get ${f.name}${navigator.onLine === false ? " while offline" : ""}.`; }
   });
   srcList.addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { job.sources.splice(Number(b.dataset.rm), 1); drawSrcs(); status.textContent = ""; } });
-  $$(".ai-styles [data-style]", dlg).forEach(b => b.addEventListener("click", () => { b.classList.toggle("on"); b.setAttribute("aria-pressed", b.classList.contains("on")); }));
   const drawRecent = () => {
     const r = aiRecentStyles(), box = $("#aiRecent");
     box.innerHTML = r.length ? `<span class="mini" style="align-self:center">Recent:</span>` + r.map((t, i) => `<span class="chip" style="display:inline-flex;gap:4px;align-items:center"><button type="button" data-recent="${i}" style="all:unset;cursor:pointer" title="${esc(t)}">${esc(t.length > 44 ? t.slice(0, 43) + "…" : t)}</button><button type="button" data-forget="${i}" style="all:unset;cursor:pointer;opacity:.6" aria-label="Forget this style">×</button></span>`).join("") : "";
@@ -4894,7 +4893,7 @@ function aiStudySheet(deckId, mode){
     const wantCards = $("#aiCards").checked, wantQuiz = $("#aiQuiz").checked, wantCase = $("#aiCase").checked;
     if (!wantCards && !wantQuiz && !wantCase) { status.textContent = "Pick flashcards, a quiz, case studies, or a mix."; return; }
     const val = n => (dlg.querySelector(`input[name=${n}]:checked`) || {}).value;
-    const custom = $("#aiStyle").value.trim(), picks = $$(".ai-styles .chip.on", dlg).map(b => Number(b.dataset.style));
+    const custom = $("#aiStyle").value.trim(), picks = $$(".ai-style-sel", dlg).map(s => s.value).filter(v => v !== "").map(Number);
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
     job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
