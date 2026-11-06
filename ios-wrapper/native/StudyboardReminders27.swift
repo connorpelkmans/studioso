@@ -294,12 +294,34 @@ struct SBCreateReminderIntent {
             return .result(value: made, dialog: IntentDialog("I didn't catch a task. Try again."))
         }
         let when = dt.map { " " + SBSay.when($0.day, $0.time) } ?? ""
+        let added = IntentDialog(stringLiteral: "Added \(title) to Studyboard\(when.isEmpty ? "" : ", due" + when).")
         do {
-            _ = try await SBCapture.send(clean)
-            return .result(value: made, dialog: IntentDialog(stringLiteral: "Added \(title) to Studyboard\(when.isEmpty ? "" : ", due" + when)."))
+            _ = try await Self.sendWithRetry(clean)
+            return .result(value: made, dialog: added)
         } catch {
+            // Couldn't reach Studyboard's server (no Siri token on this phone yet, or no connection): save it, then open the app,
+            // which adds everything saved and sets up the token, so the task is on the board now instead of whenever the app is next opened
             SBCapture.enqueue(clean)
-            return .result(value: made, dialog: IntentDialog(stringLiteral: "Got it. \(title) will be on your board the next time you open Studyboard."))
+            do {
+                // verify: iOS 26 App Intents API (supportedModes + continueInForeground)
+                try await continueInForeground(nil, alwaysConfirm: false)
+                return .result(value: made, dialog: added)
+            } catch {
+                return .result(value: made, dialog: IntentDialog(stringLiteral: "Got it. \(title) will be on your board the next time you open Studyboard."))
+            }
+        }
+    }
+
+    // Runs in the background, and opens Studyboard only when the task couldn't be sent
+    static let supportedModes: IntentModes = [.background, .foreground(.dynamic)]
+
+    // One quick retry for a dropped connection (Siri often runs the intent while the phone is still waking its network)
+    static func sendWithRetry(_ item: PendingCapture) async throws -> CaptureResponse {
+        do {
+            return try await SBCapture.send(item)
+        } catch CaptureError.network {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            return try await SBCapture.send(item)
         }
     }
 }

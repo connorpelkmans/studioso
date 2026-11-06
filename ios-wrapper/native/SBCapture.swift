@@ -123,6 +123,11 @@ enum SBCapture {
         return keychainSet(token, account: "token") && keychainSet(endpoint, account: "endpoint")
     }
 
+    static func hasCredentials() -> Bool {
+        guard keychainGet(account: "token") != nil, let e = keychainGet(account: "endpoint") else { return false }
+        return validatedEndpoint(e) != nil
+    }
+
     static func clearCredentials() {
         SecItemDelete(baseQuery(account: "token") as CFDictionary)
         SecItemDelete(baseQuery(account: "endpoint") as CFDictionary)

@@ -8,8 +8,14 @@ public class StudyboardCaptureTokenPlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "StudyboardCaptureToken"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "save", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise)
     ]
+
+    // Lets the page notice a token that never made it into the Keychain, so Siri isn't stuck queueing tasks
+    @objc func status(_ call: CAPPluginCall) {
+        call.resolve(["configured": SBCapture.hasCredentials()])
+    }
 
     @objc func save(_ call: CAPPluginCall) {
         guard let token = call.getString("token"), let endpoint = call.getString("endpoint"),

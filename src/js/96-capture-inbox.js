@@ -86,9 +86,24 @@ async function capProcess(rows, d){
   const seenAdd = ids => { const a = [...seenSet(), ...ids].slice(-300); ls(SEEN_KEY, JSON.stringify(a)); };
   const missing = err => { const m = String(err && (err.message || err.code) || ""); return err && (err.code === "42P01" || err.code === "PGRST205" || err.code === "PGRST202" || err.status === 404 || /does not exist|Could not find the (table|function)|schema cache/i.test(m)); };
   const NATIVE_KEY = "studyboard:capNativeTok";
+  const NATIVE_FAIL = "studyboard:capNativeFail";
   const nativeBridge = () => window.StudyboardNative || null;
-  function nativeSave(t){
-    try { const nb = nativeBridge(); if (nb && typeof nb.saveCaptureToken === "function" && t && t.token) { const c = sbConfig(); nb.saveCaptureToken(t.token, c && c.url ? c.url.replace(/\/+$/, "") : ""); ls(NATIVE_KEY, t.id); } } catch (e) {}
+  // Resolves true only once the token is really in the Keychain: marking it saved before that left Siri "not set up" for good
+  // (every task Siri heard was only queued until the app was opened)
+  async function nativeSave(t){
+    try {
+      const nb = nativeBridge();
+      if (!nb || typeof nb.saveCaptureToken !== "function" || !t || !t.token) return false;
+      const c = sbConfig();
+      const ok = await nb.saveCaptureToken(t.token, c && c.url ? c.url.replace(/\/+$/, "") : "");
+      if (ok === false) return false;
+      ls(NATIVE_KEY, t.id); ls(NATIVE_FAIL, "");
+      return true;
+    } catch (e) { return false; }
+  }
+  // Is the token still in the Keychain? true / false, or null when this app build can't tell
+  async function nativeHas(){
+    try { const nb = nativeBridge(); if (!nb || typeof nb.captureTokenStatus !== "function") return null; const r = await nb.captureTokenStatus(); return typeof r === "boolean" ? r : null; } catch (e) { return null; }
   }
   function nativeClear(){ try { const nb = nativeBridge(); if (nb && typeof nb.clearCaptureToken === "function") nb.clearCaptureToken(); ls(NATIVE_KEY, ""); } catch (e) {} }
   // In the iPhone and iPad app, Siri can add tasks with no setup: a capture token for this device is made on its own once signed in and kept
@@ -99,8 +114,16 @@ async function capProcess(rows, d){
   async function nativeAuto(){
     const nb = nativeBridge();
     if (autoBusy || !autoApp() || !nb || typeof nb.saveCaptureToken !== "function" || ls(NATIVE_KEY) || ls(AUTO_OFF) === "1" || !ready()) return;
+    // a Keychain that refused the token is tried again at most every 6 hours, so tokens don't pile up
+    const failedAt = Number(ls(NATIVE_FAIL) || 0); if (failedAt && Date.now() - failedAt < 6 * 3600e3) return;
     autoBusy = true;
-    try { const {data, error} = await sb.rpc("capture_create_token", {p_label: AUTO_LABEL, p_allow_get: false}); if (!error && data && data.token) nativeSave(data); }
+    try {
+      const {data, error} = await sb.rpc("capture_create_token", {p_label: AUTO_LABEL, p_allow_get: false});
+      if (!error && data && data.token && !(await nativeSave(data))) {
+        ls(NATIVE_FAIL, String(Date.now()));
+        if (data.id) { try { await sb.rpc("capture_revoke_token", {p_id: data.id}); } catch (e) {} }
+      }
+    }
     catch (e) {} finally { autoBusy = false; }
   }
   async function nativeCheck(){
@@ -109,6 +132,12 @@ async function capProcess(rows, d){
     if (!id) { nativeAuto(); return; }
     if (!sbUser && !(sb && sbStarting)) { if (typeof sb !== "undefined" && sb) nativeClear(); return; }
     if (!ready()) return;
+    // marked saved but gone from the Keychain (a failed save, a restored phone): make a new one so Siri adds tasks straight away again
+    if (await nativeHas() === false) {
+      ls(NATIVE_KEY, "");
+      try { await sb.rpc("capture_revoke_token", {p_id: id}); } catch (e) {}
+      nativeAuto(); return;
+    }
     try { const {data, error} = await sb.rpc("capture_list_tokens"); if (!error && Array.isArray(data) && !data.some(x => x.id === id && !x.revoked_at)) { nativeClear(); ls(AUTO_OFF, "1"); } } catch (e) {}
   }
   // Signing out: the device's own token is revoked too (the session is still good at this moment), so signing in again doesn't pile up tokens
@@ -320,7 +349,8 @@ async function capProcess(rows, d){
     const {data, error} = await sb.rpc("capture_create_token", {p_label: "Siri on this iPhone", p_allow_get: false});
     S.busy = false;
     if (error) { if (missing(error)) S.missing = true; else S.err = /SB_CAPTURE_LIMIT/.test(error.message || "") ? "You already have 5 active tokens. Revoke one first." : "Couldn't turn it on. Check your connection and try again."; paint(); return; }
-    nativeSave(data); toast("Siri can add tasks now. Try \"Hey Siri, add a task to Studyboard\".");
+    if (await nativeSave(data)) toast("Siri can add tasks now. Try \"Hey Siri, add a task to Studyboard\".");
+    else { S.err = "Couldn't save it on this phone. Update Studyboard and try again."; try { await sb.rpc("capture_revoke_token", {p_id: data.id}); } catch (e) {} }
     await loadTokens();
   }
   async function revoke(id){

@@ -228,6 +228,12 @@
     if (!T || typeof token !== "string" || !CAPTURE_TOKEN_RE.test(token) || !endpoint) return Promise.resolve(false);
     return T.save({ token: token, endpoint: endpoint }).then(function () { return true; }, function () { return false; });
   };
+  // true / false: is a capture token in the Keychain; null when this native build has no status method
+  native.captureTokenStatus = function () {
+    var T = plugin("StudyboardCaptureToken");
+    if (!T || typeof T.status !== "function") return Promise.resolve(null);
+    return T.status().then(function (r) { return !!(r && r.configured); }, function () { return null; });
+  };
   native.clearCaptureToken = function () {
     var T = plugin("StudyboardCaptureToken");
     if (!T) return Promise.resolve(false);
