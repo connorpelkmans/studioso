@@ -3914,6 +3914,10 @@ function aiProAvail(){
   if ((!t || Date.now() - (t.at || 0) > 30 * 60000) && !aiProChecking && Date.now() - aiProTried > 10 * 60000) aiProRefresh().then(() => { try { scheduleRender(); } catch(e) {} });
   return !!(t && t.on);
 }
+// A Pro student: everything Studyboard AI runs (the built-in AI, or their own Claude key in its mode) is shown only as "Studyboard AI" (a paid plan only counts with the paywall on: with it off, PLAN.isPro() is true for everyone)
+function aiProUser(){ try { return aiProAvail() || (typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && PLAN.isPro()); } catch(e) { return false; } }
+// What to call a Claude key's AI on screen: "Studyboard AI" for Pro students, "Claude" otherwise
+const aiClaudeName = () => aiProUser() ? "Studyboard AI" : "Claude";
 async function aiProRefresh(){
   if (!AI_PRO || !sbUser || sbUser.is_anonymous) return null;
   if (aiProChecking) return aiProChecking;
@@ -4053,10 +4057,21 @@ function aiCfg(){
 const aiReady = () => !inPreview() && !!aiCfg().key;
 const aiErr = (code, message) => Object.assign(new Error(message), {code});
 function aiModelName(provider, model){
-  if (provider === "studyboard") return "Studyboard AI";
+  if (provider === "studyboard" || (provider === "anthropic" && aiProUser())) return "Studyboard AI";
   const P = AI_PROVIDERS[provider]; if (!P) return model;
   const m = P.models.find(x => x[0] === model);
   return m ? m[1].replace(/ \(.*$/, "").replace(/, Auto$/, "") : model;
+}
+// One model's label in a picker: a Claude key runs as Studyboard AI does, so for Pro students it's just "Studyboard AI"
+const aiOptLabel = (p, m, l) => p === "anthropic" && m === "studyboard" && aiProUser() ? "Studyboard AI" : l;
+/* The model choices for the keys given, grouped by company. For Pro students the Claude key's choice stands on its own as
+   "Studyboard AI", with no company group around it. sel: the chosen "provider|model"; extra(p, P): more options for a group */
+function aiModelOpts(keys, sel, extra){
+  const pro = aiProUser();
+  return Object.entries(AI_PROVIDERS).filter(([p]) => keys[p]).map(([p, P]) => {
+    const opts = P.models.map(([m, l]) => `<option value="${p}|${esc(m)}" ${`${p}|${m}` === sel ? "selected" : ""}>${esc(aiOptLabel(p, m, l))}</option>`).join("") + (extra ? extra(p, P) : "");
+    return p === "anthropic" && pro ? opts : `<optgroup label="${esc(P.label)}">${opts}</optgroup>`;
+  }).join("");
 }
 function aiSaveCfg(patch){
   const c = aiCfg(), raw = (state.settings && state.settings.ai) || {};
@@ -4398,6 +4413,11 @@ const AI_PRO_WORDS = {
   too_long: {title: "That's Too Much in One Go", body: "Studyboard AI handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
 };
 // own: the student's own Claude key in Studyboard AI Mode (the same job, run on this device), otherwise the built-in AI
+const AI_OWN_WORDS_PRO = {
+  used_up: {title: "Your Own Key's Monthly Limit Is Reached", body: "Studyboard AI keeps your own key to its monthly limit, so AI pauses until it resets. Choose another model in Settings, AI Features to keep going.", err: "Your own key's Studyboard AI limit for this month is reached."},
+  today: {title: "That's Today's Limit on Your Own Key", body: "Studyboard AI keeps your own key to its daily limit. It's back tomorrow, or choose another model in Settings, AI Features.", err: "That's today's Studyboard AI limit on your own key. More tomorrow."}
+};
+const aiOwnWords = () => aiProUser() ? AI_OWN_WORDS_PRO : AI_OWN_WORDS;
 const AI_OWN_WORDS = {
   used_up: {title: "Your Claude Key's Monthly Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same monthly limit as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
   today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
@@ -4437,12 +4457,12 @@ async function proCallOnce({system, parts, schema, ms, task, signal, auto, searc
   }
   if (res.ok && j.data && typeof j.data === "object") {
     if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of this month's Studyboard AI. Everyday jobs now think a little less so the rest lasts."), 600); }
-    return {data: j.data, model: own ? "Claude Haiku 5.5" : "Studyboard AI", provider: own ? "anthropic" : "studyboard", truncated: !!j.truncated};
+    return {data: j.data, model: own ? aiModelName("anthropic", "studyboard") : "Studyboard AI", provider: own ? "anthropic" : "studyboard", truncated: !!j.truncated};
   }
   const why = res.status === 413 ? "too_long" : AI_PRO_WORDS[j.error] && j.error !== "files" && j.error !== "search" ? j.error : "";
   const out = why === "used_up" || why === "today";
   // Out of allowance with the student's own key to fall back on: no message, the job just moves to their key
-  if (why) { if (!auto && !(out && hasBackup)) aiProPrompt(why, !!own); try { scheduleRender(); } catch(e) {} throw Object.assign(aiErr(out ? "limit" : "pro-" + why, (own && AI_OWN_WORDS[why] || AI_PRO_WORDS[why]).err), {out: out && !own}); }
+  if (why) { if (!auto && !(out && hasBackup)) aiProPrompt(why, !!own); try { scheduleRender(); } catch(e) {} throw Object.assign(aiErr(out ? "limit" : "pro-" + why, (own && aiOwnWords()[why] || AI_PRO_WORDS[why]).err), {out: out && !own}); }
   if (j.error === "not_pro" || j.error === "off" || j.error === "unconfirmed") { aiProSet({on: false}); try { scheduleRender(); } catch(e) {} throw aiErr("nokey", j.error === "unconfirmed" ? "Confirm your email to use Studyboard AI." : "Studyboard AI comes with Pro. Add your own free Gemini key in Settings to use AI without it."); }
   if (res.status === 401) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
   if (res.status === 429) throw Object.assign(aiErr("limit", "That's a lot of AI at once. Try again in a minute."), {rate: true});
@@ -4501,7 +4521,7 @@ const aiProAudio = () => { try { return aiCfg().provider === "studyboard" && !!(
 // Why Studyboard AI stopped, with the way on
 let aiProAsking = null;
 function aiProPrompt(why, own){
-  const W = (own && AI_OWN_WORDS[why]) || AI_PRO_WORDS[why]; if (!W || aiProAsking) return;
+  const W = (own && aiOwnWords()[why]) || AI_PRO_WORDS[why]; if (!W || aiProAsking) return;
   const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiProTitle");
   const when = why === "used_up" ? (own ? (r => { try { return new Date(r).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } })(ownView().resets) : aiProResets()) : "";
   d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiProTitle">${esc(W.title)}</h2></div>
@@ -4520,7 +4540,7 @@ function claudeBlocks(parts){
     const d = p.inline_data || {};
     if (d.mime_type === "application/pdf") return {type: "document", source: {type: "base64", media_type: "application/pdf", data: d.data}};
     if (/^image\/(png|jpeg|gif|webp)$/.test(d.mime_type)) return {type: "image", source: {type: "base64", media_type: d.mime_type, data: d.data}};
-    throw aiErr("type", "Claude can't read HEIC photos. Save the photo as JPG or PNG, or switch to Gemini.");
+    throw aiErr("type", aiClaudeName() + " can't read HEIC photos. Save the photo as JPG or PNG, or switch to Gemini.");
   });
 }
 function openaiContent(parts){
@@ -4566,7 +4586,7 @@ async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
 function aiModelBar(){
   const c = aiCfg();
   if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% of this month's used` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
-  const groups = Object.entries(AI_PROVIDERS).filter(([p]) => c.keys[p]).map(([p, P]) => `<optgroup label="${esc(P.label)}">${P.models.map(([m, l]) => `<option value="${p}|${esc(m)}" ${p === c.provider && m === c.model ? "selected" : ""}>${esc(l)}</option>`).join("")}${p === c.provider && !P.models.some(x => x[0] === c.model) ? `<option value="${p}|${esc(c.model)}" selected>${esc(c.model)}</option>` : ""}</optgroup>`).join("");
+  const groups = aiModelOpts(c.keys, `${c.provider}|${c.model}`, (p, P) => p === c.provider && !P.models.some(x => x[0] === c.model) ? `<option value="${p}|${esc(c.model)}" selected>${esc(aiModelName(p, c.model))}</option>` : "");
   return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Model</span><select data-ai-model aria-label="AI model">${groups}</select><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></label>`;
 }
 document.addEventListener("change", e => {
@@ -4677,7 +4697,7 @@ async function aiSourceFromFile(file){
 const aiSourceBytes = s => s.part.inline_data ? s.part.inline_data.data.length : s.part.text.length;
 
 /* Study sets: flashcards and quizzes from your material */
-const AI_STYLE_GROUPS = ["General exam styles", "Question formats", "Focus", "Healthcare / nursing exams (NCLEX-style)", "Other standardized exams"];
+const AI_STYLE_GROUPS = ["General Exam Style", "Question Format", "Focus", "Healthcare Exams", "Standardized Exams"];
 const AI_STYLES = [
   ["Mixed (multiple choice, true/false, short answer)", "A deliberate mix of question types: about 45% single best answer, 15% true/false, 15% select all that apply, 15% short answer and 10% put-in-order.", 0],
   ["University Midterm", "A typical university midterm: a balanced mix of multiple choice, true/false, a few select-all-that-apply and short-answer questions, ordered from straightforward recall to application.", 0],
@@ -4825,8 +4845,8 @@ function aiStudySheet(deckId, mode){
       <fieldset><legend>Style</legend>
         <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. AP-style multiple choice with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
         <div class="chips ai-recent" id="aiRecent" role="group" aria-label="Your recent styles"></div>
-        ${AI_STYLE_GROUPS.map((g, gi) => `<p class="mini" style="margin:10px 0 4px">${esc(g)}</p><div class="chips ai-styles" role="group" aria-label="${esc(g)}">${AI_STYLES.map((x, i) => x[2] === gi ? `<button type="button" class="chip" data-style="${i}" aria-pressed="false" title="${esc(x[1])}">${esc(x[0])}</button>` : "").join("")}</div>`).join("")}
-        <p class="mini" style="margin:8px 0 0">Pick as many ready-made styles as you like. They add to what you wrote.</p>
+        <div class="ai-style-sels">${AI_STYLE_GROUPS.map((g, gi) => `<label class="f"><span class="lbl">${esc(g)}</span><select class="ai-style-sel" data-group="${gi}"><option value="">None</option>${AI_STYLES.map((x, i) => x[2] === gi ? `<option value="${i}" title="${esc(x[1])}">${esc(x[0])}</option>` : "").join("")}</select></label>`).join("")}</div>
+        <p class="mini" style="margin:8px 0 0">Pick a ready-made style from any of these. They add to what you wrote.</p>
       </fieldset>
       <fieldset><legend>Difficulty</legend>${seg("aiDiff", [["mixed", "Mixed"], ["easier", "Easier"], ["harder", "Harder"]], "mixed")}</fieldset>
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
@@ -4872,7 +4892,6 @@ function aiStudySheet(deckId, mode){
     catch(e) { status.textContent = `Couldn't get ${f.name}${navigator.onLine === false ? " while offline" : ""}.`; }
   });
   srcList.addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { job.sources.splice(Number(b.dataset.rm), 1); drawSrcs(); status.textContent = ""; } });
-  $$(".ai-styles [data-style]", dlg).forEach(b => b.addEventListener("click", () => { b.classList.toggle("on"); b.setAttribute("aria-pressed", b.classList.contains("on")); }));
   const drawRecent = () => {
     const r = aiRecentStyles(), box = $("#aiRecent");
     box.innerHTML = r.length ? `<span class="mini" style="align-self:center">Recent:</span>` + r.map((t, i) => `<span class="chip" style="display:inline-flex;gap:4px;align-items:center"><button type="button" data-recent="${i}" style="all:unset;cursor:pointer" title="${esc(t)}">${esc(t.length > 44 ? t.slice(0, 43) + "…" : t)}</button><button type="button" data-forget="${i}" style="all:unset;cursor:pointer;opacity:.6" aria-label="Forget this style">×</button></span>`).join("") : "";
@@ -4894,7 +4913,7 @@ function aiStudySheet(deckId, mode){
     const wantCards = $("#aiCards").checked, wantQuiz = $("#aiQuiz").checked, wantCase = $("#aiCase").checked;
     if (!wantCards && !wantQuiz && !wantCase) { status.textContent = "Pick flashcards, a quiz, case studies, or a mix."; return; }
     const val = n => (dlg.querySelector(`input[name=${n}]:checked`) || {}).value;
-    const custom = $("#aiStyle").value.trim(), picks = $$(".ai-styles .chip.on", dlg).map(b => Number(b.dataset.style));
+    const custom = $("#aiStyle").value.trim(), picks = $$(".ai-style-sel", dlg).map(s => s.value).filter(v => v !== "").map(Number);
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
     job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
@@ -5221,7 +5240,7 @@ function aiProLine(){
 }
 function aiRow(){
   const on = aiReady(), c = aiCfg();
-  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job.${v.usedPct ? ` ${v.usedPct}% of this month's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
+  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of this month's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
   if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
   return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
@@ -5232,7 +5251,7 @@ function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
   const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai), pro = aiProAvail();
   // Pro: one box for a backup key from any company, saved into the same per-company keys the separate boxes use
-  const backupHint = () => aiProDeclined() ? "Used while Studyboard AI is off. Paste a Gemini, OpenAI or Claude key." : "Used if your Studyboard AI runs out. Paste a Gemini, OpenAI or Claude key.";
+  const backupHint = () => aiProDeclined() ? "Used while Studyboard AI is off. Paste your own AI API key." : "Used if your Studyboard AI runs out. Paste your own AI API key.";
   const backupRow = () => { const b = aiProBackup(c.keys); return `<div class="ai-key" id="aiBackup">
       <label class="f"><span class="lh">Backup API Key <span class="hint" id="aiBackupHint">${esc(backupHint())}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-backup" id="aiBackupKey" value="${esc(b ? c.keys[b] : "")}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" id="aiBackupShow">Show</button><button type="button" class="btn small" id="aiBackupTest">Test</button></span></label>
       <p class="mini" id="aiBackupKind" aria-live="polite" style="margin:0"></p>
@@ -5242,7 +5261,7 @@ function aiSetupSheet(fromFeature, opts){
       <label class="f"><span class="lh">${esc(P.keyLabel)}${p === "gemini" ? ` ${REQ}` : ""} <span class="hint">${esc(P.keyHint)}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-${p}" data-key="${p}" value="${esc(c.keys[p])}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" data-show="${p}">Show</button><button type="button" class="btn small" data-test="${p}">Test</button></span></label>
       <p class="mini ai-test-msg" data-msg="${p}" aria-live="polite" style="margin:0"></p></div>`; };
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
-    return Object.entries(AI_PROVIDERS).filter(([p]) => keys[p]).map(([p, P]) => `<optgroup label="${esc(P.label)}">${P.models.map(([m, l]) => `<option value="${p}|${esc(m)}" ${p === c.provider && m === c.model ? "selected" : ""}>${esc(l)}</option>`).join("")}</optgroup>`).join("") || `<option value="">Add a key first</option>`; };
+    return aiModelOpts(keys, `${c.provider}|${c.model}`) || `<option value="">Add a key first</option>`; };
   openSheet(`<form class="sheet">${head("AI Features")}
     <div class="sheet-body">
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:6px"><p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}. ${esc(aiProLine())}</p>
@@ -13437,6 +13456,18 @@ function nbZoomTo(z, cx, cy){
 const NBZ_STEPS = [0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2];
 // Found a note (Ask, the companion, Search, a link): glide the board so the note is centred and big enough to read,
 // then draw a highlight box around it. One smooth move of zoom and scroll together; instant with Reduce Motion.
+// Whatever Ask, the companion or Search finds gets the same highlight box notes get: it settles in around the whole
+// item (a flashcard's whole tile, not just its text), then fades after a few seconds
+let foundT = [];
+function foundBox(el){
+  if (!el) return false;
+  const tile = el.matches && el.matches(".fc-cell, .fc-face") ? el.closest(".fc-row") || el : el;
+  document.querySelectorAll(".sb-found").forEach(x => x.classList.remove("sb-found", "sb-found-out"));
+  foundT.forEach(clearTimeout);
+  tile.classList.remove("sb-found", "sb-found-out"); void tile.offsetWidth; tile.classList.add("sb-found");
+  foundT = [setTimeout(() => tile.classList.add("sb-found-out"), 2600), setTimeout(() => tile.classList.remove("sb-found", "sb-found-out"), 3100)];
+  return true;
+}
 let nbFocusRun = 0;
 function nbFocusNote(id){
   // The board can be redrawn while this runs (on phones the Notes page redraws right after it opens), so each frame
@@ -25793,8 +25824,7 @@ Return JSON only.`;
   function flash(sel, center){
     const el = typeof sel === "string" ? $(sel) : sel; if (!el) return;
     try { el.scrollIntoView({block: center === false ? "nearest" : "center", behavior: "smooth"}); } catch(e) {}
-    el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash");
-    setTimeout(() => el.classList.remove("sx-flash"), 2200);
+    foundBox(el);
   }
   function openDeck(id){ go("flashcards"); ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }
   function openNote(id){
@@ -26024,7 +26054,7 @@ Return JSON only.`;
     if (ask) {
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI to search by meaning and get short answers from your own notes and files. It's free with a Google Gemini key. For now, this finds related words.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
-      else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? "Claude has no search-by-meaning service, so Ask With AI has Claude suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning." : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
+      else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
     }
@@ -62251,18 +62281,10 @@ var COMP_EXTRA = [];
     return !!document.querySelector("dialog[open]") || (performance.now() - dlgShut < 800 && h < fullH - 100);
   }
   let dlgShut = -1e9;
-  // Leaving the Companion tab, it waits a moment in its circle before heading back, so the new page shows first
-  const LEAVE_MS = 120;
-  let leaveT = 0, leaveGo = false;
   function place(fresh){
     if (!box || !cur) return;
     if (press) return;
     if (dockFrozen()) return;
-    if (!leaveGo && box.dataset.spot === "slot" && typeof ui !== "undefined" && ui.tab !== "companion" && !document.hidden && !still()) {
-      if (!leaveT) leaveT = setTimeout(() => { leaveT = 0; leaveGo = true; try { passCacheReset(); place(fresh); } finally { leaveGo = false; } }, LEAVE_MS);
-      return;
-    }
-    if (leaveT && !leaveGo) { clearTimeout(leaveT); leaveT = 0; }
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
     const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;
@@ -64556,7 +64578,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   function flash(sel){
     const el = typeof sel === "string" ? document.querySelector(sel) : sel; if (!el) return false;
     try { el.scrollIntoView({block: "center", behavior: "smooth"}); } catch (e) {}
-    el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2600);
+    foundBox(el);
     return true;
   }
   function go(tab){ if (dlg && dlg.open) try { dlg.close(); } catch (e) {} ui.tab = tab; if (tab !== "courses") ui.courseId = null; if (ui.fc) ui.fc = null; render(); window.scrollTo(0, 0); }
@@ -65315,7 +65337,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function chatHtml(){
     const ready = aiOk();
     const gate = inPreview() ? `<div class="cpt-gate"><p class="mini" style="margin:0">Chat works in the Studyboard app and on your own Studyboard website. There's nothing to set up in this preview.</p></div>`
-      : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Set up AI to chat: a free Google Gemini key, Claude, ChatGPT, or Studyboard AI with Pro.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
+      : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> ${typeof aiProUser === "function" && aiProUser() ? "Set up AI to chat: Studyboard AI comes with your Pro plan." : "Set up AI to chat: a free Google Gemini key, Claude, ChatGPT, or Studyboard AI with Pro."}</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog">${logHtml()}</div><div class="sr" id="cptSay" aria-live="polite"></div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
       <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary ai-btn cp-ask-go" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
@@ -81602,7 +81624,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   async function pool(n, jobs){ const out = new Array(jobs.length); let i = 0; await Promise.all(Array.from({length: Math.min(n, jobs.length)}, async () => { while (i < jobs.length) { const k = i++; try { out[k] = {ok: true, v: await jobs[k]()}; } catch (e) { out[k] = {ok: false, e}; } } })); return out; }
   async function transcribe(){
     if (!REC || !REC.segs.length) return;
-    if (!canHear()) { toast(aiCfg().provider === "anthropic" ? "Claude can't listen to audio. Add a Gemini or OpenAI key (Settings, AI Features) to transcribe recordings." : "AI transcription needs AI set up (Settings, AI Features)."); return; }
+    if (!canHear()) { toast(aiCfg().provider === "anthropic" ? aiClaudeName() + " can't listen to audio. Add a Gemini or OpenAI key (Settings, AI Features) to transcribe recordings." : "AI transcription needs AI set up (Settings, AI Features)."); return; }
     if (!aiConsented(audioProv()) && !(await aiConsentAsk(audioProv()))) return;
     const R = REC, n = R.segs.length;
     R.busy = n > 1 ? `Transcribing ${n} parts…` : "Transcribing…"; R.view = "busy"; R.err = ""; draw();
@@ -96035,7 +96057,7 @@ const LINKCARDS = (() => {
     if (!L.ok) { say(L.msg, L.why === "local" ? PASTE : ""); inp.focus(); return; }
     if (locked()) { proWhy(); return; }
     const pasted = String(o.pasted || "").trim(), prov = aiCfg().provider;
-    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? "Claude" : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
+    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;

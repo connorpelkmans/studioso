@@ -1270,12 +1270,19 @@ SCENES.cafe = function (W, H, dk, rnd) {
   add(far, 'f', tr, dk ? '#1C2530' : '#9EBF8C');
   add(far, 'g', rect(wx0, sw0, ww, wy1 - sw0 + 4), dk ? '#15182A' : '#D9CFC2');
   if (dk) { spread(wx0, sw0 - 100 * u, ww, 90 * u, 140, 60, rnd, 1).forEach(function (c) { var r = 10 + c.r * 12; if (c.x - r > wx0 + 4 && c.x + r < wx1 - 4) glow += circ(c.x, c.y, r); }); add(far, 'h', glow); add(refl, 'c', rect(wx0, wy0, ww, wh * 0.4), 'rgba(40,60,120,0.25)'); }
-  else add(refl, 'a', circ(wx0 + ww * 0.8, wy0 + 150 * u + 16, 150 * u), 'rgba(255,246,220,0.85)');
+  // a soft glow: stacked faint rings, so the light fades out smoothly instead of ending at a hard edge
+  function b3_glow(L, x, y, r, rgb, a, slots) { var n = slots.length; slots.split('').forEach(function (k, i) { var f = 1 - i / n; add(L, k, circ(x, y, r * (0.12 + 0.88 * Math.pow(f, 1.4))), 'rgba(' + rgb + ',' + a + ')'); }); }
+  // the daytime sun, low in the sky away from the lamp
+  if (!dk) b3_glow(refl, wx0 + ww * (ph ? 0.3 : 0.8), wy0 + (ph ? 70 : 150) * u + 16, (ph ? 120 : 150) * u, '255,246,220', 0.2, 'anop');
   var fw = 14 * u, nm = ph ? 1 : 2, fr = rect(wx0 - fw, wy0 - fw, ww + 2 * fw, fw) + rect(wx0 - fw, wy0 - fw, fw, wh + fw) + rect(wx1, wy0 - fw, fw, wh + fw), tb = ph ? wy0 : wy0 + wh * 0.26;
   for (var m = 1; m <= nm; m++) fr += rect(wx0 + ww * m / (nm + 1) - fw * 0.4, wy0, fw * 0.8, wh);
   if (!ph) fr += rect(wx0, tb, ww, fw * 0.7);
   add(mid, 'b', fr, dk ? '#3A271A' : '#6E4B32');
-  var sh = ''; for (m = 0; m <= nm; m++) { var px = wx0 + ww * m / (nm + 1) + ww / (nm + 1) * 0.25; sh += poly([[px, tb + 40], [px + 40 * u, tb + 40], [px - 60 * u, wy1 - 20], [px - 100 * u, wy1 - 20]]) + poly([[px + 60 * u, tb + 60], [px + 72 * u, tb + 60], [px - 18 * u, wy1 - 40], [px - 30 * u, wy1 - 40]]); }
+  // glare streaks; on a phone they run right up to the top of the window (each edge carried up along its own slant)
+  var sh = '', gy = function (x1, y1, x2, y2, y0) { return [x1 + (x2 - x1) * (y0 - y1) / (y2 - y1), y0]; };
+  for (m = 0; m <= nm; m++) { var px = wx0 + ww * m / (nm + 1) + ww / (nm + 1) * 0.25, t1 = ph ? wy0 + 4 : tb + 40, t2 = ph ? wy0 + 4 : tb + 60;   // a hair below the frame, so its soft edge doesn't bleed onto the wood
+    sh += poly([gy(px, tb + 40, px - 100 * u, wy1 - 20, t1), gy(px + 40 * u, tb + 40, px - 60 * u, wy1 - 20, t1), [px - 60 * u, wy1 - 20], [px - 100 * u, wy1 - 20]])
+      + poly([gy(px + 60 * u, tb + 60, px - 30 * u, wy1 - 40, t2), gy(px + 72 * u, tb + 60, px - 18 * u, wy1 - 40, t2), [px - 18 * u, wy1 - 40], [px - 30 * u, wy1 - 40]]); }
   add(mid, 'a', sh, dk ? 'rgba(255,220,180,0.05)' : 'rgba(255,255,255,0.22)');
   if (ph) {
     // the wall: soft wallpaper stripes down to a wooden rail just above the window
@@ -1345,7 +1352,9 @@ SCENES.cafe = function (W, H, dk, rnd) {
   add(near, 'd', beans, cofC); stk(near, 's', crease, dk ? '#7A5436' : '#C79B6C', 1.3);
   var lamps = ph ? [[W * 0.8, H * 0.45]] : [[W * 0.62, H * 0.2], [W * 0.84, H * 0.2]], cords = '', shades = '', bulbs = '';
   lamps.forEach(function (l) { var r = 34 * u; cords += seg(l[0], -10, l[0], l[1] - r * 0.95); shades += 'M' + PT(l[0] - r, l[1]) + ' a' + n1(r) + ' ' + n1(r * 0.85) + ' 0 0 1 ' + n1(2 * r) + ' 0 Z ' + rrect(l[0] - 5 * u, l[1] - r * 0.95, 10 * u, 8 * u, 2); bulbs += ell(l[0], l[1] + 2 * u, r * 0.38, r * 0.2);
-    if (dk) { add(refl, 'a', circ(l[0], l[1] + 30, 110 * u), 'rgba(255,190,110,0.3)'); add(far, 'h', circ(l[0], l[1] + 10, 40)); } });
+    // the bulb's light: brightest just under the shade, fading out, with a faint cone falling below it
+    b3_glow(refl, l[0], l[1] + 6 * u, (dk ? 125 : 60) * u, dk ? '255,190,110' : '255,236,190', dk ? 0.12 : 0.07, 'efghijkl');
+    add(refl, 'm', poly([[l[0] - r * 0.85, l[1] + 2 * u], [l[0] + r * 0.85, l[1] + 2 * u], [l[0] + r * 3.2, l[1] + 230 * u], [l[0] - r * 3.2, l[1] + 230 * u]]), dk ? 'rgba(255,196,120,0.13)' : 'rgba(255,240,200,0.12)'); });
   // the bulb's glow sits under the shade: shades go in a slot drawn after the bulbs
   add(near, 'h', bulbs); add(near, 'i', shades, dk ? '#2F4636' : '#3E5E48');
   if (dk) add(refl, 'd', ell(W * 0.65, ct + 4, W * 0.45, 40 * u), 'rgba(255,180,100,0.22)');

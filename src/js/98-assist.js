@@ -289,7 +289,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   function flash(sel){
     const el = typeof sel === "string" ? document.querySelector(sel) : sel; if (!el) return false;
     try { el.scrollIntoView({block: "center", behavior: "smooth"}); } catch (e) {}
-    el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2600);
+    foundBox(el);
     return true;
   }
   function go(tab){ if (dlg && dlg.open) try { dlg.close(); } catch (e) {} ui.tab = tab; if (tab !== "courses") ui.courseId = null; if (ui.fc) ui.fc = null; render(); window.scrollTo(0, 0); }

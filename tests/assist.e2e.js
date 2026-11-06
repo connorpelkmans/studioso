@@ -251,6 +251,14 @@ function reply(body){
     ok(said, "the bubble answers, and the app jumps to what it found");
   } else ok(false, "the companion's Ask should be available with a Gemini key");
 
+  // Whatever is found gets the highlight box: a flashcard (its whole tile) and a task
+  await S(() => { if (dlg.open) dlg.close(); });
+  await page.evaluate(() => SBASSIST.jump({kind: "card", deck: "d1", id: "k1"})); await page.waitForTimeout(700);
+  const fbox = await page.evaluate(() => { const f = document.querySelector(".sb-found"); return f ? f.className + "|" + !!f.querySelector('[data-id="k1"]') : ""; });
+  ok(/fc-row/.test(fbox) && /\|true$/.test(fbox), "a found flashcard gets the highlight box around its whole tile: " + fbox);
+  await page.evaluate(() => SBASSIST.jump({kind: "task", id: "t2"})); await page.waitForTimeout(700);
+  const tbox = await page.evaluate(() => { const f = document.querySelector(".sb-found"); return f ? (f.dataset.id || "") + "|" + getComputedStyle(f).outlineStyle : ""; });
+  ok(/^t2\|solid/.test(tbox), "a found task gets the highlight box too: " + tbox);
   ok(!errs.length, "no errors: " + errs.join("; "));
   await browser.close(); server.close();
   console.log(`assist.e2e: ${n} checks passed`);

@@ -1304,8 +1304,7 @@ Return JSON only.`;
   function flash(sel, center){
     const el = typeof sel === "string" ? $(sel) : sel; if (!el) return;
     try { el.scrollIntoView({block: center === false ? "nearest" : "center", behavior: "smooth"}); } catch(e) {}
-    el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash");
-    setTimeout(() => el.classList.remove("sx-flash"), 2200);
+    foundBox(el);
   }
   function openDeck(id){ go("flashcards"); ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }
   function openNote(id){
@@ -1535,7 +1534,7 @@ Return JSON only.`;
     if (ask) {
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI to search by meaning and get short answers from your own notes and files. It's free with a Google Gemini key. For now, this finds related words.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
-      else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? "Claude has no search-by-meaning service, so Ask With AI has Claude suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning." : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
+      else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
     }

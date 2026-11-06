@@ -2419,3 +2419,7 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 /* In a task's sheet the shorter label, so the tools and Mark Done and Edit fit on one row */
 .tv-tools .rb-long{display:none}.tv-tools .rb-short{display:inline}
 @media (max-width:480px){.tv-tools > .btn{padding-left:10px;padding-right:10px}.tv-tools .rb-long{display:none}.tv-tools .rb-short{display:inline}.tv-tools .pro-badge{font-size:.62rem;padding:1px 5px}.tv-tools .ai-btn > .ai-ic{display:none}}
+/* Flashcards with AI: the ready-made styles, one dropdown per group */
+.ai-style-sels{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;margin-top:10px}
+.ai-style-sels .f{margin:0}
+.ai-style-sels select{width:100%}
