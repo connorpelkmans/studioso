@@ -94,9 +94,19 @@ export async function openState(secret: string, s: string, nowMs: number): Promi
 
 /* ================= Which address to sign in with ================= */
 const EMAIL = /^[^\s@<>()"',;:]{1,64}@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i;
-const PUBLIC_MAIL = /@(gmail|googlemail|outlook|hotmail|live|msn|yahoo|ymail|aol|icloud|me|mac|proton|protonmail|pm|gmx|mail|yandex|zoho|hey|fastmail|tutanota|qq|163|126)\.[a-z.]+$/i;
+// Public mail services, by their exact domain (so a school's own mail.school.edu or me.company.com isn't mistaken for one)
+const PUBLIC_MAIL = /@(gmail|googlemail|outlook|hotmail|live|msn|passport|yahoo|ymail|rocketmail|aol|icloud|me|mac|proton|protonmail|pm|gmx|mail|email|yandex|zoho|hey|fastmail|tutanota|tuta|qq|163|126|naver|web|t-online|orange|free|libero|seznam|wp|rediffmail)\.(com|net|org|me|de|fr|it|es|nl|be|ch|at|ca|ie|in|jp|kr|br|mx|ar|ru|cn|pl|cz|co\.uk|co\.jp|co\.in|co\.kr|com\.au|com\.br|com\.mx|com\.ar|com\.cn)$/i;
 const domainOf = (e: string) => e.slice(e.lastIndexOf("@") + 1);
 export type Claims = Record<string, unknown>;
+export function whyNoEmail(c: Claims): string {
+  const raw = String(c.preferred_username || ""), dom = raw.includes("@") ? raw.slice(raw.lastIndexOf("@") + 1).toLowerCase().slice(0, 80) : "";
+  if (c.tid === PERSONAL_TENANT) return "personal account without an email";
+  if (!raw) return "no sign-in name in Microsoft's token" + (c.email ? " (an email that isn't vouched for)" : "");
+  if (/#ext#/i.test(raw) || /#ext#/i.test(String(c.upn || ""))) return "a guest account (" + dom + ")";
+  if (!EMAIL.test(raw.trim())) return "sign-in name isn't an address";
+  if (PUBLIC_MAIL.test(raw.trim())) return "sign-in name on a public mail domain (" + dom + ")";
+  return "unknown (" + dom + ")";
+}
 export function pickEmail(c: Claims): { email: string; how: "email" | "upn" } | null {
   const clean = (v: unknown) => { const s = typeof v === "string" ? v.trim().toLowerCase() : ""; return EMAIL.test(s) ? s : ""; };
   const email = clean(c.email), personal = c.tid === PERSONAL_TENANT;
@@ -159,7 +169,7 @@ async function callback(url: URL, d: Deps, s: ReturnType<typeof settings>): Prom
   const claims = readIdToken(String(tok.id_token || ""), s.id, st.n, d.now());
   if (!claims) { d.log("ms-signin: id token not accepted"); return fail("Microsoft's sign-in couldn't be checked. Try again."); }
   const who = pickEmail(claims);
-  if (!who) { d.log("ms-signin: no usable address", claims.tid === PERSONAL_TENANT ? "personal" : "organization"); return fail("Error getting user email from external provider"); }
+  if (!who) { d.log("ms-signin: no usable address:", whyNoEmail(claims)); return fail("Error getting user email from external provider"); }
   // the Supabase account: made if it's new (Microsoft has proven the address), then a one-time sign-in token for it
   const H = { apikey: s.service, Authorization: `Bearer ${s.service}`, "Content-Type": "application/json" };
   const name = typeof claims.name === "string" ? claims.name.replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 80) : "";

@@ -126,6 +126,24 @@ await test("guests and public mail domains aren't used as school sign-in names",
   assert.match(hashOf(r.to).get("error_description"), /getting user email/, "a public mail domain");
 });
 
+await test("school domains that start like a public mail service aren't mistaken for one", async () => {
+  for (const name of ["sam@mail.school.edu", "sam@me.company.com", "sam@live.k12.ca.us", "sam@outlook.district.org", "sam@email.school.edu"]) {
+    const r = await world().signIn(undefined, { tid: SCHOOL, iss: `https://login.microsoftonline.com/${SCHOOL}/v2.0`, preferred_username: name });
+    assert.equal(hashOf(r.to).get("sb_ms"), "hash-" + name, name);
+  }
+  for (const name of ["sam@gmail.com", "sam@hotmail.co.uk", "sam@yahoo.com.au", "sam@outlook.fr"]) {
+    const r = await world().signIn(undefined, { tid: SCHOOL, iss: `https://login.microsoftonline.com/${SCHOOL}/v2.0`, preferred_username: name });
+    assert.ok(!hashOf(r.to).get("sb_ms"), name + " is still refused");
+  }
+});
+
+await test("the log says which rule refused an account, with the domain only", async () => {
+  const W = world(); await W.signIn(undefined, { tid: SCHOOL, iss: `https://login.microsoftonline.com/${SCHOOL}/v2.0`, preferred_username: "sam@gmail.com" });
+  assert.ok(W.logs.some(l => /public mail domain \(gmail\.com\)/.test(l)) && W.logs.every(l => !/sam@/.test(l)), W.logs.join(" | "));
+  const W2 = world(); await W2.signIn(undefined, { tid: SCHOOL, iss: `https://login.microsoftonline.com/${SCHOOL}/v2.0` });
+  assert.ok(W2.logs.some(l => /no sign-in name/.test(l)), W2.logs.join(" | "));
+});
+
 await test("a personal Microsoft account uses its email; one without an email is told why", async () => {
   let r = await world().signIn(undefined, { tid: F.PERSONAL_TENANT, iss: `https://login.microsoftonline.com/${F.PERSONAL_TENANT}/v2.0`, email: "Sam@Outlook.com", preferred_username: "sam@outlook.com" });
   assert.equal(hashOf(r.to).get("sb_ms"), "hash-sam@outlook.com");

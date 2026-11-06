@@ -39,10 +39,13 @@ async function savePage(c, res){
     for (const w of await self.clients.matchAll({type: "window"})) { try { w.postMessage({type: "sb-new-version", parts}); } catch (err) {} }
   }
 }
+// A response that came through a redirect (the site sends /index.html to /) can't answer a page load: the browser shows
+// "This site can't be reached" (ERR_FAILED). Pages are kept and served as clean copies instead.
+const unredirect = async r => r && r.redirected ? new Response(await r.blob(), {status: r.status, statusText: r.statusText, headers: r.headers}) : r;
 self.addEventListener("install", e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(CORE);
+    await Promise.all(CORE.map(async u => { const r = await fetch(u, {cache: "reload"}); if (!r.ok) throw new Error("sw: " + u + " " + r.status); await c.put(u, await unredirect(r)); }));
     const page = await c.match("./index.html");
     if (page) await c.addAll(partsOf(await page.text()));
     await Promise.all(OPTIONAL.map(u => c.add(u).catch(() => {})));
@@ -68,13 +71,13 @@ self.addEventListener("fetch", e => {
   if (isApp || req.mode === "navigate") {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
-      const hit = isApp ? await c.match("./index.html") : null;
+      const hit = isApp ? await unredirect(await c.match("./index.html")) : null;
       let saving = null;
       const net = fetch(req).then(r => { if (r.ok && r.type === "basic" && isApp) saving = savePage(c, r.clone()).catch(() => {}); return r; });
       e.waitUntil(net.then(() => saving, () => null));
       if (hit) return hit;
-      try { return await timeout(net, 5000); }
-      catch (err) { return (await c.match("./index.html")) || (await c.match("./")) || Response.error(); }
+      try { return await unredirect(await timeout(net, 5000)); }
+      catch (err) { return (await unredirect(await c.match("./index.html"))) || (await unredirect(await c.match("./"))) || Response.error(); }
     })());
     return;
   }

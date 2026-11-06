@@ -2452,10 +2452,10 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .sb-oa-apple .sb-oa-a{width:15px;height:18px;margin-top:-3px}
 .sb-oa-google{background:#fff;color:#1F1F1F;border-color:#747775;font:500 14px/20px "SB Roboto",Roboto,Arial,sans-serif;letter-spacing:.25px}
 .sb-oa-google .sb-oa-g{width:20px;height:20px}
-.sb-oa-ms{background:#fff;color:#5E5E5E;border-color:#8C8C8C;font:600 14px/20px "Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;border-radius:22px}
+.sb-oa-ms{background:#fff;color:#1F1F1F;border-color:#8C8C8C;font:600 14px/20px "Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;border-radius:22px}
 .sb-oa-ms .sb-oa-m{width:18px;height:18px;flex:0 0 auto}
-:root[data-theme="dark"] .sb-oa-ms{background:#2F2F2F;color:#fff;border-color:#2F2F2F}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-ms{background:#2F2F2F;color:#fff;border-color:#2F2F2F}}
+:root[data-theme="dark"] .sb-oa-ms{background:#2F2F2F;color:#E3E3E3;border-color:#2F2F2F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-ms{background:#2F2F2F;color:#E3E3E3;border-color:#2F2F2F}}
 :root[data-theme="dark"] .sb-oa-apple{background:#fff;color:#000}
 :root[data-theme="dark"] .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-apple{background:#fff;color:#000}:root:not([data-theme="light"]) .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}}
@@ -4678,8 +4678,8 @@ html .btn.primary.cp-ask-go{display:inline-flex;align-items:center;justify-conte
 html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
-/* the Companion page's Ask: just the word, centred and bigger (no companion face) */
-html .btn.primary.cp-ask-go#cptGo{min-width:96px;padding:0 22px;font-size:1.15rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
+/* Every companion Ask (the Companion page, the speech bubble, a task's question box): just the word, centred and bigger */
+html .btn.primary.cp-ask-go{min-width:96px;padding:0 22px;font-size:1.15rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
 .cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
 .cp-tq-row{align-items:center}
 /* a hidden bubble (faded out) can't be clicked or typed into */
