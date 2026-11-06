@@ -18,7 +18,7 @@ window.STUDYBOARD_SITE = {
 
   // -- Downloads (home page). VERSION is the web app's; each installer's label and file name use the version in its own url,
   // and `npm run check:release` fails while those urls are older than package.json (upload the installers, then bump the links)
-  VERSION: "1.15.4",
+  VERSION: "1.15.5",
 
   // Where each installer lives
   DOWNLOADS: {
