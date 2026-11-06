@@ -1820,6 +1820,7 @@ b.hc-ring.long > span:not(.pt-sr){font-size:.72em}
   .plan-foot > .pf-toggles{display:contents}
   .plan-foot .pf-link.pf-link{flex:1 1 calc(50% - 1px);min-width:0;justify-content:center;text-align:center;margin:0;min-height:40px;padding:0 6px;border:0;border-radius:9px;background:transparent;color:color-mix(in srgb,var(--muted) 70%,var(--ink));font:700 .84rem var(--body);white-space:normal;box-shadow:none}
   .plan-foot .pf-link.pf-link[aria-expanded="true"],.plan-foot .pf-link.pf-link[aria-pressed="true"]{background:var(--seg-on);color:var(--ink);box-shadow:0 1px 3px rgba(14,42,86,.18),0 0 0 .5px rgba(14,42,86,.08)}
+  .plan-foot:has(> .pf-toggles) .pf-chev{display:none}
 }
 @media (max-width:600px) and (prefers-color-scheme:dark){:root:not([data-theme="light"]) .plan-foot:has(> .pf-toggles){--seg-on:color-mix(in srgb,var(--ink) 18%,var(--surface))}}
 .pf-link{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:6px 0;font-size:.84rem;font-weight:600;color:var(--muted);cursor:pointer}
