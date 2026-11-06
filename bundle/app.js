@@ -10574,7 +10574,7 @@ function focusHtml(){
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
-      <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}${window.SBAUTOPILOT ? SBAUTOPILOT.offBtn() : ""}</div>
+      <div class="plan-foot"><div class="pf-toggles">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}</div>${window.SBAUTOPILOT ? SBAUTOPILOT.offBtn() : ""}</div>
       ${more ? `<div class="plan-more" id="plan-more" role="region" aria-label="Full Ranking"${moreOpen ? "" : " hidden"}>
         <p class="plan-cap">Everything open, in ranked order. The number on the right is each task's focus score.</p>
         <ol class="plan-list">${ranked.map((x, i) => planRow(x, i, true)).join("")}</ol>
@@ -37709,7 +37709,7 @@ var SBEST = (() => {
     if (ex) ex.remove();
     let foot = plan.querySelector(".plan-foot");
     if (!foot) { foot = document.createElement("div"); foot.className = "plan-foot"; plan.appendChild(foot); }
-    foot.insertAdjacentHTML("afterbegin", links);
+    (foot.querySelector(".pf-toggles") || foot).insertAdjacentHTML("afterbegin", links);
     foot.after(box);
   });
   // Tap to open one; tap it again to close it
