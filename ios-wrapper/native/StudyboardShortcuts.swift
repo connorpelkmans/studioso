@@ -98,6 +98,12 @@ struct StudyboardShortcuts: AppShortcutsProvider {
                 "Start a focus session in \(.applicationName)",
                 "Start a \(\.$length) focus session in \(.applicationName)",
                 "Start a \(\.$length) \(.applicationName) session",
+                "Start a \(\.$length) focus timer in \(.applicationName)",
+                "Start a \(\.$length) timer in \(.applicationName)",
+                "Set a \(\.$length) focus timer in \(.applicationName)",
+                "Start a \(\.$length) \(.applicationName) timer",
+                "Start a focus timer in \(.applicationName)",
+                "Start a \(.applicationName) focus timer",
                 "Start focusing in \(.applicationName)"
             ],
             shortTitle: "Start Focus",

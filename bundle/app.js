@@ -18301,7 +18301,8 @@ function pomoTakeLock(){
           if (pomo.running || pomo.left > 0) pomoReset();
           // an exam's study time in the plan ("study:<exam id>") is a session on the exam
           const tid = typeof task === "string" && task.indexOf(XS_ID) === 0 ? task.slice(XS_ID.length) : task;
-          if (tid && state.tasks[tid]) pomo.taskId = tid;
+          // a plain timer ("start a 25-minute focus timer") is on no task, not on whatever the last session was on
+          pomo.taskId = tid && state.tasks[tid] ? tid : "";
           pomo.mode = "focus"; pomo.left = 0; pomo.len = 0;
           pomo.preset = mins >= 5 && mins <= 180 ? Math.round(mins) : pomo.taskId ? focusMinsFor(pomo.taskId) : 0;
           pomoStart();
@@ -71514,7 +71515,7 @@ function siriUpdated(t, u, now, courseOk){
     try {
       const F = typeof FOCUS !== "undefined" && FOCUS && FOCUS.today === today ? FOCUS : computeFocus();
       if (F && Array.isArray(F.ranked)) plan = {hours: F.planned, doneHours: F.doneToday,
-        items: F.ranked.filter(x => x && x.t && x.alloc > 0 && x.t.status !== "done").map(x => ({id: x.t.id, title: x.t.title, courseId: x.t.courseId, hours: x.alloc}))};
+        items: F.ranked.filter(x => x && x.t && x.alloc > 0 && x.t.status !== "done" && !x.t.archivedTerm && !(x.t.courseId && courseOf(x.t.courseId) && courseOf(x.t.courseId).archived)).map(x => ({id: x.t.id, title: x.t.title, courseId: x.t.courseId, hours: x.alloc}))};
     } catch (e) { plan = null; }
     let focusMins = 0; try { focusMins = pomoCfg().focus; } catch (e) {}
     return {now: Date.now(), today, grades: gradesOn(), tasks: allTasks(), courses: coursesArr(), plan, focusMins,

@@ -88,7 +88,7 @@ function siriUpdated(t, u, now, courseOk){
     try {
       const F = typeof FOCUS !== "undefined" && FOCUS && FOCUS.today === today ? FOCUS : computeFocus();
       if (F && Array.isArray(F.ranked)) plan = {hours: F.planned, doneHours: F.doneToday,
-        items: F.ranked.filter(x => x && x.t && x.alloc > 0 && x.t.status !== "done").map(x => ({id: x.t.id, title: x.t.title, courseId: x.t.courseId, hours: x.alloc}))};
+        items: F.ranked.filter(x => x && x.t && x.alloc > 0 && x.t.status !== "done" && !x.t.archivedTerm && !(x.t.courseId && courseOf(x.t.courseId) && courseOf(x.t.courseId).archived)).map(x => ({id: x.t.id, title: x.t.title, courseId: x.t.courseId, hours: x.alloc}))};
     } catch (e) { plan = null; }
     let focusMins = 0; try { focusMins = pomoCfg().focus; } catch (e) {}
     return {now: Date.now(), today, grades: gradesOn(), tasks: allTasks(), courses: coursesArr(), plan, focusMins,

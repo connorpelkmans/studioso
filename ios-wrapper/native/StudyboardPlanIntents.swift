@@ -119,22 +119,22 @@ enum FocusLength: String, AppEnum {
 
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Length"
     static let caseDisplayRepresentations: [FocusLength: DisplayRepresentation] = [
-        .m10: DisplayRepresentation(title: "10-minute", synonyms: ["10 minute", "ten minute"]),
-        .m15: DisplayRepresentation(title: "15-minute", synonyms: ["15 minute", "fifteen minute"]),
-        .m20: DisplayRepresentation(title: "20-minute", synonyms: ["20 minute", "twenty minute"]),
-        .m25: DisplayRepresentation(title: "25-minute", synonyms: ["25 minute", "twenty-five minute", "twenty five minute"]),
-        .m30: DisplayRepresentation(title: "30-minute", synonyms: ["30 minute", "thirty minute", "half hour", "half-hour"]),
-        .m45: DisplayRepresentation(title: "45-minute", synonyms: ["45 minute", "forty-five minute", "forty five minute"]),
-        .m50: DisplayRepresentation(title: "50-minute", synonyms: ["50 minute", "fifty minute"]),
-        .m60: DisplayRepresentation(title: "1-hour", synonyms: ["one hour", "hour-long", "hour long", "60 minute", "sixty minute"]),
-        .m90: DisplayRepresentation(title: "90-minute", synonyms: ["90 minute", "ninety minute", "hour and a half"])
+        .m10: DisplayRepresentation(title: "10-minute", synonyms: ["10 minute", "10 minutes", "10-minutes", "ten minutes", "ten minute"]),
+        .m15: DisplayRepresentation(title: "15-minute", synonyms: ["15 minute", "15 minutes", "15-minutes", "fifteen minutes", "fifteen minute"]),
+        .m20: DisplayRepresentation(title: "20-minute", synonyms: ["20 minute", "20 minutes", "20-minutes", "twenty minutes", "twenty minute"]),
+        .m25: DisplayRepresentation(title: "25-minute", synonyms: ["25 minute", "25 minutes", "25-minutes", "twenty-five minutes", "twenty five minutes", "twenty-five minute", "twenty five minute"]),
+        .m30: DisplayRepresentation(title: "30-minute", synonyms: ["30 minute", "30 minutes", "30-minutes", "thirty minutes", "thirty minute", "half hour", "half-hour"]),
+        .m45: DisplayRepresentation(title: "45-minute", synonyms: ["45 minute", "45 minutes", "45-minutes", "forty-five minutes", "forty-five minute", "forty five minute"]),
+        .m50: DisplayRepresentation(title: "50-minute", synonyms: ["50 minute", "50 minutes", "50-minutes", "fifty minutes", "fifty minute"]),
+        .m60: DisplayRepresentation(title: "1-hour", synonyms: ["one hour", "hour-long", "hour long", "60 minute", "60 minutes", "sixty minute", "sixty minutes", "an hour", "1 hour"]),
+        .m90: DisplayRepresentation(title: "90-minute", synonyms: ["90 minute", "90 minutes", "90-minutes", "ninety minutes", "ninety minute", "hour and a half"])
     ]
 }
 
 // "Start studying for bio", "start a 25-minute focus session", "work on my lab report"
 struct StartFocusIntent: AppIntent {
     static let title: LocalizedStringResource = "Start Focus Session"
-    static let description = IntentDescription("Starts Studyboard's focus timer, on a task, a course, or the first thing in today's plan.")
+    static let description = IntentDescription("Starts Studyboard's focus timer, on a task or a course if you name one; otherwise a plain timer.")
     // the app's own timer runs the session (and puts it on the Lock Screen), so it opens
     static let openAppWhenRun: Bool = true
 
@@ -157,7 +157,8 @@ struct StartFocusIntent: AppIntent {
 
     init() {}
 
-    // what to work on: the task named, else the course's first thing in today's plan (or its next due task), else the plan's first thing
+    // what to work on: the task named, else the course's first thing in today's plan (or its next due task). With neither named it's a
+    // plain timer: "start a 25-minute focus timer" used to land on the plan's first task, cut to that task's few minutes
     static func pick(_ snap: SBSnapshot?, task: AssignmentEntity?, course: CourseEntity?) -> (id: String, title: String, planMins: Int)? {
         let items = snap.flatMap { SBPlanSay.todayItems($0) } ?? []
         if let t = task { return (id: t.id, title: t.title, planMins: items.first(where: { $0.id == t.id })?.mins ?? 0) }
@@ -167,7 +168,7 @@ struct StartFocusIntent: AppIntent {
             let next = snap.tasks.filter { !($0.done ?? false) && $0.course == c.id }.sorted { ($0.due?.isEmpty == false ? $0.due! : "9999") < ($1.due?.isEmpty == false ? $1.due! : "9999") }.first
             return next.map { (id: $0.id, title: $0.title, planMins: 0) }
         }
-        return items.first.map { (id: $0.id, title: $0.title, planMins: $0.mins) }
+        return nil
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {

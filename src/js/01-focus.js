@@ -273,7 +273,8 @@ function pomoTakeLock(){
           if (pomo.running || pomo.left > 0) pomoReset();
           // an exam's study time in the plan ("study:<exam id>") is a session on the exam
           const tid = typeof task === "string" && task.indexOf(XS_ID) === 0 ? task.slice(XS_ID.length) : task;
-          if (tid && state.tasks[tid]) pomo.taskId = tid;
+          // a plain timer ("start a 25-minute focus timer") is on no task, not on whatever the last session was on
+          pomo.taskId = tid && state.tasks[tid] ? tid : "";
           pomo.mode = "focus"; pomo.left = 0; pomo.len = 0;
           pomo.preset = mins >= 5 && mins <= 180 ? Math.round(mins) : pomo.taskId ? focusMinsFor(pomo.taskId) : 0;
           pomoStart();
