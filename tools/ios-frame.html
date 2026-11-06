@@ -10,6 +10,11 @@ h1{position:absolute;left:30px;right:30px;top:52px;margin:0;color:#fff;font-size
 /* the status bar sits over the screen's own top edge, extended up (see setShot), so there's no seam */
 .bar{position:absolute;left:0;right:0;top:0;z-index:1;height:calc(100% * 59 / 956);display:grid;grid-template-columns:1fr 104px 1fr;align-items:center;justify-items:center;padding:0 10px;box-sizing:border-box;font-weight:600;font-size:13px;letter-spacing:-.01em}
 .bar .ic{display:flex;gap:4px;align-items:center}
+/* the time sits out toward the screen's corner, as on the iPhone (centred about 71 points in), the icons mirror it */
+.bar > span:first-child{justify-self:start;padding-left:30px}
+.bar > .ic{justify-self:end;padding-right:16px}
+html.ipad .bar > span:first-child{padding-left:0}
+html.ipad .bar > .ic{padding-right:0}
 .bar svg{display:block}
 /* the home indicator */
 .home{position:absolute;left:50%;bottom:6px;z-index:1;width:104px;height:4px;margin-left:-52px;border-radius:2px;background:#000}
