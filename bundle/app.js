@@ -97995,7 +97995,11 @@ ui._day = todayISO();
       }
     } catch (e) {}
   };
+  // the dialog itself would focus an [autofocus] box as it opens, which on a phone pops the keyboard up for a moment
+  // (the sheet shrinks above it, then stretches back down as it drops), so on a phone nothing is marked to take focus
+  const noAuto = d => { try { if (phoneW()) d.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus")); } catch (e) {} };
   HTMLDialogElement.prototype.showModal = function(){
+    noAuto(this);
     const r = showModal0.apply(this, arguments);
     quiet(this); requestAnimationFrame(() => quiet(this));
     return r;
@@ -98045,7 +98049,7 @@ ui._day = todayISO();
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
     const f = d.showModal;
-    d.showModal = function(){ const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
   });
 
   // A tab (or course / plan view) changed: the new page eases in. Re-draws from edits stay still.
