@@ -192,6 +192,13 @@ async function initSupabase(ask){
       else if (!u && sbUser && event === "SIGNED_OUT") { SBC.del("rows", sbUser.id); ["brightspace", "canvas", "blackboard", "moodle", "schoology"].forEach(k => SBC.del("rows", "feed:" + k)); if (sbBackend.cur) sbBackend.cur(); sbUser = null; cloud.on = false; caps.assets = DESK ? deskAssets : null; syncLabel(); scheduleRender(); setTimeout(() => { if (!sbUser && !sbLeaving) sbSignInSheet(); }, 200); }
     });
   }
+  // the web, back from Studyboard's Microsoft sign-in with its one-time token
+  if (/(^#|&)sb_ms=/.test(location.hash)) {
+    let bind = ""; try { bind = localStorage.getItem(SB_MS_BIND) || ""; localStorage.removeItem(SB_MS_BIND); localStorage.removeItem(SB_OAUTH_TRIED); } catch (e) {}
+    const addr = location.href; try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    try { await sbOAuthFinish(addr, bind); setTimeout(() => toast("Signed in with Microsoft"), 300); }
+    catch (e) { setTimeout(() => toast(sbOAuthWords(e && e.message, "azure")), 600); }
+  }
   let session = null;
   try { const r = await sb.auth.getSession(); session = r.data && r.data.session; } catch(e) {}
   if (SB_LINK_ERR && !SB_LINK_ERR.shown) { SB_LINK_ERR.shown = true; try { history.replaceState(null, "", location.pathname); } catch(e) {} setTimeout(sbLinkErrorSheet, 500); }
@@ -832,16 +839,38 @@ const sbAppleOk = () => {
 };
 const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Sign in with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Sign in with Google</span></button><button type="button" class="sb-oa sb-oa-ms" data-oauth="azure">${SB_MS_SVG}<span>Sign in with Microsoft</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
 // The code or tokens a provider sent back to a return address, made into a session
-async function sbOAuthFinish(addr){
+async function sbOAuthFinish(addr, bind){
   const u = new URL(addr), p = new URLSearchParams((u.hash || "").replace(/^#/, "")), q = u.searchParams;
   const err = p.get("error_description") || q.get("error_description") || p.get("error") || q.get("error");
   if (err) throw Object.assign(new Error(err.replace(/\+/g, " ")), {oauth: true});
+  // Studyboard's own Microsoft sign-in (ms-signin): a one-time token, accepted only on the device that began the sign-in
+  const ms = p.get("sb_ms");
+  if (ms) {
+    if (!bind || p.get("sb_ms_bind") !== bind) throw Object.assign(new Error("That sign-in was started somewhere else. Choose Sign in with Microsoft again."), {oauth: true});
+    const {error} = await sb.auth.verifyOtp({token_hash: ms, type: "magiclink"}); if (error) throw error; return true;
+  }
   const code = q.get("code") || p.get("code");
   if (code) { const {error} = await sb.auth.exchangeCodeForSession(code); if (error) throw error; return true; }
   const at = p.get("access_token"), rt = p.get("refresh_token");
   if (at && rt) { const {error} = await sb.auth.setSession({access_token: at, refresh_token: rt}); if (error) throw error; return true; }
   throw new Error("The sign-in didn't come back complete. Try again.");
 }
+// Microsoft: Studyboard's own sign-in step (the ms-signin function), once it's deployed, so school and work accounts whose
+// "email" Microsoft leaves empty can sign in too; until then, Supabase's own Microsoft (Azure) sign-in
+const SB_MS_BIND = "studioso:msBind";
+const sbFnBase = () => { const c = sbConfig() || SB_DEFAULT; return String(c.url || "").replace(/\/+$/, "") + "/functions/v1"; };
+let SB_MS_READY = null;
+async function sbMsReady(){
+  if (SB_MS_READY && Date.now() - SB_MS_READY.at < 10 * 60000) return SB_MS_READY.ok;
+  let ok = false;
+  try {
+    const c = sbConfig() || SB_DEFAULT, ac = new AbortController(), t = setTimeout(() => ac.abort(), 2500);
+    const r = await fetch(sbFnBase() + "/ms-signin/ready", {headers: {apikey: c.key}, signal: ac.signal}); clearTimeout(t);
+    ok = r.ok && !!(await r.json().catch(() => ({}))).ok;
+  } catch (e) {}
+  SB_MS_READY = {ok, at: Date.now()}; return ok;
+}
+const sbRandId = () => { const b = crypto.getRandomValues(new Uint8Array(24)); return btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
 // The provider last started on the web (the page reloads on the way back, so the error that comes back doesn't say which)
 const SB_OAUTH_TRIED = "studioso:oauthTried";
 // A sign-in with Google, Apple or Microsoft that came back with an error, in plain words: what went wrong and who fixes it
@@ -863,6 +892,30 @@ async function sbOAuth(provider, say, back){
   // Google and Microsoft: always let the student pick which account (a school and a personal one are common); Microsoft must
   // be asked for the email, which Supabase needs for the account
   const opts = provider === "google" ? {queryParams: {prompt: "select_account"}} : provider === "azure" ? {scopes: "openid profile email offline_access", queryParams: {prompt: "select_account"}} : {scopes: "name email"};
+  // Microsoft through Studyboard's own step, on every platform
+  if (provider === "azure" && await sbMsReady()) {
+    const bind = sbRandId(), start = ret => sbFnBase() + "/ms-signin/start?" + new URLSearchParams({return: ret, bind}).toString();
+    if (N && N.open) {
+      say("Finish signing in with Microsoft…");
+      const addr = await N.open(start(N.redirect));
+      if (!addr) { say(""); return false; }
+      say("Signing in…"); return sbOAuthFinish(addr, bind);
+    }
+    if (DESK && typeof DESK.oauthPort === "function") {
+      const port = await DESK.oauthPort();
+      if (!port) throw new Error("Couldn't start sign-in on this computer. Restart Studyboard and try again.");
+      say("Finish signing in with Microsoft in your browser…");
+      const addr = await DESK.oauthOpen(start(`http://127.0.0.1:${port}/auth`));
+      if (!addr) { say("Sign-in was closed before it finished."); return false; }
+      say("Signing in…"); return sbOAuthFinish(addr, bind);
+    }
+    if (!/^https?:$/.test(location.protocol)) throw new Error("Sign in with Microsoft isn't available here. Use your email instead.");
+    sbLinkAsked();
+    try { localStorage.setItem(SB_OAUTH_TRIED, JSON.stringify({p: provider, at: Date.now()})); localStorage.setItem(SB_MS_BIND, bind); } catch (e) {}
+    say("Opening Microsoft…");
+    location.assign(start(back));
+    return false;
+  }
   // iPhone: Apple's own sheet
   if (provider === "apple" && N && N.apple) {
     const r = await N.apple();

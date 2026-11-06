@@ -597,8 +597,17 @@ function noteSheetUp(){
   let bg = $(".n-sheet-bg");
   if (sheet && !bg) { bg = document.createElement("div"); bg.className = "n-sheet-bg"; bg.setAttribute("aria-hidden", "true"); if (bg.showPopover) bg.setAttribute("popover", "manual"); document.body.appendChild(bg); }
   if (bg) { bg.classList.toggle("on", sheet); if (bg.showPopover) try { if (sheet && !bg.matches(":popover-open")) bg.showPopover(); else if (!sheet && bg.matches(":popover-open")) bg.hidePopover(); } catch (e) {} }
-  if (!sheet) { noteSheetId = null; noteSheetAway(); return; }
+  if (!sheet) {
+    // the slide-down plays once, on the redraw where an open editor closes; never again later (a stale copy of the editor
+    // would flash up and slide away on the next redraw, such as the first drag after editing)
+    const was = noteSheetId; noteSheetId = null;
+    $$(".note.n-sheet:not(.editing)").forEach(n => { n.classList.remove("n-sheet", "n-enter"); try { if (n.matches(":popover-open")) n.hidePopover(); } catch (e) {} n.removeAttribute("popover"); });
+    if (was) noteSheetAway(); else noteSheetLast = null;
+    return;
+  }
   el.classList.add("n-sheet");
+  // the note's own colour also fills the strip behind the keyboard (see .n-sheet-bg.on::after)
+  try { document.documentElement.style.setProperty("--n-sheet-c", getComputedStyle(el).getPropertyValue("--nc").trim() || getComputedStyle(el).backgroundColor); } catch (e) {}
   // slides up once when a note opens, not again on every redraw while it's being edited
   if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
@@ -613,7 +622,7 @@ function noteSheetUp(){
 // Closing a note on a phone: the editor slides back down like the other sheets, instead of vanishing (a still copy does the
 // sliding; the note itself is already saved and closed)
 let noteSheetLast = null;
-function noteSheetKeep(el){ try { const r = el.getBoundingClientRect(); if (r.height > 40) noteSheetLast = {el, r}; } catch (e) {} }
+function noteSheetKeep(el){ try { if (!el.classList.contains("editing") || el.dataset.note !== noteEditing) return; const r = el.getBoundingClientRect(); if (r.height > 40) noteSheetLast = {el, r}; } catch (e) {} }
 function noteSheetAway(){
   const L = noteSheetLast; noteSheetLast = null;
   if (!L || L.el.isConnected || !document.body.showPopover) return;

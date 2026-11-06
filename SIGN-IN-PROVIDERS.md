@@ -115,7 +115,34 @@ Supabase needs the account's email, and needs to know Microsoft verified it. Oth
 4. **Azure Tenant URL:** leave it **empty**. Empty means the "common" endpoint: every Microsoft account, personal and school.
 5. Save. The return addresses from Part 1 are already shared by every provider, so there's nothing more to add.
 
-### F. Test it
+### F. School and work accounts with no email: Studyboard's own Microsoft step
+
+Supabase's built-in Microsoft sign-in needs Microsoft's `email` claim. Many school and work accounts leave it empty, because the organisation never filled in the account's "mail" field. Those students get "Microsoft didn't share your email address", while personal accounts work. Studyboard's own sign-in step, the `ms-signin` function, fixes this:
+- It signs them in with their school or work sign-in name instead (like `sam@school.edu`). Microsoft only allows those names on domains the school has proven it owns.
+- It never trusts an `email` Microsoft doesn't vouch for, so someone can't make their own Microsoft organisation and claim another person's address.
+- Each sign-in can only finish on the device or browser that started it.
+
+The app and the website switch to it by themselves once it's deployed. Until then they keep using Supabase's built-in Microsoft sign-in, so nothing breaks in between.
+
+1. **Add its return address in Microsoft.** In the same app registration, open **Authentication → Web → Redirect URIs**, add this, and save:
+   ```
+   https://pivcmrqcjseycjkbocmc.supabase.co/functions/v1/ms-signin/callback
+   ```
+2. **Deploy the function** from the repository folder, with JWT verification off (students arrive from Microsoft without a Studyboard sign-in):
+   ```
+   supabase functions deploy ms-signin --no-verify-jwt
+   ```
+   Or in the dashboard: **Edge Functions → Deploy a new function**, name it `ms-signin`, paste `supabase-functions/ms-signin/index.ts`, deploy, then turn **Verify JWT** off in its **Details** and save.
+3. **Secrets** (**Edge Functions → Secrets**). It uses your existing `MS_CLIENT_ID` and `MS_CLIENT_SECRET`, the same app registration as OneDrive, OneNote and calendar sync, plus a key for its one-time state:
+   - `MS_SIGNIN_KEY`: 32 or more random characters. (If you already have `CLOUD_KEY` or `CALSYNC_KEY`, it uses that and you can skip this.)
+   - Use a different registration for sign-in? Set `MS_SIGNIN_CLIENT_ID` and `MS_SIGNIN_CLIENT_SECRET` instead.
+   - The secret must be the secret's **Value** from **Certificates & secrets**, and must belong to the same registration as the client ID.
+4. **Check it's on:** open `https://pivcmrqcjseycjkbocmc.supabase.co/functions/v1/ms-signin/ready` in a browser. It should say `{"ok":true}`. `false` means a secret is missing.
+5. Try **Sign in with Microsoft** with the school or work account that failed before, in a private window.
+
+The function also reports Microsoft's own problems in plain words, like a school that needs its IT admin to approve Studyboard (see "Need admin approval" in D2).
+
+### G. Test it
 - On the web, in the Windows or Mac app, and on iPhone and Android: sign in once with a personal Microsoft account and once with a school account.
 - Then sign in with Microsoft using the same email as an existing email-and-password account. Supabase links the two when the email is verified on both sides (which step C makes possible).
 
@@ -139,5 +166,5 @@ The Mac App Store build needs the `com.apple.security.network.server` entitlemen
   - Apple and Google on the web
   - Apple and Google on iPhone
   - Apple and Google in the Mac app
-  - Microsoft on the web, iPhone, Android, Mac and Windows (Part 4F)
+  - Microsoft on the web, iPhone, Android, Mac and Windows, with a personal account and with a school account (Part 4G)
   - Signing in with Apple, Google or Microsoft using the same email as an existing email-and-password account. Supabase links them when the email is confirmed by both.

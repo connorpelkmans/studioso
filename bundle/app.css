@@ -2029,6 +2029,10 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 #toast[popover]{top:auto;right:auto;margin:0;border:0;width:auto;height:auto;overflow:visible}
 .nb-board:has(.n-sheet:not(:popover-open)){isolation:auto;z-index:auto}
 .n-sheet-bg.on{display:block;position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:rgba(20,16,10,.45);z-index:8990}
+/* behind the keyboard (see-through on iPhone) the open note's own colour carries on down, not the board */
+.n-sheet-bg.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--kb,0px);background:var(--n-sheet-c,transparent)}
+/* with the keyboard up, the note's shadow stays on its top edge (it would show as a seam over the strip below) */
+html:is(.kb-open,.kb-native) .note.editing.n-sheet{box-shadow:0 -14px 34px -14px rgba(20,15,5,.45)}
 .note.n-sheet .note-text{min-height:132px;font-size:1rem}
 .note.n-sheet .nc{width:40px;height:40px}
 .note.n-sheet .note-task,.note.n-sheet .note-course,.note.n-sheet .note-shape,.note.n-sheet .pp-btn{min-height:44px}
@@ -2038,6 +2042,8 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 /* typing with the keyboard up: a compact sheet resting on the keyboard, just the text and the Done bar, with the board still
    showing above it (it grows with the text but never reaches the top); the options come back when the keyboard closes */
 html:is(.kb-open,.kb-native) .note.n-sheet:has(.note-text:focus) .note-tools > :not(.note-btns){display:none}
+/* the Done row then sticks to the bottom of the whole sheet (inside its own short box it couldn't move, and was cut off) */
+html:is(.kb-open,.kb-native) .note.n-sheet:has(.note-text:focus) .note-tools{display:contents}
 html:is(.kb-open,.kb-native) .note.n-sheet:has(.note-text:focus){max-height:min(calc(100dvh - var(--kb,0px) - max(96px,18dvh)),calc(var(--vvh,100dvh) - 96px))}
 @media (pointer:coarse){
   .nc{position:relative;width:34px;height:34px}
