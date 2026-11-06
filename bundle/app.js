@@ -61856,9 +61856,10 @@ var COMP_EXTRA = [];
   }
   /* Smooth moves only */
   let glideAnim = null, glideEnd = 0;
-  function glideBy(ox, oy, sc, replace){
+  // slow: a little slower (leaving the Companion tab's circle for its corner)
+  function glideBy(ox, oy, sc, replace, slow){
     if (!box || still() || document.hidden || !box.animate) return;
-    const d = Math.hypot(ox, oy), ms = Math.round(Math.max(220, Math.min(520, 200 + d * 1.2)));
+    const d = Math.hypot(ox, oy), ms = Math.round(Math.max(220, Math.min(520, 200 + d * 1.2)) * (slow ? 1.35 : 1));
     if (d < 0.5 && (!sc || Math.abs(sc - 1) < 0.01)) return;
     if (glideAnim) try { glideAnim.cancel(); } catch (e) {}
     const me = glideAnim = box.animate([{transform: `translate(${f1(ox)}px,${f1(oy)}px)${sc ? ` scale(${f1(sc)})` : ""}`}, {transform: "translate(0px,0px) scale(1)"}], Object.assign({duration: ms, easing: "cubic-bezier(.22,.8,.3,1)"}, replace ? {} : {composite: "add"}));
@@ -62320,7 +62321,7 @@ var COMP_EXTRA = [];
     box.style.cssText = `left:${s.left}px;top:${s.top}px;width:${s.px}px;height:${s.px}px`;
     box.dataset.x = s.left; box.dataset.y = s.top; box.dataset.px = s.px; box.dataset.spot = s.kind;
     if (from && homeSig) {
-      if (Math.abs(oldPx - s.px) > 1) { const c = dc || was; stopTravel(); glideBy(c.x - (s.left + s.px / 2), c.y - (s.top + s.px / 2), oldPx / s.px, true); }
+      if (Math.abs(oldPx - s.px) > 1) { const c = dc || was; stopTravel(); glideBy(c.x - (s.left + s.px / 2), c.y - (s.top + s.px / 2), oldPx / s.px, true, prevKind === "slot"); }
       else if (Math.hypot(from.left - s.left, from.top - s.top) >= 6 && !still() && !document.hidden) travel(from, s, s.px);
       else if (Math.hypot(from.left - s.left, from.top - s.top) >= 0.5) { stopTravel(); glideBy(from.left - s.left, from.top - s.top, 0, true); }
     }
