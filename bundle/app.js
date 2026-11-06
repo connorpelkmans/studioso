@@ -15833,9 +15833,9 @@ function viewFiles(){
   const hcol = c ? c.color : ui.fCourse === "all" ? "var(--accent-band,var(--accent))" : "#8A94A6";
   const nHere = lec ? lec.n : fs.length, inCls = !!(lec && lec.crumb), bandActs = [ui.fCourse !== "all" && !inCls ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder && !inCls ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
   const fhead = `<div class="fhead g2-head" style="--c:${esc(hcol)}">
-      <div class="g2-band"><span class="g2-kick">${c ? esc(courseLabel(c)) + " · " : ""}Files</span>${bandActs ? `<div class="row-actions">${bandActs}</div>` : ""}</div>
+      <div class="g2-band" aria-hidden="true"></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : ui.fCourse === "all" ? FOLDER : GENERAL_ICON}</span>
-        <div class="g2-txt"><h2 class="fcrumb">${crumbs}</h2><div class="g2-meta"><span>${nHere} ${nHere === 1 ? "item" : "items"}${ui.q.trim() ? " matching your search" : ""}</span></div></div></div>
+        <div class="g2-txt"><h2 class="fcrumb">${crumbs}</h2><div class="g2-meta"><span>${nHere} ${nHere === 1 ? "item" : "items"}${ui.q.trim() ? " matching your search" : ""}</span></div></div>${bandActs ? `<div class="row-actions fh-acts">${bandActs}</div>` : ""}</div>
     </div>`;
   const actions = `${window.SBPDE && SBPDE.scanBtn ? SBPDE.scanBtn() : ""}${window.SBPDFT ? SBPDFT.filesBtns() : ""}${window.SBCLOUD ? SBCLOUD.filesBtn() : ""}${trashBtn("file")}<div class="segb" role="group" aria-label="Sort"><button data-act="f-sort" data-id="date" aria-pressed="${ui.fSort !== "name"}">Newest</button><button data-act="f-sort" data-id="name" aria-pressed="${ui.fSort === "name"}">Name</button></div>`;
   return `<div class="tl-controls f-title"><h2>Files</h2>${actions}</div>${searchNote()}
