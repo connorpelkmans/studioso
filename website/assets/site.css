@@ -372,6 +372,12 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 .msb img{display:block;height:44px;width:auto}
 .msb.big img{height:56px}
 .msb:focus-visible{outline:2px solid var(--accent,#2F6FDB);outline-offset:3px}
+/* Apple's App Store badge, shown as Apple supplies it (its own black fill and grey edge read on light and dark pages) */
+.asb{display:inline-flex;align-items:center;border-radius:7px;text-decoration:none;line-height:0}
+.asb img{display:block;height:44px;width:auto}
+.asb.big img{height:56px}
+.asb.small img{height:40px}  /* Apple's smallest on-screen size */
+.asb:focus-visible{outline:2px solid var(--accent,#2F6FDB);outline-offset:3px}
 .msb .on-dark{display:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .msb .on-light{display:none}:root:not([data-theme="light"]) .msb .on-dark{display:block}}
 :root[data-theme="dark"] .msb .on-light{display:none}

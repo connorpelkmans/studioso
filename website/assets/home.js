@@ -30,6 +30,12 @@
       '<img class="on-dark" src="assets/ms-store-badge-light.png" alt="Download from the Microsoft Store" decoding="async" width="161" height="44"></a>';
   }
 
+  // the App Store: Apple's own "Download on the App Store" badge (developer.apple.com, unaltered), once the app's page is set
+  function asBadge(cls) {
+    return '<a class="asb' + (cls ? " " + cls : "") + '" href="' + esc(httpsUrl(D.ios && D.ios.url)) + '" target="_blank" rel="noopener" aria-label="Download Studyboard on the App Store">' +
+      '<img src="assets/app-store-badge.svg" alt="Download on the App Store" decoding="async" width="120" height="40"></a>';
+  }
+
   var CWS = httpsUrl((D.chrome && D.chrome.store) || "");
   function cwsBadge() {
     return '<a class="cwsb" href="' + esc(CWS) + '" target="_blank" rel="noopener" aria-label="Get the Studyboard School Sync extension in the Chrome Web Store">' +
@@ -96,10 +102,12 @@
   function bigButton(k, icon, small, big, primary) { return '<a class="dl' + (primary ? " primary" : "") + '" data-download="' + k + '" href="' + esc(hrefFor(k)) + '">' + icon + '<span class="t"><small>' + esc(small) + '</small><b>' + esc(big) + "</b></span></a>"; }
   function storeButton(k, primary) {
     var apple = k === "ios";
+    if (apple && ready(k)) return asBadge("big");
     return '<a class="dl store' + (primary ? " primary" : "") + '" data-download="' + k + '" href="' + esc(hrefFor(k)) + '">' + (apple ? ICONS.store : ICONS.play) + '<span class="t"><small>' + (ready(k) ? (apple ? "Download on the" : "Get it on") : (apple ? "Coming soon on the" : "Coming soon on")) + "</small><b>" + (apple ? "App Store" : "Google Play") + "</b></span></a>";
   }
   function webButton(primary) { return WEB ? '<a class="dl' + (primary ? " primary" : "") + '" href="' + esc(WEB) + '">' + ICONS.web + '<span class="t"><small>Free · works in any browser, nothing to install</small><b>Open Studyboard</b></span></a>' : ""; }
-  function chip(k, icon, text) { return '<a class="chip" data-download="' + k + '" href="' + esc(hrefFor(k)) + '"' + (k === "windows" && MS ? ' target="_blank" rel="noopener"' : "") + ">" + icon + esc(text) + (ready(k) ? "" : " · soon") + "</a>"; }
+  function chip(k, icon, text) {
+    if (k === "ios" && ready(k) && !chipMac) return asBadge("small"); return '<a class="chip" data-download="' + k + '" href="' + esc(hrefFor(k)) + '"' + (k === "windows" && MS ? ' target="_blank" rel="noopener"' : "") + ">" + icon + esc(text) + (ready(k) ? "" : " · soon") + "</a>"; }
   var macHelp = '<details class="which"><summary>Which Mac do I have?</summary><p>Click the Apple menu in the top-left corner and choose <b>About This Mac</b>. If it says <b>Chip: Apple M1</b> (or M2, M3, M4 and so on), pick Apple M-series. If it says <b>Processor: Intel</b>, pick Intel.</p></details>';
   var seeAll = '<a href="#download">See all downloads</a>';
   var NAMES = {windows: ["windows", "Windows", "Windows 10 & 11"], macArm: ["mac", "Mac", "Apple M-series"], macIntel: ["mac", "Mac", "Intel Macs"], linux: ["linux", "Linux", "AppImage"]};
@@ -111,6 +119,7 @@
     return webButton(true) + bigButton(k, ICONS[n[0]], "Coming soon · " + n[2], n[1], false);
   }
 
+  var chipMac = false;
   function renderHero(p) {
     var el = document.getElementById("heroDownloads"); if (!el) return;
     var html = "";
@@ -122,6 +131,7 @@
     } else if (p.os === "linux") {
       html = '<div class="dlrow">' + desktopRow("linux") + '</div><div class="others"><span>Also on</span>' + chip("windows", ICONS.windows, "Windows") + chip("macArm", ICONS.mac, "Mac") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
     } else if (p.os === "mac") {
+      chipMac = true;
       if (p.chip === "arm" || p.chip === "intel") {
         var k = p.chip === "arm" ? "macArm" : "macIntel", other = p.chip === "arm" ? "macIntel" : "macArm";
         html = '<div class="dlrow">' + desktopRow(k) + '</div><div class="others"><span>Also on</span>' + chip(other, ICONS.mac, p.chip === "arm" ? "Mac Intel" : "Mac M-series") + chip("windows", ICONS.windows, "Windows") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
@@ -140,6 +150,10 @@
     var mine = p.os === "windows" ? "windows" : p.os === "mac" ? (p.chip === "intel" ? "macIntel" : p.chip === "arm" ? "macArm" : "") : p.os === "ios" ? "ios" : p.os === "android" ? "android" : p.os === "linux" ? "linux" : "";
     function card(k, icon, title, action) {
       var d = D[k] || {}, f = fileName(d, k);
+      if (k === "ios" && ready(k)) {
+        return '<div class="plat' + (mine === k ? " you" : "") + '">' + (mine === k ? '<span class="you-tag">Your device</span>' : "") + '<div class="ico">' + icon + "</div><h4>" + title + "</h4><div><p>" + esc(d.needs || "") + " · free on the App Store</p></div>" +
+          '<div class="ms-go">' + asBadge("") + "</div></div>";
+      }
       if (k === "windows" && MS) {
         return '<div class="plat' + (mine === k ? " you" : "") + '">' + (mine === k ? '<span class="you-tag">Your device</span>' : "") + '<div class="ico">' + icon + "</div><h4>" + title + "</h4><div><p>" + esc(d.needs || "") + " · from the Microsoft Store, with automatic updates</p></div>" +
           '<div class="ms-go">' + msBadge("") + "</div></div>";
