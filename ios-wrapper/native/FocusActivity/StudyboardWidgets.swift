@@ -56,13 +56,11 @@ private struct TomatoShade: Shape {
     func path(in r: CGRect) -> Path {
         var p = Path()
         p.move(to: CGPoint(x: 15.52, y: 7.66))
-        p.addCurve(to: CGPoint(x: 19.4, y: 10), control1: CGPoint(x: 17.02, y: 7.89), control2: CGPoint(x: 18.46, y: 8.62))
+        p.addCurve(to: CGPoint(x: 19.4, y: 10), control1: CGPoint(x: 17.02, y: 7.89), control2: CGPoint(x: 18.47, y: 8.61))
         p.addCurve(to: CGPoint(x: 18.2, y: 18.6), control1: CGPoint(x: 21, y: 12.4), control2: CGPoint(x: 20.6, y: 16.2))
         p.addCurve(to: CGPoint(x: 12, y: 21.1), control1: CGPoint(x: 16.6, y: 20.2), control2: CGPoint(x: 14.4, y: 21.1))
         p.addCurve(to: CGPoint(x: 7.4, y: 19.8), control1: CGPoint(x: 10.3, y: 21.1), control2: CGPoint(x: 8.7, y: 20.6))
-        p.addCurve(to: CGPoint(x: 17.8, y: 13.6), control1: CGPoint(x: 11.8, y: 20.4), control2: CGPoint(x: 16.7, y: 17.8))
-        p.addCurve(to: CGPoint(x: 17.7, y: 9.9), control1: CGPoint(x: 18.2, y: 12.3), control2: CGPoint(x: 18.2, y: 11))
-        p.addCurve(to: CGPoint(x: 15.52, y: 7.66), control1: CGPoint(x: 17.3, y: 9.02), control2: CGPoint(x: 16.87, y: 8.21))
+        p.addCurve(to: CGPoint(x: 15.52, y: 7.66), control1: CGPoint(x: 18.05, y: 21.25), control2: CGPoint(x: 20.46, y: 8.42))
         p.closeSubpath()
         return p.applying(CGAffineTransform(scaleX: r.width / 24, y: r.height / 24))
     }
