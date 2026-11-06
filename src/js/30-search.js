@@ -1304,8 +1304,7 @@ Return JSON only.`;
   function flash(sel, center){
     const el = typeof sel === "string" ? $(sel) : sel; if (!el) return;
     try { el.scrollIntoView({block: center === false ? "nearest" : "center", behavior: "smooth"}); } catch(e) {}
-    el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash");
-    setTimeout(() => el.classList.remove("sx-flash"), 2200);
+    foundBox(el);
   }
   function openDeck(id){ go("flashcards"); ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); }
   function openNote(id){

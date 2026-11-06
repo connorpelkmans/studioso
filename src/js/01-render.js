@@ -168,6 +168,18 @@ function nbZoomTo(z, cx, cy){
 const NBZ_STEPS = [0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2];
 // Found a note (Ask, the companion, Search, a link): glide the board so the note is centred and big enough to read,
 // then draw a highlight box around it. One smooth move of zoom and scroll together; instant with Reduce Motion.
+// Whatever Ask, the companion or Search finds gets the same highlight box notes get: it settles in around the whole
+// item (a flashcard's whole tile, not just its text), then fades after a few seconds
+let foundT = [];
+function foundBox(el){
+  if (!el) return false;
+  const tile = el.matches && el.matches(".fc-cell, .fc-face") ? el.closest(".fc-row") || el : el;
+  document.querySelectorAll(".sb-found").forEach(x => x.classList.remove("sb-found", "sb-found-out"));
+  foundT.forEach(clearTimeout);
+  tile.classList.remove("sb-found", "sb-found-out"); void tile.offsetWidth; tile.classList.add("sb-found");
+  foundT = [setTimeout(() => tile.classList.add("sb-found-out"), 2600), setTimeout(() => tile.classList.remove("sb-found", "sb-found-out"), 3100)];
+  return true;
+}
 let nbFocusRun = 0;
 function nbFocusNote(id){
   // The board can be redrawn while this runs (on phones the Notes page redraws right after it opens), so each frame

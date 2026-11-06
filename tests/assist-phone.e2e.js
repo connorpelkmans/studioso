@@ -129,6 +129,15 @@ function reply(body){
   const last = await page.locator(".cpt-a:not(.cpt-wait)").last().innerText();
   ok(/2 courses|BIO101/.test(last), "questions get answered in the Companion tab on a phone: " + JSON.stringify(last.slice(0, 80)));
 
+  // Whatever is found gets the highlight box: a flashcard (its whole tile) and a task
+  await S(() => { if (dlg.open) dlg.close(); });
+  await page.evaluate(() => SBASSIST.jump({kind: "card", deck: "d1", id: "k1"})); await page.waitForTimeout(700);
+  const fbox = await page.evaluate(() => { const f = document.querySelector(".sb-found"); return f ? f.className + "|" + !!f.querySelector('[data-id="k1"]') : ""; });
+  ok(/fc-row/.test(fbox) && /\|true$/.test(fbox), "a found flashcard gets the highlight box around its whole tile on a phone: " + fbox);
+  await page.evaluate(() => SBASSIST.jump({kind: "task", id: "t2"})); await page.waitForTimeout(700);
+  const tbox = await page.evaluate(() => { const f = document.querySelector(".sb-found"); return f ? (f.dataset.id || "") + "|" + getComputedStyle(f).outlineStyle : ""; });
+  ok(/^t2\|solid/.test(tbox) || await page.evaluate(() => !!document.querySelector("#dlg[open]")), "a found task gets the highlight box too on a phone: " + tbox);
+  await S(() => { if (dlg.open) dlg.close(); });
   ok(!errs.length, "no page errors " + errs.join(" | "));
   console.log("\nassist-phone.e2e: " + n + " checks passed");
   await browser.close(); server.close();
