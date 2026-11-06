@@ -24,6 +24,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(700);
     ok(await page.evaluate(() => !!document.querySelector(".note.editing.n-sheet")), "tapping the note opens it as a sheet");
     await page.keyboard.type(" and more"); await page.waitForTimeout(200);
+    // with the keyboard up, the note's colour carries on down behind it
+    { await page.evaluate(() => document.documentElement.style.setProperty("--kb", "300px")); await page.waitForTimeout(100);
+      const s = await page.evaluate(() => { const bg = document.querySelector(".n-sheet-bg.on"), a = bg && getComputedStyle(bg, "::after"); return {h: a && a.height, c: a && a.backgroundColor, note: getComputedStyle(document.querySelector(".note.n-sheet")).backgroundColor}; });
+      ok(s.h === "300px" && s.c === s.note, "behind the keyboard, the note's own colour fills the screen: " + JSON.stringify(s));
+      await page.evaluate(() => document.documentElement.style.setProperty("--kb", "0px")); }
     // watch for the editor's slide-down copy from here on
     await page.evaluate(() => { window.__g = []; const t0 = performance.now(); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(a => { if (a.nodeType === 1 && a.classList.contains("n-ghost")) window.__g.push(Math.round(performance.now() - t0)); }))).observe(document.body, {childList: true}); });
     await page.click('.note.editing button:has-text("Done")');

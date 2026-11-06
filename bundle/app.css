@@ -2029,6 +2029,10 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 #toast[popover]{top:auto;right:auto;margin:0;border:0;width:auto;height:auto;overflow:visible}
 .nb-board:has(.n-sheet:not(:popover-open)){isolation:auto;z-index:auto}
 .n-sheet-bg.on{display:block;position:fixed;inset:0;width:auto;height:auto;margin:0;padding:0;border:0;background:rgba(20,16,10,.45);z-index:8990}
+/* behind the keyboard (see-through on iPhone) the open note's own colour carries on down, not the board */
+.n-sheet-bg.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--kb,0px);background:var(--n-sheet-c,transparent)}
+/* with the keyboard up, the note's shadow stays on its top edge (it would show as a seam over the strip below) */
+html:is(.kb-open,.kb-native) .note.editing.n-sheet{box-shadow:0 -14px 34px -14px rgba(20,15,5,.45)}
 .note.n-sheet .note-text{min-height:132px;font-size:1rem}
 .note.n-sheet .nc{width:40px;height:40px}
 .note.n-sheet .note-task,.note.n-sheet .note-course,.note.n-sheet .note-shape,.note.n-sheet .pp-btn{min-height:44px}
