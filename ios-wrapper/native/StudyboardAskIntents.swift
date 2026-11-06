@@ -195,8 +195,10 @@ struct ClassTimeIntent: AppIntent {
     static let description = IntentDescription("Tells you when and where a course meets, and when its next class is.")
     static let openAppWhenRun: Bool = false
 
-    @Parameter(title: "Course", requestValueDialog: IntentDialog("Which class?"))
-    var course: CourseEntity
+    // no course named ("what's my next class"): the next class of any course. That way one App Shortcut covers both, which
+    // leaves room in Apple's limit of 10 for the study-day ones (StudyboardPlanIntents.swift)
+    @Parameter(title: "Course")
+    var course: CourseEntity?
 
     static var parameterSummary: some ParameterSummary {
         Summary("When is \(\.$course)")
@@ -206,6 +208,7 @@ struct ClassTimeIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let snap = SBAsk.snapshot() else { return .result(dialog: IntentDialog(stringLiteral: SBAsk.noData)) }
+        guard let course = course else { return .result(dialog: IntentDialog(stringLiteral: SBAsk.nextClass(snap))) }
         guard let c = snap.courses.first(where: { $0.id == course.id }) else {
             return .result(dialog: IntentDialog(stringLiteral: "I couldn't find \(course.name) in Studyboard anymore."))
         }
@@ -239,17 +242,23 @@ struct NextClassIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let snap = SBAsk.snapshot() else { return .result(dialog: IntentDialog(stringLiteral: SBAsk.noData)) }
-        let now = Date(), cs = SBSiriLookup.courses(snap)
+        return .result(dialog: IntentDialog(stringLiteral: SBAsk.nextClass(snap)))
+    }
+}
+
+extension SBAsk {
+    static func nextClass(_ snap: SBSnapshot, now: Date = Date()) -> String {
+        let cs = SBSiriLookup.courses(snap)
         guard let n = snap.classes.first(where: { (SBSay.at($0.date, $0.end) ?? .distantPast) > now }),
               let st = SBSay.at(n.date, n.start), let c = cs[n.course] else {
-            return .result(dialog: IntentDialog(stringLiteral: "You don't have any classes in the next two weeks." + SBSay.staleNote(snap, now: now)))
+            return "You don't have any classes in the next two weeks." + SBSay.staleNote(snap, now: now)
         }
-        let name = SBAsk.courseLabel(c)
+        let name = courseLabel(c)
         let kind = (n.kind?.isEmpty == false && n.kind != "Lecture") ? " " + n.kind!.lowercased() : ""
         let place = (n.place?.isEmpty == false) ? " in " + n.place! : ""
         let s = st <= now
             ? "You're in \(name)\(kind) right now\(place), until \(SBSay.time(SBSay.at(n.date, n.end)!))."
             : "Your next class is \(name)\(kind), \(SBSay.dayWords(st, now: now)) at \(SBSay.time(st))\(place)."
-        return .result(dialog: IntentDialog(stringLiteral: s + SBSay.staleNote(snap, now: now)))
+        return s + SBSay.staleNote(snap, now: now)
     }
 }

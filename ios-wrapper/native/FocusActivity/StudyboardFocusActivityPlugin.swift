@@ -94,6 +94,10 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, Notific
         // the alarm, whether or not Live Activities are on
         let alarmMs = (call.getBool("running") ?? false) ? (call.getDouble("endsAt") ?? 0) : 0
         StudyboardFocusAlarm.sync(mode: mode, endsAt: alarmMs > 0 ? Date(timeIntervalSince1970: alarmMs / 1000) : nil)
+        // what Siri reads to pause, resume or stop the timer, whether or not Live Activities are on
+        let mTotal = max(60, min(6 * 3600, call.getInt("total") ?? 1500))
+        SBFocusMirror.save(SBFocusMirror(mode: mode, running: alarmMs > 0, endsAt: alarmMs, left: alarmMs > 0 ? 0 : max(1, min(mTotal, call.getInt("left") ?? mTotal)),
+                                         total: mTotal, task: Self.clip(call.getString("task"), 80)))
         guard #available(iOS 16.2, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return call.resolve(["shown": false]) }
         let running = call.getBool("running") ?? false
         let total = max(60, min(6 * 3600, call.getInt("total") ?? 1500))
@@ -131,6 +135,7 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, Notific
 
     @objc func end(_ call: CAPPluginCall) {
         StudyboardFocusAlarm.sync(mode: "focus", endsAt: nil)
+        SBFocusMirror.save(nil)
         guard #available(iOS 16.2, *) else { return call.resolve() }
         Task {
             for a in Activity<StudyboardFocusAttributes>.activities { await a.end(nil, dismissalPolicy: .immediate) }

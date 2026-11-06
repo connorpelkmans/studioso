@@ -415,12 +415,16 @@
           }).then(function (r) { return !!(r && r.shown); }, function () { return false; });
         },
         end: function () { return Promise.resolve().then(function () { return FA.end(); }).then(function () {}, function () {}); },
-        // Pause, Play and Skip pressed on the Lock Screen: [{a: "pause"|"play"|"skip"|"reset", t: ms}], oldest first, each handed over once
+        // Pause, Play and Skip pressed on the Lock Screen, and Siri's pause/resume/stop/start: [{a: "pause"|"play"|"skip"|"reset"|"start", t: ms,
+        // task?, mins?}], oldest first, each handed over once
         take: function () {
           if (typeof FA.take !== "function") return Promise.resolve([]);
           return Promise.resolve().then(function () { return FA.take(); }).then(function (r) {
-            return (r && Array.isArray(r.actions) ? r.actions : []).filter(function (x) { return x && ["pause", "play", "skip", "reset"].indexOf(x.a) >= 0 && Number(x.t) > 0; })
-              .map(function (x) { var o = {a: x.a, t: Number(x.t)}; if (Number(x.left) >= 0) o.left = Number(x.left); if (Number(x.end) > 0) o.end = Number(x.end); return o; });
+            return (r && Array.isArray(r.actions) ? r.actions : []).filter(function (x) { return x && ["pause", "play", "skip", "reset", "start"].indexOf(x.a) >= 0 && Number(x.t) > 0; })
+              .map(function (x) { var o = {a: x.a, t: Number(x.t)}; if (Number(x.left) >= 0) o.left = Number(x.left); if (Number(x.end) > 0) o.end = Number(x.end);
+                // a start from Siri: the task it named and the minutes it said
+                if (x.a === "start") { if (typeof x.task === "string" && /^[\w:.-]{1,80}$/.test(x.task)) o.task = x.task; if (Number(x.mins) >= 5 && Number(x.mins) <= 180) o.mins = Math.round(Number(x.mins)); }
+                return o; });
           }, function () { return []; });
         },
         // The session-end alarm iOS rings itself: hasSound(name) says whether that sound file is saved already; alarm({name, wav})
