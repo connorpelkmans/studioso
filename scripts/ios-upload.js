@@ -14,6 +14,9 @@ if (!fs.existsSync(proj)) { console.error("No Xcode project at " + proj + ". Run
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "studyboard-upload-"));
 const archive = path.join(work, "Studyboard.xcarchive"), opts = path.join(work, "ExportOptions.plist");
 const build = String(Math.floor(Date.now() / 60000));   // always higher than the last upload
+// the App Store version, from package.json "iosVersion"
+const version = String(JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).iosVersion || "");
+if (!/^\d+(\.\d+){0,2}$/.test(version)) { console.error("package.json needs \"iosVersion\", like \"1.1\""); process.exit(1); }
 fs.writeFileSync(opts, `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -31,6 +34,6 @@ const run = (args, what) => {
   catch (e) { console.error("\n✗ " + what + " failed. The error is a few lines above (look for \"error:\")."); process.exit(1); }
 };
 run(["-project", proj, "-scheme", "App", "-configuration", "Release", "-destination", "generic/platform=iOS", "-archivePath", archive,
-     "-allowProvisioningUpdates", `DEVELOPMENT_TEAM=${team}`, `CURRENT_PROJECT_VERSION=${build}`, "archive", "-quiet"], "Archiving (a few minutes)");
+     "-allowProvisioningUpdates", `DEVELOPMENT_TEAM=${team}`, `CURRENT_PROJECT_VERSION=${build}`, `MARKETING_VERSION=${version}`, "archive", "-quiet"], "Archiving (a few minutes)");
 run(["-exportArchive", "-archivePath", archive, "-exportOptionsPlist", opts, "-exportPath", path.join(work, "export"), "-allowProvisioningUpdates"], "Uploading to App Store Connect");
-console.log("\n✓ Uploaded (build " + build + "). It appears in App Store Connect > your app > TestFlight in 10 to 30 minutes.");
+console.log("\n✓ Uploaded version " + version + " (build " + build + "). It appears in App Store Connect > your app > TestFlight in 10 to 30 minutes.");

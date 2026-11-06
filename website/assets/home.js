@@ -2,6 +2,8 @@
 (function () {
   "use strict";
   var cfg = window.STUDYBOARD_SITE || {}, D = cfg.DOWNLOADS || {}, VER = typeof cfg.VERSION === "string" ? cfg.VERSION : "";
+  // the App Store page, from the app's ID (config.js), when no other link is given
+  if (D.ios && !D.ios.url && /^\d{6,12}$/.test(String(D.ios.appId || ""))) D.ios.url = "https://apps.apple.com/app/id" + D.ios.appId;
 
   var ICONS = {
     windows: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',

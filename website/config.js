@@ -18,7 +18,7 @@ window.STUDYBOARD_SITE = {
 
   // -- Downloads (home page). VERSION is the web app's; each installer's label and file name use the version in its own url,
   // and `npm run check:release` fails while those urls are older than package.json (upload the installers, then bump the links)
-  VERSION: "1.15.4",
+  VERSION: "1.15.5",
 
   // Where each installer lives
   DOWNLOADS: {
@@ -27,7 +27,10 @@ window.STUDYBOARD_SITE = {
     macArm:   { label: "Mac (Apple M-series)", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.4/Studyboard-1.14.4-mac.dmg", file: "Studyboard-{version}-mac.dmg", needs: "Macs with an M1 chip or newer" },
     macIntel: { label: "Mac (Intel)",          url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.4/Studyboard-1.14.4-mac-intel.dmg", file: "Studyboard-{version}-mac-intel.dmg", needs: "Macs with an Intel processor" },
     linux:    { label: "Linux",                url: "", file: "Studyboard-{version}.AppImage",        needs: "64-bit Linux, runs as an AppImage" },
-    ios:      { label: "App Store",            url: "", needs: "iPhone and iPad" },
+    // appId: the app's Apple ID, digits only (App Store Connect > your app > App Information > Apple ID). Once set, the iPhone
+    // download button goes to the App Store, and every page shows Safari's Smart App Banner: "Open" when Studyboard is installed,
+    // "Get" (to the App Store) when it isn't. The banner is added by npm run build:site (scripts/build-site.js).
+    ios:      { label: "App Store",            url: "", appId: "6828721365", needs: "iPhone and iPad" },
     android:  { label: "Google Play",          url: "", needs: "Android phones and tablets" },
     // store: the extension's Chrome Web Store page
     chrome:   { label: "Chrome Web Store",     store: "https://chromewebstore.google.com/detail/studyboard-school-sync/ibibaefpedmlgaamopopcoelnnaaollf", needs: "Chrome, Edge and Brave on a computer" },

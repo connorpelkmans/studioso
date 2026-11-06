@@ -77,13 +77,28 @@ async function shoot(browser, [name, , skin, scheme, tab, steps]) {
   await ctx.close();
 }
 // The frame: headline over the screen, on Studyboard navy, at exactly 1320 x 2868
-async function frame(browser, [name, headline]) {
-  const ctx = await browser.newContext({viewport: {width: DEV.w, height: DEV.h}, deviceScaleFactor: DEV.scale});
+// App Store Connect's required iPhone set is "iPhone with Dynamic Island (medium display)", 1206 x 2622; the 1320 x 2868 set
+// goes in the optional large display slot. The medium set is the same picture, drawn smaller (the shapes differ by 0.07%).
+const MEDIUM = {w: 1206, h: 2622, dir: OUT + "-6.3"};
+async function frame(browser, s) {
+  await frameAt(browser, s, DEV.scale, OUT);
+  if (IPAD) return;
+  fs.mkdirSync(MEDIUM.dir, {recursive: true});
+  const ctx = await browser.newContext({viewport: {width: 400, height: 400}}), page = await ctx.newPage();
+  const big = "data:image/png;base64," + fs.readFileSync(path.join(OUT, s[0] + ".png")).toString("base64");
+  const small = await page.evaluate(async ([src, w, h]) => { const i = new Image(); i.src = src; await i.decode();
+    const c = document.createElement("canvas"); c.width = w; c.height = h; const x = c.getContext("2d"); x.imageSmoothingQuality = "high";
+    x.drawImage(i, 0, 0, w, h); return c.toDataURL("image/png"); }, [big, MEDIUM.w, MEDIUM.h]);
+  fs.writeFileSync(path.join(MEDIUM.dir, s[0] + ".png"), Buffer.from(small.split(",")[1], "base64")); console.log("framed", s[0], "(1206 x 2622)");
+  await ctx.close();
+}
+async function frameAt(browser, [name, headline], scale, dir) {
+  const ctx = await browser.newContext({viewport: {width: DEV.w, height: DEV.h}, deviceScaleFactor: scale});
   const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + DEV.frame);
   const shot = "data:image/png;base64," + fs.readFileSync(path.join(OUT, "raw", name + ".png")).toString("base64");
   await page.evaluate(([shot, headline]) => window.setShot(shot, headline), [shot, headline]);
   await page.evaluate(() => Promise.all([document.fonts.ready, document.getElementById("shot").decode()])); await page.waitForTimeout(300);
-  await page.screenshot({path: path.join(OUT, name + ".png")}); console.log("framed", name);
+  await page.screenshot({path: path.join(dir, name + ".png")}); console.log("framed", name);
   await ctx.close();
 }
 

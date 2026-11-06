@@ -376,7 +376,7 @@ function updateTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Open Studyboard", click: () => showMain() },
     { label: "Quick Add Task", click: () => sendAction("quickadd") },
-    { label: "Screenshot to Task", click: () => setTimeout(() => startShot(), 250) },
+    shotPaused ? null : { label: "Screenshot to Task", click: () => setTimeout(() => startShot(), 250) },
     { label: "Show Today Widget", type: "checkbox", checked: !!(widget && !widget.isDestroyed()), click: m => setWidgetShown(m.checked) },
     { type: "separator" },
     paused ? { label: `Reminders Paused Until ${clock(cfg.pauseUntil)}`, enabled: false } : null,
@@ -598,7 +598,7 @@ ipcMain.handle("desk:startup-settings", e => { if (!fromMain(e) || !IS_MSSTORE) 
 ipcMain.handle("desk:settings:get", e => fromMain(e) ? deskSettings() : null);
 ipcMain.handle("desk:settings:set", (e, key, value) => {
   if (!fromMain(e)) return null;
-  if (!["background", "openAtLogin", "widget", "widgetPinned", "pauseReminders", "shot", "shotKey"].includes(key)) return deskSettings();
+  if (!["background", "openAtLogin", "widget", "widgetPinned", "pauseReminders", "shot", "shotKey", "shotPaused"].includes(key)) return deskSettings();
   const on = value === true;
   if (key === "background") { cfg.background = on; writeCfg(cfg); }
   else if (key === "openAtLogin" && canLogin() && !IS_MAS) { try { app.setLoginItemSettings({ openAtLogin: on, args: LOGIN_ARGS }); } catch (err) {} }
@@ -607,6 +607,9 @@ ipcMain.handle("desk:settings:set", (e, key, value) => {
   else if (key === "pauseReminders") { const m = int(value, 24 * 60); if (m) pauseReminders(m); else resumeReminders(); }
   else if (key === "shot") { cfg.shot = on; writeCfg(cfg); registerShotKey(); }
   else if (key === "shotKey") { if (SHOT_KEYS.includes(value)) { cfg.shotKey = value; writeCfg(cfg); registerShotKey(); } }
+  // The app can pause the shortcut while screenshots have nowhere to go (Quick Capture switched off). Not saved, so the
+  // person's own on/off choice is kept for when it comes back.
+  else if (key === "shotPaused") { shotPaused = on; registerShotKey(); updateTray(); }
   return deskSettings();
 });
 
@@ -616,11 +619,11 @@ const SHOT_KEYS = process.platform === "darwin"
   ? ["CommandOrControl+Alt+C", "CommandOrControl+Shift+Alt+C", "CommandOrControl+Alt+X", "CommandOrControl+Alt+Q"]
   : ["CommandOrControl+Shift+Alt+C", "CommandOrControl+Shift+Alt+S", "CommandOrControl+Shift+Alt+X", "CommandOrControl+Shift+Alt+Q"];
 const shotKey = () => SHOT_KEYS.includes(cfg.shotKey) ? cfg.shotKey : SHOT_KEYS[0];
-let shotRegistered = "", shotWin = null, shotImg = null, shotBusy = false;
+let shotRegistered = "", shotWin = null, shotImg = null, shotBusy = false, shotPaused = false;
 function registerShotKey() {
   try { if (shotRegistered) globalShortcut.unregister(shotRegistered); } catch (e) {}
   shotRegistered = "";
-  if (cfg.shot === false) return;
+  if (cfg.shot === false || shotPaused) return;
   try { if (globalShortcut.register(shotKey(), () => startShot())) shotRegistered = shotKey(); } catch (e) {}
 }
 function shotNote(body) { showNote({ title: "Studyboard screenshot", body }); }

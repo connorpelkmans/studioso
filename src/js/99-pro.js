@@ -3422,7 +3422,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   async function pool(n, jobs){ const out = new Array(jobs.length); let i = 0; await Promise.all(Array.from({length: Math.min(n, jobs.length)}, async () => { while (i < jobs.length) { const k = i++; try { out[k] = {ok: true, v: await jobs[k]()}; } catch (e) { out[k] = {ok: false, e}; } } })); return out; }
   async function transcribe(){
     if (!REC || !REC.segs.length) return;
-    if (!canHear()) { toast(aiCfg().provider === "anthropic" ? "Claude can't listen to audio. Add a Gemini or OpenAI key (Settings, AI Features) to transcribe recordings." : "AI transcription needs AI set up (Settings, AI Features)."); return; }
+    if (!canHear()) { toast(aiCfg().provider === "anthropic" ? aiClaudeName() + " can't listen to audio. Add a Gemini or OpenAI key (Settings, AI Features) to transcribe recordings." : "AI transcription needs AI set up (Settings, AI Features)."); return; }
     if (!aiConsented(audioProv()) && !(await aiConsentAsk(audioProv()))) return;
     const R = REC, n = R.segs.length;
     R.busy = n > 1 ? `Transcribing ${n} parts…` : "Transcribing…"; R.view = "busy"; R.err = ""; draw();

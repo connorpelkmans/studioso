@@ -4,6 +4,7 @@ import Capacitor
 import ActivityKit
 import UserNotifications
 import SwiftUI
+import AVFoundation
 #if canImport(AlarmKit)
 import AlarmKit
 #endif
@@ -18,9 +19,39 @@ public class StudyboardFocusActivityPlugin: CAPPlugin, CAPBridgedPlugin, Notific
         CAPPluginMethod(name: "end", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "take", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "hasSound", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "alarm", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "alarm", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "preview", returnType: CAPPluginReturnPromise)
     ]
     private var watch: NSObjectProtocol?
+    private var player: AVAudioPlayer?
+
+    // "Play Test Sound" in the timer settings. The page's own sound is muted while the phone is on silent, so the test plays here,
+    // like an alarm (it rings through silent mode), then gives the sound back to whatever was playing before.
+    @objc func preview(_ call: CAPPluginCall) {
+        guard let b64 = call.getString("wav"), let data = Data(base64Encoded: b64), data.count < 3_000_000 else { return call.resolve(["played": false]) }
+        DispatchQueue.main.async {
+            let session = AVAudioSession.sharedInstance()
+            let before = session.category
+            do {
+                try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+                try session.setActive(true)
+                let p = try AVAudioPlayer(data: data)
+                p.prepareToPlay()
+                guard p.play() else { throw NSError(domain: "preview", code: 1) }
+                self.player = p
+                DispatchQueue.main.asyncAfter(deadline: .now() + p.duration + 0.3) { [weak self] in
+                    guard let self = self, self.player === p else { return }
+                    self.player = nil
+                    try? session.setActive(false, options: .notifyOthersOnDeactivation)
+                    try? session.setCategory(before)
+                }
+                call.resolve(["played": true])
+            } catch {
+                try? session.setCategory(before)
+                call.resolve(["played": false])
+            }
+        }
+    }
 
     override public func load() {
         // the session-end alarm also rings with the app open (iOS keeps an open app's notifications quiet otherwise)

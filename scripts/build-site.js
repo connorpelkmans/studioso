@@ -35,6 +35,28 @@ ICONS.forEach(f => { copy(f, "icons/" + f); copy(f); });
 WIDGETS.forEach(f => copy(f, "widgets/" + f));
 // The favicon search engines and browsers look for at the root (16 to 256 px inside)
 copy("icon.ico", "favicon.ico");
+// iPhone: Safari's Smart App Banner on the web app and the website ("Open" with the app installed, "Get" otherwise), once the
+// App Store ID is in website/config.js (DOWNLOADS.ios.appId). It only shows in Safari, never inside the app itself.
+{
+  const m = /ios:\s*\{[^}]*appId:\s*"([^"]*)"/.exec(fs.readFileSync(path.join(ROOT, "website", "config.js"), "utf8"));
+  const id = m ? m[1].trim() : "";
+  if (id && !/^\d{6,12}$/.test(id)) throw new Error("build-site: DOWNLOADS.ios.appId in website/config.js must be the app's Apple ID, digits only");
+  if (id) {
+    const pages = ["index.html", ...fs.readdirSync(path.join(OUT, "website")).filter(f => f.endsWith(".html")).map(f => "website/" + f), "website/account/index.html"];
+    for (const rel of pages) {
+      const file = path.join(OUT, rel); if (!fs.existsSync(file)) continue;
+      const html = fs.readFileSync(file, "utf8"); if (html.includes('name="apple-itunes-app"')) continue;
+      // the app opens on the same page (the web app's own links, like a shared deck, carry over through the app's link handling)
+      const arg = rel === "index.html" ? "https://studyboardapp.com/" : "https://studyboardapp.com/" + rel.replace(/index\.html$/, "");
+      const tag = `<meta name="apple-itunes-app" content="app-id=${id}, app-argument=${arg}">`;
+      const at = html.search(/<meta name="viewport"[^>]*>/i);
+      if (at < 0) throw new Error("build-site: no viewport meta in " + rel);
+      const end = html.indexOf(">", at) + 1;
+      fs.writeFileSync(file, html.slice(0, end) + "\n" + tag + html.slice(end));
+    }
+    console.log("build-site: Smart App Banner on for App Store app " + id);
+  }
+}
 // Fresh script hashes in the page's own policy
 {
   const crypto = require("crypto"), file = path.join(OUT, "index.html");

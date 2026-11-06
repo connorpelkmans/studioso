@@ -4,7 +4,7 @@ const POMO_HOW = `<ol><li><b>Pick one task</b> and start a 25-minute focus sessi
 const POMO_DEF = {focus: 25, short: 5, long: 15, every: 4, autoBreak: true, autoFocus: false, sound: "chime", volume: 0.8, notify: true};
 const POMO_LS = "studioso:pomo";
 const MODE_LABEL = {focus: "Focus", short: "Short Break", long: "Long Break"};
-const TOMATO = '<svg class="tomato-ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 8.1c-2.3-1-5.7-.6-7.4 1.9-1.6 2.4-1.2 6.2 1.2 8.6 1.6 1.6 3.8 2.5 6.2 2.5s4.6-.9 6.2-2.5c2.4-2.4 2.8-6.2 1.2-8.6-1.7-2.5-5.1-2.9-7.4-1.9z" fill="currentColor"/><path d="M19.4 10c1.6 2.4 1.2 6.2-1.2 8.6-1.6 1.6-3.8 2.5-6.2 2.5-1.7 0-3.3-.5-4.6-1.3 4.4.6 9.3-2 10.4-6.2.4-1.3.4-2.6-.1-3.7z" fill="#000" opacity=".18"/><path d="M6.9 11.6c.6-1.4 1.8-2.2 3-2.4" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/><path d="M12 11.4l-1.5-2-3.8 1.2 2.3-2.4-2-1.8 3.3.4L12 5.2l1.7 1.6 3.3-.4-2 1.8 2.3 2.4-3.8-1.2z" fill="var(--leaf,#2E9D5B)" stroke="var(--leaf-d,#1F7A44)" stroke-width=".8" stroke-linejoin="round"/><path d="M12 7.6c-.02-1.5.5-2.75 1.65-3.75" fill="none" stroke="var(--leaf-d,#1F7A44)" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="7.6" r=".9" fill="var(--leaf-d,#1F7A44)"/></svg>';
+const TOMATO = '<svg class="tomato-ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 8.1c-2.3-1-5.7-.6-7.4 1.9-1.6 2.4-1.2 6.2 1.2 8.6 1.6 1.6 3.8 2.5 6.2 2.5s4.6-.9 6.2-2.5c2.4-2.4 2.8-6.2 1.2-8.6-1.7-2.5-5.1-2.9-7.4-1.9z" fill="currentColor"/><path d="M15.52 7.66C17.02 7.89 18.47 8.61 19.4 10C21 12.4 20.6 16.2 18.2 18.6C16.6 20.2 14.4 21.1 12 21.1C10.3 21.1 8.7 20.6 7.4 19.8C18.05 21.25 20.46 8.42 15.52 7.66Z" fill="#000" opacity=".18"/><path d="M6.9 11.6c.6-1.4 1.8-2.2 3-2.4" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/><path d="M12 11.4l-1.5-2-3.8 1.2 2.3-2.4-2-1.8 3.3.4L12 5.2l1.7 1.6 3.3-.4-2 1.8 2.3 2.4-3.8-1.2z" fill="var(--leaf,#2E9D5B)" stroke="var(--leaf-d,#1F7A44)" stroke-width=".8" stroke-linejoin="round"/><path d="M12 7.6c-.02-1.5.5-2.75 1.65-3.75" fill="none" stroke="var(--leaf-d,#1F7A44)" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="7.6" r=".9" fill="var(--leaf-d,#1F7A44)"/></svg>';
 // Minutes for a focus session on a task: the timer length you chose, cut short only when that would
 // run past the time the plan gives this task today (so the session ends as that work is done)
 function focusMinsFor(taskId){
@@ -292,11 +292,11 @@ function pomoTakeLock(){
 }
 // iPhone app: the alarm at the end of a session is rung by iOS (so it sounds with the app closed or the phone locked), with
 // the sound and volume you picked, made here once as a short recording and saved in the app
-function wavB64(name, vol){
+function wavB64(name, vol, reps){
   const SR = 22050, s = SOUNDS[name] || SOUNDS.chime, C = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   if (!C) return Promise.resolve("");
   const ac = new C(1, SR * 10, SR), keep = alarmOsc; alarmOsc = [];
-  let t = 0.05; for (let r = 0; r < 3; r++) t += s.play(ac, ac.destination, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
+  let t = 0.05; for (let r = 0; r < (reps || 3); r++) t += s.play(ac, ac.destination, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
   alarmOsc = keep;
   return ac.startRendering().then(buf => {
     const d = buf.getChannelData(0), n = Math.min(d.length, Math.ceil(t * SR)), out = new DataView(new ArrayBuffer(44 + n * 2));
@@ -432,7 +432,16 @@ function pomoAction(act, el){
     case "pomo-reset": pomoReset(); return true;
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoPickMode(el.dataset.id); return true;
-    case "pomo-test": { const cfg = pomoCfg(); if (($("#psSound") ? $("#psSound").value : cfg.sound) === "none") { toast("The alarm is set to No Sound"); return true; } if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
+    case "pomo-test": {
+      const cfg = pomoCfg(), snd = $("#psSound") ? $("#psSound").value : cfg.sound, vol = $("#psVol") ? Number($("#psVol").value) : cfg.volume;
+      if (snd === "none") { toast("The alarm is set to No Sound"); return true; }
+      const web = () => { if (!playAlarm(snd, vol, 1)) toast("Sound isn't available in this browser"); };
+      // iPhone app: the page's own sound is muted while the phone is on silent, so the test plays through iOS, the way the real alarm rings
+      const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+      if (FA && typeof FA.preview === "function") wavB64(SOUNDS[snd] ? snd : "chime", Number(vol) || 0.8, 1).then(w => w ? FA.preview(w) : false).then(ok => { if (!ok) web(); }, web);
+      else web();
+      return true;
+    }
     case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
       { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }

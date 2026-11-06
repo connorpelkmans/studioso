@@ -1,0 +1,78 @@
+# Runs the supabase-*.sql files that changed on main (every file is safe to run again).
+# Files run in the order the setup guide gives. supabase-reminders.sql (needs your URL and key pasted in),
+# the selftests and the seed/school data files are never run automatically.
+name: Deploy Supabase SQL
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase-*.sql"
+  workflow_dispatch:
+    inputs:
+      files:
+        description: "Space-separated files to run (leave empty to run the ones changed in the last commit)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-supabase
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check the secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "Add the SUPABASE_DB_URL secret in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Run the SQL files
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          INPUT_FILES: ${{ github.event.inputs.files }}
+        run: |
+          set -euo pipefail
+          # Same order as "Run the SQL files in this order" in SETUP-GUIDE.md
+          ORDER="supabase-setup.sql supabase-groups.sql supabase-moderation.sql supabase-calendar-feed.sql
+            supabase-rooms.sql supabase-bug-reports.sql supabase-error-reports.sql supabase-app-flags.sql
+            supabase-plans.sql supabase-usernames.sql supabase-sharing.sql supabase-lean.sql
+            supabase-capture.sql supabase-sync-conflicts.sql supabase-calsync.sql supabase-theme-access.sql
+            supabase-cloud.sql supabase-lms-districts.sql supabase-lms-find.sql supabase-apple-signin.sql
+            supabase-apple-external.sql"
+
+          if [ -n "$INPUT_FILES" ]; then
+            WANTED="$INPUT_FILES"
+          else
+            WANTED="$(git diff --name-only HEAD~1 HEAD -- 'supabase-*.sql' | tr '\n' ' ')"
+          fi
+          echo "Changed/requested: $WANTED"
+
+          RUN=""
+          for f in $ORDER; do
+            case " $WANTED " in *" $f "*) RUN="$RUN $f";; esac
+          done
+          for f in $WANTED; do
+            case " $ORDER " in *" $f "*) ;; *) echo "Skipping $f (not in the automatic list)";; esac
+          done
+          if [ -z "$RUN" ]; then echo "Nothing to run."; exit 0; fi
+
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+          for f in $RUN; do
+            echo "::group::$f"
+            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f "$f"
+            echo "::endgroup::"
+          done
