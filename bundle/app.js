@@ -13439,31 +13439,36 @@ const NBZ_STEPS = [0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2];
 // then draw a highlight box around it. One smooth move of zoom and scroll together; instant with Reduce Motion.
 let nbFocusRun = 0;
 function nbFocusNote(id){
-  const sc = $("#nbScroll"), el = sc && sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`); if (!el) return false;
+  // The board can be redrawn while this runs (on phones the Notes page redraws right after it opens), so each frame
+  // looks the board and the note up again instead of holding on to the first ones
+  const q = () => { const sc = $("#nbScroll"); return {sc, el: sc && sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`)}; };
+  const first = q(); if (!first.el) return false;
   const run = ++nbFocusRun, calm = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  const nx = el.offsetLeft + el.offsetWidth / 2, ny = el.offsetTop + el.offsetHeight / 2;
+  const {sc: sc0, el: el0} = first;
+  const nx = el0.offsetLeft + el0.offsetWidth / 2, ny = el0.offsetTop + el0.offsetHeight / 2;
   // big enough that the note fills about half the view, never smaller than now's zoom or 100%
-  const fit = Math.min(sc.clientWidth * 0.55 / el.offsetWidth, sc.clientHeight * 0.55 / el.offsetHeight);
+  const fit = Math.min(sc0.clientWidth * 0.55 / el0.offsetWidth, sc0.clientHeight * 0.55 / el0.offsetHeight);
   const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, 1, Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
-  const cx0 = (sc.scrollLeft + sc.clientWidth / 2) / z0, cy0 = (sc.scrollTop + sc.clientHeight / 2) / z0;
-  const place = (z, cx, cy) => { NBZ = z; nbZoomApply(); sc.scrollLeft = cx * z - sc.clientWidth / 2; sc.scrollTop = cy * z - sc.clientHeight / 2; };
+  const cx0 = (sc0.scrollLeft + sc0.clientWidth / 2) / z0, cy0 = (sc0.scrollTop + sc0.clientHeight / 2) / z0;
+  const place = (z, cx, cy) => { const {sc} = q(); if (!sc) return false; NBZ = z; nbZoomApply(); sc.scrollLeft = cx * z - sc.clientWidth / 2; sc.scrollTop = cy * z - sc.clientHeight / 2; return true; };
   const done = () => {
-    place(z1, nx, ny);
+    if (!place(z1, nx, ny)) return;
     try { localStorage.setItem(NBZ_KEY, String(z1)); } catch (e) {}
     const ctl = document.querySelector(".nb-zoom"); if (ctl) ctl.outerHTML = nbZoomCtl();
-    const n = sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`) || el;
-    n.classList.remove("nb-found"); void n.offsetWidth; n.classList.add("nb-found");
-    setTimeout(() => { if (run === nbFocusRun) n.classList.add("nb-found-out"); }, 2600);
-    setTimeout(() => { if (run === nbFocusRun) n.classList.remove("nb-found", "nb-found-out"); }, 3100);
+    const box = () => { const n = q().el; if (n) { n.classList.remove("nb-found-out"); n.classList.add("nb-found"); } return n; };
+    const n = box(); if (n) { n.classList.remove("nb-found"); void n.offsetWidth; n.classList.add("nb-found"); }
+    // keep the box on if the board is redrawn while it shows
+    const keep = setInterval(() => { if (run !== nbFocusRun || ui.tab !== "notes") { clearInterval(keep); return; } const m = q().el; if (m && !m.classList.contains("nb-found")) m.classList.add("nb-found"); }, 200);
+    setTimeout(() => { clearInterval(keep); if (run === nbFocusRun) { const m = q().el; if (m) m.classList.add("nb-found-out"); } }, 2600);
+    setTimeout(() => { if (run === nbFocusRun) { const m = q().el; if (m) m.classList.remove("nb-found", "nb-found-out"); } }, 3100);
   };
   if (calm) { done(); return true; }
   const t0 = performance.now(), dur = 650, ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   const step = now => {
-    if (run !== nbFocusRun || !sc.isConnected) return;
+    if (run !== nbFocusRun || ui.tab !== "notes") return;
     const k = Math.min(1, (now - t0) / dur), e = ease(k);
     // zoom moves on a log scale so zooming in and out feel equally even
-    const z = z0 * Math.pow(z1 / z0, e);
-    place(z, cx0 + (nx - cx0) * e, cy0 + (ny - cy0) * e);
+    if (!place(z0 * Math.pow(z1 / z0, e), cx0 + (nx - cx0) * e, cy0 + (ny - cy0) * e)) return;
     if (k < 1) requestAnimationFrame(step); else done();
   };
   requestAnimationFrame(step);
