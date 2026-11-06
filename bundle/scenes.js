@@ -1258,10 +1258,11 @@ SCENES.cafe = function (W, H, dk, rnd) {
   var ph = H > W, u = ph ? 0.8 : 1, ct = H * (ph ? 0.73 : 0.75), cs = 24 * u, cu = ph ? 0.95 : 1.3;
   var far = Lay(6), refl = Lay(12), mid = Lay(1.6), near = Lay(0);
   var sky = dk ? 'linear-gradient(180deg,#1C130E 0%,#281B13 60%,#20160F 100%)' : 'linear-gradient(180deg,#E6D6BF 0%,#F2E7D6 55%,#E9DAC4 100%)';
-  var wx0 = ph ? 12 : W * 0.03, wx1 = ph ? W - 12 : W * 0.975, wy0 = H * (ph ? 0.03 : 0.05), wy1 = ct, ww = wx1 - wx0, wh = wy1 - wy0;
+  // on a phone the window starts where its glare does (about a third down); above it is the café wall, with plants hanging from the top
+  var wx0 = ph ? 12 : W * 0.03, wx1 = ph ? W - 12 : W * 0.975, wy0 = H * (ph ? 0.29 : 0.05), wy1 = ct, ww = wx1 - wx0, wh = wy1 - wy0;
   add(far, 'a', rect(wx0, wy0, ww, wh), dk ? '#1A2140' : '#D8E8F0');
   var fac = dk ? ['#2A2A42', '#34304A', '#262C40'] : ['#DDA98A', '#AFC4A6', '#E8CCA6'], sw0 = wy1 - 34 * u, wins = '', lit = '', glow = '';
-  for (var x = wx0 - 20, k = 0; x < wx1 + 20; k++) { var bw = (ph ? 90 : 130) + rnd() * 80, top = wy0 + wh * (ph ? 0.42 : 0.18) + rnd() * wh * 0.14; var bx0 = Math.max(x, wx0), bx1 = Math.min(x + bw - 4, wx1); if (bx1 > bx0) add(far, 'bcd'[k % 3], rect(bx0, top, bx1 - bx0, sw0 - top + 2), fac[k % 3]);
+  for (var x = wx0 - 20, k = 0; x < wx1 + 20; k++) { var bw = (ph ? 90 : 130) + rnd() * 80, top = wy0 + wh * (ph ? 0.1 : 0.18) + rnd() * wh * 0.14; var bx0 = Math.max(x, wx0), bx1 = Math.min(x + bw - 4, wx1); if (bx1 > bx0) add(far, 'bcd'[k % 3], rect(bx0, top, bx1 - bx0, sw0 - top + 2), fac[k % 3]);
     for (var wy = top + 22 * u; wy < sw0 - 40 * u; wy += 46 * u) for (var wx = x + 16; wx < x + bw - 34; wx += 34) { if (wx < wx0 + 4 || wx + 18 > wx1 - 4) continue; var d = rrect(wx, wy, 18, 26 * u, 4); if (dk && rnd() < 0.55) { lit += d; } else wins += d; }
     x += bw; }
   add(far, 'e', wins, dk ? '#1F2238' : '#FAF6EE'); if (dk) add(far, 'h', lit, '#F2BE72');
@@ -1270,12 +1271,38 @@ SCENES.cafe = function (W, H, dk, rnd) {
   add(far, 'g', rect(wx0, sw0, ww, wy1 - sw0 + 4), dk ? '#15182A' : '#D9CFC2');
   if (dk) { spread(wx0, sw0 - 100 * u, ww, 90 * u, 140, 60, rnd, 1).forEach(function (c) { var r = 10 + c.r * 12; if (c.x - r > wx0 + 4 && c.x + r < wx1 - 4) glow += circ(c.x, c.y, r); }); add(far, 'h', glow); add(refl, 'c', rect(wx0, wy0, ww, wh * 0.4), 'rgba(40,60,120,0.25)'); }
   else add(refl, 'a', circ(wx0 + ww * 0.8, wy0 + 150 * u + 16, 150 * u), 'rgba(255,246,220,0.85)');
-  var fw = 14 * u, nm = ph ? 1 : 2, fr = rect(wx0 - fw, wy0 - fw, ww + 2 * fw, fw) + rect(wx0 - fw, wy0 - fw, fw, wh + fw) + rect(wx1, wy0 - fw, fw, wh + fw), tb = wy0 + wh * (ph ? 0.38 : 0.26);
+  var fw = 14 * u, nm = ph ? 1 : 2, fr = rect(wx0 - fw, wy0 - fw, ww + 2 * fw, fw) + rect(wx0 - fw, wy0 - fw, fw, wh + fw) + rect(wx1, wy0 - fw, fw, wh + fw), tb = ph ? wy0 : wy0 + wh * 0.26;
   for (var m = 1; m <= nm; m++) fr += rect(wx0 + ww * m / (nm + 1) - fw * 0.4, wy0, fw * 0.8, wh);
-  fr += rect(wx0, tb, ww, fw * 0.7);
+  if (!ph) fr += rect(wx0, tb, ww, fw * 0.7);
   add(mid, 'b', fr, dk ? '#3A271A' : '#6E4B32');
   var sh = ''; for (m = 0; m <= nm; m++) { var px = wx0 + ww * m / (nm + 1) + ww / (nm + 1) * 0.25; sh += poly([[px, tb + 40], [px + 40 * u, tb + 40], [px - 60 * u, wy1 - 20], [px - 100 * u, wy1 - 20]]) + poly([[px + 60 * u, tb + 60], [px + 72 * u, tb + 60], [px - 18 * u, wy1 - 40], [px - 30 * u, wy1 - 40]]); }
   add(mid, 'a', sh, dk ? 'rgba(255,220,180,0.05)' : 'rgba(255,255,255,0.22)');
+  if (ph) {
+    // the wall: soft wallpaper stripes down to a wooden rail just above the window
+    var wt = wy0 - fw, stp = '', vs = '', lvA = '', lvB = '', gl = '';
+    add(mid, 'e', rect(-10, -10, W + 20, wt + 10), dk ? '#2B1E16' : '#EBDFCC');
+    for (var sx = 6; sx < W; sx += 28) stp += rect(sx, -10, 10, wt - 2);
+    add(mid, 'f', stp, dk ? 'rgba(255,214,170,0.045)' : 'rgba(140,100,60,0.08)');
+    add(mid, 'g', rect(-10, wt - 9, W + 20, 9), dk ? '#3A271A' : '#8A6446');
+    // a hanging planter on ropes from the ceiling, its vines spilling over the rim
+    var px2 = W * 0.2, py2 = wt * 0.45;
+    stk(mid, 's', seg(px2 - 24 * u, py2, px2, -10) + seg(px2 + 24 * u, py2, px2, -10), dk ? '#6A5040' : '#8A6A50', 1.2);
+    add(mid, 'k', 'M' + PT(px2 - 28 * u, py2) + ' h' + n1(56 * u) + ' a' + n1(28 * u) + ' ' + n1(22 * u) + ' 0 0 1 ' + n1(-56 * u) + ' 0 Z ', dk ? '#8A4E36' : '#C6734F');
+    var pl = leaf(px2, py2, 22 * u, 7 * u, -100) + leaf(px2, py2, 20 * u, 7 * u, -60) + leaf(px2, py2, 20 * u, 7 * u, -140);
+    [[-20, 0], [-7, 1], [8, 0], [21, 1]].forEach(function (q, i) { var lx = px2 + q[0] * u, ly = py2 + 10 * u, len = (50 + i * 22) * u; for (var t = 0; t < len; t += 14 * u) pl += leaf(lx + Math.sin(t / 20 + i) * 5 * u, ly + t, 12 * u, 5 * u, 60 + (Math.round(t / (14 * u)) % 2 ? 50 : -30)); });
+    add(mid, 'l', pl, dk ? '#3E6A48' : '#5E9A60');
+    // vines trailing down from the top of the page, with a leafy edge along the ceiling (clear of the planter and the lamp's cord)
+    for (var gx = -6; gx < W + 6; gx += 7 * u) gl += leaf(gx, 2 + rnd() * 5, (11 + rnd() * 5) * u, (4.5 + rnd()) * u, 40 + rnd() * 100);
+    for (var vx = 10 + rnd() * 12, vi = 0; vx < W - 6; vx += (22 + rnd() * 20) * u, vi++) {
+      if (Math.abs(vx - px2) < 40 * u || Math.abs(vx - W * 0.8) < 10) continue;
+      var vlen = Math.min(wt + 24, (34 + rnd() * 120) * u), ph2 = rnd() * 6.3, pts = [];
+      for (var vy = 0; vy <= vlen; vy += 6) pts.push([vx + Math.sin(vy / 26 + ph2) * 4 * u, vy]);
+      vs += 'M' + pts.map(function (q) { return PT(q[0], q[1]); }).join(' L') + ' ';
+      for (var li = 1; li < pts.length; li++) { var q2 = pts[li], side = li % 2 ? 1 : -1, lf = leaf(q2[0], q2[1], (11 + rnd() * 5) * u, 4.8 * u, 90 - side * (50 + rnd() * 25)); if ((li + vi) % 3) lvA += lf; else lvB += lf; }
+    }
+    stk(mid, 't', vs, dk ? '#2E4A34' : '#4E7A4A', 1.3);
+    add(mid, 'i', gl + lvB, dk ? '#2F5238' : '#4A8250'); add(mid, 'j', lvA, dk ? '#3E6A48' : '#5E9A60');
+  }
   if (!ph) { var hx = wx1 - 110, hy = tb + 60; stk(mid, 's', seg(hx - 22, hy, hx, tb + fw * 0.7) + seg(hx + 22, hy, hx, tb + fw * 0.7), dk ? '#6A5040' : '#8A6A50', 1.2);
     add(mid, 'c', 'M' + PT(hx - 26, hy) + ' h52 a26 22 0 0 1 -52 0 Z ', dk ? '#8A4E36' : '#C6734F');
     var tl = ''; [[-18, 0], [-6, 1], [8, 0], [20, 1]].forEach(function (v, i) { var lx = hx + v[0], ly = hy + 8, len = 60 + i * 25; for (var t = 0; t < len; t += 16) tl += leaf(lx + Math.sin(t / 20 + i) * 6, ly + t, 13, 5.5, 60 + (t / 16 % 2 ? 50 : -30)); });
