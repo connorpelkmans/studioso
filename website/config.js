@@ -30,7 +30,7 @@ window.STUDYBOARD_SITE = {
     // appId: the app's Apple ID, digits only (App Store Connect > your app > App Information > Apple ID). Once set, the iPhone
     // download button goes to the App Store, and every page shows Safari's Smart App Banner: "Open" when Studyboard is installed,
     // "Get" (to the App Store) when it isn't. The banner is added by npm run build:site (scripts/build-site.js).
-    ios:      { label: "App Store",            url: "", appId: "", needs: "iPhone and iPad" },
+    ios:      { label: "App Store",            url: "", appId: "6828721365", needs: "iPhone and iPad" },
     android:  { label: "Google Play",          url: "", needs: "Android phones and tablets" },
     // store: the extension's Chrome Web Store page
     chrome:   { label: "Chrome Web Store",     store: "https://chromewebstore.google.com/detail/studyboard-school-sync/ibibaefpedmlgaamopopcoelnnaaollf", needs: "Chrome, Edge and Brave on a computer" },
