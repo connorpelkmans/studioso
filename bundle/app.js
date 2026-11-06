@@ -2801,13 +2801,9 @@ const SB_GOOGLE_SVG = '<svg class="sb-oa-g" width="20" height="20" viewBox="10 1
 const SB_MS_SVG = '<svg class="sb-oa-m" viewBox="0 0 21 21" width="18" height="18" aria-hidden="true" focusable="false"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>';
 // Supabase calls Microsoft "azure"; every Microsoft account can sign in (personal, school and work: the "common" tenant)
 const SB_OAUTH_NAME = {apple: "Apple", google: "Google", azure: "Microsoft"};
-// Apple's option on Apple devices only (the iPhone and iPad app, the Mac app, and a browser on a Mac, iPhone or iPad, which
-// includes iPads that call themselves a Mac); Google everywhere
-const sbAppleOk = () => {
-  try { if (window.Capacitor && typeof Capacitor.getPlatform === "function" && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) return Capacitor.getPlatform() === "ios"; } catch (e) {}
-  if (DESK) return DESK.platform === "darwin";
-  return /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "");
-};
+// Apple's option everywhere, as Google's is: an account made with Apple on the iPhone signs in the same way on a Windows or
+// Linux computer, an Android phone or any browser (there it's Apple's own web sign-in page; on iPhone, Apple's own sheet)
+const sbAppleOk = () => true;
 const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Sign in with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Sign in with Google</span></button><button type="button" class="sb-oa sb-oa-ms" data-oauth="azure">${SB_MS_SVG}<span>Sign in with Microsoft</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
 // The code or tokens a provider sent back to a return address, made into a session
 async function sbOAuthFinish(addr, bind){
