@@ -830,7 +830,7 @@ const sbAppleOk = () => {
   if (DESK) return DESK.platform === "darwin";
   return /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "");
 };
-const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Continue with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Continue with Google</span></button><button type="button" class="sb-oa sb-oa-ms" data-oauth="azure">${SB_MS_SVG}<span>Continue with Microsoft</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
+const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Sign in with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Sign in with Google</span></button><button type="button" class="sb-oa sb-oa-ms" data-oauth="azure">${SB_MS_SVG}<span>Sign in with Microsoft</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
 // The code or tokens a provider sent back to a return address, made into a session
 async function sbOAuthFinish(addr){
   const u = new URL(addr), p = new URLSearchParams((u.hash || "").replace(/^#/, "")), q = u.searchParams;
