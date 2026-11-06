@@ -28,7 +28,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     { await page.evaluate(() => document.documentElement.style.setProperty("--kb", "300px")); await page.waitForTimeout(100);
       const s = await page.evaluate(() => { const bg = document.querySelector(".n-sheet-bg.on"), a = bg && getComputedStyle(bg, "::after"); return {h: a && a.height, c: a && a.backgroundColor, note: getComputedStyle(document.querySelector(".note.n-sheet")).backgroundColor}; });
       ok(s.h === "300px" && s.c === s.note, "behind the keyboard, the note's own colour fills the screen: " + JSON.stringify(s));
-      await page.evaluate(() => document.documentElement.style.setProperty("--kb", "0px")); }
+      // typing with the keyboard up: the Done row sits inside the note, never cut off at its bottom edge
+      await page.evaluate(() => document.documentElement.classList.add("kb-open")); await page.focus(".note.n-sheet .note-text"); await page.waitForTimeout(300);
+      const r = await page.evaluate(() => { const s = document.querySelector(".note.n-sheet"), b = s.querySelector(".note-btns"), d = [...b.querySelectorAll("button")].find(x => /Done/.test(x.textContent)); return {sheet: Math.round(s.getBoundingClientRect().bottom), row: Math.round(b.getBoundingClientRect().bottom), done: Math.round(d.getBoundingClientRect().bottom)}; });
+      ok(r.row <= r.sheet + 1 && r.done <= r.sheet, "with the keyboard up, the Done row isn't cut off: " + JSON.stringify(r));
+      await page.evaluate(() => { document.documentElement.classList.remove("kb-open"); document.documentElement.style.setProperty("--kb", "0px"); }); }
     // watch for the editor's slide-down copy from here on
     await page.evaluate(() => { window.__g = []; const t0 = performance.now(); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(a => { if (a.nodeType === 1 && a.classList.contains("n-ghost")) window.__g.push(Math.round(performance.now() - t0)); }))).observe(document.body, {childList: true}); });
     await page.click('.note.editing button:has-text("Done")');
