@@ -896,11 +896,11 @@ function todaysQuote(){
   const t = todayISO(), n = Math.floor(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)) / 864e5), N = DAILY_QUOTES.length;
   return DAILY_QUOTES[((n * 37) % N + N) % N];
 }
-const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
+const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (!STREAK_HIDDEN && state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
 // The streak the student actually sees: the gentle one when it is on
 // The streak that rewards (stickers, Term Goals, companion props) follow: study days in a row (a task finished, focus or logged time,
 // a checklist step, flashcards; rest days don't break it), whichever streak is shown. Falls back to the task streak before it loads.
-const rewardStreak = () => { try { if (window.SBSTREAK && SBSTREAK.state) { const r = SBSTREAK.state(); return {cur: Number(r.run) || 0, best: Number(r.best) || 0}; } } catch (e) {} const s = streakOf(); return {cur: s.cur, best: s.best}; };
+const rewardStreak = () => { if (STREAK_HIDDEN) return {cur: 0, best: 0}; try { if (window.SBSTREAK && SBSTREAK.state) { const r = SBSTREAK.state(); return {cur: Number(r.run) || 0, best: Number(r.best) || 0}; } } catch (e) {} const s = streakOf(); return {cur: s.cur, best: s.best}; };
 const shownStreak = () => { if (window.SBSTREAK && SBSTREAK.on()) { const r = SBSTREAK.state(); return {cur: r.run, best: r.best}; } const s = streakOf(); return {cur: s.cur, best: s.best}; };
 function streakLine(){
   if (window.SBSTREAK && SBSTREAK.on()) return SBSTREAK.line();
@@ -917,6 +917,8 @@ function isProgress(a, b){
   return cb > ca;
 }
 function noteProgress(){
+  // streaks are hidden for now, and nothing about them is recorded either
+  if (STREAK_HIDDEN) return;
   const d = todayISO(), s = streakOf();
   if (s.last === d) return;
   s.cur = s.last === addDays(d, -1) ? s.cur + 1 : 1; s.last = d; s.best = Math.max(s.best || 0, s.cur);

@@ -13019,11 +13019,11 @@ function todaysQuote(){
   const t = todayISO(), n = Math.floor(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)) / 864e5), N = DAILY_QUOTES.length;
   return DAILY_QUOTES[((n * 37) % N + N) % N];
 }
-const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
+const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (!STREAK_HIDDEN && state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
 // The streak the student actually sees: the gentle one when it is on
 // The streak that rewards (stickers, Term Goals, companion props) follow: study days in a row (a task finished, focus or logged time,
 // a checklist step, flashcards; rest days don't break it), whichever streak is shown. Falls back to the task streak before it loads.
-const rewardStreak = () => { try { if (window.SBSTREAK && SBSTREAK.state) { const r = SBSTREAK.state(); return {cur: Number(r.run) || 0, best: Number(r.best) || 0}; } } catch (e) {} const s = streakOf(); return {cur: s.cur, best: s.best}; };
+const rewardStreak = () => { if (STREAK_HIDDEN) return {cur: 0, best: 0}; try { if (window.SBSTREAK && SBSTREAK.state) { const r = SBSTREAK.state(); return {cur: Number(r.run) || 0, best: Number(r.best) || 0}; } } catch (e) {} const s = streakOf(); return {cur: s.cur, best: s.best}; };
 const shownStreak = () => { if (window.SBSTREAK && SBSTREAK.on()) { const r = SBSTREAK.state(); return {cur: r.run, best: r.best}; } const s = streakOf(); return {cur: s.cur, best: s.best}; };
 function streakLine(){
   if (window.SBSTREAK && SBSTREAK.on()) return SBSTREAK.line();
@@ -13040,6 +13040,8 @@ function isProgress(a, b){
   return cb > ca;
 }
 function noteProgress(){
+  // streaks are hidden for now, and nothing about them is recorded either
+  if (STREAK_HIDDEN) return;
   const d = todayISO(), s = streakOf();
   if (s.last === d) return;
   s.cur = s.last === addDays(d, -1) ? s.cur + 1 : 1; s.last = d; s.best = Math.max(s.best || 0, s.cur);
@@ -27689,7 +27691,7 @@ const ERRCORE = (() => {
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".cf-tabs", ".gp-hero", NAV("courses")],
       text: () => "Your marks and average in each course as they come in. Set the weights to see what you need on the remaining work to reach your target grade."},
     {id: "focus", title: "Focus Timer", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
-      text: () => "The timer follows the Pomodoro method: short bursts of focused work with breaks in between. Start a session on any task; the time counts toward the task and your streak, and your companion keeps you company.",
+      text: () => "The timer follows the Pomodoro method: short bursts of focused work with breaks in between. Start a session on any task; the time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ", and your companion keeps you company.",
       more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
     {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
       text: () => "Find tasks, cards, notes and text inside your files from anywhere (Ctrl or Cmd K). Switch to Ask With AI to ask questions about your own material."},
@@ -31846,7 +31848,7 @@ hook("boot", boot);
   function badgesFor(g, uid2){
     const ext = extOf(g.id); if (!ext) return [];
     const out = [], st = streakOf(ext, uid2), its = S.items[g.id] || [];
-    if (st >= 7) out.push(["streak", "7-Day Streak", "Checked in 7 days in a row"]); else if (st >= 3) out.push(["streak", "3-Day Streak", "Checked in 3 days in a row"]);
+    if (STREAK_HIDDEN) {} else if (st >= 7) out.push(["streak", "7-Day Streak", "Checked in 7 days in a row"]); else if (st >= 3) out.push(["streak", "3-Day Streak", "Checked in 3 days in a row"]);
     const goal = Number(g.weekly_goal) || 0;
     if (goal && weekVal(ext, g.id, uid2, wkStart(), "focus_min") >= goal) out.push(["goal", "Goal Met", `Reached the weekly goal of ${gMins(goal)}`]);
     const last = ext.stats.filter(s => s.week === addDays(wkStart(), -7) && s.focus_min > 0).sort((a, b) => b.focus_min - a.focus_min)[0];
@@ -31894,7 +31896,7 @@ hook("boot", boot);
     const st = streakOf(ext, myId());
     return `<section class="grp-sec" id="grpCheckin"><h3 class="fsec">${I_CHECK}Daily Check-in<span class="n">${todays.length} of ${ms.length} today</span></h3>
       <form class="grp-check" id="grpCheck" data-gid="${esc(g.id)}"><input type="text" name="plan" maxlength="140" value="${esc(mine ? mine.plan : "")}" placeholder="What are you studying today?" aria-label="What are you studying today?" autocomplete="off"><button type="submit" class="btn primary small">${mine ? "Update" : "Check In"}</button>${mine ? `<button type="button" class="btn small" data-act="grp-check-done">${mine.done ? "Undo Done" : "Mark Done"}</button>` : ""}</form>
-      ${st ? `<p class="mini grp-streak">Your streak: <b>${st} day${st === 1 ? "" : "s"}</b> in a row${mine ? "" : ". Check in today to keep it going"}.</p>` : `<p class="mini grp-streak">Check in on 3 days in a row for a streak badge.</p>`}
+      ${STREAK_HIDDEN ? "" : st ? `<p class="mini grp-streak">Your streak: <b>${st} day${st === 1 ? "" : "s"}</b> in a row${mine ? "" : ". Check in today to keep it going"}.</p>` : `<p class="mini grp-streak">Check in on 3 days in a row for a streak badge.</p>`}
       ${todays.length ? `<ul class="grp-checks">${todays.map(c => `<li class="${c.done ? "done" : ""}">${av(mName(g.id, c.user_id), c.user_id)}<span class="nm"><b>${esc(c.user_id === myId() ? "You" : mName(g.id, c.user_id))}</b><span class="mini">${esc(c.plan || "Checked in")}</span></span>${c.done ? `<span class="pill ok">Done</span>` : ""}</li>`).join("")}</ul>` : `<p class="grp-none">Nobody has checked in yet today. Be the first and set the pace.</p>`}</section>`;
   }
 
@@ -61440,8 +61442,10 @@ var COMP_EXTRA = [];
     {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
     {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
   ];
+  // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
+  if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
   const GENERIC = {
-    tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep this streak of awesome going!"],
+    tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep the awesome going!"],
     pet: ["Hehe, that tickles! Again!", "You're the best, you know that?"], hello: ["You're back! Yay! Ready when you are!", "Hello hello! I missed you!"],
     morning: ["Good morning! Let's make today great!"], night: ["Late one tonight! Rest soon, okay?"], focus: ["Let's focus together! We've got this!", "Studying right beside you! Go go go!"],
     done: ["Session done! That was AMAZING!", "You did it! So proud of you!"], task: ["WOO! Nice work!", "Yes! One more done!", "Look at you go! Checked off!"], break: ["Stretch time! Big happy stretch!"]
@@ -63722,7 +63726,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function smartRow(){
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";
-    const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), your streak, your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
+    const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), " + (STREAK_HIDDEN ? "" : "your streak, ") + "your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
       : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
       : u.mode === "studyboard" ? `Studyboard AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
@@ -64917,7 +64921,7 @@ Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text in
 Settings, by section:
 - Account and Sync: sign in to keep everything in sync across devices; Studyboard Pro; Restore Purchases.
 - Appearance: Light, Dark or System; Style Shop; animations; text size; language; high contrast; daily quote; spelling; page tips; the study companion.
-- Study and AI: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Break Down an Assignment (milestones backward from the due date); Weekly Review; Gentle Study Streak; AI Features (set up AI); Search Everywhere; Term Scrapbook (milestone stickers); Print or Save as PDF (Pro).
+- Study and AI: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Break Down an Assignment (milestones backward from the due date); Weekly Review; ${STREAK_HIDDEN ? "" : "Gentle Study Streak; "}AI Features (set up AI); Search Everywhere; Term Scrapbook (milestone stickers); Print or Save as PDF (Pro).
 - Quick Capture: add right away when sure; keep photos with tasks; use AI to read photos; the Quick Capture window; share sheet; Siri, Gemini, Bixby and Shortcuts.
 - School and Groups: Set Up Your Semester; Brightspace, Canvas, Blackboard and Moodle (due dates, grades and announcements); Import a Syllabus (a PDF becomes a course and its deadlines); Calendar Sync (Apple, Google or Outlook, live link or file); Study Groups; School Days (holidays, reading week, rotating Day 1 to 6 or A/B schedules).
 - App and Notifications: Reminders and Notifications; widgets; replay the welcome setup; the app tour; report a bug; crash reports; keyboard shortcuts; time zone; AI keys on all devices.
@@ -67647,7 +67651,7 @@ window.__scrapArt = SCRAP_ART;
     const byCourse = {}; c.marks.forEach(t => (byCourse[t.courseId || "-"] = byCourse[t.courseId || "-"] || []).push(t));
     Object.values(byCourse).forEach(ts => { ts.sort((a, b) => ((a.due || "") < (b.due || "") ? -1 : (a.due || "") > (b.due || "") ? 1 : doneTime(a) - doneTime(b)));
       for (let i = 1; i < ts.length; i++) if (markPct(ts[i]) > markPct(ts[i - 1]) + .5) c.improved = true; });
-    c.streak = Math.max(Number(sc.hi && sc.hi.st) || 0, rewardStreak().cur);
+    c.streak = STREAK_HIDDEN ? 0 : Math.max(Number(sc.hi && sc.hi.st) || 0, rewardStreak().cur);
     const S = typeof SBSTATS !== "undefined" ? SBSTATS : null;
     const logged = S ? S.focusMinutes(start, today) : 0;
     const fromTasks = allTasks().filter(inTerm).reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
@@ -67690,7 +67694,7 @@ window.__scrapArt = SCRAP_ART;
     sc.f = sc.f || {}; sc.hi = sc.hi || {};
     const c = context(sc, opts.lab); lastCtx = c;
     if (c.dbDirty) sc.db = c.db;
-    sc.hi.st = c.streak; sc.hi.rv = c.reviewed;
+    if (!STREAK_HIDDEN) sc.hi.st = c.streak; sc.hi.rv = c.reviewed;
     const page = sc.cur, fresh = [];
     page.g = page.g || {};
     M.forEach(m => { if (m.id === "term-end" || page.g[m.id]) return; if ((Number(m.v(c)) || 0) >= m.need) { page.g[m.id] = nowMin(); fresh.push(m.id); } });
@@ -76723,6 +76727,7 @@ function streakStripHtml(hideIntro){
 const CARDS = "studyboard:fgs:cards";
 let fcSeen = 0;
 function logDay(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const today = todayISO(), g = gcfg(), log = Object.assign({}, g.log);
   if (log[today]) return;
   log[today] = 1;
@@ -76730,6 +76735,7 @@ function logDay(){
   setStg("gentle", {log: out});
 }
 function noteCards(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const f = ui && ui.fc;
   if (ui.tab !== "flashcards" || !f || f.mode !== "study") { fcSeen = 0; return; }
   const n = (f.again || 0) + (f.hard || 0) + (f.good || 0) + (f.easy || 0);
@@ -76743,6 +76749,7 @@ function noteCards(){
 }
 // Keep what was seen
 function observe(res){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const g = gcfg(), patch = {};
   if (res.todayActive && !(g.log && g.log[res.today])) { const log = Object.assign({}, g.log); log[res.today] = 1; const out = {}; Object.keys(log).sort().slice(-120).forEach(d => { out[d] = 1; }); patch.log = out; }
   if (res.best > (Number(g.best) || 0)) patch.best = res.best;
@@ -76768,6 +76775,7 @@ function lines(c){
 let celT = 0, celTries = 0;
 function celebrateSoon(delay){ clearTimeout(celT); celTries = 0; celT = setTimeout(tryCelebrate, delay == null ? 2500 : delay); }
 function tryCelebrate(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   try {
     if (!gentleOn()) return;
     const res = streakNow(), c = RS.celebration(res, saidRead(), res.today); if (!c) return;
@@ -76848,6 +76856,7 @@ function turnOn(){
 }
 // A brand new account starts with the gentle streak, unless a choice was already made
 function newUser(){
+  if (STREAK_HIDDEN) return;   // streaks are hidden for now, and nothing about them is recorded
   const g = gcfg();
   if (g.on !== undefined || g.intro !== undefined || lsr(FGS_CHOICE)) return;
   setStg("gentle", {on: true, intro: true, since: todayISO()});
