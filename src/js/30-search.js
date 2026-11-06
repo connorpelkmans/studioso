@@ -1314,8 +1314,7 @@ Return JSON only.`;
     go("notes"); render(); window.scrollTo(0, 0);
     const el = $(`.note[data-note="${CSS.escape(id)}"]`), sc = $("#nbScroll");
     if (el && sc) {
-      try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch(e) { sc.scrollLeft = n.x; sc.scrollTop = n.y; }
-      el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200);
+      nbFocusNote(id);
       try { el.focus({preventScroll: true}); } catch(e) {}
       const refocus = () => { const n2 = $(`.note[data-note="${CSS.escape(id)}"]`); if (n2 && n2 !== document.activeElement && ui.tab === "notes" && (!document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected)) { try { n2.focus({preventScroll: true}); } catch(e) {} } };
       requestAnimationFrame(refocus); [250, 700, 1600].forEach(ms => setTimeout(refocus, ms));

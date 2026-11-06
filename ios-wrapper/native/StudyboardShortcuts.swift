@@ -4,7 +4,8 @@ import AppIntents
 // The sentences Siri knows with no setup. Every phrase must name the app (\(.applicationName)), and only an App Entity or
 // App Enum can sit inside one: Siri listens for the names of the suggested assignments and courses (refreshed with
 // updateAppShortcutParameters() each time the on-device copy changes, SBSiriIndex.refresh). A phrase without the name
-// makes Siri ask "Which assignment?" and match the answer (EntityStringQuery). At most 10 App Shortcuts per app.
+// makes Siri ask "Which assignment?" and match the answer (EntityStringQuery). At most 10 App Shortcuts per app: "Next class" is a
+// phrase of Class Times, and "Take a photo" (OpenCaptureIntent) is in the Shortcuts app and the Action Button but has no phrase.
 struct StudyboardShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -68,29 +69,61 @@ struct StudyboardShortcuts: AppShortcutsProvider {
                 "When is \(\.$course) in \(.applicationName)",
                 "What time is \(\.$course) in \(.applicationName)",
                 "Where is \(\.$course) in \(.applicationName)",
-                "Ask \(.applicationName) when a class is"
+                "What's my next class in \(.applicationName)",
+                "When is my next class in \(.applicationName)",
+                "\(.applicationName) next class"
             ],
             shortTitle: "Class Times",
             systemImageName: "clock"
         )
         AppShortcut(
-            intent: NextClassIntent(),
+            intent: TodayPlanIntent(),
             phrases: [
-                "What's my next class in \(.applicationName)",
-                "When is my next class in \(.applicationName)",
-                "\(.applicationName) next class"
+                "What should I work on in \(.applicationName)",
+                "What should I work on now in \(.applicationName)",
+                "How much do I have today in \(.applicationName)",
+                "What's my plan today in \(.applicationName)",
+                "What's next in \(.applicationName)"
             ],
-            shortTitle: "Next Class",
-            systemImageName: "studentdesk"
+            shortTitle: "Today's Plan",
+            systemImageName: "list.bullet.clipboard"
         )
         AppShortcut(
-            intent: OpenCaptureIntent(),
+            intent: StartFocusIntent(),
             phrases: [
-                "Take a photo for \(.applicationName)",
-                "Scan notes with \(.applicationName)"
+                "Start studying in \(.applicationName)",
+                "Start studying for \(\.$course) in \(.applicationName)",
+                "Study \(\.$course) in \(.applicationName)",
+                "Work on \(\.$task) in \(.applicationName)",
+                "Start a focus session in \(.applicationName)",
+                "Start a \(\.$length) focus session in \(.applicationName)",
+                "Start a \(\.$length) \(.applicationName) session",
+                "Start focusing in \(.applicationName)"
             ],
-            shortTitle: "Capture Photo",
-            systemImageName: "camera"
+            shortTitle: "Start Focus",
+            systemImageName: "timer"
+        )
+        AppShortcut(
+            intent: FocusControlIntent(),
+            phrases: [
+                "\(\.$action) my \(.applicationName) timer",
+                "\(\.$action) my focus session in \(.applicationName)",
+                "\(\.$action) focus in \(.applicationName)",
+                "\(\.$action) the timer in \(.applicationName)"
+            ],
+            shortTitle: "Pause or Stop Focus",
+            systemImageName: "pause.circle"
+        )
+        AppShortcut(
+            intent: MarkTaskDoneIntent(),
+            phrases: [
+                "Mark \(\.$assignment) done in \(.applicationName)",
+                "Check off \(\.$assignment) in \(.applicationName)",
+                "I finished \(\.$assignment) in \(.applicationName)",
+                "Mark a task done in \(.applicationName)"
+            ],
+            shortTitle: "Mark Done",
+            systemImageName: "checkmark.circle"
         )
     }
 

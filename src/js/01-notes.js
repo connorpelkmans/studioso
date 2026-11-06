@@ -230,9 +230,9 @@ function viewFiles(){
   const hcol = c ? c.color : ui.fCourse === "all" ? "var(--accent-band,var(--accent))" : "#8A94A6";
   const nHere = lec ? lec.n : fs.length, inCls = !!(lec && lec.crumb), bandActs = [ui.fCourse !== "all" && !inCls ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder && !inCls ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
   const fhead = `<div class="fhead g2-head" style="--c:${esc(hcol)}">
-      <div class="g2-band"><span class="g2-kick">${c ? esc(courseLabel(c)) + " · " : ""}Files</span>${bandActs ? `<div class="row-actions">${bandActs}</div>` : ""}</div>
+      <div class="g2-band" aria-hidden="true"></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : ui.fCourse === "all" ? FOLDER : GENERAL_ICON}</span>
-        <div class="g2-txt"><h2 class="fcrumb">${crumbs}</h2><div class="g2-meta"><span>${nHere} ${nHere === 1 ? "item" : "items"}${ui.q.trim() ? " matching your search" : ""}</span></div></div></div>
+        <div class="g2-txt"><h2 class="fcrumb">${crumbs}</h2><div class="g2-meta"><span>${nHere} ${nHere === 1 ? "item" : "items"}${ui.q.trim() ? " matching your search" : ""}</span></div></div>${bandActs ? `<div class="row-actions fh-acts">${bandActs}</div>` : ""}</div>
     </div>`;
   const actions = `${window.SBPDE && SBPDE.scanBtn ? SBPDE.scanBtn() : ""}${window.SBPDFT ? SBPDFT.filesBtns() : ""}${window.SBCLOUD ? SBCLOUD.filesBtn() : ""}${trashBtn("file")}<div class="segb" role="group" aria-label="Sort"><button data-act="f-sort" data-id="date" aria-pressed="${ui.fSort !== "name"}">Newest</button><button data-act="f-sort" data-id="name" aria-pressed="${ui.fSort === "name"}">Name</button></div>`;
   return `<div class="tl-controls f-title"><h2>Files</h2>${actions}</div>${searchNote()}
@@ -626,7 +626,8 @@ function noteSheetAway(){
   [["inset", `${L.r.top}px auto auto ${L.r.left}px`], ["width", L.r.width + "px"], ["height", L.r.height + "px"], ["max-height", "none"], ["animation", "none"]].forEach(([k, v]) => c.style.setProperty(k, v, "important"));
   host.appendChild(c); document.body.appendChild(host);
   try { host.showPopover(); } catch (e) {}
-  const opts = {duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+  // the same quick, smooth slide as other sheets (99-smooth.js)
+  const opts = {duration: 180, easing: "cubic-bezier(.3,0,.7,.4)", fill: "forwards"};
   const a = c.animate([{translate: "0 0"}, {translate: `0 ${Math.max(L.r.height, innerHeight - L.r.top) + 20}px`}], opts);
   host.firstChild.animate([{opacity: 1}, {opacity: 0}], opts);
   const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 700);
@@ -800,7 +801,7 @@ function viewNoteBoard(){
   const archived = notesArr().filter(n => n.archived).length;
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
-  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note">${AI_ICON}<span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
+  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note"><span class="nb-photo-ai">${AI_ICON}</span><svg class="nb-photo-cam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12.5" r="3.5"/></svg><span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">

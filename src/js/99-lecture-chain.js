@@ -263,7 +263,7 @@ function openNote(id){
   ui.tab = "notes"; ui.courseId = null; ui.noteBoard = noteBoardOf(n); try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {}
   render(); window.scrollTo(0, 0);
   const el = document.querySelector(`.note[data-note="${CSS.escape(id)}"]`), sc = $("#nbScroll");
-  if (el) { if (sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50)}); } catch (e) {} } el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200); try { el.focus({preventScroll: true}); } catch (e) {} }
+  if (el) { if (sc) nbFocusNote(id); try { el.focus({preventScroll: true}); } catch (e) {} }
 }
 
 /* 2. Notes to draft cards */

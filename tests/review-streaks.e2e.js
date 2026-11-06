@@ -6,7 +6,10 @@ const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/java
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://x"); let p = decodeURIComponent(u.pathname); if (p === "/") p = "/index.html";
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
-  res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
+  res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"});
+  // study streaks are hidden in the app for now (STREAK_HIDDEN); these checks run with them shown
+  if (/^\/bundle\/app\.js$/.test(p)) { res.end(fs.readFileSync(f, "utf8").replace("const STREAK_HIDDEN = true;", "const STREAK_HIDDEN = false;")); return; }
+  fs.createReadStream(f).pipe(res);
 });
 const TZ = "America/New_York";
 const T = (day, h = 12, m = 0) => new Date(`${day}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-04:00`).getTime();
@@ -59,7 +62,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
   const card = page => page.locator("#view .wkr-card:visible");
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => ({page: document.documentElement.scrollWidth - document.documentElement.clientWidth, dlg: (d => d ? d.scrollWidth - d.clientWidth : 0)(document.querySelector("#dlg"))})); ok(o.page <= 1 && o.dlg <= 1, "no horizontal scroll " + what + " " + JSON.stringify(o)); };
-  const bigEnough = async (page, sel, what) => { const small = await page.evaluate(s => [...document.querySelectorAll(s)].filter(e => e.offsetParent).filter(e => { const r = e.getBoundingClientRect(); return r.height < 43.5 || r.width < 36; }).map(e => (e.textContent || e.getAttribute("aria-label") || "").trim().slice(0, 30) + " " + Math.round(e.getBoundingClientRect().width) + "x" + Math.round(e.getBoundingClientRect().height)), sel); ok(!small.length, "targets are big enough " + what + (small.length ? ": " + small.join(" | ") : "")); };
+  // sizes are measured once a sheet has finished opening (it scales in for a moment)
+  const settled = page => page.evaluate(() => Promise.all(document.getAnimations().filter(a => { const t = a.effect && a.effect.target; return t && t.closest && t.closest("dialog") && a.effect.getComputedTiming().iterations !== Infinity; }).map(a => a.finished.catch(() => {}))));
+  const bigEnough = async (page, sel, what) => { await settled(page); const small = await page.evaluate(s => [...document.querySelectorAll(s)].filter(e => e.offsetParent).filter(e => { const r = e.getBoundingClientRect(); return r.height < 43.5 || r.width < 36; }).map(e => (e.textContent || e.getAttribute("aria-label") || "").trim().slice(0, 30) + " " + Math.round(e.getBoundingClientRect().width) + "x" + Math.round(e.getBoundingClientRect().height)), sel); ok(!small.length, "targets are big enough " + what + (small.length ? ": " + small.join(" | ") : "")); };
   try {
     for (const W of [1280, 390]) {
       console.log("\n=== width", W);

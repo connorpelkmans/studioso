@@ -1135,7 +1135,8 @@
     void b.offsetWidth; b.classList.add("on");
     guardSoon("bubble", 450);
     clearTimeout(bubbleT);
-    bubbleT = setTimeout(hideBubble, opts.ms || (btns.length ? 9000 : Math.max(2600, 1400 + text.length * 55)));
+    // long enough to read, a little longer with Ask on it; an idea to act on (Let's Do It / Not Now) waits longer
+    bubbleT = setTimeout(hideBubble, opts.ms || (idea ? 12000 : ask ? Math.max(4500, 2400 + text.length * 55) : Math.max(2600, 1400 + text.length * 55)));
     act.mouth("open"); later(() => { if (act && mood !== "doze" && mood !== "nap") act.mouth(mood === "study" ? "neutral" : "smile"); later(() => { if (act && mood === "idle") act.mouth("neutral"); }, 1400); }, 420);
   }
   /* Thinking: three dots in a bubble while the student waits on the AI (after any "On it!" line has had its moment) */
@@ -1369,6 +1370,10 @@
       document.body.appendChild(layer);
       front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front";
       front.innerHTML = `<div class="cp-bubble" role="status"></div>`;
+      // pointing at a bubble keeps it up; it goes a moment after the pointer leaves (an open Ask box keeps its own timer)
+      { const bb = front.querySelector(".cp-bubble");
+        bb.addEventListener("pointerenter", () => { if (bb.classList.contains("on") && !bb.classList.contains("asking") && !bb.classList.contains("cp-think") && !bb.querySelector(".cp-thinking")) clearTimeout(bubbleT); });
+        bb.addEventListener("pointerleave", () => { if (bb.classList.contains("on") && !bb.classList.contains("asking") && !bb.classList.contains("cp-think") && !bb.querySelector(".cp-thinking") && !bb.contains(document.activeElement)) { clearTimeout(bubbleT); bubbleT = setTimeout(hideBubble, 2500); } }); }
       document.body.appendChild(front);
       front.querySelector(".cp-bubble").addEventListener("click", onBubbleClick);
     }
@@ -1529,7 +1534,7 @@
     const today = todayISO(), lim = addDays(today, days);
     return openTasks().filter(t => t.due && t.due >= today && t.due <= lim && /exam|quiz|test|midterm|final/i.test(t.type + " " + t.title)).sort((a, b) => a.due < b.due ? -1 : 1)[0] || null;
   }
-  const streakN = () => { try { return shownStreak().cur || 0; } catch (e) { return 0; } };
+  const streakN = () => { if (STREAK_HIDDEN) return 0; try { return shownStreak().cur || 0; } catch (e) { return 0; } };
   const focusToday = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.focusMinutes(todayISO(), todayISO()) : 0; } catch (e) { return 0; } };
   function contextKinds(){
     const h = new Date().getHours(), k = [];
@@ -1751,7 +1756,7 @@
       `Tasks: ${dueToday} due today, ${dueWeek} due in the next 7 days, ${overdue} overdue.`,
       `Next deadlines:\n${nextLines.join("\n") || "none"}`,
       `Finished in the last 2 days: ${recent.join("; ") || "nothing yet"}.`,
-      `Study streak: ${streakN()} days. Focus today: ${focusToday()} min. Focus this week: ${week7} min.`,
+      `${STREAK_HIDDEN ? "" : `Study streak: ${streakN()} days. `}Focus today: ${focusToday()} min. Focus this week: ${week7} min.`,
       `Nearest exam or quiz: ${ex ? `${shortT(ex.title, 50)} in ${Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5))} days` : "none in the next 2 weeks"}.`
     ].join("\n");
     return {text, refs, dueWeek};
@@ -2021,7 +2026,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     applyVars(); fitHitSoon();
     const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && !staysPut() && roamDue(0.2);
     if (wander) lastRoam = Date.now();
-    placeSoon(newTab ? (phone() ? 0 : 160) : 400, first || wander);
+    // an open Ask box doesn't stay behind when the page changes and the companion moves (Ask's own answers, said after it
+    // goes somewhere, aren't the Ask box, so they stay)
+    if (newTab && !first && front) { const b = front.querySelector(".cp-bubble.asking"); if (b) {
+      if (b.contains(document.activeElement)) document.activeElement.blur();
+      hideBubble(); setTimeout(() => { if (!b.classList.contains("on")) b.innerHTML = ""; }, 260);
+    } }
+    // a new page: it moves at once (a placement asked for at once isn't pushed back by the page's layout settling)
+    placeSoon(newTab ? 0 : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });
   hook("boot", () => { lastTab = ui.tab; refresh(0); BR.knownTasks = new Set(Object.keys(state.tasks || {})); BR.doneIds = new Set(Object.values(state.tasks || {}).filter(t => t && t.status === "done").map(t => t.id)); });

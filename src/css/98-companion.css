@@ -68,6 +68,9 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble.right::after{left:-6px;top:var(--ty,50%);bottom:auto;margin:-6px 0 0 0;border-radius:0 0 0 3px;box-shadow:-1.5px 1.5px 0 0 color-mix(in srgb,var(--cp-wear,var(--accent)) 35%,var(--line))}
 .cp-bubble.has-idea.on{pointer-events:auto}
 .cp-bubble .cp-b-t{display:block}
+/* the thinking dots sit in a row (the line above would otherwise squash them to nothing) */
+.cp-bubble .cp-b-t.cp-thinking{display:flex}
+.cp-thinking i{display:block;flex:none}
 .cp-bubble .cp-b-acts{display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap}
 .cp-bubble .cp-b-acts .btn{min-height:34px;font-size:.8rem}
 .cp-bubble.asking{pointer-events:auto;padding:8px}
@@ -213,8 +216,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 @media (prefers-reduced-motion:reduce){.cp-dots i{animation:cpDotFade 1.6s infinite}@keyframes cpDotFade{0%,100%{opacity:.35}50%{opacity:1}}}
 
 /* Ask's confirm panel (98-assist.js): sits low on the screen so the highlighted thing above stays in view */
-.as-dlg{margin:auto auto max(18px,env(safe-area-inset-bottom));width:min(520px,calc(100vw - 32px));max-height:min(70vh,560px);padding:0;border:0;border-radius:16px;background:var(--card,#fff);color:var(--ink,inherit);box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.as-dlg{margin:auto auto max(18px,env(safe-area-inset-bottom));width:min(520px,calc(100vw - 32px));max-height:min(70vh,560px);padding:0;border:0;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 18px 50px rgba(0,0,0,.28)}
 .as-dlg::backdrop{background:rgba(10,14,24,.12)}
+/* the title reads like every other sheet's, in light and dark */
+.as-dlg .sheet-head h2{color:var(--ink)}
 .as-sheet .sheet-body{max-height:min(48vh,380px);overflow:auto}
 .as-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .as-list li{display:grid;gap:2px;padding:10px 12px;border-radius:10px;background:var(--soft,rgba(0,0,0,.04))}
@@ -233,5 +238,9 @@ html .btn.primary.cp-ask-go{display:inline-flex;align-items:center;justify-conte
 html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
+/* the Companion page's Ask: just the word, centred and bigger (no companion face) */
+html .btn.primary.cp-ask-go#cptGo{min-width:96px;padding:0 22px;font-size:1.15rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
 .cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
 .cp-tq-row{align-items:center}
+/* a hidden bubble (faded out) can't be clicked or typed into */
+.cp-bubble:not(.on){pointer-events:none}

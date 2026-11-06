@@ -167,10 +167,9 @@ const page = (title: string, text: string, ok: boolean) => new Response(`${HTML_
 const confirmPage = (title: string, html: string, box: string) => new Response(`${HTML_HEAD(title)}<body><main><h1>${title}</h1><p>${html}</p><form method="post"><input type="hidden" name="confirm" value="${htmlEsc(box)}"><button type="submit">Connect</button></form></main></body></html>`, { status: 200, headers: SAFE_HEADERS(true) });
 const htmlEsc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as any)[c]);
 
-// A school or work Microsoft account whose organization needs an admin to approve Studyboard before people can connect it
-// (Studyboard isn't a verified Microsoft publisher yet). Microsoft sends these back with an "admin approval" error
-export const SCHOOL_BLOCKED_TITLE = "School accounts can't connect yet";
-export const SCHOOL_BLOCKED_TEXT = "Studyboard can't connect school or work Microsoft accounts yet. That's coming in the future. For now you can connect a personal Microsoft account (Outlook.com, Hotmail or Live) instead.";
+// Microsoft sends an "admin approval" error when a school or work account's organization hasn't allowed Studyboard
+export const SCHOOL_BLOCKED_TITLE = "That didn't work";
+export const SCHOOL_BLOCKED_TEXT = "Microsoft didn't finish connecting, so nothing changed. Try again from Studyboard.";
 export const schoolBlocked = (u: URL) => u.searchParams.get("error") === "consent_required"
   || /AADSTS(90094|90095|900941|65001)\b|admin(istrator)?(\s+\w+)?\s+(approval|consent)|permission to access resources in your organi[sz]ation/i.test(u.searchParams.get("error_description") || "");
 

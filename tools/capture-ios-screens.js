@@ -6,9 +6,9 @@ const http = require("http"), fs = require("fs"), path = require("path");
 const {chromium, executablePath} = require("../tests/pw");
 const root = path.join(__dirname, ".."), OUT = process.argv[2] || path.join(root, "build-resources/ios-listing/screenshots");
 const IPAD = process.env.IPAD === "1";
-// the screen size in points, the status bar's height, the scale, and the frame page
-const DEV = IPAD ? {w: 1032, h: 1376, bar: 24, scale: 2, frame: "/tools/ios-frame.html?ipad", ua: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"}
-  : {w: 440, h: 956, bar: 54, scale: 3, frame: "/tools/ios-frame.html", ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"};
+// the screen size in points, the status bar's height, the home indicator's room at the bottom, the scale, and the frame page
+const DEV = IPAD ? {w: 1032, h: 1376, bar: 24, home: 20, scale: 2, frame: "/tools/ios-frame.html?ipad", ua: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"}
+  : {w: 440, h: 956, bar: 54, home: 34, scale: 3, frame: "/tools/ios-frame.html", ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"};
 fs.mkdirSync(path.join(OUT, "raw"), {recursive: true});
 // the sample semester, taken from the Microsoft Store script so both stay the same
 const src = fs.readFileSync(path.join(__dirname, "capture-store-screens.js"), "utf8");
@@ -48,6 +48,12 @@ const press = async (page, label) => {
   await page.waitForTimeout(1200);
 };
 
+// The room the iPhone keeps clear for the home indicator (env(safe-area-inset-bottom)), so the tab bar sits where it does on
+// the phone instead of on the bottom edge
+const homeRoom = async (ctx, page) => {
+  const s = await ctx.newCDPSession(page);
+  await s.send("Emulation.setSafeAreaInsetsOverride", {insets: {top: 0, left: 0, right: 0, bottom: DEV.home}});
+};
 async function shoot(browser, [name, , skin, scheme, tab, steps]) {
   // iPhone 6.9" (440 x 956 points at 3x = 1320 x 2868)
   const ctx = await browser.newContext({viewport: {width: DEV.w, height: DEV.h - DEV.bar}, deviceScaleFactor: DEV.scale, isMobile: true, hasTouch: true, colorScheme: scheme, serviceWorkers: "block", userAgent: DEV.ua});
@@ -57,8 +63,10 @@ async function shoot(browser, [name, , skin, scheme, tab, steps]) {
     localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1");
     localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:theme", scheme); } } catch (e) {} }, [seed, scheme]);
   const page = await ctx.newPage();
+  await homeRoom(ctx, page);
   await page.goto("http://localhost:" + server.address().port + "/?pro=off"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);
-  await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
+  // no toasts, and no Heads Up block in Today's Plan (a wall of text in a picture)
+  await page.addStyleTag({content: ".toast,#toast,.plan-notes{display:none!important}"});
   await dismiss(page);
   await page.evaluate(t => { const b = document.querySelector(`nav.tabs [data-tab="${t}"]`); if (b) b.click(); }, tab); await page.waitForTimeout(1500);
   for (const s of steps) await press(page, s);
@@ -90,6 +98,7 @@ async function review(browser) {
     // the store app outside the US: in-app purchase, Apple's renewal terms
     window.StudyboardNative = {platform: "ios", purchasesAvailable: true, externalPurchase: false, storefront: "CAN"}; }, seed);
   const page = await ctx.newPage();
+  await homeRoom(ctx, page);
   await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);
   await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
   await dismiss(page);

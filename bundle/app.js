@@ -1,5 +1,8 @@
 (function(){
 "use strict";
+// Study streaks are hidden for now (to be revisited): no streak strip, chip, line, celebration or companion talk about them.
+// Study days are still counted, so turning this back to false brings everything back as it was.
+const STREAK_HIDDEN = true;
 /* Every on-device database this page opens closes itself when another tab */
 try { if (window.SBLaunch) SBLaunch.to(32); } catch (e) {}   // the launch screen (index.html): the app's code is running
 try {
@@ -357,10 +360,6 @@ const MS_ICON = {
 /* ===== module: 01-doclinks.js ===== */
 /* Document links on a task: a Google Doc, a Word file, a OneNote page or a Canva design, one tap from the deadline.
    Links only: nothing is fetched or signed in to, and the page opens in the browser (or the computer's own browser). */
-// Studyboard isn't a verified Microsoft publisher yet, so Microsoft makes school and work accounts ask their admin first.
-// Shown wherever a Microsoft account connects (OneDrive, Outlook calendar, OneNote); the servers say the same when Microsoft refuses
-const MS_SCHOOL_SOON = "School and work Microsoft accounts can't connect yet. That's coming in the future. For now, use a personal Microsoft account (Outlook.com, Hotmail or Live).";
-const msPersonal = email => /@(outlook|hotmail|live|msn|passport)\.[a-z.]+$/i.test(String(email || ""));
 /*DOCLINKS-START*/
 const DOCLINK = (() => {
   const MAX = 12, NAME_MAX = 120, URL_MAX = 2000;
@@ -2790,6 +2789,11 @@ function sbSetupSheet(){
 // Google: its logo, Roboto Medium, its light and dark colours, pill shape)
 const SB_APPLE_SVG = '<svg class="sb-oa-a" viewBox="20 15.6 16 19.8" width="16" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="nonzero" d="M28.2226562,20.3846154 C29.0546875,20.3846154 30.0976562,19.8048315 30.71875,19.0317864 C31.28125,18.3312142 31.6914062,17.352829 31.6914062,16.3744437 C31.6914062,16.2415766 31.6796875,16.1087095 31.65625,16 C30.7304687,16.0362365 29.6171875,16.640178 28.9492187,17.4494596 C28.421875,18.06548 27.9414062,19.0317864 27.9414062,20.0222505 C27.9414062,20.1671964 27.9648438,20.3121424 27.9765625,20.3604577 C28.0351562,20.3725366 28.1289062,20.3846154 28.2226562,20.3846154 Z M25.2929688,35 C26.4296875,35 26.9335938,34.214876 28.3515625,34.214876 C29.7929688,34.214876 30.109375,34.9758423 31.375,34.9758423 C32.6171875,34.9758423 33.4492188,33.792117 34.234375,32.6325493 C35.1132812,31.3038779 35.4765625,29.9993643 35.5,29.9389701 C35.4179688,29.9148125 33.0390625,28.9122695 33.0390625,26.0979021 C33.0390625,23.6579784 34.9140625,22.5588048 35.0195312,22.474253 C33.7773438,20.6382708 31.890625,20.5899555 31.375,20.5899555 C29.9804688,20.5899555 28.84375,21.4596313 28.1289062,21.4596313 C27.3554688,21.4596313 26.3359375,20.6382708 25.1289062,20.6382708 C22.8320312,20.6382708 20.5,22.5950413 20.5,26.2911634 C20.5,28.5861411 21.3671875,31.013986 22.4335938,32.5842339 C23.3476562,33.9129053 24.1445312,35 25.2929688,35 Z"/></svg>';
 const SB_GOOGLE_SVG = '<svg class="sb-oa-g" width="20" height="20" viewBox="10 10 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><mask id="mask0_sbg" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="10" y="10" width="20" height="20"><path d="M29.3987 18.1814H19.9849V22.0445H25.3598C25.1286 23.294 24.4294 24.3596 23.3676 25.0712C22.4746 25.6716 21.3266 26.0211 19.9849 26.0211C17.3864 26.0211 15.1823 24.2666 14.3947 21.9004C14.1952 21.2989 14.0853 20.6599 14.0853 19.9983C14.0853 19.3367 14.1952 18.6966 14.3947 18.0962C15.1823 15.7311 17.3864 13.9755 19.9849 13.9755C21.4524 13.9755 22.767 14.4816 23.8039 15.4713L26.6653 12.6057C24.936 10.9908 22.6786 10 19.9849 10C16.0832 10 12.705 12.2414 11.0618 15.5076C10.383 16.8592 10 18.3834 10 19.9994C10 21.6155 10.383 23.1396 11.0618 24.4913C12.705 27.7597 16.0832 30 19.9849 30C22.6797 30 24.9485 29.1137 26.6018 27.5861C28.4887 25.8452 29.5732 23.2702 29.5732 20.2275C29.5732 19.5182 29.5131 18.835 29.3987 18.1825V18.1814Z" fill="#E94FFF"/></mask><g mask="url(#mask0_sbg)"><g filter="url(#filter0_f_sbg)"><g clip-path="url(#paint0_angular_sbg_clip_path)"><g transform="matrix(0.00804129 -0.00805186 0.00804128 0.00805186 19.6819 19.7927)"><foreignObject x="-2105.64" y="-2105.64" width="4211.29" height="4211.29"><div xmlns="http://www.w3.org/1999/xhtml" style="background:conic-gradient(from 90deg,rgba(255, 70, 65, 1) 0deg,rgba(255, 70, 65, 1) 4.14555deg,rgba(49, 134, 255, 1) 39.154deg,rgba(49, 134, 255, 1) 72.0044deg,rgba(0, 165, 183, 1) 96.7463deg,rgba(14, 188, 95, 1) 120.897deg,rgba(14, 188, 95, 1) 154.722deg,rgba(108, 196, 0, 1) 179.136deg,rgba(255, 204, 0, 1) 203.588deg,rgba(255, 211, 20, 1) 226.915deg,rgba(255, 204, 0, 1) 251.688deg,rgba(255, 106, 43, 1) 273.129deg,rgba(253, 70, 65, 1) 289.305deg,rgba(255, 70, 65, 1) 359.593deg,rgba(255, 70, 65, 1) 360deg);height:100%;width:100%;opacity:1"></div></foreignObject></g></g><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z"/></g><g filter="url(#filter1_f_sbg)"><ellipse cx="20.0496" cy="20.2413" rx="5.39634" ry="2.83537" transform="rotate(24.4473 20.0496 20.2413)" fill="#3186FF"/></g><g filter="url(#filter2_f_sbg)"><ellipse cx="33.3538" cy="18.2155" rx="7.43918" ry="3.09357" fill="#3186FF"/></g><g filter="url(#filter3_f_sbg)"><ellipse cx="25.2744" cy="16.2195" rx="7.40854" ry="2.37805" fill="#FF4641"/></g><g filter="url(#filter4_f_sbg)"><ellipse cx="29.5427" cy="12.9268" rx="7.40854" ry="2.37805" fill="#FF5B8B"/></g><g filter="url(#filter5_f_sbg)"><ellipse cx="24.4817" cy="19.878" rx="8.5061" ry="3.10976" fill="#3186FF"/></g><g filter="url(#filter6_f_sbg)"><ellipse cx="25.1842" cy="14.0197" rx="4.53882" ry="2.37805" transform="rotate(-28.6599 25.1842 14.0197)" fill="#FF4641"/></g></g><defs><filter id="filter0_f_sbg" x="5.25922" y="4.90668" width="29.7381" height="29.772" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><clipPath id="paint0_angular_sbg_clip_path"><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z"/></clipPath><filter id="filter1_f_sbg" x="12.9977" y="14.828" width="14.1038" height="10.8265" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter2_f_sbg" x="23.9146" y="13.1219" width="18.8784" height="10.1871" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter3_f_sbg" x="15.8659" y="11.8415" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter4_f_sbg" x="20.1341" y="8.54878" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter5_f_sbg" x="13.9756" y="14.7683" width="21.0122" height="10.2195" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter><filter id="filter6_f_sbg" x="19.0404" y="9.00419" width="12.2878" height="10.0309" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_sbg"/></filter></defs></svg>';
+// Microsoft's four squares, in Microsoft's own colours (Sign in with Microsoft branding guidelines: the logo, Segoe UI,
+// light #FFFFFF / #8C8C8C border / #5E5E5E text, dark #2F2F2F / #FFFFFF)
+const SB_MS_SVG = '<svg class="sb-oa-m" viewBox="0 0 21 21" width="18" height="18" aria-hidden="true" focusable="false"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>';
+// Supabase calls Microsoft "azure"; every Microsoft account can sign in (personal, school and work: the "common" tenant)
+const SB_OAUTH_NAME = {apple: "Apple", google: "Google", azure: "Microsoft"};
 // Apple's option on Apple devices only (the iPhone and iPad app, the Mac app, and a browser on a Mac, iPhone or iPad, which
 // includes iPads that call themselves a Mac); Google everywhere
 const sbAppleOk = () => {
@@ -2797,7 +2801,7 @@ const sbAppleOk = () => {
   if (DESK) return DESK.platform === "darwin";
   return /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "");
 };
-const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Continue with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Continue with Google</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
+const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Continue with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Continue with Google</span></button><button type="button" class="sb-oa sb-oa-ms" data-oauth="azure">${SB_MS_SVG}<span>Continue with Microsoft</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
 // The code or tokens a provider sent back to a return address, made into a session
 async function sbOAuthFinish(addr){
   const u = new URL(addr), p = new URLSearchParams((u.hash || "").replace(/^#/, "")), q = u.searchParams;
@@ -2811,9 +2815,11 @@ async function sbOAuthFinish(addr){
 }
 // true once signed in; false if cancelled or still on its way (the web leaves the page)
 async function sbOAuth(provider, say, back){
-  if (provider !== "apple" && provider !== "google") return false;
-  const N = window.StudyboardNative && window.StudyboardNative.signIn, name = provider === "apple" ? "Apple" : "Google";
-  const opts = provider === "google" ? {queryParams: {prompt: "select_account"}} : {scopes: "name email"};
+  if (!SB_OAUTH_NAME[provider]) return false;
+  const N = window.StudyboardNative && window.StudyboardNative.signIn, name = SB_OAUTH_NAME[provider];
+  // Google and Microsoft: always let the student pick which account (a school and a personal one are common); Microsoft must
+  // be asked for the email, which Supabase needs for the account
+  const opts = provider === "google" ? {queryParams: {prompt: "select_account"}} : provider === "azure" ? {scopes: "openid profile email offline_access", queryParams: {prompt: "select_account"}} : {scopes: "name email"};
   // iPhone: Apple's own sheet
   if (provider === "apple" && N && N.apple) {
     const r = await N.apple();
@@ -2967,7 +2973,7 @@ function sbSignInSheet(mode, email, note){
     if (busy) return; busy = true;
     dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = true; });
     try { if (await sbOAuth(b.dataset.oauth, say, back)) done("Signed in"); }
-    catch (e) { say(sbWords(e)); }
+    catch (e) { say(/not enabled|unsupported provider/i.test(String(e && e.message || "")) ? `Signing in with ${SB_OAUTH_NAME[b.dataset.oauth] || "that"} isn't turned on yet. Use your email for now.` : sbWords(e)); }
     finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
   }));
   sbPwWire(dlg);
@@ -8684,7 +8690,7 @@ function animRows(){
   const c = styleCfg(), row = (key, icon, title, sub) => `<div class="cap-row"><span style="flex:1;font-weight:600">${icon} ${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-act="anim-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""}> On</label></div>`;
   return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
     + row("quotes", "💬", "Daily Quote", "A short motivational quote the first time you open Studyboard each day.")
-    + `<button data-act="daily-quote"><span>Today's Quote and Streak<span class="sub">${esc(streakLine())}</span></span></button>`;
+    + `<button data-act="daily-quote"><span>${STREAK_HIDDEN ? "Today's Quote" : "Today's Quote and Streak"}<span class="sub">${esc(STREAK_HIDDEN ? "See today's quote again" : streakLine())}</span></span></button>`;
 }
 function styleShop(tab){
   if (typeof PLAN !== "undefined" && PLAN && PLAN.endStyleGrace && PLAN.endStyleGrace()) { try { applySkin(); } catch (e) {} render(); }
@@ -12928,7 +12934,7 @@ function dailyQuote(force){
   const [q, who] = todaysQuote();
   qodPop(`<div class="qod-eyebrow">${esc(new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}</div>
     <p class="qod-q" id="qodT">“${esc(q)}”</p>${who ? `<p class="qod-who">${esc(who)}</p>` : ""}
-    <p class="qod-streak">${esc(streakLine())}</p>
+    ${STREAK_HIDDEN ? "" : `<p class="qod-streak">${esc(streakLine())}</p>`}
     <div class="qod-foot"><button type="button" class="btn primary" data-qod-close>Let's Go</button></div>`);
 }
 
@@ -13017,9 +13023,22 @@ function viewSchedule(){
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
   const missing = cs.filter(c => !courseMeetings(c).length && !withEvents.has(c.id));
   const hasAny = cs.some(c => courseMeetings(c).length) || eventsArr().length || availBlocks().length;
-  const setup = hasAny ? "" : `<div class="sch-setup" role="region" aria-label="Set up your schedule"><p style="margin:0"><strong>Add Your Class Times</strong><span class="mini">Your week fills in from each course's class times: lectures, labs, discussions and office hours. You can also add your own events, or import your Apple, Google or Outlook calendar. Deadlines already show below.</span></p>
-    ${cs.length ? `<div class="sch-missing">${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div>` : `<div class="sch-missing"><button class="btn small primary" data-act="new-course">Add a Course</button></div>`}
-    <div class="sch-missing"><button class="btn small" data-act="sch-add">+ Add an Event</button><button class="btn small" data-act="avail-add">+ Add Shift or Work</button><button class="btn small" data-act="sch-ics">Import a Calendar File</button></div></div>`;
+  // Nothing on the week yet: one tidy card. Each course's class times first (one row per course), then other ways to fill the week
+  const SS_IC = {
+    cal: '<path d="M7 3v3M17 3v3M4 9h16"/><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 13h3M8 17h6"/>',
+    ev: '<rect x="4" y="5" width="16" height="16" rx="3"/><path d="M7 3v3M17 3v3M4 9h16M12 12v6M9 15h6"/>',
+    work: '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>',
+    imp: '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14"/>',
+    go: '<path d="M9 6l6 6-6 6"/>'};
+  const ssIc = (k, cls) => `<svg class="${cls || "ss-ic"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SS_IC[k]}</svg>`;
+  const ssTile = (act, ic, label, sub) => `<button type="button" class="ss-tile" data-act="${act}">${ssIc(ic)}<span class="ss-t">${label}</span><span class="ss-s">${sub}</span></button>`;
+  const setup = hasAny ? "" : `<section class="sch-setup" aria-labelledby="schSetupH">
+    <div class="ss-head"><span class="ss-badge">${ssIc("cal")}</span><div><h3 id="schSetupH">Add Your Class Times</h3><p>Your week fills in from each course's lectures, labs and office hours. Deadlines already show below.</p></div></div>
+    ${cs.length ? `<ul class="ss-courses">${cs.map(c => `<li><button type="button" class="ss-row" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}" aria-label="Add class times for ${esc(courseLabel(c))}"><span class="dot" aria-hidden="true"></span><span class="ss-name">${esc(courseLabel(c))}</span><span class="ss-go">Add Times${ssIc("go", "ss-chev")}</span></button></li>`).join("")}</ul>`
+      : `<button type="button" class="btn primary ss-first" data-act="new-course">Add a Course</button>`}
+    <p class="ss-or">Or add your own</p>
+    <div class="ss-tiles">${ssTile("sch-add", "ev", "Event", "Exams, meetings")}${ssTile("avail-add", "work", "Shift or Work", "Busy times")}${ssTile("sch-ics", "imp", "Import Calendar", "Apple, Google, Outlook")}</div>
+  </section>`;
   // A common public holiday coming up (most schools are off, not all): ask once, on the Schedule, in one line
   const holAsk = (() => {
     const S = window.SBSCHOOL, sc = schoolCfg(); if (!S || !cs.some(c => courseMeetings(c).length)) return "";
@@ -13215,7 +13234,7 @@ function renderNow(){
   // the date, and what today is at school (Day 3, B Day, or a day off)
   const sdT = (() => { try { return schoolDayText(todayISO()); } catch (e) { return ""; } })();
   { const nd = new Date(); $("#navDate").innerHTML = esc(nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"})) + (sdT ? `<span class="nd-sd">${esc(sdT)}</span>` : ""); }
-  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
@@ -13331,6 +13350,40 @@ function nbZoomTo(z, cx, cy){
   const ctl = document.querySelector(".nb-zoom"); if (ctl) ctl.outerHTML = nbZoomCtl();
 }
 const NBZ_STEPS = [0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.25, 1.5, 1.75, 2];
+// Found a note (Ask, the companion, Search, a link): glide the board so the note is centred and big enough to read,
+// then draw a highlight box around it. One smooth move of zoom and scroll together; instant with Reduce Motion.
+let nbFocusRun = 0;
+function nbFocusNote(id){
+  const sc = $("#nbScroll"), el = sc && sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`); if (!el) return false;
+  const run = ++nbFocusRun, calm = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const nx = el.offsetLeft + el.offsetWidth / 2, ny = el.offsetTop + el.offsetHeight / 2;
+  // big enough that the note fills about half the view, never smaller than now's zoom or 100%
+  const fit = Math.min(sc.clientWidth * 0.55 / el.offsetWidth, sc.clientHeight * 0.55 / el.offsetHeight);
+  const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, 1, Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
+  const cx0 = (sc.scrollLeft + sc.clientWidth / 2) / z0, cy0 = (sc.scrollTop + sc.clientHeight / 2) / z0;
+  const place = (z, cx, cy) => { NBZ = z; nbZoomApply(); sc.scrollLeft = cx * z - sc.clientWidth / 2; sc.scrollTop = cy * z - sc.clientHeight / 2; };
+  const done = () => {
+    place(z1, nx, ny);
+    try { localStorage.setItem(NBZ_KEY, String(z1)); } catch (e) {}
+    const ctl = document.querySelector(".nb-zoom"); if (ctl) ctl.outerHTML = nbZoomCtl();
+    const n = sc.querySelector(`.note[data-note="${CSS.escape(id)}"]`) || el;
+    n.classList.remove("nb-found"); void n.offsetWidth; n.classList.add("nb-found");
+    setTimeout(() => { if (run === nbFocusRun) n.classList.add("nb-found-out"); }, 2600);
+    setTimeout(() => { if (run === nbFocusRun) n.classList.remove("nb-found", "nb-found-out"); }, 3100);
+  };
+  if (calm) { done(); return true; }
+  const t0 = performance.now(), dur = 650, ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const step = now => {
+    if (run !== nbFocusRun || !sc.isConnected) return;
+    const k = Math.min(1, (now - t0) / dur), e = ease(k);
+    // zoom moves on a log scale so zooming in and out feel equally even
+    const z = z0 * Math.pow(z1 / z0, e);
+    place(z, cx0 + (nx - cx0) * e, cy0 + (ny - cy0) * e);
+    if (k < 1) requestAnimationFrame(step); else done();
+  };
+  requestAnimationFrame(step);
+  return true;
+}
 function nbZoomStep(dir){ const z = dir > 0 ? NBZ_STEPS.find(v => v > NBZ + 0.001) : [...NBZ_STEPS].reverse().find(v => v < NBZ - 0.001); if (z) nbZoomTo(z); }
 // Trackpad pinch (Chrome, Edge, Firefox send it as Ctrl + wheel) and Ctrl/⌘ + mouse wheel
 document.addEventListener("wheel", e => {
@@ -15783,9 +15836,9 @@ function viewFiles(){
   const hcol = c ? c.color : ui.fCourse === "all" ? "var(--accent-band,var(--accent))" : "#8A94A6";
   const nHere = lec ? lec.n : fs.length, inCls = !!(lec && lec.crumb), bandActs = [ui.fCourse !== "all" && !inCls ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder && !inCls ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
   const fhead = `<div class="fhead g2-head" style="--c:${esc(hcol)}">
-      <div class="g2-band"><span class="g2-kick">${c ? esc(courseLabel(c)) + " · " : ""}Files</span>${bandActs ? `<div class="row-actions">${bandActs}</div>` : ""}</div>
+      <div class="g2-band" aria-hidden="true"></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : ui.fCourse === "all" ? FOLDER : GENERAL_ICON}</span>
-        <div class="g2-txt"><h2 class="fcrumb">${crumbs}</h2><div class="g2-meta"><span>${nHere} ${nHere === 1 ? "item" : "items"}${ui.q.trim() ? " matching your search" : ""}</span></div></div></div>
+        <div class="g2-txt"><h2 class="fcrumb">${crumbs}</h2><div class="g2-meta"><span>${nHere} ${nHere === 1 ? "item" : "items"}${ui.q.trim() ? " matching your search" : ""}</span></div></div>${bandActs ? `<div class="row-actions fh-acts">${bandActs}</div>` : ""}</div>
     </div>`;
   const actions = `${window.SBPDE && SBPDE.scanBtn ? SBPDE.scanBtn() : ""}${window.SBPDFT ? SBPDFT.filesBtns() : ""}${window.SBCLOUD ? SBCLOUD.filesBtn() : ""}${trashBtn("file")}<div class="segb" role="group" aria-label="Sort"><button data-act="f-sort" data-id="date" aria-pressed="${ui.fSort !== "name"}">Newest</button><button data-act="f-sort" data-id="name" aria-pressed="${ui.fSort === "name"}">Name</button></div>`;
   return `<div class="tl-controls f-title"><h2>Files</h2>${actions}</div>${searchNote()}
@@ -16179,7 +16232,8 @@ function noteSheetAway(){
   [["inset", `${L.r.top}px auto auto ${L.r.left}px`], ["width", L.r.width + "px"], ["height", L.r.height + "px"], ["max-height", "none"], ["animation", "none"]].forEach(([k, v]) => c.style.setProperty(k, v, "important"));
   host.appendChild(c); document.body.appendChild(host);
   try { host.showPopover(); } catch (e) {}
-  const opts = {duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+  // the same quick, smooth slide as other sheets (99-smooth.js)
+  const opts = {duration: 180, easing: "cubic-bezier(.3,0,.7,.4)", fill: "forwards"};
   const a = c.animate([{translate: "0 0"}, {translate: `0 ${Math.max(L.r.height, innerHeight - L.r.top) + 20}px`}], opts);
   host.firstChild.animate([{opacity: 1}, {opacity: 0}], opts);
   const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 700);
@@ -16353,7 +16407,7 @@ function viewNoteBoard(){
   const archived = notesArr().filter(n => n.archived).length;
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
-  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note">${AI_ICON}<span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
+  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note"><span class="nb-photo-ai">${AI_ICON}</span><svg class="nb-photo-cam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12.5" r="3.5"/></svg><span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">
@@ -18110,7 +18164,19 @@ function pomoTakeLock(){
     ISLAND.hold = true;
     try {
       // the card's exact result when it says it (left in seconds when paused, end in ms when running), so both show the same
-      list.forEach(({a, t, left, end}) => {
+      list.forEach(({a, t, left, end, task, mins}) => {
+        // "Hey Siri, start studying for bio": a new focus session on the task Siri named (it opened the app for this)
+        if (a === "start") {
+          if (Date.now() - t > 10 * 60000) return;
+          if (pomo.running || pomo.left > 0) pomoReset();
+          // an exam's study time in the plan ("study:<exam id>") is a session on the exam
+          const tid = typeof task === "string" && task.indexOf(XS_ID) === 0 ? task.slice(XS_ID.length) : task;
+          if (tid && state.tasks[tid]) pomo.taskId = tid;
+          pomo.mode = "focus"; pomo.left = 0; pomo.len = 0;
+          pomo.preset = mins >= 5 && mins <= 180 ? Math.round(mins) : pomo.taskId ? focusMinsFor(pomo.taskId) : 0;
+          pomoStart();
+          return;
+        }
         if (pomo.running && pomo.endAt <= t) return; // the timer had already run out by then
         if (a === "pause" && pomo.running) { pomo.left = left > 0 ? left * 1000 : Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
         else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = end > t ? end : t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
@@ -25628,8 +25694,7 @@ Return JSON only.`;
     go("notes"); render(); window.scrollTo(0, 0);
     const el = $(`.note[data-note="${CSS.escape(id)}"]`), sc = $("#nbScroll");
     if (el && sc) {
-      try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch(e) { sc.scrollLeft = n.x; sc.scrollTop = n.y; }
-      el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200);
+      nbFocusNote(id);
       try { el.focus({preventScroll: true}); } catch(e) {}
       const refocus = () => { const n2 = $(`.note[data-note="${CSS.escape(id)}"]`); if (n2 && n2 !== document.activeElement && ui.tab === "notes" && (!document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected)) { try { n2.focus({preventScroll: true}); } catch(e) {} } };
       requestAnimationFrame(refocus); [250, 700, 1600].forEach(ms => setTimeout(refocus, ms));
@@ -29501,7 +29566,9 @@ const CAP = (() => {
     const title = clean(x.title, 200); if (!title || !/[a-z0-9]/i.test(title)) return null;
     const today = ctx.today;
     let due = clean(x.due || x.dueDate, 10); if (!validISO(due) || (today && (diff(today, due) < -366 || diff(today, due) > 800))) due = "";
-    let time = clean(x.time || x.dueTime, 5); if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) time = "";
+    // "2026-11-07T17:00" (Siri, the server inbox) carries the time inside the date
+    const dueT = /^\d{4}-\d{2}-\d{2}[T ](\d{2}:\d{2})/.exec(String(x.due || ""));
+    let time = clean(x.time || x.dueTime || x.due_time || (dueT ? dueT[1] : ""), 5); if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) time = "";
     let courseId = "";
     if (x.courseId && (ctx.courses || []).some(c => c.id === x.courseId)) courseId = x.courseId;
     else { const cs = clean(x.course || x.courseCode, 80); if (cs) { const m = matchCourse(cs, ctx.courses); if (m && m.course) courseId = m.course.id; } }
@@ -30044,7 +30111,9 @@ function present(drafts, o){
   o = o || {};
   const dd = CAP.dedupe(drafts, ctx().existing);
   if (!dd.drafts.length) { if (dd.dups) toast("That's already on your board"); return {added: 0, confirm: false, dups: dd.dups, ids: []}; }
-  const auto = prefs().auto && o.trusted && dd.drafts.every(d => d.confident);
+  // a task spoken to Siri was already confirmed out loud, so it goes straight on the board, date or not
+  const spoken = o.direct && dd.drafts.every(d => d.title && !d.flags.includes("needsTitle"));
+  const auto = prefs().auto && o.trusted && (spoken || dd.drafts.every(d => d.confident));
   if (auto) { const made = commit(dd.drafts); return {added: made.length, confirm: false, dups: dd.dups, ids: made.map(t => t.id)}; }
   dd.drafts.forEach(d => { d.checked = true; });
   ensureDom();
@@ -30060,7 +30129,7 @@ async function ingest(x, o){
       const c = ctx(), out = [];
       x.slice(0, 20).forEach(it => { const id = it && it.id != null ? String(it.id) : ""; if (id && seen().includes(id)) return; const d = CAP.sanitizeDraft(it, c); if (d) { d.source = o.source || "inbox"; out.push(d); } });
       if (!out.length) return true;
-      const r = present(out, {trusted: o.trusted !== false, note: o.note || "From your capture inbox."});
+      const r = present(out, {trusted: o.trusted !== false, direct: o.source === "siri", note: o.note || "From your capture inbox."});
       out.forEach(d => { if (d.extId) markSeen(d.extId); });
       return true;
     }
@@ -30079,12 +30148,15 @@ async function ingest(x, o){
     const text = CAP.clean(x.text, 2000, true); if (!text) return false;
     const r = CAP.fromText(text, ctx(), {source: src});
     if (r.drafts.length === 1) {
-      const d = r.drafts[0], due = String(x.due || "").trim();
-      if (CAP.validISO(due)) d.due = due;
+      const d = r.drafts[0], dueRaw = String(x.due || "").trim();
+      // Siri sends "2026-11-07" or "2026-11-07T17:00"
+      const m = /^(\d{4}-\d{2}-\d{2})(?:[T ]([01]\d|2[0-3]):([0-5]\d))?/.exec(dueRaw);
+      if (m && CAP.validISO(m[1])) { d.due = m[1]; if (m[2]) d.time = m[2] + ":" + m[3]; }
+      else if (dueRaw && !d.due) { const w = CAP.parseLine(d.title + " " + CAP.clean(dueRaw, 64), ctx()); if (w && w.due) { d.due = w.due; d.time = w.time || d.time; } }
       if (x.course) { const m = CAP.matchCourse(CAP.clean(x.course, 80), ctx().courses); if (m && m.course) d.courseId = m.course.id; }
       d.flags = d.flags.filter(f => !(f === "past" && d.due >= todayISO())); CAP.score(d);
     }
-    present(r.drafts, {trusted});
+    present(r.drafts, {trusted, direct: src === "siri"});
     if (id) markSeen(id);
     return true;
   } catch (e) { console.warn("capture ingest failed"); return false; }
@@ -30391,7 +30463,7 @@ hook("boot", boot);
     return `<section class="sbw" aria-label="Today">
       <header class="sbw-head">
         <div class="sbw-hl"><h1>Today</h1><span>${esc(d.dateLabel)}</span></div>
-        ${d.streak.cur && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip ${d.streak.today ? "" : "sbw-dim"}" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${d.streak.cur}</button>` : ""}
+        ${d.streak.cur && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip ${d.streak.today ? "" : "sbw-dim"}" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${d.streak.cur}</button>` : ""}
         <a class="icon-btn" href="${esc(location.pathname)}" aria-label="Open Studyboard" title="Open Studyboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
       </header>
       ${n ? `<div class="sbw-next" style="--c:${esc(n.color)}">
@@ -30416,7 +30488,7 @@ hook("boot", boot);
     document.title = "Studyboard Today";
     const at = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (at) at.setAttribute("content", "Today");
     // No daily quote pop-up over the little card
-    dailyQuote = function(force){ if (force) { if (dlg.open) dlg.close(); openSheet(`<div class="sheet">${head("Your Streak")}<div class="sheet-body"><p>${esc(streakLine())}</p></div></div>`); } };
+    dailyQuote = function(force){ if (force && !STREAK_HIDDEN) { if (dlg.open) dlg.close(); openSheet(`<div class="sheet">${head("Your Streak")}<div class="sheet-body"><p>${esc(streakLine())}</p></div></div>`); } };
     // Its own Home Screen icon
     const origPwa = pwaBoot;
     pwaBoot = function(){ const r = origPwa.apply(this, arguments); const l = document.querySelector('link[rel="manifest"]'); if (l) l.href = "today.webmanifest"; return r; };
@@ -62306,7 +62378,8 @@ var COMP_EXTRA = [];
     void b.offsetWidth; b.classList.add("on");
     guardSoon("bubble", 450);
     clearTimeout(bubbleT);
-    bubbleT = setTimeout(hideBubble, opts.ms || (btns.length ? 9000 : Math.max(2600, 1400 + text.length * 55)));
+    // long enough to read, a little longer with Ask on it; an idea to act on (Let's Do It / Not Now) waits longer
+    bubbleT = setTimeout(hideBubble, opts.ms || (idea ? 12000 : ask ? Math.max(4500, 2400 + text.length * 55) : Math.max(2600, 1400 + text.length * 55)));
     act.mouth("open"); later(() => { if (act && mood !== "doze" && mood !== "nap") act.mouth(mood === "study" ? "neutral" : "smile"); later(() => { if (act && mood === "idle") act.mouth("neutral"); }, 1400); }, 420);
   }
   /* Thinking: three dots in a bubble while the student waits on the AI (after any "On it!" line has had its moment) */
@@ -62540,6 +62613,10 @@ var COMP_EXTRA = [];
       document.body.appendChild(layer);
       front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front";
       front.innerHTML = `<div class="cp-bubble" role="status"></div>`;
+      // pointing at a bubble keeps it up; it goes a moment after the pointer leaves (an open Ask box keeps its own timer)
+      { const bb = front.querySelector(".cp-bubble");
+        bb.addEventListener("pointerenter", () => { if (bb.classList.contains("on") && !bb.classList.contains("asking") && !bb.classList.contains("cp-think") && !bb.querySelector(".cp-thinking")) clearTimeout(bubbleT); });
+        bb.addEventListener("pointerleave", () => { if (bb.classList.contains("on") && !bb.classList.contains("asking") && !bb.classList.contains("cp-think") && !bb.querySelector(".cp-thinking") && !bb.contains(document.activeElement)) { clearTimeout(bubbleT); bubbleT = setTimeout(hideBubble, 2500); } }); }
       document.body.appendChild(front);
       front.querySelector(".cp-bubble").addEventListener("click", onBubbleClick);
     }
@@ -62700,7 +62777,7 @@ var COMP_EXTRA = [];
     const today = todayISO(), lim = addDays(today, days);
     return openTasks().filter(t => t.due && t.due >= today && t.due <= lim && /exam|quiz|test|midterm|final/i.test(t.type + " " + t.title)).sort((a, b) => a.due < b.due ? -1 : 1)[0] || null;
   }
-  const streakN = () => { try { return shownStreak().cur || 0; } catch (e) { return 0; } };
+  const streakN = () => { if (STREAK_HIDDEN) return 0; try { return shownStreak().cur || 0; } catch (e) { return 0; } };
   const focusToday = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.focusMinutes(todayISO(), todayISO()) : 0; } catch (e) { return 0; } };
   function contextKinds(){
     const h = new Date().getHours(), k = [];
@@ -62922,7 +62999,7 @@ var COMP_EXTRA = [];
       `Tasks: ${dueToday} due today, ${dueWeek} due in the next 7 days, ${overdue} overdue.`,
       `Next deadlines:\n${nextLines.join("\n") || "none"}`,
       `Finished in the last 2 days: ${recent.join("; ") || "nothing yet"}.`,
-      `Study streak: ${streakN()} days. Focus today: ${focusToday()} min. Focus this week: ${week7} min.`,
+      `${STREAK_HIDDEN ? "" : `Study streak: ${streakN()} days. `}Focus today: ${focusToday()} min. Focus this week: ${week7} min.`,
       `Nearest exam or quiz: ${ex ? `${shortT(ex.title, 50)} in ${Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5))} days` : "none in the next 2 weeks"}.`
     ].join("\n");
     return {text, refs, dueWeek};
@@ -63192,7 +63269,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     applyVars(); fitHitSoon();
     const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && !staysPut() && roamDue(0.2);
     if (wander) lastRoam = Date.now();
-    placeSoon(newTab ? (phone() ? 0 : 160) : 400, first || wander);
+    // an open Ask box doesn't stay behind when the page changes and the companion moves (Ask's own answers, said after it
+    // goes somewhere, aren't the Ask box, so they stay)
+    if (newTab && !first && front) { const b = front.querySelector(".cp-bubble.asking"); if (b) {
+      if (b.contains(document.activeElement)) document.activeElement.blur();
+      hideBubble(); setTimeout(() => { if (!b.classList.contains("on")) b.innerHTML = ""; }, 260);
+    } }
+    // a new page: it moves at once (a placement asked for at once isn't pushed back by the page's layout settling)
+    placeSoon(newTab ? 0 : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });
   hook("boot", () => { lastTab = ui.tab; refresh(0); BR.knownTasks = new Set(Object.keys(state.tasks || {})); BR.doneIds = new Set(Object.values(state.tasks || {}).filter(t => t && t.status === "done").map(t => t.id)); });
@@ -64395,9 +64479,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
           ui.tab = "notes"; ui.courseId = null; ui.noteBoard = noteBoardOf(n); try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {}
           if (window.SBWB && ui.notesView === "wb") SBWB.setView("board");
           render(); window.scrollTo(0, 0); await frame();
-          const el = document.querySelector(`.note[data-note="${CSS.escape(t.id)}"]`), sc = document.getElementById("nbScroll");
-          if (el && sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch (e) {} }
-          if (el) { el.classList.remove("sx-flash"); void el.offsetWidth; el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2600); }
+          nbFocusNote(t.id);
           return true;
         }
         case "board": {
@@ -65117,7 +65199,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Set up AI to chat: a free Google Gemini key, Claude, ChatGPT, or Studyboard AI with Pro.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog">${logHtml()}</div><div class="sr" id="cptSay" aria-live="polite"></div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
-      <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary ai-btn cp-ask-go" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>${AI_ICON} Ask</button></form>
+      <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary ai-btn cp-ask-go" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
       <input type="file" id="cptFile" multiple accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.heic,application/pdf,image/*,text/plain" class="sr" tabindex="-1" aria-hidden="true">
       <p class="mini cpt-priv">Each question sends only the planner parts it needs, plus attachments, to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New Chat</button>` : ""}</p>`;
   }
@@ -67635,7 +67717,7 @@ window.__scrapArt = SCRAP_ART;
     const c = cur ? (lastCtx && lastCtx.start === page.s ? lastCtx : context(sc)) : null;
     const g = page.g || {};
     const got = Object.keys(g).filter(k => MI[k]).length;
-    return `<div class="sbk-mhead"><b>Milestones</b><span class="mini">${got} sticker${got === 1 ? "" : "s"} on this page</span></div>` + CATS.map(([cat, title]) => {
+    return `<div class="sbk-mhead"><b>Milestones</b><span class="mini">${got} sticker${got === 1 ? "" : "s"} on this page</span></div>` + CATS.filter(([cat]) => !(STREAK_HIDDEN && cat === "streaks")).map(([cat, title]) => {
       const ms = M.filter(m => m.cat === cat);
       return `<h4 class="sbk-cat">${esc(title)}</h4><ul class="sbk-ml">${ms.map(m => {
         const pr = cur ? progressOf(m, c, page) : {got: !!g[m.id], p: 0, text: ""};
@@ -70895,9 +70977,24 @@ async function capProcess(rows, d){
   const seenAdd = ids => { const a = [...seenSet(), ...ids].slice(-300); ls(SEEN_KEY, JSON.stringify(a)); };
   const missing = err => { const m = String(err && (err.message || err.code) || ""); return err && (err.code === "42P01" || err.code === "PGRST205" || err.code === "PGRST202" || err.status === 404 || /does not exist|Could not find the (table|function)|schema cache/i.test(m)); };
   const NATIVE_KEY = "studyboard:capNativeTok";
+  const NATIVE_FAIL = "studyboard:capNativeFail";
   const nativeBridge = () => window.StudyboardNative || null;
-  function nativeSave(t){
-    try { const nb = nativeBridge(); if (nb && typeof nb.saveCaptureToken === "function" && t && t.token) { const c = sbConfig(); nb.saveCaptureToken(t.token, c && c.url ? c.url.replace(/\/+$/, "") : ""); ls(NATIVE_KEY, t.id); } } catch (e) {}
+  // Resolves true only once the token is really in the Keychain: marking it saved before that left Siri "not set up" for good
+  // (every task Siri heard was only queued until the app was opened)
+  async function nativeSave(t){
+    try {
+      const nb = nativeBridge();
+      if (!nb || typeof nb.saveCaptureToken !== "function" || !t || !t.token) return false;
+      const c = sbConfig();
+      const ok = await nb.saveCaptureToken(t.token, c && c.url ? c.url.replace(/\/+$/, "") : "");
+      if (ok === false) return false;
+      ls(NATIVE_KEY, t.id); ls(NATIVE_FAIL, "");
+      return true;
+    } catch (e) { return false; }
+  }
+  // Is the token still in the Keychain? true / false, or null when this app build can't tell
+  async function nativeHas(){
+    try { const nb = nativeBridge(); if (!nb || typeof nb.captureTokenStatus !== "function") return null; const r = await nb.captureTokenStatus(); return typeof r === "boolean" ? r : null; } catch (e) { return null; }
   }
   function nativeClear(){ try { const nb = nativeBridge(); if (nb && typeof nb.clearCaptureToken === "function") nb.clearCaptureToken(); ls(NATIVE_KEY, ""); } catch (e) {} }
   // In the iPhone and iPad app, Siri can add tasks with no setup: a capture token for this device is made on its own once signed in and kept
@@ -70908,8 +71005,16 @@ async function capProcess(rows, d){
   async function nativeAuto(){
     const nb = nativeBridge();
     if (autoBusy || !autoApp() || !nb || typeof nb.saveCaptureToken !== "function" || ls(NATIVE_KEY) || ls(AUTO_OFF) === "1" || !ready()) return;
+    // a Keychain that refused the token is tried again at most every 6 hours, so tokens don't pile up
+    const failedAt = Number(ls(NATIVE_FAIL) || 0); if (failedAt && Date.now() - failedAt < 6 * 3600e3) return;
     autoBusy = true;
-    try { const {data, error} = await sb.rpc("capture_create_token", {p_label: AUTO_LABEL, p_allow_get: false}); if (!error && data && data.token) nativeSave(data); }
+    try {
+      const {data, error} = await sb.rpc("capture_create_token", {p_label: AUTO_LABEL, p_allow_get: false});
+      if (!error && data && data.token && !(await nativeSave(data))) {
+        ls(NATIVE_FAIL, String(Date.now()));
+        if (data.id) { try { await sb.rpc("capture_revoke_token", {p_id: data.id}); } catch (e) {} }
+      }
+    }
     catch (e) {} finally { autoBusy = false; }
   }
   async function nativeCheck(){
@@ -70918,6 +71023,12 @@ async function capProcess(rows, d){
     if (!id) { nativeAuto(); return; }
     if (!sbUser && !(sb && sbStarting)) { if (typeof sb !== "undefined" && sb) nativeClear(); return; }
     if (!ready()) return;
+    // marked saved but gone from the Keychain (a failed save, a restored phone): make a new one so Siri adds tasks straight away again
+    if (await nativeHas() === false) {
+      ls(NATIVE_KEY, "");
+      try { await sb.rpc("capture_revoke_token", {p_id: id}); } catch (e) {}
+      nativeAuto(); return;
+    }
     try { const {data, error} = await sb.rpc("capture_list_tokens"); if (!error && Array.isArray(data) && !data.some(x => x.id === id && !x.revoked_at)) { nativeClear(); ls(AUTO_OFF, "1"); } } catch (e) {}
   }
   // Signing out: the device's own token is revoked too (the session is still good at this moment), so signing in again doesn't pile up tokens
@@ -71129,7 +71240,8 @@ async function capProcess(rows, d){
     const {data, error} = await sb.rpc("capture_create_token", {p_label: "Siri on this iPhone", p_allow_get: false});
     S.busy = false;
     if (error) { if (missing(error)) S.missing = true; else S.err = /SB_CAPTURE_LIMIT/.test(error.message || "") ? "You already have 5 active tokens. Revoke one first." : "Couldn't turn it on. Check your connection and try again."; paint(); return; }
-    nativeSave(data); toast("Siri can add tasks now. Try \"Hey Siri, add a task to Studyboard\".");
+    if (await nativeSave(data)) toast("Siri can add tasks now. Try \"Hey Siri, add a task to Studyboard\".");
+    else { S.err = "Couldn't save it on this phone. Update Studyboard and try again."; try { await sb.rpc("capture_revoke_token", {p_id: data.id}); } catch (e) {} }
     await loadTokens();
   }
   async function revoke(id){
@@ -71200,7 +71312,8 @@ const siriDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s
 const siriTime = s => typeof s === "string" && /^\d{2}:\d{2}$/.test(s) ? s : "";
 const siriNum = v => typeof v === "number" && isFinite(v) ? Math.round(v * 10) / 10 : null;
 /* in: {now, today, grades, tasks:[task], courses:[course], courseLabel(c), gradeItems:[{id, pct, mark, letter}], courseGrade(c) -> {pct, letter, marked} | null,
-        timesText(c) -> "Mon, Wed · 10–10:50 AM", classes:[{courseId, kind, date, start, end, where}]} */
+        timesText(c) -> "Mon, Wed · 10–10:50 AM", classes:[{courseId, kind, date, start, end, where}],
+        plan: {items:[{id, title, courseId, hours}], hours, doneHours} | null (Today's Plan, in its order), focusMins} */
 function siriSnapshot(i){
   const grades = !!i.grades, today = i.today, marks = new Map();
   if (grades) (i.gradeItems || []).forEach(g => { if (g && g.id && siriNum(g.pct) != null) marks.set(g.id, {pct: siriNum(g.pct), text: siriStr(g.mark, 24), letter: siriStr(g.letter, 4)}); });
@@ -71226,7 +71339,16 @@ function siriSnapshot(i){
   const classes = (i.classes || []).filter(m => m && known.has(m.courseId) && siriDate(m.date) && siriTime(m.start) && siriTime(m.end))
     .map(m => ({course: String(m.courseId), kind: siriStr(m.kind, 24), date: m.date, start: m.start, end: m.end, where: siriStr(m.where, 60)}))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 400);
-  return {v: SIRI_V, at: Number(i.now) || 0, grades, tasks, courses, classes};
+  // Today's Plan as the app shows it, for "what should I work on" and "how much do I have today" (only for the day it was made)
+  const mins = h => Math.max(0, Math.round((Number(h) || 0) * 60));
+  const p = i.plan && Array.isArray(i.plan.items) ? i.plan : null;
+  const plan = p ? {day: today, mins: mins(p.hours), done: mins(p.doneHours),
+    items: p.items.filter(x => x && x.id && mins(x.hours) > 0 && siriStr(x.title, 2)).slice(0, 30)
+      .map(x => ({id: String(x.id), title: siriStr(x.title, 140), course: known.has(x.courseId) ? String(x.courseId) : "", mins: mins(x.hours)}))} : null;
+  const out = {v: SIRI_V, at: Number(i.now) || 0, grades, tasks, courses, classes};
+  if (plan) out.plan = plan;
+  const fm = Math.round(Number(i.focusMins)); if (fm >= 1 && fm <= 180) out.focus = fm;
+  return out;
 }
 // The app's addDays, without depending on it (this part is tested on its own)
 function addDaysPure(s, n){ const [y, m, d] = String(s).split("-").map(Number); const x = new Date(y, m - 1, d + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; }
@@ -71257,7 +71379,14 @@ function siriUpdated(t, u, now, courseOk){
       classes = schOccurrences(today, addDays(today, SIRI_DAYS - 1)).filter(o => o.type === "meet" && !o.skipped && o.c)
         .map(o => ({courseId: o.c.id, kind: o.label, date: o.date, start: o.start, end: o.end, where: o.where || (o.m && o.m.where) || o.c.room || ""}));
     } catch (e) { classes = []; }
-    return {now: Date.now(), today, grades: gradesOn(), tasks: allTasks(), courses: coursesArr(),
+    let plan = null;
+    try {
+      const F = typeof FOCUS !== "undefined" && FOCUS && FOCUS.today === today ? FOCUS : computeFocus();
+      if (F && Array.isArray(F.ranked)) plan = {hours: F.planned, doneHours: F.doneToday,
+        items: F.ranked.filter(x => x && x.t && x.alloc > 0 && x.t.status !== "done").map(x => ({id: x.t.id, title: x.t.title, courseId: x.t.courseId, hours: x.alloc}))};
+    } catch (e) { plan = null; }
+    let focusMins = 0; try { focusMins = pomoCfg().focus; } catch (e) {}
+    return {now: Date.now(), today, grades: gradesOn(), tasks: allTasks(), courses: coursesArr(), plan, focusMins,
       gradeItems: G && typeof G.items === "function" ? (() => { try { return G.items(); } catch (e) { return []; } })() : [],
       courseGrade: c => { const g = G && typeof G.now === "function" ? G.now(c) : null; return g && g.pct != null ? {pct: g.pct, letter: g.letter, marked: g.marked} : null; },
       timesText: c => courseTimesText(c), classes};
@@ -72496,7 +72625,7 @@ function openNoteById(id){
   if (dlg.open) dlg.close();
   ui.tab = "notes"; ui.courseId = null; render(); window.scrollTo(0, 0);
   const el = document.querySelector(`.note[data-note="${CSS.escape(id)}"]`), sc = $("#nbScroll");
-  if (el && sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50), behavior: "smooth"}); } catch (e) { sc.scrollLeft = n.x; sc.scrollTop = n.y; } el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200); }
+  if (el && sc) nbFocusNote(id);
 }
 function openMaterial(t){
   if (!t) return;
@@ -76414,6 +76543,7 @@ function chipText(res){
 }
 const LEAF = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z"/><path d="M5 19c3-5 6-8 10-10"/></svg>';
 function streakStripHtml(hideIntro){
+  if (STREAK_HIDDEN) return "";
   if (gentleOn()) {
     const res = streakNow();
     return `<div class="fgs-strip"><button type="button" class="fgs-chip" data-act="fgs-open" aria-label="${esc(tr("streak.chip.aria", "Study streak. {line} Open details.", {line: streakLineText(res)}))}"><span class="fgs-pill">${LEAF}<span>${esc(chipText(res))}</span></span></button></div>`;
@@ -76583,17 +76713,17 @@ function paintBoard(){
 }
 hook("render", tab => {
   try {
-    if (gentleOn()) { noteCards(); const res = streakNow(); observe(res); if (res.todayActive) celebrateSoon(); }
+    if (gentleOn() && !STREAK_HIDDEN) { noteCards(); const res = streakNow(); observe(res); if (res.todayActive) celebrateSoon(); }
     if (tab === "board") paintBoard();
     if (SG && dlg.open) drawStreak();
   } catch (e) { console.warn("review and streak", e); }
 });
-hook("changed", () => { try { if (gentleOn()) celebrateSoon(4000); } catch (e) {} });
-hook("stats-focus", () => { try { if (gentleOn()) { GMEMO = {k: "", v: null}; scheduleRender(); celebrateSoon(4000); } } catch (e) {} });
+hook("changed", () => { try { if (gentleOn() && !STREAK_HIDDEN) celebrateSoon(4000); } catch (e) {} });
+hook("stats-focus", () => { try { if (gentleOn() && !STREAK_HIDDEN) { GMEMO = {k: "", v: null}; scheduleRender(); celebrateSoon(4000); } } catch (e) {} });
 hook("menu", () => {
   const r = reviewCfg(), on = gentleOn();
   return `<div class="cap-row sb-wide" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">${esc(tr("review.set.title", "Weekly Review"))}<span class="sub">${esc(tr("review.set.sub", "A calm summary of your week. The card shows on the Board from Sunday afternoon through Monday."))}</span></span><button type="button" class="btn small" data-act="wkr-open">${esc(tr("review.set.open", "Review My Week"))}</button><label class="anim-tog"><input type="checkbox" data-act="wkr-card-toggle" ${r.off ? "" : "checked"}> ${esc(tr("review.set.card", "Show the Sunday card"))}</label></div>
-    <button type="button" data-act="fgs-open" data-group="study"><span>${esc(tr("streak.set.title", "Gentle Study Streak"))}<span class="sub">${esc(on ? streakLineText(streakNow()) : tr("streak.set.off", "Off. A streak that counts study days and forgives quiet ones."))}</span></span></button>`;
+    ${STREAK_HIDDEN ? "" : `<button type="button" data-act="fgs-open" data-group="study"><span>${esc(tr("streak.set.title", "Gentle Study Streak"))}<span class="sub">${esc(on ? streakLineText(streakNow()) : tr("streak.set.off", "Off. A streak that counts study days and forgives quiet ones."))}</span></span></button>`}`;
 });
 hook("act", (a, el) => {
   if (!a || (a.slice(0, 4) !== "wkr-" && a.slice(0, 4) !== "fgs-")) return false;
@@ -76648,7 +76778,7 @@ function studyDays(from, to){
   const g = gcfg(), v = Object.keys(RS.activityDays({tasks: allTasks(), focusDays: focusDaysNow(), log: g.log, timeDays: sbtimeDays(from, to), from, to})).sort();
   SDMEMO = {k, v}; return v;
 }
-window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
+window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
 })();
 
 /* ===== module: 99-release.js ===== */
@@ -77063,10 +77193,10 @@ window.SBSTREAK = {studyDays, on: gentleOn, line: () => streakLineText(streakNow
   function securitySheet(kind){
     if (!canDelete()) { toast("Sign in to your account first."); return; }
     const isMail = kind === "email", T = isMail ? "Change Email" : "Change Password";
-    // Accounts made with Google or Apple have no password until one is set, by a code sent to their email
+    // Accounts made with Google, Apple or Microsoft have no password until one is set, by a code sent to their email
     const u = sbUser, ids = (u.identities || []).map(i => i && i.provider).concat((u.app_metadata && u.app_metadata.providers) || []);
     const social = ids.some(p => p && p !== "email") && !ids.includes("email");
-    const noPw = social ? `<p class="mini" style="margin:0">Signed up with Google or Apple and never set a password? <button type="button" class="link-btn" id="secSetPw">Set a Password</button> first. We'll email you a code.</p>` : "";
+    const noPw = social ? `<p class="mini" style="margin:0">Signed up with Google, Apple or Microsoft and never set a password? <button type="button" class="link-btn" id="secSetPw">Set a Password</button> first. We'll email you a code.</p>` : "";
     openSheet(`<form class="sheet" id="secForm" data-kind="${kind}">${head(T)}
       <div class="sheet-body">
         <p style="margin:0">${isMail ? `Your email is <b>${esc(sbUser.email || "")}</b>. We'll email both your current and your new address, and it changes once you confirm.` : "Choose a new password. You'll stay signed in on this device."}</p>
@@ -81032,15 +81162,32 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-badge{display:inline-grid;place-items:center;min-width:1.5em;height:1.5em;padding:0 4px;border-radius:999px;background:var(--accent);color:#fff;font-size:.72rem;font-weight:700;margin-left:4px}
 @media (max-width:760px){
   dialog:has(.pdr-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}
+  /* full screen on a phone: clear of the status bar and clock at the top, the home bar below and the notch on its side */
+  dialog:has(.pdr-sheet){box-sizing:border-box;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
   .pdr-main.with-side{grid-template-columns:minmax(0,1fr)}
   .pdr-side{position:absolute;inset:auto 0 0 0;max-height:62%;border-left:0;border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.18);border-radius:16px 16px 0 0;z-index:40}
-  .pdr-bar{gap:6px;padding:6px 10px 8px}
-  /* one row on a phone, the mode switch and Save first; the rest scrolls sideways */
+  /* two tidy rows on a phone, nothing off to the side: what you're doing (Read, Mark Up, Edit) with Ask and Study,
+     then where you are (page and zoom) with Download and Save */
+  .pdr-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 6px;padding:8px 10px 10px;overflow:visible}
+  .pdr-bar::after{content:"";order:3;flex-basis:100%;height:0}
   .pdr-bar > .spacer{display:none}
-  .pdr-bar > .pdr-modes{order:-3}
-  .pdr-bar > .pdr-out{order:-2}
+  .pdr-bar > .pdr-modes{order:1}
+  .pdr-bar > .pdr-ai{order:2;margin-left:auto;gap:6px}
+  .pdr-bar > .pdr-nav{order:4;gap:2px}
+  .pdr-bar > .pdr-zoom{order:5;gap:2px}
+  .pdr-bar > .pdr-out{order:6;margin-left:auto}
+  .pdr-bar .pdr-ai .ai-btn{width:44px;height:44px;min-width:44px;padding:0;justify-content:center;border-radius:999px}
+  .pdr-bar .pdr-ai .ai-btn > svg{width:20px;height:20px}
+  .pdr-bar .pdr-nav .icon-btn,.pdr-bar .pdr-zoom .icon-btn{width:36px;height:36px}
+  .pdr-bar .pdr-pg input{width:40px}
+  .pdr-bar .pdr-fit{display:none}
+  /* room for the words on the mode switch (the one-row fitting may have turned them into icons) */
+  @media (min-width:380px){ .pdr-bar.c4 .pdr-modes :is(.pdr-mode,.pde-mode){font-size:inherit;padding:0 9px;gap:5px} }
+  /* small phones: the zoom buttons move up beside the mode icons, so the page controls, Download and Save fit below */
+  @media (max-width:379px){ .pdr-bar > .pdr-modes{order:0} .pdr-bar > .pdr-zoom{order:1} }
+  @media (max-width:339px){ .pdr-bar .pdr-ai .ai-btn{width:40px;height:40px;min-width:40px} }
   .pdr-bar2{gap:6px;padding:6px 10px}
-  .pdr-bar .icon-btn{width:40px;height:40px}
+  .pdr-bar .pdr-out .icon-btn{width:40px;height:40px}
   .pdr-fit{min-height:40px}
 }
 `;
@@ -82351,7 +82498,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const card = p => {
       const a = (c.accounts || []).find(x => x.provider === p), s = U.start[p] || {}, busy = U.busy[p], conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-csy-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.err ? "Not Available" : "Getting Ready…"}</button>`;
-      if (!a) return `<div class="csy-card"><div class="csy-h"><b>${NAMES[p]}</b><span class="mini">Not connected</span></div>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${link(`Connect ${NAMES[p]}`)}</div>`;
+      if (!a) return `<div class="csy-card"><div class="csy-h"><b>${NAMES[p]}</b><span class="mini">Not connected</span></div>${link(`Connect ${NAMES[p]}`)}</div>`;
       const warn = a.status === "reauth" ? `<p class="csy-warn">${NAMES[p]} stopped accepting Studyboard's access. Connect again to keep syncing.</p>${link("Connect Again")}` : "";
       const nr = U.noRead[p] && pr.bring !== "off" && reads(p) ? `<p class="csy-warn">Studyboard can't see the events in your ${NAMES[p]}, so they can't come in. Connect again and allow ${p === "google" ? "“See events on all your calendars”" : "access to your calendars"}.</p>${link("Connect Again")}` : "";
       const m = U.msg[p], msg = m === "error" ? `<p class="csy-warn">The last sync didn't finish. It tries again on its own.</p>` : m === "pro" ? `<p class="csy-warn">Two-way sync needs Studyboard Pro.</p>` : "";
@@ -82814,7 +82961,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
       const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any folders you pick." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
       const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
-      if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
+      if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
         ${aiBox}
         ${a.status === "reauth" ? `<p class="cl-warn">${NM[p]} stopped accepting Studyboard's access. Connect again to keep using it.</p>${link("Connect Again")}` : ""}
@@ -83796,10 +83943,9 @@ const SBONENOTE = (() => {
       return `${U.why ? `<p class="on-why"><b>${esc(U.why)}</b></p>` : ""}
         <p>Link a OneNote section to a course and its pages come into Studyboard as notes, kept up to date. Ask Your Course, Make Flashcards and Exam Prep use them like your other notes. Save to OneNote adds a note, a lecture's study notes or an Ask Your Course answer as a new page.</p>
         <p class="mini">Studyboard reads only the sections you link, and never changes or deletes your pages.</p>
-        <p class="mini ms-school"><b>${esc(MS_SCHOOL_SOON)}</b></p>
         ${a && a.status === "reauth" ? `<p class="cl-warn">OneNote stopped accepting Studyboard's access. Connect again to keep using it.</p>` : ""}
         <div class="row-actions">${link(a ? "Connect Again" : "Connect OneNote")}</div>
-        ${U.wait ? `<p class="mini" role="status">Finish in the tab that opened. This updates when you come back. If Microsoft asked for admin approval, you signed in with a school or work account, which can't connect yet.</p>` : ""}`;
+        ${U.wait ? `<p class="mini" role="status">Finish in the tab that opened. This updates when you come back.</p>` : ""}`;
     }
     const rows = pr.links.map(l => {
       const c = l.courseId && courseOf(l.courseId), busy = running.has(l.sid);
@@ -83833,10 +83979,8 @@ const SBONENOTE = (() => {
     if (!clsOffered()) return "";
     const a = clsAccount(), on = clsConnected();
     const go = label => U.clsUrl ? `<a class="btn small on-btn" href="${esc(U.clsUrl)}" target="_blank" rel="noopener noreferrer" data-on-go="cls">${icon(16)}${esc(label)}</a>` : `<button type="button" class="btn small" disabled>Getting Class Notebooks ready…</button>`;
-    // Class Notebooks live in school accounts, which can't connect yet
-    if (!on && msPersonal((account() || {}).account)) return `<h3 class="on-h">Class Notebooks</h3><p class="mini">Teachers' Class Notebooks need a school Microsoft account. School accounts can't connect yet. That's coming in the future.</p>`;
     if (!on) return `<h3 class="on-h">Class Notebooks</h3>
-      <p class="mini">See your teachers' OneNote Class Notebooks from Microsoft Teams too, and link their sections like your own (read only). This asks Microsoft for one more permission. Your own notebooks keep working either way.</p>
+      <p class="mini">See your teachers' OneNote Class Notebooks from Microsoft Teams too (sign in with your school Microsoft account), and link their sections like your own (read only). This asks Microsoft for one more permission. Your own notebooks keep working either way.</p>
       ${a && a.status === "reauth" ? `<p class="cl-warn">Class Notebooks stopped working. Connect again to keep them.</p>` : ""}
       <div class="row-actions">${go(a ? "Connect Class Notebooks Again" : "Add Class Notebooks")}</div>`;
     return `<h3 class="on-h">Class Notebooks</h3><p class="mini">On. Sections from your class teams show under Class Notebooks in Link a Section.</p>
@@ -88106,6 +88250,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   document.addEventListener("submit", ev => { if (ev.target && ev.target.id === "pdeAskForm") { ev.preventDefault(); const q = $("#pdeAskQ"); askGo(q.value); q.value = ""; } });
 
+  // Phones: when the keyboard comes up (or goes) while typing into the page, the line being typed is scrolled back into view
+  { let kbWas = false; new MutationObserver(() => {
+      const kb = document.documentElement.classList.contains("kb-open"); if (kb === kbWas) return; kbWas = kb;
+      if (!kb || !E || !E.on) return;
+      setTimeout(() => { const el = dlg.querySelector(".pde-e.editing"); if (el && el.scrollIntoView) el.scrollIntoView({block: "center", inline: "nearest"}); }, 120);
+    }).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]}); }
   SBPDE = window.SBPDE = {
     readerBtn: () => `<button type="button" class="btn small pde-mode" data-act="pde-mode" aria-pressed="false" id="pdeBtn">${ico(IC.edit)}Edit<b class="pdr-badge" hidden></b></button>`,
     // how to draw a page: with fillable fields, the fields are typed into on the page, so the picture leaves them out
@@ -88124,7 +88274,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const r = R(), f = r && state.files[r.fid];
       return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}`;
     },
-    readerAi: () => `<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF" aria-label="Ask This PDF">${ico(IC.ask)}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF" aria-label="Study From This PDF">${ico(IC.study)}<span class="pde-lbl">Study</span></button>`,
+    readerAi: () => `<span class="pdr-ai"><button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF" aria-label="Ask This PDF">${ico(IC.ask)}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF" aria-label="Study From This PDF">${ico(IC.study)}<span class="pde-lbl">Study</span></button></span>`,
     // Download, and its menu: Turn In (a copy ready to hand in)
     dlBtns: () => `<span class="pdr-split"><button type="button" class="btn small" data-act="pde-dl" title="Download this PDF with your edits">${ico(IC.down)}<span class="pde-lbl">Download</span></button><button type="button" class="btn small pdr-dl-more" data-act="pde-dlmenu" aria-haspopup="menu" aria-expanded="false" aria-label="More ways to download" title="More ways to download">${ico('<path d="M7 10l5 5 5-5"/>')}</button></span>`,
     setOn: on => setOn(on),
@@ -88350,6 +88500,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-saybar select{width:auto;padding:4px 6px}
 .pdr-sheet{position:relative}
 .pde-rt{display:inline-flex;align-items:center;gap:6px}
+.pdr-ai{display:inline-flex;align-items:center;gap:8px}
+.pdr-ai:not(:has(.pde-rt:not([hidden]))){display:none}
 .pde-rt[hidden]{display:none}
 .pde-toc{list-style:none;margin:0;padding:0 0 0 14px;display:grid;gap:2px}
 .pde-pb > .pde-toc{padding-left:0}
@@ -88389,6 +88541,14 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-corner{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:rgba(255,255,255,.9);border:3px solid #2457c5;cursor:grab;touch-action:none}
 .pde-corner:focus-visible{outline:3px solid var(--ink)}
 @media (max-width:760px){ .pde-rt .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)} .pde-saybar{bottom:8px} }
+/* Phones, typing into the page: the reader fills just the space above the keyboard, and only the text style row stays,
+   so the line being typed has room (the title, page and mode bars, tools and notes come back when the keyboard closes) */
+@media (max-width:760px){
+  html.kb-open dialog#dlg:has(.pdr-sheet .pde-e.editing){top:0;bottom:auto;margin:0;height:var(--vv-h,100dvh);max-height:var(--vv-h,100dvh);transition:none}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar2,
+  html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-tools,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-note,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar > .spacer{display:none!important}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar{padding-top:6px;padding-bottom:6px}
+}
 @media (max-width:760px){
   .pde-bar{padding:6px 10px;gap:6px}
   .pde-tool{padding-inline:8px}
@@ -92183,7 +92343,7 @@ function openNote(id){
   ui.tab = "notes"; ui.courseId = null; ui.noteBoard = noteBoardOf(n); try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {}
   render(); window.scrollTo(0, 0);
   const el = document.querySelector(`.note[data-note="${CSS.escape(id)}"]`), sc = $("#nbScroll");
-  if (el) { if (sc) { try { sc.scrollTo({left: Math.max(0, n.x * nbZ() - sc.clientWidth / 2 + el.offsetWidth * nbZ() / 2), top: Math.max(0, n.y * nbZ() - 50)}); } catch (e) {} } el.classList.add("sx-flash"); setTimeout(() => el.classList.remove("sx-flash"), 2200); try { el.focus({preventScroll: true}); } catch (e) {} }
+  if (el) { if (sc) nbFocusNote(id); try { el.focus({preventScroll: true}); } catch (e) {} }
 }
 
 /* 2. Notes to draft cards */
@@ -93705,7 +93865,7 @@ var SBCALCSKIN = null;
   const KEYNAME = {shift: "Shift", hyp: "Hyperbolic", drg: "Degrees, radians or gradians", left: "Move left", right: "Move right", sd: "Fraction or decimal", inv: "Reciprocal", fact: "Factorial", ncr: "Combinations", npr: "Permutations", sqrt: "Square root", cbrt: "Cube root", sq: "Squared", cube: "Cubed", pow: "Power", root: "Root", log: "Log", tenx: "10 to the power", ln: "Natural log", ex: "e to the power", sin: "Sine", asin: "Inverse sine", cos: "Cosine", acos: "Inverse cosine", tan: "Tangent", atan: "Inverse tangent", lp: "Open bracket", rp: "Close bracket", neg: "Negative", abs: "Absolute value", pi: "Pi", e: "e", pct: "Percent", mplus: "Memory add", mminus: "Memory subtract", mr: "Memory recall", mc: "Memory clear", del: "Delete", ac: "All clear", mul: "Times", div: "Divide", add: "Plus", sub: "Minus", dot: "Point", exp: "Times ten to the power", ans: "Answer", eq: "Equals"};
   function frame(){
     return `<div class="cx-body">
-      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-snip" data-cx="snip" aria-label="Select an equation on screen" title="Select an equation on screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.5 10.5h3M10 9v3M13 15.5h3M8.6 15.4l2.8-2.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
+      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-snip" data-cx="snip" aria-label="Select an equation on screen" title="Select an equation on screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 8.5v7M8.5 12h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
       <div class="cx-lcd" role="group" aria-label="Display">
         <div class="cx-ind" aria-hidden="true"><span data-i="shift">S</span><span data-i="hyp">HYP</span><span data-i="m">M</span><span class="cx-sp"></span><span data-i="ang"></span></div>
         <div class="cx-expr" aria-label="Expression"></div>
@@ -93766,16 +93926,46 @@ var SBCALCSKIN = null;
       const up = () => { top.removeEventListener("pointermove", mv); top.removeEventListener("pointerup", up); };
       top.addEventListener("pointermove", mv); top.addEventListener("pointerup", up);
     });
+    // its size: drag the corner grip (or use the arrow keys on it) to make it smaller or bigger; double-click goes back to normal
+    W.insertAdjacentHTML("beforeend", `<button type="button" class="cx-grip" aria-label="Resize calculator" title="Drag to resize. Double-click for normal size."><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M14 6L6 14M14 10.5L10.5 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`);
+    const grip = W.querySelector(".cx-grip");
+    grip.addEventListener("pointerdown", e => {
+      if (innerWidth < 640) return;
+      e.preventDefault(); e.stopPropagation(); grip.setPointerCapture(e.pointerId);
+      const st = {x: e.clientX, y: e.clientY, k: K, w: W.offsetWidth, h: W.offsetHeight};
+      const mv = ev => { const f = ((st.w + ev.clientX - st.x) / st.w + (st.h + ev.clientY - st.y) / st.h) / 2; setK(st.k * f, false); };
+      const up = () => { grip.removeEventListener("pointermove", mv); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up); setK(K, true); };
+      grip.addEventListener("pointermove", mv); grip.addEventListener("pointerup", up); grip.addEventListener("pointercancel", up);
+    });
+    grip.addEventListener("dblclick", () => setK(1, true));
+    grip.addEventListener("keydown", e => {
+      const d = {ArrowUp: 0.05, ArrowRight: 0.05, ArrowDown: -0.05, ArrowLeft: -0.05}[e.key];
+      if (d) { e.preventDefault(); e.stopPropagation(); setK(K + d, true); } else if (e.key === "Home") { e.preventDefault(); setK(1, true); }
+    });
+    setK(K, false);
     let rz = 0; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (W && !W.hidden && innerWidth < 640) place(); else if (W && !W.hidden) { const r = W.getBoundingClientRect(); if (r.right > innerWidth || r.bottom > innerHeight) place(); } }, 100); });
     place(); paint();
     loadMath().catch(() => {});
     W.querySelector('[data-cx="eq"]').focus({preventScroll: true});
+  }
+  /* Size (computers): 60% to 120% of normal, kept on this device */
+  const SIZE_LS = "studyboard:calcSize", K_MIN = 0.6, K_MAX = 1.2;
+  let K = (() => { try { const v = Number(localStorage.getItem(SIZE_LS)); return v >= K_MIN && v <= K_MAX ? v : 1; } catch (e) { return 1; } })();
+  function setK(k, keep){
+    K = Math.round(Math.max(K_MIN, Math.min(K_MAX, Number(k) || 1)) * 100) / 100;
+    if (!W) return;
+    W.style.setProperty("--cx-k", K);
+    const g = W.querySelector(".cx-grip"); if (g) g.setAttribute("aria-label", `Resize calculator (${Math.round(K * 100)}%). Arrow keys change the size.`);
+    // the top-left corner stays put; if the bigger size would leave the screen, it moves back on
+    if (innerWidth >= 640 && W.style.left) { const r = W.getBoundingClientRect(); if (r.right > innerWidth - 4) W.style.left = Math.max(4, innerWidth - 4 - r.width) + "px"; if (r.bottom > innerHeight - 4) W.style.top = Math.max(4, innerHeight - 4 - r.height) + "px"; }
+    if (keep) { try { if (K === 1) localStorage.removeItem(SIZE_LS); else localStorage.setItem(SIZE_LS, String(K)); } catch (e) {} }
   }
   function skin(){ try { if (window.SBCALCSKIN) SBCALCSKIN.apply(W); } catch (e) { console.warn("calculator theme", e); } }
   function close(){ if (!W) return; W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
   const KEYMAP = {"+": "add", "-": "sub", "*": "mul", "x": "mul", "/": "div", "^": "pow", "(": "lp", ")": "rp", ".": "dot", ",": "dot", "%": "pct", "!": "fact", "Enter": "eq", "=": "eq", "Backspace": "del", "Delete": "ac",
     "ArrowLeft": "left", "ArrowRight": "right", "ArrowUp": "up", "ArrowDown": "down", "p": "pi", "s": "sin", "c": "cos", "t": "tan", "l": "ln", "g": "log", "r": "sqrt", "e": "e", "a": "ans", "E": "exp"};
   function onKey(e){
+    if (e.target && e.target.closest && e.target.closest(".cx-grip")) return;
     if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
     if (e.key === "Escape") { e.preventDefault(); if (S.tokens.length || S.done) act("ac"); else close(); return; }
     if (e.key === "Tab" || e.key === " ") return;
@@ -97794,10 +97984,11 @@ ui._day = todayISO();
       return () => {
         document.body.appendChild(host); try { host.showPopover(); } catch (e) {}
         if (sc2) sc2.scrollTop = st;   // where it was scrolled to
-        const ease = {duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+        // quick but smooth: it gets going at once and eases off as it leaves (was 260ms, slow to start)
+        const ease = {duration: 180, easing: "cubic-bezier(.3,0,.7,.4)", fill: "forwards"};
         const a = c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease);
         host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
-        const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 600);
+        const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 450);
       };
     } catch (e) { return null; }
   }

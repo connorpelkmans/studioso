@@ -517,6 +517,13 @@ nav.tabs button{font-size:.75rem!important}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .nb-board{background-color:#6E5238}}
 .note{position:absolute;min-height:140px;padding:26px 14px 14px;background:var(--nc);color:#2A2418;border-radius:3px;box-shadow:0 8px 16px rgba(40,25,5,.28),0 1px 2px rgba(0,0,0,.2);transform:rotate(var(--rot));touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-size:.95rem;line-height:1.4;transition:box-shadow .15s,opacity .15s}
 .note:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+/* A note Ask, the companion or Search found: a highlight box that settles in around it, then fades */
+.note.nb-found{z-index:50;animation:nbFoundIn .45s cubic-bezier(.2,.8,.2,1) both}
+.note.nb-found::after{content:"";position:absolute;inset:-10px;border:3px solid var(--accent);border-radius:12px;box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 22%,transparent),0 0 24px color-mix(in srgb,var(--accent) 45%,transparent);pointer-events:none;animation:nbFoundBox .45s cubic-bezier(.2,.8,.2,1) both;transition:opacity .5s ease}
+.note.nb-found-out::after{opacity:0}
+@keyframes nbFoundBox{from{opacity:0;transform:scale(1.12)}to{opacity:1;transform:none}}
+@keyframes nbFoundIn{from{box-shadow:0 8px 16px rgba(40,25,5,.28),0 1px 2px rgba(0,0,0,.2)}to{box-shadow:0 14px 30px rgba(40,25,5,.36),0 1px 2px rgba(0,0,0,.2)}}
+@media (prefers-reduced-motion:reduce){.note.nb-found,.note.nb-found::after{animation:none}}
 .note.dragging{cursor:grabbing;box-shadow:0 18px 32px rgba(40,25,5,.38);transform:rotate(calc(var(--rot) + 3deg)) scale(1.04);pointer-events:none;transition:none;opacity:.95}
 .note.dragging.over-target{opacity:.55;transform:scale(.8)}
 .note.dim{opacity:.35}
@@ -544,7 +551,10 @@ nav.tabs button{font-size:.75rem!important}
 .note-btns .nb svg{width:18px;height:18px}
 .note-btns .btn{margin-left:auto;background:#2A2418;color:#FFF8E6;border-color:transparent}
 .nb-photo{display:inline-flex;align-items:center;gap:6px}
-@media (max-width:520px){.nb-photo{min-width:40px;justify-content:center}.nb-photo-l{display:none}}
+.nb-photo-ai{display:contents}
+.nb-photo-cam{display:none;width:22px;height:22px;flex:none}
+/* phones: just a camera (the label and the companion's face don't fit) */
+@media (max-width:520px){.nb-photo{min-width:40px;justify-content:center}.nb-photo-l,.nb-photo-ai{display:none}.nb-photo-cam{display:block}}
 .note-hbtns{display:flex;flex-wrap:wrap;gap:4px}
 .note-hbtns .btn,.note-xbtns .btn,.note-moredd>summary.btn{padding:3px 8px;font-size:.78rem;background:rgba(255,255,255,.5);color:#2A2418;border-color:transparent}
 .nx-list{display:grid;gap:4px;max-height:38vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px}
@@ -1246,9 +1256,32 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 .sch-nav{display:flex;align-items:center;gap:8px}
 .sch-range{font:600 .95rem var(--display);min-width:118px;text-align:center}
 .sch-missing{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.sch-setup{margin:4px 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
-.sch-setup .mini{display:block;margin-top:2px}
-.sch-setup .sch-missing{margin-top:10px}
+/* The empty week's set-up card: a header, one row per course, then three ways to add your own */
+.sch-setup{margin:4px 0 14px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.sch-setup .ss-head{display:flex;gap:12px;align-items:flex-start;min-width:0}
+.sch-setup .ss-head > div{min-width:0}
+.sch-setup .ss-badge{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.sch-setup .ss-badge .ss-ic{width:22px;height:22px}
+.sch-setup h3{margin:0;font:700 1.05rem/1.25 var(--display);color:var(--ink)}
+.sch-setup .ss-head p{margin:3px 0 0;font-size:.88rem;line-height:1.45;color:var(--muted)}
+.sch-setup .ss-courses{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.sch-setup .ss-courses li{min-width:0}
+.sch-setup .ss-row{width:100%;min-height:46px;display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--field,var(--soft));color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.sch-setup .ss-row:hover{border-color:color-mix(in srgb,var(--c,var(--accent)) 55%,var(--line))}
+.sch-setup .ss-row .dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c,var(--accent))}
+.sch-setup .ss-name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sch-setup .ss-go{flex:none;display:inline-flex;align-items:center;gap:2px;font-size:.84rem;font-weight:700;color:var(--accent)}
+.sch-setup .ss-chev{width:16px;height:16px}
+.sch-setup .ss-first{justify-self:start}
+.sch-setup .ss-or{margin:0;display:flex;align-items:center;gap:10px;font-size:.74rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sch-setup .ss-or::before,.sch-setup .ss-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.sch-setup .ss-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sch-setup .ss-tile{min-width:0;overflow-wrap:anywhere;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:78px;padding:10px 6px;border:1px solid var(--line);border-radius:12px;background:none;color:var(--ink);font:inherit;text-align:center;cursor:pointer}
+.sch-setup .ss-tile:hover{background:var(--soft)}
+.sch-setup .ss-tile .ss-ic{width:22px;height:22px;color:var(--accent);margin-bottom:2px}
+.sch-setup .ss-t{font-weight:700;font-size:.88rem;line-height:1.2}
+.sch-setup .ss-s{font-size:.72rem;line-height:1.25;color:var(--muted)}
+.sch-setup :is(.ss-row,.ss-tile):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .sch-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .sch-grid{display:grid;grid-template-columns:54px repeat(var(--n),minmax(0,1fr))}
 .sch-corner,.sch-head{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--soft) 55%,var(--surface))}
@@ -2407,6 +2440,10 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .sb-oa-apple .sb-oa-a{width:15px;height:18px;margin-top:-3px}
 .sb-oa-google{background:#fff;color:#1F1F1F;border-color:#747775;font:500 14px/20px "SB Roboto",Roboto,Arial,sans-serif;letter-spacing:.25px}
 .sb-oa-google .sb-oa-g{width:20px;height:20px}
+.sb-oa-ms{background:#fff;color:#5E5E5E;border-color:#8C8C8C;font:600 14px/20px "Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;border-radius:22px}
+.sb-oa-ms .sb-oa-m{width:18px;height:18px;flex:0 0 auto}
+:root[data-theme="dark"] .sb-oa-ms{background:#2F2F2F;color:#fff;border-color:#2F2F2F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-ms{background:#2F2F2F;color:#fff;border-color:#2F2F2F}}
 :root[data-theme="dark"] .sb-oa-apple{background:#fff;color:#000}
 :root[data-theme="dark"] .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-apple{background:#fff;color:#000}:root:not([data-theme="light"]) .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}}
@@ -4459,6 +4496,9 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble.right::after{left:-6px;top:var(--ty,50%);bottom:auto;margin:-6px 0 0 0;border-radius:0 0 0 3px;box-shadow:-1.5px 1.5px 0 0 color-mix(in srgb,var(--cp-wear,var(--accent)) 35%,var(--line))}
 .cp-bubble.has-idea.on{pointer-events:auto}
 .cp-bubble .cp-b-t{display:block}
+/* the thinking dots sit in a row (the line above would otherwise squash them to nothing) */
+.cp-bubble .cp-b-t.cp-thinking{display:flex}
+.cp-thinking i{display:block;flex:none}
 .cp-bubble .cp-b-acts{display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap}
 .cp-bubble .cp-b-acts .btn{min-height:34px;font-size:.8rem}
 .cp-bubble.asking{pointer-events:auto;padding:8px}
@@ -4604,8 +4644,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 @media (prefers-reduced-motion:reduce){.cp-dots i{animation:cpDotFade 1.6s infinite}@keyframes cpDotFade{0%,100%{opacity:.35}50%{opacity:1}}}
 
 /* Ask's confirm panel (98-assist.js): sits low on the screen so the highlighted thing above stays in view */
-.as-dlg{margin:auto auto max(18px,env(safe-area-inset-bottom));width:min(520px,calc(100vw - 32px));max-height:min(70vh,560px);padding:0;border:0;border-radius:16px;background:var(--card,#fff);color:var(--ink,inherit);box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.as-dlg{margin:auto auto max(18px,env(safe-area-inset-bottom));width:min(520px,calc(100vw - 32px));max-height:min(70vh,560px);padding:0;border:0;border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 18px 50px rgba(0,0,0,.28)}
 .as-dlg::backdrop{background:rgba(10,14,24,.12)}
+/* the title reads like every other sheet's, in light and dark */
+.as-dlg .sheet-head h2{color:var(--ink)}
 .as-sheet .sheet-body{max-height:min(48vh,380px);overflow:auto}
 .as-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .as-list li{display:grid;gap:2px;padding:10px 12px;border-radius:10px;background:var(--soft,rgba(0,0,0,.04))}
@@ -4624,8 +4666,12 @@ html .btn.primary.cp-ask-go{display:inline-flex;align-items:center;justify-conte
 html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
+/* the Companion page's Ask: just the word, centred and bigger (no companion face) */
+html .btn.primary.cp-ask-go#cptGo{min-width:96px;padding:0 22px;font-size:1.15rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
 .cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
 .cp-tq-row{align-items:center}
+/* a hidden bubble (faded out) can't be clicked or typed into */
+.cp-bubble:not(.on){pointer-events:none}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -6854,6 +6900,18 @@ html .fhead .fcrumb{background:none!important;padding-inline:0!important;text-sh
 .fhead .g2-ring > svg.ci-svg{width:60%!important;height:60%!important}
 .fhead.g2-head .g2-txt{padding-top:36px;gap:0}
 @media (max-width:719px){.fhead.g2-head .g2-low > .g2-ring{width:54px;height:54px}.fhead.g2-head .g2-txt{padding-top:30px}}
+/* Files header: a thin strip of the colour on top; the icon, the name and the count sit centred in the card, with the
+   folder's buttons beside them (they wrap below on a narrow phone) */
+html .fhead.g2-head .g2-band{height:8px;min-height:0;padding:0;border-radius:0}
+html .fhead.g2-head .g2-low{margin-top:0;padding:16px 18px;align-items:center;gap:14px;flex-wrap:wrap}
+html .fhead.g2-head .g2-low > .g2-ring{margin-top:0}
+html .fhead.g2-head .g2-txt{padding-top:0;flex:1 1 12em}
+.fhead .fh-acts{margin:0 0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:719px){
+  html .fhead.g2-head .g2-low{padding:12px 14px;gap:12px}
+  .fhead .fh-acts{flex-basis:100%;justify-content:flex-start;margin-left:0}
+  .fhead .fh-acts .btn{min-height:36px}
+}
 .fn-ring{display:grid!important;place-items:center;width:24px!important;height:24px!important;flex:0 0 24px!important;padding:0!important;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px var(--c,var(--line))}
 .fn-ring svg{width:68%;height:68%;display:block}
 .fn-ring.fn-all svg{color:var(--c);width:60%;height:60%}
@@ -8315,7 +8373,7 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
   --nm1:#f4f5f7;--nm2:#d9dce1;--nmink:#1d2026;--nmsh:#8d929b;--op1:#e6e8ec;--op2:#c9cdd4;--opink:#1d2026;--opsh:#7f848d;
   --dl1:#ba5424;--dl2:#a8420f;--dlink:#fff;--dlsh:#6b2a08;--eq1:#3f72dc;--eq2:#2a55b3;--eqink:#fff;--eqsh:#16336f;
   --sh1:#f3b14d;--sh2:#d98f22;--shink:#2a1a05;--alt:#f0a33a;--xbg:rgba(255,255,255,.1);--xink:#d9dce2;--keyline:0 0 0 transparent;--deco:none;
-  position:fixed;z-index:60;width:344px;max-width:calc(100vw - 16px);filter:drop-shadow(0 18px 40px rgba(0,0,0,.35)) drop-shadow(0 3px 8px rgba(0,0,0,.25));font-family:var(--display),system-ui,sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+  position:fixed;z-index:60;width:calc(344px * var(--cx-k,1));max-width:calc(100vw - 16px);filter:drop-shadow(0 18px 40px rgba(0,0,0,.35)) drop-shadow(0 3px 8px rgba(0,0,0,.25));font-family:var(--display),system-ui,sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 .cx[hidden]{display:none}
 .cx-body{padding:10px 14px 16px;border-radius:22px 22px 30px 30px;background:var(--deco),linear-gradient(170deg,var(--b1) 0%,var(--b2) 38%,var(--b3) 100%);border:1px solid var(--edge);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -2px 0 rgba(0,0,0,.4)}
 .cx-top{display:flex;align-items:center;gap:10px;height:34px;margin:0 -2px 6px;cursor:grab}
@@ -8543,3 +8601,13 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .cxs-veil.is-drag .cxs-hint{opacity:0;transition:opacity .15s}
 .cxs-box{position:fixed;border:2px solid #4f7cff;border-radius:4px;background:rgba(79,124,255,.12);box-shadow:0 0 0 9999px rgba(10,14,24,.22);pointer-events:none}
 @media (prefers-reduced-motion:reduce){.cx-expr.cx-in{animation:none}}
+
+/* Size: the whole calculator scales evenly from its corner grip (computers; on phones it fills the bottom of the screen) */
+@media (min-width:640px){
+  .cx-body{zoom:var(--cx-k,1);padding-bottom:max(16px, calc(26px / var(--cx-k,1)))}
+}
+.cx-grip{position:absolute;right:12px;bottom:3px;width:20px;height:20px;padding:0;border:0;border-radius:6px;background:none;color:var(--brand,#c8ccd4);opacity:.55;cursor:nwse-resize;display:grid;place-items:center;touch-action:none;z-index:2}
+.cx-grip svg{width:14px;height:14px}
+.cx-grip:hover,.cx-grip:focus-visible{opacity:1;background:rgba(255,255,255,.1)}
+.cx-grip:focus-visible{outline:2px solid var(--brand2,#f0a33a);outline-offset:1px}
+@media (max-width:639px){ .cx-grip{display:none} }

@@ -97,10 +97,18 @@ t("Siri changes: title, priority and course (only courses that exist; inbox mean
   assert.strictEqual(siriUpdated(task, {course: "inbox"}, 1, ok).courseId, "");
 });
 
+t("Today's Plan and the focus length go in the copy, with only real planned items", () => {
+  const plan = {hours: 3, doneHours: 0.5, items: [{id: "t1", title: "Lab report", courseId: "c1", hours: 0.75}, {id: "study:t2", title: "Study for Midterm", courseId: "gone", hours: 1.5}, {id: "x", title: "Nothing today", courseId: "c1", hours: 0}]};
+  const s = siriSnapshot(base({plan, focusMins: 25}));
+  assert.deepStrictEqual(s.plan, {day: "2026-11-03", mins: 180, done: 30, items: [{id: "t1", title: "Lab report", course: "c1", mins: 45}, {id: "study:t2", title: "Study for Midterm", course: "", mins: 90}]});
+  assert.strictEqual(s.focus, 25);
+  const none = siriSnapshot(base());
+  assert.ok(!("plan" in none) && !("focus" in none), "left out when the plan couldn't be worked out");
+});
 // The Swift Codable types read every key the page writes (and "where" through its CodingKey)
 t("SBSiriData.swift decodes the same keys", () => {
   const sw = fs.readFileSync(path.join(__dirname, "..", "ios-wrapper", "native", "SBSiriData.swift"), "utf8");
-  const s = siriSnapshot(base()), keys = new Set();
+  const s = siriSnapshot(base({plan: {hours: 1, doneHours: 0, items: [{id: "t1", title: "Lab report", courseId: "c1", hours: 1}]}, focusMins: 25})), keys = new Set();
   const walk = o => { if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === "object") for (const k of Object.keys(o)) { keys.add(k); walk(o[k]); } };
   walk(s);
   for (const k of keys) {
@@ -116,7 +124,11 @@ t("the bridge, plugin and intents are wired up", () => {
   assert.ok(/"StudyboardSiriDataPlugin"/.test(rd("ios-wrapper/native/MainViewController.swift")) && /"StudyboardSiriDataPlugin"/.test(rd("scripts/ios-stage.js")));
   const sc = rd("ios-wrapper/native/StudyboardShortcuts.swift"), shortcuts = (sc.match(/AppShortcut\(/g) || []).length;
   assert.ok(shortcuts <= 10, "at most 10 App Shortcuts, has " + shortcuts);
-  for (const i of ["AddTaskIntent", "WhatsDueIntent", "AssignmentDueIntent", "CourseGradeIntent", "AssignmentGradeIntent", "ClassTimeIntent", "NextClassIntent"]) assert.ok(sc.includes(i + "()"), i);
+  for (const i of ["AddTaskIntent", "WhatsDueIntent", "AssignmentDueIntent", "CourseGradeIntent", "AssignmentGradeIntent", "ClassTimeIntent", "TodayPlanIntent", "StartFocusIntent", "FocusControlIntent", "MarkTaskDoneIntent"]) assert.ok(sc.includes(i + "()"), i);
+  assert.ok(/What's my next class in/.test(sc), "next class is a Class Times phrase");
+  // the timer: Siri's start reaches the page's timer, and the bridge passes it on
+  assert.ok(/"start"\]\.indexOf\(x\.a\)/.test(rd("ios-wrapper/native-bridge.js")) && /a === "start"/.test(src), "start action handled");
+  assert.ok(/SBFocusMirror\.save/.test(rd("ios-wrapper/native/FocusActivity/StudyboardFocusActivityPlugin.swift")), "the app saves the timer for Siri");
   // every phrase names the app, and holds at most one parameter
   for (const p of sc.match(/^\s*"[^"\n]*"/gm).filter(x => /\\\(/.test(x))) {
     assert.ok(p.includes("\\(.applicationName)"), "phrase names the app: " + p.trim());

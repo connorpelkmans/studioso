@@ -947,7 +947,7 @@ function dailyQuote(force){
   const [q, who] = todaysQuote();
   qodPop(`<div class="qod-eyebrow">${esc(new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}</div>
     <p class="qod-q" id="qodT">“${esc(q)}”</p>${who ? `<p class="qod-who">${esc(who)}</p>` : ""}
-    <p class="qod-streak">${esc(streakLine())}</p>
+    ${STREAK_HIDDEN ? "" : `<p class="qod-streak">${esc(streakLine())}</p>`}
     <div class="qod-foot"><button type="button" class="btn primary" data-qod-close>Let's Go</button></div>`);
 }
 
@@ -1036,9 +1036,22 @@ function viewSchedule(){
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
   const missing = cs.filter(c => !courseMeetings(c).length && !withEvents.has(c.id));
   const hasAny = cs.some(c => courseMeetings(c).length) || eventsArr().length || availBlocks().length;
-  const setup = hasAny ? "" : `<div class="sch-setup" role="region" aria-label="Set up your schedule"><p style="margin:0"><strong>Add Your Class Times</strong><span class="mini">Your week fills in from each course's class times: lectures, labs, discussions and office hours. You can also add your own events, or import your Apple, Google or Outlook calendar. Deadlines already show below.</span></p>
-    ${cs.length ? `<div class="sch-missing">${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div>` : `<div class="sch-missing"><button class="btn small primary" data-act="new-course">Add a Course</button></div>`}
-    <div class="sch-missing"><button class="btn small" data-act="sch-add">+ Add an Event</button><button class="btn small" data-act="avail-add">+ Add Shift or Work</button><button class="btn small" data-act="sch-ics">Import a Calendar File</button></div></div>`;
+  // Nothing on the week yet: one tidy card. Each course's class times first (one row per course), then other ways to fill the week
+  const SS_IC = {
+    cal: '<path d="M7 3v3M17 3v3M4 9h16"/><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 13h3M8 17h6"/>',
+    ev: '<rect x="4" y="5" width="16" height="16" rx="3"/><path d="M7 3v3M17 3v3M4 9h16M12 12v6M9 15h6"/>',
+    work: '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>',
+    imp: '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14"/>',
+    go: '<path d="M9 6l6 6-6 6"/>'};
+  const ssIc = (k, cls) => `<svg class="${cls || "ss-ic"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SS_IC[k]}</svg>`;
+  const ssTile = (act, ic, label, sub) => `<button type="button" class="ss-tile" data-act="${act}">${ssIc(ic)}<span class="ss-t">${label}</span><span class="ss-s">${sub}</span></button>`;
+  const setup = hasAny ? "" : `<section class="sch-setup" aria-labelledby="schSetupH">
+    <div class="ss-head"><span class="ss-badge">${ssIc("cal")}</span><div><h3 id="schSetupH">Add Your Class Times</h3><p>Your week fills in from each course's lectures, labs and office hours. Deadlines already show below.</p></div></div>
+    ${cs.length ? `<ul class="ss-courses">${cs.map(c => `<li><button type="button" class="ss-row" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}" aria-label="Add class times for ${esc(courseLabel(c))}"><span class="dot" aria-hidden="true"></span><span class="ss-name">${esc(courseLabel(c))}</span><span class="ss-go">Add Times${ssIc("go", "ss-chev")}</span></button></li>`).join("")}</ul>`
+      : `<button type="button" class="btn primary ss-first" data-act="new-course">Add a Course</button>`}
+    <p class="ss-or">Or add your own</p>
+    <div class="ss-tiles">${ssTile("sch-add", "ev", "Event", "Exams, meetings")}${ssTile("avail-add", "work", "Shift or Work", "Busy times")}${ssTile("sch-ics", "imp", "Import Calendar", "Apple, Google, Outlook")}</div>
+  </section>`;
   // A common public holiday coming up (most schools are off, not all): ask once, on the Schedule, in one line
   const holAsk = (() => {
     const S = window.SBSCHOOL, sc = schoolCfg(); if (!S || !cs.some(c => courseMeetings(c).length)) return "";

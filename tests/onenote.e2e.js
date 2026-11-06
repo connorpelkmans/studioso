@@ -186,14 +186,14 @@ const EXPECT1 = "Cell division\n\nMitosis\nMakes two identical cells\n• Propha
     // the Import From Another App row shows the icon beside the full name
     await act("ia-open"); await page.waitForSelector('dialog[open] [data-act="on-open"] img.ms-ic');
     ok(true, "Import From Another App shows the OneNote icon beside its name");
-    // school accounts can't connect yet: said before connecting, and Class Notebooks explain it for a personal account
+    // no "school accounts can't connect yet" note any more: before connecting, or for Class Notebooks
     await page.evaluate(() => { document.querySelector("dialog[open]") && document.querySelector("dialog[open]").close(); const t = SBONENOTE.T.transport;
       SBONENOTE.T.transport = async b => b.action === "status" ? {ok: true, status: 200, data: {accounts: [], providers: {onenote: true, onenote_class: true}}} : b.action === "start" ? {ok: true, status: 200, data: {url: "https://example.test/x"}} : t(b); });
     await act("on-open"); await page.waitForFunction(() => /Connect OneNote/.test((document.querySelector("#onBody") || {}).textContent || ""));
-    ok(/School and work Microsoft accounts can't connect yet\. That's coming in the future\./.test(await page.textContent("#onBody")), "before connecting: school accounts can't connect yet");
+    ok(!/can't connect yet|coming in the future/.test(await page.textContent("#onBody")), "before connecting: no school-accounts note");
     await page.evaluate(() => { SBONENOTE.T.transport = async b => b.action === "status" ? {ok: true, status: 200, data: {accounts: [{provider: "onenote", account: "sam@outlook.com", status: "ok"}], providers: {onenote: true, onenote_class: true}}} : {ok: true, status: 200, data: {url: "https://example.test/x"}}; });
-    await act("on-open"); await page.waitForFunction(() => /Class Notebooks need a school/.test((document.querySelector("#onBody") || {}).textContent || ""));
-    ok(await page.locator('#onBody a[data-on-go="cls"]').count() === 0, "a personal account isn't offered Add Class Notebooks");
+    await act("on-open"); await page.waitForFunction(() => /Add Class Notebooks/.test((document.querySelector("#onBody") || {}).textContent || ""));
+    ok(await page.locator('#onBody a[data-on-go="cls"]').count() === 1, "Add Class Notebooks is offered, with a school account");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nonenote.e2e: ${n} checks passed`);

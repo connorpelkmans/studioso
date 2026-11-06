@@ -128,7 +128,7 @@
     return `<section class="sbw" aria-label="Today">
       <header class="sbw-head">
         <div class="sbw-hl"><h1>Today</h1><span>${esc(d.dateLabel)}</span></div>
-        ${d.streak.cur && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip ${d.streak.today ? "" : "sbw-dim"}" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${d.streak.cur}</button>` : ""}
+        ${d.streak.cur && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip ${d.streak.today ? "" : "sbw-dim"}" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${d.streak.cur}</button>` : ""}
         <a class="icon-btn" href="${esc(location.pathname)}" aria-label="Open Studyboard" title="Open Studyboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
       </header>
       ${n ? `<div class="sbw-next" style="--c:${esc(n.color)}">
@@ -153,7 +153,7 @@
     document.title = "Studyboard Today";
     const at = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (at) at.setAttribute("content", "Today");
     // No daily quote pop-up over the little card
-    dailyQuote = function(force){ if (force) { if (dlg.open) dlg.close(); openSheet(`<div class="sheet">${head("Your Streak")}<div class="sheet-body"><p>${esc(streakLine())}</p></div></div>`); } };
+    dailyQuote = function(force){ if (force && !STREAK_HIDDEN) { if (dlg.open) dlg.close(); openSheet(`<div class="sheet">${head("Your Streak")}<div class="sheet-body"><p>${esc(streakLine())}</p></div></div>`); } };
     // Its own Home Screen icon
     const origPwa = pwaBoot;
     pwaBoot = function(){ const r = origPwa.apply(this, arguments); const l = document.querySelector('link[rel="manifest"]'); if (l) l.href = "today.webmanifest"; return r; };

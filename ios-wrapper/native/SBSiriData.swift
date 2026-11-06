@@ -11,6 +11,23 @@ struct SBSnapshot: Codable {
     var tasks: [SBSnapTask]
     var courses: [SBSnapCourse]
     var classes: [SBSnapClass]
+    // Today's Plan (only for the day it was made) and your focus timer length; missing in copies from older app versions
+    var plan: SBSnapPlan?
+    var focus: Int?
+}
+
+struct SBSnapPlan: Codable {
+    var day: String
+    var mins: Int
+    var done: Int
+    var items: [SBSnapPlanItem]
+}
+
+struct SBSnapPlanItem: Codable {
+    var id: String
+    var title: String
+    var course: String?
+    var mins: Int
 }
 
 struct SBSnapMark: Codable {

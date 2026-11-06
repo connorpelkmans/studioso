@@ -17,7 +17,8 @@ const siriDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s
 const siriTime = s => typeof s === "string" && /^\d{2}:\d{2}$/.test(s) ? s : "";
 const siriNum = v => typeof v === "number" && isFinite(v) ? Math.round(v * 10) / 10 : null;
 /* in: {now, today, grades, tasks:[task], courses:[course], courseLabel(c), gradeItems:[{id, pct, mark, letter}], courseGrade(c) -> {pct, letter, marked} | null,
-        timesText(c) -> "Mon, Wed · 10–10:50 AM", classes:[{courseId, kind, date, start, end, where}]} */
+        timesText(c) -> "Mon, Wed · 10–10:50 AM", classes:[{courseId, kind, date, start, end, where}],
+        plan: {items:[{id, title, courseId, hours}], hours, doneHours} | null (Today's Plan, in its order), focusMins} */
 function siriSnapshot(i){
   const grades = !!i.grades, today = i.today, marks = new Map();
   if (grades) (i.gradeItems || []).forEach(g => { if (g && g.id && siriNum(g.pct) != null) marks.set(g.id, {pct: siriNum(g.pct), text: siriStr(g.mark, 24), letter: siriStr(g.letter, 4)}); });
@@ -43,7 +44,16 @@ function siriSnapshot(i){
   const classes = (i.classes || []).filter(m => m && known.has(m.courseId) && siriDate(m.date) && siriTime(m.start) && siriTime(m.end))
     .map(m => ({course: String(m.courseId), kind: siriStr(m.kind, 24), date: m.date, start: m.start, end: m.end, where: siriStr(m.where, 60)}))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 400);
-  return {v: SIRI_V, at: Number(i.now) || 0, grades, tasks, courses, classes};
+  // Today's Plan as the app shows it, for "what should I work on" and "how much do I have today" (only for the day it was made)
+  const mins = h => Math.max(0, Math.round((Number(h) || 0) * 60));
+  const p = i.plan && Array.isArray(i.plan.items) ? i.plan : null;
+  const plan = p ? {day: today, mins: mins(p.hours), done: mins(p.doneHours),
+    items: p.items.filter(x => x && x.id && mins(x.hours) > 0 && siriStr(x.title, 2)).slice(0, 30)
+      .map(x => ({id: String(x.id), title: siriStr(x.title, 140), course: known.has(x.courseId) ? String(x.courseId) : "", mins: mins(x.hours)}))} : null;
+  const out = {v: SIRI_V, at: Number(i.now) || 0, grades, tasks, courses, classes};
+  if (plan) out.plan = plan;
+  const fm = Math.round(Number(i.focusMins)); if (fm >= 1 && fm <= 180) out.focus = fm;
+  return out;
 }
 // The app's addDays, without depending on it (this part is tested on its own)
 function addDaysPure(s, n){ const [y, m, d] = String(s).split("-").map(Number); const x = new Date(y, m - 1, d + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; }
@@ -74,7 +84,14 @@ function siriUpdated(t, u, now, courseOk){
       classes = schOccurrences(today, addDays(today, SIRI_DAYS - 1)).filter(o => o.type === "meet" && !o.skipped && o.c)
         .map(o => ({courseId: o.c.id, kind: o.label, date: o.date, start: o.start, end: o.end, where: o.where || (o.m && o.m.where) || o.c.room || ""}));
     } catch (e) { classes = []; }
-    return {now: Date.now(), today, grades: gradesOn(), tasks: allTasks(), courses: coursesArr(),
+    let plan = null;
+    try {
+      const F = typeof FOCUS !== "undefined" && FOCUS && FOCUS.today === today ? FOCUS : computeFocus();
+      if (F && Array.isArray(F.ranked)) plan = {hours: F.planned, doneHours: F.doneToday,
+        items: F.ranked.filter(x => x && x.t && x.alloc > 0 && x.t.status !== "done").map(x => ({id: x.t.id, title: x.t.title, courseId: x.t.courseId, hours: x.alloc}))};
+    } catch (e) { plan = null; }
+    let focusMins = 0; try { focusMins = pomoCfg().focus; } catch (e) {}
+    return {now: Date.now(), today, grades: gradesOn(), tasks: allTasks(), courses: coursesArr(), plan, focusMins,
       gradeItems: G && typeof G.items === "function" ? (() => { try { return G.items(); } catch (e) { return []; } })() : [],
       courseGrade: c => { const g = G && typeof G.now === "function" ? G.now(c) : null; return g && g.pct != null ? {pct: g.pct, letter: g.letter, marked: g.marked} : null; },
       timesText: c => courseTimesText(c), classes};

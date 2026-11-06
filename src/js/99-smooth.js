@@ -54,10 +54,11 @@
       return () => {
         document.body.appendChild(host); try { host.showPopover(); } catch (e) {}
         if (sc2) sc2.scrollTop = st;   // where it was scrolled to
-        const ease = {duration: 260, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+        // quick but smooth: it gets going at once and eases off as it leaves (was 260ms, slow to start)
+        const ease = {duration: 180, easing: "cubic-bezier(.3,0,.7,.4)", fill: "forwards"};
         const a = c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease);
         host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
-        const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 600);
+        const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 450);
       };
     } catch (e) { return null; }
   }

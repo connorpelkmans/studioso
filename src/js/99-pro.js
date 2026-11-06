@@ -3101,15 +3101,32 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-badge{display:inline-grid;place-items:center;min-width:1.5em;height:1.5em;padding:0 4px;border-radius:999px;background:var(--accent);color:#fff;font-size:.72rem;font-weight:700;margin-left:4px}
 @media (max-width:760px){
   dialog:has(.pdr-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}
+  /* full screen on a phone: clear of the status bar and clock at the top, the home bar below and the notch on its side */
+  dialog:has(.pdr-sheet){box-sizing:border-box;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
   .pdr-main.with-side{grid-template-columns:minmax(0,1fr)}
   .pdr-side{position:absolute;inset:auto 0 0 0;max-height:62%;border-left:0;border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(0,0,0,.18);border-radius:16px 16px 0 0;z-index:40}
-  .pdr-bar{gap:6px;padding:6px 10px 8px}
-  /* one row on a phone, the mode switch and Save first; the rest scrolls sideways */
+  /* two tidy rows on a phone, nothing off to the side: what you're doing (Read, Mark Up, Edit) with Ask and Study,
+     then where you are (page and zoom) with Download and Save */
+  .pdr-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 6px;padding:8px 10px 10px;overflow:visible}
+  .pdr-bar::after{content:"";order:3;flex-basis:100%;height:0}
   .pdr-bar > .spacer{display:none}
-  .pdr-bar > .pdr-modes{order:-3}
-  .pdr-bar > .pdr-out{order:-2}
+  .pdr-bar > .pdr-modes{order:1}
+  .pdr-bar > .pdr-ai{order:2;margin-left:auto;gap:6px}
+  .pdr-bar > .pdr-nav{order:4;gap:2px}
+  .pdr-bar > .pdr-zoom{order:5;gap:2px}
+  .pdr-bar > .pdr-out{order:6;margin-left:auto}
+  .pdr-bar .pdr-ai .ai-btn{width:44px;height:44px;min-width:44px;padding:0;justify-content:center;border-radius:999px}
+  .pdr-bar .pdr-ai .ai-btn > svg{width:20px;height:20px}
+  .pdr-bar .pdr-nav .icon-btn,.pdr-bar .pdr-zoom .icon-btn{width:36px;height:36px}
+  .pdr-bar .pdr-pg input{width:40px}
+  .pdr-bar .pdr-fit{display:none}
+  /* room for the words on the mode switch (the one-row fitting may have turned them into icons) */
+  @media (min-width:380px){ .pdr-bar.c4 .pdr-modes :is(.pdr-mode,.pde-mode){font-size:inherit;padding:0 9px;gap:5px} }
+  /* small phones: the zoom buttons move up beside the mode icons, so the page controls, Download and Save fit below */
+  @media (max-width:379px){ .pdr-bar > .pdr-modes{order:0} .pdr-bar > .pdr-zoom{order:1} }
+  @media (max-width:339px){ .pdr-bar .pdr-ai .ai-btn{width:40px;height:40px;min-width:40px} }
   .pdr-bar2{gap:6px;padding:6px 10px}
-  .pdr-bar .icon-btn{width:40px;height:40px}
+  .pdr-bar .pdr-out .icon-btn{width:40px;height:40px}
   .pdr-fit{min-height:40px}
 }
 `;
@@ -4420,7 +4437,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const card = p => {
       const a = (c.accounts || []).find(x => x.provider === p), s = U.start[p] || {}, busy = U.busy[p], conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-csy-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.err ? "Not Available" : "Getting Ready…"}</button>`;
-      if (!a) return `<div class="csy-card"><div class="csy-h"><b>${NAMES[p]}</b><span class="mini">Not connected</span></div>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${link(`Connect ${NAMES[p]}`)}</div>`;
+      if (!a) return `<div class="csy-card"><div class="csy-h"><b>${NAMES[p]}</b><span class="mini">Not connected</span></div>${link(`Connect ${NAMES[p]}`)}</div>`;
       const warn = a.status === "reauth" ? `<p class="csy-warn">${NAMES[p]} stopped accepting Studyboard's access. Connect again to keep syncing.</p>${link("Connect Again")}` : "";
       const nr = U.noRead[p] && pr.bring !== "off" && reads(p) ? `<p class="csy-warn">Studyboard can't see the events in your ${NAMES[p]}, so they can't come in. Connect again and allow ${p === "google" ? "“See events on all your calendars”" : "access to your calendars"}.</p>${link("Connect Again")}` : "";
       const m = U.msg[p], msg = m === "error" ? `<p class="csy-warn">The last sync didn't finish. It tries again on its own.</p>` : m === "pro" ? `<p class="csy-warn">Two-way sync needs Studyboard Pro.</p>` : "";
@@ -4883,7 +4900,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
       const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any folders you pick." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
       const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
-      if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${p === "microsoft" ? `<p class="mini ms-school">${esc(MS_SCHOOL_SOON)}</p>` : ""}${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
+      if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
         ${aiBox}
         ${a.status === "reauth" ? `<p class="cl-warn">${NM[p]} stopped accepting Studyboard's access. Connect again to keep using it.</p>${link("Connect Again")}` : ""}

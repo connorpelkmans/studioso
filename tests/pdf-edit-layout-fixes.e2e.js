@@ -116,9 +116,24 @@ async function makePdf(pages){
       await page.click("#pdeBtn"); await page.waitForFunction(() => !!window.PDFLib); await page.waitForTimeout(500);
       await clickLine(page, "Line 3 of sheet 1"); await page.waitForTimeout(300);
       const hd = await page.evaluate(() => { const one = el => { const k = [...el.children].filter(x => x.offsetWidth && getComputedStyle(x).position !== "absolute"); const b = el.getBoundingClientRect(); return b.height <= 72 && k.every(x => { const r = x.getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; }); };
-        return {top: Math.round(document.querySelector("#pdrPages").getBoundingClientRect().top), reader: one(document.querySelector(".pdr-bar")), sub: one(document.querySelector(".pde-sub")), doc: document.documentElement.scrollWidth}; });
-      ok(hd.top <= 300 && hd.reader && hd.sub && hd.doc <= 390, "editing on a phone, the bars are one row each and leave the page most of the screen: " + JSON.stringify(hd));
+        return {top: Math.round(document.querySelector("#pdrPages").getBoundingClientRect().top), reader: (b => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().height <= 125)(document.querySelector(".pdr-bar")), sub: one(document.querySelector(".pde-sub")), doc: document.documentElement.scrollWidth}; });
+      ok(hd.top <= 300 && hd.reader && hd.sub && hd.doc <= 390, "editing on a phone, the reader bar is two tidy rows, the tool rows one each, and the page keeps most of the screen: " + JSON.stringify(hd));
       await T.shot("4-phone-picked");
+      // typing with the keyboard up (a 364px keyboard leaves 480px): only the text style row stays above the line being typed
+      { await clickLine(page, "Line 3 of sheet 1"); await page.waitForTimeout(300);
+        const typing = await page.evaluate(() => !!document.querySelector(".pde-e.editing"));
+        if (typing) {
+          await page.evaluate(() => { const d = document.documentElement; d.style.setProperty("--vv-h", "480px"); d.style.setProperty("--kb-h", "364px"); d.classList.add("kb-open"); });
+          await page.waitForTimeout(500);
+          const kb = await page.evaluate(() => { const vis = s => { const e = document.querySelector(s); return !!e && e.getBoundingClientRect().height > 0; }, ed = document.querySelector(".pde-e.editing").getBoundingClientRect(), pages = document.querySelector("#pdrPages").getBoundingClientRect(), dl = document.getElementById("dlg").getBoundingClientRect();
+            return {head: vis(".pdr-sheet > .sheet-head"), bar: vis(".pdr-bar"), tools: vis(".pde-bar .pde-tools"), sub: vis(".pde-sub"), dlgBottom: Math.round(dl.bottom), pagesH: Math.round(pages.height), edTop: Math.round(ed.top), edBottom: Math.round(ed.bottom)}; });
+          ok(!kb.head && !kb.bar && !kb.tools && kb.sub && kb.dlgBottom <= 482, "keyboard up while typing: just the text style row, and the reader ends at the keyboard: " + JSON.stringify(kb));
+          ok(kb.pagesH >= 300 && kb.edTop >= 0 && kb.edTop < 480, "the page keeps most of the space and the line being typed is in view above the keyboard: " + JSON.stringify(kb));
+          await T.shot("4b-phone-typing-keyboard");
+          await page.evaluate(() => document.documentElement.classList.remove("kb-open")); await page.waitForTimeout(300);
+          ok(await page.evaluate(() => document.querySelector(".pdr-bar").getBoundingClientRect().height > 0), "the bars come back when the keyboard closes");
+        } else ok(false, "clicking the picked line starts typing");
+      }
       const y1 = await pageTop(page); await T.tool("mark"); const y2 = await pageTop(page); await T.tool("text");
       ok(y1 === y2, "the page doesn't jump when the tool changes on a phone");
       // a panel tool: the pick and the old tool's options go, the tool shows as pressed, the options row makes room

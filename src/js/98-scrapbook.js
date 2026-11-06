@@ -436,7 +436,7 @@
     const c = cur ? (lastCtx && lastCtx.start === page.s ? lastCtx : context(sc)) : null;
     const g = page.g || {};
     const got = Object.keys(g).filter(k => MI[k]).length;
-    return `<div class="sbk-mhead"><b>Milestones</b><span class="mini">${got} sticker${got === 1 ? "" : "s"} on this page</span></div>` + CATS.map(([cat, title]) => {
+    return `<div class="sbk-mhead"><b>Milestones</b><span class="mini">${got} sticker${got === 1 ? "" : "s"} on this page</span></div>` + CATS.filter(([cat]) => !(STREAK_HIDDEN && cat === "streaks")).map(([cat, title]) => {
       const ms = M.filter(m => m.cat === cat);
       return `<h4 class="sbk-cat">${esc(title)}</h4><ul class="sbk-ml">${ms.map(m => {
         const pr = cur ? progressOf(m, c, page) : {got: !!g[m.id], p: 0, text: ""};

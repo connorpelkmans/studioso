@@ -31,6 +31,10 @@
 .sb-oa-apple .sb-oa-a{width:15px;height:18px;margin-top:-3px}
 .sb-oa-google{background:#fff;color:#1F1F1F;border-color:#747775;font:500 14px/20px "SB Roboto",Roboto,Arial,sans-serif;letter-spacing:.25px}
 .sb-oa-google .sb-oa-g{width:20px;height:20px}
+.sb-oa-ms{background:#fff;color:#5E5E5E;border-color:#8C8C8C;font:600 14px/20px "Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;border-radius:22px}
+.sb-oa-ms .sb-oa-m{width:18px;height:18px;flex:0 0 auto}
+:root[data-theme="dark"] .sb-oa-ms{background:#2F2F2F;color:#fff;border-color:#2F2F2F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-ms{background:#2F2F2F;color:#fff;border-color:#2F2F2F}}
 :root[data-theme="dark"] .sb-oa-apple{background:#fff;color:#000}
 :root[data-theme="dark"] .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-oa-apple{background:#fff;color:#000}:root:not([data-theme="light"]) .sb-oa-google{background:#131314;color:#E3E3E3;border-color:#8E918F}}

@@ -1056,6 +1056,18 @@ html .fhead .fcrumb{background:none!important;padding-inline:0!important;text-sh
 .fhead .g2-ring > svg.ci-svg{width:60%!important;height:60%!important}
 .fhead.g2-head .g2-txt{padding-top:36px;gap:0}
 @media (max-width:719px){.fhead.g2-head .g2-low > .g2-ring{width:54px;height:54px}.fhead.g2-head .g2-txt{padding-top:30px}}
+/* Files header: a thin strip of the colour on top; the icon, the name and the count sit centred in the card, with the
+   folder's buttons beside them (they wrap below on a narrow phone) */
+html .fhead.g2-head .g2-band{height:8px;min-height:0;padding:0;border-radius:0}
+html .fhead.g2-head .g2-low{margin-top:0;padding:16px 18px;align-items:center;gap:14px;flex-wrap:wrap}
+html .fhead.g2-head .g2-low > .g2-ring{margin-top:0}
+html .fhead.g2-head .g2-txt{padding-top:0;flex:1 1 12em}
+.fhead .fh-acts{margin:0 0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:719px){
+  html .fhead.g2-head .g2-low{padding:12px 14px;gap:12px}
+  .fhead .fh-acts{flex-basis:100%;justify-content:flex-start;margin-left:0}
+  .fhead .fh-acts .btn{min-height:36px}
+}
 .fn-ring{display:grid!important;place-items:center;width:24px!important;height:24px!important;flex:0 0 24px!important;padding:0!important;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px var(--c,var(--line))}
 .fn-ring svg{width:68%;height:68%;display:block}
 .fn-ring.fn-all svg{color:var(--c);width:60%;height:60%}

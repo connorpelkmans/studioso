@@ -40,3 +40,8 @@ android-wrapper/google-services.json
 *.keystore
 # Wrangler local secrets (an API key goes here for wrangler dev)
 .dev.vars
+
+# in-between captures made by tools/capture-ios-screens.js
+build-resources/ios-listing/screenshots/raw/
+build-resources/ios-listing/ipad/raw/
+build-resources/ios-listing/art/check-*.png

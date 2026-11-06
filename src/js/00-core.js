@@ -1,3 +1,6 @@
+// Study streaks are hidden for now (to be revisited): no streak strip, chip, line, celebration or companion talk about them.
+// Study days are still counted, so turning this back to false brings everything back as it was.
+const STREAK_HIDDEN = true;
 /* Every on-device database this page opens closes itself when another tab */
 try { if (window.SBLaunch) SBLaunch.to(32); } catch (e) {}   // the launch screen (index.html): the app's code is running
 try {

@@ -321,10 +321,9 @@ async function whoIs(d: Deps, token: string): Promise<string | null> {
   return u?.id && /^[0-9a-f-]{36}$/i.test(u.id) ? u.id.toLowerCase() : null;
 }
 export const adapters = (d: Deps): Record<Provider, Adapter> => ({ google: google(d), microsoft: microsoft(d) });
-// A school or work Microsoft account whose organization needs an admin to approve Studyboard before people can connect it
-// (Studyboard isn't a verified Microsoft publisher yet). Microsoft sends these back with an "admin approval" error
-export const SCHOOL_BLOCKED_TITLE = "School accounts can't connect yet";
-export const SCHOOL_BLOCKED_TEXT = "Studyboard can't connect school or work Microsoft accounts yet. That's coming in the future. For now you can connect a personal Microsoft account (Outlook.com, Hotmail or Live) instead.";
+// Microsoft sends an "admin approval" error when a school or work account's organization hasn't allowed Studyboard
+export const SCHOOL_BLOCKED_TITLE = "That didn't work";
+export const SCHOOL_BLOCKED_TEXT = "Microsoft didn't finish connecting, so nothing changed. Try again from Studyboard.";
 export const schoolBlocked = (u: URL) => u.searchParams.get("error") === "consent_required"
   || /AADSTS(90094|90095|900941|65001)\b|admin(istrator)?(\s+\w+)?\s+(approval|consent)|permission to access resources in your organi[sz]ation/i.test(u.searchParams.get("error_description") || "");
 const page = (title: string, text: string, ok: boolean) => new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>

@@ -3596,6 +3596,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   document.addEventListener("submit", ev => { if (ev.target && ev.target.id === "pdeAskForm") { ev.preventDefault(); const q = $("#pdeAskQ"); askGo(q.value); q.value = ""; } });
 
+  // Phones: when the keyboard comes up (or goes) while typing into the page, the line being typed is scrolled back into view
+  { let kbWas = false; new MutationObserver(() => {
+      const kb = document.documentElement.classList.contains("kb-open"); if (kb === kbWas) return; kbWas = kb;
+      if (!kb || !E || !E.on) return;
+      setTimeout(() => { const el = dlg.querySelector(".pde-e.editing"); if (el && el.scrollIntoView) el.scrollIntoView({block: "center", inline: "nearest"}); }, 120);
+    }).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]}); }
   SBPDE = window.SBPDE = {
     readerBtn: () => `<button type="button" class="btn small pde-mode" data-act="pde-mode" aria-pressed="false" id="pdeBtn">${ico(IC.edit)}Edit<b class="pdr-badge" hidden></b></button>`,
     // how to draw a page: with fillable fields, the fields are typed into on the page, so the picture leaves them out
@@ -3614,7 +3620,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const r = R(), f = r && state.files[r.fid];
       return `<button type="button" class="btn small pde-rt" data-act="pde-say" id="pdeSayBtn" title="Read Aloud">${ico(IC.speak)}<span class="pde-lbl">Listen</span></button><button type="button" class="btn small pde-rt" data-act="pde-toc" id="pdeTocBtn" title="Contents" hidden>${ico(IC.toc)}<span class="pde-lbl">Contents</span></button>${f && f.revs.length > 1 ? `<button type="button" class="btn small pde-rt" data-act="pde-cmp" title="Compare Versions">${ico(IC.cmp)}<span class="pde-lbl">Compare</span></button>` : ""}`;
     },
-    readerAi: () => `<button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF" aria-label="Ask This PDF">${ico(IC.ask)}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF" aria-label="Study From This PDF">${ico(IC.study)}<span class="pde-lbl">Study</span></button>`,
+    readerAi: () => `<span class="pdr-ai"><button type="button" class="btn small pde-rt ai-btn" data-act="pde-ask" title="Ask This PDF" aria-label="Ask This PDF">${ico(IC.ask)}<span class="pde-lbl">Ask</span></button><button type="button" class="btn small pde-rt ai-btn" data-act="pde-st" title="Study From This PDF" aria-label="Study From This PDF">${ico(IC.study)}<span class="pde-lbl">Study</span></button></span>`,
     // Download, and its menu: Turn In (a copy ready to hand in)
     dlBtns: () => `<span class="pdr-split"><button type="button" class="btn small" data-act="pde-dl" title="Download this PDF with your edits">${ico(IC.down)}<span class="pde-lbl">Download</span></button><button type="button" class="btn small pdr-dl-more" data-act="pde-dlmenu" aria-haspopup="menu" aria-expanded="false" aria-label="More ways to download" title="More ways to download">${ico('<path d="M7 10l5 5 5-5"/>')}</button></span>`,
     setOn: on => setOn(on),
@@ -3840,6 +3846,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-saybar select{width:auto;padding:4px 6px}
 .pdr-sheet{position:relative}
 .pde-rt{display:inline-flex;align-items:center;gap:6px}
+.pdr-ai{display:inline-flex;align-items:center;gap:8px}
+.pdr-ai:not(:has(.pde-rt:not([hidden]))){display:none}
 .pde-rt[hidden]{display:none}
 .pde-toc{list-style:none;margin:0;padding:0 0 0 14px;display:grid;gap:2px}
 .pde-pb > .pde-toc{padding-left:0}
@@ -3879,6 +3887,14 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-corner{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:rgba(255,255,255,.9);border:3px solid #2457c5;cursor:grab;touch-action:none}
 .pde-corner:focus-visible{outline:3px solid var(--ink)}
 @media (max-width:760px){ .pde-rt .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)} .pde-saybar{bottom:8px} }
+/* Phones, typing into the page: the reader fills just the space above the keyboard, and only the text style row stays,
+   so the line being typed has room (the title, page and mode bars, tools and notes come back when the keyboard closes) */
+@media (max-width:760px){
+  html.kb-open dialog#dlg:has(.pdr-sheet .pde-e.editing){top:0;bottom:auto;margin:0;height:var(--vv-h,100dvh);max-height:var(--vv-h,100dvh);transition:none}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar2,
+  html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-tools,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-note,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar > .spacer{display:none!important}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar{padding-top:6px;padding-bottom:6px}
+}
 @media (max-width:760px){
   .pde-bar{padding:6px 10px;gap:6px}
   .pde-tool{padding-inline:8px}
