@@ -1280,7 +1280,7 @@ SCENES.cafe = function (W, H, dk, rnd) {
   add(mid, 'b', fr, dk ? '#3A271A' : '#6E4B32');
   // glare streaks; on a phone they run right up to the top of the window (each edge carried up along its own slant)
   var sh = '', gy = function (x1, y1, x2, y2, y0) { return [x1 + (x2 - x1) * (y0 - y1) / (y2 - y1), y0]; };
-  for (m = 0; m <= nm; m++) { var px = wx0 + ww * m / (nm + 1) + ww / (nm + 1) * 0.25, t1 = ph ? wy0 : tb + 40, t2 = ph ? wy0 : tb + 60;
+  for (m = 0; m <= nm; m++) { var px = wx0 + ww * m / (nm + 1) + ww / (nm + 1) * 0.25, t1 = ph ? wy0 + 4 : tb + 40, t2 = ph ? wy0 + 4 : tb + 60;   // a hair below the frame, so its soft edge doesn't bleed onto the wood
     sh += poly([gy(px, tb + 40, px - 100 * u, wy1 - 20, t1), gy(px + 40 * u, tb + 40, px - 60 * u, wy1 - 20, t1), [px - 60 * u, wy1 - 20], [px - 100 * u, wy1 - 20]])
       + poly([gy(px + 60 * u, tb + 60, px - 30 * u, wy1 - 40, t2), gy(px + 72 * u, tb + 60, px - 18 * u, wy1 - 40, t2), [px - 18 * u, wy1 - 40], [px - 30 * u, wy1 - 40]]); }
   add(mid, 'a', sh, dk ? 'rgba(255,220,180,0.05)' : 'rgba(255,255,255,0.22)');
