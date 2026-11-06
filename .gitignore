@@ -43,3 +43,5 @@ android-wrapper/google-services.json
 
 # in-between captures made by tools/capture-ios-screens.js
 build-resources/ios-listing/screenshots/raw/
+build-resources/ios-listing/ipad/raw/
+build-resources/ios-listing/art/check-*.png

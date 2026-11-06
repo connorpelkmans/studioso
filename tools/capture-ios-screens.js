@@ -65,7 +65,8 @@ async function shoot(browser, [name, , skin, scheme, tab, steps]) {
   const page = await ctx.newPage();
   await homeRoom(ctx, page);
   await page.goto("http://localhost:" + server.address().port + "/?pro=off"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);
-  await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
+  // no toasts, and no Heads Up block in Today's Plan (a wall of text in a picture)
+  await page.addStyleTag({content: ".toast,#toast,.plan-notes{display:none!important}"});
   await dismiss(page);
   await page.evaluate(t => { const b = document.querySelector(`nav.tabs [data-tab="${t}"]`); if (b) b.click(); }, tab); await page.waitForTimeout(1500);
   for (const s of steps) await press(page, s);
