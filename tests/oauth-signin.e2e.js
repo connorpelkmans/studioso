@@ -28,6 +28,10 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
         if (ctx.failWith) return r.fulfill({status: 302, headers: {location: back + "#error=server_error&error_code=unexpected_failure&error_description=" + encodeURIComponent(ctx.failWith).replace(/%20/g, "+")}});
         return r.fulfill({status: 302, headers: {location: back + "#access_token=" + jwt() + "&refresh_token=rt1&expires_in=3600&token_type=bearer"}});
       }
+      // Studyboard's own Microsoft step (ms-signin), when a test turns it on: straight back with a one-time token
+      if (u.pathname === "/functions/v1/ms-signin/ready") return r.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({ok: !!ctx.msBridge})});
+      if (u.pathname === "/functions/v1/ms-signin/start") { ctx.msStarts = (ctx.msStarts || []).concat(u.href); const bind = ctx.msWrongBind ? "someone-elses-bind-123" : u.searchParams.get("bind"); return r.fulfill({status: 302, headers: {location: u.searchParams.get("return") + "#sb_ms=hash-sam&sb_ms_bind=" + bind}}); }
+      if (u.pathname === "/auth/v1/verify") { ctx.verified = (ctx.verified || []).concat(r.request().postData()); return r.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({access_token: jwt(), refresh_token: "rt9", expires_in: 3600, token_type: "bearer", user: USER})}); }
       if (u.pathname === "/auth/v1/user") return r.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(USER)});
       if (u.pathname === "/auth/v1/token") return r.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({access_token: jwt(), refresh_token: "rt2", expires_in: 3600, token_type: "bearer", user: USER})});
       if (u.pathname.startsWith("/rest/") || u.pathname.startsWith("/storage/") || u.pathname.startsWith("/functions/")) return r.fulfill({status: 200, contentType: "application/json", body: "[]"});
@@ -104,6 +108,43 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     ({ctx, page} = await open(() => { window.StudyboardNative = {signIn: {redirect: "studyboard://auth-callback", apple: null, open: () => Promise.resolve("studyboard://auth-callback#error=server_error&error_description=Unable+to+exchange+external+code")}}; }, seen));
     await page.click("dialog[open] [data-oauth=azure]"); await page.waitForTimeout(600);
     ok(/Microsoft didn.t accept Studyboard.s sign-in settings/.test(await page.evaluate(() => (document.getElementById("sbMsg") || {}).textContent || "")), "in the app too, in plain words");
+    await ctx.close();
+
+    // Studyboard's own Microsoft step (ms-signin), once it's deployed: school and work accounts with no "email" work too
+    seen = [];
+    ({ctx, page} = await open(null, seen)); ctx.msBridge = true;
+    await page.click("dialog[open] [data-oauth=azure]");
+    ok(await signedIn(page), "web: with Studyboard's own Microsoft step deployed, Sign in with Microsoft goes through it and comes back signed in");
+    { const st = new URL(ctx.msStarts[0]).searchParams;
+      ok(st.get("return") === new URL(page.url()).origin + "/" && /^[A-Za-z0-9_-]{30,}$/.test(st.get("bind")), "it starts at ms-signin with this page as the return address and a random device check");
+      ok((ctx.verified || []).some(b => /"token_hash":"hash-sam"/.test(b) && /"type":"magiclink"/.test(b)), "and its one-time token is swapped for a session");
+      ok(await page.evaluate(() => !/sb_ms/.test(location.hash)), "the token is cleared from the address"); }
+    await ctx.close();
+    // a sign-in begun somewhere else (another device or someone else's link) isn't finished here
+    seen = [];
+    ({ctx, page} = await open(null, seen)); ctx.msBridge = true; ctx.msWrongBind = true;
+    await page.click("dialog[open] [data-oauth=azure]"); await page.waitForTimeout(2500);
+    ok(!(ctx.verified || []).length && await page.evaluate(() => !Object.keys(localStorage).some(k => /studioso-auth/.test(k) && /access_token/.test(localStorage.getItem(k)))), "a sign-in that didn't start on this device isn't finished (no session)");
+    await ctx.close();
+    // the app (iPhone, Android) and the desktop app through the same step
+    seen = [];
+    ({ctx, page} = await open(() => {
+      window.__opened = [];
+      window.StudyboardNative = {signIn: {redirect: "studyboard://auth-callback", apple: null, open: url => { window.__opened.push(url); const b = new URL(url).searchParams.get("bind"); return Promise.resolve("studyboard://auth-callback#sb_ms=hash-sam&sb_ms_bind=" + b); }}};
+    }, seen)); ctx.msBridge = true;
+    await page.click("dialog[open] [data-oauth=azure]");
+    ok(await signedIn(page), "app: through Studyboard's Microsoft step, back via studyboard://auth-callback, signed in");
+    ok(await page.evaluate(() => new URL(window.__opened[0]).searchParams.get("return")) === "studyboard://auth-callback" && /\/functions\/v1\/ms-signin\/start\?/.test(await page.evaluate(() => window.__opened[0])), "it opened ms-signin, returning to the app");
+    await ctx.close();
+    seen = [];
+    ({ctx, page} = await open(() => {
+      window.__desk = [];
+      const real = {platform: "win32", dataDir: () => Promise.resolve(""), oauthPort: () => Promise.resolve(43822), oauthOpen: url => { window.__desk.push(url); return Promise.resolve("http://127.0.0.1:43822/auth#sb_ms=hash-sam&sb_ms_bind=" + new URL(url).searchParams.get("bind")); }};
+      window.studiosoDesktop = real;
+    }, seen, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36")); ctx.msBridge = true;
+    await page.click("dialog[open] [data-oauth=azure]");
+    ok(await signedIn(page), "desktop: through Studyboard's Microsoft step in the computer's browser, signed in");
+    ok(await page.evaluate(() => new URL(window.__desk[0]).searchParams.get("return")) === "http://127.0.0.1:43822/auth", "returning to the one-time page on this computer");
     await ctx.close();
 
     // the app (iPhone, Android): Microsoft the same way, outside the app

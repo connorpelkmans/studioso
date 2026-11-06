@@ -19,7 +19,10 @@ async function open(b, plugins){
     const P = {ScreenOrientation: {lock: () => Promise.resolve(), unlock: () => Promise.resolve()}, Keyboard: {setScroll: () => Promise.resolve(), setAccessoryBarVisible: () => Promise.resolve(), addListener: listen},
       App: {addListener: listen}, Browser: {open: o => { window.__log.push("browser:" + o.url); return Promise.resolve(); }},
       PushNotifications: {addListener: listen, checkPermissions: () => Promise.resolve({receive: "prompt"})}};
-    if (plugins) Object.assign(P, {Filesystem: {writeFile: o => { window.__log.push("write:" + o.directory + ":" + o.path + ":" + atob(o.data).slice(0, 25)); return Promise.resolve({uri: "file:///cache/" + o.path}); }},
+    window.__files = {};
+    if (plugins) Object.assign(P, {Filesystem: {writeFile: o => { window.__log.push("write:" + o.directory + ":" + o.path + ":" + atob(o.data).slice(0, 25)); window.__files[o.path] = atob(o.data); return Promise.resolve({uri: "file:///cache/" + o.path}); },
+        appendFile: o => { window.__appends = (window.__appends || 0) + 1; window.__files[o.path] += atob(o.data); return Promise.resolve(); },
+        stat: o => Promise.resolve({size: (window.__files[o.path] || "").length}), deleteFile: o => { delete window.__files[o.path]; return Promise.resolve(); }},
       Share: {share: o => { window.__log.push("share:" + o.files[0]); return window.__share === "ok" ? Promise.resolve({}) : Promise.reject(new Error(window.__share)); }}});
     window.Capacitor = {isNativePlatform: () => true, getPlatform: () => "ios", Plugins: P}; }, [SEED, plugins]);
   await ctx.addInitScript(BRIDGE);
@@ -39,6 +42,12 @@ async function open(b, plugins){
       ok(/^write:CACHE:studyboard-backup-\d{4}-\d\d-\d\d\.json:\{\s+"app": "studyboard"/.test(log[0] || ""), "Export Backup writes the backup to the app's cache: " + log[0]);
       ok(/^share:file:\/\/\/cache\/studyboard-backup-/.test(log[1] || ""), "and offers it in the share sheet: " + log[1]);
       ok(t === "Backup file saved", "and says saved only after that: " + t);
+      // a big backup (uploaded files make them hundreds of MB) is written in pieces and comes out whole
+      await page.evaluate(() => { const S = window.__sbSync, big = "x".repeat(7.5e6); S.applyChanges([{kind: "note", id: "bignote", after: {id: "bignote", title: "Big", body: big, courseId: "", created: 1, updated: 1}}], "big"); window.__log = []; window.__appends = 0; });
+      await page.waitForTimeout(300);
+      t = await toastAfter(() => window.__exp()); await page.waitForTimeout(1500);
+      const big = await page.evaluate(() => { const k = Object.keys(window.__files).find(n => /backup/.test(n)); const txt = window.__files[k]; let notes = null; try { notes = JSON.parse(txt).notes; } catch (e) {} return {appends: window.__appends, len: txt.length, ok: !!notes && notes.some(n => n.id === "bignote" && n.body.length === 7.5e6)}; });
+      ok(big.appends >= 2 && big.ok, "a large backup is written in pieces and reads back whole: " + JSON.stringify(big));
       await page.evaluate(() => { window.__share = "Share canceled"; localStorage.removeItem("studioso:lastExport"); });
       t = await toastAfter(() => window.__exp());
       ok(t === "" && !(await page.evaluate(() => localStorage.getItem("studioso:lastExport"))), "cancelling the share sheet says nothing and isn't counted as a backup: " + JSON.stringify(t));

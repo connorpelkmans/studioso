@@ -123,10 +123,20 @@ async function saveBlobNative(filename, blob){
   if (!FS || !SH || typeof FS.writeFile !== "function" || typeof SH.share !== "function") return bad("Saving files isn't available in this version of the app. Update the app and try again.");
   const name = String(filename || "").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120) || "file";
   let uri;
+  // Written in pieces: a backup with uploaded files can be hundreds of MB, and handing the app all of it at once as one base64 string
+  // ran the phone out of memory (the app closed and nothing was saved)
+  const CHUNK = 3 * 1024 * 1024, b64of = part => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).replace(/^data:[^,]*,/, "")); r.onerror = () => no(r.error); r.readAsDataURL(part); });
   try {
-    const b64 = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).replace(/^data:[^,]*,/, "")); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
-    uri = (await FS.writeFile({path: name, data: b64, directory: "CACHE"})).uri;
-  } catch (e) { return bad("Couldn't save the file. Check there's free space on your phone and try again."); }
+    const pieces = blob.size > CHUNK && typeof FS.appendFile === "function" ? Math.ceil(blob.size / CHUNK) : 1;
+    const first = pieces === 1 ? blob : blob.slice(0, CHUNK);
+    uri = (await FS.writeFile({path: name, data: await b64of(first), directory: "CACHE"})).uri;
+    for (let i = 1; i < pieces; i++) {
+      if (pieces > 4) toast(`Saving the backup: ${Math.round(i / pieces * 100)}%…`);
+      await FS.appendFile({path: name, data: await b64of(blob.slice(i * CHUNK, (i + 1) * CHUNK)), directory: "CACHE"});
+    }
+    // the whole file is there (a full disk can cut it short without an error)
+    if (pieces > 1 && typeof FS.stat === "function") { const st = await FS.stat({path: name, directory: "CACHE"}); if (st && Number(st.size) > 0 && Number(st.size) !== blob.size) throw new Error("short"); }
+  } catch (e) { try { await FS.deleteFile({path: name, directory: "CACHE"}); } catch (x) {} return bad("Couldn't save the file. Check there's free space on your phone and try again."); }
   try { await SH.share({title: name, files: [uri]}); return true; }
   catch (e) { return /cancel/i.test(String(e && (e.message || e))) ? false : bad("Couldn't open the share sheet to save the file. Try again."); }
 }
