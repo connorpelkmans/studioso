@@ -29538,7 +29538,9 @@ const CAP = (() => {
     const title = clean(x.title, 200); if (!title || !/[a-z0-9]/i.test(title)) return null;
     const today = ctx.today;
     let due = clean(x.due || x.dueDate, 10); if (!validISO(due) || (today && (diff(today, due) < -366 || diff(today, due) > 800))) due = "";
-    let time = clean(x.time || x.dueTime, 5); if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) time = "";
+    // "2026-11-07T17:00" (Siri, the server inbox) carries the time inside the date
+    const dueT = /^\d{4}-\d{2}-\d{2}[T ](\d{2}:\d{2})/.exec(String(x.due || ""));
+    let time = clean(x.time || x.dueTime || x.due_time || (dueT ? dueT[1] : ""), 5); if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) time = "";
     let courseId = "";
     if (x.courseId && (ctx.courses || []).some(c => c.id === x.courseId)) courseId = x.courseId;
     else { const cs = clean(x.course || x.courseCode, 80); if (cs) { const m = matchCourse(cs, ctx.courses); if (m && m.course) courseId = m.course.id; } }
@@ -30081,7 +30083,9 @@ function present(drafts, o){
   o = o || {};
   const dd = CAP.dedupe(drafts, ctx().existing);
   if (!dd.drafts.length) { if (dd.dups) toast("That's already on your board"); return {added: 0, confirm: false, dups: dd.dups, ids: []}; }
-  const auto = prefs().auto && o.trusted && dd.drafts.every(d => d.confident);
+  // a task spoken to Siri was already confirmed out loud, so it goes straight on the board, date or not
+  const spoken = o.direct && dd.drafts.every(d => d.title && !d.flags.includes("needsTitle"));
+  const auto = prefs().auto && o.trusted && (spoken || dd.drafts.every(d => d.confident));
   if (auto) { const made = commit(dd.drafts); return {added: made.length, confirm: false, dups: dd.dups, ids: made.map(t => t.id)}; }
   dd.drafts.forEach(d => { d.checked = true; });
   ensureDom();
@@ -30097,7 +30101,7 @@ async function ingest(x, o){
       const c = ctx(), out = [];
       x.slice(0, 20).forEach(it => { const id = it && it.id != null ? String(it.id) : ""; if (id && seen().includes(id)) return; const d = CAP.sanitizeDraft(it, c); if (d) { d.source = o.source || "inbox"; out.push(d); } });
       if (!out.length) return true;
-      const r = present(out, {trusted: o.trusted !== false, note: o.note || "From your capture inbox."});
+      const r = present(out, {trusted: o.trusted !== false, direct: o.source === "siri", note: o.note || "From your capture inbox."});
       out.forEach(d => { if (d.extId) markSeen(d.extId); });
       return true;
     }
@@ -30116,12 +30120,15 @@ async function ingest(x, o){
     const text = CAP.clean(x.text, 2000, true); if (!text) return false;
     const r = CAP.fromText(text, ctx(), {source: src});
     if (r.drafts.length === 1) {
-      const d = r.drafts[0], due = String(x.due || "").trim();
-      if (CAP.validISO(due)) d.due = due;
+      const d = r.drafts[0], dueRaw = String(x.due || "").trim();
+      // Siri sends "2026-11-07" or "2026-11-07T17:00"
+      const m = /^(\d{4}-\d{2}-\d{2})(?:[T ]([01]\d|2[0-3]):([0-5]\d))?/.exec(dueRaw);
+      if (m && CAP.validISO(m[1])) { d.due = m[1]; if (m[2]) d.time = m[2] + ":" + m[3]; }
+      else if (dueRaw && !d.due) { const w = CAP.parseLine(d.title + " " + CAP.clean(dueRaw, 64), ctx()); if (w && w.due) { d.due = w.due; d.time = w.time || d.time; } }
       if (x.course) { const m = CAP.matchCourse(CAP.clean(x.course, 80), ctx().courses); if (m && m.course) d.courseId = m.course.id; }
       d.flags = d.flags.filter(f => !(f === "past" && d.due >= todayISO())); CAP.score(d);
     }
-    present(r.drafts, {trusted});
+    present(r.drafts, {trusted, direct: src === "siri"});
     if (id) markSeen(id);
     return true;
   } catch (e) { console.warn("capture ingest failed"); return false; }
