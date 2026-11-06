@@ -292,11 +292,11 @@ function pomoTakeLock(){
 }
 // iPhone app: the alarm at the end of a session is rung by iOS (so it sounds with the app closed or the phone locked), with
 // the sound and volume you picked, made here once as a short recording and saved in the app
-function wavB64(name, vol){
+function wavB64(name, vol, reps){
   const SR = 22050, s = SOUNDS[name] || SOUNDS.chime, C = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   if (!C) return Promise.resolve("");
   const ac = new C(1, SR * 10, SR), keep = alarmOsc; alarmOsc = [];
-  let t = 0.05; for (let r = 0; r < 3; r++) t += s.play(ac, ac.destination, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
+  let t = 0.05; for (let r = 0; r < (reps || 3); r++) t += s.play(ac, ac.destination, t, Math.max(0.05, Math.min(1, vol))) + 0.6;
   alarmOsc = keep;
   return ac.startRendering().then(buf => {
     const d = buf.getChannelData(0), n = Math.min(d.length, Math.ceil(t * SR)), out = new DataView(new ArrayBuffer(44 + n * 2));
@@ -432,7 +432,16 @@ function pomoAction(act, el){
     case "pomo-reset": pomoReset(); return true;
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoPickMode(el.dataset.id); return true;
-    case "pomo-test": { const cfg = pomoCfg(); if (($("#psSound") ? $("#psSound").value : cfg.sound) === "none") { toast("The alarm is set to No Sound"); return true; } if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
+    case "pomo-test": {
+      const cfg = pomoCfg(), snd = $("#psSound") ? $("#psSound").value : cfg.sound, vol = $("#psVol") ? Number($("#psVol").value) : cfg.volume;
+      if (snd === "none") { toast("The alarm is set to No Sound"); return true; }
+      const web = () => { if (!playAlarm(snd, vol, 1)) toast("Sound isn't available in this browser"); };
+      // iPhone app: the page's own sound is muted while the phone is on silent, so the test plays through iOS, the way the real alarm rings
+      const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
+      if (FA && typeof FA.preview === "function") wavB64(SOUNDS[snd] ? snd : "chime", Number(vol) || 0.8, 1).then(w => w ? FA.preview(w) : false).then(ok => { if (!ok) web(); }, web);
+      else web();
+      return true;
+    }
     case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
       { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }

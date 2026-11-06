@@ -431,6 +431,8 @@
         // saves it (wav: base64) and asks once to ring; resolves whether ringing is allowed
         hasSound: function (name) { if (typeof FA.hasSound !== "function") return Promise.resolve(false); return Promise.resolve().then(function () { return FA.hasSound({name: String(name)}); }).then(function (r) { return !!(r && r.value); }, function () { return false; }); },
         alarm: function (o) { if (typeof FA.alarm !== "function") return Promise.resolve(false); o = o || {}; return Promise.resolve().then(function () { return FA.alarm({name: String(o.name || ""), wav: typeof o.wav === "string" ? o.wav : undefined}); }).then(function (r) { return !!(r && r.allowed); }, function () { return false; }); },
+        // "Play Test Sound": plays a short .wav (base64) through iOS, so it's heard with the phone on silent; resolves whether it played
+        preview: function (wav) { if (typeof FA.preview !== "function" || typeof wav !== "string" || !wav) return Promise.resolve(false); return Promise.resolve().then(function () { return FA.preview({wav: wav}); }).then(function (r) { return !!(r && r.played); }, function () { return false; }); },
         // fn() runs when one is pressed while the app is open in the background (and the page calls take())
         onAction: function (fn) { try { if (FA.addListener) FA.addListener("action", function () { fn(); }); } catch (e) {} }
       }
