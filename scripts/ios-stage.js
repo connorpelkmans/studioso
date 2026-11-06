@@ -89,6 +89,18 @@ if (fs.existsSync(plistFile)) {
   }
 }
 
+// The iPhone app's version (App Store "Version", CFBundleShortVersionString) is "iosVersion" in package.json. Set on every target
+// in the Xcode project (app, widget, share extension: Apple wants them the same), so a Run from Xcode shows it too.
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  const ver = String(JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).iosVersion || "");
+  if (!/^\d+(\.\d+){0,2}$/.test(ver)) throw new Error("ios-stage: package.json needs \"iosVersion\" like \"1.1\"");
+  if (fs.existsSync(pbx)) {
+    const txt = fs.readFileSync(pbx, "utf8"), next = txt.replace(/MARKETING_VERSION = [^;]*;/g, `MARKETING_VERSION = ${ver};`);
+    if (next !== txt) { fs.writeFileSync(pbx, next); console.log("ios-stage: iPhone app version set to " + ver); }
+  }
+}
+
 // So the same command works from inside ios-wrapper too (where Xcode is opened from), it gets a matching shortcut there
 {
   const pj = path.join(wrap, "package.json");
