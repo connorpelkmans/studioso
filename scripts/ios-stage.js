@@ -150,7 +150,31 @@ if (fs.existsSync(plistFile)) {
       fs.writeFileSync(f, head + body + "</dict>\n</plist>\n");
       console.log("ios-stage: recreated " + path.join("ios", "App", rel) + (ext ? " (App Group)" : " (Sign in with Apple, push and the App Group)"));
     }
-  } catch (e) {}
+    // Universal links: the app has to list the website as an associated domain, or iOS opens shared links (decks, group invites,
+    // tasks) in Safari even with the app installed. The domain comes from App.entitlements.template.plist (npm run apple:setup).
+    const tpl = fs.readFileSync(path.join(wrap, "App.entitlements.template.plist"), "utf8");
+    const links = [...tpl.matchAll(/<string>(applinks:[^<]+)<\/string>/g)].map(m => m[1]);
+    for (const rel of want.filter(r => !/Widget|Share/i.test(r))) {
+      const f = path.join(wrap, "ios", "App", rel);
+      if (!fs.existsSync(f) || !links.length) continue;
+      let t = fs.readFileSync(f, "utf8");
+      const key = "<key>com.apple.developer.associated-domains</key>";
+      const missing = links.filter(l => !t.includes("<string>" + l + "</string>"));
+      if (!missing.length) continue;
+      const items = missing.map(l => "\t\t<string>" + l + "</string>").join("\n");
+      if (t.includes(key)) {
+        const at = t.indexOf("<array>", t.indexOf(key));
+        if (at < 0) continue;
+        t = t.slice(0, at + 7) + "\n" + items + t.slice(at + 7);
+      } else {
+        const at = t.lastIndexOf("</dict>");
+        if (at < 0) continue;
+        t = t.slice(0, at) + "\t" + key + "\n\t<array>\n" + items + "\n\t</array>\n" + t.slice(at);
+      }
+      fs.writeFileSync(f, t);
+      console.log("ios-stage: universal links on in " + path.join("ios", "App", rel) + " (" + missing.join(", ") + ")");
+    }
+  } catch (e) { console.log("ios-stage: couldn't check the app's entitlements: " + (e && e.message)); }
 }
 
 // The app's ID is com.studyboardapp.studyboard; extensions (the widget, the share extension) must start with it, so any still
