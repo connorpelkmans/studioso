@@ -1,6 +1,6 @@
 # Sign in with Apple, Google and Microsoft: one-time setup
 
-The app (Sign In and Create Account sheets) and the website's Account page both show **Continue with Google** and **Continue with Microsoft** everywhere, and **Continue with Apple** on Apple devices. Until a provider's steps below are done, its button says "Signing in with … isn't turned on yet. Use your email for now."
+The app (Sign In and Create Account sheets) and the website's Account page both show **Sign in with Google** and **Sign in with Microsoft** everywhere, and **Sign in with Apple** on Apple devices. Until a provider's steps below are done, its button says "Signing in with … isn't turned on yet. Use your email for now."
 
 | Where | Apple | Google | Microsoft |
 |---|---|---|---|

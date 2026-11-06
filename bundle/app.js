@@ -2009,7 +2009,7 @@ const SB_LINK_ERR = (() => {
     const q = new URLSearchParams(location.hash.replace(/^#/, "") + "&" + location.search.replace(/^\?/, ""));
     const code = q.get("error_code") || (q.get("error") ? "error" : "");
     if (!code && !q.get("error_description")) return null;
-    return {code: String(code).slice(0, 40), recovery: /recover|reset/i.test(String(q.get("type") || "")) };
+    return {code: String(code).slice(0, 40), recovery: /recover|reset/i.test(String(q.get("type") || "")), desc: String(q.get("error_description") || q.get("error") || "").replace(/\+/g, " ").slice(0, 400)};
   } catch (e) { return null; }
 })();
 // Password strength for the new-password forms
@@ -2801,17 +2801,31 @@ const sbAppleOk = () => {
   if (DESK) return DESK.platform === "darwin";
   return /iPhone|iPad|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || "");
 };
-const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Continue with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Continue with Google</span></button><button type="button" class="sb-oa sb-oa-ms" data-oauth="azure">${SB_MS_SVG}<span>Continue with Microsoft</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
+const sbOAuthHtml = () => `<div class="sb-oauth">${sbAppleOk() ? `<button type="button" class="sb-oa sb-oa-apple" data-oauth="apple">${SB_APPLE_SVG}<span>Sign in with Apple</span></button>` : ""}<button type="button" class="sb-oa sb-oa-google" data-oauth="google">${SB_GOOGLE_SVG}<span>Sign in with Google</span></button><button type="button" class="sb-oa sb-oa-ms" data-oauth="azure">${SB_MS_SVG}<span>Sign in with Microsoft</span></button></div><div class="sb-or" role="separator"><span>or use your email</span></div>`;
 // The code or tokens a provider sent back to a return address, made into a session
 async function sbOAuthFinish(addr){
   const u = new URL(addr), p = new URLSearchParams((u.hash || "").replace(/^#/, "")), q = u.searchParams;
   const err = p.get("error_description") || q.get("error_description") || p.get("error") || q.get("error");
-  if (err) throw new Error(err.replace(/\+/g, " "));
+  if (err) throw Object.assign(new Error(err.replace(/\+/g, " ")), {oauth: true});
   const code = q.get("code") || p.get("code");
   if (code) { const {error} = await sb.auth.exchangeCodeForSession(code); if (error) throw error; return true; }
   const at = p.get("access_token"), rt = p.get("refresh_token");
   if (at && rt) { const {error} = await sb.auth.setSession({access_token: at, refresh_token: rt}); if (error) throw error; return true; }
   throw new Error("The sign-in didn't come back complete. Try again.");
+}
+// The provider last started on the web (the page reloads on the way back, so the error that comes back doesn't say which)
+const SB_OAUTH_TRIED = "studioso:oauthTried";
+// A sign-in with Google, Apple or Microsoft that came back with an error, in plain words: what went wrong and who fixes it
+function sbOAuthWords(desc, provider){
+  const d = String(desc || ""), name = SB_OAUTH_NAME[provider] || "that account";
+  if (/provider is not enabled|unsupported provider/i.test(d)) return `Signing in with ${name} isn't turned on yet. Use your email for now.`;
+  if (/getting user email|email.*(missing|not (found|provided|available))|no email/i.test(d)) return `${name} didn't share your email address, which Studyboard needs for your account. (Setup: in the Microsoft app registration, add the optional "email" claim under Token configuration and the email permission under API permissions.)`;
+  if (/exchange external code|invalid_client|AADSTS7000215|AADSTS7000218|client secret|unauthorized_client/i.test(d)) return `${name} didn't accept Studyboard's sign-in settings, so the sign-in couldn't finish. (Setup: in Supabase's ${provider === "azure" ? "Azure" : name} provider, paste the client secret's Value, not its Secret ID, or make a new secret.)`;
+  if (/AADSTS50011|redirect_uri|redirect uri|reply url/i.test(d)) return `${name} doesn't recognise where to send you back. (Setup: add the Supabase callback address to the app's Web redirect URIs.)`;
+  if (/AADSTS65001|AADSTS90094|admin approval|admin consent|need.*approval/i.test(d)) return `Your school or work account needs its IT admin to allow Studyboard first. Try a personal account, Google, or your email instead.`;
+  if (/access_denied|cancel+ed|user denied|consent/i.test(d)) return `The sign-in with ${name} was cancelled. Try again whenever you're ready.`;
+  if (/already (registered|exists)|identity.*already|multiple accounts/i.test(d)) return `There's already a Studyboard account with that email. Sign in with your email and password first, then you can use ${name} next time.`;
+  return `Signing in with ${name} didn't finish${d ? ": " + d.replace(/\s+/g, " ").slice(0, 200) : ""}. Try again, or use your email.`;
 }
 // true once signed in; false if cancelled or still on its way (the web leaves the page)
 async function sbOAuth(provider, say, back){
@@ -2858,6 +2872,7 @@ async function sbOAuth(provider, say, back){
   // the web: off to the provider, and back here signed in
   if (!/^https?:$/.test(location.protocol)) throw new Error(`Sign in with ${name} isn't available here. Use your email instead.`);
   sbLinkAsked();
+  try { localStorage.setItem(SB_OAUTH_TRIED, JSON.stringify({p: provider, at: Date.now()})); } catch (e) {}
   const {error} = await sb.auth.signInWithOAuth({provider, options: Object.assign({redirectTo: back}, opts)});
   if (error) throw error;
   say(`Opening ${name}…`);
@@ -2973,7 +2988,7 @@ function sbSignInSheet(mode, email, note){
     if (busy) return; busy = true;
     dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = true; });
     try { if (await sbOAuth(b.dataset.oauth, say, back)) done("Signed in"); }
-    catch (e) { say(/not enabled|unsupported provider/i.test(String(e && e.message || "")) ? `Signing in with ${SB_OAUTH_NAME[b.dataset.oauth] || "that"} isn't turned on yet. Use your email for now.` : sbWords(e)); }
+    catch (e) { say(e && e.oauth || /not enabled|unsupported provider/i.test(String(e && e.message || "")) ? sbOAuthWords(e && e.message, b.dataset.oauth) : sbWords(e)); }
     finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
   }));
   sbPwWire(dlg);
@@ -3054,8 +3069,17 @@ function sbNewPasswordSheet(){
   });
   sbPwWire(dlg);
 }
-// A link in an email failed (expired or already used)
+// A link in an email failed (expired or already used), or a sign-in with Google, Apple or Microsoft came back with an error
 function sbLinkErrorSheet(){
+  let tried = null; try { tried = JSON.parse(localStorage.getItem(SB_OAUTH_TRIED) || "null"); localStorage.removeItem(SB_OAUTH_TRIED); } catch (e) {}
+  const E = SB_LINK_ERR || {}, emailLink = /otp_expired|email link|link is invalid|token has expired/i.test(E.code + " " + E.desc) || E.recovery;
+  if (!emailLink && tried && Date.now() - tried.at < 30 * 60000) {
+    openSheet(`<div class="sheet sb-acct">${head("Sign-In Didn't Finish")}
+      <div class="sheet-body"><p style="margin:0" role="status">${esc(sbOAuthWords(E.desc, tried.p))}</p></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-sbm="signin">Try Again</button></div></div>`);
+    dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
+    return;
+  }
   openSheet(`<div class="sheet sb-acct">${head("That Link Didn't Work")}
     <div class="sheet-body"><p style="margin:0" role="status">This link has expired or was already used. Links in Studyboard emails work once, for 1 hour.</p>
       <p class="mini" style="margin:0">Ask for a new one:</p>
@@ -10574,7 +10598,7 @@ function focusHtml(){
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
-      <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}${window.SBAUTOPILOT ? SBAUTOPILOT.offBtn() : ""}</div>
+      <div class="plan-foot"><div class="pf-toggles">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}</div>${window.SBAUTOPILOT ? SBAUTOPILOT.offBtn() : ""}</div>
       ${more ? `<div class="plan-more" id="plan-more" role="region" aria-label="Full Ranking"${moreOpen ? "" : " hidden"}>
         <p class="plan-cap">Everything open, in ranked order. The number on the right is each task's focus score.</p>
         <ol class="plan-list">${ranked.map((x, i) => planRow(x, i, true)).join("")}</ol>
@@ -10582,8 +10606,16 @@ function focusHtml(){
         ${nLater ? `<h3 class="fsec">Not Started Yet</h3><ul class="plan-list">${F.later.filter(inView).map((x, i) => planRow(x, i, true, true)).join("")}</ul>` : ""}
       </div>` : ""}
       <div class="plan-how" id="plan-how" role="region" aria-label="How This Is Ranked"${howOpen ? "" : " hidden"}>
-        <p><b>Deadlines come first.</b> Each task's score starts from how close its exact due time is: something due tomorrow counts about five times as much as something due in a week, and dozens of times more than something due in a month. Anything due in the next week always stays above work due 10 or more days after it. The one exception is a big task that needs most of your study time before its deadline (or more than you have), which climbs early so it gets started in time. <b>Work due now comes before everything else:</b> what's due later today, and late work that loses marks for every day it waits (or whose late window closes today). If it can't all fit in today's time, the plan keeps what saves the most marks and says so. Past its due time, a task is late even on its due day, and on the due day only the time before its due time counts. Work past due that can't be handed in (no late work accepted, or the late window has closed) gets no time: the plan mentions it once so you can talk to your instructor. Late work with no penalty waits like normal work, until its late window. Set a task's penalty per day under Late Work; otherwise about 10% a day is assumed. <b>Grade weight</b> then fine-tunes the order between similar deadlines (a 40% project counts about twice as much as a 1% reading, not more). After that it adjusts for your priority, the late-work policy, tasks already in progress or nearly done, small tasks due soon, hard tasks, work left alone for days, a full placement or class day coming up, and tasks that others depend on.</p>
-        <p>${aiWho() ? `${esc(aiWho())}, your study companion, uses this ranking to choose Do This Next and the ideas it offers you. ` : ""}Today's time is split in score order. Each task gets its fair share of the days left before it's due, more if it can't fit otherwise. That counts the free time really left on each day (long class, shift and placement days count less), and when busy days ahead push more work into today than the time you set, the plan offers to add it. When you can't fit everything due by some date, the work that gives the fewest marks for the time goes last, and the plan names it. A step with no due date that another task waits on is due early enough to leave time for the task after it. Hard tasks are front-loaded, and exam studying is spread over the week before. Work left comes from your hours estimate and progress, minus time you've already spent in focus sessions. When a task has no estimate, Studyboard uses how long your past tasks of that type actually took, and if you usually take longer than you estimate, it allows for that. <b>Do This Next</b> picks from today's plan for right now: what you were just working on, something short that fits before your next class, hard tasks at your best hours, shorter ones late at night, and what you've said to past suggestions. Today's timeline always starts with it.${AUTO_ON ? " <b>Automatic AI is on</b>, so the AI also reads your whole list a few times a day: it picks Do This Next and the alternatives, estimates hours for tasks you didn't estimate (using how long your past tasks took), estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test for practice days. Each part can be turned off under Suggestions, Manage." : ""} For exams and quizzes, work left comes from difficulty, grade weight and how prepared you are. It also reads your Schedule (long class, lab and placement days leave less study time, and it suggests something short when a class is coming up), takes off the focus time you've already done today, and uses what school sync knows: when late submissions close, how many points each item is worth when the gradebook isn't weighted, and word or page counts in the instructions for time estimates. An exam or quiz is only Do This Next when it can be taken from home (Studyboard checks your school site and the instructions, and asks you if it can't tell); in-person ones show under On the Calendar, and studying for them is planned instead: "Study for" the exam gets time starting one to two weeks before it (half that for a quiz), sooner when the course is near or below its pass mark and the less prepared you've marked yourself. Plan My Prep turns that into study sessions you choose.${AUTO_ON ? " The AI also reads your instructions, recent announcements, your schedule and your course standings, and lists anything easy to miss under Heads Up." : ""} Set your usual study hours per day in Settings.</p>
+        <ul class="plan-how-list">
+          <li><b>Soonest deadline first.</b> Big tasks start early.</li>
+          <li><b>Due today and late work</b> jump ahead, most of all work that loses marks each day.</li>
+          <li><b>Grade weight</b> breaks ties between similar deadlines.</li>
+          <li><b>Then</b> your priority, tasks you've started, short or hard tasks, and tasks others wait on.</li>
+          <li><b>Exams</b> get study time from 1 to 2 weeks before (half that for quizzes).</li>
+          <li><b>Today's time</b> is spread over the free time left before each deadline.</li>
+          <li><b>Do This Next</b> is the best fit for right now.</li>
+        </ul>
+        <p>Set your study hours in Settings.${aiWho() ? ` ${esc(aiWho())} uses this ranking for its suggestions.` : ""}${AUTO_ON ? " Automatic AI also reviews your list a few times a day." : ""}</p>
       ${accOf() ? accOf().howHtml() : ""}
       <${"!--"}plan-how-end--></div>` : ""}
   </section>`;
@@ -37184,8 +37216,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   focusHtml = function(){
     const html = origFocusHtml.apply(this, arguments);
     const i = html.indexOf('class="plan-how"'); if (i < 0) return html;
-    const j = html.indexOf("<" + "!--plan-how-end-->", i); if (j < 0) return html;
-    const p = `<p><b>Pass mark check</b>: when a course is close to its pass mark (you'd need 70% or more on the rest, or you're within 5% of it), its graded work due in the next 3 weeks moves up the list, without pushing aside anything due sooner. These tasks say why. A course under its target grade gets a smaller lift the same way, study sessions for its exams included. Set pass marks under Grades in Settings, and a Target Grade on each course page.</p>`;
+    // one line in the ranking list: courses near their pass mark (or under their target grade) move up
+    const L = html.indexOf('class="plan-how-list"', i); if (L < 0) return html;
+    const dn = html.indexOf("<li><b>Today's time</b>", L), j = dn > 0 ? dn : html.indexOf("</ul>", L); if (j < 0) return html;
+    const p = `<li><b>Courses near their pass mark</b> (or under their target grade) move up.</li>`;
     return html.slice(0, j) + p + html.slice(j);
   };
 
@@ -37699,7 +37733,7 @@ var SBEST = (() => {
     if (ex) ex.remove();
     let foot = plan.querySelector(".plan-foot");
     if (!foot) { foot = document.createElement("div"); foot.className = "plan-foot"; plan.appendChild(foot); }
-    foot.insertAdjacentHTML("afterbegin", links);
+    (foot.querySelector(".pf-toggles") || foot).insertAdjacentHTML("afterbegin", links);
     foot.after(box);
   });
   // Tap to open one; tap it again to close it
@@ -71994,7 +72028,7 @@ function customLog(el){
 /* Words for Today's Plan */
 function howHtml(){
   if (!on()) return `<p>${esc(tr("acc.howOff", "Learning from your own pace is turned off in Settings, so the plan uses your estimates exactly as you typed them."))}</p>`;
-  return `<p>${esc(tr("acc.how", "Studyboard also learns your pace. After you finish a few tasks, it adjusts for how long your work really takes (by task type, and by course once there's enough history), matches each day's plan to what you actually get done, and starts tasks sooner if you tend to finish close to the deadline. You can turn this off in Settings."))}</p>`;
+  return `<p>${esc(tr("acc.how", "It also learns your pace from tasks you finish. You can turn this off in Settings."))}</p>`;
 }
 
 /* Wiring */

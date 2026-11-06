@@ -160,7 +160,7 @@ var SBEST = (() => {
     if (ex) ex.remove();
     let foot = plan.querySelector(".plan-foot");
     if (!foot) { foot = document.createElement("div"); foot.className = "plan-foot"; plan.appendChild(foot); }
-    foot.insertAdjacentHTML("afterbegin", links);
+    (foot.querySelector(".pf-toggles") || foot).insertAdjacentHTML("afterbegin", links);
     foot.after(box);
   });
   // Tap to open one; tap it again to close it

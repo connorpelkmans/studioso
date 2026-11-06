@@ -81,15 +81,15 @@ const site = read("website/index.html");
 ok(/auto-renewing subscription/.test(site) && /href="terms(\.html)?"/.test(site) && /href="privacy(\.html)?"/.test(site), "website pricing has the renewal disclosure and links");
 for (const f of ["website/index.html", "website/privacy.html", "website/terms.html", "website/account/index.html", "website/success.html", "website/cancel.html"]) ok(/href="(\.\.\/)?privacy(\.html)?"/.test(read(f)) && /href="(\.\.\/)?terms(\.html)?"/.test(read(f)), f + " footer links to privacy and terms");
 
-/* 3. social sign-in: Google is only ever offered alongside Sign in with Apple on Apple devices (App Store Review Guideline 4.8),
-   and nothing else (no Facebook or other providers, no provider SDKs loaded) */
+/* 3. social sign-in: Google and Microsoft are only ever offered alongside Sign in with Apple on Apple devices (App Store Review
+   Guideline 4.8), and nothing else (no Facebook or other providers, no provider SDKs loaded) */
 const authFiles = [["index.html", require("../scripts/app-files").source()]].concat(["website/account/account.js", "website/account/index.html", "SETUP-GUIDE.md", "lms.js", "sw.js"].map(f => [f, read(f)]));
 for (const [f, s] of authFiles) {
-  ok(!/provider:\s*["'](facebook|github|azure|twitter|discord)/i.test(s) && !/Continue with Facebook|Sign in with Facebook|accounts\.google\.com\/gsi|connect\.facebook\.net/i.test(s), f + ": no other social sign-in");
-  if (/Continue with Google/.test(s)) {
+  ok(!/provider:\s*["'](facebook|github|twitter|discord)/i.test(s) && !/(Continue|Sign in) with (Facebook|GitHub|X|Discord)|accounts\.google\.com\/gsi|connect\.facebook\.net/i.test(s), f + ": no other social sign-in");
+  if (/Sign in with (Google|Microsoft)/.test(s)) {
     // the website's Account page runs in a browser, not the iPhone app: there Apple is the provider's own web sign-in, shown on Apple devices
-    if (/^website\//.test(f)) ok(/Continue with Apple/.test(s) || /oa-apple/.test(s), f + ": Continue with Google comes with Continue with Apple");
-    else ok(/Continue with Apple/.test(s) && /signInWithIdToken\(\{provider: "apple"/.test(s), f + ": Continue with Google comes with Continue with Apple (native on iPhone)");
+    if (/^website\//.test(f)) ok(/Sign in with Apple/.test(s) || /oa-apple/.test(s), f + ": Sign in with Google and Microsoft come with Sign in with Apple");
+    else ok(/Sign in with Apple/.test(s) && /signInWithIdToken\(\{provider: "apple"/.test(s), f + ": Sign in with Google and Microsoft come with Sign in with Apple (native on iPhone)");
     if (!/^website\//.test(f)) ok(/const sbAppleOk = \(\) => \{[^}]*getPlatform\(\) === "ios"/.test(s), f + ": the iPhone and iPad app always offers Apple");
     else ok(/iPhone\|iPad\|iPod\|Macintosh\|Mac OS X/.test(read("website/account/account.js")), f + ": Apple is offered on a Mac, iPhone or iPad");
   }
