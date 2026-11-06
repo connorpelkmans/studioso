@@ -801,7 +801,7 @@ function viewNoteBoard(){
   const archived = notesArr().filter(n => n.archived).length;
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
-  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note">${AI_ICON}<span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
+  return `<div class="tl-controls f-title"><h2>Notes</h2>${inPreview() ? "" : `<button class="btn small ai-btn nb-photo" data-act="note-photo" aria-label="Photo to Note" title="Turn a photo of a board or slide into a note"><span class="nb-photo-ai">${AI_ICON}</span><svg class="nb-photo-cam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12.5" r="3.5"/></svg><span class="nb-photo-l">Photo to Note</span></button>`}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">

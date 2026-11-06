@@ -551,7 +551,10 @@ nav.tabs button{font-size:.75rem!important}
 .note-btns .nb svg{width:18px;height:18px}
 .note-btns .btn{margin-left:auto;background:#2A2418;color:#FFF8E6;border-color:transparent}
 .nb-photo{display:inline-flex;align-items:center;gap:6px}
-@media (max-width:520px){.nb-photo{min-width:40px;justify-content:center}.nb-photo-l{display:none}}
+.nb-photo-ai{display:contents}
+.nb-photo-cam{display:none;width:22px;height:22px;flex:none}
+/* phones: just a camera (the label and the companion's face don't fit) */
+@media (max-width:520px){.nb-photo{min-width:40px;justify-content:center}.nb-photo-l,.nb-photo-ai{display:none}.nb-photo-cam{display:block}}
 .note-hbtns{display:flex;flex-wrap:wrap;gap:4px}
 .note-hbtns .btn,.note-xbtns .btn,.note-moredd>summary.btn{padding:3px 8px;font-size:.78rem;background:rgba(255,255,255,.5);color:#2A2418;border-color:transparent}
 .nx-list{display:grid;gap:4px;max-height:38vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px}
