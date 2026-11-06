@@ -49,9 +49,17 @@
     return '<a class="edgeb" href="' + esc(EDGE) + '" target="_blank" rel="noopener" aria-label="Get the Studyboard School Sync extension from Microsoft Edge Add-ons">' +
       '<img src="assets/edge-addons-badge.png" alt="Get it from Microsoft Edge" decoding="async" width="423" height="112"></a>';
   }
+  // Firefox: Mozilla's own "Get the Add-on" badge, first for someone browsing in Firefox
+  var FF = httpsUrl((D.firefox && D.firefox.store) || "");
+  var onFirefox = /Firefox\/|FxiOS\//.test(navigator.userAgent || "");
+  function ffBadge() {
+    return '<a class="ffb" href="' + esc(FF) + '" target="_blank" rel="noopener" aria-label="Get the Studyboard School Sync add-on for Firefox">' +
+      '<img src="assets/firefox-addon-badge.svg" alt="Get the Add-on for Firefox" decoding="async" width="172" height="60"></a>';
+  }
   function extBadges() {
-    if (!EDGE) return cwsBadge();
-    return '<div class="ext-badges">' + (onEdge ? edgeBadge() + cwsBadge() : cwsBadge() + edgeBadge()) + "</div>";
+    var list = onEdge && EDGE ? [edgeBadge(), cwsBadge()] : [cwsBadge()].concat(EDGE ? [edgeBadge()] : []);
+    if (FF) { if (onFirefox) list.unshift(ffBadge()); else list.push(ffBadge()); }
+    return list.length > 1 ? '<div class="ext-badges">' + list.join("") + "</div>" : list[0];
   }
 
   // -- Which device is this

@@ -396,6 +396,9 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 .edgeb{display:inline-flex;align-items:center;text-decoration:none;line-height:0}
 .edgeb img{display:block;height:56px;width:auto}
 .edgeb:focus-visible{outline:2px solid var(--accent,#2F6FDB);outline-offset:3px}
+.ffb{display:inline-flex;align-items:center;text-decoration:none;line-height:0}
+.ffb img{display:block;height:56px;width:auto}
+.ffb:focus-visible{outline:2px solid var(--accent,#2F6FDB);outline-offset:3px}
 .ms-go{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:auto}
 .ms-go .exe{font-size:.85rem;color:var(--muted,#5b6475)}
 
