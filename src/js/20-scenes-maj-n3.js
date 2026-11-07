@@ -42,9 +42,6 @@
       fillP(g, "#12204A", "M-5.6 -3.4C-1 -7 5.4 -6 8.2 -2.6C4.6 -4 0.4 -2.6 -1.6 0.6C-2.8 2.6 -5.4 2.2 -5.6 -3.4Z"); sheen(g, dk); eye(g, 6.8, -1.8, 1.4); }},
     n3ytang: {d: YB + YT, paint: (g, c, dk) => { fillP(g, "#F2B50E", YT); fillP(g, "#FFD526", YB); fillP(g, "#F5BE12", "M-4.4 -5.6Q1 -11 7 -4.4L4 -3.4Q0 -6.4 -4.4 -5.6Z"); sheen(g, dk); fillP(g, "#FFFFFF", "M-4.6 0.6L-3.2 -0.4L-3 1.4Z"); eye(g, 6.4, -2, 1.3); }},
     n3gramma: {d: FB + FT, paint: (g, c, dk) => { const b = new Path2D(FB); fillP(g, "#FFC21E", FT); g.save(); g.clip(b); g.fillStyle = "#FFC21E"; g.fillRect(-13, -13, 26, 26); g.fillStyle = "#9A4CE0"; g.beginPath(); g.moveTo(1.6, -9); g.bezierCurveTo(-1, -3, 1, 3, -1.6, 9); g.lineTo(12, 9); g.lineTo(12, -9); g.fill(); g.restore(); fillP(g, "#8A40D0", "M0 -5.6Q3 -9.4 6.4 -5Z"); sheen(g, dk); eye(g, 7.2, -1.5, 1.4); }},
-    // a manta seen from above, wings out to the sides
-    n3manta: {d: "M11 0C8 -1.6 4 -2 1 -3C-2 -6 -5 -10 -7 -11.4C-6 -7 -6 -3.6 -7 -1.4L-12.4 0L-7 1.4C-6 3.6 -6 7 -7 11.4C-5 10 -2 6 1 3C4 2 8 1.6 11 0Z", paint: (g, c, dk) => { const d = FX_SHAPES.n3manta.d; fillP(g, dk ? "#5A7CA8" : "#2E4462", d); fillP(g, dk ? "#5A7CA8" : "#2E4462", "M9.6 -1.6L12.6 -3L12 -0.8Z M9.6 1.6L12.6 3L12 0.8Z");
-      g.save(); g.clip(new Path2D(d)); g.fillStyle = dk ? "rgba(220,236,255,.5)" : "rgba(230,240,250,.55)"; g.beginPath(); g.ellipse(1.6, -3.4, 2.4, 1.2, -0.5, 0, 6.3); g.ellipse(1.6, 3.4, 2.4, 1.2, 0.5, 0, 6.3); g.fill(); g.restore(); sheen(g, dk, 0.8); }},
     // a tiny clay drop, a grown vase, a log
     n3clay: {d: "M0 -6C3.4 -2 4.6 0.6 4.6 2.4A4.6 4.6 0 0 1 -4.6 2.4C-4.6 0.6 -3.4 -2 0 -6Z"}
   });
@@ -82,12 +79,145 @@
     const spin = gr0 < 1 || f < 132 ? 1 : 1 - ease((f - 132) / 60); if (spin > 0.01) { g.strokeStyle = `rgba(255,225,200,${0.45 * spin})`; g.lineWidth = Math.max(1.2, 0.5 * u); for (let k = 0; k < 5; k++) { const ph = f * 0.21 + k * 1.26, c = Math.cos(ph); if (c < 0.1) continue; const t0 = 0.12 + k * 0.17, x = cx + R(t0) * Math.sin(ph) * 0.92, y = by - t0 * hh; g.globalAlpha = c; g.beginPath(); g.moveTo(x, y - 2 * u); g.lineTo(x, y + 2 * u); g.stroke(); } g.globalAlpha = 1; }
     g.restore(); g.fillStyle = "rgba(60,25,10,.35)"; g.beginPath(); g.ellipse(cx, by - hh, R(1) * 0.86, R(1) * 0.14, 0, 0, 6.3); g.fill(); };
 
-  // Campfire: a crackling fire rises at the bottom and throws sparks and smoke into the sky
-  const fireDraw = (g, f, W, H, dk) => { const u = Math.min(W, H) / 100, k = ease(f / 30) * (1 - 0.3 * ease((f - 150) / 90)), cx = W / 2, by = H + 3 * u, F = 28 * u * k; if (F < 1) return;
-    const gr = g.createRadialGradient(cx, by, 0, cx, by, F * 2.8); gr.addColorStop(0, `rgba(255,160,60,${dk ? 0.42 : 0.3})`); gr.addColorStop(1, "rgba(255,140,60,0)"); g.fillStyle = gr; g.fillRect(cx - F * 2.8, by - F * 2.8, F * 5.6, F * 2.8);
-    [[1, "#E2482A"], [0.8, "#F5843A"], [0.58, "#FFBE3E"], [0.32, "#FFF0B0"]].forEach(([s, c], L) => { g.fillStyle = c; for (let i = -2; i <= 2; i++) { const ph = f * 0.17 + i * 1.7 + L * 0.9, w = F * 0.25 * s * (1 - Math.abs(i) * 0.12), h = F * s * (1 - Math.abs(i) * 0.24) * (0.86 + 0.14 * Math.sin(ph)), x = cx + i * F * 0.19 * s, tip = Math.sin(ph * 0.7) * w * 0.7;
-      g.beginPath(); g.moveTo(x - w, by); g.bezierCurveTo(x - w, by - h * 0.45, x + tip - w * 0.25, by - h * 0.72, x + tip, by - h); g.bezierCurveTo(x + tip + w * 0.25, by - h * 0.72, x + w, by - h * 0.45, x + w, by); g.closePath(); g.fill(); } });
-    g.strokeStyle = dk ? "#4A2E22" : "#6A4026"; g.lineWidth = F * 0.15; g.lineCap = "round"; [[-0.32, 1], [0.32, -1]].forEach(([o, s]) => { const x = cx + o * F * 0.6, y = by - F * 0.1, c = Math.cos(s * 0.32) * F * 0.6, si = Math.sin(s * 0.32) * F * 0.6; g.beginPath(); g.moveTo(x - c, y - si); g.lineTo(x + c, y + si); g.stroke(); }); };
+  // Campfire: the fire flares up. Flame tongues sway over crossed logs whose cracks glow, sparks spiral up and cool as
+  // they climb, and a marshmallow on a stick reaches in from the corner and toasts golden
+  let CF = null;
+  const hexMix = (a, b, t) => { const p = parseInt(a.slice(1), 16), q = parseInt(b.slice(1), 16); return "rgb(" + [16, 8, 0].map(s => Math.round(((p >> s) & 255) * (1 - t) + ((q >> s) & 255) * t)).join(",") + ")"; };
+  const ramp = (cols, t) => { t = Math.max(0, Math.min(0.999, t)) * (cols.length - 1); const i = Math.floor(t); return hexMix(cols[i], cols[i + 1], t - i); };
+  const cfSize = (W, H) => Math.max(96, Math.min(W * (W < H ? 0.46 : 0.36), H * 0.3, 270));
+  // the two crossed logs (bark, grooves, cut ends) and their ember cracks, prebuilt once per size
+  const cfLogs = (S, dk) => { const key = S + "|" + dk; if (CF.logs && CF.logs.key === key) return CF.logs;
+    const w = Math.ceil(S * 1.5), h = Math.ceil(S * 0.6), L = S * 0.6, T = S * 0.15, mk = () => { const c = document.createElement("canvas"); c.width = w * 2; c.height = h * 2; const x = c.getContext("2d"); x.scale(2, 2); x.translate(w / 2, h / 2); return [c, x]; };
+    const [lc, l] = mk(), [cc, c] = mk(), A = [[0.2, 1], [-0.2, -1]];
+    const logPath = (x, a) => { x.save(); x.rotate(a); x.beginPath(); x.roundRect(-L, -T / 2, 2 * L, T, T * 0.35); x.restore(); };
+    A.forEach(([a, s], i) => { l.save(); l.rotate(a);
+      const gr = l.createLinearGradient(0, -T / 2, 0, T / 2); gr.addColorStop(0, dk ? "#7A5236" : "#86583A"); gr.addColorStop(0.45, dk ? "#4E3020" : "#5E3A24"); gr.addColorStop(1, dk ? "#24140C" : "#341E10");
+      l.fillStyle = gr; l.beginPath(); l.roundRect(-L, -T / 2, 2 * L, T, T * 0.35); l.fill();
+      l.strokeStyle = "rgba(25,12,5,.5)"; l.lineCap = "round";
+      for (let j = 0; j < 8; j++) { const y = -T * 0.38 + j * T * 0.105, x0 = -L * 0.95 + ((j * 7 + i * 3) % 5) / 5 * L * 0.5; l.lineWidth = Math.max(0.8, T * (0.035 + 0.02 * (j % 2))); l.beginPath(); l.moveTo(x0, y); l.bezierCurveTo(x0 + L * 0.4, y + T * 0.06, x0 + L * 0.8, y - T * 0.06, Math.min(L * 0.95, x0 + L * 1.4), y); l.stroke(); }
+      l.strokeStyle = "rgba(255,220,180,.16)"; l.lineWidth = Math.max(0.8, T * 0.05); l.beginPath(); l.moveTo(-L * 0.9, -T * 0.32); l.lineTo(L * 0.9, -T * 0.32); l.stroke();
+      const ex = s * L - s * T * 0.12; l.fillStyle = dk ? "#B88A58" : "#D4A46C"; l.beginPath(); l.ellipse(ex, 0, T * 0.22, T * 0.48, 0, 0, 6.3); l.fill();
+      l.strokeStyle = "rgba(120,72,36,.75)"; l.lineWidth = Math.max(0.7, T * 0.035); [0.34, 0.2, 0.08].forEach(r => { l.beginPath(); l.ellipse(ex, 0, T * r * 0.45, T * r, 0, 0, 6.3); l.stroke(); }); l.restore();
+      // cracks: the log in front hides the cracks of the one behind it
+      if (i) { c.save(); c.globalCompositeOperation = "destination-out"; logPath(c, a); c.fill(); c.restore(); }
+      c.save(); c.rotate(a); c.lineJoin = c.lineCap = "round"; c.shadowColor = "#FF4A0A"; c.shadowBlur = T * 0.35;
+      for (let j = 0; j < 5; j++) { let x = -L * 0.5 + j * L * 0.24 + i * T * 0.3, y = (j % 2 ? 0.12 : -0.22) * T; c.strokeStyle = j % 2 ? "#FF6A14" : "#FF9A2A"; c.lineWidth = Math.max(1.1, T * (0.07 + 0.03 * (j % 3))); c.beginPath(); c.moveTo(x, y);
+        for (let q = 0; q < 4; q++) { x += T * (0.22 + 0.14 * ((q + j) % 3)); y = Math.max(-T * 0.38, Math.min(T * 0.38, y + T * ((q + j) % 2 ? 0.16 : -0.13))); c.lineTo(x, y); } c.stroke(); }
+      c.restore(); });
+    return CF.logs = {key, lc, cc, w, h}; };
+  // one tongue of flame: a teardrop whose tip sways and whips
+  const tongue = (g, x, by, w, h, f, ph) => { const N = 12, P = [];
+    for (let j = 0; j <= N; j++) { const t = j / N, cx = x + (Math.sin(f * 0.085 + ph - t * 2.6) * 0.6 + Math.sin(f * 0.2 + ph * 1.7 - t * 5) * 0.22) * w * t * t * 1.3, hw = w * Math.pow(Math.cos(t * 1.5708), 1.3) * (1 + 0.22 * Math.sin(t * 3.1)); P.push([cx, by - h * t, hw]); }
+    g.beginPath(); g.moveTo(P[0][0] - P[0][2], P[0][1]); for (let j = 1; j <= N; j++) g.lineTo(P[j][0] - P[j][2], P[j][1]); for (let j = N - 1; j >= 0; j--) g.lineTo(P[j][0] + P[j][2], P[j][1]);
+    g.quadraticCurveTo(x, by + w * 0.7, P[0][0] - P[0][2], P[0][1]); g.fill(); };
+  const fireDraw = (g, f, W, H, dk) => { if (!CF) return; const S = cfSize(W, H), cx = W / 2, by = H - S * 0.16, k = ease(f / 22), fl = ease((f - 26) / 24) * (1 - ease((f - 78) / 45)), set = 1 - 0.2 * ease((f - 150) / 90);
+    const fH = S * (0.95 + 0.62 * fl) * k * set, pulse = 0.85 + 0.09 * Math.sin(f * 0.21) + 0.06 * Math.sin(f * 0.53);
+    // warm light pooling around the fire, breathing with the flame
+    const gR = S * (1.5 + 0.45 * fl) * pulse, gy = by - S * 0.25; let gr = g.createRadialGradient(cx, gy, 0, cx, gy, gR);
+    gr.addColorStop(0, `rgba(255,150,60,${(dk ? 0.34 : 0.2) * k * pulse})`); gr.addColorStop(0.5, `rgba(255,120,40,${(dk ? 0.12 : 0.07) * k * pulse})`); gr.addColorStop(1, "rgba(255,120,40,0)"); g.fillStyle = gr; g.fillRect(cx - gR, gy - gR, 2 * gR, 2 * gR);
+    g.save(); g.translate(cx, by + S * 0.05); g.scale(1, 0.28); gr = g.createRadialGradient(0, 0, 0, 0, 0, S * 1.3); gr.addColorStop(0, `rgba(255,170,80,${(dk ? 0.4 : 0.26) * k * pulse})`); gr.addColorStop(1, "rgba(255,150,60,0)"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, S * 1.3, 0, 6.3); g.fill(); g.restore();
+    // ember bed under the logs
+    g.globalAlpha = k; g.save(); g.translate(cx, by + S * 0.04); g.scale(1, 0.3); gr = g.createRadialGradient(0, 0, 0, 0, 0, S * 0.42); gr.addColorStop(0, "#FFB040"); gr.addColorStop(0.5, "#E8501A"); gr.addColorStop(1, "rgba(120,30,10,0)"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, S * 0.42, 0, 6.3); g.fill(); g.restore();
+    const LG = cfLogs(S, dk), lw = LG.w, lh = LG.h, ly = by + (1 - k) * S * 0.4; g.drawImage(LG.lc, cx - lw / 2, ly - lh / 2, lw, lh);
+    g.globalAlpha = k * (0.55 + 0.3 * Math.sin(f * 0.07) + 0.15 * Math.sin(f * 0.19 + 1)); g.drawImage(LG.cc, cx - lw / 2, ly - lh / 2, lw, lh); g.globalAlpha = k;
+    // the flame: every tongue in four layers, outer red-orange to a pale core
+    const COL = ["#E8401E", "#FF7E1C", "#FFC23A", dk ? "#FFF6D2" : "#FFF0B0"], SC = [[1, 1], [0.76, 0.8], [0.52, 0.6], [0.3, 0.36]], fb = by - S * 0.06;
+    if (fH > 2) { g.fillStyle = "#FF5A1E"; g.globalAlpha = k * (dk ? 0.28 : 0.2); CF.T.forEach(t => tongue(g, cx + t.x * S, fb + S * 0.02, t.w * S * 1.3, fH * t.h * 1.12 * (0.84 + 0.1 * Math.sin(f * 0.19 + t.ph) + 0.06 * Math.sin(f * 0.47 + t.ph * 3)), f, t.ph));
+      g.globalAlpha = k; SC.forEach(([sw, sh], L) => { g.fillStyle = COL[L]; CF.T.forEach(t => { if (L >= 2 && Math.abs(t.x) > 0.24) return; tongue(g, cx + t.x * S * (1 - L * 0.12), fb, t.w * S * sw, fH * t.h * sh * (0.84 + 0.1 * Math.sin(f * 0.19 + t.ph + L * 0.4) + 0.06 * Math.sin(f * 0.47 + t.ph * 3)), f, t.ph + L * 0.25); }); }); }
+    // sparks spiral up on short glowing trails and cool from white-yellow to red
+    const SP = dk ? ["#FFFBE0", "#FFD04A", "#FF8A22", "#E0401A", "#80220E"] : ["#FFD24A", "#FFA22A", "#F0641E", "#C8341A", "#8A2A14"];
+    g.lineCap = "round"; const pos = (s, a) => [cx + s.x * S + s.dr * a + s.r * S * Math.min(1, a / 26) * Math.sin(s.w * a + s.ph), by - S * 0.45 - s.v * a * (1 - a / (2.8 * s.life))];
+    for (const s of CF.S) { const a = f - s.t0; if (a <= 0 || a > s.life) continue; const q = a / s.life, al = ease(a / 5) * (1 - q * q), col = ramp(SP, q * 0.95), sz = s.sz * (1 - 0.5 * q);
+      g.strokeStyle = col; let p0 = pos(s, a); for (let j = 1; j <= 5; j++) { const p1 = pos(s, Math.max(0, a - j * 1.8)); g.globalAlpha = al * (1 - j / 6); g.lineWidth = sz * (1.05 - j * 0.15); g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke(); p0 = p1; }
+      const h = pos(s, a); g.globalAlpha = al * (dk ? 0.22 : 0.14); g.fillStyle = col; g.beginPath(); g.arc(h[0], h[1], sz * 1.6, 0, 6.3); g.fill(); g.globalAlpha = al; g.fillStyle = q < 0.3 ? SP[0] : col; g.beginPath(); g.arc(h[0], h[1], sz * 0.75, 0, 6.3); g.fill(); }
+    // a faint warm wisp above the tips
+    const pf = CF.puff || (CF.puff = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d"), q = x.createRadialGradient(32, 32, 0, 32, 32, 32); q.addColorStop(0, "rgba(255,255,255,1)"); q.addColorStop(0.5, "rgba(255,255,255,.4)"); q.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = q; x.fillRect(0, 0, 64, 64); x.globalCompositeOperation = "source-in"; x.fillStyle = "#FFD2A8"; x.fillRect(0, 0, 64, 64); return c; })());
+    for (let i = 0; i < 7; i++) { const a = (f * 0.5 + i * 19) % 130, x = cx + Math.sin(a * 0.045 + i) * S * 0.14 * (a / 130), y = by - fH * 0.9 - a * S * 0.01, r = S * (0.12 + a / 130 * 0.3);
+      g.globalAlpha = k * (dk ? 0.07 : 0.1) * Math.sin(Math.PI * a / 130) * ease((f - 40) / 60); g.drawImage(pf, x - r, y - r, 2 * r, 2 * r); }
+    // the marshmallow on its stick reaches in from the lower right and toasts
+    const ang = Math.atan2(0.6, 1), ca = Math.cos(ang), sa = Math.sin(ang), rch = (1 - ease((f - 8) / 42)) * S * 1.4 + Math.sin(f * 0.045) * S * 0.015, tx = cx + S * 0.36 + ca * rch, ty = by - S * 0.98 + sa * rch, sL = Math.hypot(W, H);
+    g.globalAlpha = ease((f - 8) / 20); g.strokeStyle = dk ? "#A0784C" : "#8A5E36"; g.lineWidth = Math.max(2.5, S * 0.026); g.beginPath(); g.moveTo(tx - ca * S * 0.04, ty - sa * S * 0.04); g.lineTo(tx + ca * sL, ty + sa * sL); g.stroke();
+    g.strokeStyle = "rgba(60,30,10,.35)"; g.lineWidth = Math.max(1, S * 0.009); g.beginPath(); g.moveTo(tx + ca * S * 0.2, ty + sa * S * 0.2 + S * 0.006); g.lineTo(tx + ca * sL, ty + sa * sL + S * 0.006); g.stroke();
+    const mx = tx + ca * S * 0.13, my = ty + sa * S * 0.13, m = S * 0.11, mr = S * 0.085, toast = ease((f - 30) / 170), fx0 = cx - mx, fy0 = gy - my, fd = Math.hypot(fx0, fy0);
+    g.save(); g.translate(mx, my); g.rotate(ang); const lfx = (fx0 * ca + fy0 * sa) / fd, lfy = (-fx0 * sa + fy0 * ca) / fd;
+    g.beginPath(); g.roundRect(-m, -mr, 2 * m, 2 * mr, mr * 0.55); g.fillStyle = ramp(["#FFFDF6", "#F8E2B0", "#E2AA60"], toast * 0.9); g.fill();
+    gr = g.createLinearGradient(lfx * mr * 1.2, lfy * mr * 1.2, -lfx * mr, -lfy * mr); gr.addColorStop(0, `rgba(130,66,22,${0.95 * toast})`); gr.addColorStop(0.5, `rgba(180,108,44,${0.45 * toast})`); gr.addColorStop(1, "rgba(200,140,70,0)"); g.fillStyle = gr; g.fill();
+    g.strokeStyle = `rgba(${dk ? "255,200,150" : "120,80,40"},${dk ? 0.25 : 0.4})`; g.lineWidth = Math.max(1, S * 0.006); g.stroke();
+    g.fillStyle = `rgba(255,255,255,${0.7 - 0.35 * toast})`; g.beginPath(); g.ellipse(-m * 0.1, -mr * 0.5, m * 0.6, mr * 0.18, 0, 0, 6.3); g.fill();
+    g.fillStyle = `rgba(255,170,80,${0.35 * k * pulse})`; g.beginPath(); g.ellipse(-m + mr * 0.2, mr * 0.2, mr * 0.18, mr * 0.7, 0, 0, 6.3); g.fill(); g.restore(); g.globalAlpha = 1; };
+
+  // Aquarium: the tunnel comes alive. A sea turtle glides over, a manta swoops through flapping, a school streams by as
+  // one flock, jellies pulse and caustic light ripples along the top
+  let AQ = null;
+  Object.assign(FX_SHAPES, {
+    // a small blue-green chromis for the school, pointing to +x
+    n3chromis: {d: FB + FT, paint: (g, c, dk) => { const b = new Path2D(FB); fillP(g, "#2E8ED0", FT); g.fillStyle = "#4AB4F0"; g.fill(b); g.save(); g.clip(b); g.fillStyle = "#1E5E9E"; g.beginPath(); g.ellipse(1, -5.4, 10, 4, 0, 0, 6.3); g.fill(); g.fillStyle = "#BFEAFF"; g.beginPath(); g.ellipse(1, 5.6, 9, 3.2, 0, 0, 6.3); g.fill(); g.restore(); sheen(g, dk, 1.1); eye(g, 7, -1.4, 1.5); }}
+  });
+  // the turtle's shell, painted once: scutes with warm centres, dark seams and a scalloped rim
+  const aqShell = (T, dk) => { const key = T + "|" + dk; if (AQ.shell && AQ.shell.key === key) return AQ.shell;
+    const c = document.createElement("canvas"), sz = Math.ceil(T * 1.1); c.width = c.height = sz * 2; const g = c.getContext("2d"); g.scale(2 * T, 2 * T); g.translate(0.55, 0.55);
+    const rim = new Path2D(); rim.ellipse(0, 0, 0.5, 0.4, 0, 0, 6.3); g.fillStyle = "#4A3418"; g.fill(rim); g.save(); g.clip(rim);
+    g.fillStyle = "#7A5A2A"; g.beginPath(); g.ellipse(0, 0, 0.44, 0.34, 0, 0, 6.3); g.fill();
+    const scute = (pts, cx, cy, r) => { const q = new Path2D(); pts.forEach((p, i) => q[i ? "lineTo" : "moveTo"](p[0], p[1])); q.closePath(); const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r); gr.addColorStop(0, "#D9A85A"); gr.addColorStop(0.5, "#A8783A"); gr.addColorStop(1, "#6E4E22"); g.fillStyle = gr; g.fill(q); g.strokeStyle = "#33240E"; g.lineWidth = 0.014; g.stroke(q); };
+    const E = x => 0.34 * Math.sqrt(Math.max(0, 1 - (x / 0.44) * (x / 0.44)));
+    [-1, 1].forEach(s => { const xs = [-0.4, -0.2, -0.02, 0.16, 0.36]; for (let i = 0; i < 4; i++) { const a = xs[i], b = xs[i + 1], P = [[a + 0.02, 0.1 * s], [a, E(a) * s], [(a + b) / 2, (E((a + b) / 2) + 0.01) * s], [b, E(b) * s], [b - 0.02, 0.1 * s]]; scute(P, (a + b) / 2, (0.1 + E((a + b) / 2)) / 2 * s, 0.14); } });
+    for (let i = 0; i < 5; i++) { const x = -0.32 + i * 0.16, w = i === 0 || i === 4 ? 0.075 : 0.1; scute([[x - 0.08, 0], [x - 0.045, -w], [x + 0.045, -w], [x + 0.08, 0], [x + 0.045, w], [x - 0.045, w]], x, 0, 0.11); }
+    g.strokeStyle = "#33240E"; g.lineWidth = 0.012; g.beginPath(); g.ellipse(0, 0, 0.44, 0.34, 0, 0, 6.3); g.stroke(); for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283; g.beginPath(); g.moveTo(Math.cos(a) * 0.44, Math.sin(a) * 0.34); g.lineTo(Math.cos(a) * 0.5, Math.sin(a) * 0.4); g.stroke(); }
+    const hl = g.createLinearGradient(-0.3, -0.35, 0.3, 0.35); hl.addColorStop(0, "rgba(255,240,200,.28)"); hl.addColorStop(0.5, "rgba(255,255,255,0)"); hl.addColorStop(1, `rgba(0,0,0,${dk ? 0.3 : 0.22})`); g.fillStyle = hl; g.fillRect(-0.6, -0.6, 1.2, 1.2); g.restore();
+    return AQ.shell = {key, c, sz}; };
+  const leaf = (g, len, wd) => { g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(len * 0.3, -wd, len * 0.8, -wd * 0.6, len, 0); g.bezierCurveTo(len * 0.7, wd * 0.5, len * 0.3, wd * 0.8, 0, 0); g.fill(); };
+  const aqTurtle = (g, f, W, H, dk) => { const t = AQ.tu, T = t.T, u = (f - t.d0) / 260; if (u <= 0) return; const X = q => t.dir > 0 ? -T + (W + 2 * T) * q : W + T - (W + 2 * T) * q, Y = q => t.y + Math.sin(q * 5 + t.ph) * H * 0.025;
+    const x = X(u), y = Y(u), ang = Math.atan2(Y(u + 0.002) - y, X(u + 0.002) - x), sk = dk ? "#8FA070" : "#7A8A52", sp = "rgba(40,50,20,.35)";
+    g.save(); g.globalAlpha = ease((f - t.d0) / 30); g.translate(x, y); g.rotate(ang); g.fillStyle = sk;
+    const st = Math.sin(f * 0.055), st2 = Math.sin(f * 0.055 - 1.2);
+    [-1, 1].forEach(s => { g.save(); g.translate(0.27 * T, 0.27 * T * s); g.rotate(s * (1.75 + 0.5 * st)); g.scale(1, s); leaf(g, 0.62 * T, 0.13 * T); g.fillStyle = sp; g.beginPath(); g.ellipse(0.25 * T, 0, 0.05 * T, 0.03 * T, 0, 0, 6.3); g.ellipse(0.4 * T, 0.01 * T, 0.04 * T, 0.025 * T, 0, 0, 6.3); g.fill(); g.restore(); g.fillStyle = sk;
+      g.save(); g.translate(-0.34 * T, 0.22 * T * s); g.rotate(s * (2.35 + 0.3 * st2)); g.scale(1, s); leaf(g, 0.26 * T, 0.09 * T); g.restore(); });
+    g.beginPath(); g.moveTo(-0.45 * T, -0.04 * T); g.lineTo(-0.6 * T, 0); g.lineTo(-0.45 * T, 0.04 * T); g.fill();
+    const hs = Math.sin(f * 0.03) * 0.08; g.save(); g.translate(0.46 * T, 0); g.rotate(hs); g.beginPath(); g.ellipse(0.1 * T, 0, 0.17 * T, 0.12 * T, 0, 0, 6.3); g.fill(); g.strokeStyle = sp; g.lineWidth = Math.max(0.8, T * 0.008); g.beginPath(); g.moveTo(0.04 * T, -0.1 * T); g.lineTo(0.12 * T, 0); g.lineTo(0.04 * T, 0.1 * T); g.moveTo(0.12 * T, 0); g.lineTo(0.22 * T, 0); g.stroke();
+    g.fillStyle = "#1A1E10"; g.beginPath(); g.arc(0.17 * T, -0.075 * T, 0.022 * T, 0, 6.3); g.arc(0.17 * T, 0.075 * T, 0.022 * T, 0, 6.3); g.fill(); g.restore();
+    const sh = aqShell(T, dk); g.drawImage(sh.c, -0.55 * T, -0.55 * T, sh.sz, sh.sz); g.restore(); };
+  // the manta, top-down: a broad diamond with convex leading edges sweeping back to long pointed tips; the tips curl
+  // up and down as it flaps (the span narrows a little on the upstroke), head first, a slim whip tail trailing
+  const aqManta = (g, f, W, H, dk) => { const m = AQ.ma, u = (f - m.d0) / 210; if (u <= 0 || u >= 1.2) return; const L = m.L, P = q => { const a = 1 - q; return [a * a * m.p[0][0] + 2 * a * q * m.p[1][0] + q * q * m.p[2][0], a * a * m.p[0][1] + 2 * a * q * m.p[1][1] + q * q * m.p[2][1]]; };
+    const [x, y] = P(u), [x2, y2] = P(u + 0.003), fl = Math.sin(f * 0.075), up = Math.max(0, fl), dn = Math.max(0, -fl), ty = 0.76 * (1 - 0.1 * up + 0.02 * dn), tx = -0.12 + 0.04 * up - 0.015 * dn;
+    g.save(); g.globalAlpha = ease((f - m.d0) / 25); g.translate(x, y); g.rotate(Math.atan2(y2 - y, x2 - x)); g.scale(L, L);
+    const back = dk ? "#23324A" : "#2E3F58";
+    g.lineCap = "round"; g.strokeStyle = back; for (let i = 0; i < 12; i++) { g.lineWidth = 0.022 * (1 - i / 12) + 0.004; g.beginPath(); g.moveTo(-0.38 - i * 0.05, Math.sin(i * 0.55 - f * 0.12) * 0.01 * i); g.lineTo(-0.38 - (i + 1) * 0.05, Math.sin((i + 1) * 0.55 - f * 0.12) * 0.01 * (i + 1)); g.stroke(); }
+    const half = s => [[0.22, 0.32 * s, 0.06, ty * 0.82 * s, tx, ty * s], [-0.12, ty * 0.66 * s, -0.12, 0.24 * s, -0.22, 0.12 * s]];
+    const body = new Path2D(); body.moveTo(0.3, 0); body.quadraticCurveTo(0.31, -0.07, 0.28, -0.1);
+    let [a, b] = half(-1); body.bezierCurveTo(...a); body.bezierCurveTo(...b); body.quadraticCurveTo(-0.34, -0.11, -0.4, 0); body.quadraticCurveTo(-0.34, 0.11, -0.22, 0.12);
+    [a, b] = half(1); body.bezierCurveTo(b[2], b[3], b[0], b[1], tx, ty); body.bezierCurveTo(a[2], a[3], a[0], a[1], 0.28, 0.1); body.quadraticCurveTo(0.31, 0.07, 0.3, 0);
+    g.fillStyle = back; g.fill(body); g.save(); g.clip(body);
+    let gr = g.createLinearGradient(0, 0, 0, ty); gr.addColorStop(0, "rgba(255,255,255,.06)"); gr.addColorStop(0.5, "rgba(0,0,0,0)"); gr.addColorStop(1, dk ? "rgba(0,0,0,.25)" : "rgba(0,0,0,.2)"); g.fillStyle = gr; g.fillRect(-0.4, 0, 0.8, 0.8); g.save(); g.scale(1, -1); g.fillRect(-0.4, 0, 0.8, 0.8); g.restore();
+    // the curled tips catch the light on the upstroke and fall into shade on the downstroke
+    [-1, 1].forEach(s => { gr = g.createLinearGradient(0, 0.4 * s, 0, ty * s); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, up > 0 ? `rgba(200,220,245,${0.32 * up})` : `rgba(0,0,0,${0.3 * dn})`); g.fillStyle = gr; g.fillRect(-0.4, Math.min(0.4 * s, ty * s), 0.8, Math.abs(ty - 0.4)); });
+    g.fillStyle = `rgba(225,236,248,${dk ? 0.13 : 0.16})`; [-1, 1].forEach(s => { g.beginPath(); g.ellipse(0.1, 0.2 * s, 0.12, 0.032, -0.75 * s, 0, 6.3); g.fill(); });
+    g.strokeStyle = "rgba(225,238,250,.22)"; g.lineWidth = 0.05; g.stroke(body); g.restore();
+    g.strokeStyle = "rgba(225,238,250,.5)"; g.lineWidth = 0.01; g.stroke(body);
+    g.fillStyle = back; [-1, 1].forEach(s => { g.beginPath(); g.moveTo(0.27, 0.11 * s); g.bezierCurveTo(0.34, 0.13 * s, 0.4, 0.11 * s, 0.405, 0.07 * s); g.quadraticCurveTo(0.4, 0.045 * s, 0.38, 0.055 * s); g.bezierCurveTo(0.35, 0.07 * s, 0.32, 0.065 * s, 0.295, 0.05 * s); g.fill(); g.strokeStyle = "rgba(225,238,250,.4)"; g.lineWidth = 0.007; g.stroke(); });
+    g.fillStyle = "rgba(0,0,0,.35)"; [-1, 1].forEach(s => { g.beginPath(); g.arc(0.265, 0.088 * s, 0.011, 0, 6.3); g.fill(); });
+    g.restore(); };
+  // a jelly: the bell squashes and stretches as it pulses, tentacles trail in waves
+  const aqJelly = (g, f, W, H, dk, j) => { const a = f - j.d0; if (a <= 0) return; const p = a * 0.06 + j.ph, c = Math.pow(Math.sin(p), 2), y = j.y - a * 0.18 * j.k - (p / 2 - Math.sin(2 * p) / 4) * 6 * j.k, x = j.x + Math.sin(a * 0.01 + j.ph) * 12, w = j.r * (1 - 0.16 * c), h = j.r * (0.8 + 0.18 * c);
+    g.save(); g.globalAlpha = ease(a / 40) * (dk ? 0.9 : 0.85); g.translate(x, y); g.strokeStyle = `rgba(${j.c},${dk ? 0.5 : 0.6})`; g.lineCap = "round";
+    for (let i = 0; i < 6; i++) { const x0 = (i / 5 - 0.5) * w * 1.6; g.lineWidth = Math.max(1, j.r * 0.045); g.beginPath(); g.moveTo(x0, h * 0.05); for (let k = 1; k <= 10; k++) { const t = k / 10; g.lineTo(x0 * (1 - t * 0.3) + Math.sin(t * 5 - a * 0.1 + i) * j.r * 0.22 * t, h * 0.05 + t * j.r * (1.9 + 0.3 * (i % 2)) * (1 - 0.15 * c)); } g.stroke(); }
+    g.lineWidth = Math.max(2, j.r * 0.13); g.strokeStyle = `rgba(${j.c},${dk ? 0.42 : 0.5})`; [-0.15, 0.15].forEach((o, i) => { g.beginPath(); g.moveTo(o * w, 0); for (let k = 1; k <= 8; k++) { const t = k / 8; g.lineTo(o * w + Math.sin(t * 4 - a * 0.08 + i * 2) * j.r * 0.14 * t, t * j.r * 1.2); } g.stroke(); });
+    const gr = g.createRadialGradient(0, -h * 0.5, 0, 0, -h * 0.3, w * 1.1); gr.addColorStop(0, `rgba(255,255,255,${dk ? 0.75 : 0.85})`); gr.addColorStop(0.35, `rgba(${j.c},${dk ? 0.6 : 0.7})`); gr.addColorStop(1, `rgba(${j.c},${dk ? 0.28 : 0.38})`);
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, w, h, 0, Math.PI, 0); g.quadraticCurveTo(w * 0.5, h * 0.22, 0, h * 0.12); g.quadraticCurveTo(-w * 0.5, h * 0.22, -w, 0); g.fill();
+    g.strokeStyle = `rgba(255,255,255,${dk ? 0.5 : 0.7})`; g.lineWidth = Math.max(1, j.r * 0.05); g.beginPath(); g.ellipse(0, 0, w * 0.75, h * 0.7, 0, Math.PI * 1.15, Math.PI * 1.5); g.stroke(); g.restore(); };
+  // caustics: a net of bright wavering lines along the top of the tank
+  const aqCaustic = (g, f, W, H, dk) => { const a = ease(f / 40), top = H * 0.24, gr = g.createLinearGradient(0, 0, 0, top); gr.addColorStop(0, `rgba(255,255,255,${(dk ? 0.12 : 0.45) * a})`); gr.addColorStop(1, "rgba(255,255,255,0)");
+    g.strokeStyle = gr; g.lineWidth = Math.max(1.2, Math.min(W, H) * 0.0035); g.lineJoin = "round"; const st = Math.max(8, W / 90);
+    for (let i = 0; i < 7; i++) { g.beginPath(); for (let x = -st; x <= W + st; x += st) { const y = top * (i / 6) * 0.9 + Math.sin(x * 0.013 + f * 0.035 + i * 2.3) * top * 0.07 + Math.sin(x * 0.037 - f * 0.05 + i) * top * 0.03; x < 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); }
+    for (let i = 0; i < 6; i++) { g.beginPath(); for (let x = -st; x <= W + st; x += st) { const y = top * (i / 5) * 0.85 + Math.sin(x * 0.021 - f * 0.03 + i * 4.1) * top * 0.1 + Math.sin(x * 0.009 + f * 0.02 + i) * top * 0.05; x < 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); } };
+  // the school: one flock following a curving path, each fish facing along it
+  const aqSchool = (g, f, W, H, dk) => { const S = AQ.sc, sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), lead = -0.1 * W + (f - S.d0) * S.v;
+    const yA = x => S.y + Math.sin(x / W * 5.2 + S.ph) * H * S.amp, spr = fxSprite("n3chromis", "#FFFFFF", 0, dk), h = spr._half;
+    for (const q of S.F) { const xs = lead - q.lag; if (xs < -60 || xs > W + 60) continue; const xx = S.dir > 0 ? xs : W - xs, y0 = yA(xx), y1 = yA(xx + S.dir * 3), ang = Math.atan2(y1 - y0, S.dir * 3), nx = -Math.sin(ang), ny = Math.cos(ang), off = q.side + Math.sin(f * 0.05 + q.ph) * 4;
+      const s = q.sz * sc / 10, mx = S.dir > 0 ? 1 : -1, rot = (S.dir > 0 ? ang : ang - Math.PI) + Math.sin(f * 0.3 + q.ph) * 0.1 * mx;
+      g.save(); g.globalAlpha = q.al; g.translate(xx + nx * off, y0 + ny * off); g.rotate(rot); g.scale(s * mx, s); g.drawImage(spr, -h, -h, 2 * h, 2 * h); g.restore(); } };
+  const aqDraw = (g, f, W, H, dk) => { if (!AQ) return; rays(g, f, W, H, dk, dk ? "140,220,255" : "255,255,255"); g.globalCompositeOperation = "source-over"; aqCaustic(g, f, W, H, dk);
+    AQ.je.forEach(j => aqJelly(g, f, W, H, dk, j)); aqSchool(g, f, W, H, dk); aqManta(g, f, W, H, dk); aqTurtle(g, f, W, H, dk); };
 
   const FX = {
     greenhouse: {spawn: (W, H, d, n) => { const k = Math.max(4, Math.min(9, Math.round(W / 170))), cols = d ? ["#FFFFFF", "#F6B8D0", "#FFE08A", "#C9B0FF"] : ["#F27BA0", "#F7A93A", "#B884E8", "#FF7A5A"];
@@ -100,16 +230,20 @@
         return Array.from({length: n(46)}, () => { const L = Math.random() < 0.5, t = fxR(18, 120); return {shape: "n3clay", c: fxPick(["#B8693E", "#C8784A", "#9A5432"]), x: W / 2 + (L ? -1 : 1) * 13 * u, y: H - 3 * u - fxR(6, 20) * u, vx: (L ? -1 : 1) * fxR(2.5, 6), vy: -fxR(1, 3.4), g: 0.22, size: fxR(4, 7), rot: L ? -1.2 : 1.2, vr: 0, sway: 0, life: 110, delay: Math.floor(t)}; })
           .concat(twIn(n(18), "sparkle", d ? ["#FFFFFF", "#F6C48E", POT.c] : ["#FFFFFF", "#F2C24A", POT.c], W / 2 - 22 * u, W / 2 + 22 * u, H - 40 * u, H - 4 * u, {d0: 170, d1: 205, smin: 6, smax: 11, glow: d ? 10 : 6}));
       }, draw: potDraw},
-    campfire: {spawn: (W, H, d, n) => { const u = Math.min(W, H) / 100;
-        return Array.from({length: n(80)}, () => ({shape: "circle", c: fxPick(["#FFB347", "#FF8A3A", "#FFE08A", "#FF6A3A"]), x: W / 2 + fxR(-12, 12) * u, y: H - fxR(4, 18) * u, vx: fxR(-0.6, 0.6), vy: -fxR(2.2, 4.4), g: -0.004, size: fxR(1.8, 3.6), rot: 0, vr: 0, sway: fxR(0.8, 2), swf: fxR(0.05, 0.12), grow: -0.05, life: fxR(80, 150), delay: Math.floor(fxR(14, 175)), glow: 10}))
-          .concat(fxRise(W, H, n(14), "n3soft", d ? ["#B0B0C4"] : ["#C8CCD4"], {cx: [0.44, 0.56], smin: 10, smax: 15, vmin: 0.9, vmax: 1.5, sway: 1.2, grow: 0.35, alpha: d ? 0.14 : 0.16, life: 170, spread: 150, depth: false}).map(p => Object.assign(p, {y: H - 26 * u, delay: p.delay + 30})),
-            d ? fxTw(W, H, n(40), "star", ["#FFFFFF", "#FFE7B0", "#C9D4FF"], {smin: 3, smax: 6, top: 0.55, glow: 10, spread: 160}) : fxTw(W, H, n(16), "sparkle", ["#F5913A", "#F7C04A"], {smin: 4, smax: 7, top: 0.7, glow: 4, spread: 160}));
+    campfire: {spawn: (W, H, d, n) => { const S = cfSize(W, H);
+        CF = {logs: CF && CF.logs, T: [[-0.27, 0.1, 0.5], [-0.15, 0.12, 0.78], [-0.05, 0.13, 1], [0.06, 0.13, 0.92], [0.17, 0.11, 0.7], [0.28, 0.09, 0.46]].map(([x, w, h], i) => ({x, w, h: h * fxR(0.9, 1.05), ph: i * 1.9 + fxR(0, 1)})),
+          S: Array.from({length: n(70)}, () => { const life = fxR(60, 110), fl = Math.random() < 0.75; return {t0: Math.floor(fl ? fxR(28, 105) : fxR(10, 175)), life, x: fxR(-0.16, 0.16), dr: fxR(-0.25, 0.25), v: fxR(S * 0.014, S * 0.026) * (fl ? 1.2 : 0.9), r: fxR(0.05, 0.13), w: fxR(0.09, 0.16) * (Math.random() < 0.5 ? -1 : 1), ph: fxR(0, 6.3), sz: fxR(1.4, 2.6) * Math.max(1, S / 160)}; })};
+        return d ? fxTw(W, H, n(46), "star", ["#FFFFFF", "#FFE7B0", "#C9D4FF"], {smin: 3, smax: 6.5, top: 0.6, glow: 10, spread: 170}) : [];
       }, draw: fireDraw},
-    aquarium: {spawn: (W, H, d, n) => school(W, H, n(28), ["n3clown", "n3tang", "n3ytang", "n3gramma"], {per: 5, smin: 14, smax: 19})
-        .concat([{shape: "n3manta", c: "#FFFFFF", x: -90, y: H * fxR(0.22, 0.36), vx: W * 0.0034 + 1, vy: -0.12, g: 0, size: 32, face: true, wig: 0.04, rot: 0, vr: 0, sway: 0, life: 360, delay: 10, alpha: d ? 0.9 : 0.85}],
-          fxRise(W, H, n(40), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#E8FAFF"], {smin: 4, smax: 9, sway: 1, vmin: 1.4, vmax: 2.8, spread: 140}),
-          d ? fxRise(W, H, n(6), "jelly", ["#FF9CD8", "#6FF3FF", "#B89CFF"], {smin: 13, smax: 18, vmin: 0.8, vmax: 1.4, sway: 1.2, glow: 16, life: 330}) : []),
-      draw: (g, f, W, H, d) => rays(g, f, W, H, d, d ? "140,220,255" : "255,255,255")}
+    aquarium: {spawn: (W, H, d, n) => { const M = Math.min(W, H), ph = W < H, dir = Math.random() < 0.5 ? 1 : -1, L = Math.max(130, Math.min(M * (ph ? 0.42 : 0.34), 280)), cols = d ? ["255,150,220", "120,230,255", "190,160,255"] : ["235,95,175", "40,165,220", "150,110,235"];
+        const N = n(30), rows = 5, sz = 10.5;
+        AQ = {shell: AQ && AQ.shell, tu: {T: Math.max(70, Math.min(M * 0.2, 160)), d0: 6, dir, y: H * (ph ? 0.17 : 0.2), ph: fxR(0, 6)},
+          ma: {L, d0: 40, p: dir > 0 ? [[W + L, H * 0.34], [W * 0.5, H * (ph ? 0.72 : 0.82)], [-L, H * 0.36]] : [[-L, H * 0.34], [W * 0.5, H * (ph ? 0.72 : 0.82)], [W + L, H * 0.36]]},
+          sc: {d0: 30, v: W * 1.5 / 210, dir: -dir, y: H * (ph ? 0.62 : 0.66), amp: ph ? 0.06 : 0.1, ph: fxR(0, 6), F: Array.from({length: N}, (_, i) => { const r = i % rows, c = Math.floor(i / rows), z = fxR(0.85, 1.1); return {lag: c * sz * 3.6 + fxR(0, sz * 2) + (r % 2) * sz * 1.6, side: (r - (rows - 1) / 2) * sz * 3 * (ph ? 0.8 : 1) + fxR(-sz, sz), ph: fxR(0, 6.3), sz: sz * z, al: fxDim(z)}; })},
+          je: Array.from({length: ph ? 3 : 4}, (_, i) => ({x: W * (i + 0.5) / (ph ? 3 : 4) + fxR(-0.06, 0.06) * W, y: H * fxR(0.78, 0.98), r: Math.max(16, M * fxR(0.035, 0.05)), k: fxR(0.8, 1.2), ph: fxR(0, 6), d0: Math.floor(fxR(0, 50)), c: cols[i % 3]}))};
+        return school(W, H, n(5), ["n3clown", "n3ytang", "n3gramma", "n3tang"], {per: 1, smin: 13, smax: 16, y0: 0.4, y1: 0.9, spread: 90})
+          .concat(fxRise(W, H, n(22), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#E8FAFF"], {smin: 4, smax: 8, sway: 1, vmin: 1.4, vmax: 2.6, spread: 140}));
+      }, draw: aqDraw}
   };
   /* ---- end of completion animations ---- */
 

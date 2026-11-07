@@ -41,8 +41,10 @@
       glow: ["linear-gradient(180deg,#8ED4EE,#D6F2F2 45%,#F6EED2)", "linear-gradient(180deg,#0C1A36,#1C2E58 45%,#4A3A6A)"],
       spine: [lg("#16807A", "#0E5A58"), lg("#1E2E5E", "#0E1838")], btn: [lg2("#0E7470", "#C88A1E"), lg2("#F2C45A", "#F6D892")]},
     kit: {motif: "thailandlotus", card: ["#F8FDFB", "#E2F4EE"], ink: "#10302E", bd: "#B6DDD4", mc: "#E0508A", r: 16, notes: ["#FBE0EA", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "gold", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(13), "thailandkhom", d ? ["#FFC870", "#FFB060", "#FFD890"] : ["#F6B860", "#F2A050", "#F8C878"], {smin: 16, smax: 25, vmin: 1.2, vmax: 2.1, sway: 0.6, rock: 0.06, life: 300, glow: d ? 16 : 0})
-      .concat(fxFall(W, H, n(26), "thailandplum", d ? ["#FFF6E8", "#FFC8DE", "#FFFFFF"] : ["#FFFFFF", "#F8B8D0", "#FFF4E4"], {sway: 1.5, smin: 9, smax: 13, vmin: 0.9, vmax: 1.6, rock: 0.6}),
+    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(14), "thailandkhom", d ? ["#FFC870", "#FFB060", "#FFD890"] : ["#F6B860", "#F2A050", "#F8C878"], {smin: 20, smax: 30, vmin: 1.8, vmax: 2.8, sway: 0.5, rock: 0.06, life: 300, spread: 70, glow: d ? 16 : 0})
+      // sky lanterns let go from below: they rise, slow and shrink into the distance as they drift up
+      .map(p => Object.assign(p, {grow: -0.014, drag: 0.998, vy: p.vy * Math.max(1, H / 640), vx: fxR(-0.25, 0.35), swf: fxR(0.015, 0.03)}))
+      .concat(fxFall(W, H, n(15), "thailandplum", d ? ["#FFF6E8", "#FFC8DE", "#FFFFFF"] : ["#FFFFFF", "#F8B8D0", "#FFF4E4"], {sway: 1.5, smin: 9, smax: 13, vmin: 0.9, vmax: 1.6, rock: 0.6}),
         fxTw(W, H, n(22), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
     tag: "A tropical bay of jungle-topped limestone islands, longtail boats on a white beach and a golden temple on the headland"
   });

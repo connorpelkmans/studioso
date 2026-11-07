@@ -28,13 +28,13 @@
       [[-2.4, -2.4], [0, -2.6], [2.4, -2.4], [-2, 0.4], [0, 0.6], [2, 0.4], [-1, 2.8], [1, 2.8]].forEach(([x, y], i) => { if (i % 3 === 1) { g.beginPath(); for (let k = 0; k < 8; k++) { const a = k * 0.785, r = k % 2 ? 0.55 : 1.2; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); } else { oval(g, x, y, 0.6, 0.85); g.fill(); } });
       [-3, -1, 1, 3].forEach(x => { oval(g, x, -8.4, 0.5, 0.7); g.fill(); }); g.restore(); g.fillStyle = mix(c, "#000000", 0.35); g.fillRect(-5.4, -5.4, 10.8, 0.5); g.fillRect(-4.8, 4.4, 9.6, 0.5); }}
   });
-  // lanterns let down on chains from the top, swinging gently, then drawn back up
+  // lanterns let down on chains from the top, swinging gently, each with a soft candle glow that wavers, then drawn back up
   let lamps = [];
   const lampDraw = (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)); g.lineCap = "round";
     lamps.forEach(l => { const t = f - l.t0; if (t < 0) return; const e = t < 70 ? 1 - Math.pow(1 - t / 70, 3) * Math.cos(t / 70 * 3) : 1, up = fxEase((t - 175) / 70), L = l.L * (e - up * 0.9), a = fxEase(t / 10) * (1 - up);
       if (a <= 0.01 || L <= 0) return; const th = Math.sin(t * 0.045 + l.ph) * 0.12 * (1 - t / 400), s = l.size * sc / 10, x = l.x + Math.sin(th) * L, y = Math.cos(th) * L;
       g.globalAlpha = a; g.strokeStyle = d ? "rgba(232,184,96,.7)" : "rgba(150,110,50,.75)"; g.lineWidth = Math.max(1, s * 0.45); g.setLineDash([s * 1.2, s * 0.6]); g.beginPath(); g.moveTo(l.x, -4); g.lineTo(x, y); g.stroke(); g.setLineDash([]);
-      const spr = fxSprite("moroccolamp", l.c, 0, d), h = spr._half; g.save(); g.translate(x, y); g.rotate(-th); g.translate(0, 12.6 * s); g.drawImage(spr, -h * s, -h * s, 2 * h * s, 2 * h * s); g.restore(); }); g.globalAlpha = 1; };
+      const spr = fxSprite("moroccolamp", l.c, 0, d), h = spr._half; g.save(); g.translate(x, y); g.rotate(-th); g.translate(0, 12.6 * s); const hl = fxSprite("puffsoft", "#FFC060", 0, d), hh = hl._half * s * 2.4; g.globalAlpha = a * (d ? 0.34 : 0.2) * (0.8 + 0.2 * Math.sin(f * 0.13 + l.ph * 3) * Math.sin(f * 0.071 + l.ph)); g.drawImage(hl, -hh, -hh * 0.9, 2 * hh, 2 * hh); g.globalAlpha = a; g.drawImage(spr, -h * s, -h * s, 2 * h * s, 2 * h * s); g.restore(); }); g.globalAlpha = 1; };
   // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "morocco", name: "Morocco", group: "world", desc: "A tiled riad courtyard below the Atlas mountains.",
