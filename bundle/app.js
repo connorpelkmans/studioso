@@ -11719,7 +11719,7 @@ function courseNextHtml(open, today){
 // 30 study-topic icons a course can wear in its ring (Edit Course > Icon)
 const COURSE_ICONS = {
   // classes: a = course colour, b = light tint, w = white, y = warm yellow, g = leaf green
-  bio: ["Biology", '<path class="sa" d="M8 3c0 5 8 6 8 9s-8 4-8 9"/><path class="sb" d="M16 3c0 5-8 6-8 9s8 4 8 9"/><path d="M9 6h6M9.5 18h5M10 9.5h4M10 14.5h4"/>'],
+  bio: ["Biology", '<path class="sa" d="M16.2 12C16.2 15.28 7.8 17.72 7.8 21"/><path class="sb" d="M16.2 3C16.2 6.28 7.8 8.72 7.8 12"/><path d="M9.6 5.4h4.8M9.6 9.6h4.8M9.6 14.4h4.8M9.6 18.6h4.8"/><path class="sa" d="M7.8 3C7.8 6.28 16.2 8.72 16.2 12"/><path class="sb" d="M7.8 12C7.8 15.28 16.2 17.72 16.2 21"/>'],
   chem: ["Chemistry", '<path class="b" d="M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3z"/><path class="a" d="M6.6 14.5h10.8l2.1 4A1.7 1.7 0 0 1 18 21H6a1.7 1.7 0 0 1-1.5-2.5z"/><path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><circle class="w" cx="10" cy="17.5" r="1"/><circle class="w" cx="13.5" cy="18.5" r=".7"/>'],
   phys: ["Physics", '<ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(-60 12 12)"/><circle class="a" cx="12" cy="12" r="2.6"/>'],
   math: ["Math", '<rect class="b" x="3" y="3" width="18" height="18" rx="5"/><path class="sa" d="M16.5 7H8l5 5-5 5h8.5"/>'],
