@@ -429,7 +429,10 @@
       const l2 = Math.max(l, vv.offsetLeft), t2 = Math.max(t, vv.offsetTop), r2 = Math.min(r, vv.offsetLeft + vv.width), b2 = Math.min(b, vv.offsetTop + vv.height);
       if (r2 - l2 >= 100 && b2 - t2 >= 100) { l = l2; t = t2; r = r2; b = b2; }
     }
-    l = Math.max(l, ins.l); t = Math.max(t, ins.t); r = Math.min(r, lw - ins.r); b = Math.min(b, lh - ins.b);
+    // the Add button stands inside the home bar's space on an iPad: the companion may stand as low as it, so the two line up
+    let insB = ins.b;
+    if (insB && !phone()) { const fb = document.getElementById("fab"), fr = fb && fb.getClientRects().length ? fb.getBoundingClientRect() : null; if (fr && fr.height) insB = Math.min(insB, Math.max(0, lh - fr.bottom - 20)); }
+    l = Math.max(l, ins.l); t = Math.max(t, ins.t); r = Math.min(r, lw - ins.r); b = Math.min(b, lh - insB);
     // the iOS app's keyboard slides over the page without shrinking it: what it covers comes from the app (sbVisibleH)
     if (!phone() && de.classList.contains("kb-native") && typeof window.sbVisibleH === "function") { const vh = window.sbVisibleH(); if (vh > 100 && vh < b) b = vh; }
     sCache = {l: l + MARGIN, t: t + MARGIN, r: r - MARGIN, b: b - MARGIN}; sAt = now;
