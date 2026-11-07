@@ -322,7 +322,8 @@
     const sc = document.getElementById("nbScroll"), env = document.querySelector(".nb-wrap > .env"), nav = document.querySelector("nav.tabs");
     const wrap = document.querySelector("body > .wrap"), nt = nav ? nav.getBoundingClientRect().top : 0;
     const on = !!(sc && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
-    if (!on) { [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) wrap.style.removeProperty("padding-bottom"); return; }
+    const wbOn = !!(document.getElementById("wbHost") && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
+    if (!on) { [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) { if (wbOn) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important"); else wrap.style.removeProperty("padding-bottom"); } return; }
     // and the page leaves only the tab bar's room below them, so there's nothing to scroll to
     if (wrap) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important");
     const y = window.scrollY || 0, stop = nt + y - 14;

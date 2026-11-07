@@ -92141,8 +92141,10 @@ var SBWB = null;
     const key = innerWidth + "|" + (ui.wbCur || "");
     if (host._topKey !== key) { host._topKey = key; host._top = host.getBoundingClientRect().top + window.scrollY; }
     const top = host._top, nav = document.querySelector("nav.tabs");
-    const navH = phone() && nav ? Math.round(nav.getBoundingClientRect().height) : 0;
-    const want = Math.max(phone() ? 420 : 460, Math.round(IH - Math.min(top, IH * 0.45) - navH - (phone() ? 18 : 16)));
+    // room for the tab bar wherever it runs along the bottom (phones, and an iPad held upright)
+    const nr = nav ? nav.getBoundingClientRect() : null, navB = !!(nr && nr.height && nr.top > IH / 2);
+    const navH = phone() && nr ? Math.round(nr.height) : navB ? Math.round(IH - nr.top) : 0;
+    const want = Math.max(phone() ? 420 : 460, Math.round(IH - Math.min(top, IH * 0.45) - navH - (phone() ? 18 : navB ? 14 : 16)));
     const now = parseFloat(host.style.height) || 0;
     if (Math.abs(want - now) > 2) host.style.height = want + "px";
   }
@@ -93159,9 +93161,10 @@ var SBWB = null;
 .wb-font.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent)}
 .wb-dk .wb-font{background:#2A2F36;color:#EEF1F4;border-color:rgba(255,255,255,.14)}
 .wb-tray{order:-1}
-/* wide screens: the tools stand in a panel on the right of the board, like the sticker envelope on Notes */
+/* wide screens: the tools stand in a panel on the right of the board, like the sticker envelope on Notes
+   (an iPad held upright keeps them in a bar along the top, so the board gets the full width) */
 .wb-tray-head{display:none}
-@media (min-width:640px){
+@media (min-width:640px) and (orientation:landscape), (min-width:1101px), (min-width:640px) and (pointer:fine){
   .wb-stage{flex-direction:row}
   .wb-tray{order:1;width:190px;height:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;align-content:start;align-items:stretch;gap:10px 0;padding:0 0 12px;border-radius:14px;overflow:hidden auto;scrollbar-width:thin}
   .wb-tray>*{grid-column:1/-1}
@@ -99181,7 +99184,8 @@ const AUTOPILOT = (() => {
     const sc = document.getElementById("nbScroll"), env = document.querySelector(".nb-wrap > .env"), nav = document.querySelector("nav.tabs");
     const wrap = document.querySelector("body > .wrap"), nt = nav ? nav.getBoundingClientRect().top : 0;
     const on = !!(sc && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
-    if (!on) { [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) wrap.style.removeProperty("padding-bottom"); return; }
+    const wbOn = !!(document.getElementById("wbHost") && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
+    if (!on) { [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) { if (wbOn) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important"); else wrap.style.removeProperty("padding-bottom"); } return; }
     // and the page leaves only the tab bar's room below them, so there's nothing to scroll to
     if (wrap) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important");
     const y = window.scrollY || 0, stop = nt + y - 14;
