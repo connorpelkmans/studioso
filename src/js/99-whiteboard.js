@@ -771,7 +771,7 @@ var SBWB = null;
   }
 
   /* Pointer: draw, erase, shapes, text, select; two fingers */
-  let D = null, GEST = null, HOV = null, penSeen = false, spaceDown = false;
+  let D = null, GEST = null, HOV = null, penSeen = false, penOn = null, penUpAt = 0, spaceDown = false;
   const PTR = new Map();
   const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top + LV]; };
   const toW = s => [(s[0] - cam.x) / cam.z, (s[1] - cam.y) / cam.z];
@@ -789,7 +789,7 @@ var SBWB = null;
   }
   // A rotation can drop a finger's lift (iOS), leaving a pinch stuck on and the page offset under full screen
   function afterRotate(){
-    PTR.clear(); GEST = null; cancelDraw(); if (frame) frame.classList.remove("panning");
+    PTR.clear(); GEST = null; penOn = null; cancelDraw(); if (frame) frame.classList.remove("panning");
     if (document.documentElement.classList.contains("board-max")) {
       const fix = () => { try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {}
         const h = STAGE && STAGE.closest(".wb-host"); if (h) { h.style.transform = "translateZ(0)"; void h.offsetHeight; h.style.transform = ""; } };
@@ -801,19 +801,31 @@ var SBWB = null;
   addEventListener("resize", () => { if (innerWidth !== rotW) { rotW = innerWidth; afterRotate(); } });
   function bindPointer(){
     frame.addEventListener("contextmenu", e => e.preventDefault());
+    // a hand resting on the tools while the pencil writes doesn't press them
+    let palmAt = 0;
+    STAGE.addEventListener("pointerdown", e => { if (e.pointerType === "touch" && penSeen && !frame.contains(e.target) && (penOn !== null || Date.now() - penUpAt < 700)) { palmAt = Date.now(); e.preventDefault(); } else if (!frame.contains(e.target)) palmAt = 0; }, true);
+    STAGE.addEventListener("click", e => { if (palmAt && Date.now() - palmAt < 1500 && !frame.contains(e.target)) { palmAt = 0; e.preventDefault(); e.stopPropagation(); } }, true);
     frame.addEventListener("pointerdown", e => {
       if (e.target.closest(".wb-zoom,.wb-selbar,.wb-ta,.wb-max")) return;
+      // Palm rejection: once a pencil has been used, a touch while it's down (or just lifted) is the hand resting on the
+      // screen, and is ignored; and the pencil always wins over a hand that landed first
+      if (e.pointerType === "touch" && penSeen && (penOn !== null || Date.now() - penUpAt < 700)) { e.preventDefault(); return; }
+      if (e.pointerType === "pen") {
+        penSeen = true; penOn = e.pointerId;
+        if (GEST) GEST = null;
+        if (D && (PTR.get(D.id) || {}).type === "touch") { if (D.kind === "pan") { if (D.moved) camSave(); D = null; frame.classList.remove("panning"); } else cancelDraw(); }
+        [...PTR.keys()].forEach(id => { if (PTR.get(id).type === "touch") PTR.delete(id); });
+      }
       if (ED) endText();
       frame.focus({preventScroll: true});
       PTR.set(e.pointerId, {x: e.clientX, y: e.clientY, type: e.pointerType});
       try { frame.setPointerCapture(e.pointerId); } catch (x) {}
-      if (e.pointerType === "pen") penSeen = true;
       if (e.pointerType === "touch" && e.isPrimary) [...PTR.keys()].forEach(id => { if (id !== e.pointerId && PTR.get(id).type === "touch") PTR.delete(id); });
       if (e.pointerType === "touch" && touchPts().length >= 2) { cancelDraw(); gestStart(); return; }
       if (GEST || D) return;
       e.preventDefault();
       const s = local(e), w = toW(s);
-      if (e.button === 1 || spaceDown || T.tool === "hand" || (e.pointerType === "touch" && penSeen)) { D = {kind: "pan", id: e.pointerId, s, c: Object.assign({}, cam)}; frame.classList.add("panning"); return; }
+      if (e.button === 1 || spaceDown || T.tool === "hand" || (e.pointerType === "touch" && penSeen)) { D = {kind: "pan", id: e.pointerId, s, c: Object.assign({}, cam), rest: e.pointerType === "touch" && penSeen}; frame.classList.add("panning"); return; }
       if (e.pointerType === "mouse" && e.button !== 0) return;
       begin(e, s, w);
     });
@@ -828,6 +840,7 @@ var SBWB = null;
       if (D && D.kind === "erase") dirty(true);
     });
     const up = e => {
+      if (e.pointerId === penOn) { penOn = null; penUpAt = Date.now(); }
       PTR.delete(e.pointerId);
       if (GEST) { if (touchPts().length < 2) GEST = null; return; }
       if (!D || D.id !== e.pointerId) return;
@@ -892,7 +905,9 @@ var SBWB = null;
   function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} dirty(true); } }, 600); }
   function drag(e, s){
     const w = toW(s);
-    if (D.kind === "pan") { cam.x = D.c.x + s[0] - D.s[0]; cam.y = D.c.y + s[1] - D.s[1]; clampCam(); dirty(); return; }
+    // a finger only moves the board once it really moves (a hand settling on the screen doesn't nudge it)
+    if (D.kind === "pan" && D.rest && !D.moved) { if (Math.hypot(s[0] - D.s[0], s[1] - D.s[1]) < 12) return; D.moved = true; D.s = s; D.c = Object.assign({}, cam); }
+    if (D.kind === "pan") { D.moved = true; cam.x = D.c.x + s[0] - D.s[0]; cam.y = D.c.y + s[1] - D.s[1]; clampCam(); dirty(); return; }
     if (D.grabT && Math.hypot(s[0] - D.s0[0], s[1] - D.s0[1]) > 5) { clearTimeout(D.grabT); D.grabT = 0; }
     if (D.kind === "pen" || D.kind === "hl") {
       if (D.snapped) return;
@@ -1436,6 +1451,10 @@ var SBWB = null;
 .wb-pick{display:inline-flex;max-width:min(320px,100%);min-width:0}
 .wb-pick select{font:600 .92rem var(--display);height:34px;max-width:100%;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 12px;cursor:pointer}
 .wb-host{position:relative;min-height:420px;margin-top:4px}
+/* a hand resting on the screen while writing with a pencil mustn't select text anywhere on the page (that also cancels the
+   pencil's line): the whiteboard page doesn't select as text, except in boxes you type in */
+html:has(#wbHost) body,html:has(#wbHost) body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html:has(#wbHost) body :is(input,textarea,[contenteditable="true"]){-webkit-user-select:text;user-select:text}
 .wb-stage{position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;padding:10px 10px 8px;border-radius:18px;background:linear-gradient(180deg,#EEF1F4,#D4DAE1 60%,#C5CCD4);box-shadow:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 8px 24px rgba(20,30,45,.16)}
 .wb-stage.wb-dk{background:linear-gradient(180deg,#5B636E,#3E454E 60%,#353B43);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 24px rgba(0,0,0,.4)}
 .wb-frame{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:10px;background:#FDFEFE;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;cursor:crosshair}
