@@ -27,7 +27,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 79, w: 3.2},
         cheeks: {lx: 42.5, rx: 77.5, y: 77.5, w: 4.4, h: 2.8, color: "#FF7FA6"},
-        anchors: {top: [60, 44, 0.85, 0], neck: [60, 88, 0.95, 0, 45], chest: [71, 94, 0.6], back: [86, 68, 0.85], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 44, 0.85, 0], neck: [60, 88, 0.95, 0, 50, 45], chest: [71, 94, 0.6], back: [86, 68, 0.85], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi! I'm in full bloom for you!", "You're growing a little every day!", "You're blossoming beautifully, friend!", "Sun on your face, notes in hand! Yay!", "Tiny petals, big progress!", "Water, snack, then back to blooming?", "Spring into it! You've got this!"],
           pet: ["Hehe, that tickles my petals!", "Aww, thank you! I'm blooming!"],
@@ -65,7 +65,7 @@
         eyes: {lx: 51, rx: 69, y: 63, r: 5, style: "dot", color: "#2E2250"},
         mouth: {x: 60, y: 72, w: 3},
         cheeks: {lx: 44, rx: 76, y: 70.5, w: 4.2, h: 2.7, color: "#FF94BC"},
-        anchors: {top: [60, 43, 0.85, 0], neck: [60, 82, 0.95, 0, 45.5], chest: [70, 88, 0.6], back: [81, 58, 0.8], hands: [60, 81, 0.85]},
+        anchors: {top: [60, 43, 0.85, 0], neck: [60, 80.5, 0.8, 0, 36, 46], chest: [70, 88, 0.6], back: [81, 58, 0.8], hands: [60, 81, 0.85]},
         lines: {
           tap: ["Flutter flutter, hi hi!", "I'm so happy to see you!", "Light as a wing, you've got this!", "Little changes, big beautiful wings!", "Floating by to say you're amazing!", "Every step is a flutter forward!", "Little by little, you're soaring!"],
           pet: ["Hehe, wing hugs! Yay!", "My wings are all a-flutter!"],
@@ -100,7 +100,7 @@
         eyes: {lx: 49.5, rx: 70.5, y: 63, r: 4.5, style: "dot", color: "#2A2140"},
         mouth: {x: 60, y: 78.5, w: 2.6, style: "cat", color: "#2A2140"},
         cheeks: {lx: 42, rx: 78, y: 71, w: 4.4, h: 2.7, color: "#FF94B4"},
-        anchors: {top: [60, 39, 0.9, 0], neck: [60, 88, 1, 0, 52], chest: [74, 94.5, 0.62], back: [86, 64, 0.85], hands: [60, 90, 0.9]},
+        anchors: {top: [60, 39, 0.9, 0], neck: [60, 88, 1, 0, 57, 75], chest: [74, 94.5, 0.62], back: [86, 64, 0.85], hands: [60, 90, 0.9]},
         lines: {
           tap: ["Pop! Hi there, friend!", "Dig in! You're doing great!", "Deep roots, strong growth! That's you!", "Little tunnels, big progress!", "I really dig your study style!", "Water, snack, then back to it?", "Rest is part of growing, and you're growing!"],
           pet: ["Hehe, soft pats! I love it!", "Hehe, my nose is wiggling with joy!"],
@@ -158,7 +158,7 @@
         eyes: {lx: 49, rx: 71, y: 58, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 66, w: 3.2},
         cheeks: {lx: 41.5, rx: 78.5, y: 65, w: 4.2, h: 2.6, color: "#FF5C86"},
-        anchors: {top: [60, 33, 0.9, 0], neck: [59.5, 75, 1, 0, 58], chest: [71, 81, 0.6], back: [86, 62, 0.85], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 33, 0.9, 0], neck: [59.5, 75, 1, 0, 59.5, 58], chest: [71, 81, 0.6], back: [86, 62, 0.85], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Hi! Cool, sweet, and happy to see you!", "You're doing scoop-er work today!", "One scoop at a time, you've got this!", "Stay cool! You're on a roll!", "Sending you sprinkles of good luck!", "Sip some water! Even ice cream says so!", "Brain freeze? Nope, brain BREEZE!"],
           pet: ["Hehe, careful, I might melt!", "Aww, that's the cherry on top!"],
@@ -190,7 +190,7 @@
         eyes: {lx: 50, rx: 70, y: 64, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 73, w: 3.2},
         cheeks: {lx: 42.5, rx: 77.5, y: 72, w: 4.2, h: 2.6, color: "#FF4F72"},
-        anchors: {top: [60, 31.5, 0.8, 0], neck: [60, 85, 1.2, 0, 60], chest: [72, 91, 0.62], back: [85, 66, 0.85], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 31.5, 0.8, 0], neck: [60, 85, 1.2, 0, 64, 74], chest: [72, 91, 0.62], back: [85, 66, 0.85], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Hi! I'm so happy to see you!", "You're doing lovely work!", "Sweet work so far! Keep it up!", "Stay cool, stay sweet, stay awesome!", "Slice by slice, you've got this!", "Hydrate! Melons know best!", "Sending you the sunniest thoughts!"],
           pet: ["Hehe, that tickles my rind!", "Aww, sweet as summer!"],
@@ -223,7 +223,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 63, r: 5, style: "dot"},
         mouth: {x: 60, y: 72.5, w: 3.2},
         cheeks: {lx: 44, rx: 76, y: 71, w: 4.2, h: 2.6, color: "#FF8A9E"},
-        anchors: {top: [60, 31, 0.9, 0], neck: [60, 81.5, 1, 0, 54.5], chest: [72, 87.5, 0.61], back: [88, 52, 0.85], hands: [60, 86, 0.9]},
+        anchors: {top: [60, 31, 0.9, 0], neck: [60, 81.5, 1, 0, 64, 54], chest: [72, 87.5, 0.61], back: [88, 52, 0.85], hands: [60, 86, 0.9]},
         lines: {
           tap: ["Boing! Hi hi!", "Bouncing with joy for you!", "Keep the ball rolling! You're great!", "Sun's out, fun's out!", "You're totally on the ball today!", "Float on, superstar!", "Having a ball with you!"],
           pet: ["Boing boing! Hehe!", "Whee, spin me again!"],
@@ -268,7 +268,7 @@
         eyes: {lx: 50, rx: 70, y: 55, r: 5, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 70, w: 2.4, style: "cat", color: "#2B1A10"},
         cheeks: {lx: 42.5, rx: 77.5, y: 63.5, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 39, 0.95, 0], neck: [60, 79, 1.05, 0, 41.5], chest: [70, 86.5, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 39, 0.95, 0], neck: [60, 76, 1.05, 0, 44, 55], chest: [70, 83.5, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Oh, hi there! I'm so glad you came!", "It's wonderful to have you here!", "Tiptoe through it! You're doing great!", "Crunchy leaves, cozy notes, happy me!", "You're falling into a great rhythm!", "Water, snack, then back to it?", "Soft steps still get you there!"],
           pet: ["Hehe, that tickles my ears!", "Hehe, so cozy and warm!"],
@@ -300,7 +300,7 @@
         eyes: {lx: 50, rx: 70, y: 74, r: 4.8, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 83, w: 3, color: "#2B1A10"},
         cheeks: {lx: 43, rx: 77, y: 81.5, w: 4.2, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [60, 29.5, 1, 0], neck: [60, 93.5, 1.2, 0, 35], chest: [71, 99, 0.6], back: [86, 72, 0.85], hands: [60, 93, 0.85]},
+        anchors: {top: [60, 29.5, 1, 0], neck: [60, 93.5, 1.2, 0, 39, 35], chest: [71, 99, 0.6], back: [86, 72, 0.85], hands: [60, 93, 0.85]},
         lines: {
           tap: ["Hi! Snug in my cap and happy to see you!", "Mighty oaks start small, just like this!", "You're growing, little by little!", "Crisp air, clear mind, great you!", "Tiny acorn, big dreams, bigger you!", "Rest is part of growing too!", "Okay, you've totally got this!"],
           pet: ["Hehe, my cap! So happy!", "So cozy! Thank you, thank you!"],
@@ -327,7 +327,7 @@
         eyes: {lx: 51, rx: 69, y: 60, r: 4.8, style: "sparkle", color: "#3A1A0A"},
         mouth: {x: 60, y: 69, w: 3, color: "#3A1A0A"},
         cheeks: {lx: 44, rx: 76, y: 67.5, w: 4, h: 2.6, color: "#FF7A7A"},
-        anchors: {top: [60, 29, 0.8, 0], neck: [60, 78, 1, 0, 60], chest: [70, 84.5, 0.62], back: [88, 52, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 29, 0.8, 0], neck: [60, 78, 1, 0, 64, 70], chest: [70, 84.5, 0.62], back: [88, 52, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! I drifted by just to see you!", "Turning over a new leaf with you!", "You glow like golden hour!", "It's all falling into place!", "Crisp and cozy, that's you!", "Twirl, breathe, and keep shining!", "Every leaf lands softly, and so will you!"],
           pet: ["Whee, a leafy twirl!", "Hehe, I'm all rustly with joy!"],
@@ -372,7 +372,7 @@
         eyes: {lx: 50, rx: 70, y: 57, r: 4.6, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 67.5, w: 2.6, style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 65, w: 4.2, h: 2.6, color: "#FF9AA8"},
-        anchors: {top: [60, 37, 0.95, 0], neck: [60, 76.5, 1.05, 0, 42], chest: [70, 84, 0.7], back: [34, 90, 0.85], hands: [60, 93, 0.9]},
+        anchors: {top: [60, 37, 0.95, 0], neck: [60, 75, 1.05, 0, 47, 57], chest: [70, 82.5, 0.7], back: [34, 90, 0.85], hands: [60, 93, 0.9]},
         lines: {
           tap: ["Hi! Floating by to cheer you on!", "You're doing amazing!", "Hold my paw, we've got this!", "Ride the wave! You're doing great!", "Little splashes add up to big waves!", "Water, snack, then back to it?", "Calm seas, clear mind, brilliant you!"],
           pet: ["Aww, that's so nice! Happy otter!", "Hehe, my whiskers are wiggling!"],
@@ -405,7 +405,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 60, r: 5.4, style: "sparkle", color: "#2B1E30"},
         mouth: {x: 60, y: 68.5, w: 3.2},
         cheeks: {lx: 42.5, rx: 77.5, y: 67, w: 4.4, h: 2.8, color: "#FF6F8E"},
-        anchors: {top: [60, 19, 1, 0], neck: [60, 80, 1.15, 0, 25], chest: [73, 85.5, 0.6], back: [88, 52, 0.85], hands: [60, 82, 0.9]},
+        anchors: {top: [60, 19, 1, 0], neck: [60, 77.5, 0.95, 0, 60, 42], chest: [73, 85.5, 0.6], back: [88, 52, 0.85], hands: [60, 82, 0.9]},
         lines: {
           tap: ["Hi! I'm waving all eight arms!", "Cheering for you with every arm!", "You've got this, times eight!", "Go with the flow! You're doing great!", "Small waves make big tides!", "Water, snack, then back to it?", "You're doing amazing, sea buddy!"],
           pet: ["Eight-armed hug! Squeeze!", "Hehe, I'm blushing pink with joy!"],
@@ -446,7 +446,7 @@
         eyes: {lx: 51, rx: 69, y: 71, r: 4.6, style: "dot", color: "#0B2B33"},
         mouth: {x: 60, y: 79.5, w: 3, color: "#0B2B33"},
         cheeks: {lx: 44, rx: 76, y: 78, w: 4, h: 2.5, color: "#FF8FA3"},
-        anchors: {top: [60, 21.5, 0.7, 0], neck: [60, 88.5, 1, 0, 53], chest: [72, 95, 0.62], back: [85, 70, 0.85], hands: [60, 87, 0.85]},
+        anchors: {top: [60, 21.5, 0.7, 0], neck: [60, 88.5, 1, 0, 62, 57], chest: [72, 95, 0.62], back: [85, 70, 0.85], hands: [60, 87, 0.85]},
         lines: {
           tap: ["Hi! My light is on just for you!", "Shining your way! You're amazing!", "Steady as the shore, that's you!", "Every wave passes, and you stay strong!", "Guiding you, one bright page at a time!", "You light up the whole room!", "Keep that warm glow going!"],
           pet: ["Hehe, I'm all aglow!", "Beaming with joy!"],
@@ -492,7 +492,7 @@
         eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 69, w: 2.6, style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 66, w: 4.2, h: 2.6, color: "#FF8FB0"},
-        anchors: {top: [60, 38, 0.95, 0], neck: [60, 78, 1.05, 0, 41], chest: [69, 85.5, 0.7], back: [86, 90, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 38, 0.95, 0], neck: [60, 78, 1.05, 0, 49, 57], chest: [69, 85.5, 0.7], back: [86, 90, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Wan! Hi hi!", "Petals and pats, my favorite things!", "You're doing wonderfully!", "Big tail wags for your hard work!", "Bloom at your own pace! You're great!", "Water, snack, then back to it?", "I'm so proud of you, friend!"],
           pet: ["Wan wan! Happiest pup ever!", "Wiggly tail! So so happy!"],
@@ -519,7 +519,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 61, r: 4.6, style: "sparkle", color: "#5A2440"},
         mouth: {x: 60, y: 70, w: 2.8, color: "#5A2440"},
         cheeks: {lx: 45, rx: 75, y: 68, w: 3.8, h: 2.4, color: "#FF8FB5"},
-        anchors: {top: [60, 23.5, 0.8, 0], neck: [60, 78, 0.9, 0, 60], chest: [71, 84.5, 0.6], back: [86, 50, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 23.5, 0.8, 0], neck: [60, 78, 0.9, 0, 38, 65], chest: [71, 84.5, 0.6], back: [86, 50, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! A lucky petal, just for you!", "Bloom right where you are!", "Soft and steady, like spring!", "Every petal falls just right!", "Floating by with lots of good luck!", "Pause and breathe! So pretty out here!", "You're in full bloom today!"],
           pet: ["Hehe, petal shower!", "I'm blushing pink with joy!"],
@@ -553,7 +553,7 @@
         eyes: {lx: 49.5, rx: 70.5, y: 62, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 70.5, w: 3},
         cheeks: {lx: 42, rx: 78, y: 69, w: 4, h: 2.5, color: "#FF8FB0"},
-        anchors: {top: [60, 21, 0.85, 0], neck: [60, 79, 1.05, 0, 41], chest: [72, 86, 0.66], back: [85, 62, 0.85], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 21, 0.85, 0], neck: [60, 79, 1.05, 0, 45, 49], chest: [72, 86, 0.66], back: [85, 62, 0.85], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! Is it picnic time? Yay!", "Three cheers, one for each of my dango!", "Sweet and steady, that's you!", "You're on a roll today!", "Stick with it! You're amazing!", "Water, snack, then back to it?", "One bite at a time, and you're doing it!"],
           pet: ["Hehe, so squishy and happy!", "Aww, thank you! Triple happy!"],

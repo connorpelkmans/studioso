@@ -40,7 +40,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 79, r: 4.9, style: "dot", color: "#2E1A12"},
         mouth: {x: 60, y: 87.5, w: 3.1, color: "#2E1A12"},
         cheeks: {lx: 42, rx: 78, y: 86, w: 4.4, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [60, 19, 0.78, 0], neck: [60, 97.5, 1.1, 0, 60], chest: [76, 103.5, 0.6], back: [86, 76, 0.85], hands: [60, 97, 0.85]},
+        anchors: {top: [60, 19, 0.78, 0], neck: [60, 97.5, 1.1, 0, 64, 74], chest: [76, 103.5, 0.6], back: [86, 76, 0.85], hands: [60, 97, 0.85]},
         lines: {
           tap: ["Tick tock! Hi hi, my favorite person!", "You're right on the beat today!", "Steady tempo, big progress! Wow!", "Tick, tock, you rock! It's true!", "Every beat counts, and you're nailing it!", "You set the rhythm and I love it!", "Keeping time with you is the best!", "Allegro energy! Let's go go go!"],
           pet: ["Tick tick tick! That made me speed up!", "Hehe! My pendulum is all wiggly now!"],
@@ -76,7 +76,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 82, r: 4.8, style: "dot", color: "#2E1A12"},
         mouth: {x: 60, y: 90, w: 3, color: "#2E1A12"},
         cheeks: {lx: 42.5, rx: 77.5, y: 89, w: 4.3, h: 2.6, color: "#FF7F86"},
-        anchors: {top: [60, 19.5, 0.66, 0], neck: [60, 98.5, 0.9, 0, 53.5], chest: [74, 105, 0.62], back: [80, 58, 0.85], hands: [60, 99, 0.85]},
+        anchors: {top: [60, 19.5, 0.66, 0], neck: [60, 98.5, 0.9, 0, 55, 53.5], chest: [74, 105, 0.62], back: [80, 58, 0.85], hands: [60, 99, 0.85]},
         lines: {
           tap: ["Hello! You make my strings sing!", "You're playing beautifully today!", "Every practice makes a sweeter song!", "Bravo, bravo! Look at you go!", "You're in perfect tune with your goals!", "I'm humming a happy song for you!", "Your hard work sounds amazing!"],
           pet: ["Ooh! That made my strings hum!", "Hehe! A happy little vibrato!"],
@@ -113,7 +113,7 @@
         eyes: {lx: 50, rx: 70, y: 66, r: 5.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 74, w: 3},
         cheeks: {lx: 40.5, rx: 79.5, y: 73, w: 4.2, h: 2.6, color: "#FF9FB4"},
-        anchors: {top: [42, 40.5, 0.9, 0], neck: [56.5, 85, 1.3, 0, 60], chest: [97, 90.5, 0.6], back: [96, 56, 0.85], hands: [60, 82, 0.85]},
+        anchors: {top: [42, 40.5, 0.9, 0], neck: [56.5, 85, 1.3, 0, 64, 86.5], chest: [97, 90.5, 0.6], back: [96, 56, 0.85], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Plink plink! Hi there, superstar!", "You hit all the right notes today!", "Look at you, playing it by ear!", "Every key you press makes music!", "You're doing grand! Truly grand!", "Sharp mind, natural talent! That's you!", "My keys are tinkling just for you!"],
           pet: ["Plink! That tickled my high notes!", "Hehe! A happy little chord for you!"],
@@ -154,7 +154,7 @@
         eyes: {lx: 48, rx: 68, y: 67, r: 5.3, style: "dot", color: "#2B1A22"},
         mouth: {x: 58, y: 76, w: 3.2, color: "#2B1A22"},
         cheeks: {lx: 39.5, rx: 76.5, y: 75, w: 4.6, h: 2.8, color: "#FF4F73"},
-        anchors: {top: [55, 37.5, 0.72, 0], neck: [31, 83.5, 0.72, 0, 60], chest: [92, 90.5, 0.62], back: [28, 56, 0.8], hands: [58, 91, 0.85]},
+        anchors: {top: [55, 37.5, 0.72, 0], neck: [31, 83.5, 0.72, 0, 64, 90], chest: [92, 90.5, 0.62], back: [28, 56, 0.8], hands: [58, 91, 0.85]},
         lines: {
           tap: ["Zoom zoom! Hi, champ!", "You're off to a running start!", "Every step forward counts! Go go!", "Laced up and cheering for you!", "Look at you, crushing your stride!", "One more lap? You've totally got this!", "You're my favorite running buddy!", "Speedy progress today! Woohoo!"],
           pet: ["Hehe! That tickles my laces!", "Squeak squeak! Happy sneaker noises!"],
@@ -190,7 +190,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 70, r: 4.9, style: "dot", color: "#1F2E33"},
         mouth: {x: 60, y: 79, w: 3.1, color: "#1F2E33"},
         cheeks: {lx: 43, rx: 77, y: 78, w: 4.3, h: 2.7, color: "#FF9AA2"},
-        anchors: {top: [60, 36.5, 0.82, 0], neck: [60, 88.5, 1.05, 0, 58], chest: [80, 94.5, 0.62], back: [87, 62, 0.85], hands: [60, 97, 0.85]},
+        anchors: {top: [60, 36.5, 0.82, 0], neck: [60, 88.5, 1.05, 0, 61, 58], chest: [80, 94.5, 0.62], back: [87, 62, 0.85], hands: [60, 97, 0.85]},
         lines: {
           tap: ["Click! Hi! Right on time!", "You're making every minute count!", "New record for awesome! That's you!", "Tick tick! You're doing amazing!", "Time flies when you're this great!", "I clocked your effort. It's huge!", "Ready, set, you've got this!"],
           pet: ["Click click! That reset my smile!", "Hehe! My little hand is spinning!"],
@@ -231,7 +231,7 @@
         eyes: {lx: 51, rx: 69, y: 78, r: 4.7, style: "dot", color: "#2A2140"},
         mouth: {x: 60, y: 86, w: 3, color: "#2A2140"},
         cheeks: {lx: 43.5, rx: 76.5, y: 85, w: 4, h: 2.5, color: "#FF8FB0"},
-        anchors: {top: [60, 57.5, 0.85, 0], neck: [60, 95, 0.95, 0, 36.5], chest: [76, 101, 0.6], back: [60, 66, 0.8], hands: [60, 95, 0.82]},
+        anchors: {top: [60, 57.5, 0.85, 0], neck: [60, 95, 0.95, 0, 44, 36], chest: [76, 101, 0.6], back: [60, 66, 0.8], hands: [60, 95, 0.82]},
         lines: {
           tap: ["Hup! Hi hi, strong stuff!", "Your brain muscles are HUGE today!", "One more rep! You've totally got this!", "Look at you, getting stronger!", "Lifting you up, one cheer at a time!", "Every rep counts, and so do you!", "Feel that? That's progress!", "Pump it up! You're amazing!"],
           pet: ["Hehe! That's my favorite stretch!", "Ooh! I feel extra mighty now!"],
@@ -270,7 +270,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 41.5, r: 6.4, style: "round", color: "#2A2150"},
         mouth: {x: 60, y: 51, w: 3, color: "#2A2150"},
         cheeks: {lx: 36.5, rx: 83.5, y: 48.5, w: 4.6, h: 2.8, color: "#FF9FC0"},
-        anchors: {top: [61, 21.5, 0.98, 0], neck: [60, 60, 0.95, 0, 28], chest: [43, 65.5, 0.55], back: [86, 68, 0.8], hands: [60, 82, 0.82]},
+        anchors: {top: [61, 21.5, 0.98, 0], neck: [60, 59, 0.95, 0, 19, 65], chest: [43, 64.5, 0.55], back: [86, 68, 0.8], hands: [60, 82, 0.82]},
         lines: {
           tap: ["Hi hi! I'm irrationally happy to see you!", "You're doing infinitely well!", "3.14159 reasons to smile! Hehe!", "Your progress is off the charts!", "Every step adds up! I did the math!", "You're my favorite constant!", "That brain of yours is exponential!"],
           pet: ["Hehe! That tickles my curly swirls!", "Aww! My smile just went full circle!"],
@@ -302,7 +302,7 @@
         eyes: {lx: 43.5, rx: 64.5, y: 73, r: 5.4, style: "sparkle", color: "#2A2150"},
         mouth: {x: 54, y: 83, w: 3.3, color: "#2A2150"},
         cheeks: {lx: 33.5, rx: 74.5, y: 82, w: 4.6, h: 2.8, color: "#FF9FC4"},
-        anchors: {top: [62, 29.5, 0.98, 0], neck: [60.5, 93, 1.1, 0, 60], chest: [74, 99, 0.62], back: [90, 62, 0.9], hands: [54, 97, 0.88]},
+        anchors: {top: [62, 29.5, 0.98, 0], neck: [60, 93, 1.1, 0, 64, 80], chest: [74, 99, 0.62], back: [90, 62, 0.9], hands: [54, 97, 0.88]},
         lines: {
           tap: ["Hi! I'm a square, but you're super cool!", "You've got all the right angles!", "Building blocks of brilliance! That's you!", "Every side of me is cheering!", "Solid work today! Look at you!", "You make everything add up!", "Cube-tastic progress! Woohoo!"],
           pet: ["Hehe! My corners are so happy!", "Aww! That's a perfect six-sided hug!"],
@@ -339,7 +339,7 @@
         eyes: {lx: 51, rx: 69, y: 78, r: 4.9, style: "sparkle", color: "#3A1E2A"},
         mouth: {x: 60, y: 87, w: 3, color: "#3A1E2A"},
         cheeks: {lx: 43, rx: 77, y: 86, w: 4.3, h: 2.6, color: "#FF7F9C"},
-        anchors: {top: [60, 55.5, 0.82, 0], neck: [60, 96, 0.95, 0, 31.5], chest: [74, 102, 0.58], back: [92, 82, 0.75], hands: [60, 92, 0.82]},
+        anchors: {top: [60, 55.5, 0.82, 0], neck: [60, 96, 0.95, 0, 39, 32], chest: [74, 102, 0.58], back: [92, 82, 0.75], hands: [60, 92, 0.82]},
         lines: {
           tap: ["Hi! You make my spiral sparkle!", "Growing one chamber at a time, like you!", "You're golden! Golden ratio golden!", "Every little step spirals up!", "Look at you, growing so beautifully!", "You've got this! I believe in you!", "1, 1, 2, 3, 5, cheers for you!"],
           pet: ["Hehe! My tentacles are wiggling!", "Ooh! That made my shell shimmer!"],
@@ -383,7 +383,7 @@
         eyes: {lx: 50, rx: 70, y: 81, r: 4.8, style: "sparkle", color: "#3A1430"},
         mouth: {x: 60, y: 89.5, w: 3, color: "#3A1430"},
         cheeks: {lx: 42, rx: 78, y: 88.5, w: 4.2, h: 2.6, color: "#FFC2DC"},
-        anchors: {top: [60, 23, 0.7, 0], neck: [60, 97, 0.72, 0, 60], chest: [77, 104, 0.62], back: [84, 76, 0.85], hands: [60, 100, 0.85]},
+        anchors: {top: [60, 23, 0.7, 0], neck: [60, 97, 0.72, 0, 64, 73], chest: [77, 104, 0.62], back: [84, 76, 0.85], hands: [60, 100, 0.85]},
         lines: {
           tap: ["Fizz fizz! Hi, brilliant friend!", "You and studying have great chemistry!", "Bubbling over with pride for you!", "You're a total catalyst today!", "Every try is a great experiment!", "My bubbles are cheering for you!", "Look at you, reacting so well!", "Elementary, my dear! You're brilliant!"],
           pet: ["Fizz! That made me bubble over!", "Hehe! My bubbles are giggling!"],
@@ -413,7 +413,7 @@
         eyes: {lx: 51, rx: 69, y: 65, r: 5, style: "sparkle", color: "#163A36"},
         mouth: {x: 60, y: 74, w: 3, color: "#163A36"},
         cheeks: {lx: 43.5, rx: 76.5, y: 73, w: 4.2, h: 2.6, color: "#FF8FB0"},
-        anchors: {top: [60, 21, 0.62, 0], neck: [60, 83, 0.95, 0, 40.5], chest: [73, 89, 0.58], back: [84, 52, 0.8], hands: [60, 86, 0.82]},
+        anchors: {top: [60, 21, 0.62, 0], neck: [60, 83, 0.95, 0, 44, 40], chest: [73, 89, 0.58], back: [84, 52, 0.8], hands: [60, 86, 0.82]},
         lines: {
           tap: ["Hi hi! We have such great chemistry!", "You're bonding with your notes! Yay!", "Atom by atom, you're building greatness!", "You're positively brilliant!", "My atoms are spinning with joy!", "Totally stable, totally amazing! You!", "You and me, the perfect bond!"],
           pet: ["Hehe! That made my bonds wiggle!", "Ooh! I'm all energized now!"],
@@ -447,7 +447,7 @@
         eyes: {lx: 50, rx: 70, y: 75, r: 5, style: "dot", color: "#1F3A1E"},
         mouth: {x: 60, y: 84, w: 3.1, color: "#1F3A1E"},
         cheeks: {lx: 41.5, rx: 78.5, y: 83, w: 4.4, h: 2.7, color: "#FF9A8F"},
-        anchors: {top: [57, 18, 0.95, 0], neck: [60, 95, 1.25, 0, 59], chest: [78, 100.5, 0.62], back: [86, 62, 0.9], hands: [60, 99, 0.88]},
+        anchors: {top: [57, 18, 0.95, 0], neck: [60, 95, 1.25, 0, 59, 59], chest: [78, 100.5, 0.62], back: [86, 62, 0.9], hands: [60, 99, 0.88]},
         lines: {
           tap: ["Hi! I'm full to the brim with joy!", "You measure up wonderfully!", "Stirring up something great! Yay!", "Your effort is off the scale!", "Mixing in a big cheer for you!", "Every bit adds up! Measured and true!", "You're doing amazing, lab partner!"],
           pet: ["Hehe! That made me slosh happily!", "Ooh! My stir stick is twirling!"],

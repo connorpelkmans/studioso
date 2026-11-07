@@ -39,7 +39,7 @@
         eyes: {lx: 51, rx: 69, y: 70, r: 4.2, style: "sparkle", color: "#3A2010"},
         mouth: {x: 60, y: 79, w: 3, color: "#3A2010"},
         cheeks: {lx: 48, rx: 72, y: 77, w: 3.4, h: 2.2, color: "#FF8A70"},
-        anchors: {top: [61, 34, 0.9, 0], neck: [60, 98, 1, 0, 21], chest: [74, 104, 0.6], back: [88, 66, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [61, 34, 0.9, 0], neck: [60, 98, 1, 0, 21, 22], chest: [74, 104, 0.6], back: [88, 66, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Bonjour! Fresh from the oven, just for you!", "Flaky on the outside, focused on the inside!", "Fold by fold, your notes get better!", "You're rising beautifully, like good dough!", "A little butter, a lot of effort. Bravo!", "Ooh la la, look at you study!", "Golden ideas, warm and crisp!", "One more page, then a café au lait?"],
           pet: ["Hehe! Careful, I leave crumbs!", "Aww, warm and toasty now!"],
@@ -78,7 +78,7 @@
         eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "round", color: "#2E2230"},
         mouth: {x: 60, y: 72, w: 2.6, color: "#2E2230", style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 65, w: 4, h: 2.4, color: "#FFA6BE"},
-        anchors: {top: [60, 33.5, 0.9, 0], neck: [60, 80.5, 1, 0, 42.5], chest: [72, 86.5, 0.6], back: [84, 88, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 33.5, 0.9, 0], neck: [60, 80, 1, 0, 49, 55], chest: [72, 86, 0.6], back: [84, 88, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Bonjour! I fluffed my pom-poms for you!", "Neat notes, tidy desk, happy pup!", "Woof! Study time is my favorite time!", "You're doing it with style, as always!", "Sit, stay, focus! Good human!", "A stroll by the Seine after this?", "My tail wags for every page you read!", "Impeccable work. I approve!"],
           pet: ["Hehe! Mind the pom-poms!", "Aww! Wag wag wag!"],
@@ -116,7 +116,7 @@
         eyes: {lx: 50, rx: 70, y: 56, r: 4.6, style: "sparkle", color: "#4A2030"},
         mouth: {x: 60, y: 64, w: 3, color: "#4A2030"},
         cheeks: {lx: 42, rx: 78, y: 62, w: 4, h: 2.4, color: "#FF7A9A"},
-        anchors: {top: [60, 29.5, 0.9, 0], neck: [60, 73, 1, 0, 60], chest: [72, 79, 0.6], back: [90, 56, 0.8], hands: [60, 98, 0.84]},
+        anchors: {top: [60, 29.5, 0.9, 0], neck: [60, 73, 1, 0, 64, 69], chest: [72, 79, 0.6], back: [90, 56, 0.8], hands: [60, 98, 0.84]},
         lines: {
           tap: ["Bonjour! Sweet thoughts, crisp focus!", "Crunchy outside, soft heart, big cheers!", "You're the filling to my day!", "Pastel and proud of you!", "Tiny but mighty, just like your breaks!", "A raspberry on top of your hard work!", "Ooh la la, that's some sweet progress!", "Stack up the pages like a macaron tower!"],
           pet: ["Hehe! Don't squish my filling!", "Aww, sweeter than sugar!"],

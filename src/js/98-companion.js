@@ -5,9 +5,9 @@
   const DATA = typeof COMP_DATA !== "undefined" ? COMP_DATA : [];
   const GREET_KEY = "studyboard:comp:greeted";
 
-  /* The rig format */
+  /* The rig format (parts.over: art in front of anything worn on the body, e.g. a planet's ring; wearOnHead: a head with no neck showing, e.g. a cat in a cup, wears neck items in front of its head) */
   const PIVOT_PARTS = ["tail", "wingL", "wingR", "armL", "armR", "earL", "earR", "top"];
-  const STATIC_PARTS = ["back", "feet", "body", "head", "face", "hat"];
+  const STATIC_PARTS = ["back", "feet", "body", "over", "head", "face", "hat"];
   const POSES = ["stand", "sit", "float"];
   const EYE_STYLES = ["dot", "round", "sparkle"];
   const MOUTH_STYLES = ["smile", "cat"];
@@ -126,7 +126,8 @@
   // The scarf, the cape and its collar are drawn to a half-width hw, so they wrap the whole body (anchors.neck's 5th number: the body's width there)
   const scarfArt = hw => { const k = f1(hw * 0.45 - 9.5), e = f1(hw + 4), h = f1(hw - 2);
     return `<path d="M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z" ${WEAR} ${OUT(2.4)}/><path d="M${-h} -1.5Q0 5 ${h} -1.5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/><g${k ? ` transform="translate(${k} 0)"` : ""}><path d="M6 4L9 21L18 19.5L13 3Z" ${WEAR} ${OUT(2.4)}/><path d="M10.5 14.5L16 13.6" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/><path d="M10 21.4l-.4 2.6M13.4 20.8l-.2 2.6M16.6 20.2l.2 2.6" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="4" r="4.4" ${WEAR} ${OUT(2.4)}/></g>`; };
-  const capeArt = hw => { const b = f1(Math.max(28, hw + 8.5)), m = f1(b * 0.5), q = f1(b * 0.74), i = f1(hw * 0.57), j = f1(b * 0.53);
+  // the cape flares to at least bw (half-width), so it shows past a wide body (anchors.neck's 6th number: the body's widest point under the neck)
+  const capeArt = (hw, bw) => { const b = f1(Math.max(28, hw + 8.5, bw || 0)), m = f1(b * 0.5), q = f1(b * 0.74), i = f1(hw * 0.57), j = f1(b * 0.53);
     return `<path d="M${-hw} -3Q0 3 ${hw} -3L${b} 28Q${q} 34 ${m} 30Q${f1(m / 2)} 36 0 31Q${f1(-m / 2)} 36 ${-m} 30Q${-q} 34 ${-b} 28Z" ${WEAR} ${OUT(2.4)}/><path d="M${-i} 4Q${f1(-i * 1.5)} 16 ${-j} 27M${i} 4Q${f1(i * 1.5)} 16 ${j} 27M0 8V28" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>`; };
   const collarArt = hw => `<path d="M${-hw} -3Q0 3 ${hw} -3V0.5Q0 6.5 ${-hw} 0.5Z" fill="#FFD35A" ${OUT(2)}/><circle cx="0" cy="4" r="3" fill="#FFF8F0" ${OUT(1.6)}/><circle cx="-0.8" cy="3.2" r="0.9" fill="#fff"/>`;
   const ACC_ART = {
@@ -184,8 +185,8 @@
     };
     const worn = wornList(o.wear), tints = o.tint || cfg().tint || {};
     const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], ns = num(na[2]) ? na[2] : 1, capeA = [na[0], na[1], f1(ns * 0.95)];
-    // the body's width at the neck: the scarf's rounded ends and the collar reach just past its outline; the bow tie stays well inside it
-    const wrapW = num(na[4]) ? na[4] : 0, hwAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 1) / s - 2)) : 0, collarAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 0.4) / s)) : 0;
+    // the body's width at the neck: the scarf's rounded ends and the collar reach just past its outline (under a separate head the collar hugs the narrower neck); the bow tie stays well inside it
+    const wrapW = num(na[4]) ? na[4] : 0, drapeW = num(na[5]) ? na[5] : 0, hwAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 1) / s - 2)) : 0, collarAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + (partSvg(P.head) ? -3.5 : 0.4)) / s)) : 0;
     const bowA = wrapW ? [na[0], na[1], f1(Math.max(0.5, Math.min(ns, wrapW * 0.6 / 41))), na[3] || 0] : na;
     const chestA = pt(A.chest) ? [A.chest[0], A.chest[1], f1((num(A.chest[2]) ? A.chest[2] : 1) * 1.3)] : A.chest;
     // a medal hangs from the neck, so it sits in the middle (the star badge is pinned to one side)
@@ -205,9 +206,9 @@
     const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
     const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
-      <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2])) : ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
-        <g class="cp-bodyg">${g("body")}${bodyWear}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}</g>
-        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}
+      <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
+        <g class="cp-bodyg">${g("body")}${c.wearOnHead ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}</g>
+        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${c.wearOnHead ? bodyWear : ""}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}
           <g class="cp-zs"><text x="${f1((c.eyes.rx || 72) + 14)}" y="${f1((c.eyes.y || 60) - 12)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#8C87A8" stroke="#fff" stroke-width="3" paint-order="stroke">z</text><text x="${f1((c.eyes.rx || 72) + 22)}" y="${f1((c.eyes.y || 60) - 22)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="8" fill="#8C87A8" stroke="#fff" stroke-width="2.5" paint-order="stroke">z</text></g>
         </g>
       </g></svg>`;

@@ -2,7 +2,7 @@
 //   node tools/companion-wear-review.js --out <dir> [--only <id,...|theme,...>] [--rows 12] [--no-sheets]
 // Writes <dir>/wear-NN.png (one row per companion: bare, then each accessory) and <dir>/wear-report.json.
 // The check renders each companion three ways (no accessory, only the accessory, everything with the accessory in a flat colour)
-// and reports per item: vis (share of the accessory not hidden behind arms, wings...), on (share of it that sits on the character),
+// (each in its own clothing colour) and reports per item: vis (share of the accessory not hidden behind arms, wings...), on (share of it that sits on the character),
 // out (share outside the 120x120 drawing) and gap (pixels between it and the character, 0 = touching).
 "use strict";
 const http = require("http"), fs = require("fs"), path = require("path");
@@ -103,11 +103,11 @@ const ITEMS = ["scarf", "bowtie", "medal", "star", "cape", "glasses", "hat", "be
         host.insertAdjacentHTML("beforeend", `<div></div>` + cols.map(c => `<div style="text-align:center">${c}</div>`).join(""));
         chunk.forEach(c => {
           host.insertAdjacentHTML("beforeend", `<div style="display:flex;align-items:center;font-size:10px;word-break:break-all">${c.id}</div>`);
-          cols.forEach(it => host.insertAdjacentHTML("beforeend", `<div class="rv-art" style="background:#fff;border-radius:8px;${flagged.includes(c.id + " " + it) ? "box-shadow:inset 0 0 0 2px #E5484D" : ""}">${SBCOMP.rigSvg(c.id, {wear: it === "bare" ? [] : [it]})}</div>`));
+          cols.forEach(it => host.insertAdjacentHTML("beforeend", `<div class="rv-art" data-id="${c.id}" style="background:#fff;border-radius:8px;${flagged.includes(c.id + " " + it) ? "box-shadow:inset 0 0 0 2px #E5484D" : ""}">${SBCOMP.rigSvg(c.id, {wear: it === "bare" ? [] : [it]})}</div>`));
         });
         if (!document.getElementById("rvWearCss")) { const st = document.createElement("style"); st.id = "rvWearCss"; st.textContent = "#rvWear .rv-art{width:140px;height:140px;position:relative;overflow:hidden}#rvWear .rv-art>svg{position:absolute!important;left:17px;top:17px;width:106px!important;height:106px!important;overflow:visible;transform:none!important}#rvWear .cp-zs{display:none}"; document.head.appendChild(st); }
         document.body.appendChild(host);
-        host.querySelectorAll("svg").forEach(s => { s.dataset.e = "open"; s.dataset.prop = ""; s.style.setProperty("--cp-wear", "#5B7FD6"); });
+        host.querySelectorAll(".rv-art").forEach((a, i) => { const s = a.querySelector("svg"); if (!s) return; s.dataset.e = "open"; s.dataset.prop = ""; s.style.setProperty("--cp-wear", SBCOMP.wearColorOf(a.dataset.id) || "#5B7FD6"); });
       }, [chunk, cols, [...fl]]);
       await page.waitForTimeout(150);
       const name = `wear-${String(s + 1).padStart(2, "0")}.png`;

@@ -39,7 +39,7 @@
         eyes: {lx: 47, rx: 73, y: 56, r: 5, style: "sparkle", color: "#2B1A2E"},
         mouth: {x: 60, y: 75, w: 3.6, color: "#2B1A2E"},
         cheeks: {lx: 38, rx: 82, y: 70, w: 3.6, h: 2.2, color: "#FF8FB8"},
-        anchors: {top: [60, 20, 1, 0], neck: [60, 86, 0.95, 0, 37.5], chest: [70, 93, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 20, 1, 0], neck: [60, 86, 0.95, 0, 40, 51], chest: [70, 93, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["¡Hola! I iced a flower just for you!", "Sweet as sugar, sharp as a pencil!", "Your memory is getting stronger!", "Every page you study is worth remembering!", "Look at you go! So colorful!", "A big sugary smile for your hard work!", "Remember: you're doing amazing!", "Marigolds, candles and you, all glowing!"],
           pet: ["Hehe! Careful, my icing tickles!", "Aww, so sweet! Sweeter than me!"],
@@ -79,7 +79,7 @@
         eyes: {lx: 48, rx: 72, y: 52, r: 4.8, style: "round", color: "#1E1A28"},
         mouth: {x: 60, y: 67.5, w: 3.4, color: "#1E1A28"},
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF9AB8"},
-        anchors: {top: [60, 31, 0.95, 0], neck: [60, 78, 1, 0, 43], chest: [72, 85, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 78, 1, 0, 49, 55], chest: [72, 85, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Woof! Hi hi hi! I'm so happy you're here!", "My ears are up! That means I'm listening!", "You're my favorite study buddy!", "Good human! Great studying!", "Tail wags for every page you read!", "I'll guard your focus. Nobody gets past!", "Sniff sniff. Smells like success!", "Big ears, big heart, big cheers for you!"],
           pet: ["Hehe! Ear scratches are the best!", "Woof! More pats please!"],
@@ -110,7 +110,7 @@
         eyes: {lx: 51, rx: 69, y: 57, r: 4.6, style: "sparkle", color: "#3A1A08"},
         mouth: {x: 60, y: 66, w: 3, color: "#3A1A08"},
         cheeks: {lx: 44, rx: 76, y: 64, w: 3.8, h: 2.4, color: "#FF7A6A"},
-        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 74.5, 0.9, 0, 60], chest: [70, 81, 0.6], back: [86, 50, 0.8], hands: [60, 88, 0.8]},
+        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 74.5, 0.9, 0, 64, 66], chest: [70, 81, 0.6], back: [86, 50, 0.8], hands: [60, 88, 0.8]},
         lines: {
           tap: ["Hi! I'm lighting up your way today!", "Bloom where you study!", "Your ideas are as bright as my petals!", "Follow the petals, you'll find the answer!", "Golden-orange cheers for you!", "Every page is a petal on your path!", "Shine on! Brighter every day!", "You make this whole street glow!"],
           pet: ["Hehe! My petals are fluttering!", "Aww, I'm blooming with joy!"],
@@ -147,7 +147,7 @@
         eyes: {lx: 50, rx: 70, y: 72, r: 5, style: "sparkle", color: "#3A1A3A"},
         mouth: {x: 60, y: 82, w: 3.2, color: "#3A1A3A"},
         cheeks: {lx: 42, rx: 78, y: 80, w: 4.2, h: 2.6, color: "#FF6AA8"},
-        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 91, 1, 0, 60], chest: [72, 97.5, 0.62], back: [88, 62, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 91, 1, 0, 64, 62.5], chest: [72, 97.5, 0.62], back: [88, 62, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Poof! Hi! A little rainbow for you!", "You're bringing so much color to today!", "Bright mind, bright day!", "Every page adds a new color!", "Puff puff! You're doing great!", "Let's paint this chapter every color!", "Happy, fluffy cheers for you!", "Sprinkle, sprinkle, here comes success!"],
           pet: ["Poof! Now your hands are rainbow!", "Hehe! I'm all fluffed up!"],
@@ -185,7 +185,7 @@
         eyes: {lx: 48, rx: 72, y: 54, r: 4.6, style: "sparkle", color: "#2A2440"},
         mouth: {x: 49, y: 68, w: 2.6, color: "#2A2440"},
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF7AB8"},
-        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 76, 1, 0, 45], chest: [72, 82.5, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 76, 1, 0, 49, 57], chest: [72, 82.5, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
         lines: {
           tap: ["Toot! Hi! Look at all my colors!", "I'm painted for good luck, and so are you!", "Big ears, big ideas, big cheers!", "You're doing trunk-tastic!", "Every color on me is a cheer for you!", "Stomp stomp! Look how far you've come!", "An elephant never forgets, and neither will you!", "You make my whole day colorful!"],
           pet: ["Toot toot! That tickles my ears!", "Hehe! More pats, please!"],
@@ -219,7 +219,7 @@
         eyes: {lx: 50, rx: 70, y: 64, r: 4.6, style: "sparkle", color: "#1E2A48"},
         mouth: {x: 60, y: 73, w: 3, color: "#1E2A48"},
         cheeks: {lx: 43, rx: 77, y: 71, w: 3.8, h: 2.4, color: "#FF8AC8"},
-        anchors: {top: [60, 49.5, 0.9, 0], neck: [60, 82, 0.95, 0, 55], chest: [72, 88.5, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
+        anchors: {top: [60, 49.5, 0.9, 0], neck: [60, 82, 0.95, 0, 63, 55], chest: [72, 88.5, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Psssht! Hi! A tiny splash hello!", "Pump it up! You're doing great!", "Splish splash, look at you go!", "I'm full of colorful cheers!", "Keep going and I'll spray a rainbow!", "Fresh, bright and ready to help!", "One more page, one more splash!", "You're making a big splash today!"],
           pet: ["Hehe! Careful, I might spritz you!", "Psssht! Happy little bubbles!"],
@@ -264,7 +264,7 @@
         eyes: {lx: 53, rx: 67, y: 64, r: 3.8, style: "sparkle", color: "#3A1A10"},
         mouth: {x: 60, y: 73, w: 2.6, color: "#3A1A10"},
         cheeks: {lx: 47, rx: 73, y: 71, w: 3, h: 2, color: "#FFB0A0"},
-        anchors: {top: [60, 23.5, 0.9, 0], neck: [60, 81.5, 0.95, 0, 45], chest: [70, 87.5, 0.6], back: [84, 60, 0.8], hands: [60, 92, 0.86]},
+        anchors: {top: [60, 23.5, 0.9, 0], neck: [60, 81.5, 0.95, 0, 53, 54], chest: [70, 87.5, 0.6], back: [84, 60, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Hello! I've got a little light for you!", "Every page you read makes me glow brighter!", "Look at the stars I'm throwing on the wall!", "Warm light, kind heart, clear mind!", "You're shining tonight!", "Little by little, the whole street lights up!", "Patience and light, that's the way!", "So glad to glow beside you!"],
           pet: ["Hehe! My glass panes are blushing!", "Aww, that makes my flame dance!"],
@@ -294,7 +294,7 @@
         eyes: {lx: 37, rx: 48, y: 57, r: 3.8, style: "dot", color: "#3A2A10"},
         mouth: {x: 42.5, y: 65.5, w: 2.6, color: "#3A2A10"},
         cheeks: {lx: 33, rx: 52, y: 63.5, w: 3, h: 1.8, color: "#FF9AB0"},
-        anchors: {top: [52, 27.5, 0.9, 0], neck: [60.5, 92, 0.85, 0, 29.5], chest: [62, 97.5, 0.55], back: [70, 70, 0.7], hands: [58, 100, 0.8]},
+        anchors: {top: [52, 27.5, 0.9, 0], neck: [60, 92, 0.85, 0, 29, 30], chest: [62, 97.5, 0.55], back: [70, 70, 0.7], hands: [58, 100, 0.8]},
         lines: {
           tap: ["Good evening! Right on time, as always!", "I rise every night, and so do you!", "Small and bright, that's the way!", "Your effort shines like starlight!", "Patience grows into something full!", "A little glow, every single day!", "The stars are cheering with me!", "You're as steady as the moon!"],
           pet: ["Hehe! My tips are curling up!", "Aww, that's a warm, glowy feeling!"],
@@ -326,7 +326,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "sparkle", color: "#3A2414"},
         mouth: {x: 60, y: 80, w: 3, color: "#3A2414"},
         cheeks: {lx: 42, rx: 78, y: 78, w: 4, h: 2.4, color: "#FF9AA8"},
-        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 89, 1, 0, 60], chest: [72, 95.5, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 89, 1, 0, 63, 60], chest: [72, 95.5, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hello! Freshly baked and ready to help!", "A sprinkle of sugar for your hard work!", "Sweet things take patience. Like you!", "Stamped with a pattern of good luck!", "You're doing wonderfully, crumb by crumb!", "Powdered sugar cheers for you!", "Every page, a little sweeter!", "Best shared with friends, like this study time!"],
           pet: ["Hehe! Careful, sugar everywhere!", "Aww, warm hands, warm cookie!"],
@@ -372,7 +372,7 @@
         eyes: {lx: 49, rx: 71, y: 58, r: 4.6, style: "round", color: "#2A3A34"},
         mouth: {x: 60, y: 69, w: 2.8, color: "#2A3A34"},
         cheeks: {lx: 42, rx: 78, y: 66, w: 4, h: 2.4, color: "#FFA6BE"},
-        anchors: {top: [60, 33.5, 0.95, 0], neck: [60, 80, 1, 0, 47], chest: [72, 86.5, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 33.5, 0.95, 0], neck: [60, 80, 1, 0, 53, 59], chest: [72, 86.5, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hello from the moon! I hopped down to see you!", "Tap, tap! Working through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
           pet: ["Hehe! My ears are wiggling!", "Aww, softer than moonlight!"],
@@ -404,7 +404,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "sparkle", color: "#3A2010"},
         mouth: {x: 60, y: 80, w: 3, color: "#3A2010"},
         cheeks: {lx: 43, rx: 77, y: 78, w: 4, h: 2.4, color: "#FF8A80"},
-        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 89, 1, 0, 60], chest: [72, 95.5, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 89, 1, 0, 64, 64], chest: [72, 95.5, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hi! I'm stamped with luck, just for you!", "Round and golden, like your bright ideas!", "Sweet filling, sweet effort!", "Share a slice of focus with me!", "You're on a roll! A round one!", "Every bite of study counts!", "Moonlight and mooncakes, perfect study night!", "Lucky pattern, lucky you!"],
           pet: ["Hehe! My crust is all warm now!", "Aww, so sweet! Sweeter than my filling!"],
@@ -437,7 +437,7 @@
         eyes: {lx: 52, rx: 68, y: 66, r: 4.4, style: "sparkle", color: "#3A2008"},
         mouth: {x: 60, y: 75, w: 3, color: "#3A2008"},
         cheeks: {lx: 46, rx: 74, y: 73, w: 3.6, h: 2.2, color: "#FF8A6A"},
-        anchors: {top: [60, 31.5, 0.85, 0], neck: [60, 83.5, 0.9, 0, 60], chest: [70, 90, 0.6], back: [86, 56, 0.8], hands: [60, 94, 0.82]},
+        anchors: {top: [60, 31.5, 0.85, 0], neck: [60, 83.5, 0.9, 0, 64, 65.5], chest: [70, 90, 0.6], back: [86, 56, 0.8], hands: [60, 94, 0.82]},
         lines: {
           tap: ["Hello! Mmm, smells like honey in here!", "Tiny flower, giant cheers for you!", "Your ideas are blooming!", "Sweet scents and sweet success!", "Little petals add up to a whole tree!", "Golden thoughts for a golden student!", "You make the whole garden smell sweeter!", "Bloom, bloom, keep going!"],
           pet: ["Hehe! Now you smell like honey too!", "Aww, my petals are all fluttery!"],
