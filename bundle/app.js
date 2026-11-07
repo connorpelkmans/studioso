@@ -62023,7 +62023,7 @@ var COMP_KIT = (() => {
     theme: "france",
     companions: [
       {
-        id: "france-coco", name: "Coco", kind: "Croissant", pose: "stand", wearColor: "#C8463E",
+        id: "france-coco", name: "Coco", kind: "Croissant", pose: "stand", wearOnHead: true, wearColor: "#C8463E",
         bio: "A flaky golden croissant, folded with care just like your notes.",
         idle: ["topBob", "sway", "headTilt"], cheer: "bounce",
         neck: [60, 88],
@@ -62051,7 +62051,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 70, r: 4.2, style: "sparkle", color: "#3A2010"},
         mouth: {x: 60, y: 79, w: 3, color: "#3A2010"},
         cheeks: {lx: 48, rx: 72, y: 77, w: 3.4, h: 2.2, color: "#FF8A70"},
-        anchors: {top: [61, 34, 0.9, 0], neck: [60, 100.5, 1, 0, 21, 20], chest: [74, 104, 0.6], back: [88, 66, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [61, 34, 0.9, 0], neck: [60, 87, 0.9, 0, 40, 60], chest: [74, 104, 0.6], back: [88, 66, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Bonjour! Fresh from the oven, just for you!", "Flaky on the outside, focused on the inside!", "Fold by fold, your notes get better!", "You're rising beautifully, like good dough!", "A little butter, a lot of effort. Bravo!", "Ooh la la, look at you study!", "Golden ideas, warm and crisp!", "One more page, then a café au lait?"],
           pet: ["Hehe! Careful, I leave crumbs!", "Aww, warm and toasty now!"],
