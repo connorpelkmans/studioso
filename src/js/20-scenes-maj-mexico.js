@@ -44,7 +44,7 @@
       glow: ["linear-gradient(180deg,#8CCBF0,#E4F2F6 45%,#FCE2C6)", "linear-gradient(180deg,#0F1636,#2A2458 45%,#6A3458)"],
       spine: [lg("#C2456E", "#7E2848"), lg("#2A2458", "#0F1636")], btn: [lg2("#C2456E", "#E07A3A"), lg2("#F2A2C0", "#F6C88A")]},
     kit: {motif: "mexicotile", card: ["#FFFBF5", "#F6E6EC"], ink: "#2E1E2A", bd: "#EBCFD8", mc: "#C2456E", r: 14, notes: ["#FFE2EC", "#FFF1B8", "#DDF2CC", "#D6E4FF", "#FFDCC8", "#E8DCFF"], shape: "torn", pin: "tape", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "mexicoconfetti", ["#E2468C", "#F4B23A", "#3462B6", "#8CC24E", "#F27A5A", "#2AAEB0"], [[0.12, 1.02], [0.88, 1.02]], {smin: 7, smax: 10, flip: true}).map(p => Object.assign(p, {vx: p.vx * 0.8, vy: p.vy * 0.92, g: 0.14, term: fxR(1.3, 1.9), fsw: fxR(0.8, 1.4), life: 280}))
+    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "mexicoconfetti", ["#E2468C", "#F4B23A", "#3462B6", "#8CC24E", "#F27A5A", "#2AAEB0"], [[0.12, 1.02], [0.88, 1.02]], {smin: 8.5, smax: 11.5, flip: true}).map(p => Object.assign(p, {vx: p.vx * 0.8, vy: p.vy * 0.92, g: 0.14, term: fxR(1.3, 1.9), fsw: fxR(0.8, 1.4), life: 280}))
       .concat(fxFall(W, H, n(26), "mexicojac", d ? ["#8070C8", "#9A8ADA", "#B4A2F0"] : ["#9C88E6", "#B4A2F0", "#8070D6"], {sway: 1.6, flip: true, smin: 8, smax: 11, vmin: 0.9, vmax: 1.6}).map(p => Object.assign(p, {delay: p.delay + 40})),
         fxTw(W, H, n(14), "sparkle", d ? ["#FFE6A6", "#FFFFFF"] : ["#F4B23A", "#FFFFFF"], {smin: 3, smax: 6, glow: d ? 10 : 6})),
       draw: papelDraw},

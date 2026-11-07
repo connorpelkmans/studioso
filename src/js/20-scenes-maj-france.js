@@ -23,13 +23,6 @@
   const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
   const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
   const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
-  // a macaron from the side: two domed shells with ruffled feet and a cream filling
-  Object.assign(FX_SHAPES, {
-    francemac: {d: ell(0, -4, 9.4, 4.4) + ell(0, 4, 9.4, 4.4) + "M-9 -1.4H9V1.4H-9Z", paint: (g, c) => { const dk = mix(c, "#000000", 0.18), fill = c === "#B98A6A" ? "#5A3A2A" : mix(c, "#FFF8EE", 0.75);
-      const shell = (y0, up) => { g.fillStyle = c; g.beginPath(); g.moveTo(-9.6, y0); g.bezierCurveTo(-9.6, y0 + (up ? -7 : 5.6), 9.6, y0 + (up ? -7 : 5.6), 9.6, y0); g.closePath(); g.fill(); g.fillStyle = mix(c, "#FFFFFF", 0.22); for (let x = -8.8; x <= 8.8; x += 1.3) { oval(g, x, y0 + (up ? 0.4 : -0.4), 0.8, 0.75); g.fill(); } };
-      shell(2.4, false); g.fillStyle = fill; g.beginPath(); g.moveTo(-8.8, -1.6); g.quadraticCurveTo(-9.6, 0.4, -8.8, 2.4); g.lineTo(8.8, 2.4); g.quadraticCurveTo(9.6, 0.4, 8.8, -1.6); g.closePath(); g.fill(); shell(-1.6, true);
-      sheen(g, 0.36, 0.2); g.fillStyle = "rgba(255,255,255,.5)"; oval(g, -3.6, -5.2, 3, 0.8, -0.12); g.fill(); g.strokeStyle = dk; g.globalAlpha = 0.25; g.lineWidth = 0.3; g.beginPath(); g.moveTo(-9, 2.4); g.lineTo(9, 2.4); g.stroke(); }}
-  });
   // The tower rises into view at the side and does its famous hourly sparkle: hundreds of little lights flicker all over
   // its lattice while (at night) the beacon at the top sweeps the sky. The tower is drawn once into its own canvas.
   const twr = {};

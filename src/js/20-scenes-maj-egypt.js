@@ -63,11 +63,6 @@
       if (halo) { g.globalAlpha = a * (sp.haloA || 0.12); g.drawImage(halo, -halo._half * 1.5, -halo._half * 1.1, halo._half * 3, halo._half * 2.2); g.globalAlpha = a * (b.alpha || 1); }
       flyBird(g, sp, ph, amp * (sp.amp || 1)); g.restore(); }); g.globalAlpha = 1; };
   const IBIS = {body: "#FFFFFF", belly: "#E8E2D8", wing: "#FBF9F4", tip: "#1E1A1C", tipLen: 0.42, tail: "#2A2426", tailL: 0.9, head: "#1E1A1C", neck: 3.2, hr: 1.6, beak: [6.6, 0.9, 2.6, "#2A2224"], legs: "#3A3032", wl: 1.25, line: "rgba(70,56,40,.4)", halo: "#FFE6B0", bob: 0.7};
-  // a blue water lily opening above its pad
-  FX_SHAPES.egyptlily = {d: FX_SHAPES.egyptlotus.d, paint: (g, c) => { g.fillStyle = "#4E9A5A"; g.beginPath(); g.moveTo(-10, 7.4); g.quadraticCurveTo(0, 3.6, 10, 7.4); g.quadraticCurveTo(0, 10.6, -10, 7.4); g.fill();
-    [[-1.05, 9.6, 0.82], [1.05, 9.6, 0.82], [-0.55, 12.6, 1], [0.55, 12.6, 1], [0, 15, 1.08]].forEach(([a, L, k]) => { g.save(); g.translate(0, 6); g.rotate(a); const gr = g.createLinearGradient(0, 0, 0, -L); gr.addColorStop(0, "#F6E2A0"); gr.addColorStop(0.35, mix(c, "#FFFFFF", 0.35)); gr.addColorStop(1, mix(c, "#000000", 0.12 * (2 - k)));
-      g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-3, -L * 0.35, -1.8, -L * 0.8, 0, -L); g.bezierCurveTo(1.8, -L * 0.8, 3, -L * 0.35, 0, 0); g.fill(); g.strokeStyle = "rgba(255,255,255,.4)"; g.lineWidth = 0.3; g.beginPath(); g.moveTo(0, -1); g.lineTo(0, -L * 0.8); g.stroke(); g.restore(); });
-    g.fillStyle = "#F2C24A"; oval(g, 0, 5.2, 2, 1); g.fill(); }};
   const ibisDraw = flockDraw(IBIS, 292);
   // the sun disc of Ra swells up out of the haze with slow-turning rays behind it, and the ibis fly across in front
   const sunDraw = (g, f, W, H, d) => { const a = fxEase(f / 45) * fxOut(f, 200, 285); if (a <= 0) return; const ph = W < H, R = Math.min(W, H) * (ph ? 0.12 : 0.095), cx = W * (ph ? 0.64 : 0.66), cy = H * (ph ? 0.22 : 0.25) + (1 - fxEase(f / 140)) * H * 0.05;
@@ -85,10 +80,10 @@
       glow: ["linear-gradient(180deg,#9CCBEA,#F4E6C6 45%,#F6C98A)", "linear-gradient(180deg,#0C1232,#1E2050 45%,#4E3260)"],
       spine: [lg("#2F5E96", "#1D3D6A"), lg("#2A2E66", "#14163A")], btn: [lg2("#B0641C", "#D9962E"), lg2("#F2C462", "#F7DC94")]},
     kit: {motif: "egyptpyr", card: ["#FFFAF0", "#F6E6CC"], ink: "#2A2216", bd: "#E8D0A8", mc: "#B0641C", r: 12, notes: ["#F6E2BC", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "folded", pin: "gold", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => { const k = Math.max(3, Math.min(9, n(9) | 1)), sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), gap = 52 * sc, rm = (k - 1) / 2, dep = rm * gap / W, y0 = fxR(0.3, 0.36);
+    fx: {spawn: (W, H, d, n) => { const k = Math.max(3, Math.min(9, n(9) | 1)), sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), bs = W < H ? 17 : 21, gap = 2.5 * bs * sc, rm = (k - 1) / 2, dep = rm * gap / W, y0 = fxR(0.3, 0.36);
         // a V of ibis: the leader flies a long gentle curve over the sun, the others hold their places behind it
-        flock = Array.from({length: k}, (_, i) => { const r = Math.ceil(i / 2), sd = i % 2 ? -1 : 1, ox = -r * gap / W, oy = sd * r * gap * 0.42 / H + (sd < 0 ? -0.004 : 0);
-          return {P: [[-0.1 + ox, y0 + oy], [0.3 + ox, y0 - 0.1 + oy], [0.6 + ox, y0 - 0.1 + oy], [1.12 + dep + ox, y0 - 0.16 + oy]], t0: 6, T: 250, fr: fxR(0.16, 0.18), ph: i * 0.9 + fxR(0, 0.6), size: 21 - r * 0.6, alpha: 1}; });
+        flock = Array.from({length: k}, (_, i) => { const r = Math.ceil(i / 2), sd = i % 2 ? -1 : 1, ox = -r * gap / W, oy = sd * r * gap * 0.55 / H + (sd < 0 ? -0.004 : 0);
+          return {P: [[-0.1 + ox, y0 + oy], [0.3 + ox, y0 - 0.1 + oy], [0.6 + ox, y0 - 0.1 + oy], [1.12 + dep + ox, y0 - 0.16 + oy]], t0: 6, T: 250, fr: fxR(0.16, 0.18), ph: i * 0.9 + fxR(0, 0.6), size: bs - r * 0.6, alpha: 1}; });
       return fxTw(W, H, n(34), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#F2C462"] : ["#E0A040", "#F2B53A", "#FFFFFF"], {smin: 3, smax: 7, glow: d ? 10 : 6, spread: 150}).map(p => Object.assign(p, {y: H * fxR(0.45, 0.98)}))
         .concat(fxRise(W, H, n(16), "circle", d ? ["#FFE3A8", "#F7DC94"] : ["#E8A848", "#F2C46A"], {smin: 1.6, smax: 3, vmin: 0.4, vmax: 0.9, sway: 0.7, life: 220, spread: 90, glow: d ? 8 : 4, alpha: 0.8})); },
       len: 300, draw: (g, f, W, H, d) => { sunDraw(g, f, W, H, d); ibisDraw(g, f, W, H, d); }},

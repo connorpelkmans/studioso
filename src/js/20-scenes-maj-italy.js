@@ -41,8 +41,8 @@
     gr.addColorStop(0, `rgba(${rgb},1)`); gr.addColorStop(0.5, `rgba(${rgb},.5)`); gr.addColorStop(1, `rgba(${rgb},0)`); p.fillStyle = gr; p.fillRect(0, 0, 48, 48); return c; })());
   const TOSS = 96, LAND = TOSS + 4;
   let PZ = null;
-  const pzBuild = (W, H) => { const ph = W < H, R = Math.min(W * (ph ? 0.37 : 0.36), H * 0.25), cx = W / 2, cy = H * (ph ? 0.6 : 0.62); let sd = 5; const rnd = () => (sd = sd * 16807 % 2147483647) / 2147483647, pol = (r, a) => [Math.cos(a) * r, Math.sin(a) * r];
-    const y0 = H + R * 0.9, yp = Math.max(R * 0.75, H * (ph ? 0.26 : 0.24)), q = Math.sqrt((cy - yp) / (y0 - yp)), tp = TOSS / (1 + q), k = (y0 - yp) / (tp * tp);
+  const pzBuild = (W, H) => { const ph = W < H, R = Math.min(W * (ph ? 0.22 : 0.21), H * 0.145), cx = W / 2, cy = (ph ? H * 0.635 : H * 0.565) + R * 1.06; let sd = 5; const rnd = () => (sd = sd * 16807 % 2147483647) / 2147483647, pol = (r, a) => [Math.cos(a) * r, Math.sin(a) * r];
+    const y0 = H + R * 0.9, yp = H * (ph ? 0.46 : 0.4), q = Math.sqrt((cy - yp) / (y0 - yp)), tp = TOSS / (1 + q), k = (y0 - yp) / (tp * tp);
     const cheese = Array.from({length: 7}, (_, i) => { const a = i * 0.898 * 1 + rnd() * 0.5, r = i ? 0.3 + rnd() * 0.32 : 0.04; return {p: pol(r, a), r: 0.13 + rnd() * 0.05, t: 134 + i * 5 + rnd() * 3, n: Array.from({length: 10}, () => 0.82 + rnd() * 0.3), sp: [pol(rnd() * 0.5, rnd() * 6.3), pol(rnd() * 0.6, rnd() * 6.3)]}; });
     const basil = Array.from({length: 5}, (_, i) => { const a = i * 1.2566 + 0.6 + rnd() * 0.4, r = 0.26 + rnd() * 0.3; return {p: pol(r, a), rot: a + 1.2 + rnd(), sz: 0.13 + rnd() * 0.04, t: 164 + i * 6}; });
     const spots = Array.from({length: 26}, () => { const a = rnd() * 6.3, r = 0.88 + rnd() * 0.09; return {p: pol(r, a), r: 0.012 + rnd() * 0.028, a}; });
