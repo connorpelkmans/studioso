@@ -306,3 +306,8 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 
 /* Due Dates: the Timeline / Month switch sits at the right end of its row */
 #view .tl-tools > .segb[aria-label="View"]{order:99;margin-left:auto}
+
+/* iPad held sideways: the side menu starts below the clock and battery, so they don't cover the Studyboard logo */
+@media (min-width:701px) and (orientation:landscape) and (pointer:coarse){
+  nav.tabs > .nav-brand{margin-top:env(safe-area-inset-top,0px)}
+}
