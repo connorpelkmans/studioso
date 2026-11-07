@@ -2760,7 +2760,7 @@ function sbSetupSheet(){
   const cur = sbCustom() || !SB_HOSTED ? (sbConfig() || {url: "", key: ""}) : {url: "", key: ""};
   openSheet(`<form class="sheet sb-acct">${head(SB_HOSTED ? "Custom Server" : "Welcome to Studyboard")}
     <div class="sheet-body">
-      <p style="margin:0">${SB_HOSTED ? "You're using your own server instead of Studyboard's. Change it here, or switch back to a Studyboard account." : "Save your tasks, notes and files online so they sync across your devices and stay safe if this browser is cleared. Enter your server details from the setup guide, or keep everything on this device."}</p>
+      <p style="margin:0">${SB_HOSTED ? "You're using your own server instead of Studyboard's. Change it here, or switch back to a Studyboard account." : "Sync your work across devices and keep it safe if this browser is cleared. Enter your server details, or keep everything on this device."}</p>
       ${REQ_NOTE}<label class="f"><span class="lh">Server Address ${REQ}</span><input type="url" name="url" required value="${esc(cur.url)}" placeholder="https://…" autocomplete="off"></label>
       <label class="f"><span class="lh">Public Key ${REQ} <span class="hint">The publishable key from the setup guide</span></span><input type="text" name="key" required value="${esc(cur.key)}" placeholder="sb_publishable_…" autocomplete="off" spellcheck="false"></label>
       <p class="mini" style="margin:0">Only use the public (publishable) key. Never paste a secret key into an app.</p>
@@ -7565,11 +7565,11 @@ const AUTO_FEATS = [
   {id: "plan", name: "Smarter Today's Plan", ai: true, core: true, desc: "Chooses Do This Next, estimates hours for tasks that have none, and flags a couple of things you could easily miss.", ex: "Heads up: Bio lab pre-quiz is due Wed, a day before the report.", fb: "Today's Plan still ranks your tasks by deadline, grade weight and effort."},
   {id: "sessions", name: "Tune Study Sessions", ai: true, core: true, desc: "Tomorrow's exam-plan sessions get steps that target your weak flashcards, and practice sessions get a practice test.", ex: "20m: redo the 6 cards you missed on glycolysis.", fb: "Sessions keep the steps they were created with."},
   {id: "triage", name: "Fix Vague Tasks", ai: true, cap: 3, desc: "Offers a clearer title, type, hours or course for new tasks that are vague or missing details.", ex: "\u201chw3\u201d \u2192 \u201cHomework 3: Chapter 3 problems\u201d.", fb: "Nothing is offered."},
-  {id: "news", name: "Important Announcements", ai: true, cap: 4, desc: "Flags exam, deadline, cancellation and room changes in your school announcements, and offers tasks or events to add when a date is stated.", ex: "Midterm moved to Fri Oct 17: add it to your calendar.", fb: "Plain keyword rules still flag the obvious changes."},
-  {id: "coach", name: "Exam Study Plans", ai: false, desc: "For an exam in the next 14 days with no prep plan, offers Plan My Prep: review sessions spread across the days before, matched to your decks and notes. Nothing is made until you tap.", ex: "Midterm is in 9 days and has no prep plan. Plan My Prep."},
+  {id: "news", name: "Important Announcements", ai: true, cap: 4, desc: "Flags exam, deadline, cancellation and room changes in announcements.", ex: "Midterm moved to Fri Oct 17: add it to your calendar.", fb: "Plain keyword rules still flag the obvious changes."},
+  {id: "coach", name: "Exam Study Plans", ai: false, desc: "Offers Plan My Prep for exams in the next 14 days that don't have one.", ex: "Midterm is in 9 days and has no prep plan. Plan My Prep."},
   {id: "weekly", name: "Weekly Review", ai: true, cap: 1, desc: "On Sunday or Monday, when there's something worth noting: what slipped, a heavy day ahead, an exam.", ex: "2 tasks slipped. Thursday has 3 deadlines, so do the Stats HW Tuesday.", fb: "A plain recap with the same numbers."},
-  {id: "remote", name: "Exam Location Check", ai: true, cap: 6, desc: "Exams and quizzes are only suggested as Do This Next if they can be taken from home. Studyboard checks your school site first, then the instructions with AI, and asks you once if it still can't tell.", ex: "\u201cMidterm 2\u201d says \u201cheld in class\u201d, so it stays off Do This Next; \u201cQuiz 3\u201d is an online quiz in Canvas, so it can be suggested.", fb: "Plain rules plus a one-tap question: Can you take it from home?"},
-  {id: "materials", name: "Study Material Tips", ai: false, desc: "When an exam is close and the course has files or notes but no flashcards, offers to make a deck. Nothing is made until you tap.", ex: "Midterm is in 3 days and Bio has 4 files but no flashcards."},
+  {id: "remote", name: "Exam Location Check", ai: true, cap: 6, desc: "Only suggests exams and quizzes as Do This Next if they can be taken from home. Asks you if it can't tell.", ex: "\u201cMidterm 2\u201d says \u201cheld in class\u201d, so it stays off Do This Next; \u201cQuiz 3\u201d is an online quiz in Canvas, so it can be suggested.", fb: "Plain rules plus a one-tap question: Can you take it from home?"},
+  {id: "materials", name: "Study Material Tips", ai: false, desc: "Offers to make a deck when an exam is close and the course has notes but no flashcards.", ex: "Midterm is in 3 days and Bio has 4 files but no flashcards."},
   {id: "nudge", name: "Crowded Days and Overdue Work", ai: false, desc: "Spots days with 3 or more deadlines, crunch weeks 2 to 6 weeks out, tasks stuck for 5 days and overdue work, and offers to move work to a lighter day.", ex: "Thursday has 3 deadlines (Bio lab, Stats HW, Essay draft)."},
   {id: "grades", name: "Grade Risk Alerts", ai: false, desc: "Warns when a course may miss its pass mark, from the marks you've entered.", ex: "Chemistry is at 52% so far; you'd need 68% on the rest to pass."}
 ];
@@ -7812,7 +7812,7 @@ function autoPanelSheet(){
     return `<div class="ap-row"><label class="mi-check"><input type="checkbox" data-feat="${f.id}" ${on ? "checked" : ""}> <b>${esc(f.name)}</b> <span class="auto-badge">${f.ai ? "Uses AI" : "No AI"}</span></label><p class="mini" style="margin:2px 0 0 26px">${esc(f.desc)}</p><p class="mini" style="margin:2px 0 0 26px"><i>Example: ${esc(f.ex)}</i>${f.fb ? ` Without AI: ${esc(f.fb)}` : ""}</p><p class="mini ap-last" style="margin:2px 0 0 26px">${esc(on ? last : "Turned off")}</p></div>`; };
   openSheet(`<form class="sheet">${head("What Automatic AI Is Doing")}
     <div class="sheet-body">
-      <p class="mini" style="margin:0">${a.on ? `Automatic AI is on${a.paid ? " (paid model)" : " (free)"}. ${used} of ${lim} automatic requests used today. Suggestions appear in Today's Plan only when they cite your own tasks and dates. Nothing changes without a tap, and everything can be undone. Dismiss three of one kind to pause it for a week.` : a.reason === "confirm" ? "Automatic AI is paused until you confirm paid use." : "Automatic AI is off, so none of these run."} <button type="button" class="link-btn" data-act="ai-setup">AI Settings</button></p>
+      <p class="mini" style="margin:0">${a.on ? `Automatic AI is on${a.paid ? " (paid model)" : " (free)"}. ${used} of ${lim} automatic requests used today. Nothing changes without a tap.` : a.reason === "confirm" ? "Automatic AI is paused until you confirm paid use." : "Automatic AI is off, so none of these run."} <button type="button" class="link-btn" data-act="ai-setup">AI Settings</button></p>
       ${AUTO_FEATS.map(row).join("")}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></form>`);
   $$("[data-feat]", dlg).forEach(i => i.addEventListener("change", () => {
@@ -8356,60 +8356,284 @@ const FX_PATHS = {};
 const fxPath = k => FX_PATHS[k] || (FX_PATHS[k] = {d: new Path2D(FX_SHAPES[k].d), detail: FX_SHAPES[k].detail ? new Path2D(FX_SHAPES[k].detail) : null});
 const fxR = (a, b) => a + Math.random() * (b - a), fxPick = a => a[Math.floor(Math.random() * a.length)];
 
-/* Each theme: spawn(W, H, dark, n) returns particles; optional draw */
-const fxFall = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(-20, W + 20), y: fxR(-H * 0.5, -10), vx: fxR(-0.6, 0.6), vy: fxR(o.vmin || 1.2, o.vmax || 2.6), g: 0.012, size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.06, 0.06), sway: o.sway || 1.3, swf: fxR(0.03, 0.06), flip: o.flip, life: 260, delay: Math.floor(fxR(0, 40)), glow: o.glow}));
-const fxRise = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: o.cx ? fxR(o.cx[0] * W, o.cx[1] * W) : fxR(0, W), y: H + fxR(10, 60), vx: fxR(-0.3, 0.3), vy: -fxR(o.vmin || 1.4, o.vmax || 3), g: 0, size: fxR(o.smin || 5, o.smax || 12), rot: 0, vr: 0, sway: o.sway || 0.8, swf: fxR(0.03, 0.07), grow: o.grow || 0, alpha: o.alpha || 1, life: o.life || 170, delay: Math.floor(fxR(0, 50)), glow: o.glow}));
-const fxBurst = (W, H, n, shape, cols, pts, o = {}) => Array.from({length: n}, (_, i) => { const [bx, by] = pts[i % pts.length], up = by > 0.5, a = up ? -Math.PI / 2 + fxR(-0.7, 0.7) + (bx < 0.4 ? 0.3 : bx > 0.6 ? -0.3 : 0) : fxR(0, 6.3), sp = up ? fxR(H * 0.02, H * 0.034) : fxR(3, 8); return {shape, c: fxPick(cols), x: bx * W, y: by * H, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: o.g || 0.3, drag: 0.985, size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.2, 0.2), sway: 0, life: 210, delay: up ? 0 : Math.floor(fxR(4, 14)), flip: o.flip, glow: o.glow, bounce: o.bounce}; });
-const fxTw = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(0, W), y: fxR(0, H * (o.top || 1)), vx: 0, vy: o.vy || 0, g: 0, size: fxR(o.smin || 4, o.smax || 9), rot: fxR(0, 0.6), vr: 0, sway: 0, life: fxR(60, 120), delay: Math.floor(fxR(0, 110)), tw: true, grow: o.grow || 0, glow: o.glow, alpha: o.alpha || 1}));
-const fxFlutter = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0; return {shape: "butterfly", c: fxPick(cols), x: left ? fxR(-30, W * 0.2) : fxR(W * 0.8, W + 30), y: H + fxR(10, 80), vx: (left ? 1 : -1) * fxR(0.6, 1.6), vy: -fxR(1.6, 2.8), g: 0, size: fxR(12, 18), rot: 0, vr: 0, sway: 2.2, swf: fxR(0.04, 0.07), flap: fxR(0.25, 0.4), life: 240, delay: Math.floor(fxR(0, 60))}; });
+/* Each theme: spawn(W, H, dark, n) returns particles; optional draw(g, f, W, H, dark) paints under them and over() on top.
+   What a particle can have (all optional except shape, x, y; speeds are per 60 fps frame):
+   vx vy g drag: motion. term: the fastest it can fall, so light things drift down once a burst slows.
+   sway swf: side to side drift. rock: tilts with the drift like a falling leaf, instead of spinning (vr).
+   flip: tumbles in 3D and shows a darker back. face: points where it's heading, mirrored so it's never upside down.
+   wig: a swimming wiggle. z: depth, so far ones are smaller, slower and fainter. tw: twinkles in place; glint: grows and
+   shrinks as it twinkles. grow: grows with age. fsw: drift that starts once a burst particle is on its way down. */
+const FX_LIGHT = new Set(["petal", "leaf", "mintleaf", "maple", "confetti", "sprinkle", "flower", "fallleaf", "oakleaf", "heart", "bleaf", "sprig", "japanpetal", "japansakura", "clover", "print"]);
+const fxZ = o => o.depth === false ? 1 : fxR(o.zmin || 0.62, o.zmax || 1.12);
+const fxDim = z => 0.55 + 0.45 * Math.min(1, z);
+const fxFall = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => { const z = fxZ(o);
+  return {shape, c: fxPick(cols), x: fxR(-20, W + 20), y: fxR(-H * 0.5, -10), vx: fxR(-0.6, 0.6) * z, vy: fxR(o.vmin || 1.2, o.vmax || 2.6) * z, g: 0.012 * z, size: fxR(o.smin || 7, o.smax || 12) * z, z,
+    rot: fxR(0, 6.3), vr: o.flip || o.rock ? 0 : fxR(-0.05, 0.05), rock: o.rock != null ? o.rock * fxR(0.6, 1.2) : o.flip ? fxR(0.3, 0.7) : 0, sway: (o.sway || 1.3) * z, swf: fxR(0.03, 0.06), flip: o.flip,
+    life: o.life || 260, delay: Math.floor(fxR(0, o.spread || 40)), glow: o.glow, alpha: (o.alpha || 1) * fxDim(z)}; });
+const fxRise = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => { const z = fxZ(o);
+  return {shape, c: fxPick(cols), x: o.cx ? fxR(o.cx[0] * W, o.cx[1] * W) : fxR(0, W), y: H + fxR(10, 60), vx: fxR(-0.3, 0.3), vy: -fxR(o.vmin || 1.4, o.vmax || 3) * z, g: 0, size: fxR(o.smin || 5, o.smax || 12) * z, z,
+    rot: o.rot || 0, vr: 0, rock: o.rock || 0, sway: (o.sway || 0.8) * z, swf: fxR(0.03, 0.07), grow: o.grow || 0, flip: o.flip, alpha: (o.alpha || 1) * fxDim(z), life: o.life || 170,
+    delay: Math.floor(fxR(0, o.spread || 50)), glow: o.glow}; });
+const fxBurst = (W, H, n, shape, cols, pts, o = {}) => Array.from({length: n}, (_, i) => { const [bx, by] = pts[i % pts.length], up = by > 0.5, a = up ? -Math.PI / 2 + fxR(-0.7, 0.7) + (bx < 0.4 ? 0.3 : bx > 0.6 ? -0.3 : 0) : fxR(0, 6.3), sp = up ? fxR(H * 0.02, H * 0.034) : fxR(3, 8), light = FX_LIGHT.has(shape);
+  return {shape, c: fxPick(cols), x: bx * W, y: by * H, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: o.g || 0.3, drag: 0.985, term: o.term || (light ? fxR(1.3, 2) : fxR(4, 6)), fsw: o.fsw != null ? o.fsw : light ? fxR(0.8, 1.6) : 0,
+    swf: fxR(0.04, 0.08), size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.2, 0.2), sway: 0, life: o.life || (light ? 270 : 220), delay: up ? Math.floor(fxR(0, 6)) : Math.floor(fxR(4, 14)), flip: o.flip, glow: o.glow, bounce: o.bounce}; });
+const fxTw = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(0, W), y: fxR(0, H * (o.top || 1)), vx: 0, vy: o.vy || 0, g: 0, size: fxR(o.smin || 4, o.smax || 9), rot: fxR(0, 0.6), vr: o.glint === false ? 0 : fxR(-0.02, 0.02), sway: 0,
+  life: fxR(60, 120), delay: Math.floor(fxR(0, o.spread || 110)), tw: true, glint: o.glint != null ? o.glint : shape === "sparkle" || shape === "star", grow: o.grow || 0, glow: o.glow, alpha: o.alpha || 1}));
+const fxFlutter = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0; return {shape: "butterfly", c: fxPick(cols), x: left ? fxR(-30, W * 0.2) : fxR(W * 0.8, W + 30), y: H + fxR(10, 80), vx: (left ? 1 : -1) * fxR(0.6, 1.6), vy: -fxR(1.6, 2.8), g: 0, size: fxR(12, 18), rot: 0, vr: 0, sway: 2.2, swf: fxR(0.04, 0.07), rock: 0.25, flap: fxR(0.25, 0.4), life: 240, delay: Math.floor(fxR(0, 60))}; });
 const fxStreaks = (W, H, n, cols) => Array.from({length: n}, () => { const sp = fxR(9, 14); return {shape: null, streak: true, c: fxPick(cols), x: fxR(W * 0.2, W * 1.1), y: fxR(-40, H * 0.35), vx: -sp, vy: sp * 0.5, g: 0, size: 2, life: 70, delay: Math.floor(fxR(0, 120)), glow: 12}; });
 
+/* Northern lights: curtains of glowing vertical rays that unfurl across the sky, ripple with light running along them,
+   then thin out. Each ray is one stretched strip from a small prebuilt gradient, so hundreds of rays stay cheap. */
+const fxAurora = () => {
+  const strip = {};
+  const ray = (cols, k) => strip[k] || (strip[k] = (() => { const c = document.createElement("canvas"); c.width = 4; c.height = 256; const g = c.getContext("2d"), gr = g.createLinearGradient(0, 256, 0, 0);
+    cols.forEach(([at, col]) => gr.addColorStop(at, col)); g.fillStyle = gr; g.fillRect(0, 0, 4, 256); return c; })());
+  // [height of the hem as a share of the screen, ray length, waviness, speed, colors, strength]
+  const CURT = [[0.36, 0.3, 1, 1, 0, 1], [0.27, 0.22, 0.7, -0.8, 1, 0.7], [0.46, 0.18, 1.3, 1.3, 2, 0.45]];
+  return (g, f, W, H, d) => {
+    const P = d ? [[[0, "rgba(120,255,190,0)"], [0.04, "rgba(150,255,200,.95)"], [0.18, "rgba(70,240,160,.75)"], [0.55, "rgba(90,170,255,.32)"], [0.82, "rgba(190,110,255,.16)"], [1, "rgba(190,110,255,0)"]],
+                   [[0, "rgba(255,140,220,0)"], [0.05, "rgba(255,160,225,.8)"], [0.3, "rgba(180,120,255,.5)"], [1, "rgba(120,110,255,0)"]],
+                   [[0, "rgba(110,255,230,0)"], [0.05, "rgba(130,255,235,.8)"], [0.4, "rgba(80,200,255,.35)"], [1, "rgba(80,160,255,0)"]]]
+                : [[[0, "rgba(20,170,120,0)"], [0.04, "rgba(10,165,112,.85)"], [0.2, "rgba(20,175,135,.6)"], [0.6, "rgba(60,110,220,.28)"], [0.85, "rgba(130,80,220,.1)"], [1, "rgba(130,80,220,0)"]],
+                   [[0, "rgba(210,70,170,0)"], [0.05, "rgba(205,60,160,.65)"], [0.35, "rgba(130,70,220,.36)"], [1, "rgba(90,80,220,0)"]],
+                   [[0, "rgba(20,160,170,0)"], [0.05, "rgba(20,160,175,.55)"], [0.4, "rgba(40,130,210,.22)"], [1, "rgba(40,120,210,0)"]]];
+    const ph = W < H, unf = fxEase(f / 70), out = 1 - fxEase((f - 195) / 85);
+    if (out <= 0) return;
+    g.globalCompositeOperation = d ? "lighter" : "source-over";
+    const step = Math.max(2.5, W / 340), wr = step * 1.7;
+    CURT.forEach(([y0, len, wav, spd, pi, str], ci) => {
+      const spr = ray(P[pi], (d ? "d" : "l") + pi), yb = H * (ph ? y0 * 0.8 : y0), L0 = H * len * (ph ? 0.8 : 1), t = f * 0.016 * spd, from = ci % 2 ? W * 1.05 : -W * 0.05;
+      for (let x = -W * 0.05; x < W * 1.05; x += step) {
+        const reach = Math.abs(x - from) / (W * 1.1), show = fxEase((unf * 1.25 - reach) * 4); if (show <= 0) continue;
+        const y = yb + Math.sin(x / (W * 0.23) + t) * H * 0.05 * wav + Math.sin(x / (W * 0.071) - t * 1.7 + ci) * H * 0.014 * wav;
+        const pulse = 0.45 + 0.55 * Math.pow(0.5 + 0.5 * Math.sin(x / (W * 0.045) - f * 0.09 * spd + ci * 2), 2), fold = 0.65 + 0.35 * Math.sin(x / (W * 0.018) + ci * 5 + Math.sin(f * 0.02 + x * 0.01));
+        const edge = Math.min(1, (x + W * 0.05) / (W * 0.18), (W * 1.05 - x) / (W * 0.18)), len2 = L0 * (0.7 + 0.45 * fold);
+        g.globalAlpha = Math.max(0, str * show * out * pulse * edge * (0.55 + 0.45 * fold));
+        g.drawImage(spr, x, y - len2, wr, len2 * 1.04);
+      }
+    });
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+  };
+};
+
+/* Richer sprites for shapes the original themes share (each keeps its d silhouette for flashcard motifs) */
+(() => {
+  const disc = (g, r) => { g.beginPath(); g.arc(0, 0, r, 0, 6.3); };
+  const gloss = (g, r, a) => { const gr = g.createRadialGradient(-r * 0.35, -r * 0.45, 0, -r * 0.2, -r * 0.2, r * 1.15); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.5, "rgba(255,255,255,0)"); gr.addColorStop(1, "rgba(0,0,0,.18)"); g.fillStyle = gr; disc(g, r); g.fill(); };
+  FX_SHAPES.petal.paint = (g, c) => { const p = new Path2D(FX_SHAPES.petal.d), gr = g.createLinearGradient(0, 6, 0, -8); gr.addColorStop(0, "#FFF4F8"); gr.addColorStop(0.55, c); gr.addColorStop(1, fxShade(c, 0.92));
+    g.fillStyle = gr; g.fill(p); g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = 0.7; g.beginPath(); g.moveTo(0, 4.6); g.quadraticCurveTo(-0.6, -1, 0, -6); g.stroke(); };
+  FX_SHAPES.lemon.paint = (g, c) => { g.fillStyle = fxShade(c, 0.92); disc(g, 10); g.fill(); g.fillStyle = "#FFFBE6"; disc(g, 8.6); g.fill();
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.fillStyle = i % 2 ? c : fxShade(c, 1.06); g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 7.6, a + 0.1, a + Math.PI / 4 - 0.1); g.closePath(); g.fill(); }
+    g.fillStyle = "#FFFBE6"; disc(g, 1.3); g.fill(); gloss(g, 10, 0.35); };
+  FX_SHAPES.ball.paint = (g, c) => { const cols = [c, "#FFFFFF", "#FFC53D", "#FFFFFF", "#23B5D3", "#FFFFFF"];
+    cols.forEach((k, i) => { g.fillStyle = k; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 10, i * Math.PI / 3, (i + 1) * Math.PI / 3); g.closePath(); g.fill(); });
+    g.fillStyle = "#FFFFFF"; disc(g, 2.6); g.fill(); gloss(g, 10, 0.55); };
+  FX_SHAPES.candy.paint = (g, c) => { const p = new Path2D(FX_SHAPES.candy.d); g.fillStyle = fxShade(c, 1.12); g.fill(p);
+    g.save(); g.beginPath(); g.ellipse(0, 0, 5.2, 5, 0, 0, 6.3); g.clip(); g.fillStyle = c; g.fillRect(-6, -6, 12, 12); g.strokeStyle = "rgba(255,255,255,.75)"; g.lineWidth = 1.4;
+    for (let x = -10; x < 10; x += 3.4) { g.beginPath(); g.moveTo(x, -6); g.lineTo(x + 6, 6); g.stroke(); } g.restore(); gloss(g, 5.2, 0.45); };
+  FX_SHAPES.bubble.paint = (g, c) => { const gr = g.createRadialGradient(0, 0, 4, 0, 0, 9.4); gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(0.75, "rgba(255,255,255,.08)"); gr.addColorStop(1, c);
+    g.fillStyle = gr; disc(g, 9.4); g.fill(); g.strokeStyle = c; g.globalAlpha = 0.8; g.lineWidth = 0.9; disc(g, 9); g.stroke(); g.globalAlpha = 1;
+    g.strokeStyle = "rgba(255,255,255,.9)"; g.lineWidth = 1.5; g.lineCap = "round"; g.beginPath(); g.arc(0, 0, 6.2, 3.6, 4.5); g.stroke(); g.fillStyle = "rgba(255,255,255,.85)"; g.beginPath(); g.arc(4, 4.4, 1, 0, 6.3); g.fill(); };
+  FX_SHAPES.bokeh = {d: FX_SHAPES.circle.d, paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 10.6); gr.addColorStop(0, c); gr.addColorStop(0.82, c); gr.addColorStop(0.9, "rgba(255,255,255,.9)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+    g.globalAlpha = 0.55; g.fillStyle = gr; disc(g, 10.6); g.fill(); g.globalAlpha = 0.5; g.strokeStyle = c; g.lineWidth = 1; disc(g, 9.6); g.stroke(); }};
+  FX_SHAPES.gull = {d: "M-11 -1.4C-7.6 -5 -3.2 -4.4 0 -0.4C3.2 -4.4 7.6 -5 11 -1.4C7.4 -2.6 3.6 -1.6 0.9 1.8H-0.9C-3.6 -1.6 -7.4 -2.6 -11 -1.4Z", flat: true};
+  FX_SHAPES.glint = {d: "M-10 0Q0 -1.4 10 0Q0 1.4 -10 0Z", flat: true};
+  FX_SHAPES.snowsoft = {d: FX_SHAPES.circle.d, paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 10); gr.addColorStop(0, c); gr.addColorStop(0.45, c); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; disc(g, 10); g.fill(); }};
+})();
+
+/* Moments drawn under the particles. Each builds its expensive pieces once and fades itself in and out softly. */
+const fxOut = (f, a, b) => 1 - fxEase((f - a) / (b - a));
+// Galaxy: a spiral galaxy blooms open from its core and slowly turns, inner stars faster than outer ones
+const fxGalaxy = () => {
+  const S = Array.from({length: 360}, (_, i) => ({arm: i % 3, r: Math.pow(Math.random(), 0.7), j: (Math.random() - 0.5) * 0.7, k: Math.random(), tw: Math.random() * 6.3, s: Math.random()}));
+  return (g, f, W, H, d) => {
+    const out = fxOut(f, 190, 270), bloom = fxEase(f / 90), cx = W * 0.5, cy = H * (W < H ? 0.4 : 0.44), R = Math.min(W, H) * (W < H ? 0.56 : 0.6) * (0.25 + 0.75 * bloom);
+    if (out <= 0) return;
+    const cols = d ? ["#FFFFFF", "#CFC4FF", "#FFB8E4", "#9FD8FF"] : ["#4B2FC9", "#7A4EE6", "#C04EB4", "#3A6BD6"];
+    g.globalCompositeOperation = d ? "lighter" : "source-over";
+    const core = g.createRadialGradient(cx, cy, 0, cx, cy, R * 0.55); core.addColorStop(0, d ? "rgba(255,236,250,.55)" : "rgba(150,100,250,.4)"); core.addColorStop(0.35, d ? "rgba(190,150,255,.18)" : "rgba(170,120,255,.12)"); core.addColorStop(1, "rgba(160,120,255,0)");
+    g.globalAlpha = out * bloom; g.fillStyle = core; g.beginPath(); g.ellipse(cx, cy, R * 0.55, R * 0.4, -0.35, 0, 6.3); g.fill();
+    const c = Math.cos(-0.35), si = Math.sin(-0.35);
+    for (const s of S) {
+      const a = s.arm * 2.094 + s.r * 4.6 + s.j * (0.4 + s.r) + f * 0.009 * (1.6 - s.r), rr = s.r * R, ex = Math.cos(a) * rr, ey = Math.sin(a) * rr * 0.5;
+      const x = cx + ex * c - ey * si, y = cy + ex * si + ey * c, sz = (0.8 + s.s * 2.1) * (1.15 - s.r * 0.5) * (d ? 1 : 1.25) * Math.max(1, Math.min(W, H) / 700);
+      g.globalAlpha = out * Math.min(1, bloom * 1.6 - s.r * 0.5) * (0.55 + 0.45 * Math.sin(f * 0.12 + s.tw)) * (s.r < 0.12 ? 0.7 : 1);
+      if (g.globalAlpha <= 0.02) continue;
+      g.fillStyle = cols[s.r < 0.18 ? 0 : 1 + (s.arm + (s.k > 0.7 ? 1 : 0)) % 3]; g.beginPath(); g.arc(x, y, sz, 0, 6.3); g.fill();
+    }
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+  };
+};
+// Christmas: a string of lights is pinned along the very top of the page. It drops in, bounces to rest, and the
+// bulbs (hanging straight down from the wire) swing on their sockets, light up one by one and keep twinkling
+const fxGarland = () => (g, f, W, H, d) => {
+  const out = fxOut(f, 200, 268) * fxEase(f / 10); if (out <= 0) return;
+  const ph = W < H, swags = ph ? 2 : 3, bk = Math.max(1.15, Math.min(1.8, Math.min(W, H) / 460)), sag0 = H * (ph ? 0.085 : 0.15), cols = ["#FF4A3D", "#2FD07A", "#FFC23D", "#4A8BFF", "#FF7AC8"];
+  const sag = sag0 * (1 - Math.exp(-f / 12) * Math.cos(f * 0.2));
+  const pt = u => { const k = u * swags, t = k - Math.min(swags - 1, Math.floor(k)); return [W * u, -1 + sag * 4 * t * (1 - t)]; };
+  g.globalAlpha = out; g.strokeStyle = d ? "#3F7A52" : "#2E5A3A"; g.lineWidth = 2 * bk; g.lineCap = "round"; g.beginPath();
+  for (let u = 0; u <= 1.0001; u += 0.005) { const [x, y] = pt(u); u ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+  const per = Math.max(4, Math.round(W / swags / (62 * bk)));
+  for (let s = 0; s < swags; s++) for (let k = 1; k < per; k++) {
+    const i = s * per + k, u = (s + k / per) / swags, [x, y] = pt(u), col = cols[i % cols.length];
+    const swing = 0.4 * Math.exp(-f / 50) * Math.sin(f * 0.15 + i * 0.9) + 0.08 * Math.sin(f * 0.045 + i * 1.7);
+    const on = fxEase((f - 22 - i * 1.5) / 8), tw = 0.75 + 0.25 * Math.sin(f * 0.1 + i * 2.3);
+    g.save(); g.translate(x, y); g.rotate(swing); g.scale(bk, bk);
+    if (on > 0) { g.globalAlpha = out * on * tw * (d ? 0.55 : 0.38); const gl = g.createRadialGradient(0, 11, 0, 0, 11, 20); gl.addColorStop(0, col); gl.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gl; g.fillRect(-20, -9, 40, 40); }
+    g.globalAlpha = out; g.fillStyle = d ? "#5E6A60" : "#6E7A70"; g.fillRect(-2.6, 0, 5.2, 4.6);
+    g.fillStyle = on > 0.5 ? col : fxShade(col, 0.55); g.beginPath(); g.moveTo(0, 4); g.bezierCurveTo(5.4, 4.4, 5.6, 11, 0, 17.5); g.bezierCurveTo(-5.6, 11, -5.4, 4.4, 0, 4); g.fill();
+    g.fillStyle = `rgba(255,255,255,${0.25 + 0.45 * on})`; g.beginPath(); g.ellipse(-1.6, 8.6, 1.1, 2.8, 0.15, 0, 6.3); g.fill();
+    g.restore();
+  }
+  g.globalAlpha = out; g.fillStyle = d ? "#3F7A52" : "#2E5A3A";
+  for (let s = 0; s <= swags; s++) { g.beginPath(); g.arc(W * s / swags, 1, 3 * bk, 0, 6.3); g.fill(); }
+};
+// Café: three soft curls of steam rise from below, widen and drift apart (soft puffs stamped along each curl)
+const fxSteam = () => { const puffs = {};
+  return (g, f, W, H, d) => {
+    const out = fxOut(f, 170, 262); if (out <= 0) return;
+    const rgb = d ? "255,250,242" : "150,118,92", puff = puffs[rgb] || (puffs[rgb] = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const p = c.getContext("2d"), gr = p.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, `rgba(${rgb},1)`); gr.addColorStop(0.5, `rgba(${rgb},.45)`); gr.addColorStop(1, `rgba(${rgb},0)`); p.fillStyle = gr; p.fillRect(0, 0, 64, 64); return c; })());
+    const rise = fxEase(f / 140), base = H * 1.04, M = Math.min(W, H);
+    g.save(); g.globalCompositeOperation = d ? "lighter" : "source-over";
+    [[0.4, 0, 1], [0.5, 2.1, 1.15], [0.6, 4.2, 0.95]].forEach(([x0, ph, k]) => {
+      const top = base - H * 0.75 * rise * k;
+      for (let i = 0; i <= 34; i++) {
+        const u = i / 34, y = base - (base - top) * u, x = W * x0 + W * (0.01 + 0.045 * u) * Math.sin(u * 6.5 + ph - f * 0.04) + Math.sin(f * 0.012 + ph) * W * 0.02 * u, r = M * (0.03 + 0.06 * u);
+        g.globalAlpha = out * Math.sin(Math.PI * Math.min(1, u * 1.1)) * (d ? 0.075 : 0.16);
+        g.drawImage(puff, x - r, y - r, 2 * r, 2 * r);
+      }
+    });
+    g.restore();
+  };
+};
+// Neon: a glowing check mark flickers on like a sign warming up, then hums
+const fxNeonCheck = () => (g, f, W, H, d) => {
+  const out = fxOut(f, 190, 262); if (out <= 0) return;
+  const S = Math.min(W, H) * 0.25, cx = W * 0.5, cy = H * 0.46, pts = [[-0.62, 0.02], [-0.18, 0.44], [0.66, -0.5]];
+  const lenA = Math.hypot(0.44, 0.42), lenB = Math.hypot(0.84, 0.94), total = (lenA + lenB) * S, drawn = fxEase((f - 4) / 26) * total;
+  const flick = f < 40 ? [1, 0.4, 1, 1, 0.55, 1, 1, 1][Math.floor(f / 5)] : 0.92 + 0.08 * Math.sin(f * 0.6);
+  g.setLineDash([drawn, total + 10]); g.lineCap = g.lineJoin = "round";
+  const path = () => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(cx + x * S, cy + y * S) : g.moveTo(cx + x * S, cy + y * S)); };
+  [[S * 0.2, d ? 0.22 : 0.16, "#D05BEF", 30], [S * 0.075, 0.9, d ? "#E58CFF" : "#C84BEB", 14], [S * 0.03, 0.95, "#FFFFFF", 0]].forEach(([lw, a, col, blur]) => {
+    g.globalAlpha = out * a * flick; g.lineWidth = lw; g.strokeStyle = col; g.shadowBlur = blur; g.shadowColor = "#C84BEB"; path(); g.stroke(); });
+  g.setLineDash([]); g.shadowBlur = 0;
+  [[22, "74,134,255"], [34, "205,75,235"]].forEach(([t0, rgb]) => { const t = f - t0; if (t < 0 || t > 110) return; const r = S * 0.9 + t * Math.max(W, H) / 170, a = 1 - fxEase(t / 110);
+    g.globalAlpha = out * a * 0.7; g.shadowBlur = 18; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgb(${rgb})`; g.lineWidth = 2.5; g.beginPath(); g.arc(cx, cy, r, 0, 6.3); g.stroke(); });
+  g.shadowBlur = 0;
+};
+// Synthwave: a striped sun rises over a glowing grid that rushes toward you
+const fxSynth = () => (g, f, W, H, d) => {
+  const out = fxOut(f, 185, 262); if (out <= 0) return;
+  const hz = H * 0.7, R = Math.min(W, H) * (W < H ? 0.36 : 0.3), up = fxEase(f / 75), cy = hz + R * 0.95 - R * 1.25 * up, cx = W * 0.5;
+  g.save(); g.beginPath(); g.rect(0, 0, W, hz); g.clip();
+  const gr = g.createLinearGradient(0, cy - R, 0, cy + R); gr.addColorStop(0, "#FFE66D"); gr.addColorStop(0.45, "#FF8A5B"); gr.addColorStop(1, "#FF2FB3");
+  g.globalAlpha = out * (d ? 0.85 : 0.75); g.shadowBlur = 40; g.shadowColor = d ? "#FF4FB8" : "rgba(255,90,170,.6)"; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R, 0, 6.3); g.fill(); g.shadowBlur = 0;
+  g.globalCompositeOperation = "destination-out"; g.globalAlpha = 1;
+  for (let i = 0; i < 6; i++) { const y = hz - R * (0.62 - i * 0.11), h = R * (0.018 + i * 0.016); g.fillRect(cx - R, y, 2 * R, h); }
+  g.restore();
+  const ga = out * fxEase((f - 10) / 40), mag = d ? "255,60,200" : "200,40,160";
+  g.save(); g.beginPath(); g.rect(0, hz, W, H - hz); g.clip(); g.lineWidth = 1.6; g.strokeStyle = `rgb(${mag})`; g.shadowBlur = 10; g.shadowColor = `rgb(${mag})`;
+  for (let i = 0; i < 14; i++) { const t = ((i + f * 0.035) % 14) / 14, y = hz + (H - hz) * t * t; g.globalAlpha = ga * (0.15 + 0.75 * t); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  for (let i = -12; i <= 12; i++) { g.globalAlpha = ga * 0.55; g.beginPath(); g.moveTo(cx + i * W * 0.012, hz); g.lineTo(cx + i * W * 0.16, H); g.stroke(); }
+  g.restore();
+  g.globalAlpha = ga * 0.8; g.fillStyle = `rgb(${mag})`; g.fillRect(0, hz - 1, W, 2);
+};
+// Ocean: a glassy wave rolls in from the bottom with a line of foam, then slides back out
+const fxWave = () => (g, f, W, H, d) => {
+  const up = fxEase(f / 55) * (1 - fxEase((f - 120) / 100)); if (up <= 0.001) return;
+  const crest = x => H * (1 - 0.26 * up) + Math.sin(x / W * 7 + f * 0.05) * H * 0.016 + Math.sin(x / W * 17 - f * 0.08) * H * 0.006;
+  const gr = g.createLinearGradient(0, H * 0.7, 0, H); gr.addColorStop(0, d ? "rgba(60,207,224,.38)" : "rgba(20,167,189,.32)"); gr.addColorStop(1, d ? "rgba(10,90,120,.5)" : "rgba(10,127,146,.45)");
+  g.fillStyle = gr; g.beginPath(); g.moveTo(0, H);
+  for (let x = 0; x <= W + 8; x += 8) g.lineTo(x, crest(x)); g.lineTo(W, H); g.closePath(); g.fill();
+  g.strokeStyle = d ? "rgba(230,250,255,.85)" : "rgba(255,255,255,.95)"; g.lineWidth = 3.5; g.lineCap = "round"; g.beginPath();
+  for (let x = 0; x <= W + 8; x += 8) x ? g.lineTo(x, crest(x)) : g.moveTo(x, crest(x)); g.stroke();
+  g.fillStyle = "rgba(255,255,255,.7)"; for (let x = 7; x < W; x += 23) { const r = 1.5 + 1.5 * Math.abs(Math.sin(x * 1.3 + f * 0.05)); g.beginPath(); g.arc(x, crest(x) + 5 + (x * 7 % 9), r, 0, 6.3); g.fill(); }
+};
+// Forest: soft shafts of sunlight lean in through the trees
+const fxBeams = () => (g, f, W, H, d) => {
+  const a = fxEase(f / 60) * fxOut(f, 170, 250); if (a <= 0) return;
+  g.globalCompositeOperation = d ? "lighter" : "source-over";
+  [[0.12, 0.09, 0], [0.32, 0.05, 1.4], [0.5, 0.11, 2.6], [0.74, 0.06, 4]].forEach(([x0, w, ph]) => {
+    const x = W * x0, ww = W * w, sk = H * 0.45, gr = g.createLinearGradient(x, 0, x + sk, H);
+    gr.addColorStop(0, d ? "rgba(255,240,170,.16)" : "rgba(255,248,200,.5)"); gr.addColorStop(1, "rgba(255,248,200,0)");
+    g.globalAlpha = a * (0.65 + 0.35 * Math.sin(f * 0.03 + ph)); g.fillStyle = gr; g.beginPath(); g.moveTo(x, -10); g.lineTo(x + ww, -10); g.lineTo(x + ww * 2.2 + sk, H); g.lineTo(x + sk, H); g.closePath(); g.fill();
+  });
+  g.globalCompositeOperation = "source-over";
+};
+
+const fxAt = (P, k) => P.map(p => Object.assign(p, {delay: (p.delay || 0) + k}));
 const THEME_FX = {
-  ocean: {spawn: (W, H, d, n) => fxRise(W, H, n(70), "bubble", d ? ["#9ED3DB", "#E2F5F7", "#3CCFE0"] : ["#0A7F92", "#14A7BD", "#7CC9D6"], {smin: 5, smax: 15, sway: 1.1}).concat(fxBurst(W, H, n(36), "drop", d ? ["#3CCFE0", "#6BDCEA"] : ["#14A7BD", "#0A7F92", "#7CC9D6"], [[0.3, 1.02], [0.7, 1.02]], {smin: 5, smax: 9}))},
-  sakura: {spawn: (W, H, d, n) => fxFall(W, H, n(110), "petal", d ? ["#FF86B5", "#FFA4C8", "#EDB9D0", "#FFD6E6"] : ["#F27AA8", "#FFB3CF", "#F9C6D9", "#E8688A"], {sway: 1.8, flip: true})},
-  forest: {spawn: (W, H, d, n) => fxFall(W, H, n(80), "leaf", d ? ["#5CCB7E", "#7EDB98", "#3F7A4D"] : ["#2F8A4E", "#45A865", "#8FB886", "#3E9E7A"], {sway: 1.6, flip: true}).concat(fxTw(W, H, n(26), "circle", ["#E8E06A", "#C9F28A"], {smin: 1.6, smax: 3, glow: 10, vy: -0.4}))},
-  galaxy: {spawn: (W, H, d, n) => fxStreaks(W, H, n(9), d ? ["#FFFFFF", "#C5BCF5", "#FF9BD6"] : ["#6B4EE6", "#C04EE6", "#8C6FF5"]).concat(fxTw(W, H, n(70), "sparkle", d ? ["#FFFFFF", "#B8A6FF", "#FFD1EC"] : ["#6B4EE6", "#9D86FF", "#C04EE6"], {smin: 3, smax: 8, glow: d ? 10 : 4}))},
-  arctic: {spawn: (W, H, d, n) => fxTw(W, H, n(50), "sparkle", d ? ["#FFFFFF", "#A8FFD8", "#C9B8FF"] : ["#2A9FC0", "#6A5AE0", "#3FB39A"], {smin: 2.5, smax: 6, top: 0.6, glow: d ? 8 : 2}),
-    draw: (g, f, W, H, d) => { const a = Math.sin(Math.min(1, f / 200) * Math.PI); if (a <= 0) return; [[0.16, "60,255,170", 0], [0.24, "150,90,255", 1.6], [0.1, "80,220,210", 3.1]].forEach(([y0, rgb, ph]) => { g.save(); g.globalAlpha = a * (d ? 0.5 : 0.35); g.shadowBlur = 30; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgba(${rgb},.6)`; g.lineWidth = H * 0.05; g.lineCap = "round"; g.beginPath(); for (let x = -40; x <= W + 40; x += 20) { const y = H * y0 + Math.sin(x / 140 + f / 22 + ph) * H * 0.04 + Math.sin(x / 57 + ph) * H * 0.012; x === -40 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); g.restore(); }); }},
-  autumn: {spawn: (W, H, d, n) => fxFall(W, H, n(90), "maple", ["#E07A2E", "#C8561C", "#F2B23E", "#B5401A", "#E8A13A"], {sway: 2.2, flip: true, smin: 8, smax: 14})},
-  lemonade: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "lemon", ["#F2C200", "#FFD84A", "#F5B800"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 9, smax: 14}).concat(fxRise(W, H, n(60), "circle", d ? ["#FFF08A", "#D9F2C7"] : ["#F2C200", "#9ED08A", "#FFE06B"], {smin: 1.5, smax: 4, vmin: 2, vmax: 4, sway: 0.6}))},
-  winter: {spawn: (W, H, d, n) => fxFall(W, H, n(100), "snow", d ? ["#FFFFFF", "#DCE9FF", "#B9D4FF"] : ["#6F9AE0", "#9DBBEF", "#3B6FD1"], {vmin: 0.8, vmax: 1.8, sway: 1.2, smin: 5, smax: 12, glow: d ? 8 : 0})},
-  xmas: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "bulb", ["#E0463C", "#2E9E5B", "#F2B53A", "#3D7BE0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 6, smax: 10, glow: d ? 14 : 6}).concat(fxTw(W, H, n(40), "star", ["#F2C24A", "#FFE08A"], {smin: 3, smax: 7, glow: 10}))},
-  spring: {spawn: (W, H, d, n) => fxFlutter(W, H, n(12), ["#A884F0", "#F28BB8", "#F2C84A", "#8FC7F2"]).concat(fxFall(W, H, n(46), "petal", ["#F6A6C8", "#FFD1E3", "#FFFFFF", "#F9E28A"], {sway: 1.6, flip: true, smin: 5, smax: 8}))},
-  cafe: {spawn: (W, H, d, n) => fxRise(W, H, n(34), "puff", d ? ["#F5EBDD"] : ["#B99B7E", "#C8AE94"], {cx: [0.36, 0.64], smin: 10, smax: 18, vmin: 1, vmax: 1.8, sway: 1.4, grow: 0.25, alpha: d ? 0.14 : 0.18, glow: 24, life: 190}).concat(fxBurst(W, H, n(24), "bean", ["#6B4226", "#8A5A2B", "#4A2E1A"], [[0.35, 1.02], [0.65, 1.02]], {smin: 7, smax: 10}))},
-  sunset: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "shell", ["#FBC3A8", "#F7A58A", "#FFD9C2"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}).concat(fxBurst(W, H, n(12), "starfish", ["#F07A8A", "#E8566C"], [[0.3, 1.02], [0.7, 1.02]], {smin: 9, smax: 13}), fxTw(W, H, n(24), "sparkle", ["#FFC06B", "#FFE2A8"], {smin: 3, smax: 6, glow: 8}))},
-  mint: {spawn: (W, H, d, n) => fxBurst(W, H, n(50), "mintleaf", ["#25B585", "#3FD6A0", "#0F845F"], [[0.12, 1.02], [0.88, 1.02], [0.3, 0.2], [0.7, 0.2]], {smin: 8, smax: 12, flip: true}).concat(fxBurst(W, H, n(40), "chip", ["#4A2E1A", "#6B4226", "#3A2A20"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 3.5, smax: 5}))},
-  summer: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "drop", ["#23B5D3", "#4FC3F7", "#0E86C9"], [[0.25, 1.02], [0.75, 1.02]], {smin: 5, smax: 9}).concat(fxFall(W, H, n(6), "ball", ["#FF6B6B", "#FFC53D", "#23B5D3"], {vmin: 3, vmax: 5, sway: 0, smin: 14, smax: 20}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})), fxTw(W, H, n(20), "sparkle", ["#FFD23F", "#FFE98A"], {smin: 3, smax: 6, glow: 8}))},
-  bokeh: {spawn: (W, H, d, n) => fxTw(W, H, n(60), "circle", ["#FF64A0", "#28BEC8", "#FFB43C", "#8C6EFF"], {smin: 6, smax: 18, grow: 0.12, glow: 20, alpha: d ? 0.5 : 0.4})},
-  neon: {spawn: (W, H, d, n) => fxBurst(W, H, n(80), "circle", ["#4A86FF", "#6E8FFF", "#D05BEF", "#C84BEB"], [[0.5, 0.5]], {smin: 1.6, smax: 3, g: 0.04, glow: 14}).map(p => Object.assign(p, {vx: p.vx * 1.4, vy: p.vy * 1.4})),
-    draw: (g, f, W, H, d) => { [[0, "74,134,255"], [18, "205,75,235"], [36, "74,134,255"]].forEach(([t0, rgb]) => { const t = f - t0; if (t < 0 || t > 90) return; const r = t * Math.max(W, H) / 150, a = 1 - t / 90; g.save(); g.globalAlpha = a * 0.8; g.shadowBlur = 22; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgb(${rgb})`; g.lineWidth = 3; g.beginPath(); g.arc(W / 2, H / 2, r, 0, 6.3); g.stroke(); g.restore(); }); }},
-  candy: {spawn: (W, H, d, n) => fxBurst(W, H, n(80), "candy", ["#FF6FB5", "#8EE4B8", "#C9A0FF", "#FFD86B", "#6FD3FF"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04], [0.3, 0.2], [0.7, 0.2]], {smin: 9, smax: 14})},
-  arcade: {spawn: (W, H, d, n) => fxTw(W, H, n(40), "sparkle", ["#FF96C8", "#FFB45A", "#B48CFF", "#FFFFFF"], {smin: 3, smax: 8, glow: 12}),
-    draw: (g, f, W, H, d) => { const t = Math.min(1, f / 60), fade = f < 150 ? 1 : Math.max(0, 1 - (f - 150) / 60); if (fade <= 0) return; const R = Math.hypot(W, H) * 0.34 * (0.4 + 0.6 * (1 - Math.pow(1 - t, 3))), w = Math.max(10, Math.min(W, H) * 0.028); [["255,150,60", 0], ["255,80,170", 1], ["150,80,255", 2]].forEach(([rgb, i]) => { g.save(); g.globalAlpha = fade * (d ? 0.55 : 0.45); g.shadowBlur = 16; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgb(${rgb})`; g.lineWidth = w; g.lineCap = "round"; const rr = R - i * w * 1.5; g.beginPath(); g.arc(-W * 0.02, H * 1.02, rr, -Math.PI / 2, -Math.PI / 2 + t * Math.PI / 2); g.stroke(); g.beginPath(); g.arc(W * 1.02, -H * 0.02, rr * 0.8, Math.PI / 2, Math.PI / 2 + t * Math.PI / 2); g.stroke(); g.restore(); }); }}
+  ocean: {spawn: (W, H, d, n) => fxRise(W, H, n(46), "bubble", d ? ["#9ED3DB", "#E2F5F7", "#6BDCEA"] : ["#0A7F92", "#14A7BD", "#3FA9BC"], {smin: 6, smax: 15, sway: 1.1, vmin: 1.2, vmax: 2.6, life: 220})
+    .concat(fxAt(fxBurst(W, H, n(34), "drop", d ? ["#BFF4FA", "#6BDCEA"] : ["#14A7BD", "#7CC9D6", "#0A7F92"], [[0.25, 0.86], [0.5, 0.84], [0.75, 0.86]], {smin: 5, smax: 9}).map(p => Object.assign(p, {vx: p.vx * 0.5, vy: -fxR(4, 8), g: 0.22, rot: 0, vr: 0})), 34)),
+    draw: fxWave()},
+  sakura: {spawn: (W, H, d, n) => fxFall(W, H, n(90), "petal", d ? ["#FF9CC2", "#FFB8D2", "#F4C6DA", "#FFD6E6"] : ["#F48AB2", "#FFB3CF", "#F9C6D9", "#EE7AA0"], {sway: 1.6, flip: true, smin: 9, smax: 14, spread: 70}).map(p => Object.assign(p, {vx: fxR(0.5, 1.5) * p.z}))},
+  forest: {spawn: (W, H, d, n) => fxFall(W, H, n(52), "leaf", d ? ["#5CCB7E", "#7EDB98", "#3F9A5D", "#A8D86A"] : ["#2F8A4E", "#45A865", "#7FB86E", "#3E9E7A", "#9CBF4A"], {sway: 1.5, flip: true, smin: 10, smax: 16, spread: 60})
+    .concat(fxTw(W, H, n(26), "circle", d ? ["#F4EC8A", "#D9F79A"] : ["#E8C93A", "#B9D84A"], {smin: 1.6, smax: 3, glow: 12, vy: -0.35, spread: 150})), draw: fxBeams()},
+  galaxy: {len: 280, spawn: (W, H, d, n) => fxStreaks(W, H, n(5), d ? ["#FFFFFF", "#C5BCF5", "#FF9BD6"] : ["#6B4EE6", "#C04EE6", "#8C6FF5"])
+    .concat(fxTw(W, H, n(30), "sparkle", d ? ["#FFFFFF", "#B8A6FF", "#FFD1EC"] : ["#6B4EE6", "#9D86FF", "#C04EE6"], {smin: 3, smax: 7, glow: d ? 10 : 4, spread: 160})), draw: fxGalaxy()},
+  arctic: {len: 280, spawn: (W, H, d, n) => fxTw(W, H, n(d ? 46 : 24), "sparkle", d ? ["#FFFFFF", "#DFFBF0", "#E8E0FF"] : ["#FFFFFF", "#CFEFFF"], {smin: 2, smax: 4.5, top: 0.55, glow: d ? 8 : 6, spread: 170}),
+    draw: fxAurora()},
+  autumn: {spawn: (W, H, d, n) => fxFall(W, H, n(52), "maple", ["#E07A2E", "#C8561C", "#F2B23E", "#B5401A", "#E8A13A"], {sway: 1.9, flip: true, smin: 9, smax: 15, spread: 70})
+    .concat(fxFall(W, H, n(20), "oakleaf", ["#B86A2A", "#D9922F", "#9A4A1E"], {sway: 1.6, flip: true, smin: 9, smax: 13, spread: 70})).map(p => Object.assign(p, {vx: fxR(0.4, 1.6) * p.z}))},
+  lemonade: {spawn: (W, H, d, n) => fxBurst(W, H, n(18), "lemon", ["#F2C200", "#FFD84A", "#F5B800", "#9CCB3A"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 11, smax: 16, flip: true})
+    .concat(fxBurst(W, H, n(10), "mintleaf", ["#3FAE6A", "#5CC77F"], [[0.12, 1.02], [0.88, 1.02]], {smin: 8, smax: 11, flip: true}),
+      fxRise(W, H, n(54), "bubble", d ? ["#FFF6B0", "#E8FFD0"] : ["#E0B000", "#9ED08A", "#F2C200"], {smin: 2.4, smax: 5, vmin: 2, vmax: 4, sway: 0.5, life: 200}))},
+  winter: {spawn: (W, H, d, n) => fxFall(W, H, n(60), "snowsoft", d ? ["#FFFFFF", "#E6F0FF"] : ["#A9C4F2", "#C4D6F6", "#8FB0EA"], {vmin: 0.8, vmax: 1.6, sway: 1, smin: 3, smax: 6, spread: 80})
+    .concat(fxFall(W, H, n(36), "snow", d ? ["#FFFFFF", "#DCE9FF", "#B9D4FF"] : ["#6F9AE0", "#5A86D6", "#3B6FD1"], {vmin: 0.9, vmax: 1.8, sway: 1.2, smin: 8, smax: 14, glow: d ? 8 : 0, rock: 0.5, spread: 80}))},
+  xmas: {len: 280, spawn: (W, H, d, n) => fxFall(W, H, n(44), "snowsoft", d ? ["#FFFFFF", "#E6F0FF"] : ["#B9CDEB", "#D2DEF2"], {vmin: 0.7, vmax: 1.4, sway: 1, smin: 3, smax: 6, spread: 90})
+    .concat(fxTw(W, H, n(16), "star", ["#F2C24A", "#FFE08A"], {smin: 4, smax: 7, glow: 10, spread: 160})), draw: fxGarland()},
+  spring: {spawn: (W, H, d, n) => fxFlutter(W, H, n(10), ["#A884F0", "#F28BB8", "#F2C84A", "#8FC7F2"]).concat(fxFall(W, H, n(46), "petal", ["#F6A6C8", "#FFD1E3", "#FFFFFF", "#F9E28A", "#C9B2F4"], {sway: 1.5, flip: true, smin: 6, smax: 9, spread: 70}))},
+  cafe: {spawn: (W, H, d, n) => fxBurst(W, H, n(22), "bean", ["#6B4226", "#8A5A2B", "#4A2E1A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 8, smax: 11, flip: true})
+    .concat(fxAt(fxRise(W, H, n(8), "heart", d ? ["#E8B48A", "#F5D6B8"] : ["#C8885A", "#D9A47A"], {cx: [0.4, 0.6], smin: 6, smax: 9, vmin: 0.9, vmax: 1.4, sway: 1, life: 200, alpha: 0.85}), 30)), draw: fxSteam()},
+  sunset: {spawn: (W, H, d, n) => fxTw(W, H, n(46), "glint", d ? ["#FFE2A8", "#FFFFFF"] : ["#F5A623", "#FFC46B", "#E8894A"], {smin: 8, smax: 15, glow: d ? 8 : 6, glint: true, spread: 160}).map(p => Object.assign(p, {y: H * fxR(0.55, 0.98), rot: 0, vr: 0}))
+    .concat(fxBurst(W, H, n(18), "shell", ["#FBC3A8", "#F7A58A", "#FFD9C2"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 14}), fxBurst(W, H, n(8), "starfish", ["#F07A8A", "#E8566C"], [[0.3, 1.02], [0.7, 1.02]], {smin: 10, smax: 14}),
+      Array.from({length: 3}, (_, i) => { const l = i % 2 === 0; return {shape: "gull", c: d ? "#F4E6F0" : "#5A4652", x: l ? -40 : W + 40, y: H * fxR(0.12, 0.34), vx: (l ? 1 : -1) * fxR(1.4, 2.2), vy: fxR(-0.25, 0.1), g: 0, size: fxR(15, 21), face: true, flap: 0.11, sway: 0, life: 260, delay: 10 + i * 25}; }))},
+  mint: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "mintleaf", ["#25B585", "#3FD6A0", "#0F845F"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 12, smax: 16, flip: true})
+    .concat(fxBurst(W, H, n(30), "chip", ["#4A2E1A", "#6B4226", "#3A2A20"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 4.5, smax: 6.5}))},
+  summer: {spawn: (W, H, d, n) => fxBurst(W, H, n(34), "drop", ["#23B5D3", "#4FC3F7", "#0E86C9"], [[0.25, 1.02], [0.75, 1.02]], {smin: 6, smax: 10})
+    .concat(fxFall(W, H, n(5), "ball", ["#FF6B6B", "#FF8A3D", "#E84393"], {vmin: 3, vmax: 5, sway: 0, smin: 15, smax: 21, depth: false}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})),
+      fxTw(W, H, n(18), "sparkle", ["#FFD23F", "#FFE98A"], {smin: 3, smax: 7, glow: 8}))},
+  bokeh: {spawn: (W, H, d, n) => fxTw(W, H, n(42), "bokeh", ["#FF64A0", "#28BEC8", "#FFB43C", "#8C6EFF", "#FFFFFF"], {smin: 10, smax: 26, grow: 0.05, vy: -0.3, alpha: d ? 0.85 : 0.75, glint: false, spread: 120}).map(p => Object.assign(p, {life: fxR(120, 190)}))},
+  neon: {spawn: (W, H, d, n) => fxAt(fxBurst(W, H, n(54), "circle", ["#4A86FF", "#6E8FFF", "#D05BEF", "#C84BEB"], [[0.5, 0.46]], {smin: 1.6, smax: 3, g: 0.04, glow: 14}).map(p => Object.assign(p, {vx: p.vx * 1.3, vy: p.vy * 1.3})), 26), draw: fxNeonCheck()},
+  candy: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "candy", ["#FF6FB5", "#8EE4B8", "#C9A0FF", "#FFD86B", "#6FD3FF"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 13, smax: 18, flip: true})
+    .concat(fxTw(W, H, n(16), "sparkle", ["#FFFFFF", "#FFD1EC"], {smin: 3, smax: 6, glow: 8}))},
+  arcade: {spawn: (W, H, d, n) => fxTw(W, H, n(30), "sparkle", ["#FF96C8", "#FFB45A", "#B48CFF", "#FFFFFF"], {smin: 3, smax: 7, glow: 12, top: 0.6, spread: 160}), draw: fxSynth()}
 };
 
 
-/* Sprites: each shape is drawn once into a small image, then stamped */
+/* Sprites: each shape is drawn once into a small image, then stamped. Filled shapes get soft light from the top left
+   and shade at the bottom right so they read as objects, not flat stickers. A shape can paint itself instead
+   (paint(g, color, dark), in the same -12..12 box) for things that need more than one color. flat: true skips the shading. */
 const FX_SPR = new Map(), SPR_U = 2.4, SPR_S = 64, SPR_G = 96;
-function fxSprite(shape, color, glow, dark){
-  const key = shape + "|" + color + "|" + (glow || 0) + "|" + (dark ? 1 : 0);
+const fxShade = (c, k) => { const m = /^#([0-9a-f]{6})$/i.exec(c); if (!m) return c; const v = parseInt(m[1], 16); return "#" + [16, 8, 0].map(s => Math.round(((v >> s) & 255) * k)).map(x => Math.min(255, x).toString(16).padStart(2, "0")).join(""); };
+function fxSprite(shape, color, glow, dark, back){
+  const key = shape + "|" + color + "|" + (glow || 0) + "|" + (dark ? 1 : 0) + (back ? "|b" : "");
   let c = FX_SPR.get(key); if (c) return c;
-  const S = glow ? SPR_G : SPR_S, sh = FX_SHAPES[shape], pp = fxPath(shape);
-  c = document.createElement("canvas"); c.width = c.height = S;
-  const g = c.getContext("2d");
-  g.translate(S / 2, S / 2); g.scale(SPR_U, SPR_U);
-  if (glow) { g.shadowBlur = glow * SPR_U; g.shadowColor = color; }
-  if (shape === "orb") { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 10); gr.addColorStop(0, color); gr.addColorStop(0.55, color); gr.addColorStop(1, "rgba(0,0,0,0)"); g.globalAlpha = 0.9; g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 10, 0, 6.3); g.fill(); }
-  else if (shape === "puffsoft") { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, color); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); }
-  else if (sh.stroke) { g.strokeStyle = color; g.lineWidth = sh.lw || 1.4; g.lineCap = "round"; g.stroke(pp.d); }
-  else { g.fillStyle = color; g.fill(pp.d); }
-  if (pp.detail && shape !== "orb" && shape !== "puffsoft") {
-    g.shadowBlur = 0;
-    if (sh.dfill) { g.fillStyle = shape === "bulb" ? "#9AA0A8" : dark ? "rgba(0,0,0,.35)" : "rgba(255,255,255,.55)"; g.fill(pp.detail); }
-    else { g.strokeStyle = shape === "butterfly" ? "rgba(40,30,60,.55)" : shape === "bubble" ? color : shape === "bean" ? "rgba(255,240,220,.6)" : "rgba(255,255,255,.7)"; g.lineWidth = 1.1; g.lineCap = "round"; g.stroke(pp.detail); }
+  const S = glow ? SPR_G : SPR_S, sh = FX_SHAPES[shape];
+  const body = document.createElement("canvas"); body.width = body.height = S;
+  const b = body.getContext("2d"); b.translate(S / 2, S / 2); b.scale(SPR_U, SPR_U);
+  const col = back ? fxShade(color, 0.74) : color;
+  const clear = /^#[0-9a-f]{6}$/i.test(col) ? col + "00" : "rgba(0,0,0,0)";   // soft edges fade in their own color, never through grey
+  if (sh.paint) sh.paint(b, col, dark);
+  else {
+    const pp = fxPath(shape);
+    if (shape === "orb") { const gr = b.createRadialGradient(0, 0, 0, 0, 0, 10); gr.addColorStop(0, col); gr.addColorStop(0.55, col); gr.addColorStop(1, clear); b.globalAlpha = 0.9; b.fillStyle = gr; b.beginPath(); b.arc(0, 0, 10, 0, 6.3); b.fill(); }
+    else if (shape === "puffsoft") { const gr = b.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, col); gr.addColorStop(1, clear); b.fillStyle = gr; b.beginPath(); b.arc(0, 0, 12, 0, 6.3); b.fill(); }
+    else if (sh.stroke) { b.strokeStyle = col; b.lineWidth = sh.lw || 1.4; b.lineCap = b.lineJoin = "round"; b.stroke(pp.d); }
+    else {
+      b.fillStyle = col; b.fill(pp.d);
+      if (!sh.flat) { b.save(); b.globalCompositeOperation = "source-atop"; const gr = b.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${back ? 0.1 : 0.34})`); gr.addColorStop(0.42, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dark ? 0.26 : 0.2})`); b.fillStyle = gr; b.fillRect(-13, -13, 26, 26); b.restore(); }
+    }
+    if (pp.detail && shape !== "orb" && shape !== "puffsoft") {
+      if (sh.dfill) { b.fillStyle = shape === "bulb" ? "#9AA0A8" : dark ? "rgba(0,0,0,.35)" : "rgba(255,255,255,.55)"; b.fill(pp.detail); }
+      else { b.strokeStyle = shape === "butterfly" ? "rgba(40,30,60,.55)" : shape === "bubble" ? col : shape === "bean" ? "rgba(255,240,220,.6)" : "rgba(255,255,255,.7)"; b.lineWidth = 1.1; b.lineCap = "round"; b.stroke(pp.detail); }
+    }
   }
+  if (!glow) c = body;
+  else { c = document.createElement("canvas"); c.width = c.height = S; const g = c.getContext("2d"); g.shadowBlur = glow * SPR_U; g.shadowColor = color; g.drawImage(body, 0, 0); }
   c._half = S / 2 / SPR_U;
-  FX_SPR.set(key, c); if (FX_SPR.size > 400) FX_SPR.delete(FX_SPR.keys().next().value);
+  FX_SPR.set(key, c); if (FX_SPR.size > 500) FX_SPR.delete(FX_SPR.keys().next().value);
   return c;
 }
 FX_SHAPES.orb = {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0"};
@@ -8423,6 +8647,10 @@ const fxDefer = fn => { const w = fxBusyMs(); w > 0 ? setTimeout(fn, w + 120) : 
 /* The pop-up plays in front of the page */
 function ambientPause(on){}
 
+/* Plays one theme's pop-up. It lasts fx.len frames (about 4.5 s by default) and always ends with a gentle fade of the
+   whole layer over its last second, so nothing is ever cut off mid-flight. */
+const FX_LEN = 270, FX_FADE = 60;
+const fxEase = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 function runThemeFx(fx){
   if (window.SBMotion && SBMotion.noParticles()) { SBMotion.flash(); return; }
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -8431,26 +8659,30 @@ function runThemeFx(fx){
   const dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight, dark = isDarkNow();
   cv.width = W * dpr; cv.height = H * dpr; document.body.appendChild(cv);
   const g = cv.getContext("2d"); g.scale(dpr, dpr);
-  const scale = 1.5 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+  const scale = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
   const n = x => Math.max(3, Math.round(x * (reduce ? 0.3 : 1) * Math.min(1.3, Math.max(0.55, W * H / 1100000))));
+  const LEN = Math.min(360, fx.len || FX_LEN), FADE = Math.min(FX_FADE, LEN / 3);
   const P = fx.spawn(W, H, dark, n);
-  P.forEach(p => { p.age = 0; if (p.shape) p.spr = fxSprite(p.shape, p.c, p.glow, dark); });
-  fxUntil = performance.now() + 5200; ambientPause(true);
-  let f = 0, last = performance.now(), acc = 0;
+  P.sort((a, b) => (a.z || 1) - (b.z || 1));
+  P.forEach(p => { p.age = 0; p.ph0 = p.ph0 != null ? p.ph0 : fxR(0, 6.3); p.rot = p.rot || 0; p.rot0 = p.rot;
+    if (p.flip) { p.fsp = fxR(0.05, 0.11); p.fph = fxR(0, 6.3); }
+    if (p.shape) { p.spr = fxSprite(p.shape, p.c, p.glow, dark); if (p.flip) p.sprB = fxSprite(p.shape, p.c, p.glow, dark, true); } });
+  fxUntil = performance.now() + LEN * 16.7 + 400; ambientPause(true);
+  let f = 0, last = performance.now(), acc = 0, done = false;
+  const finish = () => { if (done) return; done = true; cv.remove(); ambientPause(false); fxUntil = performance.now() + 200; };
   const step = now => {
     acc += Math.min(100, now - last); last = now;
     let ticks = 0; while (acc >= 16.6 && ticks < 4) { acc -= 16.6; ticks++; tick(); }
     if (!ticks) { requestAnimationFrame(step); return; }
+    if (f >= LEN) { finish(); return; }
+    cv.style.opacity = String(1 - fxEase((f - (LEN - FADE)) / FADE));
     g.clearRect(0, 0, W, H);
-    if (fx.draw) fx.draw(g, f, W, H, dark);
-    let alive = 0;
+    if (fx.draw) { g.save(); fx.draw(g, f, W, H, dark); g.restore(); }
     for (const p of P) {
-      if (f < (p.delay || 0)) { alive++; continue; }
-      if (p.dead) continue;
-      alive++;
-      let a = p.alpha || 1;
-      if (p.tw) a *= Math.sin(Math.PI * p.age / p.life);
-      else { const left = p.life - p.age; if (left < 30) a *= left / 30; if (p.age < 8) a *= p.age / 8; }
+      if (f < (p.delay || 0) || p.dead) continue;
+      let a = p.alpha || 1, s = p.size * scale / 10 * (1 + (p.grow || 0) * p.age / 10);
+      if (p.tw) { const e = Math.sin(Math.PI * p.age / p.life); a *= e; if (p.glint) s *= 0.35 + 0.65 * e; }
+      else { const left = p.life - p.age; a *= fxEase(left / 40) * fxEase(p.age / 10); }
       if (a <= 0.01) continue;
       g.globalAlpha = Math.min(1, a);
       if (p.streak) {
@@ -8459,16 +8691,20 @@ function runThemeFx(fx){
         g.strokeStyle = grd; g.lineWidth = 2.2; g.lineCap = "round"; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - ux * len, p.y - uy * len); g.stroke();
         continue;
       }
-      const s = p.size * scale / 10 * (1 + (p.grow || 0) * p.age / 10);
-      const fl = p.flip ? Math.cos(p.age * 0.08 + p.x * 0.02) : 1, fp = p.flap ? 0.35 + 0.65 * Math.abs(Math.cos(p.age * p.flap)) : 1;
-      const sx = s * fl * fp, c = Math.cos(p.rot), si = Math.sin(p.rot), h = p.spr._half;
+      let rot = p.rot, mx = 1, spr = p.spr;
+      if (p.face) { const vx = p.vx + (p.dx || 0), vy = p.vy; if (vx < 0) { mx = -1; rot = Math.atan2(-vy, -vx); } else rot = Math.atan2(vy, vx); }
+      if (p.wig) rot += Math.sin(p.age * 0.22 + p.ph0) * p.wig;
+      let fl = 1;
+      if (p.flip) { fl = Math.cos(p.age * p.fsp + p.fph); if (fl < 0 && p.sprB) spr = p.sprB; fl = Math.sign(fl || 1) * Math.max(0.12, Math.abs(fl)); }
+      const fp = p.flap ? 0.35 + 0.65 * Math.abs(Math.cos(p.age * p.flap)) : 1;
+      const sx = s * fl * fp * mx, c = Math.cos(rot), si = Math.sin(rot), h = spr._half;
       g.setTransform(dpr * c * sx, dpr * si * sx, -dpr * si * s, dpr * c * s, dpr * p.x, dpr * p.y);
-      g.drawImage(p.spr, -h, -h, 2 * h, 2 * h);
+      g.drawImage(spr, -h, -h, 2 * h, 2 * h);
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     g.globalAlpha = 1;
-    if ((alive || (fx.draw && f < 200)) && f < 300) requestAnimationFrame(step);
-    else { cv.style.transition = "opacity .3s"; cv.style.opacity = "0"; setTimeout(() => { cv.remove(); ambientPause(false); }, 320); fxUntil = performance.now() + 350; }
+    if (fx.over) { g.save(); fx.over(g, f, W, H, dark); g.restore(); }
+    requestAnimationFrame(step);
   };
   const tick = () => {
     for (const p of P) {
@@ -8476,16 +8712,20 @@ function runThemeFx(fx){
       p.age++;
       if (p.age > p.life) { p.dead = true; continue; }
       p.vy += p.g || 0; if (p.drag) { p.vx *= p.drag; p.vy *= p.drag; }
-      p.x += p.vx + (p.sway ? Math.sin(p.age * (p.swf || 0.05) + p.ph0) * p.sway : 0); p.y += p.vy; p.rot += p.vr || 0;
+      if (p.term && p.vy > p.term) p.vy += (p.term - p.vy) * 0.12;
+      const ph = p.age * (p.swf || 0.05) + p.ph0;
+      let sw = p.sway || 0; if (p.fsw && p.term) sw += p.fsw * Math.max(0, Math.min(1, p.vy / p.term));
+      p.dx = sw ? Math.sin(ph) * sw : 0;
+      p.x += p.vx + p.dx; p.y += p.vy;
+      if (p.rock) p.rot = p.rot0 + Math.cos(ph) * p.rock; else p.rot += p.vr || 0;
+      if (p.fsw && p.term && !p.rock && p.vy > 0) p.vr *= 0.97;
       if (p.bounce && p.y > H - p.size * scale && p.vy > 0) { p.y = H - p.size * scale; p.vy *= -0.62; p.vx *= 0.9; }
-      if (p.y > H + 60 || p.y < -H) p.dead = true;
+      if (p.y > H + 80 || p.y < -H || p.x < -W * 0.6 || p.x > W * 1.6) p.dead = true;
     }
     f++;
   };
-  P.forEach(p => { p.ph0 = p.x * 0.01; p.rot = p.rot || 0; });
   requestAnimationFrame(t => { last = t; requestAnimationFrame(step); });
 }
-
 
 FX_SHAPES.fish = {d: "M10 0C6 -5.5 -3 -5.5 -6 0C-3 5.5 6 5.5 10 0ZM-5 0L-10.5 -4.5L-9.5 0L-10.5 4.5Z", detail: "M4 -1.2a1 1 0 1 0 2 0a1 1 0 1 0 -2 0", dfill: true};
 FX_SHAPES.fallleaf = {d: "M0 -10.5C4.6 -8 7.2 -3.2 6.4 1.6C5.8 5.4 3.2 8.2 0.6 9.4L0.6 12.5L-0.6 12.5L-0.6 9.4C-3.2 8.2 -5.8 5.4 -6.4 1.6C-7.2 -3.2 -4.6 -8 0 -10.5Z", detail: "M0 -8.5L0 9M0 -3L3.4 -5.6M0 1L4 -1.6M0 -3L-3.4 -5.6M0 1L-4 -1.6", dstroke: true};
@@ -8495,73 +8735,643 @@ FX_SHAPES.sprinkle = {d: "M-7 -1.8H7A1.8 1.8 0 0 1 7 1.8H-7A1.8 1.8 0 0 1 -7 -1.
 
 /* Shapes for the hobby and holiday themes */
 (() => {
-  const c = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`;
+  const c = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`, sh = fxShade;
+  const P = s => new Path2D(s), fillP = (g, col, s) => { g.fillStyle = col; g.fill(P(s)); }, line = (g, col, w, s) => { g.strokeStyle = col; g.lineWidth = w; g.lineCap = g.lineJoin = "round"; g.stroke(P(s)); };
+  const gloss = (g, s, k = 0.34) => { g.save(); g.clip(P(s)); const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${k})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, "rgba(0,0,0,.2)"); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // pixel art: one string per row, o outline, c color, s shade, h highlight, w white
+  const pix = rows => (g, col) => { const h = rows.length, w = rows[0].length, u = 21 / Math.max(w, h), pal = {o: sh(col, 0.5), c: col, s: sh(col, 0.76), h: sh(col, 1.45), w: "#FFFFFF"};
+    rows.forEach((r, y) => [...r].forEach((k, x) => { if (k === ".") return; g.fillStyle = pal[k]; g.fillRect((x - w / 2) * u - 0.04, (y - h / 2) * u - 0.04, u + 0.08, u + 0.08); })); };
+  const egg = "M0 -10C5 -10 7.6 -1 7.6 3.2A7.6 7.2 0 0 1 -7.6 3.2C-7.6 -1 -5 -10 0 -10Z", heartD = "M0 9C-8 3.4 -10.4 -1.6 -9.2 -5.2C-8 -9 -2.4 -9.6 0 -5C2.4 -9.6 8 -9 9.2 -5.2C10.4 -1.6 8 3.4 0 9Z";
+  const pumpkinD = "M0 -5.6C3.4 -8 8.6 -6.6 9.8 -1.6C11 3.6 8 9 3.2 9C1.6 9 0.6 8.4 0 8C-0.6 8.4 -1.6 9 -3.2 9C-8 9 -11 3.6 -9.8 -1.6C-8.6 -6.6 -3.4 -8 0 -5.6Z";
+  const lanternD = "M-6.5 -7.5H6.5L8.6 -4C10.4 -0.5 10.4 2.5 8.6 5.6L6.5 7.5H-6.5L-8.6 5.6C-10.4 2.5 -10.4 -0.5 -8.6 -4Z";
+  const cupD = "M-6.4 1.4H6.4L4.8 9.4H-4.8Z M-7.4 1.4C-8.4 -2.6 -4.6 -4.8 -2.4 -4.6C-2.2 -8.4 2.6 -9.6 3.4 -5.8C6.4 -6.6 8.6 -2.6 7.4 1.4Z";
+  // paint splats: a wobbly blob with a few flung drops
+  const splat = seed => { let s = seed; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647; const pts = [];
+    for (let i = 0; i < 22; i++) { const a = i / 22 * 6.283, r = 6.2 + 1.3 * Math.sin(3 * a + seed) + 0.8 * Math.sin(5 * a + 2 * seed) + (rnd() < 0.22 ? 2.6 : 0); pts.push(`${(Math.cos(a) * r).toFixed(2)} ${(Math.sin(a) * r).toFixed(2)}`); }
+    let d = "M" + pts.join("L") + "Z"; for (let i = 0; i < 4; i++) { const a = rnd() * 6.283, r = 9 + rnd() * 2.4; d += c(+(Math.cos(a) * r).toFixed(2), +(Math.sin(a) * r).toFixed(2), +(0.8 + rnd() * 0.9).toFixed(2)); } return d; };
   Object.assign(FX_SHAPES, {
     note: {d: "M-6.2 6.4C-6.8 4.4 -4.6 2.4 -1.8 2.2C0 2.1 1 2.6 1.4 3.2V-9.6H3V-9.4C3.4 -6.4 7.6 -5.6 7.2 -1.6C6.8 -3.6 5 -5 3 -5.2V5.4C3 7.6 0.6 9.2 -2.2 9.2C-4.2 9.2 -5.8 8.2 -6.2 6.4Z"},
+    note2: {d: "M-9.4 6.4a3.4 2.5 -20 1 0 6.8 0a3.4 2.5 -20 1 0 -6.8 0Z M2.6 4.4a3.4 2.5 -20 1 0 6.8 0a3.4 2.5 -20 1 0 -6.8 0Z M-4.1 6H-2.6V-5.4L7.9 -8.2V4H9.4V-10.4L-4.1 -6.8Z"},
     paw: {d: c(0, 3.6, 4.6) + c(-5.6, -2.4, 2.3) + c(-2, -6.2, 2.3) + c(2, -6.2, 2.3) + c(5.6, -2.4, 2.3)},
-    yarn: {d: c(0, 0, 9), detail: "M-8 -3C-3 -6 3 -6 8 -3M-8.6 1.5C-3 -2 3 -2 8.6 1.5M-6 6.5C-2 3 2 3 6 6.5M-3 -8.4C2 -4 3 3 1 8.8", dstroke: true},
+    yarn: {d: c(0, 0, 9), detail: "M-8 -3C-3 -6 3 -6 8 -3M-8.6 1.5C-3 -2 3 -2 8.6 1.5M-6 6.5C-2 3 2 3 6 6.5M-3 -8.4C2 -4 3 3 1 8.8", dstroke: true,
+      paint: (g, col) => { fillP(g, col, c(0, 0, 9)); g.save(); g.clip(P(c(0, 0, 9)));
+        for (let i = -3; i <= 3; i++) line(g, sh(col, 0.72), 0.8, `M-10 ${i * 2.6 - 3}Q0 ${i * 2.6 + 3} 10 ${i * 2.6 - 4}`);
+        for (let i = -2; i <= 2; i++) line(g, sh(col, 1.28), 0.7, `M${i * 3 - 2} -10Q${i * 3 + 4} 0 ${i * 3 - 1} 10`); g.restore(); gloss(g, c(0, 0, 9), 0.3); line(g, sh(col, 0.8), 0.9, "M6.4 6.4Q9 9.4 11.6 8.6"); }},
     pixel: {d: "M-6 -6H6V6H-6Z"},
-    coin: {d: c(0, 0, 9), detail: c(0, 0, 6.2), dstroke: true},
+    coin: {d: c(0, 0, 9), detail: c(0, 0, 6.2), dstroke: true,
+      paint: (g, col) => { fillP(g, sh(col, 0.72), c(0.5, 0.6, 9)); fillP(g, col, c(0, 0, 9)); line(g, sh(col, 0.74), 1, c(0, 0, 6.4)); line(g, sh(col, 1.3), 1.2, "M-2 -4.6V4.6M2 -4.6V4.6"); gloss(g, c(0, 0, 9), 0.45); }},
+    pcoin: {d: c(0, 0, 9), paint: pix(["..oooo..", ".ohhcco.", "ohcwcsco", "ohcwcsco", "occwcsco", "occcssco", ".occsso.", "..oooo.."])},
+    pheart: {d: heartD, paint: pix([".oo...oo.", "ohco.occo", "ohcccccso", "occccccso", ".occccso.", "..occso..", "...oso...", "....o...."])},
+    pstar: {d: "M0 -10L2.9 -4L9.5 -3.1L4.7 1.5L5.9 8.1L0 5L-5.9 8.1L-4.7 1.5L-9.5 -3.1L-2.9 -4Z", paint: pix(["....o....", "...oco...", "...ohco..", "ooochccoo", "ohcccccso", ".occccso.", "..occcso.", ".occoocso", ".ooo..ooo"])},
+    pgem: {d: "M-8 -3L-4 -8H4L8 -3L0 9Z", paint: pix([".oooooo.", "ohwccsso", "oooooooo", ".ohccso.", "..ohso..", "...oo..."])},
     gem: {d: "M-8 -3L-4 -8H4L8 -3L0 9Z", detail: "M-8 -3H8M-4 -8L-1.6 -3L0 9M4 -8L1.6 -3", dstroke: true},
     clover: {d: "M0 -1C-2.5 -9 -9.5 -7 -6.5 -2.4C-9.8 -4 -11 2.8 -4.6 2.6C-8 5.4 -2 8.2 -0.6 2.6L-1.2 10H1.2L0.6 2.6C2 8.2 8 5.4 4.6 2.6C11 2.8 9.8 -4 6.5 -2.4C9.5 -7 2.5 -9 0 -1Z"},
-    egg: {d: "M0 -10C5 -10 7.6 -1 7.6 3.2A7.6 7.2 0 0 1 -7.6 3.2C-7.6 -1 -5 -10 0 -10Z", detail: "M-7 1.2L-4.6 -1.4L-2.3 1.2L0 -1.4L2.3 1.2L4.6 -1.4L7 1.2", dstroke: true},
+    egg: {d: egg, detail: "M-7 1.2L-4.6 -1.4L-2.3 1.2L0 -1.4L2.3 1.2L4.6 -1.4L7 1.2", dstroke: true,
+      paint: (g, col) => { fillP(g, col, egg); g.save(); g.clip(P(egg)); fillP(g, sh(col, 0.8), "M-9 -4.6H9V-3.2H-9Z"); line(g, "#FFFFFF", 1.5, "M-8 1.6L-5.4 -1.2L-2.7 1.6L0 -1.2L2.7 1.6L5.4 -1.2L8 1.6");
+        [-5, -1.7, 1.7, 5].forEach((x, i) => fillP(g, i % 2 ? "#FFFFFF" : sh(col, 0.72), c(x, 5.2, 1))); fillP(g, sh(col, 0.72), c(0, -7, 1.1)); g.restore(); gloss(g, egg, 0.4); line(g, sh(col, 0.78), 0.5, egg); }},
     bat: {d: "M0 -2.2C0.8 -4.6 2 -4.4 2.4 -2.4C5 -5.4 9.4 -5.6 11.4 -3.2C9.4 -2.2 9 0 9.6 2.2C7.6 1 5.8 1.6 5.2 3.2C3.6 1.6 1.6 2.2 0 4.4C-1.6 2.2 -3.6 1.6 -5.2 3.2C-5.8 1.6 -7.6 1 -9.6 2.2C-9 0 -9.4 -2.2 -11.4 -3.2C-9.4 -5.6 -5 -5.4 -2.4 -2.4C-2 -4.4 -0.8 -4.6 0 -2.2Z"},
-    pumpkin: {d: "M0 -5.6C3.4 -8 8.6 -6.6 9.8 -1.6C11 3.6 8 9 3.2 9C1.6 9 0.6 8.4 0 8C-0.6 8.4 -1.6 9 -3.2 9C-8 9 -11 3.6 -9.8 -1.6C-8.6 -6.6 -3.4 -8 0 -5.6Z", detail: "M0 -5.2C-1.6 -1 -1.6 4 0 7.8M-4.6 -6.6C-7.2 -2 -7 4 -4.2 8.6M4.6 -6.6C7.2 -2 7 4 4.2 8.6M0 -5.6L1.4 -9.6", dstroke: true},
-    lantern: {d: "M-6.5 -7.5H6.5L8.6 -4C10.4 -0.5 10.4 2.5 8.6 5.6L6.5 7.5H-6.5L-8.6 5.6C-10.4 2.5 -10.4 -0.5 -8.6 -4Z", detail: "M-3 -7.5C-4.6 -2.5 -4.6 2.5 -3 7.5M3 -7.5C4.6 -2.5 4.6 2.5 3 7.5M0 7.5V11.5M0 -7.5V-10.5", dstroke: true},
+    pumpkin: {d: pumpkinD, detail: "M0 -5.2C-1.6 -1 -1.6 4 0 7.8M-4.6 -6.6C-7.2 -2 -7 4 -4.2 8.6M4.6 -6.6C7.2 -2 7 4 4.2 8.6M0 -5.6L1.4 -9.6", dstroke: true,
+      paint: (g, col, dark) => { fillP(g, col, pumpkinD); line(g, sh(col, 0.78), 0.8, "M0 -5.2C-1.6 -1 -1.6 4 0 7.8M-4.6 -6.6C-7.2 -2 -7 4 -4.2 8.6M4.6 -6.6C7.2 -2 7 4 4.2 8.6"); gloss(g, pumpkinD, 0.3);
+        line(g, "#5E7A2E", 1.6, "M0 -5.6Q0.4 -8.4 2 -9.8"); const face = dark ? "#FFD25A" : "#5A2A0C";
+        fillP(g, face, "M-6 -0.6L-3.4 -3.4L-1.8 -0.2Z M6 -0.6L3.4 -3.4L1.8 -0.2Z M-6.4 2.6Q0 4.4 6.4 2.6Q5.6 6.8 0 7Q-5.6 6.8 -6.4 2.6Z"); fillP(g, col, "M-2.6 3.4H-1V5H-2.6Z M1 3.4H2.6V5H1Z"); }},
+    lantern: {d: lanternD, detail: "M-3 -7.5C-4.6 -2.5 -4.6 2.5 -3 7.5M3 -7.5C4.6 -2.5 4.6 2.5 3 7.5M0 7.5V11.5M0 -7.5V-10.5", dstroke: true,
+      paint: (g, col) => { line(g, "#C8962A", 0.7, "M0 -7.5V-11.6"); fillP(g, col, lanternD); g.save(); g.clip(P(lanternD)); const gr = g.createRadialGradient(0, 0, 0, 0, 0, 9); gr.addColorStop(0, "rgba(255,214,120,.75)"); gr.addColorStop(1, "rgba(255,214,120,0)"); g.fillStyle = gr; g.fillRect(-11, -9, 22, 18); g.restore();
+        line(g, sh(col, 0.66), 0.7, "M-3.4 -7.5C-5.2 -2.5 -5.2 2.5 -3.4 7.5M3.4 -7.5C5.2 -2.5 5.2 2.5 3.4 7.5M0 -7.5V7.5"); fillP(g, "#E8B83A", "M-6.8 -9H6.8V-7H-6.8Z M-6.8 7H6.8V9H-6.8Z"); line(g, "#E8B83A", 0.8, "M-1 9V12.6M0 9V13M1 9V12.6"); gloss(g, lanternD, 0.25); }},
     stardavid: {d: "M0 -9.6L8.3 4.8H-8.3ZM0 9.6L8.3 -4.8H-8.3Z", stroke: true, lw: 1.7},
-    dreidel: {d: "M-5.4 -5H5.4V3.2L0 9.4L-5.4 3.2Z M-1.1 -5V-9.4H1.1V-5Z"},
+    dreidel: {d: "M-5.4 -5H5.4V3.2L0 9.4L-5.4 3.2Z M-1.1 -5V-9.4H1.1V-5Z",
+      paint: (g, col) => { fillP(g, sh(col, 0.8), "M-1.1 -5V-9.4H1.1V-5Z"); fillP(g, col, "M-5.4 -5H0V9.4L-5.4 3.2Z"); fillP(g, sh(col, 0.74), "M0 -5H5.4V3.2L0 9.4Z"); fillP(g, sh(col, 1.3), "M-5.4 -5L-3.8 -6.6H3.8L5.4 -5Z"); line(g, "#F2D27A", 1, "M-3.6 -2.4H-1.6V3M3 -2.6Q1.2 -2.6 1.6 0.4"); }},
     confetti: {d: "M-5 -1.8H5V1.8H-5Z"},
     flame: {d: "M0 -10.4C3.4 -5.4 6 -2.2 6 2.4A6 6.4 0 0 1 -6 2.4C-6 -1.4 -2.2 -3.6 0 -10.4Z", detail: "M0 -2.6C1.6 0 2.6 1.4 2.6 3.2A2.6 2.6 0 0 1 -2.6 3.2C-2.6 1.4 -1.2 0.4 0 -2.6Z", dfill: true},
-    acorn: {d: "M-6.6 -2.4C-6.6 -6.8 6.6 -6.8 6.6 -2.4ZM-5.4 -2.4C-5.4 3.6 -2.2 8 0 9.4C2.2 8 5.4 3.6 5.4 -2.4ZM-0.8 -6.6V-9.4H0.8V-6.6Z"},
-    cupcake: {d: "M-6.4 1.4H6.4L4.8 9.4H-4.8Z M-7.4 1.4C-8.4 -2.6 -4.6 -4.8 -2.4 -4.6C-2.2 -8.4 2.6 -9.6 3.4 -5.8C6.4 -6.6 8.6 -2.6 7.4 1.4Z", detail: "M-2.6 1.6L-2 9.2M0.6 1.6V9.2M3.6 1.6L3 9.2", dstroke: true},
+    acorn: {d: "M-6.6 -2.4C-6.6 -6.8 6.6 -6.8 6.6 -2.4ZM-5.4 -2.4C-5.4 3.6 -2.2 8 0 9.4C2.2 8 5.4 3.6 5.4 -2.4ZM-0.8 -6.6V-9.4H0.8V-6.6Z",
+      paint: (g, col) => { const nut = "M-5.4 -2.6C-5.4 3.6 -2.2 8 0 9.4C2.2 8 5.4 3.6 5.4 -2.6Z", cap = "M-6.8 -2C-7 -7 7 -7 6.8 -2Q0 -0.6 -6.8 -2Z"; fillP(g, col, nut); gloss(g, nut, 0.4); line(g, "#5A3A1E", 1.4, "M0 -5.6Q0.4 -8.6 2 -9.6"); fillP(g, "#6E4424", cap);
+        g.save(); g.clip(P(cap)); line(g, "#8E6238", 0.6, "M-7 -6L-2 -1M-3 -7L2 -1M1 -7L6 -1M-7 -2L-2 -7M-3 -1L2 -7M1 -1L6 -7"); g.restore(); }},
+    cupcake: {d: cupD, detail: "M-2.6 1.6L-2 9.2M0.6 1.6V9.2M3.6 1.6L3 9.2", dstroke: true,
+      paint: (g, col) => { const wrap = "M-6.4 1.4H6.4L4.8 9.4H-4.8Z", top = "M-7.4 1.8C-8.4 -2.2 -4.6 -4.4 -2.4 -4.2C-2.2 -8 2.6 -9.2 3.4 -5.4C6.4 -6.2 8.6 -2.2 7.4 1.8Z"; fillP(g, "#E3A15C", wrap); g.save(); g.clip(P(wrap)); line(g, "#C27C38", 0.9, "M-4 1L-3.2 10M-1.3 1L-0.9 10M1.3 1L0.9 10M4 1L3.2 10"); g.restore(); fillP(g, col, top); gloss(g, top, 0.42);
+        line(g, sh(col, 1.25), 0.9, "M-5.4 -0.6C-2 -2.8 2 -2.8 5.6 -0.8"); [["#FF6FB5", -4, -1.8, 0.5], ["#6FD3FF", 2.6, -3.2, -0.6], ["#FFD86B", -0.6, -5.4, 1], ["#8EE4B8", 4.6, -0.6, 0.2]].forEach(([k, x, y, r]) => { g.save(); g.translate(x, y); g.rotate(r); g.fillStyle = k; g.fillRect(-1, -0.35, 2, 0.7); g.restore(); });
+        fillP(g, "#D8344A", c(1, -8.2, 1.9)); line(g, "#5E7A2E", 0.6, "M1.2 -10Q1.8 -11.6 3.4 -12"); fillP(g, "rgba(255,255,255,.6)", c(0.4, -8.8, 0.55)); }},
+    cookie: {d: c(0, 0, 9), paint: (g, col) => { const b = "M-9 0C-9 -5 -5 -9 0 -9C5.2 -9 9 -5 8.8 0.4C8.6 5.2 5 9 0 9C-5 9 -9 5 -9 0Z"; fillP(g, sh(col, 0.82), b); fillP(g, col, c(-0.3, -0.3, 7.6)); gloss(g, b, 0.3);
+      [[-3.4, -3.6, 1.5], [2.6, -4.2, 1.2], [3.8, 1.8, 1.5], [-1.8, 3.6, 1.3], [-4.8, 1, 1], [0.6, 0, 1.1]].forEach(([x, y, r]) => fillP(g, "#4E2C18", c(x, y, r))); }},
     camera: {d: "M-9.6 -4.4H-4.4L-2.4 -7.4H2.4L4.4 -4.4H9.6V7.4H-9.6Z", detail: c(0, 1.4, 3.8), dstroke: true},
     book: {d: "M-9 -6.4H9V6.4H-9Z", detail: "M0 -6.4V6.4M-7 -3.6H-2M-7 -0.6H-2M2 -3.6H7M2 -0.6H7", dstroke: true},
-    print: {d: "M-8 -8.4H8V9.4H-8Z", detail: "M-6 -6.4H6V4.2H-6Z", dstroke: true},
-    heart: {d: "M0 9C-8 3.4 -10.4 -1.6 -9.2 -5.2C-8 -9 -2.4 -9.6 0 -5C2.4 -9.6 8 -9 9.2 -5.2C10.4 -1.6 8 3.4 0 9Z"},
-    flower: {d: c(0, -5, 3.6) + c(4.8, -1.5, 3.6) + c(3, 4, 3.6) + c(-3, 4, 3.6) + c(-4.8, -1.5, 3.6), detail: c(0, 0, 2.6), dfill: true}
+    // an open book seen from the front; flapping it (scaled on x) reads as a book flying like a bird
+    flybook: {d: "M0 -4L-10.5 -7.5V4.5L0 8ZM0 -4L10.5 -7.5V4.5L0 8Z",
+      paint: (g, col) => { fillP(g, col, "M0 -2.6L-11.6 -6.6V6L0 10L11.6 6V-6.6Z"); fillP(g, "#FFFCF2", "M0 -3.6L-10.4 -7.4V4.6L0 8.2Z"); fillP(g, "#F1EADA", "M0 -3.6L10.4 -7.4V4.6L0 8.2Z");
+        line(g, "rgba(90,80,70,.5)", 0.55, "M-8.6 -4.4L-2 -2.2M-8.6 -2L-2 0.2M-8.6 0.4L-2 2.6M-8.6 2.8L-4.6 4.2M2 -2.2L8.6 -4.4M2 0.2L8.6 -2M2 2.6L8.6 0.4M2 5L6 3.6"); line(g, sh(col, 0.7), 0.7, "M0 -3.6V8.2"); }},
+    print: {d: "M-8.6 -10H8.6V10.6H-8.6Z",
+      paint: (g, col, dark) => { g.fillStyle = "rgba(40,30,20,.22)"; g.fillRect(-7.9, -9.1, 17.4, 20.6); g.fillStyle = dark ? "#F3EEE4" : "#FFFFFF"; g.fillRect(-8.6, -10, 17.2, 20.6); g.strokeStyle = "rgba(70,60,50,.3)"; g.lineWidth = 0.5; g.strokeRect(-8.6, -10, 17.2, 20.6);
+        g.save(); g.beginPath(); g.rect(-7, -8.4, 14, 12.8); g.clip(); const gr = g.createLinearGradient(0, -8.4, 0, 4.4); gr.addColorStop(0, sh(col, 1.3)); gr.addColorStop(1, col); g.fillStyle = gr; g.fillRect(-7, -8.4, 14, 12.8);
+        fillP(g, "#FFF4C8", c(3, -4.4, 2.1)); fillP(g, sh(col, 0.66), "M-7 4.4V0.2Q-3 -3.6 1 0.6Q4 -1.6 7 0.8V4.4Z"); fillP(g, sh(col, 0.48), "M-7 4.4V2.6Q-1 0.6 7 3.4V4.4Z"); g.restore(); }},
+    heart: {d: heartD, paint: (g, col) => { fillP(g, col, heartD); gloss(g, heartD, 0.36); fillP(g, "rgba(255,255,255,.55)", "M-6.6 -5.4C-6 -7.2 -3.8 -7.4 -2.8 -6.2C-4.2 -6.4 -5.6 -5.8 -6.6 -5.4Z"); }},
+    flower: {d: c(0, -5, 3.6) + c(4.8, -1.5, 3.6) + c(3, 4, 3.6) + c(-3, 4, 3.6) + c(-4.8, -1.5, 3.6), detail: c(0, 0, 2.6), dfill: true},
+    bloom: {d: c(0, -5, 3.6) + c(4.8, -1.5, 3.6) + c(3, 4, 3.6) + c(-3, 4, 3.6) + c(-4.8, -1.5, 3.6),
+      paint: (g, col) => { for (let i = 0; i < 6; i++) { g.save(); g.rotate(i / 6 * 6.283); fillP(g, col, "M0 0C-4.6 -2.4 -4.4 -9.4 0 -10.4C4.4 -9.4 4.6 -2.4 0 0Z"); line(g, sh(col, 0.78), 0.5, "M0 -2V-8"); g.restore(); }
+        for (let i = 0; i < 6; i++) { g.save(); g.rotate((i + 0.5) / 6 * 6.283); fillP(g, sh(col, 1.25), "M0 0C-2.6 -1.6 -2.6 -6 0 -6.6C2.6 -6 2.6 -1.6 0 0Z"); g.restore(); } fillP(g, "#F2B32A", c(0, 0, 2.8)); fillP(g, "#C97E12", c(0.6, 0.6, 1.2)); }},
+    marigold: {d: c(0, 0, 9), paint: (g, col) => { for (let r = 0; r < 3; r++) for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283 + r * 0.26, R = 7.4 - r * 2.2; fillP(g, sh(col, 1 - r * 0.1 + (i % 2) * 0.08), c(+(Math.cos(a) * R).toFixed(2), +(Math.sin(a) * R).toFixed(2), 2.6 - r * 0.35)); } fillP(g, sh(col, 0.6), c(0, 0, 1.4)); }},
+    // bee and bunny face +x
+    bee: {d: "M-7 0C-7 -4.4 5.4 -4.4 6.6 0C5.4 4.4 -7 4.4 -7 0Z",
+      paint: (g) => { fillP(g, "rgba(225,240,255,.85)", "M-1 -2.4C-5 -10 2 -11 1.6 -2.6Z M1.4 -2.2C3 -9 8 -7.6 3.2 -1.8Z"); const b = "M-7 0.6C-7 -4 5.4 -4 6.6 0.6C5.4 5 -7 5 -7 0.6Z"; fillP(g, "#F6C340", b); g.save(); g.clip(P(b)); fillP(g, "#3A2A1A", "M-4.6 -5H-2.6V6H-4.6Z M-0.4 -5H1.6V6H-0.4Z"); g.restore();
+        fillP(g, "#3A2A1A", c(6, 0.4, 2.4)); fillP(g, "#3A2A1A", "M-7 0.2L-9.6 0.8L-7 1.6Z"); gloss(g, b, 0.35); fillP(g, "#FFFFFF", c(6.8, -0.4, 0.6)); }},
+    bunny: {d: "M-9 3a7 5.5 0 1 0 14 0a7 5.5 0 1 0 -14 0Z" + c(5.4, -1.6, 3.6) + "M3.6 -4C2.4 -9.4 3.4 -12 4.8 -11.4C6 -10.8 6.2 -8 5.6 -4.4Z",
+      paint: (g, col, dark) => { const ear = "M3.4 -3.6C2 -9.4 3.2 -12.2 4.8 -11.6C6.2 -11 6.4 -8 5.8 -4Z", ear2 = "M5.2 -3.8C5.4 -9.6 7.4 -11.8 8.6 -10.8C9.8 -9.8 8.4 -7 7 -3.4Z", body = "M-9 3a7 5.6 0 1 0 14 0a7 5.6 0 1 0 -14 0Z";
+        fillP(g, sh(col, 0.86), ear2); fillP(g, "#F2A6B8", "M6.2 -4.6C6.6 -8.6 7.6 -10 8.2 -9.6C8.8 -9 8 -7 6.8 -4.4Z"); fillP(g, col, body); fillP(g, col, ear); fillP(g, "#F2A6B8", "M4.2 -4.4C3.4 -8.8 4.2 -10.6 4.9 -10.3C5.6 -9.9 5.6 -7.6 5.2 -4.6Z"); fillP(g, col, c(5.4, -1.4, 3.7));
+        fillP(g, sh(col, 0.86), "M-4 7.4C-2.6 9.6 2.6 9.6 3.6 8C2 7 -2 6.6 -4 7.4Z"); fillP(g, dark ? "#FFFFFF" : sh(col, 1.25), c(-9.2, 1.6, 2.3)); gloss(g, body, 0.3); fillP(g, "#2A2024", c(6.6, -2.2, 0.75)); fillP(g, "#F2A6B8", c(8.9, -0.9, 0.6)); }}
   });
+  [1, 2, 3].forEach(i => { FX_SHAPES["splat" + i] = {d: splat(i * 7919)}; });
 })();
 
 
+/* Completion animations for the hobby and holiday themes. Small helpers first. */
+const hbSc = (W, H) => 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+const hbBack = t => t <= 0 ? 0 : t >= 1 ? 1 : 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2);
+// draws one cached sprite at (x, y), s pixels per shape unit
+const hbStamp = (g, shape, col, d, x, y, s, rot, mx, glow) => { const spr = fxSprite(shape, col, glow, d), h = spr._half; g.save(); g.translate(x, y); if (rot) g.rotate(rot); g.scale(s * (mx || 1), s); g.drawImage(spr, -h, -h, 2 * h, 2 * h); g.restore(); };
+// per-play state for draw()/over(): rebuilt when a new play starts (frame count goes back) or the screen changes
+const hbRun = init => { let st = null; return (W, H, d, f) => { if (!st || f < st.f0 || st.W !== W || st.H !== H || st.d !== d) { st = init(W, H, d); Object.assign(st, {W, H, d}); } st.f0 = f; return st; }; };
+// a small candle flame with a warm glow, (x, y) is its base
+const hbFlame = (g, x, y, s, fl) => { g.save(); g.translate(x, y); g.scale(s * (1 - fl * 0.06), s * (1 + fl * 0.1)); g.shadowBlur = 14 * s; g.shadowColor = "rgba(255,170,40,.9)"; g.fillStyle = "#FFB347";
+  g.beginPath(); g.moveTo(0, -11); g.bezierCurveTo(3 + fl * 0.6, -6, 4.6, -3, 4.6, 0); g.arc(0, 0, 4.6, 0, Math.PI); g.bezierCurveTo(-4.6, -3, -3 + fl * 0.6, -6, 0, -11); g.fill(); g.shadowBlur = 0;
+  g.fillStyle = "#FFF3C2"; g.beginPath(); g.moveTo(0, -5.6); g.bezierCurveTo(1.8, -3, 2.4, -1.6, 2.4, 0.2); g.arc(0, 0.2, 2.4, 0, Math.PI); g.bezierCurveTo(-2.4, -1.6, -1.8, -3, 0, -5.6); g.fill(); g.restore(); };
 
-/* Completion animations for the hobby and holiday themes */
-const fxFirework = cols => (g, f, W, H, d) => {
-  const B = [[0.28, 0.3, 0], [0.7, 0.24, 16], [0.5, 0.42, 34], [0.18, 0.5, 52], [0.84, 0.46, 66]];
-  g.save(); g.lineCap = "round"; if (d) g.globalCompositeOperation = "lighter";
-  B.forEach(([bx, by, t0], i) => {
-    const t = f - t0; if (t < 0 || t > 110) return;
-    const p = t / 110, e = 1 - Math.pow(1 - Math.min(1, p * 1.6), 3), R = Math.min(W, H) * (0.16 + 0.05 * (i % 2)), a = Math.max(0, 1 - Math.pow(p, 1.6));
-    const col = cols[i % cols.length], cx = bx * W, cy = by * H, n = 18;
-    for (let k = 0; k < n; k++) {
-      const ang = k / n * Math.PI * 2 + i, r1 = R * e * 0.45, r2 = R * e, droop = p * p * R * 0.35;
-      const x1 = cx + Math.cos(ang) * r1, y1 = cy + Math.sin(ang) * r1 + droop * 0.5, x2 = cx + Math.cos(ang) * r2, y2 = cy + Math.sin(ang) * r2 + droop;
-      g.globalAlpha = a * 0.75; g.strokeStyle = col; g.lineWidth = Math.max(1.4, R * 0.022);
-      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-      g.globalAlpha = a; g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(x2, y2, Math.max(1.2, R * 0.016), 0, 6.3); g.fill();
-    }
-  });
-  g.restore();
+/* Fireworks: shells climb on a sparking trail and burst. Every star's path (drag + gravity) is worked out once per play
+   so it can be read at any frame, and drawn as a short curved trail that burns out where the star dies.
+   Kinds: peony (fat stars, a pistil core), chrys (long trails), willow / crown (gold, hang and droop with glitter dust),
+   ring, palm (thick comet arms), cross (stars split in four), multi (bursts, then every star bursts again),
+   glitter (stars that twinkle and crackle). Stars change color as they fall. Each burst lights the sky with a soft bloom.
+   pal(dark) gives the colors; o: show (a whole show in waves building to a finale, then a gold shower), shells, t0, gap,
+   ymin, ymax, size, types, gold [light, dark], glit [light, dark]. */
+const FW_KIND = {
+  peony: {n: 72, r: 1, dr: 0.95, g: 1, tl: 8, L: 100, w: 1.3, pis: 1},
+  chrys: {n: 84, r: 1.1, dr: 0.955, g: 0.9, tl: 22, L: 115, w: 0.95},
+  willow: {n: 56, r: 1.02, dr: 0.962, g: 0.9, tl: 50, L: 160, w: 0.72, gold: 1, dust: 1},
+  crown: {n: 66, r: 1.12, dr: 0.966, g: 1, tl: 40, L: 165, w: 0.9, gold: 1, dust: 1, up: 0.26},
+  ring: {n: 46, r: 0.95, dr: 0.95, g: 0.9, tl: 10, L: 100, w: 1.15, ring: 1},
+  palm: {n: 11, r: 0.95, dr: 0.972, g: 1.5, tl: 30, L: 92, w: 1.9, gold: 1, dust: 1, up: 0.3, fix: 1},
+  cross: {n: 22, r: 0.62, dr: 0.955, g: 0.8, tl: 11, L: 30, w: 1.3, split: 1},
+  multi: {n: 7, r: 0.55, dr: 0.95, g: 0.6, tl: 12, L: 26, w: 1.8, split: 2, fix: 1},
+  glitter: {n: 64, r: 1, dr: 0.952, g: 1.1, tl: 7, L: 125, w: 0.8, glit: 1}
 };
+// the full show: [burst frame, kind, x, y, size, color, second color]
+const FW_SHOW = [[40, "peony", 0.28, 0.32, 1, 0, 1], [60, "chrys", 0.72, 0.27, 1.05, 2, 3], [82, "ring", 0.5, 0.22, 0.9, 1, 5],
+  [102, "palm", 0.2, 0.34, 1, 0, 1], [112, "cross", 0.8, 0.3, 1, 3, 2], [124, "glitter", 0.42, 0.2, 0.95, 0, 0], [136, "multi", 0.62, 0.34, 1, 5, 2], [148, "willow", 0.3, 0.22, 0.9, 0, 0],
+  [170, "chrys", 0.14, 0.3, 1.05, 1, 2], [173, "chrys", 0.86, 0.3, 1.05, 3, 4], [178, "glitter", 0.36, 0.25, 1.05, 0, 0], [181, "peony", 0.64, 0.23, 1.1, 2, 1],
+  [186, "ring", 0.5, 0.36, 1, 4, 3], [190, "multi", 0.24, 0.2, 0.85, 1, 5], [194, "crown", 0.5, 0.2, 1.3, 0, 0], [199, "willow", 0.18, 0.17, 1, 0, 0], [202, "willow", 0.82, 0.17, 1, 0, 0]];
+const fxFirework = (pal, o = {}) => {
+  const BLOOM = new Map(), bloom = c => { let cv = BLOOM.get(c); if (cv) return cv; cv = document.createElement("canvas"); cv.width = cv.height = 96; const b = cv.getContext("2d"), gr = b.createRadialGradient(48, 48, 0, 48, 48, 48);
+    gr.addColorStop(0, c); gr.addColorStop(0.3, c + "88"); gr.addColorStop(1, c + "00"); b.fillStyle = gr; b.fillRect(0, 0, 96, 96); BLOOM.set(c, cv); return cv; };
+  // where a star is u frames after it set off
+  const at = (b, sp, u) => { const A = b.dr * (1 - Math.pow(b.dr, u)) / (1 - b.dr); return [sp.x0 + sp.vx * A + b.wind * u, sp.y0 + b.vt * u + (sp.vy - b.vt) * A]; };
+  const S = hbRun((W, H, d) => {
+    const k = Math.max(0.6, Math.min(1.5, Math.min(W, H) / 650)), A = Math.max(0.65, Math.min(1.2, Math.sqrt(W * H) / 900)), cols = pal(d), CL = cols.length, wind = fxR(-0.1, 0.1) * k,
+      gold = (o.gold || ["#B87A0A", "#FFC861"])[d ? 1 : 0], glit = (o.glit || ["#A8740A", "#FFF1C4"])[d ? 1 : 0], tall = H > W * 1.25, Rb = Math.min(W * (tall ? 0.42 : 0.33), H * 0.36) * (o.size || 1);
+    let prog = d ? FW_SHOW : FW_SHOW.filter(e => e[1] !== "cross" && e[1] !== "multi" && e[0] !== 124);   // light mode: fewer, bigger, denser bursts
+    if (!o.show) { const N = o.shells || 7, types = o.types || ["peony", "willow", "ring", "peony", "glitter", "peony", "ring"], slots = Array.from({length: N}, (_, i) => (i + 0.5) / N).sort(() => Math.random() - 0.5);
+      prog = slots.map((sx, i) => [Math.round((o.t0 || 4) + i * (o.gap || 19) + 40 + fxR(-3, 3)), types[i % types.length], 0.08 + 0.84 * sx, fxR(o.ymin || 0.16, o.ymax || 0.4), 0.72, i, i + 2]); }
+    const B = [], RK = [], BL = [], mkB = (tb, kd, extra) => Object.assign({tb, dr: kd.dr, gy: 0.045 * k * kd.g, tl: kd.tl, w: kd.w, glit: kd.glit, dust: kd.dust, wind, sp: []}, extra);
+    const fin = b => { b.vt = b.gy / (1 - b.dr); b.cs = [...new Set(b.sp.flatMap(p => [p.c1, p.c2]))]; b.sp.forEach(p => { p.i1 = b.cs.indexOf(p.c1); p.i2 = b.cs.indexOf(p.c2); });
+      b.L = Math.max(...b.sp.map(p => p.t0 + p.end)) + b.tl; b.pt = new Float32Array(b.sp.length * 26); b.bc = new Uint8Array(b.sp.length * 6); b.ok = new Uint8Array(b.sp.length); B.push(b); return b; };
+    const ball = (m, ph) => Array.from({length: m}, (_, i) => { const z = 1 - 2 * (i + 0.5) / m, rr = Math.sqrt(1 - z * z), a = ph + i * 2.39996; return [Math.cos(a) * rr, Math.sin(a) * rr, rr]; });
+    prog.forEach(([tb, ty, fx, fy, sz, i1, i2]) => {
+      const kd = FW_KIND[ty] || FW_KIND.peony, x = W * (fx + fxR(-0.02, 0.02)), y = H * ((tall ? 0.08 + fy * 1.2 : fy) + fxR(-0.02, 0.02)), R = Rb * kd.r * sz * fxR(0.92, 1.06) * (d ? 1 : 1.08), v = R * (1 - kd.dr) / kd.dr,
+        c1 = kd.gold ? gold : kd.glit ? glit : cols[i1 % CL], c2 = !d ? c1 : ty === "palm" ? cols[i1 % CL] : kd.gold ? gold : kd.glit ? glit : cols[i2 % CL], c3 = cols[(i2 + 1) % CL], T = Math.round(Math.min(tb, fxR(38, 50)));
+      RK.push({t0: tb - T, T, xs: x + fxR(-0.05, 0.05) * W, x, y, th: ty === "palm" ? 1.9 : 1, wob: fxR(0, 6.3)});
+      BL.push({t: tb, x, y, R: R * 1.45, c: kd.glit ? gold : c1, a: kd.split ? 0.7 : 1});
+      const b = mkB(tb, kd, {x, y, w: kd.w * (d || !kd.fix ? 1 : 0.6), tl: Math.round(kd.tl * (d ? 1 : 1.6))}), m = kd.fix ? kd.n : Math.round(kd.n * A * (d ? 1 : 1.1)), ph = fxR(0, 6.3), tilt = fxR(0, 6.3), sq = fxR(0.3, 0.5);
+      const dirs = kd.ring ? Array.from({length: m}, (_, i) => { const a = i / m * 6.283, rx = Math.cos(a), ry = Math.sin(a) * sq; return [rx * Math.cos(tilt) - ry * Math.sin(tilt), rx * Math.sin(tilt) + ry * Math.cos(tilt), 1]; })
+        : kd.fix ? Array.from({length: m}, (_, i) => [Math.cos(ph + i / m * 6.283), Math.sin(ph + i / m * 6.283), 1]) : ball(m, ph);
+      if (kd.ring) for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; dirs.push([Math.cos(a) * 0.3, Math.sin(a) * 0.3, 0.3]); }
+      dirs.forEach(([dx, dy, rr], i) => { const s = v * fxR(0.94, 1.04), core = (kd.pis || kd.ring) && rr < 0.5;
+        b.sp.push({x0: x, y0: y, t0: 0, vx: dx * s, vy: dy * s - (kd.up || 0) * v, c1: core ? c3 : c1, c2: core ? c3 : c2, tc: kd.L * fxR(0.36, 0.5), end: kd.split ? kd.L : kd.L * fxR(0.72, 1), h: i * 7 % 23}); });
+      fin(b);
+      if (kd.split === 1) { // crossette: every star splits into four that fly apart in a cross
+        const kb = mkB(tb, {dr: 0.95, g: 0.9, tl: 10, w: 1.05}); b.sp.forEach((p, i) => { const [px, py] = at(b, p, p.end), a0 = Math.atan2(p.vy, p.vx) + 0.785, vk = R * 0.34 * 0.05 / 0.95;
+          for (let q = 0; q < 4; q++) kb.sp.push({x0: px, y0: py, t0: p.end, vx: Math.cos(a0 + q * 1.571) * vk, vy: Math.sin(a0 + q * 1.571) * vk, c1: c2, c2: q % 2 ? c2 : c1, tc: 26, end: fxR(40, 56), h: (i * 4 + q) * 7 % 23}); }); fin(kb); }
+      if (kd.split === 2) { // multi-break: each comet bursts again into its own little peony
+        const kb = mkB(tb, {dr: 0.95, g: 0.9, tl: 9, w: 1.15}), mm = Math.max(10, Math.round(15 * A)); b.sp.forEach((p, i) => { const [px, py] = at(b, p, p.end), t0 = p.end + i * 2, c = i % 2 ? c2 : c3, vk = R * 0.42 * 0.05 / 0.95;
+          ball(mm, fxR(0, 6.3)).forEach(([dx, dy], j) => kb.sp.push({x0: px, y0: py, t0, vx: dx * vk * fxR(0.92, 1.05), vy: dy * vk, c1: c, c2: c, tc: 99, end: fxR(52, 72), h: (i * mm + j) * 7 % 23}));
+          BL.push({t: tb + t0, x: px, y: py, R: R * 0.55, c, a: 0.55}); }); fin(kb); }
+    });
+    const SH = o.show ? Array.from({length: Math.round(54 * A)}, () => ({t0: Math.round(fxR(188, 245)), x: fxR(0.04, 0.96) * W, y: H * fxR(0.05, 0.42), vy: fxR(0.35, 0.75) * k, sw: fxR(4, 10) * k, ph: fxR(0, 6.3), L: fxR(70, 100), s: fxR(0.55, 0.95) * k})) : [];
+    return {k, B, RK, BL, SH, gold, glit, bud: W < 600 ? 800 : 1500};
+  });
+  return (g, f, W, H, d) => {
+    const s = S(W, H, d, f), k = s.k, lw = Math.max(1.3, 1.9 * k) * (d ? 1 : 1.3), lift = d ? 1 : 1.1, flick = (h, j) => ((Math.floor(f / 3) + h + j * 3) % 5) < 2, rd = (x, y, r) => { g.moveTo(x + r, y); g.arc(x, y, r, 0, 6.283); };
+    g.lineCap = g.lineJoin = "round"; if (d) g.globalCompositeOperation = "lighter";
+    // soft colored bloom behind each burst (all together never past ~0.3)
+    let tot = 0; for (const bl of s.BL) { const t = f - bl.t; bl.e = t < 0 || t > 140 ? 0 : Math.min(1, t / 4) * Math.exp(-t / 30) * bl.a; tot += bl.e; }
+    const ba = (d ? 0.2 : 0.11) * (tot > 1.5 ? 1.5 / tot : 1);
+    for (const bl of s.BL) { if (bl.e < 0.01) continue; g.globalAlpha = bl.e * ba; g.drawImage(bloom(bl.c), bl.x - bl.R, bl.y - bl.R, 2 * bl.R, 2 * bl.R);
+      const t = f - bl.t; if (d && t < 10) { const r = bl.R * 0.22; g.globalAlpha = (1 - t / 10) * 0.6 * bl.a; g.drawImage(bloom("#FFFFFF"), bl.x - r, bl.y - r, 2 * r, 2 * r); } }
+    // rockets climbing on a short tail that tapers away (sparks drop off it at night)
+    const rp = (r, u) => { const e = 1 - Math.pow(1 - Math.max(0, u) / r.T, 2); return [r.xs + (r.x - r.xs) * e + Math.sin(u * 0.3 + r.wob) * 0.8 * k, H + 8 - (H + 8 - r.y) * e]; };
+    for (const r of s.RK) { const u = f - r.t0; if (u < 0 || u >= r.T) continue; const w = lw * 0.9 * r.th, sl = d ? 4 : 3.5;
+      g.strokeStyle = d ? "#FFE2B0" : s.gold; for (let j = 0; j < 4; j++) { const [x0, y0] = rp(r, u - j * sl), [x1, y1] = rp(r, u - (j + 1) * sl); g.globalAlpha = Math.pow(1 - j / 4, 1.5) * (d ? 0.85 : 0.7); g.lineWidth = w * (1 - j * 0.22); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
+      if (d) { g.fillStyle = s.gold; for (let bt = Math.max(0, u - 24 - u % 3); bt <= u; bt += 3) { const a = u - bt, [ex, ey] = rp(r, bt), sx = ((bt * 7 + r.t0) % 5 - 2) * 0.25 * k; g.globalAlpha = (1 - a / 24) * 0.9; g.beginPath(); rd(ex + sx * a, ey + 0.03 * k * a * a, w * 0.5); g.fill(); } }
+      const [hx, hy] = rp(r, u); g.globalAlpha = d ? 1 : 0.85; g.fillStyle = d ? "#FFFFFF" : s.gold; g.beginPath(); rd(hx, hy, w * (d ? 1.2 : 0.65)); g.fill(); }
+    // stars: segments per star are set by how many stars are alive, to keep the frame light
+    let act = 0; for (const b of s.B) { const t = f - b.tb; if (t >= 0 && t < b.L && !(b.glit && !d)) act += b.sp.length; }
+    const SG = Math.max(d ? 1 : 3, Math.min(d ? 4 : 6, Math.floor(s.bud / Math.max(1, act)))), NP = 2 * SG + 1, f0 = d ? 0.62 : 0.32;
+    for (const b of s.B) { const t = f - b.tb; if (t < 0 || t >= b.L) continue; const fa = 1 - fxEase((t - b.L * f0) / (b.L * (d ? 1 - f0 : 0.42))), pt = b.pt, sp = b.sp;
+      for (let i = 0; i < sp.length; i++) { const p = sp[i], lt = t - p.t0, ue = Math.min(lt, p.end), us = Math.max(0, lt - b.tl); b.ok[i] = ue > 0 && us < ue ? 1 : 0; if (!b.ok[i]) continue;
+        for (let j = 0; j < NP; j++) { const u = ue - (ue - us) * j / (NP - 1), A = b.dr * (1 - Math.pow(b.dr, u)) / (1 - b.dr); pt[i * 26 + 2 * j] = p.x0 + p.vx * A + b.wind * u; pt[i * 26 + 2 * j + 1] = p.y0 + b.vt * u + (p.vy - b.vt) * A; }
+        for (let j = 0; j < SG; j++) b.bc[i * 6 + j] = ue - (ue - us) * (j + 0.5) / SG < p.tc ? p.i1 : p.i2; }
+      // each trail: thick and solid at the head, thinning and fading to nothing at the tail
+      if (!(b.glit && !d)) for (let j = 0; j < SG; j++) { g.lineWidth = lw * b.w * (d ? 1 - 0.45 * j / SG : 1 - 0.7 * j / SG); g.globalAlpha = Math.min(1, fa * lift * Math.pow(1 - j / SG, d ? 0.9 : 1.1) * (b.glit ? 0.55 : 1));
+        for (let c = 0; c < b.cs.length; c++) { g.strokeStyle = b.cs[c]; g.beginPath(); let any = 0;
+          for (let i = 0; i < sp.length; i++) { if (!b.ok[i] || b.bc[i * 6 + j] !== c) continue; const q = i * 26 + 4 * j, x0 = pt[q], y0 = pt[q + 1], x2 = pt[q + 4], y2 = pt[q + 5];
+            g.moveTo(x0, y0); g.quadraticCurveTo(2 * pt[q + 2] - (x0 + x2) / 2, 2 * pt[q + 3] - (y0 + y2) / 2, x2, y2); any = 1; }
+          if (any) g.stroke(); } }
+      if (d && t < 34) { g.fillStyle = "#FFFFFF"; g.globalAlpha = fa * (1 - t / 34) * 0.9; const z = lw * b.w * 0.55; g.beginPath(); for (let i = 0; i < sp.length; i++) if (b.ok[i] && t - sp[i].t0 < 34) rd(pt[i * 26], pt[i * 26 + 1], z); g.fill(); }
+      if (b.glit && t > (d ? 12 : 4)) { const z = lw * (d ? 0.85 : 0.75); g.fillStyle = d ? "#FFFFFF" : s.glit;   // glitter: round twinkles, then a soft crackle as they die
+        for (const on of [1, 0]) { g.globalAlpha = fa * (on ? 1 : 0.3); g.beginPath();
+          for (let i = 0; i < sp.length; i++) { const p = sp[i], lt = t - p.t0; if (lt > p.end + 10) continue; const q = i * 26;
+            if (lt <= p.end) { if (+flick(p.h, 0) === on) rd(pt[q], pt[q + 1], z); if (d && on && flick(p.h, 1)) rd(pt[q + 4], pt[q + 5], z * 0.6); }
+            if (on && lt > p.end - 6) for (let c = 0; c < 3; c++) { const a = p.h + c * 2.1, r = (5 + (p.h + c * 5) % 7) * k * Math.min(1, (lt - p.end + 6) / 6); if (flick(p.h, c + 2)) rd(pt[q] + Math.cos(a) * r, pt[q + 1] + Math.sin(a) * r, z * 0.6); } }
+          g.fill(); } }
+      if (d && b.dust && t > 8) { const z = lw * 0.4; g.fillStyle = s.glit; g.globalAlpha = fa * 0.85; g.beginPath();   // glitter dust sifting from gold trails
+        for (let i = 0; i < sp.length; i += 2) { if (!b.ok[i]) continue; const q = i * 26; for (let j = 1; j <= 2; j++) { if (!flick(sp[i].h, j)) continue; const dt = j * (b.tl / 6), jj = Math.min(NP - 1, j * 2);
+          rd(pt[q + 2 * jj] + ((sp[i].h % 5) - 2) * 0.4 * j, pt[q + 2 * jj + 1] + 0.012 * k * dt * dt, z); } } g.fill(); } }
+    // a last gentle shower of gold sparkles drifting down as the show fades
+    for (const p of s.SH) { const t = f - p.t0; if (t < 0 || t > p.L) continue; const x = p.x + Math.sin(t * 0.05 + p.ph) * p.sw, y = p.y + p.vy * t + 0.002 * k * t * t, a = Math.sin(Math.PI * t / p.L) * (0.65 + 0.35 * Math.sin(t * 0.2 + p.ph));
+      g.globalAlpha = a * 0.4; g.strokeStyle = s.gold; g.lineWidth = lw * 0.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.cos(t * 0.05 + p.ph) * p.sw * 0.25, y - 12 * k); g.stroke();
+      g.globalAlpha = a; hbStamp(g, "sparkle", s.gold, d, x, y, p.s, 0, 1, d ? 6 : 0); }
+  };
+};
+
+// Cats: two trails of paw prints walk across the screen, step by step
+const hbPaws = (W, H, d, n) => { const sc = hbSc(W, H), size = 12, s = size * sc / 10, stride = 25 * s, out = [], cols = d ? ["#F4B39A", "#EBC6B4"] : ["#9A4E3A", "#B5654C"];
+  [[[-0.04, 0.86], [1.04, 0.34], 0, 1], [[1.04, 0.95], [-0.04, 0.6], 34, -1]].forEach(([[x0, y0], [x1, y1], t0, bend]) => {
+    const dx = (x1 - x0) * W, dy = (y1 - y0) * H, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, steps = Math.floor(L / stride), c = fxPick(cols);
+    for (let i = 0; i <= steps; i++) { const u = i / steps, w = Math.sin(u * Math.PI * 2) * H * 0.07 * bend, side = i % 2 ? 1 : -1, tx = ux - uy * Math.cos(u * Math.PI * 2) * 0.4 * bend, ty = uy + ux * Math.cos(u * Math.PI * 2) * 0.4 * bend;
+      out.push({shape: "paw", c, x: x0 * W + dx * u - uy * (w + side * 5 * s), y: y0 * H + dy * u + ux * (w + side * 5 * s), vx: 0, vy: 0, g: 0, size, rot: Math.atan2(ty, tx) + Math.PI / 2, vr: 0, sway: 0, life: 105, delay: Math.round(t0 + u * Math.min(130, steps * 7))}); } });
+  return out; };
+
+// Knitting: balls of yarn tumble across in loops, unwinding a curly thread behind them
+const hbYarn = () => { const S = hbRun((W, H, d) => { const sc = hbSc(W, H), cols = ["#E07A8A", "#6FA8E0", "#E8B03A", "#8CC46E", "#B08AE0"].sort(() => Math.random() - 0.5);
+    return {sc, balls: [[0.3, 1, 0], [0.66, -1, 36], [0.16, -1, 78]].slice(0, W > 700 ? 3 : 2).map(([y, dir, t0], i) => { const T = 175, v = W * 1.2 / T, w = 0.15, c = cols[i]; return {y0: H * y, dir, t0, T, v, w, L: 1.45 * v / w, dy: H * fxR(-0.0008, 0.0012), c, ph: fxR(0, 6.3)}; })}; });
+  const pos = (b, W, t) => [(b.dir > 0 ? -0.1 * W : 1.1 * W) + b.dir * (b.v * t + b.L * Math.sin(b.w * t)), b.y0 + b.dy * t - b.L * 0.75 * Math.cos(b.w * t + 0.4)];
+  return (g, f, W, H, d) => { const s = S(W, H, d, f), lw = Math.max(1.6, s.sc * 1.3); g.lineCap = g.lineJoin = "round";
+    for (const b of s.balls) { const t = Math.min(b.T, f - b.t0); if (t <= 0) continue; g.globalAlpha = 0.9; g.strokeStyle = fxShade(b.c, d ? 1 : 0.86); g.lineWidth = lw; g.beginPath();
+      for (let u = 0; u <= t; u += 1.5) { const [x, y] = pos(b, W, u); u ? g.lineTo(x, y) : g.moveTo(x, y); } const [x, y] = pos(b, W, t); g.lineTo(x, y); g.stroke();
+      g.globalAlpha = 1; hbStamp(g, "yarn", b.c, d, x, y, s.sc * 1.7, b.dir * t * 0.09); } }; };
+
+// Music: a staff draws itself across the screen in a wave and its notes lift off it
+const hbStaffY = (x, f, W, H) => H * 0.6 + Math.sin(x / W * 5 + f * 0.016) * H * 0.07;
+const hbStaff = (g, f, W, H, d) => { const a = fxEase(f / 20) * (1 - fxEase((f - 150) / 80)); if (a <= 0) return; const xr = (W + 60) * fxEase(f / 64) - 30, sp = Math.max(7, hbSc(W, H) * 5.4);
+  g.strokeStyle = d ? "#C9B8FF" : "#6A4FC9"; g.lineWidth = Math.max(1.2, sp * 0.16); g.lineCap = "round"; g.globalAlpha = a * (d ? 0.55 : 0.45); g.beginPath();
+  for (let l = -2; l <= 2; l++) for (let x = -30; x <= xr; x += 14) { const y = hbStaffY(x, f, W, H) + l * sp; x === -30 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); };
+const hbNotes = (W, H, d, n) => { const m = n(30), sp = Math.max(7, hbSc(W, H) * 5.4), cols = d ? ["#C9B8FF", "#F6E7FF", "#8FB0FF", "#FF9FCF"] : ["#6A4FC9", "#8C6FF5", "#3D6AD6", "#C04E9A"];
+  return Array.from({length: m}, (_, i) => { const x = W * (0.04 + 0.92 * (i + fxR(0.1, 0.9)) / m), t = Math.max(2, Math.round(Math.acos(1 - 2 * Math.min(1, (x + 30) / (W + 60))) / Math.PI * 64)), y = hbStaffY(x, t, W, H) + (Math.round(fxR(-4, 4)) / 2) * sp - 4 * sp * 0.4;
+    return {shape: i % 3 ? "note" : "note2", c: fxPick(cols), x, y, vx: fxR(-0.2, 0.2), vy: -fxR(0.1, 0.4), g: -fxR(0.008, 0.016), size: fxR(11, 15), rot: fxR(-0.2, 0.2), rock: 0.22, sway: 0.7, swf: fxR(0.03, 0.05), life: Math.round(fxR(170, 200)), delay: t + 4}; }); };
+
+// Painting: wide brush strokes swipe across, paint splats land on top
+const hbBrush = () => { const S = hbRun((W, H, d) => { const k = Math.min(W, H), cols = d ? ["#FF6B5E", "#5C9BFF", "#FFC83D"] : ["#E0463C", "#3D7BE0", "#F2B32A"];
+    return {strokes: [[0.24, 0.36, 0, 1], [0.78, 0.6, 22, -1], [0.5, 0.45, 46, 1]].map(([y0, y1, t0, dir], i) => ({y0: H * y0, y1: H * y1, t0, dir, c: cols[i], w: k * fxR(0.07, 0.09), br: Array.from({length: 13}, (_, j) => ({o: j / 12 - 0.5 + fxR(-0.03, 0.03), a: fxR(0.45, 0.95), e: fxR(0.86, 1), s: fxR(0.92, 1.05)}))}))}; });
+  return (g, f, W, H, d) => { const s = S(W, H, d, f); g.lineCap = "round";
+    for (const st of s.strokes) { const r = fxEase((f - st.t0) / 38); if (r <= 0) continue; const fade = 1 - fxEase((f - 150) / 90), lw = st.w / 13 * 2.1; g.strokeStyle = st.c; g.lineWidth = lw;
+      for (const b of st.br) { g.globalAlpha = b.a * fade * 0.85; g.beginPath(); const end = r * b.e;
+        for (let u = 0; u <= end + 0.001; u += 0.04) { const uu = Math.min(u, end), x = st.dir > 0 ? W * (-0.06 + 1.12 * uu) : W * (1.06 - 1.12 * uu), taper = 0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, uu * 1.4 + 0.15)), y = st.y0 + (st.y1 - st.y0) * uu + Math.sin(uu * 5 + st.t0) * H * 0.015 + b.o * st.w * taper * b.s; uu ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } } }; };
+const hbSplats = (W, H, d, n) => { const cols = ["#E0463C", "#3D7BE0", "#F2B32A", "#2E9E5B", "#A45CD6", "#F28A3A", "#E8508C"];
+  return Array.from({length: n(16)}, (_, i) => ({shape: "splat" + (1 + i % 3), c: fxPick(cols), x: fxR(0.05, 0.95) * W, y: fxR(0.08, 0.92) * H, vx: 0, vy: 0, g: 0, size: fxR(12, 20), rot: fxR(0, 6.3), vr: 0, sway: 0, life: Math.round(fxR(150, 190)), delay: Math.round(20 + i * 7 + fxR(0, 6))})); };
+
+// Gardening: stems grow up from the bottom, unfold leaves and open into flowers
+const hbGarden = () => { const S = hbRun((W, H, d) => { const m = Math.max(4, Math.min(9, Math.round(W / 140))), cols = ["#F27AA8", "#F2B32A", "#B48CF0", "#F0805A", "#E8466E", "#6FA8E0"].sort(() => Math.random() - 0.5), ord = Array.from({length: m}, (_, i) => i).sort(() => Math.random() - 0.5);
+    return {sc: hbSc(W, H), st: Array.from({length: m}, (_, i) => ({x: W * (i + 0.5) / m + fxR(-0.2, 0.2) * W / m, h: H * fxR(0.24, 0.46), b: fxR(-1, 1) * Math.min(W, H) * 0.06, t0: 4 + ord[i] * 9, c: cols[i % cols.length], ph: fxR(0, 6.3), sz: fxR(1.6, 2.1)}))}; });
+  return (g, f, W, H, d) => { const s = S(W, H, d, f), lw = Math.max(2.2, s.sc * 1.7), stem = d ? "#6CC070" : "#3E8A3E", leaf = d ? "#5CB860" : "#3E9E4F"; g.lineCap = "round";
+    for (const st of s.st) { const gr = fxEase((f - st.t0) / 56); if (gr <= 0) continue; const sw = Math.sin(f * 0.035 + st.ph) * s.sc * 3;
+      const pt = u => [st.x + st.b * u * u + sw * u * u, H + 6 - st.h * u]; g.strokeStyle = stem; g.lineWidth = lw; g.globalAlpha = 1; g.beginPath();
+      for (let u = 0; u <= gr + 0.001; u += 0.05) { const [x, y] = pt(Math.min(u, gr)); u ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+      [[0.32, 1], [0.55, -1], [0.75, 1]].forEach(([u, side]) => { const lg = fxEase((gr - u) / 0.25); if (lg <= 0) return; const [x, y] = pt(u); hbStamp(g, "leaf", leaf, d, x, y, s.sc * 1.1 * lg, side * 1.05 + Math.sin(f * 0.04 + st.ph) * 0.08); });
+      const bl = hbBack((f - st.t0 - 50) / 22); if (bl <= 0) continue; const [x, y] = pt(1); hbStamp(g, "bloom", st.c, d, x, y, s.sc * st.sz * bl, Math.sin(f * 0.03 + st.ph) * 0.2 + (1 - bl) * 1.5); } }; };
+const hbBees = (W, H, d, n) => Array.from({length: n(3)}, (_, i) => { const l = i % 2 === 0; return {shape: "bee", c: "#F6C340", face: true, wig: 0.12, x: l ? -30 : W + 30, y: H * fxR(0.2, 0.55), vx: (l ? 1 : -1) * fxR(1.8, 2.8), vy: fxR(-0.35, 0.35), g: 0, size: fxR(14, 16), rot: 0, vr: 0, sway: 0.5, swf: 0.09, life: 260, delay: Math.round(30 + i * 30 + fxR(0, 20))}; });
+
+// Photography: a camera iris snaps shut and open with a soft flash, then polaroids from a golden-hour walk drop onto a
+// clothesline, get pegged and develop while they sway, with golden bokeh and a warm light leak behind
+// a little painted scene in a w x h box: 0 sunset sea, 1 pine woods, 2 city at dusk, 3 beach, 4 mountain lake, 5 flower meadow, 6 balloons
+const hbScene = (b, w, h, k) => {
+  const lg = (y0, y1, ...c) => { const gr = b.createLinearGradient(0, y0 * h, 0, y1 * h); c.forEach((x, i) => gr.addColorStop(i / (c.length - 1), x)); return gr; };
+  const rect = (y0, y1, c) => { b.fillStyle = c; b.fillRect(0, y0 * h, w, (y1 - y0) * h + 1); };
+  const poly = (c, pts) => { b.fillStyle = c; b.beginPath(); pts.forEach(([x, y], i) => i ? b.lineTo(x * w, y * h) : b.moveTo(x * w, y * h)); b.closePath(); b.fill(); };
+  const disc = (x, y, r, c) => { b.fillStyle = c; b.beginPath(); b.arc(x * w, y * h, r * w, 0, 6.3); b.fill(); };
+  const glow = (x, y, r, c) => { const gr = b.createRadialGradient(x * w, y * h, 0, x * w, y * h, r * w); gr.addColorStop(0, c); gr.addColorStop(1, c.slice(0, 7) + "00"); b.fillStyle = gr; b.fillRect(0, 0, w, h); };
+  if (k === 0) { rect(0, 0.64, lg(0, 0.64, "#4E4A8C", "#E9687A", "#FFC46B")); glow(0.5, 0.6, 0.45, "#FFD98A"); disc(0.5, 0.6, 0.15, "#FFF0B8");
+    rect(0.62, 1, lg(0.62, 1, "#5B5B9C", "#262E60")); b.fillStyle = "#FFD27A"; for (let i = 0; i < 6; i++) { const ww = 0.34 - i * 0.045; b.globalAlpha = 0.9 - i * 0.12; b.fillRect((0.5 - ww / 2) * w, (0.66 + i * 0.055) * h, ww * w, 0.02 * h); } b.globalAlpha = 1;
+    poly("#2A2346", [[0.62, 0.64], [0.7, 0.6], [0.76, 0.62], [0.86, 0.57], [1, 0.62], [1, 0.645]]); }
+  else if (k === 1) { rect(0, 1, lg(0, 0.7, "#8CC8EA", "#FFE3A8", "#FFB874")); glow(0.22, 0.62, 0.5, "#FFE9A0"); disc(0.22, 0.62, 0.09, "#FFF6D0");
+    poly("#A8BE98", [[0, 0.62], [0.25, 0.52], [0.5, 0.6], [0.78, 0.48], [1, 0.56], [1, 1], [0, 1]]); rect(0.78, 1, "#7DA455");
+    [[0.08, 0.86, 0.5], [0.3, 0.9, 0.62], [0.48, 0.84, 0.44], [0.66, 0.92, 0.7], [0.88, 0.86, 0.56], [0.97, 0.9, 0.4]].forEach(([x, y, s], i) => { const c = i % 2 ? "#2E5E45" : "#3C7350";
+      for (let j = 0; j < 3; j++) { const ty = y - s * (0.22 + j * 0.24), bw = s * (0.22 - j * 0.05); poly(c, [[x, ty - s * 0.2], [x + bw, ty + s * 0.16], [x - bw, ty + s * 0.16]]); } b.fillStyle = "#5A3E2A"; b.fillRect((x - 0.012) * w, (y - s * 0.07) * h, 0.024 * w, s * 0.09 * h); }); }
+  else if (k === 2) { rect(0, 1, lg(0, 0.85, "#26346C", "#7A5FA8", "#F59A72")); disc(0.8, 0.2, 0.06, "#FFF1D0");
+    const bl = [[0, 0.5, 0.14], [0.13, 0.36, 0.12], [0.24, 0.56, 0.1], [0.33, 0.24, 0.13], [0.45, 0.46, 0.12], [0.56, 0.3, 0.1], [0.65, 0.52, 0.14], [0.78, 0.4, 0.11], [0.88, 0.58, 0.13]];
+    bl.forEach(([x, y, bw], i) => { b.fillStyle = i % 2 ? "#1B2040" : "#252A4E"; b.fillRect(x * w, y * h, bw * w, (1 - y) * h); b.fillStyle = "#FFD66B";
+      for (let wy = y + 0.04; wy < 0.94; wy += 0.07) for (let wx = x + 0.02; wx < x + bw - 0.03; wx += 0.04) if ((wx * 97 + wy * 61 + i) % 1 > 0.45) b.fillRect(wx * w, wy * h, 0.018 * w, 0.03 * h); });
+    b.fillStyle = "#1B2040"; b.fillRect(0.375 * w, 0.14 * h, 0.01 * w, 0.1 * h); }
+  else if (k === 3) { rect(0, 0.54, lg(0, 0.54, "#5DB8EA", "#D4F0FB")); glow(0.78, 0.2, 0.3, "#FFF4C0"); disc(0.78, 0.2, 0.08, "#FFF6CE");
+    rect(0.52, 0.72, lg(0.52, 0.72, "#1C8DBA", "#5CC6DE")); rect(0.7, 1, lg(0.7, 1, "#F6DFAE", "#E9C688")); b.fillStyle = "rgba(255,255,255,.85)"; b.fillRect(0, 0.695 * h, w, 0.022 * h);
+    b.fillStyle = "#6B4A2E"; b.fillRect(0.34 * w, 0.5 * h, 0.018 * w, 0.4 * h);
+    for (let i = 0; i < 4; i++) { b.fillStyle = i % 2 ? "#FFFFFF" : "#E8504A"; b.beginPath(); b.moveTo(0.349 * w, 0.48 * h); b.arc(0.349 * w, 0.58 * h, 0.22 * w, Math.PI + i * Math.PI / 4, Math.PI + (i + 1) * Math.PI / 4); b.closePath(); b.fill(); }
+    poly("#2E9E8E", [[0.75, 0.9], [0.86, 0.84], [0.93, 0.9]]); }
+  else if (k === 5) { rect(0, 1, lg(0, 0.7, "#F7B07A", "#FFE6B0")); glow(0.7, 0.5, 0.4, "#FFF0B0"); disc(0.7, 0.5, 0.1, "#FFF6D2");
+    poly("#9CBF6A", [[0, 0.62], [0.3, 0.55], [0.62, 0.62], [1, 0.54], [1, 1], [0, 1]]); poly("#6E9E48", [[0, 0.76], [0.4, 0.68], [0.8, 0.74], [1, 0.7], [1, 1], [0, 1]]);
+    for (let i = 0; i < 46; i++) { const x = (i * 0.618) % 1, y = 0.72 + ((i * 0.377) % 1) * 0.26; disc(x, y, 0.012 + y * 0.016, ["#F06A8E", "#FFD24A", "#FFFFFF", "#E8604A"][i % 4]); } }
+  else if (k === 6) { rect(0, 1, lg(0, 1, "#7FB8E8", "#CFE3F2", "#FFD6B0")); b.fillStyle = "rgba(255,255,255,.8)"; [[0.2, 0.3], [0.7, 0.72]].forEach(([x, y]) => { b.beginPath(); b.ellipse(x * w, y * h, 0.16 * w, 0.04 * h, 0, 0, 6.3); b.fill(); });
+    [[0.32, 0.4, 0.17, "#E8504A", "#FFC84A"], [0.72, 0.28, 0.12, "#2FA7A0", "#FFFFFF"], [0.6, 0.62, 0.08, "#F2A23A", "#7A5CC8"]].forEach(([x, y, r, c1, c2]) => { disc(x, y, r, c1); b.fillStyle = c2; b.beginPath(); b.ellipse(x * w, y * h, r * 0.38 * w, r * w, 0, 0, 6.3); b.fill();
+      b.strokeStyle = "rgba(60,40,30,.6)"; b.lineWidth = 0.6; b.beginPath(); b.moveTo((x - r * 0.5) * w, (y + r * 0.86) * h); b.lineTo((x - r * 0.18) * w, (y + r * 1.4) * h); b.moveTo((x + r * 0.5) * w, (y + r * 0.86) * h); b.lineTo((x + r * 0.18) * w, (y + r * 1.4) * h); b.stroke();
+      b.fillStyle = "#8A5A34"; b.fillRect((x - r * 0.2) * w, (y + r * 1.4) * h, r * 0.4 * w, r * 0.3 * w); }); }
+  else { rect(0, 0.66, lg(0, 0.66, "#F49A86", "#FCE0C2")); glow(0.62, 0.5, 0.35, "#FFE7B0");
+    poly("#9A86BE", [[0, 0.62], [0.2, 0.34], [0.36, 0.5], [0.58, 0.22], [0.8, 0.46], [1, 0.36], [1, 0.66], [0, 0.66]]);
+    poly("#FFFFFF", [[0.58, 0.22], [0.64, 0.3], [0.6, 0.29], [0.56, 0.32], [0.52, 0.29]]); poly("#FFFFFF", [[0.2, 0.34], [0.25, 0.4], [0.2, 0.39], [0.16, 0.4]]);
+    poly("#6A5A94", [[0, 0.66], [0.14, 0.5], [0.3, 0.66]]); poly("#6A5A94", [[0.62, 0.66], [0.84, 0.48], [1, 0.6], [1, 0.66]]);
+    rect(0.66, 1, lg(0.66, 1, "#F4B08E", "#B985A6")); b.globalAlpha = 0.35; poly("#8A78B4", [[0.2, 0.66], [0.36, 0.76], [0.58, 0.72], [0.8, 0.78], [1, 0.72], [1, 0.66]]); b.globalAlpha = 1;
+    b.fillStyle = "rgba(255,255,255,.55)"; [0.74, 0.82, 0.9].forEach((y, i) => b.fillRect((0.3 + i * 0.12) * w, y * h, 0.2 * w, 0.01 * h)); }
+};
+const hbPhoto = () => {
+  // a polaroid print, painted once: soft white paper, a square photo and the wide bottom margin
+  const mkPrint = (pw, k) => { const ph = pw * 1.2, m = pw * 0.065, iw = pw - 2 * m, Z = 2, c = document.createElement("canvas"); c.width = Math.ceil(pw * Z); c.height = Math.ceil(ph * Z); const b = c.getContext("2d"); b.scale(Z, Z);
+    const gr = b.createLinearGradient(0, 0, pw, ph); gr.addColorStop(0, "#FFFFFF"); gr.addColorStop(1, "#ECE5D8"); b.fillStyle = gr; b.fillRect(0, 0, pw, ph);
+    b.save(); b.translate(m, m); b.beginPath(); b.rect(0, 0, iw, iw); b.clip(); hbScene(b, iw, iw, k); const sh = b.createLinearGradient(0, 0, iw, iw); sh.addColorStop(0, "rgba(255,255,255,.22)"); sh.addColorStop(0.45, "rgba(255,255,255,0)"); sh.addColorStop(1, "rgba(0,0,0,.08)"); b.fillStyle = sh; b.fillRect(0, 0, iw, iw); b.restore();
+    b.strokeStyle = "rgba(0,0,0,.14)"; b.lineWidth = 0.8; b.strokeRect(m, m, iw, iw); b.strokeStyle = "rgba(0,0,0,.08)"; b.strokeRect(0.4, 0.4, pw - 0.8, ph - 0.8); return {c, pw, ph, m, iw}; };
+  const mkBokeh = c => { const cv = document.createElement("canvas"); cv.width = cv.height = 64; const b = cv.getContext("2d"), gr = b.createRadialGradient(32, 32, 0, 32, 32, 31);
+    gr.addColorStop(0, c + "55"); gr.addColorStop(0.78, c + "77"); gr.addColorStop(0.9, c + "CC"); gr.addColorStop(1, c + "00"); b.fillStyle = gr; b.fillRect(0, 0, 64, 64); return cv; };
+  const S = hbRun((W, H, d) => { const m = Math.min(W, H), tall = H > W * 1.25, rows = tall ? [[0.1, 3], [0.6, 2]] : [[0.07, W > 1000 ? 5 : 4], [0.6, 3]], kinds = [0, 1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5); let q = 0;
+    const pw = Math.min(W / Math.max(...rows.map(r => r[1])) * 0.8, H * 0.22, 160), lines = rows.map(([y, n], r) => { const t0 = 62 + r * 34;
+      return {y: H * y, sag: H * 0.03, t0, prints: Array.from({length: n}, (_, i) => ({x: W * (i + 0.5) / n + fxR(-0.02, 0.02) * W, t0: t0 + 18 + i * 16 + fxR(0, 4), rot0: fxR(0.07, 0.14) * (i % 2 ? 1 : -1), dy: fxR(0, 0.04) * pw, ...mkPrint(pw, kinds[q++ % 7])}))}; });
+    const cols = d ? ["#FFC861", "#FFB070", "#FFE3A0", "#FF9A7A"] : ["#F2A93A", "#F0904A", "#E8B84A", "#F08A6A"];
+    return {lines, bok: Array.from({length: Math.round(Math.max(8, Math.min(16, W * H / 40000)))}, () => ({x: fxR(0, W), y: fxR(0.1, 1) * H, r: m * fxR(0.025, 0.075), vy: fxR(0.1, 0.35), ph: fxR(0, 6.3), a: fxR(0.5, 1), spr: mkBokeh(fxPick(cols))}))}; });
+  const N = 7, P = new Float32Array(N * 2);
+  return (g, f, W, H, d) => { const s = S(W, H, d, f), m = Math.min(W, H);
+    // warm light leak and golden bokeh behind everything
+    const amb = fxEase((f - 18) / 40) * (1 - fxEase((f - 200) / 60));
+    if (amb > 0) { const x0 = -W * 0.15 + Math.sin(f * 0.012) * W * 0.06, gr = g.createLinearGradient(x0, 0, x0 + W * 0.55, H * 0.55); gr.addColorStop(0, "rgba(255,110,40,1)"); gr.addColorStop(0.4, "rgba(255,170,80,.55)"); gr.addColorStop(1, "rgba(255,190,110,0)");
+      g.globalAlpha = amb * (d ? 0.2 : 0.16); g.fillStyle = gr; g.fillRect(0, 0, W, H); const g2 = g.createLinearGradient(W * 1.05, H, W * 0.6, H * 0.55); g2.addColorStop(0, "rgba(255,80,90,1)"); g2.addColorStop(1, "rgba(255,120,90,0)"); g.globalAlpha = amb * (d ? 0.14 : 0.1); g.fillStyle = g2; g.fillRect(0, 0, W, H);
+      if (d) g.globalCompositeOperation = "lighter"; for (const b of s.bok) { const x = b.x + Math.sin(f * 0.012 + b.ph) * 14, y = b.y - f * b.vy; g.globalAlpha = amb * b.a * (d ? 0.5 : 0.42) * (0.75 + 0.25 * Math.sin(f * 0.035 + b.ph)); g.drawImage(b.spr, x - b.r, y - b.r, 2 * b.r, 2 * b.r); }
+      g.globalCompositeOperation = "source-over"; }
+    // the clothesline and the prints pegged onto it
+    for (const L of s.lines) { const lr = fxEase((f - L.t0) / 40); if (lr <= 0) continue; const ly = x => L.y + L.sag * (1 - Math.pow((x - W / 2) / (W / 2 + 20), 2)) + Math.sin(f * 0.025 + L.y) * 1.2;
+      g.globalAlpha = 1; g.strokeStyle = d ? "rgba(236,222,198,.75)" : "rgba(122,98,70,.8)"; g.lineWidth = Math.max(1.2, m * 0.0026); g.beginPath(); for (let x = -10; x <= -10 + (W + 20) * lr; x += 12) x === -10 ? g.moveTo(x, ly(x)) : g.lineTo(x, ly(x)); g.stroke();
+      for (const p of L.prints) { const t = f - p.t0; if (t < 0) continue; const py = ly(p.x), e = fxEase(t / 46), th = p.rot0 * Math.exp(-t / 70) * Math.cos(t * 0.06) + Math.sin(f * 0.022 + p.x) * 0.02, y = py - (1 - e) * (p.ph * 0.9 + 30);
+        g.save(); g.globalAlpha = fxEase(t / 18); g.translate(p.x, y); g.rotate(th); g.shadowColor = d ? "rgba(0,0,0,.55)" : "rgba(70,45,20,.28)"; g.shadowBlur = 12; g.shadowOffsetY = 5; g.drawImage(p.c, -p.pw / 2, -p.pw * 0.06 + p.dy, p.pw, p.ph); g.shadowColor = "rgba(0,0,0,0)";
+        const dv = fxEase((t - 12) / 85); if (dv < 1) { g.globalAlpha = (1 - dv) * 0.94; g.fillStyle = "#47464E"; g.fillRect(-p.pw / 2 + p.m, -p.pw * 0.06 + p.dy + p.m, p.iw, p.iw); g.globalAlpha = 1; }
+        const pg = fxEase((t - 34) / 16); if (pg > 0) { const u = p.pw / 100; g.scale(pg, pg); g.fillStyle = "#C99A62"; g.fillRect(-4.6 * u, -13 * u, 4.4 * u, 25 * u); g.fillStyle = "#DDB47E"; g.fillRect(0.2 * u, -13 * u, 4.4 * u, 25 * u);
+          g.fillStyle = "#9AA0A8"; g.fillRect(-5.4 * u, -3 * u, 10.8 * u, 2.6 * u); g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(0.9 * u, -12 * u, 1.2 * u, 22 * u); }
+        g.restore(); } }
+    // the shutter: blades close to a pinpoint, a soft flash, then open wide and fall away
+    const vis = fxEase(f / 12) * (1 - fxEase((f - 50) / 28)); if (vis <= 0) return;
+    const R = m * 0.24, cx = W / 2, cy = H * 0.42, sc = 1 + 0.22 * fxEase((f - 44) / 34), op = f < 8 ? 0.92 : f < 32 ? 0.92 - 0.86 * fxEase((f - 8) / 24) : f < 36 ? 0.06 : 0.06 + 1.02 * fxEase((f - 36) / 24), rot = (1 - op) * 0.9;
+    g.save(); g.globalAlpha = vis; g.translate(cx, cy); g.scale(sc, sc);
+    if (op < 1.08) { const r = R * op; for (let i = 0; i < N; i++) { const a = rot + i / N * 6.283; P[2 * i] = Math.cos(a) * r; P[2 * i + 1] = Math.sin(a) * r; }
+      g.save(); g.beginPath(); g.arc(0, 0, R, 0, 6.3); g.clip(); g.lineWidth = 1.2;
+      for (let i = 0; i < N; i++) { const j = (i + 1) % N, h = (i + N - 1) % N, ux = P[2 * j] - P[2 * i], uy = P[2 * j + 1] - P[2 * i + 1], ul = Math.hypot(ux, uy) || 1, vx = P[2 * i] - P[2 * h], vy = P[2 * i + 1] - P[2 * h + 1], vl = Math.hypot(vx, vy) || 1;
+        g.fillStyle = i % 2 ? (d ? "#3E414B" : "#2C2E36") : (d ? "#4A4E59" : "#363943"); g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * j] + ux / ul * 3 * R, P[2 * j + 1] + uy / ul * 3 * R); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.closePath(); g.fill();
+        g.strokeStyle = "rgba(255,255,255,.2)"; g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.stroke(); }
+      g.strokeStyle = "rgba(255,200,120,.45)"; g.beginPath(); for (let i = 0; i <= N; i++) { const j = i % N; i ? g.lineTo(P[2 * j], P[2 * j + 1]) : g.moveTo(P[0], P[1]); } g.stroke();
+      g.restore(); }
+    const gr = g.createLinearGradient(-R, -R, R, R); gr.addColorStop(0, "#5A5E68"); gr.addColorStop(0.5, "#1C1D22"); gr.addColorStop(1, "#3A3D45"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.arc(0, 0, R, 0, 6.3, true); g.fill();
+    g.strokeStyle = "rgba(255,214,150,.55)"; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.stroke(); g.strokeStyle = "rgba(255,255,255,.12)"; g.beginPath(); g.arc(0, 0, R * 1.1, 0, 6.3); g.stroke();
+    g.fillStyle = "rgba(255,255,255,.4)"; for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283; g.fillRect(Math.cos(a) * R * 1.15 - 0.8, Math.sin(a) * R * 1.15 - 0.8, 1.6, 1.6); } g.restore();
+    const fl = f < 31 ? 0 : fxEase((f - 31) / 6) * Math.exp(-Math.max(0, f - 37) / 14); if (fl > 0.01) { const gr2 = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.8); gr2.addColorStop(0, "rgba(255,250,235,1)"); gr2.addColorStop(1, "rgba(255,250,235,0)"); g.globalAlpha = Math.min(1, fl) * 0.22; g.fillStyle = gr2; g.fillRect(0, 0, W, H); } };
+};
+
+// Halloween: bats flap across in side view (heads first, wings beating) past a rising moon
+// small canvas drawn once at 2x (fn draws in CSS pixels), and a 0..1..0 bump between frames a and b
+const hbCv = (w, h, fn) => { const c = document.createElement("canvas"); c.width = Math.max(2, Math.ceil(w * 2)); c.height = Math.max(2, Math.ceil(h * 2)); const x = c.getContext("2d"); x.scale(2, 2); fn(x); return c; };
+const hbBump = (f, a, b) => f <= a || f >= b ? 0 : Math.sin(Math.PI * (f - a) / (b - a));
+
+// Easter: a big painted egg wobbles, cracks and pops its top off, and a fluffy chick hatches, blinks and hops. Tulips pop
+// up along the bottom one by one and small painted eggs roll in from the sides.
+FX_SHAPES.eggbit = {d: "M-6 -4L5 -6L7 1L2 3.5L4 6L-5 5L-7 1Z"};
+const hbEggGeo = (W, H) => { const ph = W < H, b = Math.min(H * 0.17, W * 0.21, 150), a = b * 0.74, gh = Math.max(16, H * 0.045), gy = H - gh * 0.55;
+  return {ph, a, b, cx: W / 2, gy, gh, ey: gy - b * 0.94, y0: -0.08 * b, side: ph ? 1 : -1}; };
+const hbEggLine = (g, a, b) => { g.beginPath(); for (let i = 0; i <= 56; i++) { const t = i / 56 * 6.283; g[i ? "lineTo" : "moveTo"](a * Math.sin(t) * (1 - 0.17 * Math.cos(t)), -b * Math.cos(t)); } g.closePath(); };
+const hbHatch = () => {
+  const EC = {base: "#C7B2F2", pink: "#F7A8C4", yel: "#F9DC7A", mint: "#9EDDC5", blue: "#9CC8F2"};
+  const S = hbRun((W, H, d) => { const G = hbEggGeo(W, H), {a, b, y0, cx, gy, gh} = G, cw = 2 * a + 6, ch = 2 * b + 6;
+    const crack = Array.from({length: 11}, (_, i) => [(-1.15 + 2.3 * i / 10) * a, y0 + (i % 2 ? -1 : 1) * 0.085 * b]);
+    const egg = hbCv(cw, ch, x => { x.translate(cw / 2, ch / 2); hbEggLine(x, a, b); x.save(); x.clip(); x.fillStyle = EC.base; x.fillRect(-cw, -ch, 2 * cw, 2 * ch);
+      const band = (t0, t1, col) => { x.fillStyle = col; x.fillRect(-cw, t0 * b, 2 * cw, (t1 - t0) * b); };
+      const zig = (y, amp, n, col, lw) => { x.strokeStyle = col; x.lineWidth = lw; x.lineJoin = "round"; x.beginPath(); for (let i = 0; i <= n; i++) x[i ? "lineTo" : "moveTo"](-a * 1.1 + 2.2 * a * i / n, y + (i % 2 ? -amp : amp)); x.stroke(); };
+      band(-1.1, -0.64, EC.pink); [[-0.24, -0.86], [0.24, -0.86], [0, -0.74], [-0.42, -0.7], [0.42, -0.7]].forEach(([u, v]) => { x.fillStyle = "#FFFFFF"; x.beginPath(); x.arc(u * a, v * b, 0.055 * b, 0, 6.3); x.fill(); });
+      zig(-0.47 * b, 0.07 * b, 10, "#FFFFFF", 0.07 * b); band(-0.3, -0.17, EC.yel);
+      for (let i = 0; i < 5; i++) { x.fillStyle = i % 2 ? EC.blue : EC.mint; x.beginPath(); x.arc((-0.8 + 0.4 * i) * a, 0.17 * b, 0.075 * b, 0, 6.3); x.fill(); }
+      band(0.38, 0.56, EC.pink); zig(0.47 * b, 0.035 * b, 14, "#FFFFFF", 0.025 * b); band(0.72, 1.1, EC.mint);
+      [-0.5, 0, 0.5].forEach(u => { x.fillStyle = EC.yel; x.beginPath(); x.arc(u * a, 0.86 * b, 0.05 * b, 0, 6.3); x.fill(); });
+      const sh = x.createRadialGradient(-0.35 * a, -0.45 * b, 0, -0.2 * a, -0.2 * b, 1.5 * b); sh.addColorStop(0, "rgba(255,255,255,.55)"); sh.addColorStop(0.35, "rgba(255,255,255,0)"); sh.addColorStop(1, "rgba(70,40,110,.22)");
+      x.fillStyle = sh; x.fillRect(-cw, -ch, 2 * cw, 2 * ch); x.restore(); x.strokeStyle = "rgba(110,80,160,.35)"; x.lineWidth = 1.2; hbEggLine(x, a, b); x.stroke(); });
+    // the two halves of the shell, cut along the zigzag crack, with a white shell edge
+    const half = top => hbCv(cw, ch, x => { x.translate(cw / 2, ch / 2); x.beginPath(); crack.forEach(([u, v], i) => x[i ? "lineTo" : "moveTo"](u, v)); x.lineTo(1.2 * a, (top ? -1 : 1) * 1.2 * b); x.lineTo(-1.2 * a, (top ? -1 : 1) * 1.2 * b); x.closePath(); x.clip();
+      x.drawImage(egg, -cw / 2, -ch / 2, cw, ch); x.save(); hbEggLine(x, a, b); x.clip(); x.strokeStyle = "#FFFDF6"; x.lineWidth = Math.max(2, b * 0.03); x.lineJoin = "round"; x.beginPath(); crack.forEach(([u, v], i) => x[i ? "lineTo" : "moveTo"](u, v)); x.stroke(); x.restore(); });
+    const R = 0.8 * a, chick = hbCv(2.8 * R, 2.8 * R, x => { x.translate(1.4 * R, 1.4 * R);
+      const gr = x.createLinearGradient(0, -R, 0, R); gr.addColorStop(0, "#FFEC8E"); gr.addColorStop(1, "#FFC43A"); x.fillStyle = gr; x.beginPath(); x.arc(0, 0, R * 0.92, 0, 6.3);
+      for (let k = 0; k < 18; k++) { const an = k / 18 * 6.283, px = Math.cos(an) * R * 0.88, py = Math.sin(an) * R * 0.88; x.moveTo(px + R * 0.15, py); x.arc(px, py, R * 0.15, 0, 6.3); } x.fill();
+      x.fillStyle = "#FFD24A"; [[-0.12, -1.0, -0.55], [0.03, -1.08, 0.05], [0.17, -1.0, 0.6]].forEach(([u, v, r]) => { x.save(); x.translate(u * R, v * R); x.rotate(r); x.beginPath(); x.ellipse(0, 0, 0.07 * R, 0.19 * R, 0, 0, 6.3); x.fill(); x.restore(); });
+      x.fillStyle = "rgba(255,250,215,.55)"; x.beginPath(); x.ellipse(0, 0.38 * R, 0.55 * R, 0.42 * R, 0, 0, 6.3); x.fill();
+      const hl = x.createRadialGradient(-0.35 * R, -0.42 * R, 0, -0.35 * R, -0.42 * R, 0.7 * R); hl.addColorStop(0, "rgba(255,255,255,.6)"); hl.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = hl; x.beginPath(); x.arc(0, 0, R, 0, 6.3); x.fill();
+      x.fillStyle = "rgba(255,130,140,.42)"; [-1, 1].forEach(s => { x.beginPath(); x.ellipse(s * 0.52 * R, 0.1 * R, 0.15 * R, 0.1 * R, 0, 0, 6.3); x.fill(); }); });
+    // grass along the bottom edge
+    const grass = hbCv(W, gh * 2, x => { const gr = x.createLinearGradient(0, 0, 0, gh * 2); gr.addColorStop(0, d ? "#6FAF7E" : "#A9DC9C"); gr.addColorStop(1, d ? "#4E8A5E" : "#86C77E"); x.fillStyle = gr; x.beginPath(); x.moveTo(0, gh * 2);
+      for (let px = 0; px <= W + 12; px += 12) { const h = gh * (0.55 + 0.3 * Math.abs(Math.sin(px * 0.37))); x.lineTo(px - 6, gh * 2 - h * 0.55); x.lineTo(px, gh * 2 - h - gh * 0.25); } x.lineTo(W, gh * 2); x.closePath(); x.fill(); });
+    // tulips: slots along the bottom, skipping the big egg and where its top lands; they pop up in a random order
+    const land = cx + G.side * (G.ph ? 1.95 : 2.35) * a, slots = [], m = Math.max(4, Math.min(9, Math.round(W / 125)));
+    for (let i = 0; i < m + 6; i++) { const x = W * (0.04 + 0.92 * i / (m + 5)); if (Math.abs(x - cx) > 1.2 * a && Math.abs(x - land) > 0.95 * a) slots.push(x); }
+    const tcols = ["#F48FB8", "#B597EC", "#F9A97E", "#F6CF5A", "#EE7FA0", "#8FBDF0"], ord = slots.map((_, i) => i).sort(() => Math.random() - 0.5), u = hbSc(W, H);
+    const tul = slots.map((x, i) => ({x: x + fxR(-8, 8), t0: 18 + ord[i] * 13, h: H * fxR(0.07, 0.12) + 14 * u, r: u * fxR(8.5, 10.5), c: tcols[(i + ord[0]) % tcols.length], ph: fxR(0, 6.3)}));
+    // small eggs that roll in from the sides
+    const ecols = [EC.pink, EC.mint, EC.yel, EC.blue, "#B99AE8"], es = 1.4 * u, rest = G.ph ? [[-1, 0.15], [1, 0.9]] : [[-1, 0.08], [-1, 0.2], [1, 0.8], [1, 0.92]];
+    const eggs = rest.map(([sd, rx], i) => { const xs = sd < 0 ? -30 : W + 30, xr = W * rx, dist = Math.abs(xr - xs), K = Math.max(1, Math.round(dist / (6.283 * 8.5 * es)));
+      return {xs, xr, t0: 28 + i * 22 + fxR(0, 10), T: 70 + fxR(0, 15), c: ecols[i % ecols.length], end: Math.sign(xr - xs) * (Math.PI / 2 + 6.283 * K), s: es * fxR(0.9, 1.1)}; });
+    return {G, crack, egg, top: half(true), bot: half(false), chick, R, cw, ch, grass, tul, eggs, land};
+  });
+  const tulip = (g, t, f, d, gy) => { const e = (f - t.t0) / 30; if (e <= 0) return; const st = fxEase(e * 1.5), hd = hbBack((e - 0.3) / 0.6), hh = t.h * st, r = t.r, sw = Math.sin(f * 0.035 + t.ph) * 0.05 * st;
+    g.save(); g.translate(t.x, gy + 4); g.rotate(sw); const green = d ? "#7CCB88" : "#5FAE6C";
+    g.fillStyle = d ? "#8FD69A" : "#79C283"; [[-1, 0.62], [1, 0.45]].forEach(([s, k]) => { g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(s * r * 1.3, -hh * k * 0.5, s * r * 0.9, -hh * k); g.quadraticCurveTo(s * r * 0.2, -hh * k * 0.45, 0, 0); g.fill(); });
+    g.strokeStyle = green; g.lineWidth = Math.max(2, r * 0.22); g.lineCap = "round"; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(r * 0.3, -hh * 0.5, 0, -hh); g.stroke();
+    if (hd > 0) { g.translate(0, -hh - r * 0.2); g.scale(hd, hd); g.rotate(Math.sin(f * 0.05 + t.ph) * 0.06);
+      g.fillStyle = fxShade(t.c, 0.82); g.beginPath(); g.moveTo(-0.62 * r, -0.2 * r); g.quadraticCurveTo(-0.6 * r, -1.1 * r, 0, -1.25 * r); g.quadraticCurveTo(0.6 * r, -1.1 * r, 0.62 * r, -0.2 * r); g.fill();
+      g.fillStyle = t.c; g.beginPath(); g.moveTo(-0.78 * r, -0.95 * r); g.quadraticCurveTo(-0.5 * r, -0.55 * r, -0.3 * r, -0.5 * r); g.quadraticCurveTo(0, -0.9 * r, 0.3 * r, -0.5 * r); g.quadraticCurveTo(0.5 * r, -0.55 * r, 0.78 * r, -0.95 * r);
+      g.quadraticCurveTo(0.95 * r, 0.55 * r, 0, 0.6 * r); g.quadraticCurveTo(-0.95 * r, 0.55 * r, -0.78 * r, -0.95 * r); g.fill();
+      g.fillStyle = fxShade(t.c, 1.1); g.beginPath(); g.moveTo(0, -1.05 * r); g.quadraticCurveTo(0.55 * r, -0.4 * r, 0.32 * r, 0.52 * r); g.quadraticCurveTo(0, 0.62 * r, -0.32 * r, 0.52 * r); g.quadraticCurveTo(-0.55 * r, -0.4 * r, 0, -1.05 * r); g.fill();
+      g.fillStyle = "rgba(255,255,255,.4)"; g.beginPath(); g.ellipse(-0.12 * r, -0.35 * r, 0.08 * r, 0.3 * r, 0.15, 0, 6.3); g.fill(); }
+    g.restore(); };
+  return (g, f, W, H, d) => { const s = S(W, H, d, f), {G, R} = s, {a, b, cx, ey, y0, gy, gh} = G, out = 1;   // the whole layer fades at the end, so solid pieces never go see-through
+    g.globalAlpha = out; for (const t of s.tul) tulip(g, t, f, d, gy);
+    g.drawImage(s.grass, 0, H - gh * 2 + gh * 2 * (1 - fxEase(f / 18)), W, gh * 2);
+    // small eggs: bounce in, roll, rock to a stop lying on their side
+    for (const e of s.eggs) { const t = f - e.t0; if (t <= 0) continue; const p = 1 - Math.pow(1 - Math.min(1, t / e.T), 2.2), x = e.xs + (e.xr - e.xs) * p;
+      const rot = e.end * p + (t > e.T ? 0.18 * Math.exp(-(t - e.T) / 14) * Math.sin((t - e.T) * 0.35) : 0), hop = H * 0.05 * Math.exp(-t / 16) * Math.abs(Math.sin(t * 0.2));
+      hbStamp(g, "egg", e.c, d, x, gy + 3 - e.s * (7.6 + 2.6 * Math.abs(Math.cos(rot))) - hop, e.s, rot); }
+    // the big egg: pops in, wobbles, cracks, then the top flies off and lands on the grass
+    const pop = hbBack(f / 24), wob = Math.sin(f * 0.5) * (0.09 * hbBump(f, 26, 52) + 0.13 * hbBump(f, 60, 98)) + (f > 100 ? 0.06 * Math.exp(-(f - 100) / 12) * Math.sin((f - 100) * 0.5) : 0);
+    g.save(); g.translate(cx, ey + b); g.rotate(wob); g.scale(pop, pop); g.translate(0, -b);
+    if (f < 100) { g.drawImage(s.egg, -s.cw / 2, -s.ch / 2, s.cw, s.ch);
+      const cr = fxEase((f - 52) / 40); if (cr > 0) { g.save(); hbEggLine(g, a, b); g.clip(); g.strokeStyle = "rgba(90,60,130,.75)"; g.lineWidth = Math.max(1.6, b * 0.022); g.lineJoin = g.lineCap = "round";
+        const k = cr * 5; [1, -1].forEach(dir => { g.beginPath(); g.moveTo(...s.crack[5]); for (let i = 1; i <= Math.ceil(k); i++) { const [x0, y1] = s.crack[5 + dir * (i - 1)], [x1, y2] = s.crack[5 + dir * i], q = Math.min(1, k - i + 1); g.lineTo(x0 + (x1 - x0) * q, y1 + (y2 - y1) * q); } g.stroke(); }); g.restore(); } }
+    else { // inside of the shell, then the chick, then the front of the shell
+      g.fillStyle = "#FFF6E4"; g.beginPath(); g.ellipse(0, y0, a * 0.95, a * 0.22, 0, 0, 6.3); g.fill();
+      const rise = hbBack((f - 104) / 26), hops = [[160, 30], [198, 30]], P = hops.map(([h0, L]) => (f - h0) / L).find(p => p > 0 && p < 1);
+      let lift = 0, sq = 0, flap = Math.sin(f * 0.2) * 0.1; if (P != null) { if (P < 0.2) sq = Math.sin(P / 0.2 * Math.PI) * 0.12; else if (P < 0.85) { lift = Math.sin(Math.PI * (P - 0.2) / 0.65) * 0.8 * a; sq = -0.06; flap = Math.sin(f * 0.9) * 0.7; } else sq = Math.sin((P - 0.85) / 0.15 * Math.PI) * 0.1; }
+      const cy = 0.9 * b + (-0.3 * b - 0.9 * b) * rise - lift, blink = [140, 186, 236].reduce((m, t0) => Math.max(m, hbBump(f, t0, t0 + 9)), 0), chirp = hbBump(f, 182, 196) + hbBump(f, 226, 240);
+      g.save(); g.beginPath(); g.rect(-2 * a, -4 * b, 4 * a, 4.9 * b); g.clip(); g.translate(0, cy + R); g.scale(1 + sq, 1 - sq); g.translate(0, -R);
+      g.fillStyle = "#F49A34"; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * 0.3 * R, 0.95 * R, 0.17 * R, 0.07 * R, 0, 0, 6.3); g.fill(); });
+      g.drawImage(s.chick, -1.4 * R, -1.4 * R, 2.8 * R, 2.8 * R);
+      g.fillStyle = "#FFBC30"; [-1, 1].forEach(sd => { g.save(); g.translate(sd * 0.8 * R, 0.16 * R); g.rotate(sd * (0.5 + flap)); g.beginPath(); g.ellipse(0, 0.08 * R, 0.13 * R, 0.25 * R, 0, 0, 6.3); g.fill(); g.restore(); });
+      g.fillStyle = "#2E2230"; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * 0.28 * R, -0.16 * R, 0.085 * R, Math.max(0.012, 0.11 * (1 - blink)) * R, 0, 0, 6.3); g.fill(); });
+      if (blink < 0.5) { g.fillStyle = "#FFFFFF"; [-1, 1].forEach(sd => { g.beginPath(); g.arc(sd * 0.28 * R - 0.03 * R, -0.2 * R, 0.035 * R, 0, 6.3); g.fill(); }); }
+      g.fillStyle = "#E57A22"; g.beginPath(); g.moveTo(-0.08 * R, 0.03 * R); g.lineTo(0.08 * R, 0.03 * R); g.lineTo(0, (0.1 + 0.09 * chirp) * R); g.fill();
+      g.fillStyle = "#F7A23A"; g.beginPath(); g.moveTo(-0.12 * R, -0.03 * R); g.lineTo(0.12 * R, -0.03 * R); g.lineTo(0, 0.1 * R - chirp * 0.02 * R); g.fill(); g.restore();
+      g.drawImage(s.bot, -s.cw / 2, -s.ch / 2, s.cw, s.ch); }
+    g.restore();
+    if (f >= 100) { const t = f - 100, T = 46, q = Math.min(1, t / T), pc = -0.55 * b, x0 = cx, yA = ey + pc, yB = gy - 0.45 * b + 2, x1 = s.land;
+      const x = x0 + (x1 - x0) * q, y = yA + (yB - yA) * q - 4 * q * (1 - q) * H * (G.ph ? 0.16 : 0.22), rot = G.side * (3 * Math.PI * q) + (t > T ? G.side * 0.22 * Math.exp(-(t - T) / 16) * Math.sin((t - T) * 0.3) : 0);
+      g.save(); g.translate(x, y); g.rotate(rot); g.translate(0, -pc); g.drawImage(s.top, -s.cw / 2, -s.ch / 2, s.cw, s.ch); g.restore(); }
+    g.globalAlpha = 1; }; };
+const hbHatchBits = (W, H, d, n) => { const G = hbEggGeo(W, H), y = G.ey + G.y0, sc = d ? ["#FFE08A", "#FFB8D6", "#D4C2FF", "#FFFFFF"] : ["#F2B84A", "#F28BB8", "#A884F0", "#7FC9AE"];
+  return Array.from({length: n(14)}, () => ({shape: "sparkle", c: fxPick(sc), x: G.cx + fxR(-0.6, 0.6) * G.a, y: y + fxR(-0.1, 0.1) * G.b, vx: fxR(-3.2, 3.2), vy: -fxR(2, 5.5), g: 0.05, drag: 0.97, size: fxR(6, 10), rot: 0, vr: fxR(-0.1, 0.1), sway: 0, life: 75, delay: 100 + Math.round(fxR(0, 8)), glow: d ? 8 : 0}))
+    .concat(Array.from({length: n(9)}, () => ({shape: "eggbit", c: fxPick(["#C7B2F2", "#F7A8C4", "#9EDDC5", "#F9DC7A"]), x: G.cx + fxR(-0.8, 0.8) * G.a, y, vx: fxR(-4, 4), vy: -fxR(4, 8), g: 0.28, flip: true, size: fxR(5, 7.5), rot: fxR(0, 6.3), vr: fxR(-0.2, 0.2), sway: 0, life: 80, delay: 100}))); };
+
+// Halloween: a big full moon rises, a witch on her broom flies across its face, bats burst up from below, a little ghost
+// floats up and waves, and a row of jack-o'-lanterns along the bottom lights up one by one.
+// the moon sits up in the top right, clear of the middle of the screen where the app content is
+const hbMoonGeo = (W, H) => { const ph = W < H, R = ph ? Math.min(W * 0.22, H * 0.12) : Math.min(H * 0.16, W * 0.12); return {ph, R, mx: W * (ph ? 0.68 : 0.8), my: H * (ph ? 0.15 : 0.18)}; };
+const hbWitchAt = (W, H, t) => { const m = hbMoonGeo(W, H), u = t / 150; return [W * (-0.14 + 1.28 * u), m.my + m.R * (0.25 - 0.4 * u) + Math.sin(t * 0.045) * m.R * 0.1]; };
+const hbNight = () => {
+  const S = hbRun((W, H, d) => { const M = hbMoonGeo(W, H), {R} = M, mc = R * 3.6;
+    const moon = hbCv(mc, mc, x => { x.translate(mc / 2, mc / 2); const h = x.createRadialGradient(0, 0, R * 0.9, 0, 0, R * 1.75); h.addColorStop(0, d ? "rgba(255,220,150,.32)" : "rgba(245,170,70,.3)"); h.addColorStop(1, "rgba(255,220,150,0)"); x.fillStyle = h; x.fillRect(-mc, -mc, 2 * mc, 2 * mc);
+      const gr = x.createRadialGradient(-0.3 * R, -0.35 * R, 0, 0, 0, R); gr.addColorStop(0, d ? "#FFFBEA" : "#FDEBB4"); gr.addColorStop(1, d ? "#F6DA9A" : "#F1BD5E"); x.fillStyle = gr; x.beginPath(); x.arc(0, 0, R, 0, 6.3); x.fill();
+      [[-0.35, -0.2, 0.2], [0.3, 0.3, 0.15], [0.1, -0.5, 0.1], [-0.15, 0.48, 0.12], [0.55, -0.15, 0.08]].forEach(([u, v, r]) => { x.fillStyle = d ? "rgba(214,170,100,.3)" : "rgba(200,130,50,.25)"; x.beginPath(); x.arc(u * R, v * R, r * R, 0, 6.3); x.fill();
+        x.fillStyle = "rgba(255,255,255,.22)"; x.beginPath(); x.arc(u * R - r * R * 0.2, v * R - r * R * 0.2, r * R * 0.7, 0, 6.3); x.fill(); }); });
+    // jack-o'-lanterns: a row along the bottom, each with its own face; unlit and lit faces are drawn once
+    const m = M.ph ? 4 : Math.max(5, Math.min(8, Math.round(W / 150))), r0 = Math.min(W / (m * 2.7), H * 0.075), pc = r0 * 3.2;
+    const face = (x, r, v, fill, glow) => { x.fillStyle = fill; if (glow) { x.shadowColor = "#FFA51F"; x.shadowBlur = r * 0.35; } x.beginPath();
+      [-1, 1].forEach(s => { if (v === 1) { x.moveTo(s * 0.52 * r, -0.08 * r); x.quadraticCurveTo(s * 0.35 * r, -0.42 * r, s * 0.16 * r, -0.08 * r); x.closePath(); } else { x.moveTo(s * 0.55 * r, -0.04 * r); x.lineTo(s * 0.16 * r, -0.04 * r); x.lineTo(s * (v === 2 ? 0.28 : 0.36) * r, -0.4 * r); x.closePath(); } });
+      x.moveTo(-0.08 * r, 0.06 * r); x.lineTo(0.08 * r, 0.06 * r); x.lineTo(0, -0.08 * r); x.closePath();
+      x.moveTo(-0.62 * r, 0.16 * r); x.quadraticCurveTo(0, (v === 2 ? 0.55 : 0.32) * r, 0.62 * r, 0.16 * r); x.quadraticCurveTo(0.45 * r, 0.62 * r, 0, 0.66 * r); x.quadraticCurveTo(-0.45 * r, 0.62 * r, -0.62 * r, 0.16 * r); x.fill();
+      x.shadowBlur = 0; x.fillStyle = "#F07E22"; if (v !== 2) [[-0.3, 0.3], [0.18, 0.3]].forEach(([u, w]) => x.fillRect(u * r, 0.22 * r, 0.13 * r, w * 0.5 * r)); };
+    const body = hbCv(pc, pc, x => { const r = r0 * 1.2; x.translate(pc / 2, pc / 2 + r * 0.1);
+      x.strokeStyle = "#5E7A2E"; x.lineWidth = r * 0.06; x.lineCap = "round"; x.beginPath(); x.moveTo(0.08 * r, -0.9 * r); x.bezierCurveTo(0.4 * r, -1.1 * r, 0.55 * r, -0.85 * r, 0.4 * r, -0.78 * r); x.stroke();
+      x.fillStyle = "#6B7F2E"; x.beginPath(); x.moveTo(-0.1 * r, -0.75 * r); x.quadraticCurveTo(-0.14 * r, -1.05 * r, 0.04 * r, -1.2 * r); x.lineTo(0.18 * r, -1.1 * r); x.quadraticCurveTo(0.06 * r, -0.98 * r, 0.12 * r, -0.75 * r); x.fill();
+      [[-0.6, 0.5, 0.8], [0.6, 0.5, 0.8], [-0.3, 0.58, 0.9], [0.3, 0.58, 0.9], [0, 0.55, 1]].forEach(([u, w, k]) => { const gr = x.createLinearGradient(0, -0.9 * r, 0, 0.9 * r); gr.addColorStop(0, fxShade("#FFA040", 0.85 + 0.15 * k)); gr.addColorStop(1, fxShade("#D9601A", 0.8 + 0.2 * k));
+        x.fillStyle = gr; x.strokeStyle = "rgba(150,60,10,.35)"; x.lineWidth = r * 0.025; x.beginPath(); x.ellipse(u * r, 0, w * r, 0.86 * r, 0, 0, 6.3); x.fill(); x.stroke(); });
+      x.fillStyle = "rgba(255,240,200,.25)"; x.beginPath(); x.ellipse(-0.62 * r, -0.42 * r, 0.08 * r, 0.18 * r, 0.5, 0, 6.3); x.fill(); });
+    const faces = [0, 1, 2].map(v => [hbCv(pc, pc, x => { const r = r0 * 1.2; x.translate(pc / 2, pc / 2 + r * 0.1); face(x, r, v, "#5A2508"); }),
+      hbCv(pc, pc, x => { const r = r0 * 1.2; x.translate(pc / 2, pc / 2 + r * 0.1); const gr = x.createRadialGradient(0, 0.15 * r, 0, 0, 0.15 * r, 0.8 * r); gr.addColorStop(0, "#FFF6B0"); gr.addColorStop(0.6, "#FFD035"); gr.addColorStop(1, "#FF9A12"); face(x, r, v, gr, true); })]);
+    const halo = hbCv(pc, pc, x => { const gr = x.createRadialGradient(pc / 2, pc / 2, 0, pc / 2, pc / 2, pc / 2); gr.addColorStop(0, d ? "rgba(255,170,50,.6)" : "rgba(255,160,40,.4)"); gr.addColorStop(1, "rgba(255,170,50,0)"); x.fillStyle = gr; x.fillRect(0, 0, pc, pc); });
+    const ord = Array.from({length: m}, (_, i) => i).sort(() => Math.random() - 0.5);
+    const pumps = Array.from({length: m}, (_, i) => { const k = fxR(0.82, 1.12) * (i % 2 ? 0.9 : 1.05); return {x: W * (i + 0.5) / m + fxR(-0.1, 0.1) * W / m * (M.ph ? 0.4 : 1), k, v: (i + ord[0]) % 3, on: 62 + ord[i] * 16, ph: fxR(0, 6.3)}; });
+    // bats burst up from behind the pumpkins and fan out
+    const bk = Math.max(1.4, Math.min(W, H) * 0.0032), bats = Array.from({length: M.ph ? 10 : 16}, (_, i) => { const z = fxR(0.65, 1.15), sd = i % 2 ? 1 : -1;
+      return {x0: W * (0.5 + sd * fxR(0, 0.3)), ang: sd * fxR(0.05, 0.75), curl: sd * fxR(-0.6, 1.4), sp: H * fxR(0.009, 0.013) * (0.7 + 0.3 * z), t0: 34 + i * 2.6 + fxR(0, 6), fr: fxR(0.32, 0.45), ph: fxR(0, 6.3), k: bk * z, z}; });
+    const gs = Math.max(56, Math.min(W, H) * (M.ph ? 0.19 : 0.15));
+    return {M, moon, mc, pumps, r0, pc, body, faces, halo, bats, gs, gx: W * (M.ph ? 0.18 : 0.15), gy: H * (M.ph ? 0.68 : 0.5)};
+  });
+  const sil = d => d ? "#1C1428" : "#2D2140";
+  const witch = (g, f) => { const w = k => Math.sin(f * 0.32 + k);
+    g.strokeStyle = g.fillStyle; g.lineCap = g.lineJoin = "round";
+    g.lineWidth = 2; g.beginPath(); g.moveTo(-20, 5); g.lineTo(26, -1.5); g.stroke();
+    g.beginPath(); g.moveTo(-18, 3); g.lineTo(-33 + w(1), -1.5 + w(2) * 0.8); g.quadraticCurveTo(-37, 6, -34 + w(3), 13 + w(1) * 0.8); g.lineTo(-18, 8); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(1, -12); g.bezierCurveTo(-6, -14, -14, -14 + w(0) * 2, -24, -13 + w(0.7) * 3); g.quadraticCurveTo(-19, -10 + w(1.4) * 1.5, -22, -5 + w(2) * 3); g.quadraticCurveTo(-14, -4 + w(2.6), -14, 1 + w(3.2) * 2); g.quadraticCurveTo(-8, 1, -3, 3); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(-9, 4); g.quadraticCurveTo(-5, -4, -1, -12); g.lineTo(5, -12); g.quadraticCurveTo(7, -4, 6, 3); g.quadraticCurveTo(10, 8, 6, 10); g.lineTo(-8, 7); g.closePath(); g.fill();
+    g.lineWidth = 2.6; g.beginPath(); g.moveTo(4, 6); g.lineTo(11, 8); g.lineTo(10, 13); g.stroke(); g.beginPath(); g.moveTo(9, 13.2); g.lineTo(14.5, 12.4); g.stroke();
+    g.lineWidth = 2.2; g.beginPath(); g.moveTo(3, -9); g.quadraticCurveTo(9, -5, 13, 1); g.stroke();
+    g.beginPath(); g.arc(4.5, -16, 4.2, 0, 6.3); g.fill(); g.beginPath(); g.moveTo(7.5, -18); g.lineTo(12, -15.5); g.lineTo(7.5, -14); g.fill();
+    g.lineWidth = 1.6; [0, 1].forEach(i => { g.beginPath(); g.moveTo(1.5, -17.5 + i * 2.5); g.quadraticCurveTo(-3, -16 + i * 2.5 + w(i) * 1.2, -7.5, -13.5 + i * 3 + w(i + 1) * 1.5); g.stroke(); });
+    g.beginPath(); g.ellipse(4, -20.3, 9.5, 1.9, -0.12, 0, 6.3); g.fill();
+    g.beginPath(); g.moveTo(-0.5, -20.5); g.lineTo(8.5, -21.2); g.quadraticCurveTo(5, -27, 0, -31); g.quadraticCurveTo(-4, -34 + w(4) * 0.8, -9, -31.5 + w(4) * 1.2); g.quadraticCurveTo(-4, -30.5, -2, -27); g.closePath(); g.fill(); };
+  const bat = (g, fl) => { const up = fl * 6, sp = 14 * (0.8 + 0.2 * Math.abs(fl));
+    [-1, 1].forEach(s => { const tx = s * sp, ty = -2 - up; g.beginPath(); g.moveTo(s * 1.6, -2.4); g.quadraticCurveTo(s * sp * 0.5, -6 - up * 0.8, tx, ty);
+      for (let k = 1; k <= 3; k++) { const q = k / 3, ex = tx + (s * 1.4 - tx) * q, ey = ty + (3 - ty) * q, mx = tx + (s * 1.4 - tx) * (q - 1 / 6), my = ty + (3 - ty) * (q - 1 / 6) - 2.6; g.quadraticCurveTo(mx, my, ex, ey); } g.closePath(); g.fill(); });
+    g.beginPath(); g.ellipse(0, 0.4, 2.4, 3.8, 0, 0, 6.3); g.fill(); g.beginPath(); g.arc(0, -4.4, 2.3, 0, 6.3); g.fill();
+    g.beginPath(); g.moveTo(-2.2, -5); g.lineTo(-2, -8.4); g.lineTo(-0.6, -6.2); g.moveTo(2.2, -5); g.lineTo(2, -8.4); g.lineTo(0.6, -6.2); g.fill(); };
+  const batAt = (b, t, H) => { const dist = b.sp * (40 * (1 - Math.exp(-t / 40)) + 0.45 * t), a = b.ang + b.curl * t * 0.004; return [b.x0 + Math.sin(a) * dist + Math.sin(t * 0.08 + b.ph) * 10, H + 20 - Math.cos(a) * dist]; };
+  return (g, f, W, H, d) => { const s = S(W, H, d, f), {M} = s, out = 1, col = sil(d);   // the layer fade at the end covers it
+    // moon
+    const mr = fxEase(f / 80), my = M.my + H * 0.25 * (1 - mr); g.globalAlpha = out * 0.85 * fxEase(f / 25); g.drawImage(s.moon, M.mx - s.mc / 2, my - s.mc / 2, s.mc, s.mc);
+    // witch
+    const wt = f - 40; if (wt > 0 && wt < 175) { const [x, y] = hbWitchAt(W, H, wt), [x2, y2] = hbWitchAt(W, H, wt + 1), k = M.R * 1.1 / 60;
+      g.save(); g.globalAlpha = out; g.translate(x, y); g.rotate(Math.atan2(y2 - y, x2 - x) * 0.7 + Math.sin(f * 0.09) * 0.04); g.scale(k, k); g.fillStyle = col;
+      witch(g, f); g.restore(); }
+    // ghost
+    const gr = fxEase((f - 46) / 70); if (gr > 0) { const gs = s.gs, x = s.gx + Math.sin(f * 0.04) * gs * 0.18, y = s.gy + (H - s.gy + gs * 1.2) * (1 - gr) + Math.sin(f * 0.07) * gs * 0.06, hem = f * 0.16;
+      g.save(); g.globalAlpha = out * Math.min(1, gr * 1.5) * 0.96; g.translate(x, y); g.rotate(Math.sin(f * 0.05) * 0.09); g.scale(gs / 2, gs / 2);
+      const wave = hbBump(f, 112, 220), arm = wave > 0 ? -1.2 * Math.min(1, wave * 2) + 0.45 * Math.sin(f * 0.32) * Math.min(1, wave * 2) : 0.5;
+      const shape = () => { g.beginPath(); g.moveTo(-0.72, 0.5); g.bezierCurveTo(-0.78, -0.55, -0.42, -1, 0, -1); g.bezierCurveTo(0.42, -1, 0.78, -0.55, 0.72, 0.5);
+        for (let k = 0; k < 4; k++) { const x0 = 0.72 - k * 0.36, x1 = x0 - 0.36, yy = 0.62 + 0.07 * Math.sin(hem + k * 1.6); g.quadraticCurveTo((x0 + x1) / 2, yy + 0.22, x1, 0.5 + 0.05 * Math.sin(hem + k * 1.6 + 0.8)); } g.closePath(); };
+      const fillG = g.createLinearGradient(0, -1, 0, 0.8); fillG.addColorStop(0, "#FFFFFF"); fillG.addColorStop(1, d ? "#DCD6F2" : "#E4DCF4");
+      g.fillStyle = fillG; g.strokeStyle = "rgba(80,60,120,.4)"; g.lineWidth = 0.035;
+      [[-1, 0.5], [1, arm]].forEach(([sd, an]) => { g.save(); g.translate(sd * 0.62, 0.02); g.rotate(sd * an); g.beginPath(); g.ellipse(sd * 0.2, 0, 0.24, 0.13, 0, 0, 6.3); g.fill(); if (!d) g.stroke(); g.restore(); });
+      if (d) { g.shadowColor = "rgba(210,200,255,.8)"; g.shadowBlur = gs * 0.25; } shape(); g.fill(); g.shadowBlur = 0; if (!d) g.stroke();
+      g.fillStyle = "#2A2238"; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * 0.24, -0.32, 0.09, 0.13 * (1 - hbBump(f, 170, 178)) + 0.01, 0, 0, 6.3); g.fill(); });
+      g.fillStyle = "#FFFFFF"; [-1, 1].forEach(sd => { g.beginPath(); g.arc(sd * 0.24 - 0.03, -0.37, 0.03, 0, 6.3); g.fill(); });
+      g.fillStyle = "#2A2238"; g.beginPath(); g.ellipse(0, -0.08, 0.08, 0.06 + 0.04 * wave, 0, 0, 6.3); g.fill();
+      g.fillStyle = "rgba(255,130,170,.45)"; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * 0.42, -0.14, 0.1, 0.06, 0, 0, 6.3); g.fill(); }); g.restore(); }
+    // bats
+    g.fillStyle = d ? "#4E3C70" : col; for (const b of s.bats) { const t = f - b.t0; if (t <= 0) continue; const [x, y] = batAt(b, t, H), [x2, y2] = batAt(b, t + 1, H); if (y < -60 || x < -60 || x > W + 60) continue;
+      g.save(); g.globalAlpha = out * Math.min(1, t / 8) * (0.6 + 0.4 * Math.min(1, b.z)); g.translate(x, y); g.rotate(Math.atan2(y2 - y, x2 - x) + Math.PI / 2); g.scale(b.k, b.k); bat(g, Math.sin(t * b.fr + b.ph)); g.restore(); }
+    // jack-o'-lanterns
+    for (const p of s.pumps) { const up = hbBack((f - 4 - p.x / W * 14) / 22); if (up <= 0) continue; const w = s.pc * p.k, x = p.x - w / 2, y = H - s.r0 * p.k * 1.15 - w / 2 + (1 - up) * w;
+      const t = f - p.on, on = t < 0 ? 0 : t < 16 ? [0.5, 0, 0.8, 0.3, 1, 1, 0.6, 1][Math.floor(t / 2)] : 1, fl = on * (0.86 + 0.14 * Math.sin(f * 0.5 + p.ph) * Math.sin(f * 0.21 + p.ph * 2));
+      if (fl > 0) { g.globalAlpha = out * fl * 0.9; g.drawImage(s.halo, x - w * 0.3, y - w * 0.3, w * 1.6, w * 1.6); }
+      g.globalAlpha = out; g.drawImage(s.body, x, y, w, w); g.drawImage(s.faces[p.v][0], x, y, w, w); if (on > 0) { g.globalAlpha = out * on; g.drawImage(s.faces[p.v][1], x, y, w, w); } }
+    g.globalAlpha = 1; }; };
+const hbNightBits = (W, H, d, n) => fxTw(W, H, n(14), "sparkle", d ? ["#FFE7A8", "#D8C8FF"] : ["#8A5AD0", "#D98A1E"], {smin: 3, smax: 6, top: 0.5, glow: d ? 8 : 0, spread: 150})
+  .concat(Array.from({length: n(14)}, (_, i) => { const t = 20 + i * 9 + fxR(0, 5), [x, y] = hbWitchAt(W, H, t), k = hbMoonGeo(W, H).R * 1.1 / 60;
+    return {shape: "star", c: fxPick(d ? ["#FFE08A", "#FFFFFF", "#C9B4FF"] : ["#E89A1E", "#9A5AE0", "#F2B84A"]), x: x - 34 * k, y: y + 8 * k, vx: fxR(-0.4, 0.2), vy: fxR(0.2, 0.7), g: 0.004, size: fxR(4, 7), rot: fxR(0, 6.3), vr: fxR(-0.05, 0.05), sway: 0.4, life: 70, delay: Math.round(40 + t), glow: d ? 8 : 0}; }));
+
+// Thanksgiving: a cartoon turkey pops up at the bottom, fans its tail open feather by feather and bobs its head and wattle,
+// while a gust of autumn leaves swirls past in a spiral (some in front of the turkey, some behind) and acorns tumble down.
+const hbTurkey = () => {
+  // a soft settle with only a hint of overshoot, so the turkey and its feathers ease into place
+  const soft = t => t <= 0 ? 0 : t >= 1 ? 1 : 1 + 1.15 * Math.pow(t - 1, 3) + 0.15 * Math.pow(t - 1, 2);
+  const S = hbRun((W, H, d) => { const ph = W < H, rb = Math.min(H * 0.105, W * 0.15, 92), u = hbSc(W, H);
+    const feather = (L, col) => { const w = L * 0.2, cw = w * 2.6 + 4; const c = hbCv(cw, L + 4, x => { x.translate(cw / 2, L + 2);
+      const P = () => { x.beginPath(); x.moveTo(0, 0); x.bezierCurveTo(w * 0.9, -L * 0.25, w * 1.2, -L * 0.8, 0, -L); x.bezierCurveTo(-w * 1.2, -L * 0.8, -w * 0.9, -L * 0.25, 0, 0); };
+      const gr = x.createLinearGradient(0, 0, 0, -L); gr.addColorStop(0, fxShade(col, 0.7)); gr.addColorStop(0.5, col); gr.addColorStop(1, fxShade(col, 1.08)); x.fillStyle = gr; P(); x.fill();
+      x.save(); P(); x.clip(); x.fillStyle = fxShade(col, 0.68); x.fillRect(-w * 2, -L * 1.1, w * 4, L * 0.2); x.fillStyle = "rgba(255,246,225,.55)"; x.fillRect(-w * 2, -L * 0.92, w * 4, L * 0.035);
+      x.strokeStyle = "rgba(255,255,255,.14)"; x.lineWidth = 1; for (let i = 1; i < 7; i++) { x.beginPath(); x.moveTo(0, -L * i * 0.12); x.lineTo(w * 1.2, -L * (i * 0.12 + 0.1)); x.moveTo(0, -L * i * 0.12); x.lineTo(-w * 1.2, -L * (i * 0.12 + 0.1)); x.stroke(); } x.restore();
+      x.strokeStyle = fxShade(col, 0.62); x.lineWidth = Math.max(1, w * 0.07); x.beginPath(); x.moveTo(0, 0); x.lineTo(0, -L * 0.9); x.stroke(); x.lineWidth = 1; P(); x.stroke(); }); c._w = cw; c._L = L; return c; };
+    // three layered rows: long rust and brown at the back, gold in the middle, short cream in front
+    const N = ph ? 7 : 9, A = 1.38, rows = [[N, 2.35, ["#B8461E", "#7A4322"]], [N - 1, 1.8, ["#E3A23A", "#D2862A"]], [N - 2, 1.32, ["#F3DFB5", "#E8C98E"]]];
+    const fe = []; rows.forEach(([n, k, cols], r) => { const sp = cols.map(c => feather(rb * k, c)); for (let i = 0; i < n; i++) { const t = n > 1 ? i / (n - 1) : 0.5, o = Math.abs(t - 0.5) * (n - 1);
+      fe.push({r, an: (-1 + 2 * t) * A * (1 - r * 0.06), spr: sp[i % 2], t0: 24 + r * 16 + o * 6 + (t < 0.5 ? 0 : 3)}); } });
+    const body = hbCv(rb * 2.6, rb * 2.6, x => { x.translate(rb * 1.3, rb * 1.3); const gr = x.createRadialGradient(-0.3 * rb, -0.35 * rb, 0, 0, 0, rb); gr.addColorStop(0, "#A8693E"); gr.addColorStop(1, "#6A3B1E"); x.fillStyle = gr; x.beginPath(); x.arc(0, 0, rb, 0, 6.3); x.fill();
+      x.strokeStyle = "rgba(255,225,180,.22)"; x.lineWidth = Math.max(1, rb * 0.025); for (let j = 0; j < 3; j++) for (let i = -2; i <= 2; i++) { const cx = i * 0.24 * rb + (j % 2) * 0.12 * rb, cy = (0.05 + j * 0.2) * rb; x.beginPath(); x.arc(cx, cy, 0.12 * rb, 0.3, Math.PI - 0.3); x.stroke(); }
+      [-1, 1].forEach(s => { x.save(); x.translate(s * 0.72 * rb, 0.12 * rb); x.rotate(s * -0.35); const wg = x.createLinearGradient(0, -0.6 * rb, 0, 0.6 * rb); wg.addColorStop(0, "#6E3C1C"); wg.addColorStop(1, "#4E2810"); x.fillStyle = wg;
+        x.beginPath(); x.moveTo(0, -0.55 * rb); x.bezierCurveTo(s * 0.42 * rb, -0.4 * rb, s * 0.4 * rb, 0.3 * rb, s * 0.05 * rb, 0.62 * rb); x.bezierCurveTo(-s * 0.2 * rb, 0.3 * rb, -s * 0.22 * rb, -0.3 * rb, 0, -0.55 * rb); x.fill();
+        x.strokeStyle = "rgba(255,210,160,.25)"; [0, 0.2, 0.4].forEach(v => { x.beginPath(); x.moveTo(s * 0.02 * rb, (v - 0.05) * rb); x.quadraticCurveTo(s * 0.14 * rb, (v + 0.02) * rb, s * 0.22 * rb, (v + 0.12) * rb); x.stroke(); }); x.restore(); }); });
+    const L = ph ? 18 : 30, shapes = ["maple", "oakleaf", "fallleaf", "maple"], cols = ["#C8561C", "#E07A2E", "#E8A13A", "#B5401A", "#9A5A2A"];
+    const leaves = Array.from({length: L}, (_, i) => { const q = (i >> 1) / (L / 2), rr = 0.12 + 0.88 * q + fxR(-0.1, 0.1); return {sh: shapes[i % 4], c: fxPick(cols), s: u * fxR(0.85, 1.25), th: (i % 2) * Math.PI + rr * 4.2 + fxR(-0.35, 0.35), om: 0.042 * (1.25 - 0.55 * rr), rr, lag: q * 14 + fxR(0, 4), spin: fxR(-0.025, 0.025), fr: fxR(0.03, 0.06), ph: fxR(0, 6.3), sink: fxR(0, 1)}; });
+    return {ph, rb, u, fe, body, leaves, cx: W / 2, by: H - rb * 1.2, Rg: ph ? W * 0.42 : Math.min(W, H) * 0.34};
+  });
+  const leafPos = (s, l, f, W, H) => { const e = (f - 6 - l.lag) / 290, gx = W * (-0.3 + 1.6 * e), gy = H * (s.ph ? 0.3 : 0.32) + Math.sin(f * 0.02) * H * 0.05, r = s.Rg * l.rr * (0.55 + 0.45 * fxEase((f - l.lag) / 90)), th = l.th + l.om * f;
+    return [gx + Math.cos(th) * r, gy + Math.sin(th) * r * (s.ph ? 0.8 : 0.66) + l.sink * Math.max(0, f - 120) * 0.25, Math.sin(th)]; };
+  const leaves = front => (g, f, W, H, d) => { const s = S(W, H, d, f), out = fxOut(f, 225, 296);
+    for (const l of s.leaves) { const [x, y, z] = leafPos(s, l, f, W, H); if ((z > 0) !== front || x < -40 || x > W + 40) continue;
+      const fl = Math.cos(f * l.fr + l.ph), spr = fxSprite(l.sh, l.c, 0, d, fl < 0), h = spr._half, k = l.s * (0.9 + 0.18 * z);
+      g.globalAlpha = out * Math.min(1, (x + 40) / 120) * (front ? 1 : 0.85); g.save(); g.translate(x, y); g.rotate(l.ph + f * l.spin * 2); g.scale(k * Math.max(0.15, Math.abs(fl)), k); g.drawImage(spr, -h, -h, 2 * h, 2 * h); g.restore(); }
+    g.globalAlpha = 1; };
+  const back = leaves(false), front = leaves(true);
+  const draw = (g, f, W, H, d) => { back(g, f, W, H, d); const s = S(W, H, d, f), {rb} = s, out = 1, pop = soft(f / 42);   // the layer fade at the end covers it
+    g.save(); g.globalAlpha = out; g.translate(s.cx, s.by + rb * 1.2 * (1 - pop));
+    if (d) { const hr = rb * 2.8, hg = g.createRadialGradient(0, -0.4 * rb, 0, 0, -0.4 * rb, hr); hg.addColorStop(0, "rgba(255,190,110,.22)"); hg.addColorStop(1, "rgba(255,190,110,0)"); g.globalAlpha = out * fxEase((f - 20) / 60); g.fillStyle = hg; g.fillRect(-hr, -0.4 * rb - hr, 2 * hr, 2 * hr); g.globalAlpha = out; }
+    const bob = Math.sin(f * 0.11) * rb * 0.025;
+    const shake = hbBump(f, 104, 150), fy = -0.25 * rb;
+    for (const p of s.fe) { const e = soft((f - p.t0) / 30); if (e <= 0) continue; const an = p.an * e + Math.sin(f * 0.05 + p.an) * 0.015 + Math.sin(f * 0.28 + p.an * 1.5) * 0.03 * shake;
+      g.save(); g.translate(0, fy + bob * 0.5); g.rotate(an); const k = 0.45 + 0.55 * Math.min(1, e); g.scale(k, k); g.drawImage(p.spr, -p.spr._w / 2, -p.spr._L - 2, p.spr._w, p.spr._L + 4); g.restore(); }
+    g.strokeStyle = "#E58A2A"; g.lineWidth = Math.max(2, rb * 0.07); g.lineCap = "round"; [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(sd * 0.3 * rb, 0.8 * rb); g.lineTo(sd * 0.32 * rb, 1.08 * rb); [-0.14, 0, 0.14].forEach(t => { g.moveTo(sd * 0.32 * rb, 1.06 * rb); g.lineTo(sd * 0.32 * rb + t * rb, 1.16 * rb); }); g.stroke(); });
+    g.drawImage(s.body, -rb * 1.3, -rb * 1.3 + bob, rb * 2.6, rb * 2.6);
+    // head: bobs, and gobbles twice with a gentle side to side wag; the wattle swings softly behind the motion
+    const gob = Math.max(hbBump(f, 120, 150), hbBump(f, 196, 226)), hx = Math.sin(f * 0.3) * 0.05 * rb * gob, hy = -1.18 * rb + Math.sin(f * 0.13) * 0.05 * rb + bob * 2, tilt = Math.sin(f * 0.3) * 0.07 * gob + Math.sin(f * 0.04) * 0.05;
+    g.fillStyle = "#8A5230"; g.beginPath(); g.ellipse(hx * 0.5, -0.82 * rb + bob, 0.27 * rb, 0.4 * rb, 0, 0, 6.3); g.fill();
+    g.save(); g.translate(hx, hy); g.rotate(tilt); const hg = g.createRadialGradient(-0.12 * rb, -0.14 * rb, 0, 0, 0, 0.42 * rb); hg.addColorStop(0, "#B57848"); hg.addColorStop(1, "#86502C"); g.fillStyle = hg; g.beginPath(); g.arc(0, 0, 0.4 * rb, 0, 6.3); g.fill();
+    const wa = -Math.sin(f * 0.3 - 0.9) * 0.3 * gob + Math.sin(f * 0.07) * 0.08; g.save(); g.translate(0.05 * rb, 0.1 * rb); g.rotate(wa); g.fillStyle = "#D8384A";
+    g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(0.14 * rb, 0.08 * rb, 0.16 * rb, 0.34 * rb, 0.03 * rb, 0.4 * rb); g.bezierCurveTo(-0.11 * rb, 0.38 * rb, -0.08 * rb, 0.12 * rb, 0, 0); g.fill(); g.restore();
+    g.fillStyle = "#F2B03A"; g.beginPath(); g.moveTo(-0.11 * rb, 0.02 * rb); g.lineTo(0.11 * rb, 0.02 * rb); g.lineTo(0, 0.22 * rb); g.fill();
+    const bl = Math.max(hbBump(f, 150, 158), hbBump(f, 232, 240)); [-1, 1].forEach(sd => { g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(sd * 0.15 * rb, -0.1 * rb, 0.12 * rb, 0.13 * rb * (1 - bl) + 0.01 * rb, 0, 0, 6.3); g.fill();
+      if (bl >= 0.5) { g.strokeStyle = "#5A3418"; g.lineWidth = Math.max(1.2, rb * 0.03); g.beginPath(); g.arc(sd * 0.15 * rb, -0.13 * rb, 0.1 * rb, 0.4, Math.PI - 0.4); g.stroke(); }
+      if (bl < 0.5) { g.fillStyle = "#2A1A10"; g.beginPath(); g.arc(sd * 0.15 * rb + 0.02 * rb, -0.08 * rb, 0.065 * rb, 0, 6.3); g.fill(); g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(sd * 0.15 * rb, -0.11 * rb, 0.022 * rb, 0, 6.3); g.fill(); } });
+    g.fillStyle = "rgba(240,110,90,.4)"; [-1, 1].forEach(sd => { g.beginPath(); g.ellipse(sd * 0.27 * rb, 0.08 * rb, 0.07 * rb, 0.045 * rb, 0, 0, 6.3); g.fill(); }); g.restore();
+    g.restore(); };
+  return {draw, over: front}; };
+
+// St. Patrick's: a rainbow arcs over the screen, gold coins spill from its ends
+// St. Patrick's: a rainbow grows from the ground on the left, arcs over and comes down to the ground on the right (its feet
+// are below the bottom edge, so it never hangs in the air); gold coins spill up where it lands
+const hbRainbowR = (W, H) => Math.min(W * 0.46, H * 0.78);
+const hbRainbow = (g, f, W, H, d) => { const e = fxEase(f / 55), a = fxEase(f / 20) * (1 - fxEase((f - 170) / 90)); if (a <= 0) return; const R = hbRainbowR(W, H), cx = W / 2, cy = H + R * 0.04, bw = R * 0.06;
+  g.lineCap = "butt"; ["#E8504A", "#F28A2E", "#F2C83A", "#4CB86A", "#3D86D6", "#8A5CD0"].forEach((c, i) => { const r = R - i * bw; g.strokeStyle = c;
+    g.globalAlpha = a * (d ? 0.22 : 0.2); g.lineWidth = bw * 1.6; g.beginPath(); g.arc(cx, cy, r, Math.PI, Math.PI + Math.PI * e); g.stroke();
+    g.globalAlpha = a * (d ? 0.6 : 0.55); g.lineWidth = bw * 1.02; g.beginPath(); g.arc(cx, cy, r, Math.PI, Math.PI + Math.PI * e); g.stroke(); }); };
+
+// Hanukkah: a menorah lights its candles one by one, the helper candle first
+const hbMenorah = (g, f, W, H, d) => { const a = fxEase(f / 22) * (1 - fxEase((f - 200) / 70)); if (a <= 0) return;
+  const Wm = Math.min(W * 0.78, 400, H * 0.62), st = Wm / 8.6, cx = W / 2, by = H * 0.97, armY = by - st * 4.5, metal = d ? "#E8C46A" : "#B88A1E", lw = Math.max(2, st * 0.14);
+  g.globalAlpha = a; const gr = g.createRadialGradient(cx, armY - st, 0, cx, armY - st, Wm * 0.7); gr.addColorStop(0, d ? "rgba(255,190,90,.22)" : "rgba(255,190,90,.16)"); gr.addColorStop(1, "rgba(255,190,90,0)"); g.fillStyle = gr; g.fillRect(cx - Wm, armY - st - Wm * 0.7, Wm * 2, Wm * 1.4);
+  g.strokeStyle = metal; g.fillStyle = metal; g.lineWidth = lw; g.lineCap = "round"; g.beginPath(); for (let i = 1; i <= 4; i++) { g.moveTo(cx + i * st, armY); g.arc(cx, armY, i * st, 0, Math.PI); } g.moveTo(cx, armY - st * 0.5); g.lineTo(cx, by - st * 0.3); g.stroke();
+  g.beginPath(); g.moveTo(cx - st * 1.2, by); g.quadraticCurveTo(cx, by - st * 0.7, cx + st * 1.2, by); g.closePath(); g.fill();
+  for (let i = 0; i < 9; i++) { const sh = i === 4, x = cx + (i - 4) * st, y = sh ? armY - st * 0.55 : armY; g.fillStyle = metal; g.fillRect(x - st * 0.28, y - st * 0.12, st * 0.56, st * 0.2);
+    const ch = st * (sh ? 0.95 : 0.85); g.fillStyle = i % 2 ? (d ? "#8FB0FF" : "#3D6AD6") : (d ? "#E6ECFF" : "#7F9FD8"); g.fillRect(x - st * 0.12, y - st * 0.12 - ch, st * 0.24, ch);
+    const lt = 10 + (sh ? 0 : (Math.abs(i - 4) * 2 - (i < 4 ? 1 : 0)) * 8), fl = hbBack((f - lt) / 14); if (fl <= 0) continue;
+    hbFlame(g, x, y - st * 0.12 - ch - st * 0.02, st / 26 * fl, Math.sin(f * 0.45 + i * 1.7) + 0.5 * Math.sin(f * 1.13 + i)); g.globalAlpha = a; } };
+
+// Diwali: a row of clay diyas lights up from the middle out
+const hbDiyaP = new Path2D("M-10 -1.5C-9 4.5 -4 6.4 0 6.4C4 6.4 9 4.5 10 -1.5C11.8 -2.2 12.8 -3.4 13.2 -4.6C10 -3.2 7 -2.2 0 -2.2C-6 -2.2 -9 -2.4 -10 -1.5Z");
+const hbDiyas = (g, f, W, H, d) => { const a = fxEase(f / 18) * (1 - fxEase((f - 200) / 70)); if (a <= 0) return; const m = Math.max(4, Math.min(9, Math.round(W / 120))), u = Math.min(W / m * 0.046, hbSc(W, H) * 2), y = H - 9 * u;
+  for (let i = 0; i < m; i++) { const x = W * (i + 0.5) / m, ord = Math.abs(i - (m - 1) / 2); g.globalAlpha = a; g.save(); g.translate(x, y); g.scale(u, u); g.fillStyle = "#C8642E"; g.fill(hbDiyaP); g.fillStyle = "#E88A3A"; g.fillRect(-9.4, -2.4, 18.8, 1.4); g.fillStyle = "#F2C24A";
+    for (let j = -2; j <= 2; j++) { g.beginPath(); g.arc(j * 3, 2.2, 0.85, 0, 6.3); g.fill(); } g.restore();
+    const fl = hbBack((f - 6 - ord * 10) / 14); if (fl > 0) hbFlame(g, x + 0.4 * u, y - 2.6 * u, u * 0.62 * fl, Math.sin(f * 0.5 + i * 2.1) + 0.5 * Math.sin(f * 1.3 + i)); } };
+
+const hbBoth = (...fs) => (g, f, W, H, d) => fs.forEach(fn => { g.save(); fn(g, f, W, H, d); g.restore(); });
 Object.assign(THEME_FX, {
-  cats: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "paw", d ? ["#F4B39A", "#F6ECE6", "#D98A6C"] : ["#B5563F", "#D98A6C", "#8C4A38"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 13}).concat(fxFall(W, H, n(5), "yarn", ["#E07A8A", "#8FB8E8", "#F2C24A", "#9FD08A"], {vmin: 3, vmax: 5, sway: 0, smin: 14, smax: 20}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})))},
-  music: {spawn: (W, H, d, n) => fxRise(W, H, n(70), "note", d ? ["#C9B8FF", "#F6E7FF", "#8FB0FF"] : ["#6A4FC9", "#8C6FF5", "#3D6AD6"], {smin: 9, smax: 15, sway: 1.8, vmin: 1.6, vmax: 3})},
-  reading: {spawn: (W, H, d, n) => fxFall(W, H, n(40), "book", d ? ["#E8A08A", "#8FB8E8", "#E8C77A", "#A8D8B0"] : ["#B5563F", "#3D6AD6", "#C9962A", "#3E8A5A"], {flip: true, smin: 9, smax: 14, sway: 1.4}).concat(fxTw(W, H, n(26), "sparkle", ["#F2C24A", "#FFE08A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
-  knitting: {spawn: (W, H, d, n) => fxFall(W, H, n(10), "yarn", ["#E07A8A", "#8FB8E8", "#F2C24A", "#9FD08A", "#C9A0E8"], {vmin: 3, vmax: 5, sway: 0, smin: 14, smax: 22}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})).concat(fxRise(W, H, n(30), "heart", ["#F28BB8", "#FFB3CF"], {smin: 6, smax: 10}))},
-  painting: {spawn: (W, H, d, n) => fxBurst(W, H, n(90), "circle", ["#E0463C", "#3D7BE0", "#F2C24A", "#2E9E5B", "#A45CD6", "#F28A3A"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04], [0.3, 0.2], [0.7, 0.2]], {smin: 4, smax: 11})},
-  baking: {spawn: (W, H, d, n) => fxBurst(W, H, n(70), "sprinkle", ["#FF6FB5", "#8EE4B8", "#C9A0FF", "#FFD86B", "#6FD3FF"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 5, smax: 7}).concat(fxBurst(W, H, n(10), "cupcake", ["#F7A8C4", "#C9A0E8", "#9FD8C4"], [[0.3, 1.02], [0.7, 1.02]], {smin: 11, smax: 15}))},
-  gardening: {spawn: (W, H, d, n) => fxBurst(W, H, n(50), "leaf", ["#3E9E4F", "#6CC070", "#2F7A3E"], [[0.12, 1.02], [0.88, 1.02]], {smin: 8, smax: 12, flip: true}).concat(fxBurst(W, H, n(30), "flower", ["#F28BB8", "#F2C24A", "#FFFFFF", "#C9A0E8"], [[0.3, 1.02], [0.7, 1.02], [0.5, 1.04]], {smin: 7, smax: 11}))},
-  gaming: {spawn: (W, H, d, n) => fxBurst(W, H, n(36), "coin", ["#F2C24A", "#FFD86B"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 8, smax: 11}).concat(fxBurst(W, H, n(40), "pixel", ["#FF5C8A", "#4AD9FF", "#8CFF6A", "#B48CFF"], [[0.3, 1.02], [0.7, 1.02]], {smin: 3, smax: 5}), fxBurst(W, H, n(6), "star", ["#FFD84A"], [[0.5, 1.04]], {smin: 12, smax: 16, glow: 12}), fxBurst(W, H, n(6), "gem", ["#4AD9FF", "#B48CFF"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 12}))},
-  photography: {spawn: (W, H, d, n) => fxFall(W, H, n(26), "print", d ? ["#F4EFE6", "#E8E0D2"] : ["#FFFFFF", "#F4EFE6"], {flip: false, smin: 12, smax: 18, sway: 1.2}).concat(fxTw(W, H, n(30), "sparkle", ["#FFFFFF", "#FFE7A8"], {smin: 4, smax: 9, glow: 14}))},
-  newyear: {spawn: (W, H, d, n) => fxFall(W, H, n(90), "confetti", ["#F5C451", "#F07AA0", "#3CC8C0", "#9B7BF0", "#FFFFFF"], {sway: 1.6, flip: true, smin: 5, smax: 8}), draw: fxFirework(["#F5C451", "#F07AA0", "#3CC8C0", "#9B7BF0", "#FFE7A8"])},
-  lunarnewyear: {spawn: (W, H, d, n) => fxRise(W, H, n(14), "lantern", ["#E0463C", "#D6362F", "#F05A46"], {smin: 12, smax: 18, vmin: 1, vmax: 1.8, sway: 0.8, glow: d ? 18 : 6}).concat(fxTw(W, H, n(36), "sparkle", ["#F5C451", "#FFE08A"], {smin: 3, smax: 7, glow: 10}), fxFall(W, H, n(30), "petal", ["#F7A8C4", "#FFD1E3", "#FFFFFF"], {sway: 1.8, flip: true, smin: 5, smax: 8}))},
-  valentines: {spawn: (W, H, d, n) => fxRise(W, H, n(80), "heart", d ? ["#FF86B5", "#FFB3CF", "#E8466E", "#FFD6E6"] : ["#E8466E", "#F28BB8", "#FFB3CF", "#C9265A"], {smin: 7, smax: 15, sway: 1.4})},
-  stpatricks: {spawn: (W, H, d, n) => fxFall(W, H, n(70), "clover", ["#2E9E5B", "#4CC07A", "#1F7A44", "#8FD8A0"], {flip: true, sway: 1.6, smin: 8, smax: 13}).concat(fxBurst(W, H, n(24), "coin", ["#F2C24A", "#FFD86B"], [[0.2, 1.02], [0.8, 1.02]], {smin: 7, smax: 10}))},
-  easter: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "egg", ["#F7A8C4", "#C9A0E8", "#9FD8C4", "#F9E28A", "#8FC7F2"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 9, smax: 13}).concat(fxFlutter(W, H, n(8), ["#A884F0", "#F28BB8", "#F2C84A", "#8FC7F2"]))},
-  july4: {spawn: (W, H, d, n) => fxFall(W, H, n(60), "star", ["#E0463C", "#3D6AD6", d ? "#FFFFFF" : "#8FA3C8"], {sway: 1.2, smin: 5, smax: 9, flip: false}), draw: fxFirework(["#E0463C", "#FFFFFF", "#3D7BE0", "#F07A7A", "#8FB0FF"])},
-  halloween: {spawn: (W, H, d, n) => fxFlutter(W, H, n(12), d ? ["#6E5A8A", "#8A76A8"] : ["#3A2A4A", "#56446A"]).map(p => Object.assign(p, {shape: "bat", size: fxR(12, 18)})).concat(fxBurst(W, H, n(16), "pumpkin", ["#F28A2E", "#E8741C", "#F5A04A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 11, smax: 15, glow: d ? 12 : 0}))},
-  thanksgiving: {spawn: (W, H, d, n) => fxFall(W, H, n(60), "fallleaf", ["#E07A2E", "#C8561C", "#F2B23E", "#B5401A"], {sway: 2, flip: true, smin: 9, smax: 14}).concat(fxFall(W, H, n(16), "acorn", ["#8A5A2B", "#6B4226"], {sway: 0.6, smin: 8, smax: 11}))},
-  hanukkah: {spawn: (W, H, d, n) => fxTw(W, H, n(40), "stardavid", d ? ["#CFE0FF", "#FFFFFF", "#8FB0FF"] : ["#2F5FB8", "#5A86D6", "#9FB4D8"], {smin: 6, smax: 12, glow: d ? 10 : 2}).concat(fxBurst(W, H, n(14), "dreidel", ["#3D6AD6", "#8FA3C8"], [[0.2, 1.02], [0.8, 1.02]], {smin: 10, smax: 13}), fxBurst(W, H, n(20), "coin", ["#F2C24A", "#FFD86B"], [[0.5, 1.04]], {smin: 7, smax: 10}))},
-  diwali: {spawn: (W, H, d, n) => fxRise(W, H, n(40), "flame", ["#FFB347", "#FFD86B", "#FF8A3A"], {smin: 5, smax: 9, sway: 1.2, glow: 14}).concat(fxBurst(W, H, n(40), "flower", ["#F2A33A", "#E0463C", "#F2C24A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11}), fxTw(W, H, n(26), "sparkle", ["#FFE08A", "#FFFFFF"], {smin: 3, smax: 7, glow: 12}))}
+  cats: {spawn: (W, H, d, n) => hbPaws(W, H, d, n).concat(fxFall(W, H, n(3), "yarn", ["#E07A8A", "#6FA8E0", "#E8B03A", "#8CC46E"], {vmin: 3, vmax: 5, sway: 0, smin: 15, smax: 20, depth: false}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08), delay: Math.round(fxR(10, 60))})), fxTw(W, H, n(10), "heart", d ? ["#FFB3CF"] : ["#E8688A"], {smin: 5, smax: 8, glint: false}))},
+  music: {spawn: (W, H, d, n) => hbNotes(W, H, d, n).concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFFFFF", "#FFD1EC"] : ["#8C6FF5", "#C04E9A"], {smin: 3, smax: 6, glow: d ? 8 : 0})), draw: hbStaff},
+  reading: {spawn: (W, H, d, n) => Array.from({length: n(14)}, (_, i) => { const l = i % 2 ? 1 : -1; return {shape: "flybook", c: fxPick(d ? ["#E8A08A", "#8FB8E8", "#E8C77A", "#A8D8B0"] : ["#B5563F", "#3D6AD6", "#C9962A", "#3E8A5A"]), x: W / 2 + fxR(-0.05, 0.05) * W, y: H * 0.86, vx: l * fxR(0.5, 2.4), vy: -fxR(2, 3.2), g: 0, drag: 0.996, size: fxR(13, 19), rot: 0, vr: 0, sway: 1.4, swf: fxR(0.03, 0.05), rock: 0.22, flap: fxR(0.18, 0.28), life: 220, delay: Math.round(10 + i * 9 + fxR(0, 6))}; })
+    .concat(fxTw(W, H, n(22), "sparkle", d ? ["#FFE08A", "#FFFFFF"] : ["#D9A21E", "#E8B83A"], {smin: 3, smax: 7, glow: d ? 10 : 0, top: 0.8})), draw: (g, f, W, H, d) => { const a = fxEase(f / 18) * (1 - fxEase((f - 170) / 70)); if (a <= 0) return; const bw = Math.min(W * 0.2, 150), cx = W / 2, cy = H * 0.9;
+      const gr = g.createRadialGradient(cx, cy, 0, cx, cy, bw * 2.2); gr.addColorStop(0, d ? "rgba(255,225,150,.35)" : "rgba(255,200,90,.28)"); gr.addColorStop(1, "rgba(255,225,150,0)"); g.globalAlpha = a; g.fillStyle = gr; g.fillRect(cx - bw * 2.2, cy - bw * 2.2, bw * 4.4, bw * 4.4);
+      g.fillStyle = d ? "#8A5A3A" : "#7A3E2E"; g.beginPath(); g.moveTo(cx, cy - bw * 0.08); g.lineTo(cx - bw * 1.06, cy - bw * 0.3); g.lineTo(cx - bw * 1.06, cy + bw * 0.42); g.lineTo(cx, cy + bw * 0.56); g.lineTo(cx + bw * 1.06, cy + bw * 0.42); g.lineTo(cx + bw * 1.06, cy - bw * 0.3); g.fill();
+      [-1, 1].forEach(s => { g.fillStyle = s < 0 ? "#FFFCF2" : "#F1EADA"; g.beginPath(); g.moveTo(cx, cy); g.quadraticCurveTo(cx + s * bw * 0.5, cy - bw * 0.36, cx + s * bw, cy - bw * 0.3); g.lineTo(cx + s * bw, cy + bw * 0.36); g.quadraticCurveTo(cx + s * bw * 0.5, cy + bw * 0.28, cx, cy + bw * 0.46); g.fill();
+        g.strokeStyle = "rgba(90,80,70,.35)"; g.lineWidth = 1; g.beginPath(); for (let j = 0; j < 5; j++) { const yy = cy - bw * 0.12 + j * bw * 0.1; g.moveTo(cx + s * bw * 0.14, yy); g.quadraticCurveTo(cx + s * bw * 0.5, yy - bw * 0.1, cx + s * bw * 0.86, yy - bw * 0.06); } g.stroke(); }); }},
+  knitting: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "heart", d ? ["#FFB3CF", "#F28BB8"] : ["#E8688A", "#F28BB8"], {smin: 7, smax: 11, spread: 120, life: 200}).concat(fxTw(W, H, n(14), "sparkle", d ? ["#FFE08A"] : ["#E8B03A"], {smin: 3, smax: 6})), draw: hbYarn()},
+  painting: {spawn: (W, H, d, n) => hbSplats(W, H, d, n).concat(fxBurst(W, H, n(36), "circle", ["#E0463C", "#3D7BE0", "#F2C24A", "#2E9E5B", "#A45CD6"], [[0.12, 1.02], [0.88, 1.02]], {smin: 3.5, smax: 6})), draw: hbBrush()},
+  baking: {spawn: (W, H, d, n) => fxFall(W, H, n(80), "sprinkle", ["#FF6FB5", "#5CCB9A", "#A97CF0", "#FFC83D", "#4FB8F0", "#FF8A5C"], {smin: 11, smax: 14, rock: 0.9, sway: 1.2}).concat(fxBurst(W, H, n(9), "cupcake", ["#F7A8C4", "#C9A0E8", "#9FD8C4", "#FFE3A0"], [[0.25, 1.02], [0.75, 1.02]], {smin: 15, smax: 19, g: 0.2}), fxBurst(W, H, n(8), "cookie", ["#D9A066", "#C8894E"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 13, smax: 16, g: 0.2}))},
+  gardening: {spawn: (W, H, d, n) => fxFlutter(W, H, n(5), ["#A884F0", "#F28BB8", "#F2C84A", "#6FA8E0"]).concat(hbBees(W, H, d, n), fxTw(W, H, n(18), "circle", d ? ["#FFE98A", "#FFFFFF"] : ["#E8B83A", "#F2C84A"], {smin: 1.6, smax: 3, glow: d ? 8 : 0, vy: -0.3, top: 0.8})), draw: hbGarden()},
+  gaming: {spawn: (W, H, d, n) => fxBurst(W, H, n(30), "pcoin", ["#F2C24A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 11, smax: 14, flip: true, g: 0.16, term: 3}).concat(fxBurst(W, H, n(10), "pheart", ["#FF4F6E"], [[0.3, 1.02], [0.7, 1.02]], {smin: 12, smax: 15, g: 0.16, term: 3}), fxBurst(W, H, n(6), "pstar", ["#FFD23F"], [[0.5, 1.04]], {smin: 14, smax: 17, g: 0.16, term: 3}), fxBurst(W, H, n(10), "pgem", ["#3EC8F0", "#A87CFF", "#4CD98A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 12, smax: 15, g: 0.16, term: 3}), fxTw(W, H, n(26), "pixel", d ? ["#FFFFFF", "#7CE8FF", "#FFD23F"] : ["#7A5AF0", "#2BB0E0", "#F28A2E"], {smin: 2.2, smax: 3.6, glint: true})).map((p, i) => p.shape !== "pixel" && i % 2 ? Object.assign(p, {delay: p.delay + 56}) : p)},
+  photography: {len: 300, spawn: (W, H, d, n) => fxTw(W, H, n(12), "sparkle", d ? ["#FFE7A8", "#FFFFFF"] : ["#E8A02A", "#F2B84A"], {smin: 3, smax: 6, glow: d ? 8 : 0, spread: 120}).map(p => Object.assign(p, {delay: p.delay + 50})), draw: hbPhoto()},
+  newyear: {len: 340, spawn: (W, H, d, n) => fxFall(W, H, n(20), "confetti", d ? ["#FFD25A", "#FF5FB4", "#45E3D6", "#B49BFF", "#F7E7C6"] : ["#D99A0E", "#D1207F", "#0E9A90", "#6A3FD6", "#C08A30"], {sway: 1.6, flip: true, smin: 6, smax: 9, spread: 50}).map(p => Object.assign(p, {delay: p.delay + 175})),
+    draw: fxFirework(d => d ? ["#FFD25A", "#FF4FB0", "#3FE6D8", "#A98BFF", "#F7E7C6", "#FFFFFF"] : ["#C98A0A", "#D1207F", "#0E9A90", "#6A3FD6", "#B07A2A", "#2B2F7A"], {show: true, gold: ["#B87A0A", "#FFC861"], glit: ["#A8740A", "#FFF1C4"]})},
+  lunarnewyear: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "lantern", ["#E0463C", "#D6362F", "#F05A46"], {smin: 15, smax: 21, vmin: 1.6, vmax: 2.6, sway: 0.6, rock: 0.12, glow: d ? 16 : 0, life: 250, spread: 70}).concat(fxTw(W, H, n(22), "sparkle", d ? ["#F5C451", "#FFE08A"] : ["#D99A0E", "#E8B83A"], {smin: 3, smax: 7, glow: d ? 10 : 0}), fxFall(W, H, n(22), "flower", ["#F7A8C4", "#FFD1E3", "#F28BB8"], {sway: 1.6, rock: 0.6, smin: 6, smax: 9})),
+    draw: fxFirework(d => d ? ["#FF5A4A", "#FFD25A"] : ["#D62F2F", "#D99A0E"], {shells: 4, t0: 20, gap: 32, ymax: 0.34, types: ["peony", "glitter", "peony", "willow"]})},
+  valentines: {spawn: (W, H, d, n) => { const m = n(36), R = Math.min(W, H) * 0.019, cx = W / 2, cy = H * 0.42, cols = d ? ["#FF86B5", "#FFB3CF", "#FF5C8A"] : ["#E8466E", "#F27AA8", "#C9265A"];
+      return Array.from({length: m}, (_, i) => { const t = i / m * 6.283, x = 16 * Math.pow(Math.sin(t), 3), y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) - 2.5;
+        return {shape: "heart", c: fxPick(cols), x: cx + x * R, y: cy + y * R, vx: x * 0.008, vy: 0, g: -fxR(0.008, 0.013), size: fxR(10, 14), rot: fxR(-0.25, 0.25), vr: 0, rock: 0.12, sway: 0, swf: 0.04, life: Math.round(fxR(195, 225)), delay: Math.round(4 + Math.min(t, 6.283 - t) / Math.PI * 46)}; })
+        .concat(fxRise(W, H, n(22), "heart", cols, {smin: 6, smax: 10, sway: 1.2, spread: 90, alpha: 0.8}), fxTw(W, H, n(14), "sparkle", d ? ["#FFFFFF", "#FFD6E6"] : ["#F27AA8", "#E8B83A"], {smin: 3, smax: 6, glow: d ? 8 : 0})); }},
+  stpatricks: {spawn: (W, H, d, n) => { const R = (hbRainbowR(W, H) - hbRainbowR(W, H) * 0.15) / W; return fxFall(W, H, n(46), "clover", ["#2E9E5B", "#4CC07A", "#1F7A44", "#8FD8A0"], {flip: true, sway: 1.6, smin: 9, smax: 13, spread: 70}).concat(fxBurst(W, H, n(26), "coin", ["#F2C24A", "#E8B030"], [[0.5 + R, 1.02]], {smin: 8, smax: 11, flip: true}).map(p => Object.assign(p, {vy: p.vy * 0.85, delay: p.delay + 52}))); }, draw: hbRainbow},
+  easter: {len: 300, spawn: (W, H, d, n) => hbHatchBits(W, H, d, n).concat(fxTw(W, H, n(10), "sparkle", d ? ["#FFE08A", "#FFC8E0", "#D4C2FF"] : ["#F2B84A", "#F28BB8", "#A884F0"], {smin: 4, smax: 7, top: 0.55, glow: d ? 8 : 0, spread: 160})), draw: hbHatch()},
+  july4: {len: 340, spawn: (W, H, d, n) => fxFall(W, H, n(20), "star", d ? ["#FF4A4A", "#4F86FF", "#FFFFFF"] : ["#D0202E", "#2457C5", "#1D2F7A"], {sway: 1.2, smin: 7, smax: 10, spread: 60}).map(p => Object.assign(p, {delay: p.delay + 170})),
+    draw: fxFirework(d => d ? ["#FF4A4A", "#FFFFFF", "#4F86FF"] : ["#D0202E", "#1D2F7A", "#2457C5"], {show: true, gold: ["#3A4C82", "#E6ECF7"], glit: ["#2B3A6E", "#F2F6FF"]})},
+  halloween: {len: 300, spawn: hbNightBits, draw: hbNight()},
+  thanksgiving: Object.assign({len: 300, spawn: (W, H, d, n) => fxFall(W, H, n(5), "acorn", ["#B8793A", "#A0662E"], {vmin: 1, vmax: 1.8, sway: 0, smin: 11, smax: 13, depth: false}).map(p => Object.assign(p, {x: W * (Math.random() < 0.5 ? fxR(0.04, 0.28) : fxR(0.72, 0.96)), g: 0.1, bounce: true, vr: fxR(-0.035, 0.035), delay: Math.round(fxR(20, 120))}))
+    .concat(fxFall(W, H, n(12), "oakleaf", ["#C8561C", "#E8A13A", "#9A5A2A"], {flip: true, smin: 9, smax: 12, sway: 1.4, vmin: 0.8, vmax: 1.6, spread: 60}).map(p => Object.assign(p, {delay: p.delay + 100, life: 190})))}, hbTurkey()),
+  hanukkah: {spawn: (W, H, d, n) => fxTw(W, H, n(22), "stardavid", d ? ["#CFE0FF", "#FFFFFF", "#8FB0FF"] : ["#2F5FB8", "#5A86D6"], {smin: 7, smax: 11, glow: d ? 10 : 0, top: 0.6, spread: 140}).concat(fxBurst(W, H, n(8), "dreidel", ["#3D6AD6", "#5A86D6"], [[0.1, 1.02], [0.9, 1.02]], {smin: 12, smax: 14}), fxBurst(W, H, n(14), "coin", ["#F2C24A", "#E8B030"], [[0.1, 1.02], [0.9, 1.02]], {smin: 8, smax: 11, flip: true})), draw: hbMenorah},
+  diwali: {spawn: (W, H, d, n) => fxRise(W, H, n(26), "circle", ["#FFB347", "#FFD86B", "#FF8A3A"], {smin: 1.6, smax: 3.2, sway: 0.8, glow: 10, vmin: 1, vmax: 2.2, spread: 120}).concat(fxBurst(W, H, n(16), "marigold", ["#F29A1E", "#F2C02A", "#E8601C"], [[0.1, 1.02], [0.9, 1.02]], {smin: 9, smax: 12})),
+    draw: hbBoth(fxFirework(d => d ? ["#FFB347", "#FF6FB0", "#FFD86B"] : ["#D97A0E", "#C2307A", "#C98A12"], {shells: 4, t0: 26, gap: 30, ymax: 0.34, types: ["peony", "willow", "glitter", "peony"]}), hbDiyas)}
 });
 
 /* Theme kits: each artwork theme brings its own flashcards, note colors, note shape */
@@ -10909,7 +11719,7 @@ function courseNextHtml(open, today){
 // 30 study-topic icons a course can wear in its ring (Edit Course > Icon)
 const COURSE_ICONS = {
   // classes: a = course colour, b = light tint, w = white, y = warm yellow, g = leaf green
-  bio: ["Biology", '<path class="sa" d="M8 3c0 5 8 6 8 9s-8 4-8 9"/><path class="sb" d="M16 3c0 5-8 6-8 9s8 4 8 9"/><path d="M9 6h6M9.5 18h5M10 9.5h4M10 14.5h4"/>'],
+  bio: ["Biology", '<path class="sa" d="M16.2 12C16.2 15.28 7.8 17.72 7.8 21"/><path class="sb" d="M16.2 3C16.2 6.28 7.8 8.72 7.8 12"/><path d="M9.6 5.4h4.8M9.6 9.6h4.8M9.6 14.4h4.8M9.6 18.6h4.8"/><path class="sa" d="M7.8 3C7.8 6.28 16.2 8.72 16.2 12"/><path class="sb" d="M7.8 12C7.8 15.28 16.2 17.72 16.2 21"/>'],
   chem: ["Chemistry", '<path class="b" d="M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3z"/><path class="a" d="M6.6 14.5h10.8l2.1 4A1.7 1.7 0 0 1 18 21H6a1.7 1.7 0 0 1-1.5-2.5z"/><path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><circle class="w" cx="10" cy="17.5" r="1"/><circle class="w" cx="13.5" cy="18.5" r=".7"/>'],
   phys: ["Physics", '<ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(-60 12 12)"/><circle class="a" cx="12" cy="12" r="2.6"/>'],
   math: ["Math", '<rect class="b" x="3" y="3" width="18" height="18" rx="5"/><path class="sa" d="M16.5 7H8l5 5-5 5h8.5"/>'],
@@ -13830,7 +14640,7 @@ function taskView(t0){
       <div class="tv-bar" role="progressbar" aria-label="Readiness from your results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${xr.measured}" style="--v:${xr.measured}%"><i class="tv-fill"></i></div>
       <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}${xr.parts.plan == null ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>
       ${xr.gap ? `<p class="tv-gap ${xr.gap > 0 ? "over" : "under"}" role="note">${esc(readinessGapText(xr))}</p>` : ""}</div>`
-      : `<p class="mini tv-hint tv-noready">Until you study this course's flashcards or take a practice quiz, readiness goes by how ready you feel. Your results will show here as you go.${decksArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>`;
+      : `<p class="mini tv-hint tv-noready">Until you study or quiz, readiness goes by how ready you feel. Your results will show here as you go.${decksArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>`;
     const prog = ready + (window.SBWRAP ? SBWRAP.viewHtml(t) : "") + `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(feelLbl)}</b><span id="tvPct">${val}%</span></div>
       <div class="tv-bar" id="tvBar" ${drag ? `title="${ms ? "Drag to say how ready you feel" : "Drag to update your progress"}" role="slider" tabindex="0" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}" aria-valuetext="${val}%"` : `role="progressbar" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"`} style="--v:${val}%"><i class="tv-fill"></i>${drag ? `<span class="tv-knob" aria-hidden="true"></span>` : ""}</div>
       ${hint ? `<p class="mini tv-hint">${esc(hint)}</p>` : ""}</div>`;
@@ -14426,7 +15236,7 @@ function menuSheet(){
       <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Knowt, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
     </div>
-    <p class="summary-sub" style="font-size:.85rem">${inPreview() ? (cloud.on ? "Your data is saved to your account and stays in sync across your devices." : "Your data is saved in this browser only. Export a backup now and then so you don't lose it.") : sbUser ? "Your data and files sync to your Studyboard account, with a copy on this device so the app works offline. Download a backup now and then for extra peace of mind." : "Your data is saved in this browser only. Sign in to a Studyboard account, or export a backup file now and then so you don't lose it."}</p>
+    <p class="summary-sub" style="font-size:.85rem">${inPreview() ? (cloud.on ? "Your data is saved to your account and stays in sync across your devices." : "Your data is saved in this browser only. Export a backup now and then so you don't lose it.") : sbUser ? "Your data syncs to your account, with a copy on this device for offline use." : "Your data is saved in this browser only. Sign in to a Studyboard account, or export a backup file now and then so you don't lose it."}</p>
     </div></div>`);
   $("#dailyIn").addEventListener("change", e => {
     const v = Math.max(0, Math.min(16, Number(e.target.value) || 0));
@@ -18745,7 +19555,7 @@ function backupWhereSheet(){
   if (!FSB.supported() && !via("gdrive") && !via("onedrive")) { toast("Automatic backups need Chrome or Edge on a computer, or Google Drive or OneDrive connected"); return; }
   const card = (kind, title, steps, btn) => `<div class="bk-opt"><div class="bk-head"><span class="bk-ico bk-${kind}" aria-hidden="true">${BRAND_LOGO[kind] || ""}</span><strong>${title}</strong></div><ol>${steps.map(x => `<li>${x}</li>`).join("")}</ol><button type="button" class="btn small ${kind === "other" ? "" : "primary"}" data-fsb="${kind}">${btn}</button></div>`;
   openSheet(`<div class="sheet">${head("Automatic Backups")}<div class="sheet-body">
-    <p style="margin:0">${via("gdrive") || via("onedrive") ? "Studyboard backs up everything every hour while it's open, straight to your Google Drive or OneDrive, or to a folder on this computer." : "Studyboard saves a backup of everything, plus copies of your uploaded files, to a folder on this computer every hour while it's open. Pick a folder that Google Drive or OneDrive syncs and the backups go to the cloud too, with version history."}</p>
+    <p style="margin:0">${via("gdrive") || via("onedrive") ? "Studyboard backs up everything every hour while it's open, straight to your Google Drive or OneDrive, or to a folder on this computer." : "Backs up everything to a folder on this computer every hour. Pick a Google Drive or OneDrive folder to keep a cloud copy too."}</p>
     ${via("gdrive") ? cloudCard("gdrive", "Google Drive") : !FSB.supported() ? "" : card("gdrive", "Google Drive", [`Install <a href="https://www.google.com/drive/download/" target="_blank" rel="noopener noreferrer">Google Drive for desktop</a> and sign in, if you haven't.`, "Click the button below. In the window that opens, choose <b>Google Drive</b> (on Windows it's the <b>G:</b> drive), then <b>My Drive</b>.", "Click <b>Select Folder</b>, then <b>Allow</b>/<b>Edit files</b>."], "Choose My Drive")}
     ${via("onedrive") ? cloudCard("onedrive", "OneDrive") : !FSB.supported() ? "" : card("onedrive", "OneDrive", ["OneDrive comes with Windows. Make sure you're signed in (cloud icon in the taskbar).", "Click the button below and choose the <b>OneDrive</b> folder, usually in your user folder, or its <b>Documents</b> folder.", "Click <b>Select Folder</b>, then <b>Allow</b>/<b>Edit files</b>."], "Choose OneDrive Folder")}
     ${!FSB.supported() ? "" : card("other", "Another Folder", ["Any folder on this computer or a USB drive works too, but it's only as safe as that disk."], "Choose a Folder")}
@@ -20741,7 +21551,7 @@ function storageRow(){
   const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent || ""), standalone = !!(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   // "Persistent" only means the browser won't clear it to free up space. In a Safari tab, Safari can still clear it after
   // 7 days without a visit, so the promise is only made where it holds.
-  if (st === "granted" && !(safari && !standalone)) return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser won't clear Studyboard's data to free up space. It's only removed if you clear it (Clear All Data, or clearing this site's data).</span></span></div>`;
+  if (st === "granted" && !(safari && !standalone)) return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser won't clear Studyboard's data on its own.</span></span></div>`;
   const how = st === "unsupported" ? "This browser can't promise to keep website data." : safari && !standalone ? "Safari can clear a website's data after 7 days without a visit. Add Studyboard to your Home Screen (Share, then Add to Home Screen) to stop that." : "Your browser hasn't agreed yet. Installing Studyboard as an app or bookmarking it usually lets it say yes.";
   return `<button data-act="storage-protect"><span>Protect My Data on This Device<span class="sub">${esc(how)} ${typeof sbUser !== "undefined" && sbUser ? "Your account also keeps a copy." : "Signing in or exporting a backup keeps a second copy."}</span></span></button>`;
 }
@@ -22718,30 +23528,164 @@ const SCN20 = (() => {
     moon: {d: "M3 -9.6A9.6 9.6 0 1 0 9.6 3A7.4 7.4 0 1 1 3 -9.6Z"}
   });
   /* Task pop-ups for the nine new themes, in the same style as the others */
-  const koiSwim = (W, H, n, cols, d) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, sp = fxR(2.2, 3.6), vx = (left ? 1 : -1) * sp, vy = -fxR(0.15, 0.8);
-    return {shape: "fish", c: fxPick(cols), x: left ? fxR(-70, -20) : W + fxR(20, 70), y: fxR(H * 0.3, H * 0.95), vx, vy, g: 0, size: fxR(14, 22), rot: Math.atan2(vy, vx), vr: 0, sway: 0, life: 280, delay: Math.floor(fxR(0, 60)), glow: d ? 8 : 0}; });
-  const sandGust = (W, H, n, cols) => Array.from({length: n}, () => ({shape: "circle", c: fxPick(cols), x: fxR(-W * 0.45, -10), y: fxR(H * 0.2, H), vx: fxR(5, 9), vy: fxR(-0.7, 0.2), g: 0, size: fxR(1.6, 3.4), rot: 0, vr: 0, sway: 0.9, swf: fxR(0.05, 0.1), life: 220, delay: Math.floor(fxR(0, 80)), alpha: 0.9}));
-  const paperPlanes = (W, H, n, cols) => Array.from({length: n}, () => { const sp = fxR(3.2, 5), a = -fxR(0.18, 0.5), vx = Math.cos(a) * sp, vy = Math.sin(a) * sp;
-    return {shape: "plane", c: fxPick(cols), x: fxR(-60, W * 0.55), y: fxR(H * 0.7, H + 60), vx, vy, g: 0, size: fxR(12, 18), rot: a, vr: 0, sway: 0, life: 240, delay: Math.floor(fxR(0, 90))}; });
+  // color helpers for the painted sprites below
+  const hx3 = c => { const v = parseInt(c.slice(1), 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; };
+  const mix = (a, b, t) => { const A = hx3(a), B = hx3(b); return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
+  const P2 = s => new Path2D(s);
+  const ellP = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  // soft light from the top left on whatever was just painted
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // koi seen from above, head toward +x; the color picks the variety
+  const KOI_BODY = "M10.8 0C10.6 -2.4 7.8 -3.7 4 -3.7C-0.8 -3.7 -4.6 -2.1 -7.2 -0.8L-7.6 0L-7.2 0.8C-4.6 2.1 -0.8 3.7 4 3.7C7.8 3.7 10.6 2.4 10.8 0Z";
+  const KOI_TAIL = "M-6.6 0C-8 -1.4 -9.8 -4.4 -11.8 -5C-13 -5.2 -12.8 -2.6 -11.2 0C-12.8 2.6 -13 5.2 -11.8 5C-9.8 4.4 -8 1.4 -6.6 0Z";
+  // koi seen from above: soft rounded pectoral fins behind the head, small rounded pelvic fins, a flowing two-lobed tail
+  const KOI_FINS = "M5.8 -3.3C6.4 -6.2 4.4 -8.4 1.8 -8C0.4 -7.8 0.6 -5.4 2.6 -3.5Z M5.8 3.3C6.4 6.2 4.4 8.4 1.8 8C0.4 7.8 0.6 5.4 2.6 3.5Z M-1.6 -2.9C-1.4 -4.8 -2.8 -5.8 -4.2 -5.4C-4.8 -5.1 -4.2 -3.8 -3.4 -2.6Z M-1.6 2.9C-1.4 4.8 -2.8 5.8 -4.2 5.4C-4.8 5.1 -4.2 3.8 -3.4 2.6Z";
+  const KOI = {
+    "#F7F3EC": {base: "#FBF8F2", fin: "#FFFFFF", spots: [["#E2432C", 5.4, 0, 3.1, 2.8], ["#E2432C", 0, 0.5, 2.9, 2.7], ["#D93A26", -4.4, -0.4, 2, 1.8]]}, // kohaku
+    "#F3EEE6": {base: "#FBF8F3", fin: "#FFFFFF", spots: [["#E04A2E", 4.6, -0.3, 2.8, 2.6], ["#E04A2E", -1.6, 0.4, 2.6, 2.4], ["#1E1A20", 1.2, -2, 1, 0.8], ["#1E1A20", -4.4, 1.2, 0.9, 0.7], ["#1E1A20", 3, 2.2, 0.8, 0.6]]}, // sanke
+    "#2A2630": {base: "#25212A", fin: "#EFE8E0", spots: [["#E04A2E", 5.6, 0.2, 2.6, 2.6], ["#E04A2E", -0.4, -0.8, 2.6, 2], ["#F6F2EC", 2, 1.8, 1.8, 1.2], ["#F6F2EC", -4.6, 0.4, 1.4, 1]]}, // showa
+    "#EFB23A": {base: "#F2B53E", fin: "#F6CF72", spots: [["#FFE7A0", 4.6, -1.2, 3.6, 1.2]]}, // ogon
+    "#FAF7F2": {base: "#FCFAF6", fin: "#FFFFFF", spots: [["#E2432C", 6.6, 0, 1.9, 1.9]]}, // tancho
+    "#EE7A34": {base: "#F07E36", fin: "#F6A066", spots: [["#FFF4E8", 6.4, 0, 2.6, 2.6], ["#FFB27A", -1, -1, 3, 1]]} // orange
+  };
+  const KOI_C = Object.keys(KOI);
+  const paintKoi = (g, c) => { const k = KOI[c] || {base: c, fin: mix(c, "#FFFFFF", 0.4), spots: []}, body = P2(KOI_BODY);
+    g.save(); g.globalAlpha = 0.62; g.fillStyle = k.fin; g.fill(P2(KOI_FINS)); g.fill(P2(KOI_TAIL)); g.globalAlpha = 0.28; g.strokeStyle = mix(k.base === "#25212A" ? "#888088" : k.base, "#000000", 0.35); g.lineWidth = 0.25;
+    g.beginPath(); for (let i = -2; i <= 2; i++) { g.moveTo(-7.4, 0); g.lineTo(-11.6, i * 2); const fx = 3.3 + i * 0.85, fy = 7.5 - Math.abs(i) * 0.45; g.moveTo(4, -3.6); g.lineTo(fx, -fy); g.moveTo(4, 3.6); g.lineTo(fx, fy); } g.stroke(); g.restore();
+    g.save(); g.fillStyle = k.base; g.fill(body); g.clip(body); k.spots.forEach(([col, x, y, rx, ry]) => { g.fillStyle = col; ellP(g, x, y, rx, ry, 0.3); g.fill(); });
+    const gr = g.createLinearGradient(0, -4.2, 0, 4.2); gr.addColorStop(0, "rgba(0,0,0,.22)"); gr.addColorStop(0.32, "rgba(255,255,255,.18)"); gr.addColorStop(0.5, "rgba(255,255,255,0)"); gr.addColorStop(1, "rgba(0,0,0,.26)"); g.fillStyle = gr; g.fillRect(-12, -5, 24, 10);
+    g.fillStyle = "rgba(255,255,255,.28)"; ellP(g, 1, -0.6, 6, 0.5); g.fill(); g.restore();
+    g.strokeStyle = "rgba(20,40,40,.25)"; g.lineWidth = 0.3; g.stroke(body);
+    g.fillStyle = "#16141A"; ellP(g, 8.2, -2.3, 0.55, 0.5); g.fill(); ellP(g, 8.2, 2.3, 0.55, 0.5); g.fill(); };
+  // a hot air balloon: striped gores, a trim band, ropes and a wicker basket
+  const ENV = "M0 -11.4C6.4 -11.4 9 -6.8 9 -3C9 1.2 4.6 4.4 2.6 6.2L-2.6 6.2C-4.6 4.4 -9 1.2 -9 -3C-9 -6.8 -6.4 -11.4 0 -11.4Z";
+  const paintHotair = (g, c) => { const env = P2(ENV), lt = mix(c, "#FFFFFF", 0.62);
+    g.save(); g.fillStyle = c; g.fill(env); g.clip(env); [[0.74, lt], [0.46, c], [0.18, lt]].forEach(([k, col]) => { g.fillStyle = col; ellP(g, 0, -2.4, 9 * k, 10.2); g.fill(); });
+    g.fillStyle = fxShade(c, 0.72); g.fillRect(-10, 2.2, 20, 1.3); g.restore(); sheen(g, 0.36, 0.24);
+    g.fillStyle = fxShade(c, 0.6); g.beginPath(); g.moveTo(-2.6, 6.1); g.lineTo(2.6, 6.1); g.lineTo(1.7, 7.6); g.lineTo(-1.7, 7.6); g.fill();
+    g.strokeStyle = "#5A4636"; g.lineWidth = 0.35; g.beginPath(); g.moveTo(-1.6, 7.6); g.lineTo(-1.9, 9.2); g.moveTo(1.6, 7.6); g.lineTo(1.9, 9.2); g.stroke();
+    g.fillStyle = "#A0703F"; g.fillRect(-2.2, 9.1, 4.4, 2.6); g.fillStyle = "#7A5230"; g.fillRect(-2.2, 9.1, 4.4, 0.6); g.fillRect(-2.2, 10.6, 4.4, 0.35); };
+  // a paraglider seen from the front: an arched wing of cells, lines down to the pilot
+  const WING = "M-11.4 -3.4Q0 -15.6 11.4 -3.4L10 -2.2Q0 -12.4 -10 -2.2Z";
+  const paintGlider = (g, c, d) => { const w = P2(WING), lt = mix(c, "#FFFFFF", 0.7), pc = d ? "#E4E0F2" : "#2E2A36";
+    g.strokeStyle = d ? "rgba(225,228,245,.55)" : "rgba(60,64,80,.6)"; g.lineWidth = 0.22; g.beginPath(); [-10.6, -6.4, -2.2, 2.2, 6.4, 10.6].forEach(x => { g.moveTo(x, -2.8 - (11 - Math.abs(x)) * 0.5); g.lineTo(0, 6.4); }); g.stroke();
+    g.save(); g.fillStyle = c; g.fill(w); g.clip(w); for (let i = 0; i < 7; i++) if (i % 2) { g.fillStyle = lt; g.fillRect(-11.4 + i * 3.26, -13, 3.26, 12); } g.fillStyle = fxShade(c, 0.66); g.fillRect(-12, -13, 2.4, 12); g.fillRect(9.6, -13, 2.4, 12); g.restore(); sheen(g, 0.3, 0.2);
+    g.fillStyle = pc; ellP(g, 0, 6.8, 1.1, 1.1); g.fill(); g.fillStyle = fxShade(c, 0.75); g.beginPath(); g.moveTo(-1.4, 7.8); g.lineTo(1.4, 7.8); g.lineTo(1.1, 10.4); g.lineTo(-1.1, 10.4); g.fill(); g.fillStyle = pc; g.fillRect(-1, 10.3, 0.7, 1.5); g.fillRect(0.3, 10.3, 0.7, 1.5); };
+  // edelweiss: felted white star petals around a cluster of little yellow heads
+  const paintEdel = (g, c, d) => { const rim = d ? "rgba(150,170,150,.8)" : "#9AAE96"; g.lineWidth = 0.45; g.strokeStyle = rim;
+    for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + (i % 2) * 0.12, L = i % 2 ? 9.6 : 11; g.save(); g.rotate(a); g.beginPath(); g.moveTo(1.6, -1.6); g.quadraticCurveTo(L * 0.55, -3.4, L, 0); g.quadraticCurveTo(L * 0.55, 3.4, 1.6, 1.6); g.closePath(); g.fillStyle = c; g.fill(); g.stroke(); g.fillStyle = "rgba(150,175,140,.35)"; ellP(g, L - 1.6, 0, 1.6, 0.9); g.fill(); g.restore(); }
+    g.fillStyle = "#E8B83A"; ellP(g, 0, 0, 3, 3); g.fill(); g.fillStyle = "#F8DC6A"; [[-1, -1], [1.1, -0.8], [0, 1.2], [-1.4, 0.8], [1.3, 1]].forEach(([x, y]) => { ellP(g, x, y, 0.85, 0.85); g.fill(); }); };
+  // a rain streak pointing toward +x: fades in from the tail to a bright little bead
+  const paintRain = (g, c) => { const gr = g.createLinearGradient(-12, 0, 10, 0); gr.addColorStop(0, mix(c, "#FFFFFF", 0.2) + "00"); gr.addColorStop(1, c); g.strokeStyle = gr; g.lineCap = "round"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-12, 0); g.lineTo(9, 0); g.stroke(); g.fillStyle = c; ellP(g, 9.6, 0, 1.7, 1.25); g.fill(); g.fillStyle = "rgba(255,255,255,.6)"; ellP(g, 9.9, -0.45, 0.6, 0.4); g.fill(); };
+  // a jellyfish: glassy scalloped bell, frilly arms and trailing tentacles
+  const BELL = "M-8 1C-8.4 -5.6 -4.6 -9.6 0 -9.6C4.6 -9.6 8.4 -5.6 8 1Q6 2.6 4 1.4Q2 2.8 0 1.4Q-2 2.8 -4 1.4Q-6 2.6 -8 1Z";
+  const paintJelly = (g, c, d) => { const bell = P2(BELL), lt = mix(c, "#FFFFFF", 0.55);
+    g.lineCap = "round"; g.strokeStyle = c; g.globalAlpha = 0.55; g.lineWidth = 0.45; g.beginPath(); [-6.6, -3.4, 3.4, 6.6].forEach((x, i) => { g.moveTo(x, 1.6); g.bezierCurveTo(x + 1.6, 4.4, x - 1.6, 7.6, x + (i % 2 ? 0.8 : -0.8), 11.6); }); g.stroke();
+    g.globalAlpha = 0.7; g.fillStyle = lt; [-1.4, 1.4].forEach(x => { g.beginPath(); g.moveTo(x - 1, 1.6); g.bezierCurveTo(x - 2.6, 4.4, x + 1.4, 6.4, x - 0.6, 10); g.bezierCurveTo(x + 2.2, 7.2, x - 0.6, 4.6, x + 1, 1.6); g.fill(); });
+    g.globalAlpha = d ? 0.86 : 0.92; const gr = g.createRadialGradient(-2, -5.6, 0.5, 0, -3, 10.4); gr.addColorStop(0, lt); gr.addColorStop(0.6, c); gr.addColorStop(1, fxShade(c, 0.8)); g.fillStyle = gr; g.fill(bell);
+    g.globalAlpha = 0.32; g.fillStyle = "#FFFFFF"; for (let i = 0; i < 4; i++) { g.save(); g.translate(0, -3.4); g.rotate(i * 1.571 + 0.785); g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(2.4, -1.4, 2.8, 0); g.quadraticCurveTo(2.4, 1.4, 0, 0); g.fill(); g.restore(); }
+    g.globalAlpha = 0.7; g.beginPath(); g.ellipse(-3.2, -6, 2.6, 1.4, -0.7, 3.4, 5); g.lineWidth = 0.9; g.stroke(); g.globalAlpha = 1; };
+  // a bamboo leaf: long and narrow, two-tone across its midrib
+  const BLEAF = "M-11.6 0.4C-7 -2.8 3 -3.4 11.6 0C3 2.6 -7 2.6 -11.6 0.4Z";
+  const paintBleaf = (g, c) => { const p = P2(BLEAF); g.save(); g.fillStyle = c; g.fill(p); g.clip(p); g.fillStyle = fxShade(c, 0.8); g.fillRect(-12, 0.2, 24, 4); g.restore(); sheen(g, 0.28, 0.18);
+    g.strokeStyle = mix(c, "#FFFFFF", 0.45); g.lineWidth = 0.4; g.beginPath(); g.moveTo(-10.4, 0.4); g.quadraticCurveTo(0, 0.1, 10.4, 0); g.stroke(); g.strokeStyle = fxShade(c, 0.6); g.lineWidth = 0.6; g.beginPath(); g.moveTo(-11.6, 0.4); g.lineTo(-12.4, 1.2); g.stroke(); };
+  // a honeybee in profile, head toward +x, wings on its back
+  const paintBee = (g, c) => { g.fillStyle = "#2A2220"; g.beginPath(); g.moveTo(-6.6, 0.2); g.lineTo(-9, 0.6); g.lineTo(-6.6, 1.2); g.fill();
+    const ab = P2("M-7 0.6C-7 -3.4 -3 -4.4 0 -4.2C2.4 -4 3.4 -2.4 3.4 0.4C3.4 3 2 4.4 -1 4.4C-4.4 4.4 -7 3.6 -7 0.6Z"); g.save(); g.fillStyle = c; g.fill(ab); g.clip(ab); g.fillStyle = "#2A2220"; [-5.2, -2.4, 0.4].forEach(x => g.fillRect(x, -5, 1.5, 10)); g.restore(); sheen(g, 0.34, 0.22);
+    g.fillStyle = "#3A302A"; ellP(g, 5, 0.2, 2.4, 2.6); g.fill(); g.fillStyle = "#FFFFFF"; ellP(g, 5.9, -0.6, 0.55, 0.55); g.fill();
+    g.strokeStyle = "#2A2220"; g.lineWidth = 0.45; g.lineCap = "round"; g.beginPath(); g.moveTo(6.2, -1.8); g.quadraticCurveTo(7.6, -4.4, 9.4, -4.6); g.stroke();
+    g.fillStyle = "rgba(235,245,255,.78)"; g.strokeStyle = "rgba(90,110,140,.55)"; g.lineWidth = 0.3; ellP(g, -1.4, -6.6, 4.6, 2.3, -0.35); g.fill(); g.stroke(); ellP(g, 1.2, -5.6, 3.2, 1.7, -0.6); g.fill(); g.stroke(); };
+  // a lavender sprig: a slim stem and pairs of buds that shade toward the top
+  const paintLav = (g, c) => { g.strokeStyle = "#6E9A54"; g.lineWidth = 0.8; g.lineCap = "round"; g.beginPath(); g.moveTo(0.6, 11.6); g.quadraticCurveTo(-0.6, 4, 0, -10); g.stroke();
+    for (let i = 0; i < 7; i++) { const y = -10.2 + i * 2.1, w = 1.2 + i * 0.12; [-1, 1].forEach(s => { g.fillStyle = (i + (s > 0)) % 2 ? c : fxShade(c, 0.78); ellP(g, s * w, y, 1.35, 1.75, s * 0.35); g.fill(); }); }
+    g.fillStyle = "rgba(255,255,255,.35)"; for (let i = 0; i < 7; i++) { ellP(g, -1.5 - i * 0.12, -10.6 + i * 2.1, 0.45, 0.6); g.fill(); } };
+  // a folded paper plane, nose toward +x
+  const paintPlane = (g, c) => { const sh = fxShade(c, 0.78), dk = fxShade(c, 0.6), poly = (pts, col) => { g.fillStyle = col; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); };
+    poly([[11, -1.2], [-10, 7.2], [-4.6, -0.4]], sh); poly([[-4.6, -0.4], [-6.4, 3.6], [0.6, -0.8]], dk); poly([[11, -1.2], [-10, -8.4], [-4.6, -0.4]], c); sheen(g, 0.3, 0.16);
+    g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = 0.35; g.beginPath(); g.moveTo(10.4, -1.3); g.lineTo(-7.6, -5.6); g.stroke(); g.strokeStyle = "rgba(0,0,0,.18)"; g.beginPath(); g.moveTo(11, -1.2); g.lineTo(-4.6, -0.4); g.stroke(); };
+  // a lily pad, sometimes with a pink water lily on it
+  const paintPad = flower => (g, c) => { const p = P2("M0 0L10.54 -2.36A10.8 10.8 0 1 0 10.54 2.36Z"); g.save(); g.fillStyle = c; g.fill(p); g.clip(p);
+    g.strokeStyle = mix(c, "#FFFFFF", 0.3); g.lineWidth = 0.4; g.beginPath(); for (let i = 1; i < 10; i++) { const a = 0.3 + i / 10 * 5.7; g.moveTo(0, 0); g.lineTo(Math.cos(a) * 10, Math.sin(a) * 10); } g.stroke();
+    g.strokeStyle = fxShade(c, 0.7); g.lineWidth = 1.2; g.beginPath(); g.arc(0, 0, 10.6, 0.25, 6.05); g.stroke(); g.restore(); sheen(g, 0.24, 0.2);
+    if (!flower) return; for (let r = 0; r < 2; r++) for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + r * 0.4, L = r ? 4.4 : 6.6; g.save(); g.translate(-2, 0); g.rotate(a); g.fillStyle = r ? "#FFD8E6" : "#F4A2C2"; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(L * 0.5, -2.2, L, 0); g.quadraticCurveTo(L * 0.5, 2.2, 0, 0); g.fill(); g.restore(); }
+    g.fillStyle = "#F6C94A"; ellP(g, -2, 0, 1.4, 1.4); g.fill(); };
+  // a slim dash of blown sand
+  Object.assign(FX_SHAPES, {
+    koifish: {d: KOI_BODY + KOI_TAIL + KOI_FINS, paint: paintKoi},
+    lilypad: {d: "M0 0L10.54 -2.36A10.8 10.8 0 1 0 10.54 2.36Z", paint: paintPad(false)},
+    lilylotus: {d: "M0 0L10.54 -2.36A10.8 10.8 0 1 0 10.54 2.36Z", paint: paintPad(true)},
+    hotair: {d: ENV + "M-2.2 9.1H2.2V11.7H-2.2Z", paint: paintHotair},
+    paraglider: {d: WING + "M-1.4 7.8H1.4L1.1 10.4H-1.1Z", paint: paintGlider},
+    edelweiss: {d: [0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i / 8 * 6.283, c = Math.cos(a), s = Math.sin(a); return `M0 0L${(c * 10 - s * 2).toFixed(2)} ${(s * 10 + c * 2).toFixed(2)}L${(c * 10 + s * 2).toFixed(2)} ${(s * 10 - c * 2).toFixed(2)}Z`; }).join(""), paint: paintEdel},
+    rainline: {d: "M-12 -0.7H9.6A1.7 1.7 0 0 1 9.6 0.7H-12Z", paint: paintRain},
+    sandgrain: {d: "M-7 0Q-1 -2.2 7 -0.5Q8.2 0 7 0.5Q-1 2.2 -7 0Z"},
+    jellyfish: {d: BELL, paint: paintJelly},
+    bambooleaf: {d: BLEAF, paint: paintBleaf},
+    honeybee: {d: "M-7 0.6C-7 -3.4 -3 -4.4 0 -4.2C2.4 -4 3.4 -2.4 3.4 0.4C3.4 3 2 4.4 -1 4.4C-4.4 4.4 -7 3.6 -7 0.6Z", paint: paintBee},
+    lavsprig: {d: "M-0.4 -11H0.4V11.6H-0.4Z", paint: paintLav},
+    paperplane: {d: "M11 -1.2L-10 -8.4L-4.6 -0.4L-10 7.2Z", paint: paintPlane}
+  });
+  // koi glide in slow arcs across the pond, facing where they swim, with ripples spreading on the surface
+  let koiRip = [], rainSplash = [];
+  const koiSwim = (W, H, n) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, z = fxR(0.72, 1.12), sp = fxR(1.6, 2.6) * z, vy = fxR(-0.6, 0.6);
+    return {shape: "koifish", c: KOI_C[i % KOI_C.length], x: left ? fxR(-80, W * 0.35) : fxR(W * 0.65, W + 80), y: fxR(H * 0.12, H * 0.92), vx: (left ? 1 : -1) * sp, vy, g: -Math.sign(vy) * fxR(0.002, 0.006), z, face: true, wig: fxR(0.09, 0.14),
+      size: fxR(18, 25) * z, sway: 0, life: fxR(230, 270), delay: Math.floor(fxR(0, 40)), alpha: 0.72 + 0.28 * Math.min(1, z)}; });
+  const lilies = (W, H, n, d) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0;
+    return {shape: i % 3 === 1 ? "lilylotus" : "lilypad", c: fxPick(d ? ["#3F7E4C", "#4A8A50"] : ["#5DA05A", "#6FAE60", "#4E9452"]), x: left ? fxR(0.03, 0.22) * W : fxR(0.78, 0.97) * W, y: fxR(0.12, 0.92) * H, vx: fxR(-0.12, 0.12), vy: fxR(-0.08, 0.08), g: 0, z: 2,
+      size: fxR(14, 20), rot: fxR(0, 6.3), vr: fxR(-0.003, 0.003), sway: 0, tw: true, life: 250, delay: Math.floor(fxR(0, 20))}; });
+  const koiRipples = (g, f, W, H, d) => { const m = Math.min(W, H); g.lineWidth = Math.max(1.2, m / 400); koiRip.forEach(r => { const a = (f - r.t0) / 100; if (a <= 0 || a >= 1) return;
+    for (let j = 0; j < 3; j++) { const rr = r.r * (a - j * 0.16); if (rr <= 2) continue; g.strokeStyle = d ? `rgba(200,240,232,${(1 - a) * 0.4 * (1 - j * 0.28)})` : `rgba(40,120,112,${(1 - a) * 0.34 * (1 - j * 0.28)})`; g.beginPath(); g.ellipse(r.x, r.y, rr, rr * 0.82, 0, 0, 6.3); g.stroke(); } }); };
+  // the shower: slanted streaks, little splash rings along the bottom, then a rainbow
+  const rainFall = (W, H, n, cols) => Array.from({length: n}, () => { const z = fxR(0.6, 1.12), sp = fxR(10, 14) * z;
+    return {shape: "rainline", c: fxPick(cols), x: fxR(-W * 0.2, W), y: fxR(-H * 0.5, -20), vx: sp * 0.22, vy: sp, g: 0, z, face: true, size: fxR(11, 15) * z, sway: 0, life: 160, delay: Math.floor(fxR(0, 100)), alpha: 0.6 + 0.4 * Math.min(1, z)}; });
+  const RAINBOW = ["#EE5F5B", "#F4A04A", "#F3D35A", "#6CC27A", "#57A6E4", "#9479DE"];
+  const rainDraw = (g, f, W, H, d) => { const m = Math.min(W, H);
+    g.lineWidth = Math.max(1, m / 500); rainSplash.forEach(s => { const a = (f - s.t0) / 28; if (a <= 0 || a >= 1) return; const rr = s.r * (0.25 + a); g.strokeStyle = d ? `rgba(200,220,250,${(1 - a) * 0.6})` : `rgba(60,110,170,${(1 - a) * 0.5})`; g.beginPath(); g.ellipse(s.x, s.y, rr, rr * 0.3, 0, 0, 6.3); g.stroke(); });
+    const k = fxEase((f - 95) / 60), sw = fxEase((f - 95) / 80); if (k <= 0) return; const R = Math.max(W, H) * 0.5, bw = R * 0.042, cx = W / 2, cy = H * 1.04;
+    g.globalAlpha = k * (d ? 0.42 : 0.58); g.lineWidth = bw + 0.5; RAINBOW.forEach((col, i) => { g.strokeStyle = col; g.beginPath(); g.arc(cx, cy, R - i * bw, Math.PI, Math.PI + Math.PI * sw); g.stroke(); }); };
+  // blown sand: grains streak along with the wind, and soft ribbons of sand sweep off the dune crests
+  const sandGust = (W, H, n, cols) => Array.from({length: n}, () => { const z = fxR(0.6, 1.15); return {shape: "sandgrain", c: fxPick(cols), x: fxR(-W * 0.5, -10), y: fxR(H * 0.18, H * 1.02), vx: fxR(6, 10) * z, vy: fxR(-0.9, 0.2), g: 0.004, z, face: true,
+    size: fxR(7, 11) * z, sway: 0, life: 230, delay: Math.floor(fxR(0, 120)), alpha: 0.65 + 0.35 * Math.min(1, z)}; });
+  const sandRibbons = (g, f, W, H, d) => { const sp = W * 1.9 / 170, L = W * 0.55; g.lineCap = "round";
+    for (let i = 0; i < 7; i++) { const t0 = i * 17, head = -W * 0.2 + (f - t0) * sp, tail = head - L; if (head < 0 || tail > W) continue; const y0 = H * (0.26 + ((i * 0.37) % 1) * 0.68), ph = i * 1.9, a = d ? 0.5 : 0.55;
+      const gr = g.createLinearGradient(tail, 0, head, 0), col = d ? "255,224,168" : "176,108,52"; gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.7, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`);
+      g.strokeStyle = gr; const lw = Math.max(1.6, Math.min(W, H) / 260); for (let k = 0; k < 3; k++) { g.lineWidth = lw * (k === 1 ? 2.2 : 1); g.globalAlpha = k === 1 ? 1 : 0.7; g.beginPath();
+      for (let x = Math.max(-20, tail), s = 0; x <= Math.min(W + 20, head) + 16; x += 16, s++) { const y = y0 + (k - 1) * lw * 4 * (1 + Math.sin(x / 90 + k)) + Math.sin(x / (W * 0.16) + ph) * H * 0.035 - (x - tail) / L * H * 0.03; s ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } } };
+  // sunlight slanting down through the bamboo
+  const bambooBeams = (g, f, W, H, d) => { const k = fxEase(f / 60) * (1 - fxEase((f - 170) / 80)); if (k <= 0) return;
+    const T = g.getTransform(), col = d ? "246,226,150" : "255,252,222", a = d ? 0.15 : 0.5; [[0.12, 0.14], [0.42, 0.09], [0.7, 0.16]].forEach(([x0, w], i) => { const ww = W * w, gr = g.createLinearGradient(0, 0, ww, 0);
+      gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.5, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`);
+      g.setTransform(T); g.transform(1, 0, 0.5, 1, 0, 0); g.translate(W * x0 + Math.sin(f / 70 + i * 2) * W * 0.012, 0); g.globalAlpha = k * (1 - i * 0.15); g.fillStyle = gr; g.fillRect(0, 0, ww, H); }); };
+  // bees zig across the lavender, facing their flight
+  const bees = (W, H, n) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, vy = fxR(-0.7, 0.5);
+    return {shape: "honeybee", c: "#F2B92E", x: left ? fxR(-50, -10) : W + fxR(10, 50), y: fxR(H * 0.25, H * 0.85), vx: (left ? 1 : -1) * fxR(2.2, 3.4) * Math.max(0.6, Math.min(1, W / 900)), vy, g: -Math.sign(vy) * fxR(0.006, 0.014), face: true, wig: 0.16, size: fxR(11, 14), sway: 0, life: 260, delay: Math.floor(fxR(0, 90))}; });
+  // paper planes glide up and over in long arcs, facing their flight
+  const paperPlanes = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const lr = i % 3 !== 2, z = fxR(0.75, 1.1), sp = fxR(3.4, 4.8) * z * Math.max(0.6, Math.min(1, W / 900)), a = -fxR(0.25, 0.6);
+    return {shape: "paperplane", c: fxPick(cols), x: lr ? fxR(-60, W * 0.3) : fxR(W * 0.7, W + 60), y: fxR(H * 0.6, H + 40), vx: (lr ? 1 : -1) * Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0.012 * z, z, face: true, wig: 0.03, size: fxR(14, 20) * z, sway: 0, life: 250, delay: Math.floor(fxR(0, 80))}; });
   Object.assign(THEME_FX, {
-    balloons: {spawn: (W, H, d, n) => fxRise(W, H, n(22), "balloon", d ? ["#E0806C", "#F0B85A", "#5BB5B5", "#E89A8A"] : ["#E3735F", "#EDB64C", "#4FA7A8", "#F29E8E"], {smin: 12, smax: 22, vmin: 1.2, vmax: 2.4, sway: 1, life: 300, glow: d ? 10 : 0}).map(p => Object.assign(p, {rot: fxR(-0.12, 0.12)}))
-      .concat(fxTw(W, H, n(24), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
-    koi: {spawn: (W, H, d, n) => koiSwim(W, H, n(12), d ? ["#F0915A", "#F4E6D6", "#E8703A"] : ["#F08A4B", "#F2DCC6", "#E0533A"], d)
-      .concat(fxTw(W, H, n(14), "ring", d ? ["#A9D6CF", "#E6F4F1"] : ["#FFFFFF", "#6FB5AC"], {smin: 6, smax: 10, grow: 0.35, alpha: 0.8}), fxBurst(W, H, n(20), "petal", ["#F7B6CC", "#FFFFFF", "#F28BB0"], [[0.2, 1.02], [0.8, 1.02]], {smin: 6, smax: 9, flip: true}))},
-    rain: {spawn: (W, H, d, n) => fxFall(W, H, n(90), "drop", d ? ["#9CB8E0", "#C8D8F0"] : ["#5A8FC8", "#8FB4DE", "#3F80BD"], {vmin: 7, vmax: 11, sway: 0, smin: 4, smax: 7, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0, vx: 0.4, g: 0.05, life: 170, delay: Math.floor(fxR(0, 120))}))
-      .concat(fxFall(W, H, n(7), "umbrella", ["#E0533A", "#F2B53A", "#3F80BD", "#4FA7A8", "#D96A9A"], {vmin: 0.9, vmax: 1.5, sway: 1.6, smin: 16, smax: 24}).map(p => Object.assign(p, {rot: fxR(-0.3, 0.3), vr: fxR(-0.01, 0.01)})))},
-    alpine: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "flower", d ? ["#F4F1E8", "#9CC2F0", "#F9E6A0", "#C3B0F0"] : ["#6F9AE0", "#9CC2F0", "#F2C24A", "#A884F0", "#FFFFFF"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11})
-      .concat(fxFall(W, H, n(40), "snow", d ? ["#FFFFFF", "#DCE9FF"] : ["#9DBBEF", "#6F9AE0"], {vmin: 0.8, vmax: 1.6, sway: 1.2, smin: 5, smax: 9, glow: d ? 6 : 0}))},
-    dunes: {spawn: (W, H, d, n) => sandGust(W, H, n(110), d ? ["#E7B777", "#F2D09A", "#B98C5E"] : ["#D9A066", "#E8B97A", "#C47F45"])
-      .concat(fxTw(W, H, n(26), "sparkle", d ? ["#FFE7B8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 7, top: 0.6, glow: d ? 10 : 4}), d ? fxStreaks(W, H, n(4), ["#FFE7B8", "#FFFFFF"]) : [])},
-    jelly: {spawn: (W, H, d, n) => fxRise(W, H, n(18), "jelly", d ? ["#6FF3FF", "#B89CFF", "#FF9CD8"] : ["#E07AB0", "#A884F0", "#4FB0CC"], {smin: 12, smax: 20, vmin: 0.9, vmax: 1.8, sway: 1.2, glow: d ? 16 : 6, life: 320})
-      .concat(fxRise(W, H, n(40), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 7, sway: 1, vmin: 1.6, vmax: 3}))},
-    bamboo: {spawn: (W, H, d, n) => fxFall(W, H, n(70), "bleaf", d ? ["#6FAF5A", "#9CCB8C", "#4E8A3E"] : ["#3F7A2E", "#58902E", "#8CC152", "#2F6A24"], {sway: 2, flip: true, smin: 9, smax: 14}).map(p => Object.assign(p, {vx: fxR(0.6, 1.6)}))
-      .concat(fxTw(W, H, n(24), "circle", d ? ["#F0CF7A", "#F6DF9E"] : ["#F2E7A0", "#E4F0B8"], {smin: 2, smax: 4, glow: 10, vy: -0.3}))},
-    lavenderfields: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "sprig", d ? ["#B9A2FF", "#D8CCF0", "#9A7BE0"] : ["#8A5BC0", "#A884F0", "#6A4BB0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 9, smax: 13, flip: true})
-      .concat(fxFlutter(W, H, n(8), d ? ["#F6C7A6", "#FFFFFF", "#D8CCF0"] : ["#F2C84A", "#C9A0E8", "#8FC7F2"]), fxFall(W, H, n(40), "circle", d ? ["#C3B0F0", "#9A7BE0"] : ["#8A5BC0", "#B9A2E8"], {smin: 1.5, smax: 3, sway: 1.4, vmin: 0.8, vmax: 1.6}))},
-    rooftops: {spawn: (W, H, d, n) => paperPlanes(W, H, n(9), d ? ["#FFFFFF", "#FFE3A8", "#D0CAE6"] : ["#B8502E", "#5B5575", "#3F80BD", "#E0A030"])
-      .concat(fxTw(W, H, n(36), d ? "pixel" : "sparkle", d ? ["#FFD27F", "#FFE3A8"] : ["#F2B53A", "#FFD86B"], {smin: 2.5, smax: 5, glow: d ? 10 : 4}))}
+    balloons: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "hotair", d ? ["#E8806C", "#F0B85A", "#5BBDBD", "#9A8AE0", "#EE9AB0"] : ["#E3735F", "#EDB64C", "#3F9FA2", "#8A76D6", "#E98AA2"], {smin: 15, smax: 26, vmin: 0.9, vmax: 1.9, sway: 0.7, rock: 0.07, life: 300, glow: d ? 8 : 0})
+      .concat(fxTw(W, H, n(22), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFFFFF"], {smin: 3, smax: 6, glow: d ? 10 : 6}))},
+    koi: {spawn: (W, H, d, n) => { const m = Math.min(W, H); koiRip = Array.from({length: 7}, (_, i) => ({x: fxR(0.12, 0.88) * W, y: fxR(0.15, 0.88) * H, t0: 8 + i * 22 + fxR(0, 10), r: fxR(0.09, 0.15) * m}));
+      return koiSwim(W, H, n(10)).concat(lilies(W, H, n(5), d), fxTw(W, H, n(16), "sparkle", d ? ["#E6F4F1", "#FFFFFF"] : ["#FFFFFF", "#BFE6DE"], {smin: 3, smax: 6, glow: d ? 8 : 6})); },
+      draw: koiRipples},
+    rain: {spawn: (W, H, d, n) => { rainSplash = Array.from({length: 46}, () => ({x: fxR(0, W), y: H * fxR(0.82, 0.99), t0: fxR(30, 150), r: fxR(10, 20) * Math.max(0.8, Math.min(W, H) / 600)}));
+      return rainFall(W, H, n(120), d ? ["#B4CCF0", "#D6E4F8", "#9CB8E0"] : ["#4F86C0", "#6A9AD2", "#3A6FA8"]).concat(fxTw(W, H, n(12), "sparkle", d ? ["#FFFFFF", "#FFE7B0"] : ["#FFFFFF", "#F6D27A"], {top: 0.6, smin: 3, smax: 6, spread: 60, glow: 8}).map(p => Object.assign(p, {delay: p.delay + 120}))); },
+      draw: rainDraw},
+    alpine: {spawn: (W, H, d, n) => Array.from({length: n(7)}, (_, i) => { const left = i % 2 === 0, z = fxR(0.7, 1.1);
+        return {shape: "paraglider", c: fxPick(d ? ["#F07A6A", "#F2C45A", "#6FC2F0", "#B49CF4", "#5ED6B0"] : ["#E2533E", "#F2A830", "#2F86C8", "#8A5BD0", "#20A688"]), x: left ? fxR(-40, W * 0.45) : fxR(W * 0.55, W + 40), y: fxR(H * 0.08, H * 0.5), vx: (left ? 1 : -1) * fxR(0.8, 1.5) * z, vy: fxR(0.15, 0.4) * z, g: 0, z,
+          size: fxR(26, 36) * z, sway: 0.5, swf: 0.02, rock: 0.08, life: 280, delay: Math.floor(fxR(0, 50)), alpha: 0.7 + 0.3 * Math.min(1, z)}; })
+      .concat(fxFall(W, H, n(26), "edelweiss", d ? ["#F4F1E8", "#FFFFFF"] : ["#FFFFFF", "#FAF8F0"], {vmin: 0.8, vmax: 1.5, sway: 1.3, smin: 9, smax: 13, rock: 0.5}), fxTw(W, H, n(16), "sparkle", d ? ["#FFFFFF", "#DCE9FF"] : ["#FFFFFF", "#9CC2F0"], {top: 0.7, smin: 3, smax: 6, glow: 8}))},
+    dunes: {spawn: (W, H, d, n) => sandGust(W, H, n(100), d ? ["#F2D09A", "#FFE7B8", "#E7B777"] : ["#B9783E", "#A8642E", "#CF9256"])
+      .concat(fxTw(W, H, n(20), "sparkle", d ? ["#FFE7B8", "#FFFFFF"] : ["#FFFFFF", "#F2B53A"], {smin: 3, smax: 7, top: 0.7, glow: d ? 10 : 6})), draw: sandRibbons},
+    jelly: {len: 300, spawn: (W, H, d, n) => fxRise(W, H, n(14), "jellyfish", d ? ["#6FE6F8", "#B89CFF", "#FF9CD8"] : ["#E07AB0", "#9C7CEA", "#3FA6C6"], {smin: 20, smax: 30, vmin: 1.3, vmax: 2.3, sway: 1, rock: 0.1, glow: d ? 14 : 0, life: 300})
+      .concat(fxRise(W, H, n(36), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#BFE6F0"], {smin: 3, smax: 7, sway: 1, vmin: 1.6, vmax: 3}))},
+    bamboo: {spawn: (W, H, d, n) => fxFall(W, H, n(46), "bambooleaf", d ? ["#7CBF62", "#9CCB8C", "#5E9E4A"] : ["#4E8A34", "#64A23A", "#8CC152", "#3E7A2A"], {sway: 2, flip: true, smin: 12, smax: 18}).map(p => Object.assign(p, {vx: fxR(0.8, 2), x: p.x - W * 0.2}))
+      .concat(fxTw(W, H, n(20), "circle", d ? ["#F0CF7A", "#F6DF9E"] : ["#FFF6C8", "#F2E7A0"], {smin: 2.4, smax: 4.4, glow: 12, vy: -0.3})), draw: bambooBeams},
+    lavenderfields: {spawn: (W, H, d, n) => bees(W, H, n(8))
+      .concat(fxBurst(W, H, n(28), "lavsprig", d ? ["#B9A2FF", "#C8B4F4", "#9A7BE0"] : ["#8A5BC0", "#9E74D6", "#7048B0"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 15, smax: 20, flip: true}).map(p => Object.assign(p, {vx: p.vx * 0.8, vy: p.vy * 0.8, g: 0.15, term: fxR(1.3, 1.9), fsw: fxR(0.8, 1.4), life: 280})),
+        fxFlutter(W, H, n(4), d ? ["#F6C7A6", "#FFFFFF", "#D8CCF0"] : ["#F2C84A", "#C9A0E8", "#8FC7F2"]))},
+    rooftops: {spawn: (W, H, d, n) => paperPlanes(W, H, n(9), d ? ["#FFFFFF", "#FFE9BC", "#DCD6F0"] : ["#FFFFFF", "#F6E6D0", "#E0E8F6"])
+      .concat(fxTw(W, H, n(30), d ? "pixel" : "sparkle", d ? ["#FFD27F", "#FFE3A8"] : ["#F2B53A", "#FFD86B"], {smin: 2.5, smax: 5, glow: d ? 10 : 4}))}
   });
 
   // New scene summaries for the Style Shop (the 37 redrawn themes)
@@ -23058,6 +24002,9 @@ var MAJ_THEMES = [];
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
   const c = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`;
+  // paints a round thought bubble with a trail of dots and a small icon inside
+  const psTh = (g, col, dk, icon, ic) => { const b = new Path2D(c(-1, -1, 8.4) + c(-8, 8.4, 1.8) + c(-10.4, 11, 1.1)); g.fillStyle = col; g.fill(b); g.strokeStyle = dk ? "rgba(230,215,255,.85)" : "#A68AD6"; g.lineWidth = 1.1; g.stroke(b);
+    g.fillStyle = dk ? "rgba(255,255,255,.18)" : "rgba(166,138,214,.14)"; g.beginPath(); g.ellipse(2.4, 3.2, 4.4, 2.4, -0.5, 0, 7); g.fill(); g.save(); g.translate(-1, -1.4); g.fillStyle = dk && ic === "#9A6CC0" ? "#C9B0FF" : ic; g.fill(new Path2D(icon)); g.restore(); };
 
   /* Market District (Business) */
   MAJ_THEMES.push({
@@ -23069,19 +24016,32 @@ var MAJ_THEMES = [];
     kit: {motif: "bizchart", card: ["#F6F9FC", "#E2EAF2"], ink: "#16243A", bd: "#BCCCDD", mc: "#2E9E6A", r: 10, notes: ["#D6EEDF"].concat(NOTES), shape: "gridnote", pin: "binder", fab: "12px", btn: "10px"},
     shapes: {
       bizchart: {d: "M-10 3H-5.6V10H-10Z M-3 -0.6H1.4V10H-3Z M4 -4H8.4V10H4Z M2.4 -11.2H10.4V-3.2L7.6 -6L1.8 -0.2L-0.6 -2.6L5.2 -8.4Z"},
-      bizarrow: {d: "M0 -10.5L8.6 -1.2H3.4V10H-3.4V-1.2H-8.6Z"}
+      bizarrow: {d: "M0 -10.5L8.6 -1.2H3.4V10H-3.4V-1.2H-8.6Z"},
+      // gold coin with a rim and a dollar sign
+      bizcoin: {d: c(0, 0, 9.6), paint: (g, col, dk) => { g.fillStyle = fxShade(col, 0.86); g.beginPath(); g.arc(0, 0, 9.6, 0, 7); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(-0.4, -0.4, 8, 0, 7); g.fill();
+        g.strokeStyle = fxShade(col, 0.8); g.lineWidth = 0.9; g.beginPath(); g.arc(-0.4, -0.4, 6.2, 0, 7); g.stroke(); g.fillStyle = fxShade(col, 0.68); g.font = "bold 10px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("$", -0.4, 0.2);
+        g.fillStyle = "rgba(255,255,255,.55)"; g.beginPath(); g.ellipse(-3.6, -4.2, 2.4, 1.2, -0.7, 0, 7); g.fill(); }}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "coin", d ? ["#FFD27A", "#F6C453", "#FFE3A8"] : ["#E8B030", "#F2C24A", "#D49A20"], {smin: 9, smax: 14, vmin: 1.3, vmax: 2.5, sway: 0.8, life: 270, glow: d ? 8 : 0}).map(p => Object.assign(p, {flip: true}))
-      .concat(fxRise(W, H, n(14), "bizarrow", d ? ["#7CF0A8", "#9CF5BF"] : ["#2E9E6A", "#23885A", "#4FBF84"], {smin: 8, smax: 12, vmin: 1.8, vmax: 3, sway: 0.3, life: 240, glow: d ? 8 : 0}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#9CF5BF"] : ["#F2B53A", "#FFD86B", "#4FBF84"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
+    // a candlestick chart builds up across the page, a gold trend line races over it, and coins pay out at the top
+    fx: {spawn: (W, H, d, n) => { const ex = W * 0.9, ey = H * 0.9 - H * 0.5 * 0.96;
+      return fxBurst(W, H, n(30), "bizcoin", d ? ["#FFD27A", "#F6C453", "#FFE3A8"] : ["#E8B030", "#F2C24A", "#D9A228"], [[ex / W, ey / H]], {smin: 10, smax: 14, g: 0.16, flip: true}).map(p => Object.assign(p, {vx: p.vx * 0.9 - 2, vy: p.vy * 0.9 - 3, delay: 84 + Math.floor(fxR(0, 16)), life: 170, term: 3.4}))
+        .concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#9CF5BF"] : ["#F2B53A", "#FFD86B", "#4FBF84"], {smin: 3, smax: 7, top: 0.6, glow: d ? 10 : 4}).map(p => Object.assign(p, {delay: 70 + Math.floor(fxR(0, 80))}))); },
       draw: (g, f, W, H, d) => {
-        const p = Math.min(1, f / 80), a = f < 170 ? 1 : Math.max(0, 1 - (f - 170) / 40); if (a <= 0) return;
-        const pts = []; for (let i = 0; i <= 10; i++) { const u = i / 10; pts.push([W * (0.04 + 0.92 * u), H * (0.92 - 0.3 * (0.7 * u + 0.3 * u * u)) + (i % 2 ? 1 : -1) * H * 0.018 * (i && i < 10 ? 1 : 0)]); }
-        const L = Math.max(1, Math.floor(p * 10)), fr = p * 10 - L + 1;
-        g.save(); g.globalAlpha = a * 0.75; g.lineJoin = g.lineCap = "round"; g.shadowBlur = 14; g.shadowColor = d ? "#7CF0A8" : "#4FBF84"; g.strokeStyle = d ? "#9CF5BF" : "#2E9E6A"; g.lineWidth = 3;
-        g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < L; i++) g.lineTo(pts[i][0], pts[i][1]);
-        const q = pts[L - 1], r = pts[Math.min(10, L)], e = [q[0] + (r[0] - q[0]) * Math.min(1, fr), q[1] + (r[1] - q[1]) * Math.min(1, fr)]; g.lineTo(e[0], e[1]); g.stroke();
-        g.shadowBlur = 0; g.fillStyle = d ? "#E8FFF0" : "#FFFFFF"; g.beginPath(); g.arc(e[0], e[1], 4, 0, 7); g.fill(); g.restore(); }},
+        const a = fxEase(f / 10) * (1 - fxEase((f - 175) / 60)); if (a <= 0.01) return;
+        const V = [0.06, 0.15, 0.1, 0.24, 0.34, 0.28, 0.46, 0.58, 0.54, 0.74, 0.96], N = V.length, x0 = W * 0.08, dx = (W * 0.9 - x0) / (N - 1), cw = Math.max(7, Math.min(28, dx * 0.5)), yb = H * 0.9, Y = v => yb - H * 0.5 * v;
+        const up = d ? "#7CF0A8" : "#23885A", dn = d ? "#FF8A9A" : "#D24D4A";
+        g.lineCap = g.lineJoin = "round"; g.strokeStyle = d ? "rgba(210,208,240,.16)" : "rgba(38,64,95,.12)"; g.lineWidth = 1; g.setLineDash([6, 6]); g.globalAlpha = a;
+        [0.25, 0.5, 0.75, 1].forEach(v => { g.beginPath(); g.moveTo(x0 - cw, Y(v)); g.lineTo(W * 0.9 + cw, Y(v)); g.stroke(); }); g.setLineDash([]);
+        for (let i = 0; i < N; i++) { const t = (f - 4 - i * 6) / 16; if (t <= 0) break; const e = 1 - Math.pow(1 - Math.min(1, t), 3), o = i ? V[i - 1] : 0.02, cl = V[i], x = x0 + i * dx, yo = Y(o), yc = yo + (Y(cl) - yo) * e, col = cl >= o ? up : dn;
+          g.globalAlpha = a * Math.min(1, t * 2) * 0.9; g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x, Y(Math.max(o, cl) + 0.05 * e)); g.lineTo(x, Y(Math.min(o, cl) - 0.04 * e)); g.stroke();
+          g.fillStyle = col; g.fillRect(x - cw / 2, Math.min(yo, yc), cw, Math.max(2, Math.abs(yc - yo))); }
+        const p = Math.max(0, Math.min(1, (f - 14) / 72)), q = 1 - Math.pow(1 - p, 2), L = q * (N - 1), k = Math.floor(L); if (p <= 0) return;
+        g.globalAlpha = a; g.shadowBlur = 12; g.shadowColor = d ? "#FFD27A" : "#F2B53A"; g.strokeStyle = d ? "#FFE3A8" : "#E39A12"; g.lineWidth = 3.2;
+        g.beginPath(); g.moveTo(x0, Y(V[0])); for (let i = 1; i <= k; i++) g.lineTo(x0 + i * dx, Y(V[i]));
+        const hx = x0 + L * dx, hy = Y(V[k] + (V[Math.min(N - 1, k + 1)] - V[k]) * (L - k)); g.lineTo(hx, hy); g.stroke();
+        g.shadowBlur = 16; g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(hx, hy, 4.5 + 3 * fxEase((f - 80) / 10) * (1 - fxEase((f - 100) / 30)), 0, 7); g.fill();
+        // a soft ring when the line hits the top
+        const t2 = f - 86; if (t2 > 0 && t2 < 50) { g.shadowBlur = 0; g.globalAlpha = a * 0.5 * (1 - t2 / 50); g.strokeStyle = d ? "#FFE3A8" : "#E39A12"; g.lineWidth = 2; g.beginPath(); g.arc(hx, hy, 6 + t2 * 1.4, 0, 7); g.stroke(); } }},
     tag: "An evening financial district with glass towers, a scrolling stock ticker and a glowing chart line"
   });
 
@@ -23094,18 +24054,27 @@ var MAJ_THEMES = [];
       spine: [lg("#3B7A72", "#24524C"), lg("#1E2546", "#0E1226")], btn: [lg2("#2E8C78", "#3FA08A"), lg2("#7DE0BE", "#A6EED4")]},
     kit: {motif: "pulseheart", card: ["#F6FBFA", "#E0F0EC"], ink: "#163130", bd: "#A9D8CC", mc: "#E8708C", r: 18, notes: ["#FFDCE4"].concat(NOTES), shape: "rounded", pin: "clip", fab: "999px", btn: "14px"},
     shapes: {
-      pulseheart: {d: "M0 9C-8 3.4 -10.4 -1.6 -9.2 -5.2C-8 -9 -2.4 -9.6 0 -5C2.4 -9.6 8 -9 9.2 -5.2C10.4 -1.6 8 3.4 0 9Z", detail: "M-8.4 -0.6H-4.4L-2.6 -4.2L0.4 3L2.4 -0.6H8.4", dstroke: true}
+      pulseheart: {d: "M0 9C-8 3.4 -10.4 -1.6 -9.2 -5.2C-8 -9 -2.4 -9.6 0 -5C2.4 -9.6 8 -9 9.2 -5.2C10.4 -1.6 8 3.4 0 9Z", detail: "M-8.4 -0.6H-4.4L-2.6 -4.2L0.4 3L2.4 -0.6H8.4", dstroke: true},
+      nscross: {d: "M-2.8 -9.4H2.8V-2.8H9.4V2.8H2.8V9.4H-2.8V2.8H-9.4V-2.8H-2.8Z"}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(18), "heart", d ? ["#FF9DB4", "#F6B3C4", "#FFD0DA"] : ["#E8708C", "#F29AAE", "#F7B6C4"], {smin: 8, smax: 13, vmin: 1.1, vmax: 2.2, sway: 1, life: 280, glow: d ? 10 : 0})
-      .concat(fxRise(W, H, n(7), "pulseheart", d ? ["#7DE0BE", "#A6EED4"] : ["#2E8C78", "#3FA08A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 10 : 0}),
-        fxTw(W, H, n(24), "sparkle", d ? ["#FFFFFF", "#A6EED4", "#FFD0DA"] : ["#F2B53A", "#7CCFB6", "#F29AAE"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
+    // a monitor trace sweeps across; every heartbeat it draws sends up a heart, and soft plus signs twinkle
+    fx: {spawn: (W, H, d, n) => { const beat = Math.max(110, W / 4.2), P = [];
+      for (let k = 0; (k + 0.8) * beat < W; k++) { const x = (k + 0.8) * beat, t = Math.round(x / W * 120);
+        for (let j = 0; j < 3; j++) P.push({shape: j ? "heart" : "pulseheart", c: j ? fxPick(d ? ["#FF9DB4", "#FFC2D0"] : ["#E8708C", "#F29AAE"]) : d ? "#A6EED4" : "#2E8C78", x: x + fxR(-8, 8), y: H * 0.8 - Math.min(52, H * 0.07), vx: j ? (j === 1 ? -1 : 1) * fxR(0.4, 0.9) : 0, vy: -fxR(1.4, 2.2) * (j ? 0.85 : 1), g: 0, drag: 0.995, size: j ? fxR(8, 11) : fxR(13, 16), rot: 0, vr: 0, sway: j ? 0.7 : 0.4, swf: fxR(0.03, 0.05), life: 190, delay: t + j * 4, glow: d ? 10 : 0}); }
+      return P.concat(fxRise(W, H, n(10), "heart", d ? ["#FF9DB4", "#F6B3C4", "#FFD0DA"] : ["#E8708C", "#F29AAE", "#F7B6C4"], {smin: 7, smax: 11, vmin: 1, vmax: 1.8, sway: 1, life: 240, spread: 90, glow: d ? 8 : 0}),
+        fxTw(W, H, n(14), "nscross", d ? ["#A6EED4", "#FFFFFF"] : ["#5BA898", "#7CCFB6"], {smin: 4, smax: 7, top: 0.7, glow: d ? 8 : 0}),
+        fxTw(W, H, n(10), "sparkle", d ? ["#FFFFFF", "#FFD0DA"] : ["#F2B53A", "#F29AAE"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4})); },
       draw: (g, f, W, H, d) => {
-        const p = Math.min(1, f / 110), a = f < 160 ? 1 : Math.max(0, 1 - (f - 160) / 40); if (a <= 0) return;
-        const y0 = H * 0.86, beat = Math.max(60, W / 5), amp = Math.min(46, H * 0.06), xe = W * p;
-        g.save(); g.globalAlpha = a * 0.8; g.lineJoin = g.lineCap = "round"; g.shadowBlur = 12; g.shadowColor = d ? "#7DE0BE" : "#5BA898"; g.strokeStyle = d ? "#A6EED4" : "#2E8C78"; g.lineWidth = 2.6;
-        g.beginPath(); g.moveTo(0, y0);
-        for (let x = 0; x <= xe; x += 3) { const u = (x % beat) / beat; let y = y0; if (u > 0.4 && u < 0.46) y = y0 - amp * 0.18 * Math.sin((u - 0.4) / 0.06 * Math.PI); else if (u > 0.5 && u < 0.54) y = y0 + amp * 0.25 * ((u - 0.5) / 0.04); else if (u >= 0.54 && u < 0.58) y = y0 + amp * 0.25 - amp * 1.25 * ((u - 0.54) / 0.04); else if (u >= 0.58 && u < 0.63) y = y0 - amp + amp * 1.3 * ((u - 0.58) / 0.05); else if (u >= 0.63 && u < 0.66) y = y0 + amp * 0.3 * (1 - (u - 0.63) / 0.03); g.lineTo(x, y); }
-        g.stroke(); g.shadowBlur = 0; g.fillStyle = d ? "#FFFFFF" : "#FFFFFF"; g.beginPath(); g.arc(xe, y0, 3.5, 0, 7); g.fill(); g.restore(); }},
+        const a = fxEase(f / 8) * (1 - fxEase((f - 165) / 60)); if (a <= 0.01) return;
+        const y0 = H * 0.8, beat = Math.max(110, W / 4.2), amp = Math.min(52, H * 0.07), xe = W * Math.min(1, f / 120);
+        const Y = x => { const u = (x / beat + 0.4) % 1; return u > 0.04 && u < 0.12 ? y0 - amp * 0.16 * Math.sin((u - 0.04) / 0.08 * Math.PI) : u >= 0.17 && u < 0.19 ? y0 + amp * 0.2 * (u - 0.17) / 0.02 : u >= 0.19 && u < 0.2 ? y0 + amp * 0.2 - amp * 1.2 * (u - 0.19) / 0.01 : u >= 0.2 && u < 0.22 ? y0 - amp + amp * 1.35 * (u - 0.2) / 0.02 : u >= 0.22 && u < 0.24 ? y0 + amp * 0.35 * (1 - (u - 0.22) / 0.02) : u > 0.32 && u < 0.46 ? y0 - amp * 0.24 * Math.sin((u - 0.32) / 0.14 * Math.PI) : y0; };
+        const col = d ? "#A6EED4" : "#2E8C78";
+        g.lineJoin = g.lineCap = "round"; g.strokeStyle = col; g.shadowColor = d ? "#7DE0BE" : "#5BA898";
+        // the older part of the trace is dimmer, the fresh part near the head is bright
+        const seg = (xa, xb, al, lw, sb) => { if (xb <= xa) return; g.globalAlpha = a * al; g.lineWidth = lw; g.shadowBlur = sb; g.beginPath(); g.moveTo(xa, Y(xa)); for (let x = xa + 2; x <= xb; x += 2) g.lineTo(x, Y(x)); g.lineTo(xb, Y(xb)); g.stroke(); };
+        const tail = W * 0.28; seg(0, xe - tail, 0.4, 2.2, 0); seg(Math.max(0, xe - tail - 2), xe, 0.95, 2.8, 12);
+        for (let k = 0; (k + 0.8) * beat < W; k++) { const x = (k + 0.8) * beat, t = f - x / W * 120; if (t < 0 || t > 46) continue; g.shadowBlur = 0; g.globalAlpha = a * 0.45 * (1 - t / 46); g.lineWidth = 2; g.beginPath(); g.arc(x, y0 - amp, 6 + t * 1.3, 0, 7); g.stroke(); }
+        if (f < 128) { g.shadowBlur = 16; g.globalAlpha = a * (1 - fxEase((f - 110) / 16)); g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(xe, Y(xe), 4.5, 0, 7); g.fill(); } }},
     tag: "A cozy nurses' station by a big window, with a desk lamp, a warm mug and a glowing heartbeat line"
   });
 
@@ -23120,13 +24089,25 @@ var MAJ_THEMES = [];
     shapes: {
       thought: {d: c(-4, -3, 5) + c(2, -5, 5.6) + c(6.4, 0, 4.4) + c(0, 1.6, 5) + c(-7.4, 7.6, 2) + c(-10, 10.6, 1.2)},
       idea: {d: "M0 -10.4C5 -10.4 7.4 -6.6 7.4 -3.4C7.4 0 5 2 3.6 4V5.6H-3.6V4C-5 2 -7.4 0 -7.4 -3.4C-7.4 -6.6 -5 -10.4 0 -10.4Z M-3.4 6.8H3.4V8.2H-3.4Z M-2.4 9.2H2.4V10.6H-2.4Z", detail: "M-1.6 3.6V-1.2L0 0.4L1.6 -1.2V3.6", dstroke: true},
+      // thought bubbles with a small idea inside: a lightbulb, a heart or a star
+      psth1: {d: c(-1, -1, 8.4) + c(-8, 8.4, 1.8) + c(-10.4, 11, 1.1), paint: (g, col, dk) => psTh(g, col, dk, "M0 -6.4C2.8 -6.4 4 -4.2 4 -2.4C4 -0.4 2.6 0.6 2 1.8V2.8H-2V1.8C-2.6 0.6 -4 -0.4 -4 -2.4C-4 -4.2 -2.8 -6.4 0 -6.4Z M-1.8 3.6H1.8V4.6H-1.8Z", "#F6B830")},
+      psth2: {d: c(-1, -1, 8.4) + c(-8, 8.4, 1.8) + c(-10.4, 11, 1.1), paint: (g, col, dk) => psTh(g, col, dk, "M0 4.6C-4.4 1.6 -5.6 -1.2 -5 -3.2C-4.3 -5.3 -1.3 -5.6 0 -3C1.3 -5.6 4.3 -5.3 5 -3.2C5.6 -1.2 4.4 1.6 0 4.6Z", "#EE6F9A")},
+      psth3: {d: c(-1, -1, 8.4) + c(-8, 8.4, 1.8) + c(-10.4, 11, 1.1), paint: (g, col, dk) => psTh(g, col, dk, "M0 -6L1.5 -2.2L5.6 -2L2.4 0.6L3.5 4.6L0 2.3L-3.5 4.6L-2.4 0.6L-5.6 -2L-1.5 -2.2Z", "#9A6CC0")},
       inkfly: {d: "M0.4 -1C2.4 -8.6 10.2 -10.4 10.6 -5C10.8 -2.4 8 -1.4 9.4 1.4C11.2 5 6.6 9.6 3.4 6.6C1.8 5.2 1 3 0.4 1Z M-0.4 -1C-2.4 -8.6 -10.2 -10.4 -10.6 -5C-10.8 -2.4 -8 -1.4 -9.4 1.4C-11.2 5 -6.6 9.6 -3.4 6.6C-1.8 5.2 -1 3 -0.4 1Z",
-        detail: "M3.4 -5.2a1.7 2.3 0 1 0 3.4 0a1.7 2.3 0 1 0 -3.4 0Z M-6.8 -5.2a1.7 2.3 0 1 0 3.4 0a1.7 2.3 0 1 0 -3.4 0Z M4 3.4a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0Z M-6.6 3.4a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0Z M-0.7 -4H0.7V6H-0.7Z", dfill: true}
+        detail: "M3.4 -5.2a1.7 2.3 0 1 0 3.4 0a1.7 2.3 0 1 0 -3.4 0Z M-6.8 -5.2a1.7 2.3 0 1 0 3.4 0a1.7 2.3 0 1 0 -3.4 0Z M4 3.4a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0Z M-6.6 3.4a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0Z M-0.7 -4H0.7V6H-0.7Z", dfill: true,
+        // inkblot butterfly: soft wings with a paler inner blot, mirror spots and a dark body
+        paint: (g, col, dk) => { const W1 = new Path2D("M0.4 -1C2.4 -8.6 10.2 -10.4 10.6 -5C10.8 -2.4 8 -1.4 9.4 1.4C11.2 5 6.6 9.6 3.4 6.6C1.8 5.2 1 3 0.4 1Z M-0.4 -1C-2.4 -8.6 -10.2 -10.4 -10.6 -5C-10.8 -2.4 -8 -1.4 -9.4 1.4C-11.2 5 -6.6 9.6 -3.4 6.6C-1.8 5.2 -1 3 -0.4 1Z");
+          g.fillStyle = col; g.fill(W1); g.save(); g.clip(W1); g.fillStyle = "rgba(255,255,255,.34)"; [[5.6, -4.6, 3.2, 2.4], [-5.6, -4.6, 3.2, 2.4], [5, 3.4, 2.2, 1.8], [-5, 3.4, 2.2, 1.8]].forEach(([x, y, rx, ry]) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); });
+          g.fillStyle = fxShade(col, 0.55); [[8.4, -6.6, 1.3], [-8.4, -6.6, 1.3], [7.4, 4.6, 1], [-7.4, 4.6, 1]].forEach(([x, y, r]) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }); g.restore();
+          g.fillStyle = dk ? "#2A2240" : "#3A2E52"; g.beginPath(); g.ellipse(0, 1, 1, 5.2, 0, 0, 7); g.fill(); g.strokeStyle = g.fillStyle; g.lineWidth = 0.7; g.beginPath(); g.moveTo(-0.4, -4); g.quadraticCurveTo(-1.6, -7, -3, -7.6); g.moveTo(0.4, -4); g.quadraticCurveTo(1.6, -7, 3, -7.6); g.stroke(); }}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "thought", d ? ["#E6DCFF", "#FFE0EC", "#FFFFFF"] : ["#B9A2E8", "#E8B6CC", "#A6C4EC"], {smin: 12, smax: 18, vmin: 0.9, vmax: 1.7, sway: 1, life: 300, alpha: 0.9, glow: d ? 10 : 0})
-      .concat(fxTw(W, H, n(10), "idea", d ? ["#FFE08A", "#FFD27A"] : ["#F2B53A", "#F6C453"], {smin: 9, smax: 13, glow: 12}),
-        fxFlutter(W, H, n(8), d ? ["#F6C7E0", "#C9B8FF", "#FFD6AE"] : ["#9A6CC0", "#E08AA8", "#6A8AD0"]).map(p => Object.assign(p, {shape: "inkfly"})),
-        fxTw(W, H, n(22), "sparkle", d ? ["#FFFFFF", "#FFD6AE"] : ["#F2B53A", "#C9A0E8"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    // thought bubbles drift up from below, each with a little idea inside; where a bubble fades, an inkblot butterfly takes off
+    fx: {spawn: (W, H, d, n) => { const P = [], wing = d ? ["#F6A8D0", "#C9B0FF", "#FFC890", "#9FD0FF"] : ["#9A6CC0", "#E0729E", "#5E86D0", "#E89A3A"];
+      for (let i = 0, N = n(9); i < N; i++) { const x = W * (0.08 + 0.84 * (i + fxR(0.2, 0.8)) / N), v = fxR(1.6, 2.4), L = Math.round(fxR(90, 130)), dl = Math.floor(fxR(0, 50)), ye = H + 20 - v * L;
+        P.push({shape: fxPick(["psth1", "psth2", "psth3"]), c: d ? fxPick(["#3A2F66", "#4A2F5E"]) : "#FFFFFF", x, y: H + 20, vx: 0, vy: -v, g: 0, size: fxR(17, 22), rot: fxR(-0.1, 0.1), vr: 0, sway: 0.5, swf: 0.04, ph0: 0, life: L, delay: dl, glow: d ? 10 : 0});
+        P.push({shape: "inkfly", c: fxPick(wing), x, y: ye, vx: fxR(-1, 1), vy: -fxR(1.4, 2.2), g: 0, size: fxR(12, 16), rot: 0, vr: 0, sway: 1.8, swf: fxR(0.04, 0.07), rock: 0.25, flap: fxR(0.25, 0.38), life: 180, delay: dl + L - 26});
+        for (let k = 0; k < 3; k++) P.push({shape: "sparkle", c: d ? "#FFE3B0" : "#F2B53A", x: x + fxR(-26, 26), y: ye + fxR(-22, 22), vx: 0, vy: -0.3, g: 0, size: fxR(4, 7), rot: 0, vr: 0.02, sway: 0, life: 50, delay: dl + L - 30 + k * 5, tw: true, glint: true, glow: d ? 10 : 4}); }
+      return P.concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFFFFF", "#FFD6AE"] : ["#F2B53A", "#C9A0E8"], {smin: 3, smax: 6, glow: d ? 10 : 4})); }},
     tag: "A dreamy pastel garden with rounded hedges, a still pond, drifting thought bubbles and inkblot butterflies"
   });
 
@@ -23141,12 +24122,33 @@ var MAJ_THEMES = [];
     shapes: {
       cell: {d: c(0, 0, 10), detail: c(2, -1.6, 3.8) + c(-4.6, 3.6, 1.4) + c(-3, -5, 1.1), dfill: true},
       helix: {d: "M-5 -11C5 -6.5 5 -5.5 0 0C-5 5.5 -5 6.5 5 11M5 -11C-5 -6.5 -5 -5.5 0 0C5 5.5 5 6.5 -5 11M-3.2 -8.4H3.2M-3.2 8.4H3.2M-2.6 -3.4H2.6M-2.6 3.4H2.6", stroke: true, lw: 1.8},
-      diatom: {d: "M-10.6 0C-6.4 -4.6 6.4 -4.6 10.6 0C6.4 4.6 -6.4 4.6 -10.6 0Z", detail: "M-6.6 -2.4V2.4M-3.4 -3.2V3.2M0 -3.4V3.4M3.4 -3.2V3.2M6.6 -2.4V2.4", dstroke: true}
+      diatom: {d: "M-10.6 0C-6.4 -4.6 6.4 -4.6 10.6 0C6.4 4.6 -6.4 4.6 -10.6 0Z", detail: "M-6.6 -2.4V2.4M-3.4 -3.2V3.2M0 -3.4V3.4M3.4 -3.2V3.2M6.6 -2.4V2.4", dstroke: true},
+      // a slipper-shaped swimmer facing +x, fringed with cilia, with a whip tail behind
+      bioswim: {d: "M10.4 0C10.4 -3.6 6 -5 1 -4.8C-4 -4.6 -8 -3.2 -8 0C-8 3.2 -4 4.6 1 4.8C6 5 10.4 3.6 10.4 0Z",
+        paint: (g, col, dk) => { const b = new Path2D("M10.4 0C10.4 -3.6 6 -5 1 -4.8C-4 -4.6 -8 -3.2 -8 0C-8 3.2 -4 4.6 1 4.8C6 5 10.4 3.6 10.4 0Z");
+          g.strokeStyle = col; g.lineWidth = 0.6; g.globalAlpha = 0.7; for (let i = 0; i < 18; i++) { const t = i / 18 * Math.PI * 2, x = Math.cos(t), y = Math.sin(t); g.beginPath(); g.moveTo(1.2 + 9.2 * x, 4.9 * y); g.lineTo(1.2 + 10.8 * x, 6.4 * y); g.stroke(); }
+          g.globalAlpha = 1; g.lineWidth = 1; g.beginPath(); g.moveTo(-8, 0); g.bezierCurveTo(-9.6, -2.4, -10.6, 2.4, -12, 0); g.stroke();
+          g.globalAlpha = 0.5; g.fillStyle = col; g.fill(b); g.globalAlpha = 1; g.lineWidth = 1.2; g.stroke(b);
+          g.fillStyle = fxShade(col, 0.7); g.beginPath(); g.ellipse(1.6, 0.4, 2.6, 1.8, 0.2, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,.6)"; [[-4, -1.6], [5.8, -1.4], [-2, 2.2]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 0.9, 0, 7); g.fill(); }); }}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "cell", d ? ["#5CF2C4", "#8AD8FF", "#FF7AC6"] : ["#7CC46A", "#E896B0", "#8FC8D8"], {smin: 9, smax: 15, vmin: 0.9, vmax: 1.8, sway: 1.1, life: 300, alpha: 0.85, glow: d ? 12 : 0}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)}))
-      .concat(fxRise(W, H, n(7), "helix", d ? ["#8AF7D8", "#B8A6FF"] : ["#3A8A72", "#9A6CC0"], {smin: 12, smax: 16, vmin: 1.2, vmax: 2, sway: 0.6, life: 260, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.5, 0.5), vr: fxR(-0.02, 0.02)})),
-        fxRise(W, H, n(8), "diatom", d ? ["#FFD36A", "#FFE6A0"] : ["#D4A24A", "#C9A060"], {smin: 8, smax: 12, vmin: 1, vmax: 1.8, sway: 0.8, life: 280, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(0, 6.3), vr: fxR(-0.015, 0.015)})),
-        fxRise(W, H, n(30), "circle", d ? ["#BDE6F0", "#8AF7D8"] : ["#FFFFFF", "#B8D8C8"], {smin: 1.5, smax: 3.2, vmin: 1.4, vmax: 2.6, sway: 0.6, alpha: 0.8}))},
+    // under the microscope: cells swell, pinch in the middle and split in two, while little ciliates swim past
+    fx: {spawn: (W, H, d, n) => { const P = [];
+      for (let i = 0, N = n(9); i < N; i++) { const lr = i % 2 === 0, sp = fxR(1.3, 2.3);
+        P.push({shape: "bioswim", c: fxPick(d ? ["#8AF7D8", "#8AD8FF", "#FFB0DA"] : ["#3A8A72", "#4A86B8", "#C0608A"]), x: lr ? fxR(-60, -20) : W + fxR(20, 60), y: fxR(H * 0.2, H * 0.95), vx: (lr ? 1 : -1) * sp, vy: fxR(-0.5, 0.5), g: 0, size: fxR(12, 16), face: true, wig: 0.12, rot: 0, vr: 0, sway: 0.5, swf: 0.04, life: 230, delay: Math.floor(fxR(0, 90)), glow: d ? 8 : 0}); }
+      return P.concat(fxRise(W, H, n(6), "diatom", d ? ["#FFD36A", "#FFE6A0"] : ["#C9962A", "#B88A3A"], {smin: 9, smax: 13, vmin: 0.6, vmax: 1.2, sway: 0.8, life: 280, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(0, 6.3), vr: fxR(-0.015, 0.015)})),
+        fxRise(W, H, n(26), "bubble", d ? ["#BDE6F0", "#8AF7D8"] : ["#8FB8C8", "#9AC8B0"], {smin: 2.5, smax: 5, vmin: 0.8, vmax: 1.8, sway: 0.6, alpha: 0.8})); },
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 14) * (1 - fxEase((f - 180) / 60)); if (a <= 0.01) return;
+        const ph = W < H, R0 = Math.min(W, H) * (ph ? 0.1 : 0.075), C = ph ? [[0.26, 0.42, 0, 0.5], [0.72, 0.6, 14, -0.4], [0.32, 0.8, 26, 1.2], [0.76, 0.86, 8, 0.2]] : [[0.16, 0.5, 0, 0.5], [0.84, 0.44, 14, -0.4], [0.36, 0.78, 26, 1.2], [0.66, 0.8, 8, 0.2], [0.08, 0.86, 34, -1]];
+        const cols = d ? ["#5CF2C4", "#FF7AC6", "#8AD8FF"] : ["#4FA86E", "#D9708F", "#4E92C4"];
+        C.forEach(([cx, cy, t0, ang], i) => { const t = f - t0; if (t <= 0) return; const col = cols[i % 3], grow = 1 - Math.pow(1 - Math.min(1, t / 30), 3), e = fxEase((t - 40) / 70), R = R0 * (0.5 + 0.5 * grow) * (1 - 0.22 * e), s = R0 * (0.95 * e + 0.55 * fxEase((t - 105) / 90)), ux = Math.cos(ang), uy = Math.sin(ang), X = cx * W + ux * Math.sin(t / 50) * 4, Y = cy * H + uy * Math.cos(t / 60) * 4;
+          // one outline around both halves while they pinch apart (the waist closes completely, then the two cells drift apart)
+          const body = new Path2D(); body.arc(X - ux * s, Y - uy * s, R, 0, 7); body.moveTo(X + ux * s + R, Y + uy * s); body.arc(X + ux * s, Y + uy * s, R, 0, 7); const waist = R * 0.8 * (1 - e) * (1 - e); if (s > 1 && waist > 0.6) { body.moveTo(X + R * 0.8, Y); body.ellipse(X, Y, Math.min(s, R), waist, ang, 0, 7); }
+          g.globalAlpha = a * 0.85; g.strokeStyle = col; g.lineWidth = 5; g.stroke(body); g.globalCompositeOperation = "destination-out"; g.fill(body); g.globalCompositeOperation = "source-over";
+          g.globalAlpha = a * (d ? 0.22 : 0.18); g.fillStyle = col; g.fill(body);
+          g.globalAlpha = a * 0.75; g.fillStyle = fxShade(col.length === 7 ? col : "#888888", 0.8); const k = 0.85 * s, nr = R * (0.32 - 0.08 * Math.sin(Math.PI * e));
+          [-1, 1].forEach(sg => { g.beginPath(); g.arc(X + sg * ux * k, Y + sg * uy * k, nr, 0, 7); g.fill(); });
+          g.globalAlpha = a * 0.6; g.fillStyle = "#FFFFFF"; [[-0.5, -0.4], [0.45, 0.35]].forEach(([u, v]) => { g.beginPath(); g.arc(X + ux * s * Math.sign(u) + R * u * 0.6, Y + uy * s * Math.sign(u) + R * v * 0.7, R * 0.07, 0, 7); g.fill(); }); }); }},
     tag: "A microscope view of drifting cells, diatoms and little swimmers around a faint DNA ribbon"
   });
 })();
@@ -23158,6 +24160,13 @@ var MAJ_THEMES = [];
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
   // gear outline in the -12..12 box
   const gearD = (() => { let d = ""; const N = 8, R = 10.6, r = 8.2; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2, w = Math.PI / N; [[a - w * 0.42, r], [a - w * 0.26, R], [a + w * 0.26, R], [a + w * 0.42, r], [a + w * 0.58, r]].forEach(([b, rr], k) => { d += (i === 0 && k === 0 ? "M" : "L") + (Math.round(rr * Math.cos(b) * 100) / 100) + " " + (Math.round(rr * Math.sin(b) * 100) / 100); }); } return d + "Z M3.4 0a3.4 3.4 0 1 0 -6.8 0a3.4 3.4 0 1 0 6.8 0Z"; })();
+  const csT = []; // circuit traces for the Code Night animation, rebuilt by each spawn
+  // gear outline with nt teeth, pitch radius nt*k/2, a hub hole and round cut-outs (cached by size)
+  const enG = new Map(), enGear = (nt, k) => { const key = nt + "|" + Math.round(k * 100); let p = enG.get(key); if (p) return p; p = new Path2D(); const R = nt * k / 2, ad = k * 0.9;
+    for (let i = 0; i < nt; i++) { const a = i / nt * Math.PI * 2, w = Math.PI / nt; [[a - w * 0.5, R - ad], [a - w * 0.3, R + ad], [a + w * 0.3, R + ad], [a + w * 0.5, R - ad]].forEach(([b, r], j) => { const x = r * Math.cos(b), y = r * Math.sin(b); i || j ? p.lineTo(x, y) : p.moveTo(x, y); }); } p.closePath();
+    const hr = Math.max(k * 1.4, R * 0.16); p.moveTo(hr, 0); p.arc(0, 0, hr, 0, 7); const m = nt > 11 ? 5 : 0; for (let i = 0; i < m; i++) { const b = i / m * Math.PI * 2, r = R * 0.52, cr = R * 0.2; p.moveTo(r * Math.cos(b) + cr, r * Math.sin(b)); p.arc(r * Math.cos(b), r * Math.sin(b), cr, 0, 7); }
+    enG.set(key, p); return p; };
+  const cmR = (g, col, icon) => { g.fillStyle = col; g.beginPath(); g.arc(0, 0, 9.4, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,.22)"; g.beginPath(); g.ellipse(-2.6, -4.6, 4.6, 2.6, -0.4, 0, 7); g.fill(); g.fillStyle = "#FFFFFF"; g.fill(new Path2D(icon)); };
   const hexD = (R, r) => { let d = ""; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; d += (i ? "L" : "M") + (Math.round(R * Math.cos(a) * 100) / 100) + " " + (Math.round(R * Math.sin(a) * 100) / 100); } return d + `Z M${r} 0a${r} ${r} 0 1 0 ${-2 * r} 0a${r} ${r} 0 1 0 ${2 * r} 0Z`; };
 
   /* Code Night */
@@ -23174,11 +24183,32 @@ var MAJ_THEMES = [];
       cs_pheart: {d: "M-6 -10H-2V-6H-6ZM2 -10H6V-6H2ZM-10 -6H-6V-2H-10ZM-6 -6H-2V-2H-6ZM-2 -6H2V-2H-2ZM2 -6H6V-2H2ZM6 -6H10V-2H6ZM-10 -2H-6V2H-10ZM-6 -2H-2V2H-6ZM-2 -2H2V2H-2ZM2 -2H6V2H2ZM6 -2H10V2H6ZM-6 2H-2V6H-6ZM-2 2H2V6H-2ZM2 2H6V6H2ZM-2 6H2V10H-2Z"},
       cs_chip: {d: "M-6.5 -6.5H6.5V6.5H-6.5Z M-4.5 -10H-2.5V-6.5H-4.5Z M-1 -10H1V-6.5H-1Z M2.5 -10H4.5V-6.5H2.5Z M-4.5 6.5H-2.5V10H-4.5Z M-1 6.5H1V10H-1Z M2.5 6.5H4.5V10H2.5Z M-10 -4.5H-6.5V-2.5H-10Z M-10 -1H-6.5V1H-10Z M-10 2.5H-6.5V4.5H-10Z M6.5 -4.5H10V-2.5H6.5Z M6.5 -1H10V1H6.5Z M6.5 2.5H10V4.5H6.5Z", detail: "M-3 -3H3V3H-3Z", dfill: true}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "cs_code", d ? ["#8FF5E6", "#FFD08A", "#C9F7F0"] : ["#1F8A6E", "#2FA88A", "#3D9AC2"], {smin: 12, smax: 18, vmin: 1.2, vmax: 2.2, sway: 0.7, glow: d ? 12 : 0, life: 260})
-      .concat(fxRise(W, H, n(7), "cs_brace", d ? ["#8FF5E6", "#FFD08A"] : ["#1F8A6E", "#3D9AC2", "#E07A5F"], {smin: 12, smax: 17, vmin: 1, vmax: 1.9, sway: 0.8, glow: d ? 12 : 0, life: 280}),
-        fxRise(W, H, n(40), "pixel", d ? ["#5FE6D2", "#9AF0E2", "#FFC77A"] : ["#1F8A6E", "#5FC2A6", "#F2B53A"], {smin: 1.6, smax: 3, vmin: 2.4, vmax: 4.4, sway: 0.2, glow: d ? 8 : 0}),
-        fxBurst(W, H, n(18), "cs_pheart", ["#FF6FA8", "#FF8FC0", "#FFD84A", "#B89CFF"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11, glow: d ? 8 : 0}),
-        fxTw(W, H, n(20), "sparkle", d ? ["#C9F7F0", "#FFFFFF"] : ["#2FA88A", "#F2B53A"], {smin: 3, smax: 6, glow: d ? 10 : 3}))},
+    // circuit traces grow up from the bottom edge with a bright data pulse at each tip; when a pulse reaches its pad, the pad lights and pixel hearts pop out
+    fx: {spawn: (W, H, d, n) => { const K = W < H ? 5 : 8, T = []; csT.length = 0;
+      for (let i = 0; i < K; i++) { let x = W * (0.06 + 0.88 * (i + fxR(0.25, 0.75)) / K), y = H + 6; const pts = [[x, y]], top = H * fxR(0.28, 0.62);
+        while (y > top) { y = Math.max(top, y - H * fxR(0.08, 0.16)); pts.push([x, y]); if (y <= top) break; const j = fxPick([-1, 1]) * W * fxR(0.025, 0.06); x = Math.min(W * 0.97, Math.max(W * 0.03, x + j)); y -= Math.abs(j) * 0.9; pts.push([x, y]); }
+        let L = 0; const cum = [0]; for (let k = 1; k < pts.length; k++) { L += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]); cum.push(L); }
+        T.push({pts, cum, L, t0: Math.floor(i * 7 + fxR(0, 10)), dur: Math.floor(fxR(58, 76))}); }
+      csT.push(...T);
+      const P = []; T.forEach(t => { const [x, y] = t.pts[t.pts.length - 1], t1 = t.t0 + t.dur;
+        for (let j = 0; j < 2; j++) P.push({shape: j ? "cs_pheart" : fxPick(["cs_code", "cs_brace", "cs_pheart"]), c: j ? fxPick(["#FF6FA8", "#FF8FC0", "#B89CFF"]) : fxPick(d ? ["#8FF5E6", "#FFD08A"] : ["#1F8A6E", "#3D9AC2"]), x, y: y - 6, vx: fxR(-0.9, 0.9), vy: -fxR(1.2, 2), g: 0, drag: 0.996, size: fxR(10, 14), rot: 0, vr: 0, sway: 0.6, swf: fxR(0.03, 0.05), life: 170, delay: t1 + j * 8, glow: d ? 10 : 0}); });
+      return P.concat(fxTw(W, H, n(16), "sparkle", d ? ["#C9F7F0", "#FFFFFF"] : ["#2FA88A", "#F2B53A"], {smin: 3, smax: 6, glow: d ? 10 : 3}).map(p => Object.assign(p, {delay: 40 + Math.floor(fxR(0, 110))}))); },
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 175) / 60); if (a <= 0.01) return;
+        const line = d ? "#5FE6D2" : "#1F8A6E", hot = d ? "#E8FFFB" : "#FFFFFF", glo = d ? "#5FE6D2" : "#2FA88A";
+        g.lineCap = g.lineJoin = "round";
+        csT.forEach(t => { const p = fxEase((f - t.t0) / t.dur); if (p <= 0) return; const D = p * t.L; let k = 1; while (k < t.pts.length - 1 && t.cum[k] < D) k++;
+          const [ax, ay] = t.pts[k - 1], [bx, by] = t.pts[k], u = Math.min(1, (D - t.cum[k - 1]) / Math.max(1, t.cum[k] - t.cum[k - 1])), hx = ax + (bx - ax) * u, hy = ay + (by - ay) * u;
+          g.globalAlpha = a * (d ? 0.7 : 0.6); g.strokeStyle = line; g.lineWidth = 2.4; g.shadowBlur = d ? 8 : 0; g.shadowColor = glo; g.beginPath(); g.moveTo(t.pts[0][0], t.pts[0][1]); for (let j = 1; j < k; j++) g.lineTo(t.pts[j][0], t.pts[j][1]); g.lineTo(hx, hy); g.stroke();
+          // little via dots at each corner the trace has passed
+          g.shadowBlur = 0; g.fillStyle = line; for (let j = 1; j < k; j++) { g.beginPath(); g.arc(t.pts[j][0], t.pts[j][1], 2.6, 0, 7); g.fill(); }
+          const done = fxEase((f - t.t0 - t.dur) / 12), [ex, ey] = t.pts[t.pts.length - 1];
+          if (p < 1) { g.globalAlpha = a; g.shadowBlur = 14; g.shadowColor = glo; g.fillStyle = hot; g.beginPath(); g.arc(hx, hy, 4, 0, 7); g.fill(); }
+          if (done > 0) { const r = 7 + 2 * Math.sin((f - t.t0 - t.dur) / 9) * (1 - done * 0.5); g.globalAlpha = a; g.shadowBlur = 16 * done; g.shadowColor = glo; g.fillStyle = line; g.beginPath(); g.arc(ex, ey, r * done, 0, 7); g.fill(); g.shadowBlur = 0; g.fillStyle = hot; g.beginPath(); g.arc(ex, ey, r * done * 0.42, 0, 7); g.fill();
+            const t2 = f - t.t0 - t.dur; if (t2 < 40) { g.globalAlpha = a * 0.5 * (1 - t2 / 40); g.strokeStyle = line; g.lineWidth = 2; g.beginPath(); g.arc(ex, ey, r + t2 * 0.9, 0, 7); g.stroke(); } }
+          // a second data packet runs up the finished trace
+          const q = (f - t.t0 - t.dur - 20) / 50; if (q > 0 && q < 1) { const D2 = q * t.L; let m = 1; while (m < t.pts.length - 1 && t.cum[m] < D2) m++; const [cx, cy] = t.pts[m - 1], [dx, dy] = t.pts[m], v = Math.min(1, (D2 - t.cum[m - 1]) / Math.max(1, t.cum[m] - t.cum[m - 1]));
+            g.globalAlpha = a * Math.sin(q * Math.PI); g.shadowBlur = 12; g.shadowColor = glo; g.fillStyle = hot; g.beginPath(); g.arc(cx + (dx - cx) * v, cy + (dy - cy) * v, 3.2, 0, 7); g.fill(); } }); }},
     tag: "A glowing circuit-board city where data pulses race along the traces and code brackets float"
   });
 
@@ -23196,10 +24226,19 @@ var MAJ_THEMES = [];
       en_nut: {d: hexD(9.6, 4)},
       en_bolt: {d: "M-5.5 -10H5.5V-5.5H-5.5Z M-2.4 -5.5H2.4V10H-2.4Z", detail: "M-2.4 -2.5L2.4 -1M-2.4 0.8L2.4 2.3M-2.4 4.1L2.4 5.6M-2.4 7.4L2.4 8.9", dstroke: true}
     },
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(16), "en_gear", d ? ["#F2A65A", "#E8C27A", "#C98A52"] : ["#C9782E", "#D9A441", "#9A6A3A"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 11, smax: 17}).map(p => Object.assign(p, {vr: fxR(-0.09, 0.09)}))
-      .concat(fxBurst(W, H, n(14), "en_nut", d ? ["#B8C2CC", "#E8EEF2"] : ["#8A97A3", "#B8C2CC"], [[0.2, 1.02], [0.8, 1.02]], {smin: 6, smax: 9}), fxBurst(W, H, n(8), "en_bolt", d ? ["#B8C2CC"] : ["#7E8B96", "#A3AEB8"], [[0.3, 1.02], [0.7, 1.02]], {smin: 8, smax: 11}),
-        fxRise(W, H, n(8), "en_gear", d ? ["#F2A65A", "#E8C27A"] : ["#C9782E", "#D9A441"], {smin: 9, smax: 14, vmin: 1, vmax: 1.8, sway: 0.5, life: 260}).map(p => Object.assign(p, {vr: fxR(-0.04, 0.04)})),
-        fxTw(W, H, n(16), "sparkle", d ? ["#FFE0A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    // two gear trains roll in from opposite corners and turn in mesh; a few nuts and bolts are tossed up and brass glints twinkle
+    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(10), "en_nut", d ? ["#B8C2CC", "#E8EEF2"] : ["#7E8B96", "#A3AEB8"], [[0.35, 1.02], [0.65, 1.02]], {smin: 8, smax: 11}).map(p => Object.assign(p, {delay: 20 + Math.floor(fxR(0, 30))}))
+      .concat(fxBurst(W, H, n(6), "en_bolt", d ? ["#C8D0D8"] : ["#7E8B96", "#A3AEB8"], [[0.4, 1.02], [0.6, 1.02]], {smin: 10, smax: 13}).map(p => Object.assign(p, {delay: 24 + Math.floor(fxR(0, 30))})),
+        fxTw(W, H, n(18), "sparkle", d ? ["#FFE0A8", "#FFFFFF"] : ["#E8A21C", "#F2C24A"], {smin: 3, smax: 7, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 180) / 60); if (a <= 0.01) return;
+        const k = Math.min(W, H) * 0.0125, cols = d ? ["#E89A4E", "#E8C27A", "#C98A52"] : ["#C9782E", "#D9A441", "#A8703A"];
+        const spin = 0.035 * (f - 60 * (1 - Math.exp(-f / 60))), sl = 1 - fxEase(f / 46);
+        // each train: corner, direction into the screen, and gears as [teeth, angle from the previous gear]
+        [[0, H, 1, -1, [[22, 0], [12, -0.5], [16, -1.25], [10, 0.1]]], [W, 0, -1, 1, [[22, 0], [12, 2.64], [16, 1.9], [10, 3.24]]]].forEach(([cx, cy, sx, sy, gs], ti) => {
+          let px = cx + sx * k * 8 - sx * sl * k * 40, py = cy + sy * k * 8 - sy * sl * k * 40, th = (ti ? -1 : 1) * spin, pn = 0;
+          gs.forEach(([nt, ang], i) => { let x = px, y = py; if (i) { const dist = (pn + nt) * k * 0.5; x = px + Math.cos(ang) * dist; y = py + Math.sin(ang) * dist; th = ang + Math.PI + Math.PI / nt - (th - ang) * pn / nt; }
+            g.save(); g.translate(x, y); g.rotate(th); g.globalAlpha = a; g.fillStyle = cols[(i + ti) % 3]; g.shadowBlur = d ? 10 : 6; g.shadowColor = d ? "rgba(0,0,0,.5)" : "rgba(90,50,10,.25)"; g.fill(enGear(nt, k), "evenodd"); g.restore(); px = x; py = y; pn = nt; }); }); }},
     tag: "A warm workshop wall with blueprints, turning brass gears and a truss bridge out the window"
   });
 
@@ -23214,11 +24253,30 @@ var MAJ_THEMES = [];
     shapes: {
       ed_apple: {d: "M0 -5.2C2.6 -7.4 8.4 -7.2 9 -1.4C9.6 4.6 5.4 9.8 2.4 9.8C1.4 9.8 0.8 9.2 0 9.2C-0.8 9.2 -1.4 9.8 -2.4 9.8C-5.4 9.8 -9.6 4.6 -9 -1.4C-8.4 -7.2 -2.6 -7.4 0 -5.2Z M-0.6 -5.6C-0.8 -8 0 -9.6 1.2 -10.6L2 -9.8C1 -8.8 0.6 -7.4 0.8 -5.6Z M1.6 -8.4C3 -10.6 6.4 -10.8 7.6 -9.8C6.4 -7.6 3.4 -7.2 1.6 -8.4Z", detail: "M-5.2 -2.6Q-5.8 0.6 -4 3.2", dstroke: true},
       ed_aplus: {d: "M-11 8L-6.4 -8L-1.8 8M-9.4 2.6H-3.4M4.6 -4.4V7.4M-1.2 1.5H10.4", stroke: true, lw: 2.4},
-      ed_pencil: {d: "M-10.6 3.2L5.2 3.2L10.8 0L5.2 -3.2L-10.6 -3.2Z", detail: "M5.2 -3.2L5.2 3.2M-7.6 -3.2V3.2M8.6 -1.2L10.8 0L8.6 1.2Z", dstroke: true}
+      ed_pencil: {d: "M-10.6 3.2L5.2 3.2L10.8 0L5.2 -3.2L-10.6 -3.2Z", detail: "M5.2 -3.2L5.2 3.2M-7.6 -3.2V3.2M8.6 -1.2L10.8 0L8.6 1.2Z", dstroke: true},
+      // gold star sticker with a white die-cut edge and a little smile
+      ed_star: {d: "M0 -11.4L3.4 -4.4L11 -3.4L5.4 1.8L6.8 9.4L0 5.8L-6.8 9.4L-5.4 1.8L-11 -3.4L-3.4 -4.4Z", paint: (g, col, dk) => { const s = new Path2D("M0 -9.4L2.7 -3.6L9 -2.8L4.4 1.5L5.6 7.8L0 4.8L-5.6 7.8L-4.4 1.5L-9 -2.8L-2.7 -3.6Z");
+        g.lineJoin = "round"; g.strokeStyle = "#FFFFFF"; g.lineWidth = 3.4; g.stroke(s); g.fillStyle = "#FFFFFF"; g.fill(s); g.fillStyle = col; g.fill(s); g.save(); g.clip(s); g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(-10, -10, 20, 7); g.restore();
+        g.fillStyle = fxShade(col, 0.45); g.beginPath(); g.arc(-1.8, -0.4, 0.8, 0, 7); g.arc(1.8, -0.4, 0.8, 0, 7); g.fill(); g.strokeStyle = g.fillStyle; g.lineWidth = 0.8; g.lineCap = "round"; g.beginPath(); g.arc(0, 0.8, 1.8, 0.4, 2.7); g.stroke(); }},
+      ed_apple2: {d: "M0 -5.2C2.6 -7.4 8.4 -7.2 9 -1.4C9.6 4.6 5.4 9.8 2.4 9.8C1.4 9.8 0.8 9.2 0 9.2C-0.8 9.2 -1.4 9.8 -2.4 9.8C-5.4 9.8 -9.6 4.6 -9 -1.4C-8.4 -7.2 -2.6 -7.4 0 -5.2Z", paint: (g, col, dk) => {
+        g.fillStyle = col; g.fill(new Path2D("M0 -5.2C2.6 -7.4 8.4 -7.2 9 -1.4C9.6 4.6 5.4 9.8 2.4 9.8C1.4 9.8 0.8 9.2 0 9.2C-0.8 9.2 -1.4 9.8 -2.4 9.8C-5.4 9.8 -9.6 4.6 -9 -1.4C-8.4 -7.2 -2.6 -7.4 0 -5.2Z")); g.fillStyle = "rgba(255,255,255,.4)"; g.beginPath(); g.ellipse(-4.6, -1.6, 1.6, 3, 0.3, 0, 7); g.fill();
+        g.fillStyle = "#7A4A26"; g.fill(new Path2D("M-0.6 -5.6C-0.8 -8 0 -9.6 1.2 -10.6L2 -9.8C1 -8.8 0.6 -7.4 0.8 -5.6Z")); g.fillStyle = "#6FB04A"; g.fill(new Path2D("M1.6 -8.4C3 -10.6 6.4 -10.8 7.6 -9.8C6.4 -7.6 3.4 -7.2 1.6 -8.4Z")); }}
     },
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "star", d ? ["#FFD86B", "#FFE9A8", "#F2B53A"] : ["#F2B53A", "#FFCF4A", "#E8A21C"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 12, glow: d ? 10 : 3})
-      .concat(fxBurst(W, H, n(8), "ed_apple", ["#D9473A", "#E8604A", "#7FB24A"], [[0.25, 1.02], [0.75, 1.02]], {smin: 10, smax: 14}), fxRise(W, H, n(3), "ed_aplus", d ? ["#FFFFFF", "#FFE9A8"] : ["#2F6B4F", "#C2463A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.6, sway: 0.6, life: 280, glow: d ? 10 : 0}),
-        fxRise(W, H, n(14), "heart", ["#FF8FB8", "#FF9C8C", "#FFD465"], {smin: 6, smax: 10, sway: 1.2}), fxBurst(W, H, n(10), "ed_pencil", ["#F2C14A", "#E8A21C"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}), fxTw(W, H, n(20), "sparkle", d ? ["#FFE9A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+
+    // the teacher's red pen writes a big A+ and rings it; gold star stickers and a few apples pop up from the desk
+    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(30), "ed_star", d ? ["#FFD24A", "#FFC23A", "#FFE07A"] : ["#F6B820", "#FFC93A", "#F2A81C"], [[0.12, 1.02], [0.88, 1.02]], {smin: 11, smax: 15, flip: true, g: 0.26}).map(p => Object.assign(p, {delay: 50 + Math.floor(fxR(0, 14)), term: fxR(2, 3), fsw: 1.2}))
+      .concat(fxBurst(W, H, n(6), "ed_apple2", ["#D9473A", "#E8604A", "#C83A30"], [[0.3, 1.02], [0.7, 1.02]], {smin: 12, smax: 15}).map(p => Object.assign(p, {delay: 56 + Math.floor(fxR(0, 10)), vr: fxR(-0.08, 0.08)})),
+        fxTw(W, H, n(16), "sparkle", d ? ["#FFE9A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 7, glow: d ? 10 : 4}).map(p => Object.assign(p, {delay: 40 + Math.floor(fxR(0, 110))}))),
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 180) / 60); if (a <= 0.01) return;
+        const s = Math.min(W * 0.5, H * 0.34, 300) / 120, ox = W / 2 - 60 * s, oy = H * (W < H ? 0.68 : 0.62) - 30 * s;
+        // strokes in a 120 x 60 box: A, its bar, the plus, then a loose ring around everything
+        const ring = []; for (let i = 0; i <= 40; i++) { const t = -2.2 + i / 40 * 6.9; ring.push([60 + Math.cos(t) * (74 + i * 0.25), 30 + Math.sin(t) * 46]); }
+        const S = [[[4, 60], [26, 0], [48, 60]], [[13, 38], [39, 38]], [[64, 30], [100, 29]], [[82, 12], [82, 48]], ring], D = [22, 8, 9, 9, 34];
+        g.lineCap = g.lineJoin = "round"; g.strokeStyle = d ? "#FF8A7A" : "#D23A32"; g.globalAlpha = a; g.shadowBlur = d ? 8 : 0; g.shadowColor = g.strokeStyle;
+        let t0 = 6; S.forEach((pts, i) => { const p = Math.min(1, Math.max(0, (f - t0) / D[i])); t0 += D[i] + 3; if (p <= 0) return; let L = 0; const seg = []; for (let j = 1; j < pts.length; j++) { const l = Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]); seg.push(l); L += l; }
+          let left = p * L; g.lineWidth = (i === 4 ? 3.2 : 5.5) * s; g.beginPath(); g.moveTo(ox + pts[0][0] * s, oy + pts[0][1] * s);
+          for (let j = 1; j < pts.length && left > 0; j++) { const u = Math.min(1, left / seg[j - 1]); g.lineTo(ox + (pts[j - 1][0] + (pts[j][0] - pts[j - 1][0]) * u) * s, oy + (pts[j - 1][1] + (pts[j][1] - pts[j - 1][1]) * u) * s); left -= seg[j - 1]; } g.stroke(); }); }},
     tag: "A sunny classroom with chalk doodles, paper chains, an apple on the desk and trees outside"
   });
 
@@ -23234,13 +24292,22 @@ var MAJ_THEMES = [];
       cm_mic: {d: "M-4.6 -6.4A4.6 4.6 0 0 1 4.6 -6.4V0.6A4.6 4.6 0 0 1 -4.6 0.6Z M-7.6 -0.4H-6.2A6.2 6.2 0 0 0 6.2 -0.4H7.6A7.6 7.6 0 0 1 0.7 7.2V9H3.6V10.6H-3.6V9H-0.7V7.2A7.6 7.6 0 0 1 -7.6 -0.4Z", detail: "M-4.6 -4.6H4.6M-4.6 -2.2H4.6", dstroke: true},
       cm_wave: {d: "M-11 0C-9 -6 -7 -6 -5.5 0S-2 6 0 0S3.5 -6 5.5 0S9 6 11 0", stroke: true, lw: 2},
       cm_bubble: {d: "M-10 -7A3 3 0 0 1 -7 -10H7A3 3 0 0 1 10 -7V2A3 3 0 0 1 7 5H-2L-7 10L-5.5 5H-7A3 3 0 0 1 -10 2Z", detail: "M0 2.6C-4.6 -0.6 -4.4 -4.8 -2 -5.4C-1 -5.6 -0.3 -5 0 -4.2C0.3 -5 1 -5.6 2 -5.4C4.4 -4.8 4.6 -0.6 0 2.6Z", dfill: true},
-      cm_bars: {d: "M-9 2H-6V10H-9Z M-4.5 -4H-1.5V10H-4.5Z M0 -9H3V10H0Z M4.5 -2H7.5V10H4.5Z"}
+      cm_bars: {d: "M-9 2H-6V10H-9Z M-4.5 -4H-1.5V10H-4.5Z M0 -9H3V10H0Z M4.5 -2H7.5V10H4.5Z"},
+      // live reactions: a colored disc with a white icon
+      cm_rh: {d: "M-9.4 0a9.4 9.4 0 1 0 18.8 0a9.4 9.4 0 1 0 -18.8 0Z", paint: (g, col) => cmR(g, col, "M0 5.6C-5.2 2.2 -6.6 -1 -5.8 -3.2C-5 -5.6 -1.6 -6 0 -3.2C1.6 -6 5 -5.6 5.8 -3.2C6.6 -1 5.2 2.2 0 5.6Z")},
+      cm_rl: {d: "M-9.4 0a9.4 9.4 0 1 0 18.8 0a9.4 9.4 0 1 0 -18.8 0Z", paint: (g, col) => cmR(g, col, "M-5.6 -0.6H-3V5.8H-5.6Z M-2 -0.8L0.8 -5.8C1.3 -6.6 2.9 -6.3 2.9 -5L2.5 -2H5.4C6.4 -2 7 -1.2 6.8 -0.2L5.8 4.6C5.6 5.4 5 5.8 4.2 5.8H-2Z")},
+      cm_rs: {d: "M-9.4 0a9.4 9.4 0 1 0 18.8 0a9.4 9.4 0 1 0 -18.8 0Z", paint: (g, col) => cmR(g, col, "M0 -6.4L1.8 -2.2L6.2 -1.9L2.8 1L3.9 5.4L0 3L-3.9 5.4L-2.8 1L-6.2 -1.9L-1.8 -2.2Z")},
+      cm_rn: {d: "M-9.4 0a9.4 9.4 0 1 0 18.8 0a9.4 9.4 0 1 0 -18.8 0Z", paint: (g, col) => cmR(g, col, "M-4.2 4.4C-4.2 3 -2.8 2 -1.2 2C-0.6 2 -0.2 2.1 0.2 2.3V-5.4L5.4 -6.6V2.8C5.4 4.2 4 5.2 2.4 5.2C0.8 5.2 0.2 4.2 0.4 3.4C0.4 2.4 1.6 1.6 3 1.6C3.4 1.6 3.8 1.7 4.1 1.8V-3.2L1.5 -2.6V4.4C1.5 5.8 0.1 6.8 -1.5 6.8C-3.1 6.8 -4.2 5.8 -4.2 4.4Z")}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(24), "note", d ? ["#FF9EA8", "#FFD08A", "#C9B8FF"] : ["#C23A4A", "#6A4FC9", "#E0883A"], {smin: 9, smax: 14, sway: 1.6, vmin: 1.4, vmax: 2.6})
-      .concat(fxRise(W, H, n(10), "cm_wave", d ? ["#FF9EA8", "#9FD8FF"] : ["#C23A4A", "#3D7AB8"], {smin: 12, smax: 18, sway: 0.8, vmin: 1, vmax: 1.8, life: 240, glow: d ? 10 : 0}),
-        fxRise(W, H, n(9), "cm_bubble", d ? ["#FF8FC0", "#8FF0E4", "#FFD27A"] : ["#FF4F9A", "#23B5A8", "#F5A623", "#8E6FE8"], {smin: 12, smax: 17, vmin: 1, vmax: 1.8, sway: 0.9, life: 260}),
-        fxBurst(W, H, n(6), "cm_mic", d ? ["#E8E2EE", "#C9C2D2"] : ["#4A4258", "#6A6278"], [[0.2, 1.02], [0.8, 1.02]], {smin: 12, smax: 16}), fxTw(W, H, n(18), "sparkle", d ? ["#FFD08A", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
-      draw: (g, f, W, H, d) => { [0, 22, 44].forEach(t0 => { const t = f - t0; if (t < 0 || t > 120) return; const r = 30 + t * Math.max(W, H) / 150, a = 1 - t / 120; g.save(); g.globalAlpha = a * (d ? 0.5 : 0.4); g.strokeStyle = d ? "#FF9EA8" : "#C23A4A"; g.lineWidth = 3; g.lineCap = "round"; [-1, 1].forEach(s => { g.beginPath(); g.arc(W / 2, H + 10, r, s < 0 ? Math.PI * 1.05 : Math.PI * 1.62, s < 0 ? Math.PI * 1.38 : Math.PI * 1.95); g.stroke(); }); g.restore(); }); }},
+
+    // a stream of live reactions (hearts, likes, stars, notes) floats up the side like a broadcast going viral, while signal rings pulse out from the mic
+    fx: {spawn: (W, H, d, n) => { const cols = {cm_rh: d ? "#FF6F9A" : "#F0466E", cm_rl: d ? "#4FA6FF" : "#2F7FE0", cm_rs: d ? "#FFB43A" : "#F29A18", cm_rn: d ? "#A884FF" : "#7A56E0"}, P = [];
+      for (let i = 0, N = n(34); i < N; i++) { const right = i % 3 !== 0, sh = fxPick(["cm_rh", "cm_rh", "cm_rl", "cm_rs", "cm_rn"]);
+        P.push({shape: sh, c: cols[sh], x: (right ? fxR(0.8, 0.92) : fxR(0.08, 0.2)) * W, y: H + fxR(10, 30), vx: (right ? -1 : 1) * fxR(0, 0.5), vy: -fxR(2, 3.2), g: 0, drag: 0.997, size: fxR(11, 15), rot: fxR(-0.2, 0.2), vr: 0, sway: fxR(1.2, 2.2), swf: fxR(0.03, 0.05), life: Math.floor(fxR(150, 200)), delay: Math.floor(i / N * 130 + fxR(0, 10)), glow: d ? 8 : 0, grow: 0.01}); }
+      return P.concat(fxTw(W, H, n(14), "sparkle", d ? ["#FFD08A", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4})); },
+      draw: (g, f, W, H, d) => { const out = 1 - fxEase((f - 150) / 50); if (out <= 0.01) return; g.lineCap = "round"; g.strokeStyle = d ? "#FF9EA8" : "#C23A4A"; g.lineWidth = 3;
+        for (let t0 = 0; t0 < 140; t0 += 26) { const t = f - t0; if (t < 0 || t > 110) continue; const r = 30 + t * Math.max(W, H) / 170, al = fxEase(t / 8) * (1 - t / 110); g.globalAlpha = out * al * (d ? 0.5 : 0.4);
+          [-1, 1].forEach(s => { g.beginPath(); g.arc(W / 2, H + 10, r, s < 0 ? Math.PI * 1.08 : Math.PI * 1.62, s < 0 ? Math.PI * 1.38 : Math.PI * 1.92); g.stroke(); }); } }},
     tag: "A cozy radio studio with a glowing ON AIR sign, a big microphone and the city skyline outside"
   });
 })();
@@ -23250,6 +24317,11 @@ var MAJ_THEMES = [];
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
+  // the signature flourish: a looping line across the lower page (u in 0..1), then an underline swash back
+  const wrPt = (u, W, H) => { const x0 = W * 0.12, L = W * 0.76, y0 = H * (W < H ? 0.7 : 0.72), r = Math.min(H * 0.07, L * 0.05);
+    if (u < 0.8) { const t = u / 0.8 * Math.PI * 8, aa = L / (Math.PI * 8); return [x0 + aa * t - r * 1.5 * Math.sin(t), y0 - r * 1.8 * (1 - Math.cos(t)) * (0.6 + 0.4 * Math.sin(t / 8))]; }
+    const v = (u - 0.8) / 0.2; return [x0 + L - L * 0.9 * v, y0 + r * 1.2 * Math.sin(v * Math.PI) * 0.6 + r * 0.5 * v]; };
+  const wrQ = new Path2D("M-9 11C-7 4 -3 -3 3 -8C6 -10.4 9 -11.4 11 -11.4C10.4 -8 8.6 -3.6 5 0C1.6 3.4 -3 5.6 -7 7.4L-9 11Z");
 
   /* Civic Square (Political Science and Law) */
   MAJ_THEMES.push({
@@ -23264,10 +24336,21 @@ var MAJ_THEMES = [];
       pennant: {d: "M-5 -10H5V9L0 5.2L-5 9Z", detail: "M-5 -6.6H5", dstroke: true},
       laurel: {d: "M-1 9C-6.4 7 -9 2.4 -8.4 -3.6L-6.8 -3.4C-7.2 1.6 -5 5.4 -0.4 7.4Z M1 9C6.4 7 9 2.4 8.4 -3.6L6.8 -3.4C7.2 1.6 5 5.4 0.4 7.4Z M-9.4 -5.4a1.6 3 -20 1 0 3.2 0a1.6 3 -20 1 0 -3.2 0Z M6.2 -5.4a1.6 3 20 1 0 3.2 0a1.6 3 20 1 0 -3.2 0Z M-9.6 1a1.4 2.8 -50 1 0 2.8 0a1.4 2.8 -50 1 0 -2.8 0Z M6.8 1a1.4 2.8 50 1 0 2.8 0a1.4 2.8 50 1 0 -2.8 0Z M-6.6 5.4a1.3 2.6 -70 1 0 2.6 0a1.3 2.6 -70 1 0 -2.6 0Z M4 5.4a1.3 2.6 70 1 0 2.6 0a1.3 2.6 70 1 0 -2.6 0Z"}
     },
-    fx: {spawn: (W, H, d, n) => {
-      return fxRise(W, H, n(14), "balloon", d ? ["#FF8FA8", "#7EC8F8", "#FFD45E", "#8FE0A8", "#C9A0FF"] : ["#FF6F91", "#4FB4F0", "#FFC93C", "#5FD08A", "#A88BF5"], {smin: 12, smax: 18, vmin: 1.3, vmax: 2.4, sway: 1, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.12, 0.12)})).concat(fxBurst(W, H, n(26), "pennant", d ? ["#E9949A", "#8FB8E0", "#F0CC7A", "#9CCBA6"] : ["#E07A70", "#5E9CCB", "#E8B440", "#6FAF82"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, flip: true}),
-          fxTw(W, H, n(22), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#FFD86B"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4}));
-    }},
+    // two strings of festival bunting drop in from the top and swing to rest, while balloons rise past the courthouse
+    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "balloon", d ? ["#FF8FA8", "#7EC8F8", "#FFD45E", "#8FE0A8", "#C9A0FF"] : ["#FF6F91", "#4FB4F0", "#FFC93C", "#5FD08A", "#A88BF5"], {smin: 15, smax: 20, vmin: 1.3, vmax: 2.2, sway: 1, life: 300, spread: 60, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.12, 0.12), delay: p.delay + 20}))
+      .concat(fxTw(W, H, n(18), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#FFD86B"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 6) * (1 - fxEase((f - 180) / 60)); if (a <= 0.01) return;
+        const cols = d ? ["#F07A80", "#7EB8F0", "#F6CC5A", "#7ED0A0", "#C9A0FF"] : ["#E0544A", "#3C8AD8", "#F2B23A", "#3FA868", "#8A6AE0"], fl = Math.max(16, Math.min(W, H) * 0.045);
+        g.globalAlpha = a; g.lineCap = g.lineJoin = "round";
+        [[-0.02, 0.02, 0.64, -0.02, 0.17, 0], [0.36, -0.02, 1.02, 0.04, 0.15, 10]].forEach(([x0, y0, x1, y1, sag, t0], si) => {
+          const t = Math.max(0, f - t0), drop = (1 - Math.exp(-t / 9) * Math.cos(t / 7)) , dy = -H * 0.3 * (1 - Math.min(1.08, drop)), A = [x0 * W, y0 * H + dy], B = [x1 * W, y1 * H + dy], s = sag * H;
+          const P = u => [A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u + s * 4 * u * (1 - u)];
+          g.strokeStyle = d ? "rgba(240,230,210,.7)" : "rgba(90,70,50,.6)"; g.lineWidth = 1.6; g.beginPath(); for (let i = 0; i <= 30; i++) { const [x, y] = P(i / 30); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+          const len = Math.hypot(B[0] - A[0], B[1] - A[1]), N = Math.floor(len / (fl * 1.35));
+          for (let i = 0; i < N; i++) { const u0 = (i + 0.1) / N, u1 = (i + 0.9) / N, [ax, ay] = P(u0), [bx, by] = P(u1), sw = Math.sin(f * 0.07 + i * 0.9 + si) * 0.16 * Math.exp(-t / 120) + Math.sin(f * 0.03 + i) * 0.05, mx = (ax + bx) / 2, my = (ay + by) / 2, ang = Math.atan2(by - ay, bx - ax) + sw;
+            g.save(); g.translate(mx, my); g.rotate(ang); const hw = Math.hypot(bx - ax, by - ay) / 2; g.fillStyle = cols[(i + si * 2) % cols.length]; g.beginPath(); g.moveTo(-hw, 0); g.lineTo(hw, 0); g.lineTo(0, fl * 1.25); g.closePath(); g.fill();
+            g.fillStyle = "rgba(255,255,255,.22)"; g.beginPath(); g.moveTo(-hw, 0); g.lineTo(0, 0); g.lineTo(0, fl * 1.25); g.closePath(); g.fill(); g.restore(); } }); }},
     tag: "A festival square before a domed courthouse, with kites, balloons and bunting"
   });
 
@@ -23285,12 +24368,28 @@ var MAJ_THEMES = [];
       fingerprint: {d: "M0 -10A8 10 0 0 1 8 0V3A8 10 0 0 1 -8 3V0A8 10 0 0 1 0 -10Z", detail: "M0 -7A5.4 7 0 0 1 5.4 0V2.6M-5.4 2.6V0A5.4 7 0 0 1 2 -6.6M0 -4A2.6 4 0 0 1 2.6 0V5M-2.6 5V0A2.6 4 0 0 1 0 -4M0 -1V8", dstroke: true},
       qmark: {d: "M-4.6 -4.2C-4.6 -8.6 -1.8 -10.6 1 -10.6C4.4 -10.6 6.4 -8.2 6.4 -5.6C6.4 -2.4 4 -1.4 2.4 -0.2C1.6 0.4 1.4 1.4 1.4 2.6H-1.8C-1.8 0.4 -1.2 -0.8 0.6 -2.2C2 -3.2 3.2 -3.8 3.2 -5.6C3.2 -6.8 2.4 -7.8 0.9 -7.8C-0.6 -7.8 -1.4 -6.6 -1.4 -4.2Z M-2 5.2H1.6V8.8H-2Z"}
     },
-    fx: {spawn: (W, H, d, n) => {
-      const papers = fxFall(W, H, n(22), "clue", d ? ["#F8E07C", "#F6B6BE", "#B8D4EA", "#FBF7EE"] : ["#F4D660", "#F2A2AC", "#9CC2E2", "#FFFFFF"], {vmin: 1, vmax: 2, sway: 1.6, smin: 9, smax: 13});
-      return papers.concat(fxRise(W, H, n(6), "magnifier", d ? ["#F2A070", "#E8C890"] : ["#8A5A3A", "#B23A30"], {cx: [0.1, 0.9], smin: 10, smax: 15, vmin: 1.2, vmax: 2, sway: 0.8, life: 240, glow: d ? 10 : 0}),
-        fxBurst(W, H, n(10), "fingerprint", d ? ["#F07A5E", "#E8C890"] : ["#B23A30", "#8A5A3A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 8, smax: 12}),
-        fxTw(W, H, n(18), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#F2C24A"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4}));
-    }},
+    // red string links four pinned clues, then a big CASE CLOSED stamp thumps down in the middle and the case notes flutter off the board
+    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(18), "clue", d ? ["#F8E07C", "#F6B6BE", "#B8D4EA", "#FBF7EE"] : ["#F4D660", "#F2A2AC", "#9CC2E2", "#FFFFFF"], {vmin: 0.8, vmax: 1.6, sway: 1.6, smin: 10, smax: 14, rock: 0.5, spread: 70}).map(p => Object.assign(p, {delay: p.delay + 44}))
+      .concat(fxBurst(W, H, n(8), "fingerprint", d ? ["#F07A5E", "#E8C890"] : ["#B23A30", "#8A5A3A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 12}).map(p => Object.assign(p, {delay: 40 + Math.floor(fxR(0, 10))})),
+        fxTw(W, H, n(14), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#F2C24A"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 6) * (1 - fxEase((f - 180) / 60)); if (a <= 0.01) return;
+        const cx = W / 2, cy = H * 0.72, bw = Math.min(W * 0.72, 380), bh = bw * 0.32, ink = d ? "#FF6A5E" : "#C42E26";
+        // pins and red string
+        const pins = [[cx - bw * 0.6, cy - bh * 1.05], [cx + bw * 0.56, cy - bh * 1.2], [cx + bw * 0.62, cy + bh * 1.05], [cx - bw * 0.54, cy + bh * 1.15]];
+        g.lineCap = "round"; g.globalAlpha = a; g.strokeStyle = d ? "#FF5A5A" : "#C8282E"; g.lineWidth = 2;
+        for (let i = 0; i < 4; i++) { const p = fxEase((f - 4 - i * 7) / 9); if (p <= 0) break; const [x0, y0] = pins[i], [x1, y1] = pins[(i + 1) % 4]; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo((x0 + x1) / 2, (y0 + y1) / 2 + 14, x0 + (x1 - x0) * p, y0 + (y1 - y0) * p + 14 * Math.sin(Math.PI * p) * 0.5); g.stroke(); }
+        pins.forEach(([x, y], i) => { const p = fxEase((f - i * 7) / 6); if (p <= 0) return; g.fillStyle = "rgba(0,0,0,.25)"; g.beginPath(); g.arc(x + 2, y + 2, 6 * p, 0, 7); g.fill(); g.fillStyle = ["#E0463C", "#3D7BE0", "#F2B53A", "#2E9E5B"][i]; g.beginPath(); g.arc(x, y, 6 * p, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,.6)"; g.beginPath(); g.arc(x - 2, y - 2, 2 * p, 0, 7); g.fill(); });
+        // the stamp drops from above and lands at f = 40 with a small squash
+        const t = f - 30; if (t <= 0) return; const land = Math.min(1, t / 10), sc = 1 + 0.9 * Math.pow(1 - land, 2) - 0.05 * Math.sin(Math.min(1, Math.max(0, (t - 10) / 10)) * Math.PI);
+        g.save(); g.translate(cx, cy); g.rotate(-0.1); g.scale(sc, sc); g.globalAlpha = a * (0.25 + 0.65 * land); g.strokeStyle = ink; g.fillStyle = ink;
+        g.lineWidth = Math.max(3, bh * 0.07); g.lineJoin = "round"; g.strokeRect(-bw / 2, -bh / 2, bw, bh); g.lineWidth = Math.max(1.5, bh * 0.03); g.strokeRect(-bw / 2 + bh * 0.11, -bh / 2 + bh * 0.11, bw - bh * 0.22, bh * 0.78);
+        let fs = bh * 0.5; g.font = `900 ${fs}px "Arial Black", Impact, system-ui, sans-serif`; const tw = g.measureText("CASE CLOSED").width; if (tw > bw * 0.84) { fs *= bw * 0.84 / tw; g.font = `900 ${fs}px "Arial Black", Impact, system-ui, sans-serif`; }
+        g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("CASE CLOSED", 0, bh * 0.03);
+        // worn ink: a few gaps knocked out of the print
+        g.globalCompositeOperation = "destination-out"; g.globalAlpha = 0.5; for (let i = 0; i < 14; i++) { const u = Math.sin(i * 12.9898) * 43758.5453, v = u - Math.floor(u), w = Math.sin(i * 78.233) * 12345.678, z = w - Math.floor(w); g.beginPath(); g.ellipse((v - 0.5) * bw, (z - 0.5) * bh, bh * 0.08, bh * 0.03, v * 3, 0, 7); g.fill(); }
+        g.restore();
+        if (t > 9 && t < 40) { const q = (t - 9) / 31; g.globalAlpha = a * 0.45 * (1 - q); g.strokeStyle = ink; g.lineWidth = 2; for (let i = 0; i < 10; i++) { const an = i / 10 * Math.PI * 2, r0 = bw * 0.52 + q * 30, r1 = r0 + 14; g.beginPath(); g.moveTo(cx + Math.cos(an) * r0, cy + Math.sin(an) * r0 * 0.45); g.lineTo(cx + Math.cos(an) * r1, cy + Math.sin(an) * r1 * 0.45); g.stroke(); } } }},
     tag: "Neon rain, fairy lights and a corkboard of clues tied with red string in a cozy detective office"
   });
 
@@ -23308,12 +24407,21 @@ var MAJ_THEMES = [];
       letter: {d: "M-10 -7H10V7H-10Z", detail: "M-10 -7L0 1L10 -7", dstroke: true},
       inkdrop: {d: "M0 -10C3.5 -4 6.5 0 6.5 3.5A6.5 6.5 0 0 1 -6.5 3.5C-6.5 0 -3.5 -4 0 -10Z"}
     },
-    fx: {spawn: (W, H, d, n) => {
-      const birds = Array.from({length: n(12)}, () => { const sp = fxR(2.4, 3.6), a = -fxR(0.4, 0.85);
-        return {shape: "paperbird", c: fxPick(d ? ["#F6F0E6", "#E8DCC4", "#F6CF94"] : ["#FFFFFF", "#F4EDE0", "#E8DCC8"]), x: fxR(-60, W * 0.6), y: H + fxR(10, 80), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0, size: fxR(15, 22), rot: a * 0.5, vr: 0, sway: 0.5, swf: 0.05, life: 260, delay: Math.floor(fxR(0, 70)), glow: d ? 6 : 0}; });
-      return birds.concat(fxRise(W, H, n(26), "letter", d ? ["#F6CF94", "#E0D6EA"] : ["#A8553A", "#4A6A5A", "#C0703E"], {smin: 6, smax: 9, vmin: 1.2, vmax: 2.2, sway: 1, life: 220}).map(p => Object.assign(p, {rot: fxR(-0.4, 0.4), vr: fxR(-0.02, 0.02)})),
-        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#F2C24A"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4}));
-    }},
+    // a quill signs a looping flourish across the page; as the ink dries, paper birds lift off the line and fly away
+    fx: {spawn: (W, H, d, n) => { const P = [], N = n(12);
+      for (let i = 0; i < N; i++) { const u = (i + fxR(0.2, 0.8)) / N, [x, y] = wrPt(u, W, H), sp = fxR(2.2, 3.2), an = -fxR(0.5, 1.1), lr = fxR(0, 1) < 0.7 ? 1 : -1;
+        P.push({shape: "paperbird", c: fxPick(d ? ["#F6F0E6", "#E8DCC4", "#F6CF94", "#A8C8F0"] : ["#4F7FC4", "#E2765A", "#3F9A80", "#F2B53A"]), x, y: y - 8, vx: lr * Math.cos(an) * sp, vy: Math.sin(an) * sp, g: -0.006, drag: 0.998, size: fxR(16, 21), face: true, wig: 0.06, rot: 0, vr: 0, sway: 0.6, swf: 0.05, life: 170, delay: Math.round(18 + u * 80 + fxR(10, 26)), glow: d ? 6 : 3}); }
+      return P.concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#F2C24A"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4})); },
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 175) / 60); if (a <= 0.01) return;
+        const p = Math.min(1, Math.max(0, (f - 8) / 92)), M = 160, k = Math.floor(p * M), ink = d ? "#F6D9A0" : "#24304E";
+        g.lineCap = g.lineJoin = "round"; g.strokeStyle = ink; g.globalAlpha = a; g.shadowBlur = d ? 6 : 0; g.shadowColor = ink;
+        let [px, py] = wrPt(0, W, H); for (let i = 1; i <= k; i++) { const [x, y] = wrPt(i / M, W, H); g.lineWidth = 1.4 + 2.2 * Math.abs(Math.sin(Math.atan2(y - py, x - px) + 0.6)); g.beginPath(); g.moveTo(px, py); g.lineTo(x, y); g.stroke(); px = x; py = y; }
+        const [hx, hy] = wrPt(p, W, H); g.lineTo(hx, hy);
+        // the quill rides the tip of the line and lifts away once it is done
+        const off = fxEase((f - 100) / 30), qa = a * (1 - off); if (qa <= 0.01) return;
+        const s = Math.max(2.2, Math.min(W, H) * 0.006); g.save(); g.shadowBlur = 0; g.globalAlpha = qa; g.translate(hx + 9 * s + off * 40, hy - 11 * s - off * 50); g.scale(s, s);
+        g.fillStyle = d ? "#F4EEE2" : "#FFFFFF"; g.strokeStyle = d ? "#C9B89A" : "#8A7A66"; g.lineWidth = 0.6; g.fill(wrQ); g.stroke(wrQ); g.beginPath(); g.moveTo(-8.4, 10.4); g.bezierCurveTo(-3, 3, 3, -3.6, 10, -10.6); g.stroke(); g.restore(); }},
     tag: "A storybook writing nook where a quill writes by itself and letters drift up like dust motes"
   });
 })();
@@ -23323,6 +24431,16 @@ var MAJ_THEMES = [];
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
+  // golden rectangle cut into Fibonacci squares, biggest first; each square carries a quarter arc of the spiral.
+  // Returns squares [x, y, side, arc center x, arc center y, start angle] and the spiral's inner end point
+  const mtRect = (W, H) => { const ph = 1.618, tall = H > W; let w = Math.min(W * 0.86, H * 0.8 * (tall ? 1 / ph : ph)), h = tall ? w * ph : w / ph; if (h > H * 0.8) { h = H * 0.8; w = tall ? h / ph : h * ph; }
+    let x = (W - w) / 2, y = (H - h) / 2 + H * 0.04; const sq = []; let ex = 0, ey = 0;
+    for (let i = 0; i < 9; i++) { const k = (i + (tall ? 1 : 0)) % 4;
+      if (k === 0) { const s = h; sq.push([x, y, s, x + s, y + s, Math.PI]); x += s; w -= s; ex = x; ey = y; }
+      else if (k === 1) { const s = w; sq.push([x, y, s, x, y + s, -Math.PI / 2]); y += s; h -= s; ex = x + s; ey = y; }
+      else if (k === 2) { const s = h; sq.push([x + w - s, y, s, x + w - s, y, 0]); w -= s; ex = x + w; ey = y + s; }
+      else { const s = w; sq.push([x, y + h - s, s, x + s, y + h - s, Math.PI / 2]); h -= s; ex = x; ey = y + h; } }
+    return {sq, ex, ey}; };
 
   /* Concert Hall (Music) */
   MAJ_THEMES.push({
@@ -23332,9 +24450,26 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#EAD3BE,#F1DFCB 50%,#E6C9AE)", "linear-gradient(180deg,#140A16,#22101E 45%,#2E1520)"],
       spine: [lg("#9A2C3A", "#6E1C28"), lg("#3A1420", "#1C0A10")], btn: [lg2("#A8303E", "#B8562E"), lg2("#F0C27A", "#F5D49A")]},
     kit: {motif: "note", card: ["#FFFAF5", "#F5E4DC"], ink: "#2E1418", bd: "#E6C8C4", mc: "#A8303E", r: 14, notes: ["#F2D6D8"].concat(NOTES), shape: "lined", pin: "gold", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(46), "note", d ? ["#FFD27A", "#FF9CC8", "#8FE0FF", "#C8A8FF", "#9CF0C0"] : ["#E8457A", "#F0A020", "#2EB8B0", "#7C6CE0", "#4E9CE8"], {smin: 10, smax: 16, sway: 1.8, vmin: 1.4, vmax: 2.8, glow: d ? 8 : 0})
-      .concat(fxRise(W, H, n(8), "balloon", ["#FF6FA8", "#FFC94A", "#5ED6C4", "#7EB6FF", "#B88CFF"], {smin: 14, smax: 20, vmin: 1, vmax: 1.8, sway: 1, life: 300}).map(p => Object.assign(p, {rot: fxR(-0.15, 0.15)})),
-        fxFall(W, H, n(50), "confetti", ["#FF6FA8", "#FFC94A", "#5ED6C4", "#7EB6FF", "#B88CFF"], {sway: 1.6, flip: true, smin: 5, smax: 8}), fxTw(W, H, n(20), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8A93A", "#F2C24A"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    shapes: {
+      // a long-stemmed rose thrown to the stage, bloom up
+      cn_rose: {d: "M-1 -4.6C-5.6 -5 -6.6 -9.4 -3.4 -10.6C-1.6 -11.4 0.4 -10.6 1 -9.6C2.4 -11 5.6 -10.4 5.6 -7.6C5.6 -5.4 3.2 -4.4 1 -4.4L0.8 10.6H-0.6Z", paint: (g, col, dk) => {
+        g.strokeStyle = "#3E8A4A"; g.lineWidth = 1.3; g.lineCap = "round"; g.beginPath(); g.moveTo(0.2, -4); g.quadraticCurveTo(-0.8, 3, 0.4, 11); g.stroke();
+        g.fillStyle = "#4FA25A"; g.beginPath(); g.ellipse(-2.6, 3.4, 2.8, 1.2, 0.6, 0, 7); g.fill(); g.beginPath(); g.ellipse(2.8, 6.2, 2.6, 1.1, -0.6, 0, 7); g.fill();
+        g.fillStyle = "#3E8A4A"; g.beginPath(); g.moveTo(-3.6, -5); g.lineTo(0.2, -3); g.lineTo(3.8, -5); g.lineTo(0.2, -5.8); g.fill();
+        g.fillStyle = fxShade(col, 0.78); g.beginPath(); g.arc(0.2, -8, 4.8, 0, 7); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(-1, -8.6, 3.6, 0, 7); g.arc(1.8, -8.4, 3.2, 0, 7); g.fill();
+        g.strokeStyle = fxShade(col, 0.6); g.lineWidth = 0.8; g.beginPath(); g.arc(0.2, -8.6, 1.6, 0.5, 5.4); g.stroke(); g.beginPath(); g.arc(0.2, -8.4, 3.2, 3.6, 5.6); g.stroke(); }}
+    },
+    // stage spotlights sweep across the hall while roses are thrown up from the crowd and notes drift up into the light
+    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(16), "cn_rose", d ? ["#FF4F6E", "#FF7A9A", "#E0304E"] : ["#D8243E", "#E8455E", "#C01A36"], [[0.08, 1.02], [0.92, 1.02], [0.3, 1.04], [0.7, 1.04]], {smin: 17, smax: 21, g: 0.26}).map(p => Object.assign(p, {vr: fxR(-0.12, 0.12), delay: 24 + Math.floor(fxR(0, 50))}))
+      .concat(fxRise(W, H, n(22), "note", d ? ["#FFD27A", "#FF9CC8", "#8FE0FF", "#C8A8FF"] : ["#A8303E", "#C9862A", "#6A4FC9"], {smin: 10, smax: 14, sway: 1.6, vmin: 1.4, vmax: 2.4, spread: 80, glow: d ? 8 : 0}),
+        fxTw(W, H, n(18), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8A93A", "#F2C24A"], {smin: 3, smax: 7, top: 0.6, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 30) * (1 - fxEase((f - 170) / 70)); if (a <= 0.01) return;
+        if (d) g.globalCompositeOperation = "lighter";
+        [[0.12, "255,214,140", 0, 1], [0.5, "255,170,200", 1.7, -1], [0.88, "170,210,255", 3.1, 1]].forEach(([x0, rgb, ph, dir]) => {
+          const ang = dir * 0.42 * Math.sin(f * 0.022 + ph) + (0.5 - x0) * 0.9, L = Math.hypot(W, H) * 1.05, sp = 0.13, X = x0 * W, Y = -20;
+          const ex = X + Math.sin(ang) * L, ey = Y + Math.cos(ang) * L, gr = g.createLinearGradient(X, Y, ex, ey); gr.addColorStop(0, `rgba(${rgb},${d ? 0.34 : 0.4})`); gr.addColorStop(0.7, `rgba(${rgb},${d ? 0.1 : 0.14})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+          g.globalAlpha = a * (d ? 0.6 : 0.55); g.fillStyle = gr; g.beginPath(); g.moveTo(X - 6, Y); g.lineTo(X + Math.sin(ang - sp) * L, Y + Math.cos(ang - sp) * L); g.lineTo(X + Math.sin(ang + sp) * L, Y + Math.cos(ang + sp) * L); g.lineTo(X + 6, Y); g.fill(); }); }},
     tag: "A concert hall where a conductor leads the show under rainbow stage lights, fairy lights and a twirling mirror ball"
   });
 
@@ -23351,14 +24486,28 @@ var MAJ_THEMES = [];
       trophy: {d: "M-7 -10H7V-4C7 0 4 3 1.4 3.6V6H4.4V9.6H-4.4V6H-1.4V3.6C-4 3 -7 0 -7 -4Z M6.6 -8.6H10.4C10.4 -4 9 -2 6.2 -1.2L6.6 -2.8C8.2 -3.4 8.8 -5 8.8 -7H6.6Z M-6.6 -8.6H-10.4C-10.4 -4 -9 -2 -6.2 -1.2L-6.6 -2.8C-8.2 -3.4 -8.8 -5 -8.8 -7H-6.6Z", detail: "M-3 -6.4L3 -6.4", dstroke: true},
       whistle: {d: "M-10 1a5.6 5.6 0 1 0 11.2 0a5.6 5.6 0 1 0 -11.2 0Z M-1.6 -4.6H10.6V0.4H-1.6Z", detail: "M-6.2 1a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0 -3.6 0Z", dfill: true},
       bball: {d: "M-9.6 0a9.6 9.6 0 1 0 19.2 0a9.6 9.6 0 1 0 -19.2 0Z", detail: "M-9.6 0H9.6M0 -9.6V9.6M-6.8 -6.8C-3.2 -3 -3.2 3 -6.8 6.8M6.8 -6.8C3.2 -3 3.2 3 6.8 6.8", dstroke: true},
-      medal: {d: "M-4.6 -11H-1.2L1.6 -3.4H-1.6Z M4.6 -11H1.2L-1.6 -3.4H1.6Z M-6.4 3.2a6.4 6.4 0 1 0 12.8 0a6.4 6.4 0 1 0 -12.8 0Z", detail: "M-3.8 3.2a3.8 3.8 0 1 0 7.6 0a3.8 3.8 0 1 0 -7.6 0", dstroke: true}
+      medal: {d: "M-4.6 -11H-1.2L1.6 -3.4H-1.6Z M4.6 -11H1.2L-1.6 -3.4H1.6Z M-6.4 3.2a6.4 6.4 0 1 0 12.8 0a6.4 6.4 0 1 0 -12.8 0Z", detail: "M-3.8 3.2a3.8 3.8 0 1 0 7.6 0a3.8 3.8 0 1 0 -7.6 0", dstroke: true},
+      // a medal on a striped ribbon: the disc takes the color (gold, silver, bronze)
+      tk_medal: {d: "M-4.6 -11H-1.2L1.6 -3.4H-1.6Z M4.6 -11H1.2L-1.6 -3.4H1.6Z M-6.4 3.2a6.4 6.4 0 1 0 12.8 0a6.4 6.4 0 1 0 -12.8 0Z", paint: (g, col) => {
+        g.fillStyle = "#2F64C0"; g.beginPath(); g.moveTo(-6, -11.4); g.lineTo(-1.8, -11.4); g.lineTo(1.4, -2.6); g.lineTo(-2.4, -2.6); g.fill(); g.fillStyle = "#E0504A"; g.beginPath(); g.moveTo(6, -11.4); g.lineTo(1.8, -11.4); g.lineTo(-1.4, -2.6); g.lineTo(2.4, -2.6); g.fill();
+        g.fillStyle = fxShade(col, 0.82); g.beginPath(); g.arc(0, 3.6, 7, 0, 7); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(-0.3, 3.3, 5.8, 0, 7); g.fill();
+        g.fillStyle = fxShade(col, 0.7); g.fill(new Path2D("M-0.3 -0.4L0.8 2L3.4 2.2L1.4 3.9L2.1 6.4L-0.3 5L-2.7 6.4L-2 3.9L-4 2.2L-1.4 2Z")); g.fillStyle = "rgba(255,255,255,.5)"; g.beginPath(); g.ellipse(-2.8, 0.8, 1.6, 0.8, -0.7, 0, 7); g.fill(); }}
     },
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(50), "confetti", ["#E0504A", "#3E74D0", "#F2C230", d ? "#FFFFFF" : "#2E9E6A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 5, smax: 8, flip: true})
-      .concat(fxBurst(W, H, n(8), "medal", ["#F2C24A", "#E8B23A", "#C9CED6", "#D08A4A"], [[0.3, 1.02], [0.7, 1.02]], {smin: 12, smax: 16, glow: d ? 10 : 0}),
-        fxBurst(W, H, n(4), "trophy", ["#F2C24A", "#E8B23A"], [[0.5, 1.04]], {smin: 15, smax: 19, glow: d ? 12 : 4}),
-        fxFall(W, H, n(5), "bball", ["#E8803A", "#F08A3A"], {vmin: 3, vmax: 5, sway: 0, smin: 13, smax: 17}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})),
-        fxFall(W, H, n(3), "ball", ["#3E74D0", "#E0504A", "#2E9E6A"], {vmin: 3, vmax: 5, sway: 0, smin: 13, smax: 17}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})),
-        fxRise(W, H, n(5), "whistle", d ? ["#C9CED6", "#F2C24A"] : ["#8A94A6", "#E8B23A"], {smin: 11, smax: 15, vmin: 1.6, vmax: 2.6}).map(p => Object.assign(p, {rot: fxR(-0.4, 0.4)})))},
+
+    // the finish tape stretches, snaps in the middle and the two ends whip away; confetti bursts from the break and medals spin down
+    fx: {spawn: (W, H, d, n) => { const y = H * 0.6 / H; return fxBurst(W, H, n(60), "confetti", ["#E0504A", "#3E74D0", "#F2C230", d ? "#FFFFFF" : "#2E9E6A"], [[0.5, y]], {smin: 6, smax: 9, flip: true, g: 0.14}).map(p => { const an = fxR(0, 6.3), sp = fxR(3, 10); return Object.assign(p, {vx: Math.cos(an) * sp * 1.2, vy: Math.sin(an) * sp - 3, delay: 28 + Math.floor(fxR(0, 6))}); })
+      .concat(fxFall(W, H, n(10), "tk_medal", ["#F2C24A", "#F6CE5A", "#C9CED6", "#D08A4A"], {smin: 13, smax: 17, vmin: 1.4, vmax: 2.2, rock: 0.5, sway: 1, spread: 50}).map(p => Object.assign(p, {delay: p.delay + 40})),
+        fxTw(W, H, n(14), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 7, glow: d ? 10 : 4})); },
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 6) * (1 - fxEase((f - 170) / 60)); if (a <= 0.01) return;
+        const y = H * 0.6, tb = 28, lw = Math.max(6, Math.min(W, H) * 0.012); g.lineCap = "round";
+        const band = (pts) => { [[d ? "#FF6A5E" : "#E0443C", lw], ["rgba(255,255,255,.5)", lw * 0.28]].forEach(([c, w], j) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); pts.forEach(([x, yy], i) => { const o = j ? -lw * 0.2 : 0; i ? g.lineTo(x, yy + o) : g.moveTo(x, yy + o); }); g.stroke(); }); };
+        g.globalAlpha = a; g.fillStyle = d ? "#D8DEE8" : "#5E6878"; [[W * 0.04], [W * 0.96]].forEach(([x]) => { g.fillRect(x - 3, y - lw * 2, 6, H - y + lw * 2); g.beginPath(); g.arc(x, y - lw * 2, 5, 0, 7); g.fill(); });
+        if (f < tb) { const push = fxEase(f / tb) * H * 0.05, pts = []; for (let i = 0; i <= 40; i++) { const u = i / 40, x = W * (0.04 + 0.92 * u); pts.push([x, y - push * Math.exp(-Math.pow((u - 0.5) * 6, 2))]); } band(pts); return; }
+        // after the snap each half is a whip: anchored at its post, the free end swings out and down and settles
+        const t = f - tb; [-1, 1].forEach(s => { const ax = s < 0 ? W * 0.04 : W * 0.96, half = W * 0.46, sw = Math.exp(-t / 36), ang = Math.min(1.5, (1 - sw * Math.cos(t / 10)) * 1.3), pts = [];
+          for (let i = 0; i <= 24; i++) { const u = i / 24, r = half * u, bend = Math.sin(u * Math.PI) * half * 0.08 * Math.sin(t / 10) * sw, wv = Math.sin(t * 0.35 - u * 7) * 5 * u * sw; pts.push([ax - s * Math.cos(ang) * r + Math.sin(ang) * (bend + wv) * -s, y + Math.sin(ang) * r + Math.cos(ang) * (bend + wv)]); } band(pts); });
+        if (t < 30) { g.globalAlpha = a * 0.5 * (1 - t / 30); g.strokeStyle = d ? "#FFE3A8" : "#F2B53A"; g.lineWidth = 2.5; for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2 + 0.2, r0 = 10 + t * 2.4; g.beginPath(); g.moveTo(W / 2 + Math.cos(an) * r0, y + Math.sin(an) * r0); g.lineTo(W / 2 + Math.cos(an) * (r0 + 16), y + Math.sin(an) * (r0 + 16)); g.stroke(); } } }},
     tag: "A golden-hour stadium with a running track, a marked football and soccer field, a high jump and a big scoreboard"
   });
 
@@ -23373,13 +24522,32 @@ var MAJ_THEMES = [];
     shapes: {
       spiral: {d: "M0.6 -0.4A1.1 1.1 0 0 0 -1.4 0.6A2.6 2.6 0 0 0 2.4 2A4.4 4.4 0 0 0 0.4 -5.6A7.2 7.2 0 0 0 -7.4 2.6A10.6 10.6 0 0 0 6.6 9.6", stroke: true, lw: 1.8},
       cube3: {d: "M0 -10L8.7 -5V5L0 10L-8.7 5V-5Z", detail: "M-8.7 -5L0 0L8.7 -5M0 0V10", dstroke: true},
-      pisym: {d: "M-9 -6.6C-4 -8.4 4 -8.6 9.4 -7.4L9 -4.6C7.6 -4.9 5.8 -5 4.4 -5C4.2 -1 4.2 4 6.8 6.6C7.6 7.4 8.6 7.2 9.2 6.4L10 7.6C8.8 9.6 5.8 10.2 4 8.4C1.4 5.6 1.4 0 1.8 -5.1L-2.6 -5C-2.8 0 -3.6 5.6 -5.8 9.2L-8.6 8.4C-6.2 4.6 -5.6 0 -5.4 -4.9C-6.8 -4.8 -8 -4.6 -9.4 -4.2Z"}
+      pisym: {d: "M-9 -6.6C-4 -8.4 4 -8.6 9.4 -7.4L9 -4.6C7.6 -4.9 5.8 -5 4.4 -5C4.2 -1 4.2 4 6.8 6.6C7.6 7.4 8.6 7.2 9.2 6.4L10 7.6C8.8 9.6 5.8 10.2 4 8.4C1.4 5.6 1.4 0 1.8 -5.1L-2.6 -5C-2.8 0 -3.6 5.6 -5.8 9.2L-8.6 8.4C-6.2 4.6 -5.6 0 -5.4 -4.9C-6.8 -4.8 -8 -4.6 -9.4 -4.2Z"},
+      // candy-colored solids that tumble: triangle, hexagon, square, circle
+      mt_tri: {d: "M0 -10L9.6 7.4H-9.6Z", detail: "M0 -5.6L5.6 4.6H-5.6Z", dstroke: true},
+      mt_hex: {d: "M0 -10.4L9 -5.2V5.2L0 10.4L-9 5.2V-5.2Z", detail: "M0 -6.2L5.4 -3.1V3.1L0 6.2L-5.4 3.1V-3.1Z", dstroke: true},
+      mt_sq: {d: "M-8.4 -8.4H8.4V8.4H-8.4Z", detail: "M-4.8 -4.8H4.8V4.8H-4.8Z", dstroke: true}
     },
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(30), "cube3", d ? ["#FF8AC8", "#6FF0D0", "#FFD86A", "#8AC4FF", "#C8A8FF"] : ["#E8588E", "#2EB894", "#E8A420", "#4A8EE8", "#8A66E0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12})
-      .concat(fxRise(W, H, n(16), "pisym", d ? ["#FFE3A0", "#FF9AD0", "#8AF0E0"] : ["#6A4FC0", "#E8588E", "#2EB894"], {smin: 9, smax: 14, sway: 1.2, vmin: 1.2, vmax: 2.2}), fxTw(W, H, n(10), "spiral", d ? ["#FFD478"] : ["#D69634"], {smin: 12, smax: 20, glow: d ? 10 : 0}), fxTw(W, H, n(20), "sparkle", d ? ["#FFE9B0", "#A6E9FF"] : ["#E8A93A", "#B9A2F0"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+
+    // a golden spiral draws itself through a growing set of Fibonacci squares, then candy-colored shapes tumble out of it
+    fx: {spawn: (W, H, d, n) => { const R = mtRect(W, H), cols = d ? ["#FF8AC8", "#6FF0D0", "#FFD86A", "#8AC4FF", "#C8A8FF"] : ["#E8588E", "#2EB894", "#E8A420", "#4A8EE8", "#8A66E0"];
+      return fxBurst(W, H, n(36), "mt_tri", cols, [[R.ex / W, R.ey / H]], {smin: 9, smax: 13, g: 0.16, flip: true}).map((p, i) => Object.assign(p, {shape: ["mt_tri", "mt_hex", "mt_sq", "circle"][i % 4], size: i % 4 === 3 ? fxR(6, 8) : p.size, ...(an => ({vx: Math.cos(an) * fxR(3, 9), vy: Math.sin(an) * fxR(3, 8) - 3}))(fxR(0, 6.3)), term: 4, delay: 92 + Math.floor(fxR(0, 14)), life: 170}))
+        .concat(fxRise(W, H, n(10), "pisym", d ? ["#FFE3A0", "#FF9AD0", "#8AF0E0"] : ["#6A4FC0", "#E8588E", "#2EB894"], {smin: 10, smax: 14, sway: 1.2, vmin: 1.2, vmax: 2, spread: 70}),
+          fxTw(W, H, n(16), "sparkle", d ? ["#FFE9B0", "#A6E9FF"] : ["#E8A93A", "#B9A2F0"], {smin: 3, smax: 6, glow: d ? 10 : 4})); },
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 8) * (1 - fxEase((f - 175) / 60)); if (a <= 0.01) return;
+        const R = mtRect(W, H); g.lineCap = g.lineJoin = "round";
+        R.sq.forEach(([x, y, s, cx, cy, a0], i) => { const t0 = i * 9, p = fxEase((f - t0) / 14); if (p <= 0) return;
+          g.globalAlpha = a * p * (d ? 0.4 : 0.32); g.strokeStyle = d ? "#C8A8FF" : "#6A4FC0"; g.lineWidth = 1.4; g.strokeRect(x, y, s, s);
+          g.globalAlpha = a * p * 0.08; g.fillStyle = ["#E8588E", "#2EB894", "#E8A420", "#4A8EE8", "#8A66E0"][i % 5]; g.fillRect(x, y, s, s);
+          const q = Math.min(1, Math.max(0, (f - t0 - 4) / 12)); if (q <= 0) return; g.globalAlpha = a; g.strokeStyle = d ? "#FFD86A" : "#E8588E"; g.shadowBlur = d ? 10 : 4; g.shadowColor = g.strokeStyle; g.lineWidth = Math.max(2.5, Math.min(W, H) * 0.005);
+          g.beginPath(); g.arc(cx, cy, s, a0, a0 + q * Math.PI / 2); g.stroke(); g.shadowBlur = 0; });
+        const t = f - 92; if (t > 0 && t < 40) { g.globalAlpha = a * 0.6 * (1 - t / 40); g.strokeStyle = d ? "#FFD86A" : "#E8588E"; g.lineWidth = 2; g.beginPath(); g.arc(R.ex, R.ey, 4 + t * 1.5, 0, 7); g.stroke(); } }},
     tag: "A candy geometry world where smiling shapes bounce, polygon kites fly and rainbow dice roll by"
   });
 
+  // the flask for the Chem Lab moment: centered at the bottom, sized to the screen
+  const chGeo = (W, H) => { const ph = W < H, h = Math.min(H * (ph ? 0.36 : 0.44), W * (ph ? 0.62 : 0.4)), k = Math.max(1, h / 260); return {cx: W * 0.5, by: H * 0.985, top: H * 0.985 - h, h, wn: h * 0.2, wb: h * 0.78, k}; };
   /* Chem Lab (Chemistry) */
   MAJ_THEMES.push({
     skin: {id: "chem", name: "Chem Lab",
@@ -23390,11 +24558,56 @@ var MAJ_THEMES = [];
     kit: {motif: "flask", card: ["#F7FCFB", "#E2F2EE"], ink: "#16302C", bd: "#B8DED6", mc: "#2E8A80", r: 16, notes: ["#D6F0EA"].concat(NOTES), shape: "rounded", pin: "clip", fab: "999px", btn: "12px"},
     shapes: {
       flask: {d: "M-3.2 -11H3.2V-9.6H2.4V-4.2L8.8 6.6C9.8 8.4 8.6 10.4 6.6 10.4H-6.6C-8.6 10.4 -9.8 8.4 -8.8 6.6L-2.4 -4.2V-9.6H-3.2Z", detail: "M-6.4 3.4H6.4", dstroke: true},
-      molecule: {d: "M-2.6 0a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0 -5.2 0Z M4.4 -7.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M-8.6 -5a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M0.8 6.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z", detail: "M0 0L6.5 -7.4M0 0L-6.5 -5M0 0L2.9 6.4", dstroke: true}
+      molecule: {d: "M-2.6 0a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0 -5.2 0Z M4.4 -7.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M-8.6 -5a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M0.8 6.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z", detail: "M0 0L6.5 -7.4M0 0L-6.5 -5M0 0L2.9 6.4", dstroke: true},
+      // a clump of foam: three overlapping bubbles in one color with soft highlights
+      ch_foam: {d: "M-9 2a6 6 0 1 0 12 0a6 6 0 1 0 -12 0Z M-2 -3a7 7 0 1 0 14 0a7 7 0 1 0 -14 0Z M-4 5a5 5 0 1 0 10 0a5 5 0 1 0 -10 0Z", paint: (g, col) => {
+        [[-3, 2, 6], [5, -3, 7], [1, 5, 5]].forEach(([x, y, r]) => { const gr = g.createRadialGradient(x - r * 0.35, y - r * 0.4, 0, x, y, r); gr.addColorStop(0, "#FFFFFF"); gr.addColorStop(0.35, fxShade(col, 1.15)); gr.addColorStop(1, col); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }); }},
+      // ball-and-stick molecule: the center atom takes the color, with white and red atoms around it
+      ch_mol: {d: "M-2.6 0a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0 -5.2 0Z M4.4 -7.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M-8.6 -5a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M0.8 6.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z", paint: (g, col, dk) => {
+        g.strokeStyle = dk ? "#C8D4DC" : "#8A96A3"; g.lineWidth = 1.6; g.lineCap = "round"; [[6.6, -6.6], [-6.8, -4.2], [-3.6, 7.4], [5.4, 5]].forEach(([x, y]) => { g.beginPath(); g.moveTo(0, 0); g.lineTo(x, y); g.stroke(); });
+        const ball = (x, y, r, c) => { g.fillStyle = fxShade(c, 0.78); g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.fillStyle = c; g.beginPath(); g.arc(x - r * 0.15, y - r * 0.15, r * 0.82, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,.6)"; g.beginPath(); g.arc(x - r * 0.38, y - r * 0.38, r * 0.28, 0, 7); g.fill(); };
+        ball(6.6, -6.6, 2.8, "#F2F4F6"); ball(-6.8, -4.2, 2.8, "#F2F4F6"); ball(-3.6, 7.4, 3.2, "#E8463C"); ball(5.4, 5, 2.6, "#F2F4F6"); ball(0, 0, 4.6, col); }}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(40), "bubble", d ? ["#FF8FC4", "#6FE6D6", "#FFD36A", "#C0A0FF"] : ["#F584AE", "#46C2BA", "#E8A830", "#A58AEA"], {smin: 6, smax: 14, sway: 1.3, vmin: 1.4, vmax: 2.8, glow: d ? 8 : 0})
-      .concat(fxBurst(W, H, n(10), "flask", d ? ["#6FE6D6", "#FF8FC4"] : ["#2E8A80", "#C0568E"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {rot: fxR(-0.35, 0.35), vr: fxR(-0.04, 0.04)})), fxRise(W, H, n(8), "molecule", d ? ["#C8EAF0", "#FFD36A"] : ["#5E6878", "#2E8A80"], {smin: 11, smax: 16, vmin: 1, vmax: 1.8}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)})),
-      fxBurst(W, H, n(40), "confetti", ["#FF6FA8", "#FFC94A", "#5ED6C4", "#7EB6FF", "#B88CFF"], [[0.15, 1.02], [0.85, 1.02]], {smin: 5, smax: 8, flip: true}), fxTw(W, H, n(16), "sparkle", d ? ["#FFE9B8", "#A6E9FF"] : ["#F2B53A", "#FF8FB4"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+
+    // a flask slides up, a drop falls in and the liquid blooms into a new color, boils, then a column of rainbow foam
+    // erupts from its neck ("elephant toothpaste") while molecules drift off
+    fx: {len: 280, spawn: (W, H, d, n) => { const G = chGeo(W, H), nx = G.cx, ny = G.top;
+      const foam = Array.from({length: n(70)}, (_, i) => { const k = i / n(70), a = -Math.PI / 2 + fxR(-0.32, 0.32) * (0.4 + k), sp = fxR(0.7, 1.1) * H * 0.028;
+        return {shape: "ch_foam", c: fxPick(d ? ["#FF8FC4", "#6FE6D6", "#FFD36A", "#B9A2FF"] : ["#F06AA8", "#2EB5A5", "#F2B53A", "#9A7BE0"]), x: nx + fxR(-4, 4), y: ny + 6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0.26, drag: 0.982, term: fxR(2, 3.2), fsw: fxR(0.4, 1),
+          swf: fxR(0.04, 0.08), size: fxR(9, 17) * G.k, rot: fxR(0, 6.3), vr: fxR(-0.04, 0.04), grow: 0.012, sway: 0, life: 210, delay: 78 + Math.floor(k * 70)}; });
+      return foam.concat(fxRise(W, H, n(8), "ch_mol", d ? ["#4A5260", "#3FD0C0", "#FFC94A"] : ["#3A404A", "#2E8A80", "#E8A830"], {smin: 15, smax: 20, vmin: 0.9, vmax: 1.5, sway: 0.8, life: 190, depth: false}).map(p => Object.assign(p, {x: nx + fxR(-W * 0.3, W * 0.3), y: ny - fxR(0, H * 0.1), delay: 95 + Math.floor(fxR(0, 50)), vr: fxR(-0.03, 0.03), rot: fxR(0, 6.3)})),
+        fxTw(W, H, n(14), "sparkle", d ? ["#FFE9B8", "#A6E9FF"] : ["#F2B53A", "#FF8FB4"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4, spread: 150}).map(p => Object.assign(p, {delay: p.delay + 70}))); },
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 10) * (1 - fxEase((f - 205) / 60)); if (a <= 0.01) return;
+        const G = chGeo(W, H), off = (1 - fxEase(f / 24)) * G.h * 1.1 + fxEase((f - 200) / 70) * G.h * 0.4, k = G.k;
+        g.save(); g.translate(0, off);
+        const body = new Path2D(), {cx, top, by, wn, wb, h} = G, sh = top + h * 0.3, r = wb * 0.12;
+        body.moveTo(cx - wn / 2, top); body.lineTo(cx - wn / 2, sh); body.lineTo(cx - wb / 2 + r * 0.6, by - r); body.quadraticCurveTo(cx - wb / 2, by, cx - wb / 2 + r, by);
+        body.lineTo(cx + wb / 2 - r, by); body.quadraticCurveTo(cx + wb / 2, by, cx + wb / 2 - r * 0.6, by - r); body.lineTo(cx + wn / 2, sh); body.lineTo(cx + wn / 2, top);
+        // liquid: blooms from the drop into a new color, then boils
+        const hit = 44, bloom = fxEase((f - hit) / 30), h0 = 200, h1 = 320 + 40 * fxEase((f - hit - 30) / 80), lvl = by - h * (0.42 + 0.12 * fxEase((f - 60) / 40)), boil = fxEase((f - 60) / 30);
+        g.save(); g.clip(body);
+        g.globalAlpha = a * 0.9; g.fillStyle = `hsl(${h0},${d ? 70 : 60}%,${d ? 58 : 62}%)`; g.fillRect(cx - wb, lvl - 20, wb * 2, by - lvl + 40);
+        if (bloom > 0) { const gr = g.createRadialGradient(cx, lvl, 0, cx, lvl, wb * 1.2 * bloom + 1); gr.addColorStop(0, `hsl(${h1},${d ? 85 : 75}%,${d ? 62 : 60}%)`); gr.addColorStop(0.85, `hsl(${h1 + 20},${d ? 85 : 75}%,${d ? 56 : 55}%)`); gr.addColorStop(1, `hsla(${h1 + 20},80%,55%,0)`); g.fillStyle = gr; g.fillRect(cx - wb, lvl - 20, wb * 2, by - lvl + 40); }
+        g.globalCompositeOperation = "destination-out"; g.beginPath(); g.moveTo(cx - wb, lvl - 40);
+        for (let x = cx - wb; x <= cx + wb; x += 4) g.lineTo(x, lvl + Math.sin(x * 0.08 + f * 0.25) * 2.4 * k * (0.4 + boil) + Math.sin(x * 0.03 - f * 0.12) * 2 * k);
+        g.lineTo(cx + wb, lvl - 40); g.closePath(); g.fill(); g.globalCompositeOperation = "source-over";
+        g.fillStyle = "rgba(255,255,255,.8)"; for (let i = 0; i < 18; i++) { const t = (f * (0.9 + (i % 5) * 0.25) + i * 37) % 60 / 60, bx = cx + Math.sin(i * 7.3) * wb * 0.36, byy = by - 6 - (by - lvl) * t, rr = (1.2 + (i % 3)) * k * boil;
+          if (rr > 0.2) { g.globalAlpha = a * (1 - t) * 0.9; g.beginPath(); g.arc(bx, byy, rr, 0, 7); g.fill(); } }
+        g.restore();
+        // glass
+        g.globalAlpha = a * (d ? 0.18 : 0.35); g.fillStyle = d ? "#CDEFF0" : "#FFFFFF"; g.fill(body);
+        g.globalAlpha = a; g.lineJoin = "round"; g.lineWidth = 3.4 * k; g.strokeStyle = d ? "rgba(220,245,248,.9)" : "rgba(40,90,86,.75)"; g.stroke(body);
+        g.lineWidth = 2 * k; g.beginPath(); g.moveTo(cx - wn / 2 - 4 * k, top); g.lineTo(cx + wn / 2 + 4 * k, top); g.stroke();
+        g.globalAlpha = a * 0.75; g.strokeStyle = "#FFFFFF"; g.lineWidth = 3 * k; g.lineCap = "round"; g.beginPath(); g.moveTo(cx - wn / 2 + 4 * k, top + h * 0.06); g.lineTo(cx - wn / 2 + 4 * k, sh - 4 * k); g.lineTo(cx - wb * 0.32, by - h * 0.18); g.stroke();
+        g.globalAlpha = a * 0.5; g.strokeStyle = d ? "#DDF5F5" : "#285A56"; g.lineWidth = 1.4 * k; [0.62, 0.74, 0.86].forEach(u => { const yy = top + h * u, hw = wn / 2 + (wb / 2 - wn / 2) * (yy - sh) / (by - sh); g.beginPath(); g.moveTo(cx + hw - 12 * k, yy); g.lineTo(cx + hw - 4 * k, yy); g.stroke(); });
+        // the drop falls into the neck
+        const dt = (f - 22) / (hit - 22); if (dt > 0 && dt < 1) { const yy = -off + (lvl + off) * dt * dt; g.globalAlpha = a; g.fillStyle = `hsl(${h1},80%,${d ? 65 : 55}%)`; g.beginPath(); g.moveTo(cx, yy - 9 * k); g.bezierCurveTo(cx + 4 * k, yy - 3 * k, cx + 4.5 * k, yy + 3 * k, cx, yy + 3.5 * k); g.bezierCurveTo(cx - 4.5 * k, yy + 3 * k, cx - 4 * k, yy - 3 * k, cx, yy - 9 * k); g.fill(); }
+        // foam spilling over the lip and down the sides while it erupts
+        const sp = fxEase((f - 80) / 30) * (1 - fxEase((f - 170) / 50)); if (sp > 0) { const cols = d ? ["#FF8FC4", "#6FE6D6", "#FFD36A"] : ["#F06AA8", "#2EB5A5", "#F2B53A"];
+          for (let i = 0; i < 14; i++) { const sd = i % 2 ? 1 : -1, t = ((i * 0.37 + f * 0.012) % 1), x = cx + sd * (wn / 2 + 2 * k + (wb / 2 - wn / 2) * Math.max(0, t - 0.25) * 0.9), y = top + (by - top) * t * sp;
+            g.globalAlpha = a * sp * (1 - t * 0.6); g.fillStyle = cols[i % 3]; g.beginPath(); g.arc(x, y, (5 + (i % 3) * 2) * k * (1 - t * 0.5), 0, 7); g.fill(); } }
+        g.restore(); }},
     tag: "A bubbly lab with rainbow flasks, a lava lamp, smoke rings and molecules floating by"
   });
 })();
@@ -23432,7 +24645,21 @@ var MAJ_THEMES = [];
 
   // gusts that blow leaves and seeds sideways across the page, swirling
   const gust = (W, H, n, shape, cols, o) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(-W * 0.35, -10), y: fxR(H * 0.15, H * 0.95), vx: fxR(o.vmin, o.vmax), vy: fxR(-0.9, 0.3), g: 0, size: fxR(o.smin, o.smax), rot: fxR(0, 6.3), vr: fxR(-0.05, 0.05), sway: o.sway, swf: fxR(0.04, 0.08), flip: o.flip, life: 260, delay: Math.floor(fxR(0, 70)), glow: o.glow}));
+  const scB = []; // Sketch City buildings, rebuilt by each spawn
   const streaks = (W, H, n, cols) => Array.from({length: n}, () => { const sp = fxR(8, 12); return {shape: null, streak: true, c: fxPick(cols), x: fxR(W * 0.3, W * 1.15), y: fxR(-40, H * 0.4), vx: -sp, vy: sp * 0.55, g: 0, size: 2, life: 80, delay: Math.floor(fxR(0, 150)), glow: 12}; });
+
+  // laurel wreath for Ancient Ruins: ring center and radius, then leaves [x, y, angle, start frame] growing up both sides
+  const ruR = (W, H) => ({cx: W / 2, cy: H * (W < H ? 0.66 : 0.68), r: Math.min(W, H) * (W < H ? 0.3 : 0.22)});
+  const ruW = (W, H) => { const {cx, cy, r} = ruR(W, H), o = [], N = 11; [-1, 1].forEach(s => { for (let i = 0; i < N; i++) { const th = Math.PI / 2 + s * (0.16 + i / (N - 1) * (Math.PI - 0.66)), x = cx + Math.cos(th) * r, y = cy + Math.sin(th) * r, tg = th + s * Math.PI / 2;
+    o.push([x, y, tg - 0.62, 6 + i * 7], [x, y, tg + 0.62, 9 + i * 7]); } }); return o; };
+  Object.assign(FX_SHAPES, {
+    // a white dove in flight, facing +x, one wing raised
+    ru_dove: {d: "M10.6 -2.6C9 -4.2 6.8 -4 5.6 -2.4C2 -1.6 -3 -1.2 -6.4 0.4L-11.4 -1.6L-9.4 2.2L-11.2 5L-5.4 3.8C-2 5.6 3.6 5.2 6.6 2.2C8.2 0.6 9 -1 10.6 -2.6Z M-1.6 0.4C-2.6 -4.6 -5.4 -9 -9.6 -11C-4.4 -10.6 1.4 -6.4 3.4 -0.8Z", paint: (g, col, dk) => {
+      const body = new Path2D("M10.6 -2.6C9 -4.2 6.8 -4 5.6 -2.4C2 -1.6 -3 -1.2 -6.4 0.4L-11.4 -1.6L-9.4 2.2L-11.2 5L-5.4 3.8C-2 5.6 3.6 5.2 6.6 2.2C8.2 0.6 9 -1 10.6 -2.6Z"), wing = new Path2D("M-1.6 0.4C-2.6 -4.6 -5.4 -9 -9.6 -11C-4.4 -10.6 1.4 -6.4 3.4 -0.8Z");
+      g.strokeStyle = dk ? "rgba(255,255,255,.4)" : "rgba(90,110,140,.55)"; g.lineWidth = 0.8; g.lineJoin = "round"; g.fillStyle = col; g.fill(body); g.stroke(body); g.fillStyle = fxShade(col, 0.9); g.fill(wing); g.stroke(wing);
+      g.strokeStyle = dk ? "rgba(255,255,255,.35)" : "rgba(90,110,140,.4)"; g.beginPath(); g.moveTo(-6.6, -9.4); g.lineTo(-3.8, -4.6); g.moveTo(-3.6, -8.4); g.lineTo(-1.6, -3.6); g.stroke();
+      g.fillStyle = "#F0A040"; g.beginPath(); g.moveTo(10.4, -2.8); g.lineTo(12.4, -2); g.lineTo(10.2, -1.6); g.fill(); g.fillStyle = "#2A2A3A"; g.beginPath(); g.arc(8.2, -2.4, 0.6, 0, 7); g.fill(); }}
+  });
 
   MAJ_THEMES.push({
     skin: {id: "observatory", name: "Observatory", desc: "A domed observatory on a hill under a huge starry sky.",
@@ -23441,11 +24668,20 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#84ACDB,#B2CAEB 32%,#E6D1E3 66%,#F9D8C5)", "linear-gradient(180deg,#080C28,#121848 38%,#232766 68%,#3E356C)"],
       spine: [lg("#3E4290", "#262A5C"), lg("#1D2156", "#0B0E28")], btn: [lg2("#4F4FB0", "#7A5BC0"), lg2("#F2C46A", "#F6D592")]},
     kit: {motif: "planet", card: ["#F8F8FD", "#E6E6F5"], ink: "#1B1D3A", bd: "#CFCFEA", mc: "#5A5ACC", r: 18, notes: ["#DCDCF2", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "circle", pin: "starpin", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => streaks(W, H, n(7), d ? ["#FFFFFF", "#FFE7B0", "#BFD0FF"] : ["#7A86D8", "#B08AE0", "#5A6AC8"])
-      .concat(fxRise(W, H, n(9), "planet", d ? ["#F2C46A", "#9FB4FF", "#E89AB8", "#9ADCC8"] : ["#6A6AD0", "#E08A5A", "#B07AD0", "#4FA0B8"], {smin: 12, smax: 18, vmin: 1.1, vmax: 2, sway: 0.8, life: 300, glow: d ? 10 : 0}).map(p => Object.assign(p, {rot: fxR(-0.3, 0.3)})),
-        fxRise(W, H, n(5), "atom", d ? ["#BFD0FF", "#9ADCC8"] : ["#4F4FB0", "#3A8AA8"], {smin: 12, smax: 16, vmin: 1, vmax: 1.7, sway: 0.6, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)})),
-        fxRise(W, H, n(4), "rocket", d ? ["#FF9AB8", "#FFFFFF", "#FFD86B"] : ["#FF6F91", "#4FA0E8", "#F2A23A"], {smin: 13, smax: 17, vmin: 2.4, vmax: 3.6, sway: 0.4, life: 240, glow: d ? 12 : 4}),
-        fxTw(W, H, n(40), "sparkle", d ? ["#FFFFFF", "#FFE7B0", "#C9D4FF", "#FFB3D9"] : ["#F2B53A", "#8C8CE0", "#FFD86B", "#FF8FB3"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    // the Big Dipper and Cassiopeia join up star by star, like a sky chart being traced, while shooting stars cross and the sky twinkles
+    fx: {spawn: (W, H, d, n) => streaks(W, H, n(6), d ? ["#FFFFFF", "#FFE7B0", "#BFD0FF"] : ["#7A86D8", "#B08AE0", "#5A6AC8"]).map(p => Object.assign(p, {delay: 20 + Math.floor(fxR(0, 120))}))
+      .concat(fxTw(W, H, n(36), "sparkle", d ? ["#FFFFFF", "#FFE7B0", "#C9D4FF"] : ["#E8A21C", "#7A7AD8", "#F2B53A"], {smin: 3, smax: 7, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 180) / 60); if (a <= 0.01) return;
+        const ph = W < H, line = d ? "rgba(191,208,255,.75)" : "rgba(79,79,176,.6)", star = d ? "#FFFFFF" : "#F2A81C", glo = d ? "#BFD0FF" : "#F2B53A";
+        const C = [{p: [[0, 0.1], [0.17, 0], [0.3, 0.03], [0.44, 0.1], [0.47, 0.3], [0.68, 0.33], [0.7, 0.1]], l: [0, 1, 2, 3, 4, 5, 6, 3], x: ph ? 0.1 : 0.3, y: ph ? 0.14 : 0.1, w: ph ? 0.8 : 0.6, t0: 4},
+          {p: [[0, 0], [0.12, 0.22], [0.24, 0.08], [0.37, 0.26], [0.5, 0.02]], l: [0, 1, 2, 3, 4], x: ph ? 0.32 : 0.05, y: ph ? 0.62 : 0.6, w: ph ? 0.6 : 0.36, t0: 60}];
+        g.lineCap = "round";
+        C.forEach(c => { const bw = Math.min(W * c.w, 640), X = q => [W * c.x + q[0] * bw, H * c.y + q[1] * bw], P = c.p.map(X), step = 9;
+          for (let i = 0; i < c.l.length - 1; i++) { const u = Math.min(1, Math.max(0, (f - c.t0 - 8 - i * step) / step)); if (u <= 0) break; const [x0, y0] = P[c.l[i]], [x1, y1] = P[c.l[i + 1]];
+            g.globalAlpha = a; g.strokeStyle = line; g.lineWidth = 1.8; g.setLineDash([]); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u); g.stroke(); }
+          P.forEach(([x, y], i) => { const k = c.l.indexOf(i), t = f - c.t0 - Math.max(0, k) * step; if (t <= 0) return; const e = Math.min(1, t / 10), pop = 1 + 0.8 * Math.exp(-t / 8) * (t > 2 ? 1 : 0), r = (i % 3 ? 4 : 5.2) * e * pop, tw = 0.85 + 0.15 * Math.sin(f * 0.15 + i * 2);
+            g.globalAlpha = a * e; g.shadowBlur = 14; g.shadowColor = glo; g.fillStyle = star; g.beginPath(); for (let j = 0; j < 8; j++) { const an = j * Math.PI / 4, rr = j % 2 ? r * 0.38 : r * 2 * tw; g.lineTo(x + Math.cos(an - Math.PI / 2) * rr, y + Math.sin(an - Math.PI / 2) * rr); } g.fill(); g.shadowBlur = 0; g.beginPath(); g.arc(x, y, r * 0.55, 0, 7); g.fill(); }); }); }},
     tag: "A domed observatory on a hilltop, its telescope tracking a sky full of stars"
   });
   MAJ_THEMES.push({
@@ -23455,11 +24691,23 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#3E9CEA,#86C8F4 33%,#FFF2CC 54%,#FFDC8C 60%,#1F78C8)", "linear-gradient(180deg,#081038,#13226A 36%,#2A3A88 60%,#14205A)"],
       spine: [lg("#1F4E96", "#123A78"), lg("#14224E", "#08102A")], btn: [lg2("#1C56AE", "#2E6FC6"), lg2("#F2C45A", "#F6D688")]},
     kit: {motif: "column", card: ["#F8FAFE", "#E4ECF8"], ink: "#14213D", bd: "#C8D6EE", mc: "#C9962A", r: 10, notes: ["#E2EAF7", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "torn", pin: "gold", fab: "14px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(34), "laurel", d ? ["#F2C45A", "#F6D688", "#E0B040"] : ["#E3A928", "#F2C04A", "#C9962A"], {sway: 1.8, flip: true, smin: 9, smax: 13, vmin: 1, vmax: 2, glow: d ? 6 : 0})
-      .concat(fxBurst(W, H, n(22), "coin", ["#E9B84A", "#F2CF6E", "#D9A23A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 10, glow: d ? 10 : 0}),
-        fxBurst(W, H, n(9), "amphora", d ? ["#C87A50", "#B0683E", "#D8906A"] : ["#D88450", "#C0703E", "#E39A68"], [[0.25, 1.02], [0.75, 1.02]], {smin: 12, smax: 16}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06), rot: fxR(-0.3, 0.3)})),
-        fxRise(W, H, n(3), "hourglass", d ? ["#F2C45A"] : ["#C9962A"], {cx: [0.2, 0.8], smin: 14, smax: 18, vmin: 1, vmax: 1.5, sway: 0.6, life: 300, glow: d ? 10 : 0}).map(p => Object.assign(p, {vr: 0, rot: 0})),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#F2C45A"] : ["#F2B53A", "#FFD86B", "#2F6FD0"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    // a golden laurel wreath grows leaf by leaf up both sides; doves fly up past it, and when it is complete its leaves let go and drift down
+    fx: {spawn: (W, H, d, n) => { const P = [], wr = ruW(W, H);
+      wr.forEach(([x, y, ang, t0], i) => { if (i % 2) return; P.push({shape: "leaf", c: fxPick(d ? ["#F2C45A", "#F6D688", "#E0B040"] : ["#E3A928", "#F2C04A", "#C9962A"]), x, y, vx: fxR(-0.4, 0.4), vy: fxR(0.4, 1), g: 0.012, size: fxR(7, 9), rot: ang, vr: 0, rock: 0.5, sway: 1, swf: fxR(0.03, 0.06), flip: true, life: 110, delay: 150 + Math.floor(fxR(0, 18)), glow: d ? 6 : 0}); });
+      for (let i = 0, N = n(7); i < N; i++) { const lr = i % 2 ? 1 : -1, sp = fxR(2.4, 3.4), an = -fxR(0.35, 0.8);
+        P.push({shape: "ru_dove", c: d ? "#F4F6FA" : "#FFFFFF", x: lr > 0 ? fxR(-60, W * 0.2) : fxR(W * 0.8, W + 60), y: H + fxR(10, 70), vx: lr * Math.cos(an) * sp, vy: Math.sin(an) * sp, g: 0, drag: 0.999, size: fxR(15, 20), face: true, wig: 0.08, rot: 0, vr: 0, sway: 0.5, swf: 0.04, life: 200, delay: Math.floor(fxR(10, 100)), glow: d ? 6 : 0}); }
+      return P.concat(fxTw(W, H, n(22), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#F2C45A"] : ["#F2B53A", "#FFD86B", "#FFFFFF"], {smin: 3, smax: 7, glow: d ? 10 : 6})); },
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 145) / 30); if (a <= 0.01) return;
+        const wr = ruW(W, H), sz = Math.min(W, H) * 0.026, gold = d ? ["#F6D688", "#E0B040"] : ["#E8B030", "#C9962A"];
+        g.globalAlpha = a; g.shadowBlur = d ? 12 : 6; g.shadowColor = d ? "rgba(255,210,120,.6)" : "rgba(200,140,30,.4)";
+        // the two stems
+        const R = ruR(W, H); g.strokeStyle = gold[1]; g.lineWidth = Math.max(2, sz * 0.18); g.lineCap = "round";
+        [-1, 1].forEach(s => { const p = fxEase(f / 70); g.beginPath(); g.arc(R.cx, R.cy, R.r, Math.PI / 2, Math.PI / 2 + s * p * (Math.PI - 0.5), s < 0); g.stroke(); });
+        wr.forEach(([x, y, ang, t0], i) => { const e = Math.min(1, Math.max(0, (f - t0) / 12)); if (e <= 0) return; const sc = sz * (1 - Math.pow(1 - e, 3)) * (1 + 0.25 * Math.sin(e * Math.PI));
+          g.save(); g.translate(x, y); g.rotate(ang); g.fillStyle = gold[i % 2]; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(sc * 0.55, -sc * 0.42, sc * 1.25, 0); g.quadraticCurveTo(sc * 0.55, sc * 0.42, 0, 0); g.fill(); g.restore(); });
+        // a soft glow ring when it closes
+        const t = f - 82; if (t > 0 && t < 50) { g.shadowBlur = 0; g.globalAlpha = a * 0.4 * Math.sin(t / 50 * Math.PI); g.strokeStyle = gold[0]; g.lineWidth = 3; g.beginPath(); g.arc(R.cx, R.cy, R.r * (1.15 + t * 0.006), 0, 7); g.stroke(); } }},
     tag: "A gold-trimmed temple above a whitewashed island village and a deep blue sea, with an island cat, an owl and doves"
   });
   MAJ_THEMES.push({
@@ -23469,11 +24717,35 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#A9D3EE,#D7EBF2 50%,#EAF2DA)", "linear-gradient(180deg,#0B1530,#16284A 50%,#2A3D58)"],
       spine: [lg("#3C7A52", "#24533A"), lg("#16302E", "#0A1616")], btn: [lg2("#2F7D4A", "#4A9A5A"), lg2("#8FD69A", "#C2E89A")]},
     kit: {motif: "turbine", card: ["#F7FBF6", "#E2EFE0"], ink: "#15291C", bd: "#C2DCC6", mc: "#2F7D4A", r: 16, notes: ["#D3E8D5", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "pin", fab: "24px 24px 24px 8px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => gust(W, H, n(40), "leaf", d ? ["#7FCB8A", "#A8DC8E", "#5AA86A"] : ["#3E9E4F", "#6CC070", "#8FCF5A", "#2F7A3E"], {vmin: 3.2, vmax: 5.6, sway: 1.6, flip: true, smin: 7, smax: 11})
-      .concat(gust(W, H, n(26), "seed", d ? ["#F4F1E6", "#DDEBE0"] : ["#FFFFFF", "#EEF2E6"], {vmin: 2.4, vmax: 4, sway: 2.4, smin: 9, smax: 13, glow: d ? 6 : 3}).map(p => Object.assign(p, {vr: 0.01, rot: fxR(-0.4, 0.4)})),
-        fxFlutter(W, H, n(8), d ? ["#FFB3D9", "#FFE38A", "#B8F0FF"] : ["#FF7FA8", "#FFD45A", "#8FD8FF", "#B58CF2"]),
-        fxBurst(W, H, n(26), "flower", ["#FF7FA8", "#FFD45A", "#FFFFFF", "#B58CF2"], [[0.15, 1.02], [0.85, 1.02]], {smin: 7, smax: 11}),
-        fxTw(W, H, n(26), "circle", d ? ["#F6E68A", "#C8F28A"] : ["#F2D24A", "#B8E07A"], {smin: 1.6, smax: 3, glow: 10, vy: -0.4}))},
+    // a kite catches the wind: it climbs from the bottom corner in big lazy swoops, its tail of bows hanging and fluttering
+    // below and its string running back to the corner, then sails off up and away while dandelion seeds drift by
+    fx: {len: 280, spawn: (W, H, d, n) => gust(W, H, n(20), "seed", d ? ["#F4F1E6", "#DDEBE0"] : ["#FFFFFF", "#F4F6EC"], {vmin: 1.6, vmax: 2.8, sway: 2.2, smin: 10, smax: 15, glow: d ? 6 : 4}).map(p => Object.assign(p, {vr: 0, rock: 0.3, rot: fxR(-0.4, 0.4), vy: fxR(-1, -0.2)}))
+      .concat(fxFlutter(W, H, n(4), d ? ["#FFB3D9", "#FFE38A", "#B8F0FF"] : ["#FF7FA8", "#FFC23A", "#5FB0F0", "#B58CF2"]),
+        fxTw(W, H, n(12), "circle", d ? ["#F6E68A", "#C8F28A"] : ["#F2D24A", "#B8E07A"], {smin: 1.8, smax: 3, glow: 10, vy: -0.4})),
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 8); if (f > 300) return;
+        const ph = W < H, K = Math.min(W, H) * (ph ? 0.13 : 0.125), ax = W * 0.04, ay = H + 30;
+        const pos = t => { const u = Math.max(0, t) / 190, e = fxEase(Math.min(1, u)), away = Math.max(0, t - 185) / 90;
+          return [W * (0.2 + 0.55 * e) + Math.sin(u * 8.5) * W * (ph ? 0.1 : 0.07) + away * away * W * 0.4, H * (1.12 - 0.82 * e) + Math.sin(u * 12 + 1) * H * 0.04 - away * away * H * 0.7]; };
+        const tilt = t => { const [x0] = pos(t - 2), [x1] = pos(t + 2); return Math.max(-0.6, Math.min(0.6, (x1 - x0) * 0.03)) + Math.sin(t * 0.09) * 0.08; };
+        const [kx, ky] = pos(f), tl = tilt(f), rot = (x, y, r) => [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)];
+        g.globalAlpha = a; g.lineCap = g.lineJoin = "round";
+        // string
+        const [bx, by] = rot(0, 0.15 * K, tl); g.strokeStyle = d ? "rgba(230,240,235,.55)" : "rgba(40,60,50,.45)"; g.lineWidth = 1.2;
+        g.beginPath(); g.moveTo(kx + bx, ky + by); g.quadraticCurveTo((kx + ax) / 2 + W * 0.05, Math.max(ky, ay) + H * 0.02, ax, ay); g.stroke();
+        // tail: follows where the kite was a moment ago
+        const [tx, ty] = rot(0, 1.05 * K, tl), pts = []; for (let j = 0; j <= 16; j++) { const [hx] = pos(f - j * 1.6), w = Math.sin(f * 0.22 - j * 0.7) * K * 0.07 * Math.min(1, j / 3); pts.push([kx + tx + (hx - kx) * 0.55 + w, ky + ty + j * K * 0.11]); }
+        g.strokeStyle = d ? "#F2EEDC" : "#4A4A5A"; g.lineWidth = 1.6; g.beginPath(); pts.forEach(([x, y], j) => j ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+        const bowC = ["#E8463C", "#F2B53A", "#3A86D8", "#3FAE6A"];
+        pts.forEach(([x, y], j) => { if (j % 3 !== 2) return; const s = K * 0.12 * (1 - j / 34); g.fillStyle = bowC[Math.floor(j / 3) % 4]; g.beginPath(); g.moveTo(x, y); g.lineTo(x - s * 1.4, y - s); g.lineTo(x - s * 1.4, y + s); g.closePath(); g.moveTo(x, y); g.lineTo(x + s * 1.4, y - s); g.lineTo(x + s * 1.4, y + s); g.closePath(); g.fill(); });
+        // the kite: four colored panels, spars and a little shading
+        g.save(); g.translate(kx, ky); g.rotate(tl);
+        const T = [0, -K], R = [0.64 * K, -0.16 * K], B = [0, 1.05 * K], L = [-0.64 * K, -0.16 * K], C = [0, -0.16 * K];
+        [[T, R, "#E8463C"], [R, B, "#F2B53A"], [B, L, "#3A86D8"], [L, T, "#3FAE6A"]].forEach(([p, q, c], i) => { g.fillStyle = i % 2 ? fxShade(c, 0.9) : c; g.beginPath(); g.moveTo(C[0], C[1]); g.lineTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.closePath(); g.fill(); });
+        const sh = g.createLinearGradient(-0.5 * K, -K, 0.5 * K, K); sh.addColorStop(0, "rgba(255,255,255,.28)"); sh.addColorStop(0.5, "rgba(255,255,255,0)"); sh.addColorStop(1, "rgba(0,0,0,.16)");
+        g.fillStyle = sh; g.beginPath(); g.moveTo(T[0], T[1]); g.lineTo(R[0], R[1]); g.lineTo(B[0], B[1]); g.lineTo(L[0], L[1]); g.closePath(); g.fill();
+        g.strokeStyle = d ? "rgba(255,255,255,.75)" : "rgba(70,45,30,.6)"; g.lineWidth = Math.max(1.4, K * 0.022); g.beginPath(); g.moveTo(T[0], T[1]); g.lineTo(B[0], B[1]); g.moveTo(L[0], L[1]); g.lineTo(R[0], R[1]); g.stroke();
+        g.restore(); }},
     tag: "Wind turbines turning over a green valley with solar fields, a winding river and a little farm"
   });
   MAJ_THEMES.push({
@@ -23483,16 +24755,25 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F8F5EC,#F1EDE1)", "linear-gradient(180deg,#123466,#0C2650)"],
       spine: [lg("#34557F", "#22395A"), lg("#123566", "#081A38")], btn: [lg2("#2F5E9E", "#4A78B4"), lg2("#A8D4FF", "#D2E8FF")]},
     kit: {motif: "house", card: ["#FDFCF7", "#EEEBE0"], ink: "#1C2533", bd: "#D6D3C6", mc: "#2F5E9E", r: 6, notes: ["#DCE6F2", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "gridnote", pin: "tape", fab: "8px", btn: "6px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "house", d ? ["#EAF3FF", "#A8D4FF"] : ["#2F5E9E", "#C0603A", "#3A8A7A", "#5E6878"], {smin: 12, smax: 18, vmin: 1.1, vmax: 2, sway: 0.7, life: 300, glow: d ? 8 : 0})
-      .concat(fxBurst(W, H, n(16), "girder", d ? ["#CFE2F8", "#FFD27F"] : ["#C0603A", "#2F5E9E"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 14}),
-        fxFall(W, H, n(10), "setsq", d ? ["rgba(168,212,255,.75)", "rgba(255,255,255,.6)"] : ["rgba(47,94,158,.55)", "rgba(192,96,58,.5)"], {sway: 1.2, smin: 12, smax: 16, vmin: 1, vmax: 1.8}),
-        Array.from({length: n(6)}, (_, i) => { const lr = i % 2 === 0, sp = fxR(3.2, 4.6), a = -fxR(0.15, 0.45); return {shape: "plane", c: fxPick(d ? ["#FFFFFF", "#FFE3A8", "#FFB3D9"] : ["#FF6F91", "#4FA0E8", "#F2A23A", "#4FD1C5"]), x: lr ? fxR(-60, -10) : W + fxR(10, 60), y: fxR(H * 0.5, H * 0.95), vx: (lr ? 1 : -1) * Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0, size: fxR(13, 18), rot: lr ? a : Math.PI - a, vr: 0, sway: 0, life: 260, delay: Math.floor(fxR(0, 80))}; }),
-        fxTw(W, H, n(34), "star", d ? ["#FFFFFF", "#A8D4FF", "#FFB3D9", "#FFE38A"] : ["#FF6F91", "#F2B53A", "#4FD1C5", "#9B7BF0"], {smin: 3, smax: 7, glow: d ? 10 : 2})),
+    // a skyline sketches itself along the bottom in pencil, block by block, then each building washes in with watercolor and its windows light up; paper planes glide over it
+    fx: {spawn: (W, H, d, n) => { scB.length = 0; let x = -W * 0.02; const ph = W < H;
+      while (x < W) { const w = W * fxR(ph ? 0.12 : 0.06, ph ? 0.2 : 0.11), h = H * fxR(ph ? 0.12 : 0.16, ph ? 0.3 : 0.42); scB.push({x, w, h, t0: Math.floor(scB.length * 6 + fxR(0, 6)), c: fxPick(d ? ["#7FB2F0", "#F29A7A", "#6FD0B8", "#F2CC6A", "#B9A2F0"] : ["#2F5E9E", "#C0603A", "#3A8A7A", "#E8A42A", "#7A5EC8"]), roof: fxPick([0, 0, 1, 2])}); x += w * fxR(0.85, 1.02); }
+      const planes = Array.from({length: n(5)}, (_, i) => { const lr = i % 2 === 0, sp = fxR(3, 4.4), an = -fxR(0.08, 0.3);
+        return {shape: "plane", c: fxPick(d ? ["#FFFFFF", "#FFE3A8", "#FFB3D9"] : ["#FF6F91", "#4FA0E8", "#F2A23A", "#3FB8AA"]), x: lr ? fxR(-60, -10) : W + fxR(10, 60), y: fxR(H * 0.2, H * 0.5), vx: (lr ? 1 : -1) * Math.cos(an) * sp, vy: Math.sin(an) * sp, g: 0.004, size: fxR(14, 18), face: true, wig: 0.04, rot: 0, vr: 0, sway: 0.4, swf: 0.04, life: 240, delay: 30 + Math.floor(fxR(0, 80))}; });
+      return planes.concat(fxTw(W, H, n(20), "star", d ? ["#FFFFFF", "#A8D4FF", "#FFE38A"] : ["#FF6F91", "#F2B53A", "#4FD1C5", "#9B7BF0"], {smin: 4, smax: 7, top: 0.55, glow: d ? 10 : 2}).map(p => Object.assign(p, {delay: 60 + Math.floor(fxR(0, 90))}))); },
       draw: (g, f, W, H, d) => {
-        const a = f < 160 ? 1 : Math.max(0, 1 - (f - 160) / 60); if (a <= 0) return;
-        g.save(); g.strokeStyle = d ? "rgba(200,225,255,.55)" : "rgba(47,94,158,.45)"; g.lineWidth = 1.2; g.setLineDash([10, 6]); g.globalAlpha = a;
-        [[0, 0.82, 1, 0.82, 0], [0.12, 0, 0.12, 1, 14], [1, 0.18, 0, 0.18, 26], [0.9, 1, 0.9, 0, 40]].forEach(([x0, y0, x1, y1, t0]) => { const u = Math.min(1, Math.max(0, (f - t0) / 50)); if (u <= 0) return; const e = 1 - Math.pow(1 - u, 3); g.beginPath(); g.moveTo(x0 * W, y0 * H); g.lineTo((x0 + (x1 - x0) * e) * W, (y0 + (y1 - y0) * e) * H); g.stroke(); });
-        g.restore(); }},
+        const a = 1 - fxEase((f - 175) / 60); if (a <= 0.01) return;
+        const pen = d ? "rgba(225,238,255,.85)" : "rgba(40,56,84,.8)"; g.lineCap = g.lineJoin = "round";
+        scB.forEach(b => { const t = f - b.t0; if (t <= 0) return; const x0 = b.x, x1 = b.x + b.w, top = H - b.h, rh = b.roof === 1 ? b.w * 0.35 : b.roof === 2 ? b.w * 0.25 : 0;
+          const pts = [[x0, H + 2], [x0, top], ...(b.roof === 1 ? [[(x0 + x1) / 2, top - rh]] : b.roof === 2 ? [[x0 + b.w * 0.3, top], [x0 + b.w * 0.3, top - rh], [x0 + b.w * 0.7, top - rh], [x0 + b.w * 0.7, top]] : []), [x1, top], [x1, H + 2]];
+          const wash = fxEase((t - 26) / 24); if (wash > 0) { g.globalAlpha = a * wash * (d ? 0.3 : 0.24); g.fillStyle = b.c; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.fill();
+            // windows
+            const cw = Math.max(5, b.w * 0.14), gap = cw * 0.9, cols = Math.max(1, Math.floor((b.w - gap) / (cw + gap))), rows = Math.floor((b.h - gap * 2) / (cw * 1.3 + gap)), ox = x0 + (b.w - cols * (cw + gap) + gap) / 2;
+            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const on = fxEase((t - 40 - ((r * 7 + c * 13) % 17)) / 8); if (on <= 0) continue; g.globalAlpha = a * on * (((r * 3 + c * 5) % 4) ? 0.55 : 0.85); g.fillStyle = d ? "#FFE38A" : b.c; g.fillRect(ox + c * (cw + gap), top + gap * 1.5 + r * (cw * 1.3 + gap), cw, cw * 1.3); } }
+          // pencil outline traced along the edge, with a light overshoot at the corners
+          let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); let left = L * Math.min(1, t / 26);
+          g.globalAlpha = a; g.strokeStyle = pen; g.lineWidth = 1.6; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+          for (let i = 1; i < pts.length && left > 0; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]), u = Math.min(1, left / l); g.lineTo(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u); left -= l; } g.stroke(); }); }},
     tag: "A skyline on drafting paper, from pencil sketch to scaffolding to finished color, with cranes at work"
   });
 })();
@@ -23546,9 +24827,85 @@ var MAJ_THEMES = [];
     n1acacia: {d: "M-1.2 11L-0.8 2.6L-5.6 -2.4L-4.4 -3.2L-0.4 0.6L-0.2 -3H1.2L1.2 0.8L5.2 -3.4L6.4 -2.6L1.6 2.6L1.8 11Z M-11.4 -3.6C-11 -7.8 -5.4 -9.2 0 -9.2C5.4 -9.2 11 -7.8 11.4 -3.6C8 -1.8 -8 -1.8 -11.4 -3.6Z"},
     n1lava: {d: "M0 -11C3.6 -6 8 -2 8 3.4C8 8 4.4 11 0 11C-4.4 11 -8 8 -8 3.4C-8 -2 -3.6 -6 0 -11Z", detail: circ(-2.6, 3.2, 1.6) + circ(2.6, 3.2, 1.6), dfill: true}
   });
-  // a soft rainbow arc that grows over the page and then fades (frames f)
-  const rainbow = (g, f, W, H, d, cx, cy, R) => { const a = f < 40 ? f / 40 : f < 170 ? 1 : Math.max(0, 1 - (f - 170) / 50); if (a <= 0) return; const grow = Math.min(1, f / 50);
-    g.save(); g.globalAlpha = a * (d ? 0.35 : 0.5); g.lineWidth = Math.max(6, R * 0.05); ["#FF6A6A", "#FFA94A", "#FFE05A", "#7EDB6A", "#5AB8F2", "#9A7BF0"].forEach((c, i) => { g.strokeStyle = c; g.beginPath(); g.arc(cx * W, cy * H, R - i * g.lineWidth, Math.PI, Math.PI + Math.PI * grow); g.stroke(); }); g.restore(); };
+
+  /* ---- completion animations ---- */
+  const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+  const hump = (f, a, b) => Math.sin(Math.PI * Math.max(0, Math.min(1, (f - a) / (b - a))));
+  const fillP = (g, c, d) => { g.fillStyle = c; g.fill(new Path2D(d)); };
+  const sheen = (g, dk, k = 1) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${0.34 * k})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dk ? 0.26 : 0.2})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  const scl = (W, H) => 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+  Object.assign(FX_SHAPES, {
+    // a soft round puff of steam or smoke that fades to clear in its own color
+    n1soft: {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0", paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, c); gr.addColorStop(0.5, c + "99"); gr.addColorStop(1, c + "00"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); }},
+    // a blue morpho, seen from above
+    n1morpho: {d: FX_SHAPES.butterfly.d, paint: (g, c, dk) => { const w = new Path2D(FX_SHAPES.butterfly.d); g.fillStyle = "#16182A"; g.fill(w); g.save(); g.clip(w);
+      [[5.6, -4.4, 4.6, 3.4, -0.5], [4.2, 3.6, 3, 2.4, 0.5]].forEach(([x, y, rx, ry, a]) => [-1, 1].forEach(s => { const gr = g.createRadialGradient(s * x * 0.6, y, 0, s * x, y, rx * 1.2); gr.addColorStop(0, "#7FE4FF"); gr.addColorStop(0.5, c); gr.addColorStop(1, "#1A3AB8"); g.fillStyle = gr; g.beginPath(); g.ellipse(s * x, y, rx, ry, s * a, 0, 6.3); g.fill(); }));
+      g.restore(); g.fillStyle = "rgba(255,255,255,.85)"; [[9, -6.6], [9.6, -4.2], [6.4, 6.6]].forEach(([x, y]) => [-1, 1].forEach(s => { g.beginPath(); g.arc(s * x, y, 0.6, 0, 6.3); g.fill(); })); g.fillStyle = "#16182A"; g.beginPath(); g.ellipse(0, 0.6, 0.9, 5.6, 0, 0, 6.3); g.fill(); }},
+    // a shore crab from the front, claws up
+    n1crab: {d: "M-7 0C-7 -4 -3.6 -5.6 0 -5.6C3.6 -5.6 7 -4 7 0C7 3.4 3.6 4.6 0 4.6C-3.6 4.6 -7 3.4 -7 0Z M-6 -2L-9.6 -6.6L-11 -10.4L-7.4 -9.6Z M6 -2L9.6 -6.6L11 -10.4L7.4 -9.6Z", paint: (g, c, dk) => { g.strokeStyle = c; g.lineWidth = 1.2; g.lineCap = "round"; [-1, 1].forEach(s => { [[1, 2.2], [2.4, 3.8], [3.4, 5.4]].forEach(([y, e]) => { g.beginPath(); g.moveTo(s * 5.6, y); g.lineTo(s * 9, y + 1); g.lineTo(s * 10.6, y + e); g.stroke(); }); g.beginPath(); g.moveTo(s * 5, -2.6); g.lineTo(s * 8.6, -6); g.stroke(); });
+      g.fillStyle = c; [-1, 1].forEach(s => { g.beginPath(); g.moveTo(s * 7.6, -6.4); g.bezierCurveTo(s * 12.6, -6.6, s * 12.4, -11.6, s * 9.4, -11.4); g.lineTo(s * 9.6, -9); g.lineTo(s * 7.4, -10.2); g.closePath(); g.fill(); });
+      g.beginPath(); g.ellipse(0, 0, 7, 5, 0, 0, 6.3); g.fill(); sheen(g, dk); g.strokeStyle = c; g.lineWidth = 0.9; [-2, 2].forEach(x => { g.beginPath(); g.moveTo(x, -4); g.lineTo(x, -7); g.stroke(); g.fillStyle = "#1A1A22"; g.beginPath(); g.arc(x, -7.4, 1.1, 0, 6.3); g.fill(); g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(x - 0.3, -7.8, 0.35, 0, 6.3); g.fill(); }); }},
+    // a glowing lava bomb with a dark cracked crust
+    n1bomb: {d: "M-8 0C-8 -5 -4 -8.6 0.6 -8.6C5.4 -8.6 8.6 -4.6 8.6 0.4C8.6 5 5 8.4 0 8.4C-5 8.4 -8 4.6 -8 0Z", paint: (g, c, dk) => { const gr = g.createRadialGradient(-1, -1, 0, 0, 0, 9); gr.addColorStop(0, "#FFF2A0"); gr.addColorStop(0.45, c); gr.addColorStop(1, "#B8301A"); g.fillStyle = gr; g.fill(new Path2D(FX_SHAPES.n1bomb.d));
+      g.fillStyle = dk ? "#3A1A16" : "#4A2420"; g.fill(new Path2D("M-7.6 -1.6C-6 -6 -2 -8.4 1 -8.4L0 -5L-3 -4.6L-4.4 -1.4Z M2.6 -8.2C6 -7.4 8.4 -4 8.6 -0.6L5 0.4L4.4 -3.6Z M8.4 2C7.4 5.6 4 8.2 0.6 8.4L1.4 5L5 4.4Z M-1.6 8.2C-5 7.6 -7.6 5 -8 1.6L-4.6 2.2L-3.4 5.4Z")); }},
+    n1yuzu2: {d: FX_SHAPES.n1yuzu.d, paint: (g, c, dk) => { g.fillStyle = c; g.beginPath(); g.arc(0, 1.6, 9, 0, 6.3); g.fill(); g.fillStyle = "rgba(200,130,20,.35)"; for (let i = 0; i < 14; i++) { g.beginPath(); g.arc(Math.cos(i * 2.4) * (2 + i * 0.45), 1.6 + Math.sin(i * 2.4) * (2 + i * 0.45), 0.35, 0, 6.3); g.fill(); } sheen(g, dk, 1.2); fillP(g, "#4E9A3A", "M0.6 -7.2C2.4 -11.8 7.6 -12.6 10.2 -10.2C8.2 -6.8 3.8 -6.2 0.6 -7.2Z"); }}
+  });
+
+  // Hot spring: maple leaves spin down through rising steam and land on the pool in little ripples; yuzu bob past
+  let RIP = null;
+  const ripDraw = (g, f, W, H, dk) => { if (!RIP) return; g.lineWidth = 1.6; RIP.forEach(r => { const t = (f - r.t) / 80; if (t <= 0 || t >= 1) return; const a = (1 - t) * (1 - t) * (dk ? 0.5 : 0.55); g.strokeStyle = dk ? `rgba(255,226,190,${a})` : `rgba(60,100,140,${a})`; [1, 0.6].forEach(k => { const rx = r.R * k * ease(Math.min(1, t * 1.4)); if (rx < 1) return; g.beginPath(); g.ellipse(r.x, r.y, rx, rx * 0.28, 0, 0, 6.3); g.stroke(); }); }); };
+
+  // Rainforest: a warm shower sweeps through, then blue morphos flutter up past falling leaves
+  let RAIN = null;
+  const rainDraw = (g, f, W, H, dk) => { if (!RAIN) return; const a = ease(f / 20) * (1 - ease((f - 110) / 70)); if (a <= 0) return; g.strokeStyle = dk ? `rgba(190,240,230,${0.4 * a})` : `rgba(40,110,120,${0.36 * a})`; g.lineWidth = 1.4; g.lineCap = "round"; g.beginPath();
+    RAIN.forEach(r => { const y = (r.y + f * r.v) % (H + 60) - 30, x = (r.x + f * r.v * 0.22) % (W + 40) - 20; g.moveTo(x, y); g.lineTo(x - r.l * 0.22, y - r.l); }); g.stroke(); };
+
+  // Tide pools: a wave surges up the screen and pulls back, tossing sea stars and shells; crabs scuttle in
+  const waveDraw = (g, f, W, H, dk) => { const h = hump(f, 0, 140); if (h <= 0.002) return; const lvl = H * (1 - 0.42 * h), yAt = x => lvl + Math.sin(x * 0.018 + f * 0.09) * 9 + Math.sin(x * 0.043 - f * 0.06) * 5;
+    const gr = g.createLinearGradient(0, lvl - 20, 0, H); gr.addColorStop(0, dk ? "rgba(110,200,230,.28)" : "rgba(80,180,210,.32)"); gr.addColorStop(1, dk ? "rgba(60,140,190,.14)" : "rgba(60,160,200,.16)"); g.fillStyle = gr;
+    g.beginPath(); g.moveTo(0, H); for (let x = 0; x <= W + 20; x += 20) g.lineTo(x, yAt(x)); g.lineTo(W, H); g.fill();
+    g.strokeStyle = `rgba(255,255,255,${dk ? 0.6 : 0.9})`; g.lineWidth = 4; g.lineJoin = "round"; g.beginPath(); for (let x = 0; x <= W + 20; x += 20) x ? g.lineTo(x, yAt(x)) : g.moveTo(x, yAt(x)); g.stroke();
+    g.fillStyle = `rgba(255,255,255,${dk ? 0.5 : 0.8})`; for (let x = 7; x < W; x += 31) { const y = yAt(x) + 8 + (x * 7 % 13); g.beginPath(); g.arc(x, y, 1.6 + (x % 3), 0, 6.3); g.fill(); } };
+
+  // Volcano: the vent glows and throws glowing lava bombs high, with a smoke plume and embers
+  const ventDraw = (g, f, W, H, dk) => { const a = ease(f / 14) * (0.8 + 0.2 * Math.sin(f * 0.3)) * (1 - 0.5 * ease((f - 120) / 100)), R = Math.min(W, H) * 0.42, gr = g.createRadialGradient(W / 2, H, 0, W / 2, H, R); gr.addColorStop(0, `rgba(255,190,90,${(dk ? 0.6 : 0.5) * a})`); gr.addColorStop(0.4, `rgba(255,110,50,${(dk ? 0.3 : 0.22) * a})`); gr.addColorStop(1, "rgba(255,90,40,0)"); g.fillStyle = gr; g.fillRect(W / 2 - R, H - R, 2 * R, R); };
+
+  // Savanna: a huge sun rises at the bottom while a flock of birds crosses the sky
+  let FLOCK = null;
+  const sunDraw = (g, f, W, H, dk) => { const R = Math.min(W, H) * 0.28, cx = W / 2, cy = H + R * 0.25 - ease(f / 130) * R * 0.85, gr = g.createRadialGradient(cx, cy, R * 0.9, cx, cy, R * 2.4);
+    gr.addColorStop(0, dk ? "rgba(255,150,80,.35)" : "rgba(255,190,90,.45)"); gr.addColorStop(1, "rgba(255,160,80,0)"); g.fillStyle = gr; g.fillRect(cx - R * 2.4, cy - R * 2.4, R * 4.8, R * 4.8);
+    const dg = g.createLinearGradient(0, cy - R, 0, cy + R); dg.addColorStop(0, dk ? "#FFC27A" : "#FFD27A"); dg.addColorStop(1, dk ? "#E8603A" : "#F28A3A"); g.globalAlpha = 0.9; g.fillStyle = dg; g.beginPath(); g.arc(cx, cy, R, 0, 6.3); g.fill(); g.globalAlpha = 1; };
+  const birdsOver = (g, f, W, H, dk) => { if (!FLOCK) return; const u = Math.max(9, Math.min(W, H) * 0.022); g.strokeStyle = g.fillStyle = dk ? "#2A1424" : "#3A2412"; g.lineWidth = Math.max(1.6, u * 0.28); g.lineCap = g.lineJoin = "round";
+    FLOCK.forEach(b => { const t = f - b.d; if (t < 0) return; const x = b.x + b.vx * t, y = b.y + Math.sin(t * 0.03 + b.ph) * u * 0.8 + b.vy * t, fl = Math.sin(t * b.fs + b.ph), w = u * b.s; g.beginPath(); g.moveTo(x - w * 1.3, y - fl * w * 0.7); g.quadraticCurveTo(x - w * 0.6, y - w * 0.45 - fl * w * 0.2, x, y); g.quadraticCurveTo(x + w * 0.6, y - w * 0.45 - fl * w * 0.2, x + w * 1.3, y - fl * w * 0.7); g.stroke(); g.beginPath(); g.ellipse(x + w * 0.1, y + w * 0.08, w * 0.35, w * 0.16, 0, 0, 6.3); g.fill(); }); };
+
+  const FX = {
+    onsen: {spawn: (W, H, d, n) => { RIP = Array.from({length: n(14)}, () => ({x: fxR(0.05, 0.95) * W, y: H * fxR(0.8, 0.97), R: fxR(30, 60) * scl(W, H) / 1.6, t: fxR(30, 190)}));
+        return fxRise(W, H, n(20), "n1soft", d ? ["#E8E4FF"] : ["#FFFFFF"], {smin: 14, smax: 22, vmin: 0.7, vmax: 1.3, sway: 1.4, life: 240, grow: 0.3, alpha: d ? 0.16 : 0.6, spread: 120, depth: false})
+          .concat(fxFall(W, H, n(44), "n1maple", d ? ["#F0606A", "#F29A4A", "#F2C45A"] : ["#E2402E", "#F27A2A", "#F2B83A", "#C8302A"], {vmin: 0.9, vmax: 1.6, sway: 1.8, flip: true, smin: 12, smax: 17}),
+            Array.from({length: 4}, (_, i) => ({shape: "n1yuzu2", c: d ? "#FFD25A" : "#FFC21E", x: i % 2 ? W + 30 : -30, y: H * fxR(0.84, 0.95), vx: (i % 2 ? -1 : 1) * fxR(0.6, 1.1), vy: 0, g: 0, size: fxR(12, 15), rot: fxR(-0.3, 0.3), vr: 0, rock: 0.18, swf: 0.04, sway: 0, life: 330, delay: 20 + i * 25})));
+      }, draw: ripDraw},
+    rainforest: {spawn: (W, H, d, n) => { RAIN = Array.from({length: n(90)}, () => ({x: fxR(0, W + 40), y: fxR(0, H + 60), v: fxR(9, 14), l: fxR(12, 22)}));
+        return fxFlutter(W, H, n(12), d ? ["#3FA8FF", "#4FC0FF"] : ["#1E8AF0", "#2F9CFF"]).map(p => Object.assign(p, {shape: "n1morpho", size: fxR(15, 21), delay: 40 + Math.floor(fxR(0, 90))}))
+          .concat(fxFall(W, H, n(16), "n1monstera", d ? ["#2E7A5A", "#3E9A6A", "#5AB87A"] : ["#2B7A4E", "#4FAA60", "#3E8A50"], {sway: 2, flip: true, smin: 13, smax: 18, vmin: 1, vmax: 1.9, spread: 60}),
+            d ? fxTw(W, H, n(26), "circle", ["#C8FF8A", "#9FFFE8"], {smin: 2, smax: 3.5, glow: 10, vy: -0.3, spread: 180}).map(p => Object.assign(p, {delay: p.delay + 60})) : []);
+      }, draw: rainDraw},
+    tidepool: {spawn: (W, H, d, n) => { const s = scl(W, H);
+        return fxBurst(W, H, n(16), "starfish", d ? ["#FF9A5A", "#C88AF0", "#FFC84A"] : ["#F2783A", "#9E62CC", "#F2A83A", "#E8566C"], [[0.2, 1.02], [0.5, 1.04], [0.8, 1.02]], {smin: 12, smax: 16}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08), delay: p.delay + 40, vx: p.vx * 0.8, vy: p.vy * 0.85}))
+          .concat(fxBurst(W, H, n(12), "shell", d ? ["#FFE4D0", "#F7C6D8", "#FFF2E0"] : ["#F6D0B8", "#F7B6C0", "#FFE6CC"], [[0.3, 1.02], [0.7, 1.02]], {smin: 11, smax: 14}).map(p => Object.assign(p, {delay: p.delay + 46, vx: p.vx * 0.8, vy: p.vy * 0.8})),
+            Array.from({length: Math.max(3, Math.min(6, Math.round(W / 220)))}, (_, i) => { const lr = i % 2 === 0, sz = fxR(15, 19); return {shape: "n1crab", c: fxPick(d ? ["#FF7A5A", "#FF9A4A"] : ["#E2502E", "#F06A2A"]), x: lr ? -30 : W + 30, y: H - sz * s * 1.05 - fxR(0, 4), vx: (lr ? 1 : -1) * (W * fxR(0.0028, 0.004) + 0.6), vy: -fxR(1.5, 2.5), g: 0.3, bounce: true, size: sz, rot: 0, vr: 0, rock: 0.12, swf: 0.35, sway: 0, life: 300, delay: 60 + i * 22}; }),
+            fxRise(W, H, n(26), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#CFEFF5"], {smin: 4, smax: 8, sway: 1, vmin: 1.4, vmax: 2.6, spread: 90}));
+      }, draw: waveDraw},
+    volcano: {spawn: (W, H, d, n) => Array.from({length: n(30)}, (_, i) => { const a = fxR(-0.45, 0.45), sp = H * fxR(0.022, 0.033); return {shape: "n1bomb", c: fxPick(["#FF8A2A", "#FF6A1E", "#FFA83A"]), x: W / 2 + fxR(-20, 20), y: H + 10, vx: Math.sin(a) * sp, vy: -Math.cos(a) * sp, g: 0.3, drag: 0.99, size: fxR(9, 14), rot: fxR(0, 6), vr: fxR(-0.1, 0.1), sway: 0, life: 200, delay: [0, 32, 64][i % 3] + Math.floor(fxR(0, 10)), glow: d ? 14 : 8}; })
+        .concat(Array.from({length: n(60)}, () => ({shape: "circle", c: fxPick(["#FFB347", "#FF8A3A", "#FFE08A"]), x: W / 2 + fxR(-40, 40), y: H - fxR(0, 20), vx: fxR(-2.6, 2.6), vy: -fxR(4, 9), g: 0.07, drag: 0.985, size: fxR(1.8, 3.4), rot: 0, vr: 0, sway: 0.6, swf: 0.1, grow: -0.04, life: fxR(80, 140), delay: Math.floor(fxR(0, 120)), glow: 10})),
+          fxRise(W, H, n(10), "n1soft", d ? ["#8A7A90"] : ["#E2C4B4"], {cx: [0.42, 0.58], smin: 12, smax: 17, vmin: 1.2, vmax: 2, sway: 1, grow: 0.2, alpha: d ? 0.2 : 0.14, life: 200, spread: 110, depth: false})),
+      draw: ventDraw},
+    savanna: {spawn: (W, H, d, n) => { const k = Math.max(7, Math.min(11, Math.round(W / 110))), u = Math.max(9, Math.min(W, H) * 0.022), vx = W * 0.0042 + 1.2, y0 = H * fxR(0.42, 0.52);
+        FLOCK = Array.from({length: k}, (_, i) => { const r = Math.ceil(i / 2), s = i % 2 ? 1 : -1; return {x: -u * 3 - r * u * 3.2, y: y0 + s * r * u * 2.2, vx, vy: -0.08, d: 10 + r * 2, s: fxR(0.9, 1.15), fs: fxR(0.16, 0.22), ph: fxR(0, 6.3)}; });
+        return fxRise(W, H, n(46), "circle", d ? ["#FFD08A", "#F6B87A"] : ["#E8A84A", "#D99040", "#F2C46A"], {smin: 2, smax: 4, vmin: 0.4, vmax: 1.1, sway: 1.4, life: 240, glow: d ? 10 : 6, spread: 120}).map(p => Object.assign(p, {y: H * fxR(0.55, 1)}))
+          .concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 4, smax: 7, glow: d ? 10 : 4, top: 0.8, spread: 160}));
+      }, draw: sunDraw, over: birdsOver}
+  };
+  /* ---- end of completion animations ---- */
 
   MAJ_THEMES.push({
     skin: {id: "onsen", name: "Hot Spring", group: "ideas", desc: "A steaming rock pool under autumn maples, with lanterns and a little ryokan.",
@@ -23557,10 +24914,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#BFD8EE,#E8F1F8 55%,#F6EEE6)", "linear-gradient(180deg,#1C2340,#3A3F6B 60%,#6B5A7A)"],
       spine: [lg("#4E6E8E", "#33506E"), lg("#2A2F57", "#161A36")], btn: [lg2("#B8523A", "#C96A40"), lg2("#F2A86A", "#F7C48E")]},
     kit: {motif: "n1yuzu", card: ["#F8FAFD", "#E4ECF4"], ink: "#1C2A38", bd: "#C6D6E6", mc: "#E0A02A", r: 16, notes: ["#E2ECF6"].concat(NOTES), shape: "cloud", pin: "magnet", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "puff", d ? ["rgba(220,222,255,.45)", "rgba(255,210,160,.4)"] : ["rgba(255,255,255,.85)", "rgba(230,238,248,.9)"], {smin: 9, smax: 18, vmin: 0.8, vmax: 1.6, sway: 1.4, life: 260, grow: 0.12, alpha: 0.55})
-      .concat(fxBurst(W, H, n(10), "n1yuzu", d ? ["#F2C24A", "#FFD45A"] : ["#FFC93A", "#F2B02A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
-        fxFall(W, H, n(40), "n1maple", d ? ["#E0545E", "#E8844A", "#E8B84A"] : ["#E8483A", "#F5873A", "#F7C445"], {vmin: 0.9, vmax: 1.7, sway: 1.8, flip: true, smin: 10, smax: 15}),
-        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: FX.onsen,
     tag: "A steaming rock pool under red and gold maples, with a bamboo spout that tips and clacks, floating yuzu, stone lanterns, a vermilion torii, a little ryokan and a snow-capped peak"
   });
   MAJ_THEMES.push({
@@ -23570,11 +24924,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#9FD4B8,#D9F0C9 55%,#F3F7D8)", "linear-gradient(180deg,#0F2A2A,#174240 55%,#2D5C4E)"],
       spine: [lg("#2F7A55", "#1C5238"), lg("#14403A", "#0A221E")], btn: [lg2("#C2482E", "#D26A2E"), lg2("#7FF0D0", "#B8F59A")]},
     kit: {motif: "n1monstera", card: ["#F5FBF6", "#DDEFE2"], ink: "#132A1E", bd: "#B6D8C0", mc: "#2F8A55", r: 18, notes: ["#D3EBD9"].concat(NOTES), shape: "scallop", pin: "pin", fab: "24px 24px 24px 8px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(36), "n1monstera", d ? ["#2E7A5A", "#3E9A6A", "#5AB87A"] : ["#2B7A4E", "#4FAA60", "#6FBE58"], {sway: 2, flip: true, smin: 11, smax: 16, vmin: 1, vmax: 1.9})
-      .concat(fxFall(W, H, n(60), "drop", d ? ["#9FE8E0", "#C8F5EE"] : ["#7CC8E8", "#A8DCF2"], {vmin: 5, vmax: 8, sway: 0, smin: 4, smax: 6, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0, vx: 0.2, g: 0.04, life: 170, delay: Math.floor(fxR(0, 120))})),
-        fxFall(W, H, n(14), "n1feather", ["#E83A3A", "#2F8EE8", "#FFC93A", "#2FB0A8"], {sway: 2.4, smin: 12, smax: 17, vmin: 0.8, vmax: 1.4}),
-        fxFlutter(W, H, n(7), d ? ["#7FDBFF", "#9FF7E0"] : ["#2F7CF0", "#4FA0FF", "#7FD0FF"]),
-        fxTw(W, H, n(20), "circle", d ? ["#C8FF8A", "#9FFFE8"] : ["#F2E7A0", "#E4F0B8"], {smin: 2, smax: 4, glow: 10, vy: -0.3}))},
+    fx: FX.rainforest,
     tag: "Giant leaves, swaying vines and a distant waterfall seen from the treetops, with a hopping toucan, tree frogs and glowing mushrooms at night"
   });
   MAJ_THEMES.push({
@@ -23584,11 +24934,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#A8D8E8,#E6F3F2 55%,#E9DCC6)", "linear-gradient(180deg,#1A2B44,#2C4462 55%,#4A5A6E)"],
       spine: [lg("#2F7A8E", "#1D5466"), lg("#22385A", "#121F36")], btn: [lg2("#C2486E", "#D9685A"), lg2("#7FE0F0", "#B8A0FF")]},
     kit: {motif: "n1anem", card: ["#F5FBFB", "#DDEEF0"], ink: "#132B33", bd: "#B4D6DC", mc: "#C2486E", r: 20, notes: ["#D3EAEE"].concat(NOTES), shape: "rounded", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(46), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 8, sway: 1, vmin: 1.6, vmax: 3})
-      .concat(fxBurst(W, H, n(16), "n1anem", d ? ["#FF8FB8", "#6EE0A8", "#B58CF2"] : ["#FF7FA8", "#4ED69A", "#A884F0", "#FF9A5A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}),
-        fxBurst(W, H, n(10), "starfish", ["#F2884A", "#9E62CC", "#F2B53A"], [[0.3, 1.02], [0.7, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxBurst(W, H, n(8), "shell", ["#F6E0D0", "#F7C6C6", "#FFF2E0"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 13}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#7FE0F0", "#FFFFFF"] : ["#4FB8D8", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 3}))},
+    fx: FX.tidepool,
     tag: "Tide pools of every shape and color, with anemones, sea stars, urchins, snails, little fish and a crab, below a lighthouse, sea stacks and a passing sailboat"
   });
   MAJ_THEMES.push({
@@ -23598,10 +24944,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F7C9A0,#FBE6C8 50%,#BFE3D9)", "linear-gradient(180deg,#26142A,#4A1F33 55%,#8A3A35)"],
       spine: [lg("#B8563A", "#7E3424"), lg("#4A1F33", "#26142A")], btn: [lg2("#1E8A8C", "#2EA2A0"), lg2("#FF9A5A", "#FFC07A")]},
     kit: {motif: "n1hibiscus", card: ["#FFF8F2", "#F6E2D4"], ink: "#3A1C14", bd: "#EAC8B4", mc: "#E0533A", r: 14, notes: ["#F6DCCC"].concat(NOTES), shape: "folded", pin: "corners", fab: "22px 6px 22px 6px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "circle", d ? ["#FFB05A", "#FFE08A", "#FF7A3A"] : ["#FF8A3A", "#FFC24A", "#F25A3A"], [[0.5, 1.04]], {smin: 2.5, smax: 5, glow: 12})
-      .concat(fxBurst(W, H, n(22), "n1hibiscus", d ? ["#FF6A8A", "#FFB0C8", "#FFFFFF", "#FFA05A"] : ["#F2486A", "#FF8AB0", "#FFFFFF", "#FF9A3A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)})),
-        fxRise(W, H, n(8), "n1lava", d ? ["#FF7A3A", "#FFB05A"] : ["#E8603A", "#FF9A3A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.8, sway: 0.8, life: 280, glow: d ? 14 : 6}),
-        fxTw(W, H, n(22), "sparkle", d ? ["#FFE08A", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 4}))},
+    fx: FX.volcano,
     tag: "A friendly volcano puffing over a tropical island, with swaying palms, black sand, steaming vents and glowing lava rivers at night"
   });
   MAJ_THEMES.push({
@@ -23611,10 +24954,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F9D68B,#FBE9B9 55%,#E8D59A)", "linear-gradient(180deg,#2A1C3E,#5A2E4A 55%,#B4523E)"],
       spine: [lg("#B8782E", "#7E4E1C"), lg("#3E2446", "#2A1C3E")], btn: [lg2("#B8502A", "#D27A2A"), lg2("#F2A66A", "#F6C88A")]},
     kit: {motif: "n1acacia", card: ["#FFFAF0", "#F6E8CC"], ink: "#3A2412", bd: "#E8D0A4", mc: "#B8782E", r: 12, notes: ["#F4E2BC"].concat(NOTES), shape: "torn", pin: "tape", fab: "18px 18px 6px 18px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "drop", d ? ["#B8D8FF", "#E8F0FF"] : ["#7CC8E8", "#A8DCF2", "#FFFFFF"], [[0.3, 1.04], [0.7, 1.04]], {smin: 4, smax: 7, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0}))
-      .concat(Array.from({length: n(70)}, () => ({shape: "circle", c: fxPick(d ? ["#F6C88A", "#E2B07A"] : ["#E8B85A", "#D9A04A", "#F2CC7A"]), x: fxR(-W * 0.4, -10), y: fxR(H * 0.3, H), vx: fxR(4, 7.5), vy: fxR(-0.6, 0.2), g: 0, size: fxR(1.5, 3), rot: 0, vr: 0, sway: 0.9, swf: fxR(0.05, 0.1), life: 220, delay: Math.floor(fxR(0, 80)), alpha: 0.85})),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
-      draw: (g, f, W, H, d) => rainbow(g, f, W, H, d, 0.5, 0.95, Math.min(W, H) * 0.42)},
+    fx: FX.savanna,
     tag: "A huge low sun over golden grass, with flat-topped acacias, a munching giraffe, swallows over the watering hole and a baby elephant who loves a splash"
   });
 })();
@@ -23644,6 +24984,66 @@ var MAJ_THEMES = [];
   // confetti thrown up from the two bottom corners, fluttering down
   const cannon = (W, H, n, cols, shape = "n5rect", o = {}) => fxBurst(W, H, n, shape, cols, [[0.04, 1.02], [0.96, 1.02]], Object.assign({smin: 6, smax: 9, g: 0.16}, o)).map(p => Object.assign(p, {vx: p.vx * 1.6 + (p.x < W / 2 ? 2.4 : -2.4), vy: p.vy * 1.15, sway: 1.4, swf: fxR(0.05, 0.1), flip: true, life: 300}));
 
+  /* ---- completion animations ---- */
+  const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+  const fillP = (g, c, d) => { g.fillStyle = c; g.fill(new Path2D(d)); };
+  const sheen = (g, dk, k = 1) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${0.34 * k})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dk ? 0.26 : 0.2})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  const HEART = "M0 9.6C-6 5 -10.4 1.4 -10.4 -3.4C-10.4 -7 -7.6 -9.4 -4.8 -9.4C-2.6 -9.4 -0.9 -8.2 0 -6.4C0.9 -8.2 2.6 -9.4 4.8 -9.4C7.6 -9.4 10.4 -7 10.4 -3.4C10.4 1.4 6 5 0 9.6Z";
+  const BAL = "M0 -11C5.6 -11 8.4 -6.8 8.4 -2.6C8.4 2.8 3.6 6 0.8 7H-0.8C-3.6 6 -8.4 2.8 -8.4 -2.6C-8.4 -6.8 -5.6 -11 0 -11Z";
+  Object.assign(FX_SHAPES, {
+    // a glossy heart with a soft shine
+    n5heartP: {d: HEART, paint: (g, c, dk) => { fillP(g, c, HEART); sheen(g, dk, 1.1); g.fillStyle = "rgba(255,255,255,.6)"; g.beginPath(); g.ellipse(-5, -5, 2.2, 1.3, -0.6, 0, 6.3); g.fill(); }},
+    // a mortarboard: a flat board seen a little from above, the cap under it, a gold tassel
+    n5capP: {d: "M0 -8.6L11.6 -3.4L0 1.8L-11.6 -3.4Z M-7 -0.4V4.6Q0 8.6 7 4.6V-0.4L0 2.8Z", paint: (g, c, dk) => { fillP(g, fxShade(c, 0.8), "M-7 -1.4V4.6Q0 8.6 7 4.6V-1.4L0 2Z"); fillP(g, c, "M0 -8.6L11.6 -3.4L0 1.8L-11.6 -3.4Z"); sheen(g, dk, 1.2); if (dk) { g.strokeStyle = "rgba(210,220,255,.55)"; g.lineWidth = 0.7; g.stroke(new Path2D("M0 -8.6L11.6 -3.4L0 1.8L-11.6 -3.4Z M-7 -0.4V4.6Q0 8.6 7 4.6V-0.4")); }
+      g.strokeStyle = "#F2C23A"; g.lineWidth = 0.9; g.lineCap = "round"; g.beginPath(); g.moveTo(0, -3.4); g.lineTo(8.6, -1.2); g.lineTo(8.6, 5.4); g.stroke(); fillP(g, "#F2C23A", "M7.4 5.2H9.8L10.6 10H6.6Z M-1.2 -3.4A1.2 0.7 0 1 0 1.2 -3.4A1.2 0.7 0 1 0 -1.2 -3.4Z"); }},
+    // a rolled diploma tied with a red ribbon
+    n5dip: {d: "M-10 -3.4H10V3.4H-10Z", paint: (g, c, dk) => { const gr = g.createLinearGradient(0, -3.6, 0, 3.6); gr.addColorStop(0, "#FFF8E6"); gr.addColorStop(0.5, c); gr.addColorStop(1, "#C8B07A"); g.fillStyle = gr; g.fillRect(-10, -3.4, 20, 6.8); g.fillStyle = "#E8D8B0"; g.beginPath(); g.ellipse(10, 0, 1.2, 3.4, 0, 0, 6.3); g.fill(); g.strokeStyle = "#B8985A"; g.lineWidth = 0.4; g.beginPath(); g.arc(10, 0, 1.6, 0, 6.3); g.stroke();
+      g.fillStyle = "#D8283A"; g.fillRect(-1.2, -3.6, 2.4, 7.2); fillP(g, "#D8283A", "M0 2L-2.6 7.4L-0.6 6.6L0 8.4Z M0 2L2.6 7.4L0.6 6.6L0 8.4Z"); }},
+    // a shiny party balloon with its knot and a curly string
+    n5ballP: {d: BAL + "M-0.8 7H0.8L1.6 9H-1.6Z", paint: (g, c, dk) => { g.strokeStyle = dk ? "rgba(230,220,255,.7)" : "rgba(90,80,100,.6)"; g.lineWidth = 0.5; g.beginPath(); g.moveTo(0, 8.6); g.bezierCurveTo(-2, 10, 2, 11, -0.6, 13); g.stroke(); fillP(g, fxShade(c, 0.8), "M-0.8 6.6H0.8L1.8 8.8H-1.8Z");
+      const gr = g.createRadialGradient(-3, -5, 0, 0, -2, 11); gr.addColorStop(0, fxShade(c, 1.25)); gr.addColorStop(0.6, c); gr.addColorStop(1, fxShade(c, 0.72)); g.fillStyle = gr; g.fill(new Path2D(BAL)); g.fillStyle = "rgba(255,255,255,.75)"; g.beginPath(); g.ellipse(-3.6, -6, 1.4, 2.6, 0.5, 0, 6.3); g.fill(); }},
+    // a curly paper streamer
+    n5curl: {d: "M-10 0C-8 -4 -5 -4 -4 0C-3 4 0 4 1 0C2 -4 5 -4 6 0C7 4 9.6 3.6 10.6 1", stroke: true, lw: 2}
+  });
+
+  // Pride: a big rainbow ribbon waves across the screen, glossy hearts float up and a little confetti flies
+  const prideDraw = (g, f, W, H, dk) => { const cols = rainbow(dk), sw = Math.max(7, Math.min(18, Math.min(W, H) * 0.024)), x1 = ease(f / 75) * (W + 60), x0 = ease((f - 165) / 80) * (W + 60), yAt = x => H * 0.62 - (x / W) * H * 0.3 + Math.sin(x / W * Math.PI * 1.6 - f * 0.06) * H * 0.07;
+    if (x1 - x0 < 2) return; g.lineWidth = sw + 1; g.lineCap = "butt"; g.lineJoin = "round"; g.globalAlpha = dk ? 0.85 : 0.9;
+    cols.forEach((c, k) => { const o = (k - 2.5) * sw; g.strokeStyle = c; g.beginPath(); for (let x = x0 - 30; x <= x1; x += 14) { const xx = Math.min(x, x1); x === x0 - 30 ? g.moveTo(xx, yAt(xx) + o) : g.lineTo(xx, yAt(xx) + o); } g.stroke(); });
+    g.globalAlpha = dk ? 0.18 : 0.25; g.strokeStyle = "#FFFFFF"; g.lineWidth = sw * 0.8; g.beginPath(); for (let x = x0 - 30; x <= x1; x += 14) { const xx = Math.min(x, x1), sh = Math.max(0, Math.sin(xx / W * Math.PI * 1.6 - f * 0.06 + 1.2)); x === x0 - 30 ? g.moveTo(xx, yAt(xx) - 2.4 * sw + sh) : g.lineTo(xx, yAt(xx) - 2.4 * sw + sh); } g.stroke(); g.globalAlpha = 1; };
+
+  // Geology: crystal clusters grow up out of the bottom edge, facet by facet, then glint
+  let GEO = null;
+  const geoDraw = (g, f, W, H, dk) => { if (!GEO) return; GEO.forEach(cl => cl.pr.forEach(p => { const q = ease((f - p.d) / 60); if (q <= 0) return; const L = p.L * q, w = p.w * (0.5 + 0.5 * q);
+      g.save(); g.translate(p.x, H + 4); g.rotate(p.a); g.fillStyle = p.c; g.beginPath(); g.moveTo(-w / 2, 0); g.lineTo(-w / 2, -L + w * 0.6); g.lineTo(0, -L); g.lineTo(w / 2, -L + w * 0.6); g.lineTo(w / 2, 0); g.fill();
+      g.fillStyle = "rgba(0,0,0,.22)"; g.beginPath(); g.moveTo(w * 0.1, 0); g.lineTo(w * 0.1, -L + w * 0.66); g.lineTo(0, -L); g.lineTo(w / 2, -L + w * 0.6); g.lineTo(w / 2, 0); g.fill();
+      g.fillStyle = "rgba(255,255,255,.4)"; g.beginPath(); g.moveTo(-w / 2, -L + w * 0.6); g.lineTo(0, -L); g.lineTo(w * 0.1, -L + w * 0.66); g.lineTo(-w * 0.3, -L + w * 0.62); g.fill(); g.fillRect(-w * 0.36, -L + w * 0.8, w * 0.1, L * 0.6); g.restore(); })); };
+
+  const FX = {
+    pride: {spawn: (W, H, d, n) => fxRise(W, H, n(18), "n5heartP", rainbow(d), {smin: 11, smax: 16, vmin: 1, vmax: 2, sway: 1.1, life: 300, glow: d ? 8 : 0, spread: 110}).map(p => Object.assign(p, {rock: 0.15, delay: p.delay + 20}))
+        .concat(cannon(W, H, n(46), rainbow(d).concat(["#FFFFFF"])).map(p => Object.assign(p, {delay: p.delay + 10})),
+          fxTw(W, H, n(16), "sparkle", d ? ["#FFFFFF", "#FFB3E6", "#FFE066"] : ["#F2B53A", "#FF8FC8", "#8E5CC7"], {smin: 4, smax: 8, glow: d ? 10 : 4, spread: 160})),
+      draw: prideDraw},
+    graduation: {spawn: (W, H, d, n) => fxBurst(W, H, n(28), "n5capP", d ? ["#4E5E9E", "#5A6AB0", "#46549A"] : ["#1E2E5A", "#26386A", "#18264E"], [[0.2, 1.02], [0.5, 1.04], [0.8, 1.02]], {smin: 16, smax: 22, g: 0.24}).map(p => Object.assign(p, {vr: fxR(-0.18, 0.18), life: 270, term: 3.4, fsw: 0.8}))
+        .concat(cannon(W, H, n(50), d ? ["#F2C85A", "#FFFFFF", "#7FB8F0"] : ["#F2B83A", "#E8A020", "#2E4A8A", "#7FB8F0"]).map(p => Object.assign(p, {delay: p.delay + 14})),
+          fxRise(W, H, n(5), "n5dip", ["#F6E8C8"], {cx: [0.15, 0.85], smin: 19, smax: 24, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, spread: 80}).map(p => Object.assign(p, {rot: fxR(-0.4, 0.4), rock: 0.12})),
+          fxTw(W, H, n(24), "n5star", d ? ["#F2C85A", "#FFFFFF"] : ["#F2B83A", "#E8A020"], {smin: 5, smax: 9, glow: d ? 10 : 3, spread: 160}))},
+    birthday: {spawn: (W, H, d, n) => { const pal = d ? ["#FF7FA8", "#7FE0C8", "#FFD86B", "#C6A0FF", "#7FC8FF"] : ["#F2689A", "#3EC8A8", "#F7C23A", "#A07AF0", "#4AA8F0"];
+        return fxRise(W, H, n(16), "n5ballP", pal, {smin: 18, smax: 26, vmin: 1.2, vmax: 2.3, sway: 0.9, life: 320, spread: 70}).map(p => Object.assign(p, {rock: 0.12, swf: 0.03}))
+          .concat(cannon(W, H, n(60), pal.concat(["#FFFFFF"])), cannon(W, H, n(14), pal, "n5curl", {smin: 9, smax: 12}),
+            fxTw(W, H, n(20), "sparkle", d ? ["#FFFFFF", "#FFD86B", "#FFB3E6"] : ["#F2B53A", "#F2689A", "#A07AF0"], {smin: 4, smax: 8, glow: d ? 10 : 4, spread: 160}));
+      }},
+    geology: {spawn: (W, H, d, n) => { const u = Math.min(W, H) / 100, k = Math.max(2, Math.min(5, Math.round(W / 240))), cs = d ? [["#B88AFF", "#9A6AE8", "#D2B4FF"], ["#6FE0E8", "#4AC0D0", "#A8F4F8"], ["#FF8AC8", "#E86AA8", "#FFB8DE"]] : [["#9A62D8", "#7E48C0", "#B88AE8"], ["#2EA8B8", "#1E8C9E", "#5CC8D4"], ["#D8609E", "#C04A88", "#EA8ABA"]];
+        GEO = Array.from({length: k}, (_, i) => { const cx = (i + 0.5 + fxR(-0.2, 0.2)) / k * W, pal = cs[i % cs.length], m = 5 + Math.floor(fxR(0, 3)), d0 = i * 14;
+          return {pr: Array.from({length: m}, (_, j) => { const t = (j / (m - 1) - 0.5) * 2, L = u * fxR(19, 31) * (1 - Math.abs(t) * 0.45); return {x: cx + t * u * 7, a: t * 0.55 + fxR(-0.08, 0.08), L, w: L * fxR(0.24, 0.32), c: pal[j % 3], d: d0 + Math.abs(t) * 18 + fxR(0, 8)}; }).sort((a, b) => b.L - a.L)}; });
+        const tips = GEO.flatMap(cl => cl.pr.map(p => ({x: p.x + Math.sin(p.a) * p.L, y: H + 4 - Math.cos(p.a) * p.L, d: p.d + 60})));
+        return tips.map(t => ({shape: "sparkle", c: d ? "#FFFFFF" : "#FFFFFF", x: t.x, y: t.y, vx: 0, vy: 0, g: 0, size: fxR(8, 12), rot: 0, vr: 0.03, sway: 0, life: 70, delay: Math.floor(t.d + fxR(0, 50)), tw: true, glint: true, glow: 12}))
+          .concat(fxTw(W, H, n(26), "sparkle", d ? ["#E2C8FF", "#C8FAFF", "#FFFFFF"] : ["#B58CF2", "#5CCFD8", "#F28AC0"], {smin: 4, smax: 8, glow: d ? 12 : 4, spread: 170}),
+            fxFall(W, H, n(10), "n5gem", d ? ["#E2C8FF", "#C8FAFF", "#FFD8EE"] : ["#B58CF2", "#5CCFD8", "#F28AC0"], {smin: 9, smax: 13, vmin: 1.2, vmax: 2, flip: true, spread: 80, glow: d ? 8 : 0}));
+      }, draw: geoDraw}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "pride", name: "Pride Parade", group: "ideas", desc: "A rainbow street hung with flags and bunting, ready for the parade.",
       light: ["#FBF3FA", "rgba(184,64,122,.10)", "#FFFFFF", "#2A1E3A", "#6A5A7A", "#EEDDEB", "#F5EAF3", "#FDF9FC", "#B8407A", "#7A4AB8", "#FFFFFF", "#7A2452", "#4E2E72", "#F2D6E8", "#FFE7A0"],
@@ -23651,10 +25051,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#BDE3F7,#FDF0F5 58%,#FFE9C2)", "linear-gradient(180deg,#1E1A3E,#3A2560 52%,#6A2E6A)"],
       spine: [lg("#7A4A9E", "#4E2E72"), lg("#3A2560", "#1E1A3E")], btn: [lg2("#B8407A", "#7A4AB8"), lg2("#FF8FC8", "#C6A0FF")]},
     kit: {motif: "n5heart", card: ["#FFFBFE", "#F6E8F2"], ink: "#2A1E3A", bd: "#EBCDE2", mc: "#B8407A", r: 18, notes: ["#F6D8EA"].concat(NOTES), shape: "rounded", pin: "heartpin", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => cannon(W, H, n(90), rainbow(d).concat(["#FFFFFF"]))
-      .concat(fxRise(W, H, n(9), "n5flag", rainbow(d), {smin: 14, smax: 20, vmin: 1.2, vmax: 2.2, sway: 0.9, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.2, 0.2)})),
-        fxRise(W, H, n(12), "n5heart", rainbow(d), {smin: 9, smax: 15, vmin: 1, vmax: 2, sway: 1.1, life: 300, glow: d ? 10 : 0}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFFFFF", "#FFB3E6", "#FFE066"] : ["#F2B53A", "#FF8FC8", "#8E5CC7"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.pride,
     tag: "A street of pastel townhouses hung with rainbow flags and bunting, a rainbow crosswalk and a corgi in a rainbow bandana"
   });
 
@@ -23670,10 +25067,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#B9DAF3,#EAF3FA 56%,#D9E8C2)", "linear-gradient(180deg,#141E3A,#22305A 50%,#4A4A6E)"],
       spine: [lg("#2E4A8A", "#1E3366"), lg("#22305A", "#141E3A")], btn: [lg2("#2E4A8A", "#4A6AB0"), lg2("#F2C85A", "#F6DA8A")]},
     kit: {motif: "n5cap", card: ["#FAFCFE", "#E6EDF6"], ink: "#16213A", bd: "#C8D4E8", mc: "#2E4A8A", r: 12, notes: ["#DCE4F2"].concat(NOTES), shape: "classic", pin: "gold", fab: "14px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(34), "n5cap", d ? ["#3A4E8E", "#2E3E7A", "#4A5E9E"] : ["#2E4A8A", "#1E3366", "#3A5A9E"], [[0.2, 1.02], [0.5, 1.04], [0.8, 1.02]], {smin: 13, smax: 19, g: 0.22}).map(p => Object.assign(p, {vr: fxR(-0.25, 0.25), life: 260}))
-      .concat(cannon(W, H, n(60), d ? ["#F2C85A", "#FFFFFF", "#7FB8F0"] : ["#F2B83A", "#FFFFFF", "#2E4A8A", "#7FB8F0"]),
-        fxRise(W, H, n(4), "n5scroll", d ? ["#F6E6C0"] : ["#E8D2A0"], {cx: [0.2, 0.8], smin: 15, smax: 19, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 8 : 0}),
-        fxTw(W, H, n(30), "n5star", d ? ["#F2C85A", "#FFFFFF"] : ["#F2B83A", "#2E4A8A"], {smin: 3, smax: 7, glow: d ? 10 : 3}))},
+    fx: FX.graduation,
     tag: "A grand campus quad: a columned clock-tower hall with grand steps, brick colleges down both sides, spires beyond, a gate, banners and bunting, and a class of graduates who fling their caps into the sky"
   });
 
@@ -23689,11 +25083,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#FFD9E4,#FFF3DA 58%,#D8F0F6)", "linear-gradient(180deg,#20183A,#3A2458 55%,#6A3A6E)"],
       spine: [lg("#C2508A", "#8A3466"), lg("#4A2A62", "#20183A")], btn: [lg2("#C2407A", "#8A5AD0"), lg2("#FF8FC8", "#FFD86B")]},
     kit: {motif: "n5ballo", card: ["#FFFBFD", "#FBE6EF"], ink: "#3A1E30", bd: "#F2C8DA", mc: "#C2407A", r: 20, notes: ["#FBD6E4"].concat(NOTES), shape: "scallop", pin: "washi2", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => cannon(W, H, n(80), d ? ["#FF7FA8", "#7FE0C8", "#FFD86B", "#C6A0FF", "#7FC8FF", "#FFFFFF"] : ["#FF8FB8", "#7FD8C0", "#FFD45A", "#B58CF2", "#7FC8F0", "#FF9F7A"])
-      .concat(fxRise(W, H, n(14), "n5ballo", d ? ["#FF7FA8", "#7FE0C8", "#FFD86B", "#C6A0FF", "#7FC8FF"] : ["#FF8FB8", "#7FD8C0", "#FFD45A", "#B58CF2", "#7FC8F0"], {smin: 14, smax: 22, vmin: 1.2, vmax: 2.4, sway: 1, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.15, 0.15)})),
-        fxBurst(W, H, n(10), "n5gift", d ? ["#C6A0FF", "#7FC8FF", "#FF7FA8"] : ["#B58CF2", "#7FC8F0", "#FF8FB8"], [[0.3, 1.02], [0.7, 1.02]], {smin: 12, smax: 16}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
-        fxBurst(W, H, n(8), "n5hat", d ? ["#FFD86B", "#FF7FA8", "#7FE0C8"] : ["#FFD45A", "#FF8FB8", "#7FD8C0"], [[0.5, 1.04]], {smin: 12, smax: 16}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFFFFF", "#FFD86B", "#FFB3E6"] : ["#F2B53A", "#FF8FB8", "#B58CF2"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.birthday,
     tag: "A living room decorated for a party, with a birthday cake, a pile of gifts, a turning llama pinata and a cat in a party hat"
   });
 
@@ -23709,10 +25099,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#CBD7EA,#E8ECF4 55%,#D7CDE6)", "linear-gradient(180deg,#120E24,#22183E 50%,#3E2A62)"],
       spine: [lg("#6A5490", "#463466"), lg("#2A1E4A", "#120E24")], btn: [lg2("#7A3EC8", "#3E9AB0"), lg2("#C29AFF", "#7AE8F0")]},
     kit: {motif: "n5crys", card: ["#FAF8FD", "#ECE6F5"], ink: "#241A36", bd: "#D6CAEA", mc: "#7A3EC8", r: 10, notes: ["#E4DAF4"].concat(NOTES), shape: "torn", pin: "gold", fab: "16px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(30), "n5crys", d ? ["#C29AFF", "#7AE8F0", "#FF9AD8"] : ["#9A62D8", "#3EB4C0", "#E07AAE"], [[0.5, 1.04], [0.2, 1.02], [0.8, 1.02]], {smin: 10, smax: 16, glow: d ? 12 : 4})
-      .concat(fxRise(W, H, n(12), "n5gem", d ? ["#E2C8FF", "#C8FAFF", "#FFD8EE"] : ["#B58CF2", "#5CCFD8", "#F28AC0"], {smin: 10, smax: 15, vmin: 1, vmax: 2, sway: 0.8, life: 300, glow: d ? 12 : 3}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)})),
-        fxFall(W, H, n(14), "n5rock", d ? ["#5A4A6E", "#6A5A80"] : ["#9584AA", "#7E6C94"], {smin: 6, smax: 10, vmin: 1.6, vmax: 2.6}),
-        fxTw(W, H, n(40), "sparkle", d ? ["#FFFFFF", "#E2C8FF", "#C8FAFF"] : ["#B58CF2", "#5CCFD8", "#F2B53A"], {smin: 3, smax: 7, glow: d ? 12 : 4}))},
+    fx: FX.geology,
     tag: "A crystal cave with layered rock walls, still pools, dripping stalactites, a sleepy bat and a geode waiting to crack open"
   });
 })();
@@ -23743,6 +25130,129 @@ var MAJ_THEMES = [];
     n6ticket: {d: "M-11 -6H11V-2.4A2.4 2.4 0 0 0 11 2.4V6H-11V2.4A2.4 2.4 0 0 0 -11 -2.4Z", detail: "M-5 -6V6", dstroke: true}
   });
 
+  /* ---- completion animations ---- */
+  const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+  const fillP = (g, c, d) => { g.fillStyle = c; g.fill(new Path2D(d)); };
+  const sheen = (g, dk, k = 1) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${0.34 * k})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dk ? 0.26 : 0.2})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  const eye = (g, x, y, r) => { g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill(); g.fillStyle = "#14202A"; g.beginPath(); g.arc(x + r * 0.25, y, r * 0.62, 0, 6.3); g.fill(); };
+  const blobs = (g, a) => { g.beginPath(); a.forEach(([x, y, r]) => { g.moveTo(x + r, y); g.arc(x, y, r, 0, 6.3); }); };
+  const GB = "M-7.6 0C-6 -8 5 -8.6 10.4 -0.8C10.8 0 10.8 0.4 10.4 1C5 8.4 -6 8 -7.6 0Z", GT = "M-6.6 0L-11.8 -5L-10.6 0L-11.8 5Z";
+  const SB = "M-8 0C-4 -3.4 5 -3.6 11 0C5 3.6 -4 3.4 -8 0Z", ST = "M-7 0L-11.4 -3.6L-10.4 0L-11.4 3.6Z";
+  Object.assign(FX_SHAPES, {
+    // a soft round puff that fades to clear in its own color
+    n6soft: {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0", paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, c); gr.addColorStop(0.5, c + "99"); gr.addColorStop(1, c + "00"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); }},
+    // popcorn: a puffy cluster with butter on it
+    n6pop: {d: "M-7 2A4.6 4.6 0 0 1 -4 -6A5 5 0 0 1 4.6 -5.6A4.6 4.6 0 0 1 7.4 2.4A4.6 4.6 0 0 1 0 7.6A4.6 4.6 0 0 1 -7 2Z", paint: (g, c, dk) => { g.fillStyle = "#FFF8E8"; blobs(g, [[-3.4, 1.6, 4.4], [3.2, 2, 4.2], [0, -3.4, 4.8], [-4.2, -3, 3.2], [4.4, -3, 3.2], [0, 4.4, 3.4]]); g.fill();
+      g.fillStyle = c; g.globalAlpha = 0.8; blobs(g, [[-0.6, 1, 2.6], [2.4, -1.6, 1.8], [-3, -1.2, 1.5]]); g.fill(); g.globalAlpha = 1; g.strokeStyle = "rgba(170,120,60,.45)"; g.lineWidth = 0.5; blobs(g, [[-3.4, 1.6, 4.4], [3.2, 2, 4.2], [0, -3.4, 4.8]]); g.stroke(); sheen(g, dk, 0.6); }},
+    // ingredients for the skillet toss
+    n6tom: {d: "M0 -6.4C5.6 -6.4 8.6 -3 8.6 1.4C8.6 6.4 4.6 9 0 9C-4.6 9 -8.6 6.4 -8.6 1.4C-8.6 -3 -5.6 -6.4 0 -6.4Z", paint: (g, c, dk) => { fillP(g, "#E2382E", FX_SHAPES.n6tom.d); sheen(g, dk, 1.2); fillP(g, "#3E8E3A", "M0 -5L-5 -8.6L-1.4 -5.4L-2.6 -9.4L0 -6L2.6 -9.4L1.4 -5.4L5 -8.6Z M-0.6 -6H0.6V-10.4H-0.6Z"); g.fillStyle = "rgba(255,255,255,.7)"; g.beginPath(); g.ellipse(-3.6, -1.6, 1.6, 1, -0.6, 0, 6.3); g.fill(); }},
+    n6basil: {d: "M0 -10.5C6 -6 6.6 4 0 10.5C-6.6 4 -6 -6 0 -10.5Z", paint: (g, c, dk) => { fillP(g, c, FX_SHAPES.n6basil.d); sheen(g, dk); g.strokeStyle = "rgba(230,255,220,.55)"; g.lineWidth = 0.7; g.lineCap = "round"; g.stroke(new Path2D("M0 -8.6V9M0 -3L3.2 -5.4M0 1L3.8 -1.6M0 5L3 3M0 -3L-3.2 -5.4M0 1L-3.8 -1.6M0 5L-3 3")); }},
+    n6carrot: {d: "M-8.4 0A8.4 8.4 0 1 0 8.4 0A8.4 8.4 0 1 0 -8.4 0Z", paint: (g, c, dk) => { g.fillStyle = "#F07A1E"; g.beginPath(); g.arc(0, 0, 8.4, 0, 6.3); g.fill(); g.fillStyle = "#F8A040"; g.beginPath(); g.arc(0, 0, 6.6, 0, 6.3); g.fill(); g.fillStyle = "#F58A2A"; g.beginPath(); g.arc(0, 0, 3, 0, 6.3); g.fill(); g.strokeStyle = "rgba(255,230,190,.6)"; g.lineWidth = 0.5; for (let i = 0; i < 8; i++) { const a = i * 0.785; g.beginPath(); g.moveTo(Math.cos(a) * 3.4, Math.sin(a) * 3.4); g.lineTo(Math.cos(a) * 6, Math.sin(a) * 6); g.stroke(); } sheen(g, dk, 0.7); }},
+    n6shroom: {d: "M-9 0C-9 -6 -4.6 -9 0 -9C4.6 -9 9 -6 9 0C9 1.6 7 1.6 3.4 1.4V8.6C3.4 9.6 -3.4 9.6 -3.4 8.6V1.4C-7 1.6 -9 1.6 -9 0Z", paint: (g, c, dk) => { fillP(g, "#F2E4CC", FX_SHAPES.n6shroom.d); g.strokeStyle = "#B88A5A"; g.lineWidth = 1.4; g.stroke(new Path2D("M-8.2 -0.4C-8.2 -5.6 -4.2 -8.2 0 -8.2C4.2 -8.2 8.2 -5.6 8.2 -0.4")); g.fillStyle = "#E2CCA8"; g.beginPath(); g.ellipse(0, -1, 5.4, 1.2, 0, 0, 6.3); g.fill(); sheen(g, dk, 0.6); }},
+    n6chili: {d: "M-9.6 -3.4C-6 -1 0 0.6 5 -1C7.4 -1.8 8.4 -0.6 8 1.4C6.6 5.6 -2 6.4 -9.6 -3.4Z M6.6 -1.4C7.6 -4 9.6 -5.4 11 -5L10.6 -4C9.4 -4 8.4 -2.8 8 -1.2Z", paint: (g, c, dk) => { fillP(g, "#D8281E", "M-9.6 -3.4C-6 -1 0 0.6 5 -1C7.4 -1.8 8.4 -0.6 8 1.4C6.6 5.6 -2 6.4 -9.6 -3.4Z"); sheen(g, dk, 1.2); fillP(g, "#3E8E3A", "M4.6 -1.6C6 -2.8 8 -2.6 8.6 -1C8.6 0.4 6.6 0.6 4.6 -1.6Z M6.6 -1.4C7.6 -4 9.6 -5.4 11 -5L10.6 -4C9.4 -4 8.4 -2.8 8 -1.2Z"); }},
+    // kelp forest fish: a garibaldi and a sardine, pointing to +x
+    n6gari: {d: GB + GT, paint: (g, c, dk) => { fillP(g, "#F0600E", GT); fillP(g, "#F26A12", "M-5 -5.4Q0 -10 6 -5.8Z M-4.6 5.4Q0 9 5 5.6Z"); fillP(g, "#FF7E1A", GB); sheen(g, dk, 1.1); eye(g, 6.8, -1.6, 1.4); }},
+    n6sard: {d: SB + ST, paint: (g, c, dk) => { fillP(g, "#7E96AE", ST); fillP(g, "#D6E2EC", SB); g.save(); g.clip(new Path2D(SB)); g.fillStyle = "#4E6E90"; g.fillRect(-9, -4, 21, 3.4); g.fillStyle = "rgba(255,255,255,.7)"; g.fillRect(-9, -0.8, 21, 0.9); g.restore(); eye(g, 7.4, -0.6, 1); }},
+    // a sardine caught in the light: the silver flash of its flank
+    n6sardhi: {d: SB + ST, paint: (g, c, dk) => { fillP(g, "#F4FAFF", SB + ST); g.save(); g.clip(new Path2D(SB)); g.fillStyle = "#FFFFFF"; g.fillRect(-9, -1.6, 21, 2.6); g.restore(); }}
+  });
+  // a school of one kind of fish, entering from one side
+  const school = (W, H, n, shape, o = {}) => { const out = []; for (let s = 0; out.length < n; s++) { const lr = (s + (o.side || 0)) % 2 === 0, z = fxR(0.75, 1.1), y0 = fxR(H * (o.y0 || 0.15), H * (o.y1 || 0.85)), sp = (W * fxR(0.004, 0.0058) + 1.2) * z * (o.sp || 1), vy = fxR(-0.3, 0.3), d0 = Math.floor(fxR(0, o.spread || 80)), sz = fxR(o.smin || 12, o.smax || 16) * z, per = o.per || 5;
+    for (let i = 0; i < per && out.length < n; i++) out.push({shape, c: "#FFFFFF", x: lr ? -40 : W + 40, y: y0 + fxR(-1, 1) * sz * (o.tight || 3.4), vx: (lr ? 1 : -1) * sp * fxR(0.95, 1.05), vy: vy + fxR(-0.06, 0.06), g: 0, size: sz * fxR(0.88, 1.05), z, face: true, wig: o.wig || 0.13, rot: 0, vr: 0, sway: 0, life: 330, delay: Math.min(150, d0 + Math.floor(i * fxR(3, o.gap || 10))), alpha: fxDim(z)}); } return out; };
+  const scl = (W, H) => 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+
+  // Film: a strip of film unspools across the screen, frames rolling by, with a burst of popcorn
+  const FILMC = ["#F2B85A", "#E86A5A", "#7FB8C8", "#F2D48A", "#C88AB8"];
+  const filmDraw = (g, f, W, H, dk) => { const cw = Math.max(34, Math.min(W, H) * 0.085), sh = cw * 0.9, hx = -cw + ease(f / 100) * (W + 2 * cw), off = f * 1.4, yAt = x => H * 0.3 + Math.sin(x / W * Math.PI * 1.5 + 0.5) * H * 0.09 + x / W * H * 0.12;
+    const k0 = Math.floor((-cw - off) / cw), k1 = Math.ceil((hx - off) / cw);
+    for (let k = k0; k <= k1; k++) { const x = k * cw + off; if (x > hx || x < -cw * 1.5) continue; const y = yAt(x), a = Math.atan2(yAt(x + 4) - y, 4);
+      g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = dk ? "#0E0A10" : "#2A2226"; g.fillRect(-cw / 2 - 0.5, -sh / 2, cw + 1, sh);
+      g.fillStyle = dk ? "#5A4A50" : "#F4E7DC"; for (let j = 0; j < 3; j++) { g.fillRect(-cw / 2 + cw * (0.1 + j * 0.33), -sh * 0.44, cw * 0.14, sh * 0.1); g.fillRect(-cw / 2 + cw * (0.1 + j * 0.33), sh * 0.34, cw * 0.14, sh * 0.1); }
+      const c = FILMC[((k % 5) + 5) % 5]; g.fillStyle = c; g.fillRect(-cw * 0.42, -sh * 0.27, cw * 0.84, sh * 0.54); g.fillStyle = "rgba(255,255,255,.28)"; g.fillRect(-cw * 0.42, -sh * 0.27, cw * 0.84, sh * 0.14); g.fillStyle = "rgba(0,0,0,.18)"; g.beginPath(); g.arc(-cw * 0.05, sh * 0.06, sh * 0.13, 0, 6.3); g.fill(); g.fillRect(-cw * 0.3, sh * 0.12, cw * 0.6, sh * 0.15); g.restore(); } };
+
+  // Culinary: a skillet pops up and tosses the ingredients high, steam curling off
+  const panAt = (f, W, H) => { const u = Math.min(W, H) / 100, pw = Math.max(70, 22 * u), y = H - pw * 0.12 + (1 - ease(f / 18)) * pw * 0.9 - Math.sin(Math.max(0, Math.min(1, (f - 16) / 14)) * Math.PI) * pw * 0.2 + ease((f - 200) / 50) * pw; return {pw, y, tilt: -Math.sin(Math.max(0, Math.min(1, (f - 16) / 14)) * Math.PI) * 0.22}; };
+  const panDraw = (g, f, W, H, dk) => { const {pw, y, tilt} = panAt(f, W, H), cx = W / 2; g.translate(cx, y); g.rotate(tilt);
+    g.strokeStyle = dk ? "#8A6448" : "#3A2C24"; g.lineWidth = pw * 0.11; g.lineCap = "round"; g.beginPath(); g.moveTo(pw * 0.9, -pw * 0.02); g.lineTo(pw * 1.7, -pw * 0.16); g.stroke();
+    g.fillStyle = dk ? "#5A5A66" : "#26262C"; g.beginPath(); g.ellipse(0, pw * 0.06, pw, pw * 0.3, 0, 0, Math.PI); g.lineTo(-pw, 0); g.ellipse(0, 0, pw, pw * 0.26, 0, Math.PI, 0); g.fill();
+    g.fillStyle = dk ? "#767684" : "#4A4A52"; g.beginPath(); g.ellipse(0, 0, pw * 0.92, pw * 0.22, 0, 0, 6.3); g.fill(); g.fillStyle = "rgba(255,255,255,.14)"; g.beginPath(); g.ellipse(-pw * 0.2, -pw * 0.04, pw * 0.5, pw * 0.08, 0, 0, 6.3); g.fill(); };
+
+  // Kelp forest: kelp grows up and sways under flickering sun shafts, a silver sardine shoal sweeps across as one ribbon
+  // and a sea lion darts through it, the shoal parting around it
+  let KF = null;
+  const kfShafts = (g, f, W, H, dk) => { const a = ease(f / 40); g.globalCompositeOperation = dk ? "lighter" : "source-over";
+    for (let i = 0; i < 5; i++) { const x = W * (0.04 + i * 0.22) + Math.sin(f * 0.012 + i * 1.9) * W * 0.03, w = W * (0.035 + 0.025 * (i % 2)) + 16, fl = 0.7 + 0.18 * Math.sin(f * 0.05 + i * 2.3) + 0.12 * Math.sin(f * 0.13 + i * 4.1), gr = g.createLinearGradient(0, 0, 0, H * 0.9);
+      gr.addColorStop(0, `rgba(${dk ? "170,235,200" : "255,246,200"},${(dk ? 0.13 : 0.36) * a * fl})`); gr.addColorStop(1, "rgba(255,246,200,0)"); g.fillStyle = gr; g.beginPath(); g.moveTo(x - w * 0.4, 0); g.lineTo(x + w * 0.4, 0); g.lineTo(x + w * 1.4 + H * 0.2, H * 0.9); g.lineTo(x - w * 0.2 + H * 0.2, H * 0.9); g.fill(); }
+    g.globalCompositeOperation = "source-over"; };
+  // one kelp stalk: a stipe that grows up from the floor, blades on alternating sides, each with a gas bladder at its base
+  const kfStalk = (g, f, W, H, dk, s) => { const gr0 = ease((f - s.t0) / 90); if (gr0 <= 0) return; const M = Math.min(W, H), N = 16, L = s.h * gr0, P = [];
+    for (let k = 0; k <= N; k++) { const t = k / N, q = t * L / H; P.push([s.x + Math.sin(f * 0.022 + s.ph - t * 1.6) * H * 0.05 * Math.pow(q, 1.4) * 1.6 + Math.sin(f * 0.05 + s.ph * 2 - t * 3) * H * 0.008 * q, H + 4 - t * L]); }
+    const at = t => { const k = Math.min(N - 1, Math.floor(t * N)), r = t * N - k; return [P[k][0] + (P[k + 1][0] - P[k][0]) * r, P[k][1] + (P[k + 1][1] - P[k][1]) * r, Math.atan2(P[k + 1][1] - P[k][1], P[k + 1][0] - P[k][0])]; };
+    g.globalAlpha = s.back ? (dk ? 0.38 : 0.42) : 1; g.strokeStyle = s.back ? (dk ? "#6E7A44" : "#8A8A4A") : (dk ? "#9A7A30" : "#7E5E1E"); g.lineWidth = Math.max(1.6, M * (s.back ? 0.004 : 0.006)); g.lineCap = "round";
+    g.beginPath(); P.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke();
+    const bl = M * (s.back ? 0.09 : 0.115) * s.k, step = bl * 0.36 / s.h, C1 = s.back ? (dk ? "#7E8A48" : "#9A9A54") : (dk ? "#C9A040" : "#B8902E"), C2 = s.back ? (dk ? "#6A7440" : "#868646") : (dk ? "#A88430" : "#9A7424");
+    for (let j = 0, t = 0.06; t < 0.98; j++, t += step) { const sc = ease((gr0 - t) / 0.12) * (0.75 + 0.25 * Math.sin(t * 9 + s.ph)); if (sc <= 0.02) break; const [x, y, a] = at(t), sd = j % 2 ? 1 : -1, ba = a + sd * (0.5 + 0.16 * Math.sin(f * 0.045 + j * 0.7 + s.ph)), len = bl * sc, wd = len * 0.13, bd = sd * len * (0.1 + 0.08 * Math.sin(f * 0.06 + j + s.ph));
+      g.save(); g.translate(x, y); g.rotate(ba); g.fillStyle = j % 3 ? C1 : C2; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(len * 0.2, -wd * 1.3, len * 0.6, bd * 0.5 - wd * 1.1, len, bd); g.bezierCurveTo(len * 0.6, bd * 0.5 + wd * 0.9, len * 0.2, wd * 1.1, 0, 0); g.fill();
+      if (!s.back) { g.strokeStyle = "rgba(255,240,180,.3)"; g.lineWidth = Math.max(0.7, wd * 0.12); g.beginPath(); g.moveTo(len * 0.12, 0); g.quadraticCurveTo(len * 0.55, bd * 0.4, len * 0.85, bd * 0.8); g.stroke(); }
+      g.fillStyle = s.back ? C1 : dk ? "#E2C25A" : "#D0AA3E"; g.beginPath(); g.ellipse(len * 0.02, 0, wd * 0.62, wd * 0.5, 0, 0, 6.3); g.fill(); g.restore(); }
+    g.globalAlpha = 1; };
+  // the sea lion, side view, pointing to +x with its back up; it undulates as it swims
+  const SLR = [[0, 0.012], [0.1, 0.045], [0.28, 0.1], [0.48, 0.125], [0.66, 0.105], [0.78, 0.072], [0.86, 0.078], [0.94, 0.055], [1, 0.012]];
+  const slR = u => { for (let k = 1; k < SLR.length; k++) if (u <= SLR[k][0]) { const a = SLR[k - 1], b = SLR[k], q = (1 - Math.cos(Math.PI * (u - a[0]) / (b[0] - a[0]))) / 2; return a[1] + (b[1] - a[1]) * q; } return 0.012; };
+  const kfLion = (g, f, dk, x, y, ang, L) => { const yo = u => Math.sin(u * 5.5 - f * 0.13) * 0.03 * Math.pow(1 - u, 1.6), N = 26, top = [], bot = [];
+    for (let k = 0; k <= N; k++) { const u = k / N, X = -0.5 + u, r = slR(u), c = yo(u); top.push([X, c - r]); bot.push([X, c + r * 0.92]); }
+    g.save(); g.translate(x, y); g.rotate(ang); if (Math.cos(ang) < 0) g.scale(1, -1); g.scale(L, L);
+    const fl = (px, py, len, a0, col) => { g.save(); g.translate(px, py); g.rotate(a0); g.fillStyle = col; g.beginPath(); g.moveTo(0, -0.035); g.bezierCurveTo(len * 0.4, -0.06, len * 0.85, -0.045, len, 0.005); g.bezierCurveTo(len * 0.8, 0.04, len * 0.4, 0.045, 0, 0.035); g.fill(); g.restore(); };
+    const sw = Math.sin(f * 0.13), C = dk ? ["#8A5E3C", "#5E3E26", "#C49A70"] : ["#7A5236", "#4E321E", "#B48A62"];
+    fl(0.17, 0.05 + yo(0.66), 0.27, 2.55 + 0.3 * sw, C[1]);
+    [-1, 1].forEach(s => fl(-0.48, yo(0.02), 0.2, Math.PI + s * 0.28 + 0.12 * Math.sin(f * 0.13 + 1), C[1]));
+    const b = new Path2D(); top.forEach((p, k) => k ? b.lineTo(p[0], p[1]) : b.moveTo(p[0], p[1])); for (let k = N; k >= 0; k--) b.lineTo(bot[k][0], bot[k][1]); b.closePath();
+    const gr = g.createLinearGradient(0, -0.13, 0, 0.12); gr.addColorStop(0, C[1]); gr.addColorStop(0.45, C[0]); gr.addColorStop(1, C[2]); g.fillStyle = gr; g.fill(b);
+    g.strokeStyle = "rgba(255,230,200,.25)"; g.lineWidth = 0.008; g.beginPath(); top.slice(6, 22).forEach((p, k) => k ? g.lineTo(p[0], p[1] + 0.02) : g.moveTo(p[0], p[1] + 0.02)); g.stroke();
+    fl(0.15, 0.05 + yo(0.64), 0.3, 2.4 + 0.35 * sw, C[0]);
+    g.fillStyle = "#1A120C"; g.beginPath(); g.arc(0.36, -0.035 + yo(0.86), 0.017, 0, 6.3); g.fill(); g.fillStyle = "rgba(255,255,255,.8)"; g.beginPath(); g.arc(0.365, -0.04 + yo(0.86), 0.006, 0, 6.3); g.fill();
+    g.fillStyle = "#2A1A10"; g.beginPath(); g.ellipse(0.488, -0.008, 0.014, 0.01, 0, 0, 6.3); g.fill();
+    g.strokeStyle = C[1]; g.lineWidth = 0.01; g.beginPath(); g.moveTo(0.3, -0.06 + yo(0.8)); g.lineTo(0.28, -0.075 + yo(0.8)); g.stroke();
+    g.strokeStyle = dk ? "rgba(255,245,225,.7)" : "rgba(255,250,235,.85)"; g.lineWidth = 0.005; [[0.56, -0.02], [0.57, 0.01], [0.55, 0.04]].forEach(([ex, ey]) => { g.beginPath(); g.moveTo(0.46, 0.012); g.quadraticCurveTo((0.46 + ex) / 2, ey * 0.4 + 0.012, ex, ey + 0.012); g.stroke(); });
+    g.restore(); };
+  const kfDraw = (g, f, W, H, dk) => { if (!KF) return; kfShafts(g, f, W, H, dk); KF.kelp.forEach(s => s.back && kfStalk(g, f, W, H, dk, s));
+    const sl = KF.sl, u = (f - sl.d0) / sl.dur, M = Math.min(W, H), L = sl.L, SP = q => { const a = 1 - q; return [a * a * sl.p[0][0] + 2 * a * q * sl.p[1][0] + q * q * sl.p[2][0], a * a * sl.p[0][1] + 2 * a * q * sl.p[1][1] + q * q * sl.p[2][1]]; };
+    const [lx, ly] = SP(Math.max(-0.2, Math.min(1.2, u))), on = u > -0.05 && u < 1.1;
+    // bubbles streaming off the sea lion
+    g.lineWidth = Math.max(1, M * 0.0022); for (let te = sl.d0 + 4; te < f && te < sl.d0 + sl.dur; te += 3) { const a = f - te; if (a > 70) continue; const [bx, by] = SP((te - sl.d0) / sl.dur), r = (2 + (te * 7 % 5) * 0.5) * Math.max(1, M / 500), al = (1 - a / 70) * ease(a / 6);
+      const X = bx + Math.sin(te * 1.7 + a * 0.12) * 5 - Math.cos(sl.ang) * L * 0.35, Y = by - a * 1.1 - Math.sin(sl.ang) * L * 0.35; g.strokeStyle = `rgba(255,255,255,${0.75 * al})`; g.beginPath(); g.arc(X, Y, r, 0, 6.3); g.stroke(); }
+    // the sardine shoal, a ribbon that parts around the sea lion
+    const S = KF.sh, sc = scl(W, H), lead = -0.05 * W + (f - S.d0) * S.v, spr = fxSprite("n6sard", "#FFFFFF", 0, dk), hi = fxSprite("n6sardhi", "#FFFFFF", 0, dk), h = spr._half, R = L * 0.62;
+    const yA = x => S.y + Math.sin(x / W * 3.6 + S.ph + f * 0.012) * H * S.amp;
+    for (const q of S.F) { const xs = lead - q.lag; if (xs < -40 || xs > W + 40) continue; const xx = S.dir > 0 ? xs : W - xs, y0 = yA(xx), ang = Math.atan2(yA(xx + S.dir * 4) - y0, S.dir * 4), band = H * S.bw * (0.35 + 0.65 * Math.sin(Math.PI * q.lag / S.Lr));
+      let px = xx - Math.sin(ang) * q.side * band, py = y0 + Math.cos(ang) * q.side * band + Math.sin(f * 0.07 + q.ph) * 2;
+      let rot = ang; if (on) { const dx = px - lx, dy = py - ly, d = Math.hypot(dx, dy); if (d < R * 1.9) { const k = ease(1 - d / (R * 1.9)) * R * 0.6; px += dx / (d || 1) * k; py += dy / (d || 1) * k; rot += Math.sign(dx * Math.sin(ang) - dy * Math.cos(ang)) * -0.25 * k / R; } }
+      const s = q.sz * sc / 10, mx = S.dir > 0 ? 1 : -1, r2 = (S.dir > 0 ? rot : rot - Math.PI) * 1 + Math.sin(f * 0.2 + q.ph) * 0.05;
+      g.save(); g.translate(px, py); g.rotate(r2); g.scale(s * mx, s); g.globalAlpha = q.al; g.drawImage(spr, -h, -h, 2 * h, 2 * h); const sh = Math.pow(Math.max(0, Math.sin(f * 0.11 - q.lag * 0.012 + q.side)), 6); if (sh > 0.03) { g.globalAlpha = q.al * sh; g.drawImage(hi, -h, -h, 2 * h, 2 * h); } g.restore(); }
+    if (on) { g.globalAlpha = ease(u * 8) * ease((1.1 - u) * 8); kfLion(g, f, dk, lx, ly, sl.ang + Math.sin(f * 0.04) * 0.04, L); g.globalAlpha = 1; }
+    KF.kelp.forEach(s => !s.back && kfStalk(g, f, W, H, dk, s)); };
+
+  const FX = {
+    film: {spawn: (W, H, d, n) => fxBurst(W, H, n(44), "n6pop", d ? ["#F6C64A", "#FFE08A"] : ["#F2B83A", "#F6C64A"], [[0.12, 1.02], [0.88, 1.02]], {smin: 12, smax: 16}).map(p => Object.assign(p, {vr: fxR(-0.12, 0.12), delay: p.delay + 30}))
+        .concat(fxTw(W, H, n(26), "star", d ? ["#FFE7B0", "#FFFFFF", "#F2C46A"] : ["#F2B53A", "#E8A040", "#E05A6A"], {smin: 5, smax: 10, glow: d ? 10 : 4, spread: 150})),
+      draw: filmDraw},
+    culinary: {spawn: (W, H, d, n) => { const {pw} = panAt(30, W, H), py = (H - pw * 0.3) / H, ing = [["n6tom", ["#E2382E"]], ["n6basil", d ? ["#5DB85A", "#3E9A4A"] : ["#3E9A3A", "#56B24A"]], ["n6carrot", ["#F07A1E"]], ["n6shroom", ["#F2E4CC"]], ["n6chili", ["#D8281E"]]];
+        return ing.flatMap(([s, c], i) => fxBurst(W, H, n(i === 1 ? 14 : 9), s, c, [[0.47, py], [0.53, py]], {smin: 12, smax: 16, flip: s === "n6basil"}).map(p => Object.assign(p, {vx: p.vx * 0.55, vy: p.vy * 0.95, delay: 22 + Math.floor(fxR(0, 8)), vr: fxR(-0.12, 0.12)})))
+          .concat(fxRise(W, H, n(12), "n6soft", ["#FFFFFF"], {cx: [0.42, 0.58], smin: 8, smax: 12, vmin: 0.8, vmax: 1.4, sway: 1.2, grow: 0.3, alpha: d ? 0.09 : 0.5, life: 150, spread: 150, depth: false}).map(p => Object.assign(p, {y: H - pw * 0.3, delay: p.delay + 24})),
+            fxTw(W, H, n(18), "sparkle", d ? ["#FFE7B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 4, smax: 8, glow: d ? 10 : 4, top: 0.7, spread: 160}));
+      }, draw: panDraw},
+    marinebio: {spawn: (W, H, d, n) => { const M = Math.min(W, H), ph = W < H, kn = Math.max(3, Math.min(8, Math.round(W / 170))), dir = Math.random() < 0.5 ? 1 : -1, L = Math.max(120, Math.min(M * (ph ? 0.44 : 0.3), 270));
+        const kelp = []; [1, 0].forEach(back => { for (let i = 0; i < kn + back; i++) kelp.push({back, x: (i + (back ? 0 : 0.5) + fxR(-0.25, 0.25)) / (kn + back) * W, h: H * fxR(0.55, 0.95) * (back ? 0.85 : 1), ph: fxR(0, 6.3), t0: Math.floor(fxR(0, 40)) + (back ? 0 : 10), k: fxR(0.9, 1.15)}); });
+        const N = n(110), Lr = W * (ph ? 0.9 : 0.55), sp = Lr / N;
+        KF = {kelp, sl: {L, d0: 30, dur: 230, ang: 0, p: [[dir > 0 ? -L : W + L, H * 0.78], [W * 0.5, H * 0.56], [dir > 0 ? W + L : -L, H * 0.24]]},
+          sh: {d0: 20, v: (W * 0.55 + Lr * 0.5) / 110, dir: -dir, Lr, y: H * 0.5, amp: ph ? 0.06 : 0.1, bw: ph ? 0.03 : 0.045, ph: fxR(0, 6), F: Array.from({length: N}, (_, i) => { const z = fxR(0.85, 1.1); return {lag: i * sp + fxR(0, sp), side: fxR(-1, 1), ph: fxR(0, 6.3), sz: 8.5 * z, al: fxDim(z)}; })}};
+        const p = KF.sl.p; KF.sl.ang = Math.atan2(p[2][1] - p[0][1], p[2][0] - p[0][0]);
+        return school(W, H, n(5), "n6gari", {per: 1, smin: 14, smax: 17, y0: 0.55, y1: 0.9, spread: 100}).map(q => Object.assign(q, {vx: q.vx * 0.32, sway: 1.1, swf: 0.03}))
+          .concat(fxRise(W, H, n(16), "bubble", d ? ["#9EE6EE", "#E2F8FA"] : ["#FFFFFF", "#E2F6F2"], {smin: 4, smax: 8, sway: 1, spread: 140}));
+      }, draw: kfDraw}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "film", name: "Movie Palace", group: "ideas", desc: "An old picture palace with red velvet seats, a marquee and a projector beam.",
       light: ["#F8F0E8", "rgba(168,48,62,.10)", "#FFFFFF", "#2E1418", "#74585A", "#EBD9CF", "#F4E6DC", "#FCF8F4", "#A8303E", "#C8564A", "#FFFFFF", "#6E1C28", "#5A1E2E", "#F2DCD0", "#FFE3A3"],
@@ -23750,10 +25260,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#E7D3C3,#F4E7DC 45%,#D7B6A0)", "linear-gradient(180deg,#160F1E,#2A1A2E 50%,#5A1E2E)"],
       spine: [lg("#7A2434", "#5A1E2E"), lg("#3A1A2A", "#1A0E16")], btn: [lg2("#A8303E", "#C0503A"), lg2("#F2C46A", "#F6D592")]},
     kit: {motif: "n6reel", card: ["#FCF7F2", "#F1E2D8"], ink: "#2E1418", bd: "#E2C6B8", mc: "#A8303E", r: 12, notes: ["#F6DCD2", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "classic", pin: "gold", fab: "999px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "n6corn", d ? ["#FFF1C2", "#FBE39A", "#FFFFFF"] : ["#FFE9A8", "#FFF6D6", "#F6D27A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, glow: d ? 6 : 0})
-      .concat(fxFall(W, H, n(10), "n6ticket", d ? ["#F2C46A", "#E86A7A"] : ["#C8323F", "#E0A040"], {sway: 1.6, flip: true, smin: 12, smax: 16, vmin: 1.2, vmax: 2.2}),
-        fxRise(W, H, n(5), "n6reel", d ? ["#C9CFDD", "#F2C46A"] : ["#5A6278", "#8E2A36"], {smin: 14, smax: 19, vmin: 1.1, vmax: 1.8, sway: 0.5, life: 300}).map(p => Object.assign(p, {vr: 0.05})),
-        fxTw(W, H, n(36), "star", d ? ["#FFE7B0", "#FFFFFF", "#F2C46A"] : ["#F2B53A", "#FFD86B", "#E05A6A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.film,
     tag: "An old picture palace: red velvet seats, gathered curtains, a marquee of chasing bulbs and a projector beam full of dust"
   });
   MAJ_THEMES.push({
@@ -23763,11 +25270,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F2E3CF,#FBF4EA 50%,#DCE8D2)", "linear-gradient(180deg,#1C1A22,#2E2830 50%,#5A3E34)"],
       spine: [lg("#3E7A5A", "#285A40"), lg("#2A2830", "#141218")], btn: [lg2("#C8603A", "#D97B45"), lg2("#F2A35A", "#F6C27A")]},
     kit: {motif: "n6toque", card: ["#FBFCF8", "#ECF2E6"], ink: "#2A2018", bd: "#D2DEC8", mc: "#C8603A", r: 14, notes: ["#E2EED8", "#FFF3B8", "#FFE0CC", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "lined", pin: "magnet", fab: "16px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "leaf", d ? ["#7FCB6A", "#5DA84E", "#A8DC8E"] : ["#4E9E4A", "#6CC05A", "#3E8A3A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11, flip: true})
-      .concat(fxFall(W, H, n(10), "n6whisk", d ? ["#F2A35A", "#D8DEE6"] : ["#C8603A", "#8E99A6"], {sway: 1.4, smin: 13, smax: 17, vmin: 1.1, vmax: 1.9}),
-        fxRise(W, H, n(4), "n6toque", d ? ["#F4EEE6"] : ["#FFFFFF"], {smin: 16, smax: 20, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 6 : 3}).map(p => Object.assign(p, {rot: fxR(-0.2, 0.2)})),
-        fxBurst(W, H, n(18), "n6tomato", d ? ["#F06A5A", "#F2A35A"] : ["#E2463A", "#F2A33A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 8, smax: 11}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#F2A35A"] : ["#F2B53A", "#FFD86B", "#E07A4A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.culinary,
     tag: "A bright test kitchen: copper pots on the rack, herbs in the window box, order tickets on the pass and pots simmering on the range"
   });
 
@@ -23778,11 +25281,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#C8EBDD,#8FD0C2 40%,#5FB6B0)", "linear-gradient(180deg,#1E4E52,#0E3440 40%,#08202A)"],
       spine: [lg("#2E8A86", "#1A5E5E"), lg("#0E3440", "#06161C")], btn: [lg2("#1F8A86", "#3AA6A0"), lg2("#F2C230", "#F6D86A")]},
     kit: {motif: "n6fish", card: ["#F4FBFA", "#DDF0EC"], ink: "#0E2E30", bd: "#A8D6CE", mc: "#1F8A86", r: 20, notes: ["#D6F0EA", "#FFF3B8", "#FFE0CC", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(60), "bubble", d ? ["#9EE6EE", "#E2F8FA", "#6FD6E0"] : ["#FFFFFF", "#D6F4F2", "#9EDCD6"], {smin: 5, smax: 14, sway: 1.2})
-      .concat(Array.from({length: n(10)}, (_, i) => { const lr = i % 2 === 0, sp = fxR(2.6, 4.2); return {shape: i % 3 ? "n6fish" : "n6dolphin", c: fxPick(i % 3 ? (d ? ["#F2A35A", "#F6D86A"] : ["#FF8A3A", "#F2B624"]) : (d ? ["#9EC6E8"] : ["#6E9AC0"])), x: lr ? fxR(-80, -20) : W + fxR(20, 80), y: fxR(H * 0.2, H * 0.85), vx: (lr ? 1 : -1) * sp, vy: fxR(-0.3, 0.3), g: 0, size: fxR(13, 19), rot: lr ? 0 : Math.PI, flip: false, vr: 0, sway: 1.4, swf: fxR(0.05, 0.09), life: 300, delay: Math.floor(fxR(0, 70))}; }),
-        fxBurst(W, H, n(14), "starfish", d ? ["#F07A5A", "#F2A35A"] : ["#F07A5A", "#FF9A6A", "#F2B624"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
-        fxBurst(W, H, n(10), "shell", d ? ["#FFE4D0", "#F7C6D8"] : ["#FFE4D0", "#F7B6C8"], [[0.5, 1.04]], {smin: 9, smax: 12}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#C8FFF4", "#FFFFFF", "#F6D86A"] : ["#FFFFFF", "#F2D24A", "#8FE0D8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.marinebio,
     tag: "Under the sea in a kelp forest: sunbeams, swaying golden kelp, an otter napping on the surface and a little yellow research sub"
   });
 
@@ -23810,8 +25309,77 @@ var MAJ_THEMES = [];
     n2naruto: {d: "M-10 0C-10 -6.5 -5 -10 0 -10C5 -10 10 -6.5 10 0C10 6.5 5 10 0 10C-5 10 -10 6.5 -10 0Z", detail: "M0 0C1 -1.5 3 -0.5 2.6 1.2C2 3.6 -1.6 3.8 -3 1.6C-4.8 -1.2 -2.4 -5 1.2 -4.8C5 -4.6 6.6 -0.6 5.6 2.6", dstroke: true},
     n2egg: {d: "M0 -10.5C6 -10.5 9.5 -4 9.5 1.5C9.5 7 5.5 10.5 0 10.5C-5.5 10.5 -9.5 7 -9.5 1.5C-9.5 -4 -6 -10.5 0 -10.5Z", detail: circ(0, 2, 5), dfill: true}
   });
-  // drifting up from the bottom, with a gentle sway
-  const drift = (W, H, n, shape, cols, o) => fxRise(W, H, n, shape, cols, o);
+
+  /* ---- completion animations ---- */
+  const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+  const fillP = (g, c, d) => { g.fillStyle = c; g.fill(new Path2D(d)); };
+  const sheen = (g, dk, k = 1) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${0.34 * k})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dk ? 0.26 : 0.2})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  const dots = (g, a, r) => { g.beginPath(); a.forEach(([x, y, k]) => { const rr = r * (k || 1); g.moveTo(x + rr, y); g.arc(x, y, rr, 0, 6.3); }); g.fill(); };
+  const scl = (W, H) => 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+  const CAP = "M-10.5 -1C-10.5 -7.6 -5.6 -10.8 0 -10.8C5.6 -10.8 10.5 -7.6 10.5 -1C10.5 0.8 8.6 1.2 6.4 1.2H-6.4C-8.6 1.2 -10.5 0.8 -10.5 -1Z", STEM = "M-3.4 0.6H3.4C3.8 4 4.4 7 4.6 9.6C4.6 10.8 2.6 11.2 0 11.2C-2.6 11.2 -4.6 10.8 -4.6 9.6C-4.4 7 -3.8 4 -3.4 0.6Z";
+  Object.assign(FX_SHAPES, {
+    n2soft: {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0", paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, c); gr.addColorStop(0.5, c + "99"); gr.addColorStop(1, c + "00"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); }},
+    // a toadstool for the fairy ring: cap in its color with pale spots, cream stem
+    n2toad: {d: CAP + STEM, paint: (g, c, dk) => { fillP(g, dk ? "#E8E6F4" : "#F6EEDC", STEM); sheen(g, dk, 0.5); fillP(g, dk ? "#C8C4DC" : "#E2D2B4", "M-6.4 1.2H6.4L5.8 2.4H-5.8Z"); fillP(g, c, CAP); sheen(g, dk, 1.2); g.fillStyle = dk ? "rgba(240,255,255,.8)" : "#FFF8EE"; dots(g, [[-5.6, -4.6, 1.1], [0.4, -7.8, 1.3], [5.4, -4, 1], [-1.4, -3, 0.7], [7.6, -1.4, 0.6], [-8, -1.6, 0.6]], 1.6); }},
+    // a sunflower head: two rings of petals round a seedy brown middle
+    n2head: {d: FX_SHAPES.n2sunfl.d, paint: (g, c, dk) => { for (let L = 0; L < 2; L++) { g.fillStyle = L ? c : "#E89A10"; for (let i = 0; i < 13; i++) { g.save(); g.rotate((i + L * 0.5) / 13 * Math.PI * 2); g.beginPath(); g.ellipse(0, -7.2 + L * 0.6, 1.9, 4, 0, 0, 6.3); g.fill(); g.restore(); } }
+      const gr = g.createRadialGradient(-1, -1, 0, 0, 0, 5); gr.addColorStop(0, "#8A5A2A"); gr.addColorStop(1, "#4A2A12"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 4.8, 0, 6.3); g.fill(); g.fillStyle = "rgba(255,210,120,.45)"; for (let i = 0; i < 18; i++) { const r = Math.sqrt(i / 18) * 4, a = i * 2.4; g.beginPath(); g.arc(Math.cos(a) * r, Math.sin(a) * r, 0.36, 0, 6.3); g.fill(); } }},
+    // a bumblebee pointing to +x, wings up
+    n2bee: {d: "M-7 1C-7 -3.4 -3 -5 1 -5C5 -5 8.4 -3 8.4 0.6C8.4 4 5 5.6 1 5.6C-3 5.6 -7 4.6 -7 1Z M-3 -4L-7 -10.4L-0.6 -5Z M1 -4.6L1.6 -11L4.6 -4.6Z", paint: (g, c, dk) => { g.fillStyle = dk ? "rgba(230,245,255,.7)" : "rgba(255,255,255,.85)"; g.strokeStyle = "rgba(60,80,110,.5)"; g.lineWidth = 0.5; [[-3.4, -7.4, 2.6, 4.6, -0.5], [1.6, -8, 2.2, 4, 0.15]].forEach(([x, y, rx, ry, a]) => { g.beginPath(); g.ellipse(x, y, rx, ry, a, 0, 6.3); g.fill(); g.stroke(); });
+      const b = new Path2D("M-7 1C-7 -3.4 -3 -5 1 -5C5 -5 8.4 -3 8.4 0.6C8.4 4 5 5.6 1 5.6C-3 5.6 -7 4.6 -7 1Z"); g.fillStyle = "#FFC81E"; g.fill(b); g.save(); g.clip(b); g.fillStyle = "#2A2018"; [-5.4, -1.4, 2.6].forEach(x => g.fillRect(x, -6, 2, 12)); g.fillRect(6.4, -6, 4, 12); g.restore(); sheen(g, dk); fillP(g, "#2A2018", "M-7 0.4L-9.6 1L-7 1.8Z"); g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(7.2, -1.4, 0.7, 0, 6.3); g.fill(); }},
+    // ramen toppings
+    n2nar: {d: FX_SHAPES.n2naruto.d, paint: (g, c, dk) => { g.fillStyle = "#FFFDF8"; g.beginPath(); for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, r = i % 2 ? 9.2 : 10; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.fill(); sheen(g, dk, 0.6); g.strokeStyle = "#F0609A"; g.lineWidth = 1.6; g.lineCap = "round"; g.beginPath(); for (let t = 0; t < 4 * Math.PI; t += 0.2) { const r = 0.6 + t * 0.48; g.lineTo(Math.cos(t) * r, Math.sin(t) * r); } g.stroke(); }},
+    n2egg2: {d: "M-10 0C-10 -6 -5 -8.6 0 -8.6C5 -8.6 10 -6 10 0C10 6 5 8.6 0 8.6C-5 8.6 -10 6 -10 0Z", paint: (g, c, dk) => { fillP(g, "#C88A4A", "M-10 0C-10 -6 -5 -8.6 0 -8.6C5 -8.6 10 -6 10 0C10 6 5 8.6 0 8.6C-5 8.6 -10 6 -10 0Z"); fillP(g, "#FFFAF0", "M-9 0C-9 -5.2 -4.6 -7.6 0 -7.6C4.6 -7.6 9 -5.2 9 0C9 5.2 4.6 7.6 0 7.6C-4.6 7.6 -9 5.2 -9 0Z"); const gr = g.createRadialGradient(0.6, 0, 0, 0.6, 0.6, 5); gr.addColorStop(0, "#FFB42A"); gr.addColorStop(1, "#F07A10"); g.fillStyle = gr; g.beginPath(); g.ellipse(0.6, 0.6, 4.8, 4.2, 0, 0, 6.3); g.fill(); sheen(g, dk, 0.8); }},
+    n2nori: {d: "M-7 -10H7V10H-7Z", paint: (g, c, dk) => { fillP(g, dk ? "#2E4A36" : "#1E3424", "M-7 -10H7V10H-7Z"); g.strokeStyle = "rgba(140,200,150,.3)"; g.lineWidth = 0.5; for (let i = -9; i < 10; i += 2.4) { g.beginPath(); g.moveTo(-7, i); g.lineTo(7, i + 1.2); g.stroke(); } sheen(g, dk, 0.6); }},
+    n2chashu: {d: "M-9.6 0A9.6 9 0 1 0 9.6 0A9.6 9 0 1 0 -9.6 0Z", paint: (g, c, dk) => { g.fillStyle = "#8A4A26"; g.beginPath(); g.ellipse(0, 0, 9.6, 9, 0, 0, 6.3); g.fill(); g.fillStyle = "#E8B890"; g.beginPath(); g.ellipse(0, 0, 8, 7.4, 0, 0, 6.3); g.fill(); g.fillStyle = "#C87A56"; g.beginPath(); g.ellipse(0.4, 0.4, 6.4, 5.6, 0.3, 0, 6.3); g.fill(); g.strokeStyle = "#F2D2B4"; g.lineWidth = 0.9; g.beginPath(); for (let t = 0; t < 3 * Math.PI; t += 0.25) { const r = 0.6 + t * 0.48; g.lineTo(Math.cos(t) * r, Math.sin(t) * r * 0.9); } g.stroke(); sheen(g, dk, 0.6); }},
+    n2negi: {d: "M-6 0A6 6 0 1 0 6 0A6 6 0 1 0 -6 0Z M-3 0A3 3 0 1 1 3 0A3 3 0 1 1 -3 0Z", paint: (g, c, dk) => { g.strokeStyle = c; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 4.5, 0, 6.3); g.stroke(); g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = 0.8; g.beginPath(); g.arc(0, 0, 3.2, 3.6, 5.4); g.stroke(); }}
+  });
+
+  // Mushroom glade: a fairy ring of toadstools pops up along the bottom one after another, each puffing glowing spores
+  // Sunflowers: sunflower heads tumble up from the field while bumblebees buzz across and petals drift down
+  // Night train: a little train with lit windows rolls along the bottom, puffing steam, under the stars
+  const trainAt = (f, W, H) => { const th = Math.max(28, Math.min(66, Math.min(W, H) * 0.095)), L = th * 12.8, v = (W + L + 20) / 230; return {th, L, x: -10 + v * f, v}; };
+  const trainDraw = (g, f, W, H, dk) => { const {th, L, x} = trainAt(f, W, H), base = H - th * 0.22, a = ease(f / 12); g.globalAlpha = a;
+    g.strokeStyle = dk ? "rgba(200,190,230,.35)" : "rgba(60,60,90,.3)"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, base + th * 0.16); g.lineTo(W, base + th * 0.16); g.stroke();
+    const body = dk ? "#2A3256" : "#2E3A5A", roof = dk ? "#1A2040" : "#1E2640", win = "#FFD27A";
+    if (dk) { const gr = g.createLinearGradient(x, 0, x + th * 6, 0); gr.addColorStop(0, "rgba(255,230,150,.35)"); gr.addColorStop(1, "rgba(255,230,150,0)"); g.fillStyle = gr; g.beginPath(); g.moveTo(x, base - th * 0.6); g.lineTo(x + th * 6, base - th * 1.6); g.lineTo(x + th * 6, base + th * 0.3); g.fill(); }
+    for (let c = 0; c < 3; c++) { const x1 = x - th * 2.9 - c * th * 3.35, x0 = x1 - th * 3.2; g.fillStyle = roof; g.fillRect(x0 - th * 0.06, base - th * 1.08, th * 3.32, th * 0.16); g.fillStyle = body; g.fillRect(x0, base - th * 0.94, th * 3.2, th * 0.78); g.fillStyle = "#C8384A"; g.fillRect(x0, base - th * 0.3, th * 3.2, th * 0.07);
+      for (let w = 0; w < 4; w++) { const wx = x0 + th * (0.25 + w * 0.75); if (dk) { g.fillStyle = "rgba(255,210,122,.25)"; g.fillRect(wx - th * 0.08, base - th * 0.8, th * 0.6, th * 0.44); } g.fillStyle = win; g.fillRect(wx, base - th * 0.74, th * 0.44, th * 0.32); }
+      g.strokeStyle = roof; g.lineWidth = th * 0.1; g.beginPath(); g.moveTo(x1, base - th * 0.5); g.lineTo(x1 + th * 0.15, base - th * 0.5); g.stroke(); }
+    g.fillStyle = body; g.beginPath(); g.moveTo(x - th * 2.7, base - th * 1.15); g.lineTo(x - th * 1.6, base - th * 1.15); g.lineTo(x - th * 1.6, base - th * 0.8); g.lineTo(x - th * 0.3, base - th * 0.8); g.quadraticCurveTo(x + th * 0.12, base - th * 0.6, x + th * 0.1, base - th * 0.16); g.lineTo(x - th * 2.7, base - th * 0.16); g.fill();
+    g.fillStyle = roof; g.fillRect(x - th * 2.84, base - th * 1.26, th * 1.36, th * 0.14); g.fillRect(x - th * 0.95, base - th * 1.2, th * 0.3, th * 0.42); g.fillStyle = "#C8384A"; g.fillRect(x - th * 2.7, base - th * 0.3, th * 2.8, th * 0.07); g.fillStyle = win; g.fillRect(x - th * 2.45, base - th * 1, th * 0.5, th * 0.34); g.fillStyle = "#FFF2B0"; g.beginPath(); g.arc(x + th * 0.02, base - th * 0.42, th * 0.09, 0, 6.3); g.fill();
+    g.fillStyle = dk ? "#0E1226" : "#1A1E30"; for (let k = 0; k < 15; k++) { const wx = x - th * 0.5 - k * th * 0.82; if (wx < x - L) break; g.beginPath(); g.arc(wx, base - th * 0.1, th * 0.17, 0, 6.3); g.fill(); } g.globalAlpha = 1; };
+  // Ramen: a steaming bowl pops up and flings its toppings into the air
+  const bowlAt = (f, W, H) => { const bw = Math.max(170, Math.min(440, Math.min(W, H) * 0.56)); return {bw, y: H - bw * 0.12 + (1 - ease(f / 18)) * bw * 0.6 + ease((f - 205) / 45) * bw * 0.6}; };
+  const bowlDraw = (g, f, W, H, dk) => { const {bw, y} = bowlAt(f, W, H), cx = W / 2, r = bw / 2;
+    g.fillStyle = "#C8302A"; g.beginPath(); g.moveTo(cx - r, y); g.bezierCurveTo(cx - r, y + r * 0.75, cx + r, y + r * 0.75, cx + r, y); g.fill();
+    g.strokeStyle = "rgba(255,240,230,.85)"; g.lineWidth = Math.max(1.5, r * 0.025); g.beginPath(); for (let k = 0; k <= 16; k++) { const t = k / 16, xx = cx - r * 0.9 + t * r * 1.8, yy = y + r * 0.16 + (k % 2 ? r * 0.06 : 0) + Math.pow(t - 0.5, 2) * r * 0.1; k ? g.lineTo(xx, yy) : g.moveTo(xx, yy); } g.stroke();
+    g.fillStyle = "#1E1418"; g.beginPath(); g.ellipse(cx, y, r, r * 0.17, 0, 0, 6.3); g.fill(); g.fillStyle = "#E8A85A"; g.beginPath(); g.ellipse(cx, y + r * 0.01, r * 0.92, r * 0.13, 0, 0, 6.3); g.fill();
+    g.strokeStyle = "#F7D27A"; g.lineWidth = Math.max(1.5, r * 0.025); for (let k = 0; k < 5; k++) { g.beginPath(); for (let t = 0; t <= 1; t += 0.1) { const xx = cx - r * 0.7 + t * r * 1.4, yy = y + Math.sin(t * 18 + k * 2) * r * 0.025 + (k - 2) * r * 0.022; t ? g.lineTo(xx, yy) : g.moveTo(xx, yy); } g.stroke(); } };
+
+  const FX = {
+    mushrooms: {spawn: (W, H, d, n) => { const s = scl(W, H), k = Math.max(5, Math.min(14, Math.round(W / 95))), caps = d ? ["#4FD6E8", "#7FA6FF", "#6FE8C0", "#B88AFF"] : ["#E2463A", "#E86A3A", "#C8503A", "#B87A4A"], out = [];
+        for (let i = 0; i < k; i++) { const sz = fxR(18, 25) * (i % 3 === 1 ? 0.78 : 1), x = (i + 0.5 + fxR(-0.25, 0.25)) / k * W, rise = 23 * sz * s / 10, t = 8 + i * Math.floor(110 / k) + Math.floor(fxR(0, 6)), c = caps[i % caps.length];
+          out.push({shape: "n2toad", c, x, y: H + 12 * sz * s / 10, vx: 0, vy: -rise * 0.12, g: 0, drag: 0.88, size: sz, rot: fxR(-0.12, 0.12), vr: 0, rock: 0.06, swf: 0.05, sway: 0, life: 330, delay: t, glow: d ? 10 : 0});
+          for (let j = 0; j < 7; j++) out.push({shape: "circle", c: d ? fxPick(["#C8FFF4", "#B8D8FF", c]) : fxPick(["#F6D25A", "#FFE69A", "#F2B83A"]), x: x + fxR(-6, 6) * sz * s / 10, y: H - 16 * sz * s / 10, vx: fxR(-0.8, 0.8), vy: -fxR(0.8, 2), g: -0.004, drag: 0.995, size: fxR(1.8, 3.4), rot: 0, vr: 0, sway: fxR(0.6, 1.4), swf: fxR(0.04, 0.08), life: fxR(120, 180), delay: t + 16 + Math.floor(fxR(0, 14)), glow: d ? 12 : 8}); }
+        return out.concat(fxFall(W, H, n(12), "leaf", d ? ["#3A8A74", "#2A6A5E"] : ["#7FB466", "#A2CF7C", "#5E9A4E"], {sway: 1.8, flip: true, smin: 9, smax: 13, vmin: 0.8, vmax: 1.4, spread: 80}));
+      }},
+    sunflowers: {spawn: (W, H, d, n) => fxBurst(W, H, n(12), "n2head", d ? ["#FFD24A", "#F6C030"] : ["#FFC81E", "#FFD23F"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 17, smax: 23}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)}))
+        .concat(fxFall(W, H, n(40), "n2petal", d ? ["#F2D27A", "#FFE6A0", "#E6B84A"] : ["#FFD23F", "#FFC21F", "#F5A51A"], {sway: 1.6, flip: true, smin: 8, smax: 12, vmin: 1, vmax: 1.8, spread: 70}),
+          Array.from({length: n(8)}, (_, i) => { const lr = i % 2 === 0; return {shape: "n2bee", c: "#FFC81E", x: lr ? -30 : W + 30, y: H * fxR(0.15, 0.75), vx: (lr ? 1 : -1) * (W * fxR(0.0035, 0.005) + 1), vy: fxR(-0.5, 0.5), g: 0, size: fxR(14, 18), face: true, wig: 0.22, rot: 0, vr: 0, sway: 0.4, swf: 0.2, life: 330, delay: 15 + Math.floor(fxR(0, 110))}; }),
+          fxTw(W, H, n(18), "sparkle", d ? ["#FFF4C2", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 4, smax: 8, glow: d ? 10 : 4, spread: 160}))},
+    nighttrain: {spawn: (W, H, d, n) => { const {th, v} = trainAt(0, W, H), base = H - th * 0.22;
+        return Array.from({length: 34}, (_, i) => { const t = 4 + i * 6; return {shape: "n2soft", c: d ? "#E8E4F4" : "#FFFFFF", x: -10 + v * t - th * 0.8, y: base - th * 1.3, vx: -v * 0.25 + fxR(-0.3, 0.3), vy: -fxR(0.8, 1.4), g: 0, drag: 0.99, size: fxR(9, 12) * th / 40, grow: 0.35, rot: 0, vr: 0, sway: 0.5, swf: 0.05, alpha: d ? 0.24 : 0.85, life: 110, delay: t}; }).filter(p => p.delay < 200)
+          .concat(d ? fxTw(W, H, n(46), "star", ["#FFFFFF", "#FFE7B0", "#C9D4FF"], {smin: 3, smax: 7, top: 0.65, glow: 10, spread: 170}) : fxTw(W, H, n(22), "sparkle", ["#F2B84A", "#E8706A", "#7FB8D8"], {smin: 4, smax: 8, top: 0.7, glow: 4, spread: 170}),
+            d ? fxStreaks(W, H, n(4), ["#FFFFFF", "#FFE7B0"]) : []);
+      }, draw: trainDraw},
+    ramen: {spawn: (W, H, d, n) => { const {bw} = bowlAt(30, W, H), py = (H - bw * 0.12) / H, top = [["n2nar", ["#FFFFFF"], 8], ["n2egg2", ["#FFFFFF"], 6], ["n2nori", ["#1E3424"], 6], ["n2chashu", ["#C87A56"], 6], ["n2negi", ["#5AB84A", "#8AD06A"], 14]];
+        return top.flatMap(([s, c, k]) => fxBurst(W, H, n(k), s, c, [[0.45, py], [0.55, py]], {smin: s === "n2negi" ? 8 : 14, smax: s === "n2negi" ? 11 : 19, flip: s === "n2nori"}).map(p => Object.assign(p, {vx: p.vx * 0.6, delay: 18 + Math.floor(fxR(0, 10)), vr: fxR(-0.1, 0.1)})))
+          .concat(fxRise(W, H, n(14), "n2steam", d ? ["#F2E8F4"] : ["#FFFFFF"], {cx: [0.4, 0.6], smin: 14, smax: 20, vmin: 0.8, vmax: 1.4, sway: 1.4, alpha: d ? 0.45 : 0.9, life: 150, spread: 140, depth: false}).map(p => Object.assign(p, {y: H - bw * 0.2, rot: 0, rock: 0.2, delay: p.delay + 22})),
+            fxTw(W, H, n(16), "sparkle", d ? ["#FFE7B0", "#FFFFFF"] : ["#F2B53A", "#E8505E"], {smin: 4, smax: 8, glow: d ? 10 : 4, top: 0.7, spread: 160}));
+      }, draw: bowlDraw}
+  };
+  /* ---- end of completion animations ---- */
 
   MAJ_THEMES.push({
     skin: {id: "mushrooms", name: "Mushroom Hollow", group: "ideas", desc: "A mossy glade full of toadstools, ferns and drifting spores.",
@@ -23820,10 +25388,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#CFE3C5,#EEF3DE 60%,#F2E6D8)", "linear-gradient(180deg,#141A2E,#22304A 60%,#3A3058)"],
       spine: [lg("#6E5A3E", "#4A3C28"), lg("#22304A", "#0E1424")], btn: [lg2("#B8432F", "#D2643C"), lg2("#6FE0EC", "#9CC4FF")]},
     kit: {motif: "n2shroom", card: ["#FBF8EE", "#EFE8D4"], ink: "#2A2418", bd: "#DCCFB0", mc: "#C8503A", r: 18, notes: ["#F6E3C8", "#FFF3B8", "#D9F0D8", "#FFD9D2", "#E6F0C8", "#EBD9FF"], shape: "scallop", pin: "pin", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "n2shroom", d ? ["#5FD6E8", "#7FA6FF", "#6FE8C0"] : ["#E45A48", "#F07A5A", "#C98B5A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 10, smax: 15, glow: d ? 12 : 0}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08), rot: fxR(-0.3, 0.3)}))
-      .concat(drift(W, H, n(40), "circle", d ? ["#9CFFE8", "#B8D8FF", "#E8FFFF"] : ["#F6DA7A", "#FFF2C0", "#E8C860"], {smin: 1.6, smax: 3.4, vmin: 0.6, vmax: 1.4, sway: 1.4, life: 300, glow: d ? 12 : 6}),
-        fxFall(W, H, n(18), "leaf", d ? ["#3A8A74", "#2A6A5E"] : ["#7FB466", "#A2CF7C", "#5E9A4E"], {sway: 1.8, flip: true, smin: 8, smax: 12, vmin: 1, vmax: 1.8}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#B8F6FF", "#FFFFFF", "#C8FFE8"] : ["#F2B53A", "#FF8F7A", "#FFD86B"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.mushrooms,
     tag: "A mossy glade of breathing toadstools, uncurling ferns and a fairy ring that plays like a xylophone"
   });
   MAJ_THEMES.push({
@@ -23833,10 +25398,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#9ED0F0,#D6ECF8 60%,#F8E7A6)", "linear-gradient(180deg,#1B2246,#2F2F5E 60%,#4C3E5A)"],
       spine: [lg("#4E7A2E", "#33531C"), lg("#2F2F5E", "#10122C")], btn: [lg2("#C2561A", "#E08A1A"), lg2("#F6C84A", "#FFE08A")]},
     kit: {motif: "n2sunfl", card: ["#FFFBEA", "#F6EBC4"], ink: "#2A2410", bd: "#EAD48A", mc: "#E0A21A", r: 16, notes: ["#FFF0B0", "#FFE0B8", "#E2F0C0", "#D6E6FF", "#FFD9C8", "#F2E2FF"], shape: "rounded", pin: "tape", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "n2petal", d ? ["#F2D27A", "#E6B84A", "#FFE6A0"] : ["#FFD23F", "#FFC21F", "#F5A51A", "#FFE680"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, glow: d ? 8 : 0}).map(p => Object.assign(p, {flip: true, vr: fxR(-0.12, 0.12)}))
-      .concat(fxRise(W, H, n(8), "n2sunfl", d ? ["#F2C84A", "#FFE08A"] : ["#FFC21F", "#F5A51A"], {smin: 13, smax: 18, vmin: 1, vmax: 1.8, sway: 0.7, life: 300, glow: d ? 10 : 0}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)})),
-        fxFlutter(W, H, n(6), d ? ["#FFE38A", "#B8F0FF"] : ["#FF9F43", "#FFD45A", "#8FD8FF"]),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFF4C2", "#FFFFFF", "#F6C84A"] : ["#F2B53A", "#FFD86B", "#FF9F43"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.sunflowers,
     tag: "Sunflowers that follow the sun across the sky toward a red barn, with bees, hay bales and a dirt road"
   });
   MAJ_THEMES.push({
@@ -23846,10 +25408,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#B9D7EA,#EAF2EE 60%,#E7D2B8)", "linear-gradient(180deg,#141C33,#25304E 60%,#5B4A6A)"],
       spine: [lg("#7A4C30", "#55331F"), lg("#3A2C46", "#140F1C")], btn: [lg2("#B8484C", "#D06A4A"), lg2("#FFC27A", "#FFD9A0")]},
     kit: {motif: "n2ticket", card: ["#FCF7EE", "#F0E4D0"], ink: "#2E2018", bd: "#DCC8A8", mc: "#B8484C", r: 10, notes: ["#F6E6CC", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "classic", pin: "gold", fab: "14px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(18), "puff", d ? ["rgba(230,220,250,.7)", "rgba(200,190,230,.6)"] : ["rgba(255,255,255,.85)", "rgba(240,236,232,.8)"], {smin: 10, smax: 18, vmin: 1.2, vmax: 2.2, sway: 1, grow: 0.12, life: 220, cx: [0.05, 0.4]})
-      .concat(fxBurst(W, H, n(16), "n2ticket", d ? ["#FFC27A", "#FFD9A0", "#E8B0C8"] : ["#E8706A", "#F2B84A", "#7FB8D8"], [[0.15, 1.02], [0.85, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.1, 0.1)})),
-        fxFall(W, H, n(20), "star", d ? ["#FFE7B0", "#FFFFFF", "#FFC27A"] : ["#F2B84A", "#E8706A", "#7FB8D8"], {sway: 1.2, smin: 5, smax: 9, vmin: 1, vmax: 2, glow: d ? 10 : 0}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#FFC27A"] : ["#F2B53A", "#FFD86B", "#E8706A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.nighttrain,
     tag: "A train compartment with velvet seats, luggage on the brass rack, a swaying table lamp and the countryside rushing past the window"
   });
   MAJ_THEMES.push({
@@ -23859,11 +25418,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F1DCC3,#F8EBDA 60%,#E7C9A8)", "linear-gradient(180deg,#1E1A2A,#3B2734 60%,#7A3E3A)"],
       spine: [lg("#8A3A2E", "#5E241C"), lg("#3B2734", "#160F16")], btn: [lg2("#C8343A", "#E0603A"), lg2("#FF8A7A", "#FFB08A")]},
     kit: {motif: "n2naruto", card: ["#FFFAF2", "#F4E6D4"], ink: "#2E1E16", bd: "#E6CBB0", mc: "#D2464E", r: 14, notes: ["#FFE8C8", "#FFF3B8", "#E2F0D0", "#FFD9D8", "#F2E2FF", "#D6E6FF"], shape: "folded", pin: "pin", fab: "16px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "n2steam", d ? ["rgba(255,240,250,.7)", "rgba(230,220,240,.6)"] : ["rgba(255,255,255,.9)", "rgba(250,240,230,.85)"], {smin: 12, smax: 20, vmin: 1, vmax: 2, sway: 1.4, life: 220, cx: [0.2, 0.8]}).map(p => Object.assign(p, {rot: 0}))
-      .concat(fxBurst(W, H, n(16), "n2naruto", ["#FFFFFF", "#FFF2F6"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.15, 0.15)})),
-        fxBurst(W, H, n(10), "n2egg", ["#FFFFFF"], [[0.3, 1.02], [0.7, 1.02]], {smin: 10, smax: 13}),
-        fxFall(W, H, n(16), "leaf", d ? ["#7ACB5A", "#5AA84A"] : ["#7ACB5A", "#9ADB6A"], {sway: 1.4, smin: 5, smax: 8, vmin: 1, vmax: 2}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#FF8A7A"] : ["#F2B53A", "#FFD86B", "#E8505E"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.ramen,
     tag: "A cozy ramen counter on a rainy night, with a cheerful chef, a simmering pot, noren curtains and a lucky cat"
   });
 })();
@@ -23897,8 +25452,231 @@ var MAJ_THEMES = [];
     n3mallow: {d: "M-8 -6C-8 -9.6 8 -9.6 8 -6V6C8 9.6 -8 9.6 -8 6Z", detail: "M-8 -6C-8 -2.6 8 -2.6 8 -6", dstroke: true},
     n3fish: {d: "M-6 0C-3 -6.4 6 -7.4 11.4 0C6 7.4 -3 6.4 -6 0Z M-5 0L-11.5 -6V6Z", detail: circ(5.6, -1.2, 1.5), dfill: true},
   });
-  const swim = (W, H, n, shape, cols, d) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, sp = fxR(2.2, 3.8), vx = (left ? 1 : -1) * sp, vy = -fxR(0.1, 0.7);
-    return {shape, c: fxPick(cols), x: left ? fxR(-70, -20) : W + fxR(20, 70), y: fxR(H * 0.25, H * 0.95), vx, vy, g: 0, size: fxR(12, 20), rot: Math.atan2(vy, vx), vr: 0, sway: 0, life: 280, delay: Math.floor(fxR(0, 60)), glow: d ? 8 : 0}; });
+
+  /* ---- completion animations ---- */
+  const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+  const fillP = (g, c, d) => { g.fillStyle = c; g.fill(new Path2D(d)); };
+  // soft light top left, shade bottom right, for painted sprites
+  const sheen = (g, dk, k = 1) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${0.34 * k})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dk ? 0.26 : 0.2})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  const eye = (g, x, y, r) => { g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill(); g.fillStyle = "#14202A"; g.beginPath(); g.arc(x + r * 0.25, y, r * 0.62, 0, 6.3); g.fill(); };
+  // reef fish, all pointing to +x with the back up
+  const FB = "M-7 0C-4 -6.6 5 -7.4 10.6 0C5 7.4 -4 6.6 -7 0Z", FT = "M-6 0L-11.6 -5.8Q-10 0 -11.6 5.8Z";
+  const TB = "M-7.5 0C-5 -7.8 5 -8.2 10.4 -0.6C10.8 0 10.8 0.4 10.4 0.8C5 8 -5 7.8 -7.5 0Z", TT = "M-6.6 0L-11.8 -5.6L-10.4 0L-11.8 5.6Z";
+  const YB = "M-6 0C-6 -8.6 2 -10.4 9.8 -1C10.4 -0.4 10.4 0.4 9.8 1C2 10.4 -6 8.6 -6 0Z", YT = "M-5.4 0L-10.8 -4.8L-9.6 0L-10.8 4.8Z";
+  Object.assign(FX_SHAPES, {
+    // a soft round puff that fades to clear in its own color
+    n3soft: {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0", paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, c); gr.addColorStop(0.5, c + "99"); gr.addColorStop(1, c + "00"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); }},
+    n3clown: {d: FB + FT, paint: (g, c, dk) => { const b = new Path2D(FB); fillP(g, "#E05A16", FT); fillP(g, "#F07020", "M-2.4 -5.2Q1 -9.6 5.4 -5.4Z M-1.4 5.2Q1.4 8.8 4.6 5.2Z"); g.fillStyle = "#F7801F"; g.fill(b);
+      g.save(); g.clip(b); g.fillStyle = "#FFFFFF"; g.strokeStyle = "#1A1A22"; g.lineWidth = 0.8; [[4.8, 2.4], [-0.4, 2.6], [-5.4, 1.8]].forEach(([x, w]) => { g.fillRect(x - w / 2, -9, w, 18); g.strokeRect(x - w / 2, -9, w, 18); }); g.restore();
+      sheen(g, dk); eye(g, 7.2, -1.5, 1.5); }},
+    n3tang: {d: TB + TT, paint: (g, c, dk) => { fillP(g, "#FFC81E", TT); fillP(g, "#1E3E9E", "M-5 -5.4Q1 -10.4 7 -5.6Z M-4.6 5.4Q1 9.6 6 5.4Z"); fillP(g, "#2F62E0", TB);
+      fillP(g, "#12204A", "M-5.6 -3.4C-1 -7 5.4 -6 8.2 -2.6C4.6 -4 0.4 -2.6 -1.6 0.6C-2.8 2.6 -5.4 2.2 -5.6 -3.4Z"); sheen(g, dk); eye(g, 6.8, -1.8, 1.4); }},
+    n3ytang: {d: YB + YT, paint: (g, c, dk) => { fillP(g, "#F2B50E", YT); fillP(g, "#FFD526", YB); fillP(g, "#F5BE12", "M-4.4 -5.6Q1 -11 7 -4.4L4 -3.4Q0 -6.4 -4.4 -5.6Z"); sheen(g, dk); fillP(g, "#FFFFFF", "M-4.6 0.6L-3.2 -0.4L-3 1.4Z"); eye(g, 6.4, -2, 1.3); }},
+    n3gramma: {d: FB + FT, paint: (g, c, dk) => { const b = new Path2D(FB); fillP(g, "#FFC21E", FT); g.save(); g.clip(b); g.fillStyle = "#FFC21E"; g.fillRect(-13, -13, 26, 26); g.fillStyle = "#9A4CE0"; g.beginPath(); g.moveTo(1.6, -9); g.bezierCurveTo(-1, -3, 1, 3, -1.6, 9); g.lineTo(12, 9); g.lineTo(12, -9); g.fill(); g.restore(); fillP(g, "#8A40D0", "M0 -5.6Q3 -9.4 6.4 -5Z"); sheen(g, dk); eye(g, 7.2, -1.5, 1.4); }},
+    // a tiny clay drop, a grown vase, a log
+    n3clay: {d: "M0 -6C3.4 -2 4.6 0.6 4.6 2.4A4.6 4.6 0 0 1 -4.6 2.4C-4.6 0.6 -3.4 -2 0 -6Z"}
+  });
+  // a school: a few fish of one kind swimming together, entering from one side
+  const school = (W, H, n, shapes, o = {}) => { const out = []; for (let s = 0; out.length < n; s++) { const lr = s % 2 === 0, z = fxR(0.72, 1.1), sh = shapes[s % shapes.length], y0 = fxR(H * (o.y0 || 0.15), H * (o.y1 || 0.85)), sp = (W * fxR(0.0042, 0.006) + 1.2) * z, vy = fxR(-0.3, 0.3), d0 = Math.floor(fxR(0, o.spread || 80)), sz = fxR(o.smin || 12, o.smax || 16) * z, per = o.per || 5;
+    for (let i = 0; i < per && out.length < n; i++) out.push({shape: sh, c: "#FFFFFF", x: lr ? -40 : W + 40, y: y0 + fxR(-1, 1) * sz * 3.4, vx: (lr ? 1 : -1) * sp * fxR(0.94, 1.06), vy: vy + fxR(-0.08, 0.08), g: 0, size: sz * fxR(0.85, 1.05), z, face: true, wig: 0.13, rot: 0, vr: 0, sway: 0, life: 320, delay: Math.min(150, d0 + Math.floor(i * fxR(5, 11))), alpha: fxDim(z)}); } return out; };
+  // soft sun shafts from the top
+  const rays = (g, f, W, H, dk, rgb) => { const a = ease(f / 40); g.globalCompositeOperation = dk ? "lighter" : "source-over"; for (let i = 0; i < 4; i++) { const x = W * (0.08 + i * 0.27) + Math.sin(f * 0.012 + i * 1.9) * W * 0.04, w = W * (0.04 + 0.025 * (i % 2)) + 20, gr = g.createLinearGradient(0, 0, 0, H * 0.95); gr.addColorStop(0, `rgba(${rgb},${(dk ? 0.12 : 0.34) * a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(x - w * 0.4, 0); g.lineTo(x + w * 0.4, 0); g.lineTo(x + w * 1.6 + H * 0.22, H * 0.95); g.lineTo(x - w * 0.3 + H * 0.22, H * 0.95); g.fill(); } };
+  // little twinkles in a given box
+  const twIn = (n, shape, cols, x0, x1, y0, y1, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(x0, x1), y: fxR(y0, y1), vx: 0, vy: o.vy || 0, g: 0, size: fxR(o.smin || 4, o.smax || 8), rot: 0, vr: fxR(-0.02, 0.02), sway: 0, life: fxR(50, 90), delay: Math.floor(fxR(o.d0 || 0, o.d1 || 120)), tw: true, glint: true, glow: o.glow}));
+
+  // Greenhouse: seedlings sprout along the bottom, unfurl leaves and open a flower each, under a fine mist
+  let GH = null;
+  const ghDraw = (g, f, W, H, dk) => { if (!GH) return; const u = Math.min(W, H) / 100, lw = Math.max(2.4, 0.75 * u);
+    GH.forEach((s, i) => { const p = ease((f - s.t0) / 85); if (p <= 0) return; const sw = Math.sin(f * 0.03 + i) * s.h * 0.03, ex = s.x + s.lean + sw, ey = H - s.h, cx = s.x + s.lean * 0.15, cy = H - s.h * 0.5;
+      const at = t => [(1 - t) * (1 - t) * s.x + 2 * (1 - t) * t * cx + t * t * ex, (1 - t) * (1 - t) * (H + 6) + 2 * (1 - t) * t * cy + t * t * ey];
+      g.strokeStyle = dk ? "#5FB07A" : "#3E8A4E"; g.lineWidth = lw; g.lineCap = "round"; g.beginPath(); for (let k = 0; k <= 24; k++) { const q = at(k / 24 * p); k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke();
+      [0.3, 0.5, 0.68, 0.84].forEach((t, j) => { const ls = ease((p - t) / 0.16); if (ls <= 0) return; const q = at(t), q2 = at(t + 0.02), ang = Math.atan2(q2[1] - q[1], q2[0] - q[0]), side = (j + s.side) % 2 ? 1 : -1;
+        g.save(); g.translate(q[0], q[1]); g.rotate(ang + side * 1.15); g.scale(ls * u * (0.8 - j * 0.1), ls * u * (0.8 - j * 0.1) * side); g.fillStyle = j % 2 ? (dk ? "#3E9A6A" : "#2F7D52") : (dk ? "#5AB87A" : "#4FAA60"); g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(3, -4, 9, -4.4, 12, 0); g.bezierCurveTo(9, 3.4, 3, 3, 0, 0); g.fill(); g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 0.5; g.beginPath(); g.moveTo(1, 0); g.lineTo(10, -0.2); g.stroke(); g.restore(); });
+      const bs = ease((p - 0.86) / 0.14); if (bs <= 0) return; const R = 3.4 * u * bs * (1 + 0.08 * Math.sin(f * 0.05 + i));
+      g.save(); g.translate(ex, ey); g.rotate(f * 0.004 + i); g.fillStyle = s.c; for (let k = 0; k < 6; k++) { g.rotate(Math.PI / 3); g.beginPath(); g.ellipse(R * 0.62, 0, R * 0.62, R * 0.34, 0, 0, 6.3); g.fill(); } g.fillStyle = "rgba(255,255,255,.28)"; for (let k = 0; k < 6; k++) { g.rotate(Math.PI / 3); g.beginPath(); g.ellipse(R * 0.5, -R * 0.08, R * 0.32, R * 0.12, 0, 0, 6.3); g.fill(); } g.fillStyle = dk ? "#FFD86A" : "#F2B53A"; g.beginPath(); g.arc(0, 0, R * 0.3, 0, 6.3); g.fill(); g.restore(); }); };
+
+  // Pottery: a lump of clay rises on the wheel and is thrown into a vase, then dipped in glaze
+  const VK = [[0, 0.72], [0.38, 1.08], [0.82, 0.42], [1, 0.6]];
+  const vaseR = t => { for (let k = 1; k < VK.length; k++) if (t <= VK[k][0]) { const a = VK[k - 1], b = VK[k], q = (1 - Math.cos(Math.PI * (t - a[0]) / (b[0] - a[0]))) / 2; return a[1] + (b[1] - a[1]) * q; } return 0.6; };
+  let POT = null;
+  const potDraw = (g, f, W, H, dk) => { const u = Math.min(W, H) / 100, cx = W / 2, yo = (1 - ease(f / 26)) * 46 * u, by = H - 3 * u + yo, gr0 = ease((f - 14) / 110), hh = 32 * u * (0.36 + 0.64 * gr0), rb = 13 * u;
+    const R = t => rb * ((1 - gr0) * 1.12 * (1 - t * t * 0.55) + gr0 * vaseR(t));
+    g.fillStyle = dk ? "#3A3236" : "#6E625C"; g.beginPath(); g.ellipse(cx, by + 2.4 * u, 24 * u, 5 * u, 0, 0, 6.3); g.fill(); g.fillStyle = dk ? "#5A4E52" : "#9A8C84"; g.beginPath(); g.ellipse(cx, by, 22 * u, 4.2 * u, 0, 0, 6.3); g.fill();
+    const path = new Path2D(); for (let k = 0; k <= 30; k++) { const t = k / 30; path[k ? "lineTo" : "moveTo"](cx - R(t), by - t * hh); } for (let k = 30; k >= 0; k--) { const t = k / 30; path.lineTo(cx + R(t), by - t * hh); } path.closePath();
+    const Rm = rb * 1.12, lg0 = g.createLinearGradient(cx - Rm, 0, cx + Rm, 0); lg0.addColorStop(0, "#7A4024"); lg0.addColorStop(0.32, "#D98E62"); lg0.addColorStop(0.55, "#BC6E44"); lg0.addColorStop(1, "#6A361E");
+    g.fillStyle = lg0; g.fill(path); g.save(); g.clip(path);
+    const q = ease((f - 132) / 56); if (q > 0) { const top = by - hh * 1.02 * q; g.fillStyle = POT ? POT.c : "#2E9A94"; g.globalAlpha = 0.86; g.beginPath(); g.moveTo(cx - Rm * 1.2, by + 2); for (let x = -1.2; x <= 1.21; x += 0.1) g.lineTo(cx + x * Rm, top + Math.sin(x * 7 + f * 0.05) * 1.6 * u * (1 - q)); g.lineTo(cx + Rm * 1.2, by + 2); g.fill(); g.globalAlpha = 1; g.fillStyle = lg0; g.globalCompositeOperation = "multiply"; g.globalAlpha = 0.55 * q; g.fillRect(cx - Rm, by - hh - 4, Rm * 2, hh + 8); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; }
+    g.strokeStyle = "rgba(60,25,10,.28)"; g.lineWidth = Math.max(1, 0.35 * u); for (let k = 1; k < 8; k++) { const t = k / 8, r = R(t), y = by - t * hh; g.beginPath(); g.ellipse(cx, y, r, r * 0.12, 0, 0.15, Math.PI - 0.15); g.stroke(); }
+    const spin = gr0 < 1 || f < 132 ? 1 : 1 - ease((f - 132) / 60); if (spin > 0.01) { g.strokeStyle = `rgba(255,225,200,${0.45 * spin})`; g.lineWidth = Math.max(1.2, 0.5 * u); for (let k = 0; k < 5; k++) { const ph = f * 0.21 + k * 1.26, c = Math.cos(ph); if (c < 0.1) continue; const t0 = 0.12 + k * 0.17, x = cx + R(t0) * Math.sin(ph) * 0.92, y = by - t0 * hh; g.globalAlpha = c; g.beginPath(); g.moveTo(x, y - 2 * u); g.lineTo(x, y + 2 * u); g.stroke(); } g.globalAlpha = 1; }
+    g.restore(); g.fillStyle = "rgba(60,25,10,.35)"; g.beginPath(); g.ellipse(cx, by - hh, R(1) * 0.86, R(1) * 0.14, 0, 0, 6.3); g.fill(); };
+
+  // Campfire: the fire flares up. Flame tongues sway over crossed logs whose cracks glow, sparks spiral up and cool as
+  // they climb, and a marshmallow on a stick reaches in from the corner and toasts golden
+  let CF = null;
+  const hexMix = (a, b, t) => { const p = parseInt(a.slice(1), 16), q = parseInt(b.slice(1), 16); return "rgb(" + [16, 8, 0].map(s => Math.round(((p >> s) & 255) * (1 - t) + ((q >> s) & 255) * t)).join(",") + ")"; };
+  const ramp = (cols, t) => { t = Math.max(0, Math.min(0.999, t)) * (cols.length - 1); const i = Math.floor(t); return hexMix(cols[i], cols[i + 1], t - i); };
+  const cfSize = (W, H) => Math.max(96, Math.min(W * (W < H ? 0.46 : 0.36), H * 0.3, 270));
+  // the two crossed logs (bark, grooves, cut ends) and their ember cracks, prebuilt once per size
+  const cfLogs = (S, dk) => { const key = S + "|" + dk; if (CF.logs && CF.logs.key === key) return CF.logs;
+    const w = Math.ceil(S * 1.5), h = Math.ceil(S * 0.6), L = S * 0.6, T = S * 0.15, mk = () => { const c = document.createElement("canvas"); c.width = w * 2; c.height = h * 2; const x = c.getContext("2d"); x.scale(2, 2); x.translate(w / 2, h / 2); return [c, x]; };
+    const [lc, l] = mk(), [cc, c] = mk(), A = [[0.2, 1], [-0.2, -1]];
+    const logPath = (x, a) => { x.save(); x.rotate(a); x.beginPath(); x.roundRect(-L, -T / 2, 2 * L, T, T * 0.35); x.restore(); };
+    A.forEach(([a, s], i) => { l.save(); l.rotate(a);
+      const gr = l.createLinearGradient(0, -T / 2, 0, T / 2); gr.addColorStop(0, dk ? "#7A5236" : "#86583A"); gr.addColorStop(0.45, dk ? "#4E3020" : "#5E3A24"); gr.addColorStop(1, dk ? "#24140C" : "#341E10");
+      l.fillStyle = gr; l.beginPath(); l.roundRect(-L, -T / 2, 2 * L, T, T * 0.35); l.fill();
+      l.strokeStyle = "rgba(25,12,5,.5)"; l.lineCap = "round";
+      for (let j = 0; j < 8; j++) { const y = -T * 0.38 + j * T * 0.105, x0 = -L * 0.95 + ((j * 7 + i * 3) % 5) / 5 * L * 0.5; l.lineWidth = Math.max(0.8, T * (0.035 + 0.02 * (j % 2))); l.beginPath(); l.moveTo(x0, y); l.bezierCurveTo(x0 + L * 0.4, y + T * 0.06, x0 + L * 0.8, y - T * 0.06, Math.min(L * 0.95, x0 + L * 1.4), y); l.stroke(); }
+      l.strokeStyle = "rgba(255,220,180,.16)"; l.lineWidth = Math.max(0.8, T * 0.05); l.beginPath(); l.moveTo(-L * 0.9, -T * 0.32); l.lineTo(L * 0.9, -T * 0.32); l.stroke();
+      const ex = s * L - s * T * 0.12; l.fillStyle = dk ? "#B88A58" : "#D4A46C"; l.beginPath(); l.ellipse(ex, 0, T * 0.22, T * 0.48, 0, 0, 6.3); l.fill();
+      l.strokeStyle = "rgba(120,72,36,.75)"; l.lineWidth = Math.max(0.7, T * 0.035); [0.34, 0.2, 0.08].forEach(r => { l.beginPath(); l.ellipse(ex, 0, T * r * 0.45, T * r, 0, 0, 6.3); l.stroke(); }); l.restore();
+      // cracks: the log in front hides the cracks of the one behind it
+      if (i) { c.save(); c.globalCompositeOperation = "destination-out"; logPath(c, a); c.fill(); c.restore(); }
+      c.save(); c.rotate(a); c.lineJoin = c.lineCap = "round"; c.shadowColor = "#FF4A0A"; c.shadowBlur = T * 0.35;
+      for (let j = 0; j < 5; j++) { let x = -L * 0.5 + j * L * 0.24 + i * T * 0.3, y = (j % 2 ? 0.12 : -0.22) * T; c.strokeStyle = j % 2 ? "#FF6A14" : "#FF9A2A"; c.lineWidth = Math.max(1.1, T * (0.07 + 0.03 * (j % 3))); c.beginPath(); c.moveTo(x, y);
+        for (let q = 0; q < 4; q++) { x += T * (0.22 + 0.14 * ((q + j) % 3)); y = Math.max(-T * 0.38, Math.min(T * 0.38, y + T * ((q + j) % 2 ? 0.16 : -0.13))); c.lineTo(x, y); } c.stroke(); }
+      c.restore(); });
+    return CF.logs = {key, lc, cc, w, h}; };
+  // one tongue of flame: a teardrop whose tip sways and whips
+  const tongue = (g, x, by, w, h, f, ph) => { const N = 12, P = [];
+    for (let j = 0; j <= N; j++) { const t = j / N, cx = x + (Math.sin(f * 0.085 + ph - t * 2.6) * 0.6 + Math.sin(f * 0.2 + ph * 1.7 - t * 5) * 0.22) * w * t * t * 1.3, hw = w * Math.pow(Math.cos(t * 1.5708), 1.3) * (1 + 0.22 * Math.sin(t * 3.1)); P.push([cx, by - h * t, hw]); }
+    g.beginPath(); g.moveTo(P[0][0] - P[0][2], P[0][1]); for (let j = 1; j <= N; j++) g.lineTo(P[j][0] - P[j][2], P[j][1]); for (let j = N - 1; j >= 0; j--) g.lineTo(P[j][0] + P[j][2], P[j][1]);
+    g.quadraticCurveTo(x, by + w * 0.7, P[0][0] - P[0][2], P[0][1]); g.fill(); };
+  const fireDraw = (g, f, W, H, dk) => { if (!CF) return; const S = cfSize(W, H), cx = W / 2, by = H - S * 0.16, k = ease(f / 22), fl = ease((f - 26) / 24) * (1 - ease((f - 78) / 45)), set = 1 - 0.2 * ease((f - 150) / 90);
+    const fH = S * (0.95 + 0.62 * fl) * k * set, pulse = 0.85 + 0.09 * Math.sin(f * 0.21) + 0.06 * Math.sin(f * 0.53);
+    // warm light pooling around the fire, breathing with the flame
+    const gR = S * (1.5 + 0.45 * fl) * pulse, gy = by - S * 0.25; let gr = g.createRadialGradient(cx, gy, 0, cx, gy, gR);
+    gr.addColorStop(0, `rgba(255,150,60,${(dk ? 0.34 : 0.2) * k * pulse})`); gr.addColorStop(0.5, `rgba(255,120,40,${(dk ? 0.12 : 0.07) * k * pulse})`); gr.addColorStop(1, "rgba(255,120,40,0)"); g.fillStyle = gr; g.fillRect(cx - gR, gy - gR, 2 * gR, 2 * gR);
+    g.save(); g.translate(cx, by + S * 0.05); g.scale(1, 0.28); gr = g.createRadialGradient(0, 0, 0, 0, 0, S * 1.3); gr.addColorStop(0, `rgba(255,170,80,${(dk ? 0.4 : 0.26) * k * pulse})`); gr.addColorStop(1, "rgba(255,150,60,0)"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, S * 1.3, 0, 6.3); g.fill(); g.restore();
+    // ember bed under the logs
+    g.globalAlpha = k; g.save(); g.translate(cx, by + S * 0.04); g.scale(1, 0.3); gr = g.createRadialGradient(0, 0, 0, 0, 0, S * 0.42); gr.addColorStop(0, "#FFB040"); gr.addColorStop(0.5, "#E8501A"); gr.addColorStop(1, "rgba(120,30,10,0)"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, S * 0.42, 0, 6.3); g.fill(); g.restore();
+    const LG = cfLogs(S, dk), lw = LG.w, lh = LG.h, ly = by + (1 - k) * S * 0.4; g.drawImage(LG.lc, cx - lw / 2, ly - lh / 2, lw, lh);
+    g.globalAlpha = k * (0.55 + 0.3 * Math.sin(f * 0.07) + 0.15 * Math.sin(f * 0.19 + 1)); g.drawImage(LG.cc, cx - lw / 2, ly - lh / 2, lw, lh); g.globalAlpha = k;
+    // the flame: every tongue in four layers, outer red-orange to a pale core
+    const COL = ["#E8401E", "#FF7E1C", "#FFC23A", dk ? "#FFF6D2" : "#FFF0B0"], SC = [[1, 1], [0.76, 0.8], [0.52, 0.6], [0.3, 0.36]], fb = by - S * 0.06;
+    if (fH > 2) { g.fillStyle = "#FF5A1E"; g.globalAlpha = k * (dk ? 0.28 : 0.2); CF.T.forEach(t => tongue(g, cx + t.x * S, fb + S * 0.02, t.w * S * 1.3, fH * t.h * 1.12 * (0.84 + 0.1 * Math.sin(f * 0.19 + t.ph) + 0.06 * Math.sin(f * 0.47 + t.ph * 3)), f, t.ph));
+      g.globalAlpha = k; SC.forEach(([sw, sh], L) => { g.fillStyle = COL[L]; CF.T.forEach(t => { if (L >= 2 && Math.abs(t.x) > 0.24) return; tongue(g, cx + t.x * S * (1 - L * 0.12), fb, t.w * S * sw, fH * t.h * sh * (0.84 + 0.1 * Math.sin(f * 0.19 + t.ph + L * 0.4) + 0.06 * Math.sin(f * 0.47 + t.ph * 3)), f, t.ph + L * 0.25); }); }); }
+    // sparks spiral up on short glowing trails and cool from white-yellow to red
+    const SP = dk ? ["#FFFBE0", "#FFD04A", "#FF8A22", "#E0401A", "#80220E"] : ["#FFD24A", "#FFA22A", "#F0641E", "#C8341A", "#8A2A14"];
+    g.lineCap = "round"; const pos = (s, a) => [cx + s.x * S + s.dr * a + s.r * S * Math.min(1, a / 26) * Math.sin(s.w * a + s.ph), by - S * 0.45 - s.v * a * (1 - a / (2.8 * s.life))];
+    for (const s of CF.S) { const a = f - s.t0; if (a <= 0 || a > s.life) continue; const q = a / s.life, al = ease(a / 5) * (1 - q * q), col = ramp(SP, q * 0.95), sz = s.sz * (1 - 0.5 * q);
+      g.strokeStyle = col; let p0 = pos(s, a); for (let j = 1; j <= 5; j++) { const p1 = pos(s, Math.max(0, a - j * 1.8)); g.globalAlpha = al * (1 - j / 6); g.lineWidth = sz * (1.05 - j * 0.15); g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke(); p0 = p1; }
+      const h = pos(s, a); g.globalAlpha = al * (dk ? 0.22 : 0.14); g.fillStyle = col; g.beginPath(); g.arc(h[0], h[1], sz * 1.6, 0, 6.3); g.fill(); g.globalAlpha = al; g.fillStyle = q < 0.3 ? SP[0] : col; g.beginPath(); g.arc(h[0], h[1], sz * 0.75, 0, 6.3); g.fill(); }
+    // a faint warm wisp above the tips
+    const pf = CF.puff || (CF.puff = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d"), q = x.createRadialGradient(32, 32, 0, 32, 32, 32); q.addColorStop(0, "rgba(255,255,255,1)"); q.addColorStop(0.5, "rgba(255,255,255,.4)"); q.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = q; x.fillRect(0, 0, 64, 64); x.globalCompositeOperation = "source-in"; x.fillStyle = "#FFD2A8"; x.fillRect(0, 0, 64, 64); return c; })());
+    for (let i = 0; i < 7; i++) { const a = (f * 0.5 + i * 19) % 130, x = cx + Math.sin(a * 0.045 + i) * S * 0.14 * (a / 130), y = by - fH * 0.9 - a * S * 0.01, r = S * (0.12 + a / 130 * 0.3);
+      g.globalAlpha = k * (dk ? 0.07 : 0.1) * Math.sin(Math.PI * a / 130) * ease((f - 40) / 60); g.drawImage(pf, x - r, y - r, 2 * r, 2 * r); }
+    // the marshmallow on its stick reaches in from the lower right and toasts
+    const ang = Math.atan2(0.6, 1), ca = Math.cos(ang), sa = Math.sin(ang), rch = (1 - ease((f - 8) / 42)) * S * 1.4 + Math.sin(f * 0.045) * S * 0.015, tx = cx + S * 0.36 + ca * rch, ty = by - S * 0.98 + sa * rch, sL = Math.hypot(W, H);
+    g.globalAlpha = ease((f - 8) / 20); g.strokeStyle = dk ? "#A0784C" : "#8A5E36"; g.lineWidth = Math.max(2.5, S * 0.026); g.beginPath(); g.moveTo(tx - ca * S * 0.04, ty - sa * S * 0.04); g.lineTo(tx + ca * sL, ty + sa * sL); g.stroke();
+    g.strokeStyle = "rgba(60,30,10,.35)"; g.lineWidth = Math.max(1, S * 0.009); g.beginPath(); g.moveTo(tx + ca * S * 0.2, ty + sa * S * 0.2 + S * 0.006); g.lineTo(tx + ca * sL, ty + sa * sL + S * 0.006); g.stroke();
+    const mx = tx + ca * S * 0.13, my = ty + sa * S * 0.13, m = S * 0.11, mr = S * 0.085, toast = ease((f - 30) / 170), fx0 = cx - mx, fy0 = gy - my, fd = Math.hypot(fx0, fy0);
+    g.save(); g.translate(mx, my); g.rotate(ang); const lfx = (fx0 * ca + fy0 * sa) / fd, lfy = (-fx0 * sa + fy0 * ca) / fd;
+    g.beginPath(); g.roundRect(-m, -mr, 2 * m, 2 * mr, mr * 0.55); g.fillStyle = ramp(["#FFFDF6", "#F8E2B0", "#E2AA60"], toast * 0.9); g.fill();
+    gr = g.createLinearGradient(lfx * mr * 1.2, lfy * mr * 1.2, -lfx * mr, -lfy * mr); gr.addColorStop(0, `rgba(130,66,22,${0.95 * toast})`); gr.addColorStop(0.5, `rgba(180,108,44,${0.45 * toast})`); gr.addColorStop(1, "rgba(200,140,70,0)"); g.fillStyle = gr; g.fill();
+    g.strokeStyle = `rgba(${dk ? "255,200,150" : "120,80,40"},${dk ? 0.25 : 0.4})`; g.lineWidth = Math.max(1, S * 0.006); g.stroke();
+    g.fillStyle = `rgba(255,255,255,${0.7 - 0.35 * toast})`; g.beginPath(); g.ellipse(-m * 0.1, -mr * 0.5, m * 0.6, mr * 0.18, 0, 0, 6.3); g.fill();
+    g.fillStyle = `rgba(255,170,80,${0.35 * k * pulse})`; g.beginPath(); g.ellipse(-m + mr * 0.2, mr * 0.2, mr * 0.18, mr * 0.7, 0, 0, 6.3); g.fill(); g.restore(); g.globalAlpha = 1; };
+
+  // Aquarium: the tunnel comes alive. A sea turtle glides over, a manta swoops through flapping, a school streams by as
+  // one flock, jellies pulse and caustic light ripples along the top
+  let AQ = null;
+  Object.assign(FX_SHAPES, {
+    // a small blue-green chromis for the school, pointing to +x
+    n3chromis: {d: FB + FT, paint: (g, c, dk) => { const b = new Path2D(FB); fillP(g, "#2E8ED0", FT); g.fillStyle = "#4AB4F0"; g.fill(b); g.save(); g.clip(b); g.fillStyle = "#1E5E9E"; g.beginPath(); g.ellipse(1, -5.4, 10, 4, 0, 0, 6.3); g.fill(); g.fillStyle = "#BFEAFF"; g.beginPath(); g.ellipse(1, 5.6, 9, 3.2, 0, 0, 6.3); g.fill(); g.restore(); sheen(g, dk, 1.1); eye(g, 7, -1.4, 1.5); }}
+  });
+  // the turtle's shell, painted once: scutes with warm centres, dark seams and a scalloped rim
+  const aqShell = (T, dk) => { const key = T + "|" + dk; if (AQ.shell && AQ.shell.key === key) return AQ.shell;
+    const c = document.createElement("canvas"), sz = Math.ceil(T * 1.1); c.width = c.height = sz * 2; const g = c.getContext("2d"); g.scale(2 * T, 2 * T); g.translate(0.55, 0.55);
+    const rim = new Path2D(); rim.ellipse(0, 0, 0.5, 0.4, 0, 0, 6.3); g.fillStyle = "#4A3418"; g.fill(rim); g.save(); g.clip(rim);
+    g.fillStyle = "#7A5A2A"; g.beginPath(); g.ellipse(0, 0, 0.44, 0.34, 0, 0, 6.3); g.fill();
+    const scute = (pts, cx, cy, r) => { const q = new Path2D(); pts.forEach((p, i) => q[i ? "lineTo" : "moveTo"](p[0], p[1])); q.closePath(); const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r); gr.addColorStop(0, "#D9A85A"); gr.addColorStop(0.5, "#A8783A"); gr.addColorStop(1, "#6E4E22"); g.fillStyle = gr; g.fill(q); g.strokeStyle = "#33240E"; g.lineWidth = 0.014; g.stroke(q); };
+    const E = x => 0.34 * Math.sqrt(Math.max(0, 1 - (x / 0.44) * (x / 0.44)));
+    [-1, 1].forEach(s => { const xs = [-0.4, -0.2, -0.02, 0.16, 0.36]; for (let i = 0; i < 4; i++) { const a = xs[i], b = xs[i + 1], P = [[a + 0.02, 0.1 * s], [a, E(a) * s], [(a + b) / 2, (E((a + b) / 2) + 0.01) * s], [b, E(b) * s], [b - 0.02, 0.1 * s]]; scute(P, (a + b) / 2, (0.1 + E((a + b) / 2)) / 2 * s, 0.14); } });
+    for (let i = 0; i < 5; i++) { const x = -0.32 + i * 0.16, w = i === 0 || i === 4 ? 0.075 : 0.1; scute([[x - 0.08, 0], [x - 0.045, -w], [x + 0.045, -w], [x + 0.08, 0], [x + 0.045, w], [x - 0.045, w]], x, 0, 0.11); }
+    g.strokeStyle = "#33240E"; g.lineWidth = 0.012; g.beginPath(); g.ellipse(0, 0, 0.44, 0.34, 0, 0, 6.3); g.stroke(); for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283; g.beginPath(); g.moveTo(Math.cos(a) * 0.44, Math.sin(a) * 0.34); g.lineTo(Math.cos(a) * 0.5, Math.sin(a) * 0.4); g.stroke(); }
+    const hl = g.createLinearGradient(-0.3, -0.35, 0.3, 0.35); hl.addColorStop(0, "rgba(255,240,200,.28)"); hl.addColorStop(0.5, "rgba(255,255,255,0)"); hl.addColorStop(1, `rgba(0,0,0,${dk ? 0.3 : 0.22})`); g.fillStyle = hl; g.fillRect(-0.6, -0.6, 1.2, 1.2); g.restore();
+    return AQ.shell = {key, c, sz}; };
+  const leaf = (g, len, wd) => { g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(len * 0.3, -wd, len * 0.8, -wd * 0.6, len, 0); g.bezierCurveTo(len * 0.7, wd * 0.5, len * 0.3, wd * 0.8, 0, 0); g.fill(); };
+  const aqTurtle = (g, f, W, H, dk) => { const t = AQ.tu, T = t.T, u = (f - t.d0) / 260; if (u <= 0) return; const X = q => t.dir > 0 ? -T + (W + 2 * T) * q : W + T - (W + 2 * T) * q, Y = q => t.y + Math.sin(q * 5 + t.ph) * H * 0.025;
+    const x = X(u), y = Y(u), ang = Math.atan2(Y(u + 0.002) - y, X(u + 0.002) - x), sk = dk ? "#8FA070" : "#7A8A52", sp = "rgba(40,50,20,.35)";
+    g.save(); g.globalAlpha = ease((f - t.d0) / 30); g.translate(x, y); g.rotate(ang); g.fillStyle = sk;
+    const st = Math.sin(f * 0.055), st2 = Math.sin(f * 0.055 - 1.2);
+    [-1, 1].forEach(s => { g.save(); g.translate(0.27 * T, 0.27 * T * s); g.rotate(s * (1.75 + 0.5 * st)); g.scale(1, s); leaf(g, 0.62 * T, 0.13 * T); g.fillStyle = sp; g.beginPath(); g.ellipse(0.25 * T, 0, 0.05 * T, 0.03 * T, 0, 0, 6.3); g.ellipse(0.4 * T, 0.01 * T, 0.04 * T, 0.025 * T, 0, 0, 6.3); g.fill(); g.restore(); g.fillStyle = sk;
+      g.save(); g.translate(-0.34 * T, 0.22 * T * s); g.rotate(s * (2.35 + 0.3 * st2)); g.scale(1, s); leaf(g, 0.26 * T, 0.09 * T); g.restore(); });
+    g.beginPath(); g.moveTo(-0.45 * T, -0.04 * T); g.lineTo(-0.6 * T, 0); g.lineTo(-0.45 * T, 0.04 * T); g.fill();
+    const hs = Math.sin(f * 0.03) * 0.08; g.save(); g.translate(0.46 * T, 0); g.rotate(hs); g.beginPath(); g.ellipse(0.1 * T, 0, 0.17 * T, 0.12 * T, 0, 0, 6.3); g.fill(); g.strokeStyle = sp; g.lineWidth = Math.max(0.8, T * 0.008); g.beginPath(); g.moveTo(0.04 * T, -0.1 * T); g.lineTo(0.12 * T, 0); g.lineTo(0.04 * T, 0.1 * T); g.moveTo(0.12 * T, 0); g.lineTo(0.22 * T, 0); g.stroke();
+    g.fillStyle = "#1A1E10"; g.beginPath(); g.arc(0.17 * T, -0.075 * T, 0.022 * T, 0, 6.3); g.arc(0.17 * T, 0.075 * T, 0.022 * T, 0, 6.3); g.fill(); g.restore();
+    const sh = aqShell(T, dk); g.drawImage(sh.c, -0.55 * T, -0.55 * T, sh.sz, sh.sz); g.restore(); };
+  // the manta, top-down: a broad diamond with convex leading edges sweeping back to long pointed tips; the tips curl
+  // up and down as it flaps (the span narrows a little on the upstroke), head first, a slim whip tail trailing
+  const aqManta = (g, f, W, H, dk) => { const m = AQ.ma, u = (f - m.d0) / 210; if (u <= 0 || u >= 1.2) return; const L = m.L, P = q => { const a = 1 - q; return [a * a * m.p[0][0] + 2 * a * q * m.p[1][0] + q * q * m.p[2][0], a * a * m.p[0][1] + 2 * a * q * m.p[1][1] + q * q * m.p[2][1]]; };
+    const [x, y] = P(u), [x2, y2] = P(u + 0.003), fl = Math.sin(f * 0.075), up = Math.max(0, fl), dn = Math.max(0, -fl), ty = 0.76 * (1 - 0.1 * up + 0.02 * dn), tx = -0.12 + 0.04 * up - 0.015 * dn;
+    g.save(); g.globalAlpha = ease((f - m.d0) / 25); g.translate(x, y); g.rotate(Math.atan2(y2 - y, x2 - x)); g.scale(L, L);
+    const back = dk ? "#23324A" : "#2E3F58";
+    g.lineCap = "round"; g.strokeStyle = back; for (let i = 0; i < 12; i++) { g.lineWidth = 0.022 * (1 - i / 12) + 0.004; g.beginPath(); g.moveTo(-0.38 - i * 0.05, Math.sin(i * 0.55 - f * 0.12) * 0.01 * i); g.lineTo(-0.38 - (i + 1) * 0.05, Math.sin((i + 1) * 0.55 - f * 0.12) * 0.01 * (i + 1)); g.stroke(); }
+    const half = s => [[0.22, 0.32 * s, 0.06, ty * 0.82 * s, tx, ty * s], [-0.12, ty * 0.66 * s, -0.12, 0.24 * s, -0.22, 0.12 * s]];
+    const body = new Path2D(); body.moveTo(0.3, 0); body.quadraticCurveTo(0.31, -0.07, 0.28, -0.1);
+    let [a, b] = half(-1); body.bezierCurveTo(...a); body.bezierCurveTo(...b); body.quadraticCurveTo(-0.34, -0.11, -0.4, 0); body.quadraticCurveTo(-0.34, 0.11, -0.22, 0.12);
+    [a, b] = half(1); body.bezierCurveTo(b[2], b[3], b[0], b[1], tx, ty); body.bezierCurveTo(a[2], a[3], a[0], a[1], 0.28, 0.1); body.quadraticCurveTo(0.31, 0.07, 0.3, 0);
+    g.fillStyle = back; g.fill(body); g.save(); g.clip(body);
+    let gr = g.createLinearGradient(0, 0, 0, ty); gr.addColorStop(0, "rgba(255,255,255,.06)"); gr.addColorStop(0.5, "rgba(0,0,0,0)"); gr.addColorStop(1, dk ? "rgba(0,0,0,.25)" : "rgba(0,0,0,.2)"); g.fillStyle = gr; g.fillRect(-0.4, 0, 0.8, 0.8); g.save(); g.scale(1, -1); g.fillRect(-0.4, 0, 0.8, 0.8); g.restore();
+    // the curled tips catch the light on the upstroke and fall into shade on the downstroke
+    [-1, 1].forEach(s => { gr = g.createLinearGradient(0, 0.4 * s, 0, ty * s); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, up > 0 ? `rgba(200,220,245,${0.32 * up})` : `rgba(0,0,0,${0.3 * dn})`); g.fillStyle = gr; g.fillRect(-0.4, Math.min(0.4 * s, ty * s), 0.8, Math.abs(ty - 0.4)); });
+    g.fillStyle = `rgba(225,236,248,${dk ? 0.13 : 0.16})`; [-1, 1].forEach(s => { g.beginPath(); g.ellipse(0.1, 0.2 * s, 0.12, 0.032, -0.75 * s, 0, 6.3); g.fill(); });
+    g.strokeStyle = "rgba(225,238,250,.22)"; g.lineWidth = 0.05; g.stroke(body); g.restore();
+    g.strokeStyle = "rgba(225,238,250,.5)"; g.lineWidth = 0.01; g.stroke(body);
+    g.fillStyle = back; [-1, 1].forEach(s => { g.beginPath(); g.moveTo(0.27, 0.11 * s); g.bezierCurveTo(0.34, 0.13 * s, 0.4, 0.11 * s, 0.405, 0.07 * s); g.quadraticCurveTo(0.4, 0.045 * s, 0.38, 0.055 * s); g.bezierCurveTo(0.35, 0.07 * s, 0.32, 0.065 * s, 0.295, 0.05 * s); g.fill(); g.strokeStyle = "rgba(225,238,250,.4)"; g.lineWidth = 0.007; g.stroke(); });
+    g.fillStyle = "rgba(0,0,0,.35)"; [-1, 1].forEach(s => { g.beginPath(); g.arc(0.265, 0.088 * s, 0.011, 0, 6.3); g.fill(); });
+    g.restore(); };
+  // a jelly: the bell squashes and stretches as it pulses, tentacles trail in waves
+  const aqJelly = (g, f, W, H, dk, j) => { const a = f - j.d0; if (a <= 0) return; const p = a * 0.06 + j.ph, c = Math.pow(Math.sin(p), 2), y = j.y - a * 0.18 * j.k - (p / 2 - Math.sin(2 * p) / 4) * 6 * j.k, x = j.x + Math.sin(a * 0.01 + j.ph) * 12, w = j.r * (1 - 0.16 * c), h = j.r * (0.8 + 0.18 * c);
+    g.save(); g.globalAlpha = ease(a / 40) * (dk ? 0.9 : 0.85); g.translate(x, y); g.strokeStyle = `rgba(${j.c},${dk ? 0.5 : 0.6})`; g.lineCap = "round";
+    for (let i = 0; i < 6; i++) { const x0 = (i / 5 - 0.5) * w * 1.6; g.lineWidth = Math.max(1, j.r * 0.045); g.beginPath(); g.moveTo(x0, h * 0.05); for (let k = 1; k <= 10; k++) { const t = k / 10; g.lineTo(x0 * (1 - t * 0.3) + Math.sin(t * 5 - a * 0.1 + i) * j.r * 0.22 * t, h * 0.05 + t * j.r * (1.9 + 0.3 * (i % 2)) * (1 - 0.15 * c)); } g.stroke(); }
+    g.lineWidth = Math.max(2, j.r * 0.13); g.strokeStyle = `rgba(${j.c},${dk ? 0.42 : 0.5})`; [-0.15, 0.15].forEach((o, i) => { g.beginPath(); g.moveTo(o * w, 0); for (let k = 1; k <= 8; k++) { const t = k / 8; g.lineTo(o * w + Math.sin(t * 4 - a * 0.08 + i * 2) * j.r * 0.14 * t, t * j.r * 1.2); } g.stroke(); });
+    const gr = g.createRadialGradient(0, -h * 0.5, 0, 0, -h * 0.3, w * 1.1); gr.addColorStop(0, `rgba(255,255,255,${dk ? 0.75 : 0.85})`); gr.addColorStop(0.35, `rgba(${j.c},${dk ? 0.6 : 0.7})`); gr.addColorStop(1, `rgba(${j.c},${dk ? 0.28 : 0.38})`);
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, w, h, 0, Math.PI, 0); g.quadraticCurveTo(w * 0.5, h * 0.22, 0, h * 0.12); g.quadraticCurveTo(-w * 0.5, h * 0.22, -w, 0); g.fill();
+    g.strokeStyle = `rgba(255,255,255,${dk ? 0.5 : 0.7})`; g.lineWidth = Math.max(1, j.r * 0.05); g.beginPath(); g.ellipse(0, 0, w * 0.75, h * 0.7, 0, Math.PI * 1.15, Math.PI * 1.5); g.stroke(); g.restore(); };
+  // caustics: a net of bright wavering lines along the top of the tank
+  const aqCaustic = (g, f, W, H, dk) => { const a = ease(f / 40), top = H * 0.24, gr = g.createLinearGradient(0, 0, 0, top); gr.addColorStop(0, `rgba(255,255,255,${(dk ? 0.12 : 0.45) * a})`); gr.addColorStop(1, "rgba(255,255,255,0)");
+    g.strokeStyle = gr; g.lineWidth = Math.max(1.2, Math.min(W, H) * 0.0035); g.lineJoin = "round"; const st = Math.max(8, W / 90);
+    for (let i = 0; i < 7; i++) { g.beginPath(); for (let x = -st; x <= W + st; x += st) { const y = top * (i / 6) * 0.9 + Math.sin(x * 0.013 + f * 0.035 + i * 2.3) * top * 0.07 + Math.sin(x * 0.037 - f * 0.05 + i) * top * 0.03; x < 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); }
+    for (let i = 0; i < 6; i++) { g.beginPath(); for (let x = -st; x <= W + st; x += st) { const y = top * (i / 5) * 0.85 + Math.sin(x * 0.021 - f * 0.03 + i * 4.1) * top * 0.1 + Math.sin(x * 0.009 + f * 0.02 + i) * top * 0.05; x < 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); } };
+  // the school: one flock following a curving path, each fish facing along it
+  const aqSchool = (g, f, W, H, dk) => { const S = AQ.sc, sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), lead = -0.1 * W + (f - S.d0) * S.v;
+    const yA = x => S.y + Math.sin(x / W * 5.2 + S.ph) * H * S.amp, spr = fxSprite("n3chromis", "#FFFFFF", 0, dk), h = spr._half;
+    for (const q of S.F) { const xs = lead - q.lag; if (xs < -60 || xs > W + 60) continue; const xx = S.dir > 0 ? xs : W - xs, y0 = yA(xx), y1 = yA(xx + S.dir * 3), ang = Math.atan2(y1 - y0, S.dir * 3), nx = -Math.sin(ang), ny = Math.cos(ang), off = q.side + Math.sin(f * 0.05 + q.ph) * 4;
+      const s = q.sz * sc / 10, mx = S.dir > 0 ? 1 : -1, rot = (S.dir > 0 ? ang : ang - Math.PI) + Math.sin(f * 0.3 + q.ph) * 0.1 * mx;
+      g.save(); g.globalAlpha = q.al; g.translate(xx + nx * off, y0 + ny * off); g.rotate(rot); g.scale(s * mx, s); g.drawImage(spr, -h, -h, 2 * h, 2 * h); g.restore(); } };
+  const aqDraw = (g, f, W, H, dk) => { if (!AQ) return; rays(g, f, W, H, dk, dk ? "140,220,255" : "255,255,255"); g.globalCompositeOperation = "source-over"; aqCaustic(g, f, W, H, dk);
+    AQ.je.forEach(j => aqJelly(g, f, W, H, dk, j)); aqSchool(g, f, W, H, dk); aqManta(g, f, W, H, dk); aqTurtle(g, f, W, H, dk); };
+
+  const FX = {
+    greenhouse: {spawn: (W, H, d, n) => { const k = Math.max(4, Math.min(9, Math.round(W / 170))), cols = d ? ["#FFFFFF", "#F6B8D0", "#FFE08A", "#C9B0FF"] : ["#F27BA0", "#F7A93A", "#B884E8", "#FF7A5A"];
+        GH = Array.from({length: k}, (_, i) => ({x: (i + 0.5 + fxR(-0.28, 0.28)) / k * W, h: H * fxR(0.2, 0.4) * (i % 2 ? 0.85 : 1), lean: fxR(-0.22, 0.22) * H * 0.3, t0: Math.floor(fxR(0, 45)), side: i % 2, c: cols[i % cols.length]}));
+        return fxFall(W, H, n(40), "drop", d ? ["#A9E0D6", "#E8F4EF"] : ["#7CC4D8", "#A8D8E8"], {vmin: 1.6, vmax: 2.8, sway: 0.5, smin: 3, smax: 5.5, glow: d ? 6 : 0, depth: false}).map(p => Object.assign(p, {rot: 0, vr: 0, alpha: 0.75}))
+          .concat(GH.flatMap(s => twIn(3, "sparkle", d ? ["#FFF4D0", "#FFFFFF"] : ["#F2C24A", "#FFFFFF"], s.x + s.lean - 40, s.x + s.lean + 40, H - s.h - 40, H - s.h + 40, {d0: s.t0 + 85, d1: s.t0 + 150, smin: 5, smax: 9, glow: d ? 10 : 4})),
+            d ? [] : fxFlutter(W, H, n(4), ["#F2A0C0", "#F7C84A", "#A0C8F2"]));
+      }, draw: ghDraw},
+    pottery: {spawn: (W, H, d, n) => { const u = Math.min(W, H) / 100; POT = {c: fxPick(d ? ["#3FB0A8", "#5A86E0", "#C27AD8"] : ["#2E9A94", "#3A62C0", "#9A5AC8"])};
+        return Array.from({length: n(46)}, () => { const L = Math.random() < 0.5, t = fxR(18, 120); return {shape: "n3clay", c: fxPick(["#B8693E", "#C8784A", "#9A5432"]), x: W / 2 + (L ? -1 : 1) * 13 * u, y: H - 3 * u - fxR(6, 20) * u, vx: (L ? -1 : 1) * fxR(2.5, 6), vy: -fxR(1, 3.4), g: 0.22, size: fxR(4, 7), rot: L ? -1.2 : 1.2, vr: 0, sway: 0, life: 110, delay: Math.floor(t)}; })
+          .concat(twIn(n(18), "sparkle", d ? ["#FFFFFF", "#F6C48E", POT.c] : ["#FFFFFF", "#F2C24A", POT.c], W / 2 - 22 * u, W / 2 + 22 * u, H - 40 * u, H - 4 * u, {d0: 170, d1: 205, smin: 6, smax: 11, glow: d ? 10 : 6}));
+      }, draw: potDraw},
+    campfire: {spawn: (W, H, d, n) => { const S = cfSize(W, H);
+        CF = {logs: CF && CF.logs, T: [[-0.27, 0.1, 0.5], [-0.15, 0.12, 0.78], [-0.05, 0.13, 1], [0.06, 0.13, 0.92], [0.17, 0.11, 0.7], [0.28, 0.09, 0.46]].map(([x, w, h], i) => ({x, w, h: h * fxR(0.9, 1.05), ph: i * 1.9 + fxR(0, 1)})),
+          S: Array.from({length: n(70)}, () => { const life = fxR(60, 110), fl = Math.random() < 0.75; return {t0: Math.floor(fl ? fxR(28, 105) : fxR(10, 175)), life, x: fxR(-0.16, 0.16), dr: fxR(-0.25, 0.25), v: fxR(S * 0.014, S * 0.026) * (fl ? 1.2 : 0.9), r: fxR(0.05, 0.13), w: fxR(0.09, 0.16) * (Math.random() < 0.5 ? -1 : 1), ph: fxR(0, 6.3), sz: fxR(1.4, 2.6) * Math.max(1, S / 160)}; })};
+        return d ? fxTw(W, H, n(46), "star", ["#FFFFFF", "#FFE7B0", "#C9D4FF"], {smin: 3, smax: 6.5, top: 0.6, glow: 10, spread: 170}) : [];
+      }, draw: fireDraw},
+    aquarium: {spawn: (W, H, d, n) => { const M = Math.min(W, H), ph = W < H, dir = Math.random() < 0.5 ? 1 : -1, L = Math.max(130, Math.min(M * (ph ? 0.42 : 0.34), 280)), cols = d ? ["255,150,220", "120,230,255", "190,160,255"] : ["235,95,175", "40,165,220", "150,110,235"];
+        const N = n(30), rows = 5, sz = 10.5;
+        AQ = {shell: AQ && AQ.shell, tu: {T: Math.max(70, Math.min(M * 0.2, 160)), d0: 6, dir, y: H * (ph ? 0.17 : 0.2), ph: fxR(0, 6)},
+          ma: {L, d0: 40, p: dir > 0 ? [[W + L, H * 0.34], [W * 0.5, H * (ph ? 0.72 : 0.82)], [-L, H * 0.36]] : [[-L, H * 0.34], [W * 0.5, H * (ph ? 0.72 : 0.82)], [W + L, H * 0.36]]},
+          sc: {d0: 30, v: W * 1.5 / 210, dir: -dir, y: H * (ph ? 0.62 : 0.66), amp: ph ? 0.06 : 0.1, ph: fxR(0, 6), F: Array.from({length: N}, (_, i) => { const r = i % rows, c = Math.floor(i / rows), z = fxR(0.85, 1.1); return {lag: c * sz * 3.6 + fxR(0, sz * 2) + (r % 2) * sz * 1.6, side: (r - (rows - 1) / 2) * sz * 3 * (ph ? 0.8 : 1) + fxR(-sz, sz), ph: fxR(0, 6.3), sz: sz * z, al: fxDim(z)}; })},
+          je: Array.from({length: ph ? 3 : 4}, (_, i) => ({x: W * (i + 0.5) / (ph ? 3 : 4) + fxR(-0.06, 0.06) * W, y: H * fxR(0.78, 0.98), r: Math.max(16, M * fxR(0.035, 0.05)), k: fxR(0.8, 1.2), ph: fxR(0, 6), d0: Math.floor(fxR(0, 50)), c: cols[i % 3]}))};
+        return school(W, H, n(5), ["n3clown", "n3ytang", "n3gramma", "n3tang"], {per: 1, smin: 13, smax: 16, y0: 0.4, y1: 0.9, spread: 90})
+          .concat(fxRise(W, H, n(22), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#E8FAFF"], {smin: 4, smax: 8, sway: 1, vmin: 1.4, vmax: 2.6, spread: 140}));
+      }, draw: aqDraw}
+  };
+  /* ---- end of completion animations ---- */
 
   MAJ_THEMES.push({
     skin: {id: "greenhouse", name: "Greenhouse", group: "ideas", desc: "A Victorian glass greenhouse packed with tropical plants.",
@@ -23907,10 +25685,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#CDE9DA,#EEF7EF 55%,#F7F1E3)", "linear-gradient(180deg,#13252A,#1F3A3C 55%,#3F5A55)"],
       spine: [lg("#3E7A5C", "#28553F"), lg("#1C3A36", "#0E201E")], btn: [lg2("#2F7D52", "#4E9A62"), lg2("#F2C27A", "#F6D69E")]},
     kit: {motif: "n3leaf", card: ["#F6FBF7", "#E1EFE5"], ink: "#16291F", bd: "#BFDCC8", mc: "#3E9A62", r: 16, notes: ["#D6EBDC"].concat(NOTES), shape: "rounded", pin: "tape", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(30), "n3leaf", d ? ["#3E7A55", "#5A9A6A", "#2F6A48"] : ["#3E9A62", "#5BAA6A", "#2F7D52", "#8CCB7C"], {sway: 1.8, flip: true, smin: 11, smax: 17, vmin: 1, vmax: 2})
-      .concat(fxRise(W, H, n(26), "drop", d ? ["#A9E0D6", "#E8F4EF"] : ["#7CC4D8", "#BFE6EE", "#FFFFFF"], {smin: 4, smax: 8, vmin: 1.2, vmax: 2.6, sway: 0.6, glow: d ? 6 : 0}),
-        fxBurst(W, H, n(12), "n3bloom", d ? ["#FFFFFF", "#F6E6EE", "#FFF4D0"] : ["#F28BA8", "#FFFFFF", "#F7B84A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 10, smax: 14, glow: d ? 12 : 0}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFF4D0", "#FFFFFF", "#F2C27A"] : ["#8CCB7C", "#F2D24A", "#FFFFFF"], {smin: 3, smax: 6, glow: d ? 10 : 3}))},
+    fx: FX.greenhouse,
     tag: "A Victorian glass greenhouse packed with palms and monsteras, misting nozzles, hanging baskets and a rare night bloom"
   });
   MAJ_THEMES.push({
@@ -23920,9 +25695,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#EAD7C3,#F6ECE1 55%,#D9B79A)", "linear-gradient(180deg,#221A1E,#3E2C2A 55%,#7A4A34)"],
       spine: [lg("#A0583A", "#723C26"), lg("#3E2826", "#1E1214")], btn: [lg2("#B2572E", "#C9773E"), lg2("#F2A86A", "#F6C48E")]},
     kit: {motif: "n3vase", card: ["#FFF9F3", "#F3E3D4"], ink: "#2E1E16", bd: "#E6C8AE", mc: "#C9773E", r: 12, notes: ["#F2DCCB"].concat(NOTES), shape: "folded", pin: "clip", fab: "18px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "n3vase", d ? ["#3FA6A0", "#6A88E0", "#B08AE0", "#E8A0B8", "#F2C46A"] : ["#3FA6A0", "#4A68C0", "#8E5BC8", "#D8708E", "#E5B24A"], {smin: 13, smax: 19, vmin: 1.1, vmax: 2, sway: 0.7, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.15, 0.15)}))
-      .concat(fxBurst(W, H, n(26), "circle", d ? ["#C8A493", "#A88A7C"] : ["#C8A493", "#B9988A", "#E6CBBE"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 4, smax: 8}),
-        fxTw(W, H, n(36), "sparkle", d ? ["#F6C48E", "#FFFFFF", "#9FE0DA", "#C9B0FF"] : ["#3FA6A0", "#4A68C0", "#E5B24A", "#D8708E"], {smin: 3, smax: 7, glow: d ? 10 : 3}))},
+    fx: FX.pottery,
     tag: "A sunlit pottery studio with a turning wheel, shelves of drying pots, a glowing brick kiln and a sleepy cat"
   });
   MAJ_THEMES.push({
@@ -23932,10 +25705,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#B5D3E6,#E7EFE7 55%,#CBD8B3)", "linear-gradient(180deg,#10162A,#1E2742 55%,#46352E)"],
       spine: [lg("#3E6A5A", "#27463C"), lg("#1E2844", "#0E1326")], btn: [lg2("#C2582A", "#D9783A"), lg2("#F5A04E", "#F8C27A")]},
     kit: {motif: "n3flame", card: ["#FBFAF5", "#EEF0E4"], ink: "#18261F", bd: "#D4D8C2", mc: "#D9783A", r: 14, notes: ["#F6DCC6"].concat(NOTES), shape: "classic", pin: "pin", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(60), "circle", ["#FFB347", "#FF8A3A", "#FFE08A", "#FF6A3A"], {cx: [0.25, 0.75], smin: 2, smax: 4, vmin: 2.4, vmax: 4.6, sway: 1.4, life: 150, glow: 12})
-      .concat(fxRise(W, H, n(7), "n3mallow", ["#FFF8EE", "#F7E6CC", "#F2C470"], {smin: 12, smax: 16, vmin: 1, vmax: 1.8, sway: 0.8, life: 300}).map(p => Object.assign(p, {rot: fxR(-0.4, 0.4), vr: fxR(-0.02, 0.02)})),
-        fxBurst(W, H, n(10), "n3flame", d ? ["#FFB347", "#FF7A3A", "#FFE08A"] : ["#F5913A", "#E8643A", "#F7C04A"], [[0.5, 1.04]], {smin: 11, smax: 16, glow: d ? 14 : 4}),
-        d ? fxTw(W, H, n(40), "star", ["#FFFFFF", "#FFE7B0", "#C9D4FF"], {smin: 3, smax: 6, top: 0.6, glow: 10}) : fxTw(W, H, n(24), "sparkle", ["#F5913A", "#F7C04A"], {smin: 3, smax: 6, glow: 4}))},
+    fx: FX.campfire,
     tag: "A crackling campfire by a still mountain lake, with a glowing tent, toasting marshmallows and a sky full of stars"
   });
   MAJ_THEMES.push({
@@ -23945,9 +25715,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#6FC3DF,#A9E0EE 55%,#D7F1F4)", "linear-gradient(180deg,#081A33,#0E2E52 55%,#1E4A6E)"],
       spine: [lg("#1E6E96", "#124C6E"), lg("#0E2A4E", "#06142A")], btn: [lg2("#1A76A8", "#2F9AC2"), lg2("#6FE3FF", "#B4A6FF")]},
     kit: {motif: "n3fish", card: ["#F4FBFD", "#DCEFF6"], ink: "#0E2A3A", bd: "#A8D6E6", mc: "#2F9AC2", r: 20, notes: ["#CDEAF4"].concat(NOTES), shape: "speech", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => swim(W, H, n(14), "n3fish", d ? ["#6FA8F0", "#F0915A", "#E8D06A", "#C8D6E2"] : ["#3E7FE0", "#FF8A3A", "#F7D23A", "#F27BA0"], d)
-      .concat(fxRise(W, H, n(46), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 8, sway: 1, vmin: 1.6, vmax: 3}),
-        d ? fxRise(W, H, n(8), "jelly", ["#FF9CD8", "#6FF3FF", "#B89CFF"], {smin: 12, smax: 18, vmin: 0.9, vmax: 1.6, sway: 1.2, glow: 16, life: 320}) : fxTw(W, H, n(20), "sparkle", ["#FFFFFF", "#9FE0F0"], {smin: 3, smax: 6, glow: 4}))},
+    fx: FX.aquarium,
     tag: "A glass tunnel through a giant tank, with schools of fish, a gliding manta, glowing jellies and a passing whale shark"
   });
 })();
@@ -23977,6 +25745,81 @@ var MAJ_THEMES = [];
     n4rabbit: {d: ell(-1, 4, 7.6, 6.4) + ell(1.6, -3, 4.6, 4) + ell(-0.4, -10, 1.6, 5) + ell(2.8, -10, 1.5, 4.6) + circ(-8.6, 6, 2.2)},
   });
 
+  /* ---- completion animations ---- */
+  const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+  const fillP = (g, c, d) => { g.fillStyle = c; g.fill(new Path2D(d)); };
+  const sheen = (g, dk, k = 1) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${0.34 * k})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dk ? 0.26 : 0.2})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // stamp a cached sprite at x, y with a given width in px, pivoting at its top edge (top = the shape's top y in units)
+  const hang = (g, spr, x, y, w, rot, top) => { const k = w / 20, h = spr._half * k; g.save(); g.translate(x, y); g.rotate(rot); g.drawImage(spr, -h, -h - top * k, 2 * h, 2 * h); g.restore(); };
+  Object.assign(FX_SHAPES, {
+    n4soft: {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0", paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, c); gr.addColorStop(0.55, c + "AA"); gr.addColorStop(1, c + "00"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); }},
+    // a cut tissue-paper flag with a flower and a row of little cut shapes
+    n4flag: {d: FX_SHAPES.n4picado.d, paint: (g, c) => { fillP(g, c, FX_SHAPES.n4picado.d); g.globalCompositeOperation = "destination-out"; g.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; g.moveTo(Math.cos(a) * 3.6 + 1.6, -1 + Math.sin(a) * 3.6); g.arc(Math.cos(a) * 3.6, -1 + Math.sin(a) * 3.6, 1.6, 0, 6.3); } g.moveTo(1, -1); g.arc(0, -1, 1, 0, 6.3); g.fill();
+      g.beginPath(); for (let i = -2; i <= 2; i++) { g.moveTo(i * 3.4, -9); g.lineTo(i * 3.4 + 1.1, -7.4); g.lineTo(i * 3.4, -5.8); g.lineTo(i * 3.4 - 1.1, -7.4); } for (let i = -2; i <= 2; i++) { g.moveTo(i * 3.4 + 0.8, 5.4); g.arc(i * 3.4, 5.4, 0.8, 0, 6.3); } g.fill(); g.globalCompositeOperation = "source-over"; }},
+    // a monarch butterfly from above
+    n4monarch: {d: FX_SHAPES.butterfly.d, paint: (g, c, dk) => { const w = new Path2D(FX_SHAPES.butterfly.d); g.fillStyle = "#1A1210"; g.fill(w); g.save(); g.clip(w); g.fillStyle = c; [[5.4, -4.6, 4.4, 3.2, -0.5], [4.2, 3.4, 2.8, 2.2, 0.5]].forEach(([x, y, rx, ry, a]) => [-1, 1].forEach(s => { g.beginPath(); g.ellipse(s * x, y, rx, ry, s * a, 0, 6.3); g.fill(); })); g.strokeStyle = "#1A1210"; g.lineWidth = 0.6; [-1, 1].forEach(s => { g.beginPath(); g.moveTo(0, -1); g.lineTo(s * 9, -7); g.moveTo(0, -1); g.lineTo(s * 9.6, -3.4); g.moveTo(0, 1); g.lineTo(s * 6.4, 5); g.stroke(); }); g.restore();
+      g.fillStyle = "#FFFFFF"; [[9.6, -6.4], [10.2, -4], [7, 7], [8, 5.2]].forEach(([x, y]) => [-1, 1].forEach(s => { g.beginPath(); g.arc(s * x, y, 0.5, 0, 6.3); g.fill(); })); g.fillStyle = "#1A1210"; g.beginPath(); g.ellipse(0, 0.6, 0.9, 5.4, 0, 0, 6.3); g.fill(); }},
+    // a fanous: gold frame, glowing colored glass, a dome and a ring on top
+    n4lamp: {d: FX_SHAPES.n4fanous.d, paint: (g, c, dk) => { const gold = "#C8962A"; fillP(g, gold, "M-0.9 -12A1.6 1.6 0 1 1 0.9 -12Z M-4 -8Q-4 -11 0 -11Q4 -11 4 -8Z M-5 -8H5V-6.4H-5Z M-4.4 3H4.4V4.4H-4.4Z M-4 4.4H4L1 8.6H-1Z M-1 9A1 1 0 1 0 1 9A1 1 0 1 0 -1 9Z");
+      const gr = g.createRadialGradient(0, -1.6, 0, 0, -1.6, 6); gr.addColorStop(0, "#FFF4C0"); gr.addColorStop(0.45, c); gr.addColorStop(1, fxShadeN(c)); g.fillStyle = gr; g.fill(new Path2D("M-5 -6.4H5L4 3H-4Z")); g.strokeStyle = gold; g.lineWidth = 0.7; g.stroke(new Path2D("M-1.7 -6.4L-1.4 3M1.7 -6.4L1.4 3M-4.6 -2H4.6")); sheen(g, dk, 0.5); }},
+    // a red paper lantern with gold caps and a tassel
+    n4lant: {d: FX_SHAPES.n4chochin.d, paint: (g, c, dk) => { fillP(g, "#C8962A", "M-3.8 -11H3.8V-8.4H-3.8Z M-3.8 8.4H3.8V10.6H-3.8Z M-0.5 10.6H0.5V13H-0.5Z"); const gr = g.createRadialGradient(-1, -1, 0, 0, 0, 9.4); gr.addColorStop(0, "#FFD07A"); gr.addColorStop(0.5, c); gr.addColorStop(1, fxShadeN(c)); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 7.6, 9, 0, 0, 6.3); g.fill();
+      g.strokeStyle = "rgba(90,20,10,.35)"; g.lineWidth = 0.5; for (let i = -3; i <= 3; i++) { g.beginPath(); g.ellipse(0, i * 2.5, 7.6 * Math.sqrt(1 - Math.pow(i * 2.5 / 9, 2)), 0.8, 0, 0, Math.PI); g.stroke(); } g.beginPath(); g.ellipse(0, 0, 3.4, 9, 0, 0, 6.3); g.stroke(); }}
+  });
+  function fxShadeN(c) { return fxShade(c, 0.62); }
+
+  // Day of the Dead: strings of papel picado drop in across the top and flutter, marigold petals fall and monarchs flit up
+  let PIC = null;
+  const picDraw = (g, f, W, H, dk) => { if (!PIC) return; const fw = PIC.fw;
+    PIC.rows.forEach((r, ri) => { const drop = (1 - ease((f - ri * 12) / 45)) * (r.y + fw * 1.4), yAt = x => r.y - drop + Math.sin(x / W * Math.PI) * r.sag;
+      g.strokeStyle = dk ? "rgba(255,230,200,.6)" : "rgba(90,50,30,.55)"; g.lineWidth = 1.2; g.beginPath(); for (let x = 0; x <= W; x += 16) x ? g.lineTo(x, yAt(x)) : g.moveTo(x, yAt(x)); g.stroke();
+      r.flags.forEach((fl, i) => { const x = fl.x, sw = Math.sin(f * 0.07 + fl.ph) * 0.12 * (0.4 + 0.6 * Math.abs(Math.sin(f * 0.02 + ri))); hang(g, fl.spr, x, yAt(x), fw, sw, -11); }); }); };
+
+  // Holi: handfuls of colored powder are thrown across the screen and bloom into soft clouds
+  const throwAt = (W, H, x, y, t, c, n, d) => Array.from({length: n(16)}, () => { const a = fxR(0, 6.3), sp = fxR(2, 10); return {shape: "n4soft", c, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.8, g: 0.006, drag: 0.93, size: fxR(9, 15), grow: 0.16, rot: 0, vr: 0, sway: 0, alpha: d ? 0.4 : 0.42, life: fxR(130, 170), delay: t + Math.floor(fxR(0, 4))}; })
+    .concat(Array.from({length: n(22)}, () => { const a = fxR(0, 6.3), sp = fxR(4, 13); return {shape: "circle", c, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0.05, drag: 0.94, size: fxR(1.6, 3.2), rot: 0, vr: 0, sway: 0, life: fxR(90, 130), delay: t + 2}; }));
+
+  // Ramadan: fanous lanterns lower on their chains from the top and sway, under a glowing crescent and twinkling stars
+  let LAMPS = null, MOONC = null;
+  const crescent = (R, dk) => { const key = R + "|" + dk; if (MOONC && MOONC.key === key) return MOONC.c; const c = document.createElement("canvas"), S = Math.ceil(R * 2 + 60); c.width = c.height = S; const x = c.getContext("2d"); x.translate(S / 2, S / 2); x.shadowBlur = 28; x.shadowColor = dk ? "rgba(255,230,150,.8)" : "rgba(230,160,40,.6)"; x.fillStyle = dk ? "#FFF0C0" : "#F2C24A"; x.beginPath(); x.arc(0, 0, R, 0, 6.3); x.fill(); x.shadowBlur = 0; x.globalCompositeOperation = "destination-out"; x.beginPath(); x.arc(R * 0.42, -R * 0.24, R * 0.86, 0, 6.3); x.fill(); MOONC = {key, c}; return c; };
+  const lampDraw = (g, f, W, H, dk) => { const R = Math.round(Math.min(W, H) * 0.09), mc = crescent(R, dk), ma = ease((f - 10) / 50); g.globalAlpha = ma; g.drawImage(mc, W * 0.82 - mc.width / 2, H * 0.16 - mc.width / 2 + (1 - ma) * 20); g.globalAlpha = 1; if (!LAMPS) return;
+    LAMPS.forEach(l => { const p = ease((f - l.d) / 55); if (p <= 0) return; const len = l.len * p, sw = Math.sin(f * 0.045 + l.ph) * 0.14 * (1 - 0.4 * p), ex = l.x + Math.sin(sw) * len, ey = Math.cos(sw) * len;
+      g.strokeStyle = dk ? "rgba(240,200,120,.7)" : "rgba(140,100,40,.7)"; g.lineWidth = 1.4; g.beginPath(); g.moveTo(l.x, 0); g.lineTo(ex, ey); g.stroke();
+      if (dk) { const gr = g.createRadialGradient(ex, ey + l.w * 0.55, 0, ex, ey + l.w * 0.55, l.w * 1.3); gr.addColorStop(0, "rgba(255,210,120,.35)"); gr.addColorStop(1, "rgba(255,210,120,0)"); g.fillStyle = gr; g.fillRect(ex - l.w * 1.3, ey - l.w * 0.75, l.w * 2.6, l.w * 2.6); }
+      hang(g, l.spr, ex, ey, l.w, sw, -13); }); };
+
+  // Mid-Autumn: a huge full moon rises with the jade rabbit on it, red lanterns float up and osmanthus drifts down
+  let MOONF = null;
+  const moonDraw = (g, f, W, H, dk) => { const R = Math.min(W, H) * 0.17, a = ease(f / 60), cx = W * 0.74, cy = H * (0.42 - 0.2 * ease(f / 150)); const key = Math.round(R) + "|" + dk;
+    if (!MOONF || MOONF.key !== key) { const c = document.createElement("canvas"), S = Math.ceil(R * 4.4); c.width = c.height = S; const x = c.getContext("2d"), m = S / 2, hg = x.createRadialGradient(m, m, R * 0.9, m, m, R * 2.2); hg.addColorStop(0, dk ? "rgba(255,236,170,.4)" : "rgba(255,244,210,.7)"); hg.addColorStop(1, "rgba(255,236,170,0)"); x.fillStyle = hg; x.fillRect(0, 0, S, S);
+      const dg = x.createRadialGradient(m - R * 0.3, m - R * 0.3, 0, m, m, R); dg.addColorStop(0, dk ? "#FFF8DC" : "#FFFBEE"); dg.addColorStop(1, dk ? "#F2D38A" : "#F4D492"); x.fillStyle = dg; x.beginPath(); x.arc(m, m, R, 0, 6.3); x.fill();
+      x.fillStyle = dk ? "rgba(200,160,80,.22)" : "rgba(210,170,100,.22)"; [[-0.35, -0.3, 0.2], [0.3, 0.25, 0.16], [0.42, -0.35, 0.1], [-0.1, 0.45, 0.12]].forEach(([u, v, r]) => { x.beginPath(); x.arc(m + u * R, m + v * R, r * R, 0, 6.3); x.fill(); });
+      x.save(); x.translate(m + R * 0.05, m + R * 0.12); x.scale(R / 26, R / 26); x.fillStyle = dk ? "rgba(170,130,70,.38)" : "rgba(190,150,90,.35)"; x.fill(new Path2D(FX_SHAPES.n4rabbit.d)); x.restore(); MOONF = {key, c}; }
+    g.globalAlpha = a; g.drawImage(MOONF.c, cx - MOONF.c.width / 2, cy - MOONF.c.width / 2); g.globalAlpha = 1; };
+
+  const FX = {
+    diadelosmuertos: {spawn: (W, H, d, n) => { const fw = Math.max(26, Math.min(56, Math.min(W, H) * 0.075)), cols = d ? ["#FF6AA8", "#3ED6E0", "#FFD23A", "#B47AFF", "#5AE08A", "#FF8A3A"] : ["#F23A8A", "#14AAB8", "#8A4AD8", "#2EAA5A", "#F2602A", "#E8B010"];
+        PIC = {fw, rows: [[H * 0.06, H * 0.05], [H * 0.17, H * 0.07]].map(([y, sag], ri) => { const k = Math.ceil(W / (fw * 1.3)) + 1; return {y, sag, flags: Array.from({length: k}, (_, i) => ({x: (i + (ri ? 0.5 : 0.1)) * fw * 1.3, ph: fxR(0, 6.3), spr: fxSprite("n4flag", cols[(i + ri * 3) % cols.length], 0, d)}))}; })};
+        return fxFall(W, H, n(24), "n4mari", d ? ["#FFA23A", "#FFC83A"] : ["#F7901A", "#FFB21E"], {sway: 1.6, smin: 10, smax: 14, spread: 70}).concat(fxFall(W, H, n(30), "petal", d ? ["#FFA23A", "#FFC83A", "#FF8A1E"] : ["#FF9A1E", "#FFC21E", "#F27A1A"], {sway: 1.8, flip: true, smin: 8, smax: 11, spread: 80}))
+          .concat(fxFlutter(W, H, n(8), d ? ["#FF9A2E", "#FFA83A"] : ["#F47A10", "#F58A1E"]).map(p => Object.assign(p, {shape: "n4monarch", size: fxR(15, 20), delay: 30 + Math.floor(fxR(0, 80))})),
+            fxTw(W, H, n(18), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#F23A8A"], {smin: 4, smax: 8, glow: d ? 10 : 4, spread: 160}));
+      }, draw: picDraw},
+    holi: {spawn: (W, H, d, n) => { const cols = d ? ["#FF5AAE", "#FFD23A", "#3AE08A", "#4A9AFF", "#B06AFF", "#FF8A3A"] : ["#F2348A", "#FFB81E", "#1EBA6A", "#2A7AE8", "#8A44D8", "#FF6A1E"], pick = cols.slice().sort(() => Math.random() - 0.5);
+        return [0, 22, 44, 70, 100].flatMap((t, i) => throwAt(W, H, W * ((i % 2 ? 0.72 : 0.28) + fxR(-0.14, 0.14)), H * fxR(0.2, 0.8), t, pick[i % pick.length], n, d))
+          .concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFFFFF", "#FFE3A8"] : ["#F2348A", "#FFB81E"], {smin: 4, smax: 8, glow: d ? 10 : 4, spread: 160}));
+      }},
+    ramadan: {spawn: (W, H, d, n) => { const k = Math.max(3, Math.min(7, Math.round(W / 170))), w = Math.max(54, Math.min(120, Math.min(W, H) * 0.16)), cols = d ? ["#FFB04A", "#FF6A5A", "#5AE0A8", "#7AA8FF"] : ["#E8962A", "#D8402E", "#1E9A6A", "#2E62C8"];
+        LAMPS = Array.from({length: k}, (_, i) => ({x: (i + 0.5) / k * W * 0.8 + fxR(-0.03, 0.03) * W, len: H * (i % 2 ? fxR(0.12, 0.2) : fxR(0.22, 0.32)), w: w * (i % 2 ? 0.85 : 1), d: Math.floor(i * 9 + fxR(0, 10)), ph: fxR(0, 6.3), spr: fxSprite("n4lamp", cols[i % cols.length], 0, d)}));
+        return fxTw(W, H, n(36), "n4star8", d ? ["#FFE7A0", "#FFFFFF", "#F2C45A"] : ["#D9A43A", "#2A7A78", "#C8962A"], {smin: 5, smax: 9, glow: d ? 12 : 4, top: 0.75, spread: 170})
+          .concat(fxFall(W, H, n(16), "star", d ? ["#FFE7A0", "#FFFFFF"] : ["#D9A43A", "#E8B84A"], {sway: 1, smin: 6, smax: 9, vmin: 0.9, vmax: 1.5, glow: d ? 8 : 0, spread: 90}));
+      }, draw: lampDraw},
+    midautumn: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "n4lant", d ? ["#FF5A40", "#FF7A3A", "#F2483A"] : ["#E0402E", "#E85A2A", "#D8342A"], {smin: 18, smax: 26, vmin: 0.9, vmax: 1.6, sway: 0.8, life: 330, glow: d ? 16 : 6, spread: 90}).map(p => Object.assign(p, {rock: 0.1, swf: 0.03}))
+        .concat(fxFall(W, H, n(44), "n4osma", d ? ["#F2B83A", "#FFD86A"] : ["#F6B02A", "#E8A01E", "#FFC84A"], {sway: 1.6, smin: 6, smax: 9, vmin: 0.9, vmax: 1.6, glow: d ? 6 : 0, spread: 80}),
+          fxTw(W, H, n(16), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 4, smax: 7, glow: d ? 10 : 4, spread: 160})),
+      draw: moonDraw}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "diadelosmuertos", name: "Día de los Muertos", group: "ideas", desc: "Papel picado, marigolds and a candlelit ofrenda.",
       light: ["#FDF3EC", "rgba(194,54,122,.10)", "#FFFFFF", "#3A1A2E", "#7A5068", "#F0D8DE", "#F7E7EA", "#FEF9F7", "#C2367A", "#D2609A", "#FFFFFF", "#7A1E4E", "#8A2058", "#F6D2E2", "#FFD98A"],
@@ -23984,11 +25827,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F8C77A,#FCE3B5 45%,#F5B6A6)", "linear-gradient(180deg,#1E1236,#3A1B4E 45%,#8A3058)"],
       spine: [lg("#C2367A", "#8A2058"), lg("#4A1E54", "#24102E")], btn: [lg2("#C2367A", "#F07A2A"), lg2("#FFA23A", "#FFC86A")]},
     kit: {motif: "n4mari", card: ["#FFF9F4", "#FBE6EC"], ink: "#3A1A2E", bd: "#F0C6D6", mc: "#F07A2A", r: 16, notes: ["#FCD9C0"].concat(NOTES), shape: "scallop", pin: "washi2", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(46), "petal", d ? ["#FFA23A", "#FFC83A", "#FF8A1E"] : ["#F48A1C", "#F7C22A", "#FF9A2E"], {sway: 1.8, flip: true, smin: 6, smax: 10, glow: d ? 6 : 0})
-      .concat(fxFlutter(W, H, n(10), ["#F4891E", "#F7A23A", "#FF9A2E"]),
-        fxBurst(W, H, n(16), "n4mari", ["#F48A1C", "#F7C22A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
-        fxFall(W, H, n(10), "n4picado", d ? ["#E8508E", "#2EB8C8", "#F2CC3A", "#9A62E0"] : ["#FF5FA2", "#2EC4D0", "#FFD23A", "#9A5AE0", "#3FC27A"], {sway: 1.4, smin: 12, smax: 16, vmin: 0.9, vmax: 1.6}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(-0.3, 0.3)})),
-        fxTw(W, H, n(28), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FFA23A"] : ["#F2B53A", "#FF5FA2", "#2EC4D0"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.diadelosmuertos,
     tag: "A street dressed for the Day of the Dead, with papel picado, a marigold arch and a candlelit ofrenda"
   });
   MAJ_THEMES.push({
@@ -23998,10 +25837,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#FFD6E8,#FFF1C9 45%,#CFF1E6)", "linear-gradient(180deg,#2A1840,#4A2160 45%,#8A2E6A)"],
       spine: [lg("#D8407E", "#9A2A6A"), lg("#5A2470", "#2A1040")], btn: [lg2("#D23A82", "#F08A2A"), lg2("#FF8AC8", "#FFC86A")]},
     kit: {motif: "n4splash", card: ["#FFFAFD", "#FBE6F0"], ink: "#3A1A30", bd: "#F2C6DC", mc: "#D23A82", r: 20, notes: ["#FBD2E4", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "cloud", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "puff", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8", "#B07AF0"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 5, smax: 10, glow: d ? 8 : 0}).map(p => Object.assign(p, {alpha: 0.85}))
-      .concat(fxRise(W, H, n(14), "n4splash", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], {smin: 14, smax: 22, vmin: 1, vmax: 2, sway: 0.9, life: 260, alpha: 0.85}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(0, 6)})),
-        fxFall(W, H, n(30), "petal", ["#FF5A8A", "#FF9A1E", "#FFC62A"], {sway: 1.6, flip: true, smin: 6, smax: 9}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FF8AC8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.holi,
     tag: "A haveli courtyard mid-celebration, with drifting clouds of coloured powder and marigold garlands"
   });
   MAJ_THEMES.push({
@@ -24011,11 +25847,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F3D9B0,#F8EBD3 45%,#E9C9A0)", "linear-gradient(180deg,#0F1638,#1E2558 45%,#3E3A78)"],
       spine: [lg("#2E7C7A", "#1E5654"), lg("#252C66", "#121638")], btn: [lg2("#2A7A78", "#C99A2E"), lg2("#F2C45A", "#F6D892")]},
     kit: {motif: "n4fanous", card: ["#FFFBF4", "#F4EAD8"], ink: "#2A2418", bd: "#E6D3B0", mc: "#C99A2E", r: 12, notes: ["#F2E2C2", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "folded", pin: "gold", fab: "22px 22px 6px 22px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "n4fanous", d ? ["#F2C45A", "#FF9A6A", "#7AE0A8", "#9AB8FF"] : ["#D9A43A", "#E8463A", "#2EA86A", "#3A6AD8"], {smin: 14, smax: 20, vmin: 0.9, vmax: 1.6, sway: 0.6, life: 320, glow: d ? 14 : 4})
-      .concat(fxTw(W, H, n(26), "star", d ? ["#FFE7A0", "#FFFFFF", "#F2C45A"] : ["#D9A43A", "#F2C45A", "#2A7A78"], {smin: 4, smax: 8, glow: d ? 12 : 4, top: 0.7}),
-        fxFall(W, H, n(14), "n4star8", d ? ["#F2C45A", "#FFFFFF"] : ["#D9A43A", "#2A7A78"], {sway: 1, smin: 8, smax: 12, vmin: 0.9, vmax: 1.6, glow: d ? 8 : 0}),
-        fxRise(W, H, n(3), "n4cres", d ? ["#FFF2C6"] : ["#E2B04A"], {cx: [0.25, 0.75], smin: 16, smax: 22, vmin: 0.9, vmax: 1.3, sway: 0.5, life: 320, glow: d ? 16 : 4}).map(p => Object.assign(p, {vr: 0, rot: -0.3})),
-        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: FX.ramadan,
     tag: "Old-city rooftops under a crescent moon, hung with fanous lanterns and strings of little stars"
   });
   MAJ_THEMES.push({
@@ -24025,11 +25857,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F2D6A2,#F8E8C9 45%,#E7C6A0)", "linear-gradient(180deg,#141B3A,#26305A 45%,#5A4A7A)"],
       spine: [lg("#B8463A", "#7E2C2A"), lg("#2E3466", "#161A3A")], btn: [lg2("#B8402E", "#D99A2E"), lg2("#F2C46A", "#F6D892")]},
     kit: {motif: "n4mooncake", card: ["#FFFBF4", "#F6E8D6"], ink: "#2E2420", bd: "#E8D2B6", mc: "#B8402E", r: 18, notes: ["#F6E0C0", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "circle", pin: "gold", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "n4chochin", d ? ["#FF7A50", "#FFB060", "#FF6A5A"] : ["#E04C3A", "#F08A3A", "#D8402E"], {smin: 12, smax: 18, vmin: 1, vmax: 1.8, sway: 0.8, life: 320, glow: d ? 16 : 6})
-      .concat(fxFall(W, H, n(40), "n4osma", d ? ["#F2B83A", "#FFD86A"] : ["#F6B02A", "#E8A01E", "#FFC84A"], {sway: 1.6, smin: 5, smax: 8, vmin: 0.9, vmax: 1.8, glow: d ? 6 : 0}),
-        fxBurst(W, H, n(12), "n4mooncake", d ? ["#E8A84A", "#D99A3E"] : ["#E0A24A", "#C88A34"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxRise(W, H, n(2), "n4rabbit", d ? ["#FFF4DC"] : ["#FFFFFF"], {cx: [0.3, 0.7], smin: 18, smax: 22, vmin: 0.9, vmax: 1.2, sway: 0.4, life: 320, glow: d ? 14 : 6}).map(p => Object.assign(p, {vr: 0})),
-        fxTw(W, H, n(24), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: FX.midautumn,
     tag: "A riverside pavilion under a giant full moon, with lotus lanterns drifting on the water and osmanthus in bloom"
   });
 })();
@@ -24063,6 +25891,29 @@ var MAJ_THEMES = [];
     francelamp: {d: "M-1 11V-2H1V11Z M-4.6 -2L-5.4 -9H5.4L4.6 -2Z M-6 -9L0 -13.4L6 -9Z", detail: circ(0, -5.6, 2.2), dfill: true}
   });
 
+  // ---- finish moment sprites ----
+  // The tower rises into view at the side and does its famous hourly sparkle: hundreds of little lights flicker all over
+  // its lattice while (at night) the beacon at the top sweeps the sky. The tower is drawn once into its own canvas.
+  const twr = {};
+  const hw = u => u > 0.93 ? 0.006 : 0.27 * Math.pow(1 - u, 2.4) + 0.011;
+  const towerDraw = (g, f, W, H, d) => { const a = fxEase(f / 40) * fxOut(f, 195, 265); if (a <= 0) return; const ph = W < H, Ht = H * (ph ? 0.42 : 0.66), cx = W * (ph ? 0.76 : 0.8), by = H + 2 + (1 - fxEase(f / 60)) * Ht * 0.3, key = Math.round(Ht) + (d ? "d" : "l");
+    const T = twr[key] || (twr[key] = (() => { for (const k in twr) delete twr[k]; const c = document.createElement("canvas"), w = Math.ceil(Ht * 0.62), sc = 2; c.width = w * sc; c.height = Math.ceil(Ht * 1.02) * sc; const t = c.getContext("2d"), col = d ? "#D9A050" : "#5A3E2A", ax = hw(0) * 0.6, ay = 0.105;
+      t.scale(sc, sc); t.translate(w / 2, Ht * 1.01); t.scale(Ht, Ht); const out = new Path2D(); for (let u = 0; u <= 1.0001; u += 0.01) out.lineTo(-hw(u), -u); for (let u = 1; u >= -0.0001; u -= 0.01) out.lineTo(hw(u), -u); out.closePath();
+      t.fillStyle = col; t.globalAlpha = 0.42; t.fill(out); t.globalAlpha = 1; t.save(); t.clip(out); t.strokeStyle = col; t.lineWidth = 0.004; t.beginPath(); for (let k = -1; k <= 1; k += 0.022) { t.moveTo(k - 0.5, 0); t.lineTo(k + 0.5, -1); t.moveTo(k + 0.5, 0); t.lineTo(k - 0.5, -1); } t.stroke(); t.restore();
+      t.lineWidth = 0.009; t.lineJoin = "round"; t.strokeStyle = col; t.stroke(out); t.fillStyle = col; [[0.115, 1.12, 0.022], [0.42, 1.18, 0.016], [0.86, 1.6, 0.012]].forEach(([u, k, h]) => t.fillRect(-hw(u) * k, -u - h / 2, 2 * hw(u) * k, h));
+      t.globalCompositeOperation = "destination-out"; t.beginPath(); t.ellipse(0, 0, ax, ay, 0, Math.PI, 0); t.fill(); t.globalCompositeOperation = "source-over"; t.lineWidth = 0.008; t.beginPath(); t.ellipse(0, 0, ax, ay, 0, Math.PI, 0); t.stroke();
+      const L = []; while (L.length < 240) { const u = 0.02 + Math.random() * 0.94, x = (Math.random() * 2 - 1) * hw(u) * 0.92; if (u < ay && Math.abs(x) < ax * Math.sqrt(Math.max(0, 1 - (u / ay) ** 2)) + 0.01) continue; L.push([x, u, Math.random() * 6.3, 0.16 + Math.random() * 0.14, Math.random()]); }
+      const dot = document.createElement("canvas"); dot.width = dot.height = 32; const q = dot.getContext("2d"), gr = q.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, "#FFFFFF"); gr.addColorStop(0.18, d ? "rgba(255,246,220,.95)" : "rgba(255,240,190,1)"); gr.addColorStop(0.45, d ? "rgba(255,226,160,.35)" : "rgba(255,200,90,.45)"); gr.addColorStop(1, "rgba(255,220,140,0)"); q.fillStyle = gr; q.fillRect(0, 0, 32, 32);
+      return {c, w, L, dot}; })());
+    g.globalAlpha = a * (d ? 0.85 : 0.8); g.drawImage(T.c, cx - T.w / 2, by - Ht * 1.01, T.w, T.c.height / 2);
+    const top = by - Ht, on = fxEase((f - 45) / 25) * a;
+    if (d && on > 0) { g.globalCompositeOperation = "lighter"; [0, Math.PI].forEach(o => { const t = f * 0.022 + o + 0.6, L = Math.max(W, H) * 0.6, gx = Math.cos(t) * L, gy = -Math.abs(Math.sin(t)) * L * 0.5 - L * 0.12, gr = g.createLinearGradient(cx, top, cx + gx, top + gy); gr.addColorStop(0, "rgba(255,236,190,.16)"); gr.addColorStop(1, "rgba(255,236,190,0)");
+      g.globalAlpha = on; g.fillStyle = gr; g.beginPath(); g.moveTo(cx, top); g.lineTo(cx + gx - gy * 0.06, top + gy + gx * 0.06); g.lineTo(cx + gx + gy * 0.06, top + gy - gx * 0.06); g.closePath(); g.fill(); }); }
+    if (on > 0) { g.globalCompositeOperation = d ? "lighter" : "source-over"; const r = Math.max(3, Ht * 0.014);
+      for (const [x, u, p, sp, k] of T.L) { const v = Math.sin(f * sp + p); if (v < 0.5) continue; const e = Math.pow((v - 0.5) / 0.5, 2), s = r * (0.7 + 0.6 * k) * (0.6 + 0.6 * e); g.globalAlpha = on * e; g.drawImage(T.dot, cx + x * Ht - s, by - u * Ht - s, 2 * s, 2 * s); }
+      g.globalAlpha = on * (0.6 + 0.4 * Math.sin(f * 0.1)); const s = r * 3; g.drawImage(T.dot, cx - s, top - s, 2 * s, 2 * s); }
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; };
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "france", name: "Paris", group: "world", desc: "The Eiffel Tower, the Seine and flower-boxed Haussmann rooftops.",
       light: ["#F5F1EA", "rgba(46,62,102,.10)", "#FFFFFF", "#1F2A3C", "#5E6676", "#E4DDD2", "#EFE9E0", "#FCFAF6", "#B8403A", "#CC6A5A", "#FFFFFF", "#7A2420", "#2E3E66", "#D6DFEE", "#FFE3A0"],
@@ -24070,11 +25921,8 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#B9D6EE,#E9F1F6 45%,#F6E4D6)", "linear-gradient(180deg,#121A36,#263258 45%,#5A4468)"],
       spine: [lg("#3A4E7A", "#24345A"), lg("#2A3060", "#141834")], btn: [lg2("#B8403A", "#D9704E"), lg2("#F2C46A", "#F6D892")]},
     kit: {motif: "franceeiffel", card: ["#FFFCF6", "#F1EADF"], ink: "#1F2A3C", bd: "#E2D6C2", mc: "#B8403A", r: 14, notes: ["#F9D6DE", "#FFF1B8", "#D8EDD2", "#D6E4FA", "#EADCF8", "#FFE0C4"], shape: "folded", pin: "pin", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxTw(W, H, n(46), "sparkle", d ? ["#FFFFFF", "#FFF4D0", "#FFE3A8"] : ["#F2C46A", "#FFFFFF", "#F6D892"], {top: 0.9, smin: 3, smax: 7, glow: d ? 12 : 6})
-      .concat(fxRise(W, H, n(10), "francemacaron", d ? ["#F2A8C0", "#B8E0C4", "#C8B8F0", "#F6D892"] : ["#F4A6B8", "#A8D8B8", "#C4B4EC", "#F6D27A"], {smin: 11, smax: 15, vmin: 1, vmax: 1.8, sway: 0.7, life: 300}),
-        fxFall(W, H, n(16), "francechestnut", d ? ["#4E8A5A", "#6A9A4E"] : ["#5E9A4E", "#7AAA5C", "#D9A040"], {sway: 1.5, smin: 8, smax: 12, vmin: 0.9, vmax: 1.7}),
-        fxBurst(W, H, n(10), "francecroissant", ["#E8A84A", "#D8923A", "#F0BC5E"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxRise(W, H, n(2), "franceeiffel", d ? ["#F6D892"] : ["#86705E"], {cx: [0.35, 0.65], smin: 20, smax: 24, vmin: 0.9, vmax: 1.2, sway: 0.3, life: 320, glow: d ? 16 : 0}).map(p => Object.assign(p, {vr: 0})))},
+    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(18), "petal", d ? ["#F7A8C0", "#FFD0DE", "#E8789E"] : ["#E86A8E", "#F4A2BC", "#D84A72"], {sway: 1.7, flip: true, smin: 9, smax: 13, spread: 90}).map(p => Object.assign(p, {delay: p.delay + 30}))
+      .concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFFFFF", "#FFF4D0", "#FFE3A8"] : ["#E8B04A", "#F2C46A"], {top: 0.7, smin: 3, smax: 6, glow: d ? 12 : 6, spread: 150})), draw: towerDraw},
     tag: "The Eiffel Tower over the Seine and flower-boxed Haussmann rooftops, with tricolour flags, a stone bridge, booksellers' stalls, a cafe and a flower cart on the quay"
   });
 })();
@@ -24099,6 +25947,74 @@ var MAJ_THEMES = [];
     japantorii: {d: "M-11.6 -9.4Q0 -7.4 11.6 -9.4L10.6 -6.4H-10.6Z M-8.6 -4.4H8.6V-2.2H-8.6Z M-7.4 -6.4H-4.6V10H-7.4Z M4.6 -6.4H7.4V10H4.6Z M-1 -6.4H1V-4.4H-1Z"}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  Object.assign(FX_SHAPES, {
+    // a petal with soft pink shading toward its notched tip
+    japanpetal: {d: "M0 -6L-2.2 -9.4C-6.4 -8.4 -6.6 -2 -4.2 3.4C-2.8 6.4 -1.2 8.4 0 9.6C1.2 8.4 2.8 6.4 4.2 3.4C6.6 -2 6.4 -8.4 2.2 -9.4Z", paint: (g, c) => { const p = new Path2D("M0 -6L-2.2 -9.4C-6.4 -8.4 -6.6 -2 -4.2 3.4C-2.8 6.4 -1.2 8.4 0 9.6C1.2 8.4 2.8 6.4 4.2 3.4C6.6 -2 6.4 -8.4 2.2 -9.4Z"), gr = g.createLinearGradient(0, 9.6, 0, -9.4);
+      gr.addColorStop(0, mix(c, "#FFFFFF", 0.65)); gr.addColorStop(1, c); g.fillStyle = gr; g.fill(p); g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = 0.4; g.beginPath(); g.moveTo(0, 8); g.lineTo(0, -4); g.stroke(); sheen(g, 0.2, 0.14); }}
+  });
+
+  // a blossoming branch: it grows in from a top corner, buds swell and open one by one, then a gust carries a hanafubuki
+  // (a swirling stream of petals) across. Built once per play in spawn, drawn by hand so every part moves smoothly.
+  const ez = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t), cvs = fn => { const c = document.createElement("canvas"); c.width = c.height = 64; fn(c.getContext("2d")); return c; }, IMG = {};
+  // one petal, base at the bottom middle, notched tip at the top, pale toward the base
+  const petalImg = d => IMG["p" + d] || (IMG["p" + d] = cvs(p => { const pp = new Path2D("M32 62C17 52 6 34 12 14C15 7 22 4 27 8L32 15L37 8C42 4 49 7 52 14C58 34 47 52 32 62Z"), gr = p.createLinearGradient(0, 62, 0, 4);
+    gr.addColorStop(0, d ? "#FFF6FA" : "#FFF2F6"); gr.addColorStop(0.45, d ? "#FCD2E0" : "#F9C4D6"); gr.addColorStop(1, d ? "#F4A2BE" : "#EE8AAE"); p.fillStyle = gr; p.fill(pp);
+    p.strokeStyle = d ? "rgba(255,255,255,.35)" : "rgba(214,96,140,.28)"; p.lineWidth = 1; p.beginPath(); p.moveTo(32, 56); p.lineTo(32, 20); p.moveTo(31, 46); p.quadraticCurveTo(22, 34, 20, 18); p.moveTo(33, 46); p.quadraticCurveTo(42, 34, 44, 18); p.stroke();
+    p.strokeStyle = d ? "rgba(255,230,240,.5)" : "rgba(200,80,120,.35)"; p.lineWidth = 0.8; p.stroke(pp); }));
+  // the heart of the flower: a rosy eye with fine stamens tipped in gold
+  const eyeImg = d => IMG["e" + d] || (IMG["e" + d] = cvs(p => { p.translate(32, 32); const gr = p.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, d ? "#F8E8A0" : "#E8E29A"); gr.addColorStop(0.45, d ? "#FF9CB8" : "#E8608A"); gr.addColorStop(1, "rgba(232,96,138,0)");
+    p.fillStyle = gr; p.beginPath(); p.arc(0, 0, 12, 0, 6.3); p.fill(); p.lineCap = "round"; for (let i = 0; i < 16; i++) { const a = i * 2.4, r = 15 + (i % 3) * 3, x = Math.cos(a) * r, y = Math.sin(a) * r;
+      p.strokeStyle = d ? "rgba(255,240,246,.85)" : "rgba(236,120,160,.85)"; p.lineWidth = 1.1; p.beginPath(); p.moveTo(Math.cos(a) * 3, Math.sin(a) * 3); p.quadraticCurveTo(Math.cos(a + 0.2) * r * 0.6, Math.sin(a + 0.2) * r * 0.6, x, y); p.stroke();
+      p.fillStyle = d ? "#FFE07A" : "#E8A92A"; p.beginPath(); p.arc(x, y, 2, 0, 6.3); p.fill(); } p.fillStyle = d ? "#FFF0B0" : "#F2E2A0"; p.beginPath(); p.arc(0, 0, 3, 0, 6.3); p.fill(); }));
+  let JP = null;
+  const jpBuild = (W, H, n) => { const ph = W < H, U = ph ? W * 0.98 : Math.min(W * 0.5, H * 0.8), R = Math.max(10, Math.min(20, U * 0.044)), segs = [], buds = []; let sd = 11;
+    const rnd = () => (sd = sd * 16807 % 2147483647) / 2147483647, sp = U / 34;   // growth speed, px per frame
+    const limb = (x, y, a, len, w, dep, t, side) => { const k = dep > 1 ? 5 : 3, st = len / k;
+      for (let i = 0; i < k; i++) { a += (rnd() - 0.5) * 0.3 + (dep > 1 ? 0.05 : 0.02); const nx = x + Math.cos(a) * st, ny = y + Math.sin(a) * st, w1 = Math.max(2, w * (1 - 0.4 * (i + 1) / k)), t1 = t + st / sp;
+        segs.push({x0: x, y0: y, x1: nx, y1: ny, w0: w, w1, t0: t, t1});
+        if (dep > 0 && i < k - 1 && (i % 2 === (dep > 1 ? 1 : 0) || rnd() < 0.3)) { side = -side; limb(nx, ny, a + side * (0.55 + rnd() * 0.3), len * (dep > 1 ? 0.48 : 0.6), w1 * 0.66, dep - 1, t1, side); }
+        if (dep < 2) for (let j = 0, m = 1 + (rnd() < 0.55); j < m; j++) { const s = j ? -1 : 1, ba = a + s * (0.8 + rnd() * 0.6); buds.push({x: nx + Math.cos(ba) * R * 0.7, y: ny + Math.sin(ba) * R * 0.7, sx: nx, sy: ny, a: ba, t: t1 + j * 4}); }
+        x = nx; y = ny; w = w1; t = t1; }
+      buds.push({x: x + Math.cos(a) * R * 0.6, y: y + Math.sin(a) * R * 0.6, sx: x, sy: y, a, t}); };
+    const rx = ph ? -W * 0.08 : -U * 0.1, ry = ph ? H * 0.03 : -U * 0.04;
+    limb(rx, ry, ph ? 0.5 : 0.36, U * 1.05, Math.max(8, U * 0.042), 2, 0, -1);
+    buds.sort((a, b) => a.t - b.t); const nb = buds.length; buds.forEach((b, i) => { b.open = 34 + i * 96 / nb + rnd() * 8; b.rot = rnd() * 6.3; b.r = R * (0.82 + rnd() * 0.3); });
+    // the hanafubuki: petals come in on the wind from the left and loop as they go; some leave the branch itself
+    const band = x => H * (ph ? 0.3 + 0.32 * x / W : 0.26 + 0.34 * x / W), P = [], sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+    const add = (x0, yo, s) => P.push({x0, yo, s, v: W / fxR(95, 150), r: fxR(14, 44) * sc / 1.6, w: fxR(0.05, 0.1) * (Math.random() < 0.5 ? -1 : 1), ph: fxR(0, 6.3), size: fxR(18, 28) * sc / 1.6, z: fxR(0.7, 1.15), fs: fxR(0.06, 0.13), fp: fxR(0, 6.3), r0: fxR(0, 6.3), vr: fxR(-0.03, 0.03)});
+    for (let i = 0, m = n(78); i < m; i++) add(-fxR(20, 80), fxR(-1, 1) * H * (ph ? 0.08 : 0.09), 114 + fxR(0, 92) * Math.sqrt(i / m));
+    buds.forEach(b => { if (Math.random() < 0.6) add(b.x, b.y - band(b.x), 120 + b.x / W * 30 + fxR(0, 10)); });
+    P.sort((a, b) => a.z - b.z); return {segs, buds, P, rx, ry, U, R, band, sc}; };
+  const jpDraw = (g, f, W, H, d) => { if (!JP) return; const {segs, buds, rx, ry, U} = JP, gust = ez((f - 112) / 22) * (1 - ez((f - 160) / 90));
+    // a soft pink glow behind the branch
+    const ga = ez(f / 50) * (d ? 0.16 : 0.2), gr = g.createRadialGradient(rx + U * 0.3, ry + U * 0.2, 0, rx + U * 0.3, ry + U * 0.2, U * 1.1); gr.addColorStop(0, `rgba(${d ? "246,160,190" : "248,170,196"},${ga})`); gr.addColorStop(1, "rgba(248,170,196,0)"); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    // the gust bends the branch a little, then it settles back
+    const sw = gust * (0.022 + 0.012 * Math.sin((f - 112) * 0.11)); g.translate(rx, ry); g.rotate(sw); g.translate(-rx, -ry); g.lineCap = "round";
+    // bark: each piece is a tapered quad with a round joint, so the limb narrows smoothly; then a thin light ridge on top
+    const vis = segs.map(s => { const k = Math.min(1, (f - s.t0) / (s.t1 - s.t0)); if (k <= 0) return null; const dx = s.x1 - s.x0, dy = s.y1 - s.y0, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, x = s.x0 + dx * k, y = s.y0 + dy * k, w1 = s.w0 + (s.w1 - s.w0) * k; return {s, x, y, w1, nx, ny}; }).filter(Boolean);
+    g.fillStyle = d ? "#5A3E4C" : "#4A3036"; g.beginPath(); for (const v of vis) { const {s, x, y, w1, nx, ny} = v, a = s.w0 / 2, b = w1 / 2; g.moveTo(s.x0 + nx * a, s.y0 + ny * a); g.lineTo(x + nx * b, y + ny * b); g.lineTo(x - nx * b, y - ny * b); g.lineTo(s.x0 - nx * a, s.y0 - ny * a); g.closePath(); g.moveTo(x + b, y); g.arc(x, y, b, 0, 6.3); g.moveTo(s.x0 + a, s.y0); g.arc(s.x0, s.y0, a, 0, 6.3); } g.fill("nonzero");
+    g.strokeStyle = d ? "#7A5A6A" : "#6E5050"; for (const v of vis) { const {s, x, y, w1} = v; if (w1 < 3) continue; g.lineWidth = w1 * 0.22; g.beginPath(); g.moveTo(s.x0, s.y0 - s.w0 * 0.24); g.lineTo(x, y - w1 * 0.24); g.stroke(); }
+    const pi = petalImg(d), ei = eyeImg(d);
+    for (const b of buds) { const sw0 = ez((f - b.t + 4) / 12); if (sw0 <= 0) continue; const o = ez((f - b.open) / 26), R = b.r;
+      g.strokeStyle = d ? "#6A4A5A" : "#5A3A3E"; g.lineWidth = Math.max(1.2, R * 0.12); g.beginPath(); g.moveTo(b.sx, b.sy); g.lineTo(b.sx + (b.x - b.sx) * sw0, b.sy + (b.y - b.sy) * sw0); g.stroke();
+      g.save(); g.translate(b.x, b.y);
+      if (o < 1) { const bs = R * (0.3 + 0.25 * ez((f - b.t) / 30) + 0.12 * ez((f - b.open + 14) / 14)) * sw0; g.globalAlpha = 1 - o; g.rotate(b.a + Math.PI / 2);
+        g.fillStyle = d ? "#F590B0" : "#E0628E"; g.beginPath(); g.ellipse(0, -bs * 0.6, bs * 0.55, bs * 0.85, 0, 0, 6.3); g.fill(); g.fillStyle = d ? "rgba(255,230,240,.6)" : "rgba(255,210,226,.7)"; g.beginPath(); g.ellipse(-bs * 0.15, -bs * 0.9, bs * 0.18, bs * 0.32, 0, 0, 6.3); g.fill();
+        g.fillStyle = d ? "#8A5A50" : "#7A3E34"; g.beginPath(); g.ellipse(0, 0, bs * 0.42, bs * 0.3, 0, 0, 6.3); g.fill(); g.rotate(-(b.a + Math.PI / 2)); g.globalAlpha = 1; }
+      if (o > 0) { const L = R * (0.4 + 0.6 * o), tw = (1 - o) * 0.9, bb = gust * 0.12 * Math.sin(f * 0.2 + b.rot);
+        for (let i = 0; i < 5; i++) { g.save(); g.rotate(b.rot + i * 1.2566 + tw + bb); g.scale(0.7 + 0.3 * o, 1); g.drawImage(pi, -L / 2, -L * 0.97, L, L); g.restore(); }
+        g.globalAlpha = o; const e = R * 1.15; g.drawImage(ei, -e / 2, -e / 2, e, e); g.globalAlpha = 1; }
+      g.restore(); } };
+  const jpOver = (g, f, W, H, d) => { if (!JP) return; const {P, band} = JP, pi = petalImg(d);
+    for (const p of P) { const t = f - p.s; if (t < 0) continue; const xl = p.x0 + p.v * t * (0.35 + 0.65 * ez(t / 30)), x = xl + p.r * Math.cos(p.w * t + p.ph), yo = p.yo * (1 - 0.45 * ez(t / 90)), y = band(xl) + yo + p.r * 0.8 * Math.sin(p.w * t + p.ph) + t * 0.15;
+      if (x > W + 40) continue; const a = ez(t / 14) * (0.55 + 0.45 * Math.min(1, p.z)), fl = Math.cos(t * p.fs + p.fp), L = p.size * p.z;
+      g.globalAlpha = a * (fl < 0 ? 0.82 : 1); g.save(); g.translate(x, y); g.rotate(p.r0 + t * p.vr + 0.5 * Math.sin(t * 0.05 + p.ph)); g.scale(Math.max(0.12, Math.abs(fl)), 1); g.drawImage(pi, -L / 2, -L / 2, L, L); g.restore(); }
+    g.globalAlpha = 1; };
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "japan", name: "Japan", group: "world", desc: "Mount Fuji over a pagoda in cherry blossom.",
       light: ["#FAF4F5", "rgba(200,68,46,.10)", "#FFFFFF", "#26233A", "#6A6478", "#ECDCE0", "#F4E8EC", "#FDF9FA", "#C8442E", "#D86A50", "#FFFFFF", "#8A2A1E", "#2E3E66", "#F6D6DE", "#FFE3A0"],
@@ -24106,10 +26022,8 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#BFDDF2,#EAF3F8 45%,#FBE6EA)", "linear-gradient(180deg,#141A3A,#2A2D5A 45%,#5A4570)"],
       spine: [lg("#34477A", "#22305A"), lg("#2A2D5A", "#14183A")], btn: [lg2("#C8442E", "#D8607A"), lg2("#F4A0B8", "#F8C8A8")]},
     kit: {motif: "japansakura", card: ["#FFFAFB", "#F8E6EC"], ink: "#26233A", bd: "#EEC8D4", mc: "#D8607A", r: 14, notes: ["#F8D8E2"].concat(NOTES), shape: "folded", pin: "washi2", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(54), "japanpetal", d ? ["#F6B6CC", "#FFD6E4", "#E894B4"] : ["#F7A8C0", "#FFC8D8", "#F28AAE", "#FFFFFF"], {sway: 1.8, flip: true, smin: 6, smax: 10, glow: d ? 6 : 0}).map(p => Object.assign(p, {vx: fxR(0.4, 1.4)}))
-      .concat(fxBurst(W, H, n(16), "japansakura", d ? ["#F6B6CC", "#FFE0EA"] : ["#F7A8C0", "#FFD0DE", "#F28AAE"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 14}),
-        fxRise(W, H, n(5), "japankoi", d ? ["#FF7A6A", "#7AA8F0", "#E8E4F4"] : ["#D8402E", "#3A78C8", "#3A3A48"], {cx: [0.15, 0.85], smin: 18, smax: 24, vmin: 1, vmax: 1.6, sway: 1, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: -Math.PI / 2, vr: 0})),
-        fxTw(W, H, n(24), "sparkle", d ? ["#FFE3EE", "#FFFFFF", "#F4A0B8"] : ["#F28AAE", "#FFD86B", "#C8442E"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: {len: 300, spawn: (W, H, d, n) => { JP = jpBuild(W, H, n); return fxTw(W, H, n(10), "sparkle", d ? ["#FFE3EE", "#FFFFFF"] : ["#F28AAE", "#FFC8D8"], {smin: 3, smax: 6, top: 0.55, glow: d ? 10 : 4, spread: 140}).map(p => Object.assign(p, {delay: p.delay + 40})); },
+      draw: jpDraw, over: jpOver},
     tag: "Mount Fuji's snowy cone over a five-storey pagoda in a sea of cherry blossom, with a torii stair path, a little town and a red bridge"
   });
 })();
@@ -24134,6 +26048,26 @@ var MAJ_THEMES = [];
     moroccoblossom: {d: [0, 1, 2, 3, 4].map(i => { const a = -Math.PI / 2 + i / 5 * Math.PI * 2; return circ(Math.cos(a) * 4.6, Math.sin(a) * 4.6, 3.6); }).join(""), detail: circ(0, 0, 2), dfill: true},
     moroccoorange: {d: circ(0, 1.4, 8.6) + "M0.4 -7.2Q4 -12.4 9 -10.4Q6.4 -5.8 0.4 -7.2Z", detail: "M-3.6 -1.8A4.4 4.4 0 0 1 0 -4.6", dstroke: true}
   });
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // a pierced brass lantern, lit from inside: warm light shines through its star cut-outs
+  const LANT = "M-0.8 -12.6H0.8V-10.4H-0.8Z M-4.4 -6.6Q-4.4 -10.6 0 -10.8Q4.4 -10.6 4.4 -6.6Z M-5.4 -6.6H5.4V-5H-5.4Z M-5 -5H5L4.2 4.4H-4.2Z M-4.8 4.4H4.8V5.8H-4.8Z M-3.8 5.8H3.8L0 11.4Z";
+  Object.assign(FX_SHAPES, {
+    moroccolamp: {d: LANT, paint: (g, c, d) => { const p = new Path2D(LANT), lit = d ? "#FFE6A0" : "#FFE2A0"; g.save(); g.shadowColor = "rgba(255,190,90,.9)"; g.shadowBlur = 10; g.fillStyle = "rgba(255,200,110,.35)"; oval(g, 0, 0, 7, 8); g.fill(); g.restore();
+      g.fillStyle = c; g.fill(p); sheen(g, 0.4, 0.3); g.fillStyle = lit; g.save(); g.shadowColor = "#FFC060"; g.shadowBlur = 3;
+      [[-2.4, -2.4], [0, -2.6], [2.4, -2.4], [-2, 0.4], [0, 0.6], [2, 0.4], [-1, 2.8], [1, 2.8]].forEach(([x, y], i) => { if (i % 3 === 1) { g.beginPath(); for (let k = 0; k < 8; k++) { const a = k * 0.785, r = k % 2 ? 0.55 : 1.2; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); } else { oval(g, x, y, 0.6, 0.85); g.fill(); } });
+      [-3, -1, 1, 3].forEach(x => { oval(g, x, -8.4, 0.5, 0.7); g.fill(); }); g.restore(); g.fillStyle = mix(c, "#000000", 0.35); g.fillRect(-5.4, -5.4, 10.8, 0.5); g.fillRect(-4.8, 4.4, 9.6, 0.5); }}
+  });
+  // lanterns let down on chains from the top, swinging gently, each with a soft candle glow that wavers, then drawn back up
+  let lamps = [];
+  const lampDraw = (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)); g.lineCap = "round";
+    lamps.forEach(l => { const t = f - l.t0; if (t < 0) return; const e = t < 70 ? 1 - Math.pow(1 - t / 70, 3) * Math.cos(t / 70 * 3) : 1, up = fxEase((t - 175) / 70), L = l.L * (e - up * 0.9), a = fxEase(t / 10) * (1 - up);
+      if (a <= 0.01 || L <= 0) return; const th = Math.sin(t * 0.045 + l.ph) * 0.12 * (1 - t / 400), s = l.size * sc / 10, x = l.x + Math.sin(th) * L, y = Math.cos(th) * L;
+      g.globalAlpha = a; g.strokeStyle = d ? "rgba(232,184,96,.7)" : "rgba(150,110,50,.75)"; g.lineWidth = Math.max(1, s * 0.45); g.setLineDash([s * 1.2, s * 0.6]); g.beginPath(); g.moveTo(l.x, -4); g.lineTo(x, y); g.stroke(); g.setLineDash([]);
+      const spr = fxSprite("moroccolamp", l.c, 0, d), h = spr._half; g.save(); g.translate(x, y); g.rotate(-th); g.translate(0, 12.6 * s); const hl = fxSprite("puffsoft", "#FFC060", 0, d), hh = hl._half * s * 2.4; g.globalAlpha = a * (d ? 0.34 : 0.2) * (0.8 + 0.2 * Math.sin(f * 0.13 + l.ph * 3) * Math.sin(f * 0.071 + l.ph)); g.drawImage(hl, -hh, -hh * 0.9, 2 * hh, 2 * hh); g.globalAlpha = a; g.drawImage(spr, -h * s, -h * s, 2 * h * s, 2 * h * s); g.restore(); }); g.globalAlpha = 1; };
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "morocco", name: "Morocco", group: "world", desc: "A tiled riad courtyard below the Atlas mountains.",
       light: ["#FBF5EC", "rgba(44,95,168,.10)", "#FFFFFF", "#2A2230", "#6E5E58", "#EADCC8", "#F5EBDD", "#FDFAF5", "#2C5FA8", "#C8642E", "#FFFFFF", "#1E4680", "#1E3A6E", "#D6E2F4", "#FFE3A0"],
@@ -24141,11 +26075,10 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#A9D3F0,#F3E6CF 45%,#F2C79A)", "linear-gradient(180deg,#121434,#2A2156 45%,#6A3A4E)"],
       spine: [lg("#2C5FA8", "#1E3A6E"), lg("#2A2156", "#121434")], btn: [lg2("#2C5FA8", "#C8642E"), lg2("#E8B860", "#F2CC84")]},
     kit: {motif: "moroccostar", card: ["#FFFBF4", "#F4E8D8"], ink: "#2A2230", bd: "#E2CFAE", mc: "#2C5FA8", r: 14, notes: ["#F6E2C4", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "gold", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(9), "moroccolantern", d ? ["#F2C45A", "#FFD27A", "#E8A84A"] : ["#D9A43A", "#C8902E", "#E2B04A"], {smin: 14, smax: 20, vmin: 0.9, vmax: 1.6, sway: 0.6, life: 320, glow: d ? 16 : 4})
-      .concat(fxFall(W, H, n(36), "moroccopetal", d ? ["#F27A96", "#FF9AB2", "#E8607E"] : ["#E8506E", "#F27A96", "#D93A5E"], {sway: 1.7, flip: true, smin: 6, smax: 9}),
-        fxFall(W, H, n(22), "moroccoblossom", d ? ["#FFF6E8", "#FFFFFF"] : ["#FFFFFF", "#FFF4E0"], {sway: 1.4, smin: 6, smax: 9, vmin: 0.9, vmax: 1.8, glow: d ? 6 : 0}),
-        fxBurst(W, H, n(10), "moroccoorange", d ? ["#F29A3A", "#E8862A"] : ["#F2902E", "#E87A1E"], [[0.2, 1.02], [0.8, 1.02]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
-        fxTw(W, H, n(22), "moroccostar", d ? ["#F2C45A", "#7AB0F0", "#FFFFFF"] : ["#2C5FA8", "#2E8E6E", "#D9A43A"], {smin: 6, smax: 10, glow: d ? 10 : 0, top: 0.8}))},
+    fx: {spawn: (W, H, d, n) => { const k = Math.max(3, Math.min(7, Math.round(W / 170))); lamps = Array.from({length: k}, (_, i) => ({x: W * (i + 0.5) / k + fxR(-0.15, 0.15) * W / k, L: H * fxR(0.12, 0.34), t0: Math.floor(i % 2 * 12 + fxR(0, 20)), ph: fxR(0, 6.3), size: fxR(24, 31), c: fxPick(d ? ["#C89A3A", "#B8862E"] : ["#B8862E", "#A87A2A", "#C8963A"])}));
+      return fxFall(W, H, n(30), "moroccopetal", d ? ["#F27A96", "#FF9AB2", "#E8607E"] : ["#E8506E", "#F27A96", "#D93A5E"], {sway: 1.7, flip: true, smin: 7, smax: 10}).map(p => Object.assign(p, {delay: p.delay + 30}))
+        .concat(fxTw(W, H, n(22), "moroccostar", d ? ["#F2C45A", "#7AB0F0", "#FFFFFF"] : ["#2C5FA8", "#2E8E6E", "#D9A43A"], {smin: 7, smax: 11, glow: d ? 10 : 0, top: 0.9, glint: true})); },
+      draw: lampDraw},
     tag: "A Marrakech riad seen through a carved horseshoe arch: zellige tiles, a bubbling fountain, orange trees and brass lanterns below the snowy Atlas"
   });
 })();
@@ -24171,6 +26104,23 @@ var MAJ_THEMES = [];
     // a golden chedi
     thailandchedi: {d: "M-10 11H10V9H8V7H-8V9H-10Z M-7 7C-7 1 -5 -2 -2.4 -3.6H2.4C5 -2 7 1 7 7Z M-2.4 -3.6V-5.4H2.4V-3.6Z M-2 -5.4L-0.4 -12H0.4L2 -5.4Z", detail: "M-6.6 3.4H6.6M-1.6 -7.4H1.6M-1.2 -9.4H1.2", dstroke: true}
   });
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  const KHOM = "M-6.4 -10.4Q0 -11.8 6.4 -10.4L4.4 7.4Q0 8.6 -4.4 7.4Z";
+  Object.assign(FX_SHAPES, {
+    // a khom loi sky lantern: a paper shade glowing from the little flame at its open base
+    thailandkhom: {d: KHOM, paint: (g, c, d) => { const p = new Path2D(KHOM); g.save(); g.shadowColor = d ? "rgba(255,170,70,.9)" : "rgba(255,150,60,.55)"; g.shadowBlur = d ? 9 : 4; g.fillStyle = c; g.fill(p); g.restore();
+      g.save(); g.clip(p); const gr = g.createRadialGradient(0, 8, 0.5, 0, 6, 15); gr.addColorStop(0, "#FFF6D0"); gr.addColorStop(0.35, mix(c, "#FFF2C0", 0.5)); gr.addColorStop(1, mix(c, "#B0501A", 0.3)); g.fillStyle = gr; g.fillRect(-7, -12, 14, 21);
+      g.strokeStyle = "rgba(160,80,20,.25)"; g.lineWidth = 0.35; g.beginPath(); [-2.2, 2.2].forEach(x => { g.moveTo(x * 1.35, -10.8); g.lineTo(x, 8); }); [-5, 0, 5].forEach(y => { g.moveTo(-7, y); g.lineTo(7, y); }); g.stroke(); g.restore();
+      g.fillStyle = "#FFE9A0"; g.beginPath(); g.moveTo(0, 5.2); g.quadraticCurveTo(1.6, 8, 0, 9.6); g.quadraticCurveTo(-1.6, 8, 0, 5.2); g.fill(); g.fillStyle = "#FFFFFF"; oval(g, 0, 8.2, 0.5, 0.9); g.fill(); }},
+    // frangipani: five waxy petals, white or pink, warming to yellow at the heart
+    thailandplum: {d: [0, 1, 2, 3, 4].map(i => { const a = i / 5 * 6.283 - 1.571, c = Math.cos(a), s = Math.sin(a); return `M0 0Q${(c * 5 - s * 5).toFixed(2)} ${(s * 5 + c * 5).toFixed(2)} ${(c * 10.6).toFixed(2)} ${(s * 10.6).toFixed(2)}Q${(c * 7 + s * 2).toFixed(2)} ${(s * 7 - c * 2).toFixed(2)} 0 0Z`; }).join(""), paint: (g, c) => {
+      for (let i = 0; i < 5; i++) { g.save(); g.rotate(i / 5 * 6.283 - 1.571); const gr = g.createLinearGradient(0, 0, 10.6, 0); gr.addColorStop(0, "#F6C43A"); gr.addColorStop(0.38, mix(c, "#FFE9A0", 0.4)); gr.addColorStop(1, c); g.fillStyle = gr;
+        g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(2, 4.4, 8.4, 5.4, 10.6, 1.6); g.bezierCurveTo(11.2, -1.4, 8, -2.6, 0, 0); g.fill(); g.strokeStyle = "rgba(160,120,90,.25)"; g.lineWidth = 0.3; g.stroke(); g.restore(); } sheen(g, 0.22, 0.16); }}
+  });
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "thailand", name: "Thailand", group: "world", desc: "Limestone islands, longtail boats and a golden temple.",
       light: ["#F2FAF7", "rgba(14,116,112,.10)", "#FFFFFF", "#10302E", "#4A6864", "#D0E6E0", "#E2F2EE", "#F8FCFB", "#0E7470", "#3A928C", "#FFFFFF", "#0A4A48", "#0E5A58", "#C8EAE2", "#FFE3A0"],
@@ -24178,11 +26128,11 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#8ED4EE,#D6F2F2 45%,#F6EED2)", "linear-gradient(180deg,#0C1A36,#1C2E58 45%,#4A3A6A)"],
       spine: [lg("#16807A", "#0E5A58"), lg("#1E2E5E", "#0E1838")], btn: [lg2("#0E7470", "#C88A1E"), lg2("#F2C45A", "#F6D892")]},
     kit: {motif: "thailandlotus", card: ["#F8FDFB", "#E2F4EE"], ink: "#10302E", bd: "#B6DDD4", mc: "#E0508A", r: 16, notes: ["#FBE0EA", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "gold", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "thailandlotus", d ? ["#FF9AC8", "#FFD0E2", "#F27AAE"] : ["#F06A9E", "#F48AB4", "#E0508A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 10, smax: 15, glow: d ? 10 : 0})
-      .concat(fxFall(W, H, n(36), "thailandfrang", d ? ["#FFF6E8", "#FFC8DE", "#FFE6A0"] : ["#FFFFFF", "#FFD6E6", "#FFF2C0"], {sway: 1.6, smin: 8, smax: 12, vmin: 0.9, vmax: 1.7, glow: d ? 6 : 0}).map(p => Object.assign(p, {vr: fxR(-0.04, 0.04)})),
-        fxRise(W, H, n(8), "thailandkrathong", d ? ["#FFC24A", "#FFB070"] : ["#3E9A4A", "#E8962E"], {smin: 14, smax: 19, vmin: 0.8, vmax: 1.4, sway: 0.5, life: 320, glow: d ? 16 : 4}).map(p => Object.assign(p, {vr: 0})),
-        fxRise(W, H, n(2), "thailandchedi", d ? ["#F2C45A"] : ["#E2A42A"], {cx: [0.3, 0.7], smin: 20, smax: 24, vmin: 0.9, vmax: 1.2, sway: 0.3, life: 320, glow: d ? 16 : 8}).map(p => Object.assign(p, {vr: 0})),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#9AE8FF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(14), "thailandkhom", d ? ["#FFC870", "#FFB060", "#FFD890"] : ["#F6B860", "#F2A050", "#F8C878"], {smin: 20, smax: 30, vmin: 1.8, vmax: 2.8, sway: 0.5, rock: 0.06, life: 300, spread: 70, glow: d ? 16 : 0})
+      // sky lanterns let go from below: they rise, slow and shrink into the distance as they drift up
+      .map(p => Object.assign(p, {grow: -0.014, drag: 0.998, vy: p.vy * Math.max(1, H / 640), vx: fxR(-0.25, 0.35), swf: fxR(0.015, 0.03)}))
+      .concat(fxFall(W, H, n(15), "thailandplum", d ? ["#FFF6E8", "#FFC8DE", "#FFFFFF"] : ["#FFFFFF", "#F8B8D0", "#FFF4E4"], {sway: 1.5, smin: 9, smax: 13, vmin: 0.9, vmax: 1.6, rock: 0.6}),
+        fxTw(W, H, n(22), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
     tag: "A tropical bay of jungle-topped limestone islands, longtail boats on a white beach and a golden temple on the headland"
   });
 })();
@@ -24210,6 +26160,92 @@ var MAJ_THEMES = [];
     italytile: {d: "M-9 -9H9V9H-9Z", detail: "M0 -7L2 -2L7 0L2 2L0 7L-2 2L-7 0L-2 -2Z" + circ(0, 0, 1.4), dfill: true}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  const LEMON = "M-9.6 2C-9.6 -3 -4.8 -6.4 0 -6.4C4.8 -6.4 9.6 -3 9.6 2C9.6 5.6 4.8 7.6 0 7.6C-4.8 7.6 -9.6 5.6 -9.6 2Z M-9.6 2L-11.6 1.2L-9.8 0.4Z M9.6 2L11.6 1.2L9.8 0.4Z";
+  Object.assign(FX_SHAPES, {
+    // an Amalfi lemon with its glossy leaf
+    italylem: {d: LEMON + "M0.6 -6C2 -10.4 6.4 -12 10.4 -10.6C8.6 -7 4.4 -5.6 0.6 -6Z", paint: (g, c) => { const p = new Path2D(LEMON), gr = g.createRadialGradient(-3, -2, 1, 0, 1, 11); gr.addColorStop(0, mix(c, "#FFFFFF", 0.45)); gr.addColorStop(0.6, c); gr.addColorStop(1, mix(c, "#B07800", 0.4)); g.fillStyle = gr; g.fill(p);
+      g.save(); g.clip(p); g.fillStyle = "rgba(170,120,0,.18)"; for (let i = 0; i < 26; i++) { oval(g, Math.sin(i * 7.3) * 8, 1 + Math.cos(i * 3.1) * 5.4, 0.35, 0.35); g.fill(); } g.restore(); g.fillStyle = "rgba(255,255,255,.55)"; oval(g, -4, -2.8, 2.6, 1.1, -0.4); g.fill();
+      const lf = new Path2D("M0.6 -6C2 -10.4 6.4 -12 10.4 -10.6C8.6 -7 4.4 -5.6 0.6 -6Z"); g.fillStyle = "#3E8A3A"; g.fill(lf); g.fillStyle = "#5EA84A"; g.save(); g.clip(lf); g.fillRect(-1, -13, 13, 4.6); g.restore(); g.strokeStyle = "rgba(220,240,200,.6)"; g.lineWidth = 0.35; g.beginPath(); g.moveTo(1, -6.2); g.quadraticCurveTo(5, -9.4, 10, -10.5); g.stroke(); }},
+    // a lemon blossom: five white petals around golden stamens
+    italyflower: {d: [0, 1, 2, 3, 4].map(i => { const a = -Math.PI / 2 + i / 5 * Math.PI * 2; return circ(Math.cos(a) * 5.4, Math.sin(a) * 5.4, 4.6); }).join(""), paint: (g, c, d) => { for (let i = 0; i < 5; i++) { g.save(); g.rotate(i / 5 * 6.283); g.fillStyle = c; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-4.6, -3, -3.4, -10.4, 0, -10.6); g.bezierCurveTo(3.4, -10.4, 4.6, -3, 0, 0); g.fill(); g.strokeStyle = d ? "rgba(200,200,230,.5)" : "rgba(190,170,150,.6)"; g.lineWidth = 0.35; g.stroke(); g.restore(); }
+      sheen(g, 0.2, 0.18); g.strokeStyle = "#E8B83A"; g.lineWidth = 0.4; g.beginPath(); for (let i = 0; i < 9; i++) { const a = i * 0.7; g.moveTo(0, 0); g.lineTo(Math.cos(a) * 3.2, Math.sin(a) * 3.2); } g.stroke(); g.fillStyle = "#F2C53A"; for (let i = 0; i < 9; i++) { const a = i * 0.7; oval(g, Math.cos(a) * 3.3, Math.sin(a) * 3.3, 0.5, 0.5); g.fill(); } g.fillStyle = "#9CC24A"; oval(g, 0, 0, 1.2, 1.2); g.fill(); }}
+  });
+
+  // a pizza toss: a disc of dough spins up from the bottom, stretching as it twirls (an ellipse turning in 3D, shedding
+  // flour), lands, then gets sauce, mozzarella, basil and a drizzle of oil and bakes into a blistered, steaming margherita.
+  const ez = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t), lerpC = (a, b, t) => mix(a, b, Math.max(0, Math.min(1, t))), IMG = {};
+  const puffImg = rgb => IMG[rgb] || (IMG[rgb] = (() => { const c = document.createElement("canvas"); c.width = c.height = 48; const p = c.getContext("2d"), gr = p.createRadialGradient(24, 24, 0, 24, 24, 24);
+    gr.addColorStop(0, `rgba(${rgb},1)`); gr.addColorStop(0.5, `rgba(${rgb},.5)`); gr.addColorStop(1, `rgba(${rgb},0)`); p.fillStyle = gr; p.fillRect(0, 0, 48, 48); return c; })());
+  const TOSS = 96, LAND = TOSS + 4;
+  let PZ = null;
+  const pzBuild = (W, H) => { const ph = W < H, R = Math.min(W * (ph ? 0.22 : 0.21), H * 0.145), cx = W / 2, cy = (ph ? H * 0.635 : H * 0.565) + R * 1.06; let sd = 5; const rnd = () => (sd = sd * 16807 % 2147483647) / 2147483647, pol = (r, a) => [Math.cos(a) * r, Math.sin(a) * r];
+    const y0 = H + R * 0.9, yp = H * (ph ? 0.46 : 0.4), q = Math.sqrt((cy - yp) / (y0 - yp)), tp = TOSS / (1 + q), k = (y0 - yp) / (tp * tp);
+    const cheese = Array.from({length: 7}, (_, i) => { const a = i * 0.898 * 1 + rnd() * 0.5, r = i ? 0.3 + rnd() * 0.32 : 0.04; return {p: pol(r, a), r: 0.13 + rnd() * 0.05, t: 134 + i * 5 + rnd() * 3, n: Array.from({length: 10}, () => 0.82 + rnd() * 0.3), sp: [pol(rnd() * 0.5, rnd() * 6.3), pol(rnd() * 0.6, rnd() * 6.3)]}; });
+    const basil = Array.from({length: 5}, (_, i) => { const a = i * 1.2566 + 0.6 + rnd() * 0.4, r = 0.26 + rnd() * 0.3; return {p: pol(r, a), rot: a + 1.2 + rnd(), sz: 0.13 + rnd() * 0.04, t: 164 + i * 6}; });
+    const spots = Array.from({length: 26}, () => { const a = rnd() * 6.3, r = 0.88 + rnd() * 0.09; return {p: pol(r, a), r: 0.012 + rnd() * 0.028, a}; });
+    const flour = Array.from({length: 22}, (_, i) => ({p: pol(Math.sqrt(rnd()) * 0.8, rnd() * 6.3), r: i < 4 ? 0.12 + rnd() * 0.08 : 0.015 + rnd() * 0.03}));
+    // flour dust: shed from the rim while it flies, a puff at the launch and a ring when it lands
+    const dust = Array.from({length: 40}, (_, i) => ({t: 8 + i * 2.2, th: rnd() * 6.3, v: 0.3 + rnd() * 0.6, life: 40 + rnd() * 30, r: 3 + rnd() * 5})).concat(
+      Array.from({length: 16}, (_, i) => ({t: LAND, th: i * 0.393 + rnd() * 0.3, v: 0.9 + rnd() * 0.9, life: 50 + rnd() * 30, r: 5 + rnd() * 7, ring: true})));
+    return {R, cx, cy, ph, y: u => u <= TOSS ? yp + k * (u - tp) * (u - tp) : cy, cheese, basil, spots, flour, dust}; };
+  // where the disc is and how it is turned at frame f
+  const pzPose = f => { const u = f - 4, e = ez((u - TOSS * 0.5) / (TOSS * 0.5)), fl = Math.max(0, Math.min(u, TOSS)), v = u - TOSS, sq = v > 0 ? 0.07 * Math.sin(Math.min(1, v / 16) * Math.PI) : 0, th = (1 - e) * (1.2 + 0.46 * Math.sin(fl * 0.11));
+    return {x: PZ.cx, y: PZ.y(Math.max(0, u)), s: 0.52 + 0.48 * ez(fl / (TOSS * 0.85)), cs: Math.max(0.07, Math.cos(th)) - sq, sn: Math.sin(th), rx: 1 + sq * 0.5, ang: 0.3 * Math.sin(fl * 0.06) * (1 - e), spin: 0.34 * fl - 0.1 * fl * fl / TOSS}; };
+  const pzDraw = (g, f, W, H, d) => { if (!PZ || f < 2) return; const {R, cx, cy} = PZ, P = pzPose(f), bake = ez((f - 150) / 60), rr = R * P.s;
+    // a soft shadow (a warm glow at night) where the pizza will land, darker as it comes down
+    const near = ez((f - 4 - TOSS * 0.45) / (TOSS * 0.55)), sa = (d ? 0.14 : 0.16) * near;
+    if (sa > 0.005) { g.save(); g.translate(cx, cy + R * 0.1); g.scale(1, 0.82); const gr = g.createRadialGradient(0, 0, 0, 0, 0, R * 1.08); const c = d ? "255,170,90" : "90,60,30"; gr.addColorStop(0, `rgba(${c},${sa})`); gr.addColorStop(0.7, `rgba(${c},${sa * 0.6})`); gr.addColorStop(1, `rgba(${c},0)`); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R * 1.08, 0, 6.3); g.fill(); g.restore(); }
+    g.save(); g.translate(P.x, P.y); g.rotate(P.ang);
+    // the edge of the dough, seen when it is tilted
+    const th = rr * 0.09 * Math.abs(P.sn) + rr * 0.025; g.fillStyle = lerpC("#D9B47A", "#B87434", bake); g.beginPath(); g.ellipse(0, th, rr * P.rx, rr * P.cs, 0, 0, 6.3); g.fill();
+    g.scale(rr * P.rx, rr * P.cs); const crust = lerpC("#EED39C", "#DE9C4E", bake); g.fillStyle = crust; g.beginPath(); g.arc(0, 0, 1, 0, 6.3); g.fill();
+    const gi = g.createRadialGradient(-0.2, -0.25, 0, 0, 0, 0.9); gi.addColorStop(0, "#FAEBCB"); gi.addColorStop(1, lerpC("#F0D6A4", "#E8C084", bake)); g.fillStyle = gi; g.beginPath(); g.arc(0, 0, 0.86, 0, 6.3); g.fill();
+    g.save(); g.rotate(P.spin);
+    // flour on the dough turns with it; it fades as the sauce goes on
+    const fa = 1 - ez((f - 106) / 30); if (fa > 0) { for (const q of PZ.flour) { g.fillStyle = `rgba(255,255,255,${(q.r > 0.1 ? 0.28 : 0.7) * fa})`; g.beginPath(); g.arc(q.p[0], q.p[1], q.r, 0, 6.3); g.fill(); } }
+    // the rim: blistered, with leopard spots once baked
+    g.strokeStyle = lerpC("#E2BE84", "#C98238", bake); g.lineWidth = 0.035; g.beginPath(); g.arc(0, 0, 0.86, 0, 6.3); g.stroke();
+    if (bake > 0) { for (const q of PZ.spots) { g.fillStyle = `rgba(${q.r > 0.03 ? "92,46,20" : "70,34,16"},${0.75 * ez((f - 150 - q.a * 6) / 30)})`; g.beginPath(); g.ellipse(q.p[0], q.p[1], q.r * 1.4, q.r, q.a, 0, 6.3); g.fill(); } }
+    g.restore();
+    if (f > LAND + 6) { const sp = ez((f - LAND - 8) / 30), rs = 0.79 * (0.15 + 0.85 * sp);
+      // tomato sauce spreading in a swirl from the middle
+      g.save(); g.rotate(-(1 - sp) * 2.4); g.beginPath(); for (let i = 0; i <= 48; i++) { const a = i / 48 * 6.283, r = rs * (1 + 0.035 * Math.sin(5 * a + 1) + 0.025 * Math.sin(11 * a + 2)); i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); } g.closePath();
+      const gs = g.createRadialGradient(-0.15, -0.2, 0, 0, 0, rs); gs.addColorStop(0, lerpC("#E8553A", "#D84428", bake)); gs.addColorStop(1, lerpC("#C2361F", "#A82C18", bake)); g.fillStyle = gs; g.fill();
+      if (sp < 1) { g.strokeStyle = `rgba(255,150,120,${0.35 * (1 - sp)})`; g.lineWidth = 0.025; g.beginPath(); for (let i = 0; i < 40; i++) { const u = i / 40, a = u * 9, r = rs * u * 0.9; i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(0, 0); } g.stroke(); } g.restore();
+      // mozzarella drops on and melts
+      for (const b of PZ.cheese) { const k = ez((f - b.t) / 11); if (k <= 0) continue; const m = (1.5 - 0.5 * k) * (1 + 0.16 * ez((f - b.t - 8) / 40)), r = b.r * m; g.globalAlpha = k; g.save(); g.translate(b.p[0], b.p[1] - (1 - k) * 0.25);
+        const pt = i => { const v = b.n[i % 10], a = i / 10 * 6.283; return [Math.cos(a) * r * v, Math.sin(a) * r * v]; }; g.beginPath(); for (let i = 0; i <= 10; i++) { const [x0, y0] = pt(i), [x1, y1] = pt(i + 1), mx = (x0 + x1) / 2, my = (y0 + y1) / 2; i ? g.quadraticCurveTo(x0, y0, mx, my) : g.moveTo(mx, my); } g.closePath(); g.fillStyle = "#FFF9EC"; g.fill(); g.strokeStyle = "rgba(226,196,140,.9)"; g.lineWidth = 0.014; g.stroke();
+        g.fillStyle = "rgba(255,255,255,.8)"; g.beginPath(); g.ellipse(-r * 0.3, -r * 0.3, r * 0.3, r * 0.18, -0.5, 0, 6.3); g.fill();
+        if (bake > 0) { g.fillStyle = `rgba(212,150,64,${0.55 * bake})`; for (const q of b.sp) { g.beginPath(); g.arc(q[0] * r, q[1] * r, r * 0.16, 0, 6.3); g.fill(); } } g.restore(); }
+      g.globalAlpha = 1;
+      // basil leaves flutter down and settle
+      for (const b of PZ.basil) { const k = ez((f - b.t) / 14); if (k <= 0) continue; const z = b.sz * (1.4 - 0.4 * k); g.globalAlpha = k; g.save(); g.translate(b.p[0], b.p[1] - (1 - k) * 0.3); g.rotate(b.rot + (1 - k) * 1.6); g.scale(z * (0.3 + 0.7 * Math.abs(Math.cos((1 - k) * 3))), z);
+        const lf = new Path2D("M0 -1C0.62 -0.62 0.6 0.5 0 1C-0.6 0.5 -0.62 -0.62 0 -1Z"); g.fillStyle = "#2E8A3A"; g.fill(lf); g.save(); g.clip(lf); g.fillStyle = "#45A84E"; g.fillRect(-1, -1, 1, 2); g.restore();
+        g.strokeStyle = "rgba(190,230,170,.75)"; g.lineWidth = 0.07; g.beginPath(); g.moveTo(0, 0.95); g.lineTo(0, -0.8); g.stroke(); g.fillStyle = "rgba(255,255,255,.3)"; g.beginPath(); g.ellipse(-0.22, -0.3, 0.12, 0.35, 0.2, 0, 6.3); g.fill(); g.restore(); }
+      g.globalAlpha = 1;
+      // a drizzle of olive oil
+      const op = ez((f - 192) / 22); if (op > 0) { const m = Math.max(2, Math.round(op * 70)); g.lineCap = g.lineJoin = "round"; [["rgba(236,180,40,.42)", 0.024], ["rgba(255,250,215,.5)", 0.008]].forEach(([c, w]) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath();
+        for (let i = 0; i < m; i++) { const u = i / 70, a = u * 7 + 0.4 + 0.25 * Math.sin(u * 17), r = 0.1 + 0.55 * u + 0.05 * Math.sin(u * 29); i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r); } g.stroke(); }); }
+    }
+    g.restore();
+    // flour dust off the rim, a puff at the launch and a ring when it lands
+    const pf = puffImg(d ? "255,252,244" : "255,255,255");
+    for (const q of PZ.dust) { const a = f - q.t; if (a < 0 || a > q.life) continue; const Q = q.ring ? pzPose(LAND) : pzPose(q.t), ox = Math.cos(q.th) * R * Q.s * Q.rx, oy = Math.sin(q.th) * R * Q.s * Q.cs, mv = q.v * (a - a * a / (2.4 * q.life)) * (q.ring ? 1.4 : 1);
+      const x = Q.x + ox + Math.cos(q.th) * mv, y = Q.y + oy + (q.ring ? Math.sin(q.th) * mv * 0.35 - a * 0.12 : Math.sin(q.th) * mv * 0.5 + a * 0.25), r = q.r * (1 + a / q.life) * R / 150;
+      g.globalAlpha = Math.sin(Math.PI * a / q.life) * (d ? 0.5 : 0.85); g.drawImage(pf, x - r, y - r, 2 * r, 2 * r); }
+    g.globalAlpha = 1; };
+  // steam curls off the baked pizza
+  const pzOver = (g, f, W, H, d) => { if (!PZ) return; const st = ez((f - 196) / 40); if (st <= 0) return; const {R, cx, cy} = PZ, pf = puffImg(d ? "255,250,242" : "255,255,255");
+    g.save(); if (d) g.globalCompositeOperation = "lighter";
+    [[-0.35, 0, 1], [0.05, 2.1, 1.2], [0.4, 4.2, 0.9]].forEach(([x0, ph, k]) => { const top = R * (0.6 + 1.1 * st) * k, base = cy - R * 0.1;
+      for (let i = 0; i <= 22; i++) { const u = i / 22, y = base - top * u, x = cx + R * x0 + R * (0.05 + 0.12 * u) * Math.sin(u * 6 + ph - f * 0.05), r = R * (0.07 + 0.16 * u);
+        g.globalAlpha = st * Math.sin(Math.PI * Math.min(1, u * 1.05)) * (d ? 0.06 : 0.22); g.drawImage(pf, x - r, y - r, 2 * r, 2 * r); } });
+    g.restore(); };
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "italy", name: "Italy", group: "world", desc: "A pastel cliff town tumbling down to a turquoise cove.",
       light: ["#F3F8FA", "rgba(38,138,176,.10)", "#FFFFFF", "#1E2C38", "#56656F", "#D6E6EC", "#E6F0F3", "#FAFCFD", "#C4522F", "#D7744F", "#FFFFFF", "#7A2E18", "#1E5778", "#D2EAF2", "#FFE6A0"],
@@ -24217,10 +26253,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#9FD3F0,#DDF0F7 45%,#FCEBD0)", "linear-gradient(180deg,#101C3A,#22305A 45%,#5A3C5E)"],
       spine: [lg("#2C7FA8", "#1E5778"), lg("#22305A", "#101C3A")], btn: [lg2("#C4522F", "#E39A2E"), lg2("#F6C84A", "#FFE08A")]},
     kit: {motif: "italylemon", card: ["#FFFDF6", "#EAF5F7"], ink: "#1E2C38", bd: "#BFDDE6", mc: "#E8B820", r: 16, notes: ["#FFF0A8", "#FBD8D2"].concat(NOTES), shape: "rounded", pin: "washi2", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "italylemon", d ? ["#F6D04A", "#FFE07A", "#E8B830"] : ["#F7CB34", "#F2B820", "#FFD84A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 16}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)}))
-      .concat(fxFall(W, H, n(40), "italyblossom", d ? ["#FFFFFF", "#F6E8F0"] : ["#FFFFFF", "#FFF6E0", "#FDE4EC"], {sway: 1.6, smin: 6, smax: 9, vmin: 0.8, vmax: 1.6, glow: d ? 6 : 0}),
-        fxRise(W, H, n(3), "italysail", d ? ["#F2F2FA", "#FFE08A"] : ["#FFFFFF", "#F6F0E0"], {cx: [0.25, 0.75], smin: 18, smax: 24, vmin: 0.8, vmax: 1.2, sway: 0.5, life: 320, glow: d ? 10 : 0}).map(p => Object.assign(p, {vr: 0, rot: 0})),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#7FD4E0", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: {len: 330, spawn: (W, H, d, n) => { PZ = pzBuild(W, H); return []; }, draw: pzDraw, over: pzOver},
     tag: "A Positano-style town of pastel houses stacked down limestone cliffs to a turquoise cove, with a majolica dome, lemon terraces, striped umbrellas and the Italian flag waving on the terrace"
   });
 })();
@@ -24246,6 +26279,50 @@ var MAJ_THEMES = [];
     greecedome: {d: half(0, 4, 8.6, 1.02) + "M-9.4 4H9.4V9.6H-9.4Z M-0.7 -10.6H0.7V-4.2H-0.7Z M-2.6 -8.8H2.6V-7.6H-2.6Z", detail: "M-5.6 9V6.6M0 9V6.6M5.6 9V6.6", dstroke: true}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  // a bird drawn fresh every frame, so its wings really beat: head toward +x, ph = wingbeat phase, amp = how far the wings swing.
+  // Each wing has an arm and a hand; the hand trails the arm a little, so the stroke curls like a real wing instead of hinging.
+  const flyBird = (g, sp, ph, amp) => { const ln = sp.line || "rgba(40,50,70,.35)", body = sp.body, a1 = Math.sin(ph) * amp + (sp.lift || 0.1), a2 = Math.sin(ph - 0.75) * amp + (sp.lift || 0.1), wl = sp.wl || 1; g.lineCap = g.lineJoin = "round"; g.lineWidth = 0.35;
+    // each wing turns about the body: up and down on screen, toward or away from us (seen a little from below), swept back toward the tail
+    const wing = (sx, sy, z, col, tip) => { const t1 = 1.1 * a1, t2 = 1.25 * a2, L1 = 5 * wl, L2 = 7.4 * wl * (1 - 0.2 * Math.max(0, Math.cos(ph)) * amp), c0 = 6.4 * (sp.chord || 1), c1 = 5 * (sp.chord || 1),
+        ex = sx - L1 * 0.22, ey = sy + L1 * (-Math.sin(t1) + z * 0.38 * Math.cos(t1)), tx = ex - L2 * (0.56 - 0.14 * Math.cos(t2)), ty = ey + L2 * (-Math.sin(t2) + z * 0.38 * Math.cos(t2)), q = (u, v) => (u + v) / 2;
+      const p = new Path2D(); p.moveTo(sx + 0.6, sy); p.quadraticCurveTo(ex + 0.6, ey, q(ex, tx) + 0.3, q(ey, ty)); p.quadraticCurveTo(tx + 0.4, ty, tx - 0.8, ty + 0.1 * (ty - ey)); p.quadraticCurveTo(tx - 2.2, q(ty, ey), ex - c1, ey + 0.5); p.quadraticCurveTo(ex - c0 * 1.05, q(ey, sy) + 0.6, sx - c0, sy + 0.6); p.closePath();
+      g.fillStyle = col; g.fill(p); g.save(); g.clip(p); if (sp.tipLen) { g.fillStyle = tip; g.beginPath(); g.arc(tx - 0.6, ty, L2 * sp.tipLen, 0, 6.3); g.fill(); }
+      g.strokeStyle = "rgba(0,0,0,.14)"; g.beginPath(); for (let i = 1; i < 4; i++) { const u = i / 4; g.moveTo(ex - c1 * u, ey + 0.5); g.lineTo(tx - 0.6 - 1.2 * u, ty + 0.4); } g.moveTo(ex - 0.3, ey + 0.2); g.quadraticCurveTo(q(ex, sx) - c0 * 0.4, q(ey, sy) + 0.4, sx - c0 * 0.9, sy + 0.4); g.stroke(); g.restore(); g.strokeStyle = ln; g.stroke(p); };
+    wing(0.6, -1.4, -1, mix(sp.wing || body, "#000000", 0.13), mix(sp.tip || sp.wing || body, "#000000", 0.12));
+    if (sp.legs) { g.strokeStyle = sp.legs; g.lineWidth = 0.7; g.beginPath(); g.moveTo(-3, 2.2); g.lineTo(-12.6, 2.6); g.stroke(); g.lineWidth = 0.35; }
+    const tl = sp.tailL || 1; g.fillStyle = sp.tail || body; g.beginPath(); g.moveTo(-4.6, -0.8); g.lineTo(-10.4 * tl, -2); g.quadraticCurveTo(-11.8 * tl, 0.3, -10.4 * tl, 2.6); g.lineTo(-4.4, 2.2); g.closePath(); g.fill(); g.strokeStyle = ln; g.stroke();
+    if (sp.under) { g.fillStyle = sp.under; g.beginPath(); g.moveTo(-4.4, 1); g.lineTo(-7.6, 1.8); g.lineTo(-4.2, 3); g.fill(); }
+    const bp = new Path2D(); bp.ellipse(-0.6, 0.6, 6.4, 3.1, -0.06, 0, 6.3); const gr = g.createLinearGradient(0, -2.6, 0, 3.8); gr.addColorStop(0, mix(body, "#FFFFFF", 0.18)); gr.addColorStop(0.55, body); gr.addColorStop(1, sp.belly || mix(body, "#000000", 0.14)); g.fillStyle = gr; g.fill(bp);
+    if (sp.bib) { g.save(); g.clip(bp); g.fillStyle = sp.bib; oval(g, 5, 0.6, 2.8, 2.8); g.fill(); g.restore(); } g.strokeStyle = ln; g.stroke(bp);
+    const nl = sp.neck || 0, hr = sp.hr || 2.3, hx = 4.8 + nl, hy = -1.4 - nl * 0.25;
+    if (nl) { g.strokeStyle = sp.nk || sp.head; g.lineWidth = hr * 0.95; g.beginPath(); g.moveTo(3.2, -0.2); g.quadraticCurveTo(hx - nl * 0.5, hy + 0.3, hx, hy); g.stroke(); g.lineWidth = 0.35; }
+    const [bl, bh, bc, bcol, btip] = sp.beak, bx = hx + hr * 0.7, bk = new Path2D(`M${bx - 0.6} ${hy - bh * 0.5}Q${bx + bl * 0.6} ${hy - bh * 0.5 + bc * 0.3} ${bx + bl} ${hy + bc}Q${bx + bl * 0.45} ${hy + bh * 0.5 + bc * 0.6} ${bx - 0.6} ${hy + bh * 0.5}Z`);
+    g.fillStyle = bcol; g.fill(bk); if (btip) { g.save(); g.clip(bk); g.fillStyle = btip; g.fillRect(bx + bl * 0.74, hy - 6, 8, 12); g.restore(); } if (sp.bill) { g.save(); g.clip(bk); g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(bx - 1, hy - bh, bl + 2, bh * 0.45); g.restore(); }
+    g.fillStyle = sp.head || body; oval(g, hx, hy, hr, hr * 0.92); g.fill(); g.strokeStyle = ln; g.stroke(); if (sp.cheek) { g.fillStyle = sp.cheek; oval(g, hx - 0.3, hy + 0.7, hr * 0.55, hr * 0.38, 0.4); g.fill(); }
+    if (sp.ring) { g.fillStyle = sp.ring; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.95, 0.95); g.fill(); } g.fillStyle = sp.eye || "#1A1A22"; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.5, 0.5); g.fill();
+    wing(1.4, -0.9, 1, sp.wing || body, sp.tip || sp.wing || body); };
+  // the flock: each bird flies a smooth cubic curve (points in screen shares) over T frames, with an eased fade at both ends.
+  // Heading follows the curve (tilt capped), the body rises a touch on each downstroke, and gliders mix beats with glides.
+  let flock = [];
+  const flockDraw = (sp, end = 262) => (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), halo = d && sp.halo ? fxSprite("puffsoft", sp.halo, 0, d) : null;
+    const at = (b, t) => { const u = Math.max(0, Math.min(1, t / b.T)), v = 1 - u, [p0, p1, p2, p3] = b.P, k0 = v * v * v, k1 = 3 * v * v * u, k2 = 3 * v * u * u, k3 = u * u * u, w = Math.sin(t * 0.021 + b.ph);
+      return [W * (k0 * p0[0] + k1 * p1[0] + k2 * p2[0] + k3 * p3[0]), H * (k0 * p0[1] + k1 * p1[1] + k2 * p2[1] + k3 * p3[1]) + w * H * 0.008]; };
+    flock.forEach(b => { const t = f - b.t0; if (t < 0 || t > b.T) return; const a = fxEase(t / 16) * fxEase((b.T - t) / 30) * fxEase((end - f) / 50); if (a <= 0.01) return;
+      const [x, y] = at(b, t), [x1, y1] = at(b, t + 2), L = x1 < x, s = b.size * sc / 10, ang = Math.max(-0.55, Math.min(0.55, Math.atan2(y1 - y, Math.abs(x1 - x) + 0.001)));
+      const amp = sp.glide ? 0.2 + 0.8 * Math.pow(0.5 + 0.5 * Math.sin(t * sp.glide + b.ph), 1.5) : 1, ph = t * b.fr + b.ph, bob = Math.sin(ph) * amp * (sp.bob || 0.8);
+      g.save(); g.translate(x, y + bob * s); g.rotate(L ? -ang : ang); g.scale(L ? -s : s, s); g.globalAlpha = a * (b.alpha || 1);
+      if (halo) { g.globalAlpha = a * (sp.haloA || 0.12); g.drawImage(halo, -halo._half * 1.5, -halo._half * 1.1, halo._half * 3, halo._half * 2.2); g.globalAlpha = a * (b.alpha || 1); }
+      flyBird(g, sp, ph, amp * (sp.amp || 1)); g.restore(); }); g.globalAlpha = 1; };
+  // a white dove: soft grey-tipped wings, a pink beak
+  const DOVE = {body: "#FFFFFF", belly: "#E6EAF2", wing: "#FAFBFD", tip: "#B2BED2", tipLen: 0.36, tail: "#F2F4F8", beak: [2, 1, 0.3, "#D8A0A0"], hr: 2.2, wl: 1.05, line: "rgba(60,80,125,.55)", halo: "#FFFFFF", bob: 0.8};
+  // bougainvillea: three papery magenta bracts around tiny cream flowers
+  FX_SHAPES.greecebvg = {d: FX_SHAPES.greecebloom.d, paint: (g, c) => { for (let i = 0; i < 3; i++) { g.save(); g.rotate(i * 2.094 - 1.571); const gr = g.createLinearGradient(0, 0, 10, 0); gr.addColorStop(0, mix(c, "#FFFFFF", 0.3)); gr.addColorStop(1, c); g.fillStyle = gr;
+      g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(2, -5.4, 8.6, -5.4, 10, 0); g.bezierCurveTo(8.6, 5.4, 2, 5.4, 0, 0); g.fill(); g.strokeStyle = mix(c, "#000000", 0.25); g.globalAlpha = 0.5; g.lineWidth = 0.35; g.beginPath(); g.moveTo(1, 0); g.lineTo(8.6, 0); g.moveTo(4.4, 0); g.lineTo(6.4, -2.2); g.moveTo(4.4, 0); g.lineTo(6.4, 2.2); g.stroke(); g.restore(); }
+    g.fillStyle = "#FFF4D6"; [[0, -1.2], [1.1, 0.6], [-1.1, 0.6]].forEach(([x, y]) => { oval(g, x, y, 0.9, 0.9); g.fill(); }); }};
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "greece", name: "Greece", group: "world", desc: "White cave houses and blue domes on the caldera cliff above the Aegean.",
       light: ["#F1F6FB", "rgba(31,92,170,.10)", "#FFFFFF", "#13253D", "#4C5F77", "#D5E1EE", "#E5EEF7", "#F8FBFE", "#1F5CAA", "#3D7CC6", "#FFFFFF", "#163F7A", "#1B4E92", "#D0E0F4", "#FFE3A0"],
@@ -24253,10 +26330,11 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#8EC9F0,#D8EEFA 45%,#FFF2DC)", "linear-gradient(180deg,#0E1838,#1D2A5A 45%,#6A3E62)"],
       spine: [lg("#2A64AE", "#173F7A"), lg("#1D2A5A", "#0E1838")], btn: [lg2("#1F5CAA", "#3B86C9"), lg2("#F2B866", "#F6D08E")]},
     kit: {motif: "greecedome", card: ["#FAFCFF", "#E4EEF8"], ink: "#13253D", bd: "#BCD2EA", mc: "#2F6DB8", r: 14, notes: ["#D6E6F8", "#FFF3B8", "#D9F0D8", "#FBD3E6", "#FFD9C8", "#EBD9FF"], shape: "rounded", pin: "pin", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "greecedove", d ? ["#F4F2FF", "#DCDAF4"] : ["#FFFFFF", "#E2ECF8", "#CCDCEE"], {smin: 13, smax: 19, vmin: 1.6, vmax: 2.8, sway: 1.4, life: 240, glow: d ? 10 : 0}).map(p => Object.assign(p, {vx: fxR(-1.3, -0.3)}))
-      .concat(fxFall(W, H, n(56), "greecebloom", d ? ["#E0559E", "#C84A8E", "#F08CC0"] : ["#DA338A", "#E85AA6", "#F49AC8"], {sway: 1.8, flip: true, smin: 6, smax: 10, vmin: 1, vmax: 2}),
-        fxBurst(W, H, n(10), "greecedome", d ? ["#5A7AD0", "#3E5CB0"] : ["#2D6AC0", "#3B7CC9"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)})),
-        fxTw(W, H, n(24), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: {spawn: (W, H, d, n) => { // doves lift off from the foot of the screen and fan out to both sides in smooth climbing arcs
+      flock = Array.from({length: Math.min(11, n(11))}, (_, i) => { const s = i % 2 ? 1 : -1, x0 = 0.5 + s * fxR(0.02, 0.22), r = fxR(-0.1, 0.1); return {P: [[x0, 1.1], [x0 + s * 0.06, 0.72 + r], [x0 + s * 0.32, 0.36 + r], [0.5 + s * fxR(0.85, 1.05), fxR(-0.12, 0.2)]], t0: Math.floor(i * 9 + fxR(0, 8)), T: Math.round(fxR(195, 225)), fr: fxR(0.24, 0.28), ph: fxR(0, 6.3), size: fxR(18, 24)}; });
+      return fxFall(W, H, n(40), "greecebvg", d ? ["#E0559E", "#C84A8E", "#F08CC0"] : ["#D42A84", "#E255A2", "#C21C74"], {sway: 1.8, flip: true, smin: 9, smax: 13, vmin: 1, vmax: 1.8})
+        .concat(fxTw(W, H, n(20), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFFFFF"], {smin: 3, smax: 6, glow: d ? 10 : 6})); },
+      len: 300, draw: flockDraw(DOVE, 292)},
     tag: "Oia's white cave houses and blue domes stacked along the caldera cliff, a windmill on the rim, a mule path zig-zagging down to the harbour, bougainvillea and the famous sunset over the deep blue Aegean"
   });
 })();
@@ -24289,6 +26367,55 @@ var MAJ_THEMES = [];
     egyptsun: {d: circ(0, 0, 5.6) + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => { const a = i / 10 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a); return pts([[c * 7 - s * 1.2, s * 7 + c * 1.2], [c * 11, s * 11], [c * 7 + s * 1.2, s * 7 - c * 1.2]]); }).join(""), detail: circ(0, 0, 3.4), dfill: true}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  // a bird drawn fresh every frame, so its wings really beat: head toward +x, ph = wingbeat phase, amp = how far the wings swing.
+  // Each wing has an arm and a hand; the hand trails the arm a little, so the stroke curls like a real wing instead of hinging.
+  const flyBird = (g, sp, ph, amp) => { const ln = sp.line || "rgba(40,50,70,.35)", body = sp.body, a1 = Math.sin(ph) * amp + (sp.lift || 0.1), a2 = Math.sin(ph - 0.75) * amp + (sp.lift || 0.1), wl = sp.wl || 1; g.lineCap = g.lineJoin = "round"; g.lineWidth = 0.35;
+    // each wing turns about the body: up and down on screen, toward or away from us (seen a little from below), swept back toward the tail
+    const wing = (sx, sy, z, col, tip) => { const t1 = 1.1 * a1, t2 = 1.25 * a2, L1 = 5 * wl, L2 = 7.4 * wl * (1 - 0.2 * Math.max(0, Math.cos(ph)) * amp), c0 = 6.4 * (sp.chord || 1), c1 = 5 * (sp.chord || 1),
+        ex = sx - L1 * 0.22, ey = sy + L1 * (-Math.sin(t1) + z * 0.38 * Math.cos(t1)), tx = ex - L2 * (0.56 - 0.14 * Math.cos(t2)), ty = ey + L2 * (-Math.sin(t2) + z * 0.38 * Math.cos(t2)), q = (u, v) => (u + v) / 2;
+      const p = new Path2D(); p.moveTo(sx + 0.6, sy); p.quadraticCurveTo(ex + 0.6, ey, q(ex, tx) + 0.3, q(ey, ty)); p.quadraticCurveTo(tx + 0.4, ty, tx - 0.8, ty + 0.1 * (ty - ey)); p.quadraticCurveTo(tx - 2.2, q(ty, ey), ex - c1, ey + 0.5); p.quadraticCurveTo(ex - c0 * 1.05, q(ey, sy) + 0.6, sx - c0, sy + 0.6); p.closePath();
+      g.fillStyle = col; g.fill(p); g.save(); g.clip(p); if (sp.tipLen) { g.fillStyle = tip; g.beginPath(); g.arc(tx - 0.6, ty, L2 * sp.tipLen, 0, 6.3); g.fill(); }
+      g.strokeStyle = "rgba(0,0,0,.14)"; g.beginPath(); for (let i = 1; i < 4; i++) { const u = i / 4; g.moveTo(ex - c1 * u, ey + 0.5); g.lineTo(tx - 0.6 - 1.2 * u, ty + 0.4); } g.moveTo(ex - 0.3, ey + 0.2); g.quadraticCurveTo(q(ex, sx) - c0 * 0.4, q(ey, sy) + 0.4, sx - c0 * 0.9, sy + 0.4); g.stroke(); g.restore(); g.strokeStyle = ln; g.stroke(p); };
+    wing(0.6, -1.4, -1, mix(sp.wing || body, "#000000", 0.13), mix(sp.tip || sp.wing || body, "#000000", 0.12));
+    if (sp.legs) { g.strokeStyle = sp.legs; g.lineWidth = 0.7; g.beginPath(); g.moveTo(-3, 2.2); g.lineTo(-12.6, 2.6); g.stroke(); g.lineWidth = 0.35; }
+    const tl = sp.tailL || 1; g.fillStyle = sp.tail || body; g.beginPath(); g.moveTo(-4.6, -0.8); g.lineTo(-10.4 * tl, -2); g.quadraticCurveTo(-11.8 * tl, 0.3, -10.4 * tl, 2.6); g.lineTo(-4.4, 2.2); g.closePath(); g.fill(); g.strokeStyle = ln; g.stroke();
+    if (sp.under) { g.fillStyle = sp.under; g.beginPath(); g.moveTo(-4.4, 1); g.lineTo(-7.6, 1.8); g.lineTo(-4.2, 3); g.fill(); }
+    const bp = new Path2D(); bp.ellipse(-0.6, 0.6, 6.4, 3.1, -0.06, 0, 6.3); const gr = g.createLinearGradient(0, -2.6, 0, 3.8); gr.addColorStop(0, mix(body, "#FFFFFF", 0.18)); gr.addColorStop(0.55, body); gr.addColorStop(1, sp.belly || mix(body, "#000000", 0.14)); g.fillStyle = gr; g.fill(bp);
+    if (sp.bib) { g.save(); g.clip(bp); g.fillStyle = sp.bib; oval(g, 5, 0.6, 2.8, 2.8); g.fill(); g.restore(); } g.strokeStyle = ln; g.stroke(bp);
+    const nl = sp.neck || 0, hr = sp.hr || 2.3, hx = 4.8 + nl, hy = -1.4 - nl * 0.25;
+    if (nl) { g.strokeStyle = sp.nk || sp.head; g.lineWidth = hr * 0.95; g.beginPath(); g.moveTo(3.2, -0.2); g.quadraticCurveTo(hx - nl * 0.5, hy + 0.3, hx, hy); g.stroke(); g.lineWidth = 0.35; }
+    const [bl, bh, bc, bcol, btip] = sp.beak, bx = hx + hr * 0.7, bk = new Path2D(`M${bx - 0.6} ${hy - bh * 0.5}Q${bx + bl * 0.6} ${hy - bh * 0.5 + bc * 0.3} ${bx + bl} ${hy + bc}Q${bx + bl * 0.45} ${hy + bh * 0.5 + bc * 0.6} ${bx - 0.6} ${hy + bh * 0.5}Z`);
+    g.fillStyle = bcol; g.fill(bk); if (btip) { g.save(); g.clip(bk); g.fillStyle = btip; g.fillRect(bx + bl * 0.74, hy - 6, 8, 12); g.restore(); } if (sp.bill) { g.save(); g.clip(bk); g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(bx - 1, hy - bh, bl + 2, bh * 0.45); g.restore(); }
+    g.fillStyle = sp.head || body; oval(g, hx, hy, hr, hr * 0.92); g.fill(); g.strokeStyle = ln; g.stroke(); if (sp.cheek) { g.fillStyle = sp.cheek; oval(g, hx - 0.3, hy + 0.7, hr * 0.55, hr * 0.38, 0.4); g.fill(); }
+    if (sp.ring) { g.fillStyle = sp.ring; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.95, 0.95); g.fill(); } g.fillStyle = sp.eye || "#1A1A22"; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.5, 0.5); g.fill();
+    wing(1.4, -0.9, 1, sp.wing || body, sp.tip || sp.wing || body); };
+  // the flock: each bird flies a smooth cubic curve (points in screen shares) over T frames, with an eased fade at both ends.
+  // Heading follows the curve (tilt capped), the body rises a touch on each downstroke, and gliders mix beats with glides.
+  let flock = [];
+  const flockDraw = (sp, end = 262) => (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), halo = d && sp.halo ? fxSprite("puffsoft", sp.halo, 0, d) : null;
+    const at = (b, t) => { const u = Math.max(0, Math.min(1, t / b.T)), v = 1 - u, [p0, p1, p2, p3] = b.P, k0 = v * v * v, k1 = 3 * v * v * u, k2 = 3 * v * u * u, k3 = u * u * u, w = Math.sin(t * 0.021 + b.ph);
+      return [W * (k0 * p0[0] + k1 * p1[0] + k2 * p2[0] + k3 * p3[0]), H * (k0 * p0[1] + k1 * p1[1] + k2 * p2[1] + k3 * p3[1]) + w * H * 0.008]; };
+    flock.forEach(b => { const t = f - b.t0; if (t < 0 || t > b.T) return; const a = fxEase(t / 16) * fxEase((b.T - t) / 30) * fxEase((end - f) / 50); if (a <= 0.01) return;
+      const [x, y] = at(b, t), [x1, y1] = at(b, t + 2), L = x1 < x, s = b.size * sc / 10, ang = Math.max(-0.55, Math.min(0.55, Math.atan2(y1 - y, Math.abs(x1 - x) + 0.001)));
+      const amp = sp.glide ? 0.2 + 0.8 * Math.pow(0.5 + 0.5 * Math.sin(t * sp.glide + b.ph), 1.5) : 1, ph = t * b.fr + b.ph, bob = Math.sin(ph) * amp * (sp.bob || 0.8);
+      g.save(); g.translate(x, y + bob * s); g.rotate(L ? -ang : ang); g.scale(L ? -s : s, s); g.globalAlpha = a * (b.alpha || 1);
+      if (halo) { g.globalAlpha = a * (sp.haloA || 0.12); g.drawImage(halo, -halo._half * 1.5, -halo._half * 1.1, halo._half * 3, halo._half * 2.2); g.globalAlpha = a * (b.alpha || 1); }
+      flyBird(g, sp, ph, amp * (sp.amp || 1)); g.restore(); }); g.globalAlpha = 1; };
+  const IBIS = {body: "#FFFFFF", belly: "#E8E2D8", wing: "#FBF9F4", tip: "#1E1A1C", tipLen: 0.42, tail: "#2A2426", tailL: 0.9, head: "#1E1A1C", neck: 3.2, hr: 1.6, beak: [6.6, 0.9, 2.6, "#2A2224"], legs: "#3A3032", wl: 1.25, line: "rgba(70,56,40,.4)", halo: "#FFE6B0", bob: 0.7};
+  const ibisDraw = flockDraw(IBIS, 292);
+  // the sun disc of Ra swells up out of the haze with slow-turning rays behind it, and the ibis fly across in front
+  const sunDraw = (g, f, W, H, d) => { const a = fxEase(f / 45) * fxOut(f, 200, 285); if (a <= 0) return; const ph = W < H, R = Math.min(W, H) * (ph ? 0.12 : 0.095), cx = W * (ph ? 0.64 : 0.66), cy = H * (ph ? 0.22 : 0.25) + (1 - fxEase(f / 140)) * H * 0.05;
+    g.globalCompositeOperation = d ? "lighter" : "source-over"; let gr = g.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 3.4); gr.addColorStop(0, d ? "rgba(255,200,110,.32)" : "rgba(255,214,140,.55)"); gr.addColorStop(1, "rgba(255,200,120,0)");
+    g.globalAlpha = d ? a * Math.min(1, fxEase(f / 40) * fxOut(f, 185, 240) * 1.6) : a; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * 3.4, 0, 6.3); g.fill();
+    gr = g.createRadialGradient(cx, cy, R, cx, cy, R * 2.9); gr.addColorStop(0, d ? "rgba(255,214,140,.22)" : "rgba(255,190,90,.24)"); gr.addColorStop(1, "rgba(255,200,120,0)"); g.fillStyle = gr; g.beginPath();
+    for (let i = 0; i < 16; i++) { const t = i / 16 * 6.283 + f * 0.0025, w = i % 2 ? 0.05 : 0.085, L = R * (i % 2 ? 2.3 : 2.9); g.moveTo(cx + Math.cos(t - w) * R, cy + Math.sin(t - w) * R); g.lineTo(cx + Math.cos(t) * L, cy + Math.sin(t) * L); g.lineTo(cx + Math.cos(t + w) * R, cy + Math.sin(t + w) * R); } g.fill();
+    // at night a see-through sun over navy would read grey, so there the disc stays bright gold and grows from / shrinks to a point instead
+    const sz = d ? fxEase(f / 40) * fxOut(f, 185, 240) : 1; gr = g.createRadialGradient(cx - R * 0.25, cy - R * 0.3, 0, cx, cy, R); gr.addColorStop(0, d ? "#FFF2C8" : "#FFF8DC"); gr.addColorStop(0.6, d ? "#FFD07A" : "#FFD27A"); gr.addColorStop(1, d ? "#F2A848" : "#F4B04E");
+    g.globalAlpha = d ? 0.88 * Math.min(1, sz * 8) : a * 0.8; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * (d ? sz : 0.9 + 0.1 * fxEase(f / 60)), 0, 6.3); g.fill(); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; };
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "egypt", name: "Egypt", group: "world", desc: "The pyramids at golden hour above the Nile.",
       light: ["#FBF5EA", "rgba(176,100,28,.10)", "#FFFFFF", "#2A2216", "#6E604C", "#ECDDC4", "#F5EBDA", "#FDFAF4", "#B0641C", "#C98A3E", "#FFFFFF", "#7A4214", "#1D3D6A", "#E6EEF8", "#FFE3A0"],
@@ -24296,11 +26423,13 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#9CCBEA,#F4E6C6 45%,#F6C98A)", "linear-gradient(180deg,#0C1232,#1E2050 45%,#4E3260)"],
       spine: [lg("#2F5E96", "#1D3D6A"), lg("#2A2E66", "#14163A")], btn: [lg2("#B0641C", "#D9962E"), lg2("#F2C462", "#F7DC94")]},
     kit: {motif: "egyptpyr", card: ["#FFFAF0", "#F6E6CC"], ink: "#2A2216", bd: "#E8D0A8", mc: "#B0641C", r: 12, notes: ["#F6E2BC", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "folded", pin: "gold", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "egyptibis", d ? ["#F4F0FF", "#E2DCF6"] : ["#3A2A26", "#5A4034"], {smin: 12, smax: 18, vmin: 1.1, vmax: 1.9, sway: 0.6, life: 320, glow: d ? 10 : 0})
-      .concat(fxFall(W, H, n(32), "egyptlotus", d ? ["#9AB4FF", "#C4D0FF", "#F6C4D8"] : ["#3E6FC6", "#5A8CE0", "#E888A8"], {sway: 1.6, flip: true, smin: 7, smax: 11, vmin: 0.9, vmax: 1.8, glow: d ? 6 : 0}),
-        fxBurst(W, H, n(10), "egyptscarab", d ? ["#4AC8B8", "#3AA8C8"] : ["#1F8A84", "#2A6FA0"], [[0.2, 1.02], [0.8, 1.02]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxBurst(W, H, n(4), "egyptpyr", d ? ["#F2C462"] : ["#E0A040"], [[0.5, 1.04]], {smin: 14, smax: 18, glow: d ? 12 : 4}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: {spawn: (W, H, d, n) => { const k = Math.max(3, Math.min(9, n(9) | 1)), sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), bs = W < H ? 17 : 21, gap = 2.5 * bs * sc, rm = (k - 1) / 2, dep = rm * gap / W, y0 = fxR(0.3, 0.36);
+        // a V of ibis: the leader flies a long gentle curve over the sun, the others hold their places behind it
+        flock = Array.from({length: k}, (_, i) => { const r = Math.ceil(i / 2), sd = i % 2 ? -1 : 1, ox = -r * gap / W, oy = sd * r * gap * 0.55 / H + (sd < 0 ? -0.004 : 0);
+          return {P: [[-0.1 + ox, y0 + oy], [0.3 + ox, y0 - 0.1 + oy], [0.6 + ox, y0 - 0.1 + oy], [1.12 + dep + ox, y0 - 0.16 + oy]], t0: 6, T: 250, fr: fxR(0.16, 0.18), ph: i * 0.9 + fxR(0, 0.6), size: bs - r * 0.6, alpha: 1}; });
+      return fxTw(W, H, n(34), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#F2C462"] : ["#E0A040", "#F2B53A", "#FFFFFF"], {smin: 3, smax: 7, glow: d ? 10 : 6, spread: 150}).map(p => Object.assign(p, {y: H * fxR(0.45, 0.98)}))
+        .concat(fxRise(W, H, n(16), "circle", d ? ["#FFE3A8", "#F7DC94"] : ["#E8A848", "#F2C46A"], {smin: 1.6, smax: 3, vmin: 0.4, vmax: 0.9, sway: 0.7, life: 220, spread: 90, glow: d ? 8 : 4, alpha: 0.8})); },
+      len: 300, draw: (g, f, W, H, d) => { sunDraw(g, f, W, H, d); ibisDraw(g, f, W, H, d); }},
     tag: "The pyramids of Giza and the Sphinx at golden hour, above the Nile with its palms, papyrus and a white-sailed felucca"
   });
 })();
@@ -24322,6 +26451,46 @@ var MAJ_THEMES = [];
     canadamtn: {d: "M-11.5 8.5L-5.4 -2.4L-3.2 0.2L1.2 -8.6L6.2 0.6L8 -1.6L11.5 8.5Z", detail: "M1.2 -8.6L3.6 -3.8L2 -4.6L0.6 -3L-0.8 -4.8Z", dfill: true}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // a Canada goose in flight, side view, drawn live every frame in body lengths (BL), head toward +x: long black neck
+  // stretched forward, black head with a white chinstrap, brown-grey body, pale belly, white under the tail, and long
+  // wings (span about 2.2 BL) beating through a big smooth stroke, the hand bending back at the wrist on the upstroke.
+  // We look from slightly below, so the near wing drops and the far wing lifts when they are level, and both read.
+  const GZ = {body: "#7E6E60", back: "#6A5C50", belly: "#DCD3C6", wing: "#76685C", hand: "#4A3F36", farW: "#5E5248", farH: "#3A322C", black: "#17161A"};
+  const gooseDraw = (g, w, ph, dk) => { const dw = Math.cos(ph), up = 0.12 + 0.92 * w, hand = up - 0.32 * (0.5 + 0.5 * dw), rim = dk ? "rgba(226,230,244,.55)" : "rgba(30,24,20,.35)";
+    const wingP = (k, sx) => { const P = (x, y, z) => [x, -y + k * z], a1 = 0.5, a2 = 0.74, S = [0.2 + sx, -0.12], Wr = [S[0] - 0.04 + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[0], S[1] + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[1]],
+        hv = P(-0.2, Math.sin(hand) * a2, Math.cos(hand) * a2), T = [Wr[0] + hv[0], Wr[1] + hv[1]], Wb = [Wr[0] - 0.42, Wr[1] + 0.05], Sr = [S[0] - 0.46, S[1] + 0.05], Tb = [T[0] - 0.1, T[1] + 0.06];
+      return {S, Wr, T, Wb, Sr, Tb}; };
+    const wing = (k, sx, cw, ch) => { const {S, Wr, T, Wb, Sr, Tb} = wingP(k, sx); g.fillStyle = cw; g.beginPath(); g.moveTo(S[0], S[1]); g.quadraticCurveTo((S[0] + Wr[0]) / 2 + 0.03, (S[1] + Wr[1]) / 2, Wr[0], Wr[1]); g.lineTo(T[0], T[1]); g.lineTo(Tb[0], Tb[1]);
+      g.quadraticCurveTo((Wb[0] + Tb[0]) / 2 - 0.04, (Wb[1] + Tb[1]) / 2 + 0.02, Wb[0], Wb[1]); g.quadraticCurveTo((Wb[0] + Sr[0]) / 2, (Wb[1] + Sr[1]) / 2 + 0.05, Sr[0], Sr[1]); g.closePath(); g.fill(); g.strokeStyle = rim; g.lineWidth = 0.018; g.stroke();
+      g.fillStyle = ch; g.beginPath(); g.moveTo(Wr[0], Wr[1]); g.lineTo(T[0], T[1]); g.lineTo(Tb[0], Tb[1]); g.quadraticCurveTo((Wb[0] + Tb[0]) / 2 - 0.04, (Wb[1] + Tb[1]) / 2 + 0.02, Wb[0], Wb[1]); g.closePath(); g.fill(); };
+    wing(-0.24, 0.08, GZ.farW, GZ.farH);
+    // tail, body, pale belly and white undertail
+    g.fillStyle = GZ.black; g.beginPath(); g.moveTo(-0.42, -0.08); g.lineTo(-0.66, -0.06); g.lineTo(-0.64, 0.05); g.lineTo(-0.42, 0.06); g.closePath(); g.fill();
+    const bp = new Path2D(); bp.ellipse(0, 0, 0.5, 0.165, -0.03, 0, 6.3); g.fillStyle = GZ.body; g.fill(bp); g.save(); g.clip(bp); g.fillStyle = GZ.back; g.fillRect(-0.6, -0.3, 1.2, 0.17); g.fillStyle = GZ.belly; g.beginPath(); g.ellipse(0.02, 0.15, 0.46, 0.11, 0, 0, 6.3); g.fill();
+    g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(-0.42, 0.06, 0.13, 0.09, 0.2, 0, 6.3); g.fill(); g.restore(); g.strokeStyle = rim; g.lineWidth = 0.018; g.stroke(bp);
+    // the long black neck and head with its white chinstrap
+    g.lineCap = "round"; if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.15; g.beginPath(); g.moveTo(0.38, -0.04); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); }
+    g.strokeStyle = GZ.black; g.lineWidth = 0.11; g.beginPath(); g.moveTo(0.36, -0.03); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); g.fillStyle = GZ.black; g.beginPath(); g.ellipse(0.99, -0.1, 0.115, 0.08, 0.05, 0, 6.3); g.fill(); if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.02; g.stroke(); }
+    g.beginPath(); g.moveTo(1.06, -0.125); g.lineTo(1.2, -0.095); g.lineTo(1.06, -0.065); g.closePath(); g.fill(); g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(0.96, -0.07, 0.07, 0.042, 0.45, 0, 6.3); g.fill();
+    g.fillStyle = dk ? "#C8C0B4" : "#B8AC9C"; g.beginPath(); g.ellipse(0.4, 0.02, 0.07, 0.08, 0, 0, 6.3); g.fill();
+    wing(0.24, 0, GZ.wing, GZ.hand); };
+  // each V glides on a gentle wave, every bird drifts a little in its slot, faces its heading and beats slightly out of phase
+  let flock = [];
+  const flockDraw = () => (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+    for (const b of flock) { const t = f - b.t0; if (t < 0 || t > b.life) continue; const a = fxEase(t / 20) * fxEase((b.life - t) / 40); if (a <= 0.01) continue;
+      const pos = u => [b.x + b.vx * u + 3 * Math.sin(u * 0.021 + b.ph) * sc, b.y + b.amp * Math.sin(u * 0.011 + b.wph) - b.climb * u + 3.5 * Math.sin(u * 0.027 + b.ph * 1.7) * sc],
+        [x, y] = pos(t), [x1, y1] = pos(t + 1), [x0, y0] = pos(t - 1), hx = x1 - x0, hy = y1 - y0, L = hx < 0;
+      const ph = t * b.fr + b.ph, w = Math.sin(ph + 0.3 * Math.sin(ph)), s = b.size * sc;
+      g.globalAlpha = a; g.save(); g.translate(x, y + w * 0.05 * s); g.rotate(L ? Math.atan2(-hy, -hx) : Math.atan2(hy, hx)); g.scale(L ? -s : s, s); gooseDraw(g, w, ph, d); g.restore(); }
+    g.globalAlpha = 1; };
+  // a sugar maple leaf, warming from the stem toward its points, with fine veins
+  FX_SHAPES.canadamaple = {d: FX_SHAPES.canadaleaf.d, paint: (g, c) => { const p = new Path2D(FX_SHAPES.canadaleaf.d), gr = g.createLinearGradient(0, 9, 0, -12); gr.addColorStop(0, mix(c, "#F6C440", 0.45)); gr.addColorStop(0.6, c); gr.addColorStop(1, mix(c, "#7A1A10", 0.25)); g.fillStyle = gr; g.fill(p); sheen(g, 0.26, 0.2);
+    g.strokeStyle = mix(c, "#5A1008", 0.45); g.globalAlpha = 0.55; g.lineWidth = 0.4; g.stroke(new Path2D("M0 7.6L0 -9M0 1L6.4 -4M0 1L-6.4 -4M0 3L5 3.6M0 3L-5 3.6M0 -3L2.6 -7M0 -3L-2.6 -7")); g.globalAlpha = 1; g.strokeStyle = mix(c, "#4A2A10", 0.5); g.lineWidth = 0.7; g.beginPath(); g.moveTo(0, 7.6); g.lineTo(0.4, 11.4); g.stroke(); }};
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "canada", name: "Canada", group: "world", desc: "A turquoise lake below the Rocky Mountains.",
       light: ["#EEF6F5", "rgba(184,58,44,.10)", "#FFFFFF", "#17303A", "#4E6670", "#D2E3E2", "#E2EEED", "#F7FBFA", "#B83A2C", "#CF6252", "#FFFFFF", "#7A2218", "#134C56", "#CDEDEA", "#FFE2A8"],
@@ -24329,10 +26498,13 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#9CCDF0,#DCEEF8 45%,#EFF3E6)", "linear-gradient(180deg,#0A1430,#172A50 45%,#2C4A5E)"],
       spine: [lg("#1E7480", "#134C56"), lg("#172A50", "#0A1430")], btn: [lg2("#B83A2C", "#D9662A"), lg2("#5ED4D0", "#8FE6DC")]},
     kit: {motif: "canadaleaf", card: ["#FBFDFC", "#E3F2F0"], ink: "#17303A", bd: "#B8DAD6", mc: "#C8392B", r: 12, notes: ["#FBD8C8", "#CDEDEA"].concat(NOTES), shape: "folded", pin: "tape", fab: "18px 18px 6px 18px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(60), "canadaleaf", d ? ["#E0503A", "#F08A3A", "#F2B04A", "#C83A2E"] : ["#D6382A", "#EE8C2A", "#F2B23E", "#B82E22"], {sway: 2.2, flip: true, smin: 9, smax: 15, vmin: 1, vmax: 2.2}).map(p => Object.assign(p, {vx: fxR(0.4, 1.4)}))
-      .concat(fxBurst(W, H, n(12), "canadacanoe", d ? ["#E05A44", "#F2B04A"] : ["#D6382A", "#C8462E"], [[0.2, 1.02], [0.8, 1.02]], {smin: 13, smax: 17}).map(p => Object.assign(p, {vr: fxR(-0.04, 0.04)})),
-        fxBurst(W, H, n(14), "canadaspruce", d ? ["#3A7A62", "#2E6650"] : ["#2B5345", "#3A6656", "#2F6A4E"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#7CF0C0", "#C49CFF", "#FFFFFF"] : ["#5ED2D0", "#FFFFFF", "#F2B23E"], {smin: 3, smax: 7, top: 0.6, glow: d ? 12 : 4}))},
+    fx: {spawn: (W, H, d, n) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), gap = 46 * sc, vee = (k, x0, y0, dir, t0, v) => { const wph = fxR(0, 6.3); return Array.from({length: k}, (_, i) => { const j = Math.ceil(i / 2), side = i % 2 ? 1 : -1;
+        return {x: x0 - dir * j * gap, y: y0 + side * j * gap * 0.5, vx: dir * v, amp: H * 0.025, wph, climb: 0.05, t0: t0 + j * 2, life: 330, fr: 0.17, ph: j * 0.7 + fxR(0, 0.5), size: fxR(17, 19.5)}; }); };
+      flock = vee(Math.min(9, n(7)), -40, H * 0.3, 1, 0, W / 240).concat(vee(Math.min(7, n(5)), W + 40, H * 0.15, -1, 36, W / 270));
+      return fxFall(W, H, n(42), "canadamaple", d ? ["#E0503A", "#F08A3A", "#F2B04A", "#C83A2E"] : ["#D6382A", "#EE8C2A", "#F2B23E", "#B82E22"], {sway: 1.5, flip: true, smin: 11, smax: 16, vmin: 0.9, vmax: 1.5, spread: 70, life: 320})
+          .map(p => Object.assign(p, {vx: fxR(0.3, 1) * p.z, g: 0.004 * p.z, term: 1.6 * p.z, swf: fxR(0.022, 0.036)}))
+        .concat(fxTw(W, H, n(12), "sparkle", d ? ["#7CF0C0", "#FFFFFF"] : ["#FFFFFF", "#F2B23E"], {smin: 3, smax: 6, top: 0.6, glow: d ? 12 : 6})); },
+      len: 300, draw: flockDraw()},
     tag: "A turquoise glacier lake below a jagged wall of snowy Rocky Mountain peaks, with red canoes at the dock, a log cabin and maples in autumn color"
   });
 })();
@@ -24364,6 +26536,49 @@ var MAJ_THEMES = [];
     venicearch: {d: "M-5 10V-1Q-5 -5 -2.6 -7.4Q-0.8 -9 0 -11Q0.8 -9 2.6 -7.4Q5 -5 5 -1V10Z", detail: "M-3 9V-0.6Q-3 -3.8 -1.2 -5.8Q-0.4 -6.8 0 -8Q0.4 -6.8 1.2 -5.8Q3 -3.8 3 -0.6V9Z", dfill: true}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  // a bird drawn fresh every frame, so its wings really beat: head toward +x, ph = wingbeat phase, amp = how far the wings swing.
+  // Each wing has an arm and a hand; the hand trails the arm a little, so the stroke curls like a real wing instead of hinging.
+  const flyBird = (g, sp, ph, amp) => { const ln = sp.line || "rgba(40,50,70,.35)", body = sp.body, a1 = Math.sin(ph) * amp + (sp.lift || 0.1), a2 = Math.sin(ph - 0.75) * amp + (sp.lift || 0.1), wl = sp.wl || 1; g.lineCap = g.lineJoin = "round"; g.lineWidth = 0.35;
+    // each wing turns about the body: up and down on screen, toward or away from us (seen a little from below), swept back toward the tail
+    const wing = (sx, sy, z, col, tip) => { const t1 = 1.1 * a1, t2 = 1.25 * a2, L1 = 5 * wl, L2 = 7.4 * wl * (1 - 0.2 * Math.max(0, Math.cos(ph)) * amp), c0 = 6.4 * (sp.chord || 1), c1 = 5 * (sp.chord || 1),
+        ex = sx - L1 * 0.22, ey = sy + L1 * (-Math.sin(t1) + z * 0.38 * Math.cos(t1)), tx = ex - L2 * (0.56 - 0.14 * Math.cos(t2)), ty = ey + L2 * (-Math.sin(t2) + z * 0.38 * Math.cos(t2)), q = (u, v) => (u + v) / 2;
+      const p = new Path2D(); p.moveTo(sx + 0.6, sy); p.quadraticCurveTo(ex + 0.6, ey, q(ex, tx) + 0.3, q(ey, ty)); p.quadraticCurveTo(tx + 0.4, ty, tx - 0.8, ty + 0.1 * (ty - ey)); p.quadraticCurveTo(tx - 2.2, q(ty, ey), ex - c1, ey + 0.5); p.quadraticCurveTo(ex - c0 * 1.05, q(ey, sy) + 0.6, sx - c0, sy + 0.6); p.closePath();
+      g.fillStyle = col; g.fill(p); g.save(); g.clip(p); if (sp.tipLen) { g.fillStyle = tip; g.beginPath(); g.arc(tx - 0.6, ty, L2 * sp.tipLen, 0, 6.3); g.fill(); }
+      g.strokeStyle = "rgba(0,0,0,.14)"; g.beginPath(); for (let i = 1; i < 4; i++) { const u = i / 4; g.moveTo(ex - c1 * u, ey + 0.5); g.lineTo(tx - 0.6 - 1.2 * u, ty + 0.4); } g.moveTo(ex - 0.3, ey + 0.2); g.quadraticCurveTo(q(ex, sx) - c0 * 0.4, q(ey, sy) + 0.4, sx - c0 * 0.9, sy + 0.4); g.stroke(); g.restore(); g.strokeStyle = ln; g.stroke(p); };
+    wing(0.6, -1.4, -1, mix(sp.wing || body, "#000000", 0.13), mix(sp.tip || sp.wing || body, "#000000", 0.12));
+    if (sp.legs) { g.strokeStyle = sp.legs; g.lineWidth = 0.7; g.beginPath(); g.moveTo(-3, 2.2); g.lineTo(-12.6, 2.6); g.stroke(); g.lineWidth = 0.35; }
+    const tl = sp.tailL || 1; g.fillStyle = sp.tail || body; g.beginPath(); g.moveTo(-4.6, -0.8); g.lineTo(-10.4 * tl, -2); g.quadraticCurveTo(-11.8 * tl, 0.3, -10.4 * tl, 2.6); g.lineTo(-4.4, 2.2); g.closePath(); g.fill(); g.strokeStyle = ln; g.stroke();
+    if (sp.under) { g.fillStyle = sp.under; g.beginPath(); g.moveTo(-4.4, 1); g.lineTo(-7.6, 1.8); g.lineTo(-4.2, 3); g.fill(); }
+    const bp = new Path2D(); bp.ellipse(-0.6, 0.6, 6.4, 3.1, -0.06, 0, 6.3); const gr = g.createLinearGradient(0, -2.6, 0, 3.8); gr.addColorStop(0, mix(body, "#FFFFFF", 0.18)); gr.addColorStop(0.55, body); gr.addColorStop(1, sp.belly || mix(body, "#000000", 0.14)); g.fillStyle = gr; g.fill(bp);
+    if (sp.bib) { g.save(); g.clip(bp); g.fillStyle = sp.bib; oval(g, 5, 0.6, 2.8, 2.8); g.fill(); g.restore(); } g.strokeStyle = ln; g.stroke(bp);
+    const nl = sp.neck || 0, hr = sp.hr || 2.3, hx = 4.8 + nl, hy = -1.4 - nl * 0.25;
+    if (nl) { g.strokeStyle = sp.nk || sp.head; g.lineWidth = hr * 0.95; g.beginPath(); g.moveTo(3.2, -0.2); g.quadraticCurveTo(hx - nl * 0.5, hy + 0.3, hx, hy); g.stroke(); g.lineWidth = 0.35; }
+    const [bl, bh, bc, bcol, btip] = sp.beak, bx = hx + hr * 0.7, bk = new Path2D(`M${bx - 0.6} ${hy - bh * 0.5}Q${bx + bl * 0.6} ${hy - bh * 0.5 + bc * 0.3} ${bx + bl} ${hy + bc}Q${bx + bl * 0.45} ${hy + bh * 0.5 + bc * 0.6} ${bx - 0.6} ${hy + bh * 0.5}Z`);
+    g.fillStyle = bcol; g.fill(bk); if (btip) { g.save(); g.clip(bk); g.fillStyle = btip; g.fillRect(bx + bl * 0.74, hy - 6, 8, 12); g.restore(); } if (sp.bill) { g.save(); g.clip(bk); g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(bx - 1, hy - bh, bl + 2, bh * 0.45); g.restore(); }
+    g.fillStyle = sp.head || body; oval(g, hx, hy, hr, hr * 0.92); g.fill(); g.strokeStyle = ln; g.stroke(); if (sp.cheek) { g.fillStyle = sp.cheek; oval(g, hx - 0.3, hy + 0.7, hr * 0.55, hr * 0.38, 0.4); g.fill(); }
+    if (sp.ring) { g.fillStyle = sp.ring; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.95, 0.95); g.fill(); } g.fillStyle = sp.eye || "#1A1A22"; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.5, 0.5); g.fill();
+    wing(1.4, -0.9, 1, sp.wing || body, sp.tip || sp.wing || body); };
+  // the flock: each bird flies a smooth cubic curve (points in screen shares) over T frames, with an eased fade at both ends.
+  // Heading follows the curve (tilt capped), the body rises a touch on each downstroke, and gliders mix beats with glides.
+  let flock = [];
+  const flockDraw = (sp, end = 262) => (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), halo = d && sp.halo ? fxSprite("puffsoft", sp.halo, 0, d) : null;
+    const at = (b, t) => { const u = Math.max(0, Math.min(1, t / b.T)), v = 1 - u, [p0, p1, p2, p3] = b.P, k0 = v * v * v, k1 = 3 * v * v * u, k2 = 3 * v * u * u, k3 = u * u * u, w = Math.sin(t * 0.021 + b.ph);
+      return [W * (k0 * p0[0] + k1 * p1[0] + k2 * p2[0] + k3 * p3[0]), H * (k0 * p0[1] + k1 * p1[1] + k2 * p2[1] + k3 * p3[1]) + w * H * 0.008]; };
+    flock.forEach(b => { const t = f - b.t0; if (t < 0 || t > b.T) return; const a = fxEase(t / 16) * fxEase((b.T - t) / 30) * fxEase((end - f) / 50); if (a <= 0.01) return;
+      const [x, y] = at(b, t), [x1, y1] = at(b, t + 2), L = x1 < x, s = b.size * sc / 10, ang = Math.max(-0.55, Math.min(0.55, Math.atan2(y1 - y, Math.abs(x1 - x) + 0.001)));
+      const amp = sp.glide ? 0.2 + 0.8 * Math.pow(0.5 + 0.5 * Math.sin(t * sp.glide + b.ph), 1.5) : 1, ph = t * b.fr + b.ph, bob = Math.sin(ph) * amp * (sp.bob || 0.8);
+      g.save(); g.translate(x, y + bob * s); g.rotate(L ? -ang : ang); g.scale(L ? -s : s, s); g.globalAlpha = a * (b.alpha || 1);
+      if (halo) { g.globalAlpha = a * (sp.haloA || 0.12); g.drawImage(halo, -halo._half * 1.5, -halo._half * 1.1, halo._half * 3, halo._half * 2.2); g.globalAlpha = a * (b.alpha || 1); }
+      flyBird(g, sp, ph, amp * (sp.amp || 1)); g.restore(); }); g.globalAlpha = 1; };
+  // a Venetian rock pigeon: blue-grey with dark wingtips, a green-violet sheen at the neck and an orange eye
+  const PIGEON = {body: "#8E96A8", belly: "#AEB4C2", wing: "#A6ADBC", tip: "#4A505E", tipLen: 0.36, tail: "#6A7284", head: "#7A8296", bib: "#6E9C92", beak: [1.8, 0.9, 0.3, "#3A3438"], eye: "#E07A2A", hr: 2.1, wl: 0.95, line: "rgba(40,44,60,.4)", halo: "#E8ECF6", bob: 0.9};
+  // a soft grey feather with its quill
+  FX_SHAPES.venicefthr = {d: FX_SHAPES.venicefeather.d, paint: (g, c) => { const p = new Path2D("M0 -10Q5 -6 4.4 1Q3.6 6 0.6 9.4L-0.6 9.4Q-3.6 6 -4.4 1Q-5 -6 0 -10Z"), gr = g.createLinearGradient(-4, 0, 4, 0); gr.addColorStop(0, mix(c, "#FFFFFF", 0.4)); gr.addColorStop(0.5, c); gr.addColorStop(1, mix(c, "#000000", 0.15)); g.fillStyle = gr; g.fill(p);
+    g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = 0.3; g.beginPath(); for (let y = -7; y < 7; y += 1.6) { g.moveTo(0, y); g.lineTo(3.6, y - 2); g.moveTo(0, y + 0.8); g.lineTo(-3.6, y - 1.2); } g.stroke(); g.strokeStyle = mix(c, "#000000", 0.35); g.lineWidth = 0.5; g.beginPath(); g.moveTo(0, -8.8); g.lineTo(0, 11.4); g.stroke(); }};
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "venice", name: "Venice", group: "world", desc: "Gondolas glide past old palazzos under an Italian flag.",
       light: ["#F6F0E6", "rgba(46,110,104,.10)", "#FFFFFF", "#22302F", "#5C6866", "#E6DCCD", "#F0E8DC", "#FCF9F4", "#A84A32", "#C26A4C", "#FFFFFF", "#6A2A1C", "#2C5E5A", "#D2E8E4", "#FFE2A6"],
@@ -24371,12 +26586,11 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#A8D2EE,#F2ECDD 50%,#F6D3B0)", "linear-gradient(180deg,#0E1636,#22285A 50%,#5A3A62)"],
       spine: [lg("#357A74", "#22504C"), lg("#262C60", "#121834")], btn: [lg2("#A84A32", "#C9784C"), lg2("#F2C878", "#F6DA9E")]},
     kit: {motif: "venicegondola", card: ["#FFFCF6", "#F2E9DC"], ink: "#22302F", bd: "#E4D4BE", mc: "#A84A32", r: 14, notes: ["#F7D8CC", "#FFF1B8", "#D4ECE6", "#D6E4FA", "#EADCF8", "#FFE0C4"], shape: "scallop", pin: "gold", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxTw(W, H, n(40), "sparkle", d ? ["#FFFFFF", "#FFF0C8", "#FFE0A0"] : ["#F2C46A", "#FFFFFF", "#F6D892"], {top: 0.9, smin: 3, smax: 7, glow: d ? 12 : 6})
-      .concat(fxRise(W, H, n(12), "venicepigeon", d ? ["#B8BCD0", "#9EA4BE"] : ["#8E95A6", "#A4AAB8", "#7C8496"], {smin: 12, smax: 17, vmin: 1.4, vmax: 2.4, sway: 1.1, life: 280}).map(p => Object.assign(p, {flap: fxR(0.25, 0.38), vx: fxR(-1.4, 1.4)})),
-        fxFall(W, H, n(14), "venicefeather", d ? ["#D6D8E8", "#B8BCD0"] : ["#FFFFFF", "#D8DCE4", "#BFC4D0"], {sway: 1.6, smin: 8, smax: 12, vmin: 0.7, vmax: 1.3}).map(p => Object.assign(p, {vr: fxR(-0.04, 0.04)})),
-        fxBurst(W, H, n(10), "venicemask", d ? ["#F2C878", "#E890B0", "#9AD0E0"] : ["#C8463E", "#E2B048", "#2E7A86", "#B85A9A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 12, smax: 16}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxRise(W, H, n(3), "venicegondola", d ? ["#F6DA9E"] : ["#22202A"], {smin: 22, smax: 26, life: 320, glow: d ? 14 : 0}).map((p, i) => Object.assign(p, {x: fxR(-60, W * 0.25), y: H * fxR(0.72, 0.94), vx: fxR(1.6, 2.2), vy: 0, sway: 0, vr: 0, rot: 0})),
-        fxFall(W, H, n(18), "veniceflag", d ? ["#2E8A5E", "#E8E4F4", "#C84452"] : ["#159A4E", "#FFFFFF", "#D8323C"], {sway: 1.4, smin: 7, smax: 10, vmin: 0.8, vmax: 1.4}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)})))},
+    fx: {spawn: (W, H, d, n) => { // pigeons burst up off the piazza, each climbing away on its own curve, quick wingbeats
+      flock = Array.from({length: Math.min(12, n(12))}, (_, i) => { const s = i % 2 ? 1 : -1, x0 = fxR(0.1, 0.9), r = fxR(-0.1, 0.1); return {P: [[x0, 1.08], [x0 + s * 0.04, 0.7 + r], [x0 + s * 0.3, 0.4 + r], [x0 + s * fxR(0.85, 1.1), fxR(-0.25, 0.1)]], t0: Math.floor(i * 8 + fxR(0, 16)), T: Math.round(fxR(170, 210)), fr: fxR(0.34, 0.4), ph: fxR(0, 6.3), size: fxR(16, 21)}; });
+      return fxFall(W, H, n(16), "venicefthr", d ? ["#D6D8E8", "#B8BCD0"] : ["#C4C9D4", "#A8AEBC", "#E0E3EA"], {sway: 1.6, smin: 9, smax: 13, vmin: 0.6, vmax: 1.1, rock: 0.7}).map(p => Object.assign(p, {delay: p.delay + 30}))
+        .concat(fxTw(W, H, n(30), "sparkle", d ? ["#FFFFFF", "#FFF0C8", "#FFE0A0"] : ["#E2B048", "#F2C46A", "#FFFFFF"], {top: 0.9, smin: 3, smax: 7, glow: d ? 12 : 6})); },
+      len: 300, draw: flockDraw(PIGEON, 292)},
     tag: "Straight across a Venetian canal: faded palazzos with Gothic windows, a bridge over a side canal, gondolas gliding by, the campanile and an Italian flag"
   });
 })();
@@ -24402,6 +26616,26 @@ var MAJ_THEMES = [];
     mexicoballoon: {d: "M0 -11C7 -11 9.4 -4 8.4 0.6C7.4 5.6 3 9 0 9.6C-3 9 -7.4 5.6 -8.4 0.6C-9.4 -4 -7 -11 0 -11Z M-1.6 9.4H1.6L0 11.6Z", detail: "M0 11.6Q-2.6 14 0 16Q2.6 18 0 20", dstroke: true},
     mexicoconfetti: {d: "M-5 -2.6H5V2.6H-5Z"}
   });
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // papel picado: a tissue-paper flag with its pattern really cut out
+  const FLAG = "M-8 -9.6H8V8L5.3 6L2.7 8L0 6L-2.7 8L-5.3 6L-8 8Z";
+  Object.assign(FX_SHAPES, {
+    mexicoflag: {d: FLAG, paint: (g, c) => { g.fillStyle = c; g.fill(new Path2D(FLAG)); g.fillStyle = "rgba(255,255,255,.22)"; g.fillRect(-8, -9.6, 16, 1.6); g.globalCompositeOperation = "destination-out"; g.fillStyle = "#000";
+      g.beginPath(); for (let k = 0; k < 8; k++) { const a = k * 0.785; g.moveTo(0, -1.4); g.ellipse(Math.cos(a) * 2.6, -1.4 + Math.sin(a) * 2.6, 1.3, 0.55, a, 0, 6.3); } g.fill(); oval(g, 0, -1.4, 0.9, 0.9); g.fill();
+      [[-5, -5.4], [5, -5.4], [-5, 2.8], [5, 2.8]].forEach(([x, y]) => { g.beginPath(); g.moveTo(x, y - 1.4); g.lineTo(x + 1, y); g.lineTo(x, y + 1.4); g.lineTo(x - 1, y); g.fill(); });
+      for (let x = -6.6; x <= 6.6; x += 2.2) { oval(g, x, -7.4, 0.5, 0.5); g.fill(); } [-4, 0, 4].forEach(x => { oval(g, x, 5.2, 0.6, 0.6); g.fill(); }); g.globalCompositeOperation = "source-over"; }}
+  });
+  // strings of flags drop in across the top, flutter in the breeze, then lift away
+  const papelDraw = (g, f, W, H, d) => { const u = Math.max(1.6, Math.min(3, Math.min(W, H) / 230)), fw = 16 * u * 1.18, cols = d ? ["#F06AA8", "#F6B84A", "#5A8AF0", "#8ED05A", "#4ACACA", "#B07AF0"] : ["#E2468C", "#F4A62A", "#3462B6", "#7CB83E", "#21A8AA", "#9A4FD6"];
+    [[0.05, 0.05, 0], [0.2, 0.06, 14]].forEach(([yy, sag, t0], r) => { const t = f - t0; if (t < 0) return; const e = t < 50 ? 1 - Math.pow(1 - t / 50, 3) : 1, out = fxEase((t - 190) / 60), y0 = H * yy - (1 - e) * H * 0.3 - out * H * 0.1, sg = H * sag, k = Math.ceil(W / fw) + 1, a = 1 - out;
+      if (a <= 0.01) return; const Y = x => y0 + 4 * sg * (x / W) * (1 - x / W) + Math.sin(t * 0.05 + x / 120) * u * 1.4; g.globalAlpha = a; g.strokeStyle = d ? "rgba(240,230,250,.6)" : "rgba(80,60,70,.55)"; g.lineWidth = 1;
+      g.beginPath(); for (let x = -10; x <= W + 10; x += 20) x < 0 ? g.moveTo(x, Y(x)) : g.lineTo(x, Y(x)); g.stroke();
+      for (let i = 0; i < k; i++) { const x = (i + 0.5 + r * 0.5) * fw - fw * 0.5, spr = fxSprite("mexicoflag", cols[(i + r * 3) % cols.length], 0, d), h = spr._half * u, sw = Math.sin(t * 0.07 + i * 0.9 + r) * 0.16 * (1 - e * 0.4);
+        g.save(); g.translate(x, Y(x)); g.rotate(sw); g.drawImage(spr, -h, -h + 9.6 * u, 2 * h, 2 * h); g.restore(); } }); g.globalAlpha = 1; };
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "mexico", name: "Mexico", group: "world", desc: "A rainbow hillside town around a pink cathedral.",
       light: ["#FCF6EE", "rgba(194,69,110,.10)", "#FFFFFF", "#2E1E2A", "#6E5A62", "#EEDCCC", "#F7ECE2", "#FEFAF5", "#C2456E", "#2F5FB0", "#FFFFFF", "#8E2E50", "#7E2848", "#F6D8E2", "#FFE2A8"],
@@ -24409,11 +26643,10 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#8CCBF0,#E4F2F6 45%,#FCE2C6)", "linear-gradient(180deg,#0F1636,#2A2458 45%,#6A3458)"],
       spine: [lg("#C2456E", "#7E2848"), lg("#2A2458", "#0F1636")], btn: [lg2("#C2456E", "#E07A3A"), lg2("#F2A2C0", "#F6C88A")]},
     kit: {motif: "mexicotile", card: ["#FFFBF5", "#F6E6EC"], ink: "#2E1E2A", bd: "#EBCFD8", mc: "#C2456E", r: 14, notes: ["#FFE2EC", "#FFF1B8", "#DDF2CC", "#D6E4FF", "#FFDCC8", "#E8DCFF"], shape: "torn", pin: "tape", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "mexicoballoon", d ? ["#E05A9A", "#F2B44A", "#4A7AE0", "#8ACB5A", "#F2805A"] : ["#E2468C", "#F4B23A", "#3462B6", "#8CC24E", "#F27A5A"], {smin: 14, smax: 22, vmin: 1.2, vmax: 2.2, sway: 0.7, life: 320, glow: d ? 8 : 0})
-      .concat(fxFall(W, H, n(40), "mexicopapel", d ? ["#E05A9A", "#F2B44A", "#4A7AE0", "#8ACB5A", "#3ABAB8"] : ["#E2468C", "#F4B23A", "#3462B6", "#8CC24E", "#2AAEB0"], {sway: 1.9, flip: true, smin: 8, smax: 12}),
-        fxFall(W, H, n(36), "mexicojac", d ? ["#8070C8", "#9A8ADA", "#B4A2F0"] : ["#9C88E6", "#B4A2F0", "#8070D6"], {sway: 1.6, flip: true, smin: 6, smax: 9, vmin: 0.9, vmax: 1.8}),
-        fxBurst(W, H, n(40), "mexicoconfetti", ["#E2468C", "#F4B23A", "#3462B6", "#8CC24E", "#F27A5A", "#2AAEB0"], [[0.15, 1.02], [0.85, 1.02]], {smin: 7, smax: 10, flip: true}),
-        fxTw(W, H, n(18), "mexicotile", d ? ["#F2C45A", "#7AA0F0", "#FFFFFF"] : ["#2F5FB0", "#C2456E", "#E8A030"], {smin: 6, smax: 10, glow: d ? 10 : 0, top: 0.8}))},
+    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "mexicoconfetti", ["#E2468C", "#F4B23A", "#3462B6", "#8CC24E", "#F27A5A", "#2AAEB0"], [[0.12, 1.02], [0.88, 1.02]], {smin: 8.5, smax: 11.5, flip: true}).map(p => Object.assign(p, {vx: p.vx * 0.8, vy: p.vy * 0.92, g: 0.14, term: fxR(1.3, 1.9), fsw: fxR(0.8, 1.4), life: 280}))
+      .concat(fxFall(W, H, n(26), "mexicojac", d ? ["#8070C8", "#9A8ADA", "#B4A2F0"] : ["#9C88E6", "#B4A2F0", "#8070D6"], {sway: 1.6, flip: true, smin: 8, smax: 11, vmin: 0.9, vmax: 1.6}).map(p => Object.assign(p, {delay: p.delay + 40})),
+        fxTw(W, H, n(14), "sparkle", d ? ["#FFE6A6", "#FFFFFF"] : ["#F4B23A", "#FFFFFF"], {smin: 3, smax: 6, glow: d ? 10 : 6})),
+      draw: papelDraw},
     tag: "A Guanajuato-style hillside of saffron, cobalt, coral and magenta houses around a pink Gothic cathedral, with a talavera fountain, a wrought-iron bandstand, jacarandas and papel picado over the plaza"
   });
 })();
@@ -24442,6 +26675,46 @@ var MAJ_THEMES = [];
     brazilconf: {d: "M-5 -2.6H5V2.6H-5Z"}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  // a bird drawn fresh every frame, so its wings really beat: head toward +x, ph = wingbeat phase, amp = how far the wings swing.
+  // Each wing has an arm and a hand; the hand trails the arm a little, so the stroke curls like a real wing instead of hinging.
+  const flyBird = (g, sp, ph, amp) => { const ln = sp.line || "rgba(40,50,70,.35)", body = sp.body, a1 = Math.sin(ph) * amp + (sp.lift || 0.1), a2 = Math.sin(ph - 0.75) * amp + (sp.lift || 0.1), wl = sp.wl || 1; g.lineCap = g.lineJoin = "round"; g.lineWidth = 0.35;
+    // each wing turns about the body: up and down on screen, toward or away from us (seen a little from below), swept back toward the tail
+    const wing = (sx, sy, z, col, tip) => { const t1 = 1.1 * a1, t2 = 1.25 * a2, L1 = 5 * wl, L2 = 7.4 * wl * (1 - 0.2 * Math.max(0, Math.cos(ph)) * amp), c0 = 6.4 * (sp.chord || 1), c1 = 5 * (sp.chord || 1),
+        ex = sx - L1 * 0.22, ey = sy + L1 * (-Math.sin(t1) + z * 0.38 * Math.cos(t1)), tx = ex - L2 * (0.56 - 0.14 * Math.cos(t2)), ty = ey + L2 * (-Math.sin(t2) + z * 0.38 * Math.cos(t2)), q = (u, v) => (u + v) / 2;
+      const p = new Path2D(); p.moveTo(sx + 0.6, sy); p.quadraticCurveTo(ex + 0.6, ey, q(ex, tx) + 0.3, q(ey, ty)); p.quadraticCurveTo(tx + 0.4, ty, tx - 0.8, ty + 0.1 * (ty - ey)); p.quadraticCurveTo(tx - 2.2, q(ty, ey), ex - c1, ey + 0.5); p.quadraticCurveTo(ex - c0 * 1.05, q(ey, sy) + 0.6, sx - c0, sy + 0.6); p.closePath();
+      g.fillStyle = col; g.fill(p); g.save(); g.clip(p); if (sp.tipLen) { g.fillStyle = tip; g.beginPath(); g.arc(tx - 0.6, ty, L2 * sp.tipLen, 0, 6.3); g.fill(); }
+      g.strokeStyle = "rgba(0,0,0,.14)"; g.beginPath(); for (let i = 1; i < 4; i++) { const u = i / 4; g.moveTo(ex - c1 * u, ey + 0.5); g.lineTo(tx - 0.6 - 1.2 * u, ty + 0.4); } g.moveTo(ex - 0.3, ey + 0.2); g.quadraticCurveTo(q(ex, sx) - c0 * 0.4, q(ey, sy) + 0.4, sx - c0 * 0.9, sy + 0.4); g.stroke(); g.restore(); g.strokeStyle = ln; g.stroke(p); };
+    wing(0.6, -1.4, -1, mix(sp.wing || body, "#000000", 0.13), mix(sp.tip || sp.wing || body, "#000000", 0.12));
+    if (sp.legs) { g.strokeStyle = sp.legs; g.lineWidth = 0.7; g.beginPath(); g.moveTo(-3, 2.2); g.lineTo(-12.6, 2.6); g.stroke(); g.lineWidth = 0.35; }
+    const tl = sp.tailL || 1; g.fillStyle = sp.tail || body; g.beginPath(); g.moveTo(-4.6, -0.8); g.lineTo(-10.4 * tl, -2); g.quadraticCurveTo(-11.8 * tl, 0.3, -10.4 * tl, 2.6); g.lineTo(-4.4, 2.2); g.closePath(); g.fill(); g.strokeStyle = ln; g.stroke();
+    if (sp.under) { g.fillStyle = sp.under; g.beginPath(); g.moveTo(-4.4, 1); g.lineTo(-7.6, 1.8); g.lineTo(-4.2, 3); g.fill(); }
+    const bp = new Path2D(); bp.ellipse(-0.6, 0.6, 6.4, 3.1, -0.06, 0, 6.3); const gr = g.createLinearGradient(0, -2.6, 0, 3.8); gr.addColorStop(0, mix(body, "#FFFFFF", 0.18)); gr.addColorStop(0.55, body); gr.addColorStop(1, sp.belly || mix(body, "#000000", 0.14)); g.fillStyle = gr; g.fill(bp);
+    if (sp.bib) { g.save(); g.clip(bp); g.fillStyle = sp.bib; oval(g, 5, 0.6, 2.8, 2.8); g.fill(); g.restore(); } g.strokeStyle = ln; g.stroke(bp);
+    const nl = sp.neck || 0, hr = sp.hr || 2.3, hx = 4.8 + nl, hy = -1.4 - nl * 0.25;
+    if (nl) { g.strokeStyle = sp.nk || sp.head; g.lineWidth = hr * 0.95; g.beginPath(); g.moveTo(3.2, -0.2); g.quadraticCurveTo(hx - nl * 0.5, hy + 0.3, hx, hy); g.stroke(); g.lineWidth = 0.35; }
+    const [bl, bh, bc, bcol, btip] = sp.beak, bx = hx + hr * 0.7, bk = new Path2D(`M${bx - 0.6} ${hy - bh * 0.5}Q${bx + bl * 0.6} ${hy - bh * 0.5 + bc * 0.3} ${bx + bl} ${hy + bc}Q${bx + bl * 0.45} ${hy + bh * 0.5 + bc * 0.6} ${bx - 0.6} ${hy + bh * 0.5}Z`);
+    g.fillStyle = bcol; g.fill(bk); if (btip) { g.save(); g.clip(bk); g.fillStyle = btip; g.fillRect(bx + bl * 0.74, hy - 6, 8, 12); g.restore(); } if (sp.bill) { g.save(); g.clip(bk); g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(bx - 1, hy - bh, bl + 2, bh * 0.45); g.restore(); }
+    g.fillStyle = sp.head || body; oval(g, hx, hy, hr, hr * 0.92); g.fill(); g.strokeStyle = ln; g.stroke(); if (sp.cheek) { g.fillStyle = sp.cheek; oval(g, hx - 0.3, hy + 0.7, hr * 0.55, hr * 0.38, 0.4); g.fill(); }
+    if (sp.ring) { g.fillStyle = sp.ring; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.95, 0.95); g.fill(); } g.fillStyle = sp.eye || "#1A1A22"; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.5, 0.5); g.fill();
+    wing(1.4, -0.9, 1, sp.wing || body, sp.tip || sp.wing || body); };
+  // the flock: each bird flies a smooth cubic curve (points in screen shares) over T frames, with an eased fade at both ends.
+  // Heading follows the curve (tilt capped), the body rises a touch on each downstroke, and gliders mix beats with glides.
+  let flock = [];
+  const flockDraw = (sp, end = 262) => (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900)), halo = d && sp.halo ? fxSprite("puffsoft", sp.halo, 0, d) : null;
+    const at = (b, t) => { const u = Math.max(0, Math.min(1, t / b.T)), v = 1 - u, [p0, p1, p2, p3] = b.P, k0 = v * v * v, k1 = 3 * v * v * u, k2 = 3 * v * u * u, k3 = u * u * u, w = Math.sin(t * 0.021 + b.ph);
+      return [W * (k0 * p0[0] + k1 * p1[0] + k2 * p2[0] + k3 * p3[0]), H * (k0 * p0[1] + k1 * p1[1] + k2 * p2[1] + k3 * p3[1]) + w * H * 0.008]; };
+    flock.forEach(b => { const t = f - b.t0; if (t < 0 || t > b.T) return; const a = fxEase(t / 16) * fxEase((b.T - t) / 30) * fxEase((end - f) / 50); if (a <= 0.01) return;
+      const [x, y] = at(b, t), [x1, y1] = at(b, t + 2), L = x1 < x, s = b.size * sc / 10, ang = Math.max(-0.55, Math.min(0.55, Math.atan2(y1 - y, Math.abs(x1 - x) + 0.001)));
+      const amp = sp.glide ? 0.2 + 0.8 * Math.pow(0.5 + 0.5 * Math.sin(t * sp.glide + b.ph), 1.5) : 1, ph = t * b.fr + b.ph, bob = Math.sin(ph) * amp * (sp.bob || 0.8);
+      g.save(); g.translate(x, y + bob * s); g.rotate(L ? -ang : ang); g.scale(L ? -s : s, s); g.globalAlpha = a * (b.alpha || 1);
+      if (halo) { g.globalAlpha = a * (sp.haloA || 0.12); g.drawImage(halo, -halo._half * 1.5, -halo._half * 1.1, halo._half * 3, halo._half * 2.2); g.globalAlpha = a * (b.alpha || 1); }
+      flyBird(g, sp, ph, amp * (sp.amp || 1)); g.restore(); }); g.globalAlpha = 1; };
+  // a toco toucan: black with a cream bib, red under the tail, a blue eye ring and the great orange bill; it beats and glides
+  const TOUCAN = {body: "#1A1A22", belly: "#14141A", wing: "#26262E", tip: "#121218", tail: "#1A1A22", under: "#E8302A", bib: "#FFF2C8", head: "#1A1A22", hr: 2.6, beak: [8.2, 3.4, 0.8, "#F7931E", "#1A1A22"], ring: "#5AB0F0", eye: "#101010", bill: true, wl: 0.88, chord: 1.1, line: "rgba(255,255,255,.22)", halo: "#FFE6A6", haloA: 0.28, glide: 0.035, bob: 1.1};
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "brazil", name: "Brazil", group: "world", desc: "Christ the Redeemer, a colourful favela and Sugarloaf over a golden beach.",
       light: ["#F5FAF5", "rgba(19,128,78,.10)", "#FFFFFF", "#163026", "#4C6A5C", "#D2E6D8", "#E4F2E8", "#FAFDFA", "#13804E", "#2FA06A", "#FFFFFF", "#0C5A36", "#11603E", "#CDEBD8", "#FFE3A0"],
@@ -24449,11 +26722,12 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#7CC6F0,#D4EEF8 45%,#FCE8C4)", "linear-gradient(180deg,#0C1838,#1E2C5E 45%,#6A3A5E)"],
       spine: [lg("#1E8A5A", "#11603E"), lg("#1E2C5E", "#0C1838")], btn: [lg2("#13804E", "#E8A21E"), lg2("#FFD24A", "#7FE0A0")]},
     kit: {motif: "brazilmonstera", card: ["#FBFEF9", "#E8F6EA"], ink: "#163026", bd: "#BFE0C8", mc: "#E8A21E", r: 16, notes: ["#FFE9A8"].concat(NOTES), shape: "rounded", pin: "starpin", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(60), "brazilconf", d ? ["#4ADE7A", "#FFD24A", "#5A9AF0", "#FF7AB4", "#FFA24A", "#B07AF0"] : ["#1FA34A", "#FFC81E", "#2A6FD6", "#FF5FA2", "#FF8A2A", "#9A4FD6"], {sway: 2, flip: true, smin: 5, smax: 8, glow: d ? 6 : 0})
-      .concat(fxBurst(W, H, n(14), "brazilmonstera", d ? ["#3A9A5A", "#5ABA6A"] : ["#2E8A3E", "#4EAA48", "#3C9A44"], [[0.12, 1.02], [0.88, 1.02]], {smin: 12, smax: 17}),
-        fxRise(W, H, n(4), "braziltoucan", d ? ["#FFA24A", "#FFC86A"] : ["#F28A1E", "#E8702A"], {cx: [0.15, 0.85], smin: 18, smax: 24, vmin: 1, vmax: 1.5, sway: 0.8, life: 300, glow: d ? 10 : 0}).map(p => Object.assign(p, {vr: 0})),
-        fxRise(W, H, n(2), "brazilloaf", d ? ["#8A90C0"] : ["#6A7488"], {cx: [0.3, 0.7], smin: 20, smax: 24, vmin: 0.9, vmax: 1.2, sway: 0.3, life: 320, glow: d ? 12 : 0}).map(p => Object.assign(p, {vr: 0, rot: 0})),
-        fxTw(W, H, n(24), "sparkle", d ? ["#FFE6A6", "#FFFFFF", "#7FE0A0"] : ["#FFC81E", "#FFD86B", "#1FA34A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: {spawn: (W, H, d, n) => { // toucans cross the screen in long undulating swoops, beating then gliding, alternate ways (above and below the middle)
+      const k = Math.min(4, n(4)); flock = Array.from({length: k}, (_, i) => { const y = [0.15, 0.64, 0.27, 0.76][i] + fxR(-0.03, 0.03), P = [[-0.14, y], [0.3, y - 0.07], [0.7, y + 0.07], [1.14, y - 0.03]]; return {P: i % 2 ? P.map(([x, yy]) => [1 - x, yy]) : P, t0: Math.floor(i * 20 + fxR(0, 8)), T: Math.round(fxR(200, 220)), fr: fxR(0.24, 0.28), ph: fxR(0, 6.3), size: fxR(23, 28)}; });
+      return fxFall(W, H, n(40), "brazilconf", d ? ["#4ADE7A", "#FFD24A", "#5A9AF0", "#FF7AB4", "#FFA24A", "#B07AF0"] : ["#1FA34A", "#FFC81E", "#2A6FD6", "#FF5FA2", "#FF8A2A", "#9A4FD6"], {sway: 2, flip: true, smin: 9, smax: 12, vmin: 1.4, vmax: 2.6})
+        .concat(fxBurst(W, H, n(10), "brazilmonstera", d ? ["#3A9A5A", "#5ABA6A"] : ["#2E8A3E", "#4EAA48"], [[0.08, 1.02], [0.92, 1.02]], {smin: 13, smax: 18}).map(p => Object.assign(p, {vx: p.vx * 0.7, vy: p.vy * 0.8, g: 0.15, term: fxR(1.6, 2.2), vr: fxR(-0.05, 0.05), life: 280})),
+          fxTw(W, H, n(18), "sparkle", d ? ["#FFE6A6", "#FFFFFF"] : ["#FFC81E", "#FFFFFF"], {smin: 3, smax: 7, glow: d ? 10 : 6})); },
+      len: 300, draw: flockDraw(TOUCAN, 292)},
     tag: "Christ the Redeemer on Corcovado above a dense hillside favela of bright little houses and the towers of downtown, Sugarloaf and its glass bondinho cable cars over the bay, and a golden beach with umbrellas, towels, a coconut kiosk, palms, the waving Brazilian flag and a toucan in the rainforest"
   });
 })();
@@ -25801,7 +28075,7 @@ Return JSON only.`;
   // Quiz Me: questions from the answer's sources (the AI quiz writer)
   async function startTutor(T){
     if (!T) return;
-    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: it asks you one question at a time from your course material, checks your answer and explains it with the source."); return; }
+    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: one question at a time from your material, checked and explained."); return; }
     if (!aiReady()) { close(); aiSetupSheet(true); return; }
     const tu = S.tutor = {ti: turnIx(T), state: "loading", qs: [], i: 0, ans: []}; draw();
     const c = courseOf(studyCid(T)), text = studyText(T);
@@ -26082,7 +28356,7 @@ Return JSON only.`;
     let h = "";
     if (ask) {
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
-      else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI to search by meaning and get short answers from your own notes and files. It's free with a Google Gemini key. For now, this finds related words.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
+      else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI (free with a Gemini key) to search by meaning and get answers from your notes.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
@@ -26755,7 +29029,7 @@ document.head.appendChild(AREA_CSS);
     let body;
     const here = deviceKind();
     if (inPreview()) body = `<div class="ob-info"><span class="mini">You're using a preview of Studyboard, so there's nothing to install here. Your own Studyboard website can be added to your phone's home screen.</span></div>`;
-    else if (DESK) body = `<div class="ob-okbox">${IC.check}<span><b>You're Using the Desktop App</b><span class="mini">It has its own window and works offline. To use Studyboard on your phone too, open your Studyboard website there and add it to your home screen.</span></span></div>`;
+    else if (DESK) body = `<div class="ob-okbox">${IC.check}<span><b>You're Using the Desktop App</b><span class="mini">It works offline. For your phone, open the Studyboard website there and add it to your home screen.</span></span></div>`;
     else if (standalone() || (() => { try { const C = window.Capacitor; return !!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform()); } catch (e) { return false; } })()) body = `<div class="ob-okbox">${IC.check}<span><b>Studyboard Is Installed</b><span class="mini">You're already using the app on this device. It works offline, too.</span></span></div>`;
     else {
       const tab = deviceTab || here;
@@ -26791,9 +29065,9 @@ document.head.appendChild(AREA_CSS);
         ${!cloudy && folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
     return `${hero(IC.folder)}
       <h2 class="ob-h" id="obH" tabindex="-1">Automatic Backups <span class="ob-opt">Recommended</span></h2>
-      <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Studyboard can save a backup of everything to a folder on this computer every hour. Pick one that Google Drive or OneDrive syncs and your backups are in the cloud too."}</p>
+      <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Back up everything to a folder every hour. Pick a Google Drive or OneDrive folder for a cloud copy too."}</p>
       ${body}
-      ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">After you pick a folder, your browser asks to let Studyboard save there. Choose <b>Allow on every visit</b> if it's offered (otherwise <b>Edit files</b> or <b>Allow</b>) so backups keep running after the browser restarts. A “Studyboard Backups” folder is made inside the one you pick.</p>`}`;
+      ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">When your browser asks, choose <b>Allow on every visit</b> (or <b>Allow</b>) so backups keep running.</p>`}`;
   }
 
   // The free week of Pro every new account gets
@@ -27182,7 +29456,7 @@ document.head.appendChild(AREA_CSS);
 /* ===== module: 49-feedback.js ===== */
 /* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.5";
+  const APP_VERSION = "1.15.6";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
   const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
@@ -27368,7 +29642,7 @@ document.head.appendChild(AREA_CSS);
 
 /* ===== module: 49-errreport.js ===== */
 /* Anonymous crash and error reports */
-const APP_VERSION = "1.15.5";
+const APP_VERSION = "1.15.6";
 const BUILD_ID = "dev";
 const ERROR_REPORTING = {
   dsn: "",
@@ -27684,26 +29958,26 @@ const ERRCORE = (() => {
   const POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
     {id: "welcome", title: "Welcome to Studyboard", tab: "board",
-      text: () => "A quick tour, under a minute. We'll open each screen as we go, filled with example courses and tasks, not your own. Use the arrow keys or the buttons, and skip any time."},
+      text: () => "A one-minute tour with example courses and tasks. Skip any time."},
     {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
       text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
     {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
-      text: () => "Today's Plan lines up what to work on next and for how long, with time set aside for each task around your classes and free time."},
+      text: () => "What to work on next and for how long, fitted around your classes."},
     {id: "timeline", title: "Calendar", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
-      text: () => "Every deadline across your courses, on a timeline or a month calendar. Switch to Schedule for your week of classes and shifts, or to Crunch to see heavy weeks coming before they hit."},
+      text: () => "Every deadline on a timeline or calendar. Schedule shows your classes; Crunch shows heavy weeks ahead."},
     {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".pview-tabs", NAV("flashcards")],
-      text: () => "Make decks by hand, or let AI build cards and practice quizzes from your notes and readings. Spaced repetition brings reviews back at the right time."},
+      text: () => "Make decks by hand or with AI from your notes. Reviews come back at the right time."},
     {id: "courses", title: "Courses and School Sites", tab: "courses", go: () => { ui.courseTab = ""; }, sel: [".cf-tabs", NAV("courses")],
-      text: () => "Each course keeps its class times, tasks, files and instructors. Connect Brightspace, Canvas or Blackboard in Settings to bring in deadlines and grades; with Canvas, your inbox shows under Emails."},
+      text: () => "Each course keeps its classes, tasks and files. Connect your school site in Settings to bring in deadlines and grades."},
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".cf-tabs", ".gp-hero", NAV("courses")],
-      text: () => "Your marks and average in each course as they come in. Set the weights to see what you need on the remaining work to reach your target grade."},
+      text: () => "Your marks in each course, and what you need on the rest to hit your target."},
     {id: "focus", title: "Focus Timer", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
-      text: () => "The timer follows the Pomodoro method: short bursts of focused work with breaks in between. Start a session on any task; the time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ", and your companion keeps you company.",
+      text: () => "Short bursts of focused work with breaks between. Time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ".",
       more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
     {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
-      text: () => "Find tasks, cards, notes and text inside your files from anywhere (Ctrl or Cmd K). Switch to Ask With AI to ask questions about your own material."},
+      text: () => "Find anything from anywhere (Ctrl or Cmd K), or Ask With AI about your material."},
     {id: "done", title: "You're Ready", tab: "board",
-      text: () => "That's the tour. Add your first task and Today's Plan takes it from there. Themes, reminders, sync and Report a Bug are in Settings, where you can replay this tour too."}
+      text: () => "Add your first task and Today's Plan takes it from there. Replay this tour from Settings."}
   ];
 
   let steps = [], i = 0, root = null, spot = null, card = null, tgt = null, opened = null, saved = null, onKey = null, raf = 0, active = false, seq = 0, panel = "";
@@ -30467,7 +32741,7 @@ function settingsHtml(){
     <ul class="cap-eps">
       ${ep("sheet", "Quick Capture window", "Press C anywhere in Studyboard and type a task. Enter adds it; Ctrl+Enter adds it and keeps the window open.", true)}
       ${ep("photo", "Photo of a whiteboard or slide", "Use the camera button next to the add bar, paste or drop a picture on the Board, or share one in.", true)}
-      ${desk ? ep("shot", "Screenshot anything", "Box part of your screen with the shortcut below. A task, an announcement or email with deadlines becomes tasks, a syllabus or timetable becomes a course, and slides or a textbook page become a note.", true)
+      ${desk ? ep("shot", "Screenshot anything", "Box part of your screen with the shortcut below to turn it into tasks, a course or a note.", true)
         : ep("share", "Share sheet", "Android and ChromeOS: install the web app, then Share to Studyboard. On iPhone, Safari web apps can't receive shares: use the Studyboard app or a Shortcut.", true)}
       ${desk ? "" : ep("url", "Link or Shortcut (Siri)", "A Shortcut can open <code>studyboard://add?title=…&amp;due=YYYY-MM-DD&amp;course=BIO101</code> or the web address with <code>?capture=bio quiz fri 2pm</code>. Links from the web always ask first.", true)}
     </ul>
@@ -32641,7 +34915,7 @@ hook("boot", boot);
       case "grp-q-solve": { const q = itemOf(id); if (q && q.user_id === myId()) { const d = Object.assign({}, q.data, {solved: !(q.data || {}).solved}); saveQ(q, d).then(() => { drawThread(); patch(g.id); }).catch(e => toast(e.message)); } break; }
       case "grp-q-best": { const q = itemOf(id); if (q && q.user_id === myId()) { const was = (q.data || {}).best === el.dataset.a, d = Object.assign({}, q.data, {best: was ? "" : el.dataset.a, solved: was ? !!(q.data || {}).solved : true}); saveQ(q, d).then(() => { drawThread(); patch(g.id); }).catch(e => toast(e.message)); } break; }
       case "grp-q-del": { const a = itemOf(id); if (a && canRemove(g, a)) api.removeItem(a.id).then(() => { S.items[g.id] = S.items[g.id].filter(x => x.id !== a.id); drawThread(); patch(g.id); }).catch(e => toast(e.message)); break; }
-      case "grp-weak-on": confirmSheet("Share Your Results?", "Your misses on this group's shared decks and quizzes are sent as totals per card, with no name attached. The group only sees how many members miss each card or question, once at least 3 members take part. Stop any time and your numbers are removed.", "Share Anonymously", () => { missSet(g.id, true); loadMisses(g.id, true); toast("Sharing your results anonymously"); }); break;
+      case "grp-weak-on": confirmSheet("Share Your Results?", "Your misses on shared decks are sent as anonymous totals, shown only once 3 or more members take part. Stop any time to remove them.", "Share Anonymously", () => { missSet(g.id, true); loadMisses(g.id, true); toast("Sharing your results anonymously"); }); break;
       case "grp-weak-off": missSet(g.id, false); api.forgetMisses(g.id).then(() => { toast("Stopped. Your numbers were removed."); loadMisses(g.id); }).catch(e => toast(e.message)); patch(g.id); break;
       case "grp-weak-retry": delete S.miss[g.id]; loadMisses(g.id, true); patch(g.id); break;
       case "grp-weak-deck": weakDeck(g); break;
@@ -34564,7 +36838,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const list = tpls().filter(t => (t.tasks || []).length);
     openSheet(`<div class="sheet pro-sheet">${head("Start From a Template")}<div class="sheet-body">
       ${list.length ? `<ul class="pro-feats">${list.map(t => `<li><span class="pf-t"><b>${esc(t.name)}</b><span class="mini">${t.tasks.length} tasks · saved ${esc(new Date(t.at).toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}))}</span></span><button type="button" class="btn small primary" data-act="gx-tpl-use" data-id="${esc(t.id)}">Use</button><button type="button" class="x-btn" data-act="gx-tpl-del" data-id="${esc(t.id)}" aria-label="Delete the ${esc(t.name)} template">${CLOSE}</button></li>`).join("")}</ul><p class="mini" style="margin:0">Due dates are set the same number of days before this project's due date.</p>`
-        : `<p style="margin:0">No templates yet. In a project you liked, open Overview and choose Save as Template. Its tasks and their timing are kept in your account for next time.</p>`}</div>
+        : `<p style="margin:0">No templates yet. In a project, open Overview and choose Save as Template.</p>`}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
   }
   // A new project made from a template
@@ -41029,7 +43303,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     let why = "", btn = null;
     if (cant.length) {
       const w = cant[0], h = how(w), nm = cant.map(L => L.P.name).join(" and ");
-      why = h === "web" ? `${nm} announcements come in through the Studyboard School Sync extension or the Studyboard desktop, iPhone or Android app, which sign in to your school's site. This page shows what they've already brought in.`
+      why = h === "web" ? `${nm} announcements come in through the School Sync extension or the Studyboard app. This page shows what they've brought in.`
         : h === "feed" ? `${nm} is connected with a calendar link, which has no announcements in it. Sign in through the desktop app to get them.`
         : `Announcements are switched off for ${nm}. Turn them on in its school settings.`;
       if (h !== "web") btn = {act: "ann-setup", plat: w.P.id, label: "Open Settings"};
@@ -49247,7 +51521,7 @@ var COMP_KIT = (() => {
     theme: "plain",
     companions: [
       {
-        id: "plain-mochi", name: "Mochi", kind: "Sprout Mochi", pose: "sit", sleepy: true,
+        id: "plain-mochi", name: "Mochi", kind: "Sprout Mochi", pose: "sit", sleepy: true, hatTop: true,
         bio: "A little mochi whose sprout grows as you do.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -49264,7 +51538,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 75, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 83.5, w: 3.4},
         cheeks: {lx: 37.5, rx: 82.5, y: 83, w: 5.6, h: 3.4},
-        anchors: {top: [60, 46, 1.05], neck: [60, 97, 1.15], chest: [80, 99, 0.8], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 56, 92], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
           pet: ["Hehe, extra squishy happy!", "More pats? Yes please, yes please!"],
@@ -49293,7 +51567,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 77, r: 6, style: "round"},
         mouth: {x: 60, y: 90, w: 3.4},
         cheeks: {lx: 41, rx: 79, y: 88, w: 4.6, h: 2.9, color: "#FFA3C4"},
-        anchors: {top: [60, 47, 0.8], neck: [60, 99, 1.2], chest: [73, 100, 0.75], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
+        anchors: {top: [60, 37.5, 0.8, 0], neck: [60, 99, 1.2, 0, 61, 51], chest: [73, 104.5, 0.59], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
         lines: {
           tap: ["Fresh page, fresh start! Let's go!", "We're going to write something great today!", "You're on a roll and I love it!", "Neat notes, happy brain, happy me!", "Every word you write counts!", "Doodle break? I won't tell a soul!", "Ink it in! You've totally got this!"],
           pet: ["Careful, I might smudge with joy!", "Hehe, that tickles my inky drips!"],
@@ -49332,7 +51606,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 71, w: 3},
         cheeks: {lx: 38.5, rx: 81.5, y: 73, w: 4.4, h: 2.8},
-        anchors: {top: [60, 32, 1], neck: [60, 79, 1.35], chest: [74, 95, 0.8], back: [90, 74, 0.9], hands: [60, 91, 0.95]},
+        anchors: {top: [60, 29, 1, 0], neck: [60, 85.5, 1.35, 0, 77, 80], chest: [74, 92, 0.68], back: [90, 74, 0.9], hands: [60, 91, 0.95]},
         lines: {
           tap: ["Hoo hoo! Hello there, bright mind!", "Your knowledge is blooming beautifully!", "One page at a time, and look at you go!", "You're wiser than yesterday, I can tell!", "Great questions make great learners!", "Blink, breathe, and read on, superstar!", "Ooh, that idea deserves a note!"],
           pet: ["Hoo hoo! My feathers are fluffing up!", "Oh my, you're so sweet to me!"],
@@ -49365,11 +51639,11 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 72, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 80, w: 3},
         cheeks: {lx: 47, rx: 73, y: 79.5, w: 3.6, h: 2.4},
-        anchors: {top: [60, 30, 0.85], neck: [60, 62, 0.95], chest: [70, 90, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
+        anchors: {top: [60, 25, 0.85, 0], neck: [60, 89, 0.95, 0, 47, 41], chest: [70, 95, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
         lines: {tap: ["This part? Definitely important.", "I only light up the good stuff.", "You don't have to remember it all. Just the key bits.", "Hi! Ready to make things stand out?", "One clear line at a time.", "Bright idea incoming!"], pet: ["Hehe, careful, my cap pops off!", "Glowing extra bright now."], hello: ["You're back! Let's find the key ideas.", "Hi again! Cap's off, ready to go."], morning: ["Good morning! Today looks bright."], night: ["Cap on, lights low. Time to rest."], focus: ["Steady hand. You've got this.", "Marking the moment. Keep going."], done: ["Great session! That deserves a big bright line.", "Done! You really focused."], task: ["Done! Highlighted in gold.", "Yes! That one's marked finished.", "Another one done. Nice!"], break: ["Cap on for a minute. Stretch it out."]}
       },
       {
-        id: "plain-packy", name: "Packy", kind: "Backpack", pose: "sit", wearColor: "#4F8FE0",
+        id: "plain-packy", name: "Packy", kind: "Backpack", pose: "sit", wearColor: "#4F8FE0", hatTop: true,
         bio: "A trusty backpack who has carried every book you've ever needed.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -49388,7 +51662,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 62, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 70.5, w: 3.4},
         cheeks: {lx: 39, rx: 81, y: 70, w: 4.8, h: 3},
-        anchors: {top: [60, 40, 1], neck: [60, 78, 1.2], chest: [75, 92, 0.75], back: [92, 64, 0.85], hands: [60, 100, 0.9]},
+        anchors: {top: [60, 37.5, 1, 0], neck: [60, 81, 1.2, 0, 75, 82], chest: [75, 88.5, 0.75], back: [92, 64, 0.85], hands: [60, 100, 0.9]},
         lines: {tap: ["Got everything? I double-checked!", "I've got your back. Literally.", "Heavy day? We'll carry it together.", "Hi! Where are we headed today?", "One thing at a time, out of the bag.", "I packed you a little extra courage."], pet: ["Hehe, my zippers jingle!", "Pats! My favorite pocket feeling."], hello: ["You're back! Bag's packed and ready.", "Hi! Let's unpack today's plan."], morning: ["Good morning! Let's pack up the day's goals."], night: ["Zip it up for today. Rest well."], focus: ["Quiet zippers. You've got this.", "I'll keep everything safe while you work."], done: ["Session done! That's a load lighter.", "Amazing focus! Unpacked and done."], task: ["Done! One less thing to carry.", "Checked off! Feeling lighter already.", "Woo! Another one finished."], break: ["Put the load down. Stretch your shoulders!"]}
       },
       {
@@ -49408,7 +51682,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 51, r: 4.2, style: "dot", color: "#2F4A2A"},
         mouth: {x: 60, y: 58.5, w: 2.8, color: "#2F4A2A"},
         cheeks: {lx: 45.5, rx: 74.5, y: 58, w: 3.4, h: 2.2},
-        anchors: {top: [60, 35, 0.9], neck: [60, 68, 1.05], chest: [77, 98, 0.55], back: [87, 66, 0.8], hands: [60, 101, 0.85]},
+        anchors: {top: [60, 30.5, 0.9, 0], neck: [60, 68, 1.05, 0, 57, 79], chest: [77, 73, 0.55], back: [87, 66, 0.8], hands: [60, 101, 0.85]},
         lines: {tap: ["Hi! Let's figure this out together.", "Big problems are just small steps added up.", "You plus a plan equals progress.", "Show your work? You're doing great.", "Every little bit counts. I checked.", "Calm and steady. That's the formula."], pet: ["Hehe, that tickles my buttons!", "Beep boop! Happy!"], hello: ["You're back! Ready to crunch some numbers?", "Hi! Today's going to add up nicely."], morning: ["Good morning! Fresh start, clear screen."], night: ["Time to power down. You too."], focus: ["Quiet mode on. You've got this.", "Steady focus. Keep going."], done: ["Session done! That adds up to a lot.", "Great focus! The numbers love it."], task: ["Done! Plus one!", "Finished! That's a correct answer.", "Woo! Another one done."], break: ["Clear the screen. Stretch and breathe."]}
       }
     ]
@@ -49418,7 +51692,7 @@ var COMP_KIT = (() => {
     theme: "winter", spot: {x: 0.84, y: 0.985},
     companions: [
       {
-        id: "winter-penguin", name: "Pip", kind: "Baby Penguin", pose: "stand",
+        id: "winter-penguin", name: "Pip", kind: "Baby Penguin", pose: "stand", scarfOverArms: true,
         bio: "A fluffy penguin chick who waddles in for snowy study nights.",
         idle: ["waddle", "wingFlutter", "headTilt"], cheer: "wingFlutter",
         neck: [60, 74],
@@ -49445,7 +51719,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 61, w: 3},
         cheeks: {lx: 43.5, rx: 76.5, y: 62, w: 4.2, h: 2.6},
-        anchors: {top: [60, 25, 1.05], neck: [60, 75, 1.05], chest: [71, 92, 0.8], back: [84, 84, 0.9], hands: [60, 95, 0.95]},
+        anchors: {top: [60, 26.5, 1.05, 0], neck: [60, 76.5, 1, 0, 47, 74], chest: [71, 84, 0.8], back: [84, 84, 0.9], hands: [60, 95, 0.95]},
         lines: {
           tap: ["Peep! Hi hi hi!", "Waddle on! You're doing amazing!", "Snow day, study day, best day!", "Keep warm and keep shining!", "Little waddles, big progress!", "You make studying look so easy!", "Cozy mode on, and you're on fire!"],
           pet: ["Peep peep! So fluffy and happy!", "Aww, the warmest little hug ever!"],
@@ -49482,7 +51756,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "dot", color: "#2B2A44"},
         mouth: {x: 60, y: 66.5, w: 2.6, style: "cat"},
         cheeks: {lx: 42, rx: 78, y: 64.5, w: 4.6, h: 2.8, color: "#FF9FB7"},
-        anchors: {top: [60, 39, 0.95], neck: [60, 78, 1.05], chest: [69, 90, 0.72], back: [86, 88, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 38, 0.95, 0], neck: [60, 79.5, 1, 0, 44, 66], chest: [69, 85.5, 0.72], back: [86, 88, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hop hop! Hi hi!", "Soft and steady, and you're winning!", "You're doing wonderfully, truly!", "Snowflakes and study notes, my favorite!", "Rest is part of the plan, and you're nailing it!", "One happy hop at a time!", "I think you're absolutely amazing!"],
           pet: ["Hehe, my ears are wiggling with joy!", "So soft and so happy now!"],
@@ -49496,7 +51770,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "winter-sprite", name: "Twinkle", kind: "Snow Sprite", pose: "float",
+        id: "winter-sprite", name: "Twinkle", kind: "Snow Sprite", pose: "float", hatTop: true,
         bio: "A glowing snow sprite who sprinkles sparkles on good work.",
         idle: ["sparkle", "spin", "wingFlutter"], cheer: "spin",
         parts: {
@@ -49514,7 +51788,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 62, r: 4.8, style: "sparkle", color: "#2B3560"},
         mouth: {x: 60, y: 71, w: 3, color: "#2B3560"},
         cheeks: {lx: 43, rx: 77, y: 69.5, w: 4.4, h: 2.8, color: "#FFB3C8"},
-        anchors: {top: [60, 41, 0.95], neck: [60, 82, 1.05], chest: [71, 77, 0.68], back: [85, 58, 0.8], hands: [60, 81, 0.85]},
+        anchors: {top: [60, 38.5, 0.95, 0], neck: [60, 82, 1.05, 0, 51, 41], chest: [71, 88, 0.6], back: [85, 58, 0.8], hands: [60, 81, 0.85]},
         lines: {
           tap: ["Twinkle twinkle, hi hi!", "You sparkle so bright when you study!", "A little extra shine, just for you!", "You're doing so well today!", "I'm so proud of you, sparkly friend!", "Keep shining, bright mind!", "Every bit of practice makes magic!"],
           pet: ["Hehe, that tickles my sparkles!", "Wheee, I'm all aglow!"],
@@ -49534,7 +51808,7 @@ var COMP_KIT = (() => {
     theme: "cafe", spot: {x: 0.84, y: 0.985},
     companions: [
       {
-        id: "cafe-bean", name: "Bean", kind: "Coffee Bean Sprite", pose: "stand", wearColor: "#E07A5F",
+        id: "cafe-bean", name: "Bean", kind: "Coffee Bean Sprite", pose: "stand", wearColor: "#E07A5F", hatTop: true,
         bio: "A peppy coffee bean who brews up big ideas with you.",
         idle: ["topBob", "bounce", "wave"], cheer: "spin",
         parts: {
@@ -49551,7 +51825,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 70, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 79, w: 3.2, color: "#2B1A10"},
         cheeks: {lx: 43, rx: 77, y: 78, w: 4.4, h: 2.8, color: "#FF9FA8"},
-        anchors: {top: [60, 44, 0.9], neck: [60, 90, 1.1], chest: [71, 94, 0.72], back: [84, 68, 0.85], hands: [60, 93, 0.9]},
+        anchors: {top: [60, 46.5, 0.9, 0], neck: [60.5, 90, 1.1, 0, 56.5, 48.5], chest: [71, 96, 0.6], back: [84, 68, 0.85], hands: [60, 93, 0.9]},
         lines: {
           tap: ["Hi! Freshly roasted and so ready!", "You're brewing something great!", "A little perk, just for you!", "Small sips, big progress!", "Sip, study, smile! You're amazing!", "You're doing really, really well!", "Take your time! I'm right here cheering!"],
           pet: ["Ooh, that's so nice! Thank you!", "Hehe, I feel all warm and toasty!"],
@@ -49565,7 +51839,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "cafe-latte", name: "Latte", kind: "Latte Art Cat", pose: "sit", sleepy: true,
+        id: "cafe-latte", name: "Latte", kind: "Latte Art Cat", pose: "sit", wearOnHead: true, sleepy: true,
         bio: "A foamy cat curled up in a warm cup, purring you along.",
         idle: ["earTwitch", "tailSwish"], cheer: "bounce",
         neck: [60, 76],
@@ -49592,7 +51866,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 56, r: 4.3, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 64, w: 2.6, style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 63.5, w: 4.2, h: 2.6},
-        anchors: {top: [60, 37, 0.95], neck: [60, 79, 1.2], chest: [60, 95, 0.8], back: [24, 86, 0.8], hands: [60, 81, 0.9]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 77, 0.9, 0, 44, 81], chest: [60, 88, 0.62], back: [24, 86, 0.8], hands: [60, 81, 0.9]},
         lines: {
           tap: ["Purr! Hello, my favorite person!", "You're the cream of the crop!", "Warm cup, calm mind, great you!", "One sip at a time, and you're doing it!", "Mew! You're doing great!", "This spot is extra cozy with you here!", "Cozy and capable, that's you!"],
           pet: ["Purr-fect! That's so nice!", "Mrrp! More chin scratches, please!"],
@@ -49627,7 +51901,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 68, r: 4.6, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 76.5, w: 3, color: "#2B1A10"},
         cheeks: {lx: 45.5, rx: 74.5, y: 75, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 45, 0.9], neck: [60, 86, 0.9], chest: [70, 88, 0.65], back: [60, 62, 0.9], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 44.5, 0.9, 0], neck: [60, 88.5, 0.8, 0, 44, 92], chest: [70, 92.5, 0.61], back: [60, 62, 0.9], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Bonjour! Hi hi!", "You're on a roll! Literally!", "Steady and golden, that's you!", "Layer by layer, you've got this!", "A warm and buttery hello!", "Rise and shine, just like dough!", "All those crumbs of progress add up!"],
           pet: ["Hehe, crumbs everywhere! So happy!", "Oh la la, merci beaucoup!"],
@@ -49674,7 +51948,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 79, w: 3.2},
         cheeks: {lx: 42.5, rx: 77.5, y: 77.5, w: 4.4, h: 2.8, color: "#FF7FA6"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 90, 0.95], chest: [71, 87, 0.68], back: [86, 68, 0.85], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 44, 0.85, 0], neck: [60, 88, 0.95, 0, 50, 47], chest: [71, 94, 0.6], back: [86, 68, 0.85], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi! I'm in full bloom for you!", "You're growing a little every day!", "You're blossoming beautifully, friend!", "Sun on your face, notes in hand! Yay!", "Tiny petals, big progress!", "Water, snack, then back to blooming?", "Spring into it! You've got this!"],
           pet: ["Hehe, that tickles my petals!", "Aww, thank you! I'm blooming!"],
@@ -49712,7 +51986,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 63, r: 5, style: "dot", color: "#2E2250"},
         mouth: {x: 60, y: 72, w: 3},
         cheeks: {lx: 44, rx: 76, y: 70.5, w: 4.2, h: 2.7, color: "#FF94BC"},
-        anchors: {top: [60, 43, 0.85], neck: [60, 82, 0.95], chest: [70, 80, 0.6], back: [81, 58, 0.8], hands: [60, 81, 0.85]},
+        anchors: {top: [60, 43, 0.85, 0], neck: [60, 80.5, 0.8, 0, 36, 36], chest: [70, 88, 0.6], back: [81, 58, 0.8], hands: [60, 81, 0.85]},
         lines: {
           tap: ["Flutter flutter, hi hi!", "I'm so happy to see you!", "Light as a wing, you've got this!", "Little changes, big beautiful wings!", "Floating by to say you're amazing!", "Every step is a flutter forward!", "Little by little, you're soaring!"],
           pet: ["Hehe, wing hugs! Yay!", "My wings are all a-flutter!"],
@@ -49726,7 +52000,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "spring-mole", name: "Digby", kind: "Garden Mole", pose: "sit", sleepy: true,
+        id: "spring-mole", name: "Digby", kind: "Garden Mole", pose: "sit", sleepy: true, hatTop: true, scarfOverArms: true,
         bio: "A velvety garden mole who pops up between the tulips to say hi.",
         idle: ["topBob", "finWiggle", "bounce"], cheer: "hop",
         parts: {
@@ -49747,7 +52021,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 63, r: 4.5, style: "dot", color: "#2A2140"},
         mouth: {x: 60, y: 78.5, w: 2.6, style: "cat", color: "#2A2140"},
         cheeks: {lx: 42, rx: 78, y: 71, w: 4.4, h: 2.7, color: "#FF94B4"},
-        anchors: {top: [60, 41, 0.9], neck: [60, 88, 1.0], chest: [74, 84, 0.62], back: [86, 64, 0.85], hands: [60, 90, 0.9]},
+        anchors: {top: [60, 39, 0.9, 0], neck: [60, 88, 1, 0, 57, 77], chest: [74, 94.5, 0.62], back: [86, 64, 0.85], hands: [60, 90, 0.9]},
         lines: {
           tap: ["Pop! Hi there, friend!", "Dig in! You're doing great!", "Deep roots, strong growth! That's you!", "Little tunnels, big progress!", "I really dig your study style!", "Water, snack, then back to it?", "Rest is part of growing, and you're growing!"],
           pet: ["Hehe, soft pats! I love it!", "Hehe, my nose is wiggling with joy!"],
@@ -49805,7 +52079,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 58, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 66, w: 3.2},
         cheeks: {lx: 41.5, rx: 78.5, y: 65, w: 4.2, h: 2.6, color: "#FF5C86"},
-        anchors: {top: [60, 33, 0.9], neck: [60, 78, 1.0], chest: [71, 87, 0.6], back: [86, 62, 0.85], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 33, 0.9, 0], neck: [59.5, 75, 1, 0, 59.5, 60], chest: [71, 81, 0.6], back: [86, 62, 0.85], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Hi! Cool, sweet, and happy to see you!", "You're doing scoop-er work today!", "One scoop at a time, you've got this!", "Stay cool! You're on a roll!", "Sending you sprinkles of good luck!", "Sip some water! Even ice cream says so!", "Brain freeze? Nope, brain BREEZE!"],
           pet: ["Hehe, careful, I might melt!", "Aww, that's the cherry on top!"],
@@ -49837,7 +52111,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 64, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 73, w: 3.2},
         cheeks: {lx: 42.5, rx: 77.5, y: 72, w: 4.2, h: 2.6, color: "#FF4F72"},
-        anchors: {top: [60, 27, 0.8], neck: [60, 85, 1.2], chest: [72, 80, 0.66], back: [85, 66, 0.85], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 31.5, 0.8, 0], neck: [60, 85, 1.2, 0, 74, 76], chest: [72, 91, 0.62], back: [85, 66, 0.85], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Hi! I'm so happy to see you!", "You're doing lovely work!", "Sweet work so far! Keep it up!", "Stay cool, stay sweet, stay awesome!", "Slice by slice, you've got this!", "Hydrate! Melons know best!", "Sending you the sunniest thoughts!"],
           pet: ["Hehe, that tickles my rind!", "Aww, sweet as summer!"],
@@ -49870,7 +52144,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 63, r: 5, style: "dot"},
         mouth: {x: 60, y: 72.5, w: 3.2},
         cheeks: {lx: 44, rx: 76, y: 71, w: 4.2, h: 2.6, color: "#FF8A9E"},
-        anchors: {top: [60, 33, 0.9], neck: [60, 90, 1.0], chest: [72, 84, 0.65], back: [88, 52, 0.85], hands: [60, 86, 0.9]},
+        anchors: {top: [60, 31, 0.9, 0], neck: [60, 81.5, 1, 0, 66, 56], chest: [72, 87.5, 0.61], back: [88, 52, 0.85], hands: [60, 86, 0.9]},
         lines: {
           tap: ["Boing! Hi hi!", "Bouncing with joy for you!", "Keep the ball rolling! You're great!", "Sun's out, fun's out!", "You're totally on the ball today!", "Float on, superstar!", "Having a ball with you!"],
           pet: ["Boing boing! Hehe!", "Whee, spin me again!"],
@@ -49915,7 +52189,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 55, r: 5, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 70, w: 2.4, style: "cat", color: "#2B1A10"},
         cheeks: {lx: 42.5, rx: 77.5, y: 63.5, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 76, 1.05], chest: [70, 97, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 39, 0.95, 0], neck: [60, 78, 1.05, 0, 44, 61], chest: [70, 83.5, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Oh, hi there! I'm so glad you came!", "It's wonderful to have you here!", "Tiptoe through it! You're doing great!", "Crunchy leaves, cozy notes, happy me!", "You're falling into a great rhythm!", "Water, snack, then back to it?", "Soft steps still get you there!"],
           pet: ["Hehe, that tickles my ears!", "Hehe, so cozy and warm!"],
@@ -49929,7 +52203,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "autumn-acorn", name: "Cappy", kind: "Little Acorn", pose: "stand", sleepy: true,
+        id: "autumn-acorn", name: "Cappy", kind: "Little Acorn", pose: "stand", sleepy: true, hatTop: true,
         bio: "A snug little acorn in a cozy cap, dozing through the crisp days.",
         idle: ["topBob", "waddle", "sway"], cheer: "hop",
         parts: {
@@ -49947,7 +52221,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 74, r: 4.8, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 83, w: 3, color: "#2B1A10"},
         cheeks: {lx: 43, rx: 77, y: 81.5, w: 4.2, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [60, 33, 1.0], neck: [60, 63, 1.2], chest: [71, 92, 0.68], back: [86, 72, 0.85], hands: [60, 93, 0.85]},
+        anchors: {top: [60, 29.5, 1, 0], neck: [60, 93.5, 1.2, 0, 39, 37], chest: [71, 99, 0.6], back: [86, 72, 0.85], hands: [60, 93, 0.85]},
         lines: {
           tap: ["Hi! Snug in my cap and happy to see you!", "Mighty oaks start small, just like this!", "You're growing, little by little!", "Crisp air, clear mind, great you!", "Tiny acorn, big dreams, bigger you!", "Rest is part of growing too!", "Okay, you've totally got this!"],
           pet: ["Hehe, my cap! So happy!", "So cozy! Thank you, thank you!"],
@@ -49974,7 +52248,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 60, r: 4.8, style: "sparkle", color: "#3A1A0A"},
         mouth: {x: 60, y: 69, w: 3, color: "#3A1A0A"},
         cheeks: {lx: 44, rx: 76, y: 67.5, w: 4, h: 2.6, color: "#FF7A7A"},
-        anchors: {top: [60, 27, 0.8], neck: [60, 80, 1.0], chest: [70, 76, 0.62], back: [88, 52, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 29, 0.8, 0], neck: [60, 78, 1, 0, 70, 72], chest: [70, 84.5, 0.62], back: [88, 52, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! I drifted by just to see you!", "Turning over a new leaf with you!", "You glow like golden hour!", "It's all falling into place!", "Crisp and cozy, that's you!", "Twirl, breathe, and keep shining!", "Every leaf lands softly, and so will you!"],
           pet: ["Whee, a leafy twirl!", "Hehe, I'm all rustly with joy!"],
@@ -50019,7 +52293,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 57, r: 4.6, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 67.5, w: 2.6, style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 65, w: 4.2, h: 2.6, color: "#FF9AA8"},
-        anchors: {top: [60, 37, 0.95], neck: [60, 75, 1.05], chest: [70, 97, 0.7], back: [34, 90, 0.85], hands: [60, 93, 0.9]},
+        anchors: {top: [60, 37, 0.95, 0], neck: [60, 79, 1.05, 0, 50, 59], chest: [70, 82.5, 0.7], back: [34, 90, 0.85], hands: [60, 93, 0.9]},
         lines: {
           tap: ["Hi! Floating by to cheer you on!", "You're doing amazing!", "Hold my paw, we've got this!", "Ride the wave! You're doing great!", "Little splashes add up to big waves!", "Water, snack, then back to it?", "Calm seas, clear mind, brilliant you!"],
           pet: ["Aww, that's so nice! Happy otter!", "Hehe, my whiskers are wiggling!"],
@@ -50052,7 +52326,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 60, r: 5.4, style: "sparkle", color: "#2B1E30"},
         mouth: {x: 60, y: 68.5, w: 3.2},
         cheeks: {lx: 42.5, rx: 77.5, y: 67, w: 4.4, h: 2.8, color: "#FF6F8E"},
-        anchors: {top: [60, 21, 1.0], neck: [60, 80, 1.15], chest: [73, 74, 0.6], back: [88, 52, 0.85], hands: [60, 82, 0.9]},
+        anchors: {top: [60, 19, 1, 0], neck: [60, 77.5, 0.95, 0, 60, 50], chest: [73, 85.5, 0.6], back: [88, 52, 0.85], hands: [60, 82, 0.9]},
         lines: {
           tap: ["Hi! I'm waving all eight arms!", "Cheering for you with every arm!", "You've got this, times eight!", "Go with the flow! You're doing great!", "Small waves make big tides!", "Water, snack, then back to it?", "You're doing amazing, sea buddy!"],
           pet: ["Eight-armed hug! Squeeze!", "Hehe, I'm blushing pink with joy!"],
@@ -50066,7 +52340,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "ocean-lighthouse", name: "Beacon", kind: "Little Lighthouse", pose: "stand",
+        id: "ocean-lighthouse", name: "Beacon", kind: "Little Lighthouse", pose: "stand", hatTop: true,
         bio: "A little lighthouse who keeps a warm light on for late study nights.",
         idle: ["sway", "wave", "sparkle"], cheer: "spin",
         parts: {
@@ -50093,7 +52367,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 71, r: 4.6, style: "dot", color: "#0B2B33"},
         mouth: {x: 60, y: 79.5, w: 3, color: "#0B2B33"},
         cheeks: {lx: 44, rx: 76, y: 78, w: 4, h: 2.5, color: "#FF8FA3"},
-        anchors: {top: [60, 25, 0.7], neck: [60, 62, 1.0], chest: [72, 97, 0.62], back: [85, 70, 0.85], hands: [60, 87, 0.85]},
+        anchors: {top: [60, 21.5, 0.7, 0], neck: [60, 88.5, 1, 0, 62, 70], chest: [72, 95, 0.62], back: [85, 70, 0.85], hands: [60, 87, 0.85]},
         lines: {
           tap: ["Hi! My light is on just for you!", "Shining your way! You're amazing!", "Steady as the shore, that's you!", "Every wave passes, and you stay strong!", "Guiding you, one bright page at a time!", "You light up the whole room!", "Keep that warm glow going!"],
           pet: ["Hehe, I'm all aglow!", "Beaming with joy!"],
@@ -50114,7 +52388,7 @@ var COMP_KIT = (() => {
     theme: "sakura",
     companions: [
       {
-        id: "sakura-shiba", name: "Hana", kind: "Shiba Pup", pose: "sit", sleepy: true,
+        id: "sakura-shiba", name: "Hana", kind: "Shiba Pup", pose: "sit", sleepy: true, hatTop: true,
         bio: "A sleepy shiba pup with a blossom on her head, happy under the trees.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "hop",
         neck: [60, 76],
@@ -50139,7 +52413,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 69, w: 2.6, style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 66, w: 4.2, h: 2.6, color: "#FF8FB0"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 78, 1.05], chest: [69, 92, 0.7], back: [86, 90, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 38, 0.95, 0], neck: [60, 81.5, 1.05, 0, 50, 59], chest: [69, 85.5, 0.7], back: [86, 90, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Wan! Hi hi!", "Petals and pats, my favorite things!", "You're doing wonderfully!", "Big tail wags for your hard work!", "Bloom at your own pace! You're great!", "Water, snack, then back to it?", "I'm so proud of you, friend!"],
           pet: ["Wan wan! Happiest pup ever!", "Wiggly tail! So so happy!"],
@@ -50166,7 +52440,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 61, r: 4.6, style: "sparkle", color: "#5A2440"},
         mouth: {x: 60, y: 70, w: 2.8, color: "#5A2440"},
         cheeks: {lx: 45, rx: 75, y: 68, w: 3.8, h: 2.4, color: "#FF8FB5"},
-        anchors: {top: [60, 41, 0.8], neck: [60, 82, 0.9], chest: [71, 77, 0.6], back: [86, 50, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 23.5, 0.8, 0], neck: [60, 78, 0.9, 0, 38, 67], chest: [71, 84.5, 0.6], back: [86, 50, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! A lucky petal, just for you!", "Bloom right where you are!", "Soft and steady, like spring!", "Every petal falls just right!", "Floating by with lots of good luck!", "Pause and breathe! So pretty out here!", "You're in full bloom today!"],
           pet: ["Hehe, petal shower!", "I'm blushing pink with joy!"],
@@ -50180,7 +52454,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "sakura-dango", name: "Tama", kind: "Hanami Dango", pose: "stand",
+        id: "sakura-dango", name: "Tama", kind: "Hanami Dango", pose: "stand", hatTop: true,
         bio: "A sweet three-color dango who loves picnics under the blossoms.",
         idle: ["sway", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -50200,7 +52474,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 62, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 70.5, w: 3},
         cheeks: {lx: 42, rx: 78, y: 69, w: 4, h: 2.5, color: "#FF8FB0"},
-        anchors: {top: [60, 24, 0.85], neck: [60, 79, 1.05], chest: [72, 91, 0.66], back: [85, 62, 0.85], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 21, 0.85, 0], neck: [60, 79, 1.05, 0, 45, 51], chest: [72, 86, 0.66], back: [85, 62, 0.85], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! Is it picnic time? Yay!", "Three cheers, one for each of my dango!", "Sweet and steady, that's you!", "You're on a roll today!", "Stick with it! You're amazing!", "Water, snack, then back to it?", "One bite at a time, and you're doing it!"],
           pet: ["Hehe, so squishy and happy!", "Aww, thank you! Triple happy!"],
@@ -50229,7 +52503,7 @@ var COMP_KIT = (() => {
     theme: "forest",
     companions: [
       {
-        id: "forest-hedgehog", name: "Bramble", kind: "Moss Hedgehog", pose: "sit", sleepy: true,
+        id: "forest-hedgehog", name: "Bramble", kind: "Moss Hedgehog", pose: "sit", sleepy: true, hatTop: true,
         bio: "A mossy little hedgehog with a mushroom friend on its back.",
         idle: ["earTwitch", "topBob", "bounce"], cheer: "spin",
         parts: {
@@ -50253,7 +52527,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 75.5, r: 4.6, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 86.5, w: 2.8, style: "cat"},
         cheeks: {lx: 42, rx: 78, y: 84, w: 4.4, h: 2.7},
-        anchors: {top: [60, 42, 1], neck: [60, 92, 1.1], chest: [71, 99, 0.7], back: [89, 82, 0.9], hands: [60, 98, 0.9]},
+        anchors: {top: [60, 54, 1, 0], neck: [60, 96, 1.1, 0, 51, 50], chest: [71, 102, 0.62], back: [89, 82, 0.9], hands: [60, 98, 0.9]},
         lines: {
           tap: ["Oh hi! You made my whole morning!", "Snuffle snuffle! You're here!", "You're doing wonderfully, truly!", "Little by little, look how far you've come!", "Little roots grow into big trees, like you!", "Snack and a sip, then back at it? Yay!", "My mushroom friend is cheering for you too!"],
           pet: ["Soft side up! Hehe, I love this!", "Eee, that tickles! Do it again!"],
@@ -50267,7 +52541,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "forest-pinecone", name: "Pinny", kind: "Pinecone Pal", pose: "stand",
+        id: "forest-pinecone", name: "Pinny", kind: "Pinecone Pal", pose: "stand", hatTop: true,
         bio: "A plucky pinecone who drops by to cheer on every small win.",
         idle: ["topBob", "wave", "waddle"], cheer: "spin",
         parts: {
@@ -50284,7 +52558,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 64, r: 5, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 73.5, w: 3.2, color: "#2B1A10"},
         cheeks: {lx: 41.5, rx: 78.5, y: 72.5, w: 4.4, h: 2.7, color: "#FF9A8A"},
-        anchors: {top: [60, 27, 0.9], neck: [60, 86, 1.2], chest: [73, 94, 0.7], back: [87, 66, 0.85], hands: [60, 92, 0.9]},
+        anchors: {top: [60, 25, 0.9, 0], neck: [60, 84, 1.2, 0, 68, 71], chest: [73, 90, 0.62], back: [87, 66, 0.85], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hi hi! Fresh from the tall pines for you!", "You're growing so much, I can tell!", "Tiny seeds make huge forests. Go you!", "Keep going, you're doing amazing!", "So proud of you for showing up today!", "Scale by scale, you're getting there!", "Breathe in that pine air! Feels great, right?"],
           pet: ["Hehe, my scales tickle! I love it!", "Aww, gentle pats! Best day ever!"],
@@ -50329,7 +52603,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 54, r: 6, style: "dot", color: "#23202E"},
         mouth: {x: 60, y: 66, w: 2.6, style: "cat"},
         cheeks: {lx: 42.5, rx: 77.5, y: 63.5, w: 4.2, h: 2.6},
-        anchors: {top: [60, 31, 0.95], neck: [60, 77, 0.95], chest: [67, 88, 0.6], back: [37, 63, 0.8], hands: [60, 85, 0.85]},
+        anchors: {top: [60, 32.5, 0.95, 0], neck: [60, 76.5, 0.85, 0, 31, 37], chest: [67, 83, 0.6], back: [37, 63, 0.8], hands: [60, 85, 0.85]},
         lines: {
           tap: ["Wheee! Hi there, friend!", "Gliding by just to say hello to you!", "You're soaring today! Look at you!", "Small leaps add up to big flights!", "You've totally got this! Keep gliding!", "The view is lovely, and so are you!", "Loving your progress so much!"],
           pet: ["Hehe, my tail won't stop wiggling!", "So soft and floaty! I love this!"],
@@ -50360,8 +52634,8 @@ var COMP_KIT = (() => {
             <circle cx="60" cy="61" r="31" fill="url(#galaxy-planet-g)"/>
             <path d="M40.4 37Q60 41.5 79.6 37L85.9 44Q60 49.5 34.1 44Z" fill="#B9A6FF"/>
             <circle cx="60" cy="61" r="31" fill="none" ${O}/>
-            <path d="M36.5 56Q37.5 46 44 40" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>
-            <path d="M12 72A48 11.5 0 0 0 108 72" transform="rotate(-10 60 72)" fill="none" stroke="${INK}" stroke-width="9.6" stroke-linecap="round"/>
+            <path d="M36.5 56Q37.5 46 44 40" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>`,
+          over: `<path d="M12 72A48 11.5 0 0 0 108 72" transform="rotate(-10 60 72)" fill="none" stroke="${INK}" stroke-width="9.6" stroke-linecap="round"/>
             <path d="M12 72A48 11.5 0 0 0 108 72" transform="rotate(-10 60 72)" fill="none" stroke="#FFD66B" stroke-width="4.8" stroke-linecap="round"/>`,
           armL: {svg: `<ellipse cx="26.5" cy="59" rx="4.8" ry="6.2" transform="rotate(30 26.5 59)" fill="#FFB5DA" ${O}/>`, pivot: [33, 60]},
           armR: {svg: `<ellipse cx="93.5" cy="59" rx="4.8" ry="6.2" transform="rotate(-30 93.5 59)" fill="#FFB5DA" ${O}/>`, pivot: [87, 60]}
@@ -50369,7 +52643,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 59, r: 5.4, style: "sparkle", color: "#2C1F6B"},
         mouth: {x: 60, y: 69, w: 3.2, color: "#2C1F6B"},
         cheeks: {lx: 40.5, rx: 79.5, y: 67, w: 4.6, h: 2.8, color: "#FF7FB6"},
-        anchors: {top: [60, 30, 1.05], neck: [60, 87, 1.2], chest: [73, 79, 0.62], back: [87, 44, 0.85], hands: [60, 83, 0.9]},
+        anchors: {top: [60, 32, 1.05, 0], neck: [60, 79.5, 1.1, 0, 52, 83], chest: [73, 85.5, 0.62], back: [87, 44, 0.85], hands: [60, 83, 0.9]},
         lines: {
           tap: ["Hi! I orbited all the way over to you!", "So glad you're here! My rings are sparkling!", "Hi hi! You light up my whole sky!", "Small steps make giant leaps!", "Keep shining, star student!", "Cosmic idea: a sip of water? Yay!", "You're doing stellar today!"],
           pet: ["Hehe, you set me spinning! Wheee!", "Look, my rings are glowing for you!"],
@@ -50406,7 +52680,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 52, r: 6.4, style: "dot", color: "#1E1740"},
         mouth: {x: 60, y: 62.5, w: 3, color: "#1E1740"},
         cheeks: {lx: 40, rx: 80, y: 60, w: 4.2, h: 2.6, color: "#FF9FCF"},
-        anchors: {top: [60, 29, 1], neck: [60, 71, 0.95], chest: [69, 85, 0.7], back: [81, 86, 0.85], hands: [60, 90, 0.9]},
+        anchors: {top: [60, 29, 1, 0], neck: [60, 74.5, 0.95, 0, 35, 58], chest: [69, 78.5, 0.7], back: [81, 86, 0.85], hands: [60, 90, 0.9]},
         lines: {
           tap: ["Greetings, Earth friend! Yay!", "Beep boop! You are so great!", "Earth studying is the coolest thing!", "Take me to your notes! I'm so excited!", "You are my absolute favorite human!", "Tiny steps, cosmic results! Beep!", "My antennae sense a big win coming!"],
           pet: ["Beep! Antenna tickles! Hehe!", "Zib is very, very happy! Beep beep!"],
@@ -50420,7 +52694,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "galaxy-moonrock", name: "Moonie", kind: "Moon Rock", pose: "sit", sleepy: true,
+        id: "galaxy-moonrock", name: "Moonie", kind: "Moon Rock", pose: "sit", sleepy: true, hatTop: true,
         bio: "A sleepy little moon rock with a crystal crown that glows at night.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
@@ -50439,7 +52713,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 80, r: 5, style: "dot", color: "#3A2A5C"},
         mouth: {x: 60, y: 89, w: 3, color: "#3A2A5C"},
         cheeks: {lx: 40, rx: 80, y: 87.5, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 53, 0.95], neck: [60, 97, 1.3], chest: [76, 100, 0.7], back: [92, 76, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [60, 54, 0.95, 0], neck: [59.5, 100, 1.3, 0, 75, 76.5], chest: [76, 105.5, 0.62], back: [92, 76, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Hi! You're doing so well today!", "Rock solid work! I love it!", "Steady as a stone, that's you!", "Look at that steady effort! Wow!", "Crystals grow slowly too, and they shine!", "Take your time! Rocks love a slow, steady win!", "You make my crystals glow so bright!"],
           pet: ["Ooh, my crystals are twinkling!", "Mmm, warm moonbeam pats! Thank you!"],
@@ -50482,7 +52756,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 52.5, r: 4.6, style: "dot", color: "#1B2A3E"},
         mouth: {x: 60, y: 66.8, w: 2.6, style: "cat", color: "#1B2A3E"},
         cheeks: {lx: 41, rx: 79, y: 61, w: 4.4, h: 2.7},
-        anchors: {top: [60, 29, 1], neck: [60, 73, 1.05], chest: [70, 90, 0.75], back: [85, 86, 0.9], hands: [60, 94, 0.95]},
+        anchors: {top: [60, 30, 1, 0], neck: [60, 79, 1.05, 0, 52, 63], chest: [70, 81, 0.75], back: [85, 86, 0.9], hands: [60, 94, 0.95]},
         lines: {
           tap: ["Hi! Big bear hug incoming!", "Soft paws, strong mind! That's you!", "You're doing so, so well!", "Look, the sky is dancing for you!", "Steady on the ice! You're amazing!", "Icy fresh water break? Yes please!", "I'm so proud of you, truly!"],
           pet: ["Hehe, fluffy bear hugs! Yay!", "Mmm, so soft and cozy! Thank you!"],
@@ -50514,7 +52788,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 76.5, r: 6.2, style: "dot", color: "#1F2A3A"},
         mouth: {x: 60, y: 88.5, w: 2.6, style: "cat", color: "#1F2A3A"},
         cheeks: {lx: 40, rx: 80, y: 86, w: 4.4, h: 2.7},
-        anchors: {top: [60, 51, 1], neck: [60, 97, 1.2], chest: [74, 100, 0.7], back: [90, 76, 0.9], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 51, 1, 0], neck: [60, 97, 1.2, 0, 75, 78], chest: [74, 103, 0.62], back: [90, 76, 0.9], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Arf! Hi there, friend!", "You're doing really, really well!", "Go with the flow! You've got this!", "Every day counts! Arf!", "Flipper high five! Yay!", "Rest is part of studying too! Hooray!", "I think you're the greatest!"],
           pet: ["Arf arf! So happy! Hehe!", "Wiggle wiggle! I love pats!"],
@@ -50528,7 +52802,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "arctic-narwhal", name: "Aura", kind: "Narwhal Calf", pose: "float",
+        id: "arctic-narwhal", name: "Aura", kind: "Narwhal Calf", pose: "float", hatTop: true,
         bio: "A baby narwhal who swam up through the aurora to cheer you on.",
         idle: ["finWiggle", "topBob", "sparkle"], cheer: "spin",
         parts: {
@@ -50545,7 +52819,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 63, r: 5, style: "sparkle", color: "#1B3F5E"},
         mouth: {x: 60, y: 72, w: 3, color: "#1B3F5E"},
         cheeks: {lx: 41, rx: 79, y: 70.5, w: 4.4, h: 2.7, color: "#FF9FC4"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 85, 1.2], chest: [72, 82, 0.65], back: [86, 56, 0.85], hands: [60, 83, 0.9]},
+        anchors: {top: [60, 35.5, 0.95, 0], neck: [60, 82.5, 1.2, 0, 69, 76], chest: [72, 88, 0.61], back: [86, 56, 0.85], hands: [60, 83, 0.9]},
         lines: {
           tap: ["Hi! I swam all the way up to see you!", "You light up the whole sky!", "Nice and easy, like the tide! You're great!", "You're doing wonderfully! Splash!", "One ripple at a time! Look at you go!", "Sparkly thoughts incoming for you!", "The northern lights are dancing for you!"],
           pet: ["Hehe, bubble giggles! I love it!", "Look, my horn is glowing!"],
@@ -50566,7 +52840,7 @@ var COMP_KIT = (() => {
     theme: "lemonade",
     companions: [
       {
-        id: "lemonade-lemon", name: "Zest", kind: "Little Lemon", pose: "stand", wearColor: "#43A56C",
+        id: "lemonade-lemon", name: "Zest", kind: "Little Lemon", pose: "stand", wearColor: "#43A56C", hatTop: true,
         bio: "A sunny little lemon who turns sour days sweet.",
         idle: ["topBob", "wave", "bounce"], cheer: "spin",
         parts: {
@@ -50583,7 +52857,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 65, r: 5, style: "dot", color: "#3A2A10"},
         mouth: {x: 60, y: 74.5, w: 3.2, color: "#3A2A10"},
         cheeks: {lx: 41.5, rx: 78.5, y: 73.5, w: 4.4, h: 2.7, color: "#FF9A8A"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 88, 1.2], chest: [73, 93, 0.72], back: [87, 66, 0.85], hands: [60, 93, 0.9]},
+        anchors: {top: [60, 34, 0.9, 0], neck: [60, 85, 1.2, 0, 67, 71], chest: [73, 90.5, 0.6], back: [87, 66, 0.85], hands: [60, 93, 0.9]},
         lines: {
           tap: ["Hi! So zesty to see you!", "You're doing amazing today!", "Sour moment? We'll make it sweet!", "I'm so glad you're here!", "Keep it bright! You're glowing!", "Lemon water break? Refreshing!", "Stay fresh! You've totally got this!"],
           pet: ["Hehe, that tickles! Zesty!", "Aww, thank you! I feel so zesty!"],
@@ -50597,7 +52871,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "lemonade-glass", name: "Sippy", kind: "Pink Lemonade", pose: "sit", sleepy: true,
+        id: "lemonade-glass", name: "Sippy", kind: "Pink Lemonade", pose: "sit", sleepy: true, hatTop: true,
         bio: "A calm glass of pink lemonade who keeps your study days cool.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
@@ -50618,7 +52892,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 75, r: 5, style: "dot", color: "#4A2030"},
         mouth: {x: 60, y: 84.5, w: 3, color: "#4A2030"},
         cheeks: {lx: 41.5, rx: 78.5, y: 83, w: 4.4, h: 2.7, color: "#FF6F96"},
-        anchors: {top: [60, 42, 1], neck: [60, 93, 1.15], chest: [73, 97, 0.7], back: [90, 72, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 37, 1, 0], neck: [60, 93, 1.15, 0, 56.5, 58], chest: [73, 99, 0.62], back: [90, 72, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! So happy you're here!", "Sip, breathe, smile! You're great!", "You're doing wonderfully today!", "Nice and easy, like a sweet sip!", "Stay cool! You've totally got this!", "Sip of water? Fizzy good idea!", "Sweet thoughts, all for you!"],
           pet: ["Hehe, so bubbly! Fizz fizz!", "Ooh, that tickles! I'm all sparkly!"],
@@ -50632,7 +52906,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "lemonade-bird", name: "Zippy", kind: "Hummingbird", pose: "float",
+        id: "lemonade-bird", name: "Zippy", kind: "Hummingbird", pose: "float", hatTop: true,
         bio: "A zippy hummingbird who hovers by for a sip of sunshine.",
         idle: ["wingFlutter", "topBob", "sway"], cheer: "spin",
         parts: {
@@ -50654,7 +52928,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 67, w: 3},
         cheeks: {lx: 42, rx: 78, y: 64, w: 4.4, h: 2.7, color: "#FF8FB8"},
-        anchors: {top: [60, 37, 0.9], neck: [60, 79, 1.0], chest: [71, 76, 0.6], back: [83, 56, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 78.5, 0.85, 0, 34, 22], chest: [71, 90.5, 0.6], back: [83, 56, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! Zipping by just for you!", "You're humming along so nicely!", "Sweet little wins add up! Yay!", "Hover a moment and breathe! Lovely!", "Zippy cheers, all for you!", "Sip of water? I'll join you!", "You're doing amazing! Hum hum!"],
           pet: ["Hehe, that tickles! Hum hum!", "So happy! My wings are buzzing!"],
@@ -50704,7 +52978,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47.5, rx: 72.5, y: 50, r: 5, style: "sparkle", color: "#2B1A10"},
         mouth: {x: 60, y: 66, w: 2.6, color: "#2B1A10"},
         cheeks: {lx: 40.5, rx: 79.5, y: 60, w: 4.4, h: 2.7},
-        anchors: {top: [60, 30, 0.9], neck: [60, 77, 0.95], chest: [70.5, 94, 0.55], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 31, 0.9, 0], neck: [60, 77.5, 0.95, 0, 40, 54], chest: [70.5, 82.5, 0.55], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Jingle jingle! Hi, friend!", "You show up every day! I love that!", "You've got this! Jingle!", "Tiny hooves, big leaps! Go you!", "Merry and bright, that's you!", "Warm cocoa and a stretch? Yes please!", "Look at those twinkly lights! So fun!"],
           pet: ["Jingle! That tickles! Hehe!", "Look, my nose is glowing for you!"],
@@ -50718,7 +52992,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "xmas-gift", name: "Jolly", kind: "Little Gift Box", pose: "sit", sleepy: true, wearColor: "#2E9E5B",
+        id: "xmas-gift", name: "Jolly", kind: "Little Gift Box", pose: "sit", sleepy: true, wearColor: "#2E9E5B", hatTop: true,
         bio: "A cozy little present who is happiest when you open a new page.",
         idle: ["topBob", "bounce", "sway"], cheer: "hop",
         parts: {
@@ -50740,7 +53014,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 77, r: 5, style: "dot", color: "#2A1016"},
         mouth: {x: 60, y: 86.5, w: 3, color: "#2A1016"},
         cheeks: {lx: 41, rx: 79, y: 85, w: 4.4, h: 2.7, color: "#FFB3AA"},
-        anchors: {top: [60, 41, 1], neck: [60, 64, 1.3], chest: [75, 91, 0.7], back: [90, 76, 0.85], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 45.5, 1, 0], neck: [60, 97.5, 1.3, 0, 61, 63], chest: [75, 103, 0.62], back: [90, 76, 0.85], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Hi! No peeking inside! Hehe!", "You're the real gift, you know!", "Wrapped up in good vibes for you!", "Bow by bow, you're doing amazing!", "Present and accounted for! Yay!", "Unwrap one step at a time! Fun!", "Rest is a gift too! Enjoy it!"],
           pet: ["Hehe, my bow is wiggling!", "Ooh, careful with my ribbon! Hehe!"],
@@ -50754,7 +53028,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "xmas-bulb", name: "Glimmer", kind: "Twinkle Bulb", pose: "float",
+        id: "xmas-bulb", name: "Glimmer", kind: "Twinkle Bulb", pose: "float", hatTop: true,
         bio: "A warm little light bulb who glows brighter with every win.",
         idle: ["topBob", "sparkle", "sway"], cheer: "spin",
         parts: {
@@ -50772,7 +53046,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 66, r: 5, style: "dot", color: "#3A2410"},
         mouth: {x: 60, y: 75, w: 3, color: "#3A2410"},
         cheeks: {lx: 42, rx: 78, y: 73.5, w: 4.4, h: 2.7, color: "#FF9A8A"},
-        anchors: {top: [60, 31, 0.8], neck: [60, 45, 0.75], chest: [71, 85, 0.62], back: [84, 54, 0.8], hands: [60, 87, 0.85]},
+        anchors: {top: [60, 41, 0.85, 0], neck: [60, 82.5, 0.75, 0, 61, 53], chest: [71, 89.5, 0.62], back: [84, 54, 0.8], hands: [60, 87, 0.85]},
         lines: {
           tap: ["Blink blink! Hi, friend!", "You light up the whole room!", "Glowing with pride for you!", "Bright idea incoming! Ooh!", "Little lights add up! Yay!", "Stay warm and keep shining!", "Twinkle on! You're amazing!"],
           pet: ["I'm all aglow! Hehe!", "Ooh, full brightness! Thank you!"],
@@ -50822,7 +53096,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 82, r: 4.7, style: "dot", color: "#3A1A2A"},
         mouth: {x: 60, y: 90.5, w: 3, color: "#3A1A2A"},
         cheeks: {lx: 44, rx: 76, y: 89.5, w: 4.4, h: 2.7, color: "#FF5F7E"},
-        anchors: {top: [60, 64, 0.85], neck: [60, 100, 1.1], chest: [72, 101, 0.7], back: [90, 72, 0.85], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 62, 0.85, 0], neck: [60, 100, 1.1, 0, 65, 53], chest: [72, 106, 0.62], back: [90, 72, 0.85], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Oh! Hi there! So happy to see you!", "Come out of your shell! You're amazing!", "You're going to do great! I know it!", "Sideways steps count too! Go you!", "I love your company so much!", "The sunset's lovely, and so are you!", "One wave at a time! You've got this!"],
           pet: ["Hehe, that tickles! Click click!", "Aww, thank you, friend! So sweet!"],
@@ -50861,7 +53135,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52.5, rx: 67.5, y: 68, r: 4.3, style: "dot", color: "#3A1A2A"},
         mouth: {x: 60, y: 75.5, w: 2.8, color: "#3A1A2A"},
         cheeks: {lx: 47.5, rx: 72.5, y: 74.5, w: 3.2, h: 2.2, color: "#FF5F7E"},
-        anchors: {top: [62, 30, 0.6], neck: [60, 81, 0.8], chest: [67, 84, 0.5], back: [80, 70, 0.75], hands: [60, 88, 0.8]},
+        anchors: {top: [62, 34.5, 0.71, 0], neck: [60, 83, 0.8, 0, 44, 51], chest: [67, 88, 0.5], back: [80, 70, 0.75], hands: [60, 88, 0.8]},
         lines: {
           tap: ["Hi! So nice to see you!", "You're doing really, really well!", "Reach for it, one arm at a time!", "The sand's warm and you're here! Yay!", "Nice and steady! You're amazing!", "Look at you, glowing!", "Five arms of cheering, all for you!"],
           pet: ["Hehe, that tickles! Yay!", "Hehe, I'm all a-sparkle!"],
@@ -50875,7 +53149,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "sunset-gull", name: "Skye", kind: "Seagull Chick", pose: "float",
+        id: "sunset-gull", name: "Skye", kind: "Seagull Chick", pose: "float", hatTop: true,
         bio: "A fluffy gull chick gliding on the warm evening breeze.",
         idle: ["wingFlutter", "topBob", "sway"], cheer: "wingFlutter",
         parts: {
@@ -50897,7 +53171,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 68, w: 3},
         cheeks: {lx: 42.5, rx: 77.5, y: 67.5, w: 4.2, h: 2.7, color: "#FF8FA8"},
-        anchors: {top: [60, 39, 0.9], neck: [60, 80, 1.05], chest: [71, 79, 0.65], back: [84, 60, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 80, 1.05, 0, 52, 47], chest: [71, 86, 0.61], back: [84, 60, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! Riding the breeze to see you!", "Gliding along right beside you!", "You're doing great! Squawk!", "Wings out, chin up! You've got this!", "Such a golden evening with you!", "Every flap counts! Look at you go!", "You make it look so breezy!"],
           pet: ["Squawk! So fluffy! Hehe!", "Hehe, ruffled feathers! I love it!"],
@@ -50919,7 +53193,7 @@ var COMP_KIT = (() => {
     theme: "mint",
     companions: [
       {
-        id: "mint-scoop", name: "Chip", kind: "Mint Chip Cone", pose: "stand",
+        id: "mint-scoop", name: "Chip", kind: "Mint Chip Cone", pose: "stand", hatTop: true,
         bio: "A cool scoop of mint chip who keeps your study time fresh.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -50936,7 +53210,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 53, r: 5, style: "dot", color: "#1E2A24"},
         mouth: {x: 60, y: 62, w: 3.2, color: "#1E2A24"},
         cheeks: {lx: 41, rx: 79, y: 61, w: 4.4, h: 2.8, color: "#FF9FB7"},
-        anchors: {top: [58, 32, 0.95], neck: [60, 73, 1.3], chest: [66, 86, 0.6], back: [88, 52, 0.85], hands: [60, 79, 0.85]},
+        anchors: {top: [58, 32.5, 0.95, 0], neck: [59.5, 73, 1.3, 0, 71, 62.5], chest: [66, 78.5, 0.6], back: [88, 52, 0.85], hands: [60, 79, 0.85]},
         lines: {
           tap: ["Hi! Stay cool, friend! Yay!", "So glad you're here!", "Nice and steady! You're amazing!", "One scoop at a time! You've got this!", "Cool and calm, that's you!", "You're doing a great job! Wow!", "Fresh ideas, coming right up!"],
           pet: ["Brr, hehe! So happy!", "I'm melting with joy! Hehe!"],
@@ -50973,7 +53247,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 58, r: 4.6, style: "dot", color: "#1E2A24"},
         mouth: {x: 60, y: 66, w: 4, color: "#1E2A24"},
         cheeks: {lx: 38.5, rx: 81.5, y: 64.5, w: 4.4, h: 2.7, color: "#FF9FC0"},
-        anchors: {top: [60, 35, 1], neck: [60, 76, 1.05], chest: [69, 92, 0.65], back: [84, 88, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 34.5, 1, 0], neck: [60, 80, 1.05, 0, 47, 53], chest: [69, 82.5, 0.65], back: [84, 88, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Hehe, hi! Biggest smile for you!", "You're doing great! Splash!", "Swim along! You've got this!", "Cool and calm, that's you!", "Hooray for you! Hooray!", "I'm smiling so big for you!", "Little strokes, steady swim! Go you!"],
           pet: ["Wiggle wiggle! So happy!", "My frills are fluttering! Hehe!"],
@@ -50987,7 +53261,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "mint-nib", name: "Nib", kind: "Choc Chip Sprite", pose: "float", wearColor: "#FF8FB0",
+        id: "mint-nib", name: "Nib", kind: "Choc Chip Sprite", pose: "float", wearColor: "#FF8FB0", hatTop: true,
         bio: "A tiny chocolate chip who flutters about on mint leaf wings.",
         idle: ["wingFlutter", "topBob", "sparkle"], cheer: "spin",
         parts: {
@@ -51002,7 +53276,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 71, r: 4.8, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 80, w: 3, color: "#2B1A10"},
         cheeks: {lx: 41.5, rx: 78.5, y: 79, w: 4.4, h: 2.7, color: "#FF8FA0"},
-        anchors: {top: [60, 40, 0.75], neck: [60, 86, 1.15], chest: [72, 86, 0.65], back: [86, 66, 0.85], hands: [60, 87, 0.85]},
+        anchors: {top: [60, 42, 0.75, 0], neck: [60, 90, 1.15, 0, 63, 61], chest: [72, 96, 0.61], back: [86, 66, 0.85], hands: [60, 87, 0.85]},
         lines: {
           tap: ["Hi! Tiny chip, big cheer!", "You're one smart cookie!", "Sweet work, friend! Yay!", "Fluttering by to say hi to you!", "Little bits add up! Look at you!", "You make it look so easy!", "Choc full of good ideas, that's you!"],
           pet: ["Hehe, I'm melting! Sweet!", "The sweetest pats ever!"],
@@ -51023,7 +53297,7 @@ var COMP_KIT = (() => {
     theme: "bokeh",
     companions: [
       {
-        id: "bokeh-orb", name: "Shimmer", kind: "Bokeh Light Sprite", pose: "float",
+        id: "bokeh-orb", name: "Shimmer", kind: "Bokeh Light Sprite", pose: "float", hatTop: true,
         bio: "A soft circle of light who drifted out of focus to say hello.",
         idle: ["topBob", "sparkle", "spin"], cheer: "spin",
         parts: {
@@ -51040,7 +53314,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 62, r: 5, style: "sparkle", color: "#27235A"},
         mouth: {x: 60, y: 71, w: 3, color: "#27235A"},
         cheeks: {lx: 42.5, rx: 77.5, y: 70, w: 4.2, h: 2.7, color: "#FF8AB8"},
-        anchors: {top: [60, 37, 0.95], neck: [60, 83, 1.05], chest: [72, 79, 0.65], back: [85, 58, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 80.5, 1.05, 0, 45, 42.5], chest: [72, 86.5, 0.61], back: [85, 58, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! Floating by just for you!", "You bring everything into focus!", "A little extra glow for you!", "Soft light, bright mind! Wow!", "You're shining so bright today!", "Blur the worries, keep the joy!", "Every light counts! Yours does too!"],
           pet: ["Hehe, I'm all aglow!", "Glowing extra bright for you!"],
@@ -51054,7 +53328,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "bokeh-jar", name: "Beam", kind: "Little Light Jar", pose: "sit", sleepy: true,
+        id: "bokeh-jar", name: "Beam", kind: "Little Light Jar", pose: "sit", sleepy: true, hatTop: true,
         bio: "A cozy glass jar that caught a handful of soft evening lights.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "hop",
         parts: {
@@ -51072,7 +53346,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 70, r: 5, style: "dot", color: "#1F1D2B"},
         mouth: {x: 60, y: 79, w: 3, color: "#1F1D2B"},
         cheeks: {lx: 42.5, rx: 77.5, y: 78, w: 4.2, h: 2.7, color: "#FF8AB8"},
-        anchors: {top: [60, 31, 1], neck: [60, 47, 1.2], chest: [72, 86, 0.6], back: [84, 64, 0.9], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 27, 1, 0], neck: [60, 89.5, 1.2, 0, 51, 53], chest: [72, 95, 0.6], back: [84, 64, 0.9], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Hi! I caught some light for you!", "Little lights, big glow! Yay!", "You brighten my whole jar!", "Soft glow, calm mind! You're great!", "Saving this sparkle just for you!", "Every little light counts! Go you!", "So glad you're here!"],
           pet: ["Hehe, I'm all aglow!", "My lights are dancing! Wheee!"],
@@ -51086,7 +53360,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "bokeh-dandelion", name: "Wisp", kind: "Dandelion Puff", pose: "stand",
+        id: "bokeh-dandelion", name: "Wisp", kind: "Dandelion Puff", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A soft dandelion puff who makes a wish for every task you finish.",
         idle: ["headTilt", "topBob", "wave"], cheer: "hop",
         neck: [60, 76],
@@ -51106,7 +53380,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 52, r: 4.8, style: "dot", color: "#1F1D2B"},
         mouth: {x: 60, y: 61, w: 3, color: "#1F1D2B"},
         cheeks: {lx: 42, rx: 78, y: 60, w: 4.4, h: 2.7, color: "#FF8AB8"},
-        anchors: {top: [60, 24, 1], neck: [60, 76, 0.85], chest: [68, 94, 0.6], back: [77, 90, 0.75], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 21, 1, 0], neck: [60, 82, 0.85, 0, 31, 67], chest: [68, 82.5, 0.6], back: [77, 90, 0.75], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Puff! Hi there, friend!", "Make a wish! I believe in you!", "Light as air, strong as you!", "Let your worries float away! Wheee!", "Every big flower starts as a seed!", "Breathe in slowly! You're amazing!", "So glad you're here!"],
           pet: ["Careful, I'll float away! Hehe!", "Hehe, so fluffy! I love it!"],
@@ -51149,7 +53423,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 50, r: 5.8, style: "dot", color: "#16163A"},
         mouth: {x: 60, y: 62, w: 2.4, style: "cat", color: "#16163A"},
         cheeks: {lx: 42, rx: 78, y: 59, w: 3.8, h: 2.4, color: "#FF8FC8"},
-        anchors: {top: [60, 31, 0.95], neck: [60, 68, 0.95], chest: [69, 84, 0.6], back: [80, 74, 0.8], hands: [60, 86, 0.85]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 69.5, 0.85, 0, 32, 43], chest: [69, 74, 0.6], back: [80, 74, 0.8], hands: [60, 86, 0.85]},
         lines: {
           tap: ["Wheee! Hi hi! I glided over just for you!", "Look at you, showing up again! I love it!", "The whole city glows brighter when you're here!", "You're shining like the best neon sign in town!", "Big eyes, big dreams, and you're chasing them!", "One leap at a time, and you're soaring!", "Yay, a visit! You totally made my night!"],
           pet: ["Aww, a cuddle! My fluff is so happy!", "Hehe! Extra fluffy now, thank you!"],
@@ -51163,7 +53437,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "neon-boba", name: "Boba", kind: "Taro Bubble Tea", pose: "sit", sleepy: true,
+        id: "neon-boba", name: "Boba", kind: "Taro Bubble Tea", pose: "sit", sleepy: true, hatTop: true,
         bio: "A sweet taro bubble tea from the corner shop, full of happy pearls.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -51185,7 +53459,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 68, r: 5, style: "dot", color: "#231F3F"},
         mouth: {x: 60, y: 77, w: 3.2, color: "#231F3F"},
         cheeks: {lx: 42, rx: 78, y: 76, w: 4.4, h: 2.7, color: "#FF8FC8"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 86, 1.1], chest: [71, 88, 0.6], back: [84, 70, 0.85], hands: [60, 87, 0.85]},
+        anchors: {top: [60, 28, 0.95, 0], neck: [60, 86, 1.1, 0, 48, 50], chest: [71, 92, 0.6], back: [84, 70, 0.85], hands: [60, 87, 0.85]},
         lines: {
           tap: ["Hi hi! I added extra pearls just for you!", "You're my favorite order, every single time!", "Sip, study, smile! You're doing amazing!", "Pearls of wisdom coming right up for you!", "Shake it up! You've totally got this!", "Sweet and steady, that's you! I love it!", "Yay, you're here! My pearls are bouncing!"],
           pet: ["Hehe! My pearls are doing happy flips!", "Aww! So bubbly and happy right now!"],
@@ -51199,7 +53473,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "neon-vendi", name: "Vendi", kind: "Vending Machine Pal", pose: "stand", wearColor: "#FF6FD2",
+        id: "neon-vendi", name: "Vendi", kind: "Vending Machine Pal", pose: "stand", wearColor: "#FF6FD2", hatTop: true,
         bio: "A glowing little vending machine that serves up snacks and cheers.",
         idle: ["topBob", "wave", "sway"], cheer: "bounce",
         parts: {
@@ -51218,7 +53492,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 54, r: 4.6, style: "dot", color: "#16163A"},
         mouth: {x: 60, y: 63, w: 3, color: "#16163A"},
         cheeks: {lx: 45, rx: 75, y: 62, w: 3.8, h: 2.5, color: "#FF8FC8"},
-        anchors: {top: [60, 27, 1], neck: [60, 79, 1.3], chest: [72, 99, 0.6], back: [86, 58, 0.9], hands: [60, 80, 0.9]},
+        anchors: {top: [60, 23, 1, 0], neck: [60, 74, 1.3, 0, 65, 77], chest: [72, 79.5, 0.6], back: [86, 58, 0.9], hands: [60, 80, 0.9]},
         lines: {
           tap: ["Beep beep! Hello, my favorite friend!", "Now dispensing: a huge batch of good vibes!", "Today's special? Encouragement, all for you!", "You're the top selection in the whole machine!", "Clunk! One giant cheer, served fresh!", "Lights on, buttons glowing! You've got this!", "Ding! Your smile is my favorite thing!"],
           pet: ["Beep boop! Happy lights all flashing!", "Bonus snack unlocked! Hehe, thank you!"],
@@ -51261,7 +53535,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 45, r: 4.6, style: "dot", color: "#2D1F3D"},
         mouth: {x: 60, y: 55.5, w: 2.4, style: "cat", color: "#2D1F3D"},
         cheeks: {lx: 43.5, rx: 76.5, y: 52.5, w: 4, h: 2.5, color: "#FF3D8B"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 64, 0.9], chest: [69, 84, 0.6], back: [82, 80, 0.85], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 29, 0.95, 0], neck: [60, 68, 0.9, 0, 41, 62], chest: [69, 70.5, 0.6], back: [82, 80, 0.85], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Boing! Hi friend! I'm so happy you're here!", "Wow, you're getting so good at this!", "Look at all your sweet work so far!", "Soft and steady, and you're crushing it!", "I'm bouncing with pride for you!", "Keep going! You're doing wonderfully!", "Boing boing! A super sweet hello!"],
           pet: ["Hehe! I'm all happy and wobbly!", "Squish! That made my whole day!"],
@@ -51290,7 +53564,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 60.5, r: 5.2, style: "sparkle", color: "#2D1F3D"},
         mouth: {x: 60, y: 70.5, w: 3, color: "#2D1F3D"},
         cheeks: {lx: 41, rx: 79, y: 69.5, w: 4.6, h: 2.7, color: "#FF7FB5"},
-        anchors: {top: [60, 34, 1], neck: [60, 86, 1.2], chest: [74, 79, 0.65], back: [84, 48, 0.85], hands: [60, 84, 0.9]},
+        anchors: {top: [60, 35, 1, 0], neck: [60, 81, 1.2, 0, 53, 50], chest: [74, 86.5, 0.61], back: [84, 48, 0.85], hands: [60, 84, 0.9]},
         lines: {
           tap: ["Hi hi! It's so sweet to see you!", "You're a real treat, you know that?", "You're doing so well today! I'm thrilled!", "So many bright ideas today! Wow!", "Here's a big twirly cheer just for you!", "You're doing so sweetly! Keep it up!", "Keep twirling! You've totally got this!"],
           pet: ["Crinkle crinkle! Hehe, so happy!", "The sweetest pats ever! Thank you!"],
@@ -51321,7 +53595,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 75, r: 5, style: "dot", color: "#2D1F3D"},
         mouth: {x: 60, y: 84, w: 3.2, color: "#2D1F3D"},
         cheeks: {lx: 40, rx: 80, y: 83, w: 4.6, h: 2.8, color: "#FF7FB5"},
-        anchors: {top: [60, 43, 1.1], neck: [60, 97, 1.35], chest: [78, 100, 0.65], back: [90, 66, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [60, 39, 1.1, 0], neck: [60, 97, 1.35, 0, 66, 67], chest: [78, 102.5, 0.61], back: [90, 66, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Squish! Hi there! I'm so glad you came!", "Be gentle with yourself! You're doing great!", "You're doing so well! I could just squish!", "Fluffy thoughts only! You've got this!", "I'm puffed up with pride for you!", "Soft and slow, and you're still amazing!", "A big, sweet, squishy hello!"],
           pet: ["Squishy squish! Hehe, I love it!", "So soft and so happy! Thank you!"],
@@ -51342,7 +53616,7 @@ var COMP_KIT = (() => {
     theme: "arcade",
     companions: [
       {
-        id: "arcade-sun", name: "Sunny", kind: "Retro Sun", pose: "float",
+        id: "arcade-sun", name: "Sunny", kind: "Retro Sun", pose: "float", hatTop: true,
         bio: "A striped synthwave sun who never quite sets on your good work.",
         idle: ["topBob", "sparkle", "spin"], cheer: "spin",
         parts: {
@@ -51358,7 +53632,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 55, r: 5, style: "sparkle", color: "#2A1033"},
         mouth: {x: 60, y: 63.5, w: 3, color: "#2A1033"},
         cheeks: {lx: 42.5, rx: 77.5, y: 62.5, w: 4.2, h: 2.6, color: "#FF5FA8"},
-        anchors: {top: [60, 34, 1], neck: [60, 84, 1.05], chest: [72, 76, 0.6], back: [85, 56, 0.85], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 35, 1, 0], neck: [60, 73, 1, 0, 50, 53], chest: [72, 79, 0.6], back: [85, 56, 0.85], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hey hey! So great to see you, friend!", "Look at you! You're positively glowing!", "Sunny skies, clear head! Let's go!", "Ride the grid! One square at a time!", "Retro vibes and a fresh mind! Love it!", "You're a total star player, you know!", "Warm, steady and awesome! That's you!"],
           pet: ["Whoa! Warm fuzzies everywhere!", "Hehe! Now I'm glowing extra bright!"],
@@ -51389,7 +53663,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 71, r: 4.8, style: "dot", color: "#1A1033"},
         mouth: {x: 60, y: 79, w: 3, color: "#1A1033"},
         cheeks: {lx: 40, rx: 80, y: 78, w: 4.2, h: 2.6, color: "#FF7FB5"},
-        anchors: {top: [60, 48, 1.2], neck: [60, 98, 1.4], chest: [85, 93, 0.6], back: [96, 62, 0.9], hands: [60, 92, 0.9]},
+        anchors: {top: [60, 42.5, 1.2, 0], neck: [60, 91, 1.4, 0, 81, 83], chest: [85, 96, 0.6], back: [96, 62, 0.9], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hi hi! Side A is all good vibes for you!", "You're my favorite track on the whole tape!", "Press play on your day! Let's rock it!", "Rewind, relax, reset! You've got this!", "Keep that beat going! You're amazing!", "You're a total hit today! Wow!", "Chill beats and a bright mind! Love it!"],
           pet: ["Whirr whirr! That's my happy song!", "Hehe! That's music to my reels!"],
@@ -51403,7 +53677,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "arcade-skate", name: "Roxy", kind: "Retro Roller Skate", pose: "stand",
+        id: "arcade-skate", name: "Roxy", kind: "Retro Roller Skate", pose: "stand", hatTop: true,
         bio: "A rad little roller skate who rolls along the neon grid with you.",
         idle: ["topBob", "waddle", "bounce"], cheer: "spin",
         parts: {
@@ -51423,7 +53697,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47.5, rx: 64.5, y: 57, r: 4.6, style: "dot", color: "#1A1033"},
         mouth: {x: 56, y: 66, w: 3, color: "#1A1033"},
         cheeks: {lx: 40.5, rx: 71.5, y: 65, w: 4, h: 2.5, color: "#FF7FB5"},
-        anchors: {top: [50.5, 29, 0.95], neck: [50.5, 36, 0.95], chest: [84, 75, 0.55], back: [34, 54, 0.85], hands: [56, 80, 0.8]},
+        anchors: {top: [50.5, 24.5, 0.95, 0], neck: [50.5, 75, 0.95, 0, 67, 72], chest: [84, 80.5, 0.55], back: [34, 54, 0.85], hands: [56, 80, 0.8]},
         lines: {
           tap: ["Hey hey! Let's roll! I'm so glad you're here!", "You're on a roll today! Look at you!", "Really great work! I'm spinning with joy!", "Glide right through it! You've got this!", "Smooth moves, friend! So impressive!", "Four wheels, zero worries, all cheers!", "Keep rolling! You're unstoppable!"],
           pet: ["Wheee! Spin me again!", "Hehe! My wheels are doing a happy spin!"],
@@ -51478,7 +53752,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 56.5, r: 4.6, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 66.2, w: 2.6, style: "cat"},
         cheeks: {lx: 42, rx: 78, y: 64, w: 4.4, h: 2.7},
-        anchors: {top: [60, 36, 1], neck: [60, 78, 1.05], chest: [69, 92, 0.72], back: [33, 86, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 36, 1, 0], neck: [60, 81.5, 1.05, 0, 51, 68], chest: [69, 85.5, 0.72], back: [33, 86, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Mrrp! Hi there! I'm so happy you're here!", "You're doing purr-fectly! I mean it!", "Take a breath! You've totally got this!", "I believe in you so much! Meow!", "Need a cheer? I'm right here for you!", "Look at you studying! I'm so impressed!", "Every tiny step counts! Go you!"],
           pet: ["Purrrr! Right there, that's the spot!", "Mrrp! Chin rubs are the best! More!"],
@@ -51511,7 +53785,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 79, r: 5.3, style: "dot", color: "#3A2414"},
         mouth: {x: 60, y: 87.5, w: 3.2, color: "#3A2414"},
         cheeks: {lx: 41, rx: 79, y: 87, w: 4.6, h: 2.8, color: "#FF9A9A"},
-        anchors: {top: [60, 54, 1.05], neck: [60, 68, 1.35], chest: [74, 98, 0.72], back: [88, 72, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [60, 56, 1.05, 0], neck: [60, 99, 1.35, 0, 60, 62], chest: [74, 104, 0.6], back: [88, 72, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Hi hi! There's always room for you in here!", "Every cat's favorite seat, and yours too!", "Yay, you're here! My flaps are flapping!", "Think inside the box today! You've got this!", "I'm wide open for all your great ideas!", "Snug and steady, that's us! Love it!", "Flaps up! You're doing amazing!"],
           pet: ["Hehe! Crinkle crinkle! So happy!", "A big box hug! So cozy, thank you!"],
@@ -51540,7 +53814,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 73, r: 4.8, style: "sparkle", color: "#4A2233"},
         mouth: {x: 60, y: 81.5, w: 3, color: "#4A2233"},
         cheeks: {lx: 42, rx: 78, y: 80.5, w: 4.4, h: 2.7, color: "#FF7FA2"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 91, 1.15], chest: [73, 87, 0.66], back: [86, 72, 0.85], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 29, 0.95, 0], neck: [60, 91, 1.15, 0, 61, 60], chest: [73, 97, 0.62], back: [86, 72, 0.85], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Boop! High five! You're amazing!", "Toe beans say hi! And they're so excited!", "Soft paws, strong mind! You've got this!", "You're doing so great! I'm cheering loud!", "Squish! That's a lucky bean for you!", "A happy little paw pat on your shoulder!", "Go go go! I'm your biggest fan!"],
           pet: ["Squishy squish! Hehe, I love it!", "Hehe! My beans are all tickly now!"],
@@ -51560,7 +53834,7 @@ var COMP_KIT = (() => {
     theme: "music",
     companions: [
       {
-        id: "music-bird", name: "Lark", kind: "Songbird", pose: "stand", wearColor: "#EE8A6A",
+        id: "music-bird", name: "Lark", kind: "Songbird", pose: "stand", wearColor: "#EE8A6A", hatTop: true,
         bio: "A round little songbird whose crest is a music note.",
         idle: ["wingFlutter", "topBob", "tailSwish"], cheer: "wingFlutter",
         parts: {
@@ -51583,7 +53857,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 78, w: 3},
         cheeks: {lx: 40.5, rx: 79.5, y: 77.5, w: 4.6, h: 2.8, color: "#FF86B4"},
-        anchors: {top: [58, 47, 1], neck: [60, 86, 1.2], chest: [72, 96, 0.72], back: [87, 70, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [58, 47.5, 1, 0], neck: [60, 90, 1.2, 0, 73, 78], chest: [72, 95.5, 0.6], back: [87, 70, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Tweet tweet! Hi hi! I'm so glad you're here!", "You're right on tempo today! Wow!", "Every note counts, and you're hitting them!", "Look at all that progress! I could sing!", "La la la! You've totally got this!", "Your study song sounds wonderful!", "Here's a happy little tune just for you!"],
           pet: ["Chirrup! So fluffy and happy!", "Tweet! You found my favorite crest spot!"],
@@ -51612,7 +53886,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 45.5, rx: 65.5, y: 74, r: 5, style: "sparkle", color: "#3A1F45"},
         mouth: {x: 55.5, y: 83, w: 3, color: "#3A1F45"},
         cheeks: {lx: 37.5, rx: 73.5, y: 82, w: 4.4, h: 2.7, color: "#FF6F9F"},
-        anchors: {top: [52, 55, 0.95], neck: [56, 92, 1.1], chest: [67, 88, 0.66], back: [30, 66, 0.8], hands: [56, 90, 0.85]},
+        anchors: {top: [52, 57, 0.95, 0], neck: [53, 92, 1.1, 0, 51, 39], chest: [67, 98, 0.62], back: [30, 66, 0.8], hands: [56, 90, 0.85]},
         lines: {
           tap: ["La la! Hello hello! So glad you're here!", "You're hitting all the right notes today!", "Studying in a major key! I love it!", "One bar at a time, and it sounds amazing!", "Hmm hmm! Oh, it's you! Yay!", "Keep that melody going! You've got this!", "You're doing such lovely work! Wow!"],
           pet: ["Tra-la-la! Hehe, that's my happy song!", "Mmm! You made me ring a happy chord!"],
@@ -51626,7 +53900,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "music-drum", name: "Tappy", kind: "Little Drum", pose: "sit", wearColor: "#5B4FC9",
+        id: "music-drum", name: "Tappy", kind: "Little Drum", pose: "sit", wearColor: "#5B4FC9", hatTop: true,
         bio: "A peppy little drum who keeps the beat while you study.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -51645,7 +53919,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 78, r: 5, style: "dot", color: "#1E1B38"},
         mouth: {x: 60, y: 88, w: 3.2, color: "#1E1B38"},
         cheeks: {lx: 40.5, rx: 79.5, y: 87, w: 4.6, h: 2.8, color: "#FF9FC0"},
-        anchors: {top: [60, 52, 1.05], neck: [60, 67, 1.45], chest: [75, 96, 0.72], back: [89, 70, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 46, 1.05, 0], neck: [60, 100, 1.45, 0, 70, 71], chest: [75, 105, 0.6], back: [89, 70, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Ba-dum tss! Hi hi! So glad you're here!", "You're keeping such a great beat today!", "Tap tap! You've totally got this!", "Steady rhythm, steady mind! Love it!", "Drumroll, please! It's you!", "Boom! Look at all that progress!", "Beat by beat, you're rocking it!"],
           pet: ["Rat-a-tat! Hehe, so happy!", "Boom boom! My heart's drumming with joy!"],
@@ -51686,7 +53960,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 71, y: 63.5, r: 4.8, style: "dot", color: "#2B1F1C"},
         mouth: {x: 61, y: 72.5, w: 3, color: "#2B1F1C"},
         cheeks: {lx: 46.5, rx: 75.5, y: 72, w: 3.8, h: 2.5, color: "#FF9AA8"},
-        anchors: {top: [58, 31, 1], neck: [58, 91, 1.35], chest: [73, 97, 0.66], back: [30, 60, 0.9], hands: [60, 92, 0.9]},
+        anchors: {top: [58, 25, 1, 0], neck: [60.5, 84, 1.35, 0, 77.5, 71.5], chest: [73, 90, 0.66], back: [30, 60, 0.9], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hello, reader! I'm so happy you're here!", "Every page makes you wiser! Look at you!", "Yay, reading time with you! My favorite!", "Chapter by chapter, you're amazing!", "Your story is going so wonderfully!", "Wow, your notes are coming along great!", "I love keeping you company! Let's go!"],
           pet: ["Hehe! My pages are rustling with joy!", "Aww! A warm hug for me! Thank you!"],
@@ -51723,7 +53997,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 51, r: 4.8, style: "dot", color: "#1F2A1C"},
         mouth: {x: 60, y: 60.5, w: 3, color: "#1F2A1C"},
         cheeks: {lx: 42, rx: 78, y: 59, w: 4.6, h: 2.8, color: "#FF9AA8"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 71, 1], chest: [68, 88, 0.62], back: [42, 84, 0.8], hands: [60, 86, 0.85]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 75.5, 1, 0, 31, 80], chest: [68, 77.5, 0.62], back: [42, 84, 0.8], hands: [60, 86, 0.85]},
         lines: {
           tap: ["Munch munch... oh! Hi hi! You're here!", "Every page is a tasty snack! Yum!", "Inch by inch, you're growing so much!", "Curious minds go far, and you're zooming!", "You're a true bookworm! I'm so proud!", "Nibble by nibble, you're getting there!", "Ooh! What are we reading? I'm so excited!"],
           pet: ["Hehe! Wiggle wiggle! I love that!", "Hehe! My antennae are doing a happy dance!"],
@@ -51755,7 +54029,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 68, y: 60, r: 4.5, style: "dot", color: "#3A1E26"},
         mouth: {x: 59, y: 68.5, w: 2.8, color: "#3A1E26"},
         cheeks: {lx: 45, rx: 72.5, y: 67, w: 3.6, h: 2.3, color: "#FF7F96"},
-        anchors: {top: [68, 28, 0.75], neck: [56, 86, 0.95], chest: [66, 80, 0.6], back: [84, 52, 0.8], hands: [58, 82, 0.85]},
+        anchors: {top: [68, 27.5, 0.75, 0], neck: [57.5, 77, 0.95, 0, 50, 57], chest: [66, 83, 0.6], back: [84, 52, 0.8], hands: [58, 82, 0.85]},
         lines: {
           tap: ["Scritch scratch! Hello hello! Yay!", "Light as a feather, sharp as you!", "Let's write something wonderful today!", "One line at a time, and it's beautiful!", "Your notes look amazing! Truly!", "Every word is a little win! Woohoo!", "Look at you go! I'm floating with joy!"],
           pet: ["Hehe! That tickles my feathers!", "Oh! I'm all fluffed up and happy!"],
@@ -51791,7 +54065,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 79, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 87.5, w: 3.2},
         cheeks: {lx: 39.5, rx: 80.5, y: 87, w: 4.6, h: 2.8, color: "#FF7E9E"},
-        anchors: {top: [52, 51, 1], neck: [60, 98, 1.15], chest: [78, 99, 0.7], back: [90, 74, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [52, 57, 1, 0], neck: [60.5, 98, 1.15, 0, 63, 52], chest: [78, 104, 0.62], back: [90, 74, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Hi hi! All wound up and so excited to see you!", "Knit one, purl one, you're doing great!", "Stitch by stitch, you've totally got this!", "You're a real natural! Look at you!", "Loop it in, slow and steady! Love it!", "Cozy thoughts and a clear mind! Yay!", "Keep that thread going! You're amazing!"],
           pet: ["Hehe! So squishy and soft!", "Aww! You're so gentle! I love it!"],
@@ -51830,7 +54104,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 52.5, r: 4.3, style: "dot", color: "#2B2226"},
         mouth: {x: 60, y: 65, w: 2.4, style: "cat", color: "#4A342C"},
         cheeks: {lx: 45.5, rx: 74.5, y: 59.5, w: 3.8, h: 2.4, color: "#FF9FB2"},
-        anchors: {top: [60, 31, 0.85], neck: [60, 75, 0.85], chest: [69, 94, 0.6], back: [77, 86, 0.8], hands: [60, 93, 0.85]},
+        anchors: {top: [60, 37, 0.85, 0], neck: [60, 75, 0.85, 0, 38, 57], chest: [69, 89.5, 0.6], back: [77, 86, 0.8], hands: [60, 93, 0.85]},
         lines: {
           tap: ["Hi hi! A big fluffy hello for you!", "Soft and steady wins, and you're winning!", "You're doing so much good! Wow!", "Stay cozy and keep going! You've got this!", "One fluffy step at a time! Yay!", "I'm so proud of you! So, so proud!", "No rush at all. We'll get there together!"],
           pet: ["Hmmm! So fluffy and so happy!", "Hehe! My pompom is all floofy now!"],
@@ -51860,7 +54134,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52.5, rx: 71.5, y: 59, r: 4.6, style: "dot", color: "#3A2A18"},
         mouth: {x: 62, y: 67.5, w: 3, color: "#3A2A18"},
         cheeks: {lx: 47, rx: 77, y: 66.5, w: 4, h: 2.5, color: "#FF8C8C"},
-        anchors: {top: [62, 37, 0.95], neck: [62, 86, 1.05], chest: [74, 80, 0.6], back: [82, 58, 0.85], hands: [62, 82, 0.85]},
+        anchors: {top: [62, 39, 0.95, 0], neck: [62, 77, 1.05, 0, 52.5, 58], chest: [74, 83, 0.6], back: [82, 58, 0.85], hands: [62, 82, 0.85]},
         lines: {
           tap: ["Thumbs up from me! You're amazing!", "Warm hands, warm heart! Love it!", "You're knitting it all together! Wow!", "Snug as a mitten and twice as awesome!", "High five, mitten style! Yay!", "Keep cozy and carry on! You've got this!", "I've got you covered! Let's go!"],
           pet: ["Hehe! So warm and fuzzy!", "A big mitten hug right back at you!"],
@@ -51900,7 +54174,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 60, r: 4.6, style: "dot", color: "#1F2230"},
         mouth: {x: 60, y: 68.5, w: 3, color: "#1F2230"},
         cheeks: {lx: 45, rx: 75, y: 67.5, w: 3.8, h: 2.5, color: "#FF94A8"},
-        anchors: {top: [60, 18, 0.8], neck: [60, 44, 0.85], chest: [72, 89, 0.62], back: [80, 60, 0.85], hands: [60, 84, 0.9]},
+        anchors: {top: [60, 23, 0.85, 0], neck: [60, 76.5, 0.85, 0, 55, 67], chest: [72, 83, 0.62], back: [80, 60, 0.85], hands: [60, 84, 0.9]},
         lines: {
           tap: ["Hi hi! Fresh out of the tube and so excited!", "Your work is coming along so beautifully!", "Let's add a splash of color to today!", "No rush! Every stroke is wonderful!", "Every stroke counts, and you're nailing it!", "Blend in a little rest too! You're amazing!", "You make it look so easy! Wow!"],
           pet: ["Hehe! Gently, or I'll splash rainbows!", "Hehe! That tickles! So happy!"],
@@ -51914,7 +54188,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "painting-chameleon", name: "Hue", kind: "Paint Chameleon", pose: "sit", sleepy: true,
+        id: "painting-chameleon", name: "Hue", kind: "Paint Chameleon", pose: "sit", sleepy: true, hatTop: true,
         bio: "A calm little chameleon who changes color with every brushstroke.",
         idle: ["tailSwish", "headTilt", "topBob"], cheer: "hop",
         neck: [60, 77],
@@ -51935,7 +54209,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 58, r: 5, style: "dot", color: "#1F2A20"},
         mouth: {x: 60, y: 67, w: 3.4, color: "#1F2A20"},
         cheeks: {lx: 41, rx: 79, y: 65.5, w: 4.4, h: 2.7, color: "#FF8FA8"},
-        anchors: {top: [60, 31, 0.95], neck: [60, 78, 1.05], chest: [71, 92, 0.66], back: [34, 90, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 81.5, 1.05, 0, 45, 60], chest: [71, 85, 0.66], back: [34, 90, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Oh, hello! I just turned happy teal!", "You bring out all my brightest colors!", "Slow and steady, just like me! Love it!", "Every change means you're learning! Wow!", "Blend in some calm! You've got this!", "Every shade of you is wonderful!", "Take your time! I'm cheering in rainbow!"],
           pet: ["Ooh! I'm blushing bright pink!", "Hehe! Now I'm every color at once!"],
@@ -51968,7 +54242,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 72, r: 4.8, style: "dot", color: "#3A2414"},
         mouth: {x: 60, y: 80.5, w: 3, color: "#3A2414"},
         cheeks: {lx: 43.5, rx: 76.5, y: 79.5, w: 4.2, h: 2.6, color: "#FF8FA0"},
-        anchors: {top: [52, 49, 0.9], neck: [60, 91, 1.2], chest: [75, 84, 0.6], back: [26, 62, 0.8], hands: [60, 89, 0.85]},
+        anchors: {top: [52, 47, 1.01, 0], neck: [53, 91, 1.2, 0, 69, 41.5], chest: [75, 96.5, 0.6], back: [26, 62, 0.8], hands: [60, 89, 0.85]},
         lines: {
           tap: ["Hi hi! Pick a color, any color! Yay!", "I'm so glad you're here! Truly!", "Mix it up! You've totally got this!", "Here's a big dab of cheer just for you!", "Paint outside the lines! Be bold!", "So many bright ideas today! Wow!", "Your work is looking amazing!"],
           pet: ["Hehe! I'm all smudged and happy!", "Ooh! A splash of pure joy!"],
@@ -51989,7 +54263,7 @@ var COMP_KIT = (() => {
     theme: "baking",
     companions: [
       {
-        id: "baking-cupcake", name: "Sprinkles", kind: "Strawberry Cupcake", pose: "stand",
+        id: "baking-cupcake", name: "Sprinkles", kind: "Strawberry Cupcake", pose: "stand", hatTop: true,
         bio: "A sweet strawberry cupcake with a cherry on top of your day.",
         idle: ["topBob", "sway", "bounce"], cheer: "hop",
         parts: {
@@ -52011,7 +54285,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 87, r: 4.6, style: "dot", color: "#33211F"},
         mouth: {x: 60, y: 95, w: 3, color: "#33211F"},
         cheeks: {lx: 42.5, rx: 77.5, y: 94, w: 4.2, h: 2.6, color: "#FF8FA8"},
-        anchors: {top: [60, 45, 1], neck: [60, 78, 1.2], chest: [73, 99, 0.62], back: [86, 68, 0.9], hands: [60, 101, 0.85]},
+        anchors: {top: [60, 47.5, 1, 0], neck: [60, 105.5, 1.2, 0, 46, 46], chest: [73, 111.5, 0.62], back: [86, 68, 0.9], hands: [60, 101, 0.85]},
         lines: {
           tap: ["Hi, sweetie! You made my whole day!", "You're the cherry on top of everything!", "Let's sprinkle some fun on this study session!", "Sweet work! Keep it coming!", "Your brain deserves a treat, and so do you!", "I'm so proud of you, I could pop my frosting!", "Look at you, one smart cookie!"],
           pet: ["Hehe! Careful, my frosting is all wiggly!", "Aww, that's the sweetest thing ever!"],
@@ -52049,7 +54323,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 56, r: 4.4, style: "dot", color: "#2A1E1C"},
         mouth: {x: 60, y: 73.5, w: 2.6, color: "#5A2632"},
         cheeks: {lx: 42, rx: 78, y: 65, w: 4.2, h: 2.6, color: "#FF7F9A"},
-        anchors: {top: [60, 38.5, 0.95], neck: [60, 79, 1.05], chest: [67, 92, 0.6], back: [85, 90, 0.85], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 39, 0.95, 0], neck: [60, 81.5, 1.05, 0, 44, 53], chest: [67, 85, 0.6], back: [85, 90, 0.85], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Oink! Hello, hello! I'm so glad you're here!", "Something smells like success, and it's you!", "Whisk away the worries! We've got this!", "Need a hand? I'm right here, apron and all!", "Little crumbs add up to a whole loaf!", "Warm oven, warm heart, and a great student!", "You're doing wonderfully! Oink oink!"],
           pet: ["Oink oink! Hehe, that's my favorite!", "Hehe! My ears are doing a happy wiggle!"],
@@ -52081,7 +54355,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 60, r: 4.8, style: "sparkle", color: "#33213F"},
         mouth: {x: 60, y: 68.5, w: 2.8, color: "#33213F"},
         cheeks: {lx: 41.5, rx: 78.5, y: 67.5, w: 4.4, h: 2.7, color: "#FF8FB8"},
-        anchors: {top: [60, 40, 1], neck: [60, 84, 1.4], chest: [75, 95, 0.58], back: [88, 56, 0.8], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 39, 1, 0], neck: [60, 80, 1.4, 0, 78, 89], chest: [75, 85, 0.58], back: [88, 56, 0.8], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Bonjour! Hi hi! I'm so happy you're here!", "Your work is looking lovely today!", "Light and steady, that's you! Ooh la la!", "A sweet little treat for your brilliant mind!", "Crisp outside, soft inside, and so proud of you!", "Fluttering by to cheer you on!", "I'm filled to the brim with pride for you!"],
           pet: ["Hehe! Crumbly giggles everywhere!", "Ooh la la! Merci, merci!"],
@@ -52110,7 +54384,7 @@ var COMP_KIT = (() => {
     theme: "gardening",
     companions: [
       {
-        id: "gardening-pot", name: "Posy", kind: "Flower Pot Pal", pose: "sit",
+        id: "gardening-pot", name: "Posy", kind: "Flower Pot Pal", pose: "sit", hatTop: true,
         bio: "A little clay pot with a bloom on top that grows as you do.",
         idle: ["topBob", "sway", "wave"], cheer: "hop",
         parts: {
@@ -52133,7 +54407,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47.5, rx: 72.5, y: 78, r: 5.2, style: "dot", color: "#3A2218"},
         mouth: {x: 60, y: 87, w: 3.2, color: "#3A2218"},
         cheeks: {lx: 41.5, rx: 78.5, y: 86, w: 4.4, h: 2.8, color: "#FF6F8E"},
-        anchors: {top: [60, 47, 1.15], neck: [60, 99, 1.05], chest: [72, 98, 0.72], back: [88, 78, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [60, 41.5, 1.15, 0], neck: [60, 96.5, 1.05, 0, 52, 53], chest: [72, 102.5, 0.6], back: [88, 78, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Hi! I'm in full bloom just for you!", "Look at you growing a little every day!", "You're blooming beautifully!", "Strong roots, then gorgeous flowers! That's you!", "Sunshine and study notes! My favorite combo!", "Petal by petal, you've totally got this!", "Every time you show up, I sprout a new leaf!"],
           pet: ["Hehe! That tickles my petals!", "Aww, I'm blooming with happiness!"],
@@ -52175,7 +54449,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 54, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 62, w: 2.8},
         cheeks: {lx: 43.5, rx: 76.5, y: 61, w: 4, h: 2.6, color: "#FF8FA3"},
-        anchors: {top: [60, 29, 1], neck: [60, 74, 0.95], chest: [69, 94, 0.7], back: [93, 68, 0.85], hands: [60, 94, 0.9]},
+        anchors: {top: [60, 31.5, 1, 0], neck: [60, 79, 0.95, 0, 32, 50], chest: [69, 81.5, 0.7], back: [93, 68, 0.85], hands: [60, 94, 0.9]},
         lines: {
           tap: ["Hi! Spot on, as always!", "I'm so lucky to study with you!", "You're doing great! Truly!", "Little legs, BIG progress! Look at that!", "Every spot on me is one of your wins!", "Deep breath! You've totally got this!", "What a lucky day for learning!"],
           pet: ["Hehe! That tickles my spots!", "Ooh, lucky me! More please!"],
@@ -52210,7 +54484,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 63, r: 4.8, style: "dot", color: "#3A2618"},
         mouth: {x: 60, y: 71, w: 2.8, color: "#3A2618"},
         cheeks: {lx: 42.5, rx: 77.5, y: 70, w: 4.2, h: 2.7, color: "#FF7F8A"},
-        anchors: {top: [60, 42, 0.95], neck: [60, 82, 1.05], chest: [72, 84, 0.66], back: [85, 62, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 42.5, 0.95, 0], neck: [60, 80, 1.05, 0, 48, 60], chest: [72, 86, 0.62], back: [85, 62, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Bzz! Hi there! So happy you're here!", "You're the bee's knees, truly!", "Buzzing along right beside you!", "Sweet work so far! Keep it humming!", "Bee kind to yourself! You're doing great!", "One flower at a time, and look at this garden!", "You make my wings buzz with pride!"],
           pet: ["Bzzz! So fuzzy and so happy!", "Hehe! Sweet as honey!"],
@@ -52231,7 +54505,7 @@ var COMP_KIT = (() => {
     theme: "gaming",
     companions: [
       {
-        id: "gaming-pad", name: "Combo", kind: "Game Controller", pose: "stand",
+        id: "gaming-pad", name: "Combo", kind: "Game Controller", pose: "stand", hatTop: true,
         bio: "A cheerful controller who's ready for your next study quest.",
         idle: ["topBob", "wave", "waddle"], cheer: "spin",
         parts: {
@@ -52249,7 +54523,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 71, r: 4.6, style: "dot", color: "#231B4A"},
         mouth: {x: 60, y: 80, w: 3, color: "#231B4A"},
         cheeks: {lx: 45, rx: 75, y: 79, w: 3.6, h: 2.4, color: "#FF8FB3"},
-        anchors: {top: [60, 53, 1], neck: [60, 90, 1.25], chest: [83, 88, 0.66], back: [94, 58, 0.85], hands: [60, 90, 0.9]},
+        anchors: {top: [60, 48, 1, 0], neck: [60, 89, 1.2, 0, 76, 92], chest: [83, 95.5, 0.62], back: [94, 58, 0.85], hands: [60, 90, 0.9]},
         lines: {
           tap: ["Player two has joined! Let's go!", "Press start! I'm ready when you are!", "You're on a combo streak! Keep it up!", "Level up, one page at a time!", "Save point reached! You're crushing it!", "Achievement unlocked: showed up today!", "Best teammate ever? That's you!"],
           pet: ["Bzzt! Happy rumble!", "Hehe! Button mash of joy!"],
@@ -52263,7 +54537,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "gaming-slime", name: "Gloop", kind: "Friendly Slime", pose: "sit", sleepy: true,
+        id: "gaming-slime", name: "Gloop", kind: "Friendly Slime", pose: "sit", sleepy: true, hatTop: true,
         bio: "A wobbly little slime who guards your save file with a smile.",
         idle: ["topBob", "bounce", "sway"], cheer: "bounce",
         parts: {
@@ -52279,7 +54553,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 80, r: 5, style: "dot", color: "#16324A"},
         mouth: {x: 60, y: 89, w: 3, color: "#16324A"},
         cheeks: {lx: 41, rx: 79, y: 88, w: 4.4, h: 2.8, color: "#FF8FB3"},
-        anchors: {top: [60, 45, 0.95], neck: [60, 99, 1.3], chest: [74, 101, 0.7], back: [89, 78, 0.9], hands: [60, 100, 0.9]},
+        anchors: {top: [60, 48.5, 0.95, 0], neck: [60, 99, 1.3, 0, 83, 80], chest: [74, 104.5, 0.62], back: [89, 78, 0.9], hands: [60, 100, 0.9]},
         lines: {
           tap: ["Bloop! Hi! I'm so happy you're here!", "Wobble wobble! You've got this!", "A friendly slime appears! Cheering for you!", "Soft, squishy, and super proud of you!", "Every hero starts at level 1! Look at you now!", "Your save file is safe with me!", "Slow and steady gains so much XP!"],
           pet: ["Bloop bloop! Happy squish!", "I'm wobbling with joy!"],
@@ -52313,7 +54587,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 76, r: 4.8, style: "sparkle", color: "#3A1030"},
         mouth: {x: 60, y: 85, w: 2.8, color: "#3A1030"},
         cheeks: {lx: 42.5, rx: 77.5, y: 83.5, w: 4, h: 2.6, color: "#FFD0E0"},
-        anchors: {top: [60, 26, 0.85], neck: [60, 50, 0.72], chest: [74, 91, 0.66], back: [83, 60, 0.8], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 40, 1, 0], neck: [60, 92, 0.72, 0, 42, 40], chest: [74, 99, 0.62], back: [83, 60, 0.8], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Fizz! Hi there! So glad you're here!", "One sip of confidence, coming right up!", "Energy restored! You're glowing!", "Plus five calm, plus five focus! Let's go!", "Bubbling over with pride for you!", "You're a critical hit!", "Brewed with extra care, just for you!"],
           pet: ["Fizzy giggles! Hehe!", "Bubbles everywhere! I love it!"],
@@ -52334,7 +54608,7 @@ var COMP_KIT = (() => {
     theme: "photography",
     companions: [
       {
-        id: "photography-camera", name: "Snap", kind: "Retro Camera", pose: "stand",
+        id: "photography-camera", name: "Snap", kind: "Retro Camera", pose: "stand", scarfOverArms: true,
         bio: "A little retro camera who loves capturing your best study moments.",
         idle: ["wave", "bounce", "waddle"], cheer: "hop",
         parts: {
@@ -52358,7 +54632,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 59, r: 5, style: "dot", color: "#2A1C14"},
         mouth: {x: 60, y: 66.5, w: 3, color: "#2A1C14"},
         cheeks: {lx: 40, rx: 80, y: 66, w: 4.4, h: 2.8, color: "#FF8FA3"},
-        anchors: {top: [60, 35, 1], neck: [60, 75, 1.35], chest: [85, 95, 0.66], back: [97, 58, 0.85], hands: [60, 95, 0.95]},
+        anchors: {top: [60, 31.5, 1, 0], neck: [60, 78, 1.35, 0, 84, 92], chest: [85, 84, 0.66], back: [97, 58, 0.85], hands: [60, 95, 0.95]},
         lines: {
           tap: ["Say cheese! Hi! So happy to see you!", "Snap! This is a great moment!", "You look amazing in this light!", "Focus, click, and conquer! Let's go!", "Every day is a fresh frame! Love it!", "Let's zoom in together! You've got this!", "Best subject ever? You, studying!"],
           pet: ["Hehe! That tickles my lens!", "Aww! I'm keeping that one forever!"],
@@ -52400,7 +54674,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 57, r: 4.2, style: "round", color: "#2B2233"},
         mouth: {x: 60, y: 68.8, w: 2.4, style: "cat"},
         cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.5, color: "#FF9FB7"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 78, 1.05], chest: [72, 93, 0.7], back: [87, 86, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 38, 0.95, 0], neck: [60, 81.5, 1.05, 0, 49, 80], chest: [72, 85.5, 0.7], back: [87, 86, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Psst! That's one for the album! So proud!", "The light in here is lovely today!", "Collecting happy moments with you!", "Tiny paws, big memories! Let's make more!", "This page is a keeper, just like you!", "Look at you, showing up again!", "One more treasure for the album! Yay!"],
           pet: ["Hehe! My tail is all fluffed up!", "Aww, that's a keeper!"],
@@ -52414,7 +54688,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "photography-film", name: "Rolly", kind: "Film Roll Sprite", pose: "float",
+        id: "photography-film", name: "Rolly", kind: "Film Roll Sprite", pose: "float", hatTop: true,
         bio: "A little roll of film who keeps every moment of your progress.",
         idle: ["tailSwish", "topBob", "sparkle"], cheer: "spin",
         parts: {
@@ -52432,7 +54706,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 66, r: 4.6, style: "dot", color: "#3A2418"},
         mouth: {x: 60, y: 74.5, w: 2.8, color: "#3A2418"},
         cheeks: {lx: 44, rx: 76, y: 73.5, w: 3.8, h: 2.5, color: "#FF7F96"},
-        anchors: {top: [60, 34, 0.85], neck: [60, 90, 1.1], chest: [73, 83, 0.62], back: [83, 58, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 37, 0.85, 0], neck: [60, 84, 1.1, 0, 49, 55], chest: [73, 90, 0.62], back: [83, 58, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Click! Hi there! So glad you're here!", "Rolling right along with you!", "Look at you, showing up again!", "Every frame of your progress looks great!", "Capturing your progress! It's stunning!", "This one's going straight in the album!", "Frame by frame, you're making magic!"],
           pet: ["Hehe! Careful, I'll unspool!", "Hehe! That tickles my film!"],
@@ -52453,7 +54727,7 @@ var COMP_KIT = (() => {
     theme: "newyear",
     companions: [
       {
-        id: "newyear-hat", name: "Toot", kind: "Party Hat Pal", pose: "stand",
+        id: "newyear-hat", name: "Toot", kind: "Party Hat Pal", pose: "stand", hatTop: true,
         bio: "A bouncy party hat who celebrates every little win with you.",
         idle: ["topBob", "bounce", "wave"], cheer: "spin",
         parts: {
@@ -52472,7 +54746,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 74, r: 4.8, style: "dot", color: "#2A1F44"},
         mouth: {x: 60, y: 83, w: 3, color: "#2A1F44"},
         cheeks: {lx: 43.5, rx: 76.5, y: 82, w: 4, h: 2.6, color: "#FF6F96"},
-        anchors: {top: [60, 30, 0.8], neck: [60, 94, 1.3], chest: [75, 92, 0.66], back: [86, 74, 0.85], hands: [60, 94, 0.9]},
+        anchors: {top: [60, 35.5, 0.8, 0], neck: [60, 94, 1.3, 0, 77, 81], chest: [75, 99.5, 0.62], back: [86, 74, 0.85], hands: [60, 94, 0.9]},
         lines: {
           tap: ["Toot toot! Hi! The party just got better!", "Every day with you is worth a party!", "Here's to you! Hip hip hooray!", "Cheers to all your wins, big and small!", "New page, new start! Let's go!", "Confetti for your effort!", "You're doing great! Toot toot!"],
           pet: ["Toot! It's party time!", "Hehe! The confetti tickles!"],
@@ -52506,7 +54780,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 76, r: 4.6, style: "dot", color: "#232A5E"},
         mouth: {x: 60, y: 84.5, w: 2.8, color: "#232A5E"},
         cheeks: {lx: 43, rx: 77, y: 83.5, w: 4, h: 2.6, color: "#FF8FB3"},
-        anchors: {top: [60, 41, 1], neck: [60, 101, 1.05], chest: [80, 95, 0.66], back: [92, 64, 0.9], hands: [60, 98, 0.9]},
+        anchors: {top: [60, 41.5, 1, 0], neck: [60, 93.5, 1.05, 0, 55, 54], chest: [80, 99.5, 0.62], back: [92, 64, 0.9], hands: [60, 98, 0.9]},
         lines: {
           tap: ["Tick tock, hi! So happy you're here!", "Right on time, as always! Love it!", "Every minute with you is a good one!", "No rush! We've got all the time we need!", "Time well spent with you!", "Tock! You're doing great!", "Look at you, showing up again!"],
           pet: ["Ding ding! Hehe!", "Tickled pink!"],
@@ -52520,7 +54794,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "newyear-disco", name: "Glitz", kind: "Glitter Ball", pose: "float",
+        id: "newyear-disco", name: "Glitz", kind: "Glitter Ball", pose: "float", hatTop: true,
         bio: "A twinkly glitter ball who throws sparkles on every finished task.",
         idle: ["sparkle", "spin", "topBob"], cheer: "spin",
         parts: {
@@ -52536,7 +54810,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 65, r: 4.6, style: "sparkle", color: "#2A1F44"},
         mouth: {x: 60, y: 73, w: 2.8, color: "#2A1F44"},
         cheeks: {lx: 43.5, rx: 76.5, y: 72, w: 4, h: 2.5, color: "#FF8FB3"},
-        anchors: {top: [60, 41, 0.9], neck: [60, 86, 0.95], chest: [74, 84, 0.62], back: [85, 60, 0.8], hands: [60, 83, 0.85]},
+        anchors: {top: [60, 42, 0.9, 0], neck: [60, 81.5, 0.95, 0, 57, 47], chest: [74, 88, 0.62], back: [85, 60, 0.8], hands: [60, 83, 0.85]},
         lines: {
           tap: ["Sparkle sparkle, hi! You're here!", "You're absolutely shining today!", "A little extra glitter, just for you!", "Keep spinning, star! You're amazing!", "Look at you sparkle!", "Twinkle! Such nice work!", "Let's make today dazzling!"],
           pet: ["Oops! Glitter everywhere! Hehe!", "I'm spinning with joy!"],
@@ -52557,7 +54831,7 @@ var COMP_KIT = (() => {
     theme: "lunarnewyear",
     companions: [
       {
-        id: "lunarnewyear-lantern", name: "Lulu", kind: "Red Paper Lantern", pose: "float",
+        id: "lunarnewyear-lantern", name: "Lulu", kind: "Red Paper Lantern", pose: "float", hatTop: true,
         bio: "A glowing red lantern who lights your way to a lucky new year.",
         idle: ["tailSwish", "sparkle", "sway"], cheer: "spin",
         parts: {
@@ -52576,7 +54850,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 62, r: 4.8, style: "dot", color: "#3A0E0E"},
         mouth: {x: 60, y: 70.5, w: 2.8, color: "#3A0E0E"},
         cheeks: {lx: 42.5, rx: 77.5, y: 69.5, w: 4.2, h: 2.7, color: "#FFC2A8"},
-        anchors: {top: [60, 37, 0.9], neck: [60, 88, 0.85], chest: [76, 78, 0.64], back: [87, 56, 0.85], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 34, 0.9, 0], neck: [60, 78, 0.85, 0, 65, 56], chest: [76, 84.5, 0.6], back: [87, 56, 0.85], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hello! I'm glowing just for you!", "May your studies be bright and joyful!", "Lighting the way, step by step!", "Good fortune follows your effort!", "A little warm light for a wonderful you!", "I'm so glad you're here!", "You're shining so brightly today!"],
           pet: ["Hehe! I'm glowing extra bright!", "So warm and happy!"],
@@ -52590,7 +54864,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "lunarnewyear-dumpling", name: "Jiaozi", kind: "Little Dumpling", pose: "sit", sleepy: true,
+        id: "lunarnewyear-dumpling", name: "Jiaozi", kind: "Little Dumpling", pose: "sit", sleepy: true, hatTop: true,
         bio: "A plump little dumpling, warm and cozy, stuffed with good wishes.",
         idle: ["bounce", "sway", "wave"], cheer: "bounce",
         parts: {
@@ -52607,7 +54881,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47.5, rx: 72.5, y: 83, r: 5, style: "dot", color: "#3A2418"},
         mouth: {x: 60, y: 91, w: 3, color: "#3A2418"},
         cheeks: {lx: 38.5, rx: 81.5, y: 90, w: 4.8, h: 3, color: "#FF9FB0"},
-        anchors: {top: [60, 50, 1.05], neck: [60, 101, 1.3], chest: [80, 100, 0.66], back: [94, 82, 0.9], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 52, 1.05, 0], neck: [60, 101, 1.3, 0, 84, 89], chest: [80, 106.5, 0.62], back: [94, 82, 0.9], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Hi! Freshly steamed and so happy to see you!", "Stuffed with good wishes for you!", "Wrapped up in luck, just for you!", "Warm and cozy, that's us! Let's go!", "One fold at a time, and look at you now!", "You're doing wonderfully!", "Look at you, showing up again! Yay!"],
           pet: ["Squish! Hehe!", "So warm and fluffy now!"],
@@ -52621,7 +54895,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "lunarnewyear-dragon", name: "Loong", kind: "Baby Dragon", pose: "stand",
+        id: "lunarnewyear-dragon", name: "Loong", kind: "Baby Dragon", pose: "stand", hatTop: true,
         bio: "A little golden dragon who dances in with luck and courage.",
         idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
         neck: [60, 74],
@@ -52645,7 +54919,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 53, r: 4.8, style: "dot", color: "#3A1E0E"},
         mouth: {x: 60, y: 64.5, w: 2.8, style: "cat", color: "#3A1E0E"},
         cheeks: {lx: 41.5, rx: 78.5, y: 61, w: 4.2, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [60, 33, 1], neck: [60, 75, 0.95], chest: [69, 96, 0.66], back: [85, 84, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 33.5, 1, 0], neck: [60, 78.5, 0.95, 0, 33.5, 47], chest: [69, 82, 0.66], back: [85, 84, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Rawr! Hello, friend! So glad you're here!", "Brave heart, steady steps! That's you!", "Dancing into a lucky year with you!", "You're full of dragon spirit!", "Let's soar a little higher today!", "Fortune favors the curious, like you!", "Tiny dragon, BIG cheers for you!"],
           pet: ["Rawr hehe! That tickles!", "My whiskers are wiggling with joy!"],
@@ -52682,7 +54956,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47.4, rx: 72.6, y: 63, r: 5.4, style: "sparkle", color: "#3A1020"},
         mouth: {x: 60, y: 72.6, w: 3.1, color: "#3A1020"},
         cheeks: {lx: 38.7, rx: 81.3, y: 71, w: 4.6, h: 3, color: "#FFD6E4"},
-        anchors: {top: [60, 48, 0.95], neck: [60, 85, 1], chest: [74, 83, 0.7], back: [89, 66, 0.9], hands: [60, 84, 0.95]},
+        anchors: {top: [60, 33, 0.95, 0], neck: [60, 81.5, 1, 0, 54, 56], chest: [74, 88, 0.62], back: [89, 66, 0.9], hands: [60, 84, 0.95]},
         lines: {
           tap: ["Hi! I'm so happy to see you!", "You're so loved! Never forget it!", "Sending you a big heart!", "Be gentle with yourself! You're amazing!", "Heart and mind, all in! Let's go!", "Flutter flutter! You've got this!", "Your hard work really shows!"],
           pet: ["Hehe! That tickles my wings!", "Aww, my heart is full!"],
@@ -52713,7 +54987,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 45, rx: 75, y: 62, r: 4.8, style: "dot", color: "#3A1020"},
         mouth: {x: 60, y: 68.5, w: 2.8, color: "#3A1020"},
         cheeks: {lx: 37, rx: 83, y: 69, w: 4.2, h: 2.7, color: "#FF8FB0"},
-        anchors: {top: [60, 48, 1.05], neck: [60, 103, 1.4], chest: [86, 93, 0.66], back: [99, 58, 0.85], hands: [60, 92, 0.95]},
+        anchors: {top: [60, 43, 1.05, 0], neck: [60, 87, 1.4, 0, 84, 92], chest: [86, 86, 0.66], back: [99, 58, 0.85], hands: [60, 92, 0.95]},
         lines: {
           tap: ["Special delivery, just for you!", "Sealed with a great big smile!", "Dear you: you're doing great!", "P.S. I believe in you so much!", "Signed, sealed, and so proud of you!", "A kind note, just because you're you!", "Every page you write counts! Keep going!"],
           pet: ["Hehe! Careful with my seal!", "Aww, thank you! That made my day!"],
@@ -52727,7 +55001,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "valentines-lovebird", name: "Rosie", kind: "Little Lovebird", pose: "sit", sleepy: true,
+        id: "valentines-lovebird", name: "Rosie", kind: "Little Lovebird", pose: "sit", sleepy: true, hatTop: true,
         bio: "A round, rosy lovebird who sits close and sings you soft songs.",
         idle: ["wingFlutter", "topBob", "tailSwish"], cheer: "wingFlutter",
         parts: {
@@ -52751,7 +55025,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 77.5, w: 3},
         cheeks: {lx: 41.5, rx: 78.5, y: 76, w: 4.4, h: 2.8, color: "#FF6F96"},
-        anchors: {top: [60, 48, 1], neck: [60, 88, 1.25], chest: [72, 95, 0.66], back: [88, 72, 0.9], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 47, 1, 0], neck: [60, 90, 1.25, 0, 69, 71], chest: [72, 95.5, 0.62], back: [88, 72, 0.9], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Tweet tweet! Hi there!", "Flock together, study together! Yay!", "You make me want to sing!", "Cheep! You're doing great!", "Feathers and kind words, all for you!", "Snuggle up and keep going! You've got this!", "A big song for your big effort!"],
           pet: ["Cheep cheep! I love it!", "So fluffy and so happy!"],
@@ -52802,7 +55076,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52.5, rx: 67.5, y: 62, r: 4.6, style: "sparkle", color: "#1C3324"},
         mouth: {x: 60, y: 69.5, w: 3, color: "#1C3324"},
         cheeks: {lx: 47, rx: 73, y: 68.5, w: 3.8, h: 2.4, color: "#FF8FA8"},
-        anchors: {top: [60, 22, 0.72], neck: [60, 82, 0.75], chest: [69, 76, 0.5], back: [80, 50, 0.8], hands: [60, 84, 0.8]},
+        anchors: {top: [60, 45, 0.72, 0], neck: [60, 77, 0.75, 0, 48, 33], chest: [69, 82.5, 0.5], back: [80, 50, 0.8], hands: [60, 84, 0.8]},
         lines: {
           tap: ["Hi! So happy to see you!", "Lucky me, you're here!", "You make your own luck!", "Cheering you on, leaf by leaf!", "Green light! Keep going!", "A little extra luck for you!", "Look at you, showing up again!"],
           pet: ["Hehe! Lucky tickles!", "My leaves are all a-flutter!"],
@@ -52816,7 +55090,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "stpatricks-pot", name: "Penny", kind: "Pot of Gold", pose: "sit", sleepy: true, wearColor: "#3FB568",
+        id: "stpatricks-pot", name: "Penny", kind: "Pot of Gold", pose: "sit", sleepy: true, wearColor: "#3FB568", hatTop: true,
         bio: "A cheerful pot of gold found at the end of every study rainbow.",
         idle: ["topBob", "earTwitch", "bounce"], cheer: "hop",
         parts: {
@@ -52836,7 +55110,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 80, r: 5.4, style: "round"},
         mouth: {x: 60, y: 90, w: 3.2, color: "#FFF1DC"},
         cheeks: {lx: 39.5, rx: 80.5, y: 89, w: 4.6, h: 2.8, color: "#FF8FAE"},
-        anchors: {top: [60, 37, 0.95], neck: [60, 67, 1.35], chest: [75, 97, 0.72], back: [91, 76, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [60, 38.5, 1.06, 0], neck: [60, 101.5, 1.35, 0, 68, 64], chest: [75, 106.5, 0.6], back: [91, 76, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["You found me! Lucky, lucky you!", "Your effort is worth its weight in gold!", "Every bit of study is treasure!", "Clink clink! Hello!", "You're a golden learner!", "So happy to see you!", "Small coins add up! So do your notes!"],
           pet: ["Hehe! My coins are jingling!", "Pure gold feelings!"],
@@ -52850,7 +55124,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "stpatricks-leprechaun", name: "Finn", kind: "Little Leprechaun", pose: "stand", hatTop: true, wearColor: "#F2B83A",
+        id: "stpatricks-leprechaun", name: "Finn", kind: "Little Leprechaun", pose: "stand", hatTop: true, wearColor: "#F2B83A", scarfOverArms: true,
         bio: "A merry little leprechaun who swaps his gold for your good habits.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         neck: [60, 74],
@@ -52886,7 +55160,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 52.5, r: 4.6, style: "sparkle", color: "#2B2233"},
         mouth: {x: 60, y: 65.6, w: 2.8},
         cheeks: {lx: 45, rx: 75, y: 59.6, w: 3.8, h: 2.4, color: "#FF8FA8"},
-        anchors: {top: [60, 31, 1], neck: [60, 85, 0.9], chest: [70, 90, 0.6], back: [80, 86, 0.85], hands: [60, 93, 0.85]},
+        anchors: {top: [60, 29, 1, 0], neck: [60, 79, 0.9, 0, 42, 67], bow: [60, 85.5, 0.65], chest: [70, 91.5, 0.6], back: [80, 86, 0.85], hands: [60, 93, 0.85]},
         lines: {
           tap: ["Top o' the morning! Grand to see you!", "Your effort is pure gold, friend!", "Sure, you're doing brilliantly!", "Every page is a coin in your pot!", "Hello there! Feeling lucky today?", "You make your own luck, you know!", "A wee bit of study goes a long way!"],
           pet: ["Hehe! That tickles me beard!", "Ah, you're a gem! Thank you!"],
@@ -52907,7 +55181,7 @@ var COMP_KIT = (() => {
     theme: "easter",
     companions: [
       {
-        id: "easter-chick", name: "Chickpea", kind: "Hatchling Chick", pose: "sit",
+        id: "easter-chick", name: "Chickpea", kind: "Hatchling Chick", pose: "sit", hatTop: true,
         bio: "A fluffy chick just peeking out of its painted egg to say hi.",
         idle: ["topBob", "wingFlutter", "bounce"], cheer: "wingFlutter",
         parts: {
@@ -52930,7 +55204,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 64.5, w: 3},
         cheeks: {lx: 42, rx: 78, y: 63.5, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 35, 0.95], neck: [60, 78, 1.15], chest: [73, 94, 0.72], back: [89, 60, 0.85], hands: [60, 84, 0.9]},
+        anchors: {top: [60, 34.5, 0.95, 0], neck: [60, 76, 1.15, 0, 71, 73], chest: [73, 83.5, 0.72], back: [89, 60, 0.85], hands: [60, 84, 0.9]},
         lines: {
           tap: ["Peek-a-boo! Yay, it's you!", "Cheep! You're doing amazing!", "I just hatched a great idea: you rock!", "One happy peep at a time! Let's go!", "You make my little heart flutter with pride!", "I popped out of my shell just for you!", "So, so proud of you today!"],
           pet: ["Cheep cheep! That tickles my fluff!", "Hehe! My feathers are all fluffed up now!"],
@@ -52960,7 +55234,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 59, r: 4.8, style: "dot", color: "#3A2210"},
         mouth: {x: 60, y: 67.5, w: 3, color: "#3A2210"},
         cheeks: {lx: 42.5, rx: 77.5, y: 66.5, w: 4.2, h: 2.6, color: "#FF7F8F"},
-        anchors: {top: [60, 40, 0.95], neck: [60, 75, 1.0], chest: [70, 84, 0.62], back: [84, 62, 0.85], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 75, 1, 0, 57, 67], chest: [70, 81.5, 0.62], back: [84, 62, 0.85], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! I'm rooting for you, always!", "You're doing so great today!", "Look at you, growing so strong!", "Crunchy hello! So happy you're here!", "Little roots, big growth! Go you!", "You're the top of my whole garden!", "Freshly picked cheers, just for you!"],
           pet: ["Hehe! My leafy top is so happy!", "Aww! Now I'm blushing extra orange!"],
@@ -52974,7 +55248,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "easter-egg", name: "Speckle", kind: "Painted Egg Sprite", pose: "float",
+        id: "easter-egg", name: "Speckle", kind: "Painted Egg Sprite", pose: "float", hatTop: true,
         bio: "A painted egg with tiny wings who loves a good hunt for answers.",
         idle: ["wingFlutter", "sparkle", "topBob"], cheer: "spin",
         parts: {
@@ -52991,7 +55265,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 67, r: 4.8, style: "sparkle", color: "#2E2650"},
         mouth: {x: 60, y: 75.5, w: 3, color: "#2E2650"},
         cheeks: {lx: 43.5, rx: 76.5, y: 74, w: 4.4, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 36, 0.8], neck: [60, 89, 1.1], chest: [71, 92, 0.66], back: [86, 66, 0.8], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 36.5, 0.8, 0], neck: [60, 85.5, 1.1, 0, 62, 63], chest: [71, 91.5, 0.62], back: [86, 66, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["You found me! Great hunting!", "Every answer is a hidden egg! Go find it!", "Wow, you're so clever today!", "I'm painted with pride for you!", "Keep hunting! You're so close!", "So many bright ideas today! Yay!", "What a sunny, sparkly mind you have!"],
           pet: ["Wheee! I'm all a-wobble now!", "Hehe! Careful, you'll crack me up!"],
@@ -53012,7 +55286,7 @@ var COMP_KIT = (() => {
     theme: "july4",
     companions: [
       {
-        id: "july4-rocket", name: "Sparky", kind: "Firework Rocket", pose: "stand", wearColor: "#F2B23E",
+        id: "july4-rocket", name: "Sparky", kind: "Firework Rocket", pose: "stand", wearColor: "#F2B23E", hatTop: true,
         bio: "A little firework rocket who can't wait to cheer for you.",
         idle: ["topBob", "bounce", "wave"], cheer: "spin",
         parts: {
@@ -53030,7 +55304,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 67, r: 4.6, style: "dot", color: "#141C33"},
         mouth: {x: 60, y: 75.5, w: 3, color: "#141C33"},
         cheeks: {lx: 46, rx: 74, y: 74.5, w: 3.8, h: 2.5, color: "#FF8FA3"},
-        anchors: {top: [60, 30, 0.8], neck: [60, 55, 0.95], chest: [71, 91, 0.6], back: [82, 72, 0.8], hands: [60, 86, 0.85]},
+        anchors: {top: [60, 30.5, 0.8, 0], neck: [60, 84.5, 0.95, 0, 41, 63], chest: [71, 90.5, 0.6], back: [82, 72, 0.8], hands: [60, 86, 0.85]},
         lines: {
           tap: ["Fizz! I'm so excited to see you!", "You light up the whole sky today!", "Ready, set, launch! Let's go!", "Whoosh! You're on fire today!", "I can't wait to cheer for you!", "Sparks are flying! You've got this!", "Look at you, soaring so high!"],
           pet: ["Fizzle! I'm all sparkly now!", "Hehe! That makes my fuse tingle!"],
@@ -53044,7 +55318,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "july4-eaglet", name: "Scout", kind: "Fluffy Eaglet", pose: "sit", sleepy: true,
+        id: "july4-eaglet", name: "Scout", kind: "Fluffy Eaglet", pose: "sit", sleepy: true, hatTop: true, scarfOverArms: true,
         bio: "A fluffy eaglet who dreams of soaring while you study.",
         idle: ["wingFlutter", "headTilt", "topBob"], cheer: "wingFlutter",
         neck: [60, 72],
@@ -53070,7 +55344,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 59.5, w: 3},
         cheeks: {lx: 42.5, rx: 77.5, y: 59, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 30, 1], neck: [60, 73, 1.05], chest: [71, 92, 0.72], back: [85, 84, 0.9], hands: [60, 94, 0.95]},
+        anchors: {top: [60, 28.5, 1, 0], neck: [60, 75.5, 1.05, 0, 56, 74], chest: [71, 80.5, 0.72], back: [85, 84, 0.9], hands: [60, 94, 0.95]},
         lines: {
           tap: ["Hi! You make me want to soar!", "Look at you, flying so high!", "Screech! You're amazing today!", "Your wings are getting so strong!", "I'm your biggest fan, up here in the nest!", "Every page is a little flap higher!", "Wow! You're on a roll today!"],
           pet: ["Hehe! My fluffy feathers love that!", "Ooh, so cozy! Ruffle ruffle!"],
@@ -53098,7 +55372,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 63, r: 5, style: "round", color: "#141C33"},
         mouth: {x: 60, y: 72.5, w: 2.8, color: "#141C33"},
         cheeks: {lx: 46, rx: 74, y: 71, w: 3.8, h: 2.5, color: "#FF9FB7"},
-        anchors: {top: [60, 33, 0.7], neck: [60, 80, 0.9], chest: [70, 79, 0.58], back: [88, 58, 0.75], hands: [60, 83, 0.8]},
+        anchors: {top: [60, 33.5, 0.7, 0], neck: [60, 80, 0.9, 0, 53, 56], chest: [70, 86, 0.58], back: [88, 58, 0.75], hands: [60, 83, 0.8]},
         lines: {
           tap: ["Twinkle! You're a total star!", "Hi! Let's have a parade for you!", "You're shining so bright today!", "Ribbons up! I'm cheering for you!", "Look at you, showing up again!", "You make my whole ribbon wiggle!", "Sparkle on! You're amazing!"],
           pet: ["Twinkle twinkle! That's so nice!", "Hehe! My ribbon is all a-flutter!"],
@@ -53119,7 +55393,7 @@ var COMP_KIT = (() => {
     theme: "halloween",
     companions: [
       {
-        id: "halloween-pumpkin", name: "Patch", kind: "Pumpkin Sprite", pose: "sit", wearColor: "#7B5CA8",
+        id: "halloween-pumpkin", name: "Patch", kind: "Pumpkin Sprite", pose: "sit", wearColor: "#7B5CA8", hatTop: true,
         bio: "A plump, friendly pumpkin who glows warm on autumn nights.",
         idle: ["topBob", "bounce", "waddle"], cheer: "hop",
         parts: {
@@ -53137,7 +55411,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 79, r: 5, style: "dot", color: "#2A1C2E"},
         mouth: {x: 60, y: 88, w: 3.2, color: "#2A1C2E"},
         cheeks: {lx: 42.5, rx: 77.5, y: 87, w: 4.6, h: 2.8, color: "#FF7F8F"},
-        anchors: {top: [60, 54, 1.0], neck: [60, 99, 1.4], chest: [77, 98, 0.75], back: [94, 76, 0.9], hands: [60, 100, 0.9]},
+        anchors: {top: [60, 55, 1, 0], neck: [60, 99, 1.4, 0, 73, 72], chest: [77, 104, 0.59], back: [94, 76, 0.9], hands: [60, 100, 0.9]},
         lines: {
           tap: ["Hi! You make me glow so bright!", "You're the pick of the patch today!", "Look at you, showing up again!", "My candle is flickering with joy!", "You've got this, I just know it!", "So happy to see you! Glow glow!", "What a cozy, clever day you're having!"],
           pet: ["Hehe! My stem is all wiggly now!", "Aww! That makes my glow so warm!"],
@@ -53165,7 +55439,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 57, r: 5.2, style: "dot", color: "#2A1C2E"},
         mouth: {x: 60, y: 66, w: 3, color: "#2A1C2E"},
         cheeks: {lx: 41.5, rx: 78.5, y: 65, w: 4.6, h: 2.8, color: "#FF9FC0"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 76, 1.2], chest: [72, 80, 0.72], back: [89, 52, 0.85], hands: [60, 80, 0.9]},
+        anchors: {top: [60, 28.5, 0.95, 0], neck: [60, 76, 1.2, 0, 73, 77], chest: [72, 81.5, 0.6], back: [89, 52, 0.85], hands: [60, 80, 0.9]},
         lines: {
           tap: ["Boo! Hehe, just saying hi!", "You're doing spook-tacular!", "I'm so happy you're here!", "Floating by to cheer you on!", "Look at you go! Wow!", "I believe in you, so much!", "You make my little sheet flutter!"],
           pet: ["Ooh! That gives me happy shivers!", "Hehe! I'm floating on air now!"],
@@ -53204,7 +55478,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 52.5, r: 5.4, style: "round", color: "#2A1C2E"},
         mouth: {x: 60, y: 62.5, w: 2.8, color: "#2A1C2E"},
         cheeks: {lx: 42.5, rx: 77.5, y: 61, w: 4.2, h: 2.6, color: "#FF9FC4"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 74, 1.0], chest: [71, 99, 0.66], back: [84, 84, 0.85], hands: [60, 94, 0.9]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 75, 0.95, 0, 36, 60], chest: [71, 81, 0.66], back: [84, 84, 0.85], hands: [60, 94, 0.9]},
         lines: {
           tap: ["Squeak! I'm so happy you're here!", "You're batty good at this!", "Look at you, flying through it!", "My sweater feels extra cozy with you!", "I'm cheering upside down for you!", "Flap flap! You're amazing today!", "You've got this, I just know it!"],
           pet: ["Squeak! My sweater is so cozy now!", "Hehe! My wings are all wiggly!"],
@@ -53251,7 +55525,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 76, w: 3},
         cheeks: {lx: 42, rx: 78, y: 77, w: 4.4, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [60, 52, 0.95], neck: [60, 91, 1.2], chest: [73, 97, 0.72], back: [86, 72, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 52.5, 0.95, 0], neck: [60, 91, 1.2, 0, 65, 74], chest: [73, 96.5, 0.6], back: [86, 72, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Gobble gobble! So happy to see you!", "I'm thankful for you, every day!", "Look at you, reading so much!", "You're doing amazing! Gobble!", "Every page makes my feathers fan out!", "You've got this, I just know it!", "What a wonderful study day!"],
           pet: ["Gobble! My feathers are all puffed up!", "Hehe! That's the best feeling!"],
@@ -53265,7 +55539,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "thanksgiving-pie", name: "Dollop", kind: "Pumpkin Pie Slice", pose: "sit", sleepy: true,
+        id: "thanksgiving-pie", name: "Dollop", kind: "Pumpkin Pie Slice", pose: "sit", sleepy: true, hatTop: true,
         bio: "A warm slice of pumpkin pie with a swirl of cream on top.",
         idle: ["topBob", "sway", "finWiggle"], cheer: "hop",
         parts: {
@@ -53282,7 +55556,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "dot", color: "#3A2210"},
         mouth: {x: 60, y: 84.5, w: 3, color: "#3A2210"},
         cheeks: {lx: 44, rx: 76, y: 83.5, w: 4.2, h: 2.6, color: "#FF7F7F"},
-        anchors: {top: [60, 35, 0.8], neck: [60, 97, 1.4], chest: [74, 91, 0.66], back: [86, 78, 0.85], hands: [60, 92, 0.9]},
+        anchors: {top: [60, 47.5, 0.8, 0], neck: [60, 97, 1.4, 0, 81, 83], chest: [74, 102.5, 0.62], back: [86, 78, 0.85], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hi! You're the sweetest!", "You're doing so well today!", "A whole slice of cheers for you!", "Look at you, showing up again!", "You make my cream swirl with joy!", "Warm and cozy, cheering you on!", "You've got this, sweet friend!"],
           pet: ["Hehe! My cream swirl is so happy!", "Aww! I'm warm all the way through!"],
@@ -53296,7 +55570,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "thanksgiving-corn", name: "Kernel", kind: "Corn Cob", pose: "stand",
+        id: "thanksgiving-corn", name: "Kernel", kind: "Corn Cob", pose: "stand", hatTop: true,
         bio: "A sunny corn cob who is always all ears for you.",
         idle: ["wingFlutter", "topBob", "sway"], cheer: "spin",
         parts: {
@@ -53317,7 +55591,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 64, r: 4.6, style: "dot", color: "#3A2A10"},
         mouth: {x: 60, y: 72.5, w: 3, color: "#3A2A10"},
         cheeks: {lx: 45, rx: 75, y: 71.5, w: 4, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 32, 0.8], neck: [60, 82, 1.0], chest: [70, 88, 0.62], back: [80, 60, 0.8], hands: [60, 86, 0.85]},
+        anchors: {top: [60, 35.5, 0.8, 0], neck: [60, 82, 1, 0, 57, 49], chest: [70, 88.5, 0.62], back: [80, 60, 0.8], hands: [60, 86, 0.85]},
         lines: {
           tap: ["Hi! I'm all ears for you!", "You're doing a-maize-ing!", "Look at you, standing tall!", "So happy you're here today!", "Sunny cheers, just for you!", "You've got this! I'm listening!", "Every kernel of me is cheering!"],
           pet: ["Hehe! My husk is all rustly now!", "Ooh! That makes me pop with joy!"],
@@ -53338,7 +55612,7 @@ var COMP_KIT = (() => {
     theme: "hanukkah",
     companions: [
       {
-        id: "hanukkah-dreidel", name: "Spinny", kind: "Little Dreidel", pose: "float", wearColor: "#F2C24A",
+        id: "hanukkah-dreidel", name: "Spinny", kind: "Little Dreidel", pose: "float", wearColor: "#F2C24A", hatTop: true,
         bio: "A spinning dreidel who always lands on a happy side.",
         idle: ["spin", "topBob", "wave"], cheer: "spin",
         parts: {
@@ -53354,7 +55628,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 58, r: 5.4, style: "round", color: "#13203A"},
         mouth: {x: 60, y: 68, w: 3, color: "#13203A"},
         cheeks: {lx: 42, rx: 78, y: 66.5, w: 4.2, h: 2.6, color: "#FFA3C4"},
-        anchors: {top: [60, 41, 0.95], neck: [60, 78, 1.05], chest: [72, 73, 0.58], back: [86, 55, 0.85], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 78, 1.05, 0, 55, 54], chest: [72, 83.5, 0.58], back: [86, 55, 0.85], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Spin spin! So happy to see you!", "You always land on the happy side!", "Look at you, on a roll today!", "Round and round, cheering for you!", "You're doing amazing! Wheee!", "Every spin is a win with you!", "You've got this, I just know it!"],
           pet: ["Wheee! You set me spinning!", "Hehe! I'm all dizzy and happy!"],
@@ -53389,7 +55663,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 60, r: 4.6, style: "dot", color: "#13203A"},
         mouth: {x: 60, y: 69, w: 2.8, color: "#13203A"},
         cheeks: {lx: 46, rx: 74, y: 67.5, w: 3.8, h: 2.5, color: "#FF9FB7"},
-        anchors: {top: [60, 45, 0.85], neck: [60, 76, 0.95], chest: [70, 80, 0.62], back: [80, 70, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 29.5, 0.85, 0], neck: [60, 76, 0.95, 0, 49, 60], chest: [70, 82.5, 0.62], back: [80, 70, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Hi! You make my flame so bright!", "One more glow, just for you!", "Look at you, shining today!", "You're doing wonderfully!", "My little wick is cheering for you!", "You've got this! Glow on!", "Every night you shine a bit brighter!"],
           pet: ["Hehe! My flame did a happy dance!", "Aww! I'm glowing extra warm now!"],
@@ -53403,7 +55677,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "hanukkah-donut", name: "Sugar", kind: "Jelly Doughnut", pose: "sit", sleepy: true,
+        id: "hanukkah-donut", name: "Sugar", kind: "Jelly Doughnut", pose: "sit", sleepy: true, hatTop: true,
         bio: "A pillowy jelly doughnut dusted in sugar, sweet and cozy.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -53420,7 +55694,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 86, r: 5, style: "dot", color: "#3A2210"},
         mouth: {x: 60, y: 95, w: 3, color: "#3A2210"},
         cheeks: {lx: 40, rx: 80, y: 94, w: 4.8, h: 2.9, color: "#FF8F9F"},
-        anchors: {top: [60, 58, 1.0], neck: [60, 101, 1.35], chest: [79, 101, 0.72], back: [92, 78, 0.9], hands: [60, 102, 0.9]},
+        anchors: {top: [60, 56, 1, 0], neck: [60, 106.5, 1.35, 0, 49, 40], chest: [79, 111.5, 0.6], back: [92, 78, 0.9], hands: [60, 102, 0.9]},
         lines: {
           tap: ["Hi! You're so sweet!", "You're doing amazing today!", "Look at you, showing up again!", "A sprinkle of cheers for you!", "You make me so happy, I could puff up!", "You've got this, sweet friend!", "Fluffy hugs and big cheers!"],
           pet: ["Hehe! My sugar is all sparkly!", "Ooh! So soft and cozy!"],
@@ -53451,7 +55725,7 @@ var COMP_KIT = (() => {
     theme: "diwali",
     companions: [
       {
-        id: "diwali-diya", name: "Diya", kind: "Little Diya Lamp", pose: "sit", sleepy: true,
+        id: "diwali-diya", name: "Diya", kind: "Little Diya Lamp", pose: "sit", sleepy: true, hatTop: true,
         bio: "A warm clay lamp whose tiny flame glows brighter with every win.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -53472,7 +55746,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 78, r: 4.8, style: "dot", color: "#3A1A14"},
         mouth: {x: 60, y: 86.5, w: 3.2, color: "#3A1A14"},
         cheeks: {lx: 41, rx: 79, y: 85, w: 4.6, h: 2.8, color: "#FF8FA3"},
-        anchors: {top: [60, 60, 0.9], neck: [60, 92, 1.15], chest: [75, 94, 0.72], back: [89, 76, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 53, 0.9, 0], neck: [60, 96.5, 1.15, 0, 51, 50], chest: [75, 102, 0.6], back: [89, 76, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! My flame glows brighter for you!", "You're shining so bright today!", "Look at you, lighting the way!", "Every win makes me glow!", "You're doing wonderfully!", "You've got this! Glow on!", "Warm light and big cheers for you!"],
           pet: ["Hehe! My little flame is dancing!", "Aww! I'm glowing so warm now!"],
@@ -53486,7 +55760,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "diwali-peacock", name: "Mayu", kind: "Peacock Chick", pose: "stand",
+        id: "diwali-peacock", name: "Mayu", kind: "Peacock Chick", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A proud little peacock who fans out its tail for every finished task.",
         idle: ["tailSwish", "topBob", "wingFlutter"], cheer: "wingFlutter",
         parts: {
@@ -53515,7 +55789,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 67, w: 3},
         cheeks: {lx: 42.5, rx: 77.5, y: 66, w: 4.4, h: 2.7, color: "#FFB0C6"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 75, 1.2], chest: [71, 92, 0.75], back: [86, 84, 0.9], hands: [60, 94, 0.95]},
+        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 79, 1.2, 0, 63, 70], chest: [71, 86.5, 0.75], back: [86, 84, 0.9], hands: [60, 94, 0.95]},
         lines: {
           tap: ["Hi! I'm fanning my tail for you!", "You're so dazzling today!", "Look at you, strutting along!", "You make my feathers shimmer!", "You're doing amazing! Wow!", "You've got this, I just know it!", "So proud of you, every day!"],
           pet: ["Hehe! My tail is all fluffed up!", "Ooh! That makes me shimmer!"],
@@ -53529,7 +55803,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "diwali-kandil", name: "Kandi", kind: "Star Lantern", pose: "float",
+        id: "diwali-kandil", name: "Kandi", kind: "Star Lantern", pose: "float", hatTop: true,
         bio: "A paper star lantern who floats nearby and lights the way.",
         idle: ["sparkle", "tailSwish", "spin"], cheer: "spin",
         parts: {
@@ -53545,7 +55819,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 61, r: 4.6, style: "sparkle", color: "#4A1330"},
         mouth: {x: 60, y: 69.5, w: 3, color: "#4A1330"},
         cheeks: {lx: 43.5, rx: 76.5, y: 68, w: 4.2, h: 2.6, color: "#FF7FA6"},
-        anchors: {top: [60, 34, 0.75], neck: [60, 80, 1], chest: [72, 76, 0.66], back: [84, 54, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 40, 0.75, 0], neck: [60, 80, 1, 0, 45, 47], chest: [72, 86.5, 0.62], back: [84, 54, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! I'm lighting the way for you!", "You're shining so bright today!", "Look at you, glowing along!", "Floating by to cheer you on!", "You're doing wonderfully!", "You've got this! Shine on!", "My star points are all sparkly for you!"],
           pet: ["Hehe! I'm swaying with joy!", "Aww! My paper glows so warm now!"],
@@ -53566,7 +55840,7 @@ var COMP_KIT = (() => {
     theme: "balloons",
     companions: [
       {
-        id: "balloons-balloon", name: "Breezy", kind: "Hot-Air Balloon", pose: "float", wearColor: "#2F8F8F",
+        id: "balloons-balloon", name: "Breezy", kind: "Hot-Air Balloon", pose: "float", wearColor: "#2F8F8F", hatTop: true,
         bio: "A little hot-air balloon who drifts along and lifts your mood.",
         idle: ["topBob", "sway", "sparkle"], cheer: "spin",
         parts: {
@@ -53586,7 +55860,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 52, r: 5, style: "dot"},
         mouth: {x: 60, y: 61, w: 3.2},
         cheeks: {lx: 43.5, rx: 76.5, y: 59.5, w: 4.3, h: 2.7, color: "#FFD3CF"},
-        anchors: {top: [60, 20, 0.95], neck: [60, 88, 0.85], chest: [72, 72, 0.7], back: [88, 44, 0.85], hands: [60, 79, 0.85]},
+        anchors: {top: [60, 16, 0.95, 0], neck: [60, 69, 0.85, 0, 64, 63], chest: [72, 77, 0.7], back: [88, 44, 0.85], hands: [60, 79, 0.85]},
         lines: {
           tap: ["Hi! You lift me right up!", "You're soaring today!", "Look at you, rising so high!", "Up, up and away! Let's go!", "You're doing amazing!", "You've got this, I just know it!", "Floating on happy clouds with you!"],
           pet: ["Wheee! I'm floating higher now!", "Hehe! That gave me a happy puff!"],
@@ -53622,7 +55896,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 54, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 67.5, w: 2.8, style: "cat"},
         cheeks: {lx: 40, rx: 80, y: 62.5, w: 4.4, h: 2.7, color: "#FF9D9D"},
-        anchors: {top: [60, 35, 0.95], neck: [60, 77, 1.05], chest: [69, 92, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 35, 0.95, 0], neck: [60, 81, 1.05, 0, 37, 79], chest: [69, 84.5, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Squeak! So happy to see you!", "Woof! You're doing great!", "Look at you, showing up again!", "My tail is twisting with joy!", "You're amazing! Squeak squeak!", "You've got this, buddy!", "Best study buddy at the whole fair!"],
           pet: ["Squeak! That's the best feeling!", "Hehe! My twisty tail is wagging!"],
@@ -53636,7 +55910,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "balloons-hamster", name: "Ace", kind: "Pilot Hamster", pose: "stand",
+        id: "balloons-hamster", name: "Ace", kind: "Pilot Hamster", pose: "stand", scarfOverArms: true,
         bio: "A brave little pilot who checks the winds before every study flight.",
         idle: ["headTilt", "wave", "earTwitch"], cheer: "wave",
         neck: [60, 78],
@@ -53664,7 +55938,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 57, r: 4.4, style: "dot"},
         mouth: {x: 60, y: 67, w: 2.6, style: "cat"},
         cheeks: {lx: 41.5, rx: 78.5, y: 64.5, w: 4.8, h: 3, color: "#FF9FA8"},
-        anchors: {top: [60, 33, 0.95], neck: [60, 79, 1], chest: [69, 94, 0.7], back: [81, 90, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 82.5, 1, 0, 44, 59], chest: [69, 86.5, 0.7], back: [81, 90, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Captain here! So glad you're aboard!", "You're flying great today!", "Look at you, cruising along!", "Winds are perfect! Let's go!", "You're amazing, co-pilot!", "You've got this! Smooth skies!", "Every flight with you is the best!"],
           pet: ["Hehe! My goggles are all foggy!", "Squeak! That's the best!"],
@@ -53685,7 +55959,7 @@ var COMP_KIT = (() => {
     theme: "koi",
     companions: [
       {
-        id: "koi-koi", name: "Koko", kind: "Baby Koi", pose: "float", wearColor: "#2E8C80",
+        id: "koi-koi", name: "Koko", kind: "Baby Koi", pose: "float", wearColor: "#2E8C80", hatTop: true,
         bio: "A baby koi who swims happy circles around your notes.",
         idle: ["tailSwish", "finWiggle", "topBob"], cheer: "spin",
         parts: {
@@ -53712,7 +55986,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 71, w: 2.8},
         cheeks: {lx: 42.5, rx: 77.5, y: 69, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 40, 0.9], neck: [60, 82, 1.05], chest: [72, 76, 0.66], back: [85, 55, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 39, 0.9, 0], neck: [60.5, 82, 1.05, 0, 51.5, 78], chest: [72, 88, 0.62], back: [85, 55, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Splash! So happy to see you!", "You're doing amazing!", "Look at you, swimming along!", "Happy circles, just for you!", "You've got this! Splish!", "You make my fins flutter!", "Best day in the pond with you!"],
           pet: ["Hehe! My fins are wiggling!", "Splash! That tickles!"],
@@ -53765,7 +56039,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 63, w: 3.4},
         cheeks: {lx: 35, rx: 85, y: 62, w: 5, h: 3, color: "#FF8DB0"},
-        anchors: {top: [60, 37, 0.78], neck: [60, 81.5, 1.05], chest: [60, 92, 0.6], back: [88, 84, 0.9], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 27.5, 0.78, 0], neck: [60, 83, 1.05, 0, 55, 92], chest: [60, 87.5, 0.6], back: [88, 84, 0.9], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Ribbit! So happy to see you!", "You're doing amazing today!", "Look at you, hopping along!", "Big hops of cheer for you!", "You've got this, friend!", "You make my lily pad bounce!", "Best company on the pond!"],
           pet: ["Ribbit! That's so nice!", "Hehe! I'm all hoppy now!"],
@@ -53804,7 +56078,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 60, r: 4.5, style: "sparkle", color: "#3A2140"},
         mouth: {x: 60, y: 68.5, w: 2.8, color: "#3A2140"},
         cheeks: {lx: 44, rx: 76, y: 67, w: 4.2, h: 2.6, color: "#FF8FB0"},
-        anchors: {top: [60, 41, 0.85], neck: [60, 79, 0.95], chest: [69, 94, 0.66], back: [80, 90, 0.8], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 41.5, 0.85, 0], neck: [60, 82.5, 0.95, 0, 38, 69], chest: [69, 86, 0.66], back: [80, 90, 0.8], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Hi! I'm blooming for you!", "You're doing wonderfully!", "Look at you, growing so well!", "A little more bloom each day!", "You've got this, I just know it!", "My petals are open wide for you!", "So proud of you, every day!"],
           pet: ["Hehe! My petals are all fluttery!", "Aww! I'm blooming even more!"],
@@ -53825,7 +56099,7 @@ var COMP_KIT = (() => {
     theme: "rain",
     companions: [
       {
-        id: "rain-duck", name: "Puddle", kind: "Rain Boot Duckling", pose: "stand",
+        id: "rain-duck", name: "Puddle", kind: "Rain Boot Duckling", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A sunny little duckling in rain boots who loves a puddle day.",
         idle: ["waddle", "wingFlutter", "headTilt"], cheer: "wingFlutter",
         neck: [60, 74],
@@ -53851,7 +56125,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 61, w: 3.5},
         cheeks: {lx: 41.5, rx: 78.5, y: 59, w: 4.4, h: 2.7, color: "#FF9F8F"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 75, 1.05], chest: [70, 89, 0.7], back: [83, 83, 0.85], hands: [60, 90, 0.9]},
+        anchors: {top: [60, 30, 0.95, 0], neck: [60, 79, 1.05, 0, 49, 66], chest: [70, 82.5, 0.7], back: [83, 83, 0.85], hands: [60, 90, 0.9]},
         lines: {
           tap: ["Quack! Hi hi hi! I'm so happy you're here!", "Puddles are just tiny ponds, and I love them all!", "Splish splash, you've totally got this!", "Rainy days are the coziest study days!", "Look at you, showing up again! Yay!", "Every drop counts, and so does every page!", "You bring the sunshine, even on rainy days!"],
           pet: ["Quack quack! Hehe, that tickles!", "Fluffy, dry, and SO happy! Thank you!"],
@@ -53882,7 +56156,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 62, r: 4.8, style: "dot", color: "#26324A"},
         mouth: {x: 60, y: 70.5, w: 3, color: "#26324A"},
         cheeks: {lx: 42, rx: 78, y: 69, w: 4.4, h: 2.7, color: "#FFA6BD"},
-        anchors: {top: [58, 33, 0.95], neck: [60, 80, 1.3], chest: [78, 74, 0.7], back: [86, 54, 0.85], hands: [60, 80, 0.9]},
+        anchors: {top: [58, 35.5, 0.95, 0], neck: [60, 80, 1.3, 0, 79, 88], chest: [78, 85.5, 0.62], back: [86, 54, 0.85], hands: [60, 80, 0.9]},
         lines: {
           tap: ["Drip drop, hi! I'm so glad you're here!", "Growing ideas, one happy drop at a time!", "A little rain helps everything grow, you too!", "Cloudy outside, sunny in here with you!", "Soft rain, sharp mind! Let's do this!", "Look at you go! I'm raining confetti!", "Every storm passes, and you shine right through!"],
           pet: ["Pitter patter, hehe! I'm all puffed up!", "Ooh, I'm so fluffy now! Thank you!"],
@@ -53917,7 +56191,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 43.5, rx: 60.5, y: 83, r: 4.4, style: "dot", color: "#2A2F4A"},
         mouth: {x: 52, y: 91, w: 2.8, color: "#2A2F4A"},
         cheeks: {lx: 37, rx: 67, y: 90, w: 3.8, h: 2.5, color: "#FF9FBA"},
-        anchors: {top: [52, 66, 0.85], neck: [52, 98, 0.95], chest: [90, 101, 0.6], back: [76, 64, 0.95], hands: [52, 100, 0.85]},
+        anchors: {top: [52, 66, 0.85, 0], neck: [61.5, 101.5, 0.85, 0, 80, 84], chest: [90, 105.5, 0.6], back: [76, 64, 0.95], hands: [52, 100, 0.85]},
         lines: {
           tap: ["Oh hello there! You made my whole day!", "Slow and steady, and you're doing so well!", "No rush at all. You're doing wonderfully!", "I carry my cozy, and I'm sharing it with you!", "Rainy day, happy snail, happier with you here!", "One inch at a time, and look how far you've come!", "Your pace is the right pace! I love it!"],
           pet: ["Mmm, so gentle! My shell is all warm!", "Happy little shell wiggle! Thank you!"],
@@ -53938,7 +56212,7 @@ var COMP_KIT = (() => {
     theme: "alpine",
     companions: [
       {
-        id: "alpine-goat", name: "Tilly", kind: "Mountain Goat Kid", pose: "stand",
+        id: "alpine-goat", name: "Tilly", kind: "Mountain Goat Kid", pose: "stand", hatTop: true,
         bio: "A fluffy goat kid with a tiny bell who hops from peak to peak with you.",
         idle: ["earTwitch", "headTilt", "hop"], cheer: "hop",
         neck: [60, 76],
@@ -53964,7 +56238,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 54, r: 4.5, style: "dot"},
         mouth: {x: 60, y: 67.5, w: 2.6, style: "cat"},
         cheeks: {lx: 42, rx: 78, y: 62, w: 4.4, h: 2.7, color: "#FF9FB3"},
-        anchors: {top: [60, 36, 0.95], neck: [60, 77, 1], chest: [71, 94, 0.66], back: [82, 86, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 35.5, 1.01, 0], neck: [60, 79.5, 1, 0, 43, 54], chest: [71, 84, 0.66], back: [82, 86, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Ding ding! Hi! My bell is so happy to see you!", "Hop hop! We're climbing higher every day!", "Look at you scaling this mountain! Wow!", "You're on fire today! Peak after peak!", "Every step up is a step worth cheering!", "I believe in you all the way to the top!", "Fresh air, big views, and you! Perfect!"],
           pet: ["Ding a ling! Hehe, that's my happy bell!", "Ooh, so soft! My fluff is doing a little hop!"],
@@ -53996,7 +56270,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 76, r: 5, style: "dot", color: "#2A2248"},
         mouth: {x: 60, y: 85, w: 3.2, color: "#2A2248"},
         cheeks: {lx: 41.5, rx: 78.5, y: 84, w: 4.6, h: 2.8, color: "#FFB0C4"},
-        anchors: {top: [60, 21, 0.8], neck: [60, 94, 1.35], chest: [77, 96, 0.72], back: [84, 70, 0.9], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 26.5, 0.8, 0], neck: [60, 96.5, 1.35, 0, 80, 82], chest: [77, 101.5, 0.6], back: [84, 70, 0.9], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hello, climber! I'm so glad you're here!", "Steady and strong, just like you! Wow!", "Look how high you've climbed already!", "My snowy cap is sparkling just for you!", "You're showing up again! I love to see it!", "Rock solid effort today! Keep it up!", "The view from here? It's you, doing great!"],
           pet: ["Oh! A little snow just fell from joy!", "So gentle! My whole mountain is smiling!"],
@@ -54026,7 +56300,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 60, r: 4.6, style: "sparkle", color: "#2E3550"},
         mouth: {x: 60, y: 68.5, w: 2.8, color: "#2E3550"},
         cheeks: {lx: 44.5, rx: 75.5, y: 67, w: 4, h: 2.5, color: "#FF9FB0"},
-        anchors: {top: [60, 41, 0.85], neck: [60, 81, 1], chest: [72, 74, 0.62], back: [84, 50, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 36, 0.85, 0], neck: [60, 77, 1, 0, 63, 51], chest: [72, 83.5, 0.62], back: [84, 50, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hello, sunshine! I'm blooming just for you!", "You make my petals sparkle! Hi hi!", "Look at you, growing every single day!", "Up here, everything shines, especially you!", "You're blooming beautifully today!", "Fresh mountain air and a fresh new page! Yay!", "I'm your biggest fan up on this mountain!"],
           pet: ["Ooh, my fuzzy petals are so happy! Thank you!", "Hehe! I'm blooming even brighter now!"],
@@ -54081,7 +56355,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 56.5, r: 4.6, style: "dot", color: "#3A2416"},
         mouth: {x: 60, y: 68.6, w: 2.8, style: "cat", color: "#3A2416"},
         cheeks: {lx: 43.5, rx: 76.5, y: 64.5, w: 4.4, h: 2.7, color: "#FF9A8C"},
-        anchors: {top: [60, 36, 0.95], neck: [60, 76, 0.95], chest: [68, 92, 0.7], back: [79, 90, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 36, 0.95, 0], neck: [60, 79.5, 0.95, 0, 37, 53], chest: [68, 83.5, 0.7], back: [79, 90, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Hi hi! My big ears perked right up for you!", "Ooh, tell me everything! I'm all ears!", "You're on fire today! Sandy high five!", "Look at you, showing up again! Yay!", "Every idea you share makes my tail wag!", "You've got this, and I've got your back!", "Desert sun and you? Best combo ever!"],
           pet: ["Eee! My ears are wiggling with joy!", "Hehe! Fluffy tail wag, just for you!"],
@@ -54095,7 +56369,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "dunes-camel", name: "Toffee", kind: "Baby Camel", pose: "sit", sleepy: true, wearColor: "#3F9FA8",
+        id: "dunes-camel", name: "Toffee", kind: "Baby Camel", pose: "sit", sleepy: true, wearColor: "#3F9FA8", hatTop: true,
         bio: "A sleepy baby camel who rests beside you through long study treks.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         neck: [72, 64],
@@ -54121,7 +56395,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 64, rx: 80, y: 44, r: 4.3, style: "dot", color: "#3A2416"},
         mouth: {x: 72, y: 61.8, w: 2.8, color: "#3A2416"},
         cheeks: {lx: 58.5, rx: 85.5, y: 50.5, w: 4, h: 2.5, color: "#FF9A8C"},
-        anchors: {top: [72, 23, 0.85], neck: [72, 68, 0.62], chest: [80, 92, 0.6], back: [26, 88, 0.8], hands: [73, 86, 0.8]},
+        anchors: {top: [72, 24.5, 0.85, 0], neck: [72.5, 70, 0.62, 0, 24.5, 66.5], chest: [80, 75, 0.6], back: [26, 88, 0.8], hands: [73, 86, 0.8]},
         lines: {
           tap: ["Oh hi! You made this sleepy camel so happy!", "Long trek? No problem! We're doing it together!", "Look at you go, one step at a time! Wow!", "You're amazing, and I'm not just saying it because I'm sleepy!", "Every step across the dunes counts! Yay!", "Showing up again! You're my favorite traveler!", "I'm so proud to walk beside you!"],
           pet: ["Ooh, so cozy! My whole heart is happy!", "Hehe! That's the best pat ever! Thank you!"],
@@ -54135,7 +56409,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "dunes-wisp", name: "Mirage", kind: "Sand Wisp", pose: "float", size: 1.08,
+        id: "dunes-wisp", name: "Mirage", kind: "Sand Wisp", pose: "float", size: 1.08, hatTop: true,
         bio: "A warm swirl of desert sand who glows like sunset on the dunes.",
         idle: ["sparkle", "topBob", "finWiggle"], cheer: "spin",
         parts: {
@@ -54155,7 +56429,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 58, r: 4.8, style: "sparkle", color: "#4A2616"},
         mouth: {x: 60, y: 66.5, w: 3, color: "#4A2616"},
         cheeks: {lx: 43, rx: 77, y: 65, w: 4.4, h: 2.8, color: "#FF8F8F"},
-        anchors: {top: [60, 38, 0.9], neck: [60, 80, 1.0], chest: [71, 73, 0.62], back: [83, 55, 0.8], hands: [60, 76, 0.85]},
+        anchors: {top: [60, 39.5, 0.9, 0], neck: [60, 75.5, 1, 0, 50, 40], chest: [71, 82, 0.62], back: [83, 55, 0.8], hands: [60, 76, 0.85]},
         lines: {
           tap: ["Swirl swirl! Hi! I'm glowing just for you!", "You light up the dunes like a sunset!", "Look at you, shining brighter every day!", "Whoosh! You're on fire today!", "Every grain of effort adds up! Wow!", "Showing up again? I'm swirling with joy!", "Warm wishes and big cheers, all for you!"],
           pet: ["Ooh! I'm swirling in happy little circles!", "Hehe! My glow just got so much warmer!"],
@@ -54194,7 +56468,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 52, r: 4.8, style: "sparkle", color: "#3A1E4A"},
         mouth: {x: 60, y: 59.5, w: 3, color: "#3A1E4A"},
         cheeks: {lx: 42.5, rx: 77.5, y: 58.5, w: 4.4, h: 2.7, color: "#FF7FAF"},
-        anchors: {top: [60, 31, 0.95], neck: [60, 67, 1.15], chest: [76, 58, 0.6], back: [85, 48, 0.85], hands: [60, 70, 0.85]},
+        anchors: {top: [60, 32, 0.95, 0], neck: [62.5, 69.5, 1.15, 0, 55, 11], chest: [76, 75, 0.6], back: [85, 48, 0.85], hands: [60, 70, 0.85]},
         lines: {
           tap: ["Bloop! Hi! I'm glowing just for you!", "Drifting along with you is my favorite thing!", "Look at you flow! You're amazing!", "You're glowing today! Bloop bloop!", "Every little wave counts! Keep going!", "Showing up again! I'm so happy I'm shimmering!", "We're in the best study flow ever!"],
           pet: ["Bloop! Hehe, my tentacles are wiggling!", "Ooh! I'm glowing extra bright now! Thank you!"],
@@ -54230,7 +56504,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 87, r: 5, style: "dot", color: "#2A1840"},
         mouth: {x: 60, y: 95, w: 3.2, color: "#2A1840"},
         cheeks: {lx: 41.5, rx: 78.5, y: 94, w: 4.6, h: 2.8, color: "#FF8FBF"},
-        anchors: {top: [60, 73, 0.95], neck: [60, 101, 1.3], chest: [82, 100, 0.7], back: [22, 92, 0.85], hands: [60, 102, 0.9]},
+        anchors: {top: [60, 70.5, 0.95, 0], neck: [60, 106, 1.3, 0, 83, 84], chest: [82, 111.5, 0.62], back: [22, 92, 0.85], hands: [60, 102, 0.9]},
         wearColor: "#3FB8C8",
         lines: {
           tap: ["Hi hi! My frills are fluttering for you!", "One small step, then another! You're amazing!", "Look how far we've inched together! Wow!", "You're doing so well! Frilly high five!", "Every tiny step is worth a big cheer!", "Showing up again! I'm so proud of you!", "You and me, inching toward greatness!"],
@@ -54268,7 +56542,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 61, r: 4.5, style: "dot", color: "#3A2A5A"},
         mouth: {x: 60, y: 69, w: 2.8, color: "#3A2A5A"},
         cheeks: {lx: 45, rx: 75, y: 68, w: 4.2, h: 2.6, color: "#FF8FB8"},
-        anchors: {top: [60, 40, 0.9], neck: [60, 80, 1.05], chest: [82, 95, 0.68], back: [97, 64, 0.85], hands: [60, 86, 0.9]},
+        anchors: {top: [60, 43, 0.9, 0], neck: [60, 81, 0.9, 0, 38, 91], chest: [82, 87, 0.68], back: [97, 64, 0.85], hands: [60, 86, 0.9]},
         lines: {
           tap: ["Hello! My pearl is shimmering just for you!", "You're a real gem, you know that?", "Look at you shine today! Wow!", "Every effort adds a little more sparkle!", "Showing up again! I'm so proud of you!", "You make my whole shell glow!", "Shine on, friend! I'm cheering for you!"],
           pet: ["Ooh! My pearl is sparkling extra bright!", "Hehe! My shell is opening with joy!"],
@@ -54289,7 +56563,7 @@ var COMP_KIT = (() => {
     theme: "bamboo",
     companions: [
       {
-        id: "bamboo-panda", name: "Bao", kind: "Baby Panda", pose: "sit", sleepy: true,
+        id: "bamboo-panda", name: "Bao", kind: "Baby Panda", pose: "sit", sleepy: true, hatTop: true,
         bio: "A roly-poly panda cub who munches bamboo and naps while you study.",
         idle: ["earTwitch", "topBob", "bounce"], cheer: "hop",
         neck: [60, 75],
@@ -54314,7 +56588,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 57, r: 4.4, style: "round", color: "#2B2233"},
         mouth: {x: 60, y: 68, w: 2.6, style: "cat"},
         cheeks: {lx: 40, rx: 80, y: 68.5, w: 4.2, h: 2.6, color: "#FF9FB7"},
-        anchors: {top: [60, 34, 1], neck: [60, 76, 1.1], chest: [70, 97, 0.7], back: [86, 90, 0.85], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 34.5, 1, 0], neck: [60, 79.5, 1.1, 0, 52, 68], chest: [70, 83.5, 0.7], back: [86, 90, 0.85], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Hi hi! I stopped munching just to say hello!", "You're doing amazing! Panda hug!", "Look at you, showing up again! Yay!", "Roly poly cheers, all for you!", "You're on a roll today, just like me!", "Every page you turn makes me so happy!", "Bamboo and you? My two favorite things!"],
           pet: ["Ooh! Happy panda roll! Hehe!", "So cozy! My ears are wiggling with joy!"],
@@ -54328,7 +56602,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "bamboo-stalk", name: "Poki", kind: "Bamboo Stalk", pose: "stand", wearColor: "#E07A5F",
+        id: "bamboo-stalk", name: "Poki", kind: "Bamboo Stalk", pose: "stand", wearColor: "#E07A5F", hatTop: true,
         bio: "A chubby bamboo stalk who grows a little taller every time you do.",
         idle: ["topBob", "wave", "sway"], cheer: "spin",
         parts: {
@@ -54349,7 +56623,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 73, r: 4.4, style: "dot", color: "#1C2E16"},
         mouth: {x: 60, y: 80.5, w: 3, color: "#1C2E16"},
         cheeks: {lx: 46, rx: 74, y: 79.5, w: 3.8, h: 2.5, color: "#FF9A9A"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 89, 0.9], chest: [68, 100, 0.55], back: [79, 70, 0.8], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 35, 0.85, 0], neck: [60, 89, 0.9, 0, 49, 43], chest: [68, 94.5, 0.55], back: [79, 70, 0.8], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Hi hi! I grew a little just seeing you!", "Look at us growing together! Wow!", "You're on fire today! Sprout sprout!", "Every little effort helps us both grow tall!", "Showing up again! I'm so proud!", "Rooting for you, all the way down!", "Taller and stronger every day, that's you!"],
           pet: ["Ooh! My leaves are rustling with joy!", "Hehe! I think I just grew an inch!"],
@@ -54385,7 +56659,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 55, r: 4.8, style: "sparkle", color: "#1C2E16"},
         mouth: {x: 60, y: 63.5, w: 3, color: "#1C2E16"},
         cheeks: {lx: 43, rx: 77, y: 62, w: 4.4, h: 2.7, color: "#FF9A9A"},
-        anchors: {top: [60, 35, 0.9], neck: [60, 75, 1.0], chest: [72, 69, 0.6], back: [83, 50, 0.8], hands: [60, 73, 0.85]},
+        anchors: {top: [60, 36.5, 0.9, 0], neck: [60, 72.5, 1, 0, 46, 41], chest: [72, 78.5, 0.6], back: [83, 50, 0.8], hands: [60, 73, 0.85]},
         lines: {
           tap: ["Blink blink! Hi! I lit up for you!", "You light up the whole grove! Wow!", "Look at you glowing today!", "Every little spark counts! Keep shining!", "Showing up again! My light is so bright!", "I'll be your little lantern, always!", "You're on fire today, in the best way!"],
           pet: ["Ooh! I'm blinking with happiness!", "Hehe! My glow just got so warm!"],
@@ -54406,7 +56680,7 @@ var COMP_KIT = (() => {
     theme: "lavenderfields",
     companions: [
       {
-        id: "lavenderfields-lamb", name: "Lilac", kind: "Lavender Lamb", pose: "sit", sleepy: true,
+        id: "lavenderfields-lamb", name: "Lilac", kind: "Lavender Lamb", pose: "sit", sleepy: true, hatTop: true,
         bio: "A woolly lamb who naps in the lavender rows while you study.",
         idle: ["earTwitch", "topBob", "bounce"], cheer: "hop",
         neck: [60, 72],
@@ -54432,7 +56706,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 58, r: 4.2, style: "dot", color: "#3A2A4A"},
         mouth: {x: 60, y: 68.2, w: 2.4, style: "cat", color: "#3A2A4A"},
         cheeks: {lx: 46.5, rx: 73.5, y: 65, w: 3.8, h: 2.4, color: "#FF9FB7"},
-        anchors: {top: [60, 43, 0.85], neck: [60, 74, 1.0], chest: [70, 96, 0.68], back: [82, 86, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 45.5, 0.85, 0], neck: [60, 74, 1, 0, 32, 49], chest: [70, 81, 0.68], back: [82, 86, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Baa! Hi! I'm so happy you're here!", "You're doing wonderfully! Woolly hug!", "Look at you, showing up again! Yay!", "Soft and steady, and so very strong!", "Every row of lavender cheers for you!", "You're on a roll today! Baa baa!", "I'm your fluffiest, biggest fan!"],
           pet: ["Baa! Hehe, my wool is so happy!", "Ooh, so cozy! I'm all fluffed up now!"],
@@ -54446,7 +56720,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "lavenderfields-sachet", name: "Lavi", kind: "Lavender Sachet", pose: "stand", wearColor: "#E58A6E",
+        id: "lavenderfields-sachet", name: "Lavi", kind: "Lavender Sachet", pose: "stand", wearColor: "#E58A6E", hatTop: true,
         bio: "A little linen sachet stuffed with lavender and good calm thoughts.",
         idle: ["topBob", "waddle", "wave"], cheer: "hop",
         parts: {
@@ -54468,7 +56742,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 77, r: 4.6, style: "dot", color: "#2E2240"},
         mouth: {x: 60, y: 85.5, w: 3, color: "#2E2240"},
         cheeks: {lx: 42.5, rx: 77.5, y: 84, w: 4.4, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 51, 0.85], chest: [72, 97, 0.66], back: [86, 78, 0.85], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 35.5, 0.85, 0], neck: [60, 93.5, 0.85, 0, 67, 60], chest: [72, 100, 0.62], back: [86, 78, 0.85], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi hi! I'm full of happy thoughts for you!", "You're doing so well! Sweet cheers!", "Look at you, calm and capable! Wow!", "Every breath in smells like success!", "Showing up again! I'm so proud of you!", "Stuffed full of good vibes, just for you!", "You make my little linen heart happy!"],
           pet: ["Ooh! A lovely puff of lavender for you!", "Hehe! I'm so squishy and happy now!"],
@@ -54506,7 +56780,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 61, r: 5.2, style: "sparkle", color: "#2E2240"},
         mouth: {x: 60, y: 70, w: 2.8, color: "#2E2240"},
         cheeks: {lx: 43.5, rx: 76.5, y: 68.5, w: 4.2, h: 2.6, color: "#FF9FB7"},
-        anchors: {top: [60, 42, 0.85], neck: [60, 82, 0.95], chest: [72, 76, 0.6], back: [60, 58, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 41.5, 0.85, 0], neck: [60, 78.5, 0.95, 0, 48, 51], chest: [72, 84.5, 0.6], back: [60, 58, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Flutter flutter! Hi! I'm so happy to see you!", "You're glowing like golden hour today!", "Look at you, showing up again! Wow!", "Every little step makes me flutter with joy!", "You're on fire today, softly and brightly!", "My fuzzy wings are cheering for you!", "You and the lavender, my favorite things!"],
           pet: ["Ooh! My fuzzy wings are all aflutter!", "Hehe! That's the softest pat ever!"],
@@ -54527,7 +56801,7 @@ var COMP_KIT = (() => {
     theme: "rooftops",
     companions: [
       {
-        id: "rooftops-pigeon", name: "Cooper", kind: "Rooftop Pigeon", pose: "stand",
+        id: "rooftops-pigeon", name: "Cooper", kind: "Rooftop Pigeon", pose: "stand", scarfOverArms: true,
         bio: "A plump city pigeon who coos you on from the rooftop ledge.",
         idle: ["headTilt", "waddle", "wingFlutter"], cheer: "wingFlutter",
         neck: [60, 70],
@@ -54555,7 +56829,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 58.5, w: 3},
         cheeks: {lx: 43.5, rx: 76.5, y: 57, w: 4.4, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 28, 1], neck: [60, 71, 1.05], chest: [71, 94, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 31, 1, 0], neck: [60, 70.5, 0.95, 0, 40, 71, 44], chest: [71, 79, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Coo coo! Hi! You made my whole day!", "You're doing amazing! Rooftop cheers!", "Look at you, showing up again! Yay!", "You're on fire today! Coo!", "Best view in the city? You, working hard!", "Every step counts! I'm cooing for you!", "I'm your biggest fan on this rooftop!"],
           pet: ["Coo coo! Hehe, my feathers are all puffy!", "Ooh! Happy little head bob for you!"],
@@ -54569,7 +56843,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "rooftops-tower", name: "Cedar", kind: "Water Tower", pose: "stand",
+        id: "rooftops-tower", name: "Cedar", kind: "Water Tower", pose: "stand", hatTop: true,
         bio: "A sturdy wooden water tower who keeps you steady from up top.",
         idle: ["topBob", "wave", "waddle"], cheer: "bounce",
         parts: {
@@ -54591,7 +56865,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 69, r: 4.8, style: "dot", color: "#2B1A1A"},
         mouth: {x: 60, y: 77.5, w: 3.2, color: "#2B1A1A"},
         cheeks: {lx: 42.5, rx: 77.5, y: 76, w: 4.4, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [60, 21, 0.75], neck: [60, 51, 1.25], chest: [74, 84, 0.66], back: [89, 66, 0.85], hands: [60, 86, 0.9]},
+        anchors: {top: [60, 25.5, 0.75, 0], neck: [60, 88.5, 1.25, 0, 70, 64], chest: [74, 94, 0.62], back: [89, 66, 0.85], hands: [60, 86, 0.9]},
         wearColor: "#3F80BD",
         lines: {
           tap: ["Hello up here! I'm so glad you came!", "Steady and strong, that's you! Wow!", "Look at you, showing up again! Yay!", "I've got your back from way up top!", "You're on fire today! Keep it flowing!", "Every bit of effort fills you up!", "Best view from the top? You, doing great!"],
@@ -54606,7 +56880,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "rooftops-moon", name: "Lune", kind: "Crescent Moon", pose: "float", sleepy: true,
+        id: "rooftops-moon", name: "Lune", kind: "Crescent Moon", pose: "float", sleepy: true, hatTop: true,
         bio: "A drowsy crescent moon in a nightcap, glowing over the city roofs.",
         idle: ["topBob", "sparkle", "sway"], cheer: "spin",
         parts: {
@@ -54624,7 +56898,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 46, rx: 62, y: 68, r: 4.4, style: "dot", color: "#3A2A3A"},
         mouth: {x: 54, y: 76, w: 2.8, color: "#3A2A3A"},
         cheeks: {lx: 39.5, rx: 68.5, y: 75, w: 4, h: 2.5, color: "#FF9A8C"},
-        anchors: {top: [46, 36, 0.75], neck: [56, 88, 0.95], chest: [72, 80, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
+        anchors: {top: [57, 39.5, 0.85, 34], neck: [56, 85.5, 0.75, 10, 38, 59.5], chest: [72, 88, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
         wearColor: "#6F68A8",
         lines: {
           tap: ["Oh hello! I'm glowing extra bright for you!", "You light up the city more than I do!", "Look at you, showing up again! Wow!", "You're shining today! I'm so proud!", "Every little step deserves a moonbeam!", "I'm your biggest fan in the whole sky!", "Night or day, I'm cheering for you!"],
@@ -54669,7 +56943,7 @@ var COMP_KIT = (() => {
     theme: "business",
     companions: [
       {
-        id: "business-piggy", name: "Nickel", kind: "Piggy Bank", pose: "stand", wearColor: "#2F9E7A",
+        id: "business-piggy", name: "Nickel", kind: "Piggy Bank", pose: "stand", wearColor: "#2F9E7A", hatTop: true,
         bio: "A round little piggy bank who saves up every single win for you.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "hop",
         parts: {
@@ -54695,7 +56969,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 68, r: 4.8, style: "dot", color: "#3A1E2C"},
         mouth: {x: 60, y: 93, w: 3, color: "#3A1E2C"},
         cheeks: {lx: 39, rx: 81, y: 80, w: 4.6, h: 2.8, color: "#FF7FA3"},
-        anchors: {top: [60, 42, 0.95], neck: [60, 101, 1.15], chest: [80, 96, 0.72], back: [93, 68, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [60, 42.5, 0.95, 0], neck: [60, 103, 1.15, 0, 42, 45], chest: [80, 108.5, 0.6], back: [93, 68, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Oink oink! Hi, my favorite saver!", "Every win goes right in my piggy bank!", "Look at all that progress adding up!", "You're worth a whole fortune to me!", "Cha-ching! That's the sound of you!", "Small steps add up to big things!", "My coin is shiny and so are you!", "Invest in you! Best deal ever!"],
           pet: ["Oink! That's my happy spot!", "Hehe! My coins are jingling!"],
@@ -54709,7 +56983,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "business-bull", name: "Buck", kind: "Bull Calf", pose: "stand", wearColor: "#3E7BD6",
+        id: "business-bull", name: "Buck", kind: "Bull Calf", pose: "stand", wearColor: "#3E7BD6", hatTop: true,
         bio: "A bouncy bull calf in a tiny tie who's always bullish on you.",
         idle: ["earTwitch", "headTilt", "tailSwish"], cheer: "hop",
         neck: [60, 76],
@@ -54739,7 +57013,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 50, r: 4.6, style: "dot", color: "#2E1A12"},
         mouth: {x: 60, y: 69.5, w: 2.6, color: "#5A2A22"},
         cheeks: {lx: 40, rx: 80, y: 58, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 31, 0.95], neck: [60, 77, 1.05], chest: [73, 90, 0.7], back: [84, 84, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 77.5, 1.05, 0, 45, 63], chest: [73, 84.5, 0.7], back: [84, 84, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Moo! I'm totally bullish on you!", "Charging ahead! Look at you go!", "Your progress chart only goes up!", "Big moves today, I can feel it!", "Tie straight, head high, let's do this!", "You're my top investment, always!", "Hooves up for the hardest worker!", "Stampede of cheers coming your way!"],
           pet: ["Moo hoo! My ears are flapping!", "Hehe! That tickles my horns!"],
@@ -54753,7 +57027,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "business-case", name: "Brief", kind: "Little Briefcase", pose: "stand", wearColor: "#C9603E",
+        id: "business-case", name: "Brief", kind: "Little Briefcase", pose: "stand", wearColor: "#C9603E", hatTop: true,
         bio: "A tidy little briefcase packed full of big plans and high fives.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         parts: {
@@ -54777,7 +57051,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 77, r: 5.6, style: "dot", color: "#2E1A10"},
         mouth: {x: 60, y: 86.5, w: 3.4, color: "#2E1A10"},
         cheeks: {lx: 40, rx: 80, y: 85, w: 4.6, h: 2.8, color: "#FF8F8A"},
-        anchors: {top: [60, 41, 1], neck: [60, 98, 1.25], chest: [83, 96, 0.72], back: [93, 66, 0.9], hands: [60, 99, 0.95]},
+        anchors: {top: [60, 40, 1, 0], neck: [60, 98, 1.25, 0, 81, 81.5], chest: [83, 103.5, 0.6], back: [93, 66, 0.9], hands: [60, 99, 0.95]},
         lines: {
           tap: ["Click clack! Ready for business!", "Your plans are looking so sharp!", "Packed with snacks and big ideas!", "You're the boss of this day!", "Meeting adjourned: you're amazing!", "I carry all your best ideas!", "Briefly: you're doing great!", "Pitch perfect, every single time!"],
           pet: ["Hehe! My clasps are all clicky!", "Ooh, a pat on the handle! Yay!"],
@@ -54815,7 +57089,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 59, r: 5.2, style: "sparkle", color: "#4A1430"},
         mouth: {x: 60, y: 68.5, w: 3, color: "#4A1430"},
         cheeks: {lx: 40, rx: 80, y: 67, w: 4.4, h: 2.7, color: "#FF5C8A"},
-        anchors: {top: [60, 34, 0.9], neck: [60, 94, 0.9], chest: [72, 88, 0.6], back: [86, 48, 0.8], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 21.5, 0.9, 0], neck: [60, 77, 0.9, 0, 64, 55], chest: [72, 83.5, 0.6], back: [86, 48, 0.8], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Ba-dum! Ba-dum! Hi hi!", "My heart beats faster when you're here!", "You care so much, and it shows!", "Every beat is cheering for you!", "You've got the biggest heart around!", "Steady rhythm, happy you!", "Kindness looks great on you!", "I love you a whole heartbeat's worth!"],
           pet: ["Ba-dum! That made me skip a beat!", "Aww! I'm all warm and fluttery!"],
@@ -54850,7 +57124,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 60, r: 4.8, style: "dot", color: "#3A2418"},
         mouth: {x: 60, y: 69.5, w: 3, color: "#3A2418"},
         cheeks: {lx: 42.5, rx: 77.5, y: 68, w: 4, h: 2.5, color: "#FF9AAE"},
-        anchors: {top: [60, 21, 0.9], neck: [60, 91, 1.05], chest: [73, 98, 0.66], back: [84, 60, 0.85], hands: [60, 92, 0.9]},
+        anchors: {top: [60, 19, 0.9, 0], neck: [60, 79, 1.05, 0, 67, 79], chest: [73, 86, 0.66], back: [84, 60, 0.85], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hi hi! I'm stuck on you, friend!", "I've always got your back!", "You make everyone feel better!", "Patch by patch, you're doing it!", "Sticking by your side all day!", "Kindness is your superpower!", "You're the best teammate ever!", "Stick with it! You're amazing!"],
           pet: ["Hehe! My sticky side is all giggly!", "Aww! That's the best little pat!"],
@@ -54892,7 +57166,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 50.5, r: 4.4, style: "dot", color: "#2E1A12"},
         mouth: {x: 60, y: 63.5, w: 2.4, style: "cat", color: "#4A2A1C"},
         cheeks: {lx: 41, rx: 79, y: 58.5, w: 4.4, h: 2.7, color: "#FF8F9F"},
-        anchors: {top: [60, 22, 0.9], neck: [60, 75, 1.05], chest: [74, 88, 0.66], back: [86, 86, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 31, 0.9, 0], neck: [60, 76.5, 1.05, 0, 45, 65], chest: [74, 82, 0.66], back: [86, 86, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hello, sweetheart! Bear hug time!", "Your kindness makes the world softer!", "You care so well for everyone!", "I'm beary, beary proud of you!", "Teamwork makes the dream work!", "A little care goes a long way!", "You're doing wonderfully, truly!", "Soft paws, big cheers for you!"],
           pet: ["Mmm! The coziest pat ever!", "Hehe! My cap is wiggling!"],
@@ -54913,7 +57187,7 @@ var COMP_KIT = (() => {
     theme: "psych",
     companions: [
       {
-        id: "psych-brain", name: "Neuro", kind: "Little Brain", pose: "stand", wearColor: "#7E6BD6",
+        id: "psych-brain", name: "Neuro", kind: "Little Brain", pose: "stand", wearColor: "#7E6BD6", hatTop: true,
         bio: "A curious little brain whose light bulb pops on with every idea.",
         idle: ["topBob", "sway", "wave"], cheer: "spin",
         parts: {
@@ -54935,7 +57209,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 74, r: 5.4, style: "dot", color: "#3A1A34"},
         mouth: {x: 60, y: 83, w: 3, color: "#3A1A34"},
         cheeks: {lx: 40.5, rx: 79.5, y: 81.5, w: 4.4, h: 2.7, color: "#FF6F9A"},
-        anchors: {top: [60, 46, 0.95], neck: [60, 98, 1.15], chest: [77, 94, 0.7], back: [91, 68, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 42.5, 0.95, 0], neck: [60, 93, 1.15, 0, 74, 63], chest: [77, 99, 0.62], back: [91, 68, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Ding! Idea alert! Hi hi!", "Your neurons are firing so bright!", "Ooh, I love how you think!", "Big thoughts, happy brain!", "Curiosity looks amazing on you!", "Every question grows a new idea!", "My light bulb is on because of you!", "You're wired for wonderful things!"],
           pet: ["Hehe! That tickles my wrinkles!", "Ooh! Happy brain chemicals!"],
@@ -54949,7 +57223,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "psych-sheep", name: "Dozy", kind: "Dream Sheep", pose: "sit", sleepy: true, wearColor: "#8C7BD8",
+        id: "psych-sheep", name: "Dozy", kind: "Dream Sheep", pose: "sit", sleepy: true, wearColor: "#8C7BD8", hatTop: true,
         bio: "A fluffy dream sheep who counts your wins instead of sheep.",
         idle: ["earTwitch", "tailSwish", "bounce"], cheer: "hop",
         neck: [60, 75],
@@ -54973,7 +57247,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 61.5, r: 4.3, style: "dot", color: "#3B2E4A"},
         mouth: {x: 60, y: 69, w: 2.4, style: "cat", color: "#5A3E50"},
         cheeks: {lx: 46, rx: 74, y: 67, w: 3.8, h: 2.3, color: "#FF9FB7"},
-        anchors: {top: [60, 37, 0.95], neck: [60, 77, 1.05], chest: [72, 90, 0.66], back: [84, 86, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 33, 0.95, 0], neck: [60, 77, 1, 0, 33, 52], chest: [72, 84, 0.66], back: [84, 86, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Baa! Hi, my dreamy friend!", "Counting your wins instead of sheep!", "You're the stuff of sweet dreams!", "Fluffy cheers, coming right up!", "Dream big! You're doing it!", "So soft, so proud of you!", "Your mind is a lovely garden!", "Woolly hugs for my favorite human!"],
           pet: ["Baa! My wool is extra fluffy now!", "Hehe! So cozy, so happy!"],
@@ -54987,7 +57261,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "psych-bubble", name: "Wonder", kind: "Thought Bubble", pose: "float", wearColor: "#5C9BD6",
+        id: "psych-bubble", name: "Wonder", kind: "Thought Bubble", pose: "float", wearColor: "#5C9BD6", hatTop: true,
         bio: "A floaty thought bubble full of what-ifs and bright ideas.",
         idle: ["tailSwish", "topBob", "sparkle"], cheer: "spin",
         parts: {
@@ -55003,7 +57277,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 58, r: 5, style: "sparkle", color: "#3A3160"},
         mouth: {x: 60, y: 67, w: 3, color: "#3A3160"},
         cheeks: {lx: 41.5, rx: 78.5, y: 65.5, w: 4.4, h: 2.7, color: "#FF9EC0"},
-        anchors: {top: [60, 35, 0.95], neck: [60, 82, 1], chest: [76, 76, 0.64], back: [86, 50, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 29.5, 0.95, 0], neck: [60, 76, 1, 0, 66, 58], chest: [76, 82, 0.6], back: [86, 50, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Ooh! I just had a thought: you rock!", "What if today is your best day yet?", "I wonder how amazing you'll be today!", "Thinking happy thoughts about you!", "Curious minds go the farthest!", "Pop! Another great idea!", "Your thoughts are so bright!", "Floating by to say you're wonderful!"],
           pet: ["Hehe! I'm all floaty and fizzy!", "Ooh! That gave me happy thoughts!"],
@@ -55024,7 +57298,7 @@ var COMP_KIT = (() => {
     theme: "biology",
     companions: [
       {
-        id: "biology-tardigrade", name: "Tardi", kind: "Tardigrade", pose: "stand", wearColor: "#3FA28C",
+        id: "biology-tardigrade", name: "Tardi", kind: "Tardigrade", pose: "stand", wearColor: "#3FA28C", scarfOverArms: true,
         bio: "A tiny, mighty water bear who never ever gives up.",
         idle: ["waddle", "wave", "finWiggle"], cheer: "hop",
         parts: {
@@ -55043,7 +57317,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 56.5, r: 4.8, style: "dot", color: "#3A2418"},
         mouth: {x: 60, y: 67.6, w: 2.6, color: "#3A2418"},
         cheeks: {lx: 40, rx: 80, y: 65.5, w: 4.4, h: 2.7, color: "#FF9AA8"},
-        anchors: {top: [60, 32, 1], neck: [60, 76, 1.25], chest: [77, 91, 0.72], back: [90, 64, 0.9], hands: [60, 93, 0.95]},
+        anchors: {top: [60, 31, 1, 0], neck: [60, 78, 1.25, 0, 75, 84], chest: [77, 85, 0.72], back: [90, 64, 0.9], hands: [60, 93, 0.95]},
         lines: {
           tap: ["Hi hi! Eight tiny legs of cheering!", "I survive anything, and so can you!", "Small but mighty, just like you!", "Unstoppable! That's us!", "Tiny steps, giant progress!", "You're tougher than you think!", "Water bear hugs for you!", "I've been to space! You're cooler!"],
           pet: ["Hehe! All eight legs are wiggling!", "Ooh! Squishy happy water bear!"],
@@ -55057,7 +57331,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "biology-dna", name: "Helix", kind: "DNA Sprout", pose: "stand", wearColor: "#5B7FD6",
+        id: "biology-dna", name: "Helix", kind: "DNA Sprout", pose: "stand", wearColor: "#5B7FD6", hatTop: true,
         bio: "A little sprout with a twisty DNA stem who loves to grow with you.",
         idle: ["topBob", "sway", "wave"], cheer: "spin",
         parts: {
@@ -55077,7 +57351,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 81, r: 4.7, style: "dot", color: "#24361E"},
         mouth: {x: 60, y: 90, w: 3, color: "#24361E"},
         cheeks: {lx: 41.5, rx: 78.5, y: 88.5, w: 4.4, h: 2.7, color: "#FF9AA8"},
-        anchors: {top: [60, 60, 0.95], neck: [60, 100, 1.1], chest: [77, 99, 0.68], back: [88, 78, 0.9], hands: [60, 100, 0.9]},
+        anchors: {top: [60, 57.5, 0.95, 0], neck: [60, 100, 1.1, 0, 56, 54], chest: [77, 106, 0.6], back: [88, 78, 0.9], hands: [60, 100, 0.9]},
         lines: {
           tap: ["Hi hi! Twisting with joy to see you!", "Learning is in your DNA!", "Growing a little every day, like you!", "You're one of a kind, genetically!", "Base pair? More like best pair!", "Twist and shout! You're amazing!", "Your brain cells are thriving!", "Sprouting cheers just for you!"],
           pet: ["Hehe! My helix is all twisty!", "Ooh! My leaves are wiggling!"],
@@ -55106,7 +57380,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 70, y: 72, r: 5, style: "sparkle", color: "#1F3A44"},
         mouth: {x: 59.5, y: 81, w: 3, color: "#1F3A44"},
         cheeks: {lx: 40.5, rx: 78.5, y: 79.5, w: 4.4, h: 2.7, color: "#FF9AB4"},
-        anchors: {top: [60, 41, 0.95], neck: [60, 92, 1.2], chest: [76, 98, 0.68], back: [88, 64, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 38.5, 0.95, 0], neck: [60, 92, 1.2, 0, 69, 71], chest: [76, 97.5, 0.6], back: [88, 64, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Bloop! Hi hi, my favorite cell!", "Stretching out for a big hug!", "You're growing so fast! Wow!", "Wobbly with excitement for you!", "Divide and conquer, superstar!", "Small but full of big potential!", "I'm all jelly with joy!", "You've got this, one blob at a time!"],
           pet: ["Bloop bloop! So squishy happy!", "Hehe! I'm wobbling all over!"],
@@ -55149,7 +57423,7 @@ var COMP_KIT = (() => {
     theme: "compsci",
     companions: [
       {
-        id: "compsci-duck", name: "Debug", kind: "Rubber Duck", pose: "sit", wearColor: "#3E7BD6",
+        id: "compsci-duck", name: "Debug", kind: "Rubber Duck", pose: "sit", wearColor: "#3E7BD6", hatTop: true,
         bio: "A squeaky rubber duck who listens to every bug until it's solved.",
         idle: ["headTilt", "tailSwish", "wave"], cheer: "wingFlutter",
         neck: [60, 75],
@@ -55175,7 +57449,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 59, w: 3.4},
         cheeks: {lx: 41.5, rx: 78.5, y: 57.5, w: 4.6, h: 2.8, color: "#FF9A8A"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 76, 1.05], chest: [72, 92, 0.7], back: [87, 86, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 29, 0.95, 0], neck: [60, 78, 1.05, 0, 58, 73], chest: [72, 83.5, 0.7], back: [87, 86, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Squeak! Tell me all about your code!", "You're debugging like a champion!", "Quack! I believe in you so much!", "Every bug you squash makes me squeak!", "Talk it through, I'm all ears!", "You're smarter than any compiler!", "Quack quack! You've totally got this!", "Best coding buddy ever? That's you!"],
           pet: ["Squeeeak! That's my happy sound!", "Hehe! Quack! Do it again!"],
@@ -55189,7 +57463,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "compsci-robot", name: "Bitsy", kind: "Little Robot", pose: "stand", wearColor: "#2FA79A",
+        id: "compsci-robot", name: "Bitsy", kind: "Little Robot", pose: "stand", wearColor: "#2FA79A", hatTop: true, scarfOverArms: true,
         bio: "A tiny robot whose screen lights up with joy for every line you write.",
         idle: ["topBob", "earTwitch", "wave"], cheer: "wave",
         neck: [60, 71],
@@ -55216,7 +57490,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 46, r: 5, style: "dot", color: "#7DF2DA"},
         mouth: {x: 60, y: 55.5, w: 3, color: "#7DF2DA"},
         cheeks: {lx: 44, rx: 76, y: 53.5, w: 3.6, h: 2.2, color: "#FF8FBA"},
-        anchors: {top: [60, 27, 0.95], neck: [60, 74, 0.95], chest: [71, 96, 0.6], back: [79, 86, 0.8], hands: [60, 94, 0.85]},
+        anchors: {top: [60, 21.5, 0.95, 0], neck: [60, 74, 0.95, 0, 35, 70], chest: [71, 80, 0.6], back: [79, 86, 0.8], hands: [60, 94, 0.85]},
         lines: {
           tap: ["Beep boop! Hi! Hi! Hi!", "Processing joy: 100 percent!", "You're running at top speed today!", "My circuits sparkle when you're here!", "Beep! You're doing amazing!", "Loading cheer: done! Go you!", "Hello, world! Hello, YOU!", "Best human in my whole database!"],
           pet: ["Beep beep! Happy circuits!", "Boop! My screen is all blushy!"],
@@ -55252,7 +57526,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 72, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 81, w: 3.2},
         cheeks: {lx: 43.5, rx: 76.5, y: 80, w: 4, h: 2.5, color: "#FF9AB4"},
-        anchors: {top: [60, 27, 1], neck: [60, 96, 1.15], chest: [76, 90, 0.6], back: [86, 62, 0.9], hands: [60, 93, 0.85]},
+        anchors: {top: [60, 22, 1, 0], neck: [60.5, 91, 1.15, 0, 64, 66], chest: [76, 96.5, 0.6], back: [86, 62, 0.9], hands: [60, 93, 0.85]},
         lines: {
           tap: ["Hi! Saving this happy moment!", "You're doing so well! Saved!", "1.44 megabytes of pure cheer!", "Whirr whirr! That's my happy noise!", "You're my favorite file to save!", "Ctrl S on all your awesomeness!", "You've got this! Loading pride!", "Retro hugs for my study buddy!"],
           pet: ["Whirr! My shutter is all tingly!", "Hehe! Saved to my heart!"],
@@ -55273,7 +57547,7 @@ var COMP_KIT = (() => {
     theme: "engineering",
     companions: [
       {
-        id: "engineering-beaver", name: "Bolt", kind: "Hard Hat Beaver", pose: "sit", wearColor: "#2C7FB8",
+        id: "engineering-beaver", name: "Bolt", kind: "Hard Hat Beaver", pose: "sit", wearColor: "#2C7FB8", scarfOverArms: true,
         bio: "A busy beaver in a hard hat who builds big plans one log at a time.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "wave",
         neck: [60, 78],
@@ -55308,7 +57582,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 68, w: 3},
         cheeks: {lx: 41, rx: 79, y: 64.5, w: 4.6, h: 2.8, color: "#FF9A9A"},
-        anchors: {top: [60, 20, 0.95], neck: [60, 79, 1.05], chest: [70, 93, 0.68], back: [83, 88, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 82, 1.05, 0, 48, 57], chest: [70, 86, 0.68], back: [83, 88, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hi, builder! Ready to make plans?", "You're building something amazing!", "Hard hat on, cheer level max!", "Log by log, you're doing great!", "Measure twice, cheer forever!", "Tail slap of pride for you!", "You've got this! Let's build!", "Best teammate on the whole site!"],
           pet: ["Hehe! My hard hat wiggled!", "Ooh! Happy tail thumps!"],
@@ -55322,7 +57596,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "engineering-gear", name: "Cog", kind: "Gear Sprite", pose: "float", wearColor: "#2F8F9D",
+        id: "engineering-gear", name: "Cog", kind: "Gear Sprite", pose: "float", wearColor: "#2F8F9D", hatTop: true,
         bio: "A spinning brass gear sprite who keeps every plan turning smoothly.",
         idle: ["spin", "topBob", "wave"], cheer: "spin",
         parts: {
@@ -55339,7 +57613,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 56, r: 5, style: "sparkle"},
         mouth: {x: 60, y: 65, w: 3.2},
         cheeks: {lx: 43, rx: 77, y: 63.5, w: 4.2, h: 2.6, color: "#FF9A8E"},
-        anchors: {top: [57, 22, 0.9], neck: [60, 88, 0.95], chest: [74, 77, 0.6], back: [89, 47, 0.85], hands: [60, 84, 0.85]},
+        anchors: {top: [57, 26, 1.06, 0], neck: [60, 78, 0.9, 0, 42, 62], chest: [74, 80, 0.6], back: [89, 47, 0.85], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Whirr! Hi! My teeth are spinning!", "You keep everything turning!", "Click click! You're amazing!", "We mesh so well together!", "Full speed ahead! Go go go!", "You're the gear that drives it all!", "Spinning with pride for you!", "Tick tick whirr! You've got this!"],
           pet: ["Whirrr! That's so smooth!", "Hehe! Freshly oiled happiness!"],
@@ -55382,7 +57656,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 71, y: 45, r: 5.2, style: "dot"},
         mouth: {x: 61, y: 54.5, w: 3.2},
         cheeks: {lx: 43.5, rx: 78.5, y: 53, w: 4.4, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [61, 24, 0.9], neck: [57, 66, 0.75], chest: [67, 98, 0.55], back: [77, 50, 0.75], hands: [61, 76, 0.8]},
+        anchors: {top: [61, 23, 0.9, 0], neck: [49.5, 68.5, 0.75, 0, 21.5, 24.5], chest: [67, 72, 0.55], back: [77, 50, 0.75], hands: [61, 76, 0.8]},
         lines: {
           tap: ["Grab! Hi there! I caught a smile!", "Pinch pinch! You're amazing!", "I'd lift you up if I could!", "Precision cheering activated!", "You're building great things!", "Reach high! You've got this!", "My claws are clapping for you!", "Best project partner ever!"],
           pet: ["Whirr! My joints feel so loose!", "Hehe! Pinchy happy dance!"],
@@ -55403,7 +57677,7 @@ var COMP_KIT = (() => {
     theme: "education",
     companions: [
       {
-        id: "education-apple", name: "Appy", kind: "Red Apple", pose: "sit", wearColor: "#3E8E5A",
+        id: "education-apple", name: "Appy", kind: "Red Apple", pose: "sit", wearColor: "#3E8E5A", hatTop: true,
         bio: "A shiny red apple who's the teacher's pet and your biggest fan.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -55419,7 +57693,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 72, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 81, w: 3.4},
         cheeks: {lx: 38.5, rx: 81.5, y: 80, w: 5, h: 3, color: "#FFB0B8"},
-        anchors: {top: [60, 41, 1], neck: [60, 97, 1.15], chest: [80, 95, 0.72], back: [92, 72, 0.95], hands: [60, 98, 0.9]},
+        anchors: {top: [60, 31.5, 1, 0], neck: [60, 91, 1.15, 0, 77, 90], chest: [80, 96.5, 0.6], back: [92, 72, 0.95], hands: [60, 98, 0.9]},
         lines: {
           tap: ["Hi! You're the apple of my eye!", "Gold star for showing up today!", "You're learning so much! Wow!", "Crunch crunch! That's happy noise!", "Teacher's pet? No, YOU'RE the star!", "Every lesson makes you shine!", "You've got this! Apple-solutely!", "So proud of you, friend!"],
           pet: ["Hehe! I'm extra shiny now!", "Aww! My leaf is all wiggly!"],
@@ -55457,7 +57731,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 55, r: 4.9, style: "dot"},
         mouth: {x: 60, y: 64, w: 3.2},
         cheeks: {lx: 43, rx: 77, y: 62.5, w: 4.2, h: 2.6, color: "#FF9F8F"},
-        anchors: {top: [60, 11, 0.95], neck: [60, 76, 1.05], chest: [72, 82, 0.6], back: [80, 56, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 7, 0.95, 0], neck: [60, 73.5, 1, 0, 40, 44], chest: [72, 79.5, 0.6], back: [80, 56, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! I'm sharpened and ready!", "Scribble scribble! You're amazing!", "Let's write something wonderful!", "You make my eraser blush!", "Doodling hearts for you!", "Sharp mind, big heart! That's you!", "You've got this! Point taken!", "Best notes in the whole class!"],
           pet: ["Hehe! That tickles my eraser!", "Ooh! Freshly sharpened joy!"],
@@ -55471,7 +57745,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "education-bus", name: "Buster", kind: "School Bus", pose: "stand", wearColor: "#3C6FD1",
+        id: "education-bus", name: "Buster", kind: "School Bus", pose: "stand", wearColor: "#3C6FD1", hatTop: true,
         bio: "A sunny school bus who picks up good vibes on every study route.",
         idle: ["earTwitch", "wave", "bounce"], cheer: "hop",
         parts: {
@@ -55495,7 +57769,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 70.5, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 80, w: 3.4},
         cheeks: {lx: 38.5, rx: 81.5, y: 78.5, w: 4.4, h: 2.7, color: "#FF9A7A"},
-        anchors: {top: [60, 22, 1], neck: [60, 96, 1.3], chest: [84, 70, 0.6], back: [96, 50, 0.9], hands: [60, 90, 0.9]},
+        anchors: {top: [60, 20, 1, 0], neck: [60, 91, 1.3, 0, 83, 85], chest: [84, 96.5, 0.6], back: [96, 50, 0.9], hands: [60, 90, 0.9]},
         lines: {
           tap: ["Beep beep! All aboard the cheer bus!", "Next stop: You being AMAZING!", "Honk honk! So happy you're here!", "You're driving straight to greatness!", "The wheels on the bus go YAY!", "Buckle up! You've got this!", "Best passenger on my whole route!", "Vroom! Look at you go!"],
           pet: ["Honk! That's my happy horn!", "Hehe! My wipers are waving!"],
@@ -55516,7 +57790,7 @@ var COMP_KIT = (() => {
     theme: "comms",
     companions: [
       {
-        id: "comms-mic", name: "Mic", kind: "Microphone", pose: "stand", wearColor: "#E2577F",
+        id: "comms-mic", name: "Mic", kind: "Microphone", pose: "stand", wearColor: "#E2577F", scarfOverArms: true,
         bio: "A shiny studio mic who amplifies every great idea you have.",
         idle: ["headTilt", "tailSwish", "wave"], cheer: "hop",
         neck: [60, 74],
@@ -55540,7 +57814,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 51, r: 5, style: "dot"},
         mouth: {x: 60, y: 60, w: 3.2},
         cheeks: {lx: 41.5, rx: 78.5, y: 58.5, w: 4.4, h: 2.7, color: "#FF9AB6"},
-        anchors: {top: [60, 21, 1], neck: [60, 76, 0.95], chest: [67, 93, 0.55], back: [74, 88, 0.75], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 21, 1, 0], neck: [60, 76, 0.95, 0, 37, 44], chest: [67, 81.5, 0.55], back: [74, 88, 0.75], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Testing, testing! You're AMAZING!", "Is this thing on? Yes! Hi!", "Amplifying your awesomeness!", "Your ideas sound fantastic!", "Mic check! You've got this!", "Turning the cheer volume all the way up!", "Loud and proud of you!", "Best voice in the whole studio!"],
           pet: ["Hehe! Sweet feedback! The good kind!", "Ooh! That made me hum!"],
@@ -55554,7 +57828,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "comms-radio", name: "Dial", kind: "Retro Radio", pose: "stand", wearColor: "#E36A5C",
+        id: "comms-radio", name: "Dial", kind: "Retro Radio", pose: "stand", wearColor: "#E36A5C", hatTop: true,
         bio: "A retro radio who tunes in to your good vibes all day long.",
         idle: ["topBob", "earTwitch", "sway"], cheer: "hop",
         parts: {
@@ -55575,7 +57849,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47.5, rx: 72.5, y: 60, r: 5, style: "dot"},
         mouth: {x: 60, y: 69, w: 3.2},
         cheeks: {lx: 39, rx: 81, y: 67.5, w: 4.4, h: 2.7, color: "#FF9A8C"},
-        anchors: {top: [60, 28, 1], neck: [60, 101, 1.3], chest: [87, 90, 0.6], back: [93, 52, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 19.5, 1, 0], neck: [60, 80, 1.3, 0, 83, 85], chest: [87, 85.5, 0.6], back: [93, 52, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Bzzt! Tuned in to you! Hi!", "Now playing: You being awesome!", "Your vibes are coming in clear!", "Turning the happy up to eleven!", "You're my favorite station!", "Static? Nope! Just cheering!", "You've got this! On every channel!", "Best signal I ever found!"],
           pet: ["Hehe! My knobs are spinning!", "Ooh! Warm and fuzzy reception!"],
@@ -55589,7 +57863,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "comms-megaphone", name: "Hollar", kind: "Megaphone", pose: "float", wearColor: "#3C6FD1",
+        id: "comms-megaphone", name: "Hollar", kind: "Megaphone", pose: "float", wearColor: "#3C6FD1", hatTop: true,
         bio: "A peppy megaphone who shouts your wins loud enough for everyone.",
         idle: ["topBob", "wave", "bounce"], cheer: "spin",
         parts: {
@@ -55611,7 +57885,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 37.5, rx: 54.5, y: 55, r: 4.8, style: "sparkle"},
         mouth: {x: 46, y: 64.5, w: 3.2},
         cheeks: {lx: 31.5, rx: 60.5, y: 62.5, w: 3.6, h: 2.4, color: "#FF9A9A"},
-        anchors: {top: [46, 26, 0.85], neck: [46, 89, 0.85], chest: [82, 60, 0.55], back: [92, 44, 0.75], hands: [46, 83, 0.85]},
+        anchors: {top: [46, 26, 0.85, 0], neck: [53.5, 72.5, 0.85, 0, 73.5, 75], chest: [82, 78, 0.55], back: [92, 44, 0.75], hands: [46, 83, 0.85]},
         lines: {
           tap: ["HELLO! Hi! You're AMAZING!", "Announcing: You're doing great!", "Loud and proud of you!", "Everyone, look how awesome you are!", "Hey hey! You've got this!", "Turning your wins up to max volume!", "Attention please! Big cheers for you!", "Best news of the day? You're here!"],
           pet: ["Hehe! That made me squeak!", "Ooh! Soft volume, happy me!"],
@@ -55675,7 +57949,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 70, r: 5, style: "dot", color: "#3A2318"},
         mouth: {x: 60, y: 79, w: 3.2, color: "#3A2318"},
         cheeks: {lx: 42, rx: 78, y: 78, w: 4.6, h: 2.8, color: "#FF9A8E"},
-        anchors: {top: [51, 52, 0.92], neck: [60, 96, 1.15], chest: [77, 89, 0.72], back: [93, 70, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [51, 41, 1.09, 0], neck: [60, 89, 1.15, 0, 84, 92], chest: [77, 94.5, 0.6], back: [93, 70, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Tap tap! Hello, my brilliant friend!", "Order of the day: being amazing!", "I rule in your favor, always!", "You make my handle wiggle with joy!", "The case for you is SO strong!", "Every study session counts! Tap!", "Objection! You're too awesome!", "You've got this, I just know it!"],
           pet: ["Hehe! My handle is all wiggly!", "Tap tap! That's my happy rhythm!"],
@@ -55689,7 +57963,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "civics-scales", name: "Libra", kind: "Scales of Justice", pose: "stand", wearColor: "#5B7FD6",
+        id: "civics-scales", name: "Libra", kind: "Scales of Justice", pose: "stand", wearColor: "#5B7FD6", hatTop: true,
         bio: "A golden little scale who always finds you perfectly balanced.",
         idle: ["wingFlutter", "topBob", "sway"], cheer: "wingFlutter",
         parts: {
@@ -55710,7 +57984,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 75, r: 4.8, style: "dot", color: "#3A2A14"},
         mouth: {x: 60, y: 84, w: 3, color: "#3A2A14"},
         cheeks: {lx: 43, rx: 77, y: 83, w: 4.4, h: 2.7, color: "#FF9C8A"},
-        anchors: {top: [60, 41, 0.85], neck: [60, 97, 1.05], chest: [75, 90, 0.68], back: [84, 70, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 49.5, 0.85, 0], neck: [60, 93.5, 1.05, 0, 44, 53], chest: [75, 99.5, 0.6], back: [84, 70, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi hi! You tip my scales toward joy!", "Perfectly balanced, just like you!", "Study and rest? Beautiful balance!", "The evidence is in: you're amazing!", "Fair and square, you're a superstar!", "I weighed it up: you've got this!", "My pans are swinging with happiness!", "Justice for snacks and good notes!"],
           pet: ["Wheee! My pans are all a-sway!", "Hehe! I feel so balanced now!"],
@@ -55747,7 +58021,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 72, r: 5, style: "dot", color: "#1F2A4A"},
         mouth: {x: 60, y: 81, w: 3.2, color: "#1F2A4A"},
         cheeks: {lx: 39.5, rx: 80.5, y: 80, w: 4.6, h: 2.8, color: "#FF9FB7"},
-        anchors: {top: [60, 46, 0.95], neck: [60, 92, 1.15], chest: [80, 99, 0.7], back: [91, 74, 0.95], hands: [60, 98, 0.9]},
+        anchors: {top: [60, 41, 1.12, 0], neck: [60, 92, 1.15, 0, 77, 71], chest: [80, 98, 0.62], back: [91, 74, 0.95], hands: [60, 98, 0.9]},
         lines: {
           tap: ["Hi hi! I vote for YOU! Every time!", "Unanimous! You're doing amazing!", "Your ideas count, and so do you!", "All in favor of you? Every hand up!", "A landslide of cheers, just for you!", "Pop in a question, I love those!", "Look at you, showing up again!", "You've got my vote, superstar!"],
           pet: ["Hehe! My slot is smiling!", "Eek! My little ballot is wiggling!"],
@@ -55798,7 +58072,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 49, r: 4.6, style: "dot", color: "#2A1A12"},
         mouth: {x: 60, y: 63.2, w: 2.8, color: "#2A1A12", style: "cat"},
         cheeks: {lx: 44, rx: 76, y: 58.5, w: 4.2, h: 2.6, color: "#FF9C8A"},
-        anchors: {top: [60, 30, 1], neck: [60, 71, 1.05], chest: [73, 93, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.95]},
+        anchors: {top: [60, 30, 1, 0], neck: [60, 74.5, 1.05, 0, 42, 66], chest: [73, 78.5, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.95]},
         lines: {
           tap: ["Sniff sniff! I smell a superstar!", "Clue found: you're doing amazing!", "Elementary! You've totally got this!", "My nose never lies. You're brilliant!", "Every note is a clue. Keep going!", "Woof! Another mystery cracked open!", "Following the trail right beside you!", "The evidence says you're awesome!"],
           pet: ["Hehe! My ears are flopping happily!", "Woof woof! Best pats in the whole case!"],
@@ -55829,7 +58103,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 55, r: 6.2, style: "round", color: "#2B3550"},
         mouth: {x: 60, y: 66, w: 3, color: "#2B3550"},
         cheeks: {lx: 43, rx: 77, y: 64.5, w: 4.2, h: 2.6, color: "#FFA3B8"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 86, 0.95], chest: [73, 79, 0.6], back: [84, 50, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 27, 0.95, 0], neck: [60, 75, 0.95, 0, 54, 52], chest: [73, 81, 0.6], back: [84, 50, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Ooh! Up close, you're even more amazing!", "I spy a brilliant mind! It's you!", "Zooming in on your awesome work!", "Every tiny detail you do sparkles!", "Look closer! See? Pure progress!", "I notice everything, and I'm SO proud!", "Hi hi! You look great from here!", "Focus magnified! You've got this!"],
           pet: ["Hehe! My glass is all shiny now!", "Wheee! Everything looks rosy!"],
@@ -55843,7 +58117,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "justice-print", name: "Whorl", kind: "Fingerprint Sprite", pose: "float",
+        id: "justice-print", name: "Whorl", kind: "Fingerprint Sprite", pose: "float", hatTop: true,
         bio: "A swirly fingerprint sprite proving no one studies quite like you.",
         idle: ["sparkle", "topBob", "wave"], cheer: "spin",
         parts: {
@@ -55864,7 +58138,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 63, r: 5, style: "sparkle", color: "#262A5C"},
         mouth: {x: 60, y: 72.5, w: 3, color: "#262A5C"},
         cheeks: {lx: 42.5, rx: 77.5, y: 71, w: 4.4, h: 2.7, color: "#FF9FC2"},
-        anchors: {top: [60, 33, 0.95], neck: [60, 91, 1], chest: [73, 84, 0.64], back: [86, 58, 0.85], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 81.5, 1, 0, 67, 73], chest: [73, 87.5, 0.6], back: [86, 58, 0.85], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Hi hi! There's only ONE you!", "Your study style is one of a kind!", "Swirly happy hello to you!", "You leave sparkles on everything!", "Proof you're amazing: right here!", "I'm swirling with pride for you!", "Unique, brilliant and doing great!", "You've got this, my one and only!"],
           pet: ["Hehe! My swirls are all wiggly!", "Ooh! That made me swirl with joy!"],
@@ -55885,7 +58159,7 @@ var COMP_KIT = (() => {
     theme: "writing",
     companions: [
       {
-        id: "writing-typewriter", name: "Clack", kind: "Typewriter", pose: "sit", sleepy: true, wearColor: "#D9705A",
+        id: "writing-typewriter", name: "Clack", kind: "Typewriter", pose: "sit", sleepy: true, wearColor: "#D9705A", hatTop: true,
         bio: "A vintage typewriter who clacks out cheers for every word you write.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -55910,7 +58184,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 64, r: 5, style: "dot", color: "#1E3A36"},
         mouth: {x: 60, y: 73, w: 3.2, color: "#1E3A36"},
         cheeks: {lx: 39.5, rx: 80.5, y: 72, w: 4.6, h: 2.8, color: "#FF9A9A"},
-        anchors: {top: [60, 37, 1], neck: [60, 84, 1.2], chest: [82, 77, 0.66], back: [92, 66, 0.9], hands: [60, 92, 0.9]},
+        anchors: {top: [60, 33.5, 1, 0], neck: [60, 84, 1.2, 0, 83, 92], chest: [82, 90.5, 0.66], back: [92, 66, 0.9], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Clack clack! Hello, my favorite writer!", "Every word you type makes me sing!", "Ding! New line, new brilliant idea!", "Your sentences sparkle today!", "Keep the keys clacking! You're great!", "I love your words SO much!", "A little draft is a big start!", "Clackety cheers just for you!"],
           pet: ["Ding ding! That tickles my keys!", "Hehe! My platen is all spinny!"],
@@ -55924,7 +58198,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "writing-raven", name: "Poe", kind: "Little Raven", pose: "stand", wearColor: "#E0A84A",
+        id: "writing-raven", name: "Poe", kind: "Little Raven", pose: "stand", wearColor: "#E0A84A", hatTop: true,
         bio: "A fluffy little raven who adores stories and quoths only cheers.",
         idle: ["wingFlutter", "tailSwish", "topBob"], cheer: "wingFlutter",
         parts: {
@@ -55948,7 +58222,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 68, w: 3},
         cheeks: {lx: 39, rx: 81, y: 67, w: 4.6, h: 2.8, color: "#FF8FB0"},
-        anchors: {top: [60, 32, 1], neck: [60, 78, 1.3], chest: [74, 95, 0.78], back: [90, 74, 0.9], hands: [60, 92, 0.95]},
+        anchors: {top: [60, 31.5, 1, 0], neck: [60, 82, 1.3, 0, 74, 79], chest: [74, 90, 0.78], back: [90, 74, 0.9], hands: [60, 92, 0.95]},
         lines: {
           tap: ["Caw caw! Hello, my favorite author!", "Quoth the raven: you're AMAZING!", "Your story gets better every day!", "Flapping happy wings for you!", "Every page you read makes me glow!", "Caw! That idea is pure poetry!", "I'd write a whole ode to you!", "You've got this, my brilliant friend!"],
           pet: ["Caw! My feathers are all fluffed!", "Hehe! Softest pats, nevermore sad!"],
@@ -55962,7 +58236,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "writing-pen", name: "Penn", kind: "Fountain Pen", pose: "float",
+        id: "writing-pen", name: "Penn", kind: "Fountain Pen", pose: "float", hatTop: true,
         bio: "A jolly fountain pen who signs every finished task with a flourish.",
         idle: ["sparkle", "sway", "wave"], cheer: "spin",
         parts: {
@@ -55985,7 +58259,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 71, r: 4.8, style: "dot", color: "#2E1428"},
         mouth: {x: 60, y: 80, w: 3, color: "#2E1428"},
         cheeks: {lx: 44, rx: 76, y: 78.5, w: 3.8, h: 2.5, color: "#FFB0C8"},
-        anchors: {top: [60, 22, 0.9], neck: [60, 95, 0.95], chest: [72, 86, 0.6], back: [82, 62, 0.8], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 20.5, 0.9, 0], neck: [60, 89, 0.95, 0, 46, 46], chest: [72, 95, 0.6], back: [82, 62, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi hi! Let's write something wonderful!", "Your ideas flow like the finest ink!", "Swish swirl! You're doing amazing!", "Every word you write is a treasure!", "I'd sign my name under your work!", "Fresh ink, fresh thoughts! Love it!", "Your notes look absolutely lovely!", "You've got this, with a flourish!"],
           pet: ["Hehe! My nib is all tingly!", "Ooh! A happy little ink swirl!"],
@@ -56025,7 +58299,7 @@ var COMP_KIT = (() => {
     theme: "concert",
     companions: [
       {
-        id: "concert-metronome", name: "Tempo", kind: "Metronome", pose: "stand", wearColor: "#C2415B",
+        id: "concert-metronome", name: "Tempo", kind: "Metronome", pose: "stand", wearColor: "#C2415B", hatTop: true,
         bio: "A cheerful metronome who ticks along to keep your study rhythm steady.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         parts: {
@@ -56044,7 +58318,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 79, r: 4.9, style: "dot", color: "#2E1A12"},
         mouth: {x: 60, y: 87.5, w: 3.1, color: "#2E1A12"},
         cheeks: {lx: 42, rx: 78, y: 86, w: 4.4, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [60, 22, 0.78], neck: [60, 69, 1.1], chest: [76, 94, 0.68], back: [86, 76, 0.85], hands: [60, 97, 0.85]},
+        anchors: {top: [60, 19, 0.78, 0], neck: [60, 97.5, 1.1, 0, 74, 83], chest: [76, 103.5, 0.6], back: [86, 76, 0.85], hands: [60, 97, 0.85]},
         lines: {
           tap: ["Tick tock! Hi hi, my favorite person!", "You're right on the beat today!", "Steady tempo, big progress! Wow!", "Tick, tock, you rock! It's true!", "Every beat counts, and you're nailing it!", "You set the rhythm and I love it!", "Keeping time with you is the best!", "Allegro energy! Let's go go go!"],
           pet: ["Tick tick tick! That made me speed up!", "Hehe! My pendulum is all wiggly now!"],
@@ -56080,7 +58354,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 82, r: 4.8, style: "dot", color: "#2E1A12"},
         mouth: {x: 60, y: 90, w: 3, color: "#2E1A12"},
         cheeks: {lx: 42.5, rx: 77.5, y: 89, w: 4.3, h: 2.6, color: "#FF7F86"},
-        anchors: {top: [60, 12, 0.62], neck: [60, 70, 0.9], chest: [74, 100, 0.62], back: [80, 58, 0.85], hands: [60, 99, 0.85]},
+        anchors: {top: [60, 19.5, 0.66, 0], neck: [60, 98.5, 0.9, 0, 55, 55.5], chest: [74, 105, 0.62], back: [80, 58, 0.85], hands: [60, 99, 0.85]},
         lines: {
           tap: ["Hello! You make my strings sing!", "You're playing beautifully today!", "Every practice makes a sweeter song!", "Bravo, bravo! Look at you go!", "You're in perfect tune with your goals!", "I'm humming a happy song for you!", "Your hard work sounds amazing!"],
           pet: ["Ooh! That made my strings hum!", "Hehe! A happy little vibrato!"],
@@ -56117,7 +58391,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 66, r: 5.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 74, w: 3},
         cheeks: {lx: 40.5, rx: 79.5, y: 73, w: 4.2, h: 2.6, color: "#FF9FB4"},
-        anchors: {top: [42, 46, 0.8], neck: [60, 92, 1.3], chest: [97, 72, 0.6], back: [96, 56, 0.85], hands: [60, 82, 0.85]},
+        anchors: {top: [42, 40.5, 0.9, 0], neck: [56.5, 85, 1.3, 0, 84, 88.5], chest: [97, 90.5, 0.6], back: [96, 56, 0.85], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Plink plink! Hi there, superstar!", "You hit all the right notes today!", "Look at you, playing it by ear!", "Every key you press makes music!", "You're doing grand! Truly grand!", "Sharp mind, natural talent! That's you!", "My keys are tinkling just for you!"],
           pet: ["Plink! That tickled my high notes!", "Hehe! A happy little chord for you!"],
@@ -56138,7 +58412,7 @@ var COMP_KIT = (() => {
     theme: "track",
     companions: [
       {
-        id: "track-sneaker", name: "Sprint", kind: "Running Sneaker", pose: "stand", wearColor: "#2E9C8F",
+        id: "track-sneaker", name: "Sprint", kind: "Running Sneaker", pose: "stand", wearColor: "#2E9C8F", hatTop: true,
         bio: "A speedy sneaker with a winged heel who races to cheer you on.",
         idle: ["topBob", "tailSwish", "hop"], cheer: "hop",
         parts: {
@@ -56158,7 +58432,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 68, y: 67, r: 5.3, style: "dot", color: "#2B1A22"},
         mouth: {x: 58, y: 76, w: 3.2, color: "#2B1A22"},
         cheeks: {lx: 39.5, rx: 76.5, y: 75, w: 4.6, h: 2.8, color: "#FF4F73"},
-        anchors: {top: [55, 29, 0.72], neck: [31, 41, 0.72], chest: [92, 79, 0.62], back: [28, 56, 0.8], hands: [58, 91, 0.85]},
+        anchors: {top: [55, 37.5, 0.72, 0], neck: [58, 86, 0.85, 0, 64, 70], chest: [92, 90.5, 0.62], back: [28, 56, 0.8], hands: [58, 91, 0.85]},
         lines: {
           tap: ["Zoom zoom! Hi, champ!", "You're off to a running start!", "Every step forward counts! Go go!", "Laced up and cheering for you!", "Look at you, crushing your stride!", "One more lap? You've totally got this!", "You're my favorite running buddy!", "Speedy progress today! Woohoo!"],
           pet: ["Hehe! That tickles my laces!", "Squeak squeak! Happy sneaker noises!"],
@@ -56172,7 +58446,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "track-watch", name: "Splits", kind: "Stopwatch", pose: "stand", wearColor: "#E8643C",
+        id: "track-watch", name: "Splits", kind: "Stopwatch", pose: "stand", wearColor: "#E8643C", hatTop: true,
         bio: "A peppy stopwatch who times your focus and celebrates every lap.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         parts: {
@@ -56194,7 +58468,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 70, r: 4.9, style: "dot", color: "#1F2E33"},
         mouth: {x: 60, y: 79, w: 3.1, color: "#1F2E33"},
         cheeks: {lx: 43, rx: 77, y: 78, w: 4.3, h: 2.7, color: "#FF9AA2"},
-        anchors: {top: [60, 38, 0.82], neck: [60, 100, 1.05], chest: [80, 92, 0.66], back: [87, 62, 0.85], hands: [60, 97, 0.85]},
+        anchors: {top: [60, 36.5, 0.82, 0], neck: [60, 88.5, 1.05, 0, 61, 60], chest: [80, 94.5, 0.62], back: [87, 62, 0.85], hands: [60, 97, 0.85]},
         lines: {
           tap: ["Click! Hi! Right on time!", "You're making every minute count!", "New record for awesome! That's you!", "Tick tick! You're doing amazing!", "Time flies when you're this great!", "I clocked your effort. It's huge!", "Ready, set, you've got this!"],
           pet: ["Click click! That reset my smile!", "Hehe! My little hand is spinning!"],
@@ -56235,7 +58509,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 78, r: 4.7, style: "dot", color: "#2A2140"},
         mouth: {x: 60, y: 86, w: 3, color: "#2A2140"},
         cheeks: {lx: 43.5, rx: 76.5, y: 85, w: 4, h: 2.5, color: "#FF8FB0"},
-        anchors: {top: [60, 61, 0.85], neck: [60, 95, 0.95], chest: [76, 90, 0.6], back: [60, 66, 0.8], hands: [60, 95, 0.82]},
+        anchors: {top: [60, 57.5, 0.85, 0], neck: [60, 95, 0.95, 0, 44, 38], chest: [76, 101, 0.6], back: [60, 66, 0.8], hands: [60, 95, 0.82]},
         lines: {
           tap: ["Hup! Hi hi, strong stuff!", "Your brain muscles are HUGE today!", "One more rep! You've totally got this!", "Look at you, getting stronger!", "Lifting you up, one cheer at a time!", "Every rep counts, and so do you!", "Feel that? That's progress!", "Pump it up! You're amazing!"],
           pet: ["Hehe! That's my favorite stretch!", "Ooh! I feel extra mighty now!"],
@@ -56274,7 +58548,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 41.5, r: 6.4, style: "round", color: "#2A2150"},
         mouth: {x: 60, y: 51, w: 3, color: "#2A2150"},
         cheeks: {lx: 36.5, rx: 83.5, y: 48.5, w: 4.6, h: 2.8, color: "#FF9FC0"},
-        anchors: {top: [61, 27, 0.98], neck: [60, 59, 0.95], chest: [43, 78, 0.55], back: [86, 68, 0.8], hands: [60, 82, 0.82]},
+        anchors: {top: [61, 21.5, 0.98, 0], neck: [62, 68, 0.95, 0, 54, 72], chest: [43, 64.5, 0.55], back: [86, 68, 0.8], hands: [60, 82, 0.82]},
         lines: {
           tap: ["Hi hi! I'm irrationally happy to see you!", "You're doing infinitely well!", "3.14159 reasons to smile! Hehe!", "Your progress is off the charts!", "Every step adds up! I did the math!", "You're my favorite constant!", "That brain of yours is exponential!"],
           pet: ["Hehe! That tickles my curly swirls!", "Aww! My smile just went full circle!"],
@@ -56306,7 +58580,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 43.5, rx: 64.5, y: 73, r: 5.4, style: "sparkle", color: "#2A2150"},
         mouth: {x: 54, y: 83, w: 3.3, color: "#2A2150"},
         cheeks: {lx: 33.5, rx: 74.5, y: 82, w: 4.6, h: 2.8, color: "#FF9FC4"},
-        anchors: {top: [62, 38, 0.98], neck: [54, 101, 1.1], chest: [74, 96, 0.66], back: [90, 62, 0.9], hands: [54, 97, 0.88]},
+        anchors: {top: [62, 29.5, 0.98, 0], neck: [60, 93, 1.1, 0, 84, 82], chest: [74, 99, 0.62], back: [90, 62, 0.9], hands: [54, 97, 0.88]},
         lines: {
           tap: ["Hi! I'm a square, but you're super cool!", "You've got all the right angles!", "Building blocks of brilliance! That's you!", "Every side of me is cheering!", "Solid work today! Look at you!", "You make everything add up!", "Cube-tastic progress! Woohoo!"],
           pet: ["Hehe! My corners are so happy!", "Aww! That's a perfect six-sided hug!"],
@@ -56343,7 +58617,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 78, r: 4.9, style: "sparkle", color: "#3A1E2A"},
         mouth: {x: 60, y: 87, w: 3, color: "#3A1E2A"},
         cheeks: {lx: 43, rx: 77, y: 86, w: 4.3, h: 2.6, color: "#FF7F9C"},
-        anchors: {top: [60, 59, 0.82], neck: [60, 96, 0.95], chest: [74, 90, 0.58], back: [92, 82, 0.75], hands: [60, 92, 0.82]},
+        anchors: {top: [60, 55.5, 0.82, 0], neck: [60, 96, 0.95, 0, 39, 34], chest: [74, 102, 0.58], back: [92, 82, 0.75], hands: [60, 92, 0.82]},
         lines: {
           tap: ["Hi! You make my spiral sparkle!", "Growing one chamber at a time, like you!", "You're golden! Golden ratio golden!", "Every little step spirals up!", "Look at you, growing so beautifully!", "You've got this! I believe in you!", "1, 1, 2, 3, 5, cheers for you!"],
           pet: ["Hehe! My tentacles are wiggling!", "Ooh! That made my shell shimmer!"],
@@ -56364,7 +58638,7 @@ var COMP_KIT = (() => {
     theme: "chem",
     companions: [
       {
-        id: "chem-flask", name: "Bubbles", kind: "Erlenmeyer Flask", pose: "stand", wearColor: "#7A5CC9",
+        id: "chem-flask", name: "Bubbles", kind: "Erlenmeyer Flask", pose: "stand", wearColor: "#7A5CC9", hatTop: true,
         bio: "A fizzy flask who bubbles over every time you finish something.",
         idle: ["topBob", "wave", "sparkle"], cheer: "hop",
         parts: {
@@ -56387,7 +58661,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 81, r: 4.8, style: "sparkle", color: "#3A1430"},
         mouth: {x: 60, y: 89.5, w: 3, color: "#3A1430"},
         cheeks: {lx: 42, rx: 78, y: 88.5, w: 4.2, h: 2.6, color: "#FFC2DC"},
-        anchors: {top: [60, 23, 0.7], neck: [60, 46, 0.72], chest: [77, 98, 0.62], back: [84, 76, 0.85], hands: [60, 100, 0.85]},
+        anchors: {top: [60, 23, 0.7, 0], neck: [60, 97, 0.72, 0, 73, 75], chest: [77, 104, 0.62], back: [84, 76, 0.85], hands: [60, 100, 0.85]},
         lines: {
           tap: ["Fizz fizz! Hi, brilliant friend!", "You and studying have great chemistry!", "Bubbling over with pride for you!", "You're a total catalyst today!", "Every try is a great experiment!", "My bubbles are cheering for you!", "Look at you, reacting so well!", "Elementary, my dear! You're brilliant!"],
           pet: ["Fizz! That made me bubble over!", "Hehe! My bubbles are giggling!"],
@@ -56417,7 +58691,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 65, r: 5, style: "sparkle", color: "#163A36"},
         mouth: {x: 60, y: 74, w: 3, color: "#163A36"},
         cheeks: {lx: 43.5, rx: 76.5, y: 73, w: 4.2, h: 2.6, color: "#FF8FB0"},
-        anchors: {top: [60, 16, 0.62], neck: [60, 89, 0.95], chest: [73, 82, 0.58], back: [84, 52, 0.8], hands: [60, 86, 0.82]},
+        anchors: {top: [60, 21, 0.62, 0], neck: [60, 83, 0.95, 0, 44, 42], chest: [73, 89, 0.58], back: [84, 52, 0.8], hands: [60, 86, 0.82]},
         lines: {
           tap: ["Hi hi! We have such great chemistry!", "You're bonding with your notes! Yay!", "Atom by atom, you're building greatness!", "You're positively brilliant!", "My atoms are spinning with joy!", "Totally stable, totally amazing! You!", "You and me, the perfect bond!"],
           pet: ["Hehe! That made my bonds wiggle!", "Ooh! I'm all energized now!"],
@@ -56451,7 +58725,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 75, r: 5, style: "dot", color: "#1F3A1E"},
         mouth: {x: 60, y: 84, w: 3.1, color: "#1F3A1E"},
         cheeks: {lx: 41.5, rx: 78.5, y: 83, w: 4.4, h: 2.7, color: "#FF9A8F"},
-        anchors: {top: [57, 22, 0.95], neck: [60, 101, 1.25], chest: [78, 96, 0.66], back: [86, 62, 0.9], hands: [60, 99, 0.88]},
+        anchors: {top: [57, 18, 0.95, 0], neck: [60, 95, 1.25, 0, 59, 61], chest: [78, 100.5, 0.62], back: [86, 62, 0.9], hands: [60, 99, 0.88]},
         lines: {
           tap: ["Hi! I'm full to the brim with joy!", "You measure up wonderfully!", "Stirring up something great! Yay!", "Your effort is off the scale!", "Mixing in a big cheer for you!", "Every bit adds up! Measured and true!", "You're doing amazing, lab partner!"],
           pet: ["Hehe! That made me slosh happily!", "Ooh! My stir stick is twirling!"],
@@ -56480,7 +58754,7 @@ var COMP_KIT = (() => {
     theme: "observatory",
     companions: [
       {
-        id: "observatory-scope", name: "Scope", kind: "Telescope", pose: "stand", wearColor: "#F2A33A",
+        id: "observatory-scope", name: "Scope", kind: "Telescope", pose: "stand", wearColor: "#F2A33A", hatTop: true,
         bio: "A starry little telescope who spots something amazing in you every night.",
         idle: ["topBob", "sway", "wave"], cheer: "hop",
         parts: {
@@ -56506,7 +58780,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 65, y: 66, r: 5, style: "sparkle", color: "#1E2148"},
         mouth: {x: 56, y: 75, w: 3.1, color: "#1E2148"},
         cheeks: {lx: 40, rx: 72, y: 73, w: 4.2, h: 2.6, color: "#FF9FC0"},
-        anchors: {top: [52, 43, 0.92], neck: [58, 91, 0.92], chest: [70, 84, 0.62], back: [32, 56, 0.85], hands: [56, 88, 0.86]},
+        anchors: {top: [52, 45, 0.98, 0], neck: [56, 83.5, 0.92, 0, 46, 44], chest: [70, 90, 0.62], back: [32, 56, 0.85], hands: [56, 88, 0.86]},
         lines: {
           tap: ["Hi! I spotted a superstar, and it's you!", "Zooming in on greatness! Hello!", "You're shining brighter than any planet!", "Every page brings the universe closer!", "Look at you go! Out of this world!", "Big ideas, tiny lens, huge cheers for you!", "You've got this! I can see it clearly!", "Stargazing is fun, but you're the best view!"],
           pet: ["Hehe! My lens is all fogged up!", "Aww! Seeing stars, the happy kind!"],
@@ -56541,7 +58815,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 62, r: 4.8, style: "sparkle", color: "#3A1730"},
         mouth: {x: 60, y: 71, w: 3, color: "#3A1730"},
         cheeks: {lx: 43.5, rx: 76.5, y: 69, w: 4.2, h: 2.6, color: "#FF7FA6"},
-        anchors: {top: [60, 40, 0.88], neck: [60, 82, 1], chest: [72, 77, 0.64], back: [86, 54, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 40, 0.88, 0], neck: [60, 80, 1, 0, 40.5, 53.5], chest: [72, 86, 0.6], back: [86, 54, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! My electrons are zooming with joy!", "You're full of positive energy today!", "Big things are made of tiny steps, like me!", "You've got amazing potential energy!", "Look at you, buzzing with ideas!", "Zip zip zip! You're doing great!", "You make my whole nucleus glow!", "We have great chemistry, you and me!"],
           pet: ["Hehe! My electrons are giggling!", "Whee! I'm totally excited now!"],
@@ -56573,7 +58847,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 65, r: 5, style: "sparkle", color: "#3A2414"},
         mouth: {x: 60, y: 74, w: 3.1, color: "#3A2414"},
         cheeks: {lx: 43.5, rx: 76.5, y: 72.5, w: 4.3, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [56, 45, 0.85], neck: [60, 86, 0.95], chest: [72, 81, 0.66], back: [36, 58, 0.8], hands: [60, 85, 0.85]},
+        anchors: {top: [56, 47.5, 0.85, 0], neck: [60, 83, 0.95, 0, 49, 38], chest: [72, 89.5, 0.62], back: [36, 58, 0.8], hands: [60, 85, 0.85]},
         lines: {
           tap: ["Zoom zoom! Hi there, superstar!", "Whoosh! You're on a roll today!", "Look at you streaking through your list!", "You leave a sparkly trail everywhere!", "Full speed ahead! You've got this!", "Making a wish, and it's all for you!", "You're the brightest thing in the sky!", "Every lap around the sun, you grow!"],
           pet: ["Wheee! My tail is all sparkly!", "Hehe! That gave me a speed boost!"],
@@ -56594,7 +58868,7 @@ var COMP_KIT = (() => {
     theme: "ruins",
     companions: [
       {
-        id: "ruins-hourglass", name: "Sandy", kind: "Hourglass", pose: "stand", wearColor: "#3E8FB0",
+        id: "ruins-hourglass", name: "Sandy", kind: "Hourglass", pose: "stand", wearColor: "#3E8FB0", hatTop: true, scarfOverArms: true,
         bio: "A cheerful hourglass who knows every grain of effort adds up.",
         idle: ["topBob", "sway", "wave"], cheer: "spin",
         parts: {
@@ -56617,7 +58891,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 43, r: 4.6, style: "dot", color: "#2E2240"},
         mouth: {x: 60, y: 50.5, w: 2.9, color: "#2E2240"},
         cheeks: {lx: 44, rx: 76, y: 49, w: 4, h: 2.5, color: "#FF9FB0"},
-        anchors: {top: [60, 21, 0.95], neck: [60, 66, 0.85], chest: [70, 91, 0.66], back: [94, 52, 0.85], hands: [60, 86, 0.9]},
+        anchors: {top: [60, 18.5, 0.95, 0], neck: [60, 58.5, 0.85, 0, 33, 47], chest: [70, 66, 0.66], back: [94, 52, 0.85], hands: [60, 86, 0.9]},
         lines: {
           tap: ["Hi! Every grain of effort counts!", "Tick tock, you're doing amazing!", "Time flies when you're this awesome!", "Little by little, you're making history!", "You turn hours into wonders!", "One grain at a time, you've got this!", "Ancient wisdom says you're incredible!", "History will remember this study session!"],
           pet: ["Hehe! My sand is all wiggly!", "Aww! That's a timeless pat!"],
@@ -56659,7 +58933,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 52, r: 4.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 61, w: 2.8},
         cheeks: {lx: 46, rx: 74, y: 59, w: 3.8, h: 2.4, color: "#FF9FA8"},
-        anchors: {top: [60, 25, 1], neck: [60, 75, 1], chest: [70, 93, 0.66], back: [80, 88, 0.8], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 25.5, 1, 0], neck: [60, 77.5, 1, 0, 41, 59], chest: [70, 82, 0.66], back: [80, 88, 0.8], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Huzzah! Greetings, brave scholar!", "Onward! Your quest goes splendidly!", "I shall guard your focus with honor!", "Clank clank! You're doing marvelously!", "Every page is a battle won!", "You've got the heart of a hero!", "By my helmet, you're amazing!", "Your study quest makes legends!"],
           pet: ["Clank! My armor is blushing!", "Hehe! A knightly pat, most kind!"],
@@ -56673,7 +58947,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "ruins-scroll", name: "Scrolly", kind: "Scroll", pose: "stand", wearColor: "#C2453D",
+        id: "ruins-scroll", name: "Scrolly", kind: "Scroll", pose: "stand", wearColor: "#C2453D", hatTop: true,
         bio: "An ancient little scroll who can't wait to record your story.",
         idle: ["topBob", "sway", "wave"], cheer: "hop",
         parts: {
@@ -56694,7 +58968,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 58, r: 4.8, style: "dot", color: "#3A2414"},
         mouth: {x: 60, y: 67, w: 3, color: "#3A2414"},
         cheeks: {lx: 43, rx: 77, y: 65.5, w: 4.3, h: 2.7, color: "#FF9F9F"},
-        anchors: {top: [60, 22, 0.95], neck: [60, 90, 1.08], chest: [72, 82, 0.68], back: [88, 60, 0.85], hands: [60, 88, 0.88]},
+        anchors: {top: [60, 20, 0.95, 0], neck: [60, 76.5, 1.08, 0, 60, 81], chest: [72, 83.5, 0.68], back: [88, 60, 0.85], hands: [60, 88, 0.88]},
         lines: {
           tap: ["Hi! I'm writing you into the history books!", "You're making legendary progress!", "Every great story starts with today!", "Unroll the fun! You're doing great!", "You're the hero of this chapter!", "A scroll full of wins, all yours!", "I'm keeping a record of your awesomeness!", "Wise scholars long ago would cheer for you!"],
           pet: ["Hehe! I'm curling up with joy!", "Aww! My edges are all crinkly happy!"],
@@ -56715,7 +58989,7 @@ var COMP_KIT = (() => {
     theme: "valley",
     companions: [
       {
-        id: "valley-earth", name: "Terra", kind: "Little Earth", pose: "float", wearColor: "#F2A33A",
+        id: "valley-earth", name: "Terra", kind: "Little Earth", pose: "float", wearColor: "#F2A33A", hatTop: true,
         bio: "A tiny planet with a big green heart who grows with every win.",
         idle: ["topBob", "finWiggle", "sparkle"], cheer: "spin",
         parts: {
@@ -56740,7 +59014,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 63, r: 4.9, style: "dot", color: "#1E2A44"},
         mouth: {x: 60, y: 72, w: 3.1, color: "#1E2A44"},
         cheeks: {lx: 43, rx: 77, y: 70.5, w: 4.3, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 39, 0.9], neck: [60, 85, 1], chest: [72, 81, 0.64], back: [86, 56, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 39, 0.9, 0], neck: [60, 81, 1, 0, 45, 43], chest: [72, 87, 0.6], back: [86, 56, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Hi! The whole world is cheering for you!", "You make my forests grow greener!", "Look at you, making the world better!", "Big round hugs from one planet to you!", "You're a force of nature today!", "Every little step helps the planet grow!", "My oceans are sparkling just for you!", "You've got this! Earth believes in you!"],
           pet: ["Hehe! You made my clouds swirl!", "Aww! A warm sunny glow all over!"],
@@ -56782,7 +59056,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 45, r: 4.6, style: "dot", color: "#24324A"},
         mouth: {x: 60, y: 53, w: 2.8, color: "#24324A"},
         cheeks: {lx: 45, rx: 75, y: 51.5, w: 4, h: 2.5, color: "#FF9FB0"},
-        anchors: {top: [60, 26, 0.86], neck: [60, 63, 0.72], chest: [67.5, 79, 0.56], back: [74, 84, 0.78], hands: [60, 84, 0.8]},
+        anchors: {top: [60, 25.5, 0.86, 0], neck: [60, 68.5, 0.72, 0, 25, 46], chest: [67.5, 69, 0.56], back: [74, 84, 0.78], hands: [60, 84, 0.8]},
         lines: {
           tap: ["Whoosh! Hi hi! Spinning with joy!", "You bring the best breeze!", "Clean energy, clear mind, that's you!", "Look at you, powering through!", "Every spin makes more good energy!", "You've got this! Full power ahead!", "Breezy day, bright you, big cheers!", "You're a total powerhouse today!"],
           pet: ["Hehe! My blades are all wobbly!", "Whee! That's a happy little gust!"],
@@ -56796,7 +59070,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "valley-moss", name: "Mossy", kind: "Moss Ball", pose: "sit", sleepy: true, wearColor: "#E8836B",
+        id: "valley-moss", name: "Mossy", kind: "Moss Ball", pose: "sit", sleepy: true, wearColor: "#E8836B", hatTop: true,
         bio: "A soft, fuzzy moss ball who grows a tiny bit with every study day.",
         idle: ["bounce", "topBob", "finWiggle"], cheer: "hop",
         parts: {
@@ -56821,7 +59095,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 75, r: 5, style: "dot", color: "#1F3320"},
         mouth: {x: 60, y: 83.5, w: 3.2, color: "#1F3320"},
         cheeks: {lx: 40.5, rx: 79.5, y: 82, w: 4.8, h: 3, color: "#FF9FA8"},
-        anchors: {top: [60, 46, 1], neck: [60, 98, 1.15], chest: [79, 95, 0.74], back: [90, 76, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [60, 44.5, 1, 0], neck: [60, 93.5, 1.15, 0, 67, 83], chest: [79, 99.5, 0.62], back: [90, 76, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Hi! I'm a fuzzy ball of cheer for you!", "Soft and steady, and you're thriving!", "Growing a little every day, just like you!", "Bloop! You're doing wonderfully!", "Fuzzy hugs for my favorite studier!", "You make my moss extra green!", "Slow growth is still growth! Go you!", "I'm rolling around with pride for you!"],
           pet: ["Hehe! So fuzzy, so happy!", "Bloop bloop! That's the best feeling!"],
@@ -56866,7 +59140,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 71, r: 4.8, style: "dot", color: "#2E2233"},
         mouth: {x: 60, y: 79.5, w: 3},
         cheeks: {lx: 43, rx: 77, y: 78, w: 4.3, h: 2.7, color: "#FF9FA8"},
-        anchors: {top: [60, 33, 0.9], neck: [60, 91, 1.12], chest: [76, 90, 0.66], back: [86, 74, 0.85], hands: [60, 95, 0.88]},
+        anchors: {top: [60, 33.5, 0.9, 0], neck: [60, 91, 1.12, 0, 59, 53], chest: [76, 97, 0.62], back: [86, 74, 0.85], hands: [60, 95, 0.88]},
         lines: {
           tap: ["Hi! Welcome home, friend!", "You're building something amazing!", "Brick by brick, you're doing great!", "My door is always open for you!", "Solid foundations, that's you!", "You've got this! Strong walls, strong you!", "Lights on, heart full, cheering for you!", "You make this place feel like home!"],
           pet: ["Hehe! My chimney is puffing happily!", "Aww! Cozy and warm all over!"],
@@ -56907,7 +59181,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 69, r: 4.8, style: "dot", color: "#2E2233"},
         mouth: {x: 60, y: 78, w: 3.1},
         cheeks: {lx: 43, rx: 77, y: 76.5, w: 4.3, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [54, 48, 0.85], neck: [60, 88, 1.08], chest: [74, 84, 0.66], back: [82, 68, 0.85], hands: [60, 90, 0.88]},
+        anchors: {top: [54, 45, 0.85, 0], neck: [60, 88, 1.08, 0, 51, 67], chest: [74, 94, 0.62], back: [82, 68, 0.85], hands: [60, 90, 0.88]},
         lines: {
           tap: ["Beep beep! Hi there, builder!", "Lifting your spirits sky high!", "You're raising the bar today!", "Look at you, building big things!", "Heavy lifting? You make it look easy!", "Up, up, up! You've got this!", "Every beam counts, and so does every page!", "Hard hats off to you, superstar!"],
           pet: ["Beep! My boom is wiggling with joy!", "Hehe! That's a happy little lift!"],
@@ -56921,7 +59195,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "sketchcity-compass", name: "Arc", kind: "Drafting Compass", pose: "stand", wearColor: "#3E7CC8",
+        id: "sketchcity-compass", name: "Arc", kind: "Drafting Compass", pose: "stand", wearColor: "#3E7CC8", hatTop: true, scarfOverArms: true,
         bio: "A precise little compass who draws a big happy circle around your wins.",
         idle: ["topBob", "headTilt", "sway"], cheer: "spin",
         neck: [60, 56],
@@ -56946,7 +59220,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 41, r: 4.6, style: "dot", color: "#2E2233"},
         mouth: {x: 60, y: 49, w: 2.8},
         cheeks: {lx: 45, rx: 75, y: 47.5, w: 3.8, h: 2.4, color: "#FF9F8F"},
-        anchors: {top: [60, 22, 0.88], neck: [60, 61, 0.7], chest: [60, 88, 0.56], back: [78, 66, 0.78], hands: [60, 86, 0.82]},
+        anchors: {top: [60, 22, 0.88, 0], neck: [60, 65, 0.7, 0, 26.5, 50], chest: [60, 67.5, 0.56], back: [78, 66, 0.78], hands: [60, 86, 0.82]},
         lines: {
           tap: ["Hi! Drawing a happy circle around you!", "You're right on point today!", "Perfectly measured awesomeness!", "Every great plan starts with a sketch!", "Look at you, designing your future!", "You've got this, down to the millimeter!", "Round of applause, a perfect round one!", "Your ideas have such great proportions!"],
           pet: ["Hehe! I'm spinning in happy circles!", "Aww! That's a perfectly round pat!"],
@@ -57007,7 +59281,7 @@ var COMP_KIT = (() => {
     theme: "onsen",
     companions: [
       {
-        id: "onsen-kapi", name: "Kapi", kind: "Onsen Capybara", pose: "sit", sleepy: true, wearColor: "#5A8AD0",
+        id: "onsen-kapi", name: "Kapi", kind: "Onsen Capybara", pose: "sit", sleepy: true, wearColor: "#5A8AD0", hatTop: true, scarfOverArms: true,
         bio: "A calm capybara who soaks in the warm spring for as long as you study.",
         idle: ["topBob", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 74],
@@ -57034,7 +59308,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 46, r: 3.8, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 67, w: 3, color: "#2B1A10"},
         cheeks: {lx: 41.5, rx: 78.5, y: 55, w: 4.4, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 78, 1.05], chest: [76, 96, 0.68], back: [92, 74, 0.8], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 29, 0.9, 0], neck: [60, 79.5, 1.05, 0, 71, 83], chest: [76, 85, 0.68], back: [92, 74, 0.8], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Ahh, hi! The water's just right today.", "You're doing great. Want to soak in that for a second?", "No rush. One task at a time, like one bath at a time.", "I'm so calm, and you're so capable!", "Steady and warm, that's how we study.", "Every little step counts. I believe in you.", "Relax your shoulders. There we go!", "You make studying look cozy."],
           pet: ["Mmm, that's so relaxing. Thank you.", "Hehe, I might melt into the tub."],
@@ -57048,7 +59322,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "onsen-momo", name: "Momo", kind: "Snow Monkey Baby", pose: "sit", wearColor: "#E0533A",
+        id: "onsen-momo", name: "Momo", kind: "Snow Monkey Baby", pose: "sit", wearColor: "#E0533A", hatTop: true,
         bio: "A baby snow monkey who balances a snowball on its head while you work.",
         idle: ["earTwitch", "wave", "tailSwish"], cheer: "hop",
         parts: {
@@ -57069,7 +59343,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 53, rx: 67, y: 50.5, r: 3.6, style: "dot", color: "#3A1A1E"},
         mouth: {x: 60, y: 61.5, w: 2.6, color: "#3A1A1E"},
         cheeks: {lx: 48.5, rx: 71.5, y: 57, w: 3.4, h: 2.2, color: "#FF6F8E"},
-        anchors: {top: [60, 27, 0.85], neck: [60, 76, 1], chest: [72, 98, 0.62], back: [86, 84, 0.8], hands: [60, 98, 0.8]},
+        anchors: {top: [60, 28.5, 0.85, 0], neck: [60, 77.5, 0.95, 0, 40, 60], chest: [72, 76.5, 0.62], back: [86, 84, 0.8], hands: [60, 98, 0.8]},
         lines: {
           tap: ["Hi hi! Don't mind the snowball, it's for balance.", "You're so good at this! Wheee!", "Let's do the next one together!", "I believe in you more than snowballs!", "Brrr, studying warms me right up!", "Ooh, you're on a roll!", "Little steps, big monkey cheers!"],
           pet: ["Hehe! Careful, the snowball!", "Eee! That tickles my ears!"],
@@ -57083,7 +59357,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "onsen-yuzu", name: "Yuzu", kind: "Floating Yuzu", pose: "float", wearColor: "#5AAA5A",
+        id: "onsen-yuzu", name: "Yuzu", kind: "Floating Yuzu", pose: "float", wearColor: "#5AAA5A", hatTop: true,
         bio: "A sunny little yuzu who bobs along in the hot spring beside you.",
         idle: ["topBob", "sway", "sparkle"], cheer: "spin",
         parts: {
@@ -57099,7 +59373,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 67, r: 4.4, style: "sparkle", color: "#3A2414"},
         mouth: {x: 60, y: 77, w: 3.1, color: "#3A2414"},
         cheeks: {lx: 43, rx: 77, y: 75, w: 4.4, h: 2.7, color: "#FF8F7A"},
-        anchors: {top: [60, 38, 0.85], neck: [60, 92, 1], chest: [74, 86, 0.62], back: [86, 62, 0.8], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 40, 0.85, 0], neck: [60, 86, 1, 0, 53, 81], chest: [74, 92.5, 0.62], back: [86, 62, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Bob bob! Hi there!", "I never sink, and neither will your grades!", "Zesty work today!", "You're the sunniest student I know!", "Roll with it, you've got this!", "A little citrus cheer, just for you!", "Fresh start, fresh focus!", "You're doing a-peel-ing work!"],
           pet: ["Hehe, I'm rolling with joy!", "Ooh, that smells nice and zesty!"],
@@ -57128,7 +59402,7 @@ var COMP_KIT = (() => {
     theme: "rainforest",
     companions: [
       {
-        id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A",
+        id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A", scarfOverArms: true,
         bio: "A sleepy baby sloth who takes every study session slow and steady.",
         idle: ["headTilt", "sway", "wave"], cheer: "wave", hatTop: true,
         neck: [60, 74],
@@ -57157,7 +59431,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 45.5, rx: 74.5, y: 49, r: 3.8, style: "round", color: "#1E120A"},
         mouth: {x: 60, y: 63, w: 2.9, color: "#3A2418"},
         cheeks: {lx: 41, rx: 79, y: 62, w: 4.2, h: 2.5, color: "#FF9A9A"},
-        anchors: {top: [60, 23, 1.05], neck: [60, 77, 1.1], chest: [60, 85, 0.6], back: [88, 84, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 20, 1.05, 0], neck: [60, 74.5, 1.05, 0, 48, 78.5, 56], chest: [60, 83, 0.6], back: [88, 84, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Heyyy... friend... hi.", "Slow and steady... still gets there.", "You're doing great... no rush.", "One... thing... at a time. Perfect.", "I like your pace... it's lovely.", "Hang in there... like me!", "Big things... start small.", "Deep breath... you've got this."],
           pet: ["Mmm... so cozy... thank you.", "Hehe... slow happy wiggle."],
@@ -57196,7 +59470,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 66, w: 3},
         mouths: {neutral: tbeak(false), smile: tbeak(false) + `<path d="M41.4 58.4q1.6 2.8 4.6 2.2M78.6 58.4q-1.6 2.8 -4.6 2.2" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, open: tbeak(true), sleepy: tbeak(false)},
         cheeks: {lx: 40, rx: 80, y: 51, w: 3.6, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 25, 0.95], neck: [60, 71, 0.95], chest: [60, 86, 0.58], back: [84, 84, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 23.5, 0.95, 0], neck: [60, 71, 0.95, 0, 40, 51], bow: [60, 81.5, 0.7], chest: [60, 77, 0.58], back: [84, 84, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Did you notice my beak? Everyone notices my beak.", "Big plans today! Huge plans!", "You're doing toucan-tastic!", "Two can do it better: you and me!", "Hop hop! Next task!", "Your notes look colorful today!", "I spy a superstar student!", "Let's fly through this list!"],
           pet: ["Squawk! Hehe, that tickles!", "Careful, the beak is very important!"],
@@ -57210,7 +59484,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A",
+        id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A", scarfOverArms: true,
         bio: "A bright blue tree frog who holds on to every task with its sticky toes.",
         idle: ["bounce", "wave", "sparkle"], cheer: "hop",
         parts: {
@@ -57227,7 +59501,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 42, rx: 78, y: 53, r: 7.4, style: "round", color: "#141826"},
         mouth: {x: 60, y: 70, w: 4.8, color: "#14284E"},
         cheeks: {lx: 37, rx: 83, y: 67, w: 4.4, h: 2.6, color: "#FF8FB8"},
-        anchors: {top: [60, 45, 0.85], neck: [60, 80, 1.15], chest: [72, 92, 0.6], back: [88, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 33.5, 0.85, 0], neck: [60, 80, 1.15, 0, 73, 80], chest: [72, 85.5, 0.6], back: [88, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Ribbit! Hi! Look at my sticky toes!", "You're sticking with it! Nice!", "Hop to it, you're doing great!", "Small frog, big cheers!", "You're the brightest thing in this jungle!", "Leap to the next one!", "Every hop counts!"],
           pet: ["Hehe, I'm a little bit sticky, sorry!", "Ribbit! Again again!"],
@@ -57266,7 +59540,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "sparkle", color: "#4A1830"},
         mouth: {x: 60, y: 86, w: 3, color: "#4A1830"},
         cheeks: {lx: 44, rx: 76, y: 84, w: 4.2, h: 2.6, color: "#FF5E8E"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 96, 1], chest: [72, 96, 0.6], back: [84, 72, 0.8], hands: [60, 100, 0.85]},
+        anchors: {top: [60, 48, 0.85, 0], neck: [60, 96, 1, 0, 47, 65], chest: [72, 102, 0.6], back: [84, 72, 0.8], hands: [60, 100, 0.85]},
         lines: {
           tap: ["Hi! I'm waving with all my arms!", "You're doing wonderfully, swish swish!", "Forty arms, forty cheers for you!", "Every wave brings something new!", "You're the brightest thing in my pool!", "Let the tide carry you to the next one!", "Hugs from every tentacle!", "Swaying along with your progress!"],
           pet: ["Ooh! That tickles all forty arms!", "Hehe! I'm closing up with joy!"],
@@ -57280,7 +59554,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "tidepool-spike", name: "Spike", kind: "Purple Sea Urchin", pose: "stand", wearColor: "#2FA0B8",
+        id: "tidepool-spike", name: "Spike", kind: "Purple Sea Urchin", pose: "stand", wearColor: "#2FA0B8", hatTop: true,
         bio: "A shy purple sea urchin who looks prickly but is soft at heart.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
@@ -57295,7 +59569,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 72, r: 3.8, style: "dot", color: "#2A1240"},
         mouth: {x: 60, y: 81.5, w: 2.3, color: "#2A1240"},
         cheeks: {lx: 44, rx: 76, y: 79, w: 5.4, h: 3.2, color: "#FF7FAE"},
-        anchors: {top: [60, 44, 0.85], neck: [60, 98, 1], chest: [72, 92, 0.6], back: [86, 64, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 47, 0.85, 0], neck: [60, 90, 1, 0, 53, 72], chest: [72, 96, 0.6], back: [86, 64, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Oh! Um, hi. I'm soft, I promise.", "You're doing really well... just saying.", "I'm quietly cheering for you.", "Don't mind the spikes, they're just for show.", "You make me feel brave!", "Little steps are still steps!", "I believe in you. Shyly. But a lot."],
           pet: ["Eep! That was nice actually.", "Hehe... I'm blushing all over."],
@@ -57328,7 +59602,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 62, w: 3},
         mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false) + `<path d="M50 59q1.6 1.8 3.4 1M70 59q-1.6 1.8 -3.4 1" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`, open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
         cheeks: {lx: 47, rx: 73, y: 59, w: 3.4, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 28, 0.9], neck: [60, 74, 1], chest: [70, 94, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 76.5, 1, 0, 44, 55], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hello! Pool inspection complete, all is well!", "Waddle waddle, you're doing great!", "I checked every pool. You're the best one!", "Tuxedo on, ready to study!", "Fluffy but focused!", "Let's waddle to the next task!", "You're puff-ectly on track!", "Beak up, chest out, here we go!"],
           pet: ["Hehe! My fluff is extra fluffy now!", "Peep peep! Again!"],
@@ -57349,7 +59623,7 @@ var COMP_KIT = (() => {
     theme: "volcano",
     companions: [
       {
-        id: "volcano-ember", name: "Ember", kind: "Lava Blob", pose: "stand", wearColor: "#2EA2A0",
+        id: "volcano-ember", name: "Ember", kind: "Lava Blob", pose: "stand", wearColor: "#2EA2A0", hatTop: true,
         bio: "A warm, glowing lava blob who keeps your study nights toasty.",
         idle: ["bounce", "sparkle", "topBob"], cheer: "hop",
         parts: {
@@ -57366,7 +59640,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "sparkle", color: "#4A1408"},
         mouth: {x: 60, y: 86, w: 3.2, color: "#4A1408"},
         cheeks: {lx: 43, rx: 77, y: 84, w: 4.4, h: 2.7, color: "#FF5A6A"},
-        anchors: {top: [60, 34, 0.85], neck: [60, 98, 1], chest: [72, 94, 0.62], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 47.5, 0.85, 0], neck: [60, 95, 1, 0, 59, 59], chest: [72, 101.5, 0.62], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! I'm warm, I'm glowy, I'm here for you!", "You're on fire today! The good kind!", "Hot tip: you're doing amazing!", "Bubbling with pride over here!", "Keep that glow going!", "Gooey hug from a safe distance!", "You're heating up! Love it!", "Molten-level motivation, activated!"],
           pet: ["Ooh, careful, I'm toasty! Hehe!", "Bloop! That made me glow brighter!"],
@@ -57399,7 +59673,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 71, r: 5.2, style: "round", color: "#3A2A2A"},
         mouth: {x: 60, y: 80.5, w: 3, color: "#3A2A2A"},
         cheeks: {lx: 39, rx: 81, y: 79, w: 4.8, h: 2.9, color: "#FF9E9E"},
-        anchors: {top: [60, 43, 0.95], neck: [60, 93, 1.1], chest: [74, 92, 0.65], back: [90, 66, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 90.5, 1.1, 0, 64, 63], chest: [74, 96.5, 0.61], back: [90, 66, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hi! Look, I'm floating! Is this swimming?", "Light as air, strong as rock. Like you!", "You're doing great, I can tell from here!", "Drifting along, cheering you on!", "Little pebble, big belief in you!", "Keep it light, keep it going!", "You make hard things look easy!"],
           pet: ["Hehe! I'm bobbing with joy!", "Ooh, I almost floated away!"],
@@ -57441,7 +59715,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 46, rx: 74, y: 49, r: 6, style: "sparkle", color: "#2B1A10"},
         mouth: {x: 60, y: 66, w: 3.8},
         cheeks: {lx: 37, rx: 83, y: 59, w: 4.6, h: 2.8, color: "#FF8F7A"},
-        anchors: {top: [60, 25, 1], neck: [60, 73, 1.1], chest: [60, 84, 0.6], back: [86, 82, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 13.5, 1, 0], neck: [60, 73, 1.05, 0, 46, 66], chest: [60, 79, 0.6], back: [86, 82, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Just sunbathing between study sessions.", "Achoo! Sorry, that's a happy salt sneeze!", "You're doing great, mate!", "Slow blink of approval.", "Warm rocks, warm heart, warm wishes!", "Let's dive into the next one!", "You're tougher than lava rock!"],
           pet: ["Achoo! Hehe, happy sneeze!", "Ooh, right on the spiky bits!"],
@@ -57462,7 +59736,7 @@ var COMP_KIT = (() => {
     theme: "savanna",
     companions: [
       {
-        id: "savanna-peanut", name: "Peanut", kind: "Baby Elephant", pose: "stand", wearColor: "#D27A2A",
+        id: "savanna-peanut", name: "Peanut", kind: "Baby Elephant", pose: "stand", wearColor: "#D27A2A", hatTop: true,
         bio: "A gentle baby elephant who never forgets a due date.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
@@ -57479,7 +59753,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 52, r: 3.8, style: "dot", color: "#2B2233"},
         mouth: {x: 48, y: 69, w: 2.4},
         cheeks: {lx: 43, rx: 77, y: 61, w: 4.4, h: 2.7, color: "#FF9AB0"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 80, 1.1], chest: [76, 90, 0.68], back: [86, 80, 0.8], hands: [60, 94, 0.85]},
+        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 77, 1, 0, 40, 56], chest: [76, 87, 0.68], back: [86, 80, 0.8], hands: [60, 94, 0.85]},
         lines: {
           tap: ["Hi! I remembered you'd come. I always remember!", "You're doing great, and I'll never forget it!", "Big ears, big heart, big cheers!", "Trunk up for your hard work!", "Let's stomp through this list together!", "I never forget a due date. Or a friend!", "Splash of encouragement coming your way!", "Step by step, like a little elephant."],
           pet: ["Hehe! My ears are flapping with joy!", "Ooh, trunk hug for you!"],
@@ -57516,7 +59790,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 35, r: 3.4, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 50, w: 2.4, color: "#2B1A10"},
         cheeks: {lx: 46, rx: 74, y: 42, w: 3.4, h: 2.2, color: "#FF9A9A"},
-        anchors: {top: [60, 18, 0.8], neck: [60, 56, 0.8], chest: [66, 84, 0.58], back: [78, 78, 0.72], hands: [60, 88, 0.8]},
+        anchors: {top: [60, 22.5, 0.8, 0], neck: [60, 56.5, 0.8, 0, 17.5, 48], chest: [66, 62.5, 0.58], back: [78, 78, 0.72], hands: [60, 88, 0.8]},
         lines: {
           tap: ["Hi from up here! I can see your progress!", "I spy a deadline... and you're way ahead of it!", "You're reaching new heights!", "Long neck, long list, no problem!", "Head held high, you're doing great!", "The view is lovely, and so is your work!", "Stretch for it! You've got this!"],
           pet: ["Hehe! You reached all the way up!", "Ooh, right behind the ears!"],
@@ -57530,7 +59804,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "savanna-sentry", name: "Sentry", kind: "Meerkat Pup", pose: "stand", wearColor: "#D27A2A",
+        id: "savanna-sentry", name: "Sentry", kind: "Meerkat Pup", pose: "stand", wearColor: "#D27A2A", hatTop: true, scarfOverArms: true,
         bio: "A watchful meerkat pup who stands guard while you focus.",
         idle: ["headTilt", "topBob", "bounce"], cheer: "hop",
         neck: [60, 64],
@@ -57554,7 +59828,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 45, r: 4, style: "round", color: "#1A1008"},
         mouth: {x: 60, y: 59.5, w: 2.2, color: "#2B1A10"},
         cheeks: {lx: 45, rx: 75, y: 54, w: 3.4, h: 2.2, color: "#FF9A9A"},
-        anchors: {top: [60, 27, 0.9], neck: [60, 66, 0.92], chest: [70, 88, 0.6], back: [80, 84, 0.75], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 29, 0.9, 0], neck: [60, 66.5, 0.9, 0, 30, 45], bow: [60, 72, 0.55], chest: [70, 72.5, 0.6], back: [80, 84, 0.75], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Reporting for duty! All clear!", "Lookout says: you're doing great!", "Scanning the horizon... yep, you're amazing.", "I've got your back, you focus!", "No distractions in sight. Carry on!", "Standing tall for you!", "Perimeter secure, progress excellent!", "Sentry on watch, you on task!"],
           pet: ["Hehe! Off duty for one second!", "Ooh, a pat! Still on watch though!"],
@@ -57592,7 +59866,7 @@ var COMP_KIT = (() => {
     theme: "pride",
     companions: [
       {
-        id: "pride-prism", name: "Prism", kind: "Rainbow Prism", pose: "stand", wearColor: "#9466D0",
+        id: "pride-prism", name: "Prism", kind: "Rainbow Prism", pose: "stand", wearColor: "#9466D0", hatTop: true,
         bio: "A bright little prism who turns plain light into a rainbow for you.",
         idle: ["sparkle", "spin", "topBob"], cheer: "spin",
         parts: {
@@ -57608,7 +59882,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 72, r: 5, style: "sparkle", color: "#2A2048"},
         mouth: {x: 60, y: 81, w: 3.1, color: "#2A2048"},
         cheeks: {lx: 44, rx: 76, y: 79, w: 4.2, h: 2.6, color: "#FF9FC0"},
-        anchors: {top: [60, 28, 0.85], neck: [60, 94, 1], chest: [72, 92, 0.65], back: [30, 70, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 37, 0.85, 0], neck: [60, 90, 1, 0, 79, 80], chest: [72, 96, 0.61], back: [30, 70, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! You make me shine in every color!", "Every bit of you is bright today!", "Bend the light, find the answer, ace the quiz!", "You've got a whole rainbow of ideas!", "Proud of you, every single shade!", "Sparkle mode: on. Let's go!", "Light in, rainbow out. That's you studying!"],
           pet: ["Hehe! You made me sparkle!", "Aww! Now I'm glowing all over!"],
@@ -57621,7 +59895,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "pride-flamingo", name: "Fifi", kind: "Flamingo Chick", pose: "stand", wearColor: "#5498E0",
+        id: "pride-flamingo", name: "Fifi", kind: "Flamingo Chick", pose: "stand", wearOnHead: true, wearColor: "#5498E0",
         bio: "A fluffy pink flamingo chick who's still practicing its one-legged stand.",
         idle: ["headTilt", "wingFlutter", "sway"], cheer: "wingFlutter",
         parts: {
@@ -57641,7 +59915,7 @@ var COMP_KIT = (() => {
         mouth: {x: 61, y: 45, w: 2, color: "#3A1E30"},
         cheeks: {lx: 49, rx: 72.5, y: 43, w: 3.4, h: 2.2, color: "#FF7FA0"},
         neck: [58, 73],
-        anchors: {top: [61, 22, 0.75], neck: [58, 64, 0.7], chest: [70, 88, 0.6], back: [82, 72, 0.75], hands: [60, 94, 0.8]},
+        anchors: {top: [61, 26, 0.75, 0], neck: [54, 60, 0.55, 0, 14, 44, 14], chest: [70, 79, 0.6], back: [82, 72, 0.75], hands: [60, 94, 0.8]},
         lines: {
           tap: ["Hi! Watch me stand on one leg! ...Almost!", "You're doing fab-ulous today!", "Pink, proud and cheering for you!", "Balance is tricky, but you've got it!", "Fluff up! We're on a roll!", "Strike a pose, then strike that task!", "Every wobble counts as practice!"],
           pet: ["Eee! My fluff is all puffed up!", "Hehe! That tickles my feathers!"],
@@ -57672,7 +59946,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 60, r: 4.8, style: "sparkle", color: "#3A1E40"},
         mouth: {x: 60, y: 69, w: 3, color: "#3A1E40"},
         cheeks: {lx: 44, rx: 76, y: 67, w: 4.2, h: 2.6, color: "#FF8FB8"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 84, 0.95], chest: [72, 78, 0.6], back: [86, 54, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 40.5, 0.85, 0], neck: [60, 78, 0.95, 0, 41, 45], chest: [72, 84, 0.6], back: [86, 54, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Wheee! Twirling just for you!", "Every color of you is welcome here!", "Loop de loop, you're doing great!", "Let's make today a parade!", "You bring the color to this whole board!", "Swish! Another idea caught!", "Proud of you, swirl to swirl!"],
           pet: ["Hehe! I'm all tangled with happiness!", "Wheee! Spin me again!"],
@@ -57733,7 +60007,7 @@ var COMP_KIT = (() => {
     theme: "graduation",
     companions: [
       {
-        id: "graduation-cap", name: "Tassel", kind: "Grad Cap", pose: "stand", wearColor: "#F2B83A",
+        id: "graduation-cap", name: "Tassel", kind: "Grad Cap", pose: "stand", wearColor: "#F2B83A", scarfOverArms: true,
         bio: "A proud little grad cap who's been waiting all year for your big day.",
         idle: ["topBob", "sway", "headTilt"], cheer: "spin", hatTop: true,
         parts: {
@@ -57751,7 +60025,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 69, w: 3, color: "#1E2A4A"},
         cheeks: {lx: 43.5, rx: 76.5, y: 67, w: 4.2, h: 2.6, color: "#FF9FB0"},
         neck: [60, 82],
-        anchors: {top: [60, 22, 0.9], neck: [60, 84, 0.85], chest: [70, 96, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 17, 0.9, 0], neck: [60, 84.5, 0.85, 0, 38, 64, 46], chest: [70, 90.5, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! One step closer to the big day!", "Every task is a step across the stage!", "Tassel's on the right side of awesome!", "You're going to make it. I just know!", "Caps off to you today!", "Study now, celebrate later!", "Class of AMAZING, that's you!"],
           pet: ["Hehe! My tassel is swinging!", "Aww! Careful, don't knock my cap off!"],
@@ -57764,7 +60038,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "graduation-diploma", name: "Dippy", kind: "Rolled Diploma", pose: "stand", wearColor: "#9A2E4A",
+        id: "graduation-diploma", name: "Dippy", kind: "Rolled Diploma", pose: "stand", wearColor: "#9A2E4A", hatTop: true,
         bio: "A rolled-up diploma with a ribbon who unrolls when you finish big things.",
         idle: ["topBob", "wave", "sparkle"], cheer: "bounce",
         parts: {
@@ -57779,7 +60053,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 56, r: 4.6, style: "dot", color: "#3A2A1A"},
         mouth: {x: 60, y: 65, w: 3, color: "#3A2A1A"},
         cheeks: {lx: 46, rx: 74, y: 63, w: 4, h: 2.5, color: "#FF9FB0"},
-        anchors: {top: [60, 22, 0.9], neck: [60, 78, 0.8], chest: [70, 98, 0.55], back: [86, 60, 0.8], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 24.5, 0.9, 0], neck: [60, 73, 0.8, 0, 55, 70], chest: [70, 79, 0.55], back: [86, 60, 0.8], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Hi! I'm all rolled up and ready!", "Big things ahead, I can feel it!", "Your name looks great in fancy letters!", "Every page you study counts!", "You're writing your own success story!", "Ribbon-worthy work today!", "I'll unroll the moment you finish!"],
           pet: ["Hehe! You'll crinkle my paper!", "Aww! My ribbon is blushing!"],
@@ -57807,7 +60081,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 62, r: 4.6, style: "sparkle", color: "#3A2A10"},
         mouth: {x: 60, y: 71, w: 2.9, color: "#3A2A10"},
         cheeks: {lx: 45, rx: 75, y: 69, w: 4, h: 2.5, color: "#FF9F8F"},
-        anchors: {top: [60, 44, 0.85], neck: [60, 84, 0.9], chest: [72, 78, 0.6], back: [88, 54, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 32.5, 0.85, 0], neck: [60, 79.5, 0.9, 0, 46, 37], chest: [72, 86, 0.6], back: [88, 54, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Hi! A leaf for you, and another!", "Every win counts, even the tiny ones!", "You're a champion of showing up!", "Victory is made of little steps!", "Crowning you with leaves today!", "Big win, small win, all wins!", "Glowing with pride for you!"],
           pet: ["Hehe! My leaves are rustling!", "Aww! That's a golden pat!"],
@@ -57843,7 +60117,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 60, r: 4.8, style: "sparkle", color: "#3A2010"},
         mouth: {x: 60, y: 69, w: 3, color: "#3A2010"},
         cheeks: {lx: 44, rx: 76, y: 67, w: 4.2, h: 2.6, color: "#FF8F9F"},
-        anchors: {top: [60, 34, 0.9], neck: [60, 78, 0.8], chest: [68, 88, 0.55], back: [86, 58, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 19.5, 1.06, 0], neck: [60, 78, 0.8, 0, 37, 37], chest: [68, 84, 0.55], back: [86, 58, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Hi! I'm full of confetti for you!", "Saving my biggest pop for your big win!", "You're the life of this study party!", "Every finished task deserves a pop!", "Ready, set, celebrate soon!", "Party mode starts after this page!", "You make every day feel special!"],
           pet: ["Eep! Careful, I might pop!", "Hehe! A little confetti slipped out!"],
@@ -57856,7 +60130,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "birthday-pinata", name: "Piña", kind: "Llama Piñata", pose: "stand", wearColor: "#B58CF2",
+        id: "birthday-pinata", name: "Piña", kind: "Llama Piñata", pose: "stand", wearOnHead: true, wearColor: "#B58CF2",
         bio: "A colorful, fringed llama piñata who throws a little party for every win.",
         idle: ["earTwitch", "sway", "headTilt"], cheer: "hop",
         parts: {
@@ -57883,7 +60157,7 @@ var COMP_KIT = (() => {
         },
         cheeks: {lx: 44, rx: 76, y: 45, w: 3.8, h: 2.4, color: "#FF8FB8"},
         neck: [60, 72],
-        anchors: {top: [60, 20, 0.85], neck: [60, 70, 0.8], chest: [74, 82, 0.55], back: [40, 64, 0.8], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 22, 0.85, 0], neck: [60, 62, 0.75, 0, 26, 63.5, 26], chest: [74, 76, 0.55], back: [40, 64, 0.8], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Hi! Admire my fringe, gently please!", "No bats, just high fives, okay?", "You make me feel extra colorful!", "Every stripe of me is cheering for you!", "Party look, study brain. Love it!", "Let's fill today with sweet wins!", "Looking good, studying better!"],
           pet: ["Hehe! Gentle pats only, thank you!", "Aww! My fringe is fluttering!"],
@@ -57896,7 +60170,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "birthday-cake", name: "Layla", kind: "Cake Slice", pose: "stand", wearColor: "#7FD8C0",
+        id: "birthday-cake", name: "Layla", kind: "Cake Slice", pose: "stand", wearColor: "#7FD8C0", hatTop: true,
         bio: "A tall slice of birthday cake with extra frosting and one bright candle.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
@@ -57914,7 +60188,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 76, r: 4.8, style: "sparkle", color: "#3A2418"},
         mouth: {x: 60, y: 83, w: 3, color: "#3A2418"},
         cheeks: {lx: 42, rx: 78, y: 82, w: 4.2, h: 2.6, color: "#FF8FA8"},
-        anchors: {top: [60, 36, 0.9], neck: [60, 62, 1.05], chest: [74, 96, 0.6], back: [94, 66, 0.85], hands: [60, 98, 0.9]},
+        anchors: {top: [60, 34.5, 0.9, 0], neck: [60, 92.5, 1.05, 0, 69, 71], chest: [74, 98.5, 0.6], back: [94, 66, 0.85], hands: [60, 98, 0.9]},
         lines: {
           tap: ["Hi! Extra frosting on your day today!", "You're the icing on this study cake!", "Make a wish, then make it happen!", "Layer by layer, you're getting there!", "Sweet work, keep it coming!", "One candle, one goal, all you!", "You deserve a celebration slice!"],
           pet: ["Hehe! Careful, frosting smudge!", "Aww! My candle is flickering happily!"],
@@ -57934,7 +60208,7 @@ var COMP_KIT = (() => {
     theme: "geology",
     companions: [
       {
-        id: "geology-geode", name: "Geo", kind: "Geode", pose: "sit", wearColor: "#9A62D8",
+        id: "geology-geode", name: "Geo", kind: "Geode", pose: "sit", wearColor: "#9A62D8", hatTop: true,
         bio: "A humble little geode who hides sparkly crystals inside, just like you.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
@@ -57951,7 +60225,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 64, r: 5, style: "sparkle", color: "#2E2024"},
         mouth: {x: 60, y: 73, w: 3, color: "#2E2024"},
         cheeks: {lx: 42.5, rx: 77.5, y: 71, w: 4.2, h: 2.6, color: "#FF9FB4"},
-        anchors: {top: [60, 32, 0.9], neck: [60, 84, 1], chest: [76, 80, 0.6], back: [92, 60, 0.85], hands: [60, 88, 0.9]},
+        anchors: {top: [60, 30, 0.9, 0], neck: [60, 82, 1, 0, 84, 86], chest: [76, 88, 0.6], back: [92, 60, 0.85], hands: [60, 88, 0.9]},
         lines: {
           tap: ["Hi! Don't judge a rock by its crust!", "You've got sparkles inside too!", "Crack open that chapter! I believe in you!", "Rock solid work today!", "Every layer you learn makes you shine!", "You're a gem, truly!", "Pressure makes crystals. You're doing great!"],
           pet: ["Hehe! My crystals are tingling!", "Aww! That's a rock-star pat!"],
@@ -57964,7 +60238,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "geology-trilobite", name: "Trilo", kind: "Trilobite", pose: "stand", wearColor: "#3EB4C0",
+        id: "geology-trilobite", name: "Trilo", kind: "Trilobite", pose: "stand", wearColor: "#3EB4C0", hatTop: true,
         bio: "An ancient little trilobite who has been studying for 500 million years.",
         idle: ["waddle", "headTilt", "topBob"], cheer: "hop",
         parts: {
@@ -57983,7 +60257,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 61, w: 3, color: "#2A1E18"},
         cheeks: {lx: 38, rx: 82, y: 58, w: 4.2, h: 2.6, color: "#FF9F9F"},
         neck: [60, 66],
-        anchors: {top: [60, 32, 0.9], neck: [60, 66, 1.05], chest: [72, 86, 0.6], back: [88, 76, 0.85], hands: [60, 92, 0.9]},
+        anchors: {top: [60, 30.5, 0.9, 0], neck: [60, 71.5, 1.05, 0, 47, 57], chest: [72, 72, 0.6], back: [88, 76, 0.85], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hi! I've been studying since the Cambrian!", "Slow and steady, like sediment!", "Half a billion years of experience says: you've got this!", "Every layer you learn is a new rock record!", "You're making history. Literal history!", "Tiny legs, big dreams!", "Fossils are proof that showing up lasts!"],
           pet: ["Hehe! My segments are wiggling!", "Aww! A pat worth fossilizing!"],
@@ -57996,7 +60270,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "geology-sprite", name: "Glint", kind: "Crystal Sprite", pose: "float", wearColor: "#C29AFF",
+        id: "geology-sprite", name: "Glint", kind: "Crystal Sprite", pose: "float", wearColor: "#C29AFF", hatTop: true,
         bio: "A purple crystal sprite who hums softly while you focus.",
         idle: ["sparkle", "spin", "topBob"], cheer: "spin",
         parts: {
@@ -58011,7 +60285,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 68, r: 4.8, style: "sparkle", color: "#2A1648"},
         mouth: {x: 60, y: 77, w: 3, color: "#2A1648"},
         cheeks: {lx: 44, rx: 76, y: 75, w: 4.2, h: 2.6, color: "#FF9FD8"},
-        anchors: {top: [60, 26, 0.8], neck: [60, 88, 0.85], chest: [70, 92, 0.55], back: [86, 62, 0.8], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 34.5, 0.8, 0], neck: [60, 85, 0.85, 0, 51, 45], chest: [70, 90.5, 0.55], back: [86, 62, 0.8], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Hmmmm! That's my happy hum!", "You make me glow brighter!", "Focus makes crystals grow. Let's grow!", "Bright mind, bright day!", "I'll light the way, you take the steps!", "Little light, big belief in you!", "Shine on, study star!"],
           pet: ["Hehe! I'm humming all over!", "Aww! Now I'm extra sparkly!"],
@@ -58066,7 +60340,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 62, r: 5.4, style: "sparkle", color: "#1E1A28"},
         mouth: {x: 60, y: 71.5, w: 3.2, color: "#1E1A28"},
         cheeks: {lx: 40.5, rx: 79.5, y: 70, w: 4.6, h: 2.8, color: "#FF8FA8"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 94, 1], chest: [72, 97, 0.6], back: [92, 70, 0.85], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 17.5, 0.9, 0], neck: [60, 96.5, 1, 0, 31, 36], chest: [72, 100, 0.6], back: [92, 70, 0.85], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Scene one, take one: you, being awesome!", "Lights, camera, study!", "That was a great take!", "You're the star of this production!", "Quiet on set! Genius at work!", "Ready when you are, director!", "Every scene gets better with you in it!"],
           pet: ["Snap snap! That tickles!", "Hehe! Cut! Print! That's a keeper!"],
@@ -58099,7 +60373,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 67, r: 5.2, style: "sparkle", color: "#3A1418"},
         mouth: {x: 60, y: 76, w: 3.2, color: "#3A1418"},
         cheeks: {lx: 41.5, rx: 78.5, y: 75, w: 4.4, h: 2.8, color: "#FFB0C0"},
-        anchors: {top: [60, 26, 0.9], neck: [60, 52, 1.15], chest: [72, 86, 0.6], back: [86, 74, 0.85], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 17, 0.9, 0], neck: [60, 86, 1.15, 0, 58, 60], chest: [72, 91.5, 0.6], back: [86, 74, 0.85], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Pop! Hi there, superstar!", "You're doing popping good today!", "Butter-smooth progress! Keep going!", "Every little kernel of effort counts!", "You make my whole bucket happy!", "Snack break later? I'm just saying!", "Pop pop pop! That's my happy sound!"],
           pet: ["Hehe! You made a kernel pop!", "Crunchy cuddles! Yay!"],
@@ -58133,7 +60407,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52.5, rx: 67.5, y: 55, r: 4.4, style: "sparkle", color: "#3A2A1A"},
         mouth: {x: 60, y: 63.5, w: 2.8, color: "#3A2A1A"},
         cheeks: {lx: 46, rx: 74, y: 62, w: 3.6, h: 2.3, color: "#FF9A8A"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 85, 0.95], chest: [70, 90, 0.55], back: [34, 60, 0.8], hands: [60, 88, 0.8]},
+        anchors: {top: [60, 24.5, 0.95, 0], neck: [60, 85, 0.95, 0, 38, 31], chest: [70, 90.5, 0.55], back: [34, 60, 0.8], hands: [60, 88, 0.8]},
         lines: {
           tap: ["And the spotlight goes to... you!", "Shining my brightest beam on you!", "You're glowing today, I can tell!", "Center stage suits you!", "Hard work looks brilliant under the lights!", "I see a star in the making!", "Ready for your close-up?"],
           pet: ["Ooh, I'm all warmed up now!", "Hehe! My lens is blushing!"],
@@ -58174,7 +60448,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 72, r: 4.8, style: "sparkle", color: "#3A2010"},
         mouth: {x: 60, y: 81, w: 3, color: "#3A2010"},
         cheeks: {lx: 45, rx: 75, y: 79.5, w: 4, h: 2.5, color: "#FF8F8F"},
-        anchors: {top: [60, 30, 0.85], neck: [60, 56, 1], chest: [70, 92, 0.6], back: [80, 80, 0.8], hands: [60, 90, 0.82]},
+        anchors: {top: [60, 9.5, 0.85, 0], neck: [60, 90, 1, 0, 51, 62], chest: [70, 96, 0.6], back: [80, 80, 0.8], hands: [60, 90, 0.82]},
         lines: {
           tap: ["Whisk whisk! Hi there, chef!", "You're whipping through this!", "Light and fluffy, like your progress!", "A little spin makes everything better!", "Stiff peaks of brilliance! Look at you!", "Mixing up something wonderful today!", "Whirr! I'm so happy you're here!"],
           pet: ["Wheee! You made me spin!", "Hehe! My wires are all tingly!"],
@@ -58209,7 +60483,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 68, r: 4.8, style: "sparkle", color: "#2A2430"},
         mouth: {x: 60, y: 77, w: 3, color: "#2A2430"},
         cheeks: {lx: 41.5, rx: 78.5, y: 75.5, w: 4.2, h: 2.6, color: "#FF9AA8"},
-        anchors: {top: [60, 24, 0.95], neck: [60, 86, 0.95], chest: [70, 98, 0.55], back: [84, 92, 0.8], hands: [60, 100, 0.8]},
+        anchors: {top: [60, 48.5, 0.95, 0], neck: [60, 88.5, 0.95, 0, 37, 41], chest: [70, 91.5, 0.55], back: [84, 92, 0.8], hands: [60, 100, 0.8]},
         lines: {
           tap: ["Bonjour, chef! Ready to cook up greatness?", "Your recipe for success is looking delicious!", "A pinch of patience, a dash of genius!", "Every great dish starts with one step!", "Yes, chef! You're doing wonderfully!", "I feel taller already, thanks to you!", "Mise en place! Everything in its place!"],
           pet: ["Oh la la! My pleats are all fluffy!", "Hehe! Careful, I'm freshly starched!"],
@@ -58223,7 +60497,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "culinary-basil", name: "Basil", kind: "Basil Sprout", pose: "sit", wearColor: "#E08A4A",
+        id: "culinary-basil", name: "Basil", kind: "Basil Sprout", pose: "sit", wearColor: "#E08A4A", hatTop: true,
         bio: "A fresh little basil sprout who brings a bit of green to your desk.",
         idle: ["sway", "wave", "sparkle"], cheer: "hop",
         parts: {
@@ -58239,7 +60513,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 64, r: 5, style: "sparkle", color: "#1E3A1A"},
         mouth: {x: 60, y: 73.5, w: 3, color: "#1E3A1A"},
         cheeks: {lx: 41.5, rx: 78.5, y: 72, w: 4.4, h: 2.7, color: "#FF9A9A"},
-        anchors: {top: [60, 38, 0.9], neck: [60, 86, 1.1], chest: [72, 80, 0.6], back: [88, 64, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 83.5, 1.1, 0, 65, 55], chest: [72, 89.5, 0.6], back: [88, 64, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Fresh hello from your favorite herb!", "You're growing so well today!", "A little sunshine, a little water, a lot of you!", "Smells like success in here!", "You add flavor to everything!", "Leafing through your notes? Love it!", "Sprouting with pride over here!"],
           pet: ["Hehe! You made me extra fragrant!", "Aww, my leaves are all perky now!"],
@@ -58277,7 +60551,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 56, r: 4.8, style: "sparkle", color: "#1E2A10"},
         mouth: {x: 60, y: 65, w: 3, color: "#1E2A10"},
         cheeks: {lx: 45.5, rx: 74.5, y: 63.5, w: 4, h: 2.5, color: "#FF9A8A"},
-        anchors: {top: [60, 10, 0.75], neck: [60, 68, 0.95], chest: [69, 76, 0.55], back: [76, 54, 0.75], hands: [60, 74, 0.8]},
+        anchors: {top: [60, 14, 0.75, 0], neck: [60, 74, 0.95, 0, 47, 49], chest: [69, 79.5, 0.55], back: [76, 54, 0.75], hands: [60, 74, 0.8]},
         lines: {
           tap: ["Hello from the kelp forest!", "Swaying with joy that you're here!", "Rooted deep, reaching high, just like you!", "Go with the flow, you're doing great!", "You're growing a little every day!", "Sunbeams look good on you!", "Kelp yeah! You've got this!"],
           pet: ["Hehe! That makes my fronds wiggle!", "Ooh, bubbly and happy!"],
@@ -58310,7 +60584,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 57.5, rx: 70.5, y: 69, r: 3.8, style: "sparkle", color: "#1A3A4A"},
         mouth: {x: 64, y: 76.5, w: 2.4, color: "#1A3A4A"},
         cheeks: {lx: 53, rx: 75, y: 75, w: 3, h: 2, color: "#FF9AA8"},
-        anchors: {top: [62, 34, 0.85], neck: [62, 92, 0.95], chest: [80, 84, 0.55], back: [30, 60, 0.75], hands: [62, 92, 0.8]},
+        anchors: {top: [62, 32, 0.85, 0], neck: [61, 85, 0.95, 0, 76.5, 75.5], chest: [80, 90.5, 0.55], back: [30, 60, 0.75], hands: [62, 92, 0.8]},
         lines: {
           tap: ["Ping! Submarine Subby reporting for duty!", "Diving deep into greatness with you!", "Depth gauge says: you're amazing!", "All systems go, captain!", "Periscope up! I see a superstar!", "Exploring new depths today!", "Full speed ahead, captain!"],
           pet: ["Hehe! My hatch is all fluttery!", "Bubbles! That means I'm happy!"],
@@ -58346,7 +60620,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 51, r: 5, style: "sparkle", color: "#1A2A44"},
         mouth: {x: 60, y: 70.5, w: 3.6, color: "#1A2A44"},
         cheeks: {lx: 39, rx: 81, y: 60, w: 4.4, h: 2.6, color: "#FF9AB8"},
-        anchors: {top: [60, 29, 0.85], neck: [60, 80, 1], chest: [60, 90, 0.6], back: [84, 56, 0.8], hands: [60, 88, 0.82]},
+        anchors: {top: [60, 28, 0.85, 0], neck: [60, 80, 0.95, 0, 52, 66], chest: [60, 86, 0.6], back: [84, 56, 0.8], hands: [60, 88, 0.82]},
         lines: {
           tap: ["Click click! Hi, friend!", "You make waves wherever you go!", "Splashing with joy that you're here!", "Smart and playful, just like dolphins!", "Leap into it! You've got this!", "Swimming happy circles around you!", "Eee-eee! That means you're awesome!"],
           pet: ["Eee! Splashy happy!", "Hehe! That tickles my flippers!"],
@@ -58401,7 +60675,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "round", color: "#3A1E1A"},
         mouth: {x: 60, y: 85, w: 3, color: "#3A1E1A"},
         cheeks: {lx: 44, rx: 76, y: 83, w: 4, h: 2.6, color: "#FF8F9A"},
-        anchors: {top: [60, 16, 0.95], neck: [60, 94, 0.9], chest: [70, 96, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.8]},
+        anchors: {top: [60, 12.5, 0.95, 0], neck: [60, 94, 0.9, 0, 48, 50], chest: [70, 100.5, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.8]},
         lines: {
           tap: ["Hi hi! Want to share my umbrella? It's my cap!", "You're growing so well today!", "Slow and steady, like moss on a log. You've got this!", "My spots are all sparkly because you're here!", "Little by little, a whole forest grows!", "Rain or shine, I'm cheering for you!", "Deep breath of forest air. Ahh. Okay, onward!"],
           pet: ["Hehe, careful, my cap is ticklish!", "Aww, that made my spots blush!"],
@@ -58415,7 +60689,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "mushrooms-fiddle", name: "Fiddle", kind: "Fern Fiddlehead", pose: "stand", wearColor: "#C98B5A",
+        id: "mushrooms-fiddle", name: "Fiddle", kind: "Fern Fiddlehead", pose: "stand", wearColor: "#C98B5A", hatTop: true,
         bio: "A curly fern fiddlehead who unrolls a little more with every finished task.",
         idle: ["sway", "topBob", "headTilt"], cheer: "spin",
         neck: [60, 66],
@@ -58435,7 +60709,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 46, r: 4.4, style: "dot", color: "#20301A"},
         mouth: {x: 60, y: 55, w: 2.8, color: "#20301A"},
         cheeks: {lx: 43, rx: 77, y: 53, w: 3.8, h: 2.4, color: "#FF8FA0"},
-        anchors: {top: [60, 18, 0.85], neck: [60, 70, 0.7], chest: [64, 90, 0.5], back: [76, 86, 0.6], hands: [60, 88, 0.7]},
+        anchors: {top: [60, 18, 0.85, 0], neck: [60, 73.5, 0.7, 0, 21, 60], chest: [64, 75.5, 0.5], back: [76, 86, 0.6], hands: [60, 88, 0.7]},
         lines: {
           tap: ["Hi! I unrolled a tiny bit just seeing you!", "Every page you read, I uncurl a little more!", "Curious minds grow the tallest. That's you!", "One frond at a time, one task at a time!", "You're in such a good groove today!", "Shh, can you hear the forest cheering?", "Stretch your thinking, like me!"],
           pet: ["Eep! That makes me curl up giggling!", "Hehe, soft pats make my leaves wiggle!"],
@@ -58474,7 +60748,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 53, r: 4.6, style: "round", color: "#2A1A12"},
         mouth: {x: 60, y: 65, w: 2.2, style: "cat", color: "#2A1A12"},
         cheeks: {lx: 42, rx: 78, y: 61, w: 4, h: 2.4, color: "#FF8F9A"},
-        anchors: {top: [60, 32, 0.85], neck: [60, 74, 0.85], chest: [60, 88, 0.55], back: [86, 82, 0.7], hands: [60, 90, 0.75]},
+        anchors: {top: [60, 32, 0.85, 0], neck: [60, 76, 0.85, 0, 40, 66], chest: [60, 79.5, 0.55], back: [86, 82, 0.7], hands: [60, 90, 0.75]},
         lines: {
           tap: ["*yawn* Oh! Hi! I was just resting my eyes!", "You study, I'll keep this mushroom warm!", "Tiny steps, cozy pace, big results!", "You're doing wonderfully, sleepy-head approved!", "Snack, stretch, then back to it?", "My whiskers say today is a good day!", "Curl up with a good chapter? I'll join you!"],
           pet: ["Mmm, that's the coziest pat ever!", "Hehe, now I'm extra snuggly!"],
@@ -58516,7 +60790,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 43, r: 4.6, style: "sparkle", color: "#2A1406"},
         mouth: {x: 60, y: 52, w: 3, color: "#2A1406"},
         cheeks: {lx: 45, rx: 75, y: 50, w: 3.8, h: 2.4, color: "#FF9A8A"},
-        anchors: {top: [60, 8, 0.9], neck: [60, 76, 0.75], chest: [60, 94, 0.55], back: [76, 92, 0.6], hands: [60, 94, 0.75]},
+        anchors: {top: [60, 17.5, 0.9, 0], neck: [60, 76, 0.75, 0, 33, 69], chest: [60, 82, 0.55], back: [76, 92, 0.6], hands: [60, 94, 0.75]},
         lines: {
           tap: ["Hi! I'm turning toward you, of course!", "You're my favorite kind of sunshine!", "Stand tall and keep reaching up!", "Every task is a little ray of light!", "Look at you blooming today!", "Sip some water! Flowers and students need it!", "Face the sun, then face that next page!"],
           pet: ["Hehe! My petals went all fluttery!", "Aww, I'm glowing even brighter now!"],
@@ -58530,7 +60804,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "sunflowers-chirpy", name: "Chirpy", kind: "Goldfinch", pose: "stand", wearColor: "#E8504A",
+        id: "sunflowers-chirpy", name: "Chirpy", kind: "Goldfinch", pose: "stand", wearColor: "#E8504A", hatTop: true,
         bio: "A cheerful goldfinch who sings a happy note for every finished task.",
         idle: ["wingFlutter", "headTilt", "topBob"], cheer: "wingFlutter",
         neck: [60, 66],
@@ -58557,7 +60831,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 57, w: 2.6},
         cheeks: {lx: 44, rx: 76, y: 55, w: 3.8, h: 2.4, color: "#FF8F7A"},
-        anchors: {top: [60, 26, 0.85], neck: [60, 68, 0.85], chest: [60, 92, 0.55], back: [84, 84, 0.7], hands: [60, 96, 0.75]},
+        anchors: {top: [60, 28, 0.85, 0], neck: [60, 72.5, 0.85, 0, 45, 53], chest: [60, 73.5, 0.55], back: [84, 84, 0.7], hands: [60, 96, 0.75]},
         lines: {
           tap: ["Tweet! That's my hello note!", "I'm composing a song about your hard work!", "La la la! You're doing great!", "One note at a time makes a whole song!", "You've got the rhythm today!", "Peep! Water break? Birds love water!", "Your focus is music to my ears!"],
           pet: ["Chirp chirp! My feathers are fluffing!", "Eee! That's my favorite pat!"],
@@ -58571,7 +60845,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "sunflowers-bale", name: "Bale", kind: "Hay Bale Pal", pose: "stand", wearColor: "#C8423A",
+        id: "sunflowers-bale", name: "Bale", kind: "Hay Bale Pal", pose: "stand", wearColor: "#C8423A", hatTop: true,
         bio: "A soft, sturdy hay bale who makes a comfy spot to rest between tasks.",
         idle: ["topBob", "bounce", "waddle"], cheer: "bounce",
         parts: {
@@ -58589,7 +60863,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 72, r: 4.8, style: "round", color: "#3A2410"},
         mouth: {x: 60, y: 82, w: 3.2, color: "#3A2410"},
         cheeks: {lx: 43, rx: 77, y: 80, w: 4.2, h: 2.6, color: "#FF8F7A"},
-        anchors: {top: [60, 40, 1], neck: [60, 96, 1], chest: [72, 92, 0.6], back: [96, 70, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 36, 1, 0], neck: [60, 91, 1, 0, 79, 84], chest: [72, 97, 0.6], back: [96, 70, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Howdy! Lean on me anytime, I'm comfy!", "Steady wins the harvest, friend!", "You're working like a whole farm crew!", "Square, sturdy and proud of you!", "Hay there! Keep it up!", "Water and a snack, then back to the field?", "Little by little, the barn fills up!"],
           pet: ["Hehe! That's a bit scratchy, but I like it!", "Aww shucks, thank you kindly!"],
@@ -58629,7 +60903,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 68, r: 4.2, style: "round", color: "#2A1A12"},
         mouth: {x: 60, y: 77, w: 2.8, color: "#2A1A12"},
         cheeks: {lx: 46, rx: 74, y: 75, w: 3.6, h: 2.2, color: "#FF8F9A"},
-        anchors: {top: [72, 46, 0.85], neck: [60, 92, 1], chest: [84, 84, 0.55], back: [96, 66, 0.8], hands: [60, 96, 0.8]},
+        anchors: {top: [72, 43, 1, 0], neck: [60, 85.5, 1, 0, 75, 89], chest: [84, 91, 0.55], back: [96, 66, 0.8], hands: [60, 96, 0.8]},
         lines: {
           tap: ["Toot toot! All aboard the study express!", "Chugga chugga, you're doing great!", "Next stop: Finished Homework Station!", "Full steam ahead, friend!", "I think I can, and so can you!", "Coal break? I mean, snack break?", "We're right on schedule today!"],
           pet: ["Toot! That made my whistle squeak!", "Hehe, my wheels are spinning with joy!"],
@@ -58663,7 +60937,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 47, r: 4.4, style: "dot", color: "#2E2018"},
         mouth: {x: 60, y: 56, w: 2.8, color: "#2E2018"},
         cheeks: {lx: 44, rx: 76, y: 54, w: 3.8, h: 2.4, color: "#FF8F9A"},
-        anchors: {top: [60, 22, 0.9], neck: [60, 78, 0.85], chest: [60, 92, 0.55], back: [80, 90, 0.6], hands: [60, 96, 0.75]},
+        anchors: {top: [60, 18.5, 0.9, 0], neck: [60, 78.5, 0.85, 0, 47, 62], chest: [60, 83.5, 0.55], back: [80, 90, 0.6], hands: [60, 96, 0.75]},
         lines: {
           tap: ["Ticket, please! Oh wait, I'm the ticket!", "Every task gets a punch! Click!", "You've got a first class ticket to success!", "Valid for one amazing study session!", "Keep me safe, I'm your pass to greatness!", "Water break? It's included in the fare!", "Destination: You, but even smarter!"],
           pet: ["Hehe! Careful, don't crease me!", "Aww! I feel like a golden ticket now!"],
@@ -58677,7 +60951,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "nighttrain-satchel", name: "Satchel", kind: "Travel Suitcase", pose: "stand", wearColor: "#7FB8D8",
+        id: "nighttrain-satchel", name: "Satchel", kind: "Travel Suitcase", pose: "stand", wearColor: "#7FB8D8", hatTop: true,
         bio: "A well-traveled suitcase with stickers from every place you've studied.",
         idle: ["topBob", "waddle", "wave"], cheer: "hop",
         parts: {
@@ -58696,7 +60970,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 64, r: 4.8, style: "round", color: "#2A1A10"},
         mouth: {x: 60, y: 74, w: 3, color: "#2A1A10"},
         cheeks: {lx: 43, rx: 77, y: 72, w: 4, h: 2.6, color: "#FF8F9A"},
-        anchors: {top: [60, 40, 0.95], neck: [60, 98, 1], chest: [60, 84, 0.55], back: [96, 66, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 83, 1, 0, 84, 85], chest: [60, 88.5, 0.55], back: [96, 66, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! I packed snacks AND study notes!", "Every place you study gets a sticker on me!", "Ready for the next adventure, friend?", "You're well-traveled in knowledge!", "Pack light, think big!", "Snack check! I've got crackers in here!", "Look at all my stickers! All from your hard work!"],
           pet: ["Hehe! My latches are rattling!", "Aww, I'm all packed with happiness!"],
@@ -58717,7 +60991,7 @@ var COMP_KIT = (() => {
     theme: "ramen",
     companions: [
       {
-        id: "ramen-yolky", name: "Yolky", kind: "Soft-Boiled Egg", pose: "stand", wearColor: "#7ACB5A",
+        id: "ramen-yolky", name: "Yolky", kind: "Soft-Boiled Egg", pose: "stand", wearColor: "#7ACB5A", hatTop: true,
         bio: "A soft-boiled egg with a sunny, jammy middle and a cozy spot in the bowl.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
@@ -58734,7 +61008,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 74, r: 4.4, style: "round", color: "#4A2406"},
         mouth: {x: 60, y: 83, w: 2.8, color: "#4A2406"},
         cheeks: {lx: 44, rx: 76, y: 81, w: 3.8, h: 2.4, color: "#FF7A6A"},
-        anchors: {top: [60, 28, 0.9], neck: [60, 98, 0.9], chest: [76, 96, 0.55], back: [92, 70, 0.75], hands: [60, 100, 0.8]},
+        anchors: {top: [60, 27, 0.9, 0], neck: [60, 91, 0.9, 0, 69, 69], chest: [76, 96.5, 0.55], back: [92, 70, 0.75], hands: [60, 100, 0.8]},
         lines: {
           tap: ["Hi! Perfectly jammy and ready to help!", "Soft on the outside, strong in the middle. Like you!", "Six and a half minutes of focus? Perfect!", "You're cooking up something great today!", "Egg-cellent progress, friend!", "Sip some water! Even broth needs a break!", "Golden center, golden effort!"],
           pet: ["Hehe! Careful, I'm a little wobbly!", "Aww, my yolk is all warm now!"],
@@ -58748,7 +61022,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "ramen-naru", name: "Naru", kind: "Fishcake Swirl", pose: "stand", wearColor: "#F27AA0",
+        id: "ramen-naru", name: "Naru", kind: "Fishcake Swirl", pose: "stand", wearColor: "#F27AA0", hatTop: true,
         bio: "A swirly little fishcake who spins around whenever it's happy.",
         idle: ["spin", "topBob", "sway"], cheer: "spin",
         parts: {
@@ -58764,7 +61038,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 68, r: 4.6, style: "sparkle", color: "#3A1A2A"},
         mouth: {x: 60, y: 77, w: 2.8, color: "#3A1A2A"},
         cheeks: {lx: 43, rx: 77, y: 75, w: 4, h: 2.6, color: "#FF7AA0"},
-        anchors: {top: [60, 32, 0.9], neck: [60, 100, 0.85], chest: [74, 92, 0.55], back: [94, 66, 0.75], hands: [60, 100, 0.8]},
+        anchors: {top: [60, 33.5, 0.9, 0], neck: [60, 84.5, 0.85, 0, 80, 74], chest: [74, 90, 0.55], back: [94, 66, 0.75], hands: [60, 100, 0.8]},
         lines: {
           tap: ["Hi hi! *happy spin* Wheee!", "You're on a roll! A swirly one!", "Round and round, task by task!", "I'm the cutest topping and you're the best student!", "Spin spin! You've got this!", "Snack break? I'm not a snack, just a friend!", "Your focus is making me dizzy with joy!"],
           pet: ["Wheee! You made me spin again!", "Hehe! My swirl is blushing pink!"],
@@ -58797,7 +61071,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 50, r: 4.6, style: "sparkle", color: "#0E1A12"},
         mouth: {x: 60, y: 60, w: 2.8, color: "#0E1A12"},
         cheeks: {lx: 44, rx: 76, y: 57, w: 3.8, h: 2.4, color: "#FF8FA8"},
-        anchors: {top: [60, 20, 0.9], neck: [60, 82, 0.8], chest: [60, 94, 0.55], back: [80, 60, 0.7], hands: [60, 96, 0.75]},
+        anchors: {top: [60, 16.5, 0.9, 0], neck: [60, 67.5, 0.8, 0, 52, 64], chest: [60, 73.5, 0.55], back: [80, 60, 0.7], hands: [60, 96, 0.75]},
         lines: {
           tap: ["Hi! Standing tall in the bowl for you!", "Crisp, salty and cheering you on!", "Stand up straight, you're doing great!", "I'm your little flag of focus!", "Wave hello! You've got this!", "Water break! I'm already soaking, ha!", "Every bowl needs a nori. Every study day needs you!"],
           pet: ["Hehe! Careful, I might get soggy!", "Aww! I feel extra crispy now!"],
@@ -58860,7 +61134,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 58, r: 4.8, style: "dot", color: "#1E3A22"},
         mouth: {x: 60, y: 66.5, w: 3, color: "#1E3A22"},
         cheeks: {lx: 43.5, rx: 76.5, y: 65, w: 4.2, h: 2.6, color: "#FF9FB0"},
-        anchors: {top: [60, 31, 0.85], neck: [60, 84, 1.15], chest: [74, 74, 0.6], back: [84, 58, 0.8], hands: [60, 82, 0.9]},
+        anchors: {top: [60, 31.5, 0.85, 0], neck: [60, 76.5, 1.15, 0, 52, 73], chest: [74, 82, 0.6], back: [84, 58, 0.8], hands: [60, 82, 0.9]},
         lines: {
           tap: ["Hi! No hugs, but lots of cheering!", "You're looking sharp today!", "Slow and steady grows the tallest cactus!", "A little sun, a little study, perfect day!", "I don't need much, just you doing great!", "Every task is a drop of water for me!", "You've got this, prickles and all!", "Standing tall right beside you!"],
           pet: ["Careful, careful! Hehe, that was nice!", "Ooh, gentle pats! My flower is blushing!"],
@@ -58896,7 +61170,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 45, r: 5, style: "sparkle", color: "#16301E"},
         mouth: {x: 60, y: 54, w: 3.2, color: "#16301E"},
         cheeks: {lx: 42, rx: 78, y: 52.5, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 14, 0.8], neck: [60, 80, 1.0], chest: [72, 98, 0.6], back: [88, 46, 0.8], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 15.5, 0.8, 0], neck: [60, 80, 1, 0, 53, 66], chest: [72, 86, 0.6], back: [88, 46, 0.8], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Hi there! Want to see my newest split?", "You're growing so fast, I can tell!", "Leaf it to me to cheer you on!", "Big leaves, big ideas, big you!", "Unfurling something great today!", "Your focus is my favorite sunlight!", "One more split and I'll be fancy!", "Swaying happily beside you!"],
           pet: ["Hehe, that rustles my leaf!", "Aww, my veins are all tingly!"],
@@ -58931,7 +61205,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 70, r: 5, style: "sparkle", color: "#14304A"},
         mouth: {x: 60, y: 79, w: 3.1, color: "#14304A"},
         cheeks: {lx: 43, rx: 77, y: 77.5, w: 4.3, h: 2.6, color: "#FF9FC0"},
-        anchors: {top: [62, 21, 0.85], neck: [60, 48, 0.95], chest: [73, 92, 0.6], back: [86, 72, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [62, 19, 0.85, 0], neck: [60, 88, 0.95, 0, 63, 57], chest: [73, 94, 0.6], back: [86, 72, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Psst! A little spritz of encouragement!", "Hi! You're looking fresh today!", "Mist-ion accepted: cheer you on!", "Fine mist, finer focus! You've got this!", "A refreshing hello from me to you!", "Stay hydrated, stay amazing!", "Sprinkling good vibes everywhere!", "Ready to spritz some motivation?"],
           pet: ["Hehe! That tickles my spray nozzle!", "Ooh, sloshy happy feelings!"],
@@ -58952,7 +61226,7 @@ var COMP_KIT = (() => {
     theme: "pottery",
     companions: [
       {
-        id: "pottery-lumpy", name: "Lumpy", kind: "Clay Lump", pose: "sit", sleepy: true,
+        id: "pottery-lumpy", name: "Lumpy", kind: "Clay Lump", pose: "sit", sleepy: true, hatTop: true,
         bio: "A happy lump of clay who could become anything, just like your ideas.",
         idle: ["bounce", "topBob", "sway"], cheer: "bounce",
         neck: [60, 100],
@@ -58971,7 +61245,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 73, r: 5, style: "dot", color: "#3A2418"},
         mouth: {x: 60, y: 82, w: 3.2, color: "#3A2418"},
         cheeks: {lx: 40, rx: 80, y: 80.5, w: 4.6, h: 2.8, color: "#FF9F9F"},
-        anchors: {top: [60, 46, 0.95], neck: [60, 98, 1.2], chest: [77, 90, 0.6], back: [92, 72, 0.8], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 46.5, 0.95, 0], neck: [60, 92.5, 1.2, 0, 84, 92], chest: [77, 98, 0.6], back: [92, 72, 0.8], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! Still a lump. Still happy!", "You could make anything of today!", "Squish! That's my hello!", "Every great vase started as a lump like me!", "Let's center ourselves and spin!", "You're shaping up beautifully!", "A little pressure makes something wonderful!", "Lumpy and proud, cheering for you!"],
           pet: ["Ooh, careful, I'm squishable!", "Hehe! You left a happy thumbprint!"],
@@ -59004,7 +61278,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 72, r: 5, style: "sparkle", color: "#14204A"},
         mouth: {x: 60, y: 81, w: 3.1, color: "#14204A"},
         cheeks: {lx: 42, rx: 78, y: 79.5, w: 4.4, h: 2.7, color: "#FF9FC8"},
-        anchors: {top: [60, 26, 0.9], neck: [60, 48, 1.0], chest: [74, 94, 0.6], back: [88, 70, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 32.5, 0.9, 0], neck: [60, 90, 1, 0, 67, 61], chest: [74, 96, 0.6], back: [88, 70, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! I'm feeling extra blue today, the good kind!", "Swirl, swirl! You're doing great!", "Every layer makes the finish shine!", "You bring out my best colors!", "Dip into the next task, you've got this!", "Glossy goals, here we come!", "One coat at a time, beautifully done!", "I shimmer when you focus!"],
           pet: ["Hehe! My swirl just went teal!", "Ooh, careful, I might drip with joy!"],
@@ -59018,7 +61292,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "pottery-steepy", name: "Steepy", kind: "Little Teapot", pose: "stand",
+        id: "pottery-steepy", name: "Steepy", kind: "Little Teapot", pose: "stand", hatTop: true,
         bio: "A short, round teapot who always has something warm brewing.",
         idle: ["waddle", "topBob", "sparkle"], cheer: "hop",
         parts: {
@@ -59035,7 +61309,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 76, r: 5, style: "dot", color: "#123A34"},
         mouth: {x: 60, y: 85, w: 3.2, color: "#123A34"},
         cheeks: {lx: 40.5, rx: 79.5, y: 83.5, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 41, 0.9], neck: [60, 57, 1.05], chest: [76, 94, 0.6], back: [90, 72, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 54, 0.9, 0], neck: [60, 94.5, 1.05, 0, 59, 66.5], chest: [76, 100.5, 0.6], back: [90, 72, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! I'm short, I'm stout, I'm here for you!", "Something good is brewing, and it's you!", "Tip me over, pour me out, I'm cheering!", "Steady heat makes the best tea and the best work!", "You're steeping in greatness today!", "Let's take it one cup at a time!", "Warm thoughts coming your way!", "Whistling a happy little tune for you!"],
           pet: ["Hehe! My lid is rattling!", "Aww, toasty warm all over!"],
@@ -59074,7 +61348,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "dot", color: "#3A2414"},
         mouth: {x: 60, y: 77.5, w: 3, color: "#3A2414"},
         cheeks: {lx: 41.5, rx: 78.5, y: 76.5, w: 4.2, h: 2.6, color: "#FF9F9F"},
-        anchors: {top: [60, 37, 0.9], neck: [60, 58, 1.1], chest: [76, 98, 0.6], back: [92, 70, 0.8], hands: [60, 94, 0.85]},
+        anchors: {top: [60, 53.5, 0.9, 0], neck: [60, 87.5, 1.1, 0, 75, 77], chest: [76, 93.5, 0.6], back: [92, 70, 0.8], hands: [60, 94, 0.85]},
         lines: {
           tap: ["Hi! I'm sweet on you, you know!", "Some more? Some more cheering for you!", "Gooey hugs coming your way!", "Crunchy start, sweet finish, that's the plan!", "You're toasting through that list!", "Stay golden, my friend!", "Sandwiched between pride and joy!", "Warm by the fire, cheering for you!"],
           pet: ["Hehe! Careful, I'm melty!", "Ooh, extra gooey happiness!"],
@@ -59088,7 +61362,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "campfire-lumen", name: "Lumen", kind: "Camp Lantern", pose: "stand", wearColor: "#3E7A5C",
+        id: "campfire-lumen", name: "Lumen", kind: "Camp Lantern", pose: "stand", wearColor: "#3E7A5C", hatTop: true,
         bio: "A cozy camp lantern who glows a little brighter as the night goes on.",
         idle: ["sway", "sparkle", "topBob"], cheer: "bounce",
         parts: {
@@ -59108,7 +61382,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 53, rx: 67, y: 68, r: 4.3, style: "sparkle", color: "#3A2414"},
         mouth: {x: 60, y: 76, w: 2.8, color: "#3A2414"},
         cheeks: {lx: 49, rx: 71, y: 74.5, w: 3, h: 2, color: "#FF8F70"},
-        anchors: {top: [60, 19, 0.85], neck: [60, 46, 1.0], chest: [74, 104, 0.55], back: [88, 72, 0.8], hands: [60, 102, 0.85]},
+        anchors: {top: [60, 38, 0.85, 0], neck: [60, 84.5, 1, 0, 49, 63], chest: [74, 90, 0.55], back: [88, 72, 0.8], hands: [60, 102, 0.85]},
         lines: {
           tap: ["Hi! I saved my brightest glow for you!", "Lighting the way, one task at a time!", "You're the spark, I'm just the lantern!", "Even little lights make a big difference!", "Glowing warmer the more you do!", "Follow my light, we're almost there!", "Bright idea alert! It's you!", "Shining right beside you!"],
           pet: ["Hehe! My flame just did a little dance!", "Aww, toasty and glowy!"],
@@ -59146,7 +61420,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 51, r: 4.6, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 71, w: 2.4, style: "cat", color: "#2B1A10"},
         cheeks: {lx: 42.5, rx: 77.5, y: 58.5, w: 4, h: 2.4, color: "#FF8F8F"},
-        anchors: {top: [60, 32, 0.95], neck: [60, 76, 1.05], chest: [70, 97, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 37, 0.95, 0], neck: [60, 79, 1.05, 0, 49, 61], chest: [70, 83.5, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! My antlers are coming any day now!", "You're moose-ively awesome!", "Big strides, little hooves, we've got this!", "Waiting patiently, cheering loudly!", "Every task is a step through the forest!", "You make this campsite cozy!", "Ears up! Ready to cheer!", "Growing a little every day, like you!"],
           pet: ["Hehe! Right behind the ears, yes!", "Aww, that's the spot!"],
@@ -59184,7 +61458,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 68, r: 4.6, style: "sparkle", color: "#10203E"},
         mouth: {x: 60, y: 77, w: 3, color: "#10203E"},
         cheeks: {lx: 44.5, rx: 75.5, y: 75.5, w: 3.8, h: 2.4, color: "#FF9FC0"},
-        anchors: {top: [60, 45, 0.85], neck: [60, 88, 0.9], chest: [70, 86, 0.55], back: [88, 62, 0.8], hands: [60, 86, 0.8]},
+        anchors: {top: [60, 26.5, 0.85, 0], neck: [60, 85, 0.85, 0, 46, 52], chest: [70, 91, 0.55], back: [88, 62, 0.8], hands: [60, 86, 0.8]},
         lines: {
           tap: ["Wheee! Hi there, you!", "Gliding over to say you're great!", "Loop-de-loop! That's how happy I am!", "Smooth sailing through that list!", "Flap, flap, focus! You've got this!", "Riding the current right beside you!", "You make the whole tank sparkle!", "Swooping in with good vibes!"],
           pet: ["Hehe! That tickles my wings!", "Ooh, soft and swirly!"],
@@ -59198,7 +61472,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "aquarium-puff", name: "Puff", kind: "Pufferfish", pose: "float",
+        id: "aquarium-puff", name: "Puff", kind: "Pufferfish", pose: "float", hatTop: true,
         bio: "A round little pufferfish who puffs up with joy whenever you finish a task.",
         idle: ["finWiggle", "topBob", "bounce"], cheer: "bounce",
         parts: {
@@ -59217,7 +61491,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 67, y: 66, r: 6, style: "round", color: "#2B2233"},
         mouth: {x: 57, y: 79, w: 2.6, color: "#2B2233"},
         cheeks: {lx: 39.5, rx: 74.5, y: 76, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [58, 38, 0.85], neck: [58, 94, 0.9], chest: [70, 90, 0.55], back: [86, 58, 0.8], hands: [58, 92, 0.85]},
+        anchors: {top: [58, 43, 0.85, 0], neck: [58, 85, 0.9, 0, 50, 56], chest: [70, 92.5, 0.55], back: [86, 58, 0.8], hands: [58, 92, 0.85]},
         lines: {
           tap: ["Oh! Hi! You startled me in the best way!", "Puffing up with pride for you!", "I'm all spiky with excitement!", "Big breath in, big focus out!", "You're doing fin-tastic!", "Small fish, big cheers!", "Let's puff through this together!", "Bubbling over with good vibes!"],
           pet: ["Eep! Hehe, careful with the spikes!", "Ooh, I'm deflating happily!"],
@@ -59252,7 +61526,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 62, y: 46, r: 4, style: "sparkle", color: "#3A1A10"},
         mouth: {x: 56, y: 54, w: 2.4, color: "#3A1A10"},
         cheeks: {lx: 45, rx: 67, y: 52.5, w: 3.2, h: 2, color: "#FF8FA8"},
-        anchors: {top: [56, 24, 0.8], neck: [58, 62, 0.8], chest: [62, 78, 0.5], back: [44, 72, 0.75], hands: [58, 86, 0.8]},
+        anchors: {top: [56, 36, 0.8, 0], neck: [56, 64.5, 0.8, 0, 26.5, 45], chest: [62, 67, 0.5], back: [44, 72, 0.75], hands: [58, 86, 0.8]},
         lines: {
           tap: ["Hi! I've got your list, nice and tight!", "Holding on for you, always!", "Curl up and conquer, you've got this!", "Bobbing along beside you!", "One item at a time, I'll keep the list safe!", "You're doing fin-credibly well!", "Tiny but mighty, like your progress!", "Swaying with the current, cheering for you!"],
           pet: ["Hehe! My tail just curled tighter!", "Aww, that makes my crown sparkle!"],
@@ -59287,7 +61561,7 @@ var COMP_KIT = (() => {
     theme: "diadelosmuertos",
     companions: [
       {
-        id: "diadelosmuertos-dulce", name: "Dulce", kind: "Sugar Skull Sprite", pose: "float", wearColor: "#2EC4D0",
+        id: "diadelosmuertos-dulce", name: "Dulce", kind: "Sugar Skull Sprite", pose: "float", wearColor: "#2EC4D0", hatTop: true, scarfOverArms: true,
         bio: "A cheerful sugar skull sprite decorated with icing flowers and a big smile.",
         idle: ["topBob", "sparkle", "headTilt"], cheer: "spin",
         neck: [60, 84],
@@ -59313,7 +61587,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 56, r: 5, style: "sparkle", color: "#2B1A2E"},
         mouth: {x: 60, y: 75, w: 3.6, color: "#2B1A2E"},
         cheeks: {lx: 38, rx: 82, y: 70, w: 3.6, h: 2.2, color: "#FF8FB8"},
-        anchors: {top: [60, 22, 1], neck: [60, 86, 0.95], chest: [70, 96, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 20, 1, 0], neck: [60, 89.5, 0.95, 0, 41, 57], chest: [70, 93, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["¡Hola! I iced a flower just for you!", "Sweet as sugar, sharp as a pencil!", "Your memory is getting stronger!", "Every page you study is worth remembering!", "Look at you go! So colorful!", "A big sugary smile for your hard work!", "Remember: you're doing amazing!", "Marigolds, candles and you, all glowing!"],
           pet: ["Hehe! Careful, my icing tickles!", "Aww, so sweet! Sweeter than me!"],
@@ -59353,7 +61627,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 52, r: 4.8, style: "round", color: "#1E1A28"},
         mouth: {x: 60, y: 67.5, w: 3.4, color: "#1E1A28"},
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF9AB8"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 78, 1], chest: [72, 94, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 80.5, 1, 0, 50, 65], chest: [72, 85, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Woof! Hi hi hi! I'm so happy you're here!", "My ears are up! That means I'm listening!", "You're my favorite study buddy!", "Good human! Great studying!", "Tail wags for every page you read!", "I'll guard your focus. Nobody gets past!", "Sniff sniff. Smells like success!", "Big ears, big heart, big cheers for you!"],
           pet: ["Hehe! Ear scratches are the best!", "Woof! More pats please!"],
@@ -59367,7 +61641,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "diadelosmuertos-cempa", name: "Cempa", kind: "Marigold Sprite", pose: "stand", wearColor: "#3E8E52",
+        id: "diadelosmuertos-cempa", name: "Cempa", kind: "Marigold Sprite", pose: "stand", wearColor: "#3E8E52", hatTop: true,
         bio: "A bright marigold sprite whose orange petals light the way.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
@@ -59384,7 +61658,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 57, r: 4.6, style: "sparkle", color: "#3A1A08"},
         mouth: {x: 60, y: 66, w: 3, color: "#3A1A08"},
         cheeks: {lx: 44, rx: 76, y: 64, w: 3.8, h: 2.4, color: "#FF7A6A"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 84, 0.9], chest: [70, 76, 0.6], back: [86, 50, 0.8], hands: [60, 88, 0.8]},
+        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 74.5, 0.9, 0, 68, 68], chest: [70, 81, 0.6], back: [86, 50, 0.8], hands: [60, 88, 0.8]},
         lines: {
           tap: ["Hi! I'm lighting up your way today!", "Bloom where you study!", "Your ideas are as bright as my petals!", "Follow the petals, you'll find the answer!", "Golden-orange cheers for you!", "Every page is a petal on your path!", "Shine on! Brighter every day!", "You make this whole street glow!"],
           pet: ["Hehe! My petals are fluttering!", "Aww, I'm blooming with joy!"],
@@ -59405,7 +61679,7 @@ var COMP_KIT = (() => {
     theme: "holi",
     companions: [
       {
-        id: "holi-puffy", name: "Puffy", kind: "Color Powder Puff", pose: "float", wearColor: "#9A5AE0",
+        id: "holi-puffy", name: "Puffy", kind: "Color Powder Puff", pose: "float", wearColor: "#9A5AE0", hatTop: true,
         bio: "A soft puff of color powder who leaves a little rainbow wherever it lands.",
         idle: ["bounce", "sparkle", "topBob"], cheer: "spin",
         parts: {
@@ -59421,7 +61695,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 72, r: 5, style: "sparkle", color: "#3A1A3A"},
         mouth: {x: 60, y: 82, w: 3.2, color: "#3A1A3A"},
         cheeks: {lx: 42, rx: 78, y: 80, w: 4.2, h: 2.6, color: "#FF6AA8"},
-        anchors: {top: [60, 42, 0.95], neck: [60, 98, 1], chest: [72, 92, 0.66], back: [88, 62, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 91, 1, 0, 66, 64.5], chest: [72, 97.5, 0.62], back: [88, 62, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Poof! Hi! A little rainbow for you!", "You're bringing so much color to today!", "Bright mind, bright day!", "Every page adds a new color!", "Puff puff! You're doing great!", "Let's paint this chapter every color!", "Happy, fluffy cheers for you!", "Sprinkle, sprinkle, here comes success!"],
           pet: ["Poof! Now your hands are rainbow!", "Hehe! I'm all fluffed up!"],
@@ -59435,7 +61709,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "holi-rang", name: "Rang", kind: "Rainbow Elephant Calf", pose: "stand", wearColor: "#FF4A9A",
+        id: "holi-rang", name: "Rang", kind: "Rainbow Elephant Calf", pose: "stand", wearColor: "#FF4A9A", hatTop: true,
         bio: "A rainbow elephant calf painted in every color and very proud of it.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
@@ -59448,8 +61722,8 @@ var COMP_KIT = (() => {
             <circle cx="98" cy="54" r="5" fill="#3A8AE8" opacity=".85"/><circle cx="94" cy="66" r="4" fill="#FF4A9A" opacity=".85"/><circle cx="104" cy="64" r="3" fill="#9A5AE0" opacity=".85"/>`, pivot: [80, 56]},
           body: `${LG("holi-rang-b", [[0, "#C8D0E4"], [1, "#9AA4C0"]])}
             <path d="M34 98C30 80 42 70 60 70C78 70 90 80 86 98Z" fill="url(#holi-rang-b)" ${O}/>
-            <circle cx="46" cy="84" r="5" fill="#FF4A9A" opacity=".75"/><circle cx="74" cy="82" r="6" fill="#2EC07A" opacity=".7"/><circle cx="62" cy="92" r="4" fill="#FFC62A" opacity=".8"/>
-            <path d="M60 30C80 30 88 44 86 58C84 70 74 76 60 76C46 76 36 70 34 58C32 44 40 30 60 30Z" fill="url(#holi-rang-b)" ${O}/>
+            <circle cx="46" cy="84" r="5" fill="#FF4A9A" opacity=".75"/><circle cx="74" cy="82" r="6" fill="#2EC07A" opacity=".7"/><circle cx="62" cy="92" r="4" fill="#FFC62A" opacity=".8"/>`,
+          over: `<path d="M60 30C80 30 88 44 86 58C84 70 74 76 60 76C46 76 36 70 34 58C32 44 40 30 60 30Z" fill="url(#holi-rang-b)" ${O}/>
             <path d="M60 62Q58 72 62 78Q67 82 71 77" fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round"/><path d="M60 62Q58 72 62 78Q67 82 71 77" fill="none" stroke="#AEB8D0" stroke-width="6.6" stroke-linecap="round"/>
             <path d="M58.6 68h4M59.6 74h4" stroke="#8A94B0" stroke-width="1.4" stroke-linecap="round"/>
             <circle cx="44" cy="44" r="4" fill="#FF7AB8" opacity=".7"/><circle cx="78" cy="42" r="3.4" fill="#5AA0F0" opacity=".7"/>
@@ -59459,7 +61733,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 54, r: 4.6, style: "sparkle", color: "#2A2440"},
         mouth: {x: 49, y: 68, w: 2.6, color: "#2A2440"},
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF7AB8"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [72, 88, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 76, 1, 0, 49, 59], bow: [60, 85, 0.65], chest: [72, 82.5, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
         lines: {
           tap: ["Toot! Hi! Look at all my colors!", "I'm painted for good luck, and so are you!", "Big ears, big ideas, big cheers!", "You're doing trunk-tastic!", "Every color on me is a cheer for you!", "Stomp stomp! Look how far you've come!", "An elephant never forgets, and neither will you!", "You make my whole day colorful!"],
           pet: ["Toot toot! That tickles my ears!", "Hehe! More pats, please!"],
@@ -59473,7 +61747,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "holi-spritz", name: "Spritz", kind: "Water Splasher", pose: "stand", wearColor: "#3A8AE8",
+        id: "holi-spritz", name: "Spritz", kind: "Water Splasher", pose: "stand", wearColor: "#3A8AE8", hatTop: true,
         bio: "A little water splasher who sprays bright colors every time you win.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         parts: {
@@ -59493,7 +61767,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 64, r: 4.6, style: "sparkle", color: "#1E2A48"},
         mouth: {x: 60, y: 73, w: 3, color: "#1E2A48"},
         cheeks: {lx: 43, rx: 77, y: 71, w: 3.8, h: 2.4, color: "#FF8AC8"},
-        anchors: {top: [60, 22, 0.9], neck: [60, 80, 0.95], chest: [72, 88, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
+        anchors: {top: [60, 49.5, 0.9, 0], neck: [60, 82, 0.95, 0, 63, 57], chest: [72, 88.5, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Psssht! Hi! A tiny splash hello!", "Pump it up! You're doing great!", "Splish splash, look at you go!", "I'm full of colorful cheers!", "Keep going and I'll spray a rainbow!", "Fresh, bright and ready to help!", "One more page, one more splash!", "You're making a big splash today!"],
           pet: ["Hehe! Careful, I might spritz you!", "Psssht! Happy little bubbles!"],
@@ -59538,7 +61812,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 53, rx: 67, y: 64, r: 3.8, style: "sparkle", color: "#3A1A10"},
         mouth: {x: 60, y: 73, w: 2.6, color: "#3A1A10"},
         cheeks: {lx: 47, rx: 73, y: 71, w: 3, h: 2, color: "#FFB0A0"},
-        anchors: {top: [60, 22, 0.9], neck: [60, 94, 0.95], chest: [70, 84, 0.6], back: [84, 60, 0.8], hands: [60, 92, 0.86]},
+        anchors: {top: [60, 23.5, 0.9, 0], neck: [60, 81.5, 0.95, 0, 53, 56], chest: [70, 87.5, 0.6], back: [84, 60, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Hello! I've got a little light for you!", "Every page you read makes me glow brighter!", "Look at the stars I'm throwing on the wall!", "Warm light, kind heart, clear mind!", "You're shining tonight!", "Little by little, the whole street lights up!", "Patience and light, that's the way!", "So glad to glow beside you!"],
           pet: ["Hehe! My glass panes are blushing!", "Aww, that makes my flame dance!"],
@@ -59552,7 +61826,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "ramadan-hilal", name: "Hilal", kind: "Crescent Moon Sprite", pose: "float", wearColor: "#F2C45A",
+        id: "ramadan-hilal", name: "Hilal", kind: "Crescent Moon Sprite", pose: "float", wearColor: "#F2C45A", hatTop: true,
         bio: "A soft crescent moon who rises right on time every evening.",
         idle: ["topBob", "sparkle", "headTilt"], cheer: "bounce",
         neck: [60, 92],
@@ -59568,7 +61842,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 37, rx: 48, y: 57, r: 3.8, style: "dot", color: "#3A2A10"},
         mouth: {x: 42.5, y: 65.5, w: 2.6, color: "#3A2A10"},
         cheeks: {lx: 33, rx: 52, y: 63.5, w: 3, h: 1.8, color: "#FF9AB0"},
-        anchors: {top: [52, 24, 0.8], neck: [56, 92, 0.85], chest: [62, 100, 0.55], back: [70, 70, 0.7], hands: [58, 100, 0.8]},
+        anchors: {top: [52, 27.5, 0.9, 0], neck: [60, 94.5, 0.85, 0, 29, 31], chest: [62, 97.5, 0.55], back: [70, 70, 0.7], hands: [58, 100, 0.8]},
         lines: {
           tap: ["Good evening! Right on time, as always!", "I rise every night, and so do you!", "Small and bright, that's the way!", "Your effort shines like starlight!", "Patience grows into something full!", "A little glow, every single day!", "The stars are cheering with me!", "You're as steady as the moon!"],
           pet: ["Hehe! My tips are curling up!", "Aww, that's a warm, glowy feeling!"],
@@ -59582,7 +61856,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "ramadan-kahki", name: "Kahki", kind: "Kahk Cookie", pose: "stand", wearColor: "#C99A2E",
+        id: "ramadan-kahki", name: "Kahki", kind: "Kahk Cookie", pose: "stand", wearColor: "#C99A2E", hatTop: true,
         bio: "A sweet kahk cookie dusted in sugar and stamped with a pretty pattern.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -59600,7 +61874,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "sparkle", color: "#3A2414"},
         mouth: {x: 60, y: 80, w: 3, color: "#3A2414"},
         cheeks: {lx: 42, rx: 78, y: 78, w: 4, h: 2.4, color: "#FF9AA8"},
-        anchors: {top: [60, 40, 0.95], neck: [60, 98, 1], chest: [72, 90, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 89, 1, 0, 63, 62], chest: [72, 95.5, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hello! Freshly baked and ready to help!", "A sprinkle of sugar for your hard work!", "Sweet things take patience. Like you!", "Stamped with a pattern of good luck!", "You're doing wonderfully, crumb by crumb!", "Powdered sugar cheers for you!", "Every page, a little sweeter!", "Best shared with friends, like this study time!"],
           pet: ["Hehe! Careful, sugar everywhere!", "Aww, warm hands, warm cookie!"],
@@ -59621,7 +61895,7 @@ var COMP_KIT = (() => {
     theme: "midautumn",
     companions: [
       {
-        id: "midautumn-tuzi", name: "Tuzi", kind: "Jade Rabbit", pose: "sit", sleepy: true, wearColor: "#7AC8A8",
+        id: "midautumn-tuzi", name: "Tuzi", kind: "Jade Rabbit", pose: "sit", sleepy: true, wearColor: "#7AC8A8", hatTop: true,
         bio: "A gentle jade rabbit who hops down from the moon to study with you.",
         idle: ["earTwitch", "headTilt", "topBob"], cheer: "hop",
         neck: [60, 76],
@@ -59646,7 +61920,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 58, r: 4.6, style: "round", color: "#2A3A34"},
         mouth: {x: 60, y: 69, w: 2.8, color: "#2A3A34"},
         cheeks: {lx: 42, rx: 78, y: 66, w: 4, h: 2.4, color: "#FFA6BE"},
-        anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [72, 96, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 33.5, 0.95, 0], neck: [60, 82.5, 1, 0, 53, 65], chest: [72, 86.5, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hello from the moon! I hopped down to see you!", "Tap, tap! Working through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
           pet: ["Hehe! My ears are wiggling!", "Aww, softer than moonlight!"],
@@ -59660,7 +61934,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "midautumn-bing", name: "Bing", kind: "Mooncake", pose: "stand", wearColor: "#B8402E",
+        id: "midautumn-bing", name: "Bing", kind: "Mooncake", pose: "stand", wearColor: "#B8402E", hatTop: true,
         bio: "A round, golden mooncake stamped with a lucky pattern.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "spin",
         parts: {
@@ -59678,7 +61952,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "sparkle", color: "#3A2010"},
         mouth: {x: 60, y: 80, w: 3, color: "#3A2010"},
         cheeks: {lx: 43, rx: 77, y: 78, w: 4, h: 2.4, color: "#FF8A80"},
-        anchors: {top: [60, 40, 0.95], neck: [60, 98, 1], chest: [72, 92, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 89, 1, 0, 66, 66], chest: [72, 95.5, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hi! I'm stamped with luck, just for you!", "Round and golden, like your bright ideas!", "Sweet filling, sweet effort!", "Share a slice of focus with me!", "You're on a roll! A round one!", "Every bite of study counts!", "Moonlight and mooncakes, perfect study night!", "Lucky pattern, lucky you!"],
           pet: ["Hehe! My crust is all warm now!", "Aww, so sweet! Sweeter than my filling!"],
@@ -59692,7 +61966,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "midautumn-osma", name: "Osma", kind: "Osmanthus Sprite", pose: "float", wearColor: "#5E9A62",
+        id: "midautumn-osma", name: "Osma", kind: "Osmanthus Sprite", pose: "float", wearColor: "#5E9A62", hatTop: true,
         bio: "A tiny golden osmanthus flower who smells like honey.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
@@ -59711,7 +61985,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 66, r: 4.4, style: "sparkle", color: "#3A2008"},
         mouth: {x: 60, y: 75, w: 3, color: "#3A2008"},
         cheeks: {lx: 46, rx: 74, y: 73, w: 3.6, h: 2.2, color: "#FF8A6A"},
-        anchors: {top: [60, 48, 0.85], neck: [60, 94, 0.9], chest: [70, 88, 0.6], back: [86, 56, 0.8], hands: [60, 94, 0.82]},
+        anchors: {top: [60, 31.5, 0.85, 0], neck: [60, 83.5, 0.9, 0, 65.5, 67.5], chest: [70, 90, 0.6], back: [86, 56, 0.8], hands: [60, 94, 0.82]},
         lines: {
           tap: ["Hello! Mmm, smells like honey in here!", "Tiny flower, giant cheers for you!", "Your ideas are blooming!", "Sweet scents and sweet success!", "Little petals add up to a whole tree!", "Golden thoughts for a golden student!", "You make the whole garden smell sweeter!", "Bloom, bloom, keep going!"],
           pet: ["Hehe! Now you smell like honey too!", "Aww, my petals are all fluttery!"],
@@ -59749,7 +62023,7 @@ var COMP_KIT = (() => {
     theme: "france",
     companions: [
       {
-        id: "france-coco", name: "Coco", kind: "Croissant", pose: "stand", wearColor: "#C8463E",
+        id: "france-coco", name: "Coco", kind: "Croissant", pose: "stand", wearOnHead: true, wearColor: "#C8463E",
         bio: "A flaky golden croissant, folded with care just like your notes.",
         idle: ["topBob", "sway", "headTilt"], cheer: "bounce",
         neck: [60, 88],
@@ -59777,7 +62051,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 70, r: 4.2, style: "sparkle", color: "#3A2010"},
         mouth: {x: 60, y: 79, w: 3, color: "#3A2010"},
         cheeks: {lx: 48, rx: 72, y: 77, w: 3.4, h: 2.2, color: "#FF8A70"},
-        anchors: {top: [61, 40, 0.9], neck: [60, 98, 1], chest: [74, 92, 0.6], back: [88, 66, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [61, 34, 0.9, 0], neck: [60, 87, 0.9, 0, 40, 60], chest: [74, 104, 0.6], back: [88, 66, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Bonjour! Fresh from the oven, just for you!", "Flaky on the outside, focused on the inside!", "Fold by fold, your notes get better!", "You're rising beautifully, like good dough!", "A little butter, a lot of effort. Bravo!", "Ooh la la, look at you study!", "Golden ideas, warm and crisp!", "One more page, then a café au lait?"],
           pet: ["Hehe! Careful, I leave crumbs!", "Aww, warm and toasty now!"],
@@ -59816,7 +62090,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "round", color: "#2E2230"},
         mouth: {x: 60, y: 72, w: 2.6, color: "#2E2230", style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 65, w: 4, h: 2.4, color: "#FFA6BE"},
-        anchors: {top: [60, 38, 0.9], neck: [60, 80, 1], chest: [72, 96, 0.6], back: [84, 88, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 33.5, 0.9, 0], neck: [60, 82.5, 1, 0, 49, 57], chest: [72, 86, 0.6], back: [84, 88, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Bonjour! I fluffed my pom-poms for you!", "Neat notes, tidy desk, happy pup!", "Woof! Study time is my favorite time!", "You're doing it with style, as always!", "Sit, stay, focus! Good human!", "A stroll by the Seine after this?", "My tail wags for every page you read!", "Impeccable work. I approve!"],
           pet: ["Hehe! Mind the pom-poms!", "Aww! Wag wag wag!"],
@@ -59830,7 +62104,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "france-mac", name: "Mac", kind: "Macaron", pose: "stand", wearColor: "#7AC8A8",
+        id: "france-mac", name: "Mac", kind: "Macaron", pose: "stand", wearColor: "#7AC8A8", hatTop: true, scarfOverArms: true,
         bio: "A little pink macaron who brings a sweet bite of joy to study time.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
@@ -59854,7 +62128,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 56, r: 4.6, style: "sparkle", color: "#4A2030"},
         mouth: {x: 60, y: 64, w: 3, color: "#4A2030"},
         cheeks: {lx: 42, rx: 78, y: 62, w: 4, h: 2.4, color: "#FF7A9A"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 79, 1], chest: [72, 92, 0.6], back: [90, 56, 0.8], hands: [60, 98, 0.84]},
+        anchors: {top: [60, 29.5, 0.9, 0], neck: [60, 73, 1, 0, 77, 88], chest: [72, 79, 0.6], back: [90, 56, 0.8], hands: [60, 98, 0.84]},
         lines: {
           tap: ["Bonjour! Sweet thoughts, crisp focus!", "Crunchy outside, soft heart, big cheers!", "You're the filling to my day!", "Pastel and proud of you!", "Tiny but mighty, just like your breaks!", "A raspberry on top of your hard work!", "Ooh la la, that's some sweet progress!", "Stack up the pages like a macaron tower!"],
           pet: ["Hehe! Don't squish my filling!", "Aww, sweeter than sugar!"],
@@ -59886,7 +62160,7 @@ var COMP_KIT = (() => {
     theme: "japan",
     companions: [
       {
-        id: "japan-kuri", name: "Kuri", kind: "Shiba Inu Pup", pose: "sit", wearColor: "#D8402E",
+        id: "japan-kuri", name: "Kuri", kind: "Shiba Inu Pup", pose: "sit", wearColor: "#D8402E", scarfOverArms: true,
         bio: "A smiley shiba pup with a curly tail who keeps watch on your deadlines.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 76],
@@ -59915,7 +62189,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 54, r: 4.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 68, w: 3.2, color: "#2B2233", style: "cat"},
         cheeks: {lx: 41, rx: 79, y: 63, w: 4.4, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 32, 0.95], neck: [60, 80, 1], chest: [60, 85, 0.5], back: [84, 86, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 82.5, 1, 0, 55, 70], chest: [60, 84.5, 0.5], back: [84, 86, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Woof! Your deadlines are safe with me!", "Tail curled up tight, ready to help!", "I sniffed out your next task. Let's go!", "Shiba smile for you! You've got this!", "Big ears, big heart, big cheers!", "I'll keep watch while you study!", "One task at a time, like one treat at a time!", "You make my tail spin in circles!"],
           pet: ["Hehe! Right behind the ears, please!", "Aww! My tail is wagging so fast!"],
@@ -59929,7 +62203,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "japan-daru", name: "Daru", kind: "Daruma Doll", pose: "stand", wearColor: "#E6B23A",
+        id: "japan-daru", name: "Daru", kind: "Daruma Doll", pose: "stand", wearColor: "#E6B23A", hatTop: true,
         bio: "A sturdy daruma doll who always gets back up, no matter how many falls.",
         idle: ["sway", "topBob", "sparkle"], cheer: "bounce",
         parts: {
@@ -59948,7 +62222,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 58, r: 5, style: "round", color: "#2B2233"},
         mouth: {x: 60, y: 69, w: 3, color: "#2B2233"},
         cheeks: {lx: 43, rx: 77, y: 66, w: 4, h: 2.4, color: "#FF8A80"},
-        anchors: {top: [60, 24, 0.9], neck: [60, 82, 1], chest: [72, 94, 0.6], back: [94, 66, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 24, 0.9, 0], neck: [60, 78, 1, 0, 79, 80], chest: [72, 84, 0.6], back: [94, 66, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Wobble, wobble, back up again!", "Seven tumbles, eight comebacks!", "Make a wish and paint one eye!", "I'm round, red and never give up!", "A tough page? Roll with it!", "Steady base, steady progress!", "You can't knock us down today!", "Goals set! Let's get them done!"],
           pet: ["Hehe! You made me wobble!", "Aww, I'm blushing redder than ever!"],
@@ -59962,7 +62236,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearColor: "#3A8A5A",
+        id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearOnHead: true, wearColor: "#3A8A5A", hatTop: true, scarfOverArms: true,
         bio: "A little rice ball in a nori sash with a big can-do attitude.",
         idle: ["topBob", "wave", "headTilt"], cheer: "hop",
         neck: [60, 104],
@@ -59983,7 +62257,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 68, r: 4.2, style: "sparkle", color: "#2B2233"},
         mouth: {x: 60, y: 76, w: 3, color: "#2B2233"},
         cheeks: {lx: 44, rx: 76, y: 75, w: 3.8, h: 2.2, color: "#FF9AA8"},
-        anchors: {top: [60, 30, 0.85], neck: [60, 84, 0.9], chest: [70, 94, 0.55], back: [90, 78, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 37, 0.85, 0], neck: [60, 80.5, 0.95, 0, 66, 89], chest: [60, 86, 0.55], back: [90, 78, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Rice to meet you! Let's do this!", "Packed tight with good ideas!", "Nori sash on, ready for action!", "A snack-sized step is still a step!", "Fuel up, focus up, finish up!", "My plum center is pure courage!", "We're on a roll! Well, a ball!", "Every grain counts, like every page!"],
           pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Warm hands, happy rice!"],
@@ -60049,7 +62323,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 77, r: 4.6, style: "sparkle", color: "#2A2230"},
         mouth: {x: 60, y: 87, w: 3, color: "#2A2230"},
         cheeks: {lx: 42, rx: 78, y: 85, w: 4, h: 2.4, color: "#FF9AA8"},
-        anchors: {top: [60, 30, 0.8], neck: [60, 49, 0.9], chest: [70, 94, 0.6], back: [30, 78, 0.7], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 26.5, 0.8, 0], neck: [60, 95.5, 0.9, 0, 54, 62], chest: [70, 102, 0.6], back: [30, 78, 0.7], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Ahlan! Fresh mint tea, poured just for you!", "Three glasses: one for focus, one for joy, one for luck.", "Pour from up high, and do your best work!", "Steady hands, steady mind. You've got this!", "Sweet and minty, like a job well done!", "Steeping ideas takes patience. You're doing great!", "A little sip, a little step, every day.", "The best study chats happen over tea!"],
           pet: ["Hehe! Careful, I'm still warm!", "Aww, that makes my lid jiggle!"],
@@ -60063,7 +62337,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E",
+        id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E", scarfOverArms: true,
         bio: "A fennec fox kit from the riad whose giant ears hear every deadline coming.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 78],
@@ -60093,7 +62367,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47.5, rx: 72.5, y: 59.5, r: 5, style: "round", color: "#2A2026"},
         mouth: {x: 60, y: 74.6, w: 2.6, color: "#2A2026", style: "cat"},
         cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.4, color: "#FFA2A2"},
-        anchors: {top: [60, 40, 0.9], neck: [60, 81, 1], chest: [60, 94, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 85.5, 1, 0, 48.5, 63], chest: [60, 87, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["My ears heard you studying from the desert!", "Big ears, big plans, little paws. Let's go!", "I hear a deadline... and you're way ahead of it!", "Desert foxes keep cool. So can you!", "Every grain of sand adds up to a dune!", "Listen closely: you're doing great!", "I dug a cozy spot right next to your notes.", "Sharp ears, sharp mind. That's you!"],
           pet: ["Hehe! Scratch behind the big ears!", "Aww, my tail is wagging all by itself!"],
@@ -60107,7 +62381,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "morocco-limoun", name: "Limoun", kind: "Little Orange", pose: "stand", wearColor: "#3E8A4E",
+        id: "morocco-limoun", name: "Limoun", kind: "Little Orange", pose: "stand", wearColor: "#3E8A4E", hatTop: true,
         bio: "A little orange from the courtyard tree who's full of sunshine.",
         idle: ["topBob", "sway", "wave"], cheer: "spin",
         parts: {
@@ -60127,7 +62401,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 71, r: 4.8, style: "sparkle", color: "#3A1E10"},
         mouth: {x: 60, y: 81, w: 3, color: "#3A1E10"},
         cheeks: {lx: 42, rx: 78, y: 79, w: 4, h: 2.4, color: "#FF7A6A"},
-        anchors: {top: [60, 40, 0.95], neck: [60, 99, 1], chest: [72, 92, 0.62], back: [88, 64, 0.8], hands: [60, 99, 0.86]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 90, 1, 0, 62, 61], chest: [72, 96.5, 0.62], back: [88, 64, 0.8], hands: [60, 99, 0.86]},
         lines: {
           tap: ["Hi! I'm a little ball of courtyard sunshine!", "Squeeze the day! Gently, please!", "You're growing so much, just like my tree!", "Bright ideas ripen with time. Keep going!", "Zesty work today! I'm so proud!", "The fountain sings, the sun shines, you study!", "A little sweet, a little tangy, all good!", "Orange you glad you showed up today? I am!"],
           pet: ["Hehe! That tickles my peel!", "Aww, I smell like blossoms now!"],
@@ -60176,8 +62450,8 @@ var COMP_KIT = (() => {
             <path d="M40 80Q60 72 80 80L82 92Q60 86 38 92Z" fill="url(#thailand-chang-c)" ${O2}/>
             <path d="M39 90Q60 84 81 90" fill="none" stroke="#F2C24A" stroke-width="2.2" stroke-linecap="round"/>
             ${[44, 52, 60, 68, 76].map(x => `<path d="M${x} ${x === 60 ? 87 : 88}l-1.6 5h3.2z" fill="#F2C24A" ${OW(0.9)}/>`).join("")}
-            <circle cx="60" cy="79" r="3" fill="#F2C24A" ${OW(1.2)}/>
-            <path d="M60 28C80 28 88 42 86 57C84 69 74 76 60 76C46 76 36 69 34 57C32 42 40 28 60 28Z" fill="url(#thailand-chang-b)" ${O}/>
+            <circle cx="60" cy="79" r="3" fill="#F2C24A" ${OW(1.2)}/>`,
+          over: `<path d="M60 28C80 28 88 42 86 57C84 69 74 76 60 76C46 76 36 69 34 57C32 42 40 28 60 28Z" fill="url(#thailand-chang-b)" ${O}/>
             <path d="M56 62Q54 72 59 79Q65 84 71 79Q74 75 71 72" fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round"/><path d="M56 62Q54 72 59 79Q65 84 71 79Q74 75 71 72" fill="none" stroke="#B4B0CA" stroke-width="6.4" stroke-linecap="round"/>
             <path d="M55 68h4.4M57 74.5h4M63 79.6l2.4-3" stroke="#8C88A8" stroke-width="1.4" stroke-linecap="round"/>
             <path d="M44 66Q41 70 45 72M76 66Q79 70 75 72" fill="none" stroke="#FFFDF4" stroke-width="3" stroke-linecap="round"/>
@@ -60189,7 +62463,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 52, r: 4.6, style: "sparkle", color: "#2A2440"},
         mouth: {x: 49, y: 66, w: 2.4, color: "#2A2440"},
         cheeks: {lx: 40, rx: 80, y: 60, w: 4, h: 2.4, color: "#FF8FB0"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 75, 1], chest: [72, 88, 0.6], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
+        anchors: {top: [60, 21, 0.95, 0], neck: [60, 75, 1, 0, 49, 59], bow: [60, 88, 0.6], chest: [72, 81, 0.6], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
         lines: {
           tap: ["Paoo! Hi! Shall I carry that heavy task?", "My trunk is curled up in a big smile for you!", "Big ears, big heart, big cheers!", "Step by step, like an elephant. We'll get there!", "An elephant never forgets, and neither will you!", "You're stronger than you think, little one!", "One slow stomp at a time. Steady wins!", "I painted my ears pink just for today!"],
           pet: ["Paoo! That tickles behind my ears!", "Hehe! More pats, please! I'm very soft."],
@@ -60226,7 +62500,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 72, r: 4.6, style: "sparkle", color: "#3A2A14"},
         mouth: {x: 60, y: 81, w: 3, color: "#3A2A14"},
         cheeks: {lx: 42, rx: 78, y: 79, w: 4.2, h: 2.4, color: "#FFB0A0"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 96, 1], chest: [74, 88, 0.6], back: [92, 74, 0.8], hands: [60, 96, 0.86]},
+        anchors: {top: [60, 29.5, 0.9, 0], neck: [60, 90, 1, 0, 78, 89], chest: [74, 96, 0.6], back: [92, 74, 0.8], hands: [60, 96, 0.86]},
         lines: {
           tap: ["Hi! I'm sweet, but I stick to my goals!", "Golden mango, golden effort!", "Coconut cream on top of a great study day!", "Stick with it! I know a thing or two about sticky!", "You're the ripest mind in the room!", "One spoonful at a time, it all adds up!", "Sweet and steady wins the dessert!", "Ripe and ready to cheer you on!"],
           pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Sweeter than coconut cream!"],
@@ -60265,7 +62539,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 66, r: 4.6, style: "sparkle", color: "#1E2A48"},
         mouth: {x: 60, y: 73, w: 2.8, color: "#1E2A48"},
         cheeks: {lx: 40, rx: 80, y: 71, w: 3.8, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 26, 0.9], neck: [60, 82, 1], chest: [74, 88, 0.6], back: [94, 70, 0.8], hands: [60, 92, 0.86]},
+        anchors: {top: [60, 32.5, 0.9, 0], neck: [60, 82, 1, 0, 78, 89], chest: [74, 88, 0.6], back: [94, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Beep beep! Hop in, where are we studying?", "Tuk-tuk-tuk! Full speed ahead!", "Three wheels, zero worries!", "I know all the shortcuts to a good grade!", "Next stop: that task you've been avoiding!", "Engine warm, lights on, ready to go!", "Hold on tight, we're making great time!", "Beep! You're right on schedule!"],
           pet: ["Beep beep! That's my happy horn!", "Hehe! That made my headlights twinkle!"],
@@ -60297,7 +62571,7 @@ var COMP_KIT = (() => {
     theme: "italy",
     companions: [
       {
-        id: "italy-limo", name: "Limo", kind: "Amalfi Lemon", pose: "stand", wearColor: "#2C9A70",
+        id: "italy-limo", name: "Limo", kind: "Amalfi Lemon", pose: "stand", wearColor: "#2C9A70", hatTop: true,
         bio: "A sunny Amalfi lemon who brings a bright burst of zest to study time.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
@@ -60318,7 +62592,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 69, r: 5, style: "sparkle", color: "#3A2A08"},
         mouth: {x: 60, y: 80, w: 3.2, color: "#3A2A08"},
         cheeks: {lx: 40, rx: 80, y: 78, w: 4.4, h: 2.6, color: "#FF9A6A"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 96, 1.05], chest: [74, 90, 0.66], back: [90, 60, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 89.5, 1.05, 0, 70, 83], chest: [74, 95.5, 0.62], back: [90, 60, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Ciao! Fresh from the terraces, just for you!", "When life gives you lemons, ace the quiz!", "Zesty brain, sunny heart. That's you!", "You're doing great. Squeeze in one more!", "A little bit extra never hurt anyone!", "Zest it up, we've got pages to cover!", "Bright, bold and on a roll today!", "Sun on the terraces, focus in your eyes!"],
           pet: ["Hehe! You smell like lemon now!", "Aww, that's the zest feeling ever!"],
@@ -60352,7 +62626,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 68, r: 4.8, style: "round", color: "#2A1A1E"},
         mouth: {x: 60, y: 77.5, w: 3, color: "#2A1A1E"},
         cheeks: {lx: 42, rx: 78, y: 76, w: 4, h: 2.4, color: "#FFB0A0"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 88, 1], chest: [72, 82, 0.62], back: [86, 62, 0.8], hands: [60, 86, 0.86]},
+        anchors: {top: [60, 39.5, 1.01, 0], neck: [60, 88, 1, 0, 63, 65], chest: [72, 94.5, 0.62], back: [86, 62, 0.8], hands: [60, 86, 0.86]},
         lines: {
           tap: ["Beep beep! Hop on, let's zip through it!", "Hairpin bend ahead? We lean in and go!", "Vroom! That chapter didn't stand a chance!", "Full tank of focus, open coast road!", "Small engine, big dreams. Just like you!", "Wind in your hair, notes in your head!", "Smooth riding! You're cruising today!", "Next stop: the top of the class!"],
           pet: ["Hehe! That made my headlight twinkle!", "Purr purr! That's my happy engine!"],
@@ -60389,7 +62663,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 63, r: 4.6, style: "sparkle", color: "#2E2A1A"},
         mouth: {x: 60, y: 72, w: 3, color: "#2E2A1A"},
         cheeks: {lx: 43, rx: 77, y: 70, w: 4, h: 2.4, color: "#FF8FA8"},
-        anchors: {top: [60, 6, 0.85], neck: [60, 82, 0.95], chest: [70, 90, 0.6], back: [84, 62, 0.8], hands: [60, 92, 0.8]},
+        anchors: {top: [60, 0, 0.85, 0], neck: [60, 85.5, 0.95, 0, 40, 62], chest: [70, 88, 0.6], back: [84, 62, 0.8], hands: [60, 92, 0.8]},
         lines: {
           tap: ["Ciao! Three scoops of cheering, coming up!", "Pistachio for focus, fragola for fun!", "You're the cherry on top of today!", "Cool, calm and totally got this!", "No brain freeze, just brain power!", "One scoop at a time, you'll finish it!", "Sweet work! Keep it rolling!", "Gelato tastes better after a good chapter!"],
           pet: ["Hehe! Careful, I might melt!", "Aww, you make my scoops wobble!"],
@@ -60422,7 +62696,7 @@ var COMP_KIT = (() => {
     theme: "greece",
     companions: [
       {
-        id: "greece-kiki", name: "Kiki", kind: "Island Cat", pose: "sit", sleepy: true, wearColor: "#2F6DB8",
+        id: "greece-kiki", name: "Kiki", kind: "Island Cat", pose: "sit", sleepy: true, wearColor: "#2F6DB8", scarfOverArms: true,
         bio: "A sun-loving island cat who naps on warm walls and wakes up for every win.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 78],
@@ -60478,7 +62752,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 56.8, r: 5.6, style: "round", color: "#3C6A2C"},
         mouth: {x: 60, y: 67.8, w: 2.6, color: "#3A2A2A", style: "cat"},
         cheeks: {lx: 41.4, rx: 78.6, y: 65.4, w: 4.2, h: 2.5, color: "#FFA6BA"},
-        anchors: {top: [60, 33, 0.95], neck: [60, 81, 1], chest: [60, 96, 0.62], back: [86, 88, 0.8], hands: [60, 101, 0.86]},
+        anchors: {top: [60, 30, 0.95, 0], neck: [60, 84, 1, 0, 46.5, 64], chest: [60, 87.5, 0.62], back: [86, 88, 0.8], hands: [60, 101, 0.86]},
         lines: {
           tap: ["Yawn... oh, hello! I was just sunbathing.", "Every warm wall in Oia knows my name!", "You're doing great. I'm doing a nap. Teamwork!", "Purr... one page at a time, friend.", "I saved you the sunniest spot on the steps!", "Sea breeze, warm stones and you studying. Perfect.", "Blue doors, white walls, big brains. That's you!", "Slow blink for you. That means I like you!"],
           pet: ["Purrrr! Right behind the ears, yes!", "Mrrp! Warmer than a sunny wall!"],
@@ -60492,7 +62766,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "greece-elia", name: "Elia", kind: "Olive Sprite", pose: "float", wearColor: "#5E8A3A",
+        id: "greece-elia", name: "Elia", kind: "Olive Sprite", pose: "float", wearColor: "#5E8A3A", hatTop: true,
         bio: "A small olive sprite who is quietly strong and keeps going year after year.",
         idle: ["sway", "topBob", "sparkle"], cheer: "spin",
         parts: {
@@ -60512,7 +62786,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 71, r: 4.6, style: "sparkle", color: "#22301A"},
         mouth: {x: 60, y: 81, w: 3, color: "#22301A"},
         cheeks: {lx: 44, rx: 76, y: 79, w: 3.8, h: 2.3, color: "#F29A88"},
-        anchors: {top: [60, 41, 0.9], neck: [60, 95, 0.95], chest: [69, 90, 0.6], back: [86, 66, 0.8], hands: [60, 97, 0.82]},
+        anchors: {top: [60, 45, 0.9, 0], neck: [60, 90, 0.95, 0, 54, 54], chest: [69, 96, 0.6], back: [86, 66, 0.8], hands: [60, 97, 0.82]},
         lines: {
           tap: ["Hello! Olive trees grow slowly, and that's okay.", "Steady roots, steady study. You've got this.", "A little sunshine, a little water, a lot of focus.", "Some olive trees are a thousand years old! Patience!", "Small and green, but I don't give up. Neither do you!", "Every leaf counts. So does every flashcard.", "You're stronger than you think, like an olive branch.", "Peace and quiet, and one good idea at a time."],
           pet: ["Hehe! My leaves are all fluttery now!", "Aww, that's as nice as a warm afternoon!"],
@@ -60526,7 +62800,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "greece-glafka", name: "Glafka", kind: "Little Owl", pose: "stand", wearColor: "#2F6DB8",
+        id: "greece-glafka", name: "Glafka", kind: "Little Owl", pose: "stand", wearColor: "#2F6DB8", hatTop: true, scarfOverArms: true,
         bio: "A wise little owl who stays up late studying with you.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 74],
@@ -60555,7 +62829,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 52.6, r: 5, style: "sparkle", color: "#24180E"},
         mouth: {x: 60, y: 68.6, w: 2.4, color: "#3A2614"},
         cheeks: {lx: 38, rx: 82, y: 63, w: 3.8, h: 2.2, color: "#F49A8A"},
-        anchors: {top: [60, 26, 0.95], neck: [60, 76, 1], chest: [60, 92, 0.66], back: [86, 86, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 24, 0.95, 0], neck: [60, 75, 1, 0, 50, 70, 46], chest: [60, 83, 0.66], back: [86, 86, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Hoo! A wise owl knows when to review.", "Questions are how wisdom starts. Ask away!", "I've read every scroll in the library twice!", "Night or day, I'm here to study with you.", "Big eyes, big ideas, small owl. Hello!", "Think it through slowly. The answer will come.", "Knowledge is the best treasure. You're rich!", "Hoo hoo! That's owl for 'you're doing great.'"],
           pet: ["Hoo! My feathers are all fluffed up now!", "Aww, softer than a moonlit breeze!"],
@@ -60586,7 +62860,7 @@ var COMP_KIT = (() => {
     theme: "egypt",
     companions: [
       {
-        id: "egypt-kheper", name: "Kheper", kind: "Scarab Beetle", pose: "stand", wearColor: "#2A8A84",
+        id: "egypt-kheper", name: "Kheper", kind: "Scarab Beetle", pose: "stand", wearColor: "#2A8A84", hatTop: true,
         bio: "A steady scarab beetle who rolls every big task forward, one push at a time.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
@@ -60609,7 +62883,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 56, r: 5, style: "sparkle", color: "#10282C"},
         mouth: {x: 60, y: 66, w: 3, color: "#10282C"},
         cheeks: {lx: 40, rx: 80, y: 63, w: 4, h: 2.4, color: "#FF9AA8"},
-        anchors: {top: [60, 34, 0.9], neck: [60, 76, 1], chest: [72, 90, 0.6], back: [88, 60, 0.8], hands: [60, 94, 0.82]},
+        anchors: {top: [60, 27.5, 0.9, 0], neck: [60, 76, 1, 0, 67, 82], chest: [72, 82, 0.6], back: [88, 60, 0.8], hands: [60, 94, 0.82]},
         lines: {
           tap: ["Push, push! Every big task rolls if you keep at it.", "Little legs, big progress! Let's roll on.", "I carry the sunrise on my head for luck!", "One small push now saves a big push later.", "Shiny shell, shiny ideas! You've got this.", "We roll forward together, one bit at a time.", "Even the pyramids were built one block at a time!", "That idea of yours? Pure gold!"],
           pet: ["Hehe! My shell is all sparkly now!", "Aww, a gentle pat for a hard worker!"],
@@ -60654,7 +62928,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 36, rx: 52, y: 41, r: 4.6, style: "round", color: "#2A1C14"},
         mouth: {x: 44, y: 61.5, w: 2.8, color: "#2A1C14"},
         cheeks: {lx: 29.6, rx: 58.4, y: 48.5, w: 3.6, h: 2.2, color: "#FF9A8A"},
-        anchors: {top: [44, 21, 0.85], neck: [44, 69, 0.85], chest: [40, 84, 0.55], back: [80, 54, 0.8], hands: [46, 88, 0.75]},
+        anchors: {top: [44, 19.5, 0.85, 0], neck: [44, 71, 0.85, 0, 25, 75], chest: [40, 74.5, 0.55], back: [80, 54, 0.8], hands: [46, 88, 0.75]},
         lines: {
           tap: ["Long legs, long lashes, long study sessions!", "Slow and steady crosses any desert.", "I store snacks in my hump. Kidding! Mostly.", "One step, then another. That's the caravan way.", "The oasis is just past this chapter!", "Hehe, you're doing so well! Keep plodding!", "I never get thirsty for knowledge. Never!", "Every dune looks smaller once you're on top."],
           pet: ["Hehe! My lashes are fluttering!", "Aww, scratch right behind the ear, please!"],
@@ -60699,7 +62973,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 54, r: 5.4, style: "round", color: "#2F7A36"},
         mouth: {x: 60, y: 67, w: 3, color: "#3A3440", style: "cat"},
         cheeks: {lx: 41, rx: 79, y: 62.6, w: 3.8, h: 2.2, color: "#FFA6B4"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 78, 1], chest: [70, 92, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 29.5, 0.95, 0], neck: [60, 81.5, 1, 0, 50, 67], chest: [70, 84, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Mrrp! Hello, honored student!", "My ancestors napped in palaces. I nap on notes.", "Curious about everything? Me too!", "Spots, whiskers and big ideas. That's us!", "A proper cat studies with great dignity.", "Purr... you're doing beautifully.", "Is that a new chapter? Let me sit on it.", "Golden collar, golden effort!"],
           pet: ["Purrrr... how gentle. Thank you!", "Mrrp! A royal scratch, how kind!"],
@@ -60754,7 +63028,7 @@ var COMP_KIT = (() => {
     theme: "canada",
     companions: [
       {
-        id: "canada-mapleton", name: "Mapleton", kind: "Sugar Maple Sprite", pose: "float", wearColor: "#F2B23E",
+        id: "canada-mapleton", name: "Mapleton", kind: "Sugar Maple Sprite", pose: "float", wearColor: "#F2B23E", hatTop: true,
         bio: "A sugar maple sprite who turns brighter red with every finished task.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         neck: [60, 82],
@@ -60772,7 +63046,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 58, r: 4.6, style: "sparkle", color: "#3A1210"},
         mouth: {x: 60, y: 68, w: 3, color: "#3A1210"},
         cheeks: {lx: 44, rx: 76, y: 66, w: 3.8, h: 2.4, color: "#FFB0A0"},
-        anchors: {top: [60, 24, 0.8], neck: [60, 82, 0.9], chest: [70, 76, 0.6], back: [86, 56, 0.78], hands: [60, 80, 0.8]},
+        anchors: {top: [60, 31.5, 0.8, 0], neck: [60, 74, 0.9, 0, 46, 36], chest: [70, 83, 0.6], back: [86, 56, 0.78], hands: [60, 80, 0.8]},
         lines: {
           tap: ["Hi! I twirled all the way down to cheer you on!", "Every task you finish makes me redder. Look!", "Crisp air, clear mind. You've got this!", "One leaf at a time, the whole tree turns!", "You're glowing like a maple in October!", "I spin when I'm happy. Whee!", "Keep going! The view from the top is worth it.", "Small steps, big colors!"],
           pet: ["Hehe! That rustles in the best way!", "Ooh, I'm turning a little redder!"],
@@ -60816,7 +63090,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 62, w: 2.6, color: "#2E1E16"},
         mouths: buckyMouths(61.4),
         cheeks: {lx: 42.5, rx: 77.5, y: 56, w: 3.8, h: 2.4, color: "#FF9A88"},
-        anchors: {top: [60, 23, 0.95], neck: [60, 76, 1.05], chest: [81, 81, 0.55], back: [86, 82, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 22, 0.95, 0], neck: [60, 77, 1, 0, 52, 66], chest: [81, 81, 0.55], back: [86, 82, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! I've been building you a study dam!", "One stick at a time. That's how dams get built!", "Busy as a beaver, and so are you!", "Chomp chomp! That task didn't stand a chance.", "Slap slap! That's my tail cheering for you!", "Let's build something great today!", "Keep at it! Every twig counts.", "You've got real beaver energy today!"],
           pet: ["Hehe! Right between the ears!", "Ooh, my fur's all fluffy now!"],
@@ -60854,7 +63128,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 41, r: 4.6, style: "sparkle", color: "#24140C"},
         mouth: {x: 60, y: 71.4, w: 2.6, color: "#3A2418"},
         cheeks: {lx: 43.6, rx: 76.4, y: 48.4, w: 3.8, h: 2.4, color: "#FF9A88"},
-        anchors: {top: [60, 23, 0.85], neck: [60, 80, 1], chest: [77, 84, 0.55], back: [84, 74, 0.8], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 10, 0.85, 0], neck: [60, 81, 1, 0, 59, 61, 54], chest: [77, 85.5, 0.55], back: [84, 74, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi... I wandered over from the lake to see you.", "Long legs, slow steps, steady progress.", "No rush. We'll get there together.", "You're doing really well. Truly.", "I'm small now, but I'll grow. So will you!", "Deep breath. The lake is calm, and so are we.", "One careful hoof at a time.", "I believe in you, as big as a moose!"],
           pet: ["Oh! My fuzzy ears are so happy.", "Mmm. That's nice. Thank you."],
@@ -60918,7 +63192,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 64, r: 4, style: "sparkle", color: "#22203A"},
         mouth: {x: 60, y: 73, w: 3, color: "#22203A"},
         cheeks: {lx: 48.6, rx: 71.4, y: 71, w: 3, h: 2, color: "#FF8A90"},
-        anchors: {top: [60, 38, 0.9], neck: [60, 86, 1], chest: [60, 94, 0.6], back: [22, 76, 0.8], hands: [60, 96, 0.84]},
+        anchors: {top: [60, 30, 0.9, 0], neck: [60, 88.5, 1, 0, 84, 92], chest: [60, 92, 0.6], back: [22, 76, 0.8], hands: [60, 96, 0.84]},
         lines: {
           tap: ["Ciao! All aboard for a calm study ride!", "One stroke at a time, we glide through it!", "Your schedule has canals? I know them all!", "Steady oar, steady mind. Bellissimo!", "We'll float past that deadline easily!", "No traffic on the water. Just focus!", "Lean in, little stroke, big progress!", "Under the bridge and on to the next page!"],
           pet: ["Hehe! You're rocking the boat!", "Aww, smooth sailing now!"],
@@ -60955,7 +63229,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 46, r: 3.8, style: "round", color: "#2A1E22"},
         mouth: {x: 60, y: 66, w: 2, color: "#3A3430"},
         cheeks: {lx: 45, rx: 75, y: 54, w: 3, h: 2, color: "#FF9EB0"},
-        anchors: {top: [60, 32, 0.85], neck: [60, 66, 0.95], chest: [60, 84, 0.6], back: [80, 82, 0.8], hands: [60, 96, 0.84]},
+        anchors: {top: [60, 34.5, 0.85, 0], neck: [60, 71.5, 0.95, 0, 42, 53], chest: [60, 72, 0.6], back: [80, 82, 0.8], hands: [60, 96, 0.84]},
         lines: {
           tap: ["Coo! This whole piazza is my study hall!", "Strut, peck, study. That's the plan!", "I have walked every square. Now your list!", "Crumbs of progress everywhere. Love it!", "Head up, chest out, one task at a time!", "Coo coo! I'm proud of you, truly!", "I'll guard your notes from the seagulls!", "Peck, peck! That's how big tasks get done!"],
           pet: ["Coo! My shiny neck feathers!", "Hehe! Ruffled, but happy!"],
@@ -60969,7 +63243,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "venice-masca", name: "Masca", kind: "Carnival Mask", pose: "stand", wearColor: "#E2B048",
+        id: "venice-masca", name: "Masca", kind: "Carnival Mask", pose: "stand", wearColor: "#E2B048", hatTop: true, scarfOverArms: true,
         bio: "A sparkly carnival mask who hides a big grin behind all that glitter.",
         idle: ["sparkle", "headTilt", "topBob"], cheer: "spin",
         neck: [60, 82],
@@ -60998,7 +63272,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 55, r: 3.6, style: "sparkle", color: "#2A1E30"},
         mouth: {x: 60, y: 72, w: 4, color: "#2A1E30"},
         cheeks: {lx: 45, rx: 75, y: 70, w: 3.4, h: 2.2, color: "#FF8AA0"},
-        anchors: {top: [60, 38, 0.9], neck: [60, 82, 1], chest: [60, 94, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 40.5, 0.9, 0], neck: [60, 84.5, 1, 0, 41, 68], chest: [60, 88, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Ta-da! Behind this mask, a huge grin!", "Glitter on, focus on. Let's go!", "Every page is a little masquerade!", "Who's that genius? Oh, it's you!", "Carnival rule: twirl after every task!", "Sparkle mode activated. You've got this!", "I wear gold, but your work shines more!", "A dash of glitter, a lot of grit!"],
           pet: ["Hehe! Careful, the glitter spreads!", "Aww! My feathers are blushing!"],
@@ -61034,7 +63308,7 @@ var COMP_KIT = (() => {
     theme: "mexico",
     companions: [
       {
-        id: "mexico-pico", name: "Pico", kind: "Flower Crown Cactus", pose: "stand", wearColor: "#E2468C",
+        id: "mexico-pico", name: "Pico", kind: "Flower Crown Cactus", pose: "stand", wearColor: "#E2468C", hatTop: true,
         bio: "A tough little cactus with a flower crown and a soft heart.",
         idle: ["sway", "topBob", "wave"], cheer: "hop",
         parts: {
@@ -61057,7 +63331,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 63, r: 4.4, style: "sparkle", color: "#22301E"},
         mouth: {x: 60, y: 72, w: 2.8, color: "#22301E"},
         cheeks: {lx: 47, rx: 73, y: 70, w: 3.6, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 38, 0.8], neck: [60, 80, 0.85], chest: [66, 78, 0.55], back: [46, 66, 0.7], hands: [60, 84, 0.8]},
+        anchors: {top: [60, 43.5, 0.8, 0], neck: [60, 80, 0.85, 0, 56, 62], chest: [66, 85.5, 0.55], back: [46, 66, 0.7], hands: [60, 84, 0.8]},
         lines: {
           tap: ["Hola! Prickly outside, all heart inside!", "Stand tall in the sun, like me. You've got this!", "Little by little, a cactus grows. So do you!", "My flower crown says you're doing great today!", "A cactus never gives up on a dry day. Neither do you!", "Deep roots, steady growth. That's the plan!", "Need a hug? Careful... okay, a gentle one!", "Every page you read is a drop of rain for me!"],
           pet: ["Hehe! Mind the spines... aww, okay!", "My flowers are blushing!"],
@@ -61071,7 +63345,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0",
+        id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0", hatTop: true, scarfOverArms: true,
         bio: "A smiley axolotl who regrows its motivation overnight.",
         idle: ["earTwitch", "finWiggle", "topBob"], cheer: "spin",
         neck: [60, 79],
@@ -61113,7 +63387,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 64, w: 4, color: "#2A2026"},
         cheeks: {lx: 37, rx: 83, y: 63, w: 4.6, h: 2.8, color: "#FF7A9C"},
-        anchors: {top: [60, 33, 0.95], neck: [60, 84, 1], chest: [60, 96, 0.6], back: [82, 88, 0.8], hands: [60, 99, 0.86]},
+        anchors: {top: [60, 30, 0.95, 0], neck: [60, 84, 1, 0, 47, 60], chest: [60, 90, 0.6], back: [82, 88, 0.8], hands: [60, 99, 0.86]},
         lines: {
           tap: ["Hi! I'm smiling. I'm always smiling!", "Axolotls regrow anything. Even motivation!", "Mistakes? I'll just grow a new start!", "Swimming slowly, still getting there!", "My gills are wiggling with excitement!", "From the canals of Xochimilco, with love!", "You keep going, I'll keep cheering!", "Little paws, big dreams. Let's study!"],
           pet: ["Hehe! My gills went all fluffy!", "Aww, that's a very happy wiggle!"],
@@ -61147,7 +63421,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 88, r: 4.4, style: "sparkle", color: "#3A1E10"},
         mouth: {x: 60, y: 97, w: 3, color: "#3A1E10"},
         cheeks: {lx: 40, rx: 80, y: 95, w: 4, h: 2.4, color: "#FF8F8A"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 104, 1], chest: [72, 100, 0.6], back: [92, 80, 0.8], hands: [60, 104, 0.86]},
+        anchors: {top: [60, 35, 0.95, 0], neck: [60, 106, 1, 0, 53, 49], chest: [72, 112, 0.6], back: [92, 80, 0.8], hands: [60, 104, 0.86]},
         lines: {
           tap: ["Fresh from the panadería, just for you!", "Sweet shell, soft heart, big plans!", "You rise to every challenge. Like dough!", "A little sugar makes studying sweeter!", "Pair me with hot chocolate and a good book!", "Every crumb of effort counts!", "Golden on the outside, proud on the inside!", "You're doing sweetly today. Keep it up!"],
           pet: ["Hehe! Careful, my sugar crumbles!", "Aww, warm and toasty now!"],
@@ -61209,7 +63483,7 @@ var COMP_KIT = (() => {
     theme: "brazil",
     companions: [
       {
-        id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E",
+        id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E", hatTop: true, scarfOverArms: true,
         bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 68],
@@ -61238,7 +63512,7 @@ var COMP_KIT = (() => {
         mouths: {neutral: beak(false, false), smile: beak(false, true), open: beak(true, false), sleepy: beak(false, false)},
         mouth: {x: 60, y: 76, w: 3, color: "#7A2A10"},
         cheeks: {lx: 38, rx: 82, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
-        anchors: {top: [60, 21, 0.95], neck: [60, 80, 1], chest: [70, 87, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
+        anchors: {top: [60, 20, 0.95, 0], neck: [60, 72.5, 0.95, 0, 42, 67.5], bow: [60, 90, 0.7], chest: [70, 85.5, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
         lines: {
           tap: ["Bom dia! Ready to make some noise?", "My beak is big, but my cheers are bigger!", "Let's fly through this list together!", "Toco! That's toucan for 'you've got this'!", "One task at a time, like fruit for breakfast!", "I spy a finish line from my branch!", "You bring the focus, I'll bring the color!", "Every page gets you closer to the beach!"],
           pet: ["Hehe! Mind the beak, it's ticklish!", "Aww! My feathers are all fluffed up!"],
@@ -61252,7 +63526,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "brazil-mico", name: "Mico", kind: "Golden Lion Tamarin", pose: "sit", wearColor: "#2E9A5A",
+        id: "brazil-mico", name: "Mico", kind: "Golden Lion Tamarin", pose: "sit", wearColor: "#2E9A5A", hatTop: true,
         bio: "A golden lion tamarin with a tiny golden mane and a big love of learning.",
         idle: ["tailSwish", "headTilt", "topBob"], cheer: "hop",
         neck: [60, 74],
@@ -61279,7 +63553,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 53, rx: 67, y: 49, r: 4.2, style: "sparkle", color: "#24161A"},
         mouth: {x: 60, y: 62, w: 2.6, color: "#4A2A22", style: "cat"},
         cheeks: {lx: 49, rx: 71, y: 57, w: 3.4, h: 2, color: "#FF8A8A"},
-        anchors: {top: [60, 19, 0.95], neck: [60, 79, 1], chest: [63, 86, 0.55], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 16, 0.95, 0], neck: [60, 79.5, 1, 0, 46, 64], chest: [63, 84.5, 0.55], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Hi! I'm small, but I study big!", "My mane is golden, and so are your ideas!", "Swing from task to task with me!", "Let's go! The forest is cheering for you!", "I'm hungry for knowledge! And fruit!", "Tiny steps make a long, long trail!", "Curious minds climb the highest trees!", "You've got this, I've got snacks!"],
           pet: ["Hehe! You fluffed up my mane!", "Aww! Golden-hug time!"],
@@ -61293,7 +63567,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "brazil-cocada", name: "Cocada", kind: "Coconut with a Straw", pose: "stand", wearColor: "#FF5A8A",
+        id: "brazil-cocada", name: "Cocada", kind: "Coconut with a Straw", pose: "stand", wearColor: "#FF5A8A", hatTop: true,
         bio: "A fresh coconut from the beach kiosk, straw in and ready to cheer you on.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
@@ -61313,7 +63587,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 70, r: 4.4, style: "round", color: "#2B2233"},
         mouth: {x: 60, y: 80, w: 3.2, color: "#2B2233"},
         cheeks: {lx: 42, rx: 78, y: 78, w: 4, h: 2.4, color: "#FF8A9A"},
-        anchors: {top: [60, 30, 0.85], neck: [60, 92, 0.9], chest: [70, 90, 0.55], back: [92, 70, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 29.5, 0.85, 0], neck: [60, 88.5, 0.9, 0, 69, 69], chest: [70, 94, 0.55], back: [92, 70, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Fresh coconut water for your brain!", "Stay hydrated, stay brilliant!", "Straw's in, focus is on!", "A sip of sunshine, then back to work!", "Tough on the outside, sweet inside!", "Chilled, calm and ready to help!", "Kiosk's open, let's serve some answers!", "You're doing coco-nuts good work!"],
           pet: ["Hehe! That tickles my husk!", "Aww! You're making me blush green!"],
@@ -61407,7 +63681,7 @@ var COMP_EXTRA = [];
         },
         eyes: {lx: 49.5, rx: 70.5, y: 55.8, r: 5.2, style: "round", color: EYE},
         mouth: {x: 60, y: 67.6, w: 2.8, color: "#3A2A2A", style: "cat"},
-        anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [60, 94, 0.62], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 33.5, 0.95, 0], neck: [60, 82.5, 1, 0, 49, 53], chest: [60, 86.5, 0.62], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
         lines: LINES
       };
   }
@@ -61420,9 +63694,9 @@ var COMP_EXTRA = [];
   const DATA = typeof COMP_DATA !== "undefined" ? COMP_DATA : [];
   const GREET_KEY = "studyboard:comp:greeted";
 
-  /* The rig format */
+  /* The rig format (parts.over: art in front of anything worn on the body, e.g. a planet's ring; wearOnHead: a head with no neck showing, e.g. a cat in a cup, wears neck items in front of its head; scarfOverArms: arms hanging from the shoulders go behind what's worn at the neck) */
   const PIVOT_PARTS = ["tail", "wingL", "wingR", "armL", "armR", "earL", "earR", "top"];
-  const STATIC_PARTS = ["back", "feet", "body", "head", "face", "hat"];
+  const STATIC_PARTS = ["back", "feet", "body", "over", "head", "face", "hat"];
   const POSES = ["stand", "sit", "float"];
   const EYE_STYLES = ["dot", "round", "sparkle"];
   const MOUTH_STYLES = ["smile", "cat"];
@@ -61538,13 +63812,20 @@ var COMP_EXTRA = [];
   // Accessories, drawn around (0,0) at the anchor and scaled by the anchor's third number
   const at = (a, inner) => { if (!pt(a)) return ""; const s = num(a[2]) ? a[2] : 1, r = num(a[3]) ? a[3] : 0; return `<g transform="translate(${a[0]} ${a[1]})${r ? ` rotate(${r})` : ""}${s !== 1 ? ` scale(${s})` : ""}">${inner}</g>`; };
   const WEAR = `style="fill:var(--cp-wear,#5B7FD6)"`;
+  // The scarf, the cape and its collar are drawn to a half-width hw, so they wrap the whole body (anchors.neck's 5th number: the body's width there)
+  const scarfArt = hw => { const k = f1(hw * 0.45 - 9.5), e = f1(hw + 4), h = f1(hw - 2);
+    return `<path d="M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z" ${WEAR} ${OUT(2.4)}/><path d="M${-h} -1.5Q0 5 ${h} -1.5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/><g${k ? ` transform="translate(${k} 0)"` : ""}><path d="M6 4L9 21L18 19.5L13 3Z" ${WEAR} ${OUT(2.4)}/><path d="M10.5 14.5L16 13.6" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/><path d="M10 21.4l-.4 2.6M13.4 20.8l-.2 2.6M16.6 20.2l.2 2.6" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="4" r="4.4" ${WEAR} ${OUT(2.4)}/></g>`; };
+  // the cape flares to at least bw (half-width), so it shows past a wide body (anchors.neck's 6th number: the body's widest point under the neck; a 7th sets the collar's width)
+  const capeArt = (hw, bw) => { const b = f1(Math.max(28, hw + 8.5, bw || 0)), m = f1(b * 0.5), q = f1(b * 0.74), i = f1(hw * 0.57), j = f1(b * 0.53);
+    return `<path d="M${-hw} -3Q0 3 ${hw} -3L${b} 28Q${q} 34 ${m} 30Q${f1(m / 2)} 36 0 31Q${f1(-m / 2)} 36 ${-m} 30Q${-q} 34 ${-b} 28Z" ${WEAR} ${OUT(2.4)}/><path d="M${-i} 4Q${f1(-i * 1.5)} 16 ${-j} 27M${i} 4Q${f1(i * 1.5)} 16 ${j} 27M0 8V28" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>`; };
+  const collarArt = hw => `<path d="M${-hw} -3Q0 3 ${hw} -3V0.5Q0 6.5 ${-hw} 0.5Z" fill="#FFD35A" ${OUT(2)}/><circle cx="0" cy="4" r="3" fill="#FFF8F0" ${OUT(1.6)}/><circle cx="-0.8" cy="3.2" r="0.9" fill="#fff"/>`;
   const ACC_ART = {
-    scarf: `<path d="M-21 -5Q0 2 21 -5Q25 0 21 5.5Q0 12 -21 5.5Q-25 0 -21 -5Z" ${WEAR} ${OUT(2.4)}/><path d="M-19 -1.5Q0 5 19 -1.5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/><path d="M6 4L9 21L18 19.5L13 3Z" ${WEAR} ${OUT(2.4)}/><path d="M10.5 14.5L16 13.6" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/><path d="M10 21.4l-.4 2.6M13.4 20.8l-.2 2.6M16.6 20.2l.2 2.6" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="4" r="4.4" ${WEAR} ${OUT(2.4)}/>`,
+    scarf: scarfArt(21),
     hat: `<path d="M-15 1C-15.5 -14 -8 -20 0 -20S15.5 -14 15 1Z" ${WEAR} ${OUT(2.4)}/><path d="M-6 -16Q-10 -9 -10 -1M5 -17Q9 -9 9 -1" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="2" stroke-linecap="round"/><rect x="-17" y="-4" width="34" height="8.5" rx="4.2" ${WEAR} ${OUT(2.4)}/><rect x="-15" y="-2.4" width="30" height="5.2" rx="2.6" fill="#fff" opacity=".4"/><circle cx="0" cy="-21" r="5.4" fill="#FFF8F0" ${OUT(2.4)}/><circle cx="-1.6" cy="-22.6" r="1.6" fill="#fff"/>`,
     star: `<path d="M-5 5L-7 14L-3 12L-1 15L0 6ZM5 5L7 14L3 12L1 15L0 6Z" fill="#FF7A9C" ${OUT(1.6)}/><path d="M0 -8.2L2.4 -3.1L8 -2.5L3.8 1.3L5 6.8L0 4L-5 6.8L-3.8 1.3L-8 -2.5L-2.4 -3.1Z" ${WEAR} ${OUT(1.8)}/><path d="M-1.6 -3.2L0 -6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>`,
     bowtie: `<path d="M0 0L-16 -9Q-20.5 0 -16 9Z" ${WEAR} ${OUT(2.4)}/><path d="M0 0L16 -9Q20.5 0 16 9Z" ${WEAR} ${OUT(2.4)}/><path d="M-13 -4.5L-6 -1.5M13 -4.5L6 -1.5" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/><rect x="-4.6" y="-5.4" width="9.2" height="10.8" rx="3.6" ${WEAR} ${OUT(2.4)}/><rect x="-2" y="-3.6" width="2.4" height="4" rx="1.2" fill="#fff" opacity=".5"/>`,
-    cape: `<path d="M-14 -3Q0 3 14 -3L38 28Q28 34 19 30Q9.5 36 0 31Q-9.5 36 -19 30Q-28 34 -38 28Z" ${WEAR} ${OUT(2.4)}/><path d="M-8 4Q-12 16 -20 27M8 4Q12 16 20 27M0 8V28" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>`,
-    capeCollar: `<path d="M-14 -3Q0 3 14 -3V0.5Q0 6.5 -14 0.5Z" fill="#FFD35A" ${OUT(2)}/><circle cx="0" cy="4" r="3" fill="#FFF8F0" ${OUT(1.6)}/><circle cx="-0.8" cy="3.2" r="0.9" fill="#fff"/>`,
+    cape: capeArt(14),
+    capeCollar: collarArt(14),
     medal: `<path d="M-9 -11L-1.5 5H3.5L-4 -11Z" fill="#5A95FF" ${OUT(1.6)}/><path d="M9 -11L1.5 5H-3.5L4 -11Z" fill="#FF7A9C" ${OUT(1.6)}/><circle cx="0" cy="10" r="8.6" ${WEAR} ${OUT(1.9)}/><circle cx="0" cy="10" r="5.6" fill="none" stroke="#E8A317" stroke-width="1.5"/><path d="M0 5.6L1.5 8.6L4.8 9.1L2.4 11.4L3 14.7L0 13.1L-3 14.7L-2.4 11.4L-4.8 9.1L-1.5 8.6Z" fill="#fff" opacity=".9"/><path d="M-5 6Q-3 3.6 0 3.4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".7"/>`,
     crown: `<path d="M-14 3L-17 -13L-8 -5.5L0 -17L8 -5.5L17 -13L14 3Z" ${WEAR} ${OUT(2.4)}/><rect x="-14.5" y="-1" width="29" height="7" rx="3" fill="#F2B63A" ${OUT(2.2)}/><circle cx="-17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="0" cy="-18.5" r="3" fill="#5A95FF" ${OUT(1.4)}/><circle cx="17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="-7" cy="2.6" r="1.5" fill="#fff"/><circle cx="0" cy="2.6" r="1.5" fill="#fff"/><circle cx="7" cy="2.6" r="1.5" fill="#fff"/><path d="M-9 -3L-12 -9" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/>`,
     beanie: `<path d="M-14.5 1C-16 -13 -9 -19 0 -19S16 -13 14.5 1Z" ${WEAR} ${OUT(2.4)}/><path d="M-8 -16Q-11 -9 -10.5 -1M-3 -18.2Q-4.6 -9 -4.2 -1M3 -18.2Q4.6 -9 4.2 -1M8 -16Q11 -9 10.5 -1" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.8" stroke-linecap="round"/><path d="M-13.6 -7.5Q0 -4 13.6 -7.5" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1.2 3.6"/><rect x="-17" y="-3.2" width="34" height="8.4" rx="4.2" fill="#FFF8F0" ${OUT(2.4)}/><path d="M-11.5 -1.6V3.6M-6 -1.6V3.6M-0.5 -1.6V3.6M5 -1.6V3.6M10.5 -1.6V3.6" stroke="#E9D6C4" stroke-width="1.6" stroke-linecap="round"/><circle cx="0" cy="-20.5" r="5.4" fill="#fff" ${OUT(2.4)}/><path d="M-2.8 -21.6Q-1 -24 1.8 -23.6" fill="none" stroke="#DCE7F7" stroke-width="1.5" stroke-linecap="round"/>`,
@@ -61592,20 +63873,32 @@ var COMP_EXTRA = [];
       return `<g class="cp-p cp-${name}"${st ? ` style="${st}"` : ""}${extra || ""}>${inner}</g>`;
     };
     const worn = wornList(o.wear), tints = o.tint || cfg().tint || {};
-    const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], capeA = [na[0], na[1], f1((num(na[2]) ? na[2] : 1) * 0.95)];
+    const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], ns = num(na[2]) ? na[2] : 1, capeA = [na[0], na[1], f1(ns * 0.95)];
+    // the body's width at the neck: the scarf's rounded ends and the collar reach just past its outline (under a separate head the collar hugs the narrower neck); the bow tie stays well inside it
+    const wrapW = num(na[4]) ? na[4] : 0, drapeW = num(na[5]) ? na[5] : 0, hwAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 1) / s - 2)) : 0, collarAt = s => num(na[6]) ? f1(na[6] / 2 / s) : wrapW ? f1(Math.max(12, (wrapW / 2 + (partSvg(P.head) ? -3.5 : 0.4)) / s)) : 0;
+    // anchors.bow (optional): where the bow tie goes when something hangs over the neck (a toucan's beak)
+    const bowA = pt(A.bow) ? A.bow : wrapW ? [na[0], na[1], f1(Math.max(0.5, Math.min(ns, wrapW * 0.6 / 41))), na[3] || 0] : na;
     const chestA = pt(A.chest) ? [A.chest[0], A.chest[1], f1((num(A.chest[2]) ? A.chest[2] : 1) * 1.3)] : A.chest;
+    // a medal hangs from the neck, so it sits in the middle (the star badge is pinned to one side)
+    const medalA = pt(chestA) ? [na[0], chestA[1], chestA[2]] : chestA;
     const tintOf = id => hexOk(tints[id]) ? tints[id] : "";
-    const acc = (id, a) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, ACC_ART[id])}</g>` : "";
+    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, art || ACC_ART[id])}</g>` : "";
     const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, art)}</g>` : "";
     const hasHead = !!partSvg(P.head);
     const headWorn = worn.some(id => slotOf(id) === "head");
     const headRot = rot.head ? `;transform:rotate(${rot.head}deg)` : "";
     const hands = pt(A.hands) ? A.hands : [60, 92];
-    const face = `${g("face")}${cheeksSvg(c)}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}`;
+    // the blush stays inside the face's outline (never over wings, arms, ears or the outline itself)
+    // and goes under anything worn on the body (its shape is cut out of the blush), while a beak or snout stays in front of a scarf
+    const bodyWear = `${capePart(wrapW ? collarArt(collarAt(capeA[2])) : ACC_ART.capeCollar)}${acc("scarf", A.neck, wrapW ? scarfArt(hwAt(ns)) : "")}${acc("star", chestA)}${acc("medal", medalA)}${acc("bowtie", bowA)}`;
+    const ck = cheeksSvg(c), skin = ck ? (hasHead ? partSvg(P.head) : partSvg(P.body)) + partSvg(P.face) : "";
+    const R = `x="-40" y="-40" width="200" height="200"`;
+    const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
+    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
-      <g class="cp-rig">${capePart(ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
-        <g class="cp-bodyg">${g("body")}${capePart(ACC_ART.capeCollar)}${acc("scarf", A.neck)}${acc("bowtie", A.neck)}${acc("star", chestA)}${acc("medal", chestA)}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}</g>
-        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}
+      <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
+        <g class="cp-bodyg">${g("body")}${c.wearOnHead || c.scarfOverArms ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}${c.scarfOverArms && !c.wearOnHead ? bodyWear : ""}</g>
+        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${c.wearOnHead ? bodyWear : ""}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}
           <g class="cp-zs"><text x="${f1((c.eyes.rx || 72) + 14)}" y="${f1((c.eyes.y || 60) - 12)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#8C87A8" stroke="#fff" stroke-width="3" paint-order="stroke">z</text><text x="${f1((c.eyes.rx || 72) + 22)}" y="${f1((c.eyes.y || 60) - 22)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="8" fill="#8C87A8" stroke="#fff" stroke-width="2.5" paint-order="stroke">z</text></g>
         </g>
       </g></svg>`;
@@ -63737,7 +66030,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
       : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
       : u.mode === "studyboard" ? `Studyboard AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
-      : `Your free Gemini key writes fresh lines and answers Ask Me (tap it, then Ask), using Gemini's lighter models and a separate daily allowance of ${LITE_MAX}, so other AI features aren't affected. It sends only: ${sends}. Nothing is sent while this is off.`;
+      : `Your free Gemini key writes fresh lines and answers Ask Me (${LITE_MAX} a day, separate from other AI features). It sends only: ${sends}. Nothing is sent while this is off.`;
     const use = on && smartOn() ? `<span class="cp-use">Smart Lines today: ${u.n} of ${u.max}${u.paused ? (u.mode === "studyboard" ? ". Resting for now." : ". Resting until Gemini's free allowance resets.") : ""}</span>` : "";
     return `<div class="cap-row"><span style="flex:1;font-weight:600">Smart Lines and Ask Me<span class="sub">${esc(sub)}</span>${use}</span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="ai" ${on && smartOn() ? "checked" : ""} ${on ? "" : "disabled"}> On</label></div>`;
   }
@@ -63950,7 +66243,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         if (c.cheeks && !(num(c.cheeks.lx) && num(c.cheeks.rx) && num(c.cheeks.y))) E(who, "cheeks needs lx, rx, y");
         const A = c.anchors || {};
         ANCHORS.forEach(k => { if (!pt(A[k])) E(who, `anchors.${k} [x, y, scale] is required`); else if (A[k][0] < 0 || A[k][0] > 120 || A[k][1] < 0 || A[k][1] > 120) E(who, `anchors.${k} is outside the box`); else if (A[k][2] != null && !(num(A[k][2]) && A[k][2] >= 0.5 && A[k][2] <= 1.6)) E(who, `anchors.${k} scale should be 0.5 to 1.6`); });
-        Object.keys(A).forEach(k => { if (!ANCHORS.includes(k)) E(who, `unknown anchor "${k}"`); });
+        Object.keys(A).forEach(k => { if (!ANCHORS.includes(k) && k !== "bow") E(who, `unknown anchor "${k}"`); });
         const L = c.lines || {};
         Object.entries(LINE_KINDS).forEach(([k, min]) => {
           const arr = L[k];
@@ -64147,6 +66440,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const ey = num(c.eyes && c.eyes.y) ? c.eyes.y : 60, size = 90, y = Math.max(0, Math.min(VB - size, ey - 50));
       return svg.replace(`viewBox="0 0 ${VB} ${VB}"`, `viewBox="${(VB - size) / 2} ${f1(y)} ${size} ${size}"`);
     },
+    // For tools/companion-wear-review.js
+    fit: id => { const c = BYID[id]; return c ? JSON.parse(JSON.stringify({anchors: c.anchors, eyes: c.eyes, mouth: c.mouth, neck: c.neck, head: !!partSvg(c.parts.head), hatTop: !!c.hatTop})) : null; },
     check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker
@@ -64259,8 +66554,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const head = `<div class="view-head"><h2>Emails</h2></div>`;
     return `${head}<div class="empty em-empty" style="text-align:left;margin-top:12px"><strong>Connect Canvas to See Your Emails</strong>
       ${hasDesk() ? `Sign in to Canvas under Settings, School Sites and your inbox appears here. <button class="btn small" data-act="lms-open">Connect a School Site</button>`
-        : extDesktop() ? `Add the <a href="${esc(extStoreUrl())}" target="_blank" rel="noopener noreferrer">Studyboard School Sync extension</a> to ${extBrowser()} and connect Canvas in it. Your latest messages then come in with your courses (to reply, open them in Canvas). In the Studyboard desktop app you can also read and answer them here.`
-        : `Your Canvas inbox can be read in the Studyboard desktop app, which also lets you answer here, or on a computer with the Studyboard School Sync browser extension.`}
+        : extDesktop() ? `Add the <a href="${esc(extStoreUrl())}" target="_blank" rel="noopener noreferrer">Studyboard School Sync extension</a> to ${extBrowser()} and connect Canvas in it to see your latest messages here.`
+        : `Read your Canvas inbox in the Studyboard desktop app or with the School Sync browser extension.`}
       ${E.err ? `<p class="mini em-err">${esc(E.err)}</p>` : ""}${note()}</div>`;
   }
   function viewEmails(){
@@ -70918,7 +73213,7 @@ function showSheet(){
       <ul class="cr3-moves">${sug.moves.map(x => { const t = state.tasks[x.id]; return `<li style="--c:${esc(colorOf(t && t.courseId))}"><b>${esc(x.title)}</b><span class="mini">${esc(moveText(x))}</span></li>`; }).join("")}</ul>
       ${pv ? previewHtml(ws, pv) : ""}
       <div class="cr-acts">${pv ? `<button type="button" class="btn primary" data-act="cr-apply" data-ws="${ws}">Confirm${n > 1 ? ` ${n} Moves` : ""}</button><button type="button" class="btn" data-act="cr-cancel" data-ws="${ws}">Cancel</button>` : `<button type="button" class="btn primary" data-act="cr-preview" data-ws="${ws}" ${SH.focus ? "autofocus" : ""}>Preview the Change</button><button type="button" class="btn" data-act="cr-apply" data-ws="${ws}">Move ${n === 1 ? "It" : `All ${n}`} Now</button>`}</div></div>`;
-  } else if (!W.past && W.levelIdx >= 2) box = `<div class="cr-box"><h3>Pulling Work Forward</h3><p class="mini" style="margin:0">Nothing here can move earlier in a way that helps. Exams and quizzes stay put, and blocked or nearly finished work isn't suggested. Starting the biggest item now still spreads the load.</p></div>`;
+  } else if (!W.past && W.levelIdx >= 2) box = `<div class="cr-box"><h3>Pulling Work Forward</h3><p class="mini" style="margin:0">Nothing here can usefully move earlier. Starting the biggest item now still spreads the load.</p></div>`;
   const days7 = W.days.map(d => m.days.find(y => y.date === d)).filter(Boolean), dMax = Math.max(1, ...days7.map(x => Math.max(x.demand, x.capacity)));
   const strip = isDay ? "" : `<div class="cr3-days" role="group" aria-label="Days of this week">${days7.map(x => `<button type="button" class="cr3-day lv${x.levelIdx}${x.past ? " is-past" : ""}" data-act="cr-day" data-id="${x.date}" ${x.past ? "disabled" : ""} aria-label="${esc(`${dayWord(x.date)}: ${fmtHM(x.demand) || "nothing"} of work, ${LV_WORD[x.levelIdx]}`)}"><span class="cr3-bar"><i style="height:${Math.round(Math.min(1, x.demand / dMax) * 100)}%"></i><em style="bottom:${Math.round(Math.min(1, x.capacity / dMax) * 100)}%"></em></span><b>${esc(parse(x.date).toLocaleDateString(undefined, {weekday: "short"}))}</b><span>${x.demand >= 0.25 ? esc(fmtHM(x.demand)) : "–"}</span>${x.due.length ? `<span class="cr3-due">${x.due.length} due</span>` : ""}</button>`).join("")}</div>`;
   const dayEx = isDay ? `<p class="mini" style="margin:0">${dayIsOff(D.date) ? "" : D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
@@ -76821,7 +79116,7 @@ function gridHtml(res){
 }
 function streakBody(){
   const g = gcfg(), res = streakNow(), on = !!g.on, cfg = res.cfg;
-  let h = `<p style="margin:0">${esc(tr("streak.about", "A study day is any day you finish a task, track focus time, tick a checklist step or review flashcards. Just opening the app doesn't count, and a quiet day never takes your progress away."))}</p>
+  let h = `<p style="margin:0">${esc(tr("streak.about", "A study day is any day you finish a task, focus, tick a step or review flashcards. Quiet days never take progress away."))}</p>
     <label class="fgs-row"><input type="checkbox" data-act="fgs-toggle" ${on ? "checked" : ""}> <span><b>${esc(tr("streak.toggle", "Use the gentle streak"))}</b><span class="mini">${esc(tr("streak.toggle.sub", "When on, it replaces the fire streak line, and companion rewards follow it."))}</span></span></label>`;
   if (on) {
     h += `<div class="fgs-sum" aria-live="polite"><p class="fgs-big"><b>${esc(SBI18N.fmtN(res.last28))}</b> ${esc(trn("streak.sum.month", res.last28, "study day in the last 4 weeks|study days in the last 4 weeks"))}</p>
@@ -76964,7 +79259,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 /* ===== module: 99-release.js ===== */
 /* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.5";
+  const VERSION = "1.15.6";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "November 6, 2026", TERMS_UPDATED = "October 27, 2026";
@@ -77696,7 +79991,7 @@ function vWork(){
       <input type="file" id="semPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOn() ? ",image/*" : ""}" aria-label="${esc(tr("sem.work.pdf.b", "Choose PDFs"))}">
       ${qPanel()}</div>
     <div class="sem-card"><div><b>${esc(tr("sem.work.lms", "Your school's site"))}</b><span class="mini">${esc((() => { try { return window.SBLMS && SBLMS.grabOk && SBLMS.grabOk(); } catch (e) { return false; } })()
-        ? tr("sem.work.lms.web", "Brightspace, Canvas or Blackboard: due dates, grades, announcements and what you've already submitted. On the website in desktop Chrome or Edge, the Studyboard School Sync extension brings it all in. It only reads and never sees your password. Your school's calendar link brings in due dates in any browser.")
+        ? tr("sem.work.lms.web", "Brightspace, Canvas or Blackboard: due dates, grades and announcements, through the School Sync extension in desktop Chrome or Edge, or your school's calendar link. Read only.")
         : tr("sem.work.lms.s", "Brightspace, Canvas or Blackboard. Studyboard only reads from it."))}</span></div>
       <div class="sem-row-btns"><button type="button" class="btn" data-sem="lms">${esc(tr("sem.work.lms.b", "Connect School Site"))}</button></div></div>
     <div class="sem-card"><div><b>${esc(tr("sem.work.ics", "A calendar file"))}</b><span class="mini">${esc(tr("sem.work.ics.s", "A .ics file from Google, Apple or Outlook, or your school's calendar export."))}</span></div>
@@ -77814,7 +80109,7 @@ function vTimes(){
   const L = needTimes(), have = found().filter(t => !MILESTONE(t.type) && isNum(t.hours) && Number(t.hours) > 0).length;
   const rows = L.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<li class="sem-r1" style="--c:${esc(colorOf(t.courseId))}"><span class="sem-r1t"><b>${esc(t.title)}</b><span class="mini">${c ? esc(courseLabel(c)) + " · " : ""}${esc(t.type || "")} · ${esc(relDue(t))}</span></span><span class="sem-est">${esc(hrs(suggestH(t)))}</span></li>`; }).join("");
   return `<h3 class="sem-h" id="semH" tabindex="-1">${esc(tr("sem.t.h", "How long will each take?"))}</h3>
-    <p class="sem-lead">${esc(tr("sem.t.lead", "Today's Plan uses these to spread work over the days before each due date. They're suggestions from your history or typical times, and you can change any later."))}</p>
+    <p class="sem-lead">${esc(tr("sem.t.lead", "Today's Plan uses these to spread work out. Change any later."))}</p>
     <p class="status-msg sem-msg" id="semMsg">${esc(R.msg)}</p>
     ${L.length ? `<div class="sem-bar"><button type="button" class="btn primary" data-sem="est-all">${esc(trn("sem.t.all", L.length, "Use Suggested Time|Use Suggested Times ({n})"))}</button><button type="button" class="btn" data-sem="est-open">${esc(tr("sem.t.one", "Choose One by One"))}</button></div>
       <ul class="sem-list">${rows}</ul>${L.length > 40 ? `<p class="mini">${esc(tr("sem.t.more", "And {n} more. The button above covers all of them.", {n: L.length - 40}))}</p>` : ""}`
@@ -78386,7 +80681,7 @@ var SBPRO = null;
   }
   let INS = {kind: "week"};
   function openInsights(kind){
-    if (locked()) { proSheet("Insights are part of Studyboard Pro: how study time lines up with grades, when you focus best, how exam prep is going and how early you finish work."); return; }
+    if (locked()) { proSheet("Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades."); return; }
     INS.kind = kind === "term" ? "term" : INS.kind || "week";
     const draw = () => {
       const I = compute(INS.kind), b = dlg.querySelector(".pro-ins-body"); if (!b) return;
@@ -81891,7 +84186,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (o.quiet && !ls.length && !ds.length) return "";
     return `<section class="lec-tab" style="--c:${esc(c.color)}"><h2 class="sec"><span class="t">${esc(o.title || "Lectures")}</span><span class="n">${ls.length || ""}</span></h2>
       ${ds.length ? `<ul class="lec-list lec-drafts">${ds.map(drow).join("")}</ul>` : ""}
-      ${ls.length ? `<ul class="lec-list">${ls.map(row).join("")}</ul>` : `<div class="empty"><strong>No Lectures Yet</strong>Record a class with Record Lecture at the top of this page. Name it when you're done, and it's kept here with its transcript and summary.</div>`}</section>`;
+      ${ls.length ? `<ul class="lec-list">${ls.map(row).join("")}</ul>` : `<div class="empty"><strong>No Lectures Yet</strong>Record a class with Record Lecture above. It's kept here with its transcript and summary.</div>`}</section>`;
   }
   function docHtml(text){
     let h = "", ul = false, para = [];
@@ -82423,11 +84718,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (!domain()) return "";
     const lockedPro = P.locked();
     let inner;
-    if (lockedPro) inner = `<p class="mini">Forward emails from professors and your school to a private Studyboard address, and the deadlines in them come to you to check and add.</p><button type="button" class="btn small" data-act="em-pro">See Studyboard Pro</button>`;
+    if (lockedPro) inner = `<p class="mini">Forward school emails to a private address and Studyboard finds the deadlines.</p><button type="button" class="btn small" data-act="em-pro">See Studyboard Pro</button>`;
     else if (typeof sbActive !== "function" || !sbActive()) inner = `<p class="mini">Sign in to your Studyboard account to get your private address.</p>`;
     else if (E.st === "loading" || E.st === "idle") inner = `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>`;
     else if (E.st === "error") inner = `<p class="mini" role="alert">${esc(E.err)}</p><button type="button" class="btn small" data-act="em-reload">Try Again</button>`;
-    else if (!E.key) inner = `<p class="mini">Get a private address. Forward deadline emails to it, or set a mail filter for your course notifications, and Studyboard shows you what it found to add.</p><button type="button" class="btn small primary" data-act="em-new">Get My Address</button>`;
+    else if (!E.key) inner = `<p class="mini">Forward deadline emails to a private address and Studyboard shows what it found.</p><button type="button" class="btn small primary" data-act="em-new">Get My Address</button>`;
     else inner = `<div class="em-addr"><span class="capv-code" id="emAddr">${esc(addr())}</span><button type="button" class="btn small" data-act="em-copy" data-id="${esc(addr())}">Copy</button></div>
       <p class="mini">${E.n ? `${E.n} email${E.n === 1 ? "" : "s"} so far${E.used ? `, the last ${esc(new Date(E.used).toLocaleDateString(undefined, {month: "short", day: "numeric"}))}` : ""}. ` : ""}Keep it private: anyone who has it can send you things to check. Everything from an email waits for your OK before it's added.</p>
       <details class="em-how"><summary>Forward Automatically</summary><ul class="mini">
@@ -83140,7 +85435,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const a = acct(p), s = U.start[p] || {}, conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
       const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any folders you pick." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
-      const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
+      const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them and make flashcards and quizzes. Off, files still work without AI.</span></span></label>`;
       if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
         ${aiBox}
@@ -90987,7 +93282,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   const W = window.SBWB, P = window.SBPRO; if (!W || !P) return;
   const MAX = 16, SIDE = 1600;
   const locked = () => P.locked();
-  const WHY = "Pictures on the whiteboard are part of Studyboard Pro: add photos and diagrams, move and resize them, write around them, and have AI redraw them in marker.";
+  const WHY = "Pictures on the whiteboard are part of Studyboard Pro: add photos and diagrams, write around them, and have AI redraw them.";
   const upsell = () => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(WHY); };
   const IO = {upload: (l, o) => uploadFiles(l, o), bytes: id => assetBytes(id), ai: null};
   const SV = p => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -91683,7 +93978,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   let reading = false;
   // Studyboard Pro
   const inkLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
-  const INK_WHY = "Turning your handwriting into text is part of Studyboard Pro: select what you wrote on the whiteboard and tap A to make it typed text you can edit and move.";
+  const INK_WHY = "Turning your handwriting into text is part of Studyboard Pro: select it and tap A.";
   hook("wb-selbar", ({bar, ids}) => {
     if (!ids || !ids.size || [...ids].some(k => k[0] !== "s")) return;
     const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "ink-text"; b.className = "wb-inktext" + (reading ? " busy" : "");
@@ -94790,7 +97085,7 @@ function restoreDeck(id, s, drop){
 }
 
 /* Entry points */
-const PRO_WHY = "Version History is part of Studyboard Pro: earlier versions of your notes and decks from the last 30 days, including versions from your online backups, so you can bring back anything you changed or deleted.";
+const PRO_WHY = "Version History is part of Studyboard Pro: bring back any note or deck from the last 30 days.";
 function deckBtn(d){
   if (!d || inPreview() || !window.SBPRO || SBPRO.locked()) return "";
   return keys.has("deck:" + d.id) || cloudOn() ? `<button type="button" class="btn" data-act="vh-deck" data-id="${esc(d.id)}">Earlier Versions</button>` : "";
@@ -94928,7 +97223,7 @@ const RBC = (() => {
 })();
 /*RUBRIC-END*/
 
-const PRO_WHY = "Rubric Check is part of Studyboard Pro: add your draft and the assignment's rubric, and it shows which criteria look weak before you submit. It gives feedback and never writes your work.";
+const PRO_WHY = "Rubric Check is part of Studyboard Pro: see which rubric criteria your draft misses before you submit.";
 const LMS_F = ["cv", "bs", "bb", "md", "sg", "gc"];
 const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null, el: null};
 // A check that's still running is set aside (not stopped) when you tap away, and comes back when you open Rubric Check again
@@ -95655,7 +97950,7 @@ function html(exId, o){
     [want.f && M.counts.formulas ? `${M.counts.formulas} formula${M.counts.formulas === 1 ? "" : "s"}` : "", want.d && M.counts.defs ? `${M.counts.defs} definition${M.counts.defs === 1 ? "" : "s"}` : "", want.p && M.counts.pictures ? `${M.counts.pictures} diagram${M.counts.pictures === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const empty = !topicsOf(ex).length ? "This exam has no topics yet. Open it, choose Plan My Prep and add the topics it covers."
     : !linked(ex) && !M.sections.length ? "Nothing is linked to this exam's topics yet. In its Prep Plan, choose Edit Topics and link the decks and notes for each topic."
-    : "No formulas, definitions or picture cards were found in the decks and notes linked to this exam. Cards like “Newton's second law / F = ma” or “Osmosis / Movement of water across a membrane”, note lines like “Term: meaning”, and picture cards all go on the sheet.";
+    : "No formulas, definitions or picture cards were found in this exam's linked material. Cards like “F = ma” and note lines like “Term: meaning” go on the sheet.";
   return `<div class="pp-page xs-page"><div class="xs-head"><h1>${H(ex.title)}: Formula and Diagram Sheet</h1><p>${H(sub)}</p><p class="xs-src">Made from your own decks and notes. Check anything you'll rely on.</p></div>
     ${total ? `<div class="xs-cols">${secs}</div>` : `<p class="xs-empty">${H(empty)}</p>`}</div>`;
 }

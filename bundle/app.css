@@ -154,7 +154,9 @@ body.wide .wrap{max-width:1180px}
 .card.is-done .card-check svg{opacity:1;color:#fff}
 .ann-btn{position:relative}
 .ann-btn[hidden]{display:none}
-.ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}
+/* styled like the Review count (.fc-navdue) */
+.ann-n{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:linear-gradient(180deg,color-mix(in srgb,var(--late,#C0392B) 82%,#fff),var(--late,#C0392B));color:#fff;font:700 .62rem/17px var(--display);letter-spacing:-.01em;font-variant-numeric:tabular-nums;text-align:center;box-sizing:border-box;pointer-events:none;box-shadow:0 0 0 2px var(--spine,#0E2A56),0 2px 5px rgba(0,0,0,.25)}
+@media (max-width:979px){.ann-n{box-shadow:0 0 0 2px var(--surface),0 2px 5px rgba(0,0,0,.2)}}
 .nav-tool.ann-btn .ann-n{top:2px;right:calc(50% - 26px)}
 .ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content;padding-bottom:calc(30px + env(safe-area-inset-bottom,0px))}
 .ann-bar{margin:0}
@@ -5880,6 +5882,11 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
   #view .pg-tabs > button{flex:none!important;min-height:0!important;padding:9px 22px!important;margin:0!important;border:0!important;border-radius:999px!important;color:color-mix(in srgb,var(--ink) 68%,var(--surface))!important;font-size:1rem!important;font-weight:700!important;transition:background-color .24s var(--sm-ease),color .2s ease}
   #view .pg-tabs > button:hover{color:var(--ink)!important;background:color-mix(in srgb,var(--ink) 7%,transparent)!important}
   /* the selected tab in the theme's own colour (its deeper accent, the one coloured headers use, so white text reads) */
+  #view .pg-tabs > button[aria-selected="true"]{background:var(--accent-band,var(--accent))!important;color:#fff!important;box-shadow:0 2px 8px color-mix(in srgb,var(--accent-band,var(--accent)) 35%,transparent)!important}
+}
+/* Phones: the same selected tab in the theme colour as on desktop (the phone keeps its own full-width layout and sizes) */
+@media (max-width:639px){
+  #view .pg-tabs > button{color:color-mix(in srgb,var(--ink) 68%,var(--surface))!important;transition:background-color .24s var(--sm-ease),color .2s ease}
   #view .pg-tabs > button[aria-selected="true"]{background:var(--accent-band,var(--accent))!important;color:#fff!important;box-shadow:0 2px 8px color-mix(in srgb,var(--accent-band,var(--accent)) 35%,transparent)!important}
 }
 /* The main button on a coloured page band (a deck's or a course's header): the primary-button glow layer painted it solid white

@@ -3,6 +3,11 @@
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
+  // the signature flourish: a looping line across the lower page (u in 0..1), then an underline swash back
+  const wrPt = (u, W, H) => { const x0 = W * 0.12, L = W * 0.76, y0 = H * (W < H ? 0.7 : 0.72), r = Math.min(H * 0.07, L * 0.05);
+    if (u < 0.8) { const t = u / 0.8 * Math.PI * 8, aa = L / (Math.PI * 8); return [x0 + aa * t - r * 1.5 * Math.sin(t), y0 - r * 1.8 * (1 - Math.cos(t)) * (0.6 + 0.4 * Math.sin(t / 8))]; }
+    const v = (u - 0.8) / 0.2; return [x0 + L - L * 0.9 * v, y0 + r * 1.2 * Math.sin(v * Math.PI) * 0.6 + r * 0.5 * v]; };
+  const wrQ = new Path2D("M-9 11C-7 4 -3 -3 3 -8C6 -10.4 9 -11.4 11 -11.4C10.4 -8 8.6 -3.6 5 0C1.6 3.4 -3 5.6 -7 7.4L-9 11Z");
 
   /* Civic Square (Political Science and Law) */
   MAJ_THEMES.push({
@@ -17,10 +22,21 @@
       pennant: {d: "M-5 -10H5V9L0 5.2L-5 9Z", detail: "M-5 -6.6H5", dstroke: true},
       laurel: {d: "M-1 9C-6.4 7 -9 2.4 -8.4 -3.6L-6.8 -3.4C-7.2 1.6 -5 5.4 -0.4 7.4Z M1 9C6.4 7 9 2.4 8.4 -3.6L6.8 -3.4C7.2 1.6 5 5.4 0.4 7.4Z M-9.4 -5.4a1.6 3 -20 1 0 3.2 0a1.6 3 -20 1 0 -3.2 0Z M6.2 -5.4a1.6 3 20 1 0 3.2 0a1.6 3 20 1 0 -3.2 0Z M-9.6 1a1.4 2.8 -50 1 0 2.8 0a1.4 2.8 -50 1 0 -2.8 0Z M6.8 1a1.4 2.8 50 1 0 2.8 0a1.4 2.8 50 1 0 -2.8 0Z M-6.6 5.4a1.3 2.6 -70 1 0 2.6 0a1.3 2.6 -70 1 0 -2.6 0Z M4 5.4a1.3 2.6 70 1 0 2.6 0a1.3 2.6 70 1 0 -2.6 0Z"}
     },
-    fx: {spawn: (W, H, d, n) => {
-      return fxRise(W, H, n(14), "balloon", d ? ["#FF8FA8", "#7EC8F8", "#FFD45E", "#8FE0A8", "#C9A0FF"] : ["#FF6F91", "#4FB4F0", "#FFC93C", "#5FD08A", "#A88BF5"], {smin: 12, smax: 18, vmin: 1.3, vmax: 2.4, sway: 1, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.12, 0.12)})).concat(fxBurst(W, H, n(26), "pennant", d ? ["#E9949A", "#8FB8E0", "#F0CC7A", "#9CCBA6"] : ["#E07A70", "#5E9CCB", "#E8B440", "#6FAF82"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, flip: true}),
-          fxTw(W, H, n(22), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#FFD86B"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4}));
-    }},
+    // two strings of festival bunting drop in from the top and swing to rest, while balloons rise past the courthouse
+    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "balloon", d ? ["#FF8FA8", "#7EC8F8", "#FFD45E", "#8FE0A8", "#C9A0FF"] : ["#FF6F91", "#4FB4F0", "#FFC93C", "#5FD08A", "#A88BF5"], {smin: 15, smax: 20, vmin: 1.3, vmax: 2.2, sway: 1, life: 300, spread: 60, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.12, 0.12), delay: p.delay + 20}))
+      .concat(fxTw(W, H, n(18), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#FFD86B"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 6) * (1 - fxEase((f - 180) / 60)); if (a <= 0.01) return;
+        const cols = d ? ["#F07A80", "#7EB8F0", "#F6CC5A", "#7ED0A0", "#C9A0FF"] : ["#E0544A", "#3C8AD8", "#F2B23A", "#3FA868", "#8A6AE0"], fl = Math.max(16, Math.min(W, H) * 0.045);
+        g.globalAlpha = a; g.lineCap = g.lineJoin = "round";
+        [[-0.02, 0.02, 0.64, -0.02, 0.17, 0], [0.36, -0.02, 1.02, 0.04, 0.15, 10]].forEach(([x0, y0, x1, y1, sag, t0], si) => {
+          const t = Math.max(0, f - t0), drop = (1 - Math.exp(-t / 9) * Math.cos(t / 7)) , dy = -H * 0.3 * (1 - Math.min(1.08, drop)), A = [x0 * W, y0 * H + dy], B = [x1 * W, y1 * H + dy], s = sag * H;
+          const P = u => [A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u + s * 4 * u * (1 - u)];
+          g.strokeStyle = d ? "rgba(240,230,210,.7)" : "rgba(90,70,50,.6)"; g.lineWidth = 1.6; g.beginPath(); for (let i = 0; i <= 30; i++) { const [x, y] = P(i / 30); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+          const len = Math.hypot(B[0] - A[0], B[1] - A[1]), N = Math.floor(len / (fl * 1.35));
+          for (let i = 0; i < N; i++) { const u0 = (i + 0.1) / N, u1 = (i + 0.9) / N, [ax, ay] = P(u0), [bx, by] = P(u1), sw = Math.sin(f * 0.07 + i * 0.9 + si) * 0.16 * Math.exp(-t / 120) + Math.sin(f * 0.03 + i) * 0.05, mx = (ax + bx) / 2, my = (ay + by) / 2, ang = Math.atan2(by - ay, bx - ax) + sw;
+            g.save(); g.translate(mx, my); g.rotate(ang); const hw = Math.hypot(bx - ax, by - ay) / 2; g.fillStyle = cols[(i + si * 2) % cols.length]; g.beginPath(); g.moveTo(-hw, 0); g.lineTo(hw, 0); g.lineTo(0, fl * 1.25); g.closePath(); g.fill();
+            g.fillStyle = "rgba(255,255,255,.22)"; g.beginPath(); g.moveTo(-hw, 0); g.lineTo(0, 0); g.lineTo(0, fl * 1.25); g.closePath(); g.fill(); g.restore(); } }); }},
     tag: "A festival square before a domed courthouse, with kites, balloons and bunting"
   });
 
@@ -38,12 +54,28 @@
       fingerprint: {d: "M0 -10A8 10 0 0 1 8 0V3A8 10 0 0 1 -8 3V0A8 10 0 0 1 0 -10Z", detail: "M0 -7A5.4 7 0 0 1 5.4 0V2.6M-5.4 2.6V0A5.4 7 0 0 1 2 -6.6M0 -4A2.6 4 0 0 1 2.6 0V5M-2.6 5V0A2.6 4 0 0 1 0 -4M0 -1V8", dstroke: true},
       qmark: {d: "M-4.6 -4.2C-4.6 -8.6 -1.8 -10.6 1 -10.6C4.4 -10.6 6.4 -8.2 6.4 -5.6C6.4 -2.4 4 -1.4 2.4 -0.2C1.6 0.4 1.4 1.4 1.4 2.6H-1.8C-1.8 0.4 -1.2 -0.8 0.6 -2.2C2 -3.2 3.2 -3.8 3.2 -5.6C3.2 -6.8 2.4 -7.8 0.9 -7.8C-0.6 -7.8 -1.4 -6.6 -1.4 -4.2Z M-2 5.2H1.6V8.8H-2Z"}
     },
-    fx: {spawn: (W, H, d, n) => {
-      const papers = fxFall(W, H, n(22), "clue", d ? ["#F8E07C", "#F6B6BE", "#B8D4EA", "#FBF7EE"] : ["#F4D660", "#F2A2AC", "#9CC2E2", "#FFFFFF"], {vmin: 1, vmax: 2, sway: 1.6, smin: 9, smax: 13});
-      return papers.concat(fxRise(W, H, n(6), "magnifier", d ? ["#F2A070", "#E8C890"] : ["#8A5A3A", "#B23A30"], {cx: [0.1, 0.9], smin: 10, smax: 15, vmin: 1.2, vmax: 2, sway: 0.8, life: 240, glow: d ? 10 : 0}),
-        fxBurst(W, H, n(10), "fingerprint", d ? ["#F07A5E", "#E8C890"] : ["#B23A30", "#8A5A3A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 8, smax: 12}),
-        fxTw(W, H, n(18), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#F2C24A"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4}));
-    }},
+    // red string links four pinned clues, then a big CASE CLOSED stamp thumps down in the middle and the case notes flutter off the board
+    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(18), "clue", d ? ["#F8E07C", "#F6B6BE", "#B8D4EA", "#FBF7EE"] : ["#F4D660", "#F2A2AC", "#9CC2E2", "#FFFFFF"], {vmin: 0.8, vmax: 1.6, sway: 1.6, smin: 10, smax: 14, rock: 0.5, spread: 70}).map(p => Object.assign(p, {delay: p.delay + 44}))
+      .concat(fxBurst(W, H, n(8), "fingerprint", d ? ["#F07A5E", "#E8C890"] : ["#B23A30", "#8A5A3A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 12}).map(p => Object.assign(p, {delay: 40 + Math.floor(fxR(0, 10))})),
+        fxTw(W, H, n(14), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#F2C24A"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 6) * (1 - fxEase((f - 180) / 60)); if (a <= 0.01) return;
+        const cx = W / 2, cy = H * 0.72, bw = Math.min(W * 0.72, 380), bh = bw * 0.32, ink = d ? "#FF6A5E" : "#C42E26";
+        // pins and red string
+        const pins = [[cx - bw * 0.6, cy - bh * 1.05], [cx + bw * 0.56, cy - bh * 1.2], [cx + bw * 0.62, cy + bh * 1.05], [cx - bw * 0.54, cy + bh * 1.15]];
+        g.lineCap = "round"; g.globalAlpha = a; g.strokeStyle = d ? "#FF5A5A" : "#C8282E"; g.lineWidth = 2;
+        for (let i = 0; i < 4; i++) { const p = fxEase((f - 4 - i * 7) / 9); if (p <= 0) break; const [x0, y0] = pins[i], [x1, y1] = pins[(i + 1) % 4]; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo((x0 + x1) / 2, (y0 + y1) / 2 + 14, x0 + (x1 - x0) * p, y0 + (y1 - y0) * p + 14 * Math.sin(Math.PI * p) * 0.5); g.stroke(); }
+        pins.forEach(([x, y], i) => { const p = fxEase((f - i * 7) / 6); if (p <= 0) return; g.fillStyle = "rgba(0,0,0,.25)"; g.beginPath(); g.arc(x + 2, y + 2, 6 * p, 0, 7); g.fill(); g.fillStyle = ["#E0463C", "#3D7BE0", "#F2B53A", "#2E9E5B"][i]; g.beginPath(); g.arc(x, y, 6 * p, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,.6)"; g.beginPath(); g.arc(x - 2, y - 2, 2 * p, 0, 7); g.fill(); });
+        // the stamp drops from above and lands at f = 40 with a small squash
+        const t = f - 30; if (t <= 0) return; const land = Math.min(1, t / 10), sc = 1 + 0.9 * Math.pow(1 - land, 2) - 0.05 * Math.sin(Math.min(1, Math.max(0, (t - 10) / 10)) * Math.PI);
+        g.save(); g.translate(cx, cy); g.rotate(-0.1); g.scale(sc, sc); g.globalAlpha = a * (0.25 + 0.65 * land); g.strokeStyle = ink; g.fillStyle = ink;
+        g.lineWidth = Math.max(3, bh * 0.07); g.lineJoin = "round"; g.strokeRect(-bw / 2, -bh / 2, bw, bh); g.lineWidth = Math.max(1.5, bh * 0.03); g.strokeRect(-bw / 2 + bh * 0.11, -bh / 2 + bh * 0.11, bw - bh * 0.22, bh * 0.78);
+        let fs = bh * 0.5; g.font = `900 ${fs}px "Arial Black", Impact, system-ui, sans-serif`; const tw = g.measureText("CASE CLOSED").width; if (tw > bw * 0.84) { fs *= bw * 0.84 / tw; g.font = `900 ${fs}px "Arial Black", Impact, system-ui, sans-serif`; }
+        g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("CASE CLOSED", 0, bh * 0.03);
+        // worn ink: a few gaps knocked out of the print
+        g.globalCompositeOperation = "destination-out"; g.globalAlpha = 0.5; for (let i = 0; i < 14; i++) { const u = Math.sin(i * 12.9898) * 43758.5453, v = u - Math.floor(u), w = Math.sin(i * 78.233) * 12345.678, z = w - Math.floor(w); g.beginPath(); g.ellipse((v - 0.5) * bw, (z - 0.5) * bh, bh * 0.08, bh * 0.03, v * 3, 0, 7); g.fill(); }
+        g.restore();
+        if (t > 9 && t < 40) { const q = (t - 9) / 31; g.globalAlpha = a * 0.45 * (1 - q); g.strokeStyle = ink; g.lineWidth = 2; for (let i = 0; i < 10; i++) { const an = i / 10 * Math.PI * 2, r0 = bw * 0.52 + q * 30, r1 = r0 + 14; g.beginPath(); g.moveTo(cx + Math.cos(an) * r0, cy + Math.sin(an) * r0 * 0.45); g.lineTo(cx + Math.cos(an) * r1, cy + Math.sin(an) * r1 * 0.45); g.stroke(); } } }},
     tag: "Neon rain, fairy lights and a corkboard of clues tied with red string in a cozy detective office"
   });
 
@@ -61,12 +93,21 @@
       letter: {d: "M-10 -7H10V7H-10Z", detail: "M-10 -7L0 1L10 -7", dstroke: true},
       inkdrop: {d: "M0 -10C3.5 -4 6.5 0 6.5 3.5A6.5 6.5 0 0 1 -6.5 3.5C-6.5 0 -3.5 -4 0 -10Z"}
     },
-    fx: {spawn: (W, H, d, n) => {
-      const birds = Array.from({length: n(12)}, () => { const sp = fxR(2.4, 3.6), a = -fxR(0.4, 0.85);
-        return {shape: "paperbird", c: fxPick(d ? ["#F6F0E6", "#E8DCC4", "#F6CF94"] : ["#FFFFFF", "#F4EDE0", "#E8DCC8"]), x: fxR(-60, W * 0.6), y: H + fxR(10, 80), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0, size: fxR(15, 22), rot: a * 0.5, vr: 0, sway: 0.5, swf: 0.05, life: 260, delay: Math.floor(fxR(0, 70)), glow: d ? 6 : 0}; });
-      return birds.concat(fxRise(W, H, n(26), "letter", d ? ["#F6CF94", "#E0D6EA"] : ["#A8553A", "#4A6A5A", "#C0703E"], {smin: 6, smax: 9, vmin: 1.2, vmax: 2.2, sway: 1, life: 220}).map(p => Object.assign(p, {rot: fxR(-0.4, 0.4), vr: fxR(-0.02, 0.02)})),
-        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#F2C24A"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4}));
-    }},
+    // a quill signs a looping flourish across the page; as the ink dries, paper birds lift off the line and fly away
+    fx: {spawn: (W, H, d, n) => { const P = [], N = n(12);
+      for (let i = 0; i < N; i++) { const u = (i + fxR(0.2, 0.8)) / N, [x, y] = wrPt(u, W, H), sp = fxR(2.2, 3.2), an = -fxR(0.5, 1.1), lr = fxR(0, 1) < 0.7 ? 1 : -1;
+        P.push({shape: "paperbird", c: fxPick(d ? ["#F6F0E6", "#E8DCC4", "#F6CF94", "#A8C8F0"] : ["#4F7FC4", "#E2765A", "#3F9A80", "#F2B53A"]), x, y: y - 8, vx: lr * Math.cos(an) * sp, vy: Math.sin(an) * sp, g: -0.006, drag: 0.998, size: fxR(16, 21), face: true, wig: 0.06, rot: 0, vr: 0, sway: 0.6, swf: 0.05, life: 170, delay: Math.round(18 + u * 80 + fxR(10, 26)), glow: d ? 6 : 3}); }
+      return P.concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#E8B440", "#F2C24A"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4})); },
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 175) / 60); if (a <= 0.01) return;
+        const p = Math.min(1, Math.max(0, (f - 8) / 92)), M = 160, k = Math.floor(p * M), ink = d ? "#F6D9A0" : "#24304E";
+        g.lineCap = g.lineJoin = "round"; g.strokeStyle = ink; g.globalAlpha = a; g.shadowBlur = d ? 6 : 0; g.shadowColor = ink;
+        let [px, py] = wrPt(0, W, H); for (let i = 1; i <= k; i++) { const [x, y] = wrPt(i / M, W, H); g.lineWidth = 1.4 + 2.2 * Math.abs(Math.sin(Math.atan2(y - py, x - px) + 0.6)); g.beginPath(); g.moveTo(px, py); g.lineTo(x, y); g.stroke(); px = x; py = y; }
+        const [hx, hy] = wrPt(p, W, H); g.lineTo(hx, hy);
+        // the quill rides the tip of the line and lifts away once it is done
+        const off = fxEase((f - 100) / 30), qa = a * (1 - off); if (qa <= 0.01) return;
+        const s = Math.max(2.2, Math.min(W, H) * 0.006); g.save(); g.shadowBlur = 0; g.globalAlpha = qa; g.translate(hx + 9 * s + off * 40, hy - 11 * s - off * 50); g.scale(s, s);
+        g.fillStyle = d ? "#F4EEE2" : "#FFFFFF"; g.strokeStyle = d ? "#C9B89A" : "#8A7A66"; g.lineWidth = 0.6; g.fill(wrQ); g.stroke(wrQ); g.beginPath(); g.moveTo(-8.4, 10.4); g.bezierCurveTo(-3, 3, 3, -3.6, 10, -10.6); g.stroke(); g.restore(); }},
     tag: "A storybook writing nook where a quill writes by itself and letters drift up like dust motes"
   });
 })();

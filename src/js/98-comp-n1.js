@@ -12,7 +12,7 @@
     theme: "onsen",
     companions: [
       {
-        id: "onsen-kapi", name: "Kapi", kind: "Onsen Capybara", pose: "sit", sleepy: true, wearColor: "#5A8AD0",
+        id: "onsen-kapi", name: "Kapi", kind: "Onsen Capybara", pose: "sit", sleepy: true, wearColor: "#5A8AD0", hatTop: true, scarfOverArms: true,
         bio: "A calm capybara who soaks in the warm spring for as long as you study.",
         idle: ["topBob", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 74],
@@ -39,7 +39,7 @@
         eyes: {lx: 50, rx: 70, y: 46, r: 3.8, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 67, w: 3, color: "#2B1A10"},
         cheeks: {lx: 41.5, rx: 78.5, y: 55, w: 4.4, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 78, 1.05], chest: [76, 96, 0.68], back: [92, 74, 0.8], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 29, 0.9, 0], neck: [60, 79.5, 1.05, 0, 71, 83], chest: [76, 85, 0.68], back: [92, 74, 0.8], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Ahh, hi! The water's just right today.", "You're doing great. Want to soak in that for a second?", "No rush. One task at a time, like one bath at a time.", "I'm so calm, and you're so capable!", "Steady and warm, that's how we study.", "Every little step counts. I believe in you.", "Relax your shoulders. There we go!", "You make studying look cozy."],
           pet: ["Mmm, that's so relaxing. Thank you.", "Hehe, I might melt into the tub."],
@@ -53,7 +53,7 @@
         }
       },
       {
-        id: "onsen-momo", name: "Momo", kind: "Snow Monkey Baby", pose: "sit", wearColor: "#E0533A",
+        id: "onsen-momo", name: "Momo", kind: "Snow Monkey Baby", pose: "sit", wearColor: "#E0533A", hatTop: true,
         bio: "A baby snow monkey who balances a snowball on its head while you work.",
         idle: ["earTwitch", "wave", "tailSwish"], cheer: "hop",
         parts: {
@@ -74,7 +74,7 @@
         eyes: {lx: 53, rx: 67, y: 50.5, r: 3.6, style: "dot", color: "#3A1A1E"},
         mouth: {x: 60, y: 61.5, w: 2.6, color: "#3A1A1E"},
         cheeks: {lx: 48.5, rx: 71.5, y: 57, w: 3.4, h: 2.2, color: "#FF6F8E"},
-        anchors: {top: [60, 27, 0.85], neck: [60, 76, 1], chest: [72, 98, 0.62], back: [86, 84, 0.8], hands: [60, 98, 0.8]},
+        anchors: {top: [60, 28.5, 0.85, 0], neck: [60, 77.5, 0.95, 0, 40, 60], chest: [72, 76.5, 0.62], back: [86, 84, 0.8], hands: [60, 98, 0.8]},
         lines: {
           tap: ["Hi hi! Don't mind the snowball, it's for balance.", "You're so good at this! Wheee!", "Let's do the next one together!", "I believe in you more than snowballs!", "Brrr, studying warms me right up!", "Ooh, you're on a roll!", "Little steps, big monkey cheers!"],
           pet: ["Hehe! Careful, the snowball!", "Eee! That tickles my ears!"],
@@ -88,7 +88,7 @@
         }
       },
       {
-        id: "onsen-yuzu", name: "Yuzu", kind: "Floating Yuzu", pose: "float", wearColor: "#5AAA5A",
+        id: "onsen-yuzu", name: "Yuzu", kind: "Floating Yuzu", pose: "float", wearColor: "#5AAA5A", hatTop: true,
         bio: "A sunny little yuzu who bobs along in the hot spring beside you.",
         idle: ["topBob", "sway", "sparkle"], cheer: "spin",
         parts: {
@@ -104,7 +104,7 @@
         eyes: {lx: 50, rx: 70, y: 67, r: 4.4, style: "sparkle", color: "#3A2414"},
         mouth: {x: 60, y: 77, w: 3.1, color: "#3A2414"},
         cheeks: {lx: 43, rx: 77, y: 75, w: 4.4, h: 2.7, color: "#FF8F7A"},
-        anchors: {top: [60, 38, 0.85], neck: [60, 92, 1], chest: [74, 86, 0.62], back: [86, 62, 0.8], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 40, 0.85, 0], neck: [60, 86, 1, 0, 53, 81], chest: [74, 92.5, 0.62], back: [86, 62, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Bob bob! Hi there!", "I never sink, and neither will your grades!", "Zesty work today!", "You're the sunniest student I know!", "Roll with it, you've got this!", "A little citrus cheer, just for you!", "Fresh start, fresh focus!", "You're doing a-peel-ing work!"],
           pet: ["Hehe, I'm rolling with joy!", "Ooh, that smells nice and zesty!"],
@@ -133,7 +133,7 @@
     theme: "rainforest",
     companions: [
       {
-        id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A",
+        id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A", scarfOverArms: true,
         bio: "A sleepy baby sloth who takes every study session slow and steady.",
         idle: ["headTilt", "sway", "wave"], cheer: "wave", hatTop: true,
         neck: [60, 74],
@@ -162,7 +162,7 @@
         eyes: {lx: 45.5, rx: 74.5, y: 49, r: 3.8, style: "round", color: "#1E120A"},
         mouth: {x: 60, y: 63, w: 2.9, color: "#3A2418"},
         cheeks: {lx: 41, rx: 79, y: 62, w: 4.2, h: 2.5, color: "#FF9A9A"},
-        anchors: {top: [60, 23, 1.05], neck: [60, 77, 1.1], chest: [60, 85, 0.6], back: [88, 84, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 20, 1.05, 0], neck: [60, 74.5, 1.05, 0, 48, 78.5, 56], chest: [60, 83, 0.6], back: [88, 84, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Heyyy... friend... hi.", "Slow and steady... still gets there.", "You're doing great... no rush.", "One... thing... at a time. Perfect.", "I like your pace... it's lovely.", "Hang in there... like me!", "Big things... start small.", "Deep breath... you've got this."],
           pet: ["Mmm... so cozy... thank you.", "Hehe... slow happy wiggle."],
@@ -201,7 +201,7 @@
         mouth: {x: 60, y: 66, w: 3},
         mouths: {neutral: tbeak(false), smile: tbeak(false) + `<path d="M41.4 58.4q1.6 2.8 4.6 2.2M78.6 58.4q-1.6 2.8 -4.6 2.2" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, open: tbeak(true), sleepy: tbeak(false)},
         cheeks: {lx: 40, rx: 80, y: 51, w: 3.6, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 25, 0.95], neck: [60, 71, 0.95], chest: [60, 86, 0.58], back: [84, 84, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 23.5, 0.95, 0], neck: [60, 71, 0.95, 0, 40, 51], bow: [60, 81.5, 0.7], chest: [60, 77, 0.58], back: [84, 84, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Did you notice my beak? Everyone notices my beak.", "Big plans today! Huge plans!", "You're doing toucan-tastic!", "Two can do it better: you and me!", "Hop hop! Next task!", "Your notes look colorful today!", "I spy a superstar student!", "Let's fly through this list!"],
           pet: ["Squawk! Hehe, that tickles!", "Careful, the beak is very important!"],
@@ -215,7 +215,7 @@
         }
       },
       {
-        id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A",
+        id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A", scarfOverArms: true,
         bio: "A bright blue tree frog who holds on to every task with its sticky toes.",
         idle: ["bounce", "wave", "sparkle"], cheer: "hop",
         parts: {
@@ -232,7 +232,7 @@
         eyes: {lx: 42, rx: 78, y: 53, r: 7.4, style: "round", color: "#141826"},
         mouth: {x: 60, y: 70, w: 4.8, color: "#14284E"},
         cheeks: {lx: 37, rx: 83, y: 67, w: 4.4, h: 2.6, color: "#FF8FB8"},
-        anchors: {top: [60, 45, 0.85], neck: [60, 80, 1.15], chest: [72, 92, 0.6], back: [88, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 33.5, 0.85, 0], neck: [60, 80, 1.15, 0, 73, 80], chest: [72, 85.5, 0.6], back: [88, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Ribbit! Hi! Look at my sticky toes!", "You're sticking with it! Nice!", "Hop to it, you're doing great!", "Small frog, big cheers!", "You're the brightest thing in this jungle!", "Leap to the next one!", "Every hop counts!"],
           pet: ["Hehe, I'm a little bit sticky, sorry!", "Ribbit! Again again!"],
@@ -271,7 +271,7 @@
         eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "sparkle", color: "#4A1830"},
         mouth: {x: 60, y: 86, w: 3, color: "#4A1830"},
         cheeks: {lx: 44, rx: 76, y: 84, w: 4.2, h: 2.6, color: "#FF5E8E"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 96, 1], chest: [72, 96, 0.6], back: [84, 72, 0.8], hands: [60, 100, 0.85]},
+        anchors: {top: [60, 48, 0.85, 0], neck: [60, 96, 1, 0, 47, 65], chest: [72, 102, 0.6], back: [84, 72, 0.8], hands: [60, 100, 0.85]},
         lines: {
           tap: ["Hi! I'm waving with all my arms!", "You're doing wonderfully, swish swish!", "Forty arms, forty cheers for you!", "Every wave brings something new!", "You're the brightest thing in my pool!", "Let the tide carry you to the next one!", "Hugs from every tentacle!", "Swaying along with your progress!"],
           pet: ["Ooh! That tickles all forty arms!", "Hehe! I'm closing up with joy!"],
@@ -285,7 +285,7 @@
         }
       },
       {
-        id: "tidepool-spike", name: "Spike", kind: "Purple Sea Urchin", pose: "stand", wearColor: "#2FA0B8",
+        id: "tidepool-spike", name: "Spike", kind: "Purple Sea Urchin", pose: "stand", wearColor: "#2FA0B8", hatTop: true,
         bio: "A shy purple sea urchin who looks prickly but is soft at heart.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
@@ -300,7 +300,7 @@
         eyes: {lx: 51, rx: 69, y: 72, r: 3.8, style: "dot", color: "#2A1240"},
         mouth: {x: 60, y: 81.5, w: 2.3, color: "#2A1240"},
         cheeks: {lx: 44, rx: 76, y: 79, w: 5.4, h: 3.2, color: "#FF7FAE"},
-        anchors: {top: [60, 44, 0.85], neck: [60, 98, 1], chest: [72, 92, 0.6], back: [86, 64, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 47, 0.85, 0], neck: [60, 90, 1, 0, 53, 72], chest: [72, 96, 0.6], back: [86, 64, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Oh! Um, hi. I'm soft, I promise.", "You're doing really well... just saying.", "I'm quietly cheering for you.", "Don't mind the spikes, they're just for show.", "You make me feel brave!", "Little steps are still steps!", "I believe in you. Shyly. But a lot."],
           pet: ["Eep! That was nice actually.", "Hehe... I'm blushing all over."],
@@ -333,7 +333,7 @@
         mouth: {x: 60, y: 62, w: 3},
         mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false) + `<path d="M50 59q1.6 1.8 3.4 1M70 59q-1.6 1.8 -3.4 1" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`, open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
         cheeks: {lx: 47, rx: 73, y: 59, w: 3.4, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 28, 0.9], neck: [60, 74, 1], chest: [70, 94, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 76.5, 1, 0, 44, 55], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hello! Pool inspection complete, all is well!", "Waddle waddle, you're doing great!", "I checked every pool. You're the best one!", "Tuxedo on, ready to study!", "Fluffy but focused!", "Let's waddle to the next task!", "You're puff-ectly on track!", "Beak up, chest out, here we go!"],
           pet: ["Hehe! My fluff is extra fluffy now!", "Peep peep! Again!"],
@@ -354,7 +354,7 @@
     theme: "volcano",
     companions: [
       {
-        id: "volcano-ember", name: "Ember", kind: "Lava Blob", pose: "stand", wearColor: "#2EA2A0",
+        id: "volcano-ember", name: "Ember", kind: "Lava Blob", pose: "stand", wearColor: "#2EA2A0", hatTop: true,
         bio: "A warm, glowing lava blob who keeps your study nights toasty.",
         idle: ["bounce", "sparkle", "topBob"], cheer: "hop",
         parts: {
@@ -371,7 +371,7 @@
         eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "sparkle", color: "#4A1408"},
         mouth: {x: 60, y: 86, w: 3.2, color: "#4A1408"},
         cheeks: {lx: 43, rx: 77, y: 84, w: 4.4, h: 2.7, color: "#FF5A6A"},
-        anchors: {top: [60, 34, 0.85], neck: [60, 98, 1], chest: [72, 94, 0.62], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 47.5, 0.85, 0], neck: [60, 95, 1, 0, 59, 59], chest: [72, 101.5, 0.62], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! I'm warm, I'm glowy, I'm here for you!", "You're on fire today! The good kind!", "Hot tip: you're doing amazing!", "Bubbling with pride over here!", "Keep that glow going!", "Gooey hug from a safe distance!", "You're heating up! Love it!", "Molten-level motivation, activated!"],
           pet: ["Ooh, careful, I'm toasty! Hehe!", "Bloop! That made me glow brighter!"],
@@ -404,7 +404,7 @@
         eyes: {lx: 49, rx: 71, y: 71, r: 5.2, style: "round", color: "#3A2A2A"},
         mouth: {x: 60, y: 80.5, w: 3, color: "#3A2A2A"},
         cheeks: {lx: 39, rx: 81, y: 79, w: 4.8, h: 2.9, color: "#FF9E9E"},
-        anchors: {top: [60, 43, 0.95], neck: [60, 93, 1.1], chest: [74, 92, 0.65], back: [90, 66, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 90.5, 1.1, 0, 64, 63], chest: [74, 96.5, 0.61], back: [90, 66, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hi! Look, I'm floating! Is this swimming?", "Light as air, strong as rock. Like you!", "You're doing great, I can tell from here!", "Drifting along, cheering you on!", "Little pebble, big belief in you!", "Keep it light, keep it going!", "You make hard things look easy!"],
           pet: ["Hehe! I'm bobbing with joy!", "Ooh, I almost floated away!"],
@@ -446,7 +446,7 @@
         eyes: {lx: 46, rx: 74, y: 49, r: 6, style: "sparkle", color: "#2B1A10"},
         mouth: {x: 60, y: 66, w: 3.8},
         cheeks: {lx: 37, rx: 83, y: 59, w: 4.6, h: 2.8, color: "#FF8F7A"},
-        anchors: {top: [60, 25, 1], neck: [60, 73, 1.1], chest: [60, 84, 0.6], back: [86, 82, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 13.5, 1, 0], neck: [60, 73, 1.05, 0, 46, 66], chest: [60, 79, 0.6], back: [86, 82, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Just sunbathing between study sessions.", "Achoo! Sorry, that's a happy salt sneeze!", "You're doing great, mate!", "Slow blink of approval.", "Warm rocks, warm heart, warm wishes!", "Let's dive into the next one!", "You're tougher than lava rock!"],
           pet: ["Achoo! Hehe, happy sneeze!", "Ooh, right on the spiky bits!"],
@@ -467,7 +467,7 @@
     theme: "savanna",
     companions: [
       {
-        id: "savanna-peanut", name: "Peanut", kind: "Baby Elephant", pose: "stand", wearColor: "#D27A2A",
+        id: "savanna-peanut", name: "Peanut", kind: "Baby Elephant", pose: "stand", wearColor: "#D27A2A", hatTop: true,
         bio: "A gentle baby elephant who never forgets a due date.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
@@ -484,7 +484,7 @@
         eyes: {lx: 48, rx: 72, y: 52, r: 3.8, style: "dot", color: "#2B2233"},
         mouth: {x: 48, y: 69, w: 2.4},
         cheeks: {lx: 43, rx: 77, y: 61, w: 4.4, h: 2.7, color: "#FF9AB0"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 80, 1.1], chest: [76, 90, 0.68], back: [86, 80, 0.8], hands: [60, 94, 0.85]},
+        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 77, 1, 0, 40, 56], chest: [76, 87, 0.68], back: [86, 80, 0.8], hands: [60, 94, 0.85]},
         lines: {
           tap: ["Hi! I remembered you'd come. I always remember!", "You're doing great, and I'll never forget it!", "Big ears, big heart, big cheers!", "Trunk up for your hard work!", "Let's stomp through this list together!", "I never forget a due date. Or a friend!", "Splash of encouragement coming your way!", "Step by step, like a little elephant."],
           pet: ["Hehe! My ears are flapping with joy!", "Ooh, trunk hug for you!"],
@@ -521,7 +521,7 @@
         eyes: {lx: 52, rx: 68, y: 35, r: 3.4, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 50, w: 2.4, color: "#2B1A10"},
         cheeks: {lx: 46, rx: 74, y: 42, w: 3.4, h: 2.2, color: "#FF9A9A"},
-        anchors: {top: [60, 18, 0.8], neck: [60, 56, 0.8], chest: [66, 84, 0.58], back: [78, 78, 0.72], hands: [60, 88, 0.8]},
+        anchors: {top: [60, 22.5, 0.8, 0], neck: [60, 56.5, 0.8, 0, 17.5, 48], chest: [66, 62.5, 0.58], back: [78, 78, 0.72], hands: [60, 88, 0.8]},
         lines: {
           tap: ["Hi from up here! I can see your progress!", "I spy a deadline... and you're way ahead of it!", "You're reaching new heights!", "Long neck, long list, no problem!", "Head held high, you're doing great!", "The view is lovely, and so is your work!", "Stretch for it! You've got this!"],
           pet: ["Hehe! You reached all the way up!", "Ooh, right behind the ears!"],
@@ -535,7 +535,7 @@
         }
       },
       {
-        id: "savanna-sentry", name: "Sentry", kind: "Meerkat Pup", pose: "stand", wearColor: "#D27A2A",
+        id: "savanna-sentry", name: "Sentry", kind: "Meerkat Pup", pose: "stand", wearColor: "#D27A2A", hatTop: true, scarfOverArms: true,
         bio: "A watchful meerkat pup who stands guard while you focus.",
         idle: ["headTilt", "topBob", "bounce"], cheer: "hop",
         neck: [60, 64],
@@ -559,7 +559,7 @@
         eyes: {lx: 51, rx: 69, y: 45, r: 4, style: "round", color: "#1A1008"},
         mouth: {x: 60, y: 59.5, w: 2.2, color: "#2B1A10"},
         cheeks: {lx: 45, rx: 75, y: 54, w: 3.4, h: 2.2, color: "#FF9A9A"},
-        anchors: {top: [60, 27, 0.9], neck: [60, 66, 0.92], chest: [70, 88, 0.6], back: [80, 84, 0.75], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 29, 0.9, 0], neck: [60, 66.5, 0.9, 0, 30, 45], bow: [60, 72, 0.55], chest: [70, 72.5, 0.6], back: [80, 84, 0.75], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Reporting for duty! All clear!", "Lookout says: you're doing great!", "Scanning the horizon... yep, you're amazing.", "I've got your back, you focus!", "No distractions in sight. Carry on!", "Standing tall for you!", "Perimeter secure, progress excellent!", "Sentry on watch, you on task!"],
           pet: ["Hehe! Off duty for one second!", "Ooh, a pat! Still on watch though!"],

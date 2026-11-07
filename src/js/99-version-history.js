@@ -361,7 +361,7 @@ function restoreDeck(id, s, drop){
 }
 
 /* Entry points */
-const PRO_WHY = "Version History is part of Studyboard Pro: earlier versions of your notes and decks from the last 30 days, including versions from your online backups, so you can bring back anything you changed or deleted.";
+const PRO_WHY = "Version History is part of Studyboard Pro: bring back any note or deck from the last 30 days.";
 function deckBtn(d){
   if (!d || inPreview() || !window.SBPRO || SBPRO.locked()) return "";
   return keys.has("deck:" + d.id) || cloudOn() ? `<button type="button" class="btn" data-act="vh-deck" data-id="${esc(d.id)}">Earlier Versions</button>` : "";

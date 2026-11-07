@@ -24,7 +24,7 @@
     theme: "compsci",
     companions: [
       {
-        id: "compsci-duck", name: "Debug", kind: "Rubber Duck", pose: "sit", wearColor: "#3E7BD6",
+        id: "compsci-duck", name: "Debug", kind: "Rubber Duck", pose: "sit", wearColor: "#3E7BD6", hatTop: true,
         bio: "A squeaky rubber duck who listens to every bug until it's solved.",
         idle: ["headTilt", "tailSwish", "wave"], cheer: "wingFlutter",
         neck: [60, 75],
@@ -50,7 +50,7 @@
         },
         mouth: {x: 60, y: 59, w: 3.4},
         cheeks: {lx: 41.5, rx: 78.5, y: 57.5, w: 4.6, h: 2.8, color: "#FF9A8A"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 76, 1.05], chest: [72, 92, 0.7], back: [87, 86, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 29, 0.95, 0], neck: [60, 78, 1.05, 0, 58, 73], chest: [72, 83.5, 0.7], back: [87, 86, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Squeak! Tell me all about your code!", "You're debugging like a champion!", "Quack! I believe in you so much!", "Every bug you squash makes me squeak!", "Talk it through, I'm all ears!", "You're smarter than any compiler!", "Quack quack! You've totally got this!", "Best coding buddy ever? That's you!"],
           pet: ["Squeeeak! That's my happy sound!", "Hehe! Quack! Do it again!"],
@@ -64,7 +64,7 @@
         }
       },
       {
-        id: "compsci-robot", name: "Bitsy", kind: "Little Robot", pose: "stand", wearColor: "#2FA79A",
+        id: "compsci-robot", name: "Bitsy", kind: "Little Robot", pose: "stand", wearColor: "#2FA79A", hatTop: true, scarfOverArms: true,
         bio: "A tiny robot whose screen lights up with joy for every line you write.",
         idle: ["topBob", "earTwitch", "wave"], cheer: "wave",
         neck: [60, 71],
@@ -91,7 +91,7 @@
         eyes: {lx: 51, rx: 69, y: 46, r: 5, style: "dot", color: "#7DF2DA"},
         mouth: {x: 60, y: 55.5, w: 3, color: "#7DF2DA"},
         cheeks: {lx: 44, rx: 76, y: 53.5, w: 3.6, h: 2.2, color: "#FF8FBA"},
-        anchors: {top: [60, 27, 0.95], neck: [60, 74, 0.95], chest: [71, 96, 0.6], back: [79, 86, 0.8], hands: [60, 94, 0.85]},
+        anchors: {top: [60, 21.5, 0.95, 0], neck: [60, 74, 0.95, 0, 35, 70], chest: [71, 80, 0.6], back: [79, 86, 0.8], hands: [60, 94, 0.85]},
         lines: {
           tap: ["Beep boop! Hi! Hi! Hi!", "Processing joy: 100 percent!", "You're running at top speed today!", "My circuits sparkle when you're here!", "Beep! You're doing amazing!", "Loading cheer: done! Go you!", "Hello, world! Hello, YOU!", "Best human in my whole database!"],
           pet: ["Beep beep! Happy circuits!", "Boop! My screen is all blushy!"],
@@ -127,7 +127,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 72, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 81, w: 3.2},
         cheeks: {lx: 43.5, rx: 76.5, y: 80, w: 4, h: 2.5, color: "#FF9AB4"},
-        anchors: {top: [60, 27, 1], neck: [60, 96, 1.15], chest: [76, 90, 0.6], back: [86, 62, 0.9], hands: [60, 93, 0.85]},
+        anchors: {top: [60, 22, 1, 0], neck: [60.5, 91, 1.15, 0, 64, 66], chest: [76, 96.5, 0.6], back: [86, 62, 0.9], hands: [60, 93, 0.85]},
         lines: {
           tap: ["Hi! Saving this happy moment!", "You're doing so well! Saved!", "1.44 megabytes of pure cheer!", "Whirr whirr! That's my happy noise!", "You're my favorite file to save!", "Ctrl S on all your awesomeness!", "You've got this! Loading pride!", "Retro hugs for my study buddy!"],
           pet: ["Whirr! My shutter is all tingly!", "Hehe! Saved to my heart!"],
@@ -148,7 +148,7 @@
     theme: "engineering",
     companions: [
       {
-        id: "engineering-beaver", name: "Bolt", kind: "Hard Hat Beaver", pose: "sit", wearColor: "#2C7FB8",
+        id: "engineering-beaver", name: "Bolt", kind: "Hard Hat Beaver", pose: "sit", wearColor: "#2C7FB8", scarfOverArms: true,
         bio: "A busy beaver in a hard hat who builds big plans one log at a time.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "wave",
         neck: [60, 78],
@@ -183,7 +183,7 @@
         },
         mouth: {x: 60, y: 68, w: 3},
         cheeks: {lx: 41, rx: 79, y: 64.5, w: 4.6, h: 2.8, color: "#FF9A9A"},
-        anchors: {top: [60, 20, 0.95], neck: [60, 79, 1.05], chest: [70, 93, 0.68], back: [83, 88, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 82, 1.05, 0, 48, 57], chest: [70, 86, 0.68], back: [83, 88, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hi, builder! Ready to make plans?", "You're building something amazing!", "Hard hat on, cheer level max!", "Log by log, you're doing great!", "Measure twice, cheer forever!", "Tail slap of pride for you!", "You've got this! Let's build!", "Best teammate on the whole site!"],
           pet: ["Hehe! My hard hat wiggled!", "Ooh! Happy tail thumps!"],
@@ -197,7 +197,7 @@
         }
       },
       {
-        id: "engineering-gear", name: "Cog", kind: "Gear Sprite", pose: "float", wearColor: "#2F8F9D",
+        id: "engineering-gear", name: "Cog", kind: "Gear Sprite", pose: "float", wearColor: "#2F8F9D", hatTop: true,
         bio: "A spinning brass gear sprite who keeps every plan turning smoothly.",
         idle: ["spin", "topBob", "wave"], cheer: "spin",
         parts: {
@@ -214,7 +214,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 56, r: 5, style: "sparkle"},
         mouth: {x: 60, y: 65, w: 3.2},
         cheeks: {lx: 43, rx: 77, y: 63.5, w: 4.2, h: 2.6, color: "#FF9A8E"},
-        anchors: {top: [57, 22, 0.9], neck: [60, 88, 0.95], chest: [74, 77, 0.6], back: [89, 47, 0.85], hands: [60, 84, 0.85]},
+        anchors: {top: [57, 26, 1.06, 0], neck: [60, 78, 0.9, 0, 42, 62], chest: [74, 80, 0.6], back: [89, 47, 0.85], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Whirr! Hi! My teeth are spinning!", "You keep everything turning!", "Click click! You're amazing!", "We mesh so well together!", "Full speed ahead! Go go go!", "You're the gear that drives it all!", "Spinning with pride for you!", "Tick tick whirr! You've got this!"],
           pet: ["Whirrr! That's so smooth!", "Hehe! Freshly oiled happiness!"],
@@ -257,7 +257,7 @@
         eyes: {lx: 51, rx: 71, y: 45, r: 5.2, style: "dot"},
         mouth: {x: 61, y: 54.5, w: 3.2},
         cheeks: {lx: 43.5, rx: 78.5, y: 53, w: 4.4, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [61, 24, 0.9], neck: [57, 66, 0.75], chest: [67, 98, 0.55], back: [77, 50, 0.75], hands: [61, 76, 0.8]},
+        anchors: {top: [61, 23, 0.9, 0], neck: [49.5, 68.5, 0.75, 0, 21.5, 24.5], chest: [67, 72, 0.55], back: [77, 50, 0.75], hands: [61, 76, 0.8]},
         lines: {
           tap: ["Grab! Hi there! I caught a smile!", "Pinch pinch! You're amazing!", "I'd lift you up if I could!", "Precision cheering activated!", "You're building great things!", "Reach high! You've got this!", "My claws are clapping for you!", "Best project partner ever!"],
           pet: ["Whirr! My joints feel so loose!", "Hehe! Pinchy happy dance!"],
@@ -278,7 +278,7 @@
     theme: "education",
     companions: [
       {
-        id: "education-apple", name: "Appy", kind: "Red Apple", pose: "sit", wearColor: "#3E8E5A",
+        id: "education-apple", name: "Appy", kind: "Red Apple", pose: "sit", wearColor: "#3E8E5A", hatTop: true,
         bio: "A shiny red apple who's the teacher's pet and your biggest fan.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -294,7 +294,7 @@
         eyes: {lx: 48, rx: 72, y: 72, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 81, w: 3.4},
         cheeks: {lx: 38.5, rx: 81.5, y: 80, w: 5, h: 3, color: "#FFB0B8"},
-        anchors: {top: [60, 41, 1], neck: [60, 97, 1.15], chest: [80, 95, 0.72], back: [92, 72, 0.95], hands: [60, 98, 0.9]},
+        anchors: {top: [60, 31.5, 1, 0], neck: [60, 91, 1.15, 0, 77, 90], chest: [80, 96.5, 0.6], back: [92, 72, 0.95], hands: [60, 98, 0.9]},
         lines: {
           tap: ["Hi! You're the apple of my eye!", "Gold star for showing up today!", "You're learning so much! Wow!", "Crunch crunch! That's happy noise!", "Teacher's pet? No, YOU'RE the star!", "Every lesson makes you shine!", "You've got this! Apple-solutely!", "So proud of you, friend!"],
           pet: ["Hehe! I'm extra shiny now!", "Aww! My leaf is all wiggly!"],
@@ -332,7 +332,7 @@
         eyes: {lx: 50, rx: 70, y: 55, r: 4.9, style: "dot"},
         mouth: {x: 60, y: 64, w: 3.2},
         cheeks: {lx: 43, rx: 77, y: 62.5, w: 4.2, h: 2.6, color: "#FF9F8F"},
-        anchors: {top: [60, 11, 0.95], neck: [60, 76, 1.05], chest: [72, 82, 0.6], back: [80, 56, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 7, 0.95, 0], neck: [60, 73.5, 1, 0, 40, 44], chest: [72, 79.5, 0.6], back: [80, 56, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! I'm sharpened and ready!", "Scribble scribble! You're amazing!", "Let's write something wonderful!", "You make my eraser blush!", "Doodling hearts for you!", "Sharp mind, big heart! That's you!", "You've got this! Point taken!", "Best notes in the whole class!"],
           pet: ["Hehe! That tickles my eraser!", "Ooh! Freshly sharpened joy!"],
@@ -346,7 +346,7 @@
         }
       },
       {
-        id: "education-bus", name: "Buster", kind: "School Bus", pose: "stand", wearColor: "#3C6FD1",
+        id: "education-bus", name: "Buster", kind: "School Bus", pose: "stand", wearColor: "#3C6FD1", hatTop: true,
         bio: "A sunny school bus who picks up good vibes on every study route.",
         idle: ["earTwitch", "wave", "bounce"], cheer: "hop",
         parts: {
@@ -370,7 +370,7 @@
         eyes: {lx: 47, rx: 73, y: 70.5, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 80, w: 3.4},
         cheeks: {lx: 38.5, rx: 81.5, y: 78.5, w: 4.4, h: 2.7, color: "#FF9A7A"},
-        anchors: {top: [60, 22, 1], neck: [60, 96, 1.3], chest: [84, 70, 0.6], back: [96, 50, 0.9], hands: [60, 90, 0.9]},
+        anchors: {top: [60, 20, 1, 0], neck: [60, 91, 1.3, 0, 83, 85], chest: [84, 96.5, 0.6], back: [96, 50, 0.9], hands: [60, 90, 0.9]},
         lines: {
           tap: ["Beep beep! All aboard the cheer bus!", "Next stop: You being AMAZING!", "Honk honk! So happy you're here!", "You're driving straight to greatness!", "The wheels on the bus go YAY!", "Buckle up! You've got this!", "Best passenger on my whole route!", "Vroom! Look at you go!"],
           pet: ["Honk! That's my happy horn!", "Hehe! My wipers are waving!"],
@@ -391,7 +391,7 @@
     theme: "comms",
     companions: [
       {
-        id: "comms-mic", name: "Mic", kind: "Microphone", pose: "stand", wearColor: "#E2577F",
+        id: "comms-mic", name: "Mic", kind: "Microphone", pose: "stand", wearColor: "#E2577F", scarfOverArms: true,
         bio: "A shiny studio mic who amplifies every great idea you have.",
         idle: ["headTilt", "tailSwish", "wave"], cheer: "hop",
         neck: [60, 74],
@@ -415,7 +415,7 @@
         eyes: {lx: 49.5, rx: 70.5, y: 51, r: 5, style: "dot"},
         mouth: {x: 60, y: 60, w: 3.2},
         cheeks: {lx: 41.5, rx: 78.5, y: 58.5, w: 4.4, h: 2.7, color: "#FF9AB6"},
-        anchors: {top: [60, 21, 1], neck: [60, 76, 0.95], chest: [67, 93, 0.55], back: [74, 88, 0.75], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 21, 1, 0], neck: [60, 76, 0.95, 0, 37, 44], chest: [67, 81.5, 0.55], back: [74, 88, 0.75], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Testing, testing! You're AMAZING!", "Is this thing on? Yes! Hi!", "Amplifying your awesomeness!", "Your ideas sound fantastic!", "Mic check! You've got this!", "Turning the cheer volume all the way up!", "Loud and proud of you!", "Best voice in the whole studio!"],
           pet: ["Hehe! Sweet feedback! The good kind!", "Ooh! That made me hum!"],
@@ -429,7 +429,7 @@
         }
       },
       {
-        id: "comms-radio", name: "Dial", kind: "Retro Radio", pose: "stand", wearColor: "#E36A5C",
+        id: "comms-radio", name: "Dial", kind: "Retro Radio", pose: "stand", wearColor: "#E36A5C", hatTop: true,
         bio: "A retro radio who tunes in to your good vibes all day long.",
         idle: ["topBob", "earTwitch", "sway"], cheer: "hop",
         parts: {
@@ -450,7 +450,7 @@
         eyes: {lx: 47.5, rx: 72.5, y: 60, r: 5, style: "dot"},
         mouth: {x: 60, y: 69, w: 3.2},
         cheeks: {lx: 39, rx: 81, y: 67.5, w: 4.4, h: 2.7, color: "#FF9A8C"},
-        anchors: {top: [60, 28, 1], neck: [60, 101, 1.3], chest: [87, 90, 0.6], back: [93, 52, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 19.5, 1, 0], neck: [60, 80, 1.3, 0, 83, 85], chest: [87, 85.5, 0.6], back: [93, 52, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Bzzt! Tuned in to you! Hi!", "Now playing: You being awesome!", "Your vibes are coming in clear!", "Turning the happy up to eleven!", "You're my favorite station!", "Static? Nope! Just cheering!", "You've got this! On every channel!", "Best signal I ever found!"],
           pet: ["Hehe! My knobs are spinning!", "Ooh! Warm and fuzzy reception!"],
@@ -464,7 +464,7 @@
         }
       },
       {
-        id: "comms-megaphone", name: "Hollar", kind: "Megaphone", pose: "float", wearColor: "#3C6FD1",
+        id: "comms-megaphone", name: "Hollar", kind: "Megaphone", pose: "float", wearColor: "#3C6FD1", hatTop: true,
         bio: "A peppy megaphone who shouts your wins loud enough for everyone.",
         idle: ["topBob", "wave", "bounce"], cheer: "spin",
         parts: {
@@ -486,7 +486,7 @@
         eyes: {lx: 37.5, rx: 54.5, y: 55, r: 4.8, style: "sparkle"},
         mouth: {x: 46, y: 64.5, w: 3.2},
         cheeks: {lx: 31.5, rx: 60.5, y: 62.5, w: 3.6, h: 2.4, color: "#FF9A9A"},
-        anchors: {top: [46, 26, 0.85], neck: [46, 89, 0.85], chest: [82, 60, 0.55], back: [92, 44, 0.75], hands: [46, 83, 0.85]},
+        anchors: {top: [46, 26, 0.85, 0], neck: [53.5, 72.5, 0.85, 0, 73.5, 75], chest: [82, 78, 0.55], back: [92, 44, 0.75], hands: [46, 83, 0.85]},
         lines: {
           tap: ["HELLO! Hi! You're AMAZING!", "Announcing: You're doing great!", "Loud and proud of you!", "Everyone, look how awesome you are!", "Hey hey! You've got this!", "Turning your wins up to max volume!", "Attention please! Big cheers for you!", "Best news of the day? You're here!"],
           pet: ["Hehe! That made me squeak!", "Ooh! Soft volume, happy me!"],

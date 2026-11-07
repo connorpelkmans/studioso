@@ -13,7 +13,7 @@
     theme: "diadelosmuertos",
     companions: [
       {
-        id: "diadelosmuertos-dulce", name: "Dulce", kind: "Sugar Skull Sprite", pose: "float", wearColor: "#2EC4D0",
+        id: "diadelosmuertos-dulce", name: "Dulce", kind: "Sugar Skull Sprite", pose: "float", wearColor: "#2EC4D0", hatTop: true, scarfOverArms: true,
         bio: "A cheerful sugar skull sprite decorated with icing flowers and a big smile.",
         idle: ["topBob", "sparkle", "headTilt"], cheer: "spin",
         neck: [60, 84],
@@ -39,7 +39,7 @@
         eyes: {lx: 47, rx: 73, y: 56, r: 5, style: "sparkle", color: "#2B1A2E"},
         mouth: {x: 60, y: 75, w: 3.6, color: "#2B1A2E"},
         cheeks: {lx: 38, rx: 82, y: 70, w: 3.6, h: 2.2, color: "#FF8FB8"},
-        anchors: {top: [60, 22, 1], neck: [60, 86, 0.95], chest: [70, 96, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 20, 1, 0], neck: [60, 89.5, 0.95, 0, 41, 57], chest: [70, 93, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["¡Hola! I iced a flower just for you!", "Sweet as sugar, sharp as a pencil!", "Your memory is getting stronger!", "Every page you study is worth remembering!", "Look at you go! So colorful!", "A big sugary smile for your hard work!", "Remember: you're doing amazing!", "Marigolds, candles and you, all glowing!"],
           pet: ["Hehe! Careful, my icing tickles!", "Aww, so sweet! Sweeter than me!"],
@@ -79,7 +79,7 @@
         eyes: {lx: 48, rx: 72, y: 52, r: 4.8, style: "round", color: "#1E1A28"},
         mouth: {x: 60, y: 67.5, w: 3.4, color: "#1E1A28"},
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF9AB8"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 78, 1], chest: [72, 94, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 80.5, 1, 0, 50, 65], chest: [72, 85, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Woof! Hi hi hi! I'm so happy you're here!", "My ears are up! That means I'm listening!", "You're my favorite study buddy!", "Good human! Great studying!", "Tail wags for every page you read!", "I'll guard your focus. Nobody gets past!", "Sniff sniff. Smells like success!", "Big ears, big heart, big cheers for you!"],
           pet: ["Hehe! Ear scratches are the best!", "Woof! More pats please!"],
@@ -93,7 +93,7 @@
         }
       },
       {
-        id: "diadelosmuertos-cempa", name: "Cempa", kind: "Marigold Sprite", pose: "stand", wearColor: "#3E8E52",
+        id: "diadelosmuertos-cempa", name: "Cempa", kind: "Marigold Sprite", pose: "stand", wearColor: "#3E8E52", hatTop: true,
         bio: "A bright marigold sprite whose orange petals light the way.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
@@ -110,7 +110,7 @@
         eyes: {lx: 51, rx: 69, y: 57, r: 4.6, style: "sparkle", color: "#3A1A08"},
         mouth: {x: 60, y: 66, w: 3, color: "#3A1A08"},
         cheeks: {lx: 44, rx: 76, y: 64, w: 3.8, h: 2.4, color: "#FF7A6A"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 84, 0.9], chest: [70, 76, 0.6], back: [86, 50, 0.8], hands: [60, 88, 0.8]},
+        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 74.5, 0.9, 0, 68, 68], chest: [70, 81, 0.6], back: [86, 50, 0.8], hands: [60, 88, 0.8]},
         lines: {
           tap: ["Hi! I'm lighting up your way today!", "Bloom where you study!", "Your ideas are as bright as my petals!", "Follow the petals, you'll find the answer!", "Golden-orange cheers for you!", "Every page is a petal on your path!", "Shine on! Brighter every day!", "You make this whole street glow!"],
           pet: ["Hehe! My petals are fluttering!", "Aww, I'm blooming with joy!"],
@@ -131,7 +131,7 @@
     theme: "holi",
     companions: [
       {
-        id: "holi-puffy", name: "Puffy", kind: "Color Powder Puff", pose: "float", wearColor: "#9A5AE0",
+        id: "holi-puffy", name: "Puffy", kind: "Color Powder Puff", pose: "float", wearColor: "#9A5AE0", hatTop: true,
         bio: "A soft puff of color powder who leaves a little rainbow wherever it lands.",
         idle: ["bounce", "sparkle", "topBob"], cheer: "spin",
         parts: {
@@ -147,7 +147,7 @@
         eyes: {lx: 50, rx: 70, y: 72, r: 5, style: "sparkle", color: "#3A1A3A"},
         mouth: {x: 60, y: 82, w: 3.2, color: "#3A1A3A"},
         cheeks: {lx: 42, rx: 78, y: 80, w: 4.2, h: 2.6, color: "#FF6AA8"},
-        anchors: {top: [60, 42, 0.95], neck: [60, 98, 1], chest: [72, 92, 0.66], back: [88, 62, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 91, 1, 0, 66, 64.5], chest: [72, 97.5, 0.62], back: [88, 62, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Poof! Hi! A little rainbow for you!", "You're bringing so much color to today!", "Bright mind, bright day!", "Every page adds a new color!", "Puff puff! You're doing great!", "Let's paint this chapter every color!", "Happy, fluffy cheers for you!", "Sprinkle, sprinkle, here comes success!"],
           pet: ["Poof! Now your hands are rainbow!", "Hehe! I'm all fluffed up!"],
@@ -161,7 +161,7 @@
         }
       },
       {
-        id: "holi-rang", name: "Rang", kind: "Rainbow Elephant Calf", pose: "stand", wearColor: "#FF4A9A",
+        id: "holi-rang", name: "Rang", kind: "Rainbow Elephant Calf", pose: "stand", wearColor: "#FF4A9A", hatTop: true,
         bio: "A rainbow elephant calf painted in every color and very proud of it.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
@@ -174,8 +174,8 @@
             <circle cx="98" cy="54" r="5" fill="#3A8AE8" opacity=".85"/><circle cx="94" cy="66" r="4" fill="#FF4A9A" opacity=".85"/><circle cx="104" cy="64" r="3" fill="#9A5AE0" opacity=".85"/>`, pivot: [80, 56]},
           body: `${LG("holi-rang-b", [[0, "#C8D0E4"], [1, "#9AA4C0"]])}
             <path d="M34 98C30 80 42 70 60 70C78 70 90 80 86 98Z" fill="url(#holi-rang-b)" ${O}/>
-            <circle cx="46" cy="84" r="5" fill="#FF4A9A" opacity=".75"/><circle cx="74" cy="82" r="6" fill="#2EC07A" opacity=".7"/><circle cx="62" cy="92" r="4" fill="#FFC62A" opacity=".8"/>
-            <path d="M60 30C80 30 88 44 86 58C84 70 74 76 60 76C46 76 36 70 34 58C32 44 40 30 60 30Z" fill="url(#holi-rang-b)" ${O}/>
+            <circle cx="46" cy="84" r="5" fill="#FF4A9A" opacity=".75"/><circle cx="74" cy="82" r="6" fill="#2EC07A" opacity=".7"/><circle cx="62" cy="92" r="4" fill="#FFC62A" opacity=".8"/>`,
+          over: `<path d="M60 30C80 30 88 44 86 58C84 70 74 76 60 76C46 76 36 70 34 58C32 44 40 30 60 30Z" fill="url(#holi-rang-b)" ${O}/>
             <path d="M60 62Q58 72 62 78Q67 82 71 77" fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round"/><path d="M60 62Q58 72 62 78Q67 82 71 77" fill="none" stroke="#AEB8D0" stroke-width="6.6" stroke-linecap="round"/>
             <path d="M58.6 68h4M59.6 74h4" stroke="#8A94B0" stroke-width="1.4" stroke-linecap="round"/>
             <circle cx="44" cy="44" r="4" fill="#FF7AB8" opacity=".7"/><circle cx="78" cy="42" r="3.4" fill="#5AA0F0" opacity=".7"/>
@@ -185,7 +185,7 @@
         eyes: {lx: 48, rx: 72, y: 54, r: 4.6, style: "sparkle", color: "#2A2440"},
         mouth: {x: 49, y: 68, w: 2.6, color: "#2A2440"},
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF7AB8"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [72, 88, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 76, 1, 0, 49, 59], bow: [60, 85, 0.65], chest: [72, 82.5, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
         lines: {
           tap: ["Toot! Hi! Look at all my colors!", "I'm painted for good luck, and so are you!", "Big ears, big ideas, big cheers!", "You're doing trunk-tastic!", "Every color on me is a cheer for you!", "Stomp stomp! Look how far you've come!", "An elephant never forgets, and neither will you!", "You make my whole day colorful!"],
           pet: ["Toot toot! That tickles my ears!", "Hehe! More pats, please!"],
@@ -199,7 +199,7 @@
         }
       },
       {
-        id: "holi-spritz", name: "Spritz", kind: "Water Splasher", pose: "stand", wearColor: "#3A8AE8",
+        id: "holi-spritz", name: "Spritz", kind: "Water Splasher", pose: "stand", wearColor: "#3A8AE8", hatTop: true,
         bio: "A little water splasher who sprays bright colors every time you win.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         parts: {
@@ -219,7 +219,7 @@
         eyes: {lx: 50, rx: 70, y: 64, r: 4.6, style: "sparkle", color: "#1E2A48"},
         mouth: {x: 60, y: 73, w: 3, color: "#1E2A48"},
         cheeks: {lx: 43, rx: 77, y: 71, w: 3.8, h: 2.4, color: "#FF8AC8"},
-        anchors: {top: [60, 22, 0.9], neck: [60, 80, 0.95], chest: [72, 88, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
+        anchors: {top: [60, 49.5, 0.9, 0], neck: [60, 82, 0.95, 0, 63, 57], chest: [72, 88.5, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Psssht! Hi! A tiny splash hello!", "Pump it up! You're doing great!", "Splish splash, look at you go!", "I'm full of colorful cheers!", "Keep going and I'll spray a rainbow!", "Fresh, bright and ready to help!", "One more page, one more splash!", "You're making a big splash today!"],
           pet: ["Hehe! Careful, I might spritz you!", "Psssht! Happy little bubbles!"],
@@ -264,7 +264,7 @@
         eyes: {lx: 53, rx: 67, y: 64, r: 3.8, style: "sparkle", color: "#3A1A10"},
         mouth: {x: 60, y: 73, w: 2.6, color: "#3A1A10"},
         cheeks: {lx: 47, rx: 73, y: 71, w: 3, h: 2, color: "#FFB0A0"},
-        anchors: {top: [60, 22, 0.9], neck: [60, 94, 0.95], chest: [70, 84, 0.6], back: [84, 60, 0.8], hands: [60, 92, 0.86]},
+        anchors: {top: [60, 23.5, 0.9, 0], neck: [60, 81.5, 0.95, 0, 53, 56], chest: [70, 87.5, 0.6], back: [84, 60, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Hello! I've got a little light for you!", "Every page you read makes me glow brighter!", "Look at the stars I'm throwing on the wall!", "Warm light, kind heart, clear mind!", "You're shining tonight!", "Little by little, the whole street lights up!", "Patience and light, that's the way!", "So glad to glow beside you!"],
           pet: ["Hehe! My glass panes are blushing!", "Aww, that makes my flame dance!"],
@@ -278,7 +278,7 @@
         }
       },
       {
-        id: "ramadan-hilal", name: "Hilal", kind: "Crescent Moon Sprite", pose: "float", wearColor: "#F2C45A",
+        id: "ramadan-hilal", name: "Hilal", kind: "Crescent Moon Sprite", pose: "float", wearColor: "#F2C45A", hatTop: true,
         bio: "A soft crescent moon who rises right on time every evening.",
         idle: ["topBob", "sparkle", "headTilt"], cheer: "bounce",
         neck: [60, 92],
@@ -294,7 +294,7 @@
         eyes: {lx: 37, rx: 48, y: 57, r: 3.8, style: "dot", color: "#3A2A10"},
         mouth: {x: 42.5, y: 65.5, w: 2.6, color: "#3A2A10"},
         cheeks: {lx: 33, rx: 52, y: 63.5, w: 3, h: 1.8, color: "#FF9AB0"},
-        anchors: {top: [52, 24, 0.8], neck: [56, 92, 0.85], chest: [62, 100, 0.55], back: [70, 70, 0.7], hands: [58, 100, 0.8]},
+        anchors: {top: [52, 27.5, 0.9, 0], neck: [60, 94.5, 0.85, 0, 29, 31], chest: [62, 97.5, 0.55], back: [70, 70, 0.7], hands: [58, 100, 0.8]},
         lines: {
           tap: ["Good evening! Right on time, as always!", "I rise every night, and so do you!", "Small and bright, that's the way!", "Your effort shines like starlight!", "Patience grows into something full!", "A little glow, every single day!", "The stars are cheering with me!", "You're as steady as the moon!"],
           pet: ["Hehe! My tips are curling up!", "Aww, that's a warm, glowy feeling!"],
@@ -308,7 +308,7 @@
         }
       },
       {
-        id: "ramadan-kahki", name: "Kahki", kind: "Kahk Cookie", pose: "stand", wearColor: "#C99A2E",
+        id: "ramadan-kahki", name: "Kahki", kind: "Kahk Cookie", pose: "stand", wearColor: "#C99A2E", hatTop: true,
         bio: "A sweet kahk cookie dusted in sugar and stamped with a pretty pattern.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -326,7 +326,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "sparkle", color: "#3A2414"},
         mouth: {x: 60, y: 80, w: 3, color: "#3A2414"},
         cheeks: {lx: 42, rx: 78, y: 78, w: 4, h: 2.4, color: "#FF9AA8"},
-        anchors: {top: [60, 40, 0.95], neck: [60, 98, 1], chest: [72, 90, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 89, 1, 0, 63, 62], chest: [72, 95.5, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hello! Freshly baked and ready to help!", "A sprinkle of sugar for your hard work!", "Sweet things take patience. Like you!", "Stamped with a pattern of good luck!", "You're doing wonderfully, crumb by crumb!", "Powdered sugar cheers for you!", "Every page, a little sweeter!", "Best shared with friends, like this study time!"],
           pet: ["Hehe! Careful, sugar everywhere!", "Aww, warm hands, warm cookie!"],
@@ -347,7 +347,7 @@
     theme: "midautumn",
     companions: [
       {
-        id: "midautumn-tuzi", name: "Tuzi", kind: "Jade Rabbit", pose: "sit", sleepy: true, wearColor: "#7AC8A8",
+        id: "midautumn-tuzi", name: "Tuzi", kind: "Jade Rabbit", pose: "sit", sleepy: true, wearColor: "#7AC8A8", hatTop: true,
         bio: "A gentle jade rabbit who hops down from the moon to study with you.",
         idle: ["earTwitch", "headTilt", "topBob"], cheer: "hop",
         neck: [60, 76],
@@ -372,7 +372,7 @@
         eyes: {lx: 49, rx: 71, y: 58, r: 4.6, style: "round", color: "#2A3A34"},
         mouth: {x: 60, y: 69, w: 2.8, color: "#2A3A34"},
         cheeks: {lx: 42, rx: 78, y: 66, w: 4, h: 2.4, color: "#FFA6BE"},
-        anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [72, 96, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 33.5, 0.95, 0], neck: [60, 82.5, 1, 0, 53, 65], chest: [72, 86.5, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hello from the moon! I hopped down to see you!", "Tap, tap! Working through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
           pet: ["Hehe! My ears are wiggling!", "Aww, softer than moonlight!"],
@@ -386,7 +386,7 @@
         }
       },
       {
-        id: "midautumn-bing", name: "Bing", kind: "Mooncake", pose: "stand", wearColor: "#B8402E",
+        id: "midautumn-bing", name: "Bing", kind: "Mooncake", pose: "stand", wearColor: "#B8402E", hatTop: true,
         bio: "A round, golden mooncake stamped with a lucky pattern.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "spin",
         parts: {
@@ -404,7 +404,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "sparkle", color: "#3A2010"},
         mouth: {x: 60, y: 80, w: 3, color: "#3A2010"},
         cheeks: {lx: 43, rx: 77, y: 78, w: 4, h: 2.4, color: "#FF8A80"},
-        anchors: {top: [60, 40, 0.95], neck: [60, 98, 1], chest: [72, 92, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 89, 1, 0, 66, 66], chest: [72, 95.5, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hi! I'm stamped with luck, just for you!", "Round and golden, like your bright ideas!", "Sweet filling, sweet effort!", "Share a slice of focus with me!", "You're on a roll! A round one!", "Every bite of study counts!", "Moonlight and mooncakes, perfect study night!", "Lucky pattern, lucky you!"],
           pet: ["Hehe! My crust is all warm now!", "Aww, so sweet! Sweeter than my filling!"],
@@ -418,7 +418,7 @@
         }
       },
       {
-        id: "midautumn-osma", name: "Osma", kind: "Osmanthus Sprite", pose: "float", wearColor: "#5E9A62",
+        id: "midautumn-osma", name: "Osma", kind: "Osmanthus Sprite", pose: "float", wearColor: "#5E9A62", hatTop: true,
         bio: "A tiny golden osmanthus flower who smells like honey.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
@@ -437,7 +437,7 @@
         eyes: {lx: 52, rx: 68, y: 66, r: 4.4, style: "sparkle", color: "#3A2008"},
         mouth: {x: 60, y: 75, w: 3, color: "#3A2008"},
         cheeks: {lx: 46, rx: 74, y: 73, w: 3.6, h: 2.2, color: "#FF8A6A"},
-        anchors: {top: [60, 48, 0.85], neck: [60, 94, 0.9], chest: [70, 88, 0.6], back: [86, 56, 0.8], hands: [60, 94, 0.82]},
+        anchors: {top: [60, 31.5, 0.85, 0], neck: [60, 83.5, 0.9, 0, 65.5, 67.5], chest: [70, 90, 0.6], back: [86, 56, 0.8], hands: [60, 94, 0.82]},
         lines: {
           tap: ["Hello! Mmm, smells like honey in here!", "Tiny flower, giant cheers for you!", "Your ideas are blooming!", "Sweet scents and sweet success!", "Little petals add up to a whole tree!", "Golden thoughts for a golden student!", "You make the whole garden smell sweeter!", "Bloom, bloom, keep going!"],
           pet: ["Hehe! Now you smell like honey too!", "Aww, my petals are all fluttery!"],

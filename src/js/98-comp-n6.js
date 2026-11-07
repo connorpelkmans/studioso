@@ -30,7 +30,7 @@
         eyes: {lx: 49, rx: 71, y: 62, r: 5.4, style: "sparkle", color: "#1E1A28"},
         mouth: {x: 60, y: 71.5, w: 3.2, color: "#1E1A28"},
         cheeks: {lx: 40.5, rx: 79.5, y: 70, w: 4.6, h: 2.8, color: "#FF8FA8"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 94, 1], chest: [72, 97, 0.6], back: [92, 70, 0.85], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 17.5, 0.9, 0], neck: [60, 96.5, 1, 0, 31, 36], chest: [72, 100, 0.6], back: [92, 70, 0.85], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Scene one, take one: you, being awesome!", "Lights, camera, study!", "That was a great take!", "You're the star of this production!", "Quiet on set! Genius at work!", "Ready when you are, director!", "Every scene gets better with you in it!"],
           pet: ["Snap snap! That tickles!", "Hehe! Cut! Print! That's a keeper!"],
@@ -63,7 +63,7 @@
         eyes: {lx: 50, rx: 70, y: 67, r: 5.2, style: "sparkle", color: "#3A1418"},
         mouth: {x: 60, y: 76, w: 3.2, color: "#3A1418"},
         cheeks: {lx: 41.5, rx: 78.5, y: 75, w: 4.4, h: 2.8, color: "#FFB0C0"},
-        anchors: {top: [60, 26, 0.9], neck: [60, 52, 1.15], chest: [72, 86, 0.6], back: [86, 74, 0.85], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 17, 0.9, 0], neck: [60, 86, 1.15, 0, 58, 60], chest: [72, 91.5, 0.6], back: [86, 74, 0.85], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Pop! Hi there, superstar!", "You're doing popping good today!", "Butter-smooth progress! Keep going!", "Every little kernel of effort counts!", "You make my whole bucket happy!", "Snack break later? I'm just saying!", "Pop pop pop! That's my happy sound!"],
           pet: ["Hehe! You made a kernel pop!", "Crunchy cuddles! Yay!"],
@@ -97,7 +97,7 @@
         eyes: {lx: 52.5, rx: 67.5, y: 55, r: 4.4, style: "sparkle", color: "#3A2A1A"},
         mouth: {x: 60, y: 63.5, w: 2.8, color: "#3A2A1A"},
         cheeks: {lx: 46, rx: 74, y: 62, w: 3.6, h: 2.3, color: "#FF9A8A"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 85, 0.95], chest: [70, 90, 0.55], back: [34, 60, 0.8], hands: [60, 88, 0.8]},
+        anchors: {top: [60, 24.5, 0.95, 0], neck: [60, 85, 0.95, 0, 38, 31], chest: [70, 90.5, 0.55], back: [34, 60, 0.8], hands: [60, 88, 0.8]},
         lines: {
           tap: ["And the spotlight goes to... you!", "Shining my brightest beam on you!", "You're glowing today, I can tell!", "Center stage suits you!", "Hard work looks brilliant under the lights!", "I see a star in the making!", "Ready for your close-up?"],
           pet: ["Ooh, I'm all warmed up now!", "Hehe! My lens is blushing!"],
@@ -138,7 +138,7 @@
         eyes: {lx: 52, rx: 68, y: 72, r: 4.8, style: "sparkle", color: "#3A2010"},
         mouth: {x: 60, y: 81, w: 3, color: "#3A2010"},
         cheeks: {lx: 45, rx: 75, y: 79.5, w: 4, h: 2.5, color: "#FF8F8F"},
-        anchors: {top: [60, 30, 0.85], neck: [60, 56, 1], chest: [70, 92, 0.6], back: [80, 80, 0.8], hands: [60, 90, 0.82]},
+        anchors: {top: [60, 9.5, 0.85, 0], neck: [60, 90, 1, 0, 51, 62], chest: [70, 96, 0.6], back: [80, 80, 0.8], hands: [60, 90, 0.82]},
         lines: {
           tap: ["Whisk whisk! Hi there, chef!", "You're whipping through this!", "Light and fluffy, like your progress!", "A little spin makes everything better!", "Stiff peaks of brilliance! Look at you!", "Mixing up something wonderful today!", "Whirr! I'm so happy you're here!"],
           pet: ["Wheee! You made me spin!", "Hehe! My wires are all tingly!"],
@@ -173,7 +173,7 @@
         eyes: {lx: 50, rx: 70, y: 68, r: 4.8, style: "sparkle", color: "#2A2430"},
         mouth: {x: 60, y: 77, w: 3, color: "#2A2430"},
         cheeks: {lx: 41.5, rx: 78.5, y: 75.5, w: 4.2, h: 2.6, color: "#FF9AA8"},
-        anchors: {top: [60, 24, 0.95], neck: [60, 86, 0.95], chest: [70, 98, 0.55], back: [84, 92, 0.8], hands: [60, 100, 0.8]},
+        anchors: {top: [60, 48.5, 0.95, 0], neck: [60, 88.5, 0.95, 0, 37, 41], chest: [70, 91.5, 0.55], back: [84, 92, 0.8], hands: [60, 100, 0.8]},
         lines: {
           tap: ["Bonjour, chef! Ready to cook up greatness?", "Your recipe for success is looking delicious!", "A pinch of patience, a dash of genius!", "Every great dish starts with one step!", "Yes, chef! You're doing wonderfully!", "I feel taller already, thanks to you!", "Mise en place! Everything in its place!"],
           pet: ["Oh la la! My pleats are all fluffy!", "Hehe! Careful, I'm freshly starched!"],
@@ -187,7 +187,7 @@
         }
       },
       {
-        id: "culinary-basil", name: "Basil", kind: "Basil Sprout", pose: "sit", wearColor: "#E08A4A",
+        id: "culinary-basil", name: "Basil", kind: "Basil Sprout", pose: "sit", wearColor: "#E08A4A", hatTop: true,
         bio: "A fresh little basil sprout who brings a bit of green to your desk.",
         idle: ["sway", "wave", "sparkle"], cheer: "hop",
         parts: {
@@ -203,7 +203,7 @@
         eyes: {lx: 50, rx: 70, y: 64, r: 5, style: "sparkle", color: "#1E3A1A"},
         mouth: {x: 60, y: 73.5, w: 3, color: "#1E3A1A"},
         cheeks: {lx: 41.5, rx: 78.5, y: 72, w: 4.4, h: 2.7, color: "#FF9A9A"},
-        anchors: {top: [60, 38, 0.9], neck: [60, 86, 1.1], chest: [72, 80, 0.6], back: [88, 64, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 83.5, 1.1, 0, 65, 55], chest: [72, 89.5, 0.6], back: [88, 64, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Fresh hello from your favorite herb!", "You're growing so well today!", "A little sunshine, a little water, a lot of you!", "Smells like success in here!", "You add flavor to everything!", "Leafing through your notes? Love it!", "Sprouting with pride over here!"],
           pet: ["Hehe! You made me extra fragrant!", "Aww, my leaves are all perky now!"],
@@ -241,7 +241,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 56, r: 4.8, style: "sparkle", color: "#1E2A10"},
         mouth: {x: 60, y: 65, w: 3, color: "#1E2A10"},
         cheeks: {lx: 45.5, rx: 74.5, y: 63.5, w: 4, h: 2.5, color: "#FF9A8A"},
-        anchors: {top: [60, 10, 0.75], neck: [60, 68, 0.95], chest: [69, 76, 0.55], back: [76, 54, 0.75], hands: [60, 74, 0.8]},
+        anchors: {top: [60, 14, 0.75, 0], neck: [60, 74, 0.95, 0, 47, 49], chest: [69, 79.5, 0.55], back: [76, 54, 0.75], hands: [60, 74, 0.8]},
         lines: {
           tap: ["Hello from the kelp forest!", "Swaying with joy that you're here!", "Rooted deep, reaching high, just like you!", "Go with the flow, you're doing great!", "You're growing a little every day!", "Sunbeams look good on you!", "Kelp yeah! You've got this!"],
           pet: ["Hehe! That makes my fronds wiggle!", "Ooh, bubbly and happy!"],
@@ -274,7 +274,7 @@
         eyes: {lx: 57.5, rx: 70.5, y: 69, r: 3.8, style: "sparkle", color: "#1A3A4A"},
         mouth: {x: 64, y: 76.5, w: 2.4, color: "#1A3A4A"},
         cheeks: {lx: 53, rx: 75, y: 75, w: 3, h: 2, color: "#FF9AA8"},
-        anchors: {top: [62, 34, 0.85], neck: [62, 92, 0.95], chest: [80, 84, 0.55], back: [30, 60, 0.75], hands: [62, 92, 0.8]},
+        anchors: {top: [62, 32, 0.85, 0], neck: [61, 85, 0.95, 0, 76.5, 75.5], chest: [80, 90.5, 0.55], back: [30, 60, 0.75], hands: [62, 92, 0.8]},
         lines: {
           tap: ["Ping! Submarine Subby reporting for duty!", "Diving deep into greatness with you!", "Depth gauge says: you're amazing!", "All systems go, captain!", "Periscope up! I see a superstar!", "Exploring new depths today!", "Full speed ahead, captain!"],
           pet: ["Hehe! My hatch is all fluttery!", "Bubbles! That means I'm happy!"],
@@ -310,7 +310,7 @@
         eyes: {lx: 47, rx: 73, y: 51, r: 5, style: "sparkle", color: "#1A2A44"},
         mouth: {x: 60, y: 70.5, w: 3.6, color: "#1A2A44"},
         cheeks: {lx: 39, rx: 81, y: 60, w: 4.4, h: 2.6, color: "#FF9AB8"},
-        anchors: {top: [60, 29, 0.85], neck: [60, 80, 1], chest: [60, 90, 0.6], back: [84, 56, 0.8], hands: [60, 88, 0.82]},
+        anchors: {top: [60, 28, 0.85, 0], neck: [60, 80, 0.95, 0, 52, 66], chest: [60, 86, 0.6], back: [84, 56, 0.8], hands: [60, 88, 0.82]},
         lines: {
           tap: ["Click click! Hi, friend!", "You make waves wherever you go!", "Splashing with joy that you're here!", "Smart and playful, just like dolphins!", "Leap into it! You've got this!", "Swimming happy circles around you!", "Eee-eee! That means you're awesome!"],
           pet: ["Eee! Splashy happy!", "Hehe! That tickles my flippers!"],

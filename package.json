@@ -1,8 +1,8 @@
 {
   "name": "studyboard",
   "productName": "Studyboard",
-  "version": "1.15.5",
-  "iosVersion": "1.1",
+  "version": "1.15.6",
+  "iosVersion": "1.2",
   "description": "Studyboard: a student planner for courses, deadlines, study sessions and flashcards",
   "author": {
     "name": "Studyboard",

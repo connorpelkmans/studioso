@@ -112,7 +112,7 @@
     let why = "", btn = null;
     if (cant.length) {
       const w = cant[0], h = how(w), nm = cant.map(L => L.P.name).join(" and ");
-      why = h === "web" ? `${nm} announcements come in through the Studyboard School Sync extension or the Studyboard desktop, iPhone or Android app, which sign in to your school's site. This page shows what they've already brought in.`
+      why = h === "web" ? `${nm} announcements come in through the School Sync extension or the Studyboard app. This page shows what they've brought in.`
         : h === "feed" ? `${nm} is connected with a calendar link, which has no announcements in it. Sign in through the desktop app to get them.`
         : `Announcements are switched off for ${nm}. Turn them on in its school settings.`;
       if (h !== "web") btn = {act: "ann-setup", plat: w.P.id, label: "Open Settings"};

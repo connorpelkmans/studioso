@@ -41,7 +41,7 @@
     theme: "brazil",
     companions: [
       {
-        id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E",
+        id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E", hatTop: true, scarfOverArms: true,
         bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 68],
@@ -70,7 +70,7 @@
         mouths: {neutral: beak(false, false), smile: beak(false, true), open: beak(true, false), sleepy: beak(false, false)},
         mouth: {x: 60, y: 76, w: 3, color: "#7A2A10"},
         cheeks: {lx: 38, rx: 82, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
-        anchors: {top: [60, 21, 0.95], neck: [60, 80, 1], chest: [70, 87, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
+        anchors: {top: [60, 20, 0.95, 0], neck: [60, 72.5, 0.95, 0, 42, 67.5], bow: [60, 90, 0.7], chest: [70, 85.5, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
         lines: {
           tap: ["Bom dia! Ready to make some noise?", "My beak is big, but my cheers are bigger!", "Let's fly through this list together!", "Toco! That's toucan for 'you've got this'!", "One task at a time, like fruit for breakfast!", "I spy a finish line from my branch!", "You bring the focus, I'll bring the color!", "Every page gets you closer to the beach!"],
           pet: ["Hehe! Mind the beak, it's ticklish!", "Aww! My feathers are all fluffed up!"],
@@ -84,7 +84,7 @@
         }
       },
       {
-        id: "brazil-mico", name: "Mico", kind: "Golden Lion Tamarin", pose: "sit", wearColor: "#2E9A5A",
+        id: "brazil-mico", name: "Mico", kind: "Golden Lion Tamarin", pose: "sit", wearColor: "#2E9A5A", hatTop: true,
         bio: "A golden lion tamarin with a tiny golden mane and a big love of learning.",
         idle: ["tailSwish", "headTilt", "topBob"], cheer: "hop",
         neck: [60, 74],
@@ -111,7 +111,7 @@
         eyes: {lx: 53, rx: 67, y: 49, r: 4.2, style: "sparkle", color: "#24161A"},
         mouth: {x: 60, y: 62, w: 2.6, color: "#4A2A22", style: "cat"},
         cheeks: {lx: 49, rx: 71, y: 57, w: 3.4, h: 2, color: "#FF8A8A"},
-        anchors: {top: [60, 19, 0.95], neck: [60, 79, 1], chest: [63, 86, 0.55], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 16, 0.95, 0], neck: [60, 79.5, 1, 0, 46, 64], chest: [63, 84.5, 0.55], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Hi! I'm small, but I study big!", "My mane is golden, and so are your ideas!", "Swing from task to task with me!", "Let's go! The forest is cheering for you!", "I'm hungry for knowledge! And fruit!", "Tiny steps make a long, long trail!", "Curious minds climb the highest trees!", "You've got this, I've got snacks!"],
           pet: ["Hehe! You fluffed up my mane!", "Aww! Golden-hug time!"],
@@ -125,7 +125,7 @@
         }
       },
       {
-        id: "brazil-cocada", name: "Cocada", kind: "Coconut with a Straw", pose: "stand", wearColor: "#FF5A8A",
+        id: "brazil-cocada", name: "Cocada", kind: "Coconut with a Straw", pose: "stand", wearColor: "#FF5A8A", hatTop: true,
         bio: "A fresh coconut from the beach kiosk, straw in and ready to cheer you on.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
@@ -145,7 +145,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 4.4, style: "round", color: "#2B2233"},
         mouth: {x: 60, y: 80, w: 3.2, color: "#2B2233"},
         cheeks: {lx: 42, rx: 78, y: 78, w: 4, h: 2.4, color: "#FF8A9A"},
-        anchors: {top: [60, 30, 0.85], neck: [60, 92, 0.9], chest: [70, 90, 0.55], back: [92, 70, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 29.5, 0.85, 0], neck: [60, 88.5, 0.9, 0, 69, 69], chest: [70, 94, 0.55], back: [92, 70, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Fresh coconut water for your brain!", "Stay hydrated, stay brilliant!", "Straw's in, focus is on!", "A sip of sunshine, then back to work!", "Tough on the outside, sweet inside!", "Chilled, calm and ready to help!", "Kiosk's open, let's serve some answers!", "You're doing coco-nuts good work!"],
           pet: ["Hehe! That tickles my husk!", "Aww! You're making me blush green!"],

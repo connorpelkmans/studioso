@@ -19,6 +19,29 @@
     francelamp: {d: "M-1 11V-2H1V11Z M-4.6 -2L-5.4 -9H5.4L4.6 -2Z M-6 -9L0 -13.4L6 -9Z", detail: circ(0, -5.6, 2.2), dfill: true}
   });
 
+  // ---- finish moment sprites ----
+  // The tower rises into view at the side and does its famous hourly sparkle: hundreds of little lights flicker all over
+  // its lattice while (at night) the beacon at the top sweeps the sky. The tower is drawn once into its own canvas.
+  const twr = {};
+  const hw = u => u > 0.93 ? 0.006 : 0.27 * Math.pow(1 - u, 2.4) + 0.011;
+  const towerDraw = (g, f, W, H, d) => { const a = fxEase(f / 40) * fxOut(f, 195, 265); if (a <= 0) return; const ph = W < H, Ht = H * (ph ? 0.42 : 0.66), cx = W * (ph ? 0.76 : 0.8), by = H + 2 + (1 - fxEase(f / 60)) * Ht * 0.3, key = Math.round(Ht) + (d ? "d" : "l");
+    const T = twr[key] || (twr[key] = (() => { for (const k in twr) delete twr[k]; const c = document.createElement("canvas"), w = Math.ceil(Ht * 0.62), sc = 2; c.width = w * sc; c.height = Math.ceil(Ht * 1.02) * sc; const t = c.getContext("2d"), col = d ? "#D9A050" : "#5A3E2A", ax = hw(0) * 0.6, ay = 0.105;
+      t.scale(sc, sc); t.translate(w / 2, Ht * 1.01); t.scale(Ht, Ht); const out = new Path2D(); for (let u = 0; u <= 1.0001; u += 0.01) out.lineTo(-hw(u), -u); for (let u = 1; u >= -0.0001; u -= 0.01) out.lineTo(hw(u), -u); out.closePath();
+      t.fillStyle = col; t.globalAlpha = 0.42; t.fill(out); t.globalAlpha = 1; t.save(); t.clip(out); t.strokeStyle = col; t.lineWidth = 0.004; t.beginPath(); for (let k = -1; k <= 1; k += 0.022) { t.moveTo(k - 0.5, 0); t.lineTo(k + 0.5, -1); t.moveTo(k + 0.5, 0); t.lineTo(k - 0.5, -1); } t.stroke(); t.restore();
+      t.lineWidth = 0.009; t.lineJoin = "round"; t.strokeStyle = col; t.stroke(out); t.fillStyle = col; [[0.115, 1.12, 0.022], [0.42, 1.18, 0.016], [0.86, 1.6, 0.012]].forEach(([u, k, h]) => t.fillRect(-hw(u) * k, -u - h / 2, 2 * hw(u) * k, h));
+      t.globalCompositeOperation = "destination-out"; t.beginPath(); t.ellipse(0, 0, ax, ay, 0, Math.PI, 0); t.fill(); t.globalCompositeOperation = "source-over"; t.lineWidth = 0.008; t.beginPath(); t.ellipse(0, 0, ax, ay, 0, Math.PI, 0); t.stroke();
+      const L = []; while (L.length < 240) { const u = 0.02 + Math.random() * 0.94, x = (Math.random() * 2 - 1) * hw(u) * 0.92; if (u < ay && Math.abs(x) < ax * Math.sqrt(Math.max(0, 1 - (u / ay) ** 2)) + 0.01) continue; L.push([x, u, Math.random() * 6.3, 0.16 + Math.random() * 0.14, Math.random()]); }
+      const dot = document.createElement("canvas"); dot.width = dot.height = 32; const q = dot.getContext("2d"), gr = q.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, "#FFFFFF"); gr.addColorStop(0.18, d ? "rgba(255,246,220,.95)" : "rgba(255,240,190,1)"); gr.addColorStop(0.45, d ? "rgba(255,226,160,.35)" : "rgba(255,200,90,.45)"); gr.addColorStop(1, "rgba(255,220,140,0)"); q.fillStyle = gr; q.fillRect(0, 0, 32, 32);
+      return {c, w, L, dot}; })());
+    g.globalAlpha = a * (d ? 0.85 : 0.8); g.drawImage(T.c, cx - T.w / 2, by - Ht * 1.01, T.w, T.c.height / 2);
+    const top = by - Ht, on = fxEase((f - 45) / 25) * a;
+    if (d && on > 0) { g.globalCompositeOperation = "lighter"; [0, Math.PI].forEach(o => { const t = f * 0.022 + o + 0.6, L = Math.max(W, H) * 0.6, gx = Math.cos(t) * L, gy = -Math.abs(Math.sin(t)) * L * 0.5 - L * 0.12, gr = g.createLinearGradient(cx, top, cx + gx, top + gy); gr.addColorStop(0, "rgba(255,236,190,.16)"); gr.addColorStop(1, "rgba(255,236,190,0)");
+      g.globalAlpha = on; g.fillStyle = gr; g.beginPath(); g.moveTo(cx, top); g.lineTo(cx + gx - gy * 0.06, top + gy + gx * 0.06); g.lineTo(cx + gx + gy * 0.06, top + gy - gx * 0.06); g.closePath(); g.fill(); }); }
+    if (on > 0) { g.globalCompositeOperation = d ? "lighter" : "source-over"; const r = Math.max(3, Ht * 0.014);
+      for (const [x, u, p, sp, k] of T.L) { const v = Math.sin(f * sp + p); if (v < 0.5) continue; const e = Math.pow((v - 0.5) / 0.5, 2), s = r * (0.7 + 0.6 * k) * (0.6 + 0.6 * e); g.globalAlpha = on * e; g.drawImage(T.dot, cx + x * Ht - s, by - u * Ht - s, 2 * s, 2 * s); }
+      g.globalAlpha = on * (0.6 + 0.4 * Math.sin(f * 0.1)); const s = r * 3; g.drawImage(T.dot, cx - s, top - s, 2 * s, 2 * s); }
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; };
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "france", name: "Paris", group: "world", desc: "The Eiffel Tower, the Seine and flower-boxed Haussmann rooftops.",
       light: ["#F5F1EA", "rgba(46,62,102,.10)", "#FFFFFF", "#1F2A3C", "#5E6676", "#E4DDD2", "#EFE9E0", "#FCFAF6", "#B8403A", "#CC6A5A", "#FFFFFF", "#7A2420", "#2E3E66", "#D6DFEE", "#FFE3A0"],
@@ -26,11 +49,8 @@
       glow: ["linear-gradient(180deg,#B9D6EE,#E9F1F6 45%,#F6E4D6)", "linear-gradient(180deg,#121A36,#263258 45%,#5A4468)"],
       spine: [lg("#3A4E7A", "#24345A"), lg("#2A3060", "#141834")], btn: [lg2("#B8403A", "#D9704E"), lg2("#F2C46A", "#F6D892")]},
     kit: {motif: "franceeiffel", card: ["#FFFCF6", "#F1EADF"], ink: "#1F2A3C", bd: "#E2D6C2", mc: "#B8403A", r: 14, notes: ["#F9D6DE", "#FFF1B8", "#D8EDD2", "#D6E4FA", "#EADCF8", "#FFE0C4"], shape: "folded", pin: "pin", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxTw(W, H, n(46), "sparkle", d ? ["#FFFFFF", "#FFF4D0", "#FFE3A8"] : ["#F2C46A", "#FFFFFF", "#F6D892"], {top: 0.9, smin: 3, smax: 7, glow: d ? 12 : 6})
-      .concat(fxRise(W, H, n(10), "francemacaron", d ? ["#F2A8C0", "#B8E0C4", "#C8B8F0", "#F6D892"] : ["#F4A6B8", "#A8D8B8", "#C4B4EC", "#F6D27A"], {smin: 11, smax: 15, vmin: 1, vmax: 1.8, sway: 0.7, life: 300}),
-        fxFall(W, H, n(16), "francechestnut", d ? ["#4E8A5A", "#6A9A4E"] : ["#5E9A4E", "#7AAA5C", "#D9A040"], {sway: 1.5, smin: 8, smax: 12, vmin: 0.9, vmax: 1.7}),
-        fxBurst(W, H, n(10), "francecroissant", ["#E8A84A", "#D8923A", "#F0BC5E"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxRise(W, H, n(2), "franceeiffel", d ? ["#F6D892"] : ["#86705E"], {cx: [0.35, 0.65], smin: 20, smax: 24, vmin: 0.9, vmax: 1.2, sway: 0.3, life: 320, glow: d ? 16 : 0}).map(p => Object.assign(p, {vr: 0})))},
+    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(18), "petal", d ? ["#F7A8C0", "#FFD0DE", "#E8789E"] : ["#E86A8E", "#F4A2BC", "#D84A72"], {sway: 1.7, flip: true, smin: 9, smax: 13, spread: 90}).map(p => Object.assign(p, {delay: p.delay + 30}))
+      .concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFFFFF", "#FFF4D0", "#FFE3A8"] : ["#E8B04A", "#F2C46A"], {top: 0.7, smin: 3, smax: 6, glow: d ? 12 : 6, spread: 150})), draw: towerDraw},
     tag: "The Eiffel Tower over the Seine and flower-boxed Haussmann rooftops, with tricolour flags, a stone bridge, booksellers' stalls, a cafe and a flower cart on the quay"
   });
 })();

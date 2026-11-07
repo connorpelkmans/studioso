@@ -15,7 +15,7 @@
     theme: "mexico",
     companions: [
       {
-        id: "mexico-pico", name: "Pico", kind: "Flower Crown Cactus", pose: "stand", wearColor: "#E2468C",
+        id: "mexico-pico", name: "Pico", kind: "Flower Crown Cactus", pose: "stand", wearColor: "#E2468C", hatTop: true,
         bio: "A tough little cactus with a flower crown and a soft heart.",
         idle: ["sway", "topBob", "wave"], cheer: "hop",
         parts: {
@@ -38,7 +38,7 @@
         eyes: {lx: 52, rx: 68, y: 63, r: 4.4, style: "sparkle", color: "#22301E"},
         mouth: {x: 60, y: 72, w: 2.8, color: "#22301E"},
         cheeks: {lx: 47, rx: 73, y: 70, w: 3.6, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 38, 0.8], neck: [60, 80, 0.85], chest: [66, 78, 0.55], back: [46, 66, 0.7], hands: [60, 84, 0.8]},
+        anchors: {top: [60, 43.5, 0.8, 0], neck: [60, 80, 0.85, 0, 56, 62], chest: [66, 85.5, 0.55], back: [46, 66, 0.7], hands: [60, 84, 0.8]},
         lines: {
           tap: ["Hola! Prickly outside, all heart inside!", "Stand tall in the sun, like me. You've got this!", "Little by little, a cactus grows. So do you!", "My flower crown says you're doing great today!", "A cactus never gives up on a dry day. Neither do you!", "Deep roots, steady growth. That's the plan!", "Need a hug? Careful... okay, a gentle one!", "Every page you read is a drop of rain for me!"],
           pet: ["Hehe! Mind the spines... aww, okay!", "My flowers are blushing!"],
@@ -52,7 +52,7 @@
         }
       },
       {
-        id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0",
+        id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0", hatTop: true, scarfOverArms: true,
         bio: "A smiley axolotl who regrows its motivation overnight.",
         idle: ["earTwitch", "finWiggle", "topBob"], cheer: "spin",
         neck: [60, 79],
@@ -94,7 +94,7 @@
         },
         mouth: {x: 60, y: 64, w: 4, color: "#2A2026"},
         cheeks: {lx: 37, rx: 83, y: 63, w: 4.6, h: 2.8, color: "#FF7A9C"},
-        anchors: {top: [60, 33, 0.95], neck: [60, 84, 1], chest: [60, 96, 0.6], back: [82, 88, 0.8], hands: [60, 99, 0.86]},
+        anchors: {top: [60, 30, 0.95, 0], neck: [60, 84, 1, 0, 47, 60], chest: [60, 90, 0.6], back: [82, 88, 0.8], hands: [60, 99, 0.86]},
         lines: {
           tap: ["Hi! I'm smiling. I'm always smiling!", "Axolotls regrow anything. Even motivation!", "Mistakes? I'll just grow a new start!", "Swimming slowly, still getting there!", "My gills are wiggling with excitement!", "From the canals of Xochimilco, with love!", "You keep going, I'll keep cheering!", "Little paws, big dreams. Let's study!"],
           pet: ["Hehe! My gills went all fluffy!", "Aww, that's a very happy wiggle!"],
@@ -128,7 +128,7 @@
         eyes: {lx: 48, rx: 72, y: 88, r: 4.4, style: "sparkle", color: "#3A1E10"},
         mouth: {x: 60, y: 97, w: 3, color: "#3A1E10"},
         cheeks: {lx: 40, rx: 80, y: 95, w: 4, h: 2.4, color: "#FF8F8A"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 104, 1], chest: [72, 100, 0.6], back: [92, 80, 0.8], hands: [60, 104, 0.86]},
+        anchors: {top: [60, 35, 0.95, 0], neck: [60, 106, 1, 0, 53, 49], chest: [72, 112, 0.6], back: [92, 80, 0.8], hands: [60, 104, 0.86]},
         lines: {
           tap: ["Fresh from the panadería, just for you!", "Sweet shell, soft heart, big plans!", "You rise to every challenge. Like dough!", "A little sugar makes studying sweeter!", "Pair me with hot chocolate and a good book!", "Every crumb of effort counts!", "Golden on the outside, proud on the inside!", "You're doing sweetly today. Keep it up!"],
           pet: ["Hehe! Careful, my sugar crumbles!", "Aww, warm and toasty now!"],

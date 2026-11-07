@@ -11,7 +11,7 @@
     theme: "diwali",
     companions: [
       {
-        id: "diwali-diya", name: "Diya", kind: "Little Diya Lamp", pose: "sit", sleepy: true,
+        id: "diwali-diya", name: "Diya", kind: "Little Diya Lamp", pose: "sit", sleepy: true, hatTop: true,
         bio: "A warm clay lamp whose tiny flame glows brighter with every win.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -32,7 +32,7 @@
         eyes: {lx: 49, rx: 71, y: 78, r: 4.8, style: "dot", color: "#3A1A14"},
         mouth: {x: 60, y: 86.5, w: 3.2, color: "#3A1A14"},
         cheeks: {lx: 41, rx: 79, y: 85, w: 4.6, h: 2.8, color: "#FF8FA3"},
-        anchors: {top: [60, 60, 0.9], neck: [60, 92, 1.15], chest: [75, 94, 0.72], back: [89, 76, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 53, 0.9, 0], neck: [60, 96.5, 1.15, 0, 51, 50], chest: [75, 102, 0.6], back: [89, 76, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! My flame glows brighter for you!", "You're shining so bright today!", "Look at you, lighting the way!", "Every win makes me glow!", "You're doing wonderfully!", "You've got this! Glow on!", "Warm light and big cheers for you!"],
           pet: ["Hehe! My little flame is dancing!", "Aww! I'm glowing so warm now!"],
@@ -46,7 +46,7 @@
         }
       },
       {
-        id: "diwali-peacock", name: "Mayu", kind: "Peacock Chick", pose: "stand",
+        id: "diwali-peacock", name: "Mayu", kind: "Peacock Chick", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A proud little peacock who fans out its tail for every finished task.",
         idle: ["tailSwish", "topBob", "wingFlutter"], cheer: "wingFlutter",
         parts: {
@@ -75,7 +75,7 @@
         },
         mouth: {x: 60, y: 67, w: 3},
         cheeks: {lx: 42.5, rx: 77.5, y: 66, w: 4.4, h: 2.7, color: "#FFB0C6"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 75, 1.2], chest: [71, 92, 0.75], back: [86, 84, 0.9], hands: [60, 94, 0.95]},
+        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 79, 1.2, 0, 63, 70], chest: [71, 86.5, 0.75], back: [86, 84, 0.9], hands: [60, 94, 0.95]},
         lines: {
           tap: ["Hi! I'm fanning my tail for you!", "You're so dazzling today!", "Look at you, strutting along!", "You make my feathers shimmer!", "You're doing amazing! Wow!", "You've got this, I just know it!", "So proud of you, every day!"],
           pet: ["Hehe! My tail is all fluffed up!", "Ooh! That makes me shimmer!"],
@@ -89,7 +89,7 @@
         }
       },
       {
-        id: "diwali-kandil", name: "Kandi", kind: "Star Lantern", pose: "float",
+        id: "diwali-kandil", name: "Kandi", kind: "Star Lantern", pose: "float", hatTop: true,
         bio: "A paper star lantern who floats nearby and lights the way.",
         idle: ["sparkle", "tailSwish", "spin"], cheer: "spin",
         parts: {
@@ -105,7 +105,7 @@
         eyes: {lx: 51, rx: 69, y: 61, r: 4.6, style: "sparkle", color: "#4A1330"},
         mouth: {x: 60, y: 69.5, w: 3, color: "#4A1330"},
         cheeks: {lx: 43.5, rx: 76.5, y: 68, w: 4.2, h: 2.6, color: "#FF7FA6"},
-        anchors: {top: [60, 34, 0.75], neck: [60, 80, 1], chest: [72, 76, 0.66], back: [84, 54, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 40, 0.75, 0], neck: [60, 80, 1, 0, 45, 47], chest: [72, 86.5, 0.62], back: [84, 54, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! I'm lighting the way for you!", "You're shining so bright today!", "Look at you, glowing along!", "Floating by to cheer you on!", "You're doing wonderfully!", "You've got this! Shine on!", "My star points are all sparkly for you!"],
           pet: ["Hehe! I'm swaying with joy!", "Aww! My paper glows so warm now!"],
@@ -126,7 +126,7 @@
     theme: "balloons",
     companions: [
       {
-        id: "balloons-balloon", name: "Breezy", kind: "Hot-Air Balloon", pose: "float", wearColor: "#2F8F8F",
+        id: "balloons-balloon", name: "Breezy", kind: "Hot-Air Balloon", pose: "float", wearColor: "#2F8F8F", hatTop: true,
         bio: "A little hot-air balloon who drifts along and lifts your mood.",
         idle: ["topBob", "sway", "sparkle"], cheer: "spin",
         parts: {
@@ -146,7 +146,7 @@
         eyes: {lx: 51, rx: 69, y: 52, r: 5, style: "dot"},
         mouth: {x: 60, y: 61, w: 3.2},
         cheeks: {lx: 43.5, rx: 76.5, y: 59.5, w: 4.3, h: 2.7, color: "#FFD3CF"},
-        anchors: {top: [60, 20, 0.95], neck: [60, 88, 0.85], chest: [72, 72, 0.7], back: [88, 44, 0.85], hands: [60, 79, 0.85]},
+        anchors: {top: [60, 16, 0.95, 0], neck: [60, 69, 0.85, 0, 64, 63], chest: [72, 77, 0.7], back: [88, 44, 0.85], hands: [60, 79, 0.85]},
         lines: {
           tap: ["Hi! You lift me right up!", "You're soaring today!", "Look at you, rising so high!", "Up, up and away! Let's go!", "You're doing amazing!", "You've got this, I just know it!", "Floating on happy clouds with you!"],
           pet: ["Wheee! I'm floating higher now!", "Hehe! That gave me a happy puff!"],
@@ -182,7 +182,7 @@
         eyes: {lx: 47, rx: 73, y: 54, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 67.5, w: 2.8, style: "cat"},
         cheeks: {lx: 40, rx: 80, y: 62.5, w: 4.4, h: 2.7, color: "#FF9D9D"},
-        anchors: {top: [60, 35, 0.95], neck: [60, 77, 1.05], chest: [69, 92, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 35, 0.95, 0], neck: [60, 81, 1.05, 0, 37, 79], chest: [69, 84.5, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Squeak! So happy to see you!", "Woof! You're doing great!", "Look at you, showing up again!", "My tail is twisting with joy!", "You're amazing! Squeak squeak!", "You've got this, buddy!", "Best study buddy at the whole fair!"],
           pet: ["Squeak! That's the best feeling!", "Hehe! My twisty tail is wagging!"],
@@ -196,7 +196,7 @@
         }
       },
       {
-        id: "balloons-hamster", name: "Ace", kind: "Pilot Hamster", pose: "stand",
+        id: "balloons-hamster", name: "Ace", kind: "Pilot Hamster", pose: "stand", scarfOverArms: true,
         bio: "A brave little pilot who checks the winds before every study flight.",
         idle: ["headTilt", "wave", "earTwitch"], cheer: "wave",
         neck: [60, 78],
@@ -224,7 +224,7 @@
         eyes: {lx: 49, rx: 71, y: 57, r: 4.4, style: "dot"},
         mouth: {x: 60, y: 67, w: 2.6, style: "cat"},
         cheeks: {lx: 41.5, rx: 78.5, y: 64.5, w: 4.8, h: 3, color: "#FF9FA8"},
-        anchors: {top: [60, 33, 0.95], neck: [60, 79, 1], chest: [69, 94, 0.7], back: [81, 90, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 82.5, 1, 0, 44, 59], chest: [69, 86.5, 0.7], back: [81, 90, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Captain here! So glad you're aboard!", "You're flying great today!", "Look at you, cruising along!", "Winds are perfect! Let's go!", "You're amazing, co-pilot!", "You've got this! Smooth skies!", "Every flight with you is the best!"],
           pet: ["Hehe! My goggles are all foggy!", "Squeak! That's the best!"],
@@ -245,7 +245,7 @@
     theme: "koi",
     companions: [
       {
-        id: "koi-koi", name: "Koko", kind: "Baby Koi", pose: "float", wearColor: "#2E8C80",
+        id: "koi-koi", name: "Koko", kind: "Baby Koi", pose: "float", wearColor: "#2E8C80", hatTop: true,
         bio: "A baby koi who swims happy circles around your notes.",
         idle: ["tailSwish", "finWiggle", "topBob"], cheer: "spin",
         parts: {
@@ -272,7 +272,7 @@
         },
         mouth: {x: 60, y: 71, w: 2.8},
         cheeks: {lx: 42.5, rx: 77.5, y: 69, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 40, 0.9], neck: [60, 82, 1.05], chest: [72, 76, 0.66], back: [85, 55, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 39, 0.9, 0], neck: [60.5, 82, 1.05, 0, 51.5, 78], chest: [72, 88, 0.62], back: [85, 55, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Splash! So happy to see you!", "You're doing amazing!", "Look at you, swimming along!", "Happy circles, just for you!", "You've got this! Splish!", "You make my fins flutter!", "Best day in the pond with you!"],
           pet: ["Hehe! My fins are wiggling!", "Splash! That tickles!"],
@@ -325,7 +325,7 @@
         },
         mouth: {x: 60, y: 63, w: 3.4},
         cheeks: {lx: 35, rx: 85, y: 62, w: 5, h: 3, color: "#FF8DB0"},
-        anchors: {top: [60, 37, 0.78], neck: [60, 81.5, 1.05], chest: [60, 92, 0.6], back: [88, 84, 0.9], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 27.5, 0.78, 0], neck: [60, 83, 1.05, 0, 55, 92], chest: [60, 87.5, 0.6], back: [88, 84, 0.9], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Ribbit! So happy to see you!", "You're doing amazing today!", "Look at you, hopping along!", "Big hops of cheer for you!", "You've got this, friend!", "You make my lily pad bounce!", "Best company on the pond!"],
           pet: ["Ribbit! That's so nice!", "Hehe! I'm all hoppy now!"],
@@ -364,7 +364,7 @@
         eyes: {lx: 51, rx: 69, y: 60, r: 4.5, style: "sparkle", color: "#3A2140"},
         mouth: {x: 60, y: 68.5, w: 2.8, color: "#3A2140"},
         cheeks: {lx: 44, rx: 76, y: 67, w: 4.2, h: 2.6, color: "#FF8FB0"},
-        anchors: {top: [60, 41, 0.85], neck: [60, 79, 0.95], chest: [69, 94, 0.66], back: [80, 90, 0.8], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 41.5, 0.85, 0], neck: [60, 82.5, 0.95, 0, 38, 69], chest: [69, 86, 0.66], back: [80, 90, 0.8], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Hi! I'm blooming for you!", "You're doing wonderfully!", "Look at you, growing so well!", "A little more bloom each day!", "You've got this, I just know it!", "My petals are open wide for you!", "So proud of you, every day!"],
           pet: ["Hehe! My petals are all fluttery!", "Aww! I'm blooming even more!"],
@@ -385,7 +385,7 @@
     theme: "rain",
     companions: [
       {
-        id: "rain-duck", name: "Puddle", kind: "Rain Boot Duckling", pose: "stand",
+        id: "rain-duck", name: "Puddle", kind: "Rain Boot Duckling", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A sunny little duckling in rain boots who loves a puddle day.",
         idle: ["waddle", "wingFlutter", "headTilt"], cheer: "wingFlutter",
         neck: [60, 74],
@@ -411,7 +411,7 @@
         },
         mouth: {x: 60, y: 61, w: 3.5},
         cheeks: {lx: 41.5, rx: 78.5, y: 59, w: 4.4, h: 2.7, color: "#FF9F8F"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 75, 1.05], chest: [70, 89, 0.7], back: [83, 83, 0.85], hands: [60, 90, 0.9]},
+        anchors: {top: [60, 30, 0.95, 0], neck: [60, 79, 1.05, 0, 49, 66], chest: [70, 82.5, 0.7], back: [83, 83, 0.85], hands: [60, 90, 0.9]},
         lines: {
           tap: ["Quack! Hi hi hi! I'm so happy you're here!", "Puddles are just tiny ponds, and I love them all!", "Splish splash, you've totally got this!", "Rainy days are the coziest study days!", "Look at you, showing up again! Yay!", "Every drop counts, and so does every page!", "You bring the sunshine, even on rainy days!"],
           pet: ["Quack quack! Hehe, that tickles!", "Fluffy, dry, and SO happy! Thank you!"],
@@ -442,7 +442,7 @@
         eyes: {lx: 50, rx: 70, y: 62, r: 4.8, style: "dot", color: "#26324A"},
         mouth: {x: 60, y: 70.5, w: 3, color: "#26324A"},
         cheeks: {lx: 42, rx: 78, y: 69, w: 4.4, h: 2.7, color: "#FFA6BD"},
-        anchors: {top: [58, 33, 0.95], neck: [60, 80, 1.3], chest: [78, 74, 0.7], back: [86, 54, 0.85], hands: [60, 80, 0.9]},
+        anchors: {top: [58, 35.5, 0.95, 0], neck: [60, 80, 1.3, 0, 79, 88], chest: [78, 85.5, 0.62], back: [86, 54, 0.85], hands: [60, 80, 0.9]},
         lines: {
           tap: ["Drip drop, hi! I'm so glad you're here!", "Growing ideas, one happy drop at a time!", "A little rain helps everything grow, you too!", "Cloudy outside, sunny in here with you!", "Soft rain, sharp mind! Let's do this!", "Look at you go! I'm raining confetti!", "Every storm passes, and you shine right through!"],
           pet: ["Pitter patter, hehe! I'm all puffed up!", "Ooh, I'm so fluffy now! Thank you!"],
@@ -477,7 +477,7 @@
         eyes: {lx: 43.5, rx: 60.5, y: 83, r: 4.4, style: "dot", color: "#2A2F4A"},
         mouth: {x: 52, y: 91, w: 2.8, color: "#2A2F4A"},
         cheeks: {lx: 37, rx: 67, y: 90, w: 3.8, h: 2.5, color: "#FF9FBA"},
-        anchors: {top: [52, 66, 0.85], neck: [52, 98, 0.95], chest: [90, 101, 0.6], back: [76, 64, 0.95], hands: [52, 100, 0.85]},
+        anchors: {top: [52, 66, 0.85, 0], neck: [61.5, 101.5, 0.85, 0, 80, 84], chest: [90, 105.5, 0.6], back: [76, 64, 0.95], hands: [52, 100, 0.85]},
         lines: {
           tap: ["Oh hello there! You made my whole day!", "Slow and steady, and you're doing so well!", "No rush at all. You're doing wonderfully!", "I carry my cozy, and I'm sharing it with you!", "Rainy day, happy snail, happier with you here!", "One inch at a time, and look how far you've come!", "Your pace is the right pace! I love it!"],
           pet: ["Mmm, so gentle! My shell is all warm!", "Happy little shell wiggle! Thank you!"],
@@ -498,7 +498,7 @@
     theme: "alpine",
     companions: [
       {
-        id: "alpine-goat", name: "Tilly", kind: "Mountain Goat Kid", pose: "stand",
+        id: "alpine-goat", name: "Tilly", kind: "Mountain Goat Kid", pose: "stand", hatTop: true,
         bio: "A fluffy goat kid with a tiny bell who hops from peak to peak with you.",
         idle: ["earTwitch", "headTilt", "hop"], cheer: "hop",
         neck: [60, 76],
@@ -524,7 +524,7 @@
         eyes: {lx: 49, rx: 71, y: 54, r: 4.5, style: "dot"},
         mouth: {x: 60, y: 67.5, w: 2.6, style: "cat"},
         cheeks: {lx: 42, rx: 78, y: 62, w: 4.4, h: 2.7, color: "#FF9FB3"},
-        anchors: {top: [60, 36, 0.95], neck: [60, 77, 1], chest: [71, 94, 0.66], back: [82, 86, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 35.5, 1.01, 0], neck: [60, 79.5, 1, 0, 43, 54], chest: [71, 84, 0.66], back: [82, 86, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Ding ding! Hi! My bell is so happy to see you!", "Hop hop! We're climbing higher every day!", "Look at you scaling this mountain! Wow!", "You're on fire today! Peak after peak!", "Every step up is a step worth cheering!", "I believe in you all the way to the top!", "Fresh air, big views, and you! Perfect!"],
           pet: ["Ding a ling! Hehe, that's my happy bell!", "Ooh, so soft! My fluff is doing a little hop!"],
@@ -556,7 +556,7 @@
         eyes: {lx: 50, rx: 70, y: 76, r: 5, style: "dot", color: "#2A2248"},
         mouth: {x: 60, y: 85, w: 3.2, color: "#2A2248"},
         cheeks: {lx: 41.5, rx: 78.5, y: 84, w: 4.6, h: 2.8, color: "#FFB0C4"},
-        anchors: {top: [60, 21, 0.8], neck: [60, 94, 1.35], chest: [77, 96, 0.72], back: [84, 70, 0.9], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 26.5, 0.8, 0], neck: [60, 96.5, 1.35, 0, 80, 82], chest: [77, 101.5, 0.6], back: [84, 70, 0.9], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hello, climber! I'm so glad you're here!", "Steady and strong, just like you! Wow!", "Look how high you've climbed already!", "My snowy cap is sparkling just for you!", "You're showing up again! I love to see it!", "Rock solid effort today! Keep it up!", "The view from here? It's you, doing great!"],
           pet: ["Oh! A little snow just fell from joy!", "So gentle! My whole mountain is smiling!"],
@@ -586,7 +586,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 60, r: 4.6, style: "sparkle", color: "#2E3550"},
         mouth: {x: 60, y: 68.5, w: 2.8, color: "#2E3550"},
         cheeks: {lx: 44.5, rx: 75.5, y: 67, w: 4, h: 2.5, color: "#FF9FB0"},
-        anchors: {top: [60, 41, 0.85], neck: [60, 81, 1], chest: [72, 74, 0.62], back: [84, 50, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 36, 0.85, 0], neck: [60, 77, 1, 0, 63, 51], chest: [72, 83.5, 0.62], back: [84, 50, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hello, sunshine! I'm blooming just for you!", "You make my petals sparkle! Hi hi!", "Look at you, growing every single day!", "Up here, everything shines, especially you!", "You're blooming beautifully today!", "Fresh mountain air and a fresh new page! Yay!", "I'm your biggest fan up on this mountain!"],
           pet: ["Ooh, my fuzzy petals are so happy! Thank you!", "Hehe! I'm blooming even brighter now!"],
