@@ -999,7 +999,7 @@ const hbBees = (W, H, d, n) => Array.from({length: n(3)}, (_, i) => { const l = 
 
 // Photography: a camera iris snaps shut and open with a soft flash, then polaroids from a golden-hour walk drop onto a
 // clothesline, get pegged and develop while they sway, with golden bokeh and a warm light leak behind
-// a little painted scene in a w x h box: 0 sunset sea, 1 pine woods, 2 city at dusk, 3 beach, 4 mountain lake
+// a little painted scene in a w x h box: 0 sunset sea, 1 pine woods, 2 city at dusk, 3 beach, 4 mountain lake, 5 flower meadow, 6 balloons
 const hbScene = (b, w, h, k) => {
   const lg = (y0, y1, ...c) => { const gr = b.createLinearGradient(0, y0 * h, 0, y1 * h); c.forEach((x, i) => gr.addColorStop(i / (c.length - 1), x)); return gr; };
   const rect = (y0, y1, c) => { b.fillStyle = c; b.fillRect(0, y0 * h, w, (y1 - y0) * h + 1); };
@@ -1023,6 +1023,13 @@ const hbScene = (b, w, h, k) => {
     b.fillStyle = "#6B4A2E"; b.fillRect(0.34 * w, 0.5 * h, 0.018 * w, 0.4 * h);
     for (let i = 0; i < 4; i++) { b.fillStyle = i % 2 ? "#FFFFFF" : "#E8504A"; b.beginPath(); b.moveTo(0.349 * w, 0.48 * h); b.arc(0.349 * w, 0.58 * h, 0.22 * w, Math.PI + i * Math.PI / 4, Math.PI + (i + 1) * Math.PI / 4); b.closePath(); b.fill(); }
     poly("#2E9E8E", [[0.75, 0.9], [0.86, 0.84], [0.93, 0.9]]); }
+  else if (k === 5) { rect(0, 1, lg(0, 0.7, "#F7B07A", "#FFE6B0")); glow(0.7, 0.5, 0.4, "#FFF0B0"); disc(0.7, 0.5, 0.1, "#FFF6D2");
+    poly("#9CBF6A", [[0, 0.62], [0.3, 0.55], [0.62, 0.62], [1, 0.54], [1, 1], [0, 1]]); poly("#6E9E48", [[0, 0.76], [0.4, 0.68], [0.8, 0.74], [1, 0.7], [1, 1], [0, 1]]);
+    for (let i = 0; i < 46; i++) { const x = (i * 0.618) % 1, y = 0.72 + ((i * 0.377) % 1) * 0.26; disc(x, y, 0.012 + y * 0.016, ["#F06A8E", "#FFD24A", "#FFFFFF", "#E8604A"][i % 4]); } }
+  else if (k === 6) { rect(0, 1, lg(0, 1, "#7FB8E8", "#CFE3F2", "#FFD6B0")); b.fillStyle = "rgba(255,255,255,.8)"; [[0.2, 0.3], [0.7, 0.72]].forEach(([x, y]) => { b.beginPath(); b.ellipse(x * w, y * h, 0.16 * w, 0.04 * h, 0, 0, 6.3); b.fill(); });
+    [[0.32, 0.4, 0.17, "#E8504A", "#FFC84A"], [0.72, 0.28, 0.12, "#2FA7A0", "#FFFFFF"], [0.6, 0.62, 0.08, "#F2A23A", "#7A5CC8"]].forEach(([x, y, r, c1, c2]) => { disc(x, y, r, c1); b.fillStyle = c2; b.beginPath(); b.ellipse(x * w, y * h, r * 0.38 * w, r * w, 0, 0, 6.3); b.fill();
+      b.strokeStyle = "rgba(60,40,30,.6)"; b.lineWidth = 0.6; b.beginPath(); b.moveTo((x - r * 0.5) * w, (y + r * 0.86) * h); b.lineTo((x - r * 0.18) * w, (y + r * 1.4) * h); b.moveTo((x + r * 0.5) * w, (y + r * 0.86) * h); b.lineTo((x + r * 0.18) * w, (y + r * 1.4) * h); b.stroke();
+      b.fillStyle = "#8A5A34"; b.fillRect((x - r * 0.2) * w, (y + r * 1.4) * h, r * 0.4 * w, r * 0.3 * w); }); }
   else { rect(0, 0.66, lg(0, 0.66, "#F49A86", "#FCE0C2")); glow(0.62, 0.5, 0.35, "#FFE7B0");
     poly("#9A86BE", [[0, 0.62], [0.2, 0.34], [0.36, 0.5], [0.58, 0.22], [0.8, 0.46], [1, 0.36], [1, 0.66], [0, 0.66]]);
     poly("#FFFFFF", [[0.58, 0.22], [0.64, 0.3], [0.6, 0.29], [0.56, 0.32], [0.52, 0.29]]); poly("#FFFFFF", [[0.2, 0.34], [0.25, 0.4], [0.2, 0.39], [0.16, 0.4]]);
@@ -1038,9 +1045,9 @@ const hbPhoto = () => {
     b.strokeStyle = "rgba(0,0,0,.14)"; b.lineWidth = 0.8; b.strokeRect(m, m, iw, iw); b.strokeStyle = "rgba(0,0,0,.08)"; b.strokeRect(0.4, 0.4, pw - 0.8, ph - 0.8); return {c, pw, ph, m, iw}; };
   const mkBokeh = c => { const cv = document.createElement("canvas"); cv.width = cv.height = 64; const b = cv.getContext("2d"), gr = b.createRadialGradient(32, 32, 0, 32, 32, 31);
     gr.addColorStop(0, c + "55"); gr.addColorStop(0.78, c + "77"); gr.addColorStop(0.9, c + "CC"); gr.addColorStop(1, c + "00"); b.fillStyle = gr; b.fillRect(0, 0, 64, 64); return cv; };
-  const S = hbRun((W, H, d) => { const m = Math.min(W, H), tall = H > W * 1.25, rows = tall ? [[0.1, 3], [0.6, 2]] : [[0.07, W > 1000 ? 5 : 4], [0.6, 3]], kinds = [0, 1, 2, 3, 4].sort(() => Math.random() - 0.5); let q = 0;
+  const S = hbRun((W, H, d) => { const m = Math.min(W, H), tall = H > W * 1.25, rows = tall ? [[0.1, 3], [0.6, 2]] : [[0.07, W > 1000 ? 5 : 4], [0.6, 3]], kinds = [0, 1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5); let q = 0;
     const lines = rows.map(([y, n], r) => { const pw = Math.min(W / n * 0.74, H * 0.22, 160), t0 = 40 + r * 30;
-      return {y: H * y, sag: H * 0.03, t0, prints: Array.from({length: n}, (_, i) => ({x: W * (i + 0.5) / n + fxR(-0.02, 0.02) * W, t0: t0 + 16 + i * 13 + fxR(0, 4), rot0: fxR(0.25, 0.5) * (i % 2 ? 1 : -1), dy: fxR(0, 0.04) * pw, ...mkPrint(pw, kinds[q++ % 5])}))}; });
+      return {y: H * y, sag: H * 0.03, t0, prints: Array.from({length: n}, (_, i) => ({x: W * (i + 0.5) / n + fxR(-0.02, 0.02) * W, t0: t0 + 16 + i * 13 + fxR(0, 4), rot0: fxR(0.25, 0.5) * (i % 2 ? 1 : -1), dy: fxR(0, 0.04) * pw, ...mkPrint(pw, kinds[q++ % 7])}))}; });
     const cols = d ? ["#FFC861", "#FFB070", "#FFE3A0", "#FF9A7A"] : ["#F2A93A", "#F0904A", "#E8B84A", "#F08A6A"];
     return {lines, bok: Array.from({length: Math.round(Math.max(8, Math.min(16, W * H / 40000)))}, () => ({x: fxR(0, W), y: fxR(0.1, 1) * H, r: m * fxR(0.025, 0.075), vy: fxR(0.1, 0.35), ph: fxR(0, 6.3), a: fxR(0.5, 1), spr: mkBokeh(fxPick(cols))}))}; });
   const N = 7, P = new Float32Array(N * 2);
@@ -1062,16 +1069,17 @@ const hbPhoto = () => {
         g.restore(); } }
     // the shutter: blades close to a pinpoint, a soft flash, then open wide and fall away
     const vis = fxEase(f / 6) * (1 - fxEase((f - 30) / 22)); if (vis <= 0) return;
-    const R = m * 0.2, cx = W / 2, cy = H * 0.42, sc = 1 + 0.8 * fxEase((f - 28) / 26), op = f < 6 ? 0.92 : f < 18 ? 0.92 - 0.88 * fxEase((f - 6) / 12) : f < 22 ? 0.04 : 0.04 + 1.06 * fxEase((f - 22) / 14), rot = (1 - op) * 1.3;
+    const R = m * 0.24, cx = W / 2, cy = H * 0.42, sc = 1 + 0.8 * fxEase((f - 28) / 26), op = f < 6 ? 0.92 : f < 18 ? 0.92 - 0.88 * fxEase((f - 6) / 12) : f < 22 ? 0.04 : 0.04 + 1.06 * fxEase((f - 22) / 14), rot = (1 - op) * 1.3;
     g.save(); g.globalAlpha = vis; g.translate(cx, cy); g.scale(sc, sc);
     if (op < 1.08) { const r = R * op; for (let i = 0; i < N; i++) { const a = rot + i / N * 6.283; P[2 * i] = Math.cos(a) * r; P[2 * i + 1] = Math.sin(a) * r; }
       g.save(); g.beginPath(); g.arc(0, 0, R, 0, 6.3); g.clip(); g.lineWidth = 1.2;
       for (let i = 0; i < N; i++) { const j = (i + 1) % N, h = (i + N - 1) % N, ux = P[2 * j] - P[2 * i], uy = P[2 * j + 1] - P[2 * i + 1], ul = Math.hypot(ux, uy) || 1, vx = P[2 * i] - P[2 * h], vy = P[2 * i + 1] - P[2 * h + 1], vl = Math.hypot(vx, vy) || 1;
-        g.fillStyle = i % 2 ? "#2C2E36" : "#363943"; g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * j] + ux / ul * 3 * R, P[2 * j + 1] + uy / ul * 3 * R); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.closePath(); g.fill();
-        g.strokeStyle = "rgba(255,255,255,.16)"; g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.stroke(); }
+        g.fillStyle = i % 2 ? (d ? "#3E414B" : "#2C2E36") : (d ? "#4A4E59" : "#363943"); g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * j] + ux / ul * 3 * R, P[2 * j + 1] + uy / ul * 3 * R); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.closePath(); g.fill();
+        g.strokeStyle = "rgba(255,255,255,.2)"; g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.stroke(); }
+      g.strokeStyle = "rgba(255,200,120,.45)"; g.beginPath(); for (let i = 0; i <= N; i++) { const j = i % N; i ? g.lineTo(P[2 * j], P[2 * j + 1]) : g.moveTo(P[0], P[1]); } g.stroke();
       g.restore(); }
     const gr = g.createLinearGradient(-R, -R, R, R); gr.addColorStop(0, "#5A5E68"); gr.addColorStop(0.5, "#1C1D22"); gr.addColorStop(1, "#3A3D45"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.arc(0, 0, R, 0, 6.3, true); g.fill();
-    g.strokeStyle = "rgba(255,255,255,.3)"; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.stroke(); g.strokeStyle = "rgba(255,255,255,.12)"; g.beginPath(); g.arc(0, 0, R * 1.1, 0, 6.3); g.stroke();
+    g.strokeStyle = "rgba(255,214,150,.55)"; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.stroke(); g.strokeStyle = "rgba(255,255,255,.12)"; g.beginPath(); g.arc(0, 0, R * 1.1, 0, 6.3); g.stroke();
     g.fillStyle = "rgba(255,255,255,.4)"; for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283; g.fillRect(Math.cos(a) * R * 1.15 - 0.8, Math.sin(a) * R * 1.15 - 0.8, 1.6, 1.6); } g.restore();
     const fl = f < 19 ? 0 : Math.min(1, (f - 19) / 2) * Math.exp(-(f - 21) / 9); if (fl > 0.01) { const gr2 = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.8); gr2.addColorStop(0, "rgba(255,250,235,1)"); gr2.addColorStop(1, "rgba(255,250,235,0)"); g.globalAlpha = Math.min(1, fl) * 0.22; g.fillStyle = gr2; g.fillRect(0, 0, W, H); } };
 };
@@ -1174,8 +1182,9 @@ const hbHatchBits = (W, H, d, n) => { const G = hbEggGeo(W, H), y = G.ey + G.y0,
 
 // Halloween: a big full moon rises, a witch on her broom flies across its face, bats burst up from below, a little ghost
 // floats up and waves, and a row of jack-o'-lanterns along the bottom lights up one by one.
-const hbMoonGeo = (W, H) => { const ph = W < H, R = ph ? Math.min(W * 0.36, H * 0.2) : Math.min(H * 0.3, W * 0.22); return {ph, R, mx: W * (ph ? 0.5 : 0.68), my: H * (ph ? 0.24 : 0.35)}; };
-const hbWitchAt = (W, H, t) => { const m = hbMoonGeo(W, H), u = t / 160; return [W * (-0.14 + 1.28 * u), m.my + m.R * (0.25 - 0.4 * u) + Math.sin(t * 0.045) * m.R * 0.1]; };
+// the moon sits up in the top right, clear of the middle of the screen where the app content is
+const hbMoonGeo = (W, H) => { const ph = W < H, R = ph ? Math.min(W * 0.22, H * 0.12) : Math.min(H * 0.16, W * 0.12); return {ph, R, mx: W * (ph ? 0.68 : 0.8), my: H * (ph ? 0.15 : 0.18)}; };
+const hbWitchAt = (W, H, t) => { const m = hbMoonGeo(W, H), u = t / 150; return [W * (-0.14 + 1.28 * u), m.my + m.R * (0.25 - 0.4 * u) + Math.sin(t * 0.045) * m.R * 0.1]; };
 const hbNight = () => {
   const S = hbRun((W, H, d) => { const M = hbMoonGeo(W, H), {R} = M, mc = R * 3.6;
     const moon = hbCv(mc, mc, x => { x.translate(mc / 2, mc / 2); const h = x.createRadialGradient(0, 0, R * 0.9, 0, 0, R * 1.75); h.addColorStop(0, d ? "rgba(255,220,150,.32)" : "rgba(245,170,70,.3)"); h.addColorStop(1, "rgba(255,220,150,0)"); x.fillStyle = h; x.fillRect(-mc, -mc, 2 * mc, 2 * mc);
@@ -1204,7 +1213,7 @@ const hbNight = () => {
     const bk = Math.max(1.4, Math.min(W, H) * 0.0032), bats = Array.from({length: M.ph ? 10 : 16}, (_, i) => { const z = fxR(0.65, 1.15), sd = i % 2 ? 1 : -1;
       return {x0: W * (0.5 + sd * fxR(0, 0.3)), ang: sd * fxR(0.05, 0.75), curl: sd * fxR(-0.6, 1.4), sp: H * fxR(0.009, 0.013) * (0.7 + 0.3 * z), t0: 34 + i * 2.6 + fxR(0, 6), fr: fxR(0.32, 0.45), ph: fxR(0, 6.3), k: bk * z, z}; });
     const gs = Math.max(56, Math.min(W, H) * (M.ph ? 0.19 : 0.15));
-    return {M, moon, mc, pumps, r0, pc, body, faces, halo, bats, gs, gx: W * (M.ph ? 0.2 : 0.15), gy: H * (M.ph ? 0.6 : 0.5)};
+    return {M, moon, mc, pumps, r0, pc, body, faces, halo, bats, gs, gx: W * (M.ph ? 0.18 : 0.15), gy: H * (M.ph ? 0.68 : 0.5)};
   });
   const sil = d => d ? "#1C1428" : "#2D2140";
   const witch = (g, f) => { const w = k => Math.sin(f * 0.32 + k);
@@ -1227,9 +1236,9 @@ const hbNight = () => {
   const batAt = (b, t, H) => { const dist = b.sp * (40 * (1 - Math.exp(-t / 40)) + 0.45 * t), a = b.ang + b.curl * t * 0.004; return [b.x0 + Math.sin(a) * dist + Math.sin(t * 0.08 + b.ph) * 10, H + 20 - Math.cos(a) * dist]; };
   return (g, f, W, H, d) => { const s = S(W, H, d, f), {M} = s, out = 1, col = sil(d);   // the layer fade at the end covers it
     // moon
-    const mr = fxEase(f / 80), my = M.my + H * 0.5 * (1 - mr); g.globalAlpha = out * fxEase(f / 25); g.drawImage(s.moon, M.mx - s.mc / 2, my - s.mc / 2, s.mc, s.mc);
+    const mr = fxEase(f / 80), my = M.my + H * 0.25 * (1 - mr); g.globalAlpha = out * 0.85 * fxEase(f / 25); g.drawImage(s.moon, M.mx - s.mc / 2, my - s.mc / 2, s.mc, s.mc);
     // witch
-    const wt = f - 55; if (wt > 0 && wt < 175) { const [x, y] = hbWitchAt(W, H, wt), [x2, y2] = hbWitchAt(W, H, wt + 1), k = M.R * 0.85 / 60;
+    const wt = f - 40; if (wt > 0 && wt < 175) { const [x, y] = hbWitchAt(W, H, wt), [x2, y2] = hbWitchAt(W, H, wt + 1), k = M.R * 1.1 / 60;
       g.save(); g.globalAlpha = out; g.translate(x, y); g.rotate(Math.atan2(y2 - y, x2 - x) * 0.7 + Math.sin(f * 0.09) * 0.04); g.scale(k, k); g.fillStyle = col;
       witch(g, f); g.restore(); }
     // ghost
@@ -1256,8 +1265,8 @@ const hbNight = () => {
       g.globalAlpha = out; g.drawImage(s.body, x, y, w, w); g.drawImage(s.faces[p.v][0], x, y, w, w); if (on > 0) { g.globalAlpha = out * on; g.drawImage(s.faces[p.v][1], x, y, w, w); } }
     g.globalAlpha = 1; }; };
 const hbNightBits = (W, H, d, n) => fxTw(W, H, n(14), "sparkle", d ? ["#FFE7A8", "#D8C8FF"] : ["#8A5AD0", "#D98A1E"], {smin: 3, smax: 6, top: 0.5, glow: d ? 8 : 0, spread: 150})
-  .concat(Array.from({length: n(14)}, (_, i) => { const t = 20 + i * 9 + fxR(0, 5), [x, y] = hbWitchAt(W, H, t), k = hbMoonGeo(W, H).R * 0.85 / 60;
-    return {shape: "star", c: fxPick(d ? ["#FFE08A", "#FFFFFF", "#C9B4FF"] : ["#E89A1E", "#9A5AE0", "#F2B84A"]), x: x - 34 * k, y: y + 8 * k, vx: fxR(-0.4, 0.2), vy: fxR(0.2, 0.7), g: 0.004, size: fxR(4, 7), rot: fxR(0, 6.3), vr: fxR(-0.05, 0.05), sway: 0.4, life: 70, delay: Math.round(55 + t), glow: d ? 8 : 0}; }));
+  .concat(Array.from({length: n(14)}, (_, i) => { const t = 20 + i * 9 + fxR(0, 5), [x, y] = hbWitchAt(W, H, t), k = hbMoonGeo(W, H).R * 1.1 / 60;
+    return {shape: "star", c: fxPick(d ? ["#FFE08A", "#FFFFFF", "#C9B4FF"] : ["#E89A1E", "#9A5AE0", "#F2B84A"]), x: x - 34 * k, y: y + 8 * k, vx: fxR(-0.4, 0.2), vy: fxR(0.2, 0.7), g: 0.004, size: fxR(4, 7), rot: fxR(0, 6.3), vr: fxR(-0.05, 0.05), sway: 0.4, life: 70, delay: Math.round(40 + t), glow: d ? 8 : 0}; }));
 
 // Thanksgiving: a cartoon turkey pops up at the bottom, fans its tail open feather by feather and bobs its head and wattle,
 // while a gust of autumn leaves swirls past in a spiral (some in front of the turkey, some behind) and acorns tumble down.

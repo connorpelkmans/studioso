@@ -179,23 +179,23 @@
   // the manta, top-down: a broad diamond with convex leading edges sweeping back to long pointed tips; the tips curl
   // up and down as it flaps (the span narrows a little on the upstroke), head first, a slim whip tail trailing
   const aqManta = (g, f, W, H, dk) => { const m = AQ.ma, u = (f - m.d0) / 210; if (u <= 0 || u >= 1.2) return; const L = m.L, P = q => { const a = 1 - q; return [a * a * m.p[0][0] + 2 * a * q * m.p[1][0] + q * q * m.p[2][0], a * a * m.p[0][1] + 2 * a * q * m.p[1][1] + q * q * m.p[2][1]]; };
-    const [x, y] = P(u), [x2, y2] = P(u + 0.003), fl = Math.sin(f * 0.075), up = Math.max(0, fl), dn = Math.max(0, -fl), ty = 0.72 * (1 - 0.1 * up + 0.02 * dn), tx = -0.06 + 0.04 * up - 0.015 * dn;
+    const [x, y] = P(u), [x2, y2] = P(u + 0.003), fl = Math.sin(f * 0.075), up = Math.max(0, fl), dn = Math.max(0, -fl), ty = 0.76 * (1 - 0.1 * up + 0.02 * dn), tx = -0.12 + 0.04 * up - 0.015 * dn;
     g.save(); g.globalAlpha = ease((f - m.d0) / 25); g.translate(x, y); g.rotate(Math.atan2(y2 - y, x2 - x)); g.scale(L, L);
     const back = dk ? "#23324A" : "#2E3F58";
-    g.lineCap = "round"; g.strokeStyle = back; for (let i = 0; i < 12; i++) { g.lineWidth = 0.022 * (1 - i / 12) + 0.004; g.beginPath(); g.moveTo(-0.36 - i * 0.05, Math.sin(i * 0.55 - f * 0.12) * 0.01 * i); g.lineTo(-0.36 - (i + 1) * 0.05, Math.sin((i + 1) * 0.55 - f * 0.12) * 0.01 * (i + 1)); g.stroke(); }
-    const half = s => [[0.27, 0.32 * s, 0.13, ty * 0.84 * s, tx, ty * s], [-0.11, ty * 0.74 * s, -0.24, 0.34 * s, -0.31, 0.1 * s]];
-    const body = new Path2D(); body.moveTo(0.3, 0); body.quadraticCurveTo(0.31, -0.08, 0.28, -0.12);
-    let [a, b] = half(-1); body.bezierCurveTo(...a); body.bezierCurveTo(...b); body.quadraticCurveTo(-0.37, -0.06, -0.38, 0); body.quadraticCurveTo(-0.37, 0.06, -0.31, 0.1);
-    [a, b] = half(1); body.bezierCurveTo(b[2], b[3], b[0], b[1], tx, ty); body.bezierCurveTo(a[2], a[3], a[0], a[1], 0.28, 0.12); body.quadraticCurveTo(0.31, 0.08, 0.3, 0);
+    g.lineCap = "round"; g.strokeStyle = back; for (let i = 0; i < 12; i++) { g.lineWidth = 0.022 * (1 - i / 12) + 0.004; g.beginPath(); g.moveTo(-0.38 - i * 0.05, Math.sin(i * 0.55 - f * 0.12) * 0.01 * i); g.lineTo(-0.38 - (i + 1) * 0.05, Math.sin((i + 1) * 0.55 - f * 0.12) * 0.01 * (i + 1)); g.stroke(); }
+    const half = s => [[0.22, 0.32 * s, 0.06, ty * 0.82 * s, tx, ty * s], [-0.12, ty * 0.66 * s, -0.12, 0.24 * s, -0.22, 0.12 * s]];
+    const body = new Path2D(); body.moveTo(0.3, 0); body.quadraticCurveTo(0.31, -0.07, 0.28, -0.1);
+    let [a, b] = half(-1); body.bezierCurveTo(...a); body.bezierCurveTo(...b); body.quadraticCurveTo(-0.34, -0.11, -0.4, 0); body.quadraticCurveTo(-0.34, 0.11, -0.22, 0.12);
+    [a, b] = half(1); body.bezierCurveTo(b[2], b[3], b[0], b[1], tx, ty); body.bezierCurveTo(a[2], a[3], a[0], a[1], 0.28, 0.1); body.quadraticCurveTo(0.31, 0.07, 0.3, 0);
     g.fillStyle = back; g.fill(body); g.save(); g.clip(body);
     let gr = g.createLinearGradient(0, 0, 0, ty); gr.addColorStop(0, "rgba(255,255,255,.06)"); gr.addColorStop(0.5, "rgba(0,0,0,0)"); gr.addColorStop(1, dk ? "rgba(0,0,0,.25)" : "rgba(0,0,0,.2)"); g.fillStyle = gr; g.fillRect(-0.4, 0, 0.8, 0.8); g.save(); g.scale(1, -1); g.fillRect(-0.4, 0, 0.8, 0.8); g.restore();
     // the curled tips catch the light on the upstroke and fall into shade on the downstroke
     [-1, 1].forEach(s => { gr = g.createLinearGradient(0, 0.4 * s, 0, ty * s); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, up > 0 ? `rgba(200,220,245,${0.32 * up})` : `rgba(0,0,0,${0.3 * dn})`); g.fillStyle = gr; g.fillRect(-0.4, Math.min(0.4 * s, ty * s), 0.8, Math.abs(ty - 0.4)); });
-    g.fillStyle = `rgba(225,236,248,${dk ? 0.13 : 0.16})`; [-1, 1].forEach(s => { g.beginPath(); g.ellipse(0.1, 0.2 * s, 0.13, 0.035, -0.7 * s, 0, 6.3); g.fill(); });
+    g.fillStyle = `rgba(225,236,248,${dk ? 0.13 : 0.16})`; [-1, 1].forEach(s => { g.beginPath(); g.ellipse(0.1, 0.2 * s, 0.12, 0.032, -0.75 * s, 0, 6.3); g.fill(); });
     g.strokeStyle = "rgba(225,238,250,.22)"; g.lineWidth = 0.05; g.stroke(body); g.restore();
     g.strokeStyle = "rgba(225,238,250,.5)"; g.lineWidth = 0.01; g.stroke(body);
-    g.fillStyle = back; [-1, 1].forEach(s => { g.beginPath(); g.moveTo(0.27, 0.13 * s); g.bezierCurveTo(0.34, 0.15 * s, 0.41, 0.13 * s, 0.415, 0.085 * s); g.quadraticCurveTo(0.41, 0.055 * s, 0.39, 0.065 * s); g.bezierCurveTo(0.36, 0.085 * s, 0.32, 0.08 * s, 0.295, 0.065 * s); g.fill(); g.strokeStyle = "rgba(225,238,250,.4)"; g.lineWidth = 0.007; g.stroke(); });
-    g.fillStyle = "rgba(0,0,0,.35)"; [-1, 1].forEach(s => { g.beginPath(); g.arc(0.27, 0.105 * s, 0.012, 0, 6.3); g.fill(); });
+    g.fillStyle = back; [-1, 1].forEach(s => { g.beginPath(); g.moveTo(0.27, 0.11 * s); g.bezierCurveTo(0.34, 0.13 * s, 0.4, 0.11 * s, 0.405, 0.07 * s); g.quadraticCurveTo(0.4, 0.045 * s, 0.38, 0.055 * s); g.bezierCurveTo(0.35, 0.07 * s, 0.32, 0.065 * s, 0.295, 0.05 * s); g.fill(); g.strokeStyle = "rgba(225,238,250,.4)"; g.lineWidth = 0.007; g.stroke(); });
+    g.fillStyle = "rgba(0,0,0,.35)"; [-1, 1].forEach(s => { g.beginPath(); g.arc(0.265, 0.088 * s, 0.011, 0, 6.3); g.fill(); });
     g.restore(); };
   // a jelly: the bell squashes and stretches as it pulses, tentacles trail in waves
   const aqJelly = (g, f, W, H, dk, j) => { const a = f - j.d0; if (a <= 0) return; const p = a * 0.06 + j.ph, c = Math.pow(Math.sin(p), 2), y = j.y - a * 0.18 * j.k - (p / 2 - Math.sin(2 * p) / 4) * 6 * j.k, x = j.x + Math.sin(a * 0.01 + j.ph) * 12, w = j.r * (1 - 0.16 * c), h = j.r * (0.8 + 0.18 * c);

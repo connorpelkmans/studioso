@@ -8983,7 +8983,7 @@ const hbBees = (W, H, d, n) => Array.from({length: n(3)}, (_, i) => { const l = 
 
 // Photography: a camera iris snaps shut and open with a soft flash, then polaroids from a golden-hour walk drop onto a
 // clothesline, get pegged and develop while they sway, with golden bokeh and a warm light leak behind
-// a little painted scene in a w x h box: 0 sunset sea, 1 pine woods, 2 city at dusk, 3 beach, 4 mountain lake
+// a little painted scene in a w x h box: 0 sunset sea, 1 pine woods, 2 city at dusk, 3 beach, 4 mountain lake, 5 flower meadow, 6 balloons
 const hbScene = (b, w, h, k) => {
   const lg = (y0, y1, ...c) => { const gr = b.createLinearGradient(0, y0 * h, 0, y1 * h); c.forEach((x, i) => gr.addColorStop(i / (c.length - 1), x)); return gr; };
   const rect = (y0, y1, c) => { b.fillStyle = c; b.fillRect(0, y0 * h, w, (y1 - y0) * h + 1); };
@@ -9007,6 +9007,13 @@ const hbScene = (b, w, h, k) => {
     b.fillStyle = "#6B4A2E"; b.fillRect(0.34 * w, 0.5 * h, 0.018 * w, 0.4 * h);
     for (let i = 0; i < 4; i++) { b.fillStyle = i % 2 ? "#FFFFFF" : "#E8504A"; b.beginPath(); b.moveTo(0.349 * w, 0.48 * h); b.arc(0.349 * w, 0.58 * h, 0.22 * w, Math.PI + i * Math.PI / 4, Math.PI + (i + 1) * Math.PI / 4); b.closePath(); b.fill(); }
     poly("#2E9E8E", [[0.75, 0.9], [0.86, 0.84], [0.93, 0.9]]); }
+  else if (k === 5) { rect(0, 1, lg(0, 0.7, "#F7B07A", "#FFE6B0")); glow(0.7, 0.5, 0.4, "#FFF0B0"); disc(0.7, 0.5, 0.1, "#FFF6D2");
+    poly("#9CBF6A", [[0, 0.62], [0.3, 0.55], [0.62, 0.62], [1, 0.54], [1, 1], [0, 1]]); poly("#6E9E48", [[0, 0.76], [0.4, 0.68], [0.8, 0.74], [1, 0.7], [1, 1], [0, 1]]);
+    for (let i = 0; i < 46; i++) { const x = (i * 0.618) % 1, y = 0.72 + ((i * 0.377) % 1) * 0.26; disc(x, y, 0.012 + y * 0.016, ["#F06A8E", "#FFD24A", "#FFFFFF", "#E8604A"][i % 4]); } }
+  else if (k === 6) { rect(0, 1, lg(0, 1, "#7FB8E8", "#CFE3F2", "#FFD6B0")); b.fillStyle = "rgba(255,255,255,.8)"; [[0.2, 0.3], [0.7, 0.72]].forEach(([x, y]) => { b.beginPath(); b.ellipse(x * w, y * h, 0.16 * w, 0.04 * h, 0, 0, 6.3); b.fill(); });
+    [[0.32, 0.4, 0.17, "#E8504A", "#FFC84A"], [0.72, 0.28, 0.12, "#2FA7A0", "#FFFFFF"], [0.6, 0.62, 0.08, "#F2A23A", "#7A5CC8"]].forEach(([x, y, r, c1, c2]) => { disc(x, y, r, c1); b.fillStyle = c2; b.beginPath(); b.ellipse(x * w, y * h, r * 0.38 * w, r * w, 0, 0, 6.3); b.fill();
+      b.strokeStyle = "rgba(60,40,30,.6)"; b.lineWidth = 0.6; b.beginPath(); b.moveTo((x - r * 0.5) * w, (y + r * 0.86) * h); b.lineTo((x - r * 0.18) * w, (y + r * 1.4) * h); b.moveTo((x + r * 0.5) * w, (y + r * 0.86) * h); b.lineTo((x + r * 0.18) * w, (y + r * 1.4) * h); b.stroke();
+      b.fillStyle = "#8A5A34"; b.fillRect((x - r * 0.2) * w, (y + r * 1.4) * h, r * 0.4 * w, r * 0.3 * w); }); }
   else { rect(0, 0.66, lg(0, 0.66, "#F49A86", "#FCE0C2")); glow(0.62, 0.5, 0.35, "#FFE7B0");
     poly("#9A86BE", [[0, 0.62], [0.2, 0.34], [0.36, 0.5], [0.58, 0.22], [0.8, 0.46], [1, 0.36], [1, 0.66], [0, 0.66]]);
     poly("#FFFFFF", [[0.58, 0.22], [0.64, 0.3], [0.6, 0.29], [0.56, 0.32], [0.52, 0.29]]); poly("#FFFFFF", [[0.2, 0.34], [0.25, 0.4], [0.2, 0.39], [0.16, 0.4]]);
@@ -9022,9 +9029,9 @@ const hbPhoto = () => {
     b.strokeStyle = "rgba(0,0,0,.14)"; b.lineWidth = 0.8; b.strokeRect(m, m, iw, iw); b.strokeStyle = "rgba(0,0,0,.08)"; b.strokeRect(0.4, 0.4, pw - 0.8, ph - 0.8); return {c, pw, ph, m, iw}; };
   const mkBokeh = c => { const cv = document.createElement("canvas"); cv.width = cv.height = 64; const b = cv.getContext("2d"), gr = b.createRadialGradient(32, 32, 0, 32, 32, 31);
     gr.addColorStop(0, c + "55"); gr.addColorStop(0.78, c + "77"); gr.addColorStop(0.9, c + "CC"); gr.addColorStop(1, c + "00"); b.fillStyle = gr; b.fillRect(0, 0, 64, 64); return cv; };
-  const S = hbRun((W, H, d) => { const m = Math.min(W, H), tall = H > W * 1.25, rows = tall ? [[0.1, 3], [0.6, 2]] : [[0.07, W > 1000 ? 5 : 4], [0.6, 3]], kinds = [0, 1, 2, 3, 4].sort(() => Math.random() - 0.5); let q = 0;
+  const S = hbRun((W, H, d) => { const m = Math.min(W, H), tall = H > W * 1.25, rows = tall ? [[0.1, 3], [0.6, 2]] : [[0.07, W > 1000 ? 5 : 4], [0.6, 3]], kinds = [0, 1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5); let q = 0;
     const lines = rows.map(([y, n], r) => { const pw = Math.min(W / n * 0.74, H * 0.22, 160), t0 = 40 + r * 30;
-      return {y: H * y, sag: H * 0.03, t0, prints: Array.from({length: n}, (_, i) => ({x: W * (i + 0.5) / n + fxR(-0.02, 0.02) * W, t0: t0 + 16 + i * 13 + fxR(0, 4), rot0: fxR(0.25, 0.5) * (i % 2 ? 1 : -1), dy: fxR(0, 0.04) * pw, ...mkPrint(pw, kinds[q++ % 5])}))}; });
+      return {y: H * y, sag: H * 0.03, t0, prints: Array.from({length: n}, (_, i) => ({x: W * (i + 0.5) / n + fxR(-0.02, 0.02) * W, t0: t0 + 16 + i * 13 + fxR(0, 4), rot0: fxR(0.25, 0.5) * (i % 2 ? 1 : -1), dy: fxR(0, 0.04) * pw, ...mkPrint(pw, kinds[q++ % 7])}))}; });
     const cols = d ? ["#FFC861", "#FFB070", "#FFE3A0", "#FF9A7A"] : ["#F2A93A", "#F0904A", "#E8B84A", "#F08A6A"];
     return {lines, bok: Array.from({length: Math.round(Math.max(8, Math.min(16, W * H / 40000)))}, () => ({x: fxR(0, W), y: fxR(0.1, 1) * H, r: m * fxR(0.025, 0.075), vy: fxR(0.1, 0.35), ph: fxR(0, 6.3), a: fxR(0.5, 1), spr: mkBokeh(fxPick(cols))}))}; });
   const N = 7, P = new Float32Array(N * 2);
@@ -9046,16 +9053,17 @@ const hbPhoto = () => {
         g.restore(); } }
     // the shutter: blades close to a pinpoint, a soft flash, then open wide and fall away
     const vis = fxEase(f / 6) * (1 - fxEase((f - 30) / 22)); if (vis <= 0) return;
-    const R = m * 0.2, cx = W / 2, cy = H * 0.42, sc = 1 + 0.8 * fxEase((f - 28) / 26), op = f < 6 ? 0.92 : f < 18 ? 0.92 - 0.88 * fxEase((f - 6) / 12) : f < 22 ? 0.04 : 0.04 + 1.06 * fxEase((f - 22) / 14), rot = (1 - op) * 1.3;
+    const R = m * 0.24, cx = W / 2, cy = H * 0.42, sc = 1 + 0.8 * fxEase((f - 28) / 26), op = f < 6 ? 0.92 : f < 18 ? 0.92 - 0.88 * fxEase((f - 6) / 12) : f < 22 ? 0.04 : 0.04 + 1.06 * fxEase((f - 22) / 14), rot = (1 - op) * 1.3;
     g.save(); g.globalAlpha = vis; g.translate(cx, cy); g.scale(sc, sc);
     if (op < 1.08) { const r = R * op; for (let i = 0; i < N; i++) { const a = rot + i / N * 6.283; P[2 * i] = Math.cos(a) * r; P[2 * i + 1] = Math.sin(a) * r; }
       g.save(); g.beginPath(); g.arc(0, 0, R, 0, 6.3); g.clip(); g.lineWidth = 1.2;
       for (let i = 0; i < N; i++) { const j = (i + 1) % N, h = (i + N - 1) % N, ux = P[2 * j] - P[2 * i], uy = P[2 * j + 1] - P[2 * i + 1], ul = Math.hypot(ux, uy) || 1, vx = P[2 * i] - P[2 * h], vy = P[2 * i + 1] - P[2 * h + 1], vl = Math.hypot(vx, vy) || 1;
-        g.fillStyle = i % 2 ? "#2C2E36" : "#363943"; g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * j] + ux / ul * 3 * R, P[2 * j + 1] + uy / ul * 3 * R); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.closePath(); g.fill();
-        g.strokeStyle = "rgba(255,255,255,.16)"; g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.stroke(); }
+        g.fillStyle = i % 2 ? (d ? "#3E414B" : "#2C2E36") : (d ? "#4A4E59" : "#363943"); g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * j] + ux / ul * 3 * R, P[2 * j + 1] + uy / ul * 3 * R); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.closePath(); g.fill();
+        g.strokeStyle = "rgba(255,255,255,.2)"; g.beginPath(); g.moveTo(P[2 * i], P[2 * i + 1]); g.lineTo(P[2 * i] + vx / vl * 3 * R, P[2 * i + 1] + vy / vl * 3 * R); g.stroke(); }
+      g.strokeStyle = "rgba(255,200,120,.45)"; g.beginPath(); for (let i = 0; i <= N; i++) { const j = i % N; i ? g.lineTo(P[2 * j], P[2 * j + 1]) : g.moveTo(P[0], P[1]); } g.stroke();
       g.restore(); }
     const gr = g.createLinearGradient(-R, -R, R, R); gr.addColorStop(0, "#5A5E68"); gr.addColorStop(0.5, "#1C1D22"); gr.addColorStop(1, "#3A3D45"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.arc(0, 0, R, 0, 6.3, true); g.fill();
-    g.strokeStyle = "rgba(255,255,255,.3)"; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.stroke(); g.strokeStyle = "rgba(255,255,255,.12)"; g.beginPath(); g.arc(0, 0, R * 1.1, 0, 6.3); g.stroke();
+    g.strokeStyle = "rgba(255,214,150,.55)"; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.stroke(); g.strokeStyle = "rgba(255,255,255,.12)"; g.beginPath(); g.arc(0, 0, R * 1.1, 0, 6.3); g.stroke();
     g.fillStyle = "rgba(255,255,255,.4)"; for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283; g.fillRect(Math.cos(a) * R * 1.15 - 0.8, Math.sin(a) * R * 1.15 - 0.8, 1.6, 1.6); } g.restore();
     const fl = f < 19 ? 0 : Math.min(1, (f - 19) / 2) * Math.exp(-(f - 21) / 9); if (fl > 0.01) { const gr2 = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.8); gr2.addColorStop(0, "rgba(255,250,235,1)"); gr2.addColorStop(1, "rgba(255,250,235,0)"); g.globalAlpha = Math.min(1, fl) * 0.22; g.fillStyle = gr2; g.fillRect(0, 0, W, H); } };
 };
@@ -9158,8 +9166,9 @@ const hbHatchBits = (W, H, d, n) => { const G = hbEggGeo(W, H), y = G.ey + G.y0,
 
 // Halloween: a big full moon rises, a witch on her broom flies across its face, bats burst up from below, a little ghost
 // floats up and waves, and a row of jack-o'-lanterns along the bottom lights up one by one.
-const hbMoonGeo = (W, H) => { const ph = W < H, R = ph ? Math.min(W * 0.36, H * 0.2) : Math.min(H * 0.3, W * 0.22); return {ph, R, mx: W * (ph ? 0.5 : 0.68), my: H * (ph ? 0.24 : 0.35)}; };
-const hbWitchAt = (W, H, t) => { const m = hbMoonGeo(W, H), u = t / 160; return [W * (-0.14 + 1.28 * u), m.my + m.R * (0.25 - 0.4 * u) + Math.sin(t * 0.045) * m.R * 0.1]; };
+// the moon sits up in the top right, clear of the middle of the screen where the app content is
+const hbMoonGeo = (W, H) => { const ph = W < H, R = ph ? Math.min(W * 0.22, H * 0.12) : Math.min(H * 0.16, W * 0.12); return {ph, R, mx: W * (ph ? 0.68 : 0.8), my: H * (ph ? 0.15 : 0.18)}; };
+const hbWitchAt = (W, H, t) => { const m = hbMoonGeo(W, H), u = t / 150; return [W * (-0.14 + 1.28 * u), m.my + m.R * (0.25 - 0.4 * u) + Math.sin(t * 0.045) * m.R * 0.1]; };
 const hbNight = () => {
   const S = hbRun((W, H, d) => { const M = hbMoonGeo(W, H), {R} = M, mc = R * 3.6;
     const moon = hbCv(mc, mc, x => { x.translate(mc / 2, mc / 2); const h = x.createRadialGradient(0, 0, R * 0.9, 0, 0, R * 1.75); h.addColorStop(0, d ? "rgba(255,220,150,.32)" : "rgba(245,170,70,.3)"); h.addColorStop(1, "rgba(255,220,150,0)"); x.fillStyle = h; x.fillRect(-mc, -mc, 2 * mc, 2 * mc);
@@ -9188,7 +9197,7 @@ const hbNight = () => {
     const bk = Math.max(1.4, Math.min(W, H) * 0.0032), bats = Array.from({length: M.ph ? 10 : 16}, (_, i) => { const z = fxR(0.65, 1.15), sd = i % 2 ? 1 : -1;
       return {x0: W * (0.5 + sd * fxR(0, 0.3)), ang: sd * fxR(0.05, 0.75), curl: sd * fxR(-0.6, 1.4), sp: H * fxR(0.009, 0.013) * (0.7 + 0.3 * z), t0: 34 + i * 2.6 + fxR(0, 6), fr: fxR(0.32, 0.45), ph: fxR(0, 6.3), k: bk * z, z}; });
     const gs = Math.max(56, Math.min(W, H) * (M.ph ? 0.19 : 0.15));
-    return {M, moon, mc, pumps, r0, pc, body, faces, halo, bats, gs, gx: W * (M.ph ? 0.2 : 0.15), gy: H * (M.ph ? 0.6 : 0.5)};
+    return {M, moon, mc, pumps, r0, pc, body, faces, halo, bats, gs, gx: W * (M.ph ? 0.18 : 0.15), gy: H * (M.ph ? 0.68 : 0.5)};
   });
   const sil = d => d ? "#1C1428" : "#2D2140";
   const witch = (g, f) => { const w = k => Math.sin(f * 0.32 + k);
@@ -9211,9 +9220,9 @@ const hbNight = () => {
   const batAt = (b, t, H) => { const dist = b.sp * (40 * (1 - Math.exp(-t / 40)) + 0.45 * t), a = b.ang + b.curl * t * 0.004; return [b.x0 + Math.sin(a) * dist + Math.sin(t * 0.08 + b.ph) * 10, H + 20 - Math.cos(a) * dist]; };
   return (g, f, W, H, d) => { const s = S(W, H, d, f), {M} = s, out = 1, col = sil(d);   // the layer fade at the end covers it
     // moon
-    const mr = fxEase(f / 80), my = M.my + H * 0.5 * (1 - mr); g.globalAlpha = out * fxEase(f / 25); g.drawImage(s.moon, M.mx - s.mc / 2, my - s.mc / 2, s.mc, s.mc);
+    const mr = fxEase(f / 80), my = M.my + H * 0.25 * (1 - mr); g.globalAlpha = out * 0.85 * fxEase(f / 25); g.drawImage(s.moon, M.mx - s.mc / 2, my - s.mc / 2, s.mc, s.mc);
     // witch
-    const wt = f - 55; if (wt > 0 && wt < 175) { const [x, y] = hbWitchAt(W, H, wt), [x2, y2] = hbWitchAt(W, H, wt + 1), k = M.R * 0.85 / 60;
+    const wt = f - 40; if (wt > 0 && wt < 175) { const [x, y] = hbWitchAt(W, H, wt), [x2, y2] = hbWitchAt(W, H, wt + 1), k = M.R * 1.1 / 60;
       g.save(); g.globalAlpha = out; g.translate(x, y); g.rotate(Math.atan2(y2 - y, x2 - x) * 0.7 + Math.sin(f * 0.09) * 0.04); g.scale(k, k); g.fillStyle = col;
       witch(g, f); g.restore(); }
     // ghost
@@ -9240,8 +9249,8 @@ const hbNight = () => {
       g.globalAlpha = out; g.drawImage(s.body, x, y, w, w); g.drawImage(s.faces[p.v][0], x, y, w, w); if (on > 0) { g.globalAlpha = out * on; g.drawImage(s.faces[p.v][1], x, y, w, w); } }
     g.globalAlpha = 1; }; };
 const hbNightBits = (W, H, d, n) => fxTw(W, H, n(14), "sparkle", d ? ["#FFE7A8", "#D8C8FF"] : ["#8A5AD0", "#D98A1E"], {smin: 3, smax: 6, top: 0.5, glow: d ? 8 : 0, spread: 150})
-  .concat(Array.from({length: n(14)}, (_, i) => { const t = 20 + i * 9 + fxR(0, 5), [x, y] = hbWitchAt(W, H, t), k = hbMoonGeo(W, H).R * 0.85 / 60;
-    return {shape: "star", c: fxPick(d ? ["#FFE08A", "#FFFFFF", "#C9B4FF"] : ["#E89A1E", "#9A5AE0", "#F2B84A"]), x: x - 34 * k, y: y + 8 * k, vx: fxR(-0.4, 0.2), vy: fxR(0.2, 0.7), g: 0.004, size: fxR(4, 7), rot: fxR(0, 6.3), vr: fxR(-0.05, 0.05), sway: 0.4, life: 70, delay: Math.round(55 + t), glow: d ? 8 : 0}; }));
+  .concat(Array.from({length: n(14)}, (_, i) => { const t = 20 + i * 9 + fxR(0, 5), [x, y] = hbWitchAt(W, H, t), k = hbMoonGeo(W, H).R * 1.1 / 60;
+    return {shape: "star", c: fxPick(d ? ["#FFE08A", "#FFFFFF", "#C9B4FF"] : ["#E89A1E", "#9A5AE0", "#F2B84A"]), x: x - 34 * k, y: y + 8 * k, vx: fxR(-0.4, 0.2), vy: fxR(0.2, 0.7), g: 0.004, size: fxR(4, 7), rot: fxR(0, 6.3), vr: fxR(-0.05, 0.05), sway: 0.4, life: 70, delay: Math.round(40 + t), glow: d ? 8 : 0}; }));
 
 // Thanksgiving: a cartoon turkey pops up at the bottom, fans its tail open feather by feather and bobs its head and wattle,
 // while a gust of autumn leaves swirls past in a spiral (some in front of the turkey, some behind) and acorns tumble down.
@@ -25596,23 +25605,23 @@ var MAJ_THEMES = [];
   // the manta, top-down: a broad diamond with convex leading edges sweeping back to long pointed tips; the tips curl
   // up and down as it flaps (the span narrows a little on the upstroke), head first, a slim whip tail trailing
   const aqManta = (g, f, W, H, dk) => { const m = AQ.ma, u = (f - m.d0) / 210; if (u <= 0 || u >= 1.2) return; const L = m.L, P = q => { const a = 1 - q; return [a * a * m.p[0][0] + 2 * a * q * m.p[1][0] + q * q * m.p[2][0], a * a * m.p[0][1] + 2 * a * q * m.p[1][1] + q * q * m.p[2][1]]; };
-    const [x, y] = P(u), [x2, y2] = P(u + 0.003), fl = Math.sin(f * 0.075), up = Math.max(0, fl), dn = Math.max(0, -fl), ty = 0.72 * (1 - 0.1 * up + 0.02 * dn), tx = -0.06 + 0.04 * up - 0.015 * dn;
+    const [x, y] = P(u), [x2, y2] = P(u + 0.003), fl = Math.sin(f * 0.075), up = Math.max(0, fl), dn = Math.max(0, -fl), ty = 0.76 * (1 - 0.1 * up + 0.02 * dn), tx = -0.12 + 0.04 * up - 0.015 * dn;
     g.save(); g.globalAlpha = ease((f - m.d0) / 25); g.translate(x, y); g.rotate(Math.atan2(y2 - y, x2 - x)); g.scale(L, L);
     const back = dk ? "#23324A" : "#2E3F58";
-    g.lineCap = "round"; g.strokeStyle = back; for (let i = 0; i < 12; i++) { g.lineWidth = 0.022 * (1 - i / 12) + 0.004; g.beginPath(); g.moveTo(-0.36 - i * 0.05, Math.sin(i * 0.55 - f * 0.12) * 0.01 * i); g.lineTo(-0.36 - (i + 1) * 0.05, Math.sin((i + 1) * 0.55 - f * 0.12) * 0.01 * (i + 1)); g.stroke(); }
-    const half = s => [[0.27, 0.32 * s, 0.13, ty * 0.84 * s, tx, ty * s], [-0.11, ty * 0.74 * s, -0.24, 0.34 * s, -0.31, 0.1 * s]];
-    const body = new Path2D(); body.moveTo(0.3, 0); body.quadraticCurveTo(0.31, -0.08, 0.28, -0.12);
-    let [a, b] = half(-1); body.bezierCurveTo(...a); body.bezierCurveTo(...b); body.quadraticCurveTo(-0.37, -0.06, -0.38, 0); body.quadraticCurveTo(-0.37, 0.06, -0.31, 0.1);
-    [a, b] = half(1); body.bezierCurveTo(b[2], b[3], b[0], b[1], tx, ty); body.bezierCurveTo(a[2], a[3], a[0], a[1], 0.28, 0.12); body.quadraticCurveTo(0.31, 0.08, 0.3, 0);
+    g.lineCap = "round"; g.strokeStyle = back; for (let i = 0; i < 12; i++) { g.lineWidth = 0.022 * (1 - i / 12) + 0.004; g.beginPath(); g.moveTo(-0.38 - i * 0.05, Math.sin(i * 0.55 - f * 0.12) * 0.01 * i); g.lineTo(-0.38 - (i + 1) * 0.05, Math.sin((i + 1) * 0.55 - f * 0.12) * 0.01 * (i + 1)); g.stroke(); }
+    const half = s => [[0.22, 0.32 * s, 0.06, ty * 0.82 * s, tx, ty * s], [-0.12, ty * 0.66 * s, -0.12, 0.24 * s, -0.22, 0.12 * s]];
+    const body = new Path2D(); body.moveTo(0.3, 0); body.quadraticCurveTo(0.31, -0.07, 0.28, -0.1);
+    let [a, b] = half(-1); body.bezierCurveTo(...a); body.bezierCurveTo(...b); body.quadraticCurveTo(-0.34, -0.11, -0.4, 0); body.quadraticCurveTo(-0.34, 0.11, -0.22, 0.12);
+    [a, b] = half(1); body.bezierCurveTo(b[2], b[3], b[0], b[1], tx, ty); body.bezierCurveTo(a[2], a[3], a[0], a[1], 0.28, 0.1); body.quadraticCurveTo(0.31, 0.07, 0.3, 0);
     g.fillStyle = back; g.fill(body); g.save(); g.clip(body);
     let gr = g.createLinearGradient(0, 0, 0, ty); gr.addColorStop(0, "rgba(255,255,255,.06)"); gr.addColorStop(0.5, "rgba(0,0,0,0)"); gr.addColorStop(1, dk ? "rgba(0,0,0,.25)" : "rgba(0,0,0,.2)"); g.fillStyle = gr; g.fillRect(-0.4, 0, 0.8, 0.8); g.save(); g.scale(1, -1); g.fillRect(-0.4, 0, 0.8, 0.8); g.restore();
     // the curled tips catch the light on the upstroke and fall into shade on the downstroke
     [-1, 1].forEach(s => { gr = g.createLinearGradient(0, 0.4 * s, 0, ty * s); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, up > 0 ? `rgba(200,220,245,${0.32 * up})` : `rgba(0,0,0,${0.3 * dn})`); g.fillStyle = gr; g.fillRect(-0.4, Math.min(0.4 * s, ty * s), 0.8, Math.abs(ty - 0.4)); });
-    g.fillStyle = `rgba(225,236,248,${dk ? 0.13 : 0.16})`; [-1, 1].forEach(s => { g.beginPath(); g.ellipse(0.1, 0.2 * s, 0.13, 0.035, -0.7 * s, 0, 6.3); g.fill(); });
+    g.fillStyle = `rgba(225,236,248,${dk ? 0.13 : 0.16})`; [-1, 1].forEach(s => { g.beginPath(); g.ellipse(0.1, 0.2 * s, 0.12, 0.032, -0.75 * s, 0, 6.3); g.fill(); });
     g.strokeStyle = "rgba(225,238,250,.22)"; g.lineWidth = 0.05; g.stroke(body); g.restore();
     g.strokeStyle = "rgba(225,238,250,.5)"; g.lineWidth = 0.01; g.stroke(body);
-    g.fillStyle = back; [-1, 1].forEach(s => { g.beginPath(); g.moveTo(0.27, 0.13 * s); g.bezierCurveTo(0.34, 0.15 * s, 0.41, 0.13 * s, 0.415, 0.085 * s); g.quadraticCurveTo(0.41, 0.055 * s, 0.39, 0.065 * s); g.bezierCurveTo(0.36, 0.085 * s, 0.32, 0.08 * s, 0.295, 0.065 * s); g.fill(); g.strokeStyle = "rgba(225,238,250,.4)"; g.lineWidth = 0.007; g.stroke(); });
-    g.fillStyle = "rgba(0,0,0,.35)"; [-1, 1].forEach(s => { g.beginPath(); g.arc(0.27, 0.105 * s, 0.012, 0, 6.3); g.fill(); });
+    g.fillStyle = back; [-1, 1].forEach(s => { g.beginPath(); g.moveTo(0.27, 0.11 * s); g.bezierCurveTo(0.34, 0.13 * s, 0.4, 0.11 * s, 0.405, 0.07 * s); g.quadraticCurveTo(0.4, 0.045 * s, 0.38, 0.055 * s); g.bezierCurveTo(0.35, 0.07 * s, 0.32, 0.065 * s, 0.295, 0.05 * s); g.fill(); g.strokeStyle = "rgba(225,238,250,.4)"; g.lineWidth = 0.007; g.stroke(); });
+    g.fillStyle = "rgba(0,0,0,.35)"; [-1, 1].forEach(s => { g.beginPath(); g.arc(0.265, 0.088 * s, 0.011, 0, 6.3); g.fill(); });
     g.restore(); };
   // a jelly: the bell squashes and stretches as it pulses, tentacles trail in waves
   const aqJelly = (g, f, W, H, dk, j) => { const a = f - j.d0; if (a <= 0) return; const p = a * 0.06 + j.ph, c = Math.pow(Math.sin(p), 2), y = j.y - a * 0.18 * j.k - (p / 2 - Math.sin(2 * p) / 4) * 6 * j.k, x = j.x + Math.sin(a * 0.01 + j.ph) * 12, w = j.r * (1 - 0.16 * c), h = j.r * (0.8 + 0.18 * c);
@@ -25878,9 +25887,6 @@ var MAJ_THEMES = [];
   });
 
   // ---- finish moment sprites ----
-  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
-  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
-  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
   // The tower rises into view at the side and does its famous hourly sparkle: hundreds of little lights flicker all over
   // its lattice while (at night) the beacon at the top sweeps the sky. The tower is drawn once into its own canvas.
   const twr = {};
@@ -26271,7 +26277,6 @@ var MAJ_THEMES = [];
   // ---- finish moment sprites ----
   const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
   const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
-  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
   // a bird drawn fresh every frame, so its wings really beat: head toward +x, ph = wingbeat phase, amp = how far the wings swing.
   // Each wing has an arm and a hand; the hand trails the arm a little, so the stroke curls like a real wing instead of hinging.
   const flyBird = (g, sp, ph, amp) => { const ln = sp.line || "rgba(40,50,70,.35)", body = sp.body, a1 = Math.sin(ph) * amp + (sp.lift || 0.1), a2 = Math.sin(ph - 0.75) * amp + (sp.lift || 0.1), wl = sp.wl || 1; g.lineCap = g.lineJoin = "round"; g.lineWidth = 0.35;
@@ -26307,7 +26312,7 @@ var MAJ_THEMES = [];
       if (halo) { g.globalAlpha = a * (sp.haloA || 0.12); g.drawImage(halo, -halo._half * 1.5, -halo._half * 1.1, halo._half * 3, halo._half * 2.2); g.globalAlpha = a * (b.alpha || 1); }
       flyBird(g, sp, ph, amp * (sp.amp || 1)); g.restore(); }); g.globalAlpha = 1; };
   // a white dove: soft grey-tipped wings, a pink beak
-  const DOVE = {body: "#FFFFFF", belly: "#E6EAF2", wing: "#FAFBFD", tip: "#C9D2E0", tipLen: 0.34, tail: "#F2F4F8", beak: [2, 1, 0.3, "#D8A0A0"], hr: 2.2, wl: 1.05, line: "rgba(70,90,130,.42)", halo: "#FFFFFF", bob: 0.8};
+  const DOVE = {body: "#FFFFFF", belly: "#E6EAF2", wing: "#FAFBFD", tip: "#B2BED2", tipLen: 0.36, tail: "#F2F4F8", beak: [2, 1, 0.3, "#D8A0A0"], hr: 2.2, wl: 1.05, line: "rgba(60,80,125,.55)", halo: "#FFFFFF", bob: 0.8};
   // bougainvillea: three papery magenta bracts around tiny cream flowers
   FX_SHAPES.greecebvg = {d: FX_SHAPES.greecebloom.d, paint: (g, c) => { for (let i = 0; i < 3; i++) { g.save(); g.rotate(i * 2.094 - 1.571); const gr = g.createLinearGradient(0, 0, 10, 0); gr.addColorStop(0, mix(c, "#FFFFFF", 0.3)); gr.addColorStop(1, c); g.fillStyle = gr;
       g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(2, -5.4, 8.6, -5.4, 10, 0); g.bezierCurveTo(8.6, 5.4, 2, 5.4, 0, 0); g.fill(); g.strokeStyle = mix(c, "#000000", 0.25); g.globalAlpha = 0.5; g.lineWidth = 0.35; g.beginPath(); g.moveTo(1, 0); g.lineTo(8.6, 0); g.moveTo(4.4, 0); g.lineTo(6.4, -2.2); g.moveTo(4.4, 0); g.lineTo(6.4, 2.2); g.stroke(); g.restore(); }
@@ -26360,7 +26365,6 @@ var MAJ_THEMES = [];
   // ---- finish moment sprites ----
   const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
   const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
-  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
   // a bird drawn fresh every frame, so its wings really beat: head toward +x, ph = wingbeat phase, amp = how far the wings swing.
   // Each wing has an arm and a hand; the hand trails the arm a little, so the stroke curls like a real wing instead of hinging.
   const flyBird = (g, sp, ph, amp) => { const ln = sp.line || "rgba(40,50,70,.35)", body = sp.body, a1 = Math.sin(ph) * amp + (sp.lift || 0.1), a2 = Math.sin(ph - 0.75) * amp + (sp.lift || 0.1), wl = sp.wl || 1; g.lineCap = g.lineJoin = "round"; g.lineWidth = 0.35;
@@ -26451,13 +26455,13 @@ var MAJ_THEMES = [];
   // We look from slightly below, so the near wing drops and the far wing lifts when they are level, and both read.
   const GZ = {body: "#7E6E60", back: "#6A5C50", belly: "#DCD3C6", wing: "#76685C", hand: "#4A3F36", farW: "#5E5248", farH: "#3A322C", black: "#17161A"};
   const gooseDraw = (g, w, ph, dk) => { const dw = Math.cos(ph), up = 0.12 + 0.92 * w, hand = up - 0.32 * (0.5 + 0.5 * dw), rim = dk ? "rgba(226,230,244,.55)" : "rgba(30,24,20,.35)";
-    const wingP = (k, sx) => { const P = (x, y, z) => [x, -y + k * z], a1 = 0.46, a2 = 0.66, S = [0.16 + sx, -0.12], Wr = [S[0] - 0.04 + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[0], S[1] + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[1]],
-        hv = P(-0.2, Math.sin(hand) * a2, Math.cos(hand) * a2), T = [Wr[0] + hv[0], Wr[1] + hv[1]], Wb = [Wr[0] - 0.3, Wr[1] + 0.03], Sr = [S[0] - 0.36, S[1] + 0.04], Tb = [T[0] - 0.12, T[1] + 0.02];
+    const wingP = (k, sx) => { const P = (x, y, z) => [x, -y + k * z], a1 = 0.5, a2 = 0.74, S = [0.2 + sx, -0.12], Wr = [S[0] - 0.04 + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[0], S[1] + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[1]],
+        hv = P(-0.2, Math.sin(hand) * a2, Math.cos(hand) * a2), T = [Wr[0] + hv[0], Wr[1] + hv[1]], Wb = [Wr[0] - 0.42, Wr[1] + 0.05], Sr = [S[0] - 0.46, S[1] + 0.05], Tb = [T[0] - 0.2, T[1] + 0.05];
       return {S, Wr, T, Wb, Sr, Tb}; };
     const wing = (k, sx, cw, ch) => { const {S, Wr, T, Wb, Sr, Tb} = wingP(k, sx); g.fillStyle = cw; g.beginPath(); g.moveTo(S[0], S[1]); g.quadraticCurveTo((S[0] + Wr[0]) / 2 + 0.03, (S[1] + Wr[1]) / 2, Wr[0], Wr[1]); g.lineTo(T[0], T[1]); g.lineTo(Tb[0], Tb[1]);
       g.quadraticCurveTo((Wb[0] + Tb[0]) / 2 - 0.04, (Wb[1] + Tb[1]) / 2 + 0.02, Wb[0], Wb[1]); g.quadraticCurveTo((Wb[0] + Sr[0]) / 2, (Wb[1] + Sr[1]) / 2 + 0.05, Sr[0], Sr[1]); g.closePath(); g.fill(); g.strokeStyle = rim; g.lineWidth = 0.018; g.stroke();
       g.fillStyle = ch; g.beginPath(); g.moveTo(Wr[0], Wr[1]); g.lineTo(T[0], T[1]); g.lineTo(Tb[0], Tb[1]); g.quadraticCurveTo((Wb[0] + Tb[0]) / 2 - 0.04, (Wb[1] + Tb[1]) / 2 + 0.02, Wb[0], Wb[1]); g.closePath(); g.fill(); };
-    wing(-0.3, 0.06, GZ.farW, GZ.farH);
+    wing(-0.24, 0.08, GZ.farW, GZ.farH);
     // tail, body, pale belly and white undertail
     g.fillStyle = GZ.black; g.beginPath(); g.moveTo(-0.42, -0.08); g.lineTo(-0.66, -0.06); g.lineTo(-0.64, 0.05); g.lineTo(-0.42, 0.06); g.closePath(); g.fill();
     const bp = new Path2D(); bp.ellipse(0, 0, 0.5, 0.165, -0.03, 0, 6.3); g.fillStyle = GZ.body; g.fill(bp); g.save(); g.clip(bp); g.fillStyle = GZ.back; g.fillRect(-0.6, -0.3, 1.2, 0.17); g.fillStyle = GZ.belly; g.beginPath(); g.ellipse(0.02, 0.15, 0.46, 0.11, 0, 0, 6.3); g.fill();
@@ -26467,7 +26471,7 @@ var MAJ_THEMES = [];
     g.strokeStyle = GZ.black; g.lineWidth = 0.11; g.beginPath(); g.moveTo(0.36, -0.03); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); g.fillStyle = GZ.black; g.beginPath(); g.ellipse(0.98, -0.1, 0.1, 0.07, 0.05, 0, 6.3); g.fill(); if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.02; g.stroke(); }
     g.beginPath(); g.moveTo(1.05, -0.12); g.lineTo(1.17, -0.09); g.lineTo(1.05, -0.06); g.closePath(); g.fill(); g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(0.95, -0.075, 0.055, 0.035, 0.5, 0, 6.3); g.fill();
     g.fillStyle = dk ? "#C8C0B4" : "#B8AC9C"; g.beginPath(); g.ellipse(0.4, 0.02, 0.07, 0.08, 0, 0, 6.3); g.fill();
-    wing(0.3, 0, GZ.wing, GZ.hand); };
+    wing(0.24, 0, GZ.wing, GZ.hand); };
   // each V glides on a gentle wave, every bird drifts a little in its slot, faces its heading and beats slightly out of phase
   let flock = [];
   const flockDraw = () => (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
@@ -26529,7 +26533,6 @@ var MAJ_THEMES = [];
   // ---- finish moment sprites ----
   const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
   const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
-  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
   // a bird drawn fresh every frame, so its wings really beat: head toward +x, ph = wingbeat phase, amp = how far the wings swing.
   // Each wing has an arm and a hand; the hand trails the arm a little, so the stroke curls like a real wing instead of hinging.
   const flyBird = (g, sp, ph, amp) => { const ln = sp.line || "rgba(40,50,70,.35)", body = sp.body, a1 = Math.sin(ph) * amp + (sp.lift || 0.1), a2 = Math.sin(ph - 0.75) * amp + (sp.lift || 0.1), wl = sp.wl || 1; g.lineCap = g.lineJoin = "round"; g.lineWidth = 0.35;
@@ -26669,7 +26672,6 @@ var MAJ_THEMES = [];
   // ---- finish moment sprites ----
   const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
   const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
-  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
   // a bird drawn fresh every frame, so its wings really beat: head toward +x, ph = wingbeat phase, amp = how far the wings swing.
   // Each wing has an arm and a hand; the hand trails the arm a little, so the stroke curls like a real wing instead of hinging.
   const flyBird = (g, sp, ph, amp) => { const ln = sp.line || "rgba(40,50,70,.35)", body = sp.body, a1 = Math.sin(ph) * amp + (sp.lift || 0.1), a2 = Math.sin(ph - 0.75) * amp + (sp.lift || 0.1), wl = sp.wl || 1; g.lineCap = g.lineJoin = "round"; g.lineWidth = 0.35;

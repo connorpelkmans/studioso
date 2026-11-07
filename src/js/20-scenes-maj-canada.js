@@ -23,13 +23,13 @@
   // We look from slightly below, so the near wing drops and the far wing lifts when they are level, and both read.
   const GZ = {body: "#7E6E60", back: "#6A5C50", belly: "#DCD3C6", wing: "#76685C", hand: "#4A3F36", farW: "#5E5248", farH: "#3A322C", black: "#17161A"};
   const gooseDraw = (g, w, ph, dk) => { const dw = Math.cos(ph), up = 0.12 + 0.92 * w, hand = up - 0.32 * (0.5 + 0.5 * dw), rim = dk ? "rgba(226,230,244,.55)" : "rgba(30,24,20,.35)";
-    const wingP = (k, sx) => { const P = (x, y, z) => [x, -y + k * z], a1 = 0.46, a2 = 0.66, S = [0.16 + sx, -0.12], Wr = [S[0] - 0.04 + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[0], S[1] + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[1]],
-        hv = P(-0.2, Math.sin(hand) * a2, Math.cos(hand) * a2), T = [Wr[0] + hv[0], Wr[1] + hv[1]], Wb = [Wr[0] - 0.3, Wr[1] + 0.03], Sr = [S[0] - 0.36, S[1] + 0.04], Tb = [T[0] - 0.12, T[1] + 0.02];
+    const wingP = (k, sx) => { const P = (x, y, z) => [x, -y + k * z], a1 = 0.5, a2 = 0.74, S = [0.2 + sx, -0.12], Wr = [S[0] - 0.04 + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[0], S[1] + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[1]],
+        hv = P(-0.2, Math.sin(hand) * a2, Math.cos(hand) * a2), T = [Wr[0] + hv[0], Wr[1] + hv[1]], Wb = [Wr[0] - 0.42, Wr[1] + 0.05], Sr = [S[0] - 0.46, S[1] + 0.05], Tb = [T[0] - 0.2, T[1] + 0.05];
       return {S, Wr, T, Wb, Sr, Tb}; };
     const wing = (k, sx, cw, ch) => { const {S, Wr, T, Wb, Sr, Tb} = wingP(k, sx); g.fillStyle = cw; g.beginPath(); g.moveTo(S[0], S[1]); g.quadraticCurveTo((S[0] + Wr[0]) / 2 + 0.03, (S[1] + Wr[1]) / 2, Wr[0], Wr[1]); g.lineTo(T[0], T[1]); g.lineTo(Tb[0], Tb[1]);
       g.quadraticCurveTo((Wb[0] + Tb[0]) / 2 - 0.04, (Wb[1] + Tb[1]) / 2 + 0.02, Wb[0], Wb[1]); g.quadraticCurveTo((Wb[0] + Sr[0]) / 2, (Wb[1] + Sr[1]) / 2 + 0.05, Sr[0], Sr[1]); g.closePath(); g.fill(); g.strokeStyle = rim; g.lineWidth = 0.018; g.stroke();
       g.fillStyle = ch; g.beginPath(); g.moveTo(Wr[0], Wr[1]); g.lineTo(T[0], T[1]); g.lineTo(Tb[0], Tb[1]); g.quadraticCurveTo((Wb[0] + Tb[0]) / 2 - 0.04, (Wb[1] + Tb[1]) / 2 + 0.02, Wb[0], Wb[1]); g.closePath(); g.fill(); };
-    wing(-0.3, 0.06, GZ.farW, GZ.farH);
+    wing(-0.24, 0.08, GZ.farW, GZ.farH);
     // tail, body, pale belly and white undertail
     g.fillStyle = GZ.black; g.beginPath(); g.moveTo(-0.42, -0.08); g.lineTo(-0.66, -0.06); g.lineTo(-0.64, 0.05); g.lineTo(-0.42, 0.06); g.closePath(); g.fill();
     const bp = new Path2D(); bp.ellipse(0, 0, 0.5, 0.165, -0.03, 0, 6.3); g.fillStyle = GZ.body; g.fill(bp); g.save(); g.clip(bp); g.fillStyle = GZ.back; g.fillRect(-0.6, -0.3, 1.2, 0.17); g.fillStyle = GZ.belly; g.beginPath(); g.ellipse(0.02, 0.15, 0.46, 0.11, 0, 0, 6.3); g.fill();
@@ -39,7 +39,7 @@
     g.strokeStyle = GZ.black; g.lineWidth = 0.11; g.beginPath(); g.moveTo(0.36, -0.03); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); g.fillStyle = GZ.black; g.beginPath(); g.ellipse(0.98, -0.1, 0.1, 0.07, 0.05, 0, 6.3); g.fill(); if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.02; g.stroke(); }
     g.beginPath(); g.moveTo(1.05, -0.12); g.lineTo(1.17, -0.09); g.lineTo(1.05, -0.06); g.closePath(); g.fill(); g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(0.95, -0.075, 0.055, 0.035, 0.5, 0, 6.3); g.fill();
     g.fillStyle = dk ? "#C8C0B4" : "#B8AC9C"; g.beginPath(); g.ellipse(0.4, 0.02, 0.07, 0.08, 0, 0, 6.3); g.fill();
-    wing(0.3, 0, GZ.wing, GZ.hand); };
+    wing(0.24, 0, GZ.wing, GZ.hand); };
   // each V glides on a gentle wave, every bird drifts a little in its slot, faces its heading and beats slightly out of phase
   let flock = [];
   const flockDraw = () => (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
