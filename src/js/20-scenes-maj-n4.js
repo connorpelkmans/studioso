@@ -21,6 +21,30 @@
     n4rabbit: {d: ell(-1, 4, 7.6, 6.4) + ell(1.6, -3, 4.6, 4) + ell(-0.4, -10, 1.6, 5) + ell(2.8, -10, 1.5, 4.6) + circ(-8.6, 6, 2.2)},
   });
 
+  /* ---- completion animations ---- */
+  const FX = {
+    diadelosmuertos: {spawn: (W, H, d, n) => fxFall(W, H, n(46), "petal", d ? ["#FFA23A", "#FFC83A", "#FF8A1E"] : ["#F48A1C", "#F7C22A", "#FF9A2E"], {sway: 1.8, flip: true, smin: 6, smax: 10, glow: d ? 6 : 0})
+      .concat(fxFlutter(W, H, n(10), ["#F4891E", "#F7A23A", "#FF9A2E"]),
+        fxBurst(W, H, n(16), "n4mari", ["#F48A1C", "#F7C22A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
+        fxFall(W, H, n(10), "n4picado", d ? ["#E8508E", "#2EB8C8", "#F2CC3A", "#9A62E0"] : ["#FF5FA2", "#2EC4D0", "#FFD23A", "#9A5AE0", "#3FC27A"], {sway: 1.4, smin: 12, smax: 16, vmin: 0.9, vmax: 1.6}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(-0.3, 0.3)})),
+        fxTw(W, H, n(28), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FFA23A"] : ["#F2B53A", "#FF5FA2", "#2EC4D0"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    holi: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "puff", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8", "#B07AF0"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 5, smax: 10, glow: d ? 8 : 0}).map(p => Object.assign(p, {alpha: 0.85}))
+      .concat(fxRise(W, H, n(14), "n4splash", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], {smin: 14, smax: 22, vmin: 1, vmax: 2, sway: 0.9, life: 260, alpha: 0.85}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(0, 6)})),
+        fxFall(W, H, n(30), "petal", ["#FF5A8A", "#FF9A1E", "#FFC62A"], {sway: 1.6, flip: true, smin: 6, smax: 9}),
+        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FF8AC8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    ramadan: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "n4fanous", d ? ["#F2C45A", "#FF9A6A", "#7AE0A8", "#9AB8FF"] : ["#D9A43A", "#E8463A", "#2EA86A", "#3A6AD8"], {smin: 14, smax: 20, vmin: 0.9, vmax: 1.6, sway: 0.6, life: 320, glow: d ? 14 : 4})
+      .concat(fxTw(W, H, n(26), "star", d ? ["#FFE7A0", "#FFFFFF", "#F2C45A"] : ["#D9A43A", "#F2C45A", "#2A7A78"], {smin: 4, smax: 8, glow: d ? 12 : 4, top: 0.7}),
+        fxFall(W, H, n(14), "n4star8", d ? ["#F2C45A", "#FFFFFF"] : ["#D9A43A", "#2A7A78"], {sway: 1, smin: 8, smax: 12, vmin: 0.9, vmax: 1.6, glow: d ? 8 : 0}),
+        fxRise(W, H, n(3), "n4cres", d ? ["#FFF2C6"] : ["#E2B04A"], {cx: [0.25, 0.75], smin: 16, smax: 22, vmin: 0.9, vmax: 1.3, sway: 0.5, life: 320, glow: d ? 16 : 4}).map(p => Object.assign(p, {vr: 0, rot: -0.3})),
+        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    midautumn: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "n4chochin", d ? ["#FF7A50", "#FFB060", "#FF6A5A"] : ["#E04C3A", "#F08A3A", "#D8402E"], {smin: 12, smax: 18, vmin: 1, vmax: 1.8, sway: 0.8, life: 320, glow: d ? 16 : 6})
+      .concat(fxFall(W, H, n(40), "n4osma", d ? ["#F2B83A", "#FFD86A"] : ["#F6B02A", "#E8A01E", "#FFC84A"], {sway: 1.6, smin: 5, smax: 8, vmin: 0.9, vmax: 1.8, glow: d ? 6 : 0}),
+        fxBurst(W, H, n(12), "n4mooncake", d ? ["#E8A84A", "#D99A3E"] : ["#E0A24A", "#C88A34"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
+        fxRise(W, H, n(2), "n4rabbit", d ? ["#FFF4DC"] : ["#FFFFFF"], {cx: [0.3, 0.7], smin: 18, smax: 22, vmin: 0.9, vmax: 1.2, sway: 0.4, life: 320, glow: d ? 14 : 6}).map(p => Object.assign(p, {vr: 0})),
+        fxTw(W, H, n(24), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "diadelosmuertos", name: "Día de los Muertos", group: "ideas", desc: "Papel picado, marigolds and a candlelit ofrenda.",
       light: ["#FDF3EC", "rgba(194,54,122,.10)", "#FFFFFF", "#3A1A2E", "#7A5068", "#F0D8DE", "#F7E7EA", "#FEF9F7", "#C2367A", "#D2609A", "#FFFFFF", "#7A1E4E", "#8A2058", "#F6D2E2", "#FFD98A"],
@@ -28,11 +52,7 @@
       glow: ["linear-gradient(180deg,#F8C77A,#FCE3B5 45%,#F5B6A6)", "linear-gradient(180deg,#1E1236,#3A1B4E 45%,#8A3058)"],
       spine: [lg("#C2367A", "#8A2058"), lg("#4A1E54", "#24102E")], btn: [lg2("#C2367A", "#F07A2A"), lg2("#FFA23A", "#FFC86A")]},
     kit: {motif: "n4mari", card: ["#FFF9F4", "#FBE6EC"], ink: "#3A1A2E", bd: "#F0C6D6", mc: "#F07A2A", r: 16, notes: ["#FCD9C0"].concat(NOTES), shape: "scallop", pin: "washi2", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(46), "petal", d ? ["#FFA23A", "#FFC83A", "#FF8A1E"] : ["#F48A1C", "#F7C22A", "#FF9A2E"], {sway: 1.8, flip: true, smin: 6, smax: 10, glow: d ? 6 : 0})
-      .concat(fxFlutter(W, H, n(10), ["#F4891E", "#F7A23A", "#FF9A2E"]),
-        fxBurst(W, H, n(16), "n4mari", ["#F48A1C", "#F7C22A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
-        fxFall(W, H, n(10), "n4picado", d ? ["#E8508E", "#2EB8C8", "#F2CC3A", "#9A62E0"] : ["#FF5FA2", "#2EC4D0", "#FFD23A", "#9A5AE0", "#3FC27A"], {sway: 1.4, smin: 12, smax: 16, vmin: 0.9, vmax: 1.6}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(-0.3, 0.3)})),
-        fxTw(W, H, n(28), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FFA23A"] : ["#F2B53A", "#FF5FA2", "#2EC4D0"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.diadelosmuertos,
     tag: "A street dressed for the Day of the Dead, with papel picado, a marigold arch and a candlelit ofrenda"
   });
   MAJ_THEMES.push({
@@ -42,10 +62,7 @@
       glow: ["linear-gradient(180deg,#FFD6E8,#FFF1C9 45%,#CFF1E6)", "linear-gradient(180deg,#2A1840,#4A2160 45%,#8A2E6A)"],
       spine: [lg("#D8407E", "#9A2A6A"), lg("#5A2470", "#2A1040")], btn: [lg2("#D23A82", "#F08A2A"), lg2("#FF8AC8", "#FFC86A")]},
     kit: {motif: "n4splash", card: ["#FFFAFD", "#FBE6F0"], ink: "#3A1A30", bd: "#F2C6DC", mc: "#D23A82", r: 20, notes: ["#FBD2E4", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "cloud", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "puff", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8", "#B07AF0"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 5, smax: 10, glow: d ? 8 : 0}).map(p => Object.assign(p, {alpha: 0.85}))
-      .concat(fxRise(W, H, n(14), "n4splash", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], {smin: 14, smax: 22, vmin: 1, vmax: 2, sway: 0.9, life: 260, alpha: 0.85}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(0, 6)})),
-        fxFall(W, H, n(30), "petal", ["#FF5A8A", "#FF9A1E", "#FFC62A"], {sway: 1.6, flip: true, smin: 6, smax: 9}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FF8AC8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.holi,
     tag: "A haveli courtyard mid-celebration, with drifting clouds of coloured powder and marigold garlands"
   });
   MAJ_THEMES.push({
@@ -55,11 +72,7 @@
       glow: ["linear-gradient(180deg,#F3D9B0,#F8EBD3 45%,#E9C9A0)", "linear-gradient(180deg,#0F1638,#1E2558 45%,#3E3A78)"],
       spine: [lg("#2E7C7A", "#1E5654"), lg("#252C66", "#121638")], btn: [lg2("#2A7A78", "#C99A2E"), lg2("#F2C45A", "#F6D892")]},
     kit: {motif: "n4fanous", card: ["#FFFBF4", "#F4EAD8"], ink: "#2A2418", bd: "#E6D3B0", mc: "#C99A2E", r: 12, notes: ["#F2E2C2", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "folded", pin: "gold", fab: "22px 22px 6px 22px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "n4fanous", d ? ["#F2C45A", "#FF9A6A", "#7AE0A8", "#9AB8FF"] : ["#D9A43A", "#E8463A", "#2EA86A", "#3A6AD8"], {smin: 14, smax: 20, vmin: 0.9, vmax: 1.6, sway: 0.6, life: 320, glow: d ? 14 : 4})
-      .concat(fxTw(W, H, n(26), "star", d ? ["#FFE7A0", "#FFFFFF", "#F2C45A"] : ["#D9A43A", "#F2C45A", "#2A7A78"], {smin: 4, smax: 8, glow: d ? 12 : 4, top: 0.7}),
-        fxFall(W, H, n(14), "n4star8", d ? ["#F2C45A", "#FFFFFF"] : ["#D9A43A", "#2A7A78"], {sway: 1, smin: 8, smax: 12, vmin: 0.9, vmax: 1.6, glow: d ? 8 : 0}),
-        fxRise(W, H, n(3), "n4cres", d ? ["#FFF2C6"] : ["#E2B04A"], {cx: [0.25, 0.75], smin: 16, smax: 22, vmin: 0.9, vmax: 1.3, sway: 0.5, life: 320, glow: d ? 16 : 4}).map(p => Object.assign(p, {vr: 0, rot: -0.3})),
-        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: FX.ramadan,
     tag: "Old-city rooftops under a crescent moon, hung with fanous lanterns and strings of little stars"
   });
   MAJ_THEMES.push({
@@ -69,11 +82,7 @@
       glow: ["linear-gradient(180deg,#F2D6A2,#F8E8C9 45%,#E7C6A0)", "linear-gradient(180deg,#141B3A,#26305A 45%,#5A4A7A)"],
       spine: [lg("#B8463A", "#7E2C2A"), lg("#2E3466", "#161A3A")], btn: [lg2("#B8402E", "#D99A2E"), lg2("#F2C46A", "#F6D892")]},
     kit: {motif: "n4mooncake", card: ["#FFFBF4", "#F6E8D6"], ink: "#2E2420", bd: "#E8D2B6", mc: "#B8402E", r: 18, notes: ["#F6E0C0", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "circle", pin: "gold", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "n4chochin", d ? ["#FF7A50", "#FFB060", "#FF6A5A"] : ["#E04C3A", "#F08A3A", "#D8402E"], {smin: 12, smax: 18, vmin: 1, vmax: 1.8, sway: 0.8, life: 320, glow: d ? 16 : 6})
-      .concat(fxFall(W, H, n(40), "n4osma", d ? ["#F2B83A", "#FFD86A"] : ["#F6B02A", "#E8A01E", "#FFC84A"], {sway: 1.6, smin: 5, smax: 8, vmin: 0.9, vmax: 1.8, glow: d ? 6 : 0}),
-        fxBurst(W, H, n(12), "n4mooncake", d ? ["#E8A84A", "#D99A3E"] : ["#E0A24A", "#C88A34"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxRise(W, H, n(2), "n4rabbit", d ? ["#FFF4DC"] : ["#FFFFFF"], {cx: [0.3, 0.7], smin: 18, smax: 22, vmin: 0.9, vmax: 1.2, sway: 0.4, life: 320, glow: d ? 14 : 6}).map(p => Object.assign(p, {vr: 0})),
-        fxTw(W, H, n(24), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: FX.midautumn,
     tag: "A riverside pavilion under a giant full moon, with lotus lanterns drifting on the water and osmanthus in bloom"
   });
 })();

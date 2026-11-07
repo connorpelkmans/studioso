@@ -18,6 +18,25 @@
     n6ticket: {d: "M-11 -6H11V-2.4A2.4 2.4 0 0 0 11 2.4V6H-11V2.4A2.4 2.4 0 0 0 -11 -2.4Z", detail: "M-5 -6V6", dstroke: true}
   });
 
+  /* ---- completion animations ---- */
+  const FX = {
+    film: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "n6corn", d ? ["#FFF1C2", "#FBE39A", "#FFFFFF"] : ["#FFE9A8", "#FFF6D6", "#F6D27A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, glow: d ? 6 : 0})
+      .concat(fxFall(W, H, n(10), "n6ticket", d ? ["#F2C46A", "#E86A7A"] : ["#C8323F", "#E0A040"], {sway: 1.6, flip: true, smin: 12, smax: 16, vmin: 1.2, vmax: 2.2}),
+        fxRise(W, H, n(5), "n6reel", d ? ["#C9CFDD", "#F2C46A"] : ["#5A6278", "#8E2A36"], {smin: 14, smax: 19, vmin: 1.1, vmax: 1.8, sway: 0.5, life: 300}).map(p => Object.assign(p, {vr: 0.05})),
+        fxTw(W, H, n(36), "star", d ? ["#FFE7B0", "#FFFFFF", "#F2C46A"] : ["#F2B53A", "#FFD86B", "#E05A6A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    culinary: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "leaf", d ? ["#7FCB6A", "#5DA84E", "#A8DC8E"] : ["#4E9E4A", "#6CC05A", "#3E8A3A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11, flip: true})
+      .concat(fxFall(W, H, n(10), "n6whisk", d ? ["#F2A35A", "#D8DEE6"] : ["#C8603A", "#8E99A6"], {sway: 1.4, smin: 13, smax: 17, vmin: 1.1, vmax: 1.9}),
+        fxRise(W, H, n(4), "n6toque", d ? ["#F4EEE6"] : ["#FFFFFF"], {smin: 16, smax: 20, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 6 : 3}).map(p => Object.assign(p, {rot: fxR(-0.2, 0.2)})),
+        fxBurst(W, H, n(18), "n6tomato", d ? ["#F06A5A", "#F2A35A"] : ["#E2463A", "#F2A33A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 8, smax: 11}),
+        fxTw(W, H, n(30), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#F2A35A"] : ["#F2B53A", "#FFD86B", "#E07A4A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    marinebio: {spawn: (W, H, d, n) => fxRise(W, H, n(60), "bubble", d ? ["#9EE6EE", "#E2F8FA", "#6FD6E0"] : ["#FFFFFF", "#D6F4F2", "#9EDCD6"], {smin: 5, smax: 14, sway: 1.2})
+      .concat(Array.from({length: n(10)}, (_, i) => { const lr = i % 2 === 0, sp = fxR(2.6, 4.2); return {shape: i % 3 ? "n6fish" : "n6dolphin", c: fxPick(i % 3 ? (d ? ["#F2A35A", "#F6D86A"] : ["#FF8A3A", "#F2B624"]) : (d ? ["#9EC6E8"] : ["#6E9AC0"])), x: lr ? fxR(-80, -20) : W + fxR(20, 80), y: fxR(H * 0.2, H * 0.85), vx: (lr ? 1 : -1) * sp, vy: fxR(-0.3, 0.3), g: 0, size: fxR(13, 19), rot: lr ? 0 : Math.PI, flip: false, vr: 0, sway: 1.4, swf: fxR(0.05, 0.09), life: 300, delay: Math.floor(fxR(0, 70))}; }),
+        fxBurst(W, H, n(14), "starfish", d ? ["#F07A5A", "#F2A35A"] : ["#F07A5A", "#FF9A6A", "#F2B624"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
+        fxBurst(W, H, n(10), "shell", d ? ["#FFE4D0", "#F7C6D8"] : ["#FFE4D0", "#F7B6C8"], [[0.5, 1.04]], {smin: 9, smax: 12}),
+        fxTw(W, H, n(26), "sparkle", d ? ["#C8FFF4", "#FFFFFF", "#F6D86A"] : ["#FFFFFF", "#F2D24A", "#8FE0D8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "film", name: "Movie Palace", group: "ideas", desc: "An old picture palace with red velvet seats, a marquee and a projector beam.",
       light: ["#F8F0E8", "rgba(168,48,62,.10)", "#FFFFFF", "#2E1418", "#74585A", "#EBD9CF", "#F4E6DC", "#FCF8F4", "#A8303E", "#C8564A", "#FFFFFF", "#6E1C28", "#5A1E2E", "#F2DCD0", "#FFE3A3"],
@@ -25,10 +44,7 @@
       glow: ["linear-gradient(180deg,#E7D3C3,#F4E7DC 45%,#D7B6A0)", "linear-gradient(180deg,#160F1E,#2A1A2E 50%,#5A1E2E)"],
       spine: [lg("#7A2434", "#5A1E2E"), lg("#3A1A2A", "#1A0E16")], btn: [lg2("#A8303E", "#C0503A"), lg2("#F2C46A", "#F6D592")]},
     kit: {motif: "n6reel", card: ["#FCF7F2", "#F1E2D8"], ink: "#2E1418", bd: "#E2C6B8", mc: "#A8303E", r: 12, notes: ["#F6DCD2", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "classic", pin: "gold", fab: "999px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "n6corn", d ? ["#FFF1C2", "#FBE39A", "#FFFFFF"] : ["#FFE9A8", "#FFF6D6", "#F6D27A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, glow: d ? 6 : 0})
-      .concat(fxFall(W, H, n(10), "n6ticket", d ? ["#F2C46A", "#E86A7A"] : ["#C8323F", "#E0A040"], {sway: 1.6, flip: true, smin: 12, smax: 16, vmin: 1.2, vmax: 2.2}),
-        fxRise(W, H, n(5), "n6reel", d ? ["#C9CFDD", "#F2C46A"] : ["#5A6278", "#8E2A36"], {smin: 14, smax: 19, vmin: 1.1, vmax: 1.8, sway: 0.5, life: 300}).map(p => Object.assign(p, {vr: 0.05})),
-        fxTw(W, H, n(36), "star", d ? ["#FFE7B0", "#FFFFFF", "#F2C46A"] : ["#F2B53A", "#FFD86B", "#E05A6A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.film,
     tag: "An old picture palace: red velvet seats, gathered curtains, a marquee of chasing bulbs and a projector beam full of dust"
   });
   MAJ_THEMES.push({
@@ -38,11 +54,7 @@
       glow: ["linear-gradient(180deg,#F2E3CF,#FBF4EA 50%,#DCE8D2)", "linear-gradient(180deg,#1C1A22,#2E2830 50%,#5A3E34)"],
       spine: [lg("#3E7A5A", "#285A40"), lg("#2A2830", "#141218")], btn: [lg2("#C8603A", "#D97B45"), lg2("#F2A35A", "#F6C27A")]},
     kit: {motif: "n6toque", card: ["#FBFCF8", "#ECF2E6"], ink: "#2A2018", bd: "#D2DEC8", mc: "#C8603A", r: 14, notes: ["#E2EED8", "#FFF3B8", "#FFE0CC", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "lined", pin: "magnet", fab: "16px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "leaf", d ? ["#7FCB6A", "#5DA84E", "#A8DC8E"] : ["#4E9E4A", "#6CC05A", "#3E8A3A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11, flip: true})
-      .concat(fxFall(W, H, n(10), "n6whisk", d ? ["#F2A35A", "#D8DEE6"] : ["#C8603A", "#8E99A6"], {sway: 1.4, smin: 13, smax: 17, vmin: 1.1, vmax: 1.9}),
-        fxRise(W, H, n(4), "n6toque", d ? ["#F4EEE6"] : ["#FFFFFF"], {smin: 16, smax: 20, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 6 : 3}).map(p => Object.assign(p, {rot: fxR(-0.2, 0.2)})),
-        fxBurst(W, H, n(18), "n6tomato", d ? ["#F06A5A", "#F2A35A"] : ["#E2463A", "#F2A33A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 8, smax: 11}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#F2A35A"] : ["#F2B53A", "#FFD86B", "#E07A4A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.culinary,
     tag: "A bright test kitchen: copper pots on the rack, herbs in the window box, order tickets on the pass and pots simmering on the range"
   });
 
@@ -53,11 +65,7 @@
       glow: ["linear-gradient(180deg,#C8EBDD,#8FD0C2 40%,#5FB6B0)", "linear-gradient(180deg,#1E4E52,#0E3440 40%,#08202A)"],
       spine: [lg("#2E8A86", "#1A5E5E"), lg("#0E3440", "#06161C")], btn: [lg2("#1F8A86", "#3AA6A0"), lg2("#F2C230", "#F6D86A")]},
     kit: {motif: "n6fish", card: ["#F4FBFA", "#DDF0EC"], ink: "#0E2E30", bd: "#A8D6CE", mc: "#1F8A86", r: 20, notes: ["#D6F0EA", "#FFF3B8", "#FFE0CC", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(60), "bubble", d ? ["#9EE6EE", "#E2F8FA", "#6FD6E0"] : ["#FFFFFF", "#D6F4F2", "#9EDCD6"], {smin: 5, smax: 14, sway: 1.2})
-      .concat(Array.from({length: n(10)}, (_, i) => { const lr = i % 2 === 0, sp = fxR(2.6, 4.2); return {shape: i % 3 ? "n6fish" : "n6dolphin", c: fxPick(i % 3 ? (d ? ["#F2A35A", "#F6D86A"] : ["#FF8A3A", "#F2B624"]) : (d ? ["#9EC6E8"] : ["#6E9AC0"])), x: lr ? fxR(-80, -20) : W + fxR(20, 80), y: fxR(H * 0.2, H * 0.85), vx: (lr ? 1 : -1) * sp, vy: fxR(-0.3, 0.3), g: 0, size: fxR(13, 19), rot: lr ? 0 : Math.PI, flip: false, vr: 0, sway: 1.4, swf: fxR(0.05, 0.09), life: 300, delay: Math.floor(fxR(0, 70))}; }),
-        fxBurst(W, H, n(14), "starfish", d ? ["#F07A5A", "#F2A35A"] : ["#F07A5A", "#FF9A6A", "#F2B624"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
-        fxBurst(W, H, n(10), "shell", d ? ["#FFE4D0", "#F7C6D8"] : ["#FFE4D0", "#F7B6C8"], [[0.5, 1.04]], {smin: 9, smax: 12}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#C8FFF4", "#FFFFFF", "#F6D86A"] : ["#FFFFFF", "#F2D24A", "#8FE0D8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.marinebio,
     tag: "Under the sea in a kelp forest: sunbeams, swaying golden kelp, an otter napping on the surface and a little yellow research sub"
   });
 

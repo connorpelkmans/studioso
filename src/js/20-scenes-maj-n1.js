@@ -21,6 +21,33 @@
   const rainbow = (g, f, W, H, d, cx, cy, R) => { const a = f < 40 ? f / 40 : f < 170 ? 1 : Math.max(0, 1 - (f - 170) / 50); if (a <= 0) return; const grow = Math.min(1, f / 50);
     g.save(); g.globalAlpha = a * (d ? 0.35 : 0.5); g.lineWidth = Math.max(6, R * 0.05); ["#FF6A6A", "#FFA94A", "#FFE05A", "#7EDB6A", "#5AB8F2", "#9A7BF0"].forEach((c, i) => { g.strokeStyle = c; g.beginPath(); g.arc(cx * W, cy * H, R - i * g.lineWidth, Math.PI, Math.PI + Math.PI * grow); g.stroke(); }); g.restore(); };
 
+  /* ---- completion animations ---- */
+  const FX = {
+    onsen: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "puff", d ? ["rgba(220,222,255,.45)", "rgba(255,210,160,.4)"] : ["rgba(255,255,255,.85)", "rgba(230,238,248,.9)"], {smin: 9, smax: 18, vmin: 0.8, vmax: 1.6, sway: 1.4, life: 260, grow: 0.12, alpha: 0.55})
+      .concat(fxBurst(W, H, n(10), "n1yuzu", d ? ["#F2C24A", "#FFD45A"] : ["#FFC93A", "#F2B02A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
+        fxFall(W, H, n(40), "n1maple", d ? ["#E0545E", "#E8844A", "#E8B84A"] : ["#E8483A", "#F5873A", "#F7C445"], {vmin: 0.9, vmax: 1.7, sway: 1.8, flip: true, smin: 10, smax: 15}),
+        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    rainforest: {spawn: (W, H, d, n) => fxFall(W, H, n(36), "n1monstera", d ? ["#2E7A5A", "#3E9A6A", "#5AB87A"] : ["#2B7A4E", "#4FAA60", "#6FBE58"], {sway: 2, flip: true, smin: 11, smax: 16, vmin: 1, vmax: 1.9})
+      .concat(fxFall(W, H, n(60), "drop", d ? ["#9FE8E0", "#C8F5EE"] : ["#7CC8E8", "#A8DCF2"], {vmin: 5, vmax: 8, sway: 0, smin: 4, smax: 6, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0, vx: 0.2, g: 0.04, life: 170, delay: Math.floor(fxR(0, 120))})),
+        fxFall(W, H, n(14), "n1feather", ["#E83A3A", "#2F8EE8", "#FFC93A", "#2FB0A8"], {sway: 2.4, smin: 12, smax: 17, vmin: 0.8, vmax: 1.4}),
+        fxFlutter(W, H, n(7), d ? ["#7FDBFF", "#9FF7E0"] : ["#2F7CF0", "#4FA0FF", "#7FD0FF"]),
+        fxTw(W, H, n(20), "circle", d ? ["#C8FF8A", "#9FFFE8"] : ["#F2E7A0", "#E4F0B8"], {smin: 2, smax: 4, glow: 10, vy: -0.3}))},
+    tidepool: {spawn: (W, H, d, n) => fxRise(W, H, n(46), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 8, sway: 1, vmin: 1.6, vmax: 3})
+      .concat(fxBurst(W, H, n(16), "n1anem", d ? ["#FF8FB8", "#6EE0A8", "#B58CF2"] : ["#FF7FA8", "#4ED69A", "#A884F0", "#FF9A5A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}),
+        fxBurst(W, H, n(10), "starfish", ["#F2884A", "#9E62CC", "#F2B53A"], [[0.3, 1.02], [0.7, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
+        fxBurst(W, H, n(8), "shell", ["#F6E0D0", "#F7C6C6", "#FFF2E0"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 13}),
+        fxTw(W, H, n(26), "sparkle", d ? ["#7FE0F0", "#FFFFFF"] : ["#4FB8D8", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 3}))},
+    volcano: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "circle", d ? ["#FFB05A", "#FFE08A", "#FF7A3A"] : ["#FF8A3A", "#FFC24A", "#F25A3A"], [[0.5, 1.04]], {smin: 2.5, smax: 5, glow: 12})
+      .concat(fxBurst(W, H, n(22), "n1hibiscus", d ? ["#FF6A8A", "#FFB0C8", "#FFFFFF", "#FFA05A"] : ["#F2486A", "#FF8AB0", "#FFFFFF", "#FF9A3A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)})),
+        fxRise(W, H, n(8), "n1lava", d ? ["#FF7A3A", "#FFB05A"] : ["#E8603A", "#FF9A3A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.8, sway: 0.8, life: 280, glow: d ? 14 : 6}),
+        fxTw(W, H, n(22), "sparkle", d ? ["#FFE08A", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 4}))},
+    savanna: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "drop", d ? ["#B8D8FF", "#E8F0FF"] : ["#7CC8E8", "#A8DCF2", "#FFFFFF"], [[0.3, 1.04], [0.7, 1.04]], {smin: 4, smax: 7, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0}))
+      .concat(Array.from({length: n(70)}, () => ({shape: "circle", c: fxPick(d ? ["#F6C88A", "#E2B07A"] : ["#E8B85A", "#D9A04A", "#F2CC7A"]), x: fxR(-W * 0.4, -10), y: fxR(H * 0.3, H), vx: fxR(4, 7.5), vy: fxR(-0.6, 0.2), g: 0, size: fxR(1.5, 3), rot: 0, vr: 0, sway: 0.9, swf: fxR(0.05, 0.1), life: 220, delay: Math.floor(fxR(0, 80)), alpha: 0.85})),
+        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => rainbow(g, f, W, H, d, 0.5, 0.95, Math.min(W, H) * 0.42)}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "onsen", name: "Hot Spring", group: "ideas", desc: "A steaming rock pool under autumn maples, with lanterns and a little ryokan.",
       light: ["#EEF3F8", "rgba(78,110,142,.10)", "#FFFFFF", "#1C2A38", "#566676", "#D6E0EA", "#E4ECF3", "#F8FAFC", "#B8523A", "#CB7458", "#FFFFFF", "#7A2E1E", "#33506E", "#D2E2F0", "#FFE3B0"],
@@ -28,10 +55,7 @@
       glow: ["linear-gradient(180deg,#BFD8EE,#E8F1F8 55%,#F6EEE6)", "linear-gradient(180deg,#1C2340,#3A3F6B 60%,#6B5A7A)"],
       spine: [lg("#4E6E8E", "#33506E"), lg("#2A2F57", "#161A36")], btn: [lg2("#B8523A", "#C96A40"), lg2("#F2A86A", "#F7C48E")]},
     kit: {motif: "n1yuzu", card: ["#F8FAFD", "#E4ECF4"], ink: "#1C2A38", bd: "#C6D6E6", mc: "#E0A02A", r: 16, notes: ["#E2ECF6"].concat(NOTES), shape: "cloud", pin: "magnet", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "puff", d ? ["rgba(220,222,255,.45)", "rgba(255,210,160,.4)"] : ["rgba(255,255,255,.85)", "rgba(230,238,248,.9)"], {smin: 9, smax: 18, vmin: 0.8, vmax: 1.6, sway: 1.4, life: 260, grow: 0.12, alpha: 0.55})
-      .concat(fxBurst(W, H, n(10), "n1yuzu", d ? ["#F2C24A", "#FFD45A"] : ["#FFC93A", "#F2B02A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
-        fxFall(W, H, n(40), "n1maple", d ? ["#E0545E", "#E8844A", "#E8B84A"] : ["#E8483A", "#F5873A", "#F7C445"], {vmin: 0.9, vmax: 1.7, sway: 1.8, flip: true, smin: 10, smax: 15}),
-        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: FX.onsen,
     tag: "A steaming rock pool under red and gold maples, with a bamboo spout that tips and clacks, floating yuzu, stone lanterns, a vermilion torii, a little ryokan and a snow-capped peak"
   });
   MAJ_THEMES.push({
@@ -41,11 +65,7 @@
       glow: ["linear-gradient(180deg,#9FD4B8,#D9F0C9 55%,#F3F7D8)", "linear-gradient(180deg,#0F2A2A,#174240 55%,#2D5C4E)"],
       spine: [lg("#2F7A55", "#1C5238"), lg("#14403A", "#0A221E")], btn: [lg2("#C2482E", "#D26A2E"), lg2("#7FF0D0", "#B8F59A")]},
     kit: {motif: "n1monstera", card: ["#F5FBF6", "#DDEFE2"], ink: "#132A1E", bd: "#B6D8C0", mc: "#2F8A55", r: 18, notes: ["#D3EBD9"].concat(NOTES), shape: "scallop", pin: "pin", fab: "24px 24px 24px 8px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(36), "n1monstera", d ? ["#2E7A5A", "#3E9A6A", "#5AB87A"] : ["#2B7A4E", "#4FAA60", "#6FBE58"], {sway: 2, flip: true, smin: 11, smax: 16, vmin: 1, vmax: 1.9})
-      .concat(fxFall(W, H, n(60), "drop", d ? ["#9FE8E0", "#C8F5EE"] : ["#7CC8E8", "#A8DCF2"], {vmin: 5, vmax: 8, sway: 0, smin: 4, smax: 6, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0, vx: 0.2, g: 0.04, life: 170, delay: Math.floor(fxR(0, 120))})),
-        fxFall(W, H, n(14), "n1feather", ["#E83A3A", "#2F8EE8", "#FFC93A", "#2FB0A8"], {sway: 2.4, smin: 12, smax: 17, vmin: 0.8, vmax: 1.4}),
-        fxFlutter(W, H, n(7), d ? ["#7FDBFF", "#9FF7E0"] : ["#2F7CF0", "#4FA0FF", "#7FD0FF"]),
-        fxTw(W, H, n(20), "circle", d ? ["#C8FF8A", "#9FFFE8"] : ["#F2E7A0", "#E4F0B8"], {smin: 2, smax: 4, glow: 10, vy: -0.3}))},
+    fx: FX.rainforest,
     tag: "Giant leaves, swaying vines and a distant waterfall seen from the treetops, with a hopping toucan, tree frogs and glowing mushrooms at night"
   });
   MAJ_THEMES.push({
@@ -55,11 +75,7 @@
       glow: ["linear-gradient(180deg,#A8D8E8,#E6F3F2 55%,#E9DCC6)", "linear-gradient(180deg,#1A2B44,#2C4462 55%,#4A5A6E)"],
       spine: [lg("#2F7A8E", "#1D5466"), lg("#22385A", "#121F36")], btn: [lg2("#C2486E", "#D9685A"), lg2("#7FE0F0", "#B8A0FF")]},
     kit: {motif: "n1anem", card: ["#F5FBFB", "#DDEEF0"], ink: "#132B33", bd: "#B4D6DC", mc: "#C2486E", r: 20, notes: ["#D3EAEE"].concat(NOTES), shape: "rounded", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(46), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 8, sway: 1, vmin: 1.6, vmax: 3})
-      .concat(fxBurst(W, H, n(16), "n1anem", d ? ["#FF8FB8", "#6EE0A8", "#B58CF2"] : ["#FF7FA8", "#4ED69A", "#A884F0", "#FF9A5A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}),
-        fxBurst(W, H, n(10), "starfish", ["#F2884A", "#9E62CC", "#F2B53A"], [[0.3, 1.02], [0.7, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxBurst(W, H, n(8), "shell", ["#F6E0D0", "#F7C6C6", "#FFF2E0"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 13}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#7FE0F0", "#FFFFFF"] : ["#4FB8D8", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 3}))},
+    fx: FX.tidepool,
     tag: "Tide pools of every shape and color, with anemones, sea stars, urchins, snails, little fish and a crab, below a lighthouse, sea stacks and a passing sailboat"
   });
   MAJ_THEMES.push({
@@ -69,10 +85,7 @@
       glow: ["linear-gradient(180deg,#F7C9A0,#FBE6C8 50%,#BFE3D9)", "linear-gradient(180deg,#26142A,#4A1F33 55%,#8A3A35)"],
       spine: [lg("#B8563A", "#7E3424"), lg("#4A1F33", "#26142A")], btn: [lg2("#1E8A8C", "#2EA2A0"), lg2("#FF9A5A", "#FFC07A")]},
     kit: {motif: "n1hibiscus", card: ["#FFF8F2", "#F6E2D4"], ink: "#3A1C14", bd: "#EAC8B4", mc: "#E0533A", r: 14, notes: ["#F6DCCC"].concat(NOTES), shape: "folded", pin: "corners", fab: "22px 6px 22px 6px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "circle", d ? ["#FFB05A", "#FFE08A", "#FF7A3A"] : ["#FF8A3A", "#FFC24A", "#F25A3A"], [[0.5, 1.04]], {smin: 2.5, smax: 5, glow: 12})
-      .concat(fxBurst(W, H, n(22), "n1hibiscus", d ? ["#FF6A8A", "#FFB0C8", "#FFFFFF", "#FFA05A"] : ["#F2486A", "#FF8AB0", "#FFFFFF", "#FF9A3A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)})),
-        fxRise(W, H, n(8), "n1lava", d ? ["#FF7A3A", "#FFB05A"] : ["#E8603A", "#FF9A3A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.8, sway: 0.8, life: 280, glow: d ? 14 : 6}),
-        fxTw(W, H, n(22), "sparkle", d ? ["#FFE08A", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 4}))},
+    fx: FX.volcano,
     tag: "A friendly volcano puffing over a tropical island, with swaying palms, black sand, steaming vents and glowing lava rivers at night"
   });
   MAJ_THEMES.push({
@@ -82,10 +95,7 @@
       glow: ["linear-gradient(180deg,#F9D68B,#FBE9B9 55%,#E8D59A)", "linear-gradient(180deg,#2A1C3E,#5A2E4A 55%,#B4523E)"],
       spine: [lg("#B8782E", "#7E4E1C"), lg("#3E2446", "#2A1C3E")], btn: [lg2("#B8502A", "#D27A2A"), lg2("#F2A66A", "#F6C88A")]},
     kit: {motif: "n1acacia", card: ["#FFFAF0", "#F6E8CC"], ink: "#3A2412", bd: "#E8D0A4", mc: "#B8782E", r: 12, notes: ["#F4E2BC"].concat(NOTES), shape: "torn", pin: "tape", fab: "18px 18px 6px 18px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "drop", d ? ["#B8D8FF", "#E8F0FF"] : ["#7CC8E8", "#A8DCF2", "#FFFFFF"], [[0.3, 1.04], [0.7, 1.04]], {smin: 4, smax: 7, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0}))
-      .concat(Array.from({length: n(70)}, () => ({shape: "circle", c: fxPick(d ? ["#F6C88A", "#E2B07A"] : ["#E8B85A", "#D9A04A", "#F2CC7A"]), x: fxR(-W * 0.4, -10), y: fxR(H * 0.3, H), vx: fxR(4, 7.5), vy: fxR(-0.6, 0.2), g: 0, size: fxR(1.5, 3), rot: 0, vr: 0, sway: 0.9, swf: fxR(0.05, 0.1), life: 220, delay: Math.floor(fxR(0, 80)), alpha: 0.85})),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
-      draw: (g, f, W, H, d) => rainbow(g, f, W, H, d, 0.5, 0.95, Math.min(W, H) * 0.42)},
+    fx: FX.savanna,
     tag: "A huge low sun over golden grass, with flat-topped acacias, a munching giraffe, swallows over the watering hole and a baby elephant who loves a splash"
   });
 })();

@@ -8356,60 +8356,280 @@ const FX_PATHS = {};
 const fxPath = k => FX_PATHS[k] || (FX_PATHS[k] = {d: new Path2D(FX_SHAPES[k].d), detail: FX_SHAPES[k].detail ? new Path2D(FX_SHAPES[k].detail) : null});
 const fxR = (a, b) => a + Math.random() * (b - a), fxPick = a => a[Math.floor(Math.random() * a.length)];
 
-/* Each theme: spawn(W, H, dark, n) returns particles; optional draw */
-const fxFall = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(-20, W + 20), y: fxR(-H * 0.5, -10), vx: fxR(-0.6, 0.6), vy: fxR(o.vmin || 1.2, o.vmax || 2.6), g: 0.012, size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.06, 0.06), sway: o.sway || 1.3, swf: fxR(0.03, 0.06), flip: o.flip, life: 260, delay: Math.floor(fxR(0, 40)), glow: o.glow}));
-const fxRise = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: o.cx ? fxR(o.cx[0] * W, o.cx[1] * W) : fxR(0, W), y: H + fxR(10, 60), vx: fxR(-0.3, 0.3), vy: -fxR(o.vmin || 1.4, o.vmax || 3), g: 0, size: fxR(o.smin || 5, o.smax || 12), rot: 0, vr: 0, sway: o.sway || 0.8, swf: fxR(0.03, 0.07), grow: o.grow || 0, alpha: o.alpha || 1, life: o.life || 170, delay: Math.floor(fxR(0, 50)), glow: o.glow}));
-const fxBurst = (W, H, n, shape, cols, pts, o = {}) => Array.from({length: n}, (_, i) => { const [bx, by] = pts[i % pts.length], up = by > 0.5, a = up ? -Math.PI / 2 + fxR(-0.7, 0.7) + (bx < 0.4 ? 0.3 : bx > 0.6 ? -0.3 : 0) : fxR(0, 6.3), sp = up ? fxR(H * 0.02, H * 0.034) : fxR(3, 8); return {shape, c: fxPick(cols), x: bx * W, y: by * H, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: o.g || 0.3, drag: 0.985, size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.2, 0.2), sway: 0, life: 210, delay: up ? 0 : Math.floor(fxR(4, 14)), flip: o.flip, glow: o.glow, bounce: o.bounce}; });
-const fxTw = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(0, W), y: fxR(0, H * (o.top || 1)), vx: 0, vy: o.vy || 0, g: 0, size: fxR(o.smin || 4, o.smax || 9), rot: fxR(0, 0.6), vr: 0, sway: 0, life: fxR(60, 120), delay: Math.floor(fxR(0, 110)), tw: true, grow: o.grow || 0, glow: o.glow, alpha: o.alpha || 1}));
-const fxFlutter = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0; return {shape: "butterfly", c: fxPick(cols), x: left ? fxR(-30, W * 0.2) : fxR(W * 0.8, W + 30), y: H + fxR(10, 80), vx: (left ? 1 : -1) * fxR(0.6, 1.6), vy: -fxR(1.6, 2.8), g: 0, size: fxR(12, 18), rot: 0, vr: 0, sway: 2.2, swf: fxR(0.04, 0.07), flap: fxR(0.25, 0.4), life: 240, delay: Math.floor(fxR(0, 60))}; });
+/* Each theme: spawn(W, H, dark, n) returns particles; optional draw(g, f, W, H, dark) paints under them and over() on top.
+   What a particle can have (all optional except shape, x, y; speeds are per 60 fps frame):
+   vx vy g drag: motion. term: the fastest it can fall, so light things drift down once a burst slows.
+   sway swf: side to side drift. rock: tilts with the drift like a falling leaf, instead of spinning (vr).
+   flip: tumbles in 3D and shows a darker back. face: points where it's heading, mirrored so it's never upside down.
+   wig: a swimming wiggle. z: depth, so far ones are smaller, slower and fainter. tw: twinkles in place; glint: grows and
+   shrinks as it twinkles. grow: grows with age. fsw: drift that starts once a burst particle is on its way down. */
+const FX_LIGHT = new Set(["petal", "leaf", "mintleaf", "maple", "confetti", "sprinkle", "flower", "fallleaf", "oakleaf", "heart", "bleaf", "sprig", "japanpetal", "japansakura", "clover", "print"]);
+const fxZ = o => o.depth === false ? 1 : fxR(o.zmin || 0.62, o.zmax || 1.12);
+const fxDim = z => 0.55 + 0.45 * Math.min(1, z);
+const fxFall = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => { const z = fxZ(o);
+  return {shape, c: fxPick(cols), x: fxR(-20, W + 20), y: fxR(-H * 0.5, -10), vx: fxR(-0.6, 0.6) * z, vy: fxR(o.vmin || 1.2, o.vmax || 2.6) * z, g: 0.012 * z, size: fxR(o.smin || 7, o.smax || 12) * z, z,
+    rot: fxR(0, 6.3), vr: o.flip || o.rock ? 0 : fxR(-0.05, 0.05), rock: o.rock != null ? o.rock * fxR(0.6, 1.2) : o.flip ? fxR(0.3, 0.7) : 0, sway: (o.sway || 1.3) * z, swf: fxR(0.03, 0.06), flip: o.flip,
+    life: o.life || 260, delay: Math.floor(fxR(0, o.spread || 40)), glow: o.glow, alpha: (o.alpha || 1) * fxDim(z)}; });
+const fxRise = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => { const z = fxZ(o);
+  return {shape, c: fxPick(cols), x: o.cx ? fxR(o.cx[0] * W, o.cx[1] * W) : fxR(0, W), y: H + fxR(10, 60), vx: fxR(-0.3, 0.3), vy: -fxR(o.vmin || 1.4, o.vmax || 3) * z, g: 0, size: fxR(o.smin || 5, o.smax || 12) * z, z,
+    rot: o.rot || 0, vr: 0, rock: o.rock || 0, sway: (o.sway || 0.8) * z, swf: fxR(0.03, 0.07), grow: o.grow || 0, flip: o.flip, alpha: (o.alpha || 1) * fxDim(z), life: o.life || 170,
+    delay: Math.floor(fxR(0, o.spread || 50)), glow: o.glow}; });
+const fxBurst = (W, H, n, shape, cols, pts, o = {}) => Array.from({length: n}, (_, i) => { const [bx, by] = pts[i % pts.length], up = by > 0.5, a = up ? -Math.PI / 2 + fxR(-0.7, 0.7) + (bx < 0.4 ? 0.3 : bx > 0.6 ? -0.3 : 0) : fxR(0, 6.3), sp = up ? fxR(H * 0.02, H * 0.034) : fxR(3, 8), light = FX_LIGHT.has(shape);
+  return {shape, c: fxPick(cols), x: bx * W, y: by * H, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: o.g || 0.3, drag: 0.985, term: o.term || (light ? fxR(1.3, 2) : fxR(4, 6)), fsw: o.fsw != null ? o.fsw : light ? fxR(0.8, 1.6) : 0,
+    swf: fxR(0.04, 0.08), size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.2, 0.2), sway: 0, life: o.life || (light ? 270 : 220), delay: up ? Math.floor(fxR(0, 6)) : Math.floor(fxR(4, 14)), flip: o.flip, glow: o.glow, bounce: o.bounce}; });
+const fxTw = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(0, W), y: fxR(0, H * (o.top || 1)), vx: 0, vy: o.vy || 0, g: 0, size: fxR(o.smin || 4, o.smax || 9), rot: fxR(0, 0.6), vr: o.glint === false ? 0 : fxR(-0.02, 0.02), sway: 0,
+  life: fxR(60, 120), delay: Math.floor(fxR(0, o.spread || 110)), tw: true, glint: o.glint != null ? o.glint : shape === "sparkle" || shape === "star", grow: o.grow || 0, glow: o.glow, alpha: o.alpha || 1}));
+const fxFlutter = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0; return {shape: "butterfly", c: fxPick(cols), x: left ? fxR(-30, W * 0.2) : fxR(W * 0.8, W + 30), y: H + fxR(10, 80), vx: (left ? 1 : -1) * fxR(0.6, 1.6), vy: -fxR(1.6, 2.8), g: 0, size: fxR(12, 18), rot: 0, vr: 0, sway: 2.2, swf: fxR(0.04, 0.07), rock: 0.25, flap: fxR(0.25, 0.4), life: 240, delay: Math.floor(fxR(0, 60))}; });
 const fxStreaks = (W, H, n, cols) => Array.from({length: n}, () => { const sp = fxR(9, 14); return {shape: null, streak: true, c: fxPick(cols), x: fxR(W * 0.2, W * 1.1), y: fxR(-40, H * 0.35), vx: -sp, vy: sp * 0.5, g: 0, size: 2, life: 70, delay: Math.floor(fxR(0, 120)), glow: 12}; });
 
+/* Northern lights: curtains of glowing vertical rays that unfurl across the sky, ripple with light running along them,
+   then thin out. Each ray is one stretched strip from a small prebuilt gradient, so hundreds of rays stay cheap. */
+const fxAurora = () => {
+  const strip = {};
+  const ray = (cols, k) => strip[k] || (strip[k] = (() => { const c = document.createElement("canvas"); c.width = 4; c.height = 256; const g = c.getContext("2d"), gr = g.createLinearGradient(0, 256, 0, 0);
+    cols.forEach(([at, col]) => gr.addColorStop(at, col)); g.fillStyle = gr; g.fillRect(0, 0, 4, 256); return c; })());
+  // [height of the hem as a share of the screen, ray length, waviness, speed, colors, strength]
+  const CURT = [[0.36, 0.3, 1, 1, 0, 1], [0.27, 0.22, 0.7, -0.8, 1, 0.7], [0.46, 0.18, 1.3, 1.3, 2, 0.45]];
+  return (g, f, W, H, d) => {
+    const P = d ? [[[0, "rgba(120,255,190,0)"], [0.04, "rgba(150,255,200,.95)"], [0.18, "rgba(70,240,160,.75)"], [0.55, "rgba(90,170,255,.32)"], [0.82, "rgba(190,110,255,.16)"], [1, "rgba(190,110,255,0)"]],
+                   [[0, "rgba(255,140,220,0)"], [0.05, "rgba(255,160,225,.8)"], [0.3, "rgba(180,120,255,.5)"], [1, "rgba(120,110,255,0)"]],
+                   [[0, "rgba(110,255,230,0)"], [0.05, "rgba(130,255,235,.8)"], [0.4, "rgba(80,200,255,.35)"], [1, "rgba(80,160,255,0)"]]]
+                : [[[0, "rgba(20,170,120,0)"], [0.04, "rgba(10,165,112,.85)"], [0.2, "rgba(20,175,135,.6)"], [0.6, "rgba(60,110,220,.28)"], [0.85, "rgba(130,80,220,.1)"], [1, "rgba(130,80,220,0)"]],
+                   [[0, "rgba(210,70,170,0)"], [0.05, "rgba(205,60,160,.65)"], [0.35, "rgba(130,70,220,.36)"], [1, "rgba(90,80,220,0)"]],
+                   [[0, "rgba(20,160,170,0)"], [0.05, "rgba(20,160,175,.55)"], [0.4, "rgba(40,130,210,.22)"], [1, "rgba(40,120,210,0)"]]];
+    const ph = W < H, unf = fxEase(f / 70), out = 1 - fxEase((f - 195) / 85);
+    if (out <= 0) return;
+    g.globalCompositeOperation = d ? "lighter" : "source-over";
+    const step = Math.max(2.5, W / 340), wr = step * 1.7;
+    CURT.forEach(([y0, len, wav, spd, pi, str], ci) => {
+      const spr = ray(P[pi], (d ? "d" : "l") + pi), yb = H * (ph ? y0 * 0.8 : y0), L0 = H * len * (ph ? 0.8 : 1), t = f * 0.016 * spd, from = ci % 2 ? W * 1.05 : -W * 0.05;
+      for (let x = -W * 0.05; x < W * 1.05; x += step) {
+        const reach = Math.abs(x - from) / (W * 1.1), show = fxEase((unf * 1.25 - reach) * 4); if (show <= 0) continue;
+        const y = yb + Math.sin(x / (W * 0.23) + t) * H * 0.05 * wav + Math.sin(x / (W * 0.071) - t * 1.7 + ci) * H * 0.014 * wav;
+        const pulse = 0.45 + 0.55 * Math.pow(0.5 + 0.5 * Math.sin(x / (W * 0.045) - f * 0.09 * spd + ci * 2), 2), fold = 0.65 + 0.35 * Math.sin(x / (W * 0.018) + ci * 5 + Math.sin(f * 0.02 + x * 0.01));
+        const edge = Math.min(1, (x + W * 0.05) / (W * 0.18), (W * 1.05 - x) / (W * 0.18)), len2 = L0 * (0.7 + 0.45 * fold);
+        g.globalAlpha = Math.max(0, str * show * out * pulse * edge * (0.55 + 0.45 * fold));
+        g.drawImage(spr, x, y - len2, wr, len2 * 1.04);
+      }
+    });
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+  };
+};
+
+/* Richer sprites for shapes the original themes share (each keeps its d silhouette for flashcard motifs) */
+(() => {
+  const disc = (g, r) => { g.beginPath(); g.arc(0, 0, r, 0, 6.3); };
+  const gloss = (g, r, a) => { const gr = g.createRadialGradient(-r * 0.35, -r * 0.45, 0, -r * 0.2, -r * 0.2, r * 1.15); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.5, "rgba(255,255,255,0)"); gr.addColorStop(1, "rgba(0,0,0,.18)"); g.fillStyle = gr; disc(g, r); g.fill(); };
+  FX_SHAPES.petal.paint = (g, c) => { const p = new Path2D(FX_SHAPES.petal.d), gr = g.createLinearGradient(0, 6, 0, -8); gr.addColorStop(0, "#FFF4F8"); gr.addColorStop(0.55, c); gr.addColorStop(1, fxShade(c, 0.92));
+    g.fillStyle = gr; g.fill(p); g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = 0.7; g.beginPath(); g.moveTo(0, 4.6); g.quadraticCurveTo(-0.6, -1, 0, -6); g.stroke(); };
+  FX_SHAPES.lemon.paint = (g, c) => { g.fillStyle = fxShade(c, 0.92); disc(g, 10); g.fill(); g.fillStyle = "#FFFBE6"; disc(g, 8.6); g.fill();
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.fillStyle = i % 2 ? c : fxShade(c, 1.06); g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 7.6, a + 0.1, a + Math.PI / 4 - 0.1); g.closePath(); g.fill(); }
+    g.fillStyle = "#FFFBE6"; disc(g, 1.3); g.fill(); gloss(g, 10, 0.35); };
+  FX_SHAPES.ball.paint = (g, c) => { const cols = [c, "#FFFFFF", "#FFC53D", "#FFFFFF", "#23B5D3", "#FFFFFF"];
+    cols.forEach((k, i) => { g.fillStyle = k; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 10, i * Math.PI / 3, (i + 1) * Math.PI / 3); g.closePath(); g.fill(); });
+    g.fillStyle = "#FFFFFF"; disc(g, 2.6); g.fill(); gloss(g, 10, 0.55); };
+  FX_SHAPES.candy.paint = (g, c) => { const p = new Path2D(FX_SHAPES.candy.d); g.fillStyle = fxShade(c, 1.12); g.fill(p);
+    g.save(); g.beginPath(); g.ellipse(0, 0, 5.2, 5, 0, 0, 6.3); g.clip(); g.fillStyle = c; g.fillRect(-6, -6, 12, 12); g.strokeStyle = "rgba(255,255,255,.75)"; g.lineWidth = 1.4;
+    for (let x = -10; x < 10; x += 3.4) { g.beginPath(); g.moveTo(x, -6); g.lineTo(x + 6, 6); g.stroke(); } g.restore(); gloss(g, 5.2, 0.45); };
+  FX_SHAPES.bubble.paint = (g, c) => { const gr = g.createRadialGradient(0, 0, 4, 0, 0, 9.4); gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(0.75, "rgba(255,255,255,.08)"); gr.addColorStop(1, c);
+    g.fillStyle = gr; disc(g, 9.4); g.fill(); g.strokeStyle = c; g.globalAlpha = 0.8; g.lineWidth = 0.9; disc(g, 9); g.stroke(); g.globalAlpha = 1;
+    g.strokeStyle = "rgba(255,255,255,.9)"; g.lineWidth = 1.5; g.lineCap = "round"; g.beginPath(); g.arc(0, 0, 6.2, 3.6, 4.5); g.stroke(); g.fillStyle = "rgba(255,255,255,.85)"; g.beginPath(); g.arc(4, 4.4, 1, 0, 6.3); g.fill(); };
+  FX_SHAPES.bokeh = {d: FX_SHAPES.circle.d, paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 10.6); gr.addColorStop(0, c); gr.addColorStop(0.82, c); gr.addColorStop(0.9, "rgba(255,255,255,.9)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+    g.globalAlpha = 0.55; g.fillStyle = gr; disc(g, 10.6); g.fill(); g.globalAlpha = 0.5; g.strokeStyle = c; g.lineWidth = 1; disc(g, 9.6); g.stroke(); }};
+  FX_SHAPES.gull = {d: "M-11 -1.4C-7.6 -5 -3.2 -4.4 0 -0.4C3.2 -4.4 7.6 -5 11 -1.4C7.4 -2.6 3.6 -1.6 0.9 1.8H-0.9C-3.6 -1.6 -7.4 -2.6 -11 -1.4Z", flat: true};
+  FX_SHAPES.glint = {d: "M-10 0Q0 -1.4 10 0Q0 1.4 -10 0Z", flat: true};
+  FX_SHAPES.snowsoft = {d: FX_SHAPES.circle.d, paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 10); gr.addColorStop(0, c); gr.addColorStop(0.45, c); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; disc(g, 10); g.fill(); }};
+})();
+
+/* Moments drawn under the particles. Each builds its expensive pieces once and fades itself in and out softly. */
+const fxOut = (f, a, b) => 1 - fxEase((f - a) / (b - a));
+// Galaxy: a spiral galaxy blooms open from its core and slowly turns, inner stars faster than outer ones
+const fxGalaxy = () => {
+  const S = Array.from({length: 360}, (_, i) => ({arm: i % 3, r: Math.pow(Math.random(), 0.7), j: (Math.random() - 0.5) * 0.7, k: Math.random(), tw: Math.random() * 6.3, s: Math.random()}));
+  return (g, f, W, H, d) => {
+    const out = fxOut(f, 190, 270), bloom = fxEase(f / 90), cx = W * 0.5, cy = H * (W < H ? 0.4 : 0.44), R = Math.min(W, H) * (W < H ? 0.56 : 0.6) * (0.25 + 0.75 * bloom);
+    if (out <= 0) return;
+    const cols = d ? ["#FFFFFF", "#CFC4FF", "#FFB8E4", "#9FD8FF"] : ["#4B2FC9", "#7A4EE6", "#C04EB4", "#3A6BD6"];
+    g.globalCompositeOperation = d ? "lighter" : "source-over";
+    const core = g.createRadialGradient(cx, cy, 0, cx, cy, R * 0.55); core.addColorStop(0, d ? "rgba(255,236,250,.55)" : "rgba(150,100,250,.4)"); core.addColorStop(0.35, d ? "rgba(190,150,255,.18)" : "rgba(170,120,255,.12)"); core.addColorStop(1, "rgba(160,120,255,0)");
+    g.globalAlpha = out * bloom; g.fillStyle = core; g.beginPath(); g.ellipse(cx, cy, R * 0.55, R * 0.4, -0.35, 0, 6.3); g.fill();
+    const c = Math.cos(-0.35), si = Math.sin(-0.35);
+    for (const s of S) {
+      const a = s.arm * 2.094 + s.r * 4.6 + s.j * (0.4 + s.r) + f * 0.009 * (1.6 - s.r), rr = s.r * R, ex = Math.cos(a) * rr, ey = Math.sin(a) * rr * 0.5;
+      const x = cx + ex * c - ey * si, y = cy + ex * si + ey * c, sz = (0.8 + s.s * 2.1) * (1.15 - s.r * 0.5) * (d ? 1 : 1.25) * Math.max(1, Math.min(W, H) / 700);
+      g.globalAlpha = out * Math.min(1, bloom * 1.6 - s.r * 0.5) * (0.55 + 0.45 * Math.sin(f * 0.12 + s.tw)) * (s.r < 0.12 ? 0.7 : 1);
+      if (g.globalAlpha <= 0.02) continue;
+      g.fillStyle = cols[s.r < 0.18 ? 0 : 1 + (s.arm + (s.k > 0.7 ? 1 : 0)) % 3]; g.beginPath(); g.arc(x, y, sz, 0, 6.3); g.fill();
+    }
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+  };
+};
+// Christmas: a string of lights swags across the top and switches on bulb by bulb, then twinkles
+const fxGarland = () => (g, f, W, H, d) => {
+  const out = fxOut(f, 200, 268); if (out <= 0) return;
+  const top = H * (W < H ? 0.05 : 0.07), sag = H * (W < H ? 0.07 : 0.11), swags = W < H ? 2 : 3, cols = ["#FF4A3D", "#2FD07A", "#FFC23D", "#4A8BFF", "#FF7AC8"];
+  const pt = u => { const k = u * swags, i = Math.min(swags - 1, Math.floor(k)), t = k - i; return [W * (-0.03 + 1.06 * u), top + sag * 4 * t * (1 - t) + Math.sin(i * 1.7) * H * 0.01]; };
+  const draw = Math.min(1, f / 40);
+  g.globalAlpha = out * 0.85; g.strokeStyle = d ? "#2F5A40" : "#2E5A3A"; g.lineWidth = 2; g.beginPath();
+  for (let u = 0; u <= draw + 0.001; u += 0.01) { const [x, y] = pt(u); u ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+  const bk = Math.max(1, Math.min(1.7, Math.min(W, H) / 520)), N = Math.round(W / (46 * bk));
+  for (let i = 1; i < N; i++) {
+    const u = i / N; if (u > draw) break;
+    const [x, y] = pt(u), [x2, y2] = pt(Math.min(1, u + 0.004)), ang = Math.atan2(y2 - y, x2 - x), on = fxEase((f - 18 - i * 1.6) / 8), col = cols[i % cols.length];
+    const tw = 0.72 + 0.28 * Math.sin(f * 0.11 + i * 2.3);
+    g.save(); g.translate(x, y); g.rotate(ang + (i % 2 ? 0.25 : -0.2)); g.scale(bk, bk);
+    g.globalAlpha = out; g.fillStyle = d ? "#6A7480" : "#7A828C"; g.fillRect(-2.2, 0, 4.4, 4);
+    if (on > 0) { g.globalAlpha = out * on * tw * (d ? 0.55 : 0.4); const gl = g.createRadialGradient(0, 10, 0, 0, 10, 20); gl.addColorStop(0, col); gl.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gl; g.fillRect(-20, -10, 40, 40); }
+    g.globalAlpha = out; g.fillStyle = on > 0.5 ? col : fxShade(col, 0.55); g.beginPath(); g.ellipse(0, 10, 4.2, 6.6, 0, 0, 6.3); g.fill();
+    g.fillStyle = `rgba(255,255,255,${0.25 + 0.5 * on})`; g.beginPath(); g.ellipse(-1.3, 8, 1.1, 2.4, 0, 0, 6.3); g.fill();
+    g.restore();
+  }
+};
+// Café: three soft curls of steam rise from below, widen and drift apart (soft puffs stamped along each curl)
+const fxSteam = () => { const puffs = {};
+  return (g, f, W, H, d) => {
+    const out = fxOut(f, 170, 262); if (out <= 0) return;
+    const rgb = d ? "255,250,242" : "150,118,92", puff = puffs[rgb] || (puffs[rgb] = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const p = c.getContext("2d"), gr = p.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, `rgba(${rgb},1)`); gr.addColorStop(0.5, `rgba(${rgb},.45)`); gr.addColorStop(1, `rgba(${rgb},0)`); p.fillStyle = gr; p.fillRect(0, 0, 64, 64); return c; })());
+    const rise = fxEase(f / 140), base = H * 1.04, M = Math.min(W, H);
+    g.save(); g.globalCompositeOperation = d ? "lighter" : "source-over";
+    [[0.4, 0, 1], [0.5, 2.1, 1.15], [0.6, 4.2, 0.95]].forEach(([x0, ph, k]) => {
+      const top = base - H * 0.75 * rise * k;
+      for (let i = 0; i <= 34; i++) {
+        const u = i / 34, y = base - (base - top) * u, x = W * x0 + W * (0.01 + 0.045 * u) * Math.sin(u * 6.5 + ph - f * 0.04) + Math.sin(f * 0.012 + ph) * W * 0.02 * u, r = M * (0.03 + 0.06 * u);
+        g.globalAlpha = out * Math.sin(Math.PI * Math.min(1, u * 1.1)) * (d ? 0.075 : 0.16);
+        g.drawImage(puff, x - r, y - r, 2 * r, 2 * r);
+      }
+    });
+    g.restore();
+  };
+};
+// Neon: a glowing check mark flickers on like a sign warming up, then hums
+const fxNeonCheck = () => (g, f, W, H, d) => {
+  const out = fxOut(f, 190, 262); if (out <= 0) return;
+  const S = Math.min(W, H) * 0.25, cx = W * 0.5, cy = H * 0.46, pts = [[-0.62, 0.02], [-0.18, 0.44], [0.66, -0.5]];
+  const lenA = Math.hypot(0.44, 0.42), lenB = Math.hypot(0.84, 0.94), total = (lenA + lenB) * S, drawn = fxEase((f - 4) / 26) * total;
+  const flick = f < 40 ? [1, 0.4, 1, 1, 0.55, 1, 1, 1][Math.floor(f / 5)] : 0.92 + 0.08 * Math.sin(f * 0.6);
+  g.setLineDash([drawn, total + 10]); g.lineCap = g.lineJoin = "round";
+  const path = () => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(cx + x * S, cy + y * S) : g.moveTo(cx + x * S, cy + y * S)); };
+  [[S * 0.2, d ? 0.22 : 0.16, "#D05BEF", 30], [S * 0.075, 0.9, d ? "#E58CFF" : "#C84BEB", 14], [S * 0.03, 0.95, "#FFFFFF", 0]].forEach(([lw, a, col, blur]) => {
+    g.globalAlpha = out * a * flick; g.lineWidth = lw; g.strokeStyle = col; g.shadowBlur = blur; g.shadowColor = "#C84BEB"; path(); g.stroke(); });
+  g.setLineDash([]); g.shadowBlur = 0;
+  [[22, "74,134,255"], [34, "205,75,235"]].forEach(([t0, rgb]) => { const t = f - t0; if (t < 0 || t > 110) return; const r = S * 0.9 + t * Math.max(W, H) / 170, a = 1 - fxEase(t / 110);
+    g.globalAlpha = out * a * 0.7; g.shadowBlur = 18; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgb(${rgb})`; g.lineWidth = 2.5; g.beginPath(); g.arc(cx, cy, r, 0, 6.3); g.stroke(); });
+  g.shadowBlur = 0;
+};
+// Synthwave: a striped sun rises over a glowing grid that rushes toward you
+const fxSynth = () => (g, f, W, H, d) => {
+  const out = fxOut(f, 185, 262); if (out <= 0) return;
+  const hz = H * 0.7, R = Math.min(W, H) * (W < H ? 0.36 : 0.3), up = fxEase(f / 75), cy = hz + R * 0.95 - R * 1.25 * up, cx = W * 0.5;
+  g.save(); g.beginPath(); g.rect(0, 0, W, hz); g.clip();
+  const gr = g.createLinearGradient(0, cy - R, 0, cy + R); gr.addColorStop(0, "#FFE66D"); gr.addColorStop(0.45, "#FF8A5B"); gr.addColorStop(1, "#FF2FB3");
+  g.globalAlpha = out * (d ? 0.85 : 0.75); g.shadowBlur = 40; g.shadowColor = d ? "#FF4FB8" : "rgba(255,90,170,.6)"; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R, 0, 6.3); g.fill(); g.shadowBlur = 0;
+  g.globalCompositeOperation = "destination-out"; g.globalAlpha = 1;
+  for (let i = 0; i < 6; i++) { const y = hz - R * (0.62 - i * 0.11), h = R * (0.018 + i * 0.016); g.fillRect(cx - R, y, 2 * R, h); }
+  g.restore();
+  const ga = out * fxEase((f - 10) / 40), mag = d ? "255,60,200" : "200,40,160";
+  g.save(); g.beginPath(); g.rect(0, hz, W, H - hz); g.clip(); g.lineWidth = 1.6; g.strokeStyle = `rgb(${mag})`; g.shadowBlur = 10; g.shadowColor = `rgb(${mag})`;
+  for (let i = 0; i < 14; i++) { const t = ((i + f * 0.035) % 14) / 14, y = hz + (H - hz) * t * t; g.globalAlpha = ga * (0.15 + 0.75 * t); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  for (let i = -12; i <= 12; i++) { g.globalAlpha = ga * 0.55; g.beginPath(); g.moveTo(cx + i * W * 0.012, hz); g.lineTo(cx + i * W * 0.16, H); g.stroke(); }
+  g.restore();
+  g.globalAlpha = ga * 0.8; g.fillStyle = `rgb(${mag})`; g.fillRect(0, hz - 1, W, 2);
+};
+// Ocean: a glassy wave rolls in from the bottom with a line of foam, then slides back out
+const fxWave = () => (g, f, W, H, d) => {
+  const up = fxEase(f / 55) * (1 - fxEase((f - 120) / 100)); if (up <= 0.001) return;
+  const crest = x => H * (1 - 0.26 * up) + Math.sin(x / W * 7 + f * 0.05) * H * 0.016 + Math.sin(x / W * 17 - f * 0.08) * H * 0.006;
+  const gr = g.createLinearGradient(0, H * 0.7, 0, H); gr.addColorStop(0, d ? "rgba(60,207,224,.38)" : "rgba(20,167,189,.32)"); gr.addColorStop(1, d ? "rgba(10,90,120,.5)" : "rgba(10,127,146,.45)");
+  g.fillStyle = gr; g.beginPath(); g.moveTo(0, H);
+  for (let x = 0; x <= W + 8; x += 8) g.lineTo(x, crest(x)); g.lineTo(W, H); g.closePath(); g.fill();
+  g.strokeStyle = d ? "rgba(230,250,255,.85)" : "rgba(255,255,255,.95)"; g.lineWidth = 3.5; g.lineCap = "round"; g.beginPath();
+  for (let x = 0; x <= W + 8; x += 8) x ? g.lineTo(x, crest(x)) : g.moveTo(x, crest(x)); g.stroke();
+  g.fillStyle = "rgba(255,255,255,.7)"; for (let x = 7; x < W; x += 23) { const r = 1.5 + 1.5 * Math.abs(Math.sin(x * 1.3 + f * 0.05)); g.beginPath(); g.arc(x, crest(x) + 5 + (x * 7 % 9), r, 0, 6.3); g.fill(); }
+};
+// Forest: soft shafts of sunlight lean in through the trees
+const fxBeams = () => (g, f, W, H, d) => {
+  const a = fxEase(f / 60) * fxOut(f, 170, 250); if (a <= 0) return;
+  g.globalCompositeOperation = d ? "lighter" : "source-over";
+  [[0.12, 0.09, 0], [0.32, 0.05, 1.4], [0.5, 0.11, 2.6], [0.74, 0.06, 4]].forEach(([x0, w, ph]) => {
+    const x = W * x0, ww = W * w, sk = H * 0.45, gr = g.createLinearGradient(x, 0, x + sk, H);
+    gr.addColorStop(0, d ? "rgba(255,240,170,.16)" : "rgba(255,248,200,.5)"); gr.addColorStop(1, "rgba(255,248,200,0)");
+    g.globalAlpha = a * (0.65 + 0.35 * Math.sin(f * 0.03 + ph)); g.fillStyle = gr; g.beginPath(); g.moveTo(x, -10); g.lineTo(x + ww, -10); g.lineTo(x + ww * 2.2 + sk, H); g.lineTo(x + sk, H); g.closePath(); g.fill();
+  });
+  g.globalCompositeOperation = "source-over";
+};
+
+const fxAt = (P, k) => P.map(p => Object.assign(p, {delay: (p.delay || 0) + k}));
 const THEME_FX = {
-  ocean: {spawn: (W, H, d, n) => fxRise(W, H, n(70), "bubble", d ? ["#9ED3DB", "#E2F5F7", "#3CCFE0"] : ["#0A7F92", "#14A7BD", "#7CC9D6"], {smin: 5, smax: 15, sway: 1.1}).concat(fxBurst(W, H, n(36), "drop", d ? ["#3CCFE0", "#6BDCEA"] : ["#14A7BD", "#0A7F92", "#7CC9D6"], [[0.3, 1.02], [0.7, 1.02]], {smin: 5, smax: 9}))},
-  sakura: {spawn: (W, H, d, n) => fxFall(W, H, n(110), "petal", d ? ["#FF86B5", "#FFA4C8", "#EDB9D0", "#FFD6E6"] : ["#F27AA8", "#FFB3CF", "#F9C6D9", "#E8688A"], {sway: 1.8, flip: true})},
-  forest: {spawn: (W, H, d, n) => fxFall(W, H, n(80), "leaf", d ? ["#5CCB7E", "#7EDB98", "#3F7A4D"] : ["#2F8A4E", "#45A865", "#8FB886", "#3E9E7A"], {sway: 1.6, flip: true}).concat(fxTw(W, H, n(26), "circle", ["#E8E06A", "#C9F28A"], {smin: 1.6, smax: 3, glow: 10, vy: -0.4}))},
-  galaxy: {spawn: (W, H, d, n) => fxStreaks(W, H, n(9), d ? ["#FFFFFF", "#C5BCF5", "#FF9BD6"] : ["#6B4EE6", "#C04EE6", "#8C6FF5"]).concat(fxTw(W, H, n(70), "sparkle", d ? ["#FFFFFF", "#B8A6FF", "#FFD1EC"] : ["#6B4EE6", "#9D86FF", "#C04EE6"], {smin: 3, smax: 8, glow: d ? 10 : 4}))},
-  arctic: {spawn: (W, H, d, n) => fxTw(W, H, n(50), "sparkle", d ? ["#FFFFFF", "#A8FFD8", "#C9B8FF"] : ["#2A9FC0", "#6A5AE0", "#3FB39A"], {smin: 2.5, smax: 6, top: 0.6, glow: d ? 8 : 2}),
-    draw: (g, f, W, H, d) => { const a = Math.sin(Math.min(1, f / 200) * Math.PI); if (a <= 0) return; [[0.16, "60,255,170", 0], [0.24, "150,90,255", 1.6], [0.1, "80,220,210", 3.1]].forEach(([y0, rgb, ph]) => { g.save(); g.globalAlpha = a * (d ? 0.5 : 0.35); g.shadowBlur = 30; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgba(${rgb},.6)`; g.lineWidth = H * 0.05; g.lineCap = "round"; g.beginPath(); for (let x = -40; x <= W + 40; x += 20) { const y = H * y0 + Math.sin(x / 140 + f / 22 + ph) * H * 0.04 + Math.sin(x / 57 + ph) * H * 0.012; x === -40 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); g.restore(); }); }},
-  autumn: {spawn: (W, H, d, n) => fxFall(W, H, n(90), "maple", ["#E07A2E", "#C8561C", "#F2B23E", "#B5401A", "#E8A13A"], {sway: 2.2, flip: true, smin: 8, smax: 14})},
-  lemonade: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "lemon", ["#F2C200", "#FFD84A", "#F5B800"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 9, smax: 14}).concat(fxRise(W, H, n(60), "circle", d ? ["#FFF08A", "#D9F2C7"] : ["#F2C200", "#9ED08A", "#FFE06B"], {smin: 1.5, smax: 4, vmin: 2, vmax: 4, sway: 0.6}))},
-  winter: {spawn: (W, H, d, n) => fxFall(W, H, n(100), "snow", d ? ["#FFFFFF", "#DCE9FF", "#B9D4FF"] : ["#6F9AE0", "#9DBBEF", "#3B6FD1"], {vmin: 0.8, vmax: 1.8, sway: 1.2, smin: 5, smax: 12, glow: d ? 8 : 0})},
-  xmas: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "bulb", ["#E0463C", "#2E9E5B", "#F2B53A", "#3D7BE0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 6, smax: 10, glow: d ? 14 : 6}).concat(fxTw(W, H, n(40), "star", ["#F2C24A", "#FFE08A"], {smin: 3, smax: 7, glow: 10}))},
-  spring: {spawn: (W, H, d, n) => fxFlutter(W, H, n(12), ["#A884F0", "#F28BB8", "#F2C84A", "#8FC7F2"]).concat(fxFall(W, H, n(46), "petal", ["#F6A6C8", "#FFD1E3", "#FFFFFF", "#F9E28A"], {sway: 1.6, flip: true, smin: 5, smax: 8}))},
-  cafe: {spawn: (W, H, d, n) => fxRise(W, H, n(34), "puff", d ? ["#F5EBDD"] : ["#B99B7E", "#C8AE94"], {cx: [0.36, 0.64], smin: 10, smax: 18, vmin: 1, vmax: 1.8, sway: 1.4, grow: 0.25, alpha: d ? 0.14 : 0.18, glow: 24, life: 190}).concat(fxBurst(W, H, n(24), "bean", ["#6B4226", "#8A5A2B", "#4A2E1A"], [[0.35, 1.02], [0.65, 1.02]], {smin: 7, smax: 10}))},
-  sunset: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "shell", ["#FBC3A8", "#F7A58A", "#FFD9C2"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}).concat(fxBurst(W, H, n(12), "starfish", ["#F07A8A", "#E8566C"], [[0.3, 1.02], [0.7, 1.02]], {smin: 9, smax: 13}), fxTw(W, H, n(24), "sparkle", ["#FFC06B", "#FFE2A8"], {smin: 3, smax: 6, glow: 8}))},
-  mint: {spawn: (W, H, d, n) => fxBurst(W, H, n(50), "mintleaf", ["#25B585", "#3FD6A0", "#0F845F"], [[0.12, 1.02], [0.88, 1.02], [0.3, 0.2], [0.7, 0.2]], {smin: 8, smax: 12, flip: true}).concat(fxBurst(W, H, n(40), "chip", ["#4A2E1A", "#6B4226", "#3A2A20"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 3.5, smax: 5}))},
-  summer: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "drop", ["#23B5D3", "#4FC3F7", "#0E86C9"], [[0.25, 1.02], [0.75, 1.02]], {smin: 5, smax: 9}).concat(fxFall(W, H, n(6), "ball", ["#FF6B6B", "#FFC53D", "#23B5D3"], {vmin: 3, vmax: 5, sway: 0, smin: 14, smax: 20}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})), fxTw(W, H, n(20), "sparkle", ["#FFD23F", "#FFE98A"], {smin: 3, smax: 6, glow: 8}))},
-  bokeh: {spawn: (W, H, d, n) => fxTw(W, H, n(60), "circle", ["#FF64A0", "#28BEC8", "#FFB43C", "#8C6EFF"], {smin: 6, smax: 18, grow: 0.12, glow: 20, alpha: d ? 0.5 : 0.4})},
-  neon: {spawn: (W, H, d, n) => fxBurst(W, H, n(80), "circle", ["#4A86FF", "#6E8FFF", "#D05BEF", "#C84BEB"], [[0.5, 0.5]], {smin: 1.6, smax: 3, g: 0.04, glow: 14}).map(p => Object.assign(p, {vx: p.vx * 1.4, vy: p.vy * 1.4})),
-    draw: (g, f, W, H, d) => { [[0, "74,134,255"], [18, "205,75,235"], [36, "74,134,255"]].forEach(([t0, rgb]) => { const t = f - t0; if (t < 0 || t > 90) return; const r = t * Math.max(W, H) / 150, a = 1 - t / 90; g.save(); g.globalAlpha = a * 0.8; g.shadowBlur = 22; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgb(${rgb})`; g.lineWidth = 3; g.beginPath(); g.arc(W / 2, H / 2, r, 0, 6.3); g.stroke(); g.restore(); }); }},
-  candy: {spawn: (W, H, d, n) => fxBurst(W, H, n(80), "candy", ["#FF6FB5", "#8EE4B8", "#C9A0FF", "#FFD86B", "#6FD3FF"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04], [0.3, 0.2], [0.7, 0.2]], {smin: 9, smax: 14})},
-  arcade: {spawn: (W, H, d, n) => fxTw(W, H, n(40), "sparkle", ["#FF96C8", "#FFB45A", "#B48CFF", "#FFFFFF"], {smin: 3, smax: 8, glow: 12}),
-    draw: (g, f, W, H, d) => { const t = Math.min(1, f / 60), fade = f < 150 ? 1 : Math.max(0, 1 - (f - 150) / 60); if (fade <= 0) return; const R = Math.hypot(W, H) * 0.34 * (0.4 + 0.6 * (1 - Math.pow(1 - t, 3))), w = Math.max(10, Math.min(W, H) * 0.028); [["255,150,60", 0], ["255,80,170", 1], ["150,80,255", 2]].forEach(([rgb, i]) => { g.save(); g.globalAlpha = fade * (d ? 0.55 : 0.45); g.shadowBlur = 16; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgb(${rgb})`; g.lineWidth = w; g.lineCap = "round"; const rr = R - i * w * 1.5; g.beginPath(); g.arc(-W * 0.02, H * 1.02, rr, -Math.PI / 2, -Math.PI / 2 + t * Math.PI / 2); g.stroke(); g.beginPath(); g.arc(W * 1.02, -H * 0.02, rr * 0.8, Math.PI / 2, Math.PI / 2 + t * Math.PI / 2); g.stroke(); g.restore(); }); }}
+  ocean: {spawn: (W, H, d, n) => fxRise(W, H, n(46), "bubble", d ? ["#9ED3DB", "#E2F5F7", "#6BDCEA"] : ["#0A7F92", "#14A7BD", "#3FA9BC"], {smin: 6, smax: 15, sway: 1.1, vmin: 1.2, vmax: 2.6, life: 220})
+    .concat(fxAt(fxBurst(W, H, n(34), "drop", d ? ["#BFF4FA", "#6BDCEA"] : ["#14A7BD", "#7CC9D6", "#0A7F92"], [[0.25, 0.86], [0.5, 0.84], [0.75, 0.86]], {smin: 5, smax: 9}).map(p => Object.assign(p, {vx: p.vx * 0.5, vy: -fxR(4, 8), g: 0.22, rot: 0, vr: 0})), 34)),
+    draw: fxWave()},
+  sakura: {spawn: (W, H, d, n) => fxFall(W, H, n(90), "petal", d ? ["#FF9CC2", "#FFB8D2", "#F4C6DA", "#FFD6E6"] : ["#F48AB2", "#FFB3CF", "#F9C6D9", "#EE7AA0"], {sway: 1.6, flip: true, smin: 9, smax: 14, spread: 70}).map(p => Object.assign(p, {vx: fxR(0.5, 1.5) * p.z}))},
+  forest: {spawn: (W, H, d, n) => fxFall(W, H, n(52), "leaf", d ? ["#5CCB7E", "#7EDB98", "#3F9A5D", "#A8D86A"] : ["#2F8A4E", "#45A865", "#7FB86E", "#3E9E7A", "#9CBF4A"], {sway: 1.5, flip: true, smin: 10, smax: 16, spread: 60})
+    .concat(fxTw(W, H, n(26), "circle", d ? ["#F4EC8A", "#D9F79A"] : ["#E8C93A", "#B9D84A"], {smin: 1.6, smax: 3, glow: 12, vy: -0.35, spread: 150})), draw: fxBeams()},
+  galaxy: {len: 280, spawn: (W, H, d, n) => fxStreaks(W, H, n(5), d ? ["#FFFFFF", "#C5BCF5", "#FF9BD6"] : ["#6B4EE6", "#C04EE6", "#8C6FF5"])
+    .concat(fxTw(W, H, n(30), "sparkle", d ? ["#FFFFFF", "#B8A6FF", "#FFD1EC"] : ["#6B4EE6", "#9D86FF", "#C04EE6"], {smin: 3, smax: 7, glow: d ? 10 : 4, spread: 160})), draw: fxGalaxy()},
+  arctic: {len: 280, spawn: (W, H, d, n) => fxTw(W, H, n(d ? 46 : 24), "sparkle", d ? ["#FFFFFF", "#DFFBF0", "#E8E0FF"] : ["#FFFFFF", "#CFEFFF"], {smin: 2, smax: 4.5, top: 0.55, glow: d ? 8 : 6, spread: 170}),
+    draw: fxAurora()},
+  autumn: {spawn: (W, H, d, n) => fxFall(W, H, n(52), "maple", ["#E07A2E", "#C8561C", "#F2B23E", "#B5401A", "#E8A13A"], {sway: 1.9, flip: true, smin: 9, smax: 15, spread: 70})
+    .concat(fxFall(W, H, n(20), "oakleaf", ["#B86A2A", "#D9922F", "#9A4A1E"], {sway: 1.6, flip: true, smin: 9, smax: 13, spread: 70})).map(p => Object.assign(p, {vx: fxR(0.4, 1.6) * p.z}))},
+  lemonade: {spawn: (W, H, d, n) => fxBurst(W, H, n(18), "lemon", ["#F2C200", "#FFD84A", "#F5B800", "#9CCB3A"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 11, smax: 16, flip: true})
+    .concat(fxBurst(W, H, n(10), "mintleaf", ["#3FAE6A", "#5CC77F"], [[0.12, 1.02], [0.88, 1.02]], {smin: 8, smax: 11, flip: true}),
+      fxRise(W, H, n(54), "bubble", d ? ["#FFF6B0", "#E8FFD0"] : ["#E0B000", "#9ED08A", "#F2C200"], {smin: 2.4, smax: 5, vmin: 2, vmax: 4, sway: 0.5, life: 200}))},
+  winter: {spawn: (W, H, d, n) => fxFall(W, H, n(60), "snowsoft", d ? ["#FFFFFF", "#E6F0FF"] : ["#A9C4F2", "#C4D6F6", "#8FB0EA"], {vmin: 0.8, vmax: 1.6, sway: 1, smin: 3, smax: 6, spread: 80})
+    .concat(fxFall(W, H, n(36), "snow", d ? ["#FFFFFF", "#DCE9FF", "#B9D4FF"] : ["#6F9AE0", "#5A86D6", "#3B6FD1"], {vmin: 0.9, vmax: 1.8, sway: 1.2, smin: 8, smax: 14, glow: d ? 8 : 0, rock: 0.5, spread: 80}))},
+  xmas: {len: 280, spawn: (W, H, d, n) => fxFall(W, H, n(44), "snowsoft", d ? ["#FFFFFF", "#E6F0FF"] : ["#B9CDEB", "#D2DEF2"], {vmin: 0.7, vmax: 1.4, sway: 1, smin: 3, smax: 6, spread: 90})
+    .concat(fxTw(W, H, n(16), "star", ["#F2C24A", "#FFE08A"], {smin: 4, smax: 7, glow: 10, spread: 160})), draw: fxGarland()},
+  spring: {spawn: (W, H, d, n) => fxFlutter(W, H, n(10), ["#A884F0", "#F28BB8", "#F2C84A", "#8FC7F2"]).concat(fxFall(W, H, n(46), "petal", ["#F6A6C8", "#FFD1E3", "#FFFFFF", "#F9E28A", "#C9B2F4"], {sway: 1.5, flip: true, smin: 6, smax: 9, spread: 70}))},
+  cafe: {spawn: (W, H, d, n) => fxBurst(W, H, n(22), "bean", ["#6B4226", "#8A5A2B", "#4A2E1A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 8, smax: 11, flip: true})
+    .concat(fxAt(fxRise(W, H, n(8), "heart", d ? ["#E8B48A", "#F5D6B8"] : ["#C8885A", "#D9A47A"], {cx: [0.4, 0.6], smin: 6, smax: 9, vmin: 0.9, vmax: 1.4, sway: 1, life: 200, alpha: 0.85}), 30)), draw: fxSteam()},
+  sunset: {spawn: (W, H, d, n) => fxTw(W, H, n(46), "glint", d ? ["#FFE2A8", "#FFFFFF"] : ["#F5A623", "#FFC46B", "#E8894A"], {smin: 8, smax: 15, glow: d ? 8 : 6, glint: true, spread: 160}).map(p => Object.assign(p, {y: H * fxR(0.55, 0.98), rot: 0, vr: 0}))
+    .concat(fxBurst(W, H, n(18), "shell", ["#FBC3A8", "#F7A58A", "#FFD9C2"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 14}), fxBurst(W, H, n(8), "starfish", ["#F07A8A", "#E8566C"], [[0.3, 1.02], [0.7, 1.02]], {smin: 10, smax: 14}),
+      Array.from({length: 3}, (_, i) => { const l = i % 2 === 0; return {shape: "gull", c: d ? "#F4E6F0" : "#5A4652", x: l ? -40 : W + 40, y: H * fxR(0.12, 0.34), vx: (l ? 1 : -1) * fxR(1.4, 2.2), vy: fxR(-0.25, 0.1), g: 0, size: fxR(15, 21), face: true, flap: 0.11, sway: 0, life: 260, delay: 10 + i * 25}; }))},
+  mint: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "mintleaf", ["#25B585", "#3FD6A0", "#0F845F"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 12, smax: 16, flip: true})
+    .concat(fxBurst(W, H, n(30), "chip", ["#4A2E1A", "#6B4226", "#3A2A20"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 4.5, smax: 6.5}))},
+  summer: {spawn: (W, H, d, n) => fxBurst(W, H, n(34), "drop", ["#23B5D3", "#4FC3F7", "#0E86C9"], [[0.25, 1.02], [0.75, 1.02]], {smin: 6, smax: 10})
+    .concat(fxFall(W, H, n(5), "ball", ["#FF6B6B", "#FF8A3D", "#E84393"], {vmin: 3, vmax: 5, sway: 0, smin: 15, smax: 21, depth: false}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})),
+      fxTw(W, H, n(18), "sparkle", ["#FFD23F", "#FFE98A"], {smin: 3, smax: 7, glow: 8}))},
+  bokeh: {spawn: (W, H, d, n) => fxTw(W, H, n(42), "bokeh", ["#FF64A0", "#28BEC8", "#FFB43C", "#8C6EFF", "#FFFFFF"], {smin: 10, smax: 26, grow: 0.05, vy: -0.3, alpha: d ? 0.85 : 0.75, glint: false, spread: 120}).map(p => Object.assign(p, {life: fxR(120, 190)}))},
+  neon: {spawn: (W, H, d, n) => fxAt(fxBurst(W, H, n(54), "circle", ["#4A86FF", "#6E8FFF", "#D05BEF", "#C84BEB"], [[0.5, 0.46]], {smin: 1.6, smax: 3, g: 0.04, glow: 14}).map(p => Object.assign(p, {vx: p.vx * 1.3, vy: p.vy * 1.3})), 26), draw: fxNeonCheck()},
+  candy: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "candy", ["#FF6FB5", "#8EE4B8", "#C9A0FF", "#FFD86B", "#6FD3FF"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 13, smax: 18, flip: true})
+    .concat(fxTw(W, H, n(16), "sparkle", ["#FFFFFF", "#FFD1EC"], {smin: 3, smax: 6, glow: 8}))},
+  arcade: {spawn: (W, H, d, n) => fxTw(W, H, n(30), "sparkle", ["#FF96C8", "#FFB45A", "#B48CFF", "#FFFFFF"], {smin: 3, smax: 7, glow: 12, top: 0.6, spread: 160}), draw: fxSynth()}
 };
 
 
-/* Sprites: each shape is drawn once into a small image, then stamped */
+/* Sprites: each shape is drawn once into a small image, then stamped. Filled shapes get soft light from the top left
+   and shade at the bottom right so they read as objects, not flat stickers. A shape can paint itself instead
+   (paint(g, color, dark), in the same -12..12 box) for things that need more than one color. flat: true skips the shading. */
 const FX_SPR = new Map(), SPR_U = 2.4, SPR_S = 64, SPR_G = 96;
-function fxSprite(shape, color, glow, dark){
-  const key = shape + "|" + color + "|" + (glow || 0) + "|" + (dark ? 1 : 0);
+const fxShade = (c, k) => { const m = /^#([0-9a-f]{6})$/i.exec(c); if (!m) return c; const v = parseInt(m[1], 16); return "#" + [16, 8, 0].map(s => Math.round(((v >> s) & 255) * k)).map(x => Math.min(255, x).toString(16).padStart(2, "0")).join(""); };
+function fxSprite(shape, color, glow, dark, back){
+  const key = shape + "|" + color + "|" + (glow || 0) + "|" + (dark ? 1 : 0) + (back ? "|b" : "");
   let c = FX_SPR.get(key); if (c) return c;
-  const S = glow ? SPR_G : SPR_S, sh = FX_SHAPES[shape], pp = fxPath(shape);
-  c = document.createElement("canvas"); c.width = c.height = S;
-  const g = c.getContext("2d");
-  g.translate(S / 2, S / 2); g.scale(SPR_U, SPR_U);
-  if (glow) { g.shadowBlur = glow * SPR_U; g.shadowColor = color; }
-  if (shape === "orb") { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 10); gr.addColorStop(0, color); gr.addColorStop(0.55, color); gr.addColorStop(1, "rgba(0,0,0,0)"); g.globalAlpha = 0.9; g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 10, 0, 6.3); g.fill(); }
-  else if (shape === "puffsoft") { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, color); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); }
-  else if (sh.stroke) { g.strokeStyle = color; g.lineWidth = sh.lw || 1.4; g.lineCap = "round"; g.stroke(pp.d); }
-  else { g.fillStyle = color; g.fill(pp.d); }
-  if (pp.detail && shape !== "orb" && shape !== "puffsoft") {
-    g.shadowBlur = 0;
-    if (sh.dfill) { g.fillStyle = shape === "bulb" ? "#9AA0A8" : dark ? "rgba(0,0,0,.35)" : "rgba(255,255,255,.55)"; g.fill(pp.detail); }
-    else { g.strokeStyle = shape === "butterfly" ? "rgba(40,30,60,.55)" : shape === "bubble" ? color : shape === "bean" ? "rgba(255,240,220,.6)" : "rgba(255,255,255,.7)"; g.lineWidth = 1.1; g.lineCap = "round"; g.stroke(pp.detail); }
+  const S = glow ? SPR_G : SPR_S, sh = FX_SHAPES[shape];
+  const body = document.createElement("canvas"); body.width = body.height = S;
+  const b = body.getContext("2d"); b.translate(S / 2, S / 2); b.scale(SPR_U, SPR_U);
+  const col = back ? fxShade(color, 0.74) : color;
+  if (sh.paint) sh.paint(b, col, dark);
+  else {
+    const pp = fxPath(shape);
+    if (shape === "orb") { const gr = b.createRadialGradient(0, 0, 0, 0, 0, 10); gr.addColorStop(0, col); gr.addColorStop(0.55, col); gr.addColorStop(1, "rgba(0,0,0,0)"); b.globalAlpha = 0.9; b.fillStyle = gr; b.beginPath(); b.arc(0, 0, 10, 0, 6.3); b.fill(); }
+    else if (shape === "puffsoft") { const gr = b.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, col); gr.addColorStop(1, "rgba(0,0,0,0)"); b.fillStyle = gr; b.beginPath(); b.arc(0, 0, 12, 0, 6.3); b.fill(); }
+    else if (sh.stroke) { b.strokeStyle = col; b.lineWidth = sh.lw || 1.4; b.lineCap = b.lineJoin = "round"; b.stroke(pp.d); }
+    else {
+      b.fillStyle = col; b.fill(pp.d);
+      if (!sh.flat) { b.save(); b.globalCompositeOperation = "source-atop"; const gr = b.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${back ? 0.1 : 0.34})`); gr.addColorStop(0.42, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dark ? 0.26 : 0.2})`); b.fillStyle = gr; b.fillRect(-13, -13, 26, 26); b.restore(); }
+    }
+    if (pp.detail && shape !== "orb" && shape !== "puffsoft") {
+      if (sh.dfill) { b.fillStyle = shape === "bulb" ? "#9AA0A8" : dark ? "rgba(0,0,0,.35)" : "rgba(255,255,255,.55)"; b.fill(pp.detail); }
+      else { b.strokeStyle = shape === "butterfly" ? "rgba(40,30,60,.55)" : shape === "bubble" ? col : shape === "bean" ? "rgba(255,240,220,.6)" : "rgba(255,255,255,.7)"; b.lineWidth = 1.1; b.lineCap = "round"; b.stroke(pp.detail); }
+    }
   }
+  if (!glow) c = body;
+  else { c = document.createElement("canvas"); c.width = c.height = S; const g = c.getContext("2d"); g.shadowBlur = glow * SPR_U; g.shadowColor = color; g.drawImage(body, 0, 0); }
   c._half = S / 2 / SPR_U;
-  FX_SPR.set(key, c); if (FX_SPR.size > 400) FX_SPR.delete(FX_SPR.keys().next().value);
+  FX_SPR.set(key, c); if (FX_SPR.size > 500) FX_SPR.delete(FX_SPR.keys().next().value);
   return c;
 }
 FX_SHAPES.orb = {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0"};
@@ -8423,6 +8643,10 @@ const fxDefer = fn => { const w = fxBusyMs(); w > 0 ? setTimeout(fn, w + 120) : 
 /* The pop-up plays in front of the page */
 function ambientPause(on){}
 
+/* Plays one theme's pop-up. It lasts fx.len frames (about 4.5 s by default) and always ends with a gentle fade of the
+   whole layer over its last second, so nothing is ever cut off mid-flight. */
+const FX_LEN = 270, FX_FADE = 60;
+const fxEase = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 function runThemeFx(fx){
   if (window.SBMotion && SBMotion.noParticles()) { SBMotion.flash(); return; }
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -8431,26 +8655,30 @@ function runThemeFx(fx){
   const dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight, dark = isDarkNow();
   cv.width = W * dpr; cv.height = H * dpr; document.body.appendChild(cv);
   const g = cv.getContext("2d"); g.scale(dpr, dpr);
-  const scale = 1.5 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+  const scale = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
   const n = x => Math.max(3, Math.round(x * (reduce ? 0.3 : 1) * Math.min(1.3, Math.max(0.55, W * H / 1100000))));
+  const LEN = Math.min(360, fx.len || FX_LEN), FADE = Math.min(FX_FADE, LEN / 3);
   const P = fx.spawn(W, H, dark, n);
-  P.forEach(p => { p.age = 0; if (p.shape) p.spr = fxSprite(p.shape, p.c, p.glow, dark); });
-  fxUntil = performance.now() + 5200; ambientPause(true);
-  let f = 0, last = performance.now(), acc = 0;
+  P.sort((a, b) => (a.z || 1) - (b.z || 1));
+  P.forEach(p => { p.age = 0; p.ph0 = p.ph0 != null ? p.ph0 : fxR(0, 6.3); p.rot = p.rot || 0; p.rot0 = p.rot;
+    if (p.flip) { p.fsp = fxR(0.05, 0.11); p.fph = fxR(0, 6.3); }
+    if (p.shape) { p.spr = fxSprite(p.shape, p.c, p.glow, dark); if (p.flip) p.sprB = fxSprite(p.shape, p.c, p.glow, dark, true); } });
+  fxUntil = performance.now() + LEN * 16.7 + 400; ambientPause(true);
+  let f = 0, last = performance.now(), acc = 0, done = false;
+  const finish = () => { if (done) return; done = true; cv.remove(); ambientPause(false); fxUntil = performance.now() + 200; };
   const step = now => {
     acc += Math.min(100, now - last); last = now;
     let ticks = 0; while (acc >= 16.6 && ticks < 4) { acc -= 16.6; ticks++; tick(); }
     if (!ticks) { requestAnimationFrame(step); return; }
+    if (f >= LEN) { finish(); return; }
+    cv.style.opacity = String(1 - fxEase((f - (LEN - FADE)) / FADE));
     g.clearRect(0, 0, W, H);
-    if (fx.draw) fx.draw(g, f, W, H, dark);
-    let alive = 0;
+    if (fx.draw) { g.save(); fx.draw(g, f, W, H, dark); g.restore(); }
     for (const p of P) {
-      if (f < (p.delay || 0)) { alive++; continue; }
-      if (p.dead) continue;
-      alive++;
-      let a = p.alpha || 1;
-      if (p.tw) a *= Math.sin(Math.PI * p.age / p.life);
-      else { const left = p.life - p.age; if (left < 30) a *= left / 30; if (p.age < 8) a *= p.age / 8; }
+      if (f < (p.delay || 0) || p.dead) continue;
+      let a = p.alpha || 1, s = p.size * scale / 10 * (1 + (p.grow || 0) * p.age / 10);
+      if (p.tw) { const e = Math.sin(Math.PI * p.age / p.life); a *= e; if (p.glint) s *= 0.35 + 0.65 * e; }
+      else { const left = p.life - p.age; a *= fxEase(left / 40) * fxEase(p.age / 10); }
       if (a <= 0.01) continue;
       g.globalAlpha = Math.min(1, a);
       if (p.streak) {
@@ -8459,16 +8687,20 @@ function runThemeFx(fx){
         g.strokeStyle = grd; g.lineWidth = 2.2; g.lineCap = "round"; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - ux * len, p.y - uy * len); g.stroke();
         continue;
       }
-      const s = p.size * scale / 10 * (1 + (p.grow || 0) * p.age / 10);
-      const fl = p.flip ? Math.cos(p.age * 0.08 + p.x * 0.02) : 1, fp = p.flap ? 0.35 + 0.65 * Math.abs(Math.cos(p.age * p.flap)) : 1;
-      const sx = s * fl * fp, c = Math.cos(p.rot), si = Math.sin(p.rot), h = p.spr._half;
+      let rot = p.rot, mx = 1, spr = p.spr;
+      if (p.face) { const vx = p.vx + (p.dx || 0), vy = p.vy; if (vx < 0) { mx = -1; rot = Math.atan2(-vy, -vx); } else rot = Math.atan2(vy, vx); }
+      if (p.wig) rot += Math.sin(p.age * 0.22 + p.ph0) * p.wig;
+      let fl = 1;
+      if (p.flip) { fl = Math.cos(p.age * p.fsp + p.fph); if (fl < 0 && p.sprB) spr = p.sprB; fl = Math.sign(fl || 1) * Math.max(0.12, Math.abs(fl)); }
+      const fp = p.flap ? 0.35 + 0.65 * Math.abs(Math.cos(p.age * p.flap)) : 1;
+      const sx = s * fl * fp * mx, c = Math.cos(rot), si = Math.sin(rot), h = spr._half;
       g.setTransform(dpr * c * sx, dpr * si * sx, -dpr * si * s, dpr * c * s, dpr * p.x, dpr * p.y);
-      g.drawImage(p.spr, -h, -h, 2 * h, 2 * h);
+      g.drawImage(spr, -h, -h, 2 * h, 2 * h);
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     g.globalAlpha = 1;
-    if ((alive || (fx.draw && f < 200)) && f < 300) requestAnimationFrame(step);
-    else { cv.style.transition = "opacity .3s"; cv.style.opacity = "0"; setTimeout(() => { cv.remove(); ambientPause(false); }, 320); fxUntil = performance.now() + 350; }
+    if (fx.over) { g.save(); fx.over(g, f, W, H, dark); g.restore(); }
+    requestAnimationFrame(step);
   };
   const tick = () => {
     for (const p of P) {
@@ -8476,16 +8708,20 @@ function runThemeFx(fx){
       p.age++;
       if (p.age > p.life) { p.dead = true; continue; }
       p.vy += p.g || 0; if (p.drag) { p.vx *= p.drag; p.vy *= p.drag; }
-      p.x += p.vx + (p.sway ? Math.sin(p.age * (p.swf || 0.05) + p.ph0) * p.sway : 0); p.y += p.vy; p.rot += p.vr || 0;
+      if (p.term && p.vy > p.term) p.vy += (p.term - p.vy) * 0.12;
+      const ph = p.age * (p.swf || 0.05) + p.ph0;
+      let sw = p.sway || 0; if (p.fsw && p.term) sw += p.fsw * Math.max(0, Math.min(1, p.vy / p.term));
+      p.dx = sw ? Math.sin(ph) * sw : 0;
+      p.x += p.vx + p.dx; p.y += p.vy;
+      if (p.rock) p.rot = p.rot0 + Math.cos(ph) * p.rock; else p.rot += p.vr || 0;
+      if (p.fsw && p.term && !p.rock && p.vy > 0) p.vr *= 0.97;
       if (p.bounce && p.y > H - p.size * scale && p.vy > 0) { p.y = H - p.size * scale; p.vy *= -0.62; p.vx *= 0.9; }
-      if (p.y > H + 60 || p.y < -H) p.dead = true;
+      if (p.y > H + 80 || p.y < -H || p.x < -W * 0.6 || p.x > W * 1.6) p.dead = true;
     }
     f++;
   };
-  P.forEach(p => { p.ph0 = p.x * 0.01; p.rot = p.rot || 0; });
   requestAnimationFrame(t => { last = t; requestAnimationFrame(step); });
 }
-
 
 FX_SHAPES.fish = {d: "M10 0C6 -5.5 -3 -5.5 -6 0C-3 5.5 6 5.5 10 0ZM-5 0L-10.5 -4.5L-9.5 0L-10.5 4.5Z", detail: "M4 -1.2a1 1 0 1 0 2 0a1 1 0 1 0 -2 0", dfill: true};
 FX_SHAPES.fallleaf = {d: "M0 -10.5C4.6 -8 7.2 -3.2 6.4 1.6C5.8 5.4 3.2 8.2 0.6 9.4L0.6 12.5L-0.6 12.5L-0.6 9.4C-3.2 8.2 -5.8 5.4 -6.4 1.6C-7.2 -3.2 -4.6 -8 0 -10.5Z", detail: "M0 -8.5L0 9M0 -3L3.4 -5.6M0 1L4 -1.6M0 -3L-3.4 -5.6M0 1L-4 -1.6", dstroke: true};
@@ -22718,30 +22954,163 @@ const SCN20 = (() => {
     moon: {d: "M3 -9.6A9.6 9.6 0 1 0 9.6 3A7.4 7.4 0 1 1 3 -9.6Z"}
   });
   /* Task pop-ups for the nine new themes, in the same style as the others */
-  const koiSwim = (W, H, n, cols, d) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, sp = fxR(2.2, 3.6), vx = (left ? 1 : -1) * sp, vy = -fxR(0.15, 0.8);
-    return {shape: "fish", c: fxPick(cols), x: left ? fxR(-70, -20) : W + fxR(20, 70), y: fxR(H * 0.3, H * 0.95), vx, vy, g: 0, size: fxR(14, 22), rot: Math.atan2(vy, vx), vr: 0, sway: 0, life: 280, delay: Math.floor(fxR(0, 60)), glow: d ? 8 : 0}; });
-  const sandGust = (W, H, n, cols) => Array.from({length: n}, () => ({shape: "circle", c: fxPick(cols), x: fxR(-W * 0.45, -10), y: fxR(H * 0.2, H), vx: fxR(5, 9), vy: fxR(-0.7, 0.2), g: 0, size: fxR(1.6, 3.4), rot: 0, vr: 0, sway: 0.9, swf: fxR(0.05, 0.1), life: 220, delay: Math.floor(fxR(0, 80)), alpha: 0.9}));
-  const paperPlanes = (W, H, n, cols) => Array.from({length: n}, () => { const sp = fxR(3.2, 5), a = -fxR(0.18, 0.5), vx = Math.cos(a) * sp, vy = Math.sin(a) * sp;
-    return {shape: "plane", c: fxPick(cols), x: fxR(-60, W * 0.55), y: fxR(H * 0.7, H + 60), vx, vy, g: 0, size: fxR(12, 18), rot: a, vr: 0, sway: 0, life: 240, delay: Math.floor(fxR(0, 90))}; });
+  // color helpers for the painted sprites below
+  const hx3 = c => { const v = parseInt(c.slice(1), 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; };
+  const mix = (a, b, t) => { const A = hx3(a), B = hx3(b); return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
+  const P2 = s => new Path2D(s);
+  const ellP = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  // soft light from the top left on whatever was just painted
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // koi seen from above, head toward +x; the color picks the variety
+  const KOI_BODY = "M10.8 0C10.6 -2.4 7.8 -3.7 4 -3.7C-0.8 -3.7 -4.6 -2.1 -7.2 -0.8L-7.6 0L-7.2 0.8C-4.6 2.1 -0.8 3.7 4 3.7C7.8 3.7 10.6 2.4 10.8 0Z";
+  const KOI_TAIL = "M-6.6 0C-8.4 -1.2 -10.2 -4.6 -12 -5.6C-11.4 -2.8 -10.9 -1.1 -10.3 0C-10.9 1.1 -11.4 2.8 -12 5.6C-10.2 4.6 -8.4 1.2 -6.6 0Z";
+  const KOI_FINS = "M5.2 -3.4C4 -6.6 1.4 -8.4 -0.8 -8.2C0.6 -6.4 1.6 -4.6 2.2 -3.6Z M5.2 3.4C4 6.6 1.4 8.4 -0.8 8.2C0.6 6.4 1.6 4.6 2.2 3.6Z M-1.8 -2.7C-3 -4.6 -4.6 -5.4 -5.8 -5.2C-4.8 -4.2 -4.1 -3.2 -3.8 -2.2Z M-1.8 2.7C-3 4.6 -4.6 5.4 -5.8 5.2C-4.8 4.2 -4.1 3.2 -3.8 2.2Z";
+  const KOI = {
+    "#F7F3EC": {base: "#FBF8F2", fin: "#FFFFFF", spots: [["#E2432C", 5.4, 0, 3.1, 2.8], ["#E2432C", 0, 0.5, 2.9, 2.7], ["#D93A26", -4.4, -0.4, 2, 1.8]]}, // kohaku
+    "#F3EEE6": {base: "#FBF8F3", fin: "#FFFFFF", spots: [["#E04A2E", 4.6, -0.3, 2.8, 2.6], ["#E04A2E", -1.6, 0.4, 2.6, 2.4], ["#1E1A20", 1.2, -2, 1, 0.8], ["#1E1A20", -4.4, 1.2, 0.9, 0.7], ["#1E1A20", 3, 2.2, 0.8, 0.6]]}, // sanke
+    "#2A2630": {base: "#25212A", fin: "#EFE8E0", spots: [["#E04A2E", 5.6, 0.2, 2.6, 2.6], ["#E04A2E", -0.4, -0.8, 2.6, 2], ["#F6F2EC", 2, 1.8, 1.8, 1.2], ["#F6F2EC", -4.6, 0.4, 1.4, 1]]}, // showa
+    "#EFB23A": {base: "#F2B53E", fin: "#F6CF72", spots: [["#FFE7A0", 4.6, -1.2, 3.6, 1.2]]}, // ogon
+    "#FAF7F2": {base: "#FCFAF6", fin: "#FFFFFF", spots: [["#E2432C", 6.6, 0, 1.9, 1.9]]}, // tancho
+    "#EE7A34": {base: "#F07E36", fin: "#F6A066", spots: [["#FFF4E8", 6.4, 0, 2.6, 2.6], ["#FFB27A", -1, -1, 3, 1]]} // orange
+  };
+  const KOI_C = Object.keys(KOI);
+  const paintKoi = (g, c) => { const k = KOI[c] || {base: c, fin: mix(c, "#FFFFFF", 0.4), spots: []}, body = P2(KOI_BODY);
+    g.save(); g.globalAlpha = 0.72; g.fillStyle = k.fin; g.fill(P2(KOI_FINS)); g.fill(P2(KOI_TAIL)); g.globalAlpha = 0.35; g.strokeStyle = mix(k.base === "#25212A" ? "#888088" : k.base, "#000000", 0.35); g.lineWidth = 0.25;
+    g.beginPath(); for (let i = -2; i <= 2; i++) { g.moveTo(-7.4, 0); g.lineTo(-11.4, i * 2.2); g.moveTo(3.2, -3.8); g.lineTo(0.4 - i * 0.6, -7.4); g.moveTo(3.2, 3.8); g.lineTo(0.4 - i * 0.6, 7.4); } g.stroke(); g.restore();
+    g.save(); g.fillStyle = k.base; g.fill(body); g.clip(body); k.spots.forEach(([col, x, y, rx, ry]) => { g.fillStyle = col; ellP(g, x, y, rx, ry, 0.3); g.fill(); });
+    const gr = g.createLinearGradient(0, -4.2, 0, 4.2); gr.addColorStop(0, "rgba(0,0,0,.22)"); gr.addColorStop(0.32, "rgba(255,255,255,.18)"); gr.addColorStop(0.5, "rgba(255,255,255,0)"); gr.addColorStop(1, "rgba(0,0,0,.26)"); g.fillStyle = gr; g.fillRect(-12, -5, 24, 10);
+    g.fillStyle = "rgba(255,255,255,.28)"; ellP(g, 1, -0.6, 6, 0.5); g.fill(); g.restore();
+    g.strokeStyle = "rgba(20,40,40,.25)"; g.lineWidth = 0.3; g.stroke(body);
+    g.fillStyle = "#16141A"; ellP(g, 8.2, -2.3, 0.55, 0.5); g.fill(); ellP(g, 8.2, 2.3, 0.55, 0.5); g.fill(); };
+  // a hot air balloon: striped gores, a trim band, ropes and a wicker basket
+  const ENV = "M0 -11.4C6.4 -11.4 9 -6.8 9 -3C9 1.2 4.6 4.4 2.6 6.2L-2.6 6.2C-4.6 4.4 -9 1.2 -9 -3C-9 -6.8 -6.4 -11.4 0 -11.4Z";
+  const paintHotair = (g, c) => { const env = P2(ENV), lt = mix(c, "#FFFFFF", 0.62);
+    g.save(); g.fillStyle = c; g.fill(env); g.clip(env); [[0.74, lt], [0.46, c], [0.18, lt]].forEach(([k, col]) => { g.fillStyle = col; ellP(g, 0, -2.4, 9 * k, 10.2); g.fill(); });
+    g.fillStyle = fxShade(c, 0.72); g.fillRect(-10, 2.2, 20, 1.3); g.restore(); sheen(g, 0.36, 0.24);
+    g.fillStyle = fxShade(c, 0.6); g.beginPath(); g.moveTo(-2.6, 6.1); g.lineTo(2.6, 6.1); g.lineTo(1.7, 7.6); g.lineTo(-1.7, 7.6); g.fill();
+    g.strokeStyle = "#5A4636"; g.lineWidth = 0.35; g.beginPath(); g.moveTo(-1.6, 7.6); g.lineTo(-1.9, 9.2); g.moveTo(1.6, 7.6); g.lineTo(1.9, 9.2); g.stroke();
+    g.fillStyle = "#A0703F"; g.fillRect(-2.2, 9.1, 4.4, 2.6); g.fillStyle = "#7A5230"; g.fillRect(-2.2, 9.1, 4.4, 0.6); g.fillRect(-2.2, 10.6, 4.4, 0.35); };
+  // a paraglider seen from the front: an arched wing of cells, lines down to the pilot
+  const WING = "M-11.4 -3.4Q0 -15.6 11.4 -3.4L10 -2.2Q0 -12.4 -10 -2.2Z";
+  const paintGlider = (g, c) => { const w = P2(WING), lt = mix(c, "#FFFFFF", 0.7);
+    g.strokeStyle = "rgba(60,64,80,.6)"; g.lineWidth = 0.22; g.beginPath(); [-10.6, -6.4, -2.2, 2.2, 6.4, 10.6].forEach(x => { g.moveTo(x, -2.8 - (11 - Math.abs(x)) * 0.5); g.lineTo(0, 6.4); }); g.stroke();
+    g.save(); g.fillStyle = c; g.fill(w); g.clip(w); for (let i = 0; i < 7; i++) if (i % 2) { g.fillStyle = lt; g.fillRect(-11.4 + i * 3.26, -13, 3.26, 12); } g.fillStyle = fxShade(c, 0.66); g.fillRect(-12, -13, 2.4, 12); g.fillRect(9.6, -13, 2.4, 12); g.restore(); sheen(g, 0.3, 0.2);
+    g.fillStyle = "#2E2A36"; ellP(g, 0, 6.8, 1.1, 1.1); g.fill(); g.fillStyle = fxShade(c, 0.75); g.beginPath(); g.moveTo(-1.4, 7.8); g.lineTo(1.4, 7.8); g.lineTo(1.1, 10.4); g.lineTo(-1.1, 10.4); g.fill(); g.fillStyle = "#2E2A36"; g.fillRect(-1, 10.3, 0.7, 1.5); g.fillRect(0.3, 10.3, 0.7, 1.5); };
+  // edelweiss: felted white star petals around a cluster of little yellow heads
+  const paintEdel = (g, c, d) => { const rim = d ? "rgba(150,170,150,.8)" : "#9AAE96"; g.lineWidth = 0.45; g.strokeStyle = rim;
+    for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + (i % 2) * 0.12, L = i % 2 ? 9.6 : 11; g.save(); g.rotate(a); g.beginPath(); g.moveTo(1.6, -1.6); g.quadraticCurveTo(L * 0.55, -3.4, L, 0); g.quadraticCurveTo(L * 0.55, 3.4, 1.6, 1.6); g.closePath(); g.fillStyle = c; g.fill(); g.stroke(); g.fillStyle = "rgba(150,175,140,.35)"; ellP(g, L - 1.6, 0, 1.6, 0.9); g.fill(); g.restore(); }
+    g.fillStyle = "#E8B83A"; ellP(g, 0, 0, 3, 3); g.fill(); g.fillStyle = "#F8DC6A"; [[-1, -1], [1.1, -0.8], [0, 1.2], [-1.4, 0.8], [1.3, 1]].forEach(([x, y]) => { ellP(g, x, y, 0.85, 0.85); g.fill(); }); };
+  // a rain streak pointing toward +x: fades in from the tail to a bright little bead
+  const paintRain = (g, c) => { const gr = g.createLinearGradient(-12, 0, 10, 0); gr.addColorStop(0, mix(c, "#FFFFFF", 0.2) + "00"); gr.addColorStop(1, c); g.strokeStyle = gr; g.lineCap = "round"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-12, 0); g.lineTo(9, 0); g.stroke(); g.fillStyle = c; ellP(g, 9.6, 0, 1.7, 1.25); g.fill(); g.fillStyle = "rgba(255,255,255,.6)"; ellP(g, 9.9, -0.45, 0.6, 0.4); g.fill(); };
+  // a jellyfish: glassy scalloped bell, frilly arms and trailing tentacles
+  const BELL = "M-8 1C-8.4 -5.6 -4.6 -9.6 0 -9.6C4.6 -9.6 8.4 -5.6 8 1Q6 2.6 4 1.4Q2 2.8 0 1.4Q-2 2.8 -4 1.4Q-6 2.6 -8 1Z";
+  const paintJelly = (g, c, d) => { const bell = P2(BELL), lt = mix(c, "#FFFFFF", 0.55);
+    g.lineCap = "round"; g.strokeStyle = c; g.globalAlpha = 0.55; g.lineWidth = 0.45; g.beginPath(); [-6.6, -3.4, 3.4, 6.6].forEach((x, i) => { g.moveTo(x, 1.6); g.bezierCurveTo(x + 1.6, 4.4, x - 1.6, 7.6, x + (i % 2 ? 0.8 : -0.8), 11.6); }); g.stroke();
+    g.globalAlpha = 0.7; g.fillStyle = lt; [-1.4, 1.4].forEach(x => { g.beginPath(); g.moveTo(x - 1, 1.6); g.bezierCurveTo(x - 2.6, 4.4, x + 1.4, 6.4, x - 0.6, 10); g.bezierCurveTo(x + 2.2, 7.2, x - 0.6, 4.6, x + 1, 1.6); g.fill(); });
+    g.globalAlpha = d ? 0.86 : 0.92; const gr = g.createRadialGradient(-2, -5.6, 0.5, 0, -3, 10.4); gr.addColorStop(0, lt); gr.addColorStop(0.6, c); gr.addColorStop(1, fxShade(c, 0.8)); g.fillStyle = gr; g.fill(bell);
+    g.globalAlpha = 0.55; g.strokeStyle = "#FFFFFF"; g.lineWidth = 0.5; g.beginPath(); [[-2.6, -3.6], [2.6, -3.6]].forEach(([x, y]) => { g.moveTo(x + 1.6, y); g.ellipse(x, y, 1.6, 1.2, 0, 0, 6.3); }); g.stroke();
+    g.globalAlpha = 0.7; g.beginPath(); g.ellipse(-3.2, -6, 2.6, 1.4, -0.7, 3.4, 5); g.lineWidth = 0.9; g.stroke(); g.globalAlpha = 1; };
+  // a bamboo leaf: long and narrow, two-tone across its midrib
+  const BLEAF = "M-11.6 0.4C-7 -2.8 3 -3.4 11.6 0C3 2.6 -7 2.6 -11.6 0.4Z";
+  const paintBleaf = (g, c) => { const p = P2(BLEAF); g.save(); g.fillStyle = c; g.fill(p); g.clip(p); g.fillStyle = fxShade(c, 0.8); g.fillRect(-12, 0.2, 24, 4); g.restore(); sheen(g, 0.28, 0.18);
+    g.strokeStyle = mix(c, "#FFFFFF", 0.45); g.lineWidth = 0.4; g.beginPath(); g.moveTo(-10.4, 0.4); g.quadraticCurveTo(0, 0.1, 10.4, 0); g.stroke(); g.strokeStyle = fxShade(c, 0.6); g.lineWidth = 0.6; g.beginPath(); g.moveTo(-11.6, 0.4); g.lineTo(-12.4, 1.2); g.stroke(); };
+  // a honeybee in profile, head toward +x, wings on its back
+  const paintBee = (g, c) => { g.fillStyle = "#2A2220"; g.beginPath(); g.moveTo(-6.6, 0.2); g.lineTo(-9, 0.6); g.lineTo(-6.6, 1.2); g.fill();
+    const ab = P2("M-7 0.6C-7 -3.4 -3 -4.4 0 -4.2C2.4 -4 3.4 -2.4 3.4 0.4C3.4 3 2 4.4 -1 4.4C-4.4 4.4 -7 3.6 -7 0.6Z"); g.save(); g.fillStyle = c; g.fill(ab); g.clip(ab); g.fillStyle = "#2A2220"; [-5.2, -2.4, 0.4].forEach(x => g.fillRect(x, -5, 1.5, 10)); g.restore(); sheen(g, 0.34, 0.22);
+    g.fillStyle = "#3A302A"; ellP(g, 5, 0.2, 2.4, 2.6); g.fill(); g.fillStyle = "#FFFFFF"; ellP(g, 5.9, -0.6, 0.55, 0.55); g.fill();
+    g.strokeStyle = "#2A2220"; g.lineWidth = 0.45; g.lineCap = "round"; g.beginPath(); g.moveTo(6.2, -1.8); g.quadraticCurveTo(7.6, -4.4, 9.4, -4.6); g.stroke();
+    g.fillStyle = "rgba(235,245,255,.78)"; g.strokeStyle = "rgba(90,110,140,.55)"; g.lineWidth = 0.3; ellP(g, -1.4, -6.6, 4.6, 2.3, -0.35); g.fill(); g.stroke(); ellP(g, 1.2, -5.6, 3.2, 1.7, -0.6); g.fill(); g.stroke(); };
+  // a lavender sprig: a slim stem and pairs of buds that shade toward the top
+  const paintLav = (g, c) => { g.strokeStyle = "#6E9A54"; g.lineWidth = 0.8; g.lineCap = "round"; g.beginPath(); g.moveTo(0.6, 11.6); g.quadraticCurveTo(-0.6, 4, 0, -10); g.stroke();
+    for (let i = 0; i < 7; i++) { const y = -10.2 + i * 2.1, w = 1.2 + i * 0.12; [-1, 1].forEach(s => { g.fillStyle = (i + (s > 0)) % 2 ? c : fxShade(c, 0.78); ellP(g, s * w, y, 1.35, 1.75, s * 0.35); g.fill(); }); }
+    g.fillStyle = "rgba(255,255,255,.35)"; for (let i = 0; i < 7; i++) { ellP(g, -1.5 - i * 0.12, -10.6 + i * 2.1, 0.45, 0.6); g.fill(); } };
+  // a folded paper plane, nose toward +x
+  const paintPlane = (g, c) => { const sh = fxShade(c, 0.78), dk = fxShade(c, 0.6), poly = (pts, col) => { g.fillStyle = col; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); };
+    poly([[11, -1.2], [-10, 7.2], [-4.6, -0.4]], sh); poly([[-4.6, -0.4], [-6.4, 3.6], [0.6, -0.8]], dk); poly([[11, -1.2], [-10, -8.4], [-4.6, -0.4]], c); sheen(g, 0.3, 0.16);
+    g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = 0.35; g.beginPath(); g.moveTo(10.4, -1.3); g.lineTo(-7.6, -5.6); g.stroke(); g.strokeStyle = "rgba(0,0,0,.18)"; g.beginPath(); g.moveTo(11, -1.2); g.lineTo(-4.6, -0.4); g.stroke(); };
+  // a lily pad, sometimes with a pink water lily on it
+  const paintPad = flower => (g, c) => { const p = P2("M0 0L10.54 -2.36A10.8 10.8 0 1 0 10.54 2.36Z"); g.save(); g.fillStyle = c; g.fill(p); g.clip(p);
+    g.strokeStyle = mix(c, "#FFFFFF", 0.3); g.lineWidth = 0.4; g.beginPath(); for (let i = 1; i < 10; i++) { const a = 0.3 + i / 10 * 5.7; g.moveTo(0, 0); g.lineTo(Math.cos(a) * 10, Math.sin(a) * 10); } g.stroke();
+    g.strokeStyle = fxShade(c, 0.7); g.lineWidth = 1.2; g.beginPath(); g.arc(0, 0, 10.6, 0.25, 6.05); g.stroke(); g.restore(); sheen(g, 0.24, 0.2);
+    if (!flower) return; for (let r = 0; r < 2; r++) for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + r * 0.4, L = r ? 4.4 : 6.6; g.save(); g.translate(-2, 0); g.rotate(a); g.fillStyle = r ? "#FFD8E6" : "#F4A2C2"; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(L * 0.5, -2.2, L, 0); g.quadraticCurveTo(L * 0.5, 2.2, 0, 0); g.fill(); g.restore(); }
+    g.fillStyle = "#F6C94A"; ellP(g, -2, 0, 1.4, 1.4); g.fill(); };
+  // a slim dash of blown sand
+  Object.assign(FX_SHAPES, {
+    koifish: {d: KOI_BODY + KOI_TAIL + KOI_FINS, paint: paintKoi},
+    lilypad: {d: "M0 0L10.54 -2.36A10.8 10.8 0 1 0 10.54 2.36Z", paint: paintPad(false)},
+    lilylotus: {d: "M0 0L10.54 -2.36A10.8 10.8 0 1 0 10.54 2.36Z", paint: paintPad(true)},
+    hotair: {d: ENV + "M-2.2 9.1H2.2V11.7H-2.2Z", paint: paintHotair},
+    paraglider: {d: WING + "M-1.4 7.8H1.4L1.1 10.4H-1.1Z", paint: paintGlider},
+    edelweiss: {d: [0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i / 8 * 6.283, c = Math.cos(a), s = Math.sin(a); return `M0 0L${(c * 10 - s * 2).toFixed(2)} ${(s * 10 + c * 2).toFixed(2)}L${(c * 10 + s * 2).toFixed(2)} ${(s * 10 - c * 2).toFixed(2)}Z`; }).join(""), paint: paintEdel},
+    rainline: {d: "M-12 -0.7H9.6A1.7 1.7 0 0 1 9.6 0.7H-12Z", paint: paintRain},
+    sandgrain: {d: "M-7 0Q-1 -2.2 7 -0.5Q8.2 0 7 0.5Q-1 2.2 -7 0Z"},
+    jellyfish: {d: BELL, paint: paintJelly},
+    bambooleaf: {d: BLEAF, paint: paintBleaf},
+    honeybee: {d: "M-7 0.6C-7 -3.4 -3 -4.4 0 -4.2C2.4 -4 3.4 -2.4 3.4 0.4C3.4 3 2 4.4 -1 4.4C-4.4 4.4 -7 3.6 -7 0.6Z", paint: paintBee},
+    lavsprig: {d: "M-0.4 -11H0.4V11.6H-0.4Z", paint: paintLav},
+    paperplane: {d: "M11 -1.2L-10 -8.4L-4.6 -0.4L-10 7.2Z", paint: paintPlane}
+  });
+  // koi glide in slow arcs across the pond, facing where they swim, with ripples spreading on the surface
+  let koiRip = [], rainSplash = [];
+  const koiSwim = (W, H, n) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, z = fxR(0.72, 1.12), sp = fxR(1.6, 2.6) * z, vy = fxR(-0.6, 0.6);
+    return {shape: "koifish", c: KOI_C[i % KOI_C.length], x: left ? fxR(-80, W * 0.35) : fxR(W * 0.65, W + 80), y: fxR(H * 0.12, H * 0.92), vx: (left ? 1 : -1) * sp, vy, g: -Math.sign(vy) * fxR(0.002, 0.006), z, face: true, wig: fxR(0.09, 0.14),
+      size: fxR(18, 25) * z, sway: 0, life: fxR(230, 270), delay: Math.floor(fxR(0, 40)), alpha: 0.72 + 0.28 * Math.min(1, z)}; });
+  const lilies = (W, H, n, d) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0;
+    return {shape: i % 3 === 1 ? "lilylotus" : "lilypad", c: fxPick(d ? ["#3F7E4C", "#4A8A50"] : ["#5DA05A", "#6FAE60", "#4E9452"]), x: left ? fxR(0.03, 0.22) * W : fxR(0.78, 0.97) * W, y: fxR(0.12, 0.92) * H, vx: fxR(-0.12, 0.12), vy: fxR(-0.08, 0.08), g: 0, z: 2,
+      size: fxR(14, 20), rot: fxR(0, 6.3), vr: fxR(-0.003, 0.003), sway: 0, tw: true, life: 250, delay: Math.floor(fxR(0, 20))}; });
+  const koiRipples = (g, f, W, H, d) => { const m = Math.min(W, H); g.lineWidth = Math.max(1.2, m / 400); koiRip.forEach(r => { const a = (f - r.t0) / 100; if (a <= 0 || a >= 1) return;
+    for (let j = 0; j < 3; j++) { const rr = r.r * (a - j * 0.16); if (rr <= 2) continue; g.strokeStyle = d ? `rgba(200,240,232,${(1 - a) * 0.4 * (1 - j * 0.28)})` : `rgba(40,120,112,${(1 - a) * 0.34 * (1 - j * 0.28)})`; g.beginPath(); g.ellipse(r.x, r.y, rr, rr * 0.82, 0, 0, 6.3); g.stroke(); } }); };
+  // the shower: slanted streaks, little splash rings along the bottom, then a rainbow
+  const rainFall = (W, H, n, cols) => Array.from({length: n}, () => { const z = fxR(0.6, 1.12), sp = fxR(10, 14) * z;
+    return {shape: "rainline", c: fxPick(cols), x: fxR(-W * 0.2, W), y: fxR(-H * 0.5, -20), vx: sp * 0.22, vy: sp, g: 0, z, face: true, size: fxR(11, 15) * z, sway: 0, life: 160, delay: Math.floor(fxR(0, 100)), alpha: 0.6 + 0.4 * Math.min(1, z)}; });
+  const RAINBOW = ["#EE5F5B", "#F4A04A", "#F3D35A", "#6CC27A", "#57A6E4", "#9479DE"];
+  const rainDraw = (g, f, W, H, d) => { const m = Math.min(W, H);
+    g.lineWidth = Math.max(1, m / 500); rainSplash.forEach(s => { const a = (f - s.t0) / 28; if (a <= 0 || a >= 1) return; const rr = s.r * (0.25 + a); g.strokeStyle = d ? `rgba(200,220,250,${(1 - a) * 0.6})` : `rgba(60,110,170,${(1 - a) * 0.5})`; g.beginPath(); g.ellipse(s.x, s.y, rr, rr * 0.3, 0, 0, 6.3); g.stroke(); });
+    const k = fxEase((f - 95) / 60), sw = fxEase((f - 95) / 80); if (k <= 0) return; const R = Math.max(W, H) * 0.5, bw = R * 0.042, cx = W / 2, cy = H * 1.04;
+    g.globalAlpha = k * (d ? 0.42 : 0.58); g.lineWidth = bw + 0.5; RAINBOW.forEach((col, i) => { g.strokeStyle = col; g.beginPath(); g.arc(cx, cy, R - i * bw, Math.PI, Math.PI + Math.PI * sw); g.stroke(); }); };
+  // blown sand: grains streak along with the wind, and soft ribbons of sand sweep off the dune crests
+  const sandGust = (W, H, n, cols) => Array.from({length: n}, () => { const z = fxR(0.6, 1.15); return {shape: "sandgrain", c: fxPick(cols), x: fxR(-W * 0.5, -10), y: fxR(H * 0.18, H * 1.02), vx: fxR(6, 10) * z, vy: fxR(-0.9, 0.2), g: 0.004, z, face: true,
+    size: fxR(6, 10) * z, sway: 0, life: 230, delay: Math.floor(fxR(0, 120)), alpha: 0.65 + 0.35 * Math.min(1, z)}; });
+  const sandRibbons = (g, f, W, H, d) => { const sp = W * 1.9 / 170, L = W * 0.55; g.lineCap = "round";
+    for (let i = 0; i < 7; i++) { const t0 = i * 17, head = -W * 0.2 + (f - t0) * sp, tail = head - L; if (head < 0 || tail > W) continue; const y0 = H * (0.26 + ((i * 0.37) % 1) * 0.68), ph = i * 1.9, a = d ? 0.5 : 0.55;
+      const gr = g.createLinearGradient(tail, 0, head, 0), col = d ? "255,224,168" : "176,108,52"; gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.7, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`);
+      g.strokeStyle = gr; g.lineWidth = Math.max(2, Math.min(W, H) / 240) * (1 + (i % 3) * 0.5); g.beginPath();
+      for (let x = Math.max(-20, tail), s = 0; x <= Math.min(W + 20, head) + 16; x += 16, s++) { const y = y0 + Math.sin(x / (W * 0.16) + ph) * H * 0.035 - (x - tail) / L * H * 0.03; s ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } };
+  // sunlight slanting down through the bamboo
+  const bambooBeams = (g, f, W, H, d) => { const k = fxEase(f / 60) * (1 - fxEase((f - 170) / 80)); if (k <= 0) return;
+    [[0.18, 0.12], [0.46, 0.08], [0.74, 0.14]].forEach(([x0, w], i) => { const x = W * x0 + Math.sin(f / 60 + i) * W * 0.01, ww = W * w, sk = H * 0.45, gr = g.createLinearGradient(0, 0, 0, H);
+      gr.addColorStop(0, d ? "rgba(246,226,150,.16)" : "rgba(255,252,220,.5)"); gr.addColorStop(1, d ? "rgba(246,226,150,0)" : "rgba(255,252,220,0)");
+      g.globalAlpha = k; g.fillStyle = gr; g.beginPath(); g.moveTo(x, -10); g.lineTo(x + ww, -10); g.lineTo(x + ww * 1.8 + sk, H); g.lineTo(x + sk, H); g.fill(); }); };
+  // bees zig across the lavender, facing their flight
+  const bees = (W, H, n) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, vy = fxR(-0.7, 0.5);
+    return {shape: "honeybee", c: "#F2B92E", x: left ? fxR(-50, -10) : W + fxR(10, 50), y: fxR(H * 0.25, H * 0.85), vx: (left ? 1 : -1) * fxR(2.2, 3.4), vy, g: -Math.sign(vy) * fxR(0.006, 0.014), face: true, wig: 0.16, size: fxR(11, 14), sway: 0, life: 260, delay: Math.floor(fxR(0, 90))}; });
+  // paper planes glide up and over in long arcs, facing their flight
+  const paperPlanes = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const lr = i % 3 !== 2, z = fxR(0.75, 1.1), sp = fxR(3.4, 4.8) * z, a = -fxR(0.25, 0.6);
+    return {shape: "paperplane", c: fxPick(cols), x: lr ? fxR(-60, W * 0.3) : fxR(W * 0.7, W + 60), y: fxR(H * 0.6, H + 40), vx: (lr ? 1 : -1) * Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0.012 * z, z, face: true, wig: 0.03, size: fxR(14, 20) * z, sway: 0, life: 250, delay: Math.floor(fxR(0, 80))}; });
   Object.assign(THEME_FX, {
-    balloons: {spawn: (W, H, d, n) => fxRise(W, H, n(22), "balloon", d ? ["#E0806C", "#F0B85A", "#5BB5B5", "#E89A8A"] : ["#E3735F", "#EDB64C", "#4FA7A8", "#F29E8E"], {smin: 12, smax: 22, vmin: 1.2, vmax: 2.4, sway: 1, life: 300, glow: d ? 10 : 0}).map(p => Object.assign(p, {rot: fxR(-0.12, 0.12)}))
-      .concat(fxTw(W, H, n(24), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
-    koi: {spawn: (W, H, d, n) => koiSwim(W, H, n(12), d ? ["#F0915A", "#F4E6D6", "#E8703A"] : ["#F08A4B", "#F2DCC6", "#E0533A"], d)
-      .concat(fxTw(W, H, n(14), "ring", d ? ["#A9D6CF", "#E6F4F1"] : ["#FFFFFF", "#6FB5AC"], {smin: 6, smax: 10, grow: 0.35, alpha: 0.8}), fxBurst(W, H, n(20), "petal", ["#F7B6CC", "#FFFFFF", "#F28BB0"], [[0.2, 1.02], [0.8, 1.02]], {smin: 6, smax: 9, flip: true}))},
-    rain: {spawn: (W, H, d, n) => fxFall(W, H, n(90), "drop", d ? ["#9CB8E0", "#C8D8F0"] : ["#5A8FC8", "#8FB4DE", "#3F80BD"], {vmin: 7, vmax: 11, sway: 0, smin: 4, smax: 7, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0, vx: 0.4, g: 0.05, life: 170, delay: Math.floor(fxR(0, 120))}))
-      .concat(fxFall(W, H, n(7), "umbrella", ["#E0533A", "#F2B53A", "#3F80BD", "#4FA7A8", "#D96A9A"], {vmin: 0.9, vmax: 1.5, sway: 1.6, smin: 16, smax: 24}).map(p => Object.assign(p, {rot: fxR(-0.3, 0.3), vr: fxR(-0.01, 0.01)})))},
-    alpine: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "flower", d ? ["#F4F1E8", "#9CC2F0", "#F9E6A0", "#C3B0F0"] : ["#6F9AE0", "#9CC2F0", "#F2C24A", "#A884F0", "#FFFFFF"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11})
-      .concat(fxFall(W, H, n(40), "snow", d ? ["#FFFFFF", "#DCE9FF"] : ["#9DBBEF", "#6F9AE0"], {vmin: 0.8, vmax: 1.6, sway: 1.2, smin: 5, smax: 9, glow: d ? 6 : 0}))},
-    dunes: {spawn: (W, H, d, n) => sandGust(W, H, n(110), d ? ["#E7B777", "#F2D09A", "#B98C5E"] : ["#D9A066", "#E8B97A", "#C47F45"])
-      .concat(fxTw(W, H, n(26), "sparkle", d ? ["#FFE7B8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 7, top: 0.6, glow: d ? 10 : 4}), d ? fxStreaks(W, H, n(4), ["#FFE7B8", "#FFFFFF"]) : [])},
-    jelly: {spawn: (W, H, d, n) => fxRise(W, H, n(18), "jelly", d ? ["#6FF3FF", "#B89CFF", "#FF9CD8"] : ["#E07AB0", "#A884F0", "#4FB0CC"], {smin: 12, smax: 20, vmin: 0.9, vmax: 1.8, sway: 1.2, glow: d ? 16 : 6, life: 320})
-      .concat(fxRise(W, H, n(40), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 7, sway: 1, vmin: 1.6, vmax: 3}))},
-    bamboo: {spawn: (W, H, d, n) => fxFall(W, H, n(70), "bleaf", d ? ["#6FAF5A", "#9CCB8C", "#4E8A3E"] : ["#3F7A2E", "#58902E", "#8CC152", "#2F6A24"], {sway: 2, flip: true, smin: 9, smax: 14}).map(p => Object.assign(p, {vx: fxR(0.6, 1.6)}))
-      .concat(fxTw(W, H, n(24), "circle", d ? ["#F0CF7A", "#F6DF9E"] : ["#F2E7A0", "#E4F0B8"], {smin: 2, smax: 4, glow: 10, vy: -0.3}))},
-    lavenderfields: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "sprig", d ? ["#B9A2FF", "#D8CCF0", "#9A7BE0"] : ["#8A5BC0", "#A884F0", "#6A4BB0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 9, smax: 13, flip: true})
-      .concat(fxFlutter(W, H, n(8), d ? ["#F6C7A6", "#FFFFFF", "#D8CCF0"] : ["#F2C84A", "#C9A0E8", "#8FC7F2"]), fxFall(W, H, n(40), "circle", d ? ["#C3B0F0", "#9A7BE0"] : ["#8A5BC0", "#B9A2E8"], {smin: 1.5, smax: 3, sway: 1.4, vmin: 0.8, vmax: 1.6}))},
-    rooftops: {spawn: (W, H, d, n) => paperPlanes(W, H, n(9), d ? ["#FFFFFF", "#FFE3A8", "#D0CAE6"] : ["#B8502E", "#5B5575", "#3F80BD", "#E0A030"])
-      .concat(fxTw(W, H, n(36), d ? "pixel" : "sparkle", d ? ["#FFD27F", "#FFE3A8"] : ["#F2B53A", "#FFD86B"], {smin: 2.5, smax: 5, glow: d ? 10 : 4}))}
+    balloons: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "hotair", d ? ["#E8806C", "#F0B85A", "#5BBDBD", "#9A8AE0", "#EE9AB0"] : ["#E3735F", "#EDB64C", "#3F9FA2", "#8A76D6", "#E98AA2"], {smin: 15, smax: 26, vmin: 0.9, vmax: 1.9, sway: 0.7, rock: 0.07, life: 300, glow: d ? 8 : 0})
+      .concat(fxTw(W, H, n(22), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFFFFF"], {smin: 3, smax: 6, glow: d ? 10 : 6}))},
+    koi: {len: 300, spawn: (W, H, d, n) => { const m = Math.min(W, H); koiRip = Array.from({length: 7}, (_, i) => ({x: fxR(0.12, 0.88) * W, y: fxR(0.15, 0.88) * H, t0: 8 + i * 22 + fxR(0, 10), r: fxR(0.09, 0.15) * m}));
+      return koiSwim(W, H, n(10)).concat(lilies(W, H, n(5), d), fxTw(W, H, n(16), "sparkle", d ? ["#E6F4F1", "#FFFFFF"] : ["#FFFFFF", "#BFE6DE"], {smin: 3, smax: 6, glow: d ? 8 : 6})); },
+      draw: koiRipples},
+    rain: {spawn: (W, H, d, n) => { rainSplash = Array.from({length: 46}, () => ({x: fxR(0, W), y: H * fxR(0.82, 0.99), t0: fxR(30, 150), r: fxR(10, 20) * Math.max(0.8, Math.min(W, H) / 600)}));
+      return rainFall(W, H, n(120), d ? ["#B4CCF0", "#D6E4F8", "#9CB8E0"] : ["#4F86C0", "#6A9AD2", "#3A6FA8"]).concat(fxTw(W, H, n(12), "sparkle", d ? ["#FFFFFF", "#FFE7B0"] : ["#FFFFFF", "#F6D27A"], {top: 0.6, smin: 3, smax: 6, spread: 60, glow: 8}).map(p => Object.assign(p, {delay: p.delay + 120}))); },
+      draw: rainDraw},
+    alpine: {spawn: (W, H, d, n) => Array.from({length: n(7)}, (_, i) => { const left = i % 2 === 0, z = fxR(0.7, 1.1);
+        return {shape: "paraglider", c: fxPick(d ? ["#F07A6A", "#F2C45A", "#6FC2F0", "#B49CF4", "#5ED6B0"] : ["#E2533E", "#F2A830", "#2F86C8", "#8A5BD0", "#20A688"]), x: left ? fxR(-40, W * 0.45) : fxR(W * 0.55, W + 40), y: fxR(H * 0.08, H * 0.5), vx: (left ? 1 : -1) * fxR(0.8, 1.5) * z, vy: fxR(0.15, 0.4) * z, g: 0, z,
+          size: fxR(26, 36) * z, sway: 0.5, swf: 0.02, rock: 0.08, life: 280, delay: Math.floor(fxR(0, 50)), alpha: 0.7 + 0.3 * Math.min(1, z)}; })
+      .concat(fxFall(W, H, n(26), "edelweiss", d ? ["#F4F1E8", "#FFFFFF"] : ["#FFFFFF", "#FAF8F0"], {vmin: 0.8, vmax: 1.5, sway: 1.3, smin: 9, smax: 13, rock: 0.5}), fxTw(W, H, n(16), "sparkle", d ? ["#FFFFFF", "#DCE9FF"] : ["#FFFFFF", "#9CC2F0"], {top: 0.7, smin: 3, smax: 6, glow: 8}))},
+    dunes: {spawn: (W, H, d, n) => sandGust(W, H, n(100), d ? ["#F2D09A", "#FFE7B8", "#E7B777"] : ["#B9783E", "#A8642E", "#CF9256"])
+      .concat(fxTw(W, H, n(20), "sparkle", d ? ["#FFE7B8", "#FFFFFF"] : ["#FFFFFF", "#F2B53A"], {smin: 3, smax: 7, top: 0.7, glow: d ? 10 : 6})), draw: sandRibbons},
+    jelly: {len: 300, spawn: (W, H, d, n) => fxRise(W, H, n(14), "jellyfish", d ? ["#6FE6F8", "#B89CFF", "#FF9CD8"] : ["#E07AB0", "#9C7CEA", "#3FA6C6"], {smin: 20, smax: 30, vmin: 1.3, vmax: 2.3, sway: 1, rock: 0.1, glow: d ? 14 : 0, life: 300})
+      .concat(fxRise(W, H, n(36), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#BFE6F0"], {smin: 3, smax: 7, sway: 1, vmin: 1.6, vmax: 3}))},
+    bamboo: {spawn: (W, H, d, n) => fxFall(W, H, n(46), "bambooleaf", d ? ["#7CBF62", "#9CCB8C", "#5E9E4A"] : ["#4E8A34", "#64A23A", "#8CC152", "#3E7A2A"], {sway: 2, flip: true, smin: 12, smax: 18}).map(p => Object.assign(p, {vx: fxR(0.8, 2), x: p.x - W * 0.2}))
+      .concat(fxTw(W, H, n(20), "circle", d ? ["#F0CF7A", "#F6DF9E"] : ["#FFF6C8", "#F2E7A0"], {smin: 2.4, smax: 4.4, glow: 12, vy: -0.3})), draw: bambooBeams},
+    lavenderfields: {spawn: (W, H, d, n) => bees(W, H, n(8))
+      .concat(fxBurst(W, H, n(28), "lavsprig", d ? ["#B9A2FF", "#C8B4F4", "#9A7BE0"] : ["#8A5BC0", "#9E74D6", "#7048B0"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 12, smax: 16, flip: true}).map(p => Object.assign(p, {term: fxR(1.3, 2), fsw: fxR(0.8, 1.4)})),
+        fxFlutter(W, H, n(4), d ? ["#F6C7A6", "#FFFFFF", "#D8CCF0"] : ["#F2C84A", "#C9A0E8", "#8FC7F2"]))},
+    rooftops: {spawn: (W, H, d, n) => paperPlanes(W, H, n(9), d ? ["#FFFFFF", "#FFE9BC", "#DCD6F0"] : ["#FFFFFF", "#F6E6D0", "#E0E8F6"])
+      .concat(fxTw(W, H, n(30), d ? "pixel" : "sparkle", d ? ["#FFD27F", "#FFE3A8"] : ["#F2B53A", "#FFD86B"], {smin: 2.5, smax: 5, glow: d ? 10 : 4}))}
   });
 
   // New scene summaries for the Style Shop (the 37 redrawn themes)
@@ -23058,6 +23427,9 @@ var MAJ_THEMES = [];
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
   const c = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`;
+  // paints a round thought bubble with a trail of dots and a small icon inside
+  const psTh = (g, col, dk, icon, ic) => { const b = new Path2D(c(-1, -1, 8.4) + c(-8, 8.4, 1.8) + c(-10.4, 11, 1.1)); g.fillStyle = col; g.fill(b); g.strokeStyle = dk ? "rgba(230,215,255,.85)" : "#A68AD6"; g.lineWidth = 1.1; g.stroke(b);
+    g.fillStyle = dk ? "rgba(255,255,255,.18)" : "rgba(166,138,214,.14)"; g.beginPath(); g.ellipse(2.4, 3.2, 4.4, 2.4, -0.5, 0, 7); g.fill(); g.save(); g.translate(-1, -1.4); g.fillStyle = dk && ic === "#9A6CC0" ? "#C9B0FF" : ic; g.fill(new Path2D(icon)); g.restore(); };
 
   /* Market District (Business) */
   MAJ_THEMES.push({
@@ -23069,19 +23441,32 @@ var MAJ_THEMES = [];
     kit: {motif: "bizchart", card: ["#F6F9FC", "#E2EAF2"], ink: "#16243A", bd: "#BCCCDD", mc: "#2E9E6A", r: 10, notes: ["#D6EEDF"].concat(NOTES), shape: "gridnote", pin: "binder", fab: "12px", btn: "10px"},
     shapes: {
       bizchart: {d: "M-10 3H-5.6V10H-10Z M-3 -0.6H1.4V10H-3Z M4 -4H8.4V10H4Z M2.4 -11.2H10.4V-3.2L7.6 -6L1.8 -0.2L-0.6 -2.6L5.2 -8.4Z"},
-      bizarrow: {d: "M0 -10.5L8.6 -1.2H3.4V10H-3.4V-1.2H-8.6Z"}
+      bizarrow: {d: "M0 -10.5L8.6 -1.2H3.4V10H-3.4V-1.2H-8.6Z"},
+      // gold coin with a rim and a dollar sign
+      bizcoin: {d: c(0, 0, 9.6), paint: (g, col, dk) => { g.fillStyle = fxShade(col, 0.86); g.beginPath(); g.arc(0, 0, 9.6, 0, 7); g.fill(); g.fillStyle = col; g.beginPath(); g.arc(-0.4, -0.4, 8, 0, 7); g.fill();
+        g.strokeStyle = fxShade(col, 0.8); g.lineWidth = 0.9; g.beginPath(); g.arc(-0.4, -0.4, 6.2, 0, 7); g.stroke(); g.fillStyle = fxShade(col, 0.68); g.font = "bold 10px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("$", -0.4, 0.2);
+        g.fillStyle = "rgba(255,255,255,.55)"; g.beginPath(); g.ellipse(-3.6, -4.2, 2.4, 1.2, -0.7, 0, 7); g.fill(); }}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "coin", d ? ["#FFD27A", "#F6C453", "#FFE3A8"] : ["#E8B030", "#F2C24A", "#D49A20"], {smin: 9, smax: 14, vmin: 1.3, vmax: 2.5, sway: 0.8, life: 270, glow: d ? 8 : 0}).map(p => Object.assign(p, {flip: true}))
-      .concat(fxRise(W, H, n(14), "bizarrow", d ? ["#7CF0A8", "#9CF5BF"] : ["#2E9E6A", "#23885A", "#4FBF84"], {smin: 8, smax: 12, vmin: 1.8, vmax: 3, sway: 0.3, life: 240, glow: d ? 8 : 0}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#9CF5BF"] : ["#F2B53A", "#FFD86B", "#4FBF84"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
+    // a candlestick chart builds up across the page, a gold trend line races over it, and coins pay out at the top
+    fx: {spawn: (W, H, d, n) => { const ex = W * 0.9, ey = H * 0.9 - H * 0.5 * 0.96;
+      return fxBurst(W, H, n(30), "bizcoin", d ? ["#FFD27A", "#F6C453", "#FFE3A8"] : ["#E8B030", "#F2C24A", "#D9A228"], [[ex / W, ey / H]], {smin: 10, smax: 14, g: 0.16, flip: true}).map(p => Object.assign(p, {vx: p.vx * 0.9 - 2, vy: p.vy * 0.9 - 3, delay: 84 + Math.floor(fxR(0, 16)), life: 170, term: 3.4}))
+        .concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#9CF5BF"] : ["#F2B53A", "#FFD86B", "#4FBF84"], {smin: 3, smax: 7, top: 0.6, glow: d ? 10 : 4}).map(p => Object.assign(p, {delay: 70 + Math.floor(fxR(0, 80))}))); },
       draw: (g, f, W, H, d) => {
-        const p = Math.min(1, f / 80), a = f < 170 ? 1 : Math.max(0, 1 - (f - 170) / 40); if (a <= 0) return;
-        const pts = []; for (let i = 0; i <= 10; i++) { const u = i / 10; pts.push([W * (0.04 + 0.92 * u), H * (0.92 - 0.3 * (0.7 * u + 0.3 * u * u)) + (i % 2 ? 1 : -1) * H * 0.018 * (i && i < 10 ? 1 : 0)]); }
-        const L = Math.max(1, Math.floor(p * 10)), fr = p * 10 - L + 1;
-        g.save(); g.globalAlpha = a * 0.75; g.lineJoin = g.lineCap = "round"; g.shadowBlur = 14; g.shadowColor = d ? "#7CF0A8" : "#4FBF84"; g.strokeStyle = d ? "#9CF5BF" : "#2E9E6A"; g.lineWidth = 3;
-        g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < L; i++) g.lineTo(pts[i][0], pts[i][1]);
-        const q = pts[L - 1], r = pts[Math.min(10, L)], e = [q[0] + (r[0] - q[0]) * Math.min(1, fr), q[1] + (r[1] - q[1]) * Math.min(1, fr)]; g.lineTo(e[0], e[1]); g.stroke();
-        g.shadowBlur = 0; g.fillStyle = d ? "#E8FFF0" : "#FFFFFF"; g.beginPath(); g.arc(e[0], e[1], 4, 0, 7); g.fill(); g.restore(); }},
+        const a = fxEase(f / 10) * (1 - fxEase((f - 175) / 60)); if (a <= 0.01) return;
+        const V = [0.06, 0.15, 0.1, 0.24, 0.34, 0.28, 0.46, 0.58, 0.54, 0.74, 0.96], N = V.length, x0 = W * 0.08, dx = (W * 0.9 - x0) / (N - 1), cw = Math.max(7, Math.min(28, dx * 0.5)), yb = H * 0.9, Y = v => yb - H * 0.5 * v;
+        const up = d ? "#7CF0A8" : "#23885A", dn = d ? "#FF8A9A" : "#D24D4A";
+        g.lineCap = g.lineJoin = "round"; g.strokeStyle = d ? "rgba(210,208,240,.16)" : "rgba(38,64,95,.12)"; g.lineWidth = 1; g.setLineDash([6, 6]); g.globalAlpha = a;
+        [0.25, 0.5, 0.75, 1].forEach(v => { g.beginPath(); g.moveTo(x0 - cw, Y(v)); g.lineTo(W * 0.9 + cw, Y(v)); g.stroke(); }); g.setLineDash([]);
+        for (let i = 0; i < N; i++) { const t = (f - 4 - i * 6) / 16; if (t <= 0) break; const e = 1 - Math.pow(1 - Math.min(1, t), 3), o = i ? V[i - 1] : 0.02, cl = V[i], x = x0 + i * dx, yo = Y(o), yc = yo + (Y(cl) - yo) * e, col = cl >= o ? up : dn;
+          g.globalAlpha = a * Math.min(1, t * 2) * 0.9; g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x, Y(Math.max(o, cl) + 0.05 * e)); g.lineTo(x, Y(Math.min(o, cl) - 0.04 * e)); g.stroke();
+          g.fillStyle = col; g.fillRect(x - cw / 2, Math.min(yo, yc), cw, Math.max(2, Math.abs(yc - yo))); }
+        const p = Math.max(0, Math.min(1, (f - 14) / 72)), q = 1 - Math.pow(1 - p, 2), L = q * (N - 1), k = Math.floor(L); if (p <= 0) return;
+        g.globalAlpha = a; g.shadowBlur = 12; g.shadowColor = d ? "#FFD27A" : "#F2B53A"; g.strokeStyle = d ? "#FFE3A8" : "#E39A12"; g.lineWidth = 3.2;
+        g.beginPath(); g.moveTo(x0, Y(V[0])); for (let i = 1; i <= k; i++) g.lineTo(x0 + i * dx, Y(V[i]));
+        const hx = x0 + L * dx, hy = Y(V[k] + (V[Math.min(N - 1, k + 1)] - V[k]) * (L - k)); g.lineTo(hx, hy); g.stroke();
+        g.shadowBlur = 16; g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(hx, hy, 4.5 + 3 * fxEase((f - 80) / 10) * (1 - fxEase((f - 100) / 30)), 0, 7); g.fill();
+        // a soft ring when the line hits the top
+        const t2 = f - 86; if (t2 > 0 && t2 < 50) { g.shadowBlur = 0; g.globalAlpha = a * 0.5 * (1 - t2 / 50); g.strokeStyle = d ? "#FFE3A8" : "#E39A12"; g.lineWidth = 2; g.beginPath(); g.arc(hx, hy, 6 + t2 * 1.4, 0, 7); g.stroke(); } }},
     tag: "An evening financial district with glass towers, a scrolling stock ticker and a glowing chart line"
   });
 
@@ -23094,18 +23479,27 @@ var MAJ_THEMES = [];
       spine: [lg("#3B7A72", "#24524C"), lg("#1E2546", "#0E1226")], btn: [lg2("#2E8C78", "#3FA08A"), lg2("#7DE0BE", "#A6EED4")]},
     kit: {motif: "pulseheart", card: ["#F6FBFA", "#E0F0EC"], ink: "#163130", bd: "#A9D8CC", mc: "#E8708C", r: 18, notes: ["#FFDCE4"].concat(NOTES), shape: "rounded", pin: "clip", fab: "999px", btn: "14px"},
     shapes: {
-      pulseheart: {d: "M0 9C-8 3.4 -10.4 -1.6 -9.2 -5.2C-8 -9 -2.4 -9.6 0 -5C2.4 -9.6 8 -9 9.2 -5.2C10.4 -1.6 8 3.4 0 9Z", detail: "M-8.4 -0.6H-4.4L-2.6 -4.2L0.4 3L2.4 -0.6H8.4", dstroke: true}
+      pulseheart: {d: "M0 9C-8 3.4 -10.4 -1.6 -9.2 -5.2C-8 -9 -2.4 -9.6 0 -5C2.4 -9.6 8 -9 9.2 -5.2C10.4 -1.6 8 3.4 0 9Z", detail: "M-8.4 -0.6H-4.4L-2.6 -4.2L0.4 3L2.4 -0.6H8.4", dstroke: true},
+      nscross: {d: "M-2.8 -9.4H2.8V-2.8H9.4V2.8H2.8V9.4H-2.8V2.8H-9.4V-2.8H-2.8Z"}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(18), "heart", d ? ["#FF9DB4", "#F6B3C4", "#FFD0DA"] : ["#E8708C", "#F29AAE", "#F7B6C4"], {smin: 8, smax: 13, vmin: 1.1, vmax: 2.2, sway: 1, life: 280, glow: d ? 10 : 0})
-      .concat(fxRise(W, H, n(7), "pulseheart", d ? ["#7DE0BE", "#A6EED4"] : ["#2E8C78", "#3FA08A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 10 : 0}),
-        fxTw(W, H, n(24), "sparkle", d ? ["#FFFFFF", "#A6EED4", "#FFD0DA"] : ["#F2B53A", "#7CCFB6", "#F29AAE"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
+    // a monitor trace sweeps across; every heartbeat it draws sends up a heart, and soft plus signs twinkle
+    fx: {spawn: (W, H, d, n) => { const beat = Math.max(110, W / 4.2), P = [];
+      for (let k = 0; (k + 0.8) * beat < W; k++) { const x = (k + 0.8) * beat, t = Math.round(x / W * 120);
+        for (let j = 0; j < 3; j++) P.push({shape: j ? "heart" : "pulseheart", c: j ? fxPick(d ? ["#FF9DB4", "#FFC2D0"] : ["#E8708C", "#F29AAE"]) : d ? "#A6EED4" : "#2E8C78", x: x + fxR(-8, 8), y: H * 0.8 - Math.min(52, H * 0.07), vx: j ? (j === 1 ? -1 : 1) * fxR(0.4, 0.9) : 0, vy: -fxR(1.4, 2.2) * (j ? 0.85 : 1), g: 0, drag: 0.995, size: j ? fxR(8, 11) : fxR(13, 16), rot: 0, vr: 0, sway: j ? 0.7 : 0.4, swf: fxR(0.03, 0.05), life: 190, delay: t + j * 4, glow: d ? 10 : 0}); }
+      return P.concat(fxRise(W, H, n(10), "heart", d ? ["#FF9DB4", "#F6B3C4", "#FFD0DA"] : ["#E8708C", "#F29AAE", "#F7B6C4"], {smin: 7, smax: 11, vmin: 1, vmax: 1.8, sway: 1, life: 240, spread: 90, glow: d ? 8 : 0}),
+        fxTw(W, H, n(14), "nscross", d ? ["#A6EED4", "#FFFFFF"] : ["#5BA898", "#7CCFB6"], {smin: 4, smax: 7, top: 0.7, glow: d ? 8 : 0}),
+        fxTw(W, H, n(10), "sparkle", d ? ["#FFFFFF", "#FFD0DA"] : ["#F2B53A", "#F29AAE"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4})); },
       draw: (g, f, W, H, d) => {
-        const p = Math.min(1, f / 110), a = f < 160 ? 1 : Math.max(0, 1 - (f - 160) / 40); if (a <= 0) return;
-        const y0 = H * 0.86, beat = Math.max(60, W / 5), amp = Math.min(46, H * 0.06), xe = W * p;
-        g.save(); g.globalAlpha = a * 0.8; g.lineJoin = g.lineCap = "round"; g.shadowBlur = 12; g.shadowColor = d ? "#7DE0BE" : "#5BA898"; g.strokeStyle = d ? "#A6EED4" : "#2E8C78"; g.lineWidth = 2.6;
-        g.beginPath(); g.moveTo(0, y0);
-        for (let x = 0; x <= xe; x += 3) { const u = (x % beat) / beat; let y = y0; if (u > 0.4 && u < 0.46) y = y0 - amp * 0.18 * Math.sin((u - 0.4) / 0.06 * Math.PI); else if (u > 0.5 && u < 0.54) y = y0 + amp * 0.25 * ((u - 0.5) / 0.04); else if (u >= 0.54 && u < 0.58) y = y0 + amp * 0.25 - amp * 1.25 * ((u - 0.54) / 0.04); else if (u >= 0.58 && u < 0.63) y = y0 - amp + amp * 1.3 * ((u - 0.58) / 0.05); else if (u >= 0.63 && u < 0.66) y = y0 + amp * 0.3 * (1 - (u - 0.63) / 0.03); g.lineTo(x, y); }
-        g.stroke(); g.shadowBlur = 0; g.fillStyle = d ? "#FFFFFF" : "#FFFFFF"; g.beginPath(); g.arc(xe, y0, 3.5, 0, 7); g.fill(); g.restore(); }},
+        const a = fxEase(f / 8) * (1 - fxEase((f - 165) / 60)); if (a <= 0.01) return;
+        const y0 = H * 0.8, beat = Math.max(110, W / 4.2), amp = Math.min(52, H * 0.07), xe = W * Math.min(1, f / 120);
+        const Y = x => { const u = (x / beat + 0.4) % 1; return u > 0.04 && u < 0.12 ? y0 - amp * 0.16 * Math.sin((u - 0.04) / 0.08 * Math.PI) : u >= 0.17 && u < 0.19 ? y0 + amp * 0.2 * (u - 0.17) / 0.02 : u >= 0.19 && u < 0.2 ? y0 + amp * 0.2 - amp * 1.2 * (u - 0.19) / 0.01 : u >= 0.2 && u < 0.22 ? y0 - amp + amp * 1.35 * (u - 0.2) / 0.02 : u >= 0.22 && u < 0.24 ? y0 + amp * 0.35 * (1 - (u - 0.22) / 0.02) : u > 0.32 && u < 0.46 ? y0 - amp * 0.24 * Math.sin((u - 0.32) / 0.14 * Math.PI) : y0; };
+        const col = d ? "#A6EED4" : "#2E8C78";
+        g.lineJoin = g.lineCap = "round"; g.strokeStyle = col; g.shadowColor = d ? "#7DE0BE" : "#5BA898";
+        // the older part of the trace is dimmer, the fresh part near the head is bright
+        const seg = (xa, xb, al, lw, sb) => { if (xb <= xa) return; g.globalAlpha = a * al; g.lineWidth = lw; g.shadowBlur = sb; g.beginPath(); g.moveTo(xa, Y(xa)); for (let x = xa + 2; x <= xb; x += 2) g.lineTo(x, Y(x)); g.lineTo(xb, Y(xb)); g.stroke(); };
+        const tail = W * 0.28; seg(0, xe - tail, 0.4, 2.2, 0); seg(Math.max(0, xe - tail - 2), xe, 0.95, 2.8, 12);
+        for (let k = 0; (k + 0.8) * beat < W; k++) { const x = (k + 0.8) * beat, t = f - x / W * 120; if (t < 0 || t > 46) continue; g.shadowBlur = 0; g.globalAlpha = a * 0.45 * (1 - t / 46); g.lineWidth = 2; g.beginPath(); g.arc(x, y0 - amp, 6 + t * 1.3, 0, 7); g.stroke(); }
+        if (f < 128) { g.shadowBlur = 16; g.globalAlpha = a * (1 - fxEase((f - 110) / 16)); g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(xe, Y(xe), 4.5, 0, 7); g.fill(); } }},
     tag: "A cozy nurses' station by a big window, with a desk lamp, a warm mug and a glowing heartbeat line"
   });
 
@@ -23120,13 +23514,25 @@ var MAJ_THEMES = [];
     shapes: {
       thought: {d: c(-4, -3, 5) + c(2, -5, 5.6) + c(6.4, 0, 4.4) + c(0, 1.6, 5) + c(-7.4, 7.6, 2) + c(-10, 10.6, 1.2)},
       idea: {d: "M0 -10.4C5 -10.4 7.4 -6.6 7.4 -3.4C7.4 0 5 2 3.6 4V5.6H-3.6V4C-5 2 -7.4 0 -7.4 -3.4C-7.4 -6.6 -5 -10.4 0 -10.4Z M-3.4 6.8H3.4V8.2H-3.4Z M-2.4 9.2H2.4V10.6H-2.4Z", detail: "M-1.6 3.6V-1.2L0 0.4L1.6 -1.2V3.6", dstroke: true},
+      // thought bubbles with a small idea inside: a lightbulb, a heart or a star
+      psth1: {d: c(-1, -1, 8.4) + c(-8, 8.4, 1.8) + c(-10.4, 11, 1.1), paint: (g, col, dk) => psTh(g, col, dk, "M0 -6.4C2.8 -6.4 4 -4.2 4 -2.4C4 -0.4 2.6 0.6 2 1.8V2.8H-2V1.8C-2.6 0.6 -4 -0.4 -4 -2.4C-4 -4.2 -2.8 -6.4 0 -6.4Z M-1.8 3.6H1.8V4.6H-1.8Z", "#F6B830")},
+      psth2: {d: c(-1, -1, 8.4) + c(-8, 8.4, 1.8) + c(-10.4, 11, 1.1), paint: (g, col, dk) => psTh(g, col, dk, "M0 4.6C-4.4 1.6 -5.6 -1.2 -5 -3.2C-4.3 -5.3 -1.3 -5.6 0 -3C1.3 -5.6 4.3 -5.3 5 -3.2C5.6 -1.2 4.4 1.6 0 4.6Z", "#EE6F9A")},
+      psth3: {d: c(-1, -1, 8.4) + c(-8, 8.4, 1.8) + c(-10.4, 11, 1.1), paint: (g, col, dk) => psTh(g, col, dk, "M0 -6L1.5 -2.2L5.6 -2L2.4 0.6L3.5 4.6L0 2.3L-3.5 4.6L-2.4 0.6L-5.6 -2L-1.5 -2.2Z", "#9A6CC0")},
       inkfly: {d: "M0.4 -1C2.4 -8.6 10.2 -10.4 10.6 -5C10.8 -2.4 8 -1.4 9.4 1.4C11.2 5 6.6 9.6 3.4 6.6C1.8 5.2 1 3 0.4 1Z M-0.4 -1C-2.4 -8.6 -10.2 -10.4 -10.6 -5C-10.8 -2.4 -8 -1.4 -9.4 1.4C-11.2 5 -6.6 9.6 -3.4 6.6C-1.8 5.2 -1 3 -0.4 1Z",
-        detail: "M3.4 -5.2a1.7 2.3 0 1 0 3.4 0a1.7 2.3 0 1 0 -3.4 0Z M-6.8 -5.2a1.7 2.3 0 1 0 3.4 0a1.7 2.3 0 1 0 -3.4 0Z M4 3.4a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0Z M-6.6 3.4a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0Z M-0.7 -4H0.7V6H-0.7Z", dfill: true}
+        detail: "M3.4 -5.2a1.7 2.3 0 1 0 3.4 0a1.7 2.3 0 1 0 -3.4 0Z M-6.8 -5.2a1.7 2.3 0 1 0 3.4 0a1.7 2.3 0 1 0 -3.4 0Z M4 3.4a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0Z M-6.6 3.4a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0Z M-0.7 -4H0.7V6H-0.7Z", dfill: true,
+        // inkblot butterfly: soft wings with a paler inner blot, mirror spots and a dark body
+        paint: (g, col, dk) => { const W1 = new Path2D("M0.4 -1C2.4 -8.6 10.2 -10.4 10.6 -5C10.8 -2.4 8 -1.4 9.4 1.4C11.2 5 6.6 9.6 3.4 6.6C1.8 5.2 1 3 0.4 1Z M-0.4 -1C-2.4 -8.6 -10.2 -10.4 -10.6 -5C-10.8 -2.4 -8 -1.4 -9.4 1.4C-11.2 5 -6.6 9.6 -3.4 6.6C-1.8 5.2 -1 3 -0.4 1Z");
+          g.fillStyle = col; g.fill(W1); g.save(); g.clip(W1); g.fillStyle = "rgba(255,255,255,.34)"; [[5.6, -4.6, 3.2, 2.4], [-5.6, -4.6, 3.2, 2.4], [5, 3.4, 2.2, 1.8], [-5, 3.4, 2.2, 1.8]].forEach(([x, y, rx, ry]) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); });
+          g.fillStyle = fxShade(col, 0.55); [[8.4, -6.6, 1.3], [-8.4, -6.6, 1.3], [7.4, 4.6, 1], [-7.4, 4.6, 1]].forEach(([x, y, r]) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }); g.restore();
+          g.fillStyle = dk ? "#2A2240" : "#3A2E52"; g.beginPath(); g.ellipse(0, 1, 1, 5.2, 0, 0, 7); g.fill(); g.strokeStyle = g.fillStyle; g.lineWidth = 0.7; g.beginPath(); g.moveTo(-0.4, -4); g.quadraticCurveTo(-1.6, -7, -3, -7.6); g.moveTo(0.4, -4); g.quadraticCurveTo(1.6, -7, 3, -7.6); g.stroke(); }}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "thought", d ? ["#E6DCFF", "#FFE0EC", "#FFFFFF"] : ["#B9A2E8", "#E8B6CC", "#A6C4EC"], {smin: 12, smax: 18, vmin: 0.9, vmax: 1.7, sway: 1, life: 300, alpha: 0.9, glow: d ? 10 : 0})
-      .concat(fxTw(W, H, n(10), "idea", d ? ["#FFE08A", "#FFD27A"] : ["#F2B53A", "#F6C453"], {smin: 9, smax: 13, glow: 12}),
-        fxFlutter(W, H, n(8), d ? ["#F6C7E0", "#C9B8FF", "#FFD6AE"] : ["#9A6CC0", "#E08AA8", "#6A8AD0"]).map(p => Object.assign(p, {shape: "inkfly"})),
-        fxTw(W, H, n(22), "sparkle", d ? ["#FFFFFF", "#FFD6AE"] : ["#F2B53A", "#C9A0E8"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    // thought bubbles drift up from below, each with a little idea inside; where a bubble fades, an inkblot butterfly takes off
+    fx: {spawn: (W, H, d, n) => { const P = [], wing = d ? ["#F6A8D0", "#C9B0FF", "#FFC890", "#9FD0FF"] : ["#9A6CC0", "#E0729E", "#5E86D0", "#E89A3A"];
+      for (let i = 0, N = n(9); i < N; i++) { const x = W * (0.08 + 0.84 * (i + fxR(0.2, 0.8)) / N), v = fxR(1.6, 2.4), L = Math.round(fxR(90, 130)), dl = Math.floor(fxR(0, 50)), ye = H + 20 - v * L;
+        P.push({shape: fxPick(["psth1", "psth2", "psth3"]), c: d ? fxPick(["#3A2F66", "#4A2F5E"]) : "#FFFFFF", x, y: H + 20, vx: 0, vy: -v, g: 0, size: fxR(17, 22), rot: fxR(-0.1, 0.1), vr: 0, sway: 0.5, swf: 0.04, ph0: 0, life: L, delay: dl, glow: d ? 10 : 0});
+        P.push({shape: "inkfly", c: fxPick(wing), x, y: ye, vx: fxR(-1, 1), vy: -fxR(1.4, 2.2), g: 0, size: fxR(12, 16), rot: 0, vr: 0, sway: 1.8, swf: fxR(0.04, 0.07), rock: 0.25, flap: fxR(0.25, 0.38), life: 180, delay: dl + L - 26});
+        for (let k = 0; k < 3; k++) P.push({shape: "sparkle", c: d ? "#FFE3B0" : "#F2B53A", x: x + fxR(-26, 26), y: ye + fxR(-22, 22), vx: 0, vy: -0.3, g: 0, size: fxR(4, 7), rot: 0, vr: 0.02, sway: 0, life: 50, delay: dl + L - 30 + k * 5, tw: true, glint: true, glow: d ? 10 : 4}); }
+      return P.concat(fxTw(W, H, n(16), "sparkle", d ? ["#FFFFFF", "#FFD6AE"] : ["#F2B53A", "#C9A0E8"], {smin: 3, smax: 6, glow: d ? 10 : 4})); }},
     tag: "A dreamy pastel garden with rounded hedges, a still pond, drifting thought bubbles and inkblot butterflies"
   });
 
@@ -23141,12 +23547,33 @@ var MAJ_THEMES = [];
     shapes: {
       cell: {d: c(0, 0, 10), detail: c(2, -1.6, 3.8) + c(-4.6, 3.6, 1.4) + c(-3, -5, 1.1), dfill: true},
       helix: {d: "M-5 -11C5 -6.5 5 -5.5 0 0C-5 5.5 -5 6.5 5 11M5 -11C-5 -6.5 -5 -5.5 0 0C5 5.5 5 6.5 -5 11M-3.2 -8.4H3.2M-3.2 8.4H3.2M-2.6 -3.4H2.6M-2.6 3.4H2.6", stroke: true, lw: 1.8},
-      diatom: {d: "M-10.6 0C-6.4 -4.6 6.4 -4.6 10.6 0C6.4 4.6 -6.4 4.6 -10.6 0Z", detail: "M-6.6 -2.4V2.4M-3.4 -3.2V3.2M0 -3.4V3.4M3.4 -3.2V3.2M6.6 -2.4V2.4", dstroke: true}
+      diatom: {d: "M-10.6 0C-6.4 -4.6 6.4 -4.6 10.6 0C6.4 4.6 -6.4 4.6 -10.6 0Z", detail: "M-6.6 -2.4V2.4M-3.4 -3.2V3.2M0 -3.4V3.4M3.4 -3.2V3.2M6.6 -2.4V2.4", dstroke: true},
+      // a slipper-shaped swimmer facing +x, fringed with cilia, with a whip tail behind
+      bioswim: {d: "M10.4 0C10.4 -3.6 6 -5 1 -4.8C-4 -4.6 -8 -3.2 -8 0C-8 3.2 -4 4.6 1 4.8C6 5 10.4 3.6 10.4 0Z",
+        paint: (g, col, dk) => { const b = new Path2D("M10.4 0C10.4 -3.6 6 -5 1 -4.8C-4 -4.6 -8 -3.2 -8 0C-8 3.2 -4 4.6 1 4.8C6 5 10.4 3.6 10.4 0Z");
+          g.strokeStyle = col; g.lineWidth = 0.6; g.globalAlpha = 0.7; for (let i = 0; i < 18; i++) { const t = i / 18 * Math.PI * 2, x = Math.cos(t), y = Math.sin(t); g.beginPath(); g.moveTo(1.2 + 9.2 * x, 4.9 * y); g.lineTo(1.2 + 10.8 * x, 6.4 * y); g.stroke(); }
+          g.globalAlpha = 1; g.lineWidth = 1; g.beginPath(); g.moveTo(-8, 0); g.bezierCurveTo(-9.6, -2.4, -10.6, 2.4, -12, 0); g.stroke();
+          g.globalAlpha = 0.5; g.fillStyle = col; g.fill(b); g.globalAlpha = 1; g.lineWidth = 1.2; g.stroke(b);
+          g.fillStyle = fxShade(col, 0.7); g.beginPath(); g.ellipse(1.6, 0.4, 2.6, 1.8, 0.2, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,.6)"; [[-4, -1.6], [5.8, -1.4], [-2, 2.2]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 0.9, 0, 7); g.fill(); }); }}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "cell", d ? ["#5CF2C4", "#8AD8FF", "#FF7AC6"] : ["#7CC46A", "#E896B0", "#8FC8D8"], {smin: 9, smax: 15, vmin: 0.9, vmax: 1.8, sway: 1.1, life: 300, alpha: 0.85, glow: d ? 12 : 0}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)}))
-      .concat(fxRise(W, H, n(7), "helix", d ? ["#8AF7D8", "#B8A6FF"] : ["#3A8A72", "#9A6CC0"], {smin: 12, smax: 16, vmin: 1.2, vmax: 2, sway: 0.6, life: 260, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.5, 0.5), vr: fxR(-0.02, 0.02)})),
-        fxRise(W, H, n(8), "diatom", d ? ["#FFD36A", "#FFE6A0"] : ["#D4A24A", "#C9A060"], {smin: 8, smax: 12, vmin: 1, vmax: 1.8, sway: 0.8, life: 280, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(0, 6.3), vr: fxR(-0.015, 0.015)})),
-        fxRise(W, H, n(30), "circle", d ? ["#BDE6F0", "#8AF7D8"] : ["#FFFFFF", "#B8D8C8"], {smin: 1.5, smax: 3.2, vmin: 1.4, vmax: 2.6, sway: 0.6, alpha: 0.8}))},
+    // under the microscope: cells swell, pinch in the middle and split in two, while little ciliates swim past
+    fx: {spawn: (W, H, d, n) => { const P = [];
+      for (let i = 0, N = n(9); i < N; i++) { const lr = i % 2 === 0, sp = fxR(1.3, 2.3);
+        P.push({shape: "bioswim", c: fxPick(d ? ["#8AF7D8", "#8AD8FF", "#FFB0DA"] : ["#3A8A72", "#4A86B8", "#C0608A"]), x: lr ? fxR(-60, -20) : W + fxR(20, 60), y: fxR(H * 0.2, H * 0.95), vx: (lr ? 1 : -1) * sp, vy: fxR(-0.5, 0.5), g: 0, size: fxR(12, 16), face: true, wig: 0.12, rot: 0, vr: 0, sway: 0.5, swf: 0.04, life: 230, delay: Math.floor(fxR(0, 90)), glow: d ? 8 : 0}); }
+      return P.concat(fxRise(W, H, n(6), "diatom", d ? ["#FFD36A", "#FFE6A0"] : ["#C9962A", "#B88A3A"], {smin: 9, smax: 13, vmin: 0.6, vmax: 1.2, sway: 0.8, life: 280, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(0, 6.3), vr: fxR(-0.015, 0.015)})),
+        fxRise(W, H, n(26), "bubble", d ? ["#BDE6F0", "#8AF7D8"] : ["#8FB8C8", "#9AC8B0"], {smin: 2.5, smax: 5, vmin: 0.8, vmax: 1.8, sway: 0.6, alpha: 0.8})); },
+      draw: (g, f, W, H, d) => {
+        const a = fxEase(f / 14) * (1 - fxEase((f - 180) / 60)); if (a <= 0.01) return;
+        const ph = W < H, R0 = Math.min(W, H) * (ph ? 0.1 : 0.075), C = ph ? [[0.26, 0.42, 0, 0.5], [0.72, 0.6, 14, -0.4], [0.32, 0.8, 26, 1.2], [0.76, 0.86, 8, 0.2]] : [[0.16, 0.5, 0, 0.5], [0.84, 0.44, 14, -0.4], [0.36, 0.78, 26, 1.2], [0.66, 0.8, 8, 0.2], [0.08, 0.86, 34, -1]];
+        const cols = d ? ["#5CF2C4", "#FF7AC6", "#8AD8FF"] : ["#4FA86E", "#D9708F", "#4E92C4"];
+        C.forEach(([cx, cy, t0, ang], i) => { const t = f - t0; if (t <= 0) return; const col = cols[i % 3], grow = 1 - Math.pow(1 - Math.min(1, t / 30), 3), e = fxEase((t - 40) / 70), R = R0 * (0.5 + 0.5 * grow) * (1 - 0.22 * e), s = R0 * 0.95 * e, ux = Math.cos(ang), uy = Math.sin(ang), X = cx * W + ux * Math.sin(t / 50) * 4, Y = cy * H + uy * Math.cos(t / 60) * 4;
+          // one outline around both halves: wide stroke, cut the inside out, then a soft fill
+          const body = new Path2D(); body.arc(X - ux * s, Y - uy * s, R, 0, 7); body.moveTo(X + ux * s + R, Y + uy * s); body.arc(X + ux * s, Y + uy * s, R, 0, 7); if (s > 1) { body.moveTo(X + R * 0.8, Y); body.ellipse(X, Y, s, R * 0.8 * (1 - e) + 0.5, ang, 0, 7); }
+          g.globalAlpha = a * 0.85; g.strokeStyle = col; g.lineWidth = 5; g.stroke(body); g.globalCompositeOperation = "destination-out"; g.fill(body); g.globalCompositeOperation = "source-over";
+          g.globalAlpha = a * (d ? 0.22 : 0.18); g.fillStyle = col; g.fill(body);
+          g.globalAlpha = a * 0.75; g.fillStyle = fxShade(col.length === 7 ? col : "#888888", 0.8); const k = 0.85 * s, nr = R * (0.32 - 0.08 * Math.sin(Math.PI * e));
+          [-1, 1].forEach(sg => { g.beginPath(); g.arc(X + sg * ux * k, Y + sg * uy * k, nr, 0, 7); g.fill(); });
+          g.globalAlpha = a * 0.6; g.fillStyle = "#FFFFFF"; [[-0.5, -0.4], [0.45, 0.35]].forEach(([u, v]) => { g.beginPath(); g.arc(X + ux * s * Math.sign(u) + R * u * 0.6, Y + uy * s * Math.sign(u) + R * v * 0.7, R * 0.07, 0, 7); g.fill(); }); }); }},
     tag: "A microscope view of drifting cells, diatoms and little swimmers around a faint DNA ribbon"
   });
 })();
@@ -23158,6 +23585,13 @@ var MAJ_THEMES = [];
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
   // gear outline in the -12..12 box
   const gearD = (() => { let d = ""; const N = 8, R = 10.6, r = 8.2; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2, w = Math.PI / N; [[a - w * 0.42, r], [a - w * 0.26, R], [a + w * 0.26, R], [a + w * 0.42, r], [a + w * 0.58, r]].forEach(([b, rr], k) => { d += (i === 0 && k === 0 ? "M" : "L") + (Math.round(rr * Math.cos(b) * 100) / 100) + " " + (Math.round(rr * Math.sin(b) * 100) / 100); }); } return d + "Z M3.4 0a3.4 3.4 0 1 0 -6.8 0a3.4 3.4 0 1 0 6.8 0Z"; })();
+  const csT = []; // circuit traces for the Code Night animation, rebuilt by each spawn
+  // gear outline with nt teeth, pitch radius nt*k/2, a hub hole and round cut-outs (cached by size)
+  const enG = new Map(), enGear = (nt, k) => { const key = nt + "|" + Math.round(k * 100); let p = enG.get(key); if (p) return p; p = new Path2D(); const R = nt * k / 2, ad = k * 0.9;
+    for (let i = 0; i < nt; i++) { const a = i / nt * Math.PI * 2, w = Math.PI / nt; [[a - w * 0.5, R - ad], [a - w * 0.3, R + ad], [a + w * 0.3, R + ad], [a + w * 0.5, R - ad]].forEach(([b, r], j) => { const x = r * Math.cos(b), y = r * Math.sin(b); i || j ? p.lineTo(x, y) : p.moveTo(x, y); }); } p.closePath();
+    const hr = Math.max(k * 1.4, R * 0.16); p.moveTo(hr, 0); p.arc(0, 0, hr, 0, 7); const m = nt > 11 ? 5 : 0; for (let i = 0; i < m; i++) { const b = i / m * Math.PI * 2, r = R * 0.52, cr = R * 0.2; p.moveTo(r * Math.cos(b) + cr, r * Math.sin(b)); p.arc(r * Math.cos(b), r * Math.sin(b), cr, 0, 7); }
+    enG.set(key, p); return p; };
+  const cmR = (g, col, icon) => { g.fillStyle = col; g.beginPath(); g.arc(0, 0, 9.4, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,.22)"; g.beginPath(); g.ellipse(-2.6, -4.6, 4.6, 2.6, -0.4, 0, 7); g.fill(); g.fillStyle = "#FFFFFF"; g.fill(new Path2D(icon)); };
   const hexD = (R, r) => { let d = ""; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; d += (i ? "L" : "M") + (Math.round(R * Math.cos(a) * 100) / 100) + " " + (Math.round(R * Math.sin(a) * 100) / 100); } return d + `Z M${r} 0a${r} ${r} 0 1 0 ${-2 * r} 0a${r} ${r} 0 1 0 ${2 * r} 0Z`; };
 
   /* Code Night */
@@ -23174,11 +23608,32 @@ var MAJ_THEMES = [];
       cs_pheart: {d: "M-6 -10H-2V-6H-6ZM2 -10H6V-6H2ZM-10 -6H-6V-2H-10ZM-6 -6H-2V-2H-6ZM-2 -6H2V-2H-2ZM2 -6H6V-2H2ZM6 -6H10V-2H6ZM-10 -2H-6V2H-10ZM-6 -2H-2V2H-6ZM-2 -2H2V2H-2ZM2 -2H6V2H2ZM6 -2H10V2H6ZM-6 2H-2V6H-6ZM-2 2H2V6H-2ZM2 2H6V6H2ZM-2 6H2V10H-2Z"},
       cs_chip: {d: "M-6.5 -6.5H6.5V6.5H-6.5Z M-4.5 -10H-2.5V-6.5H-4.5Z M-1 -10H1V-6.5H-1Z M2.5 -10H4.5V-6.5H2.5Z M-4.5 6.5H-2.5V10H-4.5Z M-1 6.5H1V10H-1Z M2.5 6.5H4.5V10H2.5Z M-10 -4.5H-6.5V-2.5H-10Z M-10 -1H-6.5V1H-10Z M-10 2.5H-6.5V4.5H-10Z M6.5 -4.5H10V-2.5H6.5Z M6.5 -1H10V1H6.5Z M6.5 2.5H10V4.5H6.5Z", detail: "M-3 -3H3V3H-3Z", dfill: true}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "cs_code", d ? ["#8FF5E6", "#FFD08A", "#C9F7F0"] : ["#1F8A6E", "#2FA88A", "#3D9AC2"], {smin: 12, smax: 18, vmin: 1.2, vmax: 2.2, sway: 0.7, glow: d ? 12 : 0, life: 260})
-      .concat(fxRise(W, H, n(7), "cs_brace", d ? ["#8FF5E6", "#FFD08A"] : ["#1F8A6E", "#3D9AC2", "#E07A5F"], {smin: 12, smax: 17, vmin: 1, vmax: 1.9, sway: 0.8, glow: d ? 12 : 0, life: 280}),
-        fxRise(W, H, n(40), "pixel", d ? ["#5FE6D2", "#9AF0E2", "#FFC77A"] : ["#1F8A6E", "#5FC2A6", "#F2B53A"], {smin: 1.6, smax: 3, vmin: 2.4, vmax: 4.4, sway: 0.2, glow: d ? 8 : 0}),
-        fxBurst(W, H, n(18), "cs_pheart", ["#FF6FA8", "#FF8FC0", "#FFD84A", "#B89CFF"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11, glow: d ? 8 : 0}),
-        fxTw(W, H, n(20), "sparkle", d ? ["#C9F7F0", "#FFFFFF"] : ["#2FA88A", "#F2B53A"], {smin: 3, smax: 6, glow: d ? 10 : 3}))},
+    // circuit traces grow up from the bottom edge with a bright data pulse at each tip; when a pulse reaches its pad, the pad lights and pixel hearts pop out
+    fx: {spawn: (W, H, d, n) => { const K = W < H ? 5 : 8, T = []; csT.length = 0;
+      for (let i = 0; i < K; i++) { let x = W * (0.06 + 0.88 * (i + fxR(0.25, 0.75)) / K), y = H + 6; const pts = [[x, y]], top = H * fxR(0.28, 0.62);
+        while (y > top) { y = Math.max(top, y - H * fxR(0.08, 0.16)); pts.push([x, y]); if (y <= top) break; const j = fxPick([-1, 1]) * W * fxR(0.025, 0.06); x = Math.min(W * 0.97, Math.max(W * 0.03, x + j)); y -= Math.abs(j) * 0.9; pts.push([x, y]); }
+        let L = 0; const cum = [0]; for (let k = 1; k < pts.length; k++) { L += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]); cum.push(L); }
+        T.push({pts, cum, L, t0: Math.floor(i * 7 + fxR(0, 10)), dur: Math.floor(fxR(58, 76))}); }
+      csT.push(...T);
+      const P = []; T.forEach(t => { const [x, y] = t.pts[t.pts.length - 1], t1 = t.t0 + t.dur;
+        for (let j = 0; j < 2; j++) P.push({shape: j ? "cs_pheart" : fxPick(["cs_code", "cs_brace", "cs_pheart"]), c: j ? fxPick(["#FF6FA8", "#FF8FC0", "#B89CFF"]) : fxPick(d ? ["#8FF5E6", "#FFD08A"] : ["#1F8A6E", "#3D9AC2"]), x, y: y - 6, vx: fxR(-0.9, 0.9), vy: -fxR(1.2, 2), g: 0, drag: 0.996, size: fxR(10, 14), rot: 0, vr: 0, sway: 0.6, swf: fxR(0.03, 0.05), life: 170, delay: t1 + j * 8, glow: d ? 10 : 0}); });
+      return P.concat(fxTw(W, H, n(16), "sparkle", d ? ["#C9F7F0", "#FFFFFF"] : ["#2FA88A", "#F2B53A"], {smin: 3, smax: 6, glow: d ? 10 : 3}).map(p => Object.assign(p, {delay: 40 + Math.floor(fxR(0, 110))}))); },
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 175) / 60); if (a <= 0.01) return;
+        const line = d ? "#5FE6D2" : "#1F8A6E", hot = d ? "#E8FFFB" : "#FFFFFF", glo = d ? "#5FE6D2" : "#2FA88A";
+        g.lineCap = g.lineJoin = "round";
+        csT.forEach(t => { const p = fxEase((f - t.t0) / t.dur); if (p <= 0) return; const D = p * t.L; let k = 1; while (k < t.pts.length - 1 && t.cum[k] < D) k++;
+          const [ax, ay] = t.pts[k - 1], [bx, by] = t.pts[k], u = Math.min(1, (D - t.cum[k - 1]) / Math.max(1, t.cum[k] - t.cum[k - 1])), hx = ax + (bx - ax) * u, hy = ay + (by - ay) * u;
+          g.globalAlpha = a * (d ? 0.7 : 0.6); g.strokeStyle = line; g.lineWidth = 2.4; g.shadowBlur = d ? 8 : 0; g.shadowColor = glo; g.beginPath(); g.moveTo(t.pts[0][0], t.pts[0][1]); for (let j = 1; j < k; j++) g.lineTo(t.pts[j][0], t.pts[j][1]); g.lineTo(hx, hy); g.stroke();
+          // little via dots at each corner the trace has passed
+          g.shadowBlur = 0; g.fillStyle = line; for (let j = 1; j < k; j++) { g.beginPath(); g.arc(t.pts[j][0], t.pts[j][1], 2.6, 0, 7); g.fill(); }
+          const done = fxEase((f - t.t0 - t.dur) / 12), [ex, ey] = t.pts[t.pts.length - 1];
+          if (p < 1) { g.globalAlpha = a; g.shadowBlur = 14; g.shadowColor = glo; g.fillStyle = hot; g.beginPath(); g.arc(hx, hy, 4, 0, 7); g.fill(); }
+          if (done > 0) { const r = 7 + 2 * Math.sin((f - t.t0 - t.dur) / 9) * (1 - done * 0.5); g.globalAlpha = a; g.shadowBlur = 16 * done; g.shadowColor = glo; g.fillStyle = line; g.beginPath(); g.arc(ex, ey, r * done, 0, 7); g.fill(); g.shadowBlur = 0; g.fillStyle = hot; g.beginPath(); g.arc(ex, ey, r * done * 0.42, 0, 7); g.fill();
+            const t2 = f - t.t0 - t.dur; if (t2 < 40) { g.globalAlpha = a * 0.5 * (1 - t2 / 40); g.strokeStyle = line; g.lineWidth = 2; g.beginPath(); g.arc(ex, ey, r + t2 * 0.9, 0, 7); g.stroke(); } }
+          // a second data packet runs up the finished trace
+          const q = (f - t.t0 - t.dur - 20) / 50; if (q > 0 && q < 1) { const D2 = q * t.L; let m = 1; while (m < t.pts.length - 1 && t.cum[m] < D2) m++; const [cx, cy] = t.pts[m - 1], [dx, dy] = t.pts[m], v = Math.min(1, (D2 - t.cum[m - 1]) / Math.max(1, t.cum[m] - t.cum[m - 1]));
+            g.globalAlpha = a * Math.sin(q * Math.PI); g.shadowBlur = 12; g.shadowColor = glo; g.fillStyle = hot; g.beginPath(); g.arc(cx + (dx - cx) * v, cy + (dy - cy) * v, 3.2, 0, 7); g.fill(); } }); }},
     tag: "A glowing circuit-board city where data pulses race along the traces and code brackets float"
   });
 
@@ -23196,10 +23651,19 @@ var MAJ_THEMES = [];
       en_nut: {d: hexD(9.6, 4)},
       en_bolt: {d: "M-5.5 -10H5.5V-5.5H-5.5Z M-2.4 -5.5H2.4V10H-2.4Z", detail: "M-2.4 -2.5L2.4 -1M-2.4 0.8L2.4 2.3M-2.4 4.1L2.4 5.6M-2.4 7.4L2.4 8.9", dstroke: true}
     },
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(16), "en_gear", d ? ["#F2A65A", "#E8C27A", "#C98A52"] : ["#C9782E", "#D9A441", "#9A6A3A"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 11, smax: 17}).map(p => Object.assign(p, {vr: fxR(-0.09, 0.09)}))
-      .concat(fxBurst(W, H, n(14), "en_nut", d ? ["#B8C2CC", "#E8EEF2"] : ["#8A97A3", "#B8C2CC"], [[0.2, 1.02], [0.8, 1.02]], {smin: 6, smax: 9}), fxBurst(W, H, n(8), "en_bolt", d ? ["#B8C2CC"] : ["#7E8B96", "#A3AEB8"], [[0.3, 1.02], [0.7, 1.02]], {smin: 8, smax: 11}),
-        fxRise(W, H, n(8), "en_gear", d ? ["#F2A65A", "#E8C27A"] : ["#C9782E", "#D9A441"], {smin: 9, smax: 14, vmin: 1, vmax: 1.8, sway: 0.5, life: 260}).map(p => Object.assign(p, {vr: fxR(-0.04, 0.04)})),
-        fxTw(W, H, n(16), "sparkle", d ? ["#FFE0A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    // two gear trains roll in from opposite corners and turn in mesh; a few nuts and bolts are tossed up and brass glints twinkle
+    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(10), "en_nut", d ? ["#B8C2CC", "#E8EEF2"] : ["#7E8B96", "#A3AEB8"], [[0.35, 1.02], [0.65, 1.02]], {smin: 8, smax: 11}).map(p => Object.assign(p, {delay: 20 + Math.floor(fxR(0, 30))}))
+      .concat(fxBurst(W, H, n(6), "en_bolt", d ? ["#C8D0D8"] : ["#7E8B96", "#A3AEB8"], [[0.4, 1.02], [0.6, 1.02]], {smin: 10, smax: 13}).map(p => Object.assign(p, {delay: 24 + Math.floor(fxR(0, 30))})),
+        fxTw(W, H, n(18), "sparkle", d ? ["#FFE0A8", "#FFFFFF"] : ["#E8A21C", "#F2C24A"], {smin: 3, smax: 7, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 180) / 60); if (a <= 0.01) return;
+        const k = Math.min(W, H) * 0.0105, cols = d ? ["#E89A4E", "#E8C27A", "#C98A52"] : ["#C9782E", "#D9A441", "#A8703A"];
+        const spin = 0.035 * (f - 60 * (1 - Math.exp(-f / 60))), sl = 1 - fxEase(f / 46);
+        // each train: corner, direction into the screen, and gears as [teeth, angle from the previous gear]
+        [[0, H, 1, -1, [[22, 0], [12, -0.5], [16, -1.25], [10, 0.1]]], [W, 0, -1, 1, [[22, 0], [12, 2.64], [16, 1.9], [10, 3.24]]]].forEach(([cx, cy, sx, sy, gs], ti) => {
+          let px = cx + sx * k * 8 - sx * sl * k * 40, py = cy + sy * k * 8 - sy * sl * k * 40, th = (ti ? -1 : 1) * spin, pn = 0;
+          gs.forEach(([nt, ang], i) => { let x = px, y = py; if (i) { const dist = (pn + nt) * k * 0.5; x = px + Math.cos(ang) * dist; y = py + Math.sin(ang) * dist; th = ang + Math.PI + Math.PI / nt - (th - ang) * pn / nt; }
+            g.save(); g.translate(x, y); g.rotate(th); g.globalAlpha = a; g.fillStyle = cols[(i + ti) % 3]; g.shadowBlur = d ? 10 : 6; g.shadowColor = d ? "rgba(0,0,0,.5)" : "rgba(90,50,10,.25)"; g.fill(enGear(nt, k), "evenodd"); g.restore(); px = x; py = y; pn = nt; }); }); }},
     tag: "A warm workshop wall with blueprints, turning brass gears and a truss bridge out the window"
   });
 
@@ -23214,11 +23678,30 @@ var MAJ_THEMES = [];
     shapes: {
       ed_apple: {d: "M0 -5.2C2.6 -7.4 8.4 -7.2 9 -1.4C9.6 4.6 5.4 9.8 2.4 9.8C1.4 9.8 0.8 9.2 0 9.2C-0.8 9.2 -1.4 9.8 -2.4 9.8C-5.4 9.8 -9.6 4.6 -9 -1.4C-8.4 -7.2 -2.6 -7.4 0 -5.2Z M-0.6 -5.6C-0.8 -8 0 -9.6 1.2 -10.6L2 -9.8C1 -8.8 0.6 -7.4 0.8 -5.6Z M1.6 -8.4C3 -10.6 6.4 -10.8 7.6 -9.8C6.4 -7.6 3.4 -7.2 1.6 -8.4Z", detail: "M-5.2 -2.6Q-5.8 0.6 -4 3.2", dstroke: true},
       ed_aplus: {d: "M-11 8L-6.4 -8L-1.8 8M-9.4 2.6H-3.4M4.6 -4.4V7.4M-1.2 1.5H10.4", stroke: true, lw: 2.4},
-      ed_pencil: {d: "M-10.6 3.2L5.2 3.2L10.8 0L5.2 -3.2L-10.6 -3.2Z", detail: "M5.2 -3.2L5.2 3.2M-7.6 -3.2V3.2M8.6 -1.2L10.8 0L8.6 1.2Z", dstroke: true}
+      ed_pencil: {d: "M-10.6 3.2L5.2 3.2L10.8 0L5.2 -3.2L-10.6 -3.2Z", detail: "M5.2 -3.2L5.2 3.2M-7.6 -3.2V3.2M8.6 -1.2L10.8 0L8.6 1.2Z", dstroke: true},
+      // gold star sticker with a white die-cut edge and a little smile
+      ed_star: {d: "M0 -11.4L3.4 -4.4L11 -3.4L5.4 1.8L6.8 9.4L0 5.8L-6.8 9.4L-5.4 1.8L-11 -3.4L-3.4 -4.4Z", paint: (g, col, dk) => { const s = new Path2D("M0 -9.4L2.7 -3.6L9 -2.8L4.4 1.5L5.6 7.8L0 4.8L-5.6 7.8L-4.4 1.5L-9 -2.8L-2.7 -3.6Z");
+        g.lineJoin = "round"; g.strokeStyle = "#FFFFFF"; g.lineWidth = 3.4; g.stroke(s); g.fillStyle = "#FFFFFF"; g.fill(s); g.fillStyle = col; g.fill(s); g.save(); g.clip(s); g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(-10, -10, 20, 7); g.restore();
+        g.fillStyle = fxShade(col, 0.45); g.beginPath(); g.arc(-1.8, -0.4, 0.8, 0, 7); g.arc(1.8, -0.4, 0.8, 0, 7); g.fill(); g.strokeStyle = g.fillStyle; g.lineWidth = 0.8; g.lineCap = "round"; g.beginPath(); g.arc(0, 0.8, 1.8, 0.4, 2.7); g.stroke(); }},
+      ed_apple2: {d: "M0 -5.2C2.6 -7.4 8.4 -7.2 9 -1.4C9.6 4.6 5.4 9.8 2.4 9.8C1.4 9.8 0.8 9.2 0 9.2C-0.8 9.2 -1.4 9.8 -2.4 9.8C-5.4 9.8 -9.6 4.6 -9 -1.4C-8.4 -7.2 -2.6 -7.4 0 -5.2Z", paint: (g, col, dk) => {
+        g.fillStyle = col; g.fill(new Path2D("M0 -5.2C2.6 -7.4 8.4 -7.2 9 -1.4C9.6 4.6 5.4 9.8 2.4 9.8C1.4 9.8 0.8 9.2 0 9.2C-0.8 9.2 -1.4 9.8 -2.4 9.8C-5.4 9.8 -9.6 4.6 -9 -1.4C-8.4 -7.2 -2.6 -7.4 0 -5.2Z")); g.fillStyle = "rgba(255,255,255,.4)"; g.beginPath(); g.ellipse(-4.6, -1.6, 1.6, 3, 0.3, 0, 7); g.fill();
+        g.fillStyle = "#7A4A26"; g.fill(new Path2D("M-0.6 -5.6C-0.8 -8 0 -9.6 1.2 -10.6L2 -9.8C1 -8.8 0.6 -7.4 0.8 -5.6Z")); g.fillStyle = "#6FB04A"; g.fill(new Path2D("M1.6 -8.4C3 -10.6 6.4 -10.8 7.6 -9.8C6.4 -7.6 3.4 -7.2 1.6 -8.4Z")); }}
     },
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "star", d ? ["#FFD86B", "#FFE9A8", "#F2B53A"] : ["#F2B53A", "#FFCF4A", "#E8A21C"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 12, glow: d ? 10 : 3})
-      .concat(fxBurst(W, H, n(8), "ed_apple", ["#D9473A", "#E8604A", "#7FB24A"], [[0.25, 1.02], [0.75, 1.02]], {smin: 10, smax: 14}), fxRise(W, H, n(3), "ed_aplus", d ? ["#FFFFFF", "#FFE9A8"] : ["#2F6B4F", "#C2463A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.6, sway: 0.6, life: 280, glow: d ? 10 : 0}),
-        fxRise(W, H, n(14), "heart", ["#FF8FB8", "#FF9C8C", "#FFD465"], {smin: 6, smax: 10, sway: 1.2}), fxBurst(W, H, n(10), "ed_pencil", ["#F2C14A", "#E8A21C"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}), fxTw(W, H, n(20), "sparkle", d ? ["#FFE9A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+
+    // the teacher's red pen writes a big A+ and rings it; gold star stickers and a few apples pop up from the desk
+    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(30), "ed_star", d ? ["#FFD24A", "#FFC23A", "#FFE07A"] : ["#F6B820", "#FFC93A", "#F2A81C"], [[0.12, 1.02], [0.88, 1.02]], {smin: 11, smax: 15, flip: true, g: 0.26}).map(p => Object.assign(p, {delay: 50 + Math.floor(fxR(0, 14)), term: fxR(2, 3), fsw: 1.2}))
+      .concat(fxBurst(W, H, n(6), "ed_apple2", ["#D9473A", "#E8604A", "#C83A30"], [[0.3, 1.02], [0.7, 1.02]], {smin: 12, smax: 15}).map(p => Object.assign(p, {delay: 56 + Math.floor(fxR(0, 10)), vr: fxR(-0.08, 0.08)})),
+        fxTw(W, H, n(16), "sparkle", d ? ["#FFE9A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 7, glow: d ? 10 : 4}).map(p => Object.assign(p, {delay: 40 + Math.floor(fxR(0, 110))}))),
+      draw: (g, f, W, H, d) => {
+        const a = 1 - fxEase((f - 180) / 60); if (a <= 0.01) return;
+        const s = Math.min(W * 0.5, H * 0.34, 300) / 120, ox = W / 2 - 60 * s, oy = H * (W < H ? 0.56 : 0.6) - 30 * s;
+        // strokes in a 120 x 60 box: A, its bar, the plus, then a loose ring around everything
+        const ring = []; for (let i = 0; i <= 40; i++) { const t = -2.2 + i / 40 * 6.9; ring.push([60 + Math.cos(t) * (74 + i * 0.25), 30 + Math.sin(t) * 46]); }
+        const S = [[[4, 60], [26, 0], [48, 60]], [[13, 38], [39, 38]], [[64, 30], [100, 29]], [[82, 12], [82, 48]], ring], D = [22, 8, 9, 9, 34];
+        g.lineCap = g.lineJoin = "round"; g.strokeStyle = d ? "#FF8A7A" : "#D23A32"; g.globalAlpha = a; g.shadowBlur = d ? 8 : 0; g.shadowColor = g.strokeStyle;
+        let t0 = 6; S.forEach((pts, i) => { const p = Math.min(1, Math.max(0, (f - t0) / D[i])); t0 += D[i] + 3; if (p <= 0) return; let L = 0; const seg = []; for (let j = 1; j < pts.length; j++) { const l = Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]); seg.push(l); L += l; }
+          let left = p * L; g.lineWidth = (i === 4 ? 3.2 : 5.5) * s; g.beginPath(); g.moveTo(ox + pts[0][0] * s, oy + pts[0][1] * s);
+          for (let j = 1; j < pts.length && left > 0; j++) { const u = Math.min(1, left / seg[j - 1]); g.lineTo(ox + (pts[j - 1][0] + (pts[j][0] - pts[j - 1][0]) * u) * s, oy + (pts[j - 1][1] + (pts[j][1] - pts[j - 1][1]) * u) * s); left -= seg[j - 1]; } g.stroke(); }); }},
     tag: "A sunny classroom with chalk doodles, paper chains, an apple on the desk and trees outside"
   });
 
@@ -23234,13 +23717,22 @@ var MAJ_THEMES = [];
       cm_mic: {d: "M-4.6 -6.4A4.6 4.6 0 0 1 4.6 -6.4V0.6A4.6 4.6 0 0 1 -4.6 0.6Z M-7.6 -0.4H-6.2A6.2 6.2 0 0 0 6.2 -0.4H7.6A7.6 7.6 0 0 1 0.7 7.2V9H3.6V10.6H-3.6V9H-0.7V7.2A7.6 7.6 0 0 1 -7.6 -0.4Z", detail: "M-4.6 -4.6H4.6M-4.6 -2.2H4.6", dstroke: true},
       cm_wave: {d: "M-11 0C-9 -6 -7 -6 -5.5 0S-2 6 0 0S3.5 -6 5.5 0S9 6 11 0", stroke: true, lw: 2},
       cm_bubble: {d: "M-10 -7A3 3 0 0 1 -7 -10H7A3 3 0 0 1 10 -7V2A3 3 0 0 1 7 5H-2L-7 10L-5.5 5H-7A3 3 0 0 1 -10 2Z", detail: "M0 2.6C-4.6 -0.6 -4.4 -4.8 -2 -5.4C-1 -5.6 -0.3 -5 0 -4.2C0.3 -5 1 -5.6 2 -5.4C4.4 -4.8 4.6 -0.6 0 2.6Z", dfill: true},
-      cm_bars: {d: "M-9 2H-6V10H-9Z M-4.5 -4H-1.5V10H-4.5Z M0 -9H3V10H0Z M4.5 -2H7.5V10H4.5Z"}
+      cm_bars: {d: "M-9 2H-6V10H-9Z M-4.5 -4H-1.5V10H-4.5Z M0 -9H3V10H0Z M4.5 -2H7.5V10H4.5Z"},
+      // live reactions: a colored disc with a white icon
+      cm_rh: {d: "M-9.4 0a9.4 9.4 0 1 0 18.8 0a9.4 9.4 0 1 0 -18.8 0Z", paint: (g, col) => cmR(g, col, "M0 5.6C-5.2 2.2 -6.6 -1 -5.8 -3.2C-5 -5.6 -1.6 -6 0 -3.2C1.6 -6 5 -5.6 5.8 -3.2C6.6 -1 5.2 2.2 0 5.6Z")},
+      cm_rl: {d: "M-9.4 0a9.4 9.4 0 1 0 18.8 0a9.4 9.4 0 1 0 -18.8 0Z", paint: (g, col) => cmR(g, col, "M-5.6 -0.6H-3V5.8H-5.6Z M-2 -0.8L0.8 -5.8C1.3 -6.6 2.9 -6.3 2.9 -5L2.5 -2H5.4C6.4 -2 7 -1.2 6.8 -0.2L5.8 4.6C5.6 5.4 5 5.8 4.2 5.8H-2Z")},
+      cm_rs: {d: "M-9.4 0a9.4 9.4 0 1 0 18.8 0a9.4 9.4 0 1 0 -18.8 0Z", paint: (g, col) => cmR(g, col, "M0 -6.4L1.8 -2.2L6.2 -1.9L2.8 1L3.9 5.4L0 3L-3.9 5.4L-2.8 1L-6.2 -1.9L-1.8 -2.2Z")},
+      cm_rn: {d: "M-9.4 0a9.4 9.4 0 1 0 18.8 0a9.4 9.4 0 1 0 -18.8 0Z", paint: (g, col) => cmR(g, col, "M-4.2 4.4C-4.2 3 -2.8 2 -1.2 2C-0.6 2 -0.2 2.1 0.2 2.3V-5.4L5.4 -6.6V2.8C5.4 4.2 4 5.2 2.4 5.2C0.8 5.2 0.2 4.2 0.4 3.4C0.4 2.4 1.6 1.6 3 1.6C3.4 1.6 3.8 1.7 4.1 1.8V-3.2L1.5 -2.6V4.4C1.5 5.8 0.1 6.8 -1.5 6.8C-3.1 6.8 -4.2 5.8 -4.2 4.4Z")}
     },
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(24), "note", d ? ["#FF9EA8", "#FFD08A", "#C9B8FF"] : ["#C23A4A", "#6A4FC9", "#E0883A"], {smin: 9, smax: 14, sway: 1.6, vmin: 1.4, vmax: 2.6})
-      .concat(fxRise(W, H, n(10), "cm_wave", d ? ["#FF9EA8", "#9FD8FF"] : ["#C23A4A", "#3D7AB8"], {smin: 12, smax: 18, sway: 0.8, vmin: 1, vmax: 1.8, life: 240, glow: d ? 10 : 0}),
-        fxRise(W, H, n(9), "cm_bubble", d ? ["#FF8FC0", "#8FF0E4", "#FFD27A"] : ["#FF4F9A", "#23B5A8", "#F5A623", "#8E6FE8"], {smin: 12, smax: 17, vmin: 1, vmax: 1.8, sway: 0.9, life: 260}),
-        fxBurst(W, H, n(6), "cm_mic", d ? ["#E8E2EE", "#C9C2D2"] : ["#4A4258", "#6A6278"], [[0.2, 1.02], [0.8, 1.02]], {smin: 12, smax: 16}), fxTw(W, H, n(18), "sparkle", d ? ["#FFD08A", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
-      draw: (g, f, W, H, d) => { [0, 22, 44].forEach(t0 => { const t = f - t0; if (t < 0 || t > 120) return; const r = 30 + t * Math.max(W, H) / 150, a = 1 - t / 120; g.save(); g.globalAlpha = a * (d ? 0.5 : 0.4); g.strokeStyle = d ? "#FF9EA8" : "#C23A4A"; g.lineWidth = 3; g.lineCap = "round"; [-1, 1].forEach(s => { g.beginPath(); g.arc(W / 2, H + 10, r, s < 0 ? Math.PI * 1.05 : Math.PI * 1.62, s < 0 ? Math.PI * 1.38 : Math.PI * 1.95); g.stroke(); }); g.restore(); }); }},
+
+    // a stream of live reactions (hearts, likes, stars, notes) floats up the side like a broadcast going viral, while signal rings pulse out from the mic
+    fx: {spawn: (W, H, d, n) => { const cols = {cm_rh: d ? "#FF6F9A" : "#F0466E", cm_rl: d ? "#4FA6FF" : "#2F7FE0", cm_rs: d ? "#FFB43A" : "#F29A18", cm_rn: d ? "#A884FF" : "#7A56E0"}, P = [];
+      for (let i = 0, N = n(34); i < N; i++) { const right = i % 3 !== 0, sh = fxPick(["cm_rh", "cm_rh", "cm_rl", "cm_rs", "cm_rn"]);
+        P.push({shape: sh, c: cols[sh], x: (right ? fxR(0.8, 0.92) : fxR(0.08, 0.2)) * W, y: H + fxR(10, 30), vx: (right ? -1 : 1) * fxR(0, 0.5), vy: -fxR(2, 3.2), g: 0, drag: 0.997, size: fxR(11, 15), rot: fxR(-0.2, 0.2), vr: 0, sway: fxR(1.2, 2.2), swf: fxR(0.03, 0.05), life: Math.floor(fxR(150, 200)), delay: Math.floor(i / N * 130 + fxR(0, 10)), glow: d ? 8 : 0, grow: 0.01}); }
+      return P.concat(fxTw(W, H, n(14), "sparkle", d ? ["#FFD08A", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4})); },
+      draw: (g, f, W, H, d) => { const out = 1 - fxEase((f - 150) / 50); if (out <= 0.01) return; g.lineCap = "round"; g.strokeStyle = d ? "#FF9EA8" : "#C23A4A"; g.lineWidth = 3;
+        for (let t0 = 0; t0 < 140; t0 += 26) { const t = f - t0; if (t < 0 || t > 110) continue; const r = 30 + t * Math.max(W, H) / 170, al = fxEase(t / 8) * (1 - t / 110); g.globalAlpha = out * al * (d ? 0.5 : 0.4);
+          [-1, 1].forEach(s => { g.beginPath(); g.arc(W / 2, H + 10, r, s < 0 ? Math.PI * 1.08 : Math.PI * 1.62, s < 0 ? Math.PI * 1.38 : Math.PI * 1.92); g.stroke(); }); } }},
     tag: "A cozy radio studio with a glowing ON AIR sign, a big microphone and the city skyline outside"
   });
 })();
@@ -23550,6 +24042,33 @@ var MAJ_THEMES = [];
   const rainbow = (g, f, W, H, d, cx, cy, R) => { const a = f < 40 ? f / 40 : f < 170 ? 1 : Math.max(0, 1 - (f - 170) / 50); if (a <= 0) return; const grow = Math.min(1, f / 50);
     g.save(); g.globalAlpha = a * (d ? 0.35 : 0.5); g.lineWidth = Math.max(6, R * 0.05); ["#FF6A6A", "#FFA94A", "#FFE05A", "#7EDB6A", "#5AB8F2", "#9A7BF0"].forEach((c, i) => { g.strokeStyle = c; g.beginPath(); g.arc(cx * W, cy * H, R - i * g.lineWidth, Math.PI, Math.PI + Math.PI * grow); g.stroke(); }); g.restore(); };
 
+  /* ---- completion animations ---- */
+  const FX = {
+    onsen: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "puff", d ? ["rgba(220,222,255,.45)", "rgba(255,210,160,.4)"] : ["rgba(255,255,255,.85)", "rgba(230,238,248,.9)"], {smin: 9, smax: 18, vmin: 0.8, vmax: 1.6, sway: 1.4, life: 260, grow: 0.12, alpha: 0.55})
+      .concat(fxBurst(W, H, n(10), "n1yuzu", d ? ["#F2C24A", "#FFD45A"] : ["#FFC93A", "#F2B02A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
+        fxFall(W, H, n(40), "n1maple", d ? ["#E0545E", "#E8844A", "#E8B84A"] : ["#E8483A", "#F5873A", "#F7C445"], {vmin: 0.9, vmax: 1.7, sway: 1.8, flip: true, smin: 10, smax: 15}),
+        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    rainforest: {spawn: (W, H, d, n) => fxFall(W, H, n(36), "n1monstera", d ? ["#2E7A5A", "#3E9A6A", "#5AB87A"] : ["#2B7A4E", "#4FAA60", "#6FBE58"], {sway: 2, flip: true, smin: 11, smax: 16, vmin: 1, vmax: 1.9})
+      .concat(fxFall(W, H, n(60), "drop", d ? ["#9FE8E0", "#C8F5EE"] : ["#7CC8E8", "#A8DCF2"], {vmin: 5, vmax: 8, sway: 0, smin: 4, smax: 6, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0, vx: 0.2, g: 0.04, life: 170, delay: Math.floor(fxR(0, 120))})),
+        fxFall(W, H, n(14), "n1feather", ["#E83A3A", "#2F8EE8", "#FFC93A", "#2FB0A8"], {sway: 2.4, smin: 12, smax: 17, vmin: 0.8, vmax: 1.4}),
+        fxFlutter(W, H, n(7), d ? ["#7FDBFF", "#9FF7E0"] : ["#2F7CF0", "#4FA0FF", "#7FD0FF"]),
+        fxTw(W, H, n(20), "circle", d ? ["#C8FF8A", "#9FFFE8"] : ["#F2E7A0", "#E4F0B8"], {smin: 2, smax: 4, glow: 10, vy: -0.3}))},
+    tidepool: {spawn: (W, H, d, n) => fxRise(W, H, n(46), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 8, sway: 1, vmin: 1.6, vmax: 3})
+      .concat(fxBurst(W, H, n(16), "n1anem", d ? ["#FF8FB8", "#6EE0A8", "#B58CF2"] : ["#FF7FA8", "#4ED69A", "#A884F0", "#FF9A5A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}),
+        fxBurst(W, H, n(10), "starfish", ["#F2884A", "#9E62CC", "#F2B53A"], [[0.3, 1.02], [0.7, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
+        fxBurst(W, H, n(8), "shell", ["#F6E0D0", "#F7C6C6", "#FFF2E0"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 13}),
+        fxTw(W, H, n(26), "sparkle", d ? ["#7FE0F0", "#FFFFFF"] : ["#4FB8D8", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 3}))},
+    volcano: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "circle", d ? ["#FFB05A", "#FFE08A", "#FF7A3A"] : ["#FF8A3A", "#FFC24A", "#F25A3A"], [[0.5, 1.04]], {smin: 2.5, smax: 5, glow: 12})
+      .concat(fxBurst(W, H, n(22), "n1hibiscus", d ? ["#FF6A8A", "#FFB0C8", "#FFFFFF", "#FFA05A"] : ["#F2486A", "#FF8AB0", "#FFFFFF", "#FF9A3A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)})),
+        fxRise(W, H, n(8), "n1lava", d ? ["#FF7A3A", "#FFB05A"] : ["#E8603A", "#FF9A3A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.8, sway: 0.8, life: 280, glow: d ? 14 : 6}),
+        fxTw(W, H, n(22), "sparkle", d ? ["#FFE08A", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 4}))},
+    savanna: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "drop", d ? ["#B8D8FF", "#E8F0FF"] : ["#7CC8E8", "#A8DCF2", "#FFFFFF"], [[0.3, 1.04], [0.7, 1.04]], {smin: 4, smax: 7, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0}))
+      .concat(Array.from({length: n(70)}, () => ({shape: "circle", c: fxPick(d ? ["#F6C88A", "#E2B07A"] : ["#E8B85A", "#D9A04A", "#F2CC7A"]), x: fxR(-W * 0.4, -10), y: fxR(H * 0.3, H), vx: fxR(4, 7.5), vy: fxR(-0.6, 0.2), g: 0, size: fxR(1.5, 3), rot: 0, vr: 0, sway: 0.9, swf: fxR(0.05, 0.1), life: 220, delay: Math.floor(fxR(0, 80)), alpha: 0.85})),
+        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
+      draw: (g, f, W, H, d) => rainbow(g, f, W, H, d, 0.5, 0.95, Math.min(W, H) * 0.42)}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "onsen", name: "Hot Spring", group: "ideas", desc: "A steaming rock pool under autumn maples, with lanterns and a little ryokan.",
       light: ["#EEF3F8", "rgba(78,110,142,.10)", "#FFFFFF", "#1C2A38", "#566676", "#D6E0EA", "#E4ECF3", "#F8FAFC", "#B8523A", "#CB7458", "#FFFFFF", "#7A2E1E", "#33506E", "#D2E2F0", "#FFE3B0"],
@@ -23557,10 +24076,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#BFD8EE,#E8F1F8 55%,#F6EEE6)", "linear-gradient(180deg,#1C2340,#3A3F6B 60%,#6B5A7A)"],
       spine: [lg("#4E6E8E", "#33506E"), lg("#2A2F57", "#161A36")], btn: [lg2("#B8523A", "#C96A40"), lg2("#F2A86A", "#F7C48E")]},
     kit: {motif: "n1yuzu", card: ["#F8FAFD", "#E4ECF4"], ink: "#1C2A38", bd: "#C6D6E6", mc: "#E0A02A", r: 16, notes: ["#E2ECF6"].concat(NOTES), shape: "cloud", pin: "magnet", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "puff", d ? ["rgba(220,222,255,.45)", "rgba(255,210,160,.4)"] : ["rgba(255,255,255,.85)", "rgba(230,238,248,.9)"], {smin: 9, smax: 18, vmin: 0.8, vmax: 1.6, sway: 1.4, life: 260, grow: 0.12, alpha: 0.55})
-      .concat(fxBurst(W, H, n(10), "n1yuzu", d ? ["#F2C24A", "#FFD45A"] : ["#FFC93A", "#F2B02A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
-        fxFall(W, H, n(40), "n1maple", d ? ["#E0545E", "#E8844A", "#E8B84A"] : ["#E8483A", "#F5873A", "#F7C445"], {vmin: 0.9, vmax: 1.7, sway: 1.8, flip: true, smin: 10, smax: 15}),
-        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: FX.onsen,
     tag: "A steaming rock pool under red and gold maples, with a bamboo spout that tips and clacks, floating yuzu, stone lanterns, a vermilion torii, a little ryokan and a snow-capped peak"
   });
   MAJ_THEMES.push({
@@ -23570,11 +24086,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#9FD4B8,#D9F0C9 55%,#F3F7D8)", "linear-gradient(180deg,#0F2A2A,#174240 55%,#2D5C4E)"],
       spine: [lg("#2F7A55", "#1C5238"), lg("#14403A", "#0A221E")], btn: [lg2("#C2482E", "#D26A2E"), lg2("#7FF0D0", "#B8F59A")]},
     kit: {motif: "n1monstera", card: ["#F5FBF6", "#DDEFE2"], ink: "#132A1E", bd: "#B6D8C0", mc: "#2F8A55", r: 18, notes: ["#D3EBD9"].concat(NOTES), shape: "scallop", pin: "pin", fab: "24px 24px 24px 8px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(36), "n1monstera", d ? ["#2E7A5A", "#3E9A6A", "#5AB87A"] : ["#2B7A4E", "#4FAA60", "#6FBE58"], {sway: 2, flip: true, smin: 11, smax: 16, vmin: 1, vmax: 1.9})
-      .concat(fxFall(W, H, n(60), "drop", d ? ["#9FE8E0", "#C8F5EE"] : ["#7CC8E8", "#A8DCF2"], {vmin: 5, vmax: 8, sway: 0, smin: 4, smax: 6, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0, vx: 0.2, g: 0.04, life: 170, delay: Math.floor(fxR(0, 120))})),
-        fxFall(W, H, n(14), "n1feather", ["#E83A3A", "#2F8EE8", "#FFC93A", "#2FB0A8"], {sway: 2.4, smin: 12, smax: 17, vmin: 0.8, vmax: 1.4}),
-        fxFlutter(W, H, n(7), d ? ["#7FDBFF", "#9FF7E0"] : ["#2F7CF0", "#4FA0FF", "#7FD0FF"]),
-        fxTw(W, H, n(20), "circle", d ? ["#C8FF8A", "#9FFFE8"] : ["#F2E7A0", "#E4F0B8"], {smin: 2, smax: 4, glow: 10, vy: -0.3}))},
+    fx: FX.rainforest,
     tag: "Giant leaves, swaying vines and a distant waterfall seen from the treetops, with a hopping toucan, tree frogs and glowing mushrooms at night"
   });
   MAJ_THEMES.push({
@@ -23584,11 +24096,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#A8D8E8,#E6F3F2 55%,#E9DCC6)", "linear-gradient(180deg,#1A2B44,#2C4462 55%,#4A5A6E)"],
       spine: [lg("#2F7A8E", "#1D5466"), lg("#22385A", "#121F36")], btn: [lg2("#C2486E", "#D9685A"), lg2("#7FE0F0", "#B8A0FF")]},
     kit: {motif: "n1anem", card: ["#F5FBFB", "#DDEEF0"], ink: "#132B33", bd: "#B4D6DC", mc: "#C2486E", r: 20, notes: ["#D3EAEE"].concat(NOTES), shape: "rounded", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(46), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 8, sway: 1, vmin: 1.6, vmax: 3})
-      .concat(fxBurst(W, H, n(16), "n1anem", d ? ["#FF8FB8", "#6EE0A8", "#B58CF2"] : ["#FF7FA8", "#4ED69A", "#A884F0", "#FF9A5A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}),
-        fxBurst(W, H, n(10), "starfish", ["#F2884A", "#9E62CC", "#F2B53A"], [[0.3, 1.02], [0.7, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxBurst(W, H, n(8), "shell", ["#F6E0D0", "#F7C6C6", "#FFF2E0"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 13}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#7FE0F0", "#FFFFFF"] : ["#4FB8D8", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 3}))},
+    fx: FX.tidepool,
     tag: "Tide pools of every shape and color, with anemones, sea stars, urchins, snails, little fish and a crab, below a lighthouse, sea stacks and a passing sailboat"
   });
   MAJ_THEMES.push({
@@ -23598,10 +24106,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F7C9A0,#FBE6C8 50%,#BFE3D9)", "linear-gradient(180deg,#26142A,#4A1F33 55%,#8A3A35)"],
       spine: [lg("#B8563A", "#7E3424"), lg("#4A1F33", "#26142A")], btn: [lg2("#1E8A8C", "#2EA2A0"), lg2("#FF9A5A", "#FFC07A")]},
     kit: {motif: "n1hibiscus", card: ["#FFF8F2", "#F6E2D4"], ink: "#3A1C14", bd: "#EAC8B4", mc: "#E0533A", r: 14, notes: ["#F6DCCC"].concat(NOTES), shape: "folded", pin: "corners", fab: "22px 6px 22px 6px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "circle", d ? ["#FFB05A", "#FFE08A", "#FF7A3A"] : ["#FF8A3A", "#FFC24A", "#F25A3A"], [[0.5, 1.04]], {smin: 2.5, smax: 5, glow: 12})
-      .concat(fxBurst(W, H, n(22), "n1hibiscus", d ? ["#FF6A8A", "#FFB0C8", "#FFFFFF", "#FFA05A"] : ["#F2486A", "#FF8AB0", "#FFFFFF", "#FF9A3A"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)})),
-        fxRise(W, H, n(8), "n1lava", d ? ["#FF7A3A", "#FFB05A"] : ["#E8603A", "#FF9A3A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.8, sway: 0.8, life: 280, glow: d ? 14 : 6}),
-        fxTw(W, H, n(22), "sparkle", d ? ["#FFE08A", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 4}))},
+    fx: FX.volcano,
     tag: "A friendly volcano puffing over a tropical island, with swaying palms, black sand, steaming vents and glowing lava rivers at night"
   });
   MAJ_THEMES.push({
@@ -23611,10 +24116,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F9D68B,#FBE9B9 55%,#E8D59A)", "linear-gradient(180deg,#2A1C3E,#5A2E4A 55%,#B4523E)"],
       spine: [lg("#B8782E", "#7E4E1C"), lg("#3E2446", "#2A1C3E")], btn: [lg2("#B8502A", "#D27A2A"), lg2("#F2A66A", "#F6C88A")]},
     kit: {motif: "n1acacia", card: ["#FFFAF0", "#F6E8CC"], ink: "#3A2412", bd: "#E8D0A4", mc: "#B8782E", r: 12, notes: ["#F4E2BC"].concat(NOTES), shape: "torn", pin: "tape", fab: "18px 18px 6px 18px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "drop", d ? ["#B8D8FF", "#E8F0FF"] : ["#7CC8E8", "#A8DCF2", "#FFFFFF"], [[0.3, 1.04], [0.7, 1.04]], {smin: 4, smax: 7, glow: d ? 6 : 0}).map(p => Object.assign(p, {rot: 0, vr: 0}))
-      .concat(Array.from({length: n(70)}, () => ({shape: "circle", c: fxPick(d ? ["#F6C88A", "#E2B07A"] : ["#E8B85A", "#D9A04A", "#F2CC7A"]), x: fxR(-W * 0.4, -10), y: fxR(H * 0.3, H), vx: fxR(4, 7.5), vy: fxR(-0.6, 0.2), g: 0, size: fxR(1.5, 3), rot: 0, vr: 0, sway: 0.9, swf: fxR(0.05, 0.1), life: 220, delay: Math.floor(fxR(0, 80)), alpha: 0.85})),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
-      draw: (g, f, W, H, d) => rainbow(g, f, W, H, d, 0.5, 0.95, Math.min(W, H) * 0.42)},
+    fx: FX.savanna,
     tag: "A huge low sun over golden grass, with flat-topped acacias, a munching giraffe, swallows over the watering hole and a baby elephant who loves a splash"
   });
 })();
@@ -23644,6 +24146,28 @@ var MAJ_THEMES = [];
   // confetti thrown up from the two bottom corners, fluttering down
   const cannon = (W, H, n, cols, shape = "n5rect", o = {}) => fxBurst(W, H, n, shape, cols, [[0.04, 1.02], [0.96, 1.02]], Object.assign({smin: 6, smax: 9, g: 0.16}, o)).map(p => Object.assign(p, {vx: p.vx * 1.6 + (p.x < W / 2 ? 2.4 : -2.4), vy: p.vy * 1.15, sway: 1.4, swf: fxR(0.05, 0.1), flip: true, life: 300}));
 
+  /* ---- completion animations ---- */
+  const FX = {
+    pride: {spawn: (W, H, d, n) => cannon(W, H, n(90), rainbow(d).concat(["#FFFFFF"]))
+      .concat(fxRise(W, H, n(9), "n5flag", rainbow(d), {smin: 14, smax: 20, vmin: 1.2, vmax: 2.2, sway: 0.9, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.2, 0.2)})),
+        fxRise(W, H, n(12), "n5heart", rainbow(d), {smin: 9, smax: 15, vmin: 1, vmax: 2, sway: 1.1, life: 300, glow: d ? 10 : 0}),
+        fxTw(W, H, n(30), "sparkle", d ? ["#FFFFFF", "#FFB3E6", "#FFE066"] : ["#F2B53A", "#FF8FC8", "#8E5CC7"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    graduation: {spawn: (W, H, d, n) => fxBurst(W, H, n(34), "n5cap", d ? ["#3A4E8E", "#2E3E7A", "#4A5E9E"] : ["#2E4A8A", "#1E3366", "#3A5A9E"], [[0.2, 1.02], [0.5, 1.04], [0.8, 1.02]], {smin: 13, smax: 19, g: 0.22}).map(p => Object.assign(p, {vr: fxR(-0.25, 0.25), life: 260}))
+      .concat(cannon(W, H, n(60), d ? ["#F2C85A", "#FFFFFF", "#7FB8F0"] : ["#F2B83A", "#FFFFFF", "#2E4A8A", "#7FB8F0"]),
+        fxRise(W, H, n(4), "n5scroll", d ? ["#F6E6C0"] : ["#E8D2A0"], {cx: [0.2, 0.8], smin: 15, smax: 19, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 8 : 0}),
+        fxTw(W, H, n(30), "n5star", d ? ["#F2C85A", "#FFFFFF"] : ["#F2B83A", "#2E4A8A"], {smin: 3, smax: 7, glow: d ? 10 : 3}))},
+    birthday: {spawn: (W, H, d, n) => cannon(W, H, n(80), d ? ["#FF7FA8", "#7FE0C8", "#FFD86B", "#C6A0FF", "#7FC8FF", "#FFFFFF"] : ["#FF8FB8", "#7FD8C0", "#FFD45A", "#B58CF2", "#7FC8F0", "#FF9F7A"])
+      .concat(fxRise(W, H, n(14), "n5ballo", d ? ["#FF7FA8", "#7FE0C8", "#FFD86B", "#C6A0FF", "#7FC8FF"] : ["#FF8FB8", "#7FD8C0", "#FFD45A", "#B58CF2", "#7FC8F0"], {smin: 14, smax: 22, vmin: 1.2, vmax: 2.4, sway: 1, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.15, 0.15)})),
+        fxBurst(W, H, n(10), "n5gift", d ? ["#C6A0FF", "#7FC8FF", "#FF7FA8"] : ["#B58CF2", "#7FC8F0", "#FF8FB8"], [[0.3, 1.02], [0.7, 1.02]], {smin: 12, smax: 16}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
+        fxBurst(W, H, n(8), "n5hat", d ? ["#FFD86B", "#FF7FA8", "#7FE0C8"] : ["#FFD45A", "#FF8FB8", "#7FD8C0"], [[0.5, 1.04]], {smin: 12, smax: 16}),
+        fxTw(W, H, n(26), "sparkle", d ? ["#FFFFFF", "#FFD86B", "#FFB3E6"] : ["#F2B53A", "#FF8FB8", "#B58CF2"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    geology: {spawn: (W, H, d, n) => fxBurst(W, H, n(30), "n5crys", d ? ["#C29AFF", "#7AE8F0", "#FF9AD8"] : ["#9A62D8", "#3EB4C0", "#E07AAE"], [[0.5, 1.04], [0.2, 1.02], [0.8, 1.02]], {smin: 10, smax: 16, glow: d ? 12 : 4})
+      .concat(fxRise(W, H, n(12), "n5gem", d ? ["#E2C8FF", "#C8FAFF", "#FFD8EE"] : ["#B58CF2", "#5CCFD8", "#F28AC0"], {smin: 10, smax: 15, vmin: 1, vmax: 2, sway: 0.8, life: 300, glow: d ? 12 : 3}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)})),
+        fxFall(W, H, n(14), "n5rock", d ? ["#5A4A6E", "#6A5A80"] : ["#9584AA", "#7E6C94"], {smin: 6, smax: 10, vmin: 1.6, vmax: 2.6}),
+        fxTw(W, H, n(40), "sparkle", d ? ["#FFFFFF", "#E2C8FF", "#C8FAFF"] : ["#B58CF2", "#5CCFD8", "#F2B53A"], {smin: 3, smax: 7, glow: d ? 12 : 4}))}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "pride", name: "Pride Parade", group: "ideas", desc: "A rainbow street hung with flags and bunting, ready for the parade.",
       light: ["#FBF3FA", "rgba(184,64,122,.10)", "#FFFFFF", "#2A1E3A", "#6A5A7A", "#EEDDEB", "#F5EAF3", "#FDF9FC", "#B8407A", "#7A4AB8", "#FFFFFF", "#7A2452", "#4E2E72", "#F2D6E8", "#FFE7A0"],
@@ -23651,10 +24175,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#BDE3F7,#FDF0F5 58%,#FFE9C2)", "linear-gradient(180deg,#1E1A3E,#3A2560 52%,#6A2E6A)"],
       spine: [lg("#7A4A9E", "#4E2E72"), lg("#3A2560", "#1E1A3E")], btn: [lg2("#B8407A", "#7A4AB8"), lg2("#FF8FC8", "#C6A0FF")]},
     kit: {motif: "n5heart", card: ["#FFFBFE", "#F6E8F2"], ink: "#2A1E3A", bd: "#EBCDE2", mc: "#B8407A", r: 18, notes: ["#F6D8EA"].concat(NOTES), shape: "rounded", pin: "heartpin", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => cannon(W, H, n(90), rainbow(d).concat(["#FFFFFF"]))
-      .concat(fxRise(W, H, n(9), "n5flag", rainbow(d), {smin: 14, smax: 20, vmin: 1.2, vmax: 2.2, sway: 0.9, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.2, 0.2)})),
-        fxRise(W, H, n(12), "n5heart", rainbow(d), {smin: 9, smax: 15, vmin: 1, vmax: 2, sway: 1.1, life: 300, glow: d ? 10 : 0}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFFFFF", "#FFB3E6", "#FFE066"] : ["#F2B53A", "#FF8FC8", "#8E5CC7"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.pride,
     tag: "A street of pastel townhouses hung with rainbow flags and bunting, a rainbow crosswalk and a corgi in a rainbow bandana"
   });
 
@@ -23670,10 +24191,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#B9DAF3,#EAF3FA 56%,#D9E8C2)", "linear-gradient(180deg,#141E3A,#22305A 50%,#4A4A6E)"],
       spine: [lg("#2E4A8A", "#1E3366"), lg("#22305A", "#141E3A")], btn: [lg2("#2E4A8A", "#4A6AB0"), lg2("#F2C85A", "#F6DA8A")]},
     kit: {motif: "n5cap", card: ["#FAFCFE", "#E6EDF6"], ink: "#16213A", bd: "#C8D4E8", mc: "#2E4A8A", r: 12, notes: ["#DCE4F2"].concat(NOTES), shape: "classic", pin: "gold", fab: "14px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(34), "n5cap", d ? ["#3A4E8E", "#2E3E7A", "#4A5E9E"] : ["#2E4A8A", "#1E3366", "#3A5A9E"], [[0.2, 1.02], [0.5, 1.04], [0.8, 1.02]], {smin: 13, smax: 19, g: 0.22}).map(p => Object.assign(p, {vr: fxR(-0.25, 0.25), life: 260}))
-      .concat(cannon(W, H, n(60), d ? ["#F2C85A", "#FFFFFF", "#7FB8F0"] : ["#F2B83A", "#FFFFFF", "#2E4A8A", "#7FB8F0"]),
-        fxRise(W, H, n(4), "n5scroll", d ? ["#F6E6C0"] : ["#E8D2A0"], {cx: [0.2, 0.8], smin: 15, smax: 19, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 8 : 0}),
-        fxTw(W, H, n(30), "n5star", d ? ["#F2C85A", "#FFFFFF"] : ["#F2B83A", "#2E4A8A"], {smin: 3, smax: 7, glow: d ? 10 : 3}))},
+    fx: FX.graduation,
     tag: "A grand campus quad: a columned clock-tower hall with grand steps, brick colleges down both sides, spires beyond, a gate, banners and bunting, and a class of graduates who fling their caps into the sky"
   });
 
@@ -23689,11 +24207,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#FFD9E4,#FFF3DA 58%,#D8F0F6)", "linear-gradient(180deg,#20183A,#3A2458 55%,#6A3A6E)"],
       spine: [lg("#C2508A", "#8A3466"), lg("#4A2A62", "#20183A")], btn: [lg2("#C2407A", "#8A5AD0"), lg2("#FF8FC8", "#FFD86B")]},
     kit: {motif: "n5ballo", card: ["#FFFBFD", "#FBE6EF"], ink: "#3A1E30", bd: "#F2C8DA", mc: "#C2407A", r: 20, notes: ["#FBD6E4"].concat(NOTES), shape: "scallop", pin: "washi2", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => cannon(W, H, n(80), d ? ["#FF7FA8", "#7FE0C8", "#FFD86B", "#C6A0FF", "#7FC8FF", "#FFFFFF"] : ["#FF8FB8", "#7FD8C0", "#FFD45A", "#B58CF2", "#7FC8F0", "#FF9F7A"])
-      .concat(fxRise(W, H, n(14), "n5ballo", d ? ["#FF7FA8", "#7FE0C8", "#FFD86B", "#C6A0FF", "#7FC8FF"] : ["#FF8FB8", "#7FD8C0", "#FFD45A", "#B58CF2", "#7FC8F0"], {smin: 14, smax: 22, vmin: 1.2, vmax: 2.4, sway: 1, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.15, 0.15)})),
-        fxBurst(W, H, n(10), "n5gift", d ? ["#C6A0FF", "#7FC8FF", "#FF7FA8"] : ["#B58CF2", "#7FC8F0", "#FF8FB8"], [[0.3, 1.02], [0.7, 1.02]], {smin: 12, smax: 16}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
-        fxBurst(W, H, n(8), "n5hat", d ? ["#FFD86B", "#FF7FA8", "#7FE0C8"] : ["#FFD45A", "#FF8FB8", "#7FD8C0"], [[0.5, 1.04]], {smin: 12, smax: 16}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFFFFF", "#FFD86B", "#FFB3E6"] : ["#F2B53A", "#FF8FB8", "#B58CF2"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.birthday,
     tag: "A living room decorated for a party, with a birthday cake, a pile of gifts, a turning llama pinata and a cat in a party hat"
   });
 
@@ -23709,10 +24223,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#CBD7EA,#E8ECF4 55%,#D7CDE6)", "linear-gradient(180deg,#120E24,#22183E 50%,#3E2A62)"],
       spine: [lg("#6A5490", "#463466"), lg("#2A1E4A", "#120E24")], btn: [lg2("#7A3EC8", "#3E9AB0"), lg2("#C29AFF", "#7AE8F0")]},
     kit: {motif: "n5crys", card: ["#FAF8FD", "#ECE6F5"], ink: "#241A36", bd: "#D6CAEA", mc: "#7A3EC8", r: 10, notes: ["#E4DAF4"].concat(NOTES), shape: "torn", pin: "gold", fab: "16px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(30), "n5crys", d ? ["#C29AFF", "#7AE8F0", "#FF9AD8"] : ["#9A62D8", "#3EB4C0", "#E07AAE"], [[0.5, 1.04], [0.2, 1.02], [0.8, 1.02]], {smin: 10, smax: 16, glow: d ? 12 : 4})
-      .concat(fxRise(W, H, n(12), "n5gem", d ? ["#E2C8FF", "#C8FAFF", "#FFD8EE"] : ["#B58CF2", "#5CCFD8", "#F28AC0"], {smin: 10, smax: 15, vmin: 1, vmax: 2, sway: 0.8, life: 300, glow: d ? 12 : 3}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)})),
-        fxFall(W, H, n(14), "n5rock", d ? ["#5A4A6E", "#6A5A80"] : ["#9584AA", "#7E6C94"], {smin: 6, smax: 10, vmin: 1.6, vmax: 2.6}),
-        fxTw(W, H, n(40), "sparkle", d ? ["#FFFFFF", "#E2C8FF", "#C8FAFF"] : ["#B58CF2", "#5CCFD8", "#F2B53A"], {smin: 3, smax: 7, glow: d ? 12 : 4}))},
+    fx: FX.geology,
     tag: "A crystal cave with layered rock walls, still pools, dripping stalactites, a sleepy bat and a geode waiting to crack open"
   });
 })();
@@ -23743,6 +24254,25 @@ var MAJ_THEMES = [];
     n6ticket: {d: "M-11 -6H11V-2.4A2.4 2.4 0 0 0 11 2.4V6H-11V2.4A2.4 2.4 0 0 0 -11 -2.4Z", detail: "M-5 -6V6", dstroke: true}
   });
 
+  /* ---- completion animations ---- */
+  const FX = {
+    film: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "n6corn", d ? ["#FFF1C2", "#FBE39A", "#FFFFFF"] : ["#FFE9A8", "#FFF6D6", "#F6D27A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, glow: d ? 6 : 0})
+      .concat(fxFall(W, H, n(10), "n6ticket", d ? ["#F2C46A", "#E86A7A"] : ["#C8323F", "#E0A040"], {sway: 1.6, flip: true, smin: 12, smax: 16, vmin: 1.2, vmax: 2.2}),
+        fxRise(W, H, n(5), "n6reel", d ? ["#C9CFDD", "#F2C46A"] : ["#5A6278", "#8E2A36"], {smin: 14, smax: 19, vmin: 1.1, vmax: 1.8, sway: 0.5, life: 300}).map(p => Object.assign(p, {vr: 0.05})),
+        fxTw(W, H, n(36), "star", d ? ["#FFE7B0", "#FFFFFF", "#F2C46A"] : ["#F2B53A", "#FFD86B", "#E05A6A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    culinary: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "leaf", d ? ["#7FCB6A", "#5DA84E", "#A8DC8E"] : ["#4E9E4A", "#6CC05A", "#3E8A3A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11, flip: true})
+      .concat(fxFall(W, H, n(10), "n6whisk", d ? ["#F2A35A", "#D8DEE6"] : ["#C8603A", "#8E99A6"], {sway: 1.4, smin: 13, smax: 17, vmin: 1.1, vmax: 1.9}),
+        fxRise(W, H, n(4), "n6toque", d ? ["#F4EEE6"] : ["#FFFFFF"], {smin: 16, smax: 20, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 6 : 3}).map(p => Object.assign(p, {rot: fxR(-0.2, 0.2)})),
+        fxBurst(W, H, n(18), "n6tomato", d ? ["#F06A5A", "#F2A35A"] : ["#E2463A", "#F2A33A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 8, smax: 11}),
+        fxTw(W, H, n(30), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#F2A35A"] : ["#F2B53A", "#FFD86B", "#E07A4A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    marinebio: {spawn: (W, H, d, n) => fxRise(W, H, n(60), "bubble", d ? ["#9EE6EE", "#E2F8FA", "#6FD6E0"] : ["#FFFFFF", "#D6F4F2", "#9EDCD6"], {smin: 5, smax: 14, sway: 1.2})
+      .concat(Array.from({length: n(10)}, (_, i) => { const lr = i % 2 === 0, sp = fxR(2.6, 4.2); return {shape: i % 3 ? "n6fish" : "n6dolphin", c: fxPick(i % 3 ? (d ? ["#F2A35A", "#F6D86A"] : ["#FF8A3A", "#F2B624"]) : (d ? ["#9EC6E8"] : ["#6E9AC0"])), x: lr ? fxR(-80, -20) : W + fxR(20, 80), y: fxR(H * 0.2, H * 0.85), vx: (lr ? 1 : -1) * sp, vy: fxR(-0.3, 0.3), g: 0, size: fxR(13, 19), rot: lr ? 0 : Math.PI, flip: false, vr: 0, sway: 1.4, swf: fxR(0.05, 0.09), life: 300, delay: Math.floor(fxR(0, 70))}; }),
+        fxBurst(W, H, n(14), "starfish", d ? ["#F07A5A", "#F2A35A"] : ["#F07A5A", "#FF9A6A", "#F2B624"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
+        fxBurst(W, H, n(10), "shell", d ? ["#FFE4D0", "#F7C6D8"] : ["#FFE4D0", "#F7B6C8"], [[0.5, 1.04]], {smin: 9, smax: 12}),
+        fxTw(W, H, n(26), "sparkle", d ? ["#C8FFF4", "#FFFFFF", "#F6D86A"] : ["#FFFFFF", "#F2D24A", "#8FE0D8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "film", name: "Movie Palace", group: "ideas", desc: "An old picture palace with red velvet seats, a marquee and a projector beam.",
       light: ["#F8F0E8", "rgba(168,48,62,.10)", "#FFFFFF", "#2E1418", "#74585A", "#EBD9CF", "#F4E6DC", "#FCF8F4", "#A8303E", "#C8564A", "#FFFFFF", "#6E1C28", "#5A1E2E", "#F2DCD0", "#FFE3A3"],
@@ -23750,10 +24280,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#E7D3C3,#F4E7DC 45%,#D7B6A0)", "linear-gradient(180deg,#160F1E,#2A1A2E 50%,#5A1E2E)"],
       spine: [lg("#7A2434", "#5A1E2E"), lg("#3A1A2A", "#1A0E16")], btn: [lg2("#A8303E", "#C0503A"), lg2("#F2C46A", "#F6D592")]},
     kit: {motif: "n6reel", card: ["#FCF7F2", "#F1E2D8"], ink: "#2E1418", bd: "#E2C6B8", mc: "#A8303E", r: 12, notes: ["#F6DCD2", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "classic", pin: "gold", fab: "999px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "n6corn", d ? ["#FFF1C2", "#FBE39A", "#FFFFFF"] : ["#FFE9A8", "#FFF6D6", "#F6D27A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, glow: d ? 6 : 0})
-      .concat(fxFall(W, H, n(10), "n6ticket", d ? ["#F2C46A", "#E86A7A"] : ["#C8323F", "#E0A040"], {sway: 1.6, flip: true, smin: 12, smax: 16, vmin: 1.2, vmax: 2.2}),
-        fxRise(W, H, n(5), "n6reel", d ? ["#C9CFDD", "#F2C46A"] : ["#5A6278", "#8E2A36"], {smin: 14, smax: 19, vmin: 1.1, vmax: 1.8, sway: 0.5, life: 300}).map(p => Object.assign(p, {vr: 0.05})),
-        fxTw(W, H, n(36), "star", d ? ["#FFE7B0", "#FFFFFF", "#F2C46A"] : ["#F2B53A", "#FFD86B", "#E05A6A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.film,
     tag: "An old picture palace: red velvet seats, gathered curtains, a marquee of chasing bulbs and a projector beam full of dust"
   });
   MAJ_THEMES.push({
@@ -23763,11 +24290,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F2E3CF,#FBF4EA 50%,#DCE8D2)", "linear-gradient(180deg,#1C1A22,#2E2830 50%,#5A3E34)"],
       spine: [lg("#3E7A5A", "#285A40"), lg("#2A2830", "#141218")], btn: [lg2("#C8603A", "#D97B45"), lg2("#F2A35A", "#F6C27A")]},
     kit: {motif: "n6toque", card: ["#FBFCF8", "#ECF2E6"], ink: "#2A2018", bd: "#D2DEC8", mc: "#C8603A", r: 14, notes: ["#E2EED8", "#FFF3B8", "#FFE0CC", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "lined", pin: "magnet", fab: "16px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "leaf", d ? ["#7FCB6A", "#5DA84E", "#A8DC8E"] : ["#4E9E4A", "#6CC05A", "#3E8A3A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 7, smax: 11, flip: true})
-      .concat(fxFall(W, H, n(10), "n6whisk", d ? ["#F2A35A", "#D8DEE6"] : ["#C8603A", "#8E99A6"], {sway: 1.4, smin: 13, smax: 17, vmin: 1.1, vmax: 1.9}),
-        fxRise(W, H, n(4), "n6toque", d ? ["#F4EEE6"] : ["#FFFFFF"], {smin: 16, smax: 20, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 6 : 3}).map(p => Object.assign(p, {rot: fxR(-0.2, 0.2)})),
-        fxBurst(W, H, n(18), "n6tomato", d ? ["#F06A5A", "#F2A35A"] : ["#E2463A", "#F2A33A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 8, smax: 11}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#F2A35A"] : ["#F2B53A", "#FFD86B", "#E07A4A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.culinary,
     tag: "A bright test kitchen: copper pots on the rack, herbs in the window box, order tickets on the pass and pots simmering on the range"
   });
 
@@ -23778,11 +24301,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#C8EBDD,#8FD0C2 40%,#5FB6B0)", "linear-gradient(180deg,#1E4E52,#0E3440 40%,#08202A)"],
       spine: [lg("#2E8A86", "#1A5E5E"), lg("#0E3440", "#06161C")], btn: [lg2("#1F8A86", "#3AA6A0"), lg2("#F2C230", "#F6D86A")]},
     kit: {motif: "n6fish", card: ["#F4FBFA", "#DDF0EC"], ink: "#0E2E30", bd: "#A8D6CE", mc: "#1F8A86", r: 20, notes: ["#D6F0EA", "#FFF3B8", "#FFE0CC", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(60), "bubble", d ? ["#9EE6EE", "#E2F8FA", "#6FD6E0"] : ["#FFFFFF", "#D6F4F2", "#9EDCD6"], {smin: 5, smax: 14, sway: 1.2})
-      .concat(Array.from({length: n(10)}, (_, i) => { const lr = i % 2 === 0, sp = fxR(2.6, 4.2); return {shape: i % 3 ? "n6fish" : "n6dolphin", c: fxPick(i % 3 ? (d ? ["#F2A35A", "#F6D86A"] : ["#FF8A3A", "#F2B624"]) : (d ? ["#9EC6E8"] : ["#6E9AC0"])), x: lr ? fxR(-80, -20) : W + fxR(20, 80), y: fxR(H * 0.2, H * 0.85), vx: (lr ? 1 : -1) * sp, vy: fxR(-0.3, 0.3), g: 0, size: fxR(13, 19), rot: lr ? 0 : Math.PI, flip: false, vr: 0, sway: 1.4, swf: fxR(0.05, 0.09), life: 300, delay: Math.floor(fxR(0, 70))}; }),
-        fxBurst(W, H, n(14), "starfish", d ? ["#F07A5A", "#F2A35A"] : ["#F07A5A", "#FF9A6A", "#F2B624"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
-        fxBurst(W, H, n(10), "shell", d ? ["#FFE4D0", "#F7C6D8"] : ["#FFE4D0", "#F7B6C8"], [[0.5, 1.04]], {smin: 9, smax: 12}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#C8FFF4", "#FFFFFF", "#F6D86A"] : ["#FFFFFF", "#F2D24A", "#8FE0D8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.marinebio,
     tag: "Under the sea in a kelp forest: sunbeams, swaying golden kelp, an otter napping on the surface and a little yellow research sub"
   });
 
@@ -23813,6 +24332,28 @@ var MAJ_THEMES = [];
   // drifting up from the bottom, with a gentle sway
   const drift = (W, H, n, shape, cols, o) => fxRise(W, H, n, shape, cols, o);
 
+  /* ---- completion animations ---- */
+  const FX = {
+    mushrooms: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "n2shroom", d ? ["#5FD6E8", "#7FA6FF", "#6FE8C0"] : ["#E45A48", "#F07A5A", "#C98B5A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 10, smax: 15, glow: d ? 12 : 0}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08), rot: fxR(-0.3, 0.3)}))
+      .concat(drift(W, H, n(40), "circle", d ? ["#9CFFE8", "#B8D8FF", "#E8FFFF"] : ["#F6DA7A", "#FFF2C0", "#E8C860"], {smin: 1.6, smax: 3.4, vmin: 0.6, vmax: 1.4, sway: 1.4, life: 300, glow: d ? 12 : 6}),
+        fxFall(W, H, n(18), "leaf", d ? ["#3A8A74", "#2A6A5E"] : ["#7FB466", "#A2CF7C", "#5E9A4E"], {sway: 1.8, flip: true, smin: 8, smax: 12, vmin: 1, vmax: 1.8}),
+        fxTw(W, H, n(30), "sparkle", d ? ["#B8F6FF", "#FFFFFF", "#C8FFE8"] : ["#F2B53A", "#FF8F7A", "#FFD86B"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    sunflowers: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "n2petal", d ? ["#F2D27A", "#E6B84A", "#FFE6A0"] : ["#FFD23F", "#FFC21F", "#F5A51A", "#FFE680"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, glow: d ? 8 : 0}).map(p => Object.assign(p, {flip: true, vr: fxR(-0.12, 0.12)}))
+      .concat(fxRise(W, H, n(8), "n2sunfl", d ? ["#F2C84A", "#FFE08A"] : ["#FFC21F", "#F5A51A"], {smin: 13, smax: 18, vmin: 1, vmax: 1.8, sway: 0.7, life: 300, glow: d ? 10 : 0}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)})),
+        fxFlutter(W, H, n(6), d ? ["#FFE38A", "#B8F0FF"] : ["#FF9F43", "#FFD45A", "#8FD8FF"]),
+        fxTw(W, H, n(30), "sparkle", d ? ["#FFF4C2", "#FFFFFF", "#F6C84A"] : ["#F2B53A", "#FFD86B", "#FF9F43"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    nighttrain: {spawn: (W, H, d, n) => fxRise(W, H, n(18), "puff", d ? ["rgba(230,220,250,.7)", "rgba(200,190,230,.6)"] : ["rgba(255,255,255,.85)", "rgba(240,236,232,.8)"], {smin: 10, smax: 18, vmin: 1.2, vmax: 2.2, sway: 1, grow: 0.12, life: 220, cx: [0.05, 0.4]})
+      .concat(fxBurst(W, H, n(16), "n2ticket", d ? ["#FFC27A", "#FFD9A0", "#E8B0C8"] : ["#E8706A", "#F2B84A", "#7FB8D8"], [[0.15, 1.02], [0.85, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.1, 0.1)})),
+        fxFall(W, H, n(20), "star", d ? ["#FFE7B0", "#FFFFFF", "#FFC27A"] : ["#F2B84A", "#E8706A", "#7FB8D8"], {sway: 1.2, smin: 5, smax: 9, vmin: 1, vmax: 2, glow: d ? 10 : 0}),
+        fxTw(W, H, n(26), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#FFC27A"] : ["#F2B53A", "#FFD86B", "#E8706A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    ramen: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "n2steam", d ? ["rgba(255,240,250,.7)", "rgba(230,220,240,.6)"] : ["rgba(255,255,255,.9)", "rgba(250,240,230,.85)"], {smin: 12, smax: 20, vmin: 1, vmax: 2, sway: 1.4, life: 220, cx: [0.2, 0.8]}).map(p => Object.assign(p, {rot: 0}))
+      .concat(fxBurst(W, H, n(16), "n2naruto", ["#FFFFFF", "#FFF2F6"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.15, 0.15)})),
+        fxBurst(W, H, n(10), "n2egg", ["#FFFFFF"], [[0.3, 1.02], [0.7, 1.02]], {smin: 10, smax: 13}),
+        fxFall(W, H, n(16), "leaf", d ? ["#7ACB5A", "#5AA84A"] : ["#7ACB5A", "#9ADB6A"], {sway: 1.4, smin: 5, smax: 8, vmin: 1, vmax: 2}),
+        fxTw(W, H, n(26), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#FF8A7A"] : ["#F2B53A", "#FFD86B", "#E8505E"], {smin: 3, smax: 7, glow: d ? 10 : 4}))}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "mushrooms", name: "Mushroom Hollow", group: "ideas", desc: "A mossy glade full of toadstools, ferns and drifting spores.",
       light: ["#F4F1E6", "rgba(184,67,47,.10)", "#FFFFFF", "#2A2418", "#6E6450", "#E3DCC8", "#EEE8D6", "#FBF9F2", "#B8432F", "#D2643C", "#FFFFFF", "#5A4430", "#4A3C28", "#E8DCC0", "#FFE7A0"],
@@ -23820,10 +24361,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#CFE3C5,#EEF3DE 60%,#F2E6D8)", "linear-gradient(180deg,#141A2E,#22304A 60%,#3A3058)"],
       spine: [lg("#6E5A3E", "#4A3C28"), lg("#22304A", "#0E1424")], btn: [lg2("#B8432F", "#D2643C"), lg2("#6FE0EC", "#9CC4FF")]},
     kit: {motif: "n2shroom", card: ["#FBF8EE", "#EFE8D4"], ink: "#2A2418", bd: "#DCCFB0", mc: "#C8503A", r: 18, notes: ["#F6E3C8", "#FFF3B8", "#D9F0D8", "#FFD9D2", "#E6F0C8", "#EBD9FF"], shape: "scallop", pin: "pin", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "n2shroom", d ? ["#5FD6E8", "#7FA6FF", "#6FE8C0"] : ["#E45A48", "#F07A5A", "#C98B5A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 10, smax: 15, glow: d ? 12 : 0}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08), rot: fxR(-0.3, 0.3)}))
-      .concat(drift(W, H, n(40), "circle", d ? ["#9CFFE8", "#B8D8FF", "#E8FFFF"] : ["#F6DA7A", "#FFF2C0", "#E8C860"], {smin: 1.6, smax: 3.4, vmin: 0.6, vmax: 1.4, sway: 1.4, life: 300, glow: d ? 12 : 6}),
-        fxFall(W, H, n(18), "leaf", d ? ["#3A8A74", "#2A6A5E"] : ["#7FB466", "#A2CF7C", "#5E9A4E"], {sway: 1.8, flip: true, smin: 8, smax: 12, vmin: 1, vmax: 1.8}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#B8F6FF", "#FFFFFF", "#C8FFE8"] : ["#F2B53A", "#FF8F7A", "#FFD86B"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.mushrooms,
     tag: "A mossy glade of breathing toadstools, uncurling ferns and a fairy ring that plays like a xylophone"
   });
   MAJ_THEMES.push({
@@ -23833,10 +24371,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#9ED0F0,#D6ECF8 60%,#F8E7A6)", "linear-gradient(180deg,#1B2246,#2F2F5E 60%,#4C3E5A)"],
       spine: [lg("#4E7A2E", "#33531C"), lg("#2F2F5E", "#10122C")], btn: [lg2("#C2561A", "#E08A1A"), lg2("#F6C84A", "#FFE08A")]},
     kit: {motif: "n2sunfl", card: ["#FFFBEA", "#F6EBC4"], ink: "#2A2410", bd: "#EAD48A", mc: "#E0A21A", r: 16, notes: ["#FFF0B0", "#FFE0B8", "#E2F0C0", "#D6E6FF", "#FFD9C8", "#F2E2FF"], shape: "rounded", pin: "tape", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(46), "n2petal", d ? ["#F2D27A", "#E6B84A", "#FFE6A0"] : ["#FFD23F", "#FFC21F", "#F5A51A", "#FFE680"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 8, smax: 12, glow: d ? 8 : 0}).map(p => Object.assign(p, {flip: true, vr: fxR(-0.12, 0.12)}))
-      .concat(fxRise(W, H, n(8), "n2sunfl", d ? ["#F2C84A", "#FFE08A"] : ["#FFC21F", "#F5A51A"], {smin: 13, smax: 18, vmin: 1, vmax: 1.8, sway: 0.7, life: 300, glow: d ? 10 : 0}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02)})),
-        fxFlutter(W, H, n(6), d ? ["#FFE38A", "#B8F0FF"] : ["#FF9F43", "#FFD45A", "#8FD8FF"]),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFF4C2", "#FFFFFF", "#F6C84A"] : ["#F2B53A", "#FFD86B", "#FF9F43"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.sunflowers,
     tag: "Sunflowers that follow the sun across the sky toward a red barn, with bees, hay bales and a dirt road"
   });
   MAJ_THEMES.push({
@@ -23846,10 +24381,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#B9D7EA,#EAF2EE 60%,#E7D2B8)", "linear-gradient(180deg,#141C33,#25304E 60%,#5B4A6A)"],
       spine: [lg("#7A4C30", "#55331F"), lg("#3A2C46", "#140F1C")], btn: [lg2("#B8484C", "#D06A4A"), lg2("#FFC27A", "#FFD9A0")]},
     kit: {motif: "n2ticket", card: ["#FCF7EE", "#F0E4D0"], ink: "#2E2018", bd: "#DCC8A8", mc: "#B8484C", r: 10, notes: ["#F6E6CC", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "classic", pin: "gold", fab: "14px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(18), "puff", d ? ["rgba(230,220,250,.7)", "rgba(200,190,230,.6)"] : ["rgba(255,255,255,.85)", "rgba(240,236,232,.8)"], {smin: 10, smax: 18, vmin: 1.2, vmax: 2.2, sway: 1, grow: 0.12, life: 220, cx: [0.05, 0.4]})
-      .concat(fxBurst(W, H, n(16), "n2ticket", d ? ["#FFC27A", "#FFD9A0", "#E8B0C8"] : ["#E8706A", "#F2B84A", "#7FB8D8"], [[0.15, 1.02], [0.85, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.1, 0.1)})),
-        fxFall(W, H, n(20), "star", d ? ["#FFE7B0", "#FFFFFF", "#FFC27A"] : ["#F2B84A", "#E8706A", "#7FB8D8"], {sway: 1.2, smin: 5, smax: 9, vmin: 1, vmax: 2, glow: d ? 10 : 0}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#FFC27A"] : ["#F2B53A", "#FFD86B", "#E8706A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.nighttrain,
     tag: "A train compartment with velvet seats, luggage on the brass rack, a swaying table lamp and the countryside rushing past the window"
   });
   MAJ_THEMES.push({
@@ -23859,11 +24391,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F1DCC3,#F8EBDA 60%,#E7C9A8)", "linear-gradient(180deg,#1E1A2A,#3B2734 60%,#7A3E3A)"],
       spine: [lg("#8A3A2E", "#5E241C"), lg("#3B2734", "#160F16")], btn: [lg2("#C8343A", "#E0603A"), lg2("#FF8A7A", "#FFB08A")]},
     kit: {motif: "n2naruto", card: ["#FFFAF2", "#F4E6D4"], ink: "#2E1E16", bd: "#E6CBB0", mc: "#D2464E", r: 14, notes: ["#FFE8C8", "#FFF3B8", "#E2F0D0", "#FFD9D8", "#F2E2FF", "#D6E6FF"], shape: "folded", pin: "pin", fab: "16px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "n2steam", d ? ["rgba(255,240,250,.7)", "rgba(230,220,240,.6)"] : ["rgba(255,255,255,.9)", "rgba(250,240,230,.85)"], {smin: 12, smax: 20, vmin: 1, vmax: 2, sway: 1.4, life: 220, cx: [0.2, 0.8]}).map(p => Object.assign(p, {rot: 0}))
-      .concat(fxBurst(W, H, n(16), "n2naruto", ["#FFFFFF", "#FFF2F6"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.15, 0.15)})),
-        fxBurst(W, H, n(10), "n2egg", ["#FFFFFF"], [[0.3, 1.02], [0.7, 1.02]], {smin: 10, smax: 13}),
-        fxFall(W, H, n(16), "leaf", d ? ["#7ACB5A", "#5AA84A"] : ["#7ACB5A", "#9ADB6A"], {sway: 1.4, smin: 5, smax: 8, vmin: 1, vmax: 2}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#FF8A7A"] : ["#F2B53A", "#FFD86B", "#E8505E"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.ramen,
     tag: "A cozy ramen counter on a rainy night, with a cheerful chef, a simmering pot, noren curtains and a lucky cat"
   });
 })();
@@ -23897,8 +24425,95 @@ var MAJ_THEMES = [];
     n3mallow: {d: "M-8 -6C-8 -9.6 8 -9.6 8 -6V6C8 9.6 -8 9.6 -8 6Z", detail: "M-8 -6C-8 -2.6 8 -2.6 8 -6", dstroke: true},
     n3fish: {d: "M-6 0C-3 -6.4 6 -7.4 11.4 0C6 7.4 -3 6.4 -6 0Z M-5 0L-11.5 -6V6Z", detail: circ(5.6, -1.2, 1.5), dfill: true},
   });
-  const swim = (W, H, n, shape, cols, d) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, sp = fxR(2.2, 3.8), vx = (left ? 1 : -1) * sp, vy = -fxR(0.1, 0.7);
-    return {shape, c: fxPick(cols), x: left ? fxR(-70, -20) : W + fxR(20, 70), y: fxR(H * 0.25, H * 0.95), vx, vy, g: 0, size: fxR(12, 20), rot: Math.atan2(vy, vx), vr: 0, sway: 0, life: 280, delay: Math.floor(fxR(0, 60)), glow: d ? 8 : 0}; });
+
+  /* ---- completion animations ---- */
+  const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+  const fillP = (g, c, d) => { g.fillStyle = c; g.fill(new Path2D(d)); };
+  // soft light top left, shade bottom right, for painted sprites
+  const sheen = (g, dk, k = 1) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${0.34 * k})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dk ? 0.26 : 0.2})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  const eye = (g, x, y, r) => { g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill(); g.fillStyle = "#14202A"; g.beginPath(); g.arc(x + r * 0.25, y, r * 0.62, 0, 6.3); g.fill(); };
+  // reef fish, all pointing to +x with the back up
+  const FB = "M-7 0C-4 -6.6 5 -7.4 10.6 0C5 7.4 -4 6.6 -7 0Z", FT = "M-6 0L-11.6 -5.8Q-10 0 -11.6 5.8Z";
+  const TB = "M-7.5 0C-5 -7.8 5 -8.2 10.4 -0.6C10.8 0 10.8 0.4 10.4 0.8C5 8 -5 7.8 -7.5 0Z", TT = "M-6.6 0L-11.8 -5.6L-10.4 0L-11.8 5.6Z";
+  const YB = "M-6 0C-6 -8.6 2 -10.4 9.8 -1C10.4 -0.4 10.4 0.4 9.8 1C2 10.4 -6 8.6 -6 0Z", YT = "M-5.4 0L-10.8 -4.8L-9.6 0L-10.8 4.8Z";
+  Object.assign(FX_SHAPES, {
+    n3clown: {d: FB + FT, paint: (g, c, dk) => { const b = new Path2D(FB); fillP(g, "#E05A16", FT); fillP(g, "#F07020", "M-2.4 -5.2Q1 -9.6 5.4 -5.4Z M-1.4 5.2Q1.4 8.8 4.6 5.2Z"); g.fillStyle = "#F7801F"; g.fill(b);
+      g.save(); g.clip(b); g.fillStyle = "#FFFFFF"; g.strokeStyle = "#1A1A22"; g.lineWidth = 0.8; [[4.8, 2.4], [-0.4, 2.6], [-5.4, 1.8]].forEach(([x, w]) => { g.fillRect(x - w / 2, -9, w, 18); g.strokeRect(x - w / 2, -9, w, 18); }); g.restore();
+      sheen(g, dk); eye(g, 7.2, -1.5, 1.5); }},
+    n3tang: {d: TB + TT, paint: (g, c, dk) => { fillP(g, "#FFC81E", TT); fillP(g, "#1E3E9E", "M-5 -5.4Q1 -10.4 7 -5.6Z M-4.6 5.4Q1 9.6 6 5.4Z"); fillP(g, "#2F62E0", TB);
+      fillP(g, "#12204A", "M-5.6 -3.4C-1 -7 5.4 -6 8.2 -2.6C4.6 -4 0.4 -2.6 -1.6 0.6C-2.8 2.6 -5.4 2.2 -5.6 -3.4Z"); sheen(g, dk); eye(g, 6.8, -1.8, 1.4); }},
+    n3ytang: {d: YB + YT, paint: (g, c, dk) => { fillP(g, "#F2B50E", YT); fillP(g, "#FFD526", YB); fillP(g, "#F5BE12", "M-4.4 -5.6Q1 -11 7 -4.4L4 -3.4Q0 -6.4 -4.4 -5.6Z"); sheen(g, dk); fillP(g, "#FFFFFF", "M-4.6 0.6L-3.2 -0.4L-3 1.4Z"); eye(g, 6.4, -2, 1.3); }},
+    n3gramma: {d: FB + FT, paint: (g, c, dk) => { const b = new Path2D(FB); fillP(g, "#FFC21E", FT); g.save(); g.clip(b); g.fillStyle = "#FFC21E"; g.fillRect(-13, -13, 26, 26); g.fillStyle = "#9A4CE0"; g.beginPath(); g.moveTo(1.6, -9); g.bezierCurveTo(-1, -3, 1, 3, -1.6, 9); g.lineTo(12, 9); g.lineTo(12, -9); g.fill(); g.restore(); fillP(g, "#8A40D0", "M0 -5.6Q3 -9.4 6.4 -5Z"); sheen(g, dk); eye(g, 7.2, -1.5, 1.4); }},
+    // a manta seen from above, wings out to the sides
+    n3manta: {d: "M11 0C8 -1.6 4 -2 1 -3C-2 -6 -5 -10 -7 -11.4C-6 -7 -6 -3.6 -7 -1.4L-12.4 0L-7 1.4C-6 3.6 -6 7 -7 11.4C-5 10 -2 6 1 3C4 2 8 1.6 11 0Z", paint: (g, c, dk) => { const d = FX_SHAPES.n3manta.d; fillP(g, dk ? "#5A7CA8" : "#2E4462", d); fillP(g, dk ? "#5A7CA8" : "#2E4462", "M9.6 -1.6L12.6 -3L12 -0.8Z M9.6 1.6L12.6 3L12 0.8Z");
+      g.save(); g.clip(new Path2D(d)); g.fillStyle = dk ? "rgba(220,236,255,.5)" : "rgba(230,240,250,.55)"; g.beginPath(); g.ellipse(1.6, -3.4, 2.4, 1.2, -0.5, 0, 6.3); g.ellipse(1.6, 3.4, 2.4, 1.2, 0.5, 0, 6.3); g.fill(); g.restore(); sheen(g, dk, 0.8); }},
+    // a tiny clay drop, a grown vase, a log
+    n3clay: {d: "M0 -6C3.4 -2 4.6 0.6 4.6 2.4A4.6 4.6 0 0 1 -4.6 2.4C-4.6 0.6 -3.4 -2 0 -6Z"}
+  });
+  // a school: a few fish of one kind swimming together, entering from one side
+  const school = (W, H, n, shapes, o = {}) => { const out = []; for (let s = 0; out.length < n; s++) { const lr = s % 2 === 0, z = fxR(0.72, 1.1), sh = shapes[s % shapes.length], y0 = fxR(H * (o.y0 || 0.15), H * (o.y1 || 0.85)), sp = (W * fxR(0.0042, 0.006) + 1.2) * z, vy = fxR(-0.3, 0.3), d0 = Math.floor(fxR(0, o.spread || 80)), sz = fxR(o.smin || 12, o.smax || 16) * z, per = o.per || 5;
+    for (let i = 0; i < per && out.length < n; i++) out.push({shape: sh, c: "#FFFFFF", x: lr ? -40 : W + 40, y: y0 + fxR(-1, 1) * sz * 3.4, vx: (lr ? 1 : -1) * sp * fxR(0.94, 1.06), vy: vy + fxR(-0.08, 0.08), g: 0, size: sz * fxR(0.85, 1.05), z, face: true, wig: 0.13, rot: 0, vr: 0, sway: 0, life: 320, delay: Math.min(150, d0 + Math.floor(i * fxR(5, 11))), alpha: fxDim(z)}); } return out; };
+  // soft sun shafts from the top
+  const rays = (g, f, W, H, dk, rgb) => { const a = ease(f / 40); g.globalCompositeOperation = dk ? "lighter" : "source-over"; for (let i = 0; i < 4; i++) { const x = W * (0.08 + i * 0.27) + Math.sin(f * 0.012 + i * 1.9) * W * 0.04, w = W * (0.04 + 0.025 * (i % 2)) + 20, gr = g.createLinearGradient(0, 0, 0, H * 0.95); gr.addColorStop(0, `rgba(${rgb},${(dk ? 0.12 : 0.34) * a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(x - w * 0.4, 0); g.lineTo(x + w * 0.4, 0); g.lineTo(x + w * 1.6 + H * 0.22, H * 0.95); g.lineTo(x - w * 0.3 + H * 0.22, H * 0.95); g.fill(); } };
+  // little twinkles in a given box
+  const twIn = (n, shape, cols, x0, x1, y0, y1, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(x0, x1), y: fxR(y0, y1), vx: 0, vy: o.vy || 0, g: 0, size: fxR(o.smin || 4, o.smax || 8), rot: 0, vr: fxR(-0.02, 0.02), sway: 0, life: fxR(50, 90), delay: Math.floor(fxR(o.d0 || 0, o.d1 || 120)), tw: true, glint: true, glow: o.glow}));
+
+  // Greenhouse: seedlings sprout along the bottom, unfurl leaves and open a flower each, under a fine mist
+  let GH = null;
+  const ghDraw = (g, f, W, H, dk) => { if (!GH) return; const u = Math.min(W, H) / 100, lw = Math.max(2.4, 0.75 * u);
+    GH.forEach((s, i) => { const p = ease((f - s.t0) / 85); if (p <= 0) return; const sw = Math.sin(f * 0.03 + i) * s.h * 0.03, ex = s.x + s.lean + sw, ey = H - s.h, cx = s.x + s.lean * 0.15, cy = H - s.h * 0.5;
+      const at = t => [(1 - t) * (1 - t) * s.x + 2 * (1 - t) * t * cx + t * t * ex, (1 - t) * (1 - t) * (H + 6) + 2 * (1 - t) * t * cy + t * t * ey];
+      g.strokeStyle = dk ? "#5FB07A" : "#3E8A4E"; g.lineWidth = lw; g.lineCap = "round"; g.beginPath(); for (let k = 0; k <= 24; k++) { const q = at(k / 24 * p); k ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke();
+      [0.3, 0.5, 0.68, 0.84].forEach((t, j) => { const ls = ease((p - t) / 0.16); if (ls <= 0) return; const q = at(t), q2 = at(t + 0.02), ang = Math.atan2(q2[1] - q[1], q2[0] - q[0]), side = (j + s.side) % 2 ? 1 : -1;
+        g.save(); g.translate(q[0], q[1]); g.rotate(ang + side * 1.15); g.scale(ls * u * (0.8 - j * 0.1), ls * u * (0.8 - j * 0.1) * side); g.fillStyle = j % 2 ? (dk ? "#3E9A6A" : "#2F7D52") : (dk ? "#5AB87A" : "#4FAA60"); g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(3, -4, 9, -4.4, 12, 0); g.bezierCurveTo(9, 3.4, 3, 3, 0, 0); g.fill(); g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 0.5; g.beginPath(); g.moveTo(1, 0); g.lineTo(10, -0.2); g.stroke(); g.restore(); });
+      const bs = ease((p - 0.86) / 0.14); if (bs <= 0) return; const R = 3.4 * u * bs * (1 + 0.08 * Math.sin(f * 0.05 + i));
+      g.save(); g.translate(ex, ey); g.rotate(f * 0.004 + i); g.fillStyle = s.c; for (let k = 0; k < 6; k++) { g.rotate(Math.PI / 3); g.beginPath(); g.ellipse(R * 0.62, 0, R * 0.62, R * 0.34, 0, 0, 6.3); g.fill(); } g.fillStyle = "rgba(255,255,255,.28)"; for (let k = 0; k < 6; k++) { g.rotate(Math.PI / 3); g.beginPath(); g.ellipse(R * 0.5, -R * 0.08, R * 0.32, R * 0.12, 0, 0, 6.3); g.fill(); } g.fillStyle = dk ? "#FFD86A" : "#F2B53A"; g.beginPath(); g.arc(0, 0, R * 0.3, 0, 6.3); g.fill(); g.restore(); }); };
+
+  // Pottery: a lump of clay rises on the wheel and is thrown into a vase, then dipped in glaze
+  const VK = [[0, 0.72], [0.38, 1.08], [0.82, 0.42], [1, 0.6]];
+  const vaseR = t => { for (let k = 1; k < VK.length; k++) if (t <= VK[k][0]) { const a = VK[k - 1], b = VK[k], q = (1 - Math.cos(Math.PI * (t - a[0]) / (b[0] - a[0]))) / 2; return a[1] + (b[1] - a[1]) * q; } return 0.6; };
+  let POT = null;
+  const potDraw = (g, f, W, H, dk) => { const u = Math.min(W, H) / 100, cx = W / 2, yo = (1 - ease(f / 26)) * 46 * u, by = H - 3 * u + yo, gr0 = ease((f - 14) / 110), hh = 32 * u * (0.36 + 0.64 * gr0), rb = 13 * u;
+    const R = t => rb * ((1 - gr0) * 1.12 * (1 - t * t * 0.55) + gr0 * vaseR(t));
+    g.fillStyle = dk ? "#3A3236" : "#6E625C"; g.beginPath(); g.ellipse(cx, by + 2.4 * u, 24 * u, 5 * u, 0, 0, 6.3); g.fill(); g.fillStyle = dk ? "#5A4E52" : "#9A8C84"; g.beginPath(); g.ellipse(cx, by, 22 * u, 4.2 * u, 0, 0, 6.3); g.fill();
+    const path = new Path2D(); for (let k = 0; k <= 30; k++) { const t = k / 30; path[k ? "lineTo" : "moveTo"](cx - R(t), by - t * hh); } for (let k = 30; k >= 0; k--) { const t = k / 30; path.lineTo(cx + R(t), by - t * hh); } path.closePath();
+    const Rm = rb * 1.12, lg0 = g.createLinearGradient(cx - Rm, 0, cx + Rm, 0); lg0.addColorStop(0, "#7A4024"); lg0.addColorStop(0.32, "#D98E62"); lg0.addColorStop(0.55, "#BC6E44"); lg0.addColorStop(1, "#6A361E");
+    g.fillStyle = lg0; g.fill(path); g.save(); g.clip(path);
+    const q = ease((f - 132) / 56); if (q > 0) { const top = by - hh * 1.02 * q; g.fillStyle = POT ? POT.c : "#2E9A94"; g.globalAlpha = 0.86; g.beginPath(); g.moveTo(cx - Rm * 1.2, by + 2); for (let x = -1.2; x <= 1.21; x += 0.1) g.lineTo(cx + x * Rm, top + Math.sin(x * 7 + f * 0.05) * 1.6 * u * (1 - q)); g.lineTo(cx + Rm * 1.2, by + 2); g.fill(); g.globalAlpha = 1; g.fillStyle = lg0; g.globalCompositeOperation = "multiply"; g.globalAlpha = 0.55 * q; g.fillRect(cx - Rm, by - hh - 4, Rm * 2, hh + 8); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; }
+    g.strokeStyle = "rgba(60,25,10,.28)"; g.lineWidth = Math.max(1, 0.35 * u); for (let k = 1; k < 8; k++) { const t = k / 8, r = R(t), y = by - t * hh; g.beginPath(); g.ellipse(cx, y, r, r * 0.12, 0, 0.15, Math.PI - 0.15); g.stroke(); }
+    const spin = gr0 < 1 || f < 132 ? 1 : 1 - ease((f - 132) / 60); if (spin > 0.01) { g.strokeStyle = `rgba(255,225,200,${0.45 * spin})`; g.lineWidth = Math.max(1.2, 0.5 * u); for (let k = 0; k < 5; k++) { const ph = f * 0.21 + k * 1.26, c = Math.cos(ph); if (c < 0.1) continue; const t0 = 0.12 + k * 0.17, x = cx + R(t0) * Math.sin(ph) * 0.92, y = by - t0 * hh; g.globalAlpha = c; g.beginPath(); g.moveTo(x, y - 2 * u); g.lineTo(x, y + 2 * u); g.stroke(); } g.globalAlpha = 1; }
+    g.restore(); g.fillStyle = "rgba(60,25,10,.35)"; g.beginPath(); g.ellipse(cx, by - hh, R(1) * 0.86, R(1) * 0.14, 0, 0, 6.3); g.fill(); };
+
+  // Campfire: a crackling fire rises at the bottom and throws sparks and smoke into the sky
+  const fireDraw = (g, f, W, H, dk) => { const u = Math.min(W, H) / 100, k = ease(f / 30) * (1 - 0.3 * ease((f - 150) / 90)), cx = W / 2, by = H + 3 * u, F = 28 * u * k; if (F < 1) return;
+    const gr = g.createRadialGradient(cx, by, 0, cx, by, F * 2.8); gr.addColorStop(0, `rgba(255,160,60,${dk ? 0.42 : 0.3})`); gr.addColorStop(1, "rgba(255,140,60,0)"); g.fillStyle = gr; g.fillRect(cx - F * 2.8, by - F * 2.8, F * 5.6, F * 2.8);
+    [[1, "#E2482A"], [0.8, "#F5843A"], [0.58, "#FFBE3E"], [0.32, "#FFF0B0"]].forEach(([s, c], L) => { g.fillStyle = c; for (let i = -2; i <= 2; i++) { const ph = f * 0.17 + i * 1.7 + L * 0.9, w = F * 0.25 * s * (1 - Math.abs(i) * 0.12), h = F * s * (1 - Math.abs(i) * 0.24) * (0.86 + 0.14 * Math.sin(ph)), x = cx + i * F * 0.19 * s, tip = Math.sin(ph * 0.7) * w * 0.7;
+      g.beginPath(); g.moveTo(x - w, by); g.bezierCurveTo(x - w, by - h * 0.45, x + tip - w * 0.25, by - h * 0.72, x + tip, by - h); g.bezierCurveTo(x + tip + w * 0.25, by - h * 0.72, x + w, by - h * 0.45, x + w, by); g.closePath(); g.fill(); } });
+    g.strokeStyle = dk ? "#4A2E22" : "#6A4026"; g.lineWidth = F * 0.15; g.lineCap = "round"; [[-0.32, 1], [0.32, -1]].forEach(([o, s]) => { const x = cx + o * F * 0.6, y = by - F * 0.1, c = Math.cos(s * 0.32) * F * 0.6, si = Math.sin(s * 0.32) * F * 0.6; g.beginPath(); g.moveTo(x - c, y - si); g.lineTo(x + c, y + si); g.stroke(); }); };
+
+  const FX = {
+    greenhouse: {spawn: (W, H, d, n) => { const k = Math.max(4, Math.min(9, Math.round(W / 170))), cols = d ? ["#FFFFFF", "#F6B8D0", "#FFE08A", "#C9B0FF"] : ["#F27BA0", "#F7A93A", "#B884E8", "#FF7A5A"];
+        GH = Array.from({length: k}, (_, i) => ({x: (i + 0.5 + fxR(-0.28, 0.28)) / k * W, h: H * fxR(0.2, 0.4) * (i % 2 ? 0.85 : 1), lean: fxR(-0.22, 0.22) * H * 0.3, t0: Math.floor(fxR(0, 45)), side: i % 2, c: cols[i % cols.length]}));
+        return fxFall(W, H, n(40), "drop", d ? ["#A9E0D6", "#E8F4EF"] : ["#7CC4D8", "#A8D8E8"], {vmin: 1.6, vmax: 2.8, sway: 0.5, smin: 3, smax: 5.5, glow: d ? 6 : 0, depth: false}).map(p => Object.assign(p, {rot: 0, vr: 0, alpha: 0.75}))
+          .concat(GH.flatMap(s => twIn(3, "sparkle", d ? ["#FFF4D0", "#FFFFFF"] : ["#F2C24A", "#FFFFFF"], s.x + s.lean - 40, s.x + s.lean + 40, H - s.h - 40, H - s.h + 40, {d0: s.t0 + 85, d1: s.t0 + 150, smin: 5, smax: 9, glow: d ? 10 : 4})),
+            d ? [] : fxFlutter(W, H, n(4), ["#F2A0C0", "#F7C84A", "#A0C8F2"]));
+      }, draw: ghDraw},
+    pottery: {spawn: (W, H, d, n) => { const u = Math.min(W, H) / 100; POT = {c: fxPick(d ? ["#3FB0A8", "#5A86E0", "#C27AD8"] : ["#2E9A94", "#3A62C0", "#9A5AC8"])};
+        return Array.from({length: n(46)}, () => { const L = Math.random() < 0.5, t = fxR(18, 120); return {shape: "n3clay", c: fxPick(["#B8693E", "#C8784A", "#9A5432"]), x: W / 2 + (L ? -1 : 1) * 13 * u, y: H - 3 * u - fxR(6, 20) * u, vx: (L ? -1 : 1) * fxR(2.5, 6), vy: -fxR(1, 3.4), g: 0.22, size: fxR(4, 7), rot: L ? -1.2 : 1.2, vr: 0, sway: 0, life: 110, delay: Math.floor(t)}; })
+          .concat(twIn(n(18), "sparkle", d ? ["#FFFFFF", "#F6C48E", POT.c] : ["#FFFFFF", "#F2C24A", POT.c], W / 2 - 22 * u, W / 2 + 22 * u, H - 40 * u, H - 4 * u, {d0: 170, d1: 205, smin: 6, smax: 11, glow: d ? 10 : 6}));
+      }, draw: potDraw},
+    campfire: {spawn: (W, H, d, n) => { const u = Math.min(W, H) / 100;
+        return Array.from({length: n(80)}, () => ({shape: "circle", c: fxPick(["#FFB347", "#FF8A3A", "#FFE08A", "#FF6A3A"]), x: W / 2 + fxR(-12, 12) * u, y: H - fxR(4, 18) * u, vx: fxR(-0.6, 0.6), vy: -fxR(2.2, 4.4), g: -0.004, size: fxR(1.8, 3.6), rot: 0, vr: 0, sway: fxR(0.8, 2), swf: fxR(0.05, 0.12), grow: -0.05, life: fxR(80, 150), delay: Math.floor(fxR(14, 175)), glow: 10}))
+          .concat(fxRise(W, H, n(14), "puffsoft", d ? ["#9A9AB0"] : ["#B4BAC4"], {cx: [0.44, 0.56], smin: 10, smax: 15, vmin: 0.9, vmax: 1.5, sway: 1.2, grow: 0.35, alpha: d ? 0.14 : 0.16, life: 170, spread: 150, depth: false}).map(p => Object.assign(p, {y: H - 26 * u, delay: p.delay + 30})),
+            d ? fxTw(W, H, n(40), "star", ["#FFFFFF", "#FFE7B0", "#C9D4FF"], {smin: 3, smax: 6, top: 0.55, glow: 10, spread: 160}) : fxTw(W, H, n(16), "sparkle", ["#F5913A", "#F7C04A"], {smin: 4, smax: 7, top: 0.7, glow: 4, spread: 160}));
+      }, draw: fireDraw},
+    aquarium: {spawn: (W, H, d, n) => school(W, H, n(28), ["n3clown", "n3tang", "n3ytang", "n3gramma"], {per: 5, smin: 14, smax: 19})
+        .concat([{shape: "n3manta", c: "#FFFFFF", x: -90, y: H * fxR(0.22, 0.36), vx: W * 0.0034 + 1, vy: -0.12, g: 0, size: 32, face: true, wig: 0.04, rot: 0, vr: 0, sway: 0, life: 360, delay: 10, alpha: d ? 0.9 : 0.85}],
+          fxRise(W, H, n(40), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#E8FAFF"], {smin: 4, smax: 9, sway: 1, vmin: 1.4, vmax: 2.8, spread: 140}),
+          d ? fxRise(W, H, n(6), "jelly", ["#FF9CD8", "#6FF3FF", "#B89CFF"], {smin: 13, smax: 18, vmin: 0.8, vmax: 1.4, sway: 1.2, glow: 16, life: 330}) : []),
+      draw: (g, f, W, H, d) => rays(g, f, W, H, d, d ? "140,220,255" : "255,255,255")}
+  };
+  /* ---- end of completion animations ---- */
 
   MAJ_THEMES.push({
     skin: {id: "greenhouse", name: "Greenhouse", group: "ideas", desc: "A Victorian glass greenhouse packed with tropical plants.",
@@ -23907,10 +24522,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#CDE9DA,#EEF7EF 55%,#F7F1E3)", "linear-gradient(180deg,#13252A,#1F3A3C 55%,#3F5A55)"],
       spine: [lg("#3E7A5C", "#28553F"), lg("#1C3A36", "#0E201E")], btn: [lg2("#2F7D52", "#4E9A62"), lg2("#F2C27A", "#F6D69E")]},
     kit: {motif: "n3leaf", card: ["#F6FBF7", "#E1EFE5"], ink: "#16291F", bd: "#BFDCC8", mc: "#3E9A62", r: 16, notes: ["#D6EBDC"].concat(NOTES), shape: "rounded", pin: "tape", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(30), "n3leaf", d ? ["#3E7A55", "#5A9A6A", "#2F6A48"] : ["#3E9A62", "#5BAA6A", "#2F7D52", "#8CCB7C"], {sway: 1.8, flip: true, smin: 11, smax: 17, vmin: 1, vmax: 2})
-      .concat(fxRise(W, H, n(26), "drop", d ? ["#A9E0D6", "#E8F4EF"] : ["#7CC4D8", "#BFE6EE", "#FFFFFF"], {smin: 4, smax: 8, vmin: 1.2, vmax: 2.6, sway: 0.6, glow: d ? 6 : 0}),
-        fxBurst(W, H, n(12), "n3bloom", d ? ["#FFFFFF", "#F6E6EE", "#FFF4D0"] : ["#F28BA8", "#FFFFFF", "#F7B84A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 10, smax: 14, glow: d ? 12 : 0}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFF4D0", "#FFFFFF", "#F2C27A"] : ["#8CCB7C", "#F2D24A", "#FFFFFF"], {smin: 3, smax: 6, glow: d ? 10 : 3}))},
+    fx: FX.greenhouse,
     tag: "A Victorian glass greenhouse packed with palms and monsteras, misting nozzles, hanging baskets and a rare night bloom"
   });
   MAJ_THEMES.push({
@@ -23920,9 +24532,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#EAD7C3,#F6ECE1 55%,#D9B79A)", "linear-gradient(180deg,#221A1E,#3E2C2A 55%,#7A4A34)"],
       spine: [lg("#A0583A", "#723C26"), lg("#3E2826", "#1E1214")], btn: [lg2("#B2572E", "#C9773E"), lg2("#F2A86A", "#F6C48E")]},
     kit: {motif: "n3vase", card: ["#FFF9F3", "#F3E3D4"], ink: "#2E1E16", bd: "#E6C8AE", mc: "#C9773E", r: 12, notes: ["#F2DCCB"].concat(NOTES), shape: "folded", pin: "clip", fab: "18px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "n3vase", d ? ["#3FA6A0", "#6A88E0", "#B08AE0", "#E8A0B8", "#F2C46A"] : ["#3FA6A0", "#4A68C0", "#8E5BC8", "#D8708E", "#E5B24A"], {smin: 13, smax: 19, vmin: 1.1, vmax: 2, sway: 0.7, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: fxR(-0.15, 0.15)}))
-      .concat(fxBurst(W, H, n(26), "circle", d ? ["#C8A493", "#A88A7C"] : ["#C8A493", "#B9988A", "#E6CBBE"], [[0.2, 1.02], [0.8, 1.02], [0.5, 1.04]], {smin: 4, smax: 8}),
-        fxTw(W, H, n(36), "sparkle", d ? ["#F6C48E", "#FFFFFF", "#9FE0DA", "#C9B0FF"] : ["#3FA6A0", "#4A68C0", "#E5B24A", "#D8708E"], {smin: 3, smax: 7, glow: d ? 10 : 3}))},
+    fx: FX.pottery,
     tag: "A sunlit pottery studio with a turning wheel, shelves of drying pots, a glowing brick kiln and a sleepy cat"
   });
   MAJ_THEMES.push({
@@ -23932,10 +24542,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#B5D3E6,#E7EFE7 55%,#CBD8B3)", "linear-gradient(180deg,#10162A,#1E2742 55%,#46352E)"],
       spine: [lg("#3E6A5A", "#27463C"), lg("#1E2844", "#0E1326")], btn: [lg2("#C2582A", "#D9783A"), lg2("#F5A04E", "#F8C27A")]},
     kit: {motif: "n3flame", card: ["#FBFAF5", "#EEF0E4"], ink: "#18261F", bd: "#D4D8C2", mc: "#D9783A", r: 14, notes: ["#F6DCC6"].concat(NOTES), shape: "classic", pin: "pin", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(60), "circle", ["#FFB347", "#FF8A3A", "#FFE08A", "#FF6A3A"], {cx: [0.25, 0.75], smin: 2, smax: 4, vmin: 2.4, vmax: 4.6, sway: 1.4, life: 150, glow: 12})
-      .concat(fxRise(W, H, n(7), "n3mallow", ["#FFF8EE", "#F7E6CC", "#F2C470"], {smin: 12, smax: 16, vmin: 1, vmax: 1.8, sway: 0.8, life: 300}).map(p => Object.assign(p, {rot: fxR(-0.4, 0.4), vr: fxR(-0.02, 0.02)})),
-        fxBurst(W, H, n(10), "n3flame", d ? ["#FFB347", "#FF7A3A", "#FFE08A"] : ["#F5913A", "#E8643A", "#F7C04A"], [[0.5, 1.04]], {smin: 11, smax: 16, glow: d ? 14 : 4}),
-        d ? fxTw(W, H, n(40), "star", ["#FFFFFF", "#FFE7B0", "#C9D4FF"], {smin: 3, smax: 6, top: 0.6, glow: 10}) : fxTw(W, H, n(24), "sparkle", ["#F5913A", "#F7C04A"], {smin: 3, smax: 6, glow: 4}))},
+    fx: FX.campfire,
     tag: "A crackling campfire by a still mountain lake, with a glowing tent, toasting marshmallows and a sky full of stars"
   });
   MAJ_THEMES.push({
@@ -23945,9 +24552,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#6FC3DF,#A9E0EE 55%,#D7F1F4)", "linear-gradient(180deg,#081A33,#0E2E52 55%,#1E4A6E)"],
       spine: [lg("#1E6E96", "#124C6E"), lg("#0E2A4E", "#06142A")], btn: [lg2("#1A76A8", "#2F9AC2"), lg2("#6FE3FF", "#B4A6FF")]},
     kit: {motif: "n3fish", card: ["#F4FBFD", "#DCEFF6"], ink: "#0E2A3A", bd: "#A8D6E6", mc: "#2F9AC2", r: 20, notes: ["#CDEAF4"].concat(NOTES), shape: "speech", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => swim(W, H, n(14), "n3fish", d ? ["#6FA8F0", "#F0915A", "#E8D06A", "#C8D6E2"] : ["#3E7FE0", "#FF8A3A", "#F7D23A", "#F27BA0"], d)
-      .concat(fxRise(W, H, n(46), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 8, sway: 1, vmin: 1.6, vmax: 3}),
-        d ? fxRise(W, H, n(8), "jelly", ["#FF9CD8", "#6FF3FF", "#B89CFF"], {smin: 12, smax: 18, vmin: 0.9, vmax: 1.6, sway: 1.2, glow: 16, life: 320}) : fxTw(W, H, n(20), "sparkle", ["#FFFFFF", "#9FE0F0"], {smin: 3, smax: 6, glow: 4}))},
+    fx: FX.aquarium,
     tag: "A glass tunnel through a giant tank, with schools of fish, a gliding manta, glowing jellies and a passing whale shark"
   });
 })();
@@ -23977,6 +24582,30 @@ var MAJ_THEMES = [];
     n4rabbit: {d: ell(-1, 4, 7.6, 6.4) + ell(1.6, -3, 4.6, 4) + ell(-0.4, -10, 1.6, 5) + ell(2.8, -10, 1.5, 4.6) + circ(-8.6, 6, 2.2)},
   });
 
+  /* ---- completion animations ---- */
+  const FX = {
+    diadelosmuertos: {spawn: (W, H, d, n) => fxFall(W, H, n(46), "petal", d ? ["#FFA23A", "#FFC83A", "#FF8A1E"] : ["#F48A1C", "#F7C22A", "#FF9A2E"], {sway: 1.8, flip: true, smin: 6, smax: 10, glow: d ? 6 : 0})
+      .concat(fxFlutter(W, H, n(10), ["#F4891E", "#F7A23A", "#FF9A2E"]),
+        fxBurst(W, H, n(16), "n4mari", ["#F48A1C", "#F7C22A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
+        fxFall(W, H, n(10), "n4picado", d ? ["#E8508E", "#2EB8C8", "#F2CC3A", "#9A62E0"] : ["#FF5FA2", "#2EC4D0", "#FFD23A", "#9A5AE0", "#3FC27A"], {sway: 1.4, smin: 12, smax: 16, vmin: 0.9, vmax: 1.6}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(-0.3, 0.3)})),
+        fxTw(W, H, n(28), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FFA23A"] : ["#F2B53A", "#FF5FA2", "#2EC4D0"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    holi: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "puff", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8", "#B07AF0"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 5, smax: 10, glow: d ? 8 : 0}).map(p => Object.assign(p, {alpha: 0.85}))
+      .concat(fxRise(W, H, n(14), "n4splash", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], {smin: 14, smax: 22, vmin: 1, vmax: 2, sway: 0.9, life: 260, alpha: 0.85}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(0, 6)})),
+        fxFall(W, H, n(30), "petal", ["#FF5A8A", "#FF9A1E", "#FFC62A"], {sway: 1.6, flip: true, smin: 6, smax: 9}),
+        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FF8AC8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    ramadan: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "n4fanous", d ? ["#F2C45A", "#FF9A6A", "#7AE0A8", "#9AB8FF"] : ["#D9A43A", "#E8463A", "#2EA86A", "#3A6AD8"], {smin: 14, smax: 20, vmin: 0.9, vmax: 1.6, sway: 0.6, life: 320, glow: d ? 14 : 4})
+      .concat(fxTw(W, H, n(26), "star", d ? ["#FFE7A0", "#FFFFFF", "#F2C45A"] : ["#D9A43A", "#F2C45A", "#2A7A78"], {smin: 4, smax: 8, glow: d ? 12 : 4, top: 0.7}),
+        fxFall(W, H, n(14), "n4star8", d ? ["#F2C45A", "#FFFFFF"] : ["#D9A43A", "#2A7A78"], {sway: 1, smin: 8, smax: 12, vmin: 0.9, vmax: 1.6, glow: d ? 8 : 0}),
+        fxRise(W, H, n(3), "n4cres", d ? ["#FFF2C6"] : ["#E2B04A"], {cx: [0.25, 0.75], smin: 16, smax: 22, vmin: 0.9, vmax: 1.3, sway: 0.5, life: 320, glow: d ? 16 : 4}).map(p => Object.assign(p, {vr: 0, rot: -0.3})),
+        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    midautumn: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "n4chochin", d ? ["#FF7A50", "#FFB060", "#FF6A5A"] : ["#E04C3A", "#F08A3A", "#D8402E"], {smin: 12, smax: 18, vmin: 1, vmax: 1.8, sway: 0.8, life: 320, glow: d ? 16 : 6})
+      .concat(fxFall(W, H, n(40), "n4osma", d ? ["#F2B83A", "#FFD86A"] : ["#F6B02A", "#E8A01E", "#FFC84A"], {sway: 1.6, smin: 5, smax: 8, vmin: 0.9, vmax: 1.8, glow: d ? 6 : 0}),
+        fxBurst(W, H, n(12), "n4mooncake", d ? ["#E8A84A", "#D99A3E"] : ["#E0A24A", "#C88A34"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
+        fxRise(W, H, n(2), "n4rabbit", d ? ["#FFF4DC"] : ["#FFFFFF"], {cx: [0.3, 0.7], smin: 18, smax: 22, vmin: 0.9, vmax: 1.2, sway: 0.4, life: 320, glow: d ? 14 : 6}).map(p => Object.assign(p, {vr: 0})),
+        fxTw(W, H, n(24), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))}
+  };
+  /* ---- end of completion animations ---- */
+
   MAJ_THEMES.push({
     skin: {id: "diadelosmuertos", name: "Día de los Muertos", group: "ideas", desc: "Papel picado, marigolds and a candlelit ofrenda.",
       light: ["#FDF3EC", "rgba(194,54,122,.10)", "#FFFFFF", "#3A1A2E", "#7A5068", "#F0D8DE", "#F7E7EA", "#FEF9F7", "#C2367A", "#D2609A", "#FFFFFF", "#7A1E4E", "#8A2058", "#F6D2E2", "#FFD98A"],
@@ -23984,11 +24613,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F8C77A,#FCE3B5 45%,#F5B6A6)", "linear-gradient(180deg,#1E1236,#3A1B4E 45%,#8A3058)"],
       spine: [lg("#C2367A", "#8A2058"), lg("#4A1E54", "#24102E")], btn: [lg2("#C2367A", "#F07A2A"), lg2("#FFA23A", "#FFC86A")]},
     kit: {motif: "n4mari", card: ["#FFF9F4", "#FBE6EC"], ink: "#3A1A2E", bd: "#F0C6D6", mc: "#F07A2A", r: 16, notes: ["#FCD9C0"].concat(NOTES), shape: "scallop", pin: "washi2", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(46), "petal", d ? ["#FFA23A", "#FFC83A", "#FF8A1E"] : ["#F48A1C", "#F7C22A", "#FF9A2E"], {sway: 1.8, flip: true, smin: 6, smax: 10, glow: d ? 6 : 0})
-      .concat(fxFlutter(W, H, n(10), ["#F4891E", "#F7A23A", "#FF9A2E"]),
-        fxBurst(W, H, n(16), "n4mari", ["#F48A1C", "#F7C22A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}),
-        fxFall(W, H, n(10), "n4picado", d ? ["#E8508E", "#2EB8C8", "#F2CC3A", "#9A62E0"] : ["#FF5FA2", "#2EC4D0", "#FFD23A", "#9A5AE0", "#3FC27A"], {sway: 1.4, smin: 12, smax: 16, vmin: 0.9, vmax: 1.6}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(-0.3, 0.3)})),
-        fxTw(W, H, n(28), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FFA23A"] : ["#F2B53A", "#FF5FA2", "#2EC4D0"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.diadelosmuertos,
     tag: "A street dressed for the Day of the Dead, with papel picado, a marigold arch and a candlelit ofrenda"
   });
   MAJ_THEMES.push({
@@ -23998,10 +24623,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#FFD6E8,#FFF1C9 45%,#CFF1E6)", "linear-gradient(180deg,#2A1840,#4A2160 45%,#8A2E6A)"],
       spine: [lg("#D8407E", "#9A2A6A"), lg("#5A2470", "#2A1040")], btn: [lg2("#D23A82", "#F08A2A"), lg2("#FF8AC8", "#FFC86A")]},
     kit: {motif: "n4splash", card: ["#FFFAFD", "#FBE6F0"], ink: "#3A1A30", bd: "#F2C6DC", mc: "#D23A82", r: 20, notes: ["#FBD2E4", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "cloud", pin: "magnet", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "puff", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8", "#B07AF0"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 5, smax: 10, glow: d ? 8 : 0}).map(p => Object.assign(p, {alpha: 0.85}))
-      .concat(fxRise(W, H, n(14), "n4splash", d ? ["#FF6AB4", "#FFD23A", "#4AD08A", "#5A9AF8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8", "#9A5AE0"], {smin: 14, smax: 22, vmin: 1, vmax: 2, sway: 0.9, life: 260, alpha: 0.85}).map(p => Object.assign(p, {vr: fxR(-0.03, 0.03), rot: fxR(0, 6)})),
-        fxFall(W, H, n(30), "petal", ["#FF5A8A", "#FF9A1E", "#FFC62A"], {sway: 1.6, flip: true, smin: 6, smax: 9}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FF8AC8"] : ["#FF4A9A", "#FFC62A", "#2EC07A", "#3A8AE8"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: FX.holi,
     tag: "A haveli courtyard mid-celebration, with drifting clouds of coloured powder and marigold garlands"
   });
   MAJ_THEMES.push({
@@ -24011,11 +24633,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F3D9B0,#F8EBD3 45%,#E9C9A0)", "linear-gradient(180deg,#0F1638,#1E2558 45%,#3E3A78)"],
       spine: [lg("#2E7C7A", "#1E5654"), lg("#252C66", "#121638")], btn: [lg2("#2A7A78", "#C99A2E"), lg2("#F2C45A", "#F6D892")]},
     kit: {motif: "n4fanous", card: ["#FFFBF4", "#F4EAD8"], ink: "#2A2418", bd: "#E6D3B0", mc: "#C99A2E", r: 12, notes: ["#F2E2C2", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "folded", pin: "gold", fab: "22px 22px 6px 22px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "n4fanous", d ? ["#F2C45A", "#FF9A6A", "#7AE0A8", "#9AB8FF"] : ["#D9A43A", "#E8463A", "#2EA86A", "#3A6AD8"], {smin: 14, smax: 20, vmin: 0.9, vmax: 1.6, sway: 0.6, life: 320, glow: d ? 14 : 4})
-      .concat(fxTw(W, H, n(26), "star", d ? ["#FFE7A0", "#FFFFFF", "#F2C45A"] : ["#D9A43A", "#F2C45A", "#2A7A78"], {smin: 4, smax: 8, glow: d ? 12 : 4, top: 0.7}),
-        fxFall(W, H, n(14), "n4star8", d ? ["#F2C45A", "#FFFFFF"] : ["#D9A43A", "#2A7A78"], {sway: 1, smin: 8, smax: 12, vmin: 0.9, vmax: 1.6, glow: d ? 8 : 0}),
-        fxRise(W, H, n(3), "n4cres", d ? ["#FFF2C6"] : ["#E2B04A"], {cx: [0.25, 0.75], smin: 16, smax: 22, vmin: 0.9, vmax: 1.3, sway: 0.5, life: 320, glow: d ? 16 : 4}).map(p => Object.assign(p, {vr: 0, rot: -0.3})),
-        fxTw(W, H, n(20), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: FX.ramadan,
     tag: "Old-city rooftops under a crescent moon, hung with fanous lanterns and strings of little stars"
   });
   MAJ_THEMES.push({
@@ -24025,11 +24643,7 @@ var MAJ_THEMES = [];
       glow: ["linear-gradient(180deg,#F2D6A2,#F8E8C9 45%,#E7C6A0)", "linear-gradient(180deg,#141B3A,#26305A 45%,#5A4A7A)"],
       spine: [lg("#B8463A", "#7E2C2A"), lg("#2E3466", "#161A3A")], btn: [lg2("#B8402E", "#D99A2E"), lg2("#F2C46A", "#F6D892")]},
     kit: {motif: "n4mooncake", card: ["#FFFBF4", "#F6E8D6"], ink: "#2E2420", bd: "#E8D2B6", mc: "#B8402E", r: 18, notes: ["#F6E0C0", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "circle", pin: "gold", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(12), "n4chochin", d ? ["#FF7A50", "#FFB060", "#FF6A5A"] : ["#E04C3A", "#F08A3A", "#D8402E"], {smin: 12, smax: 18, vmin: 1, vmax: 1.8, sway: 0.8, life: 320, glow: d ? 16 : 6})
-      .concat(fxFall(W, H, n(40), "n4osma", d ? ["#F2B83A", "#FFD86A"] : ["#F6B02A", "#E8A01E", "#FFC84A"], {sway: 1.6, smin: 5, smax: 8, vmin: 0.9, vmax: 1.8, glow: d ? 6 : 0}),
-        fxBurst(W, H, n(12), "n4mooncake", d ? ["#E8A84A", "#D99A3E"] : ["#E0A24A", "#C88A34"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxRise(W, H, n(2), "n4rabbit", d ? ["#FFF4DC"] : ["#FFFFFF"], {cx: [0.3, 0.7], smin: 18, smax: 22, vmin: 0.9, vmax: 1.2, sway: 0.4, life: 320, glow: d ? 14 : 6}).map(p => Object.assign(p, {vr: 0})),
-        fxTw(W, H, n(24), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: FX.midautumn,
     tag: "A riverside pavilion under a giant full moon, with lotus lanterns drifting on the water and osmanthus in bloom"
   });
 })();

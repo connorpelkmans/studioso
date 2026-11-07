@@ -372,60 +372,280 @@ const FX_PATHS = {};
 const fxPath = k => FX_PATHS[k] || (FX_PATHS[k] = {d: new Path2D(FX_SHAPES[k].d), detail: FX_SHAPES[k].detail ? new Path2D(FX_SHAPES[k].detail) : null});
 const fxR = (a, b) => a + Math.random() * (b - a), fxPick = a => a[Math.floor(Math.random() * a.length)];
 
-/* Each theme: spawn(W, H, dark, n) returns particles; optional draw */
-const fxFall = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(-20, W + 20), y: fxR(-H * 0.5, -10), vx: fxR(-0.6, 0.6), vy: fxR(o.vmin || 1.2, o.vmax || 2.6), g: 0.012, size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.06, 0.06), sway: o.sway || 1.3, swf: fxR(0.03, 0.06), flip: o.flip, life: 260, delay: Math.floor(fxR(0, 40)), glow: o.glow}));
-const fxRise = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: o.cx ? fxR(o.cx[0] * W, o.cx[1] * W) : fxR(0, W), y: H + fxR(10, 60), vx: fxR(-0.3, 0.3), vy: -fxR(o.vmin || 1.4, o.vmax || 3), g: 0, size: fxR(o.smin || 5, o.smax || 12), rot: 0, vr: 0, sway: o.sway || 0.8, swf: fxR(0.03, 0.07), grow: o.grow || 0, alpha: o.alpha || 1, life: o.life || 170, delay: Math.floor(fxR(0, 50)), glow: o.glow}));
-const fxBurst = (W, H, n, shape, cols, pts, o = {}) => Array.from({length: n}, (_, i) => { const [bx, by] = pts[i % pts.length], up = by > 0.5, a = up ? -Math.PI / 2 + fxR(-0.7, 0.7) + (bx < 0.4 ? 0.3 : bx > 0.6 ? -0.3 : 0) : fxR(0, 6.3), sp = up ? fxR(H * 0.02, H * 0.034) : fxR(3, 8); return {shape, c: fxPick(cols), x: bx * W, y: by * H, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: o.g || 0.3, drag: 0.985, size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.2, 0.2), sway: 0, life: 210, delay: up ? 0 : Math.floor(fxR(4, 14)), flip: o.flip, glow: o.glow, bounce: o.bounce}; });
-const fxTw = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(0, W), y: fxR(0, H * (o.top || 1)), vx: 0, vy: o.vy || 0, g: 0, size: fxR(o.smin || 4, o.smax || 9), rot: fxR(0, 0.6), vr: 0, sway: 0, life: fxR(60, 120), delay: Math.floor(fxR(0, 110)), tw: true, grow: o.grow || 0, glow: o.glow, alpha: o.alpha || 1}));
-const fxFlutter = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0; return {shape: "butterfly", c: fxPick(cols), x: left ? fxR(-30, W * 0.2) : fxR(W * 0.8, W + 30), y: H + fxR(10, 80), vx: (left ? 1 : -1) * fxR(0.6, 1.6), vy: -fxR(1.6, 2.8), g: 0, size: fxR(12, 18), rot: 0, vr: 0, sway: 2.2, swf: fxR(0.04, 0.07), flap: fxR(0.25, 0.4), life: 240, delay: Math.floor(fxR(0, 60))}; });
+/* Each theme: spawn(W, H, dark, n) returns particles; optional draw(g, f, W, H, dark) paints under them and over() on top.
+   What a particle can have (all optional except shape, x, y; speeds are per 60 fps frame):
+   vx vy g drag: motion. term: the fastest it can fall, so light things drift down once a burst slows.
+   sway swf: side to side drift. rock: tilts with the drift like a falling leaf, instead of spinning (vr).
+   flip: tumbles in 3D and shows a darker back. face: points where it's heading, mirrored so it's never upside down.
+   wig: a swimming wiggle. z: depth, so far ones are smaller, slower and fainter. tw: twinkles in place; glint: grows and
+   shrinks as it twinkles. grow: grows with age. fsw: drift that starts once a burst particle is on its way down. */
+const FX_LIGHT = new Set(["petal", "leaf", "mintleaf", "maple", "confetti", "sprinkle", "flower", "fallleaf", "oakleaf", "heart", "bleaf", "sprig", "japanpetal", "japansakura", "clover", "print"]);
+const fxZ = o => o.depth === false ? 1 : fxR(o.zmin || 0.62, o.zmax || 1.12);
+const fxDim = z => 0.55 + 0.45 * Math.min(1, z);
+const fxFall = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => { const z = fxZ(o);
+  return {shape, c: fxPick(cols), x: fxR(-20, W + 20), y: fxR(-H * 0.5, -10), vx: fxR(-0.6, 0.6) * z, vy: fxR(o.vmin || 1.2, o.vmax || 2.6) * z, g: 0.012 * z, size: fxR(o.smin || 7, o.smax || 12) * z, z,
+    rot: fxR(0, 6.3), vr: o.flip || o.rock ? 0 : fxR(-0.05, 0.05), rock: o.rock != null ? o.rock * fxR(0.6, 1.2) : o.flip ? fxR(0.3, 0.7) : 0, sway: (o.sway || 1.3) * z, swf: fxR(0.03, 0.06), flip: o.flip,
+    life: o.life || 260, delay: Math.floor(fxR(0, o.spread || 40)), glow: o.glow, alpha: (o.alpha || 1) * fxDim(z)}; });
+const fxRise = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => { const z = fxZ(o);
+  return {shape, c: fxPick(cols), x: o.cx ? fxR(o.cx[0] * W, o.cx[1] * W) : fxR(0, W), y: H + fxR(10, 60), vx: fxR(-0.3, 0.3), vy: -fxR(o.vmin || 1.4, o.vmax || 3) * z, g: 0, size: fxR(o.smin || 5, o.smax || 12) * z, z,
+    rot: o.rot || 0, vr: 0, rock: o.rock || 0, sway: (o.sway || 0.8) * z, swf: fxR(0.03, 0.07), grow: o.grow || 0, flip: o.flip, alpha: (o.alpha || 1) * fxDim(z), life: o.life || 170,
+    delay: Math.floor(fxR(0, o.spread || 50)), glow: o.glow}; });
+const fxBurst = (W, H, n, shape, cols, pts, o = {}) => Array.from({length: n}, (_, i) => { const [bx, by] = pts[i % pts.length], up = by > 0.5, a = up ? -Math.PI / 2 + fxR(-0.7, 0.7) + (bx < 0.4 ? 0.3 : bx > 0.6 ? -0.3 : 0) : fxR(0, 6.3), sp = up ? fxR(H * 0.02, H * 0.034) : fxR(3, 8), light = FX_LIGHT.has(shape);
+  return {shape, c: fxPick(cols), x: bx * W, y: by * H, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: o.g || 0.3, drag: 0.985, term: o.term || (light ? fxR(1.3, 2) : fxR(4, 6)), fsw: o.fsw != null ? o.fsw : light ? fxR(0.8, 1.6) : 0,
+    swf: fxR(0.04, 0.08), size: fxR(o.smin || 7, o.smax || 12), rot: fxR(0, 6.3), vr: fxR(-0.2, 0.2), sway: 0, life: o.life || (light ? 270 : 220), delay: up ? Math.floor(fxR(0, 6)) : Math.floor(fxR(4, 14)), flip: o.flip, glow: o.glow, bounce: o.bounce}; });
+const fxTw = (W, H, n, shape, cols, o = {}) => Array.from({length: n}, () => ({shape, c: fxPick(cols), x: fxR(0, W), y: fxR(0, H * (o.top || 1)), vx: 0, vy: o.vy || 0, g: 0, size: fxR(o.smin || 4, o.smax || 9), rot: fxR(0, 0.6), vr: o.glint === false ? 0 : fxR(-0.02, 0.02), sway: 0,
+  life: fxR(60, 120), delay: Math.floor(fxR(0, o.spread || 110)), tw: true, glint: o.glint != null ? o.glint : shape === "sparkle" || shape === "star", grow: o.grow || 0, glow: o.glow, alpha: o.alpha || 1}));
+const fxFlutter = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0; return {shape: "butterfly", c: fxPick(cols), x: left ? fxR(-30, W * 0.2) : fxR(W * 0.8, W + 30), y: H + fxR(10, 80), vx: (left ? 1 : -1) * fxR(0.6, 1.6), vy: -fxR(1.6, 2.8), g: 0, size: fxR(12, 18), rot: 0, vr: 0, sway: 2.2, swf: fxR(0.04, 0.07), rock: 0.25, flap: fxR(0.25, 0.4), life: 240, delay: Math.floor(fxR(0, 60))}; });
 const fxStreaks = (W, H, n, cols) => Array.from({length: n}, () => { const sp = fxR(9, 14); return {shape: null, streak: true, c: fxPick(cols), x: fxR(W * 0.2, W * 1.1), y: fxR(-40, H * 0.35), vx: -sp, vy: sp * 0.5, g: 0, size: 2, life: 70, delay: Math.floor(fxR(0, 120)), glow: 12}; });
 
+/* Northern lights: curtains of glowing vertical rays that unfurl across the sky, ripple with light running along them,
+   then thin out. Each ray is one stretched strip from a small prebuilt gradient, so hundreds of rays stay cheap. */
+const fxAurora = () => {
+  const strip = {};
+  const ray = (cols, k) => strip[k] || (strip[k] = (() => { const c = document.createElement("canvas"); c.width = 4; c.height = 256; const g = c.getContext("2d"), gr = g.createLinearGradient(0, 256, 0, 0);
+    cols.forEach(([at, col]) => gr.addColorStop(at, col)); g.fillStyle = gr; g.fillRect(0, 0, 4, 256); return c; })());
+  // [height of the hem as a share of the screen, ray length, waviness, speed, colors, strength]
+  const CURT = [[0.36, 0.3, 1, 1, 0, 1], [0.27, 0.22, 0.7, -0.8, 1, 0.7], [0.46, 0.18, 1.3, 1.3, 2, 0.45]];
+  return (g, f, W, H, d) => {
+    const P = d ? [[[0, "rgba(120,255,190,0)"], [0.04, "rgba(150,255,200,.95)"], [0.18, "rgba(70,240,160,.75)"], [0.55, "rgba(90,170,255,.32)"], [0.82, "rgba(190,110,255,.16)"], [1, "rgba(190,110,255,0)"]],
+                   [[0, "rgba(255,140,220,0)"], [0.05, "rgba(255,160,225,.8)"], [0.3, "rgba(180,120,255,.5)"], [1, "rgba(120,110,255,0)"]],
+                   [[0, "rgba(110,255,230,0)"], [0.05, "rgba(130,255,235,.8)"], [0.4, "rgba(80,200,255,.35)"], [1, "rgba(80,160,255,0)"]]]
+                : [[[0, "rgba(20,170,120,0)"], [0.04, "rgba(10,165,112,.85)"], [0.2, "rgba(20,175,135,.6)"], [0.6, "rgba(60,110,220,.28)"], [0.85, "rgba(130,80,220,.1)"], [1, "rgba(130,80,220,0)"]],
+                   [[0, "rgba(210,70,170,0)"], [0.05, "rgba(205,60,160,.65)"], [0.35, "rgba(130,70,220,.36)"], [1, "rgba(90,80,220,0)"]],
+                   [[0, "rgba(20,160,170,0)"], [0.05, "rgba(20,160,175,.55)"], [0.4, "rgba(40,130,210,.22)"], [1, "rgba(40,120,210,0)"]]];
+    const ph = W < H, unf = fxEase(f / 70), out = 1 - fxEase((f - 195) / 85);
+    if (out <= 0) return;
+    g.globalCompositeOperation = d ? "lighter" : "source-over";
+    const step = Math.max(2.5, W / 340), wr = step * 1.7;
+    CURT.forEach(([y0, len, wav, spd, pi, str], ci) => {
+      const spr = ray(P[pi], (d ? "d" : "l") + pi), yb = H * (ph ? y0 * 0.8 : y0), L0 = H * len * (ph ? 0.8 : 1), t = f * 0.016 * spd, from = ci % 2 ? W * 1.05 : -W * 0.05;
+      for (let x = -W * 0.05; x < W * 1.05; x += step) {
+        const reach = Math.abs(x - from) / (W * 1.1), show = fxEase((unf * 1.25 - reach) * 4); if (show <= 0) continue;
+        const y = yb + Math.sin(x / (W * 0.23) + t) * H * 0.05 * wav + Math.sin(x / (W * 0.071) - t * 1.7 + ci) * H * 0.014 * wav;
+        const pulse = 0.45 + 0.55 * Math.pow(0.5 + 0.5 * Math.sin(x / (W * 0.045) - f * 0.09 * spd + ci * 2), 2), fold = 0.65 + 0.35 * Math.sin(x / (W * 0.018) + ci * 5 + Math.sin(f * 0.02 + x * 0.01));
+        const edge = Math.min(1, (x + W * 0.05) / (W * 0.18), (W * 1.05 - x) / (W * 0.18)), len2 = L0 * (0.7 + 0.45 * fold);
+        g.globalAlpha = Math.max(0, str * show * out * pulse * edge * (0.55 + 0.45 * fold));
+        g.drawImage(spr, x, y - len2, wr, len2 * 1.04);
+      }
+    });
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+  };
+};
+
+/* Richer sprites for shapes the original themes share (each keeps its d silhouette for flashcard motifs) */
+(() => {
+  const disc = (g, r) => { g.beginPath(); g.arc(0, 0, r, 0, 6.3); };
+  const gloss = (g, r, a) => { const gr = g.createRadialGradient(-r * 0.35, -r * 0.45, 0, -r * 0.2, -r * 0.2, r * 1.15); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.5, "rgba(255,255,255,0)"); gr.addColorStop(1, "rgba(0,0,0,.18)"); g.fillStyle = gr; disc(g, r); g.fill(); };
+  FX_SHAPES.petal.paint = (g, c) => { const p = new Path2D(FX_SHAPES.petal.d), gr = g.createLinearGradient(0, 6, 0, -8); gr.addColorStop(0, "#FFF4F8"); gr.addColorStop(0.55, c); gr.addColorStop(1, fxShade(c, 0.92));
+    g.fillStyle = gr; g.fill(p); g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = 0.7; g.beginPath(); g.moveTo(0, 4.6); g.quadraticCurveTo(-0.6, -1, 0, -6); g.stroke(); };
+  FX_SHAPES.lemon.paint = (g, c) => { g.fillStyle = fxShade(c, 0.92); disc(g, 10); g.fill(); g.fillStyle = "#FFFBE6"; disc(g, 8.6); g.fill();
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.fillStyle = i % 2 ? c : fxShade(c, 1.06); g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 7.6, a + 0.1, a + Math.PI / 4 - 0.1); g.closePath(); g.fill(); }
+    g.fillStyle = "#FFFBE6"; disc(g, 1.3); g.fill(); gloss(g, 10, 0.35); };
+  FX_SHAPES.ball.paint = (g, c) => { const cols = [c, "#FFFFFF", "#FFC53D", "#FFFFFF", "#23B5D3", "#FFFFFF"];
+    cols.forEach((k, i) => { g.fillStyle = k; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 10, i * Math.PI / 3, (i + 1) * Math.PI / 3); g.closePath(); g.fill(); });
+    g.fillStyle = "#FFFFFF"; disc(g, 2.6); g.fill(); gloss(g, 10, 0.55); };
+  FX_SHAPES.candy.paint = (g, c) => { const p = new Path2D(FX_SHAPES.candy.d); g.fillStyle = fxShade(c, 1.12); g.fill(p);
+    g.save(); g.beginPath(); g.ellipse(0, 0, 5.2, 5, 0, 0, 6.3); g.clip(); g.fillStyle = c; g.fillRect(-6, -6, 12, 12); g.strokeStyle = "rgba(255,255,255,.75)"; g.lineWidth = 1.4;
+    for (let x = -10; x < 10; x += 3.4) { g.beginPath(); g.moveTo(x, -6); g.lineTo(x + 6, 6); g.stroke(); } g.restore(); gloss(g, 5.2, 0.45); };
+  FX_SHAPES.bubble.paint = (g, c) => { const gr = g.createRadialGradient(0, 0, 4, 0, 0, 9.4); gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(0.75, "rgba(255,255,255,.08)"); gr.addColorStop(1, c);
+    g.fillStyle = gr; disc(g, 9.4); g.fill(); g.strokeStyle = c; g.globalAlpha = 0.8; g.lineWidth = 0.9; disc(g, 9); g.stroke(); g.globalAlpha = 1;
+    g.strokeStyle = "rgba(255,255,255,.9)"; g.lineWidth = 1.5; g.lineCap = "round"; g.beginPath(); g.arc(0, 0, 6.2, 3.6, 4.5); g.stroke(); g.fillStyle = "rgba(255,255,255,.85)"; g.beginPath(); g.arc(4, 4.4, 1, 0, 6.3); g.fill(); };
+  FX_SHAPES.bokeh = {d: FX_SHAPES.circle.d, paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 10.6); gr.addColorStop(0, c); gr.addColorStop(0.82, c); gr.addColorStop(0.9, "rgba(255,255,255,.9)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+    g.globalAlpha = 0.55; g.fillStyle = gr; disc(g, 10.6); g.fill(); g.globalAlpha = 0.5; g.strokeStyle = c; g.lineWidth = 1; disc(g, 9.6); g.stroke(); }};
+  FX_SHAPES.gull = {d: "M-11 -1.4C-7.6 -5 -3.2 -4.4 0 -0.4C3.2 -4.4 7.6 -5 11 -1.4C7.4 -2.6 3.6 -1.6 0.9 1.8H-0.9C-3.6 -1.6 -7.4 -2.6 -11 -1.4Z", flat: true};
+  FX_SHAPES.glint = {d: "M-10 0Q0 -1.4 10 0Q0 1.4 -10 0Z", flat: true};
+  FX_SHAPES.snowsoft = {d: FX_SHAPES.circle.d, paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 10); gr.addColorStop(0, c); gr.addColorStop(0.45, c); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; disc(g, 10); g.fill(); }};
+})();
+
+/* Moments drawn under the particles. Each builds its expensive pieces once and fades itself in and out softly. */
+const fxOut = (f, a, b) => 1 - fxEase((f - a) / (b - a));
+// Galaxy: a spiral galaxy blooms open from its core and slowly turns, inner stars faster than outer ones
+const fxGalaxy = () => {
+  const S = Array.from({length: 360}, (_, i) => ({arm: i % 3, r: Math.pow(Math.random(), 0.7), j: (Math.random() - 0.5) * 0.7, k: Math.random(), tw: Math.random() * 6.3, s: Math.random()}));
+  return (g, f, W, H, d) => {
+    const out = fxOut(f, 190, 270), bloom = fxEase(f / 90), cx = W * 0.5, cy = H * (W < H ? 0.4 : 0.44), R = Math.min(W, H) * (W < H ? 0.56 : 0.6) * (0.25 + 0.75 * bloom);
+    if (out <= 0) return;
+    const cols = d ? ["#FFFFFF", "#CFC4FF", "#FFB8E4", "#9FD8FF"] : ["#4B2FC9", "#7A4EE6", "#C04EB4", "#3A6BD6"];
+    g.globalCompositeOperation = d ? "lighter" : "source-over";
+    const core = g.createRadialGradient(cx, cy, 0, cx, cy, R * 0.55); core.addColorStop(0, d ? "rgba(255,236,250,.55)" : "rgba(150,100,250,.4)"); core.addColorStop(0.35, d ? "rgba(190,150,255,.18)" : "rgba(170,120,255,.12)"); core.addColorStop(1, "rgba(160,120,255,0)");
+    g.globalAlpha = out * bloom; g.fillStyle = core; g.beginPath(); g.ellipse(cx, cy, R * 0.55, R * 0.4, -0.35, 0, 6.3); g.fill();
+    const c = Math.cos(-0.35), si = Math.sin(-0.35);
+    for (const s of S) {
+      const a = s.arm * 2.094 + s.r * 4.6 + s.j * (0.4 + s.r) + f * 0.009 * (1.6 - s.r), rr = s.r * R, ex = Math.cos(a) * rr, ey = Math.sin(a) * rr * 0.5;
+      const x = cx + ex * c - ey * si, y = cy + ex * si + ey * c, sz = (0.8 + s.s * 2.1) * (1.15 - s.r * 0.5) * (d ? 1 : 1.25) * Math.max(1, Math.min(W, H) / 700);
+      g.globalAlpha = out * Math.min(1, bloom * 1.6 - s.r * 0.5) * (0.55 + 0.45 * Math.sin(f * 0.12 + s.tw)) * (s.r < 0.12 ? 0.7 : 1);
+      if (g.globalAlpha <= 0.02) continue;
+      g.fillStyle = cols[s.r < 0.18 ? 0 : 1 + (s.arm + (s.k > 0.7 ? 1 : 0)) % 3]; g.beginPath(); g.arc(x, y, sz, 0, 6.3); g.fill();
+    }
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+  };
+};
+// Christmas: a string of lights swags across the top and switches on bulb by bulb, then twinkles
+const fxGarland = () => (g, f, W, H, d) => {
+  const out = fxOut(f, 200, 268); if (out <= 0) return;
+  const top = H * (W < H ? 0.05 : 0.07), sag = H * (W < H ? 0.07 : 0.11), swags = W < H ? 2 : 3, cols = ["#FF4A3D", "#2FD07A", "#FFC23D", "#4A8BFF", "#FF7AC8"];
+  const pt = u => { const k = u * swags, i = Math.min(swags - 1, Math.floor(k)), t = k - i; return [W * (-0.03 + 1.06 * u), top + sag * 4 * t * (1 - t) + Math.sin(i * 1.7) * H * 0.01]; };
+  const draw = Math.min(1, f / 40);
+  g.globalAlpha = out * 0.85; g.strokeStyle = d ? "#2F5A40" : "#2E5A3A"; g.lineWidth = 2; g.beginPath();
+  for (let u = 0; u <= draw + 0.001; u += 0.01) { const [x, y] = pt(u); u ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+  const bk = Math.max(1, Math.min(1.7, Math.min(W, H) / 520)), N = Math.round(W / (46 * bk));
+  for (let i = 1; i < N; i++) {
+    const u = i / N; if (u > draw) break;
+    const [x, y] = pt(u), [x2, y2] = pt(Math.min(1, u + 0.004)), ang = Math.atan2(y2 - y, x2 - x), on = fxEase((f - 18 - i * 1.6) / 8), col = cols[i % cols.length];
+    const tw = 0.72 + 0.28 * Math.sin(f * 0.11 + i * 2.3);
+    g.save(); g.translate(x, y); g.rotate(ang + (i % 2 ? 0.25 : -0.2)); g.scale(bk, bk);
+    g.globalAlpha = out; g.fillStyle = d ? "#6A7480" : "#7A828C"; g.fillRect(-2.2, 0, 4.4, 4);
+    if (on > 0) { g.globalAlpha = out * on * tw * (d ? 0.55 : 0.4); const gl = g.createRadialGradient(0, 10, 0, 0, 10, 20); gl.addColorStop(0, col); gl.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gl; g.fillRect(-20, -10, 40, 40); }
+    g.globalAlpha = out; g.fillStyle = on > 0.5 ? col : fxShade(col, 0.55); g.beginPath(); g.ellipse(0, 10, 4.2, 6.6, 0, 0, 6.3); g.fill();
+    g.fillStyle = `rgba(255,255,255,${0.25 + 0.5 * on})`; g.beginPath(); g.ellipse(-1.3, 8, 1.1, 2.4, 0, 0, 6.3); g.fill();
+    g.restore();
+  }
+};
+// Café: three soft curls of steam rise from below, widen and drift apart (soft puffs stamped along each curl)
+const fxSteam = () => { const puffs = {};
+  return (g, f, W, H, d) => {
+    const out = fxOut(f, 170, 262); if (out <= 0) return;
+    const rgb = d ? "255,250,242" : "150,118,92", puff = puffs[rgb] || (puffs[rgb] = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const p = c.getContext("2d"), gr = p.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, `rgba(${rgb},1)`); gr.addColorStop(0.5, `rgba(${rgb},.45)`); gr.addColorStop(1, `rgba(${rgb},0)`); p.fillStyle = gr; p.fillRect(0, 0, 64, 64); return c; })());
+    const rise = fxEase(f / 140), base = H * 1.04, M = Math.min(W, H);
+    g.save(); g.globalCompositeOperation = d ? "lighter" : "source-over";
+    [[0.4, 0, 1], [0.5, 2.1, 1.15], [0.6, 4.2, 0.95]].forEach(([x0, ph, k]) => {
+      const top = base - H * 0.75 * rise * k;
+      for (let i = 0; i <= 34; i++) {
+        const u = i / 34, y = base - (base - top) * u, x = W * x0 + W * (0.01 + 0.045 * u) * Math.sin(u * 6.5 + ph - f * 0.04) + Math.sin(f * 0.012 + ph) * W * 0.02 * u, r = M * (0.03 + 0.06 * u);
+        g.globalAlpha = out * Math.sin(Math.PI * Math.min(1, u * 1.1)) * (d ? 0.075 : 0.16);
+        g.drawImage(puff, x - r, y - r, 2 * r, 2 * r);
+      }
+    });
+    g.restore();
+  };
+};
+// Neon: a glowing check mark flickers on like a sign warming up, then hums
+const fxNeonCheck = () => (g, f, W, H, d) => {
+  const out = fxOut(f, 190, 262); if (out <= 0) return;
+  const S = Math.min(W, H) * 0.25, cx = W * 0.5, cy = H * 0.46, pts = [[-0.62, 0.02], [-0.18, 0.44], [0.66, -0.5]];
+  const lenA = Math.hypot(0.44, 0.42), lenB = Math.hypot(0.84, 0.94), total = (lenA + lenB) * S, drawn = fxEase((f - 4) / 26) * total;
+  const flick = f < 40 ? [1, 0.4, 1, 1, 0.55, 1, 1, 1][Math.floor(f / 5)] : 0.92 + 0.08 * Math.sin(f * 0.6);
+  g.setLineDash([drawn, total + 10]); g.lineCap = g.lineJoin = "round";
+  const path = () => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(cx + x * S, cy + y * S) : g.moveTo(cx + x * S, cy + y * S)); };
+  [[S * 0.2, d ? 0.22 : 0.16, "#D05BEF", 30], [S * 0.075, 0.9, d ? "#E58CFF" : "#C84BEB", 14], [S * 0.03, 0.95, "#FFFFFF", 0]].forEach(([lw, a, col, blur]) => {
+    g.globalAlpha = out * a * flick; g.lineWidth = lw; g.strokeStyle = col; g.shadowBlur = blur; g.shadowColor = "#C84BEB"; path(); g.stroke(); });
+  g.setLineDash([]); g.shadowBlur = 0;
+  [[22, "74,134,255"], [34, "205,75,235"]].forEach(([t0, rgb]) => { const t = f - t0; if (t < 0 || t > 110) return; const r = S * 0.9 + t * Math.max(W, H) / 170, a = 1 - fxEase(t / 110);
+    g.globalAlpha = out * a * 0.7; g.shadowBlur = 18; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgb(${rgb})`; g.lineWidth = 2.5; g.beginPath(); g.arc(cx, cy, r, 0, 6.3); g.stroke(); });
+  g.shadowBlur = 0;
+};
+// Synthwave: a striped sun rises over a glowing grid that rushes toward you
+const fxSynth = () => (g, f, W, H, d) => {
+  const out = fxOut(f, 185, 262); if (out <= 0) return;
+  const hz = H * 0.7, R = Math.min(W, H) * (W < H ? 0.36 : 0.3), up = fxEase(f / 75), cy = hz + R * 0.95 - R * 1.25 * up, cx = W * 0.5;
+  g.save(); g.beginPath(); g.rect(0, 0, W, hz); g.clip();
+  const gr = g.createLinearGradient(0, cy - R, 0, cy + R); gr.addColorStop(0, "#FFE66D"); gr.addColorStop(0.45, "#FF8A5B"); gr.addColorStop(1, "#FF2FB3");
+  g.globalAlpha = out * (d ? 0.85 : 0.75); g.shadowBlur = 40; g.shadowColor = d ? "#FF4FB8" : "rgba(255,90,170,.6)"; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R, 0, 6.3); g.fill(); g.shadowBlur = 0;
+  g.globalCompositeOperation = "destination-out"; g.globalAlpha = 1;
+  for (let i = 0; i < 6; i++) { const y = hz - R * (0.62 - i * 0.11), h = R * (0.018 + i * 0.016); g.fillRect(cx - R, y, 2 * R, h); }
+  g.restore();
+  const ga = out * fxEase((f - 10) / 40), mag = d ? "255,60,200" : "200,40,160";
+  g.save(); g.beginPath(); g.rect(0, hz, W, H - hz); g.clip(); g.lineWidth = 1.6; g.strokeStyle = `rgb(${mag})`; g.shadowBlur = 10; g.shadowColor = `rgb(${mag})`;
+  for (let i = 0; i < 14; i++) { const t = ((i + f * 0.035) % 14) / 14, y = hz + (H - hz) * t * t; g.globalAlpha = ga * (0.15 + 0.75 * t); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  for (let i = -12; i <= 12; i++) { g.globalAlpha = ga * 0.55; g.beginPath(); g.moveTo(cx + i * W * 0.012, hz); g.lineTo(cx + i * W * 0.16, H); g.stroke(); }
+  g.restore();
+  g.globalAlpha = ga * 0.8; g.fillStyle = `rgb(${mag})`; g.fillRect(0, hz - 1, W, 2);
+};
+// Ocean: a glassy wave rolls in from the bottom with a line of foam, then slides back out
+const fxWave = () => (g, f, W, H, d) => {
+  const up = fxEase(f / 55) * (1 - fxEase((f - 120) / 100)); if (up <= 0.001) return;
+  const crest = x => H * (1 - 0.26 * up) + Math.sin(x / W * 7 + f * 0.05) * H * 0.016 + Math.sin(x / W * 17 - f * 0.08) * H * 0.006;
+  const gr = g.createLinearGradient(0, H * 0.7, 0, H); gr.addColorStop(0, d ? "rgba(60,207,224,.38)" : "rgba(20,167,189,.32)"); gr.addColorStop(1, d ? "rgba(10,90,120,.5)" : "rgba(10,127,146,.45)");
+  g.fillStyle = gr; g.beginPath(); g.moveTo(0, H);
+  for (let x = 0; x <= W + 8; x += 8) g.lineTo(x, crest(x)); g.lineTo(W, H); g.closePath(); g.fill();
+  g.strokeStyle = d ? "rgba(230,250,255,.85)" : "rgba(255,255,255,.95)"; g.lineWidth = 3.5; g.lineCap = "round"; g.beginPath();
+  for (let x = 0; x <= W + 8; x += 8) x ? g.lineTo(x, crest(x)) : g.moveTo(x, crest(x)); g.stroke();
+  g.fillStyle = "rgba(255,255,255,.7)"; for (let x = 7; x < W; x += 23) { const r = 1.5 + 1.5 * Math.abs(Math.sin(x * 1.3 + f * 0.05)); g.beginPath(); g.arc(x, crest(x) + 5 + (x * 7 % 9), r, 0, 6.3); g.fill(); }
+};
+// Forest: soft shafts of sunlight lean in through the trees
+const fxBeams = () => (g, f, W, H, d) => {
+  const a = fxEase(f / 60) * fxOut(f, 170, 250); if (a <= 0) return;
+  g.globalCompositeOperation = d ? "lighter" : "source-over";
+  [[0.12, 0.09, 0], [0.32, 0.05, 1.4], [0.5, 0.11, 2.6], [0.74, 0.06, 4]].forEach(([x0, w, ph]) => {
+    const x = W * x0, ww = W * w, sk = H * 0.45, gr = g.createLinearGradient(x, 0, x + sk, H);
+    gr.addColorStop(0, d ? "rgba(255,240,170,.16)" : "rgba(255,248,200,.5)"); gr.addColorStop(1, "rgba(255,248,200,0)");
+    g.globalAlpha = a * (0.65 + 0.35 * Math.sin(f * 0.03 + ph)); g.fillStyle = gr; g.beginPath(); g.moveTo(x, -10); g.lineTo(x + ww, -10); g.lineTo(x + ww * 2.2 + sk, H); g.lineTo(x + sk, H); g.closePath(); g.fill();
+  });
+  g.globalCompositeOperation = "source-over";
+};
+
+const fxAt = (P, k) => P.map(p => Object.assign(p, {delay: (p.delay || 0) + k}));
 const THEME_FX = {
-  ocean: {spawn: (W, H, d, n) => fxRise(W, H, n(70), "bubble", d ? ["#9ED3DB", "#E2F5F7", "#3CCFE0"] : ["#0A7F92", "#14A7BD", "#7CC9D6"], {smin: 5, smax: 15, sway: 1.1}).concat(fxBurst(W, H, n(36), "drop", d ? ["#3CCFE0", "#6BDCEA"] : ["#14A7BD", "#0A7F92", "#7CC9D6"], [[0.3, 1.02], [0.7, 1.02]], {smin: 5, smax: 9}))},
-  sakura: {spawn: (W, H, d, n) => fxFall(W, H, n(110), "petal", d ? ["#FF86B5", "#FFA4C8", "#EDB9D0", "#FFD6E6"] : ["#F27AA8", "#FFB3CF", "#F9C6D9", "#E8688A"], {sway: 1.8, flip: true})},
-  forest: {spawn: (W, H, d, n) => fxFall(W, H, n(80), "leaf", d ? ["#5CCB7E", "#7EDB98", "#3F7A4D"] : ["#2F8A4E", "#45A865", "#8FB886", "#3E9E7A"], {sway: 1.6, flip: true}).concat(fxTw(W, H, n(26), "circle", ["#E8E06A", "#C9F28A"], {smin: 1.6, smax: 3, glow: 10, vy: -0.4}))},
-  galaxy: {spawn: (W, H, d, n) => fxStreaks(W, H, n(9), d ? ["#FFFFFF", "#C5BCF5", "#FF9BD6"] : ["#6B4EE6", "#C04EE6", "#8C6FF5"]).concat(fxTw(W, H, n(70), "sparkle", d ? ["#FFFFFF", "#B8A6FF", "#FFD1EC"] : ["#6B4EE6", "#9D86FF", "#C04EE6"], {smin: 3, smax: 8, glow: d ? 10 : 4}))},
-  arctic: {spawn: (W, H, d, n) => fxTw(W, H, n(50), "sparkle", d ? ["#FFFFFF", "#A8FFD8", "#C9B8FF"] : ["#2A9FC0", "#6A5AE0", "#3FB39A"], {smin: 2.5, smax: 6, top: 0.6, glow: d ? 8 : 2}),
-    draw: (g, f, W, H, d) => { const a = Math.sin(Math.min(1, f / 200) * Math.PI); if (a <= 0) return; [[0.16, "60,255,170", 0], [0.24, "150,90,255", 1.6], [0.1, "80,220,210", 3.1]].forEach(([y0, rgb, ph]) => { g.save(); g.globalAlpha = a * (d ? 0.5 : 0.35); g.shadowBlur = 30; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgba(${rgb},.6)`; g.lineWidth = H * 0.05; g.lineCap = "round"; g.beginPath(); for (let x = -40; x <= W + 40; x += 20) { const y = H * y0 + Math.sin(x / 140 + f / 22 + ph) * H * 0.04 + Math.sin(x / 57 + ph) * H * 0.012; x === -40 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); g.restore(); }); }},
-  autumn: {spawn: (W, H, d, n) => fxFall(W, H, n(90), "maple", ["#E07A2E", "#C8561C", "#F2B23E", "#B5401A", "#E8A13A"], {sway: 2.2, flip: true, smin: 8, smax: 14})},
-  lemonade: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "lemon", ["#F2C200", "#FFD84A", "#F5B800"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 9, smax: 14}).concat(fxRise(W, H, n(60), "circle", d ? ["#FFF08A", "#D9F2C7"] : ["#F2C200", "#9ED08A", "#FFE06B"], {smin: 1.5, smax: 4, vmin: 2, vmax: 4, sway: 0.6}))},
-  winter: {spawn: (W, H, d, n) => fxFall(W, H, n(100), "snow", d ? ["#FFFFFF", "#DCE9FF", "#B9D4FF"] : ["#6F9AE0", "#9DBBEF", "#3B6FD1"], {vmin: 0.8, vmax: 1.8, sway: 1.2, smin: 5, smax: 12, glow: d ? 8 : 0})},
-  xmas: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "bulb", ["#E0463C", "#2E9E5B", "#F2B53A", "#3D7BE0"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 6, smax: 10, glow: d ? 14 : 6}).concat(fxTw(W, H, n(40), "star", ["#F2C24A", "#FFE08A"], {smin: 3, smax: 7, glow: 10}))},
-  spring: {spawn: (W, H, d, n) => fxFlutter(W, H, n(12), ["#A884F0", "#F28BB8", "#F2C84A", "#8FC7F2"]).concat(fxFall(W, H, n(46), "petal", ["#F6A6C8", "#FFD1E3", "#FFFFFF", "#F9E28A"], {sway: 1.6, flip: true, smin: 5, smax: 8}))},
-  cafe: {spawn: (W, H, d, n) => fxRise(W, H, n(34), "puff", d ? ["#F5EBDD"] : ["#B99B7E", "#C8AE94"], {cx: [0.36, 0.64], smin: 10, smax: 18, vmin: 1, vmax: 1.8, sway: 1.4, grow: 0.25, alpha: d ? 0.14 : 0.18, glow: 24, life: 190}).concat(fxBurst(W, H, n(24), "bean", ["#6B4226", "#8A5A2B", "#4A2E1A"], [[0.35, 1.02], [0.65, 1.02]], {smin: 7, smax: 10}))},
-  sunset: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "shell", ["#FBC3A8", "#F7A58A", "#FFD9C2"], [[0.15, 1.02], [0.85, 1.02]], {smin: 9, smax: 13}).concat(fxBurst(W, H, n(12), "starfish", ["#F07A8A", "#E8566C"], [[0.3, 1.02], [0.7, 1.02]], {smin: 9, smax: 13}), fxTw(W, H, n(24), "sparkle", ["#FFC06B", "#FFE2A8"], {smin: 3, smax: 6, glow: 8}))},
-  mint: {spawn: (W, H, d, n) => fxBurst(W, H, n(50), "mintleaf", ["#25B585", "#3FD6A0", "#0F845F"], [[0.12, 1.02], [0.88, 1.02], [0.3, 0.2], [0.7, 0.2]], {smin: 8, smax: 12, flip: true}).concat(fxBurst(W, H, n(40), "chip", ["#4A2E1A", "#6B4226", "#3A2A20"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 3.5, smax: 5}))},
-  summer: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "drop", ["#23B5D3", "#4FC3F7", "#0E86C9"], [[0.25, 1.02], [0.75, 1.02]], {smin: 5, smax: 9}).concat(fxFall(W, H, n(6), "ball", ["#FF6B6B", "#FFC53D", "#23B5D3"], {vmin: 3, vmax: 5, sway: 0, smin: 14, smax: 20}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})), fxTw(W, H, n(20), "sparkle", ["#FFD23F", "#FFE98A"], {smin: 3, smax: 6, glow: 8}))},
-  bokeh: {spawn: (W, H, d, n) => fxTw(W, H, n(60), "circle", ["#FF64A0", "#28BEC8", "#FFB43C", "#8C6EFF"], {smin: 6, smax: 18, grow: 0.12, glow: 20, alpha: d ? 0.5 : 0.4})},
-  neon: {spawn: (W, H, d, n) => fxBurst(W, H, n(80), "circle", ["#4A86FF", "#6E8FFF", "#D05BEF", "#C84BEB"], [[0.5, 0.5]], {smin: 1.6, smax: 3, g: 0.04, glow: 14}).map(p => Object.assign(p, {vx: p.vx * 1.4, vy: p.vy * 1.4})),
-    draw: (g, f, W, H, d) => { [[0, "74,134,255"], [18, "205,75,235"], [36, "74,134,255"]].forEach(([t0, rgb]) => { const t = f - t0; if (t < 0 || t > 90) return; const r = t * Math.max(W, H) / 150, a = 1 - t / 90; g.save(); g.globalAlpha = a * 0.8; g.shadowBlur = 22; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgb(${rgb})`; g.lineWidth = 3; g.beginPath(); g.arc(W / 2, H / 2, r, 0, 6.3); g.stroke(); g.restore(); }); }},
-  candy: {spawn: (W, H, d, n) => fxBurst(W, H, n(80), "candy", ["#FF6FB5", "#8EE4B8", "#C9A0FF", "#FFD86B", "#6FD3FF"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04], [0.3, 0.2], [0.7, 0.2]], {smin: 9, smax: 14})},
-  arcade: {spawn: (W, H, d, n) => fxTw(W, H, n(40), "sparkle", ["#FF96C8", "#FFB45A", "#B48CFF", "#FFFFFF"], {smin: 3, smax: 8, glow: 12}),
-    draw: (g, f, W, H, d) => { const t = Math.min(1, f / 60), fade = f < 150 ? 1 : Math.max(0, 1 - (f - 150) / 60); if (fade <= 0) return; const R = Math.hypot(W, H) * 0.34 * (0.4 + 0.6 * (1 - Math.pow(1 - t, 3))), w = Math.max(10, Math.min(W, H) * 0.028); [["255,150,60", 0], ["255,80,170", 1], ["150,80,255", 2]].forEach(([rgb, i]) => { g.save(); g.globalAlpha = fade * (d ? 0.55 : 0.45); g.shadowBlur = 16; g.shadowColor = `rgb(${rgb})`; g.strokeStyle = `rgb(${rgb})`; g.lineWidth = w; g.lineCap = "round"; const rr = R - i * w * 1.5; g.beginPath(); g.arc(-W * 0.02, H * 1.02, rr, -Math.PI / 2, -Math.PI / 2 + t * Math.PI / 2); g.stroke(); g.beginPath(); g.arc(W * 1.02, -H * 0.02, rr * 0.8, Math.PI / 2, Math.PI / 2 + t * Math.PI / 2); g.stroke(); g.restore(); }); }}
+  ocean: {spawn: (W, H, d, n) => fxRise(W, H, n(46), "bubble", d ? ["#9ED3DB", "#E2F5F7", "#6BDCEA"] : ["#0A7F92", "#14A7BD", "#3FA9BC"], {smin: 6, smax: 15, sway: 1.1, vmin: 1.2, vmax: 2.6, life: 220})
+    .concat(fxAt(fxBurst(W, H, n(34), "drop", d ? ["#BFF4FA", "#6BDCEA"] : ["#14A7BD", "#7CC9D6", "#0A7F92"], [[0.25, 0.86], [0.5, 0.84], [0.75, 0.86]], {smin: 5, smax: 9}).map(p => Object.assign(p, {vx: p.vx * 0.5, vy: -fxR(4, 8), g: 0.22, rot: 0, vr: 0})), 34)),
+    draw: fxWave()},
+  sakura: {spawn: (W, H, d, n) => fxFall(W, H, n(90), "petal", d ? ["#FF9CC2", "#FFB8D2", "#F4C6DA", "#FFD6E6"] : ["#F48AB2", "#FFB3CF", "#F9C6D9", "#EE7AA0"], {sway: 1.6, flip: true, smin: 9, smax: 14, spread: 70}).map(p => Object.assign(p, {vx: fxR(0.5, 1.5) * p.z}))},
+  forest: {spawn: (W, H, d, n) => fxFall(W, H, n(52), "leaf", d ? ["#5CCB7E", "#7EDB98", "#3F9A5D", "#A8D86A"] : ["#2F8A4E", "#45A865", "#7FB86E", "#3E9E7A", "#9CBF4A"], {sway: 1.5, flip: true, smin: 10, smax: 16, spread: 60})
+    .concat(fxTw(W, H, n(26), "circle", d ? ["#F4EC8A", "#D9F79A"] : ["#E8C93A", "#B9D84A"], {smin: 1.6, smax: 3, glow: 12, vy: -0.35, spread: 150})), draw: fxBeams()},
+  galaxy: {len: 280, spawn: (W, H, d, n) => fxStreaks(W, H, n(5), d ? ["#FFFFFF", "#C5BCF5", "#FF9BD6"] : ["#6B4EE6", "#C04EE6", "#8C6FF5"])
+    .concat(fxTw(W, H, n(30), "sparkle", d ? ["#FFFFFF", "#B8A6FF", "#FFD1EC"] : ["#6B4EE6", "#9D86FF", "#C04EE6"], {smin: 3, smax: 7, glow: d ? 10 : 4, spread: 160})), draw: fxGalaxy()},
+  arctic: {len: 280, spawn: (W, H, d, n) => fxTw(W, H, n(d ? 46 : 24), "sparkle", d ? ["#FFFFFF", "#DFFBF0", "#E8E0FF"] : ["#FFFFFF", "#CFEFFF"], {smin: 2, smax: 4.5, top: 0.55, glow: d ? 8 : 6, spread: 170}),
+    draw: fxAurora()},
+  autumn: {spawn: (W, H, d, n) => fxFall(W, H, n(52), "maple", ["#E07A2E", "#C8561C", "#F2B23E", "#B5401A", "#E8A13A"], {sway: 1.9, flip: true, smin: 9, smax: 15, spread: 70})
+    .concat(fxFall(W, H, n(20), "oakleaf", ["#B86A2A", "#D9922F", "#9A4A1E"], {sway: 1.6, flip: true, smin: 9, smax: 13, spread: 70})).map(p => Object.assign(p, {vx: fxR(0.4, 1.6) * p.z}))},
+  lemonade: {spawn: (W, H, d, n) => fxBurst(W, H, n(18), "lemon", ["#F2C200", "#FFD84A", "#F5B800", "#9CCB3A"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 11, smax: 16, flip: true})
+    .concat(fxBurst(W, H, n(10), "mintleaf", ["#3FAE6A", "#5CC77F"], [[0.12, 1.02], [0.88, 1.02]], {smin: 8, smax: 11, flip: true}),
+      fxRise(W, H, n(54), "bubble", d ? ["#FFF6B0", "#E8FFD0"] : ["#E0B000", "#9ED08A", "#F2C200"], {smin: 2.4, smax: 5, vmin: 2, vmax: 4, sway: 0.5, life: 200}))},
+  winter: {spawn: (W, H, d, n) => fxFall(W, H, n(60), "snowsoft", d ? ["#FFFFFF", "#E6F0FF"] : ["#A9C4F2", "#C4D6F6", "#8FB0EA"], {vmin: 0.8, vmax: 1.6, sway: 1, smin: 3, smax: 6, spread: 80})
+    .concat(fxFall(W, H, n(36), "snow", d ? ["#FFFFFF", "#DCE9FF", "#B9D4FF"] : ["#6F9AE0", "#5A86D6", "#3B6FD1"], {vmin: 0.9, vmax: 1.8, sway: 1.2, smin: 8, smax: 14, glow: d ? 8 : 0, rock: 0.5, spread: 80}))},
+  xmas: {len: 280, spawn: (W, H, d, n) => fxFall(W, H, n(44), "snowsoft", d ? ["#FFFFFF", "#E6F0FF"] : ["#B9CDEB", "#D2DEF2"], {vmin: 0.7, vmax: 1.4, sway: 1, smin: 3, smax: 6, spread: 90})
+    .concat(fxTw(W, H, n(16), "star", ["#F2C24A", "#FFE08A"], {smin: 4, smax: 7, glow: 10, spread: 160})), draw: fxGarland()},
+  spring: {spawn: (W, H, d, n) => fxFlutter(W, H, n(10), ["#A884F0", "#F28BB8", "#F2C84A", "#8FC7F2"]).concat(fxFall(W, H, n(46), "petal", ["#F6A6C8", "#FFD1E3", "#FFFFFF", "#F9E28A", "#C9B2F4"], {sway: 1.5, flip: true, smin: 6, smax: 9, spread: 70}))},
+  cafe: {spawn: (W, H, d, n) => fxBurst(W, H, n(22), "bean", ["#6B4226", "#8A5A2B", "#4A2E1A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 8, smax: 11, flip: true})
+    .concat(fxAt(fxRise(W, H, n(8), "heart", d ? ["#E8B48A", "#F5D6B8"] : ["#C8885A", "#D9A47A"], {cx: [0.4, 0.6], smin: 6, smax: 9, vmin: 0.9, vmax: 1.4, sway: 1, life: 200, alpha: 0.85}), 30)), draw: fxSteam()},
+  sunset: {spawn: (W, H, d, n) => fxTw(W, H, n(46), "glint", d ? ["#FFE2A8", "#FFFFFF"] : ["#F5A623", "#FFC46B", "#E8894A"], {smin: 8, smax: 15, glow: d ? 8 : 6, glint: true, spread: 160}).map(p => Object.assign(p, {y: H * fxR(0.55, 0.98), rot: 0, vr: 0}))
+    .concat(fxBurst(W, H, n(18), "shell", ["#FBC3A8", "#F7A58A", "#FFD9C2"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 14}), fxBurst(W, H, n(8), "starfish", ["#F07A8A", "#E8566C"], [[0.3, 1.02], [0.7, 1.02]], {smin: 10, smax: 14}),
+      Array.from({length: 3}, (_, i) => { const l = i % 2 === 0; return {shape: "gull", c: d ? "#F4E6F0" : "#5A4652", x: l ? -40 : W + 40, y: H * fxR(0.12, 0.34), vx: (l ? 1 : -1) * fxR(1.4, 2.2), vy: fxR(-0.25, 0.1), g: 0, size: fxR(15, 21), face: true, flap: 0.11, sway: 0, life: 260, delay: 10 + i * 25}; }))},
+  mint: {spawn: (W, H, d, n) => fxBurst(W, H, n(40), "mintleaf", ["#25B585", "#3FD6A0", "#0F845F"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 12, smax: 16, flip: true})
+    .concat(fxBurst(W, H, n(30), "chip", ["#4A2E1A", "#6B4226", "#3A2A20"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 4.5, smax: 6.5}))},
+  summer: {spawn: (W, H, d, n) => fxBurst(W, H, n(34), "drop", ["#23B5D3", "#4FC3F7", "#0E86C9"], [[0.25, 1.02], [0.75, 1.02]], {smin: 6, smax: 10})
+    .concat(fxFall(W, H, n(5), "ball", ["#FF6B6B", "#FF8A3D", "#E84393"], {vmin: 3, vmax: 5, sway: 0, smin: 15, smax: 21, depth: false}).map(p => Object.assign(p, {g: 0.35, bounce: true, vr: fxR(-0.08, 0.08)})),
+      fxTw(W, H, n(18), "sparkle", ["#FFD23F", "#FFE98A"], {smin: 3, smax: 7, glow: 8}))},
+  bokeh: {spawn: (W, H, d, n) => fxTw(W, H, n(42), "bokeh", ["#FF64A0", "#28BEC8", "#FFB43C", "#8C6EFF", "#FFFFFF"], {smin: 10, smax: 26, grow: 0.05, vy: -0.3, alpha: d ? 0.85 : 0.75, glint: false, spread: 120}).map(p => Object.assign(p, {life: fxR(120, 190)}))},
+  neon: {spawn: (W, H, d, n) => fxAt(fxBurst(W, H, n(54), "circle", ["#4A86FF", "#6E8FFF", "#D05BEF", "#C84BEB"], [[0.5, 0.46]], {smin: 1.6, smax: 3, g: 0.04, glow: 14}).map(p => Object.assign(p, {vx: p.vx * 1.3, vy: p.vy * 1.3})), 26), draw: fxNeonCheck()},
+  candy: {spawn: (W, H, d, n) => fxBurst(W, H, n(60), "candy", ["#FF6FB5", "#8EE4B8", "#C9A0FF", "#FFD86B", "#6FD3FF"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 13, smax: 18, flip: true})
+    .concat(fxTw(W, H, n(16), "sparkle", ["#FFFFFF", "#FFD1EC"], {smin: 3, smax: 6, glow: 8}))},
+  arcade: {spawn: (W, H, d, n) => fxTw(W, H, n(30), "sparkle", ["#FF96C8", "#FFB45A", "#B48CFF", "#FFFFFF"], {smin: 3, smax: 7, glow: 12, top: 0.6, spread: 160}), draw: fxSynth()}
 };
 
 
-/* Sprites: each shape is drawn once into a small image, then stamped */
+/* Sprites: each shape is drawn once into a small image, then stamped. Filled shapes get soft light from the top left
+   and shade at the bottom right so they read as objects, not flat stickers. A shape can paint itself instead
+   (paint(g, color, dark), in the same -12..12 box) for things that need more than one color. flat: true skips the shading. */
 const FX_SPR = new Map(), SPR_U = 2.4, SPR_S = 64, SPR_G = 96;
-function fxSprite(shape, color, glow, dark){
-  const key = shape + "|" + color + "|" + (glow || 0) + "|" + (dark ? 1 : 0);
+const fxShade = (c, k) => { const m = /^#([0-9a-f]{6})$/i.exec(c); if (!m) return c; const v = parseInt(m[1], 16); return "#" + [16, 8, 0].map(s => Math.round(((v >> s) & 255) * k)).map(x => Math.min(255, x).toString(16).padStart(2, "0")).join(""); };
+function fxSprite(shape, color, glow, dark, back){
+  const key = shape + "|" + color + "|" + (glow || 0) + "|" + (dark ? 1 : 0) + (back ? "|b" : "");
   let c = FX_SPR.get(key); if (c) return c;
-  const S = glow ? SPR_G : SPR_S, sh = FX_SHAPES[shape], pp = fxPath(shape);
-  c = document.createElement("canvas"); c.width = c.height = S;
-  const g = c.getContext("2d");
-  g.translate(S / 2, S / 2); g.scale(SPR_U, SPR_U);
-  if (glow) { g.shadowBlur = glow * SPR_U; g.shadowColor = color; }
-  if (shape === "orb") { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 10); gr.addColorStop(0, color); gr.addColorStop(0.55, color); gr.addColorStop(1, "rgba(0,0,0,0)"); g.globalAlpha = 0.9; g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 10, 0, 6.3); g.fill(); }
-  else if (shape === "puffsoft") { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, color); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); }
-  else if (sh.stroke) { g.strokeStyle = color; g.lineWidth = sh.lw || 1.4; g.lineCap = "round"; g.stroke(pp.d); }
-  else { g.fillStyle = color; g.fill(pp.d); }
-  if (pp.detail && shape !== "orb" && shape !== "puffsoft") {
-    g.shadowBlur = 0;
-    if (sh.dfill) { g.fillStyle = shape === "bulb" ? "#9AA0A8" : dark ? "rgba(0,0,0,.35)" : "rgba(255,255,255,.55)"; g.fill(pp.detail); }
-    else { g.strokeStyle = shape === "butterfly" ? "rgba(40,30,60,.55)" : shape === "bubble" ? color : shape === "bean" ? "rgba(255,240,220,.6)" : "rgba(255,255,255,.7)"; g.lineWidth = 1.1; g.lineCap = "round"; g.stroke(pp.detail); }
+  const S = glow ? SPR_G : SPR_S, sh = FX_SHAPES[shape];
+  const body = document.createElement("canvas"); body.width = body.height = S;
+  const b = body.getContext("2d"); b.translate(S / 2, S / 2); b.scale(SPR_U, SPR_U);
+  const col = back ? fxShade(color, 0.74) : color;
+  if (sh.paint) sh.paint(b, col, dark);
+  else {
+    const pp = fxPath(shape);
+    if (shape === "orb") { const gr = b.createRadialGradient(0, 0, 0, 0, 0, 10); gr.addColorStop(0, col); gr.addColorStop(0.55, col); gr.addColorStop(1, "rgba(0,0,0,0)"); b.globalAlpha = 0.9; b.fillStyle = gr; b.beginPath(); b.arc(0, 0, 10, 0, 6.3); b.fill(); }
+    else if (shape === "puffsoft") { const gr = b.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, col); gr.addColorStop(1, "rgba(0,0,0,0)"); b.fillStyle = gr; b.beginPath(); b.arc(0, 0, 12, 0, 6.3); b.fill(); }
+    else if (sh.stroke) { b.strokeStyle = col; b.lineWidth = sh.lw || 1.4; b.lineCap = b.lineJoin = "round"; b.stroke(pp.d); }
+    else {
+      b.fillStyle = col; b.fill(pp.d);
+      if (!sh.flat) { b.save(); b.globalCompositeOperation = "source-atop"; const gr = b.createLinearGradient(-7, -10, 7, 10); gr.addColorStop(0, `rgba(255,255,255,${back ? 0.1 : 0.34})`); gr.addColorStop(0.42, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${dark ? 0.26 : 0.2})`); b.fillStyle = gr; b.fillRect(-13, -13, 26, 26); b.restore(); }
+    }
+    if (pp.detail && shape !== "orb" && shape !== "puffsoft") {
+      if (sh.dfill) { b.fillStyle = shape === "bulb" ? "#9AA0A8" : dark ? "rgba(0,0,0,.35)" : "rgba(255,255,255,.55)"; b.fill(pp.detail); }
+      else { b.strokeStyle = shape === "butterfly" ? "rgba(40,30,60,.55)" : shape === "bubble" ? col : shape === "bean" ? "rgba(255,240,220,.6)" : "rgba(255,255,255,.7)"; b.lineWidth = 1.1; b.lineCap = "round"; b.stroke(pp.detail); }
+    }
   }
+  if (!glow) c = body;
+  else { c = document.createElement("canvas"); c.width = c.height = S; const g = c.getContext("2d"); g.shadowBlur = glow * SPR_U; g.shadowColor = color; g.drawImage(body, 0, 0); }
   c._half = S / 2 / SPR_U;
-  FX_SPR.set(key, c); if (FX_SPR.size > 400) FX_SPR.delete(FX_SPR.keys().next().value);
+  FX_SPR.set(key, c); if (FX_SPR.size > 500) FX_SPR.delete(FX_SPR.keys().next().value);
   return c;
 }
 FX_SHAPES.orb = {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0"};
@@ -439,6 +659,10 @@ const fxDefer = fn => { const w = fxBusyMs(); w > 0 ? setTimeout(fn, w + 120) : 
 /* The pop-up plays in front of the page */
 function ambientPause(on){}
 
+/* Plays one theme's pop-up. It lasts fx.len frames (about 4.5 s by default) and always ends with a gentle fade of the
+   whole layer over its last second, so nothing is ever cut off mid-flight. */
+const FX_LEN = 270, FX_FADE = 60;
+const fxEase = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 function runThemeFx(fx){
   if (window.SBMotion && SBMotion.noParticles()) { SBMotion.flash(); return; }
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -447,26 +671,30 @@ function runThemeFx(fx){
   const dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight, dark = isDarkNow();
   cv.width = W * dpr; cv.height = H * dpr; document.body.appendChild(cv);
   const g = cv.getContext("2d"); g.scale(dpr, dpr);
-  const scale = 1.5 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+  const scale = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
   const n = x => Math.max(3, Math.round(x * (reduce ? 0.3 : 1) * Math.min(1.3, Math.max(0.55, W * H / 1100000))));
+  const LEN = Math.min(360, fx.len || FX_LEN), FADE = Math.min(FX_FADE, LEN / 3);
   const P = fx.spawn(W, H, dark, n);
-  P.forEach(p => { p.age = 0; if (p.shape) p.spr = fxSprite(p.shape, p.c, p.glow, dark); });
-  fxUntil = performance.now() + 5200; ambientPause(true);
-  let f = 0, last = performance.now(), acc = 0;
+  P.sort((a, b) => (a.z || 1) - (b.z || 1));
+  P.forEach(p => { p.age = 0; p.ph0 = p.ph0 != null ? p.ph0 : fxR(0, 6.3); p.rot = p.rot || 0; p.rot0 = p.rot;
+    if (p.flip) { p.fsp = fxR(0.05, 0.11); p.fph = fxR(0, 6.3); }
+    if (p.shape) { p.spr = fxSprite(p.shape, p.c, p.glow, dark); if (p.flip) p.sprB = fxSprite(p.shape, p.c, p.glow, dark, true); } });
+  fxUntil = performance.now() + LEN * 16.7 + 400; ambientPause(true);
+  let f = 0, last = performance.now(), acc = 0, done = false;
+  const finish = () => { if (done) return; done = true; cv.remove(); ambientPause(false); fxUntil = performance.now() + 200; };
   const step = now => {
     acc += Math.min(100, now - last); last = now;
     let ticks = 0; while (acc >= 16.6 && ticks < 4) { acc -= 16.6; ticks++; tick(); }
     if (!ticks) { requestAnimationFrame(step); return; }
+    if (f >= LEN) { finish(); return; }
+    cv.style.opacity = String(1 - fxEase((f - (LEN - FADE)) / FADE));
     g.clearRect(0, 0, W, H);
-    if (fx.draw) fx.draw(g, f, W, H, dark);
-    let alive = 0;
+    if (fx.draw) { g.save(); fx.draw(g, f, W, H, dark); g.restore(); }
     for (const p of P) {
-      if (f < (p.delay || 0)) { alive++; continue; }
-      if (p.dead) continue;
-      alive++;
-      let a = p.alpha || 1;
-      if (p.tw) a *= Math.sin(Math.PI * p.age / p.life);
-      else { const left = p.life - p.age; if (left < 30) a *= left / 30; if (p.age < 8) a *= p.age / 8; }
+      if (f < (p.delay || 0) || p.dead) continue;
+      let a = p.alpha || 1, s = p.size * scale / 10 * (1 + (p.grow || 0) * p.age / 10);
+      if (p.tw) { const e = Math.sin(Math.PI * p.age / p.life); a *= e; if (p.glint) s *= 0.35 + 0.65 * e; }
+      else { const left = p.life - p.age; a *= fxEase(left / 40) * fxEase(p.age / 10); }
       if (a <= 0.01) continue;
       g.globalAlpha = Math.min(1, a);
       if (p.streak) {
@@ -475,16 +703,20 @@ function runThemeFx(fx){
         g.strokeStyle = grd; g.lineWidth = 2.2; g.lineCap = "round"; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - ux * len, p.y - uy * len); g.stroke();
         continue;
       }
-      const s = p.size * scale / 10 * (1 + (p.grow || 0) * p.age / 10);
-      const fl = p.flip ? Math.cos(p.age * 0.08 + p.x * 0.02) : 1, fp = p.flap ? 0.35 + 0.65 * Math.abs(Math.cos(p.age * p.flap)) : 1;
-      const sx = s * fl * fp, c = Math.cos(p.rot), si = Math.sin(p.rot), h = p.spr._half;
+      let rot = p.rot, mx = 1, spr = p.spr;
+      if (p.face) { const vx = p.vx + (p.dx || 0), vy = p.vy; if (vx < 0) { mx = -1; rot = Math.atan2(-vy, -vx); } else rot = Math.atan2(vy, vx); }
+      if (p.wig) rot += Math.sin(p.age * 0.22 + p.ph0) * p.wig;
+      let fl = 1;
+      if (p.flip) { fl = Math.cos(p.age * p.fsp + p.fph); if (fl < 0 && p.sprB) spr = p.sprB; fl = Math.sign(fl || 1) * Math.max(0.12, Math.abs(fl)); }
+      const fp = p.flap ? 0.35 + 0.65 * Math.abs(Math.cos(p.age * p.flap)) : 1;
+      const sx = s * fl * fp * mx, c = Math.cos(rot), si = Math.sin(rot), h = spr._half;
       g.setTransform(dpr * c * sx, dpr * si * sx, -dpr * si * s, dpr * c * s, dpr * p.x, dpr * p.y);
-      g.drawImage(p.spr, -h, -h, 2 * h, 2 * h);
+      g.drawImage(spr, -h, -h, 2 * h, 2 * h);
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     g.globalAlpha = 1;
-    if ((alive || (fx.draw && f < 200)) && f < 300) requestAnimationFrame(step);
-    else { cv.style.transition = "opacity .3s"; cv.style.opacity = "0"; setTimeout(() => { cv.remove(); ambientPause(false); }, 320); fxUntil = performance.now() + 350; }
+    if (fx.over) { g.save(); fx.over(g, f, W, H, dark); g.restore(); }
+    requestAnimationFrame(step);
   };
   const tick = () => {
     for (const p of P) {
@@ -492,16 +724,20 @@ function runThemeFx(fx){
       p.age++;
       if (p.age > p.life) { p.dead = true; continue; }
       p.vy += p.g || 0; if (p.drag) { p.vx *= p.drag; p.vy *= p.drag; }
-      p.x += p.vx + (p.sway ? Math.sin(p.age * (p.swf || 0.05) + p.ph0) * p.sway : 0); p.y += p.vy; p.rot += p.vr || 0;
+      if (p.term && p.vy > p.term) p.vy += (p.term - p.vy) * 0.12;
+      const ph = p.age * (p.swf || 0.05) + p.ph0;
+      let sw = p.sway || 0; if (p.fsw && p.term) sw += p.fsw * Math.max(0, Math.min(1, p.vy / p.term));
+      p.dx = sw ? Math.sin(ph) * sw : 0;
+      p.x += p.vx + p.dx; p.y += p.vy;
+      if (p.rock) p.rot = p.rot0 + Math.cos(ph) * p.rock; else p.rot += p.vr || 0;
+      if (p.fsw && p.term && !p.rock && p.vy > 0) p.vr *= 0.97;
       if (p.bounce && p.y > H - p.size * scale && p.vy > 0) { p.y = H - p.size * scale; p.vy *= -0.62; p.vx *= 0.9; }
-      if (p.y > H + 60 || p.y < -H) p.dead = true;
+      if (p.y > H + 80 || p.y < -H || p.x < -W * 0.6 || p.x > W * 1.6) p.dead = true;
     }
     f++;
   };
-  P.forEach(p => { p.ph0 = p.x * 0.01; p.rot = p.rot || 0; });
   requestAnimationFrame(t => { last = t; requestAnimationFrame(step); });
 }
-
 
 FX_SHAPES.fish = {d: "M10 0C6 -5.5 -3 -5.5 -6 0C-3 5.5 6 5.5 10 0ZM-5 0L-10.5 -4.5L-9.5 0L-10.5 4.5Z", detail: "M4 -1.2a1 1 0 1 0 2 0a1 1 0 1 0 -2 0", dfill: true};
 FX_SHAPES.fallleaf = {d: "M0 -10.5C4.6 -8 7.2 -3.2 6.4 1.6C5.8 5.4 3.2 8.2 0.6 9.4L0.6 12.5L-0.6 12.5L-0.6 9.4C-3.2 8.2 -5.8 5.4 -6.4 1.6C-7.2 -3.2 -4.6 -8 0 -10.5Z", detail: "M0 -8.5L0 9M0 -3L3.4 -5.6M0 1L4 -1.6M0 -3L-3.4 -5.6M0 1L-4 -1.6", dstroke: true};
