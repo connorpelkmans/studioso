@@ -6507,6 +6507,9 @@ h2.sec.c2-bh{align-items:center}
 .seg,.seg span,.segb,.segb button,.bview-tabs,.bview-tabs button,.pview-tabs,.pview-tabs button,.us-subs,.us-sub-tab{border-radius:999px}
 /* ===== Schedule, Direction 1: tinted class blocks with a course-colour edge, a calmer grid ===== */
 .sch-wrap{border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08)!important}
+/* the Schedule's day swipe: the page only scrolls up and down here, so a sideways swipe always reaches it (Safari could start its own
+   gesture and cancel the swipe, which sprang back) */
+@media (max-width:700px){.sch-wrap,.sch-pills{touch-action:pan-y}}
 .sch-head{background:var(--surface)!important;min-height:58px;padding:10px 8px!important}
 .sch-dn span{font-size:.72rem!important;font-weight:700!important}
 .sch-dn b{font:800 1.2rem var(--display)!important}

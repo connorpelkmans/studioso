@@ -98868,7 +98868,8 @@ const AUTOPILOT = (() => {
   (() => {
     const phoneSch = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
     const still = () => document.documentElement.dataset.motion === "static" || !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-    const EASE = "cubic-bezier(.2,.8,.2,1)";
+    // the same glide as a native scroll settling into its snap point (the Task Board's columns)
+    const EASE = "cubic-bezier(.22,.8,.26,1)";
     let S = null, eatClick = 0;
     const strip = el => { const c = el.cloneNode(true); c.removeAttribute("id"); c.querySelectorAll("[id]").forEach(e => e.removeAttribute("id")); c.classList.remove("sel"); return c; };
     // one day as a page: its header over its column, as drawn
@@ -98934,22 +98935,25 @@ const AUTOPILOT = (() => {
       const grid = document.querySelector(".sch-wrap .sch-grid"), head = grid && grid.querySelector(":scope > .sch-head.sel"), col = grid && grid.querySelector(":scope > .sch-col.sel");
       if (!head || !col) return;
       const t = e.touches[0];
-      S = {x: t.clientX, y: t.clientY, grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null};
+      S = {x: t.clientX, y: t.clientY, grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null, pts: [[performance.now(), t.clientX]]};
     }, {passive: true});
     document.addEventListener("touchmove", e => {
       if (!S || S.settling || e.touches.length !== 1) return;
       if (document.body.classList.contains("sch-dragging")) { cleanup(); return; }
       const t = e.touches[0], dx = t.clientX - S.x, dy = t.clientY - S.y;
       if (!S.lock) {
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        S.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        // more sideways than up or down is a swipe between days (a slightly slanted swipe used to count as scrolling)
+        S.lock = Math.abs(dx) >= Math.abs(dy) * 0.8 ? "x" : "y";
         if (S.lock === "y") return;
         renderBlocked = true;   // no redraw while the finger is down; one runs once it settles
         open();
       }
       if (S.lock !== "x") return;
       e.preventDefault();
-      const now = performance.now(); if (now > S.lt) S.v = (t.clientX - S.lx) / (now - S.lt); S.lt = now; S.lx = t.clientX;
+      // speed over the last tenth of a second, not just the last two points (those jump about, so flicks were missed)
+      const now = performance.now(); S.pts.push([now, t.clientX]); while (S.pts.length > 2 && now - S.pts[0][0] > 100) S.pts.shift();
+      const p0 = S.pts[0]; if (now > p0[0]) S.v = (t.clientX - p0[1]) / (now - p0[0]); S.lt = now; S.lx = t.clientX;
       S.dx = dx;
       if (dx) peek(dx < 0 ? 1 : -1);
       place(S.nb ? dx : dx * 0.3, 0);
@@ -98958,9 +98962,12 @@ const AUTOPILOT = (() => {
       if (!S || S.settling) return;
       if (S.lock !== "x") { S = null; return; }
       eatClick = Date.now();
-      if (performance.now() - S.lt > 90) S.v = 0;   // the finger stopped before lifting: not a flick
-      const dir = S.dir, go = S.nb && (Math.abs(S.dx) > S.w * 0.33 || (Math.abs(S.v) > 0.45 && Math.sign(S.v) === -dir));
-      const ms = still() ? 0 : Math.round(Math.max(170, Math.min(320, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.6, Math.abs(S.v)))));
+      if (performance.now() - S.lt > 120) S.v = 0;   // the finger stopped before lifting: not a flick
+      // like a native scroll snapping: where the swipe would carry on to decides it. A flick in the direction of the swipe moves on;
+      // otherwise past a third of the way (counting the glide) it moves on, else it springs back
+      const dir = S.dir, toward = Math.sign(S.v) === -dir, carry = S.dx + S.v * 160;
+      const go = !!S.nb && Math.sign(S.dx) === -dir && ((toward && Math.abs(S.v) > 0.25 && Math.abs(S.dx) > 10) || (Math.abs(carry) > S.w * 0.33 && Math.sign(carry) === -dir));
+      const ms = still() ? 0 : Math.round(Math.max(220, Math.min(380, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.5, Math.abs(S.v)))));
       S.settling = true;
       const finish = () => {
         if (!S) return;
