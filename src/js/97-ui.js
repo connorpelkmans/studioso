@@ -226,8 +226,9 @@
     select(start, prev ? prev.view : "home", !!prev);
     if (prev && prev.q) { q.value = prev.q; search(prev.q); }
     if (prev) requestAnimationFrame(() => { main.scrollTop = prev.top; });
-    // A fresh Settings sheet starts in Search Settings (not on Close); phones skip it so the keyboard doesn't pop up
-    else if (window.matchMedia && matchMedia("(min-width:601px)").matches) { try { q.focus({preventScroll: true}); } catch (e) {} }
+    // A fresh Settings sheet starts in Search Settings (not on Close) with a mouse or trackpad; touch screens (phones,
+    // iPads) skip it so the on-screen keyboard only comes up when you tap the search box
+    else if (window.matchMedia && matchMedia("(min-width:601px) and (hover:hover) and (pointer:fine)").matches) { try { q.focus({preventScroll: true}); } catch (e) {} }
   }
 
   // Phones: pull the sheet down by its top bar to close it
