@@ -19,7 +19,9 @@
   };
   const swatch = c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${colorName(c)}" data-tip="${colorName(c)}"></button>`;
   const recent = () => { try { const a = JSON.parse(localStorage.getItem(K_RECENT) || "[]"); return Array.isArray(a) ? a.filter(okHex).slice(0, 8) : []; } catch (e) { return []; } };
-  const ours = inp => inp && inp.type === "color" && !inp.disabled && !(inp.closest && inp.closest(".wb-stage"));
+  // iPhone and iPad have Apple's own colour picker (grid, spectrum, sliders and an eyedropper): colour fields there open it directly
+  const APPLE = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const ours = inp => !APPLE && inp && inp.type === "color" && !inp.disabled && !(inp.closest && inp.closest(".wb-stage"));
   let OPEN = null, lastPtr = null;
   document.addEventListener("pointerdown", e => { lastPtr = e.target; }, true);
 
