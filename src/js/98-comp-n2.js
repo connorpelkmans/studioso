@@ -104,7 +104,7 @@
         eyes: {lx: 50, rx: 70, y: 53, r: 4.6, style: "round", color: "#2A1A12"},
         mouth: {x: 60, y: 65, w: 2.2, style: "cat", color: "#2A1A12"},
         cheeks: {lx: 42, rx: 78, y: 61, w: 4, h: 2.4, color: "#FF8F9A"},
-        anchors: {top: [60, 32, 0.85, 0], neck: [60, 79.5, 0.85, 0, 51, 73], chest: [60, 79.5, 0.55], back: [86, 82, 0.7], hands: [60, 90, 0.75]},
+        anchors: {top: [60, 32, 0.85, 0], neck: [60, 76, 0.85, 0, 40, 66], chest: [60, 79.5, 0.55], back: [86, 82, 0.7], hands: [60, 90, 0.75]},
         lines: {
           tap: ["*yawn* Oh! Hi! I was just resting my eyes!", "You study, I'll keep this mushroom warm!", "Tiny steps, cozy pace, big results!", "You're doing wonderfully, sleepy-head approved!", "Snack, stretch, then back to it?", "My whiskers say today is a good day!", "Curl up with a good chapter? I'll join you!"],
           pet: ["Mmm, that's the coziest pat ever!", "Hehe, now I'm extra snuggly!"],

@@ -42,7 +42,7 @@
         }
       },
       {
-        id: "pride-flamingo", name: "Fifi", kind: "Flamingo Chick", pose: "stand", wearColor: "#5498E0",
+        id: "pride-flamingo", name: "Fifi", kind: "Flamingo Chick", pose: "stand", wearOnHead: true, wearColor: "#5498E0",
         bio: "A fluffy pink flamingo chick who's still practicing its one-legged stand.",
         idle: ["headTilt", "wingFlutter", "sway"], cheer: "wingFlutter",
         parts: {
@@ -62,7 +62,7 @@
         mouth: {x: 61, y: 45, w: 2, color: "#3A1E30"},
         cheeks: {lx: 49, rx: 72.5, y: 43, w: 3.4, h: 2.2, color: "#FF7FA0"},
         neck: [58, 73],
-        anchors: {top: [61, 26, 0.75, 0], neck: [60, 64, 0.7, 0, 30, 61], chest: [70, 79, 0.6], back: [82, 72, 0.75], hands: [60, 94, 0.8]},
+        anchors: {top: [61, 26, 0.75, 0], neck: [54, 60, 0.55, 0, 14, 44, 14], chest: [70, 79, 0.6], back: [82, 72, 0.75], hands: [60, 94, 0.8]},
         lines: {
           tap: ["Hi! Watch me stand on one leg! ...Almost!", "You're doing fab-ulous today!", "Pink, proud and cheering for you!", "Balance is tricky, but you've got it!", "Fluff up! We're on a roll!", "Strike a pose, then strike that task!", "Every wobble counts as practice!"],
           pet: ["Eee! My fluff is all puffed up!", "Hehe! That tickles my feathers!"],
