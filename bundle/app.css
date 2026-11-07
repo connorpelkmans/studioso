@@ -2476,6 +2476,18 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .ai-style-sels{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;margin-top:10px}
 .ai-style-sels .f{margin:0}
 .ai-style-sels select{width:100%}
+/* The "Syncing" notice while a school site syncs: the toast's look, with three dots that pulse in turn */
+.toast.sync-pill{gap:0;font-weight:600}
+.toast.sync-pill.show{opacity:1}
+.sp-dots{display:inline-flex;gap:3px;margin-left:5px;align-items:flex-end;height:1em}
+.sp-dots i{width:4px;height:4px;border-radius:50%;background:currentColor;animation:spDot 1.2s infinite ease-in-out}
+.sp-dots i:nth-child(2){animation-delay:.2s}
+.sp-dots i:nth-child(3){animation-delay:.4s}
+@keyframes spDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.sp-dots i{animation:none;opacity:.8}}
+html[data-motion="static"] .sp-dots i{animation:none;opacity:.8}
+/* with a message showing too, the notice moves up above it */
+html:has(#toast.show) .toast.sync-pill{transform:translateX(-50%) translateY(-56px)}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -8384,6 +8396,12 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 /* (an iPad held upright keeps its centred row of buttons under the task) */
 @media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
   html:not(.x) #view .next-up .nu-acts{display:flex;align-self:auto;flex:0 0 100%}
+}
+
+/* iPad (and other larger screens) with the keyboard up: a sheet such as Sign In centres itself in the part of the screen the
+   keyboard leaves visible, and scrolls inside if it's taller than that, so the box being typed in is never behind the keyboard */
+@media (min-width:640px){
+  html.kb-open dialog#dlg[open]{position:fixed;inset:calc(8px + env(safe-area-inset-top,0px)) 0 calc(var(--kb-h,0px) + 8px) 0;margin:auto;max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px);transition:inset .3s cubic-bezier(.32,.72,0,1)}
 }
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}

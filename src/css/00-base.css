@@ -2476,3 +2476,15 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .ai-style-sels{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;margin-top:10px}
 .ai-style-sels .f{margin:0}
 .ai-style-sels select{width:100%}
+/* The "Syncing" notice while a school site syncs: the toast's look, with three dots that pulse in turn */
+.toast.sync-pill{gap:0;font-weight:600}
+.toast.sync-pill.show{opacity:1}
+.sp-dots{display:inline-flex;gap:3px;margin-left:5px;align-items:flex-end;height:1em}
+.sp-dots i{width:4px;height:4px;border-radius:50%;background:currentColor;animation:spDot 1.2s infinite ease-in-out}
+.sp-dots i:nth-child(2){animation-delay:.2s}
+.sp-dots i:nth-child(3){animation-delay:.4s}
+@keyframes spDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.sp-dots i{animation:none;opacity:.8}}
+html[data-motion="static"] .sp-dots i{animation:none;opacity:.8}
+/* with a message showing too, the notice moves up above it */
+html:has(#toast.show) .toast.sync-pill{transform:translateX(-50%) translateY(-56px)}

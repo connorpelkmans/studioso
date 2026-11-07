@@ -431,6 +431,15 @@ function toastHost(){
   const a = document.activeElement;
   return ms.filter(d => d.isConnected && d.contains(a)).pop() || ms.filter(d => d.isConnected).pop() || document.body;
 }
+// "Syncing…" at the bottom of the screen for as long as a school site sync runs (its three dots pulse); nested syncs share it
+let syncPillN = 0;
+function syncPill(on){
+  syncPillN = Math.max(0, syncPillN + (on ? 1 : -1));
+  let el = document.getElementById("syncPill");
+  if (!el) { el = document.createElement("div"); el.id = "syncPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); el.innerHTML = `Syncing<span class="sp-dots" aria-hidden="true"><i></i><i></i><i></i></span>`; }
+  if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
+  else el.classList.remove("show");
+}
 function toast(msg, undoFn, extra, opts){
   const t = toastEl(), b = toastPart("toastUndo"), x = toastPart("toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = toastPart("toastX");

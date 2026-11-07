@@ -336,3 +336,13 @@
   addEventListener("resize", later);
   addEventListener("orientationchange", () => setTimeout(fit, 300));
 })();
+
+/* The keyboard coming up over a sheet: the box being typed in scrolls into the part of the sheet still visible */
+(() => {
+  const reveal = () => {
+    const a = document.activeElement, dlg = document.getElementById("dlg");
+    if (!a || !dlg || !dlg.open || !dlg.contains(a) || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+    setTimeout(() => { try { a.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }, 320);
+  };
+  addEventListener("sb-kb-cover", reveal);
+})();

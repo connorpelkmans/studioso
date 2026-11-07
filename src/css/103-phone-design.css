@@ -357,3 +357,9 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 @media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
   html:not(.x) #view .next-up .nu-acts{display:flex;align-self:auto;flex:0 0 100%}
 }
+
+/* iPad (and other larger screens) with the keyboard up: a sheet such as Sign In centres itself in the part of the screen the
+   keyboard leaves visible, and scrolls inside if it's taller than that, so the box being typed in is never behind the keyboard */
+@media (min-width:640px){
+  html.kb-open dialog#dlg[open]{position:fixed;inset:calc(8px + env(safe-area-inset-top,0px)) 0 calc(var(--kb-h,0px) + 8px) 0;margin:auto;max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px);transition:inset .3s cubic-bezier(.32,.72,0,1)}
+}
