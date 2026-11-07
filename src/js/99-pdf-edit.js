@@ -3912,6 +3912,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   /* while a panel is open its tool's options aren't needed: the panel gets the room */
   .pde-bar.paneled .pde-sub{display:none}
 }
+/* iPhone: Save is just its icon (no count), so Save and Download stay on the page row; and the Read / Mark Up / Edit switch is a
+   little narrower, so Ask This PDF and Study sit on its row */
+@media (max-width:480px){
+  .pdr-sheet .pdr-save .pdr-badge{display:none}
+  .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode){padding:0 7px;gap:4px}
+}
 /* while a panel is open, toasts show at the top, clear of its buttons */
 body:has(dialog[open] .pde-panel) #toast.toast{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto}
 /* touch: every small control gets a hit area of at least 40px; the visible part stays small */

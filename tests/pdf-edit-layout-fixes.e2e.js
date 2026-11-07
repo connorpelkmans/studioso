@@ -105,6 +105,21 @@ async function makePdf(pages){
       await T.ctx.close();
     }
 
+    /* iPhone, with unsaved edits: the mode switch shares its row with Ask and Study, and Save and Download share the page row */
+    for (const PW of [402, 393, 375]) {
+      const T = await at(PW, 874), {page} = T;
+      await T.open("f1", true);
+      for (const [ln, txt] of [["Line 3 of sheet 1", "ab"], ["Line 5 of sheet 1", "cd"], ["Line 7 of sheet 1", "ef"]]) { await clickLine(page, ln); await page.waitForTimeout(250); await page.keyboard.type(txt); await page.waitForTimeout(150); await page.keyboard.press("Escape"); await page.waitForTimeout(250); }
+      await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.waitForTimeout(300);
+      const L2 = await page.evaluate(() => { const r = s => { const e = document.querySelector(s); if (!e || !e.getClientRects().length) return null; const q = e.getBoundingClientRect(); return {t: Math.round(q.top), b: Math.round(q.bottom), l: Math.round(q.left), r: Math.round(q.right)}; };
+        return {modes: r(".pdr-modes"), ask: r('[data-act="pde-ask"]'), study: r('[data-act="pde-st"]'), dl: r('[data-act="pde-dl"]'), save: r(".pdr-save"), badge: r(".pdr-save .pdr-badge")}; });
+      const row = (a, b) => !!a && !!b && Math.abs((a.t + a.b) / 2 - (b.t + b.b) / 2) < 6;
+      ok(row(L2.modes, L2.ask) && row(L2.modes, L2.study), `${PW}px iPhone with edits: Ask This PDF and Study sit on the Read / Mark Up / Edit row: ` + JSON.stringify({modes: L2.modes, ask: L2.ask, study: L2.study}));
+      ok(!L2.badge && row(L2.dl, L2.save) && L2.save.t < L2.modes.b + 60, `${PW}px iPhone: Save is just its icon (no count) and sits with Download on the page row: ` + JSON.stringify({dl: L2.dl, save: L2.save}));
+      if (PW === 393) await T.shot("3-iphone-bars");
+      await T.ctx.close();
+    }
+
     /* Phone */
     {
       const T = await at(390, 844), {page} = T;
