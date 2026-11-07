@@ -365,7 +365,8 @@ window.__sbPlanObj = () => PLAN;
       if (P.row && P.row.uid && P.row.uid !== id) { P.row = null; write(K_ENT, null); }
       if (P.tok && P.tok.uid !== id) { P.tok = null; write(K_TOK, null); }
       P.rowLive = false; P.entDone = false; P.devices = null;
-      refresh().then(registerDevice);
+      // the device is recorded whether or not the plan loaded: a failed plan read used to leave this device with no row at all
+      refresh().then(registerDevice, registerDevice);
     } else if (was && sb) { P.row = null; P.tok = null; P.pend = null; P.stored = null; P.rowLive = false; write(K_ENT, null); write(K_TOK, null); P.devices = null; changed(); }
   }
 
