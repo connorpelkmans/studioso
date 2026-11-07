@@ -31,7 +31,7 @@ var COMP_KIT = (() => {
     theme: "plain",
     companions: [
       {
-        id: "plain-mochi", name: "Mochi", kind: "Sprout Mochi", pose: "sit", sleepy: true,
+        id: "plain-mochi", name: "Mochi", kind: "Sprout Mochi", pose: "sit", sleepy: true, hatTop: true,
         bio: "A little mochi whose sprout grows as you do.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -48,7 +48,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 75, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 83.5, w: 3.4},
         cheeks: {lx: 37.5, rx: 82.5, y: 83, w: 5.6, h: 3.4},
-        anchors: {top: [60, 46, 1.05], neck: [60, 97, 1.15], chest: [80, 99, 0.8], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 56, 92], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
           pet: ["Hehe, extra squishy happy!", "More pats? Yes please, yes please!"],
@@ -77,7 +77,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 77, r: 6, style: "round"},
         mouth: {x: 60, y: 90, w: 3.4},
         cheeks: {lx: 41, rx: 79, y: 88, w: 4.6, h: 2.9, color: "#FFA3C4"},
-        anchors: {top: [60, 47, 0.8], neck: [60, 99, 1.2], chest: [73, 100, 0.75], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
+        anchors: {top: [60, 37.5, 0.8, 0], neck: [60, 99, 1.2, 0, 61, 51], chest: [73, 104.5, 0.59], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
         lines: {
           tap: ["Fresh page, fresh start! Let's go!", "We're going to write something great today!", "You're on a roll and I love it!", "Neat notes, happy brain, happy me!", "Every word you write counts!", "Doodle break? I won't tell a soul!", "Ink it in! You've totally got this!"],
           pet: ["Careful, I might smudge with joy!", "Hehe, that tickles my inky drips!"],
@@ -116,7 +116,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 71, w: 3},
         cheeks: {lx: 38.5, rx: 81.5, y: 73, w: 4.4, h: 2.8},
-        anchors: {top: [60, 32, 1], neck: [60, 79, 1.35], chest: [74, 95, 0.8], back: [90, 74, 0.9], hands: [60, 91, 0.95]},
+        anchors: {top: [60, 29, 1, 0], neck: [60, 85.5, 1.35, 0, 77, 80], chest: [74, 92, 0.68], back: [90, 74, 0.9], hands: [60, 91, 0.95]},
         lines: {
           tap: ["Hoo hoo! Hello there, bright mind!", "Your knowledge is blooming beautifully!", "One page at a time, and look at you go!", "You're wiser than yesterday, I can tell!", "Great questions make great learners!", "Blink, breathe, and read on, superstar!", "Ooh, that idea deserves a note!"],
           pet: ["Hoo hoo! My feathers are fluffing up!", "Oh my, you're so sweet to me!"],
@@ -149,11 +149,11 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 72, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 80, w: 3},
         cheeks: {lx: 47, rx: 73, y: 79.5, w: 3.6, h: 2.4},
-        anchors: {top: [60, 30, 0.85], neck: [60, 62, 0.95], chest: [70, 90, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
+        anchors: {top: [60, 25, 0.85, 0], neck: [60, 89, 0.95, 0, 47, 41], chest: [70, 95, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
         lines: {tap: ["This part? Definitely important.", "I only light up the good stuff.", "You don't have to remember it all. Just the key bits.", "Hi! Ready to make things stand out?", "One clear line at a time.", "Bright idea incoming!"], pet: ["Hehe, careful, my cap pops off!", "Glowing extra bright now."], hello: ["You're back! Let's find the key ideas.", "Hi again! Cap's off, ready to go."], morning: ["Good morning! Today looks bright."], night: ["Cap on, lights low. Time to rest."], focus: ["Steady hand. You've got this.", "Marking the moment. Keep going."], done: ["Great session! That deserves a big bright line.", "Done! You really focused."], task: ["Done! Highlighted in gold.", "Yes! That one's marked finished.", "Another one done. Nice!"], break: ["Cap on for a minute. Stretch it out."]}
       },
       {
-        id: "plain-packy", name: "Packy", kind: "Backpack", pose: "sit", wearColor: "#4F8FE0",
+        id: "plain-packy", name: "Packy", kind: "Backpack", pose: "sit", wearColor: "#4F8FE0", hatTop: true,
         bio: "A trusty backpack who has carried every book you've ever needed.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -172,7 +172,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 62, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 70.5, w: 3.4},
         cheeks: {lx: 39, rx: 81, y: 70, w: 4.8, h: 3},
-        anchors: {top: [60, 40, 1], neck: [60, 78, 1.2], chest: [75, 92, 0.75], back: [92, 64, 0.85], hands: [60, 100, 0.9]},
+        anchors: {top: [60, 37.5, 1, 0], neck: [60, 81, 1.2, 0, 75, 82], chest: [75, 88.5, 0.75], back: [92, 64, 0.85], hands: [60, 100, 0.9]},
         lines: {tap: ["Got everything? I double-checked!", "I've got your back. Literally.", "Heavy day? We'll carry it together.", "Hi! Where are we headed today?", "One thing at a time, out of the bag.", "I packed you a little extra courage."], pet: ["Hehe, my zippers jingle!", "Pats! My favorite pocket feeling."], hello: ["You're back! Bag's packed and ready.", "Hi! Let's unpack today's plan."], morning: ["Good morning! Let's pack up the day's goals."], night: ["Zip it up for today. Rest well."], focus: ["Quiet zippers. You've got this.", "I'll keep everything safe while you work."], done: ["Session done! That's a load lighter.", "Amazing focus! Unpacked and done."], task: ["Done! One less thing to carry.", "Checked off! Feeling lighter already.", "Woo! Another one finished."], break: ["Put the load down. Stretch your shoulders!"]}
       },
       {
@@ -192,7 +192,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 51, r: 4.2, style: "dot", color: "#2F4A2A"},
         mouth: {x: 60, y: 58.5, w: 2.8, color: "#2F4A2A"},
         cheeks: {lx: 45.5, rx: 74.5, y: 58, w: 3.4, h: 2.2},
-        anchors: {top: [60, 35, 0.9], neck: [60, 68, 1.05], chest: [77, 98, 0.55], back: [87, 66, 0.8], hands: [60, 101, 0.85]},
+        anchors: {top: [60, 30.5, 0.9, 0], neck: [60, 68, 1.05, 0, 57, 79], chest: [77, 73, 0.55], back: [87, 66, 0.8], hands: [60, 101, 0.85]},
         lines: {tap: ["Hi! Let's figure this out together.", "Big problems are just small steps added up.", "You plus a plan equals progress.", "Show your work? You're doing great.", "Every little bit counts. I checked.", "Calm and steady. That's the formula."], pet: ["Hehe, that tickles my buttons!", "Beep boop! Happy!"], hello: ["You're back! Ready to crunch some numbers?", "Hi! Today's going to add up nicely."], morning: ["Good morning! Fresh start, clear screen."], night: ["Time to power down. You too."], focus: ["Quiet mode on. You've got this.", "Steady focus. Keep going."], done: ["Session done! That adds up to a lot.", "Great focus! The numbers love it."], task: ["Done! Plus one!", "Finished! That's a correct answer.", "Woo! Another one done."], break: ["Clear the screen. Stretch and breathe."]}
       }
     ]
@@ -202,7 +202,7 @@ var COMP_KIT = (() => {
     theme: "winter", spot: {x: 0.84, y: 0.985},
     companions: [
       {
-        id: "winter-penguin", name: "Pip", kind: "Baby Penguin", pose: "stand",
+        id: "winter-penguin", name: "Pip", kind: "Baby Penguin", pose: "stand", scarfOverArms: true,
         bio: "A fluffy penguin chick who waddles in for snowy study nights.",
         idle: ["waddle", "wingFlutter", "headTilt"], cheer: "wingFlutter",
         neck: [60, 74],
@@ -229,7 +229,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 61, w: 3},
         cheeks: {lx: 43.5, rx: 76.5, y: 62, w: 4.2, h: 2.6},
-        anchors: {top: [60, 25, 1.05], neck: [60, 75, 1.05], chest: [71, 92, 0.8], back: [84, 84, 0.9], hands: [60, 95, 0.95]},
+        anchors: {top: [60, 26.5, 1.05, 0], neck: [60, 76.5, 1, 0, 47, 74], chest: [71, 84, 0.8], back: [84, 84, 0.9], hands: [60, 95, 0.95]},
         lines: {
           tap: ["Peep! Hi hi hi!", "Waddle on! You're doing amazing!", "Snow day, study day, best day!", "Keep warm and keep shining!", "Little waddles, big progress!", "You make studying look so easy!", "Cozy mode on, and you're on fire!"],
           pet: ["Peep peep! So fluffy and happy!", "Aww, the warmest little hug ever!"],
@@ -266,7 +266,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "dot", color: "#2B2A44"},
         mouth: {x: 60, y: 66.5, w: 2.6, style: "cat"},
         cheeks: {lx: 42, rx: 78, y: 64.5, w: 4.6, h: 2.8, color: "#FF9FB7"},
-        anchors: {top: [60, 39, 0.95], neck: [60, 78, 1.05], chest: [69, 90, 0.72], back: [86, 88, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 38, 0.95, 0], neck: [60, 79.5, 1, 0, 44, 66], chest: [69, 85.5, 0.72], back: [86, 88, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hop hop! Hi hi!", "Soft and steady, and you're winning!", "You're doing wonderfully, truly!", "Snowflakes and study notes, my favorite!", "Rest is part of the plan, and you're nailing it!", "One happy hop at a time!", "I think you're absolutely amazing!"],
           pet: ["Hehe, my ears are wiggling with joy!", "So soft and so happy now!"],
@@ -280,7 +280,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "winter-sprite", name: "Twinkle", kind: "Snow Sprite", pose: "float",
+        id: "winter-sprite", name: "Twinkle", kind: "Snow Sprite", pose: "float", hatTop: true,
         bio: "A glowing snow sprite who sprinkles sparkles on good work.",
         idle: ["sparkle", "spin", "wingFlutter"], cheer: "spin",
         parts: {
@@ -298,7 +298,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 62, r: 4.8, style: "sparkle", color: "#2B3560"},
         mouth: {x: 60, y: 71, w: 3, color: "#2B3560"},
         cheeks: {lx: 43, rx: 77, y: 69.5, w: 4.4, h: 2.8, color: "#FFB3C8"},
-        anchors: {top: [60, 41, 0.95], neck: [60, 82, 1.05], chest: [71, 77, 0.68], back: [85, 58, 0.8], hands: [60, 81, 0.85]},
+        anchors: {top: [60, 38.5, 0.95, 0], neck: [60, 82, 1.05, 0, 51, 41], chest: [71, 88, 0.6], back: [85, 58, 0.8], hands: [60, 81, 0.85]},
         lines: {
           tap: ["Twinkle twinkle, hi hi!", "You sparkle so bright when you study!", "A little extra shine, just for you!", "You're doing so well today!", "I'm so proud of you, sparkly friend!", "Keep shining, bright mind!", "Every bit of practice makes magic!"],
           pet: ["Hehe, that tickles my sparkles!", "Wheee, I'm all aglow!"],
@@ -318,7 +318,7 @@ var COMP_KIT = (() => {
     theme: "cafe", spot: {x: 0.84, y: 0.985},
     companions: [
       {
-        id: "cafe-bean", name: "Bean", kind: "Coffee Bean Sprite", pose: "stand", wearColor: "#E07A5F",
+        id: "cafe-bean", name: "Bean", kind: "Coffee Bean Sprite", pose: "stand", wearColor: "#E07A5F", hatTop: true,
         bio: "A peppy coffee bean who brews up big ideas with you.",
         idle: ["topBob", "bounce", "wave"], cheer: "spin",
         parts: {
@@ -335,7 +335,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 70, r: 4.8, style: "dot"},
         mouth: {x: 60, y: 79, w: 3.2, color: "#2B1A10"},
         cheeks: {lx: 43, rx: 77, y: 78, w: 4.4, h: 2.8, color: "#FF9FA8"},
-        anchors: {top: [60, 44, 0.9], neck: [60, 90, 1.1], chest: [71, 94, 0.72], back: [84, 68, 0.85], hands: [60, 93, 0.9]},
+        anchors: {top: [60, 46.5, 0.9, 0], neck: [60.5, 90, 1.1, 0, 56.5, 48.5], chest: [71, 96, 0.6], back: [84, 68, 0.85], hands: [60, 93, 0.9]},
         lines: {
           tap: ["Hi! Freshly roasted and so ready!", "You're brewing something great!", "A little perk, just for you!", "Small sips, big progress!", "Sip, study, smile! You're amazing!", "You're doing really, really well!", "Take your time! I'm right here cheering!"],
           pet: ["Ooh, that's so nice! Thank you!", "Hehe, I feel all warm and toasty!"],
@@ -349,7 +349,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "cafe-latte", name: "Latte", kind: "Latte Art Cat", pose: "sit", sleepy: true,
+        id: "cafe-latte", name: "Latte", kind: "Latte Art Cat", pose: "sit", wearOnHead: true, sleepy: true,
         bio: "A foamy cat curled up in a warm cup, purring you along.",
         idle: ["earTwitch", "tailSwish"], cheer: "bounce",
         neck: [60, 76],
@@ -376,7 +376,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 56, r: 4.3, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 64, w: 2.6, style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 63.5, w: 4.2, h: 2.6},
-        anchors: {top: [60, 37, 0.95], neck: [60, 79, 1.2], chest: [60, 95, 0.8], back: [24, 86, 0.8], hands: [60, 81, 0.9]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 77, 0.9, 0, 44, 81], chest: [60, 88, 0.62], back: [24, 86, 0.8], hands: [60, 81, 0.9]},
         lines: {
           tap: ["Purr! Hello, my favorite person!", "You're the cream of the crop!", "Warm cup, calm mind, great you!", "One sip at a time, and you're doing it!", "Mew! You're doing great!", "This spot is extra cozy with you here!", "Cozy and capable, that's you!"],
           pet: ["Purr-fect! That's so nice!", "Mrrp! More chin scratches, please!"],
@@ -411,7 +411,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51.5, rx: 68.5, y: 68, r: 4.6, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 76.5, w: 3, color: "#2B1A10"},
         cheeks: {lx: 45.5, rx: 74.5, y: 75, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 45, 0.9], neck: [60, 86, 0.9], chest: [70, 88, 0.65], back: [60, 62, 0.9], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 44.5, 0.9, 0], neck: [60, 88.5, 0.8, 0, 44, 92], chest: [70, 92.5, 0.61], back: [60, 62, 0.9], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Bonjour! Hi hi!", "You're on a roll! Literally!", "Steady and golden, that's you!", "Layer by layer, you've got this!", "A warm and buttery hello!", "Rise and shine, just like dough!", "All those crumbs of progress add up!"],
           pet: ["Hehe, crumbs everywhere! So happy!", "Oh la la, merci beaucoup!"],

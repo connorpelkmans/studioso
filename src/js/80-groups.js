@@ -1867,7 +1867,7 @@
       case "grp-q-solve": { const q = itemOf(id); if (q && q.user_id === myId()) { const d = Object.assign({}, q.data, {solved: !(q.data || {}).solved}); saveQ(q, d).then(() => { drawThread(); patch(g.id); }).catch(e => toast(e.message)); } break; }
       case "grp-q-best": { const q = itemOf(id); if (q && q.user_id === myId()) { const was = (q.data || {}).best === el.dataset.a, d = Object.assign({}, q.data, {best: was ? "" : el.dataset.a, solved: was ? !!(q.data || {}).solved : true}); saveQ(q, d).then(() => { drawThread(); patch(g.id); }).catch(e => toast(e.message)); } break; }
       case "grp-q-del": { const a = itemOf(id); if (a && canRemove(g, a)) api.removeItem(a.id).then(() => { S.items[g.id] = S.items[g.id].filter(x => x.id !== a.id); drawThread(); patch(g.id); }).catch(e => toast(e.message)); break; }
-      case "grp-weak-on": confirmSheet("Share Your Results?", "Your misses on this group's shared decks and quizzes are sent as totals per card, with no name attached. The group only sees how many members miss each card or question, once at least 3 members take part. Stop any time and your numbers are removed.", "Share Anonymously", () => { missSet(g.id, true); loadMisses(g.id, true); toast("Sharing your results anonymously"); }); break;
+      case "grp-weak-on": confirmSheet("Share Your Results?", "Your misses on shared decks are sent as anonymous totals, shown only once 3 or more members take part. Stop any time to remove them.", "Share Anonymously", () => { missSet(g.id, true); loadMisses(g.id, true); toast("Sharing your results anonymously"); }); break;
       case "grp-weak-off": missSet(g.id, false); api.forgetMisses(g.id).then(() => { toast("Stopped. Your numbers were removed."); loadMisses(g.id); }).catch(e => toast(e.message)); patch(g.id); break;
       case "grp-weak-retry": delete S.miss[g.id]; loadMisses(g.id, true); patch(g.id); break;
       case "grp-weak-deck": weakDeck(g); break;
@@ -3790,7 +3790,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const list = tpls().filter(t => (t.tasks || []).length);
     openSheet(`<div class="sheet pro-sheet">${head("Start From a Template")}<div class="sheet-body">
       ${list.length ? `<ul class="pro-feats">${list.map(t => `<li><span class="pf-t"><b>${esc(t.name)}</b><span class="mini">${t.tasks.length} tasks · saved ${esc(new Date(t.at).toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}))}</span></span><button type="button" class="btn small primary" data-act="gx-tpl-use" data-id="${esc(t.id)}">Use</button><button type="button" class="x-btn" data-act="gx-tpl-del" data-id="${esc(t.id)}" aria-label="Delete the ${esc(t.name)} template">${CLOSE}</button></li>`).join("")}</ul><p class="mini" style="margin:0">Due dates are set the same number of days before this project's due date.</p>`
-        : `<p style="margin:0">No templates yet. In a project you liked, open Overview and choose Save as Template. Its tasks and their timing are kept in your account for next time.</p>`}</div>
+        : `<p style="margin:0">No templates yet. In a project, open Overview and choose Save as Template.</p>`}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
   }
   // A new project made from a template

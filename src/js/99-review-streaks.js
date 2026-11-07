@@ -594,7 +594,7 @@ function gridHtml(res){
 }
 function streakBody(){
   const g = gcfg(), res = streakNow(), on = !!g.on, cfg = res.cfg;
-  let h = `<p style="margin:0">${esc(tr("streak.about", "A study day is any day you finish a task, track focus time, tick a checklist step or review flashcards. Just opening the app doesn't count, and a quiet day never takes your progress away."))}</p>
+  let h = `<p style="margin:0">${esc(tr("streak.about", "A study day is any day you finish a task, focus, tick a step or review flashcards. Quiet days never take progress away."))}</p>
     <label class="fgs-row"><input type="checkbox" data-act="fgs-toggle" ${on ? "checked" : ""}> <span><b>${esc(tr("streak.toggle", "Use the gentle streak"))}</b><span class="mini">${esc(tr("streak.toggle.sub", "When on, it replaces the fire streak line, and companion rewards follow it."))}</span></span></label>`;
   if (on) {
     h += `<div class="fgs-sum" aria-live="polite"><p class="fgs-big"><b>${esc(SBI18N.fmtN(res.last28))}</b> ${esc(trn("streak.sum.month", res.last28, "study day in the last 4 weeks|study days in the last 4 weeks"))}</p>

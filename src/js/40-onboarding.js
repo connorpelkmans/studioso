@@ -231,7 +231,7 @@
     let body;
     const here = deviceKind();
     if (inPreview()) body = `<div class="ob-info"><span class="mini">You're using a preview of Studyboard, so there's nothing to install here. Your own Studyboard website can be added to your phone's home screen.</span></div>`;
-    else if (DESK) body = `<div class="ob-okbox">${IC.check}<span><b>You're Using the Desktop App</b><span class="mini">It has its own window and works offline. To use Studyboard on your phone too, open your Studyboard website there and add it to your home screen.</span></span></div>`;
+    else if (DESK) body = `<div class="ob-okbox">${IC.check}<span><b>You're Using the Desktop App</b><span class="mini">It works offline. For your phone, open the Studyboard website there and add it to your home screen.</span></span></div>`;
     else if (standalone() || (() => { try { const C = window.Capacitor; return !!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform()); } catch (e) { return false; } })()) body = `<div class="ob-okbox">${IC.check}<span><b>Studyboard Is Installed</b><span class="mini">You're already using the app on this device. It works offline, too.</span></span></div>`;
     else {
       const tab = deviceTab || here;
@@ -267,9 +267,9 @@
         ${!cloudy && folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
     return `${hero(IC.folder)}
       <h2 class="ob-h" id="obH" tabindex="-1">Automatic Backups <span class="ob-opt">Recommended</span></h2>
-      <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Studyboard can save a backup of everything to a folder on this computer every hour. Pick one that Google Drive or OneDrive syncs and your backups are in the cloud too."}</p>
+      <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Back up everything to a folder every hour. Pick a Google Drive or OneDrive folder for a cloud copy too."}</p>
       ${body}
-      ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">After you pick a folder, your browser asks to let Studyboard save there. Choose <b>Allow on every visit</b> if it's offered (otherwise <b>Edit files</b> or <b>Allow</b>) so backups keep running after the browser restarts. A “Studyboard Backups” folder is made inside the one you pick.</p>`}`;
+      ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">When your browser asks, choose <b>Allow on every visit</b> (or <b>Allow</b>) so backups keep running.</p>`}`;
   }
 
   // The free week of Pro every new account gets

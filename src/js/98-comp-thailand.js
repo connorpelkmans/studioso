@@ -28,8 +28,8 @@
             <path d="M40 80Q60 72 80 80L82 92Q60 86 38 92Z" fill="url(#thailand-chang-c)" ${O2}/>
             <path d="M39 90Q60 84 81 90" fill="none" stroke="#F2C24A" stroke-width="2.2" stroke-linecap="round"/>
             ${[44, 52, 60, 68, 76].map(x => `<path d="M${x} ${x === 60 ? 87 : 88}l-1.6 5h3.2z" fill="#F2C24A" ${OW(0.9)}/>`).join("")}
-            <circle cx="60" cy="79" r="3" fill="#F2C24A" ${OW(1.2)}/>
-            <path d="M60 28C80 28 88 42 86 57C84 69 74 76 60 76C46 76 36 69 34 57C32 42 40 28 60 28Z" fill="url(#thailand-chang-b)" ${O}/>
+            <circle cx="60" cy="79" r="3" fill="#F2C24A" ${OW(1.2)}/>`,
+          over: `<path d="M60 28C80 28 88 42 86 57C84 69 74 76 60 76C46 76 36 69 34 57C32 42 40 28 60 28Z" fill="url(#thailand-chang-b)" ${O}/>
             <path d="M56 62Q54 72 59 79Q65 84 71 79Q74 75 71 72" fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round"/><path d="M56 62Q54 72 59 79Q65 84 71 79Q74 75 71 72" fill="none" stroke="#B4B0CA" stroke-width="6.4" stroke-linecap="round"/>
             <path d="M55 68h4.4M57 74.5h4M63 79.6l2.4-3" stroke="#8C88A8" stroke-width="1.4" stroke-linecap="round"/>
             <path d="M44 66Q41 70 45 72M76 66Q79 70 75 72" fill="none" stroke="#FFFDF4" stroke-width="3" stroke-linecap="round"/>
@@ -41,7 +41,7 @@
         eyes: {lx: 48, rx: 72, y: 52, r: 4.6, style: "sparkle", color: "#2A2440"},
         mouth: {x: 49, y: 66, w: 2.4, color: "#2A2440"},
         cheeks: {lx: 40, rx: 80, y: 60, w: 4, h: 2.4, color: "#FF8FB0"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 75, 1], chest: [72, 88, 0.6], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
+        anchors: {top: [60, 21, 0.95, 0], neck: [60, 75, 1, 0, 49, 59], bow: [60, 88, 0.6], chest: [72, 81, 0.6], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
         lines: {
           tap: ["Paoo! Hi! Shall I carry that heavy task?", "My trunk is curled up in a big smile for you!", "Big ears, big heart, big cheers!", "Step by step, like an elephant. We'll get there!", "An elephant never forgets, and neither will you!", "You're stronger than you think, little one!", "One slow stomp at a time. Steady wins!", "I painted my ears pink just for today!"],
           pet: ["Paoo! That tickles behind my ears!", "Hehe! More pats, please! I'm very soft."],
@@ -78,7 +78,7 @@
         eyes: {lx: 49, rx: 71, y: 72, r: 4.6, style: "sparkle", color: "#3A2A14"},
         mouth: {x: 60, y: 81, w: 3, color: "#3A2A14"},
         cheeks: {lx: 42, rx: 78, y: 79, w: 4.2, h: 2.4, color: "#FFB0A0"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 96, 1], chest: [74, 88, 0.6], back: [92, 74, 0.8], hands: [60, 96, 0.86]},
+        anchors: {top: [60, 29.5, 0.9, 0], neck: [60, 90, 1, 0, 78, 89], chest: [74, 96, 0.6], back: [92, 74, 0.8], hands: [60, 96, 0.86]},
         lines: {
           tap: ["Hi! I'm sweet, but I stick to my goals!", "Golden mango, golden effort!", "Coconut cream on top of a great study day!", "Stick with it! I know a thing or two about sticky!", "You're the ripest mind in the room!", "One spoonful at a time, it all adds up!", "Sweet and steady wins the dessert!", "Ripe and ready to cheer you on!"],
           pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Sweeter than coconut cream!"],
@@ -117,7 +117,7 @@
         eyes: {lx: 49, rx: 71, y: 66, r: 4.6, style: "sparkle", color: "#1E2A48"},
         mouth: {x: 60, y: 73, w: 2.8, color: "#1E2A48"},
         cheeks: {lx: 40, rx: 80, y: 71, w: 3.8, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 26, 0.9], neck: [60, 82, 1], chest: [74, 88, 0.6], back: [94, 70, 0.8], hands: [60, 92, 0.86]},
+        anchors: {top: [60, 32.5, 0.9, 0], neck: [60, 82, 1, 0, 78, 89], chest: [74, 88, 0.6], back: [94, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Beep beep! Hop in, where are we studying?", "Tuk-tuk-tuk! Full speed ahead!", "Three wheels, zero worries!", "I know all the shortcuts to a good grade!", "Next stop: that task you've been avoiding!", "Engine warm, lights on, ready to go!", "Hold on tight, we're making great time!", "Beep! You're right on schedule!"],
           pet: ["Beep beep! That's my happy horn!", "Hehe! That made my headlights twinkle!"],

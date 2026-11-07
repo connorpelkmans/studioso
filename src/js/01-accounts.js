@@ -789,7 +789,7 @@ function sbSetupSheet(){
   const cur = sbCustom() || !SB_HOSTED ? (sbConfig() || {url: "", key: ""}) : {url: "", key: ""};
   openSheet(`<form class="sheet sb-acct">${head(SB_HOSTED ? "Custom Server" : "Welcome to Studyboard")}
     <div class="sheet-body">
-      <p style="margin:0">${SB_HOSTED ? "You're using your own server instead of Studyboard's. Change it here, or switch back to a Studyboard account." : "Save your tasks, notes and files online so they sync across your devices and stay safe if this browser is cleared. Enter your server details from the setup guide, or keep everything on this device."}</p>
+      <p style="margin:0">${SB_HOSTED ? "You're using your own server instead of Studyboard's. Change it here, or switch back to a Studyboard account." : "Sync your work across devices and keep it safe if this browser is cleared. Enter your server details, or keep everything on this device."}</p>
       ${REQ_NOTE}<label class="f"><span class="lh">Server Address ${REQ}</span><input type="url" name="url" required value="${esc(cur.url)}" placeholder="https://…" autocomplete="off"></label>
       <label class="f"><span class="lh">Public Key ${REQ} <span class="hint">The publishable key from the setup guide</span></span><input type="text" name="key" required value="${esc(cur.key)}" placeholder="sb_publishable_…" autocomplete="off" spellcheck="false"></label>
       <p class="mini" style="margin:0">Only use the public (publishable) key. Never paste a secret key into an app.</p>

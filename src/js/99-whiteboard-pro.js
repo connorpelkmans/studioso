@@ -4,7 +4,7 @@
   const W = window.SBWB, P = window.SBPRO; if (!W || !P) return;
   const MAX = 16, SIDE = 1600;
   const locked = () => P.locked();
-  const WHY = "Pictures on the whiteboard are part of Studyboard Pro: add photos and diagrams, move and resize them, write around them, and have AI redraw them in marker.";
+  const WHY = "Pictures on the whiteboard are part of Studyboard Pro: add photos and diagrams, write around them, and have AI redraw them.";
   const upsell = () => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(WHY); };
   const IO = {upload: (l, o) => uploadFiles(l, o), bytes: id => assetBytes(id), ai: null};
   const SV = p => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;

@@ -15,26 +15,26 @@
   const POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
     {id: "welcome", title: "Welcome to Studyboard", tab: "board",
-      text: () => "A quick tour, under a minute. We'll open each screen as we go, filled with example courses and tasks, not your own. Use the arrow keys or the buttons, and skip any time."},
+      text: () => "A one-minute tour with example courses and tasks. Skip any time."},
     {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
       text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
     {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
-      text: () => "Today's Plan lines up what to work on next and for how long, with time set aside for each task around your classes and free time."},
+      text: () => "What to work on next and for how long, fitted around your classes."},
     {id: "timeline", title: "Calendar", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
-      text: () => "Every deadline across your courses, on a timeline or a month calendar. Switch to Schedule for your week of classes and shifts, or to Crunch to see heavy weeks coming before they hit."},
+      text: () => "Every deadline on a timeline or calendar. Schedule shows your classes; Crunch shows heavy weeks ahead."},
     {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".pview-tabs", NAV("flashcards")],
-      text: () => "Make decks by hand, or let AI build cards and practice quizzes from your notes and readings. Spaced repetition brings reviews back at the right time."},
+      text: () => "Make decks by hand or with AI from your notes. Reviews come back at the right time."},
     {id: "courses", title: "Courses and School Sites", tab: "courses", go: () => { ui.courseTab = ""; }, sel: [".cf-tabs", NAV("courses")],
-      text: () => "Each course keeps its class times, tasks, files and instructors. Connect Brightspace, Canvas or Blackboard in Settings to bring in deadlines and grades; with Canvas, your inbox shows under Emails."},
+      text: () => "Each course keeps its classes, tasks and files. Connect your school site in Settings to bring in deadlines and grades."},
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".cf-tabs", ".gp-hero", NAV("courses")],
-      text: () => "Your marks and average in each course as they come in. Set the weights to see what you need on the remaining work to reach your target grade."},
+      text: () => "Your marks in each course, and what you need on the rest to hit your target."},
     {id: "focus", title: "Focus Timer", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
-      text: () => "The timer follows the Pomodoro method: short bursts of focused work with breaks in between. Start a session on any task; the time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ", and your companion keeps you company.",
+      text: () => "Short bursts of focused work with breaks between. Time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ".",
       more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
     {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
-      text: () => "Find tasks, cards, notes and text inside your files from anywhere (Ctrl or Cmd K). Switch to Ask With AI to ask questions about your own material."},
+      text: () => "Find anything from anywhere (Ctrl or Cmd K), or Ask With AI about your material."},
     {id: "done", title: "You're Ready", tab: "board",
-      text: () => "That's the tour. Add your first task and Today's Plan takes it from there. Themes, reminders, sync and Report a Bug are in Settings, where you can replay this tour too."}
+      text: () => "Add your first task and Today's Plan takes it from there. Replay this tour from Settings."}
   ];
 
   let steps = [], i = 0, root = null, spot = null, card = null, tgt = null, opened = null, saved = null, onKey = null, raf = 0, active = false, seq = 0, panel = "";

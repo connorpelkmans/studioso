@@ -365,7 +365,8 @@ window.__sbPlanObj = () => PLAN;
       if (P.row && P.row.uid && P.row.uid !== id) { P.row = null; write(K_ENT, null); }
       if (P.tok && P.tok.uid !== id) { P.tok = null; write(K_TOK, null); }
       P.rowLive = false; P.entDone = false; P.devices = null;
-      refresh().then(registerDevice);
+      // the device is recorded whether or not the plan loaded: a failed plan read used to leave this device with no row at all
+      refresh().then(registerDevice, registerDevice);
     } else if (was && sb) { P.row = null; P.tok = null; P.pend = null; P.stored = null; P.rowLive = false; write(K_ENT, null); write(K_TOK, null); P.devices = null; changed(); }
   }
 
@@ -379,9 +380,13 @@ window.__sbPlanObj = () => PLAN;
     const ua = navigator.userAgent || "", mob = /iPhone|iPad|Android|Mobile/i.test(ua);
     const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "Chromebook" : /Linux/.test(ua) ? "Linux" : "Device";
     const standalone = !!(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
-    const platform = DESK ? "desktop" : standalone ? "app" : "web";
+    // the iPhone, iPad and Android apps run this page inside their own shell: say so, rather than "web" (it isn't a browser)
+    let native = ""; try { if (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) native = Capacitor.getPlatform(); } catch (e) {}
+    const platform = DESK ? "desktop" : native === "ios" || native === "android" ? native : standalone ? "app" : "web";
     const br = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
-    const name = DESK ? `${os} Desktop App` : standalone ? `${os} App` : mob ? `${os} (${br})` : `${os} (${br})`;
+    // an iPad's app reports itself as a Mac: a touch screen says otherwise
+    const os2 = native === "ios" && os === "Mac" && navigator.maxTouchPoints > 1 ? "iPad" : os;
+    const name = DESK ? `${os} Desktop App` : native ? `${os2} App` : standalone ? `${os} App` : `${os} (${br})`;
     return {name: name.slice(0, 60), platform};
   }
   async function loadDevices(){

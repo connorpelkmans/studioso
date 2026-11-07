@@ -17,6 +17,23 @@
     // a golden chedi
     thailandchedi: {d: "M-10 11H10V9H8V7H-8V9H-10Z M-7 7C-7 1 -5 -2 -2.4 -3.6H2.4C5 -2 7 1 7 7Z M-2.4 -3.6V-5.4H2.4V-3.6Z M-2 -5.4L-0.4 -12H0.4L2 -5.4Z", detail: "M-6.6 3.4H6.6M-1.6 -7.4H1.6M-1.2 -9.4H1.2", dstroke: true}
   });
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  const KHOM = "M-6.4 -10.4Q0 -11.8 6.4 -10.4L4.4 7.4Q0 8.6 -4.4 7.4Z";
+  Object.assign(FX_SHAPES, {
+    // a khom loi sky lantern: a paper shade glowing from the little flame at its open base
+    thailandkhom: {d: KHOM, paint: (g, c, d) => { const p = new Path2D(KHOM); g.save(); g.shadowColor = d ? "rgba(255,170,70,.9)" : "rgba(255,150,60,.55)"; g.shadowBlur = d ? 9 : 4; g.fillStyle = c; g.fill(p); g.restore();
+      g.save(); g.clip(p); const gr = g.createRadialGradient(0, 8, 0.5, 0, 6, 15); gr.addColorStop(0, "#FFF6D0"); gr.addColorStop(0.35, mix(c, "#FFF2C0", 0.5)); gr.addColorStop(1, mix(c, "#B0501A", 0.3)); g.fillStyle = gr; g.fillRect(-7, -12, 14, 21);
+      g.strokeStyle = "rgba(160,80,20,.25)"; g.lineWidth = 0.35; g.beginPath(); [-2.2, 2.2].forEach(x => { g.moveTo(x * 1.35, -10.8); g.lineTo(x, 8); }); [-5, 0, 5].forEach(y => { g.moveTo(-7, y); g.lineTo(7, y); }); g.stroke(); g.restore();
+      g.fillStyle = "#FFE9A0"; g.beginPath(); g.moveTo(0, 5.2); g.quadraticCurveTo(1.6, 8, 0, 9.6); g.quadraticCurveTo(-1.6, 8, 0, 5.2); g.fill(); g.fillStyle = "#FFFFFF"; oval(g, 0, 8.2, 0.5, 0.9); g.fill(); }},
+    // frangipani: five waxy petals, white or pink, warming to yellow at the heart
+    thailandplum: {d: [0, 1, 2, 3, 4].map(i => { const a = i / 5 * 6.283 - 1.571, c = Math.cos(a), s = Math.sin(a); return `M0 0Q${(c * 5 - s * 5).toFixed(2)} ${(s * 5 + c * 5).toFixed(2)} ${(c * 10.6).toFixed(2)} ${(s * 10.6).toFixed(2)}Q${(c * 7 + s * 2).toFixed(2)} ${(s * 7 - c * 2).toFixed(2)} 0 0Z`; }).join(""), paint: (g, c) => {
+      for (let i = 0; i < 5; i++) { g.save(); g.rotate(i / 5 * 6.283 - 1.571); const gr = g.createLinearGradient(0, 0, 10.6, 0); gr.addColorStop(0, "#F6C43A"); gr.addColorStop(0.38, mix(c, "#FFE9A0", 0.4)); gr.addColorStop(1, c); g.fillStyle = gr;
+        g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(2, 4.4, 8.4, 5.4, 10.6, 1.6); g.bezierCurveTo(11.2, -1.4, 8, -2.6, 0, 0); g.fill(); g.strokeStyle = "rgba(160,120,90,.25)"; g.lineWidth = 0.3; g.stroke(); g.restore(); } sheen(g, 0.22, 0.16); }}
+  });
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "thailand", name: "Thailand", group: "world", desc: "Limestone islands, longtail boats and a golden temple.",
       light: ["#F2FAF7", "rgba(14,116,112,.10)", "#FFFFFF", "#10302E", "#4A6864", "#D0E6E0", "#E2F2EE", "#F8FCFB", "#0E7470", "#3A928C", "#FFFFFF", "#0A4A48", "#0E5A58", "#C8EAE2", "#FFE3A0"],
@@ -24,11 +41,11 @@
       glow: ["linear-gradient(180deg,#8ED4EE,#D6F2F2 45%,#F6EED2)", "linear-gradient(180deg,#0C1A36,#1C2E58 45%,#4A3A6A)"],
       spine: [lg("#16807A", "#0E5A58"), lg("#1E2E5E", "#0E1838")], btn: [lg2("#0E7470", "#C88A1E"), lg2("#F2C45A", "#F6D892")]},
     kit: {motif: "thailandlotus", card: ["#F8FDFB", "#E2F4EE"], ink: "#10302E", bd: "#B6DDD4", mc: "#E0508A", r: 16, notes: ["#FBE0EA", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "gold", fab: "999px", btn: "14px"},
-    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(26), "thailandlotus", d ? ["#FF9AC8", "#FFD0E2", "#F27AAE"] : ["#F06A9E", "#F48AB4", "#E0508A"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 10, smax: 15, glow: d ? 10 : 0})
-      .concat(fxFall(W, H, n(36), "thailandfrang", d ? ["#FFF6E8", "#FFC8DE", "#FFE6A0"] : ["#FFFFFF", "#FFD6E6", "#FFF2C0"], {sway: 1.6, smin: 8, smax: 12, vmin: 0.9, vmax: 1.7, glow: d ? 6 : 0}).map(p => Object.assign(p, {vr: fxR(-0.04, 0.04)})),
-        fxRise(W, H, n(8), "thailandkrathong", d ? ["#FFC24A", "#FFB070"] : ["#3E9A4A", "#E8962E"], {smin: 14, smax: 19, vmin: 0.8, vmax: 1.4, sway: 0.5, life: 320, glow: d ? 16 : 4}).map(p => Object.assign(p, {vr: 0})),
-        fxRise(W, H, n(2), "thailandchedi", d ? ["#F2C45A"] : ["#E2A42A"], {cx: [0.3, 0.7], smin: 20, smax: 24, vmin: 0.9, vmax: 1.2, sway: 0.3, life: 320, glow: d ? 16 : 8}).map(p => Object.assign(p, {vr: 0})),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#9AE8FF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(14), "thailandkhom", d ? ["#FFC870", "#FFB060", "#FFD890"] : ["#F6B860", "#F2A050", "#F8C878"], {smin: 20, smax: 30, vmin: 1.8, vmax: 2.8, sway: 0.5, rock: 0.06, life: 300, spread: 70, glow: d ? 16 : 0})
+      // sky lanterns let go from below: they rise, slow and shrink into the distance as they drift up
+      .map(p => Object.assign(p, {grow: -0.014, drag: 0.998, vy: p.vy * Math.max(1, H / 640), vx: fxR(-0.25, 0.35), swf: fxR(0.015, 0.03)}))
+      .concat(fxFall(W, H, n(15), "thailandplum", d ? ["#FFF6E8", "#FFC8DE", "#FFFFFF"] : ["#FFFFFF", "#F8B8D0", "#FFF4E4"], {sway: 1.5, smin: 9, smax: 13, vmin: 0.9, vmax: 1.6, rock: 0.6}),
+        fxTw(W, H, n(22), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
     tag: "A tropical bay of jungle-topped limestone islands, longtail boats on a white beach and a golden temple on the headland"
   });
 })();

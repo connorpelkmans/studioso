@@ -246,7 +246,7 @@ function html(exId, o){
     [want.f && M.counts.formulas ? `${M.counts.formulas} formula${M.counts.formulas === 1 ? "" : "s"}` : "", want.d && M.counts.defs ? `${M.counts.defs} definition${M.counts.defs === 1 ? "" : "s"}` : "", want.p && M.counts.pictures ? `${M.counts.pictures} diagram${M.counts.pictures === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const empty = !topicsOf(ex).length ? "This exam has no topics yet. Open it, choose Plan My Prep and add the topics it covers."
     : !linked(ex) && !M.sections.length ? "Nothing is linked to this exam's topics yet. In its Prep Plan, choose Edit Topics and link the decks and notes for each topic."
-    : "No formulas, definitions or picture cards were found in the decks and notes linked to this exam. Cards like “Newton's second law / F = ma” or “Osmosis / Movement of water across a membrane”, note lines like “Term: meaning”, and picture cards all go on the sheet.";
+    : "No formulas, definitions or picture cards were found in this exam's linked material. Cards like “F = ma” and note lines like “Term: meaning” go on the sheet.";
   return `<div class="pp-page xs-page"><div class="xs-head"><h1>${H(ex.title)}: Formula and Diagram Sheet</h1><p>${H(sub)}</p><p class="xs-src">Made from your own decks and notes. Check anything you'll rely on.</p></div>
     ${total ? `<div class="xs-cols">${secs}</div>` : `<p class="xs-empty">${H(empty)}</p>`}</div>`;
 }
