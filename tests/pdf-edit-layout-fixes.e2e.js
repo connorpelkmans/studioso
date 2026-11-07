@@ -117,7 +117,7 @@ async function makePdf(pages){
       const ocr = await page.evaluate(() => { const b = document.querySelector('.pde-tools > .pde-tool[data-id="ocr"]'); if (!b) return "not in the row"; const vis = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== "none";
         return {scan: vis(b.querySelector(".pde-ocr-ic")), face: [...b.querySelectorAll(".cp-ai-face, .ai-ic")].some(vis), purple: b.classList.contains("ai-btn")}; });
       ok(ocr === "not in the row" || (ocr.scan && !ocr.face && ocr.purple), "on a phone Recognize Text shows a scan icon (not the companion), still purple: " + JSON.stringify(ocr));
-      // wider screens (a big phone, an iPad held upright) have room for it in the row, as an icon alone
+      // an iPad held upright has room for it in the row, as an icon alone: a scan icon there
       for (const wd of [430, 600, 700, 820]) {
         await page.setViewportSize({width: wd, height: 1100}); await page.waitForTimeout(600); await page.click('.pde-tools > .pde-tool[data-id="white"]'); await page.waitForTimeout(400); await page.click('.pde-tools > .pde-tool[data-id="text"]'); await page.waitForTimeout(400);
         const o2 = await page.evaluate(() => { const b = document.querySelector('.pde-tools > .pde-tool[data-id="ocr"]'); if (!b || !b.getClientRects().length) return "not in the row"; const vis = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== "none";

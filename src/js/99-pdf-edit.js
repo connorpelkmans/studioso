@@ -3694,11 +3694,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 @media (max-width:480px){ .pde-ur{display:none} .pde-menu .pde-mi-ur{display:flex} }
 .pde-bar.compact .pde-tools .pde-tool{padding:6px 8px;min-width:40px;justify-content:center}
 .pde-bar.compact .pde-tools .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-/* Recognize Text: with its label, the AI icon (the companion) beside it; as an icon alone (small screens), a scan icon, still purple */
+/* Recognize Text: the AI icon (the companion); on an iPad held upright, where it's an icon alone, a scan icon instead, still purple */
 .pde-tool .pde-ocr-ai{display:contents}
 .pde-tool .pde-ocr-ic{display:none}
-.pde-bar.compact .pde-tools .pde-ocr-ai{display:none}
-.pde-bar.compact .pde-tools .pde-ocr-ic{display:block}
+@media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
+  .pde-bar.compact .pde-tools .pde-ocr-ai{display:none}
+  .pde-bar.compact .pde-tools .pde-ocr-ic{display:block}
+}
 .pde-tools label.pde-tool{cursor:pointer}
 .pde-marks,.pde-al,.pde-find{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap}
 .pde-shape-btn[aria-pressed="true"],.pde-al .btn[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,var(--surface));border-color:var(--accent);color:var(--accent)}
