@@ -217,6 +217,13 @@
   body.sb-scrolled header.top{padding-top:calc(max(0px, env(safe-area-inset-top,0px) - 10px) + 6px)!important}
   header.top .top-row > div:first-child{padding-top:2px}
 }
+/* iPad and larger: the same, so nothing scrolls up behind the clock and battery above the header (it stopped below that strip).
+   A computer has no such strip (the inset is 0), so nothing changes there */
+@media (min-width:640px){
+  :root{padding-top:0}
+  html{scroll-padding-top:0}
+  header.top{top:0!important;padding-top:calc(12px + env(safe-area-inset-top,0px))!important}
+}
 /* Course card grade on phones: one line, on the right ("92% A"), no "Grade" word or marked share */
 @media (max-width:639px){
   #view .c2-card .c2-foot > .c2-grade{margin-left:auto!important;flex:none;gap:5px;overflow:visible}
