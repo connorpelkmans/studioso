@@ -8337,6 +8337,11 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 @media (min-width:701px) and (orientation:landscape) and (pointer:coarse){
   nav.tabs > .nav-brand{margin-top:env(safe-area-inset-top,0px)}
 }
+
+/* iPad held sideways too: a course's (or deck's, or group's) buttons on the coloured band keep to the right, clear of the round icon */
+@media (min-width:701px) and (orientation:landscape) and (pointer:coarse){
+  #view .g2-band > .row-actions{margin-left:auto!important;justify-content:flex-end;max-width:calc(100% - 120px)}
+}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
