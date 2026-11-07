@@ -9033,8 +9033,8 @@ const hbPhoto = () => {
   const mkBokeh = c => { const cv = document.createElement("canvas"); cv.width = cv.height = 64; const b = cv.getContext("2d"), gr = b.createRadialGradient(32, 32, 0, 32, 32, 31);
     gr.addColorStop(0, c + "55"); gr.addColorStop(0.78, c + "77"); gr.addColorStop(0.9, c + "CC"); gr.addColorStop(1, c + "00"); b.fillStyle = gr; b.fillRect(0, 0, 64, 64); return cv; };
   const S = hbRun((W, H, d) => { const m = Math.min(W, H), tall = H > W * 1.25, rows = tall ? [[0.1, 3], [0.6, 2]] : [[0.07, W > 1000 ? 5 : 4], [0.6, 3]], kinds = [0, 1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5); let q = 0;
-    const pw = Math.min(W / Math.max(...rows.map(r => r[1])) * 0.8, H * 0.22, 160), lines = rows.map(([y, n], r) => { const t0 = 40 + r * 30;
-      return {y: H * y, sag: H * 0.03, t0, prints: Array.from({length: n}, (_, i) => ({x: W * (i + 0.5) / n + fxR(-0.02, 0.02) * W, t0: t0 + 16 + i * 13 + fxR(0, 4), rot0: fxR(0.25, 0.5) * (i % 2 ? 1 : -1), dy: fxR(0, 0.04) * pw, ...mkPrint(pw, kinds[q++ % 7])}))}; });
+    const pw = Math.min(W / Math.max(...rows.map(r => r[1])) * 0.8, H * 0.22, 160), lines = rows.map(([y, n], r) => { const t0 = 62 + r * 34;
+      return {y: H * y, sag: H * 0.03, t0, prints: Array.from({length: n}, (_, i) => ({x: W * (i + 0.5) / n + fxR(-0.02, 0.02) * W, t0: t0 + 18 + i * 16 + fxR(0, 4), rot0: fxR(0.07, 0.14) * (i % 2 ? 1 : -1), dy: fxR(0, 0.04) * pw, ...mkPrint(pw, kinds[q++ % 7])}))}; });
     const cols = d ? ["#FFC861", "#FFB070", "#FFE3A0", "#FF9A7A"] : ["#F2A93A", "#F0904A", "#E8B84A", "#F08A6A"];
     return {lines, bok: Array.from({length: Math.round(Math.max(8, Math.min(16, W * H / 40000)))}, () => ({x: fxR(0, W), y: fxR(0.1, 1) * H, r: m * fxR(0.025, 0.075), vy: fxR(0.1, 0.35), ph: fxR(0, 6.3), a: fxR(0.5, 1), spr: mkBokeh(fxPick(cols))}))}; });
   const N = 7, P = new Float32Array(N * 2);
@@ -9046,17 +9046,17 @@ const hbPhoto = () => {
       if (d) g.globalCompositeOperation = "lighter"; for (const b of s.bok) { const x = b.x + Math.sin(f * 0.012 + b.ph) * 14, y = b.y - f * b.vy; g.globalAlpha = amb * b.a * (d ? 0.5 : 0.42) * (0.75 + 0.25 * Math.sin(f * 0.035 + b.ph)); g.drawImage(b.spr, x - b.r, y - b.r, 2 * b.r, 2 * b.r); }
       g.globalCompositeOperation = "source-over"; }
     // the clothesline and the prints pegged onto it
-    for (const L of s.lines) { const lr = fxEase((f - L.t0) / 24); if (lr <= 0) continue; const ly = x => L.y + L.sag * (1 - Math.pow((x - W / 2) / (W / 2 + 20), 2)) + Math.sin(f * 0.025 + L.y) * 1.2;
+    for (const L of s.lines) { const lr = fxEase((f - L.t0) / 40); if (lr <= 0) continue; const ly = x => L.y + L.sag * (1 - Math.pow((x - W / 2) / (W / 2 + 20), 2)) + Math.sin(f * 0.025 + L.y) * 1.2;
       g.globalAlpha = 1; g.strokeStyle = d ? "rgba(236,222,198,.75)" : "rgba(122,98,70,.8)"; g.lineWidth = Math.max(1.2, m * 0.0026); g.beginPath(); for (let x = -10; x <= -10 + (W + 20) * lr; x += 12) x === -10 ? g.moveTo(x, ly(x)) : g.lineTo(x, ly(x)); g.stroke();
-      for (const p of L.prints) { const t = f - p.t0; if (t < 0) continue; const py = ly(p.x), e = hbBack(t / 26), th = p.rot0 * Math.exp(-t / 55) * Math.cos(t * 0.1) + Math.sin(f * 0.03 + p.x) * 0.03, y = py - (1 - e) * (py + p.ph + 40);
-        g.save(); g.translate(p.x, y); g.rotate(th); g.shadowColor = d ? "rgba(0,0,0,.55)" : "rgba(70,45,20,.28)"; g.shadowBlur = 12; g.shadowOffsetY = 5; g.drawImage(p.c, -p.pw / 2, -p.pw * 0.06 + p.dy, p.pw, p.ph); g.shadowColor = "rgba(0,0,0,0)";
+      for (const p of L.prints) { const t = f - p.t0; if (t < 0) continue; const py = ly(p.x), e = fxEase(t / 46), th = p.rot0 * Math.exp(-t / 70) * Math.cos(t * 0.06) + Math.sin(f * 0.022 + p.x) * 0.02, y = py - (1 - e) * (p.ph * 0.9 + 30);
+        g.save(); g.globalAlpha = fxEase(t / 18); g.translate(p.x, y); g.rotate(th); g.shadowColor = d ? "rgba(0,0,0,.55)" : "rgba(70,45,20,.28)"; g.shadowBlur = 12; g.shadowOffsetY = 5; g.drawImage(p.c, -p.pw / 2, -p.pw * 0.06 + p.dy, p.pw, p.ph); g.shadowColor = "rgba(0,0,0,0)";
         const dv = fxEase((t - 12) / 85); if (dv < 1) { g.globalAlpha = (1 - dv) * 0.94; g.fillStyle = "#47464E"; g.fillRect(-p.pw / 2 + p.m, -p.pw * 0.06 + p.dy + p.m, p.iw, p.iw); g.globalAlpha = 1; }
-        const pg = hbBack((t - 16) / 10); if (pg > 0) { const u = p.pw / 100; g.scale(pg, pg); g.fillStyle = "#C99A62"; g.fillRect(-4.6 * u, -13 * u, 4.4 * u, 25 * u); g.fillStyle = "#DDB47E"; g.fillRect(0.2 * u, -13 * u, 4.4 * u, 25 * u);
+        const pg = fxEase((t - 34) / 16); if (pg > 0) { const u = p.pw / 100; g.scale(pg, pg); g.fillStyle = "#C99A62"; g.fillRect(-4.6 * u, -13 * u, 4.4 * u, 25 * u); g.fillStyle = "#DDB47E"; g.fillRect(0.2 * u, -13 * u, 4.4 * u, 25 * u);
           g.fillStyle = "#9AA0A8"; g.fillRect(-5.4 * u, -3 * u, 10.8 * u, 2.6 * u); g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(0.9 * u, -12 * u, 1.2 * u, 22 * u); }
         g.restore(); } }
     // the shutter: blades close to a pinpoint, a soft flash, then open wide and fall away
-    const vis = fxEase(f / 6) * (1 - fxEase((f - 30) / 22)); if (vis <= 0) return;
-    const R = m * 0.24, cx = W / 2, cy = H * 0.42, sc = 1 + 0.8 * fxEase((f - 28) / 26), op = f < 6 ? 0.92 : f < 18 ? 0.92 - 0.88 * fxEase((f - 6) / 12) : f < 22 ? 0.04 : 0.04 + 1.06 * fxEase((f - 22) / 14), rot = (1 - op) * 1.3;
+    const vis = fxEase(f / 12) * (1 - fxEase((f - 50) / 28)); if (vis <= 0) return;
+    const R = m * 0.24, cx = W / 2, cy = H * 0.42, sc = 1 + 0.22 * fxEase((f - 44) / 34), op = f < 8 ? 0.92 : f < 32 ? 0.92 - 0.86 * fxEase((f - 8) / 24) : f < 36 ? 0.06 : 0.06 + 1.02 * fxEase((f - 36) / 24), rot = (1 - op) * 0.9;
     g.save(); g.globalAlpha = vis; g.translate(cx, cy); g.scale(sc, sc);
     if (op < 1.08) { const r = R * op; for (let i = 0; i < N; i++) { const a = rot + i / N * 6.283; P[2 * i] = Math.cos(a) * r; P[2 * i + 1] = Math.sin(a) * r; }
       g.save(); g.beginPath(); g.arc(0, 0, R, 0, 6.3); g.clip(); g.lineWidth = 1.2;
@@ -9068,7 +9068,7 @@ const hbPhoto = () => {
     const gr = g.createLinearGradient(-R, -R, R, R); gr.addColorStop(0, "#5A5E68"); gr.addColorStop(0.5, "#1C1D22"); gr.addColorStop(1, "#3A3D45"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.arc(0, 0, R, 0, 6.3, true); g.fill();
     g.strokeStyle = "rgba(255,214,150,.55)"; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R * 1.2, 0, 6.3); g.stroke(); g.strokeStyle = "rgba(255,255,255,.12)"; g.beginPath(); g.arc(0, 0, R * 1.1, 0, 6.3); g.stroke();
     g.fillStyle = "rgba(255,255,255,.4)"; for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283; g.fillRect(Math.cos(a) * R * 1.15 - 0.8, Math.sin(a) * R * 1.15 - 0.8, 1.6, 1.6); } g.restore();
-    const fl = f < 19 ? 0 : Math.min(1, (f - 19) / 2) * Math.exp(-(f - 21) / 9); if (fl > 0.01) { const gr2 = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.8); gr2.addColorStop(0, "rgba(255,250,235,1)"); gr2.addColorStop(1, "rgba(255,250,235,0)"); g.globalAlpha = Math.min(1, fl) * 0.22; g.fillStyle = gr2; g.fillRect(0, 0, W, H); } };
+    const fl = f < 31 ? 0 : fxEase((f - 31) / 6) * Math.exp(-Math.max(0, f - 37) / 14); if (fl > 0.01) { const gr2 = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.8); gr2.addColorStop(0, "rgba(255,250,235,1)"); gr2.addColorStop(1, "rgba(255,250,235,0)"); g.globalAlpha = Math.min(1, fl) * 0.22; g.fillStyle = gr2; g.fillRect(0, 0, W, H); } };
 };
 
 // Halloween: bats flap across in side view (heads first, wings beating) past a rising moon
@@ -9258,6 +9258,8 @@ const hbNightBits = (W, H, d, n) => fxTw(W, H, n(14), "sparkle", d ? ["#FFE7A8",
 // Thanksgiving: a cartoon turkey pops up at the bottom, fans its tail open feather by feather and bobs its head and wattle,
 // while a gust of autumn leaves swirls past in a spiral (some in front of the turkey, some behind) and acorns tumble down.
 const hbTurkey = () => {
+  // a soft settle with only a hint of overshoot, so the turkey and its feathers ease into place
+  const soft = t => t <= 0 ? 0 : t >= 1 ? 1 : 1 + 1.15 * Math.pow(t - 1, 3) + 0.15 * Math.pow(t - 1, 2);
   const S = hbRun((W, H, d) => { const ph = W < H, rb = Math.min(H * 0.105, W * 0.15, 92), u = hbSc(W, H);
     const feather = (L, col) => { const w = L * 0.2, cw = w * 2.6 + 4; const c = hbCv(cw, L + 4, x => { x.translate(cw / 2, L + 2);
       const P = () => { x.beginPath(); x.moveTo(0, 0); x.bezierCurveTo(w * 0.9, -L * 0.25, w * 1.2, -L * 0.8, 0, -L); x.bezierCurveTo(-w * 1.2, -L * 0.8, -w * 0.9, -L * 0.25, 0, 0); };
@@ -9275,7 +9277,7 @@ const hbTurkey = () => {
         x.beginPath(); x.moveTo(0, -0.55 * rb); x.bezierCurveTo(s * 0.42 * rb, -0.4 * rb, s * 0.4 * rb, 0.3 * rb, s * 0.05 * rb, 0.62 * rb); x.bezierCurveTo(-s * 0.2 * rb, 0.3 * rb, -s * 0.22 * rb, -0.3 * rb, 0, -0.55 * rb); x.fill();
         x.strokeStyle = "rgba(255,210,160,.25)"; [0, 0.2, 0.4].forEach(v => { x.beginPath(); x.moveTo(s * 0.02 * rb, (v - 0.05) * rb); x.quadraticCurveTo(s * 0.14 * rb, (v + 0.02) * rb, s * 0.22 * rb, (v + 0.12) * rb); x.stroke(); }); x.restore(); }); });
     const L = ph ? 18 : 30, shapes = ["maple", "oakleaf", "fallleaf", "maple"], cols = ["#C8561C", "#E07A2E", "#E8A13A", "#B5401A", "#9A5A2A"];
-    const leaves = Array.from({length: L}, (_, i) => { const q = (i >> 1) / (L / 2), rr = 0.12 + 0.88 * q + fxR(-0.1, 0.1); return {sh: shapes[i % 4], c: fxPick(cols), s: u * fxR(0.85, 1.25), th: (i % 2) * Math.PI + rr * 4.2 + fxR(-0.35, 0.35), om: 0.075 * (1.25 - 0.55 * rr), rr, lag: q * 14 + fxR(0, 4), spin: fxR(-0.06, 0.06), fr: fxR(0.05, 0.11), ph: fxR(0, 6.3), sink: fxR(0, 1)}; });
+    const leaves = Array.from({length: L}, (_, i) => { const q = (i >> 1) / (L / 2), rr = 0.12 + 0.88 * q + fxR(-0.1, 0.1); return {sh: shapes[i % 4], c: fxPick(cols), s: u * fxR(0.85, 1.25), th: (i % 2) * Math.PI + rr * 4.2 + fxR(-0.35, 0.35), om: 0.042 * (1.25 - 0.55 * rr), rr, lag: q * 14 + fxR(0, 4), spin: fxR(-0.025, 0.025), fr: fxR(0.03, 0.06), ph: fxR(0, 6.3), sink: fxR(0, 1)}; });
     return {ph, rb, u, fe, body, leaves, cx: W / 2, by: H - rb * 1.2, Rg: ph ? W * 0.42 : Math.min(W, H) * 0.34};
   });
   const leafPos = (s, l, f, W, H) => { const e = (f - 6 - l.lag) / 290, gx = W * (-0.3 + 1.6 * e), gy = H * (s.ph ? 0.3 : 0.32) + Math.sin(f * 0.02) * H * 0.05, r = s.Rg * l.rr * (0.55 + 0.45 * fxEase((f - l.lag) / 90)), th = l.th + l.om * f;
@@ -9286,20 +9288,20 @@ const hbTurkey = () => {
       g.globalAlpha = out * Math.min(1, (x + 40) / 120) * (front ? 1 : 0.85); g.save(); g.translate(x, y); g.rotate(l.ph + f * l.spin * 2); g.scale(k * Math.max(0.15, Math.abs(fl)), k); g.drawImage(spr, -h, -h, 2 * h, 2 * h); g.restore(); }
     g.globalAlpha = 1; };
   const back = leaves(false), front = leaves(true);
-  const draw = (g, f, W, H, d) => { back(g, f, W, H, d); const s = S(W, H, d, f), {rb} = s, out = 1, pop = hbBack(f / 26);   // the layer fade at the end covers it
+  const draw = (g, f, W, H, d) => { back(g, f, W, H, d); const s = S(W, H, d, f), {rb} = s, out = 1, pop = soft(f / 42);   // the layer fade at the end covers it
     g.save(); g.globalAlpha = out; g.translate(s.cx, s.by + rb * 1.2 * (1 - pop));
     if (d) { const hr = rb * 2.8, hg = g.createRadialGradient(0, -0.4 * rb, 0, 0, -0.4 * rb, hr); hg.addColorStop(0, "rgba(255,190,110,.22)"); hg.addColorStop(1, "rgba(255,190,110,0)"); g.globalAlpha = out * fxEase((f - 20) / 60); g.fillStyle = hg; g.fillRect(-hr, -0.4 * rb - hr, 2 * hr, 2 * hr); g.globalAlpha = out; }
     const bob = Math.sin(f * 0.11) * rb * 0.025;
-    const shake = hbBump(f, 108, 132), fy = -0.25 * rb;
-    for (const p of s.fe) { const e = hbBack((f - p.t0) / 18); if (e <= 0) continue; const an = p.an * e + Math.sin(f * 0.05 + p.an) * 0.015 + Math.sin(f * 1.3) * 0.035 * shake;
+    const shake = hbBump(f, 104, 150), fy = -0.25 * rb;
+    for (const p of s.fe) { const e = soft((f - p.t0) / 30); if (e <= 0) continue; const an = p.an * e + Math.sin(f * 0.05 + p.an) * 0.015 + Math.sin(f * 0.28 + p.an * 1.5) * 0.03 * shake;
       g.save(); g.translate(0, fy + bob * 0.5); g.rotate(an); const k = 0.45 + 0.55 * Math.min(1, e); g.scale(k, k); g.drawImage(p.spr, -p.spr._w / 2, -p.spr._L - 2, p.spr._w, p.spr._L + 4); g.restore(); }
     g.strokeStyle = "#E58A2A"; g.lineWidth = Math.max(2, rb * 0.07); g.lineCap = "round"; [-1, 1].forEach(sd => { g.beginPath(); g.moveTo(sd * 0.3 * rb, 0.8 * rb); g.lineTo(sd * 0.32 * rb, 1.08 * rb); [-0.14, 0, 0.14].forEach(t => { g.moveTo(sd * 0.32 * rb, 1.06 * rb); g.lineTo(sd * 0.32 * rb + t * rb, 1.16 * rb); }); g.stroke(); });
     g.drawImage(s.body, -rb * 1.3, -rb * 1.3 + bob, rb * 2.6, rb * 2.6);
-    // head: bobs, and gobbles (a quick side to side shake) twice; the wattle swings behind the motion
-    const gob = Math.max(hbBump(f, 120, 150), hbBump(f, 196, 226)), hx = Math.sin(f * 0.75) * 0.09 * rb * gob, hy = -1.18 * rb + Math.sin(f * 0.13) * 0.05 * rb + bob * 2, tilt = Math.sin(f * 0.75) * 0.12 * gob + Math.sin(f * 0.04) * 0.06;
+    // head: bobs, and gobbles twice with a gentle side to side wag; the wattle swings softly behind the motion
+    const gob = Math.max(hbBump(f, 120, 150), hbBump(f, 196, 226)), hx = Math.sin(f * 0.3) * 0.05 * rb * gob, hy = -1.18 * rb + Math.sin(f * 0.13) * 0.05 * rb + bob * 2, tilt = Math.sin(f * 0.3) * 0.07 * gob + Math.sin(f * 0.04) * 0.05;
     g.fillStyle = "#8A5230"; g.beginPath(); g.ellipse(hx * 0.5, -0.82 * rb + bob, 0.27 * rb, 0.4 * rb, 0, 0, 6.3); g.fill();
     g.save(); g.translate(hx, hy); g.rotate(tilt); const hg = g.createRadialGradient(-0.12 * rb, -0.14 * rb, 0, 0, 0, 0.42 * rb); hg.addColorStop(0, "#B57848"); hg.addColorStop(1, "#86502C"); g.fillStyle = hg; g.beginPath(); g.arc(0, 0, 0.4 * rb, 0, 6.3); g.fill();
-    const wa = -Math.sin(f * 0.75 - 0.9) * 0.7 * gob + Math.sin(f * 0.09) * 0.12; g.save(); g.translate(0.05 * rb, 0.1 * rb); g.rotate(wa); g.fillStyle = "#D8384A";
+    const wa = -Math.sin(f * 0.3 - 0.9) * 0.3 * gob + Math.sin(f * 0.07) * 0.08; g.save(); g.translate(0.05 * rb, 0.1 * rb); g.rotate(wa); g.fillStyle = "#D8384A";
     g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(0.14 * rb, 0.08 * rb, 0.16 * rb, 0.34 * rb, 0.03 * rb, 0.4 * rb); g.bezierCurveTo(-0.11 * rb, 0.38 * rb, -0.08 * rb, 0.12 * rb, 0, 0); g.fill(); g.restore();
     g.fillStyle = "#F2B03A"; g.beginPath(); g.moveTo(-0.11 * rb, 0.02 * rb); g.lineTo(0.11 * rb, 0.02 * rb); g.lineTo(0, 0.22 * rb); g.fill();
     const bl = Math.max(hbBump(f, 150, 158), hbBump(f, 232, 240)); [-1, 1].forEach(sd => { g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(sd * 0.15 * rb, -0.1 * rb, 0.12 * rb, 0.13 * rb * (1 - bl) + 0.01 * rb, 0, 0, 6.3); g.fill();
@@ -9365,7 +9367,7 @@ Object.assign(THEME_FX, {
   july4: {len: 340, spawn: (W, H, d, n) => fxFall(W, H, n(20), "star", d ? ["#FF4A4A", "#4F86FF", "#FFFFFF"] : ["#D0202E", "#2457C5", "#1D2F7A"], {sway: 1.2, smin: 7, smax: 10, spread: 60}).map(p => Object.assign(p, {delay: p.delay + 170})),
     draw: fxFirework(d => d ? ["#FF4A4A", "#FFFFFF", "#4F86FF"] : ["#D0202E", "#1D2F7A", "#2457C5"], {show: true, gold: ["#3A4C82", "#E6ECF7"], glit: ["#2B3A6E", "#F2F6FF"]})},
   halloween: {len: 300, spawn: hbNightBits, draw: hbNight()},
-  thanksgiving: Object.assign({len: 300, spawn: (W, H, d, n) => fxFall(W, H, n(5), "acorn", ["#B8793A", "#A0662E"], {vmin: 2, vmax: 3.5, sway: 0, smin: 11, smax: 13, depth: false}).map(p => Object.assign(p, {x: W * (Math.random() < 0.5 ? fxR(0.04, 0.28) : fxR(0.72, 0.96)), g: 0.3, bounce: true, vr: fxR(-0.1, 0.1), delay: Math.round(fxR(20, 120))}))
+  thanksgiving: Object.assign({len: 300, spawn: (W, H, d, n) => fxFall(W, H, n(5), "acorn", ["#B8793A", "#A0662E"], {vmin: 1, vmax: 1.8, sway: 0, smin: 11, smax: 13, depth: false}).map(p => Object.assign(p, {x: W * (Math.random() < 0.5 ? fxR(0.04, 0.28) : fxR(0.72, 0.96)), g: 0.1, bounce: true, vr: fxR(-0.035, 0.035), delay: Math.round(fxR(20, 120))}))
     .concat(fxFall(W, H, n(12), "oakleaf", ["#C8561C", "#E8A13A", "#9A5A2A"], {flip: true, smin: 9, smax: 12, sway: 1.4, vmin: 0.8, vmax: 1.6, spread: 60}).map(p => Object.assign(p, {delay: p.delay + 100, life: 190})))}, hbTurkey()),
   hanukkah: {spawn: (W, H, d, n) => fxTw(W, H, n(22), "stardavid", d ? ["#CFE0FF", "#FFFFFF", "#8FB0FF"] : ["#2F5FB8", "#5A86D6"], {smin: 7, smax: 11, glow: d ? 10 : 0, top: 0.6, spread: 140}).concat(fxBurst(W, H, n(8), "dreidel", ["#3D6AD6", "#5A86D6"], [[0.1, 1.02], [0.9, 1.02]], {smin: 12, smax: 14}), fxBurst(W, H, n(14), "coin", ["#F2C24A", "#E8B030"], [[0.1, 1.02], [0.9, 1.02]], {smin: 8, smax: 11, flip: true})), draw: hbMenorah},
   diwali: {spawn: (W, H, d, n) => fxRise(W, H, n(26), "circle", ["#FFB347", "#FFD86B", "#FF8A3A"], {smin: 1.6, smax: 3.2, sway: 0.8, glow: 10, vmin: 1, vmax: 2.2, spread: 120}).concat(fxBurst(W, H, n(16), "marigold", ["#F29A1E", "#F2C02A", "#E8601C"], [[0.1, 1.02], [0.9, 1.02]], {smin: 9, smax: 12})),
@@ -25197,13 +25199,13 @@ var MAJ_THEMES = [];
   // the sea lion, side view, pointing to +x with its back up; it undulates as it swims
   const SLR = [[0, 0.012], [0.1, 0.045], [0.28, 0.1], [0.48, 0.125], [0.66, 0.105], [0.78, 0.072], [0.86, 0.078], [0.94, 0.055], [1, 0.012]];
   const slR = u => { for (let k = 1; k < SLR.length; k++) if (u <= SLR[k][0]) { const a = SLR[k - 1], b = SLR[k], q = (1 - Math.cos(Math.PI * (u - a[0]) / (b[0] - a[0]))) / 2; return a[1] + (b[1] - a[1]) * q; } return 0.012; };
-  const kfLion = (g, f, dk, x, y, ang, L) => { const yo = u => Math.sin(u * 5.5 - f * 0.26) * 0.035 * Math.pow(1 - u, 1.6), N = 26, top = [], bot = [];
+  const kfLion = (g, f, dk, x, y, ang, L) => { const yo = u => Math.sin(u * 5.5 - f * 0.13) * 0.03 * Math.pow(1 - u, 1.6), N = 26, top = [], bot = [];
     for (let k = 0; k <= N; k++) { const u = k / N, X = -0.5 + u, r = slR(u), c = yo(u); top.push([X, c - r]); bot.push([X, c + r * 0.92]); }
     g.save(); g.translate(x, y); g.rotate(ang); if (Math.cos(ang) < 0) g.scale(1, -1); g.scale(L, L);
     const fl = (px, py, len, a0, col) => { g.save(); g.translate(px, py); g.rotate(a0); g.fillStyle = col; g.beginPath(); g.moveTo(0, -0.035); g.bezierCurveTo(len * 0.4, -0.06, len * 0.85, -0.045, len, 0.005); g.bezierCurveTo(len * 0.8, 0.04, len * 0.4, 0.045, 0, 0.035); g.fill(); g.restore(); };
-    const sw = Math.sin(f * 0.26), C = dk ? ["#8A5E3C", "#5E3E26", "#C49A70"] : ["#7A5236", "#4E321E", "#B48A62"];
+    const sw = Math.sin(f * 0.13), C = dk ? ["#8A5E3C", "#5E3E26", "#C49A70"] : ["#7A5236", "#4E321E", "#B48A62"];
     fl(0.17, 0.05 + yo(0.66), 0.27, 2.55 + 0.3 * sw, C[1]);
-    [-1, 1].forEach(s => fl(-0.48, yo(0.02), 0.2, Math.PI + s * 0.28 + 0.15 * Math.sin(f * 0.26 + 1), C[1]));
+    [-1, 1].forEach(s => fl(-0.48, yo(0.02), 0.2, Math.PI + s * 0.28 + 0.12 * Math.sin(f * 0.13 + 1), C[1]));
     const b = new Path2D(); top.forEach((p, k) => k ? b.lineTo(p[0], p[1]) : b.moveTo(p[0], p[1])); for (let k = N; k >= 0; k--) b.lineTo(bot[k][0], bot[k][1]); b.closePath();
     const gr = g.createLinearGradient(0, -0.13, 0, 0.12); gr.addColorStop(0, C[1]); gr.addColorStop(0.45, C[0]); gr.addColorStop(1, C[2]); g.fillStyle = gr; g.fill(b);
     g.strokeStyle = "rgba(255,230,200,.25)"; g.lineWidth = 0.008; g.beginPath(); top.slice(6, 22).forEach((p, k) => k ? g.lineTo(p[0], p[1] + 0.02) : g.moveTo(p[0], p[1] + 0.02)); g.stroke();
@@ -25224,10 +25226,10 @@ var MAJ_THEMES = [];
     const yA = x => S.y + Math.sin(x / W * 3.6 + S.ph + f * 0.012) * H * S.amp;
     for (const q of S.F) { const xs = lead - q.lag; if (xs < -40 || xs > W + 40) continue; const xx = S.dir > 0 ? xs : W - xs, y0 = yA(xx), ang = Math.atan2(yA(xx + S.dir * 4) - y0, S.dir * 4), band = H * S.bw * (0.35 + 0.65 * Math.sin(Math.PI * q.lag / S.Lr));
       let px = xx - Math.sin(ang) * q.side * band, py = y0 + Math.cos(ang) * q.side * band + Math.sin(f * 0.07 + q.ph) * 2;
-      let rot = ang; if (on) { const dx = px - lx, dy = py - ly, d = Math.hypot(dx, dy); if (d < R * 1.6) { const k = ease(1 - d / (R * 1.6)) * R * 0.95; px += dx / (d || 1) * k; py += dy / (d || 1) * k; rot += Math.sign(dx * Math.sin(ang) - dy * Math.cos(ang)) * -0.5 * k / R; } }
-      const s = q.sz * sc / 10, mx = S.dir > 0 ? 1 : -1, r2 = (S.dir > 0 ? rot : rot - Math.PI) * 1 + Math.sin(f * 0.35 + q.ph) * 0.08;
+      let rot = ang; if (on) { const dx = px - lx, dy = py - ly, d = Math.hypot(dx, dy); if (d < R * 1.9) { const k = ease(1 - d / (R * 1.9)) * R * 0.6; px += dx / (d || 1) * k; py += dy / (d || 1) * k; rot += Math.sign(dx * Math.sin(ang) - dy * Math.cos(ang)) * -0.25 * k / R; } }
+      const s = q.sz * sc / 10, mx = S.dir > 0 ? 1 : -1, r2 = (S.dir > 0 ? rot : rot - Math.PI) * 1 + Math.sin(f * 0.2 + q.ph) * 0.05;
       g.save(); g.translate(px, py); g.rotate(r2); g.scale(s * mx, s); g.globalAlpha = q.al; g.drawImage(spr, -h, -h, 2 * h, 2 * h); const sh = Math.pow(Math.max(0, Math.sin(f * 0.11 - q.lag * 0.012 + q.side)), 6); if (sh > 0.03) { g.globalAlpha = q.al * sh; g.drawImage(hi, -h, -h, 2 * h, 2 * h); } g.restore(); }
-    if (on) { g.globalAlpha = ease(u * 8) * ease((1.1 - u) * 8); kfLion(g, f, dk, lx, ly, sl.ang + Math.sin(f * 0.08) * 0.05, L); g.globalAlpha = 1; }
+    if (on) { g.globalAlpha = ease(u * 8) * ease((1.1 - u) * 8); kfLion(g, f, dk, lx, ly, sl.ang + Math.sin(f * 0.04) * 0.04, L); g.globalAlpha = 1; }
     KF.kelp.forEach(s => !s.back && kfStalk(g, f, W, H, dk, s)); };
 
   const FX = {
@@ -25239,10 +25241,10 @@ var MAJ_THEMES = [];
           .concat(fxRise(W, H, n(12), "n6soft", ["#FFFFFF"], {cx: [0.42, 0.58], smin: 8, smax: 12, vmin: 0.8, vmax: 1.4, sway: 1.2, grow: 0.3, alpha: d ? 0.09 : 0.5, life: 150, spread: 150, depth: false}).map(p => Object.assign(p, {y: H - pw * 0.3, delay: p.delay + 24})),
             fxTw(W, H, n(18), "sparkle", d ? ["#FFE7B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 4, smax: 8, glow: d ? 10 : 4, top: 0.7, spread: 160}));
       }, draw: panDraw},
-    marinebio: {spawn: (W, H, d, n) => { const M = Math.min(W, H), ph = W < H, kn = Math.max(3, Math.min(8, Math.round(W / 170))), dir = Math.random() < 0.5 ? 1 : -1, L = Math.max(130, Math.min(M * (ph ? 0.5 : 0.36), 320));
+    marinebio: {spawn: (W, H, d, n) => { const M = Math.min(W, H), ph = W < H, kn = Math.max(3, Math.min(8, Math.round(W / 170))), dir = Math.random() < 0.5 ? 1 : -1, L = Math.max(120, Math.min(M * (ph ? 0.44 : 0.3), 270));
         const kelp = []; [1, 0].forEach(back => { for (let i = 0; i < kn + back; i++) kelp.push({back, x: (i + (back ? 0 : 0.5) + fxR(-0.25, 0.25)) / (kn + back) * W, h: H * fxR(0.55, 0.95) * (back ? 0.85 : 1), ph: fxR(0, 6.3), t0: Math.floor(fxR(0, 40)) + (back ? 0 : 10), k: fxR(0.9, 1.15)}); });
         const N = n(110), Lr = W * (ph ? 0.9 : 0.55), sp = Lr / N;
-        KF = {kelp, sl: {L, d0: 55, dur: 150, ang: 0, p: [[dir > 0 ? -L : W + L, H * 0.88], [W * 0.5, H * 0.55], [dir > 0 ? W + L : -L, H * 0.12]]},
+        KF = {kelp, sl: {L, d0: 30, dur: 230, ang: 0, p: [[dir > 0 ? -L : W + L, H * 0.78], [W * 0.5, H * 0.56], [dir > 0 ? W + L : -L, H * 0.24]]},
           sh: {d0: 20, v: (W * 0.55 + Lr * 0.5) / 110, dir: -dir, Lr, y: H * 0.5, amp: ph ? 0.06 : 0.1, bw: ph ? 0.03 : 0.045, ph: fxR(0, 6), F: Array.from({length: N}, (_, i) => { const z = fxR(0.85, 1.1); return {lag: i * sp + fxR(0, sp), side: fxR(-1, 1), ph: fxR(0, 6.3), sz: 8.5 * z, al: fxDim(z)}; })}};
         const p = KF.sl.p; KF.sl.ang = Math.atan2(p[2][1] - p[0][1], p[2][0] - p[0][0]);
         return school(W, H, n(5), "n6gari", {per: 1, smin: 14, smax: 17, y0: 0.55, y1: 0.9, spread: 100}).map(q => Object.assign(q, {vx: q.vx * 0.32, sway: 1.1, swf: 0.03}))

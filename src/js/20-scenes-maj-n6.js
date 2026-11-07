@@ -87,13 +87,13 @@
   // the sea lion, side view, pointing to +x with its back up; it undulates as it swims
   const SLR = [[0, 0.012], [0.1, 0.045], [0.28, 0.1], [0.48, 0.125], [0.66, 0.105], [0.78, 0.072], [0.86, 0.078], [0.94, 0.055], [1, 0.012]];
   const slR = u => { for (let k = 1; k < SLR.length; k++) if (u <= SLR[k][0]) { const a = SLR[k - 1], b = SLR[k], q = (1 - Math.cos(Math.PI * (u - a[0]) / (b[0] - a[0]))) / 2; return a[1] + (b[1] - a[1]) * q; } return 0.012; };
-  const kfLion = (g, f, dk, x, y, ang, L) => { const yo = u => Math.sin(u * 5.5 - f * 0.26) * 0.035 * Math.pow(1 - u, 1.6), N = 26, top = [], bot = [];
+  const kfLion = (g, f, dk, x, y, ang, L) => { const yo = u => Math.sin(u * 5.5 - f * 0.13) * 0.03 * Math.pow(1 - u, 1.6), N = 26, top = [], bot = [];
     for (let k = 0; k <= N; k++) { const u = k / N, X = -0.5 + u, r = slR(u), c = yo(u); top.push([X, c - r]); bot.push([X, c + r * 0.92]); }
     g.save(); g.translate(x, y); g.rotate(ang); if (Math.cos(ang) < 0) g.scale(1, -1); g.scale(L, L);
     const fl = (px, py, len, a0, col) => { g.save(); g.translate(px, py); g.rotate(a0); g.fillStyle = col; g.beginPath(); g.moveTo(0, -0.035); g.bezierCurveTo(len * 0.4, -0.06, len * 0.85, -0.045, len, 0.005); g.bezierCurveTo(len * 0.8, 0.04, len * 0.4, 0.045, 0, 0.035); g.fill(); g.restore(); };
-    const sw = Math.sin(f * 0.26), C = dk ? ["#8A5E3C", "#5E3E26", "#C49A70"] : ["#7A5236", "#4E321E", "#B48A62"];
+    const sw = Math.sin(f * 0.13), C = dk ? ["#8A5E3C", "#5E3E26", "#C49A70"] : ["#7A5236", "#4E321E", "#B48A62"];
     fl(0.17, 0.05 + yo(0.66), 0.27, 2.55 + 0.3 * sw, C[1]);
-    [-1, 1].forEach(s => fl(-0.48, yo(0.02), 0.2, Math.PI + s * 0.28 + 0.15 * Math.sin(f * 0.26 + 1), C[1]));
+    [-1, 1].forEach(s => fl(-0.48, yo(0.02), 0.2, Math.PI + s * 0.28 + 0.12 * Math.sin(f * 0.13 + 1), C[1]));
     const b = new Path2D(); top.forEach((p, k) => k ? b.lineTo(p[0], p[1]) : b.moveTo(p[0], p[1])); for (let k = N; k >= 0; k--) b.lineTo(bot[k][0], bot[k][1]); b.closePath();
     const gr = g.createLinearGradient(0, -0.13, 0, 0.12); gr.addColorStop(0, C[1]); gr.addColorStop(0.45, C[0]); gr.addColorStop(1, C[2]); g.fillStyle = gr; g.fill(b);
     g.strokeStyle = "rgba(255,230,200,.25)"; g.lineWidth = 0.008; g.beginPath(); top.slice(6, 22).forEach((p, k) => k ? g.lineTo(p[0], p[1] + 0.02) : g.moveTo(p[0], p[1] + 0.02)); g.stroke();
@@ -114,10 +114,10 @@
     const yA = x => S.y + Math.sin(x / W * 3.6 + S.ph + f * 0.012) * H * S.amp;
     for (const q of S.F) { const xs = lead - q.lag; if (xs < -40 || xs > W + 40) continue; const xx = S.dir > 0 ? xs : W - xs, y0 = yA(xx), ang = Math.atan2(yA(xx + S.dir * 4) - y0, S.dir * 4), band = H * S.bw * (0.35 + 0.65 * Math.sin(Math.PI * q.lag / S.Lr));
       let px = xx - Math.sin(ang) * q.side * band, py = y0 + Math.cos(ang) * q.side * band + Math.sin(f * 0.07 + q.ph) * 2;
-      let rot = ang; if (on) { const dx = px - lx, dy = py - ly, d = Math.hypot(dx, dy); if (d < R * 1.6) { const k = ease(1 - d / (R * 1.6)) * R * 0.95; px += dx / (d || 1) * k; py += dy / (d || 1) * k; rot += Math.sign(dx * Math.sin(ang) - dy * Math.cos(ang)) * -0.5 * k / R; } }
-      const s = q.sz * sc / 10, mx = S.dir > 0 ? 1 : -1, r2 = (S.dir > 0 ? rot : rot - Math.PI) * 1 + Math.sin(f * 0.35 + q.ph) * 0.08;
+      let rot = ang; if (on) { const dx = px - lx, dy = py - ly, d = Math.hypot(dx, dy); if (d < R * 1.9) { const k = ease(1 - d / (R * 1.9)) * R * 0.6; px += dx / (d || 1) * k; py += dy / (d || 1) * k; rot += Math.sign(dx * Math.sin(ang) - dy * Math.cos(ang)) * -0.25 * k / R; } }
+      const s = q.sz * sc / 10, mx = S.dir > 0 ? 1 : -1, r2 = (S.dir > 0 ? rot : rot - Math.PI) * 1 + Math.sin(f * 0.2 + q.ph) * 0.05;
       g.save(); g.translate(px, py); g.rotate(r2); g.scale(s * mx, s); g.globalAlpha = q.al; g.drawImage(spr, -h, -h, 2 * h, 2 * h); const sh = Math.pow(Math.max(0, Math.sin(f * 0.11 - q.lag * 0.012 + q.side)), 6); if (sh > 0.03) { g.globalAlpha = q.al * sh; g.drawImage(hi, -h, -h, 2 * h, 2 * h); } g.restore(); }
-    if (on) { g.globalAlpha = ease(u * 8) * ease((1.1 - u) * 8); kfLion(g, f, dk, lx, ly, sl.ang + Math.sin(f * 0.08) * 0.05, L); g.globalAlpha = 1; }
+    if (on) { g.globalAlpha = ease(u * 8) * ease((1.1 - u) * 8); kfLion(g, f, dk, lx, ly, sl.ang + Math.sin(f * 0.04) * 0.04, L); g.globalAlpha = 1; }
     KF.kelp.forEach(s => !s.back && kfStalk(g, f, W, H, dk, s)); };
 
   const FX = {
@@ -129,10 +129,10 @@
           .concat(fxRise(W, H, n(12), "n6soft", ["#FFFFFF"], {cx: [0.42, 0.58], smin: 8, smax: 12, vmin: 0.8, vmax: 1.4, sway: 1.2, grow: 0.3, alpha: d ? 0.09 : 0.5, life: 150, spread: 150, depth: false}).map(p => Object.assign(p, {y: H - pw * 0.3, delay: p.delay + 24})),
             fxTw(W, H, n(18), "sparkle", d ? ["#FFE7B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 4, smax: 8, glow: d ? 10 : 4, top: 0.7, spread: 160}));
       }, draw: panDraw},
-    marinebio: {spawn: (W, H, d, n) => { const M = Math.min(W, H), ph = W < H, kn = Math.max(3, Math.min(8, Math.round(W / 170))), dir = Math.random() < 0.5 ? 1 : -1, L = Math.max(130, Math.min(M * (ph ? 0.5 : 0.36), 320));
+    marinebio: {spawn: (W, H, d, n) => { const M = Math.min(W, H), ph = W < H, kn = Math.max(3, Math.min(8, Math.round(W / 170))), dir = Math.random() < 0.5 ? 1 : -1, L = Math.max(120, Math.min(M * (ph ? 0.44 : 0.3), 270));
         const kelp = []; [1, 0].forEach(back => { for (let i = 0; i < kn + back; i++) kelp.push({back, x: (i + (back ? 0 : 0.5) + fxR(-0.25, 0.25)) / (kn + back) * W, h: H * fxR(0.55, 0.95) * (back ? 0.85 : 1), ph: fxR(0, 6.3), t0: Math.floor(fxR(0, 40)) + (back ? 0 : 10), k: fxR(0.9, 1.15)}); });
         const N = n(110), Lr = W * (ph ? 0.9 : 0.55), sp = Lr / N;
-        KF = {kelp, sl: {L, d0: 55, dur: 150, ang: 0, p: [[dir > 0 ? -L : W + L, H * 0.88], [W * 0.5, H * 0.55], [dir > 0 ? W + L : -L, H * 0.12]]},
+        KF = {kelp, sl: {L, d0: 30, dur: 230, ang: 0, p: [[dir > 0 ? -L : W + L, H * 0.78], [W * 0.5, H * 0.56], [dir > 0 ? W + L : -L, H * 0.24]]},
           sh: {d0: 20, v: (W * 0.55 + Lr * 0.5) / 110, dir: -dir, Lr, y: H * 0.5, amp: ph ? 0.06 : 0.1, bw: ph ? 0.03 : 0.045, ph: fxR(0, 6), F: Array.from({length: N}, (_, i) => { const z = fxR(0.85, 1.1); return {lag: i * sp + fxR(0, sp), side: fxR(-1, 1), ph: fxR(0, 6.3), sz: 8.5 * z, al: fxDim(z)}; })}};
         const p = KF.sl.p; KF.sl.ang = Math.atan2(p[2][1] - p[0][1], p[2][0] - p[0][0]);
         return school(W, H, n(5), "n6gari", {per: 1, smin: 14, smax: 17, y0: 0.55, y1: 0.9, spread: 100}).map(q => Object.assign(q, {vx: q.vx * 0.32, sway: 1.1, swf: 0.03}))
