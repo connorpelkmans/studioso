@@ -66,11 +66,12 @@
   // the sun disc of Ra swells up out of the haze with slow-turning rays behind it, and the ibis fly across in front
   const sunDraw = (g, f, W, H, d) => { const a = fxEase(f / 45) * fxOut(f, 200, 285); if (a <= 0) return; const ph = W < H, R = Math.min(W, H) * (ph ? 0.12 : 0.095), cx = W * (ph ? 0.64 : 0.66), cy = H * (ph ? 0.22 : 0.25) + (1 - fxEase(f / 140)) * H * 0.05;
     g.globalCompositeOperation = d ? "lighter" : "source-over"; let gr = g.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 3.4); gr.addColorStop(0, d ? "rgba(255,200,110,.32)" : "rgba(255,214,140,.55)"); gr.addColorStop(1, "rgba(255,200,120,0)");
-    g.globalAlpha = a; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * 3.4, 0, 6.3); g.fill();
+    g.globalAlpha = d ? a * Math.min(1, fxEase(f / 40) * fxOut(f, 185, 240) * 1.6) : a; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * 3.4, 0, 6.3); g.fill();
     gr = g.createRadialGradient(cx, cy, R, cx, cy, R * 2.9); gr.addColorStop(0, d ? "rgba(255,214,140,.22)" : "rgba(255,190,90,.24)"); gr.addColorStop(1, "rgba(255,200,120,0)"); g.fillStyle = gr; g.beginPath();
     for (let i = 0; i < 16; i++) { const t = i / 16 * 6.283 + f * 0.0025, w = i % 2 ? 0.05 : 0.085, L = R * (i % 2 ? 2.3 : 2.9); g.moveTo(cx + Math.cos(t - w) * R, cy + Math.sin(t - w) * R); g.lineTo(cx + Math.cos(t) * L, cy + Math.sin(t) * L); g.lineTo(cx + Math.cos(t + w) * R, cy + Math.sin(t + w) * R); } g.fill();
-    gr = g.createRadialGradient(cx - R * 0.25, cy - R * 0.3, 0, cx, cy, R); gr.addColorStop(0, "#FFF8DC"); gr.addColorStop(0.6, d ? "#FFD98A" : "#FFD27A"); gr.addColorStop(1, d ? "#F2B85A" : "#F4B04E");
-    g.globalAlpha = a * (d ? 0.62 : 0.8); g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * (0.9 + 0.1 * fxEase(f / 60)), 0, 6.3); g.fill(); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; };
+    // at night a see-through sun over navy would read grey, so there the disc stays bright gold and grows from / shrinks to a point instead
+    const sz = d ? fxEase(f / 40) * fxOut(f, 185, 240) : 1; gr = g.createRadialGradient(cx - R * 0.25, cy - R * 0.3, 0, cx, cy, R); gr.addColorStop(0, d ? "#FFF2C8" : "#FFF8DC"); gr.addColorStop(0.6, d ? "#FFD07A" : "#FFD27A"); gr.addColorStop(1, d ? "#F2A848" : "#F4B04E");
+    g.globalAlpha = d ? 0.88 * Math.min(1, sz * 8) : a * 0.8; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * (d ? sz : 0.9 + 0.1 * fxEase(f / 60)), 0, 6.3); g.fill(); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; };
   // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "egypt", name: "Egypt", group: "world", desc: "The pyramids at golden hour above the Nile.",

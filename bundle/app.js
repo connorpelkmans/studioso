@@ -26404,11 +26404,12 @@ var MAJ_THEMES = [];
   // the sun disc of Ra swells up out of the haze with slow-turning rays behind it, and the ibis fly across in front
   const sunDraw = (g, f, W, H, d) => { const a = fxEase(f / 45) * fxOut(f, 200, 285); if (a <= 0) return; const ph = W < H, R = Math.min(W, H) * (ph ? 0.12 : 0.095), cx = W * (ph ? 0.64 : 0.66), cy = H * (ph ? 0.22 : 0.25) + (1 - fxEase(f / 140)) * H * 0.05;
     g.globalCompositeOperation = d ? "lighter" : "source-over"; let gr = g.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 3.4); gr.addColorStop(0, d ? "rgba(255,200,110,.32)" : "rgba(255,214,140,.55)"); gr.addColorStop(1, "rgba(255,200,120,0)");
-    g.globalAlpha = a; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * 3.4, 0, 6.3); g.fill();
+    g.globalAlpha = d ? a * Math.min(1, fxEase(f / 40) * fxOut(f, 185, 240) * 1.6) : a; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * 3.4, 0, 6.3); g.fill();
     gr = g.createRadialGradient(cx, cy, R, cx, cy, R * 2.9); gr.addColorStop(0, d ? "rgba(255,214,140,.22)" : "rgba(255,190,90,.24)"); gr.addColorStop(1, "rgba(255,200,120,0)"); g.fillStyle = gr; g.beginPath();
     for (let i = 0; i < 16; i++) { const t = i / 16 * 6.283 + f * 0.0025, w = i % 2 ? 0.05 : 0.085, L = R * (i % 2 ? 2.3 : 2.9); g.moveTo(cx + Math.cos(t - w) * R, cy + Math.sin(t - w) * R); g.lineTo(cx + Math.cos(t) * L, cy + Math.sin(t) * L); g.lineTo(cx + Math.cos(t + w) * R, cy + Math.sin(t + w) * R); } g.fill();
-    gr = g.createRadialGradient(cx - R * 0.25, cy - R * 0.3, 0, cx, cy, R); gr.addColorStop(0, "#FFF8DC"); gr.addColorStop(0.6, d ? "#FFD98A" : "#FFD27A"); gr.addColorStop(1, d ? "#F2B85A" : "#F4B04E");
-    g.globalAlpha = a * (d ? 0.62 : 0.8); g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * (0.9 + 0.1 * fxEase(f / 60)), 0, 6.3); g.fill(); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; };
+    // at night a see-through sun over navy would read grey, so there the disc stays bright gold and grows from / shrinks to a point instead
+    const sz = d ? fxEase(f / 40) * fxOut(f, 185, 240) : 1; gr = g.createRadialGradient(cx - R * 0.25, cy - R * 0.3, 0, cx, cy, R); gr.addColorStop(0, d ? "#FFF2C8" : "#FFF8DC"); gr.addColorStop(0.6, d ? "#FFD07A" : "#FFD27A"); gr.addColorStop(1, d ? "#F2A848" : "#F4B04E");
+    g.globalAlpha = d ? 0.88 * Math.min(1, sz * 8) : a * 0.8; g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R * (d ? sz : 0.9 + 0.1 * fxEase(f / 60)), 0, 6.3); g.fill(); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; };
   // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "egypt", name: "Egypt", group: "world", desc: "The pyramids at golden hour above the Nile.",
@@ -26468,8 +26469,8 @@ var MAJ_THEMES = [];
     g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(-0.42, 0.06, 0.13, 0.09, 0.2, 0, 6.3); g.fill(); g.restore(); g.strokeStyle = rim; g.lineWidth = 0.018; g.stroke(bp);
     // the long black neck and head with its white chinstrap
     g.lineCap = "round"; if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.15; g.beginPath(); g.moveTo(0.38, -0.04); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); }
-    g.strokeStyle = GZ.black; g.lineWidth = 0.11; g.beginPath(); g.moveTo(0.36, -0.03); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); g.fillStyle = GZ.black; g.beginPath(); g.ellipse(0.98, -0.1, 0.1, 0.07, 0.05, 0, 6.3); g.fill(); if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.02; g.stroke(); }
-    g.beginPath(); g.moveTo(1.05, -0.12); g.lineTo(1.17, -0.09); g.lineTo(1.05, -0.06); g.closePath(); g.fill(); g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(0.95, -0.075, 0.055, 0.035, 0.5, 0, 6.3); g.fill();
+    g.strokeStyle = GZ.black; g.lineWidth = 0.11; g.beginPath(); g.moveTo(0.36, -0.03); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); g.fillStyle = GZ.black; g.beginPath(); g.ellipse(0.99, -0.1, 0.115, 0.08, 0.05, 0, 6.3); g.fill(); if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.02; g.stroke(); }
+    g.beginPath(); g.moveTo(1.06, -0.125); g.lineTo(1.2, -0.095); g.lineTo(1.06, -0.065); g.closePath(); g.fill(); g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(0.96, -0.07, 0.07, 0.042, 0.45, 0, 6.3); g.fill();
     g.fillStyle = dk ? "#C8C0B4" : "#B8AC9C"; g.beginPath(); g.ellipse(0.4, 0.02, 0.07, 0.08, 0, 0, 6.3); g.fill();
     wing(0.24, 0, GZ.wing, GZ.hand); };
   // each V glides on a gentle wave, every bird drifts a little in its slot, faces its heading and beats slightly out of phase

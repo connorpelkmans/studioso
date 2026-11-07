@@ -36,8 +36,8 @@
     g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(-0.42, 0.06, 0.13, 0.09, 0.2, 0, 6.3); g.fill(); g.restore(); g.strokeStyle = rim; g.lineWidth = 0.018; g.stroke(bp);
     // the long black neck and head with its white chinstrap
     g.lineCap = "round"; if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.15; g.beginPath(); g.moveTo(0.38, -0.04); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); }
-    g.strokeStyle = GZ.black; g.lineWidth = 0.11; g.beginPath(); g.moveTo(0.36, -0.03); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); g.fillStyle = GZ.black; g.beginPath(); g.ellipse(0.98, -0.1, 0.1, 0.07, 0.05, 0, 6.3); g.fill(); if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.02; g.stroke(); }
-    g.beginPath(); g.moveTo(1.05, -0.12); g.lineTo(1.17, -0.09); g.lineTo(1.05, -0.06); g.closePath(); g.fill(); g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(0.95, -0.075, 0.055, 0.035, 0.5, 0, 6.3); g.fill();
+    g.strokeStyle = GZ.black; g.lineWidth = 0.11; g.beginPath(); g.moveTo(0.36, -0.03); g.quadraticCurveTo(0.7, -0.1, 0.94, -0.1); g.stroke(); g.fillStyle = GZ.black; g.beginPath(); g.ellipse(0.99, -0.1, 0.115, 0.08, 0.05, 0, 6.3); g.fill(); if (dk) { g.strokeStyle = "rgba(226,230,244,.5)"; g.lineWidth = 0.02; g.stroke(); }
+    g.beginPath(); g.moveTo(1.06, -0.125); g.lineTo(1.2, -0.095); g.lineTo(1.06, -0.065); g.closePath(); g.fill(); g.fillStyle = "#FFFFFF"; g.beginPath(); g.ellipse(0.96, -0.07, 0.07, 0.042, 0.45, 0, 6.3); g.fill();
     g.fillStyle = dk ? "#C8C0B4" : "#B8AC9C"; g.beginPath(); g.ellipse(0.4, 0.02, 0.07, 0.08, 0, 0, 6.3); g.fill();
     wing(0.24, 0, GZ.wing, GZ.hand); };
   // each V glides on a gentle wave, every bird drifts a little in its slot, faces its heading and beats slightly out of phase
