@@ -52187,7 +52187,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 67, w: 3},
         cheeks: {lx: 42, rx: 78, y: 64, w: 4.4, h: 2.7, color: "#FF8FB8"},
-        anchors: {top: [60, 38, 0.9, 0], neck: [60, 84.5, 1, 0, 26, 14], chest: [71, 90.5, 0.6], back: [83, 56, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 78.5, 0.85, 0, 34, 30], chest: [71, 90.5, 0.6], back: [83, 56, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! Zipping by just for you!", "You're humming along so nicely!", "Sweet little wins add up! Yay!", "Hover a moment and breathe! Lovely!", "Zippy cheers, all for you!", "Sip of water? I'll join you!", "You're doing amazing! Hum hum!"],
           pet: ["Hehe, that tickles! Hum hum!", "So happy! My wings are buzzing!"],
@@ -52682,7 +52682,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 50, r: 5.8, style: "dot", color: "#16163A"},
         mouth: {x: 60, y: 62, w: 2.4, style: "cat", color: "#16163A"},
         cheeks: {lx: 42, rx: 78, y: 59, w: 3.8, h: 2.4, color: "#FF8FC8"},
-        anchors: {top: [60, 31, 0.95, 0], neck: [60, 68, 0.95, 0, 51, 41], chest: [69, 74, 0.6], back: [80, 74, 0.8], hands: [60, 86, 0.85]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 69.5, 0.85, 0, 32, 40], chest: [69, 74, 0.6], back: [80, 74, 0.8], hands: [60, 86, 0.85]},
         lines: {
           tap: ["Wheee! Hi hi! I glided over just for you!", "Look at you, showing up again! I love it!", "The whole city glows brighter when you're here!", "You're shining like the best neon sign in town!", "Big eyes, big dreams, and you're chasing them!", "One leap at a time, and you're soaring!", "Yay, a visit! You totally made my night!"],
           pet: ["Aww, a cuddle! My fluff is so happy!", "Hehe! Extra fluffy now, thank you!"],
@@ -54737,7 +54737,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 52.5, r: 5.4, style: "round", color: "#2A1C2E"},
         mouth: {x: 60, y: 62.5, w: 2.8, color: "#2A1C2E"},
         cheeks: {lx: 42.5, rx: 77.5, y: 61, w: 4.2, h: 2.6, color: "#FF9FC4"},
-        anchors: {top: [60, 31, 0.95, 0], neck: [60, 74, 1, 0, 59, 51], chest: [71, 81, 0.66], back: [84, 84, 0.85], hands: [60, 94, 0.9]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 75, 0.95, 0, 36, 51], chest: [71, 81, 0.66], back: [84, 84, 0.85], hands: [60, 94, 0.9]},
         lines: {
           tap: ["Squeak! I'm so happy you're here!", "You're batty good at this!", "Look at you, flying through it!", "My sweater feels extra cozy with you!", "I'm cheering upside down for you!", "Flap flap! You're amazing today!", "You've got this, I just know it!"],
           pet: ["Squeak! My sweater is so cozy now!", "Hehe! My wings are all wiggly!"],
@@ -56088,7 +56088,7 @@ var COMP_KIT = (() => {
         },
         mouth: {x: 60, y: 58.5, w: 3},
         cheeks: {lx: 43.5, rx: 76.5, y: 57, w: 4.4, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 31, 1, 0], neck: [60, 71, 1.05, 0, 56, 61], chest: [71, 79, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 31, 1, 0], neck: [60, 73, 1, 0, 44, 61], chest: [71, 79, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Coo coo! Hi! You made my whole day!", "You're doing amazing! Rooftop cheers!", "Look at you, showing up again! Yay!", "You're on fire today! Coo!", "Best view in the city? You, working hard!", "Every step counts! I'm cooing for you!", "I'm your biggest fan on this rooftop!"],
           pet: ["Coo coo! Hehe, my feathers are all puffy!", "Ooh! Happy little head bob for you!"],
@@ -56157,7 +56157,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 46, rx: 62, y: 68, r: 4.4, style: "dot", color: "#3A2A3A"},
         mouth: {x: 54, y: 76, w: 2.8, color: "#3A2A3A"},
         cheeks: {lx: 39.5, rx: 68.5, y: 75, w: 4, h: 2.5, color: "#FF9A8C"},
-        anchors: {top: [46, 43.5, 0.75, 0], neck: [50, 82, 0.85, 14, 34, 48.5], chest: [72, 88, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
+        anchors: {top: [57, 39.5, 0.85, 34], neck: [50, 85.5, 0.75, 10, 40, 38], chest: [72, 88, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
         wearColor: "#6F68A8",
         lines: {
           tap: ["Oh hello! I'm glowing extra bright for you!", "You light up the city more than I do!", "Look at you, showing up again! Wow!", "You're shining today! I'm so proud!", "Every little step deserves a moonbeam!", "I'm your biggest fan in the whole sky!", "Night or day, I'm cheering for you!"],

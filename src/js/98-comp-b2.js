@@ -434,7 +434,7 @@
         },
         mouth: {x: 60, y: 67, w: 3},
         cheeks: {lx: 42, rx: 78, y: 64, w: 4.4, h: 2.7, color: "#FF8FB8"},
-        anchors: {top: [60, 38, 0.9, 0], neck: [60, 84.5, 1, 0, 26, 14], chest: [71, 90.5, 0.6], back: [83, 56, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 78.5, 0.85, 0, 34, 30], chest: [71, 90.5, 0.6], back: [83, 56, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! Zipping by just for you!", "You're humming along so nicely!", "Sweet little wins add up! Yay!", "Hover a moment and breathe! Lovely!", "Zippy cheers, all for you!", "Sip of water? I'll join you!", "You're doing amazing! Hum hum!"],
           pet: ["Hehe, that tickles! Hum hum!", "So happy! My wings are buzzing!"],

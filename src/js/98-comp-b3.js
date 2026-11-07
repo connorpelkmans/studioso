@@ -357,7 +357,7 @@
         eyes: {lx: 49.5, rx: 70.5, y: 50, r: 5.8, style: "dot", color: "#16163A"},
         mouth: {x: 60, y: 62, w: 2.4, style: "cat", color: "#16163A"},
         cheeks: {lx: 42, rx: 78, y: 59, w: 3.8, h: 2.4, color: "#FF8FC8"},
-        anchors: {top: [60, 31, 0.95, 0], neck: [60, 68, 0.95, 0, 51, 41], chest: [69, 74, 0.6], back: [80, 74, 0.8], hands: [60, 86, 0.85]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 69.5, 0.85, 0, 32, 40], chest: [69, 74, 0.6], back: [80, 74, 0.8], hands: [60, 86, 0.85]},
         lines: {
           tap: ["Wheee! Hi hi! I glided over just for you!", "Look at you, showing up again! I love it!", "The whole city glows brighter when you're here!", "You're shining like the best neon sign in town!", "Big eyes, big dreams, and you're chasing them!", "One leap at a time, and you're soaring!", "Yay, a visit! You totally made my night!"],
           pet: ["Aww, a cuddle! My fluff is so happy!", "Hehe! Extra fluffy now, thank you!"],

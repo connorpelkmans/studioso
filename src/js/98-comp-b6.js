@@ -433,7 +433,7 @@
         eyes: {lx: 50, rx: 70, y: 52.5, r: 5.4, style: "round", color: "#2A1C2E"},
         mouth: {x: 60, y: 62.5, w: 2.8, color: "#2A1C2E"},
         cheeks: {lx: 42.5, rx: 77.5, y: 61, w: 4.2, h: 2.6, color: "#FF9FC4"},
-        anchors: {top: [60, 31, 0.95, 0], neck: [60, 74, 1, 0, 59, 51], chest: [71, 81, 0.66], back: [84, 84, 0.85], hands: [60, 94, 0.9]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 75, 0.95, 0, 36, 51], chest: [71, 81, 0.66], back: [84, 84, 0.85], hands: [60, 94, 0.9]},
         lines: {
           tap: ["Squeak! I'm so happy you're here!", "You're batty good at this!", "Look at you, flying through it!", "My sweater feels extra cozy with you!", "I'm cheering upside down for you!", "Flap flap! You're amazing today!", "You've got this, I just know it!"],
           pet: ["Squeak! My sweater is so cozy now!", "Hehe! My wings are all wiggly!"],

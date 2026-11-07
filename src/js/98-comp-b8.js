@@ -509,7 +509,7 @@
         },
         mouth: {x: 60, y: 58.5, w: 3},
         cheeks: {lx: 43.5, rx: 76.5, y: 57, w: 4.4, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 31, 1, 0], neck: [60, 71, 1.05, 0, 56, 61], chest: [71, 79, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 31, 1, 0], neck: [60, 73, 1, 0, 44, 61], chest: [71, 79, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Coo coo! Hi! You made my whole day!", "You're doing amazing! Rooftop cheers!", "Look at you, showing up again! Yay!", "You're on fire today! Coo!", "Best view in the city? You, working hard!", "Every step counts! I'm cooing for you!", "I'm your biggest fan on this rooftop!"],
           pet: ["Coo coo! Hehe, my feathers are all puffy!", "Ooh! Happy little head bob for you!"],
@@ -578,7 +578,7 @@
         eyes: {lx: 46, rx: 62, y: 68, r: 4.4, style: "dot", color: "#3A2A3A"},
         mouth: {x: 54, y: 76, w: 2.8, color: "#3A2A3A"},
         cheeks: {lx: 39.5, rx: 68.5, y: 75, w: 4, h: 2.5, color: "#FF9A8C"},
-        anchors: {top: [46, 43.5, 0.75, 0], neck: [50, 82, 0.85, 14, 34, 48.5], chest: [72, 88, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
+        anchors: {top: [57, 39.5, 0.85, 34], neck: [50, 85.5, 0.75, 10, 40, 38], chest: [72, 88, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
         wearColor: "#6F68A8",
         lines: {
           tap: ["Oh hello! I'm glowing extra bright for you!", "You light up the city more than I do!", "Look at you, showing up again! Wow!", "You're shining today! I'm so proud!", "Every little step deserves a moonbeam!", "I'm your biggest fan in the whole sky!", "Night or day, I'm cheering for you!"],
