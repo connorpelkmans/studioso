@@ -8354,6 +8354,14 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #view .plan-row > .plan-side > .lt-go{grid-column:2;grid-row:2}
   #view .plan-row > .plan-side > :not(.alloc):not(.score):not(.focus-go){grid-row:1 / span 2}
 }
+
+/* Heads Up on phones: the icon sits to the left of its text, centred against it, and the buttons are centred under both */
+@media (max-width:600px){
+  #view .plan-notes .pn{display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:12px;row-gap:10px;align-items:center}
+  #view .plan-notes .pn > .pn-ic{grid-column:1;grid-row:1}
+  #view .plan-notes .pn > .pn-main{grid-column:2;grid-row:1}
+  #view .plan-notes .pn > .pn-acts{grid-column:1 / -1;grid-row:2;margin-left:0;justify-content:center}
+}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
