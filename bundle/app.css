@@ -8373,6 +8373,18 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #view .next-up .nu-body > .nu-tag-out ~ .nu-more{grid-column:3;grid-row:2;align-self:center}
   #view .next-up .nu-acts{grid-column:1 / -1}
 }
+
+/* Do This Next on computers and iPads held sideways: Start a Focus sits above Log Time and Enough for Today (as on phones), so
+   the buttons take less of the row and the task's name and details get more room */
+@media (min-width:640px){
+  html:not(.x) #view .next-up .nu-acts{display:grid;grid-template-columns:repeat(2,auto);gap:6px;align-content:center;align-self:center;flex:none}
+  html:not(.x) #view .next-up .nu-acts > .btn{justify-content:center;text-align:center}
+  html:not(.x) #view .next-up .nu-acts > .btn.primary{grid-column:1 / -1}
+}
+/* (an iPad held upright keeps its centred row of buttons under the task) */
+@media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
+  html:not(.x) #view .next-up .nu-acts{display:flex;align-self:auto;flex:0 0 100%}
+}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
