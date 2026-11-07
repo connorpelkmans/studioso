@@ -310,7 +310,7 @@
         eyes: {lx: 47, rx: 73, y: 51, r: 5, style: "sparkle", color: "#1A2A44"},
         mouth: {x: 60, y: 70.5, w: 3.6, color: "#1A2A44"},
         cheeks: {lx: 39, rx: 81, y: 60, w: 4.4, h: 2.6, color: "#FF9AB8"},
-        anchors: {top: [60, 28, 0.85, 0], neck: [60, 80, 1, 0, 74, 60], chest: [60, 86, 0.6], back: [84, 56, 0.8], hands: [60, 88, 0.82]},
+        anchors: {top: [60, 28, 0.85, 0], neck: [60, 80, 0.95, 0, 52, 66], chest: [60, 86, 0.6], back: [84, 56, 0.8], hands: [60, 88, 0.82]},
         lines: {
           tap: ["Click click! Hi, friend!", "You make waves wherever you go!", "Splashing with joy that you're here!", "Smart and playful, just like dolphins!", "Leap into it! You've got this!", "Swimming happy circles around you!", "Eee-eee! That means you're awesome!"],
           pet: ["Eee! Splashy happy!", "Hehe! That tickles my flippers!"],
