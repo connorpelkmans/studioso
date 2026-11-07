@@ -1011,7 +1011,7 @@ function settingsHtml(){
     <ul class="cap-eps">
       ${ep("sheet", "Quick Capture window", "Press C anywhere in Studyboard and type a task. Enter adds it; Ctrl+Enter adds it and keeps the window open.", true)}
       ${ep("photo", "Photo of a whiteboard or slide", "Use the camera button next to the add bar, paste or drop a picture on the Board, or share one in.", true)}
-      ${desk ? ep("shot", "Screenshot anything", "Box part of your screen with the shortcut below. A task, an announcement or email with deadlines becomes tasks, a syllabus or timetable becomes a course, and slides or a textbook page become a note.", true)
+      ${desk ? ep("shot", "Screenshot anything", "Box part of your screen with the shortcut below to turn it into tasks, a course or a note.", true)
         : ep("share", "Share sheet", "Android and ChromeOS: install the web app, then Share to Studyboard. On iPhone, Safari web apps can't receive shares: use the Studyboard app or a Shortcut.", true)}
       ${desk ? "" : ep("url", "Link or Shortcut (Siri)", "A Shortcut can open <code>studyboard://add?title=…&amp;due=YYYY-MM-DD&amp;course=BIO101</code> or the web address with <code>?capture=bio quiz fri 2pm</code>. Links from the web always ask first.", true)}
     </ul>

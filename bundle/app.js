@@ -2760,7 +2760,7 @@ function sbSetupSheet(){
   const cur = sbCustom() || !SB_HOSTED ? (sbConfig() || {url: "", key: ""}) : {url: "", key: ""};
   openSheet(`<form class="sheet sb-acct">${head(SB_HOSTED ? "Custom Server" : "Welcome to Studyboard")}
     <div class="sheet-body">
-      <p style="margin:0">${SB_HOSTED ? "You're using your own server instead of Studyboard's. Change it here, or switch back to a Studyboard account." : "Save your tasks, notes and files online so they sync across your devices and stay safe if this browser is cleared. Enter your server details from the setup guide, or keep everything on this device."}</p>
+      <p style="margin:0">${SB_HOSTED ? "You're using your own server instead of Studyboard's. Change it here, or switch back to a Studyboard account." : "Sync your work across devices and keep it safe if this browser is cleared. Enter your server details, or keep everything on this device."}</p>
       ${REQ_NOTE}<label class="f"><span class="lh">Server Address ${REQ}</span><input type="url" name="url" required value="${esc(cur.url)}" placeholder="https://…" autocomplete="off"></label>
       <label class="f"><span class="lh">Public Key ${REQ} <span class="hint">The publishable key from the setup guide</span></span><input type="text" name="key" required value="${esc(cur.key)}" placeholder="sb_publishable_…" autocomplete="off" spellcheck="false"></label>
       <p class="mini" style="margin:0">Only use the public (publishable) key. Never paste a secret key into an app.</p>
@@ -7565,11 +7565,11 @@ const AUTO_FEATS = [
   {id: "plan", name: "Smarter Today's Plan", ai: true, core: true, desc: "Chooses Do This Next, estimates hours for tasks that have none, and flags a couple of things you could easily miss.", ex: "Heads up: Bio lab pre-quiz is due Wed, a day before the report.", fb: "Today's Plan still ranks your tasks by deadline, grade weight and effort."},
   {id: "sessions", name: "Tune Study Sessions", ai: true, core: true, desc: "Tomorrow's exam-plan sessions get steps that target your weak flashcards, and practice sessions get a practice test.", ex: "20m: redo the 6 cards you missed on glycolysis.", fb: "Sessions keep the steps they were created with."},
   {id: "triage", name: "Fix Vague Tasks", ai: true, cap: 3, desc: "Offers a clearer title, type, hours or course for new tasks that are vague or missing details.", ex: "\u201chw3\u201d \u2192 \u201cHomework 3: Chapter 3 problems\u201d.", fb: "Nothing is offered."},
-  {id: "news", name: "Important Announcements", ai: true, cap: 4, desc: "Flags exam, deadline, cancellation and room changes in your school announcements, and offers tasks or events to add when a date is stated.", ex: "Midterm moved to Fri Oct 17: add it to your calendar.", fb: "Plain keyword rules still flag the obvious changes."},
-  {id: "coach", name: "Exam Study Plans", ai: false, desc: "For an exam in the next 14 days with no prep plan, offers Plan My Prep: review sessions spread across the days before, matched to your decks and notes. Nothing is made until you tap.", ex: "Midterm is in 9 days and has no prep plan. Plan My Prep."},
+  {id: "news", name: "Important Announcements", ai: true, cap: 4, desc: "Flags exam, deadline, cancellation and room changes in announcements.", ex: "Midterm moved to Fri Oct 17: add it to your calendar.", fb: "Plain keyword rules still flag the obvious changes."},
+  {id: "coach", name: "Exam Study Plans", ai: false, desc: "Offers Plan My Prep for exams in the next 14 days that don't have one.", ex: "Midterm is in 9 days and has no prep plan. Plan My Prep."},
   {id: "weekly", name: "Weekly Review", ai: true, cap: 1, desc: "On Sunday or Monday, when there's something worth noting: what slipped, a heavy day ahead, an exam.", ex: "2 tasks slipped. Thursday has 3 deadlines, so do the Stats HW Tuesday.", fb: "A plain recap with the same numbers."},
-  {id: "remote", name: "Exam Location Check", ai: true, cap: 6, desc: "Exams and quizzes are only suggested as Do This Next if they can be taken from home. Studyboard checks your school site first, then the instructions with AI, and asks you once if it still can't tell.", ex: "\u201cMidterm 2\u201d says \u201cheld in class\u201d, so it stays off Do This Next; \u201cQuiz 3\u201d is an online quiz in Canvas, so it can be suggested.", fb: "Plain rules plus a one-tap question: Can you take it from home?"},
-  {id: "materials", name: "Study Material Tips", ai: false, desc: "When an exam is close and the course has files or notes but no flashcards, offers to make a deck. Nothing is made until you tap.", ex: "Midterm is in 3 days and Bio has 4 files but no flashcards."},
+  {id: "remote", name: "Exam Location Check", ai: true, cap: 6, desc: "Only suggests exams and quizzes as Do This Next if they can be taken from home. Asks you if it can't tell.", ex: "\u201cMidterm 2\u201d says \u201cheld in class\u201d, so it stays off Do This Next; \u201cQuiz 3\u201d is an online quiz in Canvas, so it can be suggested.", fb: "Plain rules plus a one-tap question: Can you take it from home?"},
+  {id: "materials", name: "Study Material Tips", ai: false, desc: "Offers to make a deck when an exam is close and the course has notes but no flashcards.", ex: "Midterm is in 3 days and Bio has 4 files but no flashcards."},
   {id: "nudge", name: "Crowded Days and Overdue Work", ai: false, desc: "Spots days with 3 or more deadlines, crunch weeks 2 to 6 weeks out, tasks stuck for 5 days and overdue work, and offers to move work to a lighter day.", ex: "Thursday has 3 deadlines (Bio lab, Stats HW, Essay draft)."},
   {id: "grades", name: "Grade Risk Alerts", ai: false, desc: "Warns when a course may miss its pass mark, from the marks you've entered.", ex: "Chemistry is at 52% so far; you'd need 68% on the rest to pass."}
 ];
@@ -7812,7 +7812,7 @@ function autoPanelSheet(){
     return `<div class="ap-row"><label class="mi-check"><input type="checkbox" data-feat="${f.id}" ${on ? "checked" : ""}> <b>${esc(f.name)}</b> <span class="auto-badge">${f.ai ? "Uses AI" : "No AI"}</span></label><p class="mini" style="margin:2px 0 0 26px">${esc(f.desc)}</p><p class="mini" style="margin:2px 0 0 26px"><i>Example: ${esc(f.ex)}</i>${f.fb ? ` Without AI: ${esc(f.fb)}` : ""}</p><p class="mini ap-last" style="margin:2px 0 0 26px">${esc(on ? last : "Turned off")}</p></div>`; };
   openSheet(`<form class="sheet">${head("What Automatic AI Is Doing")}
     <div class="sheet-body">
-      <p class="mini" style="margin:0">${a.on ? `Automatic AI is on${a.paid ? " (paid model)" : " (free)"}. ${used} of ${lim} automatic requests used today. Suggestions appear in Today's Plan only when they cite your own tasks and dates. Nothing changes without a tap, and everything can be undone. Dismiss three of one kind to pause it for a week.` : a.reason === "confirm" ? "Automatic AI is paused until you confirm paid use." : "Automatic AI is off, so none of these run."} <button type="button" class="link-btn" data-act="ai-setup">AI Settings</button></p>
+      <p class="mini" style="margin:0">${a.on ? `Automatic AI is on${a.paid ? " (paid model)" : " (free)"}. ${used} of ${lim} automatic requests used today. Nothing changes without a tap.` : a.reason === "confirm" ? "Automatic AI is paused until you confirm paid use." : "Automatic AI is off, so none of these run."} <button type="button" class="link-btn" data-act="ai-setup">AI Settings</button></p>
       ${AUTO_FEATS.map(row).join("")}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></form>`);
   $$("[data-feat]", dlg).forEach(i => i.addEventListener("change", () => {
@@ -13830,7 +13830,7 @@ function taskView(t0){
       <div class="tv-bar" role="progressbar" aria-label="Readiness from your results" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${xr.measured}" style="--v:${xr.measured}%"><i class="tv-fill"></i></div>
       <p class="mini tv-hint">From ${esc(readinessSource(xr))}.${xr.from === "both" ? " With a little more studying it will rely on these alone." : ""}${xr.parts.plan == null ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>
       ${xr.gap ? `<p class="tv-gap ${xr.gap > 0 ? "over" : "under"}" role="note">${esc(readinessGapText(xr))}</p>` : ""}</div>`
-      : `<p class="mini tv-hint tv-noready">Until you study this course's flashcards or take a practice quiz, readiness goes by how ready you feel. Your results will show here as you go.${decksArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>`;
+      : `<p class="mini tv-hint tv-noready">Until you study or quiz, readiness goes by how ready you feel. Your results will show here as you go.${decksArr().length ? ` <button type="button" class="link-btn" data-act="xr-decks" data-id="${esc(t.id)}">Choose Which Flashcards and Quizzes Count</button>` : ""}</p>`;
     const prog = ready + (window.SBWRAP ? SBWRAP.viewHtml(t) : "") + `<div class="tv-prog${drag ? "" : " ro"}"><div class="tv-prog-h"><b>${esc(feelLbl)}</b><span id="tvPct">${val}%</span></div>
       <div class="tv-bar" id="tvBar" ${drag ? `title="${ms ? "Drag to say how ready you feel" : "Drag to update your progress"}" role="slider" tabindex="0" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}" aria-valuetext="${val}%"` : `role="progressbar" aria-label="${esc(cfg.prog || "Progress")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"`} style="--v:${val}%"><i class="tv-fill"></i>${drag ? `<span class="tv-knob" aria-hidden="true"></span>` : ""}</div>
       ${hint ? `<p class="mini tv-hint">${esc(hint)}</p>` : ""}</div>`;
@@ -14426,7 +14426,7 @@ function menuSheet(){
       <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Knowt, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
     </div>
-    <p class="summary-sub" style="font-size:.85rem">${inPreview() ? (cloud.on ? "Your data is saved to your account and stays in sync across your devices." : "Your data is saved in this browser only. Export a backup now and then so you don't lose it.") : sbUser ? "Your data and files sync to your Studyboard account, with a copy on this device so the app works offline. Download a backup now and then for extra peace of mind." : "Your data is saved in this browser only. Sign in to a Studyboard account, or export a backup file now and then so you don't lose it."}</p>
+    <p class="summary-sub" style="font-size:.85rem">${inPreview() ? (cloud.on ? "Your data is saved to your account and stays in sync across your devices." : "Your data is saved in this browser only. Export a backup now and then so you don't lose it.") : sbUser ? "Your data syncs to your account, with a copy on this device for offline use." : "Your data is saved in this browser only. Sign in to a Studyboard account, or export a backup file now and then so you don't lose it."}</p>
     </div></div>`);
   $("#dailyIn").addEventListener("change", e => {
     const v = Math.max(0, Math.min(16, Number(e.target.value) || 0));
@@ -18745,7 +18745,7 @@ function backupWhereSheet(){
   if (!FSB.supported() && !via("gdrive") && !via("onedrive")) { toast("Automatic backups need Chrome or Edge on a computer, or Google Drive or OneDrive connected"); return; }
   const card = (kind, title, steps, btn) => `<div class="bk-opt"><div class="bk-head"><span class="bk-ico bk-${kind}" aria-hidden="true">${BRAND_LOGO[kind] || ""}</span><strong>${title}</strong></div><ol>${steps.map(x => `<li>${x}</li>`).join("")}</ol><button type="button" class="btn small ${kind === "other" ? "" : "primary"}" data-fsb="${kind}">${btn}</button></div>`;
   openSheet(`<div class="sheet">${head("Automatic Backups")}<div class="sheet-body">
-    <p style="margin:0">${via("gdrive") || via("onedrive") ? "Studyboard backs up everything every hour while it's open, straight to your Google Drive or OneDrive, or to a folder on this computer." : "Studyboard saves a backup of everything, plus copies of your uploaded files, to a folder on this computer every hour while it's open. Pick a folder that Google Drive or OneDrive syncs and the backups go to the cloud too, with version history."}</p>
+    <p style="margin:0">${via("gdrive") || via("onedrive") ? "Studyboard backs up everything every hour while it's open, straight to your Google Drive or OneDrive, or to a folder on this computer." : "Backs up everything to a folder on this computer every hour. Pick a Google Drive or OneDrive folder to keep a cloud copy too."}</p>
     ${via("gdrive") ? cloudCard("gdrive", "Google Drive") : !FSB.supported() ? "" : card("gdrive", "Google Drive", [`Install <a href="https://www.google.com/drive/download/" target="_blank" rel="noopener noreferrer">Google Drive for desktop</a> and sign in, if you haven't.`, "Click the button below. In the window that opens, choose <b>Google Drive</b> (on Windows it's the <b>G:</b> drive), then <b>My Drive</b>.", "Click <b>Select Folder</b>, then <b>Allow</b>/<b>Edit files</b>."], "Choose My Drive")}
     ${via("onedrive") ? cloudCard("onedrive", "OneDrive") : !FSB.supported() ? "" : card("onedrive", "OneDrive", ["OneDrive comes with Windows. Make sure you're signed in (cloud icon in the taskbar).", "Click the button below and choose the <b>OneDrive</b> folder, usually in your user folder, or its <b>Documents</b> folder.", "Click <b>Select Folder</b>, then <b>Allow</b>/<b>Edit files</b>."], "Choose OneDrive Folder")}
     ${!FSB.supported() ? "" : card("other", "Another Folder", ["Any folder on this computer or a USB drive works too, but it's only as safe as that disk."], "Choose a Folder")}
@@ -20741,7 +20741,7 @@ function storageRow(){
   const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent || ""), standalone = !!(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   // "Persistent" only means the browser won't clear it to free up space. In a Safari tab, Safari can still clear it after
   // 7 days without a visit, so the promise is only made where it holds.
-  if (st === "granted" && !(safari && !standalone)) return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser won't clear Studyboard's data to free up space. It's only removed if you clear it (Clear All Data, or clearing this site's data).</span></span></div>`;
+  if (st === "granted" && !(safari && !standalone)) return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser won't clear Studyboard's data on its own.</span></span></div>`;
   const how = st === "unsupported" ? "This browser can't promise to keep website data." : safari && !standalone ? "Safari can clear a website's data after 7 days without a visit. Add Studyboard to your Home Screen (Share, then Add to Home Screen) to stop that." : "Your browser hasn't agreed yet. Installing Studyboard as an app or bookmarking it usually lets it say yes.";
   return `<button data-act="storage-protect"><span>Protect My Data on This Device<span class="sub">${esc(how)} ${typeof sbUser !== "undefined" && sbUser ? "Your account also keeps a copy." : "Signing in or exporting a backup keeps a second copy."}</span></span></button>`;
 }
@@ -25801,7 +25801,7 @@ Return JSON only.`;
   // Quiz Me: questions from the answer's sources (the AI quiz writer)
   async function startTutor(T){
     if (!T) return;
-    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: it asks you one question at a time from your course material, checks your answer and explains it with the source."); return; }
+    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: one question at a time from your material, checked and explained."); return; }
     if (!aiReady()) { close(); aiSetupSheet(true); return; }
     const tu = S.tutor = {ti: turnIx(T), state: "loading", qs: [], i: 0, ans: []}; draw();
     const c = courseOf(studyCid(T)), text = studyText(T);
@@ -26082,7 +26082,7 @@ Return JSON only.`;
     let h = "";
     if (ask) {
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
-      else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI to search by meaning and get short answers from your own notes and files. It's free with a Google Gemini key. For now, this finds related words.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
+      else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI (free with a Gemini key) to search by meaning and get answers from your notes.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
@@ -26755,7 +26755,7 @@ document.head.appendChild(AREA_CSS);
     let body;
     const here = deviceKind();
     if (inPreview()) body = `<div class="ob-info"><span class="mini">You're using a preview of Studyboard, so there's nothing to install here. Your own Studyboard website can be added to your phone's home screen.</span></div>`;
-    else if (DESK) body = `<div class="ob-okbox">${IC.check}<span><b>You're Using the Desktop App</b><span class="mini">It has its own window and works offline. To use Studyboard on your phone too, open your Studyboard website there and add it to your home screen.</span></span></div>`;
+    else if (DESK) body = `<div class="ob-okbox">${IC.check}<span><b>You're Using the Desktop App</b><span class="mini">It works offline. For your phone, open the Studyboard website there and add it to your home screen.</span></span></div>`;
     else if (standalone() || (() => { try { const C = window.Capacitor; return !!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform()); } catch (e) { return false; } })()) body = `<div class="ob-okbox">${IC.check}<span><b>Studyboard Is Installed</b><span class="mini">You're already using the app on this device. It works offline, too.</span></span></div>`;
     else {
       const tab = deviceTab || here;
@@ -26791,9 +26791,9 @@ document.head.appendChild(AREA_CSS);
         ${!cloudy && folders ? opt("other", "Another Folder", "Any folder on this computer or a USB drive.") : ""}`;
     return `${hero(IC.folder)}
       <h2 class="ob-h" id="obH" tabindex="-1">Automatic Backups <span class="ob-opt">Recommended</span></h2>
-      <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Studyboard can save a backup of everything to a folder on this computer every hour. Pick one that Google Drive or OneDrive syncs and your backups are in the cloud too."}</p>
+      <p class="ob-lead">${cloudy ? "Studyboard can back up everything every hour, straight to your Google Drive or OneDrive." : "Back up everything to a folder every hour. Pick a Google Drive or OneDrive folder for a cloud copy too."}</p>
       ${body}
-      ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">After you pick a folder, your browser asks to let Studyboard save there. Choose <b>Allow on every visit</b> if it's offered (otherwise <b>Edit files</b> or <b>Allow</b>) so backups keep running after the browser restarts. A “Studyboard Backups” folder is made inside the one you pick.</p>`}`;
+      ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">When your browser asks, choose <b>Allow on every visit</b> (or <b>Allow</b>) so backups keep running.</p>`}`;
   }
 
   // The free week of Pro every new account gets
@@ -27684,26 +27684,26 @@ const ERRCORE = (() => {
   const POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
     {id: "welcome", title: "Welcome to Studyboard", tab: "board",
-      text: () => "A quick tour, under a minute. We'll open each screen as we go, filled with example courses and tasks, not your own. Use the arrow keys or the buttons, and skip any time."},
+      text: () => "A one-minute tour with example courses and tasks. Skip any time."},
     {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
       text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
     {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
-      text: () => "Today's Plan lines up what to work on next and for how long, with time set aside for each task around your classes and free time."},
+      text: () => "What to work on next and for how long, fitted around your classes."},
     {id: "timeline", title: "Calendar", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
-      text: () => "Every deadline across your courses, on a timeline or a month calendar. Switch to Schedule for your week of classes and shifts, or to Crunch to see heavy weeks coming before they hit."},
+      text: () => "Every deadline on a timeline or calendar. Schedule shows your classes; Crunch shows heavy weeks ahead."},
     {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".pview-tabs", NAV("flashcards")],
-      text: () => "Make decks by hand, or let AI build cards and practice quizzes from your notes and readings. Spaced repetition brings reviews back at the right time."},
+      text: () => "Make decks by hand or with AI from your notes. Reviews come back at the right time."},
     {id: "courses", title: "Courses and School Sites", tab: "courses", go: () => { ui.courseTab = ""; }, sel: [".cf-tabs", NAV("courses")],
-      text: () => "Each course keeps its class times, tasks, files and instructors. Connect Brightspace, Canvas or Blackboard in Settings to bring in deadlines and grades; with Canvas, your inbox shows under Emails."},
+      text: () => "Each course keeps its classes, tasks and files. Connect your school site in Settings to bring in deadlines and grades."},
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".cf-tabs", ".gp-hero", NAV("courses")],
-      text: () => "Your marks and average in each course as they come in. Set the weights to see what you need on the remaining work to reach your target grade."},
+      text: () => "Your marks in each course, and what you need on the rest to hit your target."},
     {id: "focus", title: "Focus Timer", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
-      text: () => "The timer follows the Pomodoro method: short bursts of focused work with breaks in between. Start a session on any task; the time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ", and your companion keeps you company.",
+      text: () => "Short bursts of focused work with breaks between. Time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ".",
       more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
     {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
-      text: () => "Find tasks, cards, notes and text inside your files from anywhere (Ctrl or Cmd K). Switch to Ask With AI to ask questions about your own material."},
+      text: () => "Find anything from anywhere (Ctrl or Cmd K), or Ask With AI about your material."},
     {id: "done", title: "You're Ready", tab: "board",
-      text: () => "That's the tour. Add your first task and Today's Plan takes it from there. Themes, reminders, sync and Report a Bug are in Settings, where you can replay this tour too."}
+      text: () => "Add your first task and Today's Plan takes it from there. Replay this tour from Settings."}
   ];
 
   let steps = [], i = 0, root = null, spot = null, card = null, tgt = null, opened = null, saved = null, onKey = null, raf = 0, active = false, seq = 0, panel = "";
@@ -30467,7 +30467,7 @@ function settingsHtml(){
     <ul class="cap-eps">
       ${ep("sheet", "Quick Capture window", "Press C anywhere in Studyboard and type a task. Enter adds it; Ctrl+Enter adds it and keeps the window open.", true)}
       ${ep("photo", "Photo of a whiteboard or slide", "Use the camera button next to the add bar, paste or drop a picture on the Board, or share one in.", true)}
-      ${desk ? ep("shot", "Screenshot anything", "Box part of your screen with the shortcut below. A task, an announcement or email with deadlines becomes tasks, a syllabus or timetable becomes a course, and slides or a textbook page become a note.", true)
+      ${desk ? ep("shot", "Screenshot anything", "Box part of your screen with the shortcut below to turn it into tasks, a course or a note.", true)
         : ep("share", "Share sheet", "Android and ChromeOS: install the web app, then Share to Studyboard. On iPhone, Safari web apps can't receive shares: use the Studyboard app or a Shortcut.", true)}
       ${desk ? "" : ep("url", "Link or Shortcut (Siri)", "A Shortcut can open <code>studyboard://add?title=…&amp;due=YYYY-MM-DD&amp;course=BIO101</code> or the web address with <code>?capture=bio quiz fri 2pm</code>. Links from the web always ask first.", true)}
     </ul>
@@ -32641,7 +32641,7 @@ hook("boot", boot);
       case "grp-q-solve": { const q = itemOf(id); if (q && q.user_id === myId()) { const d = Object.assign({}, q.data, {solved: !(q.data || {}).solved}); saveQ(q, d).then(() => { drawThread(); patch(g.id); }).catch(e => toast(e.message)); } break; }
       case "grp-q-best": { const q = itemOf(id); if (q && q.user_id === myId()) { const was = (q.data || {}).best === el.dataset.a, d = Object.assign({}, q.data, {best: was ? "" : el.dataset.a, solved: was ? !!(q.data || {}).solved : true}); saveQ(q, d).then(() => { drawThread(); patch(g.id); }).catch(e => toast(e.message)); } break; }
       case "grp-q-del": { const a = itemOf(id); if (a && canRemove(g, a)) api.removeItem(a.id).then(() => { S.items[g.id] = S.items[g.id].filter(x => x.id !== a.id); drawThread(); patch(g.id); }).catch(e => toast(e.message)); break; }
-      case "grp-weak-on": confirmSheet("Share Your Results?", "Your misses on this group's shared decks and quizzes are sent as totals per card, with no name attached. The group only sees how many members miss each card or question, once at least 3 members take part. Stop any time and your numbers are removed.", "Share Anonymously", () => { missSet(g.id, true); loadMisses(g.id, true); toast("Sharing your results anonymously"); }); break;
+      case "grp-weak-on": confirmSheet("Share Your Results?", "Your misses on shared decks are sent as anonymous totals, shown only once 3 or more members take part. Stop any time to remove them.", "Share Anonymously", () => { missSet(g.id, true); loadMisses(g.id, true); toast("Sharing your results anonymously"); }); break;
       case "grp-weak-off": missSet(g.id, false); api.forgetMisses(g.id).then(() => { toast("Stopped. Your numbers were removed."); loadMisses(g.id); }).catch(e => toast(e.message)); patch(g.id); break;
       case "grp-weak-retry": delete S.miss[g.id]; loadMisses(g.id, true); patch(g.id); break;
       case "grp-weak-deck": weakDeck(g); break;
@@ -34564,7 +34564,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const list = tpls().filter(t => (t.tasks || []).length);
     openSheet(`<div class="sheet pro-sheet">${head("Start From a Template")}<div class="sheet-body">
       ${list.length ? `<ul class="pro-feats">${list.map(t => `<li><span class="pf-t"><b>${esc(t.name)}</b><span class="mini">${t.tasks.length} tasks · saved ${esc(new Date(t.at).toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}))}</span></span><button type="button" class="btn small primary" data-act="gx-tpl-use" data-id="${esc(t.id)}">Use</button><button type="button" class="x-btn" data-act="gx-tpl-del" data-id="${esc(t.id)}" aria-label="Delete the ${esc(t.name)} template">${CLOSE}</button></li>`).join("")}</ul><p class="mini" style="margin:0">Due dates are set the same number of days before this project's due date.</p>`
-        : `<p style="margin:0">No templates yet. In a project you liked, open Overview and choose Save as Template. Its tasks and their timing are kept in your account for next time.</p>`}</div>
+        : `<p style="margin:0">No templates yet. In a project, open Overview and choose Save as Template.</p>`}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
   }
   // A new project made from a template
@@ -41029,7 +41029,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     let why = "", btn = null;
     if (cant.length) {
       const w = cant[0], h = how(w), nm = cant.map(L => L.P.name).join(" and ");
-      why = h === "web" ? `${nm} announcements come in through the Studyboard School Sync extension or the Studyboard desktop, iPhone or Android app, which sign in to your school's site. This page shows what they've already brought in.`
+      why = h === "web" ? `${nm} announcements come in through the School Sync extension or the Studyboard app. This page shows what they've brought in.`
         : h === "feed" ? `${nm} is connected with a calendar link, which has no announcements in it. Sign in through the desktop app to get them.`
         : `Announcements are switched off for ${nm}. Turn them on in its school settings.`;
       if (h !== "web") btn = {act: "ann-setup", plat: w.P.id, label: "Open Settings"};
@@ -63737,7 +63737,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
       : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
       : u.mode === "studyboard" ? `Studyboard AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
-      : `Your free Gemini key writes fresh lines and answers Ask Me (tap it, then Ask), using Gemini's lighter models and a separate daily allowance of ${LITE_MAX}, so other AI features aren't affected. It sends only: ${sends}. Nothing is sent while this is off.`;
+      : `Your free Gemini key writes fresh lines and answers Ask Me (${LITE_MAX} a day, separate from other AI features). It sends only: ${sends}. Nothing is sent while this is off.`;
     const use = on && smartOn() ? `<span class="cp-use">Smart Lines today: ${u.n} of ${u.max}${u.paused ? (u.mode === "studyboard" ? ". Resting for now." : ". Resting until Gemini's free allowance resets.") : ""}</span>` : "";
     return `<div class="cap-row"><span style="flex:1;font-weight:600">Smart Lines and Ask Me<span class="sub">${esc(sub)}</span>${use}</span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="ai" ${on && smartOn() ? "checked" : ""} ${on ? "" : "disabled"}> On</label></div>`;
   }
@@ -64259,8 +64259,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const head = `<div class="view-head"><h2>Emails</h2></div>`;
     return `${head}<div class="empty em-empty" style="text-align:left;margin-top:12px"><strong>Connect Canvas to See Your Emails</strong>
       ${hasDesk() ? `Sign in to Canvas under Settings, School Sites and your inbox appears here. <button class="btn small" data-act="lms-open">Connect a School Site</button>`
-        : extDesktop() ? `Add the <a href="${esc(extStoreUrl())}" target="_blank" rel="noopener noreferrer">Studyboard School Sync extension</a> to ${extBrowser()} and connect Canvas in it. Your latest messages then come in with your courses (to reply, open them in Canvas). In the Studyboard desktop app you can also read and answer them here.`
-        : `Your Canvas inbox can be read in the Studyboard desktop app, which also lets you answer here, or on a computer with the Studyboard School Sync browser extension.`}
+        : extDesktop() ? `Add the <a href="${esc(extStoreUrl())}" target="_blank" rel="noopener noreferrer">Studyboard School Sync extension</a> to ${extBrowser()} and connect Canvas in it to see your latest messages here.`
+        : `Read your Canvas inbox in the Studyboard desktop app or with the School Sync browser extension.`}
       ${E.err ? `<p class="mini em-err">${esc(E.err)}</p>` : ""}${note()}</div>`;
   }
   function viewEmails(){
@@ -70918,7 +70918,7 @@ function showSheet(){
       <ul class="cr3-moves">${sug.moves.map(x => { const t = state.tasks[x.id]; return `<li style="--c:${esc(colorOf(t && t.courseId))}"><b>${esc(x.title)}</b><span class="mini">${esc(moveText(x))}</span></li>`; }).join("")}</ul>
       ${pv ? previewHtml(ws, pv) : ""}
       <div class="cr-acts">${pv ? `<button type="button" class="btn primary" data-act="cr-apply" data-ws="${ws}">Confirm${n > 1 ? ` ${n} Moves` : ""}</button><button type="button" class="btn" data-act="cr-cancel" data-ws="${ws}">Cancel</button>` : `<button type="button" class="btn primary" data-act="cr-preview" data-ws="${ws}" ${SH.focus ? "autofocus" : ""}>Preview the Change</button><button type="button" class="btn" data-act="cr-apply" data-ws="${ws}">Move ${n === 1 ? "It" : `All ${n}`} Now</button>`}</div></div>`;
-  } else if (!W.past && W.levelIdx >= 2) box = `<div class="cr-box"><h3>Pulling Work Forward</h3><p class="mini" style="margin:0">Nothing here can move earlier in a way that helps. Exams and quizzes stay put, and blocked or nearly finished work isn't suggested. Starting the biggest item now still spreads the load.</p></div>`;
+  } else if (!W.past && W.levelIdx >= 2) box = `<div class="cr-box"><h3>Pulling Work Forward</h3><p class="mini" style="margin:0">Nothing here can usefully move earlier. Starting the biggest item now still spreads the load.</p></div>`;
   const days7 = W.days.map(d => m.days.find(y => y.date === d)).filter(Boolean), dMax = Math.max(1, ...days7.map(x => Math.max(x.demand, x.capacity)));
   const strip = isDay ? "" : `<div class="cr3-days" role="group" aria-label="Days of this week">${days7.map(x => `<button type="button" class="cr3-day lv${x.levelIdx}${x.past ? " is-past" : ""}" data-act="cr-day" data-id="${x.date}" ${x.past ? "disabled" : ""} aria-label="${esc(`${dayWord(x.date)}: ${fmtHM(x.demand) || "nothing"} of work, ${LV_WORD[x.levelIdx]}`)}"><span class="cr3-bar"><i style="height:${Math.round(Math.min(1, x.demand / dMax) * 100)}%"></i><em style="bottom:${Math.round(Math.min(1, x.capacity / dMax) * 100)}%"></em></span><b>${esc(parse(x.date).toLocaleDateString(undefined, {weekday: "short"}))}</b><span>${x.demand >= 0.25 ? esc(fmtHM(x.demand)) : "–"}</span>${x.due.length ? `<span class="cr3-due">${x.due.length} due</span>` : ""}</button>`).join("")}</div>`;
   const dayEx = isDay ? `<p class="mini" style="margin:0">${dayIsOff(D.date) ? "" : D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
@@ -76821,7 +76821,7 @@ function gridHtml(res){
 }
 function streakBody(){
   const g = gcfg(), res = streakNow(), on = !!g.on, cfg = res.cfg;
-  let h = `<p style="margin:0">${esc(tr("streak.about", "A study day is any day you finish a task, track focus time, tick a checklist step or review flashcards. Just opening the app doesn't count, and a quiet day never takes your progress away."))}</p>
+  let h = `<p style="margin:0">${esc(tr("streak.about", "A study day is any day you finish a task, focus, tick a step or review flashcards. Quiet days never take progress away."))}</p>
     <label class="fgs-row"><input type="checkbox" data-act="fgs-toggle" ${on ? "checked" : ""}> <span><b>${esc(tr("streak.toggle", "Use the gentle streak"))}</b><span class="mini">${esc(tr("streak.toggle.sub", "When on, it replaces the fire streak line, and companion rewards follow it."))}</span></span></label>`;
   if (on) {
     h += `<div class="fgs-sum" aria-live="polite"><p class="fgs-big"><b>${esc(SBI18N.fmtN(res.last28))}</b> ${esc(trn("streak.sum.month", res.last28, "study day in the last 4 weeks|study days in the last 4 weeks"))}</p>
@@ -77696,7 +77696,7 @@ function vWork(){
       <input type="file" id="semPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOn() ? ",image/*" : ""}" aria-label="${esc(tr("sem.work.pdf.b", "Choose PDFs"))}">
       ${qPanel()}</div>
     <div class="sem-card"><div><b>${esc(tr("sem.work.lms", "Your school's site"))}</b><span class="mini">${esc((() => { try { return window.SBLMS && SBLMS.grabOk && SBLMS.grabOk(); } catch (e) { return false; } })()
-        ? tr("sem.work.lms.web", "Brightspace, Canvas or Blackboard: due dates, grades, announcements and what you've already submitted. On the website in desktop Chrome or Edge, the Studyboard School Sync extension brings it all in. It only reads and never sees your password. Your school's calendar link brings in due dates in any browser.")
+        ? tr("sem.work.lms.web", "Brightspace, Canvas or Blackboard: due dates, grades and announcements, through the School Sync extension in desktop Chrome or Edge, or your school's calendar link. Read only.")
         : tr("sem.work.lms.s", "Brightspace, Canvas or Blackboard. Studyboard only reads from it."))}</span></div>
       <div class="sem-row-btns"><button type="button" class="btn" data-sem="lms">${esc(tr("sem.work.lms.b", "Connect School Site"))}</button></div></div>
     <div class="sem-card"><div><b>${esc(tr("sem.work.ics", "A calendar file"))}</b><span class="mini">${esc(tr("sem.work.ics.s", "A .ics file from Google, Apple or Outlook, or your school's calendar export."))}</span></div>
@@ -77814,7 +77814,7 @@ function vTimes(){
   const L = needTimes(), have = found().filter(t => !MILESTONE(t.type) && isNum(t.hours) && Number(t.hours) > 0).length;
   const rows = L.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<li class="sem-r1" style="--c:${esc(colorOf(t.courseId))}"><span class="sem-r1t"><b>${esc(t.title)}</b><span class="mini">${c ? esc(courseLabel(c)) + " · " : ""}${esc(t.type || "")} · ${esc(relDue(t))}</span></span><span class="sem-est">${esc(hrs(suggestH(t)))}</span></li>`; }).join("");
   return `<h3 class="sem-h" id="semH" tabindex="-1">${esc(tr("sem.t.h", "How long will each take?"))}</h3>
-    <p class="sem-lead">${esc(tr("sem.t.lead", "Today's Plan uses these to spread work over the days before each due date. They're suggestions from your history or typical times, and you can change any later."))}</p>
+    <p class="sem-lead">${esc(tr("sem.t.lead", "Today's Plan uses these to spread work out. Change any later."))}</p>
     <p class="status-msg sem-msg" id="semMsg">${esc(R.msg)}</p>
     ${L.length ? `<div class="sem-bar"><button type="button" class="btn primary" data-sem="est-all">${esc(trn("sem.t.all", L.length, "Use Suggested Time|Use Suggested Times ({n})"))}</button><button type="button" class="btn" data-sem="est-open">${esc(tr("sem.t.one", "Choose One by One"))}</button></div>
       <ul class="sem-list">${rows}</ul>${L.length > 40 ? `<p class="mini">${esc(tr("sem.t.more", "And {n} more. The button above covers all of them.", {n: L.length - 40}))}</p>` : ""}`
@@ -78386,7 +78386,7 @@ var SBPRO = null;
   }
   let INS = {kind: "week"};
   function openInsights(kind){
-    if (locked()) { proSheet("Insights are part of Studyboard Pro: how study time lines up with grades, when you focus best, how exam prep is going and how early you finish work."); return; }
+    if (locked()) { proSheet("Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades."); return; }
     INS.kind = kind === "term" ? "term" : INS.kind || "week";
     const draw = () => {
       const I = compute(INS.kind), b = dlg.querySelector(".pro-ins-body"); if (!b) return;
@@ -81891,7 +81891,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (o.quiet && !ls.length && !ds.length) return "";
     return `<section class="lec-tab" style="--c:${esc(c.color)}"><h2 class="sec"><span class="t">${esc(o.title || "Lectures")}</span><span class="n">${ls.length || ""}</span></h2>
       ${ds.length ? `<ul class="lec-list lec-drafts">${ds.map(drow).join("")}</ul>` : ""}
-      ${ls.length ? `<ul class="lec-list">${ls.map(row).join("")}</ul>` : `<div class="empty"><strong>No Lectures Yet</strong>Record a class with Record Lecture at the top of this page. Name it when you're done, and it's kept here with its transcript and summary.</div>`}</section>`;
+      ${ls.length ? `<ul class="lec-list">${ls.map(row).join("")}</ul>` : `<div class="empty"><strong>No Lectures Yet</strong>Record a class with Record Lecture above. It's kept here with its transcript and summary.</div>`}</section>`;
   }
   function docHtml(text){
     let h = "", ul = false, para = [];
@@ -82423,11 +82423,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (!domain()) return "";
     const lockedPro = P.locked();
     let inner;
-    if (lockedPro) inner = `<p class="mini">Forward emails from professors and your school to a private Studyboard address, and the deadlines in them come to you to check and add.</p><button type="button" class="btn small" data-act="em-pro">See Studyboard Pro</button>`;
+    if (lockedPro) inner = `<p class="mini">Forward school emails to a private address and Studyboard finds the deadlines.</p><button type="button" class="btn small" data-act="em-pro">See Studyboard Pro</button>`;
     else if (typeof sbActive !== "function" || !sbActive()) inner = `<p class="mini">Sign in to your Studyboard account to get your private address.</p>`;
     else if (E.st === "loading" || E.st === "idle") inner = `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>`;
     else if (E.st === "error") inner = `<p class="mini" role="alert">${esc(E.err)}</p><button type="button" class="btn small" data-act="em-reload">Try Again</button>`;
-    else if (!E.key) inner = `<p class="mini">Get a private address. Forward deadline emails to it, or set a mail filter for your course notifications, and Studyboard shows you what it found to add.</p><button type="button" class="btn small primary" data-act="em-new">Get My Address</button>`;
+    else if (!E.key) inner = `<p class="mini">Forward deadline emails to a private address and Studyboard shows what it found.</p><button type="button" class="btn small primary" data-act="em-new">Get My Address</button>`;
     else inner = `<div class="em-addr"><span class="capv-code" id="emAddr">${esc(addr())}</span><button type="button" class="btn small" data-act="em-copy" data-id="${esc(addr())}">Copy</button></div>
       <p class="mini">${E.n ? `${E.n} email${E.n === 1 ? "" : "s"} so far${E.used ? `, the last ${esc(new Date(E.used).toLocaleDateString(undefined, {month: "short", day: "numeric"}))}` : ""}. ` : ""}Keep it private: anyone who has it can send you things to check. Everything from an email waits for your OK before it's added.</p>
       <details class="em-how"><summary>Forward Automatically</summary><ul class="mini">
@@ -83140,7 +83140,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const a = acct(p), s = U.start[p] || {}, conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
       const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any folders you pick." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
-      const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
+      const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them and make flashcards and quizzes. Off, files still work without AI.</span></span></label>`;
       if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
         ${aiBox}
@@ -90987,7 +90987,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   const W = window.SBWB, P = window.SBPRO; if (!W || !P) return;
   const MAX = 16, SIDE = 1600;
   const locked = () => P.locked();
-  const WHY = "Pictures on the whiteboard are part of Studyboard Pro: add photos and diagrams, move and resize them, write around them, and have AI redraw them in marker.";
+  const WHY = "Pictures on the whiteboard are part of Studyboard Pro: add photos and diagrams, write around them, and have AI redraw them.";
   const upsell = () => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(WHY); };
   const IO = {upload: (l, o) => uploadFiles(l, o), bytes: id => assetBytes(id), ai: null};
   const SV = p => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -91683,7 +91683,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   let reading = false;
   // Studyboard Pro
   const inkLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
-  const INK_WHY = "Turning your handwriting into text is part of Studyboard Pro: select what you wrote on the whiteboard and tap A to make it typed text you can edit and move.";
+  const INK_WHY = "Turning your handwriting into text is part of Studyboard Pro: select it and tap A.";
   hook("wb-selbar", ({bar, ids}) => {
     if (!ids || !ids.size || [...ids].some(k => k[0] !== "s")) return;
     const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "ink-text"; b.className = "wb-inktext" + (reading ? " busy" : "");
@@ -94790,7 +94790,7 @@ function restoreDeck(id, s, drop){
 }
 
 /* Entry points */
-const PRO_WHY = "Version History is part of Studyboard Pro: earlier versions of your notes and decks from the last 30 days, including versions from your online backups, so you can bring back anything you changed or deleted.";
+const PRO_WHY = "Version History is part of Studyboard Pro: bring back any note or deck from the last 30 days.";
 function deckBtn(d){
   if (!d || inPreview() || !window.SBPRO || SBPRO.locked()) return "";
   return keys.has("deck:" + d.id) || cloudOn() ? `<button type="button" class="btn" data-act="vh-deck" data-id="${esc(d.id)}">Earlier Versions</button>` : "";
@@ -94928,7 +94928,7 @@ const RBC = (() => {
 })();
 /*RUBRIC-END*/
 
-const PRO_WHY = "Rubric Check is part of Studyboard Pro: add your draft and the assignment's rubric, and it shows which criteria look weak before you submit. It gives feedback and never writes your work.";
+const PRO_WHY = "Rubric Check is part of Studyboard Pro: see which rubric criteria your draft misses before you submit.";
 const LMS_F = ["cv", "bs", "bb", "md", "sg", "gc"];
 const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null, el: null};
 // A check that's still running is set aside (not stopped) when you tap away, and comes back when you open Rubric Check again
@@ -95655,7 +95655,7 @@ function html(exId, o){
     [want.f && M.counts.formulas ? `${M.counts.formulas} formula${M.counts.formulas === 1 ? "" : "s"}` : "", want.d && M.counts.defs ? `${M.counts.defs} definition${M.counts.defs === 1 ? "" : "s"}` : "", want.p && M.counts.pictures ? `${M.counts.pictures} diagram${M.counts.pictures === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const empty = !topicsOf(ex).length ? "This exam has no topics yet. Open it, choose Plan My Prep and add the topics it covers."
     : !linked(ex) && !M.sections.length ? "Nothing is linked to this exam's topics yet. In its Prep Plan, choose Edit Topics and link the decks and notes for each topic."
-    : "No formulas, definitions or picture cards were found in the decks and notes linked to this exam. Cards like “Newton's second law / F = ma” or “Osmosis / Movement of water across a membrane”, note lines like “Term: meaning”, and picture cards all go on the sheet.";
+    : "No formulas, definitions or picture cards were found in this exam's linked material. Cards like “F = ma” and note lines like “Term: meaning” go on the sheet.";
   return `<div class="pp-page xs-page"><div class="xs-head"><h1>${H(ex.title)}: Formula and Diagram Sheet</h1><p>${H(sub)}</p><p class="xs-src">Made from your own decks and notes. Check anything you'll rely on.</p></div>
     ${total ? `<div class="xs-cols">${secs}</div>` : `<p class="xs-empty">${H(empty)}</p>`}</div>`;
 }

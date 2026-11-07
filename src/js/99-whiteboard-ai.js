@@ -113,7 +113,7 @@
   let reading = false;
   // Studyboard Pro
   const inkLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
-  const INK_WHY = "Turning your handwriting into text is part of Studyboard Pro: select what you wrote on the whiteboard and tap A to make it typed text you can edit and move.";
+  const INK_WHY = "Turning your handwriting into text is part of Studyboard Pro: select it and tap A.";
   hook("wb-selbar", ({bar, ids}) => {
     if (!ids || !ids.size || [...ids].some(k => k[0] !== "s")) return;
     const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "ink-text"; b.className = "wb-inktext" + (reading ? " busy" : "");

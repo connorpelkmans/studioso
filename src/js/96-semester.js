@@ -167,7 +167,7 @@ function vWork(){
       <input type="file" id="semPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOn() ? ",image/*" : ""}" aria-label="${esc(tr("sem.work.pdf.b", "Choose PDFs"))}">
       ${qPanel()}</div>
     <div class="sem-card"><div><b>${esc(tr("sem.work.lms", "Your school's site"))}</b><span class="mini">${esc((() => { try { return window.SBLMS && SBLMS.grabOk && SBLMS.grabOk(); } catch (e) { return false; } })()
-        ? tr("sem.work.lms.web", "Brightspace, Canvas or Blackboard: due dates, grades, announcements and what you've already submitted. On the website in desktop Chrome or Edge, the Studyboard School Sync extension brings it all in. It only reads and never sees your password. Your school's calendar link brings in due dates in any browser.")
+        ? tr("sem.work.lms.web", "Brightspace, Canvas or Blackboard: due dates, grades and announcements, through the School Sync extension in desktop Chrome or Edge, or your school's calendar link. Read only.")
         : tr("sem.work.lms.s", "Brightspace, Canvas or Blackboard. Studyboard only reads from it."))}</span></div>
       <div class="sem-row-btns"><button type="button" class="btn" data-sem="lms">${esc(tr("sem.work.lms.b", "Connect School Site"))}</button></div></div>
     <div class="sem-card"><div><b>${esc(tr("sem.work.ics", "A calendar file"))}</b><span class="mini">${esc(tr("sem.work.ics.s", "A .ics file from Google, Apple or Outlook, or your school's calendar export."))}</span></div>
@@ -285,7 +285,7 @@ function vTimes(){
   const L = needTimes(), have = found().filter(t => !MILESTONE(t.type) && isNum(t.hours) && Number(t.hours) > 0).length;
   const rows = L.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<li class="sem-r1" style="--c:${esc(colorOf(t.courseId))}"><span class="sem-r1t"><b>${esc(t.title)}</b><span class="mini">${c ? esc(courseLabel(c)) + " · " : ""}${esc(t.type || "")} · ${esc(relDue(t))}</span></span><span class="sem-est">${esc(hrs(suggestH(t)))}</span></li>`; }).join("");
   return `<h3 class="sem-h" id="semH" tabindex="-1">${esc(tr("sem.t.h", "How long will each take?"))}</h3>
-    <p class="sem-lead">${esc(tr("sem.t.lead", "Today's Plan uses these to spread work over the days before each due date. They're suggestions from your history or typical times, and you can change any later."))}</p>
+    <p class="sem-lead">${esc(tr("sem.t.lead", "Today's Plan uses these to spread work out. Change any later."))}</p>
     <p class="status-msg sem-msg" id="semMsg">${esc(R.msg)}</p>
     ${L.length ? `<div class="sem-bar"><button type="button" class="btn primary" data-sem="est-all">${esc(trn("sem.t.all", L.length, "Use Suggested Time|Use Suggested Times ({n})"))}</button><button type="button" class="btn" data-sem="est-open">${esc(tr("sem.t.one", "Choose One by One"))}</button></div>
       <ul class="sem-list">${rows}</ul>${L.length > 40 ? `<p class="mini">${esc(tr("sem.t.more", "And {n} more. The button above covers all of them.", {n: L.length - 40}))}</p>` : ""}`

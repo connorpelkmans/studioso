@@ -52,7 +52,7 @@ function storageRow(){
   const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent || ""), standalone = !!(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   // "Persistent" only means the browser won't clear it to free up space. In a Safari tab, Safari can still clear it after
   // 7 days without a visit, so the promise is only made where it holds.
-  if (st === "granted" && !(safari && !standalone)) return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser won't clear Studyboard's data to free up space. It's only removed if you clear it (Clear All Data, or clearing this site's data).</span></span></div>`;
+  if (st === "granted" && !(safari && !standalone)) return `<div class="cap-row"><span style="flex:1;font-weight:600">Data Kept Safe on This Device<span class="sub">This browser won't clear Studyboard's data on its own.</span></span></div>`;
   const how = st === "unsupported" ? "This browser can't promise to keep website data." : safari && !standalone ? "Safari can clear a website's data after 7 days without a visit. Add Studyboard to your Home Screen (Share, then Add to Home Screen) to stop that." : "Your browser hasn't agreed yet. Installing Studyboard as an app or bookmarking it usually lets it say yes.";
   return `<button data-act="storage-protect"><span>Protect My Data on This Device<span class="sub">${esc(how)} ${typeof sbUser !== "undefined" && sbUser ? "Your account also keeps a copy." : "Signing in or exporting a backup keeps a second copy."}</span></span></button>`;
 }

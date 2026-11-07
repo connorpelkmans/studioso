@@ -1252,7 +1252,7 @@ Return JSON only.`;
   // Quiz Me: questions from the answer's sources (the AI quiz writer)
   async function startTutor(T){
     if (!T) return;
-    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: it asks you one question at a time from your course material, checks your answer and explains it with the source."); return; }
+    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: one question at a time from your material, checked and explained."); return; }
     if (!aiReady()) { close(); aiSetupSheet(true); return; }
     const tu = S.tutor = {ti: turnIx(T), state: "loading", qs: [], i: 0, ans: []}; draw();
     const c = courseOf(studyCid(T)), text = studyText(T);
@@ -1533,7 +1533,7 @@ Return JSON only.`;
     let h = "";
     if (ask) {
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
-      else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI to search by meaning and get short answers from your own notes and files. It's free with a Google Gemini key. For now, this finds related words.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
+      else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI (free with a Gemini key) to search by meaning and get answers from your notes.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;

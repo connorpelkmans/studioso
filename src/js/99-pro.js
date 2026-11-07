@@ -145,7 +145,7 @@ var SBPRO = null;
   }
   let INS = {kind: "week"};
   function openInsights(kind){
-    if (locked()) { proSheet("Insights are part of Studyboard Pro: how study time lines up with grades, when you focus best, how exam prep is going and how early you finish work."); return; }
+    if (locked()) { proSheet("Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades."); return; }
     INS.kind = kind === "term" ? "term" : INS.kind || "week";
     const draw = () => {
       const I = compute(INS.kind), b = dlg.querySelector(".pro-ins-body"); if (!b) return;
@@ -3650,7 +3650,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (o.quiet && !ls.length && !ds.length) return "";
     return `<section class="lec-tab" style="--c:${esc(c.color)}"><h2 class="sec"><span class="t">${esc(o.title || "Lectures")}</span><span class="n">${ls.length || ""}</span></h2>
       ${ds.length ? `<ul class="lec-list lec-drafts">${ds.map(drow).join("")}</ul>` : ""}
-      ${ls.length ? `<ul class="lec-list">${ls.map(row).join("")}</ul>` : `<div class="empty"><strong>No Lectures Yet</strong>Record a class with Record Lecture at the top of this page. Name it when you're done, and it's kept here with its transcript and summary.</div>`}</section>`;
+      ${ls.length ? `<ul class="lec-list">${ls.map(row).join("")}</ul>` : `<div class="empty"><strong>No Lectures Yet</strong>Record a class with Record Lecture above. It's kept here with its transcript and summary.</div>`}</section>`;
   }
   function docHtml(text){
     let h = "", ul = false, para = [];
@@ -4182,11 +4182,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (!domain()) return "";
     const lockedPro = P.locked();
     let inner;
-    if (lockedPro) inner = `<p class="mini">Forward emails from professors and your school to a private Studyboard address, and the deadlines in them come to you to check and add.</p><button type="button" class="btn small" data-act="em-pro">See Studyboard Pro</button>`;
+    if (lockedPro) inner = `<p class="mini">Forward school emails to a private address and Studyboard finds the deadlines.</p><button type="button" class="btn small" data-act="em-pro">See Studyboard Pro</button>`;
     else if (typeof sbActive !== "function" || !sbActive()) inner = `<p class="mini">Sign in to your Studyboard account to get your private address.</p>`;
     else if (E.st === "loading" || E.st === "idle") inner = `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>`;
     else if (E.st === "error") inner = `<p class="mini" role="alert">${esc(E.err)}</p><button type="button" class="btn small" data-act="em-reload">Try Again</button>`;
-    else if (!E.key) inner = `<p class="mini">Get a private address. Forward deadline emails to it, or set a mail filter for your course notifications, and Studyboard shows you what it found to add.</p><button type="button" class="btn small primary" data-act="em-new">Get My Address</button>`;
+    else if (!E.key) inner = `<p class="mini">Forward deadline emails to a private address and Studyboard shows what it found.</p><button type="button" class="btn small primary" data-act="em-new">Get My Address</button>`;
     else inner = `<div class="em-addr"><span class="capv-code" id="emAddr">${esc(addr())}</span><button type="button" class="btn small" data-act="em-copy" data-id="${esc(addr())}">Copy</button></div>
       <p class="mini">${E.n ? `${E.n} email${E.n === 1 ? "" : "s"} so far${E.used ? `, the last ${esc(new Date(E.used).toLocaleDateString(undefined, {month: "short", day: "numeric"}))}` : ""}. ` : ""}Keep it private: anyone who has it can send you things to check. Everything from an email waits for your OK before it's added.</p>
       <details class="em-how"><summary>Forward Automatically</summary><ul class="mini">
@@ -4899,7 +4899,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const a = acct(p), s = U.start[p] || {}, conf = U.confirm === p;
       const link = label => s.url ? `<a class="btn small${a ? "" : " primary"}" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" data-cl-go="${p}">${label}</a>` : `<button type="button" class="btn small" disabled>${s.err === "pro" ? "Pro Needed" : s.busy ? "One Moment…" : "Not Available"}</button>`;
       const what = p === "google" ? "Studyboard sees only the files it saves, in a folder called Studyboard, plus any folders you pick." : "Save to a folder you choose, and watch folders so what's in them shows up here.";
-      const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them, make flashcards and quizzes from them, and answer questions about them. If you leave this off, ${NM[p]} still works: files save, open and show up in Studyboard, just without AI features on them.</span></span></label>`;
+      const aiBox = `<label class="cl-ai"><input type="checkbox" data-cl-ai="${p}"${pr.ai[p] ? " checked" : ""}><span><b>Allow AI to read my ${NM[p]} files</b><span class="mini">So AI can summarize them and make flashcards and quizzes. Off, files still work without AI.</span></span></label>`;
       if (!a) return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b></div><p class="mini">${what}</p>${aiBox}${link(`Connect ${NM[p]}`)}</div>`;
       return `<div class="cl-card"><div class="cl-h">${p === "google" ? GDRIVE_ICON : ONEDRIVE_ICON}<b>${NM[p]}</b><span class="mini">${esc(a.account || "")}</span></div>
         ${aiBox}

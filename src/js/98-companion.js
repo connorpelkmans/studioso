@@ -2322,7 +2322,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
       : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
       : u.mode === "studyboard" ? `Studyboard AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
-      : `Your free Gemini key writes fresh lines and answers Ask Me (tap it, then Ask), using Gemini's lighter models and a separate daily allowance of ${LITE_MAX}, so other AI features aren't affected. It sends only: ${sends}. Nothing is sent while this is off.`;
+      : `Your free Gemini key writes fresh lines and answers Ask Me (${LITE_MAX} a day, separate from other AI features). It sends only: ${sends}. Nothing is sent while this is off.`;
     const use = on && smartOn() ? `<span class="cp-use">Smart Lines today: ${u.n} of ${u.max}${u.paused ? (u.mode === "studyboard" ? ". Resting for now." : ". Resting until Gemini's free allowance resets.") : ""}</span>` : "";
     return `<div class="cap-row"><span style="flex:1;font-weight:600">Smart Lines and Ask Me<span class="sub">${esc(sub)}</span>${use}</span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="ai" ${on && smartOn() ? "checked" : ""} ${on ? "" : "disabled"}> On</label></div>`;
   }
