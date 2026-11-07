@@ -8845,7 +8845,7 @@ const FW_KIND = {
   willow: {n: 56, r: 1.02, dr: 0.962, g: 0.9, tl: 50, L: 160, w: 0.72, gold: 1, dust: 1},
   crown: {n: 66, r: 1.12, dr: 0.966, g: 1, tl: 40, L: 165, w: 0.9, gold: 1, dust: 1, up: 0.26},
   ring: {n: 46, r: 0.95, dr: 0.95, g: 0.9, tl: 10, L: 100, w: 1.15, ring: 1},
-  palm: {n: 9, r: 0.95, dr: 0.972, g: 1.5, tl: 30, L: 100, w: 2.2, gold: 1, dust: 1, up: 0.3, fix: 1},
+  palm: {n: 11, r: 0.95, dr: 0.972, g: 1.5, tl: 30, L: 92, w: 1.9, gold: 1, dust: 1, up: 0.3, fix: 1},
   cross: {n: 22, r: 0.62, dr: 0.955, g: 0.8, tl: 11, L: 30, w: 1.3, split: 1},
   multi: {n: 7, r: 0.55, dr: 0.95, g: 0.6, tl: 12, L: 26, w: 1.8, split: 2, fix: 1},
   glitter: {n: 64, r: 1, dr: 0.952, g: 1.1, tl: 7, L: 125, w: 0.8, glit: 1}
@@ -9030,7 +9030,7 @@ const hbPhoto = () => {
   const mkBokeh = c => { const cv = document.createElement("canvas"); cv.width = cv.height = 64; const b = cv.getContext("2d"), gr = b.createRadialGradient(32, 32, 0, 32, 32, 31);
     gr.addColorStop(0, c + "55"); gr.addColorStop(0.78, c + "77"); gr.addColorStop(0.9, c + "CC"); gr.addColorStop(1, c + "00"); b.fillStyle = gr; b.fillRect(0, 0, 64, 64); return cv; };
   const S = hbRun((W, H, d) => { const m = Math.min(W, H), tall = H > W * 1.25, rows = tall ? [[0.1, 3], [0.6, 2]] : [[0.07, W > 1000 ? 5 : 4], [0.6, 3]], kinds = [0, 1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5); let q = 0;
-    const lines = rows.map(([y, n], r) => { const pw = Math.min(W / n * 0.74, H * 0.22, 160), t0 = 40 + r * 30;
+    const pw = Math.min(W / Math.max(...rows.map(r => r[1])) * 0.8, H * 0.22, 160), lines = rows.map(([y, n], r) => { const t0 = 40 + r * 30;
       return {y: H * y, sag: H * 0.03, t0, prints: Array.from({length: n}, (_, i) => ({x: W * (i + 0.5) / n + fxR(-0.02, 0.02) * W, t0: t0 + 16 + i * 13 + fxR(0, 4), rot0: fxR(0.25, 0.5) * (i % 2 ? 1 : -1), dy: fxR(0, 0.04) * pw, ...mkPrint(pw, kinds[q++ % 7])}))}; });
     const cols = d ? ["#FFC861", "#FFB070", "#FFE3A0", "#FF9A7A"] : ["#F2A93A", "#F0904A", "#E8B84A", "#F08A6A"];
     return {lines, bok: Array.from({length: Math.round(Math.max(8, Math.min(16, W * H / 40000)))}, () => ({x: fxR(0, W), y: fxR(0.1, 1) * H, r: m * fxR(0.025, 0.075), vy: fxR(0.1, 0.35), ph: fxR(0, 6.3), a: fxR(0.5, 1), spr: mkBokeh(fxPick(cols))}))}; });
@@ -26456,7 +26456,7 @@ var MAJ_THEMES = [];
   const GZ = {body: "#7E6E60", back: "#6A5C50", belly: "#DCD3C6", wing: "#76685C", hand: "#4A3F36", farW: "#5E5248", farH: "#3A322C", black: "#17161A"};
   const gooseDraw = (g, w, ph, dk) => { const dw = Math.cos(ph), up = 0.12 + 0.92 * w, hand = up - 0.32 * (0.5 + 0.5 * dw), rim = dk ? "rgba(226,230,244,.55)" : "rgba(30,24,20,.35)";
     const wingP = (k, sx) => { const P = (x, y, z) => [x, -y + k * z], a1 = 0.5, a2 = 0.74, S = [0.2 + sx, -0.12], Wr = [S[0] - 0.04 + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[0], S[1] + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[1]],
-        hv = P(-0.2, Math.sin(hand) * a2, Math.cos(hand) * a2), T = [Wr[0] + hv[0], Wr[1] + hv[1]], Wb = [Wr[0] - 0.42, Wr[1] + 0.05], Sr = [S[0] - 0.46, S[1] + 0.05], Tb = [T[0] - 0.2, T[1] + 0.05];
+        hv = P(-0.2, Math.sin(hand) * a2, Math.cos(hand) * a2), T = [Wr[0] + hv[0], Wr[1] + hv[1]], Wb = [Wr[0] - 0.42, Wr[1] + 0.05], Sr = [S[0] - 0.46, S[1] + 0.05], Tb = [T[0] - 0.1, T[1] + 0.06];
       return {S, Wr, T, Wb, Sr, Tb}; };
     const wing = (k, sx, cw, ch) => { const {S, Wr, T, Wb, Sr, Tb} = wingP(k, sx); g.fillStyle = cw; g.beginPath(); g.moveTo(S[0], S[1]); g.quadraticCurveTo((S[0] + Wr[0]) / 2 + 0.03, (S[1] + Wr[1]) / 2, Wr[0], Wr[1]); g.lineTo(T[0], T[1]); g.lineTo(Tb[0], Tb[1]);
       g.quadraticCurveTo((Wb[0] + Tb[0]) / 2 - 0.04, (Wb[1] + Tb[1]) / 2 + 0.02, Wb[0], Wb[1]); g.quadraticCurveTo((Wb[0] + Sr[0]) / 2, (Wb[1] + Sr[1]) / 2 + 0.05, Sr[0], Sr[1]); g.closePath(); g.fill(); g.strokeStyle = rim; g.lineWidth = 0.018; g.stroke();

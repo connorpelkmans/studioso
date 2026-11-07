@@ -24,7 +24,7 @@
   const GZ = {body: "#7E6E60", back: "#6A5C50", belly: "#DCD3C6", wing: "#76685C", hand: "#4A3F36", farW: "#5E5248", farH: "#3A322C", black: "#17161A"};
   const gooseDraw = (g, w, ph, dk) => { const dw = Math.cos(ph), up = 0.12 + 0.92 * w, hand = up - 0.32 * (0.5 + 0.5 * dw), rim = dk ? "rgba(226,230,244,.55)" : "rgba(30,24,20,.35)";
     const wingP = (k, sx) => { const P = (x, y, z) => [x, -y + k * z], a1 = 0.5, a2 = 0.74, S = [0.2 + sx, -0.12], Wr = [S[0] - 0.04 + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[0], S[1] + P(0, Math.sin(up) * a1, Math.cos(up) * a1)[1]],
-        hv = P(-0.2, Math.sin(hand) * a2, Math.cos(hand) * a2), T = [Wr[0] + hv[0], Wr[1] + hv[1]], Wb = [Wr[0] - 0.42, Wr[1] + 0.05], Sr = [S[0] - 0.46, S[1] + 0.05], Tb = [T[0] - 0.2, T[1] + 0.05];
+        hv = P(-0.2, Math.sin(hand) * a2, Math.cos(hand) * a2), T = [Wr[0] + hv[0], Wr[1] + hv[1]], Wb = [Wr[0] - 0.42, Wr[1] + 0.05], Sr = [S[0] - 0.46, S[1] + 0.05], Tb = [T[0] - 0.1, T[1] + 0.06];
       return {S, Wr, T, Wb, Sr, Tb}; };
     const wing = (k, sx, cw, ch) => { const {S, Wr, T, Wb, Sr, Tb} = wingP(k, sx); g.fillStyle = cw; g.beginPath(); g.moveTo(S[0], S[1]); g.quadraticCurveTo((S[0] + Wr[0]) / 2 + 0.03, (S[1] + Wr[1]) / 2, Wr[0], Wr[1]); g.lineTo(T[0], T[1]); g.lineTo(Tb[0], Tb[1]);
       g.quadraticCurveTo((Wb[0] + Tb[0]) / 2 - 0.04, (Wb[1] + Tb[1]) / 2 + 0.02, Wb[0], Wb[1]); g.quadraticCurveTo((Wb[0] + Sr[0]) / 2, (Wb[1] + Sr[1]) / 2 + 0.05, Sr[0], Sr[1]); g.closePath(); g.fill(); g.strokeStyle = rim; g.lineWidth = 0.018; g.stroke();
