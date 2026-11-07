@@ -509,7 +509,7 @@
         },
         mouth: {x: 60, y: 58.5, w: 3},
         cheeks: {lx: 43.5, rx: 76.5, y: 57, w: 4.4, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 31, 1, 0], neck: [60, 73, 1, 0, 44, 61], chest: [71, 79, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 31, 1, 0], neck: [60, 70.5, 0.95, 0, 40, 70], chest: [71, 79, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Coo coo! Hi! You made my whole day!", "You're doing amazing! Rooftop cheers!", "Look at you, showing up again! Yay!", "You're on fire today! Coo!", "Best view in the city? You, working hard!", "Every step counts! I'm cooing for you!", "I'm your biggest fan on this rooftop!"],
           pet: ["Coo coo! Hehe, my feathers are all puffy!", "Ooh! Happy little head bob for you!"],
