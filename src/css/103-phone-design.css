@@ -334,3 +334,14 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #view .plan-notes .pn > .pn-main{grid-column:2;grid-row:1}
   #view .plan-notes .pn > .pn-acts{grid-column:1 / -1;grid-row:2;margin-left:0;justify-content:center}
 }
+
+/* Do This Next on phones: no course icon in the corner any more, so the title runs the full width; Details sits to the right
+   of the course code */
+@media (max-width:639px){
+  #view .next-up .nu-row{grid-template-columns:26px auto minmax(0,1fr)}
+  #view .next-up .nu-title{grid-column:2 / -1;padding-right:0}
+  #view .next-up .nu-body > :not(.nu-title){grid-column:2 / -1}
+  #view .next-up .nu-body > .nu-tag-out{grid-column:2;grid-row:2;align-self:center}
+  #view .next-up .nu-body > .nu-tag-out ~ .nu-more{grid-column:3;grid-row:2;align-self:center}
+  #view .next-up .nu-acts{grid-column:1 / -1}
+}
