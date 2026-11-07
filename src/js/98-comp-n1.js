@@ -133,7 +133,7 @@
     theme: "rainforest",
     companions: [
       {
-        id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A", hatTop: true, scarfOverArms: true,
+        id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A", scarfOverArms: true,
         bio: "A sleepy baby sloth who takes every study session slow and steady.",
         idle: ["headTilt", "sway", "wave"], cheer: "wave", hatTop: true,
         neck: [60, 74],
@@ -176,7 +176,7 @@
         }
       },
       {
-        id: "rainforest-tiko", name: "Tiko", kind: "Toucan Chick", pose: "stand", wearColor: "#FF8A2A", hatTop: true,
+        id: "rainforest-tiko", name: "Tiko", kind: "Toucan Chick", pose: "stand", wearColor: "#FF8A2A",
         bio: "A fluffy toucan chick with a big bright beak and even bigger plans.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter", hatTop: true,
         neck: [60, 70],
@@ -385,7 +385,7 @@
         }
       },
       {
-        id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A", hatTop: true,
+        id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A",
         bio: "A light little pumice pebble who floats along through every study session.",
         idle: ["topBob", "finWiggle", "sway"], cheer: "spin", hatTop: true,
         parts: {

@@ -29456,7 +29456,7 @@ document.head.appendChild(AREA_CSS);
 /* ===== module: 49-feedback.js ===== */
 /* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.5";
+  const APP_VERSION = "1.15.6";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
   const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
@@ -29642,7 +29642,7 @@ document.head.appendChild(AREA_CSS);
 
 /* ===== module: 49-errreport.js ===== */
 /* Anonymous crash and error reports */
-const APP_VERSION = "1.15.5";
+const APP_VERSION = "1.15.6";
 const BUILD_ID = "dev";
 const ERROR_REPORTING = {
   dsn: "",
@@ -59402,7 +59402,7 @@ var COMP_KIT = (() => {
     theme: "rainforest",
     companions: [
       {
-        id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A", hatTop: true, scarfOverArms: true,
+        id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A", scarfOverArms: true,
         bio: "A sleepy baby sloth who takes every study session slow and steady.",
         idle: ["headTilt", "sway", "wave"], cheer: "wave", hatTop: true,
         neck: [60, 74],
@@ -59445,7 +59445,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "rainforest-tiko", name: "Tiko", kind: "Toucan Chick", pose: "stand", wearColor: "#FF8A2A", hatTop: true,
+        id: "rainforest-tiko", name: "Tiko", kind: "Toucan Chick", pose: "stand", wearColor: "#FF8A2A",
         bio: "A fluffy toucan chick with a big bright beak and even bigger plans.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter", hatTop: true,
         neck: [60, 70],
@@ -59654,7 +59654,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A", hatTop: true,
+        id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A",
         bio: "A light little pumice pebble who floats along through every study session.",
         idle: ["topBob", "finWiggle", "sway"], cheer: "spin", hatTop: true,
         parts: {
@@ -60007,7 +60007,7 @@ var COMP_KIT = (() => {
     theme: "graduation",
     companions: [
       {
-        id: "graduation-cap", name: "Tassel", kind: "Grad Cap", pose: "stand", wearColor: "#F2B83A", hatTop: true, scarfOverArms: true,
+        id: "graduation-cap", name: "Tassel", kind: "Grad Cap", pose: "stand", wearColor: "#F2B83A", scarfOverArms: true,
         bio: "A proud little grad cap who's been waiting all year for your big day.",
         idle: ["topBob", "sway", "headTilt"], cheer: "spin", hatTop: true,
         parts: {
@@ -79259,7 +79259,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 /* ===== module: 99-release.js ===== */
 /* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.5";
+  const VERSION = "1.15.6";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "November 6, 2026", TERMS_UPDATED = "October 27, 2026";
