@@ -38,7 +38,7 @@
         eyes: {lx: 50, rx: 70, y: 58, r: 4.8, style: "dot", color: "#1E3A22"},
         mouth: {x: 60, y: 66.5, w: 3, color: "#1E3A22"},
         cheeks: {lx: 43.5, rx: 76.5, y: 65, w: 4.2, h: 2.6, color: "#FF9FB0"},
-        anchors: {top: [60, 31, 0.85], neck: [60, 84, 1.15], chest: [74, 74, 0.6], back: [84, 58, 0.8], hands: [60, 82, 0.9]},
+        anchors: {top: [60, 31.5, 0.85, 0], neck: [60, 76.5, 1.15, 0, 49.5], chest: [74, 82, 0.6], back: [84, 58, 0.8], hands: [60, 82, 0.9]},
         lines: {
           tap: ["Hi! No hugs, but lots of cheering!", "You're looking sharp today!", "Slow and steady grows the tallest cactus!", "A little sun, a little study, perfect day!", "I don't need much, just you doing great!", "Every task is a drop of water for me!", "You've got this, prickles and all!", "Standing tall right beside you!"],
           pet: ["Careful, careful! Hehe, that was nice!", "Ooh, gentle pats! My flower is blushing!"],
@@ -74,7 +74,7 @@
         eyes: {lx: 50, rx: 70, y: 45, r: 5, style: "sparkle", color: "#16301E"},
         mouth: {x: 60, y: 54, w: 3.2, color: "#16301E"},
         cheeks: {lx: 42, rx: 78, y: 52.5, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 14, 0.8], neck: [60, 80, 1.0], chest: [72, 98, 0.6], back: [88, 46, 0.8], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 15.5, 0.8, 0], neck: [60, 80, 1, 0, 7], chest: [72, 86, 0.6], back: [88, 46, 0.8], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Hi there! Want to see my newest split?", "You're growing so fast, I can tell!", "Leaf it to me to cheer you on!", "Big leaves, big ideas, big you!", "Unfurling something great today!", "Your focus is my favorite sunlight!", "One more split and I'll be fancy!", "Swaying happily beside you!"],
           pet: ["Hehe, that rustles my leaf!", "Aww, my veins are all tingly!"],
@@ -109,7 +109,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 5, style: "sparkle", color: "#14304A"},
         mouth: {x: 60, y: 79, w: 3.1, color: "#14304A"},
         cheeks: {lx: 43, rx: 77, y: 77.5, w: 4.3, h: 2.6, color: "#FF9FC0"},
-        anchors: {top: [62, 21, 0.85], neck: [60, 48, 0.95], chest: [73, 92, 0.6], back: [86, 72, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [62, 19, 0.85, 0], neck: [60, 88, 0.95, 0, 55], chest: [73, 94, 0.6], back: [86, 72, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Psst! A little spritz of encouragement!", "Hi! You're looking fresh today!", "Mist-ion accepted: cheer you on!", "Fine mist, finer focus! You've got this!", "A refreshing hello from me to you!", "Stay hydrated, stay amazing!", "Sprinkling good vibes everywhere!", "Ready to spritz some motivation?"],
           pet: ["Hehe! That tickles my spray nozzle!", "Ooh, sloshy happy feelings!"],
@@ -130,7 +130,7 @@
     theme: "pottery",
     companions: [
       {
-        id: "pottery-lumpy", name: "Lumpy", kind: "Clay Lump", pose: "sit", sleepy: true,
+        id: "pottery-lumpy", name: "Lumpy", kind: "Clay Lump", pose: "sit", sleepy: true, hatTop: true,
         bio: "A happy lump of clay who could become anything, just like your ideas.",
         idle: ["bounce", "topBob", "sway"], cheer: "bounce",
         neck: [60, 100],
@@ -149,7 +149,7 @@
         eyes: {lx: 49, rx: 71, y: 73, r: 5, style: "dot", color: "#3A2418"},
         mouth: {x: 60, y: 82, w: 3.2, color: "#3A2418"},
         cheeks: {lx: 40, rx: 80, y: 80.5, w: 4.6, h: 2.8, color: "#FF9F9F"},
-        anchors: {top: [60, 46, 0.95], neck: [60, 98, 1.2], chest: [77, 90, 0.6], back: [92, 72, 0.8], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 46.5, 0.95, 0], neck: [60, 92.5, 1.2, 0, 60], chest: [77, 98, 0.6], back: [92, 72, 0.8], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! Still a lump. Still happy!", "You could make anything of today!", "Squish! That's my hello!", "Every great vase started as a lump like me!", "Let's center ourselves and spin!", "You're shaping up beautifully!", "A little pressure makes something wonderful!", "Lumpy and proud, cheering for you!"],
           pet: ["Ooh, careful, I'm squishable!", "Hehe! You left a happy thumbprint!"],
@@ -182,7 +182,7 @@
         eyes: {lx: 50, rx: 70, y: 72, r: 5, style: "sparkle", color: "#14204A"},
         mouth: {x: 60, y: 81, w: 3.1, color: "#14204A"},
         cheeks: {lx: 42, rx: 78, y: 79.5, w: 4.4, h: 2.7, color: "#FF9FC8"},
-        anchors: {top: [60, 26, 0.9], neck: [60, 48, 1.0], chest: [74, 94, 0.6], back: [88, 70, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 32.5, 0.9, 0], neck: [60, 90, 1, 0, 59], chest: [74, 96, 0.6], back: [88, 70, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! I'm feeling extra blue today, the good kind!", "Swirl, swirl! You're doing great!", "Every layer makes the finish shine!", "You bring out my best colors!", "Dip into the next task, you've got this!", "Glossy goals, here we come!", "One coat at a time, beautifully done!", "I shimmer when you focus!"],
           pet: ["Hehe! My swirl just went teal!", "Ooh, careful, I might drip with joy!"],
@@ -196,7 +196,7 @@
         }
       },
       {
-        id: "pottery-steepy", name: "Steepy", kind: "Little Teapot", pose: "stand",
+        id: "pottery-steepy", name: "Steepy", kind: "Little Teapot", pose: "stand", hatTop: true,
         bio: "A short, round teapot who always has something warm brewing.",
         idle: ["waddle", "topBob", "sparkle"], cheer: "hop",
         parts: {
@@ -213,7 +213,7 @@
         eyes: {lx: 49, rx: 71, y: 76, r: 5, style: "dot", color: "#123A34"},
         mouth: {x: 60, y: 85, w: 3.2, color: "#123A34"},
         cheeks: {lx: 40.5, rx: 79.5, y: 83.5, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 41, 0.9], neck: [60, 57, 1.05], chest: [76, 94, 0.6], back: [90, 72, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 54, 0.9, 0], neck: [60, 94.5, 1.05, 0, 55.5], chest: [76, 100.5, 0.6], back: [90, 72, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! I'm short, I'm stout, I'm here for you!", "Something good is brewing, and it's you!", "Tip me over, pour me out, I'm cheering!", "Steady heat makes the best tea and the best work!", "You're steeping in greatness today!", "Let's take it one cup at a time!", "Warm thoughts coming your way!", "Whistling a happy little tune for you!"],
           pet: ["Hehe! My lid is rattling!", "Aww, toasty warm all over!"],
@@ -252,7 +252,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "dot", color: "#3A2414"},
         mouth: {x: 60, y: 77.5, w: 3, color: "#3A2414"},
         cheeks: {lx: 41.5, rx: 78.5, y: 76.5, w: 4.2, h: 2.6, color: "#FF9F9F"},
-        anchors: {top: [60, 37, 0.9], neck: [60, 58, 1.1], chest: [76, 98, 0.6], back: [92, 70, 0.8], hands: [60, 94, 0.85]},
+        anchors: {top: [60, 53.5, 0.9, 0], neck: [60, 87.5, 1.1, 0, 60], chest: [76, 93.5, 0.6], back: [92, 70, 0.8], hands: [60, 94, 0.85]},
         lines: {
           tap: ["Hi! I'm sweet on you, you know!", "Some more? Some more cheering for you!", "Gooey hugs coming your way!", "Crunchy start, sweet finish, that's the plan!", "You're toasting through that list!", "Stay golden, my friend!", "Sandwiched between pride and joy!", "Warm by the fire, cheering for you!"],
           pet: ["Hehe! Careful, I'm melty!", "Ooh, extra gooey happiness!"],
@@ -266,7 +266,7 @@
         }
       },
       {
-        id: "campfire-lumen", name: "Lumen", kind: "Camp Lantern", pose: "stand", wearColor: "#3E7A5C",
+        id: "campfire-lumen", name: "Lumen", kind: "Camp Lantern", pose: "stand", wearColor: "#3E7A5C", hatTop: true,
         bio: "A cozy camp lantern who glows a little brighter as the night goes on.",
         idle: ["sway", "sparkle", "topBob"], cheer: "bounce",
         parts: {
@@ -286,7 +286,7 @@
         eyes: {lx: 53, rx: 67, y: 68, r: 4.3, style: "sparkle", color: "#3A2414"},
         mouth: {x: 60, y: 76, w: 2.8, color: "#3A2414"},
         cheeks: {lx: 49, rx: 71, y: 74.5, w: 3, h: 2, color: "#FF8F70"},
-        anchors: {top: [60, 19, 0.85], neck: [60, 46, 1.0], chest: [74, 104, 0.55], back: [88, 72, 0.8], hands: [60, 102, 0.85]},
+        anchors: {top: [60, 38, 0.85, 0], neck: [60, 84.5, 1, 0, 49], chest: [74, 90, 0.55], back: [88, 72, 0.8], hands: [60, 102, 0.85]},
         lines: {
           tap: ["Hi! I saved my brightest glow for you!", "Lighting the way, one task at a time!", "You're the spark, I'm just the lantern!", "Even little lights make a big difference!", "Glowing warmer the more you do!", "Follow my light, we're almost there!", "Bright idea alert! It's you!", "Shining right beside you!"],
           pet: ["Hehe! My flame just did a little dance!", "Aww, toasty and glowy!"],
@@ -324,7 +324,7 @@
         eyes: {lx: 50, rx: 70, y: 51, r: 4.6, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 71, w: 2.4, style: "cat", color: "#2B1A10"},
         cheeks: {lx: 42.5, rx: 77.5, y: 58.5, w: 4, h: 2.4, color: "#FF8F8F"},
-        anchors: {top: [60, 32, 0.95], neck: [60, 76, 1.05], chest: [70, 97, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 37, 0.95, 0], neck: [60, 80, 1.05, 0, 47], chest: [70, 87.5, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! My antlers are coming any day now!", "You're moose-ively awesome!", "Big strides, little hooves, we've got this!", "Waiting patiently, cheering loudly!", "Every task is a step through the forest!", "You make this campsite cozy!", "Ears up! Ready to cheer!", "Growing a little every day, like you!"],
           pet: ["Hehe! Right behind the ears, yes!", "Aww, that's the spot!"],
@@ -362,7 +362,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 68, r: 4.6, style: "sparkle", color: "#10203E"},
         mouth: {x: 60, y: 77, w: 3, color: "#10203E"},
         cheeks: {lx: 44.5, rx: 75.5, y: 75.5, w: 3.8, h: 2.4, color: "#FF9FC0"},
-        anchors: {top: [60, 45, 0.85], neck: [60, 88, 0.9], chest: [70, 86, 0.55], back: [88, 62, 0.8], hands: [60, 86, 0.8]},
+        anchors: {top: [60, 26.5, 0.85, 0], neck: [60, 85.5, 0.9, 0, 40.5], chest: [70, 91, 0.55], back: [88, 62, 0.8], hands: [60, 86, 0.8]},
         lines: {
           tap: ["Wheee! Hi there, you!", "Gliding over to say you're great!", "Loop-de-loop! That's how happy I am!", "Smooth sailing through that list!", "Flap, flap, focus! You've got this!", "Riding the current right beside you!", "You make the whole tank sparkle!", "Swooping in with good vibes!"],
           pet: ["Hehe! That tickles my wings!", "Ooh, soft and swirly!"],
@@ -376,7 +376,7 @@
         }
       },
       {
-        id: "aquarium-puff", name: "Puff", kind: "Pufferfish", pose: "float",
+        id: "aquarium-puff", name: "Puff", kind: "Pufferfish", pose: "float", hatTop: true,
         bio: "A round little pufferfish who puffs up with joy whenever you finish a task.",
         idle: ["finWiggle", "topBob", "bounce"], cheer: "bounce",
         parts: {
@@ -395,7 +395,7 @@
         eyes: {lx: 47, rx: 67, y: 66, r: 6, style: "round", color: "#2B2233"},
         mouth: {x: 57, y: 79, w: 2.6, color: "#2B2233"},
         cheeks: {lx: 39.5, rx: 74.5, y: 76, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [58, 38, 0.85], neck: [58, 94, 0.9], chest: [70, 90, 0.55], back: [86, 58, 0.8], hands: [58, 92, 0.85]},
+        anchors: {top: [58, 43, 0.85, 0], neck: [58, 87, 0.9, 0, 60], chest: [70, 92.5, 0.55], back: [86, 58, 0.8], hands: [58, 92, 0.85]},
         lines: {
           tap: ["Oh! Hi! You startled me in the best way!", "Puffing up with pride for you!", "I'm all spiky with excitement!", "Big breath in, big focus out!", "You're doing fin-tastic!", "Small fish, big cheers!", "Let's puff through this together!", "Bubbling over with good vibes!"],
           pet: ["Eep! Hehe, careful with the spikes!", "Ooh, I'm deflating happily!"],
@@ -430,7 +430,7 @@
         eyes: {lx: 50, rx: 62, y: 46, r: 4, style: "sparkle", color: "#3A1A10"},
         mouth: {x: 56, y: 54, w: 2.4, color: "#3A1A10"},
         cheeks: {lx: 45, rx: 67, y: 52.5, w: 3.2, h: 2, color: "#FF8FA8"},
-        anchors: {top: [56, 24, 0.8], neck: [58, 62, 0.8], chest: [62, 78, 0.5], back: [44, 72, 0.75], hands: [58, 86, 0.8]},
+        anchors: {top: [56, 36, 0.8, 0], neck: [56, 62, 0.8, 0, 22.5], chest: [62, 67, 0.5], back: [44, 72, 0.75], hands: [58, 86, 0.8]},
         lines: {
           tap: ["Hi! I've got your list, nice and tight!", "Holding on for you, always!", "Curl up and conquer, you've got this!", "Bobbing along beside you!", "One item at a time, I'll keep the list safe!", "You're doing fin-credibly well!", "Tiny but mighty, like your progress!", "Swaying with the current, cheering for you!"],
           pet: ["Hehe! My tail just curled tighter!", "Aww, that makes my crown sparkle!"],

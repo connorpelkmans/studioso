@@ -10,7 +10,7 @@
     theme: "observatory",
     companions: [
       {
-        id: "observatory-scope", name: "Scope", kind: "Telescope", pose: "stand", wearColor: "#F2A33A",
+        id: "observatory-scope", name: "Scope", kind: "Telescope", pose: "stand", wearColor: "#F2A33A", hatTop: true,
         bio: "A starry little telescope who spots something amazing in you every night.",
         idle: ["topBob", "sway", "wave"], cheer: "hop",
         parts: {
@@ -36,7 +36,7 @@
         eyes: {lx: 47, rx: 65, y: 66, r: 5, style: "sparkle", color: "#1E2148"},
         mouth: {x: 56, y: 75, w: 3.1, color: "#1E2148"},
         cheeks: {lx: 40, rx: 72, y: 73, w: 4.2, h: 2.6, color: "#FF9FC0"},
-        anchors: {top: [52, 43, 0.92], neck: [58, 91, 0.92], chest: [70, 84, 0.62], back: [32, 56, 0.85], hands: [56, 88, 0.86]},
+        anchors: {top: [52, 45, 0.98, 0], neck: [56, 83.5, 0.92, 0, 42], chest: [70, 90, 0.62], back: [32, 56, 0.85], hands: [56, 88, 0.86]},
         lines: {
           tap: ["Hi! I spotted a superstar, and it's you!", "Zooming in on greatness! Hello!", "You're shining brighter than any planet!", "Every page brings the universe closer!", "Look at you go! Out of this world!", "Big ideas, tiny lens, huge cheers for you!", "You've got this! I can see it clearly!", "Stargazing is fun, but you're the best view!"],
           pet: ["Hehe! My lens is all fogged up!", "Aww! Seeing stars, the happy kind!"],
@@ -71,7 +71,7 @@
         eyes: {lx: 51, rx: 69, y: 62, r: 4.8, style: "sparkle", color: "#3A1730"},
         mouth: {x: 60, y: 71, w: 3, color: "#3A1730"},
         cheeks: {lx: 43.5, rx: 76.5, y: 69, w: 4.2, h: 2.6, color: "#FF7FA6"},
-        anchors: {top: [60, 40, 0.88], neck: [60, 82, 1], chest: [72, 77, 0.64], back: [86, 54, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 40, 0.88, 0], neck: [60, 80, 1, 0, 36.5], chest: [72, 86, 0.6], back: [86, 54, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! My electrons are zooming with joy!", "You're full of positive energy today!", "Big things are made of tiny steps, like me!", "You've got amazing potential energy!", "Look at you, buzzing with ideas!", "Zip zip zip! You're doing great!", "You make my whole nucleus glow!", "We have great chemistry, you and me!"],
           pet: ["Hehe! My electrons are giggling!", "Whee! I'm totally excited now!"],
@@ -103,7 +103,7 @@
         eyes: {lx: 51, rx: 69, y: 65, r: 5, style: "sparkle", color: "#3A2414"},
         mouth: {x: 60, y: 74, w: 3.1, color: "#3A2414"},
         cheeks: {lx: 43.5, rx: 76.5, y: 72.5, w: 4.3, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [56, 45, 0.85], neck: [60, 86, 0.95], chest: [72, 81, 0.66], back: [36, 58, 0.8], hands: [60, 85, 0.85]},
+        anchors: {top: [56, 47.5, 0.85, 0], neck: [60, 83, 0.95, 0, 36], chest: [72, 89.5, 0.62], back: [36, 58, 0.8], hands: [60, 85, 0.85]},
         lines: {
           tap: ["Zoom zoom! Hi there, superstar!", "Whoosh! You're on a roll today!", "Look at you streaking through your list!", "You leave a sparkly trail everywhere!", "Full speed ahead! You've got this!", "Making a wish, and it's all for you!", "You're the brightest thing in the sky!", "Every lap around the sun, you grow!"],
           pet: ["Wheee! My tail is all sparkly!", "Hehe! That gave me a speed boost!"],
@@ -124,7 +124,7 @@
     theme: "ruins",
     companions: [
       {
-        id: "ruins-hourglass", name: "Sandy", kind: "Hourglass", pose: "stand", wearColor: "#3E8FB0",
+        id: "ruins-hourglass", name: "Sandy", kind: "Hourglass", pose: "stand", wearColor: "#3E8FB0", hatTop: true,
         bio: "A cheerful hourglass who knows every grain of effort adds up.",
         idle: ["topBob", "sway", "wave"], cheer: "spin",
         parts: {
@@ -147,7 +147,7 @@
         eyes: {lx: 51, rx: 69, y: 43, r: 4.6, style: "dot", color: "#2E2240"},
         mouth: {x: 60, y: 50.5, w: 2.9, color: "#2E2240"},
         cheeks: {lx: 44, rx: 76, y: 49, w: 4, h: 2.5, color: "#FF9FB0"},
-        anchors: {top: [60, 21, 0.95], neck: [60, 66, 0.85], chest: [70, 91, 0.66], back: [94, 52, 0.85], hands: [60, 86, 0.9]},
+        anchors: {top: [60, 18.5, 0.95, 0], neck: [60, 58.5, 0.85, 0, 28], chest: [70, 66, 0.66], back: [94, 52, 0.85], hands: [60, 86, 0.9]},
         lines: {
           tap: ["Hi! Every grain of effort counts!", "Tick tock, you're doing amazing!", "Time flies when you're this awesome!", "Little by little, you're making history!", "You turn hours into wonders!", "One grain at a time, you've got this!", "Ancient wisdom says you're incredible!", "History will remember this study session!"],
           pet: ["Hehe! My sand is all wiggly!", "Aww! That's a timeless pat!"],
@@ -189,7 +189,7 @@
         eyes: {lx: 51, rx: 69, y: 52, r: 4.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 61, w: 2.8},
         cheeks: {lx: 46, rx: 74, y: 59, w: 3.8, h: 2.4, color: "#FF9FA8"},
-        anchors: {top: [60, 25, 1], neck: [60, 75, 1], chest: [70, 93, 0.66], back: [80, 88, 0.8], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 25.5, 1, 0], neck: [60, 75, 1, 0, 34.5], chest: [70, 82, 0.66], back: [80, 88, 0.8], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Huzzah! Greetings, brave scholar!", "Onward! Your quest goes splendidly!", "I shall guard your focus with honor!", "Clank clank! You're doing marvelously!", "Every page is a battle won!", "You've got the heart of a hero!", "By my helmet, you're amazing!", "Your study quest makes legends!"],
           pet: ["Clank! My armor is blushing!", "Hehe! A knightly pat, most kind!"],
@@ -203,7 +203,7 @@
         }
       },
       {
-        id: "ruins-scroll", name: "Scrolly", kind: "Scroll", pose: "stand", wearColor: "#C2453D",
+        id: "ruins-scroll", name: "Scrolly", kind: "Scroll", pose: "stand", wearColor: "#C2453D", hatTop: true,
         bio: "An ancient little scroll who can't wait to record your story.",
         idle: ["topBob", "sway", "wave"], cheer: "hop",
         parts: {
@@ -224,7 +224,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 58, r: 4.8, style: "dot", color: "#3A2414"},
         mouth: {x: 60, y: 67, w: 3, color: "#3A2414"},
         cheeks: {lx: 43, rx: 77, y: 65.5, w: 4.3, h: 2.7, color: "#FF9F9F"},
-        anchors: {top: [60, 22, 0.95], neck: [60, 90, 1.08], chest: [72, 82, 0.68], back: [88, 60, 0.85], hands: [60, 88, 0.88]},
+        anchors: {top: [60, 20, 0.95, 0], neck: [60, 76.5, 1.08, 0, 51], chest: [72, 83.5, 0.68], back: [88, 60, 0.85], hands: [60, 88, 0.88]},
         lines: {
           tap: ["Hi! I'm writing you into the history books!", "You're making legendary progress!", "Every great story starts with today!", "Unroll the fun! You're doing great!", "You're the hero of this chapter!", "A scroll full of wins, all yours!", "I'm keeping a record of your awesomeness!", "Wise scholars long ago would cheer for you!"],
           pet: ["Hehe! I'm curling up with joy!", "Aww! My edges are all crinkly happy!"],
@@ -245,7 +245,7 @@
     theme: "valley",
     companions: [
       {
-        id: "valley-earth", name: "Terra", kind: "Little Earth", pose: "float", wearColor: "#F2A33A",
+        id: "valley-earth", name: "Terra", kind: "Little Earth", pose: "float", wearColor: "#F2A33A", hatTop: true,
         bio: "A tiny planet with a big green heart who grows with every win.",
         idle: ["topBob", "finWiggle", "sparkle"], cheer: "spin",
         parts: {
@@ -270,7 +270,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 63, r: 4.9, style: "dot", color: "#1E2A44"},
         mouth: {x: 60, y: 72, w: 3.1, color: "#1E2A44"},
         cheeks: {lx: 43, rx: 77, y: 70.5, w: 4.3, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 39, 0.9], neck: [60, 85, 1], chest: [72, 81, 0.64], back: [86, 56, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 39, 0.9, 0], neck: [60, 81, 1, 0, 41.5], chest: [72, 87, 0.6], back: [86, 56, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Hi! The whole world is cheering for you!", "You make my forests grow greener!", "Look at you, making the world better!", "Big round hugs from one planet to you!", "You're a force of nature today!", "Every little step helps the planet grow!", "My oceans are sparkling just for you!", "You've got this! Earth believes in you!"],
           pet: ["Hehe! You made my clouds swirl!", "Aww! A warm sunny glow all over!"],
@@ -312,7 +312,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 45, r: 4.6, style: "dot", color: "#24324A"},
         mouth: {x: 60, y: 53, w: 2.8, color: "#24324A"},
         cheeks: {lx: 45, rx: 75, y: 51.5, w: 4, h: 2.5, color: "#FF9FB0"},
-        anchors: {top: [60, 26, 0.86], neck: [60, 63, 0.72], chest: [67.5, 79, 0.56], back: [74, 84, 0.78], hands: [60, 84, 0.8]},
+        anchors: {top: [60, 25.5, 0.86, 0], neck: [60, 63, 0.72, 0, 27], chest: [67.5, 69, 0.56], back: [74, 84, 0.78], hands: [60, 84, 0.8]},
         lines: {
           tap: ["Whoosh! Hi hi! Spinning with joy!", "You bring the best breeze!", "Clean energy, clear mind, that's you!", "Look at you, powering through!", "Every spin makes more good energy!", "You've got this! Full power ahead!", "Breezy day, bright you, big cheers!", "You're a total powerhouse today!"],
           pet: ["Hehe! My blades are all wobbly!", "Whee! That's a happy little gust!"],
@@ -326,7 +326,7 @@
         }
       },
       {
-        id: "valley-moss", name: "Mossy", kind: "Moss Ball", pose: "sit", sleepy: true, wearColor: "#E8836B",
+        id: "valley-moss", name: "Mossy", kind: "Moss Ball", pose: "sit", sleepy: true, wearColor: "#E8836B", hatTop: true,
         bio: "A soft, fuzzy moss ball who grows a tiny bit with every study day.",
         idle: ["bounce", "topBob", "finWiggle"], cheer: "hop",
         parts: {
@@ -351,7 +351,7 @@
         eyes: {lx: 49, rx: 71, y: 75, r: 5, style: "dot", color: "#1F3320"},
         mouth: {x: 60, y: 83.5, w: 3.2, color: "#1F3320"},
         cheeks: {lx: 40.5, rx: 79.5, y: 82, w: 4.8, h: 3, color: "#FF9FA8"},
-        anchors: {top: [60, 46, 1], neck: [60, 98, 1.15], chest: [79, 95, 0.74], back: [90, 76, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [60, 44.5, 1, 0], neck: [60, 93.5, 1.15, 0, 56.5], chest: [79, 99.5, 0.62], back: [90, 76, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Hi! I'm a fuzzy ball of cheer for you!", "Soft and steady, and you're thriving!", "Growing a little every day, just like you!", "Bloop! You're doing wonderfully!", "Fuzzy hugs for my favorite studier!", "You make my moss extra green!", "Slow growth is still growth! Go you!", "I'm rolling around with pride for you!"],
           pet: ["Hehe! So fuzzy, so happy!", "Bloop bloop! That's the best feeling!"],
@@ -396,7 +396,7 @@
         eyes: {lx: 50, rx: 70, y: 71, r: 4.8, style: "dot", color: "#2E2233"},
         mouth: {x: 60, y: 79.5, w: 3},
         cheeks: {lx: 43, rx: 77, y: 78, w: 4.3, h: 2.7, color: "#FF9FA8"},
-        anchors: {top: [60, 33, 0.9], neck: [60, 91, 1.12], chest: [76, 90, 0.66], back: [86, 74, 0.85], hands: [60, 95, 0.88]},
+        anchors: {top: [60, 33.5, 0.9, 0], neck: [60, 91, 1.12, 0, 51], chest: [76, 97, 0.62], back: [86, 74, 0.85], hands: [60, 95, 0.88]},
         lines: {
           tap: ["Hi! Welcome home, friend!", "You're building something amazing!", "Brick by brick, you're doing great!", "My door is always open for you!", "Solid foundations, that's you!", "You've got this! Strong walls, strong you!", "Lights on, heart full, cheering for you!", "You make this place feel like home!"],
           pet: ["Hehe! My chimney is puffing happily!", "Aww! Cozy and warm all over!"],
@@ -437,7 +437,7 @@
         eyes: {lx: 50, rx: 70, y: 69, r: 4.8, style: "dot", color: "#2E2233"},
         mouth: {x: 60, y: 78, w: 3.1},
         cheeks: {lx: 43, rx: 77, y: 76.5, w: 4.3, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [54, 48, 0.85], neck: [60, 88, 1.08], chest: [74, 84, 0.66], back: [82, 68, 0.85], hands: [60, 90, 0.88]},
+        anchors: {top: [54, 45, 0.85, 0], neck: [60, 88, 1.08, 0, 51], chest: [74, 94, 0.62], back: [82, 68, 0.85], hands: [60, 90, 0.88]},
         lines: {
           tap: ["Beep beep! Hi there, builder!", "Lifting your spirits sky high!", "You're raising the bar today!", "Look at you, building big things!", "Heavy lifting? You make it look easy!", "Up, up, up! You've got this!", "Every beam counts, and so does every page!", "Hard hats off to you, superstar!"],
           pet: ["Beep! My boom is wiggling with joy!", "Hehe! That's a happy little lift!"],
@@ -451,7 +451,7 @@
         }
       },
       {
-        id: "sketchcity-compass", name: "Arc", kind: "Drafting Compass", pose: "stand", wearColor: "#3E7CC8",
+        id: "sketchcity-compass", name: "Arc", kind: "Drafting Compass", pose: "stand", wearColor: "#3E7CC8", hatTop: true,
         bio: "A precise little compass who draws a big happy circle around your wins.",
         idle: ["topBob", "headTilt", "sway"], cheer: "spin",
         neck: [60, 56],
@@ -476,7 +476,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 41, r: 4.6, style: "dot", color: "#2E2233"},
         mouth: {x: 60, y: 49, w: 2.8},
         cheeks: {lx: 45, rx: 75, y: 47.5, w: 3.8, h: 2.4, color: "#FF9F8F"},
-        anchors: {top: [60, 22, 0.88], neck: [60, 61, 0.7], chest: [60, 88, 0.56], back: [78, 66, 0.78], hands: [60, 86, 0.82]},
+        anchors: {top: [60, 22, 0.88, 0], neck: [60, 61, 0.7, 0, 24], chest: [60, 67.5, 0.56], back: [78, 66, 0.78], hands: [60, 86, 0.82]},
         lines: {
           tap: ["Hi! Drawing a happy circle around you!", "You're right on point today!", "Perfectly measured awesomeness!", "Every great plan starts with a sketch!", "Look at you, designing your future!", "You've got this, down to the millimeter!", "Round of applause, a perfect round one!", "Your ideas have such great proportions!"],
           pet: ["Hehe! I'm spinning in happy circles!", "Aww! That's a perfectly round pat!"],

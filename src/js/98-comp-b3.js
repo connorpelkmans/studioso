@@ -30,7 +30,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 82, r: 4.7, style: "dot", color: "#3A1A2A"},
         mouth: {x: 60, y: 90.5, w: 3, color: "#3A1A2A"},
         cheeks: {lx: 44, rx: 76, y: 89.5, w: 4.4, h: 2.7, color: "#FF5F7E"},
-        anchors: {top: [60, 64, 0.85], neck: [60, 100, 1.1], chest: [72, 101, 0.7], back: [90, 72, 0.85], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 62, 0.85, 0], neck: [60, 100, 1.1, 0, 54], chest: [72, 106, 0.62], back: [90, 72, 0.85], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Oh! Hi there! So happy to see you!", "Come out of your shell! You're amazing!", "You're going to do great! I know it!", "Sideways steps count too! Go you!", "I love your company so much!", "The sunset's lovely, and so are you!", "One wave at a time! You've got this!"],
           pet: ["Hehe, that tickles! Click click!", "Aww, thank you, friend! So sweet!"],
@@ -69,7 +69,7 @@
         eyes: {lx: 52.5, rx: 67.5, y: 68, r: 4.3, style: "dot", color: "#3A1A2A"},
         mouth: {x: 60, y: 75.5, w: 2.8, color: "#3A1A2A"},
         cheeks: {lx: 47.5, rx: 72.5, y: 74.5, w: 3.2, h: 2.2, color: "#FF5F7E"},
-        anchors: {top: [62, 30, 0.6], neck: [60, 81, 0.8], chest: [67, 84, 0.5], back: [80, 70, 0.75], hands: [60, 88, 0.8]},
+        anchors: {top: [62, 34.5, 0.71, 0], neck: [60, 83, 0.8, 0, 42], chest: [67, 88, 0.5], back: [80, 70, 0.75], hands: [60, 88, 0.8]},
         lines: {
           tap: ["Hi! So nice to see you!", "You're doing really, really well!", "Reach for it, one arm at a time!", "The sand's warm and you're here! Yay!", "Nice and steady! You're amazing!", "Look at you, glowing!", "Five arms of cheering, all for you!"],
           pet: ["Hehe, that tickles! Yay!", "Hehe, I'm all a-sparkle!"],
@@ -83,7 +83,7 @@
         }
       },
       {
-        id: "sunset-gull", name: "Skye", kind: "Seagull Chick", pose: "float",
+        id: "sunset-gull", name: "Skye", kind: "Seagull Chick", pose: "float", hatTop: true,
         bio: "A fluffy gull chick gliding on the warm evening breeze.",
         idle: ["wingFlutter", "topBob", "sway"], cheer: "wingFlutter",
         parts: {
@@ -105,7 +105,7 @@
         },
         mouth: {x: 60, y: 68, w: 3},
         cheeks: {lx: 42.5, rx: 77.5, y: 67.5, w: 4.2, h: 2.7, color: "#FF8FA8"},
-        anchors: {top: [60, 39, 0.9], neck: [60, 80, 1.05], chest: [71, 79, 0.65], back: [84, 60, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 80, 1.05, 0, 44.5], chest: [71, 86, 0.61], back: [84, 60, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hi! Riding the breeze to see you!", "Gliding along right beside you!", "You're doing great! Squawk!", "Wings out, chin up! You've got this!", "Such a golden evening with you!", "Every flap counts! Look at you go!", "You make it look so breezy!"],
           pet: ["Squawk! So fluffy! Hehe!", "Hehe, ruffled feathers! I love it!"],
@@ -127,7 +127,7 @@
     theme: "mint",
     companions: [
       {
-        id: "mint-scoop", name: "Chip", kind: "Mint Chip Cone", pose: "stand",
+        id: "mint-scoop", name: "Chip", kind: "Mint Chip Cone", pose: "stand", hatTop: true,
         bio: "A cool scoop of mint chip who keeps your study time fresh.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -144,7 +144,7 @@
         eyes: {lx: 49, rx: 71, y: 53, r: 5, style: "dot", color: "#1E2A24"},
         mouth: {x: 60, y: 62, w: 3.2, color: "#1E2A24"},
         cheeks: {lx: 41, rx: 79, y: 61, w: 4.4, h: 2.8, color: "#FF9FB7"},
-        anchors: {top: [58, 32, 0.95], neck: [60, 73, 1.3], chest: [66, 86, 0.6], back: [88, 52, 0.85], hands: [60, 79, 0.85]},
+        anchors: {top: [58, 32.5, 0.95, 0], neck: [60, 73, 1.3, 0, 60], chest: [66, 78.5, 0.6], back: [88, 52, 0.85], hands: [60, 79, 0.85]},
         lines: {
           tap: ["Hi! Stay cool, friend! Yay!", "So glad you're here!", "Nice and steady! You're amazing!", "One scoop at a time! You've got this!", "Cool and calm, that's you!", "You're doing a great job! Wow!", "Fresh ideas, coming right up!"],
           pet: ["Brr, hehe! So happy!", "I'm melting with joy! Hehe!"],
@@ -181,7 +181,7 @@
         eyes: {lx: 47, rx: 73, y: 58, r: 4.6, style: "dot", color: "#1E2A24"},
         mouth: {x: 60, y: 66, w: 4, color: "#1E2A24"},
         cheeks: {lx: 38.5, rx: 81.5, y: 64.5, w: 4.4, h: 2.7, color: "#FF9FC0"},
-        anchors: {top: [60, 35, 1], neck: [60, 76, 1.05], chest: [69, 92, 0.65], back: [84, 88, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 34.5, 1, 0], neck: [60, 76, 1.05, 0, 38], chest: [69, 82.5, 0.65], back: [84, 88, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Hehe, hi! Biggest smile for you!", "You're doing great! Splash!", "Swim along! You've got this!", "Cool and calm, that's you!", "Hooray for you! Hooray!", "I'm smiling so big for you!", "Little strokes, steady swim! Go you!"],
           pet: ["Wiggle wiggle! So happy!", "My frills are fluttering! Hehe!"],
@@ -195,7 +195,7 @@
         }
       },
       {
-        id: "mint-nib", name: "Nib", kind: "Choc Chip Sprite", pose: "float", wearColor: "#FF8FB0",
+        id: "mint-nib", name: "Nib", kind: "Choc Chip Sprite", pose: "float", wearColor: "#FF8FB0", hatTop: true,
         bio: "A tiny chocolate chip who flutters about on mint leaf wings.",
         idle: ["wingFlutter", "topBob", "sparkle"], cheer: "spin",
         parts: {
@@ -210,7 +210,7 @@
         eyes: {lx: 50, rx: 70, y: 71, r: 4.8, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 80, w: 3, color: "#2B1A10"},
         cheeks: {lx: 41.5, rx: 78.5, y: 79, w: 4.4, h: 2.7, color: "#FF8FA0"},
-        anchors: {top: [60, 40, 0.75], neck: [60, 86, 1.15], chest: [72, 86, 0.65], back: [86, 66, 0.85], hands: [60, 87, 0.85]},
+        anchors: {top: [60, 42, 0.75, 0], neck: [60, 90, 1.15, 0, 59], chest: [72, 96, 0.61], back: [86, 66, 0.85], hands: [60, 87, 0.85]},
         lines: {
           tap: ["Hi! Tiny chip, big cheer!", "You're one smart cookie!", "Sweet work, friend! Yay!", "Fluttering by to say hi to you!", "Little bits add up! Look at you!", "You make it look so easy!", "Choc full of good ideas, that's you!"],
           pet: ["Hehe, I'm melting! Sweet!", "The sweetest pats ever!"],
@@ -231,7 +231,7 @@
     theme: "bokeh",
     companions: [
       {
-        id: "bokeh-orb", name: "Shimmer", kind: "Bokeh Light Sprite", pose: "float",
+        id: "bokeh-orb", name: "Shimmer", kind: "Bokeh Light Sprite", pose: "float", hatTop: true,
         bio: "A soft circle of light who drifted out of focus to say hello.",
         idle: ["topBob", "sparkle", "spin"], cheer: "spin",
         parts: {
@@ -248,7 +248,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 62, r: 5, style: "sparkle", color: "#27235A"},
         mouth: {x: 60, y: 71, w: 3, color: "#27235A"},
         cheeks: {lx: 42.5, rx: 77.5, y: 70, w: 4.2, h: 2.7, color: "#FF8AB8"},
-        anchors: {top: [60, 37, 0.95], neck: [60, 83, 1.05], chest: [72, 79, 0.65], back: [85, 58, 0.8], hands: [60, 82, 0.85]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 80.5, 1.05, 0, 40.5], chest: [72, 86.5, 0.61], back: [85, 58, 0.8], hands: [60, 82, 0.85]},
         lines: {
           tap: ["Hi! Floating by just for you!", "You bring everything into focus!", "A little extra glow for you!", "Soft light, bright mind! Wow!", "You're shining so bright today!", "Blur the worries, keep the joy!", "Every light counts! Yours does too!"],
           pet: ["Hehe, I'm all aglow!", "Glowing extra bright for you!"],
@@ -262,7 +262,7 @@
         }
       },
       {
-        id: "bokeh-jar", name: "Beam", kind: "Little Light Jar", pose: "sit", sleepy: true,
+        id: "bokeh-jar", name: "Beam", kind: "Little Light Jar", pose: "sit", sleepy: true, hatTop: true,
         bio: "A cozy glass jar that caught a handful of soft evening lights.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "hop",
         parts: {
@@ -280,7 +280,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 5, style: "dot", color: "#1F1D2B"},
         mouth: {x: 60, y: 79, w: 3, color: "#1F1D2B"},
         cheeks: {lx: 42.5, rx: 77.5, y: 78, w: 4.2, h: 2.7, color: "#FF8AB8"},
-        anchors: {top: [60, 31, 1], neck: [60, 47, 1.2], chest: [72, 86, 0.6], back: [84, 64, 0.9], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 27, 1, 0], neck: [60, 89.5, 1.2, 0, 51], chest: [72, 95, 0.6], back: [84, 64, 0.9], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Hi! I caught some light for you!", "Little lights, big glow! Yay!", "You brighten my whole jar!", "Soft glow, calm mind! You're great!", "Saving this sparkle just for you!", "Every little light counts! Go you!", "So glad you're here!"],
           pet: ["Hehe, I'm all aglow!", "My lights are dancing! Wheee!"],
@@ -294,7 +294,7 @@
         }
       },
       {
-        id: "bokeh-dandelion", name: "Wisp", kind: "Dandelion Puff", pose: "stand",
+        id: "bokeh-dandelion", name: "Wisp", kind: "Dandelion Puff", pose: "stand", hatTop: true,
         bio: "A soft dandelion puff who makes a wish for every task you finish.",
         idle: ["headTilt", "topBob", "wave"], cheer: "hop",
         neck: [60, 76],
@@ -314,7 +314,7 @@
         eyes: {lx: 50, rx: 70, y: 52, r: 4.8, style: "dot", color: "#1F1D2B"},
         mouth: {x: 60, y: 61, w: 3, color: "#1F1D2B"},
         cheeks: {lx: 42, rx: 78, y: 60, w: 4.4, h: 2.7, color: "#FF8AB8"},
-        anchors: {top: [60, 24, 1], neck: [60, 76, 0.85], chest: [68, 94, 0.6], back: [77, 90, 0.75], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 21, 1, 0], neck: [60, 76, 0.85, 0, 35.5], chest: [68, 82.5, 0.6], back: [77, 90, 0.75], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Puff! Hi there, friend!", "Make a wish! I believe in you!", "Light as air, strong as you!", "Let your worries float away! Wheee!", "Every big flower starts as a seed!", "Breathe in slowly! You're amazing!", "So glad you're here!"],
           pet: ["Careful, I'll float away! Hehe!", "Hehe, so fluffy! I love it!"],
@@ -357,7 +357,7 @@
         eyes: {lx: 49.5, rx: 70.5, y: 50, r: 5.8, style: "dot", color: "#16163A"},
         mouth: {x: 60, y: 62, w: 2.4, style: "cat", color: "#16163A"},
         cheeks: {lx: 42, rx: 78, y: 59, w: 3.8, h: 2.4, color: "#FF8FC8"},
-        anchors: {top: [60, 31, 0.95], neck: [60, 68, 0.95], chest: [69, 84, 0.6], back: [80, 74, 0.8], hands: [60, 86, 0.85]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 70.5, 0.95, 0, 49.5], chest: [69, 76.5, 0.6], back: [80, 74, 0.8], hands: [60, 86, 0.85]},
         lines: {
           tap: ["Wheee! Hi hi! I glided over just for you!", "Look at you, showing up again! I love it!", "The whole city glows brighter when you're here!", "You're shining like the best neon sign in town!", "Big eyes, big dreams, and you're chasing them!", "One leap at a time, and you're soaring!", "Yay, a visit! You totally made my night!"],
           pet: ["Aww, a cuddle! My fluff is so happy!", "Hehe! Extra fluffy now, thank you!"],
@@ -371,7 +371,7 @@
         }
       },
       {
-        id: "neon-boba", name: "Boba", kind: "Taro Bubble Tea", pose: "sit", sleepy: true,
+        id: "neon-boba", name: "Boba", kind: "Taro Bubble Tea", pose: "sit", sleepy: true, hatTop: true,
         bio: "A sweet taro bubble tea from the corner shop, full of happy pearls.",
         idle: ["topBob", "bounce", "finWiggle"], cheer: "hop",
         parts: {
@@ -393,7 +393,7 @@
         eyes: {lx: 50, rx: 70, y: 68, r: 5, style: "dot", color: "#231F3F"},
         mouth: {x: 60, y: 77, w: 3.2, color: "#231F3F"},
         cheeks: {lx: 42, rx: 78, y: 76, w: 4.4, h: 2.7, color: "#FF8FC8"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 86, 1.1], chest: [71, 88, 0.6], back: [84, 70, 0.85], hands: [60, 87, 0.85]},
+        anchors: {top: [60, 28, 0.95, 0], neck: [60, 86, 1.1, 0, 48], chest: [71, 92, 0.6], back: [84, 70, 0.85], hands: [60, 87, 0.85]},
         lines: {
           tap: ["Hi hi! I added extra pearls just for you!", "You're my favorite order, every single time!", "Sip, study, smile! You're doing amazing!", "Pearls of wisdom coming right up for you!", "Shake it up! You've totally got this!", "Sweet and steady, that's you! I love it!", "Yay, you're here! My pearls are bouncing!"],
           pet: ["Hehe! My pearls are doing happy flips!", "Aww! So bubbly and happy right now!"],
@@ -407,7 +407,7 @@
         }
       },
       {
-        id: "neon-vendi", name: "Vendi", kind: "Vending Machine Pal", pose: "stand", wearColor: "#FF6FD2",
+        id: "neon-vendi", name: "Vendi", kind: "Vending Machine Pal", pose: "stand", wearColor: "#FF6FD2", hatTop: true,
         bio: "A glowing little vending machine that serves up snacks and cheers.",
         idle: ["topBob", "wave", "sway"], cheer: "bounce",
         parts: {
@@ -426,7 +426,7 @@
         eyes: {lx: 51, rx: 69, y: 54, r: 4.6, style: "dot", color: "#16163A"},
         mouth: {x: 60, y: 63, w: 3, color: "#16163A"},
         cheeks: {lx: 45, rx: 75, y: 62, w: 3.8, h: 2.5, color: "#FF8FC8"},
-        anchors: {top: [60, 27, 1], neck: [60, 79, 1.3], chest: [72, 99, 0.6], back: [86, 58, 0.9], hands: [60, 80, 0.9]},
+        anchors: {top: [60, 23, 1, 0], neck: [60, 74, 1.3, 0, 57], chest: [72, 79.5, 0.6], back: [86, 58, 0.9], hands: [60, 80, 0.9]},
         lines: {
           tap: ["Beep beep! Hello, my favorite friend!", "Now dispensing: a huge batch of good vibes!", "Today's special? Encouragement, all for you!", "You're the top selection in the whole machine!", "Clunk! One giant cheer, served fresh!", "Lights on, buttons glowing! You've got this!", "Ding! Your smile is my favorite thing!"],
           pet: ["Beep boop! Happy lights all flashing!", "Bonus snack unlocked! Hehe, thank you!"],
@@ -469,7 +469,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 45, r: 4.6, style: "dot", color: "#2D1F3D"},
         mouth: {x: 60, y: 55.5, w: 2.4, style: "cat", color: "#2D1F3D"},
         cheeks: {lx: 43.5, rx: 76.5, y: 52.5, w: 4, h: 2.5, color: "#FF3D8B"},
-        anchors: {top: [60, 28, 0.95], neck: [60, 64, 0.9], chest: [69, 84, 0.6], back: [82, 80, 0.85], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 29, 0.95, 0], neck: [60, 64, 0.9, 0, 32], chest: [69, 70.5, 0.6], back: [82, 80, 0.85], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Boing! Hi friend! I'm so happy you're here!", "Wow, you're getting so good at this!", "Look at all your sweet work so far!", "Soft and steady, and you're crushing it!", "I'm bouncing with pride for you!", "Keep going! You're doing wonderfully!", "Boing boing! A super sweet hello!"],
           pet: ["Hehe! I'm all happy and wobbly!", "Squish! That made my whole day!"],
@@ -498,7 +498,7 @@
         eyes: {lx: 49.5, rx: 70.5, y: 60.5, r: 5.2, style: "sparkle", color: "#2D1F3D"},
         mouth: {x: 60, y: 70.5, w: 3, color: "#2D1F3D"},
         cheeks: {lx: 41, rx: 79, y: 69.5, w: 4.6, h: 2.7, color: "#FF7FB5"},
-        anchors: {top: [60, 34, 1], neck: [60, 86, 1.2], chest: [74, 79, 0.65], back: [84, 48, 0.85], hands: [60, 84, 0.9]},
+        anchors: {top: [60, 35, 1, 0], neck: [60, 81, 1.2, 0, 48], chest: [74, 86.5, 0.61], back: [84, 48, 0.85], hands: [60, 84, 0.9]},
         lines: {
           tap: ["Hi hi! It's so sweet to see you!", "You're a real treat, you know that?", "You're doing so well today! I'm thrilled!", "So many bright ideas today! Wow!", "Here's a big twirly cheer just for you!", "You're doing so sweetly! Keep it up!", "Keep twirling! You've totally got this!"],
           pet: ["Crinkle crinkle! Hehe, so happy!", "The sweetest pats ever! Thank you!"],
@@ -529,7 +529,7 @@
         eyes: {lx: 49, rx: 71, y: 75, r: 5, style: "dot", color: "#2D1F3D"},
         mouth: {x: 60, y: 84, w: 3.2, color: "#2D1F3D"},
         cheeks: {lx: 40, rx: 80, y: 83, w: 4.6, h: 2.8, color: "#FF7FB5"},
-        anchors: {top: [60, 43, 1.1], neck: [60, 97, 1.35], chest: [78, 100, 0.65], back: [90, 66, 0.9], hands: [60, 99, 0.9]},
+        anchors: {top: [60, 39, 1.1, 0], neck: [60, 97, 1.35, 0, 60], chest: [78, 102.5, 0.61], back: [90, 66, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Squish! Hi there! I'm so glad you came!", "Be gentle with yourself! You're doing great!", "You're doing so well! I could just squish!", "Fluffy thoughts only! You've got this!", "I'm puffed up with pride for you!", "Soft and slow, and you're still amazing!", "A big, sweet, squishy hello!"],
           pet: ["Squishy squish! Hehe, I love it!", "So soft and so happy! Thank you!"],
@@ -550,7 +550,7 @@
     theme: "arcade",
     companions: [
       {
-        id: "arcade-sun", name: "Sunny", kind: "Retro Sun", pose: "float",
+        id: "arcade-sun", name: "Sunny", kind: "Retro Sun", pose: "float", hatTop: true,
         bio: "A striped synthwave sun who never quite sets on your good work.",
         idle: ["topBob", "sparkle", "spin"], cheer: "spin",
         parts: {
@@ -566,7 +566,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 55, r: 5, style: "sparkle", color: "#2A1033"},
         mouth: {x: 60, y: 63.5, w: 3, color: "#2A1033"},
         cheeks: {lx: 42.5, rx: 77.5, y: 62.5, w: 4.2, h: 2.6, color: "#FF5FA8"},
-        anchors: {top: [60, 34, 1], neck: [60, 84, 1.05], chest: [72, 76, 0.6], back: [85, 56, 0.85], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 35, 1, 0], neck: [60, 73, 1.05, 0, 51], chest: [72, 79, 0.6], back: [85, 56, 0.85], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Hey hey! So great to see you, friend!", "Look at you! You're positively glowing!", "Sunny skies, clear head! Let's go!", "Ride the grid! One square at a time!", "Retro vibes and a fresh mind! Love it!", "You're a total star player, you know!", "Warm, steady and awesome! That's you!"],
           pet: ["Whoa! Warm fuzzies everywhere!", "Hehe! Now I'm glowing extra bright!"],
@@ -597,7 +597,7 @@
         eyes: {lx: 49, rx: 71, y: 71, r: 4.8, style: "dot", color: "#1A1033"},
         mouth: {x: 60, y: 79, w: 3, color: "#1A1033"},
         cheeks: {lx: 40, rx: 80, y: 78, w: 4.2, h: 2.6, color: "#FF7FB5"},
-        anchors: {top: [60, 48, 1.2], neck: [60, 98, 1.4], chest: [85, 93, 0.6], back: [96, 62, 0.9], hands: [60, 92, 0.9]},
+        anchors: {top: [60, 42.5, 1.2, 0], neck: [60, 91, 1.4, 0, 60], chest: [85, 96, 0.6], back: [96, 62, 0.9], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hi hi! Side A is all good vibes for you!", "You're my favorite track on the whole tape!", "Press play on your day! Let's rock it!", "Rewind, relax, reset! You've got this!", "Keep that beat going! You're amazing!", "You're a total hit today! Wow!", "Chill beats and a bright mind! Love it!"],
           pet: ["Whirr whirr! That's my happy song!", "Hehe! That's music to my reels!"],
@@ -611,7 +611,7 @@
         }
       },
       {
-        id: "arcade-skate", name: "Roxy", kind: "Retro Roller Skate", pose: "stand",
+        id: "arcade-skate", name: "Roxy", kind: "Retro Roller Skate", pose: "stand", hatTop: true,
         bio: "A rad little roller skate who rolls along the neon grid with you.",
         idle: ["topBob", "waddle", "bounce"], cheer: "spin",
         parts: {
@@ -631,7 +631,7 @@
         eyes: {lx: 47.5, rx: 64.5, y: 57, r: 4.6, style: "dot", color: "#1A1033"},
         mouth: {x: 56, y: 66, w: 3, color: "#1A1033"},
         cheeks: {lx: 40.5, rx: 71.5, y: 65, w: 4, h: 2.5, color: "#FF7FB5"},
-        anchors: {top: [50.5, 29, 0.95], neck: [50.5, 36, 0.95], chest: [84, 75, 0.55], back: [34, 54, 0.85], hands: [56, 80, 0.8]},
+        anchors: {top: [50.5, 24.5, 0.95, 0], neck: [50.5, 75, 0.95, 0, 60], chest: [84, 80.5, 0.55], back: [34, 54, 0.85], hands: [56, 80, 0.8]},
         lines: {
           tap: ["Hey hey! Let's roll! I'm so glad you're here!", "You're on a roll today! Look at you!", "Really great work! I'm spinning with joy!", "Glide right through it! You've got this!", "Smooth moves, friend! So impressive!", "Four wheels, zero worries, all cheers!", "Keep rolling! You're unstoppable!"],
           pet: ["Wheee! Spin me again!", "Hehe! My wheels are doing a happy spin!"],

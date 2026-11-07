@@ -35,7 +35,7 @@
         eyes: {lx: 50, rx: 70, y: 56.5, r: 4.6, style: "dot", color: "#3A2416"},
         mouth: {x: 60, y: 68.6, w: 2.8, style: "cat", color: "#3A2416"},
         cheeks: {lx: 43.5, rx: 76.5, y: 64.5, w: 4.4, h: 2.7, color: "#FF9A8C"},
-        anchors: {top: [60, 36, 0.95], neck: [60, 76, 0.95], chest: [68, 92, 0.7], back: [79, 90, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 36, 0.95, 0], neck: [60, 77, 0.95, 0, 31], chest: [68, 84.5, 0.7], back: [79, 90, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Hi hi! My big ears perked right up for you!", "Ooh, tell me everything! I'm all ears!", "You're on fire today! Sandy high five!", "Look at you, showing up again! Yay!", "Every idea you share makes my tail wag!", "You've got this, and I've got your back!", "Desert sun and you? Best combo ever!"],
           pet: ["Eee! My ears are wiggling with joy!", "Hehe! Fluffy tail wag, just for you!"],
@@ -49,7 +49,7 @@
         }
       },
       {
-        id: "dunes-camel", name: "Toffee", kind: "Baby Camel", pose: "sit", sleepy: true, wearColor: "#3F9FA8",
+        id: "dunes-camel", name: "Toffee", kind: "Baby Camel", pose: "sit", sleepy: true, wearColor: "#3F9FA8", hatTop: true,
         bio: "A sleepy baby camel who rests beside you through long study treks.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         neck: [72, 64],
@@ -75,7 +75,7 @@
         eyes: {lx: 64, rx: 80, y: 44, r: 4.3, style: "dot", color: "#3A2416"},
         mouth: {x: 72, y: 61.8, w: 2.8, color: "#3A2416"},
         cheeks: {lx: 58.5, rx: 85.5, y: 50.5, w: 4, h: 2.5, color: "#FF9A8C"},
-        anchors: {top: [72, 23, 0.85], neck: [72, 68, 0.62], chest: [80, 92, 0.6], back: [26, 88, 0.8], hands: [73, 86, 0.8]},
+        anchors: {top: [72, 24.5, 0.85, 0], neck: [72.5, 68.5, 0.62, 0, 23.5], chest: [80, 75.5, 0.6], back: [26, 88, 0.8], hands: [73, 86, 0.8]},
         lines: {
           tap: ["Oh hi! You made this sleepy camel so happy!", "Long trek? No problem! We're doing it together!", "Look at you go, one step at a time! Wow!", "You're amazing, and I'm not just saying it because I'm sleepy!", "Every step across the dunes counts! Yay!", "Showing up again! You're my favorite traveler!", "I'm so proud to walk beside you!"],
           pet: ["Ooh, so cozy! My whole heart is happy!", "Hehe! That's the best pat ever! Thank you!"],
@@ -89,7 +89,7 @@
         }
       },
       {
-        id: "dunes-wisp", name: "Mirage", kind: "Sand Wisp", pose: "float", size: 1.08,
+        id: "dunes-wisp", name: "Mirage", kind: "Sand Wisp", pose: "float", size: 1.08, hatTop: true,
         bio: "A warm swirl of desert sand who glows like sunset on the dunes.",
         idle: ["sparkle", "topBob", "finWiggle"], cheer: "spin",
         parts: {
@@ -109,7 +109,7 @@
         eyes: {lx: 51, rx: 69, y: 58, r: 4.8, style: "sparkle", color: "#4A2616"},
         mouth: {x: 60, y: 66.5, w: 3, color: "#4A2616"},
         cheeks: {lx: 43, rx: 77, y: 65, w: 4.4, h: 2.8, color: "#FF8F8F"},
-        anchors: {top: [60, 38, 0.9], neck: [60, 80, 1.0], chest: [71, 73, 0.62], back: [83, 55, 0.8], hands: [60, 76, 0.85]},
+        anchors: {top: [60, 39.5, 0.9, 0], neck: [60, 75.5, 1, 0, 38], chest: [71, 82, 0.62], back: [83, 55, 0.8], hands: [60, 76, 0.85]},
         lines: {
           tap: ["Swirl swirl! Hi! I'm glowing just for you!", "You light up the dunes like a sunset!", "Look at you, shining brighter every day!", "Whoosh! You're on fire today!", "Every grain of effort adds up! Wow!", "Showing up again? I'm swirling with joy!", "Warm wishes and big cheers, all for you!"],
           pet: ["Ooh! I'm swirling in happy little circles!", "Hehe! My glow just got so much warmer!"],
@@ -148,7 +148,7 @@
         eyes: {lx: 50, rx: 70, y: 52, r: 4.8, style: "sparkle", color: "#3A1E4A"},
         mouth: {x: 60, y: 59.5, w: 3, color: "#3A1E4A"},
         cheeks: {lx: 42.5, rx: 77.5, y: 58.5, w: 4.4, h: 2.7, color: "#FF7FAF"},
-        anchors: {top: [60, 31, 0.95], neck: [60, 67, 1.15], chest: [76, 58, 0.6], back: [85, 48, 0.85], hands: [60, 70, 0.85]},
+        anchors: {top: [60, 32, 0.95, 0], neck: [64.5, 69.5, 1.15, 0, 4], chest: [76, 75, 0.6], back: [85, 48, 0.85], hands: [60, 70, 0.85]},
         lines: {
           tap: ["Bloop! Hi! I'm glowing just for you!", "Drifting along with you is my favorite thing!", "Look at you flow! You're amazing!", "You're glowing today! Bloop bloop!", "Every little wave counts! Keep going!", "Showing up again! I'm so happy I'm shimmering!", "We're in the best study flow ever!"],
           pet: ["Bloop! Hehe, my tentacles are wiggling!", "Ooh! I'm glowing extra bright now! Thank you!"],
@@ -184,7 +184,7 @@
         eyes: {lx: 50, rx: 70, y: 87, r: 5, style: "dot", color: "#2A1840"},
         mouth: {x: 60, y: 95, w: 3.2, color: "#2A1840"},
         cheeks: {lx: 41.5, rx: 78.5, y: 94, w: 4.6, h: 2.8, color: "#FF8FBF"},
-        anchors: {top: [60, 73, 0.95], neck: [60, 101, 1.3], chest: [82, 100, 0.7], back: [22, 92, 0.85], hands: [60, 102, 0.9]},
+        anchors: {top: [60, 70.5, 0.95, 0], neck: [60, 106, 1.3, 0, 60], chest: [82, 111.5, 0.62], back: [22, 92, 0.85], hands: [60, 102, 0.9]},
         wearColor: "#3FB8C8",
         lines: {
           tap: ["Hi hi! My frills are fluttering for you!", "One small step, then another! You're amazing!", "Look how far we've inched together! Wow!", "You're doing so well! Frilly high five!", "Every tiny step is worth a big cheer!", "Showing up again! I'm so proud of you!", "You and me, inching toward greatness!"],
@@ -222,7 +222,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 61, r: 4.5, style: "dot", color: "#3A2A5A"},
         mouth: {x: 60, y: 69, w: 2.8, color: "#3A2A5A"},
         cheeks: {lx: 45, rx: 75, y: 68, w: 4.2, h: 2.6, color: "#FF8FB8"},
-        anchors: {top: [60, 40, 0.9], neck: [60, 80, 1.05], chest: [82, 95, 0.68], back: [97, 64, 0.85], hands: [60, 86, 0.9]},
+        anchors: {top: [60, 43, 0.9, 0], neck: [60, 80, 1.05, 0, 44.5], chest: [82, 87, 0.68], back: [97, 64, 0.85], hands: [60, 86, 0.9]},
         lines: {
           tap: ["Hello! My pearl is shimmering just for you!", "You're a real gem, you know that?", "Look at you shine today! Wow!", "Every effort adds a little more sparkle!", "Showing up again! I'm so proud of you!", "You make my whole shell glow!", "Shine on, friend! I'm cheering for you!"],
           pet: ["Ooh! My pearl is sparkling extra bright!", "Hehe! My shell is opening with joy!"],
@@ -243,7 +243,7 @@
     theme: "bamboo",
     companions: [
       {
-        id: "bamboo-panda", name: "Bao", kind: "Baby Panda", pose: "sit", sleepy: true,
+        id: "bamboo-panda", name: "Bao", kind: "Baby Panda", pose: "sit", sleepy: true, hatTop: true,
         bio: "A roly-poly panda cub who munches bamboo and naps while you study.",
         idle: ["earTwitch", "topBob", "bounce"], cheer: "hop",
         neck: [60, 75],
@@ -268,7 +268,7 @@
         eyes: {lx: 49, rx: 71, y: 57, r: 4.4, style: "round", color: "#2B2233"},
         mouth: {x: 60, y: 68, w: 2.6, style: "cat"},
         cheeks: {lx: 40, rx: 80, y: 68.5, w: 4.2, h: 2.6, color: "#FF9FB7"},
-        anchors: {top: [60, 34, 1], neck: [60, 76, 1.1], chest: [70, 97, 0.7], back: [86, 90, 0.85], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 34.5, 1, 0], neck: [60, 77.5, 1.1, 0, 44], chest: [70, 85, 0.7], back: [86, 90, 0.85], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Hi hi! I stopped munching just to say hello!", "You're doing amazing! Panda hug!", "Look at you, showing up again! Yay!", "Roly poly cheers, all for you!", "You're on a roll today, just like me!", "Every page you turn makes me so happy!", "Bamboo and you? My two favorite things!"],
           pet: ["Ooh! Happy panda roll! Hehe!", "So cozy! My ears are wiggling with joy!"],
@@ -282,7 +282,7 @@
         }
       },
       {
-        id: "bamboo-stalk", name: "Poki", kind: "Bamboo Stalk", pose: "stand", wearColor: "#E07A5F",
+        id: "bamboo-stalk", name: "Poki", kind: "Bamboo Stalk", pose: "stand", wearColor: "#E07A5F", hatTop: true,
         bio: "A chubby bamboo stalk who grows a little taller every time you do.",
         idle: ["topBob", "wave", "sway"], cheer: "spin",
         parts: {
@@ -303,7 +303,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 73, r: 4.4, style: "dot", color: "#1C2E16"},
         mouth: {x: 60, y: 80.5, w: 3, color: "#1C2E16"},
         cheeks: {lx: 46, rx: 74, y: 79.5, w: 3.8, h: 2.5, color: "#FF9A9A"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 89, 0.9], chest: [68, 100, 0.55], back: [79, 70, 0.8], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 35, 0.85, 0], neck: [60, 89, 0.9, 0, 41], chest: [68, 94.5, 0.55], back: [79, 70, 0.8], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Hi hi! I grew a little just seeing you!", "Look at us growing together! Wow!", "You're on fire today! Sprout sprout!", "Every little effort helps us both grow tall!", "Showing up again! I'm so proud!", "Rooting for you, all the way down!", "Taller and stronger every day, that's you!"],
           pet: ["Ooh! My leaves are rustling with joy!", "Hehe! I think I just grew an inch!"],
@@ -339,7 +339,7 @@
         eyes: {lx: 51, rx: 69, y: 55, r: 4.8, style: "sparkle", color: "#1C2E16"},
         mouth: {x: 60, y: 63.5, w: 3, color: "#1C2E16"},
         cheeks: {lx: 43, rx: 77, y: 62, w: 4.4, h: 2.7, color: "#FF9A9A"},
-        anchors: {top: [60, 35, 0.9], neck: [60, 75, 1.0], chest: [72, 69, 0.6], back: [83, 50, 0.8], hands: [60, 73, 0.85]},
+        anchors: {top: [60, 36.5, 0.9, 0], neck: [60, 72.5, 1, 0, 33], chest: [72, 78.5, 0.6], back: [83, 50, 0.8], hands: [60, 73, 0.85]},
         lines: {
           tap: ["Blink blink! Hi! I lit up for you!", "You light up the whole grove! Wow!", "Look at you glowing today!", "Every little spark counts! Keep shining!", "Showing up again! My light is so bright!", "I'll be your little lantern, always!", "You're on fire today, in the best way!"],
           pet: ["Ooh! I'm blinking with happiness!", "Hehe! My glow just got so warm!"],
@@ -360,7 +360,7 @@
     theme: "lavenderfields",
     companions: [
       {
-        id: "lavenderfields-lamb", name: "Lilac", kind: "Lavender Lamb", pose: "sit", sleepy: true,
+        id: "lavenderfields-lamb", name: "Lilac", kind: "Lavender Lamb", pose: "sit", sleepy: true, hatTop: true,
         bio: "A woolly lamb who naps in the lavender rows while you study.",
         idle: ["earTwitch", "topBob", "bounce"], cheer: "hop",
         neck: [60, 72],
@@ -386,7 +386,7 @@
         eyes: {lx: 52, rx: 68, y: 58, r: 4.2, style: "dot", color: "#3A2A4A"},
         mouth: {x: 60, y: 68.2, w: 2.4, style: "cat", color: "#3A2A4A"},
         cheeks: {lx: 46.5, rx: 73.5, y: 65, w: 3.8, h: 2.4, color: "#FF9FB7"},
-        anchors: {top: [60, 43, 0.85], neck: [60, 74, 1.0], chest: [70, 96, 0.68], back: [82, 86, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 45.5, 0.85, 0], neck: [60, 76.5, 1, 0, 40], chest: [70, 83.5, 0.68], back: [82, 86, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Baa! Hi! I'm so happy you're here!", "You're doing wonderfully! Woolly hug!", "Look at you, showing up again! Yay!", "Soft and steady, and so very strong!", "Every row of lavender cheers for you!", "You're on a roll today! Baa baa!", "I'm your fluffiest, biggest fan!"],
           pet: ["Baa! Hehe, my wool is so happy!", "Ooh, so cozy! I'm all fluffed up now!"],
@@ -400,7 +400,7 @@
         }
       },
       {
-        id: "lavenderfields-sachet", name: "Lavi", kind: "Lavender Sachet", pose: "stand", wearColor: "#E58A6E",
+        id: "lavenderfields-sachet", name: "Lavi", kind: "Lavender Sachet", pose: "stand", wearColor: "#E58A6E", hatTop: true,
         bio: "A little linen sachet stuffed with lavender and good calm thoughts.",
         idle: ["topBob", "waddle", "wave"], cheer: "hop",
         parts: {
@@ -422,7 +422,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 77, r: 4.6, style: "dot", color: "#2E2240"},
         mouth: {x: 60, y: 85.5, w: 3, color: "#2E2240"},
         cheeks: {lx: 42.5, rx: 77.5, y: 84, w: 4.4, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 40, 0.85], neck: [60, 51, 0.85], chest: [72, 97, 0.66], back: [86, 78, 0.85], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 35.5, 0.85, 0], neck: [60, 93.5, 0.85, 0, 58], chest: [72, 100, 0.62], back: [86, 78, 0.85], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi hi! I'm full of happy thoughts for you!", "You're doing so well! Sweet cheers!", "Look at you, calm and capable! Wow!", "Every breath in smells like success!", "Showing up again! I'm so proud of you!", "Stuffed full of good vibes, just for you!", "You make my little linen heart happy!"],
           pet: ["Ooh! A lovely puff of lavender for you!", "Hehe! I'm so squishy and happy now!"],
@@ -460,7 +460,7 @@
         eyes: {lx: 51, rx: 69, y: 61, r: 5.2, style: "sparkle", color: "#2E2240"},
         mouth: {x: 60, y: 70, w: 2.8, color: "#2E2240"},
         cheeks: {lx: 43.5, rx: 76.5, y: 68.5, w: 4.2, h: 2.6, color: "#FF9FB7"},
-        anchors: {top: [60, 42, 0.85], neck: [60, 82, 0.95], chest: [72, 76, 0.6], back: [60, 58, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 41.5, 0.85, 0], neck: [60, 78.5, 0.95, 0, 34], chest: [72, 84.5, 0.6], back: [60, 58, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Flutter flutter! Hi! I'm so happy to see you!", "You're glowing like golden hour today!", "Look at you, showing up again! Wow!", "Every little step makes me flutter with joy!", "You're on fire today, softly and brightly!", "My fuzzy wings are cheering for you!", "You and the lavender, my favorite things!"],
           pet: ["Ooh! My fuzzy wings are all aflutter!", "Hehe! That's the softest pat ever!"],
@@ -509,7 +509,7 @@
         },
         mouth: {x: 60, y: 58.5, w: 3},
         cheeks: {lx: 43.5, rx: 76.5, y: 57, w: 4.4, h: 2.7, color: "#FF9FB7"},
-        anchors: {top: [60, 28, 1], neck: [60, 71, 1.05], chest: [71, 94, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 31, 1, 0], neck: [60, 71, 1.05, 0, 50.5], chest: [71, 79, 0.75], back: [85, 86, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Coo coo! Hi! You made my whole day!", "You're doing amazing! Rooftop cheers!", "Look at you, showing up again! Yay!", "You're on fire today! Coo!", "Best view in the city? You, working hard!", "Every step counts! I'm cooing for you!", "I'm your biggest fan on this rooftop!"],
           pet: ["Coo coo! Hehe, my feathers are all puffy!", "Ooh! Happy little head bob for you!"],
@@ -523,7 +523,7 @@
         }
       },
       {
-        id: "rooftops-tower", name: "Cedar", kind: "Water Tower", pose: "stand",
+        id: "rooftops-tower", name: "Cedar", kind: "Water Tower", pose: "stand", hatTop: true,
         bio: "A sturdy wooden water tower who keeps you steady from up top.",
         idle: ["topBob", "wave", "waddle"], cheer: "bounce",
         parts: {
@@ -545,7 +545,7 @@
         eyes: {lx: 50, rx: 70, y: 69, r: 4.8, style: "dot", color: "#2B1A1A"},
         mouth: {x: 60, y: 77.5, w: 3.2, color: "#2B1A1A"},
         cheeks: {lx: 42.5, rx: 77.5, y: 76, w: 4.4, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [60, 21, 0.75], neck: [60, 51, 1.25], chest: [74, 84, 0.66], back: [89, 66, 0.85], hands: [60, 86, 0.9]},
+        anchors: {top: [60, 25.5, 0.75, 0], neck: [60, 88.5, 1.25, 0, 60], chest: [74, 94, 0.62], back: [89, 66, 0.85], hands: [60, 86, 0.9]},
         wearColor: "#3F80BD",
         lines: {
           tap: ["Hello up here! I'm so glad you came!", "Steady and strong, that's you! Wow!", "Look at you, showing up again! Yay!", "I've got your back from way up top!", "You're on fire today! Keep it flowing!", "Every bit of effort fills you up!", "Best view from the top? You, doing great!"],
@@ -560,7 +560,7 @@
         }
       },
       {
-        id: "rooftops-moon", name: "Lune", kind: "Crescent Moon", pose: "float", sleepy: true,
+        id: "rooftops-moon", name: "Lune", kind: "Crescent Moon", pose: "float", sleepy: true, hatTop: true,
         bio: "A drowsy crescent moon in a nightcap, glowing over the city roofs.",
         idle: ["topBob", "sparkle", "sway"], cheer: "spin",
         parts: {
@@ -578,7 +578,7 @@
         eyes: {lx: 46, rx: 62, y: 68, r: 4.4, style: "dot", color: "#3A2A3A"},
         mouth: {x: 54, y: 76, w: 2.8, color: "#3A2A3A"},
         cheeks: {lx: 39.5, rx: 68.5, y: 75, w: 4, h: 2.5, color: "#FF9A8C"},
-        anchors: {top: [46, 36, 0.75], neck: [56, 88, 0.95], chest: [72, 80, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
+        anchors: {top: [46, 43.5, 0.75, 0], neck: [50, 82, 0.85, 14, 34], chest: [72, 90.5, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
         wearColor: "#6F68A8",
         lines: {
           tap: ["Oh hello! I'm glowing extra bright for you!", "You light up the city more than I do!", "Look at you, showing up again! Wow!", "You're shining today! I'm so proud!", "Every little step deserves a moonbeam!", "I'm your biggest fan in the whole sky!", "Night or day, I'm cheering for you!"],

@@ -40,7 +40,7 @@
         eyes: {lx: 49, rx: 71, y: 54, r: 4.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 68, w: 3.2, color: "#2B2233", style: "cat"},
         cheeks: {lx: 41, rx: 79, y: 63, w: 4.4, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 32, 0.95], neck: [60, 80, 1], chest: [60, 85, 0.5], back: [84, 86, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 80, 1, 0, 52], chest: [60, 84.5, 0.5], back: [84, 86, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Woof! Your deadlines are safe with me!", "Tail curled up tight, ready to help!", "I sniffed out your next task. Let's go!", "Shiba smile for you! You've got this!", "Big ears, big heart, big cheers!", "I'll keep watch while you study!", "One task at a time, like one treat at a time!", "You make my tail spin in circles!"],
           pet: ["Hehe! Right behind the ears, please!", "Aww! My tail is wagging so fast!"],
@@ -54,7 +54,7 @@
         }
       },
       {
-        id: "japan-daru", name: "Daru", kind: "Daruma Doll", pose: "stand", wearColor: "#E6B23A",
+        id: "japan-daru", name: "Daru", kind: "Daruma Doll", pose: "stand", wearColor: "#E6B23A", hatTop: true,
         bio: "A sturdy daruma doll who always gets back up, no matter how many falls.",
         idle: ["sway", "topBob", "sparkle"], cheer: "bounce",
         parts: {
@@ -73,7 +73,7 @@
         eyes: {lx: 50, rx: 70, y: 58, r: 5, style: "round", color: "#2B2233"},
         mouth: {x: 60, y: 69, w: 3, color: "#2B2233"},
         cheeks: {lx: 43, rx: 77, y: 66, w: 4, h: 2.4, color: "#FF8A80"},
-        anchors: {top: [60, 24, 0.9], neck: [60, 82, 1], chest: [72, 94, 0.6], back: [94, 66, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 24, 0.9, 0], neck: [60, 78, 1, 0, 60], chest: [72, 84, 0.6], back: [94, 66, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Wobble, wobble, back up again!", "Seven tumbles, eight comebacks!", "Make a wish and paint one eye!", "I'm round, red and never give up!", "A tough page? Roll with it!", "Steady base, steady progress!", "You can't knock us down today!", "Goals set! Let's get them done!"],
           pet: ["Hehe! You made me wobble!", "Aww, I'm blushing redder than ever!"],
@@ -87,7 +87,7 @@
         }
       },
       {
-        id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearColor: "#3A8A5A",
+        id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearColor: "#3A8A5A", hatTop: true,
         bio: "A little rice ball in a nori sash with a big can-do attitude.",
         idle: ["topBob", "wave", "headTilt"], cheer: "hop",
         neck: [60, 104],
@@ -108,7 +108,7 @@
         eyes: {lx: 51, rx: 69, y: 68, r: 4.2, style: "sparkle", color: "#2B2233"},
         mouth: {x: 60, y: 76, w: 3, color: "#2B2233"},
         cheeks: {lx: 44, rx: 76, y: 75, w: 3.8, h: 2.2, color: "#FF9AA8"},
-        anchors: {top: [60, 30, 0.85], neck: [60, 84, 0.9], chest: [70, 94, 0.55], back: [90, 78, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 37, 0.85, 0], neck: [60, 84.5, 0.9, 0, 60], chest: [70, 90, 0.55], back: [90, 78, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Rice to meet you! Let's do this!", "Packed tight with good ideas!", "Nori sash on, ready for action!", "A snack-sized step is still a step!", "Fuel up, focus up, finish up!", "My plum center is pure courage!", "We're on a roll! Well, a ball!", "Every grain counts, like every page!"],
           pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Warm hands, happy rice!"],
