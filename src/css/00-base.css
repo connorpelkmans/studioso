@@ -149,6 +149,8 @@ body.wide .wrap{max-width:1180px}
   #view .nb-hint{display:none}
   /* Do This Next: its buttons sit centred under the task instead of pushed to the right */
   .next-up .nu-acts{flex-basis:100%;margin-left:0;justify-content:center}
+  /* a course's (or deck's, or group's) buttons that wrap below the coloured band's top line keep to the right, clear of the round icon */
+  #view .g2-band > .row-actions{margin-left:auto!important;justify-content:flex-end;max-width:calc(100% - 120px)}
 }
 .col-head .n{color:var(--muted);font:500 .85rem var(--body)}
 .col-list{display:flex;flex-direction:column;gap:8px;min-height:70px}
