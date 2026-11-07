@@ -32,7 +32,7 @@
         eyes: {lx: 49, rx: 71, y: 69, r: 5, style: "sparkle", color: "#3A2A08"},
         mouth: {x: 60, y: 80, w: 3.2, color: "#3A2A08"},
         cheeks: {lx: 40, rx: 80, y: 78, w: 4.4, h: 2.6, color: "#FF9A6A"},
-        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 89.5, 1.05, 0, 64, 58], chest: [74, 95.5, 0.62], back: [90, 60, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 89.5, 1.05, 0, 70, 83], chest: [74, 95.5, 0.62], back: [90, 60, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Ciao! Fresh from the terraces, just for you!", "When life gives you lemons, ace the quiz!", "Zesty brain, sunny heart. That's you!", "You're doing great. Squeeze in one more!", "A little bit extra never hurt anyone!", "Zest it up, we've got pages to cover!", "Bright, bold and on a roll today!", "Sun on the terraces, focus in your eyes!"],
           pet: ["Hehe! You smell like lemon now!", "Aww, that's the zest feeling ever!"],
@@ -66,7 +66,7 @@
         eyes: {lx: 50, rx: 70, y: 68, r: 4.8, style: "round", color: "#2A1A1E"},
         mouth: {x: 60, y: 77.5, w: 3, color: "#2A1A1E"},
         cheeks: {lx: 42, rx: 78, y: 76, w: 4, h: 2.4, color: "#FFB0A0"},
-        anchors: {top: [60, 39.5, 1.01, 0], neck: [60, 88, 1, 0, 63, 63], chest: [72, 94.5, 0.62], back: [86, 62, 0.8], hands: [60, 86, 0.86]},
+        anchors: {top: [60, 39.5, 1.01, 0], neck: [60, 88, 1, 0, 63, 65], chest: [72, 94.5, 0.62], back: [86, 62, 0.8], hands: [60, 86, 0.86]},
         lines: {
           tap: ["Beep beep! Hop on, let's zip through it!", "Hairpin bend ahead? We lean in and go!", "Vroom! That chapter didn't stand a chance!", "Full tank of focus, open coast road!", "Small engine, big dreams. Just like you!", "Wind in your hair, notes in your head!", "Smooth riding! You're cruising today!", "Next stop: the top of the class!"],
           pet: ["Hehe! That made my headlight twinkle!", "Purr purr! That's my happy engine!"],
@@ -103,7 +103,7 @@
         eyes: {lx: 51, rx: 69, y: 63, r: 4.6, style: "sparkle", color: "#2E2A1A"},
         mouth: {x: 60, y: 72, w: 3, color: "#2E2A1A"},
         cheeks: {lx: 43, rx: 77, y: 70, w: 4, h: 2.4, color: "#FF8FA8"},
-        anchors: {top: [60, 0, 0.85, 0], neck: [60, 82, 0.95, 0, 42, 48], chest: [70, 88, 0.6], back: [84, 62, 0.8], hands: [60, 92, 0.8]},
+        anchors: {top: [60, 0, 0.85, 0], neck: [60, 82, 0.95, 0, 42, 67], chest: [70, 88, 0.6], back: [84, 62, 0.8], hands: [60, 92, 0.8]},
         lines: {
           tap: ["Ciao! Three scoops of cheering, coming up!", "Pistachio for focus, fragola for fun!", "You're the cherry on top of today!", "Cool, calm and totally got this!", "No brain freeze, just brain power!", "One scoop at a time, you'll finish it!", "Sweet work! Keep it rolling!", "Gelato tastes better after a good chapter!"],
           pet: ["Hehe! Careful, I might melt!", "Aww, you make my scoops wobble!"],

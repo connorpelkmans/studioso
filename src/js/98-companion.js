@@ -126,7 +126,7 @@
   // The scarf, the cape and its collar are drawn to a half-width hw, so they wrap the whole body (anchors.neck's 5th number: the body's width there)
   const scarfArt = hw => { const k = f1(hw * 0.45 - 9.5), e = f1(hw + 4), h = f1(hw - 2);
     return `<path d="M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z" ${WEAR} ${OUT(2.4)}/><path d="M${-h} -1.5Q0 5 ${h} -1.5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/><g${k ? ` transform="translate(${k} 0)"` : ""}><path d="M6 4L9 21L18 19.5L13 3Z" ${WEAR} ${OUT(2.4)}/><path d="M10.5 14.5L16 13.6" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/><path d="M10 21.4l-.4 2.6M13.4 20.8l-.2 2.6M16.6 20.2l.2 2.6" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="4" r="4.4" ${WEAR} ${OUT(2.4)}/></g>`; };
-  // the cape flares to at least bw (half-width), so it shows past a wide body (anchors.neck's 6th number: the body's widest point under the neck)
+  // the cape flares to at least bw (half-width), so it shows past a wide body (anchors.neck's 6th number: the body's widest point under the neck; a 7th sets the collar's width)
   const capeArt = (hw, bw) => { const b = f1(Math.max(28, hw + 8.5, bw || 0)), m = f1(b * 0.5), q = f1(b * 0.74), i = f1(hw * 0.57), j = f1(b * 0.53);
     return `<path d="M${-hw} -3Q0 3 ${hw} -3L${b} 28Q${q} 34 ${m} 30Q${f1(m / 2)} 36 0 31Q${f1(-m / 2)} 36 ${-m} 30Q${-q} 34 ${-b} 28Z" ${WEAR} ${OUT(2.4)}/><path d="M${-i} 4Q${f1(-i * 1.5)} 16 ${-j} 27M${i} 4Q${f1(i * 1.5)} 16 ${j} 27M0 8V28" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>`; };
   const collarArt = hw => `<path d="M${-hw} -3Q0 3 ${hw} -3V0.5Q0 6.5 ${-hw} 0.5Z" fill="#FFD35A" ${OUT(2)}/><circle cx="0" cy="4" r="3" fill="#FFF8F0" ${OUT(1.6)}/><circle cx="-0.8" cy="3.2" r="0.9" fill="#fff"/>`;
@@ -186,7 +186,7 @@
     const worn = wornList(o.wear), tints = o.tint || cfg().tint || {};
     const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], ns = num(na[2]) ? na[2] : 1, capeA = [na[0], na[1], f1(ns * 0.95)];
     // the body's width at the neck: the scarf's rounded ends and the collar reach just past its outline (under a separate head the collar hugs the narrower neck); the bow tie stays well inside it
-    const wrapW = num(na[4]) ? na[4] : 0, drapeW = num(na[5]) ? na[5] : 0, hwAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 1) / s - 2)) : 0, collarAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + (partSvg(P.head) ? -3.5 : 0.4)) / s)) : 0;
+    const wrapW = num(na[4]) ? na[4] : 0, drapeW = num(na[5]) ? na[5] : 0, hwAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 1) / s - 2)) : 0, collarAt = s => num(na[6]) ? f1(na[6] / 2 / s) : wrapW ? f1(Math.max(12, (wrapW / 2 + (partSvg(P.head) ? -3.5 : 0.4)) / s)) : 0;
     // anchors.bow (optional): where the bow tie goes when something hangs over the neck (a toucan's beak)
     const bowA = pt(A.bow) ? A.bow : wrapW ? [na[0], na[1], f1(Math.max(0.5, Math.min(ns, wrapW * 0.6 / 41))), na[3] || 0] : na;
     const chestA = pt(A.chest) ? [A.chest[0], A.chest[1], f1((num(A.chest[2]) ? A.chest[2] : 1) * 1.3)] : A.chest;

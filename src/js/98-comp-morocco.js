@@ -45,7 +45,7 @@
         eyes: {lx: 50, rx: 70, y: 77, r: 4.6, style: "sparkle", color: "#2A2230"},
         mouth: {x: 60, y: 87, w: 3, color: "#2A2230"},
         cheeks: {lx: 42, rx: 78, y: 85, w: 4, h: 2.4, color: "#FF9AA8"},
-        anchors: {top: [60, 26.5, 0.8, 0], neck: [58, 95.5, 0.9, 0, 64, 76.5], chest: [70, 102, 0.6], back: [30, 78, 0.7], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 26.5, 0.8, 0], neck: [58, 95.5, 0.9, 0, 82, 78.5], chest: [70, 102, 0.6], back: [30, 78, 0.7], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Ahlan! Fresh mint tea, poured just for you!", "Three glasses: one for focus, one for joy, one for luck.", "Pour from up high, and do your best work!", "Steady hands, steady mind. You've got this!", "Sweet and minty, like a job well done!", "Steeping ideas takes patience. You're doing great!", "A little sip, a little step, every day.", "The best study chats happen over tea!"],
           pet: ["Hehe! Careful, I'm still warm!", "Aww, that makes my lid jiggle!"],
@@ -89,7 +89,7 @@
         eyes: {lx: 47.5, rx: 72.5, y: 59.5, r: 5, style: "round", color: "#2A2026"},
         mouth: {x: 60, y: 74.6, w: 2.6, color: "#2A2026", style: "cat"},
         cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.4, color: "#FFA2A2"},
-        anchors: {top: [60, 38, 0.9, 0], neck: [60, 81, 1, 0, 47, 53], chest: [60, 87, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 81, 1, 0, 47, 63], chest: [60, 87, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["My ears heard you studying from the desert!", "Big ears, big plans, little paws. Let's go!", "I hear a deadline... and you're way ahead of it!", "Desert foxes keep cool. So can you!", "Every grain of sand adds up to a dune!", "Listen closely: you're doing great!", "I dug a cozy spot right next to your notes.", "Sharp ears, sharp mind. That's you!"],
           pet: ["Hehe! Scratch behind the big ears!", "Aww, my tail is wagging all by itself!"],
@@ -123,7 +123,7 @@
         eyes: {lx: 50, rx: 70, y: 71, r: 4.8, style: "sparkle", color: "#3A1E10"},
         mouth: {x: 60, y: 81, w: 3, color: "#3A1E10"},
         cheeks: {lx: 42, rx: 78, y: 79, w: 4, h: 2.4, color: "#FF7A6A"},
-        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 90, 1, 0, 62, 59], chest: [72, 96.5, 0.62], back: [88, 64, 0.8], hands: [60, 99, 0.86]},
+        anchors: {top: [60, 39.5, 0.95, 0], neck: [60, 90, 1, 0, 62, 61], chest: [72, 96.5, 0.62], back: [88, 64, 0.8], hands: [60, 99, 0.86]},
         lines: {
           tap: ["Hi! I'm a little ball of courtyard sunshine!", "Squeeze the day! Gently, please!", "You're growing so much, just like my tree!", "Bright ideas ripen with time. Keep going!", "Zesty work today! I'm so proud!", "The fountain sings, the sun shines, you study!", "A little sweet, a little tangy, all good!", "Orange you glad you showed up today? I am!"],
           pet: ["Hehe! That tickles my peel!", "Aww, I smell like blossoms now!"],

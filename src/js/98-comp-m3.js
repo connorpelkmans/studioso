@@ -45,7 +45,7 @@
         eyes: {lx: 50, rx: 70, y: 70, r: 5, style: "dot", color: "#3A2318"},
         mouth: {x: 60, y: 79, w: 3.2, color: "#3A2318"},
         cheeks: {lx: 42, rx: 78, y: 78, w: 4.6, h: 2.8, color: "#FF9A8E"},
-        anchors: {top: [51, 41, 1.09, 0], neck: [60, 89, 1.15, 0, 64, 81], chest: [77, 94.5, 0.6], back: [93, 70, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [51, 41, 1.09, 0], neck: [60, 89, 1.15, 0, 84, 92], chest: [77, 94.5, 0.6], back: [93, 70, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Tap tap! Hello, my brilliant friend!", "Order of the day: being amazing!", "I rule in your favor, always!", "You make my handle wiggle with joy!", "The case for you is SO strong!", "Every study session counts! Tap!", "Objection! You're too awesome!", "You've got this, I just know it!"],
           pet: ["Hehe! My handle is all wiggly!", "Tap tap! That's my happy rhythm!"],
@@ -80,7 +80,7 @@
         eyes: {lx: 51, rx: 69, y: 75, r: 4.8, style: "dot", color: "#3A2A14"},
         mouth: {x: 60, y: 84, w: 3, color: "#3A2A14"},
         cheeks: {lx: 43, rx: 77, y: 83, w: 4.4, h: 2.7, color: "#FF9C8A"},
-        anchors: {top: [60, 49.5, 0.85, 0], neck: [60, 93.5, 1.05, 0, 44, 40], chest: [75, 99.5, 0.6], back: [84, 70, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 49.5, 0.85, 0], neck: [60, 93.5, 1.05, 0, 44, 53], chest: [75, 99.5, 0.6], back: [84, 70, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi hi! You tip my scales toward joy!", "Perfectly balanced, just like you!", "Study and rest? Beautiful balance!", "The evidence is in: you're amazing!", "Fair and square, you're a superstar!", "I weighed it up: you've got this!", "My pans are swinging with happiness!", "Justice for snacks and good notes!"],
           pet: ["Wheee! My pans are all a-sway!", "Hehe! I feel so balanced now!"],
@@ -117,7 +117,7 @@
         eyes: {lx: 49, rx: 71, y: 72, r: 5, style: "dot", color: "#1F2A4A"},
         mouth: {x: 60, y: 81, w: 3.2, color: "#1F2A4A"},
         cheeks: {lx: 39.5, rx: 80.5, y: 80, w: 4.6, h: 2.8, color: "#FF9FB7"},
-        anchors: {top: [60, 41, 1.12, 0], neck: [60, 92, 1.15, 0, 64, 69], chest: [80, 98, 0.62], back: [91, 74, 0.95], hands: [60, 98, 0.9]},
+        anchors: {top: [60, 41, 1.12, 0], neck: [60, 92, 1.15, 0, 77, 71], chest: [80, 98, 0.62], back: [91, 74, 0.95], hands: [60, 98, 0.9]},
         lines: {
           tap: ["Hi hi! I vote for YOU! Every time!", "Unanimous! You're doing amazing!", "Your ideas count, and so do you!", "All in favor of you? Every hand up!", "A landslide of cheers, just for you!", "Pop in a question, I love those!", "Look at you, showing up again!", "You've got my vote, superstar!"],
           pet: ["Hehe! My slot is smiling!", "Eek! My little ballot is wiggling!"],
@@ -168,7 +168,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 49, r: 4.6, style: "dot", color: "#2A1A12"},
         mouth: {x: 60, y: 63.2, w: 2.8, color: "#2A1A12", style: "cat"},
         cheeks: {lx: 44, rx: 76, y: 58.5, w: 4.2, h: 2.6, color: "#FF9C8A"},
-        anchors: {top: [60, 30, 1, 0], neck: [60, 71, 1.05, 0, 40, 55], chest: [73, 78.5, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.95]},
+        anchors: {top: [60, 30, 1, 0], neck: [60, 71, 1.05, 0, 40, 65.5], chest: [73, 78.5, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.95]},
         lines: {
           tap: ["Sniff sniff! I smell a superstar!", "Clue found: you're doing amazing!", "Elementary! You've totally got this!", "My nose never lies. You're brilliant!", "Every note is a clue. Keep going!", "Woof! Another mystery cracked open!", "Following the trail right beside you!", "The evidence says you're awesome!"],
           pet: ["Hehe! My ears are flopping happily!", "Woof woof! Best pats in the whole case!"],
@@ -199,7 +199,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 55, r: 6.2, style: "round", color: "#2B3550"},
         mouth: {x: 60, y: 66, w: 3, color: "#2B3550"},
         cheeks: {lx: 43, rx: 77, y: 64.5, w: 4.2, h: 2.6, color: "#FFA3B8"},
-        anchors: {top: [60, 27, 0.95, 0], neck: [60, 75, 0.95, 0, 54, 50], chest: [73, 81, 0.6], back: [84, 50, 0.8], hands: [60, 84, 0.85]},
+        anchors: {top: [60, 27, 0.95, 0], neck: [60, 75, 0.95, 0, 54, 52], chest: [73, 81, 0.6], back: [84, 50, 0.8], hands: [60, 84, 0.85]},
         lines: {
           tap: ["Ooh! Up close, you're even more amazing!", "I spy a brilliant mind! It's you!", "Zooming in on your awesome work!", "Every tiny detail you do sparkles!", "Look closer! See? Pure progress!", "I notice everything, and I'm SO proud!", "Hi hi! You look great from here!", "Focus magnified! You've got this!"],
           pet: ["Hehe! My glass is all shiny now!", "Wheee! Everything looks rosy!"],
@@ -234,7 +234,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 63, r: 5, style: "sparkle", color: "#262A5C"},
         mouth: {x: 60, y: 72.5, w: 3, color: "#262A5C"},
         cheeks: {lx: 42.5, rx: 77.5, y: 71, w: 4.4, h: 2.7, color: "#FF9FC2"},
-        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 81.5, 1, 0, 64, 57], chest: [73, 87.5, 0.6], back: [86, 58, 0.85], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 81.5, 1, 0, 67, 73], chest: [73, 87.5, 0.6], back: [86, 58, 0.85], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Hi hi! There's only ONE you!", "Your study style is one of a kind!", "Swirly happy hello to you!", "You leave sparkles on everything!", "Proof you're amazing: right here!", "I'm swirling with pride for you!", "Unique, brilliant and doing great!", "You've got this, my one and only!"],
           pet: ["Hehe! My swirls are all wiggly!", "Ooh! That made me swirl with joy!"],
@@ -280,7 +280,7 @@
         eyes: {lx: 49, rx: 71, y: 64, r: 5, style: "dot", color: "#1E3A36"},
         mouth: {x: 60, y: 73, w: 3.2, color: "#1E3A36"},
         cheeks: {lx: 39.5, rx: 80.5, y: 72, w: 4.6, h: 2.8, color: "#FF9A9A"},
-        anchors: {top: [60, 33.5, 1, 0], neck: [60, 84, 1.2, 0, 64, 77], chest: [82, 90.5, 0.66], back: [92, 66, 0.9], hands: [60, 92, 0.9]},
+        anchors: {top: [60, 33.5, 1, 0], neck: [60, 84, 1.2, 0, 83, 92], chest: [82, 90.5, 0.66], back: [92, 66, 0.9], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Clack clack! Hello, my favorite writer!", "Every word you type makes me sing!", "Ding! New line, new brilliant idea!", "Your sentences sparkle today!", "Keep the keys clacking! You're great!", "I love your words SO much!", "A little draft is a big start!", "Clackety cheers just for you!"],
           pet: ["Ding ding! That tickles my keys!", "Hehe! My platen is all spinny!"],
@@ -294,7 +294,7 @@
         }
       },
       {
-        id: "writing-raven", name: "Poe", kind: "Little Raven", pose: "stand", wearColor: "#E0A84A", hatTop: true, scarfOverArms: true,
+        id: "writing-raven", name: "Poe", kind: "Little Raven", pose: "stand", wearColor: "#E0A84A", hatTop: true,
         bio: "A fluffy little raven who adores stories and quoths only cheers.",
         idle: ["wingFlutter", "tailSwish", "topBob"], cheer: "wingFlutter",
         parts: {
@@ -318,7 +318,7 @@
         },
         mouth: {x: 60, y: 68, w: 3},
         cheeks: {lx: 39, rx: 81, y: 67, w: 4.6, h: 2.8, color: "#FF8FB0"},
-        anchors: {top: [60, 31.5, 1, 0], neck: [60, 82, 1.3, 0, 64, 66], chest: [74, 90, 0.78], back: [90, 74, 0.9], hands: [60, 92, 0.95]},
+        anchors: {top: [60, 31.5, 1, 0], neck: [60, 82, 1.3, 0, 74, 79], chest: [74, 90, 0.78], back: [90, 74, 0.9], hands: [60, 92, 0.95]},
         lines: {
           tap: ["Caw caw! Hello, my favorite author!", "Quoth the raven: you're AMAZING!", "Your story gets better every day!", "Flapping happy wings for you!", "Every page you read makes me glow!", "Caw! That idea is pure poetry!", "I'd write a whole ode to you!", "You've got this, my brilliant friend!"],
           pet: ["Caw! My feathers are all fluffed!", "Hehe! Softest pats, nevermore sad!"],
@@ -355,7 +355,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 71, r: 4.8, style: "dot", color: "#2E1428"},
         mouth: {x: 60, y: 80, w: 3, color: "#2E1428"},
         cheeks: {lx: 44, rx: 76, y: 78.5, w: 3.8, h: 2.5, color: "#FFB0C8"},
-        anchors: {top: [60, 20.5, 0.9, 0], neck: [60, 89, 0.95, 0, 46, 44], chest: [72, 95, 0.6], back: [82, 62, 0.8], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 20.5, 0.9, 0], neck: [60, 89, 0.95, 0, 46, 46], chest: [72, 95, 0.6], back: [82, 62, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi hi! Let's write something wonderful!", "Your ideas flow like the finest ink!", "Swish swirl! You're doing amazing!", "Every word you write is a treasure!", "I'd sign my name under your work!", "Fresh ink, fresh thoughts! Love it!", "Your notes look absolutely lovely!", "You've got this, with a flourish!"],
           pet: ["Hehe! My nib is all tingly!", "Ooh! A happy little ink swirl!"],

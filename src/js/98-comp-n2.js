@@ -31,7 +31,7 @@
         eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "round", color: "#3A1E1A"},
         mouth: {x: 60, y: 85, w: 3, color: "#3A1E1A"},
         cheeks: {lx: 44, rx: 76, y: 83, w: 4, h: 2.6, color: "#FF8F9A"},
-        anchors: {top: [60, 12.5, 0.95, 0], neck: [60, 94, 0.9, 0, 48, 48], chest: [70, 100.5, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.8]},
+        anchors: {top: [60, 12.5, 0.95, 0], neck: [60, 94, 0.9, 0, 48, 50], chest: [70, 100.5, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.8]},
         lines: {
           tap: ["Hi hi! Want to share my umbrella? It's my cap!", "You're growing so well today!", "Slow and steady, like moss on a log. You've got this!", "My spots are all sparkly because you're here!", "Little by little, a whole forest grows!", "Rain or shine, I'm cheering for you!", "Deep breath of forest air. Ahh. Okay, onward!"],
           pet: ["Hehe, careful, my cap is ticklish!", "Aww, that made my spots blush!"],
@@ -65,7 +65,7 @@
         eyes: {lx: 50, rx: 70, y: 46, r: 4.4, style: "dot", color: "#20301A"},
         mouth: {x: 60, y: 55, w: 2.8, color: "#20301A"},
         cheeks: {lx: 43, rx: 77, y: 53, w: 3.8, h: 2.4, color: "#FF8FA0"},
-        anchors: {top: [60, 18, 0.85, 0], neck: [60, 70, 0.7, 0, 21, 23], chest: [64, 75.5, 0.5], back: [76, 86, 0.6], hands: [60, 88, 0.7]},
+        anchors: {top: [60, 18, 0.85, 0], neck: [60, 70, 0.7, 0, 21, 55], chest: [64, 75.5, 0.5], back: [76, 86, 0.6], hands: [60, 88, 0.7]},
         lines: {
           tap: ["Hi! I unrolled a tiny bit just seeing you!", "Every page you read, I uncurl a little more!", "Curious minds grow the tallest. That's you!", "One frond at a time, one task at a time!", "You're in such a good groove today!", "Shh, can you hear the forest cheering?", "Stretch your thinking, like me!"],
           pet: ["Eep! That makes me curl up giggling!", "Hehe, soft pats make my leaves wiggle!"],
@@ -104,7 +104,7 @@
         eyes: {lx: 50, rx: 70, y: 53, r: 4.6, style: "round", color: "#2A1A12"},
         mouth: {x: 60, y: 65, w: 2.2, style: "cat", color: "#2A1A12"},
         cheeks: {lx: 42, rx: 78, y: 61, w: 4, h: 2.4, color: "#FF8F9A"},
-        anchors: {top: [60, 32, 0.85, 0], neck: [60, 74, 0.85, 0, 46, 55], chest: [60, 79.5, 0.55], back: [86, 82, 0.7], hands: [60, 90, 0.75]},
+        anchors: {top: [60, 32, 0.85, 0], neck: [60, 74, 0.85, 0, 46, 73], chest: [60, 79.5, 0.55], back: [86, 82, 0.7], hands: [60, 90, 0.75]},
         lines: {
           tap: ["*yawn* Oh! Hi! I was just resting my eyes!", "You study, I'll keep this mushroom warm!", "Tiny steps, cozy pace, big results!", "You're doing wonderfully, sleepy-head approved!", "Snack, stretch, then back to it?", "My whiskers say today is a good day!", "Curl up with a good chapter? I'll join you!"],
           pet: ["Mmm, that's the coziest pat ever!", "Hehe, now I'm extra snuggly!"],
@@ -146,7 +146,7 @@
         eyes: {lx: 51, rx: 69, y: 43, r: 4.6, style: "sparkle", color: "#2A1406"},
         mouth: {x: 60, y: 52, w: 3, color: "#2A1406"},
         cheeks: {lx: 45, rx: 75, y: 50, w: 3.8, h: 2.4, color: "#FF9A8A"},
-        anchors: {top: [60, 17.5, 0.9, 0], neck: [60, 76, 0.75, 0, 33, 37], chest: [60, 82, 0.55], back: [76, 92, 0.6], hands: [60, 94, 0.75]},
+        anchors: {top: [60, 17.5, 0.9, 0], neck: [60, 76, 0.75, 0, 33, 69], chest: [60, 82, 0.55], back: [76, 92, 0.6], hands: [60, 94, 0.75]},
         lines: {
           tap: ["Hi! I'm turning toward you, of course!", "You're my favorite kind of sunshine!", "Stand tall and keep reaching up!", "Every task is a little ray of light!", "Look at you blooming today!", "Sip some water! Flowers and students need it!", "Face the sun, then face that next page!"],
           pet: ["Hehe! My petals went all fluttery!", "Aww, I'm glowing even brighter now!"],
@@ -187,7 +187,7 @@
         },
         mouth: {x: 60, y: 57, w: 2.6},
         cheeks: {lx: 44, rx: 76, y: 55, w: 3.8, h: 2.4, color: "#FF8F7A"},
-        anchors: {top: [60, 28, 0.85, 0], neck: [60, 68, 0.85, 0, 40, 51], chest: [60, 73.5, 0.55], back: [84, 84, 0.7], hands: [60, 96, 0.75]},
+        anchors: {top: [60, 28, 0.85, 0], neck: [60, 68, 0.85, 0, 40, 53], chest: [60, 73.5, 0.55], back: [84, 84, 0.7], hands: [60, 96, 0.75]},
         lines: {
           tap: ["Tweet! That's my hello note!", "I'm composing a song about your hard work!", "La la la! You're doing great!", "One note at a time makes a whole song!", "You've got the rhythm today!", "Peep! Water break? Birds love water!", "Your focus is music to my ears!"],
           pet: ["Chirp chirp! My feathers are fluffing!", "Eee! That's my favorite pat!"],
@@ -219,7 +219,7 @@
         eyes: {lx: 50, rx: 70, y: 72, r: 4.8, style: "round", color: "#3A2410"},
         mouth: {x: 60, y: 82, w: 3.2, color: "#3A2410"},
         cheeks: {lx: 43, rx: 77, y: 80, w: 4.2, h: 2.6, color: "#FF8F7A"},
-        anchors: {top: [60, 36, 1, 0], neck: [60, 91, 1, 0, 64, 82], chest: [72, 97, 0.6], back: [96, 70, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 36, 1, 0], neck: [60, 91, 1, 0, 79, 84], chest: [72, 97, 0.6], back: [96, 70, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Howdy! Lean on me anytime, I'm comfy!", "Steady wins the harvest, friend!", "You're working like a whole farm crew!", "Square, sturdy and proud of you!", "Hay there! Keep it up!", "Water and a snack, then back to the field?", "Little by little, the barn fills up!"],
           pet: ["Hehe! That's a bit scratchy, but I like it!", "Aww shucks, thank you kindly!"],
@@ -259,7 +259,7 @@
         eyes: {lx: 52, rx: 68, y: 68, r: 4.2, style: "round", color: "#2A1A12"},
         mouth: {x: 60, y: 77, w: 2.8, color: "#2A1A12"},
         cheeks: {lx: 46, rx: 74, y: 75, w: 3.6, h: 2.2, color: "#FF8F9A"},
-        anchors: {top: [72, 43, 1, 0], neck: [60, 85.5, 1, 0, 64, 87], chest: [84, 91, 0.55], back: [96, 66, 0.8], hands: [60, 96, 0.8]},
+        anchors: {top: [72, 43, 1, 0], neck: [60, 85.5, 1, 0, 75, 89], chest: [84, 91, 0.55], back: [96, 66, 0.8], hands: [60, 96, 0.8]},
         lines: {
           tap: ["Toot toot! All aboard the study express!", "Chugga chugga, you're doing great!", "Next stop: Finished Homework Station!", "Full steam ahead, friend!", "I think I can, and so can you!", "Coal break? I mean, snack break?", "We're right on schedule today!"],
           pet: ["Toot! That made my whistle squeak!", "Hehe, my wheels are spinning with joy!"],
@@ -293,7 +293,7 @@
         eyes: {lx: 51, rx: 69, y: 47, r: 4.4, style: "dot", color: "#2E2018"},
         mouth: {x: 60, y: 56, w: 2.8, color: "#2E2018"},
         cheeks: {lx: 44, rx: 76, y: 54, w: 3.8, h: 2.4, color: "#FF8F9A"},
-        anchors: {top: [60, 18.5, 0.9, 0], neck: [60, 78, 0.85, 0, 47, 47], chest: [60, 83.5, 0.55], back: [80, 90, 0.6], hands: [60, 96, 0.75]},
+        anchors: {top: [60, 18.5, 0.9, 0], neck: [60, 78, 0.85, 0, 47, 62], chest: [60, 83.5, 0.55], back: [80, 90, 0.6], hands: [60, 96, 0.75]},
         lines: {
           tap: ["Ticket, please! Oh wait, I'm the ticket!", "Every task gets a punch! Click!", "You've got a first class ticket to success!", "Valid for one amazing study session!", "Keep me safe, I'm your pass to greatness!", "Water break? It's included in the fare!", "Destination: You, but even smarter!"],
           pet: ["Hehe! Careful, don't crease me!", "Aww! I feel like a golden ticket now!"],
@@ -326,7 +326,7 @@
         eyes: {lx: 50, rx: 70, y: 64, r: 4.8, style: "round", color: "#2A1A10"},
         mouth: {x: 60, y: 74, w: 3, color: "#2A1A10"},
         cheeks: {lx: 43, rx: 77, y: 72, w: 4, h: 2.6, color: "#FF8F9A"},
-        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 83, 1, 0, 64, 83], chest: [60, 88.5, 0.55], back: [96, 66, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 36.5, 0.95, 0], neck: [60, 83, 1, 0, 84, 85], chest: [60, 88.5, 0.55], back: [96, 66, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! I packed snacks AND study notes!", "Every place you study gets a sticker on me!", "Ready for the next adventure, friend?", "You're well-traveled in knowledge!", "Pack light, think big!", "Snack check! I've got crackers in here!", "Look at all my stickers! All from your hard work!"],
           pet: ["Hehe! My latches are rattling!", "Aww, I'm all packed with happiness!"],
@@ -364,7 +364,7 @@
         eyes: {lx: 51, rx: 69, y: 74, r: 4.4, style: "round", color: "#4A2406"},
         mouth: {x: 60, y: 83, w: 2.8, color: "#4A2406"},
         cheeks: {lx: 44, rx: 76, y: 81, w: 3.8, h: 2.4, color: "#FF7A6A"},
-        anchors: {top: [60, 27, 0.9, 0], neck: [60, 91, 0.9, 0, 64, 67], chest: [76, 96.5, 0.55], back: [92, 70, 0.75], hands: [60, 100, 0.8]},
+        anchors: {top: [60, 27, 0.9, 0], neck: [60, 91, 0.9, 0, 69, 69], chest: [76, 96.5, 0.55], back: [92, 70, 0.75], hands: [60, 100, 0.8]},
         lines: {
           tap: ["Hi! Perfectly jammy and ready to help!", "Soft on the outside, strong in the middle. Like you!", "Six and a half minutes of focus? Perfect!", "You're cooking up something great today!", "Egg-cellent progress, friend!", "Sip some water! Even broth needs a break!", "Golden center, golden effort!"],
           pet: ["Hehe! Careful, I'm a little wobbly!", "Aww, my yolk is all warm now!"],
@@ -394,7 +394,7 @@
         eyes: {lx: 50, rx: 70, y: 68, r: 4.6, style: "sparkle", color: "#3A1A2A"},
         mouth: {x: 60, y: 77, w: 2.8, color: "#3A1A2A"},
         cheeks: {lx: 43, rx: 77, y: 75, w: 4, h: 2.6, color: "#FF7AA0"},
-        anchors: {top: [60, 33.5, 0.9, 0], neck: [60, 84.5, 0.85, 0, 64, 72], chest: [74, 90, 0.55], back: [94, 66, 0.75], hands: [60, 100, 0.8]},
+        anchors: {top: [60, 33.5, 0.9, 0], neck: [60, 84.5, 0.85, 0, 80, 74], chest: [74, 90, 0.55], back: [94, 66, 0.75], hands: [60, 100, 0.8]},
         lines: {
           tap: ["Hi hi! *happy spin* Wheee!", "You're on a roll! A swirly one!", "Round and round, task by task!", "I'm the cutest topping and you're the best student!", "Spin spin! You've got this!", "Snack break? I'm not a snack, just a friend!", "Your focus is making me dizzy with joy!"],
           pet: ["Wheee! You made me spin again!", "Hehe! My swirl is blushing pink!"],
@@ -427,7 +427,7 @@
         eyes: {lx: 51, rx: 69, y: 50, r: 4.6, style: "sparkle", color: "#0E1A12"},
         mouth: {x: 60, y: 60, w: 2.8, color: "#0E1A12"},
         cheeks: {lx: 44, rx: 76, y: 57, w: 3.8, h: 2.4, color: "#FF8FA8"},
-        anchors: {top: [60, 16.5, 0.9, 0], neck: [60, 67.5, 0.8, 0, 52, 52], chest: [60, 73.5, 0.55], back: [80, 60, 0.7], hands: [60, 96, 0.75]},
+        anchors: {top: [60, 16.5, 0.9, 0], neck: [60, 67.5, 0.8, 0, 52, 64], chest: [60, 73.5, 0.55], back: [80, 60, 0.7], hands: [60, 96, 0.75]},
         lines: {
           tap: ["Hi! Standing tall in the bowl for you!", "Crisp, salty and cheering you on!", "Stand up straight, you're doing great!", "I'm your little flag of focus!", "Wave hello! You've got this!", "Water break! I'm already soaking, ha!", "Every bowl needs a nori. Every study day needs you!"],
           pet: ["Hehe! Careful, I might get soggy!", "Aww! I feel extra crispy now!"],

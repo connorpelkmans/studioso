@@ -73,7 +73,7 @@ var COMP_EXTRA = [];
         },
         eyes: {lx: 49.5, rx: 70.5, y: 55.8, r: 5.2, style: "round", color: EYE},
         mouth: {x: 60, y: 67.6, w: 2.8, color: "#3A2A2A", style: "cat"},
-        anchors: {top: [60, 33.5, 0.95, 0], neck: [60, 80, 1, 0, 49, 51], chest: [60, 86.5, 0.62], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 33.5, 0.95, 0], neck: [60, 80, 1, 0, 49, 53], chest: [60, 86.5, 0.62], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
         lines: LINES
       };
   }
