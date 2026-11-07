@@ -8344,6 +8344,16 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 @media (min-width:701px) and (orientation:landscape) and (pointer:coarse){
   #view .g2-band > .row-actions{margin-left:auto!important;justify-content:flex-end;max-width:calc(100% - 120px)}
 }
+
+/* Today's Plan on phones: the focus (tomato) button stacks above Log Time, with the time for today to their left, centred
+   between them, so the task's name gets more of the row */
+@media (max-width:639px){
+  #view .plan-row > .plan-side{display:grid;grid-template-columns:auto auto;column-gap:10px;row-gap:6px;align-items:center;justify-items:end}
+  #view .plan-row > .plan-side > :is(.alloc,.score){grid-column:1;grid-row:1 / span 2}
+  #view .plan-row > .plan-side > .focus-go:not(.lt-go){grid-column:2;grid-row:1}
+  #view .plan-row > .plan-side > .lt-go{grid-column:2;grid-row:2}
+  #view .plan-row > .plan-side > :not(.alloc):not(.score):not(.focus-go){grid-row:1 / span 2}
+}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
