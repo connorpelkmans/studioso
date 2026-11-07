@@ -63090,7 +63090,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 62, w: 2.6, color: "#2E1E16"},
         mouths: buckyMouths(61.4),
         cheeks: {lx: 42.5, rx: 77.5, y: 56, w: 3.8, h: 2.4, color: "#FF9A88"},
-        anchors: {top: [60, 22, 0.95, 0], neck: [60, 78.5, 1, 0, 54, 66], chest: [81, 81, 0.55], back: [86, 82, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 22, 0.95, 0], neck: [60, 77, 1, 0, 52, 66], chest: [81, 81, 0.55], back: [86, 82, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! I've been building you a study dam!", "One stick at a time. That's how dams get built!", "Busy as a beaver, and so are you!", "Chomp chomp! That task didn't stand a chance.", "Slap slap! That's my tail cheering for you!", "Let's build something great today!", "Keep at it! Every twig counts.", "You've got real beaver energy today!"],
           pet: ["Hehe! Right between the ears!", "Ooh, my fur's all fluffy now!"],
@@ -63128,7 +63128,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 41, r: 4.6, style: "sparkle", color: "#24140C"},
         mouth: {x: 60, y: 71.4, w: 2.6, color: "#3A2418"},
         cheeks: {lx: 43.6, rx: 76.4, y: 48.4, w: 3.8, h: 2.4, color: "#FF9A88"},
-        anchors: {top: [60, 10, 0.85, 0], neck: [60, 81, 1, 0, 59, 61], chest: [77, 85.5, 0.55], back: [84, 74, 0.8], hands: [60, 90, 0.85]},
+        anchors: {top: [60, 10, 0.85, 0], neck: [60, 81, 1, 0, 59, 61, 54], chest: [77, 85.5, 0.55], back: [84, 74, 0.8], hands: [60, 90, 0.85]},
         lines: {
           tap: ["Hi... I wandered over from the lake to see you.", "Long legs, slow steps, steady progress.", "No rush. We'll get there together.", "You're doing really well. Truly.", "I'm small now, but I'll grow. So will you!", "Deep breath. The lake is calm, and so are we.", "One careful hoof at a time.", "I believe in you, as big as a moose!"],
           pet: ["Oh! My fuzzy ears are so happy.", "Mmm. That's nice. Thank you."],
