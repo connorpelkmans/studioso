@@ -8863,19 +8863,19 @@ const fxFirework = (pal, o = {}) => {
   const S = hbRun((W, H, d) => {
     const k = Math.max(0.6, Math.min(1.5, Math.min(W, H) / 650)), A = Math.max(0.65, Math.min(1.2, Math.sqrt(W * H) / 900)), cols = pal(d), CL = cols.length, wind = fxR(-0.1, 0.1) * k,
       gold = (o.gold || ["#B87A0A", "#FFC861"])[d ? 1 : 0], glit = (o.glit || ["#A8740A", "#FFF1C4"])[d ? 1 : 0], tall = H > W * 1.25, Rb = Math.min(W * (tall ? 0.42 : 0.33), H * 0.36) * (o.size || 1);
-    let prog = FW_SHOW;
+    let prog = d ? FW_SHOW : FW_SHOW.filter(e => e[1] !== "cross" && e[1] !== "multi" && e[0] !== 124);   // light mode: fewer, bigger, denser bursts
     if (!o.show) { const N = o.shells || 7, types = o.types || ["peony", "willow", "ring", "peony", "glitter", "peony", "ring"], slots = Array.from({length: N}, (_, i) => (i + 0.5) / N).sort(() => Math.random() - 0.5);
       prog = slots.map((sx, i) => [Math.round((o.t0 || 4) + i * (o.gap || 19) + 40 + fxR(-3, 3)), types[i % types.length], 0.08 + 0.84 * sx, fxR(o.ymin || 0.16, o.ymax || 0.4), 0.72, i, i + 2]); }
     const B = [], RK = [], BL = [], mkB = (tb, kd, extra) => Object.assign({tb, dr: kd.dr, gy: 0.045 * k * kd.g, tl: kd.tl, w: kd.w, glit: kd.glit, dust: kd.dust, wind, sp: []}, extra);
     const fin = b => { b.vt = b.gy / (1 - b.dr); b.cs = [...new Set(b.sp.flatMap(p => [p.c1, p.c2]))]; b.sp.forEach(p => { p.i1 = b.cs.indexOf(p.c1); p.i2 = b.cs.indexOf(p.c2); });
-      b.L = Math.max(...b.sp.map(p => p.t0 + p.end)) + b.tl; b.pt = new Float32Array(b.sp.length * 18); b.bc = new Uint8Array(b.sp.length * 4); b.ok = new Uint8Array(b.sp.length); B.push(b); return b; };
+      b.L = Math.max(...b.sp.map(p => p.t0 + p.end)) + b.tl; b.pt = new Float32Array(b.sp.length * 26); b.bc = new Uint8Array(b.sp.length * 6); b.ok = new Uint8Array(b.sp.length); B.push(b); return b; };
     const ball = (m, ph) => Array.from({length: m}, (_, i) => { const z = 1 - 2 * (i + 0.5) / m, rr = Math.sqrt(1 - z * z), a = ph + i * 2.39996; return [Math.cos(a) * rr, Math.sin(a) * rr, rr]; });
     prog.forEach(([tb, ty, fx, fy, sz, i1, i2]) => {
-      const kd = FW_KIND[ty] || FW_KIND.peony, x = W * (fx + fxR(-0.02, 0.02)), y = H * ((tall ? 0.08 + fy * 1.2 : fy) + fxR(-0.02, 0.02)), R = Rb * kd.r * sz * fxR(0.92, 1.06), v = R * (1 - kd.dr) / kd.dr,
-        c1 = kd.gold ? gold : kd.glit ? glit : cols[i1 % CL], c2 = ty === "palm" ? cols[i1 % CL] : kd.gold ? gold : kd.glit ? glit : cols[i2 % CL], c3 = cols[(i2 + 1) % CL], T = Math.round(Math.min(tb, fxR(38, 50)));
+      const kd = FW_KIND[ty] || FW_KIND.peony, x = W * (fx + fxR(-0.02, 0.02)), y = H * ((tall ? 0.08 + fy * 1.2 : fy) + fxR(-0.02, 0.02)), R = Rb * kd.r * sz * fxR(0.92, 1.06) * (d ? 1 : 1.08), v = R * (1 - kd.dr) / kd.dr,
+        c1 = kd.gold ? gold : kd.glit ? glit : cols[i1 % CL], c2 = !d ? c1 : ty === "palm" ? cols[i1 % CL] : kd.gold ? gold : kd.glit ? glit : cols[i2 % CL], c3 = cols[(i2 + 1) % CL], T = Math.round(Math.min(tb, fxR(38, 50)));
       RK.push({t0: tb - T, T, xs: x + fxR(-0.05, 0.05) * W, x, y, th: ty === "palm" ? 1.9 : 1, wob: fxR(0, 6.3)});
       BL.push({t: tb, x, y, R: R * 1.45, c: kd.glit ? gold : c1, a: kd.split ? 0.7 : 1});
-      const b = mkB(tb, kd, {x, y}), m = kd.fix ? kd.n : Math.round(kd.n * A), ph = fxR(0, 6.3), tilt = fxR(0, 6.3), sq = fxR(0.3, 0.5);
+      const b = mkB(tb, kd, {x, y, w: kd.w * (d || !kd.fix ? 1 : 0.6), tl: Math.round(kd.tl * (d ? 1 : 1.6))}), m = kd.fix ? kd.n : Math.round(kd.n * A * (d ? 1 : 1.1)), ph = fxR(0, 6.3), tilt = fxR(0, 6.3), sq = fxR(0.3, 0.5);
       const dirs = kd.ring ? Array.from({length: m}, (_, i) => { const a = i / m * 6.283, rx = Math.cos(a), ry = Math.sin(a) * sq; return [rx * Math.cos(tilt) - ry * Math.sin(tilt), rx * Math.sin(tilt) + ry * Math.cos(tilt), 1]; })
         : kd.fix ? Array.from({length: m}, (_, i) => [Math.cos(ph + i / m * 6.283), Math.sin(ph + i / m * 6.283), 1]) : ball(m, ph);
       if (kd.ring) for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; dirs.push([Math.cos(a) * 0.3, Math.sin(a) * 0.3, 0.3]); }
@@ -8894,39 +8894,42 @@ const fxFirework = (pal, o = {}) => {
     return {k, B, RK, BL, SH, gold, glit, bud: W < 600 ? 800 : 1500};
   });
   return (g, f, W, H, d) => {
-    const s = S(W, H, d, f), k = s.k, lw = Math.max(1.3, 1.9 * k) * (d ? 1 : 1.35), lift = d ? 1 : 1.15, flick = (h, j) => ((Math.floor(f / 3) + h + j * 3) % 5) < 2;
+    const s = S(W, H, d, f), k = s.k, lw = Math.max(1.3, 1.9 * k) * (d ? 1 : 1.3), lift = d ? 1 : 1.1, flick = (h, j) => ((Math.floor(f / 3) + h + j * 3) % 5) < 2, rd = (x, y, r) => { g.moveTo(x + r, y); g.arc(x, y, r, 0, 6.283); };
     g.lineCap = g.lineJoin = "round"; if (d) g.globalCompositeOperation = "lighter";
     // soft colored bloom behind each burst (all together never past ~0.3)
     let tot = 0; for (const bl of s.BL) { const t = f - bl.t; bl.e = t < 0 || t > 140 ? 0 : Math.min(1, t / 4) * Math.exp(-t / 30) * bl.a; tot += bl.e; }
     const ba = (d ? 0.2 : 0.11) * (tot > 1.5 ? 1.5 / tot : 1);
     for (const bl of s.BL) { if (bl.e < 0.01) continue; g.globalAlpha = bl.e * ba; g.drawImage(bloom(bl.c), bl.x - bl.R, bl.y - bl.R, 2 * bl.R, 2 * bl.R);
       const t = f - bl.t; if (d && t < 10) { const r = bl.R * 0.22; g.globalAlpha = (1 - t / 10) * 0.6 * bl.a; g.drawImage(bloom("#FFFFFF"), bl.x - r, bl.y - r, 2 * r, 2 * r); } }
-    // rockets climbing with a sparking tail
+    // rockets climbing on a short tail that tapers away (sparks drop off it at night)
     const rp = (r, u) => { const e = 1 - Math.pow(1 - Math.max(0, u) / r.T, 2); return [r.xs + (r.x - r.xs) * e + Math.sin(u * 0.3 + r.wob) * 0.8 * k, H + 8 - (H + 8 - r.y) * e]; };
-    for (const r of s.RK) { const u = f - r.t0; if (u < 0 || u >= r.T) continue; const w = lw * 0.9 * r.th;
-      g.strokeStyle = d ? "#FFE2B0" : s.gold; for (let j = 0; j < 4; j++) { const [x0, y0] = rp(r, u - j * 4), [x1, y1] = rp(r, u - j * 4 - 4); g.globalAlpha = (1 - j / 4) * 0.85; g.lineWidth = w * (1 - j * 0.18); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
-      g.fillStyle = s.gold; for (let bt = Math.max(0, u - 24 - u % 3); bt <= u; bt += 3) { const a = u - bt, [ex, ey] = rp(r, bt), sx = ((bt * 7 + r.t0) % 5 - 2) * 0.25 * k; g.globalAlpha = (1 - a / 24) * 0.9; g.fillRect(ex + sx * a - w * 0.5, ey + 0.03 * k * a * a - w * 0.5, w, w); }
-      const [hx, hy] = rp(r, u); g.globalAlpha = 1; g.fillStyle = d ? "#FFFFFF" : s.gold; g.beginPath(); g.arc(hx, hy, w * 1.3, 0, 6.3); g.fill(); }
+    for (const r of s.RK) { const u = f - r.t0; if (u < 0 || u >= r.T) continue; const w = lw * 0.9 * r.th, sl = d ? 4 : 3.5;
+      g.strokeStyle = d ? "#FFE2B0" : s.gold; for (let j = 0; j < 4; j++) { const [x0, y0] = rp(r, u - j * sl), [x1, y1] = rp(r, u - (j + 1) * sl); g.globalAlpha = Math.pow(1 - j / 4, 1.5) * (d ? 0.85 : 0.7); g.lineWidth = w * (1 - j * 0.22); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
+      if (d) { g.fillStyle = s.gold; for (let bt = Math.max(0, u - 24 - u % 3); bt <= u; bt += 3) { const a = u - bt, [ex, ey] = rp(r, bt), sx = ((bt * 7 + r.t0) % 5 - 2) * 0.25 * k; g.globalAlpha = (1 - a / 24) * 0.9; g.beginPath(); rd(ex + sx * a, ey + 0.03 * k * a * a, w * 0.5); g.fill(); } }
+      const [hx, hy] = rp(r, u); g.globalAlpha = d ? 1 : 0.85; g.fillStyle = d ? "#FFFFFF" : s.gold; g.beginPath(); rd(hx, hy, w * (d ? 1.2 : 0.65)); g.fill(); }
     // stars: segments per star are set by how many stars are alive, to keep the frame light
-    let act = 0; for (const b of s.B) { const t = f - b.tb; if (t >= 0 && t < b.L) act += b.sp.length; }
-    const SG = Math.max(1, Math.min(4, Math.floor(s.bud / Math.max(1, act)))), NP = 2 * SG + 1;
-    for (const b of s.B) { const t = f - b.tb; if (t < 0 || t >= b.L) continue; const fa = 1 - fxEase((t - b.L * 0.62) / (b.L * 0.38)), pt = b.pt, sp = b.sp;
+    let act = 0; for (const b of s.B) { const t = f - b.tb; if (t >= 0 && t < b.L && !(b.glit && !d)) act += b.sp.length; }
+    const SG = Math.max(d ? 1 : 3, Math.min(d ? 4 : 6, Math.floor(s.bud / Math.max(1, act)))), NP = 2 * SG + 1, f0 = d ? 0.62 : 0.32;
+    for (const b of s.B) { const t = f - b.tb; if (t < 0 || t >= b.L) continue; const fa = 1 - fxEase((t - b.L * f0) / (b.L * (d ? 1 - f0 : 0.42))), pt = b.pt, sp = b.sp;
       for (let i = 0; i < sp.length; i++) { const p = sp[i], lt = t - p.t0, ue = Math.min(lt, p.end), us = Math.max(0, lt - b.tl); b.ok[i] = ue > 0 && us < ue ? 1 : 0; if (!b.ok[i]) continue;
-        for (let j = 0; j < NP; j++) { const u = ue - (ue - us) * j / (NP - 1), A = b.dr * (1 - Math.pow(b.dr, u)) / (1 - b.dr); pt[i * 18 + 2 * j] = p.x0 + p.vx * A + b.wind * u; pt[i * 18 + 2 * j + 1] = p.y0 + b.vt * u + (p.vy - b.vt) * A; }
-        for (let j = 0; j < SG; j++) b.bc[i * 4 + j] = ue - (ue - us) * (j + 0.5) / SG < p.tc ? p.i1 : p.i2; }
-      for (let j = 0; j < SG; j++) { g.lineWidth = lw * b.w * (1 - 0.45 * j / SG); g.globalAlpha = Math.min(1, fa * lift * Math.pow(1 - j / SG, 0.9) * (b.glit ? 0.55 : 1));
+        for (let j = 0; j < NP; j++) { const u = ue - (ue - us) * j / (NP - 1), A = b.dr * (1 - Math.pow(b.dr, u)) / (1 - b.dr); pt[i * 26 + 2 * j] = p.x0 + p.vx * A + b.wind * u; pt[i * 26 + 2 * j + 1] = p.y0 + b.vt * u + (p.vy - b.vt) * A; }
+        for (let j = 0; j < SG; j++) b.bc[i * 6 + j] = ue - (ue - us) * (j + 0.5) / SG < p.tc ? p.i1 : p.i2; }
+      // each trail: thick and solid at the head, thinning and fading to nothing at the tail
+      if (!(b.glit && !d)) for (let j = 0; j < SG; j++) { g.lineWidth = lw * b.w * (d ? 1 - 0.45 * j / SG : 1 - 0.7 * j / SG); g.globalAlpha = Math.min(1, fa * lift * Math.pow(1 - j / SG, d ? 0.9 : 1.1) * (b.glit ? 0.55 : 1));
         for (let c = 0; c < b.cs.length; c++) { g.strokeStyle = b.cs[c]; g.beginPath(); let any = 0;
-          for (let i = 0; i < sp.length; i++) { if (!b.ok[i] || b.bc[i * 4 + j] !== c) continue; const q = i * 18 + 4 * j, x0 = pt[q], y0 = pt[q + 1], x2 = pt[q + 4], y2 = pt[q + 5];
+          for (let i = 0; i < sp.length; i++) { if (!b.ok[i] || b.bc[i * 6 + j] !== c) continue; const q = i * 26 + 4 * j, x0 = pt[q], y0 = pt[q + 1], x2 = pt[q + 4], y2 = pt[q + 5];
             g.moveTo(x0, y0); g.quadraticCurveTo(2 * pt[q + 2] - (x0 + x2) / 2, 2 * pt[q + 3] - (y0 + y2) / 2, x2, y2); any = 1; }
           if (any) g.stroke(); } }
-      if (d && t < 34) { g.fillStyle = "#FFFFFF"; g.globalAlpha = fa * (1 - t / 34) * 0.9; const z = lw * b.w * 1.1; for (let i = 0; i < sp.length; i++) if (b.ok[i] && t - sp[i].t0 < 34) g.fillRect(pt[i * 18] - z / 2, pt[i * 18 + 1] - z / 2, z, z); }
-      if (b.glit && t > 12) { const z = lw * 1.7, cg = d ? "#FFFFFF" : s.glit; g.fillStyle = cg;   // glitter heads twinkle, then crackle as they die
-        for (let i = 0; i < sp.length; i++) { const p = sp[i], lt = t - p.t0; if (lt > p.end + 10) continue; const q = i * 18;
-          if (lt <= p.end) { g.globalAlpha = fa * (flick(p.h, 0) ? 1 : 0.3); g.fillRect(pt[q] - z / 2, pt[q + 1] - z / 2, z, z); if (flick(p.h, 1)) { g.globalAlpha = fa * 0.7; g.fillRect(pt[q + 4] - z / 3, pt[q + 5] - z / 3, z * 0.66, z * 0.66); } }
-          if (lt > p.end - 6) for (let c = 0; c < 3; c++) { const a = p.h + c * 2.1, r = (5 + (p.h + c * 5) % 7) * k * Math.min(1, (lt - p.end + 6) / 6); if (!flick(p.h, c + 2)) continue; g.globalAlpha = fa * 0.9; g.fillRect(pt[q] + Math.cos(a) * r - z / 3, pt[q + 1] + Math.sin(a) * r - z / 3, z * 0.6, z * 0.6); } } }
-      if (b.dust && t > 8) { const z = lw * 0.8; g.fillStyle = d ? s.glit : s.gold;   // glitter dust sifting from gold trails
-        for (let i = 0; i < sp.length; i += 2) { if (!b.ok[i]) continue; const q = i * 18; for (let j = 1; j <= 2; j++) { if (!flick(sp[i].h, j)) continue; const dt = j * (b.tl / 6), jj = Math.min(NP - 1, j * 2);
-          g.globalAlpha = fa * 0.85; g.fillRect(pt[q + 2 * jj] - z / 2 + ((sp[i].h % 5) - 2) * 0.4 * j, pt[q + 2 * jj + 1] + 0.012 * k * dt * dt - z / 2, z, z); } } } }
+      if (d && t < 34) { g.fillStyle = "#FFFFFF"; g.globalAlpha = fa * (1 - t / 34) * 0.9; const z = lw * b.w * 0.55; g.beginPath(); for (let i = 0; i < sp.length; i++) if (b.ok[i] && t - sp[i].t0 < 34) rd(pt[i * 26], pt[i * 26 + 1], z); g.fill(); }
+      if (b.glit && t > (d ? 12 : 4)) { const z = lw * (d ? 0.85 : 0.75); g.fillStyle = d ? "#FFFFFF" : s.glit;   // glitter: round twinkles, then a soft crackle as they die
+        for (const on of [1, 0]) { g.globalAlpha = fa * (on ? 1 : 0.3); g.beginPath();
+          for (let i = 0; i < sp.length; i++) { const p = sp[i], lt = t - p.t0; if (lt > p.end + 10) continue; const q = i * 26;
+            if (lt <= p.end) { if (+flick(p.h, 0) === on) rd(pt[q], pt[q + 1], z); if (d && on && flick(p.h, 1)) rd(pt[q + 4], pt[q + 5], z * 0.6); }
+            if (on && lt > p.end - 6) for (let c = 0; c < 3; c++) { const a = p.h + c * 2.1, r = (5 + (p.h + c * 5) % 7) * k * Math.min(1, (lt - p.end + 6) / 6); if (flick(p.h, c + 2)) rd(pt[q] + Math.cos(a) * r, pt[q + 1] + Math.sin(a) * r, z * 0.6); } }
+          g.fill(); } }
+      if (d && b.dust && t > 8) { const z = lw * 0.4; g.fillStyle = s.glit; g.globalAlpha = fa * 0.85; g.beginPath();   // glitter dust sifting from gold trails
+        for (let i = 0; i < sp.length; i += 2) { if (!b.ok[i]) continue; const q = i * 26; for (let j = 1; j <= 2; j++) { if (!flick(sp[i].h, j)) continue; const dt = j * (b.tl / 6), jj = Math.min(NP - 1, j * 2);
+          rd(pt[q + 2 * jj] + ((sp[i].h % 5) - 2) * 0.4 * j, pt[q + 2 * jj + 1] + 0.012 * k * dt * dt, z); } } g.fill(); } }
     // a last gentle shower of gold sparkles drifting down as the show fades
     for (const p of s.SH) { const t = f - p.t0; if (t < 0 || t > p.L) continue; const x = p.x + Math.sin(t * 0.05 + p.ph) * p.sw, y = p.y + p.vy * t + 0.002 * k * t * t, a = Math.sin(Math.PI * t / p.L) * (0.65 + 0.35 * Math.sin(t * 0.2 + p.ph));
       g.globalAlpha = a * 0.4; g.strokeStyle = s.gold; g.lineWidth = lw * 0.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.cos(t * 0.05 + p.ph) * p.sw * 0.25, y - 12 * k); g.stroke();
