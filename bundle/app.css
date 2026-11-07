@@ -8329,6 +8329,9 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #view .c2-card .c2-foot > .mini{overflow:visible;text-overflow:clip}
   .ph-sch .sch-range{white-space:normal;line-height:1.15;font-size:.88rem}
 }
+
+/* Due Dates: the Timeline / Month switch sits at the right end of its row */
+#view .tl-tools > .segb[aria-label="View"]{order:99;margin-left:auto}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
