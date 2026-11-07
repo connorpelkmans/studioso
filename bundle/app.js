@@ -22803,8 +22803,10 @@ const SCN20 = (() => {
     if (!inner) return "";
     const box = pad ? `left:${-40 * k}px;top:${-40 * k}px;width:${v.pw * k}px;height:${v.phh * k}px` : `left:0;top:0;width:${v.bw * k}px;height:${v.bh * k}px`;
     if (!Ly.blur) return `<svg class="sc-l" viewBox="${pad ? v.vbPad : v.vb}" preserveAspectRatio="none" style="${box}">${inner}</svg>`;
+    // the blur covers the whole scene, not just what the layer holds: a layer with one soft glow on it (Northern Lights' sun in
+    // light mode) had its blur cut off in a square around it
     const fid = "scb" + (++blurN);
-    return `<svg class="sc-l" viewBox="${pad ? v.vbPad : v.vb}" preserveAspectRatio="none" style="${box}"><defs><filter id="${fid}" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="${Ly.blur.toFixed(2)}"/></filter></defs><g filter="url(#${fid})">${inner}</g></svg>`;
+    return `<svg class="sc-l" viewBox="${pad ? v.vbPad : v.vb}" preserveAspectRatio="none" style="${box}"><defs><filter id="${fid}" filterUnits="userSpaceOnUse" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="${Ly.blur.toFixed(2)}"/></filter></defs><g filter="url(#${fid})">${inner}</g></svg>`;
   }
 
   function makeScene(id, dk, g){
