@@ -979,8 +979,13 @@ const hbBunny = () => { const S = hbRun((W, H, d) => ({sc: hbSc(W, H), b: (W > 7
       g.globalAlpha = fxEase(t / 10); hbStamp(g, "bunny", col, d, x, y, Math.max(3, s.sc * 2.2), -0.35 * up, b.dir); } }; };
 
 // St. Patrick's: a rainbow arcs over the screen, gold coins spill from its ends
-const hbRainbow = (g, f, W, H, d) => { const e = fxEase(f / 50), a = fxEase(f / 20) * (1 - fxEase((f - 160) / 90)); if (a <= 0) return; const R = Math.min(W * 0.44, H * 0.56), cx = W / 2, cy = H * 0.9, bw = R * 0.055;
-  g.globalAlpha = a * (d ? 0.55 : 0.5); g.lineWidth = bw * 1.08; ["#E8504A", "#F28A2E", "#F2C83A", "#4CB86A", "#3D86D6", "#8A5CD0"].forEach((c, i) => { g.strokeStyle = c; g.beginPath(); g.arc(cx, cy, R - i * bw, Math.PI, Math.PI + Math.PI * e); g.stroke(); }); };
+// St. Patrick's: a rainbow grows from the ground on the left, arcs over and comes down to the ground on the right (its feet
+// are below the bottom edge, so it never hangs in the air); gold coins spill up where it lands
+const hbRainbowR = (W, H) => Math.min(W * 0.46, H * 0.78);
+const hbRainbow = (g, f, W, H, d) => { const e = fxEase(f / 55), a = fxEase(f / 20) * (1 - fxEase((f - 170) / 90)); if (a <= 0) return; const R = hbRainbowR(W, H), cx = W / 2, cy = H + R * 0.04, bw = R * 0.06;
+  g.lineCap = "butt"; ["#E8504A", "#F28A2E", "#F2C83A", "#4CB86A", "#3D86D6", "#8A5CD0"].forEach((c, i) => { const r = R - i * bw; g.strokeStyle = c;
+    g.globalAlpha = a * (d ? 0.22 : 0.2); g.lineWidth = bw * 1.6; g.beginPath(); g.arc(cx, cy, r, Math.PI, Math.PI + Math.PI * e); g.stroke();
+    g.globalAlpha = a * (d ? 0.6 : 0.55); g.lineWidth = bw * 1.02; g.beginPath(); g.arc(cx, cy, r, Math.PI, Math.PI + Math.PI * e); g.stroke(); }); };
 
 // Hanukkah: a menorah lights its candles one by one, the helper candle first
 const hbMenorah = (g, f, W, H, d) => { const a = fxEase(f / 22) * (1 - fxEase((f - 200) / 70)); if (a <= 0) return;
@@ -1024,7 +1029,7 @@ Object.assign(THEME_FX, {
       return Array.from({length: m}, (_, i) => { const t = i / m * 6.283, x = 16 * Math.pow(Math.sin(t), 3), y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) - 2.5;
         return {shape: "heart", c: fxPick(cols), x: cx + x * R, y: cy + y * R, vx: x * 0.008, vy: 0, g: -fxR(0.008, 0.013), size: fxR(10, 14), rot: fxR(-0.25, 0.25), vr: 0, rock: 0.12, sway: 0, swf: 0.04, life: Math.round(fxR(195, 225)), delay: Math.round(4 + Math.min(t, 6.283 - t) / Math.PI * 46)}; })
         .concat(fxRise(W, H, n(22), "heart", cols, {smin: 6, smax: 10, sway: 1.2, spread: 90, alpha: 0.8}), fxTw(W, H, n(14), "sparkle", d ? ["#FFFFFF", "#FFD6E6"] : ["#F27AA8", "#E8B83A"], {smin: 3, smax: 6, glow: d ? 8 : 0})); }},
-  stpatricks: {spawn: (W, H, d, n) => { const R = Math.min(W * 0.44, H * 0.56) / W; return fxFall(W, H, n(46), "clover", ["#2E9E5B", "#4CC07A", "#1F7A44", "#8FD8A0"], {flip: true, sway: 1.6, smin: 9, smax: 13, spread: 70}).concat(fxBurst(W, H, n(26), "coin", ["#F2C24A", "#E8B030"], [[0.5 - R * 0.95, 0.92], [0.5 + R * 0.95, 0.92]], {smin: 8, smax: 11, flip: true}).map(p => Object.assign(p, {delay: p.delay + 40}))); }, draw: hbRainbow},
+  stpatricks: {spawn: (W, H, d, n) => { const R = (hbRainbowR(W, H) - hbRainbowR(W, H) * 0.15) / W; return fxFall(W, H, n(46), "clover", ["#2E9E5B", "#4CC07A", "#1F7A44", "#8FD8A0"], {flip: true, sway: 1.6, smin: 9, smax: 13, spread: 70}).concat(fxBurst(W, H, n(26), "coin", ["#F2C24A", "#E8B030"], [[0.5 + R, 1.02]], {smin: 8, smax: 11, flip: true}).map(p => Object.assign(p, {vy: p.vy * 0.85, delay: p.delay + 52}))); }, draw: hbRainbow},
   easter: {spawn: (W, H, d, n) => fxBurst(W, H, n(30), "egg", ["#F7A8C4", "#B99AE8", "#7FCFB4", "#F5D46A", "#7FB8EE"], [[0.15, 1.02], [0.85, 1.02], [0.5, 1.04]], {smin: 11, smax: 14}).concat(fxFlutter(W, H, n(6), ["#A884F0", "#F28BB8", "#F2C84A", "#6FA8E0"])), over: hbBunny()},
   july4: {spawn: (W, H, d, n) => fxFall(W, H, n(26), "star", ["#E0463C", "#3D6AD6", d ? "#FFFFFF" : "#8FA3C8"], {sway: 1.2, smin: 7, smax: 10, spread: 90}),
     draw: fxFirework(d => d ? ["#FF5A5A", "#FFFFFF", "#5B8CFF"] : ["#D62F3A", "#2457C5", "#C7303A", "#3A6AD6"], {glit: ["#2457C5", "#FFFFFF"]})},
