@@ -521,11 +521,14 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   select.cs-custom{pointer-events:none}
 }
 
-/* Today's Plan / Task Board switch: the space under it matches the space above it */
+/* Today's Plan / Task Board switch: the space under it is the tabs' own 12px, as under every other page's tabs (the row added
+   14px more) */
 @media (max-width:639px){
-  #view > .bview-row{margin-bottom:14px!important}
+  #view > .bview-row{margin-bottom:0!important}
   #view > .bview-row + .bview{margin-top:0!important}
   #view > .bview > :first-child,#view > .bview > .bpane > :first-child,#view > .bview .bpane-plan > :first-child,#view > .bview .bpane-board > :first-child{margin-top:0!important}
+  /* the Task Board's course filter row is the first thing shown there (the section heading is hidden on phones) */
+  #view > .bview .bpane-board > .board-sec > .cf-row{margin-top:0!important}
 }
 
 /* Today's Plan, every screen: the day ribbon and one thin Time Today bar. The two-week ribbon with its Planned Today tile
