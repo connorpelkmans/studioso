@@ -145,6 +145,8 @@ body.wide .wrap{max-width:1180px}
   .col-head{white-space:nowrap}
   .col-resort .cr-l{display:none}
   .col-resort .cr-s{display:inline}
+  /* the notes board fills the screen down to the tab bar, so its tip line would only sit under the tab bar */
+  #view .nb-hint{display:none}
 }
 .col-head .n{color:var(--muted);font:500 .85rem var(--body)}
 .col-list{display:flex;flex-direction:column;gap:8px;min-height:70px}

@@ -99172,6 +99172,28 @@ const AUTOPILOT = (() => {
   hook("boot", () => { setTimeout(uiSeed, 3000); });
 })();
 
+
+/* iPad held upright: the tab bar sits along the bottom, so the notes board and the sticker envelope end just above it
+   (the computer layout's fixed height ran them under the tab bar and off the screen). */
+(() => {
+  const Q = "(min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse)";
+  function fit(){
+    const sc = document.getElementById("nbScroll"), env = document.querySelector(".nb-wrap > .env"), nav = document.querySelector("nav.tabs");
+    const wrap = document.querySelector("body > .wrap"), nt = nav ? nav.getBoundingClientRect().top : 0;
+    const on = !!(sc && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
+    if (!on) { [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) wrap.style.removeProperty("padding-bottom"); return; }
+    // and the page leaves only the tab bar's room below them, so there's nothing to scroll to
+    if (wrap) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important");
+    const y = window.scrollY || 0, stop = nt + y - 14;
+    const main = sc.closest(".nb-main"), pad = main ? main.getBoundingClientRect().bottom - sc.getBoundingClientRect().bottom : 0;
+    sc.style.setProperty("height", Math.max(300, Math.round(stop - pad - (sc.getBoundingClientRect().top + y))) + "px", "important");
+    if (env) env.style.setProperty("height", Math.max(200, Math.round(stop - (env.getBoundingClientRect().top + y))) + "px", "important");
+  }
+  const later = () => requestAnimationFrame(fit);
+  hook("render", later);
+  addEventListener("resize", later);
+  addEventListener("orientationchange", () => setTimeout(fit, 300));
+})();
 /* ===== module: 101-phone-v2.js ===== */
 /* Phones: the page's name in the top bar (with the date over the Board) */
 (() => {
