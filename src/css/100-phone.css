@@ -717,6 +717,9 @@ svg.ci-svg{overflow:visible!important}
 /* Timeline course rows */
 .tl-scroll .tl-row.tl-group{--ba:color-mix(in srgb,var(--c) 88%,#000);--bb:color-mix(in srgb,var(--c) 74%,var(--surface));background:none!important}
 .tl-scroll .tl-group .tl-label{background:var(--ba)!important;border-right:0!important;box-shadow:none!important}
+/* Safari rounds the pinned course label on its own, so it could end a pixel above the rest of the bar: its colour runs a
+   pixel lower (the next row's label covers that pixel whenever the two already line up) */
+.tl-scroll .tl-group .tl-label{box-shadow:0 1px 0 var(--ba)!important}
 .tl-scroll .tl-group .tl-track{background:linear-gradient(90deg,var(--ba) var(--tls,0px),var(--bb) calc(var(--tls,0px) + var(--tlv,1000px)))!important}
 /* sheet heads: the band is only the top strip; the title below sits on the sheet */
 .g2-sheet-head{background-size:100% 62px!important;background-repeat:no-repeat!important;background-position:top!important}
