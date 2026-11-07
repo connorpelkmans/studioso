@@ -96526,7 +96526,9 @@ var SBCALCSKIN = null;
     if (veil) return;
     const W = calcWin(); if (W) W.style.visibility = "hidden";
     veil = document.createElement("div"); veil.className = "cxs-veil"; veil.setAttribute("role", "dialog"); veil.setAttribute("aria-label", "Select an equation");
-    veil.innerHTML = `<div class="cxs-hint">Drag over an equation <span>Esc to cancel</span></div><div class="cxs-box" hidden></div>`;
+    // "Esc to cancel" only where there's a keyboard: on a touch screen (iPad, phone) there's no Esc key (a tap cancels)
+    const touch = !!(window.matchMedia && matchMedia("(hover: none) and (pointer: coarse)").matches);
+    veil.innerHTML = `<div class="cxs-hint">Drag over an equation${touch ? "" : " <span>Esc to cancel</span>"}</div><div class="cxs-box" hidden></div>`;
     document.body.appendChild(veil);
     const box = veil.querySelector(".cxs-box");
     let x0 = 0, y0 = 0, on = false;
