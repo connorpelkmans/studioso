@@ -21975,9 +21975,13 @@ window.__sbPlanObj = () => PLAN;
     const ua = navigator.userAgent || "", mob = /iPhone|iPad|Android|Mobile/i.test(ua);
     const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "Chromebook" : /Linux/.test(ua) ? "Linux" : "Device";
     const standalone = !!(window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
-    const platform = DESK ? "desktop" : standalone ? "app" : "web";
+    // the iPhone, iPad and Android apps run this page inside their own shell: say so, rather than "web" (it isn't a browser)
+    let native = ""; try { if (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) native = Capacitor.getPlatform(); } catch (e) {}
+    const platform = DESK ? "desktop" : native === "ios" || native === "android" ? native : standalone ? "app" : "web";
     const br = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
-    const name = DESK ? `${os} Desktop App` : standalone ? `${os} App` : mob ? `${os} (${br})` : `${os} (${br})`;
+    // an iPad's app reports itself as a Mac: a touch screen says otherwise
+    const os2 = native === "ios" && os === "Mac" && navigator.maxTouchPoints > 1 ? "iPad" : os;
+    const name = DESK ? `${os} Desktop App` : native ? `${os2} App` : standalone ? `${os} App` : `${os} (${br})`;
     return {name: name.slice(0, 60), platform};
   }
   async function loadDevices(){
