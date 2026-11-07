@@ -43,7 +43,7 @@
         eyes: {lx: 52, rx: 68, y: 64, r: 4, style: "sparkle", color: "#22203A"},
         mouth: {x: 60, y: 73, w: 3, color: "#22203A"},
         cheeks: {lx: 48.6, rx: 71.4, y: 71, w: 3, h: 2, color: "#FF8A90"},
-        anchors: {top: [60, 30, 0.9, 0], neck: [60, 86, 1, 0, 84, 92], chest: [60, 92, 0.6], back: [22, 76, 0.8], hands: [60, 96, 0.84]},
+        anchors: {top: [60, 30, 0.9, 0], neck: [60, 88.5, 1, 0, 84, 92], chest: [60, 92, 0.6], back: [22, 76, 0.8], hands: [60, 96, 0.84]},
         lines: {
           tap: ["Ciao! All aboard for a calm study ride!", "One stroke at a time, we glide through it!", "Your schedule has canals? I know them all!", "Steady oar, steady mind. Bellissimo!", "We'll float past that deadline easily!", "No traffic on the water. Just focus!", "Lean in, little stroke, big progress!", "Under the bridge and on to the next page!"],
           pet: ["Hehe! You're rocking the boat!", "Aww, smooth sailing now!"],
@@ -80,7 +80,7 @@
         eyes: {lx: 50, rx: 70, y: 46, r: 3.8, style: "round", color: "#2A1E22"},
         mouth: {x: 60, y: 66, w: 2, color: "#3A3430"},
         cheeks: {lx: 45, rx: 75, y: 54, w: 3, h: 2, color: "#FF9EB0"},
-        anchors: {top: [60, 34.5, 0.85, 0], neck: [60, 66, 0.95, 0, 33, 53], chest: [60, 72, 0.6], back: [80, 82, 0.8], hands: [60, 96, 0.84]},
+        anchors: {top: [60, 34.5, 0.85, 0], neck: [60, 71.5, 0.95, 0, 42, 53], chest: [60, 72, 0.6], back: [80, 82, 0.8], hands: [60, 96, 0.84]},
         lines: {
           tap: ["Coo! This whole piazza is my study hall!", "Strut, peck, study. That's the plan!", "I have walked every square. Now your list!", "Crumbs of progress everywhere. Love it!", "Head up, chest out, one task at a time!", "Coo coo! I'm proud of you, truly!", "I'll guard your notes from the seagulls!", "Peck, peck! That's how big tasks get done!"],
           pet: ["Coo! My shiny neck feathers!", "Hehe! Ruffled, but happy!"],
@@ -123,7 +123,7 @@
         eyes: {lx: 49, rx: 71, y: 55, r: 3.6, style: "sparkle", color: "#2A1E30"},
         mouth: {x: 60, y: 72, w: 4, color: "#2A1E30"},
         cheeks: {lx: 45, rx: 75, y: 70, w: 3.4, h: 2.2, color: "#FF8AA0"},
-        anchors: {top: [60, 40.5, 0.9, 0], neck: [60, 82, 1, 0, 41, 68], chest: [60, 88, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 40.5, 0.9, 0], neck: [60, 84.5, 1, 0, 41, 68], chest: [60, 88, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Ta-da! Behind this mask, a huge grin!", "Glitter on, focus on. Let's go!", "Every page is a little masquerade!", "Who's that genius? Oh, it's you!", "Carnival rule: twirl after every task!", "Sparkle mode activated. You've got this!", "I wear gold, but your work shines more!", "A dash of glitter, a lot of grit!"],
           pet: ["Hehe! Careful, the glitter spreads!", "Aww! My feathers are blushing!"],

@@ -324,7 +324,7 @@
         eyes: {lx: 50, rx: 70, y: 51, r: 4.6, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 71, w: 2.4, style: "cat", color: "#2B1A10"},
         cheeks: {lx: 42.5, rx: 77.5, y: 58.5, w: 4, h: 2.4, color: "#FF8F8F"},
-        anchors: {top: [60, 37, 0.95, 0], neck: [60, 76, 1.05, 0, 48, 61], chest: [70, 83.5, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 37, 0.95, 0], neck: [60, 79, 1.05, 0, 49, 61], chest: [70, 83.5, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! My antlers are coming any day now!", "You're moose-ively awesome!", "Big strides, little hooves, we've got this!", "Waiting patiently, cheering loudly!", "Every task is a step through the forest!", "You make this campsite cozy!", "Ears up! Ready to cheer!", "Growing a little every day, like you!"],
           pet: ["Hehe! Right behind the ears, yes!", "Aww, that's the spot!"],
@@ -430,7 +430,7 @@
         eyes: {lx: 50, rx: 62, y: 46, r: 4, style: "sparkle", color: "#3A1A10"},
         mouth: {x: 56, y: 54, w: 2.4, color: "#3A1A10"},
         cheeks: {lx: 45, rx: 67, y: 52.5, w: 3.2, h: 2, color: "#FF8FA8"},
-        anchors: {top: [56, 36, 0.8, 0], neck: [56, 62, 0.8, 0, 26, 45], chest: [62, 67, 0.5], back: [44, 72, 0.75], hands: [58, 86, 0.8]},
+        anchors: {top: [56, 36, 0.8, 0], neck: [56, 64.5, 0.8, 0, 26.5, 45], chest: [62, 67, 0.5], back: [44, 72, 0.75], hands: [58, 86, 0.8]},
         lines: {
           tap: ["Hi! I've got your list, nice and tight!", "Holding on for you, always!", "Curl up and conquer, you've got this!", "Bobbing along beside you!", "One item at a time, I'll keep the list safe!", "You're doing fin-credibly well!", "Tiny but mighty, like your progress!", "Swaying with the current, cheering for you!"],
           pet: ["Hehe! My tail just curled tighter!", "Aww, that makes my crown sparkle!"],

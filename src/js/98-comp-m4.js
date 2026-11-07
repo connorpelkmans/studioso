@@ -270,7 +270,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 41.5, r: 6.4, style: "round", color: "#2A2150"},
         mouth: {x: 60, y: 51, w: 3, color: "#2A2150"},
         cheeks: {lx: 36.5, rx: 83.5, y: 48.5, w: 4.6, h: 2.8, color: "#FF9FC0"},
-        anchors: {top: [61, 21.5, 0.98, 0], neck: [60, 61, 0.9, 0, 46, 48], chest: [43, 64.5, 0.55], back: [86, 68, 0.8], hands: [60, 82, 0.82]},
+        anchors: {top: [61, 21.5, 0.98, 0], neck: [62, 68, 0.95, 0, 54, 72], chest: [43, 64.5, 0.55], back: [86, 68, 0.8], hands: [60, 82, 0.82]},
         lines: {
           tap: ["Hi hi! I'm irrationally happy to see you!", "You're doing infinitely well!", "3.14159 reasons to smile! Hehe!", "Your progress is off the charts!", "Every step adds up! I did the math!", "You're my favorite constant!", "That brain of yours is exponential!"],
           pet: ["Hehe! That tickles my curly swirls!", "Aww! My smile just went full circle!"],

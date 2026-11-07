@@ -189,7 +189,7 @@
         eyes: {lx: 51, rx: 69, y: 52, r: 4.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 61, w: 2.8},
         cheeks: {lx: 46, rx: 74, y: 59, w: 3.8, h: 2.4, color: "#FF9FA8"},
-        anchors: {top: [60, 25.5, 1, 0], neck: [60, 75, 1, 0, 41, 59], chest: [70, 82, 0.66], back: [80, 88, 0.8], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 25.5, 1, 0], neck: [60, 77.5, 1, 0, 41, 59], chest: [70, 82, 0.66], back: [80, 88, 0.8], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Huzzah! Greetings, brave scholar!", "Onward! Your quest goes splendidly!", "I shall guard your focus with honor!", "Clank clank! You're doing marvelously!", "Every page is a battle won!", "You've got the heart of a hero!", "By my helmet, you're amazing!", "Your study quest makes legends!"],
           pet: ["Clank! My armor is blushing!", "Hehe! A knightly pat, most kind!"],
@@ -312,7 +312,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 45, r: 4.6, style: "dot", color: "#24324A"},
         mouth: {x: 60, y: 53, w: 2.8, color: "#24324A"},
         cheeks: {lx: 45, rx: 75, y: 51.5, w: 4, h: 2.5, color: "#FF9FB0"},
-        anchors: {top: [60, 25.5, 0.86, 0], neck: [60, 63, 0.72, 0, 24, 46], chest: [67.5, 69, 0.56], back: [74, 84, 0.78], hands: [60, 84, 0.8]},
+        anchors: {top: [60, 25.5, 0.86, 0], neck: [60, 68.5, 0.72, 0, 25, 46], chest: [67.5, 69, 0.56], back: [74, 84, 0.78], hands: [60, 84, 0.8]},
         lines: {
           tap: ["Whoosh! Hi hi! Spinning with joy!", "You bring the best breeze!", "Clean energy, clear mind, that's you!", "Look at you, powering through!", "Every spin makes more good energy!", "You've got this! Full power ahead!", "Breezy day, bright you, big cheers!", "You're a total powerhouse today!"],
           pet: ["Hehe! My blades are all wobbly!", "Whee! That's a happy little gust!"],
@@ -476,7 +476,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 41, r: 4.6, style: "dot", color: "#2E2233"},
         mouth: {x: 60, y: 49, w: 2.8},
         cheeks: {lx: 45, rx: 75, y: 47.5, w: 3.8, h: 2.4, color: "#FF9F8F"},
-        anchors: {top: [60, 22, 0.88, 0], neck: [60.5, 61, 0.7, 0, 24.5, 50], chest: [60, 67.5, 0.56], back: [78, 66, 0.78], hands: [60, 86, 0.82]},
+        anchors: {top: [60, 22, 0.88, 0], neck: [60, 65, 0.7, 0, 26.5, 50], chest: [60, 67.5, 0.56], back: [78, 66, 0.78], hands: [60, 86, 0.82]},
         lines: {
           tap: ["Hi! Drawing a happy circle around you!", "You're right on point today!", "Perfectly measured awesomeness!", "Every great plan starts with a sketch!", "Look at you, designing your future!", "You've got this, down to the millimeter!", "Round of applause, a perfect round one!", "Your ideas have such great proportions!"],
           pet: ["Hehe! I'm spinning in happy circles!", "Aww! That's a perfectly round pat!"],

@@ -93,7 +93,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 50, r: 4.6, style: "dot", color: "#2E1A12"},
         mouth: {x: 60, y: 69.5, w: 2.6, color: "#5A2A22"},
         cheeks: {lx: 40, rx: 80, y: 58, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 77, 1.05, 0, 46.5, 63], chest: [73, 84.5, 0.7], back: [84, 84, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 77.5, 1.05, 0, 45, 63], chest: [73, 84.5, 0.7], back: [84, 84, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Moo! I'm totally bullish on you!", "Charging ahead! Look at you go!", "Your progress chart only goes up!", "Big moves today, I can feel it!", "Tie straight, head high, let's do this!", "You're my top investment, always!", "Hooves up for the hardest worker!", "Stampede of cheers coming your way!"],
           pet: ["Moo hoo! My ears are flapping!", "Hehe! That tickles my horns!"],
@@ -246,7 +246,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 50.5, r: 4.4, style: "dot", color: "#2E1A12"},
         mouth: {x: 60, y: 63.5, w: 2.4, style: "cat", color: "#4A2A1C"},
         cheeks: {lx: 41, rx: 79, y: 58.5, w: 4.4, h: 2.7, color: "#FF8F9F"},
-        anchors: {top: [60, 31, 0.9, 0], neck: [60, 75, 1.05, 0, 45.5, 65], chest: [74, 82, 0.66], back: [86, 86, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 31, 0.9, 0], neck: [60, 76.5, 1.05, 0, 45, 65], chest: [74, 82, 0.66], back: [86, 86, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hello, sweetheart! Bear hug time!", "Your kindness makes the world softer!", "You care so well for everyone!", "I'm beary, beary proud of you!", "Teamwork makes the dream work!", "A little care goes a long way!", "You're doing wonderfully, truly!", "Soft paws, big cheers for you!"],
           pet: ["Mmm! The coziest pat ever!", "Hehe! My cap is wiggling!"],

@@ -172,7 +172,7 @@
         mouth: {x: 60, y: 69, w: 3, color: "#1E2A4A"},
         cheeks: {lx: 43.5, rx: 76.5, y: 67, w: 4.2, h: 2.6, color: "#FF9FB0"},
         neck: [60, 82],
-        anchors: {top: [60, 17, 0.9, 0], neck: [60, 84, 0.85, 0, 47, 64], chest: [70, 90.5, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 17, 0.9, 0], neck: [60, 86.5, 0.85, 0, 46, 64], chest: [70, 90.5, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! One step closer to the big day!", "Every task is a step across the stage!", "Tassel's on the right side of awesome!", "You're going to make it. I just know!", "Caps off to you today!", "Study now, celebrate later!", "Class of AMAZING, that's you!"],
           pet: ["Hehe! My tassel is swinging!", "Aww! Careful, don't knock my cap off!"],
@@ -304,7 +304,7 @@
         },
         cheeks: {lx: 44, rx: 76, y: 45, w: 3.8, h: 2.4, color: "#FF8FB8"},
         neck: [60, 72],
-        anchors: {top: [60, 22, 0.85, 0], neck: [54, 70, 0.8, 0, 64.5, 66.5], chest: [74, 76, 0.55], back: [40, 64, 0.8], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 22, 0.85, 0], neck: [58, 76.5, 0.8, 0, 61.5, 63.5], chest: [74, 76, 0.55], back: [40, 64, 0.8], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Hi! Admire my fringe, gently please!", "No bats, just high fives, okay?", "You make me feel extra colorful!", "Every stripe of me is cheering for you!", "Party look, study brain. Love it!", "Let's fill today with sweet wins!", "Looking good, studying better!"],
           pet: ["Hehe! Gentle pats only, thank you!", "Aww! My fringe is fluttering!"],
@@ -404,7 +404,7 @@
         mouth: {x: 60, y: 61, w: 3, color: "#2A1E18"},
         cheeks: {lx: 38, rx: 82, y: 58, w: 4.2, h: 2.6, color: "#FF9F9F"},
         neck: [60, 66],
-        anchors: {top: [60, 30.5, 0.9, 0], neck: [60, 66, 1.05, 0, 47, 53], chest: [72, 72, 0.6], back: [88, 76, 0.85], hands: [60, 92, 0.9]},
+        anchors: {top: [60, 30.5, 0.9, 0], neck: [60, 71.5, 1.05, 0, 47, 57], chest: [72, 72, 0.6], back: [88, 76, 0.85], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hi! I've been studying since the Cambrian!", "Slow and steady, like sediment!", "Half a billion years of experience says: you've got this!", "Every layer you learn is a new rock record!", "You're making history. Literal history!", "Tiny legs, big dreams!", "Fossils are proof that showing up lasts!"],
           pet: ["Hehe! My segments are wiggling!", "Aww! A pat worth fossilizing!"],

@@ -35,7 +35,7 @@
         eyes: {lx: 50, rx: 70, y: 56.5, r: 4.6, style: "dot", color: "#3A2416"},
         mouth: {x: 60, y: 68.6, w: 2.8, style: "cat", color: "#3A2416"},
         cheeks: {lx: 43.5, rx: 76.5, y: 64.5, w: 4.4, h: 2.7, color: "#FF9A8C"},
-        anchors: {top: [60, 36, 0.95, 0], neck: [60, 76, 0.95, 0, 35, 53], chest: [68, 83.5, 0.7], back: [79, 90, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 36, 0.95, 0], neck: [60, 79.5, 0.95, 0, 37, 53], chest: [68, 83.5, 0.7], back: [79, 90, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Hi hi! My big ears perked right up for you!", "Ooh, tell me everything! I'm all ears!", "You're on fire today! Sandy high five!", "Look at you, showing up again! Yay!", "Every idea you share makes my tail wag!", "You've got this, and I've got your back!", "Desert sun and you? Best combo ever!"],
           pet: ["Eee! My ears are wiggling with joy!", "Hehe! Fluffy tail wag, just for you!"],
@@ -75,7 +75,7 @@
         eyes: {lx: 64, rx: 80, y: 44, r: 4.3, style: "dot", color: "#3A2416"},
         mouth: {x: 72, y: 61.8, w: 2.8, color: "#3A2416"},
         cheeks: {lx: 58.5, rx: 85.5, y: 50.5, w: 4, h: 2.5, color: "#FF9A8C"},
-        anchors: {top: [72, 24.5, 0.85, 0], neck: [72.5, 68, 0.62, 0, 24, 63], chest: [80, 75, 0.6], back: [26, 88, 0.8], hands: [73, 86, 0.8]},
+        anchors: {top: [72, 24.5, 0.85, 0], neck: [72.5, 70, 0.62, 0, 24.5, 66.5], chest: [80, 75, 0.6], back: [26, 88, 0.8], hands: [73, 86, 0.8]},
         lines: {
           tap: ["Oh hi! You made this sleepy camel so happy!", "Long trek? No problem! We're doing it together!", "Look at you go, one step at a time! Wow!", "You're amazing, and I'm not just saying it because I'm sleepy!", "Every step across the dunes counts! Yay!", "Showing up again! You're my favorite traveler!", "I'm so proud to walk beside you!"],
           pet: ["Ooh, so cozy! My whole heart is happy!", "Hehe! That's the best pat ever! Thank you!"],
@@ -268,7 +268,7 @@
         eyes: {lx: 49, rx: 71, y: 57, r: 4.4, style: "round", color: "#2B2233"},
         mouth: {x: 60, y: 68, w: 2.6, style: "cat"},
         cheeks: {lx: 40, rx: 80, y: 68.5, w: 4.2, h: 2.6, color: "#FF9FB7"},
-        anchors: {top: [60, 34.5, 1, 0], neck: [60, 76, 1.1, 0, 50, 68], chest: [70, 83.5, 0.7], back: [86, 90, 0.85], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 34.5, 1, 0], neck: [60, 79.5, 1.1, 0, 52, 68], chest: [70, 83.5, 0.7], back: [86, 90, 0.85], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Hi hi! I stopped munching just to say hello!", "You're doing amazing! Panda hug!", "Look at you, showing up again! Yay!", "Roly poly cheers, all for you!", "You're on a roll today, just like me!", "Every page you turn makes me so happy!", "Bamboo and you? My two favorite things!"],
           pet: ["Ooh! Happy panda roll! Hehe!", "So cozy! My ears are wiggling with joy!"],

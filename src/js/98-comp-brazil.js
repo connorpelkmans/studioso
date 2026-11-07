@@ -111,7 +111,7 @@
         eyes: {lx: 53, rx: 67, y: 49, r: 4.2, style: "sparkle", color: "#24161A"},
         mouth: {x: 60, y: 62, w: 2.6, color: "#4A2A22", style: "cat"},
         cheeks: {lx: 49, rx: 71, y: 57, w: 3.4, h: 2, color: "#FF8A8A"},
-        anchors: {top: [60, 16, 0.95, 0], neck: [60, 79, 1, 0, 48, 64], chest: [63, 84.5, 0.55], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 16, 0.95, 0], neck: [60, 79.5, 1, 0, 46, 64], chest: [63, 84.5, 0.55], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Hi! I'm small, but I study big!", "My mane is golden, and so are your ideas!", "Swing from task to task with me!", "Let's go! The forest is cheering for you!", "I'm hungry for knowledge! And fruit!", "Tiny steps make a long, long trail!", "Curious minds climb the highest trees!", "You've got this, I've got snacks!"],
           pet: ["Hehe! You fluffed up my mane!", "Aww! Golden-hug time!"],

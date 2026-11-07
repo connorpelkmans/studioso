@@ -35,7 +35,7 @@
         eyes: {lx: 49, rx: 71, y: 56.5, r: 4.6, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 66.2, w: 2.6, style: "cat"},
         cheeks: {lx: 42, rx: 78, y: 64, w: 4.4, h: 2.7},
-        anchors: {top: [60, 36, 1, 0], neck: [60, 78, 1.05, 0, 50, 68], chest: [69, 85.5, 0.72], back: [33, 86, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 36, 1, 0], neck: [60, 81.5, 1.05, 0, 51, 68], chest: [69, 85.5, 0.72], back: [33, 86, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Mrrp! Hi there! I'm so happy you're here!", "You're doing purr-fectly! I mean it!", "Take a breath! You've totally got this!", "I believe in you so much! Meow!", "Need a cheer? I'm right here for you!", "Look at you studying! I'm so impressed!", "Every tiny step counts! Go you!"],
           pet: ["Purrrr! Right there, that's the spot!", "Mrrp! Chin rubs are the best! More!"],
@@ -280,7 +280,7 @@
         eyes: {lx: 50, rx: 70, y: 51, r: 4.8, style: "dot", color: "#1F2A1C"},
         mouth: {x: 60, y: 60.5, w: 3, color: "#1F2A1C"},
         cheeks: {lx: 42, rx: 78, y: 59, w: 4.6, h: 2.8, color: "#FF9AA8"},
-        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 71, 1, 0, 29, 76], chest: [68, 77.5, 0.62], back: [42, 84, 0.8], hands: [60, 86, 0.85]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 75.5, 1, 0, 31, 80], chest: [68, 77.5, 0.62], back: [42, 84, 0.8], hands: [60, 86, 0.85]},
         lines: {
           tap: ["Munch munch... oh! Hi hi! You're here!", "Every page is a tasty snack! Yum!", "Inch by inch, you're growing so much!", "Curious minds go far, and you're zooming!", "You're a true bookworm! I'm so proud!", "Nibble by nibble, you're getting there!", "Ooh! What are we reading? I'm so excited!"],
           pet: ["Hehe! Wiggle wiggle! I love that!", "Hehe! My antennae are doing a happy dance!"],
@@ -492,7 +492,7 @@
         eyes: {lx: 49, rx: 71, y: 58, r: 5, style: "dot", color: "#1F2A20"},
         mouth: {x: 60, y: 67, w: 3.4, color: "#1F2A20"},
         cheeks: {lx: 41, rx: 79, y: 65.5, w: 4.4, h: 2.7, color: "#FF8FA8"},
-        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 78, 1.05, 0, 43, 60], chest: [71, 85, 0.66], back: [34, 90, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 81.5, 1.05, 0, 45, 60], chest: [71, 85, 0.66], back: [34, 90, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Oh, hello! I just turned happy teal!", "You bring out all my brightest colors!", "Slow and steady, just like me! Love it!", "Every change means you're learning! Wow!", "Blend in some calm! You've got this!", "Every shade of you is wonderful!", "Take your time! I'm cheering in rainbow!"],
           pet: ["Ooh! I'm blushing bright pink!", "Hehe! Now I'm every color at once!"],
@@ -606,7 +606,7 @@
         eyes: {lx: 49, rx: 71, y: 56, r: 4.4, style: "dot", color: "#2A1E1C"},
         mouth: {x: 60, y: 73.5, w: 2.6, color: "#5A2632"},
         cheeks: {lx: 42, rx: 78, y: 65, w: 4.2, h: 2.6, color: "#FF7F9A"},
-        anchors: {top: [60, 39, 0.95, 0], neck: [60, 79, 1.05, 0, 43, 53], chest: [67, 85, 0.6], back: [85, 90, 0.85], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 39, 0.95, 0], neck: [60, 81.5, 1.05, 0, 44, 53], chest: [67, 85, 0.6], back: [85, 90, 0.85], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Oink! Hello, hello! I'm so glad you're here!", "Something smells like success, and it's you!", "Whisk away the worries! We've got this!", "Need a hand? I'm right here, apron and all!", "Little crumbs add up to a whole loaf!", "Warm oven, warm heart, and a great student!", "You're doing wonderfully! Oink oink!"],
           pet: ["Oink oink! Hehe, that's my favorite!", "Hehe! My ears are doing a happy wiggle!"],

@@ -181,7 +181,7 @@
         eyes: {lx: 47, rx: 73, y: 58, r: 4.6, style: "dot", color: "#1E2A24"},
         mouth: {x: 60, y: 66, w: 4, color: "#1E2A24"},
         cheeks: {lx: 38.5, rx: 81.5, y: 64.5, w: 4.4, h: 2.7, color: "#FF9FC0"},
-        anchors: {top: [60, 34.5, 1, 0], neck: [60, 76, 1.05, 0, 45, 53], chest: [69, 82.5, 0.65], back: [84, 88, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 34.5, 1, 0], neck: [60, 80, 1.05, 0, 47, 53], chest: [69, 82.5, 0.65], back: [84, 88, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Hehe, hi! Biggest smile for you!", "You're doing great! Splash!", "Swim along! You've got this!", "Cool and calm, that's you!", "Hooray for you! Hooray!", "I'm smiling so big for you!", "Little strokes, steady swim! Go you!"],
           pet: ["Wiggle wiggle! So happy!", "My frills are fluttering! Hehe!"],
@@ -469,7 +469,7 @@
         eyes: {lx: 50.5, rx: 69.5, y: 45, r: 4.6, style: "dot", color: "#2D1F3D"},
         mouth: {x: 60, y: 55.5, w: 2.4, style: "cat", color: "#2D1F3D"},
         cheeks: {lx: 43.5, rx: 76.5, y: 52.5, w: 4, h: 2.5, color: "#FF3D8B"},
-        anchors: {top: [60, 29, 0.95, 0], neck: [60, 64, 0.9, 0, 38, 62], chest: [69, 70.5, 0.6], back: [82, 80, 0.85], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 29, 0.95, 0], neck: [60, 68, 0.9, 0, 41, 62], chest: [69, 70.5, 0.6], back: [82, 80, 0.85], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Boing! Hi friend! I'm so happy you're here!", "Wow, you're getting so good at this!", "Look at all your sweet work so far!", "Soft and steady, and you're crushing it!", "I'm bouncing with pride for you!", "Keep going! You're doing wonderfully!", "Boing boing! A super sweet hello!"],
           pet: ["Hehe! I'm all happy and wobbly!", "Squish! That made my whole day!"],

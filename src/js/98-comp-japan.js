@@ -40,7 +40,7 @@
         eyes: {lx: 49, rx: 71, y: 54, r: 4.4, style: "dot", color: "#2B2233"},
         mouth: {x: 60, y: 68, w: 3.2, color: "#2B2233", style: "cat"},
         cheeks: {lx: 41, rx: 79, y: 63, w: 4.4, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 80, 1, 0, 55, 70], chest: [60, 84.5, 0.5], back: [84, 86, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 82.5, 1, 0, 55, 70], chest: [60, 84.5, 0.5], back: [84, 86, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Woof! Your deadlines are safe with me!", "Tail curled up tight, ready to help!", "I sniffed out your next task. Let's go!", "Shiba smile for you! You've got this!", "Big ears, big heart, big cheers!", "I'll keep watch while you study!", "One task at a time, like one treat at a time!", "You make my tail spin in circles!"],
           pet: ["Hehe! Right behind the ears, please!", "Aww! My tail is wagging so fast!"],

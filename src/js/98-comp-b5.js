@@ -299,7 +299,7 @@
         eyes: {lx: 49.5, rx: 70.5, y: 57, r: 4.2, style: "round", color: "#2B2233"},
         mouth: {x: 60, y: 68.8, w: 2.4, style: "cat"},
         cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.5, color: "#FF9FB7"},
-        anchors: {top: [60, 38, 0.95, 0], neck: [60, 78, 1.05, 0, 47, 80], chest: [72, 85.5, 0.7], back: [87, 86, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 38, 0.95, 0], neck: [60, 81.5, 1.05, 0, 49, 80], chest: [72, 85.5, 0.7], back: [87, 86, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Psst! That's one for the album! So proud!", "The light in here is lovely today!", "Collecting happy moments with you!", "Tiny paws, big memories! Let's make more!", "This page is a keeper, just like you!", "Look at you, showing up again!", "One more treasure for the album! Yay!"],
           pet: ["Hehe! My tail is all fluffed up!", "Aww, that's a keeper!"],
@@ -544,7 +544,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 53, r: 4.8, style: "dot", color: "#3A1E0E"},
         mouth: {x: 60, y: 64.5, w: 2.8, style: "cat", color: "#3A1E0E"},
         cheeks: {lx: 41.5, rx: 78.5, y: 61, w: 4.2, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [60, 33.5, 1, 0], neck: [60, 75, 0.95, 0, 31, 47], chest: [69, 82, 0.66], back: [85, 84, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 33.5, 1, 0], neck: [60, 78.5, 0.95, 0, 33.5, 47], chest: [69, 82, 0.66], back: [85, 84, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Rawr! Hello, friend! So glad you're here!", "Brave heart, steady steps! That's you!", "Dancing into a lucky year with you!", "You're full of dragon spirit!", "Let's soar a little higher today!", "Fortune favors the curious, like you!", "Tiny dragon, BIG cheers for you!"],
           pet: ["Rawr hehe! That tickles!", "My whiskers are wiggling with joy!"],

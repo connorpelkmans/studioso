@@ -30,7 +30,7 @@
         eyes: {lx: 49, rx: 71, y: 62, r: 5.4, style: "sparkle", color: "#1E1A28"},
         mouth: {x: 60, y: 71.5, w: 3.2, color: "#1E1A28"},
         cheeks: {lx: 40.5, rx: 79.5, y: 70, w: 4.6, h: 2.8, color: "#FF8FA8"},
-        anchors: {top: [60, 17.5, 0.9, 0], neck: [60, 94, 1, 0, 31, 36], chest: [72, 100, 0.6], back: [92, 70, 0.85], hands: [60, 92, 0.85]},
+        anchors: {top: [60, 17.5, 0.9, 0], neck: [60, 96.5, 1, 0, 31, 36], chest: [72, 100, 0.6], back: [92, 70, 0.85], hands: [60, 92, 0.85]},
         lines: {
           tap: ["Scene one, take one: you, being awesome!", "Lights, camera, study!", "That was a great take!", "You're the star of this production!", "Quiet on set! Genius at work!", "Ready when you are, director!", "Every scene gets better with you in it!"],
           pet: ["Snap snap! That tickles!", "Hehe! Cut! Print! That's a keeper!"],
@@ -97,7 +97,7 @@
         eyes: {lx: 52.5, rx: 67.5, y: 55, r: 4.4, style: "sparkle", color: "#3A2A1A"},
         mouth: {x: 60, y: 63.5, w: 2.8, color: "#3A2A1A"},
         cheeks: {lx: 46, rx: 74, y: 62, w: 3.6, h: 2.3, color: "#FF9A8A"},
-        anchors: {top: [60, 24.5, 0.95, 0], neck: [60, 85, 0.95, 0, 29, 31], chest: [70, 90.5, 0.55], back: [34, 60, 0.8], hands: [60, 88, 0.8]},
+        anchors: {top: [60, 24.5, 0.95, 0], neck: [60, 85, 0.95, 0, 38, 31], chest: [70, 90.5, 0.55], back: [34, 60, 0.8], hands: [60, 88, 0.8]},
         lines: {
           tap: ["And the spotlight goes to... you!", "Shining my brightest beam on you!", "You're glowing today, I can tell!", "Center stage suits you!", "Hard work looks brilliant under the lights!", "I see a star in the making!", "Ready for your close-up?"],
           pet: ["Ooh, I'm all warmed up now!", "Hehe! My lens is blushing!"],
@@ -173,7 +173,7 @@
         eyes: {lx: 50, rx: 70, y: 68, r: 4.8, style: "sparkle", color: "#2A2430"},
         mouth: {x: 60, y: 77, w: 3, color: "#2A2430"},
         cheeks: {lx: 41.5, rx: 78.5, y: 75.5, w: 4.2, h: 2.6, color: "#FF9AA8"},
-        anchors: {top: [60, 48.5, 0.95, 0], neck: [60, 86, 0.95, 0, 37, 41], chest: [70, 91.5, 0.55], back: [84, 92, 0.8], hands: [60, 100, 0.8]},
+        anchors: {top: [60, 48.5, 0.95, 0], neck: [60, 88.5, 0.95, 0, 37, 41], chest: [70, 91.5, 0.55], back: [84, 92, 0.8], hands: [60, 100, 0.8]},
         lines: {
           tap: ["Bonjour, chef! Ready to cook up greatness?", "Your recipe for success is looking delicious!", "A pinch of patience, a dash of genius!", "Every great dish starts with one step!", "Yes, chef! You're doing wonderfully!", "I feel taller already, thanks to you!", "Mise en place! Everything in its place!"],
           pet: ["Oh la la! My pleats are all fluffy!", "Hehe! Careful, I'm freshly starched!"],

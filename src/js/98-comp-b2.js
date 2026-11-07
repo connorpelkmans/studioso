@@ -186,7 +186,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 52, r: 6.4, style: "dot", color: "#1E1740"},
         mouth: {x: 60, y: 62.5, w: 3, color: "#1E1740"},
         cheeks: {lx: 40, rx: 80, y: 60, w: 4.2, h: 2.6, color: "#FF9FCF"},
-        anchors: {top: [60, 29, 1, 0], neck: [60, 71, 0.95, 0, 34, 58], chest: [69, 78.5, 0.7], back: [81, 86, 0.85], hands: [60, 90, 0.9]},
+        anchors: {top: [60, 29, 1, 0], neck: [60, 74.5, 0.95, 0, 35, 58], chest: [69, 78.5, 0.7], back: [81, 86, 0.85], hands: [60, 90, 0.9]},
         lines: {
           tap: ["Greetings, Earth friend! Yay!", "Beep boop! You are so great!", "Earth studying is the coolest thing!", "Take me to your notes! I'm so excited!", "You are my absolute favorite human!", "Tiny steps, cosmic results! Beep!", "My antennae sense a big win coming!"],
           pet: ["Beep! Antenna tickles! Hehe!", "Zib is very, very happy! Beep beep!"],
@@ -262,7 +262,7 @@
         eyes: {lx: 48, rx: 72, y: 52.5, r: 4.6, style: "dot", color: "#1B2A3E"},
         mouth: {x: 60, y: 66.8, w: 2.6, style: "cat", color: "#1B2A3E"},
         cheeks: {lx: 41, rx: 79, y: 61, w: 4.4, h: 2.7},
-        anchors: {top: [60, 30, 1, 0], neck: [60, 73, 1.05, 0, 44, 63], chest: [70, 81, 0.75], back: [85, 86, 0.9], hands: [60, 94, 0.95]},
+        anchors: {top: [60, 30, 1, 0], neck: [60, 79, 1.05, 0, 52, 63], chest: [70, 81, 0.75], back: [85, 86, 0.9], hands: [60, 94, 0.95]},
         lines: {
           tap: ["Hi! Big bear hug incoming!", "Soft paws, strong mind! That's you!", "You're doing so, so well!", "Look, the sky is dancing for you!", "Steady on the ice! You're amazing!", "Icy fresh water break? Yes please!", "I'm so proud of you, truly!"],
           pet: ["Hehe, fluffy bear hugs! Yay!", "Mmm, so soft and cozy! Thank you!"],
@@ -484,7 +484,7 @@
         eyes: {lx: 47.5, rx: 72.5, y: 50, r: 5, style: "sparkle", color: "#2B1A10"},
         mouth: {x: 60, y: 66, w: 2.6, color: "#2B1A10"},
         cheeks: {lx: 40.5, rx: 79.5, y: 60, w: 4.4, h: 2.7},
-        anchors: {top: [60, 31, 0.9, 0], neck: [60, 77, 0.95, 0, 41, 54], chest: [70.5, 82.5, 0.55], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 31, 0.9, 0], neck: [60, 77.5, 0.95, 0, 40, 54], chest: [70.5, 82.5, 0.55], back: [84, 86, 0.9], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Jingle jingle! Hi, friend!", "You show up every day! I love that!", "You've got this! Jingle!", "Tiny hooves, big leaps! Go you!", "Merry and bright, that's you!", "Warm cocoa and a stretch? Yes please!", "Look at those twinkly lights! So fun!"],
           pet: ["Jingle! That tickles! Hehe!", "Look, my nose is glowing for you!"],

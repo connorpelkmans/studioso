@@ -68,7 +68,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 56.8, r: 5.6, style: "round", color: "#3C6A2C"},
         mouth: {x: 60, y: 67.8, w: 2.6, color: "#3A2A2A", style: "cat"},
         cheeks: {lx: 41.4, rx: 78.6, y: 65.4, w: 4.2, h: 2.5, color: "#FFA6BA"},
-        anchors: {top: [60, 30, 0.95, 0], neck: [60, 81, 1, 0, 45.5, 64], chest: [60, 87.5, 0.62], back: [86, 88, 0.8], hands: [60, 101, 0.86]},
+        anchors: {top: [60, 30, 0.95, 0], neck: [60, 84, 1, 0, 46.5, 64], chest: [60, 87.5, 0.62], back: [86, 88, 0.8], hands: [60, 101, 0.86]},
         lines: {
           tap: ["Yawn... oh, hello! I was just sunbathing.", "Every warm wall in Oia knows my name!", "You're doing great. I'm doing a nap. Teamwork!", "Purr... one page at a time, friend.", "I saved you the sunniest spot on the steps!", "Sea breeze, warm stones and you studying. Perfect.", "Blue doors, white walls, big brains. That's you!", "Slow blink for you. That means I like you!"],
           pet: ["Purrrr! Right behind the ears, yes!", "Mrrp! Warmer than a sunny wall!"],
@@ -145,7 +145,7 @@
         eyes: {lx: 48, rx: 72, y: 52.6, r: 5, style: "sparkle", color: "#24180E"},
         mouth: {x: 60, y: 68.6, w: 2.4, color: "#3A2614"},
         cheeks: {lx: 38, rx: 82, y: 63, w: 3.8, h: 2.2, color: "#F49A8A"},
-        anchors: {top: [60, 24, 0.95, 0], neck: [60, 76, 1, 0, 57, 70], chest: [60, 83, 0.66], back: [86, 86, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 24, 0.95, 0], neck: [60, 78, 1, 0, 57, 70], chest: [60, 83, 0.66], back: [86, 86, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Hoo! A wise owl knows when to review.", "Questions are how wisdom starts. Ask away!", "I've read every scroll in the library twice!", "Night or day, I'm here to study with you.", "Big eyes, big ideas, small owl. Hello!", "Think it through slowly. The answer will come.", "Knowledge is the best treasure. You're rich!", "Hoo hoo! That's owl for 'you're doing great.'"],
           pet: ["Hoo! My feathers are all fluffed up now!", "Aww, softer than a moonlit breeze!"],

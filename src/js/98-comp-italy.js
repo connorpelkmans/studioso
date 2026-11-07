@@ -103,7 +103,7 @@
         eyes: {lx: 51, rx: 69, y: 63, r: 4.6, style: "sparkle", color: "#2E2A1A"},
         mouth: {x: 60, y: 72, w: 3, color: "#2E2A1A"},
         cheeks: {lx: 43, rx: 77, y: 70, w: 4, h: 2.4, color: "#FF8FA8"},
-        anchors: {top: [60, 0, 0.85, 0], neck: [60, 82, 0.95, 0, 42, 67], chest: [70, 88, 0.6], back: [84, 62, 0.8], hands: [60, 92, 0.8]},
+        anchors: {top: [60, 0, 0.85, 0], neck: [60, 85.5, 0.95, 0, 40, 62], chest: [70, 88, 0.6], back: [84, 62, 0.8], hands: [60, 92, 0.8]},
         lines: {
           tap: ["Ciao! Three scoops of cheering, coming up!", "Pistachio for focus, fragola for fun!", "You're the cherry on top of today!", "Cool, calm and totally got this!", "No brain freeze, just brain power!", "One scoop at a time, you'll finish it!", "Sweet work! Keep it rolling!", "Gelato tastes better after a good chapter!"],
           pet: ["Hehe! Careful, I might melt!", "Aww, you make my scoops wobble!"],

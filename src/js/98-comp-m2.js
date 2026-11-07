@@ -50,7 +50,7 @@
         },
         mouth: {x: 60, y: 59, w: 3.4},
         cheeks: {lx: 41.5, rx: 78.5, y: 57.5, w: 4.6, h: 2.8, color: "#FF9A8A"},
-        anchors: {top: [60, 29, 0.95, 0], neck: [60, 76, 1.05, 0, 58, 73], chest: [72, 83.5, 0.7], back: [87, 86, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 29, 0.95, 0], neck: [60, 78, 1.05, 0, 58, 73], chest: [72, 83.5, 0.7], back: [87, 86, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Squeak! Tell me all about your code!", "You're debugging like a champion!", "Quack! I believe in you so much!", "Every bug you squash makes me squeak!", "Talk it through, I'm all ears!", "You're smarter than any compiler!", "Quack quack! You've totally got this!", "Best coding buddy ever? That's you!"],
           pet: ["Squeeeak! That's my happy sound!", "Hehe! Quack! Do it again!"],
@@ -91,7 +91,7 @@
         eyes: {lx: 51, rx: 69, y: 46, r: 5, style: "dot", color: "#7DF2DA"},
         mouth: {x: 60, y: 55.5, w: 3, color: "#7DF2DA"},
         cheeks: {lx: 44, rx: 76, y: 53.5, w: 3.6, h: 2.2, color: "#FF8FBA"},
-        anchors: {top: [60, 21.5, 0.95, 0], neck: [60, 74, 0.95, 0, 39, 70], chest: [71, 80, 0.6], back: [79, 86, 0.8], hands: [60, 94, 0.85]},
+        anchors: {top: [60, 21.5, 0.95, 0], neck: [60, 74, 0.95, 0, 35, 70], chest: [71, 80, 0.6], back: [79, 86, 0.8], hands: [60, 94, 0.85]},
         lines: {
           tap: ["Beep boop! Hi! Hi! Hi!", "Processing joy: 100 percent!", "You're running at top speed today!", "My circuits sparkle when you're here!", "Beep! You're doing amazing!", "Loading cheer: done! Go you!", "Hello, world! Hello, YOU!", "Best human in my whole database!"],
           pet: ["Beep beep! Happy circuits!", "Boop! My screen is all blushy!"],
@@ -183,7 +183,7 @@
         },
         mouth: {x: 60, y: 68, w: 3},
         cheeks: {lx: 41, rx: 79, y: 64.5, w: 4.6, h: 2.8, color: "#FF9A9A"},
-        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 79, 1.05, 0, 47, 57], chest: [70, 86, 0.68], back: [83, 88, 0.85], hands: [60, 95, 0.9]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 82, 1.05, 0, 48, 57], chest: [70, 86, 0.68], back: [83, 88, 0.85], hands: [60, 95, 0.9]},
         lines: {
           tap: ["Hi, builder! Ready to make plans?", "You're building something amazing!", "Hard hat on, cheer level max!", "Log by log, you're doing great!", "Measure twice, cheer forever!", "Tail slap of pride for you!", "You've got this! Let's build!", "Best teammate on the whole site!"],
           pet: ["Hehe! My hard hat wiggled!", "Ooh! Happy tail thumps!"],
@@ -257,7 +257,7 @@
         eyes: {lx: 51, rx: 71, y: 45, r: 5.2, style: "dot"},
         mouth: {x: 61, y: 54.5, w: 3.2},
         cheeks: {lx: 43.5, rx: 78.5, y: 53, w: 4.4, h: 2.7, color: "#FF8F8F"},
-        anchors: {top: [61, 23, 0.9, 0], neck: [50.5, 66, 0.75, 0, 21.5, 23.5], chest: [67, 72, 0.55], back: [77, 50, 0.75], hands: [61, 76, 0.8]},
+        anchors: {top: [61, 23, 0.9, 0], neck: [49.5, 68.5, 0.75, 0, 21.5, 24.5], chest: [67, 72, 0.55], back: [77, 50, 0.75], hands: [61, 76, 0.8]},
         lines: {
           tap: ["Grab! Hi there! I caught a smile!", "Pinch pinch! You're amazing!", "I'd lift you up if I could!", "Precision cheering activated!", "You're building great things!", "Reach high! You've got this!", "My claws are clapping for you!", "Best project partner ever!"],
           pet: ["Whirr! My joints feel so loose!", "Hehe! Pinchy happy dance!"],

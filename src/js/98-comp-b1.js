@@ -268,7 +268,7 @@
         eyes: {lx: 50, rx: 70, y: 55, r: 5, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 70, w: 2.4, style: "cat", color: "#2B1A10"},
         cheeks: {lx: 42.5, rx: 77.5, y: 63.5, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [60, 39, 0.95, 0], neck: [60, 76, 1.05, 0, 44, 57], chest: [70, 83.5, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 39, 0.95, 0], neck: [60, 78, 1.05, 0, 44, 61], chest: [70, 83.5, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Oh, hi there! I'm so glad you came!", "It's wonderful to have you here!", "Tiptoe through it! You're doing great!", "Crunchy leaves, cozy notes, happy me!", "You're falling into a great rhythm!", "Water, snack, then back to it?", "Soft steps still get you there!"],
           pet: ["Hehe, that tickles my ears!", "Hehe, so cozy and warm!"],
@@ -372,7 +372,7 @@
         eyes: {lx: 50, rx: 70, y: 57, r: 4.6, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 67.5, w: 2.6, style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 65, w: 4.2, h: 2.6, color: "#FF9AA8"},
-        anchors: {top: [60, 37, 0.95, 0], neck: [60, 75, 1.05, 0, 47, 59], chest: [70, 82.5, 0.7], back: [34, 90, 0.85], hands: [60, 93, 0.9]},
+        anchors: {top: [60, 37, 0.95, 0], neck: [60, 79, 1.05, 0, 50, 59], chest: [70, 82.5, 0.7], back: [34, 90, 0.85], hands: [60, 93, 0.9]},
         lines: {
           tap: ["Hi! Floating by to cheer you on!", "You're doing amazing!", "Hold my paw, we've got this!", "Ride the wave! You're doing great!", "Little splashes add up to big waves!", "Water, snack, then back to it?", "Calm seas, clear mind, brilliant you!"],
           pet: ["Aww, that's so nice! Happy otter!", "Hehe, my whiskers are wiggling!"],
@@ -492,7 +492,7 @@
         eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 69, w: 2.6, style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 66, w: 4.2, h: 2.6, color: "#FF8FB0"},
-        anchors: {top: [60, 38, 0.95, 0], neck: [60, 78, 1.05, 0, 49, 59], chest: [69, 85.5, 0.7], back: [86, 90, 0.9], hands: [60, 97, 0.9]},
+        anchors: {top: [60, 38, 0.95, 0], neck: [60, 81.5, 1.05, 0, 50, 59], chest: [69, 85.5, 0.7], back: [86, 90, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Wan! Hi hi!", "Petals and pats, my favorite things!", "You're doing wonderfully!", "Big tail wags for your hard work!", "Bloom at your own pace! You're great!", "Water, snack, then back to it?", "I'm so proud of you, friend!"],
           pet: ["Wan wan! Happiest pup ever!", "Wiggly tail! So so happy!"],

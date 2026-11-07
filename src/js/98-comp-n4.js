@@ -39,7 +39,7 @@
         eyes: {lx: 47, rx: 73, y: 56, r: 5, style: "sparkle", color: "#2B1A2E"},
         mouth: {x: 60, y: 75, w: 3.6, color: "#2B1A2E"},
         cheeks: {lx: 38, rx: 82, y: 70, w: 3.6, h: 2.2, color: "#FF8FB8"},
-        anchors: {top: [60, 20, 1, 0], neck: [60, 86, 0.95, 0, 40, 57], chest: [70, 93, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 20, 1, 0], neck: [60, 89.5, 0.95, 0, 41, 57], chest: [70, 93, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["¡Hola! I iced a flower just for you!", "Sweet as sugar, sharp as a pencil!", "Your memory is getting stronger!", "Every page you study is worth remembering!", "Look at you go! So colorful!", "A big sugary smile for your hard work!", "Remember: you're doing amazing!", "Marigolds, candles and you, all glowing!"],
           pet: ["Hehe! Careful, my icing tickles!", "Aww, so sweet! Sweeter than me!"],
@@ -79,7 +79,7 @@
         eyes: {lx: 48, rx: 72, y: 52, r: 4.8, style: "round", color: "#1E1A28"},
         mouth: {x: 60, y: 67.5, w: 3.4, color: "#1E1A28"},
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF9AB8"},
-        anchors: {top: [60, 31, 0.95, 0], neck: [60, 78, 1, 0, 49, 64], chest: [72, 85, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 31, 0.95, 0], neck: [60, 80.5, 1, 0, 50, 65], chest: [72, 85, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Woof! Hi hi hi! I'm so happy you're here!", "My ears are up! That means I'm listening!", "You're my favorite study buddy!", "Good human! Great studying!", "Tail wags for every page you read!", "I'll guard your focus. Nobody gets past!", "Sniff sniff. Smells like success!", "Big ears, big heart, big cheers for you!"],
           pet: ["Hehe! Ear scratches are the best!", "Woof! More pats please!"],
@@ -294,7 +294,7 @@
         eyes: {lx: 37, rx: 48, y: 57, r: 3.8, style: "dot", color: "#3A2A10"},
         mouth: {x: 42.5, y: 65.5, w: 2.6, color: "#3A2A10"},
         cheeks: {lx: 33, rx: 52, y: 63.5, w: 3, h: 1.8, color: "#FF9AB0"},
-        anchors: {top: [52, 27.5, 0.9, 0], neck: [60, 92, 0.85, 0, 29, 31], chest: [62, 97.5, 0.55], back: [70, 70, 0.7], hands: [58, 100, 0.8]},
+        anchors: {top: [52, 27.5, 0.9, 0], neck: [60, 94.5, 0.85, 0, 29, 31], chest: [62, 97.5, 0.55], back: [70, 70, 0.7], hands: [58, 100, 0.8]},
         lines: {
           tap: ["Good evening! Right on time, as always!", "I rise every night, and so do you!", "Small and bright, that's the way!", "Your effort shines like starlight!", "Patience grows into something full!", "A little glow, every single day!", "The stars are cheering with me!", "You're as steady as the moon!"],
           pet: ["Hehe! My tips are curling up!", "Aww, that's a warm, glowy feeling!"],
@@ -372,7 +372,7 @@
         eyes: {lx: 49, rx: 71, y: 58, r: 4.6, style: "round", color: "#2A3A34"},
         mouth: {x: 60, y: 69, w: 2.8, color: "#2A3A34"},
         cheeks: {lx: 42, rx: 78, y: 66, w: 4, h: 2.4, color: "#FFA6BE"},
-        anchors: {top: [60, 33.5, 0.95, 0], neck: [60, 80, 1, 0, 53, 65], chest: [72, 86.5, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
+        anchors: {top: [60, 33.5, 0.95, 0], neck: [60, 82.5, 1, 0, 53, 65], chest: [72, 86.5, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
         lines: {
           tap: ["Hello from the moon! I hopped down to see you!", "Tap, tap! Working through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
           pet: ["Hehe! My ears are wiggling!", "Aww, softer than moonlight!"],

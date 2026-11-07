@@ -168,7 +168,7 @@
         eyes: {lx: 48.5, rx: 71.5, y: 49, r: 4.6, style: "dot", color: "#2A1A12"},
         mouth: {x: 60, y: 63.2, w: 2.8, color: "#2A1A12", style: "cat"},
         cheeks: {lx: 44, rx: 76, y: 58.5, w: 4.2, h: 2.6, color: "#FF9C8A"},
-        anchors: {top: [60, 30, 1, 0], neck: [60, 71, 1.05, 0, 40, 65.5], chest: [73, 78.5, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.95]},
+        anchors: {top: [60, 30, 1, 0], neck: [60, 74.5, 1.05, 0, 42, 66], chest: [73, 78.5, 0.7], back: [84, 86, 0.9], hands: [60, 95, 0.95]},
         lines: {
           tap: ["Sniff sniff! I smell a superstar!", "Clue found: you're doing amazing!", "Elementary! You've totally got this!", "My nose never lies. You're brilliant!", "Every note is a clue. Keep going!", "Woof! Another mystery cracked open!", "Following the trail right beside you!", "The evidence says you're awesome!"],
           pet: ["Hehe! My ears are flopping happily!", "Woof woof! Best pats in the whole case!"],

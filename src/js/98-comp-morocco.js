@@ -89,7 +89,7 @@
         eyes: {lx: 47.5, rx: 72.5, y: 59.5, r: 5, style: "round", color: "#2A2026"},
         mouth: {x: 60, y: 74.6, w: 2.6, color: "#2A2026", style: "cat"},
         cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.4, color: "#FFA2A2"},
-        anchors: {top: [60, 38, 0.9, 0], neck: [60, 81, 1, 0, 47, 63], chest: [60, 87, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 38, 0.9, 0], neck: [60, 85.5, 1, 0, 48.5, 63], chest: [60, 87, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["My ears heard you studying from the desert!", "Big ears, big plans, little paws. Let's go!", "I hear a deadline... and you're way ahead of it!", "Desert foxes keep cool. So can you!", "Every grain of sand adds up to a dune!", "Listen closely: you're doing great!", "I dug a cozy spot right next to your notes.", "Sharp ears, sharp mind. That's you!"],
           pet: ["Hehe! Scratch behind the big ears!", "Aww, my tail is wagging all by itself!"],

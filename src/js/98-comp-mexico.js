@@ -94,7 +94,7 @@
         },
         mouth: {x: 60, y: 64, w: 4, color: "#2A2026"},
         cheeks: {lx: 37, rx: 83, y: 63, w: 4.6, h: 2.8, color: "#FF7A9C"},
-        anchors: {top: [60, 30, 0.95, 0], neck: [60, 84, 1, 0, 48, 60], chest: [60, 90, 0.6], back: [82, 88, 0.8], hands: [60, 99, 0.86]},
+        anchors: {top: [60, 30, 0.95, 0], neck: [60, 84, 1, 0, 47, 60], chest: [60, 90, 0.6], back: [82, 88, 0.8], hands: [60, 99, 0.86]},
         lines: {
           tap: ["Hi! I'm smiling. I'm always smiling!", "Axolotls regrow anything. Even motivation!", "Mistakes? I'll just grow a new start!", "Swimming slowly, still getting there!", "My gills are wiggling with excitement!", "From the canals of Xochimilco, with love!", "You keep going, I'll keep cheering!", "Little paws, big dreams. Let's study!"],
           pet: ["Hehe! My gills went all fluffy!", "Aww, that's a very happy wiggle!"],

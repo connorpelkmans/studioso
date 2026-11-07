@@ -39,7 +39,7 @@
         eyes: {lx: 50, rx: 70, y: 46, r: 3.8, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 67, w: 3, color: "#2B1A10"},
         cheeks: {lx: 41.5, rx: 78.5, y: 55, w: 4.4, h: 2.6, color: "#FF9A9A"},
-        anchors: {top: [60, 29, 0.9, 0], neck: [60, 78, 1.05, 0, 72, 83], chest: [76, 85, 0.68], back: [92, 74, 0.8], hands: [60, 88, 0.85]},
+        anchors: {top: [60, 29, 0.9, 0], neck: [60, 79.5, 1.05, 0, 71, 83], chest: [76, 85, 0.68], back: [92, 74, 0.8], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Ahh, hi! The water's just right today.", "You're doing great. Want to soak in that for a second?", "No rush. One task at a time, like one bath at a time.", "I'm so calm, and you're so capable!", "Steady and warm, that's how we study.", "Every little step counts. I believe in you.", "Relax your shoulders. There we go!", "You make studying look cozy."],
           pet: ["Mmm, that's so relaxing. Thank you.", "Hehe, I might melt into the tub."],
@@ -74,7 +74,7 @@
         eyes: {lx: 53, rx: 67, y: 50.5, r: 3.6, style: "dot", color: "#3A1A1E"},
         mouth: {x: 60, y: 61.5, w: 2.6, color: "#3A1A1E"},
         cheeks: {lx: 48.5, rx: 71.5, y: 57, w: 3.4, h: 2.2, color: "#FF6F8E"},
-        anchors: {top: [60, 28.5, 0.85, 0], neck: [60, 70, 1, 0, 53, 66], chest: [72, 76.5, 0.62], back: [86, 84, 0.8], hands: [60, 98, 0.8]},
+        anchors: {top: [60, 28.5, 0.85, 0], neck: [60, 77.5, 0.95, 0, 40, 60], chest: [72, 76.5, 0.62], back: [86, 84, 0.8], hands: [60, 98, 0.8]},
         lines: {
           tap: ["Hi hi! Don't mind the snowball, it's for balance.", "You're so good at this! Wheee!", "Let's do the next one together!", "I believe in you more than snowballs!", "Brrr, studying warms me right up!", "Ooh, you're on a roll!", "Little steps, big monkey cheers!"],
           pet: ["Hehe! Careful, the snowball!", "Eee! That tickles my ears!"],
@@ -162,7 +162,7 @@
         eyes: {lx: 45.5, rx: 74.5, y: 49, r: 3.8, style: "round", color: "#1E120A"},
         mouth: {x: 60, y: 63, w: 2.9, color: "#3A2418"},
         cheeks: {lx: 41, rx: 79, y: 62, w: 4.2, h: 2.5, color: "#FF9A9A"},
-        anchors: {top: [60, 20, 1.05, 0], neck: [60, 77, 1.1, 0, 61, 78.5], chest: [60, 83, 0.6], back: [88, 84, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 20, 1.05, 0], neck: [60, 77, 1.1, 0, 59, 78.5], chest: [60, 83, 0.6], back: [88, 84, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Heyyy... friend... hi.", "Slow and steady... still gets there.", "You're doing great... no rush.", "One... thing... at a time. Perfect.", "I like your pace... it's lovely.", "Hang in there... like me!", "Big things... start small.", "Deep breath... you've got this."],
           pet: ["Mmm... so cozy... thank you.", "Hehe... slow happy wiggle."],
@@ -333,7 +333,7 @@
         mouth: {x: 60, y: 62, w: 3},
         mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false) + `<path d="M50 59q1.6 1.8 3.4 1M70 59q-1.6 1.8 -3.4 1" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`, open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
         cheeks: {lx: 47, rx: 73, y: 59, w: 3.4, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 74, 1, 0, 49, 55], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 78.5, 1, 0, 52, 55], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hello! Pool inspection complete, all is well!", "Waddle waddle, you're doing great!", "I checked every pool. You're the best one!", "Tuxedo on, ready to study!", "Fluffy but focused!", "Let's waddle to the next task!", "You're puff-ectly on track!", "Beak up, chest out, here we go!"],
           pet: ["Hehe! My fluff is extra fluffy now!", "Peep peep! Again!"],
@@ -446,7 +446,7 @@
         eyes: {lx: 46, rx: 74, y: 49, r: 6, style: "sparkle", color: "#2B1A10"},
         mouth: {x: 60, y: 66, w: 3.8},
         cheeks: {lx: 37, rx: 83, y: 59, w: 4.6, h: 2.8, color: "#FF8F7A"},
-        anchors: {top: [60, 13.5, 1, 0], neck: [62, 73, 1.1, 0, 61.5, 74], chest: [60, 79, 0.6], back: [86, 82, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 13.5, 1, 0], neck: [60, 73, 1.05, 0, 46, 66], chest: [60, 79, 0.6], back: [86, 82, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Just sunbathing between study sessions.", "Achoo! Sorry, that's a happy salt sneeze!", "You're doing great, mate!", "Slow blink of approval.", "Warm rocks, warm heart, warm wishes!", "Let's dive into the next one!", "You're tougher than lava rock!"],
           pet: ["Achoo! Hehe, happy sneeze!", "Ooh, right on the spiky bits!"],
@@ -484,7 +484,7 @@
         eyes: {lx: 48, rx: 72, y: 52, r: 3.8, style: "dot", color: "#2B2233"},
         mouth: {x: 48, y: 69, w: 2.4},
         cheeks: {lx: 43, rx: 77, y: 61, w: 4.4, h: 2.7, color: "#FF9AB0"},
-        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 80, 1.1, 0, 57, 59], chest: [76, 87, 0.68], back: [86, 80, 0.8], hands: [60, 94, 0.85]},
+        anchors: {top: [60, 31.5, 0.95, 0], neck: [60, 77, 1, 0, 40, 56], chest: [76, 87, 0.68], back: [86, 80, 0.8], hands: [60, 94, 0.85]},
         lines: {
           tap: ["Hi! I remembered you'd come. I always remember!", "You're doing great, and I'll never forget it!", "Big ears, big heart, big cheers!", "Trunk up for your hard work!", "Let's stomp through this list together!", "I never forget a due date. Or a friend!", "Splash of encouragement coming your way!", "Step by step, like a little elephant."],
           pet: ["Hehe! My ears are flapping with joy!", "Ooh, trunk hug for you!"],
@@ -521,7 +521,7 @@
         eyes: {lx: 52, rx: 68, y: 35, r: 3.4, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 50, w: 2.4, color: "#2B1A10"},
         cheeks: {lx: 46, rx: 74, y: 42, w: 3.4, h: 2.2, color: "#FF9A9A"},
-        anchors: {top: [60, 22.5, 0.8, 0], neck: [60, 56, 0.8, 0, 17.5, 48], chest: [66, 62.5, 0.58], back: [78, 78, 0.72], hands: [60, 88, 0.8]},
+        anchors: {top: [60, 22.5, 0.8, 0], neck: [60, 56.5, 0.8, 0, 17.5, 48], chest: [66, 62.5, 0.58], back: [78, 78, 0.72], hands: [60, 88, 0.8]},
         lines: {
           tap: ["Hi from up here! I can see your progress!", "I spy a deadline... and you're way ahead of it!", "You're reaching new heights!", "Long neck, long list, no problem!", "Head held high, you're doing great!", "The view is lovely, and so is your work!", "Stretch for it! You've got this!"],
           pet: ["Hehe! You reached all the way up!", "Ooh, right behind the ears!"],
@@ -559,7 +559,7 @@
         eyes: {lx: 51, rx: 69, y: 45, r: 4, style: "round", color: "#1A1008"},
         mouth: {x: 60, y: 59.5, w: 2.2, color: "#2B1A10"},
         cheeks: {lx: 45, rx: 75, y: 54, w: 3.4, h: 2.2, color: "#FF9A9A"},
-        anchors: {top: [60, 29, 0.9, 0], neck: [60, 66, 0.92, 0, 36, 45], chest: [70, 72.5, 0.6], back: [80, 84, 0.75], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 29, 0.9, 0], neck: [60, 68.5, 0.92, 0, 36, 45], chest: [70, 72.5, 0.6], back: [80, 84, 0.75], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Reporting for duty! All clear!", "Lookout says: you're doing great!", "Scanning the horizon... yep, you're amazing.", "I've got your back, you focus!", "No distractions in sight. Carry on!", "Standing tall for you!", "Perimeter secure, progress excellent!", "Sentry on watch, you on task!"],
           pet: ["Hehe! Off duty for one second!", "Ooh, a pat! Still on watch though!"],

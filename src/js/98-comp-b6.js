@@ -299,7 +299,7 @@
         },
         mouth: {x: 60, y: 59.5, w: 3},
         cheeks: {lx: 42.5, rx: 77.5, y: 59, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 28.5, 1, 0], neck: [60, 73, 1.05, 0, 56, 74], chest: [71, 80.5, 0.72], back: [85, 84, 0.9], hands: [60, 94, 0.95]},
+        anchors: {top: [60, 28.5, 1, 0], neck: [60, 75.5, 1.05, 0, 56, 74], chest: [71, 80.5, 0.72], back: [85, 84, 0.9], hands: [60, 94, 0.95]},
         lines: {
           tap: ["Hi! You make me want to soar!", "Look at you, flying so high!", "Screech! You're amazing today!", "Your wings are getting so strong!", "I'm your biggest fan, up here in the nest!", "Every page is a little flap higher!", "Wow! You're on a roll today!"],
           pet: ["Hehe! My fluffy feathers love that!", "Ooh, so cozy! Ruffle ruffle!"],
