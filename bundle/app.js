@@ -76660,8 +76660,33 @@ function decorateDeck(){
 const RA_MQ = matchMedia("(max-width:600px)");
 // A flashcard deck does the same on every screen size
 const RA_DECK_KEEP = ["fc-study", "fc-quiz", "mt-start", "pub-deck", "pro-ic-drafts"];
+// An iPad held upright: a header's buttons stay on one line at the right, the least useful folding into More until they fit
+const RA_TAB_MQ = matchMedia("(min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse)");
+const RA_TAB_FOLD = ["import-syllabus", "lec-open", "lms-go"];
+function raFitTablet(ra){
+  const btns = [...ra.children].filter(b => b.matches("button.btn, a.btn"));
+  const line = () => btns.length && ra.getBoundingClientRect().height <= Math.max(...[...ra.children].map(b => b.getBoundingClientRect().height)) * 1.5;
+  if (btns.length < 3 || line()) return;
+  const primary = btns.find(b => b.classList.contains("primary")) || btns[btns.length - 1];
+  const keep = b => b === primary || b.classList.contains("ai-btn");
+  // the named ones first, then anything else from the right
+  const order = btns.filter(b => !keep(b)).sort((a, b) => {
+    const r = x => { const i = RA_TAB_FOLD.indexOf(x.dataset.act); return i < 0 ? -1 : i; };
+    const ra2 = r(a), rb = r(b); if (ra2 >= 0 || rb >= 0) return (ra2 < 0 ? 99 : ra2) - (rb < 0 ? 99 : rb);
+    return btns.indexOf(b) - btns.indexOf(a);
+  });
+  if (!order.length) return;
+  ra.dataset.ra = "1";
+  const box = document.createElement("div"); box.className = "ra-more";
+  box.innerHTML = `<button type="button" class="btn small ra-more-btn" aria-haspopup="true" aria-expanded="false">More<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="ra-menu" role="menu" hidden></div>`;
+  const menu = box.querySelector(".ra-menu");
+  ra.insertBefore(box, primary);
+  for (const b of order) { if (line()) break; b.setAttribute("role", "menuitem"); menu.appendChild(b); }
+  if (!menu.children.length) box.remove();
+}
 function raMore(onlyGx){
   document.querySelectorAll(".g2-band > .row-actions:not([data-ra])").forEach(ra => {
+    if (!onlyGx && RA_TAB_MQ.matches && ra.closest(".c2-head") && !ra.querySelector(":scope > .gx-assign")) { raFitTablet(ra); return; }
     const deck = !RA_MQ.matches && !!ra.closest(".deck-head");
     const gxp = !deck && ra.querySelector(":scope > .gx-assign");
     if (onlyGx && !ra.querySelector(":scope > .gx-assign")) return;
@@ -76691,6 +76716,7 @@ new MutationObserver(() => {
   raT = requestAnimationFrame(() => { raT = 0; raMore(); });
 }).observe(document.documentElement, {childList: true, subtree: true});
 RA_MQ.addEventListener("change", () => { try { render(); } catch (e) {} });
+RA_TAB_MQ.addEventListener("change", () => { try { render(); } catch (e) {} });
 document.addEventListener("click", e => {
   const t = e.target.closest && e.target.closest(".ra-more-btn");
   document.querySelectorAll(".ra-more .ra-menu:not([hidden])").forEach(m => { if (!t || m.parentNode !== t.parentNode) { m.hidden = true; m.parentNode.querySelector(".ra-more-btn").setAttribute("aria-expanded", "false"); } });
