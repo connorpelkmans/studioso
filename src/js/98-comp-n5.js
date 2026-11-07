@@ -277,7 +277,7 @@
         }
       },
       {
-        id: "birthday-pinata", name: "Piña", kind: "Llama Piñata", pose: "stand", wearColor: "#B58CF2",
+        id: "birthday-pinata", name: "Piña", kind: "Llama Piñata", pose: "stand", wearOnHead: true, wearColor: "#B58CF2",
         bio: "A colorful, fringed llama piñata who throws a little party for every win.",
         idle: ["earTwitch", "sway", "headTilt"], cheer: "hop",
         parts: {
@@ -304,7 +304,7 @@
         },
         cheeks: {lx: 44, rx: 76, y: 45, w: 3.8, h: 2.4, color: "#FF8FB8"},
         neck: [60, 72],
-        anchors: {top: [60, 22, 0.85, 0], neck: [58, 76.5, 0.8, 0, 61.5, 63.5], chest: [74, 76, 0.55], back: [40, 64, 0.8], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 22, 0.85, 0], neck: [60, 62, 0.75, 0, 26, 63.5, 26], chest: [74, 76, 0.55], back: [40, 64, 0.8], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Hi! Admire my fringe, gently please!", "No bats, just high fives, okay?", "You make me feel extra colorful!", "Every stripe of me is cheering for you!", "Party look, study brain. Love it!", "Let's fill today with sweet wins!", "Looking good, studying better!"],
           pet: ["Hehe! Gentle pats only, thank you!", "Aww! My fringe is fluttering!"],

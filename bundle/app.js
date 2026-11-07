@@ -59431,7 +59431,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 45.5, rx: 74.5, y: 49, r: 3.8, style: "round", color: "#1E120A"},
         mouth: {x: 60, y: 63, w: 2.9, color: "#3A2418"},
         cheeks: {lx: 41, rx: 79, y: 62, w: 4.2, h: 2.5, color: "#FF9A9A"},
-        anchors: {top: [60, 20, 1.05, 0], neck: [60, 77, 1.1, 0, 59, 78.5], chest: [60, 83, 0.6], back: [88, 84, 0.85], hands: [60, 95, 0.85]},
+        anchors: {top: [60, 20, 1.05, 0], neck: [60, 74.5, 1.05, 0, 48, 78.5], chest: [60, 83, 0.6], back: [88, 84, 0.85], hands: [60, 95, 0.85]},
         lines: {
           tap: ["Heyyy... friend... hi.", "Slow and steady... still gets there.", "You're doing great... no rush.", "One... thing... at a time. Perfect.", "I like your pace... it's lovely.", "Hang in there... like me!", "Big things... start small.", "Deep breath... you've got this."],
           pet: ["Mmm... so cozy... thank you.", "Hehe... slow happy wiggle."],
@@ -59602,7 +59602,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 62, w: 3},
         mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false) + `<path d="M50 59q1.6 1.8 3.4 1M70 59q-1.6 1.8 -3.4 1" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`, open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
         cheeks: {lx: 47, rx: 73, y: 59, w: 3.4, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 78.5, 1, 0, 52, 55], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 76.5, 1, 0, 44, 55], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hello! Pool inspection complete, all is well!", "Waddle waddle, you're doing great!", "I checked every pool. You're the best one!", "Tuxedo on, ready to study!", "Fluffy but focused!", "Let's waddle to the next task!", "You're puff-ectly on track!", "Beak up, chest out, here we go!"],
           pet: ["Hehe! My fluff is extra fluffy now!", "Peep peep! Again!"],
@@ -59828,7 +59828,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 45, r: 4, style: "round", color: "#1A1008"},
         mouth: {x: 60, y: 59.5, w: 2.2, color: "#2B1A10"},
         cheeks: {lx: 45, rx: 75, y: 54, w: 3.4, h: 2.2, color: "#FF9A9A"},
-        anchors: {top: [60, 29, 0.9, 0], neck: [60, 68.5, 0.92, 0, 36, 45], chest: [70, 72.5, 0.6], back: [80, 84, 0.75], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 29, 0.9, 0], neck: [60, 66.5, 0.9, 0, 30, 45], bow: [60, 72, 0.55], chest: [70, 72.5, 0.6], back: [80, 84, 0.75], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Reporting for duty! All clear!", "Lookout says: you're doing great!", "Scanning the horizon... yep, you're amazing.", "I've got your back, you focus!", "No distractions in sight. Carry on!", "Standing tall for you!", "Perimeter secure, progress excellent!", "Sentry on watch, you on task!"],
           pet: ["Hehe! Off duty for one second!", "Ooh, a pat! Still on watch though!"],
@@ -60130,7 +60130,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "birthday-pinata", name: "Piña", kind: "Llama Piñata", pose: "stand", wearColor: "#B58CF2",
+        id: "birthday-pinata", name: "Piña", kind: "Llama Piñata", pose: "stand", wearOnHead: true, wearColor: "#B58CF2",
         bio: "A colorful, fringed llama piñata who throws a little party for every win.",
         idle: ["earTwitch", "sway", "headTilt"], cheer: "hop",
         parts: {
@@ -60157,7 +60157,7 @@ var COMP_KIT = (() => {
         },
         cheeks: {lx: 44, rx: 76, y: 45, w: 3.8, h: 2.4, color: "#FF8FB8"},
         neck: [60, 72],
-        anchors: {top: [60, 22, 0.85, 0], neck: [58, 76.5, 0.8, 0, 61.5, 63.5], chest: [74, 76, 0.55], back: [40, 64, 0.8], hands: [60, 90, 0.8]},
+        anchors: {top: [60, 22, 0.85, 0], neck: [60, 62, 0.75, 0, 26, 63.5, 26], chest: [74, 76, 0.55], back: [40, 64, 0.8], hands: [60, 90, 0.8]},
         lines: {
           tap: ["Hi! Admire my fringe, gently please!", "No bats, just high fives, okay?", "You make me feel extra colorful!", "Every stripe of me is cheering for you!", "Party look, study brain. Love it!", "Let's fill today with sweet wins!", "Looking good, studying better!"],
           pet: ["Hehe! Gentle pats only, thank you!", "Aww! My fringe is fluttering!"],
