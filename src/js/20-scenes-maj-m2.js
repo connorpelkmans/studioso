@@ -77,7 +77,7 @@
         fxTw(W, H, n(18), "sparkle", d ? ["#FFE0A8", "#FFFFFF"] : ["#E8A21C", "#F2C24A"], {smin: 3, smax: 7, glow: d ? 10 : 4})),
       draw: (g, f, W, H, d) => {
         const a = 1 - fxEase((f - 180) / 60); if (a <= 0.01) return;
-        const k = Math.min(W, H) * 0.0105, cols = d ? ["#E89A4E", "#E8C27A", "#C98A52"] : ["#C9782E", "#D9A441", "#A8703A"];
+        const k = Math.min(W, H) * 0.0125, cols = d ? ["#E89A4E", "#E8C27A", "#C98A52"] : ["#C9782E", "#D9A441", "#A8703A"];
         const spin = 0.035 * (f - 60 * (1 - Math.exp(-f / 60))), sl = 1 - fxEase(f / 46);
         // each train: corner, direction into the screen, and gears as [teeth, angle from the previous gear]
         [[0, H, 1, -1, [[22, 0], [12, -0.5], [16, -1.25], [10, 0.1]]], [W, 0, -1, 1, [[22, 0], [12, 2.64], [16, 1.9], [10, 3.24]]]].forEach(([cx, cy, sx, sy, gs], ti) => {
@@ -114,7 +114,7 @@
         fxTw(W, H, n(16), "sparkle", d ? ["#FFE9A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 7, glow: d ? 10 : 4}).map(p => Object.assign(p, {delay: 40 + Math.floor(fxR(0, 110))}))),
       draw: (g, f, W, H, d) => {
         const a = 1 - fxEase((f - 180) / 60); if (a <= 0.01) return;
-        const s = Math.min(W * 0.5, H * 0.34, 300) / 120, ox = W / 2 - 60 * s, oy = H * (W < H ? 0.56 : 0.6) - 30 * s;
+        const s = Math.min(W * 0.5, H * 0.34, 300) / 120, ox = W / 2 - 60 * s, oy = H * (W < H ? 0.68 : 0.62) - 30 * s;
         // strokes in a 120 x 60 box: A, its bar, the plus, then a loose ring around everything
         const ring = []; for (let i = 0; i <= 40; i++) { const t = -2.2 + i / 40 * 6.9; ring.push([60 + Math.cos(t) * (74 + i * 0.25), 30 + Math.sin(t) * 46]); }
         const S = [[[4, 60], [26, 0], [48, 60]], [[13, 38], [39, 38]], [[64, 30], [100, 29]], [[82, 12], [82, 48]], ring], D = [22, 8, 9, 9, 34];

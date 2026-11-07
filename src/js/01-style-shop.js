@@ -480,26 +480,29 @@ const fxGalaxy = () => {
     g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
   };
 };
-// Christmas: a string of lights swags across the top and switches on bulb by bulb, then twinkles
+// Christmas: a string of lights is pinned along the very top of the page. It drops in, bounces to rest, and the
+// bulbs (hanging straight down from the wire) swing on their sockets, light up one by one and keep twinkling
 const fxGarland = () => (g, f, W, H, d) => {
-  const out = fxOut(f, 200, 268); if (out <= 0) return;
-  const top = H * (W < H ? 0.05 : 0.07), sag = H * (W < H ? 0.07 : 0.11), swags = W < H ? 2 : 3, cols = ["#FF4A3D", "#2FD07A", "#FFC23D", "#4A8BFF", "#FF7AC8"];
-  const pt = u => { const k = u * swags, i = Math.min(swags - 1, Math.floor(k)), t = k - i; return [W * (-0.03 + 1.06 * u), top + sag * 4 * t * (1 - t) + Math.sin(i * 1.7) * H * 0.01]; };
-  const draw = Math.min(1, f / 40);
-  g.globalAlpha = out * 0.85; g.strokeStyle = d ? "#2F5A40" : "#2E5A3A"; g.lineWidth = 2; g.beginPath();
-  for (let u = 0; u <= draw + 0.001; u += 0.01) { const [x, y] = pt(u); u ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
-  const bk = Math.max(1, Math.min(1.7, Math.min(W, H) / 520)), N = Math.round(W / (46 * bk));
-  for (let i = 1; i < N; i++) {
-    const u = i / N; if (u > draw) break;
-    const [x, y] = pt(u), [x2, y2] = pt(Math.min(1, u + 0.004)), ang = Math.atan2(y2 - y, x2 - x), on = fxEase((f - 18 - i * 1.6) / 8), col = cols[i % cols.length];
-    const tw = 0.72 + 0.28 * Math.sin(f * 0.11 + i * 2.3);
-    g.save(); g.translate(x, y); g.rotate(ang + (i % 2 ? 0.25 : -0.2)); g.scale(bk, bk);
-    g.globalAlpha = out; g.fillStyle = d ? "#6A7480" : "#7A828C"; g.fillRect(-2.2, 0, 4.4, 4);
-    if (on > 0) { g.globalAlpha = out * on * tw * (d ? 0.55 : 0.4); const gl = g.createRadialGradient(0, 10, 0, 0, 10, 20); gl.addColorStop(0, col); gl.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gl; g.fillRect(-20, -10, 40, 40); }
-    g.globalAlpha = out; g.fillStyle = on > 0.5 ? col : fxShade(col, 0.55); g.beginPath(); g.ellipse(0, 10, 4.2, 6.6, 0, 0, 6.3); g.fill();
-    g.fillStyle = `rgba(255,255,255,${0.25 + 0.5 * on})`; g.beginPath(); g.ellipse(-1.3, 8, 1.1, 2.4, 0, 0, 6.3); g.fill();
+  const out = fxOut(f, 200, 268) * fxEase(f / 10); if (out <= 0) return;
+  const ph = W < H, swags = ph ? 2 : 3, bk = Math.max(1.15, Math.min(1.8, Math.min(W, H) / 460)), sag0 = H * (ph ? 0.085 : 0.15), cols = ["#FF4A3D", "#2FD07A", "#FFC23D", "#4A8BFF", "#FF7AC8"];
+  const sag = sag0 * (1 - Math.exp(-f / 12) * Math.cos(f * 0.2));
+  const pt = u => { const k = u * swags, t = k - Math.min(swags - 1, Math.floor(k)); return [W * u, -1 + sag * 4 * t * (1 - t)]; };
+  g.globalAlpha = out; g.strokeStyle = d ? "#3F7A52" : "#2E5A3A"; g.lineWidth = 2 * bk; g.lineCap = "round"; g.beginPath();
+  for (let u = 0; u <= 1.0001; u += 0.005) { const [x, y] = pt(u); u ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+  const per = Math.max(4, Math.round(W / swags / (62 * bk)));
+  for (let s = 0; s < swags; s++) for (let k = 1; k < per; k++) {
+    const i = s * per + k, u = (s + k / per) / swags, [x, y] = pt(u), col = cols[i % cols.length];
+    const swing = 0.4 * Math.exp(-f / 50) * Math.sin(f * 0.15 + i * 0.9) + 0.08 * Math.sin(f * 0.045 + i * 1.7);
+    const on = fxEase((f - 22 - i * 1.5) / 8), tw = 0.75 + 0.25 * Math.sin(f * 0.1 + i * 2.3);
+    g.save(); g.translate(x, y); g.rotate(swing); g.scale(bk, bk);
+    if (on > 0) { g.globalAlpha = out * on * tw * (d ? 0.55 : 0.38); const gl = g.createRadialGradient(0, 11, 0, 0, 11, 20); gl.addColorStop(0, col); gl.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gl; g.fillRect(-20, -9, 40, 40); }
+    g.globalAlpha = out; g.fillStyle = d ? "#5E6A60" : "#6E7A70"; g.fillRect(-2.6, 0, 5.2, 4.6);
+    g.fillStyle = on > 0.5 ? col : fxShade(col, 0.55); g.beginPath(); g.moveTo(0, 4); g.bezierCurveTo(5.4, 4.4, 5.6, 11, 0, 17.5); g.bezierCurveTo(-5.6, 11, -5.4, 4.4, 0, 4); g.fill();
+    g.fillStyle = `rgba(255,255,255,${0.25 + 0.45 * on})`; g.beginPath(); g.ellipse(-1.6, 8.6, 1.1, 2.8, 0.15, 0, 6.3); g.fill();
     g.restore();
   }
+  g.globalAlpha = out; g.fillStyle = d ? "#3F7A52" : "#2E5A3A";
+  for (let s = 0; s <= swags; s++) { g.beginPath(); g.arc(W * s / swags, 1, 3 * bk, 0, 6.3); g.fill(); }
 };
 // Café: three soft curls of steam rise from below, widen and drift apart (soft puffs stamped along each curl)
 const fxSteam = () => { const puffs = {};

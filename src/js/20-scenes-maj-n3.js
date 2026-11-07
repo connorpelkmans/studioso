@@ -33,6 +33,8 @@
   const TB = "M-7.5 0C-5 -7.8 5 -8.2 10.4 -0.6C10.8 0 10.8 0.4 10.4 0.8C5 8 -5 7.8 -7.5 0Z", TT = "M-6.6 0L-11.8 -5.6L-10.4 0L-11.8 5.6Z";
   const YB = "M-6 0C-6 -8.6 2 -10.4 9.8 -1C10.4 -0.4 10.4 0.4 9.8 1C2 10.4 -6 8.6 -6 0Z", YT = "M-5.4 0L-10.8 -4.8L-9.6 0L-10.8 4.8Z";
   Object.assign(FX_SHAPES, {
+    // a soft round puff that fades to clear in its own color
+    n3soft: {d: "M-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0", paint: (g, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 12); gr.addColorStop(0, c); gr.addColorStop(0.5, c + "99"); gr.addColorStop(1, c + "00"); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); }},
     n3clown: {d: FB + FT, paint: (g, c, dk) => { const b = new Path2D(FB); fillP(g, "#E05A16", FT); fillP(g, "#F07020", "M-2.4 -5.2Q1 -9.6 5.4 -5.4Z M-1.4 5.2Q1.4 8.8 4.6 5.2Z"); g.fillStyle = "#F7801F"; g.fill(b);
       g.save(); g.clip(b); g.fillStyle = "#FFFFFF"; g.strokeStyle = "#1A1A22"; g.lineWidth = 0.8; [[4.8, 2.4], [-0.4, 2.6], [-5.4, 1.8]].forEach(([x, w]) => { g.fillRect(x - w / 2, -9, w, 18); g.strokeRect(x - w / 2, -9, w, 18); }); g.restore();
       sheen(g, dk); eye(g, 7.2, -1.5, 1.5); }},
@@ -100,7 +102,7 @@
       }, draw: potDraw},
     campfire: {spawn: (W, H, d, n) => { const u = Math.min(W, H) / 100;
         return Array.from({length: n(80)}, () => ({shape: "circle", c: fxPick(["#FFB347", "#FF8A3A", "#FFE08A", "#FF6A3A"]), x: W / 2 + fxR(-12, 12) * u, y: H - fxR(4, 18) * u, vx: fxR(-0.6, 0.6), vy: -fxR(2.2, 4.4), g: -0.004, size: fxR(1.8, 3.6), rot: 0, vr: 0, sway: fxR(0.8, 2), swf: fxR(0.05, 0.12), grow: -0.05, life: fxR(80, 150), delay: Math.floor(fxR(14, 175)), glow: 10}))
-          .concat(fxRise(W, H, n(14), "puffsoft", d ? ["#9A9AB0"] : ["#B4BAC4"], {cx: [0.44, 0.56], smin: 10, smax: 15, vmin: 0.9, vmax: 1.5, sway: 1.2, grow: 0.35, alpha: d ? 0.14 : 0.16, life: 170, spread: 150, depth: false}).map(p => Object.assign(p, {y: H - 26 * u, delay: p.delay + 30})),
+          .concat(fxRise(W, H, n(14), "n3soft", d ? ["#B0B0C4"] : ["#C8CCD4"], {cx: [0.44, 0.56], smin: 10, smax: 15, vmin: 0.9, vmax: 1.5, sway: 1.2, grow: 0.35, alpha: d ? 0.14 : 0.16, life: 170, spread: 150, depth: false}).map(p => Object.assign(p, {y: H - 26 * u, delay: p.delay + 30})),
             d ? fxTw(W, H, n(40), "star", ["#FFFFFF", "#FFE7B0", "#C9D4FF"], {smin: 3, smax: 6, top: 0.55, glow: 10, spread: 160}) : fxTw(W, H, n(16), "sparkle", ["#F5913A", "#F7C04A"], {smin: 4, smax: 7, top: 0.7, glow: 4, spread: 160}));
       }, draw: fireDraw},
     aquarium: {spawn: (W, H, d, n) => school(W, H, n(28), ["n3clown", "n3tang", "n3ytang", "n3gramma"], {per: 5, smin: 14, smax: 19})

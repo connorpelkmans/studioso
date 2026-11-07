@@ -24,6 +24,38 @@
     egyptsun: {d: circ(0, 0, 5.6) + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => { const a = i / 10 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a); return pts([[c * 7 - s * 1.2, s * 7 + c * 1.2], [c * 11, s * 11], [c * 7 + s * 1.2, s * 7 - c * 1.2]]); }).join(""), detail: circ(0, 0, 3.4), dfill: true}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // a bird in profile, head toward +x, painted with its wings at angle th (three poses make a flap)
+  const BIRD = "M-11 -1.4L-5 -0.4C-3 -2.6 3 -2.6 5.6 -1.4A2.4 2.4 0 1 1 7 1C4 3.8 -3 4 -4.6 2L-11.2 2.2Z";
+  const bird = (sp, th) => (g, c) => { const ln = sp.line || "rgba(40,50,70,.35)", body = sp.body || c, wp = new Path2D("M0.6 -1.2C-3 -2.6 -7.4 -2.4 -10.4 0C-7.4 1.2 -3 1.8 0.6 1.4Z"); g.scale(sp.k || 1, sp.k || 1); g.translate(sp.ox || 0, 0); g.lineCap = "round"; g.lineWidth = 0.3;
+    const wing = (x, y, a, col, tip) => { g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = col; g.fill(wp); g.save(); g.clip(wp); g.fillStyle = tip; g.fillRect(-11, -3, 4.4, 6); if (sp.bars) { g.fillStyle = sp.bars; g.fillRect(-5.4, -3, 0.9, 6); g.fillRect(-3.8, -3, 0.9, 6); } g.restore(); g.strokeStyle = ln; g.stroke(wp); g.restore(); };
+    wing(1.4, -1.8, th + 0.25, mix(sp.wing || body, "#000000", 0.2), mix(sp.tip || sp.wing || body, "#000000", 0.2));
+    g.fillStyle = sp.tail || body; g.beginPath(); g.moveTo(-5, -0.6); g.lineTo(-11, -1.6); g.lineTo(-11.2, 2.2); g.lineTo(-4.6, 2.2); g.closePath(); g.fill(); g.strokeStyle = ln; g.stroke(); if (sp.under) { g.fillStyle = sp.under; g.beginPath(); g.moveTo(-4.6, 1.2); g.lineTo(-7.4, 1.8); g.lineTo(-4.4, 2.8); g.fill(); }
+    const bp = new Path2D(); bp.ellipse(-0.6, 0.6, 6.4, 3.1, -0.06, 0, 6.3); g.fillStyle = body; g.fill(bp); g.save(); g.clip(bp); g.fillStyle = sp.belly || body; g.fillRect(-8, 1.5, 16, 3); if (sp.bib) { g.fillStyle = sp.bib; oval(g, 5, 0.4, 2.8, 2.8); g.fill(); } g.restore(); g.strokeStyle = ln; g.stroke(bp);
+    const nl = sp.neck || 0, hr = sp.hr || 2.3, hx = 4.8 + nl * 0.75, hy = -1.6 - nl * 0.6;
+    if (nl) { g.strokeStyle = sp.head; g.lineWidth = 2.3; g.beginPath(); g.moveTo(3.4, -0.2); g.quadraticCurveTo(hx - 0.6, -0.4, hx, hy); g.stroke(); g.lineWidth = 0.3; }
+    const [bl, bh, bc, bcol, btip] = sp.beak, bx = hx + hr * 0.7, bk = new Path2D(`M${bx - 0.6} ${hy - bh * 0.5}Q${bx + bl * 0.6} ${hy - bh * 0.5 + bc * 0.3} ${bx + bl} ${hy + bc}Q${bx + bl * 0.45} ${hy + bh * 0.5 + bc * 0.6} ${bx - 0.6} ${hy + bh * 0.5}Z`);
+    g.fillStyle = bcol; g.fill(bk); if (btip) { g.save(); g.clip(bk); g.fillStyle = btip; g.fillRect(bx + bl * 0.74, hy - 6, 8, 12); g.restore(); } if (sp.bill) { g.fillStyle = "rgba(255,255,255,.35)"; g.save(); g.clip(bk); g.fillRect(bx - 1, hy - bh, bl + 2, bh * 0.45); g.restore(); }
+    g.fillStyle = sp.head || body; oval(g, hx, hy, hr, hr * 0.92); g.fill(); g.strokeStyle = ln; g.stroke(); if (sp.cheek) { g.fillStyle = sp.cheek; oval(g, hx - 0.3, hy + 0.7, hr * 0.55, hr * 0.38, 0.4); g.fill(); }
+    if (sp.ring) { g.fillStyle = sp.ring; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.95, 0.95); g.fill(); } g.fillStyle = sp.eye || "#1A1A22"; oval(g, hx + hr * 0.3, hy - hr * 0.2, 0.5, 0.5); g.fill();
+    sheen(g, 0.24, 0.16); wing(0.4, -1.2, th, sp.wing || body, sp.tip || sp.wing || body); };
+  const birdShapes = (name, sp) => [1.25, 0.3, -0.75].forEach((th, i) => { FX_SHAPES[name + i] = {d: BIRD, paint: bird(sp, th)}; });
+  // a flock drawn by hand so the wings can really flap: each bird is {x, y, vx, vy, ay, t0, life, fr, ph, size, c}
+  let flock = [];
+  const flockDraw = base => (g, f, W, H, d) => { const sc = 1.6 * Math.max(0.8, Math.min(1.6, Math.sqrt(W * H) / 900));
+    flock.forEach(b => { const t = f - b.t0; if (t < 0 || t > b.life) return; const a = fxEase(t / 12) * fxEase((b.life - t) / 40); if (a <= 0.01) return;
+      const w = Math.sin(t * b.fr + b.ph), vy = b.vy + b.ay * t, x = b.x + b.vx * t, y = b.y + b.vy * t + b.ay * t * t / 2 + w * (b.bob || 0.6) * sc, spr = fxSprite(base + (w > 0.4 ? 0 : w < -0.4 ? 2 : 1), b.c, b.glow || 0, d), s = b.size * sc / 10, h = spr._half * s, L = b.vx < 0;
+      g.globalAlpha = a * (b.alpha || 1); g.save(); g.translate(x, y); g.rotate(L ? Math.atan2(-vy, -b.vx) : Math.atan2(vy, b.vx)); g.scale(L ? -1 : 1, 1); g.drawImage(spr, -h, -h, 2 * h, 2 * h); g.restore(); }); g.globalAlpha = 1; };
+  birdShapes("egyptib", {body: "#FFFFFF", wing: "#F6F3EE", tip: "#1E1A1C", tail: "#2A2426", head: "#1E1A1C", neck: 3.6, hr: 1.7, beak: [6.4, 0.9, 2.8, "#2A2224"], k: 0.74, ox: -2.4, line: "rgba(70,56,40,.45)"});
+  // a blue water lily opening above its pad
+  FX_SHAPES.egyptlily = {d: FX_SHAPES.egyptlotus.d, paint: (g, c) => { g.fillStyle = "#4E9A5A"; g.beginPath(); g.moveTo(-10, 7.4); g.quadraticCurveTo(0, 3.6, 10, 7.4); g.quadraticCurveTo(0, 10.6, -10, 7.4); g.fill();
+    [[-1.05, 9.6, 0.82], [1.05, 9.6, 0.82], [-0.55, 12.6, 1], [0.55, 12.6, 1], [0, 15, 1.08]].forEach(([a, L, k]) => { g.save(); g.translate(0, 6); g.rotate(a); const gr = g.createLinearGradient(0, 0, 0, -L); gr.addColorStop(0, "#F6E2A0"); gr.addColorStop(0.35, mix(c, "#FFFFFF", 0.35)); gr.addColorStop(1, mix(c, "#000000", 0.12 * (2 - k)));
+      g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-3, -L * 0.35, -1.8, -L * 0.8, 0, -L); g.bezierCurveTo(1.8, -L * 0.8, 3, -L * 0.35, 0, 0); g.fill(); g.strokeStyle = "rgba(255,255,255,.4)"; g.lineWidth = 0.3; g.beginPath(); g.moveTo(0, -1); g.lineTo(0, -L * 0.8); g.stroke(); g.restore(); });
+    g.fillStyle = "#F2C24A"; oval(g, 0, 5.2, 2, 1); g.fill(); }};
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "egypt", name: "Egypt", group: "world", desc: "The pyramids at golden hour above the Nile.",
       light: ["#FBF5EA", "rgba(176,100,28,.10)", "#FFFFFF", "#2A2216", "#6E604C", "#ECDDC4", "#F5EBDA", "#FDFAF4", "#B0641C", "#C98A3E", "#FFFFFF", "#7A4214", "#1D3D6A", "#E6EEF8", "#FFE3A0"],
@@ -31,11 +63,10 @@
       glow: ["linear-gradient(180deg,#9CCBEA,#F4E6C6 45%,#F6C98A)", "linear-gradient(180deg,#0C1232,#1E2050 45%,#4E3260)"],
       spine: [lg("#2F5E96", "#1D3D6A"), lg("#2A2E66", "#14163A")], btn: [lg2("#B0641C", "#D9962E"), lg2("#F2C462", "#F7DC94")]},
     kit: {motif: "egyptpyr", card: ["#FFFAF0", "#F6E6CC"], ink: "#2A2216", bd: "#E8D0A8", mc: "#B0641C", r: 12, notes: ["#F6E2BC", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "folded", pin: "gold", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "egyptibis", d ? ["#F4F0FF", "#E2DCF6"] : ["#3A2A26", "#5A4034"], {smin: 12, smax: 18, vmin: 1.1, vmax: 1.9, sway: 0.6, life: 320, glow: d ? 10 : 0})
-      .concat(fxFall(W, H, n(32), "egyptlotus", d ? ["#9AB4FF", "#C4D0FF", "#F6C4D8"] : ["#3E6FC6", "#5A8CE0", "#E888A8"], {sway: 1.6, flip: true, smin: 7, smax: 11, vmin: 0.9, vmax: 1.8, glow: d ? 6 : 0}),
-        fxBurst(W, H, n(10), "egyptscarab", d ? ["#4AC8B8", "#3AA8C8"] : ["#1F8A84", "#2A6FA0"], [[0.2, 1.02], [0.8, 1.02]], {smin: 10, smax: 14}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxBurst(W, H, n(4), "egyptpyr", d ? ["#F2C462"] : ["#E0A040"], [[0.5, 1.04]], {smin: 14, smax: 18, glow: d ? 12 : 4}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
+    fx: {spawn: (W, H, d, n) => { const k = n(7), sp = W / 250, y0 = H * fxR(0.14, 0.24); flock = Array.from({length: k}, (_, i) => ({x: -60 - i * W * 0.07 - fxR(0, 20), y: y0 + i * H * 0.045 + fxR(-8, 8), vx: sp * fxR(0.96, 1.04), vy: -fxR(0.1, 0.35), ay: 0, t0: Math.floor(fxR(0, 8)), life: 330, fr: fxR(0.17, 0.21), ph: fxR(0, 6.3), size: fxR(20, 26), c: "#FFFFFF", glow: d ? 6 : 0}));
+      return fxFall(W, H, n(22), "egyptlily", d ? ["#8EA8FF", "#B4C4FF", "#7A90F0"] : ["#3E6FC6", "#5A8CE0", "#4A78D0"], {sway: 1.4, smin: 11, smax: 15, vmin: 0.8, vmax: 1.5, rock: 0.4})
+        .concat(fxTw(W, H, n(34), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#F2C462"] : ["#E0A040", "#F2B53A", "#FFFFFF"], {smin: 3, smax: 7, glow: d ? 10 : 6})); },
+      len: 300, draw: flockDraw("egyptib")},
     tag: "The pyramids of Giza and the Sphinx at golden hour, above the Nile with its palms, papyrus and a white-sailed felucca"
   });
 })();

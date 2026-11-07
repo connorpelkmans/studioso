@@ -124,10 +124,10 @@
     g.fillStyle = "#A0703F"; g.fillRect(-2.2, 9.1, 4.4, 2.6); g.fillStyle = "#7A5230"; g.fillRect(-2.2, 9.1, 4.4, 0.6); g.fillRect(-2.2, 10.6, 4.4, 0.35); };
   // a paraglider seen from the front: an arched wing of cells, lines down to the pilot
   const WING = "M-11.4 -3.4Q0 -15.6 11.4 -3.4L10 -2.2Q0 -12.4 -10 -2.2Z";
-  const paintGlider = (g, c) => { const w = P2(WING), lt = mix(c, "#FFFFFF", 0.7);
-    g.strokeStyle = "rgba(60,64,80,.6)"; g.lineWidth = 0.22; g.beginPath(); [-10.6, -6.4, -2.2, 2.2, 6.4, 10.6].forEach(x => { g.moveTo(x, -2.8 - (11 - Math.abs(x)) * 0.5); g.lineTo(0, 6.4); }); g.stroke();
+  const paintGlider = (g, c, d) => { const w = P2(WING), lt = mix(c, "#FFFFFF", 0.7), pc = d ? "#E4E0F2" : "#2E2A36";
+    g.strokeStyle = d ? "rgba(225,228,245,.55)" : "rgba(60,64,80,.6)"; g.lineWidth = 0.22; g.beginPath(); [-10.6, -6.4, -2.2, 2.2, 6.4, 10.6].forEach(x => { g.moveTo(x, -2.8 - (11 - Math.abs(x)) * 0.5); g.lineTo(0, 6.4); }); g.stroke();
     g.save(); g.fillStyle = c; g.fill(w); g.clip(w); for (let i = 0; i < 7; i++) if (i % 2) { g.fillStyle = lt; g.fillRect(-11.4 + i * 3.26, -13, 3.26, 12); } g.fillStyle = fxShade(c, 0.66); g.fillRect(-12, -13, 2.4, 12); g.fillRect(9.6, -13, 2.4, 12); g.restore(); sheen(g, 0.3, 0.2);
-    g.fillStyle = "#2E2A36"; ellP(g, 0, 6.8, 1.1, 1.1); g.fill(); g.fillStyle = fxShade(c, 0.75); g.beginPath(); g.moveTo(-1.4, 7.8); g.lineTo(1.4, 7.8); g.lineTo(1.1, 10.4); g.lineTo(-1.1, 10.4); g.fill(); g.fillStyle = "#2E2A36"; g.fillRect(-1, 10.3, 0.7, 1.5); g.fillRect(0.3, 10.3, 0.7, 1.5); };
+    g.fillStyle = pc; ellP(g, 0, 6.8, 1.1, 1.1); g.fill(); g.fillStyle = fxShade(c, 0.75); g.beginPath(); g.moveTo(-1.4, 7.8); g.lineTo(1.4, 7.8); g.lineTo(1.1, 10.4); g.lineTo(-1.1, 10.4); g.fill(); g.fillStyle = pc; g.fillRect(-1, 10.3, 0.7, 1.5); g.fillRect(0.3, 10.3, 0.7, 1.5); };
   // edelweiss: felted white star petals around a cluster of little yellow heads
   const paintEdel = (g, c, d) => { const rim = d ? "rgba(150,170,150,.8)" : "#9AAE96"; g.lineWidth = 0.45; g.strokeStyle = rim;
     for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + (i % 2) * 0.12, L = i % 2 ? 9.6 : 11; g.save(); g.rotate(a); g.beginPath(); g.moveTo(1.6, -1.6); g.quadraticCurveTo(L * 0.55, -3.4, L, 0); g.quadraticCurveTo(L * 0.55, 3.4, 1.6, 1.6); g.closePath(); g.fillStyle = c; g.fill(); g.stroke(); g.fillStyle = "rgba(150,175,140,.35)"; ellP(g, L - 1.6, 0, 1.6, 0.9); g.fill(); g.restore(); }
@@ -140,7 +140,7 @@
     g.lineCap = "round"; g.strokeStyle = c; g.globalAlpha = 0.55; g.lineWidth = 0.45; g.beginPath(); [-6.6, -3.4, 3.4, 6.6].forEach((x, i) => { g.moveTo(x, 1.6); g.bezierCurveTo(x + 1.6, 4.4, x - 1.6, 7.6, x + (i % 2 ? 0.8 : -0.8), 11.6); }); g.stroke();
     g.globalAlpha = 0.7; g.fillStyle = lt; [-1.4, 1.4].forEach(x => { g.beginPath(); g.moveTo(x - 1, 1.6); g.bezierCurveTo(x - 2.6, 4.4, x + 1.4, 6.4, x - 0.6, 10); g.bezierCurveTo(x + 2.2, 7.2, x - 0.6, 4.6, x + 1, 1.6); g.fill(); });
     g.globalAlpha = d ? 0.86 : 0.92; const gr = g.createRadialGradient(-2, -5.6, 0.5, 0, -3, 10.4); gr.addColorStop(0, lt); gr.addColorStop(0.6, c); gr.addColorStop(1, fxShade(c, 0.8)); g.fillStyle = gr; g.fill(bell);
-    g.globalAlpha = 0.55; g.strokeStyle = "#FFFFFF"; g.lineWidth = 0.5; g.beginPath(); [[-2.6, -3.6], [2.6, -3.6]].forEach(([x, y]) => { g.moveTo(x + 1.6, y); g.ellipse(x, y, 1.6, 1.2, 0, 0, 6.3); }); g.stroke();
+    g.globalAlpha = 0.32; g.fillStyle = "#FFFFFF"; for (let i = 0; i < 4; i++) { g.save(); g.translate(0, -3.4); g.rotate(i * 1.571 + 0.785); g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(2.4, -1.4, 2.8, 0); g.quadraticCurveTo(2.4, 1.4, 0, 0); g.fill(); g.restore(); }
     g.globalAlpha = 0.7; g.beginPath(); g.ellipse(-3.2, -6, 2.6, 1.4, -0.7, 3.4, 5); g.lineWidth = 0.9; g.stroke(); g.globalAlpha = 1; };
   // a bamboo leaf: long and narrow, two-tone across its midrib
   const BLEAF = "M-11.6 0.4C-7 -2.8 3 -3.4 11.6 0C3 2.6 -7 2.6 -11.6 0.4Z";
@@ -202,27 +202,27 @@
     g.globalAlpha = k * (d ? 0.42 : 0.58); g.lineWidth = bw + 0.5; RAINBOW.forEach((col, i) => { g.strokeStyle = col; g.beginPath(); g.arc(cx, cy, R - i * bw, Math.PI, Math.PI + Math.PI * sw); g.stroke(); }); };
   // blown sand: grains streak along with the wind, and soft ribbons of sand sweep off the dune crests
   const sandGust = (W, H, n, cols) => Array.from({length: n}, () => { const z = fxR(0.6, 1.15); return {shape: "sandgrain", c: fxPick(cols), x: fxR(-W * 0.5, -10), y: fxR(H * 0.18, H * 1.02), vx: fxR(6, 10) * z, vy: fxR(-0.9, 0.2), g: 0.004, z, face: true,
-    size: fxR(6, 10) * z, sway: 0, life: 230, delay: Math.floor(fxR(0, 120)), alpha: 0.65 + 0.35 * Math.min(1, z)}; });
+    size: fxR(7, 11) * z, sway: 0, life: 230, delay: Math.floor(fxR(0, 120)), alpha: 0.65 + 0.35 * Math.min(1, z)}; });
   const sandRibbons = (g, f, W, H, d) => { const sp = W * 1.9 / 170, L = W * 0.55; g.lineCap = "round";
     for (let i = 0; i < 7; i++) { const t0 = i * 17, head = -W * 0.2 + (f - t0) * sp, tail = head - L; if (head < 0 || tail > W) continue; const y0 = H * (0.26 + ((i * 0.37) % 1) * 0.68), ph = i * 1.9, a = d ? 0.5 : 0.55;
       const gr = g.createLinearGradient(tail, 0, head, 0), col = d ? "255,224,168" : "176,108,52"; gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.7, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`);
-      g.strokeStyle = gr; g.lineWidth = Math.max(2, Math.min(W, H) / 240) * (1 + (i % 3) * 0.5); g.beginPath();
-      for (let x = Math.max(-20, tail), s = 0; x <= Math.min(W + 20, head) + 16; x += 16, s++) { const y = y0 + Math.sin(x / (W * 0.16) + ph) * H * 0.035 - (x - tail) / L * H * 0.03; s ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } };
+      g.strokeStyle = gr; const lw = Math.max(1.6, Math.min(W, H) / 260); for (let k = 0; k < 3; k++) { g.lineWidth = lw * (k === 1 ? 2.2 : 1); g.globalAlpha = k === 1 ? 1 : 0.7; g.beginPath();
+      for (let x = Math.max(-20, tail), s = 0; x <= Math.min(W + 20, head) + 16; x += 16, s++) { const y = y0 + (k - 1) * lw * 4 * (1 + Math.sin(x / 90 + k)) + Math.sin(x / (W * 0.16) + ph) * H * 0.035 - (x - tail) / L * H * 0.03; s ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } } };
   // sunlight slanting down through the bamboo
   const bambooBeams = (g, f, W, H, d) => { const k = fxEase(f / 60) * (1 - fxEase((f - 170) / 80)); if (k <= 0) return;
-    [[0.18, 0.12], [0.46, 0.08], [0.74, 0.14]].forEach(([x0, w], i) => { const x = W * x0 + Math.sin(f / 60 + i) * W * 0.01, ww = W * w, sk = H * 0.45, gr = g.createLinearGradient(0, 0, 0, H);
-      gr.addColorStop(0, d ? "rgba(246,226,150,.16)" : "rgba(255,252,220,.5)"); gr.addColorStop(1, d ? "rgba(246,226,150,0)" : "rgba(255,252,220,0)");
-      g.globalAlpha = k; g.fillStyle = gr; g.beginPath(); g.moveTo(x, -10); g.lineTo(x + ww, -10); g.lineTo(x + ww * 1.8 + sk, H); g.lineTo(x + sk, H); g.fill(); }); };
+    const T = g.getTransform(), col = d ? "246,226,150" : "255,252,222", a = d ? 0.15 : 0.5; [[0.12, 0.14], [0.42, 0.09], [0.7, 0.16]].forEach(([x0, w], i) => { const ww = W * w, gr = g.createLinearGradient(0, 0, ww, 0);
+      gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.5, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`);
+      g.setTransform(T); g.transform(1, 0, 0.5, 1, 0, 0); g.translate(W * x0 + Math.sin(f / 70 + i * 2) * W * 0.012, 0); g.globalAlpha = k * (1 - i * 0.15); g.fillStyle = gr; g.fillRect(0, 0, ww, H); }); };
   // bees zig across the lavender, facing their flight
   const bees = (W, H, n) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, vy = fxR(-0.7, 0.5);
-    return {shape: "honeybee", c: "#F2B92E", x: left ? fxR(-50, -10) : W + fxR(10, 50), y: fxR(H * 0.25, H * 0.85), vx: (left ? 1 : -1) * fxR(2.2, 3.4), vy, g: -Math.sign(vy) * fxR(0.006, 0.014), face: true, wig: 0.16, size: fxR(11, 14), sway: 0, life: 260, delay: Math.floor(fxR(0, 90))}; });
+    return {shape: "honeybee", c: "#F2B92E", x: left ? fxR(-50, -10) : W + fxR(10, 50), y: fxR(H * 0.25, H * 0.85), vx: (left ? 1 : -1) * fxR(2.2, 3.4) * Math.max(0.6, Math.min(1, W / 900)), vy, g: -Math.sign(vy) * fxR(0.006, 0.014), face: true, wig: 0.16, size: fxR(11, 14), sway: 0, life: 260, delay: Math.floor(fxR(0, 90))}; });
   // paper planes glide up and over in long arcs, facing their flight
-  const paperPlanes = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const lr = i % 3 !== 2, z = fxR(0.75, 1.1), sp = fxR(3.4, 4.8) * z, a = -fxR(0.25, 0.6);
+  const paperPlanes = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const lr = i % 3 !== 2, z = fxR(0.75, 1.1), sp = fxR(3.4, 4.8) * z * Math.max(0.6, Math.min(1, W / 900)), a = -fxR(0.25, 0.6);
     return {shape: "paperplane", c: fxPick(cols), x: lr ? fxR(-60, W * 0.3) : fxR(W * 0.7, W + 60), y: fxR(H * 0.6, H + 40), vx: (lr ? 1 : -1) * Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0.012 * z, z, face: true, wig: 0.03, size: fxR(14, 20) * z, sway: 0, life: 250, delay: Math.floor(fxR(0, 80))}; });
   Object.assign(THEME_FX, {
     balloons: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "hotair", d ? ["#E8806C", "#F0B85A", "#5BBDBD", "#9A8AE0", "#EE9AB0"] : ["#E3735F", "#EDB64C", "#3F9FA2", "#8A76D6", "#E98AA2"], {smin: 15, smax: 26, vmin: 0.9, vmax: 1.9, sway: 0.7, rock: 0.07, life: 300, glow: d ? 8 : 0})
       .concat(fxTw(W, H, n(22), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFFFFF"], {smin: 3, smax: 6, glow: d ? 10 : 6}))},
-    koi: {len: 300, spawn: (W, H, d, n) => { const m = Math.min(W, H); koiRip = Array.from({length: 7}, (_, i) => ({x: fxR(0.12, 0.88) * W, y: fxR(0.15, 0.88) * H, t0: 8 + i * 22 + fxR(0, 10), r: fxR(0.09, 0.15) * m}));
+    koi: {spawn: (W, H, d, n) => { const m = Math.min(W, H); koiRip = Array.from({length: 7}, (_, i) => ({x: fxR(0.12, 0.88) * W, y: fxR(0.15, 0.88) * H, t0: 8 + i * 22 + fxR(0, 10), r: fxR(0.09, 0.15) * m}));
       return koiSwim(W, H, n(10)).concat(lilies(W, H, n(5), d), fxTw(W, H, n(16), "sparkle", d ? ["#E6F4F1", "#FFFFFF"] : ["#FFFFFF", "#BFE6DE"], {smin: 3, smax: 6, glow: d ? 8 : 6})); },
       draw: koiRipples},
     rain: {spawn: (W, H, d, n) => { rainSplash = Array.from({length: 46}, () => ({x: fxR(0, W), y: H * fxR(0.82, 0.99), t0: fxR(30, 150), r: fxR(10, 20) * Math.max(0.8, Math.min(W, H) / 600)}));
@@ -239,7 +239,7 @@
     bamboo: {spawn: (W, H, d, n) => fxFall(W, H, n(46), "bambooleaf", d ? ["#7CBF62", "#9CCB8C", "#5E9E4A"] : ["#4E8A34", "#64A23A", "#8CC152", "#3E7A2A"], {sway: 2, flip: true, smin: 12, smax: 18}).map(p => Object.assign(p, {vx: fxR(0.8, 2), x: p.x - W * 0.2}))
       .concat(fxTw(W, H, n(20), "circle", d ? ["#F0CF7A", "#F6DF9E"] : ["#FFF6C8", "#F2E7A0"], {smin: 2.4, smax: 4.4, glow: 12, vy: -0.3})), draw: bambooBeams},
     lavenderfields: {spawn: (W, H, d, n) => bees(W, H, n(8))
-      .concat(fxBurst(W, H, n(28), "lavsprig", d ? ["#B9A2FF", "#C8B4F4", "#9A7BE0"] : ["#8A5BC0", "#9E74D6", "#7048B0"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 12, smax: 16, flip: true}).map(p => Object.assign(p, {term: fxR(1.3, 2), fsw: fxR(0.8, 1.4)})),
+      .concat(fxBurst(W, H, n(28), "lavsprig", d ? ["#B9A2FF", "#C8B4F4", "#9A7BE0"] : ["#8A5BC0", "#9E74D6", "#7048B0"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 15, smax: 20, flip: true}).map(p => Object.assign(p, {vx: p.vx * 0.8, vy: p.vy * 0.8, g: 0.15, term: fxR(1.3, 1.9), fsw: fxR(0.8, 1.4), life: 280})),
         fxFlutter(W, H, n(4), d ? ["#F6C7A6", "#FFFFFF", "#D8CCF0"] : ["#F2C84A", "#C9A0E8", "#8FC7F2"]))},
     rooftops: {spawn: (W, H, d, n) => paperPlanes(W, H, n(9), d ? ["#FFFFFF", "#FFE9BC", "#DCD6F0"] : ["#FFFFFF", "#F6E6D0", "#E0E8F6"])
       .concat(fxTw(W, H, n(30), d ? "pixel" : "sparkle", d ? ["#FFD27F", "#FFE3A8"] : ["#F2B53A", "#FFD86B"], {smin: 2.5, smax: 5, glow: d ? 10 : 4}))}

@@ -19,6 +19,18 @@
     francelamp: {d: "M-1 11V-2H1V11Z M-4.6 -2L-5.4 -9H5.4L4.6 -2Z M-6 -9L0 -13.4L6 -9Z", detail: circ(0, -5.6, 2.2), dfill: true}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // a macaron from the side: two domed shells with ruffled feet and a cream filling
+  Object.assign(FX_SHAPES, {
+    francemac: {d: ell(0, -4, 9.4, 4.4) + ell(0, 4, 9.4, 4.4) + "M-9 -1.4H9V1.4H-9Z", paint: (g, c) => { const dk = mix(c, "#000000", 0.18), fill = c === "#B98A6A" ? "#5A3A2A" : mix(c, "#FFF8EE", 0.75);
+      const shell = (y0, up) => { g.fillStyle = c; g.beginPath(); g.moveTo(-9.6, y0); g.bezierCurveTo(-9.6, y0 + (up ? -7 : 5.6), 9.6, y0 + (up ? -7 : 5.6), 9.6, y0); g.closePath(); g.fill(); g.fillStyle = mix(c, "#FFFFFF", 0.22); for (let x = -8.8; x <= 8.8; x += 1.3) { oval(g, x, y0 + (up ? 0.4 : -0.4), 0.8, 0.75); g.fill(); } };
+      shell(2.4, false); g.fillStyle = fill; g.beginPath(); g.moveTo(-8.8, -1.6); g.quadraticCurveTo(-9.6, 0.4, -8.8, 2.4); g.lineTo(8.8, 2.4); g.quadraticCurveTo(9.6, 0.4, 8.8, -1.6); g.closePath(); g.fill(); shell(-1.6, true);
+      sheen(g, 0.36, 0.2); g.fillStyle = "rgba(255,255,255,.5)"; oval(g, -3.6, -5.2, 3, 0.8, -0.12); g.fill(); g.strokeStyle = dk; g.globalAlpha = 0.25; g.lineWidth = 0.3; g.beginPath(); g.moveTo(-9, 2.4); g.lineTo(9, 2.4); g.stroke(); }}
+  });
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "france", name: "Paris", group: "world", desc: "The Eiffel Tower, the Seine and flower-boxed Haussmann rooftops.",
       light: ["#F5F1EA", "rgba(46,62,102,.10)", "#FFFFFF", "#1F2A3C", "#5E6676", "#E4DDD2", "#EFE9E0", "#FCFAF6", "#B8403A", "#CC6A5A", "#FFFFFF", "#7A2420", "#2E3E66", "#D6DFEE", "#FFE3A0"],
@@ -26,11 +38,9 @@
       glow: ["linear-gradient(180deg,#B9D6EE,#E9F1F6 45%,#F6E4D6)", "linear-gradient(180deg,#121A36,#263258 45%,#5A4468)"],
       spine: [lg("#3A4E7A", "#24345A"), lg("#2A3060", "#141834")], btn: [lg2("#B8403A", "#D9704E"), lg2("#F2C46A", "#F6D892")]},
     kit: {motif: "franceeiffel", card: ["#FFFCF6", "#F1EADF"], ink: "#1F2A3C", bd: "#E2D6C2", mc: "#B8403A", r: 14, notes: ["#F9D6DE", "#FFF1B8", "#D8EDD2", "#D6E4FA", "#EADCF8", "#FFE0C4"], shape: "folded", pin: "pin", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxTw(W, H, n(46), "sparkle", d ? ["#FFFFFF", "#FFF4D0", "#FFE3A8"] : ["#F2C46A", "#FFFFFF", "#F6D892"], {top: 0.9, smin: 3, smax: 7, glow: d ? 12 : 6})
-      .concat(fxRise(W, H, n(10), "francemacaron", d ? ["#F2A8C0", "#B8E0C4", "#C8B8F0", "#F6D892"] : ["#F4A6B8", "#A8D8B8", "#C4B4EC", "#F6D27A"], {smin: 11, smax: 15, vmin: 1, vmax: 1.8, sway: 0.7, life: 300}),
-        fxFall(W, H, n(16), "francechestnut", d ? ["#4E8A5A", "#6A9A4E"] : ["#5E9A4E", "#7AAA5C", "#D9A040"], {sway: 1.5, smin: 8, smax: 12, vmin: 0.9, vmax: 1.7}),
-        fxBurst(W, H, n(10), "francecroissant", ["#E8A84A", "#D8923A", "#F0BC5E"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxRise(W, H, n(2), "franceeiffel", d ? ["#F6D892"] : ["#86705E"], {cx: [0.35, 0.65], smin: 20, smax: 24, vmin: 0.9, vmax: 1.2, sway: 0.3, life: 320, glow: d ? 16 : 0}).map(p => Object.assign(p, {vr: 0})))},
+    fx: {spawn: (W, H, d, n) => fxBurst(W, H, n(22), "francemac", d ? ["#F2A8C0", "#B8E0C4", "#C8B8F0", "#F6D892", "#B98A6A"] : ["#F29AB2", "#9ED4B0", "#BCA8EC", "#F4CE6E", "#B98A6A"], [[0.12, 1.02], [0.88, 1.02], [0.5, 1.04]], {smin: 12, smax: 17}).map(p => Object.assign(p, {vx: p.vx * 0.8, vy: p.vy * 0.8, g: 0.15, vr: fxR(-0.07, 0.07), term: fxR(1.8, 2.4), life: 280}))
+      .concat(fxFall(W, H, n(26), "petal", d ? ["#F7A8C0", "#FFD0DE", "#E8789E"] : ["#E86A8E", "#F4A2BC", "#D84A72"], {sway: 1.7, flip: true, smin: 9, smax: 13}),
+        fxTw(W, H, n(40), "sparkle", d ? ["#FFFFFF", "#FFF4D0", "#FFE3A8"] : ["#E8B04A", "#F2C46A", "#FFFFFF"], {top: 0.85, smin: 3, smax: 7, glow: d ? 12 : 6}))},
     tag: "The Eiffel Tower over the Seine and flower-boxed Haussmann rooftops, with tricolour flags, a stone bridge, booksellers' stalls, a cafe and a flower cart on the quay"
   });
 })();

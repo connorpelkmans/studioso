@@ -16,6 +16,23 @@
     japantorii: {d: "M-11.6 -9.4Q0 -7.4 11.6 -9.4L10.6 -6.4H-10.6Z M-8.6 -4.4H8.6V-2.2H-8.6Z M-7.4 -6.4H-4.6V10H-7.4Z M4.6 -6.4H7.4V10H4.6Z M-1 -6.4H1V-4.4H-1Z"}
   });
 
+  // ---- finish moment sprites ----
+  const mix = (a, b, t) => "#" + [1, 3, 5].map(i => { const u = parseInt(a.substr(i, 2), 16); return Math.round(u + (parseInt(b.substr(i, 2), 16) - u) * t).toString(16).padStart(2, "0"); }).join("");
+  const oval = (g, x, y, rx, ry, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 6.3); };
+  const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
+  // koinobori, the carp streamers of Children's Day, mouth toward +x so they swim head first
+  const KOINOBORI = "M10 -4.4C4 -5.8 -4 -5.4 -8 -2.8L-11.6 -5.4L-10 0L-11.6 5.4L-8 2.8C-4 5.4 4 5.8 10 4.4Z";
+  Object.assign(FX_SHAPES, {
+    japankoi: {d: KOINOBORI, paint: (g, c, d) => { const p = new Path2D(KOINOBORI), lt = mix(c, "#FFFFFF", 0.5); g.save(); g.fillStyle = c; g.fill(p); g.clip(p);
+      g.fillStyle = mix(c, "#FFFFFF", 0.22); g.fillRect(-12, 1.2, 24, 6); g.strokeStyle = lt; g.lineWidth = 0.55; g.beginPath(); for (let x = 2; x > -8; x -= 2.6) for (let y = -3.6; y <= 3.6; y += 2.4) { const o = (Math.round((y + 3.6) / 2.4) % 2) * 1.3; g.moveTo(x - o + 1.2, y - 1.2); g.arc(x - o, y, 1.4, -1, 1); } g.stroke();
+      g.fillStyle = "rgba(255,255,255,.85)"; g.fillRect(-8.6, -6, 1.2, 12); g.restore(); sheen(g, 0.28, 0.2);
+      g.fillStyle = "#FFFFFF"; oval(g, 9.6, 0, 1, 4.4); g.fill(); g.fillStyle = "#F2C24A"; oval(g, 5.6, -0.6, 2.5, 2.5); g.fill(); g.fillStyle = "#FFFFFF"; oval(g, 5.6, -0.6, 1.9, 1.9); g.fill(); g.fillStyle = "#1A1824"; oval(g, 5.9, -0.6, 1.1, 1.1); g.fill();
+      g.strokeStyle = "rgba(0,0,0,.18)"; g.lineWidth = 0.3; g.stroke(p); }},
+    // a petal with soft pink shading toward its notched tip
+    japanpetal: {d: "M0 -6L-2.2 -9.4C-6.4 -8.4 -6.6 -2 -4.2 3.4C-2.8 6.4 -1.2 8.4 0 9.6C1.2 8.4 2.8 6.4 4.2 3.4C6.6 -2 6.4 -8.4 2.2 -9.4Z", paint: (g, c) => { const p = new Path2D("M0 -6L-2.2 -9.4C-6.4 -8.4 -6.6 -2 -4.2 3.4C-2.8 6.4 -1.2 8.4 0 9.6C1.2 8.4 2.8 6.4 4.2 3.4C6.6 -2 6.4 -8.4 2.2 -9.4Z"), gr = g.createLinearGradient(0, 9.6, 0, -9.4);
+      gr.addColorStop(0, mix(c, "#FFFFFF", 0.65)); gr.addColorStop(1, c); g.fillStyle = gr; g.fill(p); g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = 0.4; g.beginPath(); g.moveTo(0, 8); g.lineTo(0, -4); g.stroke(); sheen(g, 0.2, 0.14); }}
+  });
+  // ---- end finish moment sprites ----
   MAJ_THEMES.push({
     skin: {id: "japan", name: "Japan", group: "world", desc: "Mount Fuji over a pagoda in cherry blossom.",
       light: ["#FAF4F5", "rgba(200,68,46,.10)", "#FFFFFF", "#26233A", "#6A6478", "#ECDCE0", "#F4E8EC", "#FDF9FA", "#C8442E", "#D86A50", "#FFFFFF", "#8A2A1E", "#2E3E66", "#F6D6DE", "#FFE3A0"],
@@ -23,10 +40,11 @@
       glow: ["linear-gradient(180deg,#BFDDF2,#EAF3F8 45%,#FBE6EA)", "linear-gradient(180deg,#141A3A,#2A2D5A 45%,#5A4570)"],
       spine: [lg("#34477A", "#22305A"), lg("#2A2D5A", "#14183A")], btn: [lg2("#C8442E", "#D8607A"), lg2("#F4A0B8", "#F8C8A8")]},
     kit: {motif: "japansakura", card: ["#FFFAFB", "#F8E6EC"], ink: "#26233A", bd: "#EEC8D4", mc: "#D8607A", r: 14, notes: ["#F8D8E2"].concat(NOTES), shape: "folded", pin: "washi2", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(54), "japanpetal", d ? ["#F6B6CC", "#FFD6E4", "#E894B4"] : ["#F7A8C0", "#FFC8D8", "#F28AAE", "#FFFFFF"], {sway: 1.8, flip: true, smin: 6, smax: 10, glow: d ? 6 : 0}).map(p => Object.assign(p, {vx: fxR(0.4, 1.4)}))
-      .concat(fxBurst(W, H, n(16), "japansakura", d ? ["#F6B6CC", "#FFE0EA"] : ["#F7A8C0", "#FFD0DE", "#F28AAE"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 14}),
-        fxRise(W, H, n(5), "japankoi", d ? ["#FF7A6A", "#7AA8F0", "#E8E4F4"] : ["#D8402E", "#3A78C8", "#3A3A48"], {cx: [0.15, 0.85], smin: 18, smax: 24, vmin: 1, vmax: 1.6, sway: 1, life: 300, glow: d ? 8 : 0}).map(p => Object.assign(p, {rot: -Math.PI / 2, vr: 0})),
-        fxTw(W, H, n(24), "sparkle", d ? ["#FFE3EE", "#FFFFFF", "#F4A0B8"] : ["#F28AAE", "#FFD86B", "#C8442E"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
+    fx: {spawn: (W, H, d, n) => fxFall(W, H, n(60), "japanpetal", d ? ["#F6B6CC", "#FFD6E4", "#E894B4"] : ["#F28AAE", "#F7A8C0", "#E8789E"], {sway: 1.8, flip: true, smin: 8, smax: 12, glow: d ? 6 : 0}).map(p => Object.assign(p, {vx: fxR(0.8, 1.8), x: p.x - W * 0.25}))
+      .concat(Array.from({length: n(5)}, (_, i) => { const z = fxR(0.8, 1.1), vy = -fxR(1.3, 2) * z, vx = (i % 2 ? 1 : -1) * fxR(0.3, 0.8);
+          return {shape: "japankoi", c: d ? ["#FF7A6A", "#7AA8F0", "#E8E4F4"][i % 3] : ["#D8402E", "#3A78C8", "#33333F"][i % 3], x: W * (0.12 + 0.76 * (i + fxR(0.2, 0.8)) / n(5)), y: H + fxR(30, 90), vx, vy, g: 0, z, face: true, wig: 0.13, size: fxR(20, 27) * z, sway: 0.6, swf: 0.03, life: 300, delay: Math.floor(fxR(0, 50)), glow: d ? 8 : 0}; }),
+        fxBurst(W, H, n(10), "japansakura", d ? ["#F6B6CC", "#FFE0EA"] : ["#F7A8C0", "#FFD0DE", "#F28AAE"], [[0.15, 1.02], [0.85, 1.02]], {smin: 11, smax: 15}),
+        fxTw(W, H, n(16), "sparkle", d ? ["#FFE3EE", "#FFFFFF"] : ["#F28AAE", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
     tag: "Mount Fuji's snowy cone over a five-storey pagoda in a sea of cherry blossom, with a torii stair path, a little town and a red bridge"
   });
 })();
