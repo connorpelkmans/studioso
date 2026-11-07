@@ -79,7 +79,7 @@
         }
       },
       {
-        id: "spring-mole", name: "Digby", kind: "Garden Mole", pose: "sit", sleepy: true, hatTop: true,
+        id: "spring-mole", name: "Digby", kind: "Garden Mole", pose: "sit", sleepy: true, hatTop: true, scarfOverArms: true,
         bio: "A velvety garden mole who pops up between the tulips to say hi.",
         idle: ["topBob", "finWiggle", "bounce"], cheer: "hop",
         parts: {

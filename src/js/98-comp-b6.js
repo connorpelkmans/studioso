@@ -79,7 +79,7 @@
         }
       },
       {
-        id: "stpatricks-leprechaun", name: "Finn", kind: "Little Leprechaun", pose: "stand", hatTop: true, wearColor: "#F2B83A",
+        id: "stpatricks-leprechaun", name: "Finn", kind: "Little Leprechaun", pose: "stand", hatTop: true, wearColor: "#F2B83A", scarfOverArms: true,
         bio: "A merry little leprechaun who swaps his gold for your good habits.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         neck: [60, 74],
@@ -115,7 +115,7 @@
         eyes: {lx: 51, rx: 69, y: 52.5, r: 4.6, style: "sparkle", color: "#2B2233"},
         mouth: {x: 60, y: 65.6, w: 2.8},
         cheeks: {lx: 45, rx: 75, y: 59.6, w: 3.8, h: 2.4, color: "#FF8FA8"},
-        anchors: {top: [60, 29, 1, 0], neck: [60, 85, 0.9, 0, 43, 44], chest: [70, 91.5, 0.6], back: [80, 86, 0.85], hands: [60, 93, 0.85]},
+        anchors: {top: [60, 29, 1, 0], neck: [60, 79, 0.9, 0, 42, 56], bow: [60, 85.5, 0.65], chest: [70, 91.5, 0.6], back: [80, 86, 0.85], hands: [60, 93, 0.85]},
         lines: {
           tap: ["Top o' the morning! Grand to see you!", "Your effort is pure gold, friend!", "Sure, you're doing brilliantly!", "Every page is a coin in your pot!", "Hello there! Feeling lucky today?", "You make your own luck, you know!", "A wee bit of study goes a long way!"],
           pet: ["Hehe! That tickles me beard!", "Ah, you're a gem! Thank you!"],
@@ -273,7 +273,7 @@
         }
       },
       {
-        id: "july4-eaglet", name: "Scout", kind: "Fluffy Eaglet", pose: "sit", sleepy: true, hatTop: true,
+        id: "july4-eaglet", name: "Scout", kind: "Fluffy Eaglet", pose: "sit", sleepy: true, hatTop: true, scarfOverArms: true,
         bio: "A fluffy eaglet who dreams of soaring while you study.",
         idle: ["wingFlutter", "headTilt", "topBob"], cheer: "wingFlutter",
         neck: [60, 72],

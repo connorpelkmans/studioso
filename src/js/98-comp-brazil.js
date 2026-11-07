@@ -41,7 +41,7 @@
     theme: "brazil",
     companions: [
       {
-        id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E", hatTop: true,
+        id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E", hatTop: true, scarfOverArms: true,
         bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 68],
@@ -70,7 +70,7 @@
         mouths: {neutral: beak(false, false), smile: beak(false, true), open: beak(true, false), sleepy: beak(false, false)},
         mouth: {x: 60, y: 76, w: 3, color: "#7A2A10"},
         cheeks: {lx: 38, rx: 82, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
-        anchors: {top: [60, 20, 0.95, 0], neck: [60, 80, 1, 0, 55, 55], chest: [70, 85.5, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
+        anchors: {top: [60, 20, 0.95, 0], neck: [60, 72.5, 0.95, 0, 42, 72], bow: [60, 90, 0.7], chest: [70, 85.5, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
         lines: {
           tap: ["Bom dia! Ready to make some noise?", "My beak is big, but my cheers are bigger!", "Let's fly through this list together!", "Toco! That's toucan for 'you've got this'!", "One task at a time, like fruit for breakfast!", "I spy a finish line from my branch!", "You bring the focus, I'll bring the color!", "Every page gets you closer to the beach!"],
           pet: ["Hehe! Mind the beak, it's ticklish!", "Aww! My feathers are all fluffed up!"],

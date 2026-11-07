@@ -64,7 +64,7 @@
         }
       },
       {
-        id: "compsci-robot", name: "Bitsy", kind: "Little Robot", pose: "stand", wearColor: "#2FA79A", hatTop: true,
+        id: "compsci-robot", name: "Bitsy", kind: "Little Robot", pose: "stand", wearColor: "#2FA79A", hatTop: true, scarfOverArms: true,
         bio: "A tiny robot whose screen lights up with joy for every line you write.",
         idle: ["topBob", "earTwitch", "wave"], cheer: "wave",
         neck: [60, 71],
@@ -391,7 +391,7 @@
     theme: "comms",
     companions: [
       {
-        id: "comms-mic", name: "Mic", kind: "Microphone", pose: "stand", wearColor: "#E2577F",
+        id: "comms-mic", name: "Mic", kind: "Microphone", pose: "stand", wearColor: "#E2577F", scarfOverArms: true,
         bio: "A shiny studio mic who amplifies every great idea you have.",
         idle: ["headTilt", "tailSwish", "wave"], cheer: "hop",
         neck: [60, 74],
@@ -464,7 +464,7 @@
         }
       },
       {
-        id: "comms-megaphone", name: "Hollar", kind: "Megaphone", pose: "float", wearColor: "#3C6FD1", hatTop: true,
+        id: "comms-megaphone", name: "Hollar", kind: "Megaphone", pose: "float", wearColor: "#3C6FD1", hatTop: true, scarfOverArms: true,
         bio: "A peppy megaphone who shouts your wins loud enough for everyone.",
         idle: ["topBob", "wave", "bounce"], cheer: "spin",
         parts: {

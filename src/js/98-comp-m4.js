@@ -397,7 +397,7 @@
         }
       },
       {
-        id: "chem-molecule", name: "Mol", kind: "Molecule", pose: "float", wearColor: "#7A5CC9",
+        id: "chem-molecule", name: "Mol", kind: "Molecule", pose: "float", wearColor: "#7A5CC9", scarfOverArms: true,
         bio: "A bouncy molecule who bonds with everyone it meets.",
         idle: ["wingFlutter", "topBob", "tailSwish"], cheer: "spin",
         parts: {

@@ -46,7 +46,7 @@
         }
       },
       {
-        id: "diwali-peacock", name: "Mayu", kind: "Peacock Chick", pose: "stand", hatTop: true,
+        id: "diwali-peacock", name: "Mayu", kind: "Peacock Chick", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A proud little peacock who fans out its tail for every finished task.",
         idle: ["tailSwish", "topBob", "wingFlutter"], cheer: "wingFlutter",
         parts: {
@@ -385,7 +385,7 @@
     theme: "rain",
     companions: [
       {
-        id: "rain-duck", name: "Puddle", kind: "Rain Boot Duckling", pose: "stand", hatTop: true,
+        id: "rain-duck", name: "Puddle", kind: "Rain Boot Duckling", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A sunny little duckling in rain boots who loves a puddle day.",
         idle: ["waddle", "wingFlutter", "headTilt"], cheer: "wingFlutter",
         neck: [60, 74],

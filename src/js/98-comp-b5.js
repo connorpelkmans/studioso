@@ -74,7 +74,7 @@
         eyes: {lx: 50, rx: 70, y: 54, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 62, w: 2.8},
         cheeks: {lx: 43.5, rx: 76.5, y: 61, w: 4, h: 2.6, color: "#FF8FA3"},
-        anchors: {top: [60, 31.5, 1, 0], neck: [60, 74, 0.95, 0, 41, 37], chest: [69, 81.5, 0.7], back: [93, 68, 0.85], hands: [60, 94, 0.9]},
+        anchors: {top: [60, 31.5, 1, 0], neck: [60, 74, 0.95, 0, 27, 37], chest: [69, 81.5, 0.7], back: [93, 68, 0.85], hands: [60, 94, 0.9]},
         lines: {
           tap: ["Hi! Spot on, as always!", "I'm so lucky to study with you!", "You're doing great! Truly!", "Little legs, BIG progress! Look at that!", "Every spot on me is one of your wins!", "Deep breath! You've totally got this!", "What a lucky day for learning!"],
           pet: ["Hehe! That tickles my spots!", "Ooh, lucky me! More please!"],

@@ -294,7 +294,7 @@
         }
       },
       {
-        id: "writing-raven", name: "Poe", kind: "Little Raven", pose: "stand", wearColor: "#E0A84A", hatTop: true,
+        id: "writing-raven", name: "Poe", kind: "Little Raven", pose: "stand", wearColor: "#E0A84A", hatTop: true, scarfOverArms: true,
         bio: "A fluffy little raven who adores stories and quoths only cheers.",
         idle: ["wingFlutter", "tailSwish", "topBob"], cheer: "wingFlutter",
         parts: {

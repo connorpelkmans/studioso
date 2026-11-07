@@ -153,7 +153,7 @@ var COMP_KIT = (() => {
         lines: {tap: ["This part? Definitely important.", "I only light up the good stuff.", "You don't have to remember it all. Just the key bits.", "Hi! Ready to make things stand out?", "One clear line at a time.", "Bright idea incoming!"], pet: ["Hehe, careful, my cap pops off!", "Glowing extra bright now."], hello: ["You're back! Let's find the key ideas.", "Hi again! Cap's off, ready to go."], morning: ["Good morning! Today looks bright."], night: ["Cap on, lights low. Time to rest."], focus: ["Steady hand. You've got this.", "Marking the moment. Keep going."], done: ["Great session! That deserves a big bright line.", "Done! You really focused."], task: ["Done! Highlighted in gold.", "Yes! That one's marked finished.", "Another one done. Nice!"], break: ["Cap on for a minute. Stretch it out."]}
       },
       {
-        id: "plain-packy", name: "Packy", kind: "Backpack", pose: "sit", wearColor: "#4F8FE0", hatTop: true,
+        id: "plain-packy", name: "Packy", kind: "Backpack", pose: "sit", wearColor: "#4F8FE0", hatTop: true, scarfOverArms: true,
         bio: "A trusty backpack who has carried every book you've ever needed.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -202,7 +202,7 @@ var COMP_KIT = (() => {
     theme: "winter", spot: {x: 0.84, y: 0.985},
     companions: [
       {
-        id: "winter-penguin", name: "Pip", kind: "Baby Penguin", pose: "stand",
+        id: "winter-penguin", name: "Pip", kind: "Baby Penguin", pose: "stand", scarfOverArms: true,
         bio: "A fluffy penguin chick who waddles in for snowy study nights.",
         idle: ["waddle", "wingFlutter", "headTilt"], cheer: "wingFlutter",
         neck: [60, 74],

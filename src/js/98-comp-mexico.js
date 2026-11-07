@@ -52,7 +52,7 @@
         }
       },
       {
-        id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0", hatTop: true,
+        id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0", hatTop: true, scarfOverArms: true,
         bio: "A smiley axolotl who regrows its motivation overnight.",
         idle: ["earTwitch", "finWiggle", "topBob"], cheer: "spin",
         neck: [60, 79],

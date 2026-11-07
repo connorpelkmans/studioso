@@ -92,7 +92,7 @@
         }
       },
       {
-        id: "france-mac", name: "Mac", kind: "Macaron", pose: "stand", wearColor: "#7AC8A8", hatTop: true,
+        id: "france-mac", name: "Mac", kind: "Macaron", pose: "stand", wearColor: "#7AC8A8", hatTop: true, scarfOverArms: true,
         bio: "A little pink macaron who brings a sweet bite of joy to study time.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {

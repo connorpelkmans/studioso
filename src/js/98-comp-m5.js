@@ -124,7 +124,7 @@
     theme: "ruins",
     companions: [
       {
-        id: "ruins-hourglass", name: "Sandy", kind: "Hourglass", pose: "stand", wearColor: "#3E8FB0", hatTop: true,
+        id: "ruins-hourglass", name: "Sandy", kind: "Hourglass", pose: "stand", wearColor: "#3E8FB0", hatTop: true, scarfOverArms: true,
         bio: "A cheerful hourglass who knows every grain of effort adds up.",
         idle: ["topBob", "sway", "wave"], cheer: "spin",
         parts: {

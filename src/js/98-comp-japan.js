@@ -87,7 +87,7 @@
         }
       },
       {
-        id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearColor: "#3A8A5A", hatTop: true,
+        id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearOnHead: true, wearColor: "#3A8A5A", hatTop: true, scarfOverArms: true,
         bio: "A little rice ball in a nori sash with a big can-do attitude.",
         idle: ["topBob", "wave", "headTilt"], cheer: "hop",
         neck: [60, 104],
@@ -108,7 +108,7 @@
         eyes: {lx: 51, rx: 69, y: 68, r: 4.2, style: "sparkle", color: "#2B2233"},
         mouth: {x: 60, y: 76, w: 3, color: "#2B2233"},
         cheeks: {lx: 44, rx: 76, y: 75, w: 3.8, h: 2.2, color: "#FF9AA8"},
-        anchors: {top: [60, 37, 0.85, 0], neck: [60, 84, 0.9, 0, 0, 76], chest: [70, 105.5, 0.55], back: [90, 78, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 37, 0.85, 0], neck: [60, 80.5, 0.95, 0, 66, 80], chest: [60, 86, 0.55], back: [90, 78, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Rice to meet you! Let's do this!", "Packed tight with good ideas!", "Nori sash on, ready for action!", "A snack-sized step is still a step!", "Fuel up, focus up, finish up!", "My plum center is pure courage!", "We're on a roll! Well, a ball!", "Every grain counts, like every page!"],
           pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Warm hands, happy rice!"],

@@ -294,7 +294,7 @@
         }
       },
       {
-        id: "bokeh-dandelion", name: "Wisp", kind: "Dandelion Puff", pose: "stand", hatTop: true,
+        id: "bokeh-dandelion", name: "Wisp", kind: "Dandelion Puff", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A soft dandelion puff who makes a wish for every task you finish.",
         idle: ["headTilt", "topBob", "wave"], cheer: "hop",
         neck: [60, 76],

@@ -50907,7 +50907,7 @@ var COMP_KIT = (() => {
         lines: {tap: ["This part? Definitely important.", "I only light up the good stuff.", "You don't have to remember it all. Just the key bits.", "Hi! Ready to make things stand out?", "One clear line at a time.", "Bright idea incoming!"], pet: ["Hehe, careful, my cap pops off!", "Glowing extra bright now."], hello: ["You're back! Let's find the key ideas.", "Hi again! Cap's off, ready to go."], morning: ["Good morning! Today looks bright."], night: ["Cap on, lights low. Time to rest."], focus: ["Steady hand. You've got this.", "Marking the moment. Keep going."], done: ["Great session! That deserves a big bright line.", "Done! You really focused."], task: ["Done! Highlighted in gold.", "Yes! That one's marked finished.", "Another one done. Nice!"], break: ["Cap on for a minute. Stretch it out."]}
       },
       {
-        id: "plain-packy", name: "Packy", kind: "Backpack", pose: "sit", wearColor: "#4F8FE0", hatTop: true,
+        id: "plain-packy", name: "Packy", kind: "Backpack", pose: "sit", wearColor: "#4F8FE0", hatTop: true, scarfOverArms: true,
         bio: "A trusty backpack who has carried every book you've ever needed.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
@@ -50956,7 +50956,7 @@ var COMP_KIT = (() => {
     theme: "winter", spot: {x: 0.84, y: 0.985},
     companions: [
       {
-        id: "winter-penguin", name: "Pip", kind: "Baby Penguin", pose: "stand",
+        id: "winter-penguin", name: "Pip", kind: "Baby Penguin", pose: "stand", scarfOverArms: true,
         bio: "A fluffy penguin chick who waddles in for snowy study nights.",
         idle: ["waddle", "wingFlutter", "headTilt"], cheer: "wingFlutter",
         neck: [60, 74],
@@ -51264,7 +51264,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "spring-mole", name: "Digby", kind: "Garden Mole", pose: "sit", sleepy: true, hatTop: true,
+        id: "spring-mole", name: "Digby", kind: "Garden Mole", pose: "sit", sleepy: true, hatTop: true, scarfOverArms: true,
         bio: "A velvety garden mole who pops up between the tulips to say hi.",
         idle: ["topBob", "finWiggle", "bounce"], cheer: "hop",
         parts: {
@@ -52624,7 +52624,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "bokeh-dandelion", name: "Wisp", kind: "Dandelion Puff", pose: "stand", hatTop: true,
+        id: "bokeh-dandelion", name: "Wisp", kind: "Dandelion Puff", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A soft dandelion puff who makes a wish for every task you finish.",
         idle: ["headTilt", "topBob", "wave"], cheer: "hop",
         neck: [60, 76],
@@ -53713,7 +53713,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 54, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 62, w: 2.8},
         cheeks: {lx: 43.5, rx: 76.5, y: 61, w: 4, h: 2.6, color: "#FF8FA3"},
-        anchors: {top: [60, 31.5, 1, 0], neck: [60, 74, 0.95, 0, 41, 37], chest: [69, 81.5, 0.7], back: [93, 68, 0.85], hands: [60, 94, 0.9]},
+        anchors: {top: [60, 31.5, 1, 0], neck: [60, 74, 0.95, 0, 27, 37], chest: [69, 81.5, 0.7], back: [93, 68, 0.85], hands: [60, 94, 0.9]},
         lines: {
           tap: ["Hi! Spot on, as always!", "I'm so lucky to study with you!", "You're doing great! Truly!", "Little legs, BIG progress! Look at that!", "Every spot on me is one of your wins!", "Deep breath! You've totally got this!", "What a lucky day for learning!"],
           pet: ["Hehe! That tickles my spots!", "Ooh, lucky me! More please!"],
@@ -54388,7 +54388,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "stpatricks-leprechaun", name: "Finn", kind: "Little Leprechaun", pose: "stand", hatTop: true, wearColor: "#F2B83A",
+        id: "stpatricks-leprechaun", name: "Finn", kind: "Little Leprechaun", pose: "stand", hatTop: true, wearColor: "#F2B83A", scarfOverArms: true,
         bio: "A merry little leprechaun who swaps his gold for your good habits.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         neck: [60, 74],
@@ -54424,7 +54424,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 52.5, r: 4.6, style: "sparkle", color: "#2B2233"},
         mouth: {x: 60, y: 65.6, w: 2.8},
         cheeks: {lx: 45, rx: 75, y: 59.6, w: 3.8, h: 2.4, color: "#FF8FA8"},
-        anchors: {top: [60, 29, 1, 0], neck: [60, 85, 0.9, 0, 43, 44], chest: [70, 91.5, 0.6], back: [80, 86, 0.85], hands: [60, 93, 0.85]},
+        anchors: {top: [60, 29, 1, 0], neck: [60, 79, 0.9, 0, 42, 56], bow: [60, 85.5, 0.65], chest: [70, 91.5, 0.6], back: [80, 86, 0.85], hands: [60, 93, 0.85]},
         lines: {
           tap: ["Top o' the morning! Grand to see you!", "Your effort is pure gold, friend!", "Sure, you're doing brilliantly!", "Every page is a coin in your pot!", "Hello there! Feeling lucky today?", "You make your own luck, you know!", "A wee bit of study goes a long way!"],
           pet: ["Hehe! That tickles me beard!", "Ah, you're a gem! Thank you!"],
@@ -54582,7 +54582,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "july4-eaglet", name: "Scout", kind: "Fluffy Eaglet", pose: "sit", sleepy: true, hatTop: true,
+        id: "july4-eaglet", name: "Scout", kind: "Fluffy Eaglet", pose: "sit", sleepy: true, hatTop: true, scarfOverArms: true,
         bio: "A fluffy eaglet who dreams of soaring while you study.",
         idle: ["wingFlutter", "headTilt", "topBob"], cheer: "wingFlutter",
         neck: [60, 72],
@@ -55024,7 +55024,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "diwali-peacock", name: "Mayu", kind: "Peacock Chick", pose: "stand", hatTop: true,
+        id: "diwali-peacock", name: "Mayu", kind: "Peacock Chick", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A proud little peacock who fans out its tail for every finished task.",
         idle: ["tailSwish", "topBob", "wingFlutter"], cheer: "wingFlutter",
         parts: {
@@ -55363,7 +55363,7 @@ var COMP_KIT = (() => {
     theme: "rain",
     companions: [
       {
-        id: "rain-duck", name: "Puddle", kind: "Rain Boot Duckling", pose: "stand", hatTop: true,
+        id: "rain-duck", name: "Puddle", kind: "Rain Boot Duckling", pose: "stand", hatTop: true, scarfOverArms: true,
         bio: "A sunny little duckling in rain boots who loves a puddle day.",
         idle: ["waddle", "wingFlutter", "headTilt"], cheer: "wingFlutter",
         neck: [60, 74],
@@ -56065,7 +56065,7 @@ var COMP_KIT = (() => {
     theme: "rooftops",
     companions: [
       {
-        id: "rooftops-pigeon", name: "Cooper", kind: "Rooftop Pigeon", pose: "stand",
+        id: "rooftops-pigeon", name: "Cooper", kind: "Rooftop Pigeon", pose: "stand", scarfOverArms: true,
         bio: "A plump city pigeon who coos you on from the rooftop ledge.",
         idle: ["headTilt", "waddle", "wingFlutter"], cheer: "wingFlutter",
         neck: [60, 70],
@@ -56162,7 +56162,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 46, rx: 62, y: 68, r: 4.4, style: "dot", color: "#3A2A3A"},
         mouth: {x: 54, y: 76, w: 2.8, color: "#3A2A3A"},
         cheeks: {lx: 39.5, rx: 68.5, y: 75, w: 4, h: 2.5, color: "#FF9A8C"},
-        anchors: {top: [57, 39.5, 0.85, 34], neck: [50, 85.5, 0.75, 10, 40, 38], chest: [72, 88, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
+        anchors: {top: [57, 39.5, 0.85, 34], neck: [51, 85, 0.75, 14, 37, 30], chest: [72, 88, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
         wearColor: "#6F68A8",
         lines: {
           tap: ["Oh hello! I'm glowing extra bright for you!", "You light up the city more than I do!", "Look at you, showing up again! Wow!", "You're shining today! I'm so proud!", "Every little step deserves a moonbeam!", "I'm your biggest fan in the whole sky!", "Night or day, I'm cheering for you!"],
@@ -56727,7 +56727,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "compsci-robot", name: "Bitsy", kind: "Little Robot", pose: "stand", wearColor: "#2FA79A", hatTop: true,
+        id: "compsci-robot", name: "Bitsy", kind: "Little Robot", pose: "stand", wearColor: "#2FA79A", hatTop: true, scarfOverArms: true,
         bio: "A tiny robot whose screen lights up with joy for every line you write.",
         idle: ["topBob", "earTwitch", "wave"], cheer: "wave",
         neck: [60, 71],
@@ -57054,7 +57054,7 @@ var COMP_KIT = (() => {
     theme: "comms",
     companions: [
       {
-        id: "comms-mic", name: "Mic", kind: "Microphone", pose: "stand", wearColor: "#E2577F",
+        id: "comms-mic", name: "Mic", kind: "Microphone", pose: "stand", wearColor: "#E2577F", scarfOverArms: true,
         bio: "A shiny studio mic who amplifies every great idea you have.",
         idle: ["headTilt", "tailSwish", "wave"], cheer: "hop",
         neck: [60, 74],
@@ -57127,7 +57127,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "comms-megaphone", name: "Hollar", kind: "Megaphone", pose: "float", wearColor: "#3C6FD1", hatTop: true,
+        id: "comms-megaphone", name: "Hollar", kind: "Megaphone", pose: "float", wearColor: "#3C6FD1", hatTop: true, scarfOverArms: true,
         bio: "A peppy megaphone who shouts your wins loud enough for everyone.",
         idle: ["topBob", "wave", "bounce"], cheer: "spin",
         parts: {
@@ -57462,7 +57462,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "writing-raven", name: "Poe", kind: "Little Raven", pose: "stand", wearColor: "#E0A84A", hatTop: true,
+        id: "writing-raven", name: "Poe", kind: "Little Raven", pose: "stand", wearColor: "#E0A84A", hatTop: true, scarfOverArms: true,
         bio: "A fluffy little raven who adores stories and quoths only cheers.",
         idle: ["wingFlutter", "tailSwish", "topBob"], cheer: "wingFlutter",
         parts: {
@@ -57939,7 +57939,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "chem-molecule", name: "Mol", kind: "Molecule", pose: "float", wearColor: "#7A5CC9",
+        id: "chem-molecule", name: "Mol", kind: "Molecule", pose: "float", wearColor: "#7A5CC9", scarfOverArms: true,
         bio: "A bouncy molecule who bonds with everyone it meets.",
         idle: ["wingFlutter", "topBob", "tailSwish"], cheer: "spin",
         parts: {
@@ -58132,7 +58132,7 @@ var COMP_KIT = (() => {
     theme: "ruins",
     companions: [
       {
-        id: "ruins-hourglass", name: "Sandy", kind: "Hourglass", pose: "stand", wearColor: "#3E8FB0", hatTop: true,
+        id: "ruins-hourglass", name: "Sandy", kind: "Hourglass", pose: "stand", wearColor: "#3E8FB0", hatTop: true, scarfOverArms: true,
         bio: "A cheerful hourglass who knows every grain of effort adds up.",
         idle: ["topBob", "sway", "wave"], cheer: "spin",
         parts: {
@@ -58545,7 +58545,7 @@ var COMP_KIT = (() => {
     theme: "onsen",
     companions: [
       {
-        id: "onsen-kapi", name: "Kapi", kind: "Onsen Capybara", pose: "sit", sleepy: true, wearColor: "#5A8AD0", hatTop: true,
+        id: "onsen-kapi", name: "Kapi", kind: "Onsen Capybara", pose: "sit", sleepy: true, wearColor: "#5A8AD0", hatTop: true, scarfOverArms: true,
         bio: "A calm capybara who soaks in the warm spring for as long as you study.",
         idle: ["topBob", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 74],
@@ -58734,7 +58734,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 66, w: 3},
         mouths: {neutral: tbeak(false), smile: tbeak(false) + `<path d="M41.4 58.4q1.6 2.8 4.6 2.2M78.6 58.4q-1.6 2.8 -4.6 2.2" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, open: tbeak(true), sleepy: tbeak(false)},
         cheeks: {lx: 40, rx: 80, y: 51, w: 3.6, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 23.5, 0.95, 0], neck: [60, 71, 0.95, 0, 40, 49], chest: [60, 77, 0.58], back: [84, 84, 0.8], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 23.5, 0.95, 0], neck: [60, 71, 0.95, 0, 40, 66], bow: [60, 81.5, 0.7], chest: [60, 77, 0.58], back: [84, 84, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Hi! Did you notice my beak? Everyone notices my beak.", "Big plans today! Huge plans!", "You're doing toucan-tastic!", "Two can do it better: you and me!", "Hop hop! Next task!", "Your notes look colorful today!", "I spy a superstar student!", "Let's fly through this list!"],
           pet: ["Squawk! Hehe, that tickles!", "Careful, the beak is very important!"],
@@ -58748,7 +58748,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A",
+        id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A", scarfOverArms: true,
         bio: "A bright blue tree frog who holds on to every task with its sticky toes.",
         idle: ["bounce", "wave", "sparkle"], cheer: "hop",
         parts: {
@@ -58866,7 +58866,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 62, w: 3},
         mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false) + `<path d="M50 59q1.6 1.8 3.4 1M70 59q-1.6 1.8 -3.4 1" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`, open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
         cheeks: {lx: 47, rx: 73, y: 59, w: 3.4, h: 2.2, color: "#FF8FA8"},
-        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 74, 1, 0, 57, 53], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 74, 1, 0, 49, 53], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hello! Pool inspection complete, all is well!", "Waddle waddle, you're doing great!", "I checked every pool. You're the best one!", "Tuxedo on, ready to study!", "Fluffy but focused!", "Let's waddle to the next task!", "You're puff-ectly on track!", "Beak up, chest out, here we go!"],
           pet: ["Hehe! My fluff is extra fluffy now!", "Peep peep! Again!"],
@@ -59271,7 +59271,7 @@ var COMP_KIT = (() => {
     theme: "graduation",
     companions: [
       {
-        id: "graduation-cap", name: "Tassel", kind: "Grad Cap", pose: "stand", wearColor: "#F2B83A", hatTop: true,
+        id: "graduation-cap", name: "Tassel", kind: "Grad Cap", pose: "stand", wearColor: "#F2B83A", hatTop: true, scarfOverArms: true,
         bio: "A proud little grad cap who's been waiting all year for your big day.",
         idle: ["topBob", "sway", "headTilt"], cheer: "spin", hatTop: true,
         parts: {
@@ -59747,7 +59747,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 68, r: 4.8, style: "sparkle", color: "#2A2430"},
         mouth: {x: 60, y: 77, w: 3, color: "#2A2430"},
         cheeks: {lx: 41.5, rx: 78.5, y: 75.5, w: 4.2, h: 2.6, color: "#FF9AA8"},
-        anchors: {top: [60, 48.5, 0.95, 0], neck: [60, 86, 0.95, 0, 51, 54], chest: [70, 91.5, 0.55], back: [84, 92, 0.8], hands: [60, 100, 0.8]},
+        anchors: {top: [60, 48.5, 0.95, 0], neck: [60, 86, 0.95, 0, 37, 54], chest: [70, 91.5, 0.55], back: [84, 92, 0.8], hands: [60, 100, 0.8]},
         lines: {
           tap: ["Bonjour, chef! Ready to cook up greatness?", "Your recipe for success is looking delicious!", "A pinch of patience, a dash of genius!", "Every great dish starts with one step!", "Yes, chef! You're doing wonderfully!", "I feel taller already, thanks to you!", "Mise en place! Everything in its place!"],
           pet: ["Oh la la! My pleats are all fluffy!", "Hehe! Careful, I'm freshly starched!"],
@@ -60825,7 +60825,7 @@ var COMP_KIT = (() => {
     theme: "diadelosmuertos",
     companions: [
       {
-        id: "diadelosmuertos-dulce", name: "Dulce", kind: "Sugar Skull Sprite", pose: "float", wearColor: "#2EC4D0", hatTop: true,
+        id: "diadelosmuertos-dulce", name: "Dulce", kind: "Sugar Skull Sprite", pose: "float", wearColor: "#2EC4D0", hatTop: true, scarfOverArms: true,
         bio: "A cheerful sugar skull sprite decorated with icing flowers and a big smile.",
         idle: ["topBob", "sparkle", "headTilt"], cheer: "spin",
         neck: [60, 84],
@@ -61368,7 +61368,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "france-mac", name: "Mac", kind: "Macaron", pose: "stand", wearColor: "#7AC8A8", hatTop: true,
+        id: "france-mac", name: "Mac", kind: "Macaron", pose: "stand", wearColor: "#7AC8A8", hatTop: true, scarfOverArms: true,
         bio: "A little pink macaron who brings a sweet bite of joy to study time.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
@@ -61500,7 +61500,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearColor: "#3A8A5A", hatTop: true,
+        id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearOnHead: true, wearColor: "#3A8A5A", hatTop: true, scarfOverArms: true,
         bio: "A little rice ball in a nori sash with a big can-do attitude.",
         idle: ["topBob", "wave", "headTilt"], cheer: "hop",
         neck: [60, 104],
@@ -61521,7 +61521,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 68, r: 4.2, style: "sparkle", color: "#2B2233"},
         mouth: {x: 60, y: 76, w: 3, color: "#2B2233"},
         cheeks: {lx: 44, rx: 76, y: 75, w: 3.8, h: 2.2, color: "#FF9AA8"},
-        anchors: {top: [60, 37, 0.85, 0], neck: [60, 84, 0.9, 0, 0, 76], chest: [70, 105.5, 0.55], back: [90, 78, 0.8], hands: [60, 100, 0.86]},
+        anchors: {top: [60, 37, 0.85, 0], neck: [60, 80.5, 0.95, 0, 66, 80], chest: [60, 86, 0.55], back: [90, 78, 0.8], hands: [60, 100, 0.86]},
         lines: {
           tap: ["Rice to meet you! Let's do this!", "Packed tight with good ideas!", "Nori sash on, ready for action!", "A snack-sized step is still a step!", "Fuel up, focus up, finish up!", "My plum center is pure courage!", "We're on a roll! Well, a ball!", "Every grain counts, like every page!"],
           pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Warm hands, happy rice!"],
@@ -61601,7 +61601,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E",
+        id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E", scarfOverArms: true,
         bio: "A fennec fox kit from the riad whose giant ears hear every deadline coming.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 78],
@@ -61960,7 +61960,7 @@ var COMP_KIT = (() => {
     theme: "greece",
     companions: [
       {
-        id: "greece-kiki", name: "Kiki", kind: "Island Cat", pose: "sit", sleepy: true, wearColor: "#2F6DB8",
+        id: "greece-kiki", name: "Kiki", kind: "Island Cat", pose: "sit", sleepy: true, wearColor: "#2F6DB8", scarfOverArms: true,
         bio: "A sun-loving island cat who naps on warm walls and wakes up for every win.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 78],
@@ -62064,7 +62064,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "greece-glafka", name: "Glafka", kind: "Little Owl", pose: "stand", wearColor: "#2F6DB8", hatTop: true,
+        id: "greece-glafka", name: "Glafka", kind: "Little Owl", pose: "stand", wearColor: "#2F6DB8", hatTop: true, scarfOverArms: true,
         bio: "A wise little owl who stays up late studying with you.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 74],
@@ -62609,7 +62609,7 @@ var COMP_KIT = (() => {
         }
       },
       {
-        id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0", hatTop: true,
+        id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0", hatTop: true, scarfOverArms: true,
         bio: "A smiley axolotl who regrows its motivation overnight.",
         idle: ["earTwitch", "finWiggle", "topBob"], cheer: "spin",
         neck: [60, 79],
@@ -62747,7 +62747,7 @@ var COMP_KIT = (() => {
     theme: "brazil",
     companions: [
       {
-        id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E", hatTop: true,
+        id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E", hatTop: true, scarfOverArms: true,
         bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 68],
@@ -62776,7 +62776,7 @@ var COMP_KIT = (() => {
         mouths: {neutral: beak(false, false), smile: beak(false, true), open: beak(true, false), sleepy: beak(false, false)},
         mouth: {x: 60, y: 76, w: 3, color: "#7A2A10"},
         cheeks: {lx: 38, rx: 82, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
-        anchors: {top: [60, 20, 0.95, 0], neck: [60, 80, 1, 0, 55, 55], chest: [70, 85.5, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
+        anchors: {top: [60, 20, 0.95, 0], neck: [60, 72.5, 0.95, 0, 42, 72], bow: [60, 90, 0.7], chest: [70, 85.5, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
         lines: {
           tap: ["Bom dia! Ready to make some noise?", "My beak is big, but my cheers are bigger!", "Let's fly through this list together!", "Toco! That's toucan for 'you've got this'!", "One task at a time, like fruit for breakfast!", "I spy a finish line from my branch!", "You bring the focus, I'll bring the color!", "Every page gets you closer to the beach!"],
           pet: ["Hehe! Mind the beak, it's ticklish!", "Aww! My feathers are all fluffed up!"],
@@ -62958,7 +62958,7 @@ var COMP_EXTRA = [];
   const DATA = typeof COMP_DATA !== "undefined" ? COMP_DATA : [];
   const GREET_KEY = "studyboard:comp:greeted";
 
-  /* The rig format (parts.over: art in front of anything worn on the body, e.g. a planet's ring; wearOnHead: a head with no neck showing, e.g. a cat in a cup, wears neck items in front of its head) */
+  /* The rig format (parts.over: art in front of anything worn on the body, e.g. a planet's ring; wearOnHead: a head with no neck showing, e.g. a cat in a cup, wears neck items in front of its head; scarfOverArms: arms hanging from the shoulders go behind what's worn at the neck) */
   const PIVOT_PARTS = ["tail", "wingL", "wingR", "armL", "armR", "earL", "earR", "top"];
   const STATIC_PARTS = ["back", "feet", "body", "over", "head", "face", "hat"];
   const POSES = ["stand", "sit", "float"];
@@ -63140,7 +63140,8 @@ var COMP_EXTRA = [];
     const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], ns = num(na[2]) ? na[2] : 1, capeA = [na[0], na[1], f1(ns * 0.95)];
     // the body's width at the neck: the scarf's rounded ends and the collar reach just past its outline (under a separate head the collar hugs the narrower neck); the bow tie stays well inside it
     const wrapW = num(na[4]) ? na[4] : 0, drapeW = num(na[5]) ? na[5] : 0, hwAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 1) / s - 2)) : 0, collarAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + (partSvg(P.head) ? -3.5 : 0.4)) / s)) : 0;
-    const bowA = wrapW ? [na[0], na[1], f1(Math.max(0.5, Math.min(ns, wrapW * 0.6 / 41))), na[3] || 0] : na;
+    // anchors.bow (optional): where the bow tie goes when something hangs over the neck (a toucan's beak)
+    const bowA = pt(A.bow) ? A.bow : wrapW ? [na[0], na[1], f1(Math.max(0.5, Math.min(ns, wrapW * 0.6 / 41))), na[3] || 0] : na;
     const chestA = pt(A.chest) ? [A.chest[0], A.chest[1], f1((num(A.chest[2]) ? A.chest[2] : 1) * 1.3)] : A.chest;
     // a medal hangs from the neck, so it sits in the middle (the star badge is pinned to one side)
     const medalA = pt(chestA) ? [na[0], chestA[1], chestA[2]] : chestA;
@@ -63160,7 +63161,7 @@ var COMP_EXTRA = [];
     const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
       <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
-        <g class="cp-bodyg">${g("body")}${c.wearOnHead ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}</g>
+        <g class="cp-bodyg">${g("body")}${c.wearOnHead || c.scarfOverArms ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}${c.scarfOverArms && !c.wearOnHead ? bodyWear : ""}</g>
         <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${c.wearOnHead ? bodyWear : ""}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}
           <g class="cp-zs"><text x="${f1((c.eyes.rx || 72) + 14)}" y="${f1((c.eyes.y || 60) - 12)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#8C87A8" stroke="#fff" stroke-width="3" paint-order="stroke">z</text><text x="${f1((c.eyes.rx || 72) + 22)}" y="${f1((c.eyes.y || 60) - 22)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="8" fill="#8C87A8" stroke="#fff" stroke-width="2.5" paint-order="stroke">z</text></g>
         </g>
@@ -65506,7 +65507,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         if (c.cheeks && !(num(c.cheeks.lx) && num(c.cheeks.rx) && num(c.cheeks.y))) E(who, "cheeks needs lx, rx, y");
         const A = c.anchors || {};
         ANCHORS.forEach(k => { if (!pt(A[k])) E(who, `anchors.${k} [x, y, scale] is required`); else if (A[k][0] < 0 || A[k][0] > 120 || A[k][1] < 0 || A[k][1] > 120) E(who, `anchors.${k} is outside the box`); else if (A[k][2] != null && !(num(A[k][2]) && A[k][2] >= 0.5 && A[k][2] <= 1.6)) E(who, `anchors.${k} scale should be 0.5 to 1.6`); });
-        Object.keys(A).forEach(k => { if (!ANCHORS.includes(k)) E(who, `unknown anchor "${k}"`); });
+        Object.keys(A).forEach(k => { if (!ANCHORS.includes(k) && k !== "bow") E(who, `unknown anchor "${k}"`); });
         const L = c.lines || {};
         Object.entries(LINE_KINDS).forEach(([k, min]) => {
           const arr = L[k];

@@ -481,7 +481,7 @@
     theme: "rooftops",
     companions: [
       {
-        id: "rooftops-pigeon", name: "Cooper", kind: "Rooftop Pigeon", pose: "stand",
+        id: "rooftops-pigeon", name: "Cooper", kind: "Rooftop Pigeon", pose: "stand", scarfOverArms: true,
         bio: "A plump city pigeon who coos you on from the rooftop ledge.",
         idle: ["headTilt", "waddle", "wingFlutter"], cheer: "wingFlutter",
         neck: [60, 70],
@@ -578,7 +578,7 @@
         eyes: {lx: 46, rx: 62, y: 68, r: 4.4, style: "dot", color: "#3A2A3A"},
         mouth: {x: 54, y: 76, w: 2.8, color: "#3A2A3A"},
         cheeks: {lx: 39.5, rx: 68.5, y: 75, w: 4, h: 2.5, color: "#FF9A8C"},
-        anchors: {top: [57, 39.5, 0.85, 34], neck: [50, 85.5, 0.75, 10, 40, 38], chest: [72, 88, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
+        anchors: {top: [57, 39.5, 0.85, 34], neck: [51, 85, 0.75, 14, 37, 30], chest: [72, 88, 0.58], back: [30, 50, 0.8], hands: [56, 84, 0.85]},
         wearColor: "#6F68A8",
         lines: {
           tap: ["Oh hello! I'm glowing extra bright for you!", "You light up the city more than I do!", "Look at you, showing up again! Wow!", "You're shining today! I'm so proud!", "Every little step deserves a moonbeam!", "I'm your biggest fan in the whole sky!", "Night or day, I'm cheering for you!"],
