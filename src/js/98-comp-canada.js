@@ -96,7 +96,7 @@
         mouth: {x: 60, y: 62, w: 2.6, color: "#2E1E16"},
         mouths: buckyMouths(61.4),
         cheeks: {lx: 42.5, rx: 77.5, y: 56, w: 3.8, h: 2.4, color: "#FF9A88"},
-        anchors: {top: [60, 22, 0.95, 0], neck: [60, 80, 1, 0, 42, 64], chest: [81, 81, 0.55], back: [86, 82, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 22, 0.95, 0], neck: [60, 78.5, 1, 0, 54, 66], chest: [81, 81, 0.55], back: [86, 82, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! I've been building you a study dam!", "One stick at a time. That's how dams get built!", "Busy as a beaver, and so are you!", "Chomp chomp! That task didn't stand a chance.", "Slap slap! That's my tail cheering for you!", "Let's build something great today!", "Keep at it! Every twig counts.", "You've got real beaver energy today!"],
           pet: ["Hehe! Right between the ears!", "Ooh, my fur's all fluffy now!"],

@@ -51756,7 +51756,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "dot", color: "#2B2A44"},
         mouth: {x: 60, y: 66.5, w: 2.6, style: "cat"},
         cheeks: {lx: 42, rx: 78, y: 64.5, w: 4.6, h: 2.8, color: "#FF9FB7"},
-        anchors: {top: [60, 38, 0.95, 0], neck: [60, 82, 1.05, 0, 54, 71], chest: [69, 85.5, 0.72], back: [86, 88, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 38, 0.95, 0], neck: [60, 79.5, 1, 0, 44, 66], chest: [69, 85.5, 0.72], back: [86, 88, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hop hop! Hi hi!", "Soft and steady, and you're winning!", "You're doing wonderfully, truly!", "Snowflakes and study notes, my favorite!", "Rest is part of the plan, and you're nailing it!", "One happy hop at a time!", "I think you're absolutely amazing!"],
           pet: ["Hehe, my ears are wiggling with joy!", "So soft and so happy now!"],
@@ -61722,8 +61722,8 @@ var COMP_KIT = (() => {
             <circle cx="98" cy="54" r="5" fill="#3A8AE8" opacity=".85"/><circle cx="94" cy="66" r="4" fill="#FF4A9A" opacity=".85"/><circle cx="104" cy="64" r="3" fill="#9A5AE0" opacity=".85"/>`, pivot: [80, 56]},
           body: `${LG("holi-rang-b", [[0, "#C8D0E4"], [1, "#9AA4C0"]])}
             <path d="M34 98C30 80 42 70 60 70C78 70 90 80 86 98Z" fill="url(#holi-rang-b)" ${O}/>
-            <circle cx="46" cy="84" r="5" fill="#FF4A9A" opacity=".75"/><circle cx="74" cy="82" r="6" fill="#2EC07A" opacity=".7"/><circle cx="62" cy="92" r="4" fill="#FFC62A" opacity=".8"/>
-            <path d="M60 30C80 30 88 44 86 58C84 70 74 76 60 76C46 76 36 70 34 58C32 44 40 30 60 30Z" fill="url(#holi-rang-b)" ${O}/>
+            <circle cx="46" cy="84" r="5" fill="#FF4A9A" opacity=".75"/><circle cx="74" cy="82" r="6" fill="#2EC07A" opacity=".7"/><circle cx="62" cy="92" r="4" fill="#FFC62A" opacity=".8"/>`,
+          over: `<path d="M60 30C80 30 88 44 86 58C84 70 74 76 60 76C46 76 36 70 34 58C32 44 40 30 60 30Z" fill="url(#holi-rang-b)" ${O}/>
             <path d="M60 62Q58 72 62 78Q67 82 71 77" fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round"/><path d="M60 62Q58 72 62 78Q67 82 71 77" fill="none" stroke="#AEB8D0" stroke-width="6.6" stroke-linecap="round"/>
             <path d="M58.6 68h4M59.6 74h4" stroke="#8A94B0" stroke-width="1.4" stroke-linecap="round"/>
             <circle cx="44" cy="44" r="4" fill="#FF7AB8" opacity=".7"/><circle cx="78" cy="42" r="3.4" fill="#5AA0F0" opacity=".7"/>
@@ -61733,7 +61733,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 54, r: 4.6, style: "sparkle", color: "#2A2440"},
         mouth: {x: 49, y: 68, w: 2.6, color: "#2A2440"},
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF7AB8"},
-        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 76, 1, 0, 49, 59], chest: [72, 82.5, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
+        anchors: {top: [60, 30.5, 0.95, 0], neck: [60, 76, 1, 0, 49, 59], bow: [60, 85, 0.65], chest: [72, 82.5, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
         lines: {
           tap: ["Toot! Hi! Look at all my colors!", "I'm painted for good luck, and so are you!", "Big ears, big ideas, big cheers!", "You're doing trunk-tastic!", "Every color on me is a cheer for you!", "Stomp stomp! Look how far you've come!", "An elephant never forgets, and neither will you!", "You make my whole day colorful!"],
           pet: ["Toot toot! That tickles my ears!", "Hehe! More pats, please!"],
@@ -62323,7 +62323,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 77, r: 4.6, style: "sparkle", color: "#2A2230"},
         mouth: {x: 60, y: 87, w: 3, color: "#2A2230"},
         cheeks: {lx: 42, rx: 78, y: 85, w: 4, h: 2.4, color: "#FF9AA8"},
-        anchors: {top: [60, 26.5, 0.8, 0], neck: [58, 95.5, 0.9, 0, 82, 78.5], chest: [70, 102, 0.6], back: [30, 78, 0.7], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 26.5, 0.8, 0], neck: [60, 95.5, 0.9, 0, 54, 62], chest: [70, 102, 0.6], back: [30, 78, 0.7], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Ahlan! Fresh mint tea, poured just for you!", "Three glasses: one for focus, one for joy, one for luck.", "Pour from up high, and do your best work!", "Steady hands, steady mind. You've got this!", "Sweet and minty, like a job well done!", "Steeping ideas takes patience. You're doing great!", "A little sip, a little step, every day.", "The best study chats happen over tea!"],
           pet: ["Hehe! Careful, I'm still warm!", "Aww, that makes my lid jiggle!"],
@@ -62450,8 +62450,8 @@ var COMP_KIT = (() => {
             <path d="M40 80Q60 72 80 80L82 92Q60 86 38 92Z" fill="url(#thailand-chang-c)" ${O2}/>
             <path d="M39 90Q60 84 81 90" fill="none" stroke="#F2C24A" stroke-width="2.2" stroke-linecap="round"/>
             ${[44, 52, 60, 68, 76].map(x => `<path d="M${x} ${x === 60 ? 87 : 88}l-1.6 5h3.2z" fill="#F2C24A" ${OW(0.9)}/>`).join("")}
-            <circle cx="60" cy="79" r="3" fill="#F2C24A" ${OW(1.2)}/>
-            <path d="M60 28C80 28 88 42 86 57C84 69 74 76 60 76C46 76 36 69 34 57C32 42 40 28 60 28Z" fill="url(#thailand-chang-b)" ${O}/>
+            <circle cx="60" cy="79" r="3" fill="#F2C24A" ${OW(1.2)}/>`,
+          over: `<path d="M60 28C80 28 88 42 86 57C84 69 74 76 60 76C46 76 36 69 34 57C32 42 40 28 60 28Z" fill="url(#thailand-chang-b)" ${O}/>
             <path d="M56 62Q54 72 59 79Q65 84 71 79Q74 75 71 72" fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round"/><path d="M56 62Q54 72 59 79Q65 84 71 79Q74 75 71 72" fill="none" stroke="#B4B0CA" stroke-width="6.4" stroke-linecap="round"/>
             <path d="M55 68h4.4M57 74.5h4M63 79.6l2.4-3" stroke="#8C88A8" stroke-width="1.4" stroke-linecap="round"/>
             <path d="M44 66Q41 70 45 72M76 66Q79 70 75 72" fill="none" stroke="#FFFDF4" stroke-width="3" stroke-linecap="round"/>
@@ -62463,7 +62463,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 72, y: 52, r: 4.6, style: "sparkle", color: "#2A2440"},
         mouth: {x: 49, y: 66, w: 2.4, color: "#2A2440"},
         cheeks: {lx: 40, rx: 80, y: 60, w: 4, h: 2.4, color: "#FF8FB0"},
-        anchors: {top: [60, 21, 0.95, 0], neck: [60, 75, 1, 0, 49, 59], chest: [72, 81, 0.6], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
+        anchors: {top: [60, 21, 0.95, 0], neck: [60, 75, 1, 0, 49, 59], bow: [60, 88, 0.6], chest: [72, 81, 0.6], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
         lines: {
           tap: ["Paoo! Hi! Shall I carry that heavy task?", "My trunk is curled up in a big smile for you!", "Big ears, big heart, big cheers!", "Step by step, like an elephant. We'll get there!", "An elephant never forgets, and neither will you!", "You're stronger than you think, little one!", "One slow stomp at a time. Steady wins!", "I painted my ears pink just for today!"],
           pet: ["Paoo! That tickles behind my ears!", "Hehe! More pats, please! I'm very soft."],
@@ -63090,7 +63090,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 62, w: 2.6, color: "#2E1E16"},
         mouths: buckyMouths(61.4),
         cheeks: {lx: 42.5, rx: 77.5, y: 56, w: 3.8, h: 2.4, color: "#FF9A88"},
-        anchors: {top: [60, 22, 0.95, 0], neck: [60, 80, 1, 0, 42, 64], chest: [81, 81, 0.55], back: [86, 82, 0.85], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 22, 0.95, 0], neck: [60, 78.5, 1, 0, 54, 66], chest: [81, 81, 0.55], back: [86, 82, 0.85], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hi! I've been building you a study dam!", "One stick at a time. That's how dams get built!", "Busy as a beaver, and so are you!", "Chomp chomp! That task didn't stand a chance.", "Slap slap! That's my tail cheering for you!", "Let's build something great today!", "Keep at it! Every twig counts.", "You've got real beaver energy today!"],
           pet: ["Hehe! Right between the ears!", "Ooh, my fur's all fluffy now!"],

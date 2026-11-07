@@ -45,7 +45,7 @@
         eyes: {lx: 50, rx: 70, y: 77, r: 4.6, style: "sparkle", color: "#2A2230"},
         mouth: {x: 60, y: 87, w: 3, color: "#2A2230"},
         cheeks: {lx: 42, rx: 78, y: 85, w: 4, h: 2.4, color: "#FF9AA8"},
-        anchors: {top: [60, 26.5, 0.8, 0], neck: [58, 95.5, 0.9, 0, 82, 78.5], chest: [70, 102, 0.6], back: [30, 78, 0.7], hands: [60, 100, 0.84]},
+        anchors: {top: [60, 26.5, 0.8, 0], neck: [60, 95.5, 0.9, 0, 54, 62], chest: [70, 102, 0.6], back: [30, 78, 0.7], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Ahlan! Fresh mint tea, poured just for you!", "Three glasses: one for focus, one for joy, one for luck.", "Pour from up high, and do your best work!", "Steady hands, steady mind. You've got this!", "Sweet and minty, like a job well done!", "Steeping ideas takes patience. You're doing great!", "A little sip, a little step, every day.", "The best study chats happen over tea!"],
           pet: ["Hehe! Careful, I'm still warm!", "Aww, that makes my lid jiggle!"],

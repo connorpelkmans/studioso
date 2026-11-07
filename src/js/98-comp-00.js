@@ -266,7 +266,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "dot", color: "#2B2A44"},
         mouth: {x: 60, y: 66.5, w: 2.6, style: "cat"},
         cheeks: {lx: 42, rx: 78, y: 64.5, w: 4.6, h: 2.8, color: "#FF9FB7"},
-        anchors: {top: [60, 38, 0.95, 0], neck: [60, 82, 1.05, 0, 54, 71], chest: [69, 85.5, 0.72], back: [86, 88, 0.9], hands: [60, 96, 0.9]},
+        anchors: {top: [60, 38, 0.95, 0], neck: [60, 79.5, 1, 0, 44, 66], chest: [69, 85.5, 0.72], back: [86, 88, 0.9], hands: [60, 96, 0.9]},
         lines: {
           tap: ["Hop hop! Hi hi!", "Soft and steady, and you're winning!", "You're doing wonderfully, truly!", "Snowflakes and study notes, my favorite!", "Rest is part of the plan, and you're nailing it!", "One happy hop at a time!", "I think you're absolutely amazing!"],
           pet: ["Hehe, my ears are wiggling with joy!", "So soft and so happy now!"],
