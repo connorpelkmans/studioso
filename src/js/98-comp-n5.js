@@ -172,7 +172,7 @@
         mouth: {x: 60, y: 69, w: 3, color: "#1E2A4A"},
         cheeks: {lx: 43.5, rx: 76.5, y: 67, w: 4.2, h: 2.6, color: "#FF9FB0"},
         neck: [60, 82],
-        anchors: {top: [60, 17, 0.9, 0], neck: [60, 86.5, 0.85, 0, 46, 64], chest: [70, 90.5, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 17, 0.9, 0], neck: [60, 84.5, 0.85, 0, 38, 64], chest: [70, 90.5, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Hi! One step closer to the big day!", "Every task is a step across the stage!", "Tassel's on the right side of awesome!", "You're going to make it. I just know!", "Caps off to you today!", "Study now, celebrate later!", "Class of AMAZING, that's you!"],
           pet: ["Hehe! My tassel is swinging!", "Aww! Careful, don't knock my cap off!"],
