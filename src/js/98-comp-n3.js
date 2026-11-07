@@ -395,7 +395,7 @@
         eyes: {lx: 47, rx: 67, y: 66, r: 6, style: "round", color: "#2B2233"},
         mouth: {x: 57, y: 79, w: 2.6, color: "#2B2233"},
         cheeks: {lx: 39.5, rx: 74.5, y: 76, w: 4.2, h: 2.6, color: "#FF8F8F"},
-        anchors: {top: [58, 43, 0.85, 0], neck: [58, 87, 0.9, 0, 64.5, 65], chest: [70, 92.5, 0.55], back: [86, 58, 0.8], hands: [58, 92, 0.85]},
+        anchors: {top: [58, 43, 0.85, 0], neck: [58, 85, 0.9, 0, 50, 56], chest: [70, 92.5, 0.55], back: [86, 58, 0.8], hands: [58, 92, 0.85]},
         lines: {
           tap: ["Oh! Hi! You startled me in the best way!", "Puffing up with pride for you!", "I'm all spiky with excitement!", "Big breath in, big focus out!", "You're doing fin-tastic!", "Small fish, big cheers!", "Let's puff through this together!", "Bubbling over with good vibes!"],
           pet: ["Eep! Hehe, careful with the spikes!", "Ooh, I'm deflating happily!"],
