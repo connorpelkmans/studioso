@@ -362,7 +362,7 @@
         eyes: {lx: 51.5, rx: 68.5, y: 68, r: 4.6, style: "sparkle", color: "#10203E"},
         mouth: {x: 60, y: 77, w: 3, color: "#10203E"},
         cheeks: {lx: 44.5, rx: 75.5, y: 75.5, w: 3.8, h: 2.4, color: "#FF9FC0"},
-        anchors: {top: [60, 26.5, 0.85, 0], neck: [60, 85.5, 0.9, 0, 56, 41], chest: [70, 91, 0.55], back: [88, 62, 0.8], hands: [60, 86, 0.8]},
+        anchors: {top: [60, 26.5, 0.85, 0], neck: [60, 80, 0.8, 0, 34, 40], chest: [70, 91, 0.55], back: [88, 62, 0.8], hands: [60, 86, 0.8]},
         lines: {
           tap: ["Wheee! Hi there, you!", "Gliding over to say you're great!", "Loop-de-loop! That's how happy I am!", "Smooth sailing through that list!", "Flap, flap, focus! You've got this!", "Riding the current right beside you!", "You make the whole tank sparkle!", "Swooping in with good vibes!"],
           pet: ["Hehe! That tickles my wings!", "Ooh, soft and swirly!"],
