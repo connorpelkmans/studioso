@@ -2012,7 +2012,9 @@
     if (kbDrag && !kbDrag.justDragged) { kbDrag.dirty = true; return; }
     const a = document.activeElement, inside = a && el.contains(a), key = inside ? a.id || "" : "", sel = inside && "selectionStart" in a ? [a.selectionStart, a.selectionEnd] : null;
     const act = inside && !key && a.dataset ? {act: a.dataset.act, id: a.dataset.id, f: a.dataset.f} : null;
+    const kbX = el.querySelector(".kb") ? el.querySelector(".kb").scrollLeft : 0;
     replaceKeep(el, ptHtml(g), "grpPT");
+    { const kb = kbX && $("#grpPT .kb"); if (kb) kb.scrollLeft = kbX; }
     if (key) { const n = document.getElementById(key); if (n) { n.focus(); if (sel) { try { n.setSelectionRange(sel[0], sel[1]); } catch(e) {} } } }
     else if (act && act.act) { const n = $(`#grpPT [data-act="${act.act}"]${act.id ? `[data-id="${CSS.escape(act.id)}"]` : ""}${act.f ? `[data-f="${CSS.escape(act.f)}"]` : ""}`); if (n) n.focus(); }
   }
@@ -2352,7 +2354,24 @@
     const c = kbCol(d.x, d.y);
     $$("#grpPT .kb-col.over").forEach(k => { if (k !== c) k.classList.remove("over"); });
     if (c) c.classList.add("over");
+    kbEdge(d, c);
     d.raf = requestAnimationFrame(kbTick);
+  }
+  // On a phone the columns are a sideways pager, like the main Task Board: hovering a card over the column peeking
+  // in beside the one in view (or holding it at the edge) glides the board over a column, then on if still held there
+  function kbEdge(d, c){
+    const b = d.el.closest(".kb"); if (!b || b.scrollWidth <= b.clientWidth + 2 || getComputedStyle(b).display !== "flex") return;
+    const r = b.getBoundingClientRect(), at = b._goTo != null && Math.abs(b.scrollLeft - b._goTo) > 2 ? b._goTo : b.scrollLeft;
+    let dir = d.x < r.left + 56 ? -1 : d.x > r.right - 56 ? 1 : 0;
+    const cx = c && b.contains(c) ? boardColX(b, c) : null; if (cx != null && Math.abs(cx - at) > 30) dir = cx > at ? 1 : -1;
+    if (!dir) { d.edgeDir = 0; return; }
+    const now = performance.now();
+    if (d.edgeDir !== dir) { d.edgeDir = dir; d.edgeAt = now; d.edgeN = 0; return; }
+    if (now - d.edgeAt < (d.edgeN ? 700 : 260)) return;
+    const xs = [...b.querySelectorAll(":scope > .kb-col")].map(k => boardColX(b, k)).filter((v, i, a) => a.indexOf(v) === i).sort((x, y) => x - y);
+    let i = 0; xs.forEach((v, k) => { if (Math.abs(v - at) < Math.abs(xs[i] - at)) i = k; });
+    const j = Math.max(0, Math.min(xs.length - 1, i + dir)); d.edgeAt = now;
+    if (j !== i) { b._goTo = xs[j]; boardGo(b, xs[j]); d.edgeN++; }
   }
   function kbEnd(ok){
     const d = kbDrag; if (!d) return; clearTimeout(d.timer); cancelAnimationFrame(d.raf);

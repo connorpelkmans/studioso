@@ -21734,7 +21734,15 @@ function tabSwap(changed, go){
   if (ghost) ghost.animate([{opacity: 1}, {opacity: 0}], {duration: TAB_MS * 0.8, easing: ease, fill: "forwards"}).finished.then(end, end);
   else setTimeout(end, TAB_MS);
 }
+// Where a press on the screen began: a tap that starts inside the note being edited is a tap in the note, even when the note
+// moves under the finger before it lifts (on a phone, tapping back in the text box hides the note's options at once, so the
+// sheet shrinks and the end of the tap lands on the dimmed page behind it; that used to close the note)
+let noteDownIn = 0;
+["pointerdown", "touchstart", "mousedown"].forEach(t => document.addEventListener(t, e => {
+  noteDownIn = e.target && e.target.closest && e.target.closest(".note.editing") ? Date.now() : 0;
+}, {capture: true, passive: true}));
 document.addEventListener("click", e => {
+  const downIn = noteDownIn && Date.now() - noteDownIn < 1500; noteDownIn = 0;
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
   const tab = e.target.closest("[data-tab]");
   if (tab) {
@@ -21752,7 +21760,10 @@ document.addEventListener("click", e => {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
     if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
-    if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) { saveNoteText(); }
+    if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
+      if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
+      saveNoteText();
+    }
   }
   const el = e.target.closest("[data-act]");
   if (!el) return;
@@ -35060,7 +35071,9 @@ hook("boot", boot);
     if (kbDrag && !kbDrag.justDragged) { kbDrag.dirty = true; return; }
     const a = document.activeElement, inside = a && el.contains(a), key = inside ? a.id || "" : "", sel = inside && "selectionStart" in a ? [a.selectionStart, a.selectionEnd] : null;
     const act = inside && !key && a.dataset ? {act: a.dataset.act, id: a.dataset.id, f: a.dataset.f} : null;
+    const kbX = el.querySelector(".kb") ? el.querySelector(".kb").scrollLeft : 0;
     replaceKeep(el, ptHtml(g), "grpPT");
+    { const kb = kbX && $("#grpPT .kb"); if (kb) kb.scrollLeft = kbX; }
     if (key) { const n = document.getElementById(key); if (n) { n.focus(); if (sel) { try { n.setSelectionRange(sel[0], sel[1]); } catch(e) {} } } }
     else if (act && act.act) { const n = $(`#grpPT [data-act="${act.act}"]${act.id ? `[data-id="${CSS.escape(act.id)}"]` : ""}${act.f ? `[data-f="${CSS.escape(act.f)}"]` : ""}`); if (n) n.focus(); }
   }
@@ -35400,7 +35413,24 @@ hook("boot", boot);
     const c = kbCol(d.x, d.y);
     $$("#grpPT .kb-col.over").forEach(k => { if (k !== c) k.classList.remove("over"); });
     if (c) c.classList.add("over");
+    kbEdge(d, c);
     d.raf = requestAnimationFrame(kbTick);
+  }
+  // On a phone the columns are a sideways pager, like the main Task Board: hovering a card over the column peeking
+  // in beside the one in view (or holding it at the edge) glides the board over a column, then on if still held there
+  function kbEdge(d, c){
+    const b = d.el.closest(".kb"); if (!b || b.scrollWidth <= b.clientWidth + 2 || getComputedStyle(b).display !== "flex") return;
+    const r = b.getBoundingClientRect(), at = b._goTo != null && Math.abs(b.scrollLeft - b._goTo) > 2 ? b._goTo : b.scrollLeft;
+    let dir = d.x < r.left + 56 ? -1 : d.x > r.right - 56 ? 1 : 0;
+    const cx = c && b.contains(c) ? boardColX(b, c) : null; if (cx != null && Math.abs(cx - at) > 30) dir = cx > at ? 1 : -1;
+    if (!dir) { d.edgeDir = 0; return; }
+    const now = performance.now();
+    if (d.edgeDir !== dir) { d.edgeDir = dir; d.edgeAt = now; d.edgeN = 0; return; }
+    if (now - d.edgeAt < (d.edgeN ? 700 : 260)) return;
+    const xs = [...b.querySelectorAll(":scope > .kb-col")].map(k => boardColX(b, k)).filter((v, i, a) => a.indexOf(v) === i).sort((x, y) => x - y);
+    let i = 0; xs.forEach((v, k) => { if (Math.abs(v - at) < Math.abs(xs[i] - at)) i = k; });
+    const j = Math.max(0, Math.min(xs.length - 1, i + dir)); d.edgeAt = now;
+    if (j !== i) { b._goTo = xs[j]; boardGo(b, xs[j]); d.edgeN++; }
   }
   function kbEnd(ok){
     const d = kbDrag; if (!d) return; clearTimeout(d.timer); cancelAnimationFrame(d.raf);

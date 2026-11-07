@@ -41,7 +41,8 @@ html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-men
 /* Native disclosure sections */
 html:not([data-motion="static"]) details[open] > :not(summary){animation:sm-in .22s var(--sm-ease) backwards}
 /* Buttons answer a tap right away */
-@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):not(nav.tabs button):active{transform:scale(.97)}}
+/* …but not a button that fills a reorderable card (a group card): shrinking it alone pulls the content in from the card's rounded edge, so the corners look square while the press waits to lift */
+@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):not(nav.tabs button):not([data-sortable] > [data-sort-id] > button):active{transform:scale(.97)}}
 dialog:focus,dialog:focus-visible{outline:none}
 dialog [tabindex="-1"]:focus,dialog [tabindex="-1"]:focus-visible{outline:none}
 /* a sheet focuses its heading on opening (99-smooth.js): no ring, it is not something to press */

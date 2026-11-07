@@ -45,7 +45,15 @@ function tabSwap(changed, go){
   if (ghost) ghost.animate([{opacity: 1}, {opacity: 0}], {duration: TAB_MS * 0.8, easing: ease, fill: "forwards"}).finished.then(end, end);
   else setTimeout(end, TAB_MS);
 }
+// Where a press on the screen began: a tap that starts inside the note being edited is a tap in the note, even when the note
+// moves under the finger before it lifts (on a phone, tapping back in the text box hides the note's options at once, so the
+// sheet shrinks and the end of the tap lands on the dimmed page behind it; that used to close the note)
+let noteDownIn = 0;
+["pointerdown", "touchstart", "mousedown"].forEach(t => document.addEventListener(t, e => {
+  noteDownIn = e.target && e.target.closest && e.target.closest(".note.editing") ? Date.now() : 0;
+}, {capture: true, passive: true}));
 document.addEventListener("click", e => {
+  const downIn = noteDownIn && Date.now() - noteDownIn < 1500; noteDownIn = 0;
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
   const tab = e.target.closest("[data-tab]");
   if (tab) {
@@ -63,7 +71,10 @@ document.addEventListener("click", e => {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
     if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
-    if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) { saveNoteText(); }
+    if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
+      if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
+      saveNoteText();
+    }
   }
   const el = e.target.closest("[data-act]");
   if (!el) return;

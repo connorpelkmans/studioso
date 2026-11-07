@@ -503,13 +503,13 @@ nav.tabs button{font-size:.75rem!important}
 .nb-sizer{width:100%;height:100%}
 .nb-sizer.zoomed{position:relative;overflow:hidden;width:auto;height:auto}
 .nb-sizer.zoomed > .nb-board{transform-origin:0 0}
-/* Zoomed, the cork is drawn on the unscaled frame behind the board: a scaled patterned layer shows seams on iPhone.
-   Everything in the pattern (spacing, offset and the dots themselves) is scaled by the zoom, so the cork zooms exactly like
-   the notes on it. The frame always fills the view. */
-.nb-sizer.zoomed{min-width:100%;min-height:100%;background-color:#C69C6D;background-image:radial-gradient(rgba(90,55,20,.28) calc(1px * var(--nbz,1)),transparent calc(1.4px * var(--nbz,1))),radial-gradient(rgba(255,235,200,.22) calc(1px * var(--nbz,1)),transparent calc(1.5px * var(--nbz,1)));background-size:calc(9px * var(--nbz,1)) calc(9px * var(--nbz,1)),calc(13px * var(--nbz,1)) calc(13px * var(--nbz,1));background-position:0 0,calc(5px * var(--nbz,1)) calc(7px * var(--nbz,1))}
+/* Zoomed, the solid cork colour is on the unscaled frame behind the board (a scaled solid layer shows seams on iPhone),
+   but the dots stay on the board and scale with it: drawn on the frame at 9px × zoom, phones snap each tile to device
+   pixels, so the dots drift against the notes as you zoom. The frame always fills the view. */
+.nb-sizer.zoomed{min-width:100%;min-height:100%;background-color:#C69C6D}
 :root[data-theme="dark"] .nb-sizer.zoomed{background-color:#6E5238}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .nb-sizer.zoomed{background-color:#6E5238}}
-.nb-sizer.zoomed > .nb-board{background:none!important}
+.nb-sizer.zoomed > .nb-board{background-color:transparent!important}
 .nb-zoom{position:absolute;top:14px;left:14px;z-index:6;display:flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);box-shadow:0 2px 8px rgba(40,25,10,.18);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .nb-zoom button{border:0;background:none;color:var(--ink);font:700 .82rem var(--display);min-width:30px;height:30px;padding:0 6px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-variant-numeric:tabular-nums}
 .nb-zoom .nbz-b{font-size:1.05rem}
