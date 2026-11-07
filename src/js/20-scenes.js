@@ -95,8 +95,9 @@
   const sheen = (g, a = 0.32, b = 0.22) => { g.save(); g.globalCompositeOperation = "source-atop"; const gr = g.createLinearGradient(-8, -10, 8, 10); gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.45, "rgba(255,255,255,0)"); gr.addColorStop(1, `rgba(0,0,0,${b})`); g.fillStyle = gr; g.fillRect(-13, -13, 26, 26); g.restore(); };
   // koi seen from above, head toward +x; the color picks the variety
   const KOI_BODY = "M10.8 0C10.6 -2.4 7.8 -3.7 4 -3.7C-0.8 -3.7 -4.6 -2.1 -7.2 -0.8L-7.6 0L-7.2 0.8C-4.6 2.1 -0.8 3.7 4 3.7C7.8 3.7 10.6 2.4 10.8 0Z";
-  const KOI_TAIL = "M-6.6 0C-8.4 -1.2 -10.2 -4.6 -12 -5.6C-11.4 -2.8 -10.9 -1.1 -10.3 0C-10.9 1.1 -11.4 2.8 -12 5.6C-10.2 4.6 -8.4 1.2 -6.6 0Z";
-  const KOI_FINS = "M5.2 -3.4C4 -6.6 1.4 -8.4 -0.8 -8.2C0.6 -6.4 1.6 -4.6 2.2 -3.6Z M5.2 3.4C4 6.6 1.4 8.4 -0.8 8.2C0.6 6.4 1.6 4.6 2.2 3.6Z M-1.8 -2.7C-3 -4.6 -4.6 -5.4 -5.8 -5.2C-4.8 -4.2 -4.1 -3.2 -3.8 -2.2Z M-1.8 2.7C-3 4.6 -4.6 5.4 -5.8 5.2C-4.8 4.2 -4.1 3.2 -3.8 2.2Z";
+  const KOI_TAIL = "M-6.6 0C-8 -1.4 -9.8 -4.4 -11.8 -5C-13 -5.2 -12.8 -2.6 -11.2 0C-12.8 2.6 -13 5.2 -11.8 5C-9.8 4.4 -8 1.4 -6.6 0Z";
+  // koi seen from above: soft rounded pectoral fins behind the head, small rounded pelvic fins, a flowing two-lobed tail
+  const KOI_FINS = "M5.8 -3.3C6.4 -6.2 4.4 -8.4 1.8 -8C0.4 -7.8 0.6 -5.4 2.6 -3.5Z M5.8 3.3C6.4 6.2 4.4 8.4 1.8 8C0.4 7.8 0.6 5.4 2.6 3.5Z M-1.6 -2.9C-1.4 -4.8 -2.8 -5.8 -4.2 -5.4C-4.8 -5.1 -4.2 -3.8 -3.4 -2.6Z M-1.6 2.9C-1.4 4.8 -2.8 5.8 -4.2 5.4C-4.8 5.1 -4.2 3.8 -3.4 2.6Z";
   const KOI = {
     "#F7F3EC": {base: "#FBF8F2", fin: "#FFFFFF", spots: [["#E2432C", 5.4, 0, 3.1, 2.8], ["#E2432C", 0, 0.5, 2.9, 2.7], ["#D93A26", -4.4, -0.4, 2, 1.8]]}, // kohaku
     "#F3EEE6": {base: "#FBF8F3", fin: "#FFFFFF", spots: [["#E04A2E", 4.6, -0.3, 2.8, 2.6], ["#E04A2E", -1.6, 0.4, 2.6, 2.4], ["#1E1A20", 1.2, -2, 1, 0.8], ["#1E1A20", -4.4, 1.2, 0.9, 0.7], ["#1E1A20", 3, 2.2, 0.8, 0.6]]}, // sanke
@@ -107,8 +108,8 @@
   };
   const KOI_C = Object.keys(KOI);
   const paintKoi = (g, c) => { const k = KOI[c] || {base: c, fin: mix(c, "#FFFFFF", 0.4), spots: []}, body = P2(KOI_BODY);
-    g.save(); g.globalAlpha = 0.72; g.fillStyle = k.fin; g.fill(P2(KOI_FINS)); g.fill(P2(KOI_TAIL)); g.globalAlpha = 0.35; g.strokeStyle = mix(k.base === "#25212A" ? "#888088" : k.base, "#000000", 0.35); g.lineWidth = 0.25;
-    g.beginPath(); for (let i = -2; i <= 2; i++) { g.moveTo(-7.4, 0); g.lineTo(-11.4, i * 2.2); g.moveTo(3.2, -3.8); g.lineTo(0.4 - i * 0.6, -7.4); g.moveTo(3.2, 3.8); g.lineTo(0.4 - i * 0.6, 7.4); } g.stroke(); g.restore();
+    g.save(); g.globalAlpha = 0.62; g.fillStyle = k.fin; g.fill(P2(KOI_FINS)); g.fill(P2(KOI_TAIL)); g.globalAlpha = 0.28; g.strokeStyle = mix(k.base === "#25212A" ? "#888088" : k.base, "#000000", 0.35); g.lineWidth = 0.25;
+    g.beginPath(); for (let i = -2; i <= 2; i++) { g.moveTo(-7.4, 0); g.lineTo(-11.6, i * 2); const fx = 3.3 + i * 0.85, fy = 7.5 - Math.abs(i) * 0.45; g.moveTo(4, -3.6); g.lineTo(fx, -fy); g.moveTo(4, 3.6); g.lineTo(fx, fy); } g.stroke(); g.restore();
     g.save(); g.fillStyle = k.base; g.fill(body); g.clip(body); k.spots.forEach(([col, x, y, rx, ry]) => { g.fillStyle = col; ellP(g, x, y, rx, ry, 0.3); g.fill(); });
     const gr = g.createLinearGradient(0, -4.2, 0, 4.2); gr.addColorStop(0, "rgba(0,0,0,.22)"); gr.addColorStop(0.32, "rgba(255,255,255,.18)"); gr.addColorStop(0.5, "rgba(255,255,255,0)"); gr.addColorStop(1, "rgba(0,0,0,.26)"); g.fillStyle = gr; g.fillRect(-12, -5, 24, 10);
     g.fillStyle = "rgba(255,255,255,.28)"; ellP(g, 1, -0.6, 6, 0.5); g.fill(); g.restore();

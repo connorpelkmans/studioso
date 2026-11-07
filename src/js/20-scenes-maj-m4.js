@@ -118,6 +118,8 @@
     tag: "A candy geometry world where smiling shapes bounce, polygon kites fly and rainbow dice roll by"
   });
 
+  // the flask for the Chem Lab moment: centered at the bottom, sized to the screen
+  const chGeo = (W, H) => { const ph = W < H, h = Math.min(H * (ph ? 0.36 : 0.44), W * (ph ? 0.62 : 0.4)), k = Math.max(1, h / 260); return {cx: W * 0.5, by: H * 0.985, top: H * 0.985 - h, h, wn: h * 0.2, wb: h * 0.78, k}; };
   /* Chem Lab (Chemistry) */
   MAJ_THEMES.push({
     skin: {id: "chem", name: "Chem Lab",
@@ -129,6 +131,9 @@
     shapes: {
       flask: {d: "M-3.2 -11H3.2V-9.6H2.4V-4.2L8.8 6.6C9.8 8.4 8.6 10.4 6.6 10.4H-6.6C-8.6 10.4 -9.8 8.4 -8.8 6.6L-2.4 -4.2V-9.6H-3.2Z", detail: "M-6.4 3.4H6.4", dstroke: true},
       molecule: {d: "M-2.6 0a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0 -5.2 0Z M4.4 -7.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M-8.6 -5a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M0.8 6.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z", detail: "M0 0L6.5 -7.4M0 0L-6.5 -5M0 0L2.9 6.4", dstroke: true},
+      // a clump of foam: three overlapping bubbles in one color with soft highlights
+      ch_foam: {d: "M-9 2a6 6 0 1 0 12 0a6 6 0 1 0 -12 0Z M-2 -3a7 7 0 1 0 14 0a7 7 0 1 0 -14 0Z M-4 5a5 5 0 1 0 10 0a5 5 0 1 0 -10 0Z", paint: (g, col) => {
+        [[-3, 2, 6], [5, -3, 7], [1, 5, 5]].forEach(([x, y, r]) => { const gr = g.createRadialGradient(x - r * 0.35, y - r * 0.4, 0, x, y, r); gr.addColorStop(0, "#FFFFFF"); gr.addColorStop(0.35, fxShade(col, 1.15)); gr.addColorStop(1, col); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }); }},
       // ball-and-stick molecule: the center atom takes the color, with white and red atoms around it
       ch_mol: {d: "M-2.6 0a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0 -5.2 0Z M4.4 -7.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M-8.6 -5a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z M0.8 6.4a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0 -4.2 0Z", paint: (g, col, dk) => {
         g.strokeStyle = dk ? "#C8D4DC" : "#8A96A3"; g.lineWidth = 1.6; g.lineCap = "round"; [[6.6, -6.6], [-6.8, -4.2], [-3.6, 7.4], [5.4, 5]].forEach(([x, y]) => { g.beginPath(); g.moveTo(0, 0); g.lineTo(x, y); g.stroke(); });
@@ -136,19 +141,45 @@
         ball(6.6, -6.6, 2.8, "#F2F4F6"); ball(-6.8, -4.2, 2.8, "#F2F4F6"); ball(-3.6, 7.4, 3.2, "#E8463C"); ball(5.4, 5, 2.6, "#F2F4F6"); ball(0, 0, 4.6, col); }}
     },
 
-    // colored liquid fills the bottom of the screen like a beaker, shifting hue as it reacts; bubbles fizz up through it and molecules float off the surface
-    fx: {spawn: (W, H, d, n) => { const top = H * 0.74;
-      return fxRise(W, H, n(60), "bubble", d ? ["#FFFFFF", "#D8F6F2", "#FFE3F0"] : ["#FFFFFF", "#F2FFFC"], {smin: 3, smax: 8, sway: 0.9, vmin: 1.4, vmax: 3, spread: 120, alpha: 0.9}).map(p => Object.assign(p, {life: Math.round((p.y - top) / -p.vy + fxR(-10, 10)), delay: p.delay + 16}))
-        .concat(fxRise(W, H, n(10), "ch_mol", d ? ["#4A5260", "#3FD0C0", "#FFC94A"] : ["#3A404A", "#2E8A80", "#E8A830"], {smin: 15, smax: 19, vmin: 1, vmax: 1.6, sway: 0.8, life: 200}).map(p => Object.assign(p, {y: top + fxR(-10, 10), delay: 50 + Math.floor(fxR(0, 70)), vr: fxR(-0.03, 0.03), rot: fxR(0, 6.3)})),
-          fxTw(W, H, n(14), "sparkle", d ? ["#FFE9B8", "#A6E9FF"] : ["#F2B53A", "#FF8FB4"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4})); },
+    // a flask slides up, a drop falls in and the liquid blooms into a new color, boils, then a column of rainbow foam
+    // erupts from its neck ("elephant toothpaste") while molecules drift off
+    fx: {len: 280, spawn: (W, H, d, n) => { const G = chGeo(W, H), nx = G.cx, ny = G.top;
+      const foam = Array.from({length: n(70)}, (_, i) => { const k = i / n(70), a = -Math.PI / 2 + fxR(-0.32, 0.32) * (0.4 + k), sp = fxR(0.7, 1.1) * H * 0.028;
+        return {shape: "ch_foam", c: fxPick(d ? ["#FF8FC4", "#6FE6D6", "#FFD36A", "#B9A2FF"] : ["#F06AA8", "#2EB5A5", "#F2B53A", "#9A7BE0"]), x: nx + fxR(-4, 4), y: ny + 6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0.26, drag: 0.982, term: fxR(2, 3.2), fsw: fxR(0.4, 1),
+          swf: fxR(0.04, 0.08), size: fxR(9, 17) * G.k, rot: fxR(0, 6.3), vr: fxR(-0.04, 0.04), grow: 0.012, sway: 0, life: 210, delay: 78 + Math.floor(k * 70)}; });
+      return foam.concat(fxRise(W, H, n(8), "ch_mol", d ? ["#4A5260", "#3FD0C0", "#FFC94A"] : ["#3A404A", "#2E8A80", "#E8A830"], {smin: 15, smax: 20, vmin: 0.9, vmax: 1.5, sway: 0.8, life: 190, depth: false}).map(p => Object.assign(p, {x: nx + fxR(-W * 0.3, W * 0.3), y: ny - fxR(0, H * 0.1), delay: 95 + Math.floor(fxR(0, 50)), vr: fxR(-0.03, 0.03), rot: fxR(0, 6.3)})),
+        fxTw(W, H, n(14), "sparkle", d ? ["#FFE9B8", "#A6E9FF"] : ["#F2B53A", "#FF8FB4"], {smin: 3, smax: 6, top: 0.7, glow: d ? 10 : 4, spread: 150}).map(p => Object.assign(p, {delay: p.delay + 70}))); },
       draw: (g, f, W, H, d) => {
-        const a = 1 - fxEase((f - 170) / 70); if (a <= 0.01) return;
-        const lv = H * 0.26 * (1 - Math.pow(1 - Math.min(1, f / 60), 3)) - H * 0.08 * fxEase((f - 160) / 80), y0 = H - lv, hue = 330 - 150 * fxEase((f - 20) / 140), amp = Math.min(14, H * 0.016) * (0.6 + 0.4 * Math.exp(-f / 60));
-        if (lv <= 1) return;
-        const gr = g.createLinearGradient(0, y0, 0, H); gr.addColorStop(0, `hsla(${hue},${d ? 80 : 72}%,${d ? 62 : 60}%,${d ? 0.34 : 0.32})`); gr.addColorStop(1, `hsla(${hue + 30},${d ? 80 : 70}%,${d ? 50 : 52}%,${d ? 0.5 : 0.46})`);
-        const Y = x => y0 + Math.sin(x / 90 + f * 0.09) * amp + Math.sin(x / 37 - f * 0.13) * amp * 0.4;
-        g.globalAlpha = a; g.fillStyle = gr; g.beginPath(); g.moveTo(0, H); for (let x = 0; x <= W + 8; x += 8) g.lineTo(x, Y(x)); g.lineTo(W, H); g.closePath(); g.fill();
-        g.strokeStyle = `hsla(${hue},90%,${d ? 80 : 88}%,.85)`; g.lineWidth = 2.5; g.beginPath(); for (let x = 0; x <= W + 8; x += 8) x ? g.lineTo(x, Y(x)) : g.moveTo(x, Y(x)); g.stroke(); }},
+        const a = fxEase(f / 10) * (1 - fxEase((f - 205) / 60)); if (a <= 0.01) return;
+        const G = chGeo(W, H), off = (1 - fxEase(f / 24)) * G.h * 1.1 + fxEase((f - 200) / 70) * G.h * 0.4, k = G.k;
+        g.save(); g.translate(0, off);
+        const body = new Path2D(), {cx, top, by, wn, wb, h} = G, sh = top + h * 0.3, r = wb * 0.12;
+        body.moveTo(cx - wn / 2, top); body.lineTo(cx - wn / 2, sh); body.lineTo(cx - wb / 2 + r * 0.6, by - r); body.quadraticCurveTo(cx - wb / 2, by, cx - wb / 2 + r, by);
+        body.lineTo(cx + wb / 2 - r, by); body.quadraticCurveTo(cx + wb / 2, by, cx + wb / 2 - r * 0.6, by - r); body.lineTo(cx + wn / 2, sh); body.lineTo(cx + wn / 2, top);
+        // liquid: blooms from the drop into a new color, then boils
+        const hit = 44, bloom = fxEase((f - hit) / 30), h0 = 200, h1 = 320 + 40 * fxEase((f - hit - 30) / 80), lvl = by - h * (0.42 + 0.12 * fxEase((f - 60) / 40)), boil = fxEase((f - 60) / 30);
+        g.save(); g.clip(body);
+        g.globalAlpha = a * 0.9; g.fillStyle = `hsl(${h0},${d ? 70 : 60}%,${d ? 58 : 62}%)`; g.fillRect(cx - wb, lvl - 20, wb * 2, by - lvl + 40);
+        if (bloom > 0) { const gr = g.createRadialGradient(cx, lvl, 0, cx, lvl, wb * 1.2 * bloom + 1); gr.addColorStop(0, `hsl(${h1},${d ? 85 : 75}%,${d ? 62 : 60}%)`); gr.addColorStop(0.85, `hsl(${h1 + 20},${d ? 85 : 75}%,${d ? 56 : 55}%)`); gr.addColorStop(1, `hsla(${h1 + 20},80%,55%,0)`); g.fillStyle = gr; g.fillRect(cx - wb, lvl - 20, wb * 2, by - lvl + 40); }
+        g.globalCompositeOperation = "destination-out"; g.beginPath(); g.moveTo(cx - wb, lvl - 40);
+        for (let x = cx - wb; x <= cx + wb; x += 4) g.lineTo(x, lvl + Math.sin(x * 0.08 + f * 0.25) * 2.4 * k * (0.4 + boil) + Math.sin(x * 0.03 - f * 0.12) * 2 * k);
+        g.lineTo(cx + wb, lvl - 40); g.closePath(); g.fill(); g.globalCompositeOperation = "source-over";
+        g.fillStyle = "rgba(255,255,255,.8)"; for (let i = 0; i < 18; i++) { const t = (f * (0.9 + (i % 5) * 0.25) + i * 37) % 60 / 60, bx = cx + Math.sin(i * 7.3) * wb * 0.36, byy = by - 6 - (by - lvl) * t, rr = (1.2 + (i % 3)) * k * boil;
+          if (rr > 0.2) { g.globalAlpha = a * (1 - t) * 0.9; g.beginPath(); g.arc(bx, byy, rr, 0, 7); g.fill(); } }
+        g.restore();
+        // glass
+        g.globalAlpha = a * (d ? 0.18 : 0.35); g.fillStyle = d ? "#CDEFF0" : "#FFFFFF"; g.fill(body);
+        g.globalAlpha = a; g.lineJoin = "round"; g.lineWidth = 3.4 * k; g.strokeStyle = d ? "rgba(220,245,248,.9)" : "rgba(40,90,86,.75)"; g.stroke(body);
+        g.lineWidth = 2 * k; g.beginPath(); g.moveTo(cx - wn / 2 - 4 * k, top); g.lineTo(cx + wn / 2 + 4 * k, top); g.stroke();
+        g.globalAlpha = a * 0.75; g.strokeStyle = "#FFFFFF"; g.lineWidth = 3 * k; g.lineCap = "round"; g.beginPath(); g.moveTo(cx - wn / 2 + 4 * k, top + h * 0.06); g.lineTo(cx - wn / 2 + 4 * k, sh - 4 * k); g.lineTo(cx - wb * 0.32, by - h * 0.18); g.stroke();
+        g.globalAlpha = a * 0.5; g.strokeStyle = d ? "#DDF5F5" : "#285A56"; g.lineWidth = 1.4 * k; [0.62, 0.74, 0.86].forEach(u => { const yy = top + h * u, hw = wn / 2 + (wb / 2 - wn / 2) * (yy - sh) / (by - sh); g.beginPath(); g.moveTo(cx + hw - 12 * k, yy); g.lineTo(cx + hw - 4 * k, yy); g.stroke(); });
+        // the drop falls into the neck
+        const dt = (f - 22) / (hit - 22); if (dt > 0 && dt < 1) { const yy = -off + (lvl + off) * dt * dt; g.globalAlpha = a; g.fillStyle = `hsl(${h1},80%,${d ? 65 : 55}%)`; g.beginPath(); g.moveTo(cx, yy - 9 * k); g.bezierCurveTo(cx + 4 * k, yy - 3 * k, cx + 4.5 * k, yy + 3 * k, cx, yy + 3.5 * k); g.bezierCurveTo(cx - 4.5 * k, yy + 3 * k, cx - 4 * k, yy - 3 * k, cx, yy - 9 * k); g.fill(); }
+        // foam spilling over the lip and down the sides while it erupts
+        const sp = fxEase((f - 80) / 30) * (1 - fxEase((f - 170) / 50)); if (sp > 0) { const cols = d ? ["#FF8FC4", "#6FE6D6", "#FFD36A"] : ["#F06AA8", "#2EB5A5", "#F2B53A"];
+          for (let i = 0; i < 14; i++) { const sd = i % 2 ? 1 : -1, t = ((i * 0.37 + f * 0.012) % 1), x = cx + sd * (wn / 2 + 2 * k + (wb / 2 - wn / 2) * Math.max(0, t - 0.25) * 0.9), y = top + (by - top) * t * sp;
+            g.globalAlpha = a * sp * (1 - t * 0.6); g.fillStyle = cols[i % 3]; g.beginPath(); g.arc(x, y, (5 + (i % 3) * 2) * k * (1 - t * 0.5), 0, 7); g.fill(); } }
+        g.restore(); }},
     tag: "A bubbly lab with rainbow flasks, a lava lamp, smoke rings and molecules floating by"
   });
 })();

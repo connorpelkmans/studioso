@@ -143,9 +143,9 @@
         const a = fxEase(f / 14) * (1 - fxEase((f - 180) / 60)); if (a <= 0.01) return;
         const ph = W < H, R0 = Math.min(W, H) * (ph ? 0.1 : 0.075), C = ph ? [[0.26, 0.42, 0, 0.5], [0.72, 0.6, 14, -0.4], [0.32, 0.8, 26, 1.2], [0.76, 0.86, 8, 0.2]] : [[0.16, 0.5, 0, 0.5], [0.84, 0.44, 14, -0.4], [0.36, 0.78, 26, 1.2], [0.66, 0.8, 8, 0.2], [0.08, 0.86, 34, -1]];
         const cols = d ? ["#5CF2C4", "#FF7AC6", "#8AD8FF"] : ["#4FA86E", "#D9708F", "#4E92C4"];
-        C.forEach(([cx, cy, t0, ang], i) => { const t = f - t0; if (t <= 0) return; const col = cols[i % 3], grow = 1 - Math.pow(1 - Math.min(1, t / 30), 3), e = fxEase((t - 40) / 70), R = R0 * (0.5 + 0.5 * grow) * (1 - 0.22 * e), s = R0 * 0.95 * e, ux = Math.cos(ang), uy = Math.sin(ang), X = cx * W + ux * Math.sin(t / 50) * 4, Y = cy * H + uy * Math.cos(t / 60) * 4;
-          // one outline around both halves: wide stroke, cut the inside out, then a soft fill
-          const body = new Path2D(); body.arc(X - ux * s, Y - uy * s, R, 0, 7); body.moveTo(X + ux * s + R, Y + uy * s); body.arc(X + ux * s, Y + uy * s, R, 0, 7); if (s > 1) { body.moveTo(X + R * 0.8, Y); body.ellipse(X, Y, s, R * 0.8 * (1 - e) + 0.5, ang, 0, 7); }
+        C.forEach(([cx, cy, t0, ang], i) => { const t = f - t0; if (t <= 0) return; const col = cols[i % 3], grow = 1 - Math.pow(1 - Math.min(1, t / 30), 3), e = fxEase((t - 40) / 70), R = R0 * (0.5 + 0.5 * grow) * (1 - 0.22 * e), s = R0 * (0.95 * e + 0.55 * fxEase((t - 105) / 90)), ux = Math.cos(ang), uy = Math.sin(ang), X = cx * W + ux * Math.sin(t / 50) * 4, Y = cy * H + uy * Math.cos(t / 60) * 4;
+          // one outline around both halves while they pinch apart (the waist closes completely, then the two cells drift apart)
+          const body = new Path2D(); body.arc(X - ux * s, Y - uy * s, R, 0, 7); body.moveTo(X + ux * s + R, Y + uy * s); body.arc(X + ux * s, Y + uy * s, R, 0, 7); const waist = R * 0.8 * (1 - e) * (1 - e); if (s > 1 && waist > 0.6) { body.moveTo(X + R * 0.8, Y); body.ellipse(X, Y, Math.min(s, R), waist, ang, 0, 7); }
           g.globalAlpha = a * 0.85; g.strokeStyle = col; g.lineWidth = 5; g.stroke(body); g.globalCompositeOperation = "destination-out"; g.fill(body); g.globalCompositeOperation = "source-over";
           g.globalAlpha = a * (d ? 0.22 : 0.18); g.fillStyle = col; g.fill(body);
           g.globalAlpha = a * 0.75; g.fillStyle = fxShade(col.length === 7 ? col : "#888888", 0.8); const k = 0.85 * s, nr = R * (0.32 - 0.08 * Math.sin(Math.PI * e));

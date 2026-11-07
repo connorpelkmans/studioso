@@ -103,17 +103,35 @@
       glow: ["linear-gradient(180deg,#A9D3EE,#D7EBF2 50%,#EAF2DA)", "linear-gradient(180deg,#0B1530,#16284A 50%,#2A3D58)"],
       spine: [lg("#3C7A52", "#24533A"), lg("#16302E", "#0A1616")], btn: [lg2("#2F7D4A", "#4A9A5A"), lg2("#8FD69A", "#C2E89A")]},
     kit: {motif: "turbine", card: ["#F7FBF6", "#E2EFE0"], ink: "#15291C", bd: "#C2DCC6", mc: "#2F7D4A", r: 16, notes: ["#D3E8D5", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "pin", fab: "24px 24px 24px 8px", btn: "12px"},
-    // a gust sweeps through: curling wind lines race across, carrying leaves and dandelion seeds with them, and a few butterflies ride it up
-    fx: {spawn: (W, H, d, n) => gust(W, H, n(34), "leaf", d ? ["#7FCB8A", "#A8DC8E", "#5AA86A"] : ["#3E9E4F", "#6CC070", "#8FCF5A", "#2F7A3E"], {vmin: 3.2, vmax: 5.6, sway: 1.6, flip: true, smin: 8, smax: 12}).map(p => Object.assign(p, {vr: 0, rock: fxR(0.4, 0.8), delay: 10 + Math.floor(fxR(0, 70))}))
-      .concat(gust(W, H, n(22), "seed", d ? ["#F4F1E6", "#DDEBE0"] : ["#FFFFFF", "#F4F6EC"], {vmin: 2.2, vmax: 3.6, sway: 2.4, smin: 10, smax: 14, glow: d ? 6 : 4}).map(p => Object.assign(p, {vr: 0, rock: 0.3, rot: fxR(-0.4, 0.4), vy: fxR(-1.2, -0.2)})),
-        fxFlutter(W, H, n(6), d ? ["#FFB3D9", "#FFE38A", "#B8F0FF"] : ["#FF7FA8", "#FFC23A", "#5FB0F0", "#B58CF2"]),
-        fxTw(W, H, n(16), "circle", d ? ["#F6E68A", "#C8F28A"] : ["#F2D24A", "#B8E07A"], {smin: 1.8, smax: 3, glow: 10, vy: -0.4})),
+    // a kite catches the wind: it climbs from the bottom corner in big lazy swoops, its tail of bows hanging and fluttering
+    // below and its string running back to the corner, then sails off up and away while dandelion seeds drift by
+    fx: {len: 280, spawn: (W, H, d, n) => gust(W, H, n(20), "seed", d ? ["#F4F1E6", "#DDEBE0"] : ["#FFFFFF", "#F4F6EC"], {vmin: 1.6, vmax: 2.8, sway: 2.2, smin: 10, smax: 15, glow: d ? 6 : 4}).map(p => Object.assign(p, {vr: 0, rock: 0.3, rot: fxR(-0.4, 0.4), vy: fxR(-1, -0.2)}))
+      .concat(fxFlutter(W, H, n(4), d ? ["#FFB3D9", "#FFE38A", "#B8F0FF"] : ["#FF7FA8", "#FFC23A", "#5FB0F0", "#B58CF2"]),
+        fxTw(W, H, n(12), "circle", d ? ["#F6E68A", "#C8F28A"] : ["#F2D24A", "#B8E07A"], {smin: 1.8, smax: 3, glow: 10, vy: -0.4})),
       draw: (g, f, W, H, d) => {
-        const a = 1 - fxEase((f - 170) / 50); if (a <= 0.01) return;
-        g.lineCap = "round"; g.strokeStyle = d ? "rgba(235,250,240,.8)" : "rgba(255,255,255,.95)"; g.shadowBlur = d ? 6 : 5; g.shadowColor = d ? "rgba(200,255,220,.5)" : "rgba(40,100,60,.35)";
-        [[0.3, 0, 1], [0.55, 18, -1], [0.78, 36, 1], [0.42, 70, -1], [0.66, 96, 1]].forEach(([y0, t0, cs]) => { const hu = (f - t0) / 80; if (hu <= 0 || hu > 1.3) return;
-          const R = Math.min(W, H) * 0.06, P = u => { const c = Math.min(1, Math.max(0, (u - 0.45) / 0.22)), q = c * Math.PI * 2; return [-0.1 * W + u * 1.25 * W - R * Math.sin(q), y0 * H + Math.sin(u * 5 + y0 * 9) * H * 0.025 - cs * R * (1 - Math.cos(q))]; };
-          for (let k = 0; k < 14; k++) { const u1 = hu - k * 0.014, u0 = u1 - 0.014; if (u0 < 0) break; const [x0, yy0] = P(u0), [x1, yy1] = P(u1); g.globalAlpha = a * (1 - k / 14) * Math.min(1, (1.3 - hu) * 4); g.lineWidth = 3.2 * (1 - k / 16); g.beginPath(); g.moveTo(x0, yy0); g.lineTo(x1, yy1); g.stroke(); } }); }},
+        const a = fxEase(f / 8); if (f > 300) return;
+        const ph = W < H, K = Math.min(W, H) * (ph ? 0.13 : 0.125), ax = W * 0.04, ay = H + 30;
+        const pos = t => { const u = Math.max(0, t) / 190, e = fxEase(Math.min(1, u)), away = Math.max(0, t - 185) / 90;
+          return [W * (0.2 + 0.55 * e) + Math.sin(u * 8.5) * W * (ph ? 0.1 : 0.07) + away * away * W * 0.4, H * (1.12 - 0.82 * e) + Math.sin(u * 12 + 1) * H * 0.04 - away * away * H * 0.7]; };
+        const tilt = t => { const [x0] = pos(t - 2), [x1] = pos(t + 2); return Math.max(-0.6, Math.min(0.6, (x1 - x0) * 0.03)) + Math.sin(t * 0.09) * 0.08; };
+        const [kx, ky] = pos(f), tl = tilt(f), rot = (x, y, r) => [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)];
+        g.globalAlpha = a; g.lineCap = g.lineJoin = "round";
+        // string
+        const [bx, by] = rot(0, 0.15 * K, tl); g.strokeStyle = d ? "rgba(230,240,235,.55)" : "rgba(40,60,50,.45)"; g.lineWidth = 1.2;
+        g.beginPath(); g.moveTo(kx + bx, ky + by); g.quadraticCurveTo((kx + ax) / 2 + W * 0.05, Math.max(ky, ay) + H * 0.02, ax, ay); g.stroke();
+        // tail: follows where the kite was a moment ago
+        const [tx, ty] = rot(0, 1.05 * K, tl), pts = []; for (let j = 0; j <= 16; j++) { const [hx] = pos(f - j * 1.6), w = Math.sin(f * 0.22 - j * 0.7) * K * 0.07 * Math.min(1, j / 3); pts.push([kx + tx + (hx - kx) * 0.55 + w, ky + ty + j * K * 0.11]); }
+        g.strokeStyle = d ? "#F2EEDC" : "#4A4A5A"; g.lineWidth = 1.6; g.beginPath(); pts.forEach(([x, y], j) => j ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+        const bowC = ["#E8463C", "#F2B53A", "#3A86D8", "#3FAE6A"];
+        pts.forEach(([x, y], j) => { if (j % 3 !== 2) return; const s = K * 0.12 * (1 - j / 34); g.fillStyle = bowC[Math.floor(j / 3) % 4]; g.beginPath(); g.moveTo(x, y); g.lineTo(x - s * 1.4, y - s); g.lineTo(x - s * 1.4, y + s); g.closePath(); g.moveTo(x, y); g.lineTo(x + s * 1.4, y - s); g.lineTo(x + s * 1.4, y + s); g.closePath(); g.fill(); });
+        // the kite: four colored panels, spars and a little shading
+        g.save(); g.translate(kx, ky); g.rotate(tl);
+        const T = [0, -K], R = [0.64 * K, -0.16 * K], B = [0, 1.05 * K], L = [-0.64 * K, -0.16 * K], C = [0, -0.16 * K];
+        [[T, R, "#E8463C"], [R, B, "#F2B53A"], [B, L, "#3A86D8"], [L, T, "#3FAE6A"]].forEach(([p, q, c], i) => { g.fillStyle = i % 2 ? fxShade(c, 0.9) : c; g.beginPath(); g.moveTo(C[0], C[1]); g.lineTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.closePath(); g.fill(); });
+        const sh = g.createLinearGradient(-0.5 * K, -K, 0.5 * K, K); sh.addColorStop(0, "rgba(255,255,255,.28)"); sh.addColorStop(0.5, "rgba(255,255,255,0)"); sh.addColorStop(1, "rgba(0,0,0,.16)");
+        g.fillStyle = sh; g.beginPath(); g.moveTo(T[0], T[1]); g.lineTo(R[0], R[1]); g.lineTo(B[0], B[1]); g.lineTo(L[0], L[1]); g.closePath(); g.fill();
+        g.strokeStyle = d ? "rgba(255,255,255,.75)" : "rgba(70,45,30,.6)"; g.lineWidth = Math.max(1.4, K * 0.022); g.beginPath(); g.moveTo(T[0], T[1]); g.lineTo(B[0], B[1]); g.moveTo(L[0], L[1]); g.lineTo(R[0], R[1]); g.stroke();
+        g.restore(); }},
     tag: "Wind turbines turning over a green valley with solar fields, a winding river and a little farm"
   });
   MAJ_THEMES.push({

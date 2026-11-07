@@ -87,7 +87,7 @@
       }, draw: waveDraw},
     volcano: {spawn: (W, H, d, n) => Array.from({length: n(30)}, (_, i) => { const a = fxR(-0.45, 0.45), sp = H * fxR(0.022, 0.033); return {shape: "n1bomb", c: fxPick(["#FF8A2A", "#FF6A1E", "#FFA83A"]), x: W / 2 + fxR(-20, 20), y: H + 10, vx: Math.sin(a) * sp, vy: -Math.cos(a) * sp, g: 0.3, drag: 0.99, size: fxR(9, 14), rot: fxR(0, 6), vr: fxR(-0.1, 0.1), sway: 0, life: 200, delay: [0, 32, 64][i % 3] + Math.floor(fxR(0, 10)), glow: d ? 14 : 8}; })
         .concat(Array.from({length: n(60)}, () => ({shape: "circle", c: fxPick(["#FFB347", "#FF8A3A", "#FFE08A"]), x: W / 2 + fxR(-40, 40), y: H - fxR(0, 20), vx: fxR(-2.6, 2.6), vy: -fxR(4, 9), g: 0.07, drag: 0.985, size: fxR(1.8, 3.4), rot: 0, vr: 0, sway: 0.6, swf: 0.1, grow: -0.04, life: fxR(80, 140), delay: Math.floor(fxR(0, 120)), glow: 10})),
-          fxRise(W, H, n(14), "n1soft", d ? ["#8A7A90"] : ["#A08A84"], {cx: [0.42, 0.58], smin: 12, smax: 17, vmin: 1.2, vmax: 2, sway: 1, grow: 0.35, alpha: d ? 0.26 : 0.22, life: 200, spread: 110, depth: false})),
+          fxRise(W, H, n(10), "n1soft", d ? ["#8A7A90"] : ["#E2C4B4"], {cx: [0.42, 0.58], smin: 12, smax: 17, vmin: 1.2, vmax: 2, sway: 1, grow: 0.2, alpha: d ? 0.2 : 0.14, life: 200, spread: 110, depth: false})),
       draw: ventDraw},
     savanna: {spawn: (W, H, d, n) => { const k = Math.max(7, Math.min(11, Math.round(W / 110))), u = Math.max(9, Math.min(W, H) * 0.022), vx = W * 0.0042 + 1.2, y0 = H * fxR(0.42, 0.52);
         FLOCK = Array.from({length: k}, (_, i) => { const r = Math.ceil(i / 2), s = i % 2 ? 1 : -1; return {x: -u * 3 - r * u * 3.2, y: y0 + s * r * u * 2.2, vx, vy: -0.08, d: 10 + r * 2, s: fxR(0.9, 1.15), fs: fxR(0.16, 0.22), ph: fxR(0, 6.3)}; });
