@@ -1541,11 +1541,12 @@ function cleanFile(r) {
   function syncNow(opts){
     const o = opts || {};
     if (running) return running;
+    let pill = false;
     running = (async () => {
       const how = howNow();
       if (!how) { if (!o.quiet) bsSheet(); return null; }
       if (how === "api" && !consented()) { if (o.quiet) { askConsentSoon(() => syncNow()); return null; } if (!(await askConsent())) return null; }
-      if (!o.quiet) toast(`Syncing with ${P.name}…`);
+      if (!o.quiet) { pill = true; syncPill(true); }
       const t0 = Date.now(); setLocal({lastTry: t0});
       let r = await getData(how), used = how;
       if ((r.needLogin || r.error) && (local().loginAt || 0) > t0) return null;
@@ -1558,7 +1559,7 @@ function cleanFile(r) {
       if (r.error) { setLocal({err: r.text, fails: (local().fails || 0) + 1}); if (!o.quiet) toast(r.text); scheduleRender(); return null; }
       const p = plan(r.data);
       return applyPlan(r.data, p, used, !!o.quiet);
-    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}. Try again.`); return null; }).finally(() => { running = null; refreshSheet(); });
+    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}. Try again.`); return null; }).finally(() => { running = null; if (pill) syncPill(false); refreshSheet(); });
     refreshSheet();
     return running;
   }

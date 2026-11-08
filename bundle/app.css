@@ -139,6 +139,21 @@ body.wide .wrap{max-width:1180px}
 .col-resort{margin-left:auto;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:2px 9px;font:600 .74rem var(--body,inherit);cursor:pointer}.col-resort:hover{color:var(--ink)}
 
 .col-head .sd{width:10px;height:10px;border-radius:3px;background:var(--sc)}
+.col-resort .cr-s{display:none}
+/* iPad held upright: narrow columns, so the title stays on one line and To Do and In Progress just say Sort (the tooltip says the rest) */
+@media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
+  .col-head{white-space:nowrap}
+  .col-resort .cr-l{display:none}
+  .col-resort .cr-s{display:inline}
+  /* the notes board fills the screen down to the tab bar, so its tip line would only sit under the tab bar */
+  #view .nb-hint{display:none}
+  /* Do This Next: its buttons sit centred under the task instead of pushed to the right */
+  .next-up .nu-acts{flex-basis:100%;margin-left:0;justify-content:center}
+  /* a course's (or deck's, or group's) buttons that wrap below the coloured band's top line keep to the right, clear of the round icon */
+  #view .g2-band > .row-actions{margin-left:auto!important;justify-content:flex-end;max-width:calc(100% - 120px)}
+  /* a shared whiteboard's chip just says who it's live with (no head count), so the buttons clear the Notes / Whiteboard switch */
+  .wb-livechip .wbl-n{display:none}
+}
 .col-head .n{color:var(--muted);font:500 .85rem var(--body)}
 .col-list{display:flex;flex-direction:column;gap:8px;min-height:70px}
 .card{position:relative;display:block;width:100%;text-align:left;border:1px solid color-mix(in srgb,var(--c) 28%,var(--line));border-left:5px solid var(--c);background:color-mix(in srgb,var(--c) 8%,var(--surface));border-radius:12px;padding:10px 12px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
@@ -503,13 +518,13 @@ nav.tabs button{font-size:.75rem!important}
 .nb-sizer{width:100%;height:100%}
 .nb-sizer.zoomed{position:relative;overflow:hidden;width:auto;height:auto}
 .nb-sizer.zoomed > .nb-board{transform-origin:0 0}
-/* Zoomed, the cork is drawn on the unscaled frame behind the board: a scaled patterned layer shows seams on iPhone.
-   Everything in the pattern (spacing, offset and the dots themselves) is scaled by the zoom, so the cork zooms exactly like
-   the notes on it. The frame always fills the view. */
-.nb-sizer.zoomed{min-width:100%;min-height:100%;background-color:#C69C6D;background-image:radial-gradient(rgba(90,55,20,.28) calc(1px * var(--nbz,1)),transparent calc(1.4px * var(--nbz,1))),radial-gradient(rgba(255,235,200,.22) calc(1px * var(--nbz,1)),transparent calc(1.5px * var(--nbz,1)));background-size:calc(9px * var(--nbz,1)) calc(9px * var(--nbz,1)),calc(13px * var(--nbz,1)) calc(13px * var(--nbz,1));background-position:0 0,calc(5px * var(--nbz,1)) calc(7px * var(--nbz,1))}
+/* Zoomed, the solid cork colour is on the unscaled frame behind the board (a scaled solid layer shows seams on iPhone),
+   but the dots stay on the board and scale with it: drawn on the frame at 9px × zoom, phones snap each tile to device
+   pixels, so the dots drift against the notes as you zoom. The frame always fills the view. */
+.nb-sizer.zoomed{min-width:100%;min-height:100%;background-color:#C69C6D}
 :root[data-theme="dark"] .nb-sizer.zoomed{background-color:#6E5238}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .nb-sizer.zoomed{background-color:#6E5238}}
-.nb-sizer.zoomed > .nb-board{background:none!important}
+.nb-sizer.zoomed > .nb-board{background-color:transparent!important}
 .nb-zoom{position:absolute;top:14px;left:14px;z-index:6;display:flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);box-shadow:0 2px 8px rgba(40,25,10,.18);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .nb-zoom button{border:0;background:none;color:var(--ink);font:700 .82rem var(--display);min-width:30px;height:30px;padding:0 6px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-variant-numeric:tabular-nums}
 .nb-zoom .nbz-b{font-size:1.05rem}
@@ -2461,6 +2476,18 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .ai-style-sels{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;margin-top:10px}
 .ai-style-sels .f{margin:0}
 .ai-style-sels select{width:100%}
+/* The "Syncing" notice while a school site syncs: the toast's look, with three dots that pulse in turn */
+.toast.sync-pill{gap:0;font-weight:600}
+.toast.sync-pill.show{opacity:1}
+.sp-dots{display:inline-flex;gap:3px;margin-left:5px;align-items:flex-end;height:1em}
+.sp-dots i{width:4px;height:4px;border-radius:50%;background:currentColor;animation:spDot 1.2s infinite ease-in-out}
+.sp-dots i:nth-child(2){animation-delay:.2s}
+.sp-dots i:nth-child(3){animation-delay:.4s}
+@keyframes spDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.sp-dots i{animation:none;opacity:.8}}
+html[data-motion="static"] .sp-dots i{animation:none;opacity:.8}
+/* with a message showing too, the notice moves up above it */
+html:has(#toast.show) .toast.sync-pill{transform:translateX(-50%) translateY(-56px)}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -3506,7 +3533,14 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 /* Task board */
 .pt-view{display:inline-flex;gap:4px}
 .kb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start}
-@media (max-width:760px){.kb{grid-template-columns:1fr}}
+/* Phones: the columns sit side by side and scroll sideways with snapping, like the main Task Board */
+@media (max-width:760px){
+  .kb{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;padding:0 0 8px;scrollbar-width:none}
+  .kb::-webkit-scrollbar{display:none}
+  #grpDetail .grp-sec > .kb{margin:0 -16px;padding:0 16px 8px;scroll-padding:0 16px}
+  .kb-col{flex:0 0 84%;scroll-snap-align:start;min-height:220px}
+  .kb.kb-dragging{scroll-snap-type:none}
+}
 .kb-col{background:color-mix(in srgb,var(--surface) 55%,transparent);border:1px solid var(--line);border-radius:16px;padding:10px;min-width:0}
 .kb-col h4{display:flex;align-items:center;gap:8px;margin:2px 4px 10px;font:700 1.02rem var(--display);letter-spacing:-.01em}
 .kb-col h4 .sd{width:10px;height:10px;border-radius:3px;background:var(--sc);flex:none}
@@ -5849,7 +5883,8 @@ html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-men
 /* Native disclosure sections */
 html:not([data-motion="static"]) details[open] > :not(summary){animation:sm-in .22s var(--sm-ease) backwards}
 /* Buttons answer a tap right away */
-@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):not(nav.tabs button):active{transform:scale(.97)}}
+/* …but not a button that fills a reorderable card (a group card): shrinking it alone pulls the content in from the card's rounded edge, so the corners look square while the press waits to lift */
+@media (hover:none){html:not([data-motion="static"]) :is(button,.btn):not(nav.tabs button):not([data-sortable] > [data-sort-id] > button):active{transform:scale(.97)}}
 dialog:focus,dialog:focus-visible{outline:none}
 dialog [tabindex="-1"]:focus,dialog [tabindex="-1"]:focus-visible{outline:none}
 /* a sheet focuses its heading on opening (99-smooth.js): no ring, it is not something to press */
@@ -5928,11 +5963,14 @@ html #view :is(.g2-head .g2-band .btn.primary, .c2-head .g2-band .btn.primary)::
 .cp-front.cp-under{z-index:4}
 /* while it says something, the bubble goes over the top bar instead of being cut off under it */
 .cp-front.cp-under:has(.cp-bubble.on){z-index:7}
-/* Notes on a phone */
-@media (max-width:700px){
+/* Notes on a phone: a little smaller, held upright or turned sideways (a phone on its side is wider than 700px, and the notes
+   used to grow and shift each time it turned) */
+@media (max-width:700px), (max-height:500px) and (pointer:coarse){
   .note{transform:rotate(var(--rot)) scale(.88)}
   .note.dragging{transform:rotate(calc(var(--rot) + 3deg)) scale(.92)}
   .note.editing{transform:none}
+}
+@media (max-width:700px){
   .env.closed{left:14px;right:auto}
   .env:not(.closed){max-height:min(380px,48dvh)}
   .env:not(.closed) .env-body{overflow:hidden auto}
@@ -6496,6 +6534,9 @@ h2.sec.c2-bh{align-items:center}
 .seg,.seg span,.segb,.segb button,.bview-tabs,.bview-tabs button,.pview-tabs,.pview-tabs button,.us-subs,.us-sub-tab{border-radius:999px}
 /* ===== Schedule, Direction 1: tinted class blocks with a course-colour edge, a calmer grid ===== */
 .sch-wrap{border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08)!important}
+/* the Schedule's day swipe: the page only scrolls up and down here, so a sideways swipe always reaches it (Safari could start its own
+   gesture and cancel the swipe, which sprang back) */
+@media (max-width:700px){.sch-wrap,.sch-pills{touch-action:pan-y}}
 .sch-head{background:var(--surface)!important;min-height:58px;padding:10px 8px!important}
 .sch-dn span{font-size:.72rem!important;font-weight:700!important}
 .sch-dn b{font:800 1.2rem var(--display)!important}
@@ -6620,6 +6661,9 @@ svg.ci-svg{overflow:visible!important}
 /* Timeline course rows */
 .tl-scroll .tl-row.tl-group{--ba:color-mix(in srgb,var(--c) 88%,#000);--bb:color-mix(in srgb,var(--c) 74%,var(--surface));background:none!important}
 .tl-scroll .tl-group .tl-label{background:var(--ba)!important;border-right:0!important;box-shadow:none!important}
+/* Safari rounds the pinned course label on its own, so it could end a pixel above the rest of the bar: its colour runs a
+   pixel lower (the next row's label covers that pixel whenever the two already line up) */
+.tl-scroll .tl-group .tl-label{box-shadow:0 1px 0 var(--ba)!important}
 .tl-scroll .tl-group .tl-track{background:linear-gradient(90deg,var(--ba) var(--tls,0px),var(--bb) calc(var(--tls,0px) + var(--tlv,1000px)))!important}
 /* sheet heads: the band is only the top strip; the title below sits on the sheet */
 .g2-sheet-head{background-size:100% 62px!important;background-repeat:no-repeat!important;background-position:top!important}
@@ -7103,6 +7147,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .head-actions{gap:6px;align-items:center}
   .head-actions > .icon-btn,.head-actions > .pomo-btn:not(.active):not(.run){width:40px;height:40px;min-width:40px;padding:0;border-radius:50%;justify-content:center}
   .head-actions > :is(.pomo-btn.run,.pomo-btn.active){width:auto;height:40px;padding:0 12px}
+  /* the tomato fills its round button like the other top-bar icons (it was 20px in a 40px circle) */
+  .head-actions > .pomo-btn:not(.active):not(.run) .tomato-ic{width:26px;height:26px}
   .sync-guest{align-self:center;padding:7px 11px;font-size:.74rem}
   /* Bottom tabs: five, with the companion's seat in the middle */
   :root{--ph-bar-b:max(6px,calc(var(--sb-sai-bottom,env(safe-area-inset-bottom,0px)) - 8px))}
@@ -7585,11 +7631,14 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   select.cs-custom{pointer-events:none}
 }
 
-/* Today's Plan / Task Board switch: the space under it matches the space above it */
+/* Today's Plan / Task Board switch: the space under it is the tabs' own 12px, as under every other page's tabs (the row added
+   14px more) */
 @media (max-width:639px){
-  #view > .bview-row{margin-bottom:14px!important}
+  #view > .bview-row{margin-bottom:0!important}
   #view > .bview-row + .bview{margin-top:0!important}
   #view > .bview > :first-child,#view > .bview > .bpane > :first-child,#view > .bview .bpane-plan > :first-child,#view > .bview .bpane-board > :first-child{margin-top:0!important}
+  /* the Task Board's course filter row is the first thing shown there (the section heading is hidden on phones) */
+  #view > .bview .bpane-board > .board-sec > .cf-row{margin-top:0!important}
 }
 
 /* Today's Plan, every screen: the day ribbon and one thin Time Today bar. The two-week ribbon with its Planned Today tile
@@ -8208,6 +8257,13 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   body.sb-scrolled header.top{padding-top:calc(max(0px, env(safe-area-inset-top,0px) - 10px) + 6px)!important}
   header.top .top-row > div:first-child{padding-top:2px}
 }
+/* iPad and larger: the same, so nothing scrolls up behind the clock and battery above the header (it stopped below that strip).
+   A computer has no such strip (the inset is 0), so nothing changes there */
+@media (min-width:640px){
+  :root{padding-top:0}
+  html{scroll-padding-top:0}
+  header.top{top:0!important;padding-top:calc(12px + env(safe-area-inset-top,0px))!important}
+}
 /* Course card grade on phones: one line, on the right ("92% A"), no "Grade" word or marked share */
 @media (max-width:639px){
   #view .c2-card .c2-foot > .c2-grade{margin-left:auto!important;flex:none;gap:5px;overflow:visible}
@@ -8286,6 +8342,66 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #view .c2-card .c2-foot{flex-wrap:wrap;row-gap:4px;column-gap:10px}
   #view .c2-card .c2-foot > .mini{overflow:visible;text-overflow:clip}
   .ph-sch .sch-range{white-space:normal;line-height:1.15;font-size:.88rem}
+}
+
+/* Due Dates: the Timeline / Month switch sits at the right end of its row */
+#view .tl-tools > .segb[aria-label="View"]{order:99;margin-left:auto}
+
+/* iPad held sideways: the side menu starts below the clock and battery, so they don't cover the Studyboard logo */
+@media (min-width:701px) and (orientation:landscape) and (pointer:coarse){
+  nav.tabs > .nav-brand{margin-top:env(safe-area-inset-top,0px)}
+}
+
+/* iPad held sideways too: a course's (or deck's, or group's) buttons on the coloured band keep to the right, clear of the round icon */
+@media (min-width:701px) and (orientation:landscape) and (pointer:coarse){
+  #view .g2-band > .row-actions{margin-left:auto!important;justify-content:flex-end;max-width:calc(100% - 120px)}
+}
+
+/* Today's Plan on phones: the focus (tomato) button stacks above Log Time, with the time for today to their left, centred
+   between them, so the task's name gets more of the row */
+@media (max-width:639px){
+  #view .plan-row > .plan-side{display:grid;grid-template-columns:auto auto;column-gap:10px;row-gap:6px;align-items:center;justify-items:end}
+  #view .plan-row > .plan-side > :is(.alloc,.score){grid-column:1;grid-row:1 / span 2}
+  #view .plan-row > .plan-side > .focus-go:not(.lt-go){grid-column:2;grid-row:1}
+  #view .plan-row > .plan-side > .lt-go{grid-column:2;grid-row:2}
+  #view .plan-row > .plan-side > :not(.alloc):not(.score):not(.focus-go){grid-row:1 / span 2}
+}
+
+/* Heads Up on phones: the icon sits to the left of its text, centred against it, and the buttons are centred under both */
+@media (max-width:600px){
+  #view .plan-notes .pn{display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:12px;row-gap:10px;align-items:center}
+  #view .plan-notes .pn > .pn-ic{grid-column:1;grid-row:1}
+  #view .plan-notes .pn > .pn-main{grid-column:2;grid-row:1}
+  #view .plan-notes .pn > .pn-acts{grid-column:1 / -1;grid-row:2;margin-left:0;justify-content:center}
+}
+
+/* Do This Next on phones: no course icon in the corner any more, so the title runs the full width; Details sits to the right
+   of the course code */
+@media (max-width:639px){
+  #view .next-up .nu-row{grid-template-columns:26px auto minmax(0,1fr)}
+  #view .next-up .nu-title{grid-column:2 / -1;padding-right:0}
+  #view .next-up .nu-body > :not(.nu-title){grid-column:2 / -1}
+  #view .next-up .nu-body > .nu-tag-out{grid-column:2;grid-row:2;align-self:center}
+  #view .next-up .nu-body > .nu-tag-out ~ .nu-more{grid-column:3;grid-row:2;align-self:center}
+  #view .next-up .nu-acts{grid-column:1 / -1}
+}
+
+/* Do This Next on computers and iPads held sideways: Start a Focus sits above Log Time and Enough for Today (as on phones), so
+   the buttons take less of the row and the task's name and details get more room */
+@media (min-width:640px){
+  html:not(.x) #view .next-up .nu-acts{display:grid;grid-template-columns:repeat(2,auto);gap:6px;align-content:center;align-self:center;flex:none}
+  html:not(.x) #view .next-up .nu-acts > .btn{justify-content:center;text-align:center}
+  html:not(.x) #view .next-up .nu-acts > .btn.primary{grid-column:1 / -1}
+}
+/* (an iPad held upright keeps its centred row of buttons under the task) */
+@media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
+  html:not(.x) #view .next-up .nu-acts{display:flex;align-self:auto;flex:0 0 100%}
+}
+
+/* iPad (and other larger screens) with the keyboard up: a sheet such as Sign In centres itself in the part of the screen the
+   keyboard leaves visible, and scrolls inside if it's taller than that, so the box being typed in is never behind the keyboard */
+@media (min-width:640px){
+  html.kb-open dialog#dlg[open]{position:fixed;inset:calc(8px + env(safe-area-inset-top,0px)) 0 calc(var(--kb-h,0px) + 8px) 0;margin:auto;max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px);transition:inset .3s cubic-bezier(.32,.72,0,1)}
 }
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}

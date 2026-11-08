@@ -217,6 +217,13 @@
   body.sb-scrolled header.top{padding-top:calc(max(0px, env(safe-area-inset-top,0px) - 10px) + 6px)!important}
   header.top .top-row > div:first-child{padding-top:2px}
 }
+/* iPad and larger: the same, so nothing scrolls up behind the clock and battery above the header (it stopped below that strip).
+   A computer has no such strip (the inset is 0), so nothing changes there */
+@media (min-width:640px){
+  :root{padding-top:0}
+  html{scroll-padding-top:0}
+  header.top{top:0!important;padding-top:calc(12px + env(safe-area-inset-top,0px))!important}
+}
 /* Course card grade on phones: one line, on the right ("92% A"), no "Grade" word or marked share */
 @media (max-width:639px){
   #view .c2-card .c2-foot > .c2-grade{margin-left:auto!important;flex:none;gap:5px;overflow:visible}
@@ -295,4 +302,64 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #view .c2-card .c2-foot{flex-wrap:wrap;row-gap:4px;column-gap:10px}
   #view .c2-card .c2-foot > .mini{overflow:visible;text-overflow:clip}
   .ph-sch .sch-range{white-space:normal;line-height:1.15;font-size:.88rem}
+}
+
+/* Due Dates: the Timeline / Month switch sits at the right end of its row */
+#view .tl-tools > .segb[aria-label="View"]{order:99;margin-left:auto}
+
+/* iPad held sideways: the side menu starts below the clock and battery, so they don't cover the Studyboard logo */
+@media (min-width:701px) and (orientation:landscape) and (pointer:coarse){
+  nav.tabs > .nav-brand{margin-top:env(safe-area-inset-top,0px)}
+}
+
+/* iPad held sideways too: a course's (or deck's, or group's) buttons on the coloured band keep to the right, clear of the round icon */
+@media (min-width:701px) and (orientation:landscape) and (pointer:coarse){
+  #view .g2-band > .row-actions{margin-left:auto!important;justify-content:flex-end;max-width:calc(100% - 120px)}
+}
+
+/* Today's Plan on phones: the focus (tomato) button stacks above Log Time, with the time for today to their left, centred
+   between them, so the task's name gets more of the row */
+@media (max-width:639px){
+  #view .plan-row > .plan-side{display:grid;grid-template-columns:auto auto;column-gap:10px;row-gap:6px;align-items:center;justify-items:end}
+  #view .plan-row > .plan-side > :is(.alloc,.score){grid-column:1;grid-row:1 / span 2}
+  #view .plan-row > .plan-side > .focus-go:not(.lt-go){grid-column:2;grid-row:1}
+  #view .plan-row > .plan-side > .lt-go{grid-column:2;grid-row:2}
+  #view .plan-row > .plan-side > :not(.alloc):not(.score):not(.focus-go){grid-row:1 / span 2}
+}
+
+/* Heads Up on phones: the icon sits to the left of its text, centred against it, and the buttons are centred under both */
+@media (max-width:600px){
+  #view .plan-notes .pn{display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:12px;row-gap:10px;align-items:center}
+  #view .plan-notes .pn > .pn-ic{grid-column:1;grid-row:1}
+  #view .plan-notes .pn > .pn-main{grid-column:2;grid-row:1}
+  #view .plan-notes .pn > .pn-acts{grid-column:1 / -1;grid-row:2;margin-left:0;justify-content:center}
+}
+
+/* Do This Next on phones: no course icon in the corner any more, so the title runs the full width; Details sits to the right
+   of the course code */
+@media (max-width:639px){
+  #view .next-up .nu-row{grid-template-columns:26px auto minmax(0,1fr)}
+  #view .next-up .nu-title{grid-column:2 / -1;padding-right:0}
+  #view .next-up .nu-body > :not(.nu-title){grid-column:2 / -1}
+  #view .next-up .nu-body > .nu-tag-out{grid-column:2;grid-row:2;align-self:center}
+  #view .next-up .nu-body > .nu-tag-out ~ .nu-more{grid-column:3;grid-row:2;align-self:center}
+  #view .next-up .nu-acts{grid-column:1 / -1}
+}
+
+/* Do This Next on computers and iPads held sideways: Start a Focus sits above Log Time and Enough for Today (as on phones), so
+   the buttons take less of the row and the task's name and details get more room */
+@media (min-width:640px){
+  html:not(.x) #view .next-up .nu-acts{display:grid;grid-template-columns:repeat(2,auto);gap:6px;align-content:center;align-self:center;flex:none}
+  html:not(.x) #view .next-up .nu-acts > .btn{justify-content:center;text-align:center}
+  html:not(.x) #view .next-up .nu-acts > .btn.primary{grid-column:1 / -1}
+}
+/* (an iPad held upright keeps its centred row of buttons under the task) */
+@media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
+  html:not(.x) #view .next-up .nu-acts{display:flex;align-self:auto;flex:0 0 100%}
+}
+
+/* iPad (and other larger screens) with the keyboard up: a sheet such as Sign In centres itself in the part of the screen the
+   keyboard leaves visible, and scrolls inside if it's taller than that, so the box being typed in is never behind the keyboard */
+@media (min-width:640px){
+  html.kb-open dialog#dlg[open]{position:fixed;inset:calc(8px + env(safe-area-inset-top,0px)) 0 calc(var(--kb-h,0px) + 8px) 0;margin:auto;max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px);transition:inset .3s cubic-bezier(.32,.72,0,1)}
 }

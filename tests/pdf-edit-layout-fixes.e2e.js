@@ -105,6 +105,21 @@ async function makePdf(pages){
       await T.ctx.close();
     }
 
+    /* iPhone, with unsaved edits: the mode switch shares its row with Ask and Study, and Save and Download share the page row */
+    for (const PW of [402, 393, 375]) {
+      const T = await at(PW, 874), {page} = T;
+      await T.open("f1", true);
+      for (const [ln, txt] of [["Line 3 of sheet 1", "ab"], ["Line 5 of sheet 1", "cd"], ["Line 7 of sheet 1", "ef"]]) { await clickLine(page, ln); await page.waitForTimeout(250); await page.keyboard.type(txt); await page.waitForTimeout(150); await page.keyboard.press("Escape"); await page.waitForTimeout(250); }
+      await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.waitForTimeout(300);
+      const L2 = await page.evaluate(() => { const r = s => { const e = document.querySelector(s); if (!e || !e.getClientRects().length) return null; const q = e.getBoundingClientRect(); return {t: Math.round(q.top), b: Math.round(q.bottom), l: Math.round(q.left), r: Math.round(q.right)}; };
+        return {modes: r(".pdr-modes"), ask: r('[data-act="pde-ask"]'), study: r('[data-act="pde-st"]'), dl: r('[data-act="pde-dl"]'), save: r(".pdr-save"), badge: r(".pdr-save .pdr-badge")}; });
+      const row = (a, b) => !!a && !!b && Math.abs((a.t + a.b) / 2 - (b.t + b.b) / 2) < 6;
+      ok(row(L2.modes, L2.ask) && row(L2.modes, L2.study), `${PW}px iPhone with edits: Ask This PDF and Study sit on the Read / Mark Up / Edit row: ` + JSON.stringify({modes: L2.modes, ask: L2.ask, study: L2.study}));
+      ok(!L2.badge && row(L2.dl, L2.save) && L2.save.t < L2.modes.b + 60, `${PW}px iPhone: Save is just its icon (no count) and sits with Download on the page row: ` + JSON.stringify({dl: L2.dl, save: L2.save}));
+      if (PW === 393) await T.shot("3-iphone-bars");
+      await T.ctx.close();
+    }
+
     /* Phone */
     {
       const T = await at(390, 844), {page} = T;
@@ -114,6 +129,17 @@ async function makePdf(pages){
       await T.shot("3-phone-dlmenu");
       await page.keyboard.press("Escape"); await page.waitForTimeout(200);
       await page.click("#pdeBtn"); await page.waitForFunction(() => !!window.PDFLib); await page.waitForTimeout(500);
+      const ocr = await page.evaluate(() => { const b = document.querySelector('.pde-tools > .pde-tool[data-id="ocr"]'); if (!b) return "not in the row"; const vis = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== "none";
+        return {scan: vis(b.querySelector(".pde-ocr-ic")), face: [...b.querySelectorAll(".cp-ai-face, .ai-ic")].some(vis), purple: b.classList.contains("ai-btn")}; });
+      ok(ocr === "not in the row" || (ocr.scan && !ocr.face && ocr.purple), "on a phone Recognize Text shows a scan icon (not the companion), still purple: " + JSON.stringify(ocr));
+      // an iPad held upright has room for it in the row, as an icon alone: a scan icon there
+      for (const wd of [430, 600, 700, 820]) {
+        await page.setViewportSize({width: wd, height: 1100}); await page.waitForTimeout(600); await page.click('.pde-tools > .pde-tool[data-id="white"]'); await page.waitForTimeout(400); await page.click('.pde-tools > .pde-tool[data-id="text"]'); await page.waitForTimeout(400);
+        const o2 = await page.evaluate(() => { const b = document.querySelector('.pde-tools > .pde-tool[data-id="ocr"]'); if (!b || !b.getClientRects().length) return "not in the row"; const vis = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== "none";
+          return {scan: vis(b.querySelector(".pde-ocr-ic")), face: [...b.querySelectorAll(".cp-ai-face, .ai-ic")].some(vis), purple: b.classList.contains("ai-btn"), label: vis(b.querySelector(".pde-lbl")) && b.querySelector(".pde-lbl").getBoundingClientRect().width > 2}; });
+        if (o2 !== "not in the row" && !o2.label) ok(o2.scan && !o2.face && o2.purple, `${wd}px wide: Recognize Text as an icon alone is a purple scan icon, not the companion: ` + JSON.stringify(o2));
+      }
+      await page.setViewportSize({width: 390, height: 844}); await page.waitForTimeout(600);
       await clickLine(page, "Line 3 of sheet 1"); await page.waitForTimeout(300);
       const hd = await page.evaluate(() => { const one = el => { const k = [...el.children].filter(x => x.offsetWidth && getComputedStyle(x).position !== "absolute"); const b = el.getBoundingClientRect(); return b.height <= 72 && k.every(x => { const r = x.getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; }); };
         return {top: Math.round(document.querySelector("#pdrPages").getBoundingClientRect().top), reader: (b => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().height <= 125)(document.querySelector(".pdr-bar")), sub: one(document.querySelector(".pde-sub")), doc: document.documentElement.scrollWidth}; });

@@ -139,6 +139,21 @@ body.wide .wrap{max-width:1180px}
 .col-resort{margin-left:auto;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:2px 9px;font:600 .74rem var(--body,inherit);cursor:pointer}.col-resort:hover{color:var(--ink)}
 
 .col-head .sd{width:10px;height:10px;border-radius:3px;background:var(--sc)}
+.col-resort .cr-s{display:none}
+/* iPad held upright: narrow columns, so the title stays on one line and To Do and In Progress just say Sort (the tooltip says the rest) */
+@media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
+  .col-head{white-space:nowrap}
+  .col-resort .cr-l{display:none}
+  .col-resort .cr-s{display:inline}
+  /* the notes board fills the screen down to the tab bar, so its tip line would only sit under the tab bar */
+  #view .nb-hint{display:none}
+  /* Do This Next: its buttons sit centred under the task instead of pushed to the right */
+  .next-up .nu-acts{flex-basis:100%;margin-left:0;justify-content:center}
+  /* a course's (or deck's, or group's) buttons that wrap below the coloured band's top line keep to the right, clear of the round icon */
+  #view .g2-band > .row-actions{margin-left:auto!important;justify-content:flex-end;max-width:calc(100% - 120px)}
+  /* a shared whiteboard's chip just says who it's live with (no head count), so the buttons clear the Notes / Whiteboard switch */
+  .wb-livechip .wbl-n{display:none}
+}
 .col-head .n{color:var(--muted);font:500 .85rem var(--body)}
 .col-list{display:flex;flex-direction:column;gap:8px;min-height:70px}
 .card{position:relative;display:block;width:100%;text-align:left;border:1px solid color-mix(in srgb,var(--c) 28%,var(--line));border-left:5px solid var(--c);background:color-mix(in srgb,var(--c) 8%,var(--surface));border-radius:12px;padding:10px 12px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
@@ -503,13 +518,13 @@ nav.tabs button{font-size:.75rem!important}
 .nb-sizer{width:100%;height:100%}
 .nb-sizer.zoomed{position:relative;overflow:hidden;width:auto;height:auto}
 .nb-sizer.zoomed > .nb-board{transform-origin:0 0}
-/* Zoomed, the cork is drawn on the unscaled frame behind the board: a scaled patterned layer shows seams on iPhone.
-   Everything in the pattern (spacing, offset and the dots themselves) is scaled by the zoom, so the cork zooms exactly like
-   the notes on it. The frame always fills the view. */
-.nb-sizer.zoomed{min-width:100%;min-height:100%;background-color:#C69C6D;background-image:radial-gradient(rgba(90,55,20,.28) calc(1px * var(--nbz,1)),transparent calc(1.4px * var(--nbz,1))),radial-gradient(rgba(255,235,200,.22) calc(1px * var(--nbz,1)),transparent calc(1.5px * var(--nbz,1)));background-size:calc(9px * var(--nbz,1)) calc(9px * var(--nbz,1)),calc(13px * var(--nbz,1)) calc(13px * var(--nbz,1));background-position:0 0,calc(5px * var(--nbz,1)) calc(7px * var(--nbz,1))}
+/* Zoomed, the solid cork colour is on the unscaled frame behind the board (a scaled solid layer shows seams on iPhone),
+   but the dots stay on the board and scale with it: drawn on the frame at 9px × zoom, phones snap each tile to device
+   pixels, so the dots drift against the notes as you zoom. The frame always fills the view. */
+.nb-sizer.zoomed{min-width:100%;min-height:100%;background-color:#C69C6D}
 :root[data-theme="dark"] .nb-sizer.zoomed{background-color:#6E5238}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .nb-sizer.zoomed{background-color:#6E5238}}
-.nb-sizer.zoomed > .nb-board{background:none!important}
+.nb-sizer.zoomed > .nb-board{background-color:transparent!important}
 .nb-zoom{position:absolute;top:14px;left:14px;z-index:6;display:flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);box-shadow:0 2px 8px rgba(40,25,10,.18);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .nb-zoom button{border:0;background:none;color:var(--ink);font:700 .82rem var(--display);min-width:30px;height:30px;padding:0 6px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-variant-numeric:tabular-nums}
 .nb-zoom .nbz-b{font-size:1.05rem}
@@ -2461,3 +2476,15 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .ai-style-sels{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;margin-top:10px}
 .ai-style-sels .f{margin:0}
 .ai-style-sels select{width:100%}
+/* The "Syncing" notice while a school site syncs: the toast's look, with three dots that pulse in turn */
+.toast.sync-pill{gap:0;font-weight:600}
+.toast.sync-pill.show{opacity:1}
+.sp-dots{display:inline-flex;gap:3px;margin-left:5px;align-items:flex-end;height:1em}
+.sp-dots i{width:4px;height:4px;border-radius:50%;background:currentColor;animation:spDot 1.2s infinite ease-in-out}
+.sp-dots i:nth-child(2){animation-delay:.2s}
+.sp-dots i:nth-child(3){animation-delay:.4s}
+@keyframes spDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.sp-dots i{animation:none;opacity:.8}}
+html[data-motion="static"] .sp-dots i{animation:none;opacity:.8}
+/* with a message showing too, the notice moves up above it */
+html:has(#toast.show) .toast.sync-pill{transform:translateX(-50%) translateY(-56px)}

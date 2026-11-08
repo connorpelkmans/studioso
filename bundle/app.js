@@ -6164,7 +6164,7 @@ function nextUpHtml(F, pre){
     <div class="nu-top"><span class="nu-label">Do This Next</span>${n.xs && n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested study time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
         ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.x.dl === 1 || n.x.lightEve ? "The day before: light review only. Skim your summary or a few flashcards, then stop early and sleep." : n.hasPlan ? "Test yourself on your weakest topics: flashcards or practice questions, not rereading." : "Test yourself (flashcards or practice questions), or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
@@ -6176,7 +6176,7 @@ function nextUpHtml(F, pre){
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
-        <button class="nu-title" ${gtOpenAttrs(t)}>${nuRing(t)}${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag" title="${esc(remoteOf(t).why || "Can be taken from home")}">Take-home</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
+        <button class="nu-title" ${gtOpenAttrs(t)}>${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag" title="${esc(remoteOf(t).why || "Can be taken from home")}">Take-home</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
         ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
@@ -6187,7 +6187,6 @@ function nextUpHtml(F, pre){
 }
 
 // The course's sticker in a ring on Do This Next and the plan rows
-const nuRing = (t, cls) => { const c = t && courseOf(t.courseId); return c ? `<span class="nu-ic ${cls || ""}" style="--c:${esc(c.color)}" aria-hidden="true">${courseRingHtml(c)}</span>` : ""; };
 // When nothing in the plan can be started now, Do This Next still points somewhere
 function nextUpSpare(F, inView){
   const ex = Object.values(F.info || {}).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 1 && x.dl <= 14 && !planSessions(x.t.id).length).sort((a, b) => dueDate(a.t) - dueDate(b.t))[0];
@@ -6215,7 +6214,7 @@ function nextUpSpare(F, inView){
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${nuRing(t)}${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
         ${nuMoreBtn()}<span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
@@ -10414,6 +10413,15 @@ function toastHost(){
   const a = document.activeElement;
   return ms.filter(d => d.isConnected && d.contains(a)).pop() || ms.filter(d => d.isConnected).pop() || document.body;
 }
+// "Syncing…" at the bottom of the screen for as long as a school site sync runs (its three dots pulse); nested syncs share it
+let syncPillN = 0;
+function syncPill(on){
+  syncPillN = Math.max(0, syncPillN + (on ? 1 : -1));
+  let el = document.getElementById("syncPill");
+  if (!el) { el = document.createElement("div"); el.id = "syncPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); el.innerHTML = `Syncing<span class="sp-dots" aria-hidden="true"><i></i><i></i><i></i></span>`; }
+  if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
+  else el.classList.remove("show");
+}
 function toast(msg, undoFn, extra, opts){
   const t = toastEl(), b = toastPart("toastUndo"), x = toastPart("toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = toastPart("toastX");
@@ -10685,7 +10693,7 @@ function viewBoard(){
     const merged = mergeBoardCol(list, gRows, k), shown = x => x.t ? card(x.t) : groupBoardCard(x.r);
     const nArch = k === "done" ? allTasks().filter(t => autoArchived(t) && !t.archivedTerm && inFilter(t) && matchesQ(t) && (laneId == null || (laneId ? t.courseId === laneId : !(state.courses[t.courseId] && !state.courses[t.courseId].archived)))).length : 0;
     return `<section class="col" data-status="${k}" ${laneId != null ? `data-course="${esc(laneId)}"` : ""} style="--sc:${col}" aria-label="${label}">
-      <div class="col-head"><span class="sd"></span>${label}<span class="n">${list.length + gRows.length}</span>${boardManual(k) ? `<button type="button" class="col-resort" data-act="board-resort" data-id="${k}" title="${k === "done" ? "Put the most recently completed first again" : "Order by due date again"}">${k === "done" ? "Newest First" : "Sort by Due"}</button>` : ""}</div>
+      <div class="col-head"><span class="sd"></span>${label}<span class="n">${list.length + gRows.length}</span>${boardManual(k) ? `<button type="button" class="col-resort" data-act="board-resort" data-id="${k}" title="${k === "done" ? "Put the most recently completed first again" : "Order by due date again"}">${k === "done" ? "Newest First" : `<span class="cr-l">Sort by Due</span><span class="cr-s">Sort</span>`}</button>` : ""}</div>
       <div class="col-list">${merged.slice(0, COL_MAX).map(shown).join("")}</div>
       ${merged.length > COL_MAX ? (() => { const key = (laneId == null ? "all" : laneId || "none") + ":" + k, more = merged.length - COL_MAX; return `<details class="col-more" data-col="${esc(key)}" ${ui.colOpen[key] ? "open" : ""}><summary><span class="cm-open">Show ${more} more</span><span class="cm-close">Show less</span></summary><div class="col-list">${merged.slice(COL_MAX).map(shown).join("")}</div></details>`; })() : ""}
       ${nArch ? `<button class="arch-link" data-act="archive-open">${ARCHIVE_SM}${nArch} finished more than 2 weeks ago ${nArch === 1 ? "is" : "are"} in the Archive</button>` : ""}
@@ -21734,7 +21742,15 @@ function tabSwap(changed, go){
   if (ghost) ghost.animate([{opacity: 1}, {opacity: 0}], {duration: TAB_MS * 0.8, easing: ease, fill: "forwards"}).finished.then(end, end);
   else setTimeout(end, TAB_MS);
 }
+// Where a press on the screen began: a tap that starts inside the note being edited is a tap in the note, even when the note
+// moves under the finger before it lifts (on a phone, tapping back in the text box hides the note's options at once, so the
+// sheet shrinks and the end of the tap lands on the dimmed page behind it; that used to close the note)
+let noteDownIn = 0;
+["pointerdown", "touchstart", "mousedown"].forEach(t => document.addEventListener(t, e => {
+  noteDownIn = e.target && e.target.closest && e.target.closest(".note.editing") ? Date.now() : 0;
+}, {capture: true, passive: true}));
 document.addEventListener("click", e => {
+  const downIn = noteDownIn && Date.now() - noteDownIn < 1500; noteDownIn = 0;
   if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
   const tab = e.target.closest("[data-tab]");
   if (tab) {
@@ -21752,7 +21768,10 @@ document.addEventListener("click", e => {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
     if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
-    if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) { saveNoteText(); }
+    if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
+      if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
+      saveNoteText();
+    }
   }
   const el = e.target.closest("[data-act]");
   if (!el) return;
@@ -35060,7 +35079,9 @@ hook("boot", boot);
     if (kbDrag && !kbDrag.justDragged) { kbDrag.dirty = true; return; }
     const a = document.activeElement, inside = a && el.contains(a), key = inside ? a.id || "" : "", sel = inside && "selectionStart" in a ? [a.selectionStart, a.selectionEnd] : null;
     const act = inside && !key && a.dataset ? {act: a.dataset.act, id: a.dataset.id, f: a.dataset.f} : null;
+    const kbX = el.querySelector(".kb") ? el.querySelector(".kb").scrollLeft : 0;
     replaceKeep(el, ptHtml(g), "grpPT");
+    { const kb = kbX && $("#grpPT .kb"); if (kb) kb.scrollLeft = kbX; }
     if (key) { const n = document.getElementById(key); if (n) { n.focus(); if (sel) { try { n.setSelectionRange(sel[0], sel[1]); } catch(e) {} } } }
     else if (act && act.act) { const n = $(`#grpPT [data-act="${act.act}"]${act.id ? `[data-id="${CSS.escape(act.id)}"]` : ""}${act.f ? `[data-f="${CSS.escape(act.f)}"]` : ""}`); if (n) n.focus(); }
   }
@@ -35400,7 +35421,24 @@ hook("boot", boot);
     const c = kbCol(d.x, d.y);
     $$("#grpPT .kb-col.over").forEach(k => { if (k !== c) k.classList.remove("over"); });
     if (c) c.classList.add("over");
+    kbEdge(d, c);
     d.raf = requestAnimationFrame(kbTick);
+  }
+  // On a phone the columns are a sideways pager, like the main Task Board: hovering a card over the column peeking
+  // in beside the one in view (or holding it at the edge) glides the board over a column, then on if still held there
+  function kbEdge(d, c){
+    const b = d.el.closest(".kb"); if (!b || b.scrollWidth <= b.clientWidth + 2 || getComputedStyle(b).display !== "flex") return;
+    const r = b.getBoundingClientRect(), at = b._goTo != null && Math.abs(b.scrollLeft - b._goTo) > 2 ? b._goTo : b.scrollLeft;
+    let dir = d.x < r.left + 56 ? -1 : d.x > r.right - 56 ? 1 : 0;
+    const cx = c && b.contains(c) ? boardColX(b, c) : null; if (cx != null && Math.abs(cx - at) > 30) dir = cx > at ? 1 : -1;
+    if (!dir) { d.edgeDir = 0; return; }
+    const now = performance.now();
+    if (d.edgeDir !== dir) { d.edgeDir = dir; d.edgeAt = now; d.edgeN = 0; return; }
+    if (now - d.edgeAt < (d.edgeN ? 700 : 260)) return;
+    const xs = [...b.querySelectorAll(":scope > .kb-col")].map(k => boardColX(b, k)).filter((v, i, a) => a.indexOf(v) === i).sort((x, y) => x - y);
+    let i = 0; xs.forEach((v, k) => { if (Math.abs(v - at) < Math.abs(xs[i] - at)) i = k; });
+    const j = Math.max(0, Math.min(xs.length - 1, i + dir)); d.edgeAt = now;
+    if (j !== i) { b._goTo = xs[j]; boardGo(b, xs[j]); d.edgeN++; }
   }
   function kbEnd(ok){
     const d = kbDrag; if (!d) return; clearTimeout(d.timer); cancelAnimationFrame(d.raf);
@@ -41718,11 +41756,12 @@ function cleanFile(r) {
   function syncNow(opts){
     const o = opts || {};
     if (running) return running;
+    let pill = false;
     running = (async () => {
       const how = howNow();
       if (!how) { if (!o.quiet) bsSheet(); return null; }
       if (how === "api" && !consented()) { if (o.quiet) { askConsentSoon(() => syncNow()); return null; } if (!(await askConsent())) return null; }
-      if (!o.quiet) toast(`Syncing with ${P.name}…`);
+      if (!o.quiet) { pill = true; syncPill(true); }
       const t0 = Date.now(); setLocal({lastTry: t0});
       let r = await getData(how), used = how;
       if ((r.needLogin || r.error) && (local().loginAt || 0) > t0) return null;
@@ -41735,7 +41774,7 @@ function cleanFile(r) {
       if (r.error) { setLocal({err: r.text, fails: (local().fails || 0) + 1}); if (!o.quiet) toast(r.text); scheduleRender(); return null; }
       const p = plan(r.data);
       return applyPlan(r.data, p, used, !!o.quiet);
-    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}. Try again.`); return null; }).finally(() => { running = null; refreshSheet(); });
+    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}. Try again.`); return null; }).finally(() => { running = null; if (pill) syncPill(false); refreshSheet(); });
     refreshSheet();
     return running;
   }
@@ -51419,8 +51458,9 @@ var TP_DATA = [];
     select(start, prev ? prev.view : "home", !!prev);
     if (prev && prev.q) { q.value = prev.q; search(prev.q); }
     if (prev) requestAnimationFrame(() => { main.scrollTop = prev.top; });
-    // A fresh Settings sheet starts in Search Settings (not on Close); phones skip it so the keyboard doesn't pop up
-    else if (window.matchMedia && matchMedia("(min-width:601px)").matches) { try { q.focus({preventScroll: true}); } catch (e) {} }
+    // A fresh Settings sheet starts in Search Settings (not on Close) with a mouse or trackpad; touch screens (phones,
+    // iPads) skip it so the on-screen keyboard only comes up when you tap the search box
+    else if (window.matchMedia && matchMedia("(min-width:601px) and (hover:hover) and (pointer:fine)").matches) { try { q.focus({preventScroll: true}); } catch (e) {} }
   }
 
   // Phones: pull the sheet down by its top bar to close it
@@ -64118,7 +64158,12 @@ var COMP_EXTRA = [];
       const l2 = Math.max(l, vv.offsetLeft), t2 = Math.max(t, vv.offsetTop), r2 = Math.min(r, vv.offsetLeft + vv.width), b2 = Math.min(b, vv.offsetTop + vv.height);
       if (r2 - l2 >= 100 && b2 - t2 >= 100) { l = l2; t = t2; r = r2; b = b2; }
     }
-    l = Math.max(l, ins.l); t = Math.max(t, ins.t); r = Math.min(r, lw - ins.r); b = Math.min(b, lh - ins.b);
+    // the Add button stands inside the home bar's space on an iPad: the companion may stand as low as it, so the two line up
+    let insB = ins.b;
+    if (insB && !phone()) { const fb = document.getElementById("fab"), fr = fb && fb.getClientRects().length ? fb.getBoundingClientRect() : null; if (fr && fr.height) insB = Math.min(insB, Math.max(0, lh - fr.bottom - 20)); }
+    l = Math.max(l, ins.l); t = Math.max(t, ins.t); r = Math.min(r, lw - ins.r); b = Math.min(b, lh - insB);
+    // the iOS app's keyboard slides over the page without shrinking it: what it covers comes from the app (sbVisibleH)
+    if (!phone() && de.classList.contains("kb-native") && typeof window.sbVisibleH === "function") { const vh = window.sbVisibleH(); if (vh > 100 && vh < b) b = vh; }
     sCache = {l: l + MARGIN, t: t + MARGIN, r: r - MARGIN, b: b - MARGIN}; sAt = now;
     return sCache;
   }
@@ -65712,6 +65757,23 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   addEventListener("resize", () => { sAt = 0; dockNow(); try { clamp("resize"); } catch (e) {} placeSoon(200); });
   addEventListener("orientationchange", () => { sAt = 0; try { clamp("rotate"); } catch (e) {} placeSoon(350); guardSoon("rotate", 700); });
   addEventListener("pageshow", () => { sAt = 0; guardSoon("pageshow"); });
+  // the iOS app's keyboard opening or closing: the companion (and its Ask box) stays above it, then settles back
+  let kbHome = null;
+  addEventListener("sb-kb-cover", () => {
+    sAt = 0; if (!box || box.hidden || (phone() && !kbHome)) return;
+    const up = typeof window.sbVisibleH === "function" && window.sbVisibleH() < innerHeight - 1;
+    if (up && !kbHome) kbHome = {x: box.style.left, y: box.style.top, dx: box.dataset.x, dy: box.dataset.y, sig: homeSig};
+    if (!up && kbHome) {
+      // the keyboard has gone: back down to where it was before
+      const h = kbHome; kbHome = null;
+      const x0 = parseFloat(box.style.left) || 0, y0 = parseFloat(box.style.top) || 0;
+      box.style.left = h.x; box.style.top = h.y; box.dataset.x = h.dx; box.dataset.y = h.dy; homeSig = h.sig;
+      glideBy(x0 - (parseFloat(h.x) || 0), y0 - (parseFloat(h.y) || 0));
+      const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
+      fitHitSoon(); guardSoon("keyboard", 400); return;
+    }
+    try { clamp("keyboard"); } catch (e) {} guardSoon("keyboard", 60);
+  });
   if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
   document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
   document.addEventListener("focusout", () => guardSoon("blur", 350));
@@ -76629,8 +76691,33 @@ function decorateDeck(){
 const RA_MQ = matchMedia("(max-width:600px)");
 // A flashcard deck does the same on every screen size
 const RA_DECK_KEEP = ["fc-study", "fc-quiz", "mt-start", "pub-deck", "pro-ic-drafts"];
+// An iPad held upright: a header's buttons stay on one line at the right, the least useful folding into More until they fit
+const RA_TAB_MQ = matchMedia("(min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse)");
+const RA_TAB_FOLD = ["import-syllabus", "lec-open", "lms-go"];
+function raFitTablet(ra){
+  const btns = [...ra.children].filter(b => b.matches("button.btn, a.btn"));
+  const line = () => btns.length && ra.getBoundingClientRect().height <= Math.max(...[...ra.children].map(b => b.getBoundingClientRect().height)) * 1.5;
+  if (btns.length < 3 || line()) return;
+  const primary = btns.find(b => b.classList.contains("primary")) || btns[btns.length - 1];
+  const keep = b => b === primary || b.classList.contains("ai-btn");
+  // the named ones first, then anything else from the right
+  const order = btns.filter(b => !keep(b)).sort((a, b) => {
+    const r = x => { const i = RA_TAB_FOLD.indexOf(x.dataset.act); return i < 0 ? -1 : i; };
+    const ra2 = r(a), rb = r(b); if (ra2 >= 0 || rb >= 0) return (ra2 < 0 ? 99 : ra2) - (rb < 0 ? 99 : rb);
+    return btns.indexOf(b) - btns.indexOf(a);
+  });
+  if (!order.length) return;
+  ra.dataset.ra = "1";
+  const box = document.createElement("div"); box.className = "ra-more";
+  box.innerHTML = `<button type="button" class="btn small ra-more-btn" aria-haspopup="true" aria-expanded="false">More<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="ra-menu" role="menu" hidden></div>`;
+  const menu = box.querySelector(".ra-menu");
+  ra.insertBefore(box, primary);
+  for (const b of order) { if (line()) break; b.setAttribute("role", "menuitem"); menu.appendChild(b); }
+  if (!menu.children.length) box.remove();
+}
 function raMore(onlyGx){
   document.querySelectorAll(".g2-band > .row-actions:not([data-ra])").forEach(ra => {
+    if (!onlyGx && RA_TAB_MQ.matches && ra.closest(".c2-head") && !ra.querySelector(":scope > .gx-assign")) { raFitTablet(ra); return; }
     const deck = !RA_MQ.matches && !!ra.closest(".deck-head");
     const gxp = !deck && ra.querySelector(":scope > .gx-assign");
     if (onlyGx && !ra.querySelector(":scope > .gx-assign")) return;
@@ -76660,6 +76747,7 @@ new MutationObserver(() => {
   raT = requestAnimationFrame(() => { raT = 0; raMore(); });
 }).observe(document.documentElement, {childList: true, subtree: true});
 RA_MQ.addEventListener("change", () => { try { render(); } catch (e) {} });
+RA_TAB_MQ.addEventListener("change", () => { try { render(); } catch (e) {} });
 document.addEventListener("click", e => {
   const t = e.target.closest && e.target.closest(".ra-more-btn");
   document.querySelectorAll(".ra-more .ra-menu:not([hidden])").forEach(m => { if (!t || m.parentNode !== t.parentNode) { m.hidden = true; m.parentNode.querySelector(".ra-more-btn").setAttribute("aria-expanded", "false"); } });
@@ -89271,7 +89359,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   const ROW_ORDER = ["find", "eq", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history", "toc"];
   const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
   const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
-  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.place ? k === "eq" && !!E.place.eq : E.tool === k && !E.ptool || E.ptool === k}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.place ? k === "eq" && !!E.place.eq : E.tool === k && !E.ptool || E.ptool === k}" title="${esc(label)}">${k === "ocr" ? `<span class="pde-ocr-ai">${AI_ICON}</span>${ico(icon).replace("<svg ", '<svg class="pde-ocr-ic" ')}` : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
   // Undo and Redo at the right end of the edit row (the same history as Ctrl+Z and History)
   const MACK = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl";
   // On narrow phones the row has no room for them, so they head the More menu instead
@@ -90823,6 +90911,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 @media (max-width:480px){ .pde-ur{display:none} .pde-menu .pde-mi-ur{display:flex} }
 .pde-bar.compact .pde-tools .pde-tool{padding:6px 8px;min-width:40px;justify-content:center}
 .pde-bar.compact .pde-tools .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Recognize Text: the AI icon (the companion); on an iPad held upright, where it's an icon alone, a scan icon instead, still purple */
+.pde-tool .pde-ocr-ai{display:contents}
+.pde-tool .pde-ocr-ic{display:none}
+@media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
+  .pde-bar.compact .pde-tools .pde-ocr-ai{display:none}
+  .pde-bar.compact .pde-tools .pde-ocr-ic{display:block}
+}
 .pde-tools label.pde-tool{cursor:pointer}
 .pde-marks,.pde-al,.pde-find{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap}
 .pde-shape-btn[aria-pressed="true"],.pde-al .btn[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,var(--surface));border-color:var(--accent);color:var(--accent)}
@@ -91033,6 +91128,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   .pde-save{margin-left:auto}
   /* while a panel is open its tool's options aren't needed: the panel gets the room */
   .pde-bar.paneled .pde-sub{display:none}
+}
+/* iPhone: Save is just its icon (no count), so Save and Download stay on the page row; and the Read / Mark Up / Edit switch is a
+   little narrower, so Ask This PDF and Study sit on its row */
+@media (max-width:480px){
+  .pdr-sheet .pdr-save .pdr-badge{display:none}
+  .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode){padding:0 7px;gap:4px}
 }
 /* while a panel is open, toasts show at the top, clear of its buttons */
 body:has(dialog[open] .pde-panel) #toast.toast{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto}
@@ -92111,8 +92212,10 @@ var SBWB = null;
     const key = innerWidth + "|" + (ui.wbCur || "");
     if (host._topKey !== key) { host._topKey = key; host._top = host.getBoundingClientRect().top + window.scrollY; }
     const top = host._top, nav = document.querySelector("nav.tabs");
-    const navH = phone() && nav ? Math.round(nav.getBoundingClientRect().height) : 0;
-    const want = Math.max(phone() ? 420 : 460, Math.round(IH - Math.min(top, IH * 0.45) - navH - (phone() ? 18 : 16)));
+    // room for the tab bar wherever it runs along the bottom (phones, and an iPad held upright)
+    const nr = nav ? nav.getBoundingClientRect() : null, navB = !!(nr && nr.height && nr.top > IH / 2);
+    const navH = phone() && nr ? Math.round(nr.height) : navB ? Math.round(IH - nr.top) : 0;
+    const want = Math.max(phone() ? 420 : 460, Math.round(IH - Math.min(top, IH * 0.45) - navH - (phone() ? 18 : navB ? 14 : 16)));
     const now = parseFloat(host.style.height) || 0;
     if (Math.abs(want - now) > 2) host.style.height = want + "px";
   }
@@ -92355,7 +92458,7 @@ var SBWB = null;
   }
 
   /* Pointer: draw, erase, shapes, text, select; two fingers */
-  let D = null, GEST = null, HOV = null, penSeen = false, spaceDown = false;
+  let D = null, GEST = null, HOV = null, penSeen = false, penOn = null, penUpAt = 0, spaceDown = false;
   const PTR = new Map();
   const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top + LV]; };
   const toW = s => [(s[0] - cam.x) / cam.z, (s[1] - cam.y) / cam.z];
@@ -92373,7 +92476,7 @@ var SBWB = null;
   }
   // A rotation can drop a finger's lift (iOS), leaving a pinch stuck on and the page offset under full screen
   function afterRotate(){
-    PTR.clear(); GEST = null; cancelDraw(); if (frame) frame.classList.remove("panning");
+    PTR.clear(); GEST = null; penOn = null; cancelDraw(); if (frame) frame.classList.remove("panning");
     if (document.documentElement.classList.contains("board-max")) {
       const fix = () => { try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {}
         const h = STAGE && STAGE.closest(".wb-host"); if (h) { h.style.transform = "translateZ(0)"; void h.offsetHeight; h.style.transform = ""; } };
@@ -92385,19 +92488,31 @@ var SBWB = null;
   addEventListener("resize", () => { if (innerWidth !== rotW) { rotW = innerWidth; afterRotate(); } });
   function bindPointer(){
     frame.addEventListener("contextmenu", e => e.preventDefault());
+    // a hand resting on the tools while the pencil writes doesn't press them
+    let palmAt = 0;
+    STAGE.addEventListener("pointerdown", e => { if (e.pointerType === "touch" && penSeen && !frame.contains(e.target) && (penOn !== null || Date.now() - penUpAt < 700)) { palmAt = Date.now(); e.preventDefault(); } else if (!frame.contains(e.target)) palmAt = 0; }, true);
+    STAGE.addEventListener("click", e => { if (palmAt && Date.now() - palmAt < 1500 && !frame.contains(e.target)) { palmAt = 0; e.preventDefault(); e.stopPropagation(); } }, true);
     frame.addEventListener("pointerdown", e => {
       if (e.target.closest(".wb-zoom,.wb-selbar,.wb-ta,.wb-max")) return;
+      // Palm rejection: once a pencil has been used, a touch while it's down (or just lifted) is the hand resting on the
+      // screen, and is ignored; and the pencil always wins over a hand that landed first
+      if (e.pointerType === "touch" && penSeen && (penOn !== null || Date.now() - penUpAt < 700)) { e.preventDefault(); return; }
+      if (e.pointerType === "pen") {
+        penSeen = true; penOn = e.pointerId;
+        if (GEST) GEST = null;
+        if (D && (PTR.get(D.id) || {}).type === "touch") { if (D.kind === "pan") { if (D.moved) camSave(); D = null; frame.classList.remove("panning"); } else cancelDraw(); }
+        [...PTR.keys()].forEach(id => { if (PTR.get(id).type === "touch") PTR.delete(id); });
+      }
       if (ED) endText();
       frame.focus({preventScroll: true});
       PTR.set(e.pointerId, {x: e.clientX, y: e.clientY, type: e.pointerType});
       try { frame.setPointerCapture(e.pointerId); } catch (x) {}
-      if (e.pointerType === "pen") penSeen = true;
       if (e.pointerType === "touch" && e.isPrimary) [...PTR.keys()].forEach(id => { if (id !== e.pointerId && PTR.get(id).type === "touch") PTR.delete(id); });
       if (e.pointerType === "touch" && touchPts().length >= 2) { cancelDraw(); gestStart(); return; }
       if (GEST || D) return;
       e.preventDefault();
       const s = local(e), w = toW(s);
-      if (e.button === 1 || spaceDown || T.tool === "hand" || (e.pointerType === "touch" && penSeen)) { D = {kind: "pan", id: e.pointerId, s, c: Object.assign({}, cam)}; frame.classList.add("panning"); return; }
+      if (e.button === 1 || spaceDown || T.tool === "hand" || (e.pointerType === "touch" && penSeen)) { D = {kind: "pan", id: e.pointerId, s, c: Object.assign({}, cam), rest: e.pointerType === "touch" && penSeen}; frame.classList.add("panning"); return; }
       if (e.pointerType === "mouse" && e.button !== 0) return;
       begin(e, s, w);
     });
@@ -92412,6 +92527,7 @@ var SBWB = null;
       if (D && D.kind === "erase") dirty(true);
     });
     const up = e => {
+      if (e.pointerId === penOn) { penOn = null; penUpAt = Date.now(); }
       PTR.delete(e.pointerId);
       if (GEST) { if (touchPts().length < 2) GEST = null; return; }
       if (!D || D.id !== e.pointerId) return;
@@ -92476,7 +92592,9 @@ var SBWB = null;
   function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} dirty(true); } }, 600); }
   function drag(e, s){
     const w = toW(s);
-    if (D.kind === "pan") { cam.x = D.c.x + s[0] - D.s[0]; cam.y = D.c.y + s[1] - D.s[1]; clampCam(); dirty(); return; }
+    // a finger only moves the board once it really moves (a hand settling on the screen doesn't nudge it)
+    if (D.kind === "pan" && D.rest && !D.moved) { if (Math.hypot(s[0] - D.s[0], s[1] - D.s[1]) < 12) return; D.moved = true; D.s = s; D.c = Object.assign({}, cam); }
+    if (D.kind === "pan") { D.moved = true; cam.x = D.c.x + s[0] - D.s[0]; cam.y = D.c.y + s[1] - D.s[1]; clampCam(); dirty(); return; }
     if (D.grabT && Math.hypot(s[0] - D.s0[0], s[1] - D.s0[1]) > 5) { clearTimeout(D.grabT); D.grabT = 0; }
     if (D.kind === "pen" || D.kind === "hl") {
       if (D.snapped) return;
@@ -93020,6 +93138,10 @@ var SBWB = null;
 .wb-pick{display:inline-flex;max-width:min(320px,100%);min-width:0}
 .wb-pick select{font:600 .92rem var(--display);height:34px;max-width:100%;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 12px;cursor:pointer}
 .wb-host{position:relative;min-height:420px;margin-top:4px}
+/* a hand resting on the screen while writing with a pencil mustn't select text anywhere on the page (that also cancels the
+   pencil's line): the whiteboard page doesn't select as text, except in boxes you type in */
+html:has(#wbHost) body,html:has(#wbHost) body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html:has(#wbHost) body :is(input,textarea,[contenteditable="true"]){-webkit-user-select:text;user-select:text}
 .wb-stage{position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;padding:10px 10px 8px;border-radius:18px;background:linear-gradient(180deg,#EEF1F4,#D4DAE1 60%,#C5CCD4);box-shadow:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 8px 24px rgba(20,30,45,.16)}
 .wb-stage.wb-dk{background:linear-gradient(180deg,#5B636E,#3E454E 60%,#353B43);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 24px rgba(0,0,0,.4)}
 .wb-frame{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:10px;background:#FDFEFE;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;cursor:crosshair}
@@ -93129,9 +93251,10 @@ var SBWB = null;
 .wb-font.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent)}
 .wb-dk .wb-font{background:#2A2F36;color:#EEF1F4;border-color:rgba(255,255,255,.14)}
 .wb-tray{order:-1}
-/* wide screens: the tools stand in a panel on the right of the board, like the sticker envelope on Notes */
+/* wide screens: the tools stand in a panel on the right of the board, like the sticker envelope on Notes
+   (an iPad held upright keeps them in a bar along the top, so the board gets the full width) */
 .wb-tray-head{display:none}
-@media (min-width:640px){
+@media (min-width:640px) and (orientation:landscape), (min-width:1101px), (min-width:640px) and (pointer:fine){
   .wb-stage{flex-direction:row}
   .wb-tray{order:1;width:190px;height:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;align-content:start;align-items:stretch;gap:10px 0;padding:0 0 12px;border-radius:14px;overflow:hidden auto;scrollbar-width:thin}
   .wb-tray>*{grid-column:1/-1}
@@ -94458,7 +94581,9 @@ html[data-theme=dark] .wb-livechip{color:#7FE3A6}
   };
   const swatch = c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${colorName(c)}" data-tip="${colorName(c)}"></button>`;
   const recent = () => { try { const a = JSON.parse(localStorage.getItem(K_RECENT) || "[]"); return Array.isArray(a) ? a.filter(okHex).slice(0, 8) : []; } catch (e) { return []; } };
-  const ours = inp => inp && inp.type === "color" && !inp.disabled && !(inp.closest && inp.closest(".wb-stage"));
+  // iPhone and iPad have Apple's own colour picker (grid, spectrum, sliders and an eyedropper): colour fields there open it directly
+  const APPLE = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const ours = inp => !APPLE && inp && inp.type === "color" && !inp.disabled && !(inp.closest && inp.closest(".wb-stage"));
   let OPEN = null, lastPtr = null;
   document.addEventListener("pointerdown", e => { lastPtr = e.target; }, true);
 
@@ -96496,7 +96621,9 @@ var SBCALCSKIN = null;
     if (veil) return;
     const W = calcWin(); if (W) W.style.visibility = "hidden";
     veil = document.createElement("div"); veil.className = "cxs-veil"; veil.setAttribute("role", "dialog"); veil.setAttribute("aria-label", "Select an equation");
-    veil.innerHTML = `<div class="cxs-hint">Drag over an equation <span>Esc to cancel</span></div><div class="cxs-box" hidden></div>`;
+    // "Esc to cancel" only where there's a keyboard: on a touch screen (iPad, phone) there's no Esc key (a tap cancels)
+    const touch = !!(window.matchMedia && matchMedia("(hover: none) and (pointer: coarse)").matches);
+    veil.innerHTML = `<div class="cxs-hint">Drag over an equation${touch ? "" : " <span>Esc to cancel</span>"}</div><div class="cxs-box" hidden></div>`;
     document.body.appendChild(veil);
     const box = veil.querySelector(".cxs-box");
     let x0 = 0, y0 = 0, on = false;
@@ -98838,7 +98965,8 @@ const AUTOPILOT = (() => {
   (() => {
     const phoneSch = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
     const still = () => document.documentElement.dataset.motion === "static" || !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-    const EASE = "cubic-bezier(.2,.8,.2,1)";
+    // the same glide as a native scroll settling into its snap point (the Task Board's columns)
+    const EASE = "cubic-bezier(.22,.8,.26,1)";
     let S = null, eatClick = 0;
     const strip = el => { const c = el.cloneNode(true); c.removeAttribute("id"); c.querySelectorAll("[id]").forEach(e => e.removeAttribute("id")); c.classList.remove("sel"); return c; };
     // one day as a page: its header over its column, as drawn
@@ -98904,22 +99032,25 @@ const AUTOPILOT = (() => {
       const grid = document.querySelector(".sch-wrap .sch-grid"), head = grid && grid.querySelector(":scope > .sch-head.sel"), col = grid && grid.querySelector(":scope > .sch-col.sel");
       if (!head || !col) return;
       const t = e.touches[0];
-      S = {x: t.clientX, y: t.clientY, grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null};
+      S = {x: t.clientX, y: t.clientY, grid, head, col, w: col.getBoundingClientRect().width, lock: "", dx: 0, v: 0, lt: performance.now(), lx: t.clientX, dir: 0, nb: null, pts: [[performance.now(), t.clientX]]};
     }, {passive: true});
     document.addEventListener("touchmove", e => {
       if (!S || S.settling || e.touches.length !== 1) return;
       if (document.body.classList.contains("sch-dragging")) { cleanup(); return; }
       const t = e.touches[0], dx = t.clientX - S.x, dy = t.clientY - S.y;
       if (!S.lock) {
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        S.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        // more sideways than up or down is a swipe between days (a slightly slanted swipe used to count as scrolling)
+        S.lock = Math.abs(dx) >= Math.abs(dy) * 0.8 ? "x" : "y";
         if (S.lock === "y") return;
         renderBlocked = true;   // no redraw while the finger is down; one runs once it settles
         open();
       }
       if (S.lock !== "x") return;
       e.preventDefault();
-      const now = performance.now(); if (now > S.lt) S.v = (t.clientX - S.lx) / (now - S.lt); S.lt = now; S.lx = t.clientX;
+      // speed over the last tenth of a second, not just the last two points (those jump about, so flicks were missed)
+      const now = performance.now(); S.pts.push([now, t.clientX]); while (S.pts.length > 2 && now - S.pts[0][0] > 100) S.pts.shift();
+      const p0 = S.pts[0]; if (now > p0[0]) S.v = (t.clientX - p0[1]) / (now - p0[0]); S.lt = now; S.lx = t.clientX;
       S.dx = dx;
       if (dx) peek(dx < 0 ? 1 : -1);
       place(S.nb ? dx : dx * 0.3, 0);
@@ -98928,9 +99059,12 @@ const AUTOPILOT = (() => {
       if (!S || S.settling) return;
       if (S.lock !== "x") { S = null; return; }
       eatClick = Date.now();
-      if (performance.now() - S.lt > 90) S.v = 0;   // the finger stopped before lifting: not a flick
-      const dir = S.dir, go = S.nb && (Math.abs(S.dx) > S.w * 0.33 || (Math.abs(S.v) > 0.45 && Math.sign(S.v) === -dir));
-      const ms = still() ? 0 : Math.round(Math.max(170, Math.min(320, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.6, Math.abs(S.v)))));
+      if (performance.now() - S.lt > 120) S.v = 0;   // the finger stopped before lifting: not a flick
+      // like a native scroll snapping: where the swipe would carry on to decides it. A flick in the direction of the swipe moves on;
+      // otherwise past a third of the way (counting the glide) it moves on, else it springs back
+      const dir = S.dir, toward = Math.sign(S.v) === -dir, carry = S.dx + S.v * 160;
+      const go = !!S.nb && Math.sign(S.dx) === -dir && ((toward && Math.abs(S.v) > 0.25 && Math.abs(S.dx) > 10) || (Math.abs(carry) > S.w * 0.33 && Math.sign(carry) === -dir));
+      const ms = still() ? 0 : Math.round(Math.max(220, Math.min(380, (go ? S.w - Math.abs(S.dx) : Math.abs(S.dx)) / Math.max(0.5, Math.abs(S.v)))));
       S.settling = true;
       const finish = () => {
         if (!S) return;
@@ -99133,6 +99267,39 @@ const AUTOPILOT = (() => {
   hook("boot", () => { setTimeout(uiSeed, 3000); });
 })();
 
+
+/* iPad held upright: the tab bar sits along the bottom, so the notes board and the sticker envelope end just above it
+   (the computer layout's fixed height ran them under the tab bar and off the screen). */
+(() => {
+  const Q = "(min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse)";
+  function fit(){
+    const sc = document.getElementById("nbScroll"), env = document.querySelector(".nb-wrap > .env"), nav = document.querySelector("nav.tabs");
+    const wrap = document.querySelector("body > .wrap"), nt = nav ? nav.getBoundingClientRect().top : 0;
+    const on = !!(sc && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
+    const wbOn = !!(document.getElementById("wbHost") && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
+    if (!on) { [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) { if (wbOn) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important"); else wrap.style.removeProperty("padding-bottom"); } return; }
+    // and the page leaves only the tab bar's room below them, so there's nothing to scroll to
+    if (wrap) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important");
+    const y = window.scrollY || 0, stop = nt + y - 14;
+    const main = sc.closest(".nb-main"), pad = main ? main.getBoundingClientRect().bottom - sc.getBoundingClientRect().bottom : 0;
+    sc.style.setProperty("height", Math.max(300, Math.round(stop - pad - (sc.getBoundingClientRect().top + y))) + "px", "important");
+    if (env) env.style.setProperty("height", Math.max(200, Math.round(stop - (env.getBoundingClientRect().top + y))) + "px", "important");
+  }
+  const later = () => requestAnimationFrame(fit);
+  hook("render", later);
+  addEventListener("resize", later);
+  addEventListener("orientationchange", () => setTimeout(fit, 300));
+})();
+
+/* The keyboard coming up over a sheet: the box being typed in scrolls into the part of the sheet still visible */
+(() => {
+  const reveal = () => {
+    const a = document.activeElement, dlg = document.getElementById("dlg");
+    if (!a || !dlg || !dlg.open || !dlg.contains(a) || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+    setTimeout(() => { try { a.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }, 320);
+  };
+  addEventListener("sb-kb-cover", reveal);
+})();
 /* ===== module: 101-phone-v2.js ===== */
 /* Phones: the page's name in the top bar (with the date over the Board) */
 (() => {

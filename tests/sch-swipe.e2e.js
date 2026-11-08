@@ -31,6 +31,15 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       if (opts.hold) await new Promise(r => setTimeout(r, 200));
       fire("touchend", to); return mid;
     }, [from, to, steps, opts]);
+    // a plain swipe that can slant (dy over its length) and lifts at once (a flick)
+    const flick = (from, to, steps, dy = 0) => page.evaluate(async ([from, to, steps, dy]) => {
+      const col = document.querySelector(".sch-col.sel"), r = col.getBoundingClientRect(), y0 = r.top + 120;
+      const T = (x, y) => new Touch({identifier: 1, target: col, clientX: x, clientY: y, pageX: x, pageY: y + scrollY});
+      const fire = (type, x, y) => col.dispatchEvent(new TouchEvent(type, {touches: type === "touchend" ? [] : [T(x, y)], changedTouches: [T(x, y)], bubbles: true, cancelable: true}));
+      fire("touchstart", from, y0);
+      for (let i = 1; i <= steps; i++) { await new Promise(r => setTimeout(r, 16)); fire("touchmove", from + (to - from) * i / steps, y0 + dy * i / steps); }
+      fire("touchend", to, y0 + dy);
+    }, [from, to, steps, dy]);
     const day = () => page.evaluate(() => ({sel: window.__sbSync.ui.schDay, week: window.__sbSync.ui.schWeek || null, date: document.querySelector(".sch-col.sel").dataset.date}));
     const d0 = await day();
     const mid = await swipe(320, 120, 12, {hold: true});
@@ -46,6 +55,16 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok((await day()).date === d1.date, "a short, slow swipe springs back to the same day");
     await swipe(120, 320, 12, {hold: true}); await page.waitForTimeout(500);
     ok((await day()).date === d0.date, "swiping the other way goes back a day");
+    // like the Task Board's columns: a quick short flick moves on, a slanted swipe still counts, a slow short drag springs back
+    await flick(300, 240, 12); await page.waitForTimeout(600);
+    ok((await day()).date === d1.date, "an unhurried short swipe (a fifth of the way, then let go while moving) moves on a day");
+    await flick(120, 180, 12); await page.waitForTimeout(600);
+    ok((await day()).date === d0.date, "and the same swipe back returns");
+    await flick(300, 170, 8, 112); await page.waitForTimeout(600);
+    ok((await day()).date === d1.date, "a slanted swipe (nearly as much down as across) still moves on a day");
+    await flick(170, 300, 8, -112); await page.waitForTimeout(600);
+    await swipe(300, 230, 10, {hold: true}); await page.waitForTimeout(600);
+    ok((await day()).date === d0.date, "a slow drag a fifth of the way, then a pause before letting go, springs back");
     // past the end of the week
     await page.evaluate(() => { window.__sbSync.ui.schDay = -1; window.__sbSync.render(); }); await page.waitForTimeout(300);
     const last = await day(), m2 = await swipe(320, 120, 12, {hold: true}); await page.waitForTimeout(500);

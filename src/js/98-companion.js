@@ -429,7 +429,12 @@
       const l2 = Math.max(l, vv.offsetLeft), t2 = Math.max(t, vv.offsetTop), r2 = Math.min(r, vv.offsetLeft + vv.width), b2 = Math.min(b, vv.offsetTop + vv.height);
       if (r2 - l2 >= 100 && b2 - t2 >= 100) { l = l2; t = t2; r = r2; b = b2; }
     }
-    l = Math.max(l, ins.l); t = Math.max(t, ins.t); r = Math.min(r, lw - ins.r); b = Math.min(b, lh - ins.b);
+    // the Add button stands inside the home bar's space on an iPad: the companion may stand as low as it, so the two line up
+    let insB = ins.b;
+    if (insB && !phone()) { const fb = document.getElementById("fab"), fr = fb && fb.getClientRects().length ? fb.getBoundingClientRect() : null; if (fr && fr.height) insB = Math.min(insB, Math.max(0, lh - fr.bottom - 20)); }
+    l = Math.max(l, ins.l); t = Math.max(t, ins.t); r = Math.min(r, lw - ins.r); b = Math.min(b, lh - insB);
+    // the iOS app's keyboard slides over the page without shrinking it: what it covers comes from the app (sbVisibleH)
+    if (!phone() && de.classList.contains("kb-native") && typeof window.sbVisibleH === "function") { const vh = window.sbVisibleH(); if (vh > 100 && vh < b) b = vh; }
     sCache = {l: l + MARGIN, t: t + MARGIN, r: r - MARGIN, b: b - MARGIN}; sAt = now;
     return sCache;
   }
@@ -2023,6 +2028,23 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   addEventListener("resize", () => { sAt = 0; dockNow(); try { clamp("resize"); } catch (e) {} placeSoon(200); });
   addEventListener("orientationchange", () => { sAt = 0; try { clamp("rotate"); } catch (e) {} placeSoon(350); guardSoon("rotate", 700); });
   addEventListener("pageshow", () => { sAt = 0; guardSoon("pageshow"); });
+  // the iOS app's keyboard opening or closing: the companion (and its Ask box) stays above it, then settles back
+  let kbHome = null;
+  addEventListener("sb-kb-cover", () => {
+    sAt = 0; if (!box || box.hidden || (phone() && !kbHome)) return;
+    const up = typeof window.sbVisibleH === "function" && window.sbVisibleH() < innerHeight - 1;
+    if (up && !kbHome) kbHome = {x: box.style.left, y: box.style.top, dx: box.dataset.x, dy: box.dataset.y, sig: homeSig};
+    if (!up && kbHome) {
+      // the keyboard has gone: back down to where it was before
+      const h = kbHome; kbHome = null;
+      const x0 = parseFloat(box.style.left) || 0, y0 = parseFloat(box.style.top) || 0;
+      box.style.left = h.x; box.style.top = h.y; box.dataset.x = h.dx; box.dataset.y = h.dy; homeSig = h.sig;
+      glideBy(x0 - (parseFloat(h.x) || 0), y0 - (parseFloat(h.y) || 0));
+      const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
+      fitHitSoon(); guardSoon("keyboard", 400); return;
+    }
+    try { clamp("keyboard"); } catch (e) {} guardSoon("keyboard", 60);
+  });
   if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
   document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
   document.addEventListener("focusout", () => guardSoon("blur", 350));

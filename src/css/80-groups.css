@@ -406,7 +406,14 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 /* Task board */
 .pt-view{display:inline-flex;gap:4px}
 .kb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start}
-@media (max-width:760px){.kb{grid-template-columns:1fr}}
+/* Phones: the columns sit side by side and scroll sideways with snapping, like the main Task Board */
+@media (max-width:760px){
+  .kb{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;padding:0 0 8px;scrollbar-width:none}
+  .kb::-webkit-scrollbar{display:none}
+  #grpDetail .grp-sec > .kb{margin:0 -16px;padding:0 16px 8px;scroll-padding:0 16px}
+  .kb-col{flex:0 0 84%;scroll-snap-align:start;min-height:220px}
+  .kb.kb-dragging{scroll-snap-type:none}
+}
 .kb-col{background:color-mix(in srgb,var(--surface) 55%,transparent);border:1px solid var(--line);border-radius:16px;padding:10px;min-width:0}
 .kb-col h4{display:flex;align-items:center;gap:8px;margin:2px 4px 10px;font:700 1.02rem var(--display);letter-spacing:-.01em}
 .kb-col h4 .sd{width:10px;height:10px;border-radius:3px;background:var(--sc);flex:none}

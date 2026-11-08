@@ -19,11 +19,14 @@
 .cp-front.cp-under{z-index:4}
 /* while it says something, the bubble goes over the top bar instead of being cut off under it */
 .cp-front.cp-under:has(.cp-bubble.on){z-index:7}
-/* Notes on a phone */
-@media (max-width:700px){
+/* Notes on a phone: a little smaller, held upright or turned sideways (a phone on its side is wider than 700px, and the notes
+   used to grow and shift each time it turned) */
+@media (max-width:700px), (max-height:500px) and (pointer:coarse){
   .note{transform:rotate(var(--rot)) scale(.88)}
   .note.dragging{transform:rotate(calc(var(--rot) + 3deg)) scale(.92)}
   .note.editing{transform:none}
+}
+@media (max-width:700px){
   .env.closed{left:14px;right:auto}
   .env:not(.closed){max-height:min(380px,48dvh)}
   .env:not(.closed) .env-body{overflow:hidden auto}
@@ -587,6 +590,9 @@ h2.sec.c2-bh{align-items:center}
 .seg,.seg span,.segb,.segb button,.bview-tabs,.bview-tabs button,.pview-tabs,.pview-tabs button,.us-subs,.us-sub-tab{border-radius:999px}
 /* ===== Schedule, Direction 1: tinted class blocks with a course-colour edge, a calmer grid ===== */
 .sch-wrap{border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08)!important}
+/* the Schedule's day swipe: the page only scrolls up and down here, so a sideways swipe always reaches it (Safari could start its own
+   gesture and cancel the swipe, which sprang back) */
+@media (max-width:700px){.sch-wrap,.sch-pills{touch-action:pan-y}}
 .sch-head{background:var(--surface)!important;min-height:58px;padding:10px 8px!important}
 .sch-dn span{font-size:.72rem!important;font-weight:700!important}
 .sch-dn b{font:800 1.2rem var(--display)!important}
@@ -711,6 +717,9 @@ svg.ci-svg{overflow:visible!important}
 /* Timeline course rows */
 .tl-scroll .tl-row.tl-group{--ba:color-mix(in srgb,var(--c) 88%,#000);--bb:color-mix(in srgb,var(--c) 74%,var(--surface));background:none!important}
 .tl-scroll .tl-group .tl-label{background:var(--ba)!important;border-right:0!important;box-shadow:none!important}
+/* Safari rounds the pinned course label on its own, so it could end a pixel above the rest of the bar: its colour runs a
+   pixel lower (the next row's label covers that pixel whenever the two already line up) */
+.tl-scroll .tl-group .tl-label{box-shadow:0 1px 0 var(--ba)!important}
 .tl-scroll .tl-group .tl-track{background:linear-gradient(90deg,var(--ba) var(--tls,0px),var(--bb) calc(var(--tls,0px) + var(--tlv,1000px)))!important}
 /* sheet heads: the band is only the top strip; the title below sits on the sheet */
 .g2-sheet-head{background-size:100% 62px!important;background-repeat:no-repeat!important;background-position:top!important}

@@ -2142,7 +2142,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   const ROW_ORDER = ["find", "eq", "fill", "pages", "fields", "header", "stamp", "ocr", "link", "watermark", "history", "toc"];
   const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
   const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
-  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.place ? k === "eq" && !!E.place.eq : E.tool === k && !E.ptool || E.ptool === k}" title="${esc(label)}">${k === "ocr" ? AI_ICON : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.place ? k === "eq" && !!E.place.eq : E.tool === k && !E.ptool || E.ptool === k}" title="${esc(label)}">${k === "ocr" ? `<span class="pde-ocr-ai">${AI_ICON}</span>${ico(icon).replace("<svg ", '<svg class="pde-ocr-ic" ')}` : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
   // Undo and Redo at the right end of the edit row (the same history as Ctrl+Z and History)
   const MACK = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl";
   // On narrow phones the row has no room for them, so they head the More menu instead
@@ -3694,6 +3694,13 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 @media (max-width:480px){ .pde-ur{display:none} .pde-menu .pde-mi-ur{display:flex} }
 .pde-bar.compact .pde-tools .pde-tool{padding:6px 8px;min-width:40px;justify-content:center}
 .pde-bar.compact .pde-tools .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Recognize Text: the AI icon (the companion); on an iPad held upright, where it's an icon alone, a scan icon instead, still purple */
+.pde-tool .pde-ocr-ai{display:contents}
+.pde-tool .pde-ocr-ic{display:none}
+@media (min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse){
+  .pde-bar.compact .pde-tools .pde-ocr-ai{display:none}
+  .pde-bar.compact .pde-tools .pde-ocr-ic{display:block}
+}
 .pde-tools label.pde-tool{cursor:pointer}
 .pde-marks,.pde-al,.pde-find{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap}
 .pde-shape-btn[aria-pressed="true"],.pde-al .btn[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,var(--surface));border-color:var(--accent);color:var(--accent)}
@@ -3904,6 +3911,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   .pde-save{margin-left:auto}
   /* while a panel is open its tool's options aren't needed: the panel gets the room */
   .pde-bar.paneled .pde-sub{display:none}
+}
+/* iPhone: Save is just its icon (no count), so Save and Download stay on the page row; and the Read / Mark Up / Edit switch is a
+   little narrower, so Ask This PDF and Study sit on its row */
+@media (max-width:480px){
+  .pdr-sheet .pdr-save .pdr-badge{display:none}
+  .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode){padding:0 7px;gap:4px}
 }
 /* while a panel is open, toasts show at the top, clear of its buttons */
 body:has(dialog[open] .pde-panel) #toast.toast{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto}
