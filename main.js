@@ -849,7 +849,10 @@ const verNewer = (a, b) => { const x = verParts(a), y = verParts(b); for (let i 
 // The installer itself for this computer (the website's Windows button leads to the Microsoft Store, which would install a second copy)
 function updateAsset(j) {
   const want = process.platform === "win32" ? /^Studyboard-Setup-\d+\.\d+\.\d+\.exe$/ : process.platform === "darwin" ? (process.arch === "arm64" ? /^Studyboard-\d+\.\d+\.\d+-mac\.dmg$/ : /^Studyboard-\d+\.\d+\.\d+-mac-intel\.dmg$/) : null;
-  const a = want && Array.isArray(j.assets) ? j.assets.find(x => x && want.test(String(x.name))) : null;
+  // the universal Mac DMG (M-series and Intel) comes first when the release has one
+  const uni = process.platform === "darwin" ? /^Studyboard-\d+\.\d+\.\d+-mac-universal\.dmg$/ : null;
+  const pick = re => re && Array.isArray(j.assets) ? j.assets.find(x => x && re.test(String(x.name))) : null;
+  const a = pick(uni) || pick(want);
   const u = a && safeExternal(a.browser_download_url);
   return u && u.startsWith("https://github.com/connorpelkmans/installers/releases/download/") ? u : DOWNLOAD_PAGE;
 }
