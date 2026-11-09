@@ -24,8 +24,8 @@ window.STUDYBOARD_SITE = {
   DOWNLOADS: {
     // store: the Microsoft Store page
     windows:  { label: "Windows",              store: "https://apps.microsoft.com/detail/9N8PHL54N3SN?ocid=pdpshare", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.4/Studyboard-Setup-1.14.4.exe", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 and 11" },
-    macArm:   { label: "Mac (Apple M-series)", url: "", file: "", needs: "Macs with an M1 chip or newer" },
-    macIntel: { label: "Mac (Intel)",          url: "", file: "", needs: "Macs with an Intel processor" },
+    macArm:   { label: "Mac (Apple M-series)", url: "https://github.com/connorpelkmans/installers/releases/download/v1.15.6/Studyboard-1.15.6-mac-universal.dmg", file: "Studyboard-{version}-mac-universal.dmg", needs: "Macs with an M1 chip or newer" },
+    macIntel: { label: "Mac (Intel)",          url: "https://github.com/connorpelkmans/installers/releases/download/v1.15.6/Studyboard-1.15.6-mac-universal.dmg", file: "Studyboard-{version}-mac-universal.dmg", needs: "Macs with an Intel processor" },
     linux:    { label: "Linux",                url: "", file: "Studyboard-{version}.AppImage",        needs: "64-bit Linux, runs as an AppImage" },
     // appId: the app's Apple ID, digits only (App Store Connect > your app > App Information > Apple ID). Once set, the iPhone
     // download button goes to the App Store, and every page shows Safari's Smart App Banner: "Open" when Studyboard is installed,
