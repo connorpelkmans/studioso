@@ -109,6 +109,9 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2800);
   }
   var ready = function (k) { return !!(D[k] && (httpsUrl(D[k].url) || (k === "windows" && MS))); };
+  // One Mac download for every Mac when both Mac entries link the same (universal) file
+  var MAC_ONE = ready("macArm") && httpsUrl(D.macArm.url) === httpsUrl((D.macIntel || {}).url);
+  if (MAC_ONE) D.macArm.needs = "Apple M-series and Intel Macs";
   var hrefFor = function (k) { return k === "windows" && MS ? MS : ready(k) ? httpsUrl(D[k].url) : "#download"; };
   document.addEventListener("click", function (e) {
     var b = e.target.closest ? e.target.closest("[data-download]") : null; if (!b) return;
@@ -128,7 +131,7 @@
     if (k === "ios" && ready(k) && !chipMac) return asBadge("small"); return '<a class="chip" data-download="' + k + '" href="' + esc(hrefFor(k)) + '"' + (k === "windows" && MS ? ' target="_blank" rel="noopener"' : "") + ">" + icon + esc(text) + (ready(k) ? "" : " · soon") + "</a>"; }
   var macHelp = '<details class="which"><summary>Which Mac do I have?</summary><p>Click the Apple menu in the top-left corner and choose <b>About This Mac</b>. If it says <b>Chip: Apple M1</b> (or M2, M3, M4 and so on), pick Apple M-series. If it says <b>Processor: Intel</b>, pick Intel.</p></details>';
   var seeAll = '<a href="#download">See all downloads</a>';
-  var NAMES = {windows: ["windows", "Windows", "Windows 10 & 11"], macArm: ["mac", "Mac", "Apple M-series"], macIntel: ["mac", "Mac", "Intel Macs"], linux: ["linux", "Linux", "AppImage"]};
+  var NAMES = {windows: ["windows", "Windows", "Windows 10 & 11"], macArm: ["mac", "Mac", MAC_ONE ? "M-series & Intel" : "Apple M-series"], macIntel: ["mac", "Mac", "Intel Macs"], linux: ["linux", "Linux", "AppImage"]};
 
   function desktopRow(k, p) {
     var n = NAMES[k], free = "Free · v" + verOf(k) + " · " + (D[k] && D[k].needs ? D[k].needs : n[2]);
@@ -145,12 +148,14 @@
       var first = p.os, second = p.os === "ios" ? "android" : "ios";
       html = '<div class="dlrow">' + webButton(true) + (ready(first) ? storeButton(first, false) + storeButton(second, false) : storeButton(first, false)) + '</div><p class="dlmeta">Free · syncs with your computer. ' + seeAll + "</p>";
     } else if (p.os === "windows") {
-      html = '<div class="dlrow">' + desktopRow("windows") + '</div><div class="others"><span>Also on</span>' + chip("macArm", ICONS.mac, "Mac M-series") + chip("macIntel", ICONS.mac, "Mac Intel") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
+      html = '<div class="dlrow">' + desktopRow("windows") + '</div><div class="others"><span>Also on</span>' + (MAC_ONE ? chip("macArm", ICONS.mac, "Mac") : chip("macArm", ICONS.mac, "Mac M-series") + chip("macIntel", ICONS.mac, "Mac Intel")) + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
     } else if (p.os === "linux") {
       html = '<div class="dlrow">' + desktopRow("linux") + '</div><div class="others"><span>Also on</span>' + chip("windows", ICONS.windows, "Windows") + chip("macArm", ICONS.mac, "Mac") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
     } else if (p.os === "mac") {
       chipMac = true;
-      if (p.chip === "arm" || p.chip === "intel") {
+      if (MAC_ONE) {
+        html = '<div class="dlrow">' + desktopRow("macArm") + '</div><div class="others"><span>Also on</span>' + chip("windows", ICONS.windows, "Windows") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
+      } else if (p.chip === "arm" || p.chip === "intel") {
         var k = p.chip === "arm" ? "macArm" : "macIntel", other = p.chip === "arm" ? "macIntel" : "macArm";
         html = '<div class="dlrow">' + desktopRow(k) + '</div><div class="others"><span>Also on</span>' + chip(other, ICONS.mac, p.chip === "arm" ? "Mac Intel" : "Mac M-series") + chip("windows", ICONS.windows, "Windows") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
       } else {
@@ -165,7 +170,7 @@
 
   function renderAll(p) {
     var el = document.getElementById("allDownloads"); if (!el) return;
-    var mine = p.os === "windows" ? "windows" : p.os === "mac" ? (p.chip === "intel" ? "macIntel" : p.chip === "arm" ? "macArm" : "") : p.os === "ios" ? "ios" : p.os === "android" ? "android" : p.os === "linux" ? "linux" : "";
+    var mine = p.os === "windows" ? "windows" : p.os === "mac" ? (MAC_ONE ? "macArm" : p.chip === "intel" ? "macIntel" : p.chip === "arm" ? "macArm" : "") : p.os === "ios" ? "ios" : p.os === "android" ? "android" : p.os === "linux" ? "linux" : "";
     function card(k, icon, title, action) {
       var d = D[k] || {}, f = fileName(d, k);
       if (k === "ios" && ready(k)) {
@@ -182,7 +187,7 @@
     var extCard = CWS ? '<div class="group"><h3>Browser extension</h3><div class="plats"><div class="plat ext"><div class="ext-hd"><div class="ico"><img src="assets/school-sync-icon.png" alt="" width="38" height="38" decoding="async"></div><h4>Studyboard School Sync</h4></div><div><p>Keeps Studyboard up to date with your Canvas, Brightspace or Blackboard: due dates, submissions, grades and feedback. ' + esc(D.chrome.needs || "") + ".</p></div>" +
       '<div class="ms-go">' + extBadges() + "</div></div></div></div>" : "";
     el.innerHTML = webCard + extCard +
-      '<div class="group"><h3>Computer</h3><div class="plats">' + card("windows", ICONS.windows, "Windows", "Download .exe") + card("macArm", ICONS.mac, "Mac · Apple M-series", "Download .dmg") + card("macIntel", ICONS.mac, "Mac · Intel", "Download .dmg") + card("linux", ICONS.linux, "Linux", "Download AppImage") + "</div>" + (ready("macArm") || ready("macIntel") ? macHelp.replace('class="which"', 'class="which mt12"') : "") + "</div>" +
+      '<div class="group"><h3>Computer</h3><div class="plats">' + card("windows", ICONS.windows, "Windows", "Download .exe") + (MAC_ONE ? card("macArm", ICONS.mac, "Mac", "Download .dmg") : card("macArm", ICONS.mac, "Mac · Apple M-series", "Download .dmg") + card("macIntel", ICONS.mac, "Mac · Intel", "Download .dmg")) + card("linux", ICONS.linux, "Linux", "Download AppImage") + "</div>" + (!MAC_ONE && (ready("macArm") || ready("macIntel")) ? macHelp.replace('class="which"', 'class="which mt12"') : "") + "</div>" +
       '<div class="group"><h3>Phone &amp; tablet</h3><div class="plats">' + card("ios", ICONS.phone, "iPhone &amp; iPad", "App Store") + card("android", ICONS.phone, "Android", "Google Play") + "</div></div>";
   }
 
