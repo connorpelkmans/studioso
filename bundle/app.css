@@ -8412,6 +8412,16 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 @media (min-width:640px){
   html.kb-open dialog#dlg[open]{position:fixed;inset:calc(8px + env(safe-area-inset-top,0px)) 0 calc(var(--kb-h,0px) + 8px) 0;margin:auto;max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px);transition:inset .3s cubic-bezier(.32,.72,0,1)}
 }
+
+/* Sideways iPad (no top bar): a short fade in the theme's colour behind the clock and battery, so the page fades out before
+   reaching them (iOS's frosted grey band is off). Its height comes from the status bar, so on a computer it's nothing. The side
+   menu stays above it, so only the page fades */
+#sbTopFade{display:none}
+@media (min-width:980px){
+  #sbTopFade{display:block;position:fixed;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) * 1.6);z-index:5;pointer-events:none;
+    background:linear-gradient(180deg,var(--sb-top-c,var(--bg)) 0,var(--sb-top-c,var(--bg)) 55%,color-mix(in srgb,var(--sb-top-c,var(--bg)) 0%,transparent) 100%)}
+  html.board-max #sbTopFade{display:none}
+}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}

@@ -33,6 +33,13 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         insetWatch = scroll.observe(\.contentInset, options: [.new]) { sv, _ in
             if sv.contentInset.top != 0 { sv.contentInset.top = 0 }
         }
+        // iOS 26 lays a frosted grey band over the top of a scrolling view, behind the clock and battery. It doesn't match the
+        // themes, so it's off: the page draws its own short fade there in the theme's colour (103-phone-design.css, #sbTopFade)
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            scroll.topEdgeEffect.isHidden = true
+        }
+        #endif
         let idiom = UIDevice.current.userInterfaceIdiom == .pad ? "pad" : "phone"
         let js = "window.StudyboardDevice = Object.freeze({idiom: \"\(idiom)\"});"
         webView.configuration.userContentController.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))

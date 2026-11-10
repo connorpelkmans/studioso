@@ -346,3 +346,25 @@
   };
   addEventListener("sb-kb-cover", reveal);
 })();
+
+/* Behind the clock and battery on a sideways iPad: a short fade in the theme's own colour, so the page fades out before it
+   reaches them (iOS's own frosted band is switched off in the app, MainViewController.swift). The colour is what's at the
+   top of the screen: the theme scene's sky, else the page. Nothing shows on a computer (no status bar: no height) */
+(() => {
+  let el = null, last = "", t = 0;
+  const rgb = c => { const m = /rgba?\(([^)]+)\)/.exec(c || ""); if (!m) return ""; const p = m[1].split(",").map(x => x.trim()); if (p[3] != null && +p[3] < 0.5) return ""; return `rgb(${p[0]}, ${p[1]}, ${p[2]})`; };
+  function paint(){
+    t = 0;
+    if (!document.body) return;
+    if (!el || !el.isConnected) { el = document.createElement("div"); el.id = "sbTopFade"; el.setAttribute("aria-hidden", "true"); document.body.appendChild(el); }
+    let c = rgb(getComputedStyle(document.body).backgroundColor) || rgb(getComputedStyle(document.documentElement).backgroundColor);
+    const art = document.getElementById("sceneArt");
+    if (art) { const s = getComputedStyle(art), g = /rgba?\([^)]*\)/.exec(s.backgroundImage || ""); c = rgb(s.backgroundColor) || (g ? rgb(g[0]) : "") || c; }
+    if (c && c !== last) { last = c; document.documentElement.style.setProperty("--sb-top-c", c); }
+  }
+  const soon = () => { if (!t) t = setTimeout(paint, 120); };
+  hook("render", soon);
+  const go = () => { paint(); new MutationObserver(soon).observe(document.documentElement, {attributes: true, attributeFilter: ["class", "data-theme", "data-skin"]}); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go();
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", soon); } catch (e) {}
+})();
