@@ -8269,9 +8269,10 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   header.top{top:0!important;padding-top:calc(12px + env(safe-area-inset-top,0px))!important}
 }
 /* ...but from 980px wide (an iPad held sideways) there is no top bar (the menu is down the side), so the page itself starts
-   below the clock and battery, or the quick add box would sit right under them. A computer's inset is 0 */
+   below the clock and battery with a little room to spare (the same depth as the fade behind them, #sbTopFade), or titles
+   and the quick add box would sit right under them. A computer's inset is 0, so nothing changes there */
 @media (min-width:980px){
-  body > .wrap{padding-top:env(safe-area-inset-top,0px)}
+  body > .wrap{padding-top:calc(env(safe-area-inset-top,0px) * 1.6)}
 }
 /* Course card grade on phones: one line, on the right ("92% A"), no "Grade" word or marked share */
 @media (max-width:639px){
