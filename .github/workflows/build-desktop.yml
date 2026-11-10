@@ -119,10 +119,30 @@ jobs:
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-      - run: npm run dist:mac-signed
+      # The certificate goes into a keychain made here, not by electron-builder:
+      # electron-builder 26 unlocks its own keychain with the .p12 password, which fails.
+      - name: Import the Developer ID certificate
+        run: |
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          KCP="$(openssl rand -base64 32)"
+          echo "$CSC_LINK" | base64 --decode > "$RUNNER_TEMP/devid.p12"
+          security create-keychain -p "$KCP" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KCP" "$KC"
+          security import "$RUNNER_TEMP/devid.p12" -k "$KC" -f pkcs12 -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+          rm -f "$RUNNER_TEMP/devid.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCP" "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          NAME="$(security find-identity -v -p codesigning "$KC" | sed -n 's/.*"Developer ID Application: \(.*\)"$/\1/p' | head -1)"
+          [ -n "$NAME" ] || { echo "::error::No 'Developer ID Application' identity in CSC_LINK. Export that certificate (with its private key) as a .p12."; security find-identity -v "$KC"; exit 1; }
+          echo "Signing as: Developer ID Application: $NAME"
+          echo "CSC_NAME=$NAME" >> "$GITHUB_ENV"
+          echo "CSC_KEYCHAIN=$KC" >> "$GITHUB_ENV"
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      - run: npm run dist:mac-signed
+        env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           REQUIRE_NOTARIZATION: "1"
