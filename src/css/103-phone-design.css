@@ -224,6 +224,11 @@
   html{scroll-padding-top:0}
   header.top{top:0!important;padding-top:calc(12px + env(safe-area-inset-top,0px))!important}
 }
+/* ...but from 980px wide (an iPad held sideways) there is no top bar (the menu is down the side), so the page itself starts
+   below the clock and battery, or the quick add box would sit right under them. A computer's inset is 0 */
+@media (min-width:980px){
+  body > .wrap{padding-top:env(safe-area-inset-top,0px)}
+}
 /* Course card grade on phones: one line, on the right ("92% A"), no "Grade" word or marked share */
 @media (max-width:639px){
   #view .c2-card .c2-foot > .c2-grade{margin-left:auto!important;flex:none;gap:5px;overflow:visible}
