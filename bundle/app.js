@@ -15125,7 +15125,9 @@ function courseForm(c){
   dlg.querySelectorAll('input[name="color"]').forEach(r => r.addEventListener("change", () => { const g = $("#ciGrid"); if (g) g.style.setProperty("--c", r.value); }));
   { const pk = $("#ccPick"), rd = $("#ccRadio");
     if (pk && rd) { pk.addEventListener("input", () => { rd.value = pk.value; rd.nextElementSibling.style.setProperty("--c", pk.value); rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); });
-      rd.addEventListener("click", () => { try { pk.showPicker ? pk.showPicker() : pk.click(); } catch (e) { pk.click(); } }); } }
+      rd.addEventListener("click", () => { try { pk.showPicker ? pk.showPicker() : pk.click(); } catch (e) { pk.click(); } });
+      // iPhone and iPad: the tap lands on the colour box itself (laid over the rainbow), which opens Apple's colour picker; it picks the rainbow too
+      pk.addEventListener("click", () => { if (!rd.checked) { rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); } }); } }
   { const g = $("#ciGrid"), follow = () => { if (!g || g.dataset.picked) return; const k = courseIconKey({name: (dlg.querySelector('input[name="name"]') || {}).value, code: (dlg.querySelector('input[name="code"]') || {}).value}); const r = g.querySelector(`input[value="${k}"]`); if (r) r.checked = true; };
     if (g) { g.addEventListener("change", () => { g.dataset.picked = "1"; }); dlg.querySelectorAll('input[name="name"],input[name="code"]').forEach(i => i.addEventListener("input", follow)); } }
   let meets = clone(courseMeetings(c)).map(m => Object.assign(m, {days: m.days || [], cyc: m.cyc || [], rep: m.cyc && m.cyc.length ? "c" : "w"}));
@@ -94583,6 +94585,7 @@ html[data-theme=dark] .wb-livechip{color:#7FE3A6}
   const recent = () => { try { const a = JSON.parse(localStorage.getItem(K_RECENT) || "[]"); return Array.isArray(a) ? a.filter(okHex).slice(0, 8) : []; } catch (e) { return []; } };
   // iPhone and iPad have Apple's own colour picker (grid, spectrum, sliders and an eyedropper): colour fields there open it directly
   const APPLE = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  try { document.documentElement.classList.toggle("sb-apple", APPLE); } catch (e) {}
   const ours = inp => !APPLE && inp && inp.type === "color" && !inp.disabled && !(inp.closest && inp.closest(".wb-stage"));
   let OPEN = null, lastPtr = null;
   document.addEventListener("pointerdown", e => { lastPtr = e.target; }, true);

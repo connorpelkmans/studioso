@@ -21,6 +21,7 @@
   const recent = () => { try { const a = JSON.parse(localStorage.getItem(K_RECENT) || "[]"); return Array.isArray(a) ? a.filter(okHex).slice(0, 8) : []; } catch (e) { return []; } };
   // iPhone and iPad have Apple's own colour picker (grid, spectrum, sliders and an eyedropper): colour fields there open it directly
   const APPLE = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  try { document.documentElement.classList.toggle("sb-apple", APPLE); } catch (e) {}
   const ours = inp => !APPLE && inp && inp.type === "color" && !inp.disabled && !(inp.closest && inp.closest(".wb-stage"));
   let OPEN = null, lastPtr = null;
   document.addEventListener("pointerdown", e => { lastPtr = e.target; }, true);
