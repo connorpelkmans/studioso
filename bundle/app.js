@@ -3371,15 +3371,17 @@ const SBPOLICY = (() => {
   }
 
   // Limits per student, each clamped to a range settings can't widen. env: the Worker's settings ({} gives the defaults).
-  const HARD = {monthUsd: 10, dayUsd: 3, perMinute: 60, inflight: 8};
+  // (the allowance runs by the week now: monthUsd and monthMicro keep their old names but hold the week's)
+  const HARD = {monthUsd: 3, dayUsd: 3, perMinute: 60, inflight: 8};
   const num = (v, d, lo, hi) => { const n = Number(v); return v != null && String(v).trim() !== "" && Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
   // Money is kept in whole micro-dollars (integers), always rounded up
   const micro = usd => Math.max(0, Math.ceil(usd * 1e6 - 1e-6));
   function limits(env){
     env = env || {};
-    // Defaults keep a student's real cost near $2.50 a month: $2.25 of AI, plus Washington sales tax (about 10%).
+    // A week (Monday to Sunday, UTC) at a time. The defaults are a quarter of the old monthly ones ($2.25 hard, $1.80 soft),
+    // which kept a student's real cost near $2.50 a month with Washington sales tax (about 10%).
     // Claude is paid with Studyboard's own Anthropic key in the gateway, so there's no 5% credit fee on it.
-    const hard = num(env.MONTHLY_HARD_USD, 2.25, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 1.8, 0, HARD.monthUsd));
+    const hard = num(env.WEEKLY_HARD_USD, 0.5625, 0, HARD.monthUsd), soft = Math.min(hard, num(env.WEEKLY_SOFT_USD, 0.45, 0, HARD.monthUsd));
     const day = num(env.DAILY_USD, 0.5, 0.05, HARD.dayUsd);
     return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
       perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};
@@ -3387,6 +3389,10 @@ const SBPOLICY = (() => {
   const monthOf = now => new Date(now).toISOString().slice(0, 7);
   const dayOf = now => new Date(now).toISOString().slice(0, 10);
   const nextMonth = now => { const d = new Date(now); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1); };
+  // The allowance's week: from Monday 00:00 UTC (its key is that Monday's date)
+  const weekStart = now => { const d = new Date(now); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - (d.getUTCDay() + 6) % 7); };
+  const weekOf = now => new Date(weekStart(now)).toISOString().slice(0, 10);
+  const nextWeek = now => weekStart(now) + 7 * 864e5;
 
   // What a finished request cost, from Anthropic's usage report
   function costOf(u){
@@ -3418,7 +3424,7 @@ const SBPOLICY = (() => {
     constructor(storage, now = () => Date.now(), lock = null, o = null){ this.s = storage; this.now = now; this.o = o || {}; const one = serial(); this.one = lock ? fn => one(() => lock(fn)) : one; }
     async read(){
       const keys = ["gone", "month", "spent", "day", "daySpent", "flying", "hits"], v = await Promise.all(keys.map(k => this.s.get(k)));
-      const [gone, month, spent, day, daySpent, flying, hits] = v, now = this.now(), m = monthOf(now), d = dayOf(now);
+      const [gone, month, spent, day, daySpent, flying, hits] = v, now = this.now(), m = weekOf(now), d = dayOf(now);
       return {gone: !!gone, now, month: m, spent: month === m ? spent || 0 : 0, day: d, daySpent: day === d ? daySpent || 0 : 0,
         // A job that never settled (its Worker or tab stopped) stays charged; after 15 minutes it stops counting as in flight
         flying: (flying || []).filter(f => now - f.at < 15 * 60000 && (!this.o.alive || this.o.alive(f.sid))), hits: (hits || []).filter(t => now - t < 60000)};
@@ -3471,7 +3477,7 @@ const SBPOLICY = (() => {
       await this.s.put(upd);
       return true;
     }
-    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextMonth(r.now)}; }
+    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextWeek(r.now)}; }
     async _status(lim){ const r = await this.read(); return r.gone ? {usedPct: 100, soft: false, resets: null, gone: true} : this.view(r, lim); }
     // Delete My Account: the id is closed for good, so deleting can't be used to reset an allowance
     async _forget(){ await this.s.deleteAll(); await this.s.put("gone", true); }
@@ -3647,7 +3653,7 @@ const SBPOLICY = (() => {
   }
 
   return {MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,
-    TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, costOf, worstCost, webWorst, textBytes, Meter, Totals,
+    TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, weekOf, nextWeek, costOf, worstCost, webWorst, textBytes, Meter, Totals,
     strictSchema, readBlocks, pdfPages, buildRequest, readAnswer, refusedEarly, runJob};
 })();
 globalThis.SBPOLICY = SBPOLICY;
@@ -3940,7 +3946,7 @@ if (window.__SB_TEST) window.__sbAi = {cfg: () => aiCfg(), proRefresh: () => aiP
 // Studyboard AI's rules (src/js/01-ai-policy.js): the built-in AI, or a student's own Claude key in Studyboard AI Mode
 const aiSbMode = c => !!c && (c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard"));
 /* A student's own Claude key in Studyboard AI Mode: the same rules as the built-in AI (SBPOLICY.runJob: model, thinking per job,
-   output caps, the same monthly, daily, per-minute and at-once limits), run on this device and paid by their key. The allowance
+   output caps, the same weekly, daily, per-minute and at-once limits), run on this device and paid by their key. The allowance
    is kept on this device, one change at a time across tabs. */
 const AI_OWN_LS = "studyboard:ownAI";
 const ownStore = {
@@ -3976,7 +3982,7 @@ function ownClaude(key, signal, ms){
     count: async req => { const rest = Object.assign({}, req); delete rest.max_tokens; return (await call("/v1/messages/count_tokens", rest)).input_tokens; }
   };
 }
-const ownView = () => { try { const r = ownStore.all(), L = ownLimits(), m = SBPOLICY.monthOf(Date.now()), spent = r.month === m ? r.spent || 0 : 0; return {usedPct: Math.min(100, Math.round(spent / L.monthMicro * 100)), soft: spent >= L.softMicro, resets: SBPOLICY.nextMonth(Date.now())}; } catch(e) { return {usedPct: 0, soft: false, resets: null}; } };
+const ownView = () => { try { const r = ownStore.all(), L = ownLimits(), m = SBPOLICY.weekOf(Date.now()), spent = r.month === m ? r.spent || 0 : 0; return {usedPct: Math.min(100, Math.round(spent / L.monthMicro * 100)), soft: spent >= L.softMicro, resets: SBPOLICY.nextWeek(Date.now())}; } catch(e) { return {usedPct: 0, soft: false, resets: null}; } };
 // "Resets on December 1"
 const aiProResets = () => { const t = aiProGet(); if (!t || !t.resets) return ""; try { return new Date(t.resets).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } };
 // A scanned code opens the app as <app>#sbkey=XXXX-XXXX-XXXX
@@ -4044,8 +4050,8 @@ function aiCfg(){
   let model = raw.model || (provider === "gemini" ? "auto" : AI_PROVIDERS[provider].models[0][0]);
   if (!keys[provider]) { const p = ["gemini", "anthropic", "openai"].find(x => keys[x]); if (p) { provider = p; model = p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]; } }
   if (provider === "anthropic") model = "studyboard";
-  // Studyboard AI (Pro) unless the student chose their own key; once this month's is used up, their own key takes over if they have one
-  // Paid Pro: Studyboard AI first, always. The student's own key (Gemini first) only once this month's or today's allowance is used up.
+  // Studyboard AI (Pro) unless the student chose their own key; once this week's is used up, their own key takes over if they have one
+  // Paid Pro: Studyboard AI first, always. The student's own key (Gemini first) only once this week's or today's allowance is used up.
   if (aiProAvail() && !raw.ownKey) {
     if (!aiProUsedUp()) return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
     const b = aiProBackup(keys);
@@ -4406,20 +4412,20 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
 }
 // Studyboard AI (AI_PRO)
 const AI_PRO_WORDS = {
-  used_up: {title: "You've Used This Month's Studyboard AI", body: "Studyboard AI is back when your allowance resets. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
-  today: {title: "You've Used Today's Studyboard AI", body: "Studyboard AI has a daily share so this month's allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
+  used_up: {title: "You've Used This Week's Studyboard AI", body: "Studyboard AI is back when your allowance resets. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
+  today: {title: "You've Used Today's Studyboard AI", body: "Studyboard AI has a daily share so this week's allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
   files: {title: "This Needs a Gemini Key", body: "Studyboard AI reads text, photos and PDFs. Videos need Google's Gemini, the only AI that can watch them. A free Gemini key takes about a minute to set up.", err: "Videos need a free Gemini key."},
   search: {title: "This Needs Your Own Key", body: "Looking things up on the web needs your own free Google Gemini key, which takes about a minute.", err: "This needs your own free Gemini key."},
   too_long: {title: "That's Too Much in One Go", body: "Studyboard AI handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
 };
 // own: the student's own Claude key in Studyboard AI Mode (the same job, run on this device), otherwise the built-in AI
 const AI_OWN_WORDS_PRO = {
-  used_up: {title: "Your Own Key's Monthly Limit Is Reached", body: "Studyboard AI keeps your own key to its monthly limit, so AI pauses until it resets. Choose another model in Settings, AI Features to keep going.", err: "Your own key's Studyboard AI limit for this month is reached."},
+  used_up: {title: "Your Own Key's Weekly Limit Is Reached", body: "Studyboard AI keeps your own key to its weekly limit, so AI pauses until it resets. Choose another model in Settings, AI Features to keep going.", err: "Your own key's Studyboard AI limit for this month is reached."},
   today: {title: "That's Today's Limit on Your Own Key", body: "Studyboard AI keeps your own key to its daily limit. It's back tomorrow, or choose another model in Settings, AI Features.", err: "That's today's Studyboard AI limit on your own key. More tomorrow."}
 };
 const aiOwnWords = () => aiProUser() ? AI_OWN_WORDS_PRO : AI_OWN_WORDS;
 const AI_OWN_WORDS = {
-  used_up: {title: "Your Claude Key's Monthly Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same monthly limit as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
+  used_up: {title: "Your Claude Key's Weekly Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same weekly limit as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
   today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
 };
 // A request the student made that meets "too many at once" waits a moment and tries again (up to 3 times) instead of failing
@@ -4456,7 +4462,7 @@ async function proCallOnce({system, parts, schema, ms, task, signal, auto, searc
     aiProSet(j);
   }
   if (res.ok && j.data && typeof j.data === "object") {
-    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of this month's Studyboard AI. Everyday jobs now think a little less so the rest lasts."), 600); }
+    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of this week's Studyboard AI. Everyday jobs now think a little less so the rest lasts."), 600); }
     return {data: j.data, model: own ? aiModelName("anthropic", "studyboard") : "Studyboard AI", provider: own ? "anthropic" : "studyboard", truncated: !!j.truncated};
   }
   const why = res.status === 413 ? "too_long" : AI_PRO_WORDS[j.error] && j.error !== "files" && j.error !== "search" ? j.error : "";
@@ -4585,7 +4591,7 @@ async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
 // The model picker shown in every AI sheet
 function aiModelBar(){
   const c = aiCfg();
-  if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% of this month's used` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
+  if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% of this week's used` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
   const groups = aiModelOpts(c.keys, `${c.provider}|${c.model}`, (p, P) => p === c.provider && !P.models.some(x => x[0] === c.model) ? `<option value="${p}|${esc(c.model)}" selected>${esc(aiModelName(p, c.model))}</option>` : "");
   return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Model</span><select data-ai-model aria-label="AI model">${groups}</select><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></label>`;
 }
@@ -5233,13 +5239,13 @@ Return JSON only.`});
 }
 
 /* Settings: turning AI on and choosing a model */
-// What Studyboard AI says about this month, for Settings
+// What Studyboard AI says about this week, for Settings
 function aiProLine(){
   const t = aiProGet() || {}, when = aiProResets();
-  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% of this month's used` : ""}${when ? `, resets ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
+  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% of this week's used` : ""}${when ? `, resets ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
 }
-/* The AI menu's usage card: this month as a percentage, and today's share, with no amounts or costs. The chip in its header
-   always says where things stand; amber once everyday answers get shorter, orange when the month or the day is used up. */
+/* The AI menu's usage card: this week as a percentage, and today's share, with no amounts or costs. The chip in its header
+   always says where things stand; amber once everyday answers get shorter, orange when the week or the day is used up. */
 const SBAI_STAR = '<svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" aria-hidden="true"><path d="M12 4.5l1.9 5.6 5.6 1.9-5.6 1.9L12 19.5l-1.9-5.6-5.6-1.9 5.6-1.9z"/></svg>';
 function aiUseCard(){
   const t = aiProGet() || {}, today = new Date().toISOString().slice(0, 10), when = aiProResets();
@@ -5254,20 +5260,20 @@ function aiUseCard(){
   const st = monthOut ? "out" : dayOut ? "day" : low ? "warn" : "";
   const ringCls = monthOut || dayOut ? "out" : low ? "warn" : "", ringPct = monthOut || dayOut ? 100 : m;
   const chip = monthOut ? "Used up" : dayOut ? back.replace(/^b/, "B") : `${m}%`;
-  const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "this month"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
-  const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "next month"}. Until then, AI keeps working with your backup key below.`
+  const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "this week"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
+  const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "next week"}. Until then, AI keeps working with your backup key below.`
     : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
-    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` The month resets <b>${esc(when)}</b>.` : ""}`
-    : `Included with Pro.${when ? ` The month resets <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
+    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` The week resets <b>${esc(when)}</b>.` : ""}`
+    : `Included with Pro.${when ? ` The week resets <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
   return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
     <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
-    <div class="sbai-num">${m}%<small>used this month</small></div>
-    <div class="sbai-rows">${bar("This month", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
+    <div class="sbai-num">${m}%<small>used this week</small></div>
+    <div class="sbai-rows">${bar("This week", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
     <p class="sbai-note">${note}</p></div>`;
 }
 function aiRow(){
   const on = aiReady(), c = aiCfg();
-  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of this month's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
+  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of this week's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
   if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
   return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
@@ -5294,7 +5300,7 @@ function aiSetupSheet(fromFeature, opts){
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
-        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If this month's or today's Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If this week's or today's Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
       ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
@@ -79455,7 +79461,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
   const VERSION = "1.15.6";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "November 6, 2026", TERMS_UPDATED = "October 27, 2026";
+  const UPDATED = "November 11, 2026", TERMS_UPDATED = "November 11, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -79488,7 +79494,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude (and, for a YouTube link, to Google's Gemini, which watches the video), or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare, Anthropic and Google process what you send to produce the answer. The AI server keeps only how much of your monthly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude (and, for a YouTube link, to Google's Gemini, which watches the video), or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare, Anthropic and Google process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>
@@ -79580,7 +79586,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <p>Study groups, study rooms and shared decks let you post content other people see. There is zero tolerance for objectionable content or abusive users: no harassment, bullying, hate, threats, sexual content, spam, cheating services or sharing other people's personal information. Use Report on a group message, a shared item or a group member to tell us, and Block (in the group's member list) to stop seeing someone's messages straight away. We review reports within 24 hours, remove content that breaks these rules and remove people who post it. We don't check what people share before it appears and we aren't responsible for it; content made by other people is theirs, not ours, and you use it at your own risk. Anyone who can see something you share or publish can save a copy, and unpublishing or deleting it doesn't remove the copies they already saved.</p>
 
     <h3>AI features</h3>
-    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, with a paid Pro plan, Studyboard AI, which runs on Anthropic's Claude through Cloudflare, within a monthly allowance (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards, including ones made from your slides or PDFs, stay in your own decks and are never shared. Check what AI makes before you share it.</p>
+    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, with a paid Pro plan, Studyboard AI, which runs on Anthropic's Claude through Cloudflare, within a weekly allowance (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards, including ones made from your slides or PDFs, stay in your own decks and are never shared. Check what AI makes before you share it.</p>
 
     <h3>Study use only</h3>
     <p>Studyboard is a study tool. Flashcards, quizzes, summaries, plans and answers in it, whether written by you, by AI or by other students, can be wrong, incomplete or out of date, and we don't promise they will help you pass. They are not medical, nursing, legal, financial or other professional advice: never use them to make decisions about a patient's care, your health or anyone's safety, and always check your course materials, your instructor and official guidelines. You are responsible for following your school's academic integrity rules. Don't use Studyboard to cheat, to share or collect answers to graded work or questions from real tests, or to hand in AI-written work where your school doesn't allow it.</p>

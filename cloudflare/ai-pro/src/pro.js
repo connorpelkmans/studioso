@@ -6,7 +6,7 @@
 import "../../../src/js/01-ai-policy.js";
 const P = globalThis.SBPOLICY;
 export const { MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,
-  TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, costOf, worstCost, webWorst, textBytes, Meter, Totals,
+  TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, weekOf, nextWeek, costOf, worstCost, webWorst, textBytes, Meter, Totals,
   strictSchema, readBlocks, pdfPages, buildRequest, readAnswer, refusedEarly, runJob } = P;
 
 // Whisper large v3 turbo on Workers AI: $0.000513 an audio minute. Rounded up.
