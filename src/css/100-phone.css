@@ -1164,3 +1164,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .cr-help > summary::-webkit-details-marker{display:none}
 .cr-help > summary::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-top:-3px}
 .cr-help[open] > summary::after{transform:rotate(-135deg);margin-top:3px}
+/* iPhone and iPad: Apple's colour picker only opens from a tap on the colour box itself, so the (invisible) box lies over the
+   rainbow and takes the tap */
+html.sb-apple .cc-custom{position:relative}
+html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:pointer;-webkit-appearance:none;appearance:none;border:0;padding:0;margin:0}

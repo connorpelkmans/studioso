@@ -3377,8 +3377,10 @@ const SBPOLICY = (() => {
   const micro = usd => Math.max(0, Math.ceil(usd * 1e6 - 1e-6));
   function limits(env){
     env = env || {};
-    const hard = num(env.MONTHLY_HARD_USD, 2.5, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 2, 0, HARD.monthUsd));
-    const day = num(env.DAILY_USD, 1, 0.05, HARD.dayUsd);
+    // Defaults keep a student's real cost near $2.50 a month: $2.25 of AI, plus Washington sales tax (about 10%).
+    // Claude is paid with Studyboard's own Anthropic key in the gateway, so there's no 5% credit fee on it.
+    const hard = num(env.MONTHLY_HARD_USD, 2.25, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 1.8, 0, HARD.monthUsd));
+    const day = num(env.DAILY_USD, 0.9, 0.05, HARD.dayUsd);
     return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
       perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};
   }
@@ -15125,7 +15127,9 @@ function courseForm(c){
   dlg.querySelectorAll('input[name="color"]').forEach(r => r.addEventListener("change", () => { const g = $("#ciGrid"); if (g) g.style.setProperty("--c", r.value); }));
   { const pk = $("#ccPick"), rd = $("#ccRadio");
     if (pk && rd) { pk.addEventListener("input", () => { rd.value = pk.value; rd.nextElementSibling.style.setProperty("--c", pk.value); rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); });
-      rd.addEventListener("click", () => { try { pk.showPicker ? pk.showPicker() : pk.click(); } catch (e) { pk.click(); } }); } }
+      rd.addEventListener("click", () => { try { pk.showPicker ? pk.showPicker() : pk.click(); } catch (e) { pk.click(); } });
+      // iPhone and iPad: the tap lands on the colour box itself (laid over the rainbow), which opens Apple's colour picker; it picks the rainbow too
+      pk.addEventListener("click", () => { if (!rd.checked) { rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); } }); } }
   { const g = $("#ciGrid"), follow = () => { if (!g || g.dataset.picked) return; const k = courseIconKey({name: (dlg.querySelector('input[name="name"]') || {}).value, code: (dlg.querySelector('input[name="code"]') || {}).value}); const r = g.querySelector(`input[value="${k}"]`); if (r) r.checked = true; };
     if (g) { g.addEventListener("change", () => { g.dataset.picked = "1"; }); dlg.querySelectorAll('input[name="name"],input[name="code"]').forEach(i => i.addEventListener("input", follow)); } }
   let meets = clone(courseMeetings(c)).map(m => Object.assign(m, {days: m.days || [], cyc: m.cyc || [], rep: m.cyc && m.cyc.length ? "c" : "w"}));
@@ -94583,6 +94587,7 @@ html[data-theme=dark] .wb-livechip{color:#7FE3A6}
   const recent = () => { try { const a = JSON.parse(localStorage.getItem(K_RECENT) || "[]"); return Array.isArray(a) ? a.filter(okHex).slice(0, 8) : []; } catch (e) { return []; } };
   // iPhone and iPad have Apple's own colour picker (grid, spectrum, sliders and an eyedropper): colour fields there open it directly
   const APPLE = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  try { document.documentElement.classList.toggle("sb-apple", APPLE); } catch (e) {}
   const ours = inp => !APPLE && inp && inp.type === "color" && !inp.disabled && !(inp.closest && inp.closest(".wb-stage"));
   let OPEN = null, lastPtr = null;
   document.addEventListener("pointerdown", e => { lastPtr = e.target; }, true);
@@ -99299,6 +99304,28 @@ const AUTOPILOT = (() => {
     setTimeout(() => { try { a.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }, 320);
   };
   addEventListener("sb-kb-cover", reveal);
+})();
+
+/* Behind the clock and battery on a sideways iPad: a short fade in the theme's own colour, so the page fades out before it
+   reaches them (iOS's own frosted band is switched off in the app, MainViewController.swift). The colour is what's at the
+   top of the screen: the theme scene's sky, else the page. Nothing shows on a computer (no status bar: no height) */
+(() => {
+  let el = null, last = "", t = 0;
+  const rgb = c => { const m = /rgba?\(([^)]+)\)/.exec(c || ""); if (!m) return ""; const p = m[1].split(",").map(x => x.trim()); if (p[3] != null && +p[3] < 0.5) return ""; return `rgb(${p[0]}, ${p[1]}, ${p[2]})`; };
+  function paint(){
+    t = 0;
+    if (!document.body) return;
+    if (!el || !el.isConnected) { el = document.createElement("div"); el.id = "sbTopFade"; el.setAttribute("aria-hidden", "true"); document.body.appendChild(el); }
+    let c = rgb(getComputedStyle(document.body).backgroundColor) || rgb(getComputedStyle(document.documentElement).backgroundColor);
+    const art = document.getElementById("sceneArt");
+    if (art) { const s = getComputedStyle(art), g = /rgba?\([^)]*\)/.exec(s.backgroundImage || ""); c = rgb(s.backgroundColor) || (g ? rgb(g[0]) : "") || c; }
+    if (c && c !== last) { last = c; document.documentElement.style.setProperty("--sb-top-c", c); }
+  }
+  const soon = () => { if (!t) t = setTimeout(paint, 120); };
+  hook("render", soon);
+  const go = () => { paint(); new MutationObserver(soon).observe(document.documentElement, {attributes: true, attributeFilter: ["class", "data-theme", "data-skin"]}); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go();
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", soon); } catch (e) {}
 })();
 /* ===== module: 101-phone-v2.js ===== */
 /* Phones: the page's name in the top bar (with the date over the Board) */
