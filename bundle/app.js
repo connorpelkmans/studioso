@@ -66773,6 +66773,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const occ = schOccurrences(addDays(today, -14), addDays(today, 35)).filter(x => x.type === "meet" || x.type === "event").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 300);
       if (occ.length) L.push("CLASSES AND EVENTS BY DATE (ref | day | date | time | what | where):\n" + occ.map(x => `${ref("K", {kind: x.type === "meet" ? "class" : "event", id: x.id, key: x.key, date: x.date, start: x.start, end: x.end, mid: x.m && x.m.id, label: x.label, repeats: x.type === "meet" || !!(x.ev && x.ev.repeat)})} | ${wd(x.date)} | ${x.date} | ${x.allDay ? "all day" : `${x.start}-${x.end}`} | ${x.type === "meet" ? `${courseLabel(x.c)} ${x.label}` : clip(x.title, 60) + (x.ev && x.ev.repeat ? " (repeats)" : "")} | ${clip(x.where, 40)}${x.skipped ? " | cancelled this day" : x.moved ? " | moved this day" : ""}`).join("\n"));
     } catch (e) { console.warn("assist classes", e); }
+    // grades: each course's standing, and every marked item (its ref jumps to the course's Grades tab and highlights the row)
+    try {
+      const G = window.SBGRADES, gl = G && G.lines ? G.lines() : [], gi = G && G.items ? G.items() : [];
+      if (gl.length) L.push("COURSE GRADES (the student's standing in each course):\n" + gl.map(x => "- " + x).join("\n"));
+      if (gi.length) L.push("GRADES, one per marked item (ref | item | course | type | mark | percent | worth):\n" + gi.slice(0, 300).map(x => `${ref("G", {kind: "grade", id: x.id})} | ${clip(x.title, 90)} | ${clip(x.course, 30)} | ${x.type} | ${x.mark} | ${x.pct}%${x.letter ? " (" + x.letter + ")" : ""} | ${x.weight != null ? "worth " + x.weight + "%" : "no weight"}`).join("\n"));
+    } catch (e) { console.warn("assist grades", e); }
     // decks, quizzes, and the cards of the deck on screen
     const ds = decksArr();
     if (ds.length) L.push("FLASHCARD DECKS AND QUIZZES (ref | name | course | cards | quizzes):\n" + ds.map(d => `${ref("D", {kind: "deck", id: d.id})} | ${clip(d.name, 60)} | ${cl(d.courseId)} | ${d.cards.length} cards | ${(d.aiQuizzes || []).filter(z => !z.archived).map(z => `${ref("Z", {kind: "quiz", deck: d.id, id: z.id})} "${clip(z.title, 50)}" (${(z.questions || []).length} questions)`).join(", ")}`).join("\n"));
@@ -66843,6 +66849,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const wants = q => WANTS.test(String(q || ""));
   const SCHEMA = {type: "OBJECT", properties: Object.assign({answer: {type: "STRING", description: "The reply, plain text, short"}}, SHOW_CHANGE), required: ["answer", "show", "changes"]};
   const RULES = `FINDING THINGS: when the student asks where something is, to find, open or show something (a task, a note that says something, a whiteboard with a certain picture, drawing or writing on it, a file by its name or by what's in it, a card, a quiz question, a class), put its ref first in "show" and say in one short sentence what and where it is. The app opens it and highlights it. A whiteboard spot ref (W with a description) lands on that part of the board. Search matches show what's inside files and notes. If nothing fits, say so and leave "show" empty; never guess a ref.
+GRADES: for a question about a grade or mark ("what did I get on Exam 1?", "what's my grade in BIOS 230?"), answer from COURSE GRADES and GRADES: say the mark and percent (and letter if listed), and leave "show" empty, so the app stays where it is. Only when the student asks to find, show, open, see or go to a grade ("find my Exam 1 grade", "show me my grade for the lab") put its G ref first in "show". If an item isn't in GRADES, say it doesn't have a mark in Studyboard yet; never say grades aren't listed when GRADES or COURSE GRADES has them.
 CHANGING THINGS: when (and only when) the student asks to change something, add it to "changes". Never say it's already done: the app shows them the change and they confirm it. Use exactly one change per field per thing. Fields by kind:
 - task (T): title; due YYYY-MM-DD; time HH:MM (24h) or empty; startDate YYYY-MM-DD; status todo|doing|done; priority low|med|high|urgent; notes; hours (number); type Assignment|Exam|Quiz|Reading|Project|Lab|Study|Other; course (a C ref); weight (percent number); delete yes
 - course (C): name; code; instructor; room
@@ -66868,7 +66875,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   function exists(t){
     if (!t) return false;
     switch (t.kind) {
-      case "task": return !!state.tasks[t.id];
+      case "task": case "grade": return !!state.tasks[t.id];
       case "course": case "class": return !!state.courses[t.id];
       case "event": return !!state.events[t.id];
       case "deck": return !!state.decks[t.id];
@@ -66883,6 +66890,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     try {
       switch (t.kind) {
         case "task": return clip(state.tasks[t.id].title, 60);
+        case "grade": return clip(state.tasks[t.id].title, 52) + " grade";
         case "course": return courseLabel(state.courses[t.id]);
         case "class": return `${courseLabel(state.courses[t.id])} ${t.label || "class"}, ${nice(t.date)}`;
         case "event": { const e = state.events[t.id]; return `${clip(e.title, 50)}${t.date ? ", " + nice(t.date) : ""}`; }
@@ -67009,6 +67017,14 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
           return true;
         }
         case "course": go("courses"); ui.courseId = t.id; ui.courseTab = ""; render(); return true;
+        case "grade": {
+          // the course's Grades tab, with the row picked out (no course: the Grades page for every course)
+          const k = state.tasks[t.id], cid = k.courseId && state.courses[k.courseId] ? k.courseId : null;
+          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; render(); await frame(); await wait(60);
+          const row = document.querySelector(`#view .gr-row-main[data-id="${CSS.escape(t.id)}"]`);
+          if (!flash(row && (row.closest("li") || row))) taskView(k);
+          return true;
+        }
         case "class": case "event": {
           let date = t.date;
           if (!date && t.kind === "event") { const today = todayISO(); const occ = schOccurrences(today, addDays(today, 180)).find(x => x.type === "event" && x.id === t.id && !x.skipped); date = occ ? occ.date : state.events[t.id].date; t = Object.assign({}, t, {key: occ ? occ.key : t.key}); }
