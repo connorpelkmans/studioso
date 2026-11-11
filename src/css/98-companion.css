@@ -248,3 +248,9 @@ html .btn.primary.cp-ask-go{min-width:96px;padding:0 22px;font-size:1.15rem;font
 .cp-tint-any{position:relative;width:30px;height:30px;padding:0;border:0;border-radius:50%;cursor:pointer;background:conic-gradient(from 0deg,#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#8b5cf6,#ec4899,#ef4444);box-shadow:inset 0 0 0 2px var(--surface)}
 .cp-tint-any .pro-badge{position:absolute;left:50%;bottom:-7px;transform:translateX(-50%) scale(.72);transform-origin:50% 100%;pointer-events:none}
 .cp-tint-any:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Clothing patterns (Pro): small round samples in the prop's colour */
+.cp-pat{width:30px;height:30px;padding:0;border:0;border-radius:50%;background:none;cursor:pointer;box-shadow:0 0 0 1px var(--line)}
+.cp-pat svg{width:100%;height:100%;display:block}
+.cp-pat.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent)}
+.cp-pat:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cp-pats .cp-tint-n .pro-badge{margin-left:6px;vertical-align:1px}
