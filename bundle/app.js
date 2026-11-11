@@ -86201,9 +86201,9 @@ var SBEARLY = null;
   const SPARK = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.1 5.6a2.4 2.4 0 0 0 1.4 1.4l5.6 2.1-5.6 2.1a2.4 2.4 0 0 0-1.4 1.4L12 20.7l-2.1-5.6a2.4 2.4 0 0 0-1.4-1.4L2.9 11.6l5.6-2.1a2.4 2.4 0 0 0 1.4-1.4z"/><path d="M19 2l.7 1.8c.1.3.4.6.7.7L22.2 5l-1.8.7c-.3.1-.6.4-.7.7L19 8.2l-.7-1.8a1.2 1.2 0 0 0-.7-.7L15.8 5l1.8-.7c.3-.1.6-.4.7-.7z" opacity=".7"/></svg>';
   const POINTS = [
     ["Higher quality responses", "across every AI feature"],
-    ["About 2x faster", "responses"],
-    ["Higher privacy standards", "your data is never used to train models"],
-    ["Nothing to set up", "no API key, YouTube links included"]
+    ["2x faster", "on most responses"],
+    ["Higher privacy standards", "(your data is never used to train models)"],
+    ["Nothing to set up", "(no API key needed)"]
   ];
 
   function html(has){
@@ -86216,7 +86216,7 @@ var SBEARLY = null;
       <ul class="aii-list">${POINTS.map(li).join("")}</ul>
       <div class="qod-foot">${has
         ? `<button type="button" class="btn primary" data-qod-close>Got It</button>`
-        : `<button type="button" class="btn" data-qod-close>Maybe Later</button><button type="button" class="btn primary" data-qod-close data-act="plan-open" data-reason="Studyboard AI is included with Pro: higher quality, faster, more private AI for every AI feature, with nothing to set up.">See Studyboard Pro</button>`}</div>
+        : `<button type="button" class="btn" data-qod-close>Maybe Later</button><button type="button" class="btn primary aii-pro" data-qod-close data-act="plan-open" data-reason="Studyboard AI is included with Pro: higher quality, faster, more private AI for every AI feature, with nothing to set up.">See Studyboard Pro</button>`}</div>
       <p class="aii-fine">Only for users with paid Pro.</p>`;
   }
 
