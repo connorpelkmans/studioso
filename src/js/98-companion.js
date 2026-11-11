@@ -455,7 +455,8 @@
     const vv = window.visualViewport, ins = insets(), de = document.documentElement;
     const lw = de.clientWidth || innerWidth, lh = de.clientHeight || innerHeight;
     let l = 0, t = 0, r = lw, b = lh;
-    if (vv) {
+    // pinch-zoomed in: the companion stays where it stands on the page instead of chasing the zoomed-in view
+    if (vv && !(vv.scale > 1.01)) {
       const l2 = Math.max(l, vv.offsetLeft), t2 = Math.max(t, vv.offsetTop), r2 = Math.min(r, vv.offsetLeft + vv.width), b2 = Math.min(b, vv.offsetTop + vv.height);
       if (r2 - l2 >= 100 && b2 - t2 >= 100) { l = l2; t = t2; r = r2; b = b2; }
     }
@@ -714,6 +715,19 @@
     home.score = Math.abs(home.left - want) / span * 220 - 12;
     out.push(home);
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
+    // the gap between the side menu and the page, if it fits there: the spot right in its middle
+    try {
+      const g = geometry(), v = document.getElementById("view"), e = vext || measureArt() || DEF_ART;
+      if (g.sideNav && v) {
+        const vl = v.getBoundingClientRect().left, artW = px * (e.r - e.l), mid = (g.side + vl) / 2;
+        if (vl - g.side >= artW + 8) {
+          const x = Math.round(mid - px * (e.l + e.r) / 2);
+          // any other spot inside the gap gives way to the middle one
+          for (let i = out.length - 1; i >= 0; i--) if (out[i].kind === "ground" && out[i].left + px * e.l < vl && out[i].left + px * e.r <= vl + 2) out.splice(i, 1);
+          if (x >= L - 0.5 && x <= R) out.push({left: x, top: ground, kind: "ground", score: Math.abs(x - want) / span * 220 - 1});
+        }
+      }
+    } catch (err) {}
     const lowT = lowTop(rg);
     for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
@@ -2077,7 +2091,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }
     try { clamp("keyboard"); } catch (e) {} guardSoon("keyboard", 60);
   });
-  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
+  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { if (k === "scroll" && visualViewport.scale > 1.01) return; sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
   document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
   document.addEventListener("focusout", () => guardSoon("blur", 350));
   new MutationObserver(() => { sAt = 0; vext = null; guardSoon("text-size", 100); placeSoon(150); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-ts", "data-hc"]});

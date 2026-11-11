@@ -21,10 +21,13 @@
     "SUPABASE_URL": "https://pivcmrqcjseycjkbocmc.supabase.co",
     "SUPABASE_KEY": "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd",
     // Set as secrets, not here (see README, Turn it on): CF_ACCOUNT_ID, AI_GATEWAY_ID, CF_AIG_TOKEN, OWNER_TOKEN
-    // Per paid Pro student, per week (Monday to Sunday, UTC), in US dollars. Past the soft limit everyday jobs think less;
-    // at the hard limit AI stops until next week. The same limits apply to a student's own Claude key in Studyboard AI mode.
-    "WEEKLY_SOFT_USD": "0.45",
-    "WEEKLY_HARD_USD": "0.5625",
+    // Per paid Pro student, over the last 7 days (rolling, by UTC day), in US dollars. Past the soft limit everyday jobs think
+    // less; at the hard limit AI stops until the oldest day's spending rolls off. The same limits apply to a student's own Claude
+    // key in Studyboard AI mode.
+    "WEEKLY_SOFT_USD": "0.40",
+    "WEEKLY_HARD_USD": "0.52",
+    // And at most this much in a calendar month (UTC), whatever the 7 days allow
+    "MONTHLY_CAP_USD": "2.25",
     // No daily limit: a student may use the week's allowance on any day. ("DAILY_USD": "0.20" would add one)
     "PER_MINUTE": "20",
     // The least thinking automatic (background) jobs get: "" leaves each job at its own level (the plan at medium,
