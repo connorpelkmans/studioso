@@ -22746,6 +22746,16 @@ window.__sbPlanObj = () => PLAN;
     if (P.sessionPro == null && paywall() && sbUser && P.entDone) P.sessionPro = paid();
     changed();
     welcomeNotes();
+    oldNoteSeen();
+  }
+  /* The "Pro Is Working Again" note is gone, but a browser can still run an older copy of the app once, from its offline cache,
+     the first time it opens after an update, and that copy still had the note. It skipped anyone marked as having seen it, so
+     everyone signed in here is marked (the same key and shape the old copy read). Not needed after November 2026, when the
+     old copy stopped showing it anyway */
+  function oldNoteSeen(){
+    const uid = curUid(); if (!uid) return;
+    const k = "studyboard:proFixNote", seen = read(k) || {};
+    if (!seen[uid]) { seen[uid] = Date.now(); write(k, seen); }
   }
   const K_WELCOME = "studyboard:welcomeWeek";
   let welcomeRetry = 0;
