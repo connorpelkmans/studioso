@@ -14605,6 +14605,8 @@ function gcalLink(t){
 // Clicking a task shows it first; Edit opens the full form. The progress bar can be dragged right here.
 let tvRedraw = null;
 hook("changed", changes => { if (tvRedraw && dlg.open && dlg.querySelector(".tv") && !dlg.querySelector(".tv-bar.drag")) tvRedraw(changes); });
+// Resync with the school site (two arrows going round)
+const RESYNC_IC = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.2-5L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.2 5L20 16"/><path d="M20 21v-5h-5"/></svg>`;
 function taskView(t0){
   const id = t0.id, PSTEP = 5;
   const ic = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -14658,7 +14660,7 @@ function taskView(t0){
     const prepBtn = ms && t.due > today && !done ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(id)) : "";
     const keep = document.activeElement && document.activeElement.id === "tvBar" && dlg.contains(document.activeElement), sc = dlg.querySelector(".occv-body"), top = sc ? sc.scrollTop : 0;
     openSheet(`<div class="sheet occv tv" style="--c:${esc(colorOf(t.courseId))}">
-      <div class="occv-band">${band}<button type="button" class="icon-btn occv-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
+      <div class="occv-band">${band}${(off => off ? `<button type="button" class="icon-btn occv-x occv-resync" data-act="lms-resync" data-id="${esc(id)}" aria-label="Resync with ${esc(off.site)}" title="You moved this, so ${esc(off.site)} no longer updates it. Resync puts it back to ${esc(statusLabels(t.type)[off.ss] || off.ss)} and keeps it in step.">${RESYNC_IC}</button>` : "")(window.SBLMS_OFF ? SBLMS_OFF(t) : null)}<button type="button" class="icon-btn occv-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
       <div class="sheet-body occv-body">
         <h2 class="occv-title">${esc(t.title)}</h2>
         <div class="occv-tags">${tags}</div>
@@ -40540,6 +40542,22 @@ function cleanFile(r) {
   // dropping it in the column it came from) leaves it the sync's, so later syncs keep updating it. (sm, from older versions,
   // only counts where no status was ever recorded)
   const statusMineAny = t => { const f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return t && t.status !== "todo"; const L = t[f]; return L.ss != null ? t.status !== L.ss : !!L.sm || (t.status !== "todo" && !(t.status === "done" && L.doneSeen)); };
+  // A task moved away from what its school site sync last said (so the sync leaves its status alone): the task window offers
+  // Resync, which puts it back and lets the sync keep it up to date again
+  const SITE_NAMES = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard", md: "Moodle", sg: "Schoology", gc: "Google Classroom"};
+  window.SBLMS_OFF = t => { const f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return null; const L = t[f]; return L.ss != null && ["todo", "doing", "done"].includes(L.ss) && t.status !== L.ss ? {f, ss: L.ss, site: SITE_NAMES[f] || "your school site"} : null; };
+  hook("act", (act, el) => {
+    if (act !== "lms-resync") return;
+    const id = el && el.dataset.id, t = id && state.tasks[id], off = t && window.SBLMS_OFF(t);
+    if (!off) return true;
+    const n = clone(t); n.status = off.ss;
+    if (off.ss === "done") { n.doneAt = n.doneAt || Date.now(); n.pct = 100; } else { delete n.doneAt; if (n.pct === 100) n.pct = 0; }
+    n.order = nextOrder(off.ss); n[off.f] = Object.assign({}, t[off.f]); delete n[off.f].sm;
+    applyChanges([{kind: "task", id, after: normTask(n)}], `${t.title} is back in step with ${off.site}`);
+    // and a fresh look at the school site, in case it has changed since
+    try { if (navigator.onLine !== false) { const b = document.createElement("button"); b.dataset.act = "lms-sync-all"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); } } catch (e) {}
+    return true;
+  });
   function mergeTasks(keep0, other, useDate){
     const keep = clone(keep0);
     if (useDate && other.due) { keep.due = other.due; keep.time = other.time || keep.time || ""; }
