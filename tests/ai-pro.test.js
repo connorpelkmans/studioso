@@ -21,9 +21,9 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(P.config({...ENV, PRO_AI_OFF: "1"}).on, false, "PRO_AI_OFF turns it off");
   const wild = P.limits({MONTHLY_HARD_USD: "500", MONTHLY_SOFT_USD: "900", DAILY_USD: "99", PER_MINUTE: "5000", MAX_INFLIGHT: "999"});
   ok(wild.hardUsd <= P.HARD.monthUsd && wild.softUsd <= wild.hardUsd && wild.dayUsd <= P.HARD.dayUsd && wild.perMinute <= P.HARD.perMinute && wild.inflight <= P.HARD.inflight, "a mistyped setting can't lift the limits past their hard ranges");
-  eq([P.limits({MONTHLY_HARD_USD: "abc"}).hardUsd, P.limits({MONTHLY_HARD_USD: "-3"}).hardUsd], [2.5, 0], "a bad value falls back to the default; a negative one means no AI");
+  eq([P.limits({MONTHLY_HARD_USD: "abc"}).hardUsd, P.limits({MONTHLY_HARD_USD: "-3"}).hardUsd], [2.15, 0], "a bad value falls back to the default; a negative one means no AI");
   const L0 = P.limits({});
-  eq([L0.softUsd, L0.hardUsd, L0.dayUsd, L0.perMinute, L0.inflight], [2, 2.5, 1, 20, 4], "defaults: $2 soft, $2.50 hard a month, $1 a day, 20 a minute, 4 at once");
+  eq([L0.softUsd, L0.hardUsd, L0.dayUsd, L0.perMinute, L0.inflight], [1.7, 2.15, 0.85, 20, 4], "defaults: $1.70 soft, $2.15 hard a month (about $2.50 with the credit fee and tax), $0.85 a day, 20 a minute, 4 at once");
   ok(!("globalDayUsd" in L0) && !("trialUsd" in L0), "no limit shared across students, and nothing for a free week");
   const src = require("fs").readFileSync(path.join(__dirname, "..", "cloudflare", "ai-pro", "src", "pro.js"), "utf8");
   ok(src.includes('import "../../../src/js/01-ai-policy.js"') && !/\bconst TASKS\b|\bfunction buildRequest\b/.test(src), "the Worker uses the app's own rules file, not a copy");
@@ -105,7 +105,8 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
 
   /* One student's meter */
   let now = Date.UTC(2026, 10, 4, 12);
-  const lim = P.limits(ENV), st = new P.Meter(mem(), () => now);
+  // the meter's rules, with round numbers ($2 soft, $2.50 hard, $1 a day) so the arithmetic below is easy to follow
+  const lim = P.limits({...ENV, MONTHLY_SOFT_USD: "2", MONTHLY_HARD_USD: "2.5", DAILY_USD: "1"}), st = new P.Meter(mem(), () => now);
   eq([lim.monthMicro, lim.softMicro, lim.dayMicro], [2.5e6, 2e6, 1e6], "limits in micro-dollars");
   let r = await st.reserve(500000, lim); ok(r.ok, "a $0.50 job fits");
   ok(await st.settle(r.id, 1000), "settled to its real cost");
@@ -412,7 +413,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   await call(H, job({task: "grade"})); await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
   x = await oget(H, OWNER, null, "?user=" + H.user.id);
   const want1 = P.costOf({input_tokens: 4000, output_tokens: 1000}) + P.ytCost(160000, 20500);
-  eq([x.s, x.j.spent, x.j.today, x.j.limit, x.j.dailyLimit, x.j.youtubeVideos, x.j.youtubeMonthly], [200, want1 / 1e6, want1 / 1e6, 2.5, 1, 1, 10], "one student's month: exactly what their jobs cost, against $2.50 a month and $1 a day, and their YouTube videos");
+  eq([x.s, x.j.spent, x.j.today, x.j.limit, x.j.dailyLimit, x.j.youtubeVideos, x.j.youtubeMonthly], [200, want1 / 1e6, want1 / 1e6, 2.15, 0.85, 1, 10], "one student's month: exactly what their jobs cost, against $2.50 a month and $1 a day, and their YouTube videos");
   eq(Object.keys(x.j).filter(k => /text|content|message|question/i.test(k)), [], "and nothing about what they asked");
   eq((await oget(H, "", null, "?user=" + H.user.id)).s, 404, "only with the owner token");
   eq((await oget(H, OWNER, null, "?user=not-an-id")).s, 400, "a garbled id is refused");

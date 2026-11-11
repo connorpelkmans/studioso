@@ -114,9 +114,9 @@ The app sends only the job's name, its text and files, and the answer shape it w
 
 | | Default | Highest a setting can go |
 |---|---|---|
-| `MONTHLY_SOFT_USD`: past it, everyday jobs think less | $2 | the hard limit |
-| `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $2.50 | $10 |
-| `DAILY_USD` | $1 | $3 |
+| `MONTHLY_SOFT_USD`: past it, everyday jobs think less | $1.70 | the hard limit |
+| `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $2.15 | $10 |
+| `DAILY_USD` | $0.85 | $3 |
 | `PER_MINUTE` requests | 20 | 60 |
 | `YOUTUBE_MONTHLY` videos (each at most 2 hours, about $0.10 an hour) | 10 | 100 (`0` turns YouTube links off) |
 | `MAX_INFLIGHT` jobs at once | 4 | 8 |
@@ -145,9 +145,11 @@ From a simulation of the app's real prompts:
 | Average | about $0.96 |
 | Typical | about $0.65 |
 | Heavy | about $2.30 |
-| Uses every feature as much as the app allows | stopped at $2.50 |
+| Uses every feature as much as the app allows | stopped at $2.15 |
 
 A one-hour YouTube lecture costs about $0.10, and a one-hour recording transcribed by Whisper about $0.03. Add Cloudflare's 5% credit fee.
+
+**What you really pay.** The limits and the usage summary count AI at the providers' prices. On top of that come Cloudflare's 5% credit fee and the sales tax on buying credits (about 10% in Washington). So a student at the $2.15 limit costs about $2.15 × 1.05 × 1.10 ≈ $2.49, and to compare the usage summary with your bill, multiply it by about 1.16. The limits are set so the most one student can cost is about $2.50 all-in; if the tax or fee changes, scale `MONTHLY_HARD_USD`, `MONTHLY_SOFT_USD` and `DAILY_USD` together.
 
 ## Endpoints
 
