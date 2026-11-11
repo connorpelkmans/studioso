@@ -98511,12 +98511,12 @@ const LINKCARDS = (() => {
     const h = document.getElementById("aiLinkHint"); if (!h) return;
     const v = e.target.value.trim(), L = LINKCARDS.parse(v), prov = aiCfg().provider;
     h.classList.toggle("cl-bad", !!v && !L.ok);
-    // a video through Studyboard AI uses a big share of the day's AI: said up front, in warning colours
+    // a video through Studyboard AI uses a big share of the week's AI: said up front, in warning colours
     const sbYt = !!v && L.ok && L.kind === "youtube" && prov === "studyboard" && aiProYoutube();
     h.classList.toggle("cl-warn", sbYt);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
-      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? " Heads up: a video uses a large share of your daily Studyboard AI (about one video a day), and only its first 90 minutes are read. Other AI features may pause until tomorrow after it." : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
+      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? " Heads up: a video uses a large share of your weekly Studyboard AI, and only its first 90 minutes are read. Other AI features may pause for the rest of the week after it." : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.`;
   });
   document.addEventListener("click", e => {
