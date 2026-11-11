@@ -26,8 +26,8 @@
     {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["studydays", 3], ["checkins", 3]]},
     {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
     {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["studydays", 10], ["spread", 1], ["checkins", 7]]},
-    {id: "glasses", name: "Round Glasses", hours: 15, paths: [["cards", 150], ["quizzes", 3]]},
-    {id: "medal", name: "Champion Medal", paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
+    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 3]]},
+    {id: "medal", name: "Champion Medal", free: true, paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
     {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["studydays", 40], ["checkins", 21]]},
     {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
     {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
@@ -494,7 +494,7 @@
   // The box positions (left/top) whose art, with room for its own motions
   function range(px, fresh){
     const S = safeRect(fresh), g = geometry(), e = vext || measureArt() || DEF_ART;
-    return {L: Math.max(S.l, g.side + 4) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
+    return {L: Math.max(S.l, g.side - 2) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
   // It stays in the lower part of the screen
@@ -2356,7 +2356,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
-        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
+        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || pro() ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
         ${earn ? (pct => `<span class="cp-earn">${esc(EARN[x.id].how)} to unlock</span><span class="cp-earn-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to unlock ${esc(x.name)}"><i style="width:${pct}%"></i></span><span class="mini">${esc(EARN[x.id].left(left))} to go</span><button type="button" class="link-btn cp-earn-pro" data-act="comp-pick" data-slot="${i}">Or Get It With Pro</button>`)(Math.max(0, Math.min(99, Math.floor((1 - left / EARN[x.id].n) * 100))))
           : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
@@ -2372,15 +2372,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
       const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || pro() ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
         return `<button type="button" class="cp-pat${sel ? " on" : ""}" data-act="comp-pat" data-acc="${id}" data-pat="${k}" aria-pressed="${sel}" aria-label="${esc(label)}" title="${esc(label)}"><svg viewBox="0 0 20 20" aria-hidden="true">${k ? `<defs>${patDef(pid, k, col)}</defs><circle cx="10" cy="10" r="9" fill="url(#${pid})"/>` : `<circle cx="10" cy="10" r="9" fill="${col}"/>`}</svg></button>`; };
-      return `<div class="cp-tint cp-pats" role="group" aria-label="${esc(a.name)} pattern"><span class="cp-tint-n">Pattern${on ? "" : PRO_BADGE}</span><span class="cp-tint-sw">${sw("", "No Pattern")}${PATS.map(([k, n]) => sw(k, n)).join("")}</span></div>`; };
+      return `<div class="cp-tint cp-pats" role="group" aria-label="${esc(a.name)} pattern"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${sw("", "No Pattern")}${PATS.map(([k, n]) => sw(k, n)).join("")}</span></div>`; };
     const tintRow = id => { const a = ACC.find(x => x.id === id), cur = colOf(id);
-      const pRow = PAT_PROPS.includes(id) ? patRow(id, a, cur) : "";
-      return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}${pro() ? `<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}">` : `<button type="button" class="cp-tint-any" data-act="comp-tint-pro" aria-label="Any color for ${esc(a.name)}, with Studyboard Pro" title="Any color, with Pro">${PRO_BADGE}</button>`}<button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>` + pRow; };
+      return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}${pro() ? `<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}">` : `<button type="button" class="cp-tint-any" data-act="comp-tint-pro" aria-label="Any color for ${esc(a.name)}, with Studyboard Pro" title="Any color, with Pro">${PRO_BADGE}</button>`}<button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
@@ -2388,6 +2387,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
+      ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
       ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>

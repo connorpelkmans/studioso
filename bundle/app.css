@@ -4775,6 +4775,12 @@ html .btn.primary.cp-ask-go{min-width:96px;padding:0 22px;font-size:1.15rem;font
 .cp-pat.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent)}
 .cp-pat:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .cp-pats .cp-tint-n .pro-badge{margin-left:6px;vertical-align:1px}
+/* Side-by-side companions: the description takes the spare room, so Choose / Chosen sits at the bottom of every card, level
+   across the row whatever the descriptions' lengths */
+@media (min-width:561px){
+  .cp-tiles .cp-tile{grid-template-rows:auto auto 1fr;align-content:stretch}
+}
+.cp-tile .cp-chosen{margin-top:4px;min-height:var(--cp-btn-h,36px);box-sizing:border-box;justify-content:center}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -8434,12 +8440,12 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   html.board-max #sbTopFade{display:none}
 }
 
-/* Computers (and iPads held sideways): with the companion out, the page keeps a gap beside the side menu wide enough for the
+/* Computers (and iPads held sideways): with the companion out, the page keeps a gap beside the side menu just wide enough for the
    companion to stand in, clear of both, when its usual spot would cover something. On a wide window the page's own centring
-   already leaves that room, so nothing moves; on a narrower one the page starts a little further right */
+   already leaves that room, so nothing moves; on a narrower one the page starts a little further right, with the same gap on its right */
 @media (min-width:980px){
-  body.cp-on .wrap{padding-left:clamp(32px, calc(100px - (100vw - 136px - 900px) / 2), 100px)}
-  body.cp-on.wide .wrap{padding-left:clamp(32px, calc(100px - (100vw - 136px - 1240px) / 2), 100px)}
+  body.cp-on .wrap{padding-inline:clamp(32px, calc(90px - (100vw - 151px - 900px) / 2), 90px)}
+  body.cp-on.wide .wrap{padding-inline:clamp(32px, calc(90px - (100vw - 151px - 1240px) / 2), 90px)}
 }
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
