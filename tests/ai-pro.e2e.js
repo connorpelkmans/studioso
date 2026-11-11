@@ -33,7 +33,8 @@ const STUB = () => {
   const P = await import(pathToFileURL(path.join(ROOT, "cloudflare", "ai-pro", "src", "pro.js")).href);
   const mem = () => { const m = new Map(); return {get: async k => m.get(k), put: async (k, v) => { if (typeof k === "object") Object.entries(k).forEach(([x, y]) => m.set(x, y)); else m.set(k, v); },
     deleteAll: async () => m.clear(), getAlarm: async () => null, setAlarm: async () => {}}; };
-  const env = {CF_ACCOUNT_ID: "acct", AI_GATEWAY_ID: "gw", CF_AIG_TOKEN: "cf", SUPABASE_URL: "https://sb.test", SUPABASE_KEY: "k"};
+  // (a daily limit set here, though the real Worker has none, so the daily fallback below is still checked)
+  const env = {CF_ACCOUNT_ID: "acct", AI_GATEWAY_ID: "gw", CF_AIG_TOKEN: "cf", SUPABASE_URL: "https://sb.test", SUPABASE_KEY: "k", DAILY_USD: "0.3"};
   const W = {tier: "paid", meters: new Map(), sent: []};
   const deps = {
     user: async tok => tok === "t" ? {id: "0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", confirmed: true, anonymous: false} : null,
@@ -131,14 +132,14 @@ const STUB = () => {
     const planJob = aiPosts(A.ctx).find(c => c.body && c.body.task === "plan"), planSent = W.sent.find(r => /expert study planner/i.test(JSON.stringify(r.system || "")));
     ok(planJob && planJob.body.auto === true && planSent && planSent.output_config.effort === "medium", "the automatic plan is sent as automatic, and runs on Haiku 5.5 at medium");
 
-    // 3. The month's allowance used up: the student is told, and no request is sent
-    const m = deps.meter("0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b"); m.now = () => Date.now() - 3 * 86400000;
+    // 3. The week's allowance used up: the student is told, and no request is sent (filled at the start of this week, Monday UTC)
+    const m = deps.meter("0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b"); m.now = () => Date.parse(P.weekOf(Date.now()) + "T00:00:01Z");
     const lim = P.limits(env), fill = lim.monthMicro - (await m.read()).spent - 5;
-    const big = await m.reserve(fill, {...lim, dayMicro: 9e6}); assert(big.ok, "test setup: fill the month"); await m.settle(big.id, fill); m.now = () => Date.now();
+    const big = await m.reserve(fill, {...lim, dayMicro: 9e6}); assert(big.ok, "test setup: fill the week"); await m.settle(big.id, fill); m.now = () => Date.now();
     const before = W.sent.length;
     await A.page.waitForTimeout(6500); await A.page.click("#bdAi");
     await A.page.waitForSelector("dialog.ai-consent[open] #aiProTitle", {timeout: 10000}); 
-    ok(/This Month's Studyboard AI/.test(await A.page.textContent("#aiProTitle")) && /resets on/.test(await A.page.textContent("dialog.ai-consent[open]")), "used up: the student is told when it resets and offered a free Gemini key");
+    ok(/This Week's Studyboard AI/.test(await A.page.textContent("#aiProTitle")) && /resets on/.test(await A.page.textContent("dialog.ai-consent[open]")), "used up: the student is told when it resets and offered a free Gemini key");
     ok(W.sent.length === before, "and nothing reached Anthropic");
     await A.page.click("dialog.ai-consent[open] [data-no]");
     await A.ctx.close();
@@ -224,12 +225,12 @@ const STUB = () => {
     ok(G.ctx.calls.filter(c => c.path === "/v1/ai").length === 0, "and nothing went through Studyboard's server");
     const spent = await G.page.evaluate(() => JSON.parse(localStorage.getItem("studyboard:ownAI") || "{}").spent || 0);
     ok(G.ctx.claude.length >= 1 && spent === G.ctx.claude.length * P.costOf({input_tokens: 1200, output_tokens: 300}), `every job (${G.ctx.claude.length}, automatic ones included) charged to this device's allowance at its real cost`);
-    // fill this month's limit, then the next job is stopped before it reaches Anthropic
+    // fill this week's limit, then the next job is stopped before it reaches Anthropic
     await G.page.evaluate(lim => { const o = JSON.parse(localStorage.getItem("studyboard:ownAI") || "{}"); o.spent = lim - 5; localStorage.setItem("studyboard:ownAI", JSON.stringify(o)); }, P.limits({}).monthMicro);
     const n0 = G.ctx.claude.length;
     await G.page.waitForTimeout(6500); await G.page.click("#bdAi");
     await G.page.waitForSelector("dialog.ai-consent[open] #aiProTitle", {timeout: 10000});
-    ok(/Claude Key's Monthly Limit/.test(await G.page.textContent("#aiProTitle")), "the same monthly limit stops it, with its own message");
+    ok(/Claude Key's Weekly Limit/.test(await G.page.textContent("#aiProTitle")), "the same weekly limit stops it, with its own message");
     ok(G.ctx.claude.length === n0, "and nothing reached Anthropic");
     await G.ctx.close();
     W.tier = "paid";

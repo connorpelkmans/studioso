@@ -37,7 +37,7 @@ How it should compare with your bills:
 | Transcription | the audio length Whisper reports, at $0.00052 a minute | About 1% high (Cloudflare charges $0.000513) |
 | Search by meaning | the text's size in bytes (Workers AI reports no usage) | Reads high; only about a cent per student a month |
 
-**One student:** add `&user=<their account id>` (or use `?user=` on its own) to see their month so far: dollars used against the monthly limit, today's against the daily one, and their YouTube videos. It shows counts only, never what they asked.
+**One student:** add `&user=<their account id>` (or use `?user=` on its own) to see their week so far: dollars used against the weekly limit, today's against the daily one, and their YouTube videos. It shows counts only, never what they asked.
 
 `unreported` counts jobs that came back without a usage report. Those students were charged the job's worst case. A job whose Worker stops partway through (rare) is missing from the summary, so the summary can read slightly below the bill. The prices live in `src/js/01-ai-policy.js` and `src/pro.js`: if a provider changes its prices, update them there.
 
@@ -114,11 +114,11 @@ The app sends only the job's name, its text and files, and the answer shape it w
 
 | | Default | Highest a setting can go |
 |---|---|---|
-| `MONTHLY_SOFT_USD`: past it, everyday jobs think less | $1.80 | the hard limit |
-| `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $2.25 | $10 |
-| `DAILY_USD` | $0.90 | $3 |
+| `WEEKLY_SOFT_USD`: past it, everyday jobs think less | $0.45 | the hard limit |
+| `WEEKLY_HARD_USD`: AI stops until Monday (UTC) | $0.5625 | $3 |
+| `DAILY_USD` (off unless set: then at most the weekly limit) | none | $3 |
 | `PER_MINUTE` requests | 20 | 60 |
-| `YOUTUBE_MONTHLY` videos (each at most 2 hours, about $0.10 an hour) | 10 | 100 (`0` turns YouTube links off) |
+| `YOUTUBE_MONTHLY` videos (the first 90 minutes of each, about $0.10 an hour) | 10 | 100 (`0` turns YouTube links off) |
 | `MAX_INFLIGHT` jobs at once | 4 | 8 |
 
 There's no limit shared across students. Your total is bounded by the gateway's spend limit (step 3), and by your credits if auto top-up is off.
@@ -140,7 +140,7 @@ How the limits hold:
 
 From a simulation of the app's real prompts:
 
-| Student | A month |
+| Student | A week (Monday to Sunday, UTC) |
 |---|---|
 | Average | about $0.96 |
 | Typical | about $0.65 |

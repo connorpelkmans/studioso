@@ -6,7 +6,7 @@
 import "../../../src/js/01-ai-policy.js";
 const P = globalThis.SBPOLICY;
 export const { MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,
-  TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, costOf, worstCost, webWorst, textBytes, Meter, Totals,
+  TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, weekOf, nextWeek, costOf, worstCost, webWorst, textBytes, Meter, Totals,
   strictSchema, readBlocks, pdfPages, buildRequest, readAnswer, refusedEarly, runJob } = P;
 
 // Whisper large v3 turbo on Workers AI: $0.000513 an audio minute. Rounded up.
@@ -22,9 +22,9 @@ export const EMBED_PER_TOKEN = 0.013e-6;
 export const MAX_EMBED_TEXTS = 100, MAX_EMBED_CHARS = 8000;
 // YouTube links: only Google's Gemini can watch YouTube videos (an official Gemini API feature, public videos only).
 // Gemini writes the transcript and what's on screen; Haiku then makes the notes and cards from that text.
-// A video's length isn't known up front, so Gemini sees at most its first 2 hours, and the worst case is priced at
+// A video's length isn't known up front, so Gemini sees at most its first 90 minutes (the worst case has to fit in one day's allowance), and the worst case is priced at
 // 100 tokens a second (low resolution, one frame a second, with sound), with input over 200K tokens at twice the price.
-export const YT = { model: "gemini-3.5-flash-lite", in: 0.30e-6, out: 2.50e-6, maxSecs: 7200, fps: 0.2, tokPerSec: 100, maxOut: 32000, longOver: 200000, longMult: 2 };
+export const YT = { model: "gemini-3.5-flash-lite", in: 0.30e-6, out: 2.50e-6, maxSecs: 5400, fps: 0.2, tokPerSec: 100, maxOut: 32000, longOver: 200000, longMult: 2 };
 export function youtubeId(raw) {
   let u; try { u = new URL(String(raw || "").trim()); } catch (e) { return null; }
   if (u.protocol !== "https:" && u.protocol !== "http:") return null;

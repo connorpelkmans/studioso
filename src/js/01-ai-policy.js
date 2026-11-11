@@ -66,22 +66,29 @@ const SBPOLICY = (() => {
   }
 
   // Limits per student, each clamped to a range settings can't widen. env: the Worker's settings ({} gives the defaults).
-  const HARD = {monthUsd: 10, dayUsd: 3, perMinute: 60, inflight: 8};
+  // (the allowance runs by the week now: monthUsd and monthMicro keep their old names but hold the week's)
+  const HARD = {monthUsd: 3, dayUsd: 3, perMinute: 60, inflight: 8};
   const num = (v, d, lo, hi) => { const n = Number(v); return v != null && String(v).trim() !== "" && Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
   // Money is kept in whole micro-dollars (integers), always rounded up
   const micro = usd => Math.max(0, Math.ceil(usd * 1e6 - 1e-6));
   function limits(env){
     env = env || {};
-    // Defaults keep a student's real cost near $2.50 a month: $2.25 of AI, plus Washington sales tax (about 10%).
+    // A week (Monday to Sunday, UTC) at a time. The defaults are a quarter of the old monthly ones ($2.25 hard, $1.80 soft),
+    // which kept a student's real cost near $2.50 a month with Washington sales tax (about 10%).
     // Claude is paid with Studyboard's own Anthropic key in the gateway, so there's no 5% credit fee on it.
-    const hard = num(env.MONTHLY_HARD_USD, 2.25, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 1.8, 0, HARD.monthUsd));
-    const day = num(env.DAILY_USD, 0.9, 0.05, HARD.dayUsd);
+    const hard = num(env.WEEKLY_HARD_USD, 0.5625, 0, HARD.monthUsd), soft = Math.min(hard, num(env.WEEKLY_SOFT_USD, 0.45, 0, HARD.monthUsd));
+    // No daily limit unless DAILY_USD is set: a day may use the whole week's allowance
+    const day = String(env.DAILY_USD == null ? "" : env.DAILY_USD).trim() === "" ? hard : Math.min(hard, num(env.DAILY_USD, hard, 0.05, HARD.dayUsd));
     return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
       perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};
   }
   const monthOf = now => new Date(now).toISOString().slice(0, 7);
   const dayOf = now => new Date(now).toISOString().slice(0, 10);
   const nextMonth = now => { const d = new Date(now); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1); };
+  // The allowance's week: from Monday 00:00 UTC (its key is that Monday's date)
+  const weekStart = now => { const d = new Date(now); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - (d.getUTCDay() + 6) % 7); };
+  const weekOf = now => new Date(weekStart(now)).toISOString().slice(0, 10);
+  const nextWeek = now => weekStart(now) + 7 * 864e5;
 
   // What a finished request cost, from Anthropic's usage report
   function costOf(u){
@@ -113,7 +120,7 @@ const SBPOLICY = (() => {
     constructor(storage, now = () => Date.now(), lock = null, o = null){ this.s = storage; this.now = now; this.o = o || {}; const one = serial(); this.one = lock ? fn => one(() => lock(fn)) : one; }
     async read(){
       const keys = ["gone", "month", "spent", "day", "daySpent", "flying", "hits"], v = await Promise.all(keys.map(k => this.s.get(k)));
-      const [gone, month, spent, day, daySpent, flying, hits] = v, now = this.now(), m = monthOf(now), d = dayOf(now);
+      const [gone, month, spent, day, daySpent, flying, hits] = v, now = this.now(), m = weekOf(now), d = dayOf(now);
       return {gone: !!gone, now, month: m, spent: month === m ? spent || 0 : 0, day: d, daySpent: day === d ? daySpent || 0 : 0,
         // A job that never settled (its Worker or tab stopped) stays charged; after 15 minutes it stops counting as in flight
         flying: (flying || []).filter(f => now - f.at < 15 * 60000 && (!this.o.alive || this.o.alive(f.sid))), hits: (hits || []).filter(t => now - t < 60000)};
@@ -166,7 +173,7 @@ const SBPOLICY = (() => {
       await this.s.put(upd);
       return true;
     }
-    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextMonth(r.now)}; }
+    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro >= lim.monthMicro ? undefined : lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextWeek(r.now)}; }
     async _status(lim){ const r = await this.read(); return r.gone ? {usedPct: 100, soft: false, resets: null, gone: true} : this.view(r, lim); }
     // Delete My Account: the id is closed for good, so deleting can't be used to reset an allowance
     async _forget(){ await this.s.deleteAll(); await this.s.put("gone", true); }
@@ -342,7 +349,7 @@ const SBPOLICY = (() => {
   }
 
   return {MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,
-    TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, costOf, worstCost, webWorst, textBytes, Meter, Totals,
+    TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, weekOf, nextWeek, costOf, worstCost, webWorst, textBytes, Meter, Totals,
     strictSchema, readBlocks, pdfPages, buildRequest, readAnswer, refusedEarly, runJob};
 })();
 globalThis.SBPOLICY = SBPOLICY;
