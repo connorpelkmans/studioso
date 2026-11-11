@@ -183,7 +183,7 @@
       const st = pv ? `transform-origin:${pv[0]}px ${pv[1]}px${r ? ";transform:" + r : ""}` : "";
       return `<g class="cp-p cp-${name}"${st ? ` style="${st}"` : ""}${extra || ""}>${inner}</g>`;
     };
-    const worn = wornList(o.wear), tints = o.tint || cfg().tint || {};
+    const worn = wornList(o.wear), tints = o.tint || tintsNow();
     const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], ns = num(na[2]) ? na[2] : 1, capeA = [na[0], na[1], f1(ns * 0.95)];
     // the body's width at the neck: the scarf's rounded ends and the collar reach just past its outline (under a separate head the collar hugs the narrower neck); the bow tie stays well inside it
     const wrapW = num(na[4]) ? na[4] : 0, drapeW = num(na[5]) ? na[5] : 0, hwAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 1) / s - 2)) : 0, collarAt = s => num(na[6]) ? f1(na[6] / 2 / s) : wrapW ? f1(Math.max(12, (wrapW / 2 + (partSvg(P.head) ? -3.5 : 0.4)) / s)) : 0;
@@ -234,6 +234,10 @@
   const staysPut = () => cfg().still === true && !phone();
   const talkOn = () => cfg().talk !== false;
   const pro = () => { try { return typeof PLAN === "undefined" || !PLAN ? true : !!PLAN.isPro(); } catch (e) { return true; } };
+  // Clothing colours: the palette is free; any other colour (picked with the colour box) is Pro. Without Pro a picked colour
+  // stays saved but isn't used, so the prop shows its usual colour until Pro comes back
+  const inPalette = h => TINTS.some(x => x.toLowerCase() === String(h || "").toLowerCase());
+  const tintsNow = () => { const t = cfg().tint || {}; if (pro()) return t; const o = {}; Object.keys(t).forEach(k => { if (inPalette(t[k])) o[k] = t[k]; }); return o; };
   const paywall = () => { try { return !!(typeof PLAN !== "undefined" && PLAN && PLAN.paywall()); } catch (e) { return false; } };
   const skinId = () => document.documentElement.dataset.skin || effSkinId() || "classic";
   // A Your Photo theme (ph-...) can carry up to three companions picked from every theme
@@ -1439,7 +1443,7 @@
   // One place that announces "the companion (or its name/outfit) changed"
   let compNote = null;
   function compChanged(){
-    const key = cur ? [cur.id, wearOf(cur), JSON.stringify(cfg().tint || {}), nameOf(cur)].join("|") : "";
+    const key = cur ? [cur.id, wearOf(cur), JSON.stringify(tintsNow()), nameOf(cur)].join("|") : "";
     if (key === compNote) return;
     const first = compNote === null; compNote = key;
     try { if (typeof faceSwapNow === "function") faceSwapNow(); } catch (e) {}
@@ -2332,7 +2336,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }).join("");
     const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
     const hLabel = h < 1 ? `${Math.round(h * 60)} min` : `${h < 10 ? h.toFixed(1).replace(/\.0$/, "") : Math.round(h)} h`;
-    const wear = c ? wearOf(c) : [], tints = cfg().tint || {};
+    const wear = c ? wearOf(c) : [], tints = tintsNow();
     const colOf = id => hexOk(tints[id]) ? tints[id] : ACC_DEF[id] || wearColor(c || {});
     const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
@@ -2343,7 +2347,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     const tintRow = id => { const a = ACC.find(x => x.id === id), cur = colOf(id);
-      return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}"><button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
+      return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}${pro() ? `<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}">` : `<button type="button" class="cp-tint-any" data-act="comp-tint-pro" aria-label="Any color for ${esc(a.name)}, with Studyboard Pro" title="Any color, with Pro">${PRO_BADGE}</button>`}<button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
@@ -2415,6 +2419,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   document.addEventListener("change", e => {
     const t = e.target; if (!t || !t.classList || !t.classList.contains("cp-tint-in") || !hexOk(t.value) || !ACC.some(x => x.id === t.dataset.acc)) return;
+    if (!pro() && !inPalette(t.value)) { refreshPicker(); return; }
     setCfg({tint: {[t.dataset.acc]: t.value.toLowerCase()}}); curSig = ""; build(); refreshPicker();
   });
   const DLG_CLOSE = () => { stopPreviews(); dlgShut = performance.now(); dockNow(); setTimeout(dockNow, 850); guardSoon("dialog", 80); };
@@ -2451,6 +2456,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       if (id && next.includes(id) && act) { act.motion("bounce"); spawnFx("sparkle", 2); }
       return true;
     }
+    if (a === "comp-tint-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Any color for your companion's clothes comes with Studyboard Pro. The colors above stay free."); return true; }
     if (a === "comp-tint") {
       const id = el.dataset.acc, col = el.dataset.color || "";
       if (!ACC.some(x => x.id === id) || (col && !hexOk(col))) return true;
@@ -2662,7 +2668,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   let faceSig = "", faceHtml = "";
   function faceFor(){
     if (!aiName()) return "";
-    const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(cfg().tint || {}) + "|" + nameOf(cur);
+    const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(tintsNow()) + "|" + nameOf(cur);
     if (sig !== faceSig) { faceSig = sig; faceHtml = faceSvg(cur, wearOf(cur)); }
     return faceHtml;
   }

@@ -244,3 +244,7 @@ html .btn.primary.cp-ask-go{min-width:96px;padding:0 22px;font-size:1.15rem;font
 .cp-tq-row{align-items:center}
 /* a hidden bubble (faded out) can't be clicked or typed into */
 .cp-bubble:not(.on){pointer-events:none}
+/* Any colour for clothing is Pro: without it, a rainbow swatch carrying the PRO tag, which opens Studyboard Pro */
+.cp-tint-any{position:relative;width:30px;height:30px;padding:0;border:0;border-radius:50%;cursor:pointer;background:conic-gradient(from 0deg,#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#8b5cf6,#ec4899,#ef4444);box-shadow:inset 0 0 0 2px var(--surface)}
+.cp-tint-any .pro-badge{position:absolute;left:50%;bottom:-7px;transform:translateX(-50%) scale(.72);transform-origin:50% 100%;pointer-events:none}
+.cp-tint-any:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
