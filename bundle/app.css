@@ -8444,8 +8444,8 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
    companion to stand in, clear of both, when its usual spot would cover something. On a wide window the page's own centring
    already leaves that room, so nothing moves; on a narrower one the page starts a little further right, with the same gap on its right */
 @media (min-width:980px){
-  body.cp-on .wrap{padding-inline:clamp(32px, calc(90px - (100vw - 151px - 900px) / 2), 90px)}
-  body.cp-on.wide .wrap{padding-inline:clamp(32px, calc(90px - (100vw - 151px - 1240px) / 2), 90px)}
+  body.cp-on .wrap{padding-inline:clamp(32px, calc(84px - (100vw - 151px - 900px) / 2), 84px)}
+  body.cp-on.wide .wrap{padding-inline:clamp(32px, calc(84px - (100vw - 151px - 1240px) / 2), 84px)}
 }
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
