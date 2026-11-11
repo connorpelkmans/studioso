@@ -33,7 +33,8 @@ const STUB = () => {
   const P = await import(pathToFileURL(path.join(ROOT, "cloudflare", "ai-pro", "src", "pro.js")).href);
   const mem = () => { const m = new Map(); return {get: async k => m.get(k), put: async (k, v) => { if (typeof k === "object") Object.entries(k).forEach(([x, y]) => m.set(x, y)); else m.set(k, v); },
     deleteAll: async () => m.clear(), getAlarm: async () => null, setAlarm: async () => {}}; };
-  const env = {CF_ACCOUNT_ID: "acct", AI_GATEWAY_ID: "gw", CF_AIG_TOKEN: "cf", SUPABASE_URL: "https://sb.test", SUPABASE_KEY: "k"};
+  // (a daily limit set here, though the real Worker has none, so the daily fallback below is still checked)
+  const env = {CF_ACCOUNT_ID: "acct", AI_GATEWAY_ID: "gw", CF_AIG_TOKEN: "cf", SUPABASE_URL: "https://sb.test", SUPABASE_KEY: "k", DAILY_USD: "0.3"};
   const W = {tier: "paid", meters: new Map(), sent: []};
   const deps = {
     user: async tok => tok === "t" ? {id: "0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", confirmed: true, anonymous: false} : null,

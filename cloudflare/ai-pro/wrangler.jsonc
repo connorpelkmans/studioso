@@ -25,8 +25,7 @@
     // at the hard limit AI stops until next week. The same limits apply to a student's own Claude key in Studyboard AI mode.
     "WEEKLY_SOFT_USD": "0.45",
     "WEEKLY_HARD_USD": "0.5625",
-    // One student in one day
-    "DAILY_USD": "0.50",
+    // No daily limit: a student may use the week's allowance on any day. ("DAILY_USD": "0.20" would add one)
     "PER_MINUTE": "20",
     // The least thinking automatic (background) jobs get: "" leaves each job at its own level (the plan at medium,
     // companion lines and yes/no checks with none); "low", "medium" or "high" raises them to at least that

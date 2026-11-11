@@ -3382,7 +3382,8 @@ const SBPOLICY = (() => {
     // which kept a student's real cost near $2.50 a month with Washington sales tax (about 10%).
     // Claude is paid with Studyboard's own Anthropic key in the gateway, so there's no 5% credit fee on it.
     const hard = num(env.WEEKLY_HARD_USD, 0.5625, 0, HARD.monthUsd), soft = Math.min(hard, num(env.WEEKLY_SOFT_USD, 0.45, 0, HARD.monthUsd));
-    const day = num(env.DAILY_USD, 0.5, 0.05, HARD.dayUsd);
+    // No daily limit unless DAILY_USD is set: a day may use the whole week's allowance
+    const day = String(env.DAILY_USD == null ? "" : env.DAILY_USD).trim() === "" ? hard : Math.min(hard, num(env.DAILY_USD, hard, 0.05, HARD.dayUsd));
     return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
       perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};
   }
@@ -3477,7 +3478,7 @@ const SBPOLICY = (() => {
       await this.s.put(upd);
       return true;
     }
-    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextWeek(r.now)}; }
+    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro >= lim.monthMicro ? undefined : lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextWeek(r.now)}; }
     async _status(lim){ const r = await this.read(); return r.gone ? {usedPct: 100, soft: false, resets: null, gone: true} : this.view(r, lim); }
     // Delete My Account: the id is closed for good, so deleting can't be used to reset an allowance
     async _forget(){ await this.s.deleteAll(); await this.s.put("gone", true); }
