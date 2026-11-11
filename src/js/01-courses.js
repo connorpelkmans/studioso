@@ -336,21 +336,28 @@ async function ciFromLibrary(q, say){
   say("Choosing the best ones…");
   const list = found.map(f => `${f.name}: ${(lib.tags[f.name] || []).slice(0, 8).join(", ")}`).join("\n");
   const r2 = await aiCall({task: "rewrite", fast: true, maxTokens: 400, temperature: 0.2,
-    schema: {type: "OBJECT", properties: {picks: {type: "ARRAY", items: {type: "OBJECT", properties: {icon: {type: "STRING"}, badge: {type: "STRING", description: "optional second icon shown small in the corner, or empty"}, name: {type: "STRING"}}, required: ["icon", "name"]}}}, required: ["picks"]},
+    schema: {type: "OBJECT", properties: {picks: {type: "ARRAY", items: {type: "OBJECT", properties: {icon: {type: "STRING"}, badge: {type: "STRING", description: "optional second icon shown small in the corner, or empty"}, name: {type: "STRING"}}, required: ["icon", "name"]}},
+      fits: {type: "BOOLEAN", description: "true only if the best pick clearly shows what was asked for (someone would recognise it as that); false when the list only has loosely related icons"}}, required: ["picks", "fits"]},
     system: "You pick icons for a student's course from a list. Choose the 3 that best show what they asked for, the most recognisable first, each different. Use only icon names from the list. Add a badge (a second list icon shown small in the corner) only when the request clearly has two things, like 'a stethoscope with a heart'. name: two or three words for the icon.",
     parts: [{text: `Wanted: ${q}\nIcons:\n${list}`}]});
-  const picks = ((r2 && r2.data && r2.data.picks) || []).filter(p => p && lib.nodes[p.icon]).slice(0, 3);
+  const picks = ((r2 && r2.data && r2.data.picks) || []).filter(p => p && lib.nodes[p.icon]).slice(0, 3), fits = !!(r2 && r2.data && r2.data.fits) && picks.length > 0;
   (picks.length ? [] : found.slice(0, 3).map(f => ({icon: f.name}))).forEach(p => picks.push(p));
   return picks.map(p => {
     let svg = luMarkup(lib, p.icon);
     if (p.badge && p.badge !== p.icon && lib.nodes[p.badge]) svg += `<circle class="w" cx="18.5" cy="18.5" r="6"/><g transform="translate(13.5 13.5) scale(0.42)">${luMarkup(lib, p.badge)}</g>`;
     svg = ciClean(svg);
-    return svg ? {id: uid(), name: String(p.name || luTitle(p.icon)).slice(0, 40), svg, vb: ciMeasure(svg), src: "lucide:" + p.icon + (p.badge && lib.nodes[p.badge] ? "+" + p.badge : "")} : null;
+    return svg ? {id: uid(), name: String(p.name || luTitle(p.icon)).slice(0, 40), svg, vb: ciMeasure(svg), src: "lucide:" + p.icon + (p.badge && lib.nodes[p.badge] ? "+" + p.badge : ""), fits} : null;
   }).filter(Boolean);
 }
+// The icon library first. When nothing in it really fits, Studyboard AI draws one of its own in the app's icon style; other
+// AI only picks from the library (drawing a good icon takes Studyboard AI's own model)
 async function ciDraw(q, col, say){
-  try { const lib = await ciFromLibrary(q, say); if (lib.length) return lib; } catch (e) { console.warn("icon library", e); }
-  return ciDrawFree(q, col, say);
+  let lib = [];
+  try { lib = await ciFromLibrary(q, say); } catch (e) { console.warn("icon library", e); }
+  const sb = (() => { try { return aiSbMode(aiCfg()); } catch (e) { return false; } })();
+  if (!sb || (lib.length && lib[0].fits)) return lib;
+  const own = await ciDrawFree(q, col, say).catch(e => { console.warn("icon draw", e); return []; });
+  return own.length ? own : lib;
 }
 async function ciDrawFree(q, col, say){
   const EX = ["chem", "health", "music", "arch", "photo", "law", "marine", "robot"].filter(k => COURSE_ICONS[k]).map(k => `${COURSE_ICONS[k][0]}: ${COURSE_ICONS[k][1]}`).join("\n");
@@ -417,7 +424,7 @@ hook("act", (act, el) => {
     const say = t => { if (out) out.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(t)}`; };
     const col = (getComputedStyle($("#ciGrid") || document.body).getPropertyValue("--c") || "").trim() || "#3B6FE0";
     ciDraw(q, col, say).then(cands => {
-      if (!cands.length) { if (out) out.textContent = "That didn't come out right. Try again, or describe it a little differently."; return; }
+      if (!cands.length) { const sb = (() => { try { return aiSbMode(aiCfg()); } catch (e) { return false; } })(); if (out) out.textContent = sb ? "That didn't come out right. Try again, or describe it a little differently." : "No icon in the library matches that. Try other words. With Studyboard AI, it can draw one for you."; return; }
       ciCands = cands; ciPending = cands[0];
       if (out) out.innerHTML = cands.map((c, k) => `<button type="button" class="ci-cand${k ? "" : " on"}" data-act="ci-ai-pick" data-id="${k}" aria-pressed="${!k}" title="${esc(c.name)}"><span class="g2-ring ci-ai-ring" style="--c:${esc(col)}"><svg class="ci-svg" viewBox="${c.vb}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${c.svg}</svg></span><span>${esc(c.name)}</span></button>`).join("") + (cands.some(c => c.src) ? `<span class="mini ci-src">From the <a href="https://lucide.dev" target="_blank" rel="noopener noreferrer">Lucide</a> icon set (ISC License; see Settings, About)</span>` : "");
       if (use) use.hidden = false;
