@@ -311,6 +311,22 @@ function cleanFile(r) {
   // dropping it in the column it came from) leaves it the sync's, so later syncs keep updating it. (sm, from older versions,
   // only counts where no status was ever recorded)
   const statusMineAny = t => { const f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return t && t.status !== "todo"; const L = t[f]; return L.ss != null ? t.status !== L.ss : !!L.sm || (t.status !== "todo" && !(t.status === "done" && L.doneSeen)); };
+  // A task moved away from what its school site sync last said (so the sync leaves its status alone): the task window offers
+  // Resync, which puts it back and lets the sync keep it up to date again
+  const SITE_NAMES = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard", md: "Moodle", sg: "Schoology", gc: "Google Classroom"};
+  window.SBLMS_OFF = t => { const f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return null; const L = t[f]; return L.ss != null && ["todo", "doing", "done"].includes(L.ss) && t.status !== L.ss ? {f, ss: L.ss, site: SITE_NAMES[f] || "your school site"} : null; };
+  hook("act", (act, el) => {
+    if (act !== "lms-resync") return;
+    const id = el && el.dataset.id, t = id && state.tasks[id], off = t && window.SBLMS_OFF(t);
+    if (!off) return true;
+    const n = clone(t); n.status = off.ss;
+    if (off.ss === "done") { n.doneAt = n.doneAt || Date.now(); n.pct = 100; } else { delete n.doneAt; if (n.pct === 100) n.pct = 0; }
+    n.order = nextOrder(off.ss); n[off.f] = Object.assign({}, t[off.f]); delete n[off.f].sm;
+    applyChanges([{kind: "task", id, after: normTask(n)}], `${t.title} is back in step with ${off.site}`);
+    // and a fresh look at the school site, in case it has changed since
+    try { if (navigator.onLine !== false) { const b = document.createElement("button"); b.dataset.act = "lms-sync-all"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); } } catch (e) {}
+    return true;
+  });
   function mergeTasks(keep0, other, useDate){
     const keep = clone(keep0);
     if (useDate && other.due) { keep.due = other.due; keep.time = other.time || keep.time || ""; }
