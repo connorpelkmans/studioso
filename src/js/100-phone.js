@@ -332,7 +332,9 @@
     if (env) env.style.setProperty("height", Math.max(200, Math.round(stop - (env.getBoundingClientRect().top + y))) + "px", "important");
   }
   const later = () => requestAnimationFrame(fit);
-  hook("render", later);
+  // a redraw (dropping a note, say) puts in a fresh board at the computer layout's height: it's sized at once, in the same
+  // frame, or for a moment it ran down under the tab bar
+  hook("render", () => { fit(); later(); });
   addEventListener("resize", later);
   addEventListener("orientationchange", () => setTimeout(fit, 300));
 })();
