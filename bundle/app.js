@@ -22453,7 +22453,7 @@ window.__sbPlanObj = () => PLAN;
       free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 7, checkoutTrialDays: 0},
+    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 14, checkoutTrialDays: 0},
     checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
@@ -22748,6 +22748,16 @@ window.__sbPlanObj = () => PLAN;
     if (P.sessionPro == null && paywall() && sbUser && P.entDone) P.sessionPro = paid();
     changed();
     welcomeNotes();
+    oldNoteSeen();
+  }
+  /* The "Pro Is Working Again" note is gone, but a browser can still run an older copy of the app once, from its offline cache,
+     the first time it opens after an update, and that copy still had the note. It skipped anyone marked as having seen it, so
+     everyone signed in here is marked (the same key and shape the old copy read). Not needed after November 2026, when the
+     old copy stopped showing it anyway */
+  function oldNoteSeen(){
+    const uid = curUid(); if (!uid) return;
+    const k = "studyboard:proFixNote", seen = read(k) || {};
+    if (!seen[uid]) { seen[uid] = Date.now(); write(k, seen); }
   }
   const K_WELCOME = "studyboard:welcomeWeek";
   let welcomeRetry = 0;
@@ -22756,8 +22766,8 @@ window.__sbPlanObj = () => PLAN;
   function welcomePop(until){
     if (typeof qodPop !== "function") return;
     qodPop(`<div class="qod-eyebrow">A Welcome Gift</div><h2 id="qodT">Welcome to Studyboard!</h2>
-      <p class="qod-q" style="font-size:1.05rem">Your first week of Pro is on us.</p>
-      <p class="mini">Every Pro theme and feature is yours until ${esc(dateStr(until))}. No card needed, and nothing you make goes away when the week ends.</p>
+      <p class="qod-q" style="font-size:1.05rem">Your first two weeks of Pro are on us.</p>
+      <p class="mini">Every Pro theme and feature is yours until ${esc(dateStr(until))}. No card needed, and nothing you make goes away when the two weeks end.</p>
       <div class="qod-foot"><button type="button" class="btn" data-qod-close data-act="plan-open">See What's Included</button><button type="button" class="btn primary" data-qod-close>Let's Go</button></div>`, "reward");
   }
   function welcomeNotes(){
@@ -22768,14 +22778,14 @@ window.__sbPlanObj = () => PLAN;
     const endAt = ts(e.trial_until);
     if (endAt > now() && endAt - now() <= 864e5 && !mine.lastDay) {
       save("lastDay"); if (!mine.start) save("start");
-      setTimeout(() => toast(`Your free week of Pro ends tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your free week of Pro ends tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
+      setTimeout(() => toast(`Your two free weeks of Pro end tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro end tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
     } else if (endAt > now() && !mine.start) {
       if (window.SBOB && SBOB.pending()) { clearTimeout(welcomeRetry); welcomeRetry = setTimeout(welcomeNotes, 4000); return; }
       save("start");
       setTimeout(() => { if (window.SBOB && SBOB.pending()) { delete mine.start; seen[uid] = mine; write(K_WELCOME, seen); return; } welcomePop(e.trial_until); }, 1200);
     } else if (endAt <= now() && now() - endAt < 30 * 864e5 && !paid() && !mine.end) {
       save("end");
-      setTimeout(() => toast("Your free week of Pro has ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your free week of Pro has ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
+      setTimeout(() => toast("Your two free weeks of Pro have ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro have ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
   // The sign-in finished loading and nobody is signed in: forget the account from last time, and that it had Pro, at once
@@ -23103,7 +23113,7 @@ window.__sbPlanObj = () => PLAN;
     try {
       const {error} = await sb.rpc("studyboard_start_trial");
       if (error) { toast(String(error.message || "").replace(/^SB_\w+:\s*/, "").slice(0, 140) || "Couldn't start the trial. Try again."); return; }
-      await refresh(); toast("Your free week of Pro has started. Enjoy!"); proSheet();
+      await refresh(); toast("Your two free weeks of Pro have started. Enjoy!"); proSheet();
     } catch (e) { toast("Couldn't start the trial. Check your connection and try again."); }
   }
 
@@ -23153,7 +23163,7 @@ window.__sbPlanObj = () => PLAN;
     const THANKS = "You're on Pro. Thank you for supporting Studyboard!";
     if (!e) return {title: THANKS, sub: ""};
     if (e.plan === "lifetime") return {title: THANKS, sub: e.source === "lifetime" ? "Pro was granted to your account for good." : "Pro is yours for good."};
-    if (trialing(e) && e.source === "welcome") return {title: "Your Free Week of Pro", sub: `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. No card needed: after that you're on Free unless you choose a plan.`};
+    if (trialing(e) && e.source === "welcome") return {title: "Your Two Free Weeks of Pro", sub: `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. No card needed: after that you're on Free unless you choose a plan.`};
     if (trialing(e) && e.source === "code") return {title: "Pro From a Code", sub: e.codeForever ? "Every Pro theme and feature, for good. Storage, devices and group size stay at the free amounts." : `Every Pro theme and feature until ${dateStr(e.trial_until)}. ${e.lite ? "You also get unlimited devices and Pro groups. Storage stays at the free amount." : "Storage, devices and group size stay at the free amounts."} After that you're on Free unless you choose a plan.`};
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
@@ -23210,7 +23220,7 @@ window.__sbPlanObj = () => PLAN;
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
-        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get a Week of Pro</b><span class="mini">Every Pro theme and feature for 7 days. No card needed, and everything you make stays when the week ends.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
+        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
@@ -28850,7 +28860,7 @@ document.head.appendChild(AREA_CSS);
     {id: "ai", title: "AI"},
     {id: "app", title: "Get the App"},
     {id: "backups", title: "Backups"},
-    {id: "pro", title: "Free Week of Pro"},
+    {id: "pro", title: "Two Free Weeks of Pro"},
     {id: "done", title: "Done"}
   ];
   let STEPS = ALL_STEPS, mode = "first";
@@ -29093,7 +29103,7 @@ document.head.appendChild(AREA_CSS);
       ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">When your browser asks, choose <b>Allow on every visit</b> (or <b>Allow</b>) so backups keep running.</p>`}`;
   }
 
-  // The free week of Pro every new account gets
+  // The two free weeks of Pro every new account gets
   const planObj = () => (window.SBOB.T && window.SBOB.T.plan) || (typeof PLAN !== "undefined" ? PLAN : null);
   function proHere(){ try { const P = planObj(); if (!P || !P.paywall || !P.paywall() || inPreview()) return false; return !!(P.welcomeWeek && P.welcomeWeek()) || !(P.isPro && P.isPro()); } catch (e) { return false; } }
   function proStep(){
@@ -29101,8 +29111,8 @@ document.head.appendChild(AREA_CSS);
     const account = typeof sbUser !== "undefined" && !!sbUser && !(window.SBGUEST && SBGUEST.is());
     const li = (t, sub) => `<li class="ok"><span class="ob-ck" aria-hidden="true">${IC.check}</span><span><b>${t}</b>${sub ? ` <span class="mini">${sub}</span>` : ""}</span></li>`;
     return `${hero('<span class="ob-gift-ic">🎁</span>', "pro")}
-      <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Your First Week of Pro Is On Us" : "A Free Week of Pro"} <span class="pro-badge ob-pro-tag">PRO</span></h2>
-      <p class="ob-lead">${gift ? `Try every Pro feature and look until <b>${esc(gift.date)}</b>.` : "Every new Studyboard account gets a week to try every Pro feature and look."} No card needed, and nothing you make goes away when the week ends.</p>
+      <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Your First Two Weeks of Pro Are On Us" : "Two Free Weeks of Pro"} <span class="pro-badge ob-pro-tag">PRO</span></h2>
+      <p class="ob-lead">${gift ? `Try every Pro feature and look until <b>${esc(gift.date)}</b>.` : "Every new Studyboard account gets two weeks to try every Pro feature and look."} No card needed, and nothing you make goes away when the two weeks end.</p>
       <ul class="ob-sum ob-pro">
         ${li("Every Premium Theme and Companion", "plus sticker packs, card styles and 46 Theme Collections")}
         ${li("Record a Lecture", "live captions, then AI study notes and flashcards")}
@@ -29154,7 +29164,7 @@ document.head.appendChild(AREA_CSS);
     return `${top}
       <h2 class="ob-h" id="obH" tabindex="-1">${skipped ? "No Problem" : gift ? "Welcome to Studyboard!" : "You're All Set!"}</h2>
       <p class="ob-lead">${skipped ? "Studyboard is ready. You can do the rest whenever you like, from Settings or the Courses page." : gift ? "We're so glad you're here. Studyboard is ready for your term." : "Nice work. Studyboard is ready for your term."}</p>
-      ${gift && !STEPS.some(x => x.id === "pro") ? `<div class="ob-gift"><span class="ob-gift-ic" aria-hidden="true">🎁</span><span><b>A welcome gift: your first week of Pro is on us</b><span class="mini">Every Pro theme and feature is yours until ${esc(gift.date)}. No card needed, and everything you make stays when the week ends.</span></span></div>` : ""}
+      ${gift && !STEPS.some(x => x.id === "pro") ? `<div class="ob-gift"><span class="ob-gift-ic" aria-hidden="true">🎁</span><span><b>A welcome gift: your first two weeks of Pro are on us</b><span class="mini">Every Pro theme and feature is yours until ${esc(gift.date)}. No card needed, and everything you make stays when the two weeks end.</span></span></div>` : ""}
       <ul class="ob-sum">${rows}</ul>
       ${soon.length ? `<div class="ob-week"><h3 class="ob-h4">Due in the Next 7 Days</h3><ul>${soon.map(t => `<li style="--c:${esc(colorOf(t.courseId))}"><span>${esc(t.title)}</span><em>${esc(relDue(t))}</em></li>`).join("")}</ul></div>`
         : allTasks().length ? "" : `<div class="ob-next">
@@ -40526,7 +40536,10 @@ function cleanFile(r) {
     });
     return out.slice(0, 6);
   }
-  const statusMineAny = t => { const f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return t && t.status !== "todo"; const L = t[f]; return !!L.sm || (L.ss != null ? t.status !== L.ss : t.status !== "todo" && !(t.status === "done" && L.doneSeen)); };
+  // A status is the student's own only while it differs from the one the sync last set: moving a card away and back (or
+  // dropping it in the column it came from) leaves it the sync's, so later syncs keep updating it. (sm, from older versions,
+  // only counts where no status was ever recorded)
+  const statusMineAny = t => { const f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return t && t.status !== "todo"; const L = t[f]; return L.ss != null ? t.status !== L.ss : !!L.sm || (t.status !== "todo" && !(t.status === "done" && L.doneSeen)); };
   function mergeTasks(keep0, other, useDate){
     const keep = clone(keep0);
     if (useDate && other.due) { keep.due = other.due; keep.time = other.time || keep.time || ""; }
@@ -41345,6 +41358,7 @@ function cleanFile(r) {
       else if (r.done && (r.doneAt || (r.due && r.due < todayISO())) && t.status === "done" && !sMine && prev[F] && prev[F].ss === "done" && autoDone(prev) && Math.abs(whenDone(r.doneAt, r.due, r.time) - Number(prev.doneAt)) > 6e4) t.doneAt = whenDone(r.doneAt, r.due, r.time);
       const seenMap = Object.assign({}, (prev[F] && prev[F].seen) || {}, {[data.src]: Date.now()});
       t[F] = Object.assign({}, prev[F] || {}, {key: keep ? prev[F].key : key, ou: keep ? prev[F].ou : r.ou, gid: r.gid || (prev[F] && prev[F].gid) || "", last: apiFresh ? last : Object.assign({}, last || {}, val), seen: seenMap, doneSeen: !!(wasDone || r.done)}, sMine ? {sm: true} : {ss: t.status});
+      if (!sMine) delete t[F].sm;
       delete t[F].gradeOnly;
       if (r.files && r.files.length) t[F].files = r.files;
       if (r.outOf) t[F].outOf = r.outOf;
@@ -41631,7 +41645,7 @@ function cleanFile(r) {
 
   /* Sync */
   let running = null, reading = false;
-  const statusMine = t => !!(t && t[F]) && (!!t[F].sm || (t[F].ss != null ? t.status !== t[F].ss : t.status !== "todo" && !(t.status === "done" && t[F].doneSeen)));
+  const statusMine = t => !!(t && t[F]) && (t[F].ss != null ? t.status !== t[F].ss : !!t[F].sm || (t.status !== "todo" && !(t.status === "done" && t[F].doneSeen)));
   function applyPlan(data, p, how, quiet, opt){
     const c = cfg();
     const newMap = Object.assign({}, c.map); Object.entries(p.map).forEach(([ou, v]) => { newMap[ou] = v === "new" ? F + "c_" + hid(ou) : v; });
@@ -63916,7 +63930,7 @@ var COMP_EXTRA = [];
       const st = pv ? `transform-origin:${pv[0]}px ${pv[1]}px${r ? ";transform:" + r : ""}` : "";
       return `<g class="cp-p cp-${name}"${st ? ` style="${st}"` : ""}${extra || ""}>${inner}</g>`;
     };
-    const worn = wornList(o.wear), tints = o.tint || cfg().tint || {};
+    const worn = wornList(o.wear), tints = o.tint || tintsNow();
     const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], ns = num(na[2]) ? na[2] : 1, capeA = [na[0], na[1], f1(ns * 0.95)];
     // the body's width at the neck: the scarf's rounded ends and the collar reach just past its outline (under a separate head the collar hugs the narrower neck); the bow tie stays well inside it
     const wrapW = num(na[4]) ? na[4] : 0, drapeW = num(na[5]) ? na[5] : 0, hwAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 1) / s - 2)) : 0, collarAt = s => num(na[6]) ? f1(na[6] / 2 / s) : wrapW ? f1(Math.max(12, (wrapW / 2 + (partSvg(P.head) ? -3.5 : 0.4)) / s)) : 0;
@@ -63926,8 +63940,10 @@ var COMP_EXTRA = [];
     // a medal hangs from the neck, so it sits in the middle (the star badge is pinned to one side)
     const medalA = pt(chestA) ? [na[0], chestA[1], chestA[2]] : chestA;
     const tintOf = id => hexOk(tints[id]) ? tints[id] : "";
-    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, art || ACC_ART[id])}</g>` : "";
-    const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, art)}</g>` : "";
+    const pats = o.pat || patsNow(), colOf = id => tintOf(id) || ACC_DEF[id] || (o.wearColor || wearColor(c));
+    const patd = (id, art) => pats[id] ? withPat(art, id, pats[id], colOf(id)) : art;
+    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
+    const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, patd("cape", art))}</g>` : "";
     const hasHead = !!partSvg(P.head);
     const headWorn = worn.some(id => slotOf(id) === "head");
     const headRot = rot.head ? `;transform:rotate(${rot.head}deg)` : "";
@@ -63955,10 +63971,10 @@ var COMP_EXTRA = [];
   const cfg = () => { const s = state.settings && state.settings.comp; return s && typeof s === "object" ? s : {}; };
   function setCfg(patch){
     const cur = cfg(), next = Object.assign({}, cur, patch);
-    ["pick", "names", "wear", "earned", "tint"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["pick", "names", "wear", "earned", "tint", "pat"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     state.settings = Object.assign({}, state.settings, {comp: next});
     saveSettings();
-    if (patch.pick || patch.names || patch.wear || patch.tint || "on" in patch) setTimeout(() => {
+    if (patch.pick || patch.names || patch.wear || patch.tint || patch.pat || "on" in patch) setTimeout(() => {
       try { if (typeof faceSoon === "function") faceSoon(); } catch (e) {}
       try { scheduleRender(); } catch (e) {}
     }, 0);
@@ -63967,6 +63983,32 @@ var COMP_EXTRA = [];
   const staysPut = () => cfg().still === true && !phone();
   const talkOn = () => cfg().talk !== false;
   const pro = () => { try { return typeof PLAN === "undefined" || !PLAN ? true : !!PLAN.isPro(); } catch (e) { return true; } };
+  // Clothing colours: the palette is free; any other colour (picked with the colour box) is Pro. Without Pro a picked colour
+  // stays saved but isn't used, so the prop shows its usual colour until Pro comes back
+  const inPalette = h => TINTS.some(x => x.toLowerCase() === String(h || "").toLowerCase());
+  // Clothing patterns (Pro): on the hat, beanie, scarf, bow tie and cape, drawn in the prop's own colour and a lighter tone
+  // of it, tiled across the fabric. Without Pro a chosen pattern stays saved but isn't drawn
+  const PAT_PROPS = ["hat", "beanie", "scarf", "bowtie", "cape"];
+  const PATS = [["stripes", "Stripes"], ["dots", "Polka Dots"], ["plaid", "Plaid"], ["stars", "Stars"], ["checks", "Checks"], ["zigzag", "Zigzag"]];
+  const shade = (h, to, t) => { const n = parseInt(String(h).slice(1), 16); if (!(n >= 0)) return h; const a = [n >> 16, (n >> 8) & 255, n & 255], b = to === "w" ? [255, 255, 255] : [20, 16, 40]; return "#" + a.map((x, i) => Math.round(x + (b[i] - x) * t).toString(16).padStart(2, "0")).join(""); };
+  const starPath = (x, y, r) => { let p = ""; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r; p += (i ? "L" : "M") + (x + rr * Math.cos(a)).toFixed(2) + " " + (y + rr * Math.sin(a)).toFixed(2); } return p + "Z"; };
+  function patDef(pid, kind, c){
+    const l = shade(c, "w", .55), d = shade(c, "d", .45);
+    const P = (w, h, body, tr) => `<pattern id="${pid}" patternUnits="userSpaceOnUse" width="${w}" height="${h}"${tr ? ` patternTransform="${tr}"` : ""}><rect width="${w}" height="${h}" fill="${c}"/>${body}</pattern>`;
+    switch (kind) {
+      case "stripes": return P(6, 6, `<rect width="2.6" height="6" fill="${l}"/>`, "rotate(40)");
+      case "dots": return P(7, 7, `<circle cx="1.8" cy="1.8" r="1.25" fill="${l}"/><circle cx="5.3" cy="5.3" r="1.25" fill="${l}"/>`);
+      case "plaid": return P(10, 10, `<rect y="3" width="10" height="3" fill="${d}" opacity=".45"/><rect x="3" width="3" height="10" fill="${d}" opacity=".45"/><rect y="7.6" width="10" height=".8" fill="${l}" opacity=".9"/><rect x="7.6" width=".8" height="10" fill="${l}" opacity=".9"/>`);
+      case "stars": return P(10, 10, `<path d="${starPath(2.6, 2.8, 1.9)}" fill="${l}"/><path d="${starPath(7.4, 7.3, 1.5)}" fill="${l}"/>`);
+      case "checks": return P(6, 6, `<rect width="3" height="3" fill="${l}"/><rect x="3" y="3" width="3" height="3" fill="${l}"/>`);
+      case "zigzag": return P(6, 5, `<path d="M0 3.4L1.5 1.6L3 3.4L4.5 1.6L6 3.4" fill="none" stroke="${l}" stroke-width="1.1" stroke-linejoin="round"/>`);
+    }
+    return "";
+  }
+  const patsNow = () => { if (!pro()) return {}; const p = cfg().pat || {}, o = {}; PAT_PROPS.forEach(k => { if (PATS.some(x => x[0] === p[k])) o[k] = p[k]; }); return o; };
+  // a prop's art with its fabric patterned: the fill that follows the prop's colour becomes the pattern
+  const withPat = (art, id, kind, col) => { if (!kind || !col) return art; const pid = `cpp-${id}-${kind}-${col.replace("#", "")}`; return `<defs>${patDef(pid, kind, col)}</defs>` + String(art).split(WEAR).join(`style="fill:url(#${pid})"`); };
+  const tintsNow = () => { const t = cfg().tint || {}; if (pro()) return t; const o = {}; Object.keys(t).forEach(k => { if (inPalette(t[k])) o[k] = t[k]; }); return o; };
   const paywall = () => { try { return !!(typeof PLAN !== "undefined" && PLAN && PLAN.paywall()); } catch (e) { return false; } };
   const skinId = () => document.documentElement.dataset.skin || effSkinId() || "classic";
   // A Your Photo theme (ph-...) can carry up to three companions picked from every theme
@@ -64136,9 +64178,11 @@ var COMP_EXTRA = [];
   function geometry(){
     const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
     const sideNav = !!(r && r.width && r.left < 4 && r.height > innerHeight * 0.6);
+    // (the page keeps a gap beside the side menu wide enough for the companion: 103-phone-design.css, body.cp-on .wrap)
     const side = sideNav ? Math.round(r.right) : 0;
     return {nav, r, sideNav, side};
   }
+
 
   /* The placement guard */
   const MARGIN = 8;
@@ -64197,7 +64241,7 @@ var COMP_EXTRA = [];
   // The box positions (left/top) whose art, with room for its own motions
   function range(px, fresh){
     const S = safeRect(fresh), g = geometry(), e = vext || measureArt() || DEF_ART;
-    return {L: Math.max(S.l, g.side + 6) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
+    return {L: Math.max(S.l, g.side + 4) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
   // It stays in the lower part of the screen
@@ -64394,7 +64438,9 @@ var COMP_EXTRA = [];
     if (f.shown && c.left + px * 0.9 > f.left - 4 && c.left + px * 0.1 < f.right + 4 && c.top + px > f.top - 4 && c.top < f.bottom + 4) return {hard: true};
     const t = document.getElementById("toast");
     if (t && t.classList.contains("show")) { const q = t.getBoundingClientRect(); if (c.left < q.right && c.left + px > q.left && c.top < q.bottom && c.top + px > q.top) return {hard: true}; }
-    const a = {l: c.left + px * 0.08 - 6, r: c.left + px * 0.92 + 6, t: c.top + px * 0.1 - 6, b: c.top + px * 0.97 + 4};
+    // the drawing's own outline with a little room (not a fixed box: a slim companion fits a narrower gap)
+    const e = vext || measureArt() || DEF_ART;
+    const a = {l: c.left + px * e.l - 3, r: c.left + px * e.r + 3, t: c.top + px * Math.max(0.1, e.t) - 6, b: c.top + px * 0.97 + 4};
     for (const q of (RECTS || (RECTS = contentRects()))) if (q.left < a.r && q.right > a.l && q.top < a.b && q.bottom > a.t) return {hard: true};
     let surface = false;
     for (const fx of [0.15, 0.5, 0.85]) for (const fy of [0.2, 0.55, 0.9]) { const r = contentAt(c.left + px * fx, c.top + px * fy); if (r.hard) return {hard: true}; if (r.surface) surface = true; }
@@ -65122,7 +65168,7 @@ var COMP_EXTRA = [];
   function build(){
     const c = current();
     if (!isOn() || !c) { teardown(); return; }
-    const sig = [c.id, wearOf(c), JSON.stringify(cfg().tint || {}), pro() ? 1 : 0, nameOf(c)].join("|");
+    const sig = [c.id, wearOf(c), JSON.stringify(cfg().tint || {}), pro() ? 1 : 0, JSON.stringify(patsNow()), nameOf(c)].join("|");
     if (layer && sig === curSig) { applyVars(); placeSoon(0); return; }
     const first = !layer;
     if (!layer) {
@@ -65172,7 +65218,7 @@ var COMP_EXTRA = [];
   // One place that announces "the companion (or its name/outfit) changed"
   let compNote = null;
   function compChanged(){
-    const key = cur ? [cur.id, wearOf(cur), JSON.stringify(cfg().tint || {}), nameOf(cur)].join("|") : "";
+    const key = cur ? [cur.id, wearOf(cur), JSON.stringify(tintsNow()), JSON.stringify(patsNow()), nameOf(cur)].join("|") : "";
     if (key === compNote) return;
     const first = compNote === null; compNote = key;
     try { if (typeof faceSwapNow === "function") faceSwapNow(); } catch (e) {}
@@ -66065,7 +66111,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }).join("");
     const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
     const hLabel = h < 1 ? `${Math.round(h * 60)} min` : `${h < 10 ? h.toFixed(1).replace(/\.0$/, "") : Math.round(h)} h`;
-    const wear = c ? wearOf(c) : [], tints = cfg().tint || {};
+    const wear = c ? wearOf(c) : [], tints = tintsNow();
     const colOf = id => hexOk(tints[id]) ? tints[id] : ACC_DEF[id] || wearColor(c || {});
     const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
@@ -66075,8 +66121,13 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
         <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
+    const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
+      const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
+        return `<button type="button" class="cp-pat${sel ? " on" : ""}" data-act="comp-pat" data-acc="${id}" data-pat="${k}" aria-pressed="${sel}" aria-label="${esc(label)}" title="${esc(label)}"><svg viewBox="0 0 20 20" aria-hidden="true">${k ? `<defs>${patDef(pid, k, col)}</defs><circle cx="10" cy="10" r="9" fill="url(#${pid})"/>` : `<circle cx="10" cy="10" r="9" fill="${col}"/>`}</svg></button>`; };
+      return `<div class="cp-tint cp-pats" role="group" aria-label="${esc(a.name)} pattern"><span class="cp-tint-n">Pattern${on ? "" : PRO_BADGE}</span><span class="cp-tint-sw">${sw("", "No Pattern")}${PATS.map(([k, n]) => sw(k, n)).join("")}</span></div>`; };
     const tintRow = id => { const a = ACC.find(x => x.id === id), cur = colOf(id);
-      return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}"><button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
+      const pRow = PAT_PROPS.includes(id) ? patRow(id, a, cur) : "";
+      return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}${pro() ? `<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}">` : `<button type="button" class="cp-tint-any" data-act="comp-tint-pro" aria-label="Any color for ${esc(a.name)}, with Studyboard Pro" title="Any color, with Pro">${PRO_BADGE}</button>`}<button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>` + pRow; };
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
@@ -66148,6 +66199,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   document.addEventListener("change", e => {
     const t = e.target; if (!t || !t.classList || !t.classList.contains("cp-tint-in") || !hexOk(t.value) || !ACC.some(x => x.id === t.dataset.acc)) return;
+    if (!pro() && !inPalette(t.value)) { refreshPicker(); return; }
     setCfg({tint: {[t.dataset.acc]: t.value.toLowerCase()}}); curSig = ""; build(); refreshPicker();
   });
   const DLG_CLOSE = () => { stopPreviews(); dlgShut = performance.now(); dockNow(); setTimeout(dockNow, 850); guardSoon("dialog", 80); };
@@ -66184,6 +66236,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       if (id && next.includes(id) && act) { act.motion("bounce"); spawnFx("sparkle", 2); }
       return true;
     }
+    if (a === "comp-pat") {
+      const id = el.dataset.acc, k = el.dataset.pat || "";
+      if (!PAT_PROPS.includes(id) || (k && !PATS.some(x => x[0] === k))) return true;
+      if (!pro()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Patterns for your companion's clothes come with Studyboard Pro."); return true; }
+      setCfg({pat: {[id]: k}}); curSig = ""; build(); refreshPicker();
+      return true;
+    }
+    if (a === "comp-tint-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Any color for your companion's clothes comes with Studyboard Pro. The colors above stay free."); return true; }
     if (a === "comp-tint") {
       const id = el.dataset.acc, col = el.dataset.color || "";
       if (!ACC.some(x => x.id === id) || (col && !hexOk(col))) return true;
@@ -66395,7 +66455,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   let faceSig = "", faceHtml = "";
   function faceFor(){
     if (!aiName()) return "";
-    const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(cfg().tint || {}) + "|" + nameOf(cur);
+    const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(tintsNow()) + "|" + JSON.stringify(patsNow()) + "|" + nameOf(cur);
     if (sig !== faceSig) { faceSig = sig; faceHtml = faceSvg(cur, wearOf(cur)); }
     return faceHtml;
   }
@@ -66757,6 +66817,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const occ = schOccurrences(addDays(today, -14), addDays(today, 35)).filter(x => x.type === "meet" || x.type === "event").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 300);
       if (occ.length) L.push("CLASSES AND EVENTS BY DATE (ref | day | date | time | what | where):\n" + occ.map(x => `${ref("K", {kind: x.type === "meet" ? "class" : "event", id: x.id, key: x.key, date: x.date, start: x.start, end: x.end, mid: x.m && x.m.id, label: x.label, repeats: x.type === "meet" || !!(x.ev && x.ev.repeat)})} | ${wd(x.date)} | ${x.date} | ${x.allDay ? "all day" : `${x.start}-${x.end}`} | ${x.type === "meet" ? `${courseLabel(x.c)} ${x.label}` : clip(x.title, 60) + (x.ev && x.ev.repeat ? " (repeats)" : "")} | ${clip(x.where, 40)}${x.skipped ? " | cancelled this day" : x.moved ? " | moved this day" : ""}`).join("\n"));
     } catch (e) { console.warn("assist classes", e); }
+    // grades: each course's standing, and every marked item (its ref jumps to the course's Grades tab and highlights the row)
+    try {
+      const G = window.SBGRADES, gl = G && G.lines ? G.lines() : [], gi = G && G.items ? G.items() : [];
+      if (gl.length) L.push("COURSE GRADES (the student's standing in each course):\n" + gl.map(x => "- " + x).join("\n"));
+      if (gi.length) L.push("GRADES, one per marked item (ref | item | course | type | mark | percent | worth):\n" + gi.slice(0, 300).map(x => `${ref("G", {kind: "grade", id: x.id})} | ${clip(x.title, 90)} | ${clip(x.course, 30)} | ${x.type} | ${x.mark} | ${x.pct}%${x.letter ? " (" + x.letter + ")" : ""} | ${x.weight != null ? "worth " + x.weight + "%" : "no weight"}`).join("\n"));
+    } catch (e) { console.warn("assist grades", e); }
     // decks, quizzes, and the cards of the deck on screen
     const ds = decksArr();
     if (ds.length) L.push("FLASHCARD DECKS AND QUIZZES (ref | name | course | cards | quizzes):\n" + ds.map(d => `${ref("D", {kind: "deck", id: d.id})} | ${clip(d.name, 60)} | ${cl(d.courseId)} | ${d.cards.length} cards | ${(d.aiQuizzes || []).filter(z => !z.archived).map(z => `${ref("Z", {kind: "quiz", deck: d.id, id: z.id})} "${clip(z.title, 50)}" (${(z.questions || []).length} questions)`).join(", ")}`).join("\n"));
@@ -66827,6 +66893,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const wants = q => WANTS.test(String(q || ""));
   const SCHEMA = {type: "OBJECT", properties: Object.assign({answer: {type: "STRING", description: "The reply, plain text, short"}}, SHOW_CHANGE), required: ["answer", "show", "changes"]};
   const RULES = `FINDING THINGS: when the student asks where something is, to find, open or show something (a task, a note that says something, a whiteboard with a certain picture, drawing or writing on it, a file by its name or by what's in it, a card, a quiz question, a class), put its ref first in "show" and say in one short sentence what and where it is. The app opens it and highlights it. A whiteboard spot ref (W with a description) lands on that part of the board. Search matches show what's inside files and notes. If nothing fits, say so and leave "show" empty; never guess a ref.
+GRADES: for a question about a grade or mark ("what did I get on Exam 1?", "what's my grade in BIOS 230?"), answer from COURSE GRADES and GRADES: say the mark and percent (and letter if listed), and leave "show" empty, so the app stays where it is. Only when the student asks to find, show, open, see or go to a grade ("find my Exam 1 grade", "show me my grade for the lab") put its G ref first in "show". If an item isn't in GRADES, say it doesn't have a mark in Studyboard yet; never say grades aren't listed when GRADES or COURSE GRADES has them.
 CHANGING THINGS: when (and only when) the student asks to change something, add it to "changes". Never say it's already done: the app shows them the change and they confirm it. Use exactly one change per field per thing. Fields by kind:
 - task (T): title; due YYYY-MM-DD; time HH:MM (24h) or empty; startDate YYYY-MM-DD; status todo|doing|done; priority low|med|high|urgent; notes; hours (number); type Assignment|Exam|Quiz|Reading|Project|Lab|Study|Other; course (a C ref); weight (percent number); delete yes
 - course (C): name; code; instructor; room
@@ -66852,7 +66919,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   function exists(t){
     if (!t) return false;
     switch (t.kind) {
-      case "task": return !!state.tasks[t.id];
+      case "task": case "grade": return !!state.tasks[t.id];
       case "course": case "class": return !!state.courses[t.id];
       case "event": return !!state.events[t.id];
       case "deck": return !!state.decks[t.id];
@@ -66867,6 +66934,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     try {
       switch (t.kind) {
         case "task": return clip(state.tasks[t.id].title, 60);
+        case "grade": return clip(state.tasks[t.id].title, 52) + " grade";
         case "course": return courseLabel(state.courses[t.id]);
         case "class": return `${courseLabel(state.courses[t.id])} ${t.label || "class"}, ${nice(t.date)}`;
         case "event": { const e = state.events[t.id]; return `${clip(e.title, 50)}${t.date ? ", " + nice(t.date) : ""}`; }
@@ -66993,6 +67061,14 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
           return true;
         }
         case "course": go("courses"); ui.courseId = t.id; ui.courseTab = ""; render(); return true;
+        case "grade": {
+          // the course's Grades tab, with the row picked out (no course: the Grades page for every course)
+          const k = state.tasks[t.id], cid = k.courseId && state.courses[k.courseId] ? k.courseId : null;
+          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; render(); await frame(); await wait(60);
+          const row = document.querySelector(`#view .gr-row-main[data-id="${CSS.escape(t.id)}"]`);
+          if (!flash(row && (row.closest("li") || row))) taskView(k);
+          return true;
+        }
         case "class": case "event": {
           let date = t.date;
           if (!date && t.kind === "event") { const today = todayISO(); const occ = schOccurrences(today, addDays(today, 180)).find(x => x.type === "event" && x.id === t.id && !x.skipped); date = occ ? occ.date : state.events[t.id].date; t = Object.assign({}, t, {key: occ ? occ.key : t.key}); }
@@ -67240,7 +67316,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const cur = o.screen === false ? null : current();
     const cat = await catalog(q);
     const me = window.SBCOMP && SBCOMP.tab && SBCOMP.tab.info ? (SBCOMP.tab.info() || {}) : {};
-    const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Use the student's own data below.\n${RULES}`;
+    const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Reply to exactly what they said: add more only when it clearly helps with what they asked, never as filler, and a hello or thanks just gets a short friendly reply (no news about yourself and no question back unless they asked how you are). Use the student's own data below.\n${RULES}`;
     const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
     const callAI = free => aiCall({task: "assist", maxTokens: 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
       system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": []}. The answer is the reply itself, never a placeholder.` : system});
@@ -67548,7 +67624,7 @@ If you're not sure a feature exists, say where in Settings to look rather than i
       const actOn = att.length > 0 || MAKE.test(q), format = formatFor(q, att.length > 0, !!cat);
       T.status = "Thinking…"; draw();
       const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 1200)}`).join("\n\n");
-      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. You are a real AI helper for anything about their courses, their course materials or Studyboard itself: use everything below (their planner, the search results from their own files, notes and cards, the file text, what's on their screen, and HOW STUDYBOARD WORKS for questions about the app), and your own knowledge for subject matter. Always give a real, useful answer: if their data doesn't have something, say briefly what you checked, then help anyway (explain the topic, say where in the app it would be, or ask one short question). Never invent their facts, dates, marks or file contents. When you use their course materials, say which file or note it came from. Match the length to the question: a sentence for a quick fact, a clear explanation with short paragraphs, steps or '- ' bullets when they want to understand, learn, plan or do something. For questions about their work, suggest a concrete next step when it helps. When the student is just chatting (\"how are you?\", hello, thanks, how their day is going, a joke, how they feel), answer like a friend would and in character: say how you are and what you've been up to as yourself, show interest in them, maybe ask a light question back. Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.${actOn ? `
+      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. You are a real AI helper for anything about their courses, their course materials or Studyboard itself: use everything below (their planner, the search results from their own files, notes and cards, the file text, what's on their screen, and HOW STUDYBOARD WORKS for questions about the app), and your own knowledge for subject matter. Always give a real, useful answer: if their data doesn't have something, say briefly what you checked, then help anyway (explain the topic, say where in the app it would be, or ask one short question). Never invent their facts, dates, marks or file contents. When you use their course materials, say which file or note it came from. Match the length to the question: a sentence for a quick fact, a clear explanation with short paragraphs, steps or '- ' bullets when they want to understand, learn, plan or do something. For questions about their work, suggest a concrete next step when it helps. Reply to exactly what the student said, nothing they didn't ask for. Add more only when it clearly helps with what they asked (like what it takes to keep a grade when they ask about that grade, or a deadline that clashes with the plan they're asking about), never as filler. When the student is just chatting, answer that and only that, in character and briefly, like a friend: a hello gets a short friendly hello back (and, at most, a few words offering help), not news about you or a question back; only say how you are or what you've been up to when they ask; thanks gets a short "you're welcome". Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.${actOn ? `
 You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.` : ""}${cat && window.SBASSIST ? "\n" + SBASSIST.RULES + "\nThe refs are in ITEMS YOU CAN SHOW OR CHANGE. Changing existing things always goes in \"changes\", never in actions. Tasks the student asks you to add go in \"newTasks\"; keep the tasks action for due dates found in files they attached." : ""}`;
       // free: no answer format enforced, just asked for (decoded differently, so a placeholder can't come back the same way)
       const call = (fmt, free) => aiCall({task: att.length ? "tutor" : "chat", maxTokens: att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
@@ -79434,7 +79510,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <li><b>Study group reports:</b> kept for up to a year. The copy of what was reported is cleared 90 days after the report is handled.</li>
 <li><b>Studyboard AI usage (how much of your allowance you have used):</b> until you delete your account.</li>
 <li><b>Bug reports:</b> kept only as long as needed to fix the problem, and never longer than 180 days (screenshots attached to a report are deleted after 30 days). Reports sent while signed in are deleted with your account.</li>
-<li><b>Free trial record:</b> if you had a free trial or the free week of Pro that new accounts get, we keep a one-way scrambled code (a hash) made from your email address, also after your account is deleted, only so the same address can't get another one. It can't be turned back into your email address.</li>
+<li><b>Free trial record:</b> if you had a free trial or the two free weeks of Pro that new accounts get, we keep a one-way scrambled code (a hash) made from your email address, also after your account is deleted, only so the same address can't get another one. It can't be turned back into your email address.</li>
 </ul>
 
 <h3>Your choices and your data</h3>
@@ -79490,7 +79566,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <h3>Free and Pro</h3>
     <ul>
     <li>Studyboard has a free plan and an optional paid plan called Pro with higher limits and extras. What each includes, the prices and the renewal terms are shown before you buy. We may change prices or features for the future; if you subscribe, the price you agreed to stays the same until your next renewal after we tell you, and we will not take away what you have paid for during the period you paid for.</li>
-    <li><b>Free week of Pro:</b> each new account gets 7 days of Pro once, with no card and no charge. When the week ends, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. One free week per person: it isn't given again to a new account made with the same email address.</li>
+    <li><b>Two free weeks of Pro:</b> each new account gets 14 days of Pro once, with no card and no charge. When the two weeks end, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. One free week per person: it isn't given again to a new account made with the same email address.</li>
     <li><b>Free trial:</b> if a free trial is ever offered at checkout, your plan starts and you are charged when it ends unless you cancel before then.</li>
     <li><b>Renewal and cancelling:</b> subscriptions renew automatically each month, every 4 months (the semester plan) or each year until you cancel. Payments are handled by Stripe, the App Store or Google Play. Cancel any time on the Manage billing page of our website (or in your App Store or Google Play account if you bought there); you keep Pro until the end of the period you paid for.</li>
     <li><b>Refunds:</b> payments are generally not refunded for time already used, except where the law or the purchase page says otherwise. If something went wrong, write to us and we'll sort it out fairly: ${contact()}. Purchases made in the App Store or Google Play follow Apple's or Google's rules for billing, cancelling and refunds.</li>
@@ -99291,7 +99367,9 @@ const AUTOPILOT = (() => {
     if (env) env.style.setProperty("height", Math.max(200, Math.round(stop - (env.getBoundingClientRect().top + y))) + "px", "important");
   }
   const later = () => requestAnimationFrame(fit);
-  hook("render", later);
+  // a redraw (dropping a note, say) puts in a fresh board at the computer layout's height: it's sized at once, in the same
+  // frame, or for a moment it ran down under the tab bar
+  hook("render", () => { fit(); later(); });
   addEventListener("resize", later);
   addEventListener("orientationchange", () => setTimeout(fit, 300));
 })();

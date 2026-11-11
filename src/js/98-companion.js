@@ -183,7 +183,7 @@
       const st = pv ? `transform-origin:${pv[0]}px ${pv[1]}px${r ? ";transform:" + r : ""}` : "";
       return `<g class="cp-p cp-${name}"${st ? ` style="${st}"` : ""}${extra || ""}>${inner}</g>`;
     };
-    const worn = wornList(o.wear), tints = o.tint || cfg().tint || {};
+    const worn = wornList(o.wear), tints = o.tint || tintsNow();
     const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], ns = num(na[2]) ? na[2] : 1, capeA = [na[0], na[1], f1(ns * 0.95)];
     // the body's width at the neck: the scarf's rounded ends and the collar reach just past its outline (under a separate head the collar hugs the narrower neck); the bow tie stays well inside it
     const wrapW = num(na[4]) ? na[4] : 0, drapeW = num(na[5]) ? na[5] : 0, hwAt = s => wrapW ? f1(Math.max(12, (wrapW / 2 + 1) / s - 2)) : 0, collarAt = s => num(na[6]) ? f1(na[6] / 2 / s) : wrapW ? f1(Math.max(12, (wrapW / 2 + (partSvg(P.head) ? -3.5 : 0.4)) / s)) : 0;
@@ -193,8 +193,10 @@
     // a medal hangs from the neck, so it sits in the middle (the star badge is pinned to one side)
     const medalA = pt(chestA) ? [na[0], chestA[1], chestA[2]] : chestA;
     const tintOf = id => hexOk(tints[id]) ? tints[id] : "";
-    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, art || ACC_ART[id])}</g>` : "";
-    const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, art)}</g>` : "";
+    const pats = o.pat || patsNow(), colOf = id => tintOf(id) || ACC_DEF[id] || (o.wearColor || wearColor(c));
+    const patd = (id, art) => pats[id] ? withPat(art, id, pats[id], colOf(id)) : art;
+    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
+    const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, patd("cape", art))}</g>` : "";
     const hasHead = !!partSvg(P.head);
     const headWorn = worn.some(id => slotOf(id) === "head");
     const headRot = rot.head ? `;transform:rotate(${rot.head}deg)` : "";
@@ -222,10 +224,10 @@
   const cfg = () => { const s = state.settings && state.settings.comp; return s && typeof s === "object" ? s : {}; };
   function setCfg(patch){
     const cur = cfg(), next = Object.assign({}, cur, patch);
-    ["pick", "names", "wear", "earned", "tint"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["pick", "names", "wear", "earned", "tint", "pat"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     state.settings = Object.assign({}, state.settings, {comp: next});
     saveSettings();
-    if (patch.pick || patch.names || patch.wear || patch.tint || "on" in patch) setTimeout(() => {
+    if (patch.pick || patch.names || patch.wear || patch.tint || patch.pat || "on" in patch) setTimeout(() => {
       try { if (typeof faceSoon === "function") faceSoon(); } catch (e) {}
       try { scheduleRender(); } catch (e) {}
     }, 0);
@@ -234,6 +236,32 @@
   const staysPut = () => cfg().still === true && !phone();
   const talkOn = () => cfg().talk !== false;
   const pro = () => { try { return typeof PLAN === "undefined" || !PLAN ? true : !!PLAN.isPro(); } catch (e) { return true; } };
+  // Clothing colours: the palette is free; any other colour (picked with the colour box) is Pro. Without Pro a picked colour
+  // stays saved but isn't used, so the prop shows its usual colour until Pro comes back
+  const inPalette = h => TINTS.some(x => x.toLowerCase() === String(h || "").toLowerCase());
+  // Clothing patterns (Pro): on the hat, beanie, scarf, bow tie and cape, drawn in the prop's own colour and a lighter tone
+  // of it, tiled across the fabric. Without Pro a chosen pattern stays saved but isn't drawn
+  const PAT_PROPS = ["hat", "beanie", "scarf", "bowtie", "cape"];
+  const PATS = [["stripes", "Stripes"], ["dots", "Polka Dots"], ["plaid", "Plaid"], ["stars", "Stars"], ["checks", "Checks"], ["zigzag", "Zigzag"]];
+  const shade = (h, to, t) => { const n = parseInt(String(h).slice(1), 16); if (!(n >= 0)) return h; const a = [n >> 16, (n >> 8) & 255, n & 255], b = to === "w" ? [255, 255, 255] : [20, 16, 40]; return "#" + a.map((x, i) => Math.round(x + (b[i] - x) * t).toString(16).padStart(2, "0")).join(""); };
+  const starPath = (x, y, r) => { let p = ""; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r; p += (i ? "L" : "M") + (x + rr * Math.cos(a)).toFixed(2) + " " + (y + rr * Math.sin(a)).toFixed(2); } return p + "Z"; };
+  function patDef(pid, kind, c){
+    const l = shade(c, "w", .55), d = shade(c, "d", .45);
+    const P = (w, h, body, tr) => `<pattern id="${pid}" patternUnits="userSpaceOnUse" width="${w}" height="${h}"${tr ? ` patternTransform="${tr}"` : ""}><rect width="${w}" height="${h}" fill="${c}"/>${body}</pattern>`;
+    switch (kind) {
+      case "stripes": return P(6, 6, `<rect width="2.6" height="6" fill="${l}"/>`, "rotate(40)");
+      case "dots": return P(7, 7, `<circle cx="1.8" cy="1.8" r="1.25" fill="${l}"/><circle cx="5.3" cy="5.3" r="1.25" fill="${l}"/>`);
+      case "plaid": return P(10, 10, `<rect y="3" width="10" height="3" fill="${d}" opacity=".45"/><rect x="3" width="3" height="10" fill="${d}" opacity=".45"/><rect y="7.6" width="10" height=".8" fill="${l}" opacity=".9"/><rect x="7.6" width=".8" height="10" fill="${l}" opacity=".9"/>`);
+      case "stars": return P(10, 10, `<path d="${starPath(2.6, 2.8, 1.9)}" fill="${l}"/><path d="${starPath(7.4, 7.3, 1.5)}" fill="${l}"/>`);
+      case "checks": return P(6, 6, `<rect width="3" height="3" fill="${l}"/><rect x="3" y="3" width="3" height="3" fill="${l}"/>`);
+      case "zigzag": return P(6, 5, `<path d="M0 3.4L1.5 1.6L3 3.4L4.5 1.6L6 3.4" fill="none" stroke="${l}" stroke-width="1.1" stroke-linejoin="round"/>`);
+    }
+    return "";
+  }
+  const patsNow = () => { if (!pro()) return {}; const p = cfg().pat || {}, o = {}; PAT_PROPS.forEach(k => { if (PATS.some(x => x[0] === p[k])) o[k] = p[k]; }); return o; };
+  // a prop's art with its fabric patterned: the fill that follows the prop's colour becomes the pattern
+  const withPat = (art, id, kind, col) => { if (!kind || !col) return art; const pid = `cpp-${id}-${kind}-${col.replace("#", "")}`; return `<defs>${patDef(pid, kind, col)}</defs>` + String(art).split(WEAR).join(`style="fill:url(#${pid})"`); };
+  const tintsNow = () => { const t = cfg().tint || {}; if (pro()) return t; const o = {}; Object.keys(t).forEach(k => { if (inPalette(t[k])) o[k] = t[k]; }); return o; };
   const paywall = () => { try { return !!(typeof PLAN !== "undefined" && PLAN && PLAN.paywall()); } catch (e) { return false; } };
   const skinId = () => document.documentElement.dataset.skin || effSkinId() || "classic";
   // A Your Photo theme (ph-...) can carry up to three companions picked from every theme
@@ -403,9 +431,11 @@
   function geometry(){
     const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
     const sideNav = !!(r && r.width && r.left < 4 && r.height > innerHeight * 0.6);
+    // (the page keeps a gap beside the side menu wide enough for the companion: 103-phone-design.css, body.cp-on .wrap)
     const side = sideNav ? Math.round(r.right) : 0;
     return {nav, r, sideNav, side};
   }
+
 
   /* The placement guard */
   const MARGIN = 8;
@@ -464,7 +494,7 @@
   // The box positions (left/top) whose art, with room for its own motions
   function range(px, fresh){
     const S = safeRect(fresh), g = geometry(), e = vext || measureArt() || DEF_ART;
-    return {L: Math.max(S.l, g.side + 6) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
+    return {L: Math.max(S.l, g.side + 4) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
   // It stays in the lower part of the screen
@@ -661,7 +691,9 @@
     if (f.shown && c.left + px * 0.9 > f.left - 4 && c.left + px * 0.1 < f.right + 4 && c.top + px > f.top - 4 && c.top < f.bottom + 4) return {hard: true};
     const t = document.getElementById("toast");
     if (t && t.classList.contains("show")) { const q = t.getBoundingClientRect(); if (c.left < q.right && c.left + px > q.left && c.top < q.bottom && c.top + px > q.top) return {hard: true}; }
-    const a = {l: c.left + px * 0.08 - 6, r: c.left + px * 0.92 + 6, t: c.top + px * 0.1 - 6, b: c.top + px * 0.97 + 4};
+    // the drawing's own outline with a little room (not a fixed box: a slim companion fits a narrower gap)
+    const e = vext || measureArt() || DEF_ART;
+    const a = {l: c.left + px * e.l - 3, r: c.left + px * e.r + 3, t: c.top + px * Math.max(0.1, e.t) - 6, b: c.top + px * 0.97 + 4};
     for (const q of (RECTS || (RECTS = contentRects()))) if (q.left < a.r && q.right > a.l && q.top < a.b && q.bottom > a.t) return {hard: true};
     let surface = false;
     for (const fx of [0.15, 0.5, 0.85]) for (const fy of [0.2, 0.55, 0.9]) { const r = contentAt(c.left + px * fx, c.top + px * fy); if (r.hard) return {hard: true}; if (r.surface) surface = true; }
@@ -1389,7 +1421,7 @@
   function build(){
     const c = current();
     if (!isOn() || !c) { teardown(); return; }
-    const sig = [c.id, wearOf(c), JSON.stringify(cfg().tint || {}), pro() ? 1 : 0, nameOf(c)].join("|");
+    const sig = [c.id, wearOf(c), JSON.stringify(cfg().tint || {}), pro() ? 1 : 0, JSON.stringify(patsNow()), nameOf(c)].join("|");
     if (layer && sig === curSig) { applyVars(); placeSoon(0); return; }
     const first = !layer;
     if (!layer) {
@@ -1439,7 +1471,7 @@
   // One place that announces "the companion (or its name/outfit) changed"
   let compNote = null;
   function compChanged(){
-    const key = cur ? [cur.id, wearOf(cur), JSON.stringify(cfg().tint || {}), nameOf(cur)].join("|") : "";
+    const key = cur ? [cur.id, wearOf(cur), JSON.stringify(tintsNow()), JSON.stringify(patsNow()), nameOf(cur)].join("|") : "";
     if (key === compNote) return;
     const first = compNote === null; compNote = key;
     try { if (typeof faceSwapNow === "function") faceSwapNow(); } catch (e) {}
@@ -2332,7 +2364,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }).join("");
     const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
     const hLabel = h < 1 ? `${Math.round(h * 60)} min` : `${h < 10 ? h.toFixed(1).replace(/\.0$/, "") : Math.round(h)} h`;
-    const wear = c ? wearOf(c) : [], tints = cfg().tint || {};
+    const wear = c ? wearOf(c) : [], tints = tintsNow();
     const colOf = id => hexOk(tints[id]) ? tints[id] : ACC_DEF[id] || wearColor(c || {});
     const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
@@ -2342,8 +2374,13 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
         <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
+    const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
+      const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
+        return `<button type="button" class="cp-pat${sel ? " on" : ""}" data-act="comp-pat" data-acc="${id}" data-pat="${k}" aria-pressed="${sel}" aria-label="${esc(label)}" title="${esc(label)}"><svg viewBox="0 0 20 20" aria-hidden="true">${k ? `<defs>${patDef(pid, k, col)}</defs><circle cx="10" cy="10" r="9" fill="url(#${pid})"/>` : `<circle cx="10" cy="10" r="9" fill="${col}"/>`}</svg></button>`; };
+      return `<div class="cp-tint cp-pats" role="group" aria-label="${esc(a.name)} pattern"><span class="cp-tint-n">Pattern${on ? "" : PRO_BADGE}</span><span class="cp-tint-sw">${sw("", "No Pattern")}${PATS.map(([k, n]) => sw(k, n)).join("")}</span></div>`; };
     const tintRow = id => { const a = ACC.find(x => x.id === id), cur = colOf(id);
-      return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}"><button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
+      const pRow = PAT_PROPS.includes(id) ? patRow(id, a, cur) : "";
+      return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}${pro() ? `<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}">` : `<button type="button" class="cp-tint-any" data-act="comp-tint-pro" aria-label="Any color for ${esc(a.name)}, with Studyboard Pro" title="Any color, with Pro">${PRO_BADGE}</button>`}<button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>` + pRow; };
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
@@ -2415,6 +2452,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   document.addEventListener("change", e => {
     const t = e.target; if (!t || !t.classList || !t.classList.contains("cp-tint-in") || !hexOk(t.value) || !ACC.some(x => x.id === t.dataset.acc)) return;
+    if (!pro() && !inPalette(t.value)) { refreshPicker(); return; }
     setCfg({tint: {[t.dataset.acc]: t.value.toLowerCase()}}); curSig = ""; build(); refreshPicker();
   });
   const DLG_CLOSE = () => { stopPreviews(); dlgShut = performance.now(); dockNow(); setTimeout(dockNow, 850); guardSoon("dialog", 80); };
@@ -2451,6 +2489,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       if (id && next.includes(id) && act) { act.motion("bounce"); spawnFx("sparkle", 2); }
       return true;
     }
+    if (a === "comp-pat") {
+      const id = el.dataset.acc, k = el.dataset.pat || "";
+      if (!PAT_PROPS.includes(id) || (k && !PATS.some(x => x[0] === k))) return true;
+      if (!pro()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Patterns for your companion's clothes come with Studyboard Pro."); return true; }
+      setCfg({pat: {[id]: k}}); curSig = ""; build(); refreshPicker();
+      return true;
+    }
+    if (a === "comp-tint-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Any color for your companion's clothes comes with Studyboard Pro. The colors above stay free."); return true; }
     if (a === "comp-tint") {
       const id = el.dataset.acc, col = el.dataset.color || "";
       if (!ACC.some(x => x.id === id) || (col && !hexOk(col))) return true;
@@ -2662,7 +2708,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   let faceSig = "", faceHtml = "";
   function faceFor(){
     if (!aiName()) return "";
-    const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(cfg().tint || {}) + "|" + nameOf(cur);
+    const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(tintsNow()) + "|" + JSON.stringify(patsNow()) + "|" + nameOf(cur);
     if (sig !== faceSig) { faceSig = sig; faceHtml = faceSvg(cur, wearOf(cur)); }
     return faceHtml;
   }

@@ -84,7 +84,7 @@
 <li><b>Study group reports:</b> kept for up to a year. The copy of what was reported is cleared 90 days after the report is handled.</li>
 <li><b>Studyboard AI usage (how much of your allowance you have used):</b> until you delete your account.</li>
 <li><b>Bug reports:</b> kept only as long as needed to fix the problem, and never longer than 180 days (screenshots attached to a report are deleted after 30 days). Reports sent while signed in are deleted with your account.</li>
-<li><b>Free trial record:</b> if you had a free trial or the free week of Pro that new accounts get, we keep a one-way scrambled code (a hash) made from your email address, also after your account is deleted, only so the same address can't get another one. It can't be turned back into your email address.</li>
+<li><b>Free trial record:</b> if you had a free trial or the two free weeks of Pro that new accounts get, we keep a one-way scrambled code (a hash) made from your email address, also after your account is deleted, only so the same address can't get another one. It can't be turned back into your email address.</li>
 </ul>
 
 <h3>Your choices and your data</h3>
@@ -140,7 +140,7 @@
     <h3>Free and Pro</h3>
     <ul>
     <li>Studyboard has a free plan and an optional paid plan called Pro with higher limits and extras. What each includes, the prices and the renewal terms are shown before you buy. We may change prices or features for the future; if you subscribe, the price you agreed to stays the same until your next renewal after we tell you, and we will not take away what you have paid for during the period you paid for.</li>
-    <li><b>Free week of Pro:</b> each new account gets 7 days of Pro once, with no card and no charge. When the week ends, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. One free week per person: it isn't given again to a new account made with the same email address.</li>
+    <li><b>Two free weeks of Pro:</b> each new account gets 14 days of Pro once, with no card and no charge. When the two weeks end, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. One free week per person: it isn't given again to a new account made with the same email address.</li>
     <li><b>Free trial:</b> if a free trial is ever offered at checkout, your plan starts and you are charged when it ends unless you cancel before then.</li>
     <li><b>Renewal and cancelling:</b> subscriptions renew automatically each month, every 4 months (the semester plan) or each year until you cancel. Payments are handled by Stripe, the App Store or Google Play. Cancel any time on the Manage billing page of our website (or in your App Store or Google Play account if you bought there); you keep Pro until the end of the period you paid for.</li>
     <li><b>Refunds:</b> payments are generally not refunded for time already used, except where the law or the purchase page says otherwise. If something went wrong, write to us and we'll sort it out fairly: ${contact()}. Purchases made in the App Store or Google Play follow Apple's or Google's rules for billing, cancelling and refunds.</li>

@@ -2654,7 +2654,7 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 @media (max-width:360px){.plan-prices{grid-template-columns:1fr}}
 
 
-/* No account yet: the free week comes first */
+/* No account yet: the two free weeks come first */
 .plan-gift{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:14px 16px;border-radius:16px;border:1px solid color-mix(in srgb,#F5B301 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,#FFD166 20%,var(--surface)),color-mix(in srgb,#FF8FB0 12%,var(--surface)))}
 .plan-gift > span:nth-child(2){flex:1 1 220px;display:grid;gap:4px}
 .plan-gift-ic{font-size:1.8rem;line-height:1}
@@ -4765,6 +4765,16 @@ html .btn.primary.cp-ask-go{min-width:96px;padding:0 22px;font-size:1.15rem;font
 .cp-tq-row{align-items:center}
 /* a hidden bubble (faded out) can't be clicked or typed into */
 .cp-bubble:not(.on){pointer-events:none}
+/* Any colour for clothing is Pro: without it, a rainbow swatch carrying the PRO tag, which opens Studyboard Pro */
+.cp-tint-any{position:relative;width:30px;height:30px;padding:0;border:0;border-radius:50%;cursor:pointer;background:conic-gradient(from 0deg,#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#8b5cf6,#ec4899,#ef4444);box-shadow:inset 0 0 0 2px var(--surface)}
+.cp-tint-any .pro-badge{position:absolute;left:50%;bottom:-7px;transform:translateX(-50%) scale(.72);transform-origin:50% 100%;pointer-events:none}
+.cp-tint-any:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Clothing patterns (Pro): small round samples in the prop's colour */
+.cp-pat{width:30px;height:30px;padding:0;border:0;border-radius:50%;background:none;cursor:pointer;box-shadow:0 0 0 1px var(--line)}
+.cp-pat svg{width:100%;height:100%;display:block}
+.cp-pat.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent)}
+.cp-pat:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cp-pats .cp-tint-n .pro-badge{margin-left:6px;vertical-align:1px}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -8422,6 +8432,14 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #sbTopFade{display:block;position:fixed;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) * 1.6);z-index:5;pointer-events:none;
     background:linear-gradient(180deg,var(--sb-top-c,var(--bg)) 0,var(--sb-top-c,var(--bg)) 55%,color-mix(in srgb,var(--sb-top-c,var(--bg)) 0%,transparent) 100%)}
   html.board-max #sbTopFade{display:none}
+}
+
+/* Computers (and iPads held sideways): with the companion out, the page keeps a gap beside the side menu wide enough for the
+   companion to stand in, clear of both, when its usual spot would cover something. On a wide window the page's own centring
+   already leaves that room, so nothing moves; on a narrower one the page starts a little further right */
+@media (min-width:980px){
+  body.cp-on .wrap{padding-left:clamp(32px, calc(100px - (100vw - 136px - 900px) / 2), 100px)}
+  body.cp-on.wide .wrap{padding-left:clamp(32px, calc(100px - (100vw - 136px - 1240px) / 2), 100px)}
 }
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}

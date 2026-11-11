@@ -251,7 +251,7 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
       const {ctx, page} = await mk({seed: PLANNER(), pay: true});
       await page.evaluate(() => StudyboardPlan.openSheet()); await page.waitForSelector(".plan-sheet");
       const body = await txt(page, ".plan-sheet");
-      ok(/Create a Free Account to Get a Week of Pro/.test(body) && await page.locator('.plan-gift [data-act="plan-signup"]').count() === 1, "it leads with the free week that comes with an account");
+      ok(/Create a Free Account to Get Two Weeks of Pro/.test(body) && await page.locator('.plan-gift [data-act="plan-signup"]').count() === 1, "it leads with the free week that comes with an account");
       ok(!/Your Storage/.test(body), "no storage meter without an account");
       const y = s => page.evaluate(q => document.querySelector(q).getBoundingClientRect().top, s);
       ok(await y(".plan-gift") < await y(".plan-prices") && await y(".plan-prices") < await y(".plan-compare"), "the plan choice comes before the long comparison");

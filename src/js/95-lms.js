@@ -307,7 +307,10 @@ function cleanFile(r) {
     });
     return out.slice(0, 6);
   }
-  const statusMineAny = t => { const f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return t && t.status !== "todo"; const L = t[f]; return !!L.sm || (L.ss != null ? t.status !== L.ss : t.status !== "todo" && !(t.status === "done" && L.doneSeen)); };
+  // A status is the student's own only while it differs from the one the sync last set: moving a card away and back (or
+  // dropping it in the column it came from) leaves it the sync's, so later syncs keep updating it. (sm, from older versions,
+  // only counts where no status was ever recorded)
+  const statusMineAny = t => { const f = t && FIELDS.find(k => t[k] && t[k].key); if (!f) return t && t.status !== "todo"; const L = t[f]; return L.ss != null ? t.status !== L.ss : !!L.sm || (t.status !== "todo" && !(t.status === "done" && L.doneSeen)); };
   function mergeTasks(keep0, other, useDate){
     const keep = clone(keep0);
     if (useDate && other.due) { keep.due = other.due; keep.time = other.time || keep.time || ""; }
@@ -1126,6 +1129,7 @@ function cleanFile(r) {
       else if (r.done && (r.doneAt || (r.due && r.due < todayISO())) && t.status === "done" && !sMine && prev[F] && prev[F].ss === "done" && autoDone(prev) && Math.abs(whenDone(r.doneAt, r.due, r.time) - Number(prev.doneAt)) > 6e4) t.doneAt = whenDone(r.doneAt, r.due, r.time);
       const seenMap = Object.assign({}, (prev[F] && prev[F].seen) || {}, {[data.src]: Date.now()});
       t[F] = Object.assign({}, prev[F] || {}, {key: keep ? prev[F].key : key, ou: keep ? prev[F].ou : r.ou, gid: r.gid || (prev[F] && prev[F].gid) || "", last: apiFresh ? last : Object.assign({}, last || {}, val), seen: seenMap, doneSeen: !!(wasDone || r.done)}, sMine ? {sm: true} : {ss: t.status});
+      if (!sMine) delete t[F].sm;
       delete t[F].gradeOnly;
       if (r.files && r.files.length) t[F].files = r.files;
       if (r.outOf) t[F].outOf = r.outOf;
@@ -1412,7 +1416,7 @@ function cleanFile(r) {
 
   /* Sync */
   let running = null, reading = false;
-  const statusMine = t => !!(t && t[F]) && (!!t[F].sm || (t[F].ss != null ? t.status !== t[F].ss : t.status !== "todo" && !(t.status === "done" && t[F].doneSeen)));
+  const statusMine = t => !!(t && t[F]) && (t[F].ss != null ? t.status !== t[F].ss : !!t[F].sm || (t.status !== "todo" && !(t.status === "done" && t[F].doneSeen)));
   function applyPlan(data, p, how, quiet, opt){
     const c = cfg();
     const newMap = Object.assign({}, c.map); Object.entries(p.map).forEach(([ou, v]) => { newMap[ou] = v === "new" ? F + "c_" + hid(ou) : v; });
