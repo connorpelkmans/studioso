@@ -455,7 +455,8 @@
     const vv = window.visualViewport, ins = insets(), de = document.documentElement;
     const lw = de.clientWidth || innerWidth, lh = de.clientHeight || innerHeight;
     let l = 0, t = 0, r = lw, b = lh;
-    if (vv) {
+    // pinch-zoomed in: the companion stays where it stands on the page instead of chasing the zoomed-in view
+    if (vv && !(vv.scale > 1.01)) {
       const l2 = Math.max(l, vv.offsetLeft), t2 = Math.max(t, vv.offsetTop), r2 = Math.min(r, vv.offsetLeft + vv.width), b2 = Math.min(b, vv.offsetTop + vv.height);
       if (r2 - l2 >= 100 && b2 - t2 >= 100) { l = l2; t = t2; r = r2; b = b2; }
     }
@@ -2090,7 +2091,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }
     try { clamp("keyboard"); } catch (e) {} guardSoon("keyboard", 60);
   });
-  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
+  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { if (k === "scroll" && visualViewport.scale > 1.01) return; sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
   document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
   document.addEventListener("focusout", () => guardSoon("blur", 350));
   new MutationObserver(() => { sAt = 0; vext = null; guardSoon("text-size", 100); placeSoon(150); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-ts", "data-hc"]});
