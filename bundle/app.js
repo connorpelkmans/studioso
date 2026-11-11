@@ -22453,7 +22453,7 @@ window.__sbPlanObj = () => PLAN;
       free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 7, checkoutTrialDays: 0},
+    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 14, checkoutTrialDays: 0},
     checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
@@ -22766,8 +22766,8 @@ window.__sbPlanObj = () => PLAN;
   function welcomePop(until){
     if (typeof qodPop !== "function") return;
     qodPop(`<div class="qod-eyebrow">A Welcome Gift</div><h2 id="qodT">Welcome to Studyboard!</h2>
-      <p class="qod-q" style="font-size:1.05rem">Your first week of Pro is on us.</p>
-      <p class="mini">Every Pro theme and feature is yours until ${esc(dateStr(until))}. No card needed, and nothing you make goes away when the week ends.</p>
+      <p class="qod-q" style="font-size:1.05rem">Your first two weeks of Pro are on us.</p>
+      <p class="mini">Every Pro theme and feature is yours until ${esc(dateStr(until))}. No card needed, and nothing you make goes away when the two weeks end.</p>
       <div class="qod-foot"><button type="button" class="btn" data-qod-close data-act="plan-open">See What's Included</button><button type="button" class="btn primary" data-qod-close>Let's Go</button></div>`, "reward");
   }
   function welcomeNotes(){
@@ -22778,14 +22778,14 @@ window.__sbPlanObj = () => PLAN;
     const endAt = ts(e.trial_until);
     if (endAt > now() && endAt - now() <= 864e5 && !mine.lastDay) {
       save("lastDay"); if (!mine.start) save("start");
-      setTimeout(() => toast(`Your free week of Pro ends tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your free week of Pro ends tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
+      setTimeout(() => toast(`Your two free weeks of Pro end tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro end tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
     } else if (endAt > now() && !mine.start) {
       if (window.SBOB && SBOB.pending()) { clearTimeout(welcomeRetry); welcomeRetry = setTimeout(welcomeNotes, 4000); return; }
       save("start");
       setTimeout(() => { if (window.SBOB && SBOB.pending()) { delete mine.start; seen[uid] = mine; write(K_WELCOME, seen); return; } welcomePop(e.trial_until); }, 1200);
     } else if (endAt <= now() && now() - endAt < 30 * 864e5 && !paid() && !mine.end) {
       save("end");
-      setTimeout(() => toast("Your free week of Pro has ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your free week of Pro has ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
+      setTimeout(() => toast("Your two free weeks of Pro have ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro have ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
   // The sign-in finished loading and nobody is signed in: forget the account from last time, and that it had Pro, at once
@@ -23113,7 +23113,7 @@ window.__sbPlanObj = () => PLAN;
     try {
       const {error} = await sb.rpc("studyboard_start_trial");
       if (error) { toast(String(error.message || "").replace(/^SB_\w+:\s*/, "").slice(0, 140) || "Couldn't start the trial. Try again."); return; }
-      await refresh(); toast("Your free week of Pro has started. Enjoy!"); proSheet();
+      await refresh(); toast("Your two free weeks of Pro have started. Enjoy!"); proSheet();
     } catch (e) { toast("Couldn't start the trial. Check your connection and try again."); }
   }
 
@@ -23163,7 +23163,7 @@ window.__sbPlanObj = () => PLAN;
     const THANKS = "You're on Pro. Thank you for supporting Studyboard!";
     if (!e) return {title: THANKS, sub: ""};
     if (e.plan === "lifetime") return {title: THANKS, sub: e.source === "lifetime" ? "Pro was granted to your account for good." : "Pro is yours for good."};
-    if (trialing(e) && e.source === "welcome") return {title: "Your Free Week of Pro", sub: `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. No card needed: after that you're on Free unless you choose a plan.`};
+    if (trialing(e) && e.source === "welcome") return {title: "Your Two Free Weeks of Pro", sub: `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. No card needed: after that you're on Free unless you choose a plan.`};
     if (trialing(e) && e.source === "code") return {title: "Pro From a Code", sub: e.codeForever ? "Every Pro theme and feature, for good. Storage, devices and group size stay at the free amounts." : `Every Pro theme and feature until ${dateStr(e.trial_until)}. ${e.lite ? "You also get unlimited devices and Pro groups. Storage stays at the free amount." : "Storage, devices and group size stay at the free amounts."} After that you're on Free unless you choose a plan.`};
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
@@ -23220,7 +23220,7 @@ window.__sbPlanObj = () => PLAN;
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
-        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get a Week of Pro</b><span class="mini">Every Pro theme and feature for 7 days. No card needed, and everything you make stays when the week ends.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
+        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
@@ -28860,7 +28860,7 @@ document.head.appendChild(AREA_CSS);
     {id: "ai", title: "AI"},
     {id: "app", title: "Get the App"},
     {id: "backups", title: "Backups"},
-    {id: "pro", title: "Free Week of Pro"},
+    {id: "pro", title: "Two Free Weeks of Pro"},
     {id: "done", title: "Done"}
   ];
   let STEPS = ALL_STEPS, mode = "first";
@@ -29103,7 +29103,7 @@ document.head.appendChild(AREA_CSS);
       ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">When your browser asks, choose <b>Allow on every visit</b> (or <b>Allow</b>) so backups keep running.</p>`}`;
   }
 
-  // The free week of Pro every new account gets
+  // The two free weeks of Pro every new account gets
   const planObj = () => (window.SBOB.T && window.SBOB.T.plan) || (typeof PLAN !== "undefined" ? PLAN : null);
   function proHere(){ try { const P = planObj(); if (!P || !P.paywall || !P.paywall() || inPreview()) return false; return !!(P.welcomeWeek && P.welcomeWeek()) || !(P.isPro && P.isPro()); } catch (e) { return false; } }
   function proStep(){
@@ -29111,8 +29111,8 @@ document.head.appendChild(AREA_CSS);
     const account = typeof sbUser !== "undefined" && !!sbUser && !(window.SBGUEST && SBGUEST.is());
     const li = (t, sub) => `<li class="ok"><span class="ob-ck" aria-hidden="true">${IC.check}</span><span><b>${t}</b>${sub ? ` <span class="mini">${sub}</span>` : ""}</span></li>`;
     return `${hero('<span class="ob-gift-ic">🎁</span>', "pro")}
-      <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Your First Week of Pro Is On Us" : "A Free Week of Pro"} <span class="pro-badge ob-pro-tag">PRO</span></h2>
-      <p class="ob-lead">${gift ? `Try every Pro feature and look until <b>${esc(gift.date)}</b>.` : "Every new Studyboard account gets a week to try every Pro feature and look."} No card needed, and nothing you make goes away when the week ends.</p>
+      <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Your First Two Weeks of Pro Are On Us" : "Two Free Weeks of Pro"} <span class="pro-badge ob-pro-tag">PRO</span></h2>
+      <p class="ob-lead">${gift ? `Try every Pro feature and look until <b>${esc(gift.date)}</b>.` : "Every new Studyboard account gets two weeks to try every Pro feature and look."} No card needed, and nothing you make goes away when the two weeks end.</p>
       <ul class="ob-sum ob-pro">
         ${li("Every Premium Theme and Companion", "plus sticker packs, card styles and 46 Theme Collections")}
         ${li("Record a Lecture", "live captions, then AI study notes and flashcards")}
@@ -29164,7 +29164,7 @@ document.head.appendChild(AREA_CSS);
     return `${top}
       <h2 class="ob-h" id="obH" tabindex="-1">${skipped ? "No Problem" : gift ? "Welcome to Studyboard!" : "You're All Set!"}</h2>
       <p class="ob-lead">${skipped ? "Studyboard is ready. You can do the rest whenever you like, from Settings or the Courses page." : gift ? "We're so glad you're here. Studyboard is ready for your term." : "Nice work. Studyboard is ready for your term."}</p>
-      ${gift && !STEPS.some(x => x.id === "pro") ? `<div class="ob-gift"><span class="ob-gift-ic" aria-hidden="true">🎁</span><span><b>A welcome gift: your first week of Pro is on us</b><span class="mini">Every Pro theme and feature is yours until ${esc(gift.date)}. No card needed, and everything you make stays when the week ends.</span></span></div>` : ""}
+      ${gift && !STEPS.some(x => x.id === "pro") ? `<div class="ob-gift"><span class="ob-gift-ic" aria-hidden="true">🎁</span><span><b>A welcome gift: your first two weeks of Pro are on us</b><span class="mini">Every Pro theme and feature is yours until ${esc(gift.date)}. No card needed, and everything you make stays when the two weeks end.</span></span></div>` : ""}
       <ul class="ob-sum">${rows}</ul>
       ${soon.length ? `<div class="ob-week"><h3 class="ob-h4">Due in the Next 7 Days</h3><ul>${soon.map(t => `<li style="--c:${esc(colorOf(t.courseId))}"><span>${esc(t.title)}</span><em>${esc(relDue(t))}</em></li>`).join("")}</ul></div>`
         : allTasks().length ? "" : `<div class="ob-next">
@@ -79444,7 +79444,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <li><b>Study group reports:</b> kept for up to a year. The copy of what was reported is cleared 90 days after the report is handled.</li>
 <li><b>Studyboard AI usage (how much of your allowance you have used):</b> until you delete your account.</li>
 <li><b>Bug reports:</b> kept only as long as needed to fix the problem, and never longer than 180 days (screenshots attached to a report are deleted after 30 days). Reports sent while signed in are deleted with your account.</li>
-<li><b>Free trial record:</b> if you had a free trial or the free week of Pro that new accounts get, we keep a one-way scrambled code (a hash) made from your email address, also after your account is deleted, only so the same address can't get another one. It can't be turned back into your email address.</li>
+<li><b>Free trial record:</b> if you had a free trial or the two free weeks of Pro that new accounts get, we keep a one-way scrambled code (a hash) made from your email address, also after your account is deleted, only so the same address can't get another one. It can't be turned back into your email address.</li>
 </ul>
 
 <h3>Your choices and your data</h3>
@@ -79500,7 +79500,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <h3>Free and Pro</h3>
     <ul>
     <li>Studyboard has a free plan and an optional paid plan called Pro with higher limits and extras. What each includes, the prices and the renewal terms are shown before you buy. We may change prices or features for the future; if you subscribe, the price you agreed to stays the same until your next renewal after we tell you, and we will not take away what you have paid for during the period you paid for.</li>
-    <li><b>Free week of Pro:</b> each new account gets 7 days of Pro once, with no card and no charge. When the week ends, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. One free week per person: it isn't given again to a new account made with the same email address.</li>
+    <li><b>Two free weeks of Pro:</b> each new account gets 14 days of Pro once, with no card and no charge. When the two weeks end, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. One free week per person: it isn't given again to a new account made with the same email address.</li>
     <li><b>Free trial:</b> if a free trial is ever offered at checkout, your plan starts and you are charged when it ends unless you cancel before then.</li>
     <li><b>Renewal and cancelling:</b> subscriptions renew automatically each month, every 4 months (the semester plan) or each year until you cancel. Payments are handled by Stripe, the App Store or Google Play. Cancel any time on the Manage billing page of our website (or in your App Store or Google Play account if you bought there); you keep Pro until the end of the period you paid for.</li>
     <li><b>Refunds:</b> payments are generally not refunded for time already used, except where the law or the purchase page says otherwise. If something went wrong, write to us and we'll sort it out fairly: ${contact()}. Purchases made in the App Store or Google Play follow Apple's or Google's rules for billing, cancelling and refunds.</li>

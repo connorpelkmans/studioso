@@ -68,7 +68,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const b = await open(true);
     for (let i = 0; i < 8 && (await b.page.getAttribute(".sheet.ob", "data-step")) !== "done"; i++) { await b.page.click('[data-ob="next"]'); await b.page.waitForTimeout(120); }
     ok(await b.page.evaluate(() => window.SBOB.pending()), "while the setup is open, the free week's welcome waits for it");
-    ok(!/is on us/.test(await b.page.textContent(".sheet.ob")) && await b.page.locator(".ob-gift").count() === 0, "no free week, no gift card");
+    ok(!/(is|are) on us/.test(await b.page.textContent(".sheet.ob")) && await b.page.locator(".ob-gift").count() === 0, "no free week, no gift card");
     await b.page.evaluate(() => { window.__said = 0; SBOB.T.plan = {welcomeWeek: () => ({until: "2026-10-27T12:00:00Z", date: "Oct 27, 2026"}), welcomeSaid: () => { window.__said++; }};
       const segs = document.querySelectorAll(".ob-seg"); segs[segs.length - 1].click(); });
     await b.page.waitForTimeout(250); await b.page.click(".sheet.ob .ob-go"); await b.page.waitForTimeout(250);
@@ -89,7 +89,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
         const segs = document.querySelectorAll(".ob-seg"); segs[segs.length - 1].click(); });
       await b.page.waitForTimeout(250);
       const proPage = await b.page.textContent(".sheet.ob");
-      ok((await b.page.getAttribute(".sheet.ob", "data-step")) === "pro" && /Your First Week of Pro Is On Us/.test(proPage) && /No card needed/.test(proPage), "the free week has its own page in the later setup");
+      ok((await b.page.getAttribute(".sheet.ob", "data-step")) === "pro" && /Your First Two Weeks of Pro Are On Us/.test(proPage) && /No card needed/.test(proPage), "the free week has its own page in the later setup");
     }
     await b.ctx.close();
     ok(!errs.length, "no page errors: " + errs.join(" | "));

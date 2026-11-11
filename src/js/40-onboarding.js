@@ -29,7 +29,7 @@
     {id: "ai", title: "AI"},
     {id: "app", title: "Get the App"},
     {id: "backups", title: "Backups"},
-    {id: "pro", title: "Free Week of Pro"},
+    {id: "pro", title: "Two Free Weeks of Pro"},
     {id: "done", title: "Done"}
   ];
   let STEPS = ALL_STEPS, mode = "first";
@@ -272,7 +272,7 @@
       ${on || pend || !folders || cloudy ? "" : `<p class="ob-note mini">When your browser asks, choose <b>Allow on every visit</b> (or <b>Allow</b>) so backups keep running.</p>`}`;
   }
 
-  // The free week of Pro every new account gets
+  // The two free weeks of Pro every new account gets
   const planObj = () => (window.SBOB.T && window.SBOB.T.plan) || (typeof PLAN !== "undefined" ? PLAN : null);
   function proHere(){ try { const P = planObj(); if (!P || !P.paywall || !P.paywall() || inPreview()) return false; return !!(P.welcomeWeek && P.welcomeWeek()) || !(P.isPro && P.isPro()); } catch (e) { return false; } }
   function proStep(){
@@ -280,8 +280,8 @@
     const account = typeof sbUser !== "undefined" && !!sbUser && !(window.SBGUEST && SBGUEST.is());
     const li = (t, sub) => `<li class="ok"><span class="ob-ck" aria-hidden="true">${IC.check}</span><span><b>${t}</b>${sub ? ` <span class="mini">${sub}</span>` : ""}</span></li>`;
     return `${hero('<span class="ob-gift-ic">🎁</span>', "pro")}
-      <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Your First Week of Pro Is On Us" : "A Free Week of Pro"} <span class="pro-badge ob-pro-tag">PRO</span></h2>
-      <p class="ob-lead">${gift ? `Try every Pro feature and look until <b>${esc(gift.date)}</b>.` : "Every new Studyboard account gets a week to try every Pro feature and look."} No card needed, and nothing you make goes away when the week ends.</p>
+      <h2 class="ob-h" id="obH" tabindex="-1">${gift ? "Your First Two Weeks of Pro Are On Us" : "Two Free Weeks of Pro"} <span class="pro-badge ob-pro-tag">PRO</span></h2>
+      <p class="ob-lead">${gift ? `Try every Pro feature and look until <b>${esc(gift.date)}</b>.` : "Every new Studyboard account gets two weeks to try every Pro feature and look."} No card needed, and nothing you make goes away when the two weeks end.</p>
       <ul class="ob-sum ob-pro">
         ${li("Every Premium Theme and Companion", "plus sticker packs, card styles and 46 Theme Collections")}
         ${li("Record a Lecture", "live captions, then AI study notes and flashcards")}
@@ -333,7 +333,7 @@
     return `${top}
       <h2 class="ob-h" id="obH" tabindex="-1">${skipped ? "No Problem" : gift ? "Welcome to Studyboard!" : "You're All Set!"}</h2>
       <p class="ob-lead">${skipped ? "Studyboard is ready. You can do the rest whenever you like, from Settings or the Courses page." : gift ? "We're so glad you're here. Studyboard is ready for your term." : "Nice work. Studyboard is ready for your term."}</p>
-      ${gift && !STEPS.some(x => x.id === "pro") ? `<div class="ob-gift"><span class="ob-gift-ic" aria-hidden="true">🎁</span><span><b>A welcome gift: your first week of Pro is on us</b><span class="mini">Every Pro theme and feature is yours until ${esc(gift.date)}. No card needed, and everything you make stays when the week ends.</span></span></div>` : ""}
+      ${gift && !STEPS.some(x => x.id === "pro") ? `<div class="ob-gift"><span class="ob-gift-ic" aria-hidden="true">🎁</span><span><b>A welcome gift: your first two weeks of Pro are on us</b><span class="mini">Every Pro theme and feature is yours until ${esc(gift.date)}. No card needed, and everything you make stays when the two weeks end.</span></span></div>` : ""}
       <ul class="ob-sum">${rows}</ul>
       ${soon.length ? `<div class="ob-week"><h3 class="ob-h4">Due in the Next 7 Days</h3><ul>${soon.map(t => `<li style="--c:${esc(colorOf(t.courseId))}"><span>${esc(t.title)}</span><em>${esc(relDue(t))}</em></li>`).join("")}</ul></div>`
         : allTasks().length ? "" : `<div class="ob-next">

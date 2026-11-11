@@ -19,7 +19,7 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 -- Starting values
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
-  ('prices', '{"monthly": "$4.99", "yearly": "$39.99", "trialDays": 7, "currency": "USD"}'),
+  ('prices', '{"monthly": "$4.99", "yearly": "$39.99", "trialDays": 14, "currency": "USD"}'),
   ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
@@ -575,7 +575,7 @@ begin
     raise exception 'SB_TRIAL_USED: You''ve already used your free trial.';
   end if;
   if public.studyboard_is_pro(me) then raise exception 'SB_ALREADY_PRO: You already have Pro.'; end if;
-  days := coalesce((select (value ->> 'trialDays')::int from public.studyboard_config where key = 'prices'), 7);
+  days := coalesce((select (value ->> 'trialDays')::int from public.studyboard_config where key = 'prices'), 14);
   until := now() + make_interval(days => greatest(days, 1));
   insert into public.studyboard_entitlements as e (user_id, plan, trial_until, source, updated_at)
   values (me, 'free', until, 'promo', now())
@@ -945,7 +945,7 @@ begin
   end if;
   if public.studyboard_paywall() and not (public.studyboard_limits_pro(me) or public.studyboard_limits_lite(me)) then
     if public.studyboard_is_pro(me) then
-      raise exception 'SB_PRO_NEEDED: Pro groups come with a Pro plan. The free week doesn''t include them, so your groups don''t change when it ends.' using errcode = 'P0001';
+      raise exception 'SB_PRO_NEEDED: Pro groups come with a Pro plan. The two free weeks don''t include them, so your groups don''t change when they end.' using errcode = 'P0001';
     end if;
     raise exception 'SB_PRO_NEEDED: Making a Pro group is part of Studyboard Pro.' using errcode = 'P0001';
   end if;
@@ -1628,7 +1628,7 @@ begin
   end if;
 end $$;
 
--- A free week of Pro for every new account
+-- Two free weeks of Pro for every new account
 insert into public.studyboard_config (key, value) values
   ('welcome_trial', 'true'::jsonb), ('welcome_trial_since', to_jsonb(now())), ('welcome_trial_daily_cap', '1000'::jsonb)
 on conflict (key) do nothing;
@@ -1670,7 +1670,7 @@ begin
   if exists (select 1 from public.studyboard_trial_blocked_domains b where dom = b.domain or right(dom, length(b.domain) + 1) = '.' || b.domain) then return null; end if;
   cap := coalesce((select (value #>> '{}')::int from public.studyboard_config where key = 'welcome_trial_daily_cap'), 1000);
   if (select count(*) from public.studyboard_trial_uses where used_at > now() - interval '1 day') >= cap then return null; end if;
-  days := least(14, greatest(1, coalesce((select (value ->> 'trialDays')::int from public.studyboard_config where key = 'prices'), 7)));
+  days := least(14, greatest(1, coalesce((select (value ->> 'trialDays')::int from public.studyboard_config where key = 'prices'), 14)));
   until := now() + make_interval(days => days);
   insert into public.studyboard_trial_uses (email_hash) values (eh) on conflict (email_hash) do nothing;
   if not found then return null; end if;

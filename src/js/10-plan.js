@@ -24,7 +24,7 @@ window.__sbPlanObj = () => PLAN;
       free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 7, checkoutTrialDays: 0},
+    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 14, checkoutTrialDays: 0},
     checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
@@ -337,8 +337,8 @@ window.__sbPlanObj = () => PLAN;
   function welcomePop(until){
     if (typeof qodPop !== "function") return;
     qodPop(`<div class="qod-eyebrow">A Welcome Gift</div><h2 id="qodT">Welcome to Studyboard!</h2>
-      <p class="qod-q" style="font-size:1.05rem">Your first week of Pro is on us.</p>
-      <p class="mini">Every Pro theme and feature is yours until ${esc(dateStr(until))}. No card needed, and nothing you make goes away when the week ends.</p>
+      <p class="qod-q" style="font-size:1.05rem">Your first two weeks of Pro are on us.</p>
+      <p class="mini">Every Pro theme and feature is yours until ${esc(dateStr(until))}. No card needed, and nothing you make goes away when the two weeks end.</p>
       <div class="qod-foot"><button type="button" class="btn" data-qod-close data-act="plan-open">See What's Included</button><button type="button" class="btn primary" data-qod-close>Let's Go</button></div>`, "reward");
   }
   function welcomeNotes(){
@@ -349,14 +349,14 @@ window.__sbPlanObj = () => PLAN;
     const endAt = ts(e.trial_until);
     if (endAt > now() && endAt - now() <= 864e5 && !mine.lastDay) {
       save("lastDay"); if (!mine.start) save("start");
-      setTimeout(() => toast(`Your free week of Pro ends tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your free week of Pro ends tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
+      setTimeout(() => toast(`Your two free weeks of Pro end tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro end tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
     } else if (endAt > now() && !mine.start) {
       if (window.SBOB && SBOB.pending()) { clearTimeout(welcomeRetry); welcomeRetry = setTimeout(welcomeNotes, 4000); return; }
       save("start");
       setTimeout(() => { if (window.SBOB && SBOB.pending()) { delete mine.start; seen[uid] = mine; write(K_WELCOME, seen); return; } welcomePop(e.trial_until); }, 1200);
     } else if (endAt <= now() && now() - endAt < 30 * 864e5 && !paid() && !mine.end) {
       save("end");
-      setTimeout(() => toast("Your free week of Pro has ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your free week of Pro has ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
+      setTimeout(() => toast("Your two free weeks of Pro have ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro have ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
   // The sign-in finished loading and nobody is signed in: forget the account from last time, and that it had Pro, at once
@@ -684,7 +684,7 @@ window.__sbPlanObj = () => PLAN;
     try {
       const {error} = await sb.rpc("studyboard_start_trial");
       if (error) { toast(String(error.message || "").replace(/^SB_\w+:\s*/, "").slice(0, 140) || "Couldn't start the trial. Try again."); return; }
-      await refresh(); toast("Your free week of Pro has started. Enjoy!"); proSheet();
+      await refresh(); toast("Your two free weeks of Pro have started. Enjoy!"); proSheet();
     } catch (e) { toast("Couldn't start the trial. Check your connection and try again."); }
   }
 
@@ -734,7 +734,7 @@ window.__sbPlanObj = () => PLAN;
     const THANKS = "You're on Pro. Thank you for supporting Studyboard!";
     if (!e) return {title: THANKS, sub: ""};
     if (e.plan === "lifetime") return {title: THANKS, sub: e.source === "lifetime" ? "Pro was granted to your account for good." : "Pro is yours for good."};
-    if (trialing(e) && e.source === "welcome") return {title: "Your Free Week of Pro", sub: `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. No card needed: after that you're on Free unless you choose a plan.`};
+    if (trialing(e) && e.source === "welcome") return {title: "Your Two Free Weeks of Pro", sub: `Every Pro theme and feature until ${dateStr(e.trial_until)}. Storage, devices and group size stay at the free amounts. No card needed: after that you're on Free unless you choose a plan.`};
     if (trialing(e) && e.source === "code") return {title: "Pro From a Code", sub: e.codeForever ? "Every Pro theme and feature, for good. Storage, devices and group size stay at the free amounts." : `Every Pro theme and feature until ${dateStr(e.trial_until)}. ${e.lite ? "You also get unlimited devices and Pro groups. Storage stays at the free amount." : "Storage, devices and group size stay at the free amounts."} After that you're on Free unless you choose a plan.`};
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
@@ -791,7 +791,7 @@ window.__sbPlanObj = () => PLAN;
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
-        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get a Week of Pro</b><span class="mini">Every Pro theme and feature for 7 days. No card needed, and everything you make stays when the week ends.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
+        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
