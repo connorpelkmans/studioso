@@ -102,6 +102,10 @@ const feedTask = (id, title, cid, ou, extra) => {
       ok(r.t && r.t.s === "doing", "a task the student moved to In Progress stays there: " + JSON.stringify(r.all)); }
     { const r = await one([feedTask("t8", "Sim (CH1) Reflection", "c20", "20", {bs: Object.assign(feedTask("x", "Sim (CH1) Reflection", "c20", "20").bs, {doneSeen: true, ss: "done", sm: true})})], H({f20: [folder("9144", "Sim Reflection 1", -1.3, true)]}), "Sim (CH1) Reflection");
       ok(r.t && r.t.s === "todo", "a task the student moved back out of Complete stays To Do: " + JSON.stringify(r.all)); }
+    // moved to Complete and straight back (a sync ran in between and noted it as the student's): it's back where the sync
+    // left it, so it's the sync's again, and handing it in on the school site still ticks it off
+    { const r = await one([feedTask("t10", "Sim (CH1) Reflection", "c20", "20", {status: "todo", bs: Object.assign(feedTask("x", "Sim (CH1) Reflection", "c20", "20").bs, {ss: "todo", sm: true})})], H({f20: [folder("9144", "Sim Reflection 1", -1.3, true)]}), "Sim (CH1) Reflection");
+      ok(r.t && r.t.s === "done", "a task moved to Complete and back to To Do still gets ticked off when it's handed in: " + JSON.stringify(r.all)); }
     { const page = await fresh([feedTask("t9", "Sim (CH1) Reflection", "c20", "20")]);
       await sync(page, H({f20: [folder("9144", "Sim Reflection 1", -1.3, true)]}));
       await page.evaluate(() => { const t = SBLMS.st().tasks.t9; SBLMS.applyChanges([{kind: "task", id: "t9", after: Object.assign({}, t, {status: "todo", doneAt: null, pct: 0})}], ""); });
