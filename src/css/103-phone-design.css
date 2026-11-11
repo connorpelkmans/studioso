@@ -380,10 +380,10 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   html.board-max #sbTopFade{display:none}
 }
 
-/* Computers (and iPads held sideways): with the companion out, the page keeps a gap beside the side menu wide enough for the
+/* Computers (and iPads held sideways): with the companion out, the page keeps a gap beside the side menu just wide enough for the
    companion to stand in, clear of both, when its usual spot would cover something. On a wide window the page's own centring
    already leaves that room, so nothing moves; on a narrower one the page starts a little further right */
 @media (min-width:980px){
-  body.cp-on .wrap{padding-left:clamp(32px, calc(100px - (100vw - 136px - 900px) / 2), 100px)}
-  body.cp-on.wide .wrap{padding-left:clamp(32px, calc(100px - (100vw - 136px - 1240px) / 2), 100px)}
+  body.cp-on .wrap{padding-left:clamp(32px, calc(90px - (100vw - 151px - 900px) / 2), 90px)}
+  body.cp-on.wide .wrap{padding-left:clamp(32px, calc(90px - (100vw - 151px - 1240px) / 2), 90px)}
 }
