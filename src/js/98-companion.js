@@ -431,8 +431,24 @@
   function geometry(){
     const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
     const sideNav = !!(r && r.width && r.left < 4 && r.height > innerHeight * 0.6);
-    const side = sideNav ? Math.round(r.right) : 0;
+    // the side menu's buttons and words end a little before its edge: the companion may stand on that empty strip (and so
+    // fit in the gap between the menu and the page) when everywhere else would cover what's on the page
+    const side = sideNav ? Math.round(Math.min(r.right, sideInner(nav, r))) : 0;
     return {nav, r, sideNav, side};
+  }
+  let sideIn = {at: 0, w: 0, v: 0};
+  function sideInner(nav, r){
+    const now = performance.now();
+    if (now - sideIn.at < 600 && sideIn.w === innerWidth) return sideIn.v;
+    let v = r.left;
+    // its buttons, pictures and words where they actually are (some blocks run the menu's full width)
+    // only the lower part of the menu counts: the companion stands near the bottom of the screen
+    const low = innerHeight * 0.55, inLow = q => q.bottom > low && q.width > 1 && q.height > 1;
+    nav.querySelectorAll("img,svg").forEach(el => { const q = el.getBoundingClientRect(); if (inLow(q)) v = Math.max(v, q.right); });
+    const tw = document.createTreeWalker(nav, NodeFilter.SHOW_TEXT), rg = document.createRange();
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) { if (!n.textContent.trim()) continue; rg.selectNodeContents(n); for (const q of rg.getClientRects()) if (inLow(q)) v = Math.max(v, q.right); }
+    sideIn = {at: now, w: innerWidth, v: v > r.left ? v : r.right};
+    return sideIn.v;
   }
 
   /* The placement guard */
@@ -492,7 +508,7 @@
   // The box positions (left/top) whose art, with room for its own motions
   function range(px, fresh){
     const S = safeRect(fresh), g = geometry(), e = vext || measureArt() || DEF_ART;
-    return {L: Math.max(S.l, g.side + 6) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
+    return {L: Math.max(S.l, g.side + 2) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
   // It stays in the lower part of the screen
@@ -655,6 +671,10 @@
       if (SKIP(el)) continue;
       const tag = el.tagName.toUpperCase();
       if (getComputedStyle(el).pointerEvents === "none" && !el.children.length && !el.textContent.trim()) continue;
+      // past the side menu's icons and words (its buttons' empty ends included) is somewhere it may stand
+      if (el.closest("nav.tabs") && sideIn.v && x > sideIn.v + 1) continue;
+      // the side menu's own background (not its buttons or words) is somewhere it may stand
+      if (tag !== "BUTTON" && tag !== "A" && el.closest("nav.tabs") && !el.closest("button,a,[data-act],[data-tab],[role=button],.nav-brand,.nav-sync,.nav-pomo") && ![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
       if (INTERACTIVE.test(tag) || el.closest("[data-act],[data-tab],[role=button],[contenteditable=true],nav,.fab,.toast,.note,.stk,.card")) return {hard: true};
       if (tag === "SVG" || el.closest("svg")) return {hard: true};
       for (const n of el.childNodes) {
@@ -689,7 +709,9 @@
     if (f.shown && c.left + px * 0.9 > f.left - 4 && c.left + px * 0.1 < f.right + 4 && c.top + px > f.top - 4 && c.top < f.bottom + 4) return {hard: true};
     const t = document.getElementById("toast");
     if (t && t.classList.contains("show")) { const q = t.getBoundingClientRect(); if (c.left < q.right && c.left + px > q.left && c.top < q.bottom && c.top + px > q.top) return {hard: true}; }
-    const a = {l: c.left + px * 0.08 - 6, r: c.left + px * 0.92 + 6, t: c.top + px * 0.1 - 6, b: c.top + px * 0.97 + 4};
+    // the drawing's own outline with a little room (not a fixed box: a slim companion fits a narrower gap)
+    const e = vext || measureArt() || DEF_ART;
+    const a = {l: c.left + px * e.l - 3, r: c.left + px * e.r + 3, t: c.top + px * Math.max(0.1, e.t) - 6, b: c.top + px * 0.97 + 4};
     for (const q of (RECTS || (RECTS = contentRects()))) if (q.left < a.r && q.right > a.l && q.top < a.b && q.bottom > a.t) return {hard: true};
     let surface = false;
     for (const fx of [0.15, 0.5, 0.85]) for (const fy of [0.2, 0.55, 0.9]) { const r = contentAt(c.left + px * fx, c.top + px * fy); if (r.hard) return {hard: true}; if (r.surface) surface = true; }
