@@ -3380,7 +3380,7 @@ const SBPOLICY = (() => {
     // Defaults keep a student's real cost near $2.50 a month: $2.25 of AI, plus Washington sales tax (about 10%).
     // Claude is paid with Studyboard's own Anthropic key in the gateway, so there's no 5% credit fee on it.
     const hard = num(env.MONTHLY_HARD_USD, 2.25, 0, HARD.monthUsd), soft = Math.min(hard, num(env.MONTHLY_SOFT_USD, 1.8, 0, HARD.monthUsd));
-    const day = num(env.DAILY_USD, 0.4, 0.05, HARD.dayUsd);
+    const day = num(env.DAILY_USD, 0.5, 0.05, HARD.dayUsd);
     return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
       perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};
   }

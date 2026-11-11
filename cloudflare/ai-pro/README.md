@@ -116,7 +116,7 @@ The app sends only the job's name, its text and files, and the answer shape it w
 |---|---|---|
 | `MONTHLY_SOFT_USD`: past it, everyday jobs think less | $1.80 | the hard limit |
 | `MONTHLY_HARD_USD`: AI stops until the 1st (UTC) | $2.25 | $10 |
-| `DAILY_USD` | $0.40 | $3 |
+| `DAILY_USD` | $0.50 | $3 |
 | `PER_MINUTE` requests | 20 | 60 |
 | `YOUTUBE_MONTHLY` videos (the first 90 minutes of each, about $0.10 an hour) | 10 | 100 (`0` turns YouTube links off) |
 | `MAX_INFLIGHT` jobs at once | 4 | 8 |

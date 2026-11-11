@@ -26,7 +26,7 @@
     "MONTHLY_SOFT_USD": "1.80",
     "MONTHLY_HARD_USD": "2.25",
     // One student in one day
-    "DAILY_USD": "0.40",
+    "DAILY_USD": "0.50",
     "PER_MINUTE": "20",
     // The least thinking automatic (background) jobs get: "" leaves each job at its own level (the plan at medium,
     // companion lines and yes/no checks with none); "low", "medium" or "high" raises them to at least that
