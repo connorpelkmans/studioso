@@ -137,7 +137,7 @@
   /* Dismissals and light/dark follow you between devices */
   const UI_KEYS = new Set(["studioso:theme", "studioso:nudge", "studioso:lastExport", "studyboard:crunch", "studyboard:roughWeekHidden", "studyboard:grpNudge",
     "studyboard:semester", "studyboard:review:snooze", "studyboard:fgs:cards", "studyboard:streak:said", "studyboard:heads:hide", "studyboard:gradeAsked",
-    "studyboard:gradeCheer", "studyboard:scrapToastAt"]);
+    "studyboard:gradeCheer", "studyboard:scrapToastAt", "studyboard:aiIntro"]);
   const AT = "studyboard:uiSyncAt";
   const atMap = () => { try { const m = JSON.parse(rawGet.call(ls, AT) || "{}"); return m && typeof m === "object" ? m : {}; } catch (e) { return {}; } };
   const putAt = m => { try { rawSet.call(ls, AT, JSON.stringify(m)); } catch (e) {} };
