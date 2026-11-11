@@ -17293,13 +17293,19 @@ function noteScrollIn(){
   if (dx || dy) sc.scrollBy(dx, dy);
   const r = sc.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) sc.scrollIntoView({block: "nearest"});
 }
-// Desktop: the board reaches down to the same spot as the whiteboard
+// The board and the sticker envelope reach down to the same spot as the whiteboard (its frame ends 16px above the bottom of the screen)
 function nbFill(){
-  const el = document.getElementById("nbScroll");
+  const el = document.getElementById("nbScroll"), env = document.querySelector(".nb-wrap > .env");
   if (!el) return;
-  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); return; }
-  const top = el.getBoundingClientRect().top + scrollY;
-  el.style.setProperty("height", Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - 27)) + "px", "important");
+  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); if (env) env.style.removeProperty("height"); return; }
+  const r = el.getBoundingClientRect(), main = el.closest(".nb-main");
+  const top = r.top + scrollY, pad = main ? Math.max(0, main.getBoundingClientRect().bottom - r.bottom) : 0;
+  // room for the tab bar where it runs along the bottom (an iPad held upright), as the whiteboard leaves
+  const nav = document.querySelector("nav.tabs"), nr = nav ? nav.getBoundingClientRect() : null, navH = nr && nr.height && nr.top > innerHeight / 2 ? Math.round(innerHeight - nr.top) : 0;
+  const h = Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - navH - 16 - pad));
+  el.style.setProperty("height", h + "px", "important");
+  // beside the board it is as tall as the board; on narrower screens it is a tray along the bottom and keeps its own size
+  if (env) { if (getComputedStyle(env).position === "fixed") env.style.removeProperty("height"); else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
 }
 addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
 hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
@@ -91978,7 +91984,8 @@ var SBWB = null;
   // on the dark board a very dark custom colour is shown lighter, so it can be seen
   const forDark = hex => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, l = (0.299 * r + 0.587 * g + 0.114 * b) / 255; if (l >= 0.35) return hex; const k = 0.55; return "#" + [r, g, b].map(v => Math.round(v + (255 - v) * k).toString(16).padStart(2, "0")).join(""); };
   const penHex = (c, light) => { const h = hexOf(c); if (h) return !light && DK ? forDark(h) : h; return !light && DK ? (PEN_D[c] || PEN_D.ink) : (PEN.find(x => x[0] === c) || PEN[0])[2]; };
-  const proLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
+  // Drawing on a whiteboard is free, in any color (Pictures, Draw Again and the AI tools beside it are still Pro)
+  const proLocked = () => false;
   const hlHex = c => (HLC.find(x => x[0] === c) || HLC[0])[2];
   const colOf = (s, light) => s.t === "hl" ? hlHex(s.c) : penHex(s.c, light);
   const SV = p => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -99546,7 +99553,7 @@ const AUTOPILOT = (() => {
     const wrap = document.querySelector("body > .wrap"), nt = nav ? nav.getBoundingClientRect().top : 0;
     const on = !!(sc && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
     const wbOn = !!(document.getElementById("wbHost") && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
-    if (!on) { [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) { if (wbOn) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important"); else wrap.style.removeProperty("padding-bottom"); } return; }
+    if (!on) { if (sc && typeof nbFill === "function") nbFill(); else [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) { if (wbOn) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important"); else wrap.style.removeProperty("padding-bottom"); } return; }
     // and the page leaves only the tab bar's room below them, so there's nothing to scroll to
     if (wrap) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important");
     const y = window.scrollY || 0, stop = nt + y - 14;

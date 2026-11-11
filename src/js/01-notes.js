@@ -677,13 +677,19 @@ function noteScrollIn(){
   if (dx || dy) sc.scrollBy(dx, dy);
   const r = sc.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) sc.scrollIntoView({block: "nearest"});
 }
-// Desktop: the board reaches down to the same spot as the whiteboard
+// The board and the sticker envelope reach down to the same spot as the whiteboard (its frame ends 16px above the bottom of the screen)
 function nbFill(){
-  const el = document.getElementById("nbScroll");
+  const el = document.getElementById("nbScroll"), env = document.querySelector(".nb-wrap > .env");
   if (!el) return;
-  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); return; }
-  const top = el.getBoundingClientRect().top + scrollY;
-  el.style.setProperty("height", Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - 27)) + "px", "important");
+  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); if (env) env.style.removeProperty("height"); return; }
+  const r = el.getBoundingClientRect(), main = el.closest(".nb-main");
+  const top = r.top + scrollY, pad = main ? Math.max(0, main.getBoundingClientRect().bottom - r.bottom) : 0;
+  // room for the tab bar where it runs along the bottom (an iPad held upright), as the whiteboard leaves
+  const nav = document.querySelector("nav.tabs"), nr = nav ? nav.getBoundingClientRect() : null, navH = nr && nr.height && nr.top > innerHeight / 2 ? Math.round(innerHeight - nr.top) : 0;
+  const h = Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - navH - 16 - pad));
+  el.style.setProperty("height", h + "px", "important");
+  // beside the board it is as tall as the board; on narrower screens it is a tray along the bottom and keeps its own size
+  if (env) { if (getComputedStyle(env).position === "fixed") env.style.removeProperty("height"); else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
 }
 addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
 hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
