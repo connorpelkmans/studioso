@@ -7108,6 +7108,10 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .cr-help > summary::-webkit-details-marker{display:none}
 .cr-help > summary::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-top:-3px}
 .cr-help[open] > summary::after{transform:rotate(-135deg);margin-top:3px}
+/* iPhone and iPad: Apple's colour picker only opens from a tap on the colour box itself, so the (invisible) box lies over the
+   rainbow and takes the tap */
+html.sb-apple .cc-custom{position:relative}
+html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:pointer;-webkit-appearance:none;appearance:none;border:0;padding:0;margin:0}
 /* ===== module: 101-phone-v2.css ===== */
 /* Saving is automatic, so the header says nothing about it unless there's a problem */
 #guestBadge,#guestBadgeSide{display:none!important}
@@ -8264,6 +8268,12 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   html{scroll-padding-top:0}
   header.top{top:0!important;padding-top:calc(12px + env(safe-area-inset-top,0px))!important}
 }
+/* ...but from 980px wide (an iPad held sideways) there is no top bar (the menu is down the side), so the page itself starts
+   below the clock and battery with a little room to spare (the same depth as the fade behind them, #sbTopFade), or titles
+   and the quick add box would sit right under them. A computer's inset is 0, so nothing changes there */
+@media (min-width:980px){
+  body > .wrap{padding-top:calc(env(safe-area-inset-top,0px) * 1.6)}
+}
 /* Course card grade on phones: one line, on the right ("92% A"), no "Grade" word or marked share */
 @media (max-width:639px){
   #view .c2-card .c2-foot > .c2-grade{margin-left:auto!important;flex:none;gap:5px;overflow:visible}
@@ -8402,6 +8412,16 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
    keyboard leaves visible, and scrolls inside if it's taller than that, so the box being typed in is never behind the keyboard */
 @media (min-width:640px){
   html.kb-open dialog#dlg[open]{position:fixed;inset:calc(8px + env(safe-area-inset-top,0px)) 0 calc(var(--kb-h,0px) + 8px) 0;margin:auto;max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px);transition:inset .3s cubic-bezier(.32,.72,0,1)}
+}
+
+/* Sideways iPad (no top bar): a short fade in the theme's colour behind the clock and battery, so the page fades out before
+   reaching them (iOS's frosted grey band is off). Its height comes from the status bar, so on a computer it's nothing. The side
+   menu stays above it, so only the page fades */
+#sbTopFade{display:none}
+@media (min-width:980px){
+  #sbTopFade{display:block;position:fixed;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) * 1.6);z-index:5;pointer-events:none;
+    background:linear-gradient(180deg,var(--sb-top-c,var(--bg)) 0,var(--sb-top-c,var(--bg)) 55%,color-mix(in srgb,var(--sb-top-c,var(--bg)) 0%,transparent) 100%)}
+  html.board-max #sbTopFade{display:none}
 }
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
