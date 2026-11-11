@@ -64510,6 +64510,19 @@ var COMP_EXTRA = [];
     home.score = Math.abs(home.left - want) / span * 220 - 12;
     out.push(home);
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
+    // the gap between the side menu and the page, if it fits there: the spot right in its middle
+    try {
+      const g = geometry(), v = document.getElementById("view"), e = vext || measureArt() || DEF_ART;
+      if (g.sideNav && v) {
+        const vl = v.getBoundingClientRect().left, artW = px * (e.r - e.l), mid = (g.side + vl) / 2;
+        if (vl - g.side >= artW + 8) {
+          const x = Math.round(mid - px * (e.l + e.r) / 2);
+          // any other spot inside the gap gives way to the middle one
+          for (let i = out.length - 1; i >= 0; i--) if (out[i].kind === "ground" && out[i].left + px * e.l < vl && out[i].left + px * e.r <= vl + 2) out.splice(i, 1);
+          if (x >= L - 0.5 && x <= R) out.push({left: x, top: ground, kind: "ground", score: Math.abs(x - want) / span * 220 - 1});
+        }
+      }
+    } catch (err) {}
     const lowT = lowTop(rg);
     for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
