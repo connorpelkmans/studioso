@@ -64174,25 +64174,11 @@ var COMP_EXTRA = [];
   function geometry(){
     const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
     const sideNav = !!(r && r.width && r.left < 4 && r.height > innerHeight * 0.6);
-    // the side menu's buttons and words end a little before its edge: the companion may stand on that empty strip (and so
-    // fit in the gap between the menu and the page) when everywhere else would cover what's on the page
-    const side = sideNav ? Math.round(Math.min(r.right, sideInner(nav, r))) : 0;
+    // (the page keeps a gap beside the side menu wide enough for the companion: 103-phone-design.css, body.cp-on .wrap)
+    const side = sideNav ? Math.round(r.right) : 0;
     return {nav, r, sideNav, side};
   }
-  let sideIn = {at: 0, w: 0, v: 0};
-  function sideInner(nav, r){
-    const now = performance.now();
-    if (now - sideIn.at < 600 && sideIn.w === innerWidth) return sideIn.v;
-    let v = r.left;
-    // its buttons, pictures and words where they actually are (some blocks run the menu's full width)
-    // only the lower part of the menu counts: the companion stands near the bottom of the screen
-    const low = innerHeight * 0.55, inLow = q => q.bottom > low && q.width > 1 && q.height > 1;
-    nav.querySelectorAll("img,svg").forEach(el => { const q = el.getBoundingClientRect(); if (inLow(q)) v = Math.max(v, q.right); });
-    const tw = document.createTreeWalker(nav, NodeFilter.SHOW_TEXT), rg = document.createRange();
-    for (let n = tw.nextNode(); n; n = tw.nextNode()) { if (!n.textContent.trim()) continue; rg.selectNodeContents(n); for (const q of rg.getClientRects()) if (inLow(q)) v = Math.max(v, q.right); }
-    sideIn = {at: now, w: innerWidth, v: v > r.left ? v : r.right};
-    return sideIn.v;
-  }
+
 
   /* The placement guard */
   const MARGIN = 8;
@@ -64251,7 +64237,7 @@ var COMP_EXTRA = [];
   // The box positions (left/top) whose art, with room for its own motions
   function range(px, fresh){
     const S = safeRect(fresh), g = geometry(), e = vext || measureArt() || DEF_ART;
-    return {L: Math.max(S.l, g.side + 2) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
+    return {L: Math.max(S.l, g.side + 4) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
   // It stays in the lower part of the screen
@@ -64414,10 +64400,6 @@ var COMP_EXTRA = [];
       if (SKIP(el)) continue;
       const tag = el.tagName.toUpperCase();
       if (getComputedStyle(el).pointerEvents === "none" && !el.children.length && !el.textContent.trim()) continue;
-      // past the side menu's icons and words (its buttons' empty ends included) is somewhere it may stand
-      if (el.closest("nav.tabs") && sideIn.v && x > sideIn.v + 1) continue;
-      // the side menu's own background (not its buttons or words) is somewhere it may stand
-      if (tag !== "BUTTON" && tag !== "A" && el.closest("nav.tabs") && !el.closest("button,a,[data-act],[data-tab],[role=button],.nav-brand,.nav-sync,.nav-pomo") && ![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
       if (INTERACTIVE.test(tag) || el.closest("[data-act],[data-tab],[role=button],[contenteditable=true],nav,.fab,.toast,.note,.stk,.card")) return {hard: true};
       if (tag === "SVG" || el.closest("svg")) return {hard: true};
       for (const n of el.childNodes) {
