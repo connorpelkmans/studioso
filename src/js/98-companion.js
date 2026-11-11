@@ -26,8 +26,8 @@
     {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["studydays", 3], ["checkins", 3]]},
     {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
     {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["studydays", 10], ["spread", 1], ["checkins", 7]]},
-    {id: "glasses", name: "Round Glasses", hours: 15, paths: [["cards", 150], ["quizzes", 3]]},
-    {id: "medal", name: "Champion Medal", paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
+    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 3]]},
+    {id: "medal", name: "Champion Medal", free: true, paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
     {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["studydays", 40], ["checkins", 21]]},
     {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
     {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
@@ -2356,7 +2356,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
-        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
+        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || pro() ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
         ${earn ? (pct => `<span class="cp-earn">${esc(EARN[x.id].how)} to unlock</span><span class="cp-earn-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to unlock ${esc(x.name)}"><i style="width:${pct}%"></i></span><span class="mini">${esc(EARN[x.id].left(left))} to go</span><button type="button" class="link-btn cp-earn-pro" data-act="comp-pick" data-slot="${i}">Or Get It With Pro</button>`)(Math.max(0, Math.min(99, Math.floor((1 - left / EARN[x.id].n) * 100))))
           : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
@@ -2372,7 +2372,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
       const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || pro() ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
