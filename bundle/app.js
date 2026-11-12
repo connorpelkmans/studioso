@@ -41861,10 +41861,10 @@ function cleanFile(r) {
         if (r.needLogin || r.error) { setLocal({fails: (local().fails || 0) + 1}); if (!o.quiet) signInAgain(); else scheduleRender(); return null; }
         if (!o.quiet) toast(`Your ${P.name} sign-in ran out, so Studyboard used your calendar link. Sign in again for grades and announcements.`);
       }
-      if (r.error) { setLocal({err: r.text, fails: (local().fails || 0) + 1}); if (!o.quiet) toast(r.text); scheduleRender(); return null; }
+      if (r.error) { setLocal({err: r.text, fails: (local().fails || 0) + 1}); if (!o.quiet) toast(r.text, null, {label: "Try Again", fn: () => syncNow()}, {error: true}); scheduleRender(); return null; }
       const p = plan(r.data);
       return applyPlan(r.data, p, used, !!o.quiet);
-    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}. Try again.`); return null; }).finally(() => { running = null; if (pill) syncPill(false); refreshSheet(); });
+    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}.`, null, {label: "Try Again", fn: () => syncNow()}, {error: true}); return null; }).finally(() => { running = null; if (pill) syncPill(false); refreshSheet(); });
     refreshSheet();
     return running;
   }
@@ -42242,7 +42242,9 @@ function cleanFile(r) {
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="${A}-back">Back</button></div></div>`);
   }
+  // A sync started here that needs a fresh sign-in: a message at the bottom with Sign In (it stays until dealt with)
   function signInAgain(){
+    if (!dlg.open || !dlg.querySelector(".bs-status")) { toast(`Sign in to ${P.name} to continue syncing.`, null, {label: "Sign In", fn: () => doLogin().catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); })}, {error: true}); return; }
     openSheet(`<div class="sheet">${head(`Sign In to ${P.name} Again`)}
       <div class="sheet-body"><p style="margin:0">Your ${P.name} sign-in on this device has run out (they usually last a few days or weeks). Sign in again to keep your due dates, grades and announcements up to date.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Later</button><button type="button" class="btn primary" data-act="${A}-login">Sign In</button></div></div>`);
@@ -42424,7 +42426,7 @@ function cleanFile(r) {
   function readAgain(wait){
     const c = cfg();
     if (bsDesk() && c.mode === "api") { syncNow({force: true}); return; }
-    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem(extKey(P.id)); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); return; }
+    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem(extKey(P.id)); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); extSyncWatch([P.id]); return; }
     if (c.feed) { syncNow({force: true}); return; }
     setTimeout(() => toast(extNudge("to bring everything back"), null, extBtn()), wait || 0);
   }
@@ -43045,6 +43047,31 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   const EXT_STORE = {chrome: EXT_CHROME_URL, edge: EXT_EDGE_URL, firefox: "", safari: ""};
   const EXT = {on: false, version: "", schools: [], checked: false};
   const extPost = m => window.postMessage(Object.assign({source: "studyboard-app"}, m), location.origin);
+  // A sync started here and run by the extension: "Syncing" until every school it was asked for reports back, then, if one
+  // couldn't sync, a message at the bottom that says why, with a way forward (Sign In opens that school site's sign-in)
+  let extWatch = null;
+  const hostOfExt = o => { try { return new URL(o).host; } catch (e) { return String(o || "").replace(/^https?:\/\//, ""); } };
+  function extSyncWatch(ids){
+    if (extWatch) { clearTimeout(extWatch.timer); syncPill(false); }
+    syncPill(true);
+    extWatch = {ids: ids.slice(), t0: Date.now() - 1500, timer: setTimeout(() => extWatchEnd(null), 120000)};
+  }
+  function extWatchEnd(res){
+    const w = extWatch; if (!w) return; extWatch = null; clearTimeout(w.timer); syncPill(false);
+    const nm = id => (LMS[id] && LMS[id].P.name) || "your school site";
+    if (!res) { toast("The Studyboard School Sync extension didn't finish syncing. Open it from your browser's toolbar to check on it.", null, null, {error: true}); return; }
+    const login = res.filter(x => x.state === "login"), perm = res.filter(x => x.state === "permission"), bad = res.filter(x => x.state === "error");
+    if (login.length) { const x = login[0]; toast(`Sign in to ${hostOfExt(x.origin)} to continue syncing ${nm(x.id)}.`, null, {label: "Sign In", fn: () => openOutside(x.origin)}, {error: true}); return; }
+    if (perm.length) { toast(`The Studyboard School Sync extension needs your OK to read ${hostOfExt(perm[0].origin)}. Open it from your browser's toolbar and allow it to continue syncing.`, null, null, {error: true}); return; }
+    if (bad.length) { const x = bad[0]; toast(`Couldn't sync ${nm(x.id)}${x.error ? ": " + x.error : ""}. Try again in a moment.`, null, {label: "Try Again", fn: () => { extPost({type: "sync"}); extSyncWatch(w.ids); }}, {error: true}); }
+  }
+  function extWatchCheck(){
+    const w = extWatch; if (!w) return;
+    const res = w.ids.map(id => EXT.schools.find(x => x.id === id)).filter(Boolean);
+    if (res.length < w.ids.length) { if (EXT.schools.length && !res.length) extWatchEnd([]); return; }
+    if (res.some(x => !((x.tried || 0) >= w.t0) || x.state === "syncing")) return;
+    extWatchEnd(res);
+  }
   const EXT_REV = "2026-10-17f";
   const extKey = id => "studyboard:ext:" + (sbUser && sbUser.id ? sbUser.id : "guest") + ":" + id;
   const extSeen = id => { try { const v = String(localStorage.getItem(extKey(id)) || "").split("|"); return v[1] === EXT_REV ? Number(v[0]) || 0 : 0; } catch(e) { return 0; } };
@@ -43100,6 +43127,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       else if (d.type === "data") {
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
         EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0, tried: Number(x.tried) || 0, error: String(x.error || "").replace(/[<>]/g, "").slice(0, 160)}));
+        extWatchCheck();
         (Array.isArray(d.list) ? d.list : []).slice(0, 3).forEach(x => { extChain = extChain.then(() => extImport(x)).catch(err => console.warn("extension import", err)); });
       }
     });
@@ -43241,7 +43269,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       const on = ALL().filter(L => L.connected());
       if (!on.length) { pickerSheet(); return true; }
       if (!navigator.onLine) { toast("You're offline. Connect to the internet and try again."); return true; }
-      if (EXT.on) { const viaExt = on.filter(L => EXT.schools.some(x => x.id === L.P.id)); if (viaExt.length) { extPost({type: "sync"}); toast(`Syncing ${viaExt.map(L => L.P.name).join(" and ")} with the Studyboard School Sync extension…`); } }
+      if (EXT.on) { const viaExt = on.filter(L => EXT.schools.some(x => x.id === L.P.id)); if (viaExt.length) { extPost({type: "sync"}); extSyncWatch(viaExt.map(L => L.P.id)); } }
       const can = on.filter(L => L.canSync() && !(EXT.on && EXT.schools.some(x => x.id === L.P.id))), cant = on.filter(L => !L.canSync() && !(EXT.on && EXT.schools.some(x => x.id === L.P.id)));
       if (!can.length && !cant.length) return true;
       if (cant.length) {
