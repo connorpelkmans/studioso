@@ -590,7 +590,7 @@ function decorateDeck(){
     st.ghost = st.item.cloneNode(true); st.ghost.classList.add("sort-ghost");
     Object.assign(st.ghost.style, {width: r.width + "px", height: r.height + "px", left: r.left + "px", top: r.top + "px"});
     (document.getElementById("view") || document.body).appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
-    if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+    sbHaptic("lift");
   };
   const move = (x, y) => {
     st.ghost.style.left = (x - st.dx) + "px"; st.ghost.style.top = (y - st.dy) + "px";

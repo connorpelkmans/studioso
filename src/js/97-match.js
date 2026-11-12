@@ -98,6 +98,7 @@
     setTimeout(() => els.forEach(e => e.classList.add("gone")), still() ? 0 : 320);
     const left = $("#mtLeft"); if (left) left.textContent = `${pl(R.left, "pair")} to go`;
     if (!R.left) { finish(); return; }
+    sbHaptic("tap");
     sayIt(`Match. ${pl(R.left, "pair")} to go.`);
     if (had) { const nx = R.tiles.findIndex((x, k) => !x.gone && k > b); const k = nx >= 0 ? nx : R.tiles.findIndex(x => !x.gone); const e = tileEl(k); if (e) e.focus(); }
   }
@@ -105,6 +106,7 @@
     R.pen += MATCH.PENALTY; R.miss++;
     [tileEl(a), tileEl(b)].filter(Boolean).forEach(e => { e.classList.remove("miss"); void e.offsetWidth; e.classList.add("miss"); setTimeout(() => e.classList.remove("miss"), 480); });
     const p = $("#mtPen"); if (p) { p.classList.remove("show"); void p.offsetWidth; p.classList.add("show"); setTimeout(() => p.classList.remove("show"), 900); }
+    sbHaptic("error");
     sayIt("Not a match. Plus 1 second.");
     tick();
   }
@@ -115,6 +117,7 @@
     if (d) { const nd = clone(d); rec = MATCH.record(nd.match, R.ms); nd.match = rec.match; saveDeck(nd, null); }
     else { rec = MATCH.record(R.opts.prev || null, R.ms); R.opts.prev = rec.match; }
     R.rec = rec;
+    sbHaptic(rec.better ? "success" : "tap", {force: true});
     setTimeout(() => { if (R && R.done && dlg.open && dlg.querySelector("[data-mt-play]")) result(); }, still() ? 0 : 360);
   }
   function result(){

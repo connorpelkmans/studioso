@@ -33,7 +33,7 @@ cp ios-wrapper/native-bridge.js ios-www/native-bridge.js
 cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
-      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
+      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard @capacitor/haptics capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
 cp -R ../ios-www ./ios-www
 ```
@@ -48,6 +48,7 @@ Recommended plugins and why (install no others unless you need them; every plugi
 | `@capacitor/filesystem` | Exported backups and files are written to the app's cache, then offered through the share sheet ("Save to Files"). Without both plugins, Export shows an error instead of saving. |
 | `@capacitor/browser` | In-app Safari sheet for https links (used by `native-bridge.js`). |
 | `@capacitor/app` | Deep links and app state. |
+| `@capacitor/haptics` | Haptic feedback (Apple's impact, selection and notification generators) for `sbHaptic` in `src/js/01-helpers.js`. WKWebView has no vibrate API, so without it the iPhone app has no haptics. `npm run ios:stage` installs it if it's missing. |
 | `capacitor-secure-storage-plugin` | iOS **Keychain** storage (see section 5). |
 
 ## 3. Create the iOS project and merge the files

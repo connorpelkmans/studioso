@@ -1027,7 +1027,7 @@ let deviceWiping = false;
 let saveWarnAt = 0;
 function saveWarn(e){
   if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { sbHaptic("error", {force: true}); toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
 }
 /* The big copy: localStorage holds only about 5 MB, which a few whiteboards and a lot of notes can fill.
    Once the saved copy is over SPILL_AT characters, or localStorage refuses it, it moves to IndexedDB (far more
@@ -3249,6 +3249,7 @@ function applyChanges(changes, label, extra, opts){
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
   let binned = [];
   if (label !== null) { try { binned = trashCapture(changes, label); } catch(e) { console.warn("Recently Deleted", e); } }
+  if (binned.length) sbHaptic("warning");
   // An exam or quiz marked done keeps how ready you were right then (how ready you felt, and what your results said), so the
   // reflection after the mark compares the mark with the readiness before the exam, on every device
   if (label !== null && typeof examReadiness === "function") changes.forEach(c => {
@@ -5836,6 +5837,7 @@ function qaAdd(){
   });
   ui.qa = null; ui.qaText = "";
   const one = changes.length === 1 ? changes[0].after : null, ex1 = one && MILESTONE(one.type) && one.due > todayISO() ? one : null;
+  if (changes.length) sbHaptic("tap");
   if (changes.length) applyChanges(changes, one ? `Added ${one.title}` : `Added ${changes.length} tasks`, one ? [ex1 && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(ex1.id)} : null, {label: "Edit", fn: () => { if (state.tasks[one.id]) taskForm(state.tasks[one.id]); }}] : undefined); else render();
   const ask = changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);
   if (ask) { remoteAsk(ask.id); return; }
@@ -10480,9 +10482,52 @@ function toastTimer(ms){
   clearTimeout(toastT);
   toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
+/* Haptics: one small vocabulary for the whole app, on phones and tablets only.
+   tap (light: a task checked off, a card graded) · tick (a selection snaps: a day, a column) · lift (a drag picks up, a long press)
+   drop (something lands) · success (a Focus finished, a plan cleared, a new best) · warning (something deleted) · error (a wrong pair, a failed save)
+   The iPhone and Android apps use Apple's and Android's own generators through @capacitor/haptics (iOS's System Haptics switch applies).
+   A browser on an Android phone gets a short vibration; Safari on iPhone and computers have nothing to feel, so they stay silent.
+   At most one every 120 ms, and only within 1.5 s of the student touching the screen (opts.force for the end of a Focus or a streak day).
+   Settings > Haptic Feedback turns it off on this device. */
+const HAPTIC_KEY = "studyboard:haptics", HAPTIC_GAP = 120, HAPTIC_INPUT_MS = 1500;
+const HAPTIC_WEB = {tap: 10, tick: 6, lift: 18, drop: 10, success: [12, 70, 22], warning: [22, 70, 12], error: [12, 45, 12, 45, 12]};
+let hapticAt = 0, hapticInputAt = 0, hapticSel = false;
+["pointerdown", "touchstart", "keydown"].forEach(t => document.addEventListener(t, e => { if (e.isTrusted !== false) hapticInputAt = Date.now(); }, {capture: true, passive: true}));
+function hapticNative(){
+  try {
+    const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
+    if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return null;
+    return (C.Plugins && C.Plugins.Haptics) || null;
+  } catch (e) { return null; }
+}
+// a phone or tablet: the iPhone or Android app, or a browser on a touch screen with no mouse
+function hapticDevice(){
+  try { if (hapticNative()) return true; return !!(window.matchMedia && matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches); } catch (e) { return false; }
+}
+const hapticOn = () => { try { return localStorage.getItem(HAPTIC_KEY) !== "off"; } catch (e) { return true; } };
+function sbHaptic(kind, opts){
+  try {
+    if (!HAPTIC_WEB[kind] || !hapticOn() || document.hidden || !hapticDevice()) return false;
+    const now = Date.now();
+    if (now - hapticAt < HAPTIC_GAP) return false;
+    if (!(opts && opts.force) && now - hapticInputAt > HAPTIC_INPUT_MS) return false;
+    hapticAt = now;
+    const H = hapticNative();
+    if (H) {
+      const done = p => { if (p && p.catch) p.catch(() => {}); };
+      if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
+      else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
+      else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
+      return true;
+    }
+    if (navigator.vibrate) { navigator.vibrate(HAPTIC_WEB[kind]); return true; }
+  } catch (e) {}
+  return false;
+}
+window.sbHaptic = sbHaptic;
 document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
 hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
-toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) f(); });
+toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) { sbHaptic("tap"); f(); } });
 toastPart("toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; toastEl().classList.remove("show"); if (f) f(); });
 // Pointing at a toast with a button, or tabbing into it, holds it open
 { const t = TOAST_EL, acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = e => { if (acts() && (e.type === "focusin" || Date.now() - toastAt > 700)) clearTimeout(toastT); }, go = () => { if (acts() && !toastErr) toastTimer(Math.max(3000, toastMs / 2)); };
@@ -13187,7 +13232,7 @@ let schDragEnd = 0;
     b.classList.add("dragging"); document.body.classList.add("sch-dragging");
     b.style.left = "2px"; b.style.width = "calc(100% - 4px)";
     if (!b.querySelector(".sch-dt")) b.insertAdjacentHTML("beforeend", `<em class="sch-dt"></em>`);
-    try { navigator.vibrate && navigator.vibrate(8); } catch(e) {}
+    sbHaptic("lift");
   };
   document.addEventListener("pointerdown", e => {
     const b = e.target.closest && e.target.closest(".sch-b[data-drag]"); if (!b || e.button > 0) return;
@@ -18186,7 +18231,7 @@ function rvStart(){
   if (!el.isConnected) { rvDrag = null; return; }
   const r = el.getBoundingClientRect();
   d.started = true; renderBlocked = true;
-  if (d.touch && navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+  if (d.touch) sbHaptic("lift");
   try { getSelection().removeAllRanges(); } catch (x) {}
   d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
   const g = el.cloneNode(true);
@@ -18441,6 +18486,7 @@ function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.sett
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
 function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
+  sbHaptic("tap");
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
@@ -19020,6 +19066,7 @@ function pomoStart(){
   nativeAlarm();
   if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) pomo.len = modeMs(pomo.mode);
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
+  if (pomo.mode === "focus") sbHaptic("lift");
   pomoSave(); pomoSchedule(); pomoUI(true);
   try {
     const t = pomo.mode === "focus" && pomo.taskId && state.tasks[pomo.taskId];
@@ -19102,7 +19149,7 @@ function pomoAlarm(done, next, auto, missed){
   const body = done === "focus" ? `Nice work. ${auto ? "Your" : "Time for a"} ${next === "long" ? `${cfg.long}-minute long break` : `${cfg.short}-minute break`}${auto ? " has started" : ""}.` : `${auto ? "Your next focus session has started." : "Ready for the next focus session?"}`;
   if (!missed) {
     if (!ISLAND.ring) playAlarm(cfg.sound, Number(cfg.volume), 5);   // in the iPhone app, iOS rings it (see nativeAlarm)
-    if (navigator.vibrate) { try { navigator.vibrate([400, 180, 400, 180, 700]); } catch(e) {} }
+    sbHaptic("success", {force: true});
     if (cfg.notify && notifySupported() && Notification.permission === "granted") {
       try { const n = new Notification(title, {body, icon: FAVICON, tag: "studioso-pomo", renotify: true, requireInteraction: true}); n.onclick = () => { try { window.focus(); } catch(e) {} n.close(); stopAlarm(); }; } catch(e) {}
     }
@@ -21765,7 +21812,17 @@ function toggleTask(id, el){
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
+  if (n.status === "done") sbHaptic(todayCleared() ? "success" : "tap");
 }
+// Nothing left on Today's Plan: no planned work still to do today, nothing due today or overdue
+function todayCleared(){
+  try {
+    const today = todayISO(), F = computeFocus();
+    if ((F.ranked || []).some(x => (x.alloc > 0 || x.dl <= 0) && !x.t.xs && !x.dead && x.t.status !== "done")) return false;
+    return !tasksArr().some(t => t.status !== "done" && t.due && t.due <= today && !t.deleted && !t.archived);
+  } catch (e) { return false; }
+}
+if (window.__SB_TEST) window.__sbHaptic = {device: () => hapticDevice(), cleared: () => todayCleared(), del: id => deleteTask(id), task: id => clone(state.tasks[id] || null), today: () => todayISO(), apply: ch => applyChanges(ch, null)};
 // Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
 // page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
 // 99-smooth.js skips its own page fade while this runs.
@@ -21996,7 +22053,7 @@ document.addEventListener("pointerdown", e => {
   nbHold = {x0, y0, id: e.pointerId, t: setTimeout(() => {
     if (!nbHold || !board.isConnected) return;
     nbHold = null;
-    if (navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+    sbHaptic("lift");
     nbHoldDone = Date.now();
     const r = board.getBoundingClientRect();
     newNoteAt((x0 - r.left) / nbZ() - NOTE_W() / 2, (y0 - r.top) / nbZ() - 20);
@@ -22106,7 +22163,7 @@ window.addEventListener("keydown", e => { if (e.key === "Escape" && drag && drag
 
 function startDrag(){
   drag.started = true; renderBlocked = true;
-  if (navigator.vibrate) { try { navigator.vibrate(12); } catch(e){} }
+  sbHaptic("lift");
   if (drag.kind === "rot") {
     const n = state.notes[drag.id];
     if (!n) { drag.started = false; renderBlocked = false; drag = null; return; }
@@ -22366,6 +22423,8 @@ function placeAt(x, y){
   const col = under && under.closest(".col");
   $$(".col.over").forEach(c => { if (c !== col) c.classList.remove("over"); });
   if (!col) return;
+  if (drag.hCol && drag.hCol !== col) sbHaptic("tick");
+  drag.hCol = col;
   col.classList.add("over");
   const shown = el => el.checkVisibility ? el.checkVisibility() : !!el.getClientRects().length;
   const lists = [...col.querySelectorAll(".col-list")].filter(shown);
@@ -22382,6 +22441,7 @@ function placeAt(x, y){
 function endDrag(ok){
   cancelAnimationFrame(drag.raf);
   const d = drag; drag = null; renderBlocked = false;
+  if (ok && d.started) sbHaptic(d.kind === "note" && d.target === "trash" ? "warning" : "drop", {force: true});
   suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
   if (d.kind === "rot") {
     d.el.classList.remove("rotating");
@@ -35466,7 +35526,7 @@ hook("boot", boot);
     if (!d.el.isConnected) { const again = d.id && $(`#grpPT .kb-card[data-id="${CSS.escape(d.id)}"]`); if (again) d.el = again; }
     if (!d.el.isConnected || d.el.getBoundingClientRect().width < 20) { clearTimeout(d.timer); kbDrag = null; return; }
     d.started = true;
-    if (navigator.vibrate) { try { navigator.vibrate(12); } catch(e) {} }
+    sbHaptic("lift");
     const r = d.el.getBoundingClientRect(), gh = d.el.cloneNode(true);
     d.dx = d.x - r.left; d.dy = d.y - r.top;
     gh.className += " kb-ghost"; gh.removeAttribute("data-id"); gh.setAttribute("aria-hidden", "true"); gh.style.width = r.width + "px"; gh.style.minWidth = r.width + "px"; gh.style.boxSizing = "border-box"; gh.style.left = r.left + "px"; gh.style.top = r.top + "px";
@@ -76817,7 +76877,7 @@ function decorateDeck(){
     st.ghost = st.item.cloneNode(true); st.ghost.classList.add("sort-ghost");
     Object.assign(st.ghost.style, {width: r.width + "px", height: r.height + "px", left: r.left + "px", top: r.top + "px"});
     (document.getElementById("view") || document.body).appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
-    if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+    sbHaptic("lift");
   };
   const move = (x, y) => {
     st.ghost.style.left = (x - st.dx) + "px"; st.ghost.style.top = (y - st.dy) + "px";
@@ -78103,6 +78163,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, d
     setTimeout(() => els.forEach(e => e.classList.add("gone")), still() ? 0 : 320);
     const left = $("#mtLeft"); if (left) left.textContent = `${pl(R.left, "pair")} to go`;
     if (!R.left) { finish(); return; }
+    sbHaptic("tap");
     sayIt(`Match. ${pl(R.left, "pair")} to go.`);
     if (had) { const nx = R.tiles.findIndex((x, k) => !x.gone && k > b); const k = nx >= 0 ? nx : R.tiles.findIndex(x => !x.gone); const e = tileEl(k); if (e) e.focus(); }
   }
@@ -78110,6 +78171,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, d
     R.pen += MATCH.PENALTY; R.miss++;
     [tileEl(a), tileEl(b)].filter(Boolean).forEach(e => { e.classList.remove("miss"); void e.offsetWidth; e.classList.add("miss"); setTimeout(() => e.classList.remove("miss"), 480); });
     const p = $("#mtPen"); if (p) { p.classList.remove("show"); void p.offsetWidth; p.classList.add("show"); setTimeout(() => p.classList.remove("show"), 900); }
+    sbHaptic("error");
     sayIt("Not a match. Plus 1 second.");
     tick();
   }
@@ -78120,6 +78182,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, d
     if (d) { const nd = clone(d); rec = MATCH.record(nd.match, R.ms); nd.match = rec.match; saveDeck(nd, null); }
     else { rec = MATCH.record(R.opts.prev || null, R.ms); R.opts.prev = rec.match; }
     R.rec = rec;
+    sbHaptic(rec.better ? "success" : "tap", {force: true});
     setTimeout(() => { if (R && R.done && dlg.open && dlg.querySelector("[data-mt-play]")) result(); }, still() ? 0 : 360);
   }
   function result(){
@@ -79344,6 +79407,7 @@ function tryCelebrate(){
     const line = C._speech.choose(lines(c), "streak");
     if (!line) return;
     if (C.cheer) C.cheer("task");
+    if (c.kind !== "welcome") sbHaptic("success", {force: true});
     C.say(line, {cheer: true, name: false, again: false, cat: "streak"});
     if (C.bubble && C.bubble() === line) {
       const s = saidRead(); s.m = s.m || {};
@@ -92877,7 +92941,7 @@ var SBWB = null;
       if (D !== d) return;
       clearTimeout(d.snapT); D = {kind: "move", id: d.id, a: w, s, held: true};
       select(new Set([k])); SEL.drag = true; itemsDraw(); dirty();
-      try { navigator.vibrate && navigator.vibrate(10); } catch (x) {}
+      sbHaptic("lift");
     }, 450);
   }
   function begin(e, s, w){
@@ -92906,7 +92970,7 @@ var SBWB = null;
     }
   }
   // Hold still for a moment at the end of a stroke
-  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} dirty(true); } }, 600); }
+  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; sbHaptic("tick", {force: true}); dirty(true); } }, 600); }
   function drag(e, s){
     const w = toW(s);
     // a finger only moves the board once it really moves (a hand settling on the screen doesn't nudge it)
@@ -99400,7 +99464,7 @@ const AUTOPILOT = (() => {
         if (go) {
           // the new day is drawn underneath first, then the window lifts off: no frame without a day in it
           const commit = S.nb.commit, win = S.win, h0 = S.hh;
-          S.win = null; cleanup(); commit(); render();
+          S.win = null; cleanup(); commit(); render(); sbHaptic("tick");
           if (win) { requestAnimationFrame(() => win.remove()); }
           // the new day's header can be taller or shorter (more due items): the hours below ease into place instead of jumping
           const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? Math.round(nh.getBoundingClientRect().height - h0) : 0;
@@ -100453,11 +100517,13 @@ const AUTOPILOT = (() => {
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
+    ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll.</span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
     <div class="cap-row sb-wide" data-group="app"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
+    if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
     if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
     if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }
     if (act === "tz-shift") { ls(HOME_KEY, deviceZone()); ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); try { toast("School sites will use " + city(deviceZone()) + " time from the next sync."); } catch (e) {} return true; }

@@ -481,7 +481,7 @@ let deviceWiping = false;
 let saveWarnAt = 0;
 function saveWarn(e){
   if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { sbHaptic("error", {force: true}); toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
 }
 /* The big copy: localStorage holds only about 5 MB, which a few whiteboards and a lot of notes can fill.
    Once the saved copy is over SPILL_AT characters, or localStorage refuses it, it moves to IndexedDB (far more
