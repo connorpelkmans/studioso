@@ -5319,6 +5319,7 @@ function aiSetupSheet(fromFeature, opts){
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+      ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
@@ -22596,6 +22597,10 @@ window.__sbPlanObj = () => PLAN;
     if (settled()) { const u = curUid(); if (u && hintW !== u + p) { hintW = u + p; try { localStorage.setItem(K_HINT, JSON.stringify({uid: u, pro: p})); } catch (e) {} } return p; }
     return p || (Date.now() - boot0 < 10000 && hintPro());
   }
+  // Pro that someone pays for, which is what includes Studyboard AI (the AI server's own rule, cloudflare/ai-pro tierOf). Pro from
+  // a grant, a code or a promotion, and the free weeks, have every Pro feature but not Studyboard AI, so they can still subscribe
+  const aiIncluded = () => { const e = ent(); if (!e || !paid()) return false; if (e.plan === "lifetime") return e.source !== "lifetime";
+    return e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()) && e.source !== "promo" && e.source !== "code" && !e.lite; };
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
   // On the free weeks of Pro (not paying, not from a code or promotion): PRO tags stay on Pro features and items, as on the free
@@ -23269,6 +23274,7 @@ window.__sbPlanObj = () => PLAN;
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
+        ${paywall() && pro && !aiIncluded() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
@@ -23370,7 +23376,7 @@ window.__sbPlanObj = () => PLAN;
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
-    isPro, paywall, settled, storageRow, trialTags,
+    isPro, paywall, settled, storageRow, trialTags, aiIncluded,
     limits: () => Object.assign({}, lim()),
     freeLimits: () => Object.assign({}, lims("free")),
     proLimits: () => Object.assign({}, lims("pro")),

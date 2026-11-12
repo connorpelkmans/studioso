@@ -1646,6 +1646,7 @@ function aiSetupSheet(fromFeature, opts){
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+      ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
