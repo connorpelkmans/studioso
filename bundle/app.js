@@ -64905,13 +64905,21 @@ var COMP_EXTRA = [];
     for (let i = 0; i < n; i++) {
       const s = document.createElement("span");
       s.className = "cp-pt" + (still() ? " cp-pt-still" : "");
-      const size = (kind === "z" ? 13 : rand(11, 16)) * (small ? 0.8 : 1);
-      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : top[0] * k + rand(-px * 0.36, px * 0.36), y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : top[1] * k + rand(-4, 14);
-      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(kind === "bang" ? 0 : rand(-14, 14))}px;--r:${f1(kind === "bang" ? 0 : rand(-20, 20))}deg;animation-delay:${Math.round(i * 200)}ms`;
+      // Hearts and sparkles: a clear size, starting either side of the head (alternating) and drifting up and outward, so they
+      // never pass behind the speech bubble above it; each keeps one gentle tilt the whole way (no wobble)
+      const pop = kind === "heart" || kind === "sparkle";
+      const size = (kind === "z" ? 13 : pop ? rand(16, 19) : rand(11, 16)) * (small ? 0.8 : 1);
+      const sd = i % 2 ? 1 : -1, cx = top[0] * k;
+      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : pop ? cx + sd * px * rand(0.3, 0.44) : top[0] * k + rand(-px * 0.36, px * 0.36);
+      const y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : pop ? top[1] * k + rand(4, 16) : top[1] * k + rand(-4, 14);
+      const dx = kind === "bang" ? 0 : pop ? sd * rand(10, 18) : rand(-14, 14), r = kind === "bang" ? 0 : pop ? sd * rand(4, 10) : rand(-20, 20);
+      s.className += pop ? " cp-pt-pop" : "";
+      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(dx)}px;--r:${f1(r)}deg;animation-delay:${Math.round(i * (pop ? 170 : 200))}ms`;
       s.innerHTML = art[kind] || art.sparkle;
       fx.appendChild(s);
       const kill = () => s.remove();
-      s.addEventListener("animationend", kill, {once: true});
+      // only its own float ends it (the page-wide fade-in for new things, 99-smooth, used to end it after a fifth of a second)
+      s.addEventListener("animationend", e => { if (e.target === s && /^cp(Up|Float|Fade)$/.test(e.animationName)) kill(); });
       setTimeout(kill, 3600 + i * 200);
     }
   }
@@ -65267,9 +65275,9 @@ var COMP_EXTRA = [];
     if (layer && sig === curSig) { applyVars(); placeSoon(0); return; }
     const first = !layer;
     if (!layer) {
-      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer";
+      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer sm-skip";
       document.body.appendChild(layer);
-      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front";
+      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front sm-skip";
       front.innerHTML = `<div class="cp-bubble" role="status"></div>`;
       // pointing at a bubble keeps it up; it goes a moment after the pointer leaves (an open Ask box keeps its own timer)
       { const bb = front.querySelector(".cp-bubble");
@@ -65285,7 +65293,7 @@ var COMP_EXTRA = [];
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
-    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
+    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx sm-skip"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
     // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
     // while a sheet or the keyboard holds off the next placement
