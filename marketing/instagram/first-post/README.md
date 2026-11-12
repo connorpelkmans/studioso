@@ -93,8 +93,8 @@ Instagram always recompresses uploads. The files in `jpg/` are prepared so that 
 
 - **Size:** exactly 1080 × 1350 (4:5), so Instagram doesn't crop or resample them.
 - **Sharpness:** each post is drawn at 2× and scaled down with Lanczos, so text and the tilted cards' edges are smooth.
-- **Format:** JPEG at the highest quality with full color resolution (4:4:4, no chroma subsampling), so colored text such as "At risk" and the course headers doesn't blur.
-- **Color:** sRGB with an embedded sRGB profile, so colors don't shift.
+- **Format:** a standard baseline JPEG (the same kind phone cameras and Photoshop write) at quality 95 with full color resolution (4:4:4), so colored text such as "At risk" and the course headers doesn't blur. It opens in Photos, Files, Instagram and any other app.
+- **Color:** sRGB. The file carries no color profile, which every app reads as sRGB.
 
 **Why the 1080 file can look soft in your camera roll:** phone screens are wider than 1080 pixels (an iPhone is about 1170–1320), so Photos stretches the image to fill the screen. Instagram shows feed photos at 1080 wide either way, so this doesn't affect the post. If you want a copy that also looks sharp in Photos, use `jpg@2x/` (2160 × 2700, same layout). Instagram scales it down to 1080 itself. Post a test from each to a private or close-friends account and keep whichever looks better on the feed.
 
@@ -107,7 +107,7 @@ When posting:
 
 ## Editing and re-rendering
 
-All posts are in one file, `src/posts.html`. Companion art is in `assets/*.svg` and is inserted where the file says `{{owl}}`, `{{mochi}}`, `{{inky}}` or `{{packy}}`. To rebuild the images (needs Node, Playwright and ffmpeg), run this from the repo root:
+All posts are in one file, `src/posts.html`. Companion art is in `assets/*.svg` and is inserted where the file says `{{owl}}`, `{{mochi}}`, `{{inky}}` or `{{packy}}`. To rebuild the images (needs Node, Playwright and ImageMagick), run this from the repo root:
 
 ```bash
 node marketing/instagram/first-post/render.js
