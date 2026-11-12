@@ -114,6 +114,8 @@ li.is-done .task-title{text-decoration:line-through;color:var(--muted);font-weig
 .fab-menu .fm-list button:hover,.fab-menu .fm-list button:focus-visible{border-color:var(--accent);box-shadow:0 6px 16px rgba(0,0,0,.12);transform:translateY(-1px)}
 .fab-menu .fm-ic{flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent)}
 .fab-menu .fm-ic .ai-ic{width:24px;height:24px;color:#8B5CF6}
+/* the companion's face in the menu's icon box: centred, filling it like the other icons (none of the inline icon's nudges) */
+.fab-menu .fm-ic span.cp-ai-face.ai-ic{width:30px;height:30px;min-width:30px;margin:0;top:0;vertical-align:0}
 .fab-menu .fm-t{flex:1;min-width:0}
 .fab-menu .fm-t b{display:block;font-weight:700;font-size:1.02rem}
 .fab-menu .fm-t .sub{margin-top:2px}
