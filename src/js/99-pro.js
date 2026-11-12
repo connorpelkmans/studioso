@@ -1292,7 +1292,7 @@ var SBPRO = null;
       el.addEventListener("pointerdown", e => { if (e.button > 0) return; s = {x: e.clientX, y: e.clientY, id: e.pointerId}; try { el.setPointerCapture(e.pointerId); } catch (x) {} });
       el.addEventListener("pointermove", e => {
         if (!s || e.pointerId !== s.id) return;
-        if (!ghost) { if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 8) return; ghost = document.createElement("span"); ghost.className = "dp-ghost"; ghost.textContent = el.textContent; dlg.appendChild(ghost); }
+        if (!ghost) { if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 8) return; ghost = document.createElement("span"); ghost.className = "dp-ghost sm-skip"; ghost.textContent = el.textContent; dlg.appendChild(ghost); }
         ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px"; e.preventDefault();
       });
       const fin = e => {

@@ -1912,7 +1912,7 @@ document.addEventListener("pointermove", e => {
   if (!sDrag.moved && Math.hypot(e.clientX - sDrag.x0, e.clientY - sDrag.y0) < 6) return;
   if (!sDrag.moved) {
     sDrag.moved = true; document.body.classList.add("stk-dragging");
-    const g = document.createElement("div"); g.className = "stk stk-ghost"; g.innerHTML = stickerSvg(sDrag.k);
+    const g = document.createElement("div"); g.className = "stk stk-ghost sm-skip"; g.innerHTML = stickerSvg(sDrag.k);
     const sz = Math.max(40, Math.min(90, sDrag.size || 48)); g.style.width = g.style.height = sz + "px";
     document.body.appendChild(g); sDrag.ghost = g;
     if (sDrag.el) sDrag.el.style.opacity = "0";
