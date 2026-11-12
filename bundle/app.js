@@ -63831,19 +63831,20 @@ var COMP_EXTRA = [];
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
   /* Props (accessories) */
-  // Props follow effort and consistency (focus time, study days, streaks, spreading exam study over days), never how many
+  // Props follow effort and consistency (focus time, flashcards, practice quizzes, study days, spreading exam study over days), never how many
   // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
   const ACC = [
-    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["studydays", 3], ["checkins", 3]]},
-    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
-    {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["studydays", 10], ["spread", 1], ["checkins", 7]]},
-    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 3]]},
-    {id: "medal", name: "Champion Medal", free: true, paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
-    {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["studydays", 40], ["checkins", 21]]},
-    {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
+    // Every prop can be earned by focus time, flashcards or practice quizzes, plus a few other ways (study days, notes, exam prep...)
+    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["cards", 30], ["quizzes", 1], ["studydays", 3], ["checkins", 3]]},
+    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 2], ["notes", 3], ["groups", 1]]},
+    {id: "bowtie", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 3], ["studydays", 10], ["prep", 5], ["spread", 1]]},
+    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 4], ["notes", 10]]},
+    {id: "medal", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 6], ["prep", 15], ["spread", 3]]},
+    {id: "cape", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 10], ["studydays", 40], ["checkins", 21]]},
+    {id: "star", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 15], ["stickers", 15], ["focusWeeks", 4]]},
     {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
-    {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
+    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 25], ["spread", 8], ["studydays", 80]]},
+    {id: "crown", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 40], ["stickers", 30]]}
   ];
   // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
   if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
@@ -64119,7 +64120,7 @@ var COMP_EXTRA = [];
   const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
     notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "study group or room", focusWeeks: "weeks with 4+ focus days", festive: "winter holiday visit"};
   const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
-    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n} practice quizzes (70% or more)`, notes: n => `Write ${n} notes`,
+    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n === 1 ? "a practice quiz" : n + " practice quizzes"} (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
     groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
   let pStat = null, pStatAt = 0;
@@ -64140,6 +64141,7 @@ var COMP_EXTRA = [];
     tr(() => { const sc = state.settings && state.settings.scrap; if (sc) { s.stickers = [sc.cur].concat(sc.past || []).reduce((n, p) => n + (p && p.g ? Object.keys(p.g).length : 0), 0);
       s.groups = ["gp", "rm"].filter(k => sc.f && sc.f[k]).length; } });
     tr(() => { s.checkins = (cfg().ci || []).length; });
+    tr(() => { s.prep = Object.values(state.tasks || {}).filter(t => t && t.prepFor && t.status === "done").length; });
     tr(() => { const per = {}; Object.entries(SBSTATS.focusDays()).forEach(([d, m]) => { if (Number(m) >= 15) { const w = mondayOf(d); per[w] = (per[w] || 0) + 1; } }); s.focusWeeks = Object.values(per).filter(n => n >= 4).length; });
     tr(() => { const d = new Date(), m = d.getMonth(), day = d.getDate(); s.festive = m === 11 || (m === 0 && day <= 6) ? 1 : 0; });
     pStat = s; pStatAt = now;
@@ -66209,7 +66211,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
-      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
+      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
