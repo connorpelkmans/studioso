@@ -144,9 +144,10 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     const f1 = (await live()).items[0].f;
     ok(f1 > f0 * 1.8 && /Huge/.test(await page.locator('.wb-tray .wb-fontpick[data-id="size"]').textContent()), "Huge makes the selected text bigger: " + f0 + " to " + f1);
     await page.evaluate(() => SBWB.undo()); await page.click('.wb-tray .wb-fontpick[data-id="size"]'); await page.click('.wb-fontmenu [data-wb="tsize"][data-id="1"]'); await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(40);
-    ok(await page.locator('.wb-tray [data-wb="pen-any"] .wb-pro').count() === 1, "the rainbow (any color) marker shows a Pro badge on a free plan");
+    ok(await page.locator('.wb-tray [data-wb="pen-any"] .wb-pro').count() === 0, "the rainbow (any color) marker has no Pro badge: drawing is free");
     await page.click('.wb-tray [data-wb="pen-any"]'); await page.waitForTimeout(250);
-    ok(/any color/i.test(await page.locator("dialog[open]").textContent()), "and opens the Pro sheet");
+    ok(await page.locator(".wb-cpick").count() === 1 && !(await page.evaluate(() => !!document.querySelector(".plan-sheet"))), "and opens the color picker, not the Pro sheet");
+    await page.evaluate(() => { const c = document.querySelector(".wb-cpick"); if (c) c.remove(); });
     await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await page.keyboard.press("Escape"); await page.waitForTimeout(40);
     await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
