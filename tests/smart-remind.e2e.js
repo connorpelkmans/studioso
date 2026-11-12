@@ -106,7 +106,7 @@ const SEED = ([avail, free]) => {
     ok(!f.errs.length, "no console errors (locked): " + f.errs.join(" | "));
 
     // Listed under Studyboard Pro
-    ok(await p.evaluate(() => window.SBPRO.compareRows().some(r => r[0] === "Smart Reminders")), "listed as a Studyboard Pro feature");
+    ok(await p.evaluate(() => /Smart Reminders/.test(window.SBPRO.sheetHtml(false))), "listed under Show All Pro Features");
     console.log("\nsmart-remind.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

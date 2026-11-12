@@ -708,12 +708,9 @@ window.__sbPlanObj = () => PLAN;
     return [
       ["Devices", `${f.devices} Devices`, p.devices === Infinity ? "Unlimited Devices" : `${p.devices} Devices`],
       ["Cloud File Storage", fmtMB(f.fileMB), fmtMB(p.fileMB)],
-      ["Synced Data", fmtMB(f.dataMB), fmtMB(p.dataMB)],
       ["Themes", `${freeThemes} Plain Colors`, `All ${SKINS.length} Themes`],
-      ["Card Styles, Pins and Stickers", "The Free Set", "Every Style"],
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
-      ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`],
-      ["Group Message History", f.groupMsgDays ? `Kept ${f.groupMsgDays} Days` : "Unlimited History", p.groupMsgDays ? `Kept ${p.groupMsgDays} Days` : "Unlimited History"]
+      ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`]
     ].concat(window.SBPRO ? SBPRO.compareRows() : []);
   }
   function meter(label, used, max){
@@ -801,7 +798,7 @@ window.__sbPlanObj = () => PLAN;
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
         </div>
-        ${(pro || !paywall()) && window.SBPRO ? SBPRO.sheetHtml(pro) : ""}
+        ${window.SBPRO ? SBPRO.sheetHtml(pro || !paywall()) : ""}
         <p class="plan-free mini">${IC.check}<span>Always free: Board, Due Dates, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
         ${pro ? "" : usageHtml}
       </div>

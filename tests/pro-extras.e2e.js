@@ -78,7 +78,7 @@ function SEED(){
 
     await act(page, "plan-open"); await page.waitForTimeout(400);
     const sheet = await page.locator(".plan-sheet").textContent();
-    ok(/What Pro Adds/.test(sheet) && /Insights/.test(sheet) && /Term Recap/.test(sheet), "the Pro sheet lists what Pro adds");
+    ok(/Show All Pro Features/.test(sheet) && /Insights/.test(sheet) && /Term Recap/.test(sheet), "the Pro sheet lists what Pro adds");
     ok(/Try New Features First/.test(sheet) && /Show My Badge in Groups/.test(sheet), "early access and the supporter badge are offered");
     await page.click('[data-act="pro-early"]'); await page.waitForTimeout(250);
     ok(await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.early === true), "early access is saved in settings");
