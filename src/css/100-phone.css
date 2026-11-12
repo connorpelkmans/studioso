@@ -1114,7 +1114,6 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .ci-ai-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
 .ci-ai-prev{display:inline-flex;align-items:center;gap:10px;font-weight:700}
 .ci-ai-ring{width:56px;height:56px}
-.beta-sym{display:inline-grid;place-items:center;width:17px;height:17px;margin-left:5px;border-radius:50%;background:linear-gradient(135deg,#FFB443,#FF5C8A);color:#fff;font:700 .7rem/1 var(--body);vertical-align:2px}
 .ci-cand{display:grid;justify-items:center;gap:4px;border:2px solid transparent;border-radius:14px;background:none;padding:6px 8px;font:700 .78rem var(--display);color:var(--ink);cursor:pointer;max-width:110px;text-align:center}
 .ci-cand.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .ci-ai-prev:has(.ci-cand){flex-wrap:wrap;gap:6px}
