@@ -96,6 +96,8 @@ Instagram always recompresses uploads. The files in `jpg/` are prepared so that 
 - **Format:** JPEG at the highest quality with full color resolution (4:4:4, no chroma subsampling), so colored text such as "At risk" and the course headers doesn't blur.
 - **Color:** sRGB with an embedded sRGB profile, so colors don't shift.
 
+**Why the 1080 file can look soft in your camera roll:** phone screens are wider than 1080 pixels (an iPhone is about 1170–1320), so Photos stretches the image to fill the screen. Instagram shows feed photos at 1080 wide either way, so this doesn't affect the post. If you want a copy that also looks sharp in Photos, use `jpg@2x/` (2160 × 2700, same layout). Instagram scales it down to 1080 itself. Post a test from each to a private or close-friends account and keep whichever looks better on the feed.
+
 When posting:
 
 1. In Instagram, open **Settings and activity → Media quality**. Turn **on** "Upload at highest quality" and turn **off** "Use less data".

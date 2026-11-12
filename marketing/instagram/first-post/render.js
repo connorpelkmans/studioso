@@ -5,6 +5,7 @@
 // Output, per post:
 //   jpg/<id>.jpg  the file to upload: 1080x1350 (4:5), sRGB, JPEG quality ~98, 4:4:4 chroma
 //   png/<id>.png  lossless 1080x1350 master, for editing
+//   jpg@2x/<id>.jpg  2160x2700 copy: looks sharp full-screen on a phone (camera roll, previews)
 //
 // Each post is drawn at 2x (2160x2700) and downscaled with Lanczos, which gives smoother
 // text and cleaner edges on the tilted cards than drawing at 1x. The JPEG keeps full colour
@@ -39,7 +40,7 @@ const scaleTo = `scale=${W}:${H}:flags=lanczos+accurate_rnd+full_chroma_int`;
   await p.goto('file://' + tmp);
   await p.evaluate(() => document.fonts.ready);
   const icc = fs.readFileSync(path.join(dir, 'assets', 'sRGB.icc'));
-  for (const d of ['png', 'jpg']) fs.mkdirSync(path.join(dir, d), {recursive: true});
+  for (const d of ['png', 'jpg', 'jpg@2x']) fs.mkdirSync(path.join(dir, d), {recursive: true});
   const big = path.join(src, '.shot@2x.png');
   for (const id of await p.$$eval('section.post', s => s.map(x => x.id))) {
     await p.locator('#' + id).screenshot({path: big});
@@ -47,7 +48,10 @@ const scaleTo = `scale=${W}:${H}:flags=lanczos+accurate_rnd+full_chroma_int`;
     ff(['-i', big, '-vf', scaleTo, '-pix_fmt', 'rgb24', png]);
     ff(['-i', big, '-vf', scaleTo + ':out_range=full', '-pix_fmt', 'yuvj444p', '-q:v', '1', '-qmin', '1', jpg]);
     fs.writeFileSync(jpg, embedIcc(fs.readFileSync(jpg), icc));
-    console.log(`jpg/${id}.jpg  png/${id}.png`);
+    const jpg2 = path.join(dir, 'jpg@2x', id + '.jpg');
+    ff(['-i', big, '-vf', 'scale=out_range=full', '-pix_fmt', 'yuvj444p', '-q:v', '1', '-qmin', '1', jpg2]);
+    fs.writeFileSync(jpg2, embedIcc(fs.readFileSync(jpg2), icc));
+    console.log(`jpg/${id}.jpg  jpg@2x/${id}.jpg  png/${id}.png`);
   }
   await b.close();
   fs.unlinkSync(big);
