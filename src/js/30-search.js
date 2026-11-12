@@ -1186,6 +1186,8 @@ Return JSON only.`;
       A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
     }
     if (S.ask === A || S.thread.includes(A)) draw();
+    // opened to quiz (quizCourse): Quiz Me starts on its own once the answer and its sources are in
+    if (S.autoQuiz === A) { S.autoQuiz = null; if (A.answer.state === "done" && A.answer.found !== false && (A.rows || []).length && S.ask === A) startTutor(A); }
   }
   // Only when the student asks, and only the question (and the course's name) is sent
   async function getGeneral(T){
@@ -1850,6 +1852,12 @@ Return JSON only.`;
     loadTexts().then(() => queueFiles()).catch(() => {});
   }
   window.SBSEARCH.warm = warmFiles;
+  // Quiz Me on a course in one tap (the exam offer on Today's Plan): asks the question in Ask Your Course, then starts Quiz Me on the answer
+  window.SBSEARCH.quizCourse = (cid, q) => {
+    if (dlg.open) dlg.close();
+    resetThread(); open(q, {mode: "ask", course: cid || "", fresh: true, run: false});
+    runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
+  };
   setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });
