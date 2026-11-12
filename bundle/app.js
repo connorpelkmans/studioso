@@ -96291,9 +96291,9 @@ var SBREPLAY = null;
     file: s => SV('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>', s)
   };
   const clock = R.clock;
-  // Beta: one small β beside the player, the recorder's notes, a note's replay and Hear It. Set to false to take it off everywhere.
+  // Beta: the BETA pill beside the player, the recorder's notes, a note's replay and Hear It. Set to false to take it off everywhere.
   const BETA = true;
-  const beta = () => BETA ? `<span class="beta-sym" title="Beta: still being improved" role="img" aria-label="Beta">β</span>` : "";
+  const beta = () => BETA ? `<span class="beta-pill" title="Beta: still being improved">Beta</span>` : "";
   const hasAudio = f => !!f && f.folderId === "lectures" && ((Array.isArray(f.revs) && f.revs.length) || !!f.cloud);
   const durOf = f => f && Number(f.dur) > 0 ? Math.round(Number(f.dur) * 1000) : 0;
 
