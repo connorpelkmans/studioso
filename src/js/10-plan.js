@@ -952,6 +952,10 @@ window.__sbPlanObj = () => PLAN;
     entitlement: () => ent() ? Object.assign({}, ent()) : null,
     can, usage,
     openSheet: proSheet,
+    // the Pro sheet with a plan already picked (the exam and term offers pick Semester; with no semester plan it stays on Yearly)
+    openSheetPick: (reason, pick) => { P.pick = pick; proSheet(reason); },
+    // the semester plan when it's on sale here: its price, and whether it's paid once (App Store, Google Play) or renews (website)
+    semester: () => { try { return semesterOn() ? {price: semPrice(), once: !!semOnce()} : null; } catch (e) { return null; } },
     devicesSheet: () => devicesSheet(false),
     limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,

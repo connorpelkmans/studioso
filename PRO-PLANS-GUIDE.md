@@ -75,6 +75,15 @@ Studyboard has a **Free** plan and a **Pro** plan built in. The paywall is **on*
 In the app, **Settings > Studyboard Pro** shows the plan, what Pro adds, how much storage you use, and **Your Devices**.
 
 
+### Exam Day Forecast and the Free Plan's Offers
+
+- **Exam Day Forecast (Pro)**, in each exam's Prep Plan: "Today 43% → Exam day ~72%". The exam-day number is at the student's pace (today's readiness moved toward finishing the plan by the share of sessions done so far), or, before any session has come due, for doing every session. It uses the plan's own readiness math and never says more than 95%. One tip when finishing the plan would add 5 points or more, and the weakest topic with Teach It Back when one would still lag. Free accounts see a locked card that says what it shows (`src/js/97-examprep.js`, `forecastOf`).
+- **Offers on Today's Plan** (free plan only, `src/js/99-offers.js`), one card at a time, each on one day only, remembered in settings:
+  1. 3 to 10 days before an exam with a prep plan, while Quiz Me has free sessions this week: "PHYS 101 Midterm in 10 days. Try Quiz Me on it: you have 3 free sessions this week." The button opens Ask Your Course on the exam and starts Quiz Me on the answer.
+  2. Once this week's free Quiz Me sessions are used and that exam is still more than 3 days away: Pro through the end of term, opening the Pro sheet with Semester picked.
+  3. In the first week of a term: the semester plan.
+  Never on Pro or the free weeks, in Exam Mode, within 2 days of the exam, during the review prompt's quiet periods, or a day after a Pro sheet. For a discount, create a Stripe promotion code and allow promotion codes on the checkout; the cards don't change prices.
+
 ### Pro Groups
 
 A Pro member opens a group and taps **Make It a Pro Group** (up to 5 groups per Pro account). When that person's Pro ends, the group goes back to free on its own; nothing is deleted, the extras just hide again.
