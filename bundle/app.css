@@ -1699,6 +1699,20 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .pp-line{margin:0}
 .pp-bar{height:8px;border-radius:999px;background:var(--field);border:1px solid var(--line);overflow:hidden}
 .pp-bar i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.pp-fc{display:grid;gap:8px;margin-top:10px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.pp-fc-lock{background:color-mix(in srgb,var(--ink) 3%,var(--surface));border-style:dashed;justify-items:start}
+.pp-fc-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.pp-fc-h .mini{margin-left:auto;color:var(--muted)}
+.pp-fc-big{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.pp-fc-n{display:grid;font:700 1.5rem/1.1 var(--display);color:var(--muted)}
+.pp-fc-n small{font:600 .72rem var(--display);letter-spacing:.04em;text-transform:uppercase}
+.pp-fc-day{font-size:2.1rem;color:var(--accent)}
+.pp-fc-day small{color:var(--muted)}
+.pp-fc-arrow{font-size:1.4rem;color:var(--muted);padding-bottom:4px}
+.pp-fc-why{margin:0;font-size:.9rem;color:var(--muted)}
+.pp-fc-tip{margin:0;padding:8px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:.92rem}
+.pp-fc-next{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0}
+.pp-fc-next > span{flex:1;min-width:10em}
 .pp-bar.big{height:12px}
 .pp-note{margin:0;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--warn) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line))}
 .pp-covs,.pp-agenda{list-style:none;margin:0;padding:0;display:grid;gap:10px}
@@ -2630,8 +2644,13 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
   border:1.5px solid var(--line);background:var(--surface);color:var(--ink);transition:transform .15s,box-shadow .2s,border-color .2s}
 .plan-price:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line));transform:translateY(-1px)}
 .plan-price:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+.plan-price[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.plan-price[aria-checked="true"]::after{content:"";position:absolute;top:12px;right:12px;width:18px;height:18px;border-radius:50%;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/12px no-repeat}
+.plan-price.best[aria-checked="true"]::after{top:18px}
+.plan-go{width:100%;min-height:48px;font-size:1rem;margin-top:2px}
 .plan-price.best{border-color:transparent;background:linear-gradient(var(--surface),var(--surface)) padding-box,linear-gradient(135deg,var(--pro-a),var(--pro-b)) border-box;
   box-shadow:0 8px 26px var(--pro-glow)}
+.plan-price.best[aria-checked="true"]{box-shadow:0 8px 26px var(--pro-glow),0 0 0 2px var(--accent) inset}
 .pp-name{font:700 .8rem var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .pp-amt{font:800 1.45rem var(--display);letter-spacing:-.01em}
 .pp-amt small{font:600 .82rem var(--display);color:var(--muted)}
@@ -4582,6 +4601,9 @@ html.cp-hover{cursor:pointer}
 .cp-fx{position:absolute;inset:0;pointer-events:none;overflow:visible}
 .cp-pt{position:absolute;display:block;animation:cpUp 2.3s cubic-bezier(.25,.6,.35,1) both}
 .cp-pt svg{width:100%;height:100%;display:block;overflow:visible}
+/* Hearts and sparkles: fade and grow in, float up and outward at one tilt, fade out (smooth, on the compositor) */
+.cp-pt.cp-pt-pop{animation:cpFloat 2s cubic-bezier(.22,.61,.36,1) both;will-change:transform,opacity}
+@keyframes cpFloat{0%{opacity:0;transform:translate(0,4px) scale(.7) rotate(var(--r))}18%{opacity:1;transform:translate(calc(var(--dx)*.2),-4px) scale(1) rotate(var(--r))}65%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-30px) scale(.92) rotate(var(--r))}}
 .cp-pt.cp-pt-still{animation:cpFade 2.2s ease-out both}
 @keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.6) rotate(0)}22%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
 @keyframes cpFade{0%{opacity:0}20%{opacity:1}75%{opacity:1}100%{opacity:0}}
@@ -4610,7 +4632,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble .cp-b-acts .btn{min-height:34px;font-size:.8rem}
 .cp-bubble.asking{pointer-events:auto;padding:8px}
 .cp-ask{display:flex;gap:6px;align-items:center}
-.cp-ask input{flex:1;min-width:0;width:200px;font:500 .86rem var(--body);padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink)}
+.cp-ask input{flex:1;min-width:0;width:236px;text-overflow:ellipsis;font:500 .86rem var(--body);padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink)}
 .cp-ask-hint{display:block;font:500 .7rem var(--body);color:var(--muted);margin-top:5px;text-align:left}
 .cp-use{display:block;margin-top:4px;font:600 .78rem var(--display);color:var(--accent)}
 .cp-thinking{display:flex;gap:4px;justify-content:center;padding:4px 6px}
@@ -4774,7 +4796,7 @@ html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!importa
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
 /* Every companion Ask (the Companion page, the speech bubble, a task's question box): just the word, centred and bigger */
-html .btn.primary.cp-ask-go{min-width:96px;padding:0 22px;font-size:1.15rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
+html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
 .cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
 .cp-tq-row{align-items:center}
 /* a hidden bubble (faded out) can't be clicked or typed into */
@@ -8358,6 +8380,8 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 :root :is(details.adv,details.pp-group) > summary::before{content:none}
 :root :is(.bs-diag,.sd-more) summary::after,:root .sd-more summary > span:first-child::after{content:none}
 :root .bs-diag > summary::after{content:""}
+/* a "⋯" more-options button is just its three dots, no chevron */
+:root details > summary.g2-dots.g2-dots::after{content:none}
 @media (prefers-reduced-motion:reduce){:root details > summary::after{transition:none}}
 :root select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px 14px;padding-right:34px}
 

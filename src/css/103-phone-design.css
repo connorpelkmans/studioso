@@ -284,6 +284,8 @@
 :root :is(details.adv,details.pp-group) > summary::before{content:none}
 :root :is(.bs-diag,.sd-more) summary::after,:root .sd-more summary > span:first-child::after{content:none}
 :root .bs-diag > summary::after{content:""}
+/* a "⋯" more-options button is just its three dots, no chevron */
+:root details > summary.g2-dots.g2-dots::after{content:none}
 @media (prefers-reduced-motion:reduce){:root details > summary::after{transition:none}}
 :root select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px 14px;padding-right:34px}
 

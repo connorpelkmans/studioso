@@ -1091,6 +1091,8 @@ Return JSON only.`;
   // Answers from the student's files restate them in the AI's own words (the copyright rule in aiCall), on every route
   const callPlan = (plan, args) => { args = Object.assign({}, args, {task: args.task || "ask"}); args.system = aiCopyRule(args.system, args.task); return plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args); };
   const proLocked = () => !!(window.SBPRO && SBPRO.locked && SBPRO.locked());
+  // free plan: a few Quiz Me sessions a week with the student's own AI key (PLAN.runsLeft)
+  const quizLeft = () => typeof PLAN !== "undefined" && PLAN && PLAN.runsLeft ? PLAN.runsLeft("quiz") : 0;
   const SENT = 8;
   const bodyOf = x => { const d = x.doc; return x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n")); };
   const srcText = (rows, nums) => rows.slice(0, SENT).map((x, i) => nums && !nums.includes(i + 1) ? "" : `[${i + 1}] ${citeOf(x)}\n${String(bodyOf(x)).slice(0, 1500)}`).filter(Boolean).join("\n\n");
@@ -1184,6 +1186,8 @@ Return JSON only.`;
       A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
     }
     if (S.ask === A || S.thread.includes(A)) draw();
+    // opened to quiz (quizCourse): Quiz Me starts on its own once the answer and its sources are in
+    if (S.autoQuiz === A) { S.autoQuiz = null; if (A.answer.state === "done" && A.answer.found !== false && (A.rows || []).length && S.ask === A) startTutor(A); }
   }
   // Only when the student asks, and only the question (and the course's name) is sent
   async function getGeneral(T){
@@ -1252,7 +1256,7 @@ Return JSON only.`;
   // Quiz Me: questions from the answer's sources (the AI quiz writer)
   async function startTutor(T){
     if (!T) return;
-    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: one question at a time from your material, checked and explained."); return; }
+    if (proLocked() && quizLeft() <= 0) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.runsGone("quiz", "Quiz Me asks one question at a time from your material, checked and explained."); return; }
     if (!aiReady()) { close(); aiSetupSheet(true); return; }
     const tu = S.tutor = {ti: turnIx(T), state: "loading", qs: [], i: 0, ans: []}; draw();
     const c = courseOf(studyCid(T)), text = studyText(T);
@@ -1262,6 +1266,7 @@ Return JSON only.`;
       const qs = r.questions.filter(q => ["single", "truefalse", "short"].includes(q.type)).slice(0, 5);
       if (!qs.length) throw aiErr("empty", "Couldn't write questions from this material. Try asking about something your notes cover in more detail.");
       Object.assign(tu, {state: "ready", qs});
+      if (proLocked() && typeof PLAN !== "undefined" && PLAN && PLAN.useRun) PLAN.useRun("quiz");
     } catch(e) { if (S.tutor !== tu) return; Object.assign(tu, {state: "error", err: e.message || "Couldn't write questions right now. Try again."}); }
     draw();
   }
@@ -1498,7 +1503,7 @@ Return JSON only.`;
     const ok = an.found && T.rows.length > 0, gen = T.general && T.general.state === "done";
     if (!ok && !gen) return "";
     const saved = T.saved && state.notes[T.saved];
-    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
+    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() && quizLeft() > 0 ? ` <span class="mini">${quizLeft()} free this week</span>` : proLocked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
     if (T.study && T.study.busy) h += `<p class="sx-hint">${dots} ${esc(T.study.msg)}</p>`;
     else if (T.study && T.study.err) h += `<p class="sx-hint sx-err">${esc(T.study.err)}</p>`;
     if (saved) h += `<p class="sx-hint" role="status">Saved to your Notes, with a link to each source.</p>`;
@@ -1847,6 +1852,12 @@ Return JSON only.`;
     loadTexts().then(() => queueFiles()).catch(() => {});
   }
   window.SBSEARCH.warm = warmFiles;
+  // Quiz Me on a course in one tap (the exam offer on Today's Plan): asks the question in Ask Your Course, then starts Quiz Me on the answer
+  window.SBSEARCH.quizCourse = (cid, q) => {
+    if (dlg.open) dlg.close();
+    resetThread(); open(q, {mode: "ask", course: cid || "", fresh: true, run: false});
+    runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
+  };
   setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });

@@ -47,6 +47,9 @@ html.cp-hover{cursor:pointer}
 .cp-fx{position:absolute;inset:0;pointer-events:none;overflow:visible}
 .cp-pt{position:absolute;display:block;animation:cpUp 2.3s cubic-bezier(.25,.6,.35,1) both}
 .cp-pt svg{width:100%;height:100%;display:block;overflow:visible}
+/* Hearts and sparkles: fade and grow in, float up and outward at one tilt, fade out (smooth, on the compositor) */
+.cp-pt.cp-pt-pop{animation:cpFloat 2s cubic-bezier(.22,.61,.36,1) both;will-change:transform,opacity}
+@keyframes cpFloat{0%{opacity:0;transform:translate(0,4px) scale(.7) rotate(var(--r))}18%{opacity:1;transform:translate(calc(var(--dx)*.2),-4px) scale(1) rotate(var(--r))}65%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-30px) scale(.92) rotate(var(--r))}}
 .cp-pt.cp-pt-still{animation:cpFade 2.2s ease-out both}
 @keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.6) rotate(0)}22%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
 @keyframes cpFade{0%{opacity:0}20%{opacity:1}75%{opacity:1}100%{opacity:0}}
@@ -75,7 +78,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble .cp-b-acts .btn{min-height:34px;font-size:.8rem}
 .cp-bubble.asking{pointer-events:auto;padding:8px}
 .cp-ask{display:flex;gap:6px;align-items:center}
-.cp-ask input{flex:1;min-width:0;width:200px;font:500 .86rem var(--body);padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink)}
+.cp-ask input{flex:1;min-width:0;width:236px;text-overflow:ellipsis;font:500 .86rem var(--body);padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink)}
 .cp-ask-hint{display:block;font:500 .7rem var(--body);color:var(--muted);margin-top:5px;text-align:left}
 .cp-use{display:block;margin-top:4px;font:600 .78rem var(--display);color:var(--accent)}
 .cp-thinking{display:flex;gap:4px;justify-content:center;padding:4px 6px}
@@ -239,7 +242,7 @@ html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!importa
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
 /* Every companion Ask (the Companion page, the speech bubble, a task's question box): just the word, centred and bigger */
-html .btn.primary.cp-ask-go{min-width:96px;padding:0 22px;font-size:1.15rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
+html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
 .cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
 .cp-tq-row{align-items:center}
 /* a hidden bubble (faded out) can't be clicked or typed into */

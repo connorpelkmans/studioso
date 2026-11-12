@@ -331,6 +331,7 @@ function draw(){
   dlg.querySelectorAll("[data-vh-prev]").forEach(b => b.addEventListener("click", () => { V.sel = +b.dataset.vhPrev; V.drop = false; draw(); }));
   dlg.querySelectorAll("[data-vh-res]").forEach(b => b.addEventListener("click", () => restoreAt(+b.dataset.vhRes)));
   const bk = dlg.querySelector("[data-vh-back]"); if (bk) bk.addEventListener("click", () => { V.sel = -1; draw(); });
+  if (!s && window.SBPRO && SBPRO.locked()) proHint();
   const dr = dlg.querySelector("[data-vh-drop]"); if (dr) dr.addEventListener("change", () => { V.drop = dr.checked; });
 }
 function restoreAt(i){
@@ -362,22 +363,27 @@ function restoreDeck(id, s, drop){
 
 /* Entry points */
 const PRO_WHY = "Version History is part of Studyboard Pro: bring back any note or deck from the last 30 days.";
+// Free plan (after Pro or the free weeks end): versions already saved on this device, and those in Google Drive or OneDrive backups,
+// can still be seen and restored. Only keeping new versions is Pro.
+const hasSaved = (kind, id) => keys.has(kind + ":" + id) || cloudOn();
+const proHint = () => {
+  const body = dlg.querySelector(".sheet-body");
+  if (body && !body.querySelector(".vh-hint")) body.insertAdjacentHTML("beforeend", `<p class="mini vh-hint" style="margin:0">Pro keeps 30 days of versions, for decks too. <button type="button" class="link-btn" data-act="vh-pro">See Pro</button></p>`);
+};
 function deckBtn(d){
-  if (!d || inPreview() || !window.SBPRO || SBPRO.locked()) return "";
-  return keys.has("deck:" + d.id) || cloudOn() ? `<button type="button" class="btn" data-act="vh-deck" data-id="${esc(d.id)}">Earlier Versions</button>` : "";
+  if (!d || inPreview() || !window.SBPRO) return "";
+  return hasSaved("deck", d.id) ? `<button type="button" class="btn" data-act="vh-deck" data-id="${esc(d.id)}">Earlier Versions</button>` : "";
 }
 hook("act", (act, el, id) => {
   if (act === "note-versions") {
     if (!window.SBPRO || inPreview()) return false;
     if (SBPRO.locked()) {
-      noteVersionsSheet(id);
-      const body = dlg.querySelector(".sheet-body");
-      if (body && !body.querySelector(".vh-hint")) body.insertAdjacentHTML("beforeend", `<p class="mini vh-hint" style="margin:0">Pro keeps 30 days of versions, for decks too. <button type="button" class="link-btn" data-act="vh-pro">See Pro</button></p>`);
+      if (hasSaved("note", id)) openFor("note", id); else { noteVersionsSheet(id); proHint(); }
       return true;
     }
     openFor("note", id); return true;
   }
-  if (act === "vh-deck") { if (!state.decks[id]) return true; if (SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return true; } openFor("deck", id); return true; }
+  if (act === "vh-deck") { if (!state.decks[id]) return true; if (SBPRO.locked() && !hasSaved("deck", id)) { PLAN.openSheet(PRO_WHY); return true; } openFor("deck", id); return true; }
   if (act === "vh-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(PRO_WHY); return true; }
   return false;
 });

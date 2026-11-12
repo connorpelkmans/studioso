@@ -40,7 +40,7 @@ const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
     await page.waitForFunction(() => window.__sbPlanObj && window.__sbPlanObj(), null, {timeout: 10000}); await page.waitForTimeout(3200);
     await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await page.evaluate(() => window.__sbPlanObj().openSheet()); await page.waitForSelector("dialog[open] .plan-sheet", {timeout: 5000}); await page.waitForTimeout(400);
-    const r = await page.evaluate(() => ({pro: window.__sbPlanObj().isPro(), up: !!document.querySelector("dialog[open] .plan-upai"), buy: document.querySelectorAll('dialog[open] [data-act="plan-buy"]').length,
+    const r = await page.evaluate(() => ({pro: window.__sbPlanObj().isPro(), up: !!document.querySelector("dialog[open] .plan-upai"), buy: document.querySelectorAll('dialog[open] [data-act="plan-pick"]').length + document.querySelectorAll('dialog[open] [data-act="plan-buy"]').length,
       text: (document.querySelector("dialog[open] .plan-upai") || {}).textContent || ""}));
     await ctx.close(); return r;
   };

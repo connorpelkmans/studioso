@@ -1651,7 +1651,7 @@ async function runQueue(key, e){
         if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
 
         if (code === "item_too_big") syncBigWarn(key, job.data);
-        else if ((code === "quota_exceeded" || code === "quota_or_state") && Date.now() - syncFullAt > 5 * 60000) { syncFullAt = Date.now(); toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true}); }
+        else if ((code === "quota_exceeded" || code === "quota_or_state") && Date.now() - syncFullAt > 5 * 60000) { syncFullAt = Date.now(); reviewQuiet(3); toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true}); }
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
       }
     }
@@ -8336,6 +8336,7 @@ const GRADE_CHEER = (() => {
     try { celebrate("check"); } catch (e) {}
     const t = fresh[0], p = Math.round(pctOf(t));
     try { toast(fresh.length === 1 ? `${p}% on ${t.title}. Great work!` : `${fresh.length} new grades of ${MIN}% or more. Great work!`); } catch (e) {}
+    fire("good-moment", "grade");
   }
   const soon = ms => { clearTimeout(T); T = setTimeout(() => { try { scan(); } catch (e) { console.warn("grade cheer", e); } }, ms); };
   hook("render", () => soon(1500));
@@ -10455,7 +10456,21 @@ function syncPill(on){
   if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
   else el.classList.remove("show");
 }
+/* Unhappy moments: an error message, or a free-plan limit, offers "Tell Us" (the feedback form, with the message filled in), so a
+   student who's stuck reaches the person who makes the app, and the App Store review prompt stays quiet for a while (99-review-ask.js) */
+function tellUs(about, cat){
+  const go = () => { try { if (window.SBFEEDBACK) SBFEEDBACK.open({cat: cat || "bug", msg: about ? `About “${String(about).slice(0, 300)}”: ` : ""}); } catch (e) {} };
+  try { if (dlg.open) { dlg.close(); setTimeout(go, 40); return; } } catch (e) {}
+  go();
+}
+const tellUsBtn = (about, cat) => ({label: "Tell Us", fn: () => tellUs(about, cat)});
+// keep the review prompt away for a few days after a limit, a paywall or the end of the free weeks
+function reviewQuiet(days){
+  try { const k = "studyboard:reviewQuietUntil", until = Date.now() + days * 864e5; if (until > (Number(localStorage.getItem(k)) || 0)) localStorage.setItem(k, String(until)); } catch (e) {}
+}
 function toast(msg, undoFn, extra, opts){
+  // an error message with a free button slot offers Tell Us (not the feedback form's own messages, and not offline errors)
+  if (opts && opts.error && !opts.noTell && [].concat(extra || []).filter(Boolean).length < 2 && window.SBFEEDBACK && !(typeof navigator !== "undefined" && navigator.onLine === false)) extra = [].concat(extra || []).filter(Boolean).concat([tellUsBtn(msg, "bug")]);
   const t = toastEl(), b = toastPart("toastUndo"), x = toastPart("toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = toastPart("toastX");
   if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", toastHide); }
@@ -12002,7 +12017,7 @@ hook("act", (act, el) => {
   }
   if (act === "cd-old") { ui.cdOld = ui.cdOld === ui.courseId ? null : ui.courseId; render(); return true; }
   if (act === "ci-ai") {
-    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("ai-icons")}); return true; }
+    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("Making your own course icons with AI is part of Studyboard Pro.")}); return true; }
     if (!aiReady()) { toast("Set up AI to make your own icons", null, {label: "Set Up AI", fn: () => aiSetupSheet(true)}); return true; }
     const box = $("#ciAi"); if (box) { box.hidden = !box.hidden; if (!box.hidden) { const q = $("#ciAiQ"); if (q) q.focus(); } }
     return true;
@@ -21770,6 +21785,15 @@ function toggleTask(id, el){
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
+  if (n.status === "done" && todayCleared()) fire("good-moment", "plan");
+}
+// Today's Plan has nothing left to do: no planned work still open, nothing due today or earlier still open (99-review-ask.js)
+function todayCleared(){
+  try {
+    const today = todayISO(), F = computeFocus();
+    if ((F.ranked || []).some(x => (x.alloc > 0 || x.dl <= 0) && !x.t.xs && !x.dead && x.t.status !== "done")) return false;
+    return !tasksArr().some(t => t.status !== "done" && t.due && t.due <= today && !t.deleted && !t.archived);
+  } catch (e) { return false; }
 }
 // Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
 // page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
@@ -22771,8 +22795,37 @@ window.__sbPlanObj = () => PLAN;
     if (mine[key]) return false;
     mine[key] = Date.now(); seen[uid] = mine; write(K_LIMITS, seen);
     track("note", o.reason || msg);
-    toast(msg, null, {label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))});
+    reviewQuiet(3);
+    toast(msg, null, [{label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))}, tellUsBtn(msg, "idea")]);
     return true;
+  }
+  /* Free runs: a free account (with its own AI key) gets a few runs a week of some Pro AI tools, so it can try them for real.
+     kind: "quiz" (Quiz Me), "teach" (Teach It Back), "rubric" (Rubric Check). The count is kept in settings, so it syncs to the
+     account's other devices like the collection previews, and starts again each Monday (local time). Pro has no count. */
+  const FREE_RUNS = 3, RUN_NAMES = {quiz: ["Quiz Me", "session", "sessions"], teach: ["Teach It Back", "check", "checks"], rubric: ["Rubric Check", "check", "checks"]};
+  const runWeek = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return iso(d); };
+  function runsState(){
+    const r = state && state.settings && state.settings.freeRuns, wk = runWeek();
+    return r && typeof r === "object" && r.wk === wk ? r : {wk};
+  }
+  // how many free runs of this kind are left this week (Infinity when nothing's locked)
+  function runsLeft(kind){
+    if (!paywall() || isPro()) return Infinity;
+    return Math.max(0, FREE_RUNS - (Number(runsState()[kind]) || 0));
+  }
+  // count one finished run; says how many are left once it's counted
+  function useRun(kind){
+    if (!paywall() || isPro() || !RUN_NAMES[kind]) return;
+    const r = Object.assign({}, runsState()); r[kind] = (Number(r[kind]) || 0) + 1;
+    state.settings = Object.assign({}, state.settings, {freeRuns: r}); saveSettings();
+    const left = runsLeft(kind), [name, one, many] = RUN_NAMES[kind];
+    setTimeout(() => toast(left ? `${left} free ${name} ${left === 1 ? one : many} left this week` : `That was this week's last free ${name} ${one}. More on Monday.`, null, {label: "See Pro", fn: () => proSheet(`${name} is unlimited with Studyboard Pro.`)}), 600);
+  }
+  // the Pro sheet when this week's free runs are used up
+  function runsGone(kind, why){
+    const n = RUN_NAMES[kind] || ["This", "run", "runs"];
+    reviewQuiet(3);
+    proSheet(`You've used this week's ${FREE_RUNS} free ${n[0]} ${n[2]}. They're back on Monday, or get unlimited ${n[2]} with Pro. ${why || ""}`.trim());
   }
   function redeemSheet(){
     if (!sbUser) { toast("Sign in first, then redeem your code."); if (typeof sbAsk === "function") sbAsk(); return; }
@@ -22835,14 +22888,14 @@ window.__sbPlanObj = () => PLAN;
     const save = k => { mine[k] = Date.now(); seen[uid] = mine; write(K_WELCOME, seen); };
     const endAt = ts(e.trial_until);
     if (endAt > now() && endAt - now() <= 864e5 && !mine.lastDay) {
-      save("lastDay"); if (!mine.start) save("start");
+      save("lastDay"); if (!mine.start) save("start"); reviewQuiet(3);
       setTimeout(() => toast(`Your two free weeks of Pro end tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro end tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
     } else if (endAt > now() && !mine.start) {
       if (window.SBOB && SBOB.pending()) { clearTimeout(welcomeRetry); welcomeRetry = setTimeout(welcomeNotes, 4000); return; }
       save("start");
       setTimeout(() => { if (window.SBOB && SBOB.pending()) { delete mine.start; seen[uid] = mine; write(K_WELCOME, seen); return; } welcomePop(e.trial_until); }, 1200);
     } else if (endAt <= now() && now() - endAt < 30 * 864e5 && !paid() && !mine.end) {
-      save("end");
+      save("end"); reviewQuiet(7);
       setTimeout(() => toast("Your two free weeks of Pro have ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro have ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
@@ -23251,17 +23304,22 @@ window.__sbPlanObj = () => PLAN;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
-    return `<div class="plan-prices${sm ? " three" : ""}">
-        <button type="button" class="plan-price" data-act="plan-buy" data-id="monthly"><span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}</button>
-        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> / 4 months</small></span><span class="pp-sub">${esc((semOnce() ? ["Paid once, doesn't renew"] : [trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span></button>` : ""}
-        <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
+    // one plan is picked from the start (Yearly, the best value), and one clear button buys it; tapping a tile only picks it
+    const ids = ["monthly"].concat(sm ? ["semester"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
+    const NAME = {monthly: "Monthly", semester: "Semester", yearly: "Yearly"}, AMT = {monthly: pr.monthly, semester: semPrice(), yearly: pr.yearly};
+    const tile = (id, cls, inner) => `<button type="button" class="plan-price${cls}" data-act="plan-pick" data-id="${id}" role="radio" aria-checked="${pick === id}">${inner}</button>`;
+    return `<div class="plan-prices${sm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
+        ${tile("monthly", "", `<span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}`)}
+        ${sm ? tile("semester", "", `<span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> for the whole term</small></span><span class="pp-sub">${esc((semOnce() ? ["4 months, paid once, doesn't renew"] : ["Renews every 4 months", trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span>`) : ""}
+        ${tile("yearly", " best", `${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span>`)}
       </div>
+      <button type="button" class="btn primary plan-go" data-act="plan-buy" data-id="${pick}">${trial ? "Start Free Trial" : "Get Pro"} · ${esc(NAME[pick])}, ${esc(AMT[pick])}</button>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
       ${renewalText(pr, trial)}`;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
-    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);
+    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) { track("shown", reason); try { localStorage.setItem("studyboard:proShownAt", String(Date.now())); } catch (e) {} reviewQuiet(1); }
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
     const rows = compareRows();
@@ -23292,6 +23350,7 @@ window.__sbPlanObj = () => PLAN;
   async function devicesSheet(limitHit){
     const L = lim(), limited = paywall() && !isPro();
     limitHit = !!limitHit && limited;
+    if (limitHit) reviewQuiet(3);
     const draw = (list, err) => {
       const mine = deviceId();
       const intro = limitHit
@@ -23354,6 +23413,15 @@ window.__sbPlanObj = () => PLAN;
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
       case "plan-buy": buy(id); return true;
+      case "plan-pick": {
+        // pick a plan: the tiles and the button follow, without redrawing the sheet
+        P.pick = id;
+        const box = el.closest(".plan-sheet") || dlg;
+        box.querySelectorAll('[data-act="plan-pick"]').forEach(b => b.setAttribute("aria-checked", String(b.dataset.id === id)));
+        const go = box.querySelector(".plan-go"), name = el.querySelector(".pp-name"), amt = el.querySelector(".pp-amt");
+        if (go) { go.dataset.id = id; go.textContent = go.textContent.replace(/·.*$/, `· ${name ? name.textContent : ""}, ${amt && amt.firstChild ? amt.firstChild.textContent : ""}`); }
+        return true;
+      }
       case "plan-buy-web": buyWebEU(); return true;
       case "plan-refresh": refreshNow(); return true;
       case "plan-restore": restore(); return true;
@@ -23389,13 +23457,13 @@ window.__sbPlanObj = () => PLAN;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
     fmtMB
   };
-  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
+  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), runsLeft, refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
 })();
 
 
@@ -28003,6 +28071,8 @@ Return JSON only.`;
   // Answers from the student's files restate them in the AI's own words (the copyright rule in aiCall), on every route
   const callPlan = (plan, args) => { args = Object.assign({}, args, {task: args.task || "ask"}); args.system = aiCopyRule(args.system, args.task); return plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args); };
   const proLocked = () => !!(window.SBPRO && SBPRO.locked && SBPRO.locked());
+  // free plan: a few Quiz Me sessions a week with the student's own AI key (PLAN.runsLeft)
+  const quizLeft = () => typeof PLAN !== "undefined" && PLAN && PLAN.runsLeft ? PLAN.runsLeft("quiz") : 0;
   const SENT = 8;
   const bodyOf = x => { const d = x.doc; return x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n")); };
   const srcText = (rows, nums) => rows.slice(0, SENT).map((x, i) => nums && !nums.includes(i + 1) ? "" : `[${i + 1}] ${citeOf(x)}\n${String(bodyOf(x)).slice(0, 1500)}`).filter(Boolean).join("\n\n");
@@ -28096,6 +28166,8 @@ Return JSON only.`;
       A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
     }
     if (S.ask === A || S.thread.includes(A)) draw();
+    // opened to quiz (quizCourse): Quiz Me starts on its own once the answer and its sources are in
+    if (S.autoQuiz === A) { S.autoQuiz = null; if (A.answer.state === "done" && A.answer.found !== false && (A.rows || []).length && S.ask === A) startTutor(A); }
   }
   // Only when the student asks, and only the question (and the course's name) is sent
   async function getGeneral(T){
@@ -28164,7 +28236,7 @@ Return JSON only.`;
   // Quiz Me: questions from the answer's sources (the AI quiz writer)
   async function startTutor(T){
     if (!T) return;
-    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: one question at a time from your material, checked and explained."); return; }
+    if (proLocked() && quizLeft() <= 0) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.runsGone("quiz", "Quiz Me asks one question at a time from your material, checked and explained."); return; }
     if (!aiReady()) { close(); aiSetupSheet(true); return; }
     const tu = S.tutor = {ti: turnIx(T), state: "loading", qs: [], i: 0, ans: []}; draw();
     const c = courseOf(studyCid(T)), text = studyText(T);
@@ -28174,6 +28246,7 @@ Return JSON only.`;
       const qs = r.questions.filter(q => ["single", "truefalse", "short"].includes(q.type)).slice(0, 5);
       if (!qs.length) throw aiErr("empty", "Couldn't write questions from this material. Try asking about something your notes cover in more detail.");
       Object.assign(tu, {state: "ready", qs});
+      if (proLocked() && typeof PLAN !== "undefined" && PLAN && PLAN.useRun) PLAN.useRun("quiz");
     } catch(e) { if (S.tutor !== tu) return; Object.assign(tu, {state: "error", err: e.message || "Couldn't write questions right now. Try again."}); }
     draw();
   }
@@ -28410,7 +28483,7 @@ Return JSON only.`;
     const ok = an.found && T.rows.length > 0, gen = T.general && T.general.state === "done";
     if (!ok && !gen) return "";
     const saved = T.saved && state.notes[T.saved];
-    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
+    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() && quizLeft() > 0 ? ` <span class="mini">${quizLeft()} free this week</span>` : proLocked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
     if (T.study && T.study.busy) h += `<p class="sx-hint">${dots} ${esc(T.study.msg)}</p>`;
     else if (T.study && T.study.err) h += `<p class="sx-hint sx-err">${esc(T.study.err)}</p>`;
     if (saved) h += `<p class="sx-hint" role="status">Saved to your Notes, with a link to each source.</p>`;
@@ -28759,6 +28832,12 @@ Return JSON only.`;
     loadTexts().then(() => queueFiles()).catch(() => {});
   }
   window.SBSEARCH.warm = warmFiles;
+  // Quiz Me on a course in one tap (the exam offer on Today's Plan): asks the question in Ask Your Course, then starts Quiz Me on the answer
+  window.SBSEARCH.quizCourse = (cid, q) => {
+    if (dlg.open) dlg.close();
+    resetThread(); open(q, {mode: "ask", course: cid || "", fresh: true, run: false});
+    runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
+  };
   setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });
@@ -29177,7 +29256,7 @@ document.head.appendChild(AREA_CSS);
         ${li("Picture Cards", "and cards made from the diagrams in your PDFs and pictures")}
         ${li("Insights, Term Recap and More Focus Routines")}
       </ul>
-      <p class="ob-note mini">${gift ? "" : account ? "It starts as soon as you confirm your email address. " : "It starts when you make your free account. You can do that at the end of setup. "}Storage and backups stay at the Free amounts during the week.</p>`;
+      <p class="ob-note mini">${gift ? "" : account ? "It starts as soon as you confirm your email address. " : "It starts when you make your free account. You can do that at the end of setup. "}Storage and backups stay at the Free amounts during the two weeks.</p>`;
   }
 
   function doneStep(){
@@ -29643,7 +29722,7 @@ document.head.appendChild(AREA_CSS);
         <p class="mini" style="margin:0">${ai ? "Was an AI answer wrong, harmful, offensive or inappropriate? Tell us what happened. Every report is read by the person who makes the app." : "Tell us what went wrong, or what would make Studyboard better. Every report is read by the person who makes the app."}</p>
         ${queued ? `<p class="mini" style="margin:0">${queued} earlier report${queued === 1 ? " is" : "s are"} waiting to send when you're online.</p>` : ""}
         <label class="f">What is it about?<select name="cat">${[["bug", "Something is broken"], ["ai", "An AI response was wrong or inappropriate"], ["idea", "An idea or feature request"], ["confusing", "Something is confusing"], ["other", "Something else"]].map(([v, l]) => `<option value="${v}" ${v === (opts.cat || "bug") ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-        <label class="f"><span class="lh">What happened?<span class="req" aria-hidden="true">*</span></span><textarea name="msg" id="bugMsg" rows="4" maxlength="2000" placeholder="${ai ? "What was wrong with the response?" : "Describe the problem or your idea. What did you expect to happen?"}" data-noenter autofocus></textarea></label>
+        <label class="f"><span class="lh">What happened?<span class="req" aria-hidden="true">*</span></span><textarea name="msg" id="bugMsg" rows="4" maxlength="2000" placeholder="${ai ? "What was wrong with the response?" : "Describe the problem or your idea. What did you expect to happen?"}" data-noenter autofocus>${esc(String(opts.msg || "").slice(0, 2000))}</textarea></label>
         ${ai ? `<label class="f"><span class="lh">The AI response <span class="hint">sent with your report; remove anything private</span></span><textarea name="steps" rows="5" maxlength="1500" data-noenter>${esc(ai.text)}</textarea></label>`
           : `<label class="f"><span class="lh">Steps to make it happen <span class="hint">optional</span></span><textarea name="steps" rows="3" maxlength="1500" placeholder="1. Go to… 2. Tap… 3. See…" data-noenter></textarea></label>`}
         ${signedIn ? `<div class="bug-shot">
@@ -41861,10 +41940,10 @@ function cleanFile(r) {
         if (r.needLogin || r.error) { setLocal({fails: (local().fails || 0) + 1}); if (!o.quiet) signInAgain(); else scheduleRender(); return null; }
         if (!o.quiet) toast(`Your ${P.name} sign-in ran out, so Studyboard used your calendar link. Sign in again for grades and announcements.`);
       }
-      if (r.error) { setLocal({err: r.text, fails: (local().fails || 0) + 1}); if (!o.quiet) toast(r.text); scheduleRender(); return null; }
+      if (r.error) { setLocal({err: r.text, fails: (local().fails || 0) + 1}); if (!o.quiet) toast(r.text, null, {label: "Try Again", fn: () => syncNow()}, {error: true}); scheduleRender(); return null; }
       const p = plan(r.data);
       return applyPlan(r.data, p, used, !!o.quiet);
-    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}. Try again.`); return null; }).finally(() => { running = null; if (pill) syncPill(false); refreshSheet(); });
+    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}.`, null, {label: "Try Again", fn: () => syncNow()}, {error: true}); return null; }).finally(() => { running = null; if (pill) syncPill(false); refreshSheet(); });
     refreshSheet();
     return running;
   }
@@ -42242,7 +42321,9 @@ function cleanFile(r) {
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="${A}-back">Back</button></div></div>`);
   }
+  // A sync started here that needs a fresh sign-in: a message at the bottom with Sign In (it stays until dealt with)
   function signInAgain(){
+    if (!dlg.open || !dlg.querySelector(".bs-status")) { toast(`Sign in to ${P.name} to continue syncing.`, null, {label: "Sign In", fn: () => doLogin().catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); })}, {error: true}); return; }
     openSheet(`<div class="sheet">${head(`Sign In to ${P.name} Again`)}
       <div class="sheet-body"><p style="margin:0">Your ${P.name} sign-in on this device has run out (they usually last a few days or weeks). Sign in again to keep your due dates, grades and announcements up to date.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Later</button><button type="button" class="btn primary" data-act="${A}-login">Sign In</button></div></div>`);
@@ -42424,7 +42505,7 @@ function cleanFile(r) {
   function readAgain(wait){
     const c = cfg();
     if (bsDesk() && c.mode === "api") { syncNow({force: true}); return; }
-    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem(extKey(P.id)); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); return; }
+    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem(extKey(P.id)); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); extSyncWatch([P.id]); return; }
     if (c.feed) { syncNow({force: true}); return; }
     setTimeout(() => toast(extNudge("to bring everything back"), null, extBtn()), wait || 0);
   }
@@ -43045,6 +43126,31 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   const EXT_STORE = {chrome: EXT_CHROME_URL, edge: EXT_EDGE_URL, firefox: "", safari: ""};
   const EXT = {on: false, version: "", schools: [], checked: false};
   const extPost = m => window.postMessage(Object.assign({source: "studyboard-app"}, m), location.origin);
+  // A sync started here and run by the extension: "Syncing" until every school it was asked for reports back, then, if one
+  // couldn't sync, a message at the bottom that says why, with a way forward (Sign In opens that school site's sign-in)
+  let extWatch = null;
+  const hostOfExt = o => { try { return new URL(o).host; } catch (e) { return String(o || "").replace(/^https?:\/\//, ""); } };
+  function extSyncWatch(ids){
+    if (extWatch) { clearTimeout(extWatch.timer); syncPill(false); }
+    syncPill(true);
+    extWatch = {ids: ids.slice(), t0: Date.now() - 1500, timer: setTimeout(() => extWatchEnd(null), 120000)};
+  }
+  function extWatchEnd(res){
+    const w = extWatch; if (!w) return; extWatch = null; clearTimeout(w.timer); syncPill(false);
+    const nm = id => (LMS[id] && LMS[id].P.name) || "your school site";
+    if (!res) { toast("The Studyboard School Sync extension didn't finish syncing. Open it from your browser's toolbar to check on it.", null, null, {error: true}); return; }
+    const login = res.filter(x => x.state === "login"), perm = res.filter(x => x.state === "permission"), bad = res.filter(x => x.state === "error");
+    if (login.length) { const x = login[0]; toast(`Sign in to ${hostOfExt(x.origin)} to continue syncing ${nm(x.id)}.`, null, {label: "Sign In", fn: () => openOutside(x.origin)}, {error: true}); return; }
+    if (perm.length) { toast(`The Studyboard School Sync extension needs your OK to read ${hostOfExt(perm[0].origin)}. Open it from your browser's toolbar and allow it to continue syncing.`, null, null, {error: true}); return; }
+    if (bad.length) { const x = bad[0]; toast(`Couldn't sync ${nm(x.id)}${x.error ? ": " + x.error : ""}. Try again in a moment.`, null, {label: "Try Again", fn: () => { extPost({type: "sync"}); extSyncWatch(w.ids); }}, {error: true}); }
+  }
+  function extWatchCheck(){
+    const w = extWatch; if (!w) return;
+    const res = w.ids.map(id => EXT.schools.find(x => x.id === id)).filter(Boolean);
+    if (res.length < w.ids.length) { if (EXT.schools.length && !res.length) extWatchEnd([]); return; }
+    if (res.some(x => !((x.tried || 0) >= w.t0) || x.state === "syncing")) return;
+    extWatchEnd(res);
+  }
   const EXT_REV = "2026-10-17f";
   const extKey = id => "studyboard:ext:" + (sbUser && sbUser.id ? sbUser.id : "guest") + ":" + id;
   const extSeen = id => { try { const v = String(localStorage.getItem(extKey(id)) || "").split("|"); return v[1] === EXT_REV ? Number(v[0]) || 0 : 0; } catch(e) { return 0; } };
@@ -43100,6 +43206,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       else if (d.type === "data") {
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
         EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0, tried: Number(x.tried) || 0, error: String(x.error || "").replace(/[<>]/g, "").slice(0, 160)}));
+        extWatchCheck();
         (Array.isArray(d.list) ? d.list : []).slice(0, 3).forEach(x => { extChain = extChain.then(() => extImport(x)).catch(err => console.warn("extension import", err)); });
       }
     });
@@ -43241,7 +43348,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       const on = ALL().filter(L => L.connected());
       if (!on.length) { pickerSheet(); return true; }
       if (!navigator.onLine) { toast("You're offline. Connect to the internet and try again."); return true; }
-      if (EXT.on) { const viaExt = on.filter(L => EXT.schools.some(x => x.id === L.P.id)); if (viaExt.length) { extPost({type: "sync"}); toast(`Syncing ${viaExt.map(L => L.P.name).join(" and ")} with the Studyboard School Sync extension…`); } }
+      if (EXT.on) { const viaExt = on.filter(L => EXT.schools.some(x => x.id === L.P.id)); if (viaExt.length) { extPost({type: "sync"}); extSyncWatch(viaExt.map(L => L.P.id)); } }
       const can = on.filter(L => L.canSync() && !(EXT.on && EXT.schools.some(x => x.id === L.P.id))), cant = on.filter(L => !L.canSync() && !(EXT.on && EXT.schools.some(x => x.id === L.P.id)));
       if (!can.length && !cant.length) return true;
       if (cant.length) {
@@ -64905,13 +65012,21 @@ var COMP_EXTRA = [];
     for (let i = 0; i < n; i++) {
       const s = document.createElement("span");
       s.className = "cp-pt" + (still() ? " cp-pt-still" : "");
-      const size = (kind === "z" ? 13 : rand(11, 16)) * (small ? 0.8 : 1);
-      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : top[0] * k + rand(-px * 0.36, px * 0.36), y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : top[1] * k + rand(-4, 14);
-      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(kind === "bang" ? 0 : rand(-14, 14))}px;--r:${f1(kind === "bang" ? 0 : rand(-20, 20))}deg;animation-delay:${Math.round(i * 200)}ms`;
+      // Hearts and sparkles: a clear size, starting either side of the head (alternating) and drifting up and outward, so they
+      // never pass behind the speech bubble above it; each keeps one gentle tilt the whole way (no wobble)
+      const pop = kind === "heart" || kind === "sparkle";
+      const size = (kind === "z" ? 13 : pop ? rand(16, 19) : rand(11, 16)) * (small ? 0.8 : 1);
+      const sd = i % 2 ? 1 : -1, cx = top[0] * k;
+      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : pop ? cx + sd * px * rand(0.3, 0.44) : top[0] * k + rand(-px * 0.36, px * 0.36);
+      const y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : pop ? top[1] * k + rand(4, 16) : top[1] * k + rand(-4, 14);
+      const dx = kind === "bang" ? 0 : pop ? sd * rand(10, 18) : rand(-14, 14), r = kind === "bang" ? 0 : pop ? sd * rand(4, 10) : rand(-20, 20);
+      s.className += pop ? " cp-pt-pop" : "";
+      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(dx)}px;--r:${f1(r)}deg;animation-delay:${Math.round(i * (pop ? 170 : 200))}ms`;
       s.innerHTML = art[kind] || art.sparkle;
       fx.appendChild(s);
       const kill = () => s.remove();
-      s.addEventListener("animationend", kill, {once: true});
+      // only its own float ends it (the page-wide fade-in for new things, 99-smooth, used to end it after a fifth of a second)
+      s.addEventListener("animationend", e => { if (e.target === s && /^cp(Up|Float|Fade)$/.test(e.animationName)) kill(); });
       setTimeout(kill, 3600 + i * 200);
     }
   }
@@ -65140,7 +65255,7 @@ var COMP_EXTRA = [];
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
-    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
+    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
       ${sc ? `<label class="cp-ask-ctx"><input type="checkbox" class="cp-ctx-on" checked> <span>About this ${esc(sc.kind.toLowerCase())}: <b>${esc(shortT(sc.label, 34))}</b></span></label>` : ""}
       <span class="cp-ask-hint">${sc ? esc(sc.hint) : (() => { try { return aiReady(); } catch (e) { return false; } })() ? `Like "find my lab notes" or "move my essay to Friday"` : `Like "what should I do next?" or "quiz me on something"`}</span>`;
     placeBubble(b);
@@ -65267,9 +65382,9 @@ var COMP_EXTRA = [];
     if (layer && sig === curSig) { applyVars(); placeSoon(0); return; }
     const first = !layer;
     if (!layer) {
-      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer";
+      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer sm-skip";
       document.body.appendChild(layer);
-      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front";
+      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front sm-skip";
       front.innerHTML = `<div class="cp-bubble" role="status"></div>`;
       // pointing at a bubble keeps it up; it goes a moment after the pointer leaves (an open Ask box keeps its own timer)
       { const bb = front.querySelector(".cp-bubble");
@@ -65285,7 +65400,7 @@ var COMP_EXTRA = [];
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
-    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
+    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx sm-skip"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
     // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
     // while a sheet or the keyboard holds off the next placement
@@ -72656,7 +72771,7 @@ const IA = (() => {
       if (a.pics) warn.push(trn("ia.w.pics", a.pics, "{n} picture wasn't brought in.|{n} pictures weren't brought in."));
       if (a.sounds) warn.push(trn("ia.w.sounds", a.sounds, "{n} sound wasn't brought in.|{n} sounds weren't brought in."));
       if (a.picsLost) warn.push(trn("ia.w.picLost", a.picsLost, "{n} image occlusion card's picture wasn't in the file, so it was left out.|{n} image occlusion cards' pictures weren't in the file, so they were left out."));
-      if (a.pictures) warn.push(window.SBPRO && SBPRO.locked && SBPRO.locked() ? tr("ia.w.picsFree", "Image occlusion notes come in as Picture Cards, with their masks and history. You can study them now; editing their boxes and Diagram Practice are part of Studyboard Pro.") : tr("ia.w.picsIn", "Image occlusion notes come in as Picture Cards, with their masks and history."));
+      if (a.pictures) warn.push(window.SBPRO && SBPRO.locked && SBPRO.locked() ? tr("ia.w.picsFree", "Image occlusion notes come in as Picture Cards, with their masks and history. You can study them and edit their boxes now; Diagram Practice is part of Studyboard Pro.") : tr("ia.w.picsIn", "Image occlusion notes come in as Picture Cards, with their masks and history."));
       if (a.skipped) warn.push(trn("ia.w.skip", a.skipped, "{n} card had nothing but pictures or sound on one side and was left out.|{n} cards had nothing but pictures or sound on one side and were left out."));
     } else {
       const p = r.plan;
@@ -75309,13 +75424,54 @@ function inputFor(ex, P, topics, due){
     days: P.days, rest: P.rest, light: P.light, start: P.start || "", done, examTitle: ex.title, early: !!(P.lesson && P.lesson.early), favor: P.lesson && P.lesson.questions ? "questions" : "", dayInfo: dayInfoFn(ex, today, due),
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
-function readyFor(ex){
+// doneOf (optional): whether to count a session as done, for the exam-day forecast's "what if" (default: whether it is done)
+function readyFor(ex, doneOf){
   const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {};
   P.topics.forEach(t => (t.links || []).forEach(l => {
     if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).mastery};
     if (l.k === "quiz") { const d = state.decks[l.deckId], q = d && (d.aiQuizzes || []).find(x => x.id === l.id), r = q && (q.results || []).slice(-1)[0]; if (r && r.total) quiz[l.id] = Math.round(r.score / r.total * 100); }
   }));
-  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: s.status === "done", kind: s.kind})), decks, quiz});
+  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
+}
+/* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
+   flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
+   - if you do every session: every session not done yet counted as done, slipped ones too (that's what Catch Up is for)
+   - at your pace: today's readiness moved toward that by the share of sessions due so far that got done
+     (only once at least one session has come due)
+   - the topic to work on next: the one still lowest if every session gets done, with Teach It Back (or a quiz, once it's Strong) */
+function forecastOf(ex){
+  if (!ex || !hasPlan(ex)) return null;
+  const today = todayISO(); if (!ex.due || ex.due < today) return null;
+  const P = prepOf(ex), ss = sessionsOf(ex.id).slice().sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
+  const now = readyMemo(ex), dueSoFar = ss.filter(s => s.due < today), doneSoFar = dueSoFar.filter(s => s.status === "done").length;
+  const left = ss.filter(s => s.status !== "done" && s.due >= today), rate = dueSoFar.length ? doneSoFar / dueSoFar.length : null;
+  const full = readyFor(ex, () => true), slipped = dueSoFar.length - doneSoFar;
+  // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
+  const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
+  const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
+  const weakest = topics.slice().sort((a, b) => a.full - b.full || a.now - b.now)[0] || null;
+  const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
+  // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it
+  const cap = v => v == null ? null : Math.min(95, v), ev = full.evidence || {};
+  return {now: now.pct, pace: cap(pace), full: cap(full.pct), thin: !(ev.cards || ev.quizzes), slipped, rate, dueSoFar: dueSoFar.length, doneSoFar, left: left.length, days, topics, weakest};
+}
+const FC_WHY = "The Exam Day Forecast is part of Studyboard Pro: where your readiness is heading by exam day, and the topic to work on next.";
+function forecastHtml(ex){
+  const F = forecastOf(ex); if (!F || F.full == null) return "";
+  const locked = !!(window.SBPRO && SBPRO.locked());
+  if (locked) return `<div class="pp-fc pp-fc-lock"><div class="pp-fc-h"><b>Exam Day Forecast</b> ${typeof PRO_BADGE === "string" ? PRO_BADGE : ""}</div><p class="pp-fc-why">See how ready you'll be on ${esc(fmtDate(ex.due))} at your pace, and which topic to work on next.</p><button type="button" class="btn small" data-act="pp-fc-pro">See Pro</button></div>`;
+  // one number for exam day: at your pace once a session has come due, otherwise if you do every session
+  const day = F.pace != null ? F.pace : F.full, left = F.left + F.slipped;
+  const why = F.pace != null ? `At your pace: you've done ${F.doneSoFar} of the ${F.dueSoFar} session${F.dueSoFar === 1 ? "" : "s"} so far.`
+    : F.rate != null ? "You haven't done a session yet, so this is if you start with today's."
+    : `If you do all ${left} session${left === 1 ? "" : "s"} in your plan.`;
+  const tip = F.pace != null && left && F.full - day >= 5
+    ? `Do ${left === 1 ? "the last session" : `all ${left} sessions left`}${F.slipped ? `, including ${F.slipped === 1 ? "the one that slipped" : `the ${F.slipped} that slipped`},` : ""} to reach about <b>${F.full}%</b>.` : "";
+  const W = F.weakest, nextH = W && W.full < 85 ? `<div class="pp-fc-next"><span>Weakest topic: <b>${esc(W.name)}</b></span>${W.conf === "strong" ? "" : `<button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(W.id)}" data-name="${esc(W.name)}">Teach It Back</button>`}</div>` : "";
+  const when = F.days === 0 ? "Today" : F.days === 1 ? "Tomorrow" : `In ${F.days} days`;
+  return `<div class="pp-fc"><div class="pp-fc-h"><b>Exam Day Forecast</b><span class="mini">${esc(when)}</span></div>
+    <div class="pp-fc-big" role="img" aria-label="${F.now != null ? `Ready today: ${F.now} percent. ` : ""}On exam day: about ${day} percent">${F.now != null ? `<span class="pp-fc-n"><small>Today</small>${F.now}%</span><span class="pp-fc-arrow" aria-hidden="true">→</span>` : ""}<span class="pp-fc-n pp-fc-day"><small>Exam day</small>~${day}%</span></div>
+    <p class="pp-fc-why">${esc(why)}</p>${tip ? `<p class="pp-fc-tip">${tip}</p>` : ""}${nextH}</div>`;
 }
 let PCACHE = {k: "", v: {}};
 function readyMemo(ex){
@@ -75551,7 +75707,8 @@ function drawView(){
   body.innerHTML = `
     <div class="pp-head"><p class="pp-line"><b>${esc(sm.line)}</b></p>
       ${r.gate ? `<p class="mini" style="margin:0">Readiness is worked out from ${esc(evTxt)}.</p>` : `<p class="mini" style="margin:0">Readiness shows once you finish a session, progress on a linked deck or score a quiz.</p>`}
-      <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div></div>
+      <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div>
+    ${past ? "" : forecastHtml(ex)}</div>
     ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-plan to the New Date</button></p>` : ""}
     ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> No problem: spread them over the days that are left. <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
     ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add My Mark and Wrap Up</button></p>` : ""}
@@ -75766,6 +75923,7 @@ function runIdea(id){ const t = state.tasks[id]; if (!t) return; if (t.matKind) 
 
 /* actions */
 hook("act", (act, el, id) => {
+  if (act === "pp-fc-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(FC_WHY); return true; }
   switch (act) {
     case "prep-plan": open(id || (upcoming()[0] || {}).id); return true;
     case "exam-plan": open(id); return true;
@@ -75789,7 +75947,7 @@ hook("changed", changes => {
     });
   } catch (e) { console.warn("prep changed", e); }
 });
-window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
+window.SBPREP = {open, forecast: forecastOf, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
 })();
 
 /* ===== module: 97-exammode.js ===== */
@@ -78132,6 +78290,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, d
     if (d) { const nd = clone(d); rec = MATCH.record(nd.match, R.ms); nd.match = rec.match; saveDeck(nd, null); }
     else { rec = MATCH.record(R.opts.prev || null, R.ms); R.opts.prev = rec.match; }
     R.rec = rec;
+    if (rec.better && !rec.first) fire("good-moment", "match");
     setTimeout(() => { if (R && R.done && dlg.open && dlg.querySelector("[data-mt-play]")) result(); }, still() ? 0 : 360);
   }
   function result(){
@@ -79666,7 +79825,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <h3>Free and Pro</h3>
     <ul>
     <li>Studyboard has a free plan and an optional paid plan called Pro with higher limits and extras. What each includes, the prices and the renewal terms are shown before you buy. We may change prices or features for the future; if you subscribe, the price you agreed to stays the same until your next renewal after we tell you, and we will not take away what you have paid for during the period you paid for.</li>
-    <li><b>Two free weeks of Pro:</b> each new account gets 14 days of Pro once, with no card and no charge. When the two weeks end, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. One free week per person: it isn't given again to a new account made with the same email address.</li>
+    <li><b>Two free weeks of Pro:</b> each new account gets 14 days of Pro once, with no card and no charge. When the two weeks end, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. Two free weeks once per person: they aren't given again to a new account made with the same email address.</li>
     <li><b>Free trial:</b> if a free trial is ever offered at checkout, your plan starts and you are charged when it ends unless you cancel before then.</li>
     <li><b>Renewal and cancelling:</b> subscriptions renew automatically each month, every 4 months (the semester plan) or each year until you cancel. Payments are handled by Stripe, the App Store or Google Play. Cancel any time on the Manage billing page of our website (or in your App Store or Google Play account if you bought there); you keep Pro until the end of the period you paid for.</li>
     <li><b>Refunds:</b> payments are generally not refunded for time already used, except where the law or the purchase page says otherwise. If something went wrong, write to us and we'll sort it out fairly: ${contact()}. Purchases made in the App Store or Google Play follow Apple's or Google's rules for billing, cancelling and refunds.</li>
@@ -80090,6 +80249,131 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 })();
 
 
+/* ===== module: 99-review-ask.js ===== */
+/* Asking for an App Store or Google Play review, at a good moment, in the iPhone, iPad and Android apps only.
+   The system's own prompt (Apple's and Google's, through @capacitor-community/in-app-review): no custom "Enjoying Studyboard?" screen
+   first, because both stores forbid sending only happy people to the review page. Apple shows it at most 3 times a year anyway and
+   may skip it; Google decides too. Nothing tells the app whether it showed or what was given.
+   When: right after a good moment (Today's Plan cleared, a Focus of 20 minutes or more finished, a good grade, a new best Match time),
+   once the moment's own sheet or celebration is gone, the moment still holds (no Undo since), and the student has stopped tapping
+   and typing for a few seconds, so the prompt never lands under a finger or over half-typed text.
+   Only for someone who has used the app for a while (a week, 5 days of use, 10 tasks done).
+   Rarely: at most once per launch and once per app version, 120 days after the first ask, a year after the second, and never more
+   than 3 times in all (Apple's own limit is 3 a year; this stays well under it, since nothing says whether a review was left).
+   Never on a bad or stressful day: within 10 minutes of an error message or a crash, 2 minutes of an Undo, a month of a bug report or
+   feedback, a day of a Pro sheet, a few days of a free-plan limit, a week of the free weeks ending; in Exam Mode, with overdue work, offline or during a Focus. */
+(() => {
+  // QUIET_KEY: until when to stay quiet, set by reviewQuiet() (01-helpers.js) after a free-plan limit (3 days), a Pro sheet (1 day),
+  // the free weeks ending tomorrow (3 days) or ended (7 days), or the storage being full
+  const KEY = "studyboard:reviewAsk", PRO_KEY = "studyboard:proShownAt", BUG_KEY = "studyboard:bugsent", QUIET_KEY = "studyboard:reviewQuietUntil";
+  const DAY = 864e5, MIN_AGE = 7 * DAY, MIN_DAYS = 5, MIN_DONE = 10, GAP = [120 * DAY, 365 * DAY], EVER_MAX = 3, BUG_QUIET = 30 * DAY, PRO_QUIET = DAY,
+    ERR_QUIET = 10 * 60000, UNDO_QUIET = 2 * 60000, IDLE = 3000;
+  const version = () => { try { return typeof APP_VERSION === "string" ? APP_VERSION : ""; } catch (e) { return ""; } };
+  const read = () => { try { const o = JSON.parse(localStorage.getItem(KEY) || "null"); return o && typeof o === "object" ? o : null; } catch (e) { return null; } };
+  const write = o => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} };
+  const num = k => { try { return Number(localStorage.getItem(k)) || 0; } catch (e) { return 0; } };
+  // the record: when the app was first used here, the days it was used (the last 30), and when a review was asked for
+  function rec(){
+    let o = read();
+    if (!o) {
+      // someone who already used the app before this update: when they started, and the days they finished something
+      const T0 = Date.UTC(2023, 0, 1), now = Date.now(), all = tasksArr();
+      const starts = all.map(t => Number(t.created)).filter(x => x > T0 && x < now);
+      const days = [...new Set(all.map(t => Number(t.doneAt)).filter(x => x > T0 && x <= now && now - x < 60 * DAY).map(x => iso(new Date(x))))].sort().slice(-30);
+      o = {first: starts.length ? Math.min(...starts) : now, days, asked: []};
+      write(o);
+    }
+    if (!Array.isArray(o.days)) o.days = [];
+    if (!Array.isArray(o.asked)) o.asked = [];
+    if (!Array.isArray(o.vers)) o.vers = [];
+    if (!(Number(o.first) > 0)) o.first = Date.now();
+    return o;
+  }
+  function noteDay(){
+    const o = rec(), d = todayISO();
+    if (!o.days.includes(d)) { o.days = o.days.concat(d).slice(-30); write(o); }
+  }
+
+  // The store prompt is only there in the phone and tablet apps, with the plugin installed
+  const C = () => window.Capacitor;
+  function plugin(){
+    try {
+      const c = C(); if (!c || !(c.isNativePlatform && c.isNativePlatform())) return null;
+      if (c.isPluginAvailable && !c.isPluginAvailable("InAppReview")) return null;
+      return (c.Plugins && c.Plugins.InAppReview) || (c.registerPlugin ? c.registerPlugin("InAppReview") : null);
+    } catch (e) { return null; }
+  }
+
+  // Something going wrong this session: an error message, or an error the page didn't catch
+  let errAt = 0, undoAt = 0, inputAt = 0, tried = false;
+  // Undo means something just went wrong for the student; tapping, typing and scrolling mean they're in the middle of something
+  document.addEventListener("click", e => { if (e.target && e.target.closest && e.target.closest("#toastUndo")) undoAt = Date.now(); }, true);
+  document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) undoAt = Date.now(); inputAt = Date.now(); }, true);
+  ["pointerdown", "touchstart", "wheel", "scroll", "input"].forEach(t => document.addEventListener(t, () => { inputAt = Date.now(); }, {capture: true, passive: true}));
+  window.addEventListener("error", () => { errAt = Date.now(); });
+  window.addEventListener("unhandledrejection", () => { errAt = Date.now(); });
+  const errSeen = () => { const t = document.getElementById("toast"); return !!(t && t.classList.contains("toast-err") && t.classList.contains("show")); };
+  setInterval(() => { if (errSeen()) errAt = Date.now(); }, 2000);
+
+  // Why not now (empty: it's a good time)
+  function whyNot(now){
+    now = now || Date.now();
+    if (!plugin()) return "not in the app";
+    if (tried) return "already tried this launch";
+    const o = rec();
+    if (now - o.first < MIN_AGE) return "used for less than a week";
+    if (o.days.length < MIN_DAYS) return "used on fewer than 5 days";
+    const done = tasksArr().filter(t => t.status === "done").length;
+    if (done < MIN_DONE) return "fewer than 10 tasks done";
+    const asked = o.asked.filter(t => Number(t) > 0);
+    if (asked.length >= EVER_MAX) return "asked 3 times already";
+    if (asked.length && now - Math.max(...asked) < GAP[Math.min(asked.length, GAP.length) - 1]) return asked.length === 1 ? "asked within 120 days" : "asked twice, the last within a year";
+    if (version() && o.vers.includes(version())) return "asked in this version";
+    if (errAt && now - errAt < ERR_QUIET) return "an error just now";
+    if (undoAt && now - undoAt < UNDO_QUIET) return "an Undo just now";
+    if (now - num(BUG_KEY) < BUG_QUIET) return "a bug report this month";
+    if (now - num(PRO_KEY) < PRO_QUIET) return "a Pro sheet today";
+    if (now < num(QUIET_KEY)) return "a limit, the paywall or the end of the free weeks lately";
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return "offline";
+    try { if (window.SBEXAM && SBEXAM.current && SBEXAM.current()) return "Exam Mode"; } catch (e) {}
+    const today = todayISO();
+    if (tasksArr().some(t => t.status !== "done" && t.due && t.due < today)) return "overdue work";
+    return "";
+  }
+
+  // A good moment: wait for its sheet, toast and celebration to clear, then ask once
+  let waitT = 0;
+  // whether the good moment still stands (Today's Plan can be un-cleared with Undo, or by adding a task)
+  const holds = kind => { try { return kind !== "plan" || (typeof todayCleared === "function" && todayCleared()); } catch (e) { return false; } };
+  const typing = () => { const a = document.activeElement; return !!(a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))); };
+  function moment(kind){
+    if (whyNot()) return;
+    clearTimeout(waitT);
+    const until = Date.now() + 45000;
+    const tryNow = () => {
+      if (document.hidden || Date.now() > until || !holds(kind)) return;
+      const busy = document.querySelector("dialog[open]") || (document.getElementById("toast") && document.getElementById("toast").classList.contains("show"))
+        || (typeof pomo !== "undefined" && pomo && pomo.running && pomo.mode === "focus") || typing() || Date.now() - inputAt < IDLE;
+      if (busy) { waitT = setTimeout(tryNow, 1000); return; }
+      ask(kind);
+    };
+    waitT = setTimeout(tryNow, 1800);
+  }
+  function ask(kind){
+    if (whyNot()) return;
+    const P = plugin(); if (!P || typeof P.requestReview !== "function") return;
+    tried = true;
+    const o = rec(); o.asked = o.asked.concat(Date.now()).slice(-6); o.lastKind = kind; if (version()) o.vers = o.vers.concat(version()).slice(-6); write(o);
+    Promise.resolve().then(() => P.requestReview()).catch(e => console.warn("review prompt", e));
+  }
+
+  hook("boot", noteDay);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { try { noteDay(); } catch (e) {} } });
+  hook("good-moment", kind => { try { moment(String(kind || "")); } catch (e) { console.warn("review ask", e); } });
+  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && !e.missed && Number(e.minutes) >= 20) fire("good-moment", "focus"); });
+
+  if (window.__SB_TEST) window.__sbReviewAsk = {whyNot: () => whyNot(), rec: () => rec(), version: () => version(), moment: k => moment(k), reset: () => { tried = false; errAt = 0; }};
+})();
 /* ===== module: 96-semester.js ===== */
 /* "Set up your semester" */
 (() => {
@@ -80934,7 +81218,7 @@ var SBPRO = null;
   }
   const arrow = d => d === "up" ? "↑" : d === "down" ? "↓" : "→";
   const gradeTxt = tr => tr ? `${tr.letter || Math.round(tr.cur) + "%"} ${arrow(tr.dir)}` : "";
-  function insightsBody(I){
+  function insightsBody(I, preview){
     const empty = `<p class="mini">Not enough to go on yet. Insights fill in as you use Focus sessions, finish tasks and get grades back.</p>`;
     const sec = (title, body) => `<section class="pro-card"><h3>${esc(title)}</h3>${body}</section>`;
     const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(x.min / I.maxMin * 100))}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
@@ -80945,24 +81229,37 @@ var SBPRO = null;
       : `<p class="mini">Make an exam prep plan (open an exam, then Plan My Prep) to see how it's going here.</p>`;
     const early = I.early ? `<div class="pro-early"><b>${esc(SBI18N.fmtN(Math.round(Math.abs(I.early.avg) * 10) / 10))}</b><span>${esc(I.early.avg >= 0 ? "days early, on average, when you finish an assignment." : "days late, on average, when you finish an assignment.")}${I.early.late ? esc(` ${plural(I.early.late, "was", "were")} late.`) : ""}</span></div>`
       : `<p class="mini">Shows up once you've finished a few assignments with due dates.</p>`;
+    if (preview) {
+      // free plan: the first card is real, from the student's own planner; the others say what they'd show, with nothing made up
+      const lockSec = (title, what) => `<section class="pro-card pro-lockcard"><h3>${esc(title)} ${PRO_BADGE}</h3><p class="mini">${esc(what)}</p></section>`;
+      return sec("Study Time and Grades", study)
+        + lockSec("When You Focus Best", "Which part of the day your Focus sessions last longest, day by day.")
+        + lockSec("Exam Prep Follow-Through", "How many of your exam prep sessions you've done so far, and the topics still marked shaky.")
+        + lockSec("Finishing Early", "How many days before the due date you usually finish, and anything that slipped past it.")
+        + `<button type="button" class="btn pro-ins-go" data-act="pro-ins-pro">See Every Insight With Pro</button>`;
+    }
     return sec("Study Time and Grades", study) + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
   }
   let INS = {kind: "week"};
+  const INS_WHY = "Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades.";
   function openInsights(kind){
-    if (locked()) { proSheet("Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades."); return; }
+    // free plan: a preview built from the student's own planner (the first card), the rest with Pro
+    const preview = locked();
     INS.kind = kind === "term" ? "term" : INS.kind || "week";
     const draw = () => {
       const I = compute(INS.kind), b = dlg.querySelector(".pro-ins-body"); if (!b) return;
-      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
+      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I, preview)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
     };
     if (!(dlg.open && dlg.querySelector(".pro-ins-body"))) openSheet(`<div class="sheet pro-sheet">${head("Insights")}<div class="sheet-body pro-ins-body"></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     draw();
   }
   function reviewHtml(){
     if (!allTasks().length) return "";
-    if (locked()) return `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     let line = "";
     try { line = headline(compute("week")); } catch (e) { line = ""; }
+    // free plan: this week's one-line insight is free too; the full breakdown is a preview with the rest on Pro
+    if (locked()) return line ? `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight</h3><p style="margin:0">${esc(line)}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`
+      : `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight${tagPro() ? " " + PRO_BADGE : ""}</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
   }
 
@@ -81062,12 +81359,14 @@ var SBPRO = null;
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
   addFeature({id: "sbai", name: "Studyboard AI", where: "Settings, AI", act: "ai-setup", free: "Your Own Key", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
   const early = () => isPro() && !!S().early;
   // What each Pro feature does, in a line, for Show All Pro Features (where it lives is in f.where)
   const DESC = {
     sbai: "AI built in, no key needed: flashcards, quizzes, summaries and more.",
+    forecast: "For each exam: how ready you'll be on the day at your pace, what finishing your prep plan gets you, and the topic to work on next.",
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
@@ -81089,7 +81388,7 @@ var SBPRO = null;
     email: "Forward school emails and Studyboard finds the deadlines in them."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
-  const TOP = ["sbai", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
+  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
     const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
     const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
@@ -81120,6 +81419,7 @@ var SBPRO = null;
     switch (act) {
       case "pro-ins-open": if (dlg.open && !dlg.querySelector(".pro-ins-body")) dlg.close(); openInsights(); return true;
       case "pro-ins-kind": INS.kind = id === "term" ? "term" : "week"; openInsights(INS.kind); return true;
+      case "pro-ins-pro": proSheet(INS_WHY); return true;
       case "pro-recap-open": if (dlg.open) dlg.close(); openRecap(); return true;
       case "pro-recap-hide": { const T = recapTerm(); if (T) markSeen(T.key); scheduleRender(); toast("Hidden. Your recap stays in Settings, Studyboard Pro."); return true; }
       case "pro-recap-step": if (RC) { const n = RC.i + (Number(id) || 1); RC.i = n >= RC.slides.length ? 0 : Math.max(0, n); drawRecap(); } return true;
@@ -81135,6 +81435,9 @@ var SBPRO = null;
   css.textContent = `
 .pro-card{background:var(--surface);border:1px solid var(--line);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:12px 14px;margin:0;display:grid;gap:8px}
 .pro-card h3{margin:0;font:600 1rem var(--display)}
+.pro-lockcard{box-shadow:none;border-style:dashed;background:color-mix(in srgb,var(--ink) 3%,var(--surface))}
+.pro-lockcard p{margin:0}
+.pro-ins-go{justify-self:stretch;width:100%;min-height:44px}
 .pro-say{margin:0;line-height:1.45}
 .pro-cr{display:grid;grid-template-columns:minmax(0,7.5em) minmax(0,1fr) auto auto;gap:10px;align-items:center;font-size:.92rem}
 .pro-cn{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -81213,7 +81516,8 @@ var SBPRO = null;
   const all = () => ROUT.concat(custom());
   // One routine of your own is free; Pro saves up to 6
   const FREE_OWN = 1;
-  const usable = r => r.free || !P.locked() || custom().findIndex(x => x.id === r.id) < FREE_OWN;
+  // every routine someone already saved keeps working on the free plan; only saving more than one is Pro
+  const usable = r => !!r;
   const canAdd = () => !P.locked() || custom().length < FREE_OWN;
   const same = (r, c) => +c.focus === r.focus && +c.short === r.short && +c.long === r.long && +c.every === r.every;
   function current(){ const c = pomoCfg(); return all().find(r => r.id === S().routine && same(r, c)) || all().find(r => same(r, c)) || null; }
@@ -81884,7 +82188,8 @@ var SBPRO = null;
   let OC = null;
   const TOOLS = [["rect", "Box"], ["oval", "Oval"], ["free", "Freehand"], ["pan", "Pan"]];
   function openEditor(deckId, queue){
-    if (P.locked()) { proWhy("Picture cards are part of Studyboard Pro."); return; }
+    // free plan: picture cards someone already made can still be edited; making cards from new pictures is Pro
+    if (P.locked() && !(queue.length && queue.every(it => it.edit))) { proWhy("Picture cards are part of Studyboard Pro."); return; }
     if (!queue.length) { toast("No pictures to make cards from."); return; }
     OC = {deckId, queue, i: 0, sel: [], mode: queue[0].mode || "one", tool: "rect", multi: false, zoom: {s: 1, x: 0, y: 0}, made: 0, saved: 0};
     openSheet(`<div class="sheet pro-sheet oc-sheet">${head(queue[0].edit ? "Edit Picture Cards" : "Picture Cards")}<div class="sheet-body oc-body"></div><div class="sheet-foot"><button type="button" class="btn" data-act="pro-oc-skip" id="ocSkip">Skip Picture</button><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-oc-keep" id="ocKeep">Keep Cards</button></div></div>`);
@@ -82180,8 +82485,14 @@ var SBPRO = null;
   /* Cards from your files */
   let CF = null;
   function filesSheet(deckId){
-    if (P.locked()) { proWhy("Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro."); return; }
     const d = state.decks[deckId]; if (!d) return;
+    if (P.locked()) {
+      // free plan: the picture cards someone already made stay editable; making more from pictures and PDFs is Pro
+      const sets = setsOf(d), why = "Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro.";
+      if (!sets.length) { proWhy(why); return; }
+      openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body"><h3 class="ic-h">Pictures in This Deck</h3><p class="mini" style="margin:0">Your picture cards stay yours: edit a picture's boxes and answers any time.</p>${setRows(d, sets, true)}<p class="mini" style="margin:0">Making cards from new pictures and PDFs is part of Pro. <button type="button" class="link-btn" data-act="pro-cf-pro">See Pro</button></p></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+      return;
+    }
     CF = {deckId, picked: new Set(), busy: false, msg: "", found: null};
     openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body cf-body"></div><div class="sheet-foot"><label class="btn" style="position:relative;overflow:hidden">From a Picture<input type="file" accept="image/*" data-cf-pick style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-cf-scan" id="cfGo">Find Diagrams</button></div></div>`);
     drawFiles();
@@ -82278,11 +82589,11 @@ var SBPRO = null;
       case "pro-oc-pick": if (OC) { const js = groupOf(OC.queue[OC.i], Number(id)); OC.sel = OC.multi ? [...new Set(OC.sel.concat(js))] : js; drawEditor(); const t = dlg.querySelector(`[data-act="pro-oc-pick"][data-id="${js[0]}"]`); if (t) t.focus(); } return true;
       case "pro-oc-zoom": if (OC) { zoomBy(OC.zoom, id); const st = dlg.querySelector("[data-oc-stage]"); if (st) { st.querySelector(".oc-zoom").style.transform = zoomT(OC.zoom); st.classList.toggle("zoomed", OC.zoom.s > 1); } } return true;
       case "pro-ic-peek": case "pro-ic-type": case "pro-ic-zoom": studyAct(act, id); return true;
+      case "pro-cf-pro": proWhy("Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro."); return true;
       case "pro-ic-edit": case "pro-dp-open": {
         const s = String(id || ""), k = s.indexOf("|"), deckId = k >= 0 ? s.slice(0, k) : s, key = k >= 0 ? s.slice(k + 1) : "", d = state.decks[deckId];
         if (!d) return true;
         if (act === "pro-dp-open") { if (dlg.open && !key) dlg.close(); practiceOpen(deckId, key); return true; }
-        if (P.locked()) { proWhy("Picture cards are part of Studyboard Pro."); return true; }
         const set = setsOf(d).find(x => x.key === key); if (!set) { toast("That picture's cards are gone."); return true; }
         openEditor(deckId, [itemFrom(set.cards, {edit: true})]); return true;
       }
@@ -82584,17 +82895,17 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .pr-scale.a4{width:794px}
 .pr-scale .pp-page{min-height:1000px}
 #sbPrint{display:none}
-.pp-page,.pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
+.pp-page,.pp-page .pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
 .pp-page{font:13px/1.35 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;color:#0F1F3D;padding:40px 44px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
 .pp-page h1{font:700 26px/1.15 Lexend,system-ui,sans-serif;margin:0}
 .pp-page h2{font:600 16px Lexend,system-ui,sans-serif;margin:0}
 .pp-page em{font-style:normal;color:#4A576E}
-.pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
-.pp-head p{margin:4px 0 0;color:#4A576E}
+.pp-page .pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.pp-page .pp-head p{margin:4px 0 0;color:#4A576E}
 .pp-box{border:1.5px solid #0F1F3D;border-radius:8px;padding:8px 12px;font-size:12px;max-width:45%}
 .pp-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(150px,auto);gap:10px;flex:1}
-.pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
-.pp-notes{border-style:dashed}
+.pp-page .pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
+.pp-page .pp-notes{border-style:dashed}
 .pp-dh{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #C6CEDB;padding-bottom:4px}
 .pp-dh b{font:600 15px Lexend,system-ui,sans-serif}
 .pp-dh span{color:#4A576E;font-size:12px}
@@ -82923,7 +83234,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const r = curRev(f), u = URLS.get(r.assetId), n = state.notes[id];
     openSheet(`<div class="sheet np-sheet">${head(f.name)}
       <div class="sheet-body"><div class="np-big">${u && u !== "!" ? `<img src="${esc(u)}" alt="${esc(f.name)}">` : `<img alt="${esc(f.name)}" data-np-asset="${esc(r.assetId)}" data-np-type="${esc(r.type || "image/jpeg")}">`}</div></div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="np-file" data-file="${esc(fid)}">File Details</button><span class="spacer"></span>${n && !locked() ? `<button type="button" class="btn" data-act="np-remove" data-id="${esc(id)}" data-file="${esc(fid)}">Remove from Note</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="np-file" data-file="${esc(fid)}">File Details</button><span class="spacer"></span>${n ? `<button type="button" class="btn" data-act="np-remove" data-id="${esc(id)}" data-file="${esc(fid)}">Remove from Note</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button></div>
     </div>`);
     fill();
   }
@@ -83318,6 +83629,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   let R = null;
   const fileOf = () => R && state.files[R.fid];
   const hlOf = f => (Array.isArray(f && f.hl) ? f.hl : []).filter(h => h && h.id && Array.isArray(h.r));
+  const READ_WHY = "The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards.";
+  // what a free plan can't do in the reader: make highlights, comments, notes or cards (proWhy opens the Pro sheet instead)
+  const PDR_MAKE = new Set(["pdr-hl-add", "pdr-mk-add", "pdr-sel-cm", "pdr-cm-mode", "pdr-sel-note", "pdr-sel-card", "pdr-hl-note", "pdr-hl-card", "pdr-all-note", "pdr-card-ai", "pdr-card-save"]);
   const mine = () => { const f = fileOf(); return hlOf(f).filter(h => h.a === R.rev); };
   function saveHl(list, label){
     const f = fileOf(); if (!f) return;
@@ -83340,24 +83654,27 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* Opening */
   async function open(fid, page){
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards."); return; }
+    // Free plan: a file that already has highlights or comments opens to view them (what someone made never gets locked away);
+    // highlighting, the AI tools, editing and making notes or cards stay Pro
+    const view = P.locked();
+    if (view && !((isPdf(f) || isOffice(f)) && hlOf(f).length)) { proWhy(READ_WHY); return; }
     if (!isPdf(f) && !isOffice(f)) { fileSheet(f); return; }
     close();
     const rev = curRev(f), ofc = isOffice(f), PDE = ofc ? null : window.SBPDE;
-    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
-    openSheet(`<div class="sheet pdr-sheet" data-mode="read">${head(f.name)}
+    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow", view};
+    openSheet(`<div class="sheet pdr-sheet" data-mode="read"${view ? ` data-view="1"` : ""}>${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
-        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>
+        ${view ? "" : `<span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>`}
         <span class="spacer"></span>
-        ${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
+        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
-        <span class="pdr-g-read">${PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
+        <span class="pdr-g-read">${view ? `<span class="mini pdr-viewnote">Your highlights and comments stay yours to read. Highlighting more is part of Pro.</span><button type="button" class="btn small" data-act="pdr-pro">See Pro</button>` : PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text, then pick a color to highlight it</span></span>
         <span class="spacer"></span>
@@ -83548,7 +83865,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const colorBtns = (act, cur) => COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="${act}" data-id="${k}" style="--h:${hex}" aria-label="${name}"${cur ? ` aria-pressed="${cur === k}"` : ""}></button>`).join("");
   let PEND = null;
   function onSelectEnd(){
-    if (!R || !R.doc || (window.SBPDE && SBPDE.active())) return;
+    if (!R || !R.doc || R.view || (window.SBPDE && SBPDE.active())) return;
     const s = selection();
     if (!s) return;
     PEND = s;
@@ -83802,6 +84119,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!act.startsWith("pdr-")) return false;
     if (act === "pdr-open") { if (dlg.open) dlg.close(); setTimeout(() => open(id, Number(el.dataset.page) || 0), 0); return true; }
     if (!R) return true;
+    // viewing on the free plan: reading, moving around, the list, recolouring and removing stay; anything that makes something new is Pro
+    if (R.view && (act === "pdr-pro" || PDR_MAKE.has(act) || (act === "pdr-mode" && el.dataset.id !== "read"))) { hidePop(); proWhy(READ_WHY); return true; }
     const byId = x => mine().find(h => h.id === x);
     switch (act) {
       case "pdr-go": goTo(R.cur + (Number(id) || 1)); break;
@@ -83840,8 +84159,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return true;
   });
 
-  P.canRead = f => !P.locked() && (isPdf(f) || isOffice(f));
-  P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
+  P.canRead = f => (isPdf(f) || isOffice(f)) && (!P.locked() || hlOf(f).length > 0);
+  P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">${P.locked() ? "View Highlights" : "Read"}${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
   P.addFeature({id: "reader", name: "PDF Editor", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
   Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
@@ -83856,6 +84175,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-g-read,.pdr-g-mark{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
 .pdr-sheet[data-mode="edit"] .pdr-bar2{display:none}
+.pdr-sheet[data-view] .pdr-modes,.pdr-sheet[data-view] [data-act="pdr-hl-note"],.pdr-sheet[data-view] [data-act="pdr-hl-card"],.pdr-sheet[data-view] [data-act="pdr-all-note"]{display:none}
+.pdr-viewnote{color:var(--muted)}
 .pdr-markhint{color:var(--muted)}
 .pdr-pop .pdr-pop-lbl{padding:0 6px;white-space:nowrap}
 .pdr-pop .pdr-nb{display:inline-flex;align-items:center;gap:6px}
@@ -84661,8 +84982,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* A recording in Files */
   const isAudio = f => !!f && f.kind === "file" && f.revs.length && (/^audio\//.test(curRev(f).type || "") || /\.(webm|m4a|ogg|mp3|wav)$/i.test(curRev(f).name || f.name)) && (f.tr || f.dur);
   async function transcriptSheet(fid){
+    // free plan too: a recording someone made, and its transcript, always open (recording and transcribing new ones is Pro)
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("Lecture recordings and transcripts are part of Studyboard Pro."); return; }
     const tr = f.tr && f.tr.text ? f.tr.text : "";
     openSheet(`<div class="sheet lec-sheet">${head(f.name)}<div class="sheet-body lec-body"><p class="lec-busy"><span class="ai-spin" aria-hidden="true"></span> Loading the recording…</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button>${tr ? `<button type="button" class="btn primary" data-act="lec-file-note" data-id="${esc(f.id)}">Make a Note</button>` : ""}</div></div>`);
@@ -84698,13 +85019,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const bkWhen = t => new Date(t).toLocaleDateString(undefined, {month: "short", day: "numeric"});
   function bkSheet(fid){
     const f = state.files[fid]; if (!f) return;
-    const bk = bkInfo(f), CL = window.SBCLOUD, conn = CL ? CL.connected() : [], locked = P.locked();
+    // backing up a lecture someone already has is free on every plan (it's a copy of their own work)
+    const bk = bkInfo(f), CL = window.SBCLOUD, conn = CL ? CL.connected() : [];
     const inFiles = (bk.files || []).filter(id => state.files[id]);
     const opt = (where, icon, title, sub, done) => `<button type="button" class="lec-fopt lec-bk-o${done ? " done" : ""}" data-act="lec-bk-go" data-id="${esc(fid)}" data-where="${where}"${bkBusy[fid + where] ? " disabled" : ""}>${icon}<b>${title}</b><span class="mini">${bkBusy[fid + where] ? `<span class="ai-spin" aria-hidden="true"></span> Backing up…` : sub}</span></button>`;
     const cloudOpt = p => {
       const nm = CLOUD_NAMES[p], ic = CL && CL.icons ? `<span class="lec-bk-ic">${CL.icons[p]}</span>` : CLOUD_SVG, b = bk[p];
       const here = f.cloud && f.cloud.p === p;
-      const sub = locked ? "Part of Studyboard Pro" : !conn.includes(p) ? `Connect ${nm} first` : b ? `Backed up ${bkWhen(b.at)}. Tap to back up again.` : here ? "The recording is already here. Adds the transcript and summary." : "The recording, transcript and summary, in Studyboard › Lectures";
+      const sub = !conn.includes(p) ? `Connect ${nm} first` : b ? `Backed up ${bkWhen(b.at)}. Tap to back up again.` : here ? "The recording is already here. Adds the transcript and summary." : "The recording, transcript and summary, in Studyboard › Lectures";
       return opt(p, ic, nm, sub, !!b);
     };
     openSheet(`<div class="sheet lec-sheet">${head("Back Up " + f.name)}<div class="sheet-body">
@@ -84809,7 +85131,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   });
 
   const prevFile = P.fileBtns;
-  P.fileBtns = f => (prevFile ? prevFile(f) : "") + (!P.locked() && isAudio(f) ? `<button type="button" class="btn" data-act="lec-file" data-id="${esc(f.id)}">Transcript</button>` : "");
+  P.fileBtns = f => (prevFile ? prevFile(f) : "") + (isAudio(f) ? `<button type="button" class="btn" data-act="lec-file" data-id="${esc(f.id)}">Transcript</button>` : "");
   const MIC = '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>';
   P.addFeature({id: "lecture", name: "Record a Lecture", where: "In a course: record a class, then get a tidy transcript and a summary in its Lectures", act: "lec-open", icon: MIC});
   Object.assign(P, {openRecorder: open});
@@ -85539,7 +85861,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
      why: "full" (storage used up), "big" (over the size limit), "type" (a type this storage can't keep), "none" (no storage here) */
   const FULL = {files: [], opts: {}, pend: null};
   function storageFull(files, opts, why){
-    why = why || "full";
+    why = why || "full"; reviewQuiet(3);
     FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
     const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
     const offerPro = why === "full" && !!(PL && PL.paywall() && !PL.limitsPro());
@@ -87421,12 +87743,13 @@ var SBINK = null;
   const noteInk = n => inkOf(n);
   function noteThumb(n, editing){
     const list = noteInk(n); if (!list.length) return "";
-    const svg = svgOf(list), canEdit = editing && available() && !P.locked();
+    // a drawing someone already made stays editable on every plan; starting a new one is Pro
+    const svg = svgOf(list), canEdit = editing && available();
     return canEdit ? `<button type="button" class="ink-thumb" data-act="ink-note" data-id="${esc(n.id)}" aria-label="Edit the drawing">${svg}</button>` : `<div class="ink-thumb">${svg}</div>`;
   }
   function openPad(id){
     const n = state.notes[id]; if (!n || !available()) return;
-    if (P.locked()) { proWhy(NOTE_WHY); return; }
+    if (P.locked() && !noteInk(n).length) { proWhy(NOTE_WHY); return; }
     const ses = noteSession(id);
     const ai = typeof photoNoteSheet === "function" && typeof aiReady === "function" && aiReady();
     openSheet(`<div class="sheet ink-sheet">${head(noteInk(n).length ? "Drawing" : "New Drawing")}
@@ -87466,7 +87789,7 @@ var SBINK = null;
   }
   const baseExtra = P.noteExtra, baseBar = P.noteBar;
   P.noteExtra = n => noteThumb(n, true) + (baseExtra ? baseExtra(n) : "");
-  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${P.locked() || tagPro() ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
+  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${!noteInk(n).length && (P.locked() || tagPro()) ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
 
   /* Wiring */
   hook("act", (act, el, id) => {
@@ -97512,6 +97835,7 @@ function draw(){
   dlg.querySelectorAll("[data-vh-prev]").forEach(b => b.addEventListener("click", () => { V.sel = +b.dataset.vhPrev; V.drop = false; draw(); }));
   dlg.querySelectorAll("[data-vh-res]").forEach(b => b.addEventListener("click", () => restoreAt(+b.dataset.vhRes)));
   const bk = dlg.querySelector("[data-vh-back]"); if (bk) bk.addEventListener("click", () => { V.sel = -1; draw(); });
+  if (!s && window.SBPRO && SBPRO.locked()) proHint();
   const dr = dlg.querySelector("[data-vh-drop]"); if (dr) dr.addEventListener("change", () => { V.drop = dr.checked; });
 }
 function restoreAt(i){
@@ -97543,22 +97867,27 @@ function restoreDeck(id, s, drop){
 
 /* Entry points */
 const PRO_WHY = "Version History is part of Studyboard Pro: bring back any note or deck from the last 30 days.";
+// Free plan (after Pro or the free weeks end): versions already saved on this device, and those in Google Drive or OneDrive backups,
+// can still be seen and restored. Only keeping new versions is Pro.
+const hasSaved = (kind, id) => keys.has(kind + ":" + id) || cloudOn();
+const proHint = () => {
+  const body = dlg.querySelector(".sheet-body");
+  if (body && !body.querySelector(".vh-hint")) body.insertAdjacentHTML("beforeend", `<p class="mini vh-hint" style="margin:0">Pro keeps 30 days of versions, for decks too. <button type="button" class="link-btn" data-act="vh-pro">See Pro</button></p>`);
+};
 function deckBtn(d){
-  if (!d || inPreview() || !window.SBPRO || SBPRO.locked()) return "";
-  return keys.has("deck:" + d.id) || cloudOn() ? `<button type="button" class="btn" data-act="vh-deck" data-id="${esc(d.id)}">Earlier Versions</button>` : "";
+  if (!d || inPreview() || !window.SBPRO) return "";
+  return hasSaved("deck", d.id) ? `<button type="button" class="btn" data-act="vh-deck" data-id="${esc(d.id)}">Earlier Versions</button>` : "";
 }
 hook("act", (act, el, id) => {
   if (act === "note-versions") {
     if (!window.SBPRO || inPreview()) return false;
     if (SBPRO.locked()) {
-      noteVersionsSheet(id);
-      const body = dlg.querySelector(".sheet-body");
-      if (body && !body.querySelector(".vh-hint")) body.insertAdjacentHTML("beforeend", `<p class="mini vh-hint" style="margin:0">Pro keeps 30 days of versions, for decks too. <button type="button" class="link-btn" data-act="vh-pro">See Pro</button></p>`);
+      if (hasSaved("note", id)) openFor("note", id); else { noteVersionsSheet(id); proHint(); }
       return true;
     }
     openFor("note", id); return true;
   }
-  if (act === "vh-deck") { if (!state.decks[id]) return true; if (SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return true; } openFor("deck", id); return true; }
+  if (act === "vh-deck") { if (!state.decks[id]) return true; if (SBPRO.locked() && !hasSaved("deck", id)) { PLAN.openSheet(PRO_WHY); return true; } openFor("deck", id); return true; }
   if (act === "vh-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(PRO_WHY); return true; }
   return false;
 });
@@ -97681,6 +98010,9 @@ const RBC = (() => {
 /*RUBRIC-END*/
 
 const PRO_WHY = "Rubric Check is part of Studyboard Pro: see which rubric criteria your draft misses before you submit.";
+// free plan: a few checks a week with the student's own AI key (PLAN.runsLeft)
+const locked = () => !!(window.SBPRO && SBPRO.locked());
+const left = () => { try { return PLAN.runsLeft("rubric"); } catch (e) { return 0; } };
 const LMS_F = ["cv", "bs", "bb", "md", "sg", "gc"];
 const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null, el: null};
 // A check that's still running is set aside (not stopped) when you tap away, and comes back when you open Rubric Check again
@@ -97695,7 +98027,7 @@ const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test
 const RUB_NAME = /rubric|criteria|marking|grading|scoring|assessment guide/i;
 function taskBtn(t){
   if (!t || inPreview() || !RBC.eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${SBPRO.locked() || tagPro() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${locked() && left() > 0 ? ` <span class="mini">${left()} free this week</span>` : locked() || tagPro() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
 // The rubric a task already has: from the school site, an attached rubric file, or notes that read like one
 async function autoRubric(t){
@@ -97717,7 +98049,8 @@ async function fileText(file){
 }
 function open(id){
   const t = state.tasks[id]; if (!t) return;
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
+  // a check already done for this task can always be opened again; starting a new one needs a free run (or Pro)
+  if (locked() && left() <= 0 && !(R.tid === id && (R.res || R.busy))) { PLAN.runsGone("rubric", "Rubric Check: see which rubric criteria your draft misses before you submit."); return; }
   if (sheetResume(KEY(id))) return;
   if (R.tid !== id) { if (R.tid) sheetDrop(KEY(R.tid)); Object.assign(R, {tid: id, rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, cut: null}); }
   Object.assign(R, {view: own() ? (R.res ? "result" : "form") : "nokey", err: "", busy: false, saved: 0});
@@ -97798,6 +98131,7 @@ function wire(t){
 async function run(id){
   const t = state.tasks[id]; if (!t || R.busy) return;
   if (!own()) { R.view = "nokey"; draw(); return; }
+  if (locked() && left() <= 0) { PLAN.runsGone("rubric"); return; }
   if (!R.rubric.trim()) { R.err = "Add the rubric first: paste it, or choose the file."; draw(); return; }
   if (R.draft.trim().split(/\s+/).length < 30) { R.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; draw(); return; }
   const cr = crits(), draft = RBC.clip(R.draft, 60000), c = courseOf(t.courseId);
@@ -97810,6 +98144,7 @@ async function run(id){
     const out = RBC.parse(res && res.data, cr, draft.text);
     if (!out) throw Object.assign(new Error("The AI's answer didn't make sense. Try again."), {code: "bad"});
     Object.assign(R, {res: out, cut: draft, view: "result", saved: 0});
+    if (locked() && PLAN.useRun) PLAN.useRun("rubric");
   } catch (e) {
     if ((ac && ac.signal.aborted) || (e && e.code === "cancelled")) return;
     R.err = (e && e.message) || "Couldn't check your draft right now. Try again.";
@@ -97834,7 +98169,7 @@ hook("act", (act, el, id) => {
   if (dlg.open) dlg.close();
   open(id); return true;
 });
-if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", free: "3 a Week, Own Key", pro: "Unlimited", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -97874,6 +98209,8 @@ window.SBRUBRIC = {taskBtn, open, RBC, state: () => R};
    own task sheets. Nothing is stored except the confidence the student chooses to set and the cards they keep. */
 (() => {
 const locked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return false; } };
+// free plan: a few checks a week with the student's own AI key (PLAN.runsLeft)
+const left = () => { try { return PLAN.runsLeft("teach"); } catch (e) { return 0; } };
 const WHY = "Teach It Back is part of Studyboard Pro: explain a topic in your own words, and AI checks it against your own decks, notes and files.";
 const CONF = {weak: "Shaky", ok: "OK", strong: "Strong"};
 const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
@@ -97945,6 +98282,7 @@ async function check(){
   const words = me.text.trim().split(/\s+/).filter(Boolean).length;
   if (words < 12) { me.msg = "Say a bit more: a few sentences, as if teaching a friend who missed the class."; draw(); return; }
   if (!aiReady()) { DRAFT.set(key(), me.text); aiSetupSheet(true); return; }
+  if (locked() && left() <= 0) { DRAFT.set(key(), me.text); PLAN.runsGone("teach"); return; }
   micStop();
   const kk = me.exId + "|" + me.topicId, ac = typeof AbortController === "function" ? new AbortController() : null;
   me.busy = true; me.msg = ""; me.ac = ac; draw();
@@ -97967,6 +98305,7 @@ async function check(){
     if (me.dropped) return;
     me.res = Object.assign(parse(r && r.data, items), {general: me.general, at: Date.now(), text: me.text, unread});
     LAST.set(kk, me.res); DRAFT.set(kk, me.text);
+    if (locked() && PLAN.useRun) PLAN.useRun("teach");
   } catch (e) {
     if (me.dropped) return;
     me.msg = e && e.code === "cancelled" ? "" : (e && e.message) || "The AI couldn't check that right now. Try again.";
@@ -98086,7 +98425,7 @@ function onClick(e){
   }
 }
 function open(exId, topicId, name){
-  if (locked()) { if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(WHY); return; }
+  if (locked() && left() <= 0) { if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.runsGone("teach", WHY.replace(/^[^:]*: /, "Teach It Back: ")); return; }
   const ex = state.tasks[exId], t = ex && findTopic(ex, topicId, name);
   if (!t) { toast("That topic isn't in the exam's plan any more."); return; }
   micStop();
@@ -98112,7 +98451,7 @@ function open(exId, topicId, name){
 }
 
 /* entry points */
-const badge = () => locked() || tagPro() ? " " + PRO_BADGE : "";
+const badge = () => locked() && left() > 0 ? ` <span class="mini">${left()} free this week</span>` : locked() || tagPro() ? " " + PRO_BADGE : "";
 function btn(ex, t){
   if (!ex || !t || ex.status === "done" || !ex.due || ex.due < todayISO()) return "";
   return `<button type="button" class="link-btn tb-go" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">Teach It Back${badge()}</button>`;
