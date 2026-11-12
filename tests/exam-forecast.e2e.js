@@ -27,9 +27,9 @@ const seedWith = done => {
       ok(f.thin === true, "with no flashcards or quizzes in the evidence yet, it says the forecast could be sharper");
       await F.act(page, "exam-plan", "ex1"); await page.waitForSelector("#ppBody .pp-fc");
       const t = await dlgText(page);
-      ok(/Exam Day Forecast/.test(t) && /If you do every session left/.test(t) && new RegExp(f.full + "%").test(t), "the Prep Plan shows the forecast with its number");
-      ok(/pace shows once your first session has come due/.test(t), "and says when the pace forecast starts");
-      ok(await page.locator('#ppBody .pp-fc [data-act="tb-open"]').count() <= 1 && (f.weakest.full >= 85 || /Work on next/.test(t)), "it names the topic to work on next");
+      ok(/Exam Day Forecast/.test(t) && new RegExp("~" + f.full + "%").test(t) && /If you do all 3 sessions in your plan/.test(t), "with no pace yet, one exam-day number: if you do every session in the plan");
+      ok(await page.locator("#ppBody .pp-fc .pp-fc-n").count() === 1 + (f.now != null ? 1 : 0), "one exam-day number (beside today's, once there is one)");
+      ok(await page.locator('#ppBody .pp-fc [data-act="tb-open"]').count() <= 1 && (f.weakest.full >= 85 || /Weakest topic/.test(t)), "it names the weakest topic only when one would still lag");
       ok(await F.noHScroll(page) && await F.dlgScroll(page), `${W}px: nothing scrolls sideways`);
       ok(page.errs.length === 0, "no page errors: " + page.errs.join(" | "));
       await ctx.close();
@@ -41,7 +41,8 @@ const seedWith = done => {
       const f = await fc(page);
       ok(f.rate === 1 && f.pace === f.full, "everything due so far done: at your pace equals doing every session: " + JSON.stringify({rate: f.rate, pace: f.pace, full: f.full}));
       await F.act(page, "exam-plan", "ex1"); await page.waitForSelector("#ppBody .pp-fc");
-      ok(/At your pace/.test(await dlgText(page)) && /done 1 of the 1 session due so far/.test(await dlgText(page)), "it shows the pace, and why");
+      ok(/At your pace: you've done 1 of the 1 session so far/.test(await dlgText(page)) && new RegExp("~" + f.pace + "%").test(await dlgText(page)), "the exam-day number is at your pace, and says why");
+      ok(await page.locator("#ppBody .pp-fc-tip").count() === 0, "no tip when the pace already gets there");
       await ctx.close();
     }
     // Pro, one session came due and was missed: at your pace stays where it is now
@@ -50,7 +51,7 @@ const seedWith = done => {
       const f = await fc(page);
       ok(f.rate === 0 && (f.pace == null ? f.now == null : f.pace === f.now) && (f.pace || 0) < f.full, "nothing due so far done: at your pace stays at today's readiness, below doing every session: " + JSON.stringify({now: f.now, pace: f.pace, full: f.full}));
       await F.act(page, "exam-plan", "ex1"); await page.waitForSelector("#ppBody .pp-fc");
-      ok(/No session done yet/.test(await dlgText(page)), "with nothing done yet, it says where to start instead of a number");
+      ok(/haven't done a session yet/.test(await dlgText(page)), "with nothing done yet, it says so plainly");
       await ctx.close();
     }
     // Free: a locked card that opens the Pro sheet, never the numbers

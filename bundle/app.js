@@ -28166,6 +28166,8 @@ Return JSON only.`;
       A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
     }
     if (S.ask === A || S.thread.includes(A)) draw();
+    // opened to quiz (quizCourse): Quiz Me starts on its own once the answer and its sources are in
+    if (S.autoQuiz === A) { S.autoQuiz = null; if (A.answer.state === "done" && A.answer.found !== false && (A.rows || []).length && S.ask === A) startTutor(A); }
   }
   // Only when the student asks, and only the question (and the course's name) is sent
   async function getGeneral(T){
@@ -28830,6 +28832,12 @@ Return JSON only.`;
     loadTexts().then(() => queueFiles()).catch(() => {});
   }
   window.SBSEARCH.warm = warmFiles;
+  // Quiz Me on a course in one tap (the exam offer on Today's Plan): asks the question in Ask Your Course, then starts Quiz Me on the answer
+  window.SBSEARCH.quizCourse = (cid, q) => {
+    if (dlg.open) dlg.close();
+    resetThread(); open(q, {mode: "ask", course: cid || "", fresh: true, run: false});
+    runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
+  };
   setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });
@@ -75427,7 +75435,7 @@ function readyFor(ex, doneOf){
 }
 /* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
    flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
-   - if you do every session left: every session still to come counted as done (slipped ones aren't, until caught up)
+   - if you do every session: every session not done yet counted as done, slipped ones too (that's what Catch Up is for)
    - at your pace: today's readiness moved toward that by the share of sessions due so far that got done
      (only once at least one session has come due)
    - the topic to work on next: the one still lowest if every session gets done, with Teach It Back (or a quiz, once it's Strong) */
@@ -75437,7 +75445,7 @@ function forecastOf(ex){
   const P = prepOf(ex), ss = sessionsOf(ex.id).slice().sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
   const now = readyMemo(ex), dueSoFar = ss.filter(s => s.due < today), doneSoFar = dueSoFar.filter(s => s.status === "done").length;
   const left = ss.filter(s => s.status !== "done" && s.due >= today), rate = dueSoFar.length ? doneSoFar / dueSoFar.length : null;
-  const full = readyFor(ex, s => s.status === "done" || s.due >= today);
+  const full = readyFor(ex, () => true), slipped = dueSoFar.length - doneSoFar;
   // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
   const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
   const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
@@ -75445,22 +75453,25 @@ function forecastOf(ex){
   const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
   // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it
   const cap = v => v == null ? null : Math.min(95, v), ev = full.evidence || {};
-  return {now: now.pct, pace: cap(pace), full: cap(full.pct), thin: !(ev.cards || ev.quizzes), rate, dueSoFar: dueSoFar.length, doneSoFar, left: left.length, days, topics, weakest};
+  return {now: now.pct, pace: cap(pace), full: cap(full.pct), thin: !(ev.cards || ev.quizzes), slipped, rate, dueSoFar: dueSoFar.length, doneSoFar, left: left.length, days, topics, weakest};
 }
 const FC_WHY = "The Exam Day Forecast is part of Studyboard Pro: where your readiness is heading by exam day, and the topic to work on next.";
 function forecastHtml(ex){
   const F = forecastOf(ex); if (!F || F.full == null) return "";
   const locked = !!(window.SBPRO && SBPRO.locked());
-  if (locked) return `<div class="pp-fc pp-fc-lock"><div class="pp-fc-h"><b>Exam Day Forecast</b> ${typeof PRO_BADGE === "string" ? PRO_BADGE : ""}</div><p class="mini" style="margin:0">Where your readiness is heading by ${esc(fmtDate(ex.due))} at your pace, what finishing the plan would get you, and the topic to work on next.</p><button type="button" class="btn small" data-act="pp-fc-pro">See Pro</button></div>`;
-  const bar = (label, v, cls) => `<div class="pp-fc-row${cls ? " " + cls : ""}"><span>${esc(label)}</span><span class="pp-bar" aria-hidden="true"><i style="width:${v}%"></i></span><b>${v}%</b></div>`;
-  const W = F.weakest, confName = W ? (CONF3.find(c => c[0] === W.conf) || [0, "OK"])[1] : "";
-  const paceWhy = F.pace == null ? "" : `You've done ${F.doneSoFar} of the ${F.dueSoFar} session${F.dueSoFar === 1 ? "" : "s"} due so far, so this counts about the same share of the ${F.left} still to come.`;
-  const slipped = F.dueSoFar - F.doneSoFar;
-  const next = !W ? "" : W.full >= 85 ? `<p class="mini" style="margin:0">Every topic is on track if you keep going.</p>`
-    : `<p class="pp-fc-next"><span>Work on next: <b>${esc(W.name)}</b> <span class="mini">(${esc(confName)}, about ${W.full}% by exam day as things stand)</span></span>${W.conf === "strong" ? "" : `<button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(W.id)}" data-name="${esc(W.name)}">Teach It Back</button>`}</p>`;
-  return `<div class="pp-fc"><div class="pp-fc-h"><b>Exam Day Forecast</b><span class="mini">${F.days === 0 ? "the exam is today" : F.days === 1 ? "1 day to go" : F.days + " days to go"}</span></div>
-    ${F.pace != null ? bar("At your pace", F.pace) : F.rate != null ? `<div class="pp-fc-row"><span>At your pace</span><span class="mini" style="grid-column:2/-1">No session done yet. Today's is the place to start.</span></div>` : ""}${bar(F.left ? "If you do every session left" : "With what you've done", F.full, "pp-fc-full")}
-    ${paceWhy ? `<p class="mini" style="margin:0">${esc(paceWhy)}</p>` : F.left ? `<p class="mini" style="margin:0">Your pace shows once your first session has come due.</p>` : ""}${slipped ? `<p class="mini" style="margin:0">${slipped === 1 ? "1 slipped session isn't" : slipped + " slipped sessions aren't"} counted until you catch up.</p>` : ""}${F.thin ? `<p class="mini" style="margin:0">For a sharper forecast, link flashcards or a practice quiz to each topic (Edit Topics).</p>` : ""}${next}</div>`;
+  if (locked) return `<div class="pp-fc pp-fc-lock"><div class="pp-fc-h"><b>Exam Day Forecast</b> ${typeof PRO_BADGE === "string" ? PRO_BADGE : ""}</div><p class="pp-fc-why">See how ready you'll be on ${esc(fmtDate(ex.due))} at your pace, and which topic to work on next.</p><button type="button" class="btn small" data-act="pp-fc-pro">See Pro</button></div>`;
+  // one number for exam day: at your pace once a session has come due, otherwise if you do every session
+  const day = F.pace != null ? F.pace : F.full, left = F.left + F.slipped;
+  const why = F.pace != null ? `At your pace: you've done ${F.doneSoFar} of the ${F.dueSoFar} session${F.dueSoFar === 1 ? "" : "s"} so far.`
+    : F.rate != null ? "You haven't done a session yet, so this is if you start with today's."
+    : `If you do all ${left} session${left === 1 ? "" : "s"} in your plan.`;
+  const tip = F.pace != null && left && F.full - day >= 5
+    ? `Do ${left === 1 ? "the last session" : `all ${left} sessions left`}${F.slipped ? `, including ${F.slipped === 1 ? "the one that slipped" : `the ${F.slipped} that slipped`},` : ""} to reach about <b>${F.full}%</b>.` : "";
+  const W = F.weakest, nextH = W && W.full < 85 ? `<div class="pp-fc-next"><span>Weakest topic: <b>${esc(W.name)}</b></span>${W.conf === "strong" ? "" : `<button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(W.id)}" data-name="${esc(W.name)}">Teach It Back</button>`}</div>` : "";
+  const when = F.days === 0 ? "Today" : F.days === 1 ? "Tomorrow" : `In ${F.days} days`;
+  return `<div class="pp-fc"><div class="pp-fc-h"><b>Exam Day Forecast</b><span class="mini">${esc(when)}</span></div>
+    <div class="pp-fc-big" role="img" aria-label="${F.now != null ? `Ready today: ${F.now} percent. ` : ""}On exam day: about ${day} percent">${F.now != null ? `<span class="pp-fc-n"><small>Today</small>${F.now}%</span><span class="pp-fc-arrow" aria-hidden="true">→</span>` : ""}<span class="pp-fc-n pp-fc-day"><small>Exam day</small>~${day}%</span></div>
+    <p class="pp-fc-why">${esc(why)}</p>${tip ? `<p class="pp-fc-tip">${tip}</p>` : ""}${nextH}</div>`;
 }
 let PCACHE = {k: "", v: {}};
 function readyMemo(ex){
