@@ -21817,7 +21817,7 @@ document.addEventListener("click", e => {
   if (ui.tab === "notes" && !e.target.closest("dialog") && !e.target.closest(".rb-bar,.rb-eq")) {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
-    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
+    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); return; }   // the note opens with its options; typing starts with a tap in its text (no keyboard straight away on a phone)
     if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
       if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
       saveNoteText();
