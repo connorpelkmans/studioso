@@ -359,6 +359,7 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
+  const CALM = 1.35;
   /* ---------- An actor: animations on one rendered rig ---------- */
   function actor(c, root, opts){
     opts = opts || {};
@@ -366,8 +367,10 @@
     const q = s => svg.querySelector(s);
     const part = n => q(".cp-" + n);
     const running = new Set();
+    // Every move plays a little slower than written, so the companion feels calm rather than hurried
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
+      ms = Math.round(ms * CALM);
       const a = el.animate(frames, Object.assign({duration: ms, easing: "ease-in-out"}, o));
       if (opts.watch) opts.watch(ms);
       running.add(a); a.onfinish = a.oncancel = () => running.delete(a);
@@ -403,7 +406,7 @@
           case "headTilt": if (!partSvg(c.parts.head)) return null; return anim(q(".cp-headg"), [0, 9, 9, -4, 0].map(rot), 1800);
           case "topBob": return A.part("top", [0, 13 * k, -11 * k, 7, -3, 0].map(rot), 1300);
           case "bounce": return A.move([0, -6 * k, 0, -3 * k, 0].map((y, i) => ({transform: `translateY(${y}px) scale(${i % 2 ? "0.97,1.04" : i ? "1.04,0.96" : "1,1"})`})), 900);
-          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(2px) scale(1.08,.9)", offset: 0.15}, {transform: `translateY(${-16 * k}px) scale(.95,1.06)`, offset: 0.45}, {transform: "translateY(1px) scale(1.07,.92)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 720);
+          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(1px) scale(1.04,.95)", offset: 0.15}, {transform: `translateY(${-12 * k}px) scale(.98,1.03)`, offset: 0.45}, {transform: "translateY(1px) scale(1.04,.96)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 800);
           case "spin": return A.move([{transform: "perspective(400px) rotateY(0deg)"}, {transform: "perspective(400px) rotateY(360deg)"}], 900, {easing: "cubic-bezier(.5,0,.3,1)"});
           case "sway": return A.move([0, 4, -4, 3, 0].map(d => ({transform: `rotate(${d * k}deg)`})), 1900);
           case "waddle": return A.move([0, -6, 6, -6, 6, 0].map((d, i) => ({transform: `translateX(${i % 2 ? -1.5 : i ? 1.5 : 0}px) rotate(${d}deg)`})), 1200);
@@ -901,7 +904,8 @@
     const float = cur.pose === "float", dir = to.left > from.left ? 1 : -1, feetY = to.top + px * (112 / 120);
     const frames = []; let dur, easing = "linear";
     const T = (t, x, y, extra) => frames.push({transform: `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)${extra || ""}`, offset: t});
-    const style = force || d > Math.max(innerWidth * 0.55, 620) ? (force || "dash") : float ? (Math.random() < 0.55 ? "loop" : "wave") : (d > 260 && Math.random() < 0.4 ? "leap" : "hops");
+    // Calm on its own: a short way it glides, further it takes a few low hops (or floats there); no leaps, spins, dashes or loops
+    const style = force || (d < 150 ? "glide" : float ? "wave" : "hops");
     if (style === "dash") {
       dur = 900;
       T(0, dx, dy, " scale(1)"); T(0.14, dx + dir * 14, dy, ` scale(.86,1.12) rotate(${-dir * 6}deg)`);
@@ -915,15 +919,18 @@
       for (let i = 1; i <= 8; i++) { const t = i / 8, x = dx * (1 - t), y = dy * (1 - t) - Math.sin(Math.PI * t) * h; T(0.12 + t * 0.7, x, y, ` rotate(${(dir * 360 * t).toFixed(0)}deg) scale(${t < 0.15 ? 0.94 : 1},${t < 0.15 ? 1.08 : 1})`); }
       T(0.9, 0, 0, " scale(1.16,.82)"); T(1, 0, 0, " scale(1)");
       later(() => puff(from.left + px / 2, from.top + px * (112 / 120)), dur * 0.12); later(() => puff(to.left + px / 2, feetY, true), dur * 0.84);
+    } else if (style === "glide") {
+      dur = Math.min(1100, 700 + d * 1.6); easing = "cubic-bezier(.45,0,.25,1)";
+      for (let i = 0; i <= 8; i++) { const t = i / 8; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 6); }
     } else if (style === "hops") {
-      const hops = Math.max(2, Math.min(5, Math.round(d / 120))), h = Math.min(56, 26 + d / hops * 0.2);
-      dur = Math.min(1500, 420 + hops * 230);
+      const hops = Math.max(2, Math.min(5, Math.round(d / 150))), h = Math.min(26, 12 + d / hops * 0.08);
+      dur = Math.min(2300, 700 + hops * 360);
       T(0, dx, dy, " scale(1)");
       for (let k = 0; k < hops; k++) {
         const a = k / hops, bT = (k + 1) / hops, mid = (a + bT) / 2;
-        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.1,.9)");
-        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 9}deg) scale(.94,1.08)`);
-        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 3}deg) scale(1.14,.86)`);
+        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.04,.96)");
+        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 3}deg) scale(.98,1.03)`);
+        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 1}deg) scale(1.05,.95)`);
         const lx = to.left + px / 2 + dx * (1 - bT), ly = to.top + px * (112 / 120) + dy * (1 - bT);
         later(() => puff(lx, ly, k === hops - 1), dur * bT);
       }
@@ -938,10 +945,9 @@
       easing = "ease-in-out";
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     } else {
-      dur = Math.min(1400, 800 + d * 0.9);
-      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 36 + Math.sin(t * Math.PI * 4) * 10, ` rotate(${(Math.sin(t * Math.PI * 4) * dir * 10).toFixed(0)}deg)`); }
+      dur = Math.min(2200, 1200 + d * 1.1);
+      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 22 + Math.sin(t * Math.PI * 2) * 5, ` rotate(${(Math.sin(t * Math.PI * 2) * dir * 4).toFixed(0)}deg)`); }
       easing = "ease-in-out";
-      for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
     // on its way it flies above everything; it settles under the page's bars (cp-under) only once seated in its circle
@@ -1082,12 +1088,12 @@
       s.className = "cp-pt" + (still() ? " cp-pt-still" : "");
       const size = (kind === "z" ? 13 : rand(11, 16)) * (small ? 0.8 : 1);
       const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : top[0] * k + rand(-px * 0.36, px * 0.36), y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : top[1] * k + rand(-4, 14);
-      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(kind === "bang" ? 0 : rand(-14, 14))}px;--r:${f1(kind === "bang" ? 0 : rand(-20, 20))}deg;animation-delay:${Math.round(i * 110)}ms`;
+      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(kind === "bang" ? 0 : rand(-14, 14))}px;--r:${f1(kind === "bang" ? 0 : rand(-20, 20))}deg;animation-delay:${Math.round(i * 200)}ms`;
       s.innerHTML = art[kind] || art.sparkle;
       fx.appendChild(s);
       const kill = () => s.remove();
       s.addEventListener("animationend", kill, {once: true});
-      setTimeout(kill, 2600 + i * 110);
+      setTimeout(kill, 3600 + i * 200);
     }
   }
 
@@ -1528,7 +1534,7 @@
     act.eyes("happy"); act.mouth("smile");
     box.classList.add("cp-loved");
     act.motion(cur.cheer === "hop" ? "spin" : cur.cheer, true);
-    later(() => act && act.motion("hop"), 950);
+    later(() => act && act.motion("hop"), Math.round(950 * CALM));
     spawnFx("heart", 5);
     if (talkOn()) say(pickFrom(cur.id + ":pet", ownLines("pet")), {ask: askShown()});
     later(() => { if (!act) return; box.classList.remove("cp-loved"); act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2600);
@@ -1543,7 +1549,7 @@
       hold(2200);
       act.eyes("happy"); act.mouth("smile");
       act.motion(cur.cheer, true);
-      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), 900);
+      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), Math.round(900 * CALM));
       spawnFx("sparkle", 4);
       later(() => { if (!act) return; act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2000);
     }, delay || 0);
@@ -2117,7 +2123,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   hook("render", tab => {
     if (!layer) { if (isOn()) refresh(0); return; }
     applyVars(); fitHitSoon();
-    const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && !staysPut() && roamDue(0.2);
+    // a new page only moves it when its spot would cover something there (no random wandering off on a tab change)
+    const newTab = tab !== lastTab, first = !lastTab, wander = false;
     if (wander) lastRoam = Date.now();
     // an open Ask box doesn't stay behind when the page changes and the companion moves (Ask's own answers, said after it
     // goes somewhere, aren't the Ask box, so they stay)

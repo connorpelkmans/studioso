@@ -4580,10 +4580,10 @@ html.cp-hover{cursor:pointer}
 .cp-still .cp-doze .cp-zs{display:inline}
 /* Hearts, sparkles and z's */
 .cp-fx{position:absolute;inset:0;pointer-events:none;overflow:visible}
-.cp-pt{position:absolute;display:block;animation:cpUp 1.5s ease-out both}
+.cp-pt{position:absolute;display:block;animation:cpUp 2.3s cubic-bezier(.25,.6,.35,1) both}
 .cp-pt svg{width:100%;height:100%;display:block;overflow:visible}
-.cp-pt.cp-pt-still{animation:cpFade 1.6s ease-out both}
-@keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.4) rotate(0)}18%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1.05) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
+.cp-pt.cp-pt-still{animation:cpFade 2.2s ease-out both}
+@keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.6) rotate(0)}22%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
 @keyframes cpFade{0%{opacity:0}20%{opacity:1}75%{opacity:1}100%{opacity:0}}
 /* Speech bubble, in front of the page but it never takes clicks */
 .cp-front{position:fixed;inset:0;z-index:7;pointer-events:none}
