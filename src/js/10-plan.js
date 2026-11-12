@@ -121,6 +121,10 @@ window.__sbPlanObj = () => PLAN;
     if (settled()) { const u = curUid(); if (u && hintW !== u + p) { hintW = u + p; try { localStorage.setItem(K_HINT, JSON.stringify({uid: u, pro: p})); } catch (e) {} } return p; }
     return p || (Date.now() - boot0 < 10000 && hintPro());
   }
+  // Pro that someone pays for, which is what includes Studyboard AI (the AI server's own rule, cloudflare/ai-pro tierOf). Pro from
+  // a grant, a code or a promotion, and the free weeks, have every Pro feature but not Studyboard AI, so they can still subscribe
+  const aiIncluded = () => { const e = ent(); if (!e || !paid()) return false; if (e.plan === "lifetime") return e.source !== "lifetime";
+    return e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()) && e.source !== "promo" && e.source !== "code" && !e.lite; };
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
   // On the free weeks of Pro (not paying, not from a code or promotion): PRO tags stay on Pro features and items, as on the free
@@ -708,13 +712,10 @@ window.__sbPlanObj = () => PLAN;
     return [
       ["Devices", `${f.devices} Devices`, p.devices === Infinity ? "Unlimited Devices" : `${p.devices} Devices`],
       ["Cloud File Storage", fmtMB(f.fileMB), fmtMB(p.fileMB)],
-      ["Synced Data", fmtMB(f.dataMB), fmtMB(p.dataMB)],
       ["Themes", `${freeThemes} Plain Colors`, `All ${SKINS.length} Themes`],
-      ["Card Styles, Pins and Stickers", "The Free Set", "Every Style"],
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
-      ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`],
-      ["Group Message History", f.groupMsgDays ? `Kept ${f.groupMsgDays} Days` : "Unlimited History", p.groupMsgDays ? `Kept ${p.groupMsgDays} Days` : "Unlimited History"]
-    ].concat(window.SBPRO ? SBPRO.compareRows() : []);
+      ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`]
+    ].concat(window.SBPRO ? SBPRO.compareRows() : []).sort((a, b) => (b[0] === "Studyboard AI") - (a[0] === "Studyboard AI"));
   }
   function meter(label, used, max){
     const pct = max === Infinity || !max ? Math.min(100, used > 0 ? 2 : 0) : Math.min(100, used / max * 100);
@@ -797,11 +798,12 @@ window.__sbPlanObj = () => PLAN;
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
+        ${paywall() && pro && !aiIncluded() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
         </div>
-        ${(pro || !paywall()) && window.SBPRO ? SBPRO.sheetHtml(pro) : ""}
+        ${window.SBPRO ? SBPRO.sheetHtml(pro || !paywall()) : ""}
         <p class="plan-free mini">${IC.check}<span>Always free: Board, Due Dates, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
         ${pro ? "" : usageHtml}
       </div>
@@ -898,7 +900,7 @@ window.__sbPlanObj = () => PLAN;
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
-    isPro, paywall, settled, storageRow, trialTags,
+    isPro, paywall, settled, storageRow, trialTags, aiIncluded,
     limits: () => Object.assign({}, lim()),
     freeLimits: () => Object.assign({}, lims("free")),
     proLimits: () => Object.assign({}, lims("pro")),

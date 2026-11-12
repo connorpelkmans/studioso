@@ -257,18 +257,45 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
+  addFeature({id: "sbai", name: "Studyboard AI", where: "Settings, AI", act: "ai-setup", free: "Your Own Key", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
   const early = () => isPro() && !!S().early;
+  // What each Pro feature does, in a line, for Show All Pro Features (where it lives is in f.where)
+  const DESC = {
+    sbai: "AI built in, no key needed: flashcards, quizzes, summaries and more.",
+    calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
+    reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
+    lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
+    autopilot: "Missed study sessions move into your next free time overnight. Due dates never move.",
+    rubric: "Feedback on your draft against the rubric before you submit.",
+    insights: "Where your time goes, how each course is trending, and what's worth a closer look.",
+    recap: "Your term at a glance when it ends: hours, grades and what went well.",
+    focus: "Save focus routines, see your focus history, and block distracting sites on desktop.",
+    cards: "Deck stats, and picture flashcards made from your own files.",
+    print: "Print or save a week agenda, term calendar, grade report or exam prep plan.",
+    notephotos: "Add photos to notes and link any file in Studyboard.",
+    listen: "Hear your flashcards read aloud, made for a commute.",
+    ink: "Write on PDFs and draw on notes with Apple Pencil.",
+    versions: "Bring back an earlier note or deck from the last 30 days.",
+    teachback: "Explain a topic in your own words and AI checks it against your notes.",
+    smartremind: "Nudges at the start of your free time when a big task needs it.",
+    "cards-link": "Turn a YouTube video or web page into flashcards and a summary note.",
+    examsheet: "Every formula, definition and diagram for an exam on one printable sheet.",
+    email: "Forward school emails and Studyboard finds the deadlines in them."
+  };
+  // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
+  const TOP = ["sbai", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
-    const rows = FEATURES.map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(f.where)}</span></span>${f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
+    const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
+    const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
     const sw = (act, on, label) => `<button type="button" class="pro-sw" role="switch" aria-checked="${!!on}" data-act="${act}" aria-label="${esc(label)}"><i></i></button>`;
     const extras = pro || (typeof PLAN !== "undefined" && PLAN && !PLAN.paywall()) ? `<h3 class="fsec">Extras</h3><ul class="pro-feats">
         <li><span class="pf-t"><b>Try New Features First</b><span class="mini">Preview features reach you a few weeks early, marked Preview.${S().early ? ` <button type="button" class="link-btn" data-act="bug-open">Send Feedback</button>` : ""}</span></span>${sw("pro-early", S().early, "Try new features first")}</li>
         ${window.SBEARLY && SBEARLY.kind() ? "" : `<li><span class="pf-t"><b>Show My Badge in Groups</b><span class="mini">A small star beside your name in study groups, so others know you support Studyboard.</span></span>${sw("pro-badge", S().badge, "Show my supporter badge in groups")}</li>`}</ul>` : "";
-    return `<h3 class="fsec">What Pro Adds</h3><ul class="pro-feats">${rows}</ul>${extras}`;
+    return `<details class="pro-all"><summary>Show All Pro Features</summary><ul class="pro-feats">${rows}</ul></details>${extras}`;
   }
-  const compareRows = () => FEATURES.filter(f => f.compare !== false).map(f => [f.name, f.free || "—", f.pro || "Included"]);
+  const compareRows = () => FEATURES.filter(f => f.compare !== false && TOP.includes(f.id)).sort((a, b) => TOP.indexOf(a.id) - TOP.indexOf(b.id)).map(f => [f.name, f.free || "—", f.pro || "Included"]);
   // The same features as buttons on the tabs they belong to
   function tabBtns(where){
     if (locked() || !isPro()) return "";
@@ -340,6 +367,13 @@ var SBPRO = null;
 .prc-slide p{margin:0;font-size:1.1rem;line-height:1.45;color:#DCE6F7}
 .pro-tab-btn{display:inline-flex;align-items:center;gap:6px}
 .pro-tab-btn svg{width:15px;height:15px;flex:none}
+.pro-all{margin:0}
+.pro-all > summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font:600 .92rem var(--display);color:var(--ink)}
+.pro-all > summary::-webkit-details-marker{display:none}
+.pro-all > summary::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .2s}
+.pro-all[open] > summary{margin-bottom:8px}
+.pro-all[open] > summary::after{transform:translateY(2px) rotate(-135deg)}
+.pro-all > summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pro-feats{list-style:none;margin:0 0 6px;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
 .pro-feats li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-top:1px solid var(--line)}
 .pro-feats li:first-child{border-top:0}
@@ -3004,7 +3038,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 
   P.canRead = f => !P.locked() && (isPdf(f) || isOffice(f));
   P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
-  P.addFeature({id: "reader", name: "PDF Reader, Highlights and Editing", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
+  P.addFeature({id: "reader", name: "PDF Editor", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
   Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
 

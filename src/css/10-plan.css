@@ -101,3 +101,6 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 .plan-gift-ic{font-size:1.8rem;line-height:1}
 .plan-gift .btn{min-height:44px}
 @media (max-width:600px){.plan-gift .btn{flex:1 1 100%}}
+/* Pro without Studyboard AI (a grant, a code, the free weeks): subscribing adds it */
+.plan-upai{display:grid;gap:4px;padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.plan-upai p{margin:0}

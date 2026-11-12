@@ -403,6 +403,9 @@ function openSheet(html, onSubmit){
       if (e.key === "Enter" && e.target.tagName === "INPUT" && !e.target.hasAttribute("data-noenter") && !["checkbox","radio","button"].includes(e.target.type)) { e.preventDefault(); run(); }
     });
   }
+  // On a phone nothing is focused by itself (showModal would focus an [autofocus] box): typing starts with a tap
+  const narrow = !window.matchMedia("(min-width:601px)").matches;
+  if (narrow) dlg.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus"));
   if (!dlg.open) dlg.showModal();
   const first = dlg.querySelector("[autofocus]");
   if (first && window.matchMedia("(min-width:601px)").matches) first.focus();
@@ -483,8 +486,9 @@ function taskView(t0){
       rows.push([I.cal, esc(parse(t.due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"})) + (t.time && cfg.time ? ", " + esc(fmtTime(t.time)) : ""),
         esc(cfg.due) + (done ? "" : n === 0 ? " · Today" : n === 1 ? " · Tomorrow" : n > 1 ? ` · In ${n} days` : ` · ${-n} day${n === -1 ? "" : "s"} late`)]);
     } else rows.push([I.cal, "No due date", ""]);
-    const st = !cfg.single && (t.start || startOf(t));
-    if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
+    // Start Date is the day of the first focus session on this task; before any, there's no start date to show
+    const st = !cfg.single && workEntries(t).filter(e => e.kind === "focus").map(e => e.d).sort()[0];
+    if (st) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
     // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
     const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
     if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);

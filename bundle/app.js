@@ -5319,6 +5319,7 @@ function aiSetupSheet(fromFeature, opts){
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+      ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
@@ -14582,6 +14583,9 @@ function openSheet(html, onSubmit){
       if (e.key === "Enter" && e.target.tagName === "INPUT" && !e.target.hasAttribute("data-noenter") && !["checkbox","radio","button"].includes(e.target.type)) { e.preventDefault(); run(); }
     });
   }
+  // On a phone nothing is focused by itself (showModal would focus an [autofocus] box): typing starts with a tap
+  const narrow = !window.matchMedia("(min-width:601px)").matches;
+  if (narrow) dlg.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus"));
   if (!dlg.open) dlg.showModal();
   const first = dlg.querySelector("[autofocus]");
   if (first && window.matchMedia("(min-width:601px)").matches) first.focus();
@@ -14662,8 +14666,9 @@ function taskView(t0){
       rows.push([I.cal, esc(parse(t.due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"})) + (t.time && cfg.time ? ", " + esc(fmtTime(t.time)) : ""),
         esc(cfg.due) + (done ? "" : n === 0 ? " · Today" : n === 1 ? " · Tomorrow" : n > 1 ? ` · In ${n} days` : ` · ${-n} day${n === -1 ? "" : "s"} late`)]);
     } else rows.push([I.cal, "No due date", ""]);
-    const st = !cfg.single && (t.start || startOf(t));
-    if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
+    // Start Date is the day of the first focus session on this task; before any, there's no start date to show
+    const st = !cfg.single && workEntries(t).filter(e => e.kind === "focus").map(e => e.d).sort()[0];
+    if (st) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
     // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
     const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
     if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
@@ -18359,7 +18364,8 @@ function addCardSheet(d){
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button><button type="submit" class="btn primary">Add Card</button></div>
   </form>`);
-  const f = $("#fcFront"); if (f) f.focus();
+  // a phone waits for a tap in the box (its keyboard would otherwise be expected, and the sheet would rise and fall back)
+  const f = $("#fcFront"); if (f && window.matchMedia("(min-width:601px)").matches) f.focus();
 }
 function bulkSheet(d){
   openSheet(`<form class="sheet">${head("Paste Cards")}
@@ -21816,7 +21822,7 @@ document.addEventListener("click", e => {
   if (ui.tab === "notes" && !e.target.closest("dialog") && !e.target.closest(".rb-bar,.rb-eq")) {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
-    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
+    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); return; }   // the note opens with its options; typing starts with a tap in its text (no keyboard straight away on a phone)
     if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
       if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
       saveNoteText();
@@ -22595,6 +22601,10 @@ window.__sbPlanObj = () => PLAN;
     if (settled()) { const u = curUid(); if (u && hintW !== u + p) { hintW = u + p; try { localStorage.setItem(K_HINT, JSON.stringify({uid: u, pro: p})); } catch (e) {} } return p; }
     return p || (Date.now() - boot0 < 10000 && hintPro());
   }
+  // Pro that someone pays for, which is what includes Studyboard AI (the AI server's own rule, cloudflare/ai-pro tierOf). Pro from
+  // a grant, a code or a promotion, and the free weeks, have every Pro feature but not Studyboard AI, so they can still subscribe
+  const aiIncluded = () => { const e = ent(); if (!e || !paid()) return false; if (e.plan === "lifetime") return e.source !== "lifetime";
+    return e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()) && e.source !== "promo" && e.source !== "code" && !e.lite; };
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
   // On the free weeks of Pro (not paying, not from a code or promotion): PRO tags stay on Pro features and items, as on the free
@@ -23182,13 +23192,10 @@ window.__sbPlanObj = () => PLAN;
     return [
       ["Devices", `${f.devices} Devices`, p.devices === Infinity ? "Unlimited Devices" : `${p.devices} Devices`],
       ["Cloud File Storage", fmtMB(f.fileMB), fmtMB(p.fileMB)],
-      ["Synced Data", fmtMB(f.dataMB), fmtMB(p.dataMB)],
       ["Themes", `${freeThemes} Plain Colors`, `All ${SKINS.length} Themes`],
-      ["Card Styles, Pins and Stickers", "The Free Set", "Every Style"],
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
-      ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`],
-      ["Group Message History", f.groupMsgDays ? `Kept ${f.groupMsgDays} Days` : "Unlimited History", p.groupMsgDays ? `Kept ${p.groupMsgDays} Days` : "Unlimited History"]
-    ].concat(window.SBPRO ? SBPRO.compareRows() : []);
+      ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`]
+    ].concat(window.SBPRO ? SBPRO.compareRows() : []).sort((a, b) => (b[0] === "Studyboard AI") - (a[0] === "Studyboard AI"));
   }
   function meter(label, used, max){
     const pct = max === Infinity || !max ? Math.min(100, used > 0 ? 2 : 0) : Math.min(100, used / max * 100);
@@ -23271,11 +23278,12 @@ window.__sbPlanObj = () => PLAN;
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
+        ${paywall() && pro && !aiIncluded() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
         </div>
-        ${(pro || !paywall()) && window.SBPRO ? SBPRO.sheetHtml(pro) : ""}
+        ${window.SBPRO ? SBPRO.sheetHtml(pro || !paywall()) : ""}
         <p class="plan-free mini">${IC.check}<span>Always free: Board, Due Dates, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
         ${pro ? "" : usageHtml}
       </div>
@@ -23372,7 +23380,7 @@ window.__sbPlanObj = () => PLAN;
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
-    isPro, paywall, settled, storageRow, trialTags,
+    isPro, paywall, settled, storageRow, trialTags, aiIncluded,
     limits: () => Object.assign({}, lim()),
     freeLimits: () => Object.assign({}, lims("free")),
     proLimits: () => Object.assign({}, lims("pro")),
@@ -64170,6 +64178,7 @@ var COMP_EXTRA = [];
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
+  const CALM = 1.35;
   /* ---------- An actor: animations on one rendered rig ---------- */
   function actor(c, root, opts){
     opts = opts || {};
@@ -64177,8 +64186,10 @@ var COMP_EXTRA = [];
     const q = s => svg.querySelector(s);
     const part = n => q(".cp-" + n);
     const running = new Set();
+    // Every move plays a little slower than written, so the companion feels calm rather than hurried
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
+      ms = Math.round(ms * CALM);
       const a = el.animate(frames, Object.assign({duration: ms, easing: "ease-in-out"}, o));
       if (opts.watch) opts.watch(ms);
       running.add(a); a.onfinish = a.oncancel = () => running.delete(a);
@@ -64214,7 +64225,7 @@ var COMP_EXTRA = [];
           case "headTilt": if (!partSvg(c.parts.head)) return null; return anim(q(".cp-headg"), [0, 9, 9, -4, 0].map(rot), 1800);
           case "topBob": return A.part("top", [0, 13 * k, -11 * k, 7, -3, 0].map(rot), 1300);
           case "bounce": return A.move([0, -6 * k, 0, -3 * k, 0].map((y, i) => ({transform: `translateY(${y}px) scale(${i % 2 ? "0.97,1.04" : i ? "1.04,0.96" : "1,1"})`})), 900);
-          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(2px) scale(1.08,.9)", offset: 0.15}, {transform: `translateY(${-16 * k}px) scale(.95,1.06)`, offset: 0.45}, {transform: "translateY(1px) scale(1.07,.92)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 720);
+          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(1px) scale(1.04,.95)", offset: 0.15}, {transform: `translateY(${-12 * k}px) scale(.98,1.03)`, offset: 0.45}, {transform: "translateY(1px) scale(1.04,.96)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 800);
           case "spin": return A.move([{transform: "perspective(400px) rotateY(0deg)"}, {transform: "perspective(400px) rotateY(360deg)"}], 900, {easing: "cubic-bezier(.5,0,.3,1)"});
           case "sway": return A.move([0, 4, -4, 3, 0].map(d => ({transform: `rotate(${d * k}deg)`})), 1900);
           case "waddle": return A.move([0, -6, 6, -6, 6, 0].map((d, i) => ({transform: `translateX(${i % 2 ? -1.5 : i ? 1.5 : 0}px) rotate(${d}deg)`})), 1200);
@@ -64712,7 +64723,8 @@ var COMP_EXTRA = [];
     const float = cur.pose === "float", dir = to.left > from.left ? 1 : -1, feetY = to.top + px * (112 / 120);
     const frames = []; let dur, easing = "linear";
     const T = (t, x, y, extra) => frames.push({transform: `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)${extra || ""}`, offset: t});
-    const style = force || d > Math.max(innerWidth * 0.55, 620) ? (force || "dash") : float ? (Math.random() < 0.55 ? "loop" : "wave") : (d > 260 && Math.random() < 0.4 ? "leap" : "hops");
+    // Calm on its own: a short way it glides, further it takes a few low hops (or floats there); no leaps, spins, dashes or loops
+    const style = force || (d < 150 ? "glide" : float ? "wave" : "hops");
     if (style === "dash") {
       dur = 900;
       T(0, dx, dy, " scale(1)"); T(0.14, dx + dir * 14, dy, ` scale(.86,1.12) rotate(${-dir * 6}deg)`);
@@ -64726,15 +64738,18 @@ var COMP_EXTRA = [];
       for (let i = 1; i <= 8; i++) { const t = i / 8, x = dx * (1 - t), y = dy * (1 - t) - Math.sin(Math.PI * t) * h; T(0.12 + t * 0.7, x, y, ` rotate(${(dir * 360 * t).toFixed(0)}deg) scale(${t < 0.15 ? 0.94 : 1},${t < 0.15 ? 1.08 : 1})`); }
       T(0.9, 0, 0, " scale(1.16,.82)"); T(1, 0, 0, " scale(1)");
       later(() => puff(from.left + px / 2, from.top + px * (112 / 120)), dur * 0.12); later(() => puff(to.left + px / 2, feetY, true), dur * 0.84);
+    } else if (style === "glide") {
+      dur = Math.min(1100, 700 + d * 1.6); easing = "cubic-bezier(.45,0,.25,1)";
+      for (let i = 0; i <= 8; i++) { const t = i / 8; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 6); }
     } else if (style === "hops") {
-      const hops = Math.max(2, Math.min(5, Math.round(d / 120))), h = Math.min(56, 26 + d / hops * 0.2);
-      dur = Math.min(1500, 420 + hops * 230);
+      const hops = Math.max(2, Math.min(5, Math.round(d / 150))), h = Math.min(26, 12 + d / hops * 0.08);
+      dur = Math.min(2300, 700 + hops * 360);
       T(0, dx, dy, " scale(1)");
       for (let k = 0; k < hops; k++) {
         const a = k / hops, bT = (k + 1) / hops, mid = (a + bT) / 2;
-        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.1,.9)");
-        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 9}deg) scale(.94,1.08)`);
-        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 3}deg) scale(1.14,.86)`);
+        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.04,.96)");
+        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 3}deg) scale(.98,1.03)`);
+        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 1}deg) scale(1.05,.95)`);
         const lx = to.left + px / 2 + dx * (1 - bT), ly = to.top + px * (112 / 120) + dy * (1 - bT);
         later(() => puff(lx, ly, k === hops - 1), dur * bT);
       }
@@ -64749,10 +64764,9 @@ var COMP_EXTRA = [];
       easing = "ease-in-out";
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     } else {
-      dur = Math.min(1400, 800 + d * 0.9);
-      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 36 + Math.sin(t * Math.PI * 4) * 10, ` rotate(${(Math.sin(t * Math.PI * 4) * dir * 10).toFixed(0)}deg)`); }
+      dur = Math.min(2200, 1200 + d * 1.1);
+      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 22 + Math.sin(t * Math.PI * 2) * 5, ` rotate(${(Math.sin(t * Math.PI * 2) * dir * 4).toFixed(0)}deg)`); }
       easing = "ease-in-out";
-      for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
     // on its way it flies above everything; it settles under the page's bars (cp-under) only once seated in its circle
@@ -64893,12 +64907,12 @@ var COMP_EXTRA = [];
       s.className = "cp-pt" + (still() ? " cp-pt-still" : "");
       const size = (kind === "z" ? 13 : rand(11, 16)) * (small ? 0.8 : 1);
       const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : top[0] * k + rand(-px * 0.36, px * 0.36), y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : top[1] * k + rand(-4, 14);
-      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(kind === "bang" ? 0 : rand(-14, 14))}px;--r:${f1(kind === "bang" ? 0 : rand(-20, 20))}deg;animation-delay:${Math.round(i * 110)}ms`;
+      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(kind === "bang" ? 0 : rand(-14, 14))}px;--r:${f1(kind === "bang" ? 0 : rand(-20, 20))}deg;animation-delay:${Math.round(i * 200)}ms`;
       s.innerHTML = art[kind] || art.sparkle;
       fx.appendChild(s);
       const kill = () => s.remove();
       s.addEventListener("animationend", kill, {once: true});
-      setTimeout(kill, 2600 + i * 110);
+      setTimeout(kill, 3600 + i * 200);
     }
   }
 
@@ -65339,7 +65353,7 @@ var COMP_EXTRA = [];
     act.eyes("happy"); act.mouth("smile");
     box.classList.add("cp-loved");
     act.motion(cur.cheer === "hop" ? "spin" : cur.cheer, true);
-    later(() => act && act.motion("hop"), 950);
+    later(() => act && act.motion("hop"), Math.round(950 * CALM));
     spawnFx("heart", 5);
     if (talkOn()) say(pickFrom(cur.id + ":pet", ownLines("pet")), {ask: askShown()});
     later(() => { if (!act) return; box.classList.remove("cp-loved"); act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2600);
@@ -65354,7 +65368,7 @@ var COMP_EXTRA = [];
       hold(2200);
       act.eyes("happy"); act.mouth("smile");
       act.motion(cur.cheer, true);
-      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), 900);
+      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), Math.round(900 * CALM));
       spawnFx("sparkle", 4);
       later(() => { if (!act) return; act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2000);
     }, delay || 0);
@@ -65928,7 +65942,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   hook("render", tab => {
     if (!layer) { if (isOn()) refresh(0); return; }
     applyVars(); fitHitSoon();
-    const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && !staysPut() && roamDue(0.2);
+    // a new page only moves it when its spot would cover something there (no random wandering off on a tab change)
+    const newTab = tab !== lastTab, first = !lastTab, wander = false;
     if (wander) lastRoam = Date.now();
     // an open Ask box doesn't stay behind when the page changes and the companion moves (Ask's own answers, said after it
     // goes somewhere, aren't the Ask box, so they stay)
@@ -81046,18 +81061,45 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
+  addFeature({id: "sbai", name: "Studyboard AI", where: "Settings, AI", act: "ai-setup", free: "Your Own Key", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
   const early = () => isPro() && !!S().early;
+  // What each Pro feature does, in a line, for Show All Pro Features (where it lives is in f.where)
+  const DESC = {
+    sbai: "AI built in, no key needed: flashcards, quizzes, summaries and more.",
+    calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
+    reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
+    lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
+    autopilot: "Missed study sessions move into your next free time overnight. Due dates never move.",
+    rubric: "Feedback on your draft against the rubric before you submit.",
+    insights: "Where your time goes, how each course is trending, and what's worth a closer look.",
+    recap: "Your term at a glance when it ends: hours, grades and what went well.",
+    focus: "Save focus routines, see your focus history, and block distracting sites on desktop.",
+    cards: "Deck stats, and picture flashcards made from your own files.",
+    print: "Print or save a week agenda, term calendar, grade report or exam prep plan.",
+    notephotos: "Add photos to notes and link any file in Studyboard.",
+    listen: "Hear your flashcards read aloud, made for a commute.",
+    ink: "Write on PDFs and draw on notes with Apple Pencil.",
+    versions: "Bring back an earlier note or deck from the last 30 days.",
+    teachback: "Explain a topic in your own words and AI checks it against your notes.",
+    smartremind: "Nudges at the start of your free time when a big task needs it.",
+    "cards-link": "Turn a YouTube video or web page into flashcards and a summary note.",
+    examsheet: "Every formula, definition and diagram for an exam on one printable sheet.",
+    email: "Forward school emails and Studyboard finds the deadlines in them."
+  };
+  // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
+  const TOP = ["sbai", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
-    const rows = FEATURES.map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(f.where)}</span></span>${f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
+    const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
+    const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
     const sw = (act, on, label) => `<button type="button" class="pro-sw" role="switch" aria-checked="${!!on}" data-act="${act}" aria-label="${esc(label)}"><i></i></button>`;
     const extras = pro || (typeof PLAN !== "undefined" && PLAN && !PLAN.paywall()) ? `<h3 class="fsec">Extras</h3><ul class="pro-feats">
         <li><span class="pf-t"><b>Try New Features First</b><span class="mini">Preview features reach you a few weeks early, marked Preview.${S().early ? ` <button type="button" class="link-btn" data-act="bug-open">Send Feedback</button>` : ""}</span></span>${sw("pro-early", S().early, "Try new features first")}</li>
         ${window.SBEARLY && SBEARLY.kind() ? "" : `<li><span class="pf-t"><b>Show My Badge in Groups</b><span class="mini">A small star beside your name in study groups, so others know you support Studyboard.</span></span>${sw("pro-badge", S().badge, "Show my supporter badge in groups")}</li>`}</ul>` : "";
-    return `<h3 class="fsec">What Pro Adds</h3><ul class="pro-feats">${rows}</ul>${extras}`;
+    return `<details class="pro-all"><summary>Show All Pro Features</summary><ul class="pro-feats">${rows}</ul></details>${extras}`;
   }
-  const compareRows = () => FEATURES.filter(f => f.compare !== false).map(f => [f.name, f.free || "—", f.pro || "Included"]);
+  const compareRows = () => FEATURES.filter(f => f.compare !== false && TOP.includes(f.id)).sort((a, b) => TOP.indexOf(a.id) - TOP.indexOf(b.id)).map(f => [f.name, f.free || "—", f.pro || "Included"]);
   // The same features as buttons on the tabs they belong to
   function tabBtns(where){
     if (locked() || !isPro()) return "";
@@ -81129,6 +81171,13 @@ var SBPRO = null;
 .prc-slide p{margin:0;font-size:1.1rem;line-height:1.45;color:#DCE6F7}
 .pro-tab-btn{display:inline-flex;align-items:center;gap:6px}
 .pro-tab-btn svg{width:15px;height:15px;flex:none}
+.pro-all{margin:0}
+.pro-all > summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font:600 .92rem var(--display);color:var(--ink)}
+.pro-all > summary::-webkit-details-marker{display:none}
+.pro-all > summary::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .2s}
+.pro-all[open] > summary{margin-bottom:8px}
+.pro-all[open] > summary::after{transform:translateY(2px) rotate(-135deg)}
+.pro-all > summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pro-feats{list-style:none;margin:0 0 6px;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
 .pro-feats li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-top:1px solid var(--line)}
 .pro-feats li:first-child{border-top:0}
@@ -83793,7 +83842,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 
   P.canRead = f => !P.locked() && (isPdf(f) || isOffice(f));
   P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
-  P.addFeature({id: "reader", name: "PDF Reader, Highlights and Editing", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
+  P.addFeature({id: "reader", name: "PDF Editor", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
   Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
 

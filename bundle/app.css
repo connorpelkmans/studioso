@@ -2290,7 +2290,7 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .sch-legend .k-event::before{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-left:4px solid var(--accent)}
 .sch-nav{flex-wrap:wrap;justify-content:flex-end}
 /* wide screens: the week selector on the left */
-@media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-next"] + *{margin-left:auto}}
+@media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-today"] + *{margin-left:auto}}
 /* Availability blocks */
 .sch-b.k-av-class{background:var(--c);color:#fff}
 .sch-b.k-av-work{background:color-mix(in srgb,var(--c) 24%,var(--surface));color:var(--ink);border-left:5px solid var(--c);box-shadow:0 1px 4px rgba(8,20,50,.12)}
@@ -2671,6 +2671,9 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 .plan-gift-ic{font-size:1.8rem;line-height:1}
 .plan-gift .btn{min-height:44px}
 @media (max-width:600px){.plan-gift .btn{flex:1 1 100%}}
+/* Pro without Studyboard AI (a grant, a code, the free weeks): subscribing adds it */
+.plan-upai{display:grid;gap:4px;padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.plan-upai p{margin:0}
 /* ===== module: 15-tips.css ===== */
 /* Everyday how-to tips hide after the first 14 days of use */
 html.tips-off .tip-everyday{display:none!important}
@@ -4577,10 +4580,10 @@ html.cp-hover{cursor:pointer}
 .cp-still .cp-doze .cp-zs{display:inline}
 /* Hearts, sparkles and z's */
 .cp-fx{position:absolute;inset:0;pointer-events:none;overflow:visible}
-.cp-pt{position:absolute;display:block;animation:cpUp 1.5s ease-out both}
+.cp-pt{position:absolute;display:block;animation:cpUp 2.3s cubic-bezier(.25,.6,.35,1) both}
 .cp-pt svg{width:100%;height:100%;display:block;overflow:visible}
-.cp-pt.cp-pt-still{animation:cpFade 1.6s ease-out both}
-@keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.4) rotate(0)}18%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1.05) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
+.cp-pt.cp-pt-still{animation:cpFade 2.2s ease-out both}
+@keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.6) rotate(0)}22%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
 @keyframes cpFade{0%{opacity:0}20%{opacity:1}75%{opacity:1}100%{opacity:0}}
 /* Speech bubble, in front of the page but it never takes clicks */
 .cp-front{position:fixed;inset:0;z-index:7;pointer-events:none}
@@ -8381,8 +8384,11 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   .ph-sch .sch-range{white-space:normal;line-height:1.15;font-size:.88rem}
 }
 
-/* Due Dates: the Timeline / Month switch sits at the right end of its row */
-#view .tl-tools > .segb[aria-label="View"]{order:99;margin-left:auto}
+/* Due Dates row: course, Days / Weeks / Term, Timeline / Month, Today, then Print at the right end */
+#view .tl-tools > .segb[aria-label="Zoom"]{order:1}
+#view .tl-tools > .segb[aria-label="View"]{order:2}
+#view .tl-tools > [data-act="tl-today"]{order:3}
+#view .tl-tools > .pro-tab-btn{order:4}
 
 /* iPad held sideways: the side menu starts below the clock and battery, so they don't cover the Studyboard logo */
 @media (min-width:701px) and (orientation:landscape) and (pointer:coarse){
