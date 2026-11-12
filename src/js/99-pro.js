@@ -263,7 +263,7 @@ var SBPRO = null;
   const early = () => isPro() && !!S().early;
   // What each Pro feature does, in a line, for Show All Pro Features (where it lives is in f.where)
   const DESC = {
-    sbai: "AI built in, no key needed: flashcards, quizzes, summaries, Rubric Check and more.",
+    sbai: "AI built in, no key needed: flashcards, quizzes, summaries and more.",
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
