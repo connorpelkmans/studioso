@@ -9,10 +9,20 @@ const server = http.createServer((req, res) => {
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
   const ext = path.extname(f), mime = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".webmanifest": "application/manifest+json"};
   res.writeHead(200, {"content-type": mime[ext] || "application/octet-stream"});
-  if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;").replace('const CAPTURE_EMAIL_DOMAIN = "";', 'const CAPTURE_EMAIL_DOMAIN = "in.studyboard.test";'))); return; }
+  if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;").replace('const CAPTURE_EMAIL_DOMAIN = "";', 'const CAPTURE_EMAIL_DOMAIN = "in.studyboard.test";')
+    // Quick Capture (and with it Email to Studyboard) is switched off for now in 01-helpers.js; switched on here so it stays tested for when it's back
+    .replace("const CAPTURE_OFF = true;", "const CAPTURE_OFF = false;"))); return; }
   fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
+// The course's Lectures tab lists the term's classes (99-class-sessions.js): a recording sits under the class it was made in
+// (time-of-day dependent), and one that fits no class is a .lec-row under Other Recordings. Opens the saved lecture either way.
+async function openLecture(page){
+  const key = await page.evaluate(() => SBCLS.recKeyOf(Object.values(state.files).find(f => f.folderId === "lectures")));
+  if (key) { await page.click(`.cls-row[data-key="${key}"]`); await page.waitForSelector('.cls-sheet [data-act="lec-view"]', {timeout: 4000}); await page.click('.cls-sheet [data-act="lec-view"]'); }
+  else await page.click(".lec-row");
+  await page.waitForSelector(".lec-view", {timeout: 4000}); await page.waitForTimeout(300);
+}
 const pad = x => String(x).padStart(2, "0");
 const day = off => { const d = new Date(); d.setDate(d.getDate() + off); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 // A two-page PDF of plain text lines (Helvetica), like a reading
@@ -194,7 +204,8 @@ function SEED(){
     ok(/Add the note to/.test(await page.textContent(".pdr-pop")) && opts[0] === "Bio Board" && opts.includes("My Notes") && opts.includes("Lab Notes"), "with note boards, Note asks which one, the course's board first: " + opts.join(", "));
     await page.click('.pdr-pop [data-act="pdr-note-to"][data-id="nb1"]'); await page.waitForTimeout(300);
     ok(await page.evaluate(() => { const n = Object.values(state.notes).find(x => /Mitochondria produce most/.test(x.text)); return !!n && n.board === "nb1"; }), "and the note goes on the board you pick");
-    await page.evaluate(() => { state.settings.noteBoards = []; state.files.f1.hl = state.files.f1.hl.slice(0, 2); });
+    // drop the board's note with its highlight: with no boards it lands on My Notes on top of the first note and can cover its page link
+    await page.evaluate(() => { state.settings.noteBoards = []; Object.values(state.notes).filter(n => n.board === "nb1").forEach(n => delete state.notes[n.id]); state.files.f1.hl = state.files.f1.hl.slice(0, 2); });
     await page.click("#pdrSideBtn"); await page.waitForTimeout(200);
     ok(await page.locator(".pdr-list li").count() === 2, "the Highlights panel lists both");
     await page.click('.pdr-list [data-act="pdr-hl-card"]'); await page.waitForTimeout(200);
@@ -325,8 +336,9 @@ function SEED(){
     ok(lf && /^## Osmosis/.test(lf.lec.org) && /How water and solutes[\s\S]*## Key Terms\n• Osmosis: Water moving across a membrane[\s\S]*## Takeaways/.test(lf.lec.sum), "with an organized transcript and a summary");
     ok(await page.evaluate(() => !Object.values(state.notes).some(n => n.lec || /Osmosis/.test(n.text))), "and no note");
     await page.click('.lec-foot [data-act="close"]'); await page.waitForTimeout(250);
-    ok(await page.locator('.cd-tabs [data-id="lectures"][aria-selected="true"]').count() === 1 && await page.locator(".lec-row").count() === 1, "the course shows its Lectures");
-    await page.click(".lec-row"); await page.waitForTimeout(300);
+    const lecKey = await page.evaluate(() => SBCLS.recKeyOf(Object.values(state.files).find(f => f.folderId === "lectures")));
+    ok(await page.locator('.cd-tabs [data-id="lectures"][aria-selected="true"]').count() === 1 && (lecKey ? await page.locator(`.cls-row.has[data-key="${lecKey}"]`).count() === 1 && await page.locator(".lec-row").count() === 0 : await page.locator(".lec-row").count() === 1), "the course shows its Lectures, with the new one under its class (or Other Recordings): " + (lecKey || "no class"));
+    await openLecture(page);
     ok(await page.locator(".lec-fopt").count() === 2, "a lecture offers its two files");
     await page.click('.lec-fopt[data-doc="sum"]'); await page.waitForTimeout(150);
     ok(/Key Terms/.test(await page.locator(".lec-docv").textContent()) && await page.locator(".lec-docv li").count() >= 3, "the summary");
@@ -348,13 +360,13 @@ function SEED(){
     await act(page, "ask-course", "c1"); await page.waitForTimeout(300);
     ok(await page.evaluate(() => [...document.querySelectorAll("[data-askf]")].some(i => i.checked && /Lecture: Osmosis Day/.test(i.parentElement.textContent))), "Ask offers the lecture's transcript, checked");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
-    await page.click(".lec-row"); await page.waitForTimeout(300);
+    await openLecture(page);
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     ok(await page.locator("#lecPill").count() === 0 && await page.evaluate(() => !window.__sbProStudy.rec()), "the recorder is finished");
     await tab(page, "files");
     ok(!/Osmosis Day/.test(await page.locator("#view").textContent()), "lectures stay out of Files");
     await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await page.waitForTimeout(200);
-    await page.click(".lec-row"); await page.waitForTimeout(300);
+    await openLecture(page);
     await page.click('.lec-vfoot [data-act="lec-bk"]'); await page.waitForSelector(".lec-bk", {timeout: 5000});
     ok(await page.locator(".lec-bk-o").count() === 4, "Back Up offers Files, Google Drive, OneDrive and This Device");
     await page.evaluate(() => { window.__bkUp = []; window.__bkDl = []; SBCLOUD.connected = () => ["google"]; SBCLOUD.saveBlob = async (p, blob, name, o) => { window.__bkUp.push({p, name, folder: o.folderId, size: blob.size}); return {p, id: "x" + window.__bkUp.length, url: "https://drive.google.com/x"}; }; const H = window.__sbProStudy; H.lecBk.download = (name, blob) => window.__bkDl.push(name);
@@ -374,7 +386,7 @@ function SEED(){
     await page.click('.lec-bk-o[data-where="microsoft"]'); await page.waitForTimeout(300);
     ok(await page.evaluate(() => /Cloud/i.test((document.querySelector("dialog[open]") || {}).textContent || "")), "OneDrive not connected: opens Cloud to connect it");
     await page.evaluate(() => dlg.close());
-    await page.click(".lec-row"); await page.waitForTimeout(300);
+    await openLecture(page);
     await page.click('.lec-vfoot [data-act="lec-bk"]'); await page.waitForSelector(".lec-bk");
     await page.click('.lec-bk-o[data-where="device"]'); await page.waitForTimeout(900);
     ok(await page.evaluate(() => window.__bkDl.some(n => /Transcript and Summary\.txt$/.test(n))), "This Device downloads the transcript and summary");
@@ -394,7 +406,7 @@ function SEED(){
     await page.evaluate(() => { window.__srKeep = window.SpeechRecognition; window.SpeechRecognition = window.webkitSpeechRecognition = undefined; window.__sbProStudy.lecCapMs(1500); });
     await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
     await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
-    ok(/Written by Gemini every 30 seconds/.test(await page.textContent(".lec-body")) && await page.locator("#lecCap").isChecked(), "without the browser's speech service, live captions come from Gemini");
+    ok(/Written by Google Gemini every 30 seconds/.test(await page.textContent(".lec-body")) && await page.locator("#lecCap").isChecked(), "without the browser's speech service, live captions come from Gemini");
     const before = page.context().aiBodies.length;
     await page.click('[data-act="lec-start"]'); await page.waitForSelector(".lec-live", {timeout: 8000});
     await page.waitForFunction(() => /Today we talk about osmosis/.test((document.querySelector(".lec-caps") || {}).textContent || ""), null, {timeout: 15000});
