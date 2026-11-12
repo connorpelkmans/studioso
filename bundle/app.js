@@ -96132,7 +96132,7 @@ var SBCLS = null;
         <p class="cls-kick">${esc(x.title)}${x.n && x.of ? ` <span class="mini">of ${x.of}</span>` : ""}</p>
         <h2 class="occv-title">${esc(day(x.date, {weekday: "long", month: "long", day: "numeric"}))}</h2>
         ${x.name ? `<p class="cls-name">${esc(x.name)}</p>` : ""}
-        <p class="mini cls-when">${esc([x.start ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
+        <p class="mini cls-when">${esc([x.start ? (x.end ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : fmtTime(x.start)) : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
         <div class="cls-navs">${nav(prev, "p")}${nav(next, "n")}</div>
 
         <section class="cls-sec"><h3><span>${esc(x.kind || "Class")} Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
