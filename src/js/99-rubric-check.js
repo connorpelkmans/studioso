@@ -255,7 +255,7 @@ hook("act", (act, el, id) => {
   if (dlg.open) dlg.close();
   open(id); return true;
 });
-if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", free: "3 a Week, Own Key", pro: "Unlimited", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
 
 const css = document.createElement("style");
 css.textContent = `

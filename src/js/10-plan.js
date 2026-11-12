@@ -800,11 +800,16 @@ window.__sbPlanObj = () => PLAN;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
-    return `<div class="plan-prices${sm ? " three" : ""}">
-        <button type="button" class="plan-price" data-act="plan-buy" data-id="monthly"><span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}</button>
-        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> / 4 months</small></span><span class="pp-sub">${esc((semOnce() ? ["Paid once, doesn't renew"] : [trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span></button>` : ""}
-        <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
+    // one plan is picked from the start (Yearly, the best value), and one clear button buys it; tapping a tile only picks it
+    const ids = ["monthly"].concat(sm ? ["semester"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
+    const NAME = {monthly: "Monthly", semester: "Semester", yearly: "Yearly"}, AMT = {monthly: pr.monthly, semester: semPrice(), yearly: pr.yearly};
+    const tile = (id, cls, inner) => `<button type="button" class="plan-price${cls}" data-act="plan-pick" data-id="${id}" role="radio" aria-checked="${pick === id}">${inner}</button>`;
+    return `<div class="plan-prices${sm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
+        ${tile("monthly", "", `<span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}`)}
+        ${sm ? tile("semester", "", `<span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> for the whole term</small></span><span class="pp-sub">${esc((semOnce() ? ["4 months, paid once, doesn't renew"] : ["Renews every 4 months", trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span>`) : ""}
+        ${tile("yearly", " best", `${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span>`)}
       </div>
+      <button type="button" class="btn primary plan-go" data-act="plan-buy" data-id="${pick}">${trial ? "Start Free Trial" : "Get Pro"} · ${esc(NAME[pick])}, ${esc(AMT[pick])}</button>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
       ${renewalText(pr, trial)}`;
   }
@@ -904,6 +909,15 @@ window.__sbPlanObj = () => PLAN;
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
       case "plan-buy": buy(id); return true;
+      case "plan-pick": {
+        // pick a plan: the tiles and the button follow, without redrawing the sheet
+        P.pick = id;
+        const box = el.closest(".plan-sheet") || dlg;
+        box.querySelectorAll('[data-act="plan-pick"]').forEach(b => b.setAttribute("aria-checked", String(b.dataset.id === id)));
+        const go = box.querySelector(".plan-go"), name = el.querySelector(".pp-name"), amt = el.querySelector(".pp-amt");
+        if (go) { go.dataset.id = id; go.textContent = go.textContent.replace(/·.*$/, `· ${name ? name.textContent : ""}, ${amt && amt.firstChild ? amt.firstChild.textContent : ""}`); }
+        return true;
+      }
       case "plan-buy-web": buyWebEU(); return true;
       case "plan-refresh": refreshNow(); return true;
       case "plan-restore": restore(); return true;

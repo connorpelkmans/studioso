@@ -12017,7 +12017,7 @@ hook("act", (act, el) => {
   }
   if (act === "cd-old") { ui.cdOld = ui.cdOld === ui.courseId ? null : ui.courseId; render(); return true; }
   if (act === "ci-ai") {
-    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("ai-icons")}); return true; }
+    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("Making your own course icons with AI is part of Studyboard Pro.")}); return true; }
     if (!aiReady()) { toast("Set up AI to make your own icons", null, {label: "Set Up AI", fn: () => aiSetupSheet(true)}); return true; }
     const box = $("#ciAi"); if (box) { box.hidden = !box.hidden; if (!box.hidden) { const q = $("#ciAiQ"); if (q) q.focus(); } }
     return true;
@@ -23304,11 +23304,16 @@ window.__sbPlanObj = () => PLAN;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
-    return `<div class="plan-prices${sm ? " three" : ""}">
-        <button type="button" class="plan-price" data-act="plan-buy" data-id="monthly"><span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}</button>
-        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> / 4 months</small></span><span class="pp-sub">${esc((semOnce() ? ["Paid once, doesn't renew"] : [trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span></button>` : ""}
-        <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
+    // one plan is picked from the start (Yearly, the best value), and one clear button buys it; tapping a tile only picks it
+    const ids = ["monthly"].concat(sm ? ["semester"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
+    const NAME = {monthly: "Monthly", semester: "Semester", yearly: "Yearly"}, AMT = {monthly: pr.monthly, semester: semPrice(), yearly: pr.yearly};
+    const tile = (id, cls, inner) => `<button type="button" class="plan-price${cls}" data-act="plan-pick" data-id="${id}" role="radio" aria-checked="${pick === id}">${inner}</button>`;
+    return `<div class="plan-prices${sm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
+        ${tile("monthly", "", `<span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}`)}
+        ${sm ? tile("semester", "", `<span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> for the whole term</small></span><span class="pp-sub">${esc((semOnce() ? ["4 months, paid once, doesn't renew"] : ["Renews every 4 months", trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span>`) : ""}
+        ${tile("yearly", " best", `${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span>`)}
       </div>
+      <button type="button" class="btn primary plan-go" data-act="plan-buy" data-id="${pick}">${trial ? "Start Free Trial" : "Get Pro"} · ${esc(NAME[pick])}, ${esc(AMT[pick])}</button>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
       ${renewalText(pr, trial)}`;
   }
@@ -23408,6 +23413,15 @@ window.__sbPlanObj = () => PLAN;
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
       case "plan-buy": buy(id); return true;
+      case "plan-pick": {
+        // pick a plan: the tiles and the button follow, without redrawing the sheet
+        P.pick = id;
+        const box = el.closest(".plan-sheet") || dlg;
+        box.querySelectorAll('[data-act="plan-pick"]').forEach(b => b.setAttribute("aria-checked", String(b.dataset.id === id)));
+        const go = box.querySelector(".plan-go"), name = el.querySelector(".pp-name"), amt = el.querySelector(".pp-amt");
+        if (go) { go.dataset.id = id; go.textContent = go.textContent.replace(/·.*$/, `· ${name ? name.textContent : ""}, ${amt && amt.firstChild ? amt.firstChild.textContent : ""}`); }
+        return true;
+      }
       case "plan-buy-web": buyWebEU(); return true;
       case "plan-refresh": refreshNow(); return true;
       case "plan-restore": restore(); return true;
@@ -81125,7 +81139,7 @@ var SBPRO = null;
   }
   const arrow = d => d === "up" ? "↑" : d === "down" ? "↓" : "→";
   const gradeTxt = tr => tr ? `${tr.letter || Math.round(tr.cur) + "%"} ${arrow(tr.dir)}` : "";
-  function insightsBody(I){
+  function insightsBody(I, preview){
     const empty = `<p class="mini">Not enough to go on yet. Insights fill in as you use Focus sessions, finish tasks and get grades back.</p>`;
     const sec = (title, body) => `<section class="pro-card"><h3>${esc(title)}</h3>${body}</section>`;
     const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(x.min / I.maxMin * 100))}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
@@ -81136,24 +81150,37 @@ var SBPRO = null;
       : `<p class="mini">Make an exam prep plan (open an exam, then Plan My Prep) to see how it's going here.</p>`;
     const early = I.early ? `<div class="pro-early"><b>${esc(SBI18N.fmtN(Math.round(Math.abs(I.early.avg) * 10) / 10))}</b><span>${esc(I.early.avg >= 0 ? "days early, on average, when you finish an assignment." : "days late, on average, when you finish an assignment.")}${I.early.late ? esc(` ${plural(I.early.late, "was", "were")} late.`) : ""}</span></div>`
       : `<p class="mini">Shows up once you've finished a few assignments with due dates.</p>`;
+    if (preview) {
+      // free plan: the first card is real, from the student's own planner; the others say what they'd show, with nothing made up
+      const lockSec = (title, what) => `<section class="pro-card pro-lockcard"><h3>${esc(title)} ${PRO_BADGE}</h3><p class="mini">${esc(what)}</p></section>`;
+      return sec("Study Time and Grades", study)
+        + lockSec("When You Focus Best", "Which part of the day your Focus sessions last longest, day by day.")
+        + lockSec("Exam Prep Follow-Through", "How many of your exam prep sessions you've done so far, and the topics still marked shaky.")
+        + lockSec("Finishing Early", "How many days before the due date you usually finish, and anything that slipped past it.")
+        + `<button type="button" class="btn pro-ins-go" data-act="pro-ins-pro">See Every Insight With Pro</button>`;
+    }
     return sec("Study Time and Grades", study) + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
   }
   let INS = {kind: "week"};
+  const INS_WHY = "Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades.";
   function openInsights(kind){
-    if (locked()) { proSheet("Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades."); return; }
+    // free plan: a preview built from the student's own planner (the first card), the rest with Pro
+    const preview = locked();
     INS.kind = kind === "term" ? "term" : INS.kind || "week";
     const draw = () => {
       const I = compute(INS.kind), b = dlg.querySelector(".pro-ins-body"); if (!b) return;
-      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
+      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I, preview)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
     };
     if (!(dlg.open && dlg.querySelector(".pro-ins-body"))) openSheet(`<div class="sheet pro-sheet">${head("Insights")}<div class="sheet-body pro-ins-body"></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     draw();
   }
   function reviewHtml(){
     if (!allTasks().length) return "";
-    if (locked()) return `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     let line = "";
     try { line = headline(compute("week")); } catch (e) { line = ""; }
+    // free plan: this week's one-line insight is free too; the full breakdown is a preview with the rest on Pro
+    if (locked()) return line ? `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight</h3><p style="margin:0">${esc(line)}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`
+      : `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight${tagPro() ? " " + PRO_BADGE : ""}</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
   }
 
@@ -81311,6 +81338,7 @@ var SBPRO = null;
     switch (act) {
       case "pro-ins-open": if (dlg.open && !dlg.querySelector(".pro-ins-body")) dlg.close(); openInsights(); return true;
       case "pro-ins-kind": INS.kind = id === "term" ? "term" : "week"; openInsights(INS.kind); return true;
+      case "pro-ins-pro": proSheet(INS_WHY); return true;
       case "pro-recap-open": if (dlg.open) dlg.close(); openRecap(); return true;
       case "pro-recap-hide": { const T = recapTerm(); if (T) markSeen(T.key); scheduleRender(); toast("Hidden. Your recap stays in Settings, Studyboard Pro."); return true; }
       case "pro-recap-step": if (RC) { const n = RC.i + (Number(id) || 1); RC.i = n >= RC.slides.length ? 0 : Math.max(0, n); drawRecap(); } return true;
@@ -81326,6 +81354,9 @@ var SBPRO = null;
   css.textContent = `
 .pro-card{background:var(--surface);border:1px solid var(--line);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:12px 14px;margin:0;display:grid;gap:8px}
 .pro-card h3{margin:0;font:600 1rem var(--display)}
+.pro-lockcard{box-shadow:none;border-style:dashed;background:color-mix(in srgb,var(--ink) 3%,var(--surface))}
+.pro-lockcard p{margin:0}
+.pro-ins-go{justify-self:stretch;width:100%;min-height:44px}
 .pro-say{margin:0;line-height:1.45}
 .pro-cr{display:grid;grid-template-columns:minmax(0,7.5em) minmax(0,1fr) auto auto;gap:10px;align-items:center;font-size:.92rem}
 .pro-cn{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -83557,7 +83588,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
-        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>
+        ${view ? "" : `<span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>`}
         <span class="spacer"></span>
         ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
       </div>
@@ -98057,7 +98088,7 @@ hook("act", (act, el, id) => {
   if (dlg.open) dlg.close();
   open(id); return true;
 });
-if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", free: "3 a Week, Own Key", pro: "Unlimited", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
