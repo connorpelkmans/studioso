@@ -294,6 +294,33 @@ window.__sbPlanObj = () => PLAN;
     toast(msg, null, {label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))});
     return true;
   }
+  /* Free runs: a free account (with its own AI key) gets a few runs a week of some Pro AI tools, so it can try them for real.
+     kind: "quiz" (Quiz Me), "teach" (Teach It Back), "rubric" (Rubric Check). The count is kept in settings, so it syncs to the
+     account's other devices like the collection previews, and starts again each Monday (local time). Pro has no count. */
+  const FREE_RUNS = 3, RUN_NAMES = {quiz: ["Quiz Me", "session", "sessions"], teach: ["Teach It Back", "check", "checks"], rubric: ["Rubric Check", "check", "checks"]};
+  const runWeek = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return iso(d); };
+  function runsState(){
+    const r = state && state.settings && state.settings.freeRuns, wk = runWeek();
+    return r && typeof r === "object" && r.wk === wk ? r : {wk};
+  }
+  // how many free runs of this kind are left this week (Infinity when nothing's locked)
+  function runsLeft(kind){
+    if (!paywall() || isPro()) return Infinity;
+    return Math.max(0, FREE_RUNS - (Number(runsState()[kind]) || 0));
+  }
+  // count one finished run; says how many are left once it's counted
+  function useRun(kind){
+    if (!paywall() || isPro() || !RUN_NAMES[kind]) return;
+    const r = Object.assign({}, runsState()); r[kind] = (Number(r[kind]) || 0) + 1;
+    state.settings = Object.assign({}, state.settings, {freeRuns: r}); saveSettings();
+    const left = runsLeft(kind), [name, one, many] = RUN_NAMES[kind];
+    setTimeout(() => toast(left ? `${left} free ${name} ${left === 1 ? one : many} left this week` : `That was this week's last free ${name} ${one}. More on Monday.`, null, {label: "See Pro", fn: () => proSheet(`${name} is unlimited with Studyboard Pro.`)}), 600);
+  }
+  // the Pro sheet when this week's free runs are used up
+  function runsGone(kind, why){
+    const n = RUN_NAMES[kind] || ["This", "run", "runs"];
+    proSheet(`You've used this week's ${FREE_RUNS} free ${n[0]} ${n[2]}. They're back on Monday, or get unlimited ${n[2]} with Pro. ${why || ""}`.trim());
+  }
   function redeemSheet(){
     if (!sbUser) { toast("Sign in first, then redeem your code."); if (typeof sbAsk === "function") sbAsk(); return; }
     openSheet(`<form class="sheet" id="promoForm">${head("Redeem a Code")}<div class="sheet-body">
@@ -909,13 +936,13 @@ window.__sbPlanObj = () => PLAN;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
     fmtMB
   };
-  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
+  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), runsLeft, refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
 })();
 
 

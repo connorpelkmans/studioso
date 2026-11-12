@@ -96,6 +96,9 @@ const RBC = (() => {
 /*RUBRIC-END*/
 
 const PRO_WHY = "Rubric Check is part of Studyboard Pro: see which rubric criteria your draft misses before you submit.";
+// free plan: a few checks a week with the student's own AI key (PLAN.runsLeft)
+const locked = () => !!(window.SBPRO && SBPRO.locked());
+const left = () => { try { return PLAN.runsLeft("rubric"); } catch (e) { return 0; } };
 const LMS_F = ["cv", "bs", "bb", "md", "sg", "gc"];
 const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null, el: null};
 // A check that's still running is set aside (not stopped) when you tap away, and comes back when you open Rubric Check again
@@ -110,7 +113,7 @@ const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test
 const RUB_NAME = /rubric|criteria|marking|grading|scoring|assessment guide/i;
 function taskBtn(t){
   if (!t || inPreview() || !RBC.eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${SBPRO.locked() || tagPro() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${locked() && left() > 0 ? ` <span class="mini">${left()} free this week</span>` : locked() || tagPro() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
 // The rubric a task already has: from the school site, an attached rubric file, or notes that read like one
 async function autoRubric(t){
@@ -132,7 +135,8 @@ async function fileText(file){
 }
 function open(id){
   const t = state.tasks[id]; if (!t) return;
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
+  // a check already done for this task can always be opened again; starting a new one needs a free run (or Pro)
+  if (locked() && left() <= 0 && !(R.tid === id && (R.res || R.busy))) { PLAN.runsGone("rubric", "Rubric Check: see which rubric criteria your draft misses before you submit."); return; }
   if (sheetResume(KEY(id))) return;
   if (R.tid !== id) { if (R.tid) sheetDrop(KEY(R.tid)); Object.assign(R, {tid: id, rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, cut: null}); }
   Object.assign(R, {view: own() ? (R.res ? "result" : "form") : "nokey", err: "", busy: false, saved: 0});
@@ -213,6 +217,7 @@ function wire(t){
 async function run(id){
   const t = state.tasks[id]; if (!t || R.busy) return;
   if (!own()) { R.view = "nokey"; draw(); return; }
+  if (locked() && left() <= 0) { PLAN.runsGone("rubric"); return; }
   if (!R.rubric.trim()) { R.err = "Add the rubric first: paste it, or choose the file."; draw(); return; }
   if (R.draft.trim().split(/\s+/).length < 30) { R.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; draw(); return; }
   const cr = crits(), draft = RBC.clip(R.draft, 60000), c = courseOf(t.courseId);
@@ -225,6 +230,7 @@ async function run(id){
     const out = RBC.parse(res && res.data, cr, draft.text);
     if (!out) throw Object.assign(new Error("The AI's answer didn't make sense. Try again."), {code: "bad"});
     Object.assign(R, {res: out, cut: draft, view: "result", saved: 0});
+    if (locked() && PLAN.useRun) PLAN.useRun("rubric");
   } catch (e) {
     if ((ac && ac.signal.aborted) || (e && e.code === "cancelled")) return;
     R.err = (e && e.message) || "Couldn't check your draft right now. Try again.";
