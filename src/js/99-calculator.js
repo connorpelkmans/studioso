@@ -525,6 +525,9 @@
     if (e.defaultPrevented) {
       e.stopImmediatePropagation();
       if (!inside) W.focus({preventScroll: true});
+    } else if (inside && e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // a letter the calculator doesn't use (the n of "sin", say) must not reach page shortcuts such as N for New Task
+      e.preventDefault(); e.stopImmediatePropagation();
     }
   }, true);
 

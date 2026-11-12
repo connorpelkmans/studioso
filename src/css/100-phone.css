@@ -69,6 +69,9 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .course-card .next .late{color:var(--late);font-weight:600}
 /* Deck Archive: the same folder icon as the notes Archive */
 .deck-actions .deck-arch svg{display:block}
+/* The Add button steps aside while it would cover a button (any screen size) */
+.fab{transition:opacity .18s,transform .18s}
+body.fab-yield .fab{opacity:0;transform:translateY(12px) scale(.94);pointer-events:none}
 /* Phones: the header frosts over the page once it scrolls; the Add button */
 @media (max-width:639px){
   header.top{transition:background-color .2s,box-shadow .2s,border-color .2s}
@@ -630,7 +633,7 @@ h2.sec.c2-bh{align-items:center}
   .sch-b > .sch-band{padding:2px 8px}
   .sch-b > .sch-band .cc-ic{width:14px;height:14px}
   .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:baseline;gap:6px;min-width:0;padding:3px 8px}
-  .sch-b > .sch-bd > span{flex:none;font-size:.7rem}
+  .sch-b > .sch-bd > span{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.7rem}
   .sch-b > .sch-bd > .sch-t{flex:0 1 auto;min-width:0;font-size:.76rem}
   .sch-b > .sch-bd > span:nth-of-type(3){display:none}
 }
@@ -641,7 +644,9 @@ h2.sec.c2-bh{align-items:center}
   .sch-b > .sch-band{display:none}
   .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:center;height:100%;padding:0 8px 0 11px;box-shadow:inset 4px 0 0 var(--c)}
   .sch-b > .sch-bd > .sch-t{display:block}
+  .sch-b > .sch-bd > .sch-tc{display:block;flex:none;font:700 .74rem var(--display)}
 }
+.sch-bd > .sch-tc{display:none}
 .sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
 .sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
 .sch-now{height:2px!important}

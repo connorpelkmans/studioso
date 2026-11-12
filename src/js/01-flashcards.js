@@ -795,7 +795,7 @@ async function quizFromCardsAi(decks, n, types, dir, title){
 function quizFromCardsLocal(decks, n, types, dir, title){
   const qs = aiCleanQuestions(buildQuiz(decks, n, types, dir).map(q => q.type === "mc" ? {type: "single", stem: q.prompt, options: q.options, correct: [q.options.indexOf(q.answer)]}
     : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt}\nAnswer: ${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
-    : {type: "short", stem: q.prompt, answer: q.answer}));
+    : {type: "short", stem: q.prompt, answer: q.answer}), v => String(v == null ? "" : v).trim());
   if (!qs.length) { toast("Couldn't make questions from these cards"); return; }
   const d = clone(state.decks[decks[0]]); if (!d) return;
   const qid = uid(), name = uniqueQuizTitle(title);

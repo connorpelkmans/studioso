@@ -219,12 +219,9 @@ const CRUNCH = (() => {
   // Best single move for one task
   function bestMove(input, base, week, t, minGain){
     const today = input.today, c = classOf(t), cands = [];
-    if (t.synced) {
-      const s0 = effStart(t, today);
-      SHIFTS.forEach(s => { const to = add(s0, -s); if (to > today && to < s0) cands.push({id: t.id, mode: "start", from: s0, to}); });
-    } else {
-      SHIFTS.forEach(s => { const to = add(t.due, -s); if (diff(today, to) >= 1) cands.push({id: t.id, mode: "due", from: t.due, to}); });
-    }
+    // Pulling work forward moves when you start, never the real due date (the sheet promises that)
+    { const s0 = effStart(t, today);
+      SHIFTS.forEach(s => { const to = add(s0, -s); if (to > today && to < s0) cands.push({id: t.id, mode: "start", from: s0, to}); }); }
     let best = null;
     const seen = {};
     cands.forEach(m => {
@@ -557,7 +554,7 @@ function crunchR2(m, today, call, est, grid, help){
   const coming = live.slice(1, 6).map(W => { const by = byCourse(W); return `<li><button type="button" class="cr2-wk" data-act="cr-week" data-id="${W.start}"><b>${esc(rangeLabel(W.start, W.end))}</b>
       <span class="cr2-mini" aria-hidden="true"><span style="width:${(W.demand / maxD * 100).toFixed(0)}%">${used.map(k => (by[k] || 0) > 0.05 ? `<i style="flex:${by[k].toFixed(2)};background:${esc(col(k))}"></i>` : "").join("")}</span></span>
       <span class="cr2-wt"><b class="lv${W.levelIdx}">${LV_WORD[W.levelIdx]}</b> · ${W.demand >= 0.25 ? fmtHM(W.demand) : "nothing planned yet"}${W.headline ? " · " + esc(W.headline) : ""}</span></button>
-      ${W.levelIdx >= 3 ? `<button type="button" class="btn small" data-act="cr-week" data-id="${W.start}">Ease This Week</button>` : ""}</li>`; }).join("");
+      ${W.levelIdx >= 3 ? `<button type="button" class="btn small" data-act="cr-week" data-id="${W.start}">See This Week</button>` : ""}</li>`; }).join("");
   const toggle = `<div class="segb cr2-range" role="group" aria-label="Weeks shown"><button type="button" data-act="cr-all" aria-pressed="${!ui.crAll}"${ui.crAll ? "" : " disabled"}>Next 6 Weeks</button><button type="button" data-act="cr-all" aria-pressed="${!!ui.crAll}"${ui.crAll ? " disabled" : ""}>Whole Term</button></div>`;
   return `<section class="cr cr2" aria-label="Crunch Forecast"><div class="view-head cr-head">${toggle}</div>
     <div class="cr2-top">${thisWeek}${chart}</div>

@@ -2847,7 +2847,9 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       }
     });
     extPost({type: "hello"});
-    setTimeout(() => { EXT.checked = true; if (!EXT.on && typeof render === "function") render(); }, 3000);
+    // (an open menu or popover waits: the redraw would close it under the person's pointer)
+    const extRedraw = () => { if (document.querySelector("#view [aria-expanded=true]")) setTimeout(extRedraw, 1500); else render(); };
+    setTimeout(() => { EXT.checked = true; if (!EXT.on && typeof render === "function") extRedraw(); }, 3000);
   }
   hook("boot", extListen);
   window.addEventListener("sb:signing-out", () => { if (EXT.on) extPost({type: "signout"}); });

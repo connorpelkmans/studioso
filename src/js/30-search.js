@@ -125,7 +125,7 @@
     const out = new Map(), put = (t, q) => { if ((out.get(t) || 0) < q) out.set(t, q); };
     if (known(term)) put(term, 1);
     const L = term.length, num = /^\d+$/.test(term);
-    if (L >= 2 && (prefix || L >= 4)) {
+    if (L >= 2 && (prefix || L >= 3)) {
       const cand = [];
       for (let i = lowerBound(V.sorted, term); i < V.sorted.length && V.sorted[i].startsWith(term); i++) if (V.sorted[i] !== term) cand.push(V.sorted[i]);
       cand.sort((a, b) => df(b) - df(a)).slice(0, 60).forEach(t => put(t, prefix ? 0.9 - Math.min(0.25, (t.length - L) * 0.02) : 0.6));
@@ -248,7 +248,7 @@
     try {
       const box = document.createElement("div"); box.innerHTML = fire("menu").filter(x => typeof x === "string").join("");
       $$("[data-act]", box).forEach(el => {
-        const a = el.dataset.act; if (!a || a === "sx-settings" || el.tagName === "INPUT") return;
+        const a = el.dataset.act; if (!a || a === "sx-settings" || el.tagName === "INPUT" || el.closest(".segb,[role=group],[role=radiogroup]")) return;
         const sub = el.querySelector(".sub"), subT = sub ? sub.textContent.trim() : "";
         const title = (el.textContent || "").replace(subT, "").trim().replace(/\s+/g, " ");
         if (!title || title.length > 80 || seen.has(title)) return;
@@ -749,7 +749,7 @@
     }
     const b = Math.min(text.length, a + len);
     let html = "", p = a;
-    for (const [s, e] of ms) { if (e <= p || s >= b) continue; html += esc(text.slice(p, Math.max(p, s))) + "<mark>" + esc(text.slice(Math.max(s, p), Math.min(e, b))) + "</mark>"; p = Math.min(e, b); }
+    for (const [s, e] of (/[$\\]/.test(text) ? [] : ms)) { if (e <= p || s >= b) continue; html += esc(text.slice(p, Math.max(p, s))) + "<mark>" + esc(text.slice(Math.max(s, p), Math.min(e, b))) + "</mark>"; p = Math.min(e, b); }
     html += esc(text.slice(p, b));
     return (a > 0 ? "…" : "") + html + (b < text.length ? "…" : "");
   }
@@ -762,7 +762,7 @@
     const n = P.terms.length;
     const inFiles = sxCfg().files;
     let hits = scoreIx(IX.items, P, n), ch = inFiles ? scoreIx(IX.chunks, P, n) : [];
-    if (hits.length + ch.length < 3 && n > 1) { const need = Math.max(1, Math.ceil(n * 0.6)); hits = scoreIx(IX.items, P, need); ch = inFiles ? scoreIx(IX.chunks, P, need) : []; }
+    if (hits.length + ch.length < 3 && n > 1) { const need = Math.max(1, n - 1); hits = scoreIx(IX.items, P, need); ch = inFiles ? scoreIx(IX.chunks, P, need) : []; }
     const fq = fold(q).trim();
     hits.forEach(h => {
       const t = h.doc.ft || (h.doc.ft = fold(h.doc.title));

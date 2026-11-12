@@ -1100,6 +1100,12 @@ function availExtMap(from, to){
     if (o.type === "avail" || o.skipped || (o.type === "meet" && o.m && o.m.kind === "Office Hours")) return;
     (m[o.date] = m[o.date] || []).push({start: o.start, end: o.end, allDay: !!o.allDay, title: o.title, label: o.label});
   });
+  // A timed exam or quiz you sit in person is busy time too, so nothing is planned on top of it
+  tasksArr().forEach(t => {
+    if ((t.type !== "Exam" && t.type !== "Quiz") || t.status === "done" || t.prepFor || t.remote === "yes" || !t.due || t.due < from || t.due > to || !/^\d\d:\d\d$/.test(t.time || "")) return;
+    const a = tToMin(t.time), e = Math.min(24 * 60 - 1, a + (t.type === "Exam" ? 120 : 60)), hm = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
+    (m[t.due] = m[t.due] || []).push({start: t.time, end: hm(e), allDay: false, title: t.title, label: t.type});
+  });
   return m;
 }
 function availFreeDay(date, nowMin, extMap){

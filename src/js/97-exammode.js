@@ -110,7 +110,7 @@ function rankNext(F, scored, pool, focusLen){
   scored.length = 0;
   ord.forEach(it => {
     scored.push(it.y);
-    if (it.lane === "first") it.y.why.unshift(it.dueMs <= exDue ? `Due before your ${EXAMMODE.kindWord(ex).toLowerCase()}` : it.risk ? "Short of time for it" : `Due on your ${EXAMMODE.kindWord(ex).toLowerCase()} day`);
+    if (it.lane === "first") it.y.why.unshift(it.dueMs < Date.now() ? "Overdue: clear it first" : it.dueMs <= exDue ? `Due before your ${EXAMMODE.kindWord(ex).toLowerCase()}` : it.risk ? "Short of time for it" : `Due on your ${EXAMMODE.kindWord(ex).toLowerCase()} day`);
     else if (it.lane === "study") it.y.why.unshift(chip);
   });
   const top = ord[0];

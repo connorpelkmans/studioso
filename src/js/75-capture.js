@@ -161,7 +161,7 @@ const CAP = (() => {
     [/\b(read|reading|chapters?|ch\.?\s*\d)/i, "Reading"], [/\b(hw|homework|assignment|essay|paper|report|problem set|pset|worksheet|discussion post)\b/i, "Assignment"], [/\b(study|review)\b/i, "Study"]];
   const guessType = s => { const h = TYPE_WORDS.find(([re]) => re.test(s)); return h ? h[1] : ""; };
   // Words left in the title that still look like a date or a second task
-  const LEFTOVER = /\b(next|this|coming|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|weekly|daily)\b|\d{1,2}\/\d{1,2}|\b\d{1,2}\.\d{2}\b|\b(?:at|by)\s+\d{1,2}\b|\b20\d\d\b/i;
+  const LEFTOVER = /\b(next|this|coming|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|weekly|daily)\b|\d{1,2}\/\d{1,2}|\b\d{1,2}\.\d{2}\b|\b(?:at|by)\s+\d{1,2}\b|\bdue\b|\b20\d\d\b/i;
   const stripEdges = t => {
     let prev;
     do { prev = t; t = t.replace(/\s+(due|by|on|at|for|before|until|till|the|is|its|it's|@|-|,|:|due by|due on)\s*$/i, "").replace(/^\s*(due|by|on|at|for|the|is|-|,|:)\s+/i, ""); } while (t !== prev);

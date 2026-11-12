@@ -137,7 +137,7 @@ function richNode(el){
 // Where text is shown with its math and formatting: notes, card faces and lists, quizzes, whiteboard text, the reader's
 // comments, picture card answers, Match tiles, and anything marked class="rt"
 const RT_SCOPES = [".note-body", ".face-text", ".fc-front", ".fc-back", ".q-prompt", ".q-card .mc", ".q-card .tf-pair", ".q-card .written", ".miss-list",
-  "button.opt", ".opt-note", ".q-card .rationale", ".q-card .ans", ".q-card .ai-fb", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".ar-cards", ".rt", "[data-rt]"];
+  "button.opt", ".opt-note", ".q-card .rationale", ".q-card .ans", ".q-card .ai-fb", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".ar-cards", ".face-hint", ".sx-t", ".sx-s", ".rt", "[data-rt]"];
 let rtQueued = false;
 function rtRun(){
   rtQueued = false;

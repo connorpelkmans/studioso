@@ -76,6 +76,10 @@
 /* Settings as one grouped list */
 @media (max-width:719px){
   dialog#dlg > .us-sheet{position:relative;border-radius:24px 24px 0 0}
+  /* one steady height, so moving between Settings categories doesn't make the sheet jump */
+  dialog#dlg:has(> .us-sheet){height:calc(100vh - 84px);height:calc(100dvh - 84px)}
+  dialog#dlg > .us-sheet{height:100%;display:flex;flex-direction:column}
+  dialog#dlg > .us-sheet > .sheet-body{flex:1;min-height:0;overflow-y:auto}
   dialog#dlg > .us-sheet::before{content:"";position:absolute;top:7px;left:50%;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:color-mix(in srgb,var(--ink) 22%,transparent);z-index:3;pointer-events:none}
   .us-sheet .sheet-head{border-bottom:0;padding-top:22px;touch-action:none}
   .us-sheet .sheet-head h2{font:800 1.6rem/1.15 var(--display)}

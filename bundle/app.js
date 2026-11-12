@@ -4784,24 +4784,26 @@ const QUIZ_SCHEMA = {type: "OBJECT", properties: {
     topic: {type: "STRING"},
     source: {type: "STRING"}}, required: ["type", "stem", "rationale"]}}},
   required: ["questions"]};
-function aiCleanQuestions(list){
+// tidy: how each piece of text is cleaned (questions made from your own cards keep their text, math included)
+function aiCleanQuestions(list, tidy){
+  if (typeof tidy !== "function") tidy = aiTidyText;
   const out = [];
   (Array.isArray(list) ? list : []).forEach(q => {
     const type = ["single", "multiple", "order", "truefalse", "short"].includes(q.type) ? q.type : "single";
-    const stem = aiTidyText(q.stem); if (!stem) return;
-    let options = (Array.isArray(q.options) ? q.options : []).map(o => aiTidyText(o)).filter(Boolean);
+    const stem = tidy(q.stem); if (!stem) return;
+    let options = (Array.isArray(q.options) ? q.options : []).map(o => tidy(o)).filter(Boolean);
     if (type === "truefalse") options = ["True", "False"];
     let correct = (Array.isArray(q.correct) ? q.correct : []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < options.length);
     if (type === "truefalse" && !correct.length && q.answer) correct = [/^t/i.test(q.answer) ? 0 : 1];
-    const answer = aiTidyText(q.answer);
+    const answer = tidy(q.answer);
     if (type === "short") { if (!answer && !(correct.length && options[correct[0]])) return; }
     else if (options.length < 2) return;
     if ((type === "single" || type === "truefalse") && correct.length !== 1) return;
     if (type === "multiple" && !correct.length) return;
     if (type === "order" && (correct.length !== options.length || new Set(correct).size !== options.length)) return;
-    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => aiTidyText(s)) : [];
+    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => tidy(s)) : [];
     out.push({id: uid(), type, stem, options: type === "short" ? [] : options, correct: type === "short" ? [] : (type === "multiple" ? [...new Set(correct)].sort((a, b) => a - b) : correct),
-      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: aiTidyText(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
+      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
   });
   return out;
 }
@@ -10000,7 +10002,7 @@ const AI_ACTS = {
   "tf-est": el => tfEstimate(el),
   "nu-skip": el => { nuSkips().ids.push(el.dataset.id); nuSkipSave(); if (!/^study:/.test(el.dataset.id)) nufbAdd("skip", state.tasks[el.dataset.id]); render(); },
   "nu-more": el => { ui.nuMore = !ui.nuMore; const c = el.closest(".next-up"); if (c) c.classList.toggle("nu-open", ui.nuMore); el.setAttribute("aria-expanded", String(!!ui.nuMore)); },
-  "nu-enough": el => { const t = state.tasks[el.dataset.id]; if (!t) return; const n = clone(t); n.history = (n.history || []).concat({at: Date.now(), text: "Enough for today"}).slice(-30); applyChanges([{kind: "task", id: t.id, after: n}], null); toast(`Okay, moving on from “${t.title}” for today. It stays on your list.`); render(); },
+  "nu-enough": el => { const t = state.tasks[el.dataset.id]; if (!t) return; const n = clone(t); n.history = (n.history || []).concat({at: Date.now(), text: "Enough for today"}).slice(-30); const inv = applyChanges([{kind: "task", id: t.id, after: n}], ""); toast(t.due === todayISO() && t.status !== "done" ? `Okay, moving on from “${t.title}” for today. It's still due today${t.time ? " at " + fmtTime(t.time) : ""}.` : `Okay, moving on from “${t.title}” for today. It stays on your list.`, inv ? () => { applyChanges(inv, null); toast("Undone"); } : undefined); render(); },
   "nu-back": () => { const id = nuSkips().ids.pop(); nuSkipSave(); ui.nuLast = null; if (id && !/^study:/.test(id)) nufbDrop("skip", id); render(); },
   "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} Object.keys(h).forEach(k => { if (Date.now() - h[k] > 8 * 864e5 || h[k] === 1) delete h[k]; }); h[el.dataset.id] = Date.now(); try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
   "ai-explain": el => runExplain(el.dataset.key, el.dataset.given),
@@ -10664,7 +10666,7 @@ function card(t){
     ${c ? `<div class="card-course"><span class="cc-ic" aria-hidden="true">${courseRingHtml(c)}</span>${esc(courseLabel(c))}</div>` : ""}
     <div class="card-title"><button type="button" class="check card-check" data-act="toggle" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Mark not done" : "Mark complete"}: ${esc(t.title)}" aria-pressed="${t.status === "done"}">${CHECK}</button><span>${esc(t.title)}</span></div>
     ${(t.reading && t.type === "Reading") || (t.location && (MILESTONE(t.type) || t.type === "Lab")) ? `<div class="card-sub">${esc(t.type === "Reading" ? t.reading : t.location)}</div>` : ""}
-    <div class="card-foot">${t.priority && t.priority !== "med" ? prioBadge(t.priority) : ""}${(() => { if (!t.due) return ""; if (late) return `<span class="soon late">${esc(relDue(t))}</span>`; const sb = soonBadge(t); return sb ? sb + (t.time && !/Due in \d+h/.test(sb) ? `<span>${esc(fmtTime(t.time))}</span>` : "") : ""; })()}${statusBadges(t)}<span>${esc(t.type || "Task")}</span>${MILESTONE(t.type) && t.status !== "done" && !remoteOf(t).v ? `<button type="button" class="rx-q" data-act="edit-task" data-edit="1" data-id="${esc(t.id)}" title="Not sure if this can be taken from home. Open it to say where it is taken." aria-label="Not sure where ${esc(t.title)} is taken. Open it to set that">?</button>` : ""}${t.due && !late && !soonBadge(t) ? `<span>${esc(relDue(t).replace(/^Due /, ""))}</span>` : ""}${isNum(t.hours) && !MILESTONE(t.type) ? `<span>${fmtH(Number(t.hours))}</span>` : ""}${t.seriesId ? `<span title="Repeats">${REPEAT}</span>` : ""}${nf ? `<span title="${nf} attached file${nf === 1 ? "" : "s"}">${CLIP}${nf}</span>` : ""}${(nn => nn ? `<span class="note-count" title="${nn} sticky note${nn === 1 ? "" : "s"}">${NOTE_ICON}${nn}</span>` : "")(notesOfTask(t.id).length)}${t.pomos ? `<span class="pomo-count" title="${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtMins(t.focusMin)}">${TOMATO}${t.pomos}</span>` : ""}${lmsGoBtn(t)}</div>
+    <div class="card-foot">${t.priority && t.priority !== "med" ? prioBadge(t.priority) : ""}${(() => { if (!t.due) return ""; if (late) return `<span class="soon late">${esc(relDue(t))}</span>`; const sb = soonBadge(t); return sb ? sb + (t.time && !/Due in \d+h/.test(sb) ? `<span>${esc(fmtTime(t.time))}</span>` : "") : ""; })()}${statusBadges(t)}<span>${esc(t.type || "Task")}</span>${MILESTONE(t.type) && t.status !== "done" && !remoteOf(t).v ? `<button type="button" class="rx-q" data-act="edit-task" data-edit="1" data-id="${esc(t.id)}" title="Not sure if this can be taken from home. Open it to say where it is taken." aria-label="Not sure where ${esc(t.title)} is taken. Open it to set that">?</button>` : ""}${t.due && !late && !soonBadge(t) ? `<span>${esc(relDue(t).replace(/^Due /, ""))}</span>` : ""}${isNum(t.hours) && !MILESTONE(t.type) ? `<span>${fmtHM(Number(t.hours))}</span>` : ""}${t.seriesId ? `<span title="Repeats">${REPEAT}</span>` : ""}${nf ? `<span title="${nf} attached file${nf === 1 ? "" : "s"}">${CLIP}${nf}</span>` : ""}${(nn => nn ? `<span class="note-count" title="${nn} sticky note${nn === 1 ? "" : "s"}">${NOTE_ICON}${nn}</span>` : "")(notesOfTask(t.id).length)}${t.pomos ? `<span class="pomo-count" title="${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtMins(t.focusMin)}">${TOMATO}${t.pomos}</span>` : ""}${lmsGoBtn(t)}</div>
     ${t.breakdownOf && window.SBBREAK ? `<div class="card-sub">${SBBREAK.rowMeta(t)}</div>` : ""}
     ${p.prep ? (t.status !== "done" ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${Math.round(p.frac * 100)}% prepared</div>` : "") : p.total ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${p.done}/${p.total}</div>` : (t.status !== "done" && p.frac > 0 ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${Math.round(p.frac * 100)}%</div>` : "")}
   </div>`;
@@ -11348,13 +11350,19 @@ function dayTimelineHtml(F, todayList, heroId){
   const early = sd.night && sd.now >= (sd.end - 1440 + sd.start) / 2;
   if (sd.past) return `<div class="dtl dtl-over" role="group" aria-label="Today's schedule"><div class="dtl-rail"><div class="dtl-c fr dtl-end" data-anchor><span>${early ? "Your day hasn't started yet" : "Past your end of day"}</span><b>${esc(sd.night ? `Your day starts at ${atT(sd.start)}` : `Your day ended at ${atT(sd.end)}`)}</b></div></div></div>`;
   const sb = (F && F.slotsBy) || {}, a = F && F.avail, items = [];
-  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e > sl.s) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
+  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e - sl.s >= 10) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
   try {
     // just after midnight, today's calendar is the late part of the evening's day
     const off = sd.tail ? 1440 : 0;
     schOccurrences(todayISO(), todayISO()).forEach(o => {
       if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end) return;
       const s = toMin(o.start) + off, e = toMin(o.end) + off; if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
+    });
+    // A timed exam or quiz sat in person today is on the strip too (the plan keeps that time clear)
+    if (!sd.tail) tasksArr().forEach(t => {
+      if ((t.type !== "Exam" && t.type !== "Quiz") || t.status === "done" || t.prepFor || t.remote === "yes" || t.due !== todayISO() || !/^\d\d:\d\d$/.test(t.time || "")) return;
+      const s = toMin(t.time), e = Math.min(1439, s + (t.type === "Exam" ? 120 : 60)), c = courseOf(t.courseId);
+      items.push({k: "ev", s, e, title: t.title, label: t.type + (c ? " · " + courseLabel(c) : ""), color: colorOf(t.courseId), where: t.location || ""});
     });
   } catch (e) {}
   // Do This Next always has a card: when the plan found it no slot, it starts right now for one session
@@ -12705,6 +12713,12 @@ function availExtMap(from, to){
     if (o.type === "avail" || o.skipped || (o.type === "meet" && o.m && o.m.kind === "Office Hours")) return;
     (m[o.date] = m[o.date] || []).push({start: o.start, end: o.end, allDay: !!o.allDay, title: o.title, label: o.label});
   });
+  // A timed exam or quiz you sit in person is busy time too, so nothing is planned on top of it
+  tasksArr().forEach(t => {
+    if ((t.type !== "Exam" && t.type !== "Quiz") || t.status === "done" || t.prepFor || t.remote === "yes" || !t.due || t.due < from || t.due > to || !/^\d\d:\d\d$/.test(t.time || "")) return;
+    const a = tToMin(t.time), e = Math.min(24 * 60 - 1, a + (t.type === "Exam" ? 120 : 60)), hm = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
+    (m[t.due] = m[t.due] || []).push({start: t.time, end: hm(e), allDay: false, title: t.title, label: t.type});
+  });
   return m;
 }
 function availFreeDay(date, nowMin, extMap){
@@ -13187,7 +13201,12 @@ function eventForm(ev, preset){
   const f = dlg.querySelector("form"), repSel = f.elements.rep, box = f.querySelector(".ev-rep"), times = f.querySelector(".ev-times"), ad = f.elements.allDay;
   const sync = () => { box.hidden = !repSel.value; times.hidden = ad.checked; };
   repSel.addEventListener("change", sync); ad.addEventListener("change", sync); sync();
-  $("#evDays").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (!b) return; const d = Number(b.dataset.day); pickDays = pickDays.includes(d) ? pickDays.filter(x => x !== d) : pickDays.concat(d); b.setAttribute("aria-pressed", pickDays.includes(d)); });
+  // Until the days are picked by hand, a weekly repeat follows the event's date
+  let daysTouched = !!rp;
+  f.elements.date.addEventListener("change", () => { const v = f.elements.date.value; if (daysTouched || !isDate(v)) return; pickDays = [parse(v).getDay()]; $$("#evDays [data-day]").forEach(b => b.setAttribute("aria-pressed", pickDays.includes(Number(b.dataset.day)))); });
+  // Moving the start keeps the event's length
+  { let prevStart = f.elements.start.value; f.elements.start.addEventListener("change", () => { const a = f.elements.start.value, e2 = f.elements.end.value; if (a && prevStart && e2) { const len = tToMin(e2) - tToMin(prevStart), m = tToMin(a) + (len > 0 ? len : 60); if (m < 24 * 60) f.elements.end.value = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); } prevStart = a; }); }
+  $("#evDays").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (!b) return; daysTouched = true; const d = Number(b.dataset.day); pickDays = pickDays.includes(d) ? pickDays.filter(x => x !== d) : pickDays.concat(d); b.setAttribute("aria-pressed", pickDays.includes(d)); });
   const del = $("#evDel"); if (del) del.addEventListener("click", () => { dlg.close(); applyChanges([{kind: "event", id: ev.id, after: null}], `Deleted ${ev.title}`); });
 }
 
@@ -14087,7 +14106,7 @@ function viewSchedule(){
       if (o.type === "avail" && !o.skipped) availMinSum += Math.max(0, it.e - it.s) * (o.avail.kind === "work" || o.avail.kind === "shift" ? 1 : 0);
       const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}`;
       const tip = o.type === "avail" ? `${o.title}, ${o.label}, ${o.rangeText}${o.moved ? " (changed this day only)" : ""}. Tap to change or skip this day.` : `${o.title}${o.label ? ", " + o.label : ""}, ${fmtTime(o.start)}–${fmtTime(o.end)}${o.where ? ", " + o.where : ""}${o.moved ? " (moved this week only)" : ""}. Drag to move${o.type === "meet" || (o.ev && o.ev.repeat) ? " just this week" : ""}.`;
-      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
+      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
         : o.type === "event" && o.course && !o.skipped ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.course)}</span><b>${esc(courseLabel(o.course))}</b></span><span class="sch-bd"><span class="sch-t">${esc(o.title)}</span><span>${o.label ? esc(o.label) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>` : `<b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}`}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
     }).join("");
     const allDay = occ.filter(o => o.allDay && o.date === d.iso);
@@ -14686,7 +14705,7 @@ function taskView(t0){
     if (st) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
     // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
     const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
-    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
+    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtHM(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
     else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}` + leftTxt]);
     if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
     if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
@@ -15479,7 +15498,7 @@ function richNode(el){
 // Where text is shown with its math and formatting: notes, card faces and lists, quizzes, whiteboard text, the reader's
 // comments, picture card answers, Match tiles, and anything marked class="rt"
 const RT_SCOPES = [".note-body", ".face-text", ".fc-front", ".fc-back", ".q-prompt", ".q-card .mc", ".q-card .tf-pair", ".q-card .written", ".miss-list",
-  "button.opt", ".opt-note", ".q-card .rationale", ".q-card .ans", ".q-card .ai-fb", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".ar-cards", ".rt", "[data-rt]"];
+  "button.opt", ".opt-note", ".q-card .rationale", ".q-card .ans", ".q-card .ai-fb", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".ar-cards", ".face-hint", ".sx-t", ".sx-s", ".rt", "[data-rt]"];
 let rtQueued = false;
 function rtRun(){
   rtQueued = false;
@@ -16477,7 +16496,11 @@ function importSheet(courseId, file){
     result = r;
     const cs = coursesArr();
     const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-    const match = courseId ? courseOf(courseId) : cs.find(c => (r.course.code && norm(c.code) === norm(r.course.code)) || (r.course.name && norm(c.name) === norm(r.course.name)));
+    const byText = cs.find(c => (r.course.code && norm(c.code) === norm(r.course.code)) || (r.course.name && norm(c.name) === norm(r.course.name)));
+    // Opened from a course page, but the syllabus names a different course code: don't pour it into this course
+    const here = courseId ? courseOf(courseId) : null;
+    const clash = !!(here && r.course.code && here.code && norm(here.code) !== norm(r.course.code));
+    const match = clash ? byText : (here || byText);
     // "HW 3" and "Homework 3" are the same task; a numbered one is the same whatever its date
     const nt = SY.normTitle;
     const existingKeys = new Set();
@@ -16509,6 +16532,7 @@ function importSheet(courseId, file){
       <p style="margin:0"><button type="button" class="link-btn" id="impAgain">Choose a Different File</button></p>
       <fieldset class="imp-course"><legend>Course</legend>
         <label class="f">Add To<select id="impTarget"><option value="new">A new course</option>${cs.map(x => `<option value="${esc(x.id)}" ${match && match.id === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
+        ${clash ? `<p class="mini" style="margin:0">This syllabus looks like <b>${esc(r.course.code)}</b>, not ${esc(courseLabel(here))}, so it isn't added to ${esc(courseLabel(here))} unless you pick it above.</p>` : ""}
         <div id="impNew" class="imp-grid">
           <label class="f"><span class="lh">Course Name ${REQ}</span><input type="text" id="icName" value="${esc(c.name)}" placeholder="Course Name"></label>
           <label class="f">Code<input type="text" id="icCode" value="${esc(c.code)}"></label>
@@ -17849,7 +17873,11 @@ function dlgKbFit(){
   // (a short dip, such as Safari's toolbars sliding, isn't the keyboard: it has to be clearly taller than them)
   const up = innerHeight - vv.height > 150;
   clearTimeout(dlgKbFit.t);
-  if (up) d.classList.add("kb-open"); else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
+  if (up) {
+    d.classList.add("kb-open");
+    // the sheet shrank above the keyboard: bring the box being typed in back into view
+    requestAnimationFrame(() => { const a = document.activeElement; if (a && a.closest && a.closest("dialog[open]") && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { try { a.scrollIntoView({block: "nearest"}); } catch (e) {} } });
+  } else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }
 /* ===== module: 01-flashcards.js: the app's core, flashcards: decks, spaced repetition, quizzes ===== */
@@ -18649,7 +18677,7 @@ async function quizFromCardsAi(decks, n, types, dir, title){
 function quizFromCardsLocal(decks, n, types, dir, title){
   const qs = aiCleanQuestions(buildQuiz(decks, n, types, dir).map(q => q.type === "mc" ? {type: "single", stem: q.prompt, options: q.options, correct: [q.options.indexOf(q.answer)]}
     : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt}\nAnswer: ${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
-    : {type: "short", stem: q.prompt, answer: q.answer}));
+    : {type: "short", stem: q.prompt, answer: q.answer}), v => String(v == null ? "" : v).trim());
   if (!qs.length) { toast("Couldn't make questions from these cards"); return; }
   const d = clone(state.decks[decks[0]]); if (!d) return;
   const qid = uid(), name = uniqueQuizTitle(title);
@@ -27109,7 +27137,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     const out = new Map(), put = (t, q) => { if ((out.get(t) || 0) < q) out.set(t, q); };
     if (known(term)) put(term, 1);
     const L = term.length, num = /^\d+$/.test(term);
-    if (L >= 2 && (prefix || L >= 4)) {
+    if (L >= 2 && (prefix || L >= 3)) {
       const cand = [];
       for (let i = lowerBound(V.sorted, term); i < V.sorted.length && V.sorted[i].startsWith(term); i++) if (V.sorted[i] !== term) cand.push(V.sorted[i]);
       cand.sort((a, b) => df(b) - df(a)).slice(0, 60).forEach(t => put(t, prefix ? 0.9 - Math.min(0.25, (t.length - L) * 0.02) : 0.6));
@@ -27232,7 +27260,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     try {
       const box = document.createElement("div"); box.innerHTML = fire("menu").filter(x => typeof x === "string").join("");
       $$("[data-act]", box).forEach(el => {
-        const a = el.dataset.act; if (!a || a === "sx-settings" || el.tagName === "INPUT") return;
+        const a = el.dataset.act; if (!a || a === "sx-settings" || el.tagName === "INPUT" || el.closest(".segb,[role=group],[role=radiogroup]")) return;
         const sub = el.querySelector(".sub"), subT = sub ? sub.textContent.trim() : "";
         const title = (el.textContent || "").replace(subT, "").trim().replace(/\s+/g, " ");
         if (!title || title.length > 80 || seen.has(title)) return;
@@ -27733,7 +27761,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     }
     const b = Math.min(text.length, a + len);
     let html = "", p = a;
-    for (const [s, e] of ms) { if (e <= p || s >= b) continue; html += esc(text.slice(p, Math.max(p, s))) + "<mark>" + esc(text.slice(Math.max(s, p), Math.min(e, b))) + "</mark>"; p = Math.min(e, b); }
+    for (const [s, e] of (/[$\\]/.test(text) ? [] : ms)) { if (e <= p || s >= b) continue; html += esc(text.slice(p, Math.max(p, s))) + "<mark>" + esc(text.slice(Math.max(s, p), Math.min(e, b))) + "</mark>"; p = Math.min(e, b); }
     html += esc(text.slice(p, b));
     return (a > 0 ? "…" : "") + html + (b < text.length ? "…" : "");
   }
@@ -27746,7 +27774,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     const n = P.terms.length;
     const inFiles = sxCfg().files;
     let hits = scoreIx(IX.items, P, n), ch = inFiles ? scoreIx(IX.chunks, P, n) : [];
-    if (hits.length + ch.length < 3 && n > 1) { const need = Math.max(1, Math.ceil(n * 0.6)); hits = scoreIx(IX.items, P, need); ch = inFiles ? scoreIx(IX.chunks, P, need) : []; }
+    if (hits.length + ch.length < 3 && n > 1) { const need = Math.max(1, n - 1); hits = scoreIx(IX.items, P, need); ch = inFiles ? scoreIx(IX.chunks, P, need) : []; }
     const fq = fold(q).trim();
     hits.forEach(h => {
       const t = h.doc.ft || (h.doc.ft = fold(h.doc.title));
@@ -32063,7 +32091,7 @@ const CAP = (() => {
     [/\b(read|reading|chapters?|ch\.?\s*\d)/i, "Reading"], [/\b(hw|homework|assignment|essay|paper|report|problem set|pset|worksheet|discussion post)\b/i, "Assignment"], [/\b(study|review)\b/i, "Study"]];
   const guessType = s => { const h = TYPE_WORDS.find(([re]) => re.test(s)); return h ? h[1] : ""; };
   // Words left in the title that still look like a date or a second task
-  const LEFTOVER = /\b(next|this|coming|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|weekly|daily)\b|\d{1,2}\/\d{1,2}|\b\d{1,2}\.\d{2}\b|\b(?:at|by)\s+\d{1,2}\b|\b20\d\d\b/i;
+  const LEFTOVER = /\b(next|this|coming|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|weekly|daily)\b|\d{1,2}\/\d{1,2}|\b\d{1,2}\.\d{2}\b|\b(?:at|by)\s+\d{1,2}\b|\bdue\b|\b20\d\d\b/i;
   const stripEdges = t => {
     let prev;
     do { prev = t; t = t.replace(/\s+(due|by|on|at|for|before|until|till|the|is|its|it's|@|-|,|:|due by|due on)\s*$/i, "").replace(/^\s*(due|by|on|at|for|the|is|-|,|:)\s+/i, ""); } while (t !== prev);
@@ -38287,6 +38315,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   const r1 = v => Math.round(v * 10) / 10;
   const fmtP = v => r1(v) + "%";
   const fmtW = v => r1(v) + "%";
+  // A score you need is rounded up, so reaching the shown number is always enough
+  const fmtN = v => Math.ceil(v * 10 - 1e-6) / 10 + "%";
   const courseName = c => c ? courseLabel(c) : "this course";
 
   // "43/50", "43 out of 50", "86%" or "86"
@@ -38491,7 +38521,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     });
     const save = v => {
       const cur = state.tasks[id]; if (!cur) return;
+      if (!v && !cur.mark) { dlg.close(); if (back) setTimeout(back, 40); return; }
       const n = clone(cur); n.mark = v;
+      // A marked task has been handed in: finish it, the way Paste Grades does
+      if (v && n.status !== "done") { n.status = "done"; n.doneAt = Date.now(); n.pct = 100; }
       dlg.close();
       applyChanges([{kind: "task", id, after: n}], v ? `Mark saved: ${fmtMark(v)}` : "Mark removed");
       // After an exam or quiz's first mark: a one-minute reflection (the exam wrapper), then back to where you were
@@ -38691,15 +38724,16 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (g.goal != null) {
       const n = gr.need(g.goal);
       if (n <= 0) out.push(`You've already locked in your goal of <b>${fmtP(g.goal)}</b>. Nice work.`);
-      else if (n <= 100) out.push(`You need an average of <b>${fmtP(n)}</b> on ${remTxt} to reach your goal of ${fmtP(g.goal)}.`);
+      else if (n <= 100) out.push(`You need an average of <b>${fmtN(n)}</b> on ${remTxt} to reach your goal of ${fmtP(g.goal)}.`);
       else out.push(`<span class="gr-kind">Your goal of ${fmtP(g.goal)} is out of reach now, even with full marks on everything left. The highest you can still get is <b>${fmtP(gr.maxFinal)}</b>${L(gr.maxFinal) ? ` (${esc(L(gr.maxFinal))})` : ""}. Every mark from here still counts, and a new goal can keep you going.</span>`);
     }
     const np = gr.need(g.pass), hold = holdOf(gr);
-    if (g.goal == null && hold && !inDanger(gr) && hold.th > g.pass) out.push(hold.n <= 0 ? `You've locked in at least ${esc(hold.l)} (${fmtP(hold.th)}). Nice work.` : hold.n <= 100 ? `To keep your ${esc(hold.l)} (${fmtP(hold.th)}), you need an average of <b>${fmtP(hold.n)}</b> on ${remTxt}.` : "");
+    if (g.goal == null && hold && !inDanger(gr) && hold.th > g.pass) out.push(hold.n <= 0 ? `You've locked in at least ${esc(hold.l)} (${fmtP(hold.th)}). Nice work.` : hold.n <= 100 ? `To keep your ${esc(hold.l)} (${fmtP(hold.th)}), you need an average of <b>${fmtN(hold.n)}</b> on ${remTxt}.` : "");
     if (np <= 0) out.push(`You've already secured the <b>${fmtP(g.pass)}</b> pass mark, whatever happens next.`);
     else if (np > 100) out.push(`<span class="gr-kind">Even full marks on the rest would leave ${nm} below the ${fmtP(g.pass)} pass mark. Please talk to your instructor soon. They can explain your options, like extra support or what happens next. Lots of students go through this, and asking early helps.</span>`);
-    else if ((inDanger(gr) || !hold || hold.th <= g.pass || !(hold.n <= 100))) out.push(`To pass (${fmtP(g.pass)}), you need an average of <b>${fmtP(np)}</b> on ${remTxt}.${gr.risk === "risk" || gr.risk === "watch" ? " Today's Plan is moving this course's graded work up a little." : ""}`);
+    else if ((inDanger(gr) || !hold || hold.th <= g.pass || !(hold.n <= 100))) out.push(`To pass (${fmtP(g.pass)}), you need an average of <b>${fmtN(np)}</b> on ${remTxt}.${gr.risk === "risk" || gr.risk === "watch" ? " Today's Plan is moving this course's graded work up a little." : ""}`);
     for (let k = out.length - 1; k >= 0; k--) if (!out[k]) out.splice(k, 1);
+    if (gr.wAll > 100.5) out.push(`<span class="mini gr-kind">Your graded tasks add up to ${fmtW(gr.wAll)}, more than 100%, so each one is scaled down to fit. Check the weights against your course outline.</span>`);
     if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
     return out;
   }
@@ -38802,7 +38836,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (w.done) out.push(`That would finish the course on ${lt(w.minFinal)}${w.minFinal >= g.pass ? ", a pass." : `, under the ${fmtP(g.pass)} pass mark.`}`);
     else {
       if (w.current != null) out.push(`Your grade on marked work would be ${lt(w.current)}.`);
-      const tp = (name, t) => { const n = w.need(t); return n <= 0 ? `${name.charAt(0).toUpperCase() + name.slice(1)} is secured.` : n <= 100 ? `You'd then need <b>${fmtP(n)}</b> on the remaining ${fmtW(w.rem)} for ${name}.` : `${name} would be out of reach.`; };
+      const tp = (name, t) => { const n = w.need(t); return n <= 0 ? `${name.charAt(0).toUpperCase() + name.slice(1)} is secured.` : n <= 100 ? `You'd then need <b>${fmtN(n)}</b> on the remaining ${fmtW(w.rem)} for ${name}.` : `${name} would be out of reach.`; };
       if (g.goal != null) out.push(tp(`your goal of ${fmtP(g.goal)}`, g.goal));
       out.push(tp(`the ${fmtP(g.pass)} pass mark`, g.pass));
     }
@@ -38869,10 +38903,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       : gr.final ? `Final ${fmtP(gr.minFinal)}${L(gr.minFinal) ? " " + L(gr.minFinal) : ""}`
       : gr.done ? `${fmtP(gr.minFinal)}${L(gr.minFinal) ? " " + L(gr.minFinal) : ""} on everything marked so far. Not final until a couple of weeks after classes end.`
       : np > 100 ? "Pass mark out of reach. Talk to your instructor."
-      : g.goal != null && !inDanger(gr) ? (n => n <= 0 ? "Goal secured." : n <= 100 ? `Needs ${fmtP(n)} on the remaining ${fmtW(gr.remaining)} for your goal.` : "Goal out of reach now.")(gr.need(g.goal))
+      : g.goal != null && !inDanger(gr) ? (n => n <= 0 ? "Goal secured." : n <= 100 ? `Needs ${fmtN(n)} on the remaining ${fmtW(gr.remaining)} for your goal.` : "Goal out of reach now.")(gr.need(g.goal))
       : !inDanger(gr) && (h => h && h.th > g.pass && h.n <= 100)(holdOf(gr)) ? (h => h.n <= 0 ? `${h.l} locked in.` : `Needs ${fmtP(h.n)} on the remaining ${fmtW(gr.remaining)} to keep your ${h.l}.`)(holdOf(gr))
-      : np <= 0 ? `Pass mark secured. ${g.goal != null ? (n => n <= 0 ? "Goal secured too." : n <= 100 ? `${fmtP(n)} on the rest for your goal.` : "Goal out of reach now.")(gr.need(g.goal)) : ""}`
-      : `Needs ${fmtP(np)} on the remaining ${fmtW(gr.remaining)} to pass${g.goal != null ? (n => n <= 0 ? ", goal secured" : n <= 100 ? `, ${fmtP(n)} for your goal` : ", goal out of reach")(gr.need(g.goal)) : ""}.`;
+      : np <= 0 ? `Pass mark secured. ${g.goal != null ? (n => n <= 0 ? "Goal secured too." : n <= 100 ? `${fmtN(n)} on the rest for your goal.` : "Goal out of reach now.")(gr.need(g.goal)) : ""}`
+      : `Needs ${fmtN(np)} on the remaining ${fmtW(gr.remaining)} to pass${g.goal != null ? (n => n <= 0 ? ", goal secured" : n <= 100 ? `, ${fmtN(n)} for your goal` : ", goal out of reach")(gr.need(g.goal)) : ""}.`;
   }
   /* New marks from a sync: a red count on Courses, on the Grades switch, on each course with one (its card, its row on Grades,
      its own Grades tab), and a red dot on the mark itself. Seen once you've had that course's Grades tab (or its marks on Grades) open and moved on. */
@@ -39250,7 +39284,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         : n == null ? "Add marks to see what you need."
         : n <= 0 ? `<span class="gp-calc-big">Secured</span><span>${fmtP(want)} is already locked in, whatever the rest brings.</span>`
         : n > 100 ? `<span class="gp-calc-big">Out of reach</span><span>The most you can still finish with is ${fmtP(gr.maxFinal)}.</span>`
-        : `<span>To finish with ${fmtP(want)} you need</span><span class="gp-calc-big">${fmtP(n)}</span><span>on the remaining ${fmtW(gr.remaining)}${gr.current != null ? `. You have ${fmtP(gr.current)} so far.` : "."}</span>`;
+        : `<span>To finish with ${fmtP(want)} you need</span><span class="gp-calc-big">${fmtN(n)}</span><span>on the remaining ${fmtW(gr.remaining)}${gr.current != null ? `. You have ${fmtP(gr.current)} so far.` : "."}</span>`;
       const calc = `<section class="gp-calc gp-d-calc"><h4 class="gp-d-h">What Do I Need?</h4>
         <div class="chips gp-calc-t" role="group" aria-label="Target">${tg.map(([k, v]) => `<button type="button" class="chip" data-act="gp-target" data-cid="${esc(c.id)}" data-id="${v}" aria-pressed="${Math.abs(v - want) < 0.01}">${esc(k)} ${r1(v)}%</button>`).join("")}</div>
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
@@ -39971,8 +40005,14 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   }
   function rwChanges(p){
     const ch = p.sugg.filter(s => s.on && state.tasks[s.t.id]).map(s => {
-      const n = Object.assign(clone(state.tasks[s.t.id]), s.ov);
+      const cur = state.tasks[s.t.id], n = Object.assign(clone(cur), s.ov);
       if (n.start && n.due && n.start > n.due) n.start = n.due;
+      // A graded deadline handed in late keeps the instructor's real date, in the task and its notes
+      if (s.ov.due && s.ov.due !== cur.due && hasWeight(cur) && !/^(Study|Reading)$/.test(cur.type)) {
+        if (!n.origDue) n.origDue = cur.due;
+        const line = `Officially due ${fmtShort(n.origDue)}. Planned to hand in by ${fmtShort(n.due)} (Rough Week plan).`;
+        n.notes = (cur.notes ? cur.notes.trim() + "\n\n" : "") + line;
+      }
       return {kind: "task", id: n.id, after: n};
     });
     if (p.ext && p.heavy) {
@@ -39990,7 +40030,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     dlg.close();
     const moved = p.sugg.filter(s => s.on).length;
     const inv = applyChanges(ch, "");
-    toast(moved ? `Plan applied. ${moved} task${moved === 1 ? "" : "s"} moved to next week.` : "Plan applied", () => { applyChanges(inv, null); toast("Undone"); });
+    toast(moved ? `Plan applied. ${moved} task${moved === 1 ? "" : "s"} rescheduled.` : "Plan applied", () => { applyChanges(inv, null); toast("Undone"); });
     try { localStorage.setItem(RW_KEY, mondayOf(todayISO())); } catch(e) {}
     RW = null;
   }
@@ -43215,7 +43255,9 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       }
     });
     extPost({type: "hello"});
-    setTimeout(() => { EXT.checked = true; if (!EXT.on && typeof render === "function") render(); }, 3000);
+    // (an open menu or popover waits: the redraw would close it under the person's pointer)
+    const extRedraw = () => { if (document.querySelector("#view [aria-expanded=true]")) setTimeout(extRedraw, 1500); else render(); };
+    setTimeout(() => { EXT.checked = true; if (!EXT.on && typeof render === "function") extRedraw(); }, 3000);
   }
   hook("boot", extListen);
   window.addEventListener("sb:signing-out", () => { if (EXT.on) extPost({type: "signout"}); });
@@ -73146,12 +73188,9 @@ const CRUNCH = (() => {
   // Best single move for one task
   function bestMove(input, base, week, t, minGain){
     const today = input.today, c = classOf(t), cands = [];
-    if (t.synced) {
-      const s0 = effStart(t, today);
-      SHIFTS.forEach(s => { const to = add(s0, -s); if (to > today && to < s0) cands.push({id: t.id, mode: "start", from: s0, to}); });
-    } else {
-      SHIFTS.forEach(s => { const to = add(t.due, -s); if (diff(today, to) >= 1) cands.push({id: t.id, mode: "due", from: t.due, to}); });
-    }
+    // Pulling work forward moves when you start, never the real due date (the sheet promises that)
+    { const s0 = effStart(t, today);
+      SHIFTS.forEach(s => { const to = add(s0, -s); if (to > today && to < s0) cands.push({id: t.id, mode: "start", from: s0, to}); }); }
     let best = null;
     const seen = {};
     cands.forEach(m => {
@@ -73484,7 +73523,7 @@ function crunchR2(m, today, call, est, grid, help){
   const coming = live.slice(1, 6).map(W => { const by = byCourse(W); return `<li><button type="button" class="cr2-wk" data-act="cr-week" data-id="${W.start}"><b>${esc(rangeLabel(W.start, W.end))}</b>
       <span class="cr2-mini" aria-hidden="true"><span style="width:${(W.demand / maxD * 100).toFixed(0)}%">${used.map(k => (by[k] || 0) > 0.05 ? `<i style="flex:${by[k].toFixed(2)};background:${esc(col(k))}"></i>` : "").join("")}</span></span>
       <span class="cr2-wt"><b class="lv${W.levelIdx}">${LV_WORD[W.levelIdx]}</b> · ${W.demand >= 0.25 ? fmtHM(W.demand) : "nothing planned yet"}${W.headline ? " · " + esc(W.headline) : ""}</span></button>
-      ${W.levelIdx >= 3 ? `<button type="button" class="btn small" data-act="cr-week" data-id="${W.start}">Ease This Week</button>` : ""}</li>`; }).join("");
+      ${W.levelIdx >= 3 ? `<button type="button" class="btn small" data-act="cr-week" data-id="${W.start}">See This Week</button>` : ""}</li>`; }).join("");
   const toggle = `<div class="segb cr2-range" role="group" aria-label="Weeks shown"><button type="button" data-act="cr-all" aria-pressed="${!ui.crAll}"${ui.crAll ? "" : " disabled"}>Next 6 Weeks</button><button type="button" data-act="cr-all" aria-pressed="${!!ui.crAll}"${ui.crAll ? " disabled" : ""}>Whole Term</button></div>`;
   return `<section class="cr cr2" aria-label="Crunch Forecast"><div class="view-head cr-head">${toggle}</div>
     <div class="cr2-top">${thisWeek}${chart}</div>
@@ -76066,7 +76105,7 @@ function rankNext(F, scored, pool, focusLen){
   scored.length = 0;
   ord.forEach(it => {
     scored.push(it.y);
-    if (it.lane === "first") it.y.why.unshift(it.dueMs <= exDue ? `Due before your ${EXAMMODE.kindWord(ex).toLowerCase()}` : it.risk ? "Short of time for it" : `Due on your ${EXAMMODE.kindWord(ex).toLowerCase()} day`);
+    if (it.lane === "first") it.y.why.unshift(it.dueMs < Date.now() ? "Overdue: clear it first" : it.dueMs <= exDue ? `Due before your ${EXAMMODE.kindWord(ex).toLowerCase()}` : it.risk ? "Short of time for it" : `Due on your ${EXAMMODE.kindWord(ex).toLowerCase()} day`);
     else if (it.lane === "study") it.y.why.unshift(chip);
   });
   const top = ord[0];
@@ -97396,6 +97435,9 @@ var SBCALCSKIN = null;
     if (e.defaultPrevented) {
       e.stopImmediatePropagation();
       if (!inside) W.focus({preventScroll: true});
+    } else if (inside && e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // a letter the calculator doesn't use (the n of "sin", say) must not reach page shortcuts such as N for New Task
+      e.preventDefault(); e.stopImmediatePropagation();
     }
   }, true);
 
@@ -102505,7 +102547,7 @@ const AUTOPILOT = (() => {
     const sec = (h, rows) => `<h3 class="kb-h">${esc(h)}</h3><table class="kb-t"><tbody>${rows.join("")}</tbody></table>`;
     openSheet(`<div class="sheet kb-sheet">${head("Keyboard Shortcuts")}<div class="sheet-body">
       <p class="mini" style="margin:0">These work when you're not typing in a box.</p>
-      ${sec("Anywhere", [row(["N"], "New task"), row(["C"], "Quick Capture"), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
+      ${sec("Anywhere", [row(["N"], "New task"), ...(typeof CAPTURE_OFF !== "undefined" && CAPTURE_OFF ? [] : [row(["C"], "Quick Capture")]), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
       ${sec("Go To", VIEWS_KEYS.map(([t], i) => row(appWin() ? [String(i + 1), MOD + "+" + (i + 1)] : [String(i + 1)], viewName(t))))}
       ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz")])}
       ${sec("Notes", [row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
@@ -103071,10 +103113,15 @@ const AUTOPILOT = (() => {
     raf = 0;
     const b = document.body; if (!b) return;
     let y = false;
-    const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
+    const fab = document.getElementById("fab"), qa = PHONE.matches && fab && document.querySelector("#view .qa-bar");
     if (qa && fab.style.display !== "none") {
       const f = fab.getBoundingClientRect(), q = qa.getBoundingClientRect();
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
+    }
+    // ...and, at any size, when it would sit on top of a button you can press (its taps would open New Task instead)
+    if (!y && fab && fab.style.display !== "none" && fab.getClientRects().length) {
+      const f = fab.getBoundingClientRect(), pts = [[f.left + 6, f.top + 6], [f.right - 6, f.top + 6], [f.left + 6, f.bottom - 6], [f.right - 6, f.bottom - 6], [f.left + f.width / 2, f.top + f.height / 2]];
+      y = pts.some(([x, yy]) => document.elementsFromPoint(x, yy).some(e => e !== fab && !fab.contains(e) && e.closest && e.closest("#view :is(.btn, .check, .stepper button, input, select, textarea)")));
     }
     b.classList.toggle("fab-yield", !!y);
   }
@@ -103284,6 +103331,8 @@ ui._day = todayISO();
   // On a phone no sheet raises the keyboard by itself: the person taps the box they want to type in
   const phoneW = () => matchMedia("(max-width:639px)").matches;
   const quiet = d => {
+    // Search is opened to type in, so its box keeps the focus (and the keyboard comes up)
+    if (d && d.id === "sxDlg") return;
     try {
       const a = document.activeElement;
       // A heading the sheet focused on purpose stays focused, so screen readers start there

@@ -488,6 +488,7 @@ nav.tabs button{font-size:.75rem!important}
 .status-msg{color:var(--muted);font-size:.9rem}
 .menu-list .sub{display:block;font-size:.8rem;color:var(--muted);font-weight:400}
 .menu-list button span,.menu-list label span{display:block}
+.menu-list button span.pro-badge,.menu-list label span.pro-badge{display:inline-block;width:auto;margin-left:6px;vertical-align:2px}
 .cap-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line)}
 .cap-row input{width:90px}
 .backup-list{display:grid;gap:8px}
@@ -1057,6 +1058,7 @@ html[data-motion="static"] .rv-ghost{transform:none}
 @media (max-width:560px){.fc-cell{grid-template-columns:1fr;gap:2px}}
 .pips{display:inline-flex;gap:3px;flex:none}
 .pips i{width:6px;height:14px;border-radius:2px;background:var(--soft)}
+.fc-row .pips i:not(.on){background:rgba(29,42,68,.13)}
 .pips i.on{background:var(--leaf)}
 .progress{height:6px;border-radius:3px;background:var(--soft);overflow:hidden;margin:12px 0 4px}
 .progress i{display:block;height:100%;background:var(--accent);transition:width .25s}
