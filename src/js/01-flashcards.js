@@ -525,7 +525,8 @@ function addCardSheet(d){
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button><button type="submit" class="btn primary">Add Card</button></div>
   </form>`);
-  const f = $("#fcFront"); if (f) f.focus();
+  // a phone waits for a tap in the box (its keyboard would otherwise be expected, and the sheet would rise and fall back)
+  const f = $("#fcFront"); if (f && window.matchMedia("(min-width:601px)").matches) f.focus();
 }
 function bulkSheet(d){
   openSheet(`<form class="sheet">${head("Paste Cards")}
