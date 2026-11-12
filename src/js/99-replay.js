@@ -254,6 +254,9 @@ var SBREPLAY = null;
     file: s => SV('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>', s)
   };
   const clock = R.clock;
+  // Beta: one small β beside the player, the recorder's notes, a note's replay and Hear It. Set to false to take it off everywhere.
+  const BETA = true;
+  const beta = () => BETA ? `<span class="beta-sym" title="Beta: still being improved" role="img" aria-label="Beta">β</span>` : "";
   const hasAudio = f => !!f && f.folderId === "lectures" && ((Array.isArray(f.revs) && f.revs.length) || !!f.cloud);
   const durOf = f => f && Number(f.dur) > 0 ? Math.round(Number(f.dur) * 1000) : 0;
 
@@ -344,7 +347,7 @@ var SBREPLAY = null;
       <button type="button" class="rp-btn rp-main" data-act="rp-toggle" data-id="${esc(fid)}" aria-label="${playing(fid) ? "Pause" : "Play"}">${playing(fid) ? IC.pause() : IC.play()}</button>
       <button type="button" class="rp-btn" data-act="rp-skip" data-id="${esc(fid)}" data-d="-10" aria-label="Back 10 seconds">${IC.back(20)}</button>
       <div class="rp-bar"><input type="range" class="rp-seek" data-id="${esc(fid)}" min="0" max="${Math.max(1, Math.round(len / 1000))}" step="1" value="${Math.round(now / 1000)}" aria-label="Position in the recording" aria-valuetext="${clock(now)} of ${clock(len)}">
-        <span class="rp-time mini"><span class="rp-now">${clock(now)}</span> / <span class="rp-len">${len ? clock(len) : "–:––"}</span></span></div>
+        <span class="rp-time mini"><span class="rp-now">${clock(now)}</span> / <span class="rp-len">${len ? clock(len) : "–:––"}</span>${beta()}</span></div>
       <button type="button" class="rp-btn" data-act="rp-skip" data-id="${esc(fid)}" data-d="10" aria-label="Forward 10 seconds">${IC.fwd(20)}</button>
       <button type="button" class="rp-rate" data-act="rp-rate" aria-label="Playback speed ${rate()} times">${rate()}×</button>
     </div>`;
@@ -474,7 +477,7 @@ var SBREPLAY = null;
     if (!x) { toast("That's not here any more."); window.SBLEC && SBLEC.redraw(fid); return; }
     b.dataset.id = fid; b.dataset.rpItem = k + ":" + id;
     const name = k === "note" ? noteName(x) : x.name, X = canTime(f) ? timeline(f) : null;
-    const top = `<div class="lec-doc-head"><button type="button" class="link-btn" data-act="lec-doc" data-id="${esc(fid)}" data-doc="">‹ ${esc(f.name)}</button><h3>${k === "note" ? IC.note(16) : IC.file(16)} ${esc(name)}</h3></div>`;
+    const top = `<div class="lec-doc-head"><button type="button" class="link-btn" data-act="lec-doc" data-id="${esc(fid)}" data-doc="">‹ ${esc(f.name)}</button><h3>${k === "note" ? IC.note(16) : IC.file(16)} ${esc(name)}${beta()}</h3></div>`;
     let rows = [];
     if (k === "note") rows = noteTimes(f, x);
     else { b.innerHTML = `${top}<p class="lec-busy"><span class="ai-spin" aria-hidden="true"></span> Reading the file…</p>`; rows = await pageTimes(f, x); if (b.dataset.rpItem !== k + ":" + id) return; }
@@ -521,7 +524,7 @@ var SBREPLAY = null;
   function recNotesHtml(REC, review){
     const lines = Array.isArray(REC.typed) ? REC.typed : [];
     if (review && !lines.some(l => l && String(l.s || "").trim())) return "";
-    return `<label class="f rp-recnotes"><span class="lh">Your Notes<span class="mini"> ${review ? "Saved as a note with the lecture. Each line plays the moment you wrote it." : "Each line remembers when you wrote it, so you can play that moment later."}</span></span>
+    return `<label class="f rp-recnotes"><span class="lh">Your Notes${beta()}<span class="mini"> ${review ? "Saved as a note with the lecture. Each line plays the moment you wrote it." : "Each line remembers when you wrote it, so you can play that moment later."}</span></span>
       <textarea id="rpRecNotes" rows="${review ? 5 : 4}" maxlength="8000" placeholder="Type notes as the lecture goes. A new line for each point." spellcheck="true">${esc(lines.map(l => l.s).join("\n"))}</textarea></label>`;
   }
   function recNotesWire(REC, elapsed, onChange){
@@ -564,7 +567,7 @@ var SBREPLAY = null;
   function cardHtml(d, c){
     const f = cardLecture(c); if (!f || !d) return "";
     const t = c.from && Number.isFinite(c.from.t) ? c.from.t : TC.get(c.id);
-    return `<div class="rp-hear-row"><button type="button" class="btn small rp-hear" data-act="rp-card" data-deck="${esc(d.id)}" data-id="${esc(c.id)}">${IC.ear(16)}Hear It${locked() ? ` <span class="pro-badge">PRO</span>` : ""}</button><span class="mini">${esc(f.name)}${t != null ? ` · ${clock(t)}` : ""}</span></div>`;
+    return `<div class="rp-hear-row"><button type="button" class="btn small rp-hear" data-act="rp-card" data-deck="${esc(d.id)}" data-id="${esc(c.id)}">${IC.ear(16)}Hear It${beta()}${locked() ? ` <span class="pro-badge">PRO</span>` : ""}</button><span class="mini">${esc(f.name)}${t != null ? ` · ${clock(t)}` : ""}</span></div>`;
   }
   async function hearCard(deckId, cardId){
     if (locked()) { proWhy("Hear It is part of Studyboard Pro: hear the 30 seconds of the lecture where a card's answer was taught."); return; }
