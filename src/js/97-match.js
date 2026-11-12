@@ -118,6 +118,7 @@
     else { rec = MATCH.record(R.opts.prev || null, R.ms); R.opts.prev = rec.match; }
     R.rec = rec;
     sbHaptic(rec.better ? "success" : "tap", {force: true});
+    if (rec.better && !rec.first) fire("good-moment", "match");
     setTimeout(() => { if (R && R.done && dlg.open && dlg.querySelector("[data-mt-play]")) result(); }, still() ? 0 : 360);
   }
   function result(){

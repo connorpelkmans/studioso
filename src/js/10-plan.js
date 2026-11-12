@@ -777,7 +777,7 @@ window.__sbPlanObj = () => PLAN;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
-    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);
+    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) { track("shown", reason); try { localStorage.setItem("studyboard:proShownAt", String(Date.now())); } catch (e) {} }
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
     const rows = compareRows();

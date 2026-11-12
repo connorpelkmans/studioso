@@ -18,7 +18,7 @@ function toggleTask(id, el){
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
-  if (n.status === "done") sbHaptic(todayCleared() ? "success" : "tap");
+  if (n.status === "done") { const cleared = todayCleared(); sbHaptic(cleared ? "success" : "tap"); if (cleared) fire("good-moment", "plan"); }
 }
 // Nothing left on Today's Plan: no planned work still to do today, nothing due today or overdue
 function todayCleared(){

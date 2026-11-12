@@ -326,6 +326,7 @@ const GRADE_CHEER = (() => {
     try { celebrate("check"); } catch (e) {}
     const t = fresh[0], p = Math.round(pctOf(t));
     try { toast(fresh.length === 1 ? `${p}% on ${t.title}. Great work!` : `${fresh.length} new grades of ${MIN}% or more. Great work!`); } catch (e) {}
+    fire("good-moment", "grade");
   }
   const soon = ms => { clearTimeout(T); T = setTimeout(() => { try { scan(); } catch (e) { console.warn("grade cheer", e); } }, ms); };
   hook("render", () => soon(1500));

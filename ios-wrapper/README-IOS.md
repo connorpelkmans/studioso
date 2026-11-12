@@ -33,7 +33,7 @@ cp ios-wrapper/native-bridge.js ios-www/native-bridge.js
 cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
-      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard @capacitor/haptics capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
+      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard @capacitor/haptics @capacitor-community/in-app-review capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
 cp -R ../ios-www ./ios-www
 ```
@@ -49,6 +49,7 @@ Recommended plugins and why (install no others unless you need them; every plugi
 | `@capacitor/browser` | In-app Safari sheet for https links (used by `native-bridge.js`). |
 | `@capacitor/app` | Deep links and app state. |
 | `@capacitor/haptics` | Haptic feedback (Apple's impact, selection and notification generators) for `sbHaptic` in `src/js/01-helpers.js`. WKWebView has no vibrate API, so without it the iPhone app has no haptics. `npm run ios:stage` installs it if it's missing. |
+| `@capacitor-community/in-app-review` | Apple's own review prompt ("Enjoying Studyboard?" with the stars), asked for at a good moment by `src/js/99-review-ask.js`. Apple decides whether it shows (at most 3 times a year). `npm run ios:stage` installs it if it's missing. In a development build the prompt always shows and does nothing; in TestFlight it never shows. |
 | `capacitor-secure-storage-plugin` | iOS **Keychain** storage (see section 5). |
 
 ## 3. Create the iOS project and merge the files
