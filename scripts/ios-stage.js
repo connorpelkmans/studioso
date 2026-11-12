@@ -48,6 +48,8 @@ if (fs.existsSync(plistFile)) {
   }
 }
 
+// Swift files that belong to the StudyboardWidgets target only, and those that both the app and the widgets use
+const WIDGET_ONLY = ["StudyboardWidgets.swift", "StudyboardHomeWidgets.swift"], WIDGET_BOTH = ["StudyboardHomeWidgetData.swift"];
 // Swift files dragged into Xcode with "Copy items if needed" are copies, so later fixes to ios-wrapper/native/ would never
 // reach the app. Any of them found in the Xcode project are refreshed here (files you haven't added are left out).
 {
@@ -73,14 +75,14 @@ if (fs.existsSync(plistFile)) {
       if (!fs.existsSync(top) && new RegExp("path = \"?" + esc + "\"?; sourceTree = \"<group>\"").test(txt)) {
         fs.copyFileSync(src, top); done.push(path.relative(wrap, top) + " (was missing)");
       }
-      // the widget file belongs in the widget's own folder even when a copy sits elsewhere (Xcode shows it red otherwise)
+      // the widget files belong in the widget's own folder even when a copy sits elsewhere (Xcode shows it red otherwise)
       const wdir = path.join(proj, "StudyboardWidgets");
-      if (name === "StudyboardWidgets.swift" && fs.existsSync(wdir) && !fs.existsSync(path.join(wdir, name))) {
+      if (WIDGET_ONLY.includes(name) && fs.existsSync(wdir) && !fs.existsSync(path.join(wdir, name))) {
         fs.copyFileSync(src, path.join(wdir, name)); done.push(path.relative(wrap, path.join(wdir, name)) + " (was missing)"); continue;
       }
       if (inProj.some(p => path.basename(p) === name)) continue;
       // put back where Xcode may look for it: the App folder, and the widget's own folder for the widget file
-      for (const dir of name === "StudyboardWidgets.swift" ? ["App", "StudyboardWidgets"] : ["App"]) {
+      for (const dir of WIDGET_ONLY.includes(name) || WIDGET_BOTH.includes(name) ? ["App", "StudyboardWidgets"] : ["App"]) {
         const dst = path.join(proj, dir, name);
         fs.mkdirSync(path.dirname(dst), {recursive: true}); fs.copyFileSync(src, dst); done.push(path.relative(wrap, dst) + " (was missing)");
       }
@@ -228,7 +230,7 @@ if (fs.existsSync(plistFile)) {
   const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
   try {
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const need = [["StudyboardLms.swift", "school site sign-in"], ["StudyboardLmsScripts.swift", "school site sign-in"], ["StudyboardPlugins.swift", "quick capture and the share sheet"], ["SBSiriData.swift", "asking Siri about your work"], ["StudyboardEntities.swift", "asking Siri about your work"], ["StudyboardAskIntents.swift", "asking Siri about your work"], ["StudyboardPlanIntents.swift", "Siri for today's plan, the focus timer and marking tasks done"], ["StudyboardReminders27.swift", "the new Siri on iOS 27 (tasks as reminders)"]]
+    const need = [["StudyboardHomeWidgets.swift", "Home Screen and Lock Screen widgets"], ["StudyboardHomeWidgetData.swift", "Home Screen and Lock Screen widgets"], ["StudyboardHomeWidgetsPlugin.swift", "Home Screen and Lock Screen widgets"], ["StudyboardLms.swift", "school site sign-in"], ["StudyboardLmsScripts.swift", "school site sign-in"], ["StudyboardPlugins.swift", "quick capture and the share sheet"], ["SBSiriData.swift", "asking Siri about your work"], ["StudyboardEntities.swift", "asking Siri about your work"], ["StudyboardAskIntents.swift", "asking Siri about your work"], ["StudyboardPlanIntents.swift", "Siri for today's plan, the focus timer and marking tasks done"], ["StudyboardReminders27.swift", "the new Siri on iOS 27 (tasks as reminders)"]]
       .filter(([f]) => txt && !txt.includes(f));
     if (need.length) {
       console.log("ios-stage: NOT IN THE XCODE PROJECT YET (so these are off in the app):");
@@ -259,7 +261,7 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   try {
     const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json"), pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["StudyboardPlugins.swift", "StudyboardSiriDataPlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"]]
+    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardHomeWidgetsPlugin.swift", "StudyboardHomeWidgetsPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["StudyboardPlugins.swift", "StudyboardSiriDataPlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"]]
       .filter(([f]) => txt.includes(f)).map(([, c]) => c);
     if (ours.length && fs.existsSync(cfg)) {
       const j = JSON.parse(fs.readFileSync(cfg, "utf8")); const list = Array.isArray(j.packageClassList) ? j.packageClassList : [];

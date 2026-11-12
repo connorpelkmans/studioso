@@ -388,6 +388,36 @@
     }).then(function () { result("manage", "success"); });
   });
 
+  /* 6b. Home Screen and Lock Screen widgets (iPhone and iPad, UNTESTED; ios-wrapper/native/HomeWidgets) */
+  // save(data): the day the widgets show (src/js/70-widgets.js phoneData), written to the App Group, then the widgets reload.
+  // drain(): tasks checked off on a widget, [{id, kind: "done", task, at}], oldest first; ack(ids) once they're done in the page.
+  var HW = P.StudyboardHomeWidgets;
+  try { if (!HW && C.isPluginAvailable && C.isPluginAvailable("StudyboardHomeWidgets") && C.registerPlugin) HW = C.registerPlugin("StudyboardHomeWidgets"); } catch (e) {}
+  if (HW && !(C.getPlatform && C.getPlatform() === "android")) {
+    window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
+      homeWidgets: {
+        save: function (data) {
+          var json; try { json = JSON.stringify(data); } catch (e) { return Promise.resolve(false); }
+          if (!json || json.length > 200000) return Promise.resolve(false);
+          return Promise.resolve().then(function () { return HW.save({json: json}); }).then(function () { return true; }, function () { return false; });
+        },
+        drain: function () {
+          if (typeof HW.drain !== "function") return Promise.resolve([]);
+          return Promise.resolve().then(function () { return HW.drain(); }).then(function (r) {
+            return (r && Array.isArray(r.items) ? r.items : []).filter(function (x) {
+              return x && typeof x.id === "string" && /^[\w-]{1,64}$/.test(x.id) && x.kind === "done" && typeof x.task === "string" && /^[\w:.-]{1,80}$/.test(x.task);
+            }).map(function (x) { return {id: x.id, kind: "done", task: x.task, at: Number(x.at) || 0}; });
+          }, function () { return []; });
+        },
+        clear: function () { if (typeof HW.clear !== "function") return Promise.resolve(); return Promise.resolve().then(function () { return HW.clear(); }).then(function () {}, function () {}); },
+        ack: function (ids) {
+          if (typeof HW.ack !== "function") return Promise.resolve();
+          return Promise.resolve().then(function () { return HW.ack({ids: (ids || []).filter(function (x) { return typeof x === "string"; }).slice(0, 100)}); }).then(function () {}, function () {});
+        }
+      }
+    });
+  }
+
   /* 7. Focus timer in the Dynamic Island (iOS Live Activity) */
   // found by name too, in case it was registered after the plugin list was handed to the page
   var FA = P.StudyboardFocusActivity;
