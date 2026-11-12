@@ -39,7 +39,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       document.querySelectorAll("dialog[open]").forEach(d => d.close()); return r;
     }, trial);
     const at = await addTile(true), ap = await addTile(false);
-    ok(at && at.locked && /subscribe/.test(at.text), "on the free weeks, Add a Photo is locked: " + JSON.stringify(at));
+    ok(at && at.locked && /paid Pro/.test(at.text), "on the free weeks, Add a Photo is locked: " + JSON.stringify(at));
     ok(ap && !ap.locked, "with paid Pro, Add a Photo is open: " + JSON.stringify(ap));
     const kept = await p.evaluate(() => { const P = window.__sbPlanObj(); P.paywall = () => true; P.isPro = () => false; P.trialTags = () => false; 
       return {photo: window.__sbOwns("skin", "ph-test1"), proSkin: window.__sbOwns("skin", "winter")}; });

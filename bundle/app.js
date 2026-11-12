@@ -68084,7 +68084,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   // A new photo theme needs Pro that's paid for (or from a code): not the free weeks. Themes made before stay as they are
   const onTrial = () => { const p = P(); try { return !!(p && typeof p.trialTags === "function" && p.trialTags()); } catch (e) { return false; } };
   const canMake = () => canUse() && !onTrial();
-  const TRIAL_MSG = "Making a photo theme comes with Studyboard Pro once you subscribe. It isn't part of the free weeks.";
+  const TRIAL_MSG = "Photo themes are included with paid Pro.";
   const makeWall = () => { if (canUse() && onTrial()) toast(TRIAL_MSG); else paywall(); };
   const paywall = () => { const p = P(); if (p && p.openSheet) p.openSheet(REASON); else shopUnlock("skin", "photo"); };
   const canSync = () => !!caps.assets && (inPreview() || (sbActive() && cloud.on));
@@ -68517,7 +68517,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const list = recs(), cfg = styleCfg(), full = list.length >= MAX, locked = !canMake(), trial = locked && canUse();
     const add = `<div class="shop-tile ph-add${full ? " full" : ""}${locked ? " locked" : ""}" data-act="ph-add" role="button" tabindex="0" aria-label="${full ? "Photo theme limit reached" : "Add a Photo"}">
       <span class="ph-add-ic" aria-hidden="true">${locked ? "🔒" : PLUS}</span><b>${full ? "5 Photo Themes Saved" : "Add a Photo"}</b>
-      <span class="mini">${full ? "That's the most you can keep. Delete one to add another." : trial ? "Comes with Studyboard Pro once you subscribe, not the free weeks." : locked ? "Make a theme from your own photo with Studyboard Pro." : "Choose a photo, or drop one here. JPG, PNG, WebP or HEIC."}</span></div>`;
+      <span class="mini">${full ? "That's the most you can keep. Delete one to add another." : trial ? "Included with paid Pro." : locked ? "Make a theme from your own photo with Studyboard Pro." : "Choose a photo, or drop one here. JPG, PNG, WebP or HEIC."}</span></div>`;
     const inner = `<p class="mini ph-intro">Turn a photo of your campus, your pet or a favorite place into a theme. Buttons, sticky notes and flashcards all pick up its colors.</p>
       <div class="shop-grid ph-grid">${add}${list.map(r => tileHtml(r, cfg, locked)).join("")}</div>
       <input type="file" id="phFile" class="sr" tabindex="-1" aria-hidden="true" accept="image/*,.heic,.heif">`;
