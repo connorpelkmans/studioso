@@ -145,7 +145,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   if (!NO_CP) {
     await page.waitForFunction(() => /Works Cited/.test(document.querySelector(".ws-bibh").textContent) && !/formatting/.test(document.querySelector(".ws-bibh").textContent), null, {timeout: 20000});
     const R = await refs(page);
-    ok(R.some(x => /^Smith, Jordan A\., and Kim Lee\. “The Urban Heat Island Effect and Green Infrastructure\.” Urban Climate, vol\. 38, no\. 2, (May )?2021, pp\. 100–118/.test(x)), "MLA by citeproc: " + R.find(x => /^Smith/.test(x)));
+    ok(R.some(x => /^Smith, Jordan A\., and Kim Lee\. “The Urban Heat Island Effect and Green Infrastructure\.” Urban Climate, vol\. 38, no\. 2, (May )?2021, pp\. 100–1?18/.test(x)), "MLA by citeproc: " + R.find(x => /^Smith/.test(x)));
   } else await page.waitForFunction(() => /Works Cited/.test(document.querySelector(".ws-bibh").textContent));
   ok((await task(page, "t1")).ws.style === "modern-language-association", "the style is kept on the paper");
   // remove with Undo

@@ -2543,7 +2543,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const hlOf = f => (Array.isArray(f && f.hl) ? f.hl : []).filter(h => h && h.id && Array.isArray(h.r));
   const READ_WHY = "The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards.";
   // what a free plan can't do in the reader: make highlights, comments, notes or cards (proWhy opens the Pro sheet instead)
-  const PDR_MAKE = new Set(["pdr-hl-add", "pdr-mk-add", "pdr-sel-cm", "pdr-cm-mode", "pdr-sel-note", "pdr-sel-card", "pdr-hl-note", "pdr-hl-card", "pdr-all-note", "pdr-card-ai", "pdr-card-save"]);
+  const PDR_MAKE = new Set(["pdr-sel-paper", "pdr-paper", "pdr-paper-to", "pdr-hl-add", "pdr-mk-add", "pdr-sel-cm", "pdr-cm-mode", "pdr-sel-note", "pdr-sel-card", "pdr-hl-note", "pdr-hl-card", "pdr-all-note", "pdr-card-ai", "pdr-card-save"]);
   const mine = () => { const f = fileOf(); return hlOf(f).filter(h => h.a === R.rev); };
   function saveHl(list, label){
     const f = fileOf(); if (!f) return;
@@ -2781,7 +2781,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const s = selection();
     if (!s) return;
     PEND = s;
-    showPop(`${colorBtns("pdr-hl-add")}<button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="u" aria-label="Underline" title="Underline"><span style="text-decoration:underline;text-decoration-color:${MARKS.u[1]};text-decoration-thickness:2px">U</span></button><button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="s" aria-label="Strike-through" title="Strike-Through"><span style="text-decoration:line-through;text-decoration-color:${MARKS.s[1]};text-decoration-thickness:2px">S</span></button><span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-sel-cm">Comment</button><button type="button" class="btn small" data-act="pdr-sel-note">Note</button><button type="button" class="btn small" data-act="pdr-sel-card">Card</button>`, s.end);
+    showPop(`${colorBtns("pdr-hl-add")}<button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="u" aria-label="Underline" title="Underline"><span style="text-decoration:underline;text-decoration-color:${MARKS.u[1]};text-decoration-thickness:2px">U</span></button><button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="s" aria-label="Strike-through" title="Strike-Through"><span style="text-decoration:line-through;text-decoration-color:${MARKS.s[1]};text-decoration-thickness:2px">S</span></button><span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-sel-cm">Comment</button><button type="button" class="btn small" data-act="pdr-sel-note">Note</button><button type="button" class="btn small" data-act="pdr-sel-card">Card</button>${window.SBWRITE ? SBWRITE.readerBtn(R.fid, null) : ""}`, s.end);
   }
   // a change to your highlights can be undone: Undo on its message, or Ctrl+Z (the app's own undo is off while the reader is open)
   function hlDone(before, label){
@@ -2825,7 +2825,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!h) { hidePop(); return; }
     if (h.m === "n") { cmEdit(h.id); return; }
     const r = h.r[h.r.length - 1], at = {left: b.left + r[0] * b.width, width: r[2] * b.width, top: b.top + r[1] * b.height, bottom: b.top + (r[1] + r[3]) * b.height};
-    showPop(`${h.m ? `<span class="mini">${MARKS[h.m][0]}</span>` : colorBtns("pdr-hl-color", h.c).replace(/data-id=/g, `data-h="${esc(h.id)}" data-id=`)}<span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-cm" data-id="${esc(h.id)}">${h.cm ? "Edit Comment" : "Comment"}</button><button type="button" class="btn small" data-act="pdr-hl-note" data-id="${esc(h.id)}">${h.n && state.notes[h.n] ? "Open Note" : "Note"}</button><button type="button" class="btn small" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button><button type="button" class="icon-btn pdr-del" data-act="pdr-hl-del" data-id="${esc(h.id)}" aria-label="Remove highlight">${ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`, at);
+    showPop(`${h.m ? `<span class="mini">${MARKS[h.m][0]}</span>` : colorBtns("pdr-hl-color", h.c).replace(/data-id=/g, `data-h="${esc(h.id)}" data-id=`)}<span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-cm" data-id="${esc(h.id)}">${h.cm ? "Edit Comment" : "Comment"}</button><button type="button" class="btn small" data-act="pdr-hl-note" data-id="${esc(h.id)}">${h.n && state.notes[h.n] ? "Open Note" : "Note"}</button><button type="button" class="btn small" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button>${!h.m && window.SBWRITE ? SBWRITE.readerBtn(R.fid, h) : ""}<button type="button" class="icon-btn pdr-del" data-act="pdr-hl-del" data-id="${esc(h.id)}" aria-label="Remove highlight">${ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`, at);
   }
 
   /* Comments: on a highlight, underline or strike-through, or a sticky note on its own */
@@ -2864,6 +2864,22 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const sug = f ? boardFor(f.courseId) : "", ids = [sug].concat(["", ...bs.map(b => b.id)].filter(x => x !== sug));
     R.boardGo = go;
     showPop(`<span class="mini pdr-pop-lbl">Add the note to</span>${ids.map(id => { const b = bs.find(x => x.id === id); return `<button type="button" class="btn small pdr-nb" data-act="pdr-note-to" data-id="${esc(id)}"${id === sug ? ' aria-describedby="pdrNbSug"' : ""}><span class="dot" style="--c:${esc(b ? nbColor(b) : "var(--muted)")}" aria-hidden="true"></span>${esc(nbName(id))}</button>`; }).join("")}<span class="sr" id="pdrNbSug">Suggested: this course's board</span>`, at);
+  }
+  // the open PDF's first pages, for Writing Studio to find the DOI in (it fills in the new source's details)
+  async function firstText(){
+    const doc = R && R.doc; if (!doc || doc.office || typeof doc.getPage !== "function") return "";
+    let out = "";
+    for (let i = 1; i <= Math.min(2, doc.numPages || 1); i++) { try { const c = await (await doc.getPage(i)).getTextContent(); out += c.items.map(x => x.str).join(" ") + "\n"; } catch (e) {} }
+    return out;
+  }
+  function toPaper(h, at){
+    if (!h || !window.SBWRITE) return;
+    const inT = SBWRITE.quotedIn(R.fid, h.id);
+    if (inT) { hidePop(); toast(`Already a quote in ${inT.title}`, null, {label: "Open", fn: () => { if (dlg.open) dlg.close(); SBWRITE.open(inT.id, "quotes"); }}); return; }
+    const ps = SBWRITE.papersFor(R.fid);
+    if (!ps.length) { hidePop(); toast("No open paper or essay for this course yet."); return; }
+    if (ps.length === 1) { hidePop(); SBWRITE.addQuote(ps[0].id, R.fid, h, {text: firstText}); return; }
+    showPop(`<span class="mini pdr-pop-lbl">Add the quote to</span>${ps.map(t => `<button type="button" class="btn small pdr-nb" data-act="pdr-paper-to" data-id="${esc(h.id)}" data-t="${esc(t.id)}"><span class="dot" style="--c:${esc(t.courseId ? colorOf(t.courseId) : "var(--muted)")}" aria-hidden="true"></span>${esc(String(t.title).length > 34 ? String(t.title).slice(0, 33) + "…" : t.title)}</button>`).join("")}`, at);
   }
   function hlNote(h, to){
     const f = fileOf(); if (!f || !h) return;
@@ -3059,6 +3075,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-hl-note": R.popAt = el.getBoundingClientRect(); hlNote(byId(id)); break;
       case "pdr-note-to": { const go = R.boardGo; R.boardGo = null; hidePop(); if (go) go(id || ""); break; }
       case "pdr-hl-card": hidePop(); cardForm(byId(id)); break;
+      // Writing Studio: a highlight becomes a quote in a paper (straight in when there's one paper, else pick it)
+      case "pdr-sel-paper": { const h = addFromSel(R.color); if (h) toPaper(h, R.popAt); break; }
+      case "pdr-paper": toPaper(byId(id), el.getBoundingClientRect()); break;
+      case "pdr-paper-to": { const h = byId(id); hidePop(); if (h && window.SBWRITE) SBWRITE.addQuote(el.dataset.t, R.fid, h, {text: firstText}); break; }
       case "pdr-hl-del": { const h = byId(id); if (!h) break; const before = mine(); saveHl(before.filter(x => x.id !== id)); hidePop(); paint(h.p); counts(); if (R.side) side(); hlDone(before, "Highlight removed"); break; }
       case "pdr-side": R.side = !R.side; R.card = null; side(); break;
       case "pdr-go-h": { const h = byId(id); if (h) goTo(h.p); break; }

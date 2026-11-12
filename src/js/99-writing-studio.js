@@ -545,9 +545,9 @@ function reqText(t){
   return parts.join("\n");
 }
 const styleOf = (t, w) => w.style || CITE.rules(reqText(t)).style || "apa";
-function save(t, w, label){
+function save(t, w, label, extra){
   const cur = state.tasks[t.id]; if (!cur) return;
-  applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws: {style: w.style, lang: w.lang || undefined, src: w.src.slice(0, MAX_SRC), q: w.q.slice(0, MAX_Q), out: w.out.slice(0, MAX_SEC), v: 2}})}], label === undefined ? null : label);
+  applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws: {style: w.style, lang: w.lang || undefined, src: w.src.slice(0, MAX_SRC), q: w.q.slice(0, MAX_Q), out: w.out.slice(0, MAX_SEC), v: 2}})}], label === undefined ? null : label, extra);
 }
 const shown = () => !!W.el && dlg.open && dlg.contains(W.el);
 const isPdfFile = f => !!f && f.kind === "file" && Array.isArray(f.revs) && f.revs.length && /\.pdf$/i.test((f.revs[f.revs.length - 1] || {}).name || f.name || "");
@@ -576,9 +576,73 @@ function citeOf(t, w, sid, page){
   return [[`(${CITE.familyOf((s.author || [])[0]) || String(s.title || "").split(" ").slice(0, 3).join(" ")}, ${CITE.yearOf(s) || "n.d."}${page ? ", p. " + page : ""})`, {}]];
 }
 
+/* A milestone of a broken-down paper opens its paper's Studio on the tab for that step, with how far along it is */
+const STEP_TABS = [[/\b(find|collect|gather|search|choose)\b.*\bsources?\b|\bsources?\b.*\b(find|collect)|\bresearch and (gather|plan)/i, "sources"], [/\b(take notes|annotate|read and)\b/i, "quotes"],
+  [/\boutline\b|\bdraft\b|\bwrite the\b|\brevise\b/i, "outline"], [/\bproofread|\bcitations?\b|\bbibliograph|\bformat\b/i, "check"]];
+function milestoneOf(t){
+  if (!t || !t.breakdownOf) return null;
+  const parent = state.tasks[t.breakdownOf]; if (!parent || parent.status === "done" || !eligible(parent)) return null;
+  const hit = STEP_TABS.find(([re]) => re.test(String(t.title || ""))); if (!hit) return null;
+  const w = wsOf(parent), tab = hit[1];
+  const want = Number((/\b(\d{1,2})\s+(?:\w+\s+)?sources\b/i.exec(t.title) || [])[1]) || CITE.rules(reqText(parent)).min || 0;
+  const label = tab === "sources" ? (want ? `${Math.min(w.src.length, 99)} of ${want} sources` : `${w.src.length} source${w.src.length === 1 ? "" : "s"}`)
+    : tab === "quotes" ? `${w.q.length} quote${w.q.length === 1 ? "" : "s"}` : tab === "outline" ? (w.out.length ? "Outline" : "Start the outline") : "Check citations";
+  return {parent, tab, label, done: tab === "sources" && want > 0 && w.src.length >= want};
+}
 function taskBtn(t){
-  if (!t || inPreview() || !eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn ws-btn" data-act="ws-open" data-id="${esc(t.id)}">${ICON}<span>Writing Studio</span>${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  if (!t || inPreview() || !window.SBPRO) return "";
+  const pro = SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
+  const m = milestoneOf(t);
+  // in a task's sheet the row is tight: the short label there (like Rubric Check's), the full name for the tooltip and screen readers
+  if (m) return `<button type="button" class="btn ws-btn ws-ms${m.done ? " is-met" : ""}" data-act="ws-open" data-id="${esc(m.parent.id)}" data-ws-to="${m.tab}" title="Open ${esc(m.parent.title)} in Writing Studio" aria-label="Writing Studio: ${esc(m.label)}">${ICON}<span class="ws-long">Writing Studio</span><span class="ws-step">${m.done ? "✓ " : ""}${esc(m.label)}</span>${pro}</button>`;
+  if (!eligible(t)) return "";
+  return `<button type="button" class="btn ws-btn" data-act="ws-open" data-id="${esc(t.id)}" title="Writing Studio" aria-label="Writing Studio">${ICON}<span class="ws-long">Writing Studio</span><span class="ws-short">Writing</span>${pro}</button>`;
+}
+
+/* From the PDF reader: which papers a quote from this PDF could go to, best first */
+function papersFor(fid){
+  const f = state.files[fid]; if (!f) return [];
+  const today = todayISO();
+  return allTasks().filter(t => eligible(t) && t.status !== "done" && (!t.due || t.due >= addDays(today, -3))).map(t => {
+    const w = wsOf(t), score = w.src.some(s => s.fid === fid) ? 3 : (f.taskIds || []).includes(t.id) ? 2 : f.courseId && t.courseId === f.courseId ? 1 : 0;
+    return {t, score};
+  }).filter(x => x.score > 0 || !f.courseId).sort((a, b) => b.score - a.score || String(a.t.due || "9").localeCompare(String(b.t.due || "9"))).slice(0, 6).map(x => x.t);
+}
+// the paper a highlight is already quoted in
+const quotedIn = (fid, hid) => allTasks().find(t => t.ws && Array.isArray(t.ws.q) && t.ws.q.some(q => q && q.hl === hid && q.fid === fid)) || null;
+const fileTitle = f => String(f.name || "").replace(/\.[a-z0-9]{2,5}$/i, "").replace(/_+/g, " ").trim() || "Untitled";
+// fills in a source made from a PDF's name, from the DOI in its text (in the background; nothing else is touched)
+async function enrich(tid, sid, fid, getText){
+  let txt = "";
+  try { if (getText) txt = String(await getText() || ""); } catch (e) { txt = ""; }
+  if (!/\b10\.\d{4,9}\//.test(txt)) { try { txt += window.SBFILETEXT ? "\n" + String(await SBFILETEXT(fid, 12000) || "") : ""; } catch (e) {} }
+  const id = CITE.parseId((/\b10\.\d{4,9}\/[^\s"<>]+/.exec(txt) || /arxiv:\s*\d{4}\.\d{4,5}/i.exec(txt) || [""])[0]); if (!id) return;
+  let rec = null; try { rec = await lookup(id); } catch (e) { return; }
+  const t = state.tasks[tid]; if (!t) return;
+  const w = wsOf(t), cur = w.src.find(s => s.id === sid), f = state.files[fid];
+  if (!cur || cur.author || (f && cur.title !== fileTitle(f))) return; // the student has filled it in themselves
+  w.src = w.src.map(s => s.id === sid ? Object.assign(CITE.clean(rec), {id: sid, fid}) : s);
+  save(t, w, null); if (shown() && W.tid === tid) draw();
+}
+function addQuote(tid, fid, h, o){
+  const t = state.tasks[tid], f = state.files[fid]; if (!t || !f || !h || !h.t) return false;
+  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return false; }
+  const w = wsOf(t); w.style = w.style || styleOf(t, w);
+  if (w.q.some(q => q.hl === h.id && q.fid === fid)) { toast(`Already in ${t.title}`, null, {label: "Open", fn: () => open(tid, "quotes")}); return false; }
+  if (w.q.length >= MAX_Q) { toast("This paper has as many quotes as it can hold."); return false; }
+  let src = w.src.find(s => s.fid === fid), fresh = false;
+  if (!src) { src = Object.assign(CITE.clean({type: "document", title: fileTitle(f)}), {id: uid(), fid}); w.src.push(src); fresh = true; }
+  w.q.push({id: uid(), sid: src.id, t: String(h.t).slice(0, 1200), p: String(h.p || ""), fid, hl: h.id, sec: "", at: Date.now()});
+  // one message, with Undo and a way into the Studio
+  save(t, w, `Quote added to ${t.title}${fresh ? ". This PDF is now one of its sources." : ""}`, {label: "Open", fn: () => { if (dlg.open) dlg.close(); open(tid, "quotes"); }});
+  if (fresh) enrich(tid, src.id, fid, o && o.text);
+  return true;
+}
+function readerBtn(fid, h){
+  if (!window.SBPRO || inPreview()) return "";
+  if (h) { const t = quotedIn(fid, h.id); if (t) return `<button type="button" class="btn small" data-act="pdr-paper" data-id="${esc(h.id)}" title="${esc(t.title)}">In Paper ✓</button>`; }
+  if (!papersFor(fid).length) return "";
+  return `<button type="button" class="btn small" data-act="${h ? "pdr-paper" : "pdr-sel-paper"}"${h ? ` data-id="${esc(h.id)}"` : ""}>Add to Paper</button>`;
 }
 function open(id, tab){
   const t = state.tasks[id]; if (!t) return;
@@ -1138,7 +1202,7 @@ hook("changed", changes => {
 hook("act", (act, el, id) => {
   if (act !== "ws-open") return false;
   if (dlg.open) dlg.close();
-  open(id); return true;
+  open(id, el && el.dataset ? el.dataset.wsTo : ""); return true;
 });
 if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", where: "On a paper, essay or project: sources (with Zotero), citations in 10,000+ styles, quotes from your highlights, an outline and a citation check", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 1.5zM4 19.5A2 2 0 0 0 6 21h12"/><path d="M9 7h6M9 11h4"/>'});
 
@@ -1176,6 +1240,12 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 .ws-refs.hang .ws-cite{padding-left:2em;text-indent:-2em}
 .ws-prev{padding:10px 12px;border-radius:10px;background:var(--soft,#F4F6FA);display:grid;gap:4px}
 .ws-prevcite{font-family:var(--font,inherit)}
+.ws-short{display:none}
+.tv-tools{flex-wrap:wrap}
+@media (min-width:481px){.tv-tools > .ws-ms{flex:2 1 auto}}
+@media (max-width:480px){.tv-tools .ws-long{display:none}.tv-tools .ws-short{display:inline}.tv-tools .ws-ms .ws-step{background:none;padding:0;font-size:inherit}}
+.ws-btn .ws-step{font-weight:600;font-size:.8em;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent,#2F6FE4) 12%,var(--surface));color:var(--ink);white-space:nowrap}
+.ws-btn.is-met .ws-step{background:color-mix(in srgb,#2E9E5B 18%,var(--surface))}
 .sb-beta{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:999px;background:#1F5FD6;color:#fff;font:700 .78rem/1.2 var(--body,inherit);letter-spacing:.04em;text-transform:uppercase;vertical-align:3px;text-shadow:none;box-shadow:0 0 0 2px rgba(255,255,255,.85)}
 @media (max-width:560px){.sb-beta{font-size:.62rem;padding:2px 7px;margin-left:6px;vertical-align:2px;box-shadow:0 0 0 1.5px rgba(255,255,255,.85)}}
 .sb-beta-alt{display:none}
@@ -1234,5 +1304,5 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 `;
 document.head.appendChild(css);
 
-window.SBWRITE = {taskBtn, open, CITE, eligible, state: () => W, styleName, loadCiteproc};
+window.SBWRITE = {taskBtn, open, CITE, eligible, state: () => W, styleName, loadCiteproc, papersFor, quotedIn, addQuote, readerBtn, milestoneOf};
 })();
