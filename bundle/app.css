@@ -2249,6 +2249,8 @@ dialog:has(.sheet.shop){width:min(960px,calc(100% - 24px))}
 .shop-tile>.btn{justify-self:start}
 .shop-name{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .pro-badge{font:800 .62rem var(--display);letter-spacing:.08em;background:linear-gradient(135deg,#FFB443,#FF5C8A);color:#fff!important;border-radius:6px;padding:2px 6px}
+/* Beta: a feature still being improved (blue pill, white bold BETA, light ring) */
+.beta-pill{display:inline-block;font:800 .62rem/1.15 var(--display);letter-spacing:.08em;text-transform:uppercase;background:#2C55D6;color:#fff!important;border:1.5px solid #C9D7FF;box-shadow:0 0 0 1.5px #2C55D6;border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:2px;white-space:nowrap}
 /* The badge always keeps white text, even inside chips whose small text is grey */
 .free-badge{font:700 .62rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--leaf);border:1px solid color-mix(in srgb,var(--leaf) 50%,transparent);border-radius:6px;padding:1px 5px}
 .shop-mode{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -7110,7 +7112,6 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .ci-ai-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
 .ci-ai-prev{display:inline-flex;align-items:center;gap:10px;font-weight:700}
 .ci-ai-ring{width:56px;height:56px}
-.beta-sym{display:inline-grid;place-items:center;width:17px;height:17px;margin-left:5px;border-radius:50%;background:linear-gradient(135deg,#FFB443,#FF5C8A);color:#fff;font:700 .7rem/1 var(--body);vertical-align:2px}
 .ci-cand{display:grid;justify-items:center;gap:4px;border:2px solid transparent;border-radius:14px;background:none;padding:6px 8px;font:700 .78rem var(--display);color:var(--ink);cursor:pointer;max-width:110px;text-align:center}
 .ci-cand.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .ci-ai-prev:has(.ci-cand){flex-wrap:wrap;gap:6px}
@@ -8632,6 +8633,76 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .lf-empty{margin-top:12px}
 .lf-loose{margin-top:22px}
 .lf-hint{margin:0 0 6px}
+/* ===== Lecture Replay (99-replay.js): the player, times on lines, the playing line, the pill ===== */
+.rp-slot:empty{display:none}
+.rp-slot{border-top:1px solid var(--line);padding:8px 14px;background:var(--surface)}
+.rp-dock{display:flex;align-items:center;gap:6px;min-width:0}
+.rp-dock.compact{margin-top:8px;padding:6px 8px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--c,var(--accent)) 6%,var(--surface))}
+.rp-btn{flex:none;display:inline-grid;place-items:center;width:40px;height:40px;border:0;border-radius:999px;background:none;color:var(--ink);cursor:pointer;padding:0}
+.rp-btn:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.rp-btn.rp-main{width:44px;height:44px;background:var(--accent);color:var(--accent-ink,#fff)}
+.rp-btn.rp-main:hover{background:color-mix(in srgb,var(--accent) 88%,var(--ink))}
+.rp-btn .ai-spin{width:18px;height:18px}
+.rp-bar{flex:1 1 auto;min-width:0;display:grid;gap:0}
+.rp-seek{width:100%;margin:0;height:24px;accent-color:var(--accent);background:none;cursor:pointer}
+.rp-time{font-variant-numeric:tabular-nums;line-height:1.1;color:var(--muted)}
+.rp-rate{flex:none;min-width:44px;height:32px;padding:0 8px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:600 .82rem var(--body);font-variant-numeric:tabular-nums;cursor:pointer}
+.rp-rate:hover{border-color:var(--accent)}
+@media (max-width:380px){.rp-dock .rp-btn:not(.rp-main){width:34px;height:34px}.rp-rate{min-width:40px;padding:0 6px}}
+
+/* a time on a paragraph, a line of notes, a slide or a mark */
+.rp-chip{display:inline-flex;align-items:center;gap:3px;min-height:24px;padding:0 7px;margin-right:2px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));color:var(--ink);font:600 .76rem var(--body);font-variant-numeric:tabular-nums;vertical-align:1px;cursor:pointer;white-space:nowrap}
+.rp-chip:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
+.rp-chip.pinned{border-style:solid;border-color:var(--accent)}
+.rp-chip.none{cursor:default;color:var(--muted);background:none;border-style:dashed;border-color:var(--line)}
+.rp-marks{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.rp-marks > .mini{margin-right:2px}
+.rp-est{margin:6px 0 0}
+
+/* the line being said now */
+.rp-on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:8px;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 14%,transparent)}
+.rp-chip.rp-on{background:var(--accent);color:var(--accent-ink,#fff);box-shadow:none}
+.rp-doc .rp-para,.rp-doc li{transition:background-color .2s}
+@media (prefers-reduced-motion:reduce){.rp-doc .rp-para,.rp-doc li,.rp-line{transition:none}}
+
+/* a note's or file's replay view */
+.rp-ihead{display:flex;align-items:center;gap:10px;justify-content:space-between;margin:8px 0}
+.rp-ihead .mini{margin:0;flex:1 1 auto}
+.rp-ihead .btn{flex:none;display:inline-flex;align-items:center;gap:6px}
+.rp-fixhint{margin:0 0 8px;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.rp-lines{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.rp-line{display:flex;align-items:flex-start;gap:8px;padding:6px 6px;line-height:1.45;transition:background-color .2s}
+.rp-line .rp-chip{flex:none;margin-top:1px}
+.rp-line .rp-txt{min-width:0;overflow-wrap:anywhere}
+.rp-line.untimed .rp-txt{color:var(--muted)}
+.rp-line.page{border-bottom:1px solid var(--line)}
+.rp-line.fix{align-items:center}
+.rp-set{flex:none;display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 10px;border:1px solid var(--accent);border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));color:var(--ink);font:600 .8rem var(--body);cursor:pointer;font-variant-numeric:tabular-nums}
+.rp-set:hover{background:color-mix(in srgb,var(--accent) 20%,var(--surface))}
+
+/* Slides and Notes: replay each */
+.lec-att-list .rp-row{flex:none;display:inline-flex;align-items:center;gap:4px;margin-left:auto}
+.lec-att-list .lec-att-why{flex:none;color:var(--muted)}
+.lec-att-list .lec-att-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* typed notes while recording */
+.rp-recnotes{margin-top:10px}
+.rp-recnotes textarea{width:100%;min-height:96px;resize:vertical;line-height:1.5}
+.rp-recnotes .lh .mini{display:block;font-weight:400}
+
+/* Hear It on a card */
+.rp-hear-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+.rp-hear{display:inline-flex;align-items:center;gap:6px}
+.rp-hear-row .mini{color:var(--muted);min-width:0}
+
+/* still playing after the sheet closed */
+.rp-pill{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:60;display:flex;align-items:center;gap:4px;max-width:min(360px,calc(100vw - 32px));padding:4px 6px 4px 4px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow,0 8px 24px rgba(0,0,0,.18))}
+.rp-pill .rp-btn{width:40px;height:40px;background:var(--accent);color:var(--accent-ink,#fff)}
+.rp-pill-t{min-width:0;display:grid;text-align:left;border:0;background:none;color:inherit;padding:0 6px;cursor:pointer;font:inherit}
+.rp-pill-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem}
+.rp-pill-t .mini{font-variant-numeric:tabular-nums}
+.rp-pill .x-btn{flex:none}
+@media (max-width:760px){.rp-pill{bottom:calc(76px + env(safe-area-inset-bottom,0px))}}
 /* The calculator (99-calculator.js): a handheld scientific calculator, the same in light and dark mode.
    Every colour is a variable: the values below are Classic, and each theme sets its own on .cx (99-calculator-skins.js),
    with a subtle pattern in --deco. Every label is at least 4.5:1 against its key or the body (WCAG AA for small text). */

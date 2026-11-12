@@ -205,7 +205,7 @@ var SBCLS = null;
         </section>
 
         <section class="cls-sec"><h3><span>Recording</span></h3>
-          ${I.recs.length ? `<ul class="cls-items">${I.recs.map(recLi).join("")}</ul>` : `<p class="mini cls-empty">${recOk ? (nowish ? "This class is on now. Record it for a transcript and a summary." : "Record the class, or upload a recording, for a transcript and a summary.") : "No recording for this class."}</p>`}
+          ${I.recs.length ? `<ul class="cls-items">${I.recs.map(recLi).join("")}</ul>${(r => r ? window.SBREPLAY.dockHtml(r.id, {compact: true}) : "")(window.SBREPLAY && I.recs.find(SBREPLAY.hasAudio))}` : `<p class="mini cls-empty">${recOk ? (nowish ? "This class is on now. Record it for a transcript and a summary." : "Record the class, or upload a recording, for a transcript and a summary.") : "No recording for this class."}</p>`}
           ${recOk && !I.recs.length ? `<div class="cls-acts">${nowish || x.date === todayISO() ? `<button type="button" class="btn small primary" data-act="cls-rec">${IC.mic(16)}Record This Class</button>` : ""}<button type="button" class="btn small" data-act="cls-rec-up">${IC.up(16)}Upload a Recording</button></div>` : ""}
         </section>
 
