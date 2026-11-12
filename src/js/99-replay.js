@@ -125,7 +125,8 @@ const RPLAY = (() => {
     P.k.forEach(x => { if (w.bag.has(x)) { hit += IX.idf.get(x) || 0; hits++; } });
     if (!hits) return 0;
     let bh = 0; P.bi.forEach(b => { if (w.bi.has(b)) { const [x, y] = b.split(" "); bh += ((IX.idf.get(x) || 0) + (IX.idf.get(y) || 0)) / 2; } });
-    const s = (hit + 0.5 * bh) / Math.max(1e-6, Math.min(P.sum, w.sum) + 0.25 * bh);
+    // words said all through the lecture ("membrane", "transport") carry little: a match of only those counts for less
+    const s = (hit + 0.5 * bh) / Math.max(1e-6, Math.min(P.sum, w.sum) + 0.25 * bh) * Math.min(1, hit / (1.6 * IX.mean));
     // one shared word means little unless it is the line's only word, and rare
     if (hits < 2 && !(P.n === 1 && (IX.idf.get(P.k.find(x => w.bag.has(x))) || 0) > Math.log(1 + 4))) return Math.min(s, 0.2);
     return Math.min(1, s);
@@ -190,12 +191,15 @@ const RPLAY = (() => {
   // A note's lines: every line with words (bullets and markup taken off), with its key; a heading or title is a line too
   function noteSegs(text){
     const seen = new Map(), out = [];
-    String(text || "").split("\n").forEach((raw, li) => {
+    const lines = String(text || "").split("\n"), first = lines.findIndex(l => l.trim()), more = lines.filter(l => l.trim()).length > 1;
+    lines.forEach((raw, li) => {
+      // a title (a short first line of a longer note) or a heading: it takes the time of what's under it
+      const head = /^\s*#{1,6}\s/.test(raw) || (li === first && more && !/^\s*(?:[-*•▪●‣◦·–—]|\d{1,3}[.)])\s/.test(raw) && raw.trim().split(/\s+/).length <= 6);
       const shown = raw.replace(/^\s*(?:[-*•▪●‣◦·–—]|\d{1,3}[.)]|#{1,6}|>|\[[ xX]\])\s*/, "").replace(/\[\[([^\]|]*)(?:\|[^\]]*)?\]\]/g, "$1").trim();
       const s = shown.replace(/\*\*|__|~~|==|`|\$/g, "").trim();
       if (!s) return;
       let k = lineKey(s); const c = seen.get(k) || 0; seen.set(k, c + 1); if (c) k += "." + c;
-      out.push({li, key: k, s, shown, words: toks(s).length});
+      out.push({li, key: k, s, shown, head, words: toks(s).length});
     });
     return out;
   }
@@ -220,6 +224,13 @@ const RPLAY = (() => {
     for (let i = blocks.length - 1; i >= 0; i--) if (blocks[i].k === "h") { const nx = out.slice(i + 1).find(x => x.t != null); if (nx) out[i] = {t: nx.t, sc: nx.sc}; }
     return out;
   }
+  // A note's lines with their times (null where nothing matched): titles and headings take the time of the first line under them
+  function timeLines(IX, segs){
+    const body = segs.map((s, i) => s.head ? -1 : i).filter(i => i >= 0), al = align(IX, body.map(i => segs[i].s));
+    const out = segs.map(() => ({t: null, sc: 0})); body.forEach((i, k) => { out[i] = al[k]; });
+    for (let i = segs.length - 1; i >= 0; i--) if (segs[i].head) { const nx = out.slice(i + 1).find((x, k) => x.t != null && !segs[i + 1 + k].head); if (nx) out[i] = {t: nx.t, sc: nx.sc, head: true}; }
+    return out;
+  }
   // A file's pages or slides, from the reader's text ("[Slide 3] text" per line)
   function pageSegs(text){
     const out = []; let cur = null;
@@ -234,7 +245,7 @@ const RPLAY = (() => {
   const cleanPins = (o, max) => { const out = {}; if (!o || typeof o !== "object") return out; let n = 0;
     for (const k of Object.keys(o)) { if (n >= (max || 600)) break; if (/^[\w.:-]{1,24}$/.test(k) && okMs(o[k])) { out[k] = Math.round(Number(o[k])); n++; } } return out; };
 
-  return {toks, clock, parseClock, lineKey, anchorsFor, cleanAt, mapper, joinParts, units, index, align, refineTyped, noteSegs, docBlocks, timeBlocks, pageSegs, cleanPins, THR};
+  return {toks, clock, parseClock, lineKey, anchorsFor, cleanAt, mapper, joinParts, units, index, align, refineTyped, noteSegs, timeLines, docBlocks, timeBlocks, pageSegs, cleanPins, THR};
 })();
 /*REPLAY-END*/
 var SBREPLAY = null;
@@ -415,11 +426,11 @@ var SBREPLAY = null;
   function noteTimes(f, n){
     const segs = R.noteSegs(n.text), pins = pinsOf(f, n.id), X = canTime(f) ? timeline(f) : null;
     const typed = n.rp && n.rp.f === f.id ? R.cleanPins(n.rp.k, 2000) : {};
-    const al = X ? R.align(X.IX, segs.map(s => s.s)) : segs.map(() => ({t: null, sc: 0}));
+    const al = X ? R.timeLines(X.IX, segs) : segs.map(() => ({t: null, sc: 0}));
     return segs.map((s, i) => {
       if (pins[s.key] != null) return Object.assign({}, s, {t: pins[s.key], how: "pin"});
       if (typed[s.key] != null) return Object.assign({}, s, {t: X ? R.refineTyped(X.IX, s.s, typed[s.key]) : Math.max(0, typed[s.key] - 4000), how: "typed"});
-      return Object.assign({}, s, {t: s.words ? al[i].t : null, how: al[i].t != null && s.words ? "words" : ""});
+      return Object.assign({}, s, {t: al[i].t, how: al[i].t != null ? "words" : ""});
     });
   }
   async function pageTimes(f, x){

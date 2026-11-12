@@ -59,6 +59,13 @@ t("notes written afterwards: each line lands where it was said", () => {
   near(byText("GPCRs").t, 16 * 60000 + 40000, 30000, "GPCRs");
   assert.strictEqual(byText("Remember").t, null, "a line about something else stays untimed");
 });
+t("a note's title and headings take the time of the first line under them", () => {
+  const segs = R.noteSegs("Membrane Transport (Wed)\n- osmosis: water goes toward more solute across semipermeable membrane\n## Pumps\n- Na/K pump: 3 sodium out, 2 potassium in");
+  assert.deepStrictEqual(segs.map(s => !!s.head), [true, false, true, false]);
+  const tl = R.timeLines(IX, segs);
+  near(tl[1].t, 0, 25000, "osmosis"); assert.strictEqual(tl[0].t, tl[1].t, "title"); assert.strictEqual(tl[2].t, tl[3].t, "heading");
+  assert.deepStrictEqual(R.noteSegs("Just one line about osmosis").map(s => s.head), [false], "a one-line note is no title");
+});
 t("a line out of order still finds its place when the match is strong", () => {
   const segs = ["Kinase cascades amplify the signal inside the cell", "Tonicity compares solute concentration on two sides of a membrane"];
   const al = R.align(IX, segs);

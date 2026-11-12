@@ -86,8 +86,10 @@ function SEED(){
     const at = w => (lines.find(l => l.s.includes(w)) || {}).t;
     ok(Math.abs(at("osmosis") - 6000) <= 6000 && Math.abs(at("Na/K") - 36000) <= 6000 && Math.abs(at("phagocytosis") - 48000) <= 6000, "each line of a note written afterwards lands where it was said: " + JSON.stringify(lines));
     ok(at("ask TA") == null && await page.locator(".rp-line.untimed").count() >= 1, "a line about something else stays untimed");
+    ok(at("Membranes lecture") === at("osmosis"), "the note's title takes the time of the first line under it");
     ok(/matched to the lecture/.test(await page.textContent(".rp-ihead")), "it says how many lines matched");
-    await page.locator('.rp-line [data-act="rp-at"]').nth(2).click(); await page.waitForTimeout(700);
+    await page.locator(".rp-line", {hasText: "Na/K"}).locator('[data-act="rp-at"]').click();
+    await page.waitForFunction(t => window.SBREPLAY.state().now > t + 300, at("Na/K"), {timeout: 9000}); await page.waitForTimeout(300);
     ok(await page.evaluate(() => { const on = document.querySelector(".rp-lines .rp-on"); return !!on && /Na\/K/.test(on.textContent); }), "playing from a line lights it up");
 
     /* Fix Times */
