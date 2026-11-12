@@ -398,24 +398,36 @@ const deskAssets = {
   delete: async id => { if (!/^local:/.test(id) && sbActive()) { try { await sbAssets.delete(id); } catch(e) {} } return {deleted: true}; }
 };
 let deskPromoting = false;
+let deskUpWarnAt = 0;
 async function deskPromote(){
   if (!DESK || deskPromoting || !sbActive() || !cloud.on || navigator.onLine === false) return;
   deskPromoting = true;
+  // Each file on its own: one that can't upload (too big, storage full, a type that can't be stored) no longer stops the others,
+  // and the student is told, since until it uploads it can't be opened on their phone or another computer
+  let n = 0;
+  const failed = [];
   try {
-    let n = 0;
     for (const f of Object.values(state.files)) {
       if (f.kind !== "file" || !(f.revs || []).some(r => /^local:/.test(r.assetId) && r.localRel)) continue;
       const nf = clone(f); let changed = false;
       for (const r of nf.revs) {
         if (!/^local:/.test(r.assetId) || !r.localRel) continue;
+        if (navigator.onLine === false) break;
         const bytes = await DESK.read(r.localRel); if (!bytes) continue;
-        try { const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"}); deskMarkDone(up.id); r.assetId = up.id; changed = true; n++; }
-        catch(e) { throw e; }
+        try {
+          const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"});
+          deskMarkDone(up.id); r.assetId = up.id; changed = true; n++;
+        } catch (e) { failed.push({name: f.name, why: String((e && e.message) || e || "")}); }
       }
       if (changed) applyChanges([{kind: "file", id: f.id, after: nf}], "");
     }
-    if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"} added while offline`);
-  } catch(e) { }
+  } catch (e) { console.warn("upload local files", e); }
+  if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"}, so ${n === 1 ? "it opens" : "they open"} on your other devices too`);
+  if (failed.length && Date.now() - deskUpWarnAt > 6 * 3600e3) {
+    deskUpWarnAt = Date.now();
+    const why = failed[0].why, full = /quota|storage|exceed|limit|too large|payload|413/i.test(why);
+    toast(`${failed.length === 1 ? `“${failed[0].name}” couldn't` : `${failed.length} files couldn't`} upload to your account${full ? " (a storage or size limit)" : ""}, so ${failed.length === 1 ? "it only opens" : "they only open"} on this computer.`, null, null, {error: true});
+  }
   deskPromoting = false;
 }
 async function deskOpenAsset(id){

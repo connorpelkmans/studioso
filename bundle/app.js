@@ -2738,6 +2738,14 @@ document.addEventListener("click", e => {
   if (/^local:/.test(a.dataset.asset)) { e.preventDefault(); e.stopPropagation(); toast("This file is still on the computer it was added from. It uploads the next time Studyboard opens there."); return; }
   if (!sb) return;
   e.preventDefault(); e.stopPropagation();
+  // phones and tablets: inside the app (a new browser window can't show it there, see fileViewer in 01-notes.js)
+  if (typeof fvPhone === "function" && fvPhone()) {
+    const id = a.dataset.asset, f = Object.values(state.files).find(x => x.kind === "file" && (x.revs || []).some(r => r && r.assetId === id));
+    const r = f && f.revs.find(x => x.assetId === id), latest = f && curRev(f) === r;
+    if (f && latest && !a.closest(".fv-sheet, .ofv-sheet")) { fileViewer(f.id); return; }
+    if (f && r) { downloadFile(f, f.revs.indexOf(r)); return; }
+    if (nativeShell()) { sbDownload(id).then(b => saveBlob(String(id).split("/").pop().replace(/^[\w]+-/, "") || "file", b)).catch(() => toast("Couldn't open the file. Check your connection and try again.")); return; }
+  }
   sbOpenAsset(a.dataset.asset);
 }, true);
 function assetHref(id){ return inPreview() ? "/_blob/" + id : "#"; }
@@ -16816,9 +16824,10 @@ async function downloadFile(f, revIndex){
   if (revIndex != null && revIndex !== f.revs.length - 1) name = name.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(revIndex)})$1`);
   if (DESK) { try { saveBlob(name, new Blob([await assetBytes(r.assetId)], {type: r.type || "application/octet-stream"})); } catch(e) { toast(navigator.onLine === false ? "You're offline and this file isn't on this computer yet" : "Couldn't get the file. Try again."); } return; }
   if (!inPreview()) {
-    if (!sbActive()) { toast("Sign in to download stored files"); return; }
-    let data = null; try { data = await sbDownload(r.assetId); } catch (e) {}
-    if (!data) { toast("Couldn't download the file. Check your connection."); return; }
+    // a copy already on this device is used first (no sign-in or connection needed for it)
+    let data = null, why = "";
+    try { data = new Blob([await assetBytes(r.assetId)], {type: r.type || "application/octet-stream"}); } catch (e) { why = String((e && e.message) || ""); }
+    if (!data) { toast(/only on the computer/.test(why) ? "This file is still on the computer it was added from. It uploads the next time Studyboard is open there and signed in." : /not signed in/.test(why) ? "Sign in to download stored files" : "Couldn't download the file. Check your connection."); return; }
     saveBlob(name, data); return;
   }
   const dl = caps.downloads || await useCap("downloads");
@@ -16925,7 +16934,7 @@ function fileSheet(f){
   const isLink = f.kind === "link" || f.kind === "cloud", isCloud = f.kind === "cloud";
   // What you can do with the file, in one row under its name (Read and Edit for PDFs, Summarize, Open)
   const pdf = !isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
-  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a></div>`;
+  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && !DESK && fvPhone() && fvKind(f) ? `${fvKind(f) !== "office" && !pdf ? `<button type="button" class="btn primary" data-act="f-view" data-id="${esc(f.id)}">Open</button>` : ""}<button type="button" class="btn" data-act="f-save" data-id="${esc(f.id)}">${nativeShell() ? "Share or Open In…" : "Download"}</button>` : `<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a>`}</div>`;
   openSheet(`<form class="sheet">${head(isCloud ? CLOUD_NAMES[f.cloud.p] + " File" : isLink ? "Link" : "File")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="200" value="${esc(f.name)}"></label>
@@ -17020,6 +17029,78 @@ async function officePreview(fid){
     const box = $("#ofvBody"), m = String((e && e.message) || "");
     if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : /not a zip|damaged|corrupt/i.test(m) ? "This file looks damaged, so it can't be shown here. Try opening it in its own app." : m && m.length < 160 ? m : "Couldn't show this file here. Try opening it in its own app.")}</p>`;
   }
+}
+/* Phones and tablets: a stored file opens inside Studyboard. Opening it in a new browser window (sbOpenAsset) doesn't work there:
+   in the iPhone and Android apps there's no new window to open, and the Home Screen web app on iPhone opens one that can't see the
+   downloaded file, so the tap did nothing or showed a blank page. PDFs are drawn page by page (pdf.js, only the pages near the
+   screen, so long ones don't run the phone out of memory); pictures, text, audio and video show as they are; Word, PowerPoint and
+   Excel use the Office preview; anything else goes to Share or Open In… (the phone's share sheet) or a download. */
+const fvPhone = () => { try { return nativeShell() || !!navigator.standalone || (matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches); } catch (e) { return false; } };
+function fvKind(f){
+  if (!f || f.kind !== "file" || !f.revs || !f.revs.length) return "";
+  if (canPreview(f)) return "office";
+  const r = curRev(f), t = String((r && r.type) || "").toLowerCase(), n = String(fileNameOf(f) || "").toLowerCase();
+  if (t === "application/pdf" || /\.pdf$/.test(n)) return "pdf";
+  if (/^image\/(png|jpe?g|gif|webp|bmp|heic|heif|avif|svg\+xml)$/.test(t) || /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif|svg)$/.test(n)) return "image";
+  if (/^audio\//.test(t) || /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac)$/.test(n)) return "audio";
+  if (/^video\//.test(t) || /\.(mp4|m4v|mov|webm)$/.test(n)) return "video";
+  if (/^text\//.test(t) || /^application\/(json|xml)$/.test(t) || /\.(txt|md|markdown|json|xml|tex|log|py|js|java|c|cpp|h|cs|html?|css|r|m|sql|ya?ml|ini|srt|vtt)$/.test(n)) return "text";
+  return "other";
+}
+let FVW = null;
+function fvClose(){ const v = FVW; FVW = null; if (!v) return; if (v.io) v.io.disconnect(); v.urls.forEach(u => URL.revokeObjectURL(u)); if (v.doc) try { v.doc.destroy(); } catch (e) {} }
+dlg.addEventListener("close", () => { if (!dlg.open) fvClose(); });
+async function fileViewer(fid){
+  const f = state.files[fid]; if (!f || f.kind !== "file") return;
+  const kind = fvKind(f);
+  if (kind === "office") { officePreview(fid); return; }
+  if (kind === "pdf" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f) && SBPRO.openReader) { SBPRO.openReader(fid); return; }
+  fvClose();
+  const my = FVW = {fid, urls: [], io: null, doc: null};
+  const saveLabel = nativeShell() ? "Share or Open In…" : "Download";
+  openSheet(`<div class="sheet ofv-sheet fv-sheet">${head(f.name)}<div class="sheet-body ofv-body fv-body" id="fvBody" tabindex="0" aria-label="${esc(f.name)}"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening…</p></div>
+    <div class="sheet-foot"><button type="button" class="btn" data-act="f-open" data-id="${esc(f.id)}">Details</button><span class="spacer"></span><button type="button" class="btn primary" data-act="f-save" data-id="${esc(f.id)}">${saveLabel}</button></div></div>`);
+  const box = () => FVW === my ? $("#fvBody") : null;
+  try {
+    const bytes = await fileBytes(f);
+    const b = box(); if (!b) return;
+    const type = (curRev(f) || {}).type || "";
+    const url = mime => { const u = URL.createObjectURL(new Blob([bytes], {type: mime || type || "application/octet-stream"})); my.urls.push(u); return u; };
+    if (kind === "pdf") await fvPdf(b, bytes, my);
+    else if (kind === "image") b.innerHTML = `<img class="fv-img" alt="${esc(f.name)}" src="${url(/svg/.test(type) || /\.svg$/i.test(fileNameOf(f)) ? "image/svg+xml" : "")}">`;
+    else if (kind === "audio") b.innerHTML = `<audio class="fv-media" controls preload="metadata" src="${url()}"></audio>`;
+    else if (kind === "video") b.innerHTML = `<video class="fv-media" controls playsinline preload="metadata" src="${url()}"></video>`;
+    else if (kind === "text") { const cut = bytes.length > 2e6; b.innerHTML = `<pre class="fv-text">${esc(new TextDecoder().decode(cut ? bytes.slice(0, 2e6) : bytes))}</pre>${cut ? `<p class="mini">Only the first 2 MB is shown. ${esc(saveLabel)} for the rest.</p>` : ""}`; }
+    else b.innerHTML = `<p class="pdr-wait">Studyboard can't show this kind of file. ${nativeShell() ? "Tap Share or Open In… to open it in another app, or save it to Files." : "Download it to open it."}</p>`;
+  } catch (e) {
+    const b = box(); if (!b) return;
+    const m = String((e && e.message) || "");
+    b.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is still on the computer it was added from. It uploads the next time Studyboard is open there and signed in." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : /not signed in/.test(m) ? "Sign in to open your stored files." : "Couldn't open the file. Check your connection and try again.")}</p>`;
+  }
+}
+// The pages are drawn when they come near the screen and let go of once far from it
+async function fvPdf(box, bytes, my){
+  await loadPdfJs();
+  const doc = my.doc = await window.pdfjsLib.getDocument({data: bytes, ...PDF_OPTS}).promise;
+  if (FVW !== my) { try { doc.destroy(); } catch (e) {} return; }
+  const room = Math.max(200, box.clientWidth - 28), first = await doc.getPage(1), v1 = first.getViewport({scale: 1});
+  const n = doc.numPages, w = Math.round(Math.min(room, v1.width * 2));
+  box.innerHTML = Array.from({length: n}, (_, i) => `<div class="fv-page" data-p="${i + 1}" role="img" aria-label="Page ${i + 1} of ${n}" style="width:${w}px;height:${Math.round(w * v1.height / v1.width)}px"></div>`).join("");
+  const draw = async el => {
+    if (el.dataset.on) return; el.dataset.on = "1";
+    try {
+      const page = await doc.getPage(Number(el.dataset.p)), v = page.getViewport({scale: 1}), k = w / v.width, dpr = Math.min(2, window.devicePixelRatio || 1);
+      const vp = page.getViewport({scale: k * dpr}), c = document.createElement("canvas");
+      c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+      el.style.height = Math.round(v.height * k) + "px";
+      await page.render({canvasContext: c.getContext("2d"), viewport: vp}).promise;
+      if (FVW !== my || !el.dataset.on) return;
+      el.replaceChildren(c);
+    } catch (e) { delete el.dataset.on; }
+  };
+  const drop = el => { if (!el.dataset.on) return; delete el.dataset.on; const c = el.querySelector("canvas"); if (c) { c.width = 0; c.height = 0; } el.replaceChildren(); };
+  my.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(e.target); else if (Math.abs(e.boundingClientRect.top - e.rootBounds.top) > 4000) drop(e.target); }), {root: box, rootMargin: "1200px 0px"});
+  box.querySelectorAll(".fv-page").forEach(el => my.io.observe(el));
 }
 // Each page keeps its own size and is scaled down to fit the sheet, so text wraps exactly as in the file
 function officeDraw(){
@@ -19834,24 +19915,36 @@ const deskAssets = {
   delete: async id => { if (!/^local:/.test(id) && sbActive()) { try { await sbAssets.delete(id); } catch(e) {} } return {deleted: true}; }
 };
 let deskPromoting = false;
+let deskUpWarnAt = 0;
 async function deskPromote(){
   if (!DESK || deskPromoting || !sbActive() || !cloud.on || navigator.onLine === false) return;
   deskPromoting = true;
+  // Each file on its own: one that can't upload (too big, storage full, a type that can't be stored) no longer stops the others,
+  // and the student is told, since until it uploads it can't be opened on their phone or another computer
+  let n = 0;
+  const failed = [];
   try {
-    let n = 0;
     for (const f of Object.values(state.files)) {
       if (f.kind !== "file" || !(f.revs || []).some(r => /^local:/.test(r.assetId) && r.localRel)) continue;
       const nf = clone(f); let changed = false;
       for (const r of nf.revs) {
         if (!/^local:/.test(r.assetId) || !r.localRel) continue;
+        if (navigator.onLine === false) break;
         const bytes = await DESK.read(r.localRel); if (!bytes) continue;
-        try { const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"}); deskMarkDone(up.id); r.assetId = up.id; changed = true; n++; }
-        catch(e) { throw e; }
+        try {
+          const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"});
+          deskMarkDone(up.id); r.assetId = up.id; changed = true; n++;
+        } catch (e) { failed.push({name: f.name, why: String((e && e.message) || e || "")}); }
       }
       if (changed) applyChanges([{kind: "file", id: f.id, after: nf}], "");
     }
-    if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"} added while offline`);
-  } catch(e) { }
+  } catch (e) { console.warn("upload local files", e); }
+  if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"}, so ${n === 1 ? "it opens" : "they open"} on your other devices too`);
+  if (failed.length && Date.now() - deskUpWarnAt > 6 * 3600e3) {
+    deskUpWarnAt = Date.now();
+    const why = failed[0].why, full = /quota|storage|exceed|limit|too large|payload|413/i.test(why);
+    toast(`${failed.length === 1 ? `“${failed[0].name}” couldn't` : `${failed.length} files couldn't`} upload to your account${full ? " (a storage or size limit)" : ""}, so ${failed.length === 1 ? "it only opens" : "they only open"} on this computer.`, null, null, {error: true});
+  }
   deskPromoting = false;
 }
 async function deskOpenAsset(id){
@@ -21997,6 +22090,8 @@ document.addEventListener("click", e => {
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-preview": officePreview(id); break;
+    case "f-view": fileViewer(id); break;
+    case "f-save": { const f = state.files[id]; if (f) downloadFile(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ...(inPreview() ? [] : [["f-sync", "Sync Drive", "Choose the Drive or OneDrive folders Studyboard uses. AI only reads files you've added", "sync"]]), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
