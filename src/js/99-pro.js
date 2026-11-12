@@ -3232,7 +3232,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     parts: id => dTx(["parts"], "readonly", t => { const out = []; const r = t.objectStore("parts").openCursor(range(id)); r.onsuccess = () => { const c = r.result; if (!c) return; out.push([String(c.key).slice(id.length + 1), c.value]); c.continue(); }; D._p = out; }).then(() => D._p || []),
     del: id => dTx(["meta", "parts"], "readwrite", t => { t.objectStore("meta").delete(id); t.objectStore("parts").delete(range(id)); }).catch(() => {})
   };
-  const draftMeta = R => ({id: R.draftId, cid: R.cid || "", title: R.title || "", at: R.t0 || Date.now(), dur: R.dur || elapsed(), mime: R.mime || "", text: R.text != null ? R.text : joinTranscript(R.pieces, R.marks), by: R.by || "", marks: R.marks || [], state: R.view === "rec" ? "recording" : "review", updated: Date.now()});
+  const draftMeta = R => ({id: R.draftId, cid: R.cid || "", title: R.title || "", at: R.t0 || Date.now(), dur: R.dur || elapsed(), mime: R.mime || "", text: R.text != null ? R.text : joinTranscript(R.pieces, R.marks), by: R.by || "", marks: R.marks || [], typed: R.typed || [], segAt: R.segAt || [], tp: (R.tp || R.pieces || []).map(p => ({t: p.t, s: String(p.s || "").slice(0, 120)})), tpLive: R.tp ? !!R.tpLive : !R.aiCaps, state: R.view === "rec" ? "recording" : "review", updated: Date.now()});
   let draftT = 0;
   const draftSoon = () => { clearTimeout(draftT); draftT = setTimeout(() => { if (REC && REC.draftId) D.meta(draftMeta(REC)).then(loadDrafts); }, 600); };
   const loadDrafts = () => D.list().then(l => { DRAFTS = l.filter(d => !(REC && REC.draftId === d.id)).sort((a, b) => b.at - a.at); if (ui.tab === "courses" && ui.courseId) render(); });
@@ -3245,7 +3245,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (!chunks.length) { toast("This draft's audio isn't on this device any more."); return; }
     const blob = new Blob(chunks, {type: m.mime || (chunks[0] && chunks[0].type) || "audio/webm"});
     REC = {view: "review", draftId: id, cid: m.cid, fixed: !!courseOf(m.cid), title: m.title || titleFor(m.cid), blob, url: URL.createObjectURL(blob), dur: m.dur || 0, mime: m.mime, t0: m.at,
-      segs: segs.length ? segs : blob.size < 18e6 ? [blob] : [], text: m.text || "", by: m.by || "", marks: m.marks || [], pieces: [], chunks: [], keep: !!caps.assets || sbActive() || !!DESK};
+      segs: segs.length ? segs : blob.size < 18e6 ? [blob] : [], text: m.text || "", by: m.by || "", marks: m.marks || [], typed: Array.isArray(m.typed) ? m.typed : [], segAt: Array.isArray(m.segAt) ? m.segAt : [], tp: Array.isArray(m.tp) ? m.tp : [], tpLive: !!m.tpLive, pieces: [], chunks: [], keep: !!caps.assets || sbActive() || !!DESK};
     DRAFTS = DRAFTS.filter(d => d.id !== id);
     if (dlg.open) dlg.close();
     sheet();
@@ -3267,7 +3267,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (REC && REC.view !== "setup") { sheet(); return; }
     if (!canRecord()) { toast("This browser can't record audio."); return; }
     const fixed = !!(cidIn && courseOf(cidIn)), cid = fixed ? cidIn : courseNow();
-    REC = {view: "setup", cid, fixed, title: titleFor(cid), captions: !!capsKind(), pieces: [], interim: "", marks: [], segs: [], chunks: []};
+    REC = {view: "setup", cid, fixed, title: titleFor(cid), captions: !!capsKind(), pieces: [], interim: "", marks: [], segs: [], chunks: [], typed: []};
     sheet();
   }
   function sheet(){
@@ -3296,11 +3296,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       draw(); return;
     }
     const mime = pickMime(m => MediaRecorder.isTypeSupported(m));
-    Object.assign(REC, {stream, mime, err: "", view: "rec", t0: Date.now(), pausedMs: 0, pauseAt: 0, chunks: [], segs: [], pieces: [], marks: []});
+    Object.assign(REC, {stream, mime, err: "", view: "rec", t0: Date.now(), pausedMs: 0, pauseAt: 0, chunks: [], segs: [], pieces: [], marks: [], typed: [], segAt: []});
     const mk = () => new MediaRecorder(stream, mime ? {mimeType: mime, audioBitsPerSecond: 32000} : {audioBitsPerSecond: 32000});
     REC.draftId = "ld" + uid(); REC.nc = 0; REC.ns = 0; D.meta(draftMeta(REC));
     REC.mr = mk(); REC.mr.ondataavailable = e => { if (e.data && e.data.size && REC) { REC.chunks.push(e.data); D.part(REC.draftId, "c" + pad(REC.nc++), e.data); D.meta(draftMeta(REC)); } }; REC.mr.start(10000);
-    const seg = () => { if (!REC || !REC.stream) return; const r = mk(), parts = []; r.ondataavailable = e => { if (e.data && e.data.size) parts.push(e.data); }; r.onstop = () => { if (parts.length && REC) { const b = new Blob(parts, {type: r.mimeType || mime}); REC.segs.push(b); D.part(REC.draftId, "s" + pad(REC.ns++), b); } }; try { r.start(); REC.seg = r; } catch (e) { REC.seg = null; REC.noSeg = true; } };
+    const seg = () => { if (!REC || !REC.stream) return; const r = mk(), parts = []; r.ondataavailable = e => { if (e.data && e.data.size) parts.push(e.data); }; r.onstop = () => { if (parts.length && REC) { const b = new Blob(parts, {type: r.mimeType || mime}); REC.segs.push(b); D.part(REC.draftId, "s" + pad(REC.ns++), b); } }; try { r.start(); REC.seg = r; REC.segAt.push(elapsed()); } catch (e) { REC.seg = null; REC.noSeg = true; } };
     seg();
     REC.segTimer = setInterval(() => { if (!REC || REC.view !== "rec" || REC.pauseAt || REC.noSeg) return; try { REC.seg.stop(); } catch (e) {} seg(); }, SEG_MS);
     meter(); captionsOn();
@@ -3398,6 +3398,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     REC.dur = REC.tEnd - REC.t0 - REC.pausedMs;
     if (!REC.segs.length && REC.blob.size && REC.blob.size < 18e6) REC.segs = [REC.blob];
     REC.text = joinTranscript(REC.pieces, REC.marks); REC.by = REC.text ? (REC.aiCaps && !REC.capMiss && !REC.capPend ? "ai" : "live") : "";
+    REC.tp = REC.pieces.map(p => ({t: p.t, s: p.s})); REC.tpLive = !REC.aiCaps;
     if (REC.aiCaps && REC.capMiss) toast("A few seconds of captions were missed. Transcribe with AI to fill them in.");
     REC.view = "review"; D.meta(draftMeta(REC)); REC.keep = !!caps.assets || sbActive() || !!DESK;
     pill(); sheet();
@@ -3473,7 +3474,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const failed = res.filter(x => !x.ok), got = res.map(x => x.ok ? x.v : "").filter(Boolean);
     if (failed.length === n) { R.view = "review"; R.err = `${(failed[0].e && failed[0].e.message) || "Couldn't transcribe the recording."} Your recording is safe: try again, or save it without a transcript.`; draw(); return; }
     const marks = R.marks.length ? "\n\n" + R.marks.map(t => `★ ${clock(t)}`).join("\n") : "";
-    R.text = res.map((x, i) => x.ok ? x.v : `[Part ${i + 1} couldn't be transcribed]`).filter(Boolean).join("\n\n") + marks; R.by = "ai";
+    // where each part starts in the recording: kept while recording, every 5 minutes for an uploaded recording split here
+    const partAt = i => R.segAt && R.segAt.length === n ? R.segAt[i] : i * SEG_MS;
+    const parts = res.map((x, i) => [x.ok ? x.v : `[Part ${i + 1} couldn't be transcribed]`, partAt(i)]);
+    R.text = parts.map(p => p[0]).filter(Boolean).join("\n\n") + marks; R.by = "ai";
+    R.tp = parts.filter(p => String(p[0] || "").trim()).map(p => ({t: p[1], s: p[0]})); R.tpLive = false;
     R.view = "review"; R.err = failed.length ? `${failed.length} of ${n} parts couldn't be transcribed in time. Transcribe Again to retry, or fix the gaps by hand.` : ""; draw(); draftSoon();
     void got;
   }
@@ -3561,11 +3566,13 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       try { sum = await limit(summarize(raw, R.title, courseLabel(c)), 150000); } catch (e) { console.warn("lecture: summary", e); }
       if (!org || !sum) toast("The AI couldn't finish everything. You can try again from the lecture.");
     }
-    const f = normFile({id: uid(), name: R.title, courseId: R.cid, folderId: "lectures", kind: "file", created: Date.now(), updated: Date.now(), desc: `Recorded ${fmtShort(todayISO())}, ${clock(R.dur)} long.`,
-      revs: rev ? [rev] : [], dur: Math.round(R.dur / 1000), ...(R.localCopy && !rev && !cloudRec ? {desc: `Recorded ${fmtShort(todayISO())}, ${clock(R.dur)} long. The recording was saved to the device it was made on.`} : {}), ...(cloudRec ? {cloud: cloudRec, url: cloudRec.url} : {}), tr: raw ? {text: raw.slice(0, 200000), by: R.by || "typed", at: Date.now()} : null,
-      lec: {org: org.slice(0, 200000), sum: sum.slice(0, 20000), at: Date.now()}});
+    const RP = window.SBREPLAY, fid = uid(), tAt = RP ? RP.anchors(raw, R.tp, R.tpLive) : [];
+    const typedNote = RP ? RP.typedNote(R, fid, R.cid) : null;
+    const f = normFile({id: fid, name: R.title, courseId: R.cid, folderId: "lectures", kind: "file", created: Date.now(), updated: Date.now(), desc: `Recorded ${fmtShort(todayISO())}, ${clock(R.dur)} long.`,
+      revs: rev ? [rev] : [], dur: Math.round(R.dur / 1000), ...(R.localCopy && !rev && !cloudRec ? {desc: `Recorded ${fmtShort(todayISO())}, ${clock(R.dur)} long. The recording was saved to the device it was made on.`} : {}), ...(cloudRec ? {cloud: cloudRec, url: cloudRec.url} : {}), tr: raw ? Object.assign({text: raw.slice(0, 200000), by: R.by || "typed", at: Date.now()}, tAt.length ? {tAt} : {}) : null,
+      lec: Object.assign({org: org.slice(0, 200000), sum: sum.slice(0, 20000), at: Date.now()}, R.marks && R.marks.length ? {marks: R.marks.slice(0, 200).map(Math.round)} : {}, typedNote ? {att: [{k: "note", id: typedNote.id}]} : {})});
     ui.courseTab = "lectures"; ui.courseTabFor = R.cid;
-    applyChanges([{kind: "file", id: f.id, after: f}], `Saved “${R.title}” to Lectures`);
+    applyChanges([{kind: "file", id: f.id, after: f}].concat(typedNote ? [{kind: "note", id: typedNote.id, after: typedNote}] : []), `Saved “${R.title}” to Lectures`);
     if (R.url) URL.revokeObjectURL(R.url);
     if (R.draftId) draftDrop(R.draftId);
     if (REC === R) { REC = {view: "done", fileId: f.id, cid: R.cid}; pill(); draw(); }
@@ -3597,8 +3604,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       return;
     }
     if (REC.view === "rec") {
+      const ta0 = document.getElementById("rpRecNotes"), keepCaret = ta0 && document.activeElement === ta0 ? [ta0.selectionStart, ta0.selectionEnd, ta0.scrollTop] : null;
       b.innerHTML = `<div class="lec-live${REC.pauseAt ? " paused" : ""}"><span class="lec-state"><i class="lec-dot" aria-hidden="true"></i>${REC.pauseAt ? "Paused" : "Recording"}</span><b class="lec-time" aria-live="off">${clock(elapsed())}</b><span class="lec-lvl" aria-hidden="true"><i></i></span><span class="mini">${esc(REC.title)}</span></div>
-        <div class="lec-caps" aria-live="off"></div>`;
+        <div class="lec-caps" aria-live="off"></div>${window.SBREPLAY ? SBREPLAY.recNotesHtml(REC) : ""}`;
+      if (window.SBREPLAY) { SBREPLAY.recNotesWire(REC, elapsed, draftSoon); const ta = document.getElementById("rpRecNotes"); if (ta && keepCaret) { ta.focus(); ta.setSelectionRange(keepCaret[0], keepCaret[1]); ta.scrollTop = keepCaret[2]; } }
       f.innerHTML = `<button type="button" class="btn danger" data-act="lec-discard">Discard</button><span class="spacer"></span><button type="button" class="btn" data-act="lec-mark">★ Mark This Moment</button><button type="button" class="btn" data-act="lec-pause">${REC.pauseAt ? "Resume" : "Pause"}</button><button type="button" class="btn primary" data-act="lec-stop">Stop</button>`;
       paintCaps(); return;
     }
@@ -3618,12 +3627,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <div class="lec-sum"><span class="mini">${clock(REC.dur)} · ${mb.toFixed(1)} MB${REC.marks.length ? ` · ${REC.marks.length} mark${REC.marks.length === 1 ? "" : "s"}` : ""}</span></div>
         <audio controls preload="metadata" src="${esc(REC.url)}" class="lec-audio"></audio>
         <label class="f"><span class="lh">Transcript${REC.by === "ai" ? " (by AI)" : REC.by === "live" ? " (live captions)" : ""}</span><textarea id="lecText" rows="8" maxlength="200000" placeholder="No transcript yet. Type notes here, or transcribe the recording.">${esc(REC.text || "")}</textarea></label>
+        ${window.SBREPLAY ? SBREPLAY.recNotesHtml(REC, true) : ""}
         ${REC.segs.length ? (canHear() ? `<div class="row-actions"><button type="button" class="btn small ai-btn" data-act="lec-ai">${AI_ICON} ${REC.by === "ai" ? "Transcribe Again" : "Transcribe with AI"}</button><span class="mini">The audio goes to ${esc(hearWho())}${REC.segs.length > 1 ? ` in ${REC.segs.length} parts` : ""}.</span></div>` : `<p class="mini">With a Gemini or OpenAI key (Settings, AI Features), the recording can be transcribed by AI.</p>`) : ""}
         <label class="lec-tg"><input type="checkbox" id="lecKeep"${REC.keep && store ? " checked" : ""}${store ? "" : " disabled"}><span><b>Keep the recording</b><span class="mini">${!store ? "Sign in to keep recordings in your file storage." : where !== "studyboard" ? `With the lecture, to listen back. ${mb.toFixed(1)} MB in your ${esc(CLOUD_NAMES[where])}, not your Studyboard storage.` : `With the lecture, to listen back. Uses ${mb.toFixed(1)} MB of your file storage.`}</span></span></label>
         ${clouds.length ? `<label class="f lec-where"><span class="lh">Keep It In</span><select id="lecWhere">${[["studyboard", "Studyboard"]].concat(clouds.map(p => [p, CLOUD_NAMES[p]])).map(([v, n]) => `<option value="${v}"${v === where ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>` : ""}
         <p class="mini">${aiReady() ? `Save puts it in the course's Lectures, where ${esc(aiWho("AI"))} tidies the transcript and writes a summary.` : "Save puts it in the course's Lectures. Set up AI (Settings, AI Features) for a tidied transcript and summary too."}</p>`;
       f.innerHTML = `<button type="button" class="btn danger" data-act="lec-discard">Discard</button><span class="spacer"></span><button type="button" class="btn primary" data-act="lec-save">Save Lecture</button>`;
       { const ws = $("#lecWhere"), kb = $("#lecKeep"); if (ws) ws.addEventListener("change", () => { REC.where = ws.value; if (kb && !kb.checked) kb.checked = true; const t = $("#lecText"); if (t) REC.text = t.value; REC.keep = true; draw(); }); if (kb) kb.addEventListener("change", () => { REC.keep = kb.checked; }); }
+      if (window.SBREPLAY) SBREPLAY.recNotesWire(REC, elapsed, draftSoon);
       const tx = $("#lecText"); if (tx) tx.addEventListener("input", () => { REC.text = tx.value; draftSoon(); if (REC.by !== "typed") REC.by = REC.by ? REC.by + "+typed" : "typed"; });
       const nm = $("#lecName"); if (nm) nm.addEventListener("input", () => { REC.title = nm.value; });
       const cs = $("#lecCourse"); if (cs) cs.addEventListener("change", () => { REC.cid = cs.value; });
@@ -3698,10 +3709,13 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     flush(); endUl(); return h;
   }
   let lecUrl = "";
-  async function lectureSheet(fid){
+  async function lectureSheet(fid, then){
     const f = state.files[fid]; if (!f) return;
-    openSheet(`<div class="sheet lec-sheet">${head(f.name)}<div class="sheet-body lec-body lec-view"></div><div class="sheet-foot lec-vfoot"></div></div>`);
+    const RP = window.SBREPLAY;
+    openSheet(`<div class="sheet lec-sheet">${head(f.name)}<div class="sheet-body lec-body lec-view"></div>${RP ? `<div class="rp-slot">${RP.dockHtml(fid)}</div>` : ""}<div class="sheet-foot lec-vfoot"></div></div>`);
     drawLecture(fid, "");
+    if (typeof then === "function") then();
+    if (RP) { RP.prime(fid); RP.paint(); return; }
     if (f.revs.length || f.cloud) {
       let url = ""; try { const bytes = await fileBytes(f); url = URL.createObjectURL(new Blob([bytes], {type: fileTypeOf(f) || "audio/webm"})); } catch (e) { url = ""; }
       if (!url && f.cloud) { const a = dlg.querySelector(".lec-audio-slot"); if (a) a.innerHTML = `<p class="mini">Couldn't load the recording here. <a href="${esc(fileHref(f))}" target="_blank" rel="noopener noreferrer">Play it in ${esc(CLOUD_NAMES[f.cloud.p])}</a></p>`; }
@@ -3714,11 +3728,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const NOTE_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/></svg>';
   const noteName = n => (String(n.text || "").split("\n").map(l => l.trim()).find(Boolean) || "Note").slice(0, 80);
   function attHtml(f){
-    const at = lecAtt(f);
+    const RP = window.SBREPLAY, at = lecAtt(f), more = RP ? RP.extraItems(f) : [];
     const row = a => { const isN = a.k === "note", x = isN ? state.notes[a.id] : state.files[a.id], nm = isN ? noteName(x) : x.name;
-      return `<li>${isN ? NOTE_SVG : PAPER_SVG}${isN ? `<button type="button" class="link-btn lec-att-n" data-act="lec-att-note" data-id="${esc(a.id)}">${esc(nm)}</button>` : `<a class="lec-att-n" href="${esc(fileHref(x))}" ${fileAttr(x)} target="_blank" rel="noopener noreferrer">${esc(nm)}</a>`}<button type="button" class="x-btn" data-act="lec-att-rm" data-id="${esc(f.id)}" data-k="${a.k}" data-a="${esc(a.id)}" aria-label="Remove ${esc(nm)} from this lecture">${CLOSE}</button></li>`; };
+      return `<li>${isN ? NOTE_SVG : PAPER_SVG}${isN ? `<button type="button" class="link-btn lec-att-n" data-act="lec-att-note" data-id="${esc(a.id)}">${esc(nm)}</button>` : `<a class="lec-att-n" href="${esc(fileHref(x))}" ${fileAttr(x)} target="_blank" rel="noopener noreferrer">${esc(nm)}</a>`}${RP ? RP.rowBtn(f, a) : ""}${a.why ? `<span class="mini lec-att-why">${a.why === "typed" ? "Typed while recording" : a.why === "study" ? "Study notes" : "On the class page"}</span>` : `<button type="button" class="x-btn" data-act="lec-att-rm" data-id="${esc(f.id)}" data-k="${a.k}" data-a="${esc(a.id)}" aria-label="Remove ${esc(nm)} from this lecture">${CLOSE}</button>`}</li>`; };
     return `<section class="lec-att"><div class="lec-att-h"><b>Slides and Notes</b><span class="mini">${at.length ? "Used by the AI for this lecture's summary and in Ask" : "Add the slides or your notes so the summary gets the terms right, and keep everything for this class together"}</span></div>
-      ${at.length ? `<ul class="lec-att-list">${at.map(row).join("")}</ul>` : ""}
+      ${at.length + more.length ? `<ul class="lec-att-list">${at.concat(more).map(row).join("")}</ul>` : ""}
       <div class="row-actions"><button type="button" class="btn small" data-act="lec-att-up" data-id="${esc(f.id)}">Upload Files</button><button type="button" class="btn small" data-act="lec-att-pick" data-id="${esc(f.id)}">From Studyboard</button></div></section>`;
   }
   function setAtt(fid, att, msg){
@@ -3758,23 +3772,25 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   function drawLecture(fid, doc){
     const f = state.files[fid], b = dlg.querySelector(".lec-view"), ft = dlg.querySelector(".lec-vfoot"); if (!f || !b || !ft) return;
     const L = f.lec || {}, raw = f.tr && f.tr.text || "", d = new Date(f.created || Date.now()).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric", year: "numeric"});
-    b.dataset.id = fid;
+    b.dataset.id = fid; delete b.dataset.rpItem;
+    if (String(doc).startsWith("rp:") && window.SBREPLAY) { const [, k, ...a] = String(doc).split(":"); SBREPLAY.drawItem(fid, k, a.join(":")); return; }
     if (!doc) {
       b.innerHTML = `<p class="mini lec-meta">${esc([d, f.dur ? clock(f.dur * 1000) + " long" : ""].filter(Boolean).join(" · "))}</p>
         <div class="lec-files">
           <button type="button" class="lec-fopt" data-act="lec-doc" data-id="${esc(fid)}" data-doc="org">${DOC_SVG}<b>Transcript</b><span class="mini">${L.org ? "Everything that was said, organized into paragraphs and sections" : raw ? "Everything that was said" : "No transcript was saved"}</span></button>
           <button type="button" class="lec-fopt" data-act="lec-doc" data-id="${esc(fid)}" data-doc="sum">${SUM_SVG}<b>Summary</b><span class="mini">${L.sum ? "The main ideas, key terms and takeaways" : "Not written yet"}</span></button>
         </div>
+        ${window.SBREPLAY ? SBREPLAY.mainHtml(f) : ""}
         ${window.SBLC ? SBLC.lectureHtml(fid) : ""}
         ${attHtml(f)}
-        ${f.revs.length || f.cloud ? `<div class="lec-audio-slot">${lecUrl ? `<audio controls preload="metadata" src="${esc(lecUrl)}" class="lec-audio"></audio>` : `<p class="mini">Loading the recording…</p>`}</div>` : ""}`;
+        ${(f.revs.length || f.cloud) && !window.SBREPLAY ? `<div class="lec-audio-slot">${lecUrl ? `<audio controls preload="metadata" src="${esc(lecUrl)}" class="lec-audio"></audio>` : `<p class="mini">Loading the recording…</p>`}</div>` : ""}`;
       ft.innerHTML = `<button type="button" class="btn danger" data-act="lec-del" data-id="${esc(fid)}">Delete</button><span class="spacer"></span><button type="button" class="btn" data-act="lec-bk" data-id="${esc(fid)}">Back Up</button><button type="button" class="btn" data-act="lec-ren" data-id="${esc(fid)}">Rename</button><button type="button" class="btn primary" data-act="close">Done</button>`;
       return;
     }
     const text = doc === "sum" ? L.sum : (L.org || raw), name = doc === "sum" ? "Summary" : "Transcript";
     const src = raw || L.org || "", canMake = src.trim().length > 80;
     b.innerHTML = `<div class="lec-doc-head"><button type="button" class="link-btn" data-act="lec-doc" data-id="${esc(fid)}" data-doc="">‹ ${esc(f.name)}</button><h3>${name}</h3></div>
-      ${text ? `<div class="lec-docv">${docHtml(text)}</div>` : `<div class="empty"><strong>No ${name} Yet</strong>${canMake ? (aiReady() ? `${esc(aiWho("AI"))} can write it from the transcript.` : "Set up AI (Settings, AI Features), then Write It Now.") : src ? "The transcript is too short to summarize." : "This lecture was saved without a transcript."}</div>`}`;
+      ${text ? `<div class="lec-docv">${(window.SBREPLAY && SBREPLAY.docHtml(f, doc, text)) || docHtml(text)}</div>` : `<div class="empty"><strong>No ${name} Yet</strong>${canMake ? (aiReady() ? `${esc(aiWho("AI"))} can write it from the transcript.` : "Set up AI (Settings, AI Features), then Write It Now.") : src ? "The transcript is too short to summarize." : "This lecture was saved without a transcript."}</div>`}`;
     ft.innerHTML = `<span class="spacer"></span>${canMake && (doc === "sum" || !L.org) ? `<button type="button" class="btn ai-btn" data-act="lec-make" data-id="${esc(fid)}" data-doc="${doc}">${AI_ICON} ${text ? "Write It Again" : "Write It Now"}</button>` : ""}${text ? `<button type="button" class="btn" data-act="lec-copy" data-id="${esc(fid)}" data-doc="${doc}">Copy</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button>`;
   }
   async function remake(fid, doc){
@@ -3791,7 +3807,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     drawLecture(fid, doc);
   }
   window.SBLEC = {btn: courseBtn, listHtml, isLecture, canAdd: () => !inPreview() && (canRecord() || typeof window.AudioContext === "function"),
-    ctx: lecContext, noteText: studyNoteText, clock, redraw: fid => { if (dlg.open && dlg.querySelector(".lec-view")) drawLecture(fid, ""); }};
+    ctx: lecContext, noteText: studyNoteText, clock, open: (fid, then) => { if (dlg.open) dlg.close(); setTimeout(() => lectureSheet(fid, then), 0); }, redraw: fid => { if (dlg.open && dlg.querySelector(".lec-view")) drawLecture(fid, ""); }};
 
   /* Add Lecture > Upload a Recording An audio file made elsewhere */
   const AUDIO_EXT = {mp3: "audio/mpeg", m4a: "audio/mp4", mp4: "audio/mp4", aac: "audio/aac", wav: "audio/wav", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/ogg", webm: "audio/webm", flac: "audio/flac", amr: "audio/amr", "3gp": "audio/3gpp", wma: "audio/x-ms-wma", aiff: "audio/aiff", aif: "audio/aiff", caf: "audio/x-caf"};
