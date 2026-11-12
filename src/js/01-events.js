@@ -18,6 +18,15 @@ function toggleTask(id, el){
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
+  if (n.status === "done" && todayCleared()) fire("good-moment", "plan");
+}
+// Today's Plan has nothing left to do: no planned work still open, nothing due today or earlier still open (99-review-ask.js)
+function todayCleared(){
+  try {
+    const today = todayISO(), F = computeFocus();
+    if ((F.ranked || []).some(x => (x.alloc > 0 || x.dl <= 0) && !x.t.xs && !x.dead && x.t.status !== "done")) return false;
+    return !tasksArr().some(t => t.status !== "done" && t.due && t.due <= today && !t.deleted && !t.archived);
+  } catch (e) { return false; }
 }
 // Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
 // page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.

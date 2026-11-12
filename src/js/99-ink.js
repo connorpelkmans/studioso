@@ -428,12 +428,13 @@ var SBINK = null;
   const noteInk = n => inkOf(n);
   function noteThumb(n, editing){
     const list = noteInk(n); if (!list.length) return "";
-    const svg = svgOf(list), canEdit = editing && available() && !P.locked();
+    // a drawing someone already made stays editable on every plan; starting a new one is Pro
+    const svg = svgOf(list), canEdit = editing && available();
     return canEdit ? `<button type="button" class="ink-thumb" data-act="ink-note" data-id="${esc(n.id)}" aria-label="Edit the drawing">${svg}</button>` : `<div class="ink-thumb">${svg}</div>`;
   }
   function openPad(id){
     const n = state.notes[id]; if (!n || !available()) return;
-    if (P.locked()) { proWhy(NOTE_WHY); return; }
+    if (P.locked() && !noteInk(n).length) { proWhy(NOTE_WHY); return; }
     const ses = noteSession(id);
     const ai = typeof photoNoteSheet === "function" && typeof aiReady === "function" && aiReady();
     openSheet(`<div class="sheet ink-sheet">${head(noteInk(n).length ? "Drawing" : "New Drawing")}
@@ -473,7 +474,7 @@ var SBINK = null;
   }
   const baseExtra = P.noteExtra, baseBar = P.noteBar;
   P.noteExtra = n => noteThumb(n, true) + (baseExtra ? baseExtra(n) : "");
-  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${P.locked() || tagPro() ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
+  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${!noteInk(n).length && (P.locked() || tagPro()) ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
 
   /* Wiring */
   hook("act", (act, el, id) => {

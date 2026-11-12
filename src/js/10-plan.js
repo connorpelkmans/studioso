@@ -291,8 +291,37 @@ window.__sbPlanObj = () => PLAN;
     if (mine[key]) return false;
     mine[key] = Date.now(); seen[uid] = mine; write(K_LIMITS, seen);
     track("note", o.reason || msg);
-    toast(msg, null, {label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))});
+    reviewQuiet(3);
+    toast(msg, null, [{label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))}, tellUsBtn(msg, "idea")]);
     return true;
+  }
+  /* Free runs: a free account (with its own AI key) gets a few runs a week of some Pro AI tools, so it can try them for real.
+     kind: "quiz" (Quiz Me), "teach" (Teach It Back), "rubric" (Rubric Check). The count is kept in settings, so it syncs to the
+     account's other devices like the collection previews, and starts again each Monday (local time). Pro has no count. */
+  const FREE_RUNS = 3, RUN_NAMES = {quiz: ["Quiz Me", "session", "sessions"], teach: ["Teach It Back", "check", "checks"], rubric: ["Rubric Check", "check", "checks"]};
+  const runWeek = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return iso(d); };
+  function runsState(){
+    const r = state && state.settings && state.settings.freeRuns, wk = runWeek();
+    return r && typeof r === "object" && r.wk === wk ? r : {wk};
+  }
+  // how many free runs of this kind are left this week (Infinity when nothing's locked)
+  function runsLeft(kind){
+    if (!paywall() || isPro()) return Infinity;
+    return Math.max(0, FREE_RUNS - (Number(runsState()[kind]) || 0));
+  }
+  // count one finished run; says how many are left once it's counted
+  function useRun(kind){
+    if (!paywall() || isPro() || !RUN_NAMES[kind]) return;
+    const r = Object.assign({}, runsState()); r[kind] = (Number(r[kind]) || 0) + 1;
+    state.settings = Object.assign({}, state.settings, {freeRuns: r}); saveSettings();
+    const left = runsLeft(kind), [name, one, many] = RUN_NAMES[kind];
+    setTimeout(() => toast(left ? `${left} free ${name} ${left === 1 ? one : many} left this week` : `That was this week's last free ${name} ${one}. More on Monday.`, null, {label: "See Pro", fn: () => proSheet(`${name} is unlimited with Studyboard Pro.`)}), 600);
+  }
+  // the Pro sheet when this week's free runs are used up
+  function runsGone(kind, why){
+    const n = RUN_NAMES[kind] || ["This", "run", "runs"];
+    reviewQuiet(3);
+    proSheet(`You've used this week's ${FREE_RUNS} free ${n[0]} ${n[2]}. They're back on Monday, or get unlimited ${n[2]} with Pro. ${why || ""}`.trim());
   }
   function redeemSheet(){
     if (!sbUser) { toast("Sign in first, then redeem your code."); if (typeof sbAsk === "function") sbAsk(); return; }
@@ -355,14 +384,14 @@ window.__sbPlanObj = () => PLAN;
     const save = k => { mine[k] = Date.now(); seen[uid] = mine; write(K_WELCOME, seen); };
     const endAt = ts(e.trial_until);
     if (endAt > now() && endAt - now() <= 864e5 && !mine.lastDay) {
-      save("lastDay"); if (!mine.start) save("start");
+      save("lastDay"); if (!mine.start) save("start"); reviewQuiet(3);
       setTimeout(() => toast(`Your two free weeks of Pro end tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro end tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
     } else if (endAt > now() && !mine.start) {
       if (window.SBOB && SBOB.pending()) { clearTimeout(welcomeRetry); welcomeRetry = setTimeout(welcomeNotes, 4000); return; }
       save("start");
       setTimeout(() => { if (window.SBOB && SBOB.pending()) { delete mine.start; seen[uid] = mine; write(K_WELCOME, seen); return; } welcomePop(e.trial_until); }, 1200);
     } else if (endAt <= now() && now() - endAt < 30 * 864e5 && !paid() && !mine.end) {
-      save("end");
+      save("end"); reviewQuiet(7);
       setTimeout(() => toast("Your two free weeks of Pro have ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro have ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
@@ -771,17 +800,22 @@ window.__sbPlanObj = () => PLAN;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
-    return `<div class="plan-prices${sm ? " three" : ""}">
-        <button type="button" class="plan-price" data-act="plan-buy" data-id="monthly"><span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}</button>
-        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> / 4 months</small></span><span class="pp-sub">${esc((semOnce() ? ["Paid once, doesn't renew"] : [trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span></button>` : ""}
-        <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
+    // one plan is picked from the start (Yearly, the best value), and one clear button buys it; tapping a tile only picks it
+    const ids = ["monthly"].concat(sm ? ["semester"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
+    const NAME = {monthly: "Monthly", semester: "Semester", yearly: "Yearly"}, AMT = {monthly: pr.monthly, semester: semPrice(), yearly: pr.yearly};
+    const tile = (id, cls, inner) => `<button type="button" class="plan-price${cls}" data-act="plan-pick" data-id="${id}" role="radio" aria-checked="${pick === id}">${inner}</button>`;
+    return `<div class="plan-prices${sm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
+        ${tile("monthly", "", `<span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}`)}
+        ${sm ? tile("semester", "", `<span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> for the whole term</small></span><span class="pp-sub">${esc((semOnce() ? ["4 months, paid once, doesn't renew"] : ["Renews every 4 months", trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span>`) : ""}
+        ${tile("yearly", " best", `${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span>`)}
       </div>
+      <button type="button" class="btn primary plan-go" data-act="plan-buy" data-id="${pick}">${trial ? "Start Free Trial" : "Get Pro"} · ${esc(NAME[pick])}, ${esc(AMT[pick])}</button>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
       ${renewalText(pr, trial)}`;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
-    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);
+    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) { track("shown", reason); try { localStorage.setItem("studyboard:proShownAt", String(Date.now())); } catch (e) {} reviewQuiet(1); }
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
     const rows = compareRows();
@@ -812,6 +846,7 @@ window.__sbPlanObj = () => PLAN;
   async function devicesSheet(limitHit){
     const L = lim(), limited = paywall() && !isPro();
     limitHit = !!limitHit && limited;
+    if (limitHit) reviewQuiet(3);
     const draw = (list, err) => {
       const mine = deviceId();
       const intro = limitHit
@@ -874,6 +909,15 @@ window.__sbPlanObj = () => PLAN;
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
       case "plan-buy": buy(id); return true;
+      case "plan-pick": {
+        // pick a plan: the tiles and the button follow, without redrawing the sheet
+        P.pick = id;
+        const box = el.closest(".plan-sheet") || dlg;
+        box.querySelectorAll('[data-act="plan-pick"]').forEach(b => b.setAttribute("aria-checked", String(b.dataset.id === id)));
+        const go = box.querySelector(".plan-go"), name = el.querySelector(".pp-name"), amt = el.querySelector(".pp-amt");
+        if (go) { go.dataset.id = id; go.textContent = go.textContent.replace(/·.*$/, `· ${name ? name.textContent : ""}, ${amt && amt.firstChild ? amt.firstChild.textContent : ""}`); }
+        return true;
+      }
       case "plan-buy-web": buyWebEU(); return true;
       case "plan-refresh": refreshNow(); return true;
       case "plan-restore": restore(); return true;
@@ -909,13 +953,13 @@ window.__sbPlanObj = () => PLAN;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
     fmtMB
   };
-  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
+  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), runsLeft, refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
 })();
 
 

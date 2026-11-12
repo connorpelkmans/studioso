@@ -412,7 +412,7 @@ hook("act", (act, el) => {
   }
   if (act === "cd-old") { ui.cdOld = ui.cdOld === ui.courseId ? null : ui.courseId; render(); return true; }
   if (act === "ci-ai") {
-    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("ai-icons")}); return true; }
+    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("Making your own course icons with AI is part of Studyboard Pro.")}); return true; }
     if (!aiReady()) { toast("Set up AI to make your own icons", null, {label: "Set Up AI", fn: () => aiSetupSheet(true)}); return true; }
     const box = $("#ciAi"); if (box) { box.hidden = !box.hidden; if (!box.hidden) { const q = $("#ciAiQ"); if (q) q.focus(); } }
     return true;

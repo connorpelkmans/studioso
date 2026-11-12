@@ -60,8 +60,13 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
   border:1.5px solid var(--line);background:var(--surface);color:var(--ink);transition:transform .15s,box-shadow .2s,border-color .2s}
 .plan-price:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line));transform:translateY(-1px)}
 .plan-price:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+.plan-price[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.plan-price[aria-checked="true"]::after{content:"";position:absolute;top:12px;right:12px;width:18px;height:18px;border-radius:50%;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/12px no-repeat}
+.plan-price.best[aria-checked="true"]::after{top:18px}
+.plan-go{width:100%;min-height:48px;font-size:1rem;margin-top:2px}
 .plan-price.best{border-color:transparent;background:linear-gradient(var(--surface),var(--surface)) padding-box,linear-gradient(135deg,var(--pro-a),var(--pro-b)) border-box;
   box-shadow:0 8px 26px var(--pro-glow)}
+.plan-price.best[aria-checked="true"]{box-shadow:0 8px 26px var(--pro-glow),0 0 0 2px var(--accent) inset}
 .pp-name{font:700 .8rem var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .pp-amt{font:800 1.45rem var(--display);letter-spacing:-.01em}
 .pp-amt small{font:600 .82rem var(--display);color:var(--muted)}
