@@ -4613,7 +4613,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble .cp-b-acts .btn{min-height:34px;font-size:.8rem}
 .cp-bubble.asking{pointer-events:auto;padding:8px}
 .cp-ask{display:flex;gap:6px;align-items:center}
-.cp-ask input{flex:1;min-width:0;width:200px;font:500 .86rem var(--body);padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink)}
+.cp-ask input{flex:1;min-width:0;width:236px;text-overflow:ellipsis;font:500 .86rem var(--body);padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink)}
 .cp-ask-hint{display:block;font:500 .7rem var(--body);color:var(--muted);margin-top:5px;text-align:left}
 .cp-use{display:block;margin-top:4px;font:600 .78rem var(--display);color:var(--accent)}
 .cp-thinking{display:flex;gap:4px;justify-content:center;padding:4px 6px}
@@ -4777,7 +4777,7 @@ html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!importa
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
 /* Every companion Ask (the Companion page, the speech bubble, a task's question box): just the word, centred and bigger */
-html .btn.primary.cp-ask-go{min-width:96px;padding:0 22px;font-size:1.15rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
+html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
 .cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
 .cp-tq-row{align-items:center}
 /* a hidden bubble (faded out) can't be clicked or typed into */
