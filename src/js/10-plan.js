@@ -123,6 +123,9 @@ window.__sbPlanObj = () => PLAN;
   }
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
+  // On the free weeks of Pro (not paying, not from a code or promotion): PRO tags stay on Pro features and items, as on the free
+  // plan, so it's clear what goes away when the free weeks end
+  const trialTags = () => { try { if (!paywall()) return false; const e = ent(); return freeTrialOnly() && !(e && (e.source === "code" || e.source === "promo")); } catch (x) { return false; } };
   // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
   const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
   const groupsPro = () => limitsPro() || liteNow();
@@ -895,7 +898,7 @@ window.__sbPlanObj = () => PLAN;
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
-    isPro, paywall, settled, storageRow,
+    isPro, paywall, settled, storageRow, trialTags,
     limits: () => Object.assign({}, lim()),
     freeLimits: () => Object.assign({}, lims("free")),
     proLimits: () => Object.assign({}, lims("pro")),

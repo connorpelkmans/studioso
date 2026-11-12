@@ -1506,6 +1506,8 @@ const themeTier = id => id === "plain" || !id ? "free" : ((SKINS.find(x => x.id 
 const itemTier = (kind, id) => ((STYLE_LISTS[kind] || []).find(x => x.id === id) || {}).tier || "free";
 const owns = (kind, id) => {
   if (!STORE.paywall || itemTier(kind, id) === "free") return true;
+  // A photo theme someone made (ph-...) stays theirs after Pro ends; only making or editing one needs Pro
+  if (kind === "skin" && typeof id === "string" && id.indexOf("ph-") === 0) return true;
   if (typeof PLAN !== "undefined" && !!PLAN && (PLAN.isPro() || (PLAN.styleGrace && PLAN.styleGrace()))) return true;
   // A Founder keeps the theme made from their suggestion, with or without Pro
   if (kind === "skin" && window.SBEARLY && SBEARLY.keeps(id)) return true;
@@ -1519,6 +1521,8 @@ const skinHeld = id => !!SKIN_HOLD && id === SKIN_HOLD && Date.now() < SKIN_HOLD
 const skinOk = id => owns("skin", id) || skinHeld(id);
 if (SKIN_HOLD) setTimeout(() => { try { if (document.documentElement.dataset.skin === SKIN_HOLD && !owns("skin", SKIN_HOLD)) applySkin(); } catch (e) {} }, 10050);
 // The theme actually on screen
+// Test handle (only when a test page sets window.__SB_TEST)
+if (window.__SB_TEST) window.__sbOwns = (kind, id) => owns(kind, id);
 const effSkinId = () => { const id = ((state.settings && state.settings.style) || {}).skin || "classic"; return SKINS.some(x => x.id === id) && owns("skin", id) ? id : "classic"; };
 const styleCfg = () => Object.assign({skin: "classic", card: "index", note: "classic", pin: "pin"}, (state.settings && state.settings.style) || {});
 
@@ -1621,6 +1625,8 @@ function shopUnlock(kind, id){ toast("This item is part of Studyboard Pro."); }
 
 /* The shop */
 const PRO_BADGE = `<span class="pro-badge">PRO</span>`, FREE_BADGE = `<span class="free-badge">Free</span>`;
+// PRO tags also show on the free weeks of Pro, so people see what they'd lose when those end (PLAN.trialTags)
+const tagPro = () => { try { return typeof PLAN !== "undefined" && !!PLAN && typeof PLAN.trialTags === "function" && PLAN.trialTags(); } catch (e) { return false; } };
 function skinPreview(s, dark){
   const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848;--spine-bg:linear-gradient(165deg,#0E2148,#060F24 52%,#040A18)" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4;--spine-bg:linear-gradient(165deg,#1B4486,#0E2A56 52%,#0B2245)";
   const base = "--bgimg:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);--bgsize:12px 12px;--bgpos:0 0;--scene:none;--scene-h:0px;--btn-bg:var(--accent);--spine-bg:var(--spine);--sel:var(--accent);--accent-2:var(--accent);";
@@ -1910,7 +1916,7 @@ document.addEventListener("pointermove", e => {
   if (!sDrag.moved && Math.hypot(e.clientX - sDrag.x0, e.clientY - sDrag.y0) < 6) return;
   if (!sDrag.moved) {
     sDrag.moved = true; document.body.classList.add("stk-dragging");
-    const g = document.createElement("div"); g.className = "stk stk-ghost"; g.innerHTML = stickerSvg(sDrag.k);
+    const g = document.createElement("div"); g.className = "stk stk-ghost sm-skip"; g.innerHTML = stickerSvg(sDrag.k);
     const sz = Math.max(40, Math.min(90, sDrag.size || 48)); g.style.width = g.style.height = sz + "px";
     document.body.appendChild(g); sDrag.ghost = g;
     if (sDrag.el) sDrag.el.style.opacity = "0";

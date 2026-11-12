@@ -159,7 +159,7 @@ var SBPRO = null;
     if (locked()) return `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     let line = "";
     try { line = headline(compute("week")); } catch (e) { line = ""; }
-    return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
+    return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight${tagPro() ? " " + PRO_BADGE : ""}</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
   }
 
   /* Term Recap */
@@ -437,14 +437,14 @@ var SBPRO = null;
   /* In the Focus timer */
   function pomoHtml(){
     const cur = current(), lk = P.locked();
-    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
+    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) && !(tagPro() && !(r.free || custom().findIndex(x => x.id === r.id) < FREE_OWN)) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
     let blk = "";
     if (BK.available) {
       const cfg = blockCfg(), active = BK.until > Date.now();
-      blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
+      blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk || tagPro() ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
         <button type="button" class="pro-sw" role="switch" aria-checked="${cfg.on && !lk}" data-act="pro-blk-on" aria-label="Block distracting sites during focus sessions"><i></i></button></div>`;
     }
-    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
+    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
   function routineSheet(){
     const mine = custom(), more = !canAdd();
@@ -1292,7 +1292,7 @@ var SBPRO = null;
       el.addEventListener("pointerdown", e => { if (e.button > 0) return; s = {x: e.clientX, y: e.clientY, id: e.pointerId}; try { el.setPointerCapture(e.pointerId); } catch (x) {} });
       el.addEventListener("pointermove", e => {
         if (!s || e.pointerId !== s.id) return;
-        if (!ghost) { if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 8) return; ghost = document.createElement("span"); ghost.className = "dp-ghost"; ghost.textContent = el.textContent; dlg.appendChild(ghost); }
+        if (!ghost) { if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 8) return; ghost = document.createElement("span"); ghost.className = "dp-ghost sm-skip"; ghost.textContent = el.textContent; dlg.appendChild(ghost); }
         ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px"; e.preventDefault();
       });
       const fin = e => {
@@ -1723,7 +1723,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     }
     return false;
   });
-  hook("menu", () => inPreview() ? "" : `<button data-act="pro-pr-open" data-group="study"><span>Print or Save as PDF${P.locked() ? " " + PRO_BADGE : ""}<span class="sub">A week agenda, the term calendar, a grade report or an exam prep plan</span></span></button>`);
+  hook("menu", () => inPreview() ? "" : `<button data-act="pro-pr-open" data-group="study"><span>Print or Save as PDF${P.locked() || tagPro() ? " " + PRO_BADGE : ""}<span class="sub">A week agenda, the term calendar, a grade report or an exam prep plan</span></span></button>`);
   P.addFeature({id: "print", name: "Print and PDF", where: "In Schedule, Due Dates, Grades and Settings: a week agenda, term calendar, grade report or exam prep plan", act: "pro-pr-open", icon: '<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>'});
   Object.assign(P, {openPrint, printRaw, printHtml: () => PR ? build() : "", redrawPrint: () => { if (PR && dlg.open && dlg.querySelector(".pr-body")) drawPrint(); }});
 
@@ -2124,7 +2124,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return thumbs(n, true) + (baseExtra ? baseExtra(n) : "");
   };
   P.noteBar = n => {
-    const badge = locked() ? ` ${PRO_BADGE}` : "";
+    const badge = locked() || tagPro() ? ` ${PRO_BADGE}` : "";
     return `<div class="np-bar"><button type="button" class="btn small" data-act="np-add" data-id="${esc(n.id)}">${CAM}Add Photo${badge}</button><button type="button" class="btn small" data-act="np-link" data-id="${esc(n.id)}">${LINK}Link a File${badge}</button></div>`;
   };
   P.notePhotos = n => thumbs(n, false);
@@ -4195,7 +4195,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <li><b>Your school email:</b> the same steps work in its web mail, if your school allows forwarding.</li></ul></details>
       ${pending().length ? `<div class="em-pend"><span><b>${pending().length} email${pending().length === 1 ? "" : "s"} still to check</b><span class="mini">${esc(pending().map(x => x.text).slice(0, 3).join(" · "))}</span></span><button type="button" class="btn small" data-act="em-recheck">Check</button><button type="button" class="link-btn" data-act="em-pdone">Done With Them</button></div>` : ""}
       <div class="row-actions"><button type="button" class="link-btn" data-act="em-new">New Address</button><button type="button" class="link-btn" data-act="em-off">Turn Off</button>${LAST_GMAIL ? `<button type="button" class="link-btn" data-act="em-gmail">Gmail Code</button>` : ""}</div>`;
-    return `<div class="capv-box em-box" id="emBox"><div class="em-h"><span class="pf-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MAIL}</svg></span><b>Email to Studyboard</b>${lockedPro ? PRO_BADGE : ""}</div>${inner}</div>`;
+    return `<div class="capv-box em-box" id="emBox"><div class="em-h"><span class="pf-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MAIL}</svg></span><b>Email to Studyboard</b>${lockedPro || tagPro() ? PRO_BADGE : ""}</div>${inner}</div>`;
   }
   function paint(){ const b = document.getElementById("emBox"); if (b) b.outerHTML = boxHtml(); }
   if (window.SBCAPTURE && SBCAPTURE.settingsExtra) SBCAPTURE.settingsExtra(() => { setTimeout(() => load(false), 0); return boxHtml(); });

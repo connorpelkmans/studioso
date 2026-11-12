@@ -7385,17 +7385,17 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
 @media (min-width:640px){nav.tabs{scrollbar-width:none}nav.tabs::-webkit-scrollbar{display:none}}
 /* The page never scrolls sideways; a stray wide frame (the companion moving between pages) can't add a scrollbar that squeezes the side menu */
 @media (min-width:640px){html{overflow-x:clip}}
-/* Page buttons sit level with the tabs, not the title */
+/* Page buttons sit level with the tabs, not the title: their bottoms line up with the tabs' bottom (12px margin + 46px tabs) */
 @media (min-width:640px){
   #view > .pg-head:not(.pg-solo){position:relative}
-  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 46px);transform:translateY(-100%);align-items:center;flex-wrap:nowrap;z-index:2}
+  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 58px);transform:translateY(-100%);align-items:flex-end;flex-wrap:nowrap;z-index:2}
 }
 #view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-left:auto}
 /* Task Board: the tab line runs the full width, Group By sits on it like the other page buttons */
 @media (min-width:640px){
   #view > .bview-row:has(> .pg-tabs){position:relative;display:block}
   #view > .bview-row > .pg-tabs{width:100%}
-  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
+  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:0;margin:0;display:flex;align-items:center;gap:8px}
 }
 /* Review's due count grows leftwards, clear of the companion's seat next to it */
 @media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue,nav.tabs .in [data-tab="courses"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
@@ -7725,7 +7725,7 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
 .hours-ctl .hc-row{display:flex;align-items:center}
 html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 @media (min-width:640px){
-  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;right:0;top:50%;transform:translateY(-50%);margin:0;z-index:2}
+  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;right:0;bottom:0;margin:0;z-index:2}
 }
 /* Phones keep Time Today in the plan box; wider screens have it in the tab row (and not in the box) */
 @media (max-width:639px){#view > .bview-row > .bv-hours{display:none}}

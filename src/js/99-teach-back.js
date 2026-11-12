@@ -247,7 +247,7 @@ function open(exId, topicId, name){
 }
 
 /* entry points */
-const badge = () => locked() ? " " + PRO_BADGE : "";
+const badge = () => locked() || tagPro() ? " " + PRO_BADGE : "";
 function btn(ex, t){
   if (!ex || !t || ex.status === "done" || !ex.due || ex.due < todayISO()) return "";
   return `<button type="button" class="link-btn tb-go" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">Teach It Back${badge()}</button>`;

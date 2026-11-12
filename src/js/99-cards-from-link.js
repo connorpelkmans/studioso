@@ -72,7 +72,7 @@ const LINKCARDS = (() => {
   /* In the Create with AI sheet */
   function html(){
     if (inPreview()) return "";
-    return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
+    return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
       <div class="cl-in"><label class="f"><span class="lh">Link</span><input type="url" id="aiLink" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="https://www.youtube.com/watch?v=… or an article's address" data-noenter></label>
       <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key.</p></div></details>`;
   }

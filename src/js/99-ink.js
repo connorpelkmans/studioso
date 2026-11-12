@@ -473,7 +473,7 @@ var SBINK = null;
   }
   const baseExtra = P.noteExtra, baseBar = P.noteBar;
   P.noteExtra = n => noteThumb(n, true) + (baseExtra ? baseExtra(n) : "");
-  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${P.locked() ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
+  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${P.locked() || tagPro() ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
 
   /* Wiring */
   hook("act", (act, el, id) => {
