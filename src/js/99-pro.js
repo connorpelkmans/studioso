@@ -130,7 +130,7 @@ var SBPRO = null;
   }
   const arrow = d => d === "up" ? "↑" : d === "down" ? "↓" : "→";
   const gradeTxt = tr => tr ? `${tr.letter || Math.round(tr.cur) + "%"} ${arrow(tr.dir)}` : "";
-  function insightsBody(I){
+  function insightsBody(I, preview){
     const empty = `<p class="mini">Not enough to go on yet. Insights fill in as you use Focus sessions, finish tasks and get grades back.</p>`;
     const sec = (title, body) => `<section class="pro-card"><h3>${esc(title)}</h3>${body}</section>`;
     const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(x.min / I.maxMin * 100))}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
@@ -141,24 +141,37 @@ var SBPRO = null;
       : `<p class="mini">Make an exam prep plan (open an exam, then Plan My Prep) to see how it's going here.</p>`;
     const early = I.early ? `<div class="pro-early"><b>${esc(SBI18N.fmtN(Math.round(Math.abs(I.early.avg) * 10) / 10))}</b><span>${esc(I.early.avg >= 0 ? "days early, on average, when you finish an assignment." : "days late, on average, when you finish an assignment.")}${I.early.late ? esc(` ${plural(I.early.late, "was", "were")} late.`) : ""}</span></div>`
       : `<p class="mini">Shows up once you've finished a few assignments with due dates.</p>`;
+    if (preview) {
+      // free plan: the first card is real, from the student's own planner; the others say what they'd show, with nothing made up
+      const lockSec = (title, what) => `<section class="pro-card pro-lockcard"><h3>${esc(title)} ${PRO_BADGE}</h3><p class="mini">${esc(what)}</p></section>`;
+      return sec("Study Time and Grades", study)
+        + lockSec("When You Focus Best", "Which part of the day your Focus sessions last longest, day by day.")
+        + lockSec("Exam Prep Follow-Through", "How many of your exam prep sessions you've done so far, and the topics still marked shaky.")
+        + lockSec("Finishing Early", "How many days before the due date you usually finish, and anything that slipped past it.")
+        + `<button type="button" class="btn pro-ins-go" data-act="pro-ins-pro">See Every Insight With Pro</button>`;
+    }
     return sec("Study Time and Grades", study) + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
   }
   let INS = {kind: "week"};
+  const INS_WHY = "Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades.";
   function openInsights(kind){
-    if (locked()) { proSheet("Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades."); return; }
+    // free plan: a preview built from the student's own planner (the first card), the rest with Pro
+    const preview = locked();
     INS.kind = kind === "term" ? "term" : INS.kind || "week";
     const draw = () => {
       const I = compute(INS.kind), b = dlg.querySelector(".pro-ins-body"); if (!b) return;
-      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
+      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I, preview)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
     };
     if (!(dlg.open && dlg.querySelector(".pro-ins-body"))) openSheet(`<div class="sheet pro-sheet">${head("Insights")}<div class="sheet-body pro-ins-body"></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     draw();
   }
   function reviewHtml(){
     if (!allTasks().length) return "";
-    if (locked()) return `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     let line = "";
     try { line = headline(compute("week")); } catch (e) { line = ""; }
+    // free plan: this week's one-line insight is free too; the full breakdown is a preview with the rest on Pro
+    if (locked()) return line ? `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight</h3><p style="margin:0">${esc(line)}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`
+      : `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight${tagPro() ? " " + PRO_BADGE : ""}</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
   }
 
@@ -316,6 +329,7 @@ var SBPRO = null;
     switch (act) {
       case "pro-ins-open": if (dlg.open && !dlg.querySelector(".pro-ins-body")) dlg.close(); openInsights(); return true;
       case "pro-ins-kind": INS.kind = id === "term" ? "term" : "week"; openInsights(INS.kind); return true;
+      case "pro-ins-pro": proSheet(INS_WHY); return true;
       case "pro-recap-open": if (dlg.open) dlg.close(); openRecap(); return true;
       case "pro-recap-hide": { const T = recapTerm(); if (T) markSeen(T.key); scheduleRender(); toast("Hidden. Your recap stays in Settings, Studyboard Pro."); return true; }
       case "pro-recap-step": if (RC) { const n = RC.i + (Number(id) || 1); RC.i = n >= RC.slides.length ? 0 : Math.max(0, n); drawRecap(); } return true;
@@ -331,6 +345,9 @@ var SBPRO = null;
   css.textContent = `
 .pro-card{background:var(--surface);border:1px solid var(--line);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:12px 14px;margin:0;display:grid;gap:8px}
 .pro-card h3{margin:0;font:600 1rem var(--display)}
+.pro-lockcard{box-shadow:none;border-style:dashed;background:color-mix(in srgb,var(--ink) 3%,var(--surface))}
+.pro-lockcard p{margin:0}
+.pro-ins-go{justify-self:stretch;width:100%;min-height:44px}
 .pro-say{margin:0;line-height:1.45}
 .pro-cr{display:grid;grid-template-columns:minmax(0,7.5em) minmax(0,1fr) auto auto;gap:10px;align-items:center;font-size:.92rem}
 .pro-cn{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -409,7 +426,8 @@ var SBPRO = null;
   const all = () => ROUT.concat(custom());
   // One routine of your own is free; Pro saves up to 6
   const FREE_OWN = 1;
-  const usable = r => r.free || !P.locked() || custom().findIndex(x => x.id === r.id) < FREE_OWN;
+  // every routine someone already saved keeps working on the free plan; only saving more than one is Pro
+  const usable = r => !!r;
   const canAdd = () => !P.locked() || custom().length < FREE_OWN;
   const same = (r, c) => +c.focus === r.focus && +c.short === r.short && +c.long === r.long && +c.every === r.every;
   function current(){ const c = pomoCfg(); return all().find(r => r.id === S().routine && same(r, c)) || all().find(r => same(r, c)) || null; }
@@ -1080,7 +1098,8 @@ var SBPRO = null;
   let OC = null;
   const TOOLS = [["rect", "Box"], ["oval", "Oval"], ["free", "Freehand"], ["pan", "Pan"]];
   function openEditor(deckId, queue){
-    if (P.locked()) { proWhy("Picture cards are part of Studyboard Pro."); return; }
+    // free plan: picture cards someone already made can still be edited; making cards from new pictures is Pro
+    if (P.locked() && !(queue.length && queue.every(it => it.edit))) { proWhy("Picture cards are part of Studyboard Pro."); return; }
     if (!queue.length) { toast("No pictures to make cards from."); return; }
     OC = {deckId, queue, i: 0, sel: [], mode: queue[0].mode || "one", tool: "rect", multi: false, zoom: {s: 1, x: 0, y: 0}, made: 0, saved: 0};
     openSheet(`<div class="sheet pro-sheet oc-sheet">${head(queue[0].edit ? "Edit Picture Cards" : "Picture Cards")}<div class="sheet-body oc-body"></div><div class="sheet-foot"><button type="button" class="btn" data-act="pro-oc-skip" id="ocSkip">Skip Picture</button><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-oc-keep" id="ocKeep">Keep Cards</button></div></div>`);
@@ -1376,8 +1395,14 @@ var SBPRO = null;
   /* Cards from your files */
   let CF = null;
   function filesSheet(deckId){
-    if (P.locked()) { proWhy("Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro."); return; }
     const d = state.decks[deckId]; if (!d) return;
+    if (P.locked()) {
+      // free plan: the picture cards someone already made stay editable; making more from pictures and PDFs is Pro
+      const sets = setsOf(d), why = "Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro.";
+      if (!sets.length) { proWhy(why); return; }
+      openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body"><h3 class="ic-h">Pictures in This Deck</h3><p class="mini" style="margin:0">Your picture cards stay yours: edit a picture's boxes and answers any time.</p>${setRows(d, sets, true)}<p class="mini" style="margin:0">Making cards from new pictures and PDFs is part of Pro. <button type="button" class="link-btn" data-act="pro-cf-pro">See Pro</button></p></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+      return;
+    }
     CF = {deckId, picked: new Set(), busy: false, msg: "", found: null};
     openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body cf-body"></div><div class="sheet-foot"><label class="btn" style="position:relative;overflow:hidden">From a Picture<input type="file" accept="image/*" data-cf-pick style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-cf-scan" id="cfGo">Find Diagrams</button></div></div>`);
     drawFiles();
@@ -1474,11 +1499,11 @@ var SBPRO = null;
       case "pro-oc-pick": if (OC) { const js = groupOf(OC.queue[OC.i], Number(id)); OC.sel = OC.multi ? [...new Set(OC.sel.concat(js))] : js; drawEditor(); const t = dlg.querySelector(`[data-act="pro-oc-pick"][data-id="${js[0]}"]`); if (t) t.focus(); } return true;
       case "pro-oc-zoom": if (OC) { zoomBy(OC.zoom, id); const st = dlg.querySelector("[data-oc-stage]"); if (st) { st.querySelector(".oc-zoom").style.transform = zoomT(OC.zoom); st.classList.toggle("zoomed", OC.zoom.s > 1); } } return true;
       case "pro-ic-peek": case "pro-ic-type": case "pro-ic-zoom": studyAct(act, id); return true;
+      case "pro-cf-pro": proWhy("Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro."); return true;
       case "pro-ic-edit": case "pro-dp-open": {
         const s = String(id || ""), k = s.indexOf("|"), deckId = k >= 0 ? s.slice(0, k) : s, key = k >= 0 ? s.slice(k + 1) : "", d = state.decks[deckId];
         if (!d) return true;
         if (act === "pro-dp-open") { if (dlg.open && !key) dlg.close(); practiceOpen(deckId, key); return true; }
-        if (P.locked()) { proWhy("Picture cards are part of Studyboard Pro."); return true; }
         const set = setsOf(d).find(x => x.key === key); if (!set) { toast("That picture's cards are gone."); return true; }
         openEditor(deckId, [itemFrom(set.cards, {edit: true})]); return true;
       }
@@ -2119,7 +2144,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const r = curRev(f), u = URLS.get(r.assetId), n = state.notes[id];
     openSheet(`<div class="sheet np-sheet">${head(f.name)}
       <div class="sheet-body"><div class="np-big">${u && u !== "!" ? `<img src="${esc(u)}" alt="${esc(f.name)}">` : `<img alt="${esc(f.name)}" data-np-asset="${esc(r.assetId)}" data-np-type="${esc(r.type || "image/jpeg")}">`}</div></div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="np-file" data-file="${esc(fid)}">File Details</button><span class="spacer"></span>${n && !locked() ? `<button type="button" class="btn" data-act="np-remove" data-id="${esc(id)}" data-file="${esc(fid)}">Remove from Note</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="np-file" data-file="${esc(fid)}">File Details</button><span class="spacer"></span>${n ? `<button type="button" class="btn" data-act="np-remove" data-id="${esc(id)}" data-file="${esc(fid)}">Remove from Note</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button></div>
     </div>`);
     fill();
   }
@@ -2514,6 +2539,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   let R = null;
   const fileOf = () => R && state.files[R.fid];
   const hlOf = f => (Array.isArray(f && f.hl) ? f.hl : []).filter(h => h && h.id && Array.isArray(h.r));
+  const READ_WHY = "The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards.";
+  // what a free plan can't do in the reader: make highlights, comments, notes or cards (proWhy opens the Pro sheet instead)
+  const PDR_MAKE = new Set(["pdr-hl-add", "pdr-mk-add", "pdr-sel-cm", "pdr-cm-mode", "pdr-sel-note", "pdr-sel-card", "pdr-hl-note", "pdr-hl-card", "pdr-all-note", "pdr-card-ai", "pdr-card-save"]);
   const mine = () => { const f = fileOf(); return hlOf(f).filter(h => h.a === R.rev); };
   function saveHl(list, label){
     const f = fileOf(); if (!f) return;
@@ -2536,24 +2564,27 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* Opening */
   async function open(fid, page){
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards."); return; }
+    // Free plan: a file that already has highlights or comments opens to view them (what someone made never gets locked away);
+    // highlighting, the AI tools, editing and making notes or cards stay Pro
+    const view = P.locked();
+    if (view && !((isPdf(f) || isOffice(f)) && hlOf(f).length)) { proWhy(READ_WHY); return; }
     if (!isPdf(f) && !isOffice(f)) { fileSheet(f); return; }
     close();
     const rev = curRev(f), ofc = isOffice(f), PDE = ofc ? null : window.SBPDE;
-    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
-    openSheet(`<div class="sheet pdr-sheet" data-mode="read">${head(f.name)}
+    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow", view};
+    openSheet(`<div class="sheet pdr-sheet" data-mode="read"${view ? ` data-view="1"` : ""}>${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
-        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>
+        ${view ? "" : `<span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>`}
         <span class="spacer"></span>
-        ${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
+        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
-        <span class="pdr-g-read">${PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
+        <span class="pdr-g-read">${view ? `<span class="mini pdr-viewnote">Your highlights and comments stay yours to read. Highlighting more is part of Pro.</span><button type="button" class="btn small" data-act="pdr-pro">See Pro</button>` : PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text, then pick a color to highlight it</span></span>
         <span class="spacer"></span>
@@ -2744,7 +2775,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const colorBtns = (act, cur) => COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="${act}" data-id="${k}" style="--h:${hex}" aria-label="${name}"${cur ? ` aria-pressed="${cur === k}"` : ""}></button>`).join("");
   let PEND = null;
   function onSelectEnd(){
-    if (!R || !R.doc || (window.SBPDE && SBPDE.active())) return;
+    if (!R || !R.doc || R.view || (window.SBPDE && SBPDE.active())) return;
     const s = selection();
     if (!s) return;
     PEND = s;
@@ -2998,6 +3029,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!act.startsWith("pdr-")) return false;
     if (act === "pdr-open") { if (dlg.open) dlg.close(); setTimeout(() => open(id, Number(el.dataset.page) || 0), 0); return true; }
     if (!R) return true;
+    // viewing on the free plan: reading, moving around, the list, recolouring and removing stay; anything that makes something new is Pro
+    if (R.view && (act === "pdr-pro" || PDR_MAKE.has(act) || (act === "pdr-mode" && el.dataset.id !== "read"))) { hidePop(); proWhy(READ_WHY); return true; }
     const byId = x => mine().find(h => h.id === x);
     switch (act) {
       case "pdr-go": goTo(R.cur + (Number(id) || 1)); break;
@@ -3036,8 +3069,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return true;
   });
 
-  P.canRead = f => !P.locked() && (isPdf(f) || isOffice(f));
-  P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
+  P.canRead = f => (isPdf(f) || isOffice(f)) && (!P.locked() || hlOf(f).length > 0);
+  P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">${P.locked() ? "View Highlights" : "Read"}${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
   P.addFeature({id: "reader", name: "PDF Editor", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
   Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
@@ -3052,6 +3085,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-g-read,.pdr-g-mark{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
 .pdr-sheet[data-mode="edit"] .pdr-bar2{display:none}
+.pdr-sheet[data-view] .pdr-modes,.pdr-sheet[data-view] [data-act="pdr-hl-note"],.pdr-sheet[data-view] [data-act="pdr-hl-card"],.pdr-sheet[data-view] [data-act="pdr-all-note"]{display:none}
+.pdr-viewnote{color:var(--muted)}
 .pdr-markhint{color:var(--muted)}
 .pdr-pop .pdr-pop-lbl{padding:0 6px;white-space:nowrap}
 .pdr-pop .pdr-nb{display:inline-flex;align-items:center;gap:6px}
@@ -3857,8 +3892,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* A recording in Files */
   const isAudio = f => !!f && f.kind === "file" && f.revs.length && (/^audio\//.test(curRev(f).type || "") || /\.(webm|m4a|ogg|mp3|wav)$/i.test(curRev(f).name || f.name)) && (f.tr || f.dur);
   async function transcriptSheet(fid){
+    // free plan too: a recording someone made, and its transcript, always open (recording and transcribing new ones is Pro)
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("Lecture recordings and transcripts are part of Studyboard Pro."); return; }
     const tr = f.tr && f.tr.text ? f.tr.text : "";
     openSheet(`<div class="sheet lec-sheet">${head(f.name)}<div class="sheet-body lec-body"><p class="lec-busy"><span class="ai-spin" aria-hidden="true"></span> Loading the recording…</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button>${tr ? `<button type="button" class="btn primary" data-act="lec-file-note" data-id="${esc(f.id)}">Make a Note</button>` : ""}</div></div>`);
@@ -3894,13 +3929,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const bkWhen = t => new Date(t).toLocaleDateString(undefined, {month: "short", day: "numeric"});
   function bkSheet(fid){
     const f = state.files[fid]; if (!f) return;
-    const bk = bkInfo(f), CL = window.SBCLOUD, conn = CL ? CL.connected() : [], locked = P.locked();
+    // backing up a lecture someone already has is free on every plan (it's a copy of their own work)
+    const bk = bkInfo(f), CL = window.SBCLOUD, conn = CL ? CL.connected() : [];
     const inFiles = (bk.files || []).filter(id => state.files[id]);
     const opt = (where, icon, title, sub, done) => `<button type="button" class="lec-fopt lec-bk-o${done ? " done" : ""}" data-act="lec-bk-go" data-id="${esc(fid)}" data-where="${where}"${bkBusy[fid + where] ? " disabled" : ""}>${icon}<b>${title}</b><span class="mini">${bkBusy[fid + where] ? `<span class="ai-spin" aria-hidden="true"></span> Backing up…` : sub}</span></button>`;
     const cloudOpt = p => {
       const nm = CLOUD_NAMES[p], ic = CL && CL.icons ? `<span class="lec-bk-ic">${CL.icons[p]}</span>` : CLOUD_SVG, b = bk[p];
       const here = f.cloud && f.cloud.p === p;
-      const sub = locked ? "Part of Studyboard Pro" : !conn.includes(p) ? `Connect ${nm} first` : b ? `Backed up ${bkWhen(b.at)}. Tap to back up again.` : here ? "The recording is already here. Adds the transcript and summary." : "The recording, transcript and summary, in Studyboard › Lectures";
+      const sub = !conn.includes(p) ? `Connect ${nm} first` : b ? `Backed up ${bkWhen(b.at)}. Tap to back up again.` : here ? "The recording is already here. Adds the transcript and summary." : "The recording, transcript and summary, in Studyboard › Lectures";
       return opt(p, ic, nm, sub, !!b);
     };
     openSheet(`<div class="sheet lec-sheet">${head("Back Up " + f.name)}<div class="sheet-body">
@@ -4005,7 +4041,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   });
 
   const prevFile = P.fileBtns;
-  P.fileBtns = f => (prevFile ? prevFile(f) : "") + (!P.locked() && isAudio(f) ? `<button type="button" class="btn" data-act="lec-file" data-id="${esc(f.id)}">Transcript</button>` : "");
+  P.fileBtns = f => (prevFile ? prevFile(f) : "") + (isAudio(f) ? `<button type="button" class="btn" data-act="lec-file" data-id="${esc(f.id)}">Transcript</button>` : "");
   const MIC = '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>';
   P.addFeature({id: "lecture", name: "Record a Lecture", where: "In a course: record a class, then get a tidy transcript and a summary in its Lectures", act: "lec-open", icon: MIC});
   Object.assign(P, {openRecorder: open});
@@ -4735,7 +4771,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
      why: "full" (storage used up), "big" (over the size limit), "type" (a type this storage can't keep), "none" (no storage here) */
   const FULL = {files: [], opts: {}, pend: null};
   function storageFull(files, opts, why){
-    why = why || "full";
+    why = why || "full"; reviewQuiet(3);
     FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
     const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
     const offerPro = why === "full" && !!(PL && PL.paywall() && !PL.limitsPro());
