@@ -34,7 +34,8 @@ var SBWB = null;
   // on the dark board a very dark custom colour is shown lighter, so it can be seen
   const forDark = hex => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, l = (0.299 * r + 0.587 * g + 0.114 * b) / 255; if (l >= 0.35) return hex; const k = 0.55; return "#" + [r, g, b].map(v => Math.round(v + (255 - v) * k).toString(16).padStart(2, "0")).join(""); };
   const penHex = (c, light) => { const h = hexOf(c); if (h) return !light && DK ? forDark(h) : h; return !light && DK ? (PEN_D[c] || PEN_D.ink) : (PEN.find(x => x[0] === c) || PEN[0])[2]; };
-  const proLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
+  // Drawing on a whiteboard is free, in any color (Pictures, Draw Again and the AI tools beside it are still Pro)
+  const proLocked = () => false;
   const hlHex = c => (HLC.find(x => x[0] === c) || HLC[0])[2];
   const colOf = (s, light) => s.t === "hl" ? hlHex(s.c) : penHex(s.c, light);
   const SV = p => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
