@@ -9515,6 +9515,8 @@ const themeTier = id => id === "plain" || !id ? "free" : ((SKINS.find(x => x.id 
 const itemTier = (kind, id) => ((STYLE_LISTS[kind] || []).find(x => x.id === id) || {}).tier || "free";
 const owns = (kind, id) => {
   if (!STORE.paywall || itemTier(kind, id) === "free") return true;
+  // A photo theme someone made (ph-...) stays theirs after Pro ends; only making or editing one needs Pro
+  if (kind === "skin" && typeof id === "string" && id.indexOf("ph-") === 0) return true;
   if (typeof PLAN !== "undefined" && !!PLAN && (PLAN.isPro() || (PLAN.styleGrace && PLAN.styleGrace()))) return true;
   // A Founder keeps the theme made from their suggestion, with or without Pro
   if (kind === "skin" && window.SBEARLY && SBEARLY.keeps(id)) return true;
@@ -9528,6 +9530,8 @@ const skinHeld = id => !!SKIN_HOLD && id === SKIN_HOLD && Date.now() < SKIN_HOLD
 const skinOk = id => owns("skin", id) || skinHeld(id);
 if (SKIN_HOLD) setTimeout(() => { try { if (document.documentElement.dataset.skin === SKIN_HOLD && !owns("skin", SKIN_HOLD)) applySkin(); } catch (e) {} }, 10050);
 // The theme actually on screen
+// Test handle (only when a test page sets window.__SB_TEST)
+if (window.__SB_TEST) window.__sbOwns = (kind, id) => owns(kind, id);
 const effSkinId = () => { const id = ((state.settings && state.settings.style) || {}).skin || "classic"; return SKINS.some(x => x.id === id) && owns("skin", id) ? id : "classic"; };
 const styleCfg = () => Object.assign({skin: "classic", card: "index", note: "classic", pin: "pin"}, (state.settings && state.settings.style) || {});
 
@@ -64076,7 +64080,8 @@ var COMP_EXTRA = [];
     try {
       if (typeof id !== "string" || id.indexOf("ph-") !== 0 || !window.SBPHOTO || typeof SBPHOTO.recs !== "function") return null;
       const r = SBPHOTO.recs().find(x => x.id === id), list = (r && Array.isArray(r.comps) ? r.comps : []).map(cid => BYID[cid]).filter(Boolean).slice(0, 3);
-      return list.length ? list : null;
+      // Without Pro its Pro companions are locked; with none of its three left to use, the free plain set stands in
+      return list.length && list.some(c => canComp(c)) ? list : null;
     } catch (e) { return null; }
   };
   const themeKey = id => REG[id] ? id : photoSet(id) ? id : "plain";
@@ -68074,6 +68079,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const blurFrac = lv => clamp(Number(lv) || 0, 0, 100) / 100 * 0.022;
   const P = () => (typeof PLAN !== "undefined" && PLAN) ? PLAN : null;
   const canUse = () => { const p = P(); return p ? !!p.isPro() : !STORE.paywall; };
+  // A new photo theme needs Pro that's paid for (or from a code): not the free weeks. Themes made before stay as they are
+  const onTrial = () => { const p = P(); try { return !!(p && typeof p.trialTags === "function" && p.trialTags()); } catch (e) { return false; } };
+  const canMake = () => canUse() && !onTrial();
+  const TRIAL_MSG = "Making a photo theme comes with Studyboard Pro once you subscribe. It isn't part of the free weeks.";
+  const makeWall = () => { if (canUse() && onTrial()) toast(TRIAL_MSG); else paywall(); };
   const paywall = () => { const p = P(); if (p && p.openSheet) p.openSheet(REASON); else shopUnlock("skin", "photo"); };
   const canSync = () => !!caps.assets && (inPreview() || (sbActive() && cloud.on));
   const canFetch = () => inPreview() || sbActive();
@@ -68494,18 +68504,18 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const TRASH = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>`;
   function tileHtml(r, cfg, locked){
     const t = themeOf(r), on = cfg.skin === r.id && root.dataset.skin === r.id;
-    const use = locked ? `<button type="button" class="btn small" data-act="ph-use" data-id="${esc(r.id)}">🔒 Unlock</button>`
-      : on ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="ph-use" data-id="${esc(r.id)}">Use</button>`;
+    // A theme someone made stays theirs: it can always be used, with or without Pro (only editing it needs Pro)
+    const use = on ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="ph-use" data-id="${esc(r.id)}">Use</button>`;
     const where = r.asset ? "On all your devices" : canSync() && have.has(r.id) ? "Uploading to your account" : have.has(r.id) || !r.asset ? "Saved on this device" : "";
     return `<div class="shop-tile ph-tile${on ? " on" : ""}" data-ph="${esc(r.id)}"><div class="skin-pair">${skinPreview(t.skin, false)}${skinPreview(t.skin, true)}</div>
       <div class="shop-name"><b>${esc(r.name)}</b>${PRO_BADGE}</div><p class="mini">${esc(where)}</p>
       <div class="ph-acts">${use}<button type="button" class="btn small" data-act="ph-edit" data-id="${esc(r.id)}">Edit</button><button type="button" class="icon-btn ph-del" data-act="ph-del" data-id="${esc(r.id)}" aria-label="Delete ${esc(r.name)}" title="Delete">${TRASH}</button></div></div>`;
   }
   function sectionHtml(lazy){
-    const list = recs(), cfg = styleCfg(), full = list.length >= MAX, locked = !canUse();
+    const list = recs(), cfg = styleCfg(), full = list.length >= MAX, locked = !canMake(), trial = locked && canUse();
     const add = `<div class="shop-tile ph-add${full ? " full" : ""}${locked ? " locked" : ""}" data-act="ph-add" role="button" tabindex="0" aria-label="${full ? "Photo theme limit reached" : "Add a Photo"}">
       <span class="ph-add-ic" aria-hidden="true">${locked ? "🔒" : PLUS}</span><b>${full ? "5 Photo Themes Saved" : "Add a Photo"}</b>
-      <span class="mini">${full ? "That's the most you can keep. Delete one to add another." : locked ? "Make a theme from your own photo with Studyboard Pro." : "Choose a photo, or drop one here. JPG, PNG, WebP or HEIC."}</span></div>`;
+      <span class="mini">${full ? "That's the most you can keep. Delete one to add another." : trial ? "Comes with Studyboard Pro once you subscribe, not the free weeks." : locked ? "Make a theme from your own photo with Studyboard Pro." : "Choose a photo, or drop one here. JPG, PNG, WebP or HEIC."}</span></div>`;
     const inner = `<p class="mini ph-intro">Turn a photo of your campus, your pet or a favorite place into a theme. Buttons, sticky notes and flashcards all pick up its colors.</p>
       <div class="shop-grid ph-grid">${add}${list.map(r => tileHtml(r, cfg, locked)).join("")}</div>
       <input type="file" id="phFile" class="sr" tabindex="-1" aria-hidden="true" accept="image/*,.heic,.heif">`;
@@ -68553,7 +68563,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
 
   /* Adding a photo */
   function addClick(){
-    if (!canUse()) { paywall(); return; }
+    if (!canMake()) { makeWall(); return; }
     if (recs().length >= MAX) { toast("You can keep up to 5 photo themes. Delete one to add another."); return; }
     const inp = document.getElementById("phFile");
     if (inp) inp.click();
@@ -68569,7 +68579,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   let adding = false;
   async function addFile(file){
     if (adding || !file) return;
-    if (!canUse()) { paywall(); return; }
+    if (!canMake()) { makeWall(); return; }
     if (recs().length >= MAX) { toast("You can keep up to 5 photo themes. Delete one to add another."); return; }
     const heic = /hei[cf]/i.test((file.type || "") + " " + (file.name || ""));
     if (!/^image\//.test(file.type || "") && !/\.(heic|heif|jpe?g|png|webp|gif|avif|bmp)$/i.test(file.name || "")) { toast("That file isn't a photo. Choose a JPG, PNG, WebP or HEIC image."); return; }
@@ -68852,7 +68862,6 @@ You can also DO things in Studyboard, but only when the student asks or what the
 
   /* Use and delete */
   function use(id){
-    if (!canUse()) { paywall(); return; }
     if (!recOf(id)) return;
     saveStyle({skin: id}); applySkin(); render(); styleShop();
   }

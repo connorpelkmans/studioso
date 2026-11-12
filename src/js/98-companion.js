@@ -269,7 +269,8 @@
     try {
       if (typeof id !== "string" || id.indexOf("ph-") !== 0 || !window.SBPHOTO || typeof SBPHOTO.recs !== "function") return null;
       const r = SBPHOTO.recs().find(x => x.id === id), list = (r && Array.isArray(r.comps) ? r.comps : []).map(cid => BYID[cid]).filter(Boolean).slice(0, 3);
-      return list.length ? list : null;
+      // Without Pro its Pro companions are locked; with none of its three left to use, the free plain set stands in
+      return list.length && list.some(c => canComp(c)) ? list : null;
     } catch (e) { return null; }
   };
   const themeKey = id => REG[id] ? id : photoSet(id) ? id : "plain";

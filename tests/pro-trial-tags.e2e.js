@@ -15,7 +15,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const browser = await chromium.launch({executablePath});
   try {
     const ctx = await browser.newContext({viewport: {width: 1280, height: 900}, serviceWorkers: "block"});
-    await ctx.addInitScript(() => { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, settings: {}, courses: [], tasks: []})); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "1"); } });
+    await ctx.addInitScript(() => { window.__SB_TEST = true; localStorage.setItem("studyboard:paywall-test", "1"); if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, settings: {}, courses: [], tasks: []})); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "1"); } });
     const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));
     await p.goto(base); await p.waitForTimeout(1200);
     const count = trial => p.evaluate(trial => {
@@ -28,6 +28,22 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const trial = await count(true), paid = await count(false);
     ok(trial.acc > 0, "on the free weeks, Pro accessories keep their PRO tag: " + JSON.stringify(trial));
     ok(paid.all === 0, "paying for Pro, no PRO tags in the companion picker: " + JSON.stringify(paid));
+    // Photo themes: none can be made on the free weeks; paid Pro can make them; after Pro ends, a theme someone made stays theirs
+    const addTile = trial => p.evaluate(async trial => {
+      const P = window.__sbPlanObj(); P.paywall = () => true; P.isPro = () => true; P.trialTags = () => trial;
+      document.querySelectorAll("dialog[open]").forEach(d => d.close());
+      const b = document.createElement("button"); b.dataset.act = "style-shop"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove();
+      await new Promise(r => setTimeout(r, 400)); const t2 = document.createElement("button"); t2.dataset.act = "shop-tab"; t2.dataset.id = "themes"; t2.hidden = true; document.body.appendChild(t2); t2.click(); t2.remove();
+      await new Promise(r => setTimeout(r, 500)); const t = document.querySelector(".ph-add");
+      const r = t ? {locked: t.classList.contains("locked"), text: t.textContent.replace(/\s+/g, " ").trim()} : null;
+      document.querySelectorAll("dialog[open]").forEach(d => d.close()); return r;
+    }, trial);
+    const at = await addTile(true), ap = await addTile(false);
+    ok(at && at.locked && /subscribe/.test(at.text), "on the free weeks, Add a Photo is locked: " + JSON.stringify(at));
+    ok(ap && !ap.locked, "with paid Pro, Add a Photo is open: " + JSON.stringify(ap));
+    const kept = await p.evaluate(() => { const P = window.__sbPlanObj(); P.paywall = () => true; P.isPro = () => false; P.trialTags = () => false; 
+      return {photo: window.__sbOwns("skin", "ph-test1"), proSkin: window.__sbOwns("skin", "winter")}; });
+    ok(kept.photo && !kept.proSkin, "after Pro ends, a photo theme someone made is still theirs (Pro themes lock): " + JSON.stringify(kept));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log(`pro-trial-tags.e2e: ${n} checks passed`);
   } catch (e) { console.error(e); process.exitCode = 1; }
