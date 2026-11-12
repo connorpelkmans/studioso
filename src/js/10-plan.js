@@ -711,7 +711,7 @@ window.__sbPlanObj = () => PLAN;
       ["Themes", `${freeThemes} Plain Colors`, `All ${SKINS.length} Themes`],
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
       ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`]
-    ].concat(window.SBPRO ? SBPRO.compareRows() : []);
+    ].concat(window.SBPRO ? SBPRO.compareRows() : []).sort((a, b) => (b[0] === "Studyboard AI") - (a[0] === "Studyboard AI"));
   }
   function meter(label, used, max){
     const pct = max === Infinity || !max ? Math.min(100, used > 0 ? 2 : 0) : Math.min(100, used / max * 100);
