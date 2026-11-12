@@ -291,7 +291,8 @@ window.__sbPlanObj = () => PLAN;
     if (mine[key]) return false;
     mine[key] = Date.now(); seen[uid] = mine; write(K_LIMITS, seen);
     track("note", o.reason || msg);
-    toast(msg, null, {label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))});
+    reviewQuiet(3);
+    toast(msg, null, [{label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))}, tellUsBtn(msg, "idea")]);
     return true;
   }
   /* Free runs: a free account (with its own AI key) gets a few runs a week of some Pro AI tools, so it can try them for real.
@@ -319,6 +320,7 @@ window.__sbPlanObj = () => PLAN;
   // the Pro sheet when this week's free runs are used up
   function runsGone(kind, why){
     const n = RUN_NAMES[kind] || ["This", "run", "runs"];
+    reviewQuiet(3);
     proSheet(`You've used this week's ${FREE_RUNS} free ${n[0]} ${n[2]}. They're back on Monday, or get unlimited ${n[2]} with Pro. ${why || ""}`.trim());
   }
   function redeemSheet(){
@@ -382,14 +384,14 @@ window.__sbPlanObj = () => PLAN;
     const save = k => { mine[k] = Date.now(); seen[uid] = mine; write(K_WELCOME, seen); };
     const endAt = ts(e.trial_until);
     if (endAt > now() && endAt - now() <= 864e5 && !mine.lastDay) {
-      save("lastDay"); if (!mine.start) save("start");
+      save("lastDay"); if (!mine.start) save("start"); reviewQuiet(3);
       setTimeout(() => toast(`Your two free weeks of Pro end tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro end tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
     } else if (endAt > now() && !mine.start) {
       if (window.SBOB && SBOB.pending()) { clearTimeout(welcomeRetry); welcomeRetry = setTimeout(welcomeNotes, 4000); return; }
       save("start");
       setTimeout(() => { if (window.SBOB && SBOB.pending()) { delete mine.start; seen[uid] = mine; write(K_WELCOME, seen); return; } welcomePop(e.trial_until); }, 1200);
     } else if (endAt <= now() && now() - endAt < 30 * 864e5 && !paid() && !mine.end) {
-      save("end");
+      save("end"); reviewQuiet(7);
       setTimeout(() => toast("Your two free weeks of Pro have ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro have ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
@@ -808,7 +810,7 @@ window.__sbPlanObj = () => PLAN;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
-    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);
+    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) { track("shown", reason); try { localStorage.setItem("studyboard:proShownAt", String(Date.now())); } catch (e) {} reviewQuiet(1); }
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
     const rows = compareRows();
@@ -839,6 +841,7 @@ window.__sbPlanObj = () => PLAN;
   async function devicesSheet(limitHit){
     const L = lim(), limited = paywall() && !isPro();
     limitHit = !!limitHit && limited;
+    if (limitHit) reviewQuiet(3);
     const draw = (list, err) => {
       const mine = deviceId();
       const intro = limitHit

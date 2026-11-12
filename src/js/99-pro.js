@@ -4754,7 +4754,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
      why: "full" (storage used up), "big" (over the size limit), "type" (a type this storage can't keep), "none" (no storage here) */
   const FULL = {files: [], opts: {}, pend: null};
   function storageFull(files, opts, why){
-    why = why || "full";
+    why = why || "full"; reviewQuiet(3);
     FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
     const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
     const offerPro = why === "full" && !!(PL && PL.paywall() && !PL.limitsPro());
