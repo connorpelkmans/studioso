@@ -9,6 +9,8 @@
    own task sheets. Nothing is stored except the confidence the student chooses to set and the cards they keep. */
 (() => {
 const locked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return false; } };
+// free plan: a few checks a week with the student's own AI key (PLAN.runsLeft)
+const left = () => { try { return PLAN.runsLeft("teach"); } catch (e) { return 0; } };
 const WHY = "Teach It Back is part of Studyboard Pro: explain a topic in your own words, and AI checks it against your own decks, notes and files.";
 const CONF = {weak: "Shaky", ok: "OK", strong: "Strong"};
 const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
@@ -80,6 +82,7 @@ async function check(){
   const words = me.text.trim().split(/\s+/).filter(Boolean).length;
   if (words < 12) { me.msg = "Say a bit more: a few sentences, as if teaching a friend who missed the class."; draw(); return; }
   if (!aiReady()) { DRAFT.set(key(), me.text); aiSetupSheet(true); return; }
+  if (locked() && left() <= 0) { DRAFT.set(key(), me.text); PLAN.runsGone("teach"); return; }
   micStop();
   const kk = me.exId + "|" + me.topicId, ac = typeof AbortController === "function" ? new AbortController() : null;
   me.busy = true; me.msg = ""; me.ac = ac; draw();
@@ -102,6 +105,7 @@ async function check(){
     if (me.dropped) return;
     me.res = Object.assign(parse(r && r.data, items), {general: me.general, at: Date.now(), text: me.text, unread});
     LAST.set(kk, me.res); DRAFT.set(kk, me.text);
+    if (locked() && PLAN.useRun) PLAN.useRun("teach");
   } catch (e) {
     if (me.dropped) return;
     me.msg = e && e.code === "cancelled" ? "" : (e && e.message) || "The AI couldn't check that right now. Try again.";
@@ -221,7 +225,7 @@ function onClick(e){
   }
 }
 function open(exId, topicId, name){
-  if (locked()) { if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(WHY); return; }
+  if (locked() && left() <= 0) { if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.runsGone("teach", WHY.replace(/^[^:]*: /, "Teach It Back: ")); return; }
   const ex = state.tasks[exId], t = ex && findTopic(ex, topicId, name);
   if (!t) { toast("That topic isn't in the exam's plan any more."); return; }
   micStop();
@@ -247,7 +251,7 @@ function open(exId, topicId, name){
 }
 
 /* entry points */
-const badge = () => locked() ? " " + PRO_BADGE : "";
+const badge = () => locked() && left() > 0 ? ` <span class="mini">${left()} free this week</span>` : locked() || tagPro() ? " " + PRO_BADGE : "";
 function btn(ex, t){
   if (!ex || !t || ex.status === "done" || !ex.due || ex.due < todayISO()) return "";
   return `<button type="button" class="link-btn tb-go" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">Teach It Back${badge()}</button>`;

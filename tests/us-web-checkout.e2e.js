@@ -55,7 +55,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.evaluate(() => window.__sbPlanObj().openSheet()); await page.waitForSelector("dialog[open] .plan-sheet", {timeout: 5000});
     const legal = () => page.evaluate(() => (document.getElementById("planLegal") || {}).textContent || "");
     ok(/Apple ID/.test(await legal()) && !/Studyboard website/.test(await legal()), "outside the US the sheet sells with in-app purchase (Apple's renewal terms)");
-    ok(await page.evaluate(() => !document.querySelector('dialog[open] [data-act="plan-buy"][data-id="semester"]')), "and offers only what the App Store sells (no semester plan)");
+    ok(await page.evaluate(() => !document.querySelector('dialog[open] [data-act="plan-pick"][data-id="semester"]')), "and offers only what the App Store sells (no semester plan)");
     // the country is learned: United States
     await page.evaluate(() => { window.StudyboardNative.externalPurchase = true; window.StudyboardNative.storefront = "USA"; window.dispatchEvent(new CustomEvent("studyboard:storefront", {detail: {country: "USA", externalPurchase: true}})); });
     await page.waitForTimeout(300);
@@ -78,8 +78,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await p3.goto(base); await p3.waitForFunction(() => window.StudyboardPlan && window.__sbPlanObj && window.__sbPlanObj(), null, {timeout: 15000}); await p3.waitForTimeout(800);
     await p3.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await p3.evaluate(() => window.__sbPlanObj().openSheet()); await p3.waitForSelector("dialog[open] .plan-sheet", {timeout: 5000});
-    const sem = await p3.evaluate(() => { const b = document.querySelector('dialog[open] [data-act="plan-buy"][data-id="semester"]'); return {btn: b ? b.textContent : "", legal: (document.getElementById("planLegal") || {}).textContent || ""}; });
-    ok(/\$15\.99\s*\/ 4 months/.test(sem.btn) && /doesn't renew/.test(sem.btn) && !/Free Trial/.test(sem.btn) && /Semester: \$15\.99 for 4 months of Pro, paid once/.test(sem.legal) && !/every 4 months/.test(sem.legal) && /Apple ID/.test(sem.legal), "with storeSemester set, the App Store sheet sells a 4-month semester plan, paid once: " + sem.btn);
+    const sem = await p3.evaluate(() => { const b = document.querySelector('dialog[open] [data-act="plan-pick"][data-id="semester"]'); return {btn: b ? b.textContent : "", legal: (document.getElementById("planLegal") || {}).textContent || ""}; });
+    ok(/\$15\.99\s*for the whole term/.test(sem.btn) && /doesn't renew/.test(sem.btn) && !/Free Trial/.test(sem.btn) && /Semester: \$15\.99 for 4 months of Pro, paid once/.test(sem.legal) && !/every 4 months/.test(sem.legal) && /Apple ID/.test(sem.legal), "with storeSemester set, the App Store sheet sells a 4-month semester plan, paid once: " + sem.btn);
     await ctx3.close();
 
     // 4. the bridge buys the store's 3-month package for the semester plan

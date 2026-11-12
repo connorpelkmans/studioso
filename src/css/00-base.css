@@ -114,6 +114,8 @@ li.is-done .task-title{text-decoration:line-through;color:var(--muted);font-weig
 .fab-menu .fm-list button:hover,.fab-menu .fm-list button:focus-visible{border-color:var(--accent);box-shadow:0 6px 16px rgba(0,0,0,.12);transform:translateY(-1px)}
 .fab-menu .fm-ic{flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent)}
 .fab-menu .fm-ic .ai-ic{width:24px;height:24px;color:#8B5CF6}
+/* the companion's face in the menu's icon box: centred, filling it like the other icons (none of the inline icon's nudges) */
+.fab-menu .fm-ic span.cp-ai-face.ai-ic{width:30px;height:30px;min-width:30px;margin:0;top:0;vertical-align:0}
 .fab-menu .fm-t{flex:1;min-width:0}
 .fab-menu .fm-t b{display:block;font-weight:700;font-size:1.02rem}
 .fab-menu .fm-t .sub{margin-top:2px}
@@ -1699,6 +1701,20 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .pp-line{margin:0}
 .pp-bar{height:8px;border-radius:999px;background:var(--field);border:1px solid var(--line);overflow:hidden}
 .pp-bar i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.pp-fc{display:grid;gap:8px;margin-top:10px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.pp-fc-lock{background:color-mix(in srgb,var(--ink) 3%,var(--surface));border-style:dashed;justify-items:start}
+.pp-fc-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.pp-fc-h .mini{margin-left:auto;color:var(--muted)}
+.pp-fc-big{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.pp-fc-n{display:grid;font:700 1.5rem/1.1 var(--display);color:var(--muted)}
+.pp-fc-n small{font:600 .72rem var(--display);letter-spacing:.04em;text-transform:uppercase}
+.pp-fc-day{font-size:2.1rem;color:var(--accent)}
+.pp-fc-day small{color:var(--muted)}
+.pp-fc-arrow{font-size:1.4rem;color:var(--muted);padding-bottom:4px}
+.pp-fc-why{margin:0;font-size:.9rem;color:var(--muted)}
+.pp-fc-tip{margin:0;padding:8px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:.92rem}
+.pp-fc-next{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0}
+.pp-fc-next > span{flex:1;min-width:10em}
 .pp-bar.big{height:12px}
 .pp-note{margin:0;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--warn) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line))}
 .pp-covs,.pp-agenda{list-style:none;margin:0;padding:0;display:grid;gap:10px}
@@ -2290,7 +2306,7 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .sch-legend .k-event::before{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-left:4px solid var(--accent)}
 .sch-nav{flex-wrap:wrap;justify-content:flex-end}
 /* wide screens: the week selector on the left */
-@media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-next"] + *{margin-left:auto}}
+@media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-today"] + *{margin-left:auto}}
 /* Availability blocks */
 .sch-b.k-av-class{background:var(--c);color:#fff}
 .sch-b.k-av-work{background:color-mix(in srgb,var(--c) 24%,var(--surface));color:var(--ink);border-left:5px solid var(--c);box-shadow:0 1px 4px rgba(8,20,50,.12)}
@@ -2365,6 +2381,17 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .qod-streak{margin:14px 0 0;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:.86rem;color:var(--ink)}
 .qod-foot{display:flex;justify-content:center;gap:8px;margin-top:16px;flex-wrap:wrap}
 .streak-chip{margin-left:10px;border:0;background:color-mix(in srgb,var(--tomato) 14%,var(--surface));color:var(--ink);font:700 .8rem/1 var(--display);padding:5px 9px;border-radius:999px;vertical-align:middle;cursor:pointer}
+/* Introducing Studyboard AI */
+.aii .qod{text-align:left}.aii .qod-eyebrow,.aii h2{text-align:center}
+.aii-badge{width:56px;height:56px;margin:0 auto 12px;border-radius:18px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#8a5cf6))}
+.aii-sub{margin:0 0 14px;text-align:center;font:600 1.02rem/1.35 var(--display)}
+.aii-vs{margin:0 0 8px;color:var(--muted);font-size:.86rem;font-weight:600}
+.aii-list{list-style:none;margin:0;padding:0;display:grid;gap:9px;font-size:.93rem;line-height:1.35}
+.aii-list li{display:flex;gap:10px;align-items:flex-start}
+.aii-tick{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent)}
+.aii-tick svg{width:14px;height:14px}
+.aii .btn.aii-pro{background:linear-gradient(135deg,#FFB443,#FF5C8A);border-color:transparent;color:#fff}
+.aii-fine{margin:12px 0 0;text-align:center;font-size:.66rem;color:var(--muted);opacity:.85}
 @media (prefers-reduced-motion:reduce){.qod-wrap,.qod{transition:none}}
 /* Heads Up (automatic AI) */
 .rx-chip{display:inline-block;font:700 .68rem/1 var(--body);letter-spacing:.03em;border-radius:6px;padding:4px 7px;border:1px solid var(--line);color:var(--muted);background:var(--surface);white-space:nowrap}

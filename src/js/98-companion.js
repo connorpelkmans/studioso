@@ -20,19 +20,20 @@
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
   /* Props (accessories) */
-  // Props follow effort and consistency (focus time, study days, streaks, spreading exam study over days), never how many
+  // Props follow effort and consistency (focus time, flashcards, practice quizzes, study days, spreading exam study over days), never how many
   // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
   const ACC = [
-    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["studydays", 3], ["checkins", 3]]},
-    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
-    {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["studydays", 10], ["spread", 1], ["checkins", 7]]},
-    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 3]]},
-    {id: "medal", name: "Champion Medal", free: true, paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
-    {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["studydays", 40], ["checkins", 21]]},
-    {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
+    // Every prop can be earned by focus time, flashcards or practice quizzes, plus a few other ways (study days, notes, exam prep...)
+    {id: "scarf", name: "Cozy Scarf", hours: 2, free: true, paths: [["cards", 30], ["quizzes", 5], ["studydays", 3], ["checkins", 3]]},
+    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 7], ["notes", 3], ["groups", 1]]},
+    {id: "bowtie", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
+    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
+    {id: "medal", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
+    {id: "cape", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
+    {id: "star", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
     {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
-    {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
+    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
+    {id: "crown", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 60], ["stickers", 30]]}
   ];
   // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
   if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
@@ -269,7 +270,8 @@
     try {
       if (typeof id !== "string" || id.indexOf("ph-") !== 0 || !window.SBPHOTO || typeof SBPHOTO.recs !== "function") return null;
       const r = SBPHOTO.recs().find(x => x.id === id), list = (r && Array.isArray(r.comps) ? r.comps : []).map(cid => BYID[cid]).filter(Boolean).slice(0, 3);
-      return list.length ? list : null;
+      // Without Pro its Pro companions are locked; with none of its three left to use, the free plain set stands in
+      return list.length && list.some(c => canComp(c)) ? list : null;
     } catch (e) { return null; }
   };
   const themeKey = id => REG[id] ? id : photoSet(id) ? id : "plain";
@@ -307,7 +309,7 @@
   const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
     notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "study group or room", focusWeeks: "weeks with 4+ focus days", festive: "winter holiday visit"};
   const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
-    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n} practice quizzes (70% or more)`, notes: n => `Write ${n} notes`,
+    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n === 1 ? "a practice quiz" : n + " practice quizzes"} (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
     groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
   let pStat = null, pStatAt = 0;
@@ -328,6 +330,7 @@
     tr(() => { const sc = state.settings && state.settings.scrap; if (sc) { s.stickers = [sc.cur].concat(sc.past || []).reduce((n, p) => n + (p && p.g ? Object.keys(p.g).length : 0), 0);
       s.groups = ["gp", "rm"].filter(k => sc.f && sc.f[k]).length; } });
     tr(() => { s.checkins = (cfg().ci || []).length; });
+    tr(() => { s.prep = Object.values(state.tasks || {}).filter(t => t && t.prepFor && t.status === "done").length; });
     tr(() => { const per = {}; Object.entries(SBSTATS.focusDays()).forEach(([d, m]) => { if (Number(m) >= 15) { const w = mondayOf(d); per[w] = (per[w] || 0) + 1; } }); s.focusWeeks = Object.values(per).filter(n => n >= 4).length; });
     tr(() => { const d = new Date(), m = d.getMonth(), day = d.getDate(); s.festive = m === 11 || (m === 0 && day <= 6) ? 1 : 0; });
     pStat = s; pStatAt = now;
@@ -356,6 +359,7 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
+  const CALM = 1.35;
   /* ---------- An actor: animations on one rendered rig ---------- */
   function actor(c, root, opts){
     opts = opts || {};
@@ -363,8 +367,10 @@
     const q = s => svg.querySelector(s);
     const part = n => q(".cp-" + n);
     const running = new Set();
+    // Every move plays a little slower than written, so the companion feels calm rather than hurried
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
+      ms = Math.round(ms * CALM);
       const a = el.animate(frames, Object.assign({duration: ms, easing: "ease-in-out"}, o));
       if (opts.watch) opts.watch(ms);
       running.add(a); a.onfinish = a.oncancel = () => running.delete(a);
@@ -400,7 +406,7 @@
           case "headTilt": if (!partSvg(c.parts.head)) return null; return anim(q(".cp-headg"), [0, 9, 9, -4, 0].map(rot), 1800);
           case "topBob": return A.part("top", [0, 13 * k, -11 * k, 7, -3, 0].map(rot), 1300);
           case "bounce": return A.move([0, -6 * k, 0, -3 * k, 0].map((y, i) => ({transform: `translateY(${y}px) scale(${i % 2 ? "0.97,1.04" : i ? "1.04,0.96" : "1,1"})`})), 900);
-          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(2px) scale(1.08,.9)", offset: 0.15}, {transform: `translateY(${-16 * k}px) scale(.95,1.06)`, offset: 0.45}, {transform: "translateY(1px) scale(1.07,.92)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 720);
+          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(1px) scale(1.04,.95)", offset: 0.15}, {transform: `translateY(${-12 * k}px) scale(.98,1.03)`, offset: 0.45}, {transform: "translateY(1px) scale(1.04,.96)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 800);
           case "spin": return A.move([{transform: "perspective(400px) rotateY(0deg)"}, {transform: "perspective(400px) rotateY(360deg)"}], 900, {easing: "cubic-bezier(.5,0,.3,1)"});
           case "sway": return A.move([0, 4, -4, 3, 0].map(d => ({transform: `rotate(${d * k}deg)`})), 1900);
           case "waddle": return A.move([0, -6, 6, -6, 6, 0].map((d, i) => ({transform: `translateX(${i % 2 ? -1.5 : i ? 1.5 : 0}px) rotate(${d}deg)`})), 1200);
@@ -455,7 +461,8 @@
     const vv = window.visualViewport, ins = insets(), de = document.documentElement;
     const lw = de.clientWidth || innerWidth, lh = de.clientHeight || innerHeight;
     let l = 0, t = 0, r = lw, b = lh;
-    if (vv) {
+    // pinch-zoomed in: the companion stays where it stands on the page instead of chasing the zoomed-in view
+    if (vv && !(vv.scale > 1.01)) {
       const l2 = Math.max(l, vv.offsetLeft), t2 = Math.max(t, vv.offsetTop), r2 = Math.min(r, vv.offsetLeft + vv.width), b2 = Math.min(b, vv.offsetTop + vv.height);
       if (r2 - l2 >= 100 && b2 - t2 >= 100) { l = l2; t = t2; r = r2; b = b2; }
     }
@@ -714,6 +721,19 @@
     home.score = Math.abs(home.left - want) / span * 220 - 12;
     out.push(home);
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
+    // the gap between the side menu and the page, if it fits there: the spot right in its middle
+    try {
+      const g = geometry(), v = document.getElementById("view"), e = vext || measureArt() || DEF_ART;
+      if (g.sideNav && v) {
+        const vl = v.getBoundingClientRect().left, artW = px * (e.r - e.l), mid = (g.side + vl) / 2;
+        if (vl - g.side >= artW + 8) {
+          const x = Math.round(mid - px * (e.l + e.r) / 2);
+          // any other spot inside the gap gives way to the middle one
+          for (let i = out.length - 1; i >= 0; i--) if (out[i].kind === "ground" && out[i].left + px * e.l < vl && out[i].left + px * e.r <= vl + 2) out.splice(i, 1);
+          if (x >= L - 0.5 && x <= R) out.push({left: x, top: ground, kind: "ground", score: Math.abs(x - want) / span * 220 - 1});
+        }
+      }
+    } catch (err) {}
     const lowT = lowTop(rg);
     for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
@@ -884,7 +904,8 @@
     const float = cur.pose === "float", dir = to.left > from.left ? 1 : -1, feetY = to.top + px * (112 / 120);
     const frames = []; let dur, easing = "linear";
     const T = (t, x, y, extra) => frames.push({transform: `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)${extra || ""}`, offset: t});
-    const style = force || d > Math.max(innerWidth * 0.55, 620) ? (force || "dash") : float ? (Math.random() < 0.55 ? "loop" : "wave") : (d > 260 && Math.random() < 0.4 ? "leap" : "hops");
+    // Calm on its own: a short way it glides, further it takes a few low hops (or floats there); no leaps, spins, dashes or loops
+    const style = force || (d < 150 ? "glide" : float ? "wave" : "hops");
     if (style === "dash") {
       dur = 900;
       T(0, dx, dy, " scale(1)"); T(0.14, dx + dir * 14, dy, ` scale(.86,1.12) rotate(${-dir * 6}deg)`);
@@ -898,15 +919,18 @@
       for (let i = 1; i <= 8; i++) { const t = i / 8, x = dx * (1 - t), y = dy * (1 - t) - Math.sin(Math.PI * t) * h; T(0.12 + t * 0.7, x, y, ` rotate(${(dir * 360 * t).toFixed(0)}deg) scale(${t < 0.15 ? 0.94 : 1},${t < 0.15 ? 1.08 : 1})`); }
       T(0.9, 0, 0, " scale(1.16,.82)"); T(1, 0, 0, " scale(1)");
       later(() => puff(from.left + px / 2, from.top + px * (112 / 120)), dur * 0.12); later(() => puff(to.left + px / 2, feetY, true), dur * 0.84);
+    } else if (style === "glide") {
+      dur = Math.min(1100, 700 + d * 1.6); easing = "cubic-bezier(.45,0,.25,1)";
+      for (let i = 0; i <= 8; i++) { const t = i / 8; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 6); }
     } else if (style === "hops") {
-      const hops = Math.max(2, Math.min(5, Math.round(d / 120))), h = Math.min(56, 26 + d / hops * 0.2);
-      dur = Math.min(1500, 420 + hops * 230);
+      const hops = Math.max(2, Math.min(5, Math.round(d / 150))), h = Math.min(26, 12 + d / hops * 0.08);
+      dur = Math.min(2300, 700 + hops * 360);
       T(0, dx, dy, " scale(1)");
       for (let k = 0; k < hops; k++) {
         const a = k / hops, bT = (k + 1) / hops, mid = (a + bT) / 2;
-        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.1,.9)");
-        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 9}deg) scale(.94,1.08)`);
-        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 3}deg) scale(1.14,.86)`);
+        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.04,.96)");
+        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 3}deg) scale(.98,1.03)`);
+        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 1}deg) scale(1.05,.95)`);
         const lx = to.left + px / 2 + dx * (1 - bT), ly = to.top + px * (112 / 120) + dy * (1 - bT);
         later(() => puff(lx, ly, k === hops - 1), dur * bT);
       }
@@ -921,10 +945,9 @@
       easing = "ease-in-out";
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     } else {
-      dur = Math.min(1400, 800 + d * 0.9);
-      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 36 + Math.sin(t * Math.PI * 4) * 10, ` rotate(${(Math.sin(t * Math.PI * 4) * dir * 10).toFixed(0)}deg)`); }
+      dur = Math.min(2200, 1200 + d * 1.1);
+      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 22 + Math.sin(t * Math.PI * 2) * 5, ` rotate(${(Math.sin(t * Math.PI * 2) * dir * 4).toFixed(0)}deg)`); }
       easing = "ease-in-out";
-      for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
     // on its way it flies above everything; it settles under the page's bars (cp-under) only once seated in its circle
@@ -1063,14 +1086,22 @@
     for (let i = 0; i < n; i++) {
       const s = document.createElement("span");
       s.className = "cp-pt" + (still() ? " cp-pt-still" : "");
-      const size = (kind === "z" ? 13 : rand(11, 16)) * (small ? 0.8 : 1);
-      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : top[0] * k + rand(-px * 0.36, px * 0.36), y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : top[1] * k + rand(-4, 14);
-      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(kind === "bang" ? 0 : rand(-14, 14))}px;--r:${f1(kind === "bang" ? 0 : rand(-20, 20))}deg;animation-delay:${Math.round(i * 110)}ms`;
+      // Hearts and sparkles: a clear size, starting either side of the head (alternating) and drifting up and outward, so they
+      // never pass behind the speech bubble above it; each keeps one gentle tilt the whole way (no wobble)
+      const pop = kind === "heart" || kind === "sparkle";
+      const size = (kind === "z" ? 13 : pop ? rand(16, 19) : rand(11, 16)) * (small ? 0.8 : 1);
+      const sd = i % 2 ? 1 : -1, cx = top[0] * k;
+      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : pop ? cx + sd * px * rand(0.3, 0.44) : top[0] * k + rand(-px * 0.36, px * 0.36);
+      const y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : pop ? top[1] * k + rand(4, 16) : top[1] * k + rand(-4, 14);
+      const dx = kind === "bang" ? 0 : pop ? sd * rand(10, 18) : rand(-14, 14), r = kind === "bang" ? 0 : pop ? sd * rand(4, 10) : rand(-20, 20);
+      s.className += pop ? " cp-pt-pop" : "";
+      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(dx)}px;--r:${f1(r)}deg;animation-delay:${Math.round(i * (pop ? 170 : 200))}ms`;
       s.innerHTML = art[kind] || art.sparkle;
       fx.appendChild(s);
       const kill = () => s.remove();
-      s.addEventListener("animationend", kill, {once: true});
-      setTimeout(kill, 2600 + i * 110);
+      // only its own float ends it (the page-wide fade-in for new things, 99-smooth, used to end it after a fifth of a second)
+      s.addEventListener("animationend", e => { if (e.target === s && /^cp(Up|Float|Fade)$/.test(e.animationName)) kill(); });
+      setTimeout(kill, 3600 + i * 200);
     }
   }
 
@@ -1298,7 +1329,7 @@
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
-    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
+    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
       ${sc ? `<label class="cp-ask-ctx"><input type="checkbox" class="cp-ctx-on" checked> <span>About this ${esc(sc.kind.toLowerCase())}: <b>${esc(shortT(sc.label, 34))}</b></span></label>` : ""}
       <span class="cp-ask-hint">${sc ? esc(sc.hint) : (() => { try { return aiReady(); } catch (e) { return false; } })() ? `Like "find my lab notes" or "move my essay to Friday"` : `Like "what should I do next?" or "quiz me on something"`}</span>`;
     placeBubble(b);
@@ -1425,9 +1456,9 @@
     if (layer && sig === curSig) { applyVars(); placeSoon(0); return; }
     const first = !layer;
     if (!layer) {
-      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer";
+      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer sm-skip";
       document.body.appendChild(layer);
-      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front";
+      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front sm-skip";
       front.innerHTML = `<div class="cp-bubble" role="status"></div>`;
       // pointing at a bubble keeps it up; it goes a moment after the pointer leaves (an open Ask box keeps its own timer)
       { const bb = front.querySelector(".cp-bubble");
@@ -1443,7 +1474,7 @@
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
-    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
+    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx sm-skip"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
     // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
     // while a sheet or the keyboard holds off the next placement
@@ -1511,7 +1542,7 @@
     act.eyes("happy"); act.mouth("smile");
     box.classList.add("cp-loved");
     act.motion(cur.cheer === "hop" ? "spin" : cur.cheer, true);
-    later(() => act && act.motion("hop"), 950);
+    later(() => act && act.motion("hop"), Math.round(950 * CALM));
     spawnFx("heart", 5);
     if (talkOn()) say(pickFrom(cur.id + ":pet", ownLines("pet")), {ask: askShown()});
     later(() => { if (!act) return; box.classList.remove("cp-loved"); act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2600);
@@ -1526,7 +1557,7 @@
       hold(2200);
       act.eyes("happy"); act.mouth("smile");
       act.motion(cur.cheer, true);
-      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), 900);
+      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), Math.round(900 * CALM));
       spawnFx("sparkle", 4);
       later(() => { if (!act) return; act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2000);
     }, delay || 0);
@@ -2077,7 +2108,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }
     try { clamp("keyboard"); } catch (e) {} guardSoon("keyboard", 60);
   });
-  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
+  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { if (k === "scroll" && visualViewport.scale > 1.01) return; sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
   document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
   document.addEventListener("focusout", () => guardSoon("blur", 350));
   new MutationObserver(() => { sAt = 0; vext = null; guardSoon("text-size", 100); placeSoon(150); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-ts", "data-hc"]});
@@ -2100,7 +2131,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   hook("render", tab => {
     if (!layer) { if (isOn()) refresh(0); return; }
     applyVars(); fitHitSoon();
-    const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && !staysPut() && roamDue(0.2);
+    // a new page only moves it when its spot would cover something there (no random wandering off on a tab change)
+    const newTab = tab !== lastTab, first = !lastTab, wander = false;
     if (wander) lastRoam = Date.now();
     // an open Ask box doesn't stay behind when the page changes and the companion moves (Ask's own answers, said after it
     // goes somewhere, aren't the Ask box, so they stay)
@@ -2356,7 +2388,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
-        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || pro() ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
+        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || (pro() && !tagPro()) ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
         ${earn ? (pct => `<span class="cp-earn">${esc(EARN[x.id].how)} to unlock</span><span class="cp-earn-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to unlock ${esc(x.name)}"><i style="width:${pct}%"></i></span><span class="mini">${esc(EARN[x.id].left(left))} to go</span><button type="button" class="link-btn cp-earn-pro" data-act="comp-pick" data-slot="${i}">Or Get It With Pro</button>`)(Math.max(0, Math.min(99, Math.floor((1 - left / EARN[x.id].n) * 100))))
           : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
@@ -2372,7 +2404,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
       const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || pro() ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
@@ -2383,11 +2415,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
-      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
+      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
-      ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
+      ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
       ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
@@ -2423,7 +2455,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const rank = k => window.SBUI && typeof SBUI.themeRank === "function" ? SBUI.themeRank(k) : SKINS.findIndex(x => x.id === k);
     const others = Object.keys(REG).filter(k => k !== here && k !== "plain" && SKINS.some(x => x.id === k) && (REG[k].list || []).length).sort((a, b) => rank(a) - rank(b));
     const group = k => { const sk = SKINS.find(x => x.id === k), have = owns("skin", k);
-      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
+      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have && !(tagPro() && sk && sk.tier === "pro") ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
     return mine + (others.length ? `<details class="cp-oth-d"${ui.cpOth ? " open" : ""}><summary>Companions from Other Themes</summary><p class="mini" style="margin:0">Tap one to switch to its theme. Each theme has its own companions.</p>${others.map(group).join("")}</details>` : "");
   }
   function openChange(){

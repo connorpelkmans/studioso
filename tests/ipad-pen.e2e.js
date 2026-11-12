@@ -251,9 +251,15 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
     await free.evaluate(() => { ui.tab = "notes"; render(); }); await free.waitForTimeout(250);
     ok(await free.locator('.note[data-note="n1"] .ink-thumb svg').count() === 1, "free: a drawing already on a note is still shown");
     await free.locator('.note[data-note="n1"] .note-body').click(); await free.waitForTimeout(250);
-    ok(await free.locator('.note.editing .ink-nbar [data-act="ink-note"] .pro-badge').count() === 1, "free: Edit Drawing carries the Pro badge");
+    ok(await free.locator('.note.editing .ink-nbar [data-act="ink-note"] .pro-badge').count() === 0, "free: Edit Drawing on a drawing already made has no Pro badge");
     await free.click('.note.editing .ink-nbar [data-act="ink-note"]'); await free.waitForTimeout(300);
-    ok(await free.evaluate(() => !!dlg.querySelector(".plan-sheet") && !dlg.querySelector(".ink-sheet")), "free: it opens the Pro sheet, not the drawing page");
+    ok(await free.evaluate(() => !!dlg.querySelector(".ink-sheet") && !dlg.querySelector(".plan-sheet")), "free: a drawing already made opens to edit (what someone made is never locked away)");
+    await free.evaluate(() => { if (dlg.open) dlg.close(); const n = state.notes.n1; delete n.ink; render(); }); await free.waitForTimeout(250);
+    await free.evaluate(() => { ui.tab = "notes"; render(); }); await free.waitForTimeout(250);
+    if (!(await free.locator('.note.editing').count())) { await free.locator('.note[data-note="n1"] .note-body').click(); await free.waitForTimeout(250); }
+    ok(await free.locator('.note.editing .ink-nbar [data-act="ink-note"] .pro-badge').count() === 1, "free: Draw (a new drawing) carries the Pro badge");
+    await free.click('.note.editing .ink-nbar [data-act="ink-note"]'); await free.waitForTimeout(300);
+    ok(await free.evaluate(() => !!dlg.querySelector(".plan-sheet") && !dlg.querySelector(".ink-sheet")), "free: a new drawing opens the Pro sheet, not the drawing page");
     ok(free.errs.length === 0, "no console errors (free): " + free.errs.join(" | "));
     await fctx.close();
   } finally { await browser.close(); server.close(); }

@@ -21,9 +21,10 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(P.config({...ENV, PRO_AI_OFF: "1"}).on, false, "PRO_AI_OFF turns it off");
   const wild = P.limits({WEEKLY_HARD_USD: "500", WEEKLY_SOFT_USD: "900", DAILY_USD: "99", PER_MINUTE: "5000", MAX_INFLIGHT: "999"});
   ok(wild.hardUsd <= P.HARD.monthUsd && wild.softUsd <= wild.hardUsd && wild.dayUsd <= P.HARD.dayUsd && wild.perMinute <= P.HARD.perMinute && wild.inflight <= P.HARD.inflight, "a mistyped setting can't lift the limits past their hard ranges");
-  eq([P.limits({WEEKLY_HARD_USD: "abc"}).hardUsd, P.limits({WEEKLY_HARD_USD: "-3"}).hardUsd], [0.5625, 0], "a bad value falls back to the default; a negative one means no AI");
+  eq([P.limits({WEEKLY_HARD_USD: "abc"}).hardUsd, P.limits({WEEKLY_HARD_USD: "-3"}).hardUsd], [0.52, 0], "a bad value falls back to the default; a negative one means no AI");
   const L0 = P.limits({});
-  eq([L0.softUsd, L0.hardUsd, L0.dayUsd, L0.perMinute, L0.inflight], [0.45, 0.5625, 0.5, 20, 4], "defaults: $0.45 soft, $0.5625 hard a week (a quarter of the old $1.80 and $2.25 a month), $0.50 a day, 20 a minute, 4 at once");
+  eq([L0.softUsd, L0.hardUsd, L0.dayUsd, L0.perMinute, L0.inflight], [0.4, 0.52, 0.52, 20, 4], "defaults: $0.40 soft, $0.52 hard over any 7 days, no daily limit (a day may use the whole allowance), 20 a minute, 4 at once");
+  eq([P.limits({DAILY_USD: "0.2"}).dayUsd, P.limits({DAILY_USD: "9"}).dayUsd, P.limits({DAILY_USD: " "}).dayUsd], [0.2, 0.52, 0.52], "a daily limit only if DAILY_USD is set, and never above the 7 days'");
   ok(!("globalDayUsd" in L0) && !("trialUsd" in L0), "no limit shared across students, and nothing for a free week");
   const src = require("fs").readFileSync(path.join(__dirname, "..", "cloudflare", "ai-pro", "src", "pro.js"), "utf8");
   ok(src.includes('import "../../../src/js/01-ai-policy.js"') && !/\bconst TASKS\b|\bfunction buildRequest\b/.test(src), "the Worker uses the app's own rules file, not a copy");
@@ -106,7 +107,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   /* One student's meter */
   let now = Date.UTC(2026, 10, 4, 12);
   // the meter's rules, with round numbers ($2 soft, $2.50 hard, $1 a day) so the arithmetic below is easy to follow
-  const lim = P.limits({...ENV, WEEKLY_SOFT_USD: "2", WEEKLY_HARD_USD: "2.5", DAILY_USD: "1"}), st = new P.Meter(mem(), () => now);
+  const lim = P.limits({...ENV, WEEKLY_SOFT_USD: "2", WEEKLY_HARD_USD: "2.5", DAILY_USD: "1", MONTHLY_CAP_USD: "10"}), st = new P.Meter(mem(), () => now);
   eq([lim.monthMicro, lim.softMicro, lim.dayMicro], [2.5e6, 2e6, 1e6], "limits in micro-dollars");
   let r = await st.reserve(500000, lim); ok(r.ok, "a $0.50 job fits");
   ok(await st.settle(r.id, 1000), "settled to its real cost");
@@ -118,15 +119,28 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await st.reserve(100000, lim)).reason, "today", "$1 a day: the next one waits for tomorrow");
   now += 86400000;
   ok((await st.reserve(100000, lim)).ok, "the next day it runs");
-  // The weekly limit, across days of one week (Wednesday the 4th to Saturday the 7th)
+  // The 7-day limit, rolling: spending on Thursday the 5th, Friday the 6th and Saturday the 7th
   const st2 = new P.Meter(mem(), () => now);
   for (let d = 0; d < 2; d++) { const x = await st2.reserve(1000000, lim); ok(x.ok, `day ${d + 1}`); await st2.settle(x.id, 1000000); now += 86400000; }
   const soft = await st2.status(lim); ok(soft.soft && soft.usedPct === 80, "past $2 the student is told routine jobs think less");
   ok((await st2.reserve(490000, lim)).ok, "up to $2.50 still runs");
-  eq((await st2.reserve(20000, lim)).reason, "used_up", "$2.50 a week: refused until next week");
+  eq((await st2.reserve(20000, lim)).reason, "used_up", "$2.50 over 7 days: refused");
+  eq(new Date((await st2.status(lim)).resets).toISOString(), "2026-11-12T00:00:00.000Z", "it says room comes back when Thursday's spending leaves the 7 days (the next Thursday, UTC)");
   now = Date.UTC(2026, 10, 9, 0, 0, 1);
-  ok((await st2.reserve(100000, lim)).ok, "a new week (Monday, UTC) starts a new allowance");
-  eq([P.weekOf(Date.UTC(2026, 10, 15, 23)), P.weekOf(Date.UTC(2026, 10, 16, 0)), new Date(P.nextWeek(Date.UTC(2026, 10, 11))).toISOString()], ["2026-11-09", "2026-11-16", "2026-11-16T00:00:00.000Z"], "weeks run Monday to Sunday (UTC), and reset on Monday");
+  eq((await st2.reserve(100000, lim)).reason, "used_up", "a Monday brings nothing back: the last 7 days still hold it all");
+  now = Date.UTC(2026, 10, 12, 0, 0, 1);
+  ok((await st2.reserve(100000, lim)).ok, "the next Thursday, that day's $1 has rolled off and there's room again");
+  eq((await st2.read()).spent, 1490000 + 100000, "and what's counted is just the last 7 days");
+  // The month's cap: with the real limits ($0.52 any 7 days, $2.25 a month), a full allowance every 7 days in a 31-day month
+  // would come to $2.60; the cap holds it to $2.25
+  { const L = P.limits({}), cm = new P.Meter(mem(), () => now), save = now; let total = 0;
+    for (const d of [1, 8, 15, 22]) { now = Date.UTC(2027, 2, d, 12); const x = await cm.reserve(L.monthMicro, L); ok(x.ok, `$0.52 on March ${d}`); await cm.settle(x.id, L.monthMicro); total += L.monthMicro; }
+    now = Date.UTC(2027, 2, 29, 12);
+    eq((await cm.reserve(L.monthMicro, L)).reason, "used_up", "on March 29 a 7-day allowance is free again, but the month's $2.25 cap refuses a full one");
+    const rest = L.capMicro - total, y = await cm.reserve(rest, L); ok(y.ok, "only what's left under $2.25 runs"); await cm.settle(y.id, rest);
+    const st = await cm.status(L); ok(st.usedPct === 100 && new Date(st.resets).toISOString() === "2027-04-01T00:00:00.000Z", "and it's back on the 1st, when the month turns");
+    eq((await cm.read()).monthSpent, 2250000, "the month comes to exactly $2.25");
+    now = Date.UTC(2027, 3, 1, 0, 0, 1); ok((await cm.reserve(100000, L)).ok, "on April 1 it runs again"); now = save; }
   // A job that never settles stays charged
   const st4 = new P.Meter(mem(), () => now), lost = await st4.reserve(600000, lim);
   ok(lost.ok, "a job whose Worker dies mid-way");
@@ -162,7 +176,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await del.reserve(1, lim)).reason, "gone", "a deleted account's id can't be used to get a fresh allowance");
   /* The whole request path, with a fake Anthropic */
   now = Date.UTC(2027, 0, 15, 12);
-  // Spending from earlier days this week (so the daily limit doesn't get in the way)
+  // Spending from two days ago (in the last 7, without a daily limit in the way)
   const spendBefore = async (m, amount) => { const save = now; now -= 2 * 86400000; const r = await m.reserve(amount, {...lim, dayMicro: 9e6}); await m.settle(r.id, amount); now = save; };
   function harness(over = {}){
     const meters = new Map(), totals = new Map(), calls = [], counts = [];
@@ -235,9 +249,9 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   x = await J(await call(H, job()));
   ok(x.j.data.sp >= P.worstCost(1, 6000), "while the model runs, the worst case is already charged");
   // A student near their limit can't start a job whose worst case would pass it
-  H = harness(); await spendBefore(H.meterOf(), 562000);
+  H = harness(); await spendBefore(H.meterOf(), 519500);
   x = await J(await call(H, job({task: "cards"})));
-  eq([x.s, x.j.error], [402, "used_up"], "$0.562 of the week's $0.5625 used: a flashcard job (worst case over the $0.0005 left) is refused");
+  eq([x.s, x.j.error], [402, "used_up"], "$0.5195 of the $0.52 used: a flashcard job (worst case over the $0.0005 left) is refused");
   ok(!H.calls.length, "and never reached Anthropic");
   // Failures
   H = harness({reply: () => Object.assign(new Error("overloaded"), {status: 529})});
@@ -261,7 +275,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   // Soft limit reaches the request
   H = harness(); await spendBefore(H.meterOf(), 460000);
   await call(H, job({task: "chat"})); await call(H, job({task: "grade"}));
-  eq([H.calls[0].output_config.effort, H.calls[1].output_config.effort], ["low", "high"], "past the $0.45 soft limit: chat thinks less, grading doesn't");
+  eq([H.calls[0].output_config.effort, H.calls[1].output_config.effort], ["low", "high"], "past the $0.40 soft limit: chat thinks less, grading doesn't");
   // Parallel requests through the whole path
   H = harness({reply: () => ({content: [{type: "text", text: "{}"}], stop_reason: "end_turn", usage: {input_tokens: 3000, output_tokens: 6000}})});
   const env2 = {...ENV, DAILY_USD: "0.05", PER_MINUTE: "60", MAX_INFLIGHT: "8"};
@@ -410,12 +424,12 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq([x.j.total.kinds.whisper.jobs, x.j.total.kinds.whisper.audioSeconds, x.j.total.kinds.whisper.cost], [1, 30, P.audioCost(30) / 1e6], "transcription: minutes of audio and their cost");
 
 
-  /* The owner can look up one student: their week so far, in dollars, against their limits */
+  /* The owner can look up one student: their last 7 days, in dollars, against their limits */
   H = harness({reply: () => ({content: [{type: "text", text: "{}"}], stop_reason: "end_turn", usage: {input_tokens: 4000, output_tokens: 1000}})}); H.deps.gemini = gOk();
   await call(H, job({task: "grade"})); await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"});
   x = await oget(H, OWNER, null, "?user=" + H.user.id);
   const want1 = P.costOf({input_tokens: 4000, output_tokens: 1000}) + P.ytCost(160000, 20500);
-  eq([x.s, x.j.spent, x.j.today, x.j.limit, x.j.dailyLimit, x.j.youtubeVideos, x.j.youtubeMonthly], [200, want1 / 1e6, want1 / 1e6, 0.5625, 0.5, 1, 10], "one student's week: exactly what their jobs cost, against their weekly and daily limits, and their YouTube videos");
+  eq([x.s, x.j.spent, x.j.today, x.j.limit, x.j.dailyLimit, x.j.youtubeVideos, x.j.youtubeMonthly], [200, want1 / 1e6, want1 / 1e6, 0.52, 0.52, 1, 10], "one student's last 7 days: exactly what their jobs cost, against their weekly and daily limits, and their YouTube videos");
   eq(Object.keys(x.j).filter(k => /text|content|message|question/i.test(k)), [], "and nothing about what they asked");
   eq((await oget(H, "", null, "?user=" + H.user.id)).s, 404, "only with the owner token");
   eq((await oget(H, OWNER, null, "?user=not-an-id")).s, 400, "a garbled id is refused");
@@ -439,7 +453,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq(x.s, 200, "a new month brings new videos");
 
   /* Automatic jobs on Studyboard AI think at least at medium */
-  now = Date.UTC(2027, 1, 17, 12); // a Wednesday, so spending from two days before is this week's
+  now = Date.UTC(2027, 1, 17, 12);
   eq([P.config(ENV).autoEffort, P.config({...ENV, AUTO_EFFORT: "medium"}).autoEffort, P.config({...ENV, AUTO_EFFORT: "max"}).autoEffort], ["", "medium", ""], "each job's own level by default; AUTO_EFFORT can raise them; unknown values are ignored");
   H = harness();
   await call(H, job({task: "remote", auto: true})); await call(H, job({task: "line", auto: true}));

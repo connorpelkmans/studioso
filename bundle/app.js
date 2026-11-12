@@ -1651,7 +1651,7 @@ async function runQueue(key, e){
         if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
 
         if (code === "item_too_big") syncBigWarn(key, job.data);
-        else if ((code === "quota_exceeded" || code === "quota_or_state") && Date.now() - syncFullAt > 5 * 60000) { syncFullAt = Date.now(); toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true}); }
+        else if ((code === "quota_exceeded" || code === "quota_or_state") && Date.now() - syncFullAt > 5 * 60000) { syncFullAt = Date.now(); reviewQuiet(3); toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true}); }
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
       }
     }
@@ -3378,12 +3378,16 @@ const SBPOLICY = (() => {
   const micro = usd => Math.max(0, Math.ceil(usd * 1e6 - 1e-6));
   function limits(env){
     env = env || {};
-    // A week (Monday to Sunday, UTC) at a time. The defaults are a quarter of the old monthly ones ($2.25 hard, $1.80 soft),
-    // which kept a student's real cost near $2.50 a month with Washington sales tax (about 10%).
+    // Over the last 7 days (rolling, by UTC day): $0.52 hard keeps a student near the old $2.25 a month of AI (about $2.50 a
+    // month with Washington sales tax, about 10%); past $0.40 everyday jobs think less.
     // Claude is paid with Studyboard's own Anthropic key in the gateway, so there's no 5% credit fee on it.
-    const hard = num(env.WEEKLY_HARD_USD, 0.5625, 0, HARD.monthUsd), soft = Math.min(hard, num(env.WEEKLY_SOFT_USD, 0.45, 0, HARD.monthUsd));
-    const day = num(env.DAILY_USD, 0.5, 0.05, HARD.dayUsd);
-    return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
+    const hard = num(env.WEEKLY_HARD_USD, 0.52, 0, HARD.monthUsd), soft = Math.min(hard, num(env.WEEKLY_SOFT_USD, 0.4, 0, HARD.monthUsd));
+    // No daily limit unless DAILY_USD is set: a day may use the whole week's allowance
+    const day = String(env.DAILY_USD == null ? "" : env.DAILY_USD).trim() === "" ? hard : Math.min(hard, num(env.DAILY_USD, hard, 0.05, HARD.dayUsd));
+    // And a cap per calendar month (UTC), so a month never costs more than it was designed to: $0.52 a week could otherwise
+    // reach $2.60 in a 31-day month (a full allowance on days 1, 8, 15, 22 and 29)
+    const cap = num(env.MONTHLY_CAP_USD, 2.25, 0, 10);
+    return {softUsd: soft, hardUsd: hard, dayUsd: day, capUsd: cap, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day), capMicro: micro(cap),
       perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};
   }
   const monthOf = now => new Date(now).toISOString().slice(0, 7);
@@ -3418,14 +3422,20 @@ const SBPOLICY = (() => {
   /* One student's allowance. storage: {get(k), put(k, v) or put({k: v}), deleteAll()}, all async (a Durable Object's storage on
      the Worker; the device's storage for a student's own key). Each call reads and writes with nothing in between, one at a time,
      so two jobs can never both pass a check that only one fits. lock: optional, wraps each call (the app uses a cross-tab lock). */
+  const backAt = r => { const from = dayOf((r.now || Date.now()) - 6 * 864e5), ks = Object.keys(r.days || {}).filter(k => r.days[k] > 0 && k >= from).sort(); return ks.length ? Date.parse(ks[0] + "T00:00:00Z") + 7 * 864e5 : null; };
   class Meter {
     // o (on a device only): {sid: this page's id, alive: sid => is that page still open}. A job started by a page that has
     // closed or reloaded can't still be running, so it stops counting as in flight at once (its charge stays).
     constructor(storage, now = () => Date.now(), lock = null, o = null){ this.s = storage; this.now = now; this.o = o || {}; const one = serial(); this.one = lock ? fn => one(() => lock(fn)) : one; }
     async read(){
-      const keys = ["gone", "month", "spent", "day", "daySpent", "flying", "hits"], v = await Promise.all(keys.map(k => this.s.get(k)));
-      const [gone, month, spent, day, daySpent, flying, hits] = v, now = this.now(), m = weekOf(now), d = dayOf(now);
-      return {gone: !!gone, now, month: m, spent: month === m ? spent || 0 : 0, day: d, daySpent: day === d ? daySpent || 0 : 0,
+      const keys = ["gone", "days", "flying", "hits"], v = await Promise.all(keys.map(k => this.s.get(k)));
+      const [gone, days0, flying, hits] = v, now = this.now(), d = dayOf(now), from = dayOf(now - 6 * 864e5), mon = monthOf(now);
+      // spending per UTC day, kept for the last 7 days and this calendar month: the allowance is what the last 7 days add up
+      // to (rolling), and the month's total has its own cap
+      const days = {}; Object.keys(days0 && typeof days0 === "object" ? days0 : {}).forEach(k => { const n = Number(days0[k]); if ((k >= from || k.slice(0, 7) === mon) && k <= d && n > 0) days[k] = n; });
+      const sum = f => Object.keys(days).filter(f).reduce((a, k) => a + days[k], 0);
+      const spent = sum(k => k >= from), monthSpent = sum(k => k.slice(0, 7) === mon);
+      return {gone: !!gone, now, month: from + ".." + d, days, spent, monthSpent, mon, day: d, daySpent: days[d] || 0,
         // A job that never settled (its Worker or tab stopped) stays charged; after 15 minutes it stops counting as in flight
         flying: (flying || []).filter(f => now - f.at < 15 * 60000 && (!this.o.alive || this.o.alive(f.sid))), hits: (hits || []).filter(t => now - t < 60000)};
     }
@@ -3459,11 +3469,12 @@ const SBPOLICY = (() => {
       const r = await this.read();
       if (r.gone) return {ok: false, reason: "gone"};
       if (r.hits.length >= lim.perMinute || r.flying.length >= lim.inflight) return {ok: false, reason: "rate"};
-      if (r.spent + cost > lim.monthMicro) return {ok: false, reason: "used_up", ...this.view(r, lim)};
+      if (r.spent + cost > lim.monthMicro || (lim.capMicro != null && r.monthSpent + cost > lim.capMicro)) return {ok: false, reason: "used_up", ...this.view(r, lim)};
       if (r.daySpent + cost > lim.dayMicro) return {ok: false, reason: "today", ...this.view(r, lim)};
       const id = crypto.randomUUID();
       r.flying.push(Object.assign({id, at: r.now, cost, month: r.month, day: r.day}, this.o.sid ? {sid: this.o.sid} : {})); r.hits.push(r.now);
-      await this.s.put({month: r.month, spent: r.spent + cost, day: r.day, daySpent: r.daySpent + cost, flying: r.flying, hits: r.hits});
+      r.days[r.day] = (r.days[r.day] || 0) + cost;
+      await this.s.put({days: r.days, flying: r.flying, hits: r.hits});
       return {ok: true, id};
     }
     // Replace a reservation with what the job really cost (never more than 4 times the reservation; a garbled amount keeps it)
@@ -3472,12 +3483,15 @@ const SBPOLICY = (() => {
       if (!f || r.gone) return false;
       const real = Number.isFinite(actual) ? Math.max(0, Math.min(Math.ceil(actual), f.cost * 4)) : f.cost, delta = real - f.cost;
       const upd = {flying: r.flying.filter(x => x.id !== id)};
-      if (f.month === r.month) upd.spent = Math.max(0, r.spent + delta);
-      if (f.day === r.day) upd.daySpent = Math.max(0, r.daySpent + delta);
+      // the change lands on the day the job started (if that day is still in the last 7)
+      if (r.days[f.day] != null) { r.days[f.day] = Math.max(0, r.days[f.day] + delta); upd.days = r.days; }
       await this.s.put(upd);
       return true;
     }
-    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextWeek(r.now)}; }
+    view(r, lim){ const capPct = lim.capMicro > 0 ? Math.round((r.monthSpent || 0) / lim.capMicro * 100) : lim.capMicro === 0 ? 100 : 0, wkPct = lim.monthMicro > 0 ? Math.round(r.spent / lim.monthMicro * 100) : 100;
+      return {usedPct: Math.min(100, Math.max(wkPct, capPct)), dayPct: lim.dayMicro >= lim.monthMicro ? undefined : lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: capPct >= 100 && wkPct < 100 ? nextMonth(r.now) : backAt(r)}; }
+    // Rolling: some of the allowance comes back when the oldest day with spending drops out of the last 7 (UTC midnight)
+    // (null when nothing has been spent)
     async _status(lim){ const r = await this.read(); return r.gone ? {usedPct: 100, soft: false, resets: null, gone: true} : this.view(r, lim); }
     // Delete My Account: the id is closed for good, so deleting can't be used to reset an allowance
     async _forget(){ await this.s.deleteAll(); await this.s.put("gone", true); }
@@ -3946,7 +3960,7 @@ if (window.__SB_TEST) window.__sbAi = {cfg: () => aiCfg(), proRefresh: () => aiP
 // Studyboard AI's rules (src/js/01-ai-policy.js): the built-in AI, or a student's own Claude key in Studyboard AI Mode
 const aiSbMode = c => !!c && (c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard"));
 /* A student's own Claude key in Studyboard AI Mode: the same rules as the built-in AI (SBPOLICY.runJob: model, thinking per job,
-   output caps, the same weekly, daily, per-minute and at-once limits), run on this device and paid by their key. The allowance
+   output caps, the same 7-day and monthly, daily, per-minute and at-once limits), run on this device and paid by their key. The allowance
    is kept on this device, one change at a time across tabs. */
 const AI_OWN_LS = "studyboard:ownAI";
 const ownStore = {
@@ -3982,7 +3996,11 @@ function ownClaude(key, signal, ms){
     count: async req => { const rest = Object.assign({}, req); delete rest.max_tokens; return (await call("/v1/messages/count_tokens", rest)).input_tokens; }
   };
 }
-const ownView = () => { try { const r = ownStore.all(), L = ownLimits(), m = SBPOLICY.weekOf(Date.now()), spent = r.month === m ? r.spent || 0 : 0; return {usedPct: Math.min(100, Math.round(spent / L.monthMicro * 100)), soft: spent >= L.softMicro, resets: SBPOLICY.nextWeek(Date.now())}; } catch(e) { return {usedPct: 0, soft: false, resets: null}; } };
+// this device's own-key allowance, read the same way as Studyboard AI's (the last 7 days, and this month's cap)
+const ownView = () => { try { const now = Date.now(), d = SBPOLICY.dayOf(now), from = SBPOLICY.dayOf(now - 6 * 864e5), mon = SBPOLICY.monthOf(now), raw = (ownStore.all() || {}).days || {}, days = {};
+  Object.keys(raw).forEach(k => { const n = Number(raw[k]); if ((k >= from || k.slice(0, 7) === mon) && k <= d && n > 0) days[k] = n; });
+  const sum = f => Object.keys(days).filter(f).reduce((a, k) => a + days[k], 0);
+  return SBPOLICY.Meter.prototype.view({now, days, spent: sum(k => k >= from), monthSpent: sum(k => k.slice(0, 7) === mon), daySpent: days[d] || 0}, ownLimits()); } catch(e) { return {usedPct: 0, soft: false, resets: null}; } };
 // "Resets on December 1"
 const aiProResets = () => { const t = aiProGet(); if (!t || !t.resets) return ""; try { return new Date(t.resets).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } };
 // A scanned code opens the app as <app>#sbkey=XXXX-XXXX-XXXX
@@ -4050,8 +4068,8 @@ function aiCfg(){
   let model = raw.model || (provider === "gemini" ? "auto" : AI_PROVIDERS[provider].models[0][0]);
   if (!keys[provider]) { const p = ["gemini", "anthropic", "openai"].find(x => keys[x]); if (p) { provider = p; model = p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]; } }
   if (provider === "anthropic") model = "studyboard";
-  // Studyboard AI (Pro) unless the student chose their own key; once this week's is used up, their own key takes over if they have one
-  // Paid Pro: Studyboard AI first, always. The student's own key (Gemini first) only once this week's or today's allowance is used up.
+  // Studyboard AI (Pro) unless the student chose their own key; once it's used up, their own key takes over if they have one
+  // Paid Pro: Studyboard AI first, always. The student's own key (Gemini first) only once the allowance (or today's, if there's a daily limit) is used up.
   if (aiProAvail() && !raw.ownKey) {
     if (!aiProUsedUp()) return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
     const b = aiProBackup(keys);
@@ -4412,20 +4430,20 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
 }
 // Studyboard AI (AI_PRO)
 const AI_PRO_WORDS = {
-  used_up: {title: "You've Used This Week's Studyboard AI", body: "Studyboard AI is back when your allowance resets. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
-  today: {title: "You've Used Today's Studyboard AI", body: "Studyboard AI has a daily share so this week's allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
+  used_up: {title: "You've Used Your Studyboard AI for Now", body: "Studyboard AI comes back as your recent use rolls off. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
+  today: {title: "You've Used Today's Studyboard AI", body: "Studyboard AI has a daily share so your allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
   files: {title: "This Needs a Gemini Key", body: "Studyboard AI reads text, photos and PDFs. Videos need Google's Gemini, the only AI that can watch them. A free Gemini key takes about a minute to set up.", err: "Videos need a free Gemini key."},
   search: {title: "This Needs Your Own Key", body: "Looking things up on the web needs your own free Google Gemini key, which takes about a minute.", err: "This needs your own free Gemini key."},
   too_long: {title: "That's Too Much in One Go", body: "Studyboard AI handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
 };
 // own: the student's own Claude key in Studyboard AI Mode (the same job, run on this device), otherwise the built-in AI
 const AI_OWN_WORDS_PRO = {
-  used_up: {title: "Your Own Key's Weekly Limit Is Reached", body: "Studyboard AI keeps your own key to its weekly limit, so AI pauses until it resets. Choose another model in Settings, AI Features to keep going.", err: "Your own key's Studyboard AI limit for this month is reached."},
+  used_up: {title: "Your Own Key's Limit Is Reached", body: "Studyboard AI keeps your own key to the same limits as Studyboard AI (over the last 7 days, and each month), so AI pauses until it resets. Choose another model in Settings, AI Features to keep going.", err: "Your own key's Studyboard AI limit for this month is reached."},
   today: {title: "That's Today's Limit on Your Own Key", body: "Studyboard AI keeps your own key to its daily limit. It's back tomorrow, or choose another model in Settings, AI Features.", err: "That's today's Studyboard AI limit on your own key. More tomorrow."}
 };
 const aiOwnWords = () => aiProUser() ? AI_OWN_WORDS_PRO : AI_OWN_WORDS;
 const AI_OWN_WORDS = {
-  used_up: {title: "Your Claude Key's Weekly Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same weekly limit as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
+  used_up: {title: "Your Claude Key's Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same limits as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
   today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
 };
 // A request the student made that meets "too many at once" waits a moment and tries again (up to 3 times) instead of failing
@@ -4462,7 +4480,7 @@ async function proCallOnce({system, parts, schema, ms, task, signal, auto, searc
     aiProSet(j);
   }
   if (res.ok && j.data && typeof j.data === "object") {
-    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of this week's Studyboard AI. Everyday jobs now think a little less so the rest lasts."), 600); }
+    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of your Studyboard AI for now. Everyday jobs now think a little less so the rest lasts."), 600); }
     return {data: j.data, model: own ? aiModelName("anthropic", "studyboard") : "Studyboard AI", provider: own ? "anthropic" : "studyboard", truncated: !!j.truncated};
   }
   const why = res.status === 413 ? "too_long" : AI_PRO_WORDS[j.error] && j.error !== "files" && j.error !== "search" ? j.error : "";
@@ -4518,7 +4536,7 @@ async function proYoutube(url, signal){
   aiProSet(j);
   if (res.ok && typeof j.transcript === "string" && j.transcript) return j;
   if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
-  if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI.${aiProResets() ? ` More on ${aiProResets()}.` : ""} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
+  if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI.${(n => ` More on ${new Date(n).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"})}.`)(SBPOLICY.nextMonth(Date.now()))} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
   if (j.error === "video") throw aiErr("video", "That video couldn't be watched. It may be private, unlisted, age-restricted, members-only or removed.");
   if (res.status === 429) throw aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute.");
   throw aiErr("busy", "Studyboard AI couldn't watch that video right now. Try again in a minute.");
@@ -4531,7 +4549,7 @@ function aiProPrompt(why, own){
   const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiProTitle");
   const when = why === "used_up" ? (own ? (r => { try { return new Date(r).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } })(ownView().resets) : aiProResets()) : "";
   d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiProTitle">${esc(W.title)}</h2></div>
-    <div class="sheet-body"><p style="margin:0">${esc(W.body)}</p>${when ? `<p class="mini" style="margin:0">Your Studyboard AI resets on ${esc(when)}.</p>` : ""}</div>
+    <div class="sheet-body"><p style="margin:0">${esc(W.body)}</p>${when ? `<p class="mini" style="margin:0">More of your Studyboard AI comes back on ${esc(when)}.</p>` : ""}</div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>${own ? "AI Settings" : "Add My Free Gemini Key"}</button></div></div>`;
   const finish = go => { aiProAsking = null; try { d.close(); } catch(e) {} d.remove(); if (go) { aiSetupSheet(true); if (!own) try { window.open("https://aistudio.google.com/apikey", "_blank", "noopener"); } catch(e) {} } };
   d.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
@@ -4591,7 +4609,7 @@ async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
 // The model picker shown in every AI sheet
 function aiModelBar(){
   const c = aiCfg();
-  if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% of this week's used` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
+  if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% used, last 7 days` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
   const groups = aiModelOpts(c.keys, `${c.provider}|${c.model}`, (p, P) => p === c.provider && !P.models.some(x => x[0] === c.model) ? `<option value="${p}|${esc(c.model)}" selected>${esc(aiModelName(p, c.model))}</option>` : "");
   return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Model</span><select data-ai-model aria-label="AI model">${groups}</select><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></label>`;
 }
@@ -5239,13 +5257,13 @@ Return JSON only.`});
 }
 
 /* Settings: turning AI on and choosing a model */
-// What Studyboard AI says about this week, for Settings
+// What Studyboard AI says about the last 7 days, for Settings
 function aiProLine(){
   const t = aiProGet() || {}, when = aiProResets();
-  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% of this week's used` : ""}${when ? `, resets ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
+  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% used over the last 7 days` : ""}${when ? `, more back ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
 }
-/* The AI menu's usage card: this week as a percentage, and today's share, with no amounts or costs. The chip in its header
-   always says where things stand; amber once everyday answers get shorter, orange when the week or the day is used up. */
+/* The AI menu's usage card: the last 7 days as a percentage, and today's share, with no amounts or costs. The chip in its header
+   always says where things stand; amber once everyday answers get shorter, orange when the allowance or the day is used up. */
 const SBAI_STAR = '<svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" aria-hidden="true"><path d="M12 4.5l1.9 5.6 5.6 1.9-5.6 1.9L12 19.5l-1.9-5.6-5.6-1.9 5.6-1.9z"/></svg>';
 function aiUseCard(){
   const t = aiProGet() || {}, today = new Date().toISOString().slice(0, 10), when = aiProResets();
@@ -5260,20 +5278,20 @@ function aiUseCard(){
   const st = monthOut ? "out" : dayOut ? "day" : low ? "warn" : "";
   const ringCls = monthOut || dayOut ? "out" : low ? "warn" : "", ringPct = monthOut || dayOut ? 100 : m;
   const chip = monthOut ? "Used up" : dayOut ? back.replace(/^b/, "B") : `${m}%`;
-  const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "this week"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
-  const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "next week"}. Until then, AI keeps working with your backup key below.`
+  const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "the last 7 days"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
+  const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "soon"}. Until then, AI keeps working with your backup key below.`
     : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
-    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` The week resets <b>${esc(when)}</b>.` : ""}`
-    : `Included with Pro.${when ? ` The week resets <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
+    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` More usage comes back <b>${esc(when)}</b>.` : ""}`
+    : `Included with Pro.${when ? ` More usage comes back <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
   return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
     <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
-    <div class="sbai-num">${m}%<small>used this week</small></div>
-    <div class="sbai-rows">${bar("This week", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
+    <div class="sbai-num">${m}%<small>used, last 7 days</small></div>
+    <div class="sbai-rows">${bar("Last 7 days", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
     <p class="sbai-note">${note}</p></div>`;
 }
 function aiRow(){
   const on = aiReady(), c = aiCfg();
-  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of this week's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
+  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of the limit used over the last 7 days.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
   if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
   return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
@@ -5300,7 +5318,8 @@ function aiSetupSheet(fromFeature, opts){
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
-        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If this week's or today's Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+      ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
@@ -8317,6 +8336,7 @@ const GRADE_CHEER = (() => {
     try { celebrate("check"); } catch (e) {}
     const t = fresh[0], p = Math.round(pctOf(t));
     try { toast(fresh.length === 1 ? `${p}% on ${t.title}. Great work!` : `${fresh.length} new grades of ${MIN}% or more. Great work!`); } catch (e) {}
+    fire("good-moment", "grade");
   }
   const soon = ms => { clearTimeout(T); T = setTimeout(() => { try { scan(); } catch (e) { console.warn("grade cheer", e); } }, ms); };
   hook("render", () => soon(1500));
@@ -9497,6 +9517,8 @@ const themeTier = id => id === "plain" || !id ? "free" : ((SKINS.find(x => x.id 
 const itemTier = (kind, id) => ((STYLE_LISTS[kind] || []).find(x => x.id === id) || {}).tier || "free";
 const owns = (kind, id) => {
   if (!STORE.paywall || itemTier(kind, id) === "free") return true;
+  // A photo theme someone made (ph-...) stays theirs after Pro ends; only making or editing one needs Pro
+  if (kind === "skin" && typeof id === "string" && id.indexOf("ph-") === 0) return true;
   if (typeof PLAN !== "undefined" && !!PLAN && (PLAN.isPro() || (PLAN.styleGrace && PLAN.styleGrace()))) return true;
   // A Founder keeps the theme made from their suggestion, with or without Pro
   if (kind === "skin" && window.SBEARLY && SBEARLY.keeps(id)) return true;
@@ -9510,6 +9532,8 @@ const skinHeld = id => !!SKIN_HOLD && id === SKIN_HOLD && Date.now() < SKIN_HOLD
 const skinOk = id => owns("skin", id) || skinHeld(id);
 if (SKIN_HOLD) setTimeout(() => { try { if (document.documentElement.dataset.skin === SKIN_HOLD && !owns("skin", SKIN_HOLD)) applySkin(); } catch (e) {} }, 10050);
 // The theme actually on screen
+// Test handle (only when a test page sets window.__SB_TEST)
+if (window.__SB_TEST) window.__sbOwns = (kind, id) => owns(kind, id);
 const effSkinId = () => { const id = ((state.settings && state.settings.style) || {}).skin || "classic"; return SKINS.some(x => x.id === id) && owns("skin", id) ? id : "classic"; };
 const styleCfg = () => Object.assign({skin: "classic", card: "index", note: "classic", pin: "pin"}, (state.settings && state.settings.style) || {});
 
@@ -9612,6 +9636,8 @@ function shopUnlock(kind, id){ toast("This item is part of Studyboard Pro."); }
 
 /* The shop */
 const PRO_BADGE = `<span class="pro-badge">PRO</span>`, FREE_BADGE = `<span class="free-badge">Free</span>`;
+// PRO tags also show on the free weeks of Pro, so people see what they'd lose when those end (PLAN.trialTags)
+const tagPro = () => { try { return typeof PLAN !== "undefined" && !!PLAN && typeof PLAN.trialTags === "function" && PLAN.trialTags(); } catch (e) { return false; } };
 function skinPreview(s, dark){
   const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848;--spine-bg:linear-gradient(165deg,#0E2148,#060F24 52%,#040A18)" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4;--spine-bg:linear-gradient(165deg,#1B4486,#0E2A56 52%,#0B2245)";
   const base = "--bgimg:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);--bgsize:12px 12px;--bgpos:0 0;--scene:none;--scene-h:0px;--btn-bg:var(--accent);--spine-bg:var(--spine);--sel:var(--accent);--accent-2:var(--accent);";
@@ -9901,7 +9927,7 @@ document.addEventListener("pointermove", e => {
   if (!sDrag.moved && Math.hypot(e.clientX - sDrag.x0, e.clientY - sDrag.y0) < 6) return;
   if (!sDrag.moved) {
     sDrag.moved = true; document.body.classList.add("stk-dragging");
-    const g = document.createElement("div"); g.className = "stk stk-ghost"; g.innerHTML = stickerSvg(sDrag.k);
+    const g = document.createElement("div"); g.className = "stk stk-ghost sm-skip"; g.innerHTML = stickerSvg(sDrag.k);
     const sz = Math.max(40, Math.min(90, sDrag.size || 48)); g.style.width = g.style.height = sz + "px";
     document.body.appendChild(g); sDrag.ghost = g;
     if (sDrag.el) sDrag.el.style.opacity = "0";
@@ -10430,7 +10456,21 @@ function syncPill(on){
   if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
   else el.classList.remove("show");
 }
+/* Unhappy moments: an error message, or a free-plan limit, offers "Tell Us" (the feedback form, with the message filled in), so a
+   student who's stuck reaches the person who makes the app, and the App Store review prompt stays quiet for a while (99-review-ask.js) */
+function tellUs(about, cat){
+  const go = () => { try { if (window.SBFEEDBACK) SBFEEDBACK.open({cat: cat || "bug", msg: about ? `About “${String(about).slice(0, 300)}”: ` : ""}); } catch (e) {} };
+  try { if (dlg.open) { dlg.close(); setTimeout(go, 40); return; } } catch (e) {}
+  go();
+}
+const tellUsBtn = (about, cat) => ({label: "Tell Us", fn: () => tellUs(about, cat)});
+// keep the review prompt away for a few days after a limit, a paywall or the end of the free weeks
+function reviewQuiet(days){
+  try { const k = "studyboard:reviewQuietUntil", until = Date.now() + days * 864e5; if (until > (Number(localStorage.getItem(k)) || 0)) localStorage.setItem(k, String(until)); } catch (e) {}
+}
 function toast(msg, undoFn, extra, opts){
+  // an error message with a free button slot offers Tell Us (not the feedback form's own messages, and not offline errors)
+  if (opts && opts.error && !opts.noTell && [].concat(extra || []).filter(Boolean).length < 2 && window.SBFEEDBACK && !(typeof navigator !== "undefined" && navigator.onLine === false)) extra = [].concat(extra || []).filter(Boolean).concat([tellUsBtn(msg, "bug")]);
   const t = toastEl(), b = toastPart("toastUndo"), x = toastPart("toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = toastPart("toastX");
   if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", toastHide); }
@@ -10725,7 +10765,7 @@ function viewBoard(){
   const planPane = hasAny && tasksArr().length ? (window.SBEXAM ? SBEXAM.todayHtml() : "") + focusHtml() : `<div class="empty bview-empty sb-es">${emptyArt("today")}<strong>Nothing Planned Yet</strong>Add tasks with due dates and Today's Plan will line up what to work on.${firstStepBtns()}</div>`;
   const tabs = `<div class="bview-tabs" role="tablist" aria-label="Board view"><button role="tab" data-act="bview" data-id="plan" aria-selected="${bv === "plan"}">Today's Plan</button><button role="tab" data-act="bview" data-id="board" aria-selected="${bv === "board"}">Task Board</button></div>`, wideBoard = boardWide(),
     tabRow = `<div class="bview-row">${tabs}${bv === "board" ? (wideBoard ? groupCtl.replace('<div class="board-ctl">', `<div class="board-ctl">${coursePickHtml()}`) : groupCtl) : PLAN_HOURS ? `<div class="bv-hours">${PLAN_HOURS}</div>` : ""}</div>`;
-  return backupNudge() + (window.SBCRUNCH ? SBCRUNCH.cardHtml() : "") + `<div class="qa-wrap">${qaBarHtml()}</div>` + tabRow + `<div class="bview" data-bview="${bv}"><div class="bpane-plan">${planPane}</div><div class="bpane-board">` + banner + `<section class="board-sec" aria-label="Task Board">
+  return backupNudge() + (window.SBCRUNCH ? SBCRUNCH.cardHtml() : "") + (window.SBOFFERS ? SBOFFERS.noticeHtml() : "") + `<div class="qa-wrap">${qaBarHtml()}</div>` + tabRow + `<div class="bview" data-bview="${bv}"><div class="bpane-plan">${planPane}</div><div class="bpane-board">` + banner + `<section class="board-sec" aria-label="Task Board">
     <div class="board-sec-head"><h2>Task Board</h2></div>
     ${wideBoard && bv === "board" ? "" : chipsHtml(groupCtl)}${searchNote()}${boardHtml}
     <p class="hint-line tip-everyday">Drag cards between columns to change status.</p></section></div></div>`;
@@ -11977,7 +12017,7 @@ hook("act", (act, el) => {
   }
   if (act === "cd-old") { ui.cdOld = ui.cdOld === ui.courseId ? null : ui.courseId; render(); return true; }
   if (act === "ci-ai") {
-    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("ai-icons")}); return true; }
+    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("Making your own course icons with AI is part of Studyboard Pro.")}); return true; }
     if (!aiReady()) { toast("Set up AI to make your own icons", null, {label: "Set Up AI", fn: () => aiSetupSheet(true)}); return true; }
     const box = $("#ciAi"); if (box) { box.hidden = !box.hidden; if (!box.hidden) { const q = $("#ciAiQ"); if (q) q.focus(); } }
     return true;
@@ -14558,6 +14598,9 @@ function openSheet(html, onSubmit){
       if (e.key === "Enter" && e.target.tagName === "INPUT" && !e.target.hasAttribute("data-noenter") && !["checkbox","radio","button"].includes(e.target.type)) { e.preventDefault(); run(); }
     });
   }
+  // On a phone nothing is focused by itself (showModal would focus an [autofocus] box): typing starts with a tap
+  const narrow = !window.matchMedia("(min-width:601px)").matches;
+  if (narrow) dlg.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus"));
   if (!dlg.open) dlg.showModal();
   const first = dlg.querySelector("[autofocus]");
   if (first && window.matchMedia("(min-width:601px)").matches) first.focus();
@@ -14638,8 +14681,9 @@ function taskView(t0){
       rows.push([I.cal, esc(parse(t.due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"})) + (t.time && cfg.time ? ", " + esc(fmtTime(t.time)) : ""),
         esc(cfg.due) + (done ? "" : n === 0 ? " · Today" : n === 1 ? " · Tomorrow" : n > 1 ? ` · In ${n} days` : ` · ${-n} day${n === -1 ? "" : "s"} late`)]);
     } else rows.push([I.cal, "No due date", ""]);
-    const st = !cfg.single && (t.start || startOf(t));
-    if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
+    // Start Date is the day of the first focus session on this task; before any, there's no start date to show
+    const st = !cfg.single && workEntries(t).filter(e => e.kind === "focus").map(e => e.d).sort()[0];
+    if (st) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
     // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
     const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
     if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
@@ -15112,7 +15156,7 @@ function courseForm(c){
       </div>
       <fieldset><legend>Color</legend><div class="swatches cc-sw">${COURSE_COLORS.map((x, i) => `<label title="${esc(COURSE_COLOR_NAMES[i] || "")}"><input type="radio" name="color" value="${x}" ${x.toLowerCase() === String(c.color || "").toLowerCase() ? "checked" : ""} aria-label="${esc(COURSE_COLOR_NAMES[i] || "Color " + (i + 1))}"><span style="--c:${x}"></span></label>`).join("")}${(cv => `<label class="cc-custom" title="Any color"><input type="radio" name="color" id="ccRadio" value="${esc(cv)}" ${COURSE_COLORS.some(x => x.toLowerCase() === String(c.color || "").toLowerCase()) ? "" : "checked"} aria-label="Custom color"><span style="--c:${esc(cv)}"></span><input type="color" id="ccPick" value="${esc(cv)}" aria-label="Pick any color" tabindex="-1"></label>`)(/^#[0-9a-f]{6}$/i.test(c.color || "") ? c.color : "#7C3AED")}</div></fieldset>
       <fieldset class="ci-fs"><legend>Icon <span class="hint">shown in the course's circle</span></legend><div class="ci-grid" id="ciGrid" style="--c:${esc(c.color)}" data-picked="${COURSE_ICONS[c.icon] || customIcon(c.icon) ? "1" : ""}">
-        ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and get one that matches your description, in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro() ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
+        ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and get one that matches your description, in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && (!PLAN.isPro() || tagPro()) ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
         <div class="ci-ai" id="ciAi" hidden><label class="f"><span class="lh">Describe the Icon<span class="beta-sym" title="Beta: still being improved" role="img" aria-label="Beta">β</span> <span class="hint">e.g. "a stethoscope with a heart" or "a hockey stick and puck"</span></span><input type="text" id="ciAiQ" maxlength="120" autocomplete="off"></label>
           <div class="ci-ai-row"><button type="button" class="btn primary small ai-btn" data-act="ci-ai-go">${AI_ICON} Find Icons</button><span class="ci-ai-prev" id="ciAiPrev" aria-live="polite"></span><button type="button" class="btn small" data-act="ci-ai-use" id="ciAiUse" hidden>Use This Icon</button></div></div></fieldset>
       <label class="f"><span class="lh">Links <span class="hint">one per line, optionally "Label | url"</span></span><textarea name="links" placeholder="Syllabus | https://…&#10;Canvas | https://…">${esc(linksText)}</textarea></label>
@@ -17275,13 +17319,19 @@ function noteScrollIn(){
   if (dx || dy) sc.scrollBy(dx, dy);
   const r = sc.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) sc.scrollIntoView({block: "nearest"});
 }
-// Desktop: the board reaches down to the same spot as the whiteboard
+// The board and the sticker envelope reach down to the same spot as the whiteboard (its frame ends 16px above the bottom of the screen)
 function nbFill(){
-  const el = document.getElementById("nbScroll");
+  const el = document.getElementById("nbScroll"), env = document.querySelector(".nb-wrap > .env");
   if (!el) return;
-  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); return; }
-  const top = el.getBoundingClientRect().top + scrollY;
-  el.style.setProperty("height", Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - 27)) + "px", "important");
+  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); if (env) env.style.removeProperty("height"); return; }
+  const r = el.getBoundingClientRect(), main = el.closest(".nb-main");
+  const top = r.top + scrollY, pad = main ? Math.max(0, main.getBoundingClientRect().bottom - r.bottom) : 0;
+  // room for the tab bar where it runs along the bottom (an iPad held upright), as the whiteboard leaves
+  const nav = document.querySelector("nav.tabs"), nr = nav ? nav.getBoundingClientRect() : null, navH = nr && nr.height && nr.top > innerHeight / 2 ? Math.round(innerHeight - nr.top) : 0;
+  const h = Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - navH - 16 - pad));
+  el.style.setProperty("height", h + "px", "important");
+  // beside the board it is as tall as the board; on narrower screens it is a tray along the bottom and keeps its own size
+  if (env) { if (getComputedStyle(env).position === "fixed") env.style.removeProperty("height"); else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
 }
 addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
 hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
@@ -18329,7 +18379,8 @@ function addCardSheet(d){
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button><button type="submit" class="btn primary">Add Card</button></div>
   </form>`);
-  const f = $("#fcFront"); if (f) f.focus();
+  // a phone waits for a tap in the box (its keyboard would otherwise be expected, and the sheet would rise and fall back)
+  const f = $("#fcFront"); if (f && window.matchMedia("(min-width:601px)").matches) f.focus();
 }
 function bulkSheet(d){
   openSheet(`<form class="sheet">${head("Paste Cards")}
@@ -21734,6 +21785,15 @@ function toggleTask(id, el){
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
+  if (n.status === "done" && todayCleared()) fire("good-moment", "plan");
+}
+// Today's Plan has nothing left to do: no planned work still open, nothing due today or earlier still open (99-review-ask.js)
+function todayCleared(){
+  try {
+    const today = todayISO(), F = computeFocus();
+    if ((F.ranked || []).some(x => (x.alloc > 0 || x.dl <= 0) && !x.t.xs && !x.dead && x.t.status !== "done")) return false;
+    return !tasksArr().some(t => t.status !== "done" && t.due && t.due <= today && !t.deleted && !t.archived);
+  } catch (e) { return false; }
 }
 // Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
 // page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
@@ -21786,7 +21846,7 @@ document.addEventListener("click", e => {
   if (ui.tab === "notes" && !e.target.closest("dialog") && !e.target.closest(".rb-bar,.rb-eq")) {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
-    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
+    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); return; }   // the note opens with its options; typing starts with a tap in its text (no keyboard straight away on a phone)
     if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
       if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
       saveNoteText();
@@ -22565,8 +22625,15 @@ window.__sbPlanObj = () => PLAN;
     if (settled()) { const u = curUid(); if (u && hintW !== u + p) { hintW = u + p; try { localStorage.setItem(K_HINT, JSON.stringify({uid: u, pro: p})); } catch (e) {} } return p; }
     return p || (Date.now() - boot0 < 10000 && hintPro());
   }
+  // Pro that someone pays for, which is what includes Studyboard AI (the AI server's own rule, cloudflare/ai-pro tierOf). Pro from
+  // a grant, a code or a promotion, and the free weeks, have every Pro feature but not Studyboard AI, so they can still subscribe
+  const aiIncluded = () => { const e = ent(); if (!e || !paid()) return false; if (e.plan === "lifetime") return e.source !== "lifetime";
+    return e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()) && e.source !== "promo" && e.source !== "code" && !e.lite; };
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
+  // On the free weeks of Pro (not paying, not from a code or promotion): PRO tags stay on Pro features and items, as on the free
+  // plan, so it's clear what goes away when the free weeks end
+  const trialTags = () => { try { if (!paywall()) return false; const e = ent(); return freeTrialOnly() && !(e && (e.source === "code" || e.source === "promo")); } catch (x) { return false; } };
   // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
   const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
   const groupsPro = () => limitsPro() || liteNow();
@@ -22728,8 +22795,37 @@ window.__sbPlanObj = () => PLAN;
     if (mine[key]) return false;
     mine[key] = Date.now(); seen[uid] = mine; write(K_LIMITS, seen);
     track("note", o.reason || msg);
-    toast(msg, null, {label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))});
+    reviewQuiet(3);
+    toast(msg, null, [{label: o.label || "See Pro", fn: o.fn || (() => proSheet(o.reason || ""))}, tellUsBtn(msg, "idea")]);
     return true;
+  }
+  /* Free runs: a free account (with its own AI key) gets a few runs a week of some Pro AI tools, so it can try them for real.
+     kind: "quiz" (Quiz Me), "teach" (Teach It Back), "rubric" (Rubric Check). The count is kept in settings, so it syncs to the
+     account's other devices like the collection previews, and starts again each Monday (local time). Pro has no count. */
+  const FREE_RUNS = 3, RUN_NAMES = {quiz: ["Quiz Me", "session", "sessions"], teach: ["Teach It Back", "check", "checks"], rubric: ["Rubric Check", "check", "checks"]};
+  const runWeek = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return iso(d); };
+  function runsState(){
+    const r = state && state.settings && state.settings.freeRuns, wk = runWeek();
+    return r && typeof r === "object" && r.wk === wk ? r : {wk};
+  }
+  // how many free runs of this kind are left this week (Infinity when nothing's locked)
+  function runsLeft(kind){
+    if (!paywall() || isPro()) return Infinity;
+    return Math.max(0, FREE_RUNS - (Number(runsState()[kind]) || 0));
+  }
+  // count one finished run; says how many are left once it's counted
+  function useRun(kind){
+    if (!paywall() || isPro() || !RUN_NAMES[kind]) return;
+    const r = Object.assign({}, runsState()); r[kind] = (Number(r[kind]) || 0) + 1;
+    state.settings = Object.assign({}, state.settings, {freeRuns: r}); saveSettings();
+    const left = runsLeft(kind), [name, one, many] = RUN_NAMES[kind];
+    setTimeout(() => toast(left ? `${left} free ${name} ${left === 1 ? one : many} left this week` : `That was this week's last free ${name} ${one}. More on Monday.`, null, {label: "See Pro", fn: () => proSheet(`${name} is unlimited with Studyboard Pro.`)}), 600);
+  }
+  // the Pro sheet when this week's free runs are used up
+  function runsGone(kind, why){
+    const n = RUN_NAMES[kind] || ["This", "run", "runs"];
+    reviewQuiet(3);
+    proSheet(`You've used this week's ${FREE_RUNS} free ${n[0]} ${n[2]}. They're back on Monday, or get unlimited ${n[2]} with Pro. ${why || ""}`.trim());
   }
   function redeemSheet(){
     if (!sbUser) { toast("Sign in first, then redeem your code."); if (typeof sbAsk === "function") sbAsk(); return; }
@@ -22792,14 +22888,14 @@ window.__sbPlanObj = () => PLAN;
     const save = k => { mine[k] = Date.now(); seen[uid] = mine; write(K_WELCOME, seen); };
     const endAt = ts(e.trial_until);
     if (endAt > now() && endAt - now() <= 864e5 && !mine.lastDay) {
-      save("lastDay"); if (!mine.start) save("start");
+      save("lastDay"); if (!mine.start) save("start"); reviewQuiet(3);
       setTimeout(() => toast(`Your two free weeks of Pro end tomorrow. Everything you made stays, and the planner stays free. Pro themes go back to a plain theme.`, null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro end tomorrow. Keep Pro with any plan below, or carry on with Free.")}), 1500);
     } else if (endAt > now() && !mine.start) {
       if (window.SBOB && SBOB.pending()) { clearTimeout(welcomeRetry); welcomeRetry = setTimeout(welcomeNotes, 4000); return; }
       save("start");
       setTimeout(() => { if (window.SBOB && SBOB.pending()) { delete mine.start; seen[uid] = mine; write(K_WELCOME, seen); return; } welcomePop(e.trial_until); }, 1200);
     } else if (endAt <= now() && now() - endAt < 30 * 864e5 && !paid() && !mine.end) {
-      save("end");
+      save("end"); reviewQuiet(7);
       setTimeout(() => toast("Your two free weeks of Pro have ended. Everything you made is still here, and the planner stays free.", null, {label: "See Plans", fn: () => proSheet("Your two free weeks of Pro have ended. Keep Pro with any plan below, or carry on with Free.")}), 1200);
     }
   }
@@ -23149,13 +23245,10 @@ window.__sbPlanObj = () => PLAN;
     return [
       ["Devices", `${f.devices} Devices`, p.devices === Infinity ? "Unlimited Devices" : `${p.devices} Devices`],
       ["Cloud File Storage", fmtMB(f.fileMB), fmtMB(p.fileMB)],
-      ["Synced Data", fmtMB(f.dataMB), fmtMB(p.dataMB)],
       ["Themes", `${freeThemes} Plain Colors`, `All ${SKINS.length} Themes`],
-      ["Card Styles, Pins and Stickers", "The Free Set", "Every Style"],
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
-      ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`],
-      ["Group Message History", f.groupMsgDays ? `Kept ${f.groupMsgDays} Days` : "Unlimited History", p.groupMsgDays ? `Kept ${p.groupMsgDays} Days` : "Unlimited History"]
-    ].concat(window.SBPRO ? SBPRO.compareRows() : []);
+      ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`]
+    ].concat(window.SBPRO ? SBPRO.compareRows() : []).sort((a, b) => (b[0] === "Studyboard AI") - (a[0] === "Studyboard AI"));
   }
   function meter(label, used, max){
     const pct = max === Infinity || !max ? Math.min(100, used > 0 ? 2 : 0) : Math.min(100, used / max * 100);
@@ -23211,17 +23304,22 @@ window.__sbPlanObj = () => PLAN;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
-    return `<div class="plan-prices${sm ? " three" : ""}">
-        <button type="button" class="plan-price" data-act="plan-buy" data-id="monthly"><span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}</button>
-        ${sm ? `<button type="button" class="plan-price" data-act="plan-buy" data-id="semester"><span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> / 4 months</small></span><span class="pp-sub">${esc((semOnce() ? ["Paid once, doesn't renew"] : [trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span></button>` : ""}
-        <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
+    // one plan is picked from the start (Yearly, the best value), and one clear button buys it; tapping a tile only picks it
+    const ids = ["monthly"].concat(sm ? ["semester"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
+    const NAME = {monthly: "Monthly", semester: "Semester", yearly: "Yearly"}, AMT = {monthly: pr.monthly, semester: semPrice(), yearly: pr.yearly};
+    const tile = (id, cls, inner) => `<button type="button" class="plan-price${cls}" data-act="plan-pick" data-id="${id}" role="radio" aria-checked="${pick === id}">${inner}</button>`;
+    return `<div class="plan-prices${sm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
+        ${tile("monthly", "", `<span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}`)}
+        ${sm ? tile("semester", "", `<span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> for the whole term</small></span><span class="pp-sub">${esc((semOnce() ? ["4 months, paid once, doesn't renew"] : ["Renews every 4 months", trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span>`) : ""}
+        ${tile("yearly", " best", `${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span>`)}
       </div>
+      <button type="button" class="btn primary plan-go" data-act="plan-buy" data-id="${pick}">${trial ? "Start Free Trial" : "Get Pro"} · ${esc(NAME[pick])}, ${esc(AMT[pick])}</button>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
       ${renewalText(pr, trial)}`;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
-    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) track("shown", reason);
+    if (!(dlg.open && dlg.querySelector(".plan-sheet")) && !paid()) { track("shown", reason); try { localStorage.setItem("studyboard:proShownAt", String(Date.now())); } catch (e) {} reviewQuiet(1); }
     P.reason = reason || "";
     const st = statusLine(), pro = paywall() && paid(), u = usage(), L = lim();
     const rows = compareRows();
@@ -23238,11 +23336,12 @@ window.__sbPlanObj = () => PLAN;
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
+        ${paywall() && pro && !aiIncluded() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
         </div>
-        ${(pro || !paywall()) && window.SBPRO ? SBPRO.sheetHtml(pro) : ""}
+        ${window.SBPRO ? SBPRO.sheetHtml(pro || !paywall()) : ""}
         <p class="plan-free mini">${IC.check}<span>Always free: Board, Due Dates, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
         ${pro ? "" : usageHtml}
       </div>
@@ -23251,6 +23350,7 @@ window.__sbPlanObj = () => PLAN;
   async function devicesSheet(limitHit){
     const L = lim(), limited = paywall() && !isPro();
     limitHit = !!limitHit && limited;
+    if (limitHit) reviewQuiet(3);
     const draw = (list, err) => {
       const mine = deviceId();
       const intro = limitHit
@@ -23313,6 +23413,15 @@ window.__sbPlanObj = () => PLAN;
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
       case "plan-buy": buy(id); return true;
+      case "plan-pick": {
+        // pick a plan: the tiles and the button follow, without redrawing the sheet
+        P.pick = id;
+        const box = el.closest(".plan-sheet") || dlg;
+        box.querySelectorAll('[data-act="plan-pick"]').forEach(b => b.setAttribute("aria-checked", String(b.dataset.id === id)));
+        const go = box.querySelector(".plan-go"), name = el.querySelector(".pp-name"), amt = el.querySelector(".pp-amt");
+        if (go) { go.dataset.id = id; go.textContent = go.textContent.replace(/·.*$/, `· ${name ? name.textContent : ""}, ${amt && amt.firstChild ? amt.firstChild.textContent : ""}`); }
+        return true;
+      }
       case "plan-buy-web": buyWebEU(); return true;
       case "plan-refresh": refreshNow(); return true;
       case "plan-restore": restore(); return true;
@@ -23339,7 +23448,7 @@ window.__sbPlanObj = () => PLAN;
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
-    isPro, paywall, settled, storageRow,
+    isPro, paywall, settled, storageRow, trialTags, aiIncluded,
     limits: () => Object.assign({}, lim()),
     freeLimits: () => Object.assign({}, lims("free")),
     proLimits: () => Object.assign({}, lims("pro")),
@@ -23347,14 +23456,18 @@ window.__sbPlanObj = () => PLAN;
     entitlement: () => ent() ? Object.assign({}, ent()) : null,
     can, usage,
     openSheet: proSheet,
+    // the Pro sheet with a plan already picked (the exam and term offers pick Semester; with no semester plan it stays on Yearly)
+    openSheetPick: (reason, pick) => { P.pick = pick; proSheet(reason); },
+    // the semester plan when it's on sale here: its price, and whether it's paid once (App Store, Google Play) or renews (website)
+    semester: () => { try { return semesterOn() ? {price: semPrice(), once: !!semOnce()} : null; } catch (e) { return null; } },
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
     fmtMB
   };
-  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
+  window.StudyboardPlan = {tier: PLAN.tier, isPro, limitsPro, groupsPro, paywall, settled, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), runsLeft, refresh, entitlement: PLAN.entitlement, label: () => planLabel(), status: () => statusLine(), limitNote};
 })();
 
 
@@ -27962,6 +28075,8 @@ Return JSON only.`;
   // Answers from the student's files restate them in the AI's own words (the copyright rule in aiCall), on every route
   const callPlan = (plan, args) => { args = Object.assign({}, args, {task: args.task || "ask"}); args.system = aiCopyRule(args.system, args.task); return plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args); };
   const proLocked = () => !!(window.SBPRO && SBPRO.locked && SBPRO.locked());
+  // free plan: a few Quiz Me sessions a week with the student's own AI key (PLAN.runsLeft)
+  const quizLeft = () => typeof PLAN !== "undefined" && PLAN && PLAN.runsLeft ? PLAN.runsLeft("quiz") : 0;
   const SENT = 8;
   const bodyOf = x => { const d = x.doc; return x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n")); };
   const srcText = (rows, nums) => rows.slice(0, SENT).map((x, i) => nums && !nums.includes(i + 1) ? "" : `[${i + 1}] ${citeOf(x)}\n${String(bodyOf(x)).slice(0, 1500)}`).filter(Boolean).join("\n\n");
@@ -28055,6 +28170,8 @@ Return JSON only.`;
       A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
     }
     if (S.ask === A || S.thread.includes(A)) draw();
+    // opened to quiz (quizCourse): Quiz Me starts on its own once the answer and its sources are in
+    if (S.autoQuiz === A) { S.autoQuiz = null; if (A.answer.state === "done" && A.answer.found !== false && (A.rows || []).length && S.ask === A) startTutor(A); }
   }
   // Only when the student asks, and only the question (and the course's name) is sent
   async function getGeneral(T){
@@ -28123,7 +28240,7 @@ Return JSON only.`;
   // Quiz Me: questions from the answer's sources (the AI quiz writer)
   async function startTutor(T){
     if (!T) return;
-    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: one question at a time from your material, checked and explained."); return; }
+    if (proLocked() && quizLeft() <= 0) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.runsGone("quiz", "Quiz Me asks one question at a time from your material, checked and explained."); return; }
     if (!aiReady()) { close(); aiSetupSheet(true); return; }
     const tu = S.tutor = {ti: turnIx(T), state: "loading", qs: [], i: 0, ans: []}; draw();
     const c = courseOf(studyCid(T)), text = studyText(T);
@@ -28133,6 +28250,7 @@ Return JSON only.`;
       const qs = r.questions.filter(q => ["single", "truefalse", "short"].includes(q.type)).slice(0, 5);
       if (!qs.length) throw aiErr("empty", "Couldn't write questions from this material. Try asking about something your notes cover in more detail.");
       Object.assign(tu, {state: "ready", qs});
+      if (proLocked() && typeof PLAN !== "undefined" && PLAN && PLAN.useRun) PLAN.useRun("quiz");
     } catch(e) { if (S.tutor !== tu) return; Object.assign(tu, {state: "error", err: e.message || "Couldn't write questions right now. Try again."}); }
     draw();
   }
@@ -28369,7 +28487,7 @@ Return JSON only.`;
     const ok = an.found && T.rows.length > 0, gen = T.general && T.general.state === "done";
     if (!ok && !gen) return "";
     const saved = T.saved && state.notes[T.saved];
-    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
+    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() && quizLeft() > 0 ? ` <span class="mini">${quizLeft()} free this week</span>` : proLocked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
     if (T.study && T.study.busy) h += `<p class="sx-hint">${dots} ${esc(T.study.msg)}</p>`;
     else if (T.study && T.study.err) h += `<p class="sx-hint sx-err">${esc(T.study.err)}</p>`;
     if (saved) h += `<p class="sx-hint" role="status">Saved to your Notes, with a link to each source.</p>`;
@@ -28718,6 +28836,12 @@ Return JSON only.`;
     loadTexts().then(() => queueFiles()).catch(() => {});
   }
   window.SBSEARCH.warm = warmFiles;
+  // Quiz Me on a course in one tap (the exam offer on Today's Plan): asks the question in Ask Your Course, then starts Quiz Me on the answer
+  window.SBSEARCH.quizCourse = (cid, q) => {
+    if (dlg.open) dlg.close();
+    resetThread(); open(q, {mode: "ask", course: cid || "", fresh: true, run: false});
+    runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
+  };
   setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });
@@ -29136,7 +29260,7 @@ document.head.appendChild(AREA_CSS);
         ${li("Picture Cards", "and cards made from the diagrams in your PDFs and pictures")}
         ${li("Insights, Term Recap and More Focus Routines")}
       </ul>
-      <p class="ob-note mini">${gift ? "" : account ? "It starts as soon as you confirm your email address. " : "It starts when you make your free account. You can do that at the end of setup. "}Storage and backups stay at the Free amounts during the week.</p>`;
+      <p class="ob-note mini">${gift ? "" : account ? "It starts as soon as you confirm your email address. " : "It starts when you make your free account. You can do that at the end of setup. "}Storage and backups stay at the Free amounts during the two weeks.</p>`;
   }
 
   function doneStep(){
@@ -29602,7 +29726,7 @@ document.head.appendChild(AREA_CSS);
         <p class="mini" style="margin:0">${ai ? "Was an AI answer wrong, harmful, offensive or inappropriate? Tell us what happened. Every report is read by the person who makes the app." : "Tell us what went wrong, or what would make Studyboard better. Every report is read by the person who makes the app."}</p>
         ${queued ? `<p class="mini" style="margin:0">${queued} earlier report${queued === 1 ? " is" : "s are"} waiting to send when you're online.</p>` : ""}
         <label class="f">What is it about?<select name="cat">${[["bug", "Something is broken"], ["ai", "An AI response was wrong or inappropriate"], ["idea", "An idea or feature request"], ["confusing", "Something is confusing"], ["other", "Something else"]].map(([v, l]) => `<option value="${v}" ${v === (opts.cat || "bug") ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-        <label class="f"><span class="lh">What happened?<span class="req" aria-hidden="true">*</span></span><textarea name="msg" id="bugMsg" rows="4" maxlength="2000" placeholder="${ai ? "What was wrong with the response?" : "Describe the problem or your idea. What did you expect to happen?"}" data-noenter autofocus></textarea></label>
+        <label class="f"><span class="lh">What happened?<span class="req" aria-hidden="true">*</span></span><textarea name="msg" id="bugMsg" rows="4" maxlength="2000" placeholder="${ai ? "What was wrong with the response?" : "Describe the problem or your idea. What did you expect to happen?"}" data-noenter autofocus>${esc(String(opts.msg || "").slice(0, 2000))}</textarea></label>
         ${ai ? `<label class="f"><span class="lh">The AI response <span class="hint">sent with your report; remove anything private</span></span><textarea name="steps" rows="5" maxlength="1500" data-noenter>${esc(ai.text)}</textarea></label>`
           : `<label class="f"><span class="lh">Steps to make it happen <span class="hint">optional</span></span><textarea name="steps" rows="3" maxlength="1500" placeholder="1. Go to… 2. Tap… 3. See…" data-noenter></textarea></label>`}
         ${signedIn ? `<div class="bug-shot">
@@ -41820,10 +41944,10 @@ function cleanFile(r) {
         if (r.needLogin || r.error) { setLocal({fails: (local().fails || 0) + 1}); if (!o.quiet) signInAgain(); else scheduleRender(); return null; }
         if (!o.quiet) toast(`Your ${P.name} sign-in ran out, so Studyboard used your calendar link. Sign in again for grades and announcements.`);
       }
-      if (r.error) { setLocal({err: r.text, fails: (local().fails || 0) + 1}); if (!o.quiet) toast(r.text); scheduleRender(); return null; }
+      if (r.error) { setLocal({err: r.text, fails: (local().fails || 0) + 1}); if (!o.quiet) toast(r.text, null, {label: "Try Again", fn: () => syncNow()}, {error: true}); scheduleRender(); return null; }
       const p = plan(r.data);
       return applyPlan(r.data, p, used, !!o.quiet);
-    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}. Try again.`); return null; }).finally(() => { running = null; if (pill) syncPill(false); refreshSheet(); });
+    })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}.`, null, {label: "Try Again", fn: () => syncNow()}, {error: true}); return null; }).finally(() => { running = null; if (pill) syncPill(false); refreshSheet(); });
     refreshSheet();
     return running;
   }
@@ -42201,7 +42325,9 @@ function cleanFile(r) {
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="${A}-back">Back</button></div></div>`);
   }
+  // A sync started here that needs a fresh sign-in: a message at the bottom with Sign In (it stays until dealt with)
   function signInAgain(){
+    if (!dlg.open || !dlg.querySelector(".bs-status")) { toast(`Sign in to ${P.name} to continue syncing.`, null, {label: "Sign In", fn: () => doLogin().catch(e => { console.error(e); toast("Sign-in didn't work. Try again."); })}, {error: true}); return; }
     openSheet(`<div class="sheet">${head(`Sign In to ${P.name} Again`)}
       <div class="sheet-body"><p style="margin:0">Your ${P.name} sign-in on this device has run out (they usually last a few days or weeks). Sign in again to keep your due dates, grades and announcements up to date.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Later</button><button type="button" class="btn primary" data-act="${A}-login">Sign In</button></div></div>`);
@@ -42383,7 +42509,7 @@ function cleanFile(r) {
   function readAgain(wait){
     const c = cfg();
     if (bsDesk() && c.mode === "api") { syncNow({force: true}); return; }
-    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem(extKey(P.id)); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); return; }
+    if (EXT.on && EXT.schools.some(x => x.id === P.id)) { try { localStorage.removeItem(extKey(P.id)); } catch(e) {} extPost({type: "get"}); extPost({type: "sync"}); extSyncWatch([P.id]); return; }
     if (c.feed) { syncNow({force: true}); return; }
     setTimeout(() => toast(extNudge("to bring everything back"), null, extBtn()), wait || 0);
   }
@@ -43004,6 +43130,31 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   const EXT_STORE = {chrome: EXT_CHROME_URL, edge: EXT_EDGE_URL, firefox: "", safari: ""};
   const EXT = {on: false, version: "", schools: [], checked: false};
   const extPost = m => window.postMessage(Object.assign({source: "studyboard-app"}, m), location.origin);
+  // A sync started here and run by the extension: "Syncing" until every school it was asked for reports back, then, if one
+  // couldn't sync, a message at the bottom that says why, with a way forward (Sign In opens that school site's sign-in)
+  let extWatch = null;
+  const hostOfExt = o => { try { return new URL(o).host; } catch (e) { return String(o || "").replace(/^https?:\/\//, ""); } };
+  function extSyncWatch(ids){
+    if (extWatch) { clearTimeout(extWatch.timer); syncPill(false); }
+    syncPill(true);
+    extWatch = {ids: ids.slice(), t0: Date.now() - 1500, timer: setTimeout(() => extWatchEnd(null), 120000)};
+  }
+  function extWatchEnd(res){
+    const w = extWatch; if (!w) return; extWatch = null; clearTimeout(w.timer); syncPill(false);
+    const nm = id => (LMS[id] && LMS[id].P.name) || "your school site";
+    if (!res) { toast("The Studyboard School Sync extension didn't finish syncing. Open it from your browser's toolbar to check on it.", null, null, {error: true}); return; }
+    const login = res.filter(x => x.state === "login"), perm = res.filter(x => x.state === "permission"), bad = res.filter(x => x.state === "error");
+    if (login.length) { const x = login[0]; toast(`Sign in to ${hostOfExt(x.origin)} to continue syncing ${nm(x.id)}.`, null, {label: "Sign In", fn: () => openOutside(x.origin)}, {error: true}); return; }
+    if (perm.length) { toast(`The Studyboard School Sync extension needs your OK to read ${hostOfExt(perm[0].origin)}. Open it from your browser's toolbar and allow it to continue syncing.`, null, null, {error: true}); return; }
+    if (bad.length) { const x = bad[0]; toast(`Couldn't sync ${nm(x.id)}${x.error ? ": " + x.error : ""}. Try again in a moment.`, null, {label: "Try Again", fn: () => { extPost({type: "sync"}); extSyncWatch(w.ids); }}, {error: true}); }
+  }
+  function extWatchCheck(){
+    const w = extWatch; if (!w) return;
+    const res = w.ids.map(id => EXT.schools.find(x => x.id === id)).filter(Boolean);
+    if (res.length < w.ids.length) { if (EXT.schools.length && !res.length) extWatchEnd([]); return; }
+    if (res.some(x => !((x.tried || 0) >= w.t0) || x.state === "syncing")) return;
+    extWatchEnd(res);
+  }
   const EXT_REV = "2026-10-17f";
   const extKey = id => "studyboard:ext:" + (sbUser && sbUser.id ? sbUser.id : "guest") + ":" + id;
   const extSeen = id => { try { const v = String(localStorage.getItem(extKey(id)) || "").split("|"); return v[1] === EXT_REV ? Number(v[0]) || 0 : 0; } catch(e) { return 0; } };
@@ -43059,6 +43210,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       else if (d.type === "data") {
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
         EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0, tried: Number(x.tried) || 0, error: String(x.error || "").replace(/[<>]/g, "").slice(0, 160)}));
+        extWatchCheck();
         (Array.isArray(d.list) ? d.list : []).slice(0, 3).forEach(x => { extChain = extChain.then(() => extImport(x)).catch(err => console.warn("extension import", err)); });
       }
     });
@@ -43200,7 +43352,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
       const on = ALL().filter(L => L.connected());
       if (!on.length) { pickerSheet(); return true; }
       if (!navigator.onLine) { toast("You're offline. Connect to the internet and try again."); return true; }
-      if (EXT.on) { const viaExt = on.filter(L => EXT.schools.some(x => x.id === L.P.id)); if (viaExt.length) { extPost({type: "sync"}); toast(`Syncing ${viaExt.map(L => L.P.name).join(" and ")} with the Studyboard School Sync extension…`); } }
+      if (EXT.on) { const viaExt = on.filter(L => EXT.schools.some(x => x.id === L.P.id)); if (viaExt.length) { extPost({type: "sync"}); extSyncWatch(viaExt.map(L => L.P.id)); } }
       const can = on.filter(L => L.canSync() && !(EXT.on && EXT.schools.some(x => x.id === L.P.id))), cant = on.filter(L => !L.canSync() && !(EXT.on && EXT.schools.some(x => x.id === L.P.id)));
       if (!can.length && !cant.length) return true;
       if (cant.length) {
@@ -63798,19 +63950,20 @@ var COMP_EXTRA = [];
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
   /* Props (accessories) */
-  // Props follow effort and consistency (focus time, study days, streaks, spreading exam study over days), never how many
+  // Props follow effort and consistency (focus time, flashcards, practice quizzes, study days, spreading exam study over days), never how many
   // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
   const ACC = [
-    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["studydays", 3], ["checkins", 3]]},
-    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
-    {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["studydays", 10], ["spread", 1], ["checkins", 7]]},
-    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 3]]},
-    {id: "medal", name: "Champion Medal", free: true, paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
-    {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["studydays", 40], ["checkins", 21]]},
-    {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
+    // Every prop can be earned by focus time, flashcards or practice quizzes, plus a few other ways (study days, notes, exam prep...)
+    {id: "scarf", name: "Cozy Scarf", hours: 2, free: true, paths: [["cards", 30], ["quizzes", 5], ["studydays", 3], ["checkins", 3]]},
+    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 7], ["notes", 3], ["groups", 1]]},
+    {id: "bowtie", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
+    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
+    {id: "medal", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
+    {id: "cape", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
+    {id: "star", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
     {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
-    {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
+    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
+    {id: "crown", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 60], ["stickers", 30]]}
   ];
   // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
   if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
@@ -64047,7 +64200,8 @@ var COMP_EXTRA = [];
     try {
       if (typeof id !== "string" || id.indexOf("ph-") !== 0 || !window.SBPHOTO || typeof SBPHOTO.recs !== "function") return null;
       const r = SBPHOTO.recs().find(x => x.id === id), list = (r && Array.isArray(r.comps) ? r.comps : []).map(cid => BYID[cid]).filter(Boolean).slice(0, 3);
-      return list.length ? list : null;
+      // Without Pro its Pro companions are locked; with none of its three left to use, the free plain set stands in
+      return list.length && list.some(c => canComp(c)) ? list : null;
     } catch (e) { return null; }
   };
   const themeKey = id => REG[id] ? id : photoSet(id) ? id : "plain";
@@ -64085,7 +64239,7 @@ var COMP_EXTRA = [];
   const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
     notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "study group or room", focusWeeks: "weeks with 4+ focus days", festive: "winter holiday visit"};
   const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
-    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n} practice quizzes (70% or more)`, notes: n => `Write ${n} notes`,
+    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n === 1 ? "a practice quiz" : n + " practice quizzes"} (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
     groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
   let pStat = null, pStatAt = 0;
@@ -64106,6 +64260,7 @@ var COMP_EXTRA = [];
     tr(() => { const sc = state.settings && state.settings.scrap; if (sc) { s.stickers = [sc.cur].concat(sc.past || []).reduce((n, p) => n + (p && p.g ? Object.keys(p.g).length : 0), 0);
       s.groups = ["gp", "rm"].filter(k => sc.f && sc.f[k]).length; } });
     tr(() => { s.checkins = (cfg().ci || []).length; });
+    tr(() => { s.prep = Object.values(state.tasks || {}).filter(t => t && t.prepFor && t.status === "done").length; });
     tr(() => { const per = {}; Object.entries(SBSTATS.focusDays()).forEach(([d, m]) => { if (Number(m) >= 15) { const w = mondayOf(d); per[w] = (per[w] || 0) + 1; } }); s.focusWeeks = Object.values(per).filter(n => n >= 4).length; });
     tr(() => { const d = new Date(), m = d.getMonth(), day = d.getDate(); s.festive = m === 11 || (m === 0 && day <= 6) ? 1 : 0; });
     pStat = s; pStatAt = now;
@@ -64134,6 +64289,7 @@ var COMP_EXTRA = [];
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
+  const CALM = 1.35;
   /* ---------- An actor: animations on one rendered rig ---------- */
   function actor(c, root, opts){
     opts = opts || {};
@@ -64141,8 +64297,10 @@ var COMP_EXTRA = [];
     const q = s => svg.querySelector(s);
     const part = n => q(".cp-" + n);
     const running = new Set();
+    // Every move plays a little slower than written, so the companion feels calm rather than hurried
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
+      ms = Math.round(ms * CALM);
       const a = el.animate(frames, Object.assign({duration: ms, easing: "ease-in-out"}, o));
       if (opts.watch) opts.watch(ms);
       running.add(a); a.onfinish = a.oncancel = () => running.delete(a);
@@ -64178,7 +64336,7 @@ var COMP_EXTRA = [];
           case "headTilt": if (!partSvg(c.parts.head)) return null; return anim(q(".cp-headg"), [0, 9, 9, -4, 0].map(rot), 1800);
           case "topBob": return A.part("top", [0, 13 * k, -11 * k, 7, -3, 0].map(rot), 1300);
           case "bounce": return A.move([0, -6 * k, 0, -3 * k, 0].map((y, i) => ({transform: `translateY(${y}px) scale(${i % 2 ? "0.97,1.04" : i ? "1.04,0.96" : "1,1"})`})), 900);
-          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(2px) scale(1.08,.9)", offset: 0.15}, {transform: `translateY(${-16 * k}px) scale(.95,1.06)`, offset: 0.45}, {transform: "translateY(1px) scale(1.07,.92)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 720);
+          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(1px) scale(1.04,.95)", offset: 0.15}, {transform: `translateY(${-12 * k}px) scale(.98,1.03)`, offset: 0.45}, {transform: "translateY(1px) scale(1.04,.96)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 800);
           case "spin": return A.move([{transform: "perspective(400px) rotateY(0deg)"}, {transform: "perspective(400px) rotateY(360deg)"}], 900, {easing: "cubic-bezier(.5,0,.3,1)"});
           case "sway": return A.move([0, 4, -4, 3, 0].map(d => ({transform: `rotate(${d * k}deg)`})), 1900);
           case "waddle": return A.move([0, -6, 6, -6, 6, 0].map((d, i) => ({transform: `translateX(${i % 2 ? -1.5 : i ? 1.5 : 0}px) rotate(${d}deg)`})), 1200);
@@ -64233,7 +64391,8 @@ var COMP_EXTRA = [];
     const vv = window.visualViewport, ins = insets(), de = document.documentElement;
     const lw = de.clientWidth || innerWidth, lh = de.clientHeight || innerHeight;
     let l = 0, t = 0, r = lw, b = lh;
-    if (vv) {
+    // pinch-zoomed in: the companion stays where it stands on the page instead of chasing the zoomed-in view
+    if (vv && !(vv.scale > 1.01)) {
       const l2 = Math.max(l, vv.offsetLeft), t2 = Math.max(t, vv.offsetTop), r2 = Math.min(r, vv.offsetLeft + vv.width), b2 = Math.min(b, vv.offsetTop + vv.height);
       if (r2 - l2 >= 100 && b2 - t2 >= 100) { l = l2; t = t2; r = r2; b = b2; }
     }
@@ -64492,6 +64651,19 @@ var COMP_EXTRA = [];
     home.score = Math.abs(home.left - want) / span * 220 - 12;
     out.push(home);
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
+    // the gap between the side menu and the page, if it fits there: the spot right in its middle
+    try {
+      const g = geometry(), v = document.getElementById("view"), e = vext || measureArt() || DEF_ART;
+      if (g.sideNav && v) {
+        const vl = v.getBoundingClientRect().left, artW = px * (e.r - e.l), mid = (g.side + vl) / 2;
+        if (vl - g.side >= artW + 8) {
+          const x = Math.round(mid - px * (e.l + e.r) / 2);
+          // any other spot inside the gap gives way to the middle one
+          for (let i = out.length - 1; i >= 0; i--) if (out[i].kind === "ground" && out[i].left + px * e.l < vl && out[i].left + px * e.r <= vl + 2) out.splice(i, 1);
+          if (x >= L - 0.5 && x <= R) out.push({left: x, top: ground, kind: "ground", score: Math.abs(x - want) / span * 220 - 1});
+        }
+      }
+    } catch (err) {}
     const lowT = lowTop(rg);
     for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
@@ -64662,7 +64834,8 @@ var COMP_EXTRA = [];
     const float = cur.pose === "float", dir = to.left > from.left ? 1 : -1, feetY = to.top + px * (112 / 120);
     const frames = []; let dur, easing = "linear";
     const T = (t, x, y, extra) => frames.push({transform: `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)${extra || ""}`, offset: t});
-    const style = force || d > Math.max(innerWidth * 0.55, 620) ? (force || "dash") : float ? (Math.random() < 0.55 ? "loop" : "wave") : (d > 260 && Math.random() < 0.4 ? "leap" : "hops");
+    // Calm on its own: a short way it glides, further it takes a few low hops (or floats there); no leaps, spins, dashes or loops
+    const style = force || (d < 150 ? "glide" : float ? "wave" : "hops");
     if (style === "dash") {
       dur = 900;
       T(0, dx, dy, " scale(1)"); T(0.14, dx + dir * 14, dy, ` scale(.86,1.12) rotate(${-dir * 6}deg)`);
@@ -64676,15 +64849,18 @@ var COMP_EXTRA = [];
       for (let i = 1; i <= 8; i++) { const t = i / 8, x = dx * (1 - t), y = dy * (1 - t) - Math.sin(Math.PI * t) * h; T(0.12 + t * 0.7, x, y, ` rotate(${(dir * 360 * t).toFixed(0)}deg) scale(${t < 0.15 ? 0.94 : 1},${t < 0.15 ? 1.08 : 1})`); }
       T(0.9, 0, 0, " scale(1.16,.82)"); T(1, 0, 0, " scale(1)");
       later(() => puff(from.left + px / 2, from.top + px * (112 / 120)), dur * 0.12); later(() => puff(to.left + px / 2, feetY, true), dur * 0.84);
+    } else if (style === "glide") {
+      dur = Math.min(1100, 700 + d * 1.6); easing = "cubic-bezier(.45,0,.25,1)";
+      for (let i = 0; i <= 8; i++) { const t = i / 8; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 6); }
     } else if (style === "hops") {
-      const hops = Math.max(2, Math.min(5, Math.round(d / 120))), h = Math.min(56, 26 + d / hops * 0.2);
-      dur = Math.min(1500, 420 + hops * 230);
+      const hops = Math.max(2, Math.min(5, Math.round(d / 150))), h = Math.min(26, 12 + d / hops * 0.08);
+      dur = Math.min(2300, 700 + hops * 360);
       T(0, dx, dy, " scale(1)");
       for (let k = 0; k < hops; k++) {
         const a = k / hops, bT = (k + 1) / hops, mid = (a + bT) / 2;
-        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.1,.9)");
-        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 9}deg) scale(.94,1.08)`);
-        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 3}deg) scale(1.14,.86)`);
+        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.04,.96)");
+        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 3}deg) scale(.98,1.03)`);
+        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 1}deg) scale(1.05,.95)`);
         const lx = to.left + px / 2 + dx * (1 - bT), ly = to.top + px * (112 / 120) + dy * (1 - bT);
         later(() => puff(lx, ly, k === hops - 1), dur * bT);
       }
@@ -64699,10 +64875,9 @@ var COMP_EXTRA = [];
       easing = "ease-in-out";
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     } else {
-      dur = Math.min(1400, 800 + d * 0.9);
-      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 36 + Math.sin(t * Math.PI * 4) * 10, ` rotate(${(Math.sin(t * Math.PI * 4) * dir * 10).toFixed(0)}deg)`); }
+      dur = Math.min(2200, 1200 + d * 1.1);
+      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 22 + Math.sin(t * Math.PI * 2) * 5, ` rotate(${(Math.sin(t * Math.PI * 2) * dir * 4).toFixed(0)}deg)`); }
       easing = "ease-in-out";
-      for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
     // on its way it flies above everything; it settles under the page's bars (cp-under) only once seated in its circle
@@ -64841,14 +65016,22 @@ var COMP_EXTRA = [];
     for (let i = 0; i < n; i++) {
       const s = document.createElement("span");
       s.className = "cp-pt" + (still() ? " cp-pt-still" : "");
-      const size = (kind === "z" ? 13 : rand(11, 16)) * (small ? 0.8 : 1);
-      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : top[0] * k + rand(-px * 0.36, px * 0.36), y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : top[1] * k + rand(-4, 14);
-      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(kind === "bang" ? 0 : rand(-14, 14))}px;--r:${f1(kind === "bang" ? 0 : rand(-20, 20))}deg;animation-delay:${Math.round(i * 110)}ms`;
+      // Hearts and sparkles: a clear size, starting either side of the head (alternating) and drifting up and outward, so they
+      // never pass behind the speech bubble above it; each keeps one gentle tilt the whole way (no wobble)
+      const pop = kind === "heart" || kind === "sparkle";
+      const size = (kind === "z" ? 13 : pop ? rand(16, 19) : rand(11, 16)) * (small ? 0.8 : 1);
+      const sd = i % 2 ? 1 : -1, cx = top[0] * k;
+      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : pop ? cx + sd * px * rand(0.3, 0.44) : top[0] * k + rand(-px * 0.36, px * 0.36);
+      const y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : pop ? top[1] * k + rand(4, 16) : top[1] * k + rand(-4, 14);
+      const dx = kind === "bang" ? 0 : pop ? sd * rand(10, 18) : rand(-14, 14), r = kind === "bang" ? 0 : pop ? sd * rand(4, 10) : rand(-20, 20);
+      s.className += pop ? " cp-pt-pop" : "";
+      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(dx)}px;--r:${f1(r)}deg;animation-delay:${Math.round(i * (pop ? 170 : 200))}ms`;
       s.innerHTML = art[kind] || art.sparkle;
       fx.appendChild(s);
       const kill = () => s.remove();
-      s.addEventListener("animationend", kill, {once: true});
-      setTimeout(kill, 2600 + i * 110);
+      // only its own float ends it (the page-wide fade-in for new things, 99-smooth, used to end it after a fifth of a second)
+      s.addEventListener("animationend", e => { if (e.target === s && /^cp(Up|Float|Fade)$/.test(e.animationName)) kill(); });
+      setTimeout(kill, 3600 + i * 200);
     }
   }
 
@@ -65076,7 +65259,7 @@ var COMP_EXTRA = [];
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
-    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
+    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
       ${sc ? `<label class="cp-ask-ctx"><input type="checkbox" class="cp-ctx-on" checked> <span>About this ${esc(sc.kind.toLowerCase())}: <b>${esc(shortT(sc.label, 34))}</b></span></label>` : ""}
       <span class="cp-ask-hint">${sc ? esc(sc.hint) : (() => { try { return aiReady(); } catch (e) { return false; } })() ? `Like "find my lab notes" or "move my essay to Friday"` : `Like "what should I do next?" or "quiz me on something"`}</span>`;
     placeBubble(b);
@@ -65203,9 +65386,9 @@ var COMP_EXTRA = [];
     if (layer && sig === curSig) { applyVars(); placeSoon(0); return; }
     const first = !layer;
     if (!layer) {
-      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer";
+      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer sm-skip";
       document.body.appendChild(layer);
-      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front";
+      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front sm-skip";
       front.innerHTML = `<div class="cp-bubble" role="status"></div>`;
       // pointing at a bubble keeps it up; it goes a moment after the pointer leaves (an open Ask box keeps its own timer)
       { const bb = front.querySelector(".cp-bubble");
@@ -65221,7 +65404,7 @@ var COMP_EXTRA = [];
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
-    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
+    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx sm-skip"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
     // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
     // while a sheet or the keyboard holds off the next placement
@@ -65289,7 +65472,7 @@ var COMP_EXTRA = [];
     act.eyes("happy"); act.mouth("smile");
     box.classList.add("cp-loved");
     act.motion(cur.cheer === "hop" ? "spin" : cur.cheer, true);
-    later(() => act && act.motion("hop"), 950);
+    later(() => act && act.motion("hop"), Math.round(950 * CALM));
     spawnFx("heart", 5);
     if (talkOn()) say(pickFrom(cur.id + ":pet", ownLines("pet")), {ask: askShown()});
     later(() => { if (!act) return; box.classList.remove("cp-loved"); act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2600);
@@ -65304,7 +65487,7 @@ var COMP_EXTRA = [];
       hold(2200);
       act.eyes("happy"); act.mouth("smile");
       act.motion(cur.cheer, true);
-      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), 900);
+      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), Math.round(900 * CALM));
       spawnFx("sparkle", 4);
       later(() => { if (!act) return; act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2000);
     }, delay || 0);
@@ -65855,7 +66038,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }
     try { clamp("keyboard"); } catch (e) {} guardSoon("keyboard", 60);
   });
-  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
+  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { if (k === "scroll" && visualViewport.scale > 1.01) return; sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
   document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
   document.addEventListener("focusout", () => guardSoon("blur", 350));
   new MutationObserver(() => { sAt = 0; vext = null; guardSoon("text-size", 100); placeSoon(150); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-ts", "data-hc"]});
@@ -65878,7 +66061,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   hook("render", tab => {
     if (!layer) { if (isOn()) refresh(0); return; }
     applyVars(); fitHitSoon();
-    const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && !staysPut() && roamDue(0.2);
+    // a new page only moves it when its spot would cover something there (no random wandering off on a tab change)
+    const newTab = tab !== lastTab, first = !lastTab, wander = false;
     if (wander) lastRoam = Date.now();
     // an open Ask box doesn't stay behind when the page changes and the companion moves (Ask's own answers, said after it
     // goes somewhere, aren't the Ask box, so they stay)
@@ -66134,7 +66318,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
-        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || pro() ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
+        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || (pro() && !tagPro()) ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
         ${earn ? (pct => `<span class="cp-earn">${esc(EARN[x.id].how)} to unlock</span><span class="cp-earn-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to unlock ${esc(x.name)}"><i style="width:${pct}%"></i></span><span class="mini">${esc(EARN[x.id].left(left))} to go</span><button type="button" class="link-btn cp-earn-pro" data-act="comp-pick" data-slot="${i}">Or Get It With Pro</button>`)(Math.max(0, Math.min(99, Math.floor((1 - left / EARN[x.id].n) * 100))))
           : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
@@ -66150,7 +66334,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
       const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || pro() ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
@@ -66161,11 +66345,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
-      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
+      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
-      ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
+      ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
       ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
@@ -66201,7 +66385,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const rank = k => window.SBUI && typeof SBUI.themeRank === "function" ? SBUI.themeRank(k) : SKINS.findIndex(x => x.id === k);
     const others = Object.keys(REG).filter(k => k !== here && k !== "plain" && SKINS.some(x => x.id === k) && (REG[k].list || []).length).sort((a, b) => rank(a) - rank(b));
     const group = k => { const sk = SKINS.find(x => x.id === k), have = owns("skin", k);
-      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
+      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have && !(tagPro() && sk && sk.tier === "pro") ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
     return mine + (others.length ? `<details class="cp-oth-d"${ui.cpOth ? " open" : ""}><summary>Companions from Other Themes</summary><p class="mini" style="margin:0">Tap one to switch to its theme. Each theme has its own companions.</p>${others.map(group).join("")}</details>` : "");
   }
   function openChange(){
@@ -68031,6 +68215,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const blurFrac = lv => clamp(Number(lv) || 0, 0, 100) / 100 * 0.022;
   const P = () => (typeof PLAN !== "undefined" && PLAN) ? PLAN : null;
   const canUse = () => { const p = P(); return p ? !!p.isPro() : !STORE.paywall; };
+  // A new photo theme needs Pro that's paid for (or from a code): not the free weeks. Themes made before stay as they are
+  const onTrial = () => { const p = P(); try { return !!(p && typeof p.trialTags === "function" && p.trialTags()); } catch (e) { return false; } };
+  const canMake = () => canUse() && !onTrial();
+  const TRIAL_MSG = "Photo themes are included with paid Pro.";
+  const makeWall = () => { if (canUse() && onTrial()) toast(TRIAL_MSG); else paywall(); };
   const paywall = () => { const p = P(); if (p && p.openSheet) p.openSheet(REASON); else shopUnlock("skin", "photo"); };
   const canSync = () => !!caps.assets && (inPreview() || (sbActive() && cloud.on));
   const canFetch = () => inPreview() || sbActive();
@@ -68451,18 +68640,18 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const TRASH = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>`;
   function tileHtml(r, cfg, locked){
     const t = themeOf(r), on = cfg.skin === r.id && root.dataset.skin === r.id;
-    const use = locked ? `<button type="button" class="btn small" data-act="ph-use" data-id="${esc(r.id)}">🔒 Unlock</button>`
-      : on ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="ph-use" data-id="${esc(r.id)}">Use</button>`;
+    // A theme someone made stays theirs: it can always be used, with or without Pro (only editing it needs Pro)
+    const use = on ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="ph-use" data-id="${esc(r.id)}">Use</button>`;
     const where = r.asset ? "On all your devices" : canSync() && have.has(r.id) ? "Uploading to your account" : have.has(r.id) || !r.asset ? "Saved on this device" : "";
     return `<div class="shop-tile ph-tile${on ? " on" : ""}" data-ph="${esc(r.id)}"><div class="skin-pair">${skinPreview(t.skin, false)}${skinPreview(t.skin, true)}</div>
       <div class="shop-name"><b>${esc(r.name)}</b>${PRO_BADGE}</div><p class="mini">${esc(where)}</p>
       <div class="ph-acts">${use}<button type="button" class="btn small" data-act="ph-edit" data-id="${esc(r.id)}">Edit</button><button type="button" class="icon-btn ph-del" data-act="ph-del" data-id="${esc(r.id)}" aria-label="Delete ${esc(r.name)}" title="Delete">${TRASH}</button></div></div>`;
   }
   function sectionHtml(lazy){
-    const list = recs(), cfg = styleCfg(), full = list.length >= MAX, locked = !canUse();
+    const list = recs(), cfg = styleCfg(), full = list.length >= MAX, locked = !canMake(), trial = locked && canUse();
     const add = `<div class="shop-tile ph-add${full ? " full" : ""}${locked ? " locked" : ""}" data-act="ph-add" role="button" tabindex="0" aria-label="${full ? "Photo theme limit reached" : "Add a Photo"}">
       <span class="ph-add-ic" aria-hidden="true">${locked ? "🔒" : PLUS}</span><b>${full ? "5 Photo Themes Saved" : "Add a Photo"}</b>
-      <span class="mini">${full ? "That's the most you can keep. Delete one to add another." : locked ? "Make a theme from your own photo with Studyboard Pro." : "Choose a photo, or drop one here. JPG, PNG, WebP or HEIC."}</span></div>`;
+      <span class="mini">${full ? "That's the most you can keep. Delete one to add another." : trial ? "Included with paid Pro." : locked ? "Make a theme from your own photo with Studyboard Pro." : "Choose a photo, or drop one here. JPG, PNG, WebP or HEIC."}</span></div>`;
     const inner = `<p class="mini ph-intro">Turn a photo of your campus, your pet or a favorite place into a theme. Buttons, sticky notes and flashcards all pick up its colors.</p>
       <div class="shop-grid ph-grid">${add}${list.map(r => tileHtml(r, cfg, locked)).join("")}</div>
       <input type="file" id="phFile" class="sr" tabindex="-1" aria-hidden="true" accept="image/*,.heic,.heif">`;
@@ -68510,7 +68699,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
 
   /* Adding a photo */
   function addClick(){
-    if (!canUse()) { paywall(); return; }
+    if (!canMake()) { makeWall(); return; }
     if (recs().length >= MAX) { toast("You can keep up to 5 photo themes. Delete one to add another."); return; }
     const inp = document.getElementById("phFile");
     if (inp) inp.click();
@@ -68526,7 +68715,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   let adding = false;
   async function addFile(file){
     if (adding || !file) return;
-    if (!canUse()) { paywall(); return; }
+    if (!canMake()) { makeWall(); return; }
     if (recs().length >= MAX) { toast("You can keep up to 5 photo themes. Delete one to add another."); return; }
     const heic = /hei[cf]/i.test((file.type || "") + " " + (file.name || ""));
     if (!/^image\//.test(file.type || "") && !/\.(heic|heif|jpe?g|png|webp|gif|avif|bmp)$/i.test(file.name || "")) { toast("That file isn't a photo. Choose a JPG, PNG, WebP or HEIC image."); return; }
@@ -68809,7 +68998,6 @@ You can also DO things in Studyboard, but only when the student asks or what the
 
   /* Use and delete */
   function use(id){
-    if (!canUse()) { paywall(); return; }
     if (!recOf(id)) return;
     saveStyle({skin: id}); applySkin(); render(); styleShop();
   }
@@ -72587,7 +72775,7 @@ const IA = (() => {
       if (a.pics) warn.push(trn("ia.w.pics", a.pics, "{n} picture wasn't brought in.|{n} pictures weren't brought in."));
       if (a.sounds) warn.push(trn("ia.w.sounds", a.sounds, "{n} sound wasn't brought in.|{n} sounds weren't brought in."));
       if (a.picsLost) warn.push(trn("ia.w.picLost", a.picsLost, "{n} image occlusion card's picture wasn't in the file, so it was left out.|{n} image occlusion cards' pictures weren't in the file, so they were left out."));
-      if (a.pictures) warn.push(window.SBPRO && SBPRO.locked && SBPRO.locked() ? tr("ia.w.picsFree", "Image occlusion notes come in as Picture Cards, with their masks and history. You can study them now; editing their boxes and Diagram Practice are part of Studyboard Pro.") : tr("ia.w.picsIn", "Image occlusion notes come in as Picture Cards, with their masks and history."));
+      if (a.pictures) warn.push(window.SBPRO && SBPRO.locked && SBPRO.locked() ? tr("ia.w.picsFree", "Image occlusion notes come in as Picture Cards, with their masks and history. You can study them and edit their boxes now; Diagram Practice is part of Studyboard Pro.") : tr("ia.w.picsIn", "Image occlusion notes come in as Picture Cards, with their masks and history."));
       if (a.skipped) warn.push(trn("ia.w.skip", a.skipped, "{n} card had nothing but pictures or sound on one side and was left out.|{n} cards had nothing but pictures or sound on one side and were left out."));
     } else {
       const p = r.plan;
@@ -75240,13 +75428,54 @@ function inputFor(ex, P, topics, due){
     days: P.days, rest: P.rest, light: P.light, start: P.start || "", done, examTitle: ex.title, early: !!(P.lesson && P.lesson.early), favor: P.lesson && P.lesson.questions ? "questions" : "", dayInfo: dayInfoFn(ex, today, due),
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
-function readyFor(ex){
+// doneOf (optional): whether to count a session as done, for the exam-day forecast's "what if" (default: whether it is done)
+function readyFor(ex, doneOf){
   const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {};
   P.topics.forEach(t => (t.links || []).forEach(l => {
     if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).mastery};
     if (l.k === "quiz") { const d = state.decks[l.deckId], q = d && (d.aiQuizzes || []).find(x => x.id === l.id), r = q && (q.results || []).slice(-1)[0]; if (r && r.total) quiz[l.id] = Math.round(r.score / r.total * 100); }
   }));
-  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: s.status === "done", kind: s.kind})), decks, quiz});
+  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
+}
+/* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
+   flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
+   - if you do every session: every session not done yet counted as done, slipped ones too (that's what Catch Up is for)
+   - at your pace: today's readiness moved toward that by the share of sessions due so far that got done
+     (only once at least one session has come due)
+   - the topic to work on next: the one still lowest if every session gets done, with Teach It Back (or a quiz, once it's Strong) */
+function forecastOf(ex){
+  if (!ex || !hasPlan(ex)) return null;
+  const today = todayISO(); if (!ex.due || ex.due < today) return null;
+  const P = prepOf(ex), ss = sessionsOf(ex.id).slice().sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
+  const now = readyMemo(ex), dueSoFar = ss.filter(s => s.due < today), doneSoFar = dueSoFar.filter(s => s.status === "done").length;
+  const left = ss.filter(s => s.status !== "done" && s.due >= today), rate = dueSoFar.length ? doneSoFar / dueSoFar.length : null;
+  const full = readyFor(ex, () => true), slipped = dueSoFar.length - doneSoFar;
+  // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
+  const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
+  const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
+  const weakest = topics.slice().sort((a, b) => a.full - b.full || a.now - b.now)[0] || null;
+  const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
+  // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it
+  const cap = v => v == null ? null : Math.min(95, v), ev = full.evidence || {};
+  return {now: now.pct, pace: cap(pace), full: cap(full.pct), thin: !(ev.cards || ev.quizzes), slipped, rate, dueSoFar: dueSoFar.length, doneSoFar, left: left.length, days, topics, weakest};
+}
+const FC_WHY = "The Exam Day Forecast is part of Studyboard Pro: where your readiness is heading by exam day, and the topic to work on next.";
+function forecastHtml(ex){
+  const F = forecastOf(ex); if (!F || F.full == null) return "";
+  const locked = !!(window.SBPRO && SBPRO.locked());
+  if (locked) return `<div class="pp-fc pp-fc-lock"><div class="pp-fc-h"><b>Exam Day Forecast</b> ${typeof PRO_BADGE === "string" ? PRO_BADGE : ""}</div><p class="pp-fc-why">See how ready you'll be on ${esc(fmtDate(ex.due))} at your pace, and which topic to work on next.</p><button type="button" class="btn small" data-act="pp-fc-pro">See Pro</button></div>`;
+  // one number for exam day: at your pace once a session has come due, otherwise if you do every session
+  const day = F.pace != null ? F.pace : F.full, left = F.left + F.slipped;
+  const why = F.pace != null ? `At your pace: you've done ${F.doneSoFar} of the ${F.dueSoFar} session${F.dueSoFar === 1 ? "" : "s"} so far.`
+    : F.rate != null ? "You haven't done a session yet, so this is if you start with today's."
+    : `If you do all ${left} session${left === 1 ? "" : "s"} in your plan.`;
+  const tip = F.pace != null && left && F.full - day >= 5
+    ? `Do ${left === 1 ? "the last session" : `all ${left} sessions left`}${F.slipped ? `, including ${F.slipped === 1 ? "the one that slipped" : `the ${F.slipped} that slipped`},` : ""} to reach about <b>${F.full}%</b>.` : "";
+  const W = F.weakest, nextH = W && W.full < 85 ? `<div class="pp-fc-next"><span>Weakest topic: <b>${esc(W.name)}</b></span>${W.conf === "strong" ? "" : `<button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(W.id)}" data-name="${esc(W.name)}">Teach It Back</button>`}</div>` : "";
+  const when = F.days === 0 ? "Today" : F.days === 1 ? "Tomorrow" : `In ${F.days} days`;
+  return `<div class="pp-fc"><div class="pp-fc-h"><b>Exam Day Forecast</b><span class="mini">${esc(when)}</span></div>
+    <div class="pp-fc-big" role="img" aria-label="${F.now != null ? `Ready today: ${F.now} percent. ` : ""}On exam day: about ${day} percent">${F.now != null ? `<span class="pp-fc-n"><small>Today</small>${F.now}%</span><span class="pp-fc-arrow" aria-hidden="true">→</span>` : ""}<span class="pp-fc-n pp-fc-day"><small>Exam day</small>~${day}%</span></div>
+    <p class="pp-fc-why">${esc(why)}</p>${tip ? `<p class="pp-fc-tip">${tip}</p>` : ""}${nextH}</div>`;
 }
 let PCACHE = {k: "", v: {}};
 function readyMemo(ex){
@@ -75482,7 +75711,8 @@ function drawView(){
   body.innerHTML = `
     <div class="pp-head"><p class="pp-line"><b>${esc(sm.line)}</b></p>
       ${r.gate ? `<p class="mini" style="margin:0">Readiness is worked out from ${esc(evTxt)}.</p>` : `<p class="mini" style="margin:0">Readiness shows once you finish a session, progress on a linked deck or score a quiz.</p>`}
-      <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div></div>
+      <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div>
+    ${past ? "" : forecastHtml(ex)}</div>
     ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-plan to the New Date</button></p>` : ""}
     ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> No problem: spread them over the days that are left. <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
     ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add My Mark and Wrap Up</button></p>` : ""}
@@ -75697,6 +75927,7 @@ function runIdea(id){ const t = state.tasks[id]; if (!t) return; if (t.matKind) 
 
 /* actions */
 hook("act", (act, el, id) => {
+  if (act === "pp-fc-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(FC_WHY); return true; }
   switch (act) {
     case "prep-plan": open(id || (upcoming()[0] || {}).id); return true;
     case "exam-plan": open(id); return true;
@@ -75720,7 +75951,7 @@ hook("changed", changes => {
     });
   } catch (e) { console.warn("prep changed", e); }
 });
-window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
+window.SBPREP = {open, forecast: forecastOf, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
 })();
 
 /* ===== module: 97-exammode.js ===== */
@@ -78063,6 +78294,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, d
     if (d) { const nd = clone(d); rec = MATCH.record(nd.match, R.ms); nd.match = rec.match; saveDeck(nd, null); }
     else { rec = MATCH.record(R.opts.prev || null, R.ms); R.opts.prev = rec.match; }
     R.rec = rec;
+    if (rec.better && !rec.first) fire("good-moment", "match");
     setTimeout(() => { if (R && R.done && dlg.open && dlg.querySelector("[data-mt-play]")) result(); }, still() ? 0 : 360);
   }
   function result(){
@@ -79586,7 +79818,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <p>Study groups, study rooms and shared decks let you post content other people see. There is zero tolerance for objectionable content or abusive users: no harassment, bullying, hate, threats, sexual content, spam, cheating services or sharing other people's personal information. Use Report on a group message, a shared item or a group member to tell us, and Block (in the group's member list) to stop seeing someone's messages straight away. We review reports within 24 hours, remove content that breaks these rules and remove people who post it. We don't check what people share before it appears and we aren't responsible for it; content made by other people is theirs, not ours, and you use it at your own risk. Anyone who can see something you share or publish can save a copy, and unpublishing or deleting it doesn't remove the copies they already saved.</p>
 
     <h3>AI features</h3>
-    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, with a paid Pro plan, Studyboard AI, which runs on Anthropic's Claude through Cloudflare, within a weekly allowance (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards, including ones made from your slides or PDFs, stay in your own decks and are never shared. Check what AI makes before you share it.</p>
+    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, with a paid Pro plan, Studyboard AI, which runs on Anthropic's Claude through Cloudflare, within a usage allowance (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards, including ones made from your slides or PDFs, stay in your own decks and are never shared. Check what AI makes before you share it.</p>
 
     <h3>Study use only</h3>
     <p>Studyboard is a study tool. Flashcards, quizzes, summaries, plans and answers in it, whether written by you, by AI or by other students, can be wrong, incomplete or out of date, and we don't promise they will help you pass. They are not medical, nursing, legal, financial or other professional advice: never use them to make decisions about a patient's care, your health or anyone's safety, and always check your course materials, your instructor and official guidelines. You are responsible for following your school's academic integrity rules. Don't use Studyboard to cheat, to share or collect answers to graded work or questions from real tests, or to hand in AI-written work where your school doesn't allow it.</p>
@@ -79597,7 +79829,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <h3>Free and Pro</h3>
     <ul>
     <li>Studyboard has a free plan and an optional paid plan called Pro with higher limits and extras. What each includes, the prices and the renewal terms are shown before you buy. We may change prices or features for the future; if you subscribe, the price you agreed to stays the same until your next renewal after we tell you, and we will not take away what you have paid for during the period you paid for.</li>
-    <li><b>Two free weeks of Pro:</b> each new account gets 14 days of Pro once, with no card and no charge. When the two weeks end, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. One free week per person: it isn't given again to a new account made with the same email address.</li>
+    <li><b>Two free weeks of Pro:</b> each new account gets 14 days of Pro once, with no card and no charge. When the two weeks end, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. Two free weeks once per person: they aren't given again to a new account made with the same email address.</li>
     <li><b>Free trial:</b> if a free trial is ever offered at checkout, your plan starts and you are charged when it ends unless you cancel before then.</li>
     <li><b>Renewal and cancelling:</b> subscriptions renew automatically each month, every 4 months (the semester plan) or each year until you cancel. Payments are handled by Stripe, the App Store or Google Play. Cancel any time on the Manage billing page of our website (or in your App Store or Google Play account if you bought there); you keep Pro until the end of the period you paid for.</li>
     <li><b>Refunds:</b> payments are generally not refunded for time already used, except where the law or the purchase page says otherwise. If something went wrong, write to us and we'll sort it out fairly: ${contact()}. Purchases made in the App Store or Google Play follow Apple's or Google's rules for billing, cancelling and refunds.</li>
@@ -80021,6 +80253,131 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 })();
 
 
+/* ===== module: 99-review-ask.js ===== */
+/* Asking for an App Store or Google Play review, at a good moment, in the iPhone, iPad and Android apps only.
+   The system's own prompt (Apple's and Google's, through @capacitor-community/in-app-review): no custom "Enjoying Studyboard?" screen
+   first, because both stores forbid sending only happy people to the review page. Apple shows it at most 3 times a year anyway and
+   may skip it; Google decides too. Nothing tells the app whether it showed or what was given.
+   When: right after a good moment (Today's Plan cleared, a Focus of 20 minutes or more finished, a good grade, a new best Match time),
+   once the moment's own sheet or celebration is gone, the moment still holds (no Undo since), and the student has stopped tapping
+   and typing for a few seconds, so the prompt never lands under a finger or over half-typed text.
+   Only for someone who has used the app for a while (a week, 5 days of use, 10 tasks done).
+   Rarely: at most once per launch and once per app version, 120 days after the first ask, a year after the second, and never more
+   than 3 times in all (Apple's own limit is 3 a year; this stays well under it, since nothing says whether a review was left).
+   Never on a bad or stressful day: within 10 minutes of an error message or a crash, 2 minutes of an Undo, a month of a bug report or
+   feedback, a day of a Pro sheet, a few days of a free-plan limit, a week of the free weeks ending; in Exam Mode, with overdue work, offline or during a Focus. */
+(() => {
+  // QUIET_KEY: until when to stay quiet, set by reviewQuiet() (01-helpers.js) after a free-plan limit (3 days), a Pro sheet (1 day),
+  // the free weeks ending tomorrow (3 days) or ended (7 days), or the storage being full
+  const KEY = "studyboard:reviewAsk", PRO_KEY = "studyboard:proShownAt", BUG_KEY = "studyboard:bugsent", QUIET_KEY = "studyboard:reviewQuietUntil";
+  const DAY = 864e5, MIN_AGE = 7 * DAY, MIN_DAYS = 5, MIN_DONE = 10, GAP = [120 * DAY, 365 * DAY], EVER_MAX = 3, BUG_QUIET = 30 * DAY, PRO_QUIET = DAY,
+    ERR_QUIET = 10 * 60000, UNDO_QUIET = 2 * 60000, IDLE = 3000;
+  const version = () => { try { return typeof APP_VERSION === "string" ? APP_VERSION : ""; } catch (e) { return ""; } };
+  const read = () => { try { const o = JSON.parse(localStorage.getItem(KEY) || "null"); return o && typeof o === "object" ? o : null; } catch (e) { return null; } };
+  const write = o => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} };
+  const num = k => { try { return Number(localStorage.getItem(k)) || 0; } catch (e) { return 0; } };
+  // the record: when the app was first used here, the days it was used (the last 30), and when a review was asked for
+  function rec(){
+    let o = read();
+    if (!o) {
+      // someone who already used the app before this update: when they started, and the days they finished something
+      const T0 = Date.UTC(2023, 0, 1), now = Date.now(), all = tasksArr();
+      const starts = all.map(t => Number(t.created)).filter(x => x > T0 && x < now);
+      const days = [...new Set(all.map(t => Number(t.doneAt)).filter(x => x > T0 && x <= now && now - x < 60 * DAY).map(x => iso(new Date(x))))].sort().slice(-30);
+      o = {first: starts.length ? Math.min(...starts) : now, days, asked: []};
+      write(o);
+    }
+    if (!Array.isArray(o.days)) o.days = [];
+    if (!Array.isArray(o.asked)) o.asked = [];
+    if (!Array.isArray(o.vers)) o.vers = [];
+    if (!(Number(o.first) > 0)) o.first = Date.now();
+    return o;
+  }
+  function noteDay(){
+    const o = rec(), d = todayISO();
+    if (!o.days.includes(d)) { o.days = o.days.concat(d).slice(-30); write(o); }
+  }
+
+  // The store prompt is only there in the phone and tablet apps, with the plugin installed
+  const C = () => window.Capacitor;
+  function plugin(){
+    try {
+      const c = C(); if (!c || !(c.isNativePlatform && c.isNativePlatform())) return null;
+      if (c.isPluginAvailable && !c.isPluginAvailable("InAppReview")) return null;
+      return (c.Plugins && c.Plugins.InAppReview) || (c.registerPlugin ? c.registerPlugin("InAppReview") : null);
+    } catch (e) { return null; }
+  }
+
+  // Something going wrong this session: an error message, or an error the page didn't catch
+  let errAt = 0, undoAt = 0, inputAt = 0, tried = false;
+  // Undo means something just went wrong for the student; tapping, typing and scrolling mean they're in the middle of something
+  document.addEventListener("click", e => { if (e.target && e.target.closest && e.target.closest("#toastUndo")) undoAt = Date.now(); }, true);
+  document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) undoAt = Date.now(); inputAt = Date.now(); }, true);
+  ["pointerdown", "touchstart", "wheel", "scroll", "input"].forEach(t => document.addEventListener(t, () => { inputAt = Date.now(); }, {capture: true, passive: true}));
+  window.addEventListener("error", () => { errAt = Date.now(); });
+  window.addEventListener("unhandledrejection", () => { errAt = Date.now(); });
+  const errSeen = () => { const t = document.getElementById("toast"); return !!(t && t.classList.contains("toast-err") && t.classList.contains("show")); };
+  setInterval(() => { if (errSeen()) errAt = Date.now(); }, 2000);
+
+  // Why not now (empty: it's a good time)
+  function whyNot(now){
+    now = now || Date.now();
+    if (!plugin()) return "not in the app";
+    if (tried) return "already tried this launch";
+    const o = rec();
+    if (now - o.first < MIN_AGE) return "used for less than a week";
+    if (o.days.length < MIN_DAYS) return "used on fewer than 5 days";
+    const done = tasksArr().filter(t => t.status === "done").length;
+    if (done < MIN_DONE) return "fewer than 10 tasks done";
+    const asked = o.asked.filter(t => Number(t) > 0);
+    if (asked.length >= EVER_MAX) return "asked 3 times already";
+    if (asked.length && now - Math.max(...asked) < GAP[Math.min(asked.length, GAP.length) - 1]) return asked.length === 1 ? "asked within 120 days" : "asked twice, the last within a year";
+    if (version() && o.vers.includes(version())) return "asked in this version";
+    if (errAt && now - errAt < ERR_QUIET) return "an error just now";
+    if (undoAt && now - undoAt < UNDO_QUIET) return "an Undo just now";
+    if (now - num(BUG_KEY) < BUG_QUIET) return "a bug report this month";
+    if (now - num(PRO_KEY) < PRO_QUIET) return "a Pro sheet today";
+    if (now < num(QUIET_KEY)) return "a limit, the paywall or the end of the free weeks lately";
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return "offline";
+    try { if (window.SBEXAM && SBEXAM.current && SBEXAM.current()) return "Exam Mode"; } catch (e) {}
+    const today = todayISO();
+    if (tasksArr().some(t => t.status !== "done" && t.due && t.due < today)) return "overdue work";
+    return "";
+  }
+
+  // A good moment: wait for its sheet, toast and celebration to clear, then ask once
+  let waitT = 0;
+  // whether the good moment still stands (Today's Plan can be un-cleared with Undo, or by adding a task)
+  const holds = kind => { try { return kind !== "plan" || (typeof todayCleared === "function" && todayCleared()); } catch (e) { return false; } };
+  const typing = () => { const a = document.activeElement; return !!(a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))); };
+  function moment(kind){
+    if (whyNot()) return;
+    clearTimeout(waitT);
+    const until = Date.now() + 45000;
+    const tryNow = () => {
+      if (document.hidden || Date.now() > until || !holds(kind)) return;
+      const busy = document.querySelector("dialog[open]") || (document.getElementById("toast") && document.getElementById("toast").classList.contains("show"))
+        || (typeof pomo !== "undefined" && pomo && pomo.running && pomo.mode === "focus") || typing() || Date.now() - inputAt < IDLE;
+      if (busy) { waitT = setTimeout(tryNow, 1000); return; }
+      ask(kind);
+    };
+    waitT = setTimeout(tryNow, 1800);
+  }
+  function ask(kind){
+    if (whyNot()) return;
+    const P = plugin(); if (!P || typeof P.requestReview !== "function") return;
+    tried = true;
+    const o = rec(); o.asked = o.asked.concat(Date.now()).slice(-6); o.lastKind = kind; if (version()) o.vers = o.vers.concat(version()).slice(-6); write(o);
+    Promise.resolve().then(() => P.requestReview()).catch(e => console.warn("review prompt", e));
+  }
+
+  hook("boot", noteDay);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { try { noteDay(); } catch (e) {} } });
+  hook("good-moment", kind => { try { moment(String(kind || "")); } catch (e) { console.warn("review ask", e); } });
+  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && !e.missed && Number(e.minutes) >= 20) fire("good-moment", "focus"); });
+
+  if (window.__SB_TEST) window.__sbReviewAsk = {whyNot: () => whyNot(), rec: () => rec(), version: () => version(), moment: k => moment(k), reset: () => { tried = false; errAt = 0; }};
+})();
 /* ===== module: 96-semester.js ===== */
 /* "Set up your semester" */
 (() => {
@@ -80865,7 +81222,7 @@ var SBPRO = null;
   }
   const arrow = d => d === "up" ? "↑" : d === "down" ? "↓" : "→";
   const gradeTxt = tr => tr ? `${tr.letter || Math.round(tr.cur) + "%"} ${arrow(tr.dir)}` : "";
-  function insightsBody(I){
+  function insightsBody(I, preview){
     const empty = `<p class="mini">Not enough to go on yet. Insights fill in as you use Focus sessions, finish tasks and get grades back.</p>`;
     const sec = (title, body) => `<section class="pro-card"><h3>${esc(title)}</h3>${body}</section>`;
     const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(x.min / I.maxMin * 100))}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
@@ -80876,25 +81233,38 @@ var SBPRO = null;
       : `<p class="mini">Make an exam prep plan (open an exam, then Plan My Prep) to see how it's going here.</p>`;
     const early = I.early ? `<div class="pro-early"><b>${esc(SBI18N.fmtN(Math.round(Math.abs(I.early.avg) * 10) / 10))}</b><span>${esc(I.early.avg >= 0 ? "days early, on average, when you finish an assignment." : "days late, on average, when you finish an assignment.")}${I.early.late ? esc(` ${plural(I.early.late, "was", "were")} late.`) : ""}</span></div>`
       : `<p class="mini">Shows up once you've finished a few assignments with due dates.</p>`;
+    if (preview) {
+      // free plan: the first card is real, from the student's own planner; the others say what they'd show, with nothing made up
+      const lockSec = (title, what) => `<section class="pro-card pro-lockcard"><h3>${esc(title)} ${PRO_BADGE}</h3><p class="mini">${esc(what)}</p></section>`;
+      return sec("Study Time and Grades", study)
+        + lockSec("When You Focus Best", "Which part of the day your Focus sessions last longest, day by day.")
+        + lockSec("Exam Prep Follow-Through", "How many of your exam prep sessions you've done so far, and the topics still marked shaky.")
+        + lockSec("Finishing Early", "How many days before the due date you usually finish, and anything that slipped past it.")
+        + `<button type="button" class="btn pro-ins-go" data-act="pro-ins-pro">See Every Insight With Pro</button>`;
+    }
     return sec("Study Time and Grades", study) + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
   }
   let INS = {kind: "week"};
+  const INS_WHY = "Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades.";
   function openInsights(kind){
-    if (locked()) { proSheet("Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades."); return; }
+    // free plan: a preview built from the student's own planner (the first card), the rest with Pro
+    const preview = locked();
     INS.kind = kind === "term" ? "term" : INS.kind || "week";
     const draw = () => {
       const I = compute(INS.kind), b = dlg.querySelector(".pro-ins-body"); if (!b) return;
-      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
+      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I, preview)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
     };
     if (!(dlg.open && dlg.querySelector(".pro-ins-body"))) openSheet(`<div class="sheet pro-sheet">${head("Insights")}<div class="sheet-body pro-ins-body"></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     draw();
   }
   function reviewHtml(){
     if (!allTasks().length) return "";
-    if (locked()) return `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     let line = "";
     try { line = headline(compute("week")); } catch (e) { line = ""; }
-    return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
+    // free plan: this week's one-line insight is free too; the full breakdown is a preview with the rest on Pro
+    if (locked()) return line ? `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight</h3><p style="margin:0">${esc(line)}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`
+      : `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
+    return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight${tagPro() ? " " + PRO_BADGE : ""}</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
   }
 
   /* Term Recap */
@@ -80992,18 +81362,47 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
+  addFeature({id: "sbai", name: "Studyboard AI", where: "Settings, AI", act: "ai-setup", free: "Your Own Key", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
   const early = () => isPro() && !!S().early;
+  // What each Pro feature does, in a line, for Show All Pro Features (where it lives is in f.where)
+  const DESC = {
+    sbai: "AI built in, no key needed: flashcards, quizzes, summaries and more.",
+    forecast: "For each exam: how ready you'll be on the day at your pace, what finishing your prep plan gets you, and the topic to work on next.",
+    calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
+    reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
+    lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
+    autopilot: "Missed study sessions move into your next free time overnight. Due dates never move.",
+    rubric: "Feedback on your draft against the rubric before you submit.",
+    insights: "Where your time goes, how each course is trending, and what's worth a closer look.",
+    recap: "Your term at a glance when it ends: hours, grades and what went well.",
+    focus: "Save focus routines, see your focus history, and block distracting sites on desktop.",
+    cards: "Deck stats, and picture flashcards made from your own files.",
+    print: "Print or save a week agenda, term calendar, grade report or exam prep plan.",
+    notephotos: "Add photos to notes and link any file in Studyboard.",
+    listen: "Hear your flashcards read aloud, made for a commute.",
+    ink: "Write on PDFs and draw on notes with Apple Pencil.",
+    versions: "Bring back an earlier note or deck from the last 30 days.",
+    teachback: "Explain a topic in your own words and AI checks it against your notes.",
+    smartremind: "Nudges at the start of your free time when a big task needs it.",
+    "cards-link": "Turn a YouTube video or web page into flashcards and a summary note.",
+    examsheet: "Every formula, definition and diagram for an exam on one printable sheet.",
+    email: "Forward school emails and Studyboard finds the deadlines in them."
+  };
+  // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
+  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
-    const rows = FEATURES.map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(f.where)}</span></span>${f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
+    const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
+    const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
     const sw = (act, on, label) => `<button type="button" class="pro-sw" role="switch" aria-checked="${!!on}" data-act="${act}" aria-label="${esc(label)}"><i></i></button>`;
     const extras = pro || (typeof PLAN !== "undefined" && PLAN && !PLAN.paywall()) ? `<h3 class="fsec">Extras</h3><ul class="pro-feats">
         <li><span class="pf-t"><b>Try New Features First</b><span class="mini">Preview features reach you a few weeks early, marked Preview.${S().early ? ` <button type="button" class="link-btn" data-act="bug-open">Send Feedback</button>` : ""}</span></span>${sw("pro-early", S().early, "Try new features first")}</li>
         ${window.SBEARLY && SBEARLY.kind() ? "" : `<li><span class="pf-t"><b>Show My Badge in Groups</b><span class="mini">A small star beside your name in study groups, so others know you support Studyboard.</span></span>${sw("pro-badge", S().badge, "Show my supporter badge in groups")}</li>`}</ul>` : "";
-    return `<h3 class="fsec">What Pro Adds</h3><ul class="pro-feats">${rows}</ul>${extras}`;
+    return `<details class="pro-all"><summary>Show All Pro Features</summary><ul class="pro-feats">${rows}</ul></details>${extras}`;
   }
-  const compareRows = () => FEATURES.filter(f => f.compare !== false).map(f => [f.name, f.free || "—", f.pro || "Included"]);
+  const compareRows = () => FEATURES.filter(f => f.compare !== false && TOP.includes(f.id)).sort((a, b) => TOP.indexOf(a.id) - TOP.indexOf(b.id)).map(f => [f.name, f.free || "—", f.pro || "Included"]);
   // The same features as buttons on the tabs they belong to
   function tabBtns(where){
     if (locked() || !isPro()) return "";
@@ -81024,6 +81423,7 @@ var SBPRO = null;
     switch (act) {
       case "pro-ins-open": if (dlg.open && !dlg.querySelector(".pro-ins-body")) dlg.close(); openInsights(); return true;
       case "pro-ins-kind": INS.kind = id === "term" ? "term" : "week"; openInsights(INS.kind); return true;
+      case "pro-ins-pro": proSheet(INS_WHY); return true;
       case "pro-recap-open": if (dlg.open) dlg.close(); openRecap(); return true;
       case "pro-recap-hide": { const T = recapTerm(); if (T) markSeen(T.key); scheduleRender(); toast("Hidden. Your recap stays in Settings, Studyboard Pro."); return true; }
       case "pro-recap-step": if (RC) { const n = RC.i + (Number(id) || 1); RC.i = n >= RC.slides.length ? 0 : Math.max(0, n); drawRecap(); } return true;
@@ -81039,6 +81439,9 @@ var SBPRO = null;
   css.textContent = `
 .pro-card{background:var(--surface);border:1px solid var(--line);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:12px 14px;margin:0;display:grid;gap:8px}
 .pro-card h3{margin:0;font:600 1rem var(--display)}
+.pro-lockcard{box-shadow:none;border-style:dashed;background:color-mix(in srgb,var(--ink) 3%,var(--surface))}
+.pro-lockcard p{margin:0}
+.pro-ins-go{justify-self:stretch;width:100%;min-height:44px}
 .pro-say{margin:0;line-height:1.45}
 .pro-cr{display:grid;grid-template-columns:minmax(0,7.5em) minmax(0,1fr) auto auto;gap:10px;align-items:center;font-size:.92rem}
 .pro-cn{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -81075,6 +81478,13 @@ var SBPRO = null;
 .prc-slide p{margin:0;font-size:1.1rem;line-height:1.45;color:#DCE6F7}
 .pro-tab-btn{display:inline-flex;align-items:center;gap:6px}
 .pro-tab-btn svg{width:15px;height:15px;flex:none}
+.pro-all{margin:0}
+.pro-all > summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font:600 .92rem var(--display);color:var(--ink)}
+.pro-all > summary::-webkit-details-marker{display:none}
+.pro-all > summary::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .2s}
+.pro-all[open] > summary{margin-bottom:8px}
+.pro-all[open] > summary::after{transform:translateY(2px) rotate(-135deg)}
+.pro-all > summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pro-feats{list-style:none;margin:0 0 6px;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
 .pro-feats li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-top:1px solid var(--line)}
 .pro-feats li:first-child{border-top:0}
@@ -81110,7 +81520,8 @@ var SBPRO = null;
   const all = () => ROUT.concat(custom());
   // One routine of your own is free; Pro saves up to 6
   const FREE_OWN = 1;
-  const usable = r => r.free || !P.locked() || custom().findIndex(x => x.id === r.id) < FREE_OWN;
+  // every routine someone already saved keeps working on the free plan; only saving more than one is Pro
+  const usable = r => !!r;
   const canAdd = () => !P.locked() || custom().length < FREE_OWN;
   const same = (r, c) => +c.focus === r.focus && +c.short === r.short && +c.long === r.long && +c.every === r.every;
   function current(){ const c = pomoCfg(); return all().find(r => r.id === S().routine && same(r, c)) || all().find(r => same(r, c)) || null; }
@@ -81172,14 +81583,14 @@ var SBPRO = null;
   /* In the Focus timer */
   function pomoHtml(){
     const cur = current(), lk = P.locked();
-    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
+    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) && !(tagPro() && !(r.free || custom().findIndex(x => x.id === r.id) < FREE_OWN)) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
     let blk = "";
     if (BK.available) {
       const cfg = blockCfg(), active = BK.until > Date.now();
-      blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
+      blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk || tagPro() ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
         <button type="button" class="pro-sw" role="switch" aria-checked="${cfg.on && !lk}" data-act="pro-blk-on" aria-label="Block distracting sites during focus sessions"><i></i></button></div>`;
     }
-    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
+    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
   function routineSheet(){
     const mine = custom(), more = !canAdd();
@@ -81781,7 +82192,8 @@ var SBPRO = null;
   let OC = null;
   const TOOLS = [["rect", "Box"], ["oval", "Oval"], ["free", "Freehand"], ["pan", "Pan"]];
   function openEditor(deckId, queue){
-    if (P.locked()) { proWhy("Picture cards are part of Studyboard Pro."); return; }
+    // free plan: picture cards someone already made can still be edited; making cards from new pictures is Pro
+    if (P.locked() && !(queue.length && queue.every(it => it.edit))) { proWhy("Picture cards are part of Studyboard Pro."); return; }
     if (!queue.length) { toast("No pictures to make cards from."); return; }
     OC = {deckId, queue, i: 0, sel: [], mode: queue[0].mode || "one", tool: "rect", multi: false, zoom: {s: 1, x: 0, y: 0}, made: 0, saved: 0};
     openSheet(`<div class="sheet pro-sheet oc-sheet">${head(queue[0].edit ? "Edit Picture Cards" : "Picture Cards")}<div class="sheet-body oc-body"></div><div class="sheet-foot"><button type="button" class="btn" data-act="pro-oc-skip" id="ocSkip">Skip Picture</button><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-oc-keep" id="ocKeep">Keep Cards</button></div></div>`);
@@ -82027,7 +82439,7 @@ var SBPRO = null;
       el.addEventListener("pointerdown", e => { if (e.button > 0) return; s = {x: e.clientX, y: e.clientY, id: e.pointerId}; try { el.setPointerCapture(e.pointerId); } catch (x) {} });
       el.addEventListener("pointermove", e => {
         if (!s || e.pointerId !== s.id) return;
-        if (!ghost) { if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 8) return; ghost = document.createElement("span"); ghost.className = "dp-ghost"; ghost.textContent = el.textContent; dlg.appendChild(ghost); }
+        if (!ghost) { if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 8) return; ghost = document.createElement("span"); ghost.className = "dp-ghost sm-skip"; ghost.textContent = el.textContent; dlg.appendChild(ghost); }
         ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px"; e.preventDefault();
       });
       const fin = e => {
@@ -82077,8 +82489,14 @@ var SBPRO = null;
   /* Cards from your files */
   let CF = null;
   function filesSheet(deckId){
-    if (P.locked()) { proWhy("Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro."); return; }
     const d = state.decks[deckId]; if (!d) return;
+    if (P.locked()) {
+      // free plan: the picture cards someone already made stay editable; making more from pictures and PDFs is Pro
+      const sets = setsOf(d), why = "Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro.";
+      if (!sets.length) { proWhy(why); return; }
+      openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body"><h3 class="ic-h">Pictures in This Deck</h3><p class="mini" style="margin:0">Your picture cards stay yours: edit a picture's boxes and answers any time.</p>${setRows(d, sets, true)}<p class="mini" style="margin:0">Making cards from new pictures and PDFs is part of Pro. <button type="button" class="link-btn" data-act="pro-cf-pro">See Pro</button></p></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+      return;
+    }
     CF = {deckId, picked: new Set(), busy: false, msg: "", found: null};
     openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body cf-body"></div><div class="sheet-foot"><label class="btn" style="position:relative;overflow:hidden">From a Picture<input type="file" accept="image/*" data-cf-pick style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-cf-scan" id="cfGo">Find Diagrams</button></div></div>`);
     drawFiles();
@@ -82175,11 +82593,11 @@ var SBPRO = null;
       case "pro-oc-pick": if (OC) { const js = groupOf(OC.queue[OC.i], Number(id)); OC.sel = OC.multi ? [...new Set(OC.sel.concat(js))] : js; drawEditor(); const t = dlg.querySelector(`[data-act="pro-oc-pick"][data-id="${js[0]}"]`); if (t) t.focus(); } return true;
       case "pro-oc-zoom": if (OC) { zoomBy(OC.zoom, id); const st = dlg.querySelector("[data-oc-stage]"); if (st) { st.querySelector(".oc-zoom").style.transform = zoomT(OC.zoom); st.classList.toggle("zoomed", OC.zoom.s > 1); } } return true;
       case "pro-ic-peek": case "pro-ic-type": case "pro-ic-zoom": studyAct(act, id); return true;
+      case "pro-cf-pro": proWhy("Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro."); return true;
       case "pro-ic-edit": case "pro-dp-open": {
         const s = String(id || ""), k = s.indexOf("|"), deckId = k >= 0 ? s.slice(0, k) : s, key = k >= 0 ? s.slice(k + 1) : "", d = state.decks[deckId];
         if (!d) return true;
         if (act === "pro-dp-open") { if (dlg.open && !key) dlg.close(); practiceOpen(deckId, key); return true; }
-        if (P.locked()) { proWhy("Picture cards are part of Studyboard Pro."); return true; }
         const set = setsOf(d).find(x => x.key === key); if (!set) { toast("That picture's cards are gone."); return true; }
         openEditor(deckId, [itemFrom(set.cards, {edit: true})]); return true;
       }
@@ -82458,7 +82876,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     }
     return false;
   });
-  hook("menu", () => inPreview() ? "" : `<button data-act="pro-pr-open" data-group="study"><span>Print or Save as PDF${P.locked() ? " " + PRO_BADGE : ""}<span class="sub">A week agenda, the term calendar, a grade report or an exam prep plan</span></span></button>`);
+  hook("menu", () => inPreview() ? "" : `<button data-act="pro-pr-open" data-group="study"><span>Print or Save as PDF${P.locked() || tagPro() ? " " + PRO_BADGE : ""}<span class="sub">A week agenda, the term calendar, a grade report or an exam prep plan</span></span></button>`);
   P.addFeature({id: "print", name: "Print and PDF", where: "In Schedule, Due Dates, Grades and Settings: a week agenda, term calendar, grade report or exam prep plan", act: "pro-pr-open", icon: '<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>'});
   Object.assign(P, {openPrint, printRaw, printHtml: () => PR ? build() : "", redrawPrint: () => { if (PR && dlg.open && dlg.querySelector(".pr-body")) drawPrint(); }});
 
@@ -82481,17 +82899,17 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .pr-scale.a4{width:794px}
 .pr-scale .pp-page{min-height:1000px}
 #sbPrint{display:none}
-.pp-page,.pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
+.pp-page,.pp-page .pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
 .pp-page{font:13px/1.35 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;color:#0F1F3D;padding:40px 44px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
 .pp-page h1{font:700 26px/1.15 Lexend,system-ui,sans-serif;margin:0}
 .pp-page h2{font:600 16px Lexend,system-ui,sans-serif;margin:0}
 .pp-page em{font-style:normal;color:#4A576E}
-.pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
-.pp-head p{margin:4px 0 0;color:#4A576E}
+.pp-page .pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.pp-page .pp-head p{margin:4px 0 0;color:#4A576E}
 .pp-box{border:1.5px solid #0F1F3D;border-radius:8px;padding:8px 12px;font-size:12px;max-width:45%}
 .pp-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(150px,auto);gap:10px;flex:1}
-.pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
-.pp-notes{border-style:dashed}
+.pp-page .pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
+.pp-page .pp-notes{border-style:dashed}
 .pp-dh{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #C6CEDB;padding-bottom:4px}
 .pp-dh b{font:600 15px Lexend,system-ui,sans-serif}
 .pp-dh span{color:#4A576E;font-size:12px}
@@ -82820,7 +83238,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const r = curRev(f), u = URLS.get(r.assetId), n = state.notes[id];
     openSheet(`<div class="sheet np-sheet">${head(f.name)}
       <div class="sheet-body"><div class="np-big">${u && u !== "!" ? `<img src="${esc(u)}" alt="${esc(f.name)}">` : `<img alt="${esc(f.name)}" data-np-asset="${esc(r.assetId)}" data-np-type="${esc(r.type || "image/jpeg")}">`}</div></div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="np-file" data-file="${esc(fid)}">File Details</button><span class="spacer"></span>${n && !locked() ? `<button type="button" class="btn" data-act="np-remove" data-id="${esc(id)}" data-file="${esc(fid)}">Remove from Note</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="np-file" data-file="${esc(fid)}">File Details</button><span class="spacer"></span>${n ? `<button type="button" class="btn" data-act="np-remove" data-id="${esc(id)}" data-file="${esc(fid)}">Remove from Note</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button></div>
     </div>`);
     fill();
   }
@@ -82859,7 +83277,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return thumbs(n, true) + (baseExtra ? baseExtra(n) : "");
   };
   P.noteBar = n => {
-    const badge = locked() ? ` ${PRO_BADGE}` : "";
+    const badge = locked() || tagPro() ? ` ${PRO_BADGE}` : "";
     return `<div class="np-bar"><button type="button" class="btn small" data-act="np-add" data-id="${esc(n.id)}">${CAM}Add Photo${badge}</button><button type="button" class="btn small" data-act="np-link" data-id="${esc(n.id)}">${LINK}Link a File${badge}</button></div>`;
   };
   P.notePhotos = n => thumbs(n, false);
@@ -83215,6 +83633,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   let R = null;
   const fileOf = () => R && state.files[R.fid];
   const hlOf = f => (Array.isArray(f && f.hl) ? f.hl : []).filter(h => h && h.id && Array.isArray(h.r));
+  const READ_WHY = "The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards.";
+  // what a free plan can't do in the reader: make highlights, comments, notes or cards (proWhy opens the Pro sheet instead)
+  const PDR_MAKE = new Set(["pdr-hl-add", "pdr-mk-add", "pdr-sel-cm", "pdr-cm-mode", "pdr-sel-note", "pdr-sel-card", "pdr-hl-note", "pdr-hl-card", "pdr-all-note", "pdr-card-ai", "pdr-card-save"]);
   const mine = () => { const f = fileOf(); return hlOf(f).filter(h => h.a === R.rev); };
   function saveHl(list, label){
     const f = fileOf(); if (!f) return;
@@ -83237,24 +83658,27 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* Opening */
   async function open(fid, page){
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards."); return; }
+    // Free plan: a file that already has highlights or comments opens to view them (what someone made never gets locked away);
+    // highlighting, the AI tools, editing and making notes or cards stay Pro
+    const view = P.locked();
+    if (view && !((isPdf(f) || isOffice(f)) && hlOf(f).length)) { proWhy(READ_WHY); return; }
     if (!isPdf(f) && !isOffice(f)) { fileSheet(f); return; }
     close();
     const rev = curRev(f), ofc = isOffice(f), PDE = ofc ? null : window.SBPDE;
-    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
-    openSheet(`<div class="sheet pdr-sheet" data-mode="read">${head(f.name)}
+    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow", view};
+    openSheet(`<div class="sheet pdr-sheet" data-mode="read"${view ? ` data-view="1"` : ""}>${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
-        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>
+        ${view ? "" : `<span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>`}
         <span class="spacer"></span>
-        ${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
+        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
-        <span class="pdr-g-read">${PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
+        <span class="pdr-g-read">${view ? `<span class="mini pdr-viewnote">Your highlights and comments stay yours to read. Highlighting more is part of Pro.</span><button type="button" class="btn small" data-act="pdr-pro">See Pro</button>` : PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text, then pick a color to highlight it</span></span>
         <span class="spacer"></span>
@@ -83445,7 +83869,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const colorBtns = (act, cur) => COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="${act}" data-id="${k}" style="--h:${hex}" aria-label="${name}"${cur ? ` aria-pressed="${cur === k}"` : ""}></button>`).join("");
   let PEND = null;
   function onSelectEnd(){
-    if (!R || !R.doc || (window.SBPDE && SBPDE.active())) return;
+    if (!R || !R.doc || R.view || (window.SBPDE && SBPDE.active())) return;
     const s = selection();
     if (!s) return;
     PEND = s;
@@ -83699,6 +84123,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!act.startsWith("pdr-")) return false;
     if (act === "pdr-open") { if (dlg.open) dlg.close(); setTimeout(() => open(id, Number(el.dataset.page) || 0), 0); return true; }
     if (!R) return true;
+    // viewing on the free plan: reading, moving around, the list, recolouring and removing stay; anything that makes something new is Pro
+    if (R.view && (act === "pdr-pro" || PDR_MAKE.has(act) || (act === "pdr-mode" && el.dataset.id !== "read"))) { hidePop(); proWhy(READ_WHY); return true; }
     const byId = x => mine().find(h => h.id === x);
     switch (act) {
       case "pdr-go": goTo(R.cur + (Number(id) || 1)); break;
@@ -83737,9 +84163,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return true;
   });
 
-  P.canRead = f => !P.locked() && (isPdf(f) || isOffice(f));
-  P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
-  P.addFeature({id: "reader", name: "PDF Reader, Highlights and Editing", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
+  P.canRead = f => (isPdf(f) || isOffice(f)) && (!P.locked() || hlOf(f).length > 0);
+  P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">${P.locked() ? "View Highlights" : "Read"}${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
+  P.addFeature({id: "reader", name: "PDF Editor", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
   Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
 
@@ -83753,6 +84179,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-g-read,.pdr-g-mark{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
 .pdr-sheet[data-mode="edit"] .pdr-bar2{display:none}
+.pdr-sheet[data-view] .pdr-modes,.pdr-sheet[data-view] [data-act="pdr-hl-note"],.pdr-sheet[data-view] [data-act="pdr-hl-card"],.pdr-sheet[data-view] [data-act="pdr-all-note"]{display:none}
+.pdr-viewnote{color:var(--muted)}
 .pdr-markhint{color:var(--muted)}
 .pdr-pop .pdr-pop-lbl{padding:0 6px;white-space:nowrap}
 .pdr-pop .pdr-nb{display:inline-flex;align-items:center;gap:6px}
@@ -84558,8 +84986,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* A recording in Files */
   const isAudio = f => !!f && f.kind === "file" && f.revs.length && (/^audio\//.test(curRev(f).type || "") || /\.(webm|m4a|ogg|mp3|wav)$/i.test(curRev(f).name || f.name)) && (f.tr || f.dur);
   async function transcriptSheet(fid){
+    // free plan too: a recording someone made, and its transcript, always open (recording and transcribing new ones is Pro)
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("Lecture recordings and transcripts are part of Studyboard Pro."); return; }
     const tr = f.tr && f.tr.text ? f.tr.text : "";
     openSheet(`<div class="sheet lec-sheet">${head(f.name)}<div class="sheet-body lec-body"><p class="lec-busy"><span class="ai-spin" aria-hidden="true"></span> Loading the recording…</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button>${tr ? `<button type="button" class="btn primary" data-act="lec-file-note" data-id="${esc(f.id)}">Make a Note</button>` : ""}</div></div>`);
@@ -84595,13 +85023,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const bkWhen = t => new Date(t).toLocaleDateString(undefined, {month: "short", day: "numeric"});
   function bkSheet(fid){
     const f = state.files[fid]; if (!f) return;
-    const bk = bkInfo(f), CL = window.SBCLOUD, conn = CL ? CL.connected() : [], locked = P.locked();
+    // backing up a lecture someone already has is free on every plan (it's a copy of their own work)
+    const bk = bkInfo(f), CL = window.SBCLOUD, conn = CL ? CL.connected() : [];
     const inFiles = (bk.files || []).filter(id => state.files[id]);
     const opt = (where, icon, title, sub, done) => `<button type="button" class="lec-fopt lec-bk-o${done ? " done" : ""}" data-act="lec-bk-go" data-id="${esc(fid)}" data-where="${where}"${bkBusy[fid + where] ? " disabled" : ""}>${icon}<b>${title}</b><span class="mini">${bkBusy[fid + where] ? `<span class="ai-spin" aria-hidden="true"></span> Backing up…` : sub}</span></button>`;
     const cloudOpt = p => {
       const nm = CLOUD_NAMES[p], ic = CL && CL.icons ? `<span class="lec-bk-ic">${CL.icons[p]}</span>` : CLOUD_SVG, b = bk[p];
       const here = f.cloud && f.cloud.p === p;
-      const sub = locked ? "Part of Studyboard Pro" : !conn.includes(p) ? `Connect ${nm} first` : b ? `Backed up ${bkWhen(b.at)}. Tap to back up again.` : here ? "The recording is already here. Adds the transcript and summary." : "The recording, transcript and summary, in Studyboard › Lectures";
+      const sub = !conn.includes(p) ? `Connect ${nm} first` : b ? `Backed up ${bkWhen(b.at)}. Tap to back up again.` : here ? "The recording is already here. Adds the transcript and summary." : "The recording, transcript and summary, in Studyboard › Lectures";
       return opt(p, ic, nm, sub, !!b);
     };
     openSheet(`<div class="sheet lec-sheet">${head("Back Up " + f.name)}<div class="sheet-body">
@@ -84706,7 +85135,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   });
 
   const prevFile = P.fileBtns;
-  P.fileBtns = f => (prevFile ? prevFile(f) : "") + (!P.locked() && isAudio(f) ? `<button type="button" class="btn" data-act="lec-file" data-id="${esc(f.id)}">Transcript</button>` : "");
+  P.fileBtns = f => (prevFile ? prevFile(f) : "") + (isAudio(f) ? `<button type="button" class="btn" data-act="lec-file" data-id="${esc(f.id)}">Transcript</button>` : "");
   const MIC = '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>';
   P.addFeature({id: "lecture", name: "Record a Lecture", where: "In a course: record a class, then get a tidy transcript and a summary in its Lectures", act: "lec-open", icon: MIC});
   Object.assign(P, {openRecorder: open});
@@ -84930,7 +85359,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <li><b>Your school email:</b> the same steps work in its web mail, if your school allows forwarding.</li></ul></details>
       ${pending().length ? `<div class="em-pend"><span><b>${pending().length} email${pending().length === 1 ? "" : "s"} still to check</b><span class="mini">${esc(pending().map(x => x.text).slice(0, 3).join(" · "))}</span></span><button type="button" class="btn small" data-act="em-recheck">Check</button><button type="button" class="link-btn" data-act="em-pdone">Done With Them</button></div>` : ""}
       <div class="row-actions"><button type="button" class="link-btn" data-act="em-new">New Address</button><button type="button" class="link-btn" data-act="em-off">Turn Off</button>${LAST_GMAIL ? `<button type="button" class="link-btn" data-act="em-gmail">Gmail Code</button>` : ""}</div>`;
-    return `<div class="capv-box em-box" id="emBox"><div class="em-h"><span class="pf-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MAIL}</svg></span><b>Email to Studyboard</b>${lockedPro ? PRO_BADGE : ""}</div>${inner}</div>`;
+    return `<div class="capv-box em-box" id="emBox"><div class="em-h"><span class="pf-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MAIL}</svg></span><b>Email to Studyboard</b>${lockedPro || tagPro() ? PRO_BADGE : ""}</div>${inner}</div>`;
   }
   function paint(){ const b = document.getElementById("emBox"); if (b) b.outerHTML = boxHtml(); }
   if (window.SBCAPTURE && SBCAPTURE.settingsExtra) SBCAPTURE.settingsExtra(() => { setTimeout(() => load(false), 0); return boxHtml(); });
@@ -85436,7 +85865,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
      why: "full" (storage used up), "big" (over the size limit), "type" (a type this storage can't keep), "none" (no storage here) */
   const FULL = {files: [], opts: {}, pend: null};
   function storageFull(files, opts, why){
-    why = why || "full";
+    why = why || "full"; reviewQuiet(3);
     FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
     const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
     const offerPro = why === "full" && !!(PL && PL.paywall() && !PL.limitsPro());
@@ -85915,6 +86344,132 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   document.head.appendChild(css);
 })();
 
+/* ===== module: 99-offers.js ===== */
+/* Offers in the board's Notices for the free plan, timed to the school calendar. At most one card at a time, each shown on one day only
+   (it stays that day until it's acted on or dismissed), remembered in settings so another device doesn't show it again:
+   1. Exam trial: 3 to 10 days before an exam that has a prep plan, while Quiz Me has free sessions left this week:
+      "BIO101 Final in 10 days. Try Quiz Me on it: you have 3 free sessions this week." The button opens Ask Your Course on that
+      course and starts Quiz Me on the answer (with no AI set up yet, it opens AI setup first). The free runs make it a real trial.
+   2. Exam follow-up: this week's free Quiz Me sessions are used up and an exam that had the trial card is still more than 3 days
+      away: Pro through the end of term, the semester plan picked on the Pro sheet.
+   3. New term: in the first week of a term, the semester plan.
+   Never: on Pro or the free weeks, in a guest preview, in Exam Mode, within 2 days of the exam, or while the review prompt is keeping
+   quiet (a free-plan limit, the paywall or the free weeks ending lately; see reviewQuiet in 01-helpers.js), or a day after a Pro
+   sheet. A discount for these can be a Stripe promotion code; nothing here changes the price. */
+(() => {
+  const P = window.SBPRO; if (!P) return;
+  const DAY = 864e5;
+  const S = () => (state.settings && state.settings.offers && typeof state.settings.offers === "object" ? state.settings.offers : {});
+  const save = patch => { state.settings = Object.assign({}, state.settings, {offers: Object.assign({}, S(), patch)}); saveSettings(); };
+  const num = k => { try { return Number(localStorage.getItem(k)) || 0; } catch (e) { return 0; } };
+  const plan = () => (typeof PLAN !== "undefined" && PLAN ? PLAN : null);
+  const daysTo = d => Math.round((parse(d) - parse(todayISO())) / DAY);
+  const label = c => c ? (c.code || c.name || "") : "";
+
+  // whether any offer may show right now
+  function allowed(){
+    const L = plan(); if (!L || !L.paywall() || L.isPro()) return false;
+    if (typeof inPreview === "function" && inPreview()) return false;
+    try { if (window.SBEXAM && SBEXAM.current && SBEXAM.current()) return false; } catch (e) {}
+    const now = Date.now();
+    if (now < num("studyboard:reviewQuietUntil")) return false;
+    if (now - num("studyboard:proShownAt") < DAY) return false;
+    return true;
+  }
+  // a card shows on one day only: the first day it qualifies, until acted on or dismissed
+  const shownToday = rec => !!rec && rec.d === todayISO() && !rec.x;
+  const fresh = rec => !rec;
+
+  // exams with a prep plan, soonest first
+  function exams(){
+    const today = todayISO();
+    return tasksArr().filter(t => MILESTONE(t.type) && t.status !== "done" && t.due && t.due >= today && window.SBPREP && SBPREP.summary(t))
+      .sort((a, b) => a.due.localeCompare(b.due));
+  }
+  function pick(){
+    if (!allowed()) return null;
+    const L = plan(), o = S(), ex = o.ex || {}, fu = o.fu || {}, tm = o.term || {}, today = todayISO();
+    const quizLeft = L.runsLeft ? L.runsLeft("quiz") : 0;
+    // already showing today: keep the same card
+    for (const e of exams()) { if (shownToday(fu[e.id])) return {kind: "fu", ex: e}; if (shownToday(ex[e.id])) return {kind: "ex", ex: e}; }
+    const key = termKey(); if (key && shownToday(tm[key])) return {kind: "term", key};
+    // 2. follow-up: the free sessions are used up, and an exam that had the trial card is still more than 3 days away
+    if (quizLeft === 0) { const e = exams().find(e => ex[e.id] && fresh(fu[e.id]) && daysTo(e.due) > 3); if (e) return {kind: "fu", ex: e, first: true}; }
+    // 1. exam trial: 3 to 10 days out, with free Quiz Me sessions left
+    if (quizLeft > 0) { const e = exams().find(e => fresh(ex[e.id]) && daysTo(e.due) >= 3 && daysTo(e.due) <= 10); if (e) return {kind: "ex", ex: e, first: true}; }
+    // 3. new term: its first week
+    if (key && fresh(tm[key]) && termDay() < 7) return {kind: "term", key, first: true};
+    return null;
+  }
+  // the term: from the scrapbook's term or the usual start dates (SBPRO.termRange)
+  const termFrom = () => { try { return P.termRange().from; } catch (e) { return ""; } };
+  const termKey = () => termFrom();
+  const termDay = () => { const f = termFrom(); return f ? -daysTo(f) : 99; };
+
+  // lead: "Pro through the end of term" or "Pro for the whole term"; the website's semester plan renews, so it says so
+  function semLine(lead){
+    const sem = plan() && plan().semester ? plan().semester() : null;
+    if (!sem) return {text: "Keep Studyboard AI, unlimited Quiz Me and the Exam Day Forecast through your exams with Pro.", btn: "See Plans"};
+    return {text: sem.once ? `${lead}: ${sem.price}, one payment for the semester.` : `${lead}: ${sem.price} (renews every 4 months, cancel any time).`, btn: "See Semester Plan"};
+  }
+  const card = (kind, id, body, btn) => `<div class="offer-card" data-offer="${kind}"><span class="offer-t">${body}</span><span class="offer-a"><button type="button" class="btn small primary" data-act="offer-go" data-id="${esc(kind + "|" + id)}">${esc(btn)}</button><button type="button" class="icon-btn sm offer-x" data-act="offer-x" data-id="${esc(kind + "|" + id)}" aria-label="Not now">${typeof CLOSE === "string" ? CLOSE : "×"}</button></span></div>`;
+
+  function html(){
+    const x = pick(); if (!x) return "";
+    const o = S(), today = todayISO();
+    // mark it shown today (once), so it stays today only
+    // (saved just after this draw, never during it; drawing again first finds the same card, so nothing doubles)
+    if (x.first) setTimeout(() => { const o = S(); if (x.kind === "term") { if (!(o.term || {})[x.key]) save({term: Object.assign({}, o.term, {[x.key]: {d: today}})}); } else if (!(o[x.kind] || {})[x.ex.id]) save({[x.kind]: Object.assign({}, o[x.kind], {[x.ex.id]: {d: today}})}); }, 0);
+    if (x.kind === "term") {
+      const s = semLine("Pro for the whole term");
+      return card("term", x.key, `<b>New term, fresh start.</b> ${esc(s.text)}`, s.btn);
+    }
+    const e = x.ex, c = courseOf(e.courseId), d = daysTo(e.due), when = d === 1 ? "tomorrow" : `in ${d} days`, name = [label(c), e.title].filter(Boolean).join(" ");
+    if (x.kind === "fu") { const s = semLine("Pro through the end of term"); return card("fu", e.id, `<b>${esc(name)} ${esc(when)}.</b> ${esc(s.text)}`, s.btn); }
+    const left = plan().runsLeft("quiz");
+    return card("ex", e.id, `<b>${esc(name)} ${esc(when)}.</b> Try Quiz Me on it: you have ${left} free session${left === 1 ? "" : "s"} this week.`, `Quiz Me on ${label(c) || "It"}`);
+  }
+
+  function go(kind, id){
+    const o = S(), rec = Object.assign({}, (o[kind] || {})[id] || {}, {x: 1});
+    save({[kind]: Object.assign({}, o[kind], {[id]: rec})});
+    if (kind === "ex") {
+      const e = state.tasks[id]; if (!e) return;
+      if (!aiReady()) { aiSetupSheet(true); render(); return; }
+      const topics = e.prep && Array.isArray(e.prep.topics) ? e.prep.topics.map(t => t.name).filter(Boolean).slice(0, 6) : [];
+      const q = `What do I need to know for ${e.title}${topics.length ? ` (${topics.join(", ")})` : ""}?`;
+      render();
+      if (window.SBSEARCH && SBSEARCH.quizCourse) SBSEARCH.quizCourse(e.courseId || "", q);
+      return;
+    }
+    render();
+    plan().openSheetPick(kind === "term" ? "Pro for the whole term: Studyboard AI, the Exam Day Forecast, unlimited Quiz Me and more." : "Keep Quiz Me unlimited through your exams with Pro.", "semester");
+  }
+  function dismiss(kind, id){
+    const o = S(), rec = Object.assign({}, (o[kind] || {})[id] || {d: todayISO()}, {x: 1});
+    save({[kind]: Object.assign({}, o[kind], {[id]: rec})});
+    render();
+  }
+
+  // shown with the board's other notices (under the Notices dropdown above the add bar), not inside Today's Plan
+  window.SBOFFERS = {noticeHtml: () => { try { return html(); } catch (e) { console.warn("offers", e); return ""; } }};
+  hook("act", (act, el, id) => {
+    if (act !== "offer-go" && act !== "offer-x") return false;
+    const s = String(id || ""), k = s.indexOf("|"), kind = s.slice(0, k), key = s.slice(k + 1);
+    if (!["ex", "fu", "term"].includes(kind)) return true;
+    if (act === "offer-go") go(kind, key); else dismiss(kind, key);
+    return true;
+  });
+  window.__sbOffers = {pick, html, allowed};
+
+  const css = document.createElement("style");
+  css.textContent = `
+.offer-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0;padding:12px 14px;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:12px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.offer-t{flex:1;min-width:14em;line-height:1.4}
+.offer-a{display:flex;align-items:center;gap:6px;margin-left:auto}
+`;
+  document.head.appendChild(css);
+})();
 /* ===== module: 99-early.js ===== */
 /* Founders and Early Supporters (PRO-PLANS-GUIDE.md, "Founders and Early Supporters") */
 var SBEARLY = null;
@@ -86103,6 +86658,120 @@ var SBEARLY = null;
 
   SBEARLY = {kind, keeps, status, mine, sheetHtml, themesSheet, refresh: () => load(true)};
   window.SBEARLY = SBEARLY;
+})();
+/* ===== module: 99-ai-intro.js ===== */
+/* "Introducing Studyboard AI": a one-time popup, for a limited time only.
+   - People who joined before 11 Nov 2026 see it once, the next time the app is quiet.
+   - People who join from 11 to 24 Nov 2026 see it once, two days after joining.
+   - Anyone who joins later never sees it, and from 28 Nov 2026 nobody does: this module does nothing after that, and can be deleted.
+   "Once" is kept three ways: the flag is written before the popup is drawn (and the popup is skipped if it can't be written),
+   the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
+(() => {
+  const KEY = "studyboard:aiIntro", FIRST_RUN = "studyboard:firstRun";
+  /*AIINTRO-START*/
+  const AIINTRO = (() => {
+    const SPLIT = Date.UTC(2026, 10, 11);        // joined before this: an existing user
+    const SIGNUP_END = Date.UTC(2026, 10, 25);   // joined from SPLIT up to this: a new user, who waits two days
+    const DELAY = 2 * 864e5;
+    const SHOW_END = SIGNUP_END + DELAY + 864e5; // the last person to join in time gets their two days and a day to spare
+    // joined: when the person joined, in ms (0 = from before this popup existed); null = unknown
+    const due = (joined, now) => {
+      if (!(now > 0) || now >= SHOW_END) return false;
+      if (joined == null || !(joined >= 0)) return false;
+      if (joined < SPLIT) return true;
+      if (joined >= SIGNUP_END) return false;
+      return now >= joined + DELAY;
+    };
+    return {due, SPLIT, SIGNUP_END, DELAY, SHOW_END};
+  })();
+  /*AIINTRO-END*/
+
+  const T = () => window.__aiIntroTest || null;
+  const now = () => { const t = T(); return t && t.now ? t.now() : Date.now(); };
+  const rd = k => { try { return localStorage.getItem(k); } catch (e) { return undefined; } };
+  const wr = (k, v) => { try { localStorage.setItem(k, v); return localStorage.getItem(k) === v; } catch (e) { return false; } };
+  const uiSyncSeen = () => { try { const b = state.settings && state.settings.uiSync; return !!(b && b[KEY] && b[KEY].v); } catch (e) { return false; } };
+  const seen = () => rd(KEY) === undefined || !!rd(KEY) || uiSyncSeen();   // storage that can't be read counts as seen: never risk a second time
+
+  // When this person joined: their account's date, or for someone with no account, the first time this device ran the app
+  // (0 when the device already had a planner before this popup existed)
+  function joined(){
+    try {
+      if (typeof sbUser !== "undefined" && sbUser && !sbUser.is_anonymous) { const t = Date.parse(sbUser.created_at || ""); if (t > 0) return t; }
+    } catch (e) {}
+    let f = rd(FIRST_RUN);
+    if (f === undefined) return null;
+    if (f === null) {
+      const had = rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed");
+      f = had ? "0" : String(now());
+      wr(FIRST_RUN, f);
+    }
+    const n = Number(f);
+    return n >= 0 ? n : null;
+  }
+
+  let shown = false, timer = 0;
+  const quiet = () => {
+    try {
+      if (document.hidden || dlg.open || document.getElementById("qod") || document.querySelector("dialog[open]")) return false;
+      if (window.SBOB && SBOB.pending()) return false;
+      if (window.SBTOUR && SBTOUR.active()) return false;
+    } catch (e) { return false; }
+    return true;
+  };
+  const live = () => typeof AI_PRO !== "undefined" && !!AI_PRO && typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall();
+
+  const CHECK = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  const SPARK = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.1 5.6a2.4 2.4 0 0 0 1.4 1.4l5.6 2.1-5.6 2.1a2.4 2.4 0 0 0-1.4 1.4L12 20.7l-2.1-5.6a2.4 2.4 0 0 0-1.4-1.4L2.9 11.6l5.6-2.1a2.4 2.4 0 0 0 1.4-1.4z"/><path d="M19 2l.7 1.8c.1.3.4.6.7.7L22.2 5l-1.8.7c-.3.1-.6.4-.7.7L19 8.2l-.7-1.8a1.2 1.2 0 0 0-.7-.7L15.8 5l1.8-.7c.3-.1.6-.4.7-.7z" opacity=".7"/></svg>';
+  const POINTS = [
+    ["Higher quality responses", "across every AI feature"],
+    ["2x faster", "on most responses"],
+    ["Higher privacy standards", "(your data is never used to train models)"],
+    ["Nothing to set up", "(no API key needed)"]
+  ];
+
+  function html(has){
+    const li = ([b, s]) => `<li><span class="aii-tick">${CHECK}</span><span><b>${esc(b)}</b> ${esc(s)}</span></li>`;
+    return `<div class="aii-badge" aria-hidden="true">${SPARK}</div>
+      <div class="qod-eyebrow">New</div>
+      <h2 id="qodT">Introducing Studyboard AI!</h2>
+      <p class="aii-sub">Now included with Studyboard Pro.</p>
+      <p class="aii-vs">Compared to free Gemini:</p>
+      <ul class="aii-list">${POINTS.map(li).join("")}</ul>
+      <div class="qod-foot">${has
+        ? `<button type="button" class="btn primary" data-qod-close>Got It</button>`
+        : `<button type="button" class="btn" data-qod-close>Maybe Later</button><button type="button" class="btn primary aii-pro" data-qod-close data-act="plan-open" data-reason="Studyboard AI is included with Pro: higher quality, faster, more private AI for every AI feature, with nothing to set up.">See Studyboard Pro</button>`}</div>
+      <p class="aii-fine">Only for users with paid Pro.</p>`;
+  }
+
+  function show(){
+    if (shown) return false;
+    // The flag first, and only go on if it really was written: a popup that can't be remembered is never shown
+    if (!wr(KEY, String(now()))) { shown = true; return false; }
+    shown = true; stop();
+    let has = false; try { has = typeof aiProAvail === "function" && !!aiProAvail(); } catch (e) {}
+    qodPop(html(has), "aii qod-plain");
+    return true;
+  }
+
+  function check(){
+    if (shown) return stop();
+    const t = now();
+    if (t >= AIINTRO.SHOW_END) { shown = true; return stop(); }
+    if (seen()) { shown = true; return stop(); }
+    if (navigator.webdriver && !T()) return;
+    try { if (inPreview()) return; } catch (e) {}
+    const j = joined();
+    if (j == null) return;
+    if (!AIINTRO.due(j, t)) { if (j >= AIINTRO.SIGNUP_END) { shown = true; stop(); } return; }
+    if (!live() || !quiet()) return;
+    show();
+  }
+  function stop(){ clearInterval(timer); timer = 0; }
+
+  window.SBAIINTRO = {due: AIINTRO.due, check, seen: () => seen(), SHOW_END: AIINTRO.SHOW_END};
+  // Looks a few seconds after the app opens (so an account's flags from its other devices have arrived), then now and then
+  setTimeout(() => { check(); if (!shown && !timer) timer = setInterval(check, 30000); }, 6000);
 })();
 /* ===== module: 99-linked.js ===== */
 /* Linked items: one compact row of chips on a task (its edit sheet) and on a deck page */
@@ -87204,12 +87873,13 @@ var SBINK = null;
   const noteInk = n => inkOf(n);
   function noteThumb(n, editing){
     const list = noteInk(n); if (!list.length) return "";
-    const svg = svgOf(list), canEdit = editing && available() && !P.locked();
+    // a drawing someone already made stays editable on every plan; starting a new one is Pro
+    const svg = svgOf(list), canEdit = editing && available();
     return canEdit ? `<button type="button" class="ink-thumb" data-act="ink-note" data-id="${esc(n.id)}" aria-label="Edit the drawing">${svg}</button>` : `<div class="ink-thumb">${svg}</div>`;
   }
   function openPad(id){
     const n = state.notes[id]; if (!n || !available()) return;
-    if (P.locked()) { proWhy(NOTE_WHY); return; }
+    if (P.locked() && !noteInk(n).length) { proWhy(NOTE_WHY); return; }
     const ses = noteSession(id);
     const ai = typeof photoNoteSheet === "function" && typeof aiReady === "function" && aiReady();
     openSheet(`<div class="sheet ink-sheet">${head(noteInk(n).length ? "Drawing" : "New Drawing")}
@@ -87249,7 +87919,7 @@ var SBINK = null;
   }
   const baseExtra = P.noteExtra, baseBar = P.noteBar;
   P.noteExtra = n => noteThumb(n, true) + (baseExtra ? baseExtra(n) : "");
-  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${P.locked() ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
+  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${!noteInk(n).length && (P.locked() || tagPro()) ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
 
   /* Wiring */
   hook("act", (act, el, id) => {
@@ -91832,7 +92502,8 @@ var SBWB = null;
   // on the dark board a very dark custom colour is shown lighter, so it can be seen
   const forDark = hex => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, l = (0.299 * r + 0.587 * g + 0.114 * b) / 255; if (l >= 0.35) return hex; const k = 0.55; return "#" + [r, g, b].map(v => Math.round(v + (255 - v) * k).toString(16).padStart(2, "0")).join(""); };
   const penHex = (c, light) => { const h = hexOf(c); if (h) return !light && DK ? forDark(h) : h; return !light && DK ? (PEN_D[c] || PEN_D.ink) : (PEN.find(x => x[0] === c) || PEN[0])[2]; };
-  const proLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
+  // Drawing on a whiteboard is free, in any color (Pictures, Draw Again and the AI tools beside it are still Pro)
+  const proLocked = () => false;
   const hlHex = c => (HLC.find(x => x[0] === c) || HLC[0])[2];
   const colOf = (s, light) => s.t === "hl" ? hlHex(s.c) : penHex(s.c, light);
   const SV = p => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -93730,7 +94401,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "restyle"; b.dataset.id = it.id;
     b.className = "wb-ai-btn";
     const st = styleOf(styleId());
-    b.innerHTML = `${AI_ICON}${it.r ? "Draw Again" : esc(st[2])}${locked() ? " " + PRO_BADGE : ""}`;
+    b.innerHTML = `${AI_ICON}${it.r ? "Draw Again" : esc(st[2])}${locked() || tagPro() ? " " + PRO_BADGE : ""}`;
     b.title = `Redraw this picture as if it were drawn on the board (${st[1]})`;
     if (!locked()) { b.dataset.wb = "restyle-menu"; b.setAttribute("aria-haspopup", "menu"); b.innerHTML = `${AI_ICON}${it.r ? "Draw Again" : "Draw"}<svg class="wb-chev" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`; b.title = "Pick a drawing style"; b.classList.add("wb-style-pick"); }
     bar.insertBefore(b, bar.querySelector('[data-wb="sel-copy"]'));
@@ -94130,7 +94801,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
         <fieldset class="wb-ai-k" aria-label="What to make">
           <label class="mi-check"><input type="radio" name="wbaK" value="notes" checked> Typed notes <span class="mini">A clean, typed copy of the board, saved as a note</span></label>
           <label class="mi-check"><input type="radio" name="wbaK" value="cards"> Typed notes and flashcards <span class="mini">Then draft cards from them for you to check</span></label>
-          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() ? " " + PRO_BADGE : ""} <span class="mini">The board as a picture with its labels hidden, to guess</span></label>
+          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() || tagPro() ? " " + PRO_BADGE : ""} <span class="mini">The board as a picture with its labels hidden, to guess</span></label>
         </fieldset>
         <label class="f">Course<select id="wbaCourse">${courseSelectHtml(n.courseId || "")}</select></label>
         <label class="f" id="wbaDeckL" hidden>Deck<select id="wbaDeck"></select></label>
@@ -97294,6 +97965,7 @@ function draw(){
   dlg.querySelectorAll("[data-vh-prev]").forEach(b => b.addEventListener("click", () => { V.sel = +b.dataset.vhPrev; V.drop = false; draw(); }));
   dlg.querySelectorAll("[data-vh-res]").forEach(b => b.addEventListener("click", () => restoreAt(+b.dataset.vhRes)));
   const bk = dlg.querySelector("[data-vh-back]"); if (bk) bk.addEventListener("click", () => { V.sel = -1; draw(); });
+  if (!s && window.SBPRO && SBPRO.locked()) proHint();
   const dr = dlg.querySelector("[data-vh-drop]"); if (dr) dr.addEventListener("change", () => { V.drop = dr.checked; });
 }
 function restoreAt(i){
@@ -97325,22 +97997,27 @@ function restoreDeck(id, s, drop){
 
 /* Entry points */
 const PRO_WHY = "Version History is part of Studyboard Pro: bring back any note or deck from the last 30 days.";
+// Free plan (after Pro or the free weeks end): versions already saved on this device, and those in Google Drive or OneDrive backups,
+// can still be seen and restored. Only keeping new versions is Pro.
+const hasSaved = (kind, id) => keys.has(kind + ":" + id) || cloudOn();
+const proHint = () => {
+  const body = dlg.querySelector(".sheet-body");
+  if (body && !body.querySelector(".vh-hint")) body.insertAdjacentHTML("beforeend", `<p class="mini vh-hint" style="margin:0">Pro keeps 30 days of versions, for decks too. <button type="button" class="link-btn" data-act="vh-pro">See Pro</button></p>`);
+};
 function deckBtn(d){
-  if (!d || inPreview() || !window.SBPRO || SBPRO.locked()) return "";
-  return keys.has("deck:" + d.id) || cloudOn() ? `<button type="button" class="btn" data-act="vh-deck" data-id="${esc(d.id)}">Earlier Versions</button>` : "";
+  if (!d || inPreview() || !window.SBPRO) return "";
+  return hasSaved("deck", d.id) ? `<button type="button" class="btn" data-act="vh-deck" data-id="${esc(d.id)}">Earlier Versions</button>` : "";
 }
 hook("act", (act, el, id) => {
   if (act === "note-versions") {
     if (!window.SBPRO || inPreview()) return false;
     if (SBPRO.locked()) {
-      noteVersionsSheet(id);
-      const body = dlg.querySelector(".sheet-body");
-      if (body && !body.querySelector(".vh-hint")) body.insertAdjacentHTML("beforeend", `<p class="mini vh-hint" style="margin:0">Pro keeps 30 days of versions, for decks too. <button type="button" class="link-btn" data-act="vh-pro">See Pro</button></p>`);
+      if (hasSaved("note", id)) openFor("note", id); else { noteVersionsSheet(id); proHint(); }
       return true;
     }
     openFor("note", id); return true;
   }
-  if (act === "vh-deck") { if (!state.decks[id]) return true; if (SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return true; } openFor("deck", id); return true; }
+  if (act === "vh-deck") { if (!state.decks[id]) return true; if (SBPRO.locked() && !hasSaved("deck", id)) { PLAN.openSheet(PRO_WHY); return true; } openFor("deck", id); return true; }
   if (act === "vh-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(PRO_WHY); return true; }
   return false;
 });
@@ -97463,6 +98140,9 @@ const RBC = (() => {
 /*RUBRIC-END*/
 
 const PRO_WHY = "Rubric Check is part of Studyboard Pro: see which rubric criteria your draft misses before you submit.";
+// free plan: a few checks a week with the student's own AI key (PLAN.runsLeft)
+const locked = () => !!(window.SBPRO && SBPRO.locked());
+const left = () => { try { return PLAN.runsLeft("rubric"); } catch (e) { return 0; } };
 const LMS_F = ["cv", "bs", "bb", "md", "sg", "gc"];
 const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null, el: null};
 // A check that's still running is set aside (not stopped) when you tap away, and comes back when you open Rubric Check again
@@ -97477,7 +98157,7 @@ const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test
 const RUB_NAME = /rubric|criteria|marking|grading|scoring|assessment guide/i;
 function taskBtn(t){
   if (!t || inPreview() || !RBC.eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${locked() && left() > 0 ? ` <span class="mini">${left()} free this week</span>` : locked() || tagPro() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
 // The rubric a task already has: from the school site, an attached rubric file, or notes that read like one
 async function autoRubric(t){
@@ -97499,7 +98179,8 @@ async function fileText(file){
 }
 function open(id){
   const t = state.tasks[id]; if (!t) return;
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
+  // a check already done for this task can always be opened again; starting a new one needs a free run (or Pro)
+  if (locked() && left() <= 0 && !(R.tid === id && (R.res || R.busy))) { PLAN.runsGone("rubric", "Rubric Check: see which rubric criteria your draft misses before you submit."); return; }
   if (sheetResume(KEY(id))) return;
   if (R.tid !== id) { if (R.tid) sheetDrop(KEY(R.tid)); Object.assign(R, {tid: id, rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, cut: null}); }
   Object.assign(R, {view: own() ? (R.res ? "result" : "form") : "nokey", err: "", busy: false, saved: 0});
@@ -97580,6 +98261,7 @@ function wire(t){
 async function run(id){
   const t = state.tasks[id]; if (!t || R.busy) return;
   if (!own()) { R.view = "nokey"; draw(); return; }
+  if (locked() && left() <= 0) { PLAN.runsGone("rubric"); return; }
   if (!R.rubric.trim()) { R.err = "Add the rubric first: paste it, or choose the file."; draw(); return; }
   if (R.draft.trim().split(/\s+/).length < 30) { R.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; draw(); return; }
   const cr = crits(), draft = RBC.clip(R.draft, 60000), c = courseOf(t.courseId);
@@ -97592,6 +98274,7 @@ async function run(id){
     const out = RBC.parse(res && res.data, cr, draft.text);
     if (!out) throw Object.assign(new Error("The AI's answer didn't make sense. Try again."), {code: "bad"});
     Object.assign(R, {res: out, cut: draft, view: "result", saved: 0});
+    if (locked() && PLAN.useRun) PLAN.useRun("rubric");
   } catch (e) {
     if ((ac && ac.signal.aborted) || (e && e.code === "cancelled")) return;
     R.err = (e && e.message) || "Couldn't check your draft right now. Try again.";
@@ -97616,7 +98299,7 @@ hook("act", (act, el, id) => {
   if (dlg.open) dlg.close();
   open(id); return true;
 });
-if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", free: "3 a Week, Own Key", pro: "Unlimited", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -97656,6 +98339,8 @@ window.SBRUBRIC = {taskBtn, open, RBC, state: () => R};
    own task sheets. Nothing is stored except the confidence the student chooses to set and the cards they keep. */
 (() => {
 const locked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return false; } };
+// free plan: a few checks a week with the student's own AI key (PLAN.runsLeft)
+const left = () => { try { return PLAN.runsLeft("teach"); } catch (e) { return 0; } };
 const WHY = "Teach It Back is part of Studyboard Pro: explain a topic in your own words, and AI checks it against your own decks, notes and files.";
 const CONF = {weak: "Shaky", ok: "OK", strong: "Strong"};
 const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
@@ -97727,6 +98412,7 @@ async function check(){
   const words = me.text.trim().split(/\s+/).filter(Boolean).length;
   if (words < 12) { me.msg = "Say a bit more: a few sentences, as if teaching a friend who missed the class."; draw(); return; }
   if (!aiReady()) { DRAFT.set(key(), me.text); aiSetupSheet(true); return; }
+  if (locked() && left() <= 0) { DRAFT.set(key(), me.text); PLAN.runsGone("teach"); return; }
   micStop();
   const kk = me.exId + "|" + me.topicId, ac = typeof AbortController === "function" ? new AbortController() : null;
   me.busy = true; me.msg = ""; me.ac = ac; draw();
@@ -97749,6 +98435,7 @@ async function check(){
     if (me.dropped) return;
     me.res = Object.assign(parse(r && r.data, items), {general: me.general, at: Date.now(), text: me.text, unread});
     LAST.set(kk, me.res); DRAFT.set(kk, me.text);
+    if (locked() && PLAN.useRun) PLAN.useRun("teach");
   } catch (e) {
     if (me.dropped) return;
     me.msg = e && e.code === "cancelled" ? "" : (e && e.message) || "The AI couldn't check that right now. Try again.";
@@ -97868,7 +98555,7 @@ function onClick(e){
   }
 }
 function open(exId, topicId, name){
-  if (locked()) { if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(WHY); return; }
+  if (locked() && left() <= 0) { if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.runsGone("teach", WHY.replace(/^[^:]*: /, "Teach It Back: ")); return; }
   const ex = state.tasks[exId], t = ex && findTopic(ex, topicId, name);
   if (!t) { toast("That topic isn't in the exam's plan any more."); return; }
   micStop();
@@ -97894,7 +98581,7 @@ function open(exId, topicId, name){
 }
 
 /* entry points */
-const badge = () => locked() ? " " + PRO_BADGE : "";
+const badge = () => locked() && left() > 0 ? ` <span class="mini">${left()} free this week</span>` : locked() || tagPro() ? " " + PRO_BADGE : "";
 function btn(ex, t){
   if (!ex || !t || ex.status === "done" || !ex.due || ex.due < todayISO()) return "";
   return `<button type="button" class="link-btn tb-go" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">Teach It Back${badge()}</button>`;
@@ -99990,7 +100677,7 @@ async function open(exId){
 }
 function btn(ex){
   if (!ex || ex.status === "done" || !ex.due || ex.due < todayISO() || !linked(ex)) return "";
-  return `<button type="button" class="link-btn xs-go" data-act="xs-open" data-id="${H(ex.id)}">Formula and Diagram Sheet${locked() ? " " + PRO_BADGE : ""}</button>`;
+  return `<button type="button" class="link-btn xs-go" data-act="xs-open" data-id="${H(ex.id)}">Formula and Diagram Sheet${locked() || tagPro() ? " " + PRO_BADGE : ""}</button>`;
 }
 // On hold: hidden everywhere in the app (Prep Plan link, Print and PDF layout, Pro features list). Tests switch it on with window.__SB_XS.
 if (!(window.__SB_TEST && window.__SB_XS)) return;
@@ -100188,7 +100875,7 @@ const SMR_CORE = (() => {
   // One row in Reminders and Notifications
   function row(c){
     if (locked()) return `<button type="button" class="pro-linkrow" data-act="smr-pro"><span>Smart Reminders</span>${PRO_BADGE}</button>`;
-    return `<div class="rm-row"><label class="mi-check"><input type="checkbox" data-rm="smart" ${c.smart ? "checked" : ""}> Smart Reminders</label></div>
+    return `<div class="rm-row"><label class="mi-check"><input type="checkbox" data-rm="smart" ${c.smart ? "checked" : ""}> Smart Reminders${tagPro() ? " " + PRO_BADGE : ""}</label></div>
       <p class="mini" style="margin:0">When a task due this week needs most of your free time before it, a nudge comes at the start of your next free time. Uses your Availability, or your daily study hours.</p>`;
   }
   hook("act", act => {
@@ -100273,7 +100960,7 @@ const LINKCARDS = (() => {
   /* In the Create with AI sheet */
   function html(){
     if (inPreview()) return "";
-    return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
+    return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
       <div class="cl-in"><label class="f"><span class="lh">Link</span><input type="url" id="aiLink" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="https://www.youtube.com/watch?v=… or an article's address" data-noenter></label>
       <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key.</p></div></details>`;
   }
@@ -100292,9 +100979,16 @@ const LINKCARDS = (() => {
     h.classList.toggle("cl-warn", sbYt);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
-      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? " Heads up: a video uses a large share of your weekly Studyboard AI, and only its first 90 minutes are read. Other AI features may pause for the rest of the week after it." : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
+      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? ytWarn() : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.`;
   });
+  // A video through Studyboard AI: how much of the 7-day allowance it can take, and what happens at the limit. One video can cost
+  // up to about two-thirds of the allowance (its first 90 minutes); someone already past a third may hit the limit with it
+  const ytWarn = () => {
+    const used = Math.max(0, Math.min(100, Number((aiProGet() || {}).usedPct) || 0));
+    return " Heads up: one video can use up to two-thirds of your Studyboard AI for the last 7 days (only its first 90 minutes are read)." +
+      (used >= 34 ? ` You've used ${used}%, so this video may reach your limit, and Studyboard AI would then stop until some of your use is 7 days old.` : " If you reach your limit, Studyboard AI stops until some of your use is 7 days old.");
+  };
   document.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-cl]"); if (!b) return;
     if (b.dataset.cl === "paste") { const d = document.getElementById("aiPasteD"), t = document.getElementById("aiPaste"); if (d) d.open = true; if (t) { t.focus(); t.scrollIntoView({block: "center"}); } }
@@ -100810,7 +101504,7 @@ const AUTOPILOT = (() => {
   /* Settings > Study */
   hook("menu", () => {
     if (locked()) return `<button type="button" data-act="ap-pro" data-group="study"><span>Autopilot ${PRO_BADGE}<span class="sub">Moves missed study sessions and steps into your next free time overnight, then tells you once.</span></span></button>`;
-    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot<span class="sub">Reschedules missed study sessions into your free time. Due dates never move.</span></span>${modeSeg()}</div>`;
+    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot${tagPro() ? " " + PRO_BADGE : ""}<span class="sub">Reschedules missed study sessions into your free time. Due dates never move.</span></span>${modeSeg()}</div>`;
   });
   hook("act", (act, el, id) => {
     if (!act || act.slice(0, 3) !== "ap-") return false;
@@ -100983,7 +101677,7 @@ const AUTOPILOT = (() => {
   /* Dismissals and light/dark follow you between devices */
   const UI_KEYS = new Set(["studioso:theme", "studioso:nudge", "studioso:lastExport", "studyboard:crunch", "studyboard:roughWeekHidden", "studyboard:grpNudge",
     "studyboard:semester", "studyboard:review:snooze", "studyboard:fgs:cards", "studyboard:streak:said", "studyboard:heads:hide", "studyboard:gradeAsked",
-    "studyboard:gradeCheer", "studyboard:scrapToastAt"]);
+    "studyboard:gradeCheer", "studyboard:scrapToastAt", "studyboard:aiIntro"]);
   const AT = "studyboard:uiSyncAt";
   const atMap = () => { try { const m = JSON.parse(rawGet.call(ls, AT) || "{}"); return m && typeof m === "object" ? m : {}; } catch (e) { return {}; } };
   const putAt = m => { try { rawSet.call(ls, AT, JSON.stringify(m)); } catch (e) {} };
@@ -101169,7 +101863,7 @@ const AUTOPILOT = (() => {
     const wrap = document.querySelector("body > .wrap"), nt = nav ? nav.getBoundingClientRect().top : 0;
     const on = !!(sc && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
     const wbOn = !!(document.getElementById("wbHost") && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
-    if (!on) { [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) { if (wbOn) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important"); else wrap.style.removeProperty("padding-bottom"); } return; }
+    if (!on) { if (sc && typeof nbFill === "function") nbFill(); else [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) { if (wbOn) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important"); else wrap.style.removeProperty("padding-bottom"); } return; }
     // and the page leaves only the tab bar's room below them, so there's nothing to scroll to
     if (wrap) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important");
     const y = window.scrollY || 0, stop = nt + y - 14;

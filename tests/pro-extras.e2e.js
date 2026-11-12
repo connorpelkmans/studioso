@@ -78,7 +78,7 @@ function SEED(){
 
     await act(page, "plan-open"); await page.waitForTimeout(400);
     const sheet = await page.locator(".plan-sheet").textContent();
-    ok(/What Pro Adds/.test(sheet) && /Insights/.test(sheet) && /Term Recap/.test(sheet), "the Pro sheet lists what Pro adds");
+    ok(/Show All Pro Features/.test(sheet) && /Insights/.test(sheet) && /Term Recap/.test(sheet), "the Pro sheet lists what Pro adds");
     ok(/Try New Features First/.test(sheet) && /Show My Badge in Groups/.test(sheet), "early access and the supporter badge are offered");
     await page.click('[data-act="pro-early"]'); await page.waitForTimeout(250);
     ok(await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.early === true), "early access is saved in settings");
@@ -175,9 +175,13 @@ function SEED(){
     const p3 = await open(await mkCtx(seed2, true));
     ok(await p3.locator(".pro-recap-card").count() === 0, "free: no term recap card");
     await act(p3, "wkr-open"); await p3.waitForTimeout(400);
-    ok(await p3.locator(".wkr-sheet .pro-ins-card").count() === 0 && await p3.locator('.wkr-sheet .pro-linkrow .pro-badge').count() === 1, "free: Weekly Review has one quiet Insights · PRO row");
+    ok(await p3.locator('.wkr-sheet [data-act="pro-ins-open"] .pro-badge').count() === 1, "free: Weekly Review has See All Insights with a PRO badge");
+    if (await p3.locator(".wkr-sheet .pro-ins-card").count()) ok(((await p3.textContent(".wkr-sheet .pro-ins-card p")) || "").trim().length > 10, "free: this week's one-line insight, from the student's own planner, is free");
     await p3.click('.wkr-sheet [data-act="pro-ins-open"]'); await p3.waitForTimeout(400);
-    ok(await p3.locator(".plan-sheet").count() === 1 && await p3.locator(".pro-ins-body").count() === 0, "free: tapping it opens the Pro sheet, not Insights");
+    ok(await p3.locator(".pro-ins-body").count() === 1 && await p3.locator(".pro-ins-body .pro-card:not(.pro-lockcard)").count() === 1 && await p3.locator(".pro-ins-body .pro-lockcard").count() === 3, "free: Insights opens as a preview: the first card real, the other three say what Pro shows");
+    await noOverflow(p3, "in the Insights preview");
+    await p3.click('.pro-ins-body [data-act="pro-ins-pro"]'); await p3.waitForTimeout(400);
+    ok(await p3.locator(".plan-sheet").count() === 1 && /Insights are part of Studyboard Pro/.test(await p3.textContent(".plan-sheet")), "free: See Every Insight With Pro opens the Pro sheet with the reason");
     await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
     await act(p3, "pomo-open"); await p3.waitForTimeout(400);
     const nOwn = await p3.evaluate(() => ((JSON.parse(localStorage.getItem("coursework:v2")).settings || {}).routines || []).length);

@@ -4,6 +4,7 @@
   "private": true,
   "description": "Capacitor wrapper for the Studyboard Android app (built by scripts/android-build.js)",
   "dependencies": {
+    "@capacitor-community/in-app-review": "^8.0.0",
     "@capacitor/android": "^8.6.0",
     "@capacitor/app": "^8.1.2",
     "@capacitor/browser": "^8.0.5",

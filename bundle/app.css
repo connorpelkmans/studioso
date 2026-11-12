@@ -114,6 +114,8 @@ li.is-done .task-title{text-decoration:line-through;color:var(--muted);font-weig
 .fab-menu .fm-list button:hover,.fab-menu .fm-list button:focus-visible{border-color:var(--accent);box-shadow:0 6px 16px rgba(0,0,0,.12);transform:translateY(-1px)}
 .fab-menu .fm-ic{flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent)}
 .fab-menu .fm-ic .ai-ic{width:24px;height:24px;color:#8B5CF6}
+/* the companion's face in the menu's icon box: centred, filling it like the other icons (none of the inline icon's nudges) */
+.fab-menu .fm-ic span.cp-ai-face.ai-ic{width:30px;height:30px;min-width:30px;margin:0;top:0;vertical-align:0}
 .fab-menu .fm-t{flex:1;min-width:0}
 .fab-menu .fm-t b{display:block;font-weight:700;font-size:1.02rem}
 .fab-menu .fm-t .sub{margin-top:2px}
@@ -1699,6 +1701,20 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .pp-line{margin:0}
 .pp-bar{height:8px;border-radius:999px;background:var(--field);border:1px solid var(--line);overflow:hidden}
 .pp-bar i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.pp-fc{display:grid;gap:8px;margin-top:10px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.pp-fc-lock{background:color-mix(in srgb,var(--ink) 3%,var(--surface));border-style:dashed;justify-items:start}
+.pp-fc-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.pp-fc-h .mini{margin-left:auto;color:var(--muted)}
+.pp-fc-big{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.pp-fc-n{display:grid;font:700 1.5rem/1.1 var(--display);color:var(--muted)}
+.pp-fc-n small{font:600 .72rem var(--display);letter-spacing:.04em;text-transform:uppercase}
+.pp-fc-day{font-size:2.1rem;color:var(--accent)}
+.pp-fc-day small{color:var(--muted)}
+.pp-fc-arrow{font-size:1.4rem;color:var(--muted);padding-bottom:4px}
+.pp-fc-why{margin:0;font-size:.9rem;color:var(--muted)}
+.pp-fc-tip{margin:0;padding:8px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:.92rem}
+.pp-fc-next{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0}
+.pp-fc-next > span{flex:1;min-width:10em}
 .pp-bar.big{height:12px}
 .pp-note{margin:0;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--warn) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line))}
 .pp-covs,.pp-agenda{list-style:none;margin:0;padding:0;display:grid;gap:10px}
@@ -2290,7 +2306,7 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .sch-legend .k-event::before{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-left:4px solid var(--accent)}
 .sch-nav{flex-wrap:wrap;justify-content:flex-end}
 /* wide screens: the week selector on the left */
-@media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-next"] + *{margin-left:auto}}
+@media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-today"] + *{margin-left:auto}}
 /* Availability blocks */
 .sch-b.k-av-class{background:var(--c);color:#fff}
 .sch-b.k-av-work{background:color-mix(in srgb,var(--c) 24%,var(--surface));color:var(--ink);border-left:5px solid var(--c);box-shadow:0 1px 4px rgba(8,20,50,.12)}
@@ -2365,6 +2381,17 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .qod-streak{margin:14px 0 0;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:.86rem;color:var(--ink)}
 .qod-foot{display:flex;justify-content:center;gap:8px;margin-top:16px;flex-wrap:wrap}
 .streak-chip{margin-left:10px;border:0;background:color-mix(in srgb,var(--tomato) 14%,var(--surface));color:var(--ink);font:700 .8rem/1 var(--display);padding:5px 9px;border-radius:999px;vertical-align:middle;cursor:pointer}
+/* Introducing Studyboard AI */
+.aii .qod{text-align:left}.aii .qod-eyebrow,.aii h2{text-align:center}
+.aii-badge{width:56px;height:56px;margin:0 auto 12px;border-radius:18px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#8a5cf6))}
+.aii-sub{margin:0 0 14px;text-align:center;font:600 1.02rem/1.35 var(--display)}
+.aii-vs{margin:0 0 8px;color:var(--muted);font-size:.86rem;font-weight:600}
+.aii-list{list-style:none;margin:0;padding:0;display:grid;gap:9px;font-size:.93rem;line-height:1.35}
+.aii-list li{display:flex;gap:10px;align-items:flex-start}
+.aii-tick{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent)}
+.aii-tick svg{width:14px;height:14px}
+.aii .btn.aii-pro{background:linear-gradient(135deg,#FFB443,#FF5C8A);border-color:transparent;color:#fff}
+.aii-fine{margin:12px 0 0;text-align:center;font-size:.66rem;color:var(--muted);opacity:.85}
 @media (prefers-reduced-motion:reduce){.qod-wrap,.qod{transition:none}}
 /* Heads Up (automatic AI) */
 .rx-chip{display:inline-block;font:700 .68rem/1 var(--body);letter-spacing:.03em;border-radius:6px;padding:4px 7px;border:1px solid var(--line);color:var(--muted);background:var(--surface);white-space:nowrap}
@@ -2619,8 +2646,13 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
   border:1.5px solid var(--line);background:var(--surface);color:var(--ink);transition:transform .15s,box-shadow .2s,border-color .2s}
 .plan-price:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line));transform:translateY(-1px)}
 .plan-price:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+.plan-price[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.plan-price[aria-checked="true"]::after{content:"";position:absolute;top:12px;right:12px;width:18px;height:18px;border-radius:50%;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/12px no-repeat}
+.plan-price.best[aria-checked="true"]::after{top:18px}
+.plan-go{width:100%;min-height:48px;font-size:1rem;margin-top:2px}
 .plan-price.best{border-color:transparent;background:linear-gradient(var(--surface),var(--surface)) padding-box,linear-gradient(135deg,var(--pro-a),var(--pro-b)) border-box;
   box-shadow:0 8px 26px var(--pro-glow)}
+.plan-price.best[aria-checked="true"]{box-shadow:0 8px 26px var(--pro-glow),0 0 0 2px var(--accent) inset}
 .pp-name{font:700 .8rem var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .pp-amt{font:800 1.45rem var(--display);letter-spacing:-.01em}
 .pp-amt small{font:600 .82rem var(--display);color:var(--muted)}
@@ -2660,6 +2692,9 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 .plan-gift-ic{font-size:1.8rem;line-height:1}
 .plan-gift .btn{min-height:44px}
 @media (max-width:600px){.plan-gift .btn{flex:1 1 100%}}
+/* Pro without Studyboard AI (a grant, a code, the free weeks): subscribing adds it */
+.plan-upai{display:grid;gap:4px;padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.plan-upai p{margin:0}
 /* ===== module: 15-tips.css ===== */
 /* Everyday how-to tips hide after the first 14 days of use */
 html.tips-off .tip-everyday{display:none!important}
@@ -4566,10 +4601,13 @@ html.cp-hover{cursor:pointer}
 .cp-still .cp-doze .cp-zs{display:inline}
 /* Hearts, sparkles and z's */
 .cp-fx{position:absolute;inset:0;pointer-events:none;overflow:visible}
-.cp-pt{position:absolute;display:block;animation:cpUp 1.5s ease-out both}
+.cp-pt{position:absolute;display:block;animation:cpUp 2.3s cubic-bezier(.25,.6,.35,1) both}
 .cp-pt svg{width:100%;height:100%;display:block;overflow:visible}
-.cp-pt.cp-pt-still{animation:cpFade 1.6s ease-out both}
-@keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.4) rotate(0)}18%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1.05) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
+/* Hearts and sparkles: fade and grow in, float up and outward at one tilt, fade out (smooth, on the compositor) */
+.cp-pt.cp-pt-pop{animation:cpFloat 2s cubic-bezier(.22,.61,.36,1) both;will-change:transform,opacity}
+@keyframes cpFloat{0%{opacity:0;transform:translate(0,4px) scale(.7) rotate(var(--r))}18%{opacity:1;transform:translate(calc(var(--dx)*.2),-4px) scale(1) rotate(var(--r))}65%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-30px) scale(.92) rotate(var(--r))}}
+.cp-pt.cp-pt-still{animation:cpFade 2.2s ease-out both}
+@keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.6) rotate(0)}22%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
 @keyframes cpFade{0%{opacity:0}20%{opacity:1}75%{opacity:1}100%{opacity:0}}
 /* Speech bubble, in front of the page but it never takes clicks */
 .cp-front{position:fixed;inset:0;z-index:7;pointer-events:none}
@@ -4596,7 +4634,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble .cp-b-acts .btn{min-height:34px;font-size:.8rem}
 .cp-bubble.asking{pointer-events:auto;padding:8px}
 .cp-ask{display:flex;gap:6px;align-items:center}
-.cp-ask input{flex:1;min-width:0;width:200px;font:500 .86rem var(--body);padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink)}
+.cp-ask input{flex:1;min-width:0;width:236px;text-overflow:ellipsis;font:500 .86rem var(--body);padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink)}
 .cp-ask-hint{display:block;font:500 .7rem var(--body);color:var(--muted);margin-top:5px;text-align:left}
 .cp-use{display:block;margin-top:4px;font:600 .78rem var(--display);color:var(--accent)}
 .cp-thinking{display:flex;gap:4px;justify-content:center;padding:4px 6px}
@@ -4760,7 +4798,7 @@ html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!importa
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
 /* Every companion Ask (the Companion page, the speech bubble, a task's question box): just the word, centred and bigger */
-html .btn.primary.cp-ask-go{min-width:96px;padding:0 22px;font-size:1.15rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
+html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-weight:800;justify-content:center;text-align:center;letter-spacing:.01em}
 .cp-ask .cp-ask-in,.cp-tq-row input{min-height:44px;box-sizing:border-box;border-radius:14px}
 .cp-tq-row{align-items:center}
 /* a hidden bubble (faded out) can't be clicked or typed into */
@@ -7374,17 +7412,17 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
 @media (min-width:640px){nav.tabs{scrollbar-width:none}nav.tabs::-webkit-scrollbar{display:none}}
 /* The page never scrolls sideways; a stray wide frame (the companion moving between pages) can't add a scrollbar that squeezes the side menu */
 @media (min-width:640px){html{overflow-x:clip}}
-/* Page buttons sit level with the tabs, not the title */
+/* Page buttons sit level with the tabs, not the title: their bottoms line up with the tabs' bottom (12px margin + 46px tabs) */
 @media (min-width:640px){
   #view > .pg-head:not(.pg-solo){position:relative}
-  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 46px);transform:translateY(-100%);align-items:center;flex-wrap:nowrap;z-index:2}
+  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 58px);transform:translateY(-100%);align-items:flex-end;flex-wrap:nowrap;z-index:2}
 }
 #view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-left:auto}
 /* Task Board: the tab line runs the full width, Group By sits on it like the other page buttons */
 @media (min-width:640px){
   #view > .bview-row:has(> .pg-tabs){position:relative;display:block}
   #view > .bview-row > .pg-tabs{width:100%}
-  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
+  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:0;margin:0;display:flex;align-items:center;gap:8px}
 }
 /* Review's due count grows leftwards, clear of the companion's seat next to it */
 @media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue,nav.tabs .in [data-tab="courses"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
@@ -7714,7 +7752,7 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
 .hours-ctl .hc-row{display:flex;align-items:center}
 html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 @media (min-width:640px){
-  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;right:0;top:50%;transform:translateY(-50%);margin:0;z-index:2}
+  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;right:0;bottom:0;margin:0;z-index:2}
 }
 /* Phones keep Time Today in the plan box; wider screens have it in the tab row (and not in the box) */
 @media (max-width:639px){#view > .bview-row > .bv-hours{display:none}}
@@ -8344,6 +8382,8 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 :root :is(details.adv,details.pp-group) > summary::before{content:none}
 :root :is(.bs-diag,.sd-more) summary::after,:root .sd-more summary > span:first-child::after{content:none}
 :root .bs-diag > summary::after{content:""}
+/* a "⋯" more-options button is just its three dots, no chevron */
+:root details > summary.g2-dots.g2-dots::after{content:none}
 @media (prefers-reduced-motion:reduce){:root details > summary::after{transition:none}}
 :root select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px 14px;padding-right:34px}
 
@@ -8370,8 +8410,11 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   .ph-sch .sch-range{white-space:normal;line-height:1.15;font-size:.88rem}
 }
 
-/* Due Dates: the Timeline / Month switch sits at the right end of its row */
-#view .tl-tools > .segb[aria-label="View"]{order:99;margin-left:auto}
+/* Due Dates row: course, Days / Weeks / Term, Timeline / Month, Today, then Print at the right end */
+#view .tl-tools > .segb[aria-label="Zoom"]{order:1}
+#view .tl-tools > .segb[aria-label="View"]{order:2}
+#view .tl-tools > [data-act="tl-today"]{order:3}
+#view .tl-tools > .pro-tab-btn{order:4}
 
 /* iPad held sideways: the side menu starts below the clock and battery, so they don't cover the Studyboard logo */
 @media (min-width:701px) and (orientation:landscape) and (pointer:coarse){

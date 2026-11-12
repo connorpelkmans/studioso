@@ -791,7 +791,7 @@ const IA = (() => {
       if (a.pics) warn.push(trn("ia.w.pics", a.pics, "{n} picture wasn't brought in.|{n} pictures weren't brought in."));
       if (a.sounds) warn.push(trn("ia.w.sounds", a.sounds, "{n} sound wasn't brought in.|{n} sounds weren't brought in."));
       if (a.picsLost) warn.push(trn("ia.w.picLost", a.picsLost, "{n} image occlusion card's picture wasn't in the file, so it was left out.|{n} image occlusion cards' pictures weren't in the file, so they were left out."));
-      if (a.pictures) warn.push(window.SBPRO && SBPRO.locked && SBPRO.locked() ? tr("ia.w.picsFree", "Image occlusion notes come in as Picture Cards, with their masks and history. You can study them now; editing their boxes and Diagram Practice are part of Studyboard Pro.") : tr("ia.w.picsIn", "Image occlusion notes come in as Picture Cards, with their masks and history."));
+      if (a.pictures) warn.push(window.SBPRO && SBPRO.locked && SBPRO.locked() ? tr("ia.w.picsFree", "Image occlusion notes come in as Picture Cards, with their masks and history. You can study them and edit their boxes now; Diagram Practice is part of Studyboard Pro.") : tr("ia.w.picsIn", "Image occlusion notes come in as Picture Cards, with their masks and history."));
       if (a.skipped) warn.push(trn("ia.w.skip", a.skipped, "{n} card had nothing but pictures or sound on one side and was left out.|{n} cards had nothing but pictures or sound on one side and were left out."));
     } else {
       const p = r.plan;
