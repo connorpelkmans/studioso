@@ -218,7 +218,7 @@
     const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "restyle"; b.dataset.id = it.id;
     b.className = "wb-ai-btn";
     const st = styleOf(styleId());
-    b.innerHTML = `${AI_ICON}${it.r ? "Draw Again" : esc(st[2])}${locked() ? " " + PRO_BADGE : ""}`;
+    b.innerHTML = `${AI_ICON}${it.r ? "Draw Again" : esc(st[2])}${locked() || tagPro() ? " " + PRO_BADGE : ""}`;
     b.title = `Redraw this picture as if it were drawn on the board (${st[1]})`;
     if (!locked()) { b.dataset.wb = "restyle-menu"; b.setAttribute("aria-haspopup", "menu"); b.innerHTML = `${AI_ICON}${it.r ? "Draw Again" : "Draw"}<svg class="wb-chev" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`; b.title = "Pick a drawing style"; b.classList.add("wb-style-pick"); }
     bar.insertBefore(b, bar.querySelector('[data-wb="sel-copy"]'));

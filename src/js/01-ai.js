@@ -1608,8 +1608,8 @@ function aiUseCard(){
   const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "the last 7 days"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
   const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "soon"}. Until then, AI keeps working with your backup key below.`
     : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
-    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` More comes back <b>${esc(when)}</b>.` : ""}`
-    : `Included with Pro.${when ? ` More comes back <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
+    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` More usage comes back <b>${esc(when)}</b>.` : ""}`
+    : `Included with Pro.${when ? ` More usage comes back <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
   return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
     <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
     <div class="sbai-num">${m}%<small>used, last 7 days</small></div>

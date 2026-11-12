@@ -5281,8 +5281,8 @@ function aiUseCard(){
   const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "the last 7 days"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
   const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "soon"}. Until then, AI keeps working with your backup key below.`
     : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
-    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` More comes back <b>${esc(when)}</b>.` : ""}`
-    : `Included with Pro.${when ? ` More comes back <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
+    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` More usage comes back <b>${esc(when)}</b>.` : ""}`
+    : `Included with Pro.${when ? ` More usage comes back <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
   return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
     <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
     <div class="sbai-num">${m}%<small>used, last 7 days</small></div>
@@ -9630,6 +9630,8 @@ function shopUnlock(kind, id){ toast("This item is part of Studyboard Pro."); }
 
 /* The shop */
 const PRO_BADGE = `<span class="pro-badge">PRO</span>`, FREE_BADGE = `<span class="free-badge">Free</span>`;
+// PRO tags also show on the free weeks of Pro, so people see what they'd lose when those end (PLAN.trialTags)
+const tagPro = () => { try { return typeof PLAN !== "undefined" && !!PLAN && typeof PLAN.trialTags === "function" && PLAN.trialTags(); } catch (e) { return false; } };
 function skinPreview(s, dark){
   const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848;--spine-bg:linear-gradient(165deg,#0E2148,#060F24 52%,#040A18)" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4;--spine-bg:linear-gradient(165deg,#1B4486,#0E2A56 52%,#0B2245)";
   const base = "--bgimg:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);--bgsize:12px 12px;--bgpos:0 0;--scene:none;--scene-h:0px;--btn-bg:var(--accent);--spine-bg:var(--spine);--sel:var(--accent);--accent-2:var(--accent);";
@@ -15130,7 +15132,7 @@ function courseForm(c){
       </div>
       <fieldset><legend>Color</legend><div class="swatches cc-sw">${COURSE_COLORS.map((x, i) => `<label title="${esc(COURSE_COLOR_NAMES[i] || "")}"><input type="radio" name="color" value="${x}" ${x.toLowerCase() === String(c.color || "").toLowerCase() ? "checked" : ""} aria-label="${esc(COURSE_COLOR_NAMES[i] || "Color " + (i + 1))}"><span style="--c:${x}"></span></label>`).join("")}${(cv => `<label class="cc-custom" title="Any color"><input type="radio" name="color" id="ccRadio" value="${esc(cv)}" ${COURSE_COLORS.some(x => x.toLowerCase() === String(c.color || "").toLowerCase()) ? "" : "checked"} aria-label="Custom color"><span style="--c:${esc(cv)}"></span><input type="color" id="ccPick" value="${esc(cv)}" aria-label="Pick any color" tabindex="-1"></label>`)(/^#[0-9a-f]{6}$/i.test(c.color || "") ? c.color : "#7C3AED")}</div></fieldset>
       <fieldset class="ci-fs"><legend>Icon <span class="hint">shown in the course's circle</span></legend><div class="ci-grid" id="ciGrid" style="--c:${esc(c.color)}" data-picked="${COURSE_ICONS[c.icon] || customIcon(c.icon) ? "1" : ""}">
-        ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and get one that matches your description, in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro() ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
+        ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and get one that matches your description, in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && (!PLAN.isPro() || tagPro()) ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
         <div class="ci-ai" id="ciAi" hidden><label class="f"><span class="lh">Describe the Icon<span class="beta-sym" title="Beta: still being improved" role="img" aria-label="Beta">β</span> <span class="hint">e.g. "a stethoscope with a heart" or "a hockey stick and puck"</span></span><input type="text" id="ciAiQ" maxlength="120" autocomplete="off"></label>
           <div class="ci-ai-row"><button type="button" class="btn primary small ai-btn" data-act="ci-ai-go">${AI_ICON} Find Icons</button><span class="ci-ai-prev" id="ciAiPrev" aria-live="polite"></span><button type="button" class="btn small" data-act="ci-ai-use" id="ciAiUse" hidden>Use This Icon</button></div></div></fieldset>
       <label class="f"><span class="lh">Links <span class="hint">one per line, optionally "Label | url"</span></span><textarea name="links" placeholder="Syllabus | https://…&#10;Canvas | https://…">${esc(linksText)}</textarea></label>
@@ -22585,6 +22587,9 @@ window.__sbPlanObj = () => PLAN;
   }
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
+  // On the free weeks of Pro (not paying, not from a code or promotion): PRO tags stay on Pro features and items, as on the free
+  // plan, so it's clear what goes away when the free weeks end
+  const trialTags = () => { try { if (!paywall()) return false; const e = ent(); return freeTrialOnly() && !(e && (e.source === "code" || e.source === "promo")); } catch (x) { return false; } };
   // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
   const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
   const groupsPro = () => limitsPro() || liteNow();
@@ -23357,7 +23362,7 @@ window.__sbPlanObj = () => PLAN;
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
-    isPro, paywall, settled, storageRow,
+    isPro, paywall, settled, storageRow, trialTags,
     limits: () => Object.assign({}, lim()),
     freeLimits: () => Object.assign({}, lims("free")),
     proLimits: () => Object.assign({}, lims("pro")),
@@ -28387,7 +28392,7 @@ Return JSON only.`;
     const ok = an.found && T.rows.length > 0, gen = T.general && T.general.state === "done";
     if (!ok && !gen) return "";
     const saved = T.saved && state.notes[T.saved];
-    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
+    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
     if (T.study && T.study.busy) h += `<p class="sx-hint">${dots} ${esc(T.study.msg)}</p>`;
     else if (T.study && T.study.err) h += `<p class="sx-hint sx-err">${esc(T.study.err)}</p>`;
     if (saved) h += `<p class="sx-hint" role="status">Saved to your Notes, with a link to each source.</p>`;
@@ -66166,7 +66171,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
-        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || pro() ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
+        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || (pro() && !tagPro()) ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
         ${earn ? (pct => `<span class="cp-earn">${esc(EARN[x.id].how)} to unlock</span><span class="cp-earn-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to unlock ${esc(x.name)}"><i style="width:${pct}%"></i></span><span class="mini">${esc(EARN[x.id].left(left))} to go</span><button type="button" class="link-btn cp-earn-pro" data-act="comp-pick" data-slot="${i}">Or Get It With Pro</button>`)(Math.max(0, Math.min(99, Math.floor((1 - left / EARN[x.id].n) * 100))))
           : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
@@ -66182,7 +66187,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
       const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || pro() ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
@@ -66197,7 +66202,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
-      ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
+      ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
       ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
@@ -66233,7 +66238,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const rank = k => window.SBUI && typeof SBUI.themeRank === "function" ? SBUI.themeRank(k) : SKINS.findIndex(x => x.id === k);
     const others = Object.keys(REG).filter(k => k !== here && k !== "plain" && SKINS.some(x => x.id === k) && (REG[k].list || []).length).sort((a, b) => rank(a) - rank(b));
     const group = k => { const sk = SKINS.find(x => x.id === k), have = owns("skin", k);
-      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
+      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have && !(tagPro() && sk && sk.tier === "pro") ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
     return mine + (others.length ? `<details class="cp-oth-d"${ui.cpOth ? " open" : ""}><summary>Companions from Other Themes</summary><p class="mini" style="margin:0">Tap one to switch to its theme. Each theme has its own companions.</p>${others.map(group).join("")}</details>` : "");
   }
   function openChange(){
@@ -80926,7 +80931,7 @@ var SBPRO = null;
     if (locked()) return `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     let line = "";
     try { line = headline(compute("week")); } catch (e) { line = ""; }
-    return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
+    return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight${tagPro() ? " " + PRO_BADGE : ""}</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
   }
 
   /* Term Recap */
@@ -81204,14 +81209,14 @@ var SBPRO = null;
   /* In the Focus timer */
   function pomoHtml(){
     const cur = current(), lk = P.locked();
-    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
+    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) && !(tagPro() && !(r.free || custom().findIndex(x => x.id === r.id) < FREE_OWN)) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
     let blk = "";
     if (BK.available) {
       const cfg = blockCfg(), active = BK.until > Date.now();
-      blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
+      blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk || tagPro() ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
         <button type="button" class="pro-sw" role="switch" aria-checked="${cfg.on && !lk}" data-act="pro-blk-on" aria-label="Block distracting sites during focus sessions"><i></i></button></div>`;
     }
-    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
+    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
   function routineSheet(){
     const mine = custom(), more = !canAdd();
@@ -82490,7 +82495,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     }
     return false;
   });
-  hook("menu", () => inPreview() ? "" : `<button data-act="pro-pr-open" data-group="study"><span>Print or Save as PDF${P.locked() ? " " + PRO_BADGE : ""}<span class="sub">A week agenda, the term calendar, a grade report or an exam prep plan</span></span></button>`);
+  hook("menu", () => inPreview() ? "" : `<button data-act="pro-pr-open" data-group="study"><span>Print or Save as PDF${P.locked() || tagPro() ? " " + PRO_BADGE : ""}<span class="sub">A week agenda, the term calendar, a grade report or an exam prep plan</span></span></button>`);
   P.addFeature({id: "print", name: "Print and PDF", where: "In Schedule, Due Dates, Grades and Settings: a week agenda, term calendar, grade report or exam prep plan", act: "pro-pr-open", icon: '<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>'});
   Object.assign(P, {openPrint, printRaw, printHtml: () => PR ? build() : "", redrawPrint: () => { if (PR && dlg.open && dlg.querySelector(".pr-body")) drawPrint(); }});
 
@@ -82891,7 +82896,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return thumbs(n, true) + (baseExtra ? baseExtra(n) : "");
   };
   P.noteBar = n => {
-    const badge = locked() ? ` ${PRO_BADGE}` : "";
+    const badge = locked() || tagPro() ? ` ${PRO_BADGE}` : "";
     return `<div class="np-bar"><button type="button" class="btn small" data-act="np-add" data-id="${esc(n.id)}">${CAM}Add Photo${badge}</button><button type="button" class="btn small" data-act="np-link" data-id="${esc(n.id)}">${LINK}Link a File${badge}</button></div>`;
   };
   P.notePhotos = n => thumbs(n, false);
@@ -84962,7 +84967,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <li><b>Your school email:</b> the same steps work in its web mail, if your school allows forwarding.</li></ul></details>
       ${pending().length ? `<div class="em-pend"><span><b>${pending().length} email${pending().length === 1 ? "" : "s"} still to check</b><span class="mini">${esc(pending().map(x => x.text).slice(0, 3).join(" · "))}</span></span><button type="button" class="btn small" data-act="em-recheck">Check</button><button type="button" class="link-btn" data-act="em-pdone">Done With Them</button></div>` : ""}
       <div class="row-actions"><button type="button" class="link-btn" data-act="em-new">New Address</button><button type="button" class="link-btn" data-act="em-off">Turn Off</button>${LAST_GMAIL ? `<button type="button" class="link-btn" data-act="em-gmail">Gmail Code</button>` : ""}</div>`;
-    return `<div class="capv-box em-box" id="emBox"><div class="em-h"><span class="pf-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MAIL}</svg></span><b>Email to Studyboard</b>${lockedPro ? PRO_BADGE : ""}</div>${inner}</div>`;
+    return `<div class="capv-box em-box" id="emBox"><div class="em-h"><span class="pf-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MAIL}</svg></span><b>Email to Studyboard</b>${lockedPro || tagPro() ? PRO_BADGE : ""}</div>${inner}</div>`;
   }
   function paint(){ const b = document.getElementById("emBox"); if (b) b.outerHTML = boxHtml(); }
   if (window.SBCAPTURE && SBCAPTURE.settingsExtra) SBCAPTURE.settingsExtra(() => { setTimeout(() => load(false), 0); return boxHtml(); });
@@ -87395,7 +87400,7 @@ var SBINK = null;
   }
   const baseExtra = P.noteExtra, baseBar = P.noteBar;
   P.noteExtra = n => noteThumb(n, true) + (baseExtra ? baseExtra(n) : "");
-  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${P.locked() ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
+  P.noteBar = n => (baseBar ? baseBar(n) : "") + (available() ? `<div class="np-bar ink-nbar"><button type="button" class="btn small" data-act="ink-note" data-id="${esc(n.id)}">${IC.pen}${noteInk(n).length ? "Edit Drawing" : "Draw"}${P.locked() || tagPro() ? ` ${PRO_BADGE}` : ""}</button></div>` : "");
 
   /* Wiring */
   hook("act", (act, el, id) => {
@@ -93876,7 +93881,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const b = document.createElement("button"); b.type = "button"; b.dataset.wb = "restyle"; b.dataset.id = it.id;
     b.className = "wb-ai-btn";
     const st = styleOf(styleId());
-    b.innerHTML = `${AI_ICON}${it.r ? "Draw Again" : esc(st[2])}${locked() ? " " + PRO_BADGE : ""}`;
+    b.innerHTML = `${AI_ICON}${it.r ? "Draw Again" : esc(st[2])}${locked() || tagPro() ? " " + PRO_BADGE : ""}`;
     b.title = `Redraw this picture as if it were drawn on the board (${st[1]})`;
     if (!locked()) { b.dataset.wb = "restyle-menu"; b.setAttribute("aria-haspopup", "menu"); b.innerHTML = `${AI_ICON}${it.r ? "Draw Again" : "Draw"}<svg class="wb-chev" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`; b.title = "Pick a drawing style"; b.classList.add("wb-style-pick"); }
     bar.insertBefore(b, bar.querySelector('[data-wb="sel-copy"]'));
@@ -94276,7 +94281,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
         <fieldset class="wb-ai-k" aria-label="What to make">
           <label class="mi-check"><input type="radio" name="wbaK" value="notes" checked> Typed notes <span class="mini">A clean, typed copy of the board, saved as a note</span></label>
           <label class="mi-check"><input type="radio" name="wbaK" value="cards"> Typed notes and flashcards <span class="mini">Then draft cards from them for you to check</span></label>
-          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() ? " " + PRO_BADGE : ""} <span class="mini">The board as a picture with its labels hidden, to guess</span></label>
+          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() || tagPro() ? " " + PRO_BADGE : ""} <span class="mini">The board as a picture with its labels hidden, to guess</span></label>
         </fieldset>
         <label class="f">Course<select id="wbaCourse">${courseSelectHtml(n.courseId || "")}</select></label>
         <label class="f" id="wbaDeckL" hidden>Deck<select id="wbaDeck"></select></label>
@@ -97623,7 +97628,7 @@ const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test
 const RUB_NAME = /rubric|criteria|marking|grading|scoring|assessment guide/i;
 function taskBtn(t){
   if (!t || inPreview() || !RBC.eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${SBPRO.locked() || tagPro() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
 // The rubric a task already has: from the school site, an attached rubric file, or notes that read like one
 async function autoRubric(t){
@@ -98040,7 +98045,7 @@ function open(exId, topicId, name){
 }
 
 /* entry points */
-const badge = () => locked() ? " " + PRO_BADGE : "";
+const badge = () => locked() || tagPro() ? " " + PRO_BADGE : "";
 function btn(ex, t){
   if (!ex || !t || ex.status === "done" || !ex.due || ex.due < todayISO()) return "";
   return `<button type="button" class="link-btn tb-go" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">Teach It Back${badge()}</button>`;
@@ -98360,7 +98365,7 @@ async function open(exId){
 }
 function btn(ex){
   if (!ex || ex.status === "done" || !ex.due || ex.due < todayISO() || !linked(ex)) return "";
-  return `<button type="button" class="link-btn xs-go" data-act="xs-open" data-id="${H(ex.id)}">Formula and Diagram Sheet${locked() ? " " + PRO_BADGE : ""}</button>`;
+  return `<button type="button" class="link-btn xs-go" data-act="xs-open" data-id="${H(ex.id)}">Formula and Diagram Sheet${locked() || tagPro() ? " " + PRO_BADGE : ""}</button>`;
 }
 // On hold: hidden everywhere in the app (Prep Plan link, Print and PDF layout, Pro features list). Tests switch it on with window.__SB_XS.
 if (!(window.__SB_TEST && window.__SB_XS)) return;
@@ -98558,7 +98563,7 @@ const SMR_CORE = (() => {
   // One row in Reminders and Notifications
   function row(c){
     if (locked()) return `<button type="button" class="pro-linkrow" data-act="smr-pro"><span>Smart Reminders</span>${PRO_BADGE}</button>`;
-    return `<div class="rm-row"><label class="mi-check"><input type="checkbox" data-rm="smart" ${c.smart ? "checked" : ""}> Smart Reminders</label></div>
+    return `<div class="rm-row"><label class="mi-check"><input type="checkbox" data-rm="smart" ${c.smart ? "checked" : ""}> Smart Reminders${tagPro() ? " " + PRO_BADGE : ""}</label></div>
       <p class="mini" style="margin:0">When a task due this week needs most of your free time before it, a nudge comes at the start of your next free time. Uses your Availability, or your daily study hours.</p>`;
   }
   hook("act", act => {
@@ -98643,7 +98648,7 @@ const LINKCARDS = (() => {
   /* In the Create with AI sheet */
   function html(){
     if (inPreview()) return "";
-    return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
+    return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
       <div class="cl-in"><label class="f"><span class="lh">Link</span><input type="url" id="aiLink" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="https://www.youtube.com/watch?v=… or an article's address" data-noenter></label>
       <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key.</p></div></details>`;
   }
@@ -99187,7 +99192,7 @@ const AUTOPILOT = (() => {
   /* Settings > Study */
   hook("menu", () => {
     if (locked()) return `<button type="button" data-act="ap-pro" data-group="study"><span>Autopilot ${PRO_BADGE}<span class="sub">Moves missed study sessions and steps into your next free time overnight, then tells you once.</span></span></button>`;
-    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot<span class="sub">Reschedules missed study sessions into your free time. Due dates never move.</span></span>${modeSeg()}</div>`;
+    return `<div class="cap-row sb-wide ap-set" data-group="study"><span style="flex:1;font-weight:600;min-width:12rem">Autopilot${tagPro() ? " " + PRO_BADGE : ""}<span class="sub">Reschedules missed study sessions into your free time. Due dates never move.</span></span>${modeSeg()}</div>`;
   });
   hook("act", (act, el, id) => {
     if (!act || act.slice(0, 3) !== "ap-") return false;

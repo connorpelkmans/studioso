@@ -1621,6 +1621,8 @@ function shopUnlock(kind, id){ toast("This item is part of Studyboard Pro."); }
 
 /* The shop */
 const PRO_BADGE = `<span class="pro-badge">PRO</span>`, FREE_BADGE = `<span class="free-badge">Free</span>`;
+// PRO tags also show on the free weeks of Pro, so people see what they'd lose when those end (PLAN.trialTags)
+const tagPro = () => { try { return typeof PLAN !== "undefined" && !!PLAN && typeof PLAN.trialTags === "function" && PLAN.trialTags(); } catch (e) { return false; } };
 function skinPreview(s, dark){
   const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848;--spine-bg:linear-gradient(165deg,#0E2148,#060F24 52%,#040A18)" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4;--spine-bg:linear-gradient(165deg,#1B4486,#0E2A56 52%,#0B2245)";
   const base = "--bgimg:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);--bgsize:12px 12px;--bgpos:0 0;--scene:none;--scene-h:0px;--btn-bg:var(--accent);--spine-bg:var(--spine);--sel:var(--accent);--accent-2:var(--accent);";
