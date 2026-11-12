@@ -271,12 +271,14 @@ var SBPRO = null;
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
   addFeature({id: "sbai", name: "Studyboard AI", where: "Settings, AI", act: "ai-setup", free: "Your Own Key", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
   const early = () => isPro() && !!S().early;
   // What each Pro feature does, in a line, for Show All Pro Features (where it lives is in f.where)
   const DESC = {
     sbai: "AI built in, no key needed: flashcards, quizzes, summaries and more.",
+    forecast: "For each exam: how ready you'll be on the day at your pace, what finishing your prep plan gets you, and the topic to work on next.",
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
@@ -298,7 +300,7 @@ var SBPRO = null;
     email: "Forward school emails and Studyboard finds the deadlines in them."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
-  const TOP = ["sbai", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
+  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
     const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
     const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
@@ -1805,17 +1807,17 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .pr-scale.a4{width:794px}
 .pr-scale .pp-page{min-height:1000px}
 #sbPrint{display:none}
-.pp-page,.pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
+.pp-page,.pp-page .pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
 .pp-page{font:13px/1.35 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;color:#0F1F3D;padding:40px 44px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
 .pp-page h1{font:700 26px/1.15 Lexend,system-ui,sans-serif;margin:0}
 .pp-page h2{font:600 16px Lexend,system-ui,sans-serif;margin:0}
 .pp-page em{font-style:normal;color:#4A576E}
-.pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
-.pp-head p{margin:4px 0 0;color:#4A576E}
+.pp-page .pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.pp-page .pp-head p{margin:4px 0 0;color:#4A576E}
 .pp-box{border:1.5px solid #0F1F3D;border-radius:8px;padding:8px 12px;font-size:12px;max-width:45%}
 .pp-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(150px,auto);gap:10px;flex:1}
-.pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
-.pp-notes{border-style:dashed}
+.pp-page .pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
+.pp-page .pp-notes{border-style:dashed}
 .pp-dh{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #C6CEDB;padding-bottom:4px}
 .pp-dh b{font:600 15px Lexend,system-ui,sans-serif}
 .pp-dh span{color:#4A576E;font-size:12px}

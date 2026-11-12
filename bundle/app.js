@@ -75416,13 +75416,51 @@ function inputFor(ex, P, topics, due){
     days: P.days, rest: P.rest, light: P.light, start: P.start || "", done, examTitle: ex.title, early: !!(P.lesson && P.lesson.early), favor: P.lesson && P.lesson.questions ? "questions" : "", dayInfo: dayInfoFn(ex, today, due),
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
-function readyFor(ex){
+// doneOf (optional): whether to count a session as done, for the exam-day forecast's "what if" (default: whether it is done)
+function readyFor(ex, doneOf){
   const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {};
   P.topics.forEach(t => (t.links || []).forEach(l => {
     if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).mastery};
     if (l.k === "quiz") { const d = state.decks[l.deckId], q = d && (d.aiQuizzes || []).find(x => x.id === l.id), r = q && (q.results || []).slice(-1)[0]; if (r && r.total) quiz[l.id] = Math.round(r.score / r.total * 100); }
   }));
-  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: s.status === "done", kind: s.kind})), decks, quiz});
+  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
+}
+/* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
+   flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
+   - if you do every session left: every session still to come counted as done (slipped ones aren't, until caught up)
+   - at your pace: today's readiness moved toward that by the share of sessions due so far that got done
+     (only once at least one session has come due)
+   - the topic to work on next: the one still lowest if every session gets done, with Teach It Back (or a quiz, once it's Strong) */
+function forecastOf(ex){
+  if (!ex || !hasPlan(ex)) return null;
+  const today = todayISO(); if (!ex.due || ex.due < today) return null;
+  const P = prepOf(ex), ss = sessionsOf(ex.id).slice().sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
+  const now = readyMemo(ex), dueSoFar = ss.filter(s => s.due < today), doneSoFar = dueSoFar.filter(s => s.status === "done").length;
+  const left = ss.filter(s => s.status !== "done" && s.due >= today), rate = dueSoFar.length ? doneSoFar / dueSoFar.length : null;
+  const full = readyFor(ex, s => s.status === "done" || s.due >= today);
+  // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
+  const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
+  const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
+  const weakest = topics.slice().sort((a, b) => a.full - b.full || a.now - b.now)[0] || null;
+  const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
+  // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it
+  const cap = v => v == null ? null : Math.min(95, v), ev = full.evidence || {};
+  return {now: now.pct, pace: cap(pace), full: cap(full.pct), thin: !(ev.cards || ev.quizzes), rate, dueSoFar: dueSoFar.length, doneSoFar, left: left.length, days, topics, weakest};
+}
+const FC_WHY = "The Exam Day Forecast is part of Studyboard Pro: where your readiness is heading by exam day, and the topic to work on next.";
+function forecastHtml(ex){
+  const F = forecastOf(ex); if (!F || F.full == null) return "";
+  const locked = !!(window.SBPRO && SBPRO.locked());
+  if (locked) return `<div class="pp-fc pp-fc-lock"><div class="pp-fc-h"><b>Exam Day Forecast</b> ${typeof PRO_BADGE === "string" ? PRO_BADGE : ""}</div><p class="mini" style="margin:0">Where your readiness is heading by ${esc(fmtDate(ex.due))} at your pace, what finishing the plan would get you, and the topic to work on next.</p><button type="button" class="btn small" data-act="pp-fc-pro">See Pro</button></div>`;
+  const bar = (label, v, cls) => `<div class="pp-fc-row${cls ? " " + cls : ""}"><span>${esc(label)}</span><span class="pp-bar" aria-hidden="true"><i style="width:${v}%"></i></span><b>${v}%</b></div>`;
+  const W = F.weakest, confName = W ? (CONF3.find(c => c[0] === W.conf) || [0, "OK"])[1] : "";
+  const paceWhy = F.pace == null ? "" : `You've done ${F.doneSoFar} of the ${F.dueSoFar} session${F.dueSoFar === 1 ? "" : "s"} due so far, so this counts about the same share of the ${F.left} still to come.`;
+  const slipped = F.dueSoFar - F.doneSoFar;
+  const next = !W ? "" : W.full >= 85 ? `<p class="mini" style="margin:0">Every topic is on track if you keep going.</p>`
+    : `<p class="pp-fc-next"><span>Work on next: <b>${esc(W.name)}</b> <span class="mini">(${esc(confName)}, about ${W.full}% by exam day as things stand)</span></span>${W.conf === "strong" ? "" : `<button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(W.id)}" data-name="${esc(W.name)}">Teach It Back</button>`}</p>`;
+  return `<div class="pp-fc"><div class="pp-fc-h"><b>Exam Day Forecast</b><span class="mini">${F.days === 0 ? "the exam is today" : F.days === 1 ? "1 day to go" : F.days + " days to go"}</span></div>
+    ${F.pace != null ? bar("At your pace", F.pace) : F.rate != null ? `<div class="pp-fc-row"><span>At your pace</span><span class="mini" style="grid-column:2/-1">No session done yet. Today's is the place to start.</span></div>` : ""}${bar(F.left ? "If you do every session left" : "With what you've done", F.full, "pp-fc-full")}
+    ${paceWhy ? `<p class="mini" style="margin:0">${esc(paceWhy)}</p>` : F.left ? `<p class="mini" style="margin:0">Your pace shows once your first session has come due.</p>` : ""}${slipped ? `<p class="mini" style="margin:0">${slipped === 1 ? "1 slipped session isn't" : slipped + " slipped sessions aren't"} counted until you catch up.</p>` : ""}${F.thin ? `<p class="mini" style="margin:0">For a sharper forecast, link flashcards or a practice quiz to each topic (Edit Topics).</p>` : ""}${next}</div>`;
 }
 let PCACHE = {k: "", v: {}};
 function readyMemo(ex){
@@ -75658,7 +75696,8 @@ function drawView(){
   body.innerHTML = `
     <div class="pp-head"><p class="pp-line"><b>${esc(sm.line)}</b></p>
       ${r.gate ? `<p class="mini" style="margin:0">Readiness is worked out from ${esc(evTxt)}.</p>` : `<p class="mini" style="margin:0">Readiness shows once you finish a session, progress on a linked deck or score a quiz.</p>`}
-      <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div></div>
+      <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div>
+    ${past ? "" : forecastHtml(ex)}</div>
     ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-plan to the New Date</button></p>` : ""}
     ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> No problem: spread them over the days that are left. <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
     ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add My Mark and Wrap Up</button></p>` : ""}
@@ -75873,6 +75912,7 @@ function runIdea(id){ const t = state.tasks[id]; if (!t) return; if (t.matKind) 
 
 /* actions */
 hook("act", (act, el, id) => {
+  if (act === "pp-fc-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(FC_WHY); return true; }
   switch (act) {
     case "prep-plan": open(id || (upcoming()[0] || {}).id); return true;
     case "exam-plan": open(id); return true;
@@ -75896,7 +75936,7 @@ hook("changed", changes => {
     });
   } catch (e) { console.warn("prep changed", e); }
 });
-window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
+window.SBPREP = {open, forecast: forecastOf, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
 })();
 
 /* ===== module: 97-exammode.js ===== */
@@ -81308,12 +81348,14 @@ var SBPRO = null;
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
   addFeature({id: "sbai", name: "Studyboard AI", where: "Settings, AI", act: "ai-setup", free: "Your Own Key", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
   const early = () => isPro() && !!S().early;
   // What each Pro feature does, in a line, for Show All Pro Features (where it lives is in f.where)
   const DESC = {
     sbai: "AI built in, no key needed: flashcards, quizzes, summaries and more.",
+    forecast: "For each exam: how ready you'll be on the day at your pace, what finishing your prep plan gets you, and the topic to work on next.",
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
@@ -81335,7 +81377,7 @@ var SBPRO = null;
     email: "Forward school emails and Studyboard finds the deadlines in them."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
-  const TOP = ["sbai", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
+  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
     const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
     const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
@@ -82842,17 +82884,17 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .pr-scale.a4{width:794px}
 .pr-scale .pp-page{min-height:1000px}
 #sbPrint{display:none}
-.pp-page,.pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
+.pp-page,.pp-page .pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
 .pp-page{font:13px/1.35 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;color:#0F1F3D;padding:40px 44px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
 .pp-page h1{font:700 26px/1.15 Lexend,system-ui,sans-serif;margin:0}
 .pp-page h2{font:600 16px Lexend,system-ui,sans-serif;margin:0}
 .pp-page em{font-style:normal;color:#4A576E}
-.pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
-.pp-head p{margin:4px 0 0;color:#4A576E}
+.pp-page .pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.pp-page .pp-head p{margin:4px 0 0;color:#4A576E}
 .pp-box{border:1.5px solid #0F1F3D;border-radius:8px;padding:8px 12px;font-size:12px;max-width:45%}
 .pp-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(150px,auto);gap:10px;flex:1}
-.pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
-.pp-notes{border-style:dashed}
+.pp-page .pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
+.pp-page .pp-notes{border-style:dashed}
 .pp-dh{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #C6CEDB;padding-bottom:4px}
 .pp-dh b{font:600 15px Lexend,system-ui,sans-serif}
 .pp-dh span{color:#4A576E;font-size:12px}
