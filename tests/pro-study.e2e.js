@@ -565,9 +565,11 @@ function SEED(){
     await tab(free, "notes");
     ok(await free.locator('.note[data-note="n1"] .note-link').count() > 0, "free: linked notes work on the free plan too");
     await free.evaluate(() => { ui.tab = "flashcards"; ui.deckId = "d1"; render(); }); await free.waitForTimeout(250);
-    ok(await free.locator('[data-act="ls-open"]').count() === 0, "free: no Listen button");
+    ok(await free.locator('[data-act="ls-open"] .pro-badge').count() === 1, "free: the Listen button shows, tagged PRO");
     await act(free, "ls-open", "d1"); await free.waitForTimeout(300);
-    ok(await free.evaluate(() => !!dlg.querySelector(".plan-sheet")), "free: Listen opens the Pro sheet");
+    ok(await free.evaluate(() => !!dlg.querySelector(".ls-body .ls-pro") && /of [1-3]$/.test(dlg.querySelector(".ls-deck .mini").textContent.trim())), "free: Listen opens as a preview of the first 3 cards");
+    await act(free, "ls-pro"); await free.waitForTimeout(300);
+    ok(await free.evaluate(() => !!dlg.querySelector(".plan-sheet")), "free: Unlock with Pro opens the Pro sheet");
     await act(free, "f-open", "f1"); await free.waitForTimeout(250);
     ok(await free.locator('[data-act="pdr-open"]').count() === 0, "free: no Read on a PDF");
     await free.evaluate(() => dlg.close()); await free.waitForTimeout(100);

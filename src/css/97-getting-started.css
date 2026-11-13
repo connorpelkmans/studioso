@@ -9,6 +9,12 @@
 .gs-ring{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p)*1%),color-mix(in srgb,var(--ink) 12%,var(--surface)) 0)}
 .gs-ring span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--surface);font:800 .78rem/1 var(--display);color:var(--ink)}
 .gs-x{flex:none;color:var(--muted)}
+/* The list folds away (the whole header is the button); the chevron shows it can, and which way */
+.gs-ht{flex:1}
+.gs-fold{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;color:var(--muted);transform:rotate(-90deg)}
+.gs-card.shut .gs-fold{transform:rotate(90deg)}
+.gs-toggle:hover .gs-fold{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+@media (prefers-reduced-motion:no-preference){.gs-fold{transition:transform .2s}}
 .gs-bar{display:none}
 .gs-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
 .gs-btn{width:100%;display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 8px;border:0;border-radius:12px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
