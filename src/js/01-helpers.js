@@ -110,7 +110,7 @@ const allCourses = () => Object.values(state.courses).sort((a, b) => (courseOrd(
 const coursesArr = () => allCourses().filter(c => !c.archived);
 const courseOf = id => id ? state.courses[id] : null;
 const colorOf = id => { const c = courseOf(id); return c ? c.color : "#8A94A6"; };
-const courseLabel = c => c.code || c.name;
+const courseLabel = c => c.code || c.name || "Untitled Course";
 // A course code from a school site
 const COURSE_CODE_RX = /\b([A-Za-z]{2,6})[\s_-]?(\d{2,4}[A-Za-z]?)\b/;
 const cleanCourseCode = (raw, name) => {
@@ -143,7 +143,13 @@ const XR_GAP = 20, XR_FULL = 30, XR_DAYS = 30;
    5. otherwise the whole course, as before */
 const XR_STOP = new Set("about after again also bring calculator cards class closed cover covers covered exam exams final finals from have held in-class including lecture lectures material materials midterm midterms note notes online open page pages paper pencil please quiz quizzes review room section sections study test tests that their there these this time topic topics will with what when where which your chapter chapters unit units week weeks module modules part parts book textbook slides questions question answer answers multiple choice short long take taken home person minutes hour hours worth grade percent points".split(" "));
 const xrStem = w => w.length > 5 && /ies$/.test(w) ? w.slice(0, -3) + "y" : w.length > 5 && /(sses|ches|shes|xes)$/.test(w) ? w.slice(0, -2) : w.length > 4 && /s$/.test(w) && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w.length > 6 && /ing$/.test(w) ? w.slice(0, -3) : w.length > 5 && /ed$/.test(w) ? w.slice(0, -2) : w;
-const xrWords = txt => String(txt || "").toLowerCase().replace(/<[^>]*>/g, " ").split(/[^a-z\u00c0-\u024f]+/).filter(w => w.length >= 4 && !XR_STOP.has(w)).map(xrStem);
+// (the same card texts are read again for every exam on every redraw, so each text's words are kept; callers only read them)
+const XR_WORDS = new Map();
+const xrWords = txt => {
+  const s = String(txt || ""); let w = XR_WORDS.get(s);
+  if (!w) { w = s.toLowerCase().replace(/<[^>]*>/g, " ").split(/[^a-z\u00c0-\u024f]+/).filter(x => x.length >= 4 && !XR_STOP.has(x)).map(xrStem); if (XR_WORDS.size > 20000) XR_WORDS.clear(); XR_WORDS.set(s, w); }
+  return w;
+};
 // Chapter, unit, module, week and lecture numbers named in a text: {kind: Set of numbers}
 function xrNums(txt){
   const out = {}, re = /\b(ch(?:apter)?s?|units?|modules?|weeks?|lectures?|lessons?)\.?\s*((?:\d{1,2}\s*(?:-|–|to|,|&|and)?\s*)+)/gi;
@@ -337,12 +343,12 @@ function boardOrder(a, b){
   return sortTasks(a, b);
 }
 function relDue(t){
-  if (!t.due) return "No due date";
+  if (!t.due) return t.dueBad ? "No due date — check the date" : "No due date";
   const n = dayDiff(todayISO(), t.due);
   let s;
   if (n === 0) s = "Due today";
   else if (n === 1) s = "Due tomorrow";
-  else if (n < 0 && t.status !== "done") s = n === -1 ? "1 day late" : `${-n} days late`;
+  else if (n < 0 && t.status !== "done") s = n === -1 ? "1 day late" : n < -365 ? "Over a year late" : `${-n} days late`;
   else if (n > 1 && n < 7) s = "Due " + parse(t.due).toLocaleDateString(undefined, {weekday:"long"});
   else s = "Due " + fmtDate(t.due);
   if (t.time) s += ", " + fmtTime(t.time);

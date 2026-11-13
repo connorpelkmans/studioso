@@ -200,13 +200,22 @@
      (shown by the app's own tooltip, 102-qol.js) when it adds to the name. This also covers anything drawn later (sheets, menus,
      third-party bits), through one observer that only looks at title attributes and new nodes. */
   (() => {
-    const named = el => el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby") || (el.labels && el.labels.length) || ((el.textContent || "").trim() && !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName));
+    // Whether an element has any text, and whether its text is exactly t: both stop at the first words that decide it instead of
+    // reading the whole text of a big card or list (thousands of these on every redraw with a full term)
+    const hasText = el => { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n = w.nextNode(); n; n = w.nextNode()) if (/\S/.test(n.data)) return true; return false; };
+    const textIs = (el, t) => {
+      const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let s = "";
+      for (let n = w.nextNode(); n; n = w.nextNode()) { s += n.data; if (s.trim().length > t.length) return false; }
+      return s.trim() === t;
+    };
+    // (labels last: finding a control's <label>s looks through the whole page)
+    const named = el => el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby") || (!/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) && hasText(el)) || (el.labels && el.labels.length);
     const strip = el => {
       if (!el || el.nodeType !== 1) return;
       if (el.hasAttribute("title")) {
         const t = (el.getAttribute("title") || "").trim(); el.removeAttribute("title");
         if (t && !named(el)) el.setAttribute("aria-label", t);
-        else if (t && t !== (el.getAttribute("aria-label") || (el.textContent || "").trim())) el.dataset.tip = t;
+        else if (t && (el.getAttribute("aria-label") ? t !== el.getAttribute("aria-label") : !textIs(el, t))) el.dataset.tip = t;
       }
       if (el.tagName === "title" && el.parentNode && el.parentNode.tagName && el.parentNode.tagName.toLowerCase() === "svg") {
         const svg = el.parentNode, t = (el.textContent || "").trim(); el.remove();

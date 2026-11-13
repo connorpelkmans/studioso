@@ -4,6 +4,8 @@ const BOX_DAYS = [0, 1, 3, 7, 14, 30];
 const FC_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/></svg>';
 function normDeck(d){
   d = Object.assign({name: "Untitled Deck", courseId: "", cards: [], quizzes: []}, d);
+  // a blank name (from an import) would leave the deck's card with no title
+  if (typeof d.name !== "string" || !d.name.trim()) d.name = "Untitled Deck";
   if (!Array.isArray(d.cards)) d.cards = [];
   d.cards = d.cards.filter(c => c && c.id).map(c => Object.assign({front: "", back: "", box: 0, due: "", seen: 0, right: 0, wrong: 0}, c));
   // copied: the card's text came straight from a course file (a PDF highlight), so it stays private (kept when the card is edited)
@@ -81,6 +83,21 @@ function examDueCap(due, cid, cardId){
   if (today >= addDays(ex.due, -EXAM_WIN) || due <= addDays(ex.due, -1)) return due;
   const p = fcPulls()[cardId], span = EXAM_WIN - EXAM_LAST + 1, want = addDays(ex.due, -EXAM_WIN + (cardHash(cardId) % span));
   return p && p < due ? p : want < due ? want : due;
+}
+// The next review for each rating, as the buttons say it. Near an exam the cap can land Hard, Good and Easy on the same
+// pre-exam day, which makes the choice look meaningless: then they're spread over the days left (Hard tomorrow, Good on its
+// pre-exam day, Easy on the last day of the pre-exam window), every one still before the exam. spread: the rating's day was moved this way.
+function rateDues(d, c){
+  const today = todayISO(), out = {};
+  ["again", "hard", "good", "easy"].forEach(r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(boxAfter(c, r), r); out[r] = {due0, due: examDueCap(due0, d.courseId, c.id)}; });
+  // the spread stays inside the pre-exam window the cap uses (the last slot is EXAM_LAST days before the exam)
+  const ex = d.courseId && fcExams()[d.courseId], n = ex ? dayDiff(today, addDays(ex.due, -EXAM_LAST)) : 0;
+  const off = r => dayDiff(today, out[r].due), cap = r => out[r].due < out[r].due0, H = off("hard"), G = off("good"), E = off("easy");
+  if (ex && n >= 2 && (cap("hard") || cap("good") || cap("easy")) && !(H < G && G < E)) {
+    const h = cap("hard") ? Math.min(H, 1) : H, g = Math.min(n, Math.max(G, h + 1)), e = Math.min(n, Math.max(cap("easy") ? n : E, g + 1));
+    [["hard", h], ["good", g], ["easy", e]].forEach(([r, k]) => { const due = addDays(today, k); if (due !== out[r].due) out[r] = {due0: out[r].due0, due, spread: true}; });
+  }
+  return out;
 }
 const cardDue = c => c.seen > 0 && (!c.due || cardDueOn(c) <= todayISO());
 const cardNew = c => !c.seen;
@@ -612,12 +629,15 @@ function rateCard(rating){
   const c = d.cards.find(x => x.id === it.cardId);
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
   if (c) {
+    // the day the button showed, when it was spread out before an exam (rateDues)
+    const shown = (() => { try { return rateDues(d, c)[rating]; } catch (e) { return null; } })();
     const sm = window.SBPRO && SBPRO.cardRated ? SBPRO.cardRated(d, c, rating) : null;
     c.box = boxAfter(c, rating);
     c.seen++; c.last = todayISO(); c.rate = rating;
     if (rating === "again") c.wrong++; else c.right++;
     c.due = nextDue(c.box, rating);
     if (sm) { c.box = sm.box; c.due = sm.due; }
+    if (shown && shown.spread) c.due = shown.due;
     d.updated = Date.now();
     saveDeck(d, null);
     fire("fc-rated", {rating, deckId: it.deckId, cardId: it.cardId});
@@ -627,7 +647,8 @@ function rateCard(rating){
   if (rating === "again" && (f.repeats[it.cardId] || 0) < 2) { f.repeats[it.cardId] = (f.repeats[it.cardId] || 0) + 1; f.q.push(it); step.pushed = true; }
   f.hist = (f.hist || []).concat(step).slice(-50);
   f.i++; f.flipped = false;
-  render();
+  // the card on screen changes at once; the redraw the save queued has nothing more to show
+  renderOnce();
 }
 // Undo the last rating: the card, the session and its counts go back to how they were
 function undoRate(){
@@ -665,7 +686,8 @@ function viewStudy(){
   }
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
-  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(boxAfter(c, r), r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
+  const RD = f.flipped ? rateDues(d, c) : null;
+  const lbl = r => { const {due0, due} = RD[r], n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}

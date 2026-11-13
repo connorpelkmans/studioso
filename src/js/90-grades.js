@@ -1539,8 +1539,8 @@
 
   /* Today's Plan: courses near their pass mark move up a little */
   const BOOST = {risk: 1.25, out: 1.1, watch: 1.12};
-  const origCF = computeFocus;
-  computeFocus = function(){
+  const origCF = computeFocusNow;
+  computeFocusNow = function(){
     const F = origCF.apply(this, arguments);
     try { boostFocus(F); } catch(e) { console.warn("grades: focus", e); }
     return F;

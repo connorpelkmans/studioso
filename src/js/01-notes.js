@@ -474,6 +474,8 @@ const TRASH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" strok
 const ARCHIVE = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M9 13h6"/></svg>';
 function normNote(n){
   n = Object.assign({text:"", color:"yellow", x:40, y:40, z:1, rot:0, courseId:"", archived:false, shape:"", pin:"", stickers:[]}, n);
+  // a note from an old backup, an import or a synced copy can come without its text (null, or a number): it's an empty note, not one that stops the Notes tab
+  if (typeof n.text !== "string") n.text = n.text == null ? "" : String(n.text);
   if (n.shape === "taped") { n.shape = ""; n.pin = n.pin || "tape"; }
   if (!Array.isArray(n.stickers)) n.stickers = [];
   // OneNote: the page a note came from (on), or the page it was saved to (onSaved)
@@ -580,16 +582,19 @@ function noteHtml(n){
 // Notes never show a scrollbar
 const NOTE_OPEN = new Set();
 function noteFitText(t){ if (!t) return; const h = t.offsetHeight; t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; if (t.offsetHeight !== h) fitNoteBoard(); }
+// In passes over all the notes (set which are open, then measure every one, then add or drop the buttons), so the board is
+// measured once rather than once per note, which froze the Notes tab for seconds with a few hundred notes
 function noteClipCheck(){
-  $$(".note[data-note]:not(.editing)").forEach(el => {
-    const b = el.querySelector(".note-body"); if (!b) return;
-    const id = el.dataset.note, open = NOTE_OPEN.has(id);
-    el.classList.toggle("nb-open", open);
-    const long = open || b.scrollHeight > b.clientHeight + 2;
+  const all = $$(".note[data-note]:not(.editing)").map(el => ({el, b: el.querySelector(".note-body"), open: NOTE_OPEN.has(el.dataset.note)})).filter(x => x.b);
+  all.forEach(x => x.el.classList.toggle("nb-open", x.open));
+  all.forEach(x => { x.long = x.open || x.b.scrollHeight > x.b.clientHeight + 2; });
+  all.forEach(({el, b, open, long}) => {
     el.classList.toggle("nb-clip", long);
     let m = el.querySelector(".note-more");
     if (long && !m) { m = document.createElement("button"); m.type = "button"; m.className = "note-more"; b.after(m); }
     if (!long && m) m.remove();
+    // (a button that already says the right thing is left as it is)
+    if (m && m.firstChild && m.firstChild.nodeValue === (open ? "Show Less " : "Show More ") && m.getAttribute("aria-expanded") === (open ? "true" : "false")) return;
     if (m) { m.innerHTML = (open ? "Show Less" : "Show More") + ` <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`; m.setAttribute("aria-expanded", open ? "true" : "false"); }
   });
 }
@@ -614,7 +619,7 @@ function noteSheetUp(){
   // the note's own colour also fills the strip behind the keyboard (see .n-sheet-bg.on::after)
   try { document.documentElement.style.setProperty("--n-sheet-c", getComputedStyle(el).getPropertyValue("--nc").trim() || getComputedStyle(el).backgroundColor); } catch (e) {}
   // slides up once when a note opens, not again on every redraw while it's being edited
-  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); }, 500); }
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");

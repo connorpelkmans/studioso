@@ -7,6 +7,8 @@ const todayISO = () => iso(new Date());
 const dayDiff = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
 const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
 const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+// A date that really exists (an import can bring 2026-13-45, which the calendar would roll into February, or the year 0001)
+const realDate = s => isDate(s) && s >= "1900" && s < "2201" && iso(parse(s)) === s;
 const fmtShort = s => parse(s).toLocaleDateString(undefined, {month:"short", day:"numeric"});
 const fmtDate = s => parse(s).toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"});
 const mondayOf = s => { const d = parse(s); const wd = (d.getDay() + 6) % 7; return addDays(s, -wd); };
@@ -271,8 +273,11 @@ function normTask(t){
   if (!STATUS_LABEL[t.status]) t.status = "todo";
   if (!PRIO[t.priority]) t.priority = "med";
   if (!Array.isArray(t.checklist)) t.checklist = [];
+  // a due date that isn't a real day is kept aside (dueBad) and the task shows "No due date — check the date" until it gets a new one
+  if (isDate(t.due) && !realDate(t.due)) { t.dueBad = t.due; t.due = ""; }
   if (!isDate(t.due)) t.due = "";
-  if (!isDate(t.start)) t.start = "";
+  if (t.due || typeof t.dueBad !== "string") delete t.dueBad; else t.dueBad = t.dueBad.slice(0, 10);
+  if (!realDate(t.start)) t.start = "";
   delete t.earned; delete t.possible;
   if (t.prep != null) t.prep = normPrep(t.prep);
   if (t.docs != null) { t.docs = DOCLINK.norm(t.docs); if (!t.docs.length) delete t.docs; }
@@ -453,15 +458,15 @@ function normInk(list, max){
 function normEvent(e){
   const isT = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x || ""), tm = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   e = Object.assign({title: "Event", courseId: "", label: "", date: "", endDate: "", start: "", end: "", allDay: false, where: "", notes: "", repeat: null, exdates: [], moved: {}, icsUid: "", src: ""}, e);
-  if (!isDate(e.date)) e.date = iso(new Date());
-  if (!isDate(e.endDate)) e.endDate = "";
+  if (!realDate(e.date)) e.date = iso(new Date());
+  if (!realDate(e.endDate)) e.endDate = "";
   if (!isT(e.start)) e.start = ""; if (!isT(e.end)) e.end = "";
   // an end before the start is the next morning (10 PM to 1 AM); only a missing or equal end gets the 1-hour default
   if (!e.allDay && e.start && (!e.end || tm(e.end) === tm(e.start))) { const m = Math.min(1439, tm(e.start) + 60); e.end = pad(Math.floor(m / 60)) + ":" + pad(m % 60); }
   if (!e.allDay && !e.start) e.allDay = true;
   if (e.allDay) { e.start = ""; e.end = ""; }
   if (e.repeat && (!Array.isArray(e.repeat.days) || !e.repeat.days.length)) e.repeat = null;
-  if (e.repeat) e.repeat = {days: [...new Set(e.repeat.days.map(Number))].filter(d => d >= 0 && d <= 6).sort(), every: Math.max(1, Math.min(4, Number(e.repeat.every) || 1)), until: isDate(e.repeat.until) ? e.repeat.until : ""};
+  if (e.repeat) e.repeat = {days: [...new Set(e.repeat.days.map(Number))].filter(d => d >= 0 && d <= 6).sort(), every: Math.max(1, Math.min(4, Number(e.repeat.every) || 1)), until: realDate(e.repeat.until) ? e.repeat.until : ""};
   if (!Array.isArray(e.exdates)) e.exdates = [];
   if (!e.moved || typeof e.moved !== "object" || Array.isArray(e.moved)) e.moved = {};
   return scrubFields(e, ["title", "where"], e.icsUid || e.synced || e.src ? ["notes"] : []);
@@ -469,7 +474,7 @@ function normEvent(e){
 const norm = (kind, o) => kind === "task" ? normTask(o) : kind === "file" ? normFile(o) : kind === "note" ? normNote(o) : kind === "deck" ? normDeck(o) : kind === "event" ? normEvent(o) : kind === "trash" ? TB.normEntry(o) : o;
 function fromArrays(o){
   const s = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:Object.assign({capacity:15}, (o && o.settings) || {}), updated:(o && o.updated) || 0};
-  ((o && Array.isArray(o.courses)) ? o.courses : []).forEach(c => { if (c && c.id) { const k = scrubFields(clone(c), ["name", "code"]); if (!/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i.test(String(k.color || "").trim())) k.color = "#8A94A6"; s.courses[c.id] = k; } });
+  ((o && Array.isArray(o.courses)) ? o.courses : []).forEach(c => { if (c && c.id) { const k = scrubFields(clone(c), ["name", "code"]); if (!/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i.test(String(k.color || "").trim())) k.color = "#8A94A6"; if (typeof k.name !== "string" || !k.name.trim()) k.name = "Untitled Course"; s.courses[c.id] = k; } });
   ((o && Array.isArray(o.tasks)) ? o.tasks : []).forEach(t => { if (t && t.id) s.tasks[t.id] = normTask(clone(t)); });
   ((o && Array.isArray(o.files)) ? o.files : []).forEach(f => { if (f && f.id) s.files[f.id] = normFile(clone(f)); });
   ((o && Array.isArray(o.notes)) ? o.notes : []).forEach(n => { if (n && n.id) s.notes[n.id] = normNote(clone(n)); });
@@ -558,7 +563,21 @@ async function spillRetry(asked){
 }
 window.addEventListener("pagehide", () => { try { spillFlush(); } catch(e) {} });
 document.addEventListener("visibilitychange", () => { if (document.hidden) { try { spillFlush(); } catch(e) {} } });
+// Saves asked for during one step (a card grade saves the deck, your counts and your streak) are written once, as soon as
+// that step's code has run (a microtask, before anything else happens), instead of copying all your data three or four times
+let saveQueued = false;
 function saveLocal(){
+  focusStale();
+  if (deviceWiping || demoDrawing || saveQueued) return;
+  saveQueued = true;
+  queueMicrotask(saveFlush);
+}
+function saveFlush(){
+  if (!saveQueued) return;
+  saveQueued = false;
+  saveLocalNow();
+}
+function saveLocalNow(){
   if (deviceWiping || demoDrawing) return;
   if (spillBlocked) { if (Date.now() - spillWarnAt > 6e4 && !$("#toast").classList.contains("show")) spillStuckToast(); return; }
   if (lsHold) return;
@@ -620,6 +639,7 @@ function deskNewer(own){
   return out;
 }
 function loadLocal(){
+  saveFlush();
   let r = null;
   try {
     r = spillRaw != null ? spillRaw : localStorage.getItem(LS2);

@@ -402,7 +402,19 @@ const gtOpenAttrs = t => t.gt ? `data-act="grp-pt-open" data-g="${esc(t.gt.gid)}
 // What a focus button starts: the task itself, or study time for the exam a study entry stands for (none for group tasks)
 const focusAttrs = t => t.gt ? `data-id="${esc(t.id)}"` : t.xs ? `data-id="${esc(t.xs.id)}" data-study="1"` : `data-id="${esc(t.id)}"`;
 const LIGHT_EVE = 0.5;
+/* Today's Plan is worked out once per change. Any save, any request to redraw, a new minute or a different copy of your data
+   (another tab's, the app tour's example) works it out again; in between, everything that reads the plan (the redraw right
+   after a tick, the widget feed, Do This Next) gets the same one instead of planning the whole term again. */
+let FOCUS_REV = 0, FOCUS_FOR = null;
+const focusStale = () => { FOCUS_REV++; };
 function computeFocus(){
+  const rev = FOCUS_REV, st = state, min = Math.floor(Date.now() / 6e4), k = FOCUS_FOR;
+  if (FOCUS && k && k.F === FOCUS && k.rev === rev && k.st === st && k.min === min) return FOCUS;
+  const F = computeFocusNow();
+  FOCUS_FOR = {F, rev, st, min};
+  return F;
+}
+function computeFocusNow(){
   const today = todayISO(), dh0 = dailyHours(), thSet = todayHours(), now = new Date();
   const dh = dh0 * (accOf() ? accOf().capScale() : 1);
   let doneToday = 0; try { if (typeof SBSTATS !== "undefined") doneToday = SBSTATS.focusMinutes(today, today) / 60; } catch(e) {}
@@ -678,7 +690,7 @@ function planGapWhy(F){
   return why;
 }
 // For tests: the plan as the app sees it right now
-window.__sbPlan = () => { const F = computeFocus(), n = nextUp(F); const pick = x => ({id: x.t.id, title: x.t.title, due: x.t.due, start: x.t.start || "", score: Math.round(x.score), alloc: x.alloc, need: x.need, R: x.R, W: x.W, late: x.late, dead: !!x.dead, past: !!x.past, fixed: !!x.fixed, tier: !!x.tier, drop: !!x.drop, reasons: x.reasons});
+window.__sbPlan = () => { focusStale(); const F = computeFocus(), n = nextUp(F); const pick = x => ({id: x.t.id, title: x.t.title, due: x.t.due, start: x.t.start || "", score: Math.round(x.score), alloc: x.alloc, need: x.need, R: x.R, W: x.W, late: x.late, dead: !!x.dead, past: !!x.past, fixed: !!x.fixed, tier: !!x.tier, drop: !!x.drop, reasons: x.reasons});
   const first = Object.entries(F.slotsBy || {}).map(([id, l]) => ({id, s: Math.min(...l.map(z => z.s))})).sort((a, b) => a.s - b.s)[0];
   return {th: F.th, thSet: F.thSet, doneToday: F.doneToday, gapWhy: F.gapWhy, day: F.day.slice(0, 5), ranked: F.ranked.map(pick), later: F.later.map(x => x.t.id), laterRows: F.later.map(pick), blocked: F.blocked.map(x => x.t.id), firstSlot: first ? first.id : "", busyAhead: F.busyAhead, drop: F.drop ? {by: F.drop.by, ids: F.drop.items.map(x => x.t.id)} : null, next: n ? {id: n.x.t.id, why: n.why, mins: n.mins, ai: n.ai, study: !!n.study} : null, est: id => localEstimate(state.tasks[id])}; };
 // Pick the one reason a row shows up front
