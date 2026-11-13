@@ -45,6 +45,12 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 /* Mark Complete: a 44 px tap area around the small ring on touch screens */
 @media (pointer:coarse),(max-width:719px){
   button.check::after{inset:auto;left:50%;top:50%;width:max(44px,100%);height:max(44px,100%);transform:translate(-50%,-50%);border-radius:50%}
+  /* the same for other small controls: Do This Next's Details, the Schedule's all-day chips, the notes zoom buttons (they keep their look) */
+  .next-up .nu-more,.sch-chip,.nb-zoom button{position:relative}
+  .next-up .nu-more::after{content:"";position:absolute;inset:-12px -8px}
+  .sch-chip::after{content:"";position:absolute;inset:-5px 0}
+  .sch-chip{overflow:clip;overflow-clip-margin:5px}
+  .nb-zoom button::after{content:"";position:absolute;inset:-7px -1px}
 }
 
 /* Text on course colours: always white, with a faint shadow so it still reads on light colours */

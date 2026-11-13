@@ -280,8 +280,32 @@ const SBI18N = (() => {
   dloc = dateLoc();
   // A date formatted with no language given uses the page's (above), not the browser's
   try {
-    const wrap = f => function(l, o){ return f.call(this, l === undefined && dloc ? dloc : l, o); }, D = Date.prototype;
-    D.toLocaleDateString = wrap(D.toLocaleDateString); D.toLocaleTimeString = wrap(D.toLocaleTimeString); D.toLocaleString = wrap(D.toLocaleString);
+    // Each formatter is made once and kept: a page draws about a hundred dates and times, and the browser builds a new
+    // formatter for every toLocale…String call (about 19 ms a redraw, far more on a slow phone). Same output: the browser's
+    // own defaults are filled in the same way (a date alone gets year, month and day; a time alone hour, minute and second).
+    const DTF0 = Intl.DateTimeFormat, FMT = new Map();
+    const DATE_F = ["weekday", "year", "month", "day"], TIME_F = ["dayPeriod", "hour", "minute", "second", "fractionalSecondDigits"];
+    const withDefaults = (kind, o) => {
+      o = o == null ? {} : Object.assign({}, o);
+      if (o.dateStyle !== undefined || o.timeStyle !== undefined) return (kind === "date" && o.timeStyle !== undefined) || (kind === "time" && o.dateStyle !== undefined) ? null : o;
+      const hasD = DATE_F.some(k => o[k] !== undefined), hasT = TIME_F.some(k => o[k] !== undefined);
+      if ((kind === "date" || kind === "any") && !hasD && !(kind === "any" && hasT)) Object.assign(o, {year: "numeric", month: "numeric", day: "numeric"});
+      if ((kind === "time" || kind === "any") && !hasT && !(kind === "any" && hasD)) Object.assign(o, {hour: "numeric", minute: "numeric", second: "numeric"});
+      return o;
+    };
+    const wrap = (f, kind) => function(l, o){
+      const loc = l === undefined && dloc ? dloc : l;
+      try {
+        if (this instanceof Date && !isNaN(this.getTime()) && (o === undefined || (o !== null && typeof o === "object"))) {
+          const key = kind + "|" + (Array.isArray(loc) ? loc.join(",") : String(loc)) + "|" + (o == null ? "" : JSON.stringify(o));
+          let fm = FMT.get(key);
+          if (fm === undefined) { const oo = withDefaults(kind, o); fm = oo ? new DTF0(loc, oo) : null; if (FMT.size > 300) FMT.clear(); FMT.set(key, fm); }
+          if (fm) return fm.format(this);
+        }
+      } catch (e) {}
+      return f.call(this, loc, o);
+    }, D = Date.prototype;
+    D.toLocaleDateString = wrap(D.toLocaleDateString, "date"); D.toLocaleTimeString = wrap(D.toLocaleTimeString, "time"); D.toLocaleString = wrap(D.toLocaleString, "any");
     const DTF = Intl.DateTimeFormat, P = function(l, o){ return new DTF(l === undefined && dloc ? dloc : l, o); };
     P.prototype = DTF.prototype; P.supportedLocalesOf = DTF.supportedLocalesOf.bind(DTF); Intl.DateTimeFormat = P;
   } catch (e) {}
@@ -51118,7 +51142,10 @@ var TP_DATA = [];
       const all = Object.keys(STICKERS);
       const cur = (window.SBTP && SBTP.rec && SBTP.rec(styleCfg().skin)) || null;
       const first = cur && cur.pack ? Object.keys((STICKER_PACKS.find(p => p.id === cur.pack) || {items: {}}).items) : [];
-      load().then(() => want(first.concat(all)));
+      // On a phone only the current theme's pack is made ahead: making all ~800 took minutes of background work on a
+      // mid-range phone the first time and made taps feel slow. The shop still makes the rest as its cells come into view.
+      const phone = window.matchMedia && matchMedia("(max-width:639px)").matches;
+      load().then(() => want(phone ? first : first.concat(all)));
     };
     if (window.requestIdleCallback) requestIdleCallback(warm, {timeout: 20000}); else warm();
   }, 6000));
@@ -66342,7 +66369,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // Read the saved pictures a little after start-up, so the shop's lists open ready
   // and make any that are missing (once per device; they're saved), a few at a time in quiet moments
   let warmAll = false;
-  hook("boot", () => setTimeout(() => idleTick().then(loadSaved).then(() => { if (Object.keys(BYID).some(id => !pngs[id])) { warmAll = true; warmStills(); } }), 5000));
+  // (not on a phone: reading and making every picture at start-up kept a mid-range phone busy and taps slow; there the
+  // shop reads and makes them when it opens, as its lists come into view)
+  hook("boot", () => { if (window.matchMedia && matchMedia("(max-width:639px)").matches) return; setTimeout(() => idleTick().then(loadSaved).then(() => { if (Object.keys(BYID).some(id => !pngs[id])) { warmAll = true; warmStills(); } }), 5000); });
   const swapStill = id => document.querySelectorAll(`img.cp-still[data-still="${CSS.escape(id)}"]`).forEach(im => { im.src = pngs[id]; });
   const saveSoon = () => { clearTimeout(saveT); saveT = setTimeout(() => { if (saved && window.SBUI && SBUI.cacheSet) SBUI.cacheSet(STILL_KEY, saved).catch(() => {}); }, 1500); };
   // Every companion, in quiet moments while the Style Shop is open, so its lists are ready
@@ -103831,15 +103860,10 @@ const AUTOPILOT = (() => {
     raf = 0;
     const b = document.body; if (!b) return;
     let y = false;
-    const fab = document.getElementById("fab"), qa = PHONE.matches && fab && document.querySelector("#view .qa-bar");
+    const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
     if (qa && fab.style.display !== "none") {
       const f = fab.getBoundingClientRect(), q = qa.getBoundingClientRect();
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
-    }
-    // ...and, at any size, when it would sit on top of a button you can press (its taps would open New Task instead)
-    if (!y && fab && fab.style.display !== "none" && fab.getClientRects().length) {
-      const f = fab.getBoundingClientRect(), pts = [[f.left + 6, f.top + 6], [f.right - 6, f.top + 6], [f.left + 6, f.bottom - 6], [f.right - 6, f.bottom - 6], [f.left + f.width / 2, f.top + f.height / 2]];
-      y = pts.some(([x, yy]) => document.elementsFromPoint(x, yy).some(e => e !== fab && !fab.contains(e) && e.closest && e.closest("#view :is(.btn, .check, .stepper button, input, select, textarea)")));
     }
     b.classList.toggle("fab-yield", !!y);
   }

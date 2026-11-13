@@ -6083,9 +6083,6 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .course-card .next .late{color:var(--late);font-weight:600}
 /* Deck Archive: the same folder icon as the notes Archive */
 .deck-actions .deck-arch svg{display:block}
-/* The Add button steps aside while it would cover a button (any screen size) */
-.fab{transition:opacity .18s,transform .18s}
-body.fab-yield .fab{opacity:0;transform:translateY(12px) scale(.94);pointer-events:none}
 /* Phones: the header frosts over the page once it scrolls; the Add button */
 @media (max-width:639px){
   header.top{transition:background-color .2s,box-shadow .2s,border-color .2s}
@@ -7966,6 +7963,12 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 /* Mark Complete: a 44 px tap area around the small ring on touch screens */
 @media (pointer:coarse),(max-width:719px){
   button.check::after{inset:auto;left:50%;top:50%;width:max(44px,100%);height:max(44px,100%);transform:translate(-50%,-50%);border-radius:50%}
+  /* the same for other small controls: Do This Next's Details, the Schedule's all-day chips, the notes zoom buttons (they keep their look) */
+  .next-up .nu-more,.sch-chip,.nb-zoom button{position:relative}
+  .next-up .nu-more::after{content:"";position:absolute;inset:-12px -8px}
+  .sch-chip::after{content:"";position:absolute;inset:-5px 0}
+  .sch-chip{overflow:clip;overflow-clip-margin:5px}
+  .nb-zoom button::after{content:"";position:absolute;inset:-7px -1px}
 }
 
 /* Text on course colours: always white, with a faint shadow so it still reads on light colours */

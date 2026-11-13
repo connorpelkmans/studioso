@@ -453,15 +453,10 @@
     raf = 0;
     const b = document.body; if (!b) return;
     let y = false;
-    const fab = document.getElementById("fab"), qa = PHONE.matches && fab && document.querySelector("#view .qa-bar");
+    const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
     if (qa && fab.style.display !== "none") {
       const f = fab.getBoundingClientRect(), q = qa.getBoundingClientRect();
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
-    }
-    // ...and, at any size, when it would sit on top of a button you can press (its taps would open New Task instead)
-    if (!y && fab && fab.style.display !== "none" && fab.getClientRects().length) {
-      const f = fab.getBoundingClientRect(), pts = [[f.left + 6, f.top + 6], [f.right - 6, f.top + 6], [f.left + 6, f.bottom - 6], [f.right - 6, f.bottom - 6], [f.left + f.width / 2, f.top + f.height / 2]];
-      y = pts.some(([x, yy]) => document.elementsFromPoint(x, yy).some(e => e !== fab && !fab.contains(e) && e.closest && e.closest("#view :is(.btn, .check, .stepper button, input, select, textarea)")));
     }
     b.classList.toggle("fab-yield", !!y);
   }

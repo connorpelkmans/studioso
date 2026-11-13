@@ -69,9 +69,6 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .course-card .next .late{color:var(--late);font-weight:600}
 /* Deck Archive: the same folder icon as the notes Archive */
 .deck-actions .deck-arch svg{display:block}
-/* The Add button steps aside while it would cover a button (any screen size) */
-.fab{transition:opacity .18s,transform .18s}
-body.fab-yield .fab{opacity:0;transform:translateY(12px) scale(.94);pointer-events:none}
 /* Phones: the header frosts over the page once it scrolls; the Add button */
 @media (max-width:639px){
   header.top{transition:background-color .2s,box-shadow .2s,border-color .2s}

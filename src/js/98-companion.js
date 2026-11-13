@@ -2328,7 +2328,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // Read the saved pictures a little after start-up, so the shop's lists open ready
   // and make any that are missing (once per device; they're saved), a few at a time in quiet moments
   let warmAll = false;
-  hook("boot", () => setTimeout(() => idleTick().then(loadSaved).then(() => { if (Object.keys(BYID).some(id => !pngs[id])) { warmAll = true; warmStills(); } }), 5000));
+  // (not on a phone: reading and making every picture at start-up kept a mid-range phone busy and taps slow; there the
+  // shop reads and makes them when it opens, as its lists come into view)
+  hook("boot", () => { if (window.matchMedia && matchMedia("(max-width:639px)").matches) return; setTimeout(() => idleTick().then(loadSaved).then(() => { if (Object.keys(BYID).some(id => !pngs[id])) { warmAll = true; warmStills(); } }), 5000); });
   const swapStill = id => document.querySelectorAll(`img.cp-still[data-still="${CSS.escape(id)}"]`).forEach(im => { im.src = pngs[id]; });
   const saveSoon = () => { clearTimeout(saveT); saveT = setTimeout(() => { if (saved && window.SBUI && SBUI.cacheSet) SBUI.cacheSet(STILL_KEY, saved).catch(() => {}); }, 1500); };
   // Every companion, in quiet moments while the Style Shop is open, so its lists are ready
