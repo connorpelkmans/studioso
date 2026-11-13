@@ -1110,7 +1110,7 @@ function menuSheet(){
       <button data-act="export-json"><span>Export Data Only<span class="sub">A smaller file without your uploaded files</span></span></button>`
         : `<button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>`; })()}
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
-      <button data-act="restore"><span>Restore a Backup</span></button>
+      <button data-act="restore"><span>Restore a Device Copy<span class="sub">Go back to a copy saved on this device, or an automatic backup</span></span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
       <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Knowt, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
@@ -1130,7 +1130,7 @@ function menuSheet(){
 }
 
 async function restoreSheet(){
-  openSheet(`<div class="sheet">${head("Restore a Backup")}<div class="sheet-body"><p class="status-msg">Loading backups…</p></div></div>`);
+  openSheet(`<div class="sheet">${head("Restore a Device Copy")}<div class="sheet-body"><p class="status-msg">Loading backups…</p></div></div>`);
   let list = [];
   try { list = await listBackups(); } catch(e) {}
   if (!dlg.open) return;

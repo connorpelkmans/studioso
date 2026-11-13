@@ -23,7 +23,7 @@ function backupNudge(){
   const week = 7 * 864e5;
   if (Date.now() - last < week || Date.now() - later < 5 * 864e5) return "";
   const days = last ? Math.floor((Date.now() - last) / 864e5) : 0;
-  return `<div class="nudge"><span>${last ? `Last backup: ${days} days ago.` : "No backup saved to this computer yet."}</span><button class="btn small primary" data-act="export">Download Backup</button><button class="btn small" data-act="nudge-later">Later</button></div>`;
+  return `<div class="nudge"><span>${last ? `Last backup: ${days} days ago.` : "No backup saved to this device yet."}</span><button class="btn small primary" data-act="export">Download Backup</button><button class="btn small" data-act="nudge-later">Later</button></div>`;
 }
 const COL_MAX = 5;
 // Group project tasks assigned to me, shown on the Task Board in the column for their status

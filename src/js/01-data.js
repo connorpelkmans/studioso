@@ -145,6 +145,8 @@ const TB = (() => {
   const csv = (header, rows) => "﻿" + [header].concat(rows).map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
   const isoDay = ms => ms ? new Date(ms).toISOString() : "";
   const nz = v => v == null || v === "" ? "" : v;
+  // meeting and repeat days are stored as getDay() numbers (0 = Sunday); people reading the CSV want "Mon/Wed"
+  const dayNames = days => (days || []).map(d => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d] || d).join("/");
   const pctOf = t => t && t.mark && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Math.round(Number(t.mark.got) / Number(t.mark.outOf) * 1000) / 10 : "";
   const cname = (courses, id) => { const c = courses[id]; return c ? (c.code ? c.code + " " : "") + (c.name || "") : ""; };
   function toCsvFiles(data, want){
@@ -172,9 +174,9 @@ const TB = (() => {
       f["flashcards-anki.txt"] = "#separator:tab\n#html:false\n#tags column:3\n" + (data.decks || []).flatMap(d => (d.cards || []).map(c => [q(String(c.front || "").replace(/\r\n?/g, "\n")), q(String(c.back || "").replace(/\r\n?/g, "\n")), String(d.name || "deck").trim().replace(/\s+/g, "_")].join("\t"))).join("\n") + "\n";
     }
     if (w("courses")) f["courses.csv"] = csv(["name", "code", "color", "goal_percent", "pass_percent", "meetings", "tasks"], (data.courses || []).map(c => [c.name, c.code, c.color, c.grading ? nz(c.grading.goal) : "", c.grading ? nz(c.grading.pass) : "",
-      (c.meetings || []).map(m => `${m.kind || "Class"} ${(m.days || []).join("/")} ${m.start || ""}-${m.end || ""}`).join("; "), (data.tasks || []).filter(t => t.courseId === c.id).length]));
+      (c.meetings || []).map(m => `${m.kind || "Class"} ${dayNames(m.days)} ${m.start || ""}-${m.end || ""}`).join("; "), (data.tasks || []).filter(t => t.courseId === c.id).length]));
     if (w("events")) f["events.csv"] = csv(["title", "course", "date", "end_date", "start_time", "end_time", "all_day", "where", "repeat_days", "repeat_until", "notes"],
-      (data.events || []).map(e => [e.title, cname(courses, e.courseId), e.date, e.endDate, e.start, e.end, !!e.allDay, e.where, e.repeat ? (e.repeat.days || []).join("/") : "", e.repeat ? e.repeat.until || "" : "", e.notes]));
+      (data.events || []).map(e => [e.title, cname(courses, e.courseId), e.date, e.endDate, e.start, e.end, !!e.allDay, e.where, e.repeat ? dayNames(e.repeat.days) : "", e.repeat ? e.repeat.until || "" : "", e.notes]));
     if (w("sessions")) f["study-sessions.csv"] = csv(["task", "course", "type", "focus_minutes", "status", "due_date"],
       (data.tasks || []).filter(t => Number(t.focusMin) > 0).map(t => [t.title, cname(courses, t.courseId), t.type, Math.round(Number(t.focusMin)), t.status, t.due]));
     return f;

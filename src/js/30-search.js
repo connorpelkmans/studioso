@@ -234,7 +234,7 @@
     add("Archive", "Finished tasks and past terms", act("archive-open"), "old");
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
     add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
-    add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
+    add("Restore a Device Copy", "Go back to an earlier copy or automatic backup", act("restore"), "");
     add("Export a Backup File", hasStoredFiles() ? "Your data and uploaded files in one ZIP" : "Download your data as a file", act("export"), "download zip");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
     if (window.SBONENOTE && !inPreview()) add("OneNote", "Bring OneNote sections in as notes, and Save to OneNote", act("on-open"), "onenote microsoft notebook section page notes save import sync");
@@ -1619,7 +1619,7 @@ Return JSON only.`;
     const bits = [];
     const readable = Object.values(state.files).some(f => extKind(f));
     if (FT.busy && FT.total) bits.push(`Reading your files: ${Math.min(FT.done, FT.total)} of ${FT.total}${FT.cur ? ` (${esc(FT.cur.length > 28 ? FT.cur.slice(0, 26) + "…" : FT.cur)})` : ""}`);
-    else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this computer.");
+    else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this device.");
     else if (FT.loading && !FT.loaded) bits.push("Loading the text from your files…");
     if (semOn()) {
       if (SEM.err && !SEM.running) bits.push(esc(SEM.err));

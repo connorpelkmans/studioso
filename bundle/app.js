@@ -715,6 +715,8 @@ const TB = (() => {
   const csv = (header, rows) => "﻿" + [header].concat(rows).map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
   const isoDay = ms => ms ? new Date(ms).toISOString() : "";
   const nz = v => v == null || v === "" ? "" : v;
+  // meeting and repeat days are stored as getDay() numbers (0 = Sunday); people reading the CSV want "Mon/Wed"
+  const dayNames = days => (days || []).map(d => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d] || d).join("/");
   const pctOf = t => t && t.mark && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Math.round(Number(t.mark.got) / Number(t.mark.outOf) * 1000) / 10 : "";
   const cname = (courses, id) => { const c = courses[id]; return c ? (c.code ? c.code + " " : "") + (c.name || "") : ""; };
   function toCsvFiles(data, want){
@@ -742,9 +744,9 @@ const TB = (() => {
       f["flashcards-anki.txt"] = "#separator:tab\n#html:false\n#tags column:3\n" + (data.decks || []).flatMap(d => (d.cards || []).map(c => [q(String(c.front || "").replace(/\r\n?/g, "\n")), q(String(c.back || "").replace(/\r\n?/g, "\n")), String(d.name || "deck").trim().replace(/\s+/g, "_")].join("\t"))).join("\n") + "\n";
     }
     if (w("courses")) f["courses.csv"] = csv(["name", "code", "color", "goal_percent", "pass_percent", "meetings", "tasks"], (data.courses || []).map(c => [c.name, c.code, c.color, c.grading ? nz(c.grading.goal) : "", c.grading ? nz(c.grading.pass) : "",
-      (c.meetings || []).map(m => `${m.kind || "Class"} ${(m.days || []).join("/")} ${m.start || ""}-${m.end || ""}`).join("; "), (data.tasks || []).filter(t => t.courseId === c.id).length]));
+      (c.meetings || []).map(m => `${m.kind || "Class"} ${dayNames(m.days)} ${m.start || ""}-${m.end || ""}`).join("; "), (data.tasks || []).filter(t => t.courseId === c.id).length]));
     if (w("events")) f["events.csv"] = csv(["title", "course", "date", "end_date", "start_time", "end_time", "all_day", "where", "repeat_days", "repeat_until", "notes"],
-      (data.events || []).map(e => [e.title, cname(courses, e.courseId), e.date, e.endDate, e.start, e.end, !!e.allDay, e.where, e.repeat ? (e.repeat.days || []).join("/") : "", e.repeat ? e.repeat.until || "" : "", e.notes]));
+      (data.events || []).map(e => [e.title, cname(courses, e.courseId), e.date, e.endDate, e.start, e.end, !!e.allDay, e.where, e.repeat ? dayNames(e.repeat.days) : "", e.repeat ? e.repeat.until || "" : "", e.notes]));
     if (w("sessions")) f["study-sessions.csv"] = csv(["task", "course", "type", "focus_minutes", "status", "due_date"],
       (data.tasks || []).filter(t => Number(t.focusMin) > 0).map(t => [t.title, cname(courses, t.courseId), t.type, Math.round(Number(t.focusMin)), t.status, t.due]));
     return f;
@@ -3096,6 +3098,7 @@ function sbSignInSheet(mode, email, note){
 // The first thing a new student sees: Mochi says hi, then Sign Up or sign in. Closing it uses Studyboard on this device
 function sbWelcomeHtml(){
   let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch(e) {}
+  // "No account needed" gets its own button: it closes the welcome like ×, which works on this device and starts the setup
   const ic = d => `<i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></i>`;
   return `<div class="sb-welc">
     <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
@@ -3107,6 +3110,7 @@ function sbWelcomeHtml(){
       <li>${ic('<path d="M12 20v-7"/><path d="M12 13c0-3.5-2.5-6-6.5-6 0 3.6 2.6 6 6.5 6zM12 11c0-3 2.2-5.5 6.5-5.5 0 3.2-2.4 5.5-6.5 5.5z"/>')}Works offline, no account needed</li>
     </ul>
     <button type="button" class="btn primary sb-welc-go" id="sbSignUp" data-sbm="signup">Sign Up</button>
+    <button type="button" class="btn sb-welc-skip" data-act="close">Continue Without an Account</button>
     <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
     <p class="mini sb-welc-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
   </div>`;
@@ -10705,7 +10709,7 @@ function backupNudge(){
   const week = 7 * 864e5;
   if (Date.now() - last < week || Date.now() - later < 5 * 864e5) return "";
   const days = last ? Math.floor((Date.now() - last) / 864e5) : 0;
-  return `<div class="nudge"><span>${last ? `Last backup: ${days} days ago.` : "No backup saved to this computer yet."}</span><button class="btn small primary" data-act="export">Download Backup</button><button class="btn small" data-act="nudge-later">Later</button></div>`;
+  return `<div class="nudge"><span>${last ? `Last backup: ${days} days ago.` : "No backup saved to this device yet."}</span><button class="btn small primary" data-act="export">Download Backup</button><button class="btn small" data-act="nudge-later">Later</button></div>`;
 }
 const COL_MAX = 5;
 // Group project tasks assigned to me, shown on the Task Board in the column for their status
@@ -15407,7 +15411,7 @@ function menuSheet(){
       <button data-act="export-json"><span>Export Data Only<span class="sub">A smaller file without your uploaded files</span></span></button>`
         : `<button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>`; })()}
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
-      <button data-act="restore"><span>Restore a Backup</span></button>
+      <button data-act="restore"><span>Restore a Device Copy<span class="sub">Go back to a copy saved on this device, or an automatic backup</span></span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
       <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Knowt, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
@@ -15427,7 +15431,7 @@ function menuSheet(){
 }
 
 async function restoreSheet(){
-  openSheet(`<div class="sheet">${head("Restore a Backup")}<div class="sheet-body"><p class="status-msg">Loading backups…</p></div></div>`);
+  openSheet(`<div class="sheet">${head("Restore a Device Copy")}<div class="sheet-body"><p class="status-msg">Loading backups…</p></div></div>`);
   let list = [];
   try { list = await listBackups(); } catch(e) {}
   if (!dlg.open) return;
@@ -19755,7 +19759,7 @@ async function cloudBackupGo(kind){
 function backupWhereSheet(){
   const B = cloudBk(), via = k => !!(B && B.possible(BK_PROV[k]));
   if (B) ["gdrive", "onedrive"].forEach(k => { if (via(k) && !B.connected(BK_PROV[k])) B.connectUrl(BK_PROV[k]); });
-  const cloudCard = (kind, title) => card(kind, title, [B.connected(BK_PROV[kind]) ? `Your ${title} is connected.` : `Click the button below and allow Studyboard in the page that opens.`, `Every hour, a backup of everything goes to <b>Studyboard › Backups</b> in your ${title}. The latest also shows in Files, and you can restore any day from Restore a Backup.`], `Back Up to ${title}`);
+  const cloudCard = (kind, title) => card(kind, title, [B.connected(BK_PROV[kind]) ? `Your ${title} is connected.` : `Click the button below and allow Studyboard in the page that opens.`, `Every hour, a backup of everything goes to <b>Studyboard › Backups</b> in your ${title}. The latest also shows in Files, and you can restore any day from Restore a Device Copy.`], `Back Up to ${title}`);
   if (!FSB.supported() && !via("gdrive") && !via("onedrive")) { toast("Automatic backups need Chrome or Edge on a computer, or Google Drive or OneDrive connected"); return; }
   const card = (kind, title, steps, btn) => `<div class="bk-opt"><div class="bk-head"><span class="bk-ico bk-${kind}" aria-hidden="true">${BRAND_LOGO[kind] || ""}</span><strong>${title}</strong></div><ol>${steps.map(x => `<li>${x}</li>`).join("")}</ol><button type="button" class="btn small ${kind === "other" ? "" : "primary"}" data-fsb="${kind}">${btn}</button></div>`;
   openSheet(`<div class="sheet">${head("Automatic Backups")}<div class="sheet-body">
@@ -21805,7 +21809,7 @@ if (DESK) window.addEventListener("resize", () => { clearTimeout(deskTintT); des
 if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (themePref() === "system") applyTheme(); });
 function themeRow(){
   const p = themePref();
-  return `<div class="cap-row"><span style="flex:1;font-weight:600">Appearance<span class="sub">System follows your device's setting</span></span><div class="segb" role="group" aria-label="Appearance">${[["system","System"],["light","Light"],["dark","Dark"]].map(([k, l]) => `<button data-act="theme-set" data-id="${k}" aria-pressed="${p === k}">${l}</button>`).join("")}</div></div>`;
+  return `<div class="cap-row"><span style="flex:1;font-weight:600">Light or Dark<span class="sub">System follows your device's setting</span></span><div class="segb" role="group" aria-label="Light or dark">${[["system","System"],["light","Light"],["dark","Dark"]].map(([k, l]) => `<button data-act="theme-set" data-id="${k}" aria-pressed="${p === k}">${l}</button>`).join("")}</div></div>`;
 }
 
 /* Backup files */
@@ -21873,9 +21877,9 @@ $("#importFile").addEventListener("change", async e => {
     const raw = JSON.parse(text), d = fromArrays(raw), has = k => !!raw && Array.isArray(raw[k]);
     const cs = has("courses") ? Object.values(d.courses) : Object.values(state.courses), ts = has("tasks") ? Object.values(d.tasks) : Object.values(state.tasks), ns = has("notes") ? Object.values(d.notes) : Object.values(state.notes), ds = has("decks") ? Object.values(d.decks) : Object.values(state.decks || {}), es = has("events") ? Object.values(d.events || {}) : Object.values(state.events || {});
     let fs = has("files") ? Object.values(d.files) : Object.values(state.files);
-    if (!cs.length && !ts.length && !ns.length && !fs.length && !ds.length) throw new Error("empty");
+    if (!cs.length && !ts.length && !ns.length && !fs.length && !ds.length && !es.length) throw new Error("empty");
     const nFiles = entries ? entries.filter(x => x.name.startsWith("files/")).length : 0;
-    confirmSheet("Replace Your Data?", `This backup has ${plural0(cs.length, "course")}, ${plural0(ts.length, "task")}, ${plural0(ns.length, "note")} and ${plural0(ds.length, "flashcard deck")}${nFiles ? `, plus ${nFiles} stored file${nFiles === 1 ? "" : "s"}` : ""}. It will replace everything currently here. You can undo right after.`, "Replace", async () => {
+    confirmSheet("Replace Your Data?", `This backup has ${plural0(cs.length, "course")}, ${plural0(ts.length, "task")}, ${plural0(ns.length, "note")}, ${plural0(ds.length, "flashcard deck")} and ${plural0(es.length, "event")}${nFiles ? `, plus ${nFiles} stored file${nFiles === 1 ? "" : "s"}` : ""}. It will replace everything currently here. You can undo right after.`, "Replace", async () => {
       ui.courseId = null; ui.filter = "all";
       backupBefore("Before importing a backup");
       let msg = "Backup imported";
@@ -23720,7 +23724,7 @@ window.__sbPlanObj = () => PLAN;
   hook("menu", () => {
     const n = Number(use().n) || 0, on = mode() === "always";
     const sub = on ? "Always showing how-to tips on each page." : n >= SEASON_DAYS ? "Hidden now that you know your way around. Turn on to see them again." : `Each page's tips show for the first ${PAGE_DAYS} days you use it (and at most your first ${SEASON_DAYS} days), then they tidy away.`;
-    return `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Always Show Page Tips<span class="sub">${esc(sub)}</span></span><label class="anim-tog"><input type="checkbox" data-act="tips-set" ${on ? "checked" : ""}> On</label></div>`;
+    return `<div class="cap-row" data-group="app"><span style="flex:1;font-weight:600">Always Show Page Tips<span class="sub">${esc(sub)}</span></span><label class="anim-tog"><input type="checkbox" data-act="tips-set" ${on ? "checked" : ""}> On</label></div>`;
   });
   hook("act", (a, el) => {
     if (a !== "tips-set") return false;
@@ -27376,7 +27380,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     add("Archive", "Finished tasks and past terms", act("archive-open"), "old");
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
     add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
-    add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
+    add("Restore a Device Copy", "Go back to an earlier copy or automatic backup", act("restore"), "");
     add("Export a Backup File", hasStoredFiles() ? "Your data and uploaded files in one ZIP" : "Download your data as a file", act("export"), "download zip");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
     if (window.SBONENOTE && !inPreview()) add("OneNote", "Bring OneNote sections in as notes, and Save to OneNote", act("on-open"), "onenote microsoft notebook section page notes save import sync");
@@ -28761,7 +28765,7 @@ Return JSON only.`;
     const bits = [];
     const readable = Object.values(state.files).some(f => extKind(f));
     if (FT.busy && FT.total) bits.push(`Reading your files: ${Math.min(FT.done, FT.total)} of ${FT.total}${FT.cur ? ` (${esc(FT.cur.length > 28 ? FT.cur.slice(0, 26) + "…" : FT.cur)})` : ""}`);
-    else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this computer.");
+    else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this device.");
     else if (FT.loading && !FT.loaded) bits.push("Loading the text from your files…");
     if (semOn()) {
       if (SEM.err && !SEM.running) bits.push(esc(SEM.err));
@@ -30305,7 +30309,8 @@ const ERRCORE = (() => {
       text: () => "Short bursts of focused work with breaks between. Time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ".",
       more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
     {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
-      text: () => "Find anything from anywhere (Ctrl or Cmd K), or Ask With AI about your material."},
+      // phones have no Ctrl or Cmd key: point at the search button instead
+      text: () => phone() ? "Find anything from anywhere with the search button at the top, or Ask With AI about your material." : "Find anything from anywhere (Ctrl or Cmd K), or Ask With AI about your material."},
     {id: "done", title: "You're Ready", tab: "board",
       text: () => "Add your first task and Today's Plan takes it from there. Replay this tour from Settings."}
   ];
@@ -51684,21 +51689,22 @@ var TP_DATA = [];
   const CAT = Object.fromEntries(CATS.map(c => [c.k, c]));
   // Where each row goes, by its data-act (or input id)
   const ORDER = {
-    account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open"],
-    appearance: ["theme-set", "shop", "anim-mode", "text-size", "lang-set", "a11y-contrast", "anim-toggle", "daily-quote", "scene-moment", "comp-set"],
-    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "ai-setup", "sx-settings"],
+    account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open", "plan-restore"],
+    appearance: ["theme-set", "shop", "scene-moment", "anim-toggle", "daily-quote", "comp-open", "comp-set", "anim-mode", "text-size", "a11y-contrast", "lang-set", "spell-set"],
+    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "sbk-open", "snd-settings", "ai-setup", "aivault-open", "sx-settings", "calc-open", "pro-pr-open"],
     capture: ["cap-try"],
-    school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
-    app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
-    data: ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
+    school: ["sem-open", "lms-open", "cal-export", "cal-sync", "school-open", "import-syllabus", "grp-page"],
+    app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "tips-set", "kbd-help", "bug-open", "errrep-toggle", "legal-about", "legal-privacy", "legal-terms"],
+    data: ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "storage-protect", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
   };
-  // Sub-tabs inside a category with many rows
+  // Sub-tabs inside a category with many rows. Every row's key belongs here: an unlisted row goes to the first sub-tab, with a warning
   const SUBS = {
-    appearance: [["Look", ["theme-set", "shop", "scene-moment", "daily-quote", "comp-set"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode", "anim-toggle"]]],
-    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
-    school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
-    app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
-    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
+    appearance: [["Look", ["theme-set", "shop", "scene-moment", "anim-toggle", "daily-quote", "comp-open", "comp-set"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode"]], ["Language", ["lang-set", "spell-set"]]],
+    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]], ["Tools and AI", ["ai-setup", "aivault-open", "sx-settings", "calc-open", "pro-pr-open"]]],
+    school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync", "school-open"]], ["Groups", ["grp-page", "room-notices"]]],
+    app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "tips-set", "kbd-help", "bug-open", "errrep-toggle", "legal-about", "legal-privacy", "legal-terms"]]],
+    // Both ways to restore (a backup file, a copy kept on this device) sit together under Import and Export
+    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "storage-protect"]], ["Import and Export", ["restore", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
   };
   const SUB_MIN = 5;
   // Extra words people might search for, per row
@@ -51724,6 +51730,7 @@ var TP_DATA = [];
     const inp = r.querySelector("input[id]");
     const t = (r.textContent || "").toLowerCase();
     const keys = acts.slice();
+    if (r.dataset.usKey) keys.push(r.dataset.usKey);   // rows whose button comes and goes (Time Zone) name their place
     if (inp) keys.push(inp.id);
     if (!acts.length) {
       if (/automatic backups|studyboard folder/.test(t)) keys.push("folder");
@@ -51787,7 +51794,11 @@ var TP_DATA = [];
       const spec = SUBS[c.k];
       if (spec && sorted.length >= SUB_MIN) {
         const groups = spec.map(([name, keys]) => ({name, keys, rows: []}));
-        sorted.forEach(({r}) => { const ks = rowKey(r), g = groups.find(x => ks.some(k => x.keys.includes(k))) || groups[groups.length - 1]; g.rows.push(r); });
+        sorted.forEach(({r}) => {
+          const ks = rowKey(r); let g = groups.find(x => ks.some(k => x.keys.includes(k)));
+          if (!g) { g = groups[0]; console.warn("Settings row not in SUBS." + c.k + ", shown under " + g.name + ":", ks.join(",") || (r.textContent || "").trim().slice(0, 40)); }
+          g.rows.push(r);
+        });
         const live = groups.filter(g => g.rows.length);
         if (live.length > 1) {
           sec.classList.add("has-subs");
@@ -81318,9 +81329,10 @@ window.SBSEM = {
       </button></li>`).join("");
     return `<section class="gs-card${open ? "" : " shut"}" aria-labelledby="gsT">
       <div class="gs-head">
-        <button type="button" class="gs-toggle" data-act="gs-toggle" aria-expanded="${open}" aria-controls="gsList">
+        <button type="button" class="gs-toggle" data-act="gs-toggle" aria-expanded="${open}" aria-controls="gsList" title="${open ? "Hide the list" : "Show the list"}">
           <span class="gs-ring" style="--p:${pct}" aria-hidden="true"><span>${n}/${L.length}</span></span>
           <span class="gs-ht"><b id="gsT">Getting Started</b><span class="mini">${n} of ${L.length} done${open ? "" : ` · Next: ${esc(L[next].t.toLowerCase())}`}</span></span>
+          <span class="gs-fold" aria-hidden="true">${CHEV}</span>
         </button>
         <button type="button" class="icon-btn gs-x" data-act="gs-hide" aria-label="Hide Getting Started">${CLOSE}</button>
       </div>
@@ -97926,7 +97938,9 @@ var SBCALCSKIN = null;
     add: T("+"), sub: T("−", "-"), mul: T("×", "*"), div: T("÷", "/"), neg: T("−", "-"), pow: T("^", "^"), sq: T("²", "^2"), cube: T("³", "^3"), inv: T("⁻¹", "^(-1)"), fact: T("!"),
     lp: T("("), rp: T(")"), pi: T("π", "pi"), e: T("e", "(e)"), pct: T("%"), ans: T("Ans", "(Ans)"), mr: T("M", "(M)"), exp: T("ᴇ", "ᴇ"),
     ncr: T("C", "⒞"), npr: T("P", "⒫"), root: T("ˣ√", "⒭"),
-    sqrt: FN("√"), cbrt: FN("∛"), log: FN("log"), ln: FN("ln"), abs: FN("Abs"), tenx: T("10^(", "10^("), ex: T("e^(", "e^(")
+    sqrt: FN("√"), cbrt: FN("∛"), log: FN("log"), ln: FN("ln"), abs: FN("Abs"), tenx: T("10^(", "10^("), ex: T("e^(", "e^("),
+    // only reached by typing their names (the keys use HYP)
+    sinh: FN("sinh"), cosh: FN("cosh"), tanh: FN("tanh"), asinh: FN("sinh⁻¹"), acosh: FN("cosh⁻¹"), atanh: FN("tanh⁻¹")
   };
   const TRIG = {sin: 1, cos: 1, tan: 1, asin: 1, acos: 1, atan: 1};
   function tokenFor(a){
@@ -98298,6 +98312,23 @@ var SBCALCSKIN = null;
   function close(){ if (!W) return; W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
   const KEYMAP = {"+": "add", "-": "sub", "*": "mul", "x": "mul", "/": "div", "^": "pow", "(": "lp", ")": "rp", ".": "dot", ",": "dot", "%": "pct", "!": "fact", "Enter": "eq", "=": "eq", "Backspace": "del", "Delete": "ac",
     "ArrowLeft": "left", "ArrowRight": "right", "ArrowUp": "up", "ArrowDown": "down", "p": "pi", "s": "sin", "c": "cos", "t": "tan", "l": "ln", "g": "log", "r": "sqrt", "e": "e", "a": "ans", "E": "exp"};
+  // Typing a whole name (sqrt, sin, log, pi, ans...) puts in that function once, instead of one function per letter.
+  // The first letter still acts as its shortcut at once; if the next letters spell a name, that shortcut is taken back.
+  const NAMES = ["sqrt", "cbrt", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "log", "ln", "abs", "pi", "ans"];
+  const NAME_FN = new Set(NAMES.filter(n => n !== "pi" && n !== "ans"));   // these put in their own "("
+  let typed = null;   // {s: letters so far, snap: the display before them, at: when, named: a name just finished}
+  const snap = () => ({tokens: S.tokens.slice(), cur: S.cur, done: S.done, result: S.result, err: S.err, txt: S.txt, note: S.note, frac: S.frac});
+  function typeLetter(e){
+    const k = e.key.toLowerCase(), now = Date.now();
+    const s = typed && now - typed.at < 1500 ? typed.s + k : "";
+    if (s && NAMES.some(n => n.startsWith(s))) {
+      e.preventDefault(); typed.s = s; typed.at = now; typed.named = false;
+      if (NAMES.includes(s)) { Object.assign(S, typed.snap, {tokens: typed.snap.tokens.slice()}); typed.named = NAME_FN.has(s); act(s); }
+      return true;
+    }
+    typed = NAMES.some(n => n.startsWith(k)) ? {s: k, snap: snap(), at: now, named: false} : null;
+    return false;
+  }
   function onKey(e){
     if (e.target && e.target.closest && e.target.closest(".cx-grip")) return;
     if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
@@ -98305,7 +98336,11 @@ var SBCALCSKIN = null;
     if (e.key === "Tab" || e.key === " ") return;
     // Enter on a focused key presses that key; Enter elsewhere is =
     if (e.key === "Enter" && e.target.closest && e.target.closest("[data-cx]") && e.target.dataset.cx !== "eq") return;
+    if (/^[a-z]$/i.test(e.key) && e.key !== "E" && typeLetter(e)) return;
+    // "(" right after a typed name like sqrt is already on screen
+    if (e.key === "(" && typed && typed.named) { e.preventDefault(); typed = null; return; }
     const a = /^[0-9]$/.test(e.key) ? e.key : KEYMAP[e.key]; if (!a) return;
+    if (!/^[a-z]$/i.test(e.key)) typed = null;
     e.preventDefault();
     const b = W.querySelector(`[data-cx="${a}"]`); if (b) { b.classList.add("is-down"); setTimeout(() => b.classList.remove("is-down"), 110); }
     act(a);
@@ -103741,7 +103776,7 @@ const AUTOPILOT = (() => {
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
-    <div class="cap-row sb-wide" data-group="app"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
+    <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
@@ -103818,14 +103853,22 @@ const AUTOPILOT = (() => {
   const S = {q: "", kind: ""};
   const kindsHere = list => TB.KINDS.filter(k => list.some(e => e.kind === k));
   const hay = e => (e.label + " " + e.detail + " " + e.items.slice(0, 60).map(i => TB.labelFor(i.kind, i.data) + " " + String(i.data.back || "") + " " + String(i.data.text || "").slice(0, 400) + " " + String(i.data.notes || "").slice(0, 200) + " " + (i.data.cards || []).slice(0, 300).map(c => c.front + " " + c.back).join(" ")).join(" ")).toLowerCase();
-  function trashSheet(kind){
-    if (kind !== undefined) { S.kind = TB.isSub(kind) ? kind : kind || ""; S.q = ""; }
+  function trashSheet(kind, fromSettings){
+    if (kind !== undefined) { S.kind = TB.isSub(kind) ? kind : kind || ""; S.q = ""; S.back = !!fromSettings; }
     openSheet(`<div class="sheet">${head("Recently Deleted")}<div class="sheet-body">
       <p class="status-msg" id="trSum" style="margin:0"></p>
       <input type="search" id="trQ" placeholder="Search deleted items" aria-label="Search deleted items" data-noenter value="${esc(S.q)}">
       <div class="tr-chips" id="trChips"></div>
       <div id="trList" class="tr-list"></div></div>
-      <div class="sheet-foot"><span id="trEmpty"></span><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
+      <div class="sheet-foot">${S.back ? `<button type="button" class="btn" id="trBack">‹ Settings</button>` : ""}<span id="trEmpty"></span><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
+    // Opened from Settings: go back to its Cleanup tab rather than closing everything
+    if ($("#trBack")) $("#trBack").addEventListener("click", () => {
+      menuSheet();
+      const tab = dlg.querySelector('.us-cat[data-us="data"]'); if (tab) tab.click();
+      const row = dlg.querySelector('.us-pane[data-us="data"] [data-act="trash-open"]'), list = row && row.closest(".us-sub");
+      const sub = list && dlg.querySelector(`.us-pane[data-us="data"] .us-sub-tab[data-sub="${list.dataset.sub}"]`); if (sub) sub.click();
+      if (row) row.focus({preventScroll: true});
+    });
     $("#trQ").addEventListener("input", e => { S.q = e.target.value.trim().toLowerCase(); drawTrash(); });
     $("#trChips").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) { S.kind = b.dataset.k; drawTrash(); } });
     $("#trList").addEventListener("click", trashClick);
@@ -103872,7 +103915,7 @@ const AUTOPILOT = (() => {
   window.trashReadd = function(entries){ (entries || []).forEach(e => { state.trash[e.id] = e; if (!e.local) queueWrite("trash", e.id, e); }); trashSaveLocal(); const d = $("#trList"); if (d) drawTrash(); };
   window.trashSheet = trashSheet;
   hook("act", (a, el) => {
-    if (a === "trash-open") { trashSheet(el.dataset.kind || ""); return true; }
+    if (a === "trash-open") { trashSheet(el.dataset.kind || "", !!(el.closest && el.closest(".us"))); return true; }
     if (a === "export-data") { exportSheet(); return true; }
     return false;
   });
