@@ -8412,6 +8412,15 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   #dlg .sheet-foot:not(.tv-foot) > .spacer{display:none}
   #dlg .sheet-foot:not(.tv-foot) > .btn{flex:1 1 auto;justify-content:center;text-align:center;white-space:nowrap}
   #dlg .sheet-foot:not(.tv-foot) > .btn.danger{order:3;flex-basis:100%}
+  /* Editing a task: one row, Delete on the left, Focus in the middle, Save on the right (the sheet's × closes it, so no
+     Cancel); an extra action such as Plan My Prep gets its own row above */
+  #dlg .sheet-foot.tf-foot{flex-wrap:wrap}
+  #dlg .sheet-foot.tf-foot > [data-act="close"]{display:none}
+  #dlg .sheet-foot.tf-foot > .btn{order:1;flex:1 1 0;min-width:0}
+  #dlg .sheet-foot.tf-foot > .btn.danger{order:2;flex-basis:0}
+  #dlg .sheet-foot.tf-foot > .btn.focus-btn{order:3}
+  #dlg .sheet-foot.tf-foot > .btn.primary,#dlg .sheet-foot.tf-foot > [data-submit]{order:4}
+  #dlg .sheet-foot.tf-foot > .btn:not(.danger):not(.focus-btn):not(.primary):not([data-submit]):not([data-act="close"]){order:0;flex-basis:100%}
 }
 
 /* Desktop: a task's sheet footer like every other sheet: tools on the left, Mark Done and Edit on the right, one row */

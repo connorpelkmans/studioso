@@ -72,7 +72,10 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.click('dialog[open] [data-act="close"]'); await page.waitForTimeout(150);
     ok(await page.locator(".wb-tplbox pattern").count() === 1 && !(await page.evaluate(() => document.querySelector(".wb-tplbox").textContent.includes("Summary"))), "Cancel puts the board's own grid back");
     await page.click('.wb-zoom [data-wb="zoom-reset"]'); await page.waitForTimeout(100);
-    ok((await page.evaluate(() => SBWB.cam())).z === 1 && /100%/.test(await page.locator(".wbz-pct").textContent()), "100% zooms to full size");
+    // 100% is the board's home view (the whole page on screen), not the drawing's actual size
+    ok((await page.evaluate(() => SBWB.cam())).z < 1 && /^100%$/.test((await page.locator(".wbz-pct").textContent()).trim()), "100% goes back to the whole page");
+    // the drawing checks below measure strokes at actual size
+    await page.evaluate(() => SBWB.zoomTo(1)); await page.waitForTimeout(100);
 
     await wb("tool", "pen"); await wb("pen", "blue"); await wb("pw", 1);
     const p1 = []; for (let i = 0; i <= 30; i++) p1.push([F.x + 100 + i * 10, F.y + 120 + Math.sin(i / 3) * 40]);
