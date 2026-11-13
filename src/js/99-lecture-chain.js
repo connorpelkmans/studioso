@@ -110,6 +110,8 @@ function stamp(d, from, cards){
   const LK = window.SBLINKED;
   if (LK && LK.stamp) { try { const so = LK.origin ? Object.assign({}, LK.origin(o.k, o.id), {at: o.at}) : o; LK.stamp(d, [so], cards); } catch (e) { console.warn("lecture chain: stamp", e); } }
   cards.forEach(c => { c.from = Object.assign({}, o); });
+  // a card from a lecture remembers where its words were said, for Hear It
+  if (o.k === "lecture" && window.SBREPLAY && SBREPLAY.hasAudio(state.files[o.id])) cards.forEach(c => { try { const t = SBREPLAY.timeOf(o.id, `${c.front || ""} ${c.back || ""}`); if (t != null) c.from.t = t; } catch (e) {} });
   addOrigin(d, o);
   return d;
 }

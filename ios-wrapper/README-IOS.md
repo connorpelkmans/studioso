@@ -33,7 +33,7 @@ cp ios-wrapper/native-bridge.js ios-www/native-bridge.js
 cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
-      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
+      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard @capacitor-community/in-app-review capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
 cp -R ../ios-www ./ios-www
 ```
@@ -48,6 +48,7 @@ Recommended plugins and why (install no others unless you need them; every plugi
 | `@capacitor/filesystem` | Exported backups and files are written to the app's cache, then offered through the share sheet ("Save to Files"). Without both plugins, Export shows an error instead of saving. |
 | `@capacitor/browser` | In-app Safari sheet for https links (used by `native-bridge.js`). |
 | `@capacitor/app` | Deep links and app state. |
+| `@capacitor-community/in-app-review` | Apple's own review prompt ("Enjoying Studyboard?" with the stars), asked for at a good moment by `src/js/99-review-ask.js`. Apple decides whether it shows (at most 3 times a year). `npm run ios:stage` installs it if it's missing. In a development build the prompt always shows and does nothing; in TestFlight it never shows. |
 | `capacitor-secure-storage-plugin` | iOS **Keychain** storage (see section 5). |
 
 ## 3. Create the iOS project and merge the files

@@ -125,7 +125,7 @@
     const out = new Map(), put = (t, q) => { if ((out.get(t) || 0) < q) out.set(t, q); };
     if (known(term)) put(term, 1);
     const L = term.length, num = /^\d+$/.test(term);
-    if (L >= 2 && (prefix || L >= 4)) {
+    if (L >= 2 && (prefix || L >= 3)) {
       const cand = [];
       for (let i = lowerBound(V.sorted, term); i < V.sorted.length && V.sorted[i].startsWith(term); i++) if (V.sorted[i] !== term) cand.push(V.sorted[i]);
       cand.sort((a, b) => df(b) - df(a)).slice(0, 60).forEach(t => put(t, prefix ? 0.9 - Math.min(0.25, (t.length - L) * 0.02) : 0.6));
@@ -234,7 +234,7 @@
     add("Archive", "Finished tasks and past terms", act("archive-open"), "old");
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
     add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
-    add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
+    add("Restore a Device Copy", "Go back to an earlier copy or automatic backup", act("restore"), "");
     add("Export a Backup File", hasStoredFiles() ? "Your data and uploaded files in one ZIP" : "Download your data as a file", act("export"), "download zip");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
     if (window.SBONENOTE && !inPreview()) add("OneNote", "Bring OneNote sections in as notes, and Save to OneNote", act("on-open"), "onenote microsoft notebook section page notes save import sync");
@@ -248,7 +248,7 @@
     try {
       const box = document.createElement("div"); box.innerHTML = fire("menu").filter(x => typeof x === "string").join("");
       $$("[data-act]", box).forEach(el => {
-        const a = el.dataset.act; if (!a || a === "sx-settings" || el.tagName === "INPUT") return;
+        const a = el.dataset.act; if (!a || a === "sx-settings" || el.tagName === "INPUT" || el.closest(".segb,[role=group],[role=radiogroup]")) return;
         const sub = el.querySelector(".sub"), subT = sub ? sub.textContent.trim() : "";
         const title = (el.textContent || "").replace(subT, "").trim().replace(/\s+/g, " ");
         if (!title || title.length > 80 || seen.has(title)) return;
@@ -749,7 +749,7 @@
     }
     const b = Math.min(text.length, a + len);
     let html = "", p = a;
-    for (const [s, e] of ms) { if (e <= p || s >= b) continue; html += esc(text.slice(p, Math.max(p, s))) + "<mark>" + esc(text.slice(Math.max(s, p), Math.min(e, b))) + "</mark>"; p = Math.min(e, b); }
+    for (const [s, e] of (/[$\\]/.test(text) ? [] : ms)) { if (e <= p || s >= b) continue; html += esc(text.slice(p, Math.max(p, s))) + "<mark>" + esc(text.slice(Math.max(s, p), Math.min(e, b))) + "</mark>"; p = Math.min(e, b); }
     html += esc(text.slice(p, b));
     return (a > 0 ? "…" : "") + html + (b < text.length ? "…" : "");
   }
@@ -762,7 +762,7 @@
     const n = P.terms.length;
     const inFiles = sxCfg().files;
     let hits = scoreIx(IX.items, P, n), ch = inFiles ? scoreIx(IX.chunks, P, n) : [];
-    if (hits.length + ch.length < 3 && n > 1) { const need = Math.max(1, Math.ceil(n * 0.6)); hits = scoreIx(IX.items, P, need); ch = inFiles ? scoreIx(IX.chunks, P, need) : []; }
+    if (hits.length + ch.length < 3 && n > 1) { const need = Math.max(1, n - 1); hits = scoreIx(IX.items, P, need); ch = inFiles ? scoreIx(IX.chunks, P, need) : []; }
     const fq = fold(q).trim();
     hits.forEach(h => {
       const t = h.doc.ft || (h.doc.ft = fold(h.doc.title));
@@ -1091,6 +1091,8 @@ Return JSON only.`;
   // Answers from the student's files restate them in the AI's own words (the copyright rule in aiCall), on every route
   const callPlan = (plan, args) => { args = Object.assign({}, args, {task: args.task || "ask"}); args.system = aiCopyRule(args.system, args.task); return plan.kind === "gemini" ? geminiCall(plan.cfg, Object.assign({ms: args.timeout || 90000}, args)) : aiCall(args); };
   const proLocked = () => !!(window.SBPRO && SBPRO.locked && SBPRO.locked());
+  // free plan: a few Quiz Me sessions a week with the student's own AI key (PLAN.runsLeft)
+  const quizLeft = () => typeof PLAN !== "undefined" && PLAN && PLAN.runsLeft ? PLAN.runsLeft("quiz") : 0;
   const SENT = 8;
   const bodyOf = x => { const d = x.doc; return x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n")); };
   const srcText = (rows, nums) => rows.slice(0, SENT).map((x, i) => nums && !nums.includes(i + 1) ? "" : `[${i + 1}] ${citeOf(x)}\n${String(bodyOf(x)).slice(0, 1500)}`).filter(Boolean).join("\n\n");
@@ -1184,6 +1186,8 @@ Return JSON only.`;
       A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
     }
     if (S.ask === A || S.thread.includes(A)) draw();
+    // opened to quiz (quizCourse): Quiz Me starts on its own once the answer and its sources are in
+    if (S.autoQuiz === A) { S.autoQuiz = null; if (A.answer.state === "done" && A.answer.found !== false && (A.rows || []).length && S.ask === A) startTutor(A); }
   }
   // Only when the student asks, and only the question (and the course's name) is sent
   async function getGeneral(T){
@@ -1252,7 +1256,7 @@ Return JSON only.`;
   // Quiz Me: questions from the answer's sources (the AI quiz writer)
   async function startTutor(T){
     if (!T) return;
-    if (proLocked()) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Quiz Me is part of Studyboard Pro: one question at a time from your material, checked and explained."); return; }
+    if (proLocked() && quizLeft() <= 0) { close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.runsGone("quiz", "Quiz Me asks one question at a time from your material, checked and explained."); return; }
     if (!aiReady()) { close(); aiSetupSheet(true); return; }
     const tu = S.tutor = {ti: turnIx(T), state: "loading", qs: [], i: 0, ans: []}; draw();
     const c = courseOf(studyCid(T)), text = studyText(T);
@@ -1262,6 +1266,7 @@ Return JSON only.`;
       const qs = r.questions.filter(q => ["single", "truefalse", "short"].includes(q.type)).slice(0, 5);
       if (!qs.length) throw aiErr("empty", "Couldn't write questions from this material. Try asking about something your notes cover in more detail.");
       Object.assign(tu, {state: "ready", qs});
+      if (proLocked() && typeof PLAN !== "undefined" && PLAN && PLAN.useRun) PLAN.useRun("quiz");
     } catch(e) { if (S.tutor !== tu) return; Object.assign(tu, {state: "error", err: e.message || "Couldn't write questions right now. Try again."}); }
     draw();
   }
@@ -1498,7 +1503,7 @@ Return JSON only.`;
     const ok = an.found && T.rows.length > 0, gen = T.general && T.general.state === "done";
     if (!ok && !gen) return "";
     const saved = T.saved && state.notes[T.saved];
-    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
+    let h = `<div class="sx-study" role="group" aria-label="Study this answer">${ok ? `<button type="button" class="btn small ai-btn" data-sx="mk-cards" data-turn="${ti}">${AI_ICON} Make Flashcards</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${ti}">${AI_ICON} Quiz Me${proLocked() && quizLeft() > 0 ? ` <span class="mini">${quizLeft()} free this week</span>` : proLocked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</button>` : ""}${saved ? `<button type="button" class="btn small" data-sx="open-note" data-turn="${ti}">Open Note</button>${window.SBONENOTE ? SBONENOTE.saveBtn(T.saved) : ""}` : `<button type="button" class="btn small" data-sx="save-note" data-turn="${ti}">Save as Note</button>`}</div>`;
     if (T.study && T.study.busy) h += `<p class="sx-hint">${dots} ${esc(T.study.msg)}</p>`;
     else if (T.study && T.study.err) h += `<p class="sx-hint sx-err">${esc(T.study.err)}</p>`;
     if (saved) h += `<p class="sx-hint" role="status">Saved to your Notes, with a link to each source.</p>`;
@@ -1614,7 +1619,7 @@ Return JSON only.`;
     const bits = [];
     const readable = Object.values(state.files).some(f => extKind(f));
     if (FT.busy && FT.total) bits.push(`Reading your files: ${Math.min(FT.done, FT.total)} of ${FT.total}${FT.cur ? ` (${esc(FT.cur.length > 28 ? FT.cur.slice(0, 26) + "…" : FT.cur)})` : ""}`);
-    else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this computer.");
+    else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this device.");
     else if (FT.loading && !FT.loaded) bits.push("Loading the text from your files…");
     if (semOn()) {
       if (SEM.err && !SEM.running) bits.push(esc(SEM.err));
@@ -1847,6 +1852,12 @@ Return JSON only.`;
     loadTexts().then(() => queueFiles()).catch(() => {});
   }
   window.SBSEARCH.warm = warmFiles;
+  // Quiz Me on a course in one tap (the exam offer on Today's Plan): asks the question in Ask Your Course, then starts Quiz Me on the answer
+  window.SBSEARCH.quizCourse = (cid, q) => {
+    if (dlg.open) dlg.close();
+    resetThread(); open(q, {mode: "ask", course: cid || "", fresh: true, run: false});
+    runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
+  };
   setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });

@@ -81,7 +81,8 @@ const day = (m, d) => m.days.find(x => x.date === d);
   const lms = r.moves.find(m => m.id === "lms"), own = r.moves.find(m => m.id === "own");
   ok(r.moves.length >= 1, "suggestions exist");
   if (lms) ok(lms.mode === "start" && lms.to < lms.from, "synced task moves its start date, not its due date");
-  if (own) ok(own.mode === "due" && own.to < own.from, "own task moves its due date");
+  // pulling work forward never moves a real due date (the Crunch sheet promises that): own tasks move their start date too
+  if (own) ok(own.mode === "start" && own.to < own.from, "own task moves its start date, not its due date");
   ok(r.moves.every(m => m.id !== "e1" && m.id !== "e2" && m.id !== "e3"), "exams are never suggested");
 }
 

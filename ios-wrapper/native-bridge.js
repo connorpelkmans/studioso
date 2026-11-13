@@ -560,11 +560,15 @@
       // a box tapped while no keyboard is up: the keyboard is about to come, and its height is known from last time, so the
       // page makes room for it straight away (the editor heads to its final spot in one move); if no keyboard comes (a
       // hardware keyboard), that's undone
-      var expectT = 0;
+      // Only a box that was just tapped (or the note editor, focused inside the tap that makes a note) brings the keyboard: a
+      // box a sheet focuses by itself gets no keyboard from iOS, and making room for one moved the sheet up and back down
+      var expectT = 0, touchEl = null, touchAt = 0;
+      document.addEventListener("touchend", function (e) { touchEl = e.target; touchAt = Date.now(); }, true);
+      var tapped = function (t) { if (Date.now() - touchAt > 800 || !touchEl || !touchEl.nodeType) return false; if (t === touchEl || t.contains(touchEl)) return true; var l = touchEl.closest && touchEl.closest("label"); return !!l && l.contains(t); };
       document.addEventListener("focusin", function (e) {
         if (!isBox(e.target)) return;
         clearTimeout(unlockT); try { KB.setScroll({ isDisabled: true }); } catch (x) {}
-        if (!isOpen && kbH > 0) { kbOn(true, kbH); clearTimeout(expectT); expectT = setTimeout(function () { if (!realOpen) kbOn(false); }, 900); }
+        if (!isOpen && kbH > 0 && (tapped(e.target) || e.target.id === "noteText")) { kbOn(true, kbH); clearTimeout(expectT); expectT = setTimeout(function () { if (!realOpen) kbOn(false); }, 900); }
       }, true);
       document.addEventListener("focusout", function () { clearTimeout(unlockT); unlockT = setTimeout(function () { if (!isBox(document.activeElement) && !isOpen) try { KB.setScroll({ isDisabled: false }); } catch (x) {} }, 120); }, true);
     } catch (e) {}

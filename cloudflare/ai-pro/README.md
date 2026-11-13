@@ -48,7 +48,7 @@ Only a Pro plan someone pays for: monthly, semester, yearly or lifetime. The Wor
 | Plan | Studyboard AI |
 |---|---|
 | Paid Pro or lifetime | Yes |
-| The free week of Pro | No |
+| The two free weeks of Pro | No |
 | Pro from a server grant or a promo code | No |
 | Free, lapsed, guest, or an unconfirmed email | No |
 

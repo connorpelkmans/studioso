@@ -175,9 +175,13 @@ function SEED(){
     const p3 = await open(await mkCtx(seed2, true));
     ok(await p3.locator(".pro-recap-card").count() === 0, "free: no term recap card");
     await act(p3, "wkr-open"); await p3.waitForTimeout(400);
-    ok(await p3.locator(".wkr-sheet .pro-ins-card").count() === 0 && await p3.locator('.wkr-sheet .pro-linkrow .pro-badge').count() === 1, "free: Weekly Review has one quiet Insights · PRO row");
+    ok(await p3.locator('.wkr-sheet [data-act="pro-ins-open"] .pro-badge').count() === 1, "free: Weekly Review has See All Insights with a PRO badge");
+    if (await p3.locator(".wkr-sheet .pro-ins-card").count()) ok(((await p3.textContent(".wkr-sheet .pro-ins-card p")) || "").trim().length > 10, "free: this week's one-line insight, from the student's own planner, is free");
     await p3.click('.wkr-sheet [data-act="pro-ins-open"]'); await p3.waitForTimeout(400);
-    ok(await p3.locator(".plan-sheet").count() === 1 && await p3.locator(".pro-ins-body").count() === 0, "free: tapping it opens the Pro sheet, not Insights");
+    ok(await p3.locator(".pro-ins-body").count() === 1 && await p3.locator(".pro-ins-body .pro-card:not(.pro-lockcard)").count() === 1 && await p3.locator(".pro-ins-body .pro-lockcard").count() === 3, "free: Insights opens as a preview: the first card real, the other three say what Pro shows");
+    await noOverflow(p3, "in the Insights preview");
+    await p3.click('.pro-ins-body [data-act="pro-ins-pro"]'); await p3.waitForTimeout(400);
+    ok(await p3.locator(".plan-sheet").count() === 1 && /Insights are part of Studyboard Pro/.test(await p3.textContent(".plan-sheet")), "free: See Every Insight With Pro opens the Pro sheet with the reason");
     await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
     await act(p3, "pomo-open"); await p3.waitForTimeout(400);
     const nOwn = await p3.evaluate(() => ((JSON.parse(localStorage.getItem("coursework:v2")).settings || {}).routines || []).length);
@@ -205,7 +209,7 @@ function SEED(){
     await p3.evaluate(() => document.querySelector('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"]').click()); await p3.waitForTimeout(300);
     ok(await p3.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2") || "{}")) && await p3.locator('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"][aria-pressed="true"]').count() === 1, "free: a deck can be switched to Classic");
     await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
-    for (const t of ["courses", "timeline", "schedule"]) { await p3.evaluate(t => { const b = document.querySelector(`nav.tabs [data-tab="${t}"]`); if (b) b.click(); }, t); await p3.waitForTimeout(300); ok(await p3.locator(".pro-tab-btn").count() === 0, `free: no Pro buttons on ${t}`); }
+    for (const t of ["courses", "timeline", "schedule"]) { await p3.evaluate(t => { const b = document.querySelector(`nav.tabs [data-tab="${t}"]`); if (b) b.click(); }, t); await p3.waitForTimeout(300); ok(await p3.locator('.pro-tab-btn:not([data-act="pro-ins-open"])').count() === 0 && (t !== "courses" || await p3.locator('.pro-tab-btn[data-act="pro-ins-open"] .pro-badge').count() === 1), `free: ${t === "courses" ? "only Insights, tagged PRO," : "no Pro buttons"} on ${t}`); }
     await act(p3, "pro-cf-open", "d1"); await p3.waitForTimeout(400);
     ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: Image Cards opens the Pro sheet");
     ok(p3.errs.length === 0, "no console errors on the free plan: " + p3.errs.join(" | "));

@@ -282,7 +282,7 @@ function viewFlashcards(){
     return `<article class="deck deck-fc cs-${esc(cardStyleOf(d))}" data-rv="${esc(d.id)}" style="--c:${esc(colorOf(d.courseId))}">
       <span class="deck-lay l3" aria-hidden="true"><span class="face"></span></span><span class="deck-lay l2" aria-hidden="true"><span class="face"></span></span>
       <span class="deck-tab">${esc(c ? courseLabel(c) : "General")}</span>
-      <span class="deck-count" role="img" aria-label="${st.total} card${st.total === 1 ? "" : "s"}" title="${st.total} card${st.total === 1 ? "" : "s"}">${st.total}</span>
+      <span class="deck-count" role="img" aria-label="${st.total} card${st.total === 1 ? "" : "s"}" title="${st.total} card${st.total === 1 ? "" : "s"}">${st.total} card${st.total === 1 ? "" : "s"}</span>
       <div class="face deck-face">
       <span class="fc-band" aria-hidden="true"><span class="fc-ic">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span></span>
       <button class="deck-main" data-act="fc-open" data-id="${esc(d.id)}">
@@ -525,7 +525,8 @@ function addCardSheet(d){
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button><button type="submit" class="btn primary">Add Card</button></div>
   </form>`);
-  const f = $("#fcFront"); if (f) f.focus();
+  // a phone waits for a tap in the box (its keyboard would otherwise be expected, and the sheet would rise and fall back)
+  const f = $("#fcFront"); if (f && window.matchMedia("(min-width:601px)").matches) f.focus();
 }
 function bulkSheet(d){
   openSheet(`<form class="sheet">${head("Paste Cards")}
@@ -650,10 +651,12 @@ function viewStudy(){
   const deckNames = f.deckIds.map(id => state.decks[id] && state.decks[id].name).filter(Boolean);
   const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} decks`;
   if (!it) {
-    const total = f.again + f.hard + f.good + f.easy;
+    // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
+    const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     return `<div class="view-head"><h2>Study Session Done</h2></div>
       <section class="done-card">
-        <p class="big-num">${total}<span> cards reviewed</span></p>
+        <p class="big-num">${cards}<span> card${cards === 1 ? "" : "s"} studied</span></p>
+        ${again ? `<p class="mini" style="margin:-4px 0 6px">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
         <div class="deck-stats"><span><b>${f.easy + f.good}</b> known</span><span><b>${f.hard}</b> hard</span><span><b>${f.again}</b> to relearn</span></div>
         <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.</p>
         <div class="row-actions"><button class="btn primary" data-act="fc-quiz-from-study">Take a Quiz</button><button class="btn" data-act="fc-study-again">Study Again</button>${undoBtn(f)}<button class="btn" data-act="fc-exit">Done</button></div>
@@ -676,7 +679,7 @@ function viewStudy(){
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -744,11 +747,13 @@ function quizSheet(deckIds){
   const ds = decksArr().filter(d => d.cards.length);
   if (!ds.length) { toast("Add cards to a deck first"); return; }
   const sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady(), last = quizOpts();
+  // A deck smaller than the usual count starts on All (a 6-card deck can't make 10 questions)
+  const have = [...sel].reduce((t, id) => t + (state.decks[id] ? state.decks[id].cards.length : 0), 0), qn = last.qn !== "all" && have < Number(last.qn) ? "all" : last.qn;
   openSheet(`<form class="sheet">${head(ai ? `Make a Quiz with ${aiWho("AI")}` : "Make a Quiz")}
     <div class="sheet-body">
       <fieldset><legend>Decks</legend><div class="check-list">${ds.map(d => `<label class="mi-check"><input type="checkbox" name="deck" value="${esc(d.id)}" ${sel.has(d.id) ? "checked" : ""}> ${esc(d.name)} <span class="mini">${d.cards.length} cards</span></label>`).join("")}</div></fieldset>
       <label class="f"><span class="lh">Quiz Name</span><input type="text" name="qname" maxlength="120" value="${esc(uniqueQuizTitle((state.decks[[...sel][0]] || ds[0]).name + " Quiz"))}"></label>
-      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], last.qn)}</fieldset>
+      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], qn)}</fieldset>
       <fieldset><legend>Question Types</legend><div class="check-list row">
         <label class="mi-check"><input type="checkbox" name="qt" value="mc"${last.qt.includes("mc") ? " checked" : ""}> Multiple choice</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
@@ -794,7 +799,7 @@ async function quizFromCardsAi(decks, n, types, dir, title){
 function quizFromCardsLocal(decks, n, types, dir, title){
   const qs = aiCleanQuestions(buildQuiz(decks, n, types, dir).map(q => q.type === "mc" ? {type: "single", stem: q.prompt, options: q.options, correct: [q.options.indexOf(q.answer)]}
     : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt}\nAnswer: ${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
-    : {type: "short", stem: q.prompt, answer: q.answer}));
+    : {type: "short", stem: q.prompt, answer: q.answer}), v => String(v == null ? "" : v).trim());
   if (!qs.length) { toast("Couldn't make questions from these cards"); return; }
   const d = clone(state.decks[decks[0]]); if (!d) return;
   const qid = uid(), name = uniqueQuizTitle(title);

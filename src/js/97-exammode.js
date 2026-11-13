@@ -48,6 +48,8 @@ const EXAMMODE = (() => {
     });
     const byDue = (a, b) => a.dueMs - b.dueMs;
     first.sort(byDue); after.sort(byDue);
+    // The last few hours before a timed exam: the last review comes first, the other work after it
+    if (o && o.soon && study.length) return study.concat(first, after, rest);
     return first.concat(study, after, rest);
   }
   // Short words for a countdown
@@ -93,7 +95,8 @@ const dueText = t => { const d = dayDiff(todayISO(), t.due); return (d < 0 ? `ov
 const courseTag = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
 
 /* Do This Next */
-const laneOpts = m => ({dayEnd: EXAMMODE.dayEnd(m.exam), examDay: m.days <= 0});
+const SOON_MS = 3 * 36e5;
+const laneOpts = m => { const left = m.exam && m.exam.time ? EXAMMODE.dueMs(m.exam) - Date.now() : Infinity; return {dayEnd: EXAMMODE.dayEnd(m.exam), examDay: m.days <= 0, soon: left > 0 && left <= SOON_MS}; };
 // Short of time counting the other work only: the exam's own study time (Today's Plan counts it) is what this weighs against
 const riskOf = x => x.dl < 0 || (x.behindW ?? x.behind ?? 0) >= 0.5 || (x.own || 0) >= 1 || (x.rhoW ?? x.rho ?? 0) >= 0.9;
 const studyToday = t => { const d0 = new Date(); d0.setHours(0, 0, 0, 0); return (t.history || []).reduce((m, h) => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); return mm && h.at >= d0.getTime() ? m + Number(mm[1]) : m; }, 0); };
@@ -110,17 +113,19 @@ function rankNext(F, scored, pool, focusLen){
   scored.length = 0;
   ord.forEach(it => {
     scored.push(it.y);
-    if (it.lane === "first") it.y.why.unshift(it.dueMs <= exDue ? `Due before your ${EXAMMODE.kindWord(ex).toLowerCase()}` : it.risk ? "Short of time for it" : `Due on your ${EXAMMODE.kindWord(ex).toLowerCase()} day`);
+    if (it.lane === "study" && laneOpts(m).soon) it.y.why.unshift(`Last review before your ${EXAMMODE.kindWord(ex).toLowerCase()}`);
+    else if (it.lane === "first") it.y.why.unshift(it.dueMs < Date.now() ? "Overdue: clear it first" : it.dueMs <= exDue ? `Due before your ${EXAMMODE.kindWord(ex).toLowerCase()}` : it.risk ? "Short of time for it" : `Due on your ${EXAMMODE.kindWord(ex).toLowerCase()} day`);
     else if (it.lane === "study") it.y.why.unshift(chip);
   });
   const top = ord[0];
-  if (top && top.lane !== "rest" && top.lane !== "after") return {};
+  const soon = laneOpts(m).soon;
+  if (top && top.lane !== "rest" && top.lane !== "after" && !(soon && top.lane === "first")) return {};
   if (ord.some(it => it.lane === "study")) return {};
   const x = F.info && F.info[ex.id];
   if (!x || !inFilter(ex) || ui.skipNext.ids.includes("study:" + ex.id) || ui.skipNext.ids.includes(ex.id) || studyToday(ex) >= 120) return {};
   const hasPlan = planSessions(ex.id).length > 0;
   ui.nextShown = "study:" + ex.id;
-  const why = [`${chip}${ex.time ? " at " + fmtTime(ex.time) : ""}`, "Exam Mode"];
+  const why = [soon ? `Last review before your ${EXAMMODE.kindWord(ex).toLowerCase()} at ${fmtTime(ex.time)}` : `${chip}${ex.time ? " at " + fmtTime(ex.time) : ""}`, "Exam Mode"];
   if (!hasPlan) why.push("No study plan yet");
   return {study: {x, why, step: null, mins: m.days <= 1 ? Math.min(focusLen, 30) : focusLen, left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + ex.title, exam: true}};
 }

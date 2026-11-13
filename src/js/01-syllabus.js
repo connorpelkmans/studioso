@@ -719,7 +719,11 @@ function importSheet(courseId, file){
     result = r;
     const cs = coursesArr();
     const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-    const match = courseId ? courseOf(courseId) : cs.find(c => (r.course.code && norm(c.code) === norm(r.course.code)) || (r.course.name && norm(c.name) === norm(r.course.name)));
+    const byText = cs.find(c => (r.course.code && norm(c.code) === norm(r.course.code)) || (r.course.name && norm(c.name) === norm(r.course.name)));
+    // Opened from a course page, but the syllabus names a different course code: don't pour it into this course
+    const here = courseId ? courseOf(courseId) : null;
+    const clash = !!(here && r.course.code && here.code && norm(here.code) !== norm(r.course.code));
+    const match = clash ? byText : (here || byText);
     // "HW 3" and "Homework 3" are the same task; a numbered one is the same whatever its date
     const nt = SY.normTitle;
     const existingKeys = new Set();
@@ -751,6 +755,7 @@ function importSheet(courseId, file){
       <p style="margin:0"><button type="button" class="link-btn" id="impAgain">Choose a Different File</button></p>
       <fieldset class="imp-course"><legend>Course</legend>
         <label class="f">Add To<select id="impTarget"><option value="new">A new course</option>${cs.map(x => `<option value="${esc(x.id)}" ${match && match.id === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
+        ${clash ? `<p class="mini" style="margin:0">This syllabus looks like <b>${esc(r.course.code)}</b>, not ${esc(courseLabel(here))}, so it isn't added to ${esc(courseLabel(here))} unless you pick it above.</p>` : ""}
         <div id="impNew" class="imp-grid">
           <label class="f"><span class="lh">Course Name ${REQ}</span><input type="text" id="icName" value="${esc(c.name)}" placeholder="Course Name"></label>
           <label class="f">Code<input type="text" id="icCode" value="${esc(c.code)}"></label>

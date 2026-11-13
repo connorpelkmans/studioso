@@ -518,6 +518,7 @@ h2.sec.c2-bh{align-items:center}
 .cr3-sum b{font:800 1.35rem/1.1 var(--display)}
 .cr3-sum b.over{color:var(--late)}
 .cr3-sum span{font-size:.8rem;color:var(--muted)}
+.cr3-why{margin:0;padding:8px 12px;border-radius:12px;background:color-mix(in srgb,#E8833A 10%,var(--surface));border-left:4px solid #E8833A;font-size:.86rem;font-weight:600}
 .cr3-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .cr3-day{--dc:#4C9BE8;display:grid;justify-items:center;gap:3px;padding:8px 2px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:600 .74rem var(--display);cursor:pointer}
 .cr3-day.lv1{--dc:#3FA866}.cr3-day.lv2{--dc:#D9A21B}.cr3-day.lv3{--dc:#E8833A}.cr3-day.lv4{--dc:#D3352A}
@@ -622,6 +623,14 @@ h2.sec.c2-bh{align-items:center}
 .sch-b.k-other,.sch-b.k-event{background:color-mix(in srgb,var(--c) 12%,var(--surface))!important}
 .sch-b.sch-exam{background:color-mix(in srgb,var(--late) 10%,var(--surface))!important;border-left-color:var(--late)!important}
 .sch-b.sch-exam b{color:var(--late)}
+/* phone: a deadline with a time (not an exam) is a slim marker at that time, in its course colour */
+.sch-b.sch-mk{display:flex!important;align-items:center;padding:0 8px!important;border-radius:6px!important;background:color-mix(in srgb,var(--c) 10%,var(--surface))!important;border:1px dashed color-mix(in srgb,var(--c) 60%,var(--line))!important;border-left:4px solid var(--c)!important;box-shadow:none!important;z-index:1}
+.sch-b.sch-mk span{display:block!important;color:var(--ink)!important;font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sch-b.sch-mk b{font:800 .74rem var(--display)!important;color:color-mix(in srgb,var(--c) 72%,var(--ink))}
+/* phone: the day pills stay pinned under the top bar, so you always know which day you're looking at after scrolling */
+@media (max-width:700px){
+  .sch-pills{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--top-bar-h,64px));z-index:5;margin-inline:-16px;padding:6px 16px;background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+}
 /* short classes */
 @container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
 @container (max-height:24px){.sch-b span{display:none}}
@@ -630,7 +639,7 @@ h2.sec.c2-bh{align-items:center}
   .sch-b > .sch-band{padding:2px 8px}
   .sch-b > .sch-band .cc-ic{width:14px;height:14px}
   .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:baseline;gap:6px;min-width:0;padding:3px 8px}
-  .sch-b > .sch-bd > span{flex:none;font-size:.7rem}
+  .sch-b > .sch-bd > span{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.7rem}
   .sch-b > .sch-bd > .sch-t{flex:0 1 auto;min-width:0;font-size:.76rem}
   .sch-b > .sch-bd > span:nth-of-type(3){display:none}
 }
@@ -641,7 +650,9 @@ h2.sec.c2-bh{align-items:center}
   .sch-b > .sch-band{display:none}
   .sch-b:has(> .sch-band) > .sch-bd{display:flex;align-items:center;height:100%;padding:0 8px 0 11px;box-shadow:inset 4px 0 0 var(--c)}
   .sch-b > .sch-bd > .sch-t{display:block}
+  .sch-b > .sch-bd > .sch-tc{display:block;flex:none;font:700 .74rem var(--display)}
 }
+.sch-bd > .sch-tc{display:none}
 .sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
 .sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
 .sch-now{height:2px!important}
@@ -1114,7 +1125,6 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .ci-ai-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
 .ci-ai-prev{display:inline-flex;align-items:center;gap:10px;font-weight:700}
 .ci-ai-ring{width:56px;height:56px}
-.beta-sym{display:inline-grid;place-items:center;width:17px;height:17px;margin-left:5px;border-radius:50%;background:linear-gradient(135deg,#FFB443,#FF5C8A);color:#fff;font:700 .7rem/1 var(--body);vertical-align:2px}
 .ci-cand{display:grid;justify-items:center;gap:4px;border:2px solid transparent;border-radius:14px;background:none;padding:6px 8px;font:700 .78rem var(--display);color:var(--ink);cursor:pointer;max-width:110px;text-align:center}
 .ci-cand.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .ci-ai-prev:has(.ci-cand){flex-wrap:wrap;gap:6px}
