@@ -226,7 +226,7 @@ const SBICS = (() => {
     if (!isDate(e.date)) return null;
     if (!isDate(e.endDate)) e.endDate = "";
     if (!isTime(e.start)) e.start = ""; if (!isTime(e.end)) e.end = "";
-    if (!e.allDay && e.start && (!e.end || tMin(e.end) <= tMin(e.start))) e.end = minT(Math.min(1439, tMin(e.start) + 60));
+    if (!e.allDay && e.start && (!e.end || tMin(e.end) === tMin(e.start))) e.end = minT(Math.min(1439, tMin(e.start) + 60));
     if (!e.allDay && !e.start) e.allDay = true;
     if (e.allDay) { e.start = ""; e.end = ""; }
     if (e.repeat && (!Array.isArray(e.repeat.days) || !e.repeat.days.length)) e.repeat = null;
@@ -308,7 +308,7 @@ const SBICS = (() => {
       fields();
       L.push("END:VEVENT");
     };
-    const timed = (d, s, e) => { years.push(+d.slice(0, 4)); let ed = d, em = tMin(e); if (em >= 1440) { ed = addD(d, Math.floor(em / 1440)); em %= 1440; } add("DTSTART" + tzp, local(d, s)); add("DTEND" + tzp, local(ed, minT(em))); };
+    const timed = (d, s, e) => { years.push(+d.slice(0, 4)); let ed = d, em = tMin(e); if (em <= tMin(s)) em += 1440; if (em >= 1440) { ed = addD(d, Math.floor(em / 1440)); em %= 1440; } add("DTSTART" + tzp, local(d, s)); add("DTEND" + tzp, local(ed, minT(em))); };
     const allDay = (d, endExcl) => { add("DTSTART;VALUE=DATE", d.replace(/-/g, "")); add("DTEND;VALUE=DATE", endExcl.replace(/-/g, "")); };
 
     const from = addD(today, -o.pastDays);
@@ -405,7 +405,7 @@ const SBICS = (() => {
         ev(uid, () => {
           add("SUMMARY", esc(e.title));
           if (e.allDay) allDay(d, e.endDate && e.endDate > e.date ? addD(e.endDate, 1 + Math.round((dMs(d) - dMs(e.date)) / 864e5)) : addD(d, 1));
-          else { const s = mv && isTime(mv.start) ? mv.start : e.start; timed(d, s, mv && isTime(mv.end) && mv.end > s ? mv.end : e.end > s ? e.end : minT(Math.min(1439, tMin(s) + 60))); }
+          else { const s = mv && isTime(mv.start) ? mv.start : e.start; timed(d, s, mv && isTime(mv.end) && mv.end !== s ? mv.end : e.end && e.end !== s ? e.end : minT(Math.min(1439, tMin(s) + 60))); }
           common();
         });
         return;

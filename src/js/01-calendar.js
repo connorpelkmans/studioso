@@ -26,6 +26,14 @@ function schOccurrences(from, to){
       if (ev.exdates.includes(d)) return;
       const mv = ev.moved[d], o = Object.assign({}, base, {key: d, orig: d, date: d, start: ev.start, end: ev.end, moved: false, skipped: false});
       if (mv) { if (mv.skip) o.skipped = true; else Object.assign(o, {date: mv.date || d, start: mv.start || ev.start, end: mv.end || ev.end, moved: true}); }
+      // An event past midnight (10 PM to 1 AM) is drawn in two pieces, each showing the whole time: up to midnight, then the next morning
+      if (!o.allDay && o.start && o.end && o.end < o.start) {
+        const ds = o.start, de = o.end;
+        if (inRange(o.date)) out.push(Object.assign({}, o, {end: "24:00", ds, de, ovn: "head"}));
+        const nd = addDays(o.date, 1);
+        if (inRange(nd) && !o.skipped) out.push(Object.assign({}, o, {date: nd, start: "00:00", end: de, ds, de, ovn: "tail"}));
+        return;
+      }
       if (inRange(o.date)) out.push(o);
     };
     if (!ev.repeat) {
@@ -43,7 +51,7 @@ function schOccurrences(from, to){
   try { availOccs(from, to).forEach(o => out.push(o)); } catch(e) {}
   return out;
 }
-const occWhen = o => `${parse(o.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}${o.allDay ? "" : `, ${fmtTime(o.start)}–${fmtTime(o.end)}`}`;
+const occWhen = o => `${parse(o.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}${o.allDay ? "" : `, ${fmtTime(o.ds || o.start)}–${fmtTime(o.de || o.end)}${o.ovn ? " (overnight)" : ""}`}`;
 // Change one week's class or event without touching the others
 function setOccurrence(type, id, key, val, label){
   if (type === "meet") {
@@ -89,7 +97,8 @@ function occView(type, id, key){
   const when = parse(o.date).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const rows = [];
   rows.push([I.cal, esc(when), o.skipped ? "Skipped this week" : o.moved ? `Moved this week (usually ${esc(parse(o.orig).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"}))})` : ""]);
-  if (o.start && o.end) rows.push([I.clock, `${esc(fmtTime(o.start))} – ${esc(fmtTime(o.end))}`, esc(dur(mins(o.start, o.end)))]);
+  // an overnight event shows its whole time (10:00 PM – 1:00 AM, 3 h), whichever piece was tapped
+  if (o.start && o.end) { const s0 = o.ds || o.start, e0 = o.de || o.end, n = mins(s0, e0); rows.push([I.clock, `${esc(fmtTime(s0))} – ${esc(fmtTime(e0))}${o.ovn ? " (next day)" : ""}`, esc(dur(n < 0 ? n + 1440 : n))]); }
   else rows.push([I.clock, "All day", ""]);
   if (o.where) rows.push([I.pin, esc(o.where), ""]);
   if (m && m.days && m.days.length) rows.push([I.rep, `Every week on ${esc(daysOf(m.days))}`, ""]);
@@ -109,9 +118,25 @@ function occView(type, id, key){
       ${kind || o.skipped || o.moved ? `<div class="occv-tags">${kind ? `<span class="occv-tag">${esc(kind)}</span>` : ""}${o.skipped ? `<span class="occv-tag warn">Skipped this week</span>` : o.moved ? `<span class="occv-tag">Moved this week</span>` : ""}</div>` : ""}
       <ul class="occv-rows">${rows.map(([i, a, b]) => `<li><span class="occv-ri">${i}</span><div><b>${a}</b>${b ? `<span>${b}</span>` : ""}</div></li>`).join("")}</ul>
     </div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" id="occEdit">Edit</button></div>
+    <div class="sheet-foot" id="occFoot">${type === "event" && ev ? `<button type="button" class="btn danger" id="occDel">Delete</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" id="occEdit">Edit</button></div>
   </div>`);
   const b = $("#occEdit"); if (b) b.addEventListener("click", () => { dlg.close(); setTimeout(() => occSheet(type, id, key), 30); });
+  // Delete straight from the event's view: a one-off event goes (with Undo); a repeating one asks which
+  const del = $("#occDel");
+  if (del) del.addEventListener("click", () => {
+    const cur = state.events[id]; if (!cur) return;
+    const all = () => { dlg.close(); applyChanges([{kind: "event", id, after: null}], `Deleted ${cur.title}`); };
+    if (!cur.repeat) { all(); return; }
+    const foot = $("#occFoot");
+    foot.innerHTML = `<span class="mini" style="margin-right:auto">Delete ${esc(cur.title)}:</span><button type="button" class="btn" id="occDelOne">This One Only</button><button type="button" class="btn danger" id="occDelAll">Every One</button><button type="button" class="btn" data-act="close">Cancel</button>`;
+    $("#occDelAll").addEventListener("click", all);
+    $("#occDelOne").addEventListener("click", () => {
+      dlg.close();
+      const n = clone(cur); n.exdates = [...new Set((n.exdates || []).concat(o.orig))];
+      applyChanges([{kind: "event", id, after: n}], `Deleted ${cur.title} on ${fmtShort(o.orig)}`);
+    });
+    $("#occDelOne").focus();
+  });
 }
 function occSheet(type, id, key){
   if (type === "avail") { availOccSheet(id, key); return; }
@@ -165,7 +190,7 @@ function eventForm(ev, preset){
       </div>
       <div class="two ev-times">
         <label class="f">Starts<input type="time" name="start" value="${esc(ev.start || "10:00")}"></label>
-        <label class="f">Ends<input type="time" name="end" value="${esc(ev.end || "11:00")}"></label>
+        <label class="f"><span class="lh">Ends <span class="hint" id="evNext" hidden>the next day</span></span><input type="time" name="end" value="${esc(ev.end || "11:00")}"></label>
       </div>
       <label class="f">Repeats<select name="rep"><option value="">Doesn't repeat</option>${[1, 2, 3, 4].map(k => `<option value="${k}" ${rp && rp.every === k ? "selected" : ""}>${k === 1 ? "Every week" : `Every ${k} weeks`}</option>`).join("")}</select></label>
       <div class="ev-rep" ${rp ? "" : "hidden"}>
@@ -178,13 +203,13 @@ function eventForm(ev, preset){
   </form>`, fd => {
     const title = String(fd.get("title") || "").trim(); if (!title) return false;
     const allDay = !!fd.get("allDay"), start = String(fd.get("start") || ""), end = String(fd.get("end") || ""), rep = Number(fd.get("rep") || 0);
-    if (!allDay && (!start || !end || end <= start)) { toast("The event needs to end after it starts"); return false; }
+    if (!allDay && (!start || !end || end === start)) { toast("The event needs to end after it starts"); return false; }
     if (rep && !pickDays.length) { toast("Pick the days it repeats on"); return false; }
     if (rep && fd.get("until") && String(fd.get("until")) < String(fd.get("date"))) { toast("The repeat needs to end on or after the date"); return false; }
     const n = normEvent(Object.assign(clone(ev), {title, courseId: fd.get("courseId") || "", where: String(fd.get("where") || "").trim(), date: String(fd.get("date")), allDay, start: allDay ? "" : start, end: allDay ? "" : end,
       repeat: rep ? {days: pickDays, every: rep, until: String(fd.get("until") || "")} : null, notes: String(fd.get("notes") || "")}));
     if (isNew) n.id = uid();
-    applyChanges([{kind: "event", id: n.id, after: n}], isNew ? `Added ${title}` : "Event saved");
+    applyChanges([{kind: "event", id: n.id, after: n}], (isNew ? `Added ${title}` : "Event saved") + (!allDay && end < start ? " (ends the next day)" : ""));
     ui.schWeek = mondayOf(n.date);
   });
   let pickDays = days.slice();
@@ -195,7 +220,10 @@ function eventForm(ev, preset){
   let daysTouched = !!rp;
   f.elements.date.addEventListener("change", () => { const v = f.elements.date.value; if (daysTouched || !isDate(v)) return; pickDays = [parse(v).getDay()]; $$("#evDays [data-day]").forEach(b => b.setAttribute("aria-pressed", pickDays.includes(Number(b.dataset.day)))); });
   // Moving the start keeps the event's length
-  { let prevStart = f.elements.start.value; f.elements.start.addEventListener("change", () => { const a = f.elements.start.value, e2 = f.elements.end.value; if (a && prevStart && e2) { const len = tToMin(e2) - tToMin(prevStart), m = tToMin(a) + (len > 0 ? len : 60); if (m < 24 * 60) f.elements.end.value = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); } prevStart = a; }); }
+  { let prevStart = f.elements.start.value; f.elements.start.addEventListener("change", () => { const a = f.elements.start.value, e2 = f.elements.end.value; if (a && prevStart && e2) { const len = ((tToMin(e2) - tToMin(prevStart)) % 1440 + 1440) % 1440 || 60, m = (tToMin(a) + len) % 1440; f.elements.end.value = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); } prevStart = a; nextDay(); }); }
+  // an end earlier than the start is the next day (10 PM to 1 AM)
+  function nextDay(){ const h = f.querySelector("#evNext"); if (h) h.hidden = !(f.elements.start.value && f.elements.end.value && f.elements.end.value < f.elements.start.value); }
+  f.elements.end.addEventListener("change", nextDay); f.elements.end.addEventListener("input", nextDay); nextDay();
   $("#evDays").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (!b) return; daysTouched = true; const d = Number(b.dataset.day); pickDays = pickDays.includes(d) ? pickDays.filter(x => x !== d) : pickDays.concat(d); b.setAttribute("aria-pressed", pickDays.includes(d)); });
   const del = $("#evDel"); if (del) del.addEventListener("click", () => { dlg.close(); applyChanges([{kind: "event", id: ev.id, after: null}], `Deleted ${ev.title}`); });
 }
@@ -1094,10 +1122,10 @@ function viewSchedule(){
       const o = it.o;
       if (o.type === "meet" && o.label !== "Office Hours" && !o.skipped) classMin += it.e - it.s;
       if (o.type === "avail" && !o.skipped) availMinSum += Math.max(0, it.e - it.s) * (o.avail.kind === "work" || o.avail.kind === "shift" ? 1 : 0);
-      const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}`;
+      const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`;
       const tip = o.type === "avail" ? `${o.title}, ${o.label}, ${o.rangeText}${o.moved ? " (changed this day only)" : ""}. Tap to change or skip this day.` : `${o.title}${o.label ? ", " + o.label : ""}, ${fmtTime(o.start)}–${fmtTime(o.end)}${o.where ? ", " + o.where : ""}${o.moved ? " (moved this week only)" : ""}. Drag to move${o.type === "meet" || (o.ev && o.ev.repeat) ? " just this week" : ""}.`;
-      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
-        : o.type === "event" && o.course && !o.skipped ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.course)}</span><b>${esc(courseLabel(o.course))}</b></span><span class="sch-bd"><span class="sch-t">${esc(o.title)}</span><span>${o.label ? esc(o.label) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>` : `<b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}`}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
+      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" || o.ovn === "tail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
+        : o.type === "event" && o.course && !o.skipped ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.course)}</span><b>${esc(courseLabel(o.course))}</b></span><span class="sch-bd"><span class="sch-t">${esc(o.title)}</span><span>${o.label ? esc(o.label) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>` : `<b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}`}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
     }).join("");
     const allDay = occ.filter(o => o.allDay && o.date === d.iso);
     const dueList = weekTasks.filter(t => t.due === d.iso && !onGrid(t)).sort(sortTasks);

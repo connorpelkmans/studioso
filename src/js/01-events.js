@@ -226,7 +226,7 @@ document.addEventListener("click", e => {
     case "pick-day": ui.calDay = id; if (id.slice(0, 7) !== ui.calMonth.slice(0, 7)) ui.calMonth = id.slice(0, 7) + "-01"; render(); break;
     case "cal-prev": case "cal-next": {
       const m = parse(ui.calMonth); m.setMonth(m.getMonth() + (act === "cal-prev" ? -1 : 1));
-      ui.calMonth = iso(m); render(); break;
+      ui.calMonth = iso(m); { const t0 = todayISO(); ui.calDay = t0.slice(0, 7) === ui.calMonth.slice(0, 7) ? t0 : ui.calMonth; } render(); break;
     }
     case "cal-today": ui.calDay = todayISO(); ui.calMonth = ui.calDay.slice(0, 7) + "-01"; render(); requestAnimationFrame(() => { const d = document.querySelector("#view .cal .today, #view .cal [aria-current]"); if (d && d.scrollIntoView) d.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
     case "import-syllabus": importSheet(el.dataset.course || (ui.tab === "courses" ? ui.courseId : "") || ""); break;
@@ -403,10 +403,14 @@ function startDrag(){
     drag.start0 = startOf(t); drag.due0 = t.due; drag.start = drag.start0; drag.due = drag.due0;
     drag.left0 = parseFloat(drag.el.style.left); drag.w0 = parseFloat(drag.el.style.width);
     drag.el.classList.add("dragging");
+    // the marker's old date label would sit on top of it while it moves
+    if (drag.el.parentElement) drag.el.parentElement.classList.add("tl-dragging");
     const tip = document.createElement("div"); tip.className = "tl-tip"; document.body.appendChild(tip); drag.tip = tip;
   }
   drag.raf = requestAnimationFrame(tick);
 }
+// A dragged bar or marker says what changes: only the due date ("Due Nov 17"), only the start ("Start Nov 9"), or both
+const barWords = (mode, s, d, f) => mode === "end" ? "Due " + f(d) : mode === "start" ? "Start " + f(s) : s === d ? f(d) : fmtShort(s) + " to " + fmtShort(d);
 function tick(){
   if (!drag || !drag.started) return;
   if (drag.kind === "rot") {
@@ -484,7 +488,7 @@ function tick(){
     drag.start = s; drag.due = d;
     const shiftL = (drag.isMs ? dayDiff(drag.due0, d) : dayDiff(drag.start0, s)) * drag.dw, w = (dayDiff(s, d) + 1) * drag.dw;
     drag.el.style.left = (drag.left0 + shiftL) + "px"; if (!drag.isMs) drag.el.style.width = w + "px";
-    drag.tip.textContent = (s === d ? fmtDate(d) : fmtShort(s) + " to " + fmtShort(d));
+    drag.tip.textContent = barWords(drag.mode, s, d, fmtDate);
     drag.tip.style.left = Math.min(window.innerWidth - 170, Math.max(8, drag.x - 60)) + "px";
     drag.tip.style.top = Math.max(8, drag.y - 52) + "px";
   }
@@ -667,10 +671,10 @@ function endDrag(ok){
   }
   const t = state.tasks[d.id];
   if (d.kind === "bar") {
-    d.tip.remove(); d.el.classList.remove("dragging");
+    d.tip.remove(); d.el.classList.remove("dragging"); if (d.el.parentElement) d.el.parentElement.classList.remove("tl-dragging");
     if (!ok || !t || (d.start === d.start0 && d.due === d.due0)) { render(); return; }
     const n = Object.assign(clone(t), {start: d.start, due: d.due});
-    const label = `${t.title}: ${d.start === d.due ? fmtShort(d.due) : fmtShort(d.start) + " to " + fmtShort(d.due)}`;
+    const label = `${t.title}: ${barWords(d.start !== d.start0 && d.due !== d.due0 ? "move" : d.due !== d.due0 ? "end" : "start", d.start, d.due, fmtShort)}`;
     const inv = applyChanges([{kind:"task", id: t.id, after: n}], "");
     const redo = () => { applyChanges(inv, null); toast("Undone"); };
     toast(label, redo, shiftOffer(t.id));

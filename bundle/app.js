@@ -1000,7 +1000,8 @@ function normEvent(e){
   if (!isDate(e.date)) e.date = iso(new Date());
   if (!isDate(e.endDate)) e.endDate = "";
   if (!isT(e.start)) e.start = ""; if (!isT(e.end)) e.end = "";
-  if (!e.allDay && e.start && (!e.end || tm(e.end) <= tm(e.start))) { const m = Math.min(1439, tm(e.start) + 60); e.end = pad(Math.floor(m / 60)) + ":" + pad(m % 60); }
+  // an end before the start is the next morning (10 PM to 1 AM); only a missing or equal end gets the 1-hour default
+  if (!e.allDay && e.start && (!e.end || tm(e.end) === tm(e.start))) { const m = Math.min(1439, tm(e.start) + 60); e.end = pad(Math.floor(m / 60)) + ":" + pad(m % 60); }
   if (!e.allDay && !e.start) e.allDay = true;
   if (e.allDay) { e.start = ""; e.end = ""; }
   if (e.repeat && (!Array.isArray(e.repeat.days) || !e.repeat.days.length)) e.repeat = null;
@@ -11650,7 +11651,7 @@ function viewBars(){
   for (let i = 0; i < days; i++) {
     const k = addDays(min, i), d = parse(k), wd = d.getDay();
     if (wd === 0 || wd === 6) bg += `<i class="we" style="left:${i*dw}px;width:${dw}px"></i>`;
-    if (i === 0 || d.getDate() === 1) { const nx = mStarts[mStarts.indexOf(i) + 1], span = ((nx == null ? days : nx) - i) * dw; months += `<span class="tl-m" style="left:${i*dw}px;width:${span}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 && span >= 120 ? "long" : "short"}))}${(i === 0 || d.getMonth() === 0) && span >= 130 ? `<small>${d.getFullYear()}</small>` : ""}</span>`; }
+    if (i === 0 || d.getDate() === 1) { const nx = mStarts[mStarts.indexOf(i) + 1], span = ((nx == null ? days : nx) - i) * dw; months += `<span class="tl-m" style="left:${i*dw}px;width:${span}px"><span class="tl-mt" style="left:${LW + 8}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 && span >= 120 ? "long" : "short"}))}${(i === 0 || d.getMonth() === 0) && span >= 130 ? `<small>${d.getFullYear()}</small>` : ""}</span></span>`; }
     if (dw >= 20) dayh += `<span class="tl-d ${k === today ? "is-today" : ""}" style="left:${i*dw}px;width:${dw}px"><b>${d.getDate()}</b></span>`;
     else if (wd === 1) dayh += `<span class="tl-d" style="left:${i*dw}px;width:${dw*7}px;justify-content:flex-start;padding-left:4px">${d.getDate()}</span>`;
   }
@@ -11708,17 +11709,25 @@ function viewCalendar(){
       S.norm(sc).off.forEach(o => { for (let x = o.from > lo ? o.from : lo; x <= o.to && x <= hi; x = addDays(x, 1)) { const l = hol[x] = hol[x] || []; if (!l.some(y => y.name === o.name)) l.push({name: o.name || "Day off", off: true}); } });
     }
   } catch (e) { console.warn("calendar: holidays", e); }
+  // Events (study groups, shifts, appointments) on their days too; classes stay on the Schedule
+  const evBy = {};
+  try {
+    const endD = new Date(start); endD.setDate(start.getDate() + weeks * 7 - 1);
+    schOccurrences(iso(start), iso(endD)).forEach(o => { if (o.type !== "event" || o.skipped || o.ovn === "tail") return; (evBy[o.date] = evBy[o.date] || []).push(o); });
+    Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
+  } catch (e) { console.warn("calendar: events", e); }
+  const evTime = o => o.allDay ? "" : fmtTime(o.ds || o.start).replace(/:00(?= ?[AP]M)/, "").replace(/ ?([AP])M/, (x, a) => a.toLowerCase());
   for (let i = 0; i < weeks * 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const k = iso(d);
-    const ts = (byDay[k] || []).slice().sort(sortTasks);
+    const ts = (byDay[k] || []).slice().sort(sortTasks), evs = evBy[k] || [];
     const out = d.getMonth() !== m.getMonth();
     const late = ts.filter(t => t.status !== "done" && k < today).length;
     const hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
     const dots = ts.slice(0, 3).map(t => `<span class="ci-row${t.status !== "done" && k < today ? " late" : ""}${t.status === "done" ? " done" : /^(Exam|Quiz)$/.test(t.type) ? " big" : ""}" style="--c:${esc(colorOf(t.courseId))}"><i class="ci" title="${esc(t.type)}: ${esc(t.title)}${t.status !== "done" && k < today ? ", overdue" : ""}" style="--c:${esc(colorOf(t.courseId))};${t.status === "done" ? "opacity:.35" : ""}">${typeIcon(t.type)}</i><span class="ci-t${t.status === "done" ? " done" : ""}">${esc(t.title)}</span></span>`).join("") + (ts.length > 3 ? `<b class="ci-more">+${ts.length - 3}<span class="ci-mw"> more</span></b>` : "");
-    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}${holTxt ? ", " + esc(holTxt) + (hl.some(h => h.off) ? ", no classes" : "") : ""}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}${hl.some(h => h.off) ? " (no classes)" : ""}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots">${dots}</span></button>`;
+    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}${holTxt ? ", " + esc(holTxt) + (hl.some(h => h.off) ? ", no classes" : "") : ""}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}${evs.length ? `, ${evs.length} event${evs.length === 1 ? "" : "s"}` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}${hl.some(h => h.off) ? " (no classes)" : ""}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots">${dots}</span>${evs.length ? `<span class="cal-evs" aria-hidden="true">${evs.slice(0, 2).map(o => `<span class="cal-ev" style="--c:${esc(o.color)}">${o.allDay ? "" : `<b>${esc(evTime(o))}</b> `}${esc(o.title)}</span>`).join("")}${evs.length > 2 ? `<span class="cal-ev more">+${evs.length - 2}</span>` : ""}</span>` : ""}</button>`;
   }
-  const dayTasks = (byDay[ui.calDay] || []).slice().sort(sortTasks);
+  const dayTasks = (byDay[ui.calDay] || []).slice().sort(sortTasks), dayEvs = evBy[ui.calDay] || [];
   const dayLabel = parse(ui.calDay).toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"});
   return `${tlPhone() ? chipsHtml() : `<div class="tl-controls tl-tools">${coursePickHtml()}${tlModeSeg()}</div>`}${searchNote()}
     <div class="cal-head">
@@ -11732,7 +11741,8 @@ function viewCalendar(){
     ${dayTasks.length ? taskList(dayTasks) : !allTasks().some(t => t.due)
       // No due dates anywhere yet: the same welcome as the timeline view
       ? `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${firstStepBtns()}</div>`
-      : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}`;
+      : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}
+    ${dayEvs.length ? `<h2 class="sec"><span class="t">Events</span><span class="n">${dayEvs.length}</span></h2><div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(o.title)}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : ""}</button>`).join("")}</div>` : ""}`;
 }
 
 /* Courses */
@@ -13036,6 +13046,14 @@ function schOccurrences(from, to){
       if (ev.exdates.includes(d)) return;
       const mv = ev.moved[d], o = Object.assign({}, base, {key: d, orig: d, date: d, start: ev.start, end: ev.end, moved: false, skipped: false});
       if (mv) { if (mv.skip) o.skipped = true; else Object.assign(o, {date: mv.date || d, start: mv.start || ev.start, end: mv.end || ev.end, moved: true}); }
+      // An event past midnight (10 PM to 1 AM) is drawn in two pieces, each showing the whole time: up to midnight, then the next morning
+      if (!o.allDay && o.start && o.end && o.end < o.start) {
+        const ds = o.start, de = o.end;
+        if (inRange(o.date)) out.push(Object.assign({}, o, {end: "24:00", ds, de, ovn: "head"}));
+        const nd = addDays(o.date, 1);
+        if (inRange(nd) && !o.skipped) out.push(Object.assign({}, o, {date: nd, start: "00:00", end: de, ds, de, ovn: "tail"}));
+        return;
+      }
       if (inRange(o.date)) out.push(o);
     };
     if (!ev.repeat) {
@@ -13053,7 +13071,7 @@ function schOccurrences(from, to){
   try { availOccs(from, to).forEach(o => out.push(o)); } catch(e) {}
   return out;
 }
-const occWhen = o => `${parse(o.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}${o.allDay ? "" : `, ${fmtTime(o.start)}–${fmtTime(o.end)}`}`;
+const occWhen = o => `${parse(o.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}${o.allDay ? "" : `, ${fmtTime(o.ds || o.start)}–${fmtTime(o.de || o.end)}${o.ovn ? " (overnight)" : ""}`}`;
 // Change one week's class or event without touching the others
 function setOccurrence(type, id, key, val, label){
   if (type === "meet") {
@@ -13099,7 +13117,8 @@ function occView(type, id, key){
   const when = parse(o.date).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const rows = [];
   rows.push([I.cal, esc(when), o.skipped ? "Skipped this week" : o.moved ? `Moved this week (usually ${esc(parse(o.orig).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"}))})` : ""]);
-  if (o.start && o.end) rows.push([I.clock, `${esc(fmtTime(o.start))} – ${esc(fmtTime(o.end))}`, esc(dur(mins(o.start, o.end)))]);
+  // an overnight event shows its whole time (10:00 PM – 1:00 AM, 3 h), whichever piece was tapped
+  if (o.start && o.end) { const s0 = o.ds || o.start, e0 = o.de || o.end, n = mins(s0, e0); rows.push([I.clock, `${esc(fmtTime(s0))} – ${esc(fmtTime(e0))}${o.ovn ? " (next day)" : ""}`, esc(dur(n < 0 ? n + 1440 : n))]); }
   else rows.push([I.clock, "All day", ""]);
   if (o.where) rows.push([I.pin, esc(o.where), ""]);
   if (m && m.days && m.days.length) rows.push([I.rep, `Every week on ${esc(daysOf(m.days))}`, ""]);
@@ -13119,9 +13138,25 @@ function occView(type, id, key){
       ${kind || o.skipped || o.moved ? `<div class="occv-tags">${kind ? `<span class="occv-tag">${esc(kind)}</span>` : ""}${o.skipped ? `<span class="occv-tag warn">Skipped this week</span>` : o.moved ? `<span class="occv-tag">Moved this week</span>` : ""}</div>` : ""}
       <ul class="occv-rows">${rows.map(([i, a, b]) => `<li><span class="occv-ri">${i}</span><div><b>${a}</b>${b ? `<span>${b}</span>` : ""}</div></li>`).join("")}</ul>
     </div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" id="occEdit">Edit</button></div>
+    <div class="sheet-foot" id="occFoot">${type === "event" && ev ? `<button type="button" class="btn danger" id="occDel">Delete</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" id="occEdit">Edit</button></div>
   </div>`);
   const b = $("#occEdit"); if (b) b.addEventListener("click", () => { dlg.close(); setTimeout(() => occSheet(type, id, key), 30); });
+  // Delete straight from the event's view: a one-off event goes (with Undo); a repeating one asks which
+  const del = $("#occDel");
+  if (del) del.addEventListener("click", () => {
+    const cur = state.events[id]; if (!cur) return;
+    const all = () => { dlg.close(); applyChanges([{kind: "event", id, after: null}], `Deleted ${cur.title}`); };
+    if (!cur.repeat) { all(); return; }
+    const foot = $("#occFoot");
+    foot.innerHTML = `<span class="mini" style="margin-right:auto">Delete ${esc(cur.title)}:</span><button type="button" class="btn" id="occDelOne">This One Only</button><button type="button" class="btn danger" id="occDelAll">Every One</button><button type="button" class="btn" data-act="close">Cancel</button>`;
+    $("#occDelAll").addEventListener("click", all);
+    $("#occDelOne").addEventListener("click", () => {
+      dlg.close();
+      const n = clone(cur); n.exdates = [...new Set((n.exdates || []).concat(o.orig))];
+      applyChanges([{kind: "event", id, after: n}], `Deleted ${cur.title} on ${fmtShort(o.orig)}`);
+    });
+    $("#occDelOne").focus();
+  });
 }
 function occSheet(type, id, key){
   if (type === "avail") { availOccSheet(id, key); return; }
@@ -13175,7 +13210,7 @@ function eventForm(ev, preset){
       </div>
       <div class="two ev-times">
         <label class="f">Starts<input type="time" name="start" value="${esc(ev.start || "10:00")}"></label>
-        <label class="f">Ends<input type="time" name="end" value="${esc(ev.end || "11:00")}"></label>
+        <label class="f"><span class="lh">Ends <span class="hint" id="evNext" hidden>the next day</span></span><input type="time" name="end" value="${esc(ev.end || "11:00")}"></label>
       </div>
       <label class="f">Repeats<select name="rep"><option value="">Doesn't repeat</option>${[1, 2, 3, 4].map(k => `<option value="${k}" ${rp && rp.every === k ? "selected" : ""}>${k === 1 ? "Every week" : `Every ${k} weeks`}</option>`).join("")}</select></label>
       <div class="ev-rep" ${rp ? "" : "hidden"}>
@@ -13188,13 +13223,13 @@ function eventForm(ev, preset){
   </form>`, fd => {
     const title = String(fd.get("title") || "").trim(); if (!title) return false;
     const allDay = !!fd.get("allDay"), start = String(fd.get("start") || ""), end = String(fd.get("end") || ""), rep = Number(fd.get("rep") || 0);
-    if (!allDay && (!start || !end || end <= start)) { toast("The event needs to end after it starts"); return false; }
+    if (!allDay && (!start || !end || end === start)) { toast("The event needs to end after it starts"); return false; }
     if (rep && !pickDays.length) { toast("Pick the days it repeats on"); return false; }
     if (rep && fd.get("until") && String(fd.get("until")) < String(fd.get("date"))) { toast("The repeat needs to end on or after the date"); return false; }
     const n = normEvent(Object.assign(clone(ev), {title, courseId: fd.get("courseId") || "", where: String(fd.get("where") || "").trim(), date: String(fd.get("date")), allDay, start: allDay ? "" : start, end: allDay ? "" : end,
       repeat: rep ? {days: pickDays, every: rep, until: String(fd.get("until") || "")} : null, notes: String(fd.get("notes") || "")}));
     if (isNew) n.id = uid();
-    applyChanges([{kind: "event", id: n.id, after: n}], isNew ? `Added ${title}` : "Event saved");
+    applyChanges([{kind: "event", id: n.id, after: n}], (isNew ? `Added ${title}` : "Event saved") + (!allDay && end < start ? " (ends the next day)" : ""));
     ui.schWeek = mondayOf(n.date);
   });
   let pickDays = days.slice();
@@ -13205,7 +13240,10 @@ function eventForm(ev, preset){
   let daysTouched = !!rp;
   f.elements.date.addEventListener("change", () => { const v = f.elements.date.value; if (daysTouched || !isDate(v)) return; pickDays = [parse(v).getDay()]; $$("#evDays [data-day]").forEach(b => b.setAttribute("aria-pressed", pickDays.includes(Number(b.dataset.day)))); });
   // Moving the start keeps the event's length
-  { let prevStart = f.elements.start.value; f.elements.start.addEventListener("change", () => { const a = f.elements.start.value, e2 = f.elements.end.value; if (a && prevStart && e2) { const len = tToMin(e2) - tToMin(prevStart), m = tToMin(a) + (len > 0 ? len : 60); if (m < 24 * 60) f.elements.end.value = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); } prevStart = a; }); }
+  { let prevStart = f.elements.start.value; f.elements.start.addEventListener("change", () => { const a = f.elements.start.value, e2 = f.elements.end.value; if (a && prevStart && e2) { const len = ((tToMin(e2) - tToMin(prevStart)) % 1440 + 1440) % 1440 || 60, m = (tToMin(a) + len) % 1440; f.elements.end.value = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); } prevStart = a; nextDay(); }); }
+  // an end earlier than the start is the next day (10 PM to 1 AM)
+  function nextDay(){ const h = f.querySelector("#evNext"); if (h) h.hidden = !(f.elements.start.value && f.elements.end.value && f.elements.end.value < f.elements.start.value); }
+  f.elements.end.addEventListener("change", nextDay); f.elements.end.addEventListener("input", nextDay); nextDay();
   $("#evDays").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (!b) return; daysTouched = true; const d = Number(b.dataset.day); pickDays = pickDays.includes(d) ? pickDays.filter(x => x !== d) : pickDays.concat(d); b.setAttribute("aria-pressed", pickDays.includes(d)); });
   const del = $("#evDel"); if (del) del.addEventListener("click", () => { dlg.close(); applyChanges([{kind: "event", id: ev.id, after: null}], `Deleted ${ev.title}`); });
 }
@@ -14104,10 +14142,10 @@ function viewSchedule(){
       const o = it.o;
       if (o.type === "meet" && o.label !== "Office Hours" && !o.skipped) classMin += it.e - it.s;
       if (o.type === "avail" && !o.skipped) availMinSum += Math.max(0, it.e - it.s) * (o.avail.kind === "work" || o.avail.kind === "shift" ? 1 : 0);
-      const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}`;
+      const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`;
       const tip = o.type === "avail" ? `${o.title}, ${o.label}, ${o.rangeText}${o.moved ? " (changed this day only)" : ""}. Tap to change or skip this day.` : `${o.title}${o.label ? ", " + o.label : ""}, ${fmtTime(o.start)}–${fmtTime(o.end)}${o.where ? ", " + o.where : ""}${o.moved ? " (moved this week only)" : ""}. Drag to move${o.type === "meet" || (o.ev && o.ev.repeat) ? " just this week" : ""}.`;
-      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
-        : o.type === "event" && o.course && !o.skipped ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.course)}</span><b>${esc(courseLabel(o.course))}</b></span><span class="sch-bd"><span class="sch-t">${esc(o.title)}</span><span>${o.label ? esc(o.label) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>` : `<b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}`}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
+      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" || o.ovn === "tail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
+        : o.type === "event" && o.course && !o.skipped ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.course)}</span><b>${esc(courseLabel(o.course))}</b></span><span class="sch-bd"><span class="sch-t">${esc(o.title)}</span><span>${o.label ? esc(o.label) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>` : `<b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}`}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
     }).join("");
     const allDay = occ.filter(o => o.allDay && o.date === d.iso);
     const dueList = weekTasks.filter(t => t.due === d.iso && !onGrid(t)).sort(sortTasks);
@@ -22021,7 +22059,7 @@ document.addEventListener("click", e => {
     case "pick-day": ui.calDay = id; if (id.slice(0, 7) !== ui.calMonth.slice(0, 7)) ui.calMonth = id.slice(0, 7) + "-01"; render(); break;
     case "cal-prev": case "cal-next": {
       const m = parse(ui.calMonth); m.setMonth(m.getMonth() + (act === "cal-prev" ? -1 : 1));
-      ui.calMonth = iso(m); render(); break;
+      ui.calMonth = iso(m); { const t0 = todayISO(); ui.calDay = t0.slice(0, 7) === ui.calMonth.slice(0, 7) ? t0 : ui.calMonth; } render(); break;
     }
     case "cal-today": ui.calDay = todayISO(); ui.calMonth = ui.calDay.slice(0, 7) + "-01"; render(); requestAnimationFrame(() => { const d = document.querySelector("#view .cal .today, #view .cal [aria-current]"); if (d && d.scrollIntoView) d.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
     case "import-syllabus": importSheet(el.dataset.course || (ui.tab === "courses" ? ui.courseId : "") || ""); break;
@@ -22198,10 +22236,14 @@ function startDrag(){
     drag.start0 = startOf(t); drag.due0 = t.due; drag.start = drag.start0; drag.due = drag.due0;
     drag.left0 = parseFloat(drag.el.style.left); drag.w0 = parseFloat(drag.el.style.width);
     drag.el.classList.add("dragging");
+    // the marker's old date label would sit on top of it while it moves
+    if (drag.el.parentElement) drag.el.parentElement.classList.add("tl-dragging");
     const tip = document.createElement("div"); tip.className = "tl-tip"; document.body.appendChild(tip); drag.tip = tip;
   }
   drag.raf = requestAnimationFrame(tick);
 }
+// A dragged bar or marker says what changes: only the due date ("Due Nov 17"), only the start ("Start Nov 9"), or both
+const barWords = (mode, s, d, f) => mode === "end" ? "Due " + f(d) : mode === "start" ? "Start " + f(s) : s === d ? f(d) : fmtShort(s) + " to " + fmtShort(d);
 function tick(){
   if (!drag || !drag.started) return;
   if (drag.kind === "rot") {
@@ -22279,7 +22321,7 @@ function tick(){
     drag.start = s; drag.due = d;
     const shiftL = (drag.isMs ? dayDiff(drag.due0, d) : dayDiff(drag.start0, s)) * drag.dw, w = (dayDiff(s, d) + 1) * drag.dw;
     drag.el.style.left = (drag.left0 + shiftL) + "px"; if (!drag.isMs) drag.el.style.width = w + "px";
-    drag.tip.textContent = (s === d ? fmtDate(d) : fmtShort(s) + " to " + fmtShort(d));
+    drag.tip.textContent = barWords(drag.mode, s, d, fmtDate);
     drag.tip.style.left = Math.min(window.innerWidth - 170, Math.max(8, drag.x - 60)) + "px";
     drag.tip.style.top = Math.max(8, drag.y - 52) + "px";
   }
@@ -22462,10 +22504,10 @@ function endDrag(ok){
   }
   const t = state.tasks[d.id];
   if (d.kind === "bar") {
-    d.tip.remove(); d.el.classList.remove("dragging");
+    d.tip.remove(); d.el.classList.remove("dragging"); if (d.el.parentElement) d.el.parentElement.classList.remove("tl-dragging");
     if (!ok || !t || (d.start === d.start0 && d.due === d.due0)) { render(); return; }
     const n = Object.assign(clone(t), {start: d.start, due: d.due});
-    const label = `${t.title}: ${d.start === d.due ? fmtShort(d.due) : fmtShort(d.start) + " to " + fmtShort(d.due)}`;
+    const label = `${t.title}: ${barWords(d.start !== d.start0 && d.due !== d.due0 ? "move" : d.due !== d.due0 ? "end" : "start", d.start, d.due, fmtShort)}`;
     const inv = applyChanges([{kind:"task", id: t.id, after: n}], "");
     const redo = () => { applyChanges(inv, null); toast("Undone"); };
     toast(label, redo, shiftOffer(t.id));
@@ -30635,7 +30677,7 @@ const SBICS = (() => {
     if (!isDate(e.date)) return null;
     if (!isDate(e.endDate)) e.endDate = "";
     if (!isTime(e.start)) e.start = ""; if (!isTime(e.end)) e.end = "";
-    if (!e.allDay && e.start && (!e.end || tMin(e.end) <= tMin(e.start))) e.end = minT(Math.min(1439, tMin(e.start) + 60));
+    if (!e.allDay && e.start && (!e.end || tMin(e.end) === tMin(e.start))) e.end = minT(Math.min(1439, tMin(e.start) + 60));
     if (!e.allDay && !e.start) e.allDay = true;
     if (e.allDay) { e.start = ""; e.end = ""; }
     if (e.repeat && (!Array.isArray(e.repeat.days) || !e.repeat.days.length)) e.repeat = null;
@@ -30717,7 +30759,7 @@ const SBICS = (() => {
       fields();
       L.push("END:VEVENT");
     };
-    const timed = (d, s, e) => { years.push(+d.slice(0, 4)); let ed = d, em = tMin(e); if (em >= 1440) { ed = addD(d, Math.floor(em / 1440)); em %= 1440; } add("DTSTART" + tzp, local(d, s)); add("DTEND" + tzp, local(ed, minT(em))); };
+    const timed = (d, s, e) => { years.push(+d.slice(0, 4)); let ed = d, em = tMin(e); if (em <= tMin(s)) em += 1440; if (em >= 1440) { ed = addD(d, Math.floor(em / 1440)); em %= 1440; } add("DTSTART" + tzp, local(d, s)); add("DTEND" + tzp, local(ed, minT(em))); };
     const allDay = (d, endExcl) => { add("DTSTART;VALUE=DATE", d.replace(/-/g, "")); add("DTEND;VALUE=DATE", endExcl.replace(/-/g, "")); };
 
     const from = addD(today, -o.pastDays);
@@ -30814,7 +30856,7 @@ const SBICS = (() => {
         ev(uid, () => {
           add("SUMMARY", esc(e.title));
           if (e.allDay) allDay(d, e.endDate && e.endDate > e.date ? addD(e.endDate, 1 + Math.round((dMs(d) - dMs(e.date)) / 864e5)) : addD(d, 1));
-          else { const s = mv && isTime(mv.start) ? mv.start : e.start; timed(d, s, mv && isTime(mv.end) && mv.end > s ? mv.end : e.end > s ? e.end : minT(Math.min(1439, tMin(s) + 60))); }
+          else { const s = mv && isTime(mv.start) ? mv.start : e.start; timed(d, s, mv && isTime(mv.end) && mv.end !== s ? mv.end : e.end && e.end !== s ? e.end : minT(Math.min(1439, tMin(s) + 60))); }
           common();
         });
         return;
@@ -39268,7 +39310,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const stat = (n, k, bad) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${k}</span></div>`;
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
-        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
+        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track to pass"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
         ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
@@ -75073,8 +75115,14 @@ const EXAMPREP = (() => {
     (m.checklist || []).forEach(n => put(n, "exam checklist"));
     chaptersIn(m.examNotes).concat(chaptersIn(m.reading)).forEach(n => put(n, "exam notes"));
     String(m.examNotes || "").split(/\n|;|•/).map(s => s.replace(/^[\s\-*\d.)]+/, "").trim()).filter(s => s.length > 2 && s.length < 70 && !/^(chapters?|ch\.?)\s*\d/i.test(s)).forEach(n => put(n, "exam notes"));
-    (m.decks || []).forEach(d => { put(String(d.name || "").replace(/\b(deck|flashcards?|cards)\b/gi, ""), "deck"); const tagc = {}; (d.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; }); (d.cards || []).forEach(c => (c.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; })); Object.keys(tagc).sort((a, b) => tagc[b] - tagc[a]).slice(0, 6).forEach(t => put(t, "deck tag")); });
-    (m.notes || []).forEach(n => { const h = headingsOf(n.text); if (h[0]) put(h[0], "note"); });
+    // A one-line reminder ("Ask about…", "Bring calculator…") isn't something to study
+    const REMIND = /^(ask|email|e-mail|bring|remember|call|buy|print|submit|pick up|text|message|book|check if|find out|reply|don'?t forget|todo|to do)\b/i;
+    const studyNote = n => { const lines = String(n.text || "").split("\n").map(l => l.trim()).filter(Boolean); return lines.length > 1 || !(REMIND.test(lines[0] || "") || /\?\s*$/.test(lines[0] || "")); };
+    const notes = (m.notes || []).filter(studyNote);
+    // A deck a suggested note already links ([[Heart Terms]]) is that note's material, not a topic of its own
+    const linked = new Set(); notes.forEach(n => { if (headingsOf(n.text)[0]) (String(n.text || "").match(/\[\[([^\]]+)\]\]/g) || []).forEach(x => linked.add(keyOf(x.slice(2, -2)))); });
+    (m.decks || []).filter(d => !linked.has(keyOf(String(d.name || "")))).forEach(d => { put(String(d.name || "").replace(/\b(deck|flashcards?|cards)\b/gi, ""), "deck"); const tagc = {}; (d.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; }); (d.cards || []).forEach(c => (c.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; })); Object.keys(tagc).sort((a, b) => tagc[b] - tagc[a]).slice(0, 6).forEach(t => put(t, "deck tag")); });
+    notes.forEach(n => { const h = headingsOf(n.text); if (h[0]) put(h[0], "note"); });
     (m.files || []).forEach(f => put(f.name, "file"));
     return out.slice(0, 24);
   }
@@ -76043,6 +76091,8 @@ const EXAMMODE = (() => {
     });
     const byDue = (a, b) => a.dueMs - b.dueMs;
     first.sort(byDue); after.sort(byDue);
+    // The last few hours before a timed exam: the last review comes first, the other work after it
+    if (o && o.soon && study.length) return study.concat(first, after, rest);
     return first.concat(study, after, rest);
   }
   // Short words for a countdown
@@ -76088,7 +76138,8 @@ const dueText = t => { const d = dayDiff(todayISO(), t.due); return (d < 0 ? `ov
 const courseTag = t => { const c = courseOf(t.courseId); return c ? courseLabel(c) : ""; };
 
 /* Do This Next */
-const laneOpts = m => ({dayEnd: EXAMMODE.dayEnd(m.exam), examDay: m.days <= 0});
+const SOON_MS = 3 * 36e5;
+const laneOpts = m => { const left = m.exam && m.exam.time ? EXAMMODE.dueMs(m.exam) - Date.now() : Infinity; return {dayEnd: EXAMMODE.dayEnd(m.exam), examDay: m.days <= 0, soon: left > 0 && left <= SOON_MS}; };
 // Short of time counting the other work only: the exam's own study time (Today's Plan counts it) is what this weighs against
 const riskOf = x => x.dl < 0 || (x.behindW ?? x.behind ?? 0) >= 0.5 || (x.own || 0) >= 1 || (x.rhoW ?? x.rho ?? 0) >= 0.9;
 const studyToday = t => { const d0 = new Date(); d0.setHours(0, 0, 0, 0); return (t.history || []).reduce((m, h) => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); return mm && h.at >= d0.getTime() ? m + Number(mm[1]) : m; }, 0); };
@@ -76105,17 +76156,19 @@ function rankNext(F, scored, pool, focusLen){
   scored.length = 0;
   ord.forEach(it => {
     scored.push(it.y);
-    if (it.lane === "first") it.y.why.unshift(it.dueMs < Date.now() ? "Overdue: clear it first" : it.dueMs <= exDue ? `Due before your ${EXAMMODE.kindWord(ex).toLowerCase()}` : it.risk ? "Short of time for it" : `Due on your ${EXAMMODE.kindWord(ex).toLowerCase()} day`);
+    if (it.lane === "study" && laneOpts(m).soon) it.y.why.unshift(`Last review before your ${EXAMMODE.kindWord(ex).toLowerCase()}`);
+    else if (it.lane === "first") it.y.why.unshift(it.dueMs < Date.now() ? "Overdue: clear it first" : it.dueMs <= exDue ? `Due before your ${EXAMMODE.kindWord(ex).toLowerCase()}` : it.risk ? "Short of time for it" : `Due on your ${EXAMMODE.kindWord(ex).toLowerCase()} day`);
     else if (it.lane === "study") it.y.why.unshift(chip);
   });
   const top = ord[0];
-  if (top && top.lane !== "rest" && top.lane !== "after") return {};
+  const soon = laneOpts(m).soon;
+  if (top && top.lane !== "rest" && top.lane !== "after" && !(soon && top.lane === "first")) return {};
   if (ord.some(it => it.lane === "study")) return {};
   const x = F.info && F.info[ex.id];
   if (!x || !inFilter(ex) || ui.skipNext.ids.includes("study:" + ex.id) || ui.skipNext.ids.includes(ex.id) || studyToday(ex) >= 120) return {};
   const hasPlan = planSessions(ex.id).length > 0;
   ui.nextShown = "study:" + ex.id;
-  const why = [`${chip}${ex.time ? " at " + fmtTime(ex.time) : ""}`, "Exam Mode"];
+  const why = [soon ? `Last review before your ${EXAMMODE.kindWord(ex).toLowerCase()} at ${fmtTime(ex.time)}` : `${chip}${ex.time ? " at " + fmtTime(ex.time) : ""}`, "Exam Mode"];
   if (!hasPlan) why.push("No study plan yet");
   return {study: {x, why, step: null, mins: m.days <= 1 ? Math.min(focusLen, 30) : focusLen, left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + ex.title, exam: true}};
 }
@@ -77390,7 +77443,8 @@ const BREAKDOWN = (() => {
     });
     idx[n - 1] = m - 1;
     for (let i = n - 2; i >= 0; i--) { const hi = strict ? idx[i + 1] - 1 : idx[i + 1]; if (idx[i] > hi) idx[i] = hi; }
-    const score = (d, h) => (load[d] || 0) + (free[d] != null && free[d] < h ? 0.5 : 0);
+    // how full a day would be with this milestone on it: the same measure the sheet's Heavy day / Crunch day warning uses
+    const score = (d, h) => (load[d] || 0) + h / cap + (free[d] != null && free[d] < h ? 0.5 : 0);
     const res = [];
     for (let i = 0; i < n; i++) {
       const h = hrs * (items[i].h / (total || 1)), d0 = list[idx[i]]; let best = idx[i], s0 = score(d0, h), bs = s0;
@@ -77693,6 +77747,23 @@ function stripHtml(S){
   return `<div class="bd-strip" role="img" aria-label="Timeline from ${esc(fmtShort(from))} to ${esc(fmtShort(due))}, due date last. Milestone dates, ${esc(sum)}. Darker days are busier.">${cells.join("")}</div>
     <div class="bd-strip-l mini" aria-hidden="true"><span>${esc(fmtShort(from))}</span><span>Darker days are busier. Numbers are milestones; the last cell is the due date.</span><span>${esc(fmtShort(due))}</span></div>`;
 }
+// A fresh plan does what Move to Lighter Day would: a milestone on a heavy or crunch day steps to a lighter day nearby, keeping the order
+function autoLighter(S){
+  try {
+    flagHeavy(S);
+    const open = S.ms.filter(x => !x.locked), lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
+    open.forEach((m, k) => {
+      if (!m.heavy) return;
+      const prev = open[k - 1], next = open[k + 1], per = {};
+      open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
+      const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
+      const lo = prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi = next ? BD.addD(next.due, -1) : lastOk;
+      // anywhere between its neighbours, not only the 3 days either side the button looks at
+      const d = BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo, hi, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: Math.max(3, Math.min(21, BD.diff(lo, hi)))});
+      if (d) { m.due = d; flagHeavy(S); }
+    });
+  } catch (e) { console.warn("breakdown lighter days", e); }
+}
 function flagHeavy(S){
   const per = {}; S.ms.forEach(m => { if (!m.locked) per[m.due] = (per[m.due] || 0) + (Number(m.hours) || 0); });
   S.ms.forEach(m => { if (m.locked) return; const sc = (S.ctx.load[m.due] || 0) + (per[m.due] || 0) / (S.ctx.cap || 3); m.heavy = sc >= BD.HEAVY; m.level = lvOf(sc); });
@@ -77746,6 +77817,7 @@ function rebuild(opts){
     S.kind = p.kind;
     S.ms = (p.milestones || []).map(m => ({key: "k" + Math.random().toString(36).slice(2, 7), id: "", title: m.title, hours: m.hours, due: m.due, steps: m.steps, done: m.done, kind: m.kind, optional: m.optional, unsupported: m.unsupported}));
   }
+  autoLighter(S);
   S.plan = p; S.dirty = false;
   const ks = $("#bdKind"); if (ks) ks.value = S.kind || "generic";
   draw();
@@ -96170,14 +96242,20 @@ var SBCLS = null;
   function termOf(c){
     const cd = c.classDates || {}, today = todayISO();
     let from = isDate(cd.from) ? cd.from : "", until = isDate(cd.until) ? cd.until : "";
+    // Courses usually share one term: dates set on another course are the best guess for this one
     if (!from || !until) {
-      const seen = [];
-      allTasks().forEach(t => { if (t.courseId === c.id) { if (isDate(t.due)) seen.push(t.due); if (isDate(t.start)) seen.push(t.start); } });
-      Object.values(state.files || {}).forEach(f => { if (f.courseId === c.id && isLec(f)) seen.push(dOf(f.created)); });
-      Object.values(state.notes || {}).forEach(n => { if (n.courseId === c.id && n.cls) seen.push(keyParts(n.cls).date); });
-      eventsArr().forEach(e => { if (e.courseId === c.id && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
+      const other = coursesArr().map(x => x.classDates || {}).filter(d => isDate(d.from) && isDate(d.until) && d.until >= d.from);
+      if (other.length) { if (!from) from = other[0].from; if (!until) until = other[0].until; }
+    }
+    if (!from || !until) {
+      // ...otherwise the term is guessed from every course's dates, so all courses agree on Week 1
+      const seen = [], mine = new Set(coursesArr().map(x => x.id));
+      allTasks().forEach(t => { if (mine.has(t.courseId)) { if (isDate(t.due)) seen.push(t.due); if (isDate(t.start)) seen.push(t.start); } });
+      Object.values(state.files || {}).forEach(f => { if (mine.has(f.courseId) && isLec(f)) seen.push(dOf(f.created)); });
+      Object.values(state.notes || {}).forEach(n => { if (mine.has(n.courseId) && n.cls) seen.push(keyParts(n.cls).date); });
+      eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
       const early = seen.filter(isDate).sort()[0], late = seen.filter(isDate).sort().pop();
-      if (!from) { from = [c.created ? dOf(c.created) : today, early || today].sort()[0]; if (from < addDays(today, -150)) from = addDays(today, -150); }
+      if (!from) { from = [...coursesArr().map(x => x.created ? dOf(x.created) : today), early || today].filter(isDate).sort()[0] || today; if (from < addDays(today, -150)) from = addDays(today, -150); }
       if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180); }
     }
     if (until < from) until = from;
@@ -96274,11 +96352,13 @@ var SBCLS = null;
     openSheet(`<form class="sheet">${head("Term Dates")}<div class="sheet-body">
       <p class="mini" style="margin:0 0 10px">When ${esc(courseLabel(c))}'s classes run. Every class between these dates gets its own page in Lectures.</p>
       <div class="two"><label class="f">First Class<input type="date" name="from" value="${esc(T.from)}" required></label><label class="f">Last Class<input type="date" name="until" value="${esc(T.until)}" required></label></div>
+      ${coursesArr().length > 1 ? `<label class="mi-check" style="margin-top:6px"><input type="checkbox" name="all" checked> Use these dates for all my courses</label>` : ""}
       </div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button class="btn primary" data-submit>Save</button></div></form>`, fd => {
       const from = String(fd.get("from") || ""), until = String(fd.get("until") || "");
       if (!isDate(from) || !isDate(until) || until < from) { toast("The last class needs to be on or after the first."); return false; }
       const cur = state.courses[cid]; if (!cur) return;
-      applyChanges([{kind: "course", id: cid, after: Object.assign(clone(cur), {classDates: {from, until}})}], "Term dates saved");
+      const ids = fd.get("all") ? coursesArr().map(x => x.id) : [cid];
+      applyChanges(ids.filter(id => state.courses[id]).map(id => ({kind: "course", id, after: Object.assign(clone(state.courses[id]), {classDates: {from, until}})})), ids.length > 1 ? `Term dates saved for ${ids.length} courses` : "Term dates saved");
     });
   }
 

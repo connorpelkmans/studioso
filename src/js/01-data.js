@@ -454,7 +454,8 @@ function normEvent(e){
   if (!isDate(e.date)) e.date = iso(new Date());
   if (!isDate(e.endDate)) e.endDate = "";
   if (!isT(e.start)) e.start = ""; if (!isT(e.end)) e.end = "";
-  if (!e.allDay && e.start && (!e.end || tm(e.end) <= tm(e.start))) { const m = Math.min(1439, tm(e.start) + 60); e.end = pad(Math.floor(m / 60)) + ":" + pad(m % 60); }
+  // an end before the start is the next morning (10 PM to 1 AM); only a missing or equal end gets the 1-hour default
+  if (!e.allDay && e.start && (!e.end || tm(e.end) === tm(e.start))) { const m = Math.min(1439, tm(e.start) + 60); e.end = pad(Math.floor(m / 60)) + ":" + pad(m % 60); }
   if (!e.allDay && !e.start) e.allDay = true;
   if (e.allDay) { e.start = ""; e.end = ""; }
   if (e.repeat && (!Array.isArray(e.repeat.days) || !e.repeat.days.length)) e.repeat = null;

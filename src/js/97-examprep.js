@@ -100,8 +100,14 @@ const EXAMPREP = (() => {
     (m.checklist || []).forEach(n => put(n, "exam checklist"));
     chaptersIn(m.examNotes).concat(chaptersIn(m.reading)).forEach(n => put(n, "exam notes"));
     String(m.examNotes || "").split(/\n|;|•/).map(s => s.replace(/^[\s\-*\d.)]+/, "").trim()).filter(s => s.length > 2 && s.length < 70 && !/^(chapters?|ch\.?)\s*\d/i.test(s)).forEach(n => put(n, "exam notes"));
-    (m.decks || []).forEach(d => { put(String(d.name || "").replace(/\b(deck|flashcards?|cards)\b/gi, ""), "deck"); const tagc = {}; (d.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; }); (d.cards || []).forEach(c => (c.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; })); Object.keys(tagc).sort((a, b) => tagc[b] - tagc[a]).slice(0, 6).forEach(t => put(t, "deck tag")); });
-    (m.notes || []).forEach(n => { const h = headingsOf(n.text); if (h[0]) put(h[0], "note"); });
+    // A one-line reminder ("Ask about…", "Bring calculator…") isn't something to study
+    const REMIND = /^(ask|email|e-mail|bring|remember|call|buy|print|submit|pick up|text|message|book|check if|find out|reply|don'?t forget|todo|to do)\b/i;
+    const studyNote = n => { const lines = String(n.text || "").split("\n").map(l => l.trim()).filter(Boolean); return lines.length > 1 || !(REMIND.test(lines[0] || "") || /\?\s*$/.test(lines[0] || "")); };
+    const notes = (m.notes || []).filter(studyNote);
+    // A deck a suggested note already links ([[Heart Terms]]) is that note's material, not a topic of its own
+    const linked = new Set(); notes.forEach(n => { if (headingsOf(n.text)[0]) (String(n.text || "").match(/\[\[([^\]]+)\]\]/g) || []).forEach(x => linked.add(keyOf(x.slice(2, -2)))); });
+    (m.decks || []).filter(d => !linked.has(keyOf(String(d.name || "")))).forEach(d => { put(String(d.name || "").replace(/\b(deck|flashcards?|cards)\b/gi, ""), "deck"); const tagc = {}; (d.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; }); (d.cards || []).forEach(c => (c.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; })); Object.keys(tagc).sort((a, b) => tagc[b] - tagc[a]).slice(0, 6).forEach(t => put(t, "deck tag")); });
+    notes.forEach(n => { const h = headingsOf(n.text); if (h[0]) put(h[0], "note"); });
     (m.files || []).forEach(f => put(f.name, "file"));
     return out.slice(0, 24);
   }
