@@ -44,6 +44,7 @@
   "103-phone-design.css",
   "99-math.css",
   "99-class-sessions.css",
+  "99-replay.css",
   "99-calculator.css"
  ],
  "js": [
@@ -240,6 +241,7 @@
   "99-color-picker.js",
   "99-lecture-chain.js",
   "99-class-sessions.js",
+  "99-replay.js",
   "99-calculator-skins.js",
   "99-calculator.js",
   "99-calc-snip.js",
