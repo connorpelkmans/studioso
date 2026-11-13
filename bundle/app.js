@@ -1059,7 +1059,7 @@ let deviceWiping = false;
 let saveWarnAt = 0;
 function saveWarn(e){
   if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { sbHaptic("error", {force: true}); toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
 }
 /* The big copy: localStorage holds only about 5 MB, which a few whiteboards and a lot of notes can fill.
    Once the saved copy is over SPILL_AT characters, or localStorage refuses it, it moves to IndexedDB (far more
@@ -2047,6 +2047,7 @@ function sbWords(error, fallback){
   if (/expired|invalid.*(token|otp|code)|token.*(invalid|expired)/i.test(m)) return "That code didn't work or has expired. Check it, or send a new one.";
   if (/password.*(at least|short|weak|characters)|weak password/i.test(m)) return "Choose a stronger password: at least 8 characters, not easy to guess.";
   if (/invalid.*email|email.*invalid|unable to validate email/i.test(m)) return "That email address doesn't look right.";
+  if (/SB_UNDER13/.test(m)) return "Sorry, you can't make a Studyboard account. You can keep using Studyboard on this device without one.";
   if (/signups? not allowed|signup.*disabled/i.test(m)) return "New accounts can't be made right now. Please try again later.";
   if (/fetch|network|timed? ?out|Load failed/i.test(m)) return "Couldn't reach Studyboard. Check your internet connection and try again.";
   return fallback || "Something went wrong. Please try again.";
@@ -2402,6 +2403,13 @@ function sbRetryNow(){
 async function startSupabaseSync(){
   if (sbStarting || !sbUser) return;
   sbStarting = true;
+  // Accounts are for people 13 and older: the birthday question comes first, right after signing in, and nothing on this
+  // device is sent to the account until it's answered (under 13 or Sign Out: never)
+  if (window.SBUNAME && SBUNAME.ageReady) {
+    const me = sbUser.id;
+    let fine = true; try { fine = await SBUNAME.ageReady(); } catch(e) {}
+    if (!fine || !sbUser || sbUser.id !== me) { sbStarting = false; return; }
+  }
   const gen = ++sbStartGen;
   SB_DIAG.tries++; SB_DIAG.startedAt = Date.now(); sbStep("Checking this device");
   const dog = setTimeout(() => { if (gen === sbStartGen && sbStarting) { SB_DIAG.err = `Timed out after 25s at "${SB_DIAG.step}"`; SB_DIAG.errAt = Date.now(); sbStarting = false; if (!cloud.on) setTimeout(startSupabaseSync, 500); } }, 25000);
@@ -2796,6 +2804,14 @@ document.addEventListener("click", e => {
   if (/^local:/.test(a.dataset.asset)) { e.preventDefault(); e.stopPropagation(); toast("This file is still on the computer it was added from. It uploads the next time Studyboard opens there."); return; }
   if (!sb) return;
   e.preventDefault(); e.stopPropagation();
+  // phones and tablets: inside the app (a new browser window can't show it there, see fileViewer in 01-notes.js)
+  if (typeof fvPhone === "function" && fvPhone()) {
+    const id = a.dataset.asset, f = Object.values(state.files).find(x => x.kind === "file" && (x.revs || []).some(r => r && r.assetId === id));
+    const r = f && f.revs.find(x => x.assetId === id), latest = f && curRev(f) === r;
+    if (f && latest && !a.closest(".fv-sheet, .ofv-sheet")) { fileViewer(f.id); return; }
+    if (f && r) { downloadFile(f, f.revs.indexOf(r)); return; }
+    if (nativeShell()) { sbDownload(id).then(b => saveBlob(String(id).split("/").pop().replace(/^[\w]+-/, "") || "file", b)).catch(() => toast("Couldn't open the file. Check your connection and try again.")); return; }
+  }
   sbOpenAsset(a.dataset.asset);
 }, true);
 function assetHref(id){ return inPreview() ? "/_blob/" + id : "#"; }
@@ -3001,7 +3017,7 @@ function sbSignInSheet(mode, email, note){
   const body = {
     hello: sbWelcomeHtml(),
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${sbOAuthHtml()}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
+    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
@@ -3054,12 +3070,13 @@ function sbSignInSheet(mode, email, note){
           const bday = askAge ? SBUNAME.bdayOf(fd) : "";
           if (askAge) {
             if (!bday) { say("Enter your birthday."); return; }
-            if (SBUNAME.yearsOld(bday) < 13 && !fd.get("parentok")) { say("A parent or guardian makes the account for students under 13. Tick the box to agree."); return; }
+            // Accounts are for people 13 and older. Under 13: no account, and this device remembers (see 96-usernames.js)
+            if (SBUNAME.refused() || SBUNAME.yearsOld(bday) < 13) { SBUNAME.refuse(); sbNoAccount(); return; }
           }
           say("Creating your account…");
           const nm = String(fd.get("name") || "").replace(/\s+/g, " ").trim().slice(0, 40);
           if (nm) try { localStorage.setItem("studyboard:comp:uname", nm); } catch(e) {}
-          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, bday ? {birth_date: bday} : {}, bday && SBUNAME.yearsOld(bday) < 13 ? {parent_consent: new Date().toISOString()} : {});
+          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, bday ? {birth_date: bday} : {});
           sbLinkAsked(); const {data, error} = await sb.auth.signUp({email: em, password: pw, options: Object.assign(redirect ? {} : {emailRedirectTo: back}, Object.keys(meta).length ? {data: meta} : {})});
           if (error) throw error;
           if (data && data.session) { done("Welcome to Studyboard!"); return; }
@@ -3103,11 +3120,12 @@ function sbSignInSheet(mode, email, note){
     finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
   }));
   sbPwWire(dlg);
-  if (mode === "signup" && window.SBUNAME && dlg.querySelector(".sb-acct .bday")) {
-    const form = dlg.querySelector("form.sb-acct"), em = form && form.querySelector("input[name=email]"), lab = em && em.closest("label") && em.closest("label").querySelector(".lh");
-    const upd = () => { const iso = SBUNAME.bdayOf(new FormData(form)), young = !!iso && SBUNAME.yearsOld(iso) < 13; $("#u13").hidden = !young; $("#u13ok").required = young; if (lab) lab.firstChild.textContent = young ? "Parent or Guardian's Email " : "Email "; };
-    form.querySelectorAll(".bday input").forEach(x => { x.addEventListener("change", upd); x.addEventListener("input", upd); });
+  // A device that refused an account (a birthday under 13): no new account from here
+  function sbNoAccount(){
+    say(SBUNAME.NO_ACCOUNT);
+    dlg.querySelectorAll('form.sb-acct[data-mode=signup] [data-submit], form.sb-acct[data-mode=signup] [data-oauth], form.sb-acct[data-mode=signup] input').forEach(x => { x.disabled = true; });
   }
+  if (mode === "signup" && window.SBUNAME && SBUNAME.refused()) sbNoAccount();
   const later = $("#sbLater");
   if (later) later.addEventListener("click", () => { dlg.close(); sbUseLater(first); });
   const rs = $("#sbResend");
@@ -3313,6 +3331,7 @@ function applyChanges(changes, label, extra, opts){
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
   let binned = [];
   if (label !== null) { try { binned = trashCapture(changes, label); } catch(e) { console.warn("Recently Deleted", e); } }
+  if (binned.length) sbHaptic("warning");
   // An exam or quiz marked done keeps how ready you were right then (how ready you felt, and what your results said), so the
   // reflection after the mark compares the mark with the readiness before the exam, on every device
   if (label !== null && typeof examReadiness === "function") changes.forEach(c => {
@@ -5975,6 +5994,7 @@ function qaAdd(){
   });
   ui.qa = null; ui.qaText = "";
   const one = changes.length === 1 ? changes[0].after : null, ex1 = one && MILESTONE(one.type) && one.due > todayISO() ? one : null;
+  if (changes.length) sbHaptic("tap");
   if (changes.length) applyChanges(changes, one ? `Added ${one.title}` : `Added ${changes.length} tasks`, one ? [ex1 && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(ex1.id)} : null, {label: "Edit", fn: () => { if (state.tasks[one.id]) taskForm(state.tasks[one.id]); }}] : undefined); else render();
   const ask = changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);
   if (ask) { remoteAsk(ask.id); return; }
@@ -10702,9 +10722,52 @@ function toastTimer(ms){
   clearTimeout(toastT);
   toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
+/* Haptics: one small vocabulary for the whole app, on phones and tablets only.
+   tap (light: a task checked off, a card graded) · tick (a selection snaps: a day, a column) · lift (a drag picks up, a long press)
+   drop (something lands) · success (a Focus finished, a plan cleared, a new best) · warning (something deleted) · error (a wrong pair, a failed save)
+   The iPhone and Android apps use Apple's and Android's own generators through @capacitor/haptics (iOS's System Haptics switch applies).
+   A browser on an Android phone gets a short vibration; Safari on iPhone and computers have nothing to feel, so they stay silent.
+   At most one every 120 ms, and only within 1.5 s of the student touching the screen (opts.force for the end of a Focus or a streak day).
+   Settings > Haptic Feedback turns it off on this device. */
+const HAPTIC_KEY = "studyboard:haptics", HAPTIC_GAP = 120, HAPTIC_INPUT_MS = 1500;
+const HAPTIC_WEB = {tap: 10, tick: 6, lift: 18, drop: 10, success: [12, 70, 22], warning: [22, 70, 12], error: [12, 45, 12, 45, 12]};
+let hapticAt = 0, hapticInputAt = 0, hapticSel = false;
+["pointerdown", "touchstart", "keydown"].forEach(t => document.addEventListener(t, e => { if (e.isTrusted !== false) hapticInputAt = Date.now(); }, {capture: true, passive: true}));
+function hapticNative(){
+  try {
+    const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
+    if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return null;
+    return (C.Plugins && C.Plugins.Haptics) || null;
+  } catch (e) { return null; }
+}
+// a phone or tablet: the iPhone or Android app, or a browser on a touch screen with no mouse
+function hapticDevice(){
+  try { if (hapticNative()) return true; return !!(window.matchMedia && matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches); } catch (e) { return false; }
+}
+const hapticOn = () => { try { return localStorage.getItem(HAPTIC_KEY) !== "off"; } catch (e) { return true; } };
+function sbHaptic(kind, opts){
+  try {
+    if (!HAPTIC_WEB[kind] || !hapticOn() || document.hidden || !hapticDevice()) return false;
+    const now = Date.now();
+    if (now - hapticAt < HAPTIC_GAP) return false;
+    if (!(opts && opts.force) && now - hapticInputAt > HAPTIC_INPUT_MS) return false;
+    hapticAt = now;
+    const H = hapticNative();
+    if (H) {
+      const done = p => { if (p && p.catch) p.catch(() => {}); };
+      if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
+      else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
+      else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
+      return true;
+    }
+    if (navigator.vibrate) { navigator.vibrate(HAPTIC_WEB[kind]); return true; }
+  } catch (e) {}
+  return false;
+}
+window.sbHaptic = sbHaptic;
 document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
 hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
-toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) f(); });
+toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) { sbHaptic("tap"); f(); } });
 toastPart("toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; toastEl().classList.remove("show"); if (f) f(); });
 // Pointing at a toast with a button, or tabbing into it, holds it open
 { const t = TOAST_EL, acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = e => { if (acts() && (e.type === "focusin" || Date.now() - toastAt > 700)) clearTimeout(toastT); }, go = () => { if (acts() && !toastErr) toastTimer(Math.max(3000, toastMs / 2)); };
@@ -13528,7 +13591,7 @@ let schDragEnd = 0;
     b.classList.add("dragging"); document.body.classList.add("sch-dragging");
     b.style.left = "2px"; b.style.width = "calc(100% - 4px)";
     if (!b.querySelector(".sch-dt")) b.insertAdjacentHTML("beforeend", `<em class="sch-dt"></em>`);
-    try { navigator.vibrate && navigator.vibrate(8); } catch(e) {}
+    sbHaptic("lift");
   };
   document.addEventListener("pointerdown", e => {
     const b = e.target.closest && e.target.closest(".sch-b[data-drag]"); if (!b || e.button > 0) return;
@@ -17233,9 +17296,10 @@ async function downloadFile(f, revIndex){
   if (revIndex != null && revIndex !== f.revs.length - 1) name = name.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(revIndex)})$1`);
   if (DESK) { try { saveBlob(name, new Blob([await assetBytes(r.assetId)], {type: r.type || "application/octet-stream"})); } catch(e) { toast(navigator.onLine === false ? "You're offline and this file isn't on this computer yet" : "Couldn't get the file. Try again."); } return; }
   if (!inPreview()) {
-    if (!sbActive()) { toast("Sign in to download stored files"); return; }
-    let data = null; try { data = await sbDownload(r.assetId); } catch (e) {}
-    if (!data) { toast("Couldn't download the file. Check your connection."); return; }
+    // a copy already on this device is used first (no sign-in or connection needed for it)
+    let data = null, why = "";
+    try { data = new Blob([await assetBytes(r.assetId)], {type: r.type || "application/octet-stream"}); } catch (e) { why = String((e && e.message) || ""); }
+    if (!data) { toast(/only on the computer/.test(why) ? "This file is still on the computer it was added from. It uploads the next time Studyboard is open there and signed in." : /not signed in/.test(why) ? "Sign in to download stored files" : "Couldn't download the file. Check your connection."); return; }
     saveBlob(name, data); return;
   }
   const dl = caps.downloads || await useCap("downloads");
@@ -17345,7 +17409,7 @@ function fileSheet(f){
   const isLink = f.kind === "link" || f.kind === "cloud", isCloud = f.kind === "cloud";
   // What you can do with the file, in one row under its name (Read and Edit for PDFs, Summarize, Open)
   const pdf = !isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
-  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a></div>`;
+  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && !DESK && fvPhone() && fvKind(f) ? `${fvKind(f) !== "office" && !pdf ? `<button type="button" class="btn primary" data-act="f-view" data-id="${esc(f.id)}">Open</button>` : ""}<button type="button" class="btn" data-act="f-save" data-id="${esc(f.id)}">${nativeShell() ? "Share or Open In…" : "Download"}</button>` : `<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a>`}</div>`;
   openSheet(`<form class="sheet">${head(isCloud ? CLOUD_NAMES[f.cloud.p] + " File" : isLink ? "Link" : "File")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="200" value="${esc(f.name)}"></label>
@@ -17440,6 +17504,78 @@ async function officePreview(fid){
     const box = $("#ofvBody"), m = String((e && e.message) || "");
     if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : /not a zip|damaged|corrupt/i.test(m) ? "This file looks damaged, so it can't be shown here. Try opening it in its own app." : m && m.length < 160 ? m : "Couldn't show this file here. Try opening it in its own app.")}</p>`;
   }
+}
+/* Phones and tablets: a stored file opens inside Studyboard. Opening it in a new browser window (sbOpenAsset) doesn't work there:
+   in the iPhone and Android apps there's no new window to open, and the Home Screen web app on iPhone opens one that can't see the
+   downloaded file, so the tap did nothing or showed a blank page. PDFs are drawn page by page (pdf.js, only the pages near the
+   screen, so long ones don't run the phone out of memory); pictures, text, audio and video show as they are; Word, PowerPoint and
+   Excel use the Office preview; anything else goes to Share or Open In… (the phone's share sheet) or a download. */
+const fvPhone = () => { try { return nativeShell() || !!navigator.standalone || (matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches); } catch (e) { return false; } };
+function fvKind(f){
+  if (!f || f.kind !== "file" || !f.revs || !f.revs.length) return "";
+  if (canPreview(f)) return "office";
+  const r = curRev(f), t = String((r && r.type) || "").toLowerCase(), n = String(fileNameOf(f) || "").toLowerCase();
+  if (t === "application/pdf" || /\.pdf$/.test(n)) return "pdf";
+  if (/^image\/(png|jpe?g|gif|webp|bmp|heic|heif|avif|svg\+xml)$/.test(t) || /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif|svg)$/.test(n)) return "image";
+  if (/^audio\//.test(t) || /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac)$/.test(n)) return "audio";
+  if (/^video\//.test(t) || /\.(mp4|m4v|mov|webm)$/.test(n)) return "video";
+  if (/^text\//.test(t) || /^application\/(json|xml)$/.test(t) || /\.(txt|md|markdown|json|xml|tex|log|py|js|java|c|cpp|h|cs|html?|css|r|m|sql|ya?ml|ini|srt|vtt)$/.test(n)) return "text";
+  return "other";
+}
+let FVW = null;
+function fvClose(){ const v = FVW; FVW = null; if (!v) return; if (v.io) v.io.disconnect(); v.urls.forEach(u => URL.revokeObjectURL(u)); if (v.doc) try { v.doc.destroy(); } catch (e) {} }
+dlg.addEventListener("close", () => { if (!dlg.open) fvClose(); });
+async function fileViewer(fid){
+  const f = state.files[fid]; if (!f || f.kind !== "file") return;
+  const kind = fvKind(f);
+  if (kind === "office") { officePreview(fid); return; }
+  if (kind === "pdf" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f) && SBPRO.openReader) { SBPRO.openReader(fid); return; }
+  fvClose();
+  const my = FVW = {fid, urls: [], io: null, doc: null};
+  const saveLabel = nativeShell() ? "Share or Open In…" : "Download";
+  openSheet(`<div class="sheet ofv-sheet fv-sheet">${head(f.name)}<div class="sheet-body ofv-body fv-body" id="fvBody" tabindex="0" aria-label="${esc(f.name)}"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening…</p></div>
+    <div class="sheet-foot"><button type="button" class="btn" data-act="f-open" data-id="${esc(f.id)}">Details</button><span class="spacer"></span><button type="button" class="btn primary" data-act="f-save" data-id="${esc(f.id)}">${saveLabel}</button></div></div>`);
+  const box = () => FVW === my ? $("#fvBody") : null;
+  try {
+    const bytes = await fileBytes(f);
+    const b = box(); if (!b) return;
+    const type = (curRev(f) || {}).type || "";
+    const url = mime => { const u = URL.createObjectURL(new Blob([bytes], {type: mime || type || "application/octet-stream"})); my.urls.push(u); return u; };
+    if (kind === "pdf") await fvPdf(b, bytes, my);
+    else if (kind === "image") b.innerHTML = `<img class="fv-img" alt="${esc(f.name)}" src="${url(/svg/.test(type) || /\.svg$/i.test(fileNameOf(f)) ? "image/svg+xml" : "")}">`;
+    else if (kind === "audio") b.innerHTML = `<audio class="fv-media" controls preload="metadata" src="${url()}"></audio>`;
+    else if (kind === "video") b.innerHTML = `<video class="fv-media" controls playsinline preload="metadata" src="${url()}"></video>`;
+    else if (kind === "text") { const cut = bytes.length > 2e6; b.innerHTML = `<pre class="fv-text">${esc(new TextDecoder().decode(cut ? bytes.slice(0, 2e6) : bytes))}</pre>${cut ? `<p class="mini">Only the first 2 MB is shown. ${esc(saveLabel)} for the rest.</p>` : ""}`; }
+    else b.innerHTML = `<p class="pdr-wait">Studyboard can't show this kind of file. ${nativeShell() ? "Tap Share or Open In… to open it in another app, or save it to Files." : "Download it to open it."}</p>`;
+  } catch (e) {
+    const b = box(); if (!b) return;
+    const m = String((e && e.message) || "");
+    b.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is still on the computer it was added from. It uploads the next time Studyboard is open there and signed in." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : /not signed in/.test(m) ? "Sign in to open your stored files." : "Couldn't open the file. Check your connection and try again.")}</p>`;
+  }
+}
+// The pages are drawn when they come near the screen and let go of once far from it
+async function fvPdf(box, bytes, my){
+  await loadPdfJs();
+  const doc = my.doc = await window.pdfjsLib.getDocument({data: bytes, ...PDF_OPTS}).promise;
+  if (FVW !== my) { try { doc.destroy(); } catch (e) {} return; }
+  const room = Math.max(200, box.clientWidth - 28), first = await doc.getPage(1), v1 = first.getViewport({scale: 1});
+  const n = doc.numPages, w = Math.round(Math.min(room, v1.width * 2));
+  box.innerHTML = Array.from({length: n}, (_, i) => `<div class="fv-page" data-p="${i + 1}" role="img" aria-label="Page ${i + 1} of ${n}" style="width:${w}px;height:${Math.round(w * v1.height / v1.width)}px"></div>`).join("");
+  const draw = async el => {
+    if (el.dataset.on) return; el.dataset.on = "1";
+    try {
+      const page = await doc.getPage(Number(el.dataset.p)), v = page.getViewport({scale: 1}), k = w / v.width, dpr = Math.min(2, window.devicePixelRatio || 1);
+      const vp = page.getViewport({scale: k * dpr}), c = document.createElement("canvas");
+      c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+      el.style.height = Math.round(v.height * k) + "px";
+      await page.render({canvasContext: c.getContext("2d"), viewport: vp}).promise;
+      if (FVW !== my || !el.dataset.on) return;
+      el.replaceChildren(c);
+    } catch (e) { delete el.dataset.on; }
+  };
+  const drop = el => { if (!el.dataset.on) return; delete el.dataset.on; const c = el.querySelector("canvas"); if (c) { c.width = 0; c.height = 0; } el.replaceChildren(); };
+  my.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(e.target); else if (Math.abs(e.boundingClientRect.top - e.rootBounds.top) > 4000) drop(e.target); }), {root: box, rootMargin: "1200px 0px"});
+  box.querySelectorAll(".fv-page").forEach(el => my.io.observe(el));
 }
 // Each page keeps its own size and is scaled down to fit the sheet, so text wraps exactly as in the file
 function officeDraw(){
@@ -18682,7 +18818,7 @@ function rvStart(){
   if (!el.isConnected) { rvDrag = null; return; }
   const r = el.getBoundingClientRect();
   d.started = true; renderBlocked = true;
-  if (d.touch && navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+  if (d.touch) sbHaptic("lift");
   try { getSelection().removeAllRanges(); } catch (x) {}
   d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
   const g = el.cloneNode(true);
@@ -18938,6 +19074,7 @@ function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.sett
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
 function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
+  sbHaptic("tap");
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
@@ -19529,6 +19666,7 @@ function pomoStart(){
   nativeAlarm();
   if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) pomo.len = modeMs(pomo.mode);
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
+  if (pomo.mode === "focus") sbHaptic("lift");
   pomoSave(); pomoSchedule(); pomoUI(true);
   try {
     const t = pomo.mode === "focus" && pomo.taskId && state.tasks[pomo.taskId];
@@ -19611,7 +19749,7 @@ function pomoAlarm(done, next, auto, missed){
   const body = done === "focus" ? `Nice work. ${auto ? "Your" : "Time for a"} ${next === "long" ? `${cfg.long}-minute long break` : `${cfg.short}-minute break`}${auto ? " has started" : ""}.` : `${auto ? "Your next focus session has started." : "Ready for the next focus session?"}`;
   if (!missed) {
     if (!ISLAND.ring) playAlarm(cfg.sound, Number(cfg.volume), 5);   // in the iPhone app, iOS rings it (see nativeAlarm)
-    if (navigator.vibrate) { try { navigator.vibrate([400, 180, 400, 180, 700]); } catch(e) {} }
+    sbHaptic("success", {force: true});
     if (cfg.notify && notifySupported() && Notification.permission === "granted") {
       try { const n = new Notification(title, {body, icon: FAVICON, tag: "studioso-pomo", renotify: true, requireInteraction: true}); n.onclick = () => { try { window.focus(); } catch(e) {} n.close(); stopAlarm(); }; } catch(e) {}
     }
@@ -19664,7 +19802,10 @@ function renderPomoBits(){
   nav.setAttribute("aria-label", btn.getAttribute("aria-label"));
   nav.innerHTML = `${TOMATO}<span class="nf-l" ${active ? "data-pomo-time" : ""}>${active ? fmtClock(pomoLeft()) : "Focus"}</span>${active ? `<span class="nf-m">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : ", paused"}</span>` : ""}`;
   try { islandSync(); } catch (e) {}
+  // the timer started, paused, stopped or changed task (not every tick): the Home Screen widgets show it (70-widgets.js)
+  try { const sig = [pomo.running, pomo.mode, pomo.endAt, pomo.left, pomo.taskId].join("|"); if (sig !== focusSig) { focusSig = sig; fire("focus-state"); } } catch (e) {}
 }
+let focusSig = "";
 // iPhone app: while the timer runs, it shows in the Dynamic Island and on the Lock Screen
 const ISLAND = {sig: "", on: false, ring: false};
 function islandSync(){
@@ -20292,24 +20433,36 @@ const deskAssets = {
   delete: async id => { if (!/^local:/.test(id) && sbActive()) { try { await sbAssets.delete(id); } catch(e) {} } return {deleted: true}; }
 };
 let deskPromoting = false;
+let deskUpWarnAt = 0;
 async function deskPromote(){
   if (!DESK || deskPromoting || !sbActive() || !cloud.on || navigator.onLine === false) return;
   deskPromoting = true;
+  // Each file on its own: one that can't upload (too big, storage full, a type that can't be stored) no longer stops the others,
+  // and the student is told, since until it uploads it can't be opened on their phone or another computer
+  let n = 0;
+  const failed = [];
   try {
-    let n = 0;
     for (const f of Object.values(state.files)) {
       if (f.kind !== "file" || !(f.revs || []).some(r => /^local:/.test(r.assetId) && r.localRel)) continue;
       const nf = clone(f); let changed = false;
       for (const r of nf.revs) {
         if (!/^local:/.test(r.assetId) || !r.localRel) continue;
+        if (navigator.onLine === false) break;
         const bytes = await DESK.read(r.localRel); if (!bytes) continue;
-        try { const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"}); deskMarkDone(up.id); r.assetId = up.id; changed = true; n++; }
-        catch(e) { throw e; }
+        try {
+          const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"});
+          deskMarkDone(up.id); r.assetId = up.id; changed = true; n++;
+        } catch (e) { failed.push({name: f.name, why: String((e && e.message) || e || "")}); }
       }
       if (changed) applyChanges([{kind: "file", id: f.id, after: nf}], "");
     }
-    if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"} added while offline`);
-  } catch(e) { }
+  } catch (e) { console.warn("upload local files", e); }
+  if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"}, so ${n === 1 ? "it opens" : "they open"} on your other devices too`);
+  if (failed.length && Date.now() - deskUpWarnAt > 6 * 3600e3) {
+    deskUpWarnAt = Date.now();
+    const why = failed[0].why, full = /quota|storage|exceed|limit|too large|payload|413/i.test(why);
+    toast(`${failed.length === 1 ? `“${failed[0].name}” couldn't` : `${failed.length} files couldn't`} upload to your account${full ? " (a storage or size limit)" : ""}, so ${failed.length === 1 ? "it only opens" : "they only open"} on this computer.`, null, null, {error: true});
+  }
   deskPromoting = false;
 }
 async function deskOpenAsset(id){
@@ -22275,7 +22428,7 @@ function toggleTask(id, el, extra){
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, n.status === "done" ? extra : undefined, n.status === "done" ? {done: true} : undefined);
-  if (n.status === "done" && todayCleared()) fire("good-moment", "plan");
+  if (n.status === "done") { const cleared = todayCleared(); sbHaptic(cleared ? "success" : "tap"); if (cleared) fire("good-moment", "plan"); }
 }
 // "Did you take X?" → Move Date: a small picker (tomorrow, the course's next class, or any date) instead of the whole edit sheet
 function moveDateSheet(id){
@@ -22309,6 +22462,7 @@ function todayCleared(){
     return !tasksArr().some(t => t.status !== "done" && t.due && t.due <= today && !t.deleted && !t.archived);
   } catch (e) { return false; }
 }
+if (window.__SB_TEST) window.__sbHaptic = {device: () => hapticDevice(), cleared: () => todayCleared(), del: id => deleteTask(id), task: id => clone(state.tasks[id] || null), today: () => todayISO(), apply: ch => applyChanges(ch, null)};
 // Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
 // page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
 // 99-smooth.js skips its own page fade while this runs.
@@ -22481,6 +22635,8 @@ document.addEventListener("click", e => {
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-preview": officePreview(id); break;
+    case "f-view": fileViewer(id); break;
+    case "f-save": { const f = state.files[id]; if (f) downloadFile(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ...(inPreview() ? [] : [["f-sync", "Sync Drive", "Choose the Drive or OneDrive folders Studyboard uses. AI only reads files you've added", "sync"]]), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
@@ -22543,7 +22699,7 @@ document.addEventListener("pointerdown", e => {
   nbHold = {x0, y0, id: e.pointerId, t: setTimeout(() => {
     if (!nbHold || !board.isConnected) return;
     nbHold = null;
-    if (navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+    sbHaptic("lift");
     nbHoldDone = Date.now();
     const r = board.getBoundingClientRect();
     newNoteAt((x0 - r.left) / nbZ() - NOTE_W() / 2, (y0 - r.top) / nbZ() - 20);
@@ -22653,7 +22809,7 @@ window.addEventListener("keydown", e => { if (e.key === "Escape" && drag && drag
 
 function startDrag(){
   drag.started = true; renderBlocked = true;
-  if (navigator.vibrate) { try { navigator.vibrate(12); } catch(e){} }
+  sbHaptic("lift");
   if (drag.kind === "rot") {
     const n = state.notes[drag.id];
     if (!n) { drag.started = false; renderBlocked = false; drag = null; return; }
@@ -22925,6 +23081,8 @@ function placeAt(x, y){
   const col = under && under.closest(".col");
   $$(".col.over").forEach(c => { if (c !== col) c.classList.remove("over"); });
   if (!col) return;
+  if (drag.hCol && drag.hCol !== col) sbHaptic("tick");
+  drag.hCol = col;
   col.classList.add("over");
   const shown = el => el.checkVisibility ? el.checkVisibility() : !!el.getClientRects().length;
   const lists = [...col.querySelectorAll(".col-list")].filter(shown);
@@ -22941,6 +23099,7 @@ function placeAt(x, y){
 function endDrag(ok){
   cancelAnimationFrame(drag.raf);
   const d = drag; drag = null; renderBlocked = false;
+  if (ok && d.started) sbHaptic(d.kind === "note" && d.target === "trash" ? "warning" : "drop", {force: true});
   suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
   if (d.kind === "rot") {
     d.el.classList.remove("rotating");
@@ -33546,6 +33705,7 @@ hook("boot", boot);
     };
   }
 
+  if (window.__SB_TEST) window.__sbPhoneWidgets = {data: () => phoneData(widgetData()), drain: () => drainPhone(), push: () => { phoneSent = ""; push(); }};
   /* Sending it to the widgets */
   let lastSent = "", pushT = null;
   // Where a widget can take the feed: the desktop app's Today widget, or the Windows 11 Widgets board (through the service
@@ -33560,6 +33720,8 @@ hook("boot", boot);
     clearTimeout(pushT); pushT = null;
     if (!feedOk()) return;
     let d; try { d = widgetData(); } catch(e) { console.warn("widget data", e); return; }
+    // the phone widgets also show a running Focus, Exam Mode and the week ahead, so they keep their own check for changes
+    pushPhone(d);
     const sig = JSON.stringify(d);
     if (sig === lastSent) return;
     lastSent = sig;
@@ -33567,6 +33729,77 @@ hook("boot", boot);
     pushWindows(d);
   }
   const pushSoon = () => { if (!pushT && feedOk()) pushT = setTimeout(push, 500); };
+
+  /* iPhone and iPad Home Screen and Lock Screen widgets (ios-wrapper/native/HomeWidgets): the same day as the desktop widget,
+     plus what the widget needs to stay right without the app open: the time each task is due, the week ahead (for the iPad's
+     Extra Large size and for after midnight), Exam Mode, a Day Off and a running Focus. Written to the App Group on each change. */
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const hex = (c, d) => { c = String(c || "").trim(); if (/^#[0-9a-f]{3}$/i.test(c)) c = "#" + c.slice(1).split("").map(x => x + x).join(""); return HEX.test(c) ? c.toUpperCase() : d; };
+  const cut = (v, n) => String(v == null ? "" : v).slice(0, n);
+  const phoneNative = () => { const n = window.StudyboardNative; return n && n.homeWidgets && typeof n.homeWidgets.save === "function" ? n.homeWidgets : null; };
+  function phoneData(d){
+    const today = todayISO(), byId = id => state.tasks[id];
+    const item = t => { const x = byId(t.id) || {}; return {id: cut(t.id, 80), title: cut(t.title, 90), course: cut(t.course, 24), color: hex(t.color, "#8A94A6"), meta: cut(t.meta, 48),
+      done: !!t.done, late: !!t.late, due: x.due || "", time: x.time || "", exam: MILESTONE(x.type || "")}; };
+    const tasks = d.tasks.map(item);
+    let exam = null;
+    try {
+      const em = window.SBEXAM && SBEXAM.current && SBEXAM.current();
+      if (em && em.exam) { const t = em.exam, xr = typeof examReadiness === "function" ? examReadiness(t) : null, r = xr ? (xr.measured != null ? xr.measured : xr.self) : null;
+        exam = {id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24), color: hex(colorOf(t.courseId), "#8A94A6"),
+          due: t.due || "", time: t.time || "", days: Math.max(0, Number(em.days) || 0), ready: r == null ? null : Math.max(0, Math.min(100, Math.round(r)))}; }
+    } catch (e) {}
+    // the next six days: what's due each day (exams first), for the week view and for showing tomorrow after midnight
+    const days = [];
+    for (let i = 1; i <= 6; i++) {
+      const day = addDays(today, i), due = tasksArr().filter(t => t.status !== "done" && t.due === day && !t.prepFor)
+        .sort((a, b) => (MILESTONE(b.type) ? 1 : 0) - (MILESTONE(a.type) ? 1 : 0) || (a.time || "99").localeCompare(b.time || "99"));
+      days.push({date: day, off: dayIsOff(day), items: due.slice(0, 4).map(t => ({id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24),
+        color: hex(colorOf(t.courseId), "#8A94A6"), time: t.time || "", exam: MILESTONE(t.type)})), more: Math.max(0, due.length - 4)});
+    }
+    let focus = null;
+    try { if (typeof pomo !== "undefined" && pomo && (pomo.running || pomo.left > 0)) {
+      const t = pomo.taskId && byId(pomo.taskId);
+      focus = {mode: pomo.mode === "focus" ? "focus" : "break", running: !!pomo.running, endsAt: pomo.running ? Number(pomo.endAt) || 0 : 0,
+        left: pomo.running ? 0 : Math.round((Number(pomo.left) || 0) / 1000), task: t ? cut(t.title, 60) : ""};
+    } } catch (e) {}
+    const th = d.theme || {};
+    return {v: 1, day: today, at: Date.now(), dateLabel: cut(d.dateLabel, 40),
+      next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.max(5, Math.min(180, Number(d.next.mins) || 25)),
+        due: (byId(d.next.id) || {}).due || "", time: (byId(d.next.id) || {}).time || ""} : null,
+      tasks, more: d.more, cards: d.cards, dayOff: dayIsOff(today), exam, focus, days,
+      theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}};
+  }
+  let phoneSent = "";
+  function pushPhone(d){
+    const N = phoneNative(); if (!N) return;
+    let j; try { j = phoneData(d); } catch (e) { console.warn("phone widget data", e); return; }
+    const sig = JSON.stringify(Object.assign({}, j, {at: 0}));
+    if (sig === phoneSent) return;
+    phoneSent = sig;
+    Promise.resolve().then(() => N.save(j)).catch(() => {});
+  }
+  // Signing out: nothing of the student's stays on the Home Screen (the next save after sign-in fills it again)
+  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'), N = phoneNative(); if (b && N && N.clear) { phoneSent = ""; N.clear(); } }, true);
+  // Tasks checked off on a widget while the app was closed or in the background: done here (with the time they were ticked), then
+  // acknowledged so the widget's queue empties. A task that is already done, or gone, is just acknowledged.
+  let draining = false;
+  function drainPhone(){
+    const N = phoneNative(); if (!N || typeof N.drain !== "function" || draining) return;
+    draining = true;
+    Promise.resolve().then(() => N.drain()).then(list => {
+      const ids = [];
+      (Array.isArray(list) ? list : []).forEach(a => {
+        ids.push(a.id);
+        const t = a.kind === "done" && state.tasks[a.task];
+        if (!t || t.status === "done") return;
+        const n = clone(t); n.status = "done"; n.doneAt = Number(a.at) > 0 && a.at <= Date.now() ? Number(a.at) : Date.now(); if (!MILESTONE(t.type)) n.pct = 100;
+        n.order = nextOrder("done");
+        applyChanges([{kind: "task", id: t.id, after: n}], `Completed ${t.title} (from the widget)`);
+      });
+      if (ids.length && typeof N.ack === "function") return N.ack(ids);
+    }).catch(() => {}).then(() => { draining = false; });
+  }
 
   // Windows 11 Widgets board (the installed web app from Edge)
   function cardData(d){
@@ -33627,6 +33860,7 @@ hook("boot", boot);
     if (!a && !task) return;
     try { history.replaceState(null, "", location.pathname + (WV ? "?widget=today" : "") + location.hash); } catch(e) {}
     if (a === "done" && task) doAction("done", task);
+    else if (a === "focus" && task) doAction("focus-task", task);
     else if (task) doAction("task", task);
     else if (ACTIONS.includes(a)) doAction(a);
   }
@@ -33745,6 +33979,7 @@ hook("boot", boot);
   });
   hook("render", pushSoon);
   hook("changed", pushSoon);
+  hook("focus-state", pushSoon);
   hook("boot", () => {
     if (DESK_OK) {
       if (DESK.onAction) DESK.onAction((a, arg) => doAction(a, arg));
@@ -33759,6 +33994,8 @@ hook("boot", boot);
     setInterval(push, 5 * 60000);
     handleUrl();
     push();
+    drainPhone();
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) { drainPhone(); pushSoon(); } });
     // The phone apps' native-bridge.js hands deep links and reminder taps here once the app is running, so open quizzes and unsaved text survive.
     // Returns false for anything it can't open in place (the bridge then reloads with the link, as on a cold start).
     window.SBOPEN = q => {
@@ -33770,6 +34007,7 @@ hook("boot", boot);
           localStorage.setItem("sb:grpPending", JSON.stringify({kind: dk ? "deck" : "group", code, at: Date.now()}));   // 80-groups.js picks this up within seconds
           return true;
         }
+        if (a === "focus" && task) { doAction("focus-task", task); return true; }
         if (task) { doAction("task", task); return true; }
         if (ACTIONS.includes(a) && a !== "done") { doAction(a); return true; }
       } catch (e) {}
@@ -36235,7 +36473,7 @@ hook("boot", boot);
     if (!d.el.isConnected) { const again = d.id && $(`#grpPT .kb-card[data-id="${CSS.escape(d.id)}"]`); if (again) d.el = again; }
     if (!d.el.isConnected || d.el.getBoundingClientRect().width < 20) { clearTimeout(d.timer); kbDrag = null; return; }
     d.started = true;
-    if (navigator.vibrate) { try { navigator.vibrate(12); } catch(e) {} }
+    sbHaptic("lift");
     const r = d.el.getBoundingClientRect(), gh = d.el.cloneNode(true);
     d.dx = d.x - r.left; d.dy = d.y - r.top;
     gh.className += " kb-ghost"; gh.removeAttribute("data-id"); gh.setAttribute("aria-hidden", "true"); gh.style.width = r.width + "px"; gh.style.minWidth = r.width + "px"; gh.style.boxSizing = "border-box"; gh.style.left = r.left + "px"; gh.style.top = r.top + "px";
@@ -38130,11 +38368,17 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const run = wireCheck($("#unIn"), $("#unMsg")); if ((cur || o.suggest) && !cur) run();
     setTimeout(() => { const i = $("#unIn"); if (i) i.focus(); }, 60);
   }
-  /* Birthday */
+  /* Birthday: accounts are for people 13 and older */
   const AKEY = uid => "studyboard:age:" + uid;
   const ageCached = () => { try { const u = who(); return u ? localStorage.getItem(AKEY(u.id)) || "" : ""; } catch (e) { return ""; } };
   const ageKeep = v => { try { const u = who(); if (u) localStorage.setItem(AKEY(u.id), v); } catch (e) {} };
   const yearsOld = iso => { const b = new Date(iso + "T12:00:00"), n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--; return a; };
+  // Once someone gives a birthday under 13, this device makes no account and takes no birthday again (giving an older
+  // one after being refused doesn't get around it). Kept through sign-out and the wipe after deleting an account.
+  const GATE = "studyboard:agegate";
+  const refused = () => { try { return !!localStorage.getItem(GATE); } catch (e) { return false; } };
+  const refuse = () => { try { localStorage.setItem(GATE, String(Date.now())); } catch (e) {} };
+  const NO_ACCOUNT = "Sorry, you can't make a Studyboard account. You can keep using Studyboard on this device without one.";
   // One date box; bdayOf returns YYYY-MM-DD, or "" when it isn't a real date
   const bdayField = why => {
     const t = new Date(), iso = d => d.toISOString().slice(0, 10);
@@ -38147,27 +38391,99 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (dt.getUTCDate() !== Number(m[3]) || dt > new Date() || Number(m[1]) < new Date().getFullYear() - 120) return "";
     return v;
   };
-  function youngSheet(){
-    openSheet(`<div class="sheet">${head("Not Available Yet")}<div class="sheet-body"><p style="margin:0">Publishing and sharing with a link are for students 13 and older. Everything else in Studyboard works as usual, and you can still share with your study groups.</p></div>
+  // my_age: a number of years, null when no birthday is saved, undefined when it couldn't be asked (offline, or a server
+  // without supabase-usernames.sql): then nothing is decided now
+  async function ageNow(){ try { const a = await call("my_age"); return typeof a === "number" ? a : a === null ? null : undefined; } catch (e) { return undefined; } }
+  const isUnder13 = e => /SB_UNDER13/.test(String((e && (e.message || e.details)) || e || ""));
+  const PENDING = "studyboard:agegate:pending";   // accounts refused here whose deletion hasn't finished yet
+  const pending = () => { try { return JSON.parse(localStorage.getItem(PENDING) || "[]"); } catch (e) { return []; } };
+  const setPending = (id, on) => { try { const l = pending().filter(x => x !== id); if (on) l.push(id); if (l.length) localStorage.setItem(PENDING, JSON.stringify(l.slice(-10))); else localStorage.removeItem(PENDING); } catch (e) {} };
+  function refusedSheet(note){
+    openSheet(`<div class="sheet" id="ageNo">${head("No Account")}<div class="sheet-body"><p style="margin:0" role="status">${esc(NO_ACCOUNT)}</p>${note ? `<p class="mini" style="margin:0">${esc(note)}</p>` : ""}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">OK</button></div></div>`);
   }
-  // Publishing needs a birthday on the account and an age of 13 or older
-  async function ensureAge(then){
-    const c = ageCached();
-    if (c === "ok") { then(); return; }
-    if (c === "young") { youngSheet(); return; }
-    let a = null;
-    try { a = await call("my_age"); } catch (e) { then(); return; }
-    if (a != null) { ageKeep(a >= 13 ? "ok" : "young"); if (a >= 13) then(); else youngSheet(); return; }
-    openSheet(`<form class="sheet">${head("When's Your Birthday?")}<div class="sheet-body">${bdayField()}<p class="mini" style="margin:0">It can't be changed later, and nobody else sees it.</p><p class="mini un-msg bad" id="bdMsg" aria-live="polite"></p></div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
+  // Under 13: no account. It is deleted (with what it synced), and this device signs out and remembers
+  let closing = false;
+  async function closeUnderage(){
+    if (closing) return; closing = true;
+    refuse();
+    const u = who(), id = u && u.id;
+    if (id) setPending(id, true);
+    let gone = false;
+    try { gone = !!(window.SBDEL && await SBDEL.underage()); } catch (e) {}
+    if (gone) { setPending(id, false); try { localStorage.removeItem(AKEY(id)); } catch (e) {} }
+    if (dlg.open) dlg.close();
+    setTimeout(() => {
+      refusedSheet(gone ? "" : "Studyboard couldn't finish closing the account just now. It tries again the next time Studyboard opens while you're online.");
+      if (gone) dlg.addEventListener("close", () => location.reload(), {once: true});
+      closing = false;
+    }, 0);
+  }
+  // A signed-in account with no birthday: asked once, and it can't be skipped (Not Now signs out)
+  function askBirthday(then){
+    let answered = false;
+    openSheet(`<form class="sheet" id="ageAsk">${head("When's Your Birthday?")}<div class="sheet-body"><p style="margin:0">We ask everyone once when they use an account. Nobody else sees it, and it can't be changed later.</p>${bdayField()}<p class="mini un-msg bad" id="bdMsg" aria-live="polite"></p></div>
+      <div class="sheet-foot"><button type="button" class="btn" id="bdLater">Sign Out</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
       const iso = bdayOf(fd); if (!iso) { $("#bdMsg").textContent = "Enter your birthday."; return false; }
+      answered = true;
+      if (refused() || yearsOld(iso) < 13) { closeUnderage(); return false; }
       const b = $("#bdSave"); if (b) b.disabled = true;
-      call("set_birthdate", {p_date: iso}).then(age => { const ok2 = Number(age) >= 13; ageKeep(ok2 ? "ok" : "young"); if (dlg.open) dlg.close(); setTimeout(() => ok2 ? then() : youngSheet(), 0); })
-        .catch(e => { if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
+      call("set_birthdate", {p_date: iso}).then(age => { ageKeep("ok"); if (dlg.open) dlg.close(); if (then) setTimeout(() => then(Number(age)), 0); })
+        .catch(e => { if (isUnder13(e)) { closeUnderage(); return; } answered = false; if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
       return false;
     });
+    const form = dlg.querySelector("#ageAsk");
+    const later = $("#bdLater"); if (later) later.addEventListener("click", () => { answered = true; leave(); });
+    // closed any other way without an answer: signed out too
+    // (if another sheet took its place, it is asked again next time instead)
+    dlg.addEventListener("close", function onClose(){ dlg.removeEventListener("close", onClose); if (!answered && form && dlg.contains(form)) leave(); });
   }
+  // Signing out quietly, after unsent changes are given a few seconds to reach the account
+  async function leave(){
+    try { if (typeof flushOutbox === "function") await Promise.race([flushOutbox(), new Promise(r => setTimeout(r, 6000))]); } catch (e) {}
+    try { sbLeave(); } catch (e) {}
+    try { await sb.auth.signOut(); } catch (e) {}
+    try { await wipeDeviceData(); } catch (e) {}
+    location.reload();
+  }
+  // Every signed-in account: a birthday on file and 13 or older, else no account. done(true) once it's known to be fine
+  async function gate(done){
+    const fin = v => { if (done) done(v); };
+    if (ageCached() === "ok") { fin(true); return; }
+    const u = who(), id = u && u.id;
+    if (!id) { fin(false); return; }
+    const a = await ageNow();
+    if (a === undefined) { fin(true); return; }   // can't tell now; asked again next time
+    if (typeof a === "number") { if (a >= 13) { ageKeep("ok"); setPending(id, false); fin(true); } else { fin(false); closeUnderage(); } return; }
+    // No birthday saved yet
+    const newAcct = Date.now() - Date.parse(u.created_at || 0) < 30 * 60 * 1000;
+    if (refused()) {
+      // refused on this device: an account made just now (or one already being closed) is closed; an older one signs out
+      fin(false);
+      if (newAcct || pending().includes(id)) closeUnderage();
+      else { refusedSheet("If this is your account and you're 13 or older, contact Studyboard support."); dlg.addEventListener("close", () => leave(), {once: true}); }
+      return;
+    }
+    const bd = String(((u.user_metadata || {}).birth_date) || "");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(bd)) {   // given on the sign-up form
+      try { await call("set_birthdate", {p_date: bd}); ageKeep("ok"); fin(true); return; }
+      catch (e) { if (isUnder13(e)) { fin(false); closeUnderage(); return; } }
+    }
+    askBirthday(age => fin(age >= 13));
+  }
+  // One check per account at a time: syncing waits on it (nothing is uploaded before the age is known), and so do the
+  // first-sign-in steps and publishing. Resolves true when the account may be used, false when it may not
+  let gateRun = null, gateFor = "";
+  function ageReady(){
+    const u = who();
+    if (!u || u.is_anonymous) return Promise.resolve(!!u);
+    if (ageCached() === "ok") return Promise.resolve(true);
+    if (gateRun && gateFor === u.id) return gateRun;
+    gateFor = u.id;
+    return (gateRun = new Promise(r => gate(r)));
+  }
+  // Publishing needs it too (an account that hasn't been asked yet, say it was offline when it signed in)
+  function ensureAge(then){ ageReady().then(ok => { if (ok) then(); }); }
 
   // Something needs a username (publishing)
   async function ensure(then){
@@ -38182,11 +38498,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   let asked = "";
   async function afterSignIn(){
     if (!live() || asked === who().id) return;
-    if (dlg.open || document.querySelector("dialog[open]")) { setTimeout(afterSignIn, 4000); return; }
     asked = who().id;
-    const bd = String(((who().user_metadata || {}).birth_date) || "");
-    if (/^\d{4}-\d{2}-\d{2}$/.test(bd) && !ageCached()) { try { const a = await call("my_age"); if (a == null) { const got = await call("set_birthdate", {p_date: bd}); ageKeep(Number(got) >= 13 ? "ok" : "young"); } else ageKeep(a >= 13 ? "ok" : "young"); } catch (e) {} }
-    if (cached()) return;
+    const fine = await ageReady();   // (usually already asked: syncing starts with it)
+    if (!fine || cached()) return;
     let n = "";
     try { n = await call("my_username"); } catch (e) { return; }
     if (n) { keep(n); return; }
@@ -38195,7 +38509,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (want && !UNAME.problem(want)) { try { const got = await call("set_username", {p_name: want}); keep(String(got || want)); scheduleRender(); } catch (e) {} }
   }
   let seen = "";
-  hook("render", () => { const u = who() && who().id; if (!u || u === seen) return; seen = u; setTimeout(afterSignIn, 1500); });
+  hook("render", () => { const u = who() && who().id; if (!u || u === seen) return; seen = u; setTimeout(afterSignIn, 0); });
 
   // Settings > Account
   // One Profile row: the display name groups see and the @username on published pages are changed together (80-groups.js nameSheet)
@@ -38217,7 +38531,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
 `;
   document.head.appendChild(css);
   const save = v => call("set_username", {p_name: v}).then(n => { keep(String(n || v)); return String(n || v); }, e => { throw new Error(rpcErr(e)); });
-  window.SBUNAME = {problem: UNAME.problem, live, save, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, T: {UNAME}};
+  window.SBUNAME = {problem: UNAME.problem, live, save, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, refused, refuse, NO_ACCOUNT, ageReady, T: {UNAME}};
 })();
 
 /* ===== module: 97-sharing.js ===== */
@@ -65727,12 +66041,17 @@ var COMP_EXTRA = [];
     };
   }
   // Phones: while a sheet is open or the keyboard is up, the companion stays exactly where it is, whatever circle it is in
-  let fullH = 0, fullW = 0;
+  let fullH = 0, fullW = 0, fullLayoutH = 0;
   function dockFrozen(){
     if (!phone() || !box || !box.dataset.x) return false;
-    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
+    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; fullLayoutH = 0; }
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
+    if (innerHeight > fullLayoutH) fullLayoutH = innerHeight;
+    // the whole page got shorter (the Android app's keyboard resizes the page, and the tab bar rides up above it):
+    // where it stood is now under the keyboard or off the screen, so it moves with the tab bar instead of staying put
+    // (on the Companion tab its circle has its own keyboard animation, so there it stays put)
+    if (innerHeight < fullLayoutH - 100 && spotKind !== "slot") return false;
     // a sheet is open, or one just closed and the keyboard is still sliding away
     // or the keyboard is up (typing on the whiteboard or in a note)
     const vv = window.visualViewport;
@@ -77925,7 +78244,7 @@ function decorateDeck(){
     st.ghost = st.item.cloneNode(true); st.ghost.classList.add("sort-ghost");
     Object.assign(st.ghost.style, {width: r.width + "px", height: r.height + "px", left: r.left + "px", top: r.top + "px"});
     (document.getElementById("view") || document.body).appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
-    if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+    sbHaptic("lift");
   };
   const move = (x, y) => {
     st.ghost.style.left = (x - st.dx) + "px"; st.ghost.style.top = (y - st.dy) + "px";
@@ -79236,6 +79555,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     setTimeout(() => els.forEach(e => e.classList.add("gone")), still() ? 0 : 320);
     const left = $("#mtLeft"); if (left) left.textContent = `${pl(R.left, "pair")} to go`;
     if (!R.left) { finish(); return; }
+    sbHaptic("tap");
     sayIt(`Match. ${pl(R.left, "pair")} to go.`);
     if (had) { const nx = R.tiles.findIndex((x, k) => !x.gone && k > b); const k = nx >= 0 ? nx : R.tiles.findIndex(x => !x.gone); const e = tileEl(k); if (e) e.focus(); }
   }
@@ -79243,6 +79563,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     R.pen += MATCH.PENALTY; R.miss++;
     [tileEl(a), tileEl(b)].filter(Boolean).forEach(e => { e.classList.remove("miss"); void e.offsetWidth; e.classList.add("miss"); setTimeout(() => e.classList.remove("miss"), 480); });
     const p = $("#mtPen"); if (p) { p.classList.remove("show"); void p.offsetWidth; p.classList.add("show"); setTimeout(() => p.classList.remove("show"), 900); }
+    sbHaptic("error");
     sayIt("Not a match. Plus 1 second.");
     tick();
   }
@@ -79253,6 +79574,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     if (d) { const nd = clone(d); rec = MATCH.record(nd.match, R.ms); nd.match = rec.match; saveDeck(nd, null); }
     else { rec = MATCH.record(R.opts.prev || null, R.ms); R.opts.prev = rec.match; }
     R.rec = rec;
+    sbHaptic(rec.better ? "success" : "tap", {force: true});
     if (rec.better && !rec.first) fire("good-moment", "match");
     setTimeout(() => { if (R && R.done && dlg.open && dlg.querySelector("[data-mt-play]")) result(); }, still() ? 0 : 360);
   }
@@ -80479,6 +80801,7 @@ function tryCelebrate(){
     const line = C._speech.choose(lines(c), "streak");
     if (!line) return;
     if (C.cheer) C.cheer("task");
+    if (c.kind !== "welcome") sbHaptic("success", {force: true});
     C.say(line, {cheer: true, name: false, again: false, cat: "streak"});
     if (C.bubble && C.bubble() === line) {
       const s = saidRead(); s.m = s.m || {};
@@ -80653,7 +80976,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
   const VERSION = "1.15.6";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "November 11, 2026", TERMS_UPDATED = "November 11, 2026";
+  const UPDATED = "November 13, 2026", TERMS_UPDATED = "November 13, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -80679,7 +81002,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>When Studyboard hits an error (a crash, a failed sync or a broken screen), it can send a short report so we can fix the bug. A report holds the kind of error and where in the code it happened, the app version, the platform (website, installed app, desktop or iPhone/iPad app), whether you have a free or paid plan, the theme in use, and the last few actions of the app itself (such as which tab was open). It never contains your tasks, notes, courses, files, email address, account id, AI keys or anything you typed, and it is not linked to you: it carries a random number made on your device that is not your account (deleted when you switch reports off) and a one-way scrambled form of your network address, scrambled with a secret only our server holds together with the date, so it can't be traced back or matched from one day to the next, kept with the report only to stop one device from flooding us with reports. We do not use reports for advertising or tracking and never share them. They are kept for about 30 days. This is on by default (off if your browser sends Do Not Track or Global Privacy Control). Turn it off any time in Settings, Send Anonymous Crash Reports. On iPhone and iPad, Apple may also give us crash logs through App Store Connect if you chose to share app analytics with developers in your device's settings. Reports go to our own Supabase project, and, if we turn it on, to Sentry (Functional Software, Inc.), an error-tracking service that receives the same anonymous report and keeps it for no more than 30 days.</p>
 
 <h3>Your account and synced data</h3>
-<p>If you create an account, we store your email address. Your password is never stored or seen by anyone, including us: our hosting provider, Supabase (Supabase Auth), keeps only a salted hash of it (a one-way code), which can check a password you type but can't be turned back into it. No one can look up your password, so if you forget it you reset it by email. If you sign in with Apple, Google or Microsoft instead, you have no Studyboard password: that company confirms who you are and gives us your email address (with Apple you can choose to share a private relay address that forwards to you) and, if you allow it, your name. We don't receive your password for that account or anything else from it. Your planner then syncs between your devices (what you made before signing up comes along), so your courses, tasks, notes, flashcards, settings and file records are stored on our Supabase project, in your account. With Studyboard Pro, a weekly backup copy of your planner is also kept in your account for 30 days, so you can restore an earlier version. Each account can only read its own rows (what you post in a study group is the one exception: the group's members can see it, as described below). We also keep the name and type of each device signed in to your account, how much storage your account uses (for the plan limits), and your plan status. Your AI keys stay on the device unless you turn on AI Keys on All My Devices in Settings (or use Add AI to Another Device, described under AI below): then they are locked on your device with a passphrase only you know, and only the scrambled copy is stored, so we cannot read them. They are always left out of the backup files you export. School calendar links and Canvas access tokens are never synced. Your newest companion chats are also synced to your account. When you make an account we also ask for your birthday, once, to apply age rules: it is never shown to anyone. Students under 13 need a parent or guardian to create the account with the parent's own email and agree on the child's behalf; those accounts can't publish or share with a public link.</p>
+<p>If you create an account, we store your email address. Your password is never stored or seen by anyone, including us: our hosting provider, Supabase (Supabase Auth), keeps only a salted hash of it (a one-way code), which can check a password you type but can't be turned back into it. No one can look up your password, so if you forget it you reset it by email. If you sign in with Apple, Google or Microsoft instead, you have no Studyboard password: that company confirms who you are and gives us your email address (with Apple you can choose to share a private relay address that forwards to you) and, if you allow it, your name. We don't receive your password for that account or anything else from it. Your planner then syncs between your devices (what you made before signing up comes along), so your courses, tasks, notes, flashcards, settings and file records are stored on our Supabase project, in your account. With Studyboard Pro, a weekly backup copy of your planner is also kept in your account for 30 days, so you can restore an earlier version. Each account can only read its own rows (what you post in a study group is the one exception: the group's members can see it, as described below). We also keep the name and type of each device signed in to your account, how much storage your account uses (for the plan limits), and your plan status. Your AI keys stay on the device unless you turn on AI Keys on All My Devices in Settings (or use Add AI to Another Device, described under AI below): then they are locked on your device with a passphrase only you know, and only the scrambled copy is stored, so we cannot read them. They are always left out of the backup files you export. School calendar links and Canvas access tokens are never synced. Your newest companion chats are also synced to your account. When you make an account, or the first time you use one, we ask for your birthday once to check that you are 13 or older: it is never shown to anyone. If the birthday is under 13, no account is made (or the account is deleted with everything stored for it), the birthday is not kept, and the device remembers the refusal so it can't make an account afterwards.</p>
 <p>Like any online service, the people who run the server can technically reach what is stored on it. We only look at it to keep the service working, fix a problem you ask us to look into, or comply with the law.</p>
 
 <h3>Uploaded files</h3>
@@ -80750,7 +81073,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Our servers are in the United States (US West). Supabase, Cloudflare, Stripe, RevenueCat, Sentry, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
 
 <h3>Children</h3>
-<p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. If you are younger than 13, please do not create an account. If you think a child has given us personal data, contact us and we will delete it.</p>
+<p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. Studyboard accounts are not available to anyone under 13, and a parent or guardian can't make one for them: when the birthday given is under 13, Studyboard refuses the account. Someone younger can still use Studyboard on their own device without an account. If you think a child under 13 has given us personal data, contact us and we will delete it.</p>
 
 <h3>Security</h3>
 <p>Connections are encrypted (HTTPS). Each account can only read its own rows, and plans can only be changed by our payment system, never from your device (apart from starting a free trial once, when one is offered). No system is perfectly safe; if something affecting you goes wrong we will tell you.</p>
@@ -80764,10 +81087,10 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <p>These terms are the agreement between you and Connor Pelkmans, who publishes Studyboard ("we"), for using Studyboard: the app and its website. By using Studyboard you agree to them. If you do not agree, please do not use it. Questions: ${contact()}.</p>
 
     <h3>Using Studyboard</h3>
-    <p>Studyboard is a planner that helps you keep track of your courses and work. You can use it for free on your own device, with or without an account; a free account keeps your planner online and in sync on your devices. You must be at least 13 years old. Use it lawfully, and do not try to break it, attack or overload it, get around plan limits or payments, use someone else's account, get into other people's data, or use it to harass anyone.</p>
+    <p>Studyboard is a planner that helps you keep track of your courses and work. You can use it for free on your own device, with or without an account; a free account keeps your planner online and in sync on your devices. You must be 13 or older to make or use an account. Use it lawfully, and do not try to break it, attack or overload it, get around plan limits or payments, use someone else's account, get into other people's data, or use it to harass anyone.</p>
 
     <h3>Your account and your content</h3>
-    <p>Keep your password private; you are responsible for what happens under your account. Everything you put into Studyboard is yours. You give us a worldwide, non-exclusive, royalty-free permission to store, copy, process, sync and show it so Studyboard can work: back to you, to the people you share it with and, when you publish something, to anyone. We use it for nothing else. The permission ends when you delete it, except for copies other people already saved and backups we keep for a short time. You can export it or delete it at any time (see the Privacy Policy). Keep your own backups of anything important. You must be 13 or older to make an account yourself; a parent or guardian can make one for a younger student and agrees to these Terms for them. Accounts for students under 13 can't publish or share with a link. Only publish sets you made or have the right to share, and never answers to graded work; we remove what is reported.</p>
+    <p>Keep your password private; you are responsible for what happens under your account. Everything you put into Studyboard is yours. You give us a worldwide, non-exclusive, royalty-free permission to store, copy, process, sync and show it so Studyboard can work: back to you, to the people you share it with and, when you publish something, to anyone. We use it for nothing else. The permission ends when you delete it, except for copies other people already saved and backups we keep for a short time. You can export it or delete it at any time (see the Privacy Policy). Keep your own backups of anything important. Accounts are only for people 13 and older, and nobody may make one for someone younger, a parent or guardian included. We delete an account when we learn it belongs to someone under 13. Only publish sets you made or have the right to share, and never answers to graded work; we remove what is reported.</p>
 
     <h3>Course materials and copyright</h3>
     <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may upload them to Studyboard to study from them yourself, as your school allows. Course files you upload, such as lecture slides, stay private to your account: no one else can open them, and Studyboard never shares or publishes them or lets you share them with a group. Pictures, files and text copied word for word from a file can't be shared anywhere in Studyboard: not in a group, with another person or on a public page. You can share what you write or draw yourself, and what AI writes for you in its own words; pictures on a whiteboard stay on your own copy. You alone are responsible for having the right to upload them. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a message or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. You confirm this each time you share or publish, and we keep a record of when you agreed and to which version of these terms. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
@@ -80908,7 +81231,10 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     } catch (e) { }
   }
   async function wipeDevice(){
+    // the device's refusal of an under-13 account outlives everything else (see 96-usernames.js)
+    let gate = null; try { gate = localStorage.getItem("studyboard:agegate"); } catch (e) {}
     try { localStorage.clear(); } catch (e) {}
+    try { if (gate) localStorage.setItem("studyboard:agegate", gate); } catch (e) {}
     try { sessionStorage.clear(); } catch (e) {}
     try {
       const names = indexedDB.databases ? (await indexedDB.databases()).map(d => d.name).filter(Boolean) : ["studyboard-sync", "studioso-fs", "studyboard-ui-cache", "studyboard-photos"];
@@ -80946,6 +81272,23 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     if (!status) return unreachable(err);
     return {kind: "http", status, body: body || {}, error: err};
   }
+  // Under 13: the account is deleted (no password asked, see delete-account) and this device signs out. The planner on the
+  // device is kept: Studyboard still works without an account. Resolves true once the account is gone.
+  async function underageDelete(){
+    if (!sb || typeof sbUser === "undefined" || !sbUser) return false;
+    const uid = sbUser.id;
+    let r = await callDelete({confirm: "DELETE", underage: true, ack_store_subscription: true});
+    if (r.kind === "missing") {   // a server without the Edge Function: its own fallback
+      try { await removeFiles(uid); const {error} = await sb.rpc("studyboard_delete_my_account"); if (!error) r = {kind: "ok"}; } catch (e) {}
+    }
+    if (r.kind !== "ok") return false;
+    sbLeaving = true;
+    try { await sb.auth.signOut({scope: "local"}); } catch (e) {}
+    try { localStorage.removeItem(OUTBOX); } catch (e) {}
+    try { aiWipeLocal(); } catch (e) {}
+    return true;
+  }
+  window.SBDEL = {underage: underageDelete};
   const deletedList = (data, wiped) => {
     const d = (data && data.deleted) || {}, rows = [];
     rows.push("Your account and sign-in, on every device");
@@ -94633,7 +94976,7 @@ var SBWB = null;
       if (D !== d) return;
       clearTimeout(d.snapT); D = {kind: "move", id: d.id, a: w, s, held: true};
       select(new Set([k])); SEL.drag = true; itemsDraw(); dirty();
-      try { navigator.vibrate && navigator.vibrate(10); } catch (x) {}
+      sbHaptic("lift");
     }, 450);
   }
   function begin(e, s, w){
@@ -94662,7 +95005,7 @@ var SBWB = null;
     }
   }
   // Hold still for a moment at the end of a stroke
-  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} dirty(true); } }, 600); }
+  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; sbHaptic("tick", {force: true}); dirty(true); } }, 600); }
   function drag(e, s){
     const w = toW(s);
     // a finger only moves the board once it really moves (a hand settling on the screen doesn't nudge it)
@@ -103879,7 +104222,7 @@ const AUTOPILOT = (() => {
         if (go) {
           // the new day is drawn underneath first, then the window lifts off: no frame without a day in it
           const commit = S.nb.commit, win = S.win, h0 = S.hh;
-          S.win = null; cleanup(); commit(); render();
+          S.win = null; cleanup(); commit(); render(); sbHaptic("tick");
           if (win) { requestAnimationFrame(() => win.remove()); }
           // the new day's header can be taller or shorter (more due items): the hours below ease into place instead of jumping
           const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? Math.round(nh.getBoundingClientRect().height - h0) : 0;
@@ -104946,11 +105289,13 @@ const AUTOPILOT = (() => {
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
+    ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll.</span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
+    if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
     if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
     if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }
     if (act === "tz-shift") { ls(HOME_KEY, deviceZone()); ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); try { toast("School sites will use " + city(deviceZone()) + " time from the next sync."); } catch (e) {} return true; }

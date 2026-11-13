@@ -253,7 +253,7 @@ let schDragEnd = 0;
     b.classList.add("dragging"); document.body.classList.add("sch-dragging");
     b.style.left = "2px"; b.style.width = "calc(100% - 4px)";
     if (!b.querySelector(".sch-dt")) b.insertAdjacentHTML("beforeend", `<em class="sch-dt"></em>`);
-    try { navigator.vibrate && navigator.vibrate(8); } catch(e) {}
+    sbHaptic("lift");
   };
   document.addEventListener("pointerdown", e => {
     const b = e.target.closest && e.target.closest(".sch-b[data-drag]"); if (!b || e.button > 0) return;

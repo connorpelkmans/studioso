@@ -33,7 +33,7 @@ cp ios-wrapper/native-bridge.js ios-www/native-bridge.js
 cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
-      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard @capacitor-community/in-app-review capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
+      @capacitor/share @capacitor/filesystem @capacitor/screen-orientation @capacitor/keyboard @capacitor/haptics @capacitor-community/in-app-review capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
 cp -R ../ios-www ./ios-www
 ```
@@ -48,6 +48,7 @@ Recommended plugins and why (install no others unless you need them; every plugi
 | `@capacitor/filesystem` | Exported backups and files are written to the app's cache, then offered through the share sheet ("Save to Files"). Without both plugins, Export shows an error instead of saving. |
 | `@capacitor/browser` | In-app Safari sheet for https links (used by `native-bridge.js`). |
 | `@capacitor/app` | Deep links and app state. |
+| `@capacitor/haptics` | Haptic feedback (Apple's impact, selection and notification generators) for `sbHaptic` in `src/js/01-helpers.js`. WKWebView has no vibrate API, so without it the iPhone app has no haptics. `npm run ios:stage` installs it if it's missing. |
 | `@capacitor-community/in-app-review` | Apple's own review prompt ("Enjoying Studyboard?" with the stars), asked for at a good moment by `src/js/99-review-ask.js`. Apple decides whether it shows (at most 3 times a year). `npm run ios:stage` installs it if it's missing. In a development build the prompt always shows and does nothing; in TestFlight it never shows. |
 | `capacitor-secure-storage-plugin` | iOS **Keychain** storage (see section 5). |
 
@@ -104,6 +105,42 @@ Test on a device: start a Focus session, swipe home, and the island shows the to
 time, what you're working on, progress). Pause in the app and the island says Paused with the time frozen; Reset removes it. Lock the phone and the
 Lock Screen shows the same. If you switch Live Activities off for Studyboard in Settings, the page notices (`show()` resolves false) and keeps
 the time in its header. `tests/focus-island.e2e.js` checks the page side with a stand-in for the plugin.
+
+### 3d. Home Screen and Lock Screen widgets (iPhone and iPad, untested)
+
+Two widgets, in the same `StudyboardWidgets` extension as the Focus timer (do 3c first). Files: `native/HomeWidgets/`.
+
+* **Today**: small (Do This Next), medium (Do This Next with Start a Focus, and the next three tasks), large (the whole day) and, on
+  iPad, extra large (the day and the week ahead). It changes with the day: a running Focus counts down, Exam Mode shows the countdown
+  and readiness, overdue work comes first, then "Today's plan is done", a Day Off, or nothing planned. On iOS 17 and later the circles
+  can be ticked right on the widget.
+* **Up Next** (Lock Screen): rectangular (the next task and when it's due), circular (today's progress, 1/4) and inline (the next
+  exam, or how many tasks are left). Task names are marked private, so iOS hides them while the phone is locked.
+
+How it works: after each change the page (`src/js/70-widgets.js`, `phoneData`) sends the day through `StudyboardNative.homeWidgets.save`
+to the App Group (`widget-today.json`), and the widgets reload. A task ticked on a widget shows as done there at once and waits in
+`widget-actions.json`; the page does it (and syncs it) the next time the app opens or comes back to the front. Start a Focus and every
+other tap open the app with a `studyboard://` link. Just after midnight the widgets show the new day's due tasks from the week ahead
+until the app opens and plans it. Signing out clears both files.
+
+1. **Files:** File > Add Files to "App", choose all three in `ios-wrapper/native/HomeWidgets`, untick "Copy items if needed", then set
+   each file's targets in the File inspector:
+   * `StudyboardHomeWidgets.swift`: **StudyboardWidgets** only
+   * `StudyboardHomeWidgetData.swift`: **App** and **StudyboardWidgets**
+   * `StudyboardHomeWidgetsPlugin.swift`: **App** only
+
+   `StudyboardWidgets.swift` already lists the two widgets, so the extension doesn't build until the first two are in its target.
+2. **App Group on the widget:** select the StudyboardWidgets target > Signing & Capabilities > + Capability > **App Groups**, and tick
+   `group.com.studyboardapp.studyboard` (the same group as the App target; template: `native/HomeWidgets/StudyboardWidgets.entitlements`).
+   Without it the widgets can't see the app's file and stay on "Your day will show up here".
+3. **Plugin:** `npm run ios:stage` adds `StudyboardHomeWidgetsPlugin` to Capacitor's plugin list (and `MainViewController` registers
+   it too), so there's nothing else to connect.
+
+Test on a device: add the widget (long-press the Home Screen > Edit > Add Widget > Studyboard), then:
+check off a task in the app and the widget updates within a few seconds; tick a circle on the widget (iOS 17+), open the app, and the
+task is done there with an Undo; tap Start a Focus and the app opens with the timer running on that task; put the phone on charge on
+its side for StandBy (it shows the small size); lock the phone and the Lock Screen widget hides task names. `tests/home-widgets.e2e.js`
+checks the page side with a stand-in for the plugin.
 
 ## 4. Build, test and submit
 

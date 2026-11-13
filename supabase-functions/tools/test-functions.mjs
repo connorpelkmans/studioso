@@ -486,6 +486,7 @@ function delDeps(o = {}) {
     if (u.includes("rpc/studyboard_plan_rate_hit")) return new Response(JSON.stringify(o.limited ? false : true));
     if (u.includes("studyboard_entitlements")) return new Response(JSON.stringify(o.ent ? [o.ent] : []));
     if (u.includes("studyboard_billing_customers")) return new Response(JSON.stringify(o.customer ? [{ stripe_customer_id: o.customer }] : []));
+    if (u.includes("/rest/v1/study_profiles?")) return new Response(JSON.stringify(o.birth === undefined ? [] : [{ birth_date: o.birth }]));
     if (u.includes("rpc/studyboard_delete_user_data")) return new Response(JSON.stringify({ items: 3 }));
     if (u.startsWith("https://api.stripe.com/v1/subscriptions?")) return o.stripeDown ? new Response("{}", { status: 500 }) : new Response(JSON.stringify({ data: [{ id: "sub_1", status: "active" }, { id: "sub_2", status: "canceled" }] }));
     if (u.startsWith("https://api.stripe.com/v1/subscriptions/")) return new Response("{}");
@@ -528,6 +529,24 @@ await test("delete-account: needs sign-in, the typed word, a recent sign-in or t
   const bad = delDeps({ signedInAgo: 3600e3, pwOk: false }); assert.equal((await da.handle(delReq({ confirm: "DELETE", password: "x" }), bad.deps)).status, 403);
   assert.ok(!bad.calls.some(c => c[0] === "DELETE"));
   assert.equal((await da.handle(delReq({ confirm: "DELETE", password: "right" }), delDeps({ signedInAgo: 3600e3, pwOk: true }).deps)).status, 200);
+});
+await test("delete-account: under 13 deletes without a password, but never for an account with an adult birthday saved", async () => {
+  const yrs = n => { const t = new Date(NOW); return new Date(Date.UTC(t.getUTCFullYear() - n, t.getUTCMonth(), t.getUTCDate())).toISOString().slice(0, 10); };
+  for (const birth of [undefined, null, yrs(12)]) {
+    const x = delDeps({ signedInAgo: 30 * 864e5, birth });
+    const r = await da.handle(delReq({ confirm: "DELETE", underage: true }), x.deps);
+    assert.equal(r.status, 200, "no password needed with birthday " + birth);
+    assert.ok(x.calls.some(c => c[0] === "DELETE" && c[1].endsWith("/auth/v1/admin/users/" + UID)), "the account is deleted");
+  }
+  for (const birth of [yrs(13), yrs(30)]) {
+    const x = delDeps({ signedInAgo: 30 * 864e5, birth });
+    const r = await da.handle(delReq({ confirm: "DELETE", underage: true }), x.deps);
+    assert.equal(r.status, 403, "an adult's account still needs the password: " + birth); assert.equal((await r.json()).error, "reauth_required");
+    assert.ok(!x.calls.some(c => c[0] === "DELETE"), "nothing deleted");
+  }
+  const word = delDeps({ signedInAgo: 30 * 864e5 });
+  assert.equal((await da.handle(delReq({ underage: true }), word.deps)).status, 400, "still needs the typed word");
+  assert.ok(!word.calls.some(c => c[0] === "DELETE"));
 });
 await test("delete-account: rate limit, Stripe failure stops everything, Apple subscription needs acknowledgement, idempotent", async () => {
   assert.equal((await da.handle(delReq(), delDeps({ limited: true }).deps)).status, 429);

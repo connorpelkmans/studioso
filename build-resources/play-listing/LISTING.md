@@ -10,7 +10,7 @@ Website: https://studyboardapp.com/
 Privacy policy: https://studyboardapp.com/website/privacy
 Delete-account URL (App content > Data safety): https://studyboardapp.com/website/account/   (open it first: it must load the Delete account panel)
 Content rating: answer the questionnaire (Study Groups have user messages, with Report and Block)
-Target audience: 13 and over (Studyboard asks for age on sign-up; check the under-13 flow before choosing a younger group)
+Target audience: 13 and over (every account gives a birthday, and under 13 is refused; don't choose a younger group)
 Ads: No
 App access: all functionality is available without special access, or give the demo account (see REVIEW-NOTES.md)
 Data safety: APP-STORE-CHECKLIST.md section 6b

@@ -78,11 +78,17 @@
     const run = wireCheck($("#unIn"), $("#unMsg")); if ((cur || o.suggest) && !cur) run();
     setTimeout(() => { const i = $("#unIn"); if (i) i.focus(); }, 60);
   }
-  /* Birthday */
+  /* Birthday: accounts are for people 13 and older */
   const AKEY = uid => "studyboard:age:" + uid;
   const ageCached = () => { try { const u = who(); return u ? localStorage.getItem(AKEY(u.id)) || "" : ""; } catch (e) { return ""; } };
   const ageKeep = v => { try { const u = who(); if (u) localStorage.setItem(AKEY(u.id), v); } catch (e) {} };
   const yearsOld = iso => { const b = new Date(iso + "T12:00:00"), n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--; return a; };
+  // Once someone gives a birthday under 13, this device makes no account and takes no birthday again (giving an older
+  // one after being refused doesn't get around it). Kept through sign-out and the wipe after deleting an account.
+  const GATE = "studyboard:agegate";
+  const refused = () => { try { return !!localStorage.getItem(GATE); } catch (e) { return false; } };
+  const refuse = () => { try { localStorage.setItem(GATE, String(Date.now())); } catch (e) {} };
+  const NO_ACCOUNT = "Sorry, you can't make a Studyboard account. You can keep using Studyboard on this device without one.";
   // One date box; bdayOf returns YYYY-MM-DD, or "" when it isn't a real date
   const bdayField = why => {
     const t = new Date(), iso = d => d.toISOString().slice(0, 10);
@@ -95,27 +101,99 @@
     if (dt.getUTCDate() !== Number(m[3]) || dt > new Date() || Number(m[1]) < new Date().getFullYear() - 120) return "";
     return v;
   };
-  function youngSheet(){
-    openSheet(`<div class="sheet">${head("Not Available Yet")}<div class="sheet-body"><p style="margin:0">Publishing and sharing with a link are for students 13 and older. Everything else in Studyboard works as usual, and you can still share with your study groups.</p></div>
+  // my_age: a number of years, null when no birthday is saved, undefined when it couldn't be asked (offline, or a server
+  // without supabase-usernames.sql): then nothing is decided now
+  async function ageNow(){ try { const a = await call("my_age"); return typeof a === "number" ? a : a === null ? null : undefined; } catch (e) { return undefined; } }
+  const isUnder13 = e => /SB_UNDER13/.test(String((e && (e.message || e.details)) || e || ""));
+  const PENDING = "studyboard:agegate:pending";   // accounts refused here whose deletion hasn't finished yet
+  const pending = () => { try { return JSON.parse(localStorage.getItem(PENDING) || "[]"); } catch (e) { return []; } };
+  const setPending = (id, on) => { try { const l = pending().filter(x => x !== id); if (on) l.push(id); if (l.length) localStorage.setItem(PENDING, JSON.stringify(l.slice(-10))); else localStorage.removeItem(PENDING); } catch (e) {} };
+  function refusedSheet(note){
+    openSheet(`<div class="sheet" id="ageNo">${head("No Account")}<div class="sheet-body"><p style="margin:0" role="status">${esc(NO_ACCOUNT)}</p>${note ? `<p class="mini" style="margin:0">${esc(note)}</p>` : ""}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">OK</button></div></div>`);
   }
-  // Publishing needs a birthday on the account and an age of 13 or older
-  async function ensureAge(then){
-    const c = ageCached();
-    if (c === "ok") { then(); return; }
-    if (c === "young") { youngSheet(); return; }
-    let a = null;
-    try { a = await call("my_age"); } catch (e) { then(); return; }
-    if (a != null) { ageKeep(a >= 13 ? "ok" : "young"); if (a >= 13) then(); else youngSheet(); return; }
-    openSheet(`<form class="sheet">${head("When's Your Birthday?")}<div class="sheet-body">${bdayField()}<p class="mini" style="margin:0">It can't be changed later, and nobody else sees it.</p><p class="mini un-msg bad" id="bdMsg" aria-live="polite"></p></div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
+  // Under 13: no account. It is deleted (with what it synced), and this device signs out and remembers
+  let closing = false;
+  async function closeUnderage(){
+    if (closing) return; closing = true;
+    refuse();
+    const u = who(), id = u && u.id;
+    if (id) setPending(id, true);
+    let gone = false;
+    try { gone = !!(window.SBDEL && await SBDEL.underage()); } catch (e) {}
+    if (gone) { setPending(id, false); try { localStorage.removeItem(AKEY(id)); } catch (e) {} }
+    if (dlg.open) dlg.close();
+    setTimeout(() => {
+      refusedSheet(gone ? "" : "Studyboard couldn't finish closing the account just now. It tries again the next time Studyboard opens while you're online.");
+      if (gone) dlg.addEventListener("close", () => location.reload(), {once: true});
+      closing = false;
+    }, 0);
+  }
+  // A signed-in account with no birthday: asked once, and it can't be skipped (Not Now signs out)
+  function askBirthday(then){
+    let answered = false;
+    openSheet(`<form class="sheet" id="ageAsk">${head("When's Your Birthday?")}<div class="sheet-body"><p style="margin:0">We ask everyone once when they use an account. Nobody else sees it, and it can't be changed later.</p>${bdayField()}<p class="mini un-msg bad" id="bdMsg" aria-live="polite"></p></div>
+      <div class="sheet-foot"><button type="button" class="btn" id="bdLater">Sign Out</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
       const iso = bdayOf(fd); if (!iso) { $("#bdMsg").textContent = "Enter your birthday."; return false; }
+      answered = true;
+      if (refused() || yearsOld(iso) < 13) { closeUnderage(); return false; }
       const b = $("#bdSave"); if (b) b.disabled = true;
-      call("set_birthdate", {p_date: iso}).then(age => { const ok2 = Number(age) >= 13; ageKeep(ok2 ? "ok" : "young"); if (dlg.open) dlg.close(); setTimeout(() => ok2 ? then() : youngSheet(), 0); })
-        .catch(e => { if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
+      call("set_birthdate", {p_date: iso}).then(age => { ageKeep("ok"); if (dlg.open) dlg.close(); if (then) setTimeout(() => then(Number(age)), 0); })
+        .catch(e => { if (isUnder13(e)) { closeUnderage(); return; } answered = false; if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
       return false;
     });
+    const form = dlg.querySelector("#ageAsk");
+    const later = $("#bdLater"); if (later) later.addEventListener("click", () => { answered = true; leave(); });
+    // closed any other way without an answer: signed out too
+    // (if another sheet took its place, it is asked again next time instead)
+    dlg.addEventListener("close", function onClose(){ dlg.removeEventListener("close", onClose); if (!answered && form && dlg.contains(form)) leave(); });
   }
+  // Signing out quietly, after unsent changes are given a few seconds to reach the account
+  async function leave(){
+    try { if (typeof flushOutbox === "function") await Promise.race([flushOutbox(), new Promise(r => setTimeout(r, 6000))]); } catch (e) {}
+    try { sbLeave(); } catch (e) {}
+    try { await sb.auth.signOut(); } catch (e) {}
+    try { await wipeDeviceData(); } catch (e) {}
+    location.reload();
+  }
+  // Every signed-in account: a birthday on file and 13 or older, else no account. done(true) once it's known to be fine
+  async function gate(done){
+    const fin = v => { if (done) done(v); };
+    if (ageCached() === "ok") { fin(true); return; }
+    const u = who(), id = u && u.id;
+    if (!id) { fin(false); return; }
+    const a = await ageNow();
+    if (a === undefined) { fin(true); return; }   // can't tell now; asked again next time
+    if (typeof a === "number") { if (a >= 13) { ageKeep("ok"); setPending(id, false); fin(true); } else { fin(false); closeUnderage(); } return; }
+    // No birthday saved yet
+    const newAcct = Date.now() - Date.parse(u.created_at || 0) < 30 * 60 * 1000;
+    if (refused()) {
+      // refused on this device: an account made just now (or one already being closed) is closed; an older one signs out
+      fin(false);
+      if (newAcct || pending().includes(id)) closeUnderage();
+      else { refusedSheet("If this is your account and you're 13 or older, contact Studyboard support."); dlg.addEventListener("close", () => leave(), {once: true}); }
+      return;
+    }
+    const bd = String(((u.user_metadata || {}).birth_date) || "");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(bd)) {   // given on the sign-up form
+      try { await call("set_birthdate", {p_date: bd}); ageKeep("ok"); fin(true); return; }
+      catch (e) { if (isUnder13(e)) { fin(false); closeUnderage(); return; } }
+    }
+    askBirthday(age => fin(age >= 13));
+  }
+  // One check per account at a time: syncing waits on it (nothing is uploaded before the age is known), and so do the
+  // first-sign-in steps and publishing. Resolves true when the account may be used, false when it may not
+  let gateRun = null, gateFor = "";
+  function ageReady(){
+    const u = who();
+    if (!u || u.is_anonymous) return Promise.resolve(!!u);
+    if (ageCached() === "ok") return Promise.resolve(true);
+    if (gateRun && gateFor === u.id) return gateRun;
+    gateFor = u.id;
+    return (gateRun = new Promise(r => gate(r)));
+  }
+  // Publishing needs it too (an account that hasn't been asked yet, say it was offline when it signed in)
+  function ensureAge(then){ ageReady().then(ok => { if (ok) then(); }); }
 
   // Something needs a username (publishing)
   async function ensure(then){
@@ -130,11 +208,9 @@
   let asked = "";
   async function afterSignIn(){
     if (!live() || asked === who().id) return;
-    if (dlg.open || document.querySelector("dialog[open]")) { setTimeout(afterSignIn, 4000); return; }
     asked = who().id;
-    const bd = String(((who().user_metadata || {}).birth_date) || "");
-    if (/^\d{4}-\d{2}-\d{2}$/.test(bd) && !ageCached()) { try { const a = await call("my_age"); if (a == null) { const got = await call("set_birthdate", {p_date: bd}); ageKeep(Number(got) >= 13 ? "ok" : "young"); } else ageKeep(a >= 13 ? "ok" : "young"); } catch (e) {} }
-    if (cached()) return;
+    const fine = await ageReady();   // (usually already asked: syncing starts with it)
+    if (!fine || cached()) return;
     let n = "";
     try { n = await call("my_username"); } catch (e) { return; }
     if (n) { keep(n); return; }
@@ -143,7 +219,7 @@
     if (want && !UNAME.problem(want)) { try { const got = await call("set_username", {p_name: want}); keep(String(got || want)); scheduleRender(); } catch (e) {} }
   }
   let seen = "";
-  hook("render", () => { const u = who() && who().id; if (!u || u === seen) return; seen = u; setTimeout(afterSignIn, 1500); });
+  hook("render", () => { const u = who() && who().id; if (!u || u === seen) return; seen = u; setTimeout(afterSignIn, 0); });
 
   // Settings > Account
   // One Profile row: the display name groups see and the @username on published pages are changed together (80-groups.js nameSheet)
@@ -165,6 +241,6 @@
 `;
   document.head.appendChild(css);
   const save = v => call("set_username", {p_name: v}).then(n => { keep(String(n || v)); return String(n || v); }, e => { throw new Error(rpcErr(e)); });
-  window.SBUNAME = {problem: UNAME.problem, live, save, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, T: {UNAME}};
+  window.SBUNAME = {problem: UNAME.problem, live, save, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, refused, refuse, NO_ACCOUNT, ageReady, T: {UNAME}};
 })();
 

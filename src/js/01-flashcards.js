@@ -369,7 +369,7 @@ function rvStart(){
   if (!el.isConnected) { rvDrag = null; return; }
   const r = el.getBoundingClientRect();
   d.started = true; renderBlocked = true;
-  if (d.touch && navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+  if (d.touch) sbHaptic("lift");
   try { getSelection().removeAllRanges(); } catch (x) {}
   d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
   const g = el.cloneNode(true);
@@ -625,6 +625,7 @@ function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.sett
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
 function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
+  sbHaptic("tap");
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};

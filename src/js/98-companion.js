@@ -1000,12 +1000,17 @@
     };
   }
   // Phones: while a sheet is open or the keyboard is up, the companion stays exactly where it is, whatever circle it is in
-  let fullH = 0, fullW = 0;
+  let fullH = 0, fullW = 0, fullLayoutH = 0;
   function dockFrozen(){
     if (!phone() || !box || !box.dataset.x) return false;
-    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
+    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; fullLayoutH = 0; }
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
+    if (innerHeight > fullLayoutH) fullLayoutH = innerHeight;
+    // the whole page got shorter (the Android app's keyboard resizes the page, and the tab bar rides up above it):
+    // where it stood is now under the keyboard or off the screen, so it moves with the tab bar instead of staying put
+    // (on the Companion tab its circle has its own keyboard animation, so there it stays put)
+    if (innerHeight < fullLayoutH - 100 && spotKind !== "slot") return false;
     // a sheet is open, or one just closed and the keyboard is still sliding away
     // or the keyboard is up (typing on the whiteboard or in a note)
     const vv = window.visualViewport;

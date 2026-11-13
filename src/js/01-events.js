@@ -19,7 +19,7 @@ function toggleTask(id, el, extra){
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, n.status === "done" ? extra : undefined, n.status === "done" ? {done: true} : undefined);
-  if (n.status === "done" && todayCleared()) fire("good-moment", "plan");
+  if (n.status === "done") { const cleared = todayCleared(); sbHaptic(cleared ? "success" : "tap"); if (cleared) fire("good-moment", "plan"); }
 }
 // "Did you take X?" → Move Date: a small picker (tomorrow, the course's next class, or any date) instead of the whole edit sheet
 function moveDateSheet(id){
@@ -53,6 +53,7 @@ function todayCleared(){
     return !tasksArr().some(t => t.status !== "done" && t.due && t.due <= today && !t.deleted && !t.archived);
   } catch (e) { return false; }
 }
+if (window.__SB_TEST) window.__sbHaptic = {device: () => hapticDevice(), cleared: () => todayCleared(), del: id => deleteTask(id), task: id => clone(state.tasks[id] || null), today: () => todayISO(), apply: ch => applyChanges(ch, null)};
 // Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
 // page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
 // 99-smooth.js skips its own page fade while this runs.
@@ -225,6 +226,8 @@ document.addEventListener("click", e => {
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-preview": officePreview(id); break;
+    case "f-view": fileViewer(id); break;
+    case "f-save": { const f = state.files[id]; if (f) downloadFile(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ...(inPreview() ? [] : [["f-sync", "Sync Drive", "Choose the Drive or OneDrive folders Studyboard uses. AI only reads files you've added", "sync"]]), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
@@ -287,7 +290,7 @@ document.addEventListener("pointerdown", e => {
   nbHold = {x0, y0, id: e.pointerId, t: setTimeout(() => {
     if (!nbHold || !board.isConnected) return;
     nbHold = null;
-    if (navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+    sbHaptic("lift");
     nbHoldDone = Date.now();
     const r = board.getBoundingClientRect();
     newNoteAt((x0 - r.left) / nbZ() - NOTE_W() / 2, (y0 - r.top) / nbZ() - 20);
@@ -397,7 +400,7 @@ window.addEventListener("keydown", e => { if (e.key === "Escape" && drag && drag
 
 function startDrag(){
   drag.started = true; renderBlocked = true;
-  if (navigator.vibrate) { try { navigator.vibrate(12); } catch(e){} }
+  sbHaptic("lift");
   if (drag.kind === "rot") {
     const n = state.notes[drag.id];
     if (!n) { drag.started = false; renderBlocked = false; drag = null; return; }
@@ -669,6 +672,8 @@ function placeAt(x, y){
   const col = under && under.closest(".col");
   $$(".col.over").forEach(c => { if (c !== col) c.classList.remove("over"); });
   if (!col) return;
+  if (drag.hCol && drag.hCol !== col) sbHaptic("tick");
+  drag.hCol = col;
   col.classList.add("over");
   const shown = el => el.checkVisibility ? el.checkVisibility() : !!el.getClientRects().length;
   const lists = [...col.querySelectorAll(".col-list")].filter(shown);
@@ -685,6 +690,7 @@ function placeAt(x, y){
 function endDrag(ok){
   cancelAnimationFrame(drag.raf);
   const d = drag; drag = null; renderBlocked = false;
+  if (ok && d.started) sbHaptic(d.kind === "note" && d.target === "trash" ? "warning" : "drop", {force: true});
   suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
   if (d.kind === "rot") {
     d.el.classList.remove("rotating");
