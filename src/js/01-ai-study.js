@@ -305,7 +305,7 @@ const PHOTO_SCHEMA = {type: "OBJECT", properties: {
 const phoneLike = () => { try { return window.matchMedia("(pointer:coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
 // Tapping outside the sheet sets it aside with its photos (and a note being read, or read and not saved) until Save or Cancel
 function photoNoteSheet(file){
-  if (!aiReady()) { aiSetupSheet(true); return; }
+  if (!aiReady()) { aiSetupSheet(true, {feature: "Photo to Note"}); return; }
   const KK = "photo-note";
   if (file) sheetDrop(KK); else if (sheetResume(KK)) return;
   const S = {srcs: [], files: [], urls: [], result: null, busy: false, ac: null, dropped: false, phone: null};
@@ -321,7 +321,7 @@ function photoNoteSheet(file){
       <div id="pnPhoneP"></div>
       <div class="drop pnote-drop" id="pnDrop"><ol class="pnote-thumbs" id="pnSrcs"></ol><p class="pnote-empty" id="pnEmpty">No photos yet${cam ? "" : `<span class="mini">You can also drop photos here.</span>`}</p></div>
       <label class="f">Course<select id="pnCourse">${courseSelectHtml(ui.filter !== "all" ? ui.filter : "")}</select></label>
-      ${aiModelBar()}
+      <details class="pnote-adv"><summary>Advanced</summary>${aiModelBar()}</details>
       <p class="status-msg" id="pnStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close" id="pnCancel">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="pnGo">${AI_ICON} Make Note</button></div></form>`);
@@ -340,6 +340,8 @@ function photoNoteSheet(file){
     // set aside, the phone's session ended (it stops itself once the sheet isn't showing)
     resume: () => { if (S.phone && S.phone.stopped) { S.phone = null; phoneDraw(); } }});
   const status = $("#pnStatus");
+  // a problem shows in the red error style (as in Ask This PDF), so it isn't missed; progress stays plain
+  const fail = m => { status.textContent = m; status.classList.add("is-err"); }, plain = () => status.classList.remove("is-err");
   if (S.course != null) $("#pnCourse").value = S.course;
   $("#pnCourse").addEventListener("change", e => { S.course = e.target.value; });
   const draw = () => {
@@ -347,7 +349,7 @@ function photoNoteSheet(file){
     l.innerHTML = S.srcs.map((s, i) => `<li>${s.kind === "Image" && S.urls[i] ? `<img alt="" src="${esc(S.urls[i])}">` : `<span class="pnote-tile">${s.kind === "PDF" ? "PDF" : "IMG"}</span>`}<span class="mini nm" title="${esc(s.name)}">${esc(s.name)}</span><button type="button" class="x-btn" data-rm="${i}" aria-label="Remove ${esc(s.name)}">${CLOSE}</button></li>`).join("");
     if (em) em.hidden = S.srcs.length > 0;
   };
-  const add = async list => { for (const f of list) { if (S.dropped || S.result) return; try { const src = await aiSourceFromFile(f); S.srcs.push(src); S.files.push(f); S.urls.push(src.kind === "Image" ? URL.createObjectURL(f) : ""); } catch(e) { status.textContent = e.message; } } draw(); };
+  const add = async list => { for (const f of list) { if (S.dropped || S.result) return; try { const src = await aiSourceFromFile(f); S.srcs.push(src); S.files.push(f); S.urls.push(src.kind === "Image" ? URL.createObjectURL(f) : ""); } catch(e) { fail(e.message); } } draw(); };
   if (file) add([file]).then(() => { const g = $("#pnGo"); if (g && S.srcs.length) g.click(); });
   $("#pnPick").addEventListener("click", () => $("#pnFile").click());
   $("#pnFile").addEventListener("change", e => { const l = [...e.target.files]; e.target.value = ""; add(l); });
@@ -367,9 +369,9 @@ function photoNoteSheet(file){
   });
   $("#pnGo").addEventListener("click", async () => {
     const go = $("#pnGo");
-    if (!S.srcs.length) { status.textContent = "Add a photo first."; return; }
-    if (S.srcs.reduce((s, x) => s + aiSourceBytes(x), 0) > AI_LIMIT_BYTES) { status.textContent = "Those photos are too big to send at once. Try fewer."; return; }
-    phoneStop(); go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your photos…`;
+    if (!S.srcs.length) { fail("Add a photo first."); return; }
+    if (S.srcs.reduce((s, x) => s + aiSourceBytes(x), 0) > AI_LIMIT_BYTES) { fail("Those photos are too big to send at once. Try fewer."); return; }
+    phoneStop(); go.disabled = true; go.classList.add("busy"); plain(); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your photos…`;
     S.busy = true; const ac = S.ac = typeof AbortController === "function" ? new AbortController() : null;
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
@@ -382,7 +384,7 @@ function photoNoteSheet(file){
       review(); sheetReady(KK, null, "Your note from the photos is ready to check");
     } catch(e) {
       S.busy = false; if (S.dropped || (e && e.code === "cancelled")) return;
-      status.textContent = e.message || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy");
+      fail(e.message || "Something went wrong. Try again."); go.disabled = false; go.classList.remove("busy");
       if (sheetKept(KK)) toast("Couldn't read those photos. Open Photo to Note again to see why.", null, {label: "Open", fn: () => sheetResume(KK)}, {error: true});
     }
   });

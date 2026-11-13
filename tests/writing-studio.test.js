@@ -118,6 +118,13 @@ ok(R2.issues.some(x => /author and the page, not the year/.test(x.t)), "an MLA s
 const R3 = CITE.check("Trees cool cities [1] and parks too [2], [4].\n\nReferences\n[1] Smith\n[2] Lee", src, {style: "ieee", kind: "numeric", label: "IEEE"});
 ok(R3.cited === 2 && R3.issues.some(x => /Not in your sources: \[4\]/.test(x.t)), "IEEE numbers, and one that doesn't exist");
 ok(CITE.check("x", [], {}).issues.some(x => /No sources/.test(x.t)), "no sources at all says so");
+// Sentence case for APA-like styles: only Title Case titles change; acronyms, inner capitals and the word after a colon keep theirs
+ok(CITE.sentenceCase("How the Mind Hurts and Heals the Body") === "How the mind hurts and heals the body", "a Title Case title becomes sentence case");
+ok(CITE.sentenceCase("The Heat Island: A Review of DNA and iPhone Use") === "The heat island: A review of DNA and iPhone use", "acronyms, inner capitals and the first word after a colon stay");
+ok(CITE.sentenceCase("Cities and climate change") === "Cities and climate change", "a title already in sentence case is left alone");
+// A source with no author or title (a link whose page shared nothing) has no name to match: it can't swallow every citation
+const R4 = CITE.check(draft, src.concat([{id: "web", type: "webpage", "container-title": "nytimes.com", URL: "https://www.nytimes.com/x.html"}]), {style: "apa", kind: "author-date", label: "APA"});
+ok(R4.issues.some(x => /Not in your sources: \(Johnson, 2018\)/.test(x.t)) && R4.issues.some(x => /A source has no title or author/.test(x.t)) && R4.cited === R.cited, "an unnamed source is named as incomplete and the check still works: " + JSON.stringify(R4.issues.map(x => x.t)));
 ok(JSON.stringify(CITE.rules("Use MLA format with a minimum of five peer-reviewed sources")) === JSON.stringify({style: "modern-language-association", min: 5, scholarly: true}), "assignment rules: style and minimum");
 ok(CITE.rules("Chicago style with footnotes").style === "chicago-notes-bibliography" && CITE.rules("Chicago author-date").style === "chicago-author-date", "Chicago notes or author-date");
 

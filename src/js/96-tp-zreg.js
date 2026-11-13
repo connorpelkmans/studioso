@@ -59,16 +59,16 @@
   // The Theme Collections items for one Style Shop tab, as HTML
   function rowsHtml(kind){
     const cfg = styleCfg();
-    const btn = (k, id, cur, label) => !owns(k, id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${k}" data-id="${id}">🔒 Unlock</button>` : cur ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${k}" data-id="${id}">${label || "Use"}</button>`;
+    const btn = (k, id, cur, label) => !owns(k, id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${k}" data-id="${id}">🔒 Unlock</button>` : cur ? `<button type="button" class="btn small shop-inuse" disabled>✓ In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${k}" data-id="${id}">${label || "Use"}</button>`;
     const c = curTheme();
     const eyebrow = th => `<span class="tp-eyebrow">${esc(themeName(th))}${th === c ? `<span class="tp-now">Your Theme</span>` : ""}</span>`;
     if (kind === "card") {
       return `<div class="shop-grid">${ordered().filter(th => byTheme[th].card).map(th => { const it = CARD_STYLES.find(x => x.id === byTheme[th].card);
-        return `<div class="shop-tile tp-tile ${cardStyleOf(null) === it.id ? "on" : ""}" data-theme="${th}">${eyebrow(th)}<div class="cs-demo cs-${it.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div><div class="shop-name"><b>${esc(it.name)}</b>${PRO_BADGE}</div><p class="mini">${esc(it.desc)}</p>${btn("card", it.id, cardStyleOf(null) === it.id, "Use for All Decks")}</div>`; }).join("")}</div>`;
+        return `<div class="shop-tile tp-tile ${cardStyleOf(null) === it.id ? "on" : ""}" data-theme="${th}">${eyebrow(th)}<div class="cs-demo cs-${it.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div><div class="shop-name"><b>${esc(it.name)}</b>${PRO_BADGE}</div><p class="mini">${esc(it.desc)}</p>${btn("card", it.id, cardStyleOf(null) === it.id)}</div>`; }).join("")}</div>`;
     }
     if (kind === "pin") {
       return `<div class="shop-grid">${ordered().flatMap(th => byTheme[th].pins.map((pid, i) => { const it = PINS.find(x => x.id === pid); const on = notePinOf(null) === pid && !(cfg.pinAuto === true && themeKit());
-        return `<div class="shop-tile tp-tile ${on ? "on" : ""}" data-theme="${th}">${eyebrow(th)}${noteDemo(noteShapeOf(null), pid, i + 1)}<div class="shop-name"><b>${esc(it.name)}</b>${PRO_BADGE}</div><p class="mini">${esc(it.desc)}</p>${btn("pin", pid, on, "Use for Notes")}</div>`; })).join("")}</div>`;
+        return `<div class="shop-tile tp-tile ${on ? "on" : ""}" data-theme="${th}">${eyebrow(th)}${noteDemo(noteShapeOf(null), pid, i + 1)}<div class="shop-name"><b>${esc(it.name)}</b>${PRO_BADGE}</div><p class="mini">${esc(it.desc)}</p>${btn("pin", pid, on)}</div>`; })).join("")}</div>`;
     }
     return ordered().filter(th => byTheme[th].pack).map(th => { const p = STICKER_PACKS.find(x => x.id === byTheme[th].pack);
       return `<div class="shop-pack tp-pack" data-theme="${th}">${eyebrow(th)}<div class="shop-name"><b>${esc(p.name)}</b><span class="mini">${Object.keys(p.items).length} stickers</span>${owns("sticker", p.id) ? "" : `<button type="button" class="btn small" data-act="shop-unlock" data-kind="sticker" data-id="${p.id}">🔒 Unlock</button>`}</div>${window.SBUI && SBUI.stkGrid ? SBUI.stkGrid(Object.keys(p.items)) : `<div class="pack-grid">${Object.keys(p.items).map(stkCell).join("")}</div>`}</div>`; }).join("");

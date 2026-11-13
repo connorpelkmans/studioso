@@ -66,19 +66,27 @@
     return loaded;
   }
   const swap = k => { const b = BMP.get(k); if (b) document.querySelectorAll(`img[data-stk="${esc1(k)}"]`).forEach(i => { if (i.getAttribute("src") !== b.url) i.src = b.url; i.classList.remove("ui-wait"); }); };
-  async function raster(k){
-    const px = needPx();
-    const img = new Image();
+  // Made in three steps so a few stickers can be made together: decoding the picture and turning the drawing into a PNG
+  // both happen off to the side; only drawing it onto the canvas is the page's own work
+  async function decode(k){
+    const px = needPx(), img = new Image();
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(stkSvg(k, "o", px));
     await img.decode();
-    const c = document.createElement("canvas"); c.width = c.height = px;
-    c.getContext("2d").drawImage(img, 0, 0, px, px);
+    return {k, px, img};
+  }
+  function draw(d){
+    const c = document.createElement("canvas"); c.width = c.height = d.px;
+    c.getContext("2d").drawImage(d.img, 0, 0, d.px, d.px);
+    return finish(d.k, c, d.px);
+  }
+  async function finish(k, c, px){
     const blob = await new Promise(r => c.toBlob(r, "image/png"));
     if (!blob) return;
     const old = BMP.get(k); if (old && old.url && old.blob) setTimeout(() => { try { URL.revokeObjectURL(old.url); } catch (e) {} }, 4000);
     BMP.set(k, {px, h: hashOf(k), blob, url: URL.createObjectURL(blob)});
     dirty = true; swap(k);
   }
+  const fail = k => { BMP.set(k, {px: Infinity, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(stkSvg(k, "o"))}); swap(k); };
   function persist(){
     clearTimeout(saveT);
     saveT = setTimeout(() => { if (!dirty) return; dirty = false; const o = {}; BMP.forEach((v, k) => { o[k] = {px: v.px, h: v.h, blob: v.blob}; }); cacheSet(IDB_KEY, o).catch(() => {}); }, queue.length ? 8000 : 1500);
@@ -93,16 +101,32 @@
   let lastScroll = 0;
   document.addEventListener("scroll", () => { lastScroll = performance.now(); }, {capture: true, passive: true});
   const calm = async () => { while (performance.now() - lastScroll < 350) await new Promise(r => setTimeout(r, 200)); };
+  // Puts the stickers waiting in cells on screen at the front of the queue, and says how many there are
+  function onScreenFirst(){
+    const waiting = document.querySelectorAll("img.ui-wait[data-stk]"); if (!waiting.length) return 0;
+    const h = innerHeight, w = innerWidth, vis = new Set();
+    waiting.forEach(i => { const r = i.getBoundingClientRect(); if (r.width && r.bottom > 0 && r.top < h && r.right > 0 && r.left < w) vis.add(i.dataset.stk); });
+    if (vis.size) queue = queue.filter(k => vis.has(k)).concat(queue.filter(k => !vis.has(k)));
+    return vis.size;
+  }
   async function pump(){
     if (pumping) return; pumping = true;
     try {
       await load();
       while (queue.length) {
         await calm();
-        const t0 = performance.now();
-        while (queue.length && performance.now() - t0 < 12) { const k = queue.shift(); if (!sharp(BMP.get(k))) { try { await raster(k); } catch (e) { BMP.set(k, {px: Infinity, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(stkSvg(k, "o"))}); swap(k); } } }
+        // Stickers on screen go first (cells further down are queued as they're filled in, ahead of them) and are made a
+        // few together: one at a time, with an idle moment between, left the cells on screen empty for seconds. The quiet
+        // warm-up of the rest stays one at a time, in idle moments only, so it never competes with the page
+        const urgent = onScreenFirst() > 0;
+        const batch = [];
+        while (queue.length && batch.length < (urgent ? 6 : 1)) { const k = queue.shift(); if (!sharp(BMP.get(k)) && !batch.includes(k)) batch.push(k); }
+        const ds = await Promise.all(batch.map(k => decode(k).catch(() => { fail(k); return null; })));
+        const t0 = performance.now(), jobs = [];
+        ds.forEach(d => { if (!d) return; if (performance.now() - t0 > 12) { queue.unshift(d.k); return; } try { jobs.push(draw(d).catch(() => fail(d.k))); } catch (e) { fail(d.k); } });
+        await Promise.all(jobs);
         persist();
-        await new Promise(r => (window.requestIdleCallback ? requestIdleCallback(r) : setTimeout(r, 50)));
+        await new Promise(r => (window.requestIdleCallback ? requestIdleCallback(r, urgent ? {timeout: 120} : undefined) : setTimeout(r, 50)));
       }
     } finally { pumping = false; if (!queue.length && readyRes) readyRes(true); }
   }
@@ -226,18 +250,28 @@
     body.appendChild(sec);
   }
 
+  // Where each tab's list was scrolled to, and when the student last looked at it. Using an item keeps the list where it
+  // is; coming back to a tab (or reopening the shop) within a couple of minutes does too, but after that, or on a new
+  // visit, the list starts from the top again (the browser's scroll anchoring is off while the sheet is put together, so
+  // the place isn't nudged by what's added around it)
+  const POS = {}, POS_MS = 120000;
+  const notePos = b => { if (b && b.dataset.uiTab && dlg.open && b.isConnected) POS[b.dataset.uiTab] = {y: b.scrollTop, at: Date.now()}; };
+  // a closed sheet reads as scrolled to the top, so closing only marks when the list was last seen
+  let lastTab = "";
+  dlg.addEventListener("close", () => { const p = POS[lastTab]; if (p) p.at = Date.now(); });
   const origShop = styleShop;
   styleShop = function(tab){
     const t = tab || ui.shopTab || "themes";
     const was = dlg.open ? dlg.querySelector(".sheet.shop .sheet-body") : null;
-    const keep = was && was.dataset.uiTab === t ? was.scrollTop : 0;
+    notePos(was);
+    const p = POS[t], keep = was && was.dataset.uiTab === t ? was.scrollTop : p && Date.now() - p.at < POS_MS ? p.y : 0;
     let r;
     if (t === "collections" || t === "stickers") { r = origShop.call(this, "notes"); ui.shopTab = t; }
     else r = origShop.apply(this, arguments);
     S.tab = ui.shopTab; save();
     try { enhance(ui.shopTab); } catch (e) { console.warn("shop layout", e); }
     const body = dlg.querySelector(".sheet.shop .sheet-body");
-    if (body) { body.dataset.uiTab = ui.shopTab; if (keep) body.scrollTop = keep; }
+    if (body) { body.dataset.uiTab = lastTab = ui.shopTab; if (keep) { body.style.overflowAnchor = "none"; releaseTo(body, keep); body.scrollTop = keep; requestAnimationFrame(() => { body.style.overflowAnchor = ""; }); } body.addEventListener("scroll", () => notePos(body), {passive: true}); }
     return r;
   };
 
@@ -269,6 +303,7 @@
     lazyGrids(body);
     bump(body);
     const has = new Set([...body.querySelectorAll("[data-f]")].map(x => x.dataset.f));
+    body.querySelectorAll('.ui-sec[data-f="mixed"] .shop-tile').forEach(t => { const k = tierOf(t); if (k) has.add(k); });
     const chips = (CHIPS[tab] || [["all", "All"]]).filter(([k]) => k === "all" || has.has(k)).concat(STORE.paywall ? [["owned", "Owned"]] : []);
     if (chips.length > 2 || STORE.paywall) bar.insertAdjacentHTML("beforeend", `<div class="ui-chips" role="group" aria-label="Show">${chips.map(([k, l]) => `<button type="button" class="ui-chip" data-ui-f="${k}" aria-pressed="false">${esc(l)}</button>`).join("")}</div>`);
     bar.insertAdjacentHTML("beforeend", `<div class="ui-shop-q" role="search"><input type="search" id="shopQ" data-noenter placeholder="Search the Style Shop" aria-label="Search the Style Shop" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="40" value="${esc(shopQ)}"></div>`);
@@ -349,6 +384,19 @@
     el.classList.remove(HELD); el.style.minHeight = "";
     lazyGrids(el); bump(el);
   }
+  // Before going back to a place in the list, everything above it is drawn for real, so the place lands where it was
+  // (held sections only have an estimated height)
+  function releaseTo(body, y){
+    const end = y + body.clientHeight + 200;
+    for (let i = 0; i < 200; i++) {
+      const top = body.getBoundingClientRect().top - body.scrollTop;
+      const sec = [...body.querySelectorAll(".ui-sec." + HELD)].find(x => x.getBoundingClientRect().top - top < end);
+      if (sec) { releaseSec(sec); continue; }
+      const sp = body.querySelector(".ui-cols-more");
+      if (sp && body.querySelector(".ui-col." + HELD) && sp.getBoundingClientRect().top - top < end) { moreCols(body); continue; }
+      break;
+    }
+  }
   function releaseAll(body){ body.querySelectorAll("." + HELD).forEach(el => { el.classList.remove(HELD); el.style.minHeight = ""; }); const sp = body.querySelector(".ui-cols-more"); if (sp) sp.remove(); }
   let holdIO = null;
   function holdRest(body){
@@ -399,11 +447,15 @@
     sizeMore(body);
   }
   window.SBUI = Object.assign(window.SBUI, {shopSettled: () => new Promise(r => { const t = () => { const b = dlg.querySelector(".sheet.ui-shop .sheet-body"); if (b && (b.querySelector("." + HELD) || b.querySelector("[data-stks]:not([hidden])"))) { b.querySelectorAll(".ui-sec." + HELD).forEach(releaseSec); moreCols(b); b.querySelectorAll(".pack-grid[data-stks], .ui-col-stk[data-stks]").forEach(fillGrid); setTimeout(t, 30); } else r(true); }; t(); })});
+  const tierOf = t => t.querySelector(".shop-name .pro-badge") ? "pro" : t.querySelector(".shop-name .free-badge") ? "free" : "";
   function apply0(body, tab){
     const f = S.f[tab] || "all", pick = f !== "all" && f !== "owned";
     body.querySelectorAll(".ui-chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.uiF === f));
+    // "All Pins" holds free and Pro pins together: Free and Pro pick the tiles in it
+    const tierPick = f === "free" || f === "pro";
+    body.querySelectorAll('.ui-sec[data-f="mixed"] .shop-tile').forEach(t => t.classList.toggle("ui-tier-out", tierPick && tierOf(t) !== f));
     body.querySelectorAll(".ui-sec").forEach(sec => {
-      sec.hidden = pick && sec.dataset.f !== f;
+      sec.hidden = pick && sec.dataset.f !== f && !(tierPick && sec.dataset.f === "mixed");
       const saved = S.c[sec.dataset.key];
       setOpen(sec, pick ? true : f === "owned" ? true : saved != null ? !!saved : sec.dataset.f !== "collections");
     });
@@ -419,7 +471,7 @@
   }
 
   /* Collections: each theme's stickers, pins and flashcard style together */
-  const useBtn = (kind, id, cur, label) => !owns(kind, id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${kind}" data-id="${id}">🔒 Unlock</button>${kind === "skin" ? cpBtn(id) : ""}` : cur ? `<button type="button" class="btn small" disabled data-kind="${kind}" data-id="${id}" data-l="${label || "Use"}">In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${kind}" data-id="${id}">${label || "Use"}</button>`;
+  const useBtn = (kind, id, cur, label) => !owns(kind, id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${kind}" data-id="${id}">🔒 Unlock</button>${kind === "skin" ? cpBtn(id) : ""}` : cur ? `<button type="button" class="btn small shop-inuse" disabled data-kind="${kind}" data-id="${id}" data-l="${label || "Use"}">✓ In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${kind}" data-id="${id}">${label || "Use"}</button>`;
   function collectionsHtml(){
     const T = window.SBTP;
     if (!T || !T.ordered) return `<p class="ui-none">Theme Collections aren't available in this version.</p>`;
@@ -435,7 +487,7 @@
         <div class="shop-name"><b>${esc(s.name)}</b>${s.tier === "pro" ? PRO_BADGE : FREE_BADGE}${cur ? `<span class="tp-now">Your Theme</span>` : ""}</div>
         ${keys.length ? `<div class="ui-col-stk" aria-hidden="true" data-stks="${esc(keys.slice(0, 5).join(" "))}"></div>` : ""}
         <p class="mini">${esc(what ? `Comes with ${what}.` : "")}</p>
-        <div class="ui-col-act">${useBtn("skin", th, cur, "Apply Theme")}<button type="button" class="btn small ui-col-more" aria-expanded="false">See All</button></div>
+        <div class="ui-col-act">${useBtn("skin", th, cur)}<button type="button" class="btn small ui-col-more" aria-expanded="false">See All</button></div>
         <div class="ui-col-all" hidden></div></div>`;
     }).join("");
     return `<p class="mini" style="margin:0">Every scene theme comes with its own stickers, pins and flashcard style. Apply a theme, or use its pieces with any theme.</p>${cpNote()}<div class="ui-cols">${cards}</div>`;
@@ -455,14 +507,13 @@
     box.innerHTML = `${p ? `<div class="ui-col-part"><div class="shop-name"><b>${esc(p.name)}</b><span class="mini">${Object.keys(p.items).length} stickers</span>${owns("sticker", p.id) ? `<span class="mini">In your envelope</span>` : `<button type="button" class="btn small" data-act="shop-unlock" data-kind="sticker" data-id="${p.id}">🔒 Unlock</button>`}</div><div class="pack-grid">${Object.keys(p.items).map(stkCell).join("")}</div></div>` : ""}
       <div class="ui-col-row">
         ${r.pins.map((pid, i) => { const it = PINS.find(x => x.id === pid) || {name: pid}; const on = notePinOf(null) === pid && !(cfg.pinAuto === true && themeKit());
-          return `<div class="ui-col-piece">${noteDemo(noteShapeOf(null), pid, i + 1)}<div class="shop-name"><b>${esc(it.name)}</b></div>${useBtn("pin", pid, on, "Use for Notes")}</div>`; }).join("")}
-        ${cs ? `<div class="ui-col-piece"><div class="cs-demo cs-${cs.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div><div class="shop-name"><b>${esc(cs.name)}</b></div>${useBtn("card", cs.id, cardStyleOf(null) === cs.id, "Use for All Decks")}</div>` : ""}
+          return `<div class="ui-col-piece">${noteDemo(noteShapeOf(null), pid, i + 1)}<div class="shop-name"><b>${esc(it.name)}</b></div>${useBtn("pin", pid, on)}</div>`; }).join("")}
+        ${cs ? `<div class="ui-col-piece"><div class="cs-demo cs-${cs.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div><div class="shop-name"><b>${esc(cs.name)}</b></div>${useBtn("card", cs.id, cardStyleOf(null) === cs.id)}</div>` : ""}
       </div>`;
     tagSlots(box, "collections"); lazyGrids(box); bump(box);
   }
 
   const TAB_KIND = {themes: "skin", cards: "card", notes: "note", pins: "pin"};
-  const LABEL = {skin: "Use", card: "Use for All Decks", note: "Use for Notes", pin: "Use for Notes"};
   function curOf(kind){
     const cfg = styleCfg();
     if (kind === "skin") return cfg.skin;
@@ -477,7 +528,7 @@
       if (b.dataset.act === "shop-use" || b.dataset.act === "shop-unlock") { t.dataset.k = b.dataset.kind; t.dataset.i = b.dataset.id; t.dataset.l = b.dataset.act === "shop-use" ? b.textContent : ""; }
       else if (b.disabled && b.dataset.kind) { t.dataset.k = b.dataset.kind; t.dataset.i = b.dataset.id; t.dataset.l = b.dataset.l || ""; }
       else if (b.disabled) { const k = t.classList.contains("ui-col") ? "skin" : t.dataset.k || TAB_KIND[tab]; if (k) { t.dataset.k = k; t.dataset.i = curOf(k); } }
-      if (t.classList.contains("ui-col") && !t.dataset.l) t.dataset.l = "Apply Theme";
+      if (t.classList.contains("ui-col") && !t.dataset.l) t.dataset.l = "Use";
     });
   }
   function refreshSlots(body, kind){
@@ -487,8 +538,8 @@
       const on = t.dataset.i === cur;
       if (t.classList.contains("shop-tile")) t.classList.toggle("on", on);
       const nb = document.createElement("button"); nb.type = "button";
-      if (on) { nb.className = "btn small"; nb.disabled = true; nb.textContent = "In Use"; }
-      else { nb.className = "btn small primary"; nb.dataset.act = "shop-use"; nb.dataset.kind = kind; nb.dataset.id = t.dataset.i; nb.textContent = t.dataset.l || LABEL[kind]; }
+      if (on) { nb.className = "btn small shop-inuse"; nb.disabled = true; nb.textContent = "✓ In Use"; }
+      else { nb.className = "btn small primary"; nb.dataset.act = "shop-use"; nb.dataset.kind = kind; nb.dataset.id = t.dataset.i; nb.textContent = t.dataset.l || "Use"; }
       b.replaceWith(nb);
     });
     if (kind === "skin") body.querySelectorAll(".ui-col").forEach(c => { const pill = c.querySelector(".tp-now"); if (c.dataset.theme === cur && !pill) c.querySelector(".shop-name").insertAdjacentHTML("beforeend", `<span class="tp-now">Your Theme</span>`); else if (c.dataset.theme !== cur && pill) pill.remove(); });

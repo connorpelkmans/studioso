@@ -744,7 +744,7 @@ function drawPlan(){
     <p class="status-msg" id="ppStatus" style="margin:0" aria-live="polite"></p>`;
   const n = out && !out.err ? out.sessions.length : 0;
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${have.length && !S.replan ? `<button type="button" class="btn" data-pp="view">Back to Plan</button>` : ""}<button type="button" class="btn primary" id="ppCreate" data-pp="create" ${n ? "" : "disabled"}>${have.length ? `Re-plan ${n} Session${n === 1 ? "" : "s"}` : `Create Plan (${n} Session${n === 1 ? "" : "s"})`}</button>`;
-  const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan My Prep" : "Plan My Prep";
+  const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan Exam Prep" : "Exam Prep";
 }
 /* What the last reflection changed, one line each, each with its own Undo */
 const LATE = {night: "last time you started the night before", short: "last time you started 1 or 2 days before", cram: "last time it came down to one long session the night before"};
@@ -776,7 +776,7 @@ function drawView(){
       <div class="pp-bar" role="img" aria-label="${esc(t.name)}: ${b.cov}% of its sessions done"><i style="width:${b.cov}%"></i></div>
       <div class="mini pp-links">${ls.length ? ls.map(l => esc(linkIcon(l.k) + ": " + l.title)).join(" · ") : "No linked material. "}${ls.length ? "" : `<button type="button" class="link-btn" data-pp="gen">Make Flashcards from Your Notes</button>`}${window.SBTEACH ? SBTEACH.btn(ex, t) : ""}</div></li>`; }).join("");
   const agenda = Object.keys(byDate).sort().map(d => `<li class="pp-day${d === today ? " is-today" : ""}${d < today ? " is-past" : ""}" ${d === today ? 'aria-current="date"' : ""}><div class="ep-day-head"><b>${esc(fmtDate(d))}</b>${d === today ? `<span class="pp-badge">Today</span>` : ""}<span class="mini">${fmtHM(byDate[d].reduce((a, x) => a + minOf(x), 0) / 60)}</span></div>
-      <ul>${byDate[d].map(s => `<li class="pp-sess${s.status === "done" ? " is-done" : ""}${s.status !== "done" && d < today ? " is-missed" : ""}">
+      <ul>${byDate[d].map(s => `<li class="pp-sess${s.status === "done" ? " is-done" : ""}${s.status !== "done" && d < today ? " is-missed" : ""}" style="--c:${esc(colorOf(ex.courseId))}">
         <div class="pp-sess-top"><button type="button" class="check pp-check" data-act="prep-done" data-id="${esc(s.id)}" aria-label="${s.status === "done" ? "Mark not done" : "Mark done"}: ${esc(s.title)}">${CHECK}</button>
           <span class="pp-sess-t"><b>${esc(s.kind === "past" || s.kind === "light" ? EXAMPREP.KIND_LABEL[s.kind] : (s.topic || "Topic") + ": " + (KLOW[s.kind] || s.kind))}</b><span class="mini">${minOf(s)} min${s.slot ? " · " + esc(fmtTime(s.slot)) : ""}${s.status !== "done" && d < today ? " · missed" : ""}</span></span>${matBtn(s)}<button type="button" class="btn small" data-act="edit-task" data-edit="1" data-id="${esc(s.id)}">Edit</button></div>
         <p class="pp-sess-x">${esc(s.notes || "")}</p></li>`).join("")}</ul></li>`).join("");
@@ -795,7 +795,7 @@ function drawView(){
 }
 function draw(){ if (!S) return; if (S.step === "view") drawView(); else drawPlan(); }
 function sheet(){
-  openSheet(`<form class="sheet ai-sheet ep pp"><div class="sheet-head"><h2 id="ppTitle">Plan My Prep</h2><button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div><div class="sheet-body" id="ppBody"></div><div class="sheet-foot" id="ppFoot"></div></form>`);
+  openSheet(`<form class="sheet ai-sheet ep pp"><div class="sheet-head"><h2 id="ppTitle">Exam Prep</h2><button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div><div class="sheet-body" id="ppBody"></div><div class="sheet-foot" id="ppFoot"></div></form>`);
   const form = dlg.querySelector("form");
   form.addEventListener("click", onClick); form.addEventListener("change", onChange);
   form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "ppAdd" && !e.shiftKey) { e.preventDefault(); onClick({target: {closest: () => ({dataset: {pp: "add"}})}}); } });
@@ -805,7 +805,7 @@ function sheet(){
   const arm = () => dlg.addEventListener("close", () => { S = null; }, {once: true});
   arm();
   let held = null;
-  sheetKeep("prep:" + S.exId, {name: "Plan My Prep", dirty: () => { held = S; return !!S && S.step === "plan" && !!S.touched; }, busy: () => { held = held || S; return !!(S && S.busy); },
+  sheetKeep("prep:" + S.exId, {name: "Exam Prep", dirty: () => { held = S; return !!S && S.step === "plan" && !!S.touched; }, busy: () => { held = held || S; return !!(S && S.busy); },
     drop: () => { const h = held || S; if (h) h.dropped = true; }, resume: () => { if (held) S = held; arm(); draw(); }});
 }
 function onChange(e){
@@ -967,7 +967,7 @@ function todayHtml(){
 function formHtml(t){
   if (!t || !MILESTONE(t.type)) return t && window.SBTEACH ? SBTEACH.taskHtml(t) : "";
   const sm = summaryOf(t), today = todayISO(), over = t.due && t.due < today;
-  if (!sm) return t.status === "done" || over ? "" : `<div class="pp-form"><div><b>Exam prep</b><span class="mini"> Spread review sessions across the days before, with your decks and notes.</span></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>`;
+  if (!sm) return t.status === "done" || over ? "" : `<div class="pp-form"><div><b>Exam Prep</b><span class="mini"> Spread review sessions across the days before, with your decks and notes.</span></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>`;
   return `<div class="pp-form"><div><b>Prep plan</b><span class="mini"> ${esc(sm.line)}${sm.missed ? ` · ${sm.missed} slipped` : ""}${sm.moved ? " · date changed" : ""}</span><div class="pp-bar" role="img" aria-label="${sm.pct == null ? sm.done + " of " + sm.total + " sessions done" : "Readiness " + sm.pct + " percent"}"><i style="width:${sm.pct == null ? Math.round(sm.done / sm.total * 100) : sm.pct}%"></i></div></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Open Prep Plan</button></div>`;
 }
 function rowBtn(t){

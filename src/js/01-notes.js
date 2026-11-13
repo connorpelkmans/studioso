@@ -181,9 +181,11 @@ function fileRow(f){
   const meta = [];
   if (ui.fCourse === "all") meta.push(`<span class="tag" style="--c:${esc(colorOf(f.courseId))};color:color-mix(in srgb,var(--c) 70%,var(--ink))">${esc(c ? courseLabel(c) : "General")}</span>`);
   if (f.kind === "cloud") { meta.push(`<span class="f-cloud">${CLOUD_SVG}${esc(CLOUD_NAMES[f.cloud.p])}</span>`); if (f.cloud.size) meta.push(`<span>${fmtSize(f.cloud.size)}</span>`); }
-  else if (f.kind === "file") { meta.push(`<span>Rev ${revLetter(f.revs.length - 1)}</span>`); if (r) meta.push(`<span>${fmtSize(r.size)}</span>`); }
+  // the version number only once there's more than one ("Version 2 · updated Nov 3"); a single version says nothing
+  else if (f.kind === "file") { if (f.revs.length > 1) meta.push(`<span>Version ${f.revs.length}</span>`); if (r) meta.push(`<span>${fmtSize(r.size)}</span>`); }
   else { try { meta.push(`<span>${esc(new URL(safeUrl(f.url)).hostname.replace(/^www\./, ""))}</span>`); } catch(e) {} }
-  meta.push(`<span>${esc(new Date(f.updated || f.created || Date.now()).toLocaleDateString(undefined, {month:"short", day:"numeric"}))}</span>`);
+  const more = f.kind === "file" && f.revs.length > 1;
+  meta.push(`<span>${more ? "updated " : ""}${esc(new Date((more && r && r.at) || f.updated || f.created || Date.now()).toLocaleDateString(undefined, {month:"short", day:"numeric"}))}</span>`);
   const read = f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f), pv = !read && canPreview(f);
   return `<li class="frow" draggable="true" data-fid="${esc(f.id)}">
     ${fileIcon(f)}
@@ -217,7 +219,8 @@ function viewFiles(){
   let lec = null;
   if (ui.fFolder === "notes" && ui.fCourse !== "all" && window.SBCLS && SBCLS.lecFolders) { try { lec = SBCLS.lecFolders(ui.fCourse, fs, fileRow); } catch (e) { console.warn("lecture folders", e); } }
   const sep = `<span class="fc-sep" aria-hidden="true">›</span>`;
-  const crumbs = ui.fCourse === "all" ? "All Files" : `${esc(c ? c.name : "General")}${folder ? `${sep}${lec && lec.crumb ? `<button type="button" class="fc-up" data-act="f-cls" data-key="">${esc(folder.name)}</button>${sep}${esc(lec.crumb)}` : esc(folder.name)}` : ""}`;
+  // inside a folder the course name sits small above the folder's name, so the title stays short
+  const crumbs = ui.fCourse === "all" ? "All Files" : `${folder ? `<span class="fc-course">${esc(c ? c.name : "General")}</span>` : esc(c ? c.name : "General")}${folder ? `${lec && lec.crumb ? `<button type="button" class="fc-up" data-act="f-cls" data-key="">${esc(folder.name)}</button>${sep}${esc(lec.crumb)}` : esc(folder.name)}` : ""}`;
   let list;
   if (lec) list = lec.html;
   else if (!fs.length) {
@@ -269,8 +272,8 @@ function fileSheet(f){
       </div>
       <label class="f">Description<textarea name="desc" maxlength="2000" placeholder="What this is, where it came from…">${esc(f.desc)}</textarea></label>
       <fieldset><legend>Attached to Tasks</legend><div class="dep-list" id="fsTasks"></div><select id="fsTaskAdd" aria-label="Attach to a task"></select></fieldset>
-      ${isLink ? "" : `<fieldset><legend>Revisions</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Rev ${revLetter(i)}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
-        ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Revision</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}${window.SBCLOUD ? SBCLOUD.moveHtml(f) : ""}</fieldset>`}
+      ${isLink ? "" : `<fieldset><legend>${f.revs.length > 1 ? "Versions" : "Version"}</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Version ${i + 1}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
+        ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Version</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}${window.SBCLOUD ? SBCLOUD.moveHtml(f) : ""}</fieldset>`}
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save</button></div>
   </form>`, fd => {
@@ -313,7 +316,7 @@ function fileSheet(f){
         const cur = state.files[f.id]; if (!cur) return;
         const n = clone(cur); n.revs = n.revs.concat(Object.assign({assetId: r.id, size: r.sizeBytes, type: r.contentType, at: Date.now(), name: file.name}, r.localRel ? {localRel: r.localRel} : {})); n.updated = Date.now();
         dlg.close();
-        applyChanges([{kind:"file", id: f.id, after: n}], `${n.name}: Rev ${revLetter(n.revs.length - 1)} uploaded`);
+        applyChanges([{kind:"file", id: f.id, after: n}], `${n.name}: version ${n.revs.length} uploaded`);
       } catch(err) {
         const code = err && err.code, why = code === "too_large" ? "big" : code === "quota_or_state" ? "full" : code === "unsupported_type" ? "type" : "";
         if (why) { if (dlg.open) dlg.close(); storageLimit([file], lopts, why); } else toast("Couldn't upload the new revision");
@@ -430,8 +433,10 @@ function officeDraw(){
   const box = $("#ofvBody"); if (!box || !OFV || !OFV.res) return;
   const res = OFV.res, room = Math.max(200, box.clientWidth - 28);
   box.innerHTML = (res.warnings || []).map(w => `<p class="mini ofv-warn">${esc(w)}</p>`).join("") + res.pages.map((pg, i) => {
-    const k = Math.min(res.kind === "pptx" ? 1.5 : 1, room / pg.w), sheet = res.kind === "xlsx" || res.kind === "csv", s = sheet ? Math.max(0.6, k) : k;
-    return `<figure class="ofv-page${sheet ? " ofv-grid" : ""}" aria-label="${esc(pg.label || "Page " + (i + 1))}"><div class="ofv-frame" style="width:${Math.round(pg.w * s)}px;height:${Math.round(pg.h * s)}px"><div class="ofv-in" style="width:${pg.w}px;height:${pg.h}px;transform:scale(${s.toFixed(4)})">${pg.html}</div></div><figcaption class="mini">${esc(pg.label || "Page " + (i + 1))}</figcaption></figure>`;
+    // a spreadsheet keeps its real size (readable on a phone) and scrolls sideways, with its sheet name above it like a tab
+    const k = Math.min(res.kind === "pptx" ? 1.5 : 1, room / pg.w), sheet = res.kind === "xlsx" || res.kind === "csv", s = sheet ? 1 : k;
+    const cap = sheet ? String(pg.label || "Sheet " + (i + 1)).replace(/^Sheet: /, "") : pg.label || "Page " + (i + 1);
+    return `<figure class="ofv-page${sheet ? " ofv-grid" : ""}" aria-label="${esc(pg.label || "Page " + (i + 1))}"><div class="ofv-frame" style="width:${Math.round(pg.w * s)}px;height:${Math.round(pg.h * s)}px"><div class="ofv-in" style="width:${pg.w}px;height:${pg.h}px;transform:scale(${s.toFixed(4)})">${pg.html}</div></div><figcaption class="mini${sheet ? " ofv-tab" : ""}">${esc(cap)}</figcaption></figure>`;
   }).join("") || `<p class="pdr-wait">This file is empty.</p>`;
 }
 dlg.addEventListener("close", () => { if (!dlg.open) officeClose(); });
@@ -542,6 +547,8 @@ const TRASH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" strok
 const ARCHIVE = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M9 13h6"/></svg>';
 function normNote(n){
   n = Object.assign({text:"", color:"yellow", x:40, y:40, z:1, rot:0, courseId:"", archived:false, shape:"", pin:"", stickers:[]}, n);
+  // a note from an old backup, an import or a synced copy can come without its text (null, or a number): it's an empty note, not one that stops the Notes tab
+  if (typeof n.text !== "string") n.text = n.text == null ? "" : String(n.text);
   if (n.shape === "taped") { n.shape = ""; n.pin = n.pin || "tape"; }
   if (!Array.isArray(n.stickers)) n.stickers = [];
   // OneNote: the page a note came from (on), or the page it was saved to (onSaved)
@@ -648,16 +655,19 @@ function noteHtml(n){
 // Notes never show a scrollbar
 const NOTE_OPEN = new Set();
 function noteFitText(t){ if (!t) return; const h = t.offsetHeight; t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; if (t.offsetHeight !== h) fitNoteBoard(); }
+// In passes over all the notes (set which are open, then measure every one, then add or drop the buttons), so the board is
+// measured once rather than once per note, which froze the Notes tab for seconds with a few hundred notes
 function noteClipCheck(){
-  $$(".note[data-note]:not(.editing)").forEach(el => {
-    const b = el.querySelector(".note-body"); if (!b) return;
-    const id = el.dataset.note, open = NOTE_OPEN.has(id);
-    el.classList.toggle("nb-open", open);
-    const long = open || b.scrollHeight > b.clientHeight + 2;
+  const all = $$(".note[data-note]:not(.editing)").map(el => ({el, b: el.querySelector(".note-body"), open: NOTE_OPEN.has(el.dataset.note)})).filter(x => x.b);
+  all.forEach(x => x.el.classList.toggle("nb-open", x.open));
+  all.forEach(x => { x.long = x.open || x.b.scrollHeight > x.b.clientHeight + 2; });
+  all.forEach(({el, b, open, long}) => {
     el.classList.toggle("nb-clip", long);
     let m = el.querySelector(".note-more");
     if (long && !m) { m = document.createElement("button"); m.type = "button"; m.className = "note-more"; b.after(m); }
     if (!long && m) m.remove();
+    // (a button that already says the right thing is left as it is)
+    if (m && m.firstChild && m.firstChild.nodeValue === (open ? "Show Less " : "Show More ") && m.getAttribute("aria-expanded") === (open ? "true" : "false")) return;
     if (m) { m.innerHTML = (open ? "Show Less" : "Show More") + ` <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`; m.setAttribute("aria-expanded", open ? "true" : "false"); }
   });
 }
@@ -682,7 +692,7 @@ function noteSheetUp(){
   // the note's own colour also fills the strip behind the keyboard (see .n-sheet-bg.on::after)
   try { document.documentElement.style.setProperty("--n-sheet-c", getComputedStyle(el).getPropertyValue("--nc").trim() || getComputedStyle(el).backgroundColor); } catch (e) {}
   // slides up once when a note opens, not again on every redraw while it's being edited
-  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); }, 500); }
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
@@ -762,7 +772,8 @@ function nbFill(){
   const h = Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - navH - 16 - pad));
   el.style.setProperty("height", h + "px", "important");
   // beside the board it is as tall as the board; on narrower screens it is a tray along the bottom and keeps its own size
-  if (env) { if (getComputedStyle(env).position === "fixed") env.style.removeProperty("height"); else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
+  // closed beside the board it's a small round button (or the strip under it), and keeps its own size too
+  if (env && !env.dataset.morph) { if (env.classList.contains("closed") || getComputedStyle(env).position === "fixed") { env.style.removeProperty("height"); env.style.removeProperty("max-height"); } else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
 }
 addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
 hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
@@ -791,9 +802,9 @@ function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
   const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>${id && id === cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}`;
-  return `<div class="nb-boards" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Board</button></div>`
+  return `<div class="nb-boards" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-      <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
+      <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Note Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
 const DOTS_H = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>';
 function noteBoardSheet(id){

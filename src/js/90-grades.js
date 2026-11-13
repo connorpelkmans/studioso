@@ -564,7 +564,7 @@
     if (gr.done || !open.length) return "";
     const vals = (ui.gWhatIf && ui.gWhatIf[gr.c.id]) || {};
     return `<div class="gr-sub gr-wi" data-wi-course="${esc(gr.c.id)}"><h4>What If?</h4>
-      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter></li>`).join("")}</ul>
+      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter aria-describedby="wio-${esc(t.id)}"><span class="mini gr-wi-over" id="wio-${esc(t.id)}"${vals[t.id] > 100 ? "" : " hidden"}>That's over 100%. Bonus marks?</span></li>`).join("")}</ul>
       <p class="gr-wi-out" role="status" aria-live="polite">${whatIfOut(gr, vals)}</p>
       <button type="button" class="link-btn" data-act="wi-clear" data-id="${esc(gr.c.id)}" style="justify-self:start"${Object.keys(vals).length ? "" : " hidden"}>Clear What-Ifs</button></div>`;
   }
@@ -1060,6 +1060,8 @@
     const pm = parseMark(i.value);
     if (pm && Number(pm.outOf) > 0) { m[i.dataset.wi] = pm.got / pm.outOf * 100; m[i.dataset.wi + ":raw"] = i.value; i.removeAttribute("aria-invalid"); }
     else { delete m[i.dataset.wi]; delete m[i.dataset.wi + ":raw"]; if (pm === undefined) i.setAttribute("aria-invalid", "true"); else i.removeAttribute("aria-invalid"); }
+    // a mark over 100% is allowed (bonus marks), but said, so a typo like 150 for 50 doesn't pass unnoticed
+    const over = document.getElementById("wio-" + i.dataset.wi); if (over) over.hidden = !(m[i.dataset.wi] > 100);
     const clean = {}; Object.keys(m).forEach(k => { if (k.indexOf(":raw") < 0) clean[k] = m[k]; });
     const out = box.querySelector(".gr-wi-out"); if (out) out.innerHTML = whatIfOut(courseGrade(c), clean);
     const clr = box.querySelector('[data-act="wi-clear"]'); if (clr) clr.hidden = !Object.keys(clean).length && ![...box.querySelectorAll("[data-wi]")].some(x => x.value.trim());
@@ -1185,7 +1187,7 @@
         busy = false;
         if (f) { found = f; say(""); paint(); showFound(); return; }
         say(tr("gr.school.none2", "The AI isn't sure of that grade scale. Upload a screenshot of it, or paste it, in a course's Grade Settings."));
-      } catch (e) { busy = false; say((e && e.message) || tr("gr.school.fail2", "The lookup didn't work. Upload a screenshot of the scale, or paste it, in a course's Grade Settings.")); }
+      } catch (e) { busy = false; say((e && e.message) || tr("gr.school.fail2", "The lookup didn't work. Upload a screenshot of the scale, or paste it, in a course's Grade Settings.")); if (msg && e && e.detail) msg.insertAdjacentHTML("beforeend", aiDetailHtml(e)); }
       const fb2 = $("#gsFind"); if (fb2) fb2.disabled = false;
     }
     paint();
@@ -1537,8 +1539,8 @@
 
   /* Today's Plan: courses near their pass mark move up a little */
   const BOOST = {risk: 1.25, out: 1.1, watch: 1.12};
-  const origCF = computeFocus;
-  computeFocus = function(){
+  const origCF = computeFocusNow;
+  computeFocusNow = function(){
     const F = origCF.apply(this, arguments);
     try { boostFocus(F); } catch(e) { console.warn("grades: focus", e); }
     return F;

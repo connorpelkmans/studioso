@@ -55,7 +55,7 @@ function viewBars(){
       const icon = `<button class="ms tl-ic ${late ? "late" : ""}" style="left:${x(t.due) + dw / 2 - 13}px" data-act="edit-task" data-id="${esc(t.id)}" data-dueonly="${ms ? "" : 1}" title="${esc(t.type)}: ${esc(t.title)}, due ${esc(fmtShort(t.due))}" aria-label="${esc(t.title)}, ${esc(t.type)}, due ${esc(fmtShort(t.due))}${late ? ", past due" : ""}">${typeIcon(t.type)}</button>`;
       // the due date's spot in the track; an edge hint points to it while it's scrolled out of view (tlEdges)
       rows += `<div class="tl-row" style="--c:${esc(col)}" data-x="${x(t.due) + dw / 2}">
-        <button class="tl-label" style="width:${LW}px" data-act="edit-task" data-id="${esc(t.id)}"><span class="tt">${esc(t.title)}</span><small>${esc([t.type, isNum(t.hours) && !MILESTONE(t.type) ? fmtH(Number(t.hours)) : ""].filter(Boolean).join(" · "))}</small></button>
+        <button class="tl-label" style="width:${LW}px" data-act="edit-task" data-id="${esc(t.id)}"><span class="tt">${esc(t.title)}</span><small>${esc([t.type, isNum(t.hours) && !MILESTONE(t.type) ? fmtHM(Number(t.hours)) : ""].filter(Boolean).join(" · "))}</small></button>
         <div class="tl-track" style="width:${W}px">${icon}<span class="tl-dl${late ? " late" : ""}" style="left:${x(t.due) + dw / 2 + 17}px">${esc(fmtShort(t.due))}${ms ? `<em>${esc(t.type)}</em>` : ""}</span><button class="tl-edge" data-act="tl-edge" data-d="${esc(fmtShort(t.due))}" hidden></button></div>
       </div>`;
     });
@@ -63,7 +63,7 @@ function viewBars(){
 
   const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
   const head = `<div class="tl-controls tl-tools">${coursePickHtml()}${tlModeSeg()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
-  if (!ts.length) return head + searchNote() + `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}${firstStepBtns()}</div>`;
+  if (!ts.length) return head + searchNote() + `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br><button type="button" class="link-btn" data-act="undated-open">${noDue} task${noDue === 1 ? " has" : "s have"} no due date</button>` : ""}${firstStepBtns()}</div>`;
   return head + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
         <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div><div class="tl-bg tl-bg-top" style="left:${LW}px;width:${W}px"><i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i></div>
@@ -72,7 +72,16 @@ function viewBars(){
         ${rows}
       </div></div>
     <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}${ts.some(t => (t.dependsOn || []).some(id => ts.some(o => o.id === id))) ? `<span><i class="dep-key"></i>Depends On</span>` : ""}<span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
-    <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · ${noDue} undated not shown` : ""}</p>`;
+    <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · <button type="button" class="link-btn" data-act="undated-open">${noDue} with no date</button>` : ""}</p>`;
+}
+// Open tasks with no due date: the Timeline and Today's Plan can't place them, so they're listed here, each with a way to date it
+function undatedSheet(){
+  const ts = visibleTasks().filter(t => t.status !== "done" && !t.due).sort(sortTasks);
+  if (!ts.length) { if (dlg.open) dlg.close(); toast("Every open task has a due date"); return; }
+  openSheet(`<div class="sheet">${head("No Date Yet")}<div class="sheet-body">
+      <p class="mini" style="margin:0 0 8px">These aren't on the Timeline or in Today's Plan until they have a due date.</p>
+      <ul class="und-list">${ts.map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><button type="button" class="link-btn und-t" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title || "Untitled")}</button><span class="mini">${esc([c ? courseLabel(c) : "", t.type, isNum(t.hours) && Number(t.hours) > 0 ? fmtHM(Number(t.hours)) : ""].filter(Boolean).join(" · "))}</span><button type="button" class="btn small" data-act="move-date" data-id="${esc(t.id)}">Add a Date</button></li>`; }).join("")}</ul>
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
 }
 // Rows whose due date is scrolled out of view get a small "← Oct 30" / "→ Dec 10" at that edge; clicking it scrolls there
 function tlEdges(sc){
@@ -157,7 +166,8 @@ function viewCourses(){
   }
   const cs = coursesArr();
   const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button>`;
-  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Sync your school site to bring in every class at once, or add them another way.<br><div class="row-actions"><button class="btn primary" data-act="lms-open">Sync School Site</button> ${imp} <button class="btn small" data-act="new-course">Add a Course</button></div></div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
+  // no courses yet: the same "Your Courses" heading as the full page, so the page head (title over the tab switch) is built the same way
+  if (!cs.length) return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}</div><div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Sync your school site to bring in every class at once, or add them another way.<br><div class="row-actions"><button class="btn primary" data-act="lms-open">Sync School Site</button> ${imp} <button class="btn small" data-act="new-course">Add a Course</button></div></div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
     const ts = courseTasks(c);
@@ -188,8 +198,8 @@ function courseNextHtml(open, today){
   const dated = open.filter(t => t.due).sort((a, b) => (a.due + (a.time || "99")).localeCompare(b.due + (b.time || "99")));
   const late = dated.filter(t => t.due < today).length, next = dated.find(t => t.due >= today);
   if (!late && !next) return "";
-  const lateHtml = late ? `<span class="late">${late} late</span>` : "";
-  return next ? `<div class="next">Next: <b>${esc(next.title)}</b> · ${esc(fmtShort(next.due))}</div>` : late ? `<div class="next">${lateHtml}</div>` : "";
+  // late work is counted once, by the pill in the card's footer (courseStatusPill), so the line says nothing is coming up
+  return next ? `<div class="next">Next: <b>${esc(next.title)}</b> · ${esc(fmtShort(next.due))}</div>` : `<div class="next">Nothing coming up</div>`;
 }
 // 30 study-topic icons a course can wear in its ring (Edit Course > Icon)
 const COURSE_ICONS = {

@@ -1183,7 +1183,7 @@ Return JSON only.`;
       A.answer = {state: "done", text: aiCleanCites(aiTidyText(r.data.answer), n), found: r.data.found !== false, used: [...new Set((r.data.sources || []).map(Number).filter(k => k >= 1 && k <= n))], items: prior ? prior.items : [], model: aiModelName(r.provider || "gemini", r.model || ""), followUps: fu};
     } catch(e) {
       if (!S.thread.includes(A)) return;
-      A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
+      A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again.", detail: e && e.detail};
     }
     if (S.ask === A || S.thread.includes(A)) draw();
     // opened to quiz (quizCourse): Quiz Me starts on its own once the answer and its sources are in
@@ -1198,7 +1198,7 @@ Return JSON only.`;
       const r = await callPlan(plan, {task: "ask", schema: GEN_SCHEMA, maxTokens: 4000, temperature: 0.3, timeout: 90000, system: GEN_SYSTEM,
         parts: [{text: `${c ? `COURSE: ${c.name || courseLabel(c)}\n\n` : ""}${histText(T)}QUESTION: ${T.q}`}]});
       T.general = {state: "done", text: aiTidyText(r.data.answer).replace(/\s?\[\d{1,2}\]/g, ""), model: aiModelName(r.provider || "gemini", r.model || "")};
-    } catch(e) { T.general = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."}; }
+    } catch(e) { T.general = {state: "error", text: e.message || "Couldn't get an answer right now. Try again.", detail: e && e.detail}; }
     draw();
   }
 
@@ -1473,7 +1473,7 @@ Return JSON only.`;
   function genBox(T, ti){
     const g = T.general; if (!g) return "";
     if (g.state === "loading") return `<div class="sx-ans sx-gen busy">${AI_ICON}${dots}Answering from general knowledge…</div>`;
-    if (g.state === "error") return `<div class="sx-ans sx-gen miss"><p>${esc(g.text)}</p><button type="button" class="btn small ai-btn" data-sx="general" data-turn="${ti}">${AI_ICON} Try Again</button></div>`;
+    if (g.state === "error") return `<div class="sx-ans sx-gen miss"><p>${esc(g.text)}</p>${aiDetailHtml(g)}<button type="button" class="btn small ai-btn" data-sx="general" data-turn="${ti}">${AI_ICON} Try Again</button></div>`;
     return `<div class="sx-ans sx-gen"><div class="sx-ans-h">${AI_ICON}<b>From General Knowledge</b></div><p class="mini sx-gen-l">Not from your course material. Check it against your notes or textbook.</p><p class="sx-ans-t">${esc(g.text)}</p><p class="mini">Answered by ${esc(g.model)}. AI can make mistakes. <button type="button" class="link-btn" data-ai-report="search-ask" data-ai-text="${esc(String(g.text || "").slice(0, 1400))}">Report Response</button></p></div>`;
   }
   function turnHtml(T, ti){
@@ -1563,7 +1563,7 @@ Return JSON only.`;
           if (S.tutor && S.tutor.ti === ti) h += tutorHtml();
           else { h += studyRow(A, ti); if (planOk(plan)) h += fuRow(A); }
         }
-        else if (an && an.state === "error") h += `<div class="sx-ans miss"><p>${esc(an.text)}</p><button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} Try Again</button></div>`;
+        else if (an && an.state === "error") h += `<div class="sx-ans miss"><p>${esc(an.text)}</p>${aiDetailHtml(an)}<button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} Try Again</button></div>`;
         else if (plan && plan.kind === "paid" && !plan.ok) h += `<div class="sx-ans"><p style="margin:0"><b>A short answer costs money.</b> It would use <b>${esc(plan.name)}</b>, billed per use to your ${esc(plan.P.label.split(" ")[0])} account. Each answer is one small request.</p>
           <label class="mi-check"><input type="checkbox" id="sxPaidOk"> I understand answers will use my paid ${esc(plan.P.short)} account and may cost money.</label>
           <div class="sx-ans-btns"><button type="button" class="btn small primary ai-btn" data-sx="paid-yes" disabled id="sxPaidYes">${AI_ICON} Confirm and Get an Answer</button></div></div>`;

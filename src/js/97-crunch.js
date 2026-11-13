@@ -424,7 +424,9 @@ function offCaps(today, cap){
 // Before Today's Plan is ready: the tasks as they are
 function inputLegacy(){
   const today = todayISO(), stamp = nowStamp();
-  const tasks = tasksArr().filter(t => t.status !== "done" && t.due).map(t => {
+  // Past-due work from a course whose term is over isn't counted (as in Today's Plan)
+  let overF = null; try { overF = typeof SBCLS !== "undefined" && SBCLS && SBCLS.overOf ? SBCLS.overOf(today) : null; } catch (e) { overF = null; }
+  const tasks = tasksArr().filter(t => t.status !== "done" && t.due && !(overF && overF(t))).map(t => {
     const lp = lateOf(t), lu = lateUntilOf(t);
     const dead = dayDiff(today, t.due) < 0 && (lp === "none" || (lu && lu < stamp));
     return {id: t.id, title: t.title, type: t.type, due: t.due, time: t.time || "", start: t.start || "", status: t.status, rem: remainingOf(t), weight: weightOf(t), pct: t.pct,

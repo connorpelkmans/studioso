@@ -8,7 +8,8 @@
   const online = () => !!cli() && !!me();
   const myId = () => (me() || {}).id || "";
 
-  const LIMITS = {free: {people: 4, minutes: 180}, pro: {people: 30, minutes: 180}};
+  // a free room holds a whole free group (5 members)
+  const LIMITS = {free: {people: 5, minutes: 180}, pro: {people: 30, minutes: 180}};
   const LENGTHS = [25, 50, 90];
   const BREAK_MS = 5 * 60000;
   const MOMENT_MS = BREAK_MS + 10 * 60000;
@@ -266,10 +267,15 @@
     }
     return "";
   }
+  // Each person keeps the colour the group gives them (Groups list, header, tasks, chat), so the room matches
+  function hueFor(p){
+    try { const G = window.SBGROUPS && SBGROUPS.share; if (G && G.hue && R.pageGid) return G.hue(R.pageGid, p.id, p.n); } catch(e) {}
+    return hueOf(p.id || p.n);
+  }
   function avatar(p, px){
     const c = compHtml(p.c, px || 44);
-    if (c) return `<span class="room-av is-comp" aria-hidden="true">${c}</span>`;
-    return `<span class="room-av" style="--c:${esc(hueOf(p.id || p.n))}" aria-hidden="true">${esc(initials(p.n))}</span>`;
+    if (c) return `<span class="room-av is-comp" style="--c:${esc(hueFor(p))}" aria-hidden="true">${c}</span>`;
+    return `<span class="room-av" style="--c:${esc(hueFor(p))}" aria-hidden="true">${esc(initials(p.n))}</span>`;
   }
 
   /* Who's in the room */
@@ -291,7 +297,8 @@
     const head = $("#grpHead"); if (!head) return null;
     let sec = $("#roomSec");
     const gd = $("#grpDetail");
-    if (gd && gd.dataset.kind === "project") { if (sec) sec.remove(); return null; }
+    // project groups have no room, and a study group can turn Study Together off in Edit Group (its own switch, apart from Sessions)
+    if (gd && (gd.dataset.kind === "project" || (gd.dataset.feat || "").split(",").includes("together"))) { if (sec) sec.remove(); return null; }
     if (sec && sec.dataset.gid !== gid) { sec.remove(); sec = null; }
     if (!sec) {
       sec = document.createElement("section");
@@ -325,12 +332,12 @@
     if (R.setup) return `<div class="room-card" data-state="is-setup"><div class="room-idle">${`<span class="room-ic">${ICON}</span>`}<div class="room-idle-txt"><b>Study Together</b><span class="mini">Focus at the same time as your group. ${esc(srvSetup("It", "rooms.sql"))}</span></div><button class="btn small" data-act="room-retry">Try Again</button></div></div>`;
     const room = R.rooms[gid], m = R.mine;
     if (m && m.done && m.gid === gid && m.moment && now() < m.moment.endAt + MOMENT_MS) return momentHtml(gid, m, room);
-    if (!R.loaded[gid] && !room) return `<div class="room-card" data-state="is-idle"><div class="room-idle"><span class="room-ic">${ICON}</span><div class="room-idle-txt"><b>Study Together</b><span class="mini"><span class="ai-spin" aria-hidden="true"></span> Checking for a session…</span></div></div></div>`;
+    if (!R.loaded[gid] && !room) return `<div class="room-card" data-state="is-idle"><div class="room-idle"><span class="room-ic">${ICON}</span><div class="room-idle-txt"><b>Study Together</b><span class="mini"><span class="ai-spin" aria-hidden="true"></span> Checking who's studying…</span></div></div></div>`;
     if (room && isLive(room)) return inRoom(room.id) ? roomHtml(gid, room) : liveHtml(gid, room);
     const err = R.err[gid] ? `<p class="room-err" role="alert">${esc(R.err[gid])} <button class="link-btn" data-act="room-retry">Try Again</button></p>` : "";
     return `<div class="room-card" data-state="is-idle"><div class="room-idle"><span class="room-ic">${ICON}</span>
-      <div class="room-idle-txt"><b>Study Together</b><span class="mini">Start a focus session and anyone in the group can join from anywhere.</span></div>
-      <button class="btn primary small" data-act="room-start">Start a Session</button></div>${err}</div>`;
+      <div class="room-idle-txt"><b>Study Together</b><span class="mini">Focus at the same time as your group. Anyone in the group can join from anywhere.</span></div>
+      <button class="btn primary small" data-act="room-start">Study Together Now</button></div>${err}</div>`;
   }
   function peopleHtml(list, big){
     if (!list.length) return `<p class="room-none">Nobody's in the room right now.</p>`;
@@ -342,7 +349,7 @@
     const m = R.mine, again = m && m.rid === room.id && !m.done && m.segs.length;
     const starter = room.started_by === myId() ? "you" : esc(room.starter_name || "a classmate");
     return `<div class="room-card is-live" data-state="is-live">
-      <div class="room-top"><span class="room-dot" aria-hidden="true"></span><b>Studying Now</b><span class="mini">${esc(minLabel(room.minutes))} session started by ${starter}</span><span class="spacer"></span><span class="room-left-sm"><b data-room-left="${esc(gid)}" role="timer" aria-live="off">${esc(fmtClock(Math.max(0, ts(room.ends_at) - now())))}</b> left</span></div>
+      <div class="room-top"><span class="room-dot" aria-hidden="true"></span><b>Studying Now</b><span class="mini">${esc(minLabel(room.minutes))} · started by ${starter}</span><span class="spacer"></span><span class="room-left-sm"><b data-room-left="${esc(gid)}" role="timer" aria-live="off">${esc(fmtClock(Math.max(0, ts(room.ends_at) - now())))}</b> left</span></div>
       ${room.goal ? `<p class="room-goal"><span class="mini">Goal</span> ${esc(room.goal)}</p>` : ""}
       ${peopleHtml(list, false)}
       <div class="room-join">
@@ -458,13 +465,13 @@
     R.mine = m; saveMine();
     setRoom(gid, room);
     rememberNames(room.id);
-    updateChannel(); trackMe(); need(); draw();
+    updateChannel(); trackMe(); need(); draw(); dropNotice(gid);
     try { fire("room", {type: "join", gid, endAt: m.endsAt - R.offset, minutes: m.minutes}); } catch(e) {}
   }
   // One session at a time
   function switchOk(gid, rid){
     const m = R.mine; if (!m || m.done || m.rid === rid) return true;
-    if (inRoom()) { toast(`You're in a session in ${m.gname || "another group"}. Leave that room first.`); return false; }
+    if (inRoom()) { toast(`You're in Study Together in ${m.gname || "another group"}. Leave that room first.`); return false; }
     m.endsAt = Math.min(m.endsAt, now()); finish(true); R.mine = null; saveMine();
     return true;
   }
@@ -479,7 +486,7 @@
       if (dlg.open) dlg.close();
       enter(room, goal);
       markSeen(room.id);
-      toast(`Session started. Your group can join for the next ${minLabel(room.minutes)}.`);
+      toast(`Study Together started. Your group can join for the next ${minLabel(room.minutes)}.`);
     } catch(e) {
       if (btn) { btn.disabled = false; btn.classList.remove("busy"); }
       if (e.kind === "BUSY") { if (dlg.open) dlg.close(); loadRoom(gid); }
@@ -592,20 +599,22 @@
     const g = R.groups[gid] || {}, lim = limitsFor(gid), ownerMe = g.owner_id === myId();
     const locked = n => n > lim.minutes;
     const proNote = lim.paywall && !lim.pro;
+    // only mention Pro's length when it's actually longer than this group's
+    const proLonger = LIMITS.pro.minutes > lim.minutes ? ` for up to ${minLabel(LIMITS.pro.minutes)}` : "";
     const opt = (v, label, on) => `<label class="${locked(v) ? "is-locked" : ""}"><input type="radio" name="len" value="${v}" ${on ? "checked" : ""} ${locked(v) ? "disabled" : ""}><span>${esc(label)}${locked(v) ? " " + PRO_BADGE : ""}</span></label>`;
     const def = (R.mine && R.mine.minutes && !locked(R.mine.minutes) && LENGTHS.includes(R.mine.minutes)) ? R.mine.minutes : 25;
-    openSheet(`<form class="sheet room-sheet">${head("Start a Session")}<div class="sheet-body">
+    openSheet(`<form class="sheet room-sheet">${head("Study Together Now")}<div class="sheet-body">
       <p style="margin:0">Everyone in <b>${esc(g.name || "the group")}</b> who has Studyboard open gets a gentle note, and can join any time before it ends.</p>
       <fieldset><legend>Length</legend><div class="seg room-lens">${LENGTHS.map(v => opt(v, v + " Min", v === def)).join("")}<label><input type="radio" name="len" value="custom"><span>Custom</span></label></div></fieldset>
       <label class="f" id="roomCustomL" hidden><span class="lh">Minutes</span><input type="number" name="custom" min="5" max="${lim.minutes}" step="5" value="${Math.min(45, lim.minutes)}" inputmode="numeric"></label>
       <label class="f"><span class="lh">Your Goal <span class="hint">optional</span></span><input type="text" name="goal" maxlength="80" value="${esc(R.mine && R.mine.goal || "")}" placeholder="e.g. Biology chapter 5" autocomplete="off"></label>
-      <p class="mini room-lim" style="margin:0">Rooms in this group hold up to ${plural(lim.people, "person", "people")} for up to ${esc(minLabel(lim.minutes))}.${proNote ? (ownerMe ? ` With Pro, your rooms hold ${LIMITS.pro.people} people for up to ${minLabel(LIMITS.pro.minutes)}. <button type="button" class="link-btn" data-act="room-pro">See Pro</button>` : ` Pro groups get rooms of ${LIMITS.pro.people} for up to ${minLabel(LIMITS.pro.minutes)}. It follows the group owner's plan.`) : ""}</p>
+      <p class="mini room-lim" style="margin:0">Rooms in this group hold up to ${plural(lim.people, "person", "people")} for up to ${esc(minLabel(lim.minutes))}.${proNote ? (ownerMe ? ` With Pro, your rooms hold ${LIMITS.pro.people} people${proLonger}. <button type="button" class="link-btn" data-act="room-pro">See Pro</button>` : ` Pro groups get rooms of ${LIMITS.pro.people}${proLonger}. It follows the group owner's plan.`) : ""}</p>
     </div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="roomGo">Start Session</button></div></form>`, fd => {
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="roomGo">Start Studying</button></div></form>`, fd => {
       const v = String(fd.get("len") || "25");
       let min = v === "custom" ? Math.round(Number(fd.get("custom"))) : Number(v);
       if (!isFinite(min) || min < 5) { toast("Pick at least 5 minutes"); return false; }
-      if (min > lim.minutes) { toast(`Sessions in this group can be up to ${minLabel(lim.minutes)}.`); return false; }
+      if (min > lim.minutes) { toast(`Study Together in this group can be up to ${minLabel(lim.minutes)}.`); return false; }
       startSession(gid, min, str(String(fd.get("goal") || "").trim(), 80), $("#roomGo"));
       return false;
     });
@@ -643,7 +652,7 @@
       case "room-goal": goalSheet(); return true;
       case "room-cheer": sendCheer(id); return true;
       case "room-end": { const room = gid && R.rooms[gid]; if (!room) return true;
-        confirmSheet("End for Everyone?", "The session stops now for everyone in the room. Everyone keeps the minutes they focused.", "End Session", async () => {
+        confirmSheet("End for Everyone?", "Study Together stops now for everyone in the room. Everyone keeps the minutes they focused.", "End for Everyone", async () => {
           try { await api.end(room.id); const r = Object.assign({}, room, {status: "ended", ends_at: new Date(now()).toISOString()}); setRoom(gid, r); tick(); draw(); } catch(e) { toast(e.message); }
         }); return true; }
       case "room-again": { const m = R.mine; if (!m) return true;
@@ -655,11 +664,11 @@
       case "room-retry": if (gid) { R.setup = false; R.err[gid] = ""; R.loaded[gid] = false; draw(); loadRoom(gid); } return true;
       case "room-open": if (R.mine) openGroupPage(R.mine.gid); return true;
       case "room-go": openGroupPage(id); return true;
-      case "room-pro": if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined") PLAN.openSheet(`Study Together rooms of up to ${LIMITS.pro.people} people and ${minLabel(LIMITS.pro.minutes)} are part of Studyboard Pro.`); return true;
+      case "room-pro": if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined") PLAN.openSheet(`Study Together rooms of up to ${LIMITS.pro.people} people are part of Studyboard Pro.`); return true;
       case "room-notices": {
         state.settings = Object.assign({}, state.settings, {roomNotice: !noticesOn()}); saveSettings();
         updateNotice();
-        toast(noticesOn() ? "You'll get a small note when someone in your groups starts a session." : "Study Together notes are off. You'll still see sessions on the Groups page.");
+        toast(noticesOn() ? "You'll get a small note when someone in your groups starts Study Together." : "Study Together notes are off. You'll still see them on the Groups page.");
         const row = el && el.closest("button"); if (row) { const s = $(".sub", row); if (s) s.textContent = noticeSub(); }
         return true; }
     }
@@ -682,7 +691,16 @@
     const name = (R.groups[room.group_id] || {}).name || "your study group";
     const left = Math.max(1, Math.round((ts(room.ends_at) - now()) / 60000));
     const msg = `${str(room.starter_name, 40) || "A classmate"} started Study Together in ${name}. ${left} min left.`;
+    R.notice = {gid: room.group_id, msg};
     if (document.hidden) R.pendingToast = msg; else toast(msg, null, {label: "Join", fn: () => openGroupPage(room.group_id)});
+  }
+  // The "started Study Together... Join" note goes away once its group page (with the room card's own Join) is open, or you join
+  function dropNotice(gid){
+    const n = R.notice; if (!n || n.gid !== gid) return;
+    R.notice = null;
+    if (R.pendingToast === n.msg) R.pendingToast = null;
+    const t = document.getElementById("toast"), m = document.getElementById("toastMsg");
+    if (t && m && t.classList.contains("show") && m.textContent.trim() === n.msg.trim() && typeof toastHide === "function") toastHide();
   }
   async function loadLive(force){
     if (!online() || R.liveBusy || R.setup || (!force && Date.now() - R.liveAt < 90000)) return;
@@ -750,14 +768,14 @@
     checkUser();
     const gid = tab === "groups" && ui.grp && online() && $("#grpDetail") ? ui.grp : null;
     if (R.pageGid !== gid) { R.pageGid = gid; if (gid && R.loadedAt[gid] && Date.now() - R.loadedAt[gid] > 30000) R.loaded[gid] = false; }
-    if (gid) { draw(); if (!R.loaded[gid] && !R.loading[gid]) loadRoom(gid); }
+    if (gid) { draw(); dropNotice(gid); if (!R.loaded[gid] && !R.loading[gid]) loadRoom(gid); }
     if (tab === "groups" && online()) {
       if (R.hasGroups === false) R.hasGroups = undefined;
       if (!ui.grp) { decorateList(); loadLive(false); }
     }
     updateChannel(); updatePill(); need();
   });
-  function noticeSub(){ return noticesOn() ? "On: a small note when someone in your groups starts a focus session" : "Off: sessions still show on the Groups page"; }
+  function noticeSub(){ return noticesOn() ? "On: a small note when someone in your groups starts Study Together" : "Off: Study Together still shows on the Groups page"; }
   hook("menu", () => online() ? `<button data-act="room-notices" data-group="school"><span>Study Together Notes<span class="sub">${esc(noticeSub())}</span></span></button>` : "");
   hook("boot", () => {
     checkUser();
@@ -774,6 +792,8 @@
     }
   });
   window.addEventListener("pagehide", () => { if (inRoom()) { R.mine.seen = now(); saveMine(); } });
+  // Back online: a room that failed to load tries again by itself
+  window.addEventListener("online", () => { const gid = R.pageGid; if (gid && online() && R.err[gid]) { R.err[gid] = ""; R.loaded[gid] = false; draw(); loadRoom(gid); } loadLive(true); });
 
   // For tests and other modules (read-only view)
   window.SBROOMS = {state: () => ({mine: R.mine ? JSON.parse(JSON.stringify(R.mine)) : null, offset: R.offset, channel: R.chGid, notice: !!R.nch, live: Object.keys(R.live), presence: [...R.presence.keys()], focus: typeof SBSTATS !== "undefined" && SBSTATS ? SBSTATS.focusMinutes() : null}), inRoom: () => inRoom()};

@@ -75,9 +75,10 @@ const cachePut = (page, list) => page.evaluate(list => new Promise((res, rej) =>
     await page.waitForSelector("dialog[open] .cl-sheet", {timeout: 5000});
     const sheet = await page.evaluate(() => ({title: document.querySelector("dialog[open] .sheet-head, dialog[open] h2").textContent, text: document.querySelector("dialog[open] .cl-sheet").innerText,
       btns: [...document.querySelectorAll('dialog[open] [data-act="cl-full-save"]')].map(b => b.dataset.id)}));
-    ok(/Keep It in Your Cloud/.test(sheet.title) && /Lab report\.docx/.test(sheet.text), "a file with nowhere to go is offered to the cloud by name: " + sheet.title);
+    ok(/Keep It in Your Cloud|Sign In to Keep Files/.test(sheet.title) && /Lab report\.docx/.test(sheet.text), "a file with nowhere to go is offered to the cloud by name: " + sheet.title);
     ok(JSON.stringify(sheet.btns) === '["google","microsoft"]' && /Connect Google Drive/.test(sheet.text) && /Connect OneDrive/.test(sheet.text), "with Connect Google Drive and Connect OneDrive");
-    ok(/sign in first/i.test(sheet.text), "and says to sign in first, since the cloud connects to an account");
+    // without an account, signing in (free) leads, since it keeps files in Studyboard and the cloud connects through it
+    ok(/sign in first/i.test(sheet.text) || (/Sign In \(Free\) to Keep Files/.test(sheet.text) && await page.locator('dialog[open] .cl-sheet [data-act="sb-signin"]').count() === 1), "and offers signing in, since the cloud connects to an account");
     await page.screenshot({path: path.join(shots, "cloud-offer.png")});
     ok(!page.errs.length, "free: no page errors: " + page.errs.join(" | "));
     await ctx.close();

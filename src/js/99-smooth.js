@@ -4,7 +4,8 @@
   const root = document.documentElement;
   const on = () => root.dataset.motion !== "static" && styleCfg().motion !== false && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   let lastKey = null, userAt = 0;
-  const play = (el, cls) => { if (!el || !on()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
+  // (the page is laid out again to restart the animation only when it is still running from last time; a fresh one just starts)
+  const play = (el, cls) => { if (!el || !on()) return; if (el.classList.contains(cls)) { el.classList.remove(cls); void el.offsetWidth; } el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
 
   // A pop-up opens with nothing highlighted: the browser would otherwise put focus (and its ring) on the first button, the close X
   const showModal0 = HTMLDialogElement.prototype.showModal;

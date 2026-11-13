@@ -18,11 +18,12 @@ const STAGES = {kind: "paper", stages: [
   {title: "Revise, cite and submit", steps: ["Check the citation style"], weight: 1.5}]};
 const STUB = () => {
   const empty = () => { const b = new Proxy(function () {}, {get(_, m) { if (m === "then") return (ok) => Promise.resolve({data: [], error: null, count: 0}).then(ok); return () => b; }, apply() { return b; }}); return b; };
+  const granted = () => { const b = new Proxy(function () {}, {get(_, m) { if (m === "then") return (ok) => Promise.resolve({data: {allowed: true}, error: null}).then(ok); return () => b; }, apply() { return b; }}); return b; };
   const user = {id: "0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", email: "student@example.com", email_confirmed_at: "2026-10-01T00:00:00Z"};
   window.supabase = {createClient: () => ({
     auth: {getSession: async () => ({data: {session: {user, access_token: "t"}}}), onAuthStateChange: () => ({data: {subscription: {unsubscribe() {}}}}),
       signOut: async () => ({}), getUser: async () => ({data: {user}}), refreshSession: async () => ({data: {session: {user, access_token: "t"}}})},
-    from: () => empty(), rpc: async () => ({data: null, error: null}),
+    from: t => t === "studyboard_own_key_access" && window.__OWN_GRANT ? granted() : empty(), rpc: async () => ({data: null, error: null}),
     channel: () => { const ch = {on() { return ch; }, subscribe() { return ch; }}; return ch; }, removeChannel() {},
     storage: {from: () => ({upload: async () => ({error: {message: "no storage"}}), remove: async () => ({}), download: async () => ({error: {message: "no storage"}})})},
     functions: {invoke: async () => ({data: null, error: {message: "none"}})}
@@ -52,7 +53,8 @@ const STUB = () => {
   ok(html.includes(`const AI_PRO = "${PRO}";`), "test copy of the app points at the test Studyboard AI server");
 
   const browser = await chromium.launch({executablePath});
-  const device = async ({keys, consent, ownKey, proSeed} = {}) => {
+  // grant: the account may use its own paid key (Claude, ChatGPT); without it, only a free Gemini key or Studyboard AI
+  const device = async ({keys, consent, ownKey, proSeed, grant} = {}) => {
     const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"});
     const seed = Object.assign({}, SEED, ownKey ? {settings: Object.assign({}, SEED.settings, {ai: {ownKey: true}})} : {});
     await ctx.addInitScript({content: `
@@ -61,7 +63,7 @@ const STUB = () => {
         ${keys ? `localStorage.setItem("studyboard:aiKeys", ${JSON.stringify(JSON.stringify(keys))});` : ""}
         ${consent ? `localStorage.setItem("studyboard:aiConsent", ${JSON.stringify(JSON.stringify(consent))});` : ""}
         ${proSeed ? `localStorage.setItem("studyboard:aiPro", JSON.stringify(Object.assign({uid: "0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", at: Date.now()}, ${JSON.stringify(proSeed)})));` : ""} } } catch (e) {}
-      window.__SB_TEST = true; (${STUB.toString()})();`});
+      window.__SB_TEST = true; ${grant ? "window.__OWN_GRANT = true;" : ""} (${STUB.toString()})();`});
     await ctx.route(`${APP}/**`, route => {
       const p = decodeURIComponent(new URL(route.request().url()).pathname);
       if (p === "/" || p === "/index.html") return route.fulfill({status: 200, contentType: "text/html", body: html});
@@ -87,6 +89,7 @@ const STUB = () => {
     page.on("pageerror", e => console.error("page error:", e.message));
     await page.goto(APP + "/");
     await page.waitForSelector("#view", {state: "attached"});
+    if (grant) await page.waitForFunction(() => { try { return __sbAi.ownKeys.ok(); } catch (e) { return false; } }, null, {timeout: 15000});
     return {ctx, page};
   };
   const aiPosts = ctx => ctx.calls.filter(c => c.path === "/v1/ai");
@@ -109,7 +112,7 @@ const STUB = () => {
     ok(await A.page.isChecked("#aiUsePro"), "with its switch on");
     ok(!/Google Gemini<\/b> by default|non-Pro users/.test(await A.page.innerHTML("#dlg")) && !(await A.page.$("#dlg .ai-steps")) && !/Free from Google AI Studio/.test(sheet), "a Pro student isn't walked through getting a free Gemini key");
     ok(!/Use a Paid Model Instead/.test(sheet) && !/These cost money/.test(sheet) && !(await A.page.$('#dlg [data-show="anthropic"], #dlg [data-show="openai"], #dlg [data-show="gemini"]')), "and has no separate Gemini, Claude or OpenAI boxes");
-    ok(/Backup API Key/.test(sheet) && /Used if your Studyboard AI runs out\. Paste your own AI API key\./.test(sheet) && await A.page.isVisible("#aiBackupKey") && await A.page.isVisible("#aiBackupShow") && await A.page.isVisible("#aiBackupTest"), "one Backup API Key box, with Show and Test");
+    ok(/Backup API Key/.test(sheet) && /Used if your Studyboard AI runs out\. Paste a free Gemini API key\./.test(sheet) && await A.page.isVisible("#aiBackupKey") && await A.page.isVisible("#aiBackupShow") && await A.page.isVisible("#aiBackupTest"), "one Backup API Key box, with Show and Test");
     ok(!/always runs in Studyboard AI Mode/.test(sheet), "and no note about a Claude key's Studyboard AI Mode");
 
     // 2. Break It Down: consent names Anthropic, then the request goes through the server
@@ -202,7 +205,7 @@ const STUB = () => {
     ok(E.ctx.calls.some(c => c.path === "/v1/embed"), "search by meaning indexes through Studyboard AI (no Gemini key needed)");
     ok(await E.page.evaluate(() => window.SBCOMP && SBCOMP.askAvailable && SBCOMP.askAvailable()), "the companion's Ask Me is available on Studyboard AI");
     await E.ctx.close();
-    const F = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}, ownKey: true});
+    const F = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}, ownKey: true});
     await F.page.waitForTimeout(800);
     ok(await F.page.evaluate(() => __sbAi.cfg().provider) === "anthropic", "a student with only a Claude key uses Claude");
     ok(await F.page.evaluate(() => window.SBCOMP && SBCOMP.askAvailable && SBCOMP.askAvailable()), "and Ask Me is available with Claude too");
@@ -210,7 +213,7 @@ const STUB = () => {
 
     // 8. Your own Claude key in Studyboard AI Mode: the same rules, on this device
     W.tier = "none";
-    const G = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+    const G = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
     await G.page.evaluate(() => __sbAi.useOwnMode());
     ok(await G.page.evaluate(() => __sbAi.cfg().provider + "|" + __sbAi.cfg().model) === "anthropic|studyboard", "a Claude key in Studyboard AI Mode");
     await openTask(G.page, "t1"); await G.page.click('#dlg [data-act="bd-open"]'); await G.page.waitForSelector("#bdList li");
@@ -237,7 +240,7 @@ const STUB = () => {
 
     // 9. Adding a Claude key next to a Gemini key makes Claude the default (it used to sit unused behind Gemini)
     W.tier = "none";
-    const K = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}}});
+    const K = await device({grant: true, keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}}});
     await openAi(K.page);
     ok((await K.page.inputValue("#aiDefault")).startsWith("gemini|"), "with only a Gemini key, Gemini is the default");
     await K.page.evaluate(() => { const d = document.querySelector("#dlg details.ai-paid:not(#aiHoIn)"); if (d) d.open = true; });
@@ -249,7 +252,7 @@ const STUB = () => {
 
     // 10. A file named like the question that's slow to read (a big download from Drive) doesn't hold up the chat
     W.tier = "none";
-    const M = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+    const M = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
     await M.page.waitForFunction(() => window.__sbSync && window.SBCOMPTAB);
     await M.page.evaluate(() => { window.SBFILETEXT = () => new Promise(r => setTimeout(() => r("Grade breakdown"), 15000));
       window.__sbSync.state.files.fg = {id: "fg", name: "Best Grade Breakdown.pdf", kind: "file", courseId: "c1", folderId: "", taskIds: [], desc: "", url: "", revs: [{assetId: "local:fg", name: "Best Grade Breakdown.pdf", size: 5000, type: "application/pdf", at: 1}]}; });
@@ -263,7 +266,7 @@ const STUB = () => {
 
     // 11. Files get to the AI faster: read while the question is typed, then kept for next time
     W.tier = "none";
-    const Q = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+    const Q = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
     await Q.page.waitForFunction(() => window.__sbSync && window.SBCOMPTAB && window.SBFILETEXT);
     await Q.page.evaluate(() => { window.__reads = 0;
       window.__sxBytes = async assetId => { if (assetId !== "a-slow") return null; window.__reads++; await new Promise(r => setTimeout(r, 2500)); return new TextEncoder().encode("Coral grade scale: an A is 90 percent or more."); };
@@ -282,7 +285,7 @@ const STUB = () => {
     W.tier = "paid";
     // 12. Pro's one Backup API Key box: the key's format says which company it's from, and it's saved where the separate boxes save it
     {
-      const R = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}, openai: {v: 1, at: 1}, anthropic: {v: 1, at: 1}, studyboard: {v: 1, at: 1}}});
+      const R = await device({grant: true, keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}, openai: {v: 1, at: 1}, anthropic: {v: 1, at: 1}, studyboard: {v: 1, at: 1}}});
       await R.page.waitForFunction(() => { try { return __sbAi.cfg().provider === "studyboard"; } catch (e) { return false; } }, null, {timeout: 15000});
       await openAi(R.page);
       ok(await R.page.inputValue("#aiBackupKey") === "AIzaTESTTESTTESTTESTTESTTEST12345" && /Saved: Google Gemini key/.test(await R.page.textContent("#aiBackupKind")), "a saved Gemini key shows in the backup box, named");
@@ -326,17 +329,46 @@ const STUB = () => {
       await R.ctx.close();
     }
 
-    // 13. A free account still gets the Gemini set-up, with the paid models, and no note about Studyboard AI Mode
+    // 13. An account allowed its own paid key still gets the Gemini set-up, with the paid models, and no note about Studyboard AI Mode
     W.tier = "none";
     {
-      const S = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+      const S = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
       await S.page.evaluate(() => __sbAi.useOwnMode());
       await openAi(S.page);
       const t = await S.page.textContent("#dlg");
-      ok(/Studyboard uses Google Gemini by default/.test(t) && await S.page.$("#dlg .ai-steps") && await S.page.isVisible('#dlg [data-key="gemini"]') && /Use a Paid Model Instead/.test(t) && await S.page.$('#dlg [data-key="anthropic"]') && await S.page.$('#dlg [data-key="openai"]'), "a free account sees the Gemini steps and the separate key boxes");
+      ok(/Studyboard uses Google Gemini by default/.test(t) && await S.page.$("#dlg .ai-steps") && await S.page.isVisible('#dlg [data-key="gemini"]') && /Use a Paid Model Instead/.test(t) && await S.page.$('#dlg [data-key="anthropic"]') && await S.page.$('#dlg [data-key="openai"]'), "an allowed free account sees the Gemini steps and the separate key boxes");
       ok(!(await S.page.$("#aiBackupKey")) && !/Backup API Key/.test(t), "and no backup box");
       ok(!/always runs in Studyboard AI Mode/.test(t) && !/This month: \d+% used/.test(t), "the Studyboard AI Mode note and its usage line are gone");
       await S.ctx.close();
+    }
+    W.tier = "paid";
+
+    // 13b. Not allowed its own paid key (the default): only a free Gemini key or Pro. A Claude key saved before is kept but never used
+    W.tier = "none";
+    {
+      const V = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
+      await V.page.waitForTimeout(2500);
+      ok(await V.page.evaluate(() => __sbAi.cfg().provider) !== "anthropic" && !(await V.page.evaluate(() => __sbAi.cfg().key)), "a saved Claude key isn't used");
+      ok(V.ctx.claude.length === 0, "and nothing went to Anthropic");
+      await openAi(V.page);
+      const t = await V.page.textContent("#dlg");
+      ok(!/Use a Paid Model Instead/.test(t) && !(await V.page.$('#dlg [data-key="anthropic"]')) && !(await V.page.$('#dlg [data-key="openai"]')), "no Claude or ChatGPT key options");
+      ok(/no longer uses your own Claude key/.test(await V.page.textContent("#aiOwnGone")) && /free Gemini key/.test(await V.page.textContent("#aiOwnGone")), "one line says why, and the options");
+      await V.page.fill('[data-key="gemini"]', "AIzaTESTTESTTESTTESTTESTTEST12345"); await V.page.dispatchEvent('[data-key="gemini"]', "change");
+      await V.page.click("#aiSave"); await V.page.waitForTimeout(600);
+      ok(JSON.parse(await V.page.evaluate(() => localStorage.getItem("studyboard:aiKeys"))).anthropic === "sk-ant-test-key-0000000000", "saving keeps the Claude key stored");
+      ok(await V.page.evaluate(() => __sbAi.cfg().provider) === "gemini", "and AI runs on the Gemini key");
+      await V.ctx.close();
+      // a Pro student not allowed: the backup box takes only a Gemini key
+      W.tier = "paid";
+      const X = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}, studyboard: {v: 1, at: 1}}});
+      await X.page.waitForFunction(() => { try { return __sbAi.cfg().provider === "studyboard"; } catch (e) { return false; } }, null, {timeout: 15000});
+      await openAi(X.page);
+      await X.page.fill("#aiBackupKey", "sk-ant-test-key-0000000000");
+      ok(/doesn't look like a Gemini key/.test(await X.page.textContent("#aiBackupKind")), "a Pro student's backup box doesn't take a Claude key");
+      await X.page.click("#aiSave");
+      ok(await X.page.isVisible("#dlg[open] #aiSave") && /Gemini key/.test(await X.page.textContent("#aiBackupMsg")), "and won't save it");
+      await X.ctx.close();
     }
     W.tier = "paid";
 
@@ -368,7 +400,7 @@ const STUB = () => {
       await T.ctx.close();
 
       // With their own Claude key as backup and Studyboard AI switched off (it runs in Studyboard AI's mode): still just "Studyboard AI"
-      const U = await device({keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}, ownKey: true});
+      const U = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}, ownKey: true});
       await proOn(U.page);
       ok(await U.page.evaluate(() => __sbAi.cfg().provider + "|" + __sbAi.cfg().model) === "anthropic|studyboard", "a Pro student on their own Claude key");
       await act(U.page, "fc-ai-cards"); await U.page.waitForSelector("#dlg[open] select[data-ai-model]");

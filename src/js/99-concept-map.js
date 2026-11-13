@@ -21,7 +21,7 @@ const CMAP = (() => {
   const LINK = /\[\[([^[\]\n]{1,200})\]\]/g;
   const target = raw => String(raw || "").replace(/#p(?:age)?\s*\d{1,4}\s*$/i, "").trim();
   /* src: {root: {label, kind: course | exam, color}, exams: [{id, label, topics: [{id, name, conf, links: [{k, id, deckId}]}]}], notes: [{id, label, text, cls, board}],
-       decks: [{id, label, from: [[k, id]]}], files: [{id, label, cls, lec}], classes: {key: label}, user: {hide, add, links, cut, names}, mode: course | exam, loose: bool} */
+       decks: [{id, label, from: [[k, id]]}], files: [{id, label, cls, lec, att: [[k, id]] (notes and files attached to a recording)}], classes: {key: label}, user: {hide, add, links, cut, names}, mode: course | exam, loose: bool} */
   function graph(src){
     const N = new Map(), E = new Map(), user = src.user || {};
     const hide = new Set(user.hide || []), cut = new Set(user.cut || []), names = user.names || {};
@@ -49,6 +49,8 @@ const CMAP = (() => {
     (src.decks || []).forEach(d => (d.from || []).forEach(([k, id]) => link("deck:" + d.id, (k === "lecture" ? "file" : k) + ":" + id, "from", "made from")));
     (src.notes || []).forEach(n => { if (n.cls) link("class:" + n.cls, (n.board ? "board:" : "note:") + n.id, "class"); });
     (src.files || []).forEach(f => { if (f.cls) link("class:" + f.cls, "file:" + f.id, "class"); });
+    // the notes and slides attached to a recording belong with it
+    (src.files || []).forEach(f => (f.att || []).forEach(([k, id]) => { if (k === "note") { link("file:" + f.id, "note:" + id, "att"); link("file:" + f.id, "board:" + id, "att"); } else if (k === "file" || k === "lecture") link("file:" + f.id, "file:" + id, "att"); }));
     if (src.mode !== "exam") Object.keys(src.classes || {}).forEach(k => link("root", "class:" + k, "class"));
     // the student's own ideas and connections
     (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, {ref: i.id}));
@@ -87,13 +89,15 @@ const CMAP = (() => {
     return out;
   }
   const W = n => Math.min(220, 34 + String(n.label || "").slice(0, 28).length * 7.2) + (n.root ? 30 : 0);
-  // A seeded layout: rings by distance from the centre, then a few hundred steps of springs and pushing apart; nodes you moved stay put
-  function layout(g, pos){
+  // A seeded layout: rings by distance from the centre, then a few hundred steps of springs and pushing apart; nodes you moved stay put.
+  // tall: for a portrait screen (a phone), the map is spread top to bottom instead of side to side
+  function layout(g, pos, tall){
     pos = pos || {};
+    const ax = tall ? 0.75 : 1, ay = tall ? 1 : 0.75, gx = tall ? 0.006 : 0.004, gy = tall ? 0.004 : 0.006;
     const ns = g.nodes, n = ns.length, idx = new Map(ns.map((x, i) => [x.id, i]));
     const P = ns.map(() => ({x: 0, y: 0, vx: 0, vy: 0, fixed: false}));
     const ring = {}; ns.forEach(x => { const d = Math.min(x.depth, 5); (ring[d] = ring[d] || []).push(x); });
-    Object.keys(ring).forEach(d => { const list = ring[d], r = Number(d) === 9 || Number(d) === 5 ? 900 : Number(d) * 230; list.forEach((x, i) => { const a = (i / list.length) * Math.PI * 2 + Number(d) * 0.6; const p = P[idx.get(x.id)]; p.x = Math.cos(a) * r; p.y = Math.sin(a) * r * 0.75; }); });
+    Object.keys(ring).forEach(d => { const list = ring[d], r = Number(d) === 9 || Number(d) === 5 ? 900 : Number(d) * 230; list.forEach((x, i) => { const a = (i / list.length) * Math.PI * 2 + Number(d) * 0.6; const p = P[idx.get(x.id)]; p.x = Math.cos(a) * r * ax; p.y = Math.sin(a) * r * ay; }); });
     ns.forEach((x, i) => { const s = pos[x.id]; if (Array.isArray(s) && isFinite(s[0]) && isFinite(s[1])) { P[i].x = s[0]; P[i].y = s[1]; P[i].fixed = true; } });
     if (P[idx.get("root")] && !P[idx.get("root")].fixed) { P[idx.get("root")].x = 0; P[idx.get("root")].y = 0; }
     const E = g.edges.map(e => [idx.get(e.a), idx.get(e.b)]).filter(e => e[0] != null && e[1] != null);
@@ -107,7 +111,7 @@ const CMAP = (() => {
         const fx = dx / d * f, fy = dy / d * f; P[i].vx -= fx; P[i].vy -= fy; P[j].vx += fx; P[j].vy += fy;
       }
       E.forEach(([a, b]) => { const dx = P[b].x - P[a].x, dy = P[b].y - P[a].y, d = Math.sqrt(dx * dx + dy * dy) || 1, ideal = 150 + (w[a] + w[b]) / 4, f = (d - ideal) * 0.06; const fx = dx / d * f, fy = dy / d * f; P[a].vx += fx; P[a].vy += fy; P[b].vx -= fx; P[b].vy -= fy; });
-      P.forEach((p, i) => { p.vx -= p.x * 0.004; p.vy -= p.y * 0.006; if (p.fixed || ns[i].root && !pos.root) { p.vx = p.vy = 0; return; } const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy), cap = 40 * cool + 2; if (sp > cap) { p.vx *= cap / sp; p.vy *= cap / sp; } p.x += p.vx; p.y += p.vy; p.vx *= 0.5; p.vy *= 0.5; });
+      P.forEach((p, i) => { p.vx -= p.x * gx; p.vy -= p.y * gy; if (p.fixed || ns[i].root && !pos.root) { p.vx = p.vy = 0; return; } const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy), cap = 40 * cool + 2; if (sp > cap) { p.vx *= cap / sp; p.vy *= cap / sp; } p.x += p.vx; p.y += p.vy; p.vx *= 0.5; p.vy *= 0.5; });
     }
     const out = {}; ns.forEach((x, i) => { out[x.id] = [Math.round(P[i].x), Math.round(P[i].y)]; });
     return out;
@@ -166,7 +170,7 @@ function gather(o){
     return {id: d.id, label: d.name || "Untitled deck", from};
   });
   const recKey = f => { try { return window.SBCLS && SBCLS.recKeyOf ? SBCLS.recKeyOf(f) : ""; } catch (e) { return ""; } };
-  const files = Object.values(state.files || {}).filter(f => f && cid && f.courseId === cid && f.kind !== "link").map(f => { const lec = f.folderId === "lectures"; return {id: f.id, label: f.name || "Untitled file", cls: f.cls || (lec ? recKey(f) : ""), lec, pdf: isPdf(f)}; });
+  const files = Object.values(state.files || {}).filter(f => f && cid && f.courseId === cid && f.kind !== "link").map(f => { const lec = f.folderId === "lectures"; return {id: f.id, label: f.name || "Untitled file", cls: f.cls || (lec ? recKey(f) : ""), lec, pdf: isPdf(f), att: lec && f.lec && Array.isArray(f.lec.att) ? f.lec.att.filter(a => a && a.k && a.id).map(a => [a.k, a.id]) : []}; });
   const classes = {};
   notes.concat(files).forEach(x => { if (!x.cls || classes[x.cls]) return; let lab = ""; try { const k = window.SBCLS && SBCLS.classOf ? SBCLS.classOf(cid, x.cls) : null; if (k) lab = `${k.title}${k.date ? ", " + fmtDate(k.date) : ""}`; } catch (e) {} if (!lab) { const d = /\d{4}-\d{2}-\d{2}/.exec(x.cls); lab = d ? "Class, " + fmtDate(d[0]) : "Class"; } classes[x.cls] = lab; });
   const today = todayISO();
@@ -176,7 +180,8 @@ function gather(o){
 function rebuild(keepView){
   const src = gather(M.own); if (!src) return false;
   M.src = src; M.g = CMAP.graph(src);
-  const u = src.user, auto = CMAP.layout(M.g, u.pos);
+  const cv = M.el && M.el.querySelector(".cm-canvas"), tall = !!cv && cv.clientHeight > cv.clientWidth * 1.2;
+  const u = src.user, auto = CMAP.layout(M.g, u.pos, tall);
   M.pos = Object.assign({}, auto);
   if (!keepView) fit();
   return true;
@@ -184,10 +189,17 @@ function rebuild(keepView){
 function fit(){
   const b = bounds(); if (!b) return;
   const cv = M.el && M.el.querySelector(".cm-canvas"), W = cv ? cv.clientWidth : 900, H = cv ? cv.clientHeight : 600;
-  // on a small screen the whole map would be too small to read: keep labels legible and centre on the middle node; the rest is a drag away
-  const k0 = Math.min(W / (b.w + 120), H / (b.h + 120)), floor = W < 700 ? 0.62 : 0.3, k = Math.max(floor, Math.min(1.4, k0));
+  // on a small screen the whole map would be too small to read: keep labels legible (about 11px) and centre on the middle node; the rest is a drag away
+  const k0 = Math.min(W / (b.w + 120), H / (b.h + 120)), floor = W < 700 ? 0.85 : 0.3, k = Math.max(floor, Math.min(1.4, k0));
   const c = k0 < floor ? (M.pos.root || [0, 0]) : [b.x + b.w / 2, b.y + b.h / 2];
-  M.view = {k, x: W / 2 - c[0] * k, y: H / 2 - c[1] * k};
+  M.view = {k, x: W / 2 - c[0] * k, y: H / 2 - c[1] * k}; M.part = k0 < floor;
+}
+// After items were added (unlinked items, an idea, suggestions) the layout moves: refit when anything now sits outside the view
+function grew(){
+  const cv = M.el && M.el.querySelector(".cm-canvas"); if (!cv || !M.g) return;
+  const W = cv.clientWidth, H = cv.clientHeight, k = M.view.k;
+  const out = M.g.nodes.some(n => { const p = M.pos[n.id] || [0, 0], sx = M.view.x + p[0] * k, sy = M.view.y + p[1] * k, w = CMAP.W(n) / 2 * k; return sx - w < 0 || sx + w > W || sy - 20 * k < 0 || sy + 20 * k > H; });
+  if (out) fit();
 }
 function bounds(){
   if (!M.g || !M.g.nodes.length) return null;
@@ -311,7 +323,7 @@ function panel(){
   }
   const hidden = userOf(M.own).hide.length, nn = g.nodes.length;
   P.innerHTML = nn <= 1 ? `<p style="margin:0"><b>Nothing is linked yet.</b> <span class="mini">Add exam topics in a Prep Plan, link notes with [[ ]], or make cards from your notes and PDFs, and the map draws itself. Or add your own ideas with + Idea.</span></p>`
-    : `<p class="mini" style="margin:0">${nn} items, ${g.edges.length} connections${g.loose.length && !M.loose ? `, ${g.loose.length} not linked to anything` : ""}. Drag to move things; tap one to open, connect or rename it.${hidden ? ` <button type="button" class="link-btn" data-cm="unhide">Show ${hidden} hidden</button>` : ""}</p>`;
+    : `<p class="mini" style="margin:0">${nn} items, ${g.edges.length} connections${g.loose.length && !M.loose ? `, ${g.loose.length} not linked to anything` : ""}. Drag to move things; tap one to open, connect or rename it.${M.part ? " Drag the map to see the rest of it." : ""}${hidden ? ` <button type="button" class="link-btn" data-cm="unhide">Show ${hidden} hidden</button>` : ""}</p>`;
 }
 
 /* Interaction */
@@ -406,7 +418,7 @@ async function onClick(e){
     case "out": zoomAt(0.8); break;
     case "fit": fit(); paint(); break;
     case "know": M.know = b.checked; paint(); break;
-    case "loose": M.loose = b.checked; rebuild(true); paint(); break;
+    case "loose": M.loose = b.checked; rebuild(true); grew(); paint(); break;
     case "reset": { const x = u(); x.pos = {}; saveUser(x, "Tidied the map's layout"); rebuild(); paint(); break; }
     case "err-x": M.err = ""; paint(); break;
     case "unhide": { const x = u(); x.hide = []; saveUser(x, "Showed the hidden items"); rebuild(true); paint(); break; }
@@ -415,7 +427,7 @@ async function onClick(e){
       const x = u(), id = uid(); x.add = x.add.concat([{id, label: name.trim().slice(0, 80)}]);
       if (M.sel) x.links = x.links.concat([{a: M.sel, b: "idea:" + id, label: ""}]);
       const c = M.sel && M.pos[M.sel] ? M.pos[M.sel] : [0, 0]; x.pos = Object.assign({}, x.pos, {["idea:" + id]: [c[0] + 60, c[1] + 110]});
-      saveUser(x, `Added ${name.trim()} to the map`); rebuild(true); M.sel = "idea:" + id; paint(); break;
+      saveUser(x, `Added ${name.trim()} to the map`); rebuild(true); grew(); M.sel = "idea:" + id; paint(); panTo("idea:" + id); break;
     }
     case "open": if (n) openNode(n); break;
     case "connect": if (n) { M.connect = n.id; paint(); } break;
@@ -433,7 +445,7 @@ async function onClick(e){
       const S = M.sug, x = u(); let n2 = 0;
       M.el.querySelectorAll("[data-cm-sl]").forEach(c => { if (!c.checked) return; const l = S.links[Number(c.dataset.cmSl)]; x.links = x.links.concat([{a: l.a, b: l.b, label: l.label}]); n2++; });
       M.el.querySelectorAll("[data-cm-si]").forEach(c => { if (!c.checked) return; const i = S.ideas[Number(c.dataset.cmSi)], id = uid(); x.add = x.add.concat([{id, label: i.name}]); i.near.forEach(nb => { x.links = x.links.concat([{a: nb, b: "idea:" + id, label: i.label}]); }); n2++; });
-      M.sug = null; if (n2) saveUser(x, `Added ${n2} suggestion${n2 === 1 ? "" : "s"} to the map`); rebuild(true); paint(); break;
+      M.sug = null; if (n2) saveUser(x, `Added ${n2} suggestion${n2 === 1 ? "" : "s"} to the map`); rebuild(true); grew(); paint(); break;
     }
   }
 }
@@ -447,7 +459,8 @@ function answer(id){
 }
 async function suggest(){
   let ready = false; try { ready = aiReady(); } catch (e) {}
-  if (!ready) { aiSetupSheet(true); return; }
+  const own = M.own, back = {back: () => own && open(own.kind, own.id)};
+  if (!ready) { aiSetupSheet(true, back); return; }
   const g = M.g, ids = g.nodes.filter(n => !n.root).slice(0, 70).map(n => n.id);
   if (ids.length < 3) { M.err = "Add a few more items to the map first."; paint(); return; }
   const lines = g.nodes.filter(n => ids.includes(n.id)).map(n => {
@@ -465,7 +478,7 @@ async function suggest(){
     const out = CMAP.parseSuggest(res && res.data, ids), known = new Set(g.edges.map(e => e.key));
     out.links = out.links.filter(l => !known.has(CMAP.ek(l.a, l.b)));
     M.sug = out;
-  } catch (e) { M.err = (e && e.message) || "Couldn't get suggestions right now. Try again."; if (e && e.code === "nokey") { M.busy = false; aiSetupSheet(true); return; } }
+  } catch (e) { M.err = (e && e.message) || "Couldn't get suggestions right now. Try again."; if (e && e.code === "nokey") { M.busy = false; aiSetupSheet(true, back); return; } }
   M.busy = false; if (shown()) paint();
 }
 // Undo, sync or new material: the open map follows (not mid-drag, mid-quiz or while naming something)
@@ -539,7 +552,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-sugs label{display:flex;gap:8px;align-items:flex-start;line-height:1.4}
 .cm-sugs label>span{display:grid;gap:2px;min-width:0}
 .cm-sugs input{margin-top:3px}
-@media (max-width:640px){dialog:has(.cm-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}.cm-tools{padding:6px 10px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.cm-tools::-webkit-scrollbar{display:none}.cm-tools>*{flex:0 0 auto}.cm-tools .spacer{flex:0 0 4px}.cm-legend{bottom:8px;left:8px;font-size:.7rem}.cm-panel{padding:8px 12px 12px}}
+@media (max-width:640px){dialog:has(.cm-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}.cm-tools{padding:6px 10px}.cm-tools>*{flex:0 0 auto}.cm-tools .spacer{flex:0 0 4px}.cm-legend{bottom:8px;left:8px;font-size:.7rem}.cm-panel{padding:8px 12px 12px}}
 `;
 document.head.appendChild(css);
 

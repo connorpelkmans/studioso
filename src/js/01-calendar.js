@@ -5,10 +5,24 @@ const minToT = m => pad(Math.floor(m / 60)) + ":" + pad(m % 60);
 const tToMin = t => { const [h, m] = String(t || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
 const EV_LABEL_CLASS = {Lecture: "k-lecture", Lab: "k-lab", Discussion: "k-discussion", Tutorial: "k-discussion", "Office Hours": "k-officehours"};
 const wkDiff = (a, b) => Math.round((parse(mondayOf(a)) - parse(mondayOf(b))) / 6048e5);
-// Every class meeting and event that lands between from and to (inclusive)
+// Every class meeting and event that lands between from and to (inclusive).
+// The classes and events depend only on the courses, the events and the school's days off, and every change to one of those
+// replaces it, so each stretch of days is worked out once and kept until one changes (Today's Plan asks for the same days
+// dozens of times per redraw). Each call still gets its own copies, as before; your availability is added fresh every time.
+let OCC_MEMO = {refs: [], sc: null, z: "", m: new Map()};
 function schOccurrences(from, to){
+  const refs = coursesArr().concat(eventsArr()), sc = schoolCfg(), z = schoolZone(), M = OCC_MEMO;
+  if (M.sc !== sc || M.z !== z || M.refs.length !== refs.length || refs.some((r, i) => r !== M.refs[i])) OCC_MEMO = {refs, sc, z, m: new Map()};
+  const key = from + "|" + to;
+  let base = OCC_MEMO.m.get(key);
+  if (!base) { base = schOccurrencesNow(from, to, sc); if (OCC_MEMO.m.size > 400) OCC_MEMO.m.clear(); OCC_MEMO.m.set(key, base); }
+  const out = base.map(o => Object.assign({}, o));
+  try { availOccs(from, to).forEach(o => out.push(o)); } catch(e) {}
+  return out;
+}
+function schOccurrencesNow(from, to, sc){
   const out = [], lo = addDays(from, -7), hi = addDays(to, 7), inRange = d => d >= from && d <= to;
-  const sc = schoolCfg(), SS = window.SBSCHOOL;
+  const SS = window.SBSCHOOL;
   coursesArr().forEach(c => courseMeetings(c).forEach(m => {
     for (let d = lo; d <= hi; d = addDays(d, 1)) {
       // no class on a day off; a rotating class time meets on its cycle days
@@ -48,7 +62,6 @@ function schOccurrences(from, to){
       push(d);
     }
   });
-  try { availOccs(from, to).forEach(o => out.push(o)); } catch(e) {}
   return out;
 }
 const occWhen = o => `${parse(o.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}${o.allDay ? "" : `, ${fmtTime(o.ds || o.start)}–${fmtTime(o.de || o.end)}${o.ovn ? " (overnight)" : ""}`}`;
@@ -1173,10 +1186,15 @@ function planViewSet(t){
 function pageHeadHtml(title, right){
   return `<header class="pg-head"><div class="pg-tt"><h2 class="pg-title">${esc(title)}</h2></div>${right ? `<div class="pg-right">${right}</div>` : ""}</header>`;
 }
+// (whether the window is phone-sized, kept up to date by the browser's own media query: reading innerWidth right after the
+// page was redrawn made the browser lay out the whole new page just to answer)
+let pageHeadNarrow = innerWidth < 640;
+try { const q = matchMedia("(max-width: 639.98px)"), f = () => { pageHeadNarrow = q.matches; }; f(); if (q.addEventListener) q.addEventListener("change", f); else q.addListener(f); } catch (e) {}
+const pageHeadPhone = () => pageHeadNarrow;
 // Lift the page's own heading above its tabs, with its context line and its buttons beside it
 function pageHeadUp(v){
   if (v.querySelector(":scope > .pg-head")) return;
-  const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"), phone = innerWidth < 640;
+  const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"), phone = pageHeadPhone();
   if (!tabs) { soloHeadUp(v, phone); return; }
   let title = "", head = null;
   if (tabs.matches(".bview-row")) { const s = tabs.querySelector("[aria-selected=true]"); title = s ? s.textContent.trim() : ""; }

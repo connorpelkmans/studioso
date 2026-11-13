@@ -177,6 +177,14 @@
   #view > .view-head.ph-moved,#view > .tl-controls.ph-moved,#view .ftree.ph-moved{display:none}
   .f-row .segb{flex:none}
   .f-row .segb button{min-height:36px;padding:4px 12px;font-size:.86rem}
+  /* Files: the ⋯ More menu (Scan to PDF, Convert…) as a round icon beside Cloud, so the row stays on one line */
+  .f-row > .f-more{margin-left:auto}.f-row > .ph-ic + .f-more{margin-left:0}
+  .f-more > summary.btn{width:40px;min-width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;justify-content:center}
+  .f-more > summary svg,.f-more[open] > summary svg{width:20px;height:20px;transform:none}
+  .f-more .ph-menu{min-width:220px}
+  .f-more .ph-menu .btn{display:flex;align-items:center;gap:10px}
+  .f-more .ph-menu .btn svg{width:18px;height:18px;flex:none}
+  .f-more .ph-menu .btn:not(:has(svg))::before{content:"";width:18px;flex:none}   /* items without an icon (Convert) line up with the rest */
   #view > .nb-boards{display:none}
   .nb-row .nb-opts{min-height:40px;min-width:40px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none;margin-right:auto}
   .nb-row .cf-pick{max-width:55%}
@@ -407,7 +415,8 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 .ui-col .ui-col-act{justify-content:center;text-align:center}
 
 /* Course dropdowns: our own menu, with small flat dots */
-html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px);background-repeat:no-repeat}
+/* the dot and the dropdown chevron together: the plain select rule (103-phone-design.css) would otherwise replace the dot */
+:root select.cs-custom.has-dot:not([multiple]):not([size]){padding-left:34px;background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:0 0,right 12px center;background-size:auto,14px 14px}
 .cs-back{position:fixed;inset:0;z-index:9998;background:rgba(10,20,30,.22)}
 .cs-menu{position:fixed;z-index:9999;display:grid;gap:2px;align-content:start;overflow:auto;padding:6px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.28)}
 .cs-menu.cs-sheet{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:60vh;border-radius:18px}
@@ -489,13 +498,18 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   html:not(.board-max):not(.kb-open):not(:has(:is(input,textarea,[contenteditable]):focus))::before{content:"Turn your phone upright to keep using Studyboard.\A Notes and the whiteboard can go sideways in full screen.";white-space:pre-wrap;position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 48px;background:var(--bg,#f4f6fa);color:var(--ink,#1a2238);font:700 1.05rem/1.5 var(--display,system-ui)}
 }
 
-/* Group tabs: an even grid of equal, centred buttons */
+/* Group page on phones: a smaller banner and icon, and the section tabs in one row that scrolls sideways and stays at the
+   top while the section scrolls (the header itself sticks with only its tab row showing: --grp-stick, 80-groups.js stickTabs) */
 @media (max-width:639px){
-  .g2-head .grp-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 14px 14px;overflow:visible}
-  .g2-head .grp-tabs button{display:flex;align-items:center;justify-content:center;text-align:center;min-height:42px;padding:8px 6px;font-size:.88rem;white-space:nowrap;background:color-mix(in srgb,var(--ink) 5%,transparent)!important;border-radius:14px}
+  .g2-head .grp-tabs{display:flex;flex-wrap:nowrap;gap:6px;padding:0 12px 10px;margin-top:10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-padding-inline:12px}
+  .g2-head .grp-tabs button{flex:none;display:flex;align-items:center;justify-content:center;min-height:40px;padding:8px 14px;font-size:.88rem;white-space:nowrap;background:color-mix(in srgb,var(--ink) 5%,transparent)!important;border-radius:999px}
   .g2-head .grp-tabs button.on{background:color-mix(in srgb,var(--c) 18%,var(--surface))!important}
-  .g2-head .grp-tabs button:last-child:nth-child(3n+1){grid-column:1/-1}
-  .g2-head .grp-tabs button:last-child:nth-child(3n+2){grid-column:span 2}
+  #grpHead.g2-head{position:sticky;top:var(--grp-stick,auto);z-index:4;background:linear-gradient(var(--surface),var(--surface)),var(--bg)}
+  .g2-head .g2-band{padding:10px 12px 30px}
+  .g2-head .g2-ring{width:58px;height:58px}
+  .g2-low{margin-top:-26px;gap:10px}
+  .g2-txt{padding-top:28px}
+  .g2-txt h2{font-size:1.25rem}
 }
 
 /* Group events: the RSVP choices are one even row, the other actions a tidy row beneath */
@@ -561,6 +575,10 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
   .dtl-c.fr{min-width:74px}
   .dtl-c:not(.fr):is(.fr + .dtl-c,:has(+ .dtl-c.fr)){min-width:156px}
 }
+/* An edge with more cards past it fades softly (01-board.js marks which) */
+.dtl-rail:is(.dtl-more-l,.dtl-more-r){--fl:0px;--fr:0px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 var(--fl),#000 calc(100% - var(--fr)),transparent);mask-image:linear-gradient(90deg,transparent,#000 var(--fl),#000 calc(100% - var(--fr)),transparent)}
+.dtl-rail.dtl-more-l{--fl:40px}
+.dtl-rail.dtl-more-r{--fr:40px}
 /* Past your end of day: one card across the whole row, its words side by side */
 .dtl-over .dtl-rail{overflow:visible}
 .dtl-over .dtl-c.dtl-end,.dtl-over .dtl-c.fr.dtl-end{flex:1 1 100%;width:auto;min-width:0;max-width:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 10px;padding:12px 16px;text-align:center;font:600 .82rem/1.35 var(--display)}

@@ -406,14 +406,14 @@ h2.sec.c2-bh{align-items:center}
 .deck-fc .deck-name{text-align:left}
 .deck-fc .deck-count{top:12px;right:12px;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.55);box-shadow:none}
 .deck-fc .mastery i{background:var(--c)!important}
-/* Settings, Direction 1 */
+/* Settings, Direction 1: each section keeps its own small coloured icon; the banner over it is the theme's band, like every other sheet */
 .us-cat[data-us="account"],#usPane-account{--uc:#2F6FE4}.us-cat[data-us="appearance"],#usPane-appearance{--uc:#8B5CF6}.us-cat[data-us="study"],#usPane-study{--uc:#16A34A}.us-cat[data-us="capture"],#usPane-capture{--uc:#E8833A}.us-cat[data-us="school"],#usPane-school{--uc:#0E9AA7}.us-cat[data-us="app"],#usPane-app{--uc:#D9467A}.us-cat[data-us="data"],#usPane-data{--uc:#64748B}
 .us-cat .us-ic{border-radius:50%!important;background:color-mix(in srgb,var(--uc,var(--accent)) 14%,var(--surface))!important;color:var(--uc,var(--accent))!important}
 .us-cat[aria-selected="true"] .us-ic{background:var(--uc,var(--accent))!important;color:#fff!important}
 .us-cat[aria-selected="true"]{box-shadow:0 0 0 1px color-mix(in srgb,var(--uc,var(--accent)) 35%,var(--line)),0 4px 14px color-mix(in srgb,var(--uc,var(--accent)) 18%,transparent)!important}
 @media (min-width:720px){
   .us-main{padding-top:0!important}
-  .us-pane > .us-title{position:relative;display:block;margin:0 -20px 14px;padding:76px 20px 4px 118px;min-height:122px;background:linear-gradient(120deg,color-mix(in srgb,var(--uc,var(--accent)) 90%,#000),color-mix(in srgb,var(--uc,var(--accent)) 60%,var(--surface))) top/100% 64px no-repeat}
+  .us-pane > .us-title{position:relative;display:block;margin:0 -20px 14px;padding:76px 20px 4px 118px;min-height:122px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent-band,var(--accent)) 88%,#000),color-mix(in srgb,var(--accent-band,var(--accent)) 74%,var(--surface))) top/100% 64px no-repeat}
   .us-pane > .us-title .us-ic{position:absolute;left:22px;top:24px;width:80px;height:80px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--uc,var(--accent));box-shadow:0 0 0 4px var(--surface),0 0 0 6px var(--uc,var(--accent)),0 4px 10px rgba(0,0,0,.16)}
   .us-pane > .us-title .us-ic svg{width:38px;height:38px}
   .us-pane > .us-title h3{font:800 1.3rem var(--display)}
@@ -431,8 +431,19 @@ h2.sec.c2-bh{align-items:center}
 .g2-sheet-head .sh-t .mini{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .g2-sheet-head > .icon-btn{position:absolute;right:14px;top:12px;background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.5);color:#fff;box-shadow:none}
 @media (max-width:600px){.g2-sheet-head{padding:70px 14px 10px 96px!important;min-height:104px}.g2-sheet-head .sh-ring{width:64px;height:64px;left:16px;top:26px}}
+/* switches in band sheets: the chosen option is a soft tint of the theme accent (the Focus Timer's too, not its red) */
 .sheet:has(.g2-sheet-head) .segb button[aria-pressed="true"],.sheet:has(.g2-sheet-head) .pomo-modes button.on,.sheet:has(.g2-sheet-head) .pomo-modes button[aria-pressed="true"]{background:color-mix(in srgb,var(--sh-c,var(--accent)) 15%,var(--surface))!important;color:color-mix(in srgb,var(--sh-c,var(--accent)) 70%,var(--ink))!important;box-shadow:none}
-.pomo-sheet{--sh-c:#E5484D}
+/* One sheet header everywhere: a sheet without an icon ring gets the same band, in the theme's colour, with its title in it at
+   the same size and the same round close button (Settings, Export, confirmations...; not the welcome screen, which has no header bar). The Style Shop's band and the task
+   view's band match it; in the task view the course is the accent (its ring and name in the band), not the band's colour */
+.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *){--c:var(--accent-band,var(--accent));min-height:62px;box-sizing:border-box;padding:12px 14px 12px 20px;border-bottom:0;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
+.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *) h2{color:#fff;font:800 1.5rem/1.15 var(--display);text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *) > .icon-btn,.occv-band > .occv-x{background:rgba(255,255,255,.2)!important;border-color:rgba(255,255,255,.5)!important;color:#fff!important;box-shadow:none}
+.sheet.shop .shop-band h2{font-size:1.5rem!important}
+@media (max-width:600px){.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *) h2,.sheet.shop .shop-band h2,.occv-title{font-size:1.3rem!important}}
+.shop-band > .icon-btn{background:rgba(255,255,255,.2)!important}
+.occv-band{background:linear-gradient(120deg,color-mix(in srgb,var(--accent-band,var(--accent)) 88%,#000),color-mix(in srgb,var(--accent-band,var(--accent)) 74%,var(--surface)))}
+.occv-title{font-size:1.5rem}
 /* ===== Clean-up pass ===== */
 /* rings always sit on a light disc, so a sticker reads the same in light and dark themes */
 .g2-ring{background:color-mix(in srgb,var(--c) 16%,#fff)!important;color:color-mix(in srgb,var(--c) 75%,#000)}
@@ -828,6 +839,17 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .plan-past .pp-q .mini{display:block;font-weight:500}
 .plan-past .pp-acts{display:flex;gap:6px;flex-wrap:wrap}
 .plan-past > .mini{margin:8px 0 0}
+/* After the term: one calm card instead of weeks-old work */
+.plan-term{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:12px 0 0;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.plan-term .pt-q{flex:1 1 260px;min-width:0}
+.plan-term .pt-q .mini{display:block;margin-top:2px}
+.plan-term .pp-acts{display:flex;gap:6px;flex-wrap:wrap}
+/* No Date Yet: open tasks the Timeline and Today's Plan can't place */
+.und-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.und-list li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:6px 0 6px 10px;border-left:4px solid var(--c)}
+.und-list .und-t{font-weight:600;text-align:left;padding:0}
+.und-list .mini{flex:1 1 120px;min-width:0}
+.plan-undated{margin-top:12px}
 .nu-skipped{margin:10px 0 0}
 .nu-why{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:5px}
 .nu-sep{display:none}

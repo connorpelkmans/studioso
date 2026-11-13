@@ -38,7 +38,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.waitForSelector(".nv-tabs");
     ok(await page.locator('.nv-tabs [data-id="board"][aria-selected=true]').count() === 1 && await page.locator("#nbBoard .note").count() === 1, "Notes opens on the sticky notes, with a Notes | Whiteboard switch");
     await page.click('.nv-tabs [data-id="wb"]'); await page.waitForTimeout(300);
-    ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && /Add Board/.test(await page.locator("#fab").textContent()) && await page.locator("#fab").isVisible(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates, and the + button is Add Board");
+    ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && /New Whiteboard/.test(await page.locator("#fab").textContent()) && await page.locator("#fab").isVisible(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates, and the + button is New Whiteboard");
 
     await act("wb-new"); await page.waitForSelector("dialog[open] .wb-start");
     await page.fill('dialog[open] input[name="name"]', "Cell Biology");

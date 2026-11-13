@@ -445,7 +445,9 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .kb-main{display:flex;align-items:flex-start;gap:2px;margin-left:-10px;min-width:0}
 .kb-main .pt-title{flex:1;min-width:0}
 .kb-main .pt-check{width:40px;height:40px;margin-top:2px}
-.kb-claim{justify-self:start;min-height:40px;margin:2px 0 6px}
+.kb-claim,.kb-start{justify-self:start;min-height:40px;margin:2px 0 6px}
+/* To Do card: one tap to In Progress */
+.kb-start{min-height:34px;color:var(--accent)}
 .kb-card .pt-meta:empty{display:none}
 .kb-col.k-done .kb-band{opacity:.6}
 .kb-card.is-saving{opacity:.65}
@@ -475,7 +477,9 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .sm-opt:hover,.sm-opt:focus-visible{border-color:var(--accent)}
 .sm-btn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .sm-btn svg{width:16px;height:16px;flex:none}
-@media (max-width:639px){.sm-btn .sm-lbl{display:none}.sm-btn{padding-inline:12px!important}}
+@media (max-width:639px){.sm-btn .sm-lbl{display:none}.sm-btn{padding-inline:12px!important}
+  /* a short word with the icon, so "Share or Import" (where Enter a Share Code lives) can be found on phones */
+  .sm-btn::after{content:"Import";font-weight:inherit}}
 /* My Group Tasks on the Board: the title inside the card with the tasks, like a group's sections */
 .grp-mine{padding:12px 16px 6px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.06)}
 .grp-mine > h3.fsec{margin:0 0 12px;align-items:center}
@@ -484,3 +488,50 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .grp-mine .gm-list{margin:0 -16px;background:transparent;border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none}
 .grp-mine .gm-list .gm-row{padding-left:12px;padding-right:16px}
 .grp-mine > p.mini:last-child{margin:8px 0 6px}
+/* Add Task: Priority and Notes tucked behind "More" */
+.pt-add-more>summary{cursor:pointer;color:var(--accent);font-weight:600;padding:4px 0;width:max-content}
+.pt-add-more[open]>summary{margin-bottom:10px}
+.pt-add-more>.f+.f{margin-top:12px}
+/* "Start From a Plan" says it's an AI feature (its icon can be a companion in some looks) */
+.ai-lbl{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font:700 .64rem/1.4 var(--display);letter-spacing:.04em;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);vertical-align:1px}
+/* Signed out: what a free account gets you in groups */
+.grp-perks{list-style:none;margin:10px auto 0;padding:0;display:grid;gap:6px;max-width:420px;text-align:left}
+.grp-perks li{position:relative;padding-left:22px;line-height:1.4}
+.grp-perks li::before{content:"";position:absolute;left:4px;top:.45em;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+/* Offline: what you last saw, read-only, and Add Group dimmed */
+.grp-offline-line{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:9px 12px;border-radius:12px;background:color-mix(in srgb,var(--muted) 12%,var(--surface));border:1px solid var(--line);color:var(--ink);font-size:.86rem}
+.grp-offline-line svg{flex:none;color:var(--muted)}
+#grpDetail .grp-offline-line{margin:12px 0}
+.fab.is-off{opacity:.45;filter:saturate(.3)}
+/* Dark mode: the round icon on group, course, deck and folder headers (and cards) was a solid white disc, the brightest
+   thing on the page. A line icon (a group's people or cube, a folder) sits on a dim tint of the colour and lights up in
+   it; a drawn icon (course icons, stickers, which have dark outlines) keeps a soft light tint instead of white.
+   The project progress track gets a visible tint too. */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .g2-ring{background:color-mix(in srgb,var(--c) 26%,#c6cedb)!important}
+  :root:not([data-theme="light"]) :is(.g2-ring:has(> .g2-sym),.fhead .g2-ring:has(> svg:not(.ci-svg))){background:color-mix(in srgb,var(--c) 24%,var(--surface))!important;color:color-mix(in srgb,var(--c) 55%,#fff)}
+  :root:not([data-theme="light"]) .g2-ring > .g2-sym{color:color-mix(in srgb,var(--c) 55%,#fff)}
+  :root:not([data-theme="light"]) .gk-hero-prog .score-bar{background:color-mix(in srgb,var(--gk,var(--accent)) 22%,rgba(255,255,255,.12))}
+}
+:root[data-theme="dark"] .g2-ring{background:color-mix(in srgb,var(--c) 26%,#c6cedb)!important}
+:root[data-theme="dark"] :is(.g2-ring:has(> .g2-sym),.fhead .g2-ring:has(> svg:not(.ci-svg))){background:color-mix(in srgb,var(--c) 24%,var(--surface))!important;color:color-mix(in srgb,var(--c) 55%,#fff)}
+:root[data-theme="dark"] .g2-ring > .g2-sym{color:color-mix(in srgb,var(--c) 55%,#fff)}
+:root[data-theme="dark"] .gk-hero-prog .score-bar{background:color-mix(in srgb,var(--gk,var(--accent)) 22%,rgba(255,255,255,.12))}
+/* The same for the small icon discs elsewhere (course icons in the Files list, the day timeline and the class view;
+   search results' line icons), which were white circles in dark mode */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) :is(.tl-gic,.fn-ring,.occv-ic){background:color-mix(in srgb,var(--c,var(--accent)) 26%,#c6cedb)}
+  :root:not([data-theme="light"]) .fn-ring:has(> svg:not(.ci-svg)){background:color-mix(in srgb,var(--c,var(--accent)) 24%,var(--surface));color:color-mix(in srgb,var(--c,var(--accent)) 55%,#fff)}
+  :root:not([data-theme="light"]) .sr-ic{background:color-mix(in srgb,var(--accent-band,var(--accent)) 22%,var(--surface));color:color-mix(in srgb,var(--accent-band,var(--accent)) 50%,#fff)}
+}
+:root[data-theme="dark"] :is(.tl-gic,.fn-ring,.occv-ic){background:color-mix(in srgb,var(--c,var(--accent)) 26%,#c6cedb)}
+:root[data-theme="dark"] .fn-ring:has(> svg:not(.ci-svg)){background:color-mix(in srgb,var(--c,var(--accent)) 24%,var(--surface));color:color-mix(in srgb,var(--c,var(--accent)) 55%,#fff)}
+:root[data-theme="dark"] .sr-ic{background:color-mix(in srgb,var(--accent-band,var(--accent)) 22%,var(--surface));color:color-mix(in srgb,var(--accent-band,var(--accent)) 50%,#fff)}
+/* Report or Block in a small "..." menu on shared rows and messages; a quiet link in the share viewer */
+.grp-rep{flex:none}
+.grp-list:has(details.grp-rep[open]),.grp-msgs:has(details.grp-rep[open]),.grp-list li:has(details.grp-rep[open]){overflow:visible}
+.grp-rep[open] .grp-menu{z-index:20}
+.grp-rep summary.g2-dots{width:30px;height:30px}
+.grp-msg-top .grp-rep{margin-left:auto}
+.grp-msg-top .grp-rep summary.g2-dots{width:26px;height:26px;border:0;background:none}
+.sheet-foot .sh-rep{font-size:.85rem;color:var(--muted);padding:6px 2px}

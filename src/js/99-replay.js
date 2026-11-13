@@ -406,6 +406,7 @@ var SBREPLAY = null;
   }
   document.addEventListener("wheel", e => { if (e.target && e.target.closest && e.target.closest(".sheet-body")) PL.scrolled = Date.now(); }, {passive: true});
   document.addEventListener("touchmove", e => { if (e.target && e.target.closest && e.target.closest(".sheet-body")) PL.scrolled = Date.now(); }, {passive: true});
+  document.addEventListener("keydown", e => { const s = e.target; if ((e.key === "Enter" || e.key === " ") && s && s.classList && s.classList.contains("rp-sent")) { e.preventDefault(); s.click(); } });
   document.addEventListener("input", e => { const s = e.target; if (!s || !s.classList || !s.classList.contains("rp-seek")) return; const fid = s.dataset.id; const n = s.closest(".rp-dock").querySelector(".rp-now"); if (n) n.textContent = clock(Number(s.value) * 1000); s.style.setProperty("--p", (Number(s.value) / Math.max(1, Number(s.max)) * 100).toFixed(2) + "%"); void fid; });
   document.addEventListener("change", async e => { const s = e.target; if (!s || !s.classList || !s.classList.contains("rp-seek")) return; const fid = s.dataset.id, v = Number(s.value) * 1000;
     if (PL.fid === fid && PL.url) { PL.a.currentTime = v / 1000; PL.clipEnd = 0; paint(); } else await seek(fid, v, {lead: 0}); });
@@ -461,10 +462,17 @@ var SBREPLAY = null;
   function docHtml(f, doc, text){
     const X = canTime(f) ? timeline(f) : null, bl = R.docBlocks(text);
     if (!X || !hasAudio(f)) return null;
-    let times;
+    let times, sentT = null;
+    // In the transcript each sentence plays from its own moment (tap it), not only the paragraph's time chip
+    const split = s => String(s || "").match(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g) || [String(s || "")];
     if (doc === "sum") times = R.timeBlocks(X.IX, bl, {order: false});
-    else if (!(f.lec && f.lec.org) || text === f.tr.text) { let at = 0; const T = String(f.tr.text || ""); times = bl.map(b => { if (b.k === "mark") return {t: b.mark}; const i = T.indexOf(b.s.slice(0, 60), at); if (i < 0) return {t: null}; at = i + 1; return {t: X.map(i)}; }); }
-    else times = R.timeBlocks(X.IX, bl);
+    else if (!(f.lec && f.lec.org) || text === f.tr.text) { let at = 0; const T = String(f.tr.text || ""); times = bl.map(b => { if (b.k === "mark") return {t: b.mark}; const i = T.indexOf(b.s.slice(0, 60), at); if (i < 0) return {t: null}; at = i + 1; return {t: X.map(i)}; });
+      let c = 0; sentT = bl.map(b => b.k === "p" ? split(b.s).map(x => { const j = T.indexOf(x.trim().slice(0, 40), c); if (j < 0) return null; c = j + 1; return X.map(j); }) : null); }
+    else { times = R.timeBlocks(X.IX, bl); sentT = bl.map(b => b.k === "p" ? R.align(X.IX, split(b.s).map(x => x.trim())).map(a => a && a.t != null ? a.t : null) : null); }
+    // your ★ marks, in the transcript where they fall (unless the transcript already carries them)
+    const marks = doc === "sum" || bl.some(b => b.k === "mark") ? [] : ((f.lec && Array.isArray(f.lec.marks)) ? f.lec.marks : []).map(Number).filter(t => Number.isFinite(t) && t >= 0).sort((a, b) => a - b);
+    const star = t => `<button type="button" class="rp-chip rp-star" data-act="rp-at" data-id="${esc(f.id)}" data-t="${Math.round(t)}" aria-label="Your mark at ${clock(t)}: play from it">★ ${clock(t)}</button> `;
+    const starsBefore = t => { let o = ""; while (marks.length && t != null && marks[0] <= t) o += star(marks.shift()); return o; };
     let h = "", ul = false;
     const endUl = () => { if (ul) { h += "</ul>"; ul = false; } };
     bl.forEach((b, i) => {
@@ -473,9 +481,12 @@ var SBREPLAY = null;
       endUl();
       if (b.k === "h") h += `<h4${on}>${esc(b.s)}</h4>`;
       else if (b.k === "mark") h += `<p class="lec-mk"${on}>${t != null ? chip(f.id, t, "", "your mark") : ""} <span>★ Marked</span></p>`;
+      else if (sentT && sentT[i]) { const ss = split(b.s);
+        h += `<p class="rp-para">${t != null ? chip(f.id, t, "", "") + " " : ""}${ss.map((x, j) => { const st = sentT[i][j]; return st == null ? esc(x) : `${starsBefore(st)}<span class="rp-sent" role="button" tabindex="0" data-act="rp-at" data-id="${esc(f.id)}" data-t="${Math.round(st)}" data-rp-t="${Math.round(st)}">${esc(x)}</span>`; }).join("")}</p>`; }
       else h += `<p class="rp-para"${on}>${t != null ? chip(f.id, t, "", "") + " " : ""}${esc(b.s)}</p>`;
     });
     endUl();
+    if (marks.length) h += `<p class="rp-para">${marks.map(star).join("")}</p>`;
     return `<div class="rp-doc" data-rp-f="${esc(f.id)}">${h}</div>${X.est ? `<p class="mini rp-est">Times are estimated: this lecture was saved before times were kept.</p>` : ""}`;
   }
 

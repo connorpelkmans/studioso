@@ -2,10 +2,14 @@
 /* Render */
 let renderQueued = false, renderBlocked = false;
 let renderHold = 0;
+// renderAsk counts the asks for a redraw; renderOnce() draws now and lets a redraw already queued for the same change go
+let renderAsk = 0, renderSkip = -1;
+function renderOnce(){ const a = renderAsk; render(); renderSkip = a; }
 function scheduleRender(){
+  focusStale(); renderAsk++;
   if (renderQueued) return;
   renderQueued = true;
-  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } renderQueued = false; render(); };
+  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } renderQueued = false; if (renderSkip === renderAsk) return; renderGo = true; try { render(); } finally { renderGo = false; } };
   requestAnimationFrame(go);
 }
 // A finished check pops before the list redraws (phones, when motion is on)
@@ -24,7 +28,7 @@ function fabConfig(){
   if (ui.tab === "courses") return ui.courseId || ui.courseTab === "grades" ? null : {act: "fab-course", label: "Add Course"};
   if (ui.tab === "files") return {act: "fab-file", label: "Add File"};
   if (ui.tab === "schedule") return {act: "sch-add", label: "Add Event"};
-  if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "Add Board"} : {act: "fab-note", label: "Add Note"};
+  if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "New Whiteboard"} : {act: "fab-note", label: "Add Note"};
   if (ui.tab === "flashcards") { const dk = $("#view [data-fc-deck]"); return dk ? {act: "fc-add", label: "Add Card", id: dk.dataset.fcDeck} : $("#view [data-fc-list]") ? {act: "fab-deck", label: "Add Deck"} : $("#view [data-qz-list]") ? {act: "qz-add", label: "Add Quiz"} : null; }
   if (ui.tab === "groups") return $("#view [data-grp-list]") ? {act: "fab-group", label: "Add Group"} : (window.SBGRPFAB && window.SBGRPFAB()) || null;
   return {act: "new-task", label: "Add Task"};
@@ -36,7 +40,10 @@ function refreshFab(){
 }
 // The app tour's example planner (49-apptour.js)
 let tourDemo = null, demoDrawing = false;
+// set while the queued redraw runs (it was asked for, and counted, by scheduleRender); any other call to render() is a new ask
+let renderGo = false;
 function render(){
+  if (!renderGo) focusStale();
   if (!tourDemo || demoDrawing) return renderNow();
   const real = state; demoDrawing = true; state = Object.assign({}, tourDemo, {settings: real.settings, trash: {}});
   try { return renderNow(); } finally { state = real; demoDrawing = false; FOCUS = null; }
@@ -46,7 +53,10 @@ function renderNow(){
   try { AUTO_ON = autoState().on; } catch(e) { AUTO_ON = false; }
   if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
-  computeFocus(); remoteStoreSoon();
+  // A flashcard review shows only the card: Today's Plan isn't worked out again on every flip and grade (with a full term that
+  // was most of a second per card on a phone). It is once the review ends, and anything that asks computeFocus() meanwhile gets a fresh one.
+  if (!(ui.tab === "flashcards" && ui.fc && ui.fc.mode === "study")) computeFocus();
+  remoteStoreSoon();
   // the date, and what today is at school (Day 3, B Day, or a day off)
   const sdT = (() => { try { return schoolDayText(todayISO()); } catch (e) { return ""; } })();
   { const nd = new Date(); $("#navDate").innerHTML = esc(nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"})) + (sdT ? `<span class="nd-sd">${esc(sdT)}</span>` : ""); }
@@ -487,8 +497,8 @@ function taskView(t0){
     if (t.due) {
       const n = dayDiff(today, t.due);
       rows.push([I.cal, esc(parse(t.due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"})) + (t.time && cfg.time ? ", " + esc(fmtTime(t.time)) : ""),
-        esc(cfg.due) + (done ? "" : n === 0 ? " · Today" : n === 1 ? " · Tomorrow" : n > 1 ? ` · In ${n} days` : ` · ${-n} day${n === -1 ? "" : "s"} late`)]);
-    } else rows.push([I.cal, "No due date", ""]);
+        esc(cfg.due) + (done ? "" : n === 0 ? " · Today" : n === 1 ? " · Tomorrow" : n > 1 ? ` · In ${n} days` : n < -365 ? " · Over a year late" : ` · ${-n} day${n === -1 ? "" : "s"} late`)]);
+    } else rows.push([I.cal, t.dueBad ? "No due date — check the date" : "No due date", ""]);
     // Start Date is the day of the first focus session on this task; before any, there's no start date to show
     const st = !cfg.single && workEntries(t).filter(e => e.kind === "focus").map(e => e.d).sort()[0];
     if (st) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
@@ -896,6 +906,40 @@ function taskForm(t, preset = {}){
   let start = null;
   ["focusin", "pointerdown", "keydown"].forEach(ev => tForm.addEventListener(ev, () => { if (start === null) start = snap(); }, true));
   dlgGuard = () => start !== null && snap() !== start;
+  // A changed sheet is kept as a draft on this device while you type, so a reload doesn't lose it (tfDraftOffer)
+  let dT = 0;
+  const keep = () => { clearTimeout(dT); dT = 0; if (!tForm.isConnected || !dlg.open) return; try { if (dlgGuard && dlgGuard()) localStorage.setItem(TF_DRAFT, JSON.stringify({id: t.id, isNew, title: t.title || "", at: Date.now(), f: [...new FormData(tForm)].filter(([, v]) => typeof v === "string")})); else localStorage.removeItem(TF_DRAFT); } catch (e) {} };
+  const soon = () => { clearTimeout(dT); dT = setTimeout(keep, 400); };
+  tForm.addEventListener("input", soon); tForm.addEventListener("change", soon);
+  tfDraftNow = () => { if (dT) keep(); };
+}
+/* Drafts of the task sheet. Saving, Cancel or Discard clears the draft (the sheet closes); after a reload, the app offers
+   it back once: Restore opens the task again with what you had typed. */
+const TF_DRAFT = "studyboard:taskDraft";
+let tfDraftNow = null;
+addEventListener("pagehide", () => { if (tfDraftNow) tfDraftNow(); });
+hook("boot", () => setTimeout(() => { try { tfDraftOffer(); } catch (e) { console.warn("task draft", e); } }, 1500));
+// (a close event that arrives after another sheet already opened, such as a restored draft, is about the sheet before it)
+dlg.addEventListener("close", () => { if (!tfDraftNow || dlg.open) return; tfDraftNow = null; try { localStorage.removeItem(TF_DRAFT); } catch (e) {} });
+function tfDraftOffer(){
+  let d = null; try { d = JSON.parse(localStorage.getItem(TF_DRAFT) || "null"); localStorage.removeItem(TF_DRAFT); } catch (e) { d = null; }
+  if (!d || !Array.isArray(d.f) || !(Date.now() - (Number(d.at) || 0) < 7 * 864e5)) return;
+  const t = d.isNew ? null : state.tasks[d.id]; if (!d.isNew && !t) return;
+  const name = (d.f.find(([k]) => k === "title") || [])[1] || d.title || "";
+  toast(`Restore your unsaved changes${name ? ` to “${name.slice(0, 60)}”` : " to a task"}?`, null, {label: "Restore", fn: () => {
+    if (dlg.open) dlg.close();
+    taskForm(d.isNew ? null : state.tasks[d.id] || null);
+    const form = dlg.querySelector("form"); if (!form) return;
+    // (as if you'd started editing: the sheet knows it has changes, so closing it asks first and the draft is kept again)
+    form.dispatchEvent(new FocusEvent("focusin"));
+    const byName = {}; d.f.forEach(([k, v]) => { (byName[k] = byName[k] || []).push(v); });
+    Object.keys(byName).forEach(k => {
+      const els = [...form.elements].filter(el => el.name === k); if (!els.length) return;
+      els.forEach(el => { if (el.type === "radio" || el.type === "checkbox") el.checked = byName[k].includes(el.value); else el.value = byName[k][0]; });
+      els[els.length - 1].dispatchEvent(new Event("change", {bubbles: true}));
+    });
+    form.dispatchEvent(new Event("input", {bubbles: true}));
+  }});
 }
 // Repeats run until the course's last deadline, or the end of the usual term
 function repeatEnd(due, cid){

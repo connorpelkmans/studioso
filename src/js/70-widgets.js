@@ -46,8 +46,17 @@
   if (window.__SB_TEST) window.__sbPhoneWidgets = {data: () => phoneData(widgetData()), drain: () => drainPhone(), push: () => { phoneSent = ""; push(); }};
   /* Sending it to the widgets */
   let lastSent = "", pushT = null;
+  // Where a widget can take the feed: the desktop app's Today widget, or the Windows 11 Widgets board (through the service
+  // worker, from the website in Edge or Chrome on Windows). Anywhere else (a phone's browser, the iPhone and Android apps,
+  // a Mac's browser) nothing receives it, so it isn't built: on a phone with a full term that was a whole re-plan of the day
+  // after every change. The Today view added to a phone's Home Screen (?widget=today) draws its own data (todayCard) and
+  // the phone apps' Siri and Shortcuts data has its own feed (96-siri.js), so neither depends on this.
+  const winBoard = () => !DESK && !inPreview() && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost");
+  const WIN_OK = /Windows/.test(navigator.userAgent || "") && !/Android|iPhone|iPad|iPod/.test(navigator.userAgent || "");
+  const feedOk = () => DESK_OK || (WIN_OK && winBoard());
   function push(){
     clearTimeout(pushT); pushT = null;
+    if (!feedOk()) return;
     let d; try { d = widgetData(); } catch(e) { console.warn("widget data", e); return; }
     // the phone widgets also show a running Focus, Exam Mode and the week ahead, so they keep their own check for changes
     pushPhone(d);
@@ -57,7 +66,7 @@
     if (DESK_OK) { try { DESK.setWidgetData(d); } catch(e) {} }
     pushWindows(d);
   }
-  const pushSoon = () => { if (!pushT) pushT = setTimeout(push, 500); };
+  const pushSoon = () => { if (!pushT && feedOk()) pushT = setTimeout(push, 500); };
 
   /* iPhone and iPad Home Screen and Lock Screen widgets (ios-wrapper/native/HomeWidgets): the same day as the desktop widget,
      plus what the widget needs to stay right without the app open: the time each task is due, the week ahead (for the iPad's
@@ -145,7 +154,7 @@
     };
   }
   function pushWindows(d){
-    if (DESK || inPreview() || !("serviceWorker" in navigator) || !(location.protocol === "https:" || location.hostname === "localhost")) return;
+    if (!WIN_OK || !winBoard()) return;
     const msg = {type: "sb-widget-data", data: cardData(d)};
     navigator.serviceWorker.ready.then(r => { if (r.active) r.active.postMessage(msg); }).catch(() => {});
   }

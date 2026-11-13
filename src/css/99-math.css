@@ -51,8 +51,11 @@
 dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 @media (max-width:600px){dialog:has(.sheet.ofv-sheet){width:100%}}
 .ofv-body{background:color-mix(in srgb,var(--ink) 8%,var(--soft));display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px;overflow:auto}
-.ofv-page{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;max-width:100%}
-.ofv-grid{align-self:stretch;align-items:flex-start;overflow-x:auto}
+/* flex:none: a sheet scrolls sideways (overflow-x), which would otherwise let the column squeeze it shorter than its grid */
+.ofv-page{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;max-width:100%;flex:none}
+.ofv-grid{align-self:stretch;align-items:flex-start;overflow-x:auto;overscroll-behavior-x:contain}
+/* a spreadsheet's sheet name sits above its grid like a tab, and stays in view while the grid scrolls sideways */
+.ofv-grid .ofv-tab{order:-1;position:sticky;left:0;margin:0 0 -6px;padding:4px 12px;border-radius:8px 8px 0 0;background:#fff;color:#1f2937;font-weight:700;box-shadow:0 -1px 3px rgba(0,0,0,.12)}
 .ofv-frame{position:relative;overflow:hidden;flex:none;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.08)}
 .ofv-in{position:absolute;left:0;top:0;transform-origin:0 0;user-select:text;-webkit-user-select:text}
 .ofv-warn{align-self:stretch;margin:0}

@@ -83,6 +83,38 @@ var SBCLS = null;
     return {from, until, set: isDate(cd.from) && isDate(cd.until)};
   }
 
+  /* When a course's term is over: Crunch and Today's Plan stop counting its past-due work then. The Last Class date when it's
+     set (this course's or, as termOf does, another course's); otherwise a guess from the last date any course has (a deadline
+     or the end of a class series), the same dates termOf guesses from. A guessed end waits two weeks, so a course whose next
+     deadlines aren't entered yet isn't taken as over. */
+  let LAST = null;
+  function endOf(c){
+    const cd = (c && c.classDates) || {};
+    if (isDate(cd.until)) return {until: cd.until, set: true};
+    const other = coursesArr().map(x => x.classDates || {}).filter(d => isDate(d.from) && isDate(d.until) && d.until >= d.from);
+    if (other.length) return {until: other[0].until, set: true};
+    if (!LAST || LAST.st !== state || LAST.at !== state.updated) {
+      const mine = new Set(coursesArr().map(x => x.id)); let late = "";
+      const see = d => { if (isDate(d) && d > late) late = d; };
+      allTasks().forEach(t => { if (mine.has(t.courseId)) { see(t.due); see(t.start); } });
+      eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { see(e.date); if (e.repeat) see(e.repeat.until); } });
+      LAST = {st: state, at: state.updated, late};
+    }
+    return {until: LAST.late, set: false};
+  }
+  const ended = (c, today) => { const e = endOf(c); return !!e.until && (today || todayISO()) > (e.set ? e.until : addDays(e.until, 14)); };
+  // Which open work no longer counts today: past due, in a course whose term is over (work with no course once every course is)
+  function overOf(today){
+    today = today || todayISO();
+    const cs = coursesArr(); if (!cs.length) return null;
+    const by = {}; cs.forEach(c => { by[c.id] = ended(c, today); });
+    const all = cs.every(c => by[c.id]);
+    if (!all && !cs.some(c => by[c.id])) return null;
+    const f = t => !!t && isDate(t.due) && t.due < today && (courseOf(t.courseId) ? !!by[t.courseId] : all);
+    f.all = all; f.ended = cs.filter(c => by[c.id]);
+    return f;
+  }
+
   /* Every class of a course in its term, numbered per kind (Lecture 7, Lab 3); skipped classes stay listed but aren't counted */
   let CACHE = null;
   function classesOf(c){
@@ -120,9 +152,14 @@ var SBCLS = null;
     return fit[0] ? fit[0].key : cands.length === 1 ? cands[0].key : "";
   }
   function itemsOf(cid, key){
-    const notes = Object.values(state.notes || {}).filter(n => n && n.courseId === cid && n.cls === key && !n.archived).sort((a, b) => (a.created || 0) - (b.created || 0));
     const files = Object.values(state.files || {}).filter(f => f && f.courseId === cid && f.cls === key && !isLec(f)).sort((a, b) => (a.created || 0) - (b.created || 0));
     const recs = Object.values(state.files || {}).filter(f => f && f.courseId === cid && isLec(f) && recKeyOf(f) === key).sort((a, b) => (a.created || 0) - (b.created || 0));
+    // a note not tagged to any class still belongs here when it's attached to this class's recording, or was written during the class
+    // (`via` says which, and these have no "take it off" button: nothing on the note links it)
+    const att = new Set(); recs.forEach(f => ((f.lec && Array.isArray(f.lec.att)) ? f.lec.att : []).forEach(a => { if (a && a.k === "note" && a.id) att.add(a.id); }));
+    const x = findClass(cid, key), during = n => !!x && !x.skipped && !!x.end && dOf(n.created) === x.date && minOfDay(n.created) >= tMin(x.start) - 10 && minOfDay(n.created) <= tMin(x.end) + 10;
+    const notes = Object.values(state.notes || {}).filter(n => n && n.courseId === cid && !n.archived && (n.cls === key || (!n.cls && (att.has(n.id) || (n.created && during(n))))))
+      .map(n => n.cls === key ? n : Object.assign({}, n, {via: att.has(n.id) ? "rec" : "time"})).sort((a, b) => (a.created || 0) - (b.created || 0));
     return {notes, files, recs, n: notes.length + files.length + recs.length};
   }
   const hasSum = f => !!(f.lec && f.lec.sum);
@@ -192,7 +229,7 @@ var SBCLS = null;
     const c = courseOf(x.cid), I = itemsOf(x.cid, x.key), all = classesOf(c).filter(y => y.kind === x.kind && (!y.skipped || y.key === x.key));
     const i = all.findIndex(y => y.key === x.key), prev = i > 0 ? all[i - 1] : null, next = i >= 0 && i < all.length - 1 ? all[i + 1] : null;
     const rm = (k, id) => `<button type="button" class="x-btn" data-act="cls-unlink" data-k="${k}" data-id="${esc(id)}" aria-label="Take it off this class (it isn't deleted)" title="Take it off this class (it isn't deleted)">${CLOSE}</button>`;
-    const noteLi = n => `<li class="cls-it">${n.wb ? IC.board(16) : IC.note(16)}<button type="button" class="cls-it-main" data-act="cls-note" data-id="${esc(n.id)}"><b>${esc(n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") : noteName(n))}</b>${!n.wb && notePeek(n) ? `<span class="mini">${esc(notePeek(n))}</span>` : `<span class="mini">${n.wb ? "Whiteboard" : "Note"}</span>`}</button>${rm("note", n.id)}</li>`;
+    const noteLi = n => `<li class="cls-it">${n.wb ? IC.board(16) : IC.note(16)}<button type="button" class="cls-it-main" data-act="cls-note" data-id="${esc(n.id)}"><b>${esc(n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") : noteName(n))}</b>${!n.wb && notePeek(n) ? `<span class="mini">${esc(notePeek(n))}</span>` : `<span class="mini">${n.wb ? "Whiteboard" : "Note"}</span>`}${n.via ? `<span class="mini cls-via">${n.via === "rec" ? "With the recording" : "Written during class"}</span>` : ""}</button>${n.via ? "" : rm("note", n.id)}</li>`;
     const fileLi = f => `<li class="cls-it">${IC.file(16)}<button type="button" class="cls-it-main" data-act="cls-file" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${srcTag(f)}${esc(day(dOf(f.created), {month: "short", day: "numeric"}))}</span></button>${rm("file", f.id)}</li>`;
     const recLi = f => `<li class="cls-it k-rec">${IC.mic(16)}<button type="button" class="cls-it-main" data-act="lec-view" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${esc([f.dur && window.SBLEC ? SBLEC.clock(f.dur * 1000) : "", f.tr && f.tr.text ? "Transcript" : "", hasSum(f) ? "Summary" : ""].filter(Boolean).join(" · ") || "Recording")}</span></button>${hasSum(f) ? `<button type="button" class="btn small" data-act="cls-sum" data-id="${esc(f.id)}">Summary</button>` : ""}</li>`;
     const nowish = x.date === todayISO() && minOfDay(Date.now()) >= tMin(x.start) - 20 && minOfDay(Date.now()) <= tMin(x.end) + 10;
@@ -209,7 +246,7 @@ var SBCLS = null;
 
         <section class="cls-sec"><h3><span>${esc(x.kind || "Class")} Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
           ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Upload the slides before class." : "Nothing for this class yet."}</p>`}
-          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
+          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-newnote">${IC.plus(16)}New Note</button><button type="button" class="btn small" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
         </section>
 
         <section class="cls-sec"><h3><span>Recording</span></h3>
@@ -395,6 +432,12 @@ var SBCLS = null;
       case "cls-kind": { ui.clsKind = Object.assign({}, ui.clsKind, {[el.dataset.cid]: el.dataset.k}); render(); return true; }
       case "cls-dates": datesSheet(el.dataset.cid); return true;
       case "cls-upload": { const x = cur(); if (x) upload(x); return true; }
+      // a typed note already tagged to this class, opened to write in
+      case "cls-newnote": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); if (noteEditing) saveNoteText();
+        const n = addNoteText(`${x.title} notes, ${day(x.date, {month: "short", day: "numeric"})}\n`, x.cid, "", {cls: x.key});
+        noteEditing = n.id; ui.tab = "notes"; render(); window.scrollTo(0, 0);
+        setTimeout(() => { const t = $("#noteText"); if (t) { try { t.focus({preventScroll: true}); t.setSelectionRange(t.value.length, t.value.length); } catch (e) {} } }, 60);
+        return true; }
       case "cls-drive": { const x = cur(); if (x) drive(x); return true; }
       case "cls-connect": { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); return true; }
       case "cls-pick": { const x = cur(); if (x) pickSheet(x); return true; }
@@ -420,5 +463,14 @@ var SBCLS = null;
     return true;
   });
 
-  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
+  // The Lectures tab opens at this week (earlier weeks stay above it), once each time the tab is opened
+  let LANDED = "";
+  hook("render", () => {
+    const tab = document.querySelector(".cls-tab"); if (!tab) { LANDED = ""; return; }
+    const k = ui.courseId || "1"; if (LANDED === k) return; LANDED = k;
+    const w = tab.querySelector(".cls-week.is-now"); if (!w || w === tab.querySelector(".cls-week")) return;
+    requestAnimationFrame(() => { try { const top = w.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo(0, Math.max(0, top)); } catch (e) {} });
+  });
+
+  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();

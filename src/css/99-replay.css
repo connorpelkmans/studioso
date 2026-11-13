@@ -28,6 +28,12 @@
 .rp-on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:8px;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 14%,transparent)}
 .rp-chip.rp-on{background:var(--accent);color:var(--accent-ink,#fff);box-shadow:none}
 .rp-doc .rp-para,.rp-doc li{transition:background-color .2s}
+/* each sentence of the transcript plays from its moment */
+.rp-sent{cursor:pointer;border-radius:4px;transition:background-color .2s}
+.rp-sent:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.rp-sent:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.rp-sent.rp-on{box-shadow:none;border-radius:4px}
+.rp-chip.rp-star{color:#B7791F}
 @media (prefers-reduced-motion:reduce){.rp-doc .rp-para,.rp-doc li,.rp-line{transition:none}}
 
 /* a note's or file's replay view */
@@ -67,4 +73,6 @@
 .rp-pill-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem}
 .rp-pill-t .mini{font-variant-numeric:tabular-nums}
 .rp-pill .x-btn{flex:none}
-@media (max-width:760px){.rp-pill{bottom:calc(76px + env(safe-area-inset-bottom,0px))}}
+/* never over the sidebar (its Style and Settings buttons sit bottom-left) or the round + button on phones */
+@media (min-width:980px){.rp-pill{left:152px;max-width:min(360px,calc(100vw - 168px))}}
+@media (max-width:760px){.rp-pill{bottom:calc(76px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 98px)}}

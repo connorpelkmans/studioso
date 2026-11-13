@@ -6,17 +6,25 @@
 .sb-popped :is(.task-title,.nu-title,.card-title,.title){text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 45%,transparent);opacity:.55;transition:opacity .12s ease-out .14s}
 .acc-s{display:none}
 @media (prefers-reduced-motion:reduce){.check.sb-pop{animation:none}.sb-popped :is(.task-title,.nu-title,.card-title,.title){transition:none}}
+/* The toast looks the same at every size (a tick for something done, a boxed Undo); only where it sits changes */
+:root{--toast-bg:var(--spine);--toast-ink:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--toast-bg:color-mix(in srgb,var(--surface) 82%,#fff)}}
+:root[data-theme="dark"]{--toast-bg:color-mix(in srgb,var(--surface) 82%,#fff)}
+#toast.toast{align-items:center;border-radius:16px;background:var(--toast-bg);color:var(--toast-ink);box-shadow:0 12px 30px -8px rgba(8,20,50,.45),0 0 0 1px color-mix(in srgb,#fff 8%,transparent)}
+#toast.toast-done::before{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:var(--leaf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/15px no-repeat}
+#toast.toast button:not(.toast-x){flex:none;min-height:40px;padding:0 12px;border-radius:10px;color:#FFE45C;font-weight:800}
+#toast.toast #toastUndo{margin-left:auto;background:color-mix(in srgb,#000 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,#fff 16%,transparent)}
+#toast.toast .toast-x{color:#fff}
+#toast.toast.toast-err{box-shadow:0 0 0 2px var(--late),0 12px 30px -8px rgba(8,20,50,.45)}
 @media (max-width:639px){
   :root{--sb-snack-b:calc(var(--ph-bar-b,6px) + 78px)}
-  #toast.toast{left:12px;right:12px;bottom:var(--sb-snack-b);transform:none;width:auto;max-width:none;flex-wrap:nowrap;align-items:center;gap:10px;padding:8px 8px 8px 14px;min-height:52px;border-radius:16px;background:var(--spine);color:#fff;box-shadow:0 12px 30px -8px rgba(8,20,50,.45),0 0 0 1px color-mix(in srgb,#fff 8%,transparent);font-size:.95rem;line-height:1.3}
+  #toast.toast{left:12px;right:12px;bottom:var(--sb-snack-b);transform:none;width:auto;max-width:none;flex-wrap:nowrap;gap:10px;padding:8px 8px 8px 14px;min-height:52px;font-size:.95rem;line-height:1.3}
   #toast.toast #toastMsg{flex:1 1 auto;min-width:0}
   /* keyboard up: the toast sits just above it, so a "fill in…" message is never hidden under the keys */
   html.kb-open #toast.toast{bottom:calc(var(--kb-h,0px) + 12px)}
-  #toast.toast-done::before{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:var(--leaf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/15px no-repeat}
+  /* over an open sheet it goes to the top of the screen, so it never covers the sheet's footer buttons or the rows above them */
+  html dialog[open] > #toast.toast{top:calc(env(safe-area-inset-top,0px) + 8px);bottom:auto}
   #toast.toast-done #toastMsg{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #toast.toast button:not(.toast-x){flex:none;min-height:40px;padding:0 12px;border-radius:10px;color:#FFE45C;font-weight:800}
-  #toast.toast #toastUndo{margin-left:auto;background:color-mix(in srgb,#000 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,#fff 16%,transparent)}
-  #toast.toast .toast-x{color:#fff}
   body:has(#toast.show) .fab{transform:translateY(calc(-8px - var(--toast-h,52px)))}
   body:has(.acc-chip:not([hidden])) .fab{opacity:0;pointer-events:none}
   .fab{transition:transform .2s ease,opacity .15s ease}
@@ -39,8 +47,6 @@
   .acc-chip[data-kind="took"] .acc-l{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .acc-chip[data-kind="took"] .acc-s{display:inline}
 }
-@media (max-width:639px) and (prefers-color-scheme:dark){:root:not([data-theme="light"]) #toast.toast{background:color-mix(in srgb,var(--surface) 82%,#fff);color:#fff}}
-@media (max-width:639px){:root[data-theme="dark"] #toast.toast{background:color-mix(in srgb,var(--surface) 82%,#fff);color:#fff}}
 @media (max-width:639px) and (prefers-reduced-motion:reduce){.fab{transition:none}}
 
 /* Compact course cards */
@@ -250,10 +256,6 @@
   .acc-chip[data-kind="left"] .acc-say{flex:1 1 100%}
   .acc-chip[data-kind="left"] .acc-say input{width:100%}
 }
-/* Phones: Enough for Today is a quiet text link under the two main buttons, not a third big button */
-@media (max-width:639px){
-  .next-up .nu-acts > [data-act="nu-enough"]{flex:0 0 100%;min-height:36px;margin:-2px 0 -4px;padding:4px 0!important;border:0!important;background:none!important;box-shadow:none!important;color:var(--muted);font-weight:600;text-decoration:underline;text-underline-offset:3px}
-}
 
 /* Phone: button rows that line up. The main action leads; buttons grow to fill the row, and a button that doesn't fit takes a full row (never cut off) */
 @media (max-width:480px){
@@ -305,6 +307,8 @@
 :root details > summary.g2-dots.g2-dots::after{content:none}
 @media (prefers-reduced-motion:reduce){:root details > summary::after{transition:none}}
 :root select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px 14px;padding-right:34px}
+/* a course picker keeps its course's color dot (101-phone-v2 .has-dot) next to the arrow: the arrow above would otherwise replace the dot and leave an empty gap */
+html select.cs-custom.has-dot:not([multiple]):not([size]){background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-position:0 0,right 12px center;background-size:auto,14px 14px}
 
 /* Sheet header icons: each is framed tightly around its own drawing (centred), so all fill the ring the same */
 .g2-sheet-head .sh-ring svg{width:54%!important;height:54%!important}
@@ -408,4 +412,9 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 @media (min-width:980px){
   body.cp-on .wrap{padding-inline:clamp(32px, calc(84px - (100vw - 151px - 900px) / 2), 84px)}
   body.cp-on.wide .wrap{padding-inline:clamp(32px, calc(84px - (100vw - 151px - 1240px) / 2), 84px)}
+}
+/* Phones: the time question joins the toast (see 92-accuracy.css) */
+@media (max-width:639px){
+  body:has(#toast.show) .acc-chip:not([hidden]){left:12px;right:12px;width:auto;bottom:calc(var(--sb-snack-b) + var(--toast-h,52px));border-radius:18px 18px 0 0}
+  body:has(.acc-chip:not([hidden])) #toast.show{width:auto;border-radius:0 0 16px 16px}
 }

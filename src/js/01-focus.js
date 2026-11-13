@@ -169,7 +169,7 @@ function pomoFinish(missed){
 }
 function pomoAlarm(done, next, auto, missed){
   const cfg = pomoCfg();
-  const title = done === "focus" ? "Focus session complete" : "Break's over";
+  const title = done === "focus" ? "Focus Session Complete" : "Break's Over";
   const body = done === "focus" ? `Nice work. ${auto ? "Your" : "Time for a"} ${next === "long" ? `${cfg.long}-minute long break` : `${cfg.short}-minute break`}${auto ? " has started" : ""}.` : `${auto ? "Your next focus session has started." : "Ready for the next focus session?"}`;
   if (!missed) {
     if (!ISLAND.ring) playAlarm(cfg.sound, Number(cfg.volume), 5);   // in the iPhone app, iOS rings it (see nativeAlarm)

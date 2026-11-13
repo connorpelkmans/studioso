@@ -2849,7 +2849,10 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     extPost({type: "hello"});
     // (an open menu or popover waits: the redraw would close it under the person's pointer)
     const extRedraw = () => { if (document.querySelector("#view [aria-expanded=true]")) setTimeout(extRedraw, 1500); else render(); };
-    setTimeout(() => { EXT.checked = true; if (!EXT.on && typeof render === "function") extRedraw(); }, 3000);
+    // (only a school site last synced through the extension shows anything different once the check is done (extGone), so with
+    // none there's no redraw: on a phone with a full term that was a second of frozen screen 3 seconds after opening)
+    const extShown = () => Object.values((state && state.settings) || {}).some(s => s && typeof s === "object" && s.mode === "api" && s.lastSrc === "grab");
+    setTimeout(() => { EXT.checked = true; if (!EXT.on && typeof render === "function" && extShown()) extRedraw(); }, 3000);
   }
   hook("boot", extListen);
   window.addEventListener("sb:signing-out", () => { if (EXT.on) extPost({type: "signout"}); });

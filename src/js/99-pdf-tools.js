@@ -87,7 +87,8 @@ function pdtReadDocx(xml, rels, numXml){
         [...n.childNodes].forEach(c => { if (c.nodeType !== 1) return;
           if (c.localName === "t") runs.push({t: c.textContent, b, i, sz, col});
           else if (c.localName === "tab") runs.push({t: "    ", b, i, sz, col});
-          else if (c.localName === "br") { if ((c.getAttributeNS(W, "type") || c.getAttribute("w:type")) === "page") pageBreak = true; else runs.push({t: "\n", b, i, sz, col}); }
+          // a page break keeps its place among the words ({pb}), so text before and after it lands on different pages
+          else if (c.localName === "br") { if ((c.getAttributeNS(W, "type") || c.getAttribute("w:type")) === "page") { pageBreak = true; runs.push({t: "", pb: true}); } else runs.push({t: "\n", b, i, sz, col}); }
           else if (c.localName === "drawing") { const blip = c.getElementsByTagNameNS("*", "blip")[0], ext = c.getElementsByTagNameNS("*", "extent")[0], id = blip && (blip.getAttribute("r:embed") || blip.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed")); if (id && rels[id]) pics.push({src: rels[id], w: ext ? Number(ext.getAttribute("cx")) / 12700 : 0, h: ext ? Number(ext.getAttribute("cy")) / 12700 : 0}); }
         });
       } else if (/^(hyperlink|smartTag|ins|fldSimple|sdt|sdtContent|customXml)$/.test(n.localName)) walk(n);
@@ -202,7 +203,8 @@ function reviewMemoryStore(){
   const kindOf = (name, type) => /\.pdf$/i.test(name) || type === "application/pdf" ? "pdf" : /\.docx$/i.test(name) ? "docx" : /\.pptx$/i.test(name) ? "pptx" : /^image\//.test(type || "") || /\.(png|jpe?g|webp|gif|heic)$/i.test(name) ? "img" : "";
   function convertOpen(){
     CONV.src = null;
-    const pdfs = Object.values(state.files || {}).filter(f => f && f.kind === "file" && f.revs && f.revs.length && /\.(pdf|docx|pptx)$/i.test(curRev(f).name || f.name)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 300);
+    // the student's own files that convert: PDFs, Word, PowerPoint and pictures (a picture makes a PDF)
+    const pdfs = Object.values(state.files || {}).filter(f => f && f.kind === "file" && f.revs && f.revs.length && /\.(pdf|docx|pptx|png|jpe?g|webp|gif)$/i.test(curRev(f).name || f.name)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 300);
     dialogOf("pdtConv", `<div class="sheet">${head("Convert", "PDF to Word or pictures; Word, PowerPoint or pictures to PDF. Done on this device: nothing is uploaded to convert it.")}
       <div class="sheet-body pdt-body">
         <div class="row-actions"><label class="btn">Choose a File<input type="file" class="sr" data-pdt-in accept=".pdf,.docx,.pptx,image/png,image/jpeg,image/webp,application/pdf" multiple></label>
@@ -220,7 +222,7 @@ function reviewMemoryStore(){
         <label class="f"><span class="lh">Pages</span><input type="text" data-pdt="pages" placeholder="All, or 1-3, 5" style="width:10em"></label></div>
       <p class="mini">Word files get the text only (no pictures or exact layout). Several pages of pictures come as one ZIP.</p>
       <div class="row-actions"><button type="button" class="btn primary" data-pdt="go">Convert and Download</button></div>`;
-    else box.innerHTML = `<p><b>${esc(label)}</b></p><p class="mini">Makes a PDF${s.kind === "docx" ? " from the document's text, headings, lists, tables and pictures" : s.kind === "pptx" ? ", one page per slide, from each slide's text boxes and pictures" : " with one picture per page"}. ${s.kind === "img" ? "" : "It's close to the original but not exact: fonts become standard ones, and some layout (columns, shapes, effects) is simplified. Letters outside Western European languages become “?” for now."}</p>
+    else box.innerHTML = `<p><b>${esc(label)}</b></p><p class="mini">Makes a PDF${s.kind === "docx" ? " from the document's text, headings, lists, tables and pictures" : s.kind === "pptx" ? ", one page per slide, with each slide's text, pictures, background and colored boxes" : " with one picture per page"}. ${s.kind === "img" ? "" : "It's close to the original but not exact: fonts become standard ones, and some layout (columns, shapes, effects) is simplified. Letters outside Western European languages become “?” for now."}</p>
       <div class="row-actions"><button type="button" class="btn primary" data-pdt="go">Make the PDF</button></div>`;
   }
   // "1-3, 5" as page numbers (all when empty; none when nothing typed is a page of this PDF)
@@ -329,14 +331,20 @@ function reviewMemoryStore(){
     }
     for (const b of blocks) {
       if (b.k === "p") {
-        if (b.pageBreak && b.runs.every(r => !r.t.trim())) { newPage(); continue; }
-        if (b.runs.some(r => r.t.trim()) || !b.pics.length) { const ind = b.list ? 18 * (1 + Math.min(4, b.lvl || 0)) : 0; await drawPara(b, M + ind, CW - ind, 11); y -= sizes[b.style] ? 6 : 4; }
+        // the paragraph's words in parts between its page breaks: each break starts a new page where it is in the text
+        const segs = [[]]; b.runs.forEach(r => { if (r.pb) segs.push([]); else segs[segs.length - 1].push(r); });
+        const ind = b.list ? 18 * (1 + Math.min(4, b.lvl || 0)) : 0, tail = segs.length > 1 && !segs[segs.length - 1].some(r => r.t.trim());
+        for (let si = 0; si < segs.length - (tail ? 1 : 0); si++) {
+          if (si) newPage();
+          const part = Object.assign({}, b, {runs: segs[si], list: b.list && !si});
+          if (part.runs.some(r => r.t.trim()) || (segs.length === 1 && !b.pics.length)) { await drawPara(part, M + ind, CW - ind, 11); y -= sizes[b.style] ? 6 : 4; }
+        }
         for (const pic of b.pics) {
           const data = files[pic.src]; if (!data || !/\.(png|jpe?g)$/i.test(pic.src)) { skipped++; continue; }
           const img = /\.png$/i.test(pic.src) ? await doc.embedPng(data) : await doc.embedJpg(data), w0 = pic.w || img.width * 0.75, h0 = pic.h || img.height * 0.75, k = Math.min(1, CW / w0, (PH - M * 2) / h0);
           if (y - h0 * k < M) newPage(); y -= h0 * k; page.drawImage(img, {x: M, y, width: w0 * k, height: h0 * k}); y -= 6;
         }
-        if (b.pageBreak) newPage();
+        if (tail) newPage();
       } else if (b.k === "table") {
         // a table: equal columns with borders, each row as tall as its tallest cell
         for (const row of b.rows) {
@@ -353,40 +361,92 @@ function reviewMemoryStore(){
     return {bytes: await doc.save(), pages: doc.getPageCount(), note: skipped ? `${skipped} picture${skipped === 1 ? " wasn't a PNG or JPEG, so it was" : "s weren't PNG or JPEG, so they were"} left out` : ""};
   }
   async function pptxToPdf(L, bytes){
-    const files = await unzipBytes(bytes, n => /^ppt\/(presentation\.xml|_rels\/presentation\.xml\.rels|slides\/slide\d+\.xml|slides\/_rels\/slide\d+\.xml\.rels|media\/.+)$/.test(n), {max: 40e6});
+    const files = await unzipBytes(bytes, n => /^ppt\/(presentation\.xml|_rels\/presentation\.xml\.rels|(slides|slideLayouts|slideMasters)\/(_rels\/)?(slide|slideLayout|slideMaster)\d+\.xml(\.rels)?|theme\/theme\d+\.xml|media\/.+)$/.test(n), {max: 40e6});
     const dec = new TextDecoder(), pres = files["ppt/presentation.xml"] ? dec.decode(files["ppt/presentation.xml"]) : ""; if (!pres) throw new Error("That isn't a PowerPoint file Studyboard can read.");
     const sz = /<p:sldSz[^>]*cx="(\d+)"[^>]*cy="(\d+)"/.exec(pres), PW = sz ? Number(sz[1]) / 12700 : 720, PH = sz ? Number(sz[2]) / 12700 : 540;
-    const prels = {}; if (files["ppt/_rels/presentation.xml.rels"]) dec.decode(files["ppt/_rels/presentation.xml.rels"]).replace(/<Relationship [^>]*Id="([^"]+)"[^>]*Target="([^"]+)"/g, (m, id, t) => { prels[id] = "ppt/" + t.replace(/^\.?\//, ""); });
-    const order = [...pres.matchAll(/<p:sldId [^>]*r:id="([^"]+)"/g)].map(m => prels[m[1]]).filter(Boolean);
+    // a part's relationships (id -> {t: the part it points to, type}), with "../" paths worked out
+    const resolve = (base, t) => { const parts = base.split("/").slice(0, -1); String(t).split("/").forEach(s => { if (s === "..") parts.pop(); else if (s && s !== ".") parts.push(s); }); return parts.join("/"); };
+    const relsAt = p => { const out = {}, f = files[p.replace(/([^/]+)$/, "_rels/$1.rels")]; if (f) dec.decode(f).replace(/<Relationship\b[^>]*>/g, m => { const a = k => (new RegExp("\\b" + k + '="([^"]*)"').exec(m) || [])[1] || ""; out[a("Id")] = {t: /^\//.test(a("Target")) ? a("Target").slice(1) : resolve(p, a("Target")), type: a("Type")}; }); return out; };
+    const xmlOf = {}, parse = p => p && files[p] ? (xmlOf[p] = xmlOf[p] || new DOMParser().parseFromString(dec.decode(files[p]), "application/xml")) : null;
+    const relOfType = (p, re) => { const r = Object.values(relsAt(p)).find(x => re.test(x.type)); return r ? r.t : ""; };
+    const prels = relsAt("ppt/presentation.xml");
+    const order = [...pres.matchAll(/<p:sldId [^>]*r:id="([^"]+)"/g)].map(m => prels[m[1]] && prels[m[1]].t).filter(Boolean);
+    const kids = (el, name) => el ? [...el.children].filter(n => n.localName === name) : [], kid = (el, name) => kids(el, name)[0] || null;
     const doc = await L.PDFDocument.create(), K = await layoutKit(L, doc); let skipped = 0;
     for (const sp of order) {
-      const xml = files[sp] ? dec.decode(files[sp]) : ""; if (!xml) continue;
-      const page = doc.addPage([PW, PH]), sx = new DOMParser().parseFromString(xml, "application/xml");
-      const rels = {}; const rf = files[sp.replace(/slides\/(slide\d+\.xml)$/, "slides/_rels/$1.rels")]; if (rf) dec.decode(rf).replace(/<Relationship [^>]*Id="([^"]+)"[^>]*Target="([^"]+)"/g, (m, id, t) => { rels[id] = "ppt/" + t.replace(/^\.\.\//, ""); });
-      const box = el => { const off = el.getElementsByTagNameNS("*", "off")[0], ext = el.getElementsByTagNameNS("*", "ext")[0]; return off && ext ? {x: Number(off.getAttribute("x")) / 12700, y: Number(off.getAttribute("y")) / 12700, w: Number(ext.getAttribute("cx")) / 12700, h: Number(ext.getAttribute("cy")) / 12700} : null; };
-      let auto = 40;
-      for (const el of [...sx.getElementsByTagNameNS("*", "spTree")[0] ? sx.getElementsByTagNameNS("*", "spTree")[0].children : []]) {
-        if (el.localName === "pic") {
-          const blip = el.getElementsByTagNameNS("*", "blip")[0], id = blip && (blip.getAttribute("r:embed") || blip.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed")), b = box(el), src = id && rels[id], data = src && files[src];
-          if (!data || !b || !/\.(png|jpe?g)$/i.test(src)) { skipped++; continue; }
-          const img = /\.png$/i.test(src) ? await doc.embedPng(data) : await doc.embedJpg(data); page.drawImage(img, {x: b.x, y: PH - b.y - b.h, width: b.w, height: b.h}); continue;
-        }
-        if (el.localName !== "sp") continue;
-        const tx = el.getElementsByTagNameNS("*", "txBody")[0]; if (!tx) continue;
-        const ph = el.getElementsByTagNameNS("*", "ph")[0], phType = ph ? ph.getAttribute("type") || "body" : "";
-        // a placeholder without its own place takes the usual one (title at the top, the body under it)
-        const b = box(el) || (/title/i.test(phType) ? {x: PW * 0.06, y: PH * 0.06, w: PW * 0.88, h: PH * 0.16} : {x: PW * 0.06, y: PH * 0.26, w: PW * 0.88, h: PH * 0.68});
-        let yy = PH - b.y - 4, first = true;
-        for (const p of [...tx.getElementsByTagNameNS("*", "p")]) {
-          const runs = [...p.getElementsByTagNameNS("*", "r")].map(r => { const pr = r.getElementsByTagNameNS("*", "rPr")[0], t = r.getElementsByTagNameNS("*", "t")[0]; return {t: t ? t.textContent : "", b: pr && pr.getAttribute("b") === "1", i: pr && pr.getAttribute("i") === "1", sz: pr && pr.getAttribute("sz") ? Number(pr.getAttribute("sz")) / 100 : 0}; });
-          if (!runs.some(r => r.t.trim())) { yy -= 8; continue; }
-          const base = /title/i.test(phType) ? 32 : 18, bullet = !/title/i.test(phType) && phType && !/ctrTitle|subTitle/i.test(phType);
-          if (bullet) runs.unshift({t: "•  ", sz: runs[0].sz || base});
-          for (const l of await K.lines(runs, b.w - 8, base)) { yy -= l.h; if (yy < PH - b.y - b.h - 40 || yy < 10) break; let lx = b.x + 4; l.toks.forEach(t => { if (t.t.trim()) page.drawText(t.t, {x: lx, y: yy + l.h * 0.22, size: t.size, font: t.font, color: t.color}); lx += t.w; }); }
-          yy -= 4; first = false;
-        }
-        void first; void auto;
+      const sx = parse(sp); if (!sx) continue;
+      const page = doc.addPage([PW, PH]);
+      const rels = {}; Object.entries(relsAt(sp)).forEach(([id, r]) => { rels[id] = r.t; });
+      // what the slide is built on: its layout, the layout's master and the master's theme (colors, backgrounds, places and shapes)
+      const layP = relOfType(sp, /slideLayout$/), lay = parse(layP), masP = layP ? relOfType(layP, /slideMaster$/) : "", mas = parse(masP), th = masP ? parse(relOfType(masP, /theme$/)) : null;
+      const scheme = {}; if (th) { const cs = th.getElementsByTagNameNS("*", "clrScheme")[0]; [...(cs ? cs.children : [])].forEach(c => { const v = c.firstElementChild; if (v) scheme[c.localName] = v.getAttribute("val") || v.getAttribute("lastClr") || ""; }); }
+      const cmEl = mas && mas.getElementsByTagNameNS("*", "clrMap")[0], cmap = {bg1: "lt1", tx1: "dk1", bg2: "lt2", tx2: "dk2"}; if (cmEl) [...cmEl.attributes].forEach(a => { cmap[a.name] = a.value; });
+      // a color (srgbClr, a theme color or a system color) as "#RRGGBB", or "" when there isn't one we can use
+      const colorIn = el => { const c = el && [...el.children].find(n => /^(srgbClr|schemeClr|sysClr)$/.test(n.localName)); if (!c) return ""; const v = c.localName === "srgbClr" ? c.getAttribute("val") : c.localName === "sysClr" ? c.getAttribute("lastClr") : scheme[cmap[c.getAttribute("val")] || c.getAttribute("val")]; return /^[0-9a-f]{6}$/i.test(v || "") ? "#" + v : ""; };
+      const fillOf = (spPr, style) => { if (!spPr || kid(spPr, "noFill")) return ""; const sf = kid(spPr, "solidFill"); if (sf) return colorIn(sf); if (kid(spPr, "gradFill") || kid(spPr, "blipFill") || kid(spPr, "pattFill") || kid(spPr, "grpFill")) return ""; const fr = style && kid(style, "fillRef"); return fr && fr.getAttribute("idx") !== "0" ? colorIn(fr) : ""; };
+      const treeOf = x => x ? x.getElementsByTagNameNS("*", "spTree")[0] : null;
+      // the slide's background: its own, else the layout's, else the master's
+      for (const x of [sx, lay, mas]) {
+        const bg = x && x.getElementsByTagNameNS("*", "bg")[0]; if (!bg) continue;
+        const bp = kid(bg, "bgPr"), c = bp ? (kid(bp, "solidFill") ? colorIn(kid(bp, "solidFill")) : "") : colorIn(kid(bg, "bgRef"));
+        if (c) page.drawRectangle({x: 0, y: 0, width: PW, height: PH, color: K.rgb(c)});
+        break;
       }
+      const box = el => { const off = el.getElementsByTagNameNS("*", "off")[0], ext = el.getElementsByTagNameNS("*", "ext")[0]; return off && ext ? {x: Number(off.getAttribute("x")) / 12700, y: Number(off.getAttribute("y")) / 12700, w: Number(ext.getAttribute("cx")) / 12700, h: Number(ext.getAttribute("cy")) / 12700} : null; };
+      const phOf = el => { const nv = kid(el, "nvSpPr"), nvPr = nv && kid(nv, "nvPr"); return nvPr ? kid(nvPr, "ph") : null; };
+      // the layout's (then the master's) placeholder this one takes its place and look from: the same idx, else the same type
+      const phType = ph => { const t = ph.getAttribute("type") || "body"; return /title/i.test(t) ? "title" : t === "subTitle" ? "body" : t; };
+      const phIn = (x, ph) => { const tr = treeOf(x); if (!tr || !ph) return null; const all = kids(tr, "sp").filter(phOf), idx = ph.getAttribute("idx"); return (idx && all.find(e => phOf(e).getAttribute("idx") === idx)) || all.find(e => phType(phOf(e)) === phType(ph)) || null; };
+      const txStyle = ph => { const ts = mas && mas.getElementsByTagNameNS("*", "txStyles")[0]; return ts ? kid(ts, !ph ? "otherStyle" : phType(ph) === "title" ? "titleStyle" : "bodyStyle") : null; };
+      const lvl1 = el => { const tb = el && kid(el, "txBody"), ls = tb && kid(tb, "lstStyle"); return ls ? kid(ls, "lvl1pPr") : null; };
+      // drawing one shape tree: filled rectangles and ovals, pictures and text; a master or layout draws only its own shapes, not its placeholders
+      async function drawTree(tr, rmap, own){
+        for (const el of tr ? [...tr.children] : []) {
+          if (el.localName === "pic") {
+            const blip = el.getElementsByTagNameNS("*", "blip")[0], id = blip && (blip.getAttribute("r:embed") || blip.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed")), b = box(el), src = id && rmap[id], data = src && files[src];
+            if (!data || !b || !/\.(png|jpe?g)$/i.test(src)) { skipped++; continue; }
+            const img = /\.png$/i.test(src) ? await doc.embedPng(data) : await doc.embedJpg(data); page.drawImage(img, {x: b.x, y: PH - b.y - b.h, width: b.w, height: b.h}); continue;
+          }
+          if (el.localName !== "sp") continue;
+          const ph = phOf(el); if (ph && !own) continue;
+          const up = ph ? [phIn(lay, ph), phIn(mas, ph)].filter(Boolean) : [];
+          const spPr = kid(el, "spPr"), geo = spPr && kid(spPr, "prstGeom"), prst = geo ? geo.getAttribute("prst") : spPr && kid(spPr, "custGeom") ? "cust" : "rect";
+          const b = box(el) || up.map(box).find(Boolean) || (ph && phType(ph) === "title" ? {x: PW * 0.06, y: PH * 0.06, w: PW * 0.88, h: PH * 0.16} : ph ? {x: PW * 0.06, y: PH * 0.26, w: PW * 0.88, h: PH * 0.68} : null);
+          // a filled box or oval (the colored boxes and bars of a slide), with its outline
+          const fill = fillOf(spPr, kid(el, "style")), ln = spPr && kid(spPr, "ln"), lc = ln && !kid(ln, "noFill") ? colorIn(kid(ln, "solidFill")) : "", lw = ln && Number(ln.getAttribute("w")) ? Number(ln.getAttribute("w")) / 12700 : 0.75;
+          if (b && (fill || lc) && /^(rect|roundRect|snip1Rect|snip2SameRect|round1Rect|round2SameRect|flowChartProcess|flowChartAlternateProcess|ellipse|flowChartConnector)$/.test(prst)) {
+            const o = Object.assign(fill ? {color: K.rgb(fill)} : {}, lc ? {borderColor: K.rgb(lc), borderWidth: lw} : {});
+            if (/ellipse|Connector/.test(prst)) page.drawEllipse(Object.assign({x: b.x + b.w / 2, y: PH - b.y - b.h / 2, xScale: b.w / 2, yScale: b.h / 2}, o));
+            else page.drawRectangle(Object.assign({x: b.x, y: PH - b.y - b.h, width: b.w, height: b.h}, o));
+          }
+          const tx = kid(el, "txBody"); if (!tx || !b) continue;
+          // the look of the text: the paragraph's own, else the placeholder's in the layout or master, else the master's text styles
+          const chain = [lvl1(el), ...up.map(lvl1), (() => { const s = txStyle(ph); return s ? kid(s, "lvl1pPr") : null; })()].filter(Boolean);
+          const algnOf = p => { const pp = kid(p, "pPr"); return (pp && pp.getAttribute("algn")) || (chain.find(x => x.getAttribute("algn")) || {getAttribute: () => ""}).getAttribute("algn") || ""; };
+          const defR = chain.map(x => kid(x, "defRPr")).filter(Boolean), dSz = (defR.find(x => x.getAttribute("sz")) || {getAttribute: () => 0}).getAttribute("sz"), dCol = defR.map(x => colorIn(kid(x, "solidFill"))).find(Boolean) || "";
+          const isTitle = ph && phType(ph) === "title", base = Number(dSz) ? Number(dSz) / 100 : isTitle ? 32 : 18;
+          let yy = PH - b.y - 4;
+          for (const p of kids(tx, "p")) {
+            const runs = [...p.getElementsByTagNameNS("*", "r")].map(r => { const pr = r.getElementsByTagNameNS("*", "rPr")[0], t = r.getElementsByTagNameNS("*", "t")[0]; return {t: t ? t.textContent : "", b: pr && pr.getAttribute("b") === "1", i: pr && pr.getAttribute("i") === "1", sz: pr && pr.getAttribute("sz") ? Number(pr.getAttribute("sz")) / 100 : 0, col: (pr && colorIn(kid(pr, "solidFill"))) || dCol}; });
+            if (!runs.some(r => r.t.trim())) { yy -= 8; continue; }
+            const pt = ph ? ph.getAttribute("type") || "body" : "", bullet = !!ph && !isTitle && !/subTitle/i.test(pt), al = algnOf(p);
+            if (bullet) runs.unshift({t: "•  ", sz: runs[0].sz || base, col: runs[0].col});
+            for (const l of await K.lines(runs, b.w - 8, base)) {
+              yy -= l.h; if (yy < PH - b.y - b.h - 40 || yy < 10) break;
+              let lx = b.x + 4 + (al === "ctr" ? (b.w - 8 - l.w) / 2 : al === "r" ? b.w - 8 - l.w : 0);
+              l.toks.forEach(t => { if (t.t.trim()) page.drawText(t.t, {x: lx, y: yy + l.h * 0.22, size: t.size, font: t.font, color: t.color}); lx += t.w; });
+            }
+            yy -= 4;
+          }
+        }
+      }
+      // the master's and the layout's own shapes (a colored bar, a logo) sit under the slide's, unless the slide or layout hides them
+      const hides = x => x && x.documentElement && x.documentElement.getAttribute("showMasterSp") === "0";
+      if (!hides(sx)) {
+        if (!hides(lay) && mas) { const mr = {}; Object.entries(relsAt(masP)).forEach(([id, r]) => { mr[id] = r.t; }); await drawTree(treeOf(mas), mr, false); }
+        if (lay) { const lr = {}; Object.entries(relsAt(layP)).forEach(([id, r]) => { lr[id] = r.t; }); await drawTree(treeOf(lay), lr, false); }
+      }
+      await drawTree(treeOf(sx), rels, true);
     }
     if (!doc.getPageCount()) throw new Error("No slides found in that file.");
     pdeStamp(doc);
@@ -495,7 +555,14 @@ function reviewMemoryStore(){
         CONV.src = {kind: kinds[0], files, bytes: async i => new Uint8Array(await files[i].arrayBuffer())}; $("#pdtConvMsg").textContent = ""; convertOptions();
       } else if (t.dataset.pdt === "pick") {
         const f = state.files[t.value]; t.value = ""; if (!f) return;
-        CONV.src = {kind: kindOf(curRev(f).name || f.name, curRev(f).type), files: [{name: curRev(f).name || f.name}], bytes: async () => lib().pdfBytesOf(curRev(f).assetId)}; convertOptions();
+        const nm = curRev(f).name || f.name, kind = kindOf(nm, curRev(f).type), bytes = async () => lib().pdfBytesOf(curRev(f).assetId);
+        // a picture is drawn from the file itself (imagesToPdf reads each one as an image), so its bytes are fetched first
+        if (kind === "img") {
+          try { const b = await bytes(); CONV.src = {kind, files: [new File([b], nm, {type: curRev(f).type || (/\.png$/i.test(nm) ? "image/png" : "image/jpeg")})], bytes: async () => b}; }
+          catch (err) { $("#pdtConvMsg").textContent = "Couldn't open that picture here."; return; }
+          $("#pdtConvMsg").textContent = ""; convertOptions(); return;
+        }
+        CONV.src = {kind, files: [{name: nm}], bytes}; convertOptions();
       }
     }
     if (t.closest("#pdtBatch") && t.dataset.pdt === "act") batchOptions();

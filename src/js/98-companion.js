@@ -430,7 +430,12 @@
   const timers = new Set();
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
   const clearTimers = () => { timers.forEach(t => clearTimeout(t)); timers.clear(); };
-  const phone = () => innerWidth < 640;
+  // a phone-sized window, kept up to date by the browser: reading innerWidth right after the page changed made the browser lay
+  // the page out again, and this is asked every frame while the companion moves
+  const PHONE_MQ = window.matchMedia ? matchMedia("(max-width: 639.98px)") : null;
+  let phoneNow = innerWidth < 640;
+  if (PHONE_MQ) { const f = () => { phoneNow = PHONE_MQ.matches; }; f(); if (PHONE_MQ.addEventListener) PHONE_MQ.addEventListener("change", f); else if (PHONE_MQ.addListener) PHONE_MQ.addListener(f); }
+  const phone = () => phoneNow;
   const sizePx = c => { const s = c ? c.size : 1; return Math.round((phone() ? Math.max(62, Math.min(72, 66 * s)) : Math.max(86, Math.min(108, 96 * s))) * shrink); };
   const GAP = 26;
 
@@ -565,7 +570,9 @@
     if (still()) return;
     mwEnd = Math.max(mwEnd, performance.now() + (ms || 1000) + 100);
     if (mwRaf) return;
-    const step = () => { mwRaf = 0; if (!box || box.hidden || still()) return; try { clamp("anim"); } catch (e) {} if (performance.now() < mwEnd) mwRaf = requestAnimationFrame(step); };
+    // seated in the phone's tab bar it doesn't travel, so it is checked once its motion ends rather than every frame (each check
+    // measured the page, and typing in the add bar changes the page on every key)
+    const step = () => { mwRaf = 0; if (!box || box.hidden || still()) return; const more = performance.now() < mwEnd; if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { try { clamp("anim"); } catch (e) {} } if (more) mwRaf = requestAnimationFrame(step); };
     mwRaf = requestAnimationFrame(step);
   }
   /* Controls (buttons, links, fields) under its tap area */
@@ -677,21 +684,47 @@
   }
   // Everything a student reads or presses on screen right now, as rectangles
   const CONTENT_SEL = "button,a,input,select,textarea,label,img,video,canvas,iframe,[data-act],[data-tab],[role=button],[contenteditable=true],.note,.stk,.chip,.badge,#nbScroll,.tl-scroll,.sch-grid,.env";
-  function contentRects(){
-    const out = [], W = innerWidth, H = innerHeight;
+  // band {t, b}: only what reaches into that strip of the screen (where it may stand). The walk then skips whole parts of the
+  // page above or below the strip (a long list's off-screen cards and columns) instead of measuring every word on the page,
+  // which froze the app for seconds with a full term of work. What it finds inside the strip is the same, except things that
+  // aren't drawn at all (a closed <details>, display:none), which are no longer counted as in its way.
+  const BAND_PAD = 48;
+  function contentRects(band){
+    const out = [], W = innerWidth, H = innerHeight, T = band ? Math.max(0, band.t) : 0, B = band ? Math.min(H, band.b) : H;
     const skip = el => !el || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,nav.tabs,.fab,#fab");
-    const vis = r => r.width > 1 && r.height > 1 && r.bottom > 0 && r.right > 0 && r.top < H && r.left < W;
-    const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => n.textContent.trim() && !skip(n.parentElement) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT});
+    const vis = r => r.width > 1 && r.height > 1 && r.bottom > T && r.right > 0 && r.top < B && r.left < W;
+    const els = [], svgs = [];
+    const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {acceptNode: n => {
+      // what a closed <details> holds isn't drawn (a column's "Show more" cards): measuring it made the browser lay it all out
+      const pe = n.parentElement, shut = !!pe && pe.tagName === "DETAILS" && !pe.open && n.nodeName !== "SUMMARY";
+      if (n.nodeType === 3) return n.textContent.trim() && !shut && !skip(pe) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      if (shut || skip(n)) return NodeFilter.FILTER_REJECT;
+      // nothing inside display:none is drawn; asking the style of each word in there was the slowest part of all
+      if (!n.getClientRects().length && getComputedStyle(n).display === "none") return NodeFilter.FILTER_REJECT;
+      // a box well above or below the strip is passed over with everything in it (the margin keeps what pokes out of its box,
+      // like a note's pin or a formula's superscript). Zero-size boxes (display:contents, empty wrappers) are looked inside.
+      if (band) { const r = n.getBoundingClientRect(); if (r.width > 0 && r.height > 0 && (r.bottom <= T - BAND_PAD || r.top >= B + BAND_PAD)) return NodeFilter.FILTER_REJECT; }
+      if (n.matches(CONTENT_SEL)) els.push(n);
+      if (n.tagName.toLowerCase() === "svg" && !n.closest("button,a,[data-act]")) svgs.push(n);
+      return NodeFilter.FILTER_SKIP;
+    }});
     const rg = document.createRange();
     for (let n = tw.nextNode(), k = 0; n && k < 4000; n = tw.nextNode(), k++) {
       const pe = n.parentElement; if (!pe.offsetParent && getComputedStyle(pe).position !== "fixed") continue;
       rg.selectNodeContents(n); for (const r of rg.getClientRects()) if (vis(r)) out.push(r);
     }
-    document.querySelectorAll(CONTENT_SEL).forEach(el => { if (skip(el)) return; const r = el.getBoundingClientRect(); if (vis(r)) out.push(r); });
-    document.querySelectorAll("svg").forEach(el => { if (skip(el) || el.closest("button,a,[data-act]")) return; const r = el.getBoundingClientRect(); if (vis(r) && r.width < W * 0.6) out.push(r); });
+    // (the walk stops after 4,000 words: the controls and pictures are then still collected from the rest of the page)
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {}
+    els.forEach(el => { const r = el.getBoundingClientRect(); if (vis(r)) out.push(r); });
+    svgs.forEach(el => { const r = el.getBoundingClientRect(); if (vis(r) && r.width < W * 0.6) out.push(r); });
     return out;
   }
+  // The rectangles for a strip, measured once and reused while choosing among spots in it
   let RECTS = null;
+  const rectsFor = (t, b) => {
+    if (!RECTS || RECTS.t > t || RECTS.b < b) { const u = RECTS ? {t: Math.min(t, RECTS.t), b: Math.max(b, RECTS.b)} : {t, b}; RECTS = {t: u.t, b: u.b, list: contentRects({t: u.t - 2, b: u.b + 2})}; }
+    return RECTS.list;
+  };
   function spotCheck(c, px, f){
     const rg = range(px);
     if (c.left < rg.L - 0.5 || c.left > rg.R + 0.5 || c.top < rg.T - 0.5 || c.top > rg.B + 0.5) return {hard: true};
@@ -701,7 +734,7 @@
     // the drawing's own outline with a little room (not a fixed box: a slim companion fits a narrower gap)
     const e = vext || measureArt() || DEF_ART;
     const a = {l: c.left + px * e.l - 3, r: c.left + px * e.r + 3, t: c.top + px * Math.max(0.1, e.t) - 6, b: c.top + px * 0.97 + 4};
-    for (const q of (RECTS || (RECTS = contentRects()))) if (q.left < a.r && q.right > a.l && q.top < a.b && q.bottom > a.t) return {hard: true};
+    for (const q of rectsFor(a.t, a.b)) if (q.left < a.r && q.right > a.l && q.top < a.b && q.bottom > a.t) return {hard: true};
     let surface = false;
     for (const fx of [0.15, 0.5, 0.85]) for (const fy of [0.2, 0.55, 0.9]) { const r = contentAt(c.left + px * fx, c.top + px * fy); if (r.hard) return {hard: true}; if (r.surface) surface = true; }
     return {hard: false, surface};
@@ -825,9 +858,10 @@
   }
   // The best fully-on-screen spot when no open spot exists
   function edgeSpot(px, f, list, here, fresh){
-    const rg = range(px), rects = (RECTS || (RECTS = contentRects())).slice(0, 1800), ctl = controlRects();
+    const rg = range(px), ctl = controlRects();
     const e = vext || DEF_ART, S = safeRect(), g = geometry();
     const X0 = rg.L, X1 = Math.max(rg.L, rg.R), Y1 = Math.max(rg.T, rg.B), Y0 = Math.min(Y1, Math.max(rg.T, lowTop(rg)));
+    const rects = rectsFor(Y0 + px * Math.min(0, e.t), Y1 + px * Math.max(1, e.b)).slice(0, 1800);
     const home = list.find(c => c.kind === "home") || {left: X1, top: Y1};
     const hx = Math.min(X1, Math.max(X0, home.left)), hy = Math.min(Y1, Math.max(Y0, home.top));
     const heavy = [];
@@ -1142,7 +1176,7 @@
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
   function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
   let bRects = null, bRectsAt = 0;
-  const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects(); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
+  const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects({t: 0, b: innerHeight}); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
   function placeBubble(b){
     const r = box.getBoundingClientRect(), g = geometry(), S = safeRect(), cx = r.left + r.width / 2;
@@ -2389,16 +2423,15 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function pickerBody(){
     const list = setOf(skinId()), c = current(), key = themeKey(skinId());
     const lockedMsg = paywall() && !pro();
-    const want = Number((cfg().pick || {})[key]) || 0;
     const ord = id => { const k = SET_ORDER.indexOf(id); return k < 0 ? 99 : k; };
     const tiles = list.map((x, i) => ({x, i})).sort((p, q) => key === "plain" ? ord(p.x.id) - ord(q.x.id) || p.i - q.i : p.i - q.i).map(({x, i}) => {
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
-      return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
+      return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" data-tier="${compTier(x) === "pro" ? "pro" : "free"}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
         <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || (pro() && !tagPro()) ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
         ${earn ? (pct => `<span class="cp-earn">${esc(EARN[x.id].how)} to unlock</span><span class="cp-earn-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to unlock ${esc(x.name)}"><i style="width:${pct}%"></i></span><span class="mini">${esc(EARN[x.id].left(left))} to go</span><button type="button" class="link-btn cp-earn-pro" data-act="comp-pick" data-slot="${i}">Or Get It With Pro</button>`)(Math.max(0, Math.min(99, Math.floor((1 - left / EARN[x.id].n) * 100))))
-          : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
+          : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen shop-inuse" role="status">✓ In Use</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Use</button>`}
       </div>`;
     }).join("");
     const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
@@ -2595,12 +2628,27 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         body.querySelectorAll('[data-act="shop-tab"]').forEach(b => { const on = b.dataset.id === "companions"; b.setAttribute("aria-selected", on); b.setAttribute("aria-pressed", on); });
         body.insertAdjacentHTML("beforeend", `<div class="cp-shop">${shopBody()}</div>`);
         body.dataset.uiTab = "companions";
+        shopChips(body, bar);
         wirePreviews(body.querySelector(".cp-shop"));
         warmStills();
       }
     } catch (e) { console.warn("companion shop", e); }
     return r;
   };
+  // The same All / Free / Pro row as the other Style Shop tabs, for this theme's companions
+  let shopF = "all";
+  function shopChips(body, bar){
+    const tiles = [...body.querySelectorAll(".cp-shop .cp-tiles > .cp-tile[data-tier]")];
+    const has = new Set(tiles.map(t => t.dataset.tier)), chips = [["all", "All"], ["free", "Free"], ["pro", "Pro"]].filter(([k]) => k === "all" || has.has(k));
+    if (!bar || (chips.length < 3 && !STORE.paywall)) return;
+    if (!chips.some(([k]) => k === shopF)) shopF = "all";
+    const row = document.createElement("div"); row.className = "ui-chips"; row.setAttribute("role", "group"); row.setAttribute("aria-label", "Show");
+    row.innerHTML = chips.map(([k, l]) => `<button type="button" class="ui-chip" data-cp-f="${k}" aria-pressed="${k === shopF}">${l}</button>`).join("");
+    const q = bar.querySelector(".ui-shop-q"); if (q) bar.insertBefore(row, q); else bar.appendChild(row);
+    const show = () => { row.querySelectorAll("[data-cp-f]").forEach(c => c.setAttribute("aria-pressed", c.dataset.cpF === shopF)); tiles.forEach(t => { t.hidden = shopF !== "all" && t.dataset.tier !== shopF; }); };
+    row.addEventListener("click", e => { const c = e.target.closest("[data-cp-f]"); if (!c) return; shopF = c.dataset.cpF; show(); });
+    show();
+  }
   function addShopTab(){
     const tabs = dlg.querySelector(".sheet.shop .shop-tabs");
     if (!tabs || tabs.querySelector('[data-id="companions"]')) return;

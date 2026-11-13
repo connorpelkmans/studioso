@@ -83,4 +83,11 @@ Object.entries(DAYS).forEach(([s, d]) => eq(SY.meetingDays(s), d, "class days of
   ok(isDate("2026-02-28") && isDate("2028-02-29") && isDate("2026-12-31"), "real days pass");
   ok(!isDate("2026-02-30") && !isDate("2027-02-29") && !isDate("2026-13-01") && !isDate("2026-04-31") && !isDate("2026-1-5") && !isDate("") && !isDate(null), "impossible days don't");
 }
+// A weight written after the title ("Quiz 7 (5%)") is that item's weight and not part of its title; a reading keeps what's read;
+// the room after the class times on the same line
+{
+  const r = SY.parse("PSYC 1010 Intro to Psychology\nInstructor: Dr. Lee\nClass: Tue/Thu 11:30-12:50, Hall C\n\nSchedule\nNov 19 - Quiz 7 (5%)\nNov 26 - Research proposal due (10%)\nDec 3 - Chapter 9 reading\nDec 10 - Final Exam (35%)", "2026-11-12");
+  eq(r.items.map(i => [i.title, i.weight == null ? null : i.weight]), [["Quiz 7", 5], ["Research proposal", 10], ["Read Chapter 9", null], ["Final Exam", 35]], "inline weights, clean titles, a reading keeps its chapter");
+  eq(r.course.room, "Hall C", "the room after the class times");
+}
 console.log(`syllabus-parse.test: ${n} checks passed`);
