@@ -5407,7 +5407,7 @@ Return JSON only.`});
 // What Studyboard AI says about the last 7 days, for Settings
 function aiProLine(){
   const t = aiProGet() || {}, when = aiProResets();
-  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% used over the last 7 days` : ""}${when ? `, more back ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
+  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% used over the last 7 days` : ""}${when && t.usedPct >= 100 ? `, more back ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
 }
 /* The AI menu's usage card: the last 7 days as a percentage, and today's share, with no amounts or costs. The chip in its header
    always says where things stand; amber once everyday answers get shorter, orange when the allowance or the day is used up. */
@@ -5428,8 +5428,9 @@ function aiUseCard(){
   const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "the last 7 days"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
   const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "soon"}. Until then, AI keeps working with your backup key below.`
     : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
-    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` More usage comes back <b>${esc(when)}</b>.` : ""}`
-    : `Included with Pro.${when ? ` More usage comes back <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
+    // the allowance is the last 7 days, rolling: what was used a week ago comes back day by day, so there's no single date to wait for
+    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual. Use from over a week ago keeps coming back each day.`
+    : `Included with Pro. Counts the last 7 days, so use from over a week ago comes back each day${d != null && dayEnds ? `; today's share resets at ${esc(dayEnds)}.` : "."}`;
   return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
     <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
     <div class="sbai-num">${m}%<small>used, last 7 days</small></div>
@@ -22481,32 +22482,8 @@ function todayCleared(){
   } catch (e) { return false; }
 }
 if (window.__SB_TEST) window.__sbHaptic = {device: () => hapticDevice(), cleared: () => todayCleared(), del: id => deleteTask(id), task: id => clone(state.tasks[id] || null), today: () => todayISO(), apply: ch => applyChanges(ch, null)};
-// Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
-// page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
-// 99-smooth.js skips its own page fade while this runs.
-const TAB_MS = 240;
-function tabSwap(changed, go){
-  const r = document.documentElement, still = r.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  const v = document.getElementById("view");
-  if (!changed || still || !v || dlg.open || !v.animate) { go(); return; }
-  let ghost = null;
-  try {
-    const b = v.getBoundingClientRect(), cs = getComputedStyle(v);
-    ghost = v.cloneNode(true);
-    ghost.removeAttribute("id"); ghost.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
-    ghost.querySelectorAll("input, textarea, select, button, a").forEach(e => e.setAttribute("tabindex", "-1"));
-    ghost.className = (v.className || "") + " tab-ghost sm-skip"; ghost.setAttribute("aria-hidden", "true"); ghost.inert = true;
-    Object.assign(ghost.style, {position: "fixed", left: b.left + "px", top: b.top + "px", width: b.width + "px", height: Math.min(b.height, innerHeight - b.top + 40) + "px", margin: "0", padding: cs.padding, overflow: "hidden", pointerEvents: "none", zIndex: "1"});
-    v.parentNode.insertBefore(ghost, v.nextSibling);
-  } catch (e) { ghost = null; }
-  r.classList.add("vt-tab");
-  go();
-  const ease = "cubic-bezier(.2,.8,.2,1)";
-  v.animate([{opacity: 0}, {opacity: 1}], {duration: TAB_MS, easing: ease});
-  const end = () => { if (ghost) ghost.remove(); r.classList.remove("vt-tab"); };
-  if (ghost) ghost.animate([{opacity: 1}, {opacity: 0}], {duration: TAB_MS * 0.8, easing: ease, fill: "forwards"}).finished.then(end, end);
-  else setTimeout(end, TAB_MS);
-}
+// Switching tabs shows the new page at once, fully drawn: no fade, and no copy of the old page left over it while the new one appears
+function tabSwap(changed, go){ go(); }
 // Where a press on the screen began: a tap that starts inside the note being edited is a tap in the note, even when the note
 // moves under the finger before it lifts (on a phone, tapping back in the text box hides the note's options at once, so the
 // sheet shrinks and the end of the tap lands on the dimmed page behind it; that used to close the note)
@@ -105822,7 +105799,7 @@ ui._day = todayISO();
 (function(){
   const root = document.documentElement;
   const on = () => root.dataset.motion !== "static" && styleCfg().motion !== false && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  let lastKey = null, userAt = 0;
+  let userAt = 0;
   // (the page is laid out again to restart the animation only when it is still running from last time; a fresh one just starts)
   const play = (el, cls) => { if (!el || !on()) return; if (el.classList.contains(cls)) { el.classList.remove(cls); void el.offsetWidth; } el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
 
@@ -105901,12 +105878,7 @@ ui._day = todayISO();
     d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
   });
 
-  // A tab (or course / plan view) changed: the new page eases in. Re-draws from edits stay still.
-  hook("render", tab => {
-    const key = tab + "|" + (typeof ui !== "undefined" && ui.courseId || "");
-    const changed = lastKey !== null && key !== lastKey; lastKey = key;
-    if (changed && !root.classList.contains("vt-tab")) play(document.getElementById("view"), "sm-view");
-  });
+  // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped
 
   // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn
   document.addEventListener("pointerup", e => {

@@ -3,7 +3,7 @@
 (function(){
   const root = document.documentElement;
   const on = () => root.dataset.motion !== "static" && styleCfg().motion !== false && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  let lastKey = null, userAt = 0;
+  let userAt = 0;
   // (the page is laid out again to restart the animation only when it is still running from last time; a fresh one just starts)
   const play = (el, cls) => { if (!el || !on()) return; if (el.classList.contains(cls)) { el.classList.remove(cls); void el.offsetWidth; } el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
 
@@ -82,12 +82,7 @@
     d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
   });
 
-  // A tab (or course / plan view) changed: the new page eases in. Re-draws from edits stay still.
-  hook("render", tab => {
-    const key = tab + "|" + (typeof ui !== "undefined" && ui.courseId || "");
-    const changed = lastKey !== null && key !== lastKey; lastKey = key;
-    if (changed && !root.classList.contains("vt-tab")) play(document.getElementById("view"), "sm-view");
-  });
+  // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped
 
   // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn
   document.addEventListener("pointerup", e => {

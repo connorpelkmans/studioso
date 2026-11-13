@@ -54,32 +54,8 @@ function todayCleared(){
   } catch (e) { return false; }
 }
 if (window.__SB_TEST) window.__sbHaptic = {device: () => hapticDevice(), cleared: () => todayCleared(), del: id => deleteTask(id), task: id => clone(state.tasks[id] || null), today: () => todayISO(), apply: ch => applyChanges(ch, null)};
-// Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
-// page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
-// 99-smooth.js skips its own page fade while this runs.
-const TAB_MS = 240;
-function tabSwap(changed, go){
-  const r = document.documentElement, still = r.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  const v = document.getElementById("view");
-  if (!changed || still || !v || dlg.open || !v.animate) { go(); return; }
-  let ghost = null;
-  try {
-    const b = v.getBoundingClientRect(), cs = getComputedStyle(v);
-    ghost = v.cloneNode(true);
-    ghost.removeAttribute("id"); ghost.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
-    ghost.querySelectorAll("input, textarea, select, button, a").forEach(e => e.setAttribute("tabindex", "-1"));
-    ghost.className = (v.className || "") + " tab-ghost sm-skip"; ghost.setAttribute("aria-hidden", "true"); ghost.inert = true;
-    Object.assign(ghost.style, {position: "fixed", left: b.left + "px", top: b.top + "px", width: b.width + "px", height: Math.min(b.height, innerHeight - b.top + 40) + "px", margin: "0", padding: cs.padding, overflow: "hidden", pointerEvents: "none", zIndex: "1"});
-    v.parentNode.insertBefore(ghost, v.nextSibling);
-  } catch (e) { ghost = null; }
-  r.classList.add("vt-tab");
-  go();
-  const ease = "cubic-bezier(.2,.8,.2,1)";
-  v.animate([{opacity: 0}, {opacity: 1}], {duration: TAB_MS, easing: ease});
-  const end = () => { if (ghost) ghost.remove(); r.classList.remove("vt-tab"); };
-  if (ghost) ghost.animate([{opacity: 1}, {opacity: 0}], {duration: TAB_MS * 0.8, easing: ease, fill: "forwards"}).finished.then(end, end);
-  else setTimeout(end, TAB_MS);
-}
+// Switching tabs shows the new page at once, fully drawn: no fade, and no copy of the old page left over it while the new one appears
+function tabSwap(changed, go){ go(); }
 // Where a press on the screen began: a tap that starts inside the note being edited is a tap in the note, even when the note
 // moves under the finger before it lifts (on a phone, tapping back in the text box hides the note's options at once, so the
 // sheet shrinks and the end of the tap lands on the dimmed page behind it; that used to close the note)
