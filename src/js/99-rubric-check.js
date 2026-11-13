@@ -193,7 +193,7 @@ function draw(){
 }
 function wire(t){
   const q = s => R.el.querySelector(s);
-  const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { aiSetupSheet(true); });
+  const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { const id = R.tid; aiSetupSheet(true, {back: () => open(id)}); });
   const bk = q("[data-rb-back]"); if (bk) bk.addEventListener("click", () => { R.view = "form"; R.err = ""; draw(); });
   const sv = q("[data-rb-save]"); if (sv) sv.addEventListener("click", () => save(t.id));
   const rub = q("[data-rb-rub]"), dr = q("[data-rb-draft]");
@@ -220,7 +220,7 @@ async function run(id){
   if (!own()) { R.view = "nokey"; draw(); return; }
   if (locked() && left() <= 0) { PLAN.runsGone("rubric"); return; }
   if (!R.rubric.trim()) { R.err = "Add the rubric first: paste it, or choose the file."; draw(); return; }
-  if (R.draft.trim().split(/\s+/).length < 30) { R.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; draw(); return; }
+  if (R.draft.trim().split(/\s+/).length < 30) { R.err = R.draft.trim() ? "Your draft is too short to check. Paste at least a paragraph, upload it or pick a file." : "Add your draft first: paste it, upload it or pick a file."; draw(); return; }
   const cr = crits(), draft = RBC.clip(R.draft, 60000), c = courseOf(t.courseId);
   const ac = typeof AbortController === "function" ? new AbortController() : null;
   R.ac = ac; R.busy = true; R.err = ""; draw();
@@ -266,6 +266,8 @@ css.textContent = `
 .rbx-row select{max-width:100%;min-width:0;flex:1 1 180px}
 .rbx-pick{position:relative;overflow:hidden;cursor:pointer}
 .rbx-err{color:#B42318}
+:root[data-theme="dark"] .rbx-err{color:#FF8A80}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rbx-err{color:#FF8A80}}
 .rbx-st{display:inline-block;font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 7px;background:var(--soft,#EEF1F6);color:var(--ink);white-space:nowrap}
 .rbx-st.st-strong{background:color-mix(in srgb,#2E9E5B 20%,var(--surface));color:color-mix(in srgb,#1D6B3D 80%,var(--ink))}
 .rbx-st.st-ok{background:color-mix(in srgb,#3B6FE0 16%,var(--surface))}

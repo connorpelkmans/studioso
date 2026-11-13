@@ -12,6 +12,8 @@
   #toast.toast #toastMsg{flex:1 1 auto;min-width:0}
   /* keyboard up: the toast sits just above it, so a "fill in…" message is never hidden under the keys */
   html.kb-open #toast.toast{bottom:calc(var(--kb-h,0px) + 12px)}
+  /* over an open sheet it goes to the top of the screen, so it never covers the sheet's footer buttons or the rows above them */
+  html dialog[open] > #toast.toast{top:calc(env(safe-area-inset-top,0px) + 8px);bottom:auto}
   #toast.toast-done::before{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:var(--leaf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/15px no-repeat}
   #toast.toast-done #toastMsg{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #toast.toast button:not(.toast-x){flex:none;min-height:40px;padding:0 12px;border-radius:10px;color:#FFE45C;font-weight:800}

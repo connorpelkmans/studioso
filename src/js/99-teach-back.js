@@ -81,7 +81,7 @@ async function check(){
   const me = TB, ex = state.tasks[me.exId], t = ex && findTopic(ex, me.topicId); if (!t) return;
   const words = me.text.trim().split(/\s+/).filter(Boolean).length;
   if (words < 12) { me.msg = "Say a bit more: a few sentences, as if teaching a friend who missed the class."; draw(); return; }
-  if (!aiReady()) { DRAFT.set(key(), me.text); aiSetupSheet(true); return; }
+  if (!aiReady()) { DRAFT.set(key(), me.text); const back = [me.exId, me.topicId]; aiSetupSheet(true, {back: () => open(back[0], back[1])}); return; }
   if (locked() && left() <= 0) { DRAFT.set(key(), me.text); PLAN.runsGone("teach"); return; }
   micStop();
   const kk = me.exId + "|" + me.topicId, ac = typeof AbortController === "function" ? new AbortController() : null;
@@ -215,7 +215,7 @@ function onClick(e){
   switch (a) {
     case "check": check(); return;
     case "mic": mic(); return;
-    case "setup": DRAFT.set(key(), TB.text); micStop(); aiSetupSheet(true); return;
+    case "setup": { DRAFT.set(key(), TB.text); micStop(); const back = [TB.exId, TB.topicId]; aiSetupSheet(true, {back: () => open(back[0], back[1])}); return; }
     case "link": { DRAFT.set(key(), TB.text); const id = TB.exId; micStop(); SBPREP.open(id, {edit: true}); return; }
     case "back": { DRAFT.set(key(), TB.text); const id = TB.exId; micStop(); SBPREP.open(id); return; }
     case "again": TB.text = (TB.res && TB.res.text) || TB.text; TB.res = null; TB.made = 0; TB.msg = ""; LAST.delete(key()); draw(); { const t = $("#tbText"); if (t) t.focus(); } return;

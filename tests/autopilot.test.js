@@ -102,7 +102,7 @@ eq([r2.changes.length, r2.moves.length, r2.short.length, r2.exams.length], [0, 0
   ok(r4.exams.length === 1 && r4.exams[0].why === "dayoff", "prep on that day is re-planned around it");
   ok(byId(a4, "lab").due === "2026-11-03", "the rest is untouched");
   const r5 = run(tasks, {off: {}, only: "2026-11-05"});
-  ok(r5.changes.every(c => c.id === "ex" || (c.after ? c.after.prepFor === "ex" : true)) && !r5.moves.some(m => m.id === "m3" || m.id === "st2"), "only that day's things are touched");
+  ok(r5.changes.every(c => c.id === "ex" || (c.after ? c.after.prepFor === "ex" : true) || (byId(tasks, c.id) || {}).due === "2026-11-05") &&!r5.moves.some(m => m.id === "m3" || m.id === "st2"), "only that day's things are touched");
 }
 
 // Can't fit: the paper is due tomorrow and today is full; a Study task with no free day in two weeks
@@ -124,6 +124,19 @@ eq([r2.changes.length, r2.moves.length, r2.short.length, r2.exams.length], [0, 0
   ok(!r8.changes.length && r8.short.length === 1 && /stay where they are/.test(r8.short[0].text), "prep with no room is left alone and named: " + JSON.stringify(r8.short));
   // The exam is today: nothing to re-plan
   ok(!run(ex.map(x => x.id === "ex" ? Object.assign({}, x, {due: TODAY}) : x)).changes.length, "an exam today is not re-planned");
+}
+
+// A missed step of a paper due in weeks doesn't take today's time from real work due today or overdue
+{
+  const tasks = [t("fp", {title: "Final Paper", due: "2026-12-02", breakdownParent: true, hours: 12}),
+    t("o1", {title: "Outline", type: "Project", due: "2026-11-01", start: "2026-11-01", breakdownOf: "fp", step: "1/2", hours: 2}),
+    t("o2", {title: "Draft", type: "Project", due: "2026-11-14", start: "2026-11-14", breakdownOf: "fp", step: "2/2", hours: 6}),
+    t("ps", {title: "Problem Set", due: TODAY, hours: 2}), t("em", {title: "Email TA", due: TODAY, hours: 0.25}), t("dp", {title: "Discussion Post", due: "2026-11-03", hours: 1})];
+  const r = AP.plan({today: TODAY, tasks, cap: {[TODAY]: 3}, dh: 3});
+  const m = r.moves.find(x => x.id === "o1");
+  ok(m && m.to > TODAY && m.to < "2026-11-14", "the outline goes to a later free day before the draft: " + JSON.stringify(m));
+  const r2 = AP.plan({today: TODAY, tasks: tasks.filter(x => !["ps", "em", "dp"].includes(x.id)), cap: {[TODAY]: 3}, dh: 3});
+  ok(r2.moves.find(x => x.id === "o1").to === TODAY, "with nothing due today it still fits today");
 }
 
 // Which items count as soft

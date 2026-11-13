@@ -91,11 +91,17 @@ const AUTOPILOT = (() => {
     const used = {};
     const use = (t, sign) => { if (kindOf(t) && t.due >= today) used[t.due] = (used[t.due] || 0) + sign * hrs(t); };
     Object.values(T).forEach(t => use(t, 1));
+    // Real work due sooner (overdue, today or tomorrow) takes its time first, so a moved step or study task doesn't push
+    // it out of the day (Today's Plan ranks a moved item as due that day, ahead of what is really due). Only when no day
+    // before its deadline has room after that work does it go where it would otherwise.
+    const tmr = add(today, 1), firm = {};
+    orig.filter(t => open(t) && isDate(t.due) && t.due <= tmr && !kindOf(t) && !isMs(t) && !t.breakdownParent && !orig.some(x => x.breakdownOf === t.id))
+      .forEach(t => { const d = t.due < today ? today : t.due; firm[d] = (firm[d] || 0) + hrs(t) * (1 - Math.min(100, Math.max(0, Number(t.pct) || 0)) / 100); });
     const capOf = d => isOff(d) ? 0 : cap[d] != null ? Math.max(0, Number(cap[d]) || 0) : dh;
-    const room = d => capOf(d) - (used[d] || 0);
-    const fits = (d, h) => d >= today && !isOff(d) && room(d) >= Math.max(0.25, Math.min(h, NEED)) - 1e-9;
+    const roomOf = f => d => capOf(d) - (used[d] || 0) - (f ? firm[d] || 0 : 0);
     // The first day it fits, or else the lightest day with at least half an hour free
-    const pick = (cands, h) => cands.find(d => fits(d, h)) || cands.filter(d => d >= today && !isOff(d) && room(d) >= 0.5 - 1e-9).sort((a, b) => room(b) - room(a) || (a < b ? -1 : 1))[0];
+    const pickBy = (room, cands, h) => cands.find(d => d >= today && !isOff(d) && room(d) >= Math.max(0.25, Math.min(h, NEED)) - 1e-9) || cands.filter(d => d >= today && !isOff(d) && room(d) >= 0.5 - 1e-9).sort((a, b) => room(b) - room(a) || (a < b ? -1 : 1))[0];
+    const pick = (cands, h) => pickBy(roomOf(true), cands, h) || pickBy(roomOf(false), cands, h);
     const place = (t, d, kind, why) => {
       const a = Object.assign({}, t, {due: d});
       if (kind === "step" || (a.start && a.start > d)) a.start = d;
@@ -184,10 +190,10 @@ const AUTOPILOT = (() => {
     const post = {}; before.forEach(b => { post[b.id] = sig(state.tasks[b.id]); });
     return {before, post};
   }
-  const slim = m => ({id: m.id, title: String(m.title || "Untitled").slice(0, 90), from: m.from || "", to: m.to || "", why: String(m.why || "").slice(0, 120)});
+  const slim = m => ({id: m.id, k: m.kind || "", title: String(m.title || "Untitled").slice(0, 90), from: m.from || "", to: m.to || "", why: String(m.why || "").slice(0, 120)});
   const slimS = s => ({title: String(s.title || "Untitled").slice(0, 90), text: String(s.text || "").slice(0, 200)});
   function record(kind, res, extra){
-    const r = Object.assign({day: todayISO(), id: uid(), kind, n: res.moves.length, moves: res.moves.slice(0, 60).map(slim), short: res.short.slice(0, 12).map(slimS), seen: false, at: Date.now()}, extra || {});
+    const r = Object.assign({day: todayISO(), id: uid(), kind, n: res.moves.length, added: res.moves.filter(m => !m.from && m.to).length, moves: res.moves.slice(0, 60).map(slim), short: res.short.slice(0, 12).map(slimS), seen: false, at: Date.now()}, extra || {});
     setCfg({run: r});
     return r;
   }
@@ -238,16 +244,25 @@ const AUTOPILOT = (() => {
   }
 
   /* Today's Plan: one quiet line */
+  // "rescheduled 4 things and added 3 study sessions": new sessions aren't counted as moves
+  const didText = r => { const add = Math.min(r.n, Number(r.added) || 0), mv = r.n - add;
+    return [mv ? `rescheduled ${things(mv)}` : "", add ? `added ${add} study session${add === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and "); };
+  // when it ran, in the student's words (it runs on the first open of the day, so usually "this morning")
+  const whenText = at => { const h = new Date(at || 0).getHours(); return h < 5 ? "last night" : h < 12 ? "this morning" : h < 17 ? "this afternoon" : "this evening"; };
+  // A prep session's title in plain words: "BIOL 1200 Midterm Exam: Cardiovascular system (learn)" → "Learn: Cardiovascular system"
+  const KINDW = {learn: "Learn", cards: "Flashcards", questions: "Practice questions", recall: "Recall", recap: "Recap", practice: "Practice"};
+  const plainTitle = mv => { const t = String(mv.title || "Untitled"); if (mv.k !== "prep") return t; const m = /^.+?: (.+) \(([a-z ]+)\)$/.exec(t); return m ? `${KINDW[m[2]] || m[2].charAt(0).toUpperCase() + m[2].slice(1)}: ${m[1]}` : t.replace(/^[^:]{3,80}: (?=Light review)/, ""); };
   function lineHtml(){
     try {
       const today = todayISO(), parts = [];
-      if (dayIsOff(today)) parts.push(`<div class="ap-line ap-offday" role="status"><span class="ap-t"><b>Today is a day off.</b> Nothing is planned today.</span> <span class="ap-a"><button type="button" class="link-btn" data-act="ap-dayoff" data-id="${esc(today)}">Undo Day Off</button></span></div>`);
+      // A day off plans no study time, but what is really due today stays listed here rather than vanishing from the plan
+      if (dayIsOff(today)) { const due = dueOn(today); parts.push(`<div class="ap-line ap-offday" role="status"><span class="ap-t"><b>Today is a day off.</b> ${due.length ? "No study time is planned today." : "Nothing is planned today."}</span> <span class="ap-a"><button type="button" class="link-btn" data-act="ap-dayoff" data-id="${esc(today)}">Undo Day Off</button></span>${due.length ? `<div class="ap-due"><span class="mini">Still due today</span><ul>${due.map(t => `<li><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>${t.time ? ` <span class="mini">${esc(fmtTime(t.time))}</span>` : ""}</li>`).join("")}</ul></div>` : ""}</div>`); }
       const r = runRec();
       if (!locked() && r && r.day === today && !r.seen && !r.undone && (r.n || (r.short || []).length) && (r.kind === "ask" ? mode() === "ask" : true)) {
         const k = (r.short || []).length, sep = ` <span aria-hidden="true">·</span> `;
         let t, a;
         if (r.kind === "ask" && r.n) { t = `Autopilot can move ${things(r.n)} to fit your plan.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changes</button>${sep}<button type="button" class="link-btn" data-act="ap-apply">Apply</button>${sep}<button type="button" class="link-btn" data-act="ap-dismiss">Not Now</button>`; }
-        else if (r.n) { t = `Autopilot moved ${things(r.n)} ${new Date(r.at || 0).getHours() < 12 ? "last night" : "today"}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changed</button>${lsGet() && lsGet().id === r.id ? `${sep}<button type="button" class="link-btn" data-act="ap-undo">Undo</button>` : ""}`; }
+        else if (r.n) { t = `Autopilot ${didText(r)} ${whenText(r.at)}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changed</button>${lsGet() && lsGet().id === r.id ? `${sep}<button type="button" class="link-btn" data-act="ap-undo">Undo</button>` : ""}`; }
         else { t = `Autopilot couldn't find time for ${things(k)} before ${k === 1 ? "its deadline" : "their deadlines"}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See Why</button>`; }
         parts.push(`<div class="ap-line" role="status" data-kind="${esc(r.kind)}"><span class="ap-t">${esc(t)}</span> <span class="ap-a">${a}${r.kind === "ask" && r.n ? "" : `<button type="button" class="icon-btn sm" data-act="ap-dismiss" aria-label="Dismiss">${CLOSE}</button>`}</span></div>`);
       }
@@ -272,7 +287,7 @@ const AUTOPILOT = (() => {
     const moves = cur ? cur.moves || [] : [], short = cur ? cur.short || [] : [];
     const canUndo = !!(cur && cur.kind === "done" && !cur.undone && lsGet() && lsGet().id === cur.id);
     const lead = !cur ? "Nothing has run yet today. Autopilot runs once a day, the first time you open Studyboard." : cur.undone ? "Today's changes were undone." : ask ? "Nothing has moved yet. Apply to make these changes." : moves.length ? "Each change, and why. Real due dates, school sync and classes never move." : "Nothing needed moving today.";
-    const rows = moves.map(m => `<li><b>${esc(m.title)}</b><span class="mini">${m.from && m.to ? `${esc(when(m.from))} → ${esc(when(m.to))}` : m.to ? `New on ${esc(when(m.to))}` : `Removed from ${esc(when(m.from))}`}</span><span class="mini">${esc(m.why)}</span></li>`).join("");
+    const rows = moves.map(m => `<li><b>${esc(plainTitle(m))}</b><span class="mini">${m.from && m.to ? `${esc(when(m.from))} → ${esc(when(m.to))}` : m.to ? `New on ${esc(when(m.to))}` : `Removed from ${esc(when(m.from))}`}</span><span class="mini">${esc(m.why)}</span></li>`).join("");
     const shorts = short.map(s => `<li><b>${esc(s.title)}</b><span class="mini">${esc(s.text)}</span></li>`).join("");
     openSheet(`<div class="sheet ap-sheet">${head(ask ? "What Would Change" : "What Changed")}<div class="sheet-body">
       <p class="mini" style="margin:0 0 10px">${esc(lead)}</p>
@@ -285,11 +300,21 @@ const AUTOPILOT = (() => {
   const proSheet = () => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Autopilot is part of Studyboard Pro: missed study sessions and steps move to your next free time overnight, and Today's Plan tells you once."); };
 
   /* Day Off */
-  function toggleOff(date){
+  // What is really due that day (not the soft study items a day off moves)
+  const dueOn = date => tasksArr().filter(t => t.status !== "done" && t.due === date && !t.prepFor && !AP.kindOf(t)).sort((a, b) => String(a.time || "99").localeCompare(String(b.time || "99")));
+  function toggleOff(date, sure){
     const today = todayISO();
     if (!AP.isDate(date) || date < today) return;
     const cur = {}; Object.keys(offMap()).forEach(d => { if (d >= AP.add(today, -60) && offMap()[d]) cur[d] = 1; });
     const on = !cur[date];
+    // Something is due that day: say so first, since a day off plans no time for it
+    const due = on && !sure ? dueOn(date) : [];
+    if (due.length) {
+      const label = date === today ? "today" : fmtDate(date), nm = t => `“${String(t.title || "Untitled").slice(0, 60)}”${t.time ? " at " + fmtTime(t.time) : ""}`;
+      const what = due.length === 1 ? `${nm(due[0])} is` : due.length === 2 ? `${nm(due[0])} and ${nm(due[1])} are` : `${nm(due[0])}, ${nm(due[1])} and ${due.length - 2} more are`;
+      confirmSheet(date === today ? "Take Today Off?" : "Take This Day Off?", `${what} due ${label}. A day off plans no study time that day, but ${due.length === 1 ? "it stays due and stays" : "they stay due and stay"} listed on Today's Plan. Take the day off anyway?`, "Take the Day Off", () => toggleOff(date, true));
+      return;
+    }
     if (on) cur[date] = 1; else delete cur[date];
     state.settings = Object.assign({}, state.settings, {daysOff: cur}); saveSettings(); scheduleRender();
     try { offSaid(date, on); } finally { redrawDay(date); }
@@ -299,15 +324,18 @@ const AUTOPILOT = (() => {
     if (!on) { toast(`${label} is a study day again.`); return; }
     const res = compute(date), n = res.moves.length;
     const here = res.moves.filter(m => m.from === date).length + res.short.length;
-    if (!n && !res.short.length) { toast(`${label} is a day off. Nothing is planned that day.`); return; }
+    const undoOff = () => toggleOff(date);
+    if (!n && !res.short.length) { toast(`${label} is a day off. ${dueOn(date).length ? "No study time is planned that day." : "Nothing is planned that day."}`, undoOff); return; }
     if (!locked() && mode() === "on" && n) {
       const k = res.short.length;
-      applyChanges(res.changes, `${label} is a day off. Moved ${things(n)} to other days.${k ? ` ${k === 1 ? `“${res.short[0].title}” couldn't move` : `${k} things couldn't move`} without missing a deadline.` : ""}`);
+      applyChanges(res.changes, `${label} is a day off. Moved ${things(n)} to other days.${k ? ` ${k === 1 ? `“${res.short[0].title}” couldn't move` : `${k} things couldn't move`} without missing a deadline.` : ""}`,
+        // Undo puts the moved items back; Undo Day Off also turns the day off off again
+        {label: "Undo Day Off", fn: () => { const st = undoStack[undoStack.length - 1]; if (st && st.label && st.label.indexOf(label + " is a day off.") === 0) st.undo(); toggleOff(date); }});
       return;
     }
-    if (locked()) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`, null, {label: "Move Them", fn: proSheet}); return; }
-    if (mode() === "ask" && n) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} planned that day.`, null, {label: "Move Them", fn: () => { const r2 = compute(date); if (r2.changes.length) applyChanges(r2.changes, `Moved ${things(r2.moves.length)} to other days.`); redrawDay(date); }}); return; }
-    toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`);
+    if (locked()) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`, undoOff, {label: "Move Them", fn: proSheet}); return; }
+    if (mode() === "ask" && n) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} planned that day.`, undoOff, {label: "Move Them", fn: () => { const r2 = compute(date); if (r2.changes.length) applyChanges(r2.changes, `Moved ${things(r2.moves.length)} to other days.`); redrawDay(date); }}); return; }
+    toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`, undoOff);
   }
   // The day sheet reads Today's Plan's numbers, which refresh on the next render: redraw it then
   let REDRAW = "";

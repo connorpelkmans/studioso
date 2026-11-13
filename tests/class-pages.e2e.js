@@ -80,9 +80,9 @@ const shot = async (page, name, sel) => { if (!SHOTS) return; await page.waitFor
   await page.click('#dlg [data-act="cls-drive"]'); await page.waitForSelector('#dlg input[name="url"]');
   await page.fill('#dlg input[name="url"]', "https://docs.google.com/presentation/d/abc123/edit"); await page.click("#dlg [data-submit]"); await page.waitForSelector("#dlg .cls-sheet");
   ok(/Google Slides/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "a Google Drive link is added to the class");
-  // The section is named for the kind of class; Upload leads and there's no New Note
+  // The section is named for the kind of class; New Note (tagged to this class) leads, then Upload
   const sec = await page.$eval("#dlg .cls-sec h3", el => el.textContent);
-  ok(/^Lecture Notes and Files/.test(sec) && await page.locator('#dlg [data-act="cls-new-note"]').count() === 0 && await page.locator('#dlg .btn.primary[data-act="cls-upload"]').count() === 1, "Lecture Notes and Files, with Upload highlighted and no New Note: " + sec);
+  ok(/^Lecture Notes and Files/.test(sec) && await page.locator('#dlg .btn.primary[data-act="cls-newnote"]').count() === 1 && await page.locator('#dlg [data-act="cls-upload"]').count() === 1, "Lecture Notes and Files, with New Note highlighted and Upload: " + sec);
   // From Studyboard: lists the course's files, not notes; the syllabus goes with today's class
   await page.click('#dlg [data-act="cls-pick"]'); await page.waitForSelector('#dlg [data-cls="file:f2"]');
   ok(await page.locator('#dlg [data-cls^="note:"]').count() === 0, "From Studyboard lists files, not notes from the note board");

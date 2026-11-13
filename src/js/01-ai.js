@@ -1685,6 +1685,8 @@ function aiSetupSheet(fromFeature, opts){
     </div>
     <div class="sheet-foot">${c.keys.gemini || c.keys.anthropic || c.keys.openai ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
   </form>`);
+  // opened from a feature (Teach It Back, Concept Map, Rubric Check): Save or Cancel goes back to it
+  if (typeof opts.back === "function") { const back = opts.back; dlg.addEventListener("close", () => { if (dlg.querySelector("#aiSave")) setTimeout(() => { if (!dlg.open) { try { back(); } catch (e) { console.warn("ai setup back", e); } } }, 0); }, {once: true}); }
   const keysNow = () => { const k = {}; $$("[data-key]", dlg).forEach(i => { k[i.dataset.key] = i.value.trim(); }); return k; };
   const autoEngine = () => { const k = keysNow(), [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); return $("#aiAutoModel").value === "free" && k.gemini ? {provider: "gemini", model: "auto"} : {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto"}; };
   const autoWarn = () => { if (!$("#aiAutoWarn") || !$("#aiDefault")) return; const w = $("#aiAutoWarn"), e = autoEngine(), paid = !isFreeModel(e.provider, e.model); w.hidden = !($("#aiAuto").checked && paid);

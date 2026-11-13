@@ -64,9 +64,13 @@ function SEED(){
 
     /* The transcript with times */
     await act("lec-doc", "L1", {doc: "org"}); await page.waitForSelector(".rp-doc", {timeout: 4000});
-    const chips = await page.$$eval('.rp-doc [data-act="rp-at"]', bs => bs.map(b => Number(b.dataset.t)));
+    // (each sentence now plays from its own moment too, and the ★ mark sits in the text: the paragraph chips are the plain .rp-chip buttons)
+    const chips = await page.$$eval('.rp-doc button.rp-chip:not(.rp-star)', bs => bs.map(b => Number(b.dataset.t)));
     ok(chips.length === 2 && chips[0] === 0 && Math.abs(chips[1] - 30000) <= 1000, "each paragraph of the tidied transcript has its time: " + chips.join());
-    await page.locator('.rp-doc [data-act="rp-at"]').nth(1).click();
+    const sents = await page.$$eval(".rp-doc .rp-sent", xs => xs.map(x => Number(x.dataset.t)));
+    ok(sents.length >= 8 && sents.every((t, i) => i === 0 || t >= sents[i - 1]), "every sentence has its own time, in order: " + sents.join());
+    ok(await page.locator(".rp-doc .rp-star").count() === 1, "the ★ mark shows in the transcript");
+    await page.locator('.rp-doc button.rp-chip:not(.rp-star)').nth(1).click();
     await page.waitForFunction(() => window.SBREPLAY.state().playing, null, {timeout: 5000});
     let s = await st(); ok(s.now >= 27500 && s.now < 31500, "a time plays from just before it: " + Math.round(s.now));
     await page.waitForFunction(() => window.SBREPLAY.state().now > 30500, null, {timeout: 5000}); await page.waitForTimeout(300);

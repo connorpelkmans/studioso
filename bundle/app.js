@@ -5388,6 +5388,8 @@ function aiSetupSheet(fromFeature, opts){
     </div>
     <div class="sheet-foot">${c.keys.gemini || c.keys.anthropic || c.keys.openai ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
   </form>`);
+  // opened from a feature (Teach It Back, Concept Map, Rubric Check): Save or Cancel goes back to it
+  if (typeof opts.back === "function") { const back = opts.back; dlg.addEventListener("close", () => { if (dlg.querySelector("#aiSave")) setTimeout(() => { if (!dlg.open) { try { back(); } catch (e) { console.warn("ai setup back", e); } } }, 0); }, {once: true}); }
   const keysNow = () => { const k = {}; $$("[data-key]", dlg).forEach(i => { k[i.dataset.key] = i.value.trim(); }); return k; };
   const autoEngine = () => { const k = keysNow(), [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); return $("#aiAutoModel").value === "free" && k.gemini ? {provider: "gemini", model: "auto"} : {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto"}; };
   const autoWarn = () => { if (!$("#aiAutoWarn") || !$("#aiDefault")) return; const w = $("#aiAutoWarn"), e = autoEngine(), paid = !isFreeModel(e.provider, e.model); w.hidden = !($("#aiAuto").checked && paid);
@@ -11630,7 +11632,8 @@ function focusHtml(){
   const fixedHtml = fixedEv.length ? `<div class="plan-fixed" role="region" aria-label="Exams and quizzes on the calendar"><h3 class="plan-sub">On the Calendar</h3><ul>${fixedEv.map(x => { const t = x.t, e = remoteOf(t); return `<li style="--c:${esc(colorOf(t.courseId))}"><button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span></button><span class="pf-when">${x.dl === 0 ? "Today" : x.dl === 1 ? "Tomorrow" : esc(fmtShort(t.due))}${t.time ? " " + esc(fmtTime(t.time)) : ""}</span><span class="rx-chip${e.v ? "" : " unk"}" title="${esc(e.v === "no" ? "Taken in person, so it is not suggested as something to do now." : "Not confirmed as take-home, so it is not suggested as something to do now. Open it to say where it is taken.")}">${e.v === "no" ? "In person" : "Not sure"}</span></li>`; }).join("")}</ul></div>` : "";
   if (queued) sum.push(`${queued} more lined up for the coming days`);
   const dropT = dropTxt(F);
-  const warn = F.crunch && inView(F.crunch) ? `${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then. ${dropT || "Add study time, start sooner, or talk to your instructor early."}` : "";
+  // a day off plans no study time on purpose: no "short of time" warning and no Time Today control that day
+  const warn = F.crunch && inView(F.crunch) && !offToday ? `${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then. ${dropT || "Add study time, start sooner, or talk to your instructor early."}` : "";
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   // Open tasks with no due date can't be ranked; Full Ranking ends with a line that lists them
   const nUndated = tasksArr().filter(t => t.status !== "done" && !t.due && inFilter(t) && matchesQ(t)).length;
@@ -11650,11 +11653,11 @@ function focusHtml(){
   }
   const planH = todayList.reduce((s, x) => s + x.alloc, 0), freeMin = F.avail && F.avail.show && F.avail.res ? (F.avail.res.windows || []).reduce((s, w) => s + (w.min || 0), 0) : null;
   const hoursTitle = F.doneToday >= 0.25 ? `${fmtMins(F.doneToday * 60)} done so far, ${fmtHM(F.th)} left` : planH && Math.abs(planH - F.thSet) >= 0.25 ? `${fmtHM(planH)} of tasks planned` : "";
-  const planTile = `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
+  const planTile = offToday ? "" : `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : F.overAll && overN ? "Nothing left to plan this term." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? ((F.gapWhy.chips || []).length === F.gapWhy.length ? `<span class="pt-sr">${F.gapWhy.map(esc).join(" ")}</span>` : `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>`) : ""}</div>
-      ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
+      ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(offToday ? "" : `<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
     ${ui.focusOpen ? `${window.SBAUTOPILOT ? SBAUTOPILOT.lineHtml() : ""}${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${termHtml}${pastHtml}${availStripHtml(F)}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday || termHtml ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
@@ -81577,8 +81580,8 @@ var SBPRO = null;
   function insightsBody(I, preview){
     const empty = `<p class="mini">Not enough to go on yet. Insights fill in as you use Focus sessions, finish tasks and get grades back.</p>`;
     const sec = (title, body) => `<section class="pro-card"><h3>${esc(title)}</h3>${body}</section>`;
-    const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(x.min / I.maxMin * 100))}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
-      + (I.studySay ? `<p class="pro-say">${esc(I.studySay)}</p>` : "") : empty;
+    const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${x.min > 0 ? Math.max(2, Math.round(x.min / I.maxMin * 100)) : 0}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
+      + (I.studySay ? `<p class="pro-say">${esc(I.studySay)}</p>` : I.courses.every(x => !(x.min > 0)) ? `<p class="mini">No Focus time logged yet.</p>` : "") : empty;
     const heat = I.logN >= 5 ? `<div class="pro-heat" role="img" aria-label="${esc(I.bestSay)}"><span></span>${["M", "T", "W", "T", "F", "S", "S"].map(d => `<span class="ph-d">${d}</span>`).join("")}${PARTS.map((p, i) => `<span class="ph-l">${p[1]}</span>${I.grid[i].map(v => `<span class="ph-c" style="--a:${v ? Math.round(20 + v / I.gridMax * 80) : 0}%"></span>`).join("")}`).join("")}</div><p class="pro-say">${esc(I.bestSay)}</p>`
       : `<p class="mini">After five Focus timer sessions, this shows when in the day your sessions last longest.</p>`;
     const prep = I.prep ? `<div class="pro-row2"><b>${esc(I.prep.ex.title)}</b><span class="mini">${esc(fmtShort(I.prep.ex.due))} · ${I.prep.done} of ${I.prep.total} sessions done</span></div><span class="pro-bar wide" aria-hidden="true"><i style="width:${Math.round(I.prep.done / I.prep.total * 100)}%"></i></span><p class="pro-say">${esc(I.prep.dueSoFar ? `${I.prep.doneSoFar} of the ${I.prep.dueSoFar} sessions planned so far are done.` : "The first session is still ahead.")}${I.prep.weak.length ? esc(` ${I.prep.weak.slice(0, 2).join(" and ")} ${I.prep.weak.length === 1 ? "is" : "are"} still marked Shaky.`) : ""}</p>`
@@ -81684,7 +81687,7 @@ var SBPRO = null;
     const slides = slidesFor(T); if (slides.length < 2) { toast("Not enough happened this term for a recap yet."); return; }
     RC = {T, slides, i: 0};
     markSeen(T.key); setS({recapLast: {key: T.key, from: T.from, to: T.to, name: T.name}});
-    openSheet(`<div class="sheet pro-recap">${head(`${T.name}, Wrapped`)}<div class="sheet-body pro-recap-body"></div><div class="sheet-foot"><button type="button" class="btn" data-act="pro-recap-img">Save as Image</button><span class="spacer"></span><button type="button" class="btn" data-act="pro-recap-step" data-id="-1">Back</button><button type="button" class="btn primary" data-act="pro-recap-step" data-id="1" id="proRcNext">Next</button></div></div>`);
+    openSheet(`<div class="sheet pro-recap">${head(`${T.name}, Wrapped`)}<div class="sheet-body pro-recap-body"></div><div class="sheet-foot"><button type="button" class="btn" data-act="pro-recap-img">Save as Image</button><span class="spacer"></span><button type="button" class="btn" data-act="pro-recap-step" data-id="-1" id="proRcBack">Back</button><button type="button" class="btn primary" data-act="pro-recap-step" data-id="1" id="proRcNext">Next</button></div></div>`);
     drawRecap();
     scheduleRender();
   }
@@ -81694,6 +81697,8 @@ var SBPRO = null;
     b.innerHTML = `<div class="prc-dots" aria-hidden="true">${RC.slides.map((x, i) => `<i class="${i <= RC.i ? "on" : ""}"></i>`).join("")}</div>
       <div class="prc-slide" role="group" aria-roledescription="card" aria-label="${RC.i + 1} of ${RC.slides.length}"><span class="prc-k">${esc(s.k)}</span><b class="prc-big">${esc(s.big)}</b><p>${esc(s.line)}</p></div>`;
     const nx = $("#proRcNext"); if (nx) nx.textContent = RC.i >= RC.slides.length - 1 ? "Start Again" : "Next";
+    // nothing comes before the first card
+    const bk = $("#proRcBack"); if (bk) bk.hidden = RC.i === 0;
   }
   // One card as a picture (1080 x 1350), drawn on a canvas
   function recapImage(){
@@ -81819,8 +81824,10 @@ var SBPRO = null;
 .pro-recap-card .prc-t{display:grid;gap:2px;flex:1;min-width:0}
 .pro-recap-card .prc-t span{font-size:.85rem;color:#C9D7F2}
 .pro-recap-card .btn{background:#fff;color:#0E2A56;border-color:#fff}
-.pro-recap-card .prc-x{position:absolute;top:-8px;right:-8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:grid;place-items:center;padding:0}
+.pro-recap-card .prc-x{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:grid;place-items:center;padding:0}
 .pro-recap-card .prc-x svg{width:12px;height:12px}
+/* the × sits inside the card's corner: leave it room */
+.pro-recap-card{padding-right:42px}
 .pro-recap .sheet-body{background:#0E2A56;color:#fff}
 .prc-dots{display:flex;gap:5px;margin-bottom:24px}
 .prc-dots i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.25)}
@@ -84784,7 +84791,12 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     } catch (e) {}
     return ui.filter && ui.filter !== "all" && courseOf(ui.filter) ? ui.filter : "";
   }
-  const titleFor = cid => { const c = courseOf(cid); return `${c ? (c.code || c.name) + " " : ""}Lecture, ${fmtShort(todayISO())}`; };
+  // Named for the class it's recorded in: "PSYC 1010 Lecture 4, Nov 12"
+  const classNow = c => { try { if (!c || !window.SBCLS) return null; const d = todayISO(), now = new Date(), m = now.getHours() * 60 + now.getMinutes(), tm = t => { const [h, mi] = String(t || "0:0").split(":").map(Number); return (h || 0) * 60 + (mi || 0); };
+    // as the class page files it: the class it's made in (or just after), else the day's only class
+    const day = SBCLS.classesOf(c).filter(x => x.date === d && !x.skipped);
+    return day.find(x => m >= tm(x.start) - 15 && m <= tm(x.end || x.start) + 90) || (day.length === 1 ? day[0] : null); } catch (e) { return null; } };
+  const titleFor = cid => { const c = courseOf(cid), x = classNow(c); return `${c ? (c.code || c.name) + " " : ""}${x ? x.title : "Lecture"}, ${fmtShort(todayISO())}`; };
   function open(cidIn){
     if (P.locked()) { proWhy("Record a Lecture is part of Studyboard Pro: record a class, then get a tidy transcript and a summary in the course's Lectures."); return; }
     if (REC && REC.view !== "setup") { sheet(); return; }
@@ -85312,7 +85324,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     }
     const text = doc === "sum" ? L.sum : (L.org || raw), name = doc === "sum" ? "Summary" : "Transcript";
     const src = raw || L.org || "", canMake = src.trim().length > 80;
-    b.innerHTML = `<div class="lec-doc-head"><button type="button" class="link-btn" data-act="lec-doc" data-id="${esc(fid)}" data-doc="">‹ ${esc(f.name)}</button><h3>${name}</h3></div>
+    b.innerHTML = `<div class="lec-doc-head"><button type="button" class="link-btn" data-act="lec-doc" data-id="${esc(fid)}" data-doc="" aria-label="Back to ${esc(f.name)}">‹ Back</button><h3>${name}</h3></div>
       ${text ? `<div class="lec-docv">${(window.SBREPLAY && SBREPLAY.docHtml(f, doc, text)) || docHtml(text)}</div>` : `<div class="empty"><strong>No ${name} Yet</strong>${canMake ? (aiReady() ? `${esc(aiWho("AI"))} can write it from the transcript.` : "Set up AI (Settings, AI Features), then Write It Now.") : src ? "The transcript is too short to summarize." : "This lecture was saved without a transcript."}</div>`}`;
     ft.innerHTML = `<span class="spacer"></span>${canMake && (doc === "sum" || !L.org) ? `<button type="button" class="btn ai-btn" data-act="lec-make" data-id="${esc(fid)}" data-doc="${doc}">${AI_ICON} ${text ? "Write It Again" : "Write It Now"}</button>` : ""}${text ? `<button type="button" class="btn" data-act="lec-copy" data-id="${esc(fid)}" data-doc="${doc}">Copy</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button>`;
   }
@@ -85604,7 +85616,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .lec-rt b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lec-meta{margin:0}
 .lec-files{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.lec-fopt{display:grid;justify-items:start;gap:6px;text-align:left;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:14px;font:inherit;color:inherit;cursor:pointer}
+.lec-fopt{display:grid;justify-items:start;align-content:start;gap:6px;text-align:left;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:14px;font:inherit;color:inherit;cursor:pointer}
 .lec-fopt svg{color:var(--accent)}
 .lec-fopt:hover{border-color:var(--accent)}
 .lec-fopt:disabled{cursor:default;opacity:.75}
@@ -85614,6 +85626,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .lec-fopt.done{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .lec-fopt.done b::after{content:" ✓";color:var(--accent)}
 .lec-doc-head{display:grid;gap:4px}
+.lec-doc-head > .link-btn{justify-self:start}
 .lec-doc-head h3{margin:0}
 .lec-docv{line-height:1.6;max-height:58vh;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:4px 14px 10px}
 .lec-docv h4{margin:14px 0 4px;font:700 1rem var(--display)}
@@ -96052,16 +96065,22 @@ const rangeText = cov => cov.from ? `${fmtShort(cov.from)} to ${fmtShort(LECCHAI
 
 /* The next-step bar */
 let NX = null;
-function bar(o){ NX = o || null; paint(); }
+function bar(o){
+  NX = o || null; paint();
+  // in a sheet it sits in the flow under the steps: bring it into view (a failed step's message would be below the fold)
+  const el = NX && document.getElementById("lcNext"); if (el && el.closest(".lc-chain")) { try { el.scrollIntoView({block: "nearest"}); } catch (e) {} }
+}
+// Where the bar goes: inside the sheet's From Lecture to Exam card when one is open, else under the open sheet, else on the page
+const barHost = () => dlg.open ? dlg.querySelector(".lc-chain[data-lc]") || dlg : document.body;
 function paint(){
   let el = document.getElementById("lcNext");
   if (!NX) { if (el) el.remove(); return; }
   if (!el) { el = document.createElement("div"); el.id = "lcNext"; el.className = "lc-next"; el.setAttribute("role", "region"); el.setAttribute("aria-label", "Next step"); }
-  const host = dlg.open ? dlg : document.body; if (el.parentNode !== host) host.appendChild(el);
+  const host = barHost(); if (el.parentNode !== host) host.appendChild(el);
   el.innerHTML = `<p class="lc-next-t" role="status">${NX.busy ? `<span class="ai-spin" aria-hidden="true"></span> ` : ""}${esc(NX.text)}</p><div class="lc-next-b">${NX.go ? `<button type="button" class="btn small primary" data-act="lc-go">${esc(NX.go)}</button>` : ""}${NX.undo ? `<button type="button" class="btn small" data-act="lc-undo">Undo</button>` : ""}<button type="button" class="btn small" data-act="lc-skip">${NX.busy ? "Hide" : NX.go ? "Skip" : "Close"}</button></div>`;
 }
 // The sheet's contents are replaced when another sheet opens
-new MutationObserver(() => { if (!NX) return; const el = document.getElementById("lcNext"), want = dlg.open ? dlg : document.body; if (!el || el.parentNode !== want) paint(); }).observe(dlg, {childList: true, attributes: true, attributeFilter: ["open"]});
+new MutationObserver(() => { if (!NX) return; const el = document.getElementById("lcNext"); if (!el || el.parentNode !== barHost()) paint(); }).observe(dlg, {childList: true, subtree: true, attributes: true, attributeFilter: ["open"]});
 dlg.addEventListener("close", () => setTimeout(() => { if (NX) paint(); }, 0));
 const undoBtn = inv => inv ? () => { applyChanges(inv, null); toast("Undone"); refresh(); } : null;
 
@@ -96340,7 +96359,8 @@ function prepHtml(ex){
     if (!ex || !ex.courseId || !ex.due) return "";
     const {cov, groups} = gather(ex); if (!groups.length) return "";
     const fresh = groups.filter(g => g.fresh), all = groups.reduce((a, g) => a + g.n, 0);
-    if (fresh.length) return `<p class="mini lc-prep">${esc(LECCHAIN.countLabel(fresh, fresh.reduce((a, g) => a + g.fresh, 0)))} from ${esc(rangeText(cov))} aren't on these topics yet. <button type="button" class="link-btn" data-act="lc-pull" data-id="${esc(ex.id)}">Pull Them In</button></p>`;
+    // "1 lecture (1 card) up to Nov 16 isn't in these topics yet" / "2 lectures ... from Nov 2 to Nov 16 aren't ..."
+    if (fresh.length) { const one = fresh.length === 1; return `<p class="mini lc-prep">${esc(LECCHAIN.countLabel(fresh, fresh.reduce((a, g) => a + g.fresh, 0)))} ${cov.from ? "from " : ""}${esc(rangeText(cov))} ${one ? "isn't" : "aren't"} in these topics yet. <button type="button" class="link-btn" data-act="lc-pull" data-id="${esc(ex.id)}">${one ? "Pull It In" : "Pull Them In"}</button></p>`; }
     return `<p class="mini lc-prep">Pulled in ${esc(LECCHAIN.countLabel(groups, all))} by lecture date, ${esc(rangeText(cov))}.</p>`;
   } catch (e) { console.warn("lecture chain: prep", e); return ""; }
 }
@@ -96351,7 +96371,8 @@ function lectureHtml(fid){
   try {
     const f = state.files[fid]; if (!f) return "";
     const raw = String((f.tr && f.tr.text) || (f.lec && f.lec.org) || "").trim(), note = noteFor(fid), cs = cardsFrom(fid), drafts = cs.filter(x => isText(x.c)), cid = f.courseId || "";
-    const step = (i, done, title, sub, btns) => `<li class="lc-step${done ? " done" : ""}"><span class="lc-n" aria-hidden="true">${done ? CHECK_IC : i}</span><span class="lc-tx"><b>${title}</b>${sub ? `<span class="mini">${sub}</span>` : ""}</span>${btns ? `<span class="lc-bt">${btns}</span>` : ""}</li>`;
+    // two actions go on their own row under the text, so the text isn't squeezed into a narrow column
+    const step = (i, done, title, sub, btns) => `<li class="lc-step${done ? " done" : ""}${(String(btns || "").match(/<button/g) || []).length > 1 ? " lc-two" : ""}"><span class="lc-n" aria-hidden="true">${done ? CHECK_IC : i}</span><span class="lc-tx"><b>${title}</b>${sub ? `<span class="mini">${sub}</span>` : ""}</span>${btns ? `<span class="lc-bt">${btns}</span>` : ""}</li>`;
     const B = (act, id, label, cls) => `<button type="button" class="btn small${cls ? " " + cls : ""}" data-act="${act}" data-id="${esc(id)}">${label}</button>`;
     let s1;
     if (note) s1 = step(1, true, "Study Notes", "In Notes, linked to this lecture", B("lc-open-note", note.id, "Open Note") + (window.SBONENOTE ? SBONENOTE.saveBtn(note.id) : ""));
@@ -96433,6 +96454,8 @@ css.textContent = `
 @media (min-width:761px){.lc-next{bottom:92px}
 /* inside an open sheet it sits under the sheet, in the flow, so it never covers the sheet's own buttons */
 dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0}}
+/* in the sheet's From Lecture to Exam card (any width) it is part of the card, under the step it's about */
+.lc-chain > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0;box-shadow:none;z-index:auto}
 .lc-next-t{margin:0;flex:1 1 220px;min-width:0;font-size:.9rem;line-height:1.35;overflow-wrap:anywhere}
 .lc-next-b{display:flex;flex-wrap:wrap;gap:6px}
 .lc-chain{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:12px 0;background:var(--surface);color:var(--ink);text-align:left}
@@ -96444,6 +96467,7 @@ dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:a
 .lc-tx{flex:1 1 150px;min-width:0;display:flex;flex-direction:column;gap:2px}
 .lc-tx .mini{color:var(--muted);overflow-wrap:anywhere}
 .lc-bt{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lc-step.lc-two .lc-bt{flex:1 1 100%;padding-left:34px}
 .lc-nrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 2px;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.55);color:#2A2418;font-size:.8rem}
 .lc-nrow .link-btn{color:#1A4FA8;font-size:inherit;text-align:left;overflow-wrap:anywhere}
 .lc-nrow .btn{padding:3px 8px;font-size:.78rem;background:rgba(255,255,255,.75);color:#2A2418;border-color:rgba(42,36,24,.25)}
@@ -96618,9 +96642,14 @@ var SBCLS = null;
     return fit[0] ? fit[0].key : cands.length === 1 ? cands[0].key : "";
   }
   function itemsOf(cid, key){
-    const notes = Object.values(state.notes || {}).filter(n => n && n.courseId === cid && n.cls === key && !n.archived).sort((a, b) => (a.created || 0) - (b.created || 0));
     const files = Object.values(state.files || {}).filter(f => f && f.courseId === cid && f.cls === key && !isLec(f)).sort((a, b) => (a.created || 0) - (b.created || 0));
     const recs = Object.values(state.files || {}).filter(f => f && f.courseId === cid && isLec(f) && recKeyOf(f) === key).sort((a, b) => (a.created || 0) - (b.created || 0));
+    // a note not tagged to any class still belongs here when it's attached to this class's recording, or was written during the class
+    // (`via` says which, and these have no "take it off" button: nothing on the note links it)
+    const att = new Set(); recs.forEach(f => ((f.lec && Array.isArray(f.lec.att)) ? f.lec.att : []).forEach(a => { if (a && a.k === "note" && a.id) att.add(a.id); }));
+    const x = findClass(cid, key), during = n => !!x && !x.skipped && !!x.end && dOf(n.created) === x.date && minOfDay(n.created) >= tMin(x.start) - 10 && minOfDay(n.created) <= tMin(x.end) + 10;
+    const notes = Object.values(state.notes || {}).filter(n => n && n.courseId === cid && !n.archived && (n.cls === key || (!n.cls && (att.has(n.id) || (n.created && during(n))))))
+      .map(n => n.cls === key ? n : Object.assign({}, n, {via: att.has(n.id) ? "rec" : "time"})).sort((a, b) => (a.created || 0) - (b.created || 0));
     return {notes, files, recs, n: notes.length + files.length + recs.length};
   }
   const hasSum = f => !!(f.lec && f.lec.sum);
@@ -96690,7 +96719,7 @@ var SBCLS = null;
     const c = courseOf(x.cid), I = itemsOf(x.cid, x.key), all = classesOf(c).filter(y => y.kind === x.kind && (!y.skipped || y.key === x.key));
     const i = all.findIndex(y => y.key === x.key), prev = i > 0 ? all[i - 1] : null, next = i >= 0 && i < all.length - 1 ? all[i + 1] : null;
     const rm = (k, id) => `<button type="button" class="x-btn" data-act="cls-unlink" data-k="${k}" data-id="${esc(id)}" aria-label="Take it off this class (it isn't deleted)" title="Take it off this class (it isn't deleted)">${CLOSE}</button>`;
-    const noteLi = n => `<li class="cls-it">${n.wb ? IC.board(16) : IC.note(16)}<button type="button" class="cls-it-main" data-act="cls-note" data-id="${esc(n.id)}"><b>${esc(n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") : noteName(n))}</b>${!n.wb && notePeek(n) ? `<span class="mini">${esc(notePeek(n))}</span>` : `<span class="mini">${n.wb ? "Whiteboard" : "Note"}</span>`}</button>${rm("note", n.id)}</li>`;
+    const noteLi = n => `<li class="cls-it">${n.wb ? IC.board(16) : IC.note(16)}<button type="button" class="cls-it-main" data-act="cls-note" data-id="${esc(n.id)}"><b>${esc(n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") : noteName(n))}</b>${!n.wb && notePeek(n) ? `<span class="mini">${esc(notePeek(n))}</span>` : `<span class="mini">${n.wb ? "Whiteboard" : "Note"}</span>`}${n.via ? `<span class="mini cls-via">${n.via === "rec" ? "With the recording" : "Written during class"}</span>` : ""}</button>${n.via ? "" : rm("note", n.id)}</li>`;
     const fileLi = f => `<li class="cls-it">${IC.file(16)}<button type="button" class="cls-it-main" data-act="cls-file" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${srcTag(f)}${esc(day(dOf(f.created), {month: "short", day: "numeric"}))}</span></button>${rm("file", f.id)}</li>`;
     const recLi = f => `<li class="cls-it k-rec">${IC.mic(16)}<button type="button" class="cls-it-main" data-act="lec-view" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${esc([f.dur && window.SBLEC ? SBLEC.clock(f.dur * 1000) : "", f.tr && f.tr.text ? "Transcript" : "", hasSum(f) ? "Summary" : ""].filter(Boolean).join(" · ") || "Recording")}</span></button>${hasSum(f) ? `<button type="button" class="btn small" data-act="cls-sum" data-id="${esc(f.id)}">Summary</button>` : ""}</li>`;
     const nowish = x.date === todayISO() && minOfDay(Date.now()) >= tMin(x.start) - 20 && minOfDay(Date.now()) <= tMin(x.end) + 10;
@@ -96707,7 +96736,7 @@ var SBCLS = null;
 
         <section class="cls-sec"><h3><span>${esc(x.kind || "Class")} Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
           ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Upload the slides before class." : "Nothing for this class yet."}</p>`}
-          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
+          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-newnote">${IC.plus(16)}New Note</button><button type="button" class="btn small" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
         </section>
 
         <section class="cls-sec"><h3><span>Recording</span></h3>
@@ -96893,6 +96922,12 @@ var SBCLS = null;
       case "cls-kind": { ui.clsKind = Object.assign({}, ui.clsKind, {[el.dataset.cid]: el.dataset.k}); render(); return true; }
       case "cls-dates": datesSheet(el.dataset.cid); return true;
       case "cls-upload": { const x = cur(); if (x) upload(x); return true; }
+      // a typed note already tagged to this class, opened to write in
+      case "cls-newnote": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); if (noteEditing) saveNoteText();
+        const n = addNoteText(`${x.title} notes, ${day(x.date, {month: "short", day: "numeric"})}\n`, x.cid, "", {cls: x.key});
+        noteEditing = n.id; ui.tab = "notes"; render(); window.scrollTo(0, 0);
+        setTimeout(() => { const t = $("#noteText"); if (t) { try { t.focus({preventScroll: true}); t.setSelectionRange(t.value.length, t.value.length); } catch (e) {} } }, 60);
+        return true; }
       case "cls-drive": { const x = cur(); if (x) drive(x); return true; }
       case "cls-connect": { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); return true; }
       case "cls-pick": { const x = cur(); if (x) pickSheet(x); return true; }
@@ -96916,6 +96951,15 @@ var SBCLS = null;
     const still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     w.scrollIntoView({block: "center", behavior: still ? "auto" : "smooth"});
     return true;
+  });
+
+  // The Lectures tab opens at this week (earlier weeks stay above it), once each time the tab is opened
+  let LANDED = "";
+  hook("render", () => {
+    const tab = document.querySelector(".cls-tab"); if (!tab) { LANDED = ""; return; }
+    const k = ui.courseId || "1"; if (LANDED === k) return; LANDED = k;
+    const w = tab.querySelector(".cls-week.is-now"); if (!w || w === tab.querySelector(".cls-week")) return;
+    requestAnimationFrame(() => { try { const top = w.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo(0, Math.max(0, top)); } catch (e) {} });
   });
 
   SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
@@ -97328,6 +97372,7 @@ var SBREPLAY = null;
   }
   document.addEventListener("wheel", e => { if (e.target && e.target.closest && e.target.closest(".sheet-body")) PL.scrolled = Date.now(); }, {passive: true});
   document.addEventListener("touchmove", e => { if (e.target && e.target.closest && e.target.closest(".sheet-body")) PL.scrolled = Date.now(); }, {passive: true});
+  document.addEventListener("keydown", e => { const s = e.target; if ((e.key === "Enter" || e.key === " ") && s && s.classList && s.classList.contains("rp-sent")) { e.preventDefault(); s.click(); } });
   document.addEventListener("input", e => { const s = e.target; if (!s || !s.classList || !s.classList.contains("rp-seek")) return; const fid = s.dataset.id; const n = s.closest(".rp-dock").querySelector(".rp-now"); if (n) n.textContent = clock(Number(s.value) * 1000); s.style.setProperty("--p", (Number(s.value) / Math.max(1, Number(s.max)) * 100).toFixed(2) + "%"); void fid; });
   document.addEventListener("change", async e => { const s = e.target; if (!s || !s.classList || !s.classList.contains("rp-seek")) return; const fid = s.dataset.id, v = Number(s.value) * 1000;
     if (PL.fid === fid && PL.url) { PL.a.currentTime = v / 1000; PL.clipEnd = 0; paint(); } else await seek(fid, v, {lead: 0}); });
@@ -97383,10 +97428,17 @@ var SBREPLAY = null;
   function docHtml(f, doc, text){
     const X = canTime(f) ? timeline(f) : null, bl = R.docBlocks(text);
     if (!X || !hasAudio(f)) return null;
-    let times;
+    let times, sentT = null;
+    // In the transcript each sentence plays from its own moment (tap it), not only the paragraph's time chip
+    const split = s => String(s || "").match(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g) || [String(s || "")];
     if (doc === "sum") times = R.timeBlocks(X.IX, bl, {order: false});
-    else if (!(f.lec && f.lec.org) || text === f.tr.text) { let at = 0; const T = String(f.tr.text || ""); times = bl.map(b => { if (b.k === "mark") return {t: b.mark}; const i = T.indexOf(b.s.slice(0, 60), at); if (i < 0) return {t: null}; at = i + 1; return {t: X.map(i)}; }); }
-    else times = R.timeBlocks(X.IX, bl);
+    else if (!(f.lec && f.lec.org) || text === f.tr.text) { let at = 0; const T = String(f.tr.text || ""); times = bl.map(b => { if (b.k === "mark") return {t: b.mark}; const i = T.indexOf(b.s.slice(0, 60), at); if (i < 0) return {t: null}; at = i + 1; return {t: X.map(i)}; });
+      let c = 0; sentT = bl.map(b => b.k === "p" ? split(b.s).map(x => { const j = T.indexOf(x.trim().slice(0, 40), c); if (j < 0) return null; c = j + 1; return X.map(j); }) : null); }
+    else { times = R.timeBlocks(X.IX, bl); sentT = bl.map(b => b.k === "p" ? R.align(X.IX, split(b.s).map(x => x.trim())).map(a => a && a.t != null ? a.t : null) : null); }
+    // your ★ marks, in the transcript where they fall (unless the transcript already carries them)
+    const marks = doc === "sum" || bl.some(b => b.k === "mark") ? [] : ((f.lec && Array.isArray(f.lec.marks)) ? f.lec.marks : []).map(Number).filter(t => Number.isFinite(t) && t >= 0).sort((a, b) => a - b);
+    const star = t => `<button type="button" class="rp-chip rp-star" data-act="rp-at" data-id="${esc(f.id)}" data-t="${Math.round(t)}" aria-label="Your mark at ${clock(t)}: play from it">★ ${clock(t)}</button> `;
+    const starsBefore = t => { let o = ""; while (marks.length && t != null && marks[0] <= t) o += star(marks.shift()); return o; };
     let h = "", ul = false;
     const endUl = () => { if (ul) { h += "</ul>"; ul = false; } };
     bl.forEach((b, i) => {
@@ -97395,9 +97447,12 @@ var SBREPLAY = null;
       endUl();
       if (b.k === "h") h += `<h4${on}>${esc(b.s)}</h4>`;
       else if (b.k === "mark") h += `<p class="lec-mk"${on}>${t != null ? chip(f.id, t, "", "your mark") : ""} <span>★ Marked</span></p>`;
+      else if (sentT && sentT[i]) { const ss = split(b.s);
+        h += `<p class="rp-para">${t != null ? chip(f.id, t, "", "") + " " : ""}${ss.map((x, j) => { const st = sentT[i][j]; return st == null ? esc(x) : `${starsBefore(st)}<span class="rp-sent" role="button" tabindex="0" data-act="rp-at" data-id="${esc(f.id)}" data-t="${Math.round(st)}" data-rp-t="${Math.round(st)}">${esc(x)}</span>`; }).join("")}</p>`; }
       else h += `<p class="rp-para"${on}>${t != null ? chip(f.id, t, "", "") + " " : ""}${esc(b.s)}</p>`;
     });
     endUl();
+    if (marks.length) h += `<p class="rp-para">${marks.map(star).join("")}</p>`;
     return `<div class="rp-doc" data-rp-f="${esc(f.id)}">${h}</div>${X.est ? `<p class="mini rp-est">Times are estimated: this lecture was saved before times were kept.</p>` : ""}`;
   }
 
@@ -99341,7 +99396,7 @@ function draw(){
 }
 function wire(t){
   const q = s => R.el.querySelector(s);
-  const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { aiSetupSheet(true); });
+  const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { const id = R.tid; aiSetupSheet(true, {back: () => open(id)}); });
   const bk = q("[data-rb-back]"); if (bk) bk.addEventListener("click", () => { R.view = "form"; R.err = ""; draw(); });
   const sv = q("[data-rb-save]"); if (sv) sv.addEventListener("click", () => save(t.id));
   const rub = q("[data-rb-rub]"), dr = q("[data-rb-draft]");
@@ -99368,7 +99423,7 @@ async function run(id){
   if (!own()) { R.view = "nokey"; draw(); return; }
   if (locked() && left() <= 0) { PLAN.runsGone("rubric"); return; }
   if (!R.rubric.trim()) { R.err = "Add the rubric first: paste it, or choose the file."; draw(); return; }
-  if (R.draft.trim().split(/\s+/).length < 30) { R.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; draw(); return; }
+  if (R.draft.trim().split(/\s+/).length < 30) { R.err = R.draft.trim() ? "Your draft is too short to check. Paste at least a paragraph, upload it or pick a file." : "Add your draft first: paste it, upload it or pick a file."; draw(); return; }
   const cr = crits(), draft = RBC.clip(R.draft, 60000), c = courseOf(t.courseId);
   const ac = typeof AbortController === "function" ? new AbortController() : null;
   R.ac = ac; R.busy = true; R.err = ""; draw();
@@ -99414,6 +99469,8 @@ css.textContent = `
 .rbx-row select{max-width:100%;min-width:0;flex:1 1 180px}
 .rbx-pick{position:relative;overflow:hidden;cursor:pointer}
 .rbx-err{color:#B42318}
+:root[data-theme="dark"] .rbx-err{color:#FF8A80}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rbx-err{color:#FF8A80}}
 .rbx-st{display:inline-block;font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 7px;background:var(--soft,#EEF1F6);color:var(--ink);white-space:nowrap}
 .rbx-st.st-strong{background:color-mix(in srgb,#2E9E5B 20%,var(--surface));color:color-mix(in srgb,#1D6B3D 80%,var(--ink))}
 .rbx-st.st-ok{background:color-mix(in srgb,#3B6FE0 16%,var(--surface))}
@@ -99516,7 +99573,7 @@ async function check(){
   const me = TB, ex = state.tasks[me.exId], t = ex && findTopic(ex, me.topicId); if (!t) return;
   const words = me.text.trim().split(/\s+/).filter(Boolean).length;
   if (words < 12) { me.msg = "Say a bit more: a few sentences, as if teaching a friend who missed the class."; draw(); return; }
-  if (!aiReady()) { DRAFT.set(key(), me.text); aiSetupSheet(true); return; }
+  if (!aiReady()) { DRAFT.set(key(), me.text); const back = [me.exId, me.topicId]; aiSetupSheet(true, {back: () => open(back[0], back[1])}); return; }
   if (locked() && left() <= 0) { DRAFT.set(key(), me.text); PLAN.runsGone("teach"); return; }
   micStop();
   const kk = me.exId + "|" + me.topicId, ac = typeof AbortController === "function" ? new AbortController() : null;
@@ -99650,7 +99707,7 @@ function onClick(e){
   switch (a) {
     case "check": check(); return;
     case "mic": mic(); return;
-    case "setup": DRAFT.set(key(), TB.text); micStop(); aiSetupSheet(true); return;
+    case "setup": { DRAFT.set(key(), TB.text); micStop(); const back = [TB.exId, TB.topicId]; aiSetupSheet(true, {back: () => open(back[0], back[1])}); return; }
     case "link": { DRAFT.set(key(), TB.text); const id = TB.exId; micStop(); SBPREP.open(id, {edit: true}); return; }
     case "back": { DRAFT.set(key(), TB.text); const id = TB.exId; micStop(); SBPREP.open(id); return; }
     case "again": TB.text = (TB.res && TB.res.text) || TB.text; TB.res = null; TB.made = 0; TB.msg = ""; LAST.delete(key()); draw(); { const t = $("#tbText"); if (t) t.focus(); } return;
@@ -99838,8 +99895,29 @@ const CITE = (() => {
       if (l.length) it[k] = l; } });
     ["issued", "accessed", "original-date", "event-date"].forEach(k => { const d = o[k]; if (!d || typeof d !== "object") return; const p = dateParts(d).filter(n => n > 0).slice(0, 3); if (p.length) it[k] = {"date-parts": [p]}; else if (d.literal || d.raw) it[k] = {literal: cap(d.literal || d.raw, 40)}; });
     ["fid", "zkey", "zlib", "src"].forEach(k => { if (o[k]) it[k] = cap(o[k], 120); });
+    if (o.caseAsIs) it.caseAsIs = true;
     return it;
   }
+  /* Sentence case for styles that want it (APA, AMA, Harvard, IEEE, Vancouver): lookups give titles in Title Case, and CSL can't
+     lower-case them. Only a title that looks Title Case changes; acronyms, words with inner capitals or digits, "I", and the first
+     word (and the first after a colon) keep their capitals. A source marked caseAsIs (names in the title) is left as typed. */
+  const SENT_STYLE = /\/(apa[^/<]*|american-medical-association|harvard-cite-them-right|ieee|vancouver)<\/id>/;
+  function looksTitleCase(t){
+    const w = String(t || "").match(/[\p{L}][\p{L}'’-]{3,}/gu) || [];
+    return w.length >= 2 && w.filter(x => /^\p{Lu}/u.test(x)).length / w.length >= 0.6;
+  }
+  function sentenceCase(t){
+    t = String(t || ""); if (!looksTitleCase(t)) return t;
+    let first = true;
+    return t.replace(/([\p{L}][\p{L}'’]*)|([:?!.—–]\s)/gu, (m, word, brk) => {
+      if (brk) { first = true; return m; }
+      const keep = first || /\p{Lu}/u.test(word.slice(1)) || /\d/.test(word) || word === "I";
+      first = false;
+      return keep ? word : word.charAt(0).toLowerCase() + word.slice(1);
+    });
+  }
+  // a site name like "nytimes.com" is a name: the style mustn't make it "Nytimes.Com"
+  const isHost = s => /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(String(s || ""));
   function mapType(t){
     t = String(t || "").toLowerCase();
     const M = {"journal-article": "article-journal", "journalarticle": "article-journal", "article": "article-journal", "posted-content": "article-journal", "proceedings-article": "paper-conference", "conferencepaper": "paper-conference",
@@ -100046,7 +100124,11 @@ const CITE = (() => {
 
   /* The engine: citeproc-js with a CSL style. CSLlib is citeproc's CSL; locales: {"en-US": xml} */
   function engine(CSLlib, styleXml, locales, items, lang){
-    const byId = {}; items.forEach(x => { byId[x.id] = x; });
+    const sent = SENT_STYLE.test(String(styleXml || "").slice(0, 4000));
+    const byId = {}; items.forEach(x => { let y = x;
+      if (sent && y.title && !y.caseAsIs) { const st = sentenceCase(y.title); if (st !== y.title) y = Object.assign({}, y, {title: st}); }
+      if (isHost(y["container-title"])) y = Object.assign({}, y, {"container-title": `<span class="nocase">${y["container-title"]}</span>`});
+      byId[x.id] = y; });
     const sys = {retrieveLocale: l => locales[l] || locales[String(l).split("-")[0] === "en" ? "en-US" : l] || locales["en-US"], retrieveItem: id => byId[id]};
     const e = new CSLlib.Engine(sys, styleXml, lang || "en-US");
     const ids = items.map(x => x.id);
@@ -100105,7 +100187,8 @@ const CITE = (() => {
     const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), sources = (itemsIn || []).map(clean), issues = [], push = (k, t, d, fix) => issues.push({k, t, d: d || "", fix: fix || ""});
     const ref = refSection(draft), body = ref ? draft.slice(0, ref.at) : draft;
     const cited = new Set(), unknown = [], slips = new Set();
-    const match = seg => sources.filter(s => famRe(keyName(s)).test(seg));
+    // a source with no author or title has no name to look for: famRe("") would match every citation, so leave it out
+    const named = sources.filter(s => keyName(s)), match = seg => named.filter(s => famRe(keyName(s)).test(seg));
     let m; const PAR = /\(([^()\n]{2,200})\)/g;
     while ((m = PAR.exec(body))) {
       m[1].split(/;\s*/).forEach(seg => {
@@ -100113,7 +100196,7 @@ const CITE = (() => {
         const hits = match(seg), hasYear = YEAR.test(seg), mlaLike = /^[“"]?[\p{Lu}][\p{L}'’-]+.*?\s\d{1,4}(?:[–-]\d+)?$/u.test(seg) && !hasYear;
         if (hits.length) hits.forEach(s => cited.add(s.id));
         else if (hasYear) {
-          const before = body.slice(Math.max(0, m.index - 60), m.index), nb = sources.filter(s => famRe(keyName(s)).test(before));
+          const before = body.slice(Math.max(0, m.index - 60), m.index), nb = named.filter(s => famRe(keyName(s)).test(before));
           if (nb.length) nb.forEach(s => cited.add(s.id));
           else if (/^[“"]?[\p{Lu}]/u.test(seg) || /(\p{Lu}[\p{L}'’-]+)\s*$/u.test(before)) unknown.push(seg);
         } else if (mlaLike && kind === "author" && !/^(p|pp|para|ch|fig|figure|table|see|chapter|section)\b/i.test(seg)) unknown.push(seg);
@@ -100133,19 +100216,20 @@ const CITE = (() => {
     while ((m = BR.exec(body))) m[1].split(/\s*,\s*/).forEach(part => { const r = part.split(/\s*[–-]\s*/).map(Number); for (let k = r[0]; k <= (r[1] || r[0]) && k - r[0] < 50; k++) { if (sources[k - 1] && (kind === "numeric" || (o.order && o.order[k - 1]))) cited.add((o.order ? o.order[k - 1] : sources[k - 1].id)); else if (kind === "numeric") unknown.push(`[${k}]`); } });
     if (kind !== "numeric" && /\[\d{1,3}\]/.test(body) && !/\(([^()]*\b(1[5-9]\d\d|20\d\d))\)/.test(body)) slips.add(`Your draft uses numbered citations like [1]; ${label} uses the author${kind === "author" ? " and page" : kind === "note" ? " in footnotes" : " and year"}.`);
     // names in footnotes (note styles): when the footnotes came along in the paste, count a source named anywhere in the body
-    if (kind === "note") sources.forEach(s => { if (famRe(keyName(s)).test(body)) cited.add(s.id); });
+    if (kind === "note") named.forEach(s => { if (famRe(keyName(s)).test(body)) cited.add(s.id); });
     const bare = [];
     const Q = /[“"]([^”"\n]{30,500})[”"]/g;
     while ((m = Q.exec(body))) {
       const after = body.slice(m.index + m[0].length, m.index + m[0].length + 160), before = body.slice(Math.max(0, m.index - 200), m.index);
       const sAfter = after.split(/(?<=[.?!])\s+(?=[\p{Lu}“"])/u)[0], sBefore = before.split(/[.?!]\s+(?=[\p{Lu}“"])/u).pop();
-      const has = s => /\([^()]*(\d|n\.\s?d\.)[^()]*\)/.test(s) || /\[\d{1,3}/.test(s) || /^[.,;:]?\s*\d{1,3}\b/.test(s) || (kind === "author" && sources.some(x => famRe(keyName(x)).test(s)));
+      const has = s => /\([^()]*(\d|n\.\s?d\.)[^()]*\)/.test(s) || /\[\d{1,3}/.test(s) || /^[.,;:]?\s*\d{1,3}\b/.test(s) || (kind === "author" && named.some(x => famRe(keyName(x)).test(s)));
       if (!has(sAfter) && !has(sBefore)) bare.push(m[1].split(/\s+/).slice(0, 8).join(" "));
     }
     const n = sources.length, citedN = sources.filter(s => cited.has(s.id)).length;
     if (!n) push("warn", "No sources in your Writing Studio yet", "Add your sources to check your citations against them.");
     else if (citedN === n) push("ok", `All ${n} source${n === 1 ? " is" : "s are"} cited in your draft`);
-    sources.filter(s => !cited.has(s.id)).forEach(s => push("warn", `Never cited: ${s.title || keyName(s)}`, kind === "note" ? "Cite it in a footnote where you use it, or remove it if you didn't use it. (Footnotes don't always come along in a paste: check those by eye.)" : "Cite it where you use it, or remove it from your sources if you didn't use it."));
+    if (named.length < n) push("warn", `${n - named.length === 1 ? "A source has" : n - named.length + " sources have"} no title or author`, `Fill ${n - named.length === 1 ? "it" : "them"} in on the Sources tab so your citations can be checked against ${n - named.length === 1 ? "it" : "them"}.`);
+    named.filter(s => !cited.has(s.id)).forEach(s => push("warn", `Never cited: ${s.title || keyName(s)}`, kind === "note" ? "Cite it in a footnote where you use it, or remove it if you didn't use it. (Footnotes don't always come along in a paste: check those by eye.)" : "Cite it where you use it, or remove it from your sources if you didn't use it."));
     [...new Set(unknown)].slice(0, 12).forEach(u => push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, "Add this source to your Writing Studio, or check the spelling of the name."));
     if (kind !== "note") bare.slice(0, 10).forEach(q => push("err", `Quote without a citation: “${q}…”`, "Every direct quote needs an in-text citation right after it."));
     if (!ref) push(n ? "err" : "warn", `No ${want} list found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`);
@@ -100166,8 +100250,8 @@ const CITE = (() => {
     issues.sort((a, b) => order[a.k] - order[b.k]);
     return {issues, cited: citedN, total: n, hasRef: !!ref};
   }
-  return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf,
-    parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex};
+  return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf, keyName,
+    parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase};
 })();
 /*CITE-END*/
 
@@ -100429,7 +100513,9 @@ async function addFromInput(t, raw){
   try {
     const s = await lookup(id), w = wsOf(state.tasks[t.id]), d = CITE.dupOf(s, w.src);
     if (d) { W.err = "That source is already in your list."; }
-    else { addItems(t, [s], `Added ${s.title ? "“" + String(s.title).slice(0, 40) + "”" : "a source"}`); W.inp = ""; const w2 = wsOf(state.tasks[t.id]); if (s.partial) { W.edit = w2.src[w2.src.length - 1].id; W.note = "This site doesn't share its details, so fill in the title, author and date from the page."; } }
+    // a page that doesn't share its details opens as a new source to fill in: it's only added on Save, so Cancel leaves nothing behind
+    else if (s.partial) { delete s.partial; W.inp = ""; W.edit = "new"; W.form = s; W.note = "This site doesn't share its details, so fill in the title, author and date from the page, then Save."; }
+    else { addItems(t, [s], `Added ${s.title ? "“" + String(s.title).slice(0, 40) + "”" : "a source"}`); W.inp = ""; }
   } catch (e) { W.err = (e && e.message) || "Couldn't look that up. Add the source by hand."; }
   W.busy = ""; if (shown()) draw();
 }
@@ -100476,7 +100562,7 @@ function sourcesHtml(t, w){
     ${W.engErr === st ? `<p class="mini ws-err">Couldn't load ${esc(styleName(st))}. ${BUILT_FMT[st] ? "Reload Studyboard and try again." : "It's fetched from zotero.org the first time: check your connection."}</p>` : ""}
     ${B.entries.length ? `<h3 class="fsec ws-bibh">${esc(heading)} <span class="mini">${esc(styleName(st))}${B.ready ? "" : " · formatting…"}</span></h3><ol class="ws-refs${B.hang ? " hang" : ""}">${B.entries.map(e => { const s = w.src.find(y => y.id === e.id); if (!s) return ""; return `<li class="ws-ref">
         <p class="ws-cite">${citeHtml(e.runs)}</p>
-        <p class="mini ws-info">${esc(typeName(s.type))}${s.zkey ? " · Zotero" : ""}${s.fid && state.files[s.fid] ? " · PDF in Studyboard" : ""} · In text: ${citeHtml(citeOf(t, w, s.id, ""))}</p>
+        <p class="mini ws-info">${CITE.keyName(s) ? "" : '<b class="ws-need">Needs a title and author</b> · '}${esc(typeName(s.type))}${s.zkey ? " · Zotero" : ""}${s.fid && state.files[s.fid] ? " · PDF in Studyboard" : ""} · In text: ${citeHtml(citeOf(t, w, s.id, ""))}</p>
         <div class="ws-acts"><button type="button" class="ws-act" data-ws-copy="${esc(s.id)}">Copy</button><button type="button" class="ws-act" data-ws-edit="${esc(s.id)}">Edit</button>${s.fid && state.files[s.fid] ? `<button type="button" class="ws-act" data-ws-openf="${esc(s.fid)}">Open PDF</button>` : s.URL || s.DOI ? `<a class="ws-act" href="${esc(s.DOI ? "https://doi.org/" + s.DOI : s.URL)}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-rm="${esc(s.id)}" aria-label="Remove ${esc(String(s.title || "this source").slice(0, 60))}" title="Remove">${TRASH}</button></div></li>`; }).join("")}</ol>
         ${w.src.some(s => s.zkey) && z ? `<p class="mini" style="margin:0"><button type="button" class="link-btn" data-ws-zsync>Update From Zotero</button> refreshes the ${w.src.filter(s => s.zkey).length} source${w.src.filter(s => s.zkey).length === 1 ? "" : "s"} that came from Zotero.</p>` : ""}`
       : `<div class="ws-empty"><b>No sources yet.</b><p class="mini">Paste a DOI (10.1037/…), an ISBN or a link above, pull them from Zotero, or import a BibTeX or RIS file. Your citations and ${esc(heading)} list build themselves.</p></div>`}
@@ -100496,6 +100582,7 @@ function editHtml(t, w){
       <label class="f ws-wide"><span class="lh">Item type</span><select data-wf="type">${Object.keys(CITE.TYPES).map(k => `<option value="${k}" ${k === s.type ? "selected" : ""}>${esc(CITE.TYPES[k][0])}</option>`).join("")}</select></label>
       ${area("author", s.type === "motion_picture" ? "Directors or creators" : "Authors")}
       ${fld("title", "Title", s.title, "", "ws-wide")}
+      <label class="mi-check ws-wide ws-case"><input type="checkbox" data-wcase ${s.caseAsIs ? "checked" : ""}> Keep the title's capitals as typed <span class="hint">APA and similar styles put titles in sentence case; tick this when the title has names in it</span></label>
       <div class="ws-date ws-wide">${fld("y", "Year", dp[0] || (s.issued && s.issued.literal) || "", "2024")}${fld("m", "Month", dp[1] || "", "1–12")}${fld("d", "Day", dp[2] || "", "")}</div>
       ${fields.map(k => k === "editor" || k === "translator" ? area(k, CITE.LABEL[k]) : k === "accessed" ? `<label class="f"><span class="lh">Accessed</span><input type="date" data-wf="accessed" value="${esc(CITE.isoOf(s.accessed))}"></label>`
         : fld(k, k === "container-title" ? (CITE.CONT[s.type] || "Published in") : CITE.LABEL[k] || k, s[k], k === "page" ? "112–130" : k === "DOI" ? "10.…" : k === "URL" ? "https://" : "", wide.has(k) ? "ws-wide" : "")).join("")}
@@ -100511,6 +100598,7 @@ function formRec(){
   ["author", "editor", "translator"].forEach(k => { const v = g(k); if (v !== undefined) { const l = CITE.names(v); if (l.length) o[k] = l; else delete o[k]; } });
   const y = g("y"); if (y !== undefined) { const d = /\d{4}/.test(y) ? CITE.date(y, g("m"), g("d")) : y.trim() ? {literal: y.trim()} : null; if (d) o.issued = d; else delete o.issued; }
   const ac = g("accessed"); if (ac !== undefined) { if (ac) o.accessed = CITE.parseDate(ac); else delete o.accessed; }
+  const kc = W.el.querySelector("[data-wcase]"); if (kc) { if (kc.checked) o.caseAsIs = true; else delete o.caseAsIs; }
   return Object.assign(CITE.clean(o), {id: base.id || ""});
 }
 function zotHtml(t, w){
@@ -100638,9 +100726,13 @@ function draw(fresh){
 /* ---------- Export ---------- */
 function exportSheet(t){
   const w = wsOf(t); if (!w.src.length && !w.q.length) return;
-  const f = W.el.querySelector(".sheet-foot");
-  f.innerHTML = `<button type="button" class="btn" data-ws-xback>Back</button><span class="spacer"></span>${W.tab === "sources" ? `<select data-ws-xsrc aria-label="Export the sources for another app"><option value="">For Zotero, Mendeley, EndNote…</option><option value="bib">BibTeX (.bib)</option><option value="ris">RIS (.ris)</option><option value="json">CSL-JSON (.json)</option></select>` : ""}<button type="button" class="btn" data-ws-x="text">Copy as Text</button><button type="button" class="btn" data-ws-x="gdoc">Google Docs</button><button type="button" class="btn primary" data-ws-x="docx">Word (.docx)</button>`;
-  f.querySelector("[data-ws-xback]").addEventListener("click", () => draw());
+  // the choices open as a small panel at the top of the body, so the footer (and the list on a phone) keeps its size
+  const ft = W.el.querySelector(".sheet-foot"), body = W.el.querySelector(".ws-body"), f = document.createElement("section");
+  ft.innerHTML = `<button type="button" class="btn" data-ws-xback>Back</button><span class="spacer"></span>`;
+  f.className = "ws-xp"; f.setAttribute("role", "region"); f.setAttribute("aria-label", "Export");
+  f.innerHTML = `<h3 class="fsec">Export</h3><div class="ws-xp-b"><button type="button" class="btn primary" data-ws-x="docx">Word (.docx)</button><button type="button" class="btn" data-ws-x="gdoc">Google Docs</button><button type="button" class="btn" data-ws-x="text">Copy as Text</button></div>${W.tab === "sources" ? `<select data-ws-xsrc aria-label="Export the sources for another app"><option value="">For Zotero, Mendeley, EndNote…</option><option value="bib">BibTeX (.bib)</option><option value="ris">RIS (.ris)</option><option value="json">CSL-JSON (.json)</option></select>` : ""}`;
+  if (body) { body.prepend(f); body.scrollTop = 0; } else ft.appendChild(f);
+  ft.querySelector("[data-ws-xback]").addEventListener("click", () => draw());
   f.querySelectorAll("[data-ws-x]").forEach(b => b.addEventListener("click", () => doExport(state.tasks[t.id], b.dataset.wsX)));
   const xs = f.querySelector("[data-ws-xsrc]"); if (xs) xs.addEventListener("change", async () => {
     const k = xs.value; if (!k) return; const items = wsOf(state.tasks[t.id]).src, base = safeName(t.title);
@@ -100774,7 +100866,8 @@ function wire(t){
   const cur = () => state.tasks[t.id], ws = () => wsOf(cur()), st = () => styleOf(cur(), ws());
   const on = (sel, ev, fn) => { const el = q(sel); if (el) el.addEventListener(ev, fn); return el; };
   const vback = q("[data-ws-vback]"); if (vback) vback.addEventListener("click", () => { W.view = ""; W.err = ""; draw(true); });
-  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => { W.tab = b.dataset.wsTab; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; draw(true); R.querySelector(`[data-ws-tab="${W.tab}"]`).focus(); }));
+  // a toast about the last tab (e.g. "Started an outline · Undo") goes with it
+  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => { if (b.dataset.wsTab !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = b.dataset.wsTab; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; draw(true); R.querySelector(`[data-ws-tab="${W.tab}"]`).focus(); }));
   on(".ws-tabs", "keydown", e => { if (!/^Arrow(Left|Right)$/.test(e.key)) return; const ks = ["sources", "quotes", "outline", "check"], i = ks.indexOf(W.tab); W.tab = ks[(i + (e.key === "ArrowRight" ? 1 : 3)) % 4]; W.edit = null; W.hlPick = null; draw(true); R.querySelector(`[data-ws-tab="${W.tab}"]`).focus(); });
   const sel = on("[data-ws-style]", "change", () => {
     if (sel.value === "__find") { W.view = "styles"; W.find = W.find || {q: ""}; W.err = ""; draw(true); const i = q("[data-wy-q]"); if (i) i.focus(); return; }
@@ -100915,7 +101008,7 @@ function wire(t){
   const df = on("[data-ws-dfile]", "change", async () => { const f = df.files && df.files[0]; if (!f) return; try { const x = (await draftFromFile(f)).trim(); if (x.replace(/\s/g, "").length < 20) throw new Error(`${f.name} has no text that can be read (a scan?). Paste the text instead.`); W.draft = x; W.draftSrc = `From ${f.name}.`; W.err = ""; } catch (e) { W.err = e && e.message && !/^[a-z]/.test(e.message) ? e.message : `Couldn't read ${f.name}. Paste the text instead.`; } draw(); });
   const dp = on("[data-ws-dpick]", "change", async () => { const f = state.files[dp.value]; if (!f) return; let x = ""; try { x = window.SBFILETEXT ? String(await SBFILETEXT(f.id, 200000) || "").trim() : ""; } catch (e) { x = ""; } if (x.replace(/\s/g, "").length < 20) W.err = `Couldn't read the text in ${f.name}. Paste your draft instead.`; else { W.draft = x; W.draftSrc = `From ${f.name}.`; W.err = ""; } draw(); });
   on("[data-ws-check]", "click", () => {
-    if (W.draft.trim().split(/\s+/).length < 30) { W.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; W.res = null; draw(); return; }
+    if (W.draft.trim().split(/\s+/).length < 30) { W.err = W.draft.trim() ? "Your draft is too short to check. Paste at least a paragraph, upload it or pick a file." : "Add your draft first: paste it, upload it or pick a file."; W.res = null; draw(); return; }
     W.err = ""; W.res = runCheck(cur()); draw();
     const r = W.el.querySelector(".ws-res"); if (r && r.scrollIntoView) r.scrollIntoView({block: "nearest"});
   });
@@ -100944,6 +101037,9 @@ if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", where
 const css = document.createElement("style");
 css.textContent = `
 dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
+/* the tabs change the body's height: keep the window's top edge still (anchored near the top; a full-height sheet on phones) so the tabs don't slide away from the pointer */
+@media (min-width:601px){dialog:has(.ws-sheet){margin:4vh auto auto}}
+@media (max-width:600px){dialog:has(.ws-sheet){height:90vh;height:90dvh}dialog:has(.ws-sheet) > .ws-sheet{height:100%}.ws-sheet > .ws-body{flex:1 1 auto}}
 .ws-sheet{display:flex;flex-direction:column;max-height:inherit}
 .ws-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 20px 0;border-bottom:1px solid var(--line)}
 .ws-tabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
@@ -100960,6 +101056,14 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 .ws-zbtn svg{vertical-align:-2px;color:#CC2936}
 .ws-priv{margin:0}
 .ws-err{margin:0;color:#B42318}
+.ws-need{color:#B42318;font-weight:600}
+.ws-xp{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--accent,#2F6FE4) 6%,var(--surface))}
+.ws-xp .fsec{margin:0}
+.ws-xp-b{display:flex;flex-wrap:wrap;gap:6px}
+.ws-xp select{max-width:100%}
+/* dark mode: a lighter red, readable on navy */
+:root[data-theme="dark"] :is(.ws-err,.ws-need){color:#FF8A80}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.ws-err,.ws-need){color:#FF8A80}}
 .ws-ok{margin:0;color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
 .ws-note{margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent,#2F6FE4) 9%,var(--surface))}
 .ws-empty{text-align:center;padding:22px 12px;border:1px dashed var(--line);border-radius:12px;display:grid;gap:6px}
@@ -101032,6 +101136,7 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 .ws-sum{margin:0}
 .ws-is{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:10px;min-width:0}
 .ws-is>span:last-child{display:grid;gap:2px;min-width:0;word-break:break-word}
+.ws-is [data-ws-setst]{justify-self:start;text-align:left;padding-left:0;margin-left:0}
 .ws-ic{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.75rem;font-weight:800;color:#fff}
 .ws-is.k-err .ws-ic{background:#D64545}.ws-is.k-warn .ws-ic{background:#B7791F}.ws-is.k-ok .ws-ic{background:#2E8A52}
 .ws-is.k-err{border-left:4px solid #D64545}
@@ -101064,7 +101169,7 @@ const CMAP = (() => {
   const LINK = /\[\[([^[\]\n]{1,200})\]\]/g;
   const target = raw => String(raw || "").replace(/#p(?:age)?\s*\d{1,4}\s*$/i, "").trim();
   /* src: {root: {label, kind: course | exam, color}, exams: [{id, label, topics: [{id, name, conf, links: [{k, id, deckId}]}]}], notes: [{id, label, text, cls, board}],
-       decks: [{id, label, from: [[k, id]]}], files: [{id, label, cls, lec}], classes: {key: label}, user: {hide, add, links, cut, names}, mode: course | exam, loose: bool} */
+       decks: [{id, label, from: [[k, id]]}], files: [{id, label, cls, lec, att: [[k, id]] (notes and files attached to a recording)}], classes: {key: label}, user: {hide, add, links, cut, names}, mode: course | exam, loose: bool} */
   function graph(src){
     const N = new Map(), E = new Map(), user = src.user || {};
     const hide = new Set(user.hide || []), cut = new Set(user.cut || []), names = user.names || {};
@@ -101092,6 +101197,8 @@ const CMAP = (() => {
     (src.decks || []).forEach(d => (d.from || []).forEach(([k, id]) => link("deck:" + d.id, (k === "lecture" ? "file" : k) + ":" + id, "from", "made from")));
     (src.notes || []).forEach(n => { if (n.cls) link("class:" + n.cls, (n.board ? "board:" : "note:") + n.id, "class"); });
     (src.files || []).forEach(f => { if (f.cls) link("class:" + f.cls, "file:" + f.id, "class"); });
+    // the notes and slides attached to a recording belong with it
+    (src.files || []).forEach(f => (f.att || []).forEach(([k, id]) => { if (k === "note") { link("file:" + f.id, "note:" + id, "att"); link("file:" + f.id, "board:" + id, "att"); } else if (k === "file" || k === "lecture") link("file:" + f.id, "file:" + id, "att"); }));
     if (src.mode !== "exam") Object.keys(src.classes || {}).forEach(k => link("root", "class:" + k, "class"));
     // the student's own ideas and connections
     (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, {ref: i.id}));
@@ -101130,13 +101237,15 @@ const CMAP = (() => {
     return out;
   }
   const W = n => Math.min(220, 34 + String(n.label || "").slice(0, 28).length * 7.2) + (n.root ? 30 : 0);
-  // A seeded layout: rings by distance from the centre, then a few hundred steps of springs and pushing apart; nodes you moved stay put
-  function layout(g, pos){
+  // A seeded layout: rings by distance from the centre, then a few hundred steps of springs and pushing apart; nodes you moved stay put.
+  // tall: for a portrait screen (a phone), the map is spread top to bottom instead of side to side
+  function layout(g, pos, tall){
     pos = pos || {};
+    const ax = tall ? 0.75 : 1, ay = tall ? 1 : 0.75, gx = tall ? 0.006 : 0.004, gy = tall ? 0.004 : 0.006;
     const ns = g.nodes, n = ns.length, idx = new Map(ns.map((x, i) => [x.id, i]));
     const P = ns.map(() => ({x: 0, y: 0, vx: 0, vy: 0, fixed: false}));
     const ring = {}; ns.forEach(x => { const d = Math.min(x.depth, 5); (ring[d] = ring[d] || []).push(x); });
-    Object.keys(ring).forEach(d => { const list = ring[d], r = Number(d) === 9 || Number(d) === 5 ? 900 : Number(d) * 230; list.forEach((x, i) => { const a = (i / list.length) * Math.PI * 2 + Number(d) * 0.6; const p = P[idx.get(x.id)]; p.x = Math.cos(a) * r; p.y = Math.sin(a) * r * 0.75; }); });
+    Object.keys(ring).forEach(d => { const list = ring[d], r = Number(d) === 9 || Number(d) === 5 ? 900 : Number(d) * 230; list.forEach((x, i) => { const a = (i / list.length) * Math.PI * 2 + Number(d) * 0.6; const p = P[idx.get(x.id)]; p.x = Math.cos(a) * r * ax; p.y = Math.sin(a) * r * ay; }); });
     ns.forEach((x, i) => { const s = pos[x.id]; if (Array.isArray(s) && isFinite(s[0]) && isFinite(s[1])) { P[i].x = s[0]; P[i].y = s[1]; P[i].fixed = true; } });
     if (P[idx.get("root")] && !P[idx.get("root")].fixed) { P[idx.get("root")].x = 0; P[idx.get("root")].y = 0; }
     const E = g.edges.map(e => [idx.get(e.a), idx.get(e.b)]).filter(e => e[0] != null && e[1] != null);
@@ -101150,7 +101259,7 @@ const CMAP = (() => {
         const fx = dx / d * f, fy = dy / d * f; P[i].vx -= fx; P[i].vy -= fy; P[j].vx += fx; P[j].vy += fy;
       }
       E.forEach(([a, b]) => { const dx = P[b].x - P[a].x, dy = P[b].y - P[a].y, d = Math.sqrt(dx * dx + dy * dy) || 1, ideal = 150 + (w[a] + w[b]) / 4, f = (d - ideal) * 0.06; const fx = dx / d * f, fy = dy / d * f; P[a].vx += fx; P[a].vy += fy; P[b].vx -= fx; P[b].vy -= fy; });
-      P.forEach((p, i) => { p.vx -= p.x * 0.004; p.vy -= p.y * 0.006; if (p.fixed || ns[i].root && !pos.root) { p.vx = p.vy = 0; return; } const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy), cap = 40 * cool + 2; if (sp > cap) { p.vx *= cap / sp; p.vy *= cap / sp; } p.x += p.vx; p.y += p.vy; p.vx *= 0.5; p.vy *= 0.5; });
+      P.forEach((p, i) => { p.vx -= p.x * gx; p.vy -= p.y * gy; if (p.fixed || ns[i].root && !pos.root) { p.vx = p.vy = 0; return; } const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy), cap = 40 * cool + 2; if (sp > cap) { p.vx *= cap / sp; p.vy *= cap / sp; } p.x += p.vx; p.y += p.vy; p.vx *= 0.5; p.vy *= 0.5; });
     }
     const out = {}; ns.forEach((x, i) => { out[x.id] = [Math.round(P[i].x), Math.round(P[i].y)]; });
     return out;
@@ -101209,7 +101318,7 @@ function gather(o){
     return {id: d.id, label: d.name || "Untitled deck", from};
   });
   const recKey = f => { try { return window.SBCLS && SBCLS.recKeyOf ? SBCLS.recKeyOf(f) : ""; } catch (e) { return ""; } };
-  const files = Object.values(state.files || {}).filter(f => f && cid && f.courseId === cid && f.kind !== "link").map(f => { const lec = f.folderId === "lectures"; return {id: f.id, label: f.name || "Untitled file", cls: f.cls || (lec ? recKey(f) : ""), lec, pdf: isPdf(f)}; });
+  const files = Object.values(state.files || {}).filter(f => f && cid && f.courseId === cid && f.kind !== "link").map(f => { const lec = f.folderId === "lectures"; return {id: f.id, label: f.name || "Untitled file", cls: f.cls || (lec ? recKey(f) : ""), lec, pdf: isPdf(f), att: lec && f.lec && Array.isArray(f.lec.att) ? f.lec.att.filter(a => a && a.k && a.id).map(a => [a.k, a.id]) : []}; });
   const classes = {};
   notes.concat(files).forEach(x => { if (!x.cls || classes[x.cls]) return; let lab = ""; try { const k = window.SBCLS && SBCLS.classOf ? SBCLS.classOf(cid, x.cls) : null; if (k) lab = `${k.title}${k.date ? ", " + fmtDate(k.date) : ""}`; } catch (e) {} if (!lab) { const d = /\d{4}-\d{2}-\d{2}/.exec(x.cls); lab = d ? "Class, " + fmtDate(d[0]) : "Class"; } classes[x.cls] = lab; });
   const today = todayISO();
@@ -101219,7 +101328,8 @@ function gather(o){
 function rebuild(keepView){
   const src = gather(M.own); if (!src) return false;
   M.src = src; M.g = CMAP.graph(src);
-  const u = src.user, auto = CMAP.layout(M.g, u.pos);
+  const cv = M.el && M.el.querySelector(".cm-canvas"), tall = !!cv && cv.clientHeight > cv.clientWidth * 1.2;
+  const u = src.user, auto = CMAP.layout(M.g, u.pos, tall);
   M.pos = Object.assign({}, auto);
   if (!keepView) fit();
   return true;
@@ -101227,10 +101337,17 @@ function rebuild(keepView){
 function fit(){
   const b = bounds(); if (!b) return;
   const cv = M.el && M.el.querySelector(".cm-canvas"), W = cv ? cv.clientWidth : 900, H = cv ? cv.clientHeight : 600;
-  // on a small screen the whole map would be too small to read: keep labels legible and centre on the middle node; the rest is a drag away
-  const k0 = Math.min(W / (b.w + 120), H / (b.h + 120)), floor = W < 700 ? 0.62 : 0.3, k = Math.max(floor, Math.min(1.4, k0));
+  // on a small screen the whole map would be too small to read: keep labels legible (about 11px) and centre on the middle node; the rest is a drag away
+  const k0 = Math.min(W / (b.w + 120), H / (b.h + 120)), floor = W < 700 ? 0.85 : 0.3, k = Math.max(floor, Math.min(1.4, k0));
   const c = k0 < floor ? (M.pos.root || [0, 0]) : [b.x + b.w / 2, b.y + b.h / 2];
-  M.view = {k, x: W / 2 - c[0] * k, y: H / 2 - c[1] * k};
+  M.view = {k, x: W / 2 - c[0] * k, y: H / 2 - c[1] * k}; M.part = k0 < floor;
+}
+// After items were added (unlinked items, an idea, suggestions) the layout moves: refit when anything now sits outside the view
+function grew(){
+  const cv = M.el && M.el.querySelector(".cm-canvas"); if (!cv || !M.g) return;
+  const W = cv.clientWidth, H = cv.clientHeight, k = M.view.k;
+  const out = M.g.nodes.some(n => { const p = M.pos[n.id] || [0, 0], sx = M.view.x + p[0] * k, sy = M.view.y + p[1] * k, w = CMAP.W(n) / 2 * k; return sx - w < 0 || sx + w > W || sy - 20 * k < 0 || sy + 20 * k > H; });
+  if (out) fit();
 }
 function bounds(){
   if (!M.g || !M.g.nodes.length) return null;
@@ -101354,7 +101471,7 @@ function panel(){
   }
   const hidden = userOf(M.own).hide.length, nn = g.nodes.length;
   P.innerHTML = nn <= 1 ? `<p style="margin:0"><b>Nothing is linked yet.</b> <span class="mini">Add exam topics in a Prep Plan, link notes with [[ ]], or make cards from your notes and PDFs, and the map draws itself. Or add your own ideas with + Idea.</span></p>`
-    : `<p class="mini" style="margin:0">${nn} items, ${g.edges.length} connections${g.loose.length && !M.loose ? `, ${g.loose.length} not linked to anything` : ""}. Drag to move things; tap one to open, connect or rename it.${hidden ? ` <button type="button" class="link-btn" data-cm="unhide">Show ${hidden} hidden</button>` : ""}</p>`;
+    : `<p class="mini" style="margin:0">${nn} items, ${g.edges.length} connections${g.loose.length && !M.loose ? `, ${g.loose.length} not linked to anything` : ""}. Drag to move things; tap one to open, connect or rename it.${M.part ? " Drag the map to see the rest of it." : ""}${hidden ? ` <button type="button" class="link-btn" data-cm="unhide">Show ${hidden} hidden</button>` : ""}</p>`;
 }
 
 /* Interaction */
@@ -101449,7 +101566,7 @@ async function onClick(e){
     case "out": zoomAt(0.8); break;
     case "fit": fit(); paint(); break;
     case "know": M.know = b.checked; paint(); break;
-    case "loose": M.loose = b.checked; rebuild(true); paint(); break;
+    case "loose": M.loose = b.checked; rebuild(true); grew(); paint(); break;
     case "reset": { const x = u(); x.pos = {}; saveUser(x, "Tidied the map's layout"); rebuild(); paint(); break; }
     case "err-x": M.err = ""; paint(); break;
     case "unhide": { const x = u(); x.hide = []; saveUser(x, "Showed the hidden items"); rebuild(true); paint(); break; }
@@ -101458,7 +101575,7 @@ async function onClick(e){
       const x = u(), id = uid(); x.add = x.add.concat([{id, label: name.trim().slice(0, 80)}]);
       if (M.sel) x.links = x.links.concat([{a: M.sel, b: "idea:" + id, label: ""}]);
       const c = M.sel && M.pos[M.sel] ? M.pos[M.sel] : [0, 0]; x.pos = Object.assign({}, x.pos, {["idea:" + id]: [c[0] + 60, c[1] + 110]});
-      saveUser(x, `Added ${name.trim()} to the map`); rebuild(true); M.sel = "idea:" + id; paint(); break;
+      saveUser(x, `Added ${name.trim()} to the map`); rebuild(true); grew(); M.sel = "idea:" + id; paint(); panTo("idea:" + id); break;
     }
     case "open": if (n) openNode(n); break;
     case "connect": if (n) { M.connect = n.id; paint(); } break;
@@ -101476,7 +101593,7 @@ async function onClick(e){
       const S = M.sug, x = u(); let n2 = 0;
       M.el.querySelectorAll("[data-cm-sl]").forEach(c => { if (!c.checked) return; const l = S.links[Number(c.dataset.cmSl)]; x.links = x.links.concat([{a: l.a, b: l.b, label: l.label}]); n2++; });
       M.el.querySelectorAll("[data-cm-si]").forEach(c => { if (!c.checked) return; const i = S.ideas[Number(c.dataset.cmSi)], id = uid(); x.add = x.add.concat([{id, label: i.name}]); i.near.forEach(nb => { x.links = x.links.concat([{a: nb, b: "idea:" + id, label: i.label}]); }); n2++; });
-      M.sug = null; if (n2) saveUser(x, `Added ${n2} suggestion${n2 === 1 ? "" : "s"} to the map`); rebuild(true); paint(); break;
+      M.sug = null; if (n2) saveUser(x, `Added ${n2} suggestion${n2 === 1 ? "" : "s"} to the map`); rebuild(true); grew(); paint(); break;
     }
   }
 }
@@ -101490,7 +101607,8 @@ function answer(id){
 }
 async function suggest(){
   let ready = false; try { ready = aiReady(); } catch (e) {}
-  if (!ready) { aiSetupSheet(true); return; }
+  const own = M.own, back = {back: () => own && open(own.kind, own.id)};
+  if (!ready) { aiSetupSheet(true, back); return; }
   const g = M.g, ids = g.nodes.filter(n => !n.root).slice(0, 70).map(n => n.id);
   if (ids.length < 3) { M.err = "Add a few more items to the map first."; paint(); return; }
   const lines = g.nodes.filter(n => ids.includes(n.id)).map(n => {
@@ -101508,7 +101626,7 @@ async function suggest(){
     const out = CMAP.parseSuggest(res && res.data, ids), known = new Set(g.edges.map(e => e.key));
     out.links = out.links.filter(l => !known.has(CMAP.ek(l.a, l.b)));
     M.sug = out;
-  } catch (e) { M.err = (e && e.message) || "Couldn't get suggestions right now. Try again."; if (e && e.code === "nokey") { M.busy = false; aiSetupSheet(true); return; } }
+  } catch (e) { M.err = (e && e.message) || "Couldn't get suggestions right now. Try again."; if (e && e.code === "nokey") { M.busy = false; aiSetupSheet(true, back); return; } }
   M.busy = false; if (shown()) paint();
 }
 // Undo, sync or new material: the open map follows (not mid-drag, mid-quiz or while naming something)
@@ -101582,7 +101700,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-sugs label{display:flex;gap:8px;align-items:flex-start;line-height:1.4}
 .cm-sugs label>span{display:grid;gap:2px;min-width:0}
 .cm-sugs input{margin-top:3px}
-@media (max-width:640px){dialog:has(.cm-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}.cm-tools{padding:6px 10px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.cm-tools::-webkit-scrollbar{display:none}.cm-tools>*{flex:0 0 auto}.cm-tools .spacer{flex:0 0 4px}.cm-legend{bottom:8px;left:8px;font-size:.7rem}.cm-panel{padding:8px 12px 12px}}
+@media (max-width:640px){dialog:has(.cm-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}.cm-tools{padding:6px 10px}.cm-tools>*{flex:0 0 auto}.cm-tools .spacer{flex:0 0 4px}.cm-legend{bottom:8px;left:8px;font-size:.7rem}.cm-panel{padding:8px 12px 12px}}
 `;
 document.head.appendChild(css);
 
@@ -101940,7 +102058,8 @@ const SMR_CORE = (() => {
   const partOfDay = ms => { const h = new Date(ms).getHours(); return h < 12 ? "this morning" : h < 17 ? "this afternoon" : "tonight"; };
   // in: {now, cfg (reminder settings), tasks: [{id, title, type, due, time, status, remind, rem (hours left), worked (today)}],
   //   mode: "avail" with free: {date: [{s, e}]} (a day's free windows, minutes from its midnight), or "daily" with
-  //   daily: {h (hours a day), today (hours left today), start, end (study day, minutes)}; sent: {"taskId|date": ms} what earlier
+  //   daily: {h (hours a day), today (hours left today), start, end (study day, minutes)} and busy: {date: [{s, e}]} (classes and
+  //   events, minutes from midnight; without it, the nudge time); sent: {"taskId|date": ms} what earlier
   //   plans scheduled (at or before now means it went out), fmtTime(hh:mm), fmtDay(iso), fmtWeekday(iso)}
   // out: [{id, at, title, body, taskId, key, kind: "smart"}]
   function plan(inp){
@@ -101949,8 +102068,17 @@ const SMR_CORE = (() => {
     const fT = inp.fmtTime || (t => t), fD = inp.fmtDay || (s => s), fW = inp.fmtWeekday || fD, sent = inp.sent || {}, cap = inp.cap || CAP;
     const q = quietIv(c, today, last), quiet = ms => q.some(([a, b]) => ms >= a && ms < b);
     // Free time as real moments, quiet hours taken out
-    const slots = [];
-    if (inp.mode === "daily") {
+    const slots = [], D = inp.daily || {}, B = inp.mode === "daily" && inp.busy && typeof inp.busy === "object" ? inp.busy : null;
+    if (B) {
+      // No Availability: the study day less classes and events (today from now, on the quarter hour), so a nudge never lands
+      // in the middle of a lab
+      const st = Number(D.start) || 420, en = Number(D.end) || 1380, nowM = Math.ceil((now - atMin(today, 0)) / MIN / 15) * 15;
+      for (let d = today; d <= last; d = addD(d, 1)) {
+        const lo = d === today ? Math.max(st, nowM) : st; if (lo >= en) continue;
+        const cuts = (Array.isArray(B[d]) ? B[d] : []).filter(w => w && w.e > w.s).map(w => [atMin(d, w.s), atMin(d, w.e)]);
+        minus([[atMin(d, lo), atMin(d, en)]], cuts.concat(q)).forEach(([a, b]) => { if (b - a >= MIN_WIN * MIN) slots.push({a, b, date: ymd(new Date(a))}); });
+      }
+    } else if (inp.mode === "daily") {
       const nt = isT(c.nudgeTime) ? c.nudgeTime : "16:00";
       for (let d = today; d <= last; d = addD(d, 1)) { const a = atMin(d, mins(nt)); if (!quiet(a)) slots.push({a, b: a + HOUR, date: d}); }
     } else {
@@ -101963,7 +102091,6 @@ const SMR_CORE = (() => {
     slots.sort((x, y) => x.a - y.a);
     const dueMs = t => isT(t.time) ? atMin(t.due, mins(t.time)) : atMin(t.due, 23 * 60 + 59);
     // Study time from `from` until the due moment: free windows, or the plan's daily hours
-    const D = inp.daily || {};
     function room(t, from){
       const dl = dueMs(t);
       if (inp.mode !== "daily") return slots.reduce((m, s) => m + overlap(s.a, s.b, from, dl), 0) / MIN;
@@ -101971,7 +102098,9 @@ const SMR_CORE = (() => {
       let tot = 0;
       for (let d = fd; d <= t.due; d = addD(d, 1)) {
         let x = d === today ? Math.max(0, Number(D.today) || 0) : h;
-        if (d === t.due && isT(t.time)) x *= Math.max(0, Math.min(1, (mins(t.time) - st) / Math.max(60, en - st)));
+        // the rest of the starting day is no more than its free time left (a nudge at 4 PM can't count the morning)
+        if (B && d === fd) x = Math.min(x, slots.reduce((m, s) => m + (s.date === d ? overlap(s.a, s.b, from, dl) : 0), 0) / HOUR);
+        else if (d === t.due && isT(t.time)) x *= Math.max(0, Math.min(1, (mins(t.time) - st) / Math.max(60, en - st)));
         tot += x;
       }
       return Math.min(tot * 60, Math.max(0, dl - from) / MIN);
@@ -101985,12 +102114,17 @@ const SMR_CORE = (() => {
       .filter(x => x.dd >= 0 && x.dd <= AHEAD && x.dl > now + MIN_WIN * MIN && x.free > 0 && x.need >= TIGHT * x.free)
       .sort((x, y) => y.need / y.free - x.need / x.free || x.dl - y.dl);
     const used = new Set(), out = [];
+    // From the class schedule: the ordinary "due in 2h" reminder comes at this moment, so a smart nudge is only worth sending before it
+    const lead = B && c.tasks !== false && c.hoursBefore !== false ? (Number(c.hours) > 0 ? Number(c.hours) : 2) * HOUR : 0;
     cand.forEach(x => {
-      const t = x.t;
+      const t = x.t, lastAt = isT(t.time) && lead ? x.dl - lead : x.dl;
       const s = slots.find(s => {
         const k = t.id + "|" + s.date, r = recent[k];
         if (gone[k] || used.has(s.a) || (r != null ? s.a !== r : s.a < now) || (perDay[s.date] || 0) - (r === s.a ? 1 : 0) >= cap) return false;
         if (s.date === today && t.worked) return false;
+        if (s.a > lastAt) return false;
+        // from the class schedule, a later nudge must still leave the time the task needs (the first free moment is always worth it)
+        if (B && s.a - now >= MIN_WIN * MIN && room(t, s.a) < Math.min(x.need, x.free) - 1) return false;
         return Math.min(s.b, x.dl) - s.a >= MIN_WIN * MIN;
       });
       if (!s) return;
@@ -102032,6 +102166,12 @@ const SMR_CORE = (() => {
     for (let d = today; d <= last; d = addDays(d, 1)) v[d] = availFreeDay(d, null, ext).windows.map(w => ({s: w.s, e: w.e}));
     FREE = {k, av, v}; return v;
   }
+  // Without Availability: the week's classes and events, so the nudge goes in time that is really free
+  function busyMap(from, to){
+    const v = {};
+    try { schOccurrences(from, to).forEach(o => { if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end || !o.date) return; const s = toMin(o.start), e = toMin(o.end); if (e > s) (v[o.date] = v[o.date] || []).push({s, e}); }); } catch (e) {}
+    return v;
+  }
   function list(c, now){
     if (!c || !c.smart || locked()) return [];
     const today = todayISO(), wt = t => { try { return (typeof workedToday === "function" && workedToday(t) > 0) || (typeof markedEnough === "function" && markedEnough(t)); } catch (e) { return false; } };
@@ -102041,7 +102181,7 @@ const SMR_CORE = (() => {
     if (!tasks.length) return [];
     const active = availActive(), inp = {now, cfg: c, tasks, sent: lsGet(), fmtTime, fmtDay: s => fmtDate(s), fmtWeekday: weekday, mode: active ? "avail" : "daily"};
     if (active) inp.free = freeMap(today);
-    else { const sd = studyDay(new Date(now)), th = todayHours(); inp.daily = {h: dailyHours(), today: sd.date === today ? Math.min(th, sd.left / 60) : th, start: sd.start, end: sd.end}; }
+    else { const sd = studyDay(new Date(now)), th = todayHours(); inp.daily = {h: dailyHours(), today: sd.date === today ? Math.min(th, sd.left / 60) : th, start: sd.start, end: sd.end}; inp.busy = busyMap(today, last); }
     return SMR_CORE.plan(inp);
   }
   // The final reminders list, after quiet hours and duplicates: remember what is planned
@@ -102060,7 +102200,7 @@ const SMR_CORE = (() => {
   function row(c){
     if (locked()) return `<button type="button" class="pro-linkrow" data-act="smr-pro"><span>Smart Reminders</span>${PRO_BADGE}</button>`;
     return `<div class="rm-row"><label class="mi-check"><input type="checkbox" data-rm="smart" ${c.smart ? "checked" : ""}> Smart Reminders${tagPro() ? " " + PRO_BADGE : ""}</label></div>
-      <p class="mini" style="margin:0">When a task due this week needs most of your free time before it, a nudge comes at the start of your next free time. Uses your Availability, or your daily study hours.</p>`;
+      <p class="mini" style="margin:0">When a task due this week needs most of your free time before it, a nudge comes at the start of your next free time. Uses your Availability, or your class times and daily study hours.</p>`;
   }
   hook("act", act => {
     if (act !== "smr-pro") return false;
@@ -102455,11 +102595,17 @@ const AUTOPILOT = (() => {
     const used = {};
     const use = (t, sign) => { if (kindOf(t) && t.due >= today) used[t.due] = (used[t.due] || 0) + sign * hrs(t); };
     Object.values(T).forEach(t => use(t, 1));
+    // Real work due sooner (overdue, today or tomorrow) takes its time first, so a moved step or study task doesn't push
+    // it out of the day (Today's Plan ranks a moved item as due that day, ahead of what is really due). Only when no day
+    // before its deadline has room after that work does it go where it would otherwise.
+    const tmr = add(today, 1), firm = {};
+    orig.filter(t => open(t) && isDate(t.due) && t.due <= tmr && !kindOf(t) && !isMs(t) && !t.breakdownParent && !orig.some(x => x.breakdownOf === t.id))
+      .forEach(t => { const d = t.due < today ? today : t.due; firm[d] = (firm[d] || 0) + hrs(t) * (1 - Math.min(100, Math.max(0, Number(t.pct) || 0)) / 100); });
     const capOf = d => isOff(d) ? 0 : cap[d] != null ? Math.max(0, Number(cap[d]) || 0) : dh;
-    const room = d => capOf(d) - (used[d] || 0);
-    const fits = (d, h) => d >= today && !isOff(d) && room(d) >= Math.max(0.25, Math.min(h, NEED)) - 1e-9;
+    const roomOf = f => d => capOf(d) - (used[d] || 0) - (f ? firm[d] || 0 : 0);
     // The first day it fits, or else the lightest day with at least half an hour free
-    const pick = (cands, h) => cands.find(d => fits(d, h)) || cands.filter(d => d >= today && !isOff(d) && room(d) >= 0.5 - 1e-9).sort((a, b) => room(b) - room(a) || (a < b ? -1 : 1))[0];
+    const pickBy = (room, cands, h) => cands.find(d => d >= today && !isOff(d) && room(d) >= Math.max(0.25, Math.min(h, NEED)) - 1e-9) || cands.filter(d => d >= today && !isOff(d) && room(d) >= 0.5 - 1e-9).sort((a, b) => room(b) - room(a) || (a < b ? -1 : 1))[0];
+    const pick = (cands, h) => pickBy(roomOf(true), cands, h) || pickBy(roomOf(false), cands, h);
     const place = (t, d, kind, why) => {
       const a = Object.assign({}, t, {due: d});
       if (kind === "step" || (a.start && a.start > d)) a.start = d;
@@ -102548,10 +102694,10 @@ const AUTOPILOT = (() => {
     const post = {}; before.forEach(b => { post[b.id] = sig(state.tasks[b.id]); });
     return {before, post};
   }
-  const slim = m => ({id: m.id, title: String(m.title || "Untitled").slice(0, 90), from: m.from || "", to: m.to || "", why: String(m.why || "").slice(0, 120)});
+  const slim = m => ({id: m.id, k: m.kind || "", title: String(m.title || "Untitled").slice(0, 90), from: m.from || "", to: m.to || "", why: String(m.why || "").slice(0, 120)});
   const slimS = s => ({title: String(s.title || "Untitled").slice(0, 90), text: String(s.text || "").slice(0, 200)});
   function record(kind, res, extra){
-    const r = Object.assign({day: todayISO(), id: uid(), kind, n: res.moves.length, moves: res.moves.slice(0, 60).map(slim), short: res.short.slice(0, 12).map(slimS), seen: false, at: Date.now()}, extra || {});
+    const r = Object.assign({day: todayISO(), id: uid(), kind, n: res.moves.length, added: res.moves.filter(m => !m.from && m.to).length, moves: res.moves.slice(0, 60).map(slim), short: res.short.slice(0, 12).map(slimS), seen: false, at: Date.now()}, extra || {});
     setCfg({run: r});
     return r;
   }
@@ -102602,16 +102748,25 @@ const AUTOPILOT = (() => {
   }
 
   /* Today's Plan: one quiet line */
+  // "rescheduled 4 things and added 3 study sessions": new sessions aren't counted as moves
+  const didText = r => { const add = Math.min(r.n, Number(r.added) || 0), mv = r.n - add;
+    return [mv ? `rescheduled ${things(mv)}` : "", add ? `added ${add} study session${add === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and "); };
+  // when it ran, in the student's words (it runs on the first open of the day, so usually "this morning")
+  const whenText = at => { const h = new Date(at || 0).getHours(); return h < 5 ? "last night" : h < 12 ? "this morning" : h < 17 ? "this afternoon" : "this evening"; };
+  // A prep session's title in plain words: "BIOL 1200 Midterm Exam: Cardiovascular system (learn)" → "Learn: Cardiovascular system"
+  const KINDW = {learn: "Learn", cards: "Flashcards", questions: "Practice questions", recall: "Recall", recap: "Recap", practice: "Practice"};
+  const plainTitle = mv => { const t = String(mv.title || "Untitled"); if (mv.k !== "prep") return t; const m = /^.+?: (.+) \(([a-z ]+)\)$/.exec(t); return m ? `${KINDW[m[2]] || m[2].charAt(0).toUpperCase() + m[2].slice(1)}: ${m[1]}` : t.replace(/^[^:]{3,80}: (?=Light review)/, ""); };
   function lineHtml(){
     try {
       const today = todayISO(), parts = [];
-      if (dayIsOff(today)) parts.push(`<div class="ap-line ap-offday" role="status"><span class="ap-t"><b>Today is a day off.</b> Nothing is planned today.</span> <span class="ap-a"><button type="button" class="link-btn" data-act="ap-dayoff" data-id="${esc(today)}">Undo Day Off</button></span></div>`);
+      // A day off plans no study time, but what is really due today stays listed here rather than vanishing from the plan
+      if (dayIsOff(today)) { const due = dueOn(today); parts.push(`<div class="ap-line ap-offday" role="status"><span class="ap-t"><b>Today is a day off.</b> ${due.length ? "No study time is planned today." : "Nothing is planned today."}</span> <span class="ap-a"><button type="button" class="link-btn" data-act="ap-dayoff" data-id="${esc(today)}">Undo Day Off</button></span>${due.length ? `<div class="ap-due"><span class="mini">Still due today</span><ul>${due.map(t => `<li><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>${t.time ? ` <span class="mini">${esc(fmtTime(t.time))}</span>` : ""}</li>`).join("")}</ul></div>` : ""}</div>`); }
       const r = runRec();
       if (!locked() && r && r.day === today && !r.seen && !r.undone && (r.n || (r.short || []).length) && (r.kind === "ask" ? mode() === "ask" : true)) {
         const k = (r.short || []).length, sep = ` <span aria-hidden="true">·</span> `;
         let t, a;
         if (r.kind === "ask" && r.n) { t = `Autopilot can move ${things(r.n)} to fit your plan.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changes</button>${sep}<button type="button" class="link-btn" data-act="ap-apply">Apply</button>${sep}<button type="button" class="link-btn" data-act="ap-dismiss">Not Now</button>`; }
-        else if (r.n) { t = `Autopilot moved ${things(r.n)} ${new Date(r.at || 0).getHours() < 12 ? "last night" : "today"}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changed</button>${lsGet() && lsGet().id === r.id ? `${sep}<button type="button" class="link-btn" data-act="ap-undo">Undo</button>` : ""}`; }
+        else if (r.n) { t = `Autopilot ${didText(r)} ${whenText(r.at)}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See What Changed</button>${lsGet() && lsGet().id === r.id ? `${sep}<button type="button" class="link-btn" data-act="ap-undo">Undo</button>` : ""}`; }
         else { t = `Autopilot couldn't find time for ${things(k)} before ${k === 1 ? "its deadline" : "their deadlines"}.`; a = `<button type="button" class="link-btn" data-act="ap-open">See Why</button>`; }
         parts.push(`<div class="ap-line" role="status" data-kind="${esc(r.kind)}"><span class="ap-t">${esc(t)}</span> <span class="ap-a">${a}${r.kind === "ask" && r.n ? "" : `<button type="button" class="icon-btn sm" data-act="ap-dismiss" aria-label="Dismiss">${CLOSE}</button>`}</span></div>`);
       }
@@ -102636,7 +102791,7 @@ const AUTOPILOT = (() => {
     const moves = cur ? cur.moves || [] : [], short = cur ? cur.short || [] : [];
     const canUndo = !!(cur && cur.kind === "done" && !cur.undone && lsGet() && lsGet().id === cur.id);
     const lead = !cur ? "Nothing has run yet today. Autopilot runs once a day, the first time you open Studyboard." : cur.undone ? "Today's changes were undone." : ask ? "Nothing has moved yet. Apply to make these changes." : moves.length ? "Each change, and why. Real due dates, school sync and classes never move." : "Nothing needed moving today.";
-    const rows = moves.map(m => `<li><b>${esc(m.title)}</b><span class="mini">${m.from && m.to ? `${esc(when(m.from))} → ${esc(when(m.to))}` : m.to ? `New on ${esc(when(m.to))}` : `Removed from ${esc(when(m.from))}`}</span><span class="mini">${esc(m.why)}</span></li>`).join("");
+    const rows = moves.map(m => `<li><b>${esc(plainTitle(m))}</b><span class="mini">${m.from && m.to ? `${esc(when(m.from))} → ${esc(when(m.to))}` : m.to ? `New on ${esc(when(m.to))}` : `Removed from ${esc(when(m.from))}`}</span><span class="mini">${esc(m.why)}</span></li>`).join("");
     const shorts = short.map(s => `<li><b>${esc(s.title)}</b><span class="mini">${esc(s.text)}</span></li>`).join("");
     openSheet(`<div class="sheet ap-sheet">${head(ask ? "What Would Change" : "What Changed")}<div class="sheet-body">
       <p class="mini" style="margin:0 0 10px">${esc(lead)}</p>
@@ -102649,11 +102804,21 @@ const AUTOPILOT = (() => {
   const proSheet = () => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Autopilot is part of Studyboard Pro: missed study sessions and steps move to your next free time overnight, and Today's Plan tells you once."); };
 
   /* Day Off */
-  function toggleOff(date){
+  // What is really due that day (not the soft study items a day off moves)
+  const dueOn = date => tasksArr().filter(t => t.status !== "done" && t.due === date && !t.prepFor && !AP.kindOf(t)).sort((a, b) => String(a.time || "99").localeCompare(String(b.time || "99")));
+  function toggleOff(date, sure){
     const today = todayISO();
     if (!AP.isDate(date) || date < today) return;
     const cur = {}; Object.keys(offMap()).forEach(d => { if (d >= AP.add(today, -60) && offMap()[d]) cur[d] = 1; });
     const on = !cur[date];
+    // Something is due that day: say so first, since a day off plans no time for it
+    const due = on && !sure ? dueOn(date) : [];
+    if (due.length) {
+      const label = date === today ? "today" : fmtDate(date), nm = t => `“${String(t.title || "Untitled").slice(0, 60)}”${t.time ? " at " + fmtTime(t.time) : ""}`;
+      const what = due.length === 1 ? `${nm(due[0])} is` : due.length === 2 ? `${nm(due[0])} and ${nm(due[1])} are` : `${nm(due[0])}, ${nm(due[1])} and ${due.length - 2} more are`;
+      confirmSheet(date === today ? "Take Today Off?" : "Take This Day Off?", `${what} due ${label}. A day off plans no study time that day, but ${due.length === 1 ? "it stays due and stays" : "they stay due and stay"} listed on Today's Plan. Take the day off anyway?`, "Take the Day Off", () => toggleOff(date, true));
+      return;
+    }
     if (on) cur[date] = 1; else delete cur[date];
     state.settings = Object.assign({}, state.settings, {daysOff: cur}); saveSettings(); scheduleRender();
     try { offSaid(date, on); } finally { redrawDay(date); }
@@ -102663,15 +102828,18 @@ const AUTOPILOT = (() => {
     if (!on) { toast(`${label} is a study day again.`); return; }
     const res = compute(date), n = res.moves.length;
     const here = res.moves.filter(m => m.from === date).length + res.short.length;
-    if (!n && !res.short.length) { toast(`${label} is a day off. Nothing is planned that day.`); return; }
+    const undoOff = () => toggleOff(date);
+    if (!n && !res.short.length) { toast(`${label} is a day off. ${dueOn(date).length ? "No study time is planned that day." : "Nothing is planned that day."}`, undoOff); return; }
     if (!locked() && mode() === "on" && n) {
       const k = res.short.length;
-      applyChanges(res.changes, `${label} is a day off. Moved ${things(n)} to other days.${k ? ` ${k === 1 ? `“${res.short[0].title}” couldn't move` : `${k} things couldn't move`} without missing a deadline.` : ""}`);
+      applyChanges(res.changes, `${label} is a day off. Moved ${things(n)} to other days.${k ? ` ${k === 1 ? `“${res.short[0].title}” couldn't move` : `${k} things couldn't move`} without missing a deadline.` : ""}`,
+        // Undo puts the moved items back; Undo Day Off also turns the day off off again
+        {label: "Undo Day Off", fn: () => { const st = undoStack[undoStack.length - 1]; if (st && st.label && st.label.indexOf(label + " is a day off.") === 0) st.undo(); toggleOff(date); }});
       return;
     }
-    if (locked()) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`, null, {label: "Move Them", fn: proSheet}); return; }
-    if (mode() === "ask" && n) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} planned that day.`, null, {label: "Move Them", fn: () => { const r2 = compute(date); if (r2.changes.length) applyChanges(r2.changes, `Moved ${things(r2.moves.length)} to other days.`); redrawDay(date); }}); return; }
-    toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`);
+    if (locked()) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`, undoOff, {label: "Move Them", fn: proSheet}); return; }
+    if (mode() === "ask" && n) { toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} planned that day.`, undoOff, {label: "Move Them", fn: () => { const r2 = compute(date); if (r2.changes.length) applyChanges(r2.changes, `Moved ${things(r2.moves.length)} to other days.`); redrawDay(date); }}); return; }
+    toast(`${label} is a day off. ${things(here)} ${here === 1 ? "is" : "are"} still planned that day.`, undoOff);
   }
   // The day sheet reads Today's Plan's numbers, which refresh on the next render: redraw it then
   let REDRAW = "";

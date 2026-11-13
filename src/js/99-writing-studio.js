@@ -103,8 +103,29 @@ const CITE = (() => {
       if (l.length) it[k] = l; } });
     ["issued", "accessed", "original-date", "event-date"].forEach(k => { const d = o[k]; if (!d || typeof d !== "object") return; const p = dateParts(d).filter(n => n > 0).slice(0, 3); if (p.length) it[k] = {"date-parts": [p]}; else if (d.literal || d.raw) it[k] = {literal: cap(d.literal || d.raw, 40)}; });
     ["fid", "zkey", "zlib", "src"].forEach(k => { if (o[k]) it[k] = cap(o[k], 120); });
+    if (o.caseAsIs) it.caseAsIs = true;
     return it;
   }
+  /* Sentence case for styles that want it (APA, AMA, Harvard, IEEE, Vancouver): lookups give titles in Title Case, and CSL can't
+     lower-case them. Only a title that looks Title Case changes; acronyms, words with inner capitals or digits, "I", and the first
+     word (and the first after a colon) keep their capitals. A source marked caseAsIs (names in the title) is left as typed. */
+  const SENT_STYLE = /\/(apa[^/<]*|american-medical-association|harvard-cite-them-right|ieee|vancouver)<\/id>/;
+  function looksTitleCase(t){
+    const w = String(t || "").match(/[\p{L}][\p{L}'’-]{3,}/gu) || [];
+    return w.length >= 2 && w.filter(x => /^\p{Lu}/u.test(x)).length / w.length >= 0.6;
+  }
+  function sentenceCase(t){
+    t = String(t || ""); if (!looksTitleCase(t)) return t;
+    let first = true;
+    return t.replace(/([\p{L}][\p{L}'’]*)|([:?!.—–]\s)/gu, (m, word, brk) => {
+      if (brk) { first = true; return m; }
+      const keep = first || /\p{Lu}/u.test(word.slice(1)) || /\d/.test(word) || word === "I";
+      first = false;
+      return keep ? word : word.charAt(0).toLowerCase() + word.slice(1);
+    });
+  }
+  // a site name like "nytimes.com" is a name: the style mustn't make it "Nytimes.Com"
+  const isHost = s => /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(String(s || ""));
   function mapType(t){
     t = String(t || "").toLowerCase();
     const M = {"journal-article": "article-journal", "journalarticle": "article-journal", "article": "article-journal", "posted-content": "article-journal", "proceedings-article": "paper-conference", "conferencepaper": "paper-conference",
@@ -311,7 +332,11 @@ const CITE = (() => {
 
   /* The engine: citeproc-js with a CSL style. CSLlib is citeproc's CSL; locales: {"en-US": xml} */
   function engine(CSLlib, styleXml, locales, items, lang){
-    const byId = {}; items.forEach(x => { byId[x.id] = x; });
+    const sent = SENT_STYLE.test(String(styleXml || "").slice(0, 4000));
+    const byId = {}; items.forEach(x => { let y = x;
+      if (sent && y.title && !y.caseAsIs) { const st = sentenceCase(y.title); if (st !== y.title) y = Object.assign({}, y, {title: st}); }
+      if (isHost(y["container-title"])) y = Object.assign({}, y, {"container-title": `<span class="nocase">${y["container-title"]}</span>`});
+      byId[x.id] = y; });
     const sys = {retrieveLocale: l => locales[l] || locales[String(l).split("-")[0] === "en" ? "en-US" : l] || locales["en-US"], retrieveItem: id => byId[id]};
     const e = new CSLlib.Engine(sys, styleXml, lang || "en-US");
     const ids = items.map(x => x.id);
@@ -370,7 +395,8 @@ const CITE = (() => {
     const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), sources = (itemsIn || []).map(clean), issues = [], push = (k, t, d, fix) => issues.push({k, t, d: d || "", fix: fix || ""});
     const ref = refSection(draft), body = ref ? draft.slice(0, ref.at) : draft;
     const cited = new Set(), unknown = [], slips = new Set();
-    const match = seg => sources.filter(s => famRe(keyName(s)).test(seg));
+    // a source with no author or title has no name to look for: famRe("") would match every citation, so leave it out
+    const named = sources.filter(s => keyName(s)), match = seg => named.filter(s => famRe(keyName(s)).test(seg));
     let m; const PAR = /\(([^()\n]{2,200})\)/g;
     while ((m = PAR.exec(body))) {
       m[1].split(/;\s*/).forEach(seg => {
@@ -378,7 +404,7 @@ const CITE = (() => {
         const hits = match(seg), hasYear = YEAR.test(seg), mlaLike = /^[“"]?[\p{Lu}][\p{L}'’-]+.*?\s\d{1,4}(?:[–-]\d+)?$/u.test(seg) && !hasYear;
         if (hits.length) hits.forEach(s => cited.add(s.id));
         else if (hasYear) {
-          const before = body.slice(Math.max(0, m.index - 60), m.index), nb = sources.filter(s => famRe(keyName(s)).test(before));
+          const before = body.slice(Math.max(0, m.index - 60), m.index), nb = named.filter(s => famRe(keyName(s)).test(before));
           if (nb.length) nb.forEach(s => cited.add(s.id));
           else if (/^[“"]?[\p{Lu}]/u.test(seg) || /(\p{Lu}[\p{L}'’-]+)\s*$/u.test(before)) unknown.push(seg);
         } else if (mlaLike && kind === "author" && !/^(p|pp|para|ch|fig|figure|table|see|chapter|section)\b/i.test(seg)) unknown.push(seg);
@@ -398,19 +424,20 @@ const CITE = (() => {
     while ((m = BR.exec(body))) m[1].split(/\s*,\s*/).forEach(part => { const r = part.split(/\s*[–-]\s*/).map(Number); for (let k = r[0]; k <= (r[1] || r[0]) && k - r[0] < 50; k++) { if (sources[k - 1] && (kind === "numeric" || (o.order && o.order[k - 1]))) cited.add((o.order ? o.order[k - 1] : sources[k - 1].id)); else if (kind === "numeric") unknown.push(`[${k}]`); } });
     if (kind !== "numeric" && /\[\d{1,3}\]/.test(body) && !/\(([^()]*\b(1[5-9]\d\d|20\d\d))\)/.test(body)) slips.add(`Your draft uses numbered citations like [1]; ${label} uses the author${kind === "author" ? " and page" : kind === "note" ? " in footnotes" : " and year"}.`);
     // names in footnotes (note styles): when the footnotes came along in the paste, count a source named anywhere in the body
-    if (kind === "note") sources.forEach(s => { if (famRe(keyName(s)).test(body)) cited.add(s.id); });
+    if (kind === "note") named.forEach(s => { if (famRe(keyName(s)).test(body)) cited.add(s.id); });
     const bare = [];
     const Q = /[“"]([^”"\n]{30,500})[”"]/g;
     while ((m = Q.exec(body))) {
       const after = body.slice(m.index + m[0].length, m.index + m[0].length + 160), before = body.slice(Math.max(0, m.index - 200), m.index);
       const sAfter = after.split(/(?<=[.?!])\s+(?=[\p{Lu}“"])/u)[0], sBefore = before.split(/[.?!]\s+(?=[\p{Lu}“"])/u).pop();
-      const has = s => /\([^()]*(\d|n\.\s?d\.)[^()]*\)/.test(s) || /\[\d{1,3}/.test(s) || /^[.,;:]?\s*\d{1,3}\b/.test(s) || (kind === "author" && sources.some(x => famRe(keyName(x)).test(s)));
+      const has = s => /\([^()]*(\d|n\.\s?d\.)[^()]*\)/.test(s) || /\[\d{1,3}/.test(s) || /^[.,;:]?\s*\d{1,3}\b/.test(s) || (kind === "author" && named.some(x => famRe(keyName(x)).test(s)));
       if (!has(sAfter) && !has(sBefore)) bare.push(m[1].split(/\s+/).slice(0, 8).join(" "));
     }
     const n = sources.length, citedN = sources.filter(s => cited.has(s.id)).length;
     if (!n) push("warn", "No sources in your Writing Studio yet", "Add your sources to check your citations against them.");
     else if (citedN === n) push("ok", `All ${n} source${n === 1 ? " is" : "s are"} cited in your draft`);
-    sources.filter(s => !cited.has(s.id)).forEach(s => push("warn", `Never cited: ${s.title || keyName(s)}`, kind === "note" ? "Cite it in a footnote where you use it, or remove it if you didn't use it. (Footnotes don't always come along in a paste: check those by eye.)" : "Cite it where you use it, or remove it from your sources if you didn't use it."));
+    if (named.length < n) push("warn", `${n - named.length === 1 ? "A source has" : n - named.length + " sources have"} no title or author`, `Fill ${n - named.length === 1 ? "it" : "them"} in on the Sources tab so your citations can be checked against ${n - named.length === 1 ? "it" : "them"}.`);
+    named.filter(s => !cited.has(s.id)).forEach(s => push("warn", `Never cited: ${s.title || keyName(s)}`, kind === "note" ? "Cite it in a footnote where you use it, or remove it if you didn't use it. (Footnotes don't always come along in a paste: check those by eye.)" : "Cite it where you use it, or remove it from your sources if you didn't use it."));
     [...new Set(unknown)].slice(0, 12).forEach(u => push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, "Add this source to your Writing Studio, or check the spelling of the name."));
     if (kind !== "note") bare.slice(0, 10).forEach(q => push("err", `Quote without a citation: “${q}…”`, "Every direct quote needs an in-text citation right after it."));
     if (!ref) push(n ? "err" : "warn", `No ${want} list found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`);
@@ -431,8 +458,8 @@ const CITE = (() => {
     issues.sort((a, b) => order[a.k] - order[b.k]);
     return {issues, cited: citedN, total: n, hasRef: !!ref};
   }
-  return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf,
-    parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex};
+  return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf, keyName,
+    parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase};
 })();
 /*CITE-END*/
 
@@ -694,7 +721,9 @@ async function addFromInput(t, raw){
   try {
     const s = await lookup(id), w = wsOf(state.tasks[t.id]), d = CITE.dupOf(s, w.src);
     if (d) { W.err = "That source is already in your list."; }
-    else { addItems(t, [s], `Added ${s.title ? "“" + String(s.title).slice(0, 40) + "”" : "a source"}`); W.inp = ""; const w2 = wsOf(state.tasks[t.id]); if (s.partial) { W.edit = w2.src[w2.src.length - 1].id; W.note = "This site doesn't share its details, so fill in the title, author and date from the page."; } }
+    // a page that doesn't share its details opens as a new source to fill in: it's only added on Save, so Cancel leaves nothing behind
+    else if (s.partial) { delete s.partial; W.inp = ""; W.edit = "new"; W.form = s; W.note = "This site doesn't share its details, so fill in the title, author and date from the page, then Save."; }
+    else { addItems(t, [s], `Added ${s.title ? "“" + String(s.title).slice(0, 40) + "”" : "a source"}`); W.inp = ""; }
   } catch (e) { W.err = (e && e.message) || "Couldn't look that up. Add the source by hand."; }
   W.busy = ""; if (shown()) draw();
 }
@@ -741,7 +770,7 @@ function sourcesHtml(t, w){
     ${W.engErr === st ? `<p class="mini ws-err">Couldn't load ${esc(styleName(st))}. ${BUILT_FMT[st] ? "Reload Studyboard and try again." : "It's fetched from zotero.org the first time: check your connection."}</p>` : ""}
     ${B.entries.length ? `<h3 class="fsec ws-bibh">${esc(heading)} <span class="mini">${esc(styleName(st))}${B.ready ? "" : " · formatting…"}</span></h3><ol class="ws-refs${B.hang ? " hang" : ""}">${B.entries.map(e => { const s = w.src.find(y => y.id === e.id); if (!s) return ""; return `<li class="ws-ref">
         <p class="ws-cite">${citeHtml(e.runs)}</p>
-        <p class="mini ws-info">${esc(typeName(s.type))}${s.zkey ? " · Zotero" : ""}${s.fid && state.files[s.fid] ? " · PDF in Studyboard" : ""} · In text: ${citeHtml(citeOf(t, w, s.id, ""))}</p>
+        <p class="mini ws-info">${CITE.keyName(s) ? "" : '<b class="ws-need">Needs a title and author</b> · '}${esc(typeName(s.type))}${s.zkey ? " · Zotero" : ""}${s.fid && state.files[s.fid] ? " · PDF in Studyboard" : ""} · In text: ${citeHtml(citeOf(t, w, s.id, ""))}</p>
         <div class="ws-acts"><button type="button" class="ws-act" data-ws-copy="${esc(s.id)}">Copy</button><button type="button" class="ws-act" data-ws-edit="${esc(s.id)}">Edit</button>${s.fid && state.files[s.fid] ? `<button type="button" class="ws-act" data-ws-openf="${esc(s.fid)}">Open PDF</button>` : s.URL || s.DOI ? `<a class="ws-act" href="${esc(s.DOI ? "https://doi.org/" + s.DOI : s.URL)}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-rm="${esc(s.id)}" aria-label="Remove ${esc(String(s.title || "this source").slice(0, 60))}" title="Remove">${TRASH}</button></div></li>`; }).join("")}</ol>
         ${w.src.some(s => s.zkey) && z ? `<p class="mini" style="margin:0"><button type="button" class="link-btn" data-ws-zsync>Update From Zotero</button> refreshes the ${w.src.filter(s => s.zkey).length} source${w.src.filter(s => s.zkey).length === 1 ? "" : "s"} that came from Zotero.</p>` : ""}`
       : `<div class="ws-empty"><b>No sources yet.</b><p class="mini">Paste a DOI (10.1037/…), an ISBN or a link above, pull them from Zotero, or import a BibTeX or RIS file. Your citations and ${esc(heading)} list build themselves.</p></div>`}
@@ -761,6 +790,7 @@ function editHtml(t, w){
       <label class="f ws-wide"><span class="lh">Item type</span><select data-wf="type">${Object.keys(CITE.TYPES).map(k => `<option value="${k}" ${k === s.type ? "selected" : ""}>${esc(CITE.TYPES[k][0])}</option>`).join("")}</select></label>
       ${area("author", s.type === "motion_picture" ? "Directors or creators" : "Authors")}
       ${fld("title", "Title", s.title, "", "ws-wide")}
+      <label class="mi-check ws-wide ws-case"><input type="checkbox" data-wcase ${s.caseAsIs ? "checked" : ""}> Keep the title's capitals as typed <span class="hint">APA and similar styles put titles in sentence case; tick this when the title has names in it</span></label>
       <div class="ws-date ws-wide">${fld("y", "Year", dp[0] || (s.issued && s.issued.literal) || "", "2024")}${fld("m", "Month", dp[1] || "", "1–12")}${fld("d", "Day", dp[2] || "", "")}</div>
       ${fields.map(k => k === "editor" || k === "translator" ? area(k, CITE.LABEL[k]) : k === "accessed" ? `<label class="f"><span class="lh">Accessed</span><input type="date" data-wf="accessed" value="${esc(CITE.isoOf(s.accessed))}"></label>`
         : fld(k, k === "container-title" ? (CITE.CONT[s.type] || "Published in") : CITE.LABEL[k] || k, s[k], k === "page" ? "112–130" : k === "DOI" ? "10.…" : k === "URL" ? "https://" : "", wide.has(k) ? "ws-wide" : "")).join("")}
@@ -776,6 +806,7 @@ function formRec(){
   ["author", "editor", "translator"].forEach(k => { const v = g(k); if (v !== undefined) { const l = CITE.names(v); if (l.length) o[k] = l; else delete o[k]; } });
   const y = g("y"); if (y !== undefined) { const d = /\d{4}/.test(y) ? CITE.date(y, g("m"), g("d")) : y.trim() ? {literal: y.trim()} : null; if (d) o.issued = d; else delete o.issued; }
   const ac = g("accessed"); if (ac !== undefined) { if (ac) o.accessed = CITE.parseDate(ac); else delete o.accessed; }
+  const kc = W.el.querySelector("[data-wcase]"); if (kc) { if (kc.checked) o.caseAsIs = true; else delete o.caseAsIs; }
   return Object.assign(CITE.clean(o), {id: base.id || ""});
 }
 function zotHtml(t, w){
@@ -903,9 +934,13 @@ function draw(fresh){
 /* ---------- Export ---------- */
 function exportSheet(t){
   const w = wsOf(t); if (!w.src.length && !w.q.length) return;
-  const f = W.el.querySelector(".sheet-foot");
-  f.innerHTML = `<button type="button" class="btn" data-ws-xback>Back</button><span class="spacer"></span>${W.tab === "sources" ? `<select data-ws-xsrc aria-label="Export the sources for another app"><option value="">For Zotero, Mendeley, EndNote…</option><option value="bib">BibTeX (.bib)</option><option value="ris">RIS (.ris)</option><option value="json">CSL-JSON (.json)</option></select>` : ""}<button type="button" class="btn" data-ws-x="text">Copy as Text</button><button type="button" class="btn" data-ws-x="gdoc">Google Docs</button><button type="button" class="btn primary" data-ws-x="docx">Word (.docx)</button>`;
-  f.querySelector("[data-ws-xback]").addEventListener("click", () => draw());
+  // the choices open as a small panel at the top of the body, so the footer (and the list on a phone) keeps its size
+  const ft = W.el.querySelector(".sheet-foot"), body = W.el.querySelector(".ws-body"), f = document.createElement("section");
+  ft.innerHTML = `<button type="button" class="btn" data-ws-xback>Back</button><span class="spacer"></span>`;
+  f.className = "ws-xp"; f.setAttribute("role", "region"); f.setAttribute("aria-label", "Export");
+  f.innerHTML = `<h3 class="fsec">Export</h3><div class="ws-xp-b"><button type="button" class="btn primary" data-ws-x="docx">Word (.docx)</button><button type="button" class="btn" data-ws-x="gdoc">Google Docs</button><button type="button" class="btn" data-ws-x="text">Copy as Text</button></div>${W.tab === "sources" ? `<select data-ws-xsrc aria-label="Export the sources for another app"><option value="">For Zotero, Mendeley, EndNote…</option><option value="bib">BibTeX (.bib)</option><option value="ris">RIS (.ris)</option><option value="json">CSL-JSON (.json)</option></select>` : ""}`;
+  if (body) { body.prepend(f); body.scrollTop = 0; } else ft.appendChild(f);
+  ft.querySelector("[data-ws-xback]").addEventListener("click", () => draw());
   f.querySelectorAll("[data-ws-x]").forEach(b => b.addEventListener("click", () => doExport(state.tasks[t.id], b.dataset.wsX)));
   const xs = f.querySelector("[data-ws-xsrc]"); if (xs) xs.addEventListener("change", async () => {
     const k = xs.value; if (!k) return; const items = wsOf(state.tasks[t.id]).src, base = safeName(t.title);
@@ -1039,7 +1074,8 @@ function wire(t){
   const cur = () => state.tasks[t.id], ws = () => wsOf(cur()), st = () => styleOf(cur(), ws());
   const on = (sel, ev, fn) => { const el = q(sel); if (el) el.addEventListener(ev, fn); return el; };
   const vback = q("[data-ws-vback]"); if (vback) vback.addEventListener("click", () => { W.view = ""; W.err = ""; draw(true); });
-  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => { W.tab = b.dataset.wsTab; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; draw(true); R.querySelector(`[data-ws-tab="${W.tab}"]`).focus(); }));
+  // a toast about the last tab (e.g. "Started an outline · Undo") goes with it
+  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => { if (b.dataset.wsTab !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = b.dataset.wsTab; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; draw(true); R.querySelector(`[data-ws-tab="${W.tab}"]`).focus(); }));
   on(".ws-tabs", "keydown", e => { if (!/^Arrow(Left|Right)$/.test(e.key)) return; const ks = ["sources", "quotes", "outline", "check"], i = ks.indexOf(W.tab); W.tab = ks[(i + (e.key === "ArrowRight" ? 1 : 3)) % 4]; W.edit = null; W.hlPick = null; draw(true); R.querySelector(`[data-ws-tab="${W.tab}"]`).focus(); });
   const sel = on("[data-ws-style]", "change", () => {
     if (sel.value === "__find") { W.view = "styles"; W.find = W.find || {q: ""}; W.err = ""; draw(true); const i = q("[data-wy-q]"); if (i) i.focus(); return; }
@@ -1180,7 +1216,7 @@ function wire(t){
   const df = on("[data-ws-dfile]", "change", async () => { const f = df.files && df.files[0]; if (!f) return; try { const x = (await draftFromFile(f)).trim(); if (x.replace(/\s/g, "").length < 20) throw new Error(`${f.name} has no text that can be read (a scan?). Paste the text instead.`); W.draft = x; W.draftSrc = `From ${f.name}.`; W.err = ""; } catch (e) { W.err = e && e.message && !/^[a-z]/.test(e.message) ? e.message : `Couldn't read ${f.name}. Paste the text instead.`; } draw(); });
   const dp = on("[data-ws-dpick]", "change", async () => { const f = state.files[dp.value]; if (!f) return; let x = ""; try { x = window.SBFILETEXT ? String(await SBFILETEXT(f.id, 200000) || "").trim() : ""; } catch (e) { x = ""; } if (x.replace(/\s/g, "").length < 20) W.err = `Couldn't read the text in ${f.name}. Paste your draft instead.`; else { W.draft = x; W.draftSrc = `From ${f.name}.`; W.err = ""; } draw(); });
   on("[data-ws-check]", "click", () => {
-    if (W.draft.trim().split(/\s+/).length < 30) { W.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; W.res = null; draw(); return; }
+    if (W.draft.trim().split(/\s+/).length < 30) { W.err = W.draft.trim() ? "Your draft is too short to check. Paste at least a paragraph, upload it or pick a file." : "Add your draft first: paste it, upload it or pick a file."; W.res = null; draw(); return; }
     W.err = ""; W.res = runCheck(cur()); draw();
     const r = W.el.querySelector(".ws-res"); if (r && r.scrollIntoView) r.scrollIntoView({block: "nearest"});
   });
@@ -1209,6 +1245,9 @@ if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", where
 const css = document.createElement("style");
 css.textContent = `
 dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
+/* the tabs change the body's height: keep the window's top edge still (anchored near the top; a full-height sheet on phones) so the tabs don't slide away from the pointer */
+@media (min-width:601px){dialog:has(.ws-sheet){margin:4vh auto auto}}
+@media (max-width:600px){dialog:has(.ws-sheet){height:90vh;height:90dvh}dialog:has(.ws-sheet) > .ws-sheet{height:100%}.ws-sheet > .ws-body{flex:1 1 auto}}
 .ws-sheet{display:flex;flex-direction:column;max-height:inherit}
 .ws-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 20px 0;border-bottom:1px solid var(--line)}
 .ws-tabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
@@ -1225,6 +1264,14 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 .ws-zbtn svg{vertical-align:-2px;color:#CC2936}
 .ws-priv{margin:0}
 .ws-err{margin:0;color:#B42318}
+.ws-need{color:#B42318;font-weight:600}
+.ws-xp{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--accent,#2F6FE4) 6%,var(--surface))}
+.ws-xp .fsec{margin:0}
+.ws-xp-b{display:flex;flex-wrap:wrap;gap:6px}
+.ws-xp select{max-width:100%}
+/* dark mode: a lighter red, readable on navy */
+:root[data-theme="dark"] :is(.ws-err,.ws-need){color:#FF8A80}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.ws-err,.ws-need){color:#FF8A80}}
 .ws-ok{margin:0;color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
 .ws-note{margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent,#2F6FE4) 9%,var(--surface))}
 .ws-empty{text-align:center;padding:22px 12px;border:1px dashed var(--line);border-radius:12px;display:grid;gap:6px}
@@ -1297,6 +1344,7 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 .ws-sum{margin:0}
 .ws-is{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:10px;min-width:0}
 .ws-is>span:last-child{display:grid;gap:2px;min-width:0;word-break:break-word}
+.ws-is [data-ws-setst]{justify-self:start;text-align:left;padding-left:0;margin-left:0}
 .ws-ic{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.75rem;font-weight:800;color:#fff}
 .ws-is.k-err .ws-ic{background:#D64545}.ws-is.k-warn .ws-ic{background:#B7791F}.ws-is.k-ok .ws-ic{background:#2E8A52}
 .ws-is.k-err{border-left:4px solid #D64545}

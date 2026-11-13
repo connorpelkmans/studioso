@@ -133,8 +133,8 @@ var SBPRO = null;
   function insightsBody(I, preview){
     const empty = `<p class="mini">Not enough to go on yet. Insights fill in as you use Focus sessions, finish tasks and get grades back.</p>`;
     const sec = (title, body) => `<section class="pro-card"><h3>${esc(title)}</h3>${body}</section>`;
-    const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(x.min / I.maxMin * 100))}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
-      + (I.studySay ? `<p class="pro-say">${esc(I.studySay)}</p>` : "") : empty;
+    const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${x.min > 0 ? Math.max(2, Math.round(x.min / I.maxMin * 100)) : 0}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
+      + (I.studySay ? `<p class="pro-say">${esc(I.studySay)}</p>` : I.courses.every(x => !(x.min > 0)) ? `<p class="mini">No Focus time logged yet.</p>` : "") : empty;
     const heat = I.logN >= 5 ? `<div class="pro-heat" role="img" aria-label="${esc(I.bestSay)}"><span></span>${["M", "T", "W", "T", "F", "S", "S"].map(d => `<span class="ph-d">${d}</span>`).join("")}${PARTS.map((p, i) => `<span class="ph-l">${p[1]}</span>${I.grid[i].map(v => `<span class="ph-c" style="--a:${v ? Math.round(20 + v / I.gridMax * 80) : 0}%"></span>`).join("")}`).join("")}</div><p class="pro-say">${esc(I.bestSay)}</p>`
       : `<p class="mini">After five Focus timer sessions, this shows when in the day your sessions last longest.</p>`;
     const prep = I.prep ? `<div class="pro-row2"><b>${esc(I.prep.ex.title)}</b><span class="mini">${esc(fmtShort(I.prep.ex.due))} · ${I.prep.done} of ${I.prep.total} sessions done</span></div><span class="pro-bar wide" aria-hidden="true"><i style="width:${Math.round(I.prep.done / I.prep.total * 100)}%"></i></span><p class="pro-say">${esc(I.prep.dueSoFar ? `${I.prep.doneSoFar} of the ${I.prep.dueSoFar} sessions planned so far are done.` : "The first session is still ahead.")}${I.prep.weak.length ? esc(` ${I.prep.weak.slice(0, 2).join(" and ")} ${I.prep.weak.length === 1 ? "is" : "are"} still marked Shaky.`) : ""}</p>`
@@ -240,7 +240,7 @@ var SBPRO = null;
     const slides = slidesFor(T); if (slides.length < 2) { toast("Not enough happened this term for a recap yet."); return; }
     RC = {T, slides, i: 0};
     markSeen(T.key); setS({recapLast: {key: T.key, from: T.from, to: T.to, name: T.name}});
-    openSheet(`<div class="sheet pro-recap">${head(`${T.name}, Wrapped`)}<div class="sheet-body pro-recap-body"></div><div class="sheet-foot"><button type="button" class="btn" data-act="pro-recap-img">Save as Image</button><span class="spacer"></span><button type="button" class="btn" data-act="pro-recap-step" data-id="-1">Back</button><button type="button" class="btn primary" data-act="pro-recap-step" data-id="1" id="proRcNext">Next</button></div></div>`);
+    openSheet(`<div class="sheet pro-recap">${head(`${T.name}, Wrapped`)}<div class="sheet-body pro-recap-body"></div><div class="sheet-foot"><button type="button" class="btn" data-act="pro-recap-img">Save as Image</button><span class="spacer"></span><button type="button" class="btn" data-act="pro-recap-step" data-id="-1" id="proRcBack">Back</button><button type="button" class="btn primary" data-act="pro-recap-step" data-id="1" id="proRcNext">Next</button></div></div>`);
     drawRecap();
     scheduleRender();
   }
@@ -250,6 +250,8 @@ var SBPRO = null;
     b.innerHTML = `<div class="prc-dots" aria-hidden="true">${RC.slides.map((x, i) => `<i class="${i <= RC.i ? "on" : ""}"></i>`).join("")}</div>
       <div class="prc-slide" role="group" aria-roledescription="card" aria-label="${RC.i + 1} of ${RC.slides.length}"><span class="prc-k">${esc(s.k)}</span><b class="prc-big">${esc(s.big)}</b><p>${esc(s.line)}</p></div>`;
     const nx = $("#proRcNext"); if (nx) nx.textContent = RC.i >= RC.slides.length - 1 ? "Start Again" : "Next";
+    // nothing comes before the first card
+    const bk = $("#proRcBack"); if (bk) bk.hidden = RC.i === 0;
   }
   // One card as a picture (1080 x 1350), drawn on a canvas
   function recapImage(){
@@ -375,8 +377,10 @@ var SBPRO = null;
 .pro-recap-card .prc-t{display:grid;gap:2px;flex:1;min-width:0}
 .pro-recap-card .prc-t span{font-size:.85rem;color:#C9D7F2}
 .pro-recap-card .btn{background:#fff;color:#0E2A56;border-color:#fff}
-.pro-recap-card .prc-x{position:absolute;top:-8px;right:-8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:grid;place-items:center;padding:0}
+.pro-recap-card .prc-x{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:grid;place-items:center;padding:0}
 .pro-recap-card .prc-x svg{width:12px;height:12px}
+/* the × sits inside the card's corner: leave it room */
+.pro-recap-card{padding-right:42px}
 .pro-recap .sheet-body{background:#0E2A56;color:#fff}
 .prc-dots{display:flex;gap:5px;margin-bottom:24px}
 .prc-dots i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.25)}
@@ -3340,7 +3344,12 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     } catch (e) {}
     return ui.filter && ui.filter !== "all" && courseOf(ui.filter) ? ui.filter : "";
   }
-  const titleFor = cid => { const c = courseOf(cid); return `${c ? (c.code || c.name) + " " : ""}Lecture, ${fmtShort(todayISO())}`; };
+  // Named for the class it's recorded in: "PSYC 1010 Lecture 4, Nov 12"
+  const classNow = c => { try { if (!c || !window.SBCLS) return null; const d = todayISO(), now = new Date(), m = now.getHours() * 60 + now.getMinutes(), tm = t => { const [h, mi] = String(t || "0:0").split(":").map(Number); return (h || 0) * 60 + (mi || 0); };
+    // as the class page files it: the class it's made in (or just after), else the day's only class
+    const day = SBCLS.classesOf(c).filter(x => x.date === d && !x.skipped);
+    return day.find(x => m >= tm(x.start) - 15 && m <= tm(x.end || x.start) + 90) || (day.length === 1 ? day[0] : null); } catch (e) { return null; } };
+  const titleFor = cid => { const c = courseOf(cid), x = classNow(c); return `${c ? (c.code || c.name) + " " : ""}${x ? x.title : "Lecture"}, ${fmtShort(todayISO())}`; };
   function open(cidIn){
     if (P.locked()) { proWhy("Record a Lecture is part of Studyboard Pro: record a class, then get a tidy transcript and a summary in the course's Lectures."); return; }
     if (REC && REC.view !== "setup") { sheet(); return; }
@@ -3868,7 +3877,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     }
     const text = doc === "sum" ? L.sum : (L.org || raw), name = doc === "sum" ? "Summary" : "Transcript";
     const src = raw || L.org || "", canMake = src.trim().length > 80;
-    b.innerHTML = `<div class="lec-doc-head"><button type="button" class="link-btn" data-act="lec-doc" data-id="${esc(fid)}" data-doc="">‹ ${esc(f.name)}</button><h3>${name}</h3></div>
+    b.innerHTML = `<div class="lec-doc-head"><button type="button" class="link-btn" data-act="lec-doc" data-id="${esc(fid)}" data-doc="" aria-label="Back to ${esc(f.name)}">‹ Back</button><h3>${name}</h3></div>
       ${text ? `<div class="lec-docv">${(window.SBREPLAY && SBREPLAY.docHtml(f, doc, text)) || docHtml(text)}</div>` : `<div class="empty"><strong>No ${name} Yet</strong>${canMake ? (aiReady() ? `${esc(aiWho("AI"))} can write it from the transcript.` : "Set up AI (Settings, AI Features), then Write It Now.") : src ? "The transcript is too short to summarize." : "This lecture was saved without a transcript."}</div>`}`;
     ft.innerHTML = `<span class="spacer"></span>${canMake && (doc === "sum" || !L.org) ? `<button type="button" class="btn ai-btn" data-act="lec-make" data-id="${esc(fid)}" data-doc="${doc}">${AI_ICON} ${text ? "Write It Again" : "Write It Now"}</button>` : ""}${text ? `<button type="button" class="btn" data-act="lec-copy" data-id="${esc(fid)}" data-doc="${doc}">Copy</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button>`;
   }
@@ -4160,7 +4169,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .lec-rt b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lec-meta{margin:0}
 .lec-files{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.lec-fopt{display:grid;justify-items:start;gap:6px;text-align:left;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:14px;font:inherit;color:inherit;cursor:pointer}
+.lec-fopt{display:grid;justify-items:start;align-content:start;gap:6px;text-align:left;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:14px;font:inherit;color:inherit;cursor:pointer}
 .lec-fopt svg{color:var(--accent)}
 .lec-fopt:hover{border-color:var(--accent)}
 .lec-fopt:disabled{cursor:default;opacity:.75}
@@ -4170,6 +4179,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .lec-fopt.done{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .lec-fopt.done b::after{content:" ✓";color:var(--accent)}
 .lec-doc-head{display:grid;gap:4px}
+.lec-doc-head > .link-btn{justify-self:start}
 .lec-doc-head h3{margin:0}
 .lec-docv{line-height:1.6;max-height:58vh;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:4px 14px 10px}
 .lec-docv h4{margin:14px 0 4px;font:700 1rem var(--display)}

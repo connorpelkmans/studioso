@@ -34,7 +34,8 @@ const SMR_CORE = (() => {
   const partOfDay = ms => { const h = new Date(ms).getHours(); return h < 12 ? "this morning" : h < 17 ? "this afternoon" : "tonight"; };
   // in: {now, cfg (reminder settings), tasks: [{id, title, type, due, time, status, remind, rem (hours left), worked (today)}],
   //   mode: "avail" with free: {date: [{s, e}]} (a day's free windows, minutes from its midnight), or "daily" with
-  //   daily: {h (hours a day), today (hours left today), start, end (study day, minutes)}; sent: {"taskId|date": ms} what earlier
+  //   daily: {h (hours a day), today (hours left today), start, end (study day, minutes)} and busy: {date: [{s, e}]} (classes and
+  //   events, minutes from midnight; without it, the nudge time); sent: {"taskId|date": ms} what earlier
   //   plans scheduled (at or before now means it went out), fmtTime(hh:mm), fmtDay(iso), fmtWeekday(iso)}
   // out: [{id, at, title, body, taskId, key, kind: "smart"}]
   function plan(inp){
@@ -43,8 +44,17 @@ const SMR_CORE = (() => {
     const fT = inp.fmtTime || (t => t), fD = inp.fmtDay || (s => s), fW = inp.fmtWeekday || fD, sent = inp.sent || {}, cap = inp.cap || CAP;
     const q = quietIv(c, today, last), quiet = ms => q.some(([a, b]) => ms >= a && ms < b);
     // Free time as real moments, quiet hours taken out
-    const slots = [];
-    if (inp.mode === "daily") {
+    const slots = [], D = inp.daily || {}, B = inp.mode === "daily" && inp.busy && typeof inp.busy === "object" ? inp.busy : null;
+    if (B) {
+      // No Availability: the study day less classes and events (today from now, on the quarter hour), so a nudge never lands
+      // in the middle of a lab
+      const st = Number(D.start) || 420, en = Number(D.end) || 1380, nowM = Math.ceil((now - atMin(today, 0)) / MIN / 15) * 15;
+      for (let d = today; d <= last; d = addD(d, 1)) {
+        const lo = d === today ? Math.max(st, nowM) : st; if (lo >= en) continue;
+        const cuts = (Array.isArray(B[d]) ? B[d] : []).filter(w => w && w.e > w.s).map(w => [atMin(d, w.s), atMin(d, w.e)]);
+        minus([[atMin(d, lo), atMin(d, en)]], cuts.concat(q)).forEach(([a, b]) => { if (b - a >= MIN_WIN * MIN) slots.push({a, b, date: ymd(new Date(a))}); });
+      }
+    } else if (inp.mode === "daily") {
       const nt = isT(c.nudgeTime) ? c.nudgeTime : "16:00";
       for (let d = today; d <= last; d = addD(d, 1)) { const a = atMin(d, mins(nt)); if (!quiet(a)) slots.push({a, b: a + HOUR, date: d}); }
     } else {
@@ -57,7 +67,6 @@ const SMR_CORE = (() => {
     slots.sort((x, y) => x.a - y.a);
     const dueMs = t => isT(t.time) ? atMin(t.due, mins(t.time)) : atMin(t.due, 23 * 60 + 59);
     // Study time from `from` until the due moment: free windows, or the plan's daily hours
-    const D = inp.daily || {};
     function room(t, from){
       const dl = dueMs(t);
       if (inp.mode !== "daily") return slots.reduce((m, s) => m + overlap(s.a, s.b, from, dl), 0) / MIN;
@@ -65,7 +74,9 @@ const SMR_CORE = (() => {
       let tot = 0;
       for (let d = fd; d <= t.due; d = addD(d, 1)) {
         let x = d === today ? Math.max(0, Number(D.today) || 0) : h;
-        if (d === t.due && isT(t.time)) x *= Math.max(0, Math.min(1, (mins(t.time) - st) / Math.max(60, en - st)));
+        // the rest of the starting day is no more than its free time left (a nudge at 4 PM can't count the morning)
+        if (B && d === fd) x = Math.min(x, slots.reduce((m, s) => m + (s.date === d ? overlap(s.a, s.b, from, dl) : 0), 0) / HOUR);
+        else if (d === t.due && isT(t.time)) x *= Math.max(0, Math.min(1, (mins(t.time) - st) / Math.max(60, en - st)));
         tot += x;
       }
       return Math.min(tot * 60, Math.max(0, dl - from) / MIN);
@@ -79,12 +90,17 @@ const SMR_CORE = (() => {
       .filter(x => x.dd >= 0 && x.dd <= AHEAD && x.dl > now + MIN_WIN * MIN && x.free > 0 && x.need >= TIGHT * x.free)
       .sort((x, y) => y.need / y.free - x.need / x.free || x.dl - y.dl);
     const used = new Set(), out = [];
+    // From the class schedule: the ordinary "due in 2h" reminder comes at this moment, so a smart nudge is only worth sending before it
+    const lead = B && c.tasks !== false && c.hoursBefore !== false ? (Number(c.hours) > 0 ? Number(c.hours) : 2) * HOUR : 0;
     cand.forEach(x => {
-      const t = x.t;
+      const t = x.t, lastAt = isT(t.time) && lead ? x.dl - lead : x.dl;
       const s = slots.find(s => {
         const k = t.id + "|" + s.date, r = recent[k];
         if (gone[k] || used.has(s.a) || (r != null ? s.a !== r : s.a < now) || (perDay[s.date] || 0) - (r === s.a ? 1 : 0) >= cap) return false;
         if (s.date === today && t.worked) return false;
+        if (s.a > lastAt) return false;
+        // from the class schedule, a later nudge must still leave the time the task needs (the first free moment is always worth it)
+        if (B && s.a - now >= MIN_WIN * MIN && room(t, s.a) < Math.min(x.need, x.free) - 1) return false;
         return Math.min(s.b, x.dl) - s.a >= MIN_WIN * MIN;
       });
       if (!s) return;
@@ -126,6 +142,12 @@ const SMR_CORE = (() => {
     for (let d = today; d <= last; d = addDays(d, 1)) v[d] = availFreeDay(d, null, ext).windows.map(w => ({s: w.s, e: w.e}));
     FREE = {k, av, v}; return v;
   }
+  // Without Availability: the week's classes and events, so the nudge goes in time that is really free
+  function busyMap(from, to){
+    const v = {};
+    try { schOccurrences(from, to).forEach(o => { if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end || !o.date) return; const s = toMin(o.start), e = toMin(o.end); if (e > s) (v[o.date] = v[o.date] || []).push({s, e}); }); } catch (e) {}
+    return v;
+  }
   function list(c, now){
     if (!c || !c.smart || locked()) return [];
     const today = todayISO(), wt = t => { try { return (typeof workedToday === "function" && workedToday(t) > 0) || (typeof markedEnough === "function" && markedEnough(t)); } catch (e) { return false; } };
@@ -135,7 +157,7 @@ const SMR_CORE = (() => {
     if (!tasks.length) return [];
     const active = availActive(), inp = {now, cfg: c, tasks, sent: lsGet(), fmtTime, fmtDay: s => fmtDate(s), fmtWeekday: weekday, mode: active ? "avail" : "daily"};
     if (active) inp.free = freeMap(today);
-    else { const sd = studyDay(new Date(now)), th = todayHours(); inp.daily = {h: dailyHours(), today: sd.date === today ? Math.min(th, sd.left / 60) : th, start: sd.start, end: sd.end}; }
+    else { const sd = studyDay(new Date(now)), th = todayHours(); inp.daily = {h: dailyHours(), today: sd.date === today ? Math.min(th, sd.left / 60) : th, start: sd.start, end: sd.end}; inp.busy = busyMap(today, last); }
     return SMR_CORE.plan(inp);
   }
   // The final reminders list, after quiet hours and duplicates: remember what is planned
@@ -154,7 +176,7 @@ const SMR_CORE = (() => {
   function row(c){
     if (locked()) return `<button type="button" class="pro-linkrow" data-act="smr-pro"><span>Smart Reminders</span>${PRO_BADGE}</button>`;
     return `<div class="rm-row"><label class="mi-check"><input type="checkbox" data-rm="smart" ${c.smart ? "checked" : ""}> Smart Reminders${tagPro() ? " " + PRO_BADGE : ""}</label></div>
-      <p class="mini" style="margin:0">When a task due this week needs most of your free time before it, a nudge comes at the start of your next free time. Uses your Availability, or your daily study hours.</p>`;
+      <p class="mini" style="margin:0">When a task due this week needs most of your free time before it, a nudge comes at the start of your next free time. Uses your Availability, or your class times and daily study hours.</p>`;
   }
   hook("act", act => {
     if (act !== "smr-pro") return false;

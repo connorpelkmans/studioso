@@ -284,7 +284,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await pp.keyboard.press("Escape"); await pp.waitForTimeout(300);
   await act(pp, "cm-open", "c1", {kind: "course"}); await pp.waitForSelector(".cm-node");
   ok(await pp.evaluate(() => SBCMAP.state().view.k) >= 0.6, "a phone map stays readable (zoom " + await pp.evaluate(() => SBCMAP.state().view.k.toFixed(2)) + ")");
-  ok(await pp.evaluate(() => { const t = document.querySelector(".cm-tools"); return t.getBoundingClientRect().height < 60; }), "the tools are one row on a phone");
+  ok(await pp.evaluate(() => { const t = document.querySelector(".cm-tools"); return t.scrollWidth <= t.clientWidth + 1 && [...t.children].every(c => c.getBoundingClientRect().right <= t.getBoundingClientRect().right + 1); }), "the tools wrap on a phone: none cut off");
   ok(await fits(pp), "the map fits at 390px");
   ok(pp.errs.length === 0, "no console errors (phone): " + pp.errs.join(" | "));
   await pctx.close();

@@ -173,16 +173,22 @@ const rangeText = cov => cov.from ? `${fmtShort(cov.from)} to ${fmtShort(LECCHAI
 
 /* The next-step bar */
 let NX = null;
-function bar(o){ NX = o || null; paint(); }
+function bar(o){
+  NX = o || null; paint();
+  // in a sheet it sits in the flow under the steps: bring it into view (a failed step's message would be below the fold)
+  const el = NX && document.getElementById("lcNext"); if (el && el.closest(".lc-chain")) { try { el.scrollIntoView({block: "nearest"}); } catch (e) {} }
+}
+// Where the bar goes: inside the sheet's From Lecture to Exam card when one is open, else under the open sheet, else on the page
+const barHost = () => dlg.open ? dlg.querySelector(".lc-chain[data-lc]") || dlg : document.body;
 function paint(){
   let el = document.getElementById("lcNext");
   if (!NX) { if (el) el.remove(); return; }
   if (!el) { el = document.createElement("div"); el.id = "lcNext"; el.className = "lc-next"; el.setAttribute("role", "region"); el.setAttribute("aria-label", "Next step"); }
-  const host = dlg.open ? dlg : document.body; if (el.parentNode !== host) host.appendChild(el);
+  const host = barHost(); if (el.parentNode !== host) host.appendChild(el);
   el.innerHTML = `<p class="lc-next-t" role="status">${NX.busy ? `<span class="ai-spin" aria-hidden="true"></span> ` : ""}${esc(NX.text)}</p><div class="lc-next-b">${NX.go ? `<button type="button" class="btn small primary" data-act="lc-go">${esc(NX.go)}</button>` : ""}${NX.undo ? `<button type="button" class="btn small" data-act="lc-undo">Undo</button>` : ""}<button type="button" class="btn small" data-act="lc-skip">${NX.busy ? "Hide" : NX.go ? "Skip" : "Close"}</button></div>`;
 }
 // The sheet's contents are replaced when another sheet opens
-new MutationObserver(() => { if (!NX) return; const el = document.getElementById("lcNext"), want = dlg.open ? dlg : document.body; if (!el || el.parentNode !== want) paint(); }).observe(dlg, {childList: true, attributes: true, attributeFilter: ["open"]});
+new MutationObserver(() => { if (!NX) return; const el = document.getElementById("lcNext"); if (!el || el.parentNode !== barHost()) paint(); }).observe(dlg, {childList: true, subtree: true, attributes: true, attributeFilter: ["open"]});
 dlg.addEventListener("close", () => setTimeout(() => { if (NX) paint(); }, 0));
 const undoBtn = inv => inv ? () => { applyChanges(inv, null); toast("Undone"); refresh(); } : null;
 
@@ -461,7 +467,8 @@ function prepHtml(ex){
     if (!ex || !ex.courseId || !ex.due) return "";
     const {cov, groups} = gather(ex); if (!groups.length) return "";
     const fresh = groups.filter(g => g.fresh), all = groups.reduce((a, g) => a + g.n, 0);
-    if (fresh.length) return `<p class="mini lc-prep">${esc(LECCHAIN.countLabel(fresh, fresh.reduce((a, g) => a + g.fresh, 0)))} from ${esc(rangeText(cov))} aren't on these topics yet. <button type="button" class="link-btn" data-act="lc-pull" data-id="${esc(ex.id)}">Pull Them In</button></p>`;
+    // "1 lecture (1 card) up to Nov 16 isn't in these topics yet" / "2 lectures ... from Nov 2 to Nov 16 aren't ..."
+    if (fresh.length) { const one = fresh.length === 1; return `<p class="mini lc-prep">${esc(LECCHAIN.countLabel(fresh, fresh.reduce((a, g) => a + g.fresh, 0)))} ${cov.from ? "from " : ""}${esc(rangeText(cov))} ${one ? "isn't" : "aren't"} in these topics yet. <button type="button" class="link-btn" data-act="lc-pull" data-id="${esc(ex.id)}">${one ? "Pull It In" : "Pull Them In"}</button></p>`; }
     return `<p class="mini lc-prep">Pulled in ${esc(LECCHAIN.countLabel(groups, all))} by lecture date, ${esc(rangeText(cov))}.</p>`;
   } catch (e) { console.warn("lecture chain: prep", e); return ""; }
 }
@@ -472,7 +479,8 @@ function lectureHtml(fid){
   try {
     const f = state.files[fid]; if (!f) return "";
     const raw = String((f.tr && f.tr.text) || (f.lec && f.lec.org) || "").trim(), note = noteFor(fid), cs = cardsFrom(fid), drafts = cs.filter(x => isText(x.c)), cid = f.courseId || "";
-    const step = (i, done, title, sub, btns) => `<li class="lc-step${done ? " done" : ""}"><span class="lc-n" aria-hidden="true">${done ? CHECK_IC : i}</span><span class="lc-tx"><b>${title}</b>${sub ? `<span class="mini">${sub}</span>` : ""}</span>${btns ? `<span class="lc-bt">${btns}</span>` : ""}</li>`;
+    // two actions go on their own row under the text, so the text isn't squeezed into a narrow column
+    const step = (i, done, title, sub, btns) => `<li class="lc-step${done ? " done" : ""}${(String(btns || "").match(/<button/g) || []).length > 1 ? " lc-two" : ""}"><span class="lc-n" aria-hidden="true">${done ? CHECK_IC : i}</span><span class="lc-tx"><b>${title}</b>${sub ? `<span class="mini">${sub}</span>` : ""}</span>${btns ? `<span class="lc-bt">${btns}</span>` : ""}</li>`;
     const B = (act, id, label, cls) => `<button type="button" class="btn small${cls ? " " + cls : ""}" data-act="${act}" data-id="${esc(id)}">${label}</button>`;
     let s1;
     if (note) s1 = step(1, true, "Study Notes", "In Notes, linked to this lecture", B("lc-open-note", note.id, "Open Note") + (window.SBONENOTE ? SBONENOTE.saveBtn(note.id) : ""));
@@ -554,6 +562,8 @@ css.textContent = `
 @media (min-width:761px){.lc-next{bottom:92px}
 /* inside an open sheet it sits under the sheet, in the flow, so it never covers the sheet's own buttons */
 dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0}}
+/* in the sheet's From Lecture to Exam card (any width) it is part of the card, under the step it's about */
+.lc-chain > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0;box-shadow:none;z-index:auto}
 .lc-next-t{margin:0;flex:1 1 220px;min-width:0;font-size:.9rem;line-height:1.35;overflow-wrap:anywhere}
 .lc-next-b{display:flex;flex-wrap:wrap;gap:6px}
 .lc-chain{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:12px 0;background:var(--surface);color:var(--ink);text-align:left}
@@ -565,6 +575,7 @@ dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:a
 .lc-tx{flex:1 1 150px;min-width:0;display:flex;flex-direction:column;gap:2px}
 .lc-tx .mini{color:var(--muted);overflow-wrap:anywhere}
 .lc-bt{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lc-step.lc-two .lc-bt{flex:1 1 100%;padding-left:34px}
 .lc-nrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 2px;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.55);color:#2A2418;font-size:.8rem}
 .lc-nrow .link-btn{color:#1A4FA8;font-size:inherit;text-align:left;overflow-wrap:anywhere}
 .lc-nrow .btn{padding:3px 8px;font-size:.78rem;background:rgba(255,255,255,.75);color:#2A2418;border-color:rgba(42,36,24,.25)}
