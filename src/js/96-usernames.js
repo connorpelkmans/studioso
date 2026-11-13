@@ -181,8 +181,19 @@
     }
     askBirthday(age => fin(age >= 13));
   }
+  // One check per account at a time: syncing waits on it (nothing is uploaded before the age is known), and so do the
+  // first-sign-in steps and publishing. Resolves true when the account may be used, false when it may not
+  let gateRun = null, gateFor = "";
+  function ageReady(){
+    const u = who();
+    if (!u || u.is_anonymous) return Promise.resolve(!!u);
+    if (ageCached() === "ok") return Promise.resolve(true);
+    if (gateRun && gateFor === u.id) return gateRun;
+    gateFor = u.id;
+    return (gateRun = new Promise(r => gate(r)));
+  }
   // Publishing needs it too (an account that hasn't been asked yet, say it was offline when it signed in)
-  function ensureAge(then){ gate(ok => { if (ok) then(); }); }
+  function ensureAge(then){ ageReady().then(ok => { if (ok) then(); }); }
 
   // Something needs a username (publishing)
   async function ensure(then){
@@ -197,9 +208,8 @@
   let asked = "";
   async function afterSignIn(){
     if (!live() || asked === who().id) return;
-    if (dlg.open || document.querySelector("dialog[open]")) { setTimeout(afterSignIn, 4000); return; }
     asked = who().id;
-    const fine = await new Promise(r => gate(r));
+    const fine = await ageReady();   // (usually already asked: syncing starts with it)
     if (!fine || cached()) return;
     let n = "";
     try { n = await call("my_username"); } catch (e) { return; }
@@ -209,7 +219,7 @@
     if (want && !UNAME.problem(want)) { try { const got = await call("set_username", {p_name: want}); keep(String(got || want)); scheduleRender(); } catch (e) {} }
   }
   let seen = "";
-  hook("render", () => { const u = who() && who().id; if (!u || u === seen) return; seen = u; setTimeout(afterSignIn, 1500); });
+  hook("render", () => { const u = who() && who().id; if (!u || u === seen) return; seen = u; setTimeout(afterSignIn, 0); });
 
   // Settings > Account
   hook("menu", () => live() ? `<button data-act="un-edit" data-group="account"><span>Username<span class="sub">${cached() ? "@" + esc(cached()) : "Not picked yet"}</span></span></button>` : "");
@@ -227,6 +237,6 @@
 .u13{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
 `;
   document.head.appendChild(css);
-  window.SBUNAME = {problem: UNAME.problem, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, refused, refuse, NO_ACCOUNT, T: {UNAME}};
+  window.SBUNAME = {problem: UNAME.problem, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, refused, refuse, NO_ACCOUNT, ageReady, T: {UNAME}};
 })();
 

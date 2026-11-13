@@ -374,6 +374,13 @@ function sbRetryNow(){
 async function startSupabaseSync(){
   if (sbStarting || !sbUser) return;
   sbStarting = true;
+  // Accounts are for people 13 and older: the birthday question comes first, right after signing in, and nothing on this
+  // device is sent to the account until it's answered (under 13 or Sign Out: never)
+  if (window.SBUNAME && SBUNAME.ageReady) {
+    const me = sbUser.id;
+    let fine = true; try { fine = await SBUNAME.ageReady(); } catch(e) {}
+    if (!fine || !sbUser || sbUser.id !== me) { sbStarting = false; return; }
+  }
   const gen = ++sbStartGen;
   SB_DIAG.tries++; SB_DIAG.startedAt = Date.now(); sbStep("Checking this device");
   const dog = setTimeout(() => { if (gen === sbStartGen && sbStarting) { SB_DIAG.err = `Timed out after 25s at "${SB_DIAG.step}"`; SB_DIAG.errAt = Date.now(); sbStarting = false; if (!cloud.on) setTimeout(startSupabaseSync, 500); } }, 25000);

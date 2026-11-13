@@ -83,6 +83,7 @@ const KID = yearsAgo(11), ADULT = yearsAgo(25);
     await page.waitForFunction(() => Object.keys(localStorage).some(k => /studioso-auth/.test(k) && /access_token/.test(localStorage.getItem(k) || "")), null, {timeout: 10000});
   };
   const birthdayAsked = page => page.waitForSelector("dialog[open] #ageAsk input[name=bday]", {timeout: 15000}).then(() => true, () => false);
+  const syncCall = c => /\/rest\/v1\/(items|studyboard_deletions)\b/.test(c);   // the planner's own rows
   const NEW = () => new Date().toISOString(), OLD = new Date(Date.now() - 400 * 864e5).toISOString();
 
   try {
@@ -120,14 +121,18 @@ const KID = yearsAgo(11), ADULT = yearsAgo(25);
     {
       const S = {user: {id: "bbbbbbbb-0000-0000-0000-000000000001", email: "kid2@example.com", created_at: NEW()}, age: null};
       const {ctx, page} = await open(S);
-      await oauth(page);
+      await oauth(page); const t0 = Date.now();
       ok(await birthdayAsked(page), "after Sign in with Google, a new account is asked for a birthday");
+      ok(Date.now() - t0 < 5000, `right away (${Date.now() - t0} ms after signing in)`);
+      await page.waitForTimeout(3000);
+      ok(!S.calls.some(syncCall), "while it's unanswered, nothing syncs: " + S.calls.filter(syncCall).join(", "));
       ok(/Sign Out/.test(await page.textContent("#bdLater")) && !/under 13|13 and older|parent/i.test(await dlgText(page)), "the only other choice is Sign Out, and the question is neutral");
       await page.fill("dialog[open] input[name=bday]", KID); await page.click("#bdSave");
       await page.waitForFunction(() => /can't make a Studyboard account/.test((document.querySelector("dialog[open]") || {}).innerText || ""), null, {timeout: 10000});
       ok(true, "under 13: refused, in the same words");
       ok(S.deleted && S.deleted.underage === true && S.deleted.confirm === "DELETE", "the account is deleted with everything it stored (delete-account, underage): " + JSON.stringify(S.deleted));
       ok(!S.calls.includes("POST /rest/v1/rpc/set_birthdate"), "the under-13 birthday is never sent to be saved");
+      ok(!S.calls.some(syncCall), "and nothing from this device ever reached the account (no sync at all)");
       ok(!(await signedIn(page)), "this device is signed out");
       ok(await safe(page, () => !!localStorage.getItem("studyboard:agegate")), "and remembers the refusal");
       await page.click("dialog[open] [data-act=close]"); await page.waitForTimeout(1500);
@@ -143,8 +148,12 @@ const KID = yearsAgo(11), ADULT = yearsAgo(25);
       const {ctx, page} = await open(S);
       await oauth(page);
       ok(await birthdayAsked(page), "an adult signing in with Google for the first time is asked too");
+      await page.waitForTimeout(2000);
+      ok(!S.calls.some(syncCall), "nothing syncs before the answer");
       await page.fill("dialog[open] input[name=bday]", ADULT); await page.click("#bdSave"); await page.waitForTimeout(800);
       ok(JSON.parse(S.bodies["POST /rest/v1/rpc/set_birthdate"][0]).p_date === ADULT && !S.deleted && await signedIn(page), "13 or older: the birthday is saved and they stay signed in");
+      await page.waitForTimeout(2500);
+      ok(S.calls.some(syncCall), "then syncing starts");
       ok(!(await page.$("dialog[open] #ageAsk")), "and the question is gone");
       await page.reload(); await page.waitForTimeout(4000);
       ok(!(await page.$("dialog[open] #ageAsk")) && S.calls.filter(c => c === "POST /rest/v1/rpc/set_birthdate").length === 1, "it isn't asked again");
