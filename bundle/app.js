@@ -14428,10 +14428,12 @@ function fitNoteBoard(){
 }
 /* -- Note board zoom */
 const NBZ_KEY = "studyboard:noteZoom", NBZ_MIN = 0.4, NBZ_MAX = 2;
-let NBZ = 1; try { NBZ = Math.min(NBZ_MAX, Math.max(NBZ_MIN, Number(localStorage.getItem(NBZ_KEY)) || 1)); } catch (e) {}
+// A phone's board starts a little smaller, so more notes fit; that size is its "100%" and the steps and labels count from it
+const nbHome = () => window.innerWidth < 640 ? 0.8 : 1;
+let NBZ = nbHome(); try { NBZ = Math.min(NBZ_MAX, Math.max(NBZ_MIN, Number(localStorage.getItem(NBZ_KEY)) || nbHome())); } catch (e) {}
 const nbZ = () => NBZ;
 function nbZoomCtl(){
-  const pct = Math.round(NBZ * 100);
+  const pct = Math.round(NBZ / nbHome() * 100);
   return `<div class="nb-zoom" role="group" aria-label="Board zoom"><button type="button" class="nbz-b" data-act="nb-zoom" data-id="out" aria-label="Zoom out"${NBZ <= NBZ_MIN + 0.001 ? " disabled" : ""}>−</button><button type="button" class="nbz-pct${pct === 100 ? "" : " on"}" data-act="nb-zoom" data-id="reset" aria-label="${pct === 100 ? "Zoom 100%" : `Zoom ${pct}%. Back to 100%`}" title="Back to 100%">${pct === 100 ? "100%" : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>${pct}%`}</button><button type="button" class="nbz-b" data-act="nb-zoom" data-id="in" aria-label="Zoom in"${NBZ >= NBZ_MAX - 0.001 ? " disabled" : ""}>+</button></div>`;
 }
 // Re-fit when the board's view changes size (window resized, a side panel opens), so a zoomed-out board still fills it
@@ -14487,9 +14489,9 @@ function nbFocusNote(id){
   const run = ++nbFocusRun, calm = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const {sc: sc0, el: el0} = first;
   const nx = el0.offsetLeft + el0.offsetWidth / 2, ny = el0.offsetTop + el0.offsetHeight / 2;
-  // big enough that the note fills about half the view, never smaller than now's zoom or 100%
+  // big enough that the note fills about half the view, never smaller than now's zoom or 100% (the phone's own 100%)
   const fit = Math.min(sc0.clientWidth * 0.55 / el0.offsetWidth, sc0.clientHeight * 0.55 / el0.offsetHeight);
-  const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, 1, Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
+  const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, nbHome(), Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
   const cx0 = (sc0.scrollLeft + sc0.clientWidth / 2) / z0, cy0 = (sc0.scrollTop + sc0.clientHeight / 2) / z0;
   const place = (z, cx, cy) => { const {sc} = q(); if (!sc) return false; NBZ = z; nbZoomApply(); sc.scrollLeft = cx * z - sc.clientWidth / 2; sc.scrollTop = cy * z - sc.clientHeight / 2; return true; };
   const done = () => {
@@ -14515,7 +14517,7 @@ function nbFocusNote(id){
   requestAnimationFrame(step);
   return true;
 }
-function nbZoomStep(dir){ const z = dir > 0 ? NBZ_STEPS.find(v => v > NBZ + 0.001) : [...NBZ_STEPS].reverse().find(v => v < NBZ - 0.001); if (z) nbZoomTo(z); }
+function nbZoomStep(dir){ const h = nbHome(), r = NBZ / h, z = dir > 0 ? NBZ_STEPS.find(v => v > r + 0.001) : [...NBZ_STEPS].reverse().find(v => v < r - 0.001); nbZoomTo(z ? z * h : dir > 0 ? NBZ_MAX : NBZ_MIN); }
 // Trackpad pinch (Chrome, Edge, Firefox send it as Ctrl + wheel) and Ctrl/⌘ + mouse wheel
 document.addEventListener("wheel", e => {
   if (!(e.ctrlKey || e.metaKey) || ui.tab !== "notes" || !e.target.closest || !e.target.closest("#nbScroll")) return;
@@ -15558,6 +15560,14 @@ function drawMath(el){
   }
   if (!html) { el.classList.add("mth-bad"); return; }
   el.innerHTML = html; el.classList.add("mth-ok");
+  mathFit(el);
+}
+// A formula wider than its sticky note shrinks to fit (down to 60%) instead of being cut off at the edge
+function mathFit(el){
+  const box = el.closest(".note-body"); if (!box) return;
+  el.style.fontSize = "";
+  const cs = getComputedStyle(box), room = box.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0), w = el.offsetWidth;
+  if (room > 0 && w > room) el.style.fontSize = Math.max(0.6, Math.floor(room / w * 100) / 100) + "em";
 }
 function mathPending(root){ (root || document).querySelectorAll(".mth:not(.mth-ok):not(.mth-bad)").forEach(drawMath); }
 // Plain text to a fragment with math and formatting, or null when there's nothing to draw
@@ -15590,6 +15600,7 @@ function rtRun(){
     const t = el.textContent;
     if (el.__rt === t) return;
     richNode(el); el.__rt = el.textContent;
+    if (el.classList.contains("note-body")) el.querySelectorAll(".mth.mth-ok").forEach(mathFit);
   });
   if (katexOk) mathPending(document);
 }
@@ -15671,7 +15682,8 @@ function rbPlace(el, f, below){
   let top = below ? r.bottom + 6 : r.top - h - 6;
   if (!below && top < vTop + 6) top = r.bottom + 6;
   if (top + h > vTop + vH - 4) top = Math.max(vTop + 6, vTop + vH - h - 4);
-  const left = Math.max(6, Math.min(vw - w - 6, r.left));
+  // The toolbar sits at the field's right edge, clear of its label on the left; the equation box below starts at its left
+  const left = Math.max(6, Math.min(vw - w - 6, below ? r.left : r.right - w));
   el.style.left = (left - off.left) + "px"; el.style.top = (top - off.top) + "px";
 }
 function rbShow(f){
@@ -18711,11 +18723,13 @@ function quizSheet(deckIds){
   const ds = decksArr().filter(d => d.cards.length);
   if (!ds.length) { toast("Add cards to a deck first"); return; }
   const sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady(), last = quizOpts();
+  // A deck smaller than the usual count starts on All (a 6-card deck can't make 10 questions)
+  const have = [...sel].reduce((t, id) => t + (state.decks[id] ? state.decks[id].cards.length : 0), 0), qn = last.qn !== "all" && have < Number(last.qn) ? "all" : last.qn;
   openSheet(`<form class="sheet">${head(ai ? `Make a Quiz with ${aiWho("AI")}` : "Make a Quiz")}
     <div class="sheet-body">
       <fieldset><legend>Decks</legend><div class="check-list">${ds.map(d => `<label class="mi-check"><input type="checkbox" name="deck" value="${esc(d.id)}" ${sel.has(d.id) ? "checked" : ""}> ${esc(d.name)} <span class="mini">${d.cards.length} cards</span></label>`).join("")}</div></fieldset>
       <label class="f"><span class="lh">Quiz Name</span><input type="text" name="qname" maxlength="120" value="${esc(uniqueQuizTitle((state.decks[[...sel][0]] || ds[0]).name + " Quiz"))}"></label>
-      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], last.qn)}</fieldset>
+      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], qn)}</fieldset>
       <fieldset><legend>Question Types</legend><div class="check-list row">
         <label class="mi-check"><input type="checkbox" name="qt" value="mc"${last.qt.includes("mc") ? " checked" : ""}> Multiple choice</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
@@ -22084,7 +22098,7 @@ document.addEventListener("click", e => {
     case "tl-mode": ui.tlMode = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlmode", id); } catch(err) {} render(); break;
     case "note-new": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "board-max": boardMax(!boardMaxOn()); break;
-    case "nb-zoom": if (id === "reset") nbZoomTo(1); else nbZoomStep(id === "in" ? 1 : -1); break;
+    case "nb-zoom": if (id === "reset") nbZoomTo(nbHome()); else nbZoomStep(id === "in" ? 1 : -1); break;
     case "nb-pick": if (noteEditing) saveNoteText(); ui.noteBoard = el.dataset.id || ""; try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {} render(); break;
     case "nb-new": if (noteEditing) saveNoteText(); noteBoardSheet(""); break;
     case "nb-edit": noteBoardSheet(el.dataset.id); break;
@@ -34353,7 +34367,7 @@ hook("boot", boot);
         ? `${stale ? `<button class="btn small primary" data-act="grp-item-push" data-id="${esc(it.id)}">Update</button>` : ""}<button class="btn small" data-act="grp-item-view" data-id="${esc(it.id)}">View</button>`
         : copy ? `${upd ? `<button class="btn small primary" data-act="grp-item-update" data-id="${esc(it.id)}">Get Update</button>` : ""}<button class="btn small" data-act="grp-item-open" data-id="${esc(it.id)}">Open</button>`
         : `<button class="btn small primary" data-act="grp-item-study" data-id="${esc(it.id)}">Study Now</button><button class="btn small" data-act="grp-item-add" data-id="${esc(it.id)}">Add Copy</button>`;
-      const mtBtn = window.SBMATCH && window.SBMATCH.usable(p.cards) >= 3 ? `<button class="btn small" data-act="grp-match" data-id="${esc(it.id)}" aria-label="Match: ${esc(it.title)}">Match</button>` : "";
+      const mtBtn = window.SBMATCH && window.SBMATCH.usable(p.cards) >= window.SBMATCH.MATCH.MIN ? `<button class="btn small" data-act="grp-match" data-id="${esc(it.id)}" aria-label="Match: ${esc(it.title)}">Match</button>` : "";
       return `<li class="grp-item${upd ? " is-upd" : ""}"><button class="grp-item-main" data-act="grp-item-view" data-id="${esc(it.id)}"><b>${esc(it.title)}</b>
           <span class="mini">${plural(nc, "card")}${nq ? `, ${plural(nq, "practice quiz", "practice quizzes")}` : ""} · ${mine ? "Shared by you" : "Shared by " + esc(it.author_name || "a member")}${copy && !upd ? " · In your Flashcards" : ""}</span>
           ${upd ? `<span class="grp-chg">Updated ${esc(ago(it.updated_at, 1))}. Get the new cards and keep your progress.</span>` : stale ? `<span class="grp-chg">You changed this deck. Update the group's copy?</span>` : ""}</button>
@@ -68355,6 +68369,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .cpt-empty .cpt-chips{justify-content:center}
 .cpt-form{display:flex;gap:8px;align-items:flex-end}
 .cpt-form textarea{flex:1;min-height:44px;max-height:9em;resize:none;border-radius:14px;line-height:1.35;overflow-y:auto}
+/* The hint stays on one line on a narrow phone (cut with … rather than wrapping in half) */
+.cpt-form textarea::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cpt-form .btn{min-height:44px}
 .cpt-manage{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
 .cpt-manage .mini,.cpt-manage .sub{color:var(--ink);opacity:.8}
@@ -76875,8 +76891,15 @@ function bestDeckFor(id){
   const e = madeFrom()[id]; if (!e) return "";
   return Object.keys(e.decks).filter(k => state.decks[k] && !state.decks[k].archived).sort((a, b) => e.decks[b] - e.decks[a])[0] || "";
 }
+// A deck the note links to, as [[Deck name]] (the first one that names a deck)
+function linkedDeck(text){
+  const key = x => String(x || "").toLowerCase().replace(/\s+/g, " ").trim(), re = /\[\[([^[\]\n|#]{1,200})(?:[#|][^[\]\n]*)?\]\]/g; let m;
+  while ((m = re.exec(String(text || "")))) { const k = key(m[1]), d = decksArr().find(x => key(x.name) === k); if (d) return d.id; }
+  return "";
+}
 function defaultDeck(n, text){
   const prev = bestDeckFor(n.id); if (prev) return prev;
+  const link = linkedDeck(text != null ? text : n.text); if (link) return link;
   const nm = suggestName(n, text), same = decksArr().find(d => d.name === nm && (d.courseId || "") === (n.courseId || ""));
   return same ? same.id : "new";
 }
@@ -78421,7 +78444,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
 (() => {
   /*MATCH-START: pure code, no DOM or app state */
   const MATCH = (() => {
-    const N = 6, PENALTY = 1000, KEEP = 5, MIN = 3;
+    const N = 6, PENALTY = 1000, KEEP = 5, MIN = 2;
     const norm = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
     // Cards that can be tiles
     const usable = cards => (Array.isArray(cards) ? cards : []).filter(c => c && !c.draft && !c.img && norm(c.front) && norm(c.back));
@@ -78477,7 +78500,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     const cards = MATCH.pick(src && src.cards);
     if (cards.length < MATCH.MIN) {
       const n = MATCH.usable(src && src.cards).length;
-      toast(n >= MATCH.MIN ? "Match needs at least 3 cards with different text. Add a few more cards first." : `Match needs at least 3 cards with text on both sides${n ? `. This deck has ${n}` : ""}. Add a few more cards first.`);
+      toast(n >= MATCH.MIN ? `Match needs at least ${MATCH.MIN} cards with different text. Add a few more cards first.` : `Match needs at least ${MATCH.MIN} cards with text on both sides${n ? `. This deck has ${n}` : ""}. Add a few more cards first.`);
       return false;
     }
     stop();
@@ -78578,8 +78601,9 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
   });
   // The Match button on a deck page (Flashcards), next to Study and Make a Quiz
   function deckBtn(d){
-    const best = MATCH.bestOf(d && d.match);
-    return `<button class="btn" data-act="mt-start" data-id="${esc(d.id)}" ${d.cards.length ? "" : "disabled"} title="${best ? `Match the terms and definitions against the clock. Your best: ${MATCH.clock(best)} s` : "Match the terms and definitions against the clock"}">Match</button>`;
+    const best = MATCH.bestOf(d && d.match), few = MATCH.usable(d.cards).length < MATCH.MIN;
+    // Too few cards: the button is off and its tooltip says why
+    return `<button class="btn" data-act="mt-start" data-id="${esc(d.id)}" ${few ? "disabled" : ""} title="${few ? `Match needs at least ${MATCH.MIN} cards with text on both sides` : best ? `Match the terms and definitions against the clock. Your best: ${MATCH.clock(best)} s` : "Match the terms and definitions against the clock"}">Match</button>`;
   }
   window.SBMATCH = {start, deckBtn, MATCH, clock: MATCH.clock, best: d => MATCH.bestOf(d && d.match), usable: c => MATCH.usable(c).length};
   // test handle, like __sbNotecards
@@ -81644,9 +81668,10 @@ var SBPRO = null;
   const compareRows = () => FEATURES.filter(f => f.compare !== false && TOP.includes(f.id)).sort((a, b) => TOP.indexOf(a.id) - TOP.indexOf(b.id)).map(f => [f.name, f.free || "—", f.pro || "Included"]);
   // The same features as buttons on the tabs they belong to
   function tabBtns(where){
-    if (locked() || !isPro()) return "";
-    const b = (act, id, label, icon, tip) => `<button type="button" class="btn small pro-tab-btn" data-act="${act}"${id ? ` data-id="${id}"` : ""} title="${esc(tip)}" aria-label="${esc(label)}">${ico(icon)}<span>${esc(label)}</span></button>`;
+    const b = (act, id, label, icon, tip, tag) => `<button type="button" class="btn small pro-tab-btn" data-act="${act}"${id ? ` data-id="${id}"` : ""} title="${esc(tip)}" aria-label="${esc(label)}">${ico(icon)}<span>${esc(label)}</span>${tag ? PRO_BADGE : ""}</button>`;
     const f = id => (FEATURES.find(x => x.id === id) || {}).icon || "";
+    // free plan: Insights still shows, tagged PRO, and opens as a preview (the rest of these stay Pro only)
+    if (locked() || !isPro()) return where === "courses" || where === "grades" ? b("pro-ins-open", "", "Insights", f("insights"), "A preview of Insights: study time against grades, with the rest in Studyboard Pro", true) : "";
     const print = FEATURES.some(x => x.id === "print");
     const recap = !!(recapTerm() || (S().recapLast && S().recapLast.from));
     switch (where) {
@@ -81963,36 +81988,51 @@ var SBPRO = null;
       const acc = ((c.right || 0) + 1) / ((c.seen || 0) + 2);
       return {s: BOXS[Math.max(0, Math.min(5, c.box | 0))], d: clampD(9 - acc * 6)};
     }
+    // FSRS-5's short-term weights: a second look the same day nudges stability by the grade
+    const W17 = 0.5425, W18 = 0.0912;
+    // elapsed: days since the last review (null when unknown: treated as on time)
     function next(fs, rating, elapsed){
       const g = G[rating] || 3;
       if (!fs) return {s: W[g - 1], d: clampD(W[4] - (g - 3) * W[5])};
-      const r = R(Math.max(0, elapsed), fs.s);
       const d = clampD(W[7] * W[4] + (1 - W[7]) * (fs.d - W[6] * (g - 3)));
+      if (elapsed === 0) return {s: Math.max(0.1, Math.round(fs.s * Math.exp(W17 * (g - 3 + W18)) * 1000) / 1000), d: Math.round(d * 1000) / 1000};
+      const r = R(elapsed == null ? fs.s : Math.max(0, elapsed), fs.s);
       const s = g === 1 ? Math.min(fs.s, W[11] * Math.pow(fs.d, -W[12]) * (Math.pow(fs.s + 1, W[13]) - 1) * Math.exp(W[14] * (1 - r)))
         : fs.s * (1 + Math.exp(W[8]) * (11 - fs.d) * Math.pow(fs.s, -W[9]) * (Math.exp(W[10] * (1 - r)) - 1) * (g === 2 ? W[15] : 1) * (g === 4 ? W[16] : 1));
       return {s: Math.max(0.1, Math.round(s * 1000) / 1000), d: Math.round(d * 1000) / 1000};
     }
     const days = (fs, rating, retention) => rating === "again" ? 0 : interval(fs.s, retention);
+    // Days for each rating from one state, kept Hard < Good < Easy so the choice always matters
+    function spread(prev, elapsed, retention){
+      const n = k => days(next(prev, k, elapsed), k, retention);
+      const good0 = n("good"), hard = Math.min(n("hard"), good0), good = Math.max(good0, hard + 1);
+      return {again: 0, hard, good, easy: Math.max(n("easy"), good + 1)};
+    }
     const boxFor = n => n <= 0 ? 0 : n <= 1 ? 1 : n <= 3 ? 2 : n <= 8 ? 3 : n <= 20 ? 4 : 5;
-    return {W, R, interval, seed, next, days, boxFor};
+    return {W, R, interval, seed, next, days, spread, boxFor};
   })();
   /*FSRS-END*/
   const smart = d => !!d && d.sched !== "classic";
   const target = d => [0.85, 0.9, 0.95].includes(Number(d && d.retention)) ? Number(d.retention) : 0.9;
-  const elapsedOf = c => c.last && isDate(c.last) ? Math.max(0, dayDiff(c.last, todayISO())) : 0;
+  // Days since the card's last review; with no date (older cards), estimated from its due date less its box's interval
+  const elapsedOf = c => {
+    if (c.last && isDate(c.last)) return Math.max(0, dayDiff(c.last, todayISO()));
+    if (c.due && isDate(c.due)) return Math.max(0, dayDiff(addDays(c.due, -(BOX_DAYS[Math.max(0, Math.min(5, c.box | 0))] || 0)), todayISO()));
+    return null;
+  };
   function cardRated(d, c, rating){
     const day = todayISO(), rv = Object.assign({}, d.rv || {});
     rv[day] = (Number(rv[day]) || 0) + 1;
     Object.keys(rv).sort().slice(0, Math.max(0, Object.keys(rv).length - 120)).forEach(k => delete rv[k]);
     d.rv = rv;
     if (!smart(d)) return null;
-    const fs = FSRS.next(FSRS.seed(c), rating, elapsedOf(c)), n = FSRS.days(fs, rating, target(d));
+    const prev = FSRS.seed(c), el = elapsedOf(c), fs = FSRS.next(prev, rating, el), n = FSRS.spread(prev, el, target(d))[rating] || 0;
     c.fs = fs;
     return {due: addDays(day, n), box: FSRS.boxFor(n)};
   }
   function cardPreview(d, c, rating){
     if (!smart(d)) return "";
-    return addDays(todayISO(), FSRS.days(FSRS.next(FSRS.seed(c), rating, elapsedOf(c)), rating, target(d)));
+    return addDays(todayISO(), FSRS.spread(FSRS.seed(c), elapsedOf(c), target(d))[rating] || 0);
   }
 
   /* Deck stats */
@@ -83578,6 +83618,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const P = SBPRO;
   const proWhy = why => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(why); };
   const KEY = "studyboard:listen";
+  // free plan: Listen plays this many cards as a preview, then offers Pro
+  const FREE_N = 3, WHY = "Listen is part of Studyboard Pro: your deck read aloud, so you can review on a walk or a commute.";
   const prefs = () => { let o = {}; try { o = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) {} return Object.assign({set: "due", order: "front", gap: 4, rate: 1, voice: "", loop: false}, o); };
   const setPrefs = patch => { try { localStorage.setItem(KEY, JSON.stringify(Object.assign(prefs(), patch))); } catch (e) {} };
   const TTS = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance === "function" ? window.speechSynthesis : null;
@@ -83658,8 +83700,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     while (L && L.run === run && L.playing) {
       const c = cardAt(L.i);
       if (!c) {
-        if (prefs().loop && L.ids.length) { L.i = 0; L.side = "a"; draw(); continue; }
-        L.playing = false; L.i = Math.max(0, L.ids.length - 1); L.side = "b"; draw(); toast("That's every card in the list."); break;
+        if (prefs().loop && L.ids.length && !L.preview) { L.i = 0; L.side = "a"; draw(); continue; }
+        L.playing = false; L.i = Math.max(0, L.ids.length - 1); L.side = "b"; L.end = true; draw(); toast(L.preview ? "That's the free preview. Listen to every card with Studyboard Pro." : "That's every card in the list."); break;
       }
       const first = prefs().order === "back" ? c.back : c.front, second = prefs().order === "back" ? c.front : c.back;
       if (L.side === "a") {
@@ -83674,7 +83716,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     }
   }
   function stopSpeech(){ const t = TTS(); if (t && (t.speaking || t.pending || t.paused)) try { t.cancel(); } catch (e) {} if (L) { clearTimeout(L.timer); L.run++; L.u = null; } }
-  function play(){ if (!L || !L.ids.length) return; L.playing = true; if (L.i >= L.ids.length) { L.i = 0; L.side = "a"; } stopSpeech(); loop(); draw(); }
+  function play(){ if (!L || !L.ids.length) return; L.playing = true; L.end = false; if (L.i >= L.ids.length) { L.i = 0; L.side = "a"; } stopSpeech(); loop(); draw(); }
   function pause(){ if (!L) return; L.playing = false; stopSpeech(); draw(); }
   function step(n){ if (!L || !L.ids.length) return; const was = L.playing; stopSpeech(); L.i = Math.max(0, Math.min(L.ids.length - 1, L.i + n)); L.side = "a"; if (was) { L.playing = true; loop(); } draw(); }
   function meta(c){
@@ -83700,15 +83742,14 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const LISTEN_ICON = '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>';
   function rebuild(){
     const d = deckOf(); if (!d) return;
-    L.ids = pickCards(d.cards, prefs().set, todayISO()).map(c => c.id);
-    L.i = 0; L.side = "a";
+    L.ids = pickCards(d.cards, prefs().set, todayISO()).map(c => c.id).slice(0, L.preview ? FREE_N : Infinity);
+    L.i = 0; L.side = "a"; L.end = false;
   }
   function open(deckId){
     const d = state.decks[deckId]; if (!d) return;
-    if (P.locked()) { proWhy("Listen is part of Studyboard Pro: your deck read aloud, so you can review on a walk or a commute."); return; }
     if (!TTS()) { toast("This device can't read text aloud."); return; }
     if (L) release();
-    L = {deckId, ids: [], i: 0, side: "a", playing: false, timer: 0, run: 0};
+    L = {deckId, ids: [], i: 0, side: "a", playing: false, timer: 0, run: 0, preview: P.locked()};
     rebuild();
     openSheet(`<div class="sheet ls-sheet">${head("Listen")}<div class="sheet-body ls-body"></div><div class="sheet-foot"><span class="mini ls-foot">Listening doesn't count as a review. Study the deck to rate cards.</span><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     draw();
@@ -83727,7 +83768,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       : /Windows/.test(ua) ? "For a more natural voice, open Studyboard in Microsoft Edge (it has Natural voices), or add voices in Settings, Time and Language, Speech."
       : /Android/.test(ua) ? "For a more natural voice, update Speech Services by Google and download a voice in its settings, then choose it here."
       : "Only basic voices are installed on this device. Chrome and Edge come with more natural voices.";
-    b.innerHTML = `<p class="ls-deck"><b>${esc(d ? d.name : "")}</b><span class="mini">${n ? `Card ${Math.min(n, L.i + 1)} of ${n}` : ""}</span></p>
+    const pro = L.preview ? `<div class="ls-pro${L.end ? " on" : ""}"><span>${L.end ? "That's the free preview." : `A free preview: the first ${FREE_N} cards.`} Listen to the whole deck with Studyboard Pro.</span><button type="button" class="btn small primary" data-act="ls-pro">Unlock with Pro</button></div>` : "";
+    b.innerHTML = `${pro}<p class="ls-deck"><b>${esc(d ? d.name : "")}</b><span class="mini">${n ? `Card ${Math.min(n, L.i + 1)} of ${n}` : ""}</span></p>
       ${n ? `<div class="ls-card" aria-live="polite"><span class="ls-side">${L.side === "a" ? (p.order === "back" ? "Back" : "Front") : (p.order === "back" ? "Front" : "Back")}</span>
           <p class="ls-a${L.side === "a" ? " on" : ""}">${esc(first)}</p>${L.side === "b" ? `<p class="ls-b on">${esc(second)}</p>` : `<p class="ls-b ls-hidden" aria-hidden="true">${L.playing ? "Answer in your head…" : "The answer is read after the pause."}</p>`}</div>
         <div class="ls-ctl"><button type="button" class="icon-btn ls-step" data-act="ls-step" data-id="-1" aria-label="Previous card" ${L.i ? "" : "disabled"}>${ICO.prev}</button>
@@ -83743,7 +83785,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <label class="f">Speed<select data-ls="rate">${[[0.8, "Slower"], [1, "Normal"], [1.2, "Faster"], [1.5, "Fastest"]].map(([v, l]) => `<option value="${v}"${Number(p.rate) === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
         </div>
         <label class="f">Voice<select data-ls="voice"><option value="">Automatic${auto ? ` (${esc(auto.name)})` : ""}</option>${mine.map(vOpt).join("")}${others.length ? `<optgroup label="Other languages">${others.map(vOpt).join("")}</optgroup>` : ""}</select></label>${tip ? `<p class="mini ls-vtip">${esc(tip)}</p>` : ""}
-        <label class="ls-loop"><input type="checkbox" data-ls="loop"${p.loop ? " checked" : ""}> Start again at the end</label>
+        ${L.preview ? "" : `<label class="ls-loop"><input type="checkbox" data-ls="loop"${p.loop ? " checked" : ""}> Start again at the end</label>`}
       </div>`;
     b.querySelectorAll("[data-ls]").forEach(el => el.addEventListener("change", () => {
       const k = el.dataset.ls, v = k === "loop" ? el.checked : k === "voice" ? el.value : Number(el.value);
@@ -83777,7 +83819,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const prevToday = P.todayHtml;
   P.todayHtml = () => { let a = ""; try { a = prevToday(); } catch (e) {} let b = ""; try { b = commuteHtml(); } catch (e) {} return a + b; };
   const prevDeck = P.deckBtns;
-  P.deckBtns = d => { const a = prevDeck ? prevDeck(d) : ""; return P.locked() || !TTS() ? a : a + `<button class="btn" data-act="ls-open" data-id="${esc(d.id)}">Listen</button>`; };
+  P.deckBtns = d => { const a = prevDeck ? prevDeck(d) : ""; return !TTS() ? a : a + `<button class="btn" data-act="ls-open" data-id="${esc(d.id)}">Listen${P.locked() ? " " + PRO_BADGE : ""}</button>`; };
 
   hook("act", (act, el, id) => {
     switch (act) {
@@ -83785,6 +83827,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "ls-play": if (L) (L.playing ? pause() : play()); return true;
       case "ls-step": step(Number(id) || 1); return true;
       case "ls-set": { if (!L) return true; const k = el.dataset.k; setPrefs({[k]: id}); if (k === "set") { const was = L.playing; pause(); rebuild(); if (was) play(); } else if (L.playing) { stopSpeech(); L.side = "a"; loop(); } draw(); return true; }
+      case "ls-pro": if (dlg.open) dlg.close(); proWhy(WHY); return true;
       case "ls-hide": try { localStorage.setItem("studyboard:listenHide", todayISO()); } catch (e) {} scheduleRender(); return true;
     }
     return false;
@@ -83797,6 +83840,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   css.textContent = `
 .ls-body{display:grid;gap:14px}
 .ls-deck{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin:0}
+.ls-pro{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px dashed var(--line);border-radius:12px;padding:8px 12px;font-size:.88rem}
+.ls-pro span{flex:1;min-width:12em}
+.ls-pro.on{border-style:solid;border-color:#FFB443;background:color-mix(in srgb,#FFB443 12%,var(--surface))}
 .ls-card{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:4px 14px 14px 14px;box-shadow:var(--shadow);padding:16px 18px;min-height:150px;align-content:start}
 .ls-side{font:700 .72rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .ls-card p{margin:0;font:600 1.15rem/1.4 var(--display);white-space:pre-wrap;overflow-wrap:anywhere}

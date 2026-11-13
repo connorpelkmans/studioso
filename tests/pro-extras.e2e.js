@@ -209,7 +209,7 @@ function SEED(){
     await p3.evaluate(() => document.querySelector('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"]').click()); await p3.waitForTimeout(300);
     ok(await p3.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2") || "{}")) && await p3.locator('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"][aria-pressed="true"]').count() === 1, "free: a deck can be switched to Classic");
     await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
-    for (const t of ["courses", "timeline", "schedule"]) { await p3.evaluate(t => { const b = document.querySelector(`nav.tabs [data-tab="${t}"]`); if (b) b.click(); }, t); await p3.waitForTimeout(300); ok(await p3.locator(".pro-tab-btn").count() === 0, `free: no Pro buttons on ${t}`); }
+    for (const t of ["courses", "timeline", "schedule"]) { await p3.evaluate(t => { const b = document.querySelector(`nav.tabs [data-tab="${t}"]`); if (b) b.click(); }, t); await p3.waitForTimeout(300); ok(await p3.locator('.pro-tab-btn:not([data-act="pro-ins-open"])').count() === 0 && (t !== "courses" || await p3.locator('.pro-tab-btn[data-act="pro-ins-open"] .pro-badge').count() === 1), `free: ${t === "courses" ? "only Insights, tagged PRO," : "no Pro buttons"} on ${t}`); }
     await act(p3, "pro-cf-open", "d1"); await p3.waitForTimeout(400);
     ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: Image Cards opens the Pro sheet");
     ok(p3.errs.length === 0, "no console errors on the free plan: " + p3.errs.join(" | "));

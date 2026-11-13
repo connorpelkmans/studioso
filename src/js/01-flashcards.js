@@ -745,11 +745,13 @@ function quizSheet(deckIds){
   const ds = decksArr().filter(d => d.cards.length);
   if (!ds.length) { toast("Add cards to a deck first"); return; }
   const sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady(), last = quizOpts();
+  // A deck smaller than the usual count starts on All (a 6-card deck can't make 10 questions)
+  const have = [...sel].reduce((t, id) => t + (state.decks[id] ? state.decks[id].cards.length : 0), 0), qn = last.qn !== "all" && have < Number(last.qn) ? "all" : last.qn;
   openSheet(`<form class="sheet">${head(ai ? `Make a Quiz with ${aiWho("AI")}` : "Make a Quiz")}
     <div class="sheet-body">
       <fieldset><legend>Decks</legend><div class="check-list">${ds.map(d => `<label class="mi-check"><input type="checkbox" name="deck" value="${esc(d.id)}" ${sel.has(d.id) ? "checked" : ""}> ${esc(d.name)} <span class="mini">${d.cards.length} cards</span></label>`).join("")}</div></fieldset>
       <label class="f"><span class="lh">Quiz Name</span><input type="text" name="qname" maxlength="120" value="${esc(uniqueQuizTitle((state.decks[[...sel][0]] || ds[0]).name + " Quiz"))}"></label>
-      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], last.qn)}</fieldset>
+      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], qn)}</fieldset>
       <fieldset><legend>Question Types</legend><div class="check-list row">
         <label class="mi-check"><input type="checkbox" name="qt" value="mc"${last.qt.includes("mc") ? " checked" : ""}> Multiple choice</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>

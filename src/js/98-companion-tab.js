@@ -561,6 +561,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .cpt-empty .cpt-chips{justify-content:center}
 .cpt-form{display:flex;gap:8px;align-items:flex-end}
 .cpt-form textarea{flex:1;min-height:44px;max-height:9em;resize:none;border-radius:14px;line-height:1.35;overflow-y:auto}
+/* The hint stays on one line on a narrow phone (cut with … rather than wrapping in half) */
+.cpt-form textarea::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cpt-form .btn{min-height:44px}
 .cpt-manage{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
 .cpt-manage .mini,.cpt-manage .sub{color:var(--ink);opacity:.8}
