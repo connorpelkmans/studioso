@@ -151,7 +151,7 @@
       const texts = await Promise.all(want.map(({f}) => Promise.race([(async () => { try { return window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; } catch (e) { return ""; } })(), late])));
       want.forEach(({f}, i) => { const t = texts[i]; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } });
     }
-    return {text: L.join("\n\n").slice(0, 60000), src, need: N};
+    return {text: L.join("\n\n").slice(0, 60000), src, need: N, rows: R && R.rows ? R.rows : []};
   }
   const SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "The reply, in the companion's friendly voice. Plain text; short paragraphs or '- ' bullets, **bold** sparingly."},
@@ -186,16 +186,31 @@
   const FREE_RULE = `\n\nReply with only a JSON object: {"answer": "your full, helpful reply to the student"}. The answer is the reply itself, never a placeholder.`;
   // Errors the student has to act on (set up AI, a refused key, a cancel, out of allowance) are shown; anything else is tried again
   // (offline or out of allowance get the answer made on this device instead)
+  const LOCAL = window.SBLOCALANS;
   const stopsHere = e => !!e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""));
-  // The last resort, made on this device: what was found for the question in their own data
-  function localAnswer(ctx, err){
-    const t = String(ctx && ctx.text || ""), L = [];
+  // Out of free requests (not just too many at once): trying again now only uses up more, so the answer is made on this device
+  const usedUp = e => !!e && e.code === "limit" && !e.rate;
+  // The last resort, made on this device: what was found for the question in their own data. A "what next" question is answered
+  // from Do This Next, and a task always comes with its course and when it's due (the bubble's Ask uses the same, 98-assist.js)
+  function localAnswer(ctx, err, q){
+    const t = String(ctx && ctx.text || ""), L = [], rows = (ctx && ctx.rows) || [];
     const sec = name => { const i = t.indexOf(name); if (i < 0) return ""; const j = t.indexOf("\n\n", i + name.length); return t.slice(i, j < 0 ? undefined : j); };
+    const nx = LOCAL.NEXT_Q.test(String(q || "")) ? LOCAL.nextLine() : "";
+    if (nx) L.push("- " + nx);
     const sr = sec("SEARCH RESULTS");
-    if (sr) (sr.match(/\[\d+\] [^\n]*\n[^\n]*/g) || []).slice(0, 4).forEach(x => { const [h, b] = x.split("\n"); L.push(`- **${h.replace(/^\[\d+\] /, "").trim()}**: ${clip(b, 220)}`); });
+    if (!L.length && sr) (sr.match(/\[\d+\] [^\n]*\n[^\n]*/g) || []).slice(0, 4).forEach((x, i) => {
+      const d = rows[i] && rows[i].doc, tk = d && d.type === "task" && state.tasks[d.id];
+      if (tk) { L.push("- " + LOCAL.taskLine(tk)); return; }
+      const [h, b] = x.split("\n"), head = h.replace(/^\[\d+\] /, "").trim(), title = head.replace(/^[^:]{1,24}: /, "");
+      // the body starts with the title again: once is enough
+      const body = String(b || "").startsWith(title) ? String(b).slice(title.length).replace(/^[\s:·,.-]+/, "") : String(b || "");
+      L.push(`- **${head}**${body ? ": " + clip(body, 220) : ""}`);
+    });
     if (!L.length) ["OPEN TASKS", "COURSES", "CLASSES AND EVENTS", "COURSE GRADES", "STICKY NOTES"].forEach(n => { const x = sec(n); if (x && L.length < 10) x.split("\n").slice(0, 7).forEach(l => L.push(l)); });
-    const why = err && err.code === "limit" && !err.rate ? "the AI allowance is used up for now" : navigator.onLine === false || (err && err.code === "offline") ? "the AI can't be reached (check your internet)" : "the AI isn't answering right now";
-    return {answer: L.length ? `I couldn't get a full answer because ${why}, but here's what I found in your Studyboard for that:\n${L.join("\n")}\n\nAsk me again in a moment for a proper answer.` : `I couldn't get an answer because ${why}. Ask me again in a moment, and I'll try again.`, followUps: []};
+    const gem = (() => { try { return aiCfg().provider === "gemini"; } catch (e) { return false; } })();
+    const why = usedUp(err) ? (err.daily && gem ? "today's free Gemini requests are used up" : gem ? "the free Gemini requests are used up for now" : "the AI allowance is used up for now") : navigator.onLine === false || (err && err.code === "offline") ? "the AI can't be reached (check your internet)" : "the AI isn't answering right now";
+    const again = usedUp(err) ? (err.daily && gem ? "They reset tomorrow, and I can answer properly then." : gem ? "Try again in a minute or two. If it's Gemini's daily limit, it resets tomorrow." : "It comes back later; AI Settings shows when.") : "Ask me again in a moment for a proper answer.";
+    return {answer: L.length ? `I couldn't get a full answer because ${why}, but here's what I found in your Studyboard for that:\n${L.join("\n")}\n\n${again}` : `I couldn't get an answer because ${why}. ${usedUp(err) ? again : "Ask me again in a moment, and I'll try again."}`, followUps: []};
   }
   const PLAIN = {type: "OBJECT", properties: {answer: SCHEMA.properties.answer, followUps: SCHEMA.properties.followUps}, required: ["answer", "followUps"]};
   // An answer that's a placeholder instead of a reply ("string", "...", nothing, raw JSON) is never shown
@@ -253,16 +268,16 @@ You can also DO things in Studyboard, but only when the student asks or what the
       const tries = [() => call(), () => call(PLAIN), () => call(null, true)];
       for (let i = 0; i < tries.length && !r; i++) {
         try { const x = await tries[i](); if (x && x.data && !junk(x.data.answer)) r = x; }
-        catch (e) { lastErr = e; if (stopsHere(e)) throw e; await new Promise(res => setTimeout(res, 1200 * (i + 1))); }
+        catch (e) { lastErr = e; if (stopsHere(e)) throw e; if (usedUp(e)) break; await new Promise(res => setTimeout(res, 1200 * (i + 1))); }
       }
-      if (!r) r = {data: localAnswer(ctx, lastErr), local: true};
+      if (!r) r = {data: localAnswer(ctx, lastErr, q), local: true};
       const d = r.data || {};
       m.a = {answer: clip2(d.answer, 8000), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(Boolean).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
       if (cat && window.SBASSIST) { const res = SBASSIST.pack(SBASSIST.resolve(d, cat.refs)); if (res.show.length) m.a.show = res.show; if (res.changes.length) m.a.changes = res.changes; }
-      if (!m.a.answer) m.a.answer = localAnswer(ctx, null).answer;
+      if (!m.a.answer) m.a.answer = localAnswer(ctx, null, q).answer;
       if (r.local) m.a.local = true;
       if (!m.a.sources.length) m.a.sources = ctx.src.slice(0, 4);
-    } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); }
+    } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
@@ -284,13 +299,18 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (notesArr().some(n => String(n.text || "").trim())) out.push("Summarize my notes");
     return out.slice(0, 5);
   }
+  // An error the student fixes in AI Settings (a refused or missing key, no consent yet) is a clear notice with the button to get there
+  function errHtml(m){
+    const fix = /^(key|nokey|no-consent)$/.test(m.errCode || "");
+    return `<div class="${fix ? "cpt-err cpt-banner" : "cpt-err"}" role="alert"><p style="margin:0">${esc(m.err)}</p>${aiDetailHtml({detail: m.errDetail})}${fix ? `<button type="button" class="btn small primary" data-act="ai-setup">Open AI Settings</button>` : ""}</div>`;
+  }
   function msgHtml(m){
     const me = info() || {};
     const acts = m.a && m.a.actions && m.a.actions.length ? `<div class="cpt-actions">${m.a.actions.map((a, i) => `<div class="cpt-action"><span class="cpt-action-t">${esc(a.label)}</span>${a.done ? `<span class="mini cpt-done">${esc(a.done)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-do" data-m="${esc(String(m.at))}" data-i="${i}">${ACT_BTN[a.type] || "Make It"}</button>`}${a.deckId && state.decks[a.deckId] ? `<button type="button" class="btn small" data-act="cpt-open-deck" data-id="${esc(a.deckId)}">Open Deck</button>` : ""}</div>`).join("")}</div>` : "";
     const found = m.a && m.a.show && m.a.show.length ? `<div class="cpt-show">${m.a.show.map((t, i) => `<button type="button" class="chip cpt-show-b" data-act="cpt-show" data-m="${esc(String(m.at))}" data-i="${i}">${esc(t.label || "Show")}<span aria-hidden="true"> →</span></button>`).join("")}</div>` : "";
     const chg = m.a && m.a.changes && m.a.changes.length ? `<div class="cpt-actions"><div class="cpt-action"><span class="cpt-action-t">${m.a.changes.length === 1 ? esc(`${m.a.changes[0].what}: ${m.a.changes[0].label}`) : `${m.a.changes.length} changes`}</span>${m.a.changesDone ? `<span class="mini cpt-done">${esc(m.a.changesDone)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-change" data-m="${esc(String(m.at))}">Review ${m.a.changes.length === 1 ? "Change" : "Changes"}</button>`}</div></div>` : "";
     return `<div class="cpt-q">${esc(m.q)}${m.files && m.files.length ? `<div class="cpt-qf">${m.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}</div>
-      <div class="cpt-a">${m.err ? `<p class="mini">${esc(m.err)}</p>` : `${miniMd(m.a.answer)}
+      <div class="cpt-a">${m.err ? errHtml(m) : `${miniMd(m.a.answer)}
         ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${found}${chg}${acts}`}
         ${m.a && !m.err ? `<div class="cpt-acts"><button type="button" class="link-btn" data-act="cpt-note" data-id="${esc(String(m.at))}">Save as Note</button><button type="button" class="link-btn" data-ai-report="companion-chat" data-ai-text="${esc(String(m.a.answer || "").slice(0, 1400))}">Report Response</button></div>` : ""}</div>`;
   }
@@ -426,7 +446,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function chatHtml(){
     const ready = aiOk();
     const gate = inPreview() ? `<div class="cpt-gate"><p class="mini" style="margin:0">Chat works in the Studyboard app and on your own Studyboard website. There's nothing to set up in this preview.</p></div>`
-      : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> ${typeof aiProUser === "function" && aiProUser() ? "Set up AI to chat: Studyboard AI comes with your Pro plan." : "Set up AI to chat: a free Google Gemini key, Claude, ChatGPT, or Studyboard AI with Pro."}</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
+      : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> ${typeof aiProUser === "function" && aiProUser() ? "Set up AI to chat: Studyboard AI comes with your Pro plan." : typeof aiOwnPaidOk === "function" && aiOwnPaidOk() ? "Set up AI to chat: a free Google Gemini key, Claude, ChatGPT, or Studyboard AI with Pro." : "Set up AI to chat: a free Google Gemini key, or Studyboard AI with Pro."}</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog">${logHtml()}</div><div class="sr" id="cptSay" aria-live="polite"></div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
       <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary ai-btn cp-ask-go" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
@@ -581,6 +601,9 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .cpt-done{color:var(--leaf,#1E9E74);font-weight:600}
 .cpt-gate{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .cpt-gate p{flex:1 1 240px}
+.cpt-err{display:grid;gap:8px;font-size:.92rem}
+.cpt-err.cpt-banner{padding:10px 12px;border:1px solid color-mix(in srgb,var(--late) 45%,var(--line));border-radius:12px;background:color-mix(in srgb,var(--late) 9%,var(--surface))}
+.cpt-err.cpt-banner .btn{justify-self:start}
 .cpt-hist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .cpt-h{display:flex;align-items:stretch;gap:6px;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:2px 6px 2px 0}
 .cpt-hmain{flex:1;min-width:0;border:0;background:none;color:var(--ink);text-align:left;display:grid;gap:2px;padding:10px 12px;cursor:pointer}

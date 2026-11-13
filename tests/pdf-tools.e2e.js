@@ -216,7 +216,9 @@ const DOC = `<html><body style="margin:56px 64px;font-family:Arial;color:#1d1d1f
     await page.waitForTimeout(500);
     const tinfo = await info(ti.bytes);
     ok(ti.name === "Worksheet_turnin.pdf" && /Page 1 of 1/.test(tinfo.pages[0].text) && !tinfo.pages[0].annots.some(a => /^Widget/.test(a)), "the turn-in copy has page numbers and is locked");
-    ok(await page.evaluate(() => state.tasks.t1.status) === "done", "and the task is marked done");
+    ok(await page.evaluate(() => state.tasks.t1.status) !== "done" && /Mark .* done\?/.test(await page.textContent("#toast")), "downloading doesn't mark the task done: it asks");
+    await page.click("#toastExtra"); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => state.tasks.t1.status) === "done", "and Mark Done marks it done");
 
     /* Ask This PDF */
     await page.click('[data-act="pde-ask"]'); await page.waitForSelector("#pdeAskQ");

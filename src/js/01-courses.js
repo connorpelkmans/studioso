@@ -166,7 +166,8 @@ function viewCourses(){
   }
   const cs = coursesArr();
   const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button>`;
-  if (!cs.length) return `<div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Sync your school site to bring in every class at once, or add them another way.<br><div class="row-actions"><button class="btn primary" data-act="lms-open">Sync School Site</button> ${imp} <button class="btn small" data-act="new-course">Add a Course</button></div></div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
+  // no courses yet: the same "Your Courses" heading as the full page, so the page head (title over the tab switch) is built the same way
+  if (!cs.length) return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}</div><div class="empty sb-es" style="margin-top:18px">${emptyArt("courses")}<strong>No Courses Yet</strong>Sync your school site to bring in every class at once, or add them another way.<br><div class="row-actions"><button class="btn primary" data-act="lms-open">Sync School Site</button> ${imp} <button class="btn small" data-act="new-course">Add a Course</button></div></div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
     const ts = courseTasks(c);

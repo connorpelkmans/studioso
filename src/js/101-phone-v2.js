@@ -68,7 +68,18 @@
         const sel = row.querySelector("select");
         nodes.forEach((b, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = "\u2003".repeat(depth(b)) + nm(b) + (cnt(b) ? ` (${cnt(b)})` : ""); if (b.dataset.c && b.dataset.c !== "all") o.dataset.course = b.dataset.c; if (b === cur) o.selected = true; sel.appendChild(o); });
         sel.addEventListener("change", () => { const b = nodes[Number(sel.value)]; if (b) b.click(); });
-        if (ft) [...ft.children].filter(c => c.matches(".cl-btn, [data-act='trash-open'], .trash-btn")).forEach(c => { c.classList.add("ph-ic"); row.appendChild(c); });
+        // Scan to PDF and Convert don't fit beside the folder and sort on one line: with Cloud and Recently Deleted they go in a ⋯ More menu
+        const extra = ft ? [...ft.children].filter(c => c.matches(".pde-scan-btn, [data-act='pdt-convert'], [data-act='pdt-batch']")) : [];
+        if (ft) [...ft.children].filter(c => c.matches(".cl-btn, [data-act='trash-open'], .trash-btn")).forEach(c => {
+          if (extra.length) { if (c.matches(".trash-btn")) { const l = document.createElement("span"); l.textContent = "Recently Deleted"; c.insertBefore(l, c.querySelector("span")); } extra.push(c); return; }
+          c.classList.add("ph-ic"); row.appendChild(c);
+        });
+        if (extra.length) {
+          const d = document.createElement("details"); d.className = "ph-more f-more";
+          d.innerHTML = `<summary class="btn small" aria-label="More file actions" title="More"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary><div class="ph-menu" role="menu"></div>`;
+          const m = d.querySelector(".ph-menu"); extra.forEach(b => { b.setAttribute("role", "menuitem"); m.appendChild(b); });
+          row.appendChild(d);
+        }
         const sort = ft && ft.querySelector(":scope > .segb"); if (sort) row.appendChild(sort);
         view.insertBefore(row, view.querySelector(":scope > .fwrap"));
         if (ft) ft.classList.add("ph-moved");

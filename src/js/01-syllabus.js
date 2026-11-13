@@ -154,6 +154,7 @@ const SY = (() => {
       .replace(/\b(?:midnight|noon)\b/gi, " ")
       .replace(/\b(?:is |are )?due\b|\bsubmit(?:ted)?\b|\bturn in\b|\bby\b(?=\s|$)|\bat\b(?=\s|$)|\bon\s+(?:canvas|blackboard|gradescope|moodle|d2l|brightspace)\b|\bvia\s+\w+\b|\bin class\b|\bbeginning of class\b|\bend of day\b|\beod\b|\(tentative\)/gi, " ")
       .replace(/\s*[|•·;]\s*/g, " ")
+      .replace(/\(\s*\d{1,3}(?:\.\d+)?\s*%[^)]*\)/g, " ")
       .replace(/\(\s*\)/g, " ")
       .replace(/\s+/g, " ")
       .replace(/^[\s,:;.\-–—@#*]+|[\s,:;\-–—@#*]+$/g, "")
@@ -179,7 +180,7 @@ const SY = (() => {
       return cap(m[1].toLowerCase()) + " " + m[2] + (sfx ? " " + sfx[1].toLowerCase() : "");
     }
     if (type === "Reading" && (m = seg.match(/\b(?:read(?:ing)?s?)\b\s*:?\s*(.*)$/i))) {
-      const rest = stripNoise(m[1]).slice(0, 60);
+      const rest = stripNoise(m[1]).slice(0, 60) || stripNoise(seg.slice(0, m.index)).slice(0, 60);
       return rest ? "Read " + rest : "Reading";
     }
     let t = stripNoise(seg);
@@ -228,6 +229,8 @@ const SY = (() => {
     const hasDays = x => /\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b|\b(MWF|MW|TTh|TR|TuTh|WF|MTWRF)\b/i.test(x || "");
     if (!sched || !(dayTime.test(sched) || hasDays(sched))) { sched = ""; for (const l of top) { if (/office|drop-?in|help hours|student hours/i.test(l)) continue; const x = l.match(dayTime); if (x) { sched = x[0]; break; } } }
     info.schedule = clean(sched || "");
+    if (!info.room && info.schedule) { const l = top.find(x => x.includes(info.schedule)); const rest = l ? l.slice(l.indexOf(info.schedule) + info.schedule.length).replace(/^[\s,;:\-–]+(?:in\s+)?/i, "").trim() : "";
+      if (/^[A-Z][\w .'’-]{1,40}$/.test(rest) && !/\b(office|hours?|email|phone|instructor|professor)\b/i.test(rest)) info.room = rest; }
     if (!info.room) { const x = (info.schedule + " " + top.join(" ")).match(/\b(?:in|room|rm\.?)\s+([A-Z][A-Za-z]*\s*\d{1,4}[A-Z]?)\b/); if (x) info.room = x[1]; }
     const skipName = /syllabus|course (outline|information|description)|^(fall|spring|summer|winter)|university|college|department|school of|instructor|professor|office|email|phone|room|location|page \d/i;
     if (info.code) {
@@ -468,7 +471,9 @@ const SY = (() => {
         // a time elsewhere on the row counts only from a date/time column, not from another entry ("Lecture 10:00 am; Homework 3 due")
         const tSeg = ds.length && dates.length === 1 && source !== "context" ? segs.find(x => x !== seg && findTime(x, pS) && !/[a-z]/i.test(timeCol(x))) : null;
         const time = findTime(seg, pS) || (tSeg ? findTime(tSeg, pS) : "");
-        items.push({title, type, due, start, time, source, note: line.slice(0, 300), hasDue: /\bdue\b/i.test(seg)});
+        // its own weight on the same entry: "Quiz 7 (5%)"
+        const iw = seg.match(/\(\s*(\d{1,3}(?:\.\d+)?)\s*%[^)]*\)/);
+        items.push({title, type, due, start, time, source, note: line.slice(0, 300), hasDue: /\bdue\b/i.test(seg), iw: iw ? Number(iw[1]) : null});
       });
     });
 
@@ -497,7 +502,7 @@ const SY = (() => {
     delete weights.items;
     // Numbered lines in the breakdown go to the item with that number
     const ownOf = x => own.find(w => (w.type === x.type || (w.type === "Exam" && x.type === "Exam")) && new RegExp("(^|\\D)" + w.n + "(\\D|$)").test(x.title) && !(w.type !== "Final" && /final/i.test(x.title)));
-    final.forEach(x => { const w = ownOf(x); if (w && w.pct > 0 && w.pct <= 100) { x.weight = w.pct; x.ownW = true; } });
+    final.forEach(x => { const w = ownOf(x); if (x.iw > 0 && x.iw <= 100) { x.weight = x.iw; x.ownW = true; } else if (w && w.pct > 0 && w.pct <= 100) { x.weight = w.pct; x.ownW = true; } delete x.iw; });
     const countOf = type => final.filter(x => x.type === type && !x.ownW && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
     final.forEach(x => {
       if (x.ownW) { delete x.ownW; return; }
@@ -634,7 +639,10 @@ function importSheet(courseId, file){
     if (useAI()) { srcFile = null; result = null; await aiShow([{text: "Syllabus text:\n\n" + t}], t, "pasted text"); finish(); return; }
     show(t, "pasted text");
   });
-  let aiBusy = false;
+  let aiBusy = false, aiFail = null;
+  // Read on this device after the AI failed: what happened, in one sentence, and that it was read here instead
+  const fellBack = e => e && e.code === "offline" ? "Couldn't reach the AI, so this was read on this device. "
+    : `${String((e && e.code && e.message) || "The AI couldn't read it.").split(/(?<=\.)\s/)[0]} So this was read on this device instead. `;
   async function aiShow(parts, text, from){
     if (aiBusy) return true;
     aiBusy = true; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true;
@@ -649,7 +657,8 @@ function importSheet(courseId, file){
       aiBusy = false; if (dropped || (e && e.code === "cancelled")) return true;
       console.warn(e);
       const why = e.code ? e.message : "The AI couldn't read it.";
-      if (text) { show(text, from, null, why + " Read on this device instead. "); return true; }
+      aiFail = e;
+      if (text) { show(text, from, null, fellBack(e)); return true; }
       status.textContent = why; return false;
     }
   }
@@ -693,7 +702,7 @@ function importSheet(courseId, file){
         srcFile = f;
         if (await aiShow([{inline_data: {mime_type: "application/pdf", data: bytesToB64(new Uint8Array(await f.arrayBuffer()))}}], "", f.name)) return;
         srcFile = null;
-        aiNote = status.textContent + " Read on this device instead. ";
+        aiNote = fellBack(aiFail);
         status.textContent = aiNote; await sleep(600);
       }
       if (f.size > 25 * 1024 * 1024) { status.textContent = "That PDF is larger than 25 MB. Try exporting a smaller copy, or paste the text instead."; return; }
@@ -752,7 +761,7 @@ function importSheet(courseId, file){
     const rows = rowsFor(match ? match.id : "new");
     $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", root).forEach(x => { x.hidden = true; });
     $("#impResult").innerHTML = `
-      <p style="margin:0"><button type="button" class="link-btn" id="impAgain">Choose a Different File</button></p>
+      <p style="margin:0"><button type="button" class="link-btn" id="impAgain">${from === "pasted text" ? "Paste Different Text" : "Choose a Different File"}</button></p>
       <fieldset class="imp-course"><legend>Course</legend>
         <label class="f">Add To<select id="impTarget"><option value="new">A new course</option>${cs.map(x => `<option value="${esc(x.id)}" ${match && match.id === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
         ${clash ? `<p class="mini" style="margin:0">This syllabus looks like <b>${esc(r.course.code)}</b>, not ${esc(courseLabel(here))}, so it isn't added to ${esc(courseLabel(here))} unless you pick it above.</p>` : ""}
@@ -770,7 +779,7 @@ function importSheet(courseId, file){
         ${r.rules && window.SBGRADES && SBGRADES.rulesText ? `<label class="mi-check imp-rules"><input type="checkbox" id="impRules" checked><span><b>Grading rules found:</b> ${esc(SBGRADES.rulesText(r.rules))}. <span class="mini">Count them in this course's grade. You can change them later in Grade Settings.</span></span></label>` : ""}
       </fieldset>
       ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p><div id="impLists">${rows}</div>` : ""}`;
-    $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", root).forEach(x => { x.hidden = false; }); });
+    $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", root).forEach(x => { x.hidden = false; }); if (from === "pasted text") { $("#impPaste").open = true; $("#impText").focus(); } });
 
     const target = $("#impTarget");
     const syncTarget = () => { const isNew = target.value === "new"; $("#impNew").hidden = !isNew; $("#impFillWrap").hidden = isNew; updateAdd(); };

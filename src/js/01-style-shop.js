@@ -280,7 +280,10 @@ function skinVars(s, dark){
 function skinCss(s){
   if (!s || !s.light) return "";
   const L0 = skinVars(s, false), ab = (L0.match(/--accent:\s*(#[0-9A-Fa-f]{3,8})/) || [])[1], L = L0 + (ab ? `;--accent-band:${ab}` : ""), D = skinVars(s, true) + (ab ? `;--accent-band:${ab}` : ""), r = `:root[data-skin="${s.id}"]`;
-  return `${r}{${L};color-scheme:light}@media (prefers-color-scheme:dark){${r}:not([data-theme="light"]){${D};color-scheme:dark}}${r}[data-theme="dark"]{${D};color-scheme:dark}`;
+  // A theme's glow stays still behind the page. It's drawn on a fixed layer of its own rather than as a fixed page background:
+  // with background-attachment:fixed the browser repainted the whole page on every frame of a scroll (and under a scene)
+  const glow = s.glow ? `${r} body{background-image:none}${r}::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:var(--bgimg);background-size:var(--bgsize);background-position:var(--bgpos)}` : "";
+  return `${r}{${L};color-scheme:light}@media (prefers-color-scheme:dark){${r}:not([data-theme="light"]){${D};color-scheme:dark}}${r}[data-theme="dark"]{${D};color-scheme:dark}${glow}`;
 }
 
 /* Theme artwork */
@@ -1657,7 +1660,7 @@ function styleShop(tab){
   if (typeof PLAN !== "undefined" && PLAN && PLAN.endStyleGrace && PLAN.endStyleGrace()) { try { applySkin(); } catch (e) {} render(); }
   ui.shopTab = tab || ui.shopTab || "themes";
   const cfg = styleCfg();
-  const btnFor = (kind, it, cur, useLabel) => !owns(kind, it.id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${kind}" data-id="${it.id}">🔒 Unlock</button>${kind === "skin" ? cpBtn(it.id) : ""}` : cur ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${kind}" data-id="${it.id}">${useLabel || "Use"}</button>`;
+  const btnFor = (kind, it, cur, useLabel) => !owns(kind, it.id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${kind}" data-id="${it.id}">🔒 Unlock</button>${kind === "skin" ? cpBtn(it.id) : ""}` : cur ? `<button type="button" class="btn small shop-inuse" disabled>✓ In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${kind}" data-id="${it.id}">${useLabel || "Use"}</button>`;
   const nameRow = it => `<div class="shop-name"><b>${esc(it.name)}</b>${it.tier === "pro" ? PRO_BADGE : FREE_BADGE}</div><p class="mini">${esc(it.desc || "")}</p>`;
   const grid = (list, fn) => `<div class="shop-grid">${list.map(fn).join("")}</div>`;
   const section = (title, list, fn) => list.length ? `<h3 class="fsec shop-sec">${title}</h3>${grid(list, fn)}` : "";
@@ -1668,13 +1671,13 @@ function styleShop(tab){
       ${[["plain", "Free · Plain Colors"], ["world", `${PRO_BADGE} Pro · Around the World`], ["ideas", `${PRO_BADGE} Pro · New Theme Ideas`], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`], ["founders", `${PRO_BADGE} Pro · Founder Themes`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
   } else if (ui.shopTab === "cards") {
     body = `<p class="mini" style="margin:0">How flashcards look while you study. You can also give one deck its own style under Edit Deck.</p>
-      ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id, "Use for All Decks")}</div>`)}`;
+      ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id)}</div>`)}`;
   } else if (ui.shopTab === "notes") {
     body = `<p class="mini" style="margin:0">The shape of your sticky notes. Change one note's shape while editing it.</p>
-      ${split(NOTE_SHAPES, (sh, i) => `<div class="shop-tile ${noteShapeOf(null) === sh.id ? "on" : ""}">${noteDemo(sh.id, notePinOf(null), NOTE_SHAPES.indexOf(sh))}${nameRow(sh)}${btnFor("note", sh, noteShapeOf(null) === sh.id, "Use for Notes")}</div>`)}`;
+      ${split(NOTE_SHAPES, (sh, i) => `<div class="shop-tile ${noteShapeOf(null) === sh.id ? "on" : ""}">${noteDemo(sh.id, notePinOf(null), NOTE_SHAPES.indexOf(sh))}${nameRow(sh)}${btnFor("note", sh, noteShapeOf(null) === sh.id)}</div>`)}`;
   } else if (ui.shopTab === "pins") {
     body = `<p class="mini" style="margin:0">What holds your notes to the board. Pins work with any note shape; change one note's pin while editing it.</p>
-      ${kitFollow("pin", PINS, notePinOf(null), cfg.pinAuto === true)}${section("All Pins", PINS, pn => `<div class="shop-tile ${notePinOf(null) === pn.id ? "on" : ""}">${noteDemo(noteShapeOf(null), pn.id, PINS.indexOf(pn) + 1)}${nameRow(pn)}${btnFor("pin", pn, notePinOf(null) === pn.id && !(cfg.pinAuto !== false && themeKit()), "Use for Notes")}</div>`)}`;
+      ${kitFollow("pin", PINS, notePinOf(null), cfg.pinAuto === true)}${section("All Pins", PINS, pn => `<div class="shop-tile ${notePinOf(null) === pn.id ? "on" : ""}">${noteDemo(noteShapeOf(null), pn.id, PINS.indexOf(pn) + 1)}${nameRow(pn)}${btnFor("pin", pn, notePinOf(null) === pn.id && !(cfg.pinAuto !== false && themeKit()))}</div>`)}`;
   } else {
     body = `<p class="mini" style="margin:0">Stickers live in the envelope beside your Notes board. Drag one onto a note and it moves with the note. Drag it off to remove it, or tap it to resize.</p>
       ${[["free", "Free"], ["pro", `${PRO_BADGE} Pro`]].map(([t, l]) => `<h3 class="fsec shop-sec">${l}</h3>${STICKER_PACKS.filter(p => p.tier === t).map(p => `<div class="shop-pack"><div class="shop-name"><b>${esc(p.name)}</b><span class="mini">${Object.keys(p.items).length} stickers</span>${owns("sticker", p.id) ? "" : `<button type="button" class="btn small" data-act="shop-unlock" data-kind="sticker" data-id="${p.id}">🔒 Unlock</button>`}</div><div class="pack-grid">${Object.keys(p.items).map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div></div>`).join("")}`).join("")}`;

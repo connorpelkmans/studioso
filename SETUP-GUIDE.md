@@ -102,6 +102,7 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 11 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
 | 12 | `supabase-calsync.sql` | Two-way sync with Google Calendar and Outlook (Pro). Run it after step 9 so account deletion also clears it, then deploy `calendar-sync` (see "Two-Way Calendar Sync" below) | Optional |
 | 13 | `supabase-theme-access.sql` | Hidden themes: some themes are hidden from everyone (the list is `HIDDEN_THEMES` in `src/js/20-scenes-visible.js`). An account you mark here sees them all again: `select public.studyboard_grant_all_themes('you@example.com', 'owner');` in the SQL Editor (`studyboard_revoke_all_themes` takes it back). Sign in again or reopen the app to see the change | Optional |
+| 13b | `supabase-own-keys.sql` | Which accounts may add their own paid Claude or ChatGPT key (everyone else: a free Gemini key or Studyboard AI with Pro). `select public.studyboard_grant_own_keys('you@example.com', 'note');` in the SQL Editor allows one (`studyboard_revoke_own_keys` takes it back). Run `supabase-lean.sql` again afterwards. See "Allowing an account its own paid AI key" | Optional |
 | 14 | `supabase-cloud.sql` | Google Drive, OneDrive and OneNote (free for signed-in accounts). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
 | 15b | `supabase-usernames.sql` | Usernames and age: every account gives its birthday once (students under 13 are signed up by a parent or guardian and can't publish or share publicly, like on Quizlet) and picks a unique @username (on the sign-up form, or once after signing in). The server checks the rules and a foul-word list (with look-alike spellings) and refuses anything else; published flashcards and quizzes show the username. Run it after step 2 and before `supabase-sharing.sql` | Required for publishing |
 | 15a | `supabase-schools.sql`, then `supabase-schools-2.sql`, then `supabase-schools-hs-1.sql` to `-hs-4.sql` (one file per query; each is under the editor's 1 MB limit) | The list of real schools: about 10,000 universities and colleges, plus about 36,000 high schools (every US public and private school with a grade 12, and Ontario and British Columbia secondary schools; each part is about 1.3 MB, so run them one at a time) that publishing checks and the school picker searches. Run it before `supabase-sharing.sql`; requests for missing schools land in `school_requests` (the file's header shows how to add one) | Required for publishing |
@@ -342,7 +343,21 @@ The code works once, for 10 minutes. Your keys are locked (encrypted) with it be
 
 **Choosing a model.** Every AI window has a **Model** picker. "Gemini, Auto" is free and recommended: it uses the best free Gemini model and quietly moves to another one if Google's servers are busy. You can also use paid models:
 - **Paid Gemini** (like Gemini 3.1 Pro): turn on billing for your key in Google AI Studio.
-- **Claude** or **ChatGPT**: add an API key from [Anthropic](https://console.anthropic.com/settings/keys) or [OpenAI](https://platform.openai.com/api-keys) under "Use a Paid Model Instead". These are billed per use to your account with that company, separately from any Claude or ChatGPT subscription. Big PDFs cost the most.
+- **Claude** or **ChatGPT** with the student's own key: only for accounts you allow (see "Allowing an account its own paid AI key" below). Everyone else uses a free Gemini key or Studyboard AI with Pro.
+
+### Allowing an account its own paid AI key
+
+Students can add a free Gemini key or use Studyboard AI with Pro. Adding their own paid Claude or ChatGPT (OpenAI) key is hidden, except for accounts you allow:
+
+1. Once: open **SQL Editor > New query** in Supabase, paste all of `supabase-own-keys.sql` and click **Run** (safe to run again). Then run `supabase-lean.sql` again, so **Delete My Account and Data** also clears it.
+2. Allow an account (it must have signed up already):
+   `select public.studyboard_grant_own_keys('student@example.com', 'why they can use their own key');`
+3. Take it back:
+   `select public.studyboard_revoke_own_keys('student@example.com');`
+4. To see who is allowed:
+   `select u.email, a.allowed, a.note, a.updated_at from public.studyboard_own_key_access a join auth.users u on u.id = a.user_id order by a.updated_at desc;`
+
+The app checks this when the student is signed in (and again when they come back to it after 10 minutes) and remembers the answer on the device, so it keeps working offline. Signed out, or not allowed, means no paid key of their own. These functions only run from the SQL Editor (or the service role), never from the app. A Claude or ChatGPT key a student saved before this is kept on their device but no longer used, so nothing is charged to it; AI Features tells them so and points them to a free Gemini key or Pro. Allowed accounts see "Use a Paid Model Instead" again, billed per use to their own account with Anthropic or OpenAI (a Claude key runs in Studyboard AI Mode, `src/js/01-ai-policy.js`), and Automatic AI asks them to confirm before it uses a paid key.
 
 **Automatic AI.** In Settings → AI Features, "Improve Today's Plan and study sessions automatically" lets the AI work in the background without you pressing anything. It:
 - picks **Do This Next**, with a reason and a first step

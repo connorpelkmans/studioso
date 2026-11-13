@@ -26,7 +26,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const pic = JSON.stringify(body.messages).includes('"type":"image"');
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: [{type: "text", text: JSON.stringify(pic ? {found: true, calc: "3(4+1)", angle: "none"} : {found: false, calc: "", angle: "none"})}], stop_reason: "end_turn", usage: {input_tokens: 1800, output_tokens: 40}})});
     });
-    await ctx.addInitScript(([ai, claude, stuck]) => { try { if (!localStorage.getItem("coursework:v2")) {
+    await ctx.addInitScript(([ai, claude, stuck]) => { if (claude) { window.__SB_TEST = true; window.__SB_OWN_KEYS = true; } /* a Claude key needs the account's permission (supabase-own-keys.sql) */ try { if (!localStorage.getItem("coursework:v2")) {
       if (claude) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({anthropic: "sk-ant-TESTTESTTESTTESTTEST"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({anthropic: {v: 1, at: 1}})); }
       // jobs left "in flight" by earlier page loads that were closed or reloaded mid-job
       if (stuck) localStorage.setItem("studyboard:ownAI", JSON.stringify({flying: [1, 2, 3, 4, 5, 6].map(i => ({id: "old" + i, at: Date.now() - 60000, cost: 1000})), hits: Array.from({length: 18}, () => Date.now() - 5000)}));

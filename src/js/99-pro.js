@@ -586,7 +586,8 @@ var SBPRO = null;
 .pr-chips .pr-chip{flex:none;min-height:44px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 12px;display:grid;gap:1px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
 .pr-chips .pr-chip b{font-size:.9rem;display:flex;align-items:center;gap:5px}
 .pr-chips .pr-chip span{font-size:.75rem;color:var(--muted)}
-.pr-chips .pr-chip.on{background:var(--sel,var(--navy));border-color:var(--sel,var(--navy));color:var(--sel-ink,#fff)}
+/* the chosen routine wears the theme's button colour, like Start Focus (the timer's red stays on its band and ring) */
+.pr-chips .pr-chip.on{background:var(--btn-bg,var(--accent));border-color:transparent;color:var(--accent-ink,#fff)}
 .pr-chips .pr-chip.on span{color:inherit;opacity:.8}
 .pr-chips .pr-chip.pr-new{border-style:dashed}
 .pr-chips .pr-chip .pro-badge{color:#fff;font-size:.62rem;opacity:1}
@@ -2600,7 +2601,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     close();
     const rev = curRev(f), ofc = isOffice(f), PDE = ofc ? null : window.SBPDE;
     R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow", view};
-    openSheet(`<div class="sheet pdr-sheet" data-mode="read"${view ? ` data-view="1"` : ""}>${head(f.name)}
+    // Word, PowerPoint and Excel files have no PDF tools, so Highlights and Download sit in the top row and the second row is left out
+    const hlBtn = `<button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>`, ofcTop = ofc && !view;
+    openSheet(`<div class="sheet pdr-sheet" data-mode="read"${view ? ` data-view="1"` : ""}${ofc ? ` data-office="1"` : ""}>${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
@@ -2609,14 +2612,14 @@ button.oc-n{border:0;padding:0;cursor:pointer}
         <span class="spacer"></span>
         ${view ? "" : `<span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>`}
         <span class="spacer"></span>
-        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
+        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}${ofcTop ? `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${ico('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>')}Download</a>${hlBtn}` : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
         <span class="pdr-g-read">${view ? `<span class="mini pdr-viewnote">Your highlights and comments stay yours to read. Highlighting more is part of Pro.</span><button type="button" class="btn small" data-act="pdr-pro">See Pro</button>` : PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text, then pick a color to highlight it</span></span>
         <span class="spacer"></span>
-        <button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>
+        ${ofcTop ? "" : hlBtn}
       </div>
       <div class="pdr-main"><div class="pdr-pages" id="pdrPages" tabindex="0" aria-label="Pages"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(f.name)}…</p></div><aside class="pdr-side" id="pdrSide" hidden></aside></div>
     </div>`);
@@ -2687,7 +2690,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const size = i => O ? `width:${Math.round(O.pages[i].w * s)}px;height:${Math.round(O.pages[i].h * s)}px` : `width:${w}px;height:${h}px`;
     const label = i => O && O.pages[i].label ? O.pages[i].label : `Page ${i + 1}`;
     // what the Office reader left out (a long document or a big sheet cut short), said above the pages
-    box.innerHTML = (O && O.warnings || []).map(w => `<p class="mini ofv-warn pdr-warn">${esc(w)}</p>`).join("") + Array.from({length: R.doc.numPages}, (_, i) => `<div class="pdr-page${O ? " pdr-ofc" : ""}" data-p="${i + 1}" style="${size(i)}" aria-label="${esc(label(i))}"><div class="pdr-hl"></div></div>`).join("");
+    // a spreadsheet's sheets are named above each one, like tabs
+    const tab = i => O && /^(xlsx|csv)$/.test(O.kind) && O.pages[i].label ? `<p class="pdr-tab" style="width:${Math.round(O.pages[i].w * s)}px">${esc(O.pages[i].label.replace(/^Sheet: /, ""))}</p>` : "";
+    box.innerHTML = (O && O.warnings || []).map(w => `<p class="mini ofv-warn pdr-warn">${esc(w)}</p>`).join("") + Array.from({length: R.doc.numPages}, (_, i) => `${tab(i)}<div class="pdr-page${O ? " pdr-ofc" : ""}" data-p="${i + 1}" style="${size(i)}" aria-label="${esc(label(i))}"><div class="pdr-hl"></div></div>`).join("");
     R.pages = Array.from(box.querySelectorAll(".pdr-page")).map((el, i) => ({n: i + 1, el, done: 0}));
     const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});
@@ -2765,7 +2770,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!R || !R.doc) return;
     n = Math.max(1, Math.min(R.doc.numPages, Math.round(Number(n) || 1)));
     const pg = R.pages[n - 1], box = $("#pdrPages"); if (!pg || !box) return;
-    const top = pg.el.offsetTop - 12; box.scrollTo({top, behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+    // a sheet's name above it (.pdr-tab) stays in view
+    const tabEl = pg.el.previousElementSibling, top = (tabEl && tabEl.classList.contains("pdr-tab") ? tabEl : pg.el).offsetTop - 12; box.scrollTo({top, behavior: instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
     R.going = {top, until: Date.now() + 1200};   // while the scroll travels there, the page number stays on where it's going
     R.cur = n; const inp = $("#pdrPg"); if (inp) inp.value = String(n);
     keepPage(R.rev, n);
@@ -2923,14 +2929,24 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   }
   function cardForm(h){
     const f = fileOf(); if (!f || !h) return;
-    R.card = h.id; R.cardAi = null; R.side = true; side();
+    R.card = h.id; R.cardAi = null; R.side = true; if (window.SBPDE && SBPDE.closePanel) SBPDE.closePanel(); side();
+  }
+  // a starting front from the highlighted words, for the student to change: "Preload is the degree of…" asks "What is preload?"; otherwise the opening words
+  function frontGuess(t){
+    t = String(t || "").replace(/\s+/g, " ").trim();
+    const m = t.match(/^(?:the |an? )?([A-Za-z][\w'’()\-]*(?: [\w'’()\-]+){0,5}?),? (is|are|means|refers to|describes) (?:the |an? )?\S/i);
+    if (m && !/^(it|this|that|these|those|there|they|he|she|we|you|i|which|what|here|each|one|all|both)$/i.test(m[1].split(" ")[0])) {
+      const term = /^[A-Z][a-z]*$/.test(m[1].split(" ")[0]) ? m[1][0].toLowerCase() + m[1].slice(1) : m[1];   // "Preload" was capitalised for the sentence; "SV" and "Frank-Starling" stay as written
+      return `What ${m[2].toLowerCase() === "are" ? "are" : "is"} ${term}?`;
+    }
+    const w = t.split(" "); return w.length <= 6 ? t.slice(0, 300) : w.slice(0, 6).join(" ") + "…";
   }
   function cardHtml(h){
     const f = fileOf(), decks = deckListArr(), same = decks.filter(d => d.courseId && d.courseId === f.courseId), rest = decks.filter(d => !same.includes(d));
     const c = courseOf(f.courseId), newName = `${c ? courseLabel(c) : "Readings"}: ${f.name.replace(/\.(pdf|docx|pptx|xlsx|csv)$/i, "")}`.slice(0, 80);
     return `<div class="pdr-card"><button type="button" class="link-btn" data-act="pdr-card-back">← Highlights</button><h3>New Flashcard</h3>
       <blockquote class="pdr-q" style="--h:${colorHex(h.c)}">${esc(h.t.slice(0, 400))}<span class="mini">Page ${h.p}</span></blockquote>
-      <label class="f">Front<input type="text" id="pdrFront" maxlength="300" placeholder="A question or a term" autofocus></label>
+      <label class="f">Front<input type="text" id="pdrFront" maxlength="300" placeholder="A question or a term" value="${esc(frontGuess(h.t))}" autofocus></label>
       <label class="f">Back<textarea id="pdrBack" rows="4" maxlength="1200">${esc(h.t.slice(0, 1200))}</textarea></label>
       <label class="f">Deck<select id="pdrDeck">${same.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("")}${rest.length ? `<optgroup label="Other decks">${rest.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("")}</optgroup>` : ""}<option value="">New deck: ${esc(newName)}</option></select></label>
       <div class="row-actions">${aiReady() ? `<button type="button" class="btn small ai-btn" data-act="pdr-card-ai" data-id="${esc(h.id)}">${AI_ICON} Write the Question</button>` : ""}<span class="spacer"></span><button type="button" class="btn primary small" data-act="pdr-card-save" data-id="${esc(h.id)}" data-new="${esc(newName)}">Add Card</button></div>
@@ -2982,7 +2998,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       ${list.length ? `<div class="row-actions"><button type="button" class="btn small" data-act="pdr-all-note">All to One Note</button><button type="button" class="btn small" data-act="pdr-copy">Copy</button></div>
         <ol class="pdr-list">${list.map(h => `<li style="--h:${markHex(h)}"><button type="button" class="pdr-li" data-act="pdr-go-h" data-id="${esc(h.id)}"><span class="mini">Page ${h.p}${h.m ? " · " + MARKS[h.m][0] : ""}</span>${h.t ? `<span class="pdr-lt${h.m === "s" ? " struck" : ""}">${esc(h.t)}</span>` : ""}${h.cm ? `<span class="pdr-lc">${esc(h.cm)}</span>` : ""}</button>
           <span class="pdr-la">${h.n && state.notes[h.n] ? `<span class="mini">Note made</span>` : `<button type="button" class="link-btn" data-act="pdr-hl-note" data-id="${esc(h.id)}">Note</button>`}${h.k ? `<span class="mini">Card made</span>` : `<button type="button" class="link-btn" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button>`}<button type="button" class="link-btn" data-act="pdr-hl-del" data-id="${esc(h.id)}">Remove</button></span></li>`).join("")}</ol>`
-        : `<p class="mini">Select text on a page to highlight, underline or strike it through, or to comment on it, make a note or a flashcard from it. The comment button in the toolbar puts a sticky note anywhere.</p>`}
+        : `<p class="mini">Select text on a page to highlight, underline or strike it through, or to comment on it, make a note or a flashcard from it. In Mark Up, the comment button in the toolbar puts a sticky note anywhere.</p>`}
       ${R.old ? `<p class="mini">${R.old} highlight${R.old === 1 ? " is" : "s are"} on an earlier version of this file.</p>` : ""}`;
   }
 
@@ -3067,6 +3083,18 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   document.addEventListener("touchcancel", pinchEnd);
   let rz = 0; window.addEventListener("resize", () => { if (!R || !R.doc) return; hidePop(); clearTimeout(rz); rz = setTimeout(() => layout(R.cur), 200); });
   dlg.addEventListener("close", () => { if (!dlg.open) close(); });
+  // Escape closes what's on top first (a highlight's popup, then a panel: Contents, Ask, Study, Turn In, Highlights), and the reader only when nothing else is open. Edit mode has its own steps (99-pdf-edit.js).
+  // Taken on the key, not the dialog's cancel: the browser stops letting a page hold its dialog open after one held Escape
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape" || e.defaultPrevented || !R || !dlg.open || !dlg.querySelector(".pdr-sheet") || (window.SBPDE && SBPDE.active())) return;
+    let done = true;
+    if (R.pop) hidePop();
+    else if (window.SBPDE && SBPDE.closeFind && SBPDE.closeFind()) {}
+    else if (window.SBPDE && SBPDE.closePanel && SBPDE.closePanel()) {}
+    else if (R.side) { R.side = false; R.card = null; side(); const b = $("#pdrSideBtn"); if (b) b.focus({preventScroll: true}); }
+    else done = false;
+    if (done) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
   hook("changed", changes => { if (R && changes.some(c => c.kind === "file" && c.id === R.fid)) { counts(); paint(); if (R.side && !R.card) side(); } });
 
   hook("act", (act, el, id) => {
@@ -3106,7 +3134,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-paper": toPaper(byId(id), el.getBoundingClientRect()); break;
       case "pdr-paper-to": { const h = byId(id); hidePop(); if (h && window.SBWRITE) SBWRITE.addQuote(el.dataset.t, R.fid, h, {text: firstText}); break; }
       case "pdr-hl-del": { const h = byId(id); if (!h) break; const before = mine(); saveHl(before.filter(x => x.id !== id)); hidePop(); paint(h.p); counts(); if (R.side) side(); hlDone(before, "Highlight removed"); break; }
-      case "pdr-side": R.side = !R.side; R.card = null; side(); break;
+      case "pdr-side": R.side = !R.side; R.card = null; if (R.side && window.SBPDE && SBPDE.closePanel) SBPDE.closePanel(); side(); break;   // Highlights takes the side column from a docked panel
       case "pdr-go-h": { const h = byId(id); if (h) goTo(h.p); break; }
       case "pdr-all-note": allToNote(); break;
       case "pdr-copy": { const f = fileOf(), t = mine().slice().sort((a, b) => a.p - b.p || a.at - b.at).map(h => (h.t ? `“${h.t}” (p. ${h.p})` : `Comment (p. ${h.p})`) + (h.cm ? `\n${h.cm}` : "")).join("\n\n"); navigator.clipboard.writeText(`${f.name}\n\n${t}`).then(() => toast("Copied"), () => toast("Couldn't copy")); break; }
@@ -3120,7 +3148,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   P.canRead = f => (isPdf(f) || isOffice(f)) && (!P.locked() || hlOf(f).length > 0);
   P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">${P.locked() ? "View Highlights" : "Read"}${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
   P.addFeature({id: "reader", name: "PDF Editor", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
-  Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
+  let refitRaf = 0;
+  Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n),
+    // a panel docked beside the page (99-pdf-edit.js) takes Highlights' place, and the pages refit once the column has changed width
+    readerSideOff: () => { if (R && R.side) { R.side = false; R.card = null; side(); } },
+    readerRefit: () => { cancelAnimationFrame(refitRaf); refitRaf = requestAnimationFrame(() => { const pg = $("#pdrPages"), w = pg && pg.clientWidth; if (R && R.doc && w && w !== R.fitW) { R.fitW = w; layout(R.cur); } }); }});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
 
   const css = document.createElement("style");
@@ -3129,10 +3161,12 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-sheet{height:100%}
 .pdr-bar{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;padding:6px 16px 10px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-x:contain}
 .pdr-bar > *{flex:none}
-.pdr-bar2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--ink) 3%,var(--surface));min-height:46px}
+.pdr-bar2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--ink) 3%,var(--surface));min-height:53px}   /* tall enough for the 40px comment button, so Read and Mark Up keep the same height and the page doesn't jump */
 .pdr-g-read,.pdr-g-mark{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
+.pdr-sheet:not([data-mode="mark"]) .pdr-g-mark{display:none}   /* Listen and Contents stay in Mark Up too: the row only gains the colours */
 .pdr-sheet[data-mode="edit"] .pdr-bar2{display:none}
+.pdr-sheet[data-office]:not([data-view])[data-mode="read"] .pdr-bar2{display:none}
+.pdr-tab{flex:none;margin:0 auto -8px;max-width:none;font-weight:700;font-size:.9rem}
 .pdr-sheet[data-view] .pdr-modes,.pdr-sheet[data-view] [data-act="pdr-hl-note"],.pdr-sheet[data-view] [data-act="pdr-hl-card"],.pdr-sheet[data-view] [data-act="pdr-all-note"]{display:none}
 .pdr-viewnote{color:var(--muted)}
 .pdr-markhint{color:var(--muted)}
@@ -3175,7 +3209,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-wait{display:flex;gap:8px;align-items:center;justify-content:center;margin:40px auto;color:var(--muted)}
 .pdr-page{position:relative;flex:none;margin:0 auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.08)}
 .pdr-cv{position:absolute;inset:0;display:block}
-.pdr-hl{position:absolute;inset:0;z-index:3;pointer-events:none}
+.pdr-hl{position:absolute;inset:0;pointer-events:none}.pdr-hl > *{z-index:3}   /* no z-index on the layer itself: that would make it its own stacking context and the marks' multiply would blend with nothing, washing the words pale. Each mark multiplies with the page, so the ink stays black like a real highlighter */
 .pdr-office{position:absolute;left:0;top:0;transform-origin:0 0;z-index:0;user-select:text;-webkit-user-select:text;cursor:text}.pdr-ofc{overflow:hidden}
 .pdr-hl i{position:absolute;background:var(--h);mix-blend-mode:multiply;opacity:.55;border-radius:2px}
 .pdr-hl i.m-u,.pdr-hl i.m-s{background:none;opacity:1;mix-blend-mode:normal;border-radius:0}
@@ -3243,6 +3277,13 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   @media (max-width:379px){ .pdr-bar > .pdr-modes{order:0} .pdr-bar > .pdr-zoom{order:1} }
   @media (max-width:339px){ .pdr-bar .pdr-ai .ai-btn{width:40px;height:40px;min-width:40px} }
   .pdr-bar2{gap:6px;padding:6px 10px}
+  /* Mark Up on a phone: Listen, Contents, the colours and Highlights stay on one row (the hint makes way) */
+  .pdr-sheet[data-mode="mark"] .pdr-bar2{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .pdr-sheet[data-mode="mark"] .pdr-bar2 > *{flex-shrink:0}
+  .pdr-sheet[data-mode="mark"] :is(.pdr-markhint,#pdeFindBtn){display:none}   /* Find stays in Read */
+  .pdr-sheet[data-mode="mark"] :is(.pdr-g-read,.pdr-g-mark){flex-wrap:nowrap;gap:4px}
+  .pdr-sheet[data-mode="mark"] .pdr-cols{gap:4px}
+  .pdr-sheet[data-mode="mark"] .pdr-col{width:24px;height:24px}
   .pdr-bar .pdr-out .icon-btn{width:40px;height:40px}
   .pdr-fit{min-height:40px}
 }
@@ -4854,10 +4895,13 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       : why === "none" ? `Studyboard file storage isn't available here, so ${what} couldn't be added.`
       : offerPro && cap ? `Your free ${esc(fmtSize(cap * 1048576))} of Studyboard file storage is used up, so ${what} couldn't be added.` : `Your Studyboard file storage is full, so ${what} couldn't be added.`;
     const tail = `Keep ${them} in your own Google Drive or OneDrive. Files there don't use Studyboard storage, and they still show up in their course here.`;
-    const signIn = !ready() ? `<p class="mini" style="margin:0">Google Drive and OneDrive connect to your Studyboard account, so sign in first.</p>` : "";
-    openSheet(`<div class="sheet cl-sheet">${head(title)}<div class="sheet-body">
-      <p style="margin:0">${lead}</p>
-      <p class="mini" style="margin:0">${offerPro ? "Go Pro for much more room, or k" + tail.slice(1) : tail}</p>${signIn}
+    // without an account the way forward is signing in (free): that keeps files in Studyboard, and Drive and OneDrive connect through it
+    const canSign = !ready() && !inPreview() && !!((typeof sbConfig === "function" && sbConfig()) || (window.SBGUEST && SBGUEST.is()));
+    const signIn = !ready() ? `<p class="mini" style="margin:0">${canSign ? "With a free account, your files are kept in Studyboard. Google Drive and OneDrive connect through your account too." : "Google Drive and OneDrive connect to your Studyboard account, so sign in first."}</p>` : "";
+    openSheet(`<div class="sheet cl-sheet">${head(canSign && why === "none" ? "Sign In to Keep Files" : title)}<div class="sheet-body">
+      <p style="margin:0">${canSign && why === "none" ? `You're not signed in, so ${what} couldn't be added.` : lead}</p>
+      ${canSign ? "" : `<p class="mini" style="margin:0">${offerPro ? "Go Pro for much more room, or k" + tail.slice(1) : tail}</p>`}${signIn}
+      ${canSign ? `<div class="row-actions"><button type="button" class="btn primary" data-act="sb-signin">Sign In (Free) to Keep Files in Studyboard</button></div>` : ""}
       <div class="cs-row" style="flex-wrap:wrap">${offerPro ? `<button type="button" class="btn primary" data-act="cl-full-pro">Go Pro</button>` : ""}${btn("google")}${btn("microsoft")}</div>
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
   }

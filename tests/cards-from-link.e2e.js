@@ -77,7 +77,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content, stop_reason: "end_turn", usage: {input_tokens: 1500, output_tokens: 500}})});
     });
     await ctx.addInitScript(([seed, o]) => {
-      window.__SB_TEST = true;
+      window.__SB_TEST = true; if (o.claude) window.__SB_OWN_KEYS = true; // a Claude key needs the account's permission (supabase-own-keys.sql)
       try {
         if (!localStorage.getItem("coursework:v2")) {
           const s = JSON.parse(JSON.stringify(seed)); if (o.claude) s.settings.ai = {provider: "anthropic", model: "claude-sonnet-5"};

@@ -502,6 +502,7 @@ nav.tabs button{font-size:.75rem!important}
 .toast button[hidden]{display:none}
 .imp-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:48vh;overflow:auto}
 .status-msg{color:var(--muted);font-size:.9rem}
+.status-msg.is-err{color:var(--late,#c0262d);font-weight:600}
 .menu-list .sub{display:block;font-size:.8rem;color:var(--muted);font-weight:400}
 .menu-list button span,.menu-list label span{display:block}
 .menu-list button span.pro-badge,.menu-list label span.pro-badge{display:inline-block;width:auto;margin-left:6px;vertical-align:2px}
@@ -1032,6 +1033,19 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .deck-fc .deck-face .btn:not(.primary):not(.deck-arch){color:var(--ink)}
 .deck-fc > .deck-tab{left:0;z-index:2}
 .deck-fc.cs-neon .deck-face .btn:not(.primary):not(.deck-arch),.deck-fc.cs-chalk .deck-face .btn:not(.primary):not(.deck-arch),.deck-fc.cs-blueprint .deck-face .btn:not(.primary):not(.deck-arch){background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.4);color:inherit}
+/* Dark mode: a deck tile stays its flashcard style's own card (cream paper for Index Card, as the cards look when you study
+   them), so what sits on it takes its colours from the card's ink, like in light mode, not the dark theme's surfaces.
+   (:where keeps these as specific as the light rules, so the dark card styles above still win.) */
+@media (prefers-color-scheme:dark){
+  :where(:root:not([data-theme="light"])) .deck-fc .deck-face .btn:not(.primary):not(.deck-arch){background:color-mix(in srgb,currentColor 6%,transparent);border-color:color-mix(in srgb,currentColor 22%,transparent);color:inherit}
+  :where(:root:not([data-theme="light"])) .deck-fc .deck-face .mastery{background:color-mix(in srgb,currentColor 12%,transparent)}
+  :where(:root:not([data-theme="light"])) .deck-fc .deck-face .deck-due{color:inherit;opacity:.72}
+  :where(:root:not([data-theme="light"])) .deck-fc .deck-face .deck-due.on{color:color-mix(in srgb,var(--accent) 45%,currentColor);opacity:1}
+}
+:where(:root[data-theme="dark"]) .deck-fc .deck-face .btn:not(.primary):not(.deck-arch){background:color-mix(in srgb,currentColor 6%,transparent);border-color:color-mix(in srgb,currentColor 22%,transparent);color:inherit}
+:where(:root[data-theme="dark"]) .deck-fc .deck-face .mastery{background:color-mix(in srgb,currentColor 12%,transparent)}
+:where(:root[data-theme="dark"]) .deck-fc .deck-face .deck-due{color:inherit;opacity:.72}
+:where(:root[data-theme="dark"]) .deck-fc .deck-face .deck-due.on{color:color-mix(in srgb,var(--accent) 45%,currentColor);opacity:1}
 .deck-fc.cs-ticket .deck-main,.deck-fc.cs-ticket .deck-actions{padding-left:36px;padding-right:36px}
 .deck-fc.cs-polaroid .deck-main{padding-top:8px}
 .deck-actions .deck-arch{margin-left:auto;background:none;border-color:transparent;color:var(--muted)}
@@ -1476,6 +1490,8 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .pnote-acts .btn svg{flex:none}
 #pnPhoneP:empty{display:none}
 .pnote-drop{padding:12px;text-align:left;border-width:1.5px}
+.pnote-adv > summary{cursor:pointer;color:var(--muted);font-size:.85rem;font-weight:600;width:fit-content}
+.pnote-adv[open] > summary{margin-bottom:8px}
 .pnote-empty{margin:0;display:grid;place-items:center;align-content:center;gap:2px;min-height:110px;color:var(--muted);text-align:center}
 .pnote-empty[hidden]{display:none}
 .pnote-thumbs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
@@ -2524,6 +2540,7 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .cap-row > select{width:auto;flex:none;max-width:55%}
 .ar-quiz[hidden]{display:none!important}
 /* Files header path: a clear arrow between the course and the folder */
+.fcrumb .fc-course{display:block;font-size:max(.85rem,.5em);font-weight:700;opacity:.7;margin-bottom:2px;letter-spacing:0}
 .fcrumb .fc-sep{display:inline-block;margin:0 .3em;font-size:1.15em;line-height:1;vertical-align:.04em;opacity:.6}
 .fcrumb .fc-up{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px;text-decoration-color:color-mix(in srgb,currentColor 35%,transparent)}
 /* A task's sheet: tools (Focus, Rubric, Prep) on one row, then Mark Done and Edit, each row in even widths */

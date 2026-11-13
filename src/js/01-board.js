@@ -754,7 +754,10 @@ function dayTimelineHtml(F, todayList, heroId){
   return `<div class="dtl" role="group" aria-label="Today's schedule"><div class="dtl-rail">${cards}</div></div>`;
 }
 // Scroll the rail so what is happening now (or next) starts at the left edge
-hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { const t = r.querySelector("[data-anchor]"); if (t) r.scrollLeft = Math.max(0, t.offsetLeft - r.offsetLeft - 8); }); });
+hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { const t = r.querySelector("[data-anchor]"); if (t) r.scrollLeft = Math.max(0, t.offsetLeft - r.offsetLeft - 8); dtlEdges(r); if (!r.dataset.edges) { r.dataset.edges = "1"; r.addEventListener("scroll", () => dtlEdges(r), {passive: true}); } }); });
+// The rail fades softly at an edge that has more cards past it, so the card cut off there reads as "scroll for more"
+function dtlEdges(r){ const max = r.scrollWidth - r.clientWidth; r.classList.toggle("dtl-more-l", max > 1 && r.scrollLeft > 1); r.classList.toggle("dtl-more-r", max > 1 && r.scrollLeft < max - 1); }
+addEventListener("resize", () => document.querySelectorAll(".dtl-rail").forEach(dtlEdges));
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
   // a short reason shows on the row; a long one would be cut off, so the row says "Why" and the reasons open below

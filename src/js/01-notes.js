@@ -180,9 +180,11 @@ function fileRow(f){
   const meta = [];
   if (ui.fCourse === "all") meta.push(`<span class="tag" style="--c:${esc(colorOf(f.courseId))};color:color-mix(in srgb,var(--c) 70%,var(--ink))">${esc(c ? courseLabel(c) : "General")}</span>`);
   if (f.kind === "cloud") { meta.push(`<span class="f-cloud">${CLOUD_SVG}${esc(CLOUD_NAMES[f.cloud.p])}</span>`); if (f.cloud.size) meta.push(`<span>${fmtSize(f.cloud.size)}</span>`); }
-  else if (f.kind === "file") { meta.push(`<span>Rev ${revLetter(f.revs.length - 1)}</span>`); if (r) meta.push(`<span>${fmtSize(r.size)}</span>`); }
+  // the version number only once there's more than one ("Version 2 · updated Nov 3"); a single version says nothing
+  else if (f.kind === "file") { if (f.revs.length > 1) meta.push(`<span>Version ${f.revs.length}</span>`); if (r) meta.push(`<span>${fmtSize(r.size)}</span>`); }
   else { try { meta.push(`<span>${esc(new URL(safeUrl(f.url)).hostname.replace(/^www\./, ""))}</span>`); } catch(e) {} }
-  meta.push(`<span>${esc(new Date(f.updated || f.created || Date.now()).toLocaleDateString(undefined, {month:"short", day:"numeric"}))}</span>`);
+  const more = f.kind === "file" && f.revs.length > 1;
+  meta.push(`<span>${more ? "updated " : ""}${esc(new Date((more && r && r.at) || f.updated || f.created || Date.now()).toLocaleDateString(undefined, {month:"short", day:"numeric"}))}</span>`);
   const read = f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f), pv = !read && canPreview(f);
   return `<li class="frow" draggable="true" data-fid="${esc(f.id)}">
     ${fileIcon(f)}
@@ -216,7 +218,8 @@ function viewFiles(){
   let lec = null;
   if (ui.fFolder === "notes" && ui.fCourse !== "all" && window.SBCLS && SBCLS.lecFolders) { try { lec = SBCLS.lecFolders(ui.fCourse, fs, fileRow); } catch (e) { console.warn("lecture folders", e); } }
   const sep = `<span class="fc-sep" aria-hidden="true">›</span>`;
-  const crumbs = ui.fCourse === "all" ? "All Files" : `${esc(c ? c.name : "General")}${folder ? `${sep}${lec && lec.crumb ? `<button type="button" class="fc-up" data-act="f-cls" data-key="">${esc(folder.name)}</button>${sep}${esc(lec.crumb)}` : esc(folder.name)}` : ""}`;
+  // inside a folder the course name sits small above the folder's name, so the title stays short
+  const crumbs = ui.fCourse === "all" ? "All Files" : `${folder ? `<span class="fc-course">${esc(c ? c.name : "General")}</span>` : esc(c ? c.name : "General")}${folder ? `${lec && lec.crumb ? `<button type="button" class="fc-up" data-act="f-cls" data-key="">${esc(folder.name)}</button>${sep}${esc(lec.crumb)}` : esc(folder.name)}` : ""}`;
   let list;
   if (lec) list = lec.html;
   else if (!fs.length) {
@@ -268,8 +271,8 @@ function fileSheet(f){
       </div>
       <label class="f">Description<textarea name="desc" maxlength="2000" placeholder="What this is, where it came from…">${esc(f.desc)}</textarea></label>
       <fieldset><legend>Attached to Tasks</legend><div class="dep-list" id="fsTasks"></div><select id="fsTaskAdd" aria-label="Attach to a task"></select></fieldset>
-      ${isLink ? "" : `<fieldset><legend>Revisions</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Rev ${revLetter(i)}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
-        ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Revision</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}${window.SBCLOUD ? SBCLOUD.moveHtml(f) : ""}</fieldset>`}
+      ${isLink ? "" : `<fieldset><legend>${f.revs.length > 1 ? "Versions" : "Version"}</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Version ${i + 1}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
+        ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Version</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}${window.SBCLOUD ? SBCLOUD.moveHtml(f) : ""}</fieldset>`}
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save</button></div>
   </form>`, fd => {
@@ -312,7 +315,7 @@ function fileSheet(f){
         const cur = state.files[f.id]; if (!cur) return;
         const n = clone(cur); n.revs = n.revs.concat(Object.assign({assetId: r.id, size: r.sizeBytes, type: r.contentType, at: Date.now(), name: file.name}, r.localRel ? {localRel: r.localRel} : {})); n.updated = Date.now();
         dlg.close();
-        applyChanges([{kind:"file", id: f.id, after: n}], `${n.name}: Rev ${revLetter(n.revs.length - 1)} uploaded`);
+        applyChanges([{kind:"file", id: f.id, after: n}], `${n.name}: version ${n.revs.length} uploaded`);
       } catch(err) {
         const code = err && err.code, why = code === "too_large" ? "big" : code === "quota_or_state" ? "full" : code === "unsupported_type" ? "type" : "";
         if (why) { if (dlg.open) dlg.close(); storageLimit([file], lopts, why); } else toast("Couldn't upload the new revision");
@@ -357,8 +360,10 @@ function officeDraw(){
   const box = $("#ofvBody"); if (!box || !OFV || !OFV.res) return;
   const res = OFV.res, room = Math.max(200, box.clientWidth - 28);
   box.innerHTML = (res.warnings || []).map(w => `<p class="mini ofv-warn">${esc(w)}</p>`).join("") + res.pages.map((pg, i) => {
-    const k = Math.min(res.kind === "pptx" ? 1.5 : 1, room / pg.w), sheet = res.kind === "xlsx" || res.kind === "csv", s = sheet ? Math.max(0.6, k) : k;
-    return `<figure class="ofv-page${sheet ? " ofv-grid" : ""}" aria-label="${esc(pg.label || "Page " + (i + 1))}"><div class="ofv-frame" style="width:${Math.round(pg.w * s)}px;height:${Math.round(pg.h * s)}px"><div class="ofv-in" style="width:${pg.w}px;height:${pg.h}px;transform:scale(${s.toFixed(4)})">${pg.html}</div></div><figcaption class="mini">${esc(pg.label || "Page " + (i + 1))}</figcaption></figure>`;
+    // a spreadsheet keeps its real size (readable on a phone) and scrolls sideways, with its sheet name above it like a tab
+    const k = Math.min(res.kind === "pptx" ? 1.5 : 1, room / pg.w), sheet = res.kind === "xlsx" || res.kind === "csv", s = sheet ? 1 : k;
+    const cap = sheet ? String(pg.label || "Sheet " + (i + 1)).replace(/^Sheet: /, "") : pg.label || "Page " + (i + 1);
+    return `<figure class="ofv-page${sheet ? " ofv-grid" : ""}" aria-label="${esc(pg.label || "Page " + (i + 1))}"><div class="ofv-frame" style="width:${Math.round(pg.w * s)}px;height:${Math.round(pg.h * s)}px"><div class="ofv-in" style="width:${pg.w}px;height:${pg.h}px;transform:scale(${s.toFixed(4)})">${pg.html}</div></div><figcaption class="mini${sheet ? " ofv-tab" : ""}">${esc(cap)}</figcaption></figure>`;
   }).join("") || `<p class="pdr-wait">This file is empty.</p>`;
 }
 dlg.addEventListener("close", () => { if (!dlg.open) officeClose(); });

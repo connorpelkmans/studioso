@@ -190,6 +190,8 @@ function draw(){
     sheetKeep(KEY(t.id), {name: "Rubric Check", dirty: () => false, busy: () => R.busy, drop: () => { if (R.ac) { try { R.ac.abort(); } catch (e) {} } }});
   }
   wire(t);
+  // The error sits at the end of a long form: bring it into view, or the button just seems to do nothing
+  if (R.err && R.view === "form") { const e = R.el.querySelector(".rbx-err"); if (e) aiShowStatus(e); }
 }
 function wire(t){
   const q = s => R.el.querySelector(s);

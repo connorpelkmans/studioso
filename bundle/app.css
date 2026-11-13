@@ -502,6 +502,7 @@ nav.tabs button{font-size:.75rem!important}
 .toast button[hidden]{display:none}
 .imp-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:48vh;overflow:auto}
 .status-msg{color:var(--muted);font-size:.9rem}
+.status-msg.is-err{color:var(--late,#c0262d);font-weight:600}
 .menu-list .sub{display:block;font-size:.8rem;color:var(--muted);font-weight:400}
 .menu-list button span,.menu-list label span{display:block}
 .menu-list button span.pro-badge,.menu-list label span.pro-badge{display:inline-block;width:auto;margin-left:6px;vertical-align:2px}
@@ -1032,6 +1033,19 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .deck-fc .deck-face .btn:not(.primary):not(.deck-arch){color:var(--ink)}
 .deck-fc > .deck-tab{left:0;z-index:2}
 .deck-fc.cs-neon .deck-face .btn:not(.primary):not(.deck-arch),.deck-fc.cs-chalk .deck-face .btn:not(.primary):not(.deck-arch),.deck-fc.cs-blueprint .deck-face .btn:not(.primary):not(.deck-arch){background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.4);color:inherit}
+/* Dark mode: a deck tile stays its flashcard style's own card (cream paper for Index Card, as the cards look when you study
+   them), so what sits on it takes its colours from the card's ink, like in light mode, not the dark theme's surfaces.
+   (:where keeps these as specific as the light rules, so the dark card styles above still win.) */
+@media (prefers-color-scheme:dark){
+  :where(:root:not([data-theme="light"])) .deck-fc .deck-face .btn:not(.primary):not(.deck-arch){background:color-mix(in srgb,currentColor 6%,transparent);border-color:color-mix(in srgb,currentColor 22%,transparent);color:inherit}
+  :where(:root:not([data-theme="light"])) .deck-fc .deck-face .mastery{background:color-mix(in srgb,currentColor 12%,transparent)}
+  :where(:root:not([data-theme="light"])) .deck-fc .deck-face .deck-due{color:inherit;opacity:.72}
+  :where(:root:not([data-theme="light"])) .deck-fc .deck-face .deck-due.on{color:color-mix(in srgb,var(--accent) 45%,currentColor);opacity:1}
+}
+:where(:root[data-theme="dark"]) .deck-fc .deck-face .btn:not(.primary):not(.deck-arch){background:color-mix(in srgb,currentColor 6%,transparent);border-color:color-mix(in srgb,currentColor 22%,transparent);color:inherit}
+:where(:root[data-theme="dark"]) .deck-fc .deck-face .mastery{background:color-mix(in srgb,currentColor 12%,transparent)}
+:where(:root[data-theme="dark"]) .deck-fc .deck-face .deck-due{color:inherit;opacity:.72}
+:where(:root[data-theme="dark"]) .deck-fc .deck-face .deck-due.on{color:color-mix(in srgb,var(--accent) 45%,currentColor);opacity:1}
 .deck-fc.cs-ticket .deck-main,.deck-fc.cs-ticket .deck-actions{padding-left:36px;padding-right:36px}
 .deck-fc.cs-polaroid .deck-main{padding-top:8px}
 .deck-actions .deck-arch{margin-left:auto;background:none;border-color:transparent;color:var(--muted)}
@@ -1476,6 +1490,8 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .pnote-acts .btn svg{flex:none}
 #pnPhoneP:empty{display:none}
 .pnote-drop{padding:12px;text-align:left;border-width:1.5px}
+.pnote-adv > summary{cursor:pointer;color:var(--muted);font-size:.85rem;font-weight:600;width:fit-content}
+.pnote-adv[open] > summary{margin-bottom:8px}
 .pnote-empty{margin:0;display:grid;place-items:center;align-content:center;gap:2px;min-height:110px;color:var(--muted);text-align:center}
 .pnote-empty[hidden]{display:none}
 .pnote-thumbs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
@@ -2524,6 +2540,7 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .cap-row > select{width:auto;flex:none;max-width:55%}
 .ar-quiz[hidden]{display:none!important}
 /* Files header path: a clear arrow between the course and the folder */
+.fcrumb .fc-course{display:block;font-size:max(.85rem,.5em);font-weight:700;opacity:.7;margin-bottom:2px;letter-spacing:0}
 .fcrumb .fc-sep{display:inline-block;margin:0 .3em;font-size:1.15em;line-height:1;vertical-align:.04em;opacity:.6}
 .fcrumb .fc-up{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px;text-decoration-color:color-mix(in srgb,currentColor 35%,transparent)}
 /* A task's sheet: tools (Focus, Rubric, Prep) on one row, then Mark Done and Edit, each row in even widths */
@@ -4384,7 +4401,7 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .ui-sec-b{display:grid;gap:10px}
 .ui-sec + .ui-sec{border-top:1px solid var(--line);padding-top:4px}
 .ui-sec-b > .tp-rows{display:grid;gap:10px}
-.ui-gone{display:none!important}
+.ui-gone,.ui-tier-out{display:none!important}
 .ui-nomatch{display:none!important}
 .ui-shop-q input{width:100%;min-height:40px;padding:7px 12px;border-radius:999px;font-size:.92rem}
 .ui-none{margin:20px 0;text-align:center;color:var(--muted)}
@@ -4430,6 +4447,12 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 /* Speed: stickers and theme previews are cached bitmaps */
 .stk-cell.ui-stk{position:relative;filter:none}
 .ui-stk img,.ui-stk > svg{position:absolute;left:-12.5%;top:-12.5%;width:125%;height:125%;display:block;max-width:none;pointer-events:none;user-select:none;-webkit-user-drag:none}
+/* A sticker still being made shows a soft round placeholder, not an empty image box */
+.ui-stk img.ui-wait{visibility:hidden}
+.ui-stk:has(> img.ui-wait)::before{content:"";position:absolute;inset:10%;border-radius:50%;background:color-mix(in srgb,var(--ink) 8%,transparent);animation:uiStkWait 1.2s ease-in-out infinite alternate}
+@keyframes uiStkWait{from{opacity:.55}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.ui-stk:has(> img.ui-wait)::before{animation:none}}
+:root[data-motion="static"] .ui-stk:has(> img.ui-wait)::before{animation:none}
 
 /* Long vertical lists use plain block flow (not grid) */
 .ui-shop .sheet-body{display:block}
@@ -4459,6 +4482,8 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
   .ui-shop .ph-grid .ph-add .mini{display:none}
   .ui-shop .ph-grid .ph-add.full .mini,.ui-shop .ph-grid .ph-add.locked .mini{display:block;max-width:none}
 }
+/* What you're using reads the same on every tab (and for companions): a soft "✓ In Use" badge, not a faded button */
+.btn.shop-inuse:disabled,.cp-chosen.shop-inuse{opacity:1;cursor:default;display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:color-mix(in srgb,var(--accent) 78%,var(--ink));font-weight:700;box-shadow:none}
 /* ===== module: 97-ui.css ===== */
 /* ===== 97-ui: Settings in categories ===== */
 .us-sheet .us-back{display:none}
@@ -4697,6 +4722,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .cp-tile{border:1.5px solid var(--line);border-radius:16px;background:var(--surface);padding:10px 10px 12px;display:grid;gap:4px;justify-items:center;text-align:center;align-content:start}
 .cp-tile{position:relative;transition:border-color .2s,box-shadow .2s,background .2s}
+.cp-tile[hidden]{display:none}
 .cp-tile.on{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface));box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent),0 6px 18px color-mix(in srgb,var(--accent) 18%,transparent)}
 .cp-tile.on::after{content:"✓";position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font:700 .78rem/22px var(--display,inherit);text-align:center;box-shadow:0 2px 6px color-mix(in srgb,var(--accent) 40%,transparent)}
 .cp-chosen{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;font-size:.85rem}
@@ -5535,6 +5561,16 @@ body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(sa
 .acc-dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--c,#8A94A6)}
 .acc-chip[data-kind="which"] .acc-opt .acc-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acc-chip[data-kind="which"] :is(.acc-other,[data-act="acc-other-back"]){background:none;border-color:transparent;color:var(--accent,#2C55D6);font-weight:700}
+/* Asked right after finishing, "How long did it take?" joins the toast it follows: one card at the bottom (the question over
+   "Completed … · Undo") in the toast's colours, not a second box stacked above it over the page */
+body:has(#toast.show) .acc-chip:not([hidden]){width:min(620px,calc(100vw - 24px));bottom:calc(158px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px));background:var(--toast-bg,var(--navy));color:var(--toast-ink,#fff);border-color:transparent;border-radius:16px 16px 0 0;box-shadow:0 -6px 24px -10px rgba(8,20,50,.35)}
+body:has(#toast.show) .acc-chip:not([hidden]) .acc-opt:not(.link){background:color-mix(in srgb,#fff 12%,transparent);border-color:color-mix(in srgb,#fff 24%,transparent);color:inherit}
+body:has(#toast.show) .acc-chip:not([hidden]) :is(.acc-x,.acc-opt.link){color:inherit;opacity:.85}
+body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 24px));max-width:none;border-radius:0 0 16px 16px;box-shadow:0 12px 30px -8px rgba(8,20,50,.45)}
+@media (min-width:980px){
+  body:has(#toast.show) .acc-chip:not([hidden]){left:calc(50% + 68px);bottom:calc(32px + var(--toast-h,44px));width:min(620px,calc(100vw - 300px))}
+  body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 300px))}
+}
 /* ===== module: 97-notecards.css ===== */
 /* Notes to Flashcards */
 .nc-sheet [hidden]{display:none!important}
@@ -6451,14 +6487,14 @@ h2.sec.c2-bh{align-items:center}
 .deck-fc .deck-name{text-align:left}
 .deck-fc .deck-count{top:12px;right:12px;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.55);box-shadow:none}
 .deck-fc .mastery i{background:var(--c)!important}
-/* Settings, Direction 1 */
+/* Settings, Direction 1: each section keeps its own small coloured icon; the banner over it is the theme's band, like every other sheet */
 .us-cat[data-us="account"],#usPane-account{--uc:#2F6FE4}.us-cat[data-us="appearance"],#usPane-appearance{--uc:#8B5CF6}.us-cat[data-us="study"],#usPane-study{--uc:#16A34A}.us-cat[data-us="capture"],#usPane-capture{--uc:#E8833A}.us-cat[data-us="school"],#usPane-school{--uc:#0E9AA7}.us-cat[data-us="app"],#usPane-app{--uc:#D9467A}.us-cat[data-us="data"],#usPane-data{--uc:#64748B}
 .us-cat .us-ic{border-radius:50%!important;background:color-mix(in srgb,var(--uc,var(--accent)) 14%,var(--surface))!important;color:var(--uc,var(--accent))!important}
 .us-cat[aria-selected="true"] .us-ic{background:var(--uc,var(--accent))!important;color:#fff!important}
 .us-cat[aria-selected="true"]{box-shadow:0 0 0 1px color-mix(in srgb,var(--uc,var(--accent)) 35%,var(--line)),0 4px 14px color-mix(in srgb,var(--uc,var(--accent)) 18%,transparent)!important}
 @media (min-width:720px){
   .us-main{padding-top:0!important}
-  .us-pane > .us-title{position:relative;display:block;margin:0 -20px 14px;padding:76px 20px 4px 118px;min-height:122px;background:linear-gradient(120deg,color-mix(in srgb,var(--uc,var(--accent)) 90%,#000),color-mix(in srgb,var(--uc,var(--accent)) 60%,var(--surface))) top/100% 64px no-repeat}
+  .us-pane > .us-title{position:relative;display:block;margin:0 -20px 14px;padding:76px 20px 4px 118px;min-height:122px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent-band,var(--accent)) 88%,#000),color-mix(in srgb,var(--accent-band,var(--accent)) 74%,var(--surface))) top/100% 64px no-repeat}
   .us-pane > .us-title .us-ic{position:absolute;left:22px;top:24px;width:80px;height:80px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--uc,var(--accent));box-shadow:0 0 0 4px var(--surface),0 0 0 6px var(--uc,var(--accent)),0 4px 10px rgba(0,0,0,.16)}
   .us-pane > .us-title .us-ic svg{width:38px;height:38px}
   .us-pane > .us-title h3{font:800 1.3rem var(--display)}
@@ -6476,8 +6512,19 @@ h2.sec.c2-bh{align-items:center}
 .g2-sheet-head .sh-t .mini{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .g2-sheet-head > .icon-btn{position:absolute;right:14px;top:12px;background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.5);color:#fff;box-shadow:none}
 @media (max-width:600px){.g2-sheet-head{padding:70px 14px 10px 96px!important;min-height:104px}.g2-sheet-head .sh-ring{width:64px;height:64px;left:16px;top:26px}}
+/* switches in band sheets: the chosen option is a soft tint of the theme accent (the Focus Timer's too, not its red) */
 .sheet:has(.g2-sheet-head) .segb button[aria-pressed="true"],.sheet:has(.g2-sheet-head) .pomo-modes button.on,.sheet:has(.g2-sheet-head) .pomo-modes button[aria-pressed="true"]{background:color-mix(in srgb,var(--sh-c,var(--accent)) 15%,var(--surface))!important;color:color-mix(in srgb,var(--sh-c,var(--accent)) 70%,var(--ink))!important;box-shadow:none}
-.pomo-sheet{--sh-c:#E5484D}
+/* One sheet header everywhere: a sheet without an icon ring gets the same band, in the theme's colour, with its title in it at
+   the same size and the same round close button (Settings, Export, confirmations...; not the welcome screen, which has no header bar). The Style Shop's band and the task
+   view's band match it; in the task view the course is the accent (its ring and name in the band), not the band's colour */
+.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *){--c:var(--accent-band,var(--accent));min-height:62px;box-sizing:border-box;padding:12px 14px 12px 20px;border-bottom:0;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
+.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *) h2{color:#fff;font:800 1.5rem/1.15 var(--display);text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *) > .icon-btn,.occv-band > .occv-x{background:rgba(255,255,255,.2)!important;border-color:rgba(255,255,255,.5)!important;color:#fff!important;box-shadow:none}
+.sheet.shop .shop-band h2{font-size:1.5rem!important}
+@media (max-width:600px){.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *) h2,.sheet.shop .shop-band h2,.occv-title{font-size:1.3rem!important}}
+.shop-band > .icon-btn{background:rgba(255,255,255,.2)!important}
+.occv-band{background:linear-gradient(120deg,color-mix(in srgb,var(--accent-band,var(--accent)) 88%,#000),color-mix(in srgb,var(--accent-band,var(--accent)) 74%,var(--surface)))}
+.occv-title{font-size:1.5rem}
 /* ===== Clean-up pass ===== */
 /* rings always sit on a light disc, so a sticker reads the same in light and dark themes */
 .g2-ring{background:color-mix(in srgb,var(--c) 16%,#fff)!important;color:color-mix(in srgb,var(--c) 75%,#000)}
@@ -7413,6 +7460,14 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
   #view > .view-head.ph-moved,#view > .tl-controls.ph-moved,#view .ftree.ph-moved{display:none}
   .f-row .segb{flex:none}
   .f-row .segb button{min-height:36px;padding:4px 12px;font-size:.86rem}
+  /* Files: the ⋯ More menu (Scan to PDF, Convert…) as a round icon beside Cloud, so the row stays on one line */
+  .f-row > .f-more{margin-left:auto}.f-row > .ph-ic + .f-more{margin-left:0}
+  .f-more > summary.btn{width:40px;min-width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;justify-content:center}
+  .f-more > summary svg,.f-more[open] > summary svg{width:20px;height:20px;transform:none}
+  .f-more .ph-menu{min-width:220px}
+  .f-more .ph-menu .btn{display:flex;align-items:center;gap:10px}
+  .f-more .ph-menu .btn svg{width:18px;height:18px;flex:none}
+  .f-more .ph-menu .btn:not(:has(svg))::before{content:"";width:18px;flex:none}   /* items without an icon (Convert) line up with the rest */
   #view > .nb-boards{display:none}
   .nb-row .nb-opts{min-height:40px;min-width:40px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none;margin-right:auto}
   .nb-row .cf-pick{max-width:55%}
@@ -7798,6 +7853,10 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
   .dtl-c.fr{min-width:74px}
   .dtl-c:not(.fr):is(.fr + .dtl-c,:has(+ .dtl-c.fr)){min-width:156px}
 }
+/* An edge with more cards past it fades softly (01-board.js marks which) */
+.dtl-rail:is(.dtl-more-l,.dtl-more-r){--fl:0px;--fr:0px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 var(--fl),#000 calc(100% - var(--fr)),transparent);mask-image:linear-gradient(90deg,transparent,#000 var(--fl),#000 calc(100% - var(--fr)),transparent)}
+.dtl-rail.dtl-more-l{--fl:40px}
+.dtl-rail.dtl-more-r{--fr:40px}
 /* Past your end of day: one card across the whole row, its words side by side */
 .dtl-over .dtl-rail{overflow:visible}
 .dtl-over .dtl-c.dtl-end,.dtl-over .dtl-c.fr.dtl-end{flex:1 1 100%;width:auto;min-width:0;max-width:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 10px;padding:12px 16px;text-align:center;font:600 .82rem/1.35 var(--display)}
@@ -8179,19 +8238,25 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .sb-popped :is(.task-title,.nu-title,.card-title,.title){text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 45%,transparent);opacity:.55;transition:opacity .12s ease-out .14s}
 .acc-s{display:none}
 @media (prefers-reduced-motion:reduce){.check.sb-pop{animation:none}.sb-popped :is(.task-title,.nu-title,.card-title,.title){transition:none}}
+/* The toast looks the same at every size (a tick for something done, a boxed Undo); only where it sits changes */
+:root{--toast-bg:var(--spine);--toast-ink:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--toast-bg:color-mix(in srgb,var(--surface) 82%,#fff)}}
+:root[data-theme="dark"]{--toast-bg:color-mix(in srgb,var(--surface) 82%,#fff)}
+#toast.toast{align-items:center;border-radius:16px;background:var(--toast-bg);color:var(--toast-ink);box-shadow:0 12px 30px -8px rgba(8,20,50,.45),0 0 0 1px color-mix(in srgb,#fff 8%,transparent)}
+#toast.toast-done::before{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:var(--leaf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/15px no-repeat}
+#toast.toast button:not(.toast-x){flex:none;min-height:40px;padding:0 12px;border-radius:10px;color:#FFE45C;font-weight:800}
+#toast.toast #toastUndo{margin-left:auto;background:color-mix(in srgb,#000 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,#fff 16%,transparent)}
+#toast.toast .toast-x{color:#fff}
+#toast.toast.toast-err{box-shadow:0 0 0 2px var(--late),0 12px 30px -8px rgba(8,20,50,.45)}
 @media (max-width:639px){
   :root{--sb-snack-b:calc(var(--ph-bar-b,6px) + 78px)}
-  #toast.toast{left:12px;right:12px;bottom:var(--sb-snack-b);transform:none;width:auto;max-width:none;flex-wrap:nowrap;align-items:center;gap:10px;padding:8px 8px 8px 14px;min-height:52px;border-radius:16px;background:var(--spine);color:#fff;box-shadow:0 12px 30px -8px rgba(8,20,50,.45),0 0 0 1px color-mix(in srgb,#fff 8%,transparent);font-size:.95rem;line-height:1.3}
+  #toast.toast{left:12px;right:12px;bottom:var(--sb-snack-b);transform:none;width:auto;max-width:none;flex-wrap:nowrap;gap:10px;padding:8px 8px 8px 14px;min-height:52px;font-size:.95rem;line-height:1.3}
   #toast.toast #toastMsg{flex:1 1 auto;min-width:0}
   /* keyboard up: the toast sits just above it, so a "fill in…" message is never hidden under the keys */
   html.kb-open #toast.toast{bottom:calc(var(--kb-h,0px) + 12px)}
   /* over an open sheet it goes to the top of the screen, so it never covers the sheet's footer buttons or the rows above them */
   html dialog[open] > #toast.toast{top:calc(env(safe-area-inset-top,0px) + 8px);bottom:auto}
-  #toast.toast-done::before{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:var(--leaf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/15px no-repeat}
   #toast.toast-done #toastMsg{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #toast.toast button:not(.toast-x){flex:none;min-height:40px;padding:0 12px;border-radius:10px;color:#FFE45C;font-weight:800}
-  #toast.toast #toastUndo{margin-left:auto;background:color-mix(in srgb,#000 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,#fff 16%,transparent)}
-  #toast.toast .toast-x{color:#fff}
   body:has(#toast.show) .fab{transform:translateY(calc(-8px - var(--toast-h,52px)))}
   body:has(.acc-chip:not([hidden])) .fab{opacity:0;pointer-events:none}
   .fab{transition:transform .2s ease,opacity .15s ease}
@@ -8214,8 +8279,6 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   .acc-chip[data-kind="took"] .acc-l{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .acc-chip[data-kind="took"] .acc-s{display:inline}
 }
-@media (max-width:639px) and (prefers-color-scheme:dark){:root:not([data-theme="light"]) #toast.toast{background:color-mix(in srgb,var(--surface) 82%,#fff);color:#fff}}
-@media (max-width:639px){:root[data-theme="dark"] #toast.toast{background:color-mix(in srgb,var(--surface) 82%,#fff);color:#fff}}
 @media (max-width:639px) and (prefers-reduced-motion:reduce){.fab{transition:none}}
 
 /* Compact course cards */
@@ -8425,10 +8488,6 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   .acc-chip[data-kind="left"] .acc-say{flex:1 1 100%}
   .acc-chip[data-kind="left"] .acc-say input{width:100%}
 }
-/* Phones: Enough for Today is a quiet text link under the two main buttons, not a third big button */
-@media (max-width:639px){
-  .next-up .nu-acts > [data-act="nu-enough"]{flex:0 0 100%;min-height:36px;margin:-2px 0 -4px;padding:4px 0!important;border:0!important;background:none!important;box-shadow:none!important;color:var(--muted);font-weight:600;text-decoration:underline;text-underline-offset:3px}
-}
 
 /* Phone: button rows that line up. The main action leads; buttons grow to fill the row, and a button that doesn't fit takes a full row (never cut off) */
 @media (max-width:480px){
@@ -8480,6 +8539,8 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 :root details > summary.g2-dots.g2-dots::after{content:none}
 @media (prefers-reduced-motion:reduce){:root details > summary::after{transition:none}}
 :root select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px 14px;padding-right:34px}
+/* a course picker keeps its course's color dot (101-phone-v2 .has-dot) next to the arrow: the arrow above would otherwise replace the dot and leave an empty gap */
+html select.cs-custom.has-dot:not([multiple]):not([size]){background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-position:0 0,right 12px center;background-size:auto,14px 14px}
 
 /* Sheet header icons: each is framed tightly around its own drawing (centred), so all fill the ring the same */
 .g2-sheet-head .sh-ring svg{width:54%!important;height:54%!important}
@@ -8584,6 +8645,11 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   body.cp-on .wrap{padding-inline:clamp(32px, calc(84px - (100vw - 151px - 900px) / 2), 84px)}
   body.cp-on.wide .wrap{padding-inline:clamp(32px, calc(84px - (100vw - 151px - 1240px) / 2), 84px)}
 }
+/* Phones: the time question joins the toast (see 92-accuracy.css) */
+@media (max-width:639px){
+  body:has(#toast.show) .acc-chip:not([hidden]){left:12px;right:12px;width:auto;bottom:calc(var(--sb-snack-b) + var(--toast-h,52px));border-radius:18px 18px 0 0}
+  body:has(.acc-chip:not([hidden])) #toast.show{width:auto;border-radius:0 0 16px 16px}
+}
 /* Math, chemistry and light formatting (module 01-math.js) */
 .mth{font:inherit;white-space:nowrap}
 .mth:not(.mth-ok):not(.mth-fb){font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--muted)}
@@ -8637,8 +8703,11 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 @media (max-width:600px){dialog:has(.sheet.ofv-sheet){width:100%}}
 .ofv-body{background:color-mix(in srgb,var(--ink) 8%,var(--soft));display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px;overflow:auto}
-.ofv-page{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;max-width:100%}
-.ofv-grid{align-self:stretch;align-items:flex-start;overflow-x:auto}
+/* flex:none: a sheet scrolls sideways (overflow-x), which would otherwise let the column squeeze it shorter than its grid */
+.ofv-page{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;max-width:100%;flex:none}
+.ofv-grid{align-self:stretch;align-items:flex-start;overflow-x:auto;overscroll-behavior-x:contain}
+/* a spreadsheet's sheet name sits above its grid like a tab, and stays in view while the grid scrolls sideways */
+.ofv-grid .ofv-tab{order:-1;position:sticky;left:0;margin:0 0 -6px;padding:4px 12px;border-radius:8px 8px 0 0;background:#fff;color:#1f2937;font-weight:700;box-shadow:0 -1px 3px rgba(0,0,0,.12)}
 .ofv-frame{position:relative;overflow:hidden;flex:none;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.08)}
 .ofv-in{position:absolute;left:0;top:0;transform-origin:0 0;user-select:text;-webkit-user-select:text}
 .ofv-warn{align-self:stretch;margin:0}

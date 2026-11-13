@@ -32,3 +32,13 @@ body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(sa
 .acc-dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--c,#8A94A6)}
 .acc-chip[data-kind="which"] .acc-opt .acc-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acc-chip[data-kind="which"] :is(.acc-other,[data-act="acc-other-back"]){background:none;border-color:transparent;color:var(--accent,#2C55D6);font-weight:700}
+/* Asked right after finishing, "How long did it take?" joins the toast it follows: one card at the bottom (the question over
+   "Completed … · Undo") in the toast's colours, not a second box stacked above it over the page */
+body:has(#toast.show) .acc-chip:not([hidden]){width:min(620px,calc(100vw - 24px));bottom:calc(158px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px));background:var(--toast-bg,var(--navy));color:var(--toast-ink,#fff);border-color:transparent;border-radius:16px 16px 0 0;box-shadow:0 -6px 24px -10px rgba(8,20,50,.35)}
+body:has(#toast.show) .acc-chip:not([hidden]) .acc-opt:not(.link){background:color-mix(in srgb,#fff 12%,transparent);border-color:color-mix(in srgb,#fff 24%,transparent);color:inherit}
+body:has(#toast.show) .acc-chip:not([hidden]) :is(.acc-x,.acc-opt.link){color:inherit;opacity:.85}
+body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 24px));max-width:none;border-radius:0 0 16px 16px;box-shadow:0 12px 30px -8px rgba(8,20,50,.45)}
+@media (min-width:980px){
+  body:has(#toast.show) .acc-chip:not([hidden]){left:calc(50% + 68px);bottom:calc(32px + var(--toast-h,44px));width:min(620px,calc(100vw - 300px))}
+  body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 300px))}
+}

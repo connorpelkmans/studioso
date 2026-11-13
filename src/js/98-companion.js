@@ -2384,16 +2384,15 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function pickerBody(){
     const list = setOf(skinId()), c = current(), key = themeKey(skinId());
     const lockedMsg = paywall() && !pro();
-    const want = Number((cfg().pick || {})[key]) || 0;
     const ord = id => { const k = SET_ORDER.indexOf(id); return k < 0 ? 99 : k; };
     const tiles = list.map((x, i) => ({x, i})).sort((p, q) => key === "plain" ? ord(p.x.id) - ord(q.x.id) || p.i - q.i : p.i - q.i).map(({x, i}) => {
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
-      return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
+      return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" data-tier="${compTier(x) === "pro" ? "pro" : "free"}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
         <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || (pro() && !tagPro()) ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
         ${earn ? (pct => `<span class="cp-earn">${esc(EARN[x.id].how)} to unlock</span><span class="cp-earn-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to unlock ${esc(x.name)}"><i style="width:${pct}%"></i></span><span class="mini">${esc(EARN[x.id].left(left))} to go</span><button type="button" class="link-btn cp-earn-pro" data-act="comp-pick" data-slot="${i}">Or Get It With Pro</button>`)(Math.max(0, Math.min(99, Math.floor((1 - left / EARN[x.id].n) * 100))))
-          : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
+          : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen shop-inuse" role="status">✓ In Use</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Use</button>`}
       </div>`;
     }).join("");
     const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
@@ -2590,12 +2589,27 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         body.querySelectorAll('[data-act="shop-tab"]').forEach(b => { const on = b.dataset.id === "companions"; b.setAttribute("aria-selected", on); b.setAttribute("aria-pressed", on); });
         body.insertAdjacentHTML("beforeend", `<div class="cp-shop">${shopBody()}</div>`);
         body.dataset.uiTab = "companions";
+        shopChips(body, bar);
         wirePreviews(body.querySelector(".cp-shop"));
         warmStills();
       }
     } catch (e) { console.warn("companion shop", e); }
     return r;
   };
+  // The same All / Free / Pro row as the other Style Shop tabs, for this theme's companions
+  let shopF = "all";
+  function shopChips(body, bar){
+    const tiles = [...body.querySelectorAll(".cp-shop .cp-tiles > .cp-tile[data-tier]")];
+    const has = new Set(tiles.map(t => t.dataset.tier)), chips = [["all", "All"], ["free", "Free"], ["pro", "Pro"]].filter(([k]) => k === "all" || has.has(k));
+    if (!bar || (chips.length < 3 && !STORE.paywall)) return;
+    if (!chips.some(([k]) => k === shopF)) shopF = "all";
+    const row = document.createElement("div"); row.className = "ui-chips"; row.setAttribute("role", "group"); row.setAttribute("aria-label", "Show");
+    row.innerHTML = chips.map(([k, l]) => `<button type="button" class="ui-chip" data-cp-f="${k}" aria-pressed="${k === shopF}">${l}</button>`).join("");
+    const q = bar.querySelector(".ui-shop-q"); if (q) bar.insertBefore(row, q); else bar.appendChild(row);
+    const show = () => { row.querySelectorAll("[data-cp-f]").forEach(c => c.setAttribute("aria-pressed", c.dataset.cpF === shopF)); tiles.forEach(t => { t.hidden = shopF !== "all" && t.dataset.tier !== shopF; }); };
+    row.addEventListener("click", e => { const c = e.target.closest("[data-cp-f]"); if (!c) return; shopF = c.dataset.cpF; show(); });
+    show();
+  }
   function addShopTab(){
     const tabs = dlg.querySelector(".sheet.shop .shop-tabs");
     if (!tabs || tabs.querySelector('[data-id="companions"]')) return;

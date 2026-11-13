@@ -453,7 +453,7 @@
   function tileHtml(r, cfg, locked){
     const t = themeOf(r), on = cfg.skin === r.id && root.dataset.skin === r.id;
     // A theme someone made stays theirs: it can always be used, with or without Pro (only editing it needs Pro)
-    const use = on ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="ph-use" data-id="${esc(r.id)}">Use</button>`;
+    const use = on ? `<button type="button" class="btn small shop-inuse" disabled>✓ In Use</button>` : `<button type="button" class="btn small primary" data-act="ph-use" data-id="${esc(r.id)}">Use</button>`;
     const where = r.asset ? "On all your devices" : canSync() && have.has(r.id) ? "Uploading to your account" : have.has(r.id) || !r.asset ? "Saved on this device" : "";
     return `<div class="shop-tile ph-tile${on ? " on" : ""}" data-ph="${esc(r.id)}"><div class="skin-pair">${skinPreview(t.skin, false)}${skinPreview(t.skin, true)}</div>
       <div class="shop-name"><b>${esc(r.name)}</b>${PRO_BADGE}</div><p class="mini">${esc(where)}</p>
@@ -968,6 +968,9 @@
     const sheet = dlg.querySelector(".sheet.shop"); if (!sheet || sheet.querySelector(".shop-rail")) return;
     const body = sheet.querySelector(".sheet-body"), tabs = body && body.querySelector(".shop-tabs"), hd = sheet.querySelector(".sheet-head"); if (!tabs || !hd) return;
     const note = body.querySelector(".shop-note");
+    // the place the shop kept in the list is in this layout's terms (no note or tabs at the top); moving the list into
+    // the wrapper detaches it, which would throw that place away
+    const y = body.scrollTop;
     hd.classList.add("shop-band");
     const h2 = hd.querySelector("h2"); if (h2 && !hd.querySelector(".shop-sub")) h2.insertAdjacentHTML("afterend", `<p class="shop-sub">${note ? `Everything is free while Studyboard is in early access · ${PRO_BADGE} items join Studyboard Pro later` : "Themes, flashcard styles, note shapes, pins, stickers and companions"}</p>`);
     if (note) note.remove();
@@ -976,6 +979,7 @@
     tabs.remove();
     const bar = body.querySelector(".ui-shop-bar"); if (bar && !bar.children.length) bar.remove();
     const wrap = document.createElement("div"); wrap.className = "shop-wrap"; body.before(wrap); wrap.append(rail, body);
+    if (y) body.scrollTop = y;
     const on = rail.querySelector('[aria-selected="true"]'); if (on && on.scrollIntoView && matchMedia("(max-width:720px)").matches) on.scrollIntoView({inline: "center", block: "nearest"});
   }
   styleShop = function(){ const r = prevShop.apply(this, arguments); try { railify(); } catch (e) { console.warn("shop rail", e); } return r; };

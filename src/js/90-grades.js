@@ -1187,7 +1187,7 @@
         busy = false;
         if (f) { found = f; say(""); paint(); showFound(); return; }
         say(tr("gr.school.none2", "The AI isn't sure of that grade scale. Upload a screenshot of it, or paste it, in a course's Grade Settings."));
-      } catch (e) { busy = false; say((e && e.message) || tr("gr.school.fail2", "The lookup didn't work. Upload a screenshot of the scale, or paste it, in a course's Grade Settings.")); }
+      } catch (e) { busy = false; say((e && e.message) || tr("gr.school.fail2", "The lookup didn't work. Upload a screenshot of the scale, or paste it, in a course's Grade Settings.")); if (msg && e && e.detail) msg.insertAdjacentHTML("beforeend", aiDetailHtml(e)); }
       const fb2 = $("#gsFind"); if (fb2) fb2.disabled = false;
     }
     paint();
