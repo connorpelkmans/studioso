@@ -77,7 +77,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const uid = user.id.toLowerCase();
 
     const text = await req.text();
-    const body = (() => { try { return JSON.parse(text.length <= 4096 ? text || "{}" : "{}"); } catch (_e) { return {}; } })() as { confirm?: unknown; password?: unknown; ack_store_subscription?: unknown; apple_code?: unknown; code?: unknown };
+    const body = (() => { try { return JSON.parse(text.length <= 4096 ? text || "{}" : "{}"); } catch (_e) { return {}; } })() as { confirm?: unknown; password?: unknown; ack_store_subscription?: unknown; apple_code?: unknown; code?: unknown; underage?: unknown };
 
     // After Sign in with Apple in the iPhone app: keep Apple's refresh token, for revoking it if the account is deleted
     if (new URL(req.url).pathname.replace(/\/+$/, "").endsWith("/apple-token")) {
@@ -107,9 +107,20 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const rl = await (await rest("rpc/studyboard_plan_rate_hit", { method: "POST", body: JSON.stringify({ p_key: `delete:${uid}`, p_max: RATE_MAX, p_window: RATE_WINDOW }) })).json();
     if (rl !== true) return json({ error: "rate_limited", message: "Too many tries. Please wait a little and try again." }, 429, cors, { "Retry-After": "900" });
 
+    // Under 13: the person gave a birthday under 13 after signing in, which the server refused. The account must be deleted
+    // whenever they signed in, so no password is asked (an account signed in with Apple, Google or Microsoft has none). Only
+    // for an account with no birthday saved, or one under 13: an adult's saved birthday can't be used to skip the check.
+    let underage = false;
+    if (body.underage === true) {
+      const prof = ((await (await rest(`study_profiles?user_id=eq.${uid}&select=birth_date`)).json()) as { birth_date?: string | null }[])[0];
+      const b = prof?.birth_date ? Date.parse(prof.birth_date + "T00:00:00Z") : NaN;
+      const thirteen = (() => { const t = new Date(d.now()); return Date.UTC(t.getUTCFullYear() - 13, t.getUTCMonth(), t.getUTCDate()); })();
+      underage = !Number.isFinite(b) || b > thirteen;
+    }
+
     // Re-authentication
     const last = Date.parse(String(user.last_sign_in_at || ""));
-    const recent = Number.isFinite(last) && d.now() - last >= -60_000 && d.now() - last <= RECENT_SIGNIN_MS;
+    const recent = underage || (Number.isFinite(last) && d.now() - last >= -60_000 && d.now() - last <= RECENT_SIGNIN_MS);
     if (!recent) {
       const pw = typeof body.password === "string" ? body.password : "";
       if (!pw || pw.length > 1024 || !user.email) {
